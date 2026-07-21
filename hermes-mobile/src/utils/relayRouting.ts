@@ -85,14 +85,14 @@ export function resolveRelayRouteDisplay(input: {
       gatewayUrl === 'http://127.0.0.1:8642' ||
       gatewayUrl === 'http://localhost:8642';
     return {
-      machineLabel: 'Your computer',
+      machineLabel: 'Cloud approvals',
       routeStatus: showPairNudge
-        ? 'Use Tailscale for cellular, or home Wi‑Fi when local'
+        ? 'Pair to receive approval requests anywhere'
         : heal.inFlight
           ? neverConnected
-            ? 'Looking for your Mac…'
+            ? 'Waiting for approval pairing…'
             : 'Reconnecting…'
-          : 'Direct link',
+          : 'Cloud approvals are not paired',
     };
   }
 
@@ -101,17 +101,17 @@ export function resolveRelayRouteDisplay(input: {
     const workerName = relayWorkerDisplayName(worker);
     return {
       machineLabel: workerName,
-      endpointLabel: 'via Tailscale',
-      routeStatus: `Away from home${worker.status ? ` · ${worker.status}` : ''}`,
+      endpointLabel: 'cloud approvals',
+      routeStatus: `Approval requests anywhere${worker.status ? ` · ${worker.status}` : ''}`,
     };
   }
 
   return {
-    machineLabel: 'Your computer',
-    endpointLabel: 'via Tailscale',
+    machineLabel: 'Cloud approvals',
+    endpointLabel: undefined,
     routeStatus:
       input.connectionState === 'connected'
-        ? 'Waiting for your computer on Tailscale, home Wi‑Fi, or USB'
-        : 'Connects when Hermes on your computer is online',
+        ? 'Paired for approval requests anywhere'
+        : 'Connects when approval requests are available',
   };
 }

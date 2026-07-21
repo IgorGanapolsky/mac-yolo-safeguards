@@ -505,7 +505,7 @@ describe('ChatScreen', () => {
     }
   });
 
-  it('keeps chat available in relay mode when the account is not paired yet', async () => {
+  it('keeps cloud approval pairing distinct from computer transport in Chat', async () => {
     Object.assign(mockGatewayState, {
       connectionState: 'disconnected',
       effectiveGatewayUrl: '',
@@ -526,7 +526,9 @@ describe('ChatScreen', () => {
     expect(queryByTestId('chat-connection-panel')).toBeNull();
     expect(getByTestId('chat-input')).toBeTruthy();
     expect(getByTestId('chat-context-mac').props.children).toBe('Your computer');
-    expect(getByTestId('chat-context-link').props.children).toContain('Use Tailscale for cellular, or home Wi‑Fi when local');
+    expect(getByTestId('chat-context-link').props.children).toContain(
+      'Pair to receive approval requests anywhere',
+    );
   });
 
   it('allows text input and shows send button active', async () => {

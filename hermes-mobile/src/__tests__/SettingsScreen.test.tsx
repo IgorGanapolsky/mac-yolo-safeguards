@@ -106,7 +106,7 @@ describe('SettingsScreen', () => {
     Platform.OS = originalOS;
   });
 
-  it('shows Tailscale-oriented unpaired route label in relay mode', () => {
+  it('keeps cloud approvals distinct from the computer connection', () => {
     useGateway.mockReturnValue(
       mockUseGateway({
         settings: {
@@ -117,9 +117,21 @@ describe('SettingsScreen', () => {
       }),
     );
 
-    const { getByTestId } = render(<SettingsScreen />);
-    expect(getByTestId('relay-route-title').props.children).toBe('Your computer');
-    expect(getByTestId('relay-route-status').props.children.join('')).toContain('Use Tailscale for cellular');
+    const { getAllByText, getByTestId, getByText } = render(<SettingsScreen />);
+    expect(getByText('Computer connection')).toBeTruthy();
+    expect(
+      getByText('Use Tailscale away from home, or USB/home Wi‑Fi nearby, for Chat, tools, and ops.'),
+    ).toBeTruthy();
+    expect(getAllByText('Cloud approvals (optional)').length).toBeGreaterThan(0);
+    expect(
+      getByText(
+        'Pair your Hermes account for approval requests anywhere. Does not provide live Chat or computer tools.',
+      ),
+    ).toBeTruthy();
+    expect(getByTestId('relay-route-title').props.children).toBe('Cloud approvals');
+    expect(getByTestId('relay-route-status').props.children.join('')).toContain(
+      'Pair to receive approval requests anywhere',
+    );
   });
 
   it('shows active relay workers when the account relay reports them', () => {
@@ -189,9 +201,10 @@ describe('SettingsScreen', () => {
     expect(saveSettings).not.toHaveBeenCalled();
   });
 
-  it('persists relay mode only after pairing succeeds', async () => {
+  it('explains that successful cloud pairing does not connect Chat or computer tools', async () => {
     const saveSettings = jest.fn().mockResolvedValue(undefined);
     const completePair = jest.fn().mockResolvedValue(undefined);
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     useGateway.mockReturnValue(mockUseGateway({ saveSettings, completePair }));
 
     const { getByPlaceholderText, getByText } = render(<SettingsScreen />);
@@ -207,6 +220,10 @@ describe('SettingsScreen', () => {
         expect.anything(),
       );
     });
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Cloud approvals paired',
+      'Approval requests can arrive anywhere. This does not provide live Chat or computer tools; connect to your computer with Tailscale, USB, or home Wi‑Fi.',
+    );
   });
 
   it('does not render Pro subscribe UI', () => {
