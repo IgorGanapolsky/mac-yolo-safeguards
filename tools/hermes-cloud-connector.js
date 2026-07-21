@@ -15,7 +15,7 @@ const DEFAULT_MODEL_GATEWAY = 'http://127.0.0.1:4010';
 const POLL_MS = 3_000;
 const HEARTBEAT_MS = 15_000;
 const SESSION_SYNC_MS = 60_000;
-const SESSION_LIMIT = 60;
+const SESSION_LIMIT = 100;
 // Sessions beyond this limit sync title-only and render "0 synced messages" in
 // the web dashboard. 40 covers a typical active week; per-session content stays
 // bounded by MAX_CONTEXT_MESSAGES/MAX_CONTEXT_CHARS so sync cost grows linearly.
@@ -209,13 +209,32 @@ function boundContextMessages(messages) {
   return bounded;
 }
 
+function selectContextSessionIds(sessions, afterSessionId = '', limit = CONTEXT_SESSION_LIMIT) {
+  if (!Array.isArray(sessions) || sessions.length === 0 || limit <= 0) {
+    return { ids: new Set(), nextCursorId: '' };
+  }
+  const cursorIndex = afterSessionId
+    ? sessions.findIndex((session) => String(session?.id || '') === String(afterSessionId))
+    : -1;
+  const start = cursorIndex >= 0 ? (cursorIndex + 1) % sessions.length : 0;
+  const ids = new Set();
+  let nextCursorId = '';
+  for (let offset = 0; offset < Math.min(limit, sessions.length); offset += 1) {
+    const session = sessions[(start + offset) % sessions.length];
+    if (!session?.id) continue;
+    nextCursorId = String(session.id);
+    ids.add(nextCursorId);
+  }
+  return { ids, nextCursorId };
+}
+
 async function collectGatewaySessions(config) {
   const payload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions?limit=${SESSION_LIMIT}`, { gatewayEnvPath: config.gatewayEnvPath });
   const sessions = Array.isArray(payload.data) ? payload.data : [];
-  const contextIds = new Set(sessions.slice(0, CONTEXT_SESSION_LIMIT).map((session) => String(session.id)));
-  return Promise.all(sessions.map(async (session) => {
+  const contextWindow = selectContextSessionIds(sessions, config.sessionContextCursorId);
+  const collected = await Promise.all(sessions.map(async (session) => {
     let messages = [];
-    if (session.id && contextIds.has(String(session.id))) {
+    if (session.id && contextWindow.ids.has(String(session.id))) {
       try {
         const messagePayload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(session.id)}/messages`, { gatewayEnvPath: config.gatewayEnvPath });
         messages = boundContextMessages(Array.isArray(messagePayload.data) ? messagePayload.data : []);
@@ -231,11 +250,15 @@ async function collectGatewaySessions(config) {
       updatedAt: timestampMillis(session.last_active_at ?? session.last_active ?? session.started_at), messages,
     };
   }));
+  return { sessions: collected, nextContextCursorId: contextWindow.nextCursorId };
 }
 
-async function syncGatewaySessions(config) {
-  const sessions = await collectGatewaySessions(config);
-  return signedPost(config, '/api/device/sessions/sync', { sessions });
+async function syncGatewaySessions(config, options = {}) {
+  const { sessions, nextContextCursorId } = await collectGatewaySessions(config);
+  const result = await signedPost(config, '/api/device/sessions/sync', { sessions });
+  config.sessionContextCursorId = nextContextCursorId;
+  if (options.configPath) saveConfig(options.configPath, config);
+  return result;
 }
 
 async function executeLocal(config, task) {
@@ -260,7 +283,7 @@ async function executeLocal(config, task) {
 async function cycle(config, options = {}) {
   if (options.heartbeat !== false) await signedPost(config, '/api/device/heartbeat');
   if (options.syncSessions) {
-    try { await syncGatewaySessions(config); }
+    try { await syncGatewaySessions(config, { configPath: options.configPath }); }
     catch (error) { console.error(`[hermes-cloud-connector] session sync unavailable: ${error instanceof Error ? error.message : error}`); }
   }
   const bodyText = '{}';
@@ -299,8 +322,8 @@ async function main() {
   saveConfig(configPath, config);
   if (!config.deviceId || process.argv.includes('--pair')) await startPairing(config, configPath);
   if (process.argv.includes('--pair-only')) return;
-  if (process.argv.includes('--sync-only')) { await syncGatewaySessions(config); return; }
-  if (process.argv.includes('--once')) { await cycle(config, { heartbeat: true, syncSessions: true }); return; }
+  if (process.argv.includes('--sync-only')) { await syncGatewaySessions(config, { configPath }); return; }
+  if (process.argv.includes('--once')) { await cycle(config, { heartbeat: true, syncSessions: true, configPath }); return; }
   let lastHeartbeat = 0;
   let lastSessionSync = 0;
   while (true) {
@@ -310,11 +333,11 @@ async function main() {
       if (heartbeat) lastHeartbeat = now;
       const syncSessions = now - lastSessionSync >= SESSION_SYNC_MS;
       if (syncSessions) lastSessionSync = now;
-      await cycle(config, { heartbeat, syncSessions });
+      await cycle(config, { heartbeat, syncSessions, configPath });
     } catch (error) { console.error(`[hermes-cloud-connector] ${error instanceof Error ? error.message : error}`); }
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
   }
 }
 
-module.exports = { boundContextMessages, canonicalRequest, collectGatewaySessions, contentText, createIdentity, executeLocal, gatewayHeaders, loadConfig, pairingDashboardUrl, pairingMatchesControlPlane, parseDotEnvValue, resolveGatewayApiKey, saveConfig, signedHeaders, sha256, syncGatewaySessions, timestampMillis };
+module.exports = { boundContextMessages, canonicalRequest, collectGatewaySessions, contentText, createIdentity, executeLocal, gatewayHeaders, loadConfig, pairingDashboardUrl, pairingMatchesControlPlane, parseDotEnvValue, resolveGatewayApiKey, saveConfig, selectContextSessionIds, signedHeaders, sha256, syncGatewaySessions, timestampMillis };
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });
