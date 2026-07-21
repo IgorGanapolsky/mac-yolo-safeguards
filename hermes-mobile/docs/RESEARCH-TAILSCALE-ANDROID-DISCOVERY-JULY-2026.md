@@ -41,11 +41,35 @@ Source: Parallel deep research `trun_14d4d9dfad7c40989905924ccc707cd0` (full mar
 | Mac-side peer seed | `tools/hermes-discover-tailscale-macs.js` |
 | USB same-machine handoff | `src/utils/usbTransportHandoff.ts` (coord; unchanged here) |
 
+## Tailscale Admin API (`tailscale.com/docs/reference/tailscale-api` → `/api`)
+
+**Verdict for Hermes Mobile / mac-yolo-safeguards: PARTIAL** — useful on Mac tooling, **not** a stranger-mobile path.
+
+| Capability | Admin API (`api.tailscale.com` / OAuth / `tskey-api-*`) | Stranger-safe? | Hermes use |
+|---|---|---|---|
+| List devices / online peers | Yes (tailnet-scoped) | **No** — needs owner/admin credentials | Theater if baked into the app |
+| Resolve MagicDNS | Indirect via device DNS names | **No** on phone without admin key | Prefer CGNAT IP + local expand |
+| Auth keys / ephemeral nodes | Yes | **No** for end-user phones | Optional Mac fleet bootstrap only (keychain/env) |
+| ACL / tags | Yes | **No** | Operator policy, not mobile client |
+| Device posture | Yes (enterprise) | **No** | Out of scope |
+| Webhooks | Yes | **No** for phone UX | Optional ops alerts only |
+| Local peer status | `tailscale status --json` / LocalAPI on the device | **Yes** on Mac/desktop | `tools/hermes-discover-tailscale-macs.js` already seeds pair links |
+| Android LocalAPI | In-process to `com.tailscale.ipn` only | **No** cross-app | Do not scrape; use NetInfo+CGNAT+reachability |
+
+**What actually fixes Igor's pain (discovery stuck / cellular / “Tailscale off” / Find computers):**
+
+1. Multi-signal Tailscale-on (`tailscaleVpnDetect`) — not Admin API.
+2. MagicDNS sibling + probe-host expand (`tailnetProbeExpand`) — not Admin API.
+3. Mac-side LocalCLI peer seed at pair time — already wired; never requires strangers to paste a tailnet API key.
+
+**Do not build:** mobile client calling Admin API with Igor's (or any shared) tailnet key; “Find computers” that only works when a fleet admin OAuth client is embedded.
+
 ## Honesty / RAG notes
 
 - Do not treat “probe in flight” as VPN-on (2026-07-18 lesson).
 - Do not claim Connected from `/health` alone — chat needs authenticated `/api/sessions`.
 - Auto-discovery of *all* tailnet devices without pair seeds is **not** available to third-party Android apps in July 2026 without embedding Tailscale or a custom coordination channel.
+- Admin API credentials must never live in the mobile binary; Mac tools may use LocalCLI or keychain-scoped ops keys only.
 
 ## Checklist for agents
 
