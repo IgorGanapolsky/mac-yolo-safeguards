@@ -329,6 +329,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- `hermes-mobile/src/utils/connectionHealBudget.ts`, `hermes-mobile/src/utils/connectionErrorPolicy.ts` (heal-constant re-export only), `hermes-mobile/src/utils/freshUserOnboarding.ts` (heal-constant import only), `plan.md` → **claude-web-spike** (T-RNWEB-SPIKE: break TDZ import cycle + enable expo web export; supersedes nothing — connectionErrorPolicy prior claim T-TS-PAIR-STATUS-HONESTY is done) (2026-07-21T01:30:27Z)
+
 - `hermes-mobile/src/utils/usbTransportHandoff.ts`, `hermes-mobile/src/__tests__/usbTransportHandoff.test.ts`, `hermes-mobile/src/context/GatewayContext.tsx` (maybeHandoffTailscaleToUsb / USB handoff probe only; leave heal/catalog stickiness + other slices), `hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts` (S27 handoff only), `plan.md` → **cursor-ts-usb-handoff** (T-TS-USB-HANDOFF Tailscale→USB same-machine session-preserving handoff; coord #647/#653/#650/#660) (2026-07-21T00:56:56Z)
 - T-TS-USB-HANDOFF claimed files → **released by cursor-ts-usb-handoff** after merge-ready Jest+typecheck (USB handoff product lock) (2026-07-21T00:57:42Z)
 ||||||| parent of 7b244a87 (plan: §2 ownership for T-STUCK-WAIT-HARD-TIMEOUT)
