@@ -464,6 +464,9 @@ Read-only / free:
   recommend [--json]         host-aware Inkling vs local-baseline decision
   --doctor [--json]          Tinker auth/catalog + recommendation; no training
   build                      build a private local dataset; no upload
+  chat [--model TAG]         interactive REPL against the deployed local
+                              Ollama model (default qwen3-hermes-tinker:latest);
+                              purely local, no Tinker call, no cost
 
 Metered inference (prompt-only upload; both flags mandatory):
   ask "prompt" --approve-paid --max-cost-usd N
@@ -516,6 +519,22 @@ case "$command" in
     [ "$#" -eq 0 ] || { echo "tinker-yolo: build takes no arguments" >&2; exit 2; }
     build_dataset
     exit $? ;;
+  chat)
+    model="${TINKER_CHAT_MODEL:-qwen3-hermes-tinker:latest}"
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --model)
+          shift
+          [ "$#" -gt 0 ] || { echo "tinker-yolo: --model requires a value" >&2; exit 2; }
+          model="$1" ;;
+        *) echo "tinker-yolo: unknown chat option '$1'" >&2; exit 2 ;;
+      esac
+      shift
+    done
+    command -v ollama >/dev/null 2>&1 || { echo "tinker-yolo: ollama not found on PATH" >&2; exit 127; }
+    ollama list 2>/dev/null | awk '{print $1}' | grep -qx "$model" \
+      || { echo "tinker-yolo: model '$model' is not deployed locally (see 'tinker-yolo status')" >&2; exit 1; }
+    exec ollama run "$model" ;;
   proof|train|deploy) ;;
   *) echo "tinker-yolo: unknown command '$command'" >&2; usage >&2; exit 2 ;;
 esac
