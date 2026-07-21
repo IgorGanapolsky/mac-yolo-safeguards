@@ -9,6 +9,7 @@ import shutil
 import stat
 import tempfile
 import unittest
+from unittest import mock
 
 
 MODULE_PATH = pathlib.Path(__file__).parents[1] / "tools" / "tinker-yolo-agent.py"
@@ -192,6 +193,105 @@ class ReceiptTests(unittest.TestCase):
 
 
 class AgentLoopTests(unittest.TestCase):
+    def test_dedicated_planner_bootstrap_is_loopback_only_and_private(self):
+        calls = {"open": 0}
+
+        def fake_urlopen(request, timeout=0):
+            del request, timeout
+            calls["open"] += 1
+            if calls["open"] == 1:
+                raise AGENT.urllib.error.URLError("not started")
+            return FakeResponse('{"version":"fixture"}', status=200, content_type="application/json")
+
+        launched = {}
+
+        class Process:
+            pid = 4242
+
+        def fake_popen(command, **kwargs):
+            launched["command"] = command
+            launched["environment"] = kwargs["env"]
+            return Process()
+
+        with tempfile.TemporaryDirectory() as state, mock.patch.object(
+            AGENT.shutil, "which", return_value="/usr/local/bin/ollama"
+        ):
+            result = AGENT.ensure_planner_endpoint(
+                "http://127.0.0.1:11436",
+                state_dir=state,
+                urlopen=fake_urlopen,
+                popen=fake_popen,
+            )
+            pid = pathlib.Path(state) / "dedicated.pid"
+            log = pathlib.Path(state) / "dedicated.log"
+            self.assertEqual(pid.read_text(encoding="ascii"), "4242\n")
+            self.assertEqual(stat.S_IMODE(pid.stat().st_mode), 0o600)
+            self.assertEqual(stat.S_IMODE(log.stat().st_mode), 0o600)
+        self.assertTrue(result["ready"])
+        self.assertTrue(result["started"])
+        self.assertEqual(launched["command"], ["/usr/local/bin/ollama", "serve"])
+        self.assertEqual(launched["environment"]["OLLAMA_HOST"], "127.0.0.1:11436")
+        self.assertEqual(launched["environment"]["OLLAMA_MAX_LOADED_MODELS"], "1")
+        self.assertEqual(launched["environment"]["OLLAMA_NOPRUNE"], "true")
+
+        unavailable = AGENT.ensure_planner_endpoint(
+            "http://127.0.0.1:11434",
+            urlopen=lambda request, timeout=0: (_ for _ in ()).throw(
+                AGENT.urllib.error.URLError("shared endpoint unavailable")
+            ),
+        )
+        self.assertFalse(unavailable["ready"])
+        self.assertFalse(unavailable["started"])
+
+    def test_planner_and_vision_endpoints_are_separate(self):
+        with tempfile.TemporaryDirectory() as workspace, tempfile.TemporaryDirectory() as receipts:
+            agent = AGENT.LocalAgent(
+                workspace,
+                ollama_url="http://127.0.0.1:11436",
+                vision_ollama_url="http://127.0.0.1:11434",
+                receipt_dir=receipts,
+                include_project_instructions=False,
+            )
+        self.assertEqual(agent.ollama_url, "http://127.0.0.1:11436")
+        self.assertEqual(agent.runtime.computer.ollama_url, "http://127.0.0.1:11434")
+
+    def test_ollama_request_is_bounded_and_disables_slow_thinking(self):
+        calls = []
+
+        def fake_urlopen(request, timeout=0):
+            calls.append((request.full_url, timeout, request.data))
+            if request.full_url.endswith("/api/ps"):
+                return FakeResponse('{"models":[]}')
+            return FakeResponse('{"message":{"role":"assistant","content":"ready"}}')
+
+        with tempfile.TemporaryDirectory() as workspace, tempfile.TemporaryDirectory() as receipts:
+            agent = AGENT.LocalAgent(
+                workspace,
+                receipt_dir=receipts,
+                include_project_instructions=False,
+                urlopen=fake_urlopen,
+                request_timeout=17,
+                computer_enabled=False,
+            )
+            response = agent.request_chat()
+        self.assertEqual(response["message"]["content"], "ready")
+        chat = [item for item in calls if item[0].endswith("/api/chat")][0]
+        self.assertEqual(chat[1], 17)
+        payload = json.loads(chat[2])
+        self.assertFalse(payload["think"])
+        self.assertEqual(payload["keep_alive"], "5m")
+        self.assertNotEqual(chat[1], 600)
+
+    def test_system_prompt_names_computer_use_and_confirmation_boundary(self):
+        prompt = AGENT.system_prompt(
+            pathlib.Path("/tmp"),
+            include_instructions=False,
+            computer_enabled=True,
+        )
+        self.assertIn("real local macOS computer-use tools", prompt)
+        self.assertIn("fresh state", prompt)
+        self.assertIn("one-time confirmation", prompt)
+
     def test_native_ollama_tool_call_executes_then_returns_answer(self):
         with tempfile.TemporaryDirectory() as workspace, tempfile.TemporaryDirectory() as receipts:
             agent = ScriptedAgent(
