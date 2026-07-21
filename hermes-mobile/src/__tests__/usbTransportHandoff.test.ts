@@ -2,6 +2,8 @@ import type { GatewayProfile } from '../types/gatewayProfile';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
 import {
   headerShowsUsbAfterHandoff,
+  resolveSameMachineRemoteUrl,
+  resolveUsbToRemoteHandoff,
   resolveUsbTransportHandoff,
   usbHandoffPreservesConversation,
 } from '../utils/usbTransportHandoff';
@@ -43,6 +45,34 @@ describe('resolveUsbTransportHandoff', () => {
       headerShowsUsbAfterHandoff({
         effectiveGatewayUrl: decision.usbGatewayUrl,
         wifiConnected: true,
+        health: {
+          level: 'green',
+          checkedAt: '2026-07-21T13:00:00.000Z',
+          hostname: 'Igors-MacBook-Pro.local',
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it('handoffs Tailscale → USB on cellular when live reverse proves the cable (5G + USB)', () => {
+    const decision = resolveUsbTransportHandoff({
+      currentGatewayUrl: macBookTs.gatewayUrl,
+      wifiConnected: false,
+      liveUsbReachable: true,
+      liveUsbHostname: 'Igors-MacBook-Pro.local',
+      activeProfile: macBookTs,
+    });
+    expect(decision.shouldHandoff).toBe(true);
+    expect(decision.reason).toBe('handoff');
+    expect(
+      headerShowsUsbAfterHandoff({
+        effectiveGatewayUrl: decision.usbGatewayUrl,
+        wifiConnected: false,
+        health: {
+          level: 'green',
+          checkedAt: '2026-07-21T13:00:00.000Z',
+          hostname: 'Igors-MacBook-Pro.local',
+        },
       }),
     ).toBe(true);
   });
@@ -60,16 +90,16 @@ describe('resolveUsbTransportHandoff', () => {
     expect(decision.preserveActiveProfileId).toBe('mac_mini_ts');
   });
 
-  it('does not handoff on cellular (ghost reverse)', () => {
+  it('rejects cellular ghost reverse without a live USB hostname', () => {
     expect(
       resolveUsbTransportHandoff({
         currentGatewayUrl: macBookTs.gatewayUrl,
         wifiConnected: false,
-        liveUsbReachable: true,
-        liveUsbHostname: 'Igors-MacBook-Pro.local',
+        liveUsbReachable: false,
+        liveUsbHostname: null,
         activeProfile: macBookTs,
       }).reason,
-    ).toBe('cellular');
+    ).toBe('usb_unreachable');
   });
 
   it('requires a live USB hostname before switching', () => {
@@ -112,6 +142,56 @@ describe('resolveUsbTransportHandoff', () => {
     });
     expect(decision.shouldHandoff).toBe(true);
     expect(decision.preserveActiveProfileId).toBe('mac_book_lan');
+  });
+});
+
+describe('resolveUsbToRemoteHandoff', () => {
+  it('handoffs USB → Tailscale when reverse is gone for the same Mac', () => {
+    const decision = resolveUsbToRemoteHandoff({
+      currentGatewayUrl: USB_LOOPBACK_GATEWAY_URL,
+      liveUsbReachable: false,
+      activeProfile: macBookTs,
+      remoteGatewayUrl: macBookTs.gatewayUrl,
+    });
+    expect(decision).toEqual({
+      shouldHandoff: true,
+      remoteGatewayUrl: macBookTs.gatewayUrl,
+      preserveActiveProfileId: 'mac_book_ts',
+      reason: 'handoff',
+    });
+  });
+
+  it('stays on USB while reverse remains healthy', () => {
+    expect(
+      resolveUsbToRemoteHandoff({
+        currentGatewayUrl: USB_LOOPBACK_GATEWAY_URL,
+        liveUsbReachable: true,
+        activeProfile: macBookTs,
+        remoteGatewayUrl: macBookTs.gatewayUrl,
+      }).reason,
+    ).toBe('still_usb');
+  });
+
+  it('skips when not on USB', () => {
+    expect(
+      resolveUsbToRemoteHandoff({
+        currentGatewayUrl: macBookTs.gatewayUrl,
+        liveUsbReachable: false,
+        activeProfile: macBookTs,
+        remoteGatewayUrl: macBookTs.gatewayUrl,
+      }).reason,
+    ).toBe('not_on_usb');
+  });
+});
+
+describe('resolveSameMachineRemoteUrl', () => {
+  it('prefers the active profile Tailscale/LAN URL', () => {
+    expect(
+      resolveSameMachineRemoteUrl({
+        activeProfile: macBookTs,
+        candidateUrls: ['http://192.168.68.71:8642', macBookTs.gatewayUrl],
+      }),
+    ).toBe(macBookTs.gatewayUrl);
   });
 });
 

@@ -322,21 +322,31 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(ctxSrc).toContain('Catalog-only (e.g. Pro USB while mini is active)');
   });
 
-  it('S27: Tailscale→USB handoff prefers USB for same Mac without clearing session (#product-lock)', () => {
+  it('S27: bidirectional USB↔Tailscale handoff same Mac without clearing session (#product-lock)', () => {
     const handoffSrc = read('hermes-mobile/src/utils/usbTransportHandoff.ts');
     const ctxSrc = read('hermes-mobile/src/context/GatewayContext.tsx');
     expect(handoffSrc).toContain('resolveUsbTransportHandoff');
+    expect(handoffSrc).toContain('resolveUsbToRemoteHandoff');
     expect(handoffSrc).toContain('foreign_usb_host');
     expect(handoffSrc).toContain('usbHandoffPreservesConversation');
+    expect(handoffSrc).not.toContain("reason: 'cellular'");
     expect(ctxSrc).toContain('maybeHandoffTailscaleToUsb');
+    expect(ctxSrc).toContain('maybeHandoffUsbToRemote');
+    expect(ctxSrc).toContain('runBidirectionalUsbHandoff');
     expect(ctxSrc).toContain('keep Tailscale/LAN identity');
+    expect(ctxSrc).toContain('liveUsbConfirmed');
     // Handoff must mutate effective URL in place — picker select clears session/messages.
     const handoffFn = ctxSrc.slice(
       ctxSrc.indexOf('const maybeHandoffTailscaleToUsb = useCallback'),
       ctxSrc.indexOf('const connectGatewayWebSocket = useCallback'),
     );
     expect(handoffFn).toContain('setEffectiveGatewayUrl(confirmed.usbGatewayUrl)');
+    expect(handoffFn).toContain('setEffectiveGatewayUrl(decision.remoteGatewayUrl)');
     expect(handoffFn).not.toContain('selectGatewayProfile(');
+    // Must not require Wi‑Fi for plug→USB (5G + cable is the failing screenshot case).
+    expect(handoffFn).not.toMatch(
+      /isUsbHandoffSourceUrl\(currentUrl\)\s*\|\|\s*!wifiConnectedRef\.current/,
+    );
   });
 
   it('S18: Choose your computer picker renders every discovered machine, even before hostname resolves (#389)', () => {

@@ -209,6 +209,7 @@ import {
   shouldHardTimeoutRun,
 } from '../utils/runStaleDetection';
 import { isChatAtTop, isChatNearBottom } from '../utils/chatScrollSync';
+import { nextChatNearBottom } from '../utils/chatFlashListScrollGuard';
 import {
   COMPOSER_DRAFT_SAVE_DEBOUNCE_MS,
   clearComposerDraft,
@@ -884,14 +885,31 @@ export default function ChatScreen() {
     });
   }, []);
 
+  /** Blocks onContentSizeChange→scrollToEnd recursion (FlashList max-update-depth). */
+  const programmaticScrollInFlightRef = useRef(false);
+  const endProgrammaticScrollRafRef = useRef<number | null>(null);
+
   const scrollChatToLatest = useCallback((animated = false) => {
     // Non-inverted FlashList: scrollToEnd scrolls to the latest messages at the bottom.
     const generation = scrollCancelGenerationRef.current;
+    programmaticScrollInFlightRef.current = true;
+    if (endProgrammaticScrollRafRef.current != null) {
+      cancelAnimationFrame(endProgrammaticScrollRafRef.current);
+      endProgrammaticScrollRafRef.current = null;
+    }
     const run = () => {
       if (generation !== scrollCancelGenerationRef.current) {
+        programmaticScrollInFlightRef.current = false;
         return;
       }
       flatListRef.current?.scrollToEnd({ animated });
+      // Keep the guard up through the layout pass that scrollToEnd triggers.
+      endProgrammaticScrollRafRef.current = requestAnimationFrame(() => {
+        endProgrammaticScrollRafRef.current = requestAnimationFrame(() => {
+          endProgrammaticScrollRafRef.current = null;
+          programmaticScrollInFlightRef.current = false;
+        });
+      });
     };
     // Single frame is enough; double-rAF on every stream token caused visible jitter.
     if (streamScrollRafRef.current != null) {
@@ -1002,7 +1020,7 @@ export default function ChatScreen() {
         userDragging: userDraggingRef.current,
         prevUserScrolledUp: userScrolledUpRef.current,
       });
-      setChatNearBottom((prev) => (prev === nearBottom ? prev : nearBottom));
+      setChatNearBottom((prev) => nextChatNearBottom(prev, nearBottom));
       setChatNearTop((prev) => (prev === nearTop ? prev : nearTop));
     },
     [isChatStreamingActive],
@@ -7013,12 +7031,17 @@ export default function ChatScreen() {
                     : undefined
                 }
                 onContentSizeChange={() => {
+                  // Programmatic scrollToEnd remeasures the list; re-entering scroll
+                  // here loops into ErrorBoundary "Maximum update depth exceeded".
+                  if (programmaticScrollInFlightRef.current) {
+                    return;
+                  }
                   if (pinScrollAfterHydrationRef.current) {
                     pinScrollAfterHydrationRef.current = false;
                     userScrolledUpRef.current = false;
                     lastDistanceFromBottomRef.current = 0;
                     streamScrollLastAtRef.current = 0;
-                    setChatNearBottom(true);
+                    setChatNearBottom((prev) => (prev ? prev : true));
                     scrollChatToLatest(false);
                     return;
                   }
