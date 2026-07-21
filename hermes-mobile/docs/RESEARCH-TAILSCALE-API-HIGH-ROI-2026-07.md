@@ -47,7 +47,9 @@ a candidate device.
 pair flow. It merges only sanitized hosts into `HERMES_TAILNET_PROBE_HOSTS`; the
 normal local Tailscale discovery path remains unchanged if the API is absent or
 unavailable. Queued install/pair jobs receive the sanitized host list, not the
-credential.
+credential. The session process deletes all three credential environment
+variables immediately after inventory discovery so later install, pair, E2E, and
+operations subprocesses cannot inherit them.
 
 ## Explicitly not implemented
 

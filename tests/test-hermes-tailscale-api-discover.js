@@ -185,6 +185,8 @@ async function main() {
   );
   assert.match(sessionStartSource, /hermes-tailscale-api-discover\.js/);
   assert.match(sessionStartSource, /HERMES_TAILNET_PROBE_HOSTS/);
+  assert.match(sessionStartSource, /clearTailscaleApiCredentialsFromProcess\(\)/);
+  assert.match(sessionStartSource, /delete process\.env\[key\]/);
 
   console.log('ok   tests/test-hermes-tailscale-api-discover.js');
 }

@@ -79,6 +79,18 @@ function normalizeTailnetProbeHostList(value) {
   return Array.from(hosts);
 }
 
+const TAILSCALE_API_CREDENTIAL_ENV_KEYS = [
+  'TAILSCALE_API_ACCESS_TOKEN',
+  'TAILSCALE_OAUTH_CLIENT_ID',
+  'TAILSCALE_OAUTH_CLIENT_SECRET',
+];
+
+function clearTailscaleApiCredentialsFromProcess() {
+  for (const key of TAILSCALE_API_CREDENTIAL_ENV_KEYS) {
+    delete process.env[key];
+  }
+}
+
 /**
  * Optional server-side discovery. Credentials stay in this computer's process;
  * only sanitized MagicDNS/100.x hosts are passed to the existing pair flow.
@@ -91,7 +103,14 @@ function bootstrapTailnetProbeHostsFromApi() {
   );
   if (!configured) return { configured: false, hosts: [] };
 
-  const result = runNode('tools/hermes-tailscale-api-discover.js', ['--hosts-only'], 20_000);
+  let result;
+  try {
+    result = runNode('tools/hermes-tailscale-api-discover.js', ['--hosts-only'], 20_000);
+  } finally {
+    // The inventory subprocess is the only child allowed to inherit these.
+    // Erase them before queued installs, pairing, E2E, or smart-ops execute.
+    clearTailscaleApiCredentialsFromProcess();
+  }
   if (result.status !== 0) {
     return {
       configured: true,
