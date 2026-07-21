@@ -20,7 +20,9 @@ const {
   parseDotEnvValue,
   resolveGatewayApiKey,
   saveConfig,
+  selectContextSessionIds,
   signedHeaders,
+  syncGatewaySessions,
   timestampMillis,
 } = require('../tools/hermes-cloud-connector');
 
@@ -85,6 +87,18 @@ test('context upload is bounded before it leaves the Mac', () => {
   assert.match(bounded.at(-1).content, /^turn-69-/);
 });
 
+test('bounded context windows rotate across every session instead of starving older chats', () => {
+  const sessions = Array.from({ length: 25 }, (_, index) => ({ id: `session-${index}` }));
+  const first = selectContextSessionIds(sessions, '', 12);
+  const second = selectContextSessionIds(sessions, first.nextCursorId, 12);
+  const third = selectContextSessionIds(sessions, second.nextCursorId, 12);
+  assert.equal(first.ids.size, 12);
+  assert.equal(second.ids.size, 12);
+  assert.equal(third.ids.size, 12);
+  assert.equal(new Set([...first.ids, ...second.ids, ...third.ids]).size, 25);
+  assert.equal(third.nextCursorId, 'session-10');
+});
+
 test('collects real Hermes Mobile session inventory with bounded context', async () => {
   await withServer((request, response) => {
     response.setHeader('content-type', 'application/json');
@@ -94,13 +108,62 @@ test('collects real Hermes Mobile session inventory with bounded context', async
     }
     response.end(JSON.stringify({ data: [{ role: 'user', content: 'continue the launch' }, { role: 'assistant', content: [{ type: 'text', text: 'working' }] }] }));
   }, async (sessionGatewayUrl) => {
-    const sessions = await collectGatewaySessions({ sessionGatewayUrl });
+    const { sessions, nextContextCursorId } = await collectGatewaySessions({ sessionGatewayUrl });
     assert.equal(sessions.length, 1);
     assert.equal(sessions[0].id, 'mobile_1');
     assert.equal(sessions[0].messages[1].content, 'working');
     assert.equal(sessions[0].updatedAt, 1_700_000_000_000);
+    assert.equal(nextContextCursorId, 'mobile_1');
   });
   assert.equal(timestampMillis('2026-07-20T00:00:00Z'), Date.parse('2026-07-20T00:00:00Z'));
+});
+
+test('successful session sync persists context rotation progress', async () => {
+  const inventory = Array.from({ length: 60 }, (_, index) => ({
+    id: `session-${index}`,
+    title: `Session ${index}`,
+    message_count: 1,
+    last_active: 1_700_000_000 + index,
+  }));
+  const requestedByCycle = [];
+  let activeRequests = [];
+  await withServer((request, response) => {
+    response.setHeader('content-type', 'application/json');
+    if (request.url.startsWith('/api/sessions?')) {
+      response.end(JSON.stringify({ data: inventory }));
+      return;
+    }
+    if (request.url.startsWith('/api/sessions/') && request.url.endsWith('/messages')) {
+      activeRequests.push(decodeURIComponent(request.url.split('/')[3]));
+      response.end(JSON.stringify({ data: [{ role: 'user', content: 'bounded context' }] }));
+      return;
+    }
+    if (request.url === '/api/device/sessions/sync') {
+      let body = '';
+      request.on('data', (chunk) => { body += chunk; });
+      request.on('end', () => {
+        const payload = JSON.parse(body);
+        assert.equal(payload.sessions.length, 60);
+        assert.equal(payload.sessions.filter((session) => session.messages.length > 0).length, 40);
+        requestedByCycle.push(activeRequests);
+        activeRequests = [];
+        response.end(JSON.stringify({ ok: true }));
+      });
+      return;
+    }
+    response.statusCode = 404;
+    response.end(JSON.stringify({ error: 'not found' }));
+  }, async (url) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-context-cursor-'));
+    const configPath = path.join(root, 'cloud-connector.json');
+    const config = { ...createIdentity('test-mac'), deviceId: 'device-1', controlPlaneUrl: url, sessionGatewayUrl: url };
+    saveConfig(configPath, config);
+    await syncGatewaySessions(config, { configPath });
+    await syncGatewaySessions(config, { configPath });
+    assert.equal(loadConfig(configPath).sessionContextCursorId, 'session-19');
+  });
+  assert.equal(requestedByCycle.length, 2);
+  assert.equal(new Set(requestedByCycle.flat()).size, 60);
 });
 
 test('resumes the existing Hermes session and carries cloud handoff context', async () => {
