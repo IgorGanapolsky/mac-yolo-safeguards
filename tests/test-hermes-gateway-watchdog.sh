@@ -72,9 +72,9 @@ run_wd() {
     "$@" \
     bash "$WD"
   # The gateway start remains asynchronous; pin/warmup are deliberately synchronous.
-  for _ in $(seq 1 30); do
+  for _ in $(seq 1 10); do
     grep -q "STARTED\|PIN\|WARMUP" "$TMP/start" "$TMP/calls" 2>/dev/null && break
-    sleep 0.1
+    sleep 0.05
   done
 }
 
@@ -156,6 +156,23 @@ if [ "$(calls PIN)" -eq 0 ] && [ "$(calls WARMUP)" -eq 0 ]; then
 else
   bad "T5d: cooldown gate allowed pin/warmup"
 fi
+: > "$TMP/recovery-until"
+
+# T5e: a down/absent gateway stays down while the guardian's recovery circuit
+# is open, then becomes restart-eligible immediately after expiry.
+echo 000 > "$TMP/health"; echo '{"models":[]}' > "$TMP/ps"; : > "$TMP/gwpid"
+echo 1600 > "$TMP/recovery-until"
+run_wd HERMES_MEMORY_PRESSURE_LEVEL="1" HERMES_NOW_EPOCH="1000"
+if ! grep -q "STARTED" "$TMP/start" \
+  && grep -q 'gateway down.*during memory recovery.*leave stopped' "$TMP/wd.log"; then
+  ok "T5e: recovery circuit keeps a down gateway stopped"
+else
+  bad "T5e: watchdog restarted a gateway during recovery"
+fi
+run_wd HERMES_MEMORY_PRESSURE_LEVEL="1" HERMES_NOW_EPOCH="1601"
+grep -q "STARTED" "$TMP/start" \
+  && ok "T5e: gateway restart resumes after recovery expiry" \
+  || bad "T5e: gateway did not restart after recovery expiry"
 : > "$TMP/recovery-until"
 
 # T6: pid changed vs state -> pre-warm WARMUP_COUNT times, then records new pid.

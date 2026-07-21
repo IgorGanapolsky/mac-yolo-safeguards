@@ -48,6 +48,11 @@ case "$url" in
   https://ntfy.sh/*) printf 'NOTIFY\n' >> "$MOCK_CALLS" ;;
 esac
 MOCK
+cat > "$TMP/bin/launchctl" <<'MOCK'
+#!/bin/sh
+printf 'LAUNCHCTL %s\n' "$*" >> "$MOCK_CALLS"
+exit "${MOCK_LAUNCHCTL_EXIT:-0}"
+MOCK
 chmod +x "$TMP/bin/"*
 
 reset_state() {
@@ -65,6 +70,7 @@ run_guard() {
     MEMORY_GUARD_WARN_FILE="$TMP/warn" \
     MEMORY_GUARD_CRIT_FILE="$TMP/crit" \
     YOLO_MEMORY_RECOVERY_FILE="$TMP/recovery" \
+    YOLO_BYPASS_E2E_LEASE="1" \
     MEMORY_GUARD_STREAK_REQUIRED="1" \
     MEMORY_GUARD_WARN_COOLDOWN="0" \
     YOLO_MEMORY_RECOVERY_SEC="600" \
@@ -72,6 +78,9 @@ run_guard() {
     MEMORY_GUARD_DATE_BIN="$TMP/bin/date" \
     MEMORY_GUARD_SLEEP_BIN="$TMP/bin/sleep" \
     MEMORY_GUARD_CURL_BIN="$TMP/bin/curl" \
+    MEMORY_GUARD_LAUNCHCTL_BIN="$TMP/bin/launchctl" \
+    MEMORY_GUARD_GUI_DOMAIN="gui/501" \
+    MEMORY_GUARD_SHED_HERMES_GATEWAY="0" \
     MOCK_CALLS="$TMP/calls" \
     MOCK_NOW="1000" \
     "$@" \
@@ -90,11 +99,37 @@ else
 fi
 
 reset_state
+echo 1600 > "$TMP/recovery"
+run_guard MOCK_PRESSURE="1" MOCK_OLLAMA_PS='{"models":[{"name":"qwen-test"}]}' \
+  MEMORY_GUARD_SHED_HERMES_GATEWAY="1"
+if ! grep -q '^LAUNCHCTL ' "$TMP/calls"; then
+  ok "recovery marker alone never sheds a gateway at normal pressure"
+else
+  bad "normal pressure shed a gateway because a recovery marker existed"
+fi
+
+reset_state
 run_guard MOCK_PRESSURE="2" MOCK_OLLAMA_PS='{"models":[{"name":"qwen-test"}]}'
 if grep -q 'UNLOAD.*"keep_alive":0' "$TMP/calls" && [ "$(cat "$TMP/recovery" 2>/dev/null)" = "1600" ]; then
   ok "WARN unloads through HTTP and publishes a 600s shared cooldown"
 else
   bad "WARN did not unload through HTTP or write the cooldown"
+fi
+if ! grep -q '^LAUNCHCTL ' "$TMP/calls"; then
+  ok "gateway recovery circuit is explicit opt-in"
+else
+  bad "default guardian unexpectedly shed the Hermes gateway"
+fi
+
+reset_state
+run_guard MOCK_PRESSURE="2" MOCK_OLLAMA_PS='{"models":[{"name":"qwen-test"}]}' \
+  MEMORY_GUARD_SHED_HERMES_GATEWAY="1"
+if grep -q '^LAUNCHCTL bootout gui/501/ai.hermes.gateway$' "$TMP/calls" \
+  && [ "$(grep -c '^UNLOAD ' "$TMP/calls")" -eq 2 ] \
+  && grep -q 'RECOVERY circuit: shed ai.hermes.gateway' "$TMP/guard.log"; then
+  ok "resident model during recovery sheds the exact gateway supervisor then retries unload"
+else
+  bad "active inference recovery circuit did not shed the exact gateway and retry unload"
 fi
 if ! rg -q 'pkill.*(llama|ollama)|kill .*llama' "$GUARD"; then
   ok "guardian contains no Ollama/llama hard-kill path"
@@ -103,11 +138,13 @@ else
 fi
 
 reset_state
-run_guard --dry-run MOCK_PRESSURE="2" MOCK_OLLAMA_PS='{"models":[{"name":"qwen-test"}]}'
-if ! grep -q '^UNLOAD ' "$TMP/calls" && [ ! -e "$TMP/recovery" ]; then
-  ok "dry-run reports but does not unload or create recovery state"
+run_guard --dry-run MOCK_PRESSURE="2" MOCK_OLLAMA_PS='{"models":[{"name":"qwen-test"}]}' \
+  MEMORY_GUARD_SHED_HERMES_GATEWAY="1"
+if ! grep -q '^UNLOAD ' "$TMP/calls" && ! grep -q '^LAUNCHCTL ' "$TMP/calls" \
+  && [ ! -e "$TMP/recovery" ]; then
+  ok "dry-run reports but does not unload, shed the gateway, or create recovery state"
 else
-  bad "dry-run changed Ollama or recovery state"
+  bad "dry-run changed Ollama, gateway, or recovery state"
 fi
 
 reset_state

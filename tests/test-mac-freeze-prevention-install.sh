@@ -43,6 +43,12 @@ if grep -q "$TMP/home/.local/bin/memory-pressure-guardian.sh" "$PLISTS/com.igor.
 else
   bad "memory guardian plist does not use the durable copy"
 fi
+if grep -A1 '<key>MEMORY_GUARD_SHED_HERMES_GATEWAY</key>' "$PLISTS/com.igor.memory-pressure-guardian.plist" | grep -q '<string>1</string>' \
+  && grep -A1 '<key>MEMORY_GUARD_HERMES_GATEWAY_LABEL</key>' "$PLISTS/com.igor.memory-pressure-guardian.plist" | grep -q '<string>ai.hermes.gateway</string>'; then
+  ok "installed guardian enables the exact Hermes recovery circuit"
+else
+  bad "installed guardian does not enable the exact Hermes recovery circuit"
+fi
 if cmp -s "$REPO/scripts/memory-pressure-guardian.sh" "$TMP/home/.local/bin/memory-pressure-guardian.sh" \
   && cmp -s "$REPO/scripts/hermes-gateway-watchdog.sh" "$TMP/home/.hermes/hermes-gateway-watchdog.sh"; then
   ok "repeat installation is idempotent and byte-identical"

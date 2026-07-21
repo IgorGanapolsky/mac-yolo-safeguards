@@ -65,10 +65,15 @@ if [ "$pressure" -ge 2 ] || [ "$now" -lt "$recovery_until" ]; then
   logline "memory recovery active (pressure=$pressure cooldown_until=$recovery_until) -> skip pin/warmup"
 fi
 
-# 1) Restart the gateway only if it is truly gone.
+# 1) Restart the gateway only if it is truly gone and memory recovery is not
+# active. The guardian may deliberately boot out this supervisor when an active
+# inference client defeats Ollama unload; restarting it during the shared
+# cooldown would reopen the exact reload loop the circuit is meant to break.
 code="$(gateway_health)"
 if [ "$code" != "200" ]; then
-  if [ -z "$(gateway_pid)" ]; then
+  if [ "$memory_block" = "1" ]; then
+    logline "gateway down (health=$code) during memory recovery -> leave stopped"
+  elif [ -z "$(gateway_pid)" ]; then
     logline "gateway down (health=$code, no proc) -> starting"
     nohup "$PYBIN" -m hermes_cli.main gateway run >> "$AGENT_LOG" 2>&1 &
   else
