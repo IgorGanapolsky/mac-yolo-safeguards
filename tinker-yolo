@@ -7,7 +7,15 @@
 # storage requirement and never changes the Hermes default route.
 set -euo pipefail
 
-HERE="$(cd "$(dirname "$0")" && pwd)"
+# Resolve versioned ~/.local/bin symlinks so companion tools stay beside the
+# immutable wrapper source rather than being looked up under ~/.local/bin/tools.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  SOURCE_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" != /* ]] && SOURCE="$SOURCE_DIR/$SOURCE"
+done
+HERE="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 VENV="${TINKER_VENV:-$HOME/.hermes/tinker-venv}"
 PY="$VENV/bin/python"
 SYSTEM_PYTHON="${TINKER_SYSTEM_PYTHON:-/usr/bin/python3}"
@@ -18,6 +26,8 @@ STATE_DIR="${TINKER_STATE_DIR:-$HOME/.hermes/tinker}"
 DATASET="${TINKER_DATASET:-$STATE_DIR/datasets/conversations.jsonl}"
 RECEIPT_DIR="${TINKER_RECEIPT_DIR:-$STATE_DIR/receipts}"
 HARNESS="${TINKER_HARNESS:-$HERE/tools/hermes-tinker-harness.js}"
+AGENT="${TINKER_AGENT:-$HERE/tools/tinker-yolo-agent.py}"
+AGENT_PYTHON="${TINKER_AGENT_PYTHON:-$SYSTEM_PYTHON}"
 TRAIN_RATE_USD_PER_M="${TINKER_TRAIN_USD_PER_MILLION_TOKENS:-0.40}"
 
 private_dir() {
@@ -455,23 +465,49 @@ PY
   return "$exit_code"
 }
 
+run_local_agent() {
+  local model="${TINKER_CHAT_MODEL:-qwen3-hermes-tinker:q4}" index=0
+  local arguments=("$@")
+  while [ "$index" -lt "${#arguments[@]}" ]; do
+    case "${arguments[$index]}" in
+      --model)
+        index=$((index + 1))
+        [ "$index" -lt "${#arguments[@]}" ] \
+          || { echo "tinker-yolo: --model requires a value" >&2; return 2; }
+        model="${arguments[$index]}" ;;
+      --model=*) model="${arguments[$index]#--model=}" ;;
+    esac
+    index=$((index + 1))
+  done
+
+  [ -f "$AGENT" ] || { echo "tinker-yolo: local agent runtime missing ($AGENT)" >&2; return 127; }
+  [ -x "$AGENT_PYTHON" ] || { echo "tinker-yolo: Python runtime missing ($AGENT_PYTHON)" >&2; return 127; }
+  command -v ollama >/dev/null 2>&1 \
+    || { echo "tinker-yolo: ollama not found on PATH" >&2; return 127; }
+  ollama list 2>/dev/null | awk '{print $1}' | grep -qx "$model" \
+    || { echo "tinker-yolo: model '$model' is not deployed locally (see 'tinker-yolo status')" >&2; return 1; }
+  exec "$AGENT_PYTHON" "$AGENT" --model "$model" "$@"
+}
+
 usage() {
   cat <<'USAGE'
 tinker-yolo — evidence-gated Tinker customization for Hermes
 
-Bare `tinker-yolo` (no arguments) drops straight into `chat` — like
-claude-yolo/codex-yolo — whenever the default model is already deployed
-locally. If it isn't deployed yet, bare invocation falls back to `status`
-so you can see what's missing instead of hitting a hard error.
+Bare `tinker-yolo` (no arguments) starts a real local coding-agent REPL — like
+claude-yolo/codex-yolo — whenever the default model is already deployed. The
+agent has workspace filesystem read/write/search, bounded shell execution, and
+internet fetch/search tools. It sends nothing to Tinker and costs $0.
 
 Read-only / free:
   status                     lightweight local status; no Tinker import
   recommend [--json]         host-aware Inkling vs local-baseline decision
   --doctor [--json]          Tinker auth/catalog + recommendation; no training
   build                      build a private local dataset; no upload
-  chat [--model TAG]         interactive REPL against the deployed local
-                              Ollama model (default qwen3-hermes-tinker:q4);
-                              purely local, no Tinker call, no cost
+  agent ["task"] [options]    local tool-using agent
+  chat ["task"] [options]     alias for agent
+      [--model TAG] [--workspace PATH] [--max-turns N]
+      [--max-tool-calls N] [--json] [--no-project-instructions]
+      default qwen3-hermes-tinker:q4; purely local; $0
 
 Metered inference (prompt-only upload; both flags mandatory):
   ask "prompt" --approve-paid --max-cost-usd N
@@ -492,7 +528,8 @@ USAGE
 if [ "$#" -eq 0 ] && command -v ollama >/dev/null 2>&1; then
   bare_model="${TINKER_CHAT_MODEL:-qwen3-hermes-tinker:q4}"
   if ollama list 2>/dev/null | awk '{print $1}' | grep -qx "$bare_model"; then
-    exec ollama run "$bare_model"
+    run_local_agent
+    exit $?
   fi
 fi
 
@@ -504,6 +541,7 @@ case "$command" in
     echo "tinker-yolo status: venv=$([ -x "$PY" ] && echo ok || echo MISSING) dataset_rows=$(dataset_rows) zero_spend=$([ -e "$MARKER" ] && echo true || echo false)"
     have="$(ollama list 2>/dev/null | awk '/qwen3-hermes-tinker/{print $1" ("$3$4")"}' | tr '\n' ' ')"
     echo "deployed model: ${have:-none}"
+    echo "local agent: $([ -f "$AGENT" ] && echo ready || echo MISSING) tools=filesystem,shell,internet"
     usage
     exit 0 ;;
   recommend)
@@ -531,22 +569,9 @@ case "$command" in
     [ "$#" -eq 0 ] || { echo "tinker-yolo: build takes no arguments" >&2; exit 2; }
     build_dataset
     exit $? ;;
-  chat)
-    model="${TINKER_CHAT_MODEL:-qwen3-hermes-tinker:q4}"
-    while [ "$#" -gt 0 ]; do
-      case "$1" in
-        --model)
-          shift
-          [ "$#" -gt 0 ] || { echo "tinker-yolo: --model requires a value" >&2; exit 2; }
-          model="$1" ;;
-        *) echo "tinker-yolo: unknown chat option '$1'" >&2; exit 2 ;;
-      esac
-      shift
-    done
-    command -v ollama >/dev/null 2>&1 || { echo "tinker-yolo: ollama not found on PATH" >&2; exit 127; }
-    ollama list 2>/dev/null | awk '{print $1}' | grep -qx "$model" \
-      || { echo "tinker-yolo: model '$model' is not deployed locally (see 'tinker-yolo status')" >&2; exit 1; }
-    exec ollama run "$model" ;;
+  chat|agent)
+    run_local_agent "$@"
+    exit $? ;;
   proof|train|deploy) ;;
   *) echo "tinker-yolo: unknown command '$command'" >&2; usage >&2; exit 2 ;;
 esac

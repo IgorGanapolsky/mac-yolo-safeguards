@@ -135,6 +135,20 @@ export const tasks = sqliteTable("tasks", {
   completedAt: integer("completed_at"),
 }, (table) => [uniqueIndex("tasks_org_idempotency_unique").on(table.organizationId, table.idempotencyKey)]);
 
+export const responseFeedback = sqliteTable("response_feedback", {
+  id: text("id").primaryKey(),
+  organizationId: text("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  taskId: text("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  signal: text("signal", { enum: ["up", "down"] }).notNull(),
+  note: text("note"),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("response_feedback_org_user_task_unique").on(table.organizationId, table.userId, table.taskId),
+  index("response_feedback_org_signal_updated_idx").on(table.organizationId, table.signal, table.updatedAt),
+]);
+
 export const requestNonces = sqliteTable("request_nonces", {
   nonceHash: text("nonce_hash").primaryKey(),
   deviceId: text("device_id").notNull().references(() => devices.id, { onDelete: "cascade" }),

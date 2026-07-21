@@ -12,6 +12,10 @@ const threadsRoute = readFileSync(new URL("../app/api/threads/route.ts", import.
 const sessionSyncRoute = readFileSync(new URL("../app/api/device/sessions/sync/route.ts", import.meta.url), "utf8");
 const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
 const threadMessagesRoute = readFileSync(new URL("../app/api/thread-messages/route.ts", import.meta.url), "utf8");
+const feedbackRoute = readFileSync(new URL("../app/api/feedback/route.ts", import.meta.url), "utf8");
+const lessonsRoute = readFileSync(new URL("../app/api/lessons/route.ts", import.meta.url), "utf8");
+const lessonsClient = readFileSync(new URL("../app/dashboard/lessons/LessonsClient.tsx", import.meta.url), "utf8");
+const schema = readFileSync(new URL("../db/schema.ts", import.meta.url), "utf8");
 const taskLeases = readFileSync(new URL("../lib/task-leases.ts", import.meta.url), "utf8");
 const threadOperations = readFileSync(new URL("../lib/thread-operations.ts", import.meta.url), "utf8");
 const operationClaimRoute = readFileSync(new URL("../app/api/device/thread-operations/claim/route.ts", import.meta.url), "utf8");
@@ -183,6 +187,29 @@ test("explains fenced execution through a visible interactive safety panel", () 
   assert.match(dashboard, /What “Fenced” means/);
   assert.match(dashboard, /one signed runner at a time/);
   assert.match(globals, /\.safety-panel:target/);
+});
+
+test("makes ThumbGate real with private thumbs feedback and a lessons dashboard", () => {
+  assert.match(dashboard, /aria-label="Thumbs up — mark response helpful"/);
+  assert.match(dashboard, /aria-label="Thumbs down — mark response for improvement"/);
+  assert.match(dashboard, /href="\/dashboard\/lessons"/);
+  assert.match(dashboard, /What should Hermes improve\?/);
+  assert.match(globals, /\.response-feedback button\{[^}]*min-width:44px[^}]*min-height:44px/);
+  assert.match(feedbackRoute, /requireSession/);
+  assert.match(feedbackRoute, /status = 'completed' AND result IS NOT NULL/);
+  assert.match(feedbackRoute, /ON CONFLICT\(organization_id, user_id, task_id\)/);
+  assert.match(lessonsRoute, /WHERE f\.organization_id = \?/);
+  assert.match(lessonsRoute, /ORDER BY f\.updated_at DESC/);
+  assert.match(lessonsClient, /Your Hermes lessons/);
+  assert.match(lessonsClient, /Feedback is private to this ThumbGate workspace/);
+  assert.match(schema, /responseFeedback = sqliteTable\("response_feedback"/);
+});
+
+test("shows the signed-in email when a zero-device workspace may be the wrong account", () => {
+  assert.match(dashboard, /Signed in as <strong>\{user\.email\}<\/strong>/);
+  assert.match(dashboard, /If your machines are paired to another email/);
+  assert.match(dashboard, /Switch account/);
+  assert.match(dashboard, /action="\/api\/auth\/logout" method="post"/);
 });
 
 test("keeps every workspace telemetry value behind authentication", () => {
