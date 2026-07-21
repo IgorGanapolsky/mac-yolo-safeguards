@@ -55,7 +55,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body>{children}</body>
+      <body>
+        {children}
+        <script
+          // A deploy purges the previous build's hashed /assets/* chunks; a page
+          // opened before the deploy then fails module preloads and goes inert.
+          // Reload once to pick up the new build (guarded against reload loops).
+          dangerouslySetInnerHTML={{
+            __html:
+              "window.addEventListener('vite:preloadError',function(e){var k='tg-preload-reload';var t=Number(sessionStorage.getItem(k)||0);if(Date.now()-t>10000){sessionStorage.setItem(k,String(Date.now()));e.preventDefault();location.reload();}});",
+          }}
+        />
+      </body>
     </html>
   );
 }
