@@ -111,6 +111,28 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .side-item .thread-copy strong{overflow:hidden;color:inherit;font:500 11px/1.25 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-overflow:ellipsis;white-space:nowrap}
 .side-item .thread-copy time{overflow:hidden;color:#6B7280;font:8px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;text-overflow:ellipsis;white-space:nowrap}
 .side-item.active .thread-copy time{color:#818CF8}
+.chats-label-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.chats-label-actions{display:flex;align-items:center;gap:6px}
+.clear-all-chats{min-height:44px;padding:0 10px;border-color:rgba(248,113,113,.28);color:#fca5a5}
+.thread-row{gap:2px;overflow:visible}
+.thread-menu-trigger{appearance:none;flex:0 0 44px;min-width:44px;min-height:44px;align-self:center;border:0;border-radius:10px;background:transparent;color:#8b949e;font:700 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:1px;cursor:pointer}
+.thread-menu-trigger:hover,.thread-menu-trigger[aria-expanded="true"]{background:rgba(34,211,238,.09);color:var(--accent)}
+.thread-row:hover .thread-actions,.thread-row:focus-within .thread-actions,.thread-row .thread-actions{display:grid}
+.thread-actions{top:51px;right:0;z-index:45;min-width:156px;gap:4px;padding:6px;border:1px solid var(--line);border-radius:12px;background:#111827;box-shadow:0 18px 46px rgba(0,0,0,.45)}
+.thread-actions .thread-action{width:100%;height:auto;min-height:44px;padding:0 12px;display:flex;align-items:center;justify-content:flex-start;gap:9px;border-radius:8px;color:var(--text-secondary);font:600 12px/1 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.thread-actions .thread-action span{font-size:15px}
+.thread-actions .thread-action-danger{color:#fca5a5}
+.chat-dialog-backdrop{position:fixed;z-index:100;inset:0;padding:24px;display:grid;place-items:center;background:rgba(2,6,15,.76);backdrop-filter:blur(8px)}
+.chat-dialog{width:min(440px,100%);padding:26px;border:1px solid var(--brand-line);border-radius:22px;background:linear-gradient(160deg,#151b2b,#0b0f1a);box-shadow:0 32px 90px rgba(0,0,0,.58)}
+.chat-dialog form{display:grid;gap:16px}
+.chat-dialog h2{margin:6px 0 12px;font-size:24px}
+.chat-dialog>p:not(.eyebrow),.chat-dialog form>p:not(.eyebrow){color:var(--text-secondary);font-size:14px;line-height:1.6}
+.chat-dialog label{display:grid;gap:8px;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.chat-dialog input{width:100%;min-height:48px;padding:0 14px;border:1px solid var(--line);border-radius:12px;background:var(--composer);color:var(--text);font:15px Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.chat-dialog input:focus{outline:0;border-color:rgba(34,211,238,.55);box-shadow:0 0 0 3px rgba(34,211,238,.08)}
+.chat-dialog-actions{margin-top:22px;display:flex;justify-content:flex-end;gap:10px}
+.button-danger{border:1px solid rgba(248,113,113,.4);background:rgba(239,68,68,.16);color:#fecaca}
+.button-danger:hover{background:rgba(239,68,68,.25);border-color:rgba(248,113,113,.65)}
 
 @media(max-width:700px){
   body{padding-bottom:78px}
@@ -126,6 +148,10 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .sidebar:not(.is-collapsed) .sidebar-bottom{display:grid}
   .sidebar-content{max-height:min(68vh,620px)}
   .side-item.thread-item{min-height:64px}
+  .thread-menu-trigger{align-self:center}
+  .thread-actions{top:57px;right:2px}
+  .chat-dialog-backdrop{padding:14px}
+  .chat-dialog{padding:22px}
   .panel,.metric-grid{border-radius:20px}
   .conversation-message{max-width:94%}
   .mobile-web-tabs{position:fixed;z-index:50;left:0;right:0;bottom:0;height:72px;display:grid;grid-template-columns:repeat(3,1fr);background:rgba(9,11,20,.96);border-top:1px solid var(--brand-line);box-shadow:0 -10px 30px rgba(0,0,0,.3);backdrop-filter:blur(18px)}

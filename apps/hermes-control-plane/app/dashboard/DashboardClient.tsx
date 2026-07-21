@@ -8,6 +8,7 @@ type Device = { id: string; name: string; fingerprint: string; failoverMode: "di
 type Thread = { id: string; title: string; taskCount: number; updatedAt: number; source: string; model: string | null; preview: string | null; messageCount: number; sourceSessionId: string | null; syncedAt: number | null; deviceName: string | null };
 type Task = { id: string; threadId: string; threadTitle: string; prompt: string; status: string; route: string; result: string | null; error: string | null; createdAt: number; updatedAt: number; completedAt: number | null; deviceName: string | null };
 type ThreadDetails = { snapshot: Array<{ role: string; content: string }>; tasks: Array<{ prompt: string; result: string | null; error: string | null; route: string; status: string; createdAt: number }> };
+type ChatDialog = { kind: "rename" | "delete"; thread: Thread } | { kind: "clear" };
 
 const terminal = new Set(["completed", "failed"]);
 const pairingCodePattern = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/;
@@ -87,6 +88,10 @@ export default function DashboardClient() {
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [threadSortOrder, setThreadSortOrder] = useState<ThreadSortOrder>("newest");
   const [resizing, setResizing] = useState(false);
+  const [threadMenu, setThreadMenu] = useState<string | null>(null);
+  const [chatDialog, setChatDialog] = useState<ChatDialog | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [chatOperationBusy, setChatOperationBusy] = useState(false);
   const autoSelectedThread = useRef(false);
 
   useEffect(() => {
@@ -257,34 +262,71 @@ export default function DashboardClient() {
     });
   }
 
-  async function renameThread(thread: Thread) {
-    const nextTitle = window.prompt("Rename chat", thread.title)?.trim();
-    if (!nextTitle || nextTitle === thread.title) return;
-    const response = await fetch("/api/threads", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ threadId: thread.id, title: nextTitle }) });
-    const body = await response.json().catch(() => ({})) as { error?: string };
-    setNotice(response.ok ? "Chat renamed." : body.error ?? "Rename failed");
-    await load();
+  function openRenameDialog(thread: Thread) {
+    setThreadMenu(null);
+    setRenameValue(thread.title);
+    setChatDialog({ kind: "rename", thread });
   }
 
-  async function deleteThread(thread: Thread) {
-    if (!window.confirm(`Delete "${thread.title}"? You cannot undo this.`)) return;
-    const response = await fetch(`/api/threads?id=${encodeURIComponent(thread.id)}`, { method: "DELETE" });
-    const body = await response.json().catch(() => ({})) as { error?: string };
-    setNotice(response.ok ? "Chat deleted." : body.error ?? "Delete failed");
-    if (response.ok && selectedThread === thread.id) setSelectedThread(null);
-    await load();
+  function openDeleteDialog(thread: Thread) {
+    setThreadMenu(null);
+    setChatDialog({ kind: "delete", thread });
   }
 
-  async function clearAllThreads() {
-    if (!window.confirm("Clear all chats? This deletes every synced thread from your ThumbGate workspace. You cannot undo this.")) return;
-    const response = await fetch("/api/threads?all=true", { method: "DELETE" });
-    const body = await response.json().catch(() => ({})) as { error?: string };
-    setNotice(response.ok ? "All chats cleared." : body.error ?? "Clear failed");
-    if (response.ok) setSelectedThread(null);
-    await load();
+  async function submitChatDialog(event?: FormEvent) {
+    event?.preventDefault();
+    if (!chatDialog || chatOperationBusy) return;
+    setChatOperationBusy(true);
+    setNotice(null);
+    try {
+      if (chatDialog.kind === "rename") {
+        const title = renameValue.trim();
+        if (!title || title === chatDialog.thread.title) { setChatDialog(null); return; }
+        const response = await fetch("/api/threads", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ threadId: chatDialog.thread.id, title }),
+        });
+        const body = await response.json().catch(() => ({})) as { error?: string; title?: string };
+        if (!response.ok) { setNotice(body.error ?? "Rename failed"); return; }
+        setThreads((current) => current.map((thread) => thread.id === chatDialog.thread.id
+          ? { ...thread, title: body.title ?? title }
+          : thread));
+        setNotice("Chat renamed on ThumbGate and queued for your paired Hermes machine.");
+      } else if (chatDialog.kind === "delete") {
+        const response = await fetch("/api/threads", {
+          method: "DELETE",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ threadId: chatDialog.thread.id }),
+        });
+        const body = await response.json().catch(() => ({})) as { error?: string };
+        if (!response.ok) { setNotice(body.error ?? "Delete failed"); return; }
+        const remaining = threads.filter((thread) => thread.id !== chatDialog.thread.id);
+        setThreads(remaining);
+        if (selectedThread === chatDialog.thread.id) setSelectedThread(remaining[0]?.id ?? null);
+        setNotice("Chat deleted. The paired Hermes machine will apply the deletion safely.");
+      } else {
+        const response = await fetch("/api/threads", {
+          method: "DELETE",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ scope: "all", confirmation: "CLEAR ALL CHATS" }),
+        });
+        const body = await response.json().catch(() => ({})) as { error?: string; cleared?: number };
+        if (!response.ok) { setNotice(body.error ?? "Clear failed"); return; }
+        setThreads([]);
+        setSelectedThread(null);
+        setThreadDetails(null);
+        setNotice(`${body.cleared ?? threads.length} chats cleared. Paired Hermes machines will apply the deletion safely.`);
+      }
+      setChatDialog(null);
+      await load();
+    } finally {
+      setChatOperationBusy(false);
+    }
   }
 
   function openThread(threadId: string | null) {
+    setThreadMenu(null);
     setSelectedThread(threadId);
     if (window.matchMedia("(max-width: 700px)").matches) {
       setChatRailExpanded(false);
@@ -312,16 +354,17 @@ export default function DashboardClient() {
                 <option value="oldest">Oldest first</option>
                 <option value="alphabetical">Alphabetical</option>
               </select>
-              {threads.length > 0 && <button type="button" className="clear-all-chats" onClick={() => void clearAllThreads()}>Clear all</button>}
+              {threads.length > 0 && <button type="button" className="clear-all-chats" onClick={() => { setThreadMenu(null); setChatDialog({ kind: "clear" }); }}>Clear all</button>}
             </div>
           </div>
           <nav className="thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.map((thread) => (
             <div key={thread.id} className="thread-row">
               <button title={`${thread.title} — ${formatDateTime(thread.updatedAt)}`} aria-current={selectedThread === thread.id ? "page" : undefined} className={selectedThread === thread.id ? "side-item thread-item active" : "side-item thread-item"} onClick={() => openThread(thread.id)}><span className="thread-icon">{thread.sourceSessionId ? "⌘" : "›_"}</span><span className="thread-copy"><strong>{thread.title}</strong><time dateTime={new Date(thread.updatedAt).toISOString()}>{formatDateTime(thread.updatedAt)}</time></span><em>{thread.messageCount || thread.taskCount}</em></button>
-              <div className="thread-actions">
-                <button type="button" className="thread-action" aria-label={`Rename ${thread.title}`} title="Rename" onClick={() => void renameThread(thread)}>✎</button>
-                <button type="button" className="thread-action thread-action-danger" aria-label={`Delete ${thread.title}`} title="Delete" onClick={() => void deleteThread(thread)}>🗑</button>
-              </div>
+              <button type="button" className="thread-menu-trigger" aria-label={`Actions for ${thread.title}`} aria-haspopup="menu" aria-expanded={threadMenu === thread.id} onClick={() => setThreadMenu((current) => current === thread.id ? null : thread.id)}>•••</button>
+              {threadMenu === thread.id && <div className="thread-actions" role="menu" aria-label={`Actions for ${thread.title}`}>
+                <button type="button" className="thread-action" role="menuitem" onClick={() => openRenameDialog(thread)}><span aria-hidden="true">✎</span> Rename</button>
+                <button type="button" className="thread-action thread-action-danger" role="menuitem" onClick={() => openDeleteDialog(thread)}><span aria-hidden="true">⌫</span> Delete</button>
+              </div>}
             </div>
           ))}</nav>
           <div className="sidebar-bottom"><div className="avatar">{user.name.slice(0, 1).toUpperCase()}</div><div><strong>{user.name}</strong><small>{accountPlan} plan</small></div><form action="/api/auth/logout" method="post"><button title="Sign out" aria-label="Sign out">↗</button></form></div>
@@ -380,6 +423,23 @@ export default function DashboardClient() {
         <a href="#leash-control"><b aria-hidden="true">✓</b><span>Leash</span></a>
         <a href="#web-settings"><b aria-hidden="true">≡</b><span>Settings</span></a>
       </nav>
+      {chatDialog && <div className="chat-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target && !chatOperationBusy) setChatDialog(null); }}>
+        <section className="chat-dialog" role="dialog" aria-modal="true" aria-labelledby="chat-dialog-title">
+          {chatDialog.kind === "rename" ? <form onSubmit={(event) => void submitChatDialog(event)}>
+            <p className="eyebrow">CHAT SETTINGS</p>
+            <h2 id="chat-dialog-title">Rename chat</h2>
+            <label>Chat name<input autoFocus value={renameValue} onChange={(event) => setRenameValue(event.target.value)} maxLength={120} /></label>
+            <div className="chat-dialog-actions"><button type="button" className="button button-secondary button-small" disabled={chatOperationBusy} onClick={() => setChatDialog(null)}>Cancel</button><button className="button button-primary button-small" disabled={chatOperationBusy || !renameValue.trim()}>Save name</button></div>
+          </form> : <>
+            <p className="eyebrow">DESTRUCTIVE ACTION</p>
+            <h2 id="chat-dialog-title">{chatDialog.kind === "clear" ? "Clear all chats?" : "Delete this chat?"}</h2>
+            <p>{chatDialog.kind === "clear"
+              ? `This deletes all ${threads.length} visible chats from ThumbGate and the paired Hermes machine${devices.length === 1 ? "" : "s"}. You cannot undo this.`
+              : `This deletes “${chatDialog.thread.title}” from ThumbGate and its paired Hermes machine. You cannot undo this.`}</p>
+            <div className="chat-dialog-actions"><button type="button" className="button button-secondary button-small" disabled={chatOperationBusy} onClick={() => setChatDialog(null)}>Cancel</button><button type="button" className="button button-danger button-small" disabled={chatOperationBusy} onClick={() => void submitChatDialog()}>{chatOperationBusy ? "Working…" : chatDialog.kind === "clear" ? "Clear all chats" : "Delete chat"}</button></div>
+          </>}
+        </section>
+      </div>}
     </main>
   );
 }
