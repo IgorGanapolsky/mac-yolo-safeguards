@@ -184,7 +184,7 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
-    expect(getByTestId('chat-context-link').props.children).toContain('Relay only');
+    expect(getByTestId('chat-context-link').props.children).toContain('Needs computer link');
   });
 
   it('shows endpoint while connected when multi-Mac detail is enabled', () => {
@@ -225,9 +225,9 @@ describe('ChatScreenHeader', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
         threadTitle="New chat"
-        machineLabel="Hermes account relay"
+        machineLabel="Your computer"
         machineEndpoint="pair once"
-        routeStatusLabel="Pair relay in Settings for Wi‑Fi, cellular, or USB"
+        routeStatusLabel="Use Tailscale for cellular, or home Wi‑Fi when local"
         connectionState="disconnected"
         onOpenThreads={jest.fn()}
         onPressMachine={jest.fn()}
@@ -235,7 +235,7 @@ describe('ChatScreenHeader', () => {
     );
 
     expect(getByTestId('chat-context-link').props.children).toContain(
-      'Pair relay in Settings for Wi‑Fi, cellular, or USB',
+      'Use Tailscale for cellular, or home Wi‑Fi when local',
     );
   });
 
@@ -245,7 +245,7 @@ describe('ChatScreenHeader', () => {
         threadTitle="New chat"
         machineLabel="Igors-MacBook-Pro"
         machineEndpoint={undefined}
-        routeStatusLabel="Pair relay in Settings for Wi‑Fi, cellular, or USB"
+        routeStatusLabel="Use Tailscale for cellular, or home Wi‑Fi when local"
         connectionState="connecting"
         needsPair
         onOpenThreads={jest.fn()}
@@ -254,7 +254,7 @@ describe('ChatScreenHeader', () => {
     );
 
     expect(getByTestId('chat-context-link').props.children).toContain(
-      'Pair relay in Settings for Wi‑Fi, cellular, or USB',
+      'Use Tailscale for cellular, or home Wi‑Fi when local',
     );
     expect(String(getByTestId('chat-context-link').props.children)).not.toContain('Connecting');
     expect(queryByTestId('chat-context-mac-endpoint')).toBeNull();

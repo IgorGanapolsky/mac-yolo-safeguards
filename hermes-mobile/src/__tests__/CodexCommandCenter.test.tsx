@@ -149,8 +149,10 @@ describe('CodexCommandCenter', () => {
       />,
     );
 
-    expect(getByTestId('command-center-link-state').props.children).toBe('Relay only');
-    expect(getByTestId('command-center-mac-detail').props.children).toBe('Chat needs direct link');
+    expect(getByTestId('command-center-link-state').props.children).toBe('Needs computer link');
+    expect(getByTestId('command-center-mac-detail').props.children).toBe(
+      'Use Tailscale or home Wi‑Fi',
+    );
   });
 
   it('hides entire command center when connected and idle', () => {

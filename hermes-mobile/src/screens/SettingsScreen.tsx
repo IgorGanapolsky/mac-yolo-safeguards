@@ -262,7 +262,7 @@ export default function SettingsScreen() {
           'Connected',
           health?.level === 'green'
             ? `Direct local link healthy at ${url}`
-            : `Using ${url}. If direct Chat still fails, keep Hermes Relay paired for approvals or scan the QR from Hermes on your computer.`,
+            : `Using ${url}. If Chat still fails, turn on Tailscale or scan the QR from Hermes on your computer.`,
         );
       }
     } catch (err) {
@@ -354,7 +354,7 @@ export default function SettingsScreen() {
   const handlePair = async () => {
     Keyboard.dismiss();
     if (!pairCode.trim()) {
-      Alert.alert('Pairing code required', 'Run Hermes Relay pairing on your computer and enter the code Hermes shows you.');
+      Alert.alert('Pairing code required', 'On your computer, open Hermes pairing and enter the code it shows you.');
       return;
     }
     try {
@@ -392,7 +392,10 @@ export default function SettingsScreen() {
         inputApiKey,
       );
       setPairCode('');
-      Alert.alert('Paired', 'Hermes Mobile is linked to your Hermes Relay for anywhere approvals.');
+      Alert.alert(
+        'Cloud approvals paired',
+        'Approval requests can arrive anywhere. This does not provide live Chat or computer tools; connect to your computer with Tailscale, USB, or home Wi‑Fi.',
+      );
     } catch (err) {
       Alert.alert('Pairing failed', err instanceof Error ? err.message : 'Could not complete pairing');
     }
@@ -469,7 +472,7 @@ export default function SettingsScreen() {
             <Text style={styles.doneText}>Done</Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.subtitle}>Pair Hermes Relay, choose active machines, and run local fallback ops</Text>
+        <Text style={styles.subtitle}>Connect your computer with Tailscale or home Wi‑Fi, then manage machines and ops</Text>
       </View>
 
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
@@ -545,8 +548,8 @@ export default function SettingsScreen() {
         <GlassCard>
           <Text style={styles.label}>Your active machines</Text>
           <Text style={styles.description}>
-            Relay is the default path for approvals anywhere. Saved machines are direct-link
-            fallbacks for live Chat, tools, and ops until full cloud chat relay is enabled.
+            Away from home, use Tailscale so your phone can reach your computer. On home Wi‑Fi,
+            Find computers works without a tunnel. Saved machines power Chat, tools, and ops.
           </Text>
           <GatewayProfilePicker
             profiles={profilesForSwitchComputerPicker(savedMacProfiles)}
@@ -571,7 +574,7 @@ export default function SettingsScreen() {
             style={styles.pairButton}
           />
           <Text style={styles.description}>
-            Hermes on your computer must be running. Local search is optional fallback, not the main path.
+            Hermes on your computer must be running. Find computers searches home Wi‑Fi and Tailscale.
           </Text>
           <MacPairingHelp variant="getting-started" compact testID="settings-mac-pairing-help" />
           <TouchableOpacity
@@ -636,20 +639,17 @@ export default function SettingsScreen() {
           <Text style={styles.sectionTitle}>Computer gateway ops</Text>
         </View>
         <Text style={styles.description}>
-          Toolsets, cron jobs, and skills from a direct Hermes machine link. Relay remains the
-          anywhere approval path.
+          Toolsets, cron jobs, and skills from your computer (Tailscale, home Wi‑Fi, or USB).
         </Text>
         <GatewayOpsSection />
 
-        <Text style={styles.sectionTitle}>Hermes Relay</Text>
+        <Text style={styles.sectionTitle}>Computer connection</Text>
         <GlassCard>
           <Text style={styles.description}>
-            Pair relay in Settings for Wi‑Fi, cellular, or USB — like Telegram. Direct links stay
-            available as local fallback for live machine tools until full cloud chat relay endpoints
-            are enabled.
+            Use Tailscale away from home, or USB/home Wi‑Fi nearby, for Chat, tools, and ops.
           </Text>
           <View style={styles.relayRouteCard} testID="relay-route-card">
-            <Text style={styles.relayRouteEyebrow}>Account route</Text>
+            <Text style={styles.relayRouteEyebrow}>Cloud approvals (optional)</Text>
             <Text style={styles.relayRouteTitle} testID="relay-route-title">
               {relayRouteDisplay.machineLabel}
             </Text>
@@ -695,8 +695,10 @@ export default function SettingsScreen() {
           <View style={styles.spacer} />
           <View style={styles.switchRow}>
             <View style={styles.switchLabelCol}>
-              <Text style={styles.switchLabel}>Use Hermes Relay</Text>
-              <Text style={styles.switchDesc}>Approval queue over the internet; Wi-Fi optional</Text>
+              <Text style={styles.switchLabel}>Cloud approvals (optional)</Text>
+              <Text style={styles.switchDesc}>
+                Pair your Hermes account for approval requests anywhere. Does not provide live Chat or computer tools.
+              </Text>
             </View>
             <Switch
               value={connectionMode === 'relay'}
@@ -714,7 +716,7 @@ export default function SettingsScreen() {
             </Text>
           ) : null}
           <View style={styles.divider} />
-          <Text style={styles.label}>Cloud relay URL</Text>
+          <Text style={styles.label}>Cloud approvals URL (advanced)</Text>
           <TextInput
             style={styles.input}
             value={cloudUrl}

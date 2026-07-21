@@ -28,10 +28,10 @@ describe('ChatEmptyGreeting', () => {
   });
 
   it('prefers route labels for account-relay copy', () => {
-    const { getByTestId } = render(<ChatEmptyGreeting routeLabel="Hermes account relay" />);
+    const { getByTestId } = render(<ChatEmptyGreeting routeLabel="Your computer" />);
 
     expect(getByTestId('chat-empty-greeting-subtitle').props.children).toBe(
-      'Ask anything — pair Hermes relay for Wi‑Fi, cellular, or USB when you are away from your computer.',
+      'Ask anything — use Tailscale when you are away, or home Wi‑Fi when you are local.',
     );
   });
 
