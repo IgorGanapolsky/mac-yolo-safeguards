@@ -21,7 +21,9 @@ const SESSION_LIMIT = 60;
 // bounded by MAX_CONTEXT_MESSAGES/MAX_CONTEXT_CHARS so sync cost grows linearly.
 const CONTEXT_SESSION_LIMIT = 40;
 const REQUEST_TIMEOUT_MS = 15_000;
-const TASK_TIMEOUT_MS = 75_000;
+// 150s covers a cold local-model load (~44s measured for qwen3:8b-64k with a
+// 65536-token context) plus generation time; 75s was tripping on cold starts.
+const TASK_TIMEOUT_MS = 150_000;
 const MAX_CONTEXT_MESSAGES = 60;
 const MAX_CONTEXT_CHARS = 48_000;
 
@@ -275,7 +277,11 @@ async function executeLocal(config, task) {
   const messages = [...(Array.isArray(task.contextMessages) ? task.contextMessages : []), { role: 'user', content: task.prompt }];
   const payload = await gatewayJson(config.modelGatewayUrl, '/v1/chat/completions', {
     method: 'POST', gatewayEnvPath: config.gatewayEnvPath,
-    body: JSON.stringify({ model: process.env.HERMES_LOCAL_MODEL || 'hermes', messages, stream: false }),
+    // 'hermes' was never a real model on the gateway (only 'hermes-local' /
+    // 'hermes-local-fast' / 'omlx-local' are registered) — every local task
+    // failed instantly with "Invalid model name" until HERMES_LOCAL_MODEL was
+    // set explicitly. Default to the model that's actually served.
+    body: JSON.stringify({ model: process.env.HERMES_LOCAL_MODEL || 'hermes-local', messages, stream: false }),
   });
   return contentText(payload.choices?.[0]?.message?.content) || JSON.stringify(payload);
 }
