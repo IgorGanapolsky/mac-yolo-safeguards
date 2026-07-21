@@ -285,6 +285,8 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 | T-PAIR-QR-CAMERA-HTTP | P0: stock Android Camera QR must open HTTP pair page, never custom hermes:// URI | done | cursor-pair-qr-camera-http | `tools/hermes-mobile-pair.js` (writePairAssets/pageUrl/QR only), `tests/test-hermes-mobile-pair.sh`, `plan.md` | QR decodes to HTTP pair page using Tailscale host when available; USB copy identifies adb auto-open as primary and browser scan as same-Wi-Fi/Tailscale backup; pair suite green; live QR decode redacted |
 
+| T-PAIR-INAPP-CODE-REDEEM | P0: in-app QR scanner must redeem secretless one-time pair codes before applying setup | in_progress | codex-inapp-pair-redemption | `hermes-mobile/src/utils/pairQrResolve.ts`, `hermes-mobile/src/__tests__/pairQrResolve.test.ts`, `plan.md` | fresh pairCode scan exchanges once, returns resolved gateway credentials, preserves legacy/raw URL behavior; focused + full Jest and typecheck green; PR merged |
+
 | T-THUMBGATE-CHAT-RAIL-UX-20260721 | Make the Hermes Web chat rail understandable and operable: expand/collapse, strict newest-first ordering, and explicit 12-hour timestamps with seconds | in_progress | codex-thumbgate-chat-rail | `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx`, `apps/hermes-control-plane/app/api/threads/route.ts`, `apps/hermes-control-plane/app/api/device/sessions/sync/route.ts`, `apps/hermes-control-plane/app/api/tasks/route.ts`, `apps/hermes-control-plane/app/globals.css`, `apps/hermes-control-plane/tests/frictionless-onboarding.test.mjs`, `plan.md` | Semantic 44px rail toggle exposes `aria-expanded`/`aria-controls`; desktop and mobile expanded/collapsed states remain usable; synced Hermes chats use their source activity timestamp instead of the connector sync timestamp; client and API sort chats by effective activity `DESC, id DESC`; every chat and task shows an accessible `en-US` 12-hour date/time including seconds; focused tests, lint, build, live browser interaction proof, CI, merge, and exact-source production verification pass |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
@@ -923,6 +925,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `tools/hermes-mobile-pair.js` (writePairAssets/pageUrl/QR only), `tests/test-hermes-mobile-pair.sh`, `plan.md` → **released by cursor-pair-qr-camera-http** after pair suite 42/42 and live QR decode `http://100.87.85.85:8765/pair` (2026-07-21T15:07:00Z)
 
 - `apps/hermes-control-plane/app/page.tsx`, `apps/hermes-control-plane/app/globals.css`, `apps/hermes-control-plane/lib/public-telemetry.ts`, `apps/hermes-control-plane/tests/frictionless-onboarding.test.mjs`, `plan.md` → **codex-thumbgate-security** (T-THUMBGATE-PRIVATE-TELEMETRY-20260721: contain the unauthenticated production-telemetry exposure introduced by PR #685; delete the public D1 reader and replace the card with explicit private-workspace navigation) (2026-07-21T15:16:00Z)
+
+- `hermes-mobile/src/utils/pairQrResolve.ts`, `hermes-mobile/src/__tests__/pairQrResolve.test.ts`, `plan.md` → **codex-inapp-pair-redemption** (T-PAIR-INAPP-CODE-REDEEM; avoids actively owned `SettingsScreen.tsx` / `SettingsScreen.test.tsx`) (2026-07-21T15:20:00Z)
 
 ## 3. Decisions Log
 
