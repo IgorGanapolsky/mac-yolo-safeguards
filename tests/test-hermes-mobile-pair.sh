@@ -100,12 +100,30 @@ else
   bad "identical mini/laptop keys classify as SSH success (not cleared)"
 fi
 
-# USB reverse secretless pairServer must prefer loopback (source contract)
+# USB reverse adb deep-link pairServer prefers loopback; Camera/HTTP uses Tailscale.
 if grep -q "127.0.0.1:\${PAIR_PORT}" "$REPO/tools/hermes-mobile-pair.js" \
-  && grep -q 'pairExchangeBase' "$REPO/tools/hermes-mobile-pair.js"; then
-  ok "pair script uses 127.0.0.1 pairExchangeBase when USB reverse :8765 is up"
+  && grep -q 'adbPairExchangeBase' "$REPO/tools/hermes-mobile-pair.js" \
+  && grep -q 'resolvePhoneReachablePairServerUrl' "$REPO/tools/hermes-mobile-pair.js"; then
+  ok "pair script splits adb loopback vs Camera/HTTP Tailscale pairServer"
 else
-  bad "pair script uses 127.0.0.1 pairExchangeBase when USB reverse :8765 is up"
+  bad "pair script splits adb loopback vs Camera/HTTP Tailscale pairServer"
+fi
+
+# Camera/HTTP remints must not redeem against LAN when Tailscale IP exists.
+if grep -q 'resolveLiveMintPairServerUrl' "$REPO/tools/hermes-mobile-pair.js" \
+  && grep -q 'Stale seed often stores LAN while Camera QR already uses Tailscale' "$REPO/tools/hermes-mobile-pair.js" \
+  && grep -q 'Pair exchange (Camera/HTTP)' "$REPO/tools/hermes-mobile-pair.js"; then
+  ok "live mint upgrades LAN pairServer to Tailscale for Camera QR redeem"
+else
+  bad "live mint upgrades LAN pairServer to Tailscale for Camera QR redeem"
+fi
+
+# --open must prefer live HTTP over file://
+if grep -q 'Prefer live HTTP (Tailscale/LAN) over file://' "$REPO/tools/hermes-mobile-pair.js" \
+  && grep -q 'const openTarget = pageUrl || htmlPath' "$REPO/tools/hermes-mobile-pair.js"; then
+  ok "pair --open launches live HTTP pair page not file://"
+else
+  bad "pair --open launches live HTTP pair page not file://"
 fi
 
 # Host/key consistency: never bind mini key to USB/local URL
@@ -495,9 +513,10 @@ fi
 # P0 2026-07-21: file:// pair page must embed QR (Chrome often fails sibling PNG loads),
 # and loopback/USB must not claim "same Wi‑Fi" as the primary instruction.
 if [[ "$PAIR_JS" == *'data:image/png;base64,'* ]] \
-  && [[ "$PAIR_JS" == *'USB cable pairing auto-opens Hermes via adb'* ]] \
+  && [[ "$PAIR_JS" == *'USB cable pairing auto-opens Hermes'* || "$PAIR_JS" == *'USB cable: Hermes opens automatically'* ]] \
   && [[ "$PAIR_JS" == *'USB gateway'* ]] \
-  && [[ "$PAIR_JS" == *'isLoopbackGatewayUrl(gatewayUrl)'* ]]; then
+  && [[ "$PAIR_JS" == *'isLoopbackGatewayUrl(gatewayUrl)'* ]] \
+  && [[ "$PAIR_JS" == *'file://'* ]]; then
   ok "pair page embeds QR data URL + USB-first copy for loopback gateways"
 else
   bad "pair page embeds QR data URL + USB-first copy for loopback gateways"
@@ -514,11 +533,12 @@ else
 fi
 
 
-if [[ "$PAIR_JS" == *'Stock Android Camera cannot open hermes:// links directly'* ]] \
-  && [[ "$PAIR_JS" == *'auto-opens Hermes via adb'* ]]; then
-  ok "USB copy explains adb primary and HTTP Camera backup path"
+if [[ "$PAIR_JS" == *'Stock Camera cannot open hermes://'* || "$PAIR_JS" == *'Stock Android Camera cannot open hermes://'* ]] \
+  && [[ "$PAIR_JS" == *'Tailscale'* ]] \
+  && [[ "$PAIR_JS" == *'USB cable'* ]]; then
+  ok "USB copy explains Tailscale Camera path + USB cable primary"
 else
-  bad "USB copy explains adb primary and HTTP Camera backup path"
+  bad "USB copy explains Tailscale Camera path + USB cable primary"
 fi
 
 # --server-only refresh must not clobber a live USB loopback primary with Tailscale.
