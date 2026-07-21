@@ -56,12 +56,12 @@ export function profilePickerLines(
   options: { cablePluggedIn?: boolean } = {},
 ): ProfilePickerLines {
   const title = fleetComputerDisplayName(profileDisplayName(profile));
-  if (options.cablePluggedIn) {
+  // Cable presence is secondary. Label the row's actual route first so Home Wi‑Fi
+  // never reads as "Using USB" when the active path is a LAN URL.
+  if (options.cablePluggedIn && isLoopbackGatewayUrl(profile.gatewayUrl)) {
     return {
       title,
-      detail: isLoopbackGatewayUrl(profile.gatewayUrl)
-        ? 'USB cable connected · Tailscale is the away-from-home option'
-        : 'Cable connected · Tailscale works away from home',
+      detail: 'USB cable connected · Tailscale is the away-from-home option',
     };
   }
   if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
@@ -69,13 +69,33 @@ export function profilePickerLines(
   }
   const endpoint = profilePickerEndpoint(profile);
   if (isTailscaleGatewayUrl(profile.gatewayUrl)) {
+    const base = endpoint ? `Tailscale · ${endpoint}` : 'Tailscale';
     return {
       title,
-      detail: endpoint ? `Tailscale · ${endpoint}` : 'Tailscale',
+      detail: options.cablePluggedIn ? `${base} · USB cable also available` : base,
     };
   }
-  if (endpoint && !title.toLowerCase().includes(endpoint.split(':')[0].toLowerCase())) {
-    return { title, detail: endpoint };
+  const endpointInTitle = Boolean(
+    endpoint && title.toLowerCase().includes(endpoint.split(':')[0].toLowerCase()),
+  );
+  if (isPrivateLanGatewayUrl(profile.gatewayUrl)) {
+    if (options.cablePluggedIn) {
+      const base = endpoint && !endpointInTitle ? endpoint : 'Home Wi‑Fi';
+      return { title, detail: `${base} · USB cable also available` };
+    }
+    if (endpoint && !endpointInTitle) {
+      return { title, detail: endpoint };
+    }
+    return { title };
+  }
+  if (endpoint && !endpointInTitle) {
+    return {
+      title,
+      detail: options.cablePluggedIn ? `${endpoint} · USB cable also available` : endpoint,
+    };
+  }
+  if (options.cablePluggedIn) {
+    return { title, detail: 'USB cable also available' };
   }
   return { title };
 }
@@ -86,10 +106,10 @@ export function profileConnectionRouteDisplayLabel(
   wifiConnected: boolean,
   options: { cablePluggedIn?: boolean } = {},
 ): string {
-  if (options.cablePluggedIn) {
-    return isLoopbackGatewayUrl(profile.gatewayUrl)
-      ? 'Plugged in with this cable'
-      : 'Plugged in · also works away from home';
+  // Only the USB/loopback row may claim the cable as the active route.
+  // LAN/Tailscale rows keep their route label even when a cable is plugged in.
+  if (options.cablePluggedIn && isLoopbackGatewayUrl(profile.gatewayUrl)) {
+    return 'USB';
   }
   const route = profileConnectionRouteLabel(profile, wifiConnected);
   switch (route) {
@@ -164,16 +184,22 @@ export function preferredProfileForMachine(
   if (candidates.length === 1) {
     return candidates[0];
   }
-  const activeTailscale = candidates.find(
-    (profile) =>
-      profile.id === options.activeProfileId && isTailscaleGatewayUrl(profile.gatewayUrl),
-  );
-  if (activeTailscale) {
-    // Preserve the selected saved profile's identity. Replacing it with a synthesized USB
-    // alias would make the single machine row look unselected and would make Forget target
-    // the wrong row. Do not preserve an active home-Wi-Fi alias here: away from home it would
-    // hide the same machine's usable Tailscale route. Cable state is rendered separately.
-    return activeTailscale;
+  const activeInGroup = candidates.find((profile) => profile.id === options.activeProfileId);
+  if (activeInGroup) {
+    const activeIsUsb = isLoopbackGatewayUrl(activeInGroup.gatewayUrl);
+    const cableLive = options.liveUsb?.reachable === true;
+    // Preserve Tailscale (and USB when already selected). When a live cable would otherwise
+    // steal the row (USB score 100 > Wi‑Fi 70), also preserve the active Home Wi‑Fi /
+    // Tailscale identity so the picker cannot say "Using USB" while the header says
+    // Home Wi‑Fi. Without a cable, still allow ranking to prefer Tailscale over a stale
+    // home-Wi‑Fi alias (away-from-home).
+    if (
+      activeIsUsb ||
+      isTailscaleGatewayUrl(activeInGroup.gatewayUrl) ||
+      cableLive
+    ) {
+      return activeInGroup;
+    }
   }
   const liveHost = options.liveUsb?.reachable ? options.liveUsb.hostname?.trim() : null;
   const transportFor = (profile: GatewayProfile): ReachabilityTransport => {

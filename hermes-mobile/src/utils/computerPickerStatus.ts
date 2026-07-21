@@ -1,5 +1,6 @@
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
+import { resolveHeaderTransportLabel } from './chatMachineHeader';
 import {
   formatLanScanResultDetail,
   formatLanScanResultLabel,
@@ -12,7 +13,12 @@ export const COMPUTER_PICKER_STATUS_MIN_HEIGHT = 88;
 /** Hold scan/probe label flips long enough to stop modal jitter. */
 export const COMPUTER_PICKER_STATUS_DEBOUNCE_MS = 400;
 
-export type ComputerPickerStatusKind = 'searching' | 'result' | 'tailscale_found' | 'help';
+export type ComputerPickerStatusKind =
+  | 'searching'
+  | 'result'
+  | 'active'
+  | 'tailscale_found'
+  | 'help';
 
 export type ComputerPickerStatusSnapshot = {
   kind: ComputerPickerStatusKind;
@@ -30,6 +36,11 @@ export type ResolveComputerPickerStatusInput = {
   tailscaleProbing: boolean;
   tailscaleVpnActive: boolean;
   tailscaleDiscoveries: DiscoveredGateway[];
+  /** Active chat gateway URL — same SSoT as the header transport chip. */
+  activeGatewayUrl?: string | null;
+  wifiConnected?: boolean;
+  /** True when the active Mac answers HTTP (header would say Connected). */
+  activeReachable?: boolean;
 };
 
 /**
@@ -72,13 +83,56 @@ export function resolveComputerPickerStatus(
   }
 
   if (input.showScanResult && input.scanResult) {
+    const activeTransport = input.activeGatewayUrl
+      ? resolveHeaderTransportLabel({
+          gatewayUrl: input.activeGatewayUrl,
+          wifiConnected: input.wifiConnected,
+        })
+      : undefined;
+    const scanTitle = formatLanScanResultLabel(input.scanResult);
+    // Discovery can find the Mac over USB while chat still uses Home Wi‑Fi / Tailscale.
+    // Never let a USB-only scan banner contradict the header's active-path label.
+    if (
+      input.activeReachable &&
+      activeTransport &&
+      activeTransport !== 'USB' &&
+      /over USB|Using USB/i.test(scanTitle)
+    ) {
+      return {
+        kind: 'active',
+        title: `Connected · ${activeTransport}`,
+        detail:
+          'USB may also be available for this computer — tap a row to switch routes.',
+        success: true,
+        discoveries: [],
+      };
+    }
     return {
       kind: 'result',
-      title: formatLanScanResultLabel(input.scanResult),
+      title: scanTitle,
       detail: formatLanScanResultDetail(input.scanResult),
       success: input.scanResult.foundCount > 0,
       discoveries: [],
     };
+  }
+
+  if (input.activeReachable && input.activeGatewayUrl) {
+    const activeTransport = resolveHeaderTransportLabel({
+      gatewayUrl: input.activeGatewayUrl,
+      wifiConnected: input.wifiConnected,
+    });
+    if (activeTransport) {
+      return {
+        kind: 'active',
+        title: `Connected · ${activeTransport}`,
+        detail:
+          activeTransport === 'USB'
+            ? 'Chat uses this USB cable. Tap another computer below to switch.'
+            : 'Chat uses this path. A USB cable may also be available for the same computer.',
+        success: true,
+        discoveries: [],
+      };
+    }
   }
 
   if (!input.tailscaleVpnActive && (input.tailscaleProbing || discoveries.length > 0)) {

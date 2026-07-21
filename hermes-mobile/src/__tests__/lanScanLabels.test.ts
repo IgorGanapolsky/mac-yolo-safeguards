@@ -84,7 +84,7 @@ describe('lanScanLabels', () => {
         tailscaleCount: 0,
         usbCount: 1,
       }),
-    ).toBe('Using USB');
+    ).toBe('Found 1 over USB');
     expect(
       formatLanScanResultLabel({
         foundCount: 2,
@@ -93,6 +93,15 @@ describe('lanScanLabels', () => {
         usbCount: 2,
       }),
     ).toBe('Found 2 over USB');
+    // Discovery copy must never claim the active chat route ("Using USB").
+    expect(
+      formatLanScanResultLabel({
+        foundCount: 1,
+        lanCount: 0,
+        tailscaleCount: 0,
+        usbCount: 1,
+      }),
+    ).not.toMatch(/Using USB/i);
     expect(
       formatLanScanResultLabel({
         foundCount: 2,

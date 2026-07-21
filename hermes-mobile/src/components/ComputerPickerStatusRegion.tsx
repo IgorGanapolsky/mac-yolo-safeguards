@@ -28,6 +28,9 @@ type ComputerPickerStatusRegionProps = {
   tailscaleProbing: boolean;
   tailscaleVpnActive: boolean;
   tailscaleDiscoveries: DiscoveredGateway[];
+  activeGatewayUrl?: string | null;
+  wifiConnected?: boolean;
+  activeReachable?: boolean;
   addingTailscale?: boolean;
   onAddTailscale?: (discovery: DiscoveredGateway) => void;
   testID?: string;
@@ -40,6 +43,9 @@ export default function ComputerPickerStatusRegion({
   tailscaleProbing,
   tailscaleVpnActive,
   tailscaleDiscoveries,
+  activeGatewayUrl = null,
+  wifiConnected = true,
+  activeReachable = false,
   addingTailscale = false,
   onAddTailscale,
   testID = 'mac-picker-status-region',
@@ -54,6 +60,9 @@ export default function ComputerPickerStatusRegion({
       tailscaleProbing,
       tailscaleVpnActive,
       tailscaleDiscoveries,
+      activeGatewayUrl,
+      wifiConnected,
+      activeReachable,
     }),
   );
   const commitMetaRef = useRef<{
@@ -87,6 +96,9 @@ export default function ComputerPickerStatusRegion({
       tailscaleProbing,
       tailscaleVpnActive,
       tailscaleDiscoveries,
+      activeGatewayUrl,
+      wifiConnected,
+      activeReachable,
     });
     const nextSignature = computerPickerStatusSignature(next);
     const nowMs = Date.now();
@@ -155,10 +167,13 @@ export default function ComputerPickerStatusRegion({
     tailscaleProbing,
     tailscaleVpnActive,
     tailscaleDiscoveries,
+    activeGatewayUrl,
+    wifiConnected,
+    activeReachable,
   ]);
 
   const borderTint =
-    status.kind === 'result'
+    status.kind === 'result' || status.kind === 'active'
       ? status.success
         ? styles.cardSuccess
         : styles.cardWarn
@@ -177,7 +192,9 @@ export default function ComputerPickerStatusRegion({
         <Text
           style={[
             styles.title,
-            status.kind === 'result' && status.success ? styles.titleSuccess : null,
+            (status.kind === 'result' || status.kind === 'active') && status.success
+              ? styles.titleSuccess
+              : null,
             status.kind === 'result' && !status.success ? styles.titleWarn : null,
           ]}
           numberOfLines={2}
