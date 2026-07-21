@@ -409,19 +409,40 @@ function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relay
     text-decoration:none; border-radius:12px; font-weight:700; }
   p { max-width:420px; margin:12px auto; line-height:1.5; color:#9ca3af; }
   code { color:#22d3ee; font-size:11px; word-break:break-all; }
+  .hint { display:inline-block; margin-top:10px; padding:4px 10px; border:1px solid #374151; border-radius:999px; font-size:12px; color:#a5b4fc; }
+  [data-view] { display:none; }
 </style></head>
 <body>
   <h1>Hermes Mobile</h1>
   <h2 style="color:#a5b4fc;font-size:15px;margin:0 0 8px">${displayName}</h2>
-  <p>${pairingInstructions}</p>
-  ${imgTag}
-  <p>${gatewayLabel}: <code>${gatewayUrl}</code></p>
-  <a class="btn" href="${deepLink}">Open in Hermes Mobile</a>
-  <p>No typing — Hermes Mobile links automatically.</p>
+
+  <div data-view="mac">
+    <span class="hint">Viewing on this Mac</span>
+    <p>This page is for your <strong>phone</strong>, not this computer — the button below only works on Android. Scan the QR with your phone's camera, or plug the phone in by USB and Hermes opens automatically (no scan needed).</p>
+    ${imgTag}
+    <p>${gatewayLabel}: <code>${gatewayUrl}</code></p>
+  </div>
+
+  <div data-view="phone">
+    <span class="hint">Viewing on your phone</span>
+    <p>${pairingInstructions}</p>
+    <p>${gatewayLabel}: <code>${gatewayUrl}</code></p>
+    <a class="btn" href="${deepLink}">Open in Hermes Mobile</a>
+    <p>No typing — Hermes Mobile links automatically.</p>
+  </div>
+
   <script>
-    setTimeout(function () {
-      window.location.href = '${deepLink.replace(/'/g, "\\'")}';
-    }, 600);
+    // Same generated page renders on both the Mac (file:// --open) and the phone
+    // (scanned QR loads this over HTTP) — only the phone side can act on hermes://,
+    // so decide which copy to show instead of always offering a dead button.
+    var isPhone = /Android|iPhone|iPad/i.test(navigator.userAgent);
+    var view = document.querySelector('[data-view="' + (isPhone ? 'phone' : 'mac') + '"]');
+    if (view) view.style.display = 'block';
+    if (isPhone) {
+      setTimeout(function () {
+        window.location.href = '${deepLink.replace(/'/g, "\\'")}';
+      }, 600);
+    }
   </script>
 </body></html>`;
   fs.writeFileSync(htmlPath, html);
