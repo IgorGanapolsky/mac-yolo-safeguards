@@ -504,11 +504,11 @@ else
   bad "pair page embeds QR data URL + USB-first copy for loopback gateways"
 fi
 
-if [[ "$PAIR_JS" == *'const qrPayload = usbPrimary ? deepLink : pageUrl'* ]] \
-  || [[ "$PAIR_JS" == *'usbPrimary ? deepLink : pageUrl'* ]]; then
-  ok "USB pair QR encodes deep link (not LAN pair URL)"
+if [[ "$PAIR_JS" == *'const usbPairPageUrl = `http://127.0.0.1:${PAIR_PORT}/pair`'* ]] \
+  && [[ "$PAIR_JS" == *'const qrPayload = usbPrimary ? usbPairPageUrl : pageUrl'* ]]; then
+  ok "USB pair QR encodes a camera-compatible loopback HTTP page"
 else
-  bad "USB pair QR encodes deep link (not LAN pair URL)"
+  bad "USB pair QR encodes a camera-compatible loopback HTTP page"
 fi
 
 # --server-only refresh must not clobber a live USB loopback primary with Tailscale.
@@ -517,6 +517,16 @@ if [[ "$PAIR_JS" == *"keeping USB loopback primary"* ]] \
   ok "server-only refresh preserves USB loopback when adb reverse is live"
 else
   bad "server-only refresh preserves USB loopback when adb reverse is live"
+fi
+
+SERVER_ONLY_REFRESH="$(sed -n '/^function refreshPairAssetsFromLocalGateway()/,/^function runServerOnly()/p' "$REPO/tools/hermes-mobile-pair.js")"
+if [[ "$SERVER_ONLY_REFRESH" == *"pairServerReverseLive"* ]] \
+  && [[ "$SERVER_ONLY_REFRESH" == *"buildSecretlessDeepLink("* ]] \
+  && [[ "$SERVER_ONLY_REFRESH" == *"mintPairingCode({"* ]] \
+  && [[ "$SERVER_ONLY_REFRESH" != *"buildDeepLink("* ]]; then
+  ok "server-only refresh keeps pair page credentials behind one-time exchange"
+else
+  bad "server-only refresh keeps pair page credentials behind one-time exchange"
 fi
 
 printf "\nResults: %s passed, %s failed\n" "$pass" "$fail"

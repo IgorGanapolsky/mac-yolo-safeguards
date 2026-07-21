@@ -358,9 +358,11 @@ function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relay
   syncVaultProjectsCatalog();
   const displayName = (hostname || '').replace(/\.local$/i, '') || 'Mac';
   const usbPrimary = isLoopbackGatewayUrl(gatewayUrl);
-  // USB: QR must open the app deep link (camera scan must not depend on LAN/Wi‑Fi).
-  // Network: QR opens the pair HTTP page so the phone can tap through on the same LAN/tailnet.
-  const qrPayload = usbPrimary ? deepLink : pageUrl;
+  // Samsung Camera decodes custom hermes:// QR payloads but does not reliably surface
+  // an action for them. Use a normal HTTP URL over the already-required USB reverse;
+  // the served page then opens the app with its secretless one-time setup link.
+  const usbPairPageUrl = `http://127.0.0.1:${PAIR_PORT}/pair`;
+  const qrPayload = usbPrimary ? usbPairPageUrl : pageUrl;
   const qrPath = path.join(OUT_DIR, 'pair-qr.png');
   let imgTag = '';
   const qr = spawnSync('npx', ['--yes', 'qrcode', '-o', qrPath, qrPayload], {
@@ -376,7 +378,7 @@ function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relay
   }
 
   const pairingInstructions = usbPrimary
-    ? 'USB cable pairing is active — Hermes opens on the connected phone automatically via adb. Scan the QR only as a backup (no same-Wi‑Fi required).'
+    ? 'USB cable pairing is active — Hermes opens on the connected phone automatically via adb. As a backup, scan the QR to open the phone pair page (no same-Wi‑Fi required).'
     : 'Scan the QR with your phone camera (same Wi‑Fi or Tailscale) or tap Open below.';
   const gatewayLabel = usbPrimary ? 'USB gateway' : 'Gateway';
 
@@ -498,10 +500,12 @@ function refreshPairAssetsFromLocalGateway() {
     }
   }
   const serial = adbDevice();
-  const usbReverseLive =
-    Boolean(serial) &&
-    !String(serial).startsWith('emulator-') &&
-    !assertUsbAdbReverses(serial).missing.includes(8642);
+  const reverseState =
+    Boolean(serial) && !String(serial).startsWith('emulator-')
+      ? assertUsbAdbReverses(serial)
+      : null;
+  const usbReverseLive = Boolean(reverseState) && !reverseState.missing.includes(8642);
+  const pairServerReverseLive = Boolean(reverseState) && !reverseState.missing.includes(PAIR_PORT);
   const loopback = 'http://127.0.0.1:8642';
   if (usbReverseLive && verifyGatewayAuthSync(loopback, apiKey).ok) {
     gatewayUrl = loopback;
@@ -510,14 +514,23 @@ function refreshPairAssetsFromLocalGateway() {
     // Cable gone — fall through to Tailscale/LAN rewrite below.
     console.log('  pair.json refresh: prior USB primary, no live reverse — promoting network gateway');
   }
-  const deepLink = buildDeepLink(
-    gatewayUrl,
-    apiKey,
+  // This function runs only inside --server-only, so a one-time exchange endpoint is
+  // guaranteed to follow. Never regenerate the browser page with raw credentials.
+  const pairExchangeBase = pairServerReverseLive
+    ? `http://127.0.0.1:${PAIR_PORT}`
+    : `http://${lanIp}:${PAIR_PORT}`;
+  const deepLink = buildSecretlessDeepLink(
+    mintPairingCode({
+      gatewayUrl,
+      apiKey,
+      macName: hostname,
+      relayCode,
+      tailnetProbeHosts,
+      extraComputers: [],
+      thumbgateApiKey,
+    }),
+    pairExchangeBase,
     hostname,
-    relayCode,
-    tailnetProbeHosts,
-    [],
-    thumbgateApiKey,
   );
   const prevHost = String(previous?.hostname || '')
     .replace(/\.local$/i, '')
