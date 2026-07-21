@@ -39,6 +39,9 @@ const {
   putPairingCode,
   takePairingCode,
   pruneExpiredPairingCodes,
+  pairingCodeRemainingMs,
+  PAIRING_CODE_DISPLAY_TTL_MS,
+  PAIRING_CODE_REFRESH_MS,
   writePairJsonAtomic,
 } = require('./hermes-mobile-pair-lib.js');
 const { pipelineBusyReason } = require('./agent-phone-pipeline-lock.js');
@@ -135,6 +138,7 @@ function resolveLanIp(health) {
 }
 
 const PAIR_CODES_PATH = path.join(OUT_DIR, 'pair-codes.json');
+const PAIR_SEED_PATH = path.join(OUT_DIR, 'pair-seed.json');
 
 /**
  * Secretless one-time pairing code (T-330 priority 3): file-backed so the short-lived
@@ -156,16 +160,41 @@ function savePairCodesFile(map) {
   fs.writeFileSync(PAIR_CODES_PATH, JSON.stringify(map), { mode: 0o600 });
 }
 
-function mintPairingCode(payload) {
+function savePairSeed(seed) {
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+  fs.writeFileSync(PAIR_SEED_PATH, `${JSON.stringify(seed, null, 2)}\n`, { mode: 0o600 });
+}
+
+function loadPairSeed() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(PAIR_SEED_PATH, 'utf8'));
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Mint a single-use pairing code. Defaults to DISPLAY TTL (20m) so a QR left on the
+ * pair page does not go dead at 120s. Returns { code, expiresAt, ttlMs }.
+ */
+function mintPairingCode(payload, options = {}) {
   const map = loadPairCodesFile();
   const now = Date.now();
   for (const [code, entry] of Object.entries(map)) {
     if (!entry || now > entry.expiresAt) delete map[code];
   }
   const store = new Map(Object.entries(map));
-  const code = putPairingCode(store, payload);
+  const ttlMs = options.ttlMs ?? PAIRING_CODE_DISPLAY_TTL_MS;
+  const code = putPairingCode(store, payload, { ttlMs, now: () => now });
+  const entry = store.get(code);
   savePairCodesFile(Object.fromEntries(store));
-  return code;
+  return {
+    code,
+    expiresAt: entry.expiresAt,
+    ttlMs,
+    remainingMs: pairingCodeRemainingMs(entry, now),
+  };
 }
 
 /** Single-use, TTL-bound exchange — never returns the same code twice. */
@@ -353,41 +382,188 @@ function syncVaultProjectsCatalog() {
   }
 }
 
-function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relayCode, tailnetProbeHosts }) {
-  fs.mkdirSync(OUT_DIR, { recursive: true });
-  syncVaultProjectsCatalog();
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatRemainingLabel(remainingMs) {
+  const totalSec = Math.max(0, Math.ceil(remainingMs / 1000));
+  const mins = Math.floor(totalSec / 60);
+  const secs = totalSec % 60;
+  if (mins <= 0) return `${secs}s`;
+  return `${mins}m ${String(secs).padStart(2, '0')}s`;
+}
+
+/**
+ * Build the live pair HTML. Never bake a stale single-use code into a long-lived static
+ * file for HTTP `/pair` — callers mint immediately before render.
+ */
+function buildLivePairHtml({
+  gatewayUrl,
+  deepLink,
+  pageUrl,
+  hostname,
+  imgTag,
+  expiresAt,
+  remainingMs,
+  refreshMs = PAIRING_CODE_REFRESH_MS,
+}) {
   const displayName = (hostname || '').replace(/\.local$/i, '') || 'Mac';
   const usbPrimary = isLoopbackGatewayUrl(gatewayUrl);
-  // Stock Android Camera ignores custom-scheme QR payloads. Always send Camera through
-  // the HTTP pair page, preferring Tailscale so the page remains reachable off Wi-Fi.
+  const pairingInstructions = usbPrimary
+    ? 'USB cable pairing auto-opens Hermes via adb. Stock Android Camera cannot open hermes:// links directly; scan this HTTP QR only when the phone can reach this Mac on Wi‑Fi or Tailscale — the code refreshes automatically so it never goes dead on screen.'
+    : 'Scan the HTTP QR with your phone camera (same Wi‑Fi or Tailscale) or tap Open below. This page refreshes the pairing code before it expires.';
+  const gatewayLabel = usbPrimary ? 'USB gateway' : 'Gateway';
+  const safeDeepLink = String(deepLink || '').replace(/'/g, "\\'");
+  const remainingLabel = formatRemainingLabel(remainingMs);
+  const refreshSec = Math.max(5, Math.round(refreshMs / 1000));
+  return `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta http-equiv="Cache-Control" content="no-store"/>
+<title>Hermes Mobile — Pair</title>
+<style>
+  body { font-family: system-ui, sans-serif; background:#0b0f19; color:#e5e7eb; text-align:center; padding:24px; }
+  img { max-width:280px; margin:16px auto; border-radius:12px; background:#fff; padding:12px; display:block; }
+  a.btn { display:inline-block; margin-top:16px; padding:14px 22px; background:#6366f1; color:#fff;
+    text-decoration:none; border-radius:12px; font-weight:700; }
+  p { max-width:420px; margin:12px auto; line-height:1.5; color:#9ca3af; }
+  code { color:#22d3ee; font-size:11px; word-break:break-all; }
+  #ttl { color:#fbbf24; font-weight:600; }
+  #status { color:#a5b4fc; min-height:1.2em; }
+</style></head>
+<body>
+  <h1>Hermes Mobile</h1>
+  <h2 style="color:#a5b4fc;font-size:15px;margin:0 0 8px">${escapeHtml(displayName)}</h2>
+  <p>${escapeHtml(pairingInstructions)}</p>
+  ${imgTag || ''}
+  <p id="ttl">Code expires in <span id="ttl-value">${escapeHtml(remainingLabel)}</span></p>
+  <p id="status"></p>
+  <p>${escapeHtml(gatewayLabel)}: <code>${escapeHtml(gatewayUrl)}</code></p>
+  <a class="btn" id="open-btn" href="${escapeHtml(deepLink)}">Open in Hermes Mobile</a>
+  <p>No typing — Hermes Mobile links automatically.</p>
+  <script>
+    (function () {
+      var expiresAt = ${Number(expiresAt) || 0};
+      var refreshMs = ${Number(refreshMs) || 60000};
+      var deepLink = '${safeDeepLink}';
+      var pageUrl = ${JSON.stringify(pageUrl || '')};
+      var statusEl = document.getElementById('status');
+      var ttlEl = document.getElementById('ttl-value');
+      var openBtn = document.getElementById('open-btn');
+      function formatRemaining(ms) {
+        var totalSec = Math.max(0, Math.ceil(ms / 1000));
+        var mins = Math.floor(totalSec / 60);
+        var secs = totalSec % 60;
+        if (mins <= 0) return secs + 's';
+        return mins + 'm ' + String(secs).padStart(2, '0') + 's';
+      }
+      function tick() {
+        var remaining = Math.max(0, expiresAt - Date.now());
+        if (ttlEl) ttlEl.textContent = formatRemaining(remaining);
+        if (remaining <= 0) {
+          if (statusEl) statusEl.textContent = 'Code expired — refreshing…';
+          window.location.reload();
+          return;
+        }
+        if (remaining <= refreshMs) {
+          if (statusEl) statusEl.textContent = 'Refreshing pairing code…';
+          window.location.reload();
+        }
+      }
+      setInterval(tick, 1000);
+      setTimeout(function () {
+        if (statusEl) statusEl.textContent = 'Refreshing pairing code…';
+        window.location.reload();
+      }, refreshMs);
+      // Auto-open once per browser tab session so 60s remints do not spam hermes://.
+      try {
+        if (deepLink && !sessionStorage.getItem('hermesPairAutoOpened')) {
+          sessionStorage.setItem('hermesPairAutoOpened', '1');
+          setTimeout(function () { window.location.href = deepLink; }, 600);
+        }
+      } catch (e) {
+        if (deepLink) setTimeout(function () { window.location.href = deepLink; }, 600);
+      }
+      if (openBtn && deepLink) openBtn.href = deepLink;
+      if (pageUrl) { /* keep pageUrl for live reload identity */ }
+    })();
+  </script>
+</body></html>`;
+}
+
+function resolveCameraPageUrl(lanIp) {
   const tailnetIp = localTailscaleIpv4();
-  const cameraPageUrl = tailnetIp ? `http://${tailnetIp}:${PAIR_PORT}/pair` : pageUrl;
-  const qrPayload = cameraPageUrl;
+  if (tailnetIp) return `http://${tailnetIp}:${PAIR_PORT}/pair`;
+  return `http://${lanIp}:${PAIR_PORT}/pair`;
+}
+
+function writePairQrPng(qrPayload) {
   const qrPath = path.join(OUT_DIR, 'pair-qr.png');
-  let imgTag = '';
   const qr = spawnSync('npx', ['--yes', 'qrcode', '-o', qrPath, qrPayload], {
     cwd: REPO,
     encoding: 'utf8',
     timeout: 20_000,
   });
-  if (qr.status === 0 && fs.existsSync(qrPath)) {
-    // Data URL so file:// (Mac --open) never depends on Chrome loading a sibling PNG.
-    // Relative pair-qr.png still fails under file:// in some Chrome builds; HTTP /pair-qr.png stays for the server route.
-    const b64 = fs.readFileSync(qrPath).toString('base64');
-    imgTag = `<img src="data:image/png;base64,${b64}" alt="Pair QR code" width="280" height="280"/>`;
+  if (qr.status !== 0 || !fs.existsSync(qrPath)) {
+    return { qrPath, imgTag: '' };
   }
+  // Data URL so file:// (Mac --open) never depends on Chrome loading a sibling PNG.
+  const b64 = fs.readFileSync(qrPath).toString('base64');
+  return {
+    qrPath,
+    imgTag: `<img src="data:image/png;base64,${b64}" alt="Pair QR code" width="280" height="280"/>`,
+  };
+}
 
-  const pairingInstructions = usbPrimary
-    ? 'USB cable pairing auto-opens Hermes via adb. Stock Android Camera cannot open hermes:// links directly; scan this HTTP QR in your browser only when the phone can reach this Mac on the same Wi-Fi or Tailscale.'
-    : 'Scan the HTTP QR with your phone camera (same Wi-Fi or Tailscale) or tap Open below.';
-  const gatewayLabel = usbPrimary ? 'USB gateway' : 'Gateway';
+/**
+ * Persist non-secret-path seed + QR that points at the HTTP pair page (never a stale
+ * hermes:// code). Live `/pair` remints from pair-seed.json on every GET.
+ */
+function writePairAssets({
+  gatewayUrl,
+  lanIp,
+  deepLink,
+  pageUrl,
+  hostname,
+  relayCode,
+  tailnetProbeHosts,
+  pairSeed,
+  expiresAt,
+  remainingMs,
+}) {
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+  syncVaultProjectsCatalog();
+  const displayName = (hostname || '').replace(/\.local$/i, '') || 'Mac';
+  // Always encode the HTTP pair page for Camera. Stock Android Camera ignores hermes://
+  // and a baked deep-link code dies after TTL while the QR still looks valid.
+  const cameraPageUrl = resolveCameraPageUrl(lanIp);
+  const qrPayload = cameraPageUrl;
+  const { imgTag } = writePairQrPng(qrPayload);
+
+  if (pairSeed) {
+    savePairSeed({
+      ...pairSeed,
+      pairServer: pairSeed.pairServer || `http://${lanIp}:${PAIR_PORT}`,
+      pageUrl: cameraPageUrl,
+      updatedAt: new Date().toISOString(),
+    });
+  }
 
   const pairJson = {
     gatewayUrl,
-    deepLink,
+    // deepLink may be a just-minted adb link; HTTP /pair remints and must not reuse this.
+    deepLink: deepLink || '',
     qrUrl: qrPayload,
     hostname: displayName,
     localIp: lanIp,
+    codeExpiresAt: expiresAt || null,
     ...(relayCode ? { relayCode: relayCode.trim().toUpperCase() } : {}),
     ...(Array.isArray(tailnetProbeHosts) && tailnetProbeHosts.length > 0
       ? { tailnetProbeHosts }
@@ -397,35 +573,71 @@ function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relay
   writePairJsonAtomic(path.join(OUT_DIR, 'pair.json'), pairJson);
 
   const htmlPath = path.join(OUT_DIR, 'index.html');
-  const html = `<!DOCTYPE html>
-<html lang="en"><head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Hermes Mobile — Pair</title>
-<style>
-  body { font-family: system-ui, sans-serif; background:#0b0f19; color:#e5e7eb; text-align:center; padding:24px; }
-  img { max-width:280px; margin:16px auto; border-radius:12px; background:#fff; padding:12px; display:block; }
-  a.btn { display:inline-block; margin-top:16px; padding:14px 22px; background:#6366f1; color:#fff;
-    text-decoration:none; border-radius:12px; font-weight:700; }
-  p { max-width:420px; margin:12px auto; line-height:1.5; color:#9ca3af; }
-  code { color:#22d3ee; font-size:11px; word-break:break-all; }
-</style></head>
-<body>
-  <h1>Hermes Mobile</h1>
-  <h2 style="color:#a5b4fc;font-size:15px;margin:0 0 8px">${displayName}</h2>
-  <p>${pairingInstructions}</p>
-  ${imgTag}
-  <p>${gatewayLabel}: <code>${gatewayUrl}</code></p>
-  <a class="btn" href="${deepLink}">Open in Hermes Mobile</a>
-  <p>No typing — Hermes Mobile links automatically.</p>
-  <script>
-    setTimeout(function () {
-      window.location.href = '${deepLink.replace(/'/g, "\\'")}';
-    }, 600);
-  </script>
-</body></html>`;
+  const html = buildLivePairHtml({
+    gatewayUrl,
+    deepLink: deepLink || cameraPageUrl,
+    pageUrl: pageUrl || cameraPageUrl,
+    hostname: displayName,
+    imgTag,
+    expiresAt: expiresAt || Date.now() + PAIRING_CODE_DISPLAY_TTL_MS,
+    remainingMs: remainingMs ?? PAIRING_CODE_DISPLAY_TTL_MS,
+    refreshMs: PAIRING_CODE_REFRESH_MS,
+  });
   fs.writeFileSync(htmlPath, html);
-  return { htmlPath, pairJson };
+  return { htmlPath, pairJson, cameraPageUrl };
+}
+
+/** Mint a fresh secretless deep link from the on-disk seed (HTTP /pair + /pair-live.json). */
+function mintLivePairSession() {
+  const seed = loadPairSeed();
+  if (!seed || !seed.gatewayUrl || !seed.apiKey) {
+    return { ok: false, reason: 'no_seed' };
+  }
+  const pairServer = String(seed.pairServer || `http://${seed.localIp || '127.0.0.1'}:${PAIR_PORT}`).replace(
+    /\/$/,
+    '',
+  );
+  const minted = mintPairingCode(
+    {
+      gatewayUrl: seed.gatewayUrl,
+      apiKey: seed.apiKey,
+      macName: seed.macName || seed.hostname || 'Mac',
+      relayCode: seed.relayCode || '',
+      tailnetProbeHosts: seed.tailnetProbeHosts || [],
+      extraComputers: seed.extraComputers || [],
+      thumbgateApiKey: seed.thumbgateApiKey || '',
+    },
+    { ttlMs: PAIRING_CODE_DISPLAY_TTL_MS },
+  );
+  const deepLink = buildSecretlessDeepLink(minted.code, pairServer, seed.macName || seed.hostname);
+  const lanIp = seed.localIp || detectLocalLanIp() || '127.0.0.1';
+  const cameraPageUrl = seed.pageUrl || resolveCameraPageUrl(lanIp);
+  const { imgTag } = writePairQrPng(cameraPageUrl);
+  const html = buildLivePairHtml({
+    gatewayUrl: seed.gatewayUrl,
+    deepLink,
+    pageUrl: cameraPageUrl,
+    hostname: seed.macName || seed.hostname || 'Mac',
+    imgTag,
+    expiresAt: minted.expiresAt,
+    remainingMs: minted.remainingMs,
+    refreshMs: PAIRING_CODE_REFRESH_MS,
+  });
+  // Keep on-disk index.html aligned with the live mint for --open / file viewers.
+  fs.writeFileSync(path.join(OUT_DIR, 'index.html'), html);
+  return {
+    ok: true,
+    deepLink,
+    code: minted.code,
+    expiresAt: minted.expiresAt,
+    remainingMs: minted.remainingMs,
+    refreshMs: PAIRING_CODE_REFRESH_MS,
+    ttlMs: minted.ttlMs,
+    pageUrl: cameraPageUrl,
+    gatewayUrl: seed.gatewayUrl,
+    hostname: seed.macName || seed.hostname || 'Mac',
+    html,
+  };
 }
 
 function printTerminalQr(pageUrl) {
@@ -512,6 +724,20 @@ function refreshPairAssetsFromLocalGateway() {
     // Cable gone — fall through to Tailscale/LAN rewrite below.
     console.log('  pair.json refresh: prior USB primary, no live reverse — promoting network gateway');
   }
+  // Seed for live /pair remints — do NOT bake a secretless code into static QR/HTML here.
+  // HTTP GET /pair mints a fresh display-TTL code on every load/refresh.
+  const pairSeed = {
+    gatewayUrl,
+    apiKey,
+    macName: hostname,
+    hostname,
+    relayCode,
+    tailnetProbeHosts,
+    extraComputers: [],
+    thumbgateApiKey,
+    localIp: lanIp,
+    pairServer: `http://${lanIp}:${PAIR_PORT}`,
+  };
   const deepLink = buildDeepLink(
     gatewayUrl,
     apiKey,
@@ -541,6 +767,9 @@ function refreshPairAssetsFromLocalGateway() {
     hostname,
     relayCode,
     tailnetProbeHosts,
+    pairSeed,
+    expiresAt: Date.now() + PAIRING_CODE_DISPLAY_TTL_MS,
+    remainingMs: PAIRING_CODE_DISPLAY_TTL_MS,
   });
   console.log(`  pair.json: ${hostname} → ${gatewayUrl} (localIp ${lanIp})`);
   return { health, lanIp, hostname, gatewayUrl };
@@ -654,13 +883,51 @@ function createPairServer(lanIp) {
     }
     if (url === '/pair-qr.png') {
       const png = fs.readFileSync(path.join(OUT_DIR, 'pair-qr.png'));
-      res.writeHead(200, { 'Content-Type': 'image/png' });
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' });
       res.end(png);
       return;
     }
+    if (url === '/pair-live.json') {
+      const live = mintLivePairSession();
+      if (!live.ok) {
+        res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ error: live.reason || 'unavailable' }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(
+        JSON.stringify({
+          deepLink: live.deepLink,
+          expiresAt: live.expiresAt,
+          remainingMs: live.remainingMs,
+          refreshMs: live.refreshMs,
+          ttlMs: live.ttlMs,
+          pageUrl: live.pageUrl,
+          gatewayUrl: live.gatewayUrl,
+          hostname: live.hostname,
+        }),
+      );
+      return;
+    }
     if (url === '/pair' || url === '/') {
-      const html = fs.readFileSync(path.join(OUT_DIR, 'index.html'), 'utf8');
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      const live = mintLivePairSession();
+      if (live.ok) {
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store',
+        });
+        res.end(live.html);
+        return;
+      }
+      // Fallback: static HTML (legacy / seed missing) — never pretend a dead code is live.
+      const htmlPath = path.join(OUT_DIR, 'index.html');
+      if (!fs.existsSync(htmlPath)) {
+        res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Pair seed missing — run node tools/hermes-mobile-pair.js');
+        return;
+      }
+      const html = fs.readFileSync(htmlPath, 'utf8');
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
       res.end(html);
       return;
     }
@@ -927,20 +1194,25 @@ function runPairMain(args) {
     console.log('  Pair exchange: http://127.0.0.1:8765 (adb reverse — works on 5G/VPN)');
   }
   const secretlessPairing = !args.has('--no-serve') && !args.has('--legacy-key-link');
+  // Always mint a fresh code at open time for adb — never reuse a code baked into pair.json.
+  const pairSeed = {
+    gatewayUrl,
+    apiKey,
+    macName: hostname,
+    hostname,
+    relayCode,
+    tailnetProbeHosts,
+    extraComputers,
+    thumbgateApiKey,
+    localIp: lanIp,
+    pairServer: pairExchangeBase,
+  };
+  let minted = null;
   const deepLink = secretlessPairing
-    ? buildSecretlessDeepLink(
-        mintPairingCode({
-          gatewayUrl,
-          apiKey,
-          macName: hostname,
-          relayCode,
-          tailnetProbeHosts,
-          extraComputers,
-          thumbgateApiKey,
-        }),
-        pairExchangeBase,
-        hostname,
-      )
+    ? (() => {
+        minted = mintPairingCode(pairSeed, { ttlMs: PAIRING_CODE_DISPLAY_TTL_MS });
+        return buildSecretlessDeepLink(minted.code, pairExchangeBase, hostname);
+      })()
     : buildDeepLink(gatewayUrl, apiKey, hostname, relayCode, tailnetProbeHosts, extraComputers, thumbgateApiKey);
   // P0 2026-07-20: `--no-serve --mini-tailscale` used to always skip adb/pair.json, even with
   // `--force-mini-usb-primary`. Session-start phone-install then left the phone on a stale
@@ -965,12 +1237,21 @@ function runPairMain(args) {
       hostname,
       relayCode,
       tailnetProbeHosts,
+      pairSeed,
+      expiresAt: minted?.expiresAt,
+      remainingMs: minted?.remainingMs,
     }));
   }
 
   console.log('Hermes Mobile pairing');
   console.log('  Gateway:', gatewayUrl);
   console.log('  Pair page:', pageUrl);
+  if (minted) {
+    console.log(
+      `  Pair code: fresh mint, expires in ${formatRemainingLabel(minted.remainingMs)} ` +
+        `(display TTL ${Math.round(minted.ttlMs / 1000)}s; page remints every ${Math.round(PAIRING_CODE_REFRESH_MS / 1000)}s)`,
+    );
+  }
   console.log('  Local file:', htmlPath);
   const secrets = [apiKey, thumbgateApiKey, ...extraComputers.map((c) => c.apiKey)].filter(Boolean);
   const redactedLink = redactDeepLinkSecrets(deepLink, secrets);
