@@ -278,6 +278,8 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 | T-PAIR-PAGE-QR-USB | P0: pair page dead QR on file:// + USB-first copy (not same-Wi‑Fi for 127.0.0.1) | done | cursor-pair-page-qr-usb | `tools/hermes-mobile-pair.js` (writePairAssets HTML/QR/USB copy only), `tests/test-hermes-mobile-pair.sh`, `plan.md` | data-URL QR renders on file://; USB loopback labeled USB gateway; adb deep link → Connected · USB; coord 5e72c1d5 |
 
+| T-PAIR-QR-CAMERA-HTTP | P0: stock Android Camera QR must open HTTP pair page, never custom hermes:// URI | in_progress | cursor-pair-qr-camera-http | `tools/hermes-mobile-pair.js` (writePairAssets/pageUrl/QR only), `tests/test-hermes-mobile-pair.sh`, `plan.md` | QR decodes to HTTP pair page using Tailscale host when available; USB copy identifies adb auto-open as primary and browser scan as same-Wi-Fi/Tailscale backup; pair suite green; live QR decode redacted |
+
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
 | T-STORE-12-RC | P0 dual-store 1.2 RC + EAS overage hard-stop (no cloud eas build until Jul 22) | in_progress | cursor-store-12-rc | `hermes-mobile/app.json`, `hermes-mobile/eas.json`, `hermes-mobile/scripts/eas-build-guard.cjs`, `hermes-mobile/src/__tests__/versioningAndOtaContract.test.ts`, `.github/workflows/store-release.yml`, `plan.md` | RC from origin/main; reuse EAS builds 5fd28898 (Android 1.2/vc15) + 6a97bf07 (iOS 1.2/18); Internal/TestFlight then prod submit-only; cloud eas build hard-stopped |
@@ -895,6 +897,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 - `tools/hermes-cloud-connector.js`, `tests/test-hermes-cloud-connector.js`, `plan.md` → **codex-thumbgate-gap-closure** (T-THUMBGATE-SNAPSHOT-COVERAGE-20260721: rotate the bounded context window across every returned Hermes session and persist progress without editing the still-claimed pairing generator) (2026-07-21T13:13:48Z)
 - `tools/hermes-cloud-connector.js`, `tests/test-hermes-cloud-connector.js`, `plan.md` → **released by codex-thumbgate-gap-closure** after PR #678 merge, exact-main production deployment, live snapshot census, auth/chat/navigation/checkout proof, and focused verification (2026-07-21T13:40:00Z)
+
+- `tools/hermes-mobile-pair.js` (writePairAssets/pageUrl/QR only), `tests/test-hermes-mobile-pair.sh`, `plan.md` → **cursor-pair-qr-camera-http** (T-PAIR-QR-CAMERA-HTTP; coord FlashList/handoff `5e72c1d5`; do not touch GatewayContext/usbTransportHandoff) (2026-07-21T15:01:00Z)
 
 ## 3. Decisions Log
 - 2026-07-21T11:49:30Z `cursor-ui-undefined-crash`: **T-UI-UNDEFINED-CRASH done.** PR #673 merge `ddd32bcac00ad4661313365ae3ed9dd15506b07f`. Root cause: circular import `gatewayClient.ts`↔`gatewayUrlPolicy.ts` left `normalizeGatewayUrl` unbound (call site e.g. `gatewayUrlPolicy.ts:59` / re-export `gatewayClient.ts:16`); fixed via leaf `gatewayUrlNormalize.ts:15`. Production OTA group `c90ebddf-a83c-4e26-b15d-ce5a82dfd39f` published 99% (run 29826866775) then promoted 100% (run 29827255156; `Rollout Percentage N/A` = full). ThumbGate mem `mem_1784633980980_oe3nbj`. Device USB R3CY90QPM7E disconnected at close — agent blocker for live checkUpdate screenshot; CI stranger cold-start + Jest cycle test green.
