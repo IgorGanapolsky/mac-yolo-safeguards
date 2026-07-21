@@ -10,13 +10,14 @@ function read(p: string): string {
 }
 
 describe('store listing metadata contract (stellar live)', () => {
-  it('Play and iOS titles lead with Hermes AI Agent Leash', () => {
+  it('Play and iOS titles keep Hermes AI discovery within 30 chars', () => {
     const playTitle = read(path.join(ANDROID, 'title.txt'));
     const iosName = read(path.join(IOS, 'name.txt'));
     expect(playTitle.length).toBeLessThanOrEqual(30);
     expect(iosName.length).toBeLessThanOrEqual(30);
-    expect(playTitle).toBe('Hermes AI Agent Leash');
-    expect(iosName).toBe('Hermes AI Agent Leash');
+    expect(playTitle).toMatch(/^Hermes AI/);
+    expect(iosName).toMatch(/Hermes AI/);
+    expect(playTitle).not.toMatch(/\$4\.99|paid download/i);
   });
 
   it('Play short description is Mac-remote wedge within 80 chars', () => {
@@ -28,6 +29,7 @@ describe('store listing metadata contract (stellar live)', () => {
     expect(short).not.toMatch(/19\.99/);
     expect(short).toMatch(/once/i);
     expect(short).toMatch(/not phone AI/i);
+    expect(short).toMatch(/Free install/i);
   });
 
   it('Play full description does not claim iOS is still in review', () => {
@@ -35,9 +37,13 @@ describe('store listing metadata contract (stellar live)', () => {
     expect(full.length).toBeLessThanOrEqual(4000);
     expect(full).not.toMatch(/iOS is in App Store review/i);
     expect(full).toMatch(/live on (the )?App Store/i);
-    expect(full).toMatch(/Looking for .Hermes Agent/i);
+    expect(full).toMatch(/Looking for Hermes Agent/i);
     expect(full).toMatch(/Tailscale/i);
     expect(full).toMatch(/Hen Works/i);
+    expect(full).toMatch(/FREE TO INSTALL/i);
+    expect(full).toMatch(/Free→Paid|cannot become a paid download/i);
+    expect(full).toMatch(/hermesmobile\.paid/);
+    expect(full).toMatch(/\$9\.99/);
   });
 
   it('Play phone screenshots are present and distinct filenames', () => {
