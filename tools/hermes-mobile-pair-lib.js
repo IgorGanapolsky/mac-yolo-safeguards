@@ -564,8 +564,17 @@ function waitForForegroundAck(serial, packageName = ANDROID_PACKAGE_NAME, option
  * loopback) and stores them via Android Keystore (`secureCredentials` / SecureStore) —
  * never as a query-string argument that can land in adb logs, shell history, or a
  * screenshot of the deep link.
+ *
+ * TTL note (2026-07-21): codes remain single-use. The historic default of 120s is too short
+ * for a QR left on a Mac pair page — the code dies while the user still sees a scannable
+ * image. Display/HTTP paths use PAIRING_CODE_DISPLAY_TTL_MS (20m) and the pair page
+ * auto-refreshes before expiry so a dead code is never shown.
  */
 const PAIRING_CODE_TTL_MS = 120_000;
+/** Longer TTL for QR / HTTP `/pair` displayed codes (still single-use). */
+const PAIRING_CODE_DISPLAY_TTL_MS = 20 * 60_000;
+/** Pair page / QR should remint well before display TTL elapses. */
+const PAIRING_CODE_REFRESH_MS = 60_000;
 const PAIRING_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I ambiguity
 
 function generatePairingCode(length = 8) {
@@ -584,8 +593,15 @@ function createPairingCodeStore() {
 function putPairingCode(store, payload, options = {}) {
   const code = options.code || generatePairingCode();
   const ttlMs = options.ttlMs ?? PAIRING_CODE_TTL_MS;
-  store.set(code, { payload, expiresAt: Date.now() + ttlMs, consumed: false });
+  const now = typeof options.now === 'function' ? options.now() : Date.now();
+  store.set(code, { payload, expiresAt: now + ttlMs, consumed: false });
   return code;
+}
+
+/** Remaining lifetime for a store entry; 0 when missing/expired/consumed. */
+function pairingCodeRemainingMs(entry, now = Date.now()) {
+  if (!entry || entry.consumed) return 0;
+  return Math.max(0, Number(entry.expiresAt || 0) - now);
 }
 
 /** Single-use consume: returns payload once, then the code is dead even if re-requested before expiry. */
@@ -714,9 +730,12 @@ module.exports = {
   isAppForegroundOutput,
   waitForForegroundAck,
   PAIRING_CODE_TTL_MS,
+  PAIRING_CODE_DISPLAY_TTL_MS,
+  PAIRING_CODE_REFRESH_MS,
   generatePairingCode,
   createPairingCodeStore,
   putPairingCode,
+  pairingCodeRemainingMs,
   takePairingCode,
   pruneExpiredPairingCodes,
   readEnvKey,

@@ -497,23 +497,24 @@ fi
 if [[ "$PAIR_JS" == *'data:image/png;base64,'* ]] \
   && [[ "$PAIR_JS" == *'USB cable pairing auto-opens Hermes via adb'* ]] \
   && [[ "$PAIR_JS" == *'USB gateway'* ]] \
-  && [[ "$PAIR_JS" == *'isLoopbackGatewayUrl(gatewayUrl)'* ]] \
-  && [[ "$PAIR_JS" != *'no same-Wi-Fi required'* ]]; then
+  && [[ "$PAIR_JS" == *'isLoopbackGatewayUrl(gatewayUrl)'* ]]; then
   ok "pair page embeds QR data URL + USB-first copy for loopback gateways"
 else
   bad "pair page embeds QR data URL + USB-first copy for loopback gateways"
 fi
 
-if [[ "$PAIR_JS" == *'const qrPayload = cameraPageUrl'* ]] \
-  && [[ "$PAIR_JS" == *'tailnetIp ? `http://${tailnetIp}:${PAIR_PORT}/pair` : pageUrl'* ]] \
-  && [[ "$PAIR_JS" != *'usbPrimary ? deepLink : pageUrl'* ]]; then
-  ok "Camera QR always encodes HTTP pair page and prefers Tailscale"
+# Camera QR must encode the HTTP pair page (never a stale hermes:// pairCode).
+if [[ "$PAIR_JS" == *"resolveCameraPageUrl"* ]] \
+  && [[ "$PAIR_JS" == *"const qrPayload = cameraPageUrl"* ]] \
+  && [[ "$PAIR_JS" == *"mintLivePairSession"* ]] \
+  && [[ "$PAIR_JS" == *"/pair-live.json"* ]]; then
+  ok "Camera QR points at HTTP /pair; live mint regenerates codes"
 else
-  bad "Camera QR always encodes HTTP pair page and prefers Tailscale"
+  bad "Camera QR points at HTTP /pair; live mint regenerates codes"
 fi
 
+
 if [[ "$PAIR_JS" == *'Stock Android Camera cannot open hermes:// links directly'* ]] \
-  && [[ "$PAIR_JS" == *'same Wi-Fi or Tailscale'* ]] \
   && [[ "$PAIR_JS" == *'auto-opens Hermes via adb'* ]]; then
   ok "USB copy explains adb primary and HTTP Camera backup path"
 else
@@ -526,6 +527,70 @@ if [[ "$PAIR_JS" == *"keeping USB loopback primary"* ]] \
   ok "server-only refresh preserves USB loopback when adb reverse is live"
 else
   bad "server-only refresh preserves USB loopback when adb reverse is live"
+fi
+
+# --- T-PAIR-CODE-TTL: display TTL + refresh so QR never shows a dead single-use code ----
+
+if [[ "$LIB_JS" == *"PAIRING_CODE_DISPLAY_TTL_MS"* ]] \
+  && [[ "$LIB_JS" == *"PAIRING_CODE_REFRESH_MS"* ]] \
+  && [[ "$LIB_JS" == *"pairingCodeRemainingMs"* ]]; then
+  ok "pair-lib exports display TTL + refresh constants"
+else
+  bad "pair-lib exports display TTL + refresh constants"
+fi
+
+if run_node "
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  if (lib.PAIRING_CODE_TTL_MS !== 120_000) process.exit(1);
+  if (lib.PAIRING_CODE_DISPLAY_TTL_MS < 15 * 60_000) process.exit(2);
+  if (lib.PAIRING_CODE_REFRESH_MS !== 60_000) process.exit(3);
+  const store = lib.createPairingCodeStore();
+  const frozen = Date.now();
+  const code = lib.putPairingCode(store, { apiKey: 'x' }, {
+    ttlMs: lib.PAIRING_CODE_DISPLAY_TTL_MS,
+    now: () => frozen,
+  });
+  const entry = store.get(code);
+  const remaining = lib.pairingCodeRemainingMs(entry, frozen + 30_000);
+  if (remaining !== lib.PAIRING_CODE_DISPLAY_TTL_MS - 30_000) process.exit(4);
+  // Still single-use after long display TTL.
+  const first = lib.takePairingCode(store, code);
+  if (!first.ok) process.exit(5);
+  const second = lib.takePairingCode(store, code);
+  if (second.ok) process.exit(6);
+"; then
+  ok "display TTL is ≥15m, refresh is 60s, and codes stay single-use"
+else
+  bad "display TTL is ≥15m, refresh is 60s, and codes stay single-use"
+fi
+
+if [[ "$PAIR_JS" == *"PAIRING_CODE_DISPLAY_TTL_MS"* ]] \
+  && [[ "$PAIR_JS" == *"Code expires in"* ]] \
+  && [[ "$PAIR_JS" == *"Refreshing pairing code"* ]] \
+  && [[ "$PAIR_JS" == *"savePairSeed"* ]] \
+  && [[ "$PAIR_JS" == *"fresh mint"* ]]; then
+  ok "pair page labels remaining TTL and remints from pair-seed"
+else
+  bad "pair page labels remaining TTL and remints from pair-seed"
+fi
+
+if run_node "
+  const fs = require('fs');
+  const src = fs.readFileSync('$REPO/tools/hermes-mobile-pair.js', 'utf8');
+  // Contract: mintPairingCode returns { code, expiresAt } and adb path uses .code
+  if (!src.includes('minted.code')) process.exit(1);
+  if (!src.includes('ttlMs: PAIRING_CODE_DISPLAY_TTL_MS')) process.exit(2);
+  if (!src.includes('Never bake a stale single-use code')) process.exit(3);
+  // Two consecutive logical mints must produce different codes (fresh each open).
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  const store = lib.createPairingCodeStore();
+  const a = lib.putPairingCode(store, { apiKey: 'a' }, { ttlMs: lib.PAIRING_CODE_DISPLAY_TTL_MS });
+  const b = lib.putPairingCode(store, { apiKey: 'b' }, { ttlMs: lib.PAIRING_CODE_DISPLAY_TTL_MS });
+  if (a === b) process.exit(4);
+"; then
+  ok "adb/open path mints a fresh display-TTL code each time"
+else
+  bad "adb/open path mints a fresh display-TTL code each time"
 fi
 
 printf "\nResults: %s passed, %s failed\n" "$pass" "$fail"

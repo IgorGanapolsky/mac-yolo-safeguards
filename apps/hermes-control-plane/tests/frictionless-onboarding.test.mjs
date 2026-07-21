@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 const dashboard = readFileSync(new URL("../app/dashboard/DashboardClient.tsx", import.meta.url), "utf8");
@@ -103,4 +103,15 @@ test("makes every dashboard metric a labeled shortcut instead of an inert card",
   assert.match(dashboard, /className="task-list" id="task-activity"/);
   assert.match(globals, /\.metric-grid \.metric-card:hover/);
   assert.doesNotMatch(dashboard, /<article><span>Paired machines/);
+});
+
+test("keeps every workspace telemetry value behind authentication", () => {
+  const publicTelemetryModule = new URL("../lib/public-telemetry.ts", import.meta.url);
+  assert.equal(existsSync(publicTelemetryModule), false);
+  assert.match(landing, /<nav className="hero-console hero-actions-panel" aria-label="Private workspace actions">/);
+  assert.match(landing, /className="landing-action" href="\/api\/auth\/login"/);
+  assert.match(landing, /className="landing-action" href="#pair"/);
+  assert.match(landing, /className="landing-action" href="#pricing"/);
+  assert.match(landing, /No workspace telemetry is fetched or rendered on this public page/);
+  assert.doesNotMatch(landing, /getPublicTelemetry|Live production telemetry|Machines online now|P95 task completion|LAST CLOUD CONTINUATION|cloudRunsCompleted|machinesOnlineNow/);
 });
