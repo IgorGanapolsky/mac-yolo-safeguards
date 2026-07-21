@@ -1,8 +1,8 @@
 # Research: Tailscale Android discovery (July 2026)
 
-**Run id:** `trun_14d4d9dfad7c40989905924ccc707cd0`  
-**Interaction id:** `trun_14d4d9dfad7c40989905924ccc707cd0`  
-**Date:** 2026-07-21  
+**Run id:** `trun_14d4d9dfad7c40989905924ccc707cd0`
+**Interaction id:** `trun_14d4d9dfad7c40989905924ccc707cd0`
+**Date:** 2026-07-21
 **Scope:** Why Hermes Mobile shows “Tailscale is off” / missing peers on cellular; map to product code; no secrets.
 
 ## Verdict (Hermes Mobile)
