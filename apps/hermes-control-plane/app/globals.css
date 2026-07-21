@@ -73,11 +73,37 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .installer-command{margin:0 14px 14px;padding:12px;display:grid;gap:10px;background:var(--composer);border:1px solid var(--line);border-radius:14px}
 .installer-command code{color:var(--text-secondary);font:10px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere;user-select:all}
 .mobile-web-tabs{display:none}
+.dashboard-shell.chat-rail-collapsed{grid-template-columns:76px minmax(0,1fr)}
+.sidebar-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sidebar-header .brand{min-width:0;padding:0}
+.sidebar-header .brand>span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.sidebar-toggle{appearance:none;flex:0 0 auto;min-width:44px;min-height:44px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.04);display:grid;place-items:center;color:var(--text-secondary);cursor:pointer}
+.sidebar-toggle:hover{border-color:rgba(34,211,238,.42);background:rgba(34,211,238,.07);color:var(--accent)}
+.sidebar-toggle span{font-size:24px;line-height:1;transform:translateY(-1px)}
+.sidebar-content{display:flex;flex:1;min-height:0;flex-direction:column}
+.sidebar.is-collapsed{padding-inline:10px}
+.sidebar.is-collapsed .sidebar-header{flex-direction:column}
+.sidebar.is-collapsed .sidebar-header .brand>span,.sidebar.is-collapsed .sidebar-content{display:none}
+.thread-list{display:flex;min-height:0;flex-direction:column;gap:3px;padding-right:3px}
+.side-item.thread-item{min-height:58px;grid-template-columns:20px minmax(0,1fr) auto;white-space:normal}
+.thread-copy{min-width:0;display:grid;gap:4px}
+.side-item .thread-copy strong{overflow:hidden;color:inherit;font:500 11px/1.25 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-overflow:ellipsis;white-space:nowrap}
+.side-item .thread-copy time{overflow:hidden;color:#6B7280;font:8px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;text-overflow:ellipsis;white-space:nowrap}
+.side-item.active .thread-copy time{color:#818CF8}
 
 @media(max-width:700px){
   body{padding-bottom:78px}
   .dashboard-main{padding-bottom:92px}
   .sidebar{position:sticky;top:0;z-index:20;background:rgba(9,11,20,.92);backdrop-filter:blur(18px)}
+  .sidebar{padding:10px 14px}
+  .sidebar.is-collapsed{padding-inline:14px}
+  .sidebar.is-collapsed .sidebar-header{flex-direction:row}
+  .sidebar.is-collapsed .sidebar-header .brand>span{display:inline}
+  .sidebar:not(.is-collapsed) .workspace-label{display:block}
+  .sidebar:not(.is-collapsed) .thread-list{display:flex}
+  .sidebar:not(.is-collapsed) .sidebar-bottom{display:grid}
+  .sidebar-content{max-height:min(68vh,620px)}
+  .side-item.thread-item{min-height:64px}
   .panel,.metric-grid{border-radius:20px}
   .conversation-message{max-width:94%}
   .mobile-web-tabs{position:fixed;z-index:50;left:0;right:0;bottom:0;height:72px;display:grid;grid-template-columns:repeat(3,1fr);background:rgba(9,11,20,.96);border-top:1px solid var(--brand-line);box-shadow:0 -10px 30px rgba(0,0,0,.3);backdrop-filter:blur(18px)}

@@ -12,6 +12,7 @@ type ThreadDetails = { snapshot: Array<{ role: string; content: string }>; tasks
 const terminal = new Set(["completed", "failed"]);
 const pairingCodePattern = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/;
 const connectorInstallCommand = "curl -fsSL https://raw.githubusercontent.com/IgorGanapolsky/mac-yolo-safeguards/main/saas/install-connector.sh | bash";
+const chatRailPreferenceKey = "thumbgate.chatRailExpanded";
 
 function Mark() { return <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>; }
 function age(timestamp: number | null) {
@@ -29,6 +30,24 @@ function latency(milliseconds: number | null) {
   return `${Math.round(milliseconds / 60_000)}m`;
 }
 
+function formatDateTime(timestamp: number) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  }).format(new Date(timestamp));
+}
+
+function sortThreadsNewestFirst(nextThreads: Thread[]) {
+  return [...nextThreads].sort((left, right) =>
+    Number(right.updatedAt) - Number(left.updatedAt) || right.id.localeCompare(left.id)
+  );
+}
+
 export default function DashboardClient() {
   const [user, setUser] = useState<User | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
@@ -42,7 +61,17 @@ export default function DashboardClient() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [installCopied, setInstallCopied] = useState(false);
+  const [chatRailExpanded, setChatRailExpanded] = useState(true);
   const autoSelectedThread = useRef(false);
+
+  useEffect(() => {
+    const storedPreference = window.localStorage.getItem(chatRailPreferenceKey);
+    const shouldExpand = storedPreference === null
+      ? !window.matchMedia("(max-width: 700px)").matches
+      : storedPreference === "true";
+    const timer = window.setTimeout(() => setChatRailExpanded(shouldExpand), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const pendingCode = new URLSearchParams(window.location.search).get("pair")?.toUpperCase() ?? "";
@@ -65,7 +94,7 @@ export default function DashboardClient() {
     ]);
     if (deviceResponse.ok) setDevices((await deviceResponse.json() as { devices: Device[] }).devices);
     if (threadResponse.ok) {
-      const nextThreads = (await threadResponse.json() as { threads: Thread[] }).threads;
+      const nextThreads = sortThreadsNewestFirst((await threadResponse.json() as { threads: Thread[] }).threads);
       setThreads(nextThreads);
       if (!autoSelectedThread.current && !selectedThread && nextThreads.length) {
         autoSelectedThread.current = true;
@@ -161,17 +190,38 @@ export default function DashboardClient() {
     }
   }
 
+  function toggleChatRail() {
+    setChatRailExpanded((current) => {
+      const next = !current;
+      window.localStorage.setItem(chatRailPreferenceKey, String(next));
+      return next;
+    });
+  }
+
+  function openThread(threadId: string | null) {
+    setSelectedThread(threadId);
+    if (window.matchMedia("(max-width: 700px)").matches) {
+      setChatRailExpanded(false);
+      window.localStorage.setItem(chatRailPreferenceKey, "false");
+    }
+  }
+
   if (!user || !organization) return <main className="loading-screen"><Mark /><p>Opening the control plane…</p></main>;
 
   return (
-    <main className="dashboard-shell">
-      <aside className="sidebar">
-        <a href="/dashboard" className="brand"><Mark /><span>ThumbGate <small>Hermes Web</small></span></a>
-        <div className="workspace-label">NAVIGATION</div>
-        <button className={!selectedThread ? "side-item active" : "side-item"} onClick={() => setSelectedThread(null)}><span>H</span>Hermes<em>{activeTasks.length}</em></button>
-        <div className="workspace-label">CHATS</div>
-        <div className="thread-list">{threads.map((thread) => <button key={thread.id} title={thread.title} className={selectedThread === thread.id ? "side-item active" : "side-item"} onClick={() => setSelectedThread(thread.id)}><span>{thread.sourceSessionId ? "⌘" : "›_"}</span>{thread.title}<em>{thread.messageCount || thread.taskCount}</em></button>)}</div>
-        <div className="sidebar-bottom"><div className="avatar">{user.name.slice(0, 1).toUpperCase()}</div><div><strong>{user.name}</strong><small>{accountPlan} plan</small></div><form action="/api/auth/logout" method="post"><button title="Sign out">↗</button></form></div>
+    <main className={`dashboard-shell${chatRailExpanded ? "" : " chat-rail-collapsed"}`}>
+      <aside className={`sidebar${chatRailExpanded ? "" : " is-collapsed"}`} aria-label="Hermes navigation">
+        <div className="sidebar-header">
+          <a href="/dashboard" className="brand" aria-label="ThumbGate dashboard"><Mark /><span>ThumbGate <small>Hermes Web</small></span></a>
+          <button type="button" className="sidebar-toggle" aria-expanded={chatRailExpanded} aria-controls="hermes-chat-rail" aria-label={chatRailExpanded ? "Collapse chat sidebar" : "Expand chat sidebar"} onClick={toggleChatRail}><span aria-hidden="true">{chatRailExpanded ? "‹" : "›"}</span></button>
+        </div>
+        <div className="sidebar-content" id="hermes-chat-rail">
+          <div className="workspace-label">NAVIGATION</div>
+          <button className={!selectedThread ? "side-item active" : "side-item"} onClick={() => openThread(null)}><span>H</span><span className="side-item-label">Hermes</span><em>{activeTasks.length}</em></button>
+          <div className="workspace-label">CHATS · NEWEST FIRST</div>
+          <nav className="thread-list" aria-label="Chats, newest first">{threads.map((thread) => <button key={thread.id} title={`${thread.title} — ${formatDateTime(thread.updatedAt)}`} aria-current={selectedThread === thread.id ? "page" : undefined} className={selectedThread === thread.id ? "side-item thread-item active" : "side-item thread-item"} onClick={() => openThread(thread.id)}><span className="thread-icon">{thread.sourceSessionId ? "⌘" : "›_"}</span><span className="thread-copy"><strong>{thread.title}</strong><time dateTime={new Date(thread.updatedAt).toISOString()}>{formatDateTime(thread.updatedAt)}</time></span><em>{thread.messageCount || thread.taskCount}</em></button>)}</nav>
+          <div className="sidebar-bottom"><div className="avatar">{user.name.slice(0, 1).toUpperCase()}</div><div><strong>{user.name}</strong><small>{accountPlan} plan</small></div><form action="/api/auth/logout" method="post"><button title="Sign out" aria-label="Sign out">↗</button></form></div>
+        </div>
       </aside>
 
       <section className="dashboard-main">
@@ -196,7 +246,7 @@ export default function DashboardClient() {
               ])}
             </div>}
             <form className="composer" onSubmit={createTask}><textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Tell Hermes what to do next…" rows={4} /><div><small>{devices.length ? "Routes to your paired machine or fenced cloud runner" : "Pair a machine before creating a task"}</small><button className="button button-primary button-small" disabled={busy || !devices.length}>Run task →</button></div></form>
-            <div className="task-list" id="task-activity">{visibleTasks.length === 0 ? <div className="empty-state"><Mark /><h3>No tasks yet</h3><p>Pair a machine, then continue a Hermes thread from anywhere.</p></div> : visibleTasks.map((task) => <article key={task.id} className="dashboard-task"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time>{new Date(task.createdAt).toLocaleString()}</time></div><h3>{task.threadTitle}</h3><p>{task.prompt}</p><div className="task-foot"><span>{task.route === "cloud" ? "☁ Cloud runner" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>{["needs_failover", "offline_blocked"].includes(task.status) && <button onClick={() => void failover(task.id)}>Continue in cloud →</button>}</div>{task.result && <pre>{task.result}</pre>}{task.error && <div className="task-error">{task.error}</div>}</article>)}</div>
+            <div className="task-list" id="task-activity">{visibleTasks.length === 0 ? <div className="empty-state"><Mark /><h3>No tasks yet</h3><p>Pair a machine, then continue a Hermes thread from anywhere.</p></div> : visibleTasks.map((task) => <article key={task.id} className="dashboard-task"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time></div><h3>{task.threadTitle}</h3><p>{task.prompt}</p><div className="task-foot"><span>{task.route === "cloud" ? "☁ Cloud runner" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>{["needs_failover", "offline_blocked"].includes(task.status) && <button onClick={() => void failover(task.id)}>Continue in cloud →</button>}</div>{task.result && <pre>{task.result}</pre>}{task.error && <div className="task-error">{task.error}</div>}</article>)}</div>
           </section>
 
           <aside className="right-rail">

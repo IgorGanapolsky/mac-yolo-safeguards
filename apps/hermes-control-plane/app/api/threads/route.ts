@@ -11,7 +11,7 @@ export async function GET() {
             t.synced_at AS syncedAt, d.name AS deviceName, COUNT(k.id) AS taskCount
        FROM threads t LEFT JOIN tasks k ON k.thread_id = t.id
        LEFT JOIN devices d ON d.id = t.device_id
-      WHERE t.organization_id = ? GROUP BY t.id ORDER BY t.updated_at DESC LIMIT 100`
+      WHERE t.organization_id = ? GROUP BY t.id ORDER BY t.updated_at DESC, t.id DESC LIMIT 100`
   ).bind(session.organizationId).all();
   return Response.json({ threads: rows.results });
 }
