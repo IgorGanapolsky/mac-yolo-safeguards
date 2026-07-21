@@ -124,6 +124,38 @@ set +e; "$TINKER" proof >/dev/null 2>&1; c=$?; set -e
 "$TINKER" recommend --json | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['host']['memoryGB']==24; assert not d['candidate']['localInferenceFeasible']; assert not d['gates']['baselineReplacementAllowed']" \
   && ok "tinker-yolo recommends remote candidate on 24GB M5" || no "tinker-yolo recommendation"
 
+OLLAMA_ARGS="$ROOT/ollama-args"
+export OLLAMA_ARGS
+cat > "$ROOT/pathbin/ollama" <<'EOF'
+#!/bin/sh
+case "$1" in
+  list)
+    printf '%s\n' 'NAME ID SIZE MODIFIED' \
+      'qwen3-hermes-tinker:q4 fixture 5.0GB now' \
+      'custom:tag fixture 5.0GB now' \
+      'explicit:tag fixture 5.0GB now'
+    ;;
+  run) printf '%s\n' "$@" > "$OLLAMA_ARGS" ;;
+  *) exit 2 ;;
+esac
+EOF
+chmod +x "$ROOT/pathbin/ollama"
+
+rm -f "$OLLAMA_ARGS"; "$TINKER" >/dev/null 2>&1
+{ [ "$(sed -n '1p' "$OLLAMA_ARGS")" = run ] && [ "$(sed -n '2p' "$OLLAMA_ARGS")" = qwen3-hermes-tinker:q4 ]; } \
+  && ok "tinker-yolo bare invocation defaults to q4" || no "tinker-yolo bare q4 default"
+
+rm -f "$OLLAMA_ARGS"; TINKER_CHAT_MODEL=custom:tag "$TINKER" >/dev/null 2>&1
+[ "$(sed -n '2p' "$OLLAMA_ARGS")" = custom:tag ] \
+  && ok "tinker-yolo bare invocation honors env override" || no "tinker-yolo bare env override"
+
+rm -f "$OLLAMA_ARGS"; "$TINKER" chat --model explicit:tag >/dev/null 2>&1
+[ "$(sed -n '2p' "$OLLAMA_ARGS")" = explicit:tag ] \
+  && ok "tinker-yolo chat honors model flag" || no "tinker-yolo chat model flag"
+
+"$TINKER" --help | grep -q 'default qwen3-hermes-tinker:q4' \
+  && ok "tinker-yolo help names q4 default" || no "tinker-yolo help q4 default"
+
 printf '%s\n' '{"messages":[{"role":"user","content":"safe fixture"},{"role":"assistant","content":"safe answer"}]}' > "$TINKER_DATASET"
 chmod 644 "$TINKER_DATASET"
 set +e; "$TINKER" proof --approve-paid --approve-data-upload --max-cost-usd 1 >/dev/null 2>&1; c=$?; set -e

@@ -470,7 +470,7 @@ Read-only / free:
   --doctor [--json]          Tinker auth/catalog + recommendation; no training
   build                      build a private local dataset; no upload
   chat [--model TAG]         interactive REPL against the deployed local
-                              Ollama model (default qwen3-hermes-tinker:latest);
+                              Ollama model (default qwen3-hermes-tinker:q4);
                               purely local, no Tinker call, no cost
 
 Metered inference (prompt-only upload; both flags mandatory):
@@ -490,7 +490,7 @@ USAGE
 }
 
 if [ "$#" -eq 0 ] && command -v ollama >/dev/null 2>&1; then
-  bare_model="${TINKER_CHAT_MODEL:-qwen3-hermes-tinker:latest}"
+  bare_model="${TINKER_CHAT_MODEL:-qwen3-hermes-tinker:q4}"
   if ollama list 2>/dev/null | awk '{print $1}' | grep -qx "$bare_model"; then
     exec ollama run "$bare_model"
   fi
@@ -532,7 +532,7 @@ case "$command" in
     build_dataset
     exit $? ;;
   chat)
-    model="${TINKER_CHAT_MODEL:-qwen3-hermes-tinker:latest}"
+    model="${TINKER_CHAT_MODEL:-qwen3-hermes-tinker:q4}"
     while [ "$#" -gt 0 ]; do
       case "$1" in
         --model)
