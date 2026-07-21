@@ -76,7 +76,11 @@ describe('SettingsScreen', () => {
   it('renders settings header and gateway inputs', async () => {
     const { getByTestId, getByText } = render(<SettingsScreen />);
     expect(getByTestId('SETTINGS')).toBeTruthy();
-    expect(getByText('Pair Hermes Relay, choose active machines, and run local fallback ops')).toBeTruthy();
+    expect(
+      getByText(
+        'Chat: connect a computer (Tailscale / USB / Home Wi‑Fi). Optional: pair Hermes Relay for cloud approvals',
+      ),
+    ).toBeTruthy();
     expect(getByTestId('GATEWAY_OPS')).toBeTruthy();
     expect(getByTestId('gateway-url-input')).toBeTruthy();
     expect(getByTestId('gateway-api-key-input')).toBeTruthy();
@@ -118,8 +122,8 @@ describe('SettingsScreen', () => {
     );
 
     const { getByTestId } = render(<SettingsScreen />);
-    expect(getByTestId('relay-route-title').props.children).toBe('Hermes account relay');
-    expect(getByTestId('relay-route-status').props.children.join('')).toContain('Pair relay in Settings');
+    expect(getByTestId('relay-route-title').props.children).toBe('Hermes Relay');
+    expect(getByTestId('relay-route-status').props.children.join('')).toContain('Pair Hermes Relay');
   });
 
   it('shows active relay workers when the account relay reports them', () => {

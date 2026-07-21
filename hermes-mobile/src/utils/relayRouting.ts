@@ -2,6 +2,11 @@ import type { ConnectionMode } from '../types/gateway';
 import type { RelayWorker } from '../types/mobileRelay';
 import type { ConnectionHealSnapshot } from './connectionErrorPolicy';
 import { shouldShowPairRelayRouteStatus } from './connectionErrorPolicy';
+import {
+  HERMES_RELAY_ROUTE_LABEL,
+  PAIR_RELAY_ROUTE_STATUS,
+  VIA_HERMES_RELAY_ENDPOINT,
+} from './userFacingRouteCopy';
 
 export type RelayRouteDisplay = {
   machineLabel: string;
@@ -85,12 +90,12 @@ export function resolveRelayRouteDisplay(input: {
       gatewayUrl === 'http://127.0.0.1:8642' ||
       gatewayUrl === 'http://localhost:8642';
     return {
-      machineLabel: 'Hermes account relay',
+      machineLabel: HERMES_RELAY_ROUTE_LABEL,
       routeStatus: showPairNudge
-        ? 'Pair relay in Settings for Wi‑Fi, cellular, or USB'
+        ? PAIR_RELAY_ROUTE_STATUS
         : heal.inFlight
           ? neverConnected
-            ? 'Looking for your Mac…'
+            ? 'Looking for your computer…'
             : 'Reconnecting…'
           : 'Direct link',
     };
@@ -101,17 +106,17 @@ export function resolveRelayRouteDisplay(input: {
     const workerName = relayWorkerDisplayName(worker);
     return {
       machineLabel: workerName,
-      endpointLabel: 'via Hermes relay',
-      routeStatus: `Routed by Hermes account${worker.status ? ` · ${worker.status}` : ''}`,
+      endpointLabel: VIA_HERMES_RELAY_ENDPOINT,
+      routeStatus: `Cloud approvals via Hermes Relay${worker.status ? ` · ${worker.status}` : ''}`,
     };
   }
 
   return {
-    machineLabel: 'Hermes account relay',
-    endpointLabel: 'via Hermes relay',
+    machineLabel: HERMES_RELAY_ROUTE_LABEL,
+    endpointLabel: VIA_HERMES_RELAY_ENDPOINT,
     routeStatus:
       input.connectionState === 'connected'
-        ? 'Waiting for active workers on Wi‑Fi, cellular, or USB'
-        : 'Connects when a Hermes worker checks in',
+        ? 'Cloud approvals ready — Chat still needs a computer link'
+        : 'Connects when a Hermes Relay worker checks in',
   };
 }

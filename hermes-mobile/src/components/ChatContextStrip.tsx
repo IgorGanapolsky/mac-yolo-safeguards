@@ -4,6 +4,7 @@ import { colors } from '../theme/colors';
 import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
 import { resolveChatLinkDisplay } from '../utils/gatewayConnection';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
+import { NO_DIRECT_COMPUTER_LINK_LABEL } from '../utils/userFacingRouteCopy';
 
 type ChatContextStripProps = {
   machineLabel: string;
@@ -35,8 +36,8 @@ function connectionMeta(
   if (link.label === GATEWAY_AUTH_REPAIR_HEADER) {
     return { label: link.label, color: colors.error };
   }
-  if (link.label === 'Relay only') {
-    return { label: 'Relay only', color: colors.warning };
+  if (link.label === NO_DIRECT_COMPUTER_LINK_LABEL) {
+    return { label: NO_DIRECT_COMPUTER_LINK_LABEL, color: colors.warning };
   }
   if (state === 'connecting') {
     return { label: 'Connecting…', color: colors.warning };

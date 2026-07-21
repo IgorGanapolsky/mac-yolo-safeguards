@@ -28,11 +28,12 @@ describe('ChatEmptyGreeting', () => {
   });
 
   it('prefers route labels for account-relay copy', () => {
-    const { getByTestId } = render(<ChatEmptyGreeting routeLabel="Hermes account relay" />);
+    const { getByTestId } = render(<ChatEmptyGreeting routeLabel="Hermes Relay" />);
 
-    expect(getByTestId('chat-empty-greeting-subtitle').props.children).toBe(
-      'Ask anything — pair Hermes relay for Wi‑Fi, cellular, or USB when you are away from your computer.',
+    expect(getByTestId('chat-empty-greeting-subtitle').props.children).toContain(
+      'Hermes Relay is for cloud approvals only',
     );
+    expect(getByTestId('chat-empty-greeting-subtitle').props.children).toContain('Tailscale');
   });
 
   it('does not claim connected for generic routes when disconnected', () => {

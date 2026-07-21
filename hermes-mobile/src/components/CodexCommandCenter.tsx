@@ -50,7 +50,7 @@ function connectionCopy(
       /^(computer|your computer|computer via usb)$/i.test(machineName.trim());
     return {
       label: machineName,
-      detail: generic ? 'Looking for your Mac…' : 'Reconnecting…',
+      detail: generic ? 'Looking for your computer…' : 'Reconnecting…',
       color: colors.warning,
     };
   }
@@ -71,7 +71,7 @@ function connectionCopy(
     };
   }
   if (state === 'connected') {
-    return { label: 'Relay only', detail: 'Chat needs direct link', color: colors.warning };
+    return { label: 'No computer link', detail: 'Chat needs Tailscale or Wi‑Fi', color: colors.warning };
   }
   if (state === 'connecting') {
     return { label: 'Connecting', detail: `Checking ${machineName}`, color: colors.warning };

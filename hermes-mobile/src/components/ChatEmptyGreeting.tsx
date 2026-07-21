@@ -32,8 +32,8 @@ export function greetingSubtitle(
     ? /^(mac|computer|your mac|your computer|my mac|mac via usb|computer via usb|mac via network|http|https)$/i.test(route)
     : false;
 
-  if (route === 'Hermes account relay') {
-    return 'Ask anything — pair Hermes relay for Wi‑Fi, cellular, or USB when you are away from your computer.';
+  if (route === 'Hermes Relay' || route === 'Hermes Mobile account' || route === 'Hermes account relay') {
+    return 'Ask anything — Chat needs a computer link (Tailscale / USB / Home Wi‑Fi). Hermes Relay is for cloud approvals only.';
   }
 
   if (route === 'Computer not configured') {

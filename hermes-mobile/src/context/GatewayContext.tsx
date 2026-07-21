@@ -1099,7 +1099,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           checkedAt: new Date().toISOString(),
           directGatewayReachable: false,
           errorMessage:
-            error instanceof Error ? error.message : 'Hermes Mobile cloud relay unreachable',
+            error instanceof Error ? error.message : 'Hermes Relay unreachable',
         });
       }
       return;
@@ -1218,7 +1218,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setConnectionState('disconnected');
       relayConnectionConfirmedRef.current = false;
       setLastEventError(
-        error instanceof Error ? error.message : 'Hermes Mobile cloud relay poll failed',
+        error instanceof Error ? error.message : 'Hermes Relay poll failed',
       );
     }
   }, [stopRelayPolling]);
@@ -2218,7 +2218,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           setLastEventError(
             isGatewayHealthOk(healthRef.current)
               ? undefined
-              : 'Phone cannot use 127.0.0.1 for your computer. Use Hermes Relay or scan that computer QR for direct fallback.',
+              : 'Phone cannot use 127.0.0.1 for your computer. Use Tailscale or Home Wi‑Fi for Chat, scan that computer QR, or pair Hermes Relay for cloud approvals.',
           );
         }
         if (!isGatewayHealthOk(healthRef.current)) {

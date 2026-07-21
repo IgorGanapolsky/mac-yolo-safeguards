@@ -11,6 +11,7 @@ import {
 } from '../utils/runProgressDisplay';
 import { weakLocalModelWarning } from '../utils/weakLocalModel';
 import { shouldShowLargeChatHeaderWarning } from '../utils/sessionTokenGuards';
+import { NO_DIRECT_COMPUTER_LINK_LABEL } from '../utils/userFacingRouteCopy';
 import ExpandableThreadTitle from './ExpandableThreadTitle';
 
 type ChatScreenHeaderProps = {
@@ -83,7 +84,7 @@ function linkMeta(
   if (link.label === GATEWAY_AUTH_REPAIR_HEADER) {
     return { label: link.label, color: colors.error, connected: false };
   }
-  if (link.label === 'Relay only') {
+  if (link.label === NO_DIRECT_COMPUTER_LINK_LABEL) {
     return { label: link.label, color: colors.warning, connected: false };
   }
   if (needsPair) {

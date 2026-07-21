@@ -525,8 +525,8 @@ describe('ChatScreen', () => {
 
     expect(queryByTestId('chat-connection-panel')).toBeNull();
     expect(getByTestId('chat-input')).toBeTruthy();
-    expect(getByTestId('chat-context-mac').props.children).toBe('Hermes account relay');
-    expect(getByTestId('chat-context-link').props.children).toContain('Pair relay in Settings for Wi‑Fi, cellular, or USB');
+    expect(getByTestId('chat-context-mac').props.children).toBe('Hermes Relay');
+    expect(getByTestId('chat-context-link').props.children).toContain('Pair Hermes Relay');
   });
 
   it('allows text input and shows send button active', async () => {

@@ -30,7 +30,7 @@ describe('relayRouting', () => {
     expect(selectRelayWorker(workers, null)?.id).toBe('mac-mini');
   });
 
-  it('shows account relay instead of local machine when unpaired', () => {
+  it('shows Hermes Relay instead of local machine when unpaired', () => {
     const display = resolveRelayRouteDisplay({
       connectionMode: 'relay',
       isPaired: false,
@@ -40,9 +40,10 @@ describe('relayRouting', () => {
       fallbackMachineLabel: '192.168.1.10',
     });
 
-    expect(display.machineLabel).toBe('Hermes account relay');
+    expect(display.machineLabel).toBe('Hermes Relay');
     expect(display.endpointLabel).toBeUndefined();
-    expect(display.routeStatus).toContain('Pair relay in Settings');
+    expect(display.routeStatus).toContain('Pair Hermes Relay');
+    expect(display.routeStatus.toLowerCase()).not.toContain('tailscale');
   });
 
   it('suppresses pair relay nag while silently reconnecting on Wi-Fi', () => {
@@ -74,7 +75,7 @@ describe('relayRouting', () => {
       heal: { attempt: 1, inFlight: true, exhausted: false },
       macHttpOk: false,
     });
-    expect(empty.routeStatus).toBe('Looking for your Mac…');
+    expect(empty.routeStatus).toBe('Looking for your computer…');
     expect(empty.routeStatus.toLowerCase()).not.toContain('reconnect');
 
     const usb = resolveRelayRouteDisplay({
@@ -87,10 +88,10 @@ describe('relayRouting', () => {
       heal: { attempt: 1, inFlight: true, exhausted: false },
       macHttpOk: false,
     });
-    expect(usb.routeStatus).toBe('Looking for your Mac…');
+    expect(usb.routeStatus).toBe('Looking for your computer…');
   });
 
-  it('routes paired relay to active worker and hides LAN endpoint details', () => {
+  it('routes paired relay to active worker and keeps cloud-approvals copy', () => {
     const display = resolveRelayRouteDisplay({
       connectionMode: 'relay',
       isPaired: true,
@@ -102,8 +103,9 @@ describe('relayRouting', () => {
     });
 
     expect(display.machineLabel).toBe('Igors-Mac-mini · skool_top1percent');
-    expect(display.endpointLabel).toBe('via Hermes relay');
-    expect(display.routeStatus).toContain('Hermes account');
+    expect(display.endpointLabel).toBe('via Hermes Relay');
+    expect(display.routeStatus).toContain('Cloud approvals via Hermes Relay');
+    expect(display.routeStatus.toLowerCase()).not.toContain('tailscale');
   });
 
   it('keeps direct fallback display in gateway mode', () => {
@@ -119,5 +121,6 @@ describe('relayRouting', () => {
 
     expect(display.machineLabel).toBe('MacBook Pro');
     expect(display.endpointLabel).toBe('10.2.29.103:8642');
+    expect(display.routeStatus).toBe('Direct local link');
   });
 });

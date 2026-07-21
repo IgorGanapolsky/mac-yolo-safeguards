@@ -89,6 +89,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-MINI-STICKY-PROFILE | P0: Mac mini Tailscale selection sticks — no silent MacBook/USB steal | in_progress | cursor-usb-demote-stabilize | `hermes-mobile/src/services/gatewayProfiles.ts` (touchProfileHealth + heal stickiness), `hermes-mobile/src/utils/connectionSelfHeal.ts`, tests, `plan.md` | User-selected mini stays active; foreign health cannot rename/dedupe to Pro; Jest green; PR+OTA; no GatewayContext (#724) |
 | T-MINI-SWITCH-P0 | P0: tap Mac mini must activate mini (no USB fallback) | in_progress | cursor-usb-demote-stabilize | `hermes-mobile/src/utils/resolveEnsureProfile.ts`, `GatewayContext.tsx` (selectGatewayProfile ensure + Add Tailscale activate only), tests, `plan.md` | Tap mini → active=mini; never silent USB MacBook; phone proof; PR+APK |
 | T-PICKER-SPACING-P0 | P0: Choose computer modal spacing + honest Tailscale detect | in_progress | cursor-usb-demote-stabilize | picker UI + computerPickerStatus + tailscaleVpnDetect (#724 compose) + ChatScreen subtitle | 16/12 rhythm; short copy; discoveries show Add chips; Jest green; APK |
+| T-RELAY-COPY-DUAL | P0: dual copy — Hermes Relay≠Tailscale; Chat=computer transport | in_progress | cursor-usb-demote-stabilize | `hermes-mobile/src/utils/userFacingRouteCopy.ts`, Settings/Chat/Leash dual copy + tests; closed wrong PR #732 | Machines blurb dual; Relay section stays cloud approvals; Chat path Tailscale/USB/Wi‑Fi; Jest green; PR #726 |
 | T-UBER-PROGRESS-HUD | Sticky Delivering collapse + absolute-min heads-up (approvals only) | done | cursor-uber-progress-hud | `hermes-mobile/src/services/hermesNotifications.ts`, `hermes-mobile/src/utils/smartNotificationPolicy.ts`, `hermes-mobile/src/utils/notificationPreferences.ts`, `hermes-mobile/src/types/gateway.ts`, `hermes-mobile/src/context/GatewayContext.tsx` (AppState notif schedule only), `hermes-mobile/src/screens/SettingsScreen.tsx` (notif copy/toggles), `hermes-mobile/src/components/RunProgressBanner.tsx`, tests, `plan.md` | Collapse sticks; no force-post on background; run_* never heads-up; live-run default off; Settings toggles; approvals-only peek; Jest green; PR #507 |
 | T-MIN-HEADSUP | Absolute-min heads-up + stop background pops | done | cursor-uber-progress-hud | (same notification files as T-UBER-PROGRESS-HUD) | AppState force schedule removed; live default false; quiet channels only |
 | T-352 | P0: exclude phone’s Tailscale self-peer from picker discovery | in_progress | terra-tailscale-self-peer | `hermes-mobile/src/services/gatewayDiscovery.ts`, `hermes-mobile/src/services/tailscaleDiscovery.ts`, `hermes-mobile/src/services/gatewayProfiles.ts`, `hermes-mobile/src/utils/tailscaleSelfPeer.ts`, `hermes-mobile/src/__tests__/gatewayDiscovery.test.ts`, `hermes-mobile/src/__tests__/gatewayProfiles.test.ts`, `hermes-mobile/src/__tests__/tailscaleSelfPeer.test.ts`, `plan.md` | Discoveries matching the handset’s Tailscale identity/IP never reach picker output or `applyTailscaleDiscoveriesToProfileState`; genuine Mac peers remain; identity match is not display-name based; Jest green; PR merge; no cloud EAS |
@@ -381,6 +382,33 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `hermes-mobile/src/utils/chatMachineHeader.ts` → **cursor-usb-demote-stabilize** (T-MINI-STICKY-PROFILE) (2026-07-21T20:05:00Z)
 - `hermes-mobile/src/__tests__/gatewayProfiles.test.ts` → **cursor-usb-demote-stabilize** (T-MINI-STICKY-PROFILE) (2026-07-21T20:05:00Z)
 - `hermes-mobile/src/__tests__/connectionSelfHeal.test.ts` → **cursor-usb-demote-stabilize** (T-MINI-STICKY-PROFILE) (2026-07-21T20:05:00Z)
+- `hermes-mobile/src/utils/userFacingRouteCopy.ts` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T20:40:00Z)
+- `hermes-mobile/src/utils/relayRouting.ts` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T20:40:00Z)
+- `hermes-mobile/src/utils/chatErrors.ts` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T20:40:00Z)
+- `hermes-mobile/src/utils/gatewayEndpoint.ts` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T20:40:00Z)
+- `hermes-mobile/src/utils/gatewayConnection.ts` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T20:40:00Z)
+- `hermes-mobile/src/utils/lanScanLabels.ts` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T20:40:00Z)
+- `hermes-mobile/src/utils/leashUx.ts` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T20:40:00Z)
+- `hermes-mobile/src/utils/gatewayUrlPolicy.ts` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T20:40:00Z)
+- `hermes-mobile/src/screens/SettingsScreen.tsx` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T20:40:00Z)
+- `hermes-mobile/src/screens/ApprovalsScreen.tsx` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T20:40:00Z)
+- `hermes-mobile/src/components/ChatContextStrip.tsx` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T20:40:00Z)
+- `hermes-mobile/src/components/ChatScreenHeader.tsx` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T20:40:00Z)
+- `hermes-mobile/src/components/CodexCommandCenter.tsx` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T20:40:00Z)
+- `hermes-mobile/src/__tests__/ChatEmptyGreeting.test.tsx` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T21:10:00Z)
+- `hermes-mobile/src/__tests__/ChatScreen.test.tsx` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T21:10:00Z)
+- `hermes-mobile/src/__tests__/ChatScreenHeader.test.tsx` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T21:10:00Z)
+- `hermes-mobile/src/__tests__/CodexCommandCenter.test.tsx` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T21:10:00Z)
+- `hermes-mobile/src/__tests__/SettingsScreen.test.tsx` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T21:10:00Z)
+- `hermes-mobile/src/__tests__/chatErrors.test.ts` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T21:10:00Z)
+- `hermes-mobile/src/__tests__/chatMachineHeader.test.ts` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T21:10:00Z)
+- `hermes-mobile/src/__tests__/gatewayClient.test.ts` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T21:10:00Z)
+- `hermes-mobile/src/__tests__/gatewayConnection.test.ts` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T21:10:00Z)
+- `hermes-mobile/src/__tests__/gatewayEndpoint.test.ts` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T21:10:00Z)
+- `hermes-mobile/src/__tests__/relayRouting.test.ts` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T21:10:00Z)
+- `hermes-mobile/src/__tests__/repairGatewayLink.test.ts` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T21:10:00Z)
+- `hermes-mobile/src/services/gatewayClient.ts` → **cursor-usb-demote-stabilize** (T-RELAY-COPY-DUAL) (2026-07-21T21:10:00Z)
+
 - `hermes-mobile/src/__tests__/pairPayloadAccept.test.ts` → **cursor-usb-demote-stabilize** (T-MINI-STICKY-PROFILE) (2026-07-21T20:05:00Z)
 - `plan.md` → **cursor-usb-demote-stabilize** (T-MINI-STICKY-PROFILE) (2026-07-21T20:05:00Z)
 

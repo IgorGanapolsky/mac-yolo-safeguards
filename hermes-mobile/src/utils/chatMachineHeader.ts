@@ -18,6 +18,11 @@ import {
 import { isMacGatewayHttpOk } from './gatewayConnection';
 import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
 import { relayWorkerDisplayName, selectRelayWorker } from './relayRouting';
+import {
+  HERMES_ACCOUNT_RELAY_LEGACY_LABEL,
+  HERMES_RELAY_ROUTE_LABEL,
+  RELAY_WORKER_DETAIL_PREFIX,
+} from './userFacingRouteCopy';
 import { isTailnetRouteLabel, isTailscaleGatewayUrl } from './tailscaleHosts';
 
 /**
@@ -312,7 +317,7 @@ export function resolveChatMachineHeaderDisplay(input: {
 
   if (input.connectionMode === 'relay') {
     if (!input.isPaired && !input.activeProfile) {
-      machineLabel = 'Hermes account relay';
+      machineLabel = HERMES_RELAY_ROUTE_LABEL;
     } else if (input.isPaired) {
       const worker = selectRelayWorker(input.workers, input.activeWorkerId);
       if (worker && !input.activeProfile) {
@@ -390,7 +395,7 @@ export function resolveChatMachineHeaderDisplay(input: {
         workerName !== machineLabel &&
         !machineLabel.includes(workerName)
       ) {
-        detailParts.push(`relay · ${workerName}`);
+        detailParts.push(`${RELAY_WORKER_DETAIL_PREFIX}${workerName}`.trimEnd());
       }
     }
   }
@@ -402,7 +407,7 @@ export function resolveChatMachineHeaderDisplay(input: {
       claimTransport &&
       (savedMacCount > 1 ||
         usbAllowed ||
-        detailParts.some((part) => part.startsWith('relay ·')) ||
+        detailParts.some((part) => part.startsWith(RELAY_WORKER_DETAIL_PREFIX)) ||
         (isTailscaleGatewayUrl(gatewayUrl) &&
           hasNamedMachine &&
           !isTailnetRouteLabel(machineLabel)) ||
@@ -431,14 +436,17 @@ export function formatMacConnectionRetryBanner(input: {
   const label =
     input.machineLabel &&
     !isGenericMachineLabel(input.machineLabel) &&
-    input.machineLabel !== 'Hermes account relay' &&
+    input.machineLabel !== HERMES_RELAY_ROUTE_LABEL &&
+    input.machineLabel !== HERMES_ACCOUNT_RELAY_LEGACY_LABEL &&
     !/^(http|https)$/i.test(input.machineLabel)
       ? input.machineLabel
       : !isGenericMachineLabel(machineName) &&
           machineName !== 'computer' &&
           !/^(http|https)$/i.test(machineName)
         ? machineName
-        : machineName !== 'Hermes account relay' && !/^(http|https)$/i.test(machineName)
+        : machineName !== HERMES_RELAY_ROUTE_LABEL &&
+          machineName !== HERMES_ACCOUNT_RELAY_LEGACY_LABEL &&
+          !/^(http|https)$/i.test(machineName)
           ? machineName
           : 'your computer';
 

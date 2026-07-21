@@ -29,15 +29,23 @@ export function isConnectivityMessage(message: string): boolean {
     normalized.includes("can't reach hermes") ||
     normalized.includes("can't reach your mac") ||
     normalized.includes("can't reach your computer") ||
+    normalized.includes('cannot reach your computer') ||
     normalized.includes("can't reach that local computer link") ||
     normalized.includes("can't reach direct link") ||
+    normalized.includes('chat needs a direct') ||
+    normalized.includes('chat still needs a direct computer link') ||
+    normalized.includes('hermes relay is for cloud approvals') ||
+    normalized.includes('pair hermes relay') ||
+    normalized.includes('chat needs tailscale') ||
     normalized.includes('hermes relay is not connected yet') ||
     normalized.includes('hermes relay is not paired yet') ||
     normalized.includes('failed to connect to your computer') ||
     normalized.includes('failed to connect to your mac') ||
     normalized.includes('gateway is running') ||
     normalized.includes('home wi-fi only') ||
-    normalized.includes('same wi-fi')
+    normalized.includes('same wi-fi') ||
+    normalized.includes('use tailscale') ||
+    normalized.includes('join the same wi-fi')
   );
 }
 
@@ -247,9 +255,9 @@ export function humanizeChatError(
 export function friendlyMacUnreachableMessage(gatewayUrl?: string): string {
   const url = gatewayUrl?.trim();
   if (url && isPrivateLanGatewayUrl(url)) {
-    return "Your phone can't reach that local computer link. Join the same Wi‑Fi, add a tunnel URL in Settings, or use relay for approvals only.";
+    return "Your phone can't reach that local computer link. Join the same Wi‑Fi, use Tailscale, or add a tunnel URL in Settings.";
   }
-  return 'Hermes relay is not connected yet. Pair relay in Settings, or use a direct computer link as fallback.';
+  return 'Cannot reach your computer yet. Connect over Tailscale or Home Wi‑Fi in Settings, or scan the pair QR.';
 }
 
 /** Short copy for banners — full guidance lives in chatSendBlockedMessage. */
@@ -267,10 +275,10 @@ export function chatSendBlockedMessage(input: {
     return 'Still checking your computer link. Message kept locally.';
   }
   if (input.connectionMode === 'relay' && input.connectionState === 'connected') {
-    return 'Chat needs a direct link to your computer (same Wi‑Fi or tunnel URL). Relay handles approvals only for now.';
+    return 'Hermes Relay is for cloud approvals — Chat still needs a direct computer link (Tailscale, Home Wi‑Fi, USB, or tunnel).';
   }
   if (input.connectionMode === 'relay') {
-    return 'Hermes relay is not paired yet. Pair in Settings, or add a direct computer link for Chat.';
+    return 'Pair Hermes Relay for cloud approvals, or connect a computer (Tailscale / USB / Home Wi‑Fi) for Chat.';
   }
   return friendlyMacUnreachableMessage(input.gatewayUrl);
 }

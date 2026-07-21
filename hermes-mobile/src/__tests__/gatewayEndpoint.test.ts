@@ -102,6 +102,8 @@ describe('formatLeashConnectionDisplay', () => {
       isPaired: true,
     });
     expect(display.headline).toBe('Hermes relay linked to your active machine');
+    expect(display.footnote).toMatch(/Approval alerts route over the internet/i);
+    expect(display.footnote?.toLowerCase() ?? '').not.toContain('tailscale');
   });
 
   it('explains gateway mode with machine name and IP', () => {
@@ -142,6 +144,7 @@ describe('formatLeashConnectionDisplay', () => {
     });
     expect(display.headline).toBe('USB link to Igors-MacBook-Pro');
     expect(display.footnote).toContain('Pair Hermes relay');
+    expect(display.footnote?.toLowerCase() ?? '').not.toContain('tailscale');
   });
 });
 

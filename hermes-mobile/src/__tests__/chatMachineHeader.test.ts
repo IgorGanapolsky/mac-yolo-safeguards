@@ -38,7 +38,7 @@ describe('resolveChatMachineHeaderDisplay', () => {
     expect(formatChatMachineHeaderLine(display)).not.toContain('127.0.0.1');
   });
 
-  it('keeps Hermes account relay label when unpaired with empty URL', () => {
+  it('keeps Hermes Relay label when unpaired with empty URL', () => {
     const display = resolveChatMachineHeaderDisplay({
       activeProfile: null,
       gatewayUrl: '',
@@ -48,7 +48,7 @@ describe('resolveChatMachineHeaderDisplay', () => {
       workers: [],
       savedMacCount: 0,
     });
-    expect(display.machineLabel).toBe('Hermes account relay');
+    expect(display.machineLabel).toBe('Hermes Relay');
   });
 
   const macMini: GatewayProfile = {

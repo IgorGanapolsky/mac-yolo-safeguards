@@ -51,7 +51,7 @@ describe('gatewayConnection', () => {
         connectionState: 'connected',
         macHttpOk: false,
       }),
-    ).toEqual({ label: 'Relay only', chatReachable: false });
+    ).toEqual({ label: 'No computer link', chatReachable: false });
   });
 
   it('needsPair wins over Connecting so unpaired relay never looks Tailscale-healthy', () => {
@@ -60,10 +60,10 @@ describe('gatewayConnection', () => {
         connectionState: 'connecting',
         macHttpOk: false,
         needsPair: true,
-        pairStatusLabel: 'Pair relay in Settings for Wi‑Fi, cellular, or USB',
+        pairStatusLabel: 'Pair Hermes Relay in Settings',
       }),
     ).toEqual({
-      label: 'Pair relay in Settings for Wi‑Fi, cellular, or USB',
+      label: 'Pair Hermes Relay in Settings',
       chatReachable: false,
     });
     expect(

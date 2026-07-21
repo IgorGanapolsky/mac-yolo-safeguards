@@ -210,10 +210,11 @@ describe('fetchGatewayHealth', () => {
 });
 
 describe('gatewayAuthRepairBanner', () => {
-  it('never names Hermes account relay as the re-pair target', () => {
-    expect(authRepairTargetLabel('Hermes account relay')).toBe('your computer');
-    expect(gatewayAuthRepairBanner('Hermes account relay')).toContain('your computer');
-    expect(gatewayAuthRepairBanner('Hermes account relay')).not.toContain('Hermes account relay');
+  it('never names Hermes Relay as the re-pair target', () => {
+    expect(authRepairTargetLabel('Hermes Relay')).toBe('your computer');
+    expect(authRepairTargetLabel('Hermes Mobile account')).toBe('your computer');
+    expect(gatewayAuthRepairBanner('Hermes Relay')).toContain('your computer');
+    expect(gatewayAuthRepairBanner('Hermes Relay')).not.toContain('Hermes Relay');
     expect(gatewayAuthRepairBanner('Igors-Mac-mini')).toContain('Igors-Mac-mini');
   });
 });

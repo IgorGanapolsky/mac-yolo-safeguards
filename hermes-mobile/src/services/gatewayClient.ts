@@ -28,12 +28,14 @@ export const GATEWAY_WRONG_KEY_MESSAGE = 'Outdated connection';
 export const GATEWAY_AUTH_REPAIR_HEADER = 'Outdated connection — tap to reconnect';
 export const GATEWAY_AUTH_REPAIR_SETTINGS_STATUS = 'Needs re-pair';
 
-/** Labels that are relay/chrome — never use them as the re-pair Mac target. */
+/** Labels that are account/chrome — never use them as the re-pair computer target. */
 export function authRepairTargetLabel(machineLabel?: string | null): string {
   const target = machineLabel?.trim();
   if (
     !target ||
     /^hermes account relay$/i.test(target) ||
+    /^hermes mobile account$/i.test(target) ||
+    /^hermes relay$/i.test(target) ||
     /^(your computer|computer|computer via usb)$/i.test(target)
   ) {
     return 'your computer';

@@ -76,7 +76,9 @@ describe('CodexCommandCenter', () => {
       />,
     );
 
-    expect(getByTestId('command-center-mac-detail').props.children).toBe('Looking for your Mac…');
+    expect(getByTestId('command-center-mac-detail').props.children).toBe(
+      'Looking for your computer…',
+    );
   });
 
   it('shows custom machine name when mac retry is busy', () => {
@@ -149,8 +151,10 @@ describe('CodexCommandCenter', () => {
       />,
     );
 
-    expect(getByTestId('command-center-link-state').props.children).toBe('Relay only');
-    expect(getByTestId('command-center-mac-detail').props.children).toBe('Chat needs direct link');
+    expect(getByTestId('command-center-link-state').props.children).toBe('No computer link');
+    expect(getByTestId('command-center-mac-detail').props.children).toBe(
+      'Chat needs Tailscale or Wi‑Fi',
+    );
   });
 
   it('hides entire command center when connected and idle', () => {
