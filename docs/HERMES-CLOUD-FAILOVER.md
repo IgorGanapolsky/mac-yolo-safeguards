@@ -21,8 +21,9 @@ The control plane rejects expired timestamps, reused nonces, revoked devices, an
 1. A heartbeat seen within 60 seconds routes new tasks to the local Hermes connector.
 2. If the device is offline, `disabled` pauses, `manual` waits for dashboard approval, and `auto` queues the task for cloud execution.
 3. A worker claims a 90-second lease with an incrementing generation and an opaque fencing token.
-4. Completion succeeds only for the current lease owner and token. A stale local or cloud worker cannot overwrite a newer run.
-5. When a local heartbeat returns, unclaimed cloud tasks are moved back to local. A cloud task already running retains its lease; this prevents duplicate execution.
+4. While execution is active, the local connector or cloud runner renews that same lease every 30 seconds. Renewal succeeds only while the current owner, token, generation, and original lease remain valid; an expired lease cannot be revived.
+5. Completion succeeds only for the current owner and token while the lease is still unexpired. Completion clears all lease authority. A stale local or cloud worker therefore cannot overwrite a newer run or complete after its deadline.
+6. When a local heartbeat returns, unclaimed cloud tasks are moved back to local. A cloud task already running retains its renewable lease; this prevents duplicate execution.
 
 The connector also reads the authenticated Hermes session API on `127.0.0.1:8642`, the
 same contract used by Hermes Mobile. It syncs metadata for recent sessions and bounded
@@ -56,3 +57,5 @@ The Stripe webhook endpoint is `/api/billing/webhook`; it promotes a workspace t
 - Connector signature/config: `node --test tests/test-hermes-cloud-connector.js`
 - Cloud runner: `npm test` in `services/hermes-cloud-runner`
 - Fly health: `GET /health` reports the latest poll and task timestamps without secrets
+- Anonymous security boundary: `/dashboard` redirects to hosted sign-in before its private client shell renders; workspace APIs return `401`
+- ARD capability catalog: `GET /.well-known/ai-catalog.json` validates as ARD 1.0 and contains only public documentation/discovery URLs
