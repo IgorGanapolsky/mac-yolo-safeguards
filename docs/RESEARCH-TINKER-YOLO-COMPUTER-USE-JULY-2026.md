@@ -131,9 +131,10 @@ authorization on both the MacBook Pro and Mac mini. On the MacBook Pro, the
 planner called both `computer_state` and `computer_screenshot`; Hammerspoon
 captured 3024x1964 pixels, local OCR ran, and Qwen3-VL 4B instruct returned a
 non-empty grounded description. On the Mac mini, the same source planner called
-`computer_state` after automatically starting isolated Ollama on loopback port
-11436. Exact merged runtime proof on both hosts remains the release gate; source
-capability alone is not deployment proof.
+`computer_state` and `computer_screenshot`, ran local Qwen3-VL, and returned the
+observed frontmost app after automatically starting isolated Ollama on loopback
+port 11436. Exact merged runtime proof on both hosts remains the release gate;
+source capability alone is not deployment proof.
 
 ## Why this implementation, not a new native daemon
 
