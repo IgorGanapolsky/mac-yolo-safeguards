@@ -437,25 +437,46 @@ function buildLivePairHtml({
   code { color:#22d3ee; font-size:11px; word-break:break-all; }
   #ttl { color:#fbbf24; font-weight:600; }
   #status { color:#a5b4fc; min-height:1.2em; }
+  .hint { display:inline-block; margin-top:10px; padding:4px 10px; border:1px solid #374151; border-radius:999px; font-size:12px; color:#a5b4fc; }
+  [data-view] { display:none; }
 </style></head>
 <body>
   <h1>Hermes Mobile</h1>
   <h2 style="color:#a5b4fc;font-size:15px;margin:0 0 8px">${escapeHtml(displayName)}</h2>
-  <p>${escapeHtml(pairingInstructions)}</p>
-  ${imgTag || ''}
-  <p id="ttl">Code expires in <span id="ttl-value">${escapeHtml(remainingLabel)}</span></p>
-  <p id="status"></p>
-  <p>${escapeHtml(gatewayLabel)}: <code>${escapeHtml(gatewayUrl)}</code></p>
-  <a class="btn" id="open-btn" href="${escapeHtml(deepLink)}">Open in Hermes Mobile</a>
-  <p>No typing — Hermes Mobile links automatically.</p>
+
+  <div data-view="mac">
+    <span class="hint">Viewing on this Mac</span>
+    <p>This page is for your <strong>phone</strong> — the Open button below only works on Android. Scan the QR with your phone's camera, or plug the phone in by USB and Hermes opens automatically (no scan needed).</p>
+    ${imgTag || ''}
+    <p id="ttl-mac">Code expires in <span id="ttl-value-mac">${escapeHtml(remainingLabel)}</span></p>
+    <p>${escapeHtml(gatewayLabel)}: <code>${escapeHtml(gatewayUrl)}</code></p>
+  </div>
+
+  <div data-view="phone">
+    <span class="hint">Viewing on your phone</span>
+    <p>${escapeHtml(pairingInstructions)}</p>
+    <p id="ttl">Code expires in <span id="ttl-value">${escapeHtml(remainingLabel)}</span></p>
+    <p id="status"></p>
+    <p>${escapeHtml(gatewayLabel)}: <code>${escapeHtml(gatewayUrl)}</code></p>
+    <a class="btn" id="open-btn" href="${escapeHtml(deepLink)}">Open in Hermes Mobile</a>
+    <p>No typing — Hermes Mobile links automatically.</p>
+  </div>
+
   <script>
     (function () {
+      // Same generated page renders on the Mac (file:// --open, or this Mac's own
+      // browser hitting :8765/pair) and on the phone (QR scan) — only the phone can
+      // act on hermes://, so pick which half to show instead of a dead Open button.
+      var isPhone = /Android|iPhone|iPad/i.test(navigator.userAgent);
+      var view = document.querySelector('[data-view="' + (isPhone ? 'phone' : 'mac') + '"]');
+      if (view) view.style.display = 'block';
+
       var expiresAt = ${Number(expiresAt) || 0};
       var refreshMs = ${Number(refreshMs) || 60000};
       var deepLink = '${safeDeepLink}';
       var pageUrl = ${JSON.stringify(pageUrl || '')};
       var statusEl = document.getElementById('status');
-      var ttlEl = document.getElementById('ttl-value');
+      var ttlEl = document.getElementById(isPhone ? 'ttl-value' : 'ttl-value-mac');
       var openBtn = document.getElementById('open-btn');
       function formatRemaining(ms) {
         var totalSec = Math.max(0, Math.ceil(ms / 1000));
@@ -483,13 +504,16 @@ function buildLivePairHtml({
         window.location.reload();
       }, refreshMs);
       // Auto-open once per browser tab session so 60s remints do not spam hermes://.
-      try {
-        if (deepLink && !sessionStorage.getItem('hermesPairAutoOpened')) {
-          sessionStorage.setItem('hermesPairAutoOpened', '1');
-          setTimeout(function () { window.location.href = deepLink; }, 600);
+      // Phone only — hermes:// has no handler on the Mac, so opening it there is a no-op.
+      if (isPhone) {
+        try {
+          if (deepLink && !sessionStorage.getItem('hermesPairAutoOpened')) {
+            sessionStorage.setItem('hermesPairAutoOpened', '1');
+            setTimeout(function () { window.location.href = deepLink; }, 600);
+          }
+        } catch (e) {
+          if (deepLink) setTimeout(function () { window.location.href = deepLink; }, 600);
         }
-      } catch (e) {
-        if (deepLink) setTimeout(function () { window.location.href = deepLink; }, 600);
       }
       if (openBtn && deepLink) openBtn.href = deepLink;
       if (pageUrl) { /* keep pageUrl for live reload identity */ }
