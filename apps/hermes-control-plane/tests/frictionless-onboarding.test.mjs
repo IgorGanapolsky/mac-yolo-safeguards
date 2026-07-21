@@ -9,6 +9,8 @@ const layout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8
 const landing = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
 const billingPlan = readFileSync(new URL("../app/BillingPlan.tsx", import.meta.url), "utf8");
 const threadsRoute = readFileSync(new URL("../app/api/threads/route.ts", import.meta.url), "utf8");
+const sessionSyncRoute = readFileSync(new URL("../app/api/device/sessions/sync/route.ts", import.meta.url), "utf8");
+const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
 const webPackage = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 const connector = readFileSync(new URL("../../../tools/hermes-cloud-connector.js", import.meta.url), "utf8");
 const installer = readFileSync(new URL("../../../saas/install-connector.sh", import.meta.url), "utf8");
@@ -51,7 +53,10 @@ test("makes the chat rail collapsible and keeps chats in deterministic newest-fi
   assert.match(dashboard, /Expand chat sidebar/);
   assert.match(dashboard, /sortThreadsNewestFirst/);
   assert.match(dashboard, /Number\(right\.updatedAt\) - Number\(left\.updatedAt\)/);
-  assert.match(threadsRoute, /ORDER BY t\.updated_at DESC, t\.id DESC/);
+  assert.match(threadsRoute, /COALESCE\(t\.source_updated_at, t\.updated_at\) AS updatedAt/);
+  assert.match(threadsRoute, /ORDER BY COALESCE\(t\.source_updated_at, t\.updated_at\) DESC, t\.id DESC/);
+  assert.match(sessionSyncRoute, /excluded\.source_updated_at > threads\.source_updated_at/);
+  assert.match(tasksRoute, /MAX\(COALESCE\(source_updated_at, 0\), \?\)/);
   assert.match(globals, /\.sidebar-toggle\{[^}]*min-width:44px[^}]*min-height:44px/);
 });
 

@@ -64,6 +64,11 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .conversation-history{background:rgba(7,10,18,.55)}
 .conversation-message{border-radius:18px;background:rgba(255,255,255,.045);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 .conversation-message.role-user{background:var(--user-bubble);border-color:rgba(255,255,255,.1);color:var(--user-bubble-text)}
+.conversation-message.role-error{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.08)}
+.conversation-message.role-error span{color:var(--danger)}
+.conversation-message.role-error p{color:#fca5a5}
+.conversation-message.role-pending{border-style:dashed;opacity:.85}
+.conversation-message.role-pending p{font-style:italic}
 .conversation-message p{color:var(--text-secondary);font:13px/1.58 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 .dashboard-task pre{background:#090C14;border-left-color:var(--accent)}
 .dashboard-task,.device-card,.privacy-boundary{border-color:var(--line)}
