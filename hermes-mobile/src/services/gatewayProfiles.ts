@@ -476,7 +476,12 @@ export function resolveHealPersistDecision(
 } {
   const active = activeProfile(state);
   const allowed = isDiscoveredUrlAllowedForActiveProfile(state, successfulUrl);
-  if (state.activeProfileId && !allowed) {
+  // Escape hatch: sticky USB loopback primary may activate a Tailscale computer
+  // (same or other Mac) so cellular users are not trapped on "Computer via USB".
+  const usbLoopbackEscape =
+    Boolean(active && isLoopbackGatewayUrl(active.gatewayUrl)) &&
+    isTailscaleGatewayUrl(successfulUrl);
+  if (state.activeProfileId && !allowed && !usbLoopbackEscape) {
     return {
       catalogOnly: true,
       returnUrl: active?.gatewayUrl?.trim() || successfulUrl,
@@ -486,7 +491,7 @@ export function resolveHealPersistDecision(
   return {
     catalogOnly: false,
     returnUrl: successfulUrl,
-    requestedActivation,
+    requestedActivation: usbLoopbackEscape ? true : requestedActivation,
   };
 }
 

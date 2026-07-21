@@ -89,8 +89,11 @@ export function isUsbHeaderTransportAllowed(input: {
   );
 }
 
-/** Generic USB label when loopback is selected but live cable identity is unknown. */
-export const USB_UNKNOWN_MACHINE_LABEL = 'Computer via USB';
+/**
+ * Generic label when loopback is selected but live cable identity is unknown.
+ * Must not say "Computer via USB" — that markets a dead USB path off-home (2026-07-21).
+ */
+export const USB_UNKNOWN_MACHINE_LABEL = 'Your computer';
 
 function healthHostname(health?: GatewayHealthSnapshot | null): string | undefined {
   return health?.hostname?.replace(/\.local$/i, '').trim() || undefined;

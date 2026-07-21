@@ -732,6 +732,34 @@ describe('gatewayProfiles', () => {
     expect(profilesForActiveMachine(profiles, 'mini').map((p) => p.id)).toEqual(['mini']);
   });
 
+  it('resolveHealPersistDecision allows USB loopback to activate Tailscale computer', () => {
+    const state = {
+      profiles: [
+        {
+          id: 'usb',
+          label: 'Computer via USB',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          hostname: 'Igors-MacBook-Pro',
+          localIp: '127.0.0.1',
+          addedAt: '2026-07-21T00:00:00Z',
+        },
+        {
+          id: 'mini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini',
+          localIp: '100.94.135.78',
+          addedAt: '2026-07-21T00:00:01Z',
+        },
+      ],
+      activeProfileId: 'usb',
+    };
+    const decision = resolveHealPersistDecision(state, 'http://100.94.135.78:8642', false);
+    expect(decision.catalogOnly).toBe(false);
+    expect(decision.requestedActivation).toBe(true);
+    expect(decision.returnUrl).toBe('http://100.94.135.78:8642');
+  });
+
   it('resolveHealPersistDecision blocks cross-machine gateway repointing', () => {
     const state = dedupeGatewayProfiles({
       profiles: [

@@ -110,4 +110,32 @@ describe('gatewayLoopbackFallback', () => {
       }),
     ).toEqual(['http://igors-macbook.tail12aa33.ts.net:8642']);
   });
+
+  it('unsopes Tailscale fallback off-Wi‑Fi when sticky USB loopback is primary', () => {
+    const profiles = [
+      {
+        id: 'usb',
+        label: 'Computer via USB',
+        hostname: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://127.0.0.1:8642',
+        addedAt: '2026-07-21T00:00:00Z',
+      },
+      {
+        id: 'mini',
+        label: 'Igors-Mac-mini',
+        hostname: 'Igors-Mac-mini',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        addedAt: '2026-07-21T00:00:01Z',
+      },
+    ];
+    expect(
+      cellularTailscaleFallbackUrls({
+        primaryUrl: 'http://127.0.0.1:8642',
+        wifiConnected: false,
+        profiles,
+        activeProfileId: 'usb',
+        tailnetProbeHosts: [],
+      }),
+    ).toEqual(['http://100.94.135.78:8642']);
+  });
 });

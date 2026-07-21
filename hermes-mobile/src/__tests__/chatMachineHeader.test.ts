@@ -32,7 +32,7 @@ describe('resolveChatMachineHeaderDisplay', () => {
       workers: [],
       savedMacCount: 0,
     });
-    expect(display.machineLabel).toBe('Your computer');
+    expect(display.machineLabel).toBe(USB_UNKNOWN_MACHINE_LABEL);
     expect(display.machineEndpoint).toBeUndefined();
     expect(formatChatMachineHeaderLine(display).toLowerCase()).not.toContain('usb');
     expect(formatChatMachineHeaderLine(display)).not.toContain('127.0.0.1');

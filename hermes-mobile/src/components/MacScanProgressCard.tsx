@@ -98,6 +98,8 @@ const styles = StyleSheet.create({
     borderColor: colors.borderLight,
     backgroundColor: 'rgba(99, 102, 241, 0.08)',
     gap: 8,
+    // Reserved height so Find-computers progress % / stage swaps do not jump the panel.
+    minHeight: 88,
   },
   cardSuccess: {
     borderColor: 'rgba(16, 185, 129, 0.35)',
