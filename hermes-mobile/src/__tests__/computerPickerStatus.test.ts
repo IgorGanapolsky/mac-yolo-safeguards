@@ -157,6 +157,48 @@ describe('computerPickerStatus', () => {
     expect(status.title).toBe('Missing your other machine?');
   });
 
+  it('never claims Using USB when active path is Home Wi-Fi', () => {
+    const status = resolveComputerPickerStatus({
+      scanning: false,
+      scanProgress: null,
+      scanResult: {
+        foundCount: 1,
+        lanCount: 0,
+        tailscaleCount: 0,
+        usbCount: 1,
+        completedAtMs: 1,
+      },
+      showScanResult: true,
+      tailscaleProbing: false,
+      tailscaleVpnActive: false,
+      tailscaleDiscoveries: [],
+      activeGatewayUrl: 'http://192.168.68.61:8642',
+      wifiConnected: true,
+      activeReachable: true,
+    });
+    expect(status.kind).toBe('active');
+    expect(status.title).toBe('Connected · Home Wi‑Fi');
+    expect(status.title).not.toMatch(/USB/i);
+    expect(status.detail).not.toMatch(/Using USB/i);
+  });
+
+  it('shows Connected · USB when loopback is the active path', () => {
+    const status = resolveComputerPickerStatus({
+      scanning: false,
+      scanProgress: null,
+      scanResult: null,
+      showScanResult: false,
+      tailscaleProbing: false,
+      tailscaleVpnActive: true,
+      tailscaleDiscoveries: [],
+      activeGatewayUrl: 'http://127.0.0.1:8642',
+      wifiConnected: true,
+      activeReachable: true,
+    });
+    expect(status.kind).toBe('active');
+    expect(status.title).toBe('Connected · USB');
+  });
+
   it('debounces rapid signature flips but commits first paint immediately', () => {
     const a = resolveComputerPickerStatus({
       scanning: false,
