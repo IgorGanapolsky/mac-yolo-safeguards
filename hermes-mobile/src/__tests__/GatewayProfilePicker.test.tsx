@@ -185,7 +185,14 @@ describe('GatewayProfilePicker', () => {
     expect(getByTestId(`gateway-profile-item-${longProfile.id}`)).toHaveStyle({
       flexDirection: 'column',
     });
+    expect(getByTestId(`select-gateway-profile-${longProfile.id}`)).toHaveStyle({
+      alignItems: 'flex-start',
+      minHeight: 92,
+      paddingVertical: 16,
+    });
     expect(getByText(`${longHostname} (Mac Pro)`).props.numberOfLines).toBe(2);
+    expect(getByText('192.168.12.208:8642')).toHaveProp('numberOfLines', 2);
+    expect(getByText(/Cannot reach this computer/)).toHaveProp('numberOfLines', 2);
     expect(getByTestId(`remove-gateway-profile-${longProfile.id}`)).toHaveTextContent(
       'Forget this Mac',
     );

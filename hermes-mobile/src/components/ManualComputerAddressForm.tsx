@@ -50,21 +50,29 @@ export default function ManualComputerAddressForm({
     }
   };
 
-  const title = pickerMode ? 'Add by Tailscale address' : 'Connect manually (Tailscale or IP)';
+  const title = pickerMode
+    ? 'Add a computer by Tailscale address'
+    : 'Connect manually (Tailscale or IP)';
   const subtitle = pickerMode
-    ? "Enter your Mac's Tailscale name or 100.x address, then Connect."
+    ? "Enter your computer's Tailscale name or 100.x address."
     : "Add by entering your computer's Tailscale or local IP address:";
   const placeholder = pickerMode
-    ? 'e.g. your-mac or 100.x.x.x'
+    ? 'e.g. office-pc or 100.x.x.x'
     : 'e.g. your-device-name or a 100.x address';
 
   return (
-    <View style={styles.manualEntry} testID={`${testIDPrefix}-form`}>
+    <View
+      style={[styles.manualEntry, pickerMode ? styles.manualEntryPicker : null]}
+      testID={`${testIDPrefix}-form`}
+    >
       <Text style={styles.manualEntryTitle}>{title}</Text>
       <Text style={styles.manualEntrySubtitle}>{subtitle}</Text>
-      <View style={styles.manualInputRow}>
+      <View
+        style={[styles.manualInputRow, pickerMode ? styles.manualInputRowPicker : null]}
+        testID={`${testIDPrefix}-controls`}
+      >
         <TextInput
-          style={styles.manualInput}
+          style={[styles.manualInput, pickerMode ? styles.manualInputPicker : null]}
           placeholder={placeholder}
           placeholderTextColor={colors.textMuted}
           value={manualInput}
@@ -80,7 +88,7 @@ export default function ManualComputerAddressForm({
           loading={addingProfile}
           onPress={handleManualConnect}
           testID={`${testIDPrefix}-submit`}
-          style={styles.manualButton}
+          style={[styles.manualButton, pickerMode ? styles.manualButtonPicker : null]}
         />
       </View>
       {manualInputError ? (
@@ -100,6 +108,16 @@ const styles = StyleSheet.create({
     borderTopColor: colors.borderLight,
     gap: 8,
   },
+  manualEntryPicker: {
+    marginTop: 16,
+    padding: 16,
+    borderTopWidth: 0,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
+    gap: 10,
+  },
   manualEntryTitle: {
     fontSize: 14,
     fontWeight: '800',
@@ -115,6 +133,11 @@ const styles = StyleSheet.create({
     gap: 8,
     alignItems: 'center',
   },
+  manualInputRowPicker: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 10,
+  },
   manualInput: {
     flex: 1,
     height: 44,
@@ -126,10 +149,21 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 13,
   },
+  manualInputPicker: {
+    width: '100%',
+    flex: 0,
+    minHeight: 48,
+    borderRadius: 12,
+    fontSize: 14,
+  },
   manualButton: {
     paddingVertical: 10,
     height: 44,
     minWidth: 90,
+  },
+  manualButtonPicker: {
+    width: '100%',
+    minHeight: 48,
   },
   manualError: {
     fontSize: 12,

@@ -34,7 +34,7 @@ describe('ManualComputerAddressForm', () => {
     });
   });
 
-  it('shows picker Mode fresh-user copy', () => {
+  it('shows platform-neutral picker copy and full-width stacked controls', () => {
     const { getByText, getByTestId } = render(
       <ManualComputerAddressForm
         onAddProfile={jest.fn()}
@@ -42,10 +42,19 @@ describe('ManualComputerAddressForm', () => {
         testIDPrefix="mac-picker-manual"
       />,
     );
-    expect(getByText('Add by Tailscale address')).toBeTruthy();
-    expect(getByText(/Tailscale name or 100\.x address, then Connect/)).toBeTruthy();
-    expect(getByTestId('mac-picker-manual-input')).toBeTruthy();
-    expect(getByTestId('mac-picker-manual-submit')).toBeTruthy();
+    expect(getByText('Add a computer by Tailscale address')).toBeTruthy();
+    expect(getByText("Enter your computer's Tailscale name or 100.x address.")).toBeTruthy();
+    expect(getByTestId('mac-picker-manual-form')).toHaveStyle({
+      padding: 16,
+      borderWidth: 1,
+      borderRadius: 16,
+    });
+    expect(getByTestId('mac-picker-manual-controls')).toHaveStyle({
+      flexDirection: 'column',
+      alignItems: 'stretch',
+    });
+    expect(getByTestId('mac-picker-manual-input')).toHaveStyle({ width: '100%', minHeight: 48 });
+    expect(getByTestId('mac-picker-manual-submit')).toHaveStyle({ width: '100%', minHeight: 48 });
   });
 
   it('shows error for empty input', async () => {

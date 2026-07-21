@@ -129,7 +129,7 @@ export default function GatewayProfilePicker({
                   {lines.title}
                 </Text>
                 {lines.detail ? (
-                  <Text style={styles.profileDetail} numberOfLines={1} ellipsizeMode="middle">
+                  <Text style={styles.profileDetail} numberOfLines={2} ellipsizeMode="middle">
                     {lines.detail}
                   </Text>
                 ) : null}
@@ -140,6 +140,7 @@ export default function GatewayProfilePicker({
                     isActive && authNeedsRepair ? styles.metaNeedsRepair : null,
                     isActive && !activeReachable && !authNeedsRepair ? styles.metaUnreachable : null,
                   ]}
+                  numberOfLines={2}
                 >
                   {meta}
                   {isActive ? ' · Now' : ''}
@@ -183,11 +184,11 @@ const styles = StyleSheet.create({
   selectButton: {
     width: '100%',
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
-    minHeight: 64,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    minHeight: 92,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.borderLight,
@@ -205,6 +206,7 @@ const styles = StyleSheet.create({
     borderColor: colors.textMuted,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 2,
   },
   selectDotInner: {
     width: 8,
@@ -220,11 +222,13 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '800',
     fontSize: 15,
+    lineHeight: 20,
     flexShrink: 1,
   },
   profileDetail: {
     color: colors.textMuted,
     fontSize: 12,
+    lineHeight: 17,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
     marginTop: 2,
@@ -232,6 +236,7 @@ const styles = StyleSheet.create({
   meta: {
     color: colors.textMuted,
     fontSize: 12,
+    lineHeight: 17,
     marginTop: 3,
     fontWeight: '700',
   },

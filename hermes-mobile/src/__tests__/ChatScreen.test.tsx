@@ -1395,10 +1395,8 @@ describe('ChatScreen', () => {
     expect(getByText('Missing your other machine?')).toBeTruthy();
     expect(getByText(/Start Hermes on your other machine/)).toBeTruthy();
     expect(getByTestId('mac-picker-manual-form')).toBeTruthy();
-    expect(getByText('Add by Tailscale address')).toBeTruthy();
-    expect(
-      getByText("Enter your Mac's Tailscale name or 100.x address, then Connect."),
-    ).toBeTruthy();
+    expect(getByText('Add a computer by Tailscale address')).toBeTruthy();
+    expect(getByText("Enter your computer's Tailscale name or 100.x address.")).toBeTruthy();
   });
 
   it('keeps one computer-picker status region instead of stacking discovery banners', async () => {
