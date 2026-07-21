@@ -10,6 +10,7 @@ EXPECTED=(
   com.igor.react-native-newsletter-ingest
   com.igor.hermes-contribution-opportunities
   com.igor.hermes-mobile-continuous-e2e
+  com.igor.hermes-mobile-play-paid-review-poll
   com.igor.hermes-usb-reverse-watchdog
   com.igor.shutdown-simulators
   com.igor.revenue-autonomous-loop
