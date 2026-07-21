@@ -75,7 +75,7 @@ export function resolveChatLinkDisplay(input: {
     return { label: pairLabel, chatReachable: false };
   }
   if (input.connectionState === 'connected') {
-    return { label: 'Relay only', chatReachable: false };
+    return { label: 'Needs computer link', chatReachable: false };
   }
   if (input.connectionState === 'connecting') {
     return { label: 'Connecting', chatReachable: false };

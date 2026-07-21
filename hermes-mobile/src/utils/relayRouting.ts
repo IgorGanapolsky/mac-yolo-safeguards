@@ -85,9 +85,9 @@ export function resolveRelayRouteDisplay(input: {
       gatewayUrl === 'http://127.0.0.1:8642' ||
       gatewayUrl === 'http://localhost:8642';
     return {
-      machineLabel: 'Hermes account relay',
+      machineLabel: 'Your computer',
       routeStatus: showPairNudge
-        ? 'Pair relay in Settings for Wi‑Fi, cellular, or USB'
+        ? 'Use Tailscale for cellular, or home Wi‑Fi when local'
         : heal.inFlight
           ? neverConnected
             ? 'Looking for your Mac…'
@@ -101,17 +101,17 @@ export function resolveRelayRouteDisplay(input: {
     const workerName = relayWorkerDisplayName(worker);
     return {
       machineLabel: workerName,
-      endpointLabel: 'via Hermes relay',
-      routeStatus: `Routed by Hermes account${worker.status ? ` · ${worker.status}` : ''}`,
+      endpointLabel: 'via Tailscale',
+      routeStatus: `Away from home${worker.status ? ` · ${worker.status}` : ''}`,
     };
   }
 
   return {
-    machineLabel: 'Hermes account relay',
-    endpointLabel: 'via Hermes relay',
+    machineLabel: 'Your computer',
+    endpointLabel: 'via Tailscale',
     routeStatus:
       input.connectionState === 'connected'
-        ? 'Waiting for active workers on Wi‑Fi, cellular, or USB'
-        : 'Connects when a Hermes worker checks in',
+        ? 'Waiting for your computer on Tailscale, home Wi‑Fi, or USB'
+        : 'Connects when Hermes on your computer is online',
   };
 }

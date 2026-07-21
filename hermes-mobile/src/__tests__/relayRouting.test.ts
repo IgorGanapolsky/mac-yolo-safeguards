@@ -40,9 +40,9 @@ describe('relayRouting', () => {
       fallbackMachineLabel: '192.168.1.10',
     });
 
-    expect(display.machineLabel).toBe('Hermes account relay');
+    expect(display.machineLabel).toBe('Your computer');
     expect(display.endpointLabel).toBeUndefined();
-    expect(display.routeStatus).toContain('Pair relay in Settings');
+    expect(display.routeStatus).toContain('Use Tailscale for cellular');
   });
 
   it('suppresses pair relay nag while silently reconnecting on Wi-Fi', () => {
@@ -102,8 +102,8 @@ describe('relayRouting', () => {
     });
 
     expect(display.machineLabel).toBe('Igors-Mac-mini · skool_top1percent');
-    expect(display.endpointLabel).toBe('via Hermes relay');
-    expect(display.routeStatus).toContain('Hermes account');
+    expect(display.endpointLabel).toBe('via Tailscale');
+    expect(display.routeStatus).toContain('Away from home');
   });
 
   it('keeps direct fallback display in gateway mode', () => {
