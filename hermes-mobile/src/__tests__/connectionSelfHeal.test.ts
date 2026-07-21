@@ -320,10 +320,36 @@ describe('USB primary on cellular', () => {
     ).toBe('http://100.87.85.85:8642');
   });
 
-  it('falls through to another Tailscale computer when USB Mac has no Tailscale sibling', () => {
-    const usbActive: GatewayProfile = {
+  it('falls through to another Tailscale computer only for anonymous USB', () => {
+    const usbAnonymous: GatewayProfile = {
       id: 'usb',
       label: 'Computer via USB',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      localIp: '127.0.0.1',
+      addedAt: '2026-07-21T00:00:00Z',
+    };
+    const miniTs: GatewayProfile = {
+      id: 'mini',
+      label: 'Igors-Mac-mini',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      hostname: 'Igors-Mac-mini',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-21T00:00:01Z',
+    };
+    expect(
+      resolveCellularTailscaleFailoverUrl({
+        primaryUrl: 'http://127.0.0.1:8642',
+        profiles: [usbAnonymous, miniTs],
+        activeProfile: usbAnonymous,
+        discoveries: [],
+      }),
+    ).toBe('http://100.94.135.78:8642');
+  });
+
+  it('does not silently jump named USB MacBook to Mac mini Tailscale', () => {
+    const usbMacBook: GatewayProfile = {
+      id: 'usb',
+      label: 'Igors-MacBook-Pro',
       gatewayUrl: 'http://127.0.0.1:8642',
       hostname: 'Igors-MacBook-Pro',
       localIp: '127.0.0.1',
@@ -340,11 +366,11 @@ describe('USB primary on cellular', () => {
     expect(
       resolveCellularTailscaleFailoverUrl({
         primaryUrl: 'http://127.0.0.1:8642',
-        profiles: [usbActive, miniTs],
-        activeProfile: usbActive,
+        profiles: [usbMacBook, miniTs],
+        activeProfile: usbMacBook,
         discoveries: [],
       }),
-    ).toBe('http://100.94.135.78:8642');
+    ).toBeNull();
   });
 });
 
