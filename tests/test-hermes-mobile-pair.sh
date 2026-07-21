@@ -492,5 +492,24 @@ else
   bad "pair.json write + adb push gated on USB hijack guard; force-mini overrides no-serve skip"
 fi
 
+# P0 2026-07-21: file:// pair page must embed QR (Chrome often fails sibling PNG loads),
+# and loopback/USB must not claim "same Wi‑Fi" as the primary instruction.
+if [[ "$PAIR_JS" == *'data:image/png;base64,'* ]] \
+  && [[ "$PAIR_JS" == *'USB cable pairing is active'* ]] \
+  && [[ "$PAIR_JS" == *'USB gateway'* ]] \
+  && [[ "$PAIR_JS" == *'isLoopbackGatewayUrl(gatewayUrl)'* ]] \
+  && [[ "$PAIR_JS" != *'same Wi‑Fi) or tap Open below'* ]]; then
+  ok "pair page embeds QR data URL + USB-first copy for loopback gateways"
+else
+  bad "pair page embeds QR data URL + USB-first copy for loopback gateways"
+fi
+
+if [[ "$PAIR_JS" == *'const qrPayload = usbPrimary ? deepLink : pageUrl'* ]] \
+  || [[ "$PAIR_JS" == *'usbPrimary ? deepLink : pageUrl'* ]]; then
+  ok "USB pair QR encodes deep link (not LAN pair URL)"
+else
+  bad "USB pair QR encodes deep link (not LAN pair URL)"
+fi
+
 printf "\nResults: %s passed, %s failed\n" "$pass" "$fail"
 [[ "$fail" -eq 0 ]]

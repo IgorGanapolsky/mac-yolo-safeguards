@@ -357,21 +357,33 @@ function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relay
   fs.mkdirSync(OUT_DIR, { recursive: true });
   syncVaultProjectsCatalog();
   const displayName = (hostname || '').replace(/\.local$/i, '') || 'Mac';
+  const usbPrimary = isLoopbackGatewayUrl(gatewayUrl);
+  // USB: QR must open the app deep link (camera scan must not depend on LAN/Wi‑Fi).
+  // Network: QR opens the pair HTTP page so the phone can tap through on the same LAN/tailnet.
+  const qrPayload = usbPrimary ? deepLink : pageUrl;
   const qrPath = path.join(OUT_DIR, 'pair-qr.png');
   let imgTag = '';
-  const qr = spawnSync('npx', ['--yes', 'qrcode', '-o', qrPath, pageUrl], {
+  const qr = spawnSync('npx', ['--yes', 'qrcode', '-o', qrPath, qrPayload], {
     cwd: REPO,
     encoding: 'utf8',
     timeout: 20_000,
   });
   if (qr.status === 0 && fs.existsSync(qrPath)) {
-    imgTag = `<img src="pair-qr.png" alt="Pair QR code" width="280" height="280"/>`;
+    // Data URL so file:// (Mac --open) never depends on Chrome loading a sibling PNG.
+    // Relative pair-qr.png still fails under file:// in some Chrome builds; HTTP /pair-qr.png stays for the server route.
+    const b64 = fs.readFileSync(qrPath).toString('base64');
+    imgTag = `<img src="data:image/png;base64,${b64}" alt="Pair QR code" width="280" height="280"/>`;
   }
+
+  const pairingInstructions = usbPrimary
+    ? 'USB cable pairing is active — Hermes opens on the connected phone automatically via adb. Scan the QR only as a backup (no same-Wi‑Fi required).'
+    : 'Scan the QR with your phone camera (same Wi‑Fi or Tailscale) or tap Open below.';
+  const gatewayLabel = usbPrimary ? 'USB gateway' : 'Gateway';
 
   const pairJson = {
     gatewayUrl,
     deepLink,
-    qrUrl: pageUrl,
+    qrUrl: qrPayload,
     hostname: displayName,
     localIp: lanIp,
     ...(relayCode ? { relayCode: relayCode.trim().toUpperCase() } : {}),
@@ -390,7 +402,7 @@ function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relay
 <title>Hermes Mobile — Pair</title>
 <style>
   body { font-family: system-ui, sans-serif; background:#0b0f19; color:#e5e7eb; text-align:center; padding:24px; }
-  img { max-width:280px; margin:16px auto; border-radius:12px; background:#fff; padding:12px; }
+  img { max-width:280px; margin:16px auto; border-radius:12px; background:#fff; padding:12px; display:block; }
   a.btn { display:inline-block; margin-top:16px; padding:14px 22px; background:#6366f1; color:#fff;
     text-decoration:none; border-radius:12px; font-weight:700; }
   p { max-width:420px; margin:12px auto; line-height:1.5; color:#9ca3af; }
@@ -399,9 +411,9 @@ function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relay
 <body>
   <h1>Hermes Mobile</h1>
   <h2 style="color:#a5b4fc;font-size:15px;margin:0 0 8px">${displayName}</h2>
-  <p>Scan the QR with your phone camera (same Wi‑Fi) or tap Open below.</p>
+  <p>${pairingInstructions}</p>
   ${imgTag}
-  <p>Gateway: <code>${gatewayUrl}</code></p>
+  <p>${gatewayLabel}: <code>${gatewayUrl}</code></p>
   <a class="btn" href="${deepLink}">Open in Hermes Mobile</a>
   <p>No typing — Hermes Mobile links automatically.</p>
   <script>
