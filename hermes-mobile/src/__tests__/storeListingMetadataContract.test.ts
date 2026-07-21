@@ -10,24 +10,28 @@ function read(p: string): string {
 }
 
 describe('store listing metadata contract (stellar live)', () => {
-  it('Play and iOS titles lead with Hermes AI Agent Leash', () => {
+  it('Play and iOS titles are platform-neutral Hermes AI Agent Leash', () => {
     const playTitle = read(path.join(ANDROID, 'title.txt'));
     const iosName = read(path.join(IOS, 'name.txt'));
     expect(playTitle.length).toBeLessThanOrEqual(30);
     expect(iosName.length).toBeLessThanOrEqual(30);
-    expect(playTitle).toBe('Hermes AI Agent Leash');
-    expect(iosName).toBe('Hermes AI Agent Leash');
+    expect(playTitle).toBe('Hermes AI: Agent Leash');
+    expect(iosName).toBe('Hermes AI: Agent Leash');
+    expect(playTitle).not.toMatch(/\bMac\b/);
+    expect(iosName).not.toMatch(/\bMac\b/);
   });
 
-  it('Play short description is Mac-remote wedge within 80 chars', () => {
+  it('Play short description is computer-remote wedge within 80 chars', () => {
     const short = read(path.join(ANDROID, 'short_description.txt'));
     expect(short.length).toBeLessThanOrEqual(80);
     expect(short).toMatch(/Hermes AI/i);
-    expect(short).toMatch(/Mac/i);
+    expect(short).toMatch(/computer/i);
     expect(short).toMatch(/4\.99/);
     expect(short).not.toMatch(/19\.99/);
     expect(short).toMatch(/once/i);
     expect(short).toMatch(/not phone AI/i);
+    // Title/short must not imply Mac-only product
+    expect(short).not.toMatch(/Mac leash|Mac Agent|on Mac —/i);
   });
 
   it('Play full description does not claim iOS is still in review', () => {
@@ -35,9 +39,11 @@ describe('store listing metadata contract (stellar live)', () => {
     expect(full.length).toBeLessThanOrEqual(4000);
     expect(full).not.toMatch(/iOS is in App Store review/i);
     expect(full).toMatch(/live on (the )?App Store/i);
-    expect(full).toMatch(/Looking for .Hermes Agent/i);
+    expect(full).toMatch(/Looking for ['"]?Hermes Agent/i);
     expect(full).toMatch(/Tailscale/i);
     expect(full).toMatch(/Hen Works/i);
+    expect(full).toMatch(/Mac, Linux, or Windows/i);
+    expect(full).not.toMatch(/Mac Agent Leash/i);
   });
 
   it('Play phone screenshots are present and distinct filenames', () => {
@@ -53,7 +59,7 @@ describe('store listing metadata contract (stellar live)', () => {
     ]);
   });
 
-  it('iOS subtitle and promo fit limits and avoid review-stale language', () => {
+  it('iOS subtitle and promo fit limits and avoid Mac-only framing', () => {
     const subtitle = read(path.join(IOS, 'subtitle.txt'));
     const promo = read(path.join(IOS, 'promotional_text.txt'));
     const keywords = read(path.join(IOS, 'keywords.txt'));
@@ -62,10 +68,11 @@ describe('store listing metadata contract (stellar live)', () => {
     expect(keywords.length).toBeLessThanOrEqual(100);
     expect(promo).not.toMatch(/in App Store review/i);
     expect(subtitle).not.toMatch(/Claude Code|Cursor/i);
-    // Product subtitle: Hermes-on-Mac chat (not generic "Control Mac agents")
     expect(subtitle).toMatch(/Hermes/i);
-    expect(subtitle).toMatch(/Mac/i);
+    expect(subtitle).toMatch(/computer/i);
+    expect(subtitle).not.toMatch(/\bMac\b/);
     expect(promo).toMatch(/not a phone chatbot|not phone/i);
+    expect(promo).toMatch(/Mac, Linux, or Windows/i);
   });
 
   it('iOS promo and Play copy use paid-upfront pricing', () => {
