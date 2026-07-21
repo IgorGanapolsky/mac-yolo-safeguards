@@ -349,6 +349,9 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- `hermes-mobile/fastlane/metadata/android/en-US/title.txt`, `hermes-mobile/src/__tests__/storeListingMetadataContract.test.ts` (title assert only), `hermes-mobile/docs/ASO-HERMES-AI-SERP-20260721.md`, `plan.md` → **cursor-aso-hermes-ai-serp** (T-ASO-HERMES-AI-SERP; coord c79e69ff / naming `ccd22d70`; no listing thrash; paid review alone) (2026-07-21T14:55:24Z)
+- T-ASO-HERMES-AI-SERP claimed files → **released by cursor-aso-hermes-ai-serp** after Play API title commit + SERP evidence (2026-07-21T15:01:57Z)
+
 - `tinker-yolo`, `tests/test-kimi-tinker-yolo.sh`, `plan.md` → **codex-tinker-q4-default** (T-TINKER-Q4-DEFAULT-20260721: replace the 16 GB bare/chat default with the proven 5 GB q4 tag while preserving explicit overrides) (2026-07-21T18:10:41Z)
 - T-TINKER-Q4-DEFAULT-20260721 claimed files → **released by codex-tinker-q4-default** after 23/23 wrapper tests, 6/6 harness tests, dual-host SHA/API/PTY proof, and matching versioned runtime installation on both hosts (2026-07-21T18:17:58Z)
 
@@ -939,6 +942,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `apps/hermes-control-plane/app/api/tasks/route.ts`, `apps/hermes-control-plane/app/api/thread-messages/route.ts` → **codex-thumbgate-chat-management** (T-THUMBGATE-CHAT-MANAGEMENT-20260721: deleted/cleared chats must not remain visible through task receipts or transcript endpoints, and new tasks must reject tombstoned thread ids) (2026-07-21T18:41:00Z)
 
 ## 3. Decisions Log
+
+- 2026-07-21T15:01:57Z `cursor-aso-hermes-ai-serp`: **T-ASO-HERMES-AI-SERP** — free Play deep link live; API title `Hermes AI: Mac Agent Leash`; SERP miss evidence; paid left 404. Coord c79e69ff / naming `ccd22d70`; no listing thrash.
 
 - 2026-07-21T18:17:58Z `codex-tinker-q4-default`: **Completed T-TINKER-Q4-DEFAULT-20260721.** Root cause was the 16 GB `qwen3-hermes-tinker:latest` bare/chat default on 24 GB-class Macs, compounded by two stale local `ollama run` clients that left the server in `Stopping...`; the 5 GB q4 artifact itself was healthy. Default is now `qwen3-hermes-tinker:q4` while env/flag overrides remain. Proof: wrapper 23/23, harness 6/6, both local APIs returned 42, PTY answer checks returned 42, runtime wrapper SHA `d0e47f152cc462e9921a5e5971666f0d46cdd5d4a49f17f2ef0c3cf453899f49` matches on both hosts, and the mini's 5,028 MB model/config/manifest hashes match the Pro.
 - 2026-07-21T15:22:00Z `cursor-pair-code-ttl`: **Completed T-PAIR-CODE-TTL via PR #690 (`cd34a2ac`).** Display TTL 20m + 60s auto-refresh + live `/pair` remint; Camera QR HTTP-only; adb fresh mint; pair suite 46/46; live distinct codes proven.
