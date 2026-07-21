@@ -1,9 +1,11 @@
 import type { HermesMessage } from '../types/chat';
 import { EMPTY_STREAM_TIMEOUT_PLACEHOLDER } from '../utils/streamAssistantText';
 import {
+  PROMPT_REPLY_HARD_TIMEOUT_MS,
   messageSentAtMs,
   resolveLastUserPromptSentAtMs,
   resolvePromptReplyElapsedState,
+  shouldHardTimeoutLivePromptWait,
 } from '../utils/promptReplyElapsed';
 
 describe('promptReplyElapsed', () => {
@@ -59,5 +61,13 @@ describe('promptReplyElapsed', () => {
       { id: 'user-2', role: 'user', content: 'make money today', created_at: '2026-07-14T22:00:00.000Z' },
     ];
     expect(resolveLastUserPromptSentAtMs(messages)).toBe(Date.parse('2026-07-14T22:00:00.000Z'));
+  });
+
+  it('hard-times out live waits at 2 minutes', () => {
+    const sinceMs = Date.parse('2026-07-14T22:00:00.000Z');
+    expect(shouldHardTimeoutLivePromptWait(sinceMs, sinceMs + PROMPT_REPLY_HARD_TIMEOUT_MS - 1)).toBe(
+      false,
+    );
+    expect(shouldHardTimeoutLivePromptWait(sinceMs, sinceMs + PROMPT_REPLY_HARD_TIMEOUT_MS)).toBe(true);
   });
 });
