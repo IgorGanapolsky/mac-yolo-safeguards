@@ -5,7 +5,6 @@ const http = require('http');
 const os = require('os');
 
 const required = ['HERMES_CONTROL_PLANE_URL', 'HERMES_CLOUD_RUNNER_TOKEN', 'OPENAI_BASE_URL', 'OPENAI_API_KEY', 'OPENAI_MODEL'];
-const POLL_MS = Number(process.env.POLL_MS || 3000);
 const CONTROL_TIMEOUT_MS = Number(process.env.CONTROL_TIMEOUT_MS || 15_000);
 const MODEL_TIMEOUT_MS = Number(process.env.MODEL_TIMEOUT_MS || 75_000);
 const MODEL_MAX_TOKENS = Number(process.env.MODEL_MAX_TOKENS || 2_048);
@@ -13,6 +12,24 @@ const LEASE_RENEW_MS = Number(process.env.LEASE_RENEW_MS || 30_000);
 let lastPollAt = 0;
 let lastTaskAt = 0;
 let lastError = null;
+
+function positiveMilliseconds(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function pollingSchedule(env = process.env) {
+  const activePollMs = positiveMilliseconds(env.ACTIVE_POLL_MS, 1_000);
+  const idlePollMs = Math.max(
+    activePollMs,
+    positiveMilliseconds(env.IDLE_POLL_MS || env.POLL_MS, 30_000),
+  );
+  return { activePollMs, idlePollMs };
+}
+
+function nextPollDelay(didWork, schedule = pollingSchedule()) {
+  return didWork ? schedule.activePollMs : schedule.idlePollMs;
+}
 
 function stripTrailingSlashes(value) {
   let normalized = String(value);
@@ -101,13 +118,15 @@ function healthServer(port = Number(process.env.PORT || 8080)) {
 
 async function main() {
   const config = configFromEnv();
+  const schedule = pollingSchedule();
   healthServer();
   while (true) {
-    try { await runOnce(config); lastError = null; }
+    let didWork = false;
+    try { didWork = await runOnce(config); lastError = null; }
     catch (error) { lastError = error instanceof Error ? error.message : String(error); console.error(`[hermes-cloud-runner] ${lastError}`); }
-    await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+    await new Promise((resolve) => setTimeout(resolve, nextPollDelay(didWork, schedule)));
   }
 }
 
-module.exports = { callControl, configFromEnv, execute, runOnce, withLeaseRenewal };
+module.exports = { callControl, configFromEnv, execute, nextPollDelay, pollingSchedule, runOnce, withLeaseRenewal };
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });
