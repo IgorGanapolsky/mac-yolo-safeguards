@@ -392,7 +392,10 @@ export default function SettingsScreen() {
         inputApiKey,
       );
       setPairCode('');
-      Alert.alert('Paired', 'Hermes Mobile can reach your computer away from home — keep Tailscale on for cellular.');
+      Alert.alert(
+        'Cloud approvals paired',
+        'Approval requests can arrive anywhere. This does not provide live Chat or computer tools; connect to your computer with Tailscale, USB, or home Wi‑Fi.',
+      );
     } catch (err) {
       Alert.alert('Pairing failed', err instanceof Error ? err.message : 'Could not complete pairing');
     }
@@ -640,14 +643,13 @@ export default function SettingsScreen() {
         </Text>
         <GatewayOpsSection />
 
-        <Text style={styles.sectionTitle}>Away from home</Text>
+        <Text style={styles.sectionTitle}>Computer connection</Text>
         <GlassCard>
           <Text style={styles.description}>
-            On cellular or any non-home network, turn on Tailscale on phone and computer — like a
-            private VPN to your machine. Home Wi‑Fi and USB still work as direct links when you are local.
+            Use Tailscale away from home, or USB/home Wi‑Fi nearby, for Chat, tools, and ops.
           </Text>
           <View style={styles.relayRouteCard} testID="relay-route-card">
-            <Text style={styles.relayRouteEyebrow}>Account route</Text>
+            <Text style={styles.relayRouteEyebrow}>Cloud approvals (optional)</Text>
             <Text style={styles.relayRouteTitle} testID="relay-route-title">
               {relayRouteDisplay.machineLabel}
             </Text>
@@ -693,8 +695,10 @@ export default function SettingsScreen() {
           <View style={styles.spacer} />
           <View style={styles.switchRow}>
             <View style={styles.switchLabelCol}>
-              <Text style={styles.switchLabel}>Cloud approvals (advanced)</Text>
-              <Text style={styles.switchDesc}>Optional cloud approval queue; Tailscale or home Wi‑Fi still preferred for Chat</Text>
+              <Text style={styles.switchLabel}>Cloud approvals (optional)</Text>
+              <Text style={styles.switchDesc}>
+                Pair your Hermes account for approval requests anywhere. Does not provide live Chat or computer tools.
+              </Text>
             </View>
             <Switch
               value={connectionMode === 'relay'}
