@@ -15,4 +15,3 @@ The provider result was retained by run ID rather than copied verbatim because
 the source report mixes primary documentation with secondary implementation
 suggestions; the repository ingest cites the primary sources used for the
 shipped design.
-
