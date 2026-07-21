@@ -1030,11 +1030,14 @@ export default function ChatScreen() {
         userDragging: userDraggingRef.current,
         prevUserScrolledUp: userScrolledUpRef.current,
       });
-      // Programmatic scrollToEnd fires onScroll during layout — setState here
-      // re-enters FlashList ("Maximum update depth exceeded").
+      // Programmatic scrollToEnd fires onScroll during layout with nearBottom=true —
+      // setState there re-enters FlashList ("Maximum update depth exceeded").
+      // Always allow updates when away from the bottom (jump-to-latest chrome).
       if (
-        programmaticScrollInFlightRef.current ||
-        Date.now() < layoutQuietUntilMsRef.current
+        nearBottom &&
+        !userDraggingRef.current &&
+        (programmaticScrollInFlightRef.current ||
+          Date.now() < layoutQuietUntilMsRef.current)
       ) {
         return;
       }
