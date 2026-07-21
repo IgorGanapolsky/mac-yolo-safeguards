@@ -7,7 +7,8 @@ type Organization = { id: string; plan: string; trialEndsAt: number | null; clou
 type Device = { id: string; name: string; fingerprint: string; failoverMode: "disabled" | "manual" | "auto"; lastSeenAt: number | null; online: boolean };
 type Thread = { id: string; title: string; taskCount: number; updatedAt: number; source: string; model: string | null; preview: string | null; messageCount: number; sourceSessionId: string | null; syncedAt: number | null; deviceName: string | null };
 type Task = { id: string; threadId: string; threadTitle: string; prompt: string; status: string; route: string; result: string | null; error: string | null; createdAt: number; updatedAt: number; completedAt: number | null; deviceName: string | null };
-type ThreadDetails = { snapshot: Array<{ role: string; content: string }>; tasks: Array<{ prompt: string; result: string | null; error: string | null; route: string; status: string; createdAt: number }> };
+type ThreadDetails = { snapshot: Array<{ role: string; content: string }>; tasks: Array<{ id: string; prompt: string; result: string | null; error: string | null; route: string; status: string; createdAt: number }> };
+type Feedback = { taskId: string; signal: "up" | "down"; note: string | null; updatedAt: number };
 type ChatDialog = { kind: "rename" | "delete"; thread: Thread } | { kind: "clear" };
 
 const terminal = new Set(["completed", "failed"]);
@@ -93,6 +94,9 @@ export default function DashboardClient() {
   const [renameValue, setRenameValue] = useState("");
   const [chatOperationBusy, setChatOperationBusy] = useState(false);
   const [safetyExpanded, setSafetyExpanded] = useState(false);
+  const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
+  const [feedbackDialog, setFeedbackDialog] = useState<{ taskId: string; note: string } | null>(null);
+  const [feedbackBusyTask, setFeedbackBusyTask] = useState<string | null>(null);
   const autoSelectedThread = useRef(false);
 
   useEffect(() => {
@@ -165,7 +169,18 @@ export default function DashboardClient() {
         setSelectedThread(nextThreads[0].id);
       }
     }
-    if (taskResponse.ok) setTasks((await taskResponse.json() as { tasks: Task[] }).tasks);
+    if (taskResponse.ok) {
+      const nextTasks = (await taskResponse.json() as { tasks: Task[] }).tasks;
+      setTasks(nextTasks);
+      const taskIds = nextTasks.filter((task) => task.result && task.status === "completed").map((task) => task.id);
+      if (taskIds.length) {
+        const feedbackResponse = await fetch(`/api/feedback?task_ids=${encodeURIComponent(taskIds.join(","))}`, { cache: "no-store" });
+        if (feedbackResponse.ok) {
+          const rows = (await feedbackResponse.json() as { feedback: Feedback[] }).feedback;
+          setFeedback(Object.fromEntries(rows.map((row) => [row.taskId, row])));
+        }
+      } else setFeedback({});
+    }
     if (selectedThread) {
       const detailResponse = await fetch(`/api/thread-messages?thread_id=${encodeURIComponent(selectedThread)}`, { cache: "no-store" });
       if (detailResponse.ok) setThreadDetails(await detailResponse.json() as ThreadDetails);
@@ -253,6 +268,61 @@ export default function DashboardClient() {
     } catch {
       setNotice("Clipboard access is unavailable. Select the one-line installer command and copy it.");
     }
+  }
+
+  async function saveFeedback(taskId: string, signal: Feedback["signal"], note: string | null = null) {
+    const current = feedback[taskId];
+    setFeedbackBusyTask(taskId);
+    setNotice(null);
+    try {
+      if (current?.signal === signal && signal === "up") {
+        const response = await fetch("/api/feedback", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ taskId }) });
+        if (!response.ok) throw new Error("Could not remove feedback");
+        setFeedback((all) => { const next = { ...all }; delete next[taskId]; return next; });
+        setNotice("Feedback removed.");
+        return;
+      }
+      const response = await fetch("/api/feedback", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ taskId, signal, note }) });
+      const body = await response.json().catch(() => ({})) as { feedback?: Feedback; error?: string };
+      if (!response.ok || !body.feedback) throw new Error(body.error ?? "Could not save feedback");
+      setFeedback((all) => ({ ...all, [taskId]: body.feedback as Feedback }));
+      setFeedbackDialog(null);
+      setNotice(signal === "up" ? "Marked helpful. This lesson is now in ThumbGate." : "Marked for improvement. Your note is now in ThumbGate lessons.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not save feedback");
+    } finally {
+      setFeedbackBusyTask(null);
+    }
+  }
+
+  function chooseFeedback(taskId: string, signal: Feedback["signal"]) {
+    if (feedbackBusyTask === taskId) return;
+    if (signal === "down") {
+      const current = feedback[taskId];
+      if (current?.signal === "down") {
+        setFeedbackBusyTask(taskId);
+        void fetch("/api/feedback", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ taskId }) })
+          .then((response) => {
+            if (!response.ok) throw new Error("Could not remove feedback");
+            setFeedback((all) => { const next = { ...all }; delete next[taskId]; return next; });
+            setNotice("Feedback removed.");
+          })
+          .catch((error: Error) => setNotice(error.message))
+          .finally(() => setFeedbackBusyTask(null));
+      } else setFeedbackDialog({ taskId, note: current?.note ?? "" });
+      return;
+    }
+    void saveFeedback(taskId, signal);
+  }
+
+  function feedbackControls(taskId: string) {
+    const current = feedback[taskId]?.signal;
+    return <div className="response-feedback" aria-label="Rate this Hermes response">
+      <span>Useful?</span>
+      <button type="button" className={current === "up" ? "is-selected" : ""} aria-pressed={current === "up"} aria-label="Thumbs up — mark response helpful" disabled={feedbackBusyTask === taskId} onClick={() => chooseFeedback(taskId, "up")}>👍</button>
+      <button type="button" className={current === "down" ? "is-selected" : ""} aria-pressed={current === "down"} aria-label="Thumbs down — mark response for improvement" disabled={feedbackBusyTask === taskId} onClick={() => chooseFeedback(taskId, "down")}>👎</button>
+      {current && <a href="/dashboard/lessons">View lesson →</a>}
+    </div>;
   }
 
   function toggleChatRail() {
@@ -347,6 +417,7 @@ export default function DashboardClient() {
         <div className="sidebar-content" id="hermes-chat-rail">
           <div className="workspace-label">NAVIGATION</div>
           <button className={!selectedThread ? "side-item active" : "side-item"} onClick={() => openThread(null)}><span>H</span><span className="side-item-label">Hermes</span><em>{activeTasks.length}</em></button>
+          <a className="side-item" href="/dashboard/lessons"><span>👍</span><span className="side-item-label">ThumbGate lessons</span><em>{Object.keys(feedback).length}</em></a>
           <div className="workspace-label chats-label-row">
             <span>CHATS</span>
             <div className="chats-label-actions">
@@ -397,14 +468,14 @@ export default function DashboardClient() {
               {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><p>{message.content}</p></article>) : <div className="conversation-empty">This thread has no cloud snapshot yet. Keep the paired Hermes connector online to sync it.</div>}
               {threadDetails?.tasks.flatMap((task, index) => [
                 <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
-                task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{task.route}</span><p>{task.result}</p></article>
+                task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{task.route}</span><p>{task.result}</p>{feedbackControls(task.id)}</article>
                   : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>failed</span><p>{task.error}</p></article>
                   : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{task.route === "cloud" ? "cloud runner" : "your machine"}</span><p>Waiting for {task.route === "cloud" ? "the fenced cloud runner" : "your paired machine"} to pick this up…</p></article>
                   : null,
               ])}
             </div>}
             <form className="composer" onSubmit={createTask}><textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Tell Hermes what to do next…" rows={4} /><div><small>{devices.length ? "Routes to your paired machine or fenced cloud runner" : "Pair a machine before creating a task"}</small><button className="button button-primary button-small" disabled={busy || !devices.length}>Run task →</button></div></form>
-            <div className="task-list" id="task-activity">{visibleTasks.length === 0 ? <div className="empty-state"><Mark /><h3>No tasks yet</h3><p>Pair a machine, then continue a Hermes thread from anywhere.</p></div> : visibleTasks.map((task) => <article key={task.id} className="dashboard-task"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time></div><h3>{task.threadTitle}</h3><p>{task.prompt}</p><div className="task-foot"><span>{task.route === "cloud" ? "☁ Cloud runner" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>{["needs_failover", "offline_blocked"].includes(task.status) && <button onClick={() => void failover(task.id)}>Continue in cloud →</button>}</div>{task.result && <pre>{task.result}</pre>}{task.error && <div className="task-error">{task.error}</div>}</article>)}</div>
+            <div className="task-list" id="task-activity">{visibleTasks.length === 0 ? <div className="empty-state"><Mark /><h3>No tasks yet</h3><p>Pair a machine, then continue a Hermes thread from anywhere.</p></div> : visibleTasks.map((task) => <article key={task.id} className="dashboard-task"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time></div><h3>{task.threadTitle}</h3><p>{task.prompt}</p><div className="task-foot"><span>{task.route === "cloud" ? "☁ Cloud runner" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>{["needs_failover", "offline_blocked"].includes(task.status) && <button onClick={() => void failover(task.id)}>Continue in cloud →</button>}</div>{task.result && <><pre>{task.result}</pre>{feedbackControls(task.id)}</>}{task.error && <div className="task-error">{task.error}</div>}</article>)}</div>
           </section>
 
           <aside className="right-rail">
@@ -412,6 +483,7 @@ export default function DashboardClient() {
               <div className="panel-heading"><div><p className="eyebrow">CONNECTION</p><h2>{onlineDevices.length ? "Connector online" : devices.length ? "Connector reconnecting" : "Pair your first machine"}</h2></div><span>{onlineDevices.length ? "LIVE" : devices.length ? "RETRYING" : "STEP 1 OF 3"}</span></div>
               <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "KeepAlive is retrying automatically" : "Run the one-command connector installer"}</strong><p>{devices.length ? "Tasks stay local while reachable and follow each machine's offline policy when it disappears." : "The installer creates a device key, opens this approval page with the code filled, and starts an always-on service."}</p></div></div>
               {!devices.length && <div className="installer-command"><code>{connectorInstallCommand}</code><button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy one-line installer"}</button></div>}
+              {!devices.length && <div className="account-recovery"><p>Signed in as <strong>{user.email}</strong>. If your machines are paired to another email, switch accounts here.</p><form action="/api/auth/logout" method="post"><button className="button button-secondary button-small">Switch account</button></form></div>}
               <ol className="dashboard-setup-steps"><li className={devices.length ? "is-done" : "is-current"}><span>1</span>Install connector</li><li className={devices.length ? "is-done" : ""}><span>2</span>Approve short code</li><li className={onlineDevices.length ? "is-done" : devices.length ? "is-current" : ""}><span>3</span>Choose offline policy</li></ol>
               <p className="privacy-boundary">Bounded Hermes thread context syncs to this control plane. The device private key and local gateway credential stay on the machine.</p>
             </section>
@@ -430,8 +502,18 @@ export default function DashboardClient() {
       <nav className="mobile-web-tabs" aria-label="Hermes workspace">
         <a href="#hermes-console"><b aria-hidden="true">H</b><span>Hermes</span></a>
         <a href="#leash-control"><b aria-hidden="true">✓</b><span>Leash</span></a>
+        <a href="/dashboard/lessons"><b aria-hidden="true">👍</b><span>Lessons</span></a>
         <a href="#web-settings"><b aria-hidden="true">≡</b><span>Settings</span></a>
       </nav>
+      {feedbackDialog && <div className="chat-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target && !feedbackBusyTask) setFeedbackDialog(null); }}>
+        <form className="chat-dialog feedback-dialog" role="dialog" aria-modal="true" aria-labelledby="feedback-dialog-title" onSubmit={(event) => { event.preventDefault(); void saveFeedback(feedbackDialog.taskId, "down", feedbackDialog.note); }}>
+          <p className="eyebrow">THUMBGATE FEEDBACK</p>
+          <h2 id="feedback-dialog-title">What should Hermes improve?</h2>
+          <p>The note is optional. It stays inside your workspace and appears in your lessons dashboard.</p>
+          <label>Improvement note<textarea autoFocus value={feedbackDialog.note} onChange={(event) => setFeedbackDialog({ ...feedbackDialog, note: event.target.value })} maxLength={1000} rows={4} placeholder="Missing evidence, wrong context, unsafe action…" /></label>
+          <div className="chat-dialog-actions"><button type="button" className="button button-secondary button-small" disabled={Boolean(feedbackBusyTask)} onClick={() => setFeedbackDialog(null)}>Cancel</button><button className="button button-primary button-small" disabled={Boolean(feedbackBusyTask)}>Save lesson</button></div>
+        </form>
+      </div>}
       {chatDialog && <div className="chat-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target && !chatOperationBusy) setChatDialog(null); }}>
         <section className="chat-dialog" role="dialog" aria-modal="true" aria-labelledby="chat-dialog-title">
           {chatDialog.kind === "rename" ? <form onSubmit={(event) => void submitChatDialog(event)}>

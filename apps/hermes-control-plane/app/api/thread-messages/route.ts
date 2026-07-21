@@ -17,7 +17,7 @@ export async function GET(request: Request) {
   let snapshot: SnapshotMessage[] = [];
   try { snapshot = thread.contextSnapshot ? JSON.parse(thread.contextSnapshot) as SnapshotMessage[] : []; } catch { snapshot = []; }
   const tasks = await db().prepare(
-    `SELECT prompt, result, error, route, status, created_at AS createdAt, completed_at AS completedAt
+    `SELECT id, prompt, result, error, route, status, created_at AS createdAt, completed_at AS completedAt
        FROM tasks WHERE thread_id = ? AND organization_id = ? AND (? IS NULL OR created_at > ?)
        ORDER BY created_at ASC LIMIT 100`
   ).bind(threadId, session.organizationId, thread.syncedAt, thread.syncedAt).all();
