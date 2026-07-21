@@ -401,6 +401,7 @@ import {
   GENERIC_EMPTY_STREAM_PLACEHOLDER,
   isDeferredStreamPlaceholder,
   isTelegramDeferredEmptyStream,
+  preferRicherAssistantText,
   snapshotAssistantBodies,
   TELEGRAM_QUEUED_REPLY_PLACEHOLDER,
 } from '../utils/streamAssistantText';
@@ -1464,7 +1465,11 @@ export default function ChatScreen() {
               messagesRef.current = next;
               return next;
             }
-            const next = prev.map((m) => (m.id === assistantId ? { ...m, content: currentText } : m));
+            const next = prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, content: preferRicherAssistantText(m.content, currentText) }
+                : m,
+            );
             messagesRef.current = next;
             return next;
           });
@@ -2967,7 +2972,11 @@ export default function ChatScreen() {
             setToolStatus(null);
             setRunProgress(null);
             commitMessages((prev) =>
-              prev.map((m) => (m.id === assistantId ? { ...m, content: reply } : m)),
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, content: preferRicherAssistantText(m.content, reply) }
+                  : m,
+              ),
             );
             haptics.success();
             return;
@@ -5570,7 +5579,11 @@ export default function ChatScreen() {
       const priorAssistants = snapshotAssistantBodies(messagesRef.current);
 
       const updateAssistant = (text: string) => {
-        const body = text.trim();
+        const incoming = text.trim();
+        if (!incoming) {
+          return;
+        }
+        const body = preferRicherAssistantText(activeAssistantTextRef.current, incoming);
         if (!body) {
           return;
         }
@@ -5581,7 +5594,11 @@ export default function ChatScreen() {
             assistantBubbleAdded = true;
             activeAssistantIdRef.current = existing.id;
             commitMessages((prev) => {
-              const next = prev.map((m) => (m.id === existing.id ? { ...m, content: body } : m));
+              const next = prev.map((m) =>
+                m.id === existing.id
+                  ? { ...m, content: preferRicherAssistantText(m.content, body) }
+                  : m,
+              );
               persistOutboundSnapshot(currentSessionRef.current?.id ?? targetSessionId, next);
               return next;
             });
@@ -5608,7 +5625,11 @@ export default function ChatScreen() {
           return;
         }
         commitMessages((prev) => {
-          const next = prev.map((m) => (m.id === assistantId ? { ...m, content: body } : m));
+          const next = prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: preferRicherAssistantText(m.content, body) }
+              : m,
+          );
           persistOutboundSnapshot(currentSessionRef.current?.id ?? targetSessionId, next);
           return next;
         });
@@ -5742,8 +5763,9 @@ export default function ChatScreen() {
             if (evt.event === 'run.completed' || evt.event === 'done') {
               const fromTranscript = extractAssistantFromRunCompletedPayload(evt.data);
               if (fromTranscript) {
-                assistantText = fromTranscript;
-                updateAssistant(fromTranscript);
+                // Never let a truncated run.completed payload erase longer streamed text.
+                assistantText = preferRicherAssistantText(assistantText, fromTranscript);
+                updateAssistant(assistantText);
               }
             }
             if (typeof evt.event === 'string' && evt.event.startsWith('tool.') && evt.data.tool_name) {
