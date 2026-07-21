@@ -134,12 +134,15 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
-          # Expo/RN 0.83 / AGP on this runner requested 27.0.12077973 in failed logs.
-          NDK_VERSION="27.0.12077973"
+          # Expo SDK 55 / RN 0.83 on ubuntu-latest resolves ndk 27.1.12297006
+          # (see failed #724/#743 ship-guard logs). Pre-installing 27.0 left a
+          # partial directory without source.properties → CXX1101 while Gradle
+          # also fetched 27.1.
+          NDK_VERSION="27.1.12297006"
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
           export ANDROID_HOME="$SDK_ROOT"
           export ANDROID_SDK_ROOT="$SDK_ROOT"
-          mkdir -p "$SDK_ROOT"
+          mkdir -p "$SDK_ROOT/ndk"
           if ! command -v sdkmanager >/dev/null 2>&1; then
             if [ -x "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
               export PATH="$SDK_ROOT/cmdline-tools/latest/bin:$PATH"
@@ -148,6 +151,16 @@ jobs:
               exit 0
             fi
           fi
+          # Wipe incomplete NDK trees (dir present, missing source.properties).
+          if [ -d "${SDK_ROOT}/ndk" ]; then
+            for ndk_dir in "${SDK_ROOT}/ndk"/*; do
+              [ -d "$ndk_dir" ] || continue
+              if [ ! -f "${ndk_dir}/source.properties" ]; then
+                echo "Removing incomplete NDK dir: ${ndk_dir}"
+                rm -rf "$ndk_dir"
+              fi
+            done
+          fi
           install_ok=0
           for attempt in 1 2 3; do
             echo "NDK install attempt ${attempt}/3 (ndk;${NDK_VERSION})"
@@ -155,11 +168,13 @@ jobs:
               "${SDK_ROOT}/.temp" \
               "${SDK_ROOT}/.downloadIntermediates" 2>/dev/null || true
             if yes | sdkmanager --install "ndk;${NDK_VERSION}" >/tmp/ndk-install.log 2>&1; then
-              if [ -d "${SDK_ROOT}/ndk/${NDK_VERSION}" ]; then
+              if [ -f "${SDK_ROOT}/ndk/${NDK_VERSION}/source.properties" ]; then
                 echo "NDK ready at ${SDK_ROOT}/ndk/${NDK_VERSION}"
                 install_ok=1
                 break
               fi
+              echo "install reported success but source.properties missing; wiping"
+              rm -rf "${SDK_ROOT}/ndk/${NDK_VERSION}"
             fi
             echo "attempt ${attempt} failed; tail:"
             tail -40 /tmp/ndk-install.log || true
@@ -168,6 +183,8 @@ jobs:
           if [ "$install_ok" != "1" ]; then
             echo "WARN: pre-install NDK failed; Gradle may still recover"
             tail -80 /tmp/ndk-install.log || true
+          else
+            echo "ANDROID_NDK_HOME=${SDK_ROOT}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
           fi
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
@@ -262,11 +279,15 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
-          NDK_VERSION="27.0.12077973"
+          # Expo SDK 55 / RN 0.83 on ubuntu-latest resolves ndk 27.1.12297006
+          # (see failed #724/#743 ship-guard logs). Pre-installing 27.0 left a
+          # partial directory without source.properties → CXX1101 while Gradle
+          # also fetched 27.1.
+          NDK_VERSION="27.1.12297006"
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
           export ANDROID_HOME="$SDK_ROOT"
           export ANDROID_SDK_ROOT="$SDK_ROOT"
-          mkdir -p "$SDK_ROOT"
+          mkdir -p "$SDK_ROOT/ndk"
           if ! command -v sdkmanager >/dev/null 2>&1; then
             if [ -x "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
               export PATH="$SDK_ROOT/cmdline-tools/latest/bin:$PATH"
@@ -275,6 +296,16 @@ jobs:
               exit 0
             fi
           fi
+          # Wipe incomplete NDK trees (dir present, missing source.properties).
+          if [ -d "${SDK_ROOT}/ndk" ]; then
+            for ndk_dir in "${SDK_ROOT}/ndk"/*; do
+              [ -d "$ndk_dir" ] || continue
+              if [ ! -f "${ndk_dir}/source.properties" ]; then
+                echo "Removing incomplete NDK dir: ${ndk_dir}"
+                rm -rf "$ndk_dir"
+              fi
+            done
+          fi
           install_ok=0
           for attempt in 1 2 3; do
             echo "NDK install attempt ${attempt}/3 (ndk;${NDK_VERSION})"
@@ -282,11 +313,13 @@ jobs:
               "${SDK_ROOT}/.temp" \
               "${SDK_ROOT}/.downloadIntermediates" 2>/dev/null || true
             if yes | sdkmanager --install "ndk;${NDK_VERSION}" >/tmp/ndk-install.log 2>&1; then
-              if [ -d "${SDK_ROOT}/ndk/${NDK_VERSION}" ]; then
+              if [ -f "${SDK_ROOT}/ndk/${NDK_VERSION}/source.properties" ]; then
                 echo "NDK ready at ${SDK_ROOT}/ndk/${NDK_VERSION}"
                 install_ok=1
                 break
               fi
+              echo "install reported success but source.properties missing; wiping"
+              rm -rf "${SDK_ROOT}/ndk/${NDK_VERSION}"
             fi
             echo "attempt ${attempt} failed; tail:"
             tail -40 /tmp/ndk-install.log || true
@@ -295,6 +328,8 @@ jobs:
           if [ "$install_ok" != "1" ]; then
             echo "WARN: pre-install NDK failed; Gradle may still recover"
             tail -80 /tmp/ndk-install.log || true
+          else
+            echo "ANDROID_NDK_HOME=${SDK_ROOT}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
           fi
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
