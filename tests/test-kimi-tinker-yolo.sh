@@ -124,8 +124,6 @@ set +e; "$TINKER" proof >/dev/null 2>&1; c=$?; set -e
 "$TINKER" recommend --json | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['host']['memoryGB']==24; assert not d['candidate']['localInferenceFeasible']; assert not d['gates']['baselineReplacementAllowed']" \
   && ok "tinker-yolo recommends remote candidate on 24GB M5" || no "tinker-yolo recommendation"
 
-OLLAMA_ARGS="$ROOT/ollama-args"
-export OLLAMA_ARGS
 cat > "$ROOT/pathbin/ollama" <<'EOF'
 #!/bin/sh
 case "$1" in
@@ -135,23 +133,40 @@ case "$1" in
       'custom:tag fixture 5.0GB now' \
       'explicit:tag fixture 5.0GB now'
     ;;
-  run) printf '%s\n' "$@" > "$OLLAMA_ARGS" ;;
   *) exit 2 ;;
 esac
 EOF
 chmod +x "$ROOT/pathbin/ollama"
 
-rm -f "$OLLAMA_ARGS"; "$TINKER" >/dev/null 2>&1
-{ [ "$(sed -n '1p' "$OLLAMA_ARGS")" = run ] && [ "$(sed -n '2p' "$OLLAMA_ARGS")" = qwen3-hermes-tinker:q4 ]; } \
-  && ok "tinker-yolo bare invocation defaults to q4" || no "tinker-yolo bare q4 default"
+AGENT_ARGS="$ROOT/tinker-agent-args"
+export AGENT_ARGS
+cat > "$ROOT/agent-python" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$@" > "$AGENT_ARGS"
+EOF
+chmod +x "$ROOT/agent-python"
+export TINKER_AGENT_PYTHON="$ROOT/agent-python"
 
-rm -f "$OLLAMA_ARGS"; TINKER_CHAT_MODEL=custom:tag "$TINKER" >/dev/null 2>&1
-[ "$(sed -n '2p' "$OLLAMA_ARGS")" = custom:tag ] \
-  && ok "tinker-yolo bare invocation honors env override" || no "tinker-yolo bare env override"
+rm -f "$AGENT_ARGS"; "$TINKER" >/dev/null 2>&1
+{ grep -qx -- '--model' "$AGENT_ARGS" && grep -qx 'qwen3-hermes-tinker:q4' "$AGENT_ARGS" && grep -qx '.*/tools/tinker-yolo-agent.py' "$AGENT_ARGS"; } \
+  && ok "tinker-yolo bare invocation starts q4 tool agent" || no "tinker-yolo bare q4 agent"
 
-rm -f "$OLLAMA_ARGS"; "$TINKER" chat --model explicit:tag >/dev/null 2>&1
-[ "$(sed -n '2p' "$OLLAMA_ARGS")" = explicit:tag ] \
-  && ok "tinker-yolo chat honors model flag" || no "tinker-yolo chat model flag"
+rm -f "$AGENT_ARGS"; TINKER_CHAT_MODEL=custom:tag "$TINKER" >/dev/null 2>&1
+grep -qx 'custom:tag' "$AGENT_ARGS" \
+  && ok "tinker-yolo bare agent honors env override" || no "tinker-yolo bare env override"
+
+rm -f "$AGENT_ARGS"; "$TINKER" chat "inspect files" --model explicit:tag --max-turns 7 >/dev/null 2>&1
+{ grep -qx 'explicit:tag' "$AGENT_ARGS" && grep -qx 'inspect files' "$AGENT_ARGS" && grep -qx '7' "$AGENT_ARGS"; } \
+  && ok "tinker-yolo chat forwards task and agent options" || no "tinker-yolo chat agent options"
+
+rm -f "$AGENT_ARGS"; "$TINKER" agent --workspace "$ROOT" --json "prove tools" >/dev/null 2>&1
+{ grep -qx -- '--workspace' "$AGENT_ARGS" && grep -qx "$ROOT" "$AGENT_ARGS" && grep -qx -- '--json' "$AGENT_ARGS"; } \
+  && ok "tinker-yolo explicit agent forwards workspace/json" || no "tinker-yolo explicit agent options"
+
+ln -s "$TINKER" "$ROOT/tinker-yolo-link"
+rm -f "$AGENT_ARGS"; "$ROOT/tinker-yolo-link" agent "symlink proof" >/dev/null 2>&1
+grep -qx '.*/tools/tinker-yolo-agent.py' "$AGENT_ARGS" \
+  && ok "tinker-yolo resolves companion agent through install symlink" || no "tinker-yolo symlink agent resolution"
 
 "$TINKER" --help | grep -q 'default qwen3-hermes-tinker:q4' \
   && ok "tinker-yolo help names q4 default" || no "tinker-yolo help q4 default"
