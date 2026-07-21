@@ -16,7 +16,10 @@ const POLL_MS = 3_000;
 const HEARTBEAT_MS = 15_000;
 const SESSION_SYNC_MS = 60_000;
 const SESSION_LIMIT = 60;
-const CONTEXT_SESSION_LIMIT = 12;
+// Sessions beyond this limit sync title-only and render "0 synced messages" in
+// the web dashboard. 40 covers a typical active week; per-session content stays
+// bounded by MAX_CONTEXT_MESSAGES/MAX_CONTEXT_CHARS so sync cost grows linearly.
+const CONTEXT_SESSION_LIMIT = 40;
 const REQUEST_TIMEOUT_MS = 15_000;
 const TASK_TIMEOUT_MS = 75_000;
 const MAX_CONTEXT_MESSAGES = 60;
