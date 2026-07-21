@@ -469,7 +469,9 @@ export default function SettingsScreen() {
             <Text style={styles.doneText}>Done</Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.subtitle}>Pair Hermes Relay, choose active machines, and run local fallback ops</Text>
+        <Text style={styles.subtitle}>
+          Connect to your computer with Tailscale, USB, or home Wi‑Fi
+        </Text>
       </View>
 
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
@@ -494,7 +496,7 @@ export default function SettingsScreen() {
           </View>
         </GlassCard>
 
-        <Text style={styles.sectionTitle}>Hermes Machines</Text>
+        <Text style={styles.sectionTitle}>Computers</Text>
         {cellularBlocksDirect ? (
           <GlassCard style={styles.tunnelWizardCard} testID="settings-cellular-tunnel-banner">
             <Text style={styles.tunnelWizardTitle} testID="settings-tunnel-wizard-title">
@@ -543,10 +545,10 @@ export default function SettingsScreen() {
           }}
         />
         <GlassCard>
-          <Text style={styles.label}>Your active machines</Text>
+          <Text style={styles.label}>Your computers</Text>
           <Text style={styles.description}>
-            Relay is the default path for approvals anywhere. Saved machines are direct-link
-            fallbacks for live Chat, tools, and ops until full cloud chat relay is enabled.
+            Tailscale keeps your selected computer reachable on Wi‑Fi or cellular. USB and home
+            Wi‑Fi are optional local paths.
           </Text>
           <GatewayProfilePicker
             profiles={profilesForSwitchComputerPicker(savedMacProfiles)}
@@ -563,15 +565,16 @@ export default function SettingsScreen() {
             showReachabilityHints
           />
           <LoadingButton
-            label="Search local network"
-            loadingLabel="Searching locally…"
+            label="Search home Wi‑Fi"
+            loadingLabel="Searching home Wi‑Fi…"
             loading={isScanningMacs || profileScanning}
             onPress={handleFindMacs}
             testID="find-macs-on-wifi"
             style={styles.pairButton}
           />
           <Text style={styles.description}>
-            Hermes on your computer must be running. Local search is optional fallback, not the main path.
+            Hermes must be running on the computer. Use Tailscale away from home; Wi‑Fi search
+            only checks the network you are currently on.
           </Text>
           <MacPairingHelp variant="getting-started" compact testID="settings-mac-pairing-help" />
           <TouchableOpacity

@@ -73,10 +73,18 @@ describe('SettingsScreen', () => {
     mockNavigate.mockClear();
   });
 
-  it('renders settings header and gateway inputs', async () => {
-    const { getByTestId, getByText } = render(<SettingsScreen />);
+  it('renders Tailscale-first connection guidance and gateway inputs', async () => {
+    const { getByTestId, getByText, queryByText } = render(<SettingsScreen />);
     expect(getByTestId('SETTINGS')).toBeTruthy();
-    expect(getByText('Pair Hermes Relay, choose active machines, and run local fallback ops')).toBeTruthy();
+    expect(getByText('Connect to your computer with Tailscale, USB, or home Wi‑Fi')).toBeTruthy();
+    expect(
+      getByText(
+        'Tailscale keeps your selected computer reachable on Wi‑Fi or cellular. USB and home Wi‑Fi are optional local paths.',
+      ),
+    ).toBeTruthy();
+    expect(getByText('Search home Wi‑Fi')).toBeTruthy();
+    expect(getByText(/Use Tailscale away from home/)).toBeTruthy();
+    expect(queryByText(/Relay is the default path/)).toBeNull();
     expect(getByTestId('GATEWAY_OPS')).toBeTruthy();
     expect(getByTestId('gateway-url-input')).toBeTruthy();
     expect(getByTestId('gateway-api-key-input')).toBeTruthy();
