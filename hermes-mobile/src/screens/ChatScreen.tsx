@@ -3013,13 +3013,11 @@ export default function ChatScreen() {
               ),
             );
             const activityAfterReply = toolActivityAfterLastUser(msgs);
-            const hasRunId = Boolean(
-              runProgressRef.current?.runId?.trim() ||
-                sendProgressSnapshotRef.current?.runId?.trim(),
-            );
             if (
               activityAfterReply.active ||
-              shouldRetainRunProgressAfterVisibleReply({ hasRunId })
+              shouldRetainRunProgressAfterVisibleReply({
+                deferredPollActive: Boolean(deferredTelegramPollRef.current),
+              })
             ) {
               setToolStatus(activityAfterReply.active ? activityAfterReply.detail : null);
               setRunProgress((prev) =>
@@ -6156,14 +6154,10 @@ export default function ChatScreen() {
             // But keep runProgress while a gateway job / deferred poll is still alive
             // so Connected token chrome stays live (not a stale session total).
             setRunProgress((prev) => {
-              const hasRunId = Boolean(
-                prev?.runId?.trim() || sendProgressSnapshotRef.current?.runId?.trim(),
-              );
               if (
                 shouldRetainRunProgressAfterVisibleReply({
                   deferredPollActive: Boolean(deferredTelegramPollRef.current),
                   awaitingGatewayReply: awaitingGatewayReplyRef.current,
-                  hasRunId,
                 })
               ) {
                 return retainActiveRunProgressForLiveTokens(prev);

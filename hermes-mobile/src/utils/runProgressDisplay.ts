@@ -72,13 +72,8 @@ export function shouldShowCompletedRunBanner(hasVisibleAssistantReply: boolean):
 export function shouldRetainRunProgressAfterVisibleReply(options: {
   deferredPollActive?: boolean;
   awaitingGatewayReply?: boolean;
-  hasRunId?: boolean;
 }): boolean {
-  return Boolean(
-    options.deferredPollActive ||
-      options.awaitingGatewayReply ||
-      options.hasRunId,
-  );
+  return Boolean(options.deferredPollActive || options.awaitingGatewayReply);
 }
 
 /**

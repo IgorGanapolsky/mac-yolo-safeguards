@@ -254,8 +254,8 @@ describe('shouldRetainRunProgressAfterVisibleReply', () => {
     expect(shouldRetainRunProgressAfterVisibleReply({})).toBe(false);
   });
 
-  it('retains when a gateway runId is still known', () => {
-    expect(shouldRetainRunProgressAfterVisibleReply({ hasRunId: true })).toBe(true);
+  it('does not retain solely because a completed run still has an id', () => {
+    expect(shouldRetainRunProgressAfterVisibleReply({})).toBe(false);
   });
 
   it('retains while deferred poll / awaiting reply is active', () => {
