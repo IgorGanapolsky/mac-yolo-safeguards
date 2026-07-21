@@ -20,6 +20,7 @@ import {
 } from '../services/marketingAttribution';
 import {
   __setShouldReportToPostHogForTesting,
+  getPostHogEnvironmentBlockReason,
   isProductAnalyticsEnabled,
   isProductionPostHogBuild,
   setPostHogDogfoodExclusions,
@@ -70,10 +71,11 @@ describe('productAnalytics', () => {
     await trackProductEvent('mac_scan_complete', { found_count: 2 });
     expect(global.fetch).toHaveBeenCalledTimes(1);
     const [url, init] = (global.fetch as jest.Mock).mock.calls[0];
-    expect(url).toContain('/capture/');
+    expect(url).toContain('/i/v0/e/');
     expect(init.method).toBe('POST');
     const body = JSON.parse(init.body);
     expect(body.event).toBe('mac_scan_complete');
+    expect(body.distinct_id).toBeTruthy();
     expect(body.properties.found_count).toBe(2);
   });
 
@@ -149,12 +151,20 @@ describe('productAnalytics', () => {
     it('skips EXPO_PUBLIC_POSTHOG_INTERNAL dogfood builds', () => {
       process.env.EXPO_PUBLIC_POSTHOG_INTERNAL = '1';
       expect(shouldReportToPostHog()).toBe(false);
+      expect(getPostHogEnvironmentBlockReason()).toBe(
+        'EXPO_PUBLIC_POSTHOG_INTERNAL',
+      );
+    });
+
+    it('reports null block reason when production capture allowed', () => {
+      expect(getPostHogEnvironmentBlockReason()).toBeNull();
     });
 
     it('does not send events when gated off', async () => {
       setPostHogDogfoodExclusions({ developerLeashUnlock: true });
       await trackProductEvent('leash_purchase_result', { status: 'purchased' });
       expect(global.fetch).not.toHaveBeenCalled();
+      expect(getPostHogEnvironmentBlockReason()).toBe('developerLeashUnlock');
     });
   });
 });

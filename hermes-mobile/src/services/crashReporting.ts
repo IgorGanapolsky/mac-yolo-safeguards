@@ -56,6 +56,73 @@ function truncate(value: string | undefined): string | undefined {
   return value.length > MAX_FIELD ? `${value.slice(0, MAX_FIELD)}…` : value;
 }
 
+function exceptionTypeFromMessage(message: string): string {
+  const match = /^([A-Za-z_$][\w$]*)\s*:/.exec(message);
+  return match?.[1] || 'Error';
+}
+
+/**
+ * PostHog Error Tracking payload for a queued crash.
+ * Uses `$exception` + `$exception_list` so issues appear in Error Tracking
+ * (custom event names like `ui_crash` do not).
+ */
+export function buildPostHogExceptionCapture(record: CrashRecord): {
+  api_key: string;
+  event: '$exception';
+  distinct_id: string;
+  properties: Record<string, unknown>;
+} {
+  const message = truncate(record.message) || 'unknown';
+  const stack = truncate(record.stack);
+  const type = exceptionTypeFromMessage(message);
+  return {
+    api_key: posthogKey(),
+    event: '$exception',
+    distinct_id: 'hermes-mobile-crash',
+    properties: {
+      distinct_id: 'hermes-mobile-crash',
+      app: 'hermes-mobile',
+      platform: record.platform,
+      app_version: record.app_version,
+      build_number: record.build_number,
+      crash_id: record.id,
+      hermes_crash_kind: record.event,
+      component_stack: truncate(record.component_stack),
+      occurred_at: record.occurred_at,
+      $lib: 'hermes-mobile-fetch',
+      $exception_level: 'error',
+      $exception_fingerprint: `hermes-mobile:${record.event}:${type}:${message.slice(0, 120)}`,
+      $exception_list: [
+        {
+          type,
+          value: message,
+          mechanism: {
+            handled: record.event !== 'js_fatal_crash',
+            synthetic: !stack,
+          },
+          stacktrace: {
+            type: 'raw',
+            frames: stack
+              ? [
+                  {
+                    platform: 'javascript',
+                    raw_id: record.id,
+                    resolved: false,
+                    mangled_name: stack.slice(0, 500),
+                    filename: 'hermes-mobile',
+                    in_app: true,
+                  },
+                ]
+              : [],
+          },
+        },
+      ],
+      // Keep raw stack for debugging when frames are synthetic.
+      $exception_stack_trace_raw: stack,
+    },
+  };
+}
+
 /** Build a normalized crash record from any throwable. */
 export function buildCrashRecord(
   event: string,
@@ -144,25 +211,11 @@ export async function flushCrashQueue(): Promise<{
 
   for (const record of queue) {
     try {
-      const res = await fetch(`${posthogHost().replace(/\/+$/, '')}/capture/`, {
+      const payload = buildPostHogExceptionCapture(record);
+      const res = await fetch(`${posthogHost().replace(/\/+$/, '')}/i/v0/e/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          api_key: key,
-          event: record.event,
-          properties: {
-            distinct_id: 'hermes-mobile-crash',
-            app: 'hermes-mobile',
-            crash_id: record.id,
-            platform: record.platform,
-            app_version: record.app_version,
-            build_number: record.build_number,
-            message: truncate(record.message),
-            stack: record.stack,
-            component_stack: record.component_stack,
-            occurred_at: record.occurred_at,
-          },
-        }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         sent.push(record);
