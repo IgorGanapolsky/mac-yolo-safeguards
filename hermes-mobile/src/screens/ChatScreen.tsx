@@ -17,10 +17,11 @@ import {
   Alert,
   useWindowDimensions,
   Dimensions,
+  FlatList,
+  type FlatList as FlatListType,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from 'react-native';
-import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
@@ -719,7 +720,10 @@ export default function ChatScreen() {
     [refreshHealth, gatewayUrl, activeGatewayProfile?.label],
   );
 
-  const flatListRef = useRef<FlashListRef<ChatTimelineEntry>>(null);
+  // FlatList (not FlashList): FlashList RecyclerView remeasure loops kept
+  // hitting ErrorBoundary "Maximum update depth exceeded" on device OTAs
+  // 9e0ccb9c / 6e3d1b5b despite scroll guards (#676/#697/#719).
+  const flatListRef = useRef<FlatListType<ChatTimelineEntry>>(null);
   const isSendingRef = useRef(false);
   /** User explicitly scrolled up to read history — suppress auto-follow until they return. */
   const userScrolledUpRef = useRef(false);
@@ -7096,7 +7100,7 @@ export default function ChatScreen() {
               </ScrollView>
             ) : (
               <>
-              <FlashList
+              <FlatList
                 ref={flatListRef}
                 data={chatTimelineMessages}
                 testID="chat-message-list"
@@ -7108,13 +7112,11 @@ export default function ChatScreen() {
                 nestedScrollEnabled={false}
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
                 keyboardShouldPersistTaps="handled"
-                drawDistance={480}
-                // MVCP follows the bottom while streaming; pair with throttled
-                // onContentSizeChange (not per-token effect scrolls) for smooth follow.
-                maintainVisibleContentPosition={{
-                  startRenderingFromBottom: true,
-                  autoscrollToBottomThreshold: 0.15,
-                }}
+                // iOS MVCP only (RN FlatList API). Android relies on our
+                // throttled contentSize follow — safer than FlashList remeasure loops.
+                maintainVisibleContentPosition={
+                  Platform.OS === 'ios' ? { minIndexForVisible: 0 } : undefined
+                }
                 onScroll={handleChatScroll}
                 onScrollBeginDrag={handleChatScrollBeginDrag}
                 onScrollEndDrag={handleChatScrollEndDrag}
@@ -7132,10 +7134,8 @@ export default function ChatScreen() {
                     : undefined
                 }
                 onContentSizeChange={() => {
-                  // Never setState synchronously here — FlashList calls this during
-                  // layout; setState→remeasure→setState is the max-update-depth crash.
-                  // queueMicrotask is not enough (still same turn as layout); use
-                  // coalesced setTimeout(0) + quiet-window ratchet for hydrate storms.
+                  // Never setState synchronously here — contentSize↔scrollToEnd
+                  // re-entrancy is the max-update-depth crash class.
                   if (
                     programmaticScrollInFlightRef.current ||
                     Date.now() < layoutQuietUntilMsRef.current
@@ -7167,16 +7167,8 @@ export default function ChatScreen() {
                       scrollChatToLatest(false);
                       return;
                     }
-                    // force=false: respect pin + throttle during stream.
                     scrollChatToLatestIfPinned(false, false);
                   }, 0);
-                }}
-                getItemType={(item) => {
-                  const role = item.message.role?.toLowerCase() ?? 'unknown';
-                  if (item.message.isCollapsedToolActivity) {
-                    return 'tool-collapsed';
-                  }
-                  return role;
                 }}
                 renderItem={renderChatMessageItem}
               />
