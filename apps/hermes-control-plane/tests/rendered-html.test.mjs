@@ -3,8 +3,13 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("builds the public Leash subscription landing page", async () => {
-  const [page, layout, robots, sitemap, llms] = await Promise.all([
+  const [page, billingPlan, billingPlanRoute, checkoutRoute, portalRoute, dashboard, layout, robots, sitemap, llms] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/BillingPlan.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/billing/plan/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/billing/checkout/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/billing/portal/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/dashboard/DashboardClient.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/robots.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/sitemap.ts", import.meta.url), "utf8"),
@@ -20,7 +25,19 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /Web Control/);
   assert.match(page, /Cloud Continuity/);
   assert.match(page, /Continue with Google or Apple/);
-  assert.match(page, /\$29/);
+  assert.match(page, /<BillingPlan \/>/);
+  assert.doesNotMatch(page, /\$29|price: "29"/);
+  assert.match(billingPlan, /\/api\/billing\/plan/);
+  assert.match(billingPlanRoute, /STRIPE_PRICE_ID/);
+  assert.match(billingPlanRoute, /unitAmount: price\.unit_amount/);
+  assert.doesNotMatch(billingPlanRoute, /["']STRIPE_SECRET_KEY["']\s*:/);
+  assert.match(checkoutRoute, /billing\.checkout\.created/);
+  assert.match(checkoutRoute, /billing\.checkout\.failed/);
+  assert.match(checkoutRoute, /subscription already active; use billing management/);
+  assert.match(portalRoute, /subscription\.metadata\?\.organization_id === session\.organizationId/);
+  assert.match(portalRoute, /\/v1\/billing_portal\/sessions/);
+  assert.match(portalRoute, /billing\.portal\.created/);
+  assert.match(dashboard, /\? manageBilling\(\) : subscribe\(\)/);
   assert.match(page, /100 cloud continuations/);
   assert.match(page, /Run one installer/);
   assert.match(page, /data-funnel-event="free_control_click"/);
