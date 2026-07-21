@@ -7,11 +7,13 @@ export async function GET() {
   try { session = await requireSession(); } catch { return jsonError("sign in required", 401); }
   const rows = await db().prepare(
     `SELECT t.id, t.title, t.source, t.model, t.preview, t.message_count AS messageCount,
-            t.source_session_id AS sourceSessionId, t.created_at AS createdAt, t.updated_at AS updatedAt,
+            t.source_session_id AS sourceSessionId, t.created_at AS createdAt,
+            COALESCE(t.source_updated_at, t.updated_at) AS updatedAt,
             t.synced_at AS syncedAt, d.name AS deviceName, COUNT(k.id) AS taskCount
        FROM threads t LEFT JOIN tasks k ON k.thread_id = t.id
        LEFT JOIN devices d ON d.id = t.device_id
-      WHERE t.organization_id = ? GROUP BY t.id ORDER BY t.updated_at DESC, t.id DESC LIMIT 100`
+      WHERE t.organization_id = ? GROUP BY t.id
+      ORDER BY COALESCE(t.source_updated_at, t.updated_at) DESC, t.id DESC LIMIT 100`
   ).bind(session.organizationId).all();
   return Response.json({ threads: rows.results });
 }
