@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
@@ -13,6 +13,12 @@ const terminal = new Set(["completed", "failed"]);
 const pairingCodePattern = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/;
 const connectorInstallCommand = "curl -fsSL https://raw.githubusercontent.com/IgorGanapolsky/mac-yolo-safeguards/main/saas/install-connector.sh | bash";
 const chatRailPreferenceKey = "thumbgate.chatRailExpanded";
+const sidebarWidthPreferenceKey = "thumbgate.sidebarWidth";
+const threadSortPreferenceKey = "thumbgate.threadSortOrder";
+const DEFAULT_SIDEBAR_WIDTH = 240;
+const MIN_SIDEBAR_WIDTH = 200;
+const MAX_SIDEBAR_WIDTH = 480;
+type ThreadSortOrder = "newest" | "oldest" | "alphabetical";
 
 function Mark() { return <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>; }
 function age(timestamp: number | null) {
@@ -39,6 +45,7 @@ function formatDateTime(timestamp: number) {
     minute: "2-digit",
     second: "2-digit",
     hour12: true,
+    timeZoneName: "short",
   }).format(new Date(timestamp));
 }
 
@@ -46,6 +53,21 @@ function sortThreadsNewestFirst(nextThreads: Thread[]) {
   return [...nextThreads].sort((left, right) =>
     Number(right.updatedAt) - Number(left.updatedAt) || right.id.localeCompare(left.id)
   );
+}
+
+/** Reorders an already newest-first list for display; fetch/auto-select logic always uses newest-first internally. */
+function orderThreadsForDisplay(nextThreads: Thread[], order: ThreadSortOrder) {
+  if (order === "alphabetical") {
+    return [...nextThreads].sort((left, right) =>
+      left.title.localeCompare(right.title, undefined, { sensitivity: "base" }) || left.id.localeCompare(right.id)
+    );
+  }
+  if (order === "oldest") return [...nextThreads].reverse();
+  return nextThreads;
+}
+
+function clampSidebarWidth(width: number) {
+  return Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, width));
 }
 
 export default function DashboardClient() {
@@ -62,6 +84,9 @@ export default function DashboardClient() {
   const [busy, setBusy] = useState(false);
   const [installCopied, setInstallCopied] = useState(false);
   const [chatRailExpanded, setChatRailExpanded] = useState(true);
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  const [threadSortOrder, setThreadSortOrder] = useState<ThreadSortOrder>("newest");
+  const [resizing, setResizing] = useState(false);
   const autoSelectedThread = useRef(false);
 
   useEffect(() => {
@@ -69,9 +94,42 @@ export default function DashboardClient() {
     const shouldExpand = storedPreference === null
       ? !window.matchMedia("(max-width: 700px)").matches
       : storedPreference === "true";
-    const timer = window.setTimeout(() => setChatRailExpanded(shouldExpand), 0);
+    const storedWidth = Number(window.localStorage.getItem(sidebarWidthPreferenceKey));
+    const storedSort = window.localStorage.getItem(threadSortPreferenceKey) as ThreadSortOrder | null;
+    const timer = window.setTimeout(() => {
+      setChatRailExpanded(shouldExpand);
+      if (Number.isFinite(storedWidth) && storedWidth > 0) setSidebarWidth(clampSidebarWidth(storedWidth));
+      if (storedSort === "newest" || storedSort === "oldest" || storedSort === "alphabetical") setThreadSortOrder(storedSort);
+    }, 0);
     return () => window.clearTimeout(timer);
   }, []);
+
+  const startSidebarResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!chatRailExpanded) return;
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = sidebarWidth;
+    setResizing(true);
+    function onMove(moveEvent: PointerEvent) {
+      setSidebarWidth(clampSidebarWidth(startWidth + (moveEvent.clientX - startX)));
+    }
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      setResizing(false);
+      setSidebarWidth((width) => {
+        window.localStorage.setItem(sidebarWidthPreferenceKey, String(width));
+        return width;
+      });
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }, [chatRailExpanded, sidebarWidth]);
+
+  function changeThreadSort(order: ThreadSortOrder) {
+    setThreadSortOrder(order);
+    window.localStorage.setItem(threadSortPreferenceKey, order);
+  }
 
   useEffect(() => {
     const pendingCode = new URLSearchParams(window.location.search).get("pair")?.toUpperCase() ?? "";
@@ -122,6 +180,7 @@ export default function DashboardClient() {
     const timer = window.setTimeout(() => setNotice("Machine found. Verify its name, then approve the prefilled code."), 0);
     return () => window.clearTimeout(timer);
   }, [pairCode, user]);
+  const visibleThreads = useMemo(() => orderThreadsForDisplay(threads, threadSortOrder), [threads, threadSortOrder]);
   const activeTasks = useMemo(() => tasks.filter((task) => !terminal.has(task.status)), [tasks]);
   const visibleTasks = selectedThread ? tasks.filter((task) => task.threadId === selectedThread) : tasks;
   const onlineDevices = devices.filter((device) => device.online);
@@ -209,7 +268,7 @@ export default function DashboardClient() {
   if (!user || !organization) return <main className="loading-screen"><Mark /><p>Opening the control plane…</p></main>;
 
   return (
-    <main className={`dashboard-shell${chatRailExpanded ? "" : " chat-rail-collapsed"}`}>
+    <main className={`dashboard-shell${chatRailExpanded ? "" : " chat-rail-collapsed"}`} style={chatRailExpanded ? { "--sidebar-width": `${sidebarWidth}px` } as CSSProperties : undefined}>
       <aside className={`sidebar${chatRailExpanded ? "" : " is-collapsed"}`} aria-label="Hermes navigation">
         <div className="sidebar-header">
           <a href="/dashboard" className="brand" aria-label="ThumbGate dashboard"><Mark /><span>ThumbGate <small>Hermes Web</small></span></a>
@@ -218,10 +277,24 @@ export default function DashboardClient() {
         <div className="sidebar-content" id="hermes-chat-rail">
           <div className="workspace-label">NAVIGATION</div>
           <button className={!selectedThread ? "side-item active" : "side-item"} onClick={() => openThread(null)}><span>H</span><span className="side-item-label">Hermes</span><em>{activeTasks.length}</em></button>
-          <div className="workspace-label">CHATS · NEWEST FIRST</div>
-          <nav className="thread-list" aria-label="Chats, newest first">{threads.map((thread) => <button key={thread.id} title={`${thread.title} — ${formatDateTime(thread.updatedAt)}`} aria-current={selectedThread === thread.id ? "page" : undefined} className={selectedThread === thread.id ? "side-item thread-item active" : "side-item thread-item"} onClick={() => openThread(thread.id)}><span className="thread-icon">{thread.sourceSessionId ? "⌘" : "›_"}</span><span className="thread-copy"><strong>{thread.title}</strong><time dateTime={new Date(thread.updatedAt).toISOString()}>{formatDateTime(thread.updatedAt)}</time></span><em>{thread.messageCount || thread.taskCount}</em></button>)}</nav>
+          <div className="workspace-label chats-label-row">
+            <span>CHATS</span>
+            <select className="thread-sort-select" aria-label="Sort chats" value={threadSortOrder} onChange={(event) => changeThreadSort(event.target.value as ThreadSortOrder)}>
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="alphabetical">Alphabetical</option>
+            </select>
+          </div>
+          <nav className="thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.map((thread) => <button key={thread.id} title={`${thread.title} — ${formatDateTime(thread.updatedAt)}`} aria-current={selectedThread === thread.id ? "page" : undefined} className={selectedThread === thread.id ? "side-item thread-item active" : "side-item thread-item"} onClick={() => openThread(thread.id)}><span className="thread-icon">{thread.sourceSessionId ? "⌘" : "›_"}</span><span className="thread-copy"><strong>{thread.title}</strong><time dateTime={new Date(thread.updatedAt).toISOString()}>{formatDateTime(thread.updatedAt)}</time></span><em>{thread.messageCount || thread.taskCount}</em></button>)}</nav>
           <div className="sidebar-bottom"><div className="avatar">{user.name.slice(0, 1).toUpperCase()}</div><div><strong>{user.name}</strong><small>{accountPlan} plan</small></div><form action="/api/auth/logout" method="post"><button title="Sign out" aria-label="Sign out">↗</button></form></div>
         </div>
+        {chatRailExpanded && <div
+          className={resizing ? "sidebar-resize-handle is-resizing" : "sidebar-resize-handle"}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize chat sidebar"
+          onPointerDown={startSidebarResize}
+        />}
       </aside>
 
       <section className="dashboard-main">
