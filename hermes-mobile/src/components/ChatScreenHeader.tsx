@@ -25,6 +25,11 @@ type ChatScreenHeaderProps = {
   authMismatch?: boolean;
   /** Composer still showing wrong-key banner — header must not say Connected. */
   wrongKeyBannerActive?: boolean;
+  /**
+   * Unpaired relay / missing credentials with no direct Mac HTTP.
+   * Forces pair CTA over Connecting · Tailscale-style false greens.
+   */
+  needsPair?: boolean;
   isDemo?: boolean;
   /** Keep IP / relay detail visible when connected (multi-Mac setups). */
   showMachineDetailWhenConnected?: boolean;
@@ -56,6 +61,7 @@ function linkMeta(
   authMismatch = false,
   chatStalled = false,
   wrongKeyBannerActive = false,
+  needsPair = false,
 ): { label: string; color: string; connected: boolean } {
   const link = resolveChatLinkDisplay({
     connectionState: state,
@@ -65,6 +71,8 @@ function linkMeta(
     authMismatch,
     wrongKeyBannerActive,
     chatStalled,
+    needsPair,
+    pairStatusLabel: needsPair ? disconnectedLabel : undefined,
   });
   if (link.chatStalled) {
     return { label: link.label, color: colors.warning, connected: true };
@@ -76,6 +84,9 @@ function linkMeta(
     return { label: link.label, color: colors.error, connected: false };
   }
   if (link.label === 'Relay only') {
+    return { label: link.label, color: colors.warning, connected: false };
+  }
+  if (needsPair) {
     return { label: link.label, color: colors.warning, connected: false };
   }
   if (state === 'connecting') {
@@ -140,6 +151,7 @@ export default function ChatScreenHeader({
   macHttpReachable = false,
   authMismatch = false,
   wrongKeyBannerActive = false,
+  needsPair = false,
   isDemo = false,
   activeAgents,
   currentSession,
@@ -159,6 +171,7 @@ export default function ChatScreenHeader({
     authMismatch,
     chatStalled,
     wrongKeyBannerActive,
+    needsPair,
   );
   const endpoint = machineEndpoint?.trim() || '';
   const showEndpoint = endpoint.length > 0;

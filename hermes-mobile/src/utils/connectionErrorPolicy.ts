@@ -139,24 +139,26 @@ export function shouldShowPairRelayRouteStatus(input: {
   if (input.heal.inFlight && !input.heal.exhausted) {
     return false;
   }
-  if (input.hasAlternateRoutes && !input.heal.exhausted) {
+  // After silent heal budget: always surface pair CTA.
+  // Tailscale URL / cellular must NOT suppress this — tailnet presence ≠ app paired (2026-07-20).
+  if (input.heal.exhausted) {
+    return true;
+  }
+  if (input.hasAlternateRoutes) {
     return false;
   }
   if (input.wifiConnected && isPrivateLanGatewayUrl(input.gatewayUrl)) {
     return false;
   }
-  if (!input.wifiConnected) {
-    if (isTailscaleGatewayUrl(input.gatewayUrl)) {
-      return false;
-    }
-    if (isPrivateLanGatewayUrl(input.gatewayUrl) && input.heal.exhausted) {
-      return true;
-    }
-    if (!isLoopbackGatewayUrl(input.gatewayUrl) && !isPrivateLanGatewayUrl(input.gatewayUrl)) {
-      return false;
-    }
+  if (
+    !input.wifiConnected &&
+    !isLoopbackGatewayUrl(input.gatewayUrl) &&
+    !isPrivateLanGatewayUrl(input.gatewayUrl) &&
+    !isTailscaleGatewayUrl(input.gatewayUrl)
+  ) {
+    return false;
   }
-  return input.heal.exhausted;
+  return false;
 }
 
 export function shouldDebounceConnectionError(
