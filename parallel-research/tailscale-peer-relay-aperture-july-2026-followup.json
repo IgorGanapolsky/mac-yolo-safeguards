@@ -1,0 +1,75 @@
+{
+  "run_id": "trun_fca424e03b83408983b712242661299e",
+  "interaction_id": "trun_fca424e03b83408983b712242661299e",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_fca424e03b83408983b712242661299e",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "output",
+        "reasoning": "The answer synthesises information from multiple Tailscale primary sources. Peer Relays are GA (doc 0 seg 0) and provide throughput, static endpoint, and observability capabilities (doc 0 seg 3\u20116). Prerequisites, OS restrictions, and grant\u2011policy syntax are detailed in the Peer Relay documentation (doc 4 seg 4\u20118). Access Control grants replace legacy ACLs and support tag\u2011based selectors (doc 2 seg 2\u20113). Aperture adds request capture, retention policies, passthrough OAuth, and MCP connectors (doc 1 seg 0\u20114). Android and other client platforms are officially supported (doc 5 seg 0; doc 8 seg 0). By mapping Hermes Mobile\u2019s components to these Tailscale features, the matrix, roadmap, and concrete actions are derived. The reasoning ties each claim to the cited segments.",
+        "citations": [
+          {
+            "url": "https://tailscale.com/blog/peer-relays-ga",
+            "excerpts": [
+              "Tailscale Peer Relays is now generally available Dark orange background made of shapes. \"Winter Update Day 3\" in upper-left corner. In foreground, a diagram: \"Your network\" box, with \"Your Resource\" node flowing to \"Peer Relay\" (orange box), then out to a checkmark box, through \"Network Firewall,\" and inside that \"Customer Network,\" containing \"Resource.\" When Tailscale works best, it feels effortless, almost boring. Devices connect directly, packets take the shortest possible path, and performance ceases to be a pressing concern. But real-world networks aren\u2019t always that cooperative. Firewalls, NATs, and cloud networking constraints can block direct peer-to-peer connections.",
+              "We have made big throughput improvements for Tailscale Peer Relays that are especially noticeable when many clients are forwarding through them. Connecting clients now select a more optimal interface and address family when more than one are available within a single relay, which helps bootstrap and improve overall connection quality. On the relay itself, throughput has increased: packets are handled more efficiently on every Peer Relay because of lock contention improvements, and traffic is now spread across multiple UDP sockets where available. Together, these changes deliver meaningful gains in both performance and reliability across day-to-day tailnet traffic. Even when direct peer-to-peer connections aren\u2019t possible, peer relays can now achieve performance much closer to a true mesh",
+              "Static endpoints for restrictive cloud environments In some environments, particularly in public cloud networks, automatic endpoint discovery isn\u2019t always possible. Instances may sit behind strict firewall rules, rely on port forwarding or load balancers in peered public subnets, or operate in setups where opening arbitrary ports simply isn\u2019t an option. In many cases, the infrastructure in front of those instances can\u2019t run Tailscale directly, making standard discovery mechanisms ineffective. Peer relays now integrate with static endpoints to address these constraints. Using the `--relay-server-static-endpoints` flag with `tailscale set` , a peer relay can advertise one or more fixed `IP:port` pairs to the tailnet",
+              "This unlocks high-throughput connectivity in restrictive cloud environments where traditional NAT traversal and endpoint discovery don\u2019t work. Customers can now deploy peer relays behind load balancers and still provide reliable, high-performance relay paths to clients outside those networks. For many customers, this also means peer relays can replace subnet routers, unlocking full-mesh deployments with core Tailscale features like [Tailscale SSH](https://tailscale.com/docs/features/tailscale-ssh/?utm_source=blog&utm_medium=content&utm_campaign=tailscale-winter-update-2026) and [MagicDNS](https://tailscale.com/docs/features/magicdns/?utm_source=blog&utm_medium=content&utm_campaign=tailscale-winter-update-2026) . Improved auditability and visibility"
+            ],
+            "title": "Tailscale Peer Relays: Use your own devices as high-throughput relays"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/peer-relay",
+            "excerpts": [
+              "An account with [Owner, Admin, or Network admin](/docs/reference/user-roles/) permissions. Peer relay device requirements A device must meet the following requirements to function as a peer relay: A device running a supported operating system. You can use any operating system other than iOS, Apple TV, or Android. Tailscale version 1.86 or later. Sufficient network bandwidth and low latency to effectively relay traffic for other devices. At least one configurable UDP port you can use for peer relay traffic. This port must be accessible from other devices in the tailnet. Refer to [security and access control](#security-and-access-control) for more information about configuring network settings. Other tailnet devices requirements",
+              "Step 2: Create a peer relay policy Before devices in the tailnet can use devices you designate as peer relays, you need to create a [grant](/docs/features/access-control/grants) policy that lets them do so. The grant policy uses the `tailscale.com/cap/relay` [application capability](/docs/features/access-control/grants/grants-app-capabilities) to specify which devices can use the peer relay functionality. You can create the grant policy using the admin console",
+              "Select the **JSON editor** tab to update the tailnet policy file using JSON. Locate the `grants` section of the policy file. Add a policy to the `grants` section of the policy file that specifies the `src` (devices behind a restrictive NAT that need to be accessed through the peer relay), the `dst` (the peer relay device), and the `peer-relay` application capability. For example, the following example lets all devices with the tag `tag:us-east-vpc` use peer relays tagged with `tag:us-east-relays`.",
+              "```json { \"grants\": [ { \"src\": [\"tag:us-east-vpc\"], // Devices that can be accessed through the peer relay \"dst\": [\"tag:us-east-relays\"], // Devices functioning as peer relays for the src devices \"app\": { \"tailscale.com/cap/relay\": [] // The relay capability doesn't require any parameters } } ] } ``` > **Note:**You can reference peer relay devices using [tags](/docs/features/tags), hostname, [IP set](/docs/features/tailnet-policy-file/ip-sets), or Tailscale IP addresses in the `dst` field of the access rule. The `app` field must include the `tailscale.com/cap/relay` capability to enable peer relay functionality for the specified devices. It does not require any additional parameters.",
+              "You can use any operating system other than iOS, Apple TV, or Android. Tailscale version 1.86"
+            ],
+            "title": "Tailscale Peer Relays"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/access-control",
+            "excerpts": [
+              "Grants represent Tailscale's modern approach to access control, providing a unified syntax for managing permissions across both network and application layers. Each grant defines which sources can access which destinations, along with the specific capabilities they're allowed to use at both the network and application levels. Explore the grants documentation: Grants overview Grant syntax reference Application capabilities Troubleshooting grants Example grants Access control lists (ACLs) Tailscale recommends migrating to grants . Access control lists ( ACLs ) represent Tailscale's original approach to network layer security. The recommended approach is to use grants. However, Tailscale will always support ACLs",
+              "Access control in Tailscale uses various targets and selectors to identify resources, which are also defined in the tailnet policy"
+            ],
+            "title": "Access control \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://tailscale.com/docs/aperture/what-is-aperture",
+            "excerpts": [
+              "What is Aperture? What Aperture provides **Adoption analytics.** The **Usage Overview** page of the [Aperture dashboard](/docs/aperture/reference/dashboard) shows organization-wide usage patterns, active users over time, and histograms of usage distribution, answering questions like which teams use which tools and how frequently",
+              "**Request and response capture.** Aperture stores full request and response bodies for review. The capture system preserves headers, payloads, and tool use data. Configure a [retention policy](/docs/aperture/configuration#database) to control how long Aperture keeps capture data, and [export logs and events](/docs/aperture/how-to/export-usage-data-to-s3) to your SIEM (security information and event management) system for durable storage and review. For strict data-handling requirements, [configure zero-retention mode](/docs/aperture/how-to/configure-zero-retention) so Aperture never writes prompt or response content to disk. ... FAQ Yes, through passthrough mode",
+              "Subscription plans such as [Claude Pro or Claude Max](https://www.anthropic.com/pricing), [ChatGPT Plus, Pro, or Team](https://openai.com/chatgpt/pricing), or [Gemini Advanced](https://gemini.google.com) provide OAuth tokens rather than developer-platform API keys. To use one, configure a provider with `auth_mode: \"passthrough\"`: the client forwards its own subscription credential through Aperture to the upstream unchanged, so the subscription stays under the client's control. Aperture does not hold, manage, or log in to the subscription. For setup, refer to [Set up passthrough mode",
+              "Standard API keys from the provider's developer platform (for example, the [Anthropic Console](https://console.anthropic.com), [OpenAI Platform](https://platform.openai.com), or [Google AI Studio](https://aistudio.google.com)) remain the default when you want shared, centrally managed authentication. ... **Can I use Aperture with several tailnets?** Yes, you can [connect to Aperture from another tailnet](/docs/aperture/connect-outside-tailnet) using [`ts-unplug`](https://github.com/tailscale/ts-plug). You can also use `ts-unplug` to connect from environments that aren't in a tailnet at all. **Can I use Aperture to connect AI agents to external APIs and MCP servers?** Yes. Aperture supports [connectors](/docs/aperture/connectors) that proxy connections to remote MCP servers and HTTP APIs",
+              "Aperture injects authentication automatically, so agents access external services without managing individual credentials. Refer to [MCP server proxying](/docs/aperture/mcp-server) for MCP-specific setup and the [connectors feature guide](/docs/aperture/connectors) for HTTP API proxying"
+            ],
+            "title": "What is Aperture?"
+          },
+          {
+            "url": "https://tailscale.com/docs/install/android",
+            "excerpts": [
+              "Install Tailscale on Android \u00b7 Tailscale Docs Download Tailscale from the Google Play Store or go to the Tailscale Download page. Launch the app and select Get Started, accept the prompts to install a VPN configuration, and allow push notifications"
+            ],
+            "title": "Install Tailscale on Android \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://tailscale.com/download",
+            "excerpts": [
+              "Download | Tailscale Download. Install the app and sign in to get started. macOS \u00b7 iOS \u00b7 Windows \u00b7 Linux \u00b7 Android. QR code for downloading Tailscale. Download | Tailscale Download. Install the app and sign in to get started. macOS \u00b7 iOS \u00b7 Windows \u00b7 Linux \u00b7 Android. QR code for downloading Tailscale."
+            ],
+            "title": "Download | Tailscale"
+          }
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "tailscale-peer-relay-aperture-july-2026-followup.md"
+  }
+}
