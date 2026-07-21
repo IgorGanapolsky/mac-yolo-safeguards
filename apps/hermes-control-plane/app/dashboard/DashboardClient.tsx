@@ -7,7 +7,8 @@ type Organization = { id: string; plan: string; trialEndsAt: number | null; clou
 type Device = { id: string; name: string; fingerprint: string; failoverMode: "disabled" | "manual" | "auto"; lastSeenAt: number | null; online: boolean };
 type Thread = { id: string; title: string; taskCount: number; updatedAt: number; source: string; model: string | null; preview: string | null; messageCount: number; sourceSessionId: string | null; syncedAt: number | null; deviceName: string | null };
 type Task = { id: string; threadId: string; threadTitle: string; prompt: string; status: string; route: string; result: string | null; error: string | null; createdAt: number; updatedAt: number; completedAt: number | null; deviceName: string | null };
-type ThreadDetails = { snapshot: Array<{ role: string; content: string }>; tasks: Array<{ prompt: string; result: string | null; error: string | null; route: string; status: string; createdAt: number }> };
+type ThreadDetails = { snapshot: Array<{ role: string; content: string }>; tasks: Array<{ id: string; prompt: string; result: string | null; error: string | null; route: string; status: string; createdAt: number }> };
+type FeedbackSignal = "up" | "down";
 type ChatDialog = { kind: "rename" | "delete"; thread: Thread } | { kind: "clear" };
 
 const terminal = new Set(["completed", "failed"]);
@@ -22,6 +23,22 @@ const MAX_SIDEBAR_WIDTH = 480;
 type ThreadSortOrder = "newest" | "oldest" | "alphabetical";
 
 function Mark() { return <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>; }
+
+function FeedbackButtons({ feedbackKey, content, value, onVote }: {
+  feedbackKey: string; content: string; value?: FeedbackSignal;
+  onVote: (key: string, signal: FeedbackSignal, content: string) => void;
+}) {
+  return (
+    <div className="feedback-actions">
+      <button type="button" className={`feedback-button${value === "up" ? " is-active" : ""}`}
+        aria-label="Mark this response as helpful" aria-pressed={value === "up"}
+        onClick={() => onVote(feedbackKey, "up", content)}>👍</button>
+      <button type="button" className={`feedback-button feedback-button-down${value === "down" ? " is-active" : ""}`}
+        aria-label="Mark this response as unhelpful" aria-pressed={value === "down"}
+        onClick={() => onVote(feedbackKey, "down", content)}>👎</button>
+    </div>
+  );
+}
 function age(timestamp: number | null) {
   if (!timestamp) return "never connected";
   const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
@@ -93,6 +110,7 @@ export default function DashboardClient() {
   const [renameValue, setRenameValue] = useState("");
   const [chatOperationBusy, setChatOperationBusy] = useState(false);
   const [safetyExpanded, setSafetyExpanded] = useState(false);
+  const [feedbackByKey, setFeedbackByKey] = useState<Record<string, FeedbackSignal>>({});
   const autoSelectedThread = useRef(false);
 
   useEffect(() => {
@@ -167,9 +185,37 @@ export default function DashboardClient() {
     }
     if (taskResponse.ok) setTasks((await taskResponse.json() as { tasks: Task[] }).tasks);
     if (selectedThread) {
-      const detailResponse = await fetch(`/api/thread-messages?thread_id=${encodeURIComponent(selectedThread)}`, { cache: "no-store" });
+      const [detailResponse, feedbackResponse] = await Promise.all([
+        fetch(`/api/thread-messages?thread_id=${encodeURIComponent(selectedThread)}`, { cache: "no-store" }),
+        fetch(`/api/feedback/capture?thread_id=${encodeURIComponent(selectedThread)}`, { cache: "no-store" }),
+      ]);
       if (detailResponse.ok) setThreadDetails(await detailResponse.json() as ThreadDetails);
-    } else setThreadDetails(null);
+      if (feedbackResponse.ok) {
+        const { feedback } = await feedbackResponse.json() as {
+          feedback: Array<{ taskId: string | null; snapshotIndex: number | null; signal: FeedbackSignal }>;
+        };
+        const nextFeedback: Record<string, FeedbackSignal> = {};
+        for (const item of feedback) {
+          nextFeedback[item.taskId ? `task:${item.taskId}` : `snapshot:${item.snapshotIndex}`] = item.signal;
+        }
+        setFeedbackByKey(nextFeedback);
+      }
+    } else { setThreadDetails(null); setFeedbackByKey({}); }
+  }, [selectedThread]);
+
+  const submitFeedback = useCallback((key: string, signal: FeedbackSignal, content: string) => {
+    if (!selectedThread) return;
+    setFeedbackByKey((prev) => ({ ...prev, [key]: signal }));
+    const [kind, ref] = key.split(/:(.*)/);
+    const body: { threadId: string; signal: FeedbackSignal; content: string; taskId?: string; snapshotIndex?: number } = {
+      threadId: selectedThread, signal, content,
+    };
+    if (kind === "task") body.taskId = ref; else body.snapshotIndex = Number(ref);
+    void fetch("/api/feedback/capture", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).catch(() => undefined);
   }, [selectedThread]);
 
   useEffect(() => {
@@ -392,12 +438,12 @@ export default function DashboardClient() {
 
         <div className="dashboard-grid">
           <section className="panel task-panel" id="hermes-console">
-            <div className="panel-heading"><div><p className="eyebrow">THREAD CONSOLE</p><h2>Continue the work</h2></div><span>{selectedThread ? `${threadDetails?.snapshot.length ?? 0} synced messages` : `${visibleTasks.length} tasks`}</span></div>
+            <div className="panel-heading"><div><p className="eyebrow">THREAD CONSOLE</p><h2>Continue the work</h2></div><div className="panel-heading-actions"><span>{selectedThread ? `${threadDetails?.snapshot.length ?? 0} synced messages` : `${visibleTasks.length} tasks`}</span><a className="thumbgate-lessons-link" href="https://thumbgate.ai/dashboard" target="_blank" rel="noopener noreferrer">Your lessons in ThumbGate ↗</a></div></div>
             {selectedThread && <div className="conversation-history">
-              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><p>{message.content}</p></article>) : <div className="conversation-empty">This thread has no cloud snapshot yet. Keep the paired Hermes connector online to sync it.</div>}
+              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><p>{message.content}</p>{message.role === "assistant" && <FeedbackButtons feedbackKey={`snapshot:${index}`} content={message.content} value={feedbackByKey[`snapshot:${index}`]} onVote={submitFeedback} />}</article>) : <div className="conversation-empty">This thread has no cloud snapshot yet. Keep the paired Hermes connector online to sync it.</div>}
               {threadDetails?.tasks.flatMap((task, index) => [
                 <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
-                task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{task.route}</span><p>{task.result}</p></article>
+                task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{task.route}</span><p>{task.result}</p><FeedbackButtons feedbackKey={`task:${task.id}`} content={task.result} value={feedbackByKey[`task:${task.id}`]} onVote={submitFeedback} /></article>
                   : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>failed</span><p>{task.error}</p></article>
                   : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{task.route === "cloud" ? "cloud runner" : "your machine"}</span><p>Waiting for {task.route === "cloud" ? "the fenced cloud runner" : "your paired machine"} to pick this up…</p></article>
                   : null,

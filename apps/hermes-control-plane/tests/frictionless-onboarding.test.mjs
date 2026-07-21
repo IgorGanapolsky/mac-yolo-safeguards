@@ -17,6 +17,9 @@ const threadOperations = readFileSync(new URL("../lib/thread-operations.ts", imp
 const operationClaimRoute = readFileSync(new URL("../app/api/device/thread-operations/claim/route.ts", import.meta.url), "utf8");
 const operationCompleteRoute = readFileSync(new URL("../app/api/device/thread-operations/complete/route.ts", import.meta.url), "utf8");
 const threadOperationsMigration = readFileSync(new URL("../drizzle/0003_thread_operations.sql", import.meta.url), "utf8");
+const feedbackEventsMigration = readFileSync(new URL("../drizzle/0004_feedback_events.sql", import.meta.url), "utf8");
+const feedbackCaptureRoute = readFileSync(new URL("../app/api/feedback/capture/route.ts", import.meta.url), "utf8");
+const thumbgateFeedback = readFileSync(new URL("../lib/thumbgate-feedback.ts", import.meta.url), "utf8");
 const webPackage = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 const connector = readFileSync(new URL("../../../tools/hermes-cloud-connector.js", import.meta.url), "utf8");
 const installer = readFileSync(new URL("../../../saas/install-connector.sh", import.meta.url), "utf8");
@@ -194,4 +197,28 @@ test("keeps every workspace telemetry value behind authentication", () => {
   assert.match(landing, /className="landing-action" href="#pricing"/);
   assert.match(landing, /No workspace telemetry is fetched or rendered on this public page/);
   assert.doesNotMatch(landing, /getPublicTelemetry|Live production telemetry|Machines online now|P95 task completion|LAST CLOUD CONTINUATION|cloudRunsCompleted|machinesOnlineNow/);
+});
+
+test("offers real thumbs up/down feedback on chat output, wired to the hosted ThumbGate lesson engine", () => {
+  assert.match(dashboard, /className="thumbgate-lessons-link" href="https:\/\/thumbgate\.ai\/dashboard"/);
+  assert.match(dashboard, /target="_blank" rel="noopener noreferrer">Your lessons in ThumbGate/);
+  assert.match(dashboard, /function FeedbackButtons/);
+  assert.match(dashboard, /onVote\(feedbackKey, "up", content\)/);
+  assert.match(dashboard, /onVote\(feedbackKey, "down", content\)/);
+  assert.match(dashboard, /message\.role === "assistant" && <FeedbackButtons/);
+  assert.match(dashboard, /<FeedbackButtons feedbackKey=\{`task:\$\{task\.id\}`\}/);
+  assert.match(dashboard, /fetch\("\/api\/feedback\/capture"/);
+  assert.match(globals, /\.feedback-button\{/);
+  assert.match(globals, /\.feedback-button\.is-active\{/);
+
+  assert.match(thumbgateFeedback, /thumbgate-production\.up\.railway\.app/);
+  assert.match(thumbgateFeedback, /Authorization: `Bearer \$\{apiKey\}`/);
+  assert.match(thumbgateFeedback, /return \{ status: "skipped" \}/);
+
+  assert.match(feedbackCaptureRoute, /requireSession/);
+  assert.match(feedbackCaptureRoute, /ON CONFLICT\(id\) DO UPDATE/);
+  assert.match(feedbackCaptureRoute, /sendThumbgateFeedback/);
+
+  assert.match(feedbackEventsMigration, /CREATE TABLE `feedback_events`/);
+  assert.match(feedbackEventsMigration, /FOREIGN KEY \(`thread_id`\) REFERENCES `threads`/);
 });

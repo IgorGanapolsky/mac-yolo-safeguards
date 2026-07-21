@@ -135,6 +135,20 @@ export const tasks = sqliteTable("tasks", {
   completedAt: integer("completed_at"),
 }, (table) => [uniqueIndex("tasks_org_idempotency_unique").on(table.organizationId, table.idempotencyKey)]);
 
+export const feedbackEvents = sqliteTable("feedback_events", {
+  id: text("id").primaryKey(),
+  organizationId: text("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  threadId: text("thread_id").notNull().references(() => threads.id, { onDelete: "cascade" }),
+  taskId: text("task_id").references(() => tasks.id, { onDelete: "cascade" }),
+  snapshotIndex: integer("snapshot_index"),
+  signal: text("signal", { enum: ["up", "down"] }).notNull(),
+  context: text("context").notNull(),
+  remoteStatus: text("remote_status", { enum: ["sent", "failed", "skipped"] }).notNull().default("skipped"),
+  remoteFeedbackId: text("remote_feedback_id"),
+  createdAt: integer("created_at").notNull(),
+}, (table) => [index("feedback_events_thread_idx").on(table.threadId)]);
+
 export const requestNonces = sqliteTable("request_nonces", {
   nonceHash: text("nonce_hash").primaryKey(),
   deviceId: text("device_id").notNull().references(() => devices.id, { onDelete: "cascade" }),
