@@ -126,7 +126,7 @@ export function buildHermesStatusLabel(
   } else {
     const totalTokens = (currentSession?.input_tokens ?? 0) + (currentSession?.output_tokens ?? 0);
     if (totalTokens > 0) {
-      tokensLabel = ` · ${totalTokens.toLocaleString()} tokens`;
+      tokensLabel = ` · ${totalTokens.toLocaleString()} session`;
     }
   }
 

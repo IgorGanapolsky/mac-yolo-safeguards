@@ -187,6 +187,8 @@ import {
   isActiveChatRun,
   REPLY_READY_STATUS_DETAIL,
   shouldShowCompletedRunBanner,
+  shouldRetainRunProgressAfterVisibleReply,
+  retainActiveRunProgressForLiveTokens,
   shouldShowComposerProgressBanner,
 } from '../utils/runProgressDisplay';
 import {
@@ -2999,8 +3001,6 @@ export default function ChatScreen() {
             clearDeferredTelegramPoll();
             awaitingGatewayReplyRef.current = false;
             setAwaitingGatewayReply(false);
-            setToolStatus(null);
-            setRunProgress(null);
             commitMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
@@ -3008,6 +3008,39 @@ export default function ChatScreen() {
                   : m,
               ),
             );
+            const activityAfterReply = toolActivityAfterLastUser(msgs);
+            const hasRunId = Boolean(
+              runProgressRef.current?.runId?.trim() ||
+                sendProgressSnapshotRef.current?.runId?.trim(),
+            );
+            if (
+              activityAfterReply.active ||
+              shouldRetainRunProgressAfterVisibleReply({ hasRunId })
+            ) {
+              setToolStatus(activityAfterReply.active ? activityAfterReply.detail : null);
+              setRunProgress((prev) =>
+                retainActiveRunProgressForLiveTokens(
+                  prev
+                    ? {
+                        ...prev,
+                        phase: 'working',
+                        detail: activityAfterReply.active
+                          ? activityAfterReply.detail
+                          : prev.detail ?? 'Working on your computer…',
+                      }
+                    : {
+                        phase: 'working',
+                        startedAtMs: startedAt,
+                        detail: activityAfterReply.active
+                          ? activityAfterReply.detail
+                          : 'Working on your computer…',
+                      },
+                ),
+              );
+            } else {
+              setToolStatus(null);
+              setRunProgress(null);
+            }
             haptics.success();
             return;
           }
@@ -6116,7 +6149,23 @@ export default function ChatScreen() {
           const hasVisibleReply = Boolean(activeAssistantTextRef.current?.trim());
           if (!shouldShowCompletedRunBanner(hasVisibleReply)) {
             // Reply bubble is already in the thread — do not flash reply-ready chrome.
-            setRunProgress(null);
+            // But keep runProgress while a gateway job / deferred poll is still alive
+            // so Connected token chrome stays live (not a stale session total).
+            setRunProgress((prev) => {
+              const hasRunId = Boolean(
+                prev?.runId?.trim() || sendProgressSnapshotRef.current?.runId?.trim(),
+              );
+              if (
+                shouldRetainRunProgressAfterVisibleReply({
+                  deferredPollActive: Boolean(deferredTelegramPollRef.current),
+                  awaitingGatewayReply: awaitingGatewayReplyRef.current,
+                  hasRunId,
+                })
+              ) {
+                return retainActiveRunProgressForLiveTokens(prev);
+              }
+              return null;
+            });
           } else {
             setRunProgress((prev) => ({
               ...(prev ?? {
