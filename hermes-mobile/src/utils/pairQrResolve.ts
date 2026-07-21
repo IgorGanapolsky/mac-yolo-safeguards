@@ -1,5 +1,6 @@
 import { parseSetupDeepLink, type SetupDeepLinkParams } from './setupDeepLink';
 import { normalizeGatewayUrl } from '../services/gatewayClient';
+import { resolveSetupDeepLinkCredentials } from '../services/pairingCodeExchange';
 
 const PAIR_PAGE_RE = /:8765(?:\/pair)?$/i;
 
@@ -24,7 +25,7 @@ export async function resolvePairQrPayload(data: string): Promise<SetupDeepLinkP
   const trimmed = data.trim();
   const fromDeepLink = parseSetupDeepLink(trimmed);
   if (fromDeepLink) {
-    return fromDeepLink;
+    return resolveSetupDeepLinkCredentials(fromDeepLink);
   }
 
   const pairJsonUrl = pairJsonUrlFromScan(trimmed);
@@ -40,7 +41,7 @@ export async function resolvePairQrPayload(data: string): Promise<SetupDeepLinkP
         if (body.deepLink) {
           const parsed = parseSetupDeepLink(body.deepLink);
           if (parsed) {
-            return parsed;
+            return resolveSetupDeepLinkCredentials(parsed);
           }
         }
         if (body.gatewayUrl?.trim()) {
