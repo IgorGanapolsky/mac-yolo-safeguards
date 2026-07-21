@@ -170,10 +170,19 @@ test("makes every dashboard metric a labeled shortcut instead of an inert card",
   assert.match(dashboard, /<nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">/);
   assert.match(dashboard, /className="metric-card" href="#web-settings"/);
   assert.match(dashboard, /className="metric-card" href="#task-activity"/);
-  assert.match(dashboard, /className="metric-card" href="#leash-control"/);
+  assert.match(dashboard, /className="metric-card" href="#execution-safety"/);
   assert.match(dashboard, /className="task-list" id="task-activity"/);
   assert.match(globals, /\.metric-grid \.metric-card:hover/);
   assert.doesNotMatch(dashboard, /<article><span>Paired machines/);
+});
+
+test("explains fenced execution through a visible interactive safety panel", () => {
+  assert.match(dashboard, /href="#execution-safety"/);
+  assert.match(dashboard, /onClick=\{\(\) => setSafetyExpanded\(true\)\}/);
+  assert.match(dashboard, /id="execution-safety"/);
+  assert.match(dashboard, /What “Fenced” means/);
+  assert.match(dashboard, /one signed runner at a time/);
+  assert.match(globals, /\.safety-panel:target/);
 });
 
 test("keeps every workspace telemetry value behind authentication", () => {
