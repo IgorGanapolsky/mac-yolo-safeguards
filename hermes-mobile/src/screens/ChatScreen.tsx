@@ -7177,8 +7177,8 @@ export default function ChatScreen() {
               testID="mac-picker-scroll"
             >
               <Text style={styles.modalSubtitle}>
-                Pick the computer you want to use. If this phone is plugged into a Mac, that one
-                is preferred automatically. Tap Find computers if yours is missing.
+                Pick the computer you want to use. The header shows your active path (Home Wi‑Fi,
+                USB, or Tailscale). Tap Find computers if yours is missing.
               </Text>
               <ComputerPickerStatusRegion
                 scanning={profileScanning || isScanningMacs}
@@ -7187,6 +7187,9 @@ export default function ChatScreen() {
                 tailscaleProbing={tailscaleDiscoveryProbing}
                 tailscaleVpnActive={tailscaleVpnActive}
                 tailscaleDiscoveries={tailscaleDiscoveries}
+                activeGatewayUrl={gatewayUrl}
+                wifiConnected={wifiConnected}
+                activeReachable={macHttpOk}
                 addingTailscale={tailscaleDiscoveryProbing}
                 onAddTailscale={(discovery) => {
                   void addDiscoveredTailscaleComputer(discovery);
