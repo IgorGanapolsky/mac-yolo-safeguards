@@ -7,15 +7,18 @@ const http = require('http');
 const os = require('os');
 const path = require('path');
 const test = require('node:test');
+const { pollingSchedule: runnerPollingSchedule } = require('../services/hermes-cloud-runner/server');
 const {
   boundContextMessages,
   canonicalRequest,
   collectGatewaySessions,
+  connectorPollingSchedule,
   createIdentity,
   executeLocal,
   executeThreadOperation,
   gatewayHeaders,
   loadConfig,
+  nextConnectorPollDelay,
   pairingDashboardUrl,
   pairingMatchesControlPlane,
   parseDotEnvValue,
@@ -54,6 +57,24 @@ test('connector config is private and round-trips', () => {
   saveConfig(file, { deviceId: 'device-1' });
   assert.deepEqual(loadConfig(file), { deviceId: 'device-1' });
   assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+});
+
+test('keeps active work responsive without burning the idle request budget', () => {
+  const schedule = connectorPollingSchedule({});
+  assert.deepEqual(schedule, {
+    activePollMs: 1_000,
+    idlePollMs: 15_000,
+    heartbeatMs: 30_000,
+    sessionSyncMs: 60_000,
+  });
+  assert.equal(nextConnectorPollDelay(true, schedule), 1_000);
+  assert.equal(nextConnectorPollDelay(false, schedule), 15_000);
+
+  const connectorIdleRequestsPerDay = (86_400_000 / schedule.idlePollMs) * 2
+    + (86_400_000 / schedule.heartbeatMs)
+    + (86_400_000 / schedule.sessionSyncMs);
+  const runnerIdleRequestsPerDay = 86_400_000 / runnerPollingSchedule({}).idlePollMs;
+  assert.ok(connectorIdleRequestsPerDay + runnerIdleRequestsPerDay < 25_000);
 });
 
 test('loads the existing local gateway credential without copying it into connector config', () => {
