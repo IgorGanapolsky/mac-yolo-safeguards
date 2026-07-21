@@ -8,6 +8,7 @@ const globals = readFileSync(new URL("../app/globals.css", import.meta.url), "ut
 const layout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
 const landing = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
 const billingPlan = readFileSync(new URL("../app/BillingPlan.tsx", import.meta.url), "utf8");
+const threadsRoute = readFileSync(new URL("../app/api/threads/route.ts", import.meta.url), "utf8");
 const webPackage = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 const connector = readFileSync(new URL("../../../tools/hermes-cloud-connector.js", import.meta.url), "utf8");
 const installer = readFileSync(new URL("../../../saas/install-connector.sh", import.meta.url), "utf8");
@@ -41,6 +42,25 @@ test("automatically opens the first synced Hermes thread", () => {
   assert.match(dashboard, /autoSelectedThread/);
   assert.match(dashboard, /setSelectedThread\(nextThreads\[0\]\.id\)/);
   assert.match(dashboard, /Recent Hermes chats are syncing now/);
+});
+
+test("makes the chat rail collapsible and keeps chats in deterministic newest-first order", () => {
+  assert.match(dashboard, /aria-expanded=\{chatRailExpanded\}/);
+  assert.match(dashboard, /aria-controls="hermes-chat-rail"/);
+  assert.match(dashboard, /Collapse chat sidebar/);
+  assert.match(dashboard, /Expand chat sidebar/);
+  assert.match(dashboard, /sortThreadsNewestFirst/);
+  assert.match(dashboard, /Number\(right\.updatedAt\) - Number\(left\.updatedAt\)/);
+  assert.match(threadsRoute, /ORDER BY t\.updated_at DESC, t\.id DESC/);
+  assert.match(globals, /\.sidebar-toggle\{[^}]*min-width:44px[^}]*min-height:44px/);
+});
+
+test("shows explicit 12-hour chat and task timestamps including seconds", () => {
+  assert.match(dashboard, /new Intl\.DateTimeFormat\("en-US"/);
+  assert.match(dashboard, /second: "2-digit"/);
+  assert.match(dashboard, /hour12: true/);
+  assert.match(dashboard, /<time dateTime=\{new Date\(thread\.updatedAt\)\.toISOString\(\)\}>/);
+  assert.match(dashboard, /<time dateTime=\{new Date\(task\.createdAt\)\.toISOString\(\)\}>/);
 });
 
 test("uses the exact Hermes Mobile color tokens on the web", () => {
