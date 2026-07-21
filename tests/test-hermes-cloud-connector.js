@@ -27,6 +27,7 @@ const {
   signedHeaders,
   syncGatewaySessions,
   timestampMillis,
+  withLeaseRenewal,
 } = require('../tools/hermes-cloud-connector');
 
 async function withServer(handler, run) {
@@ -256,6 +257,17 @@ test('fails closed instead of sending an unbound task to a bare model completion
     executeLocal({ sessionGatewayUrl: 'http://127.0.0.1:1' }, { prompt: 'which project?' }),
     /missing its Hermes session binding/,
   );
+});
+
+test('renews a local task lease throughout long-running Hermes work', async () => {
+  let renewals = 0;
+  const result = await withLeaseRenewal(
+    () => new Promise((resolve) => setTimeout(() => resolve('complete'), 28)),
+    async () => { renewals += 1; },
+    5,
+  );
+  assert.equal(result, 'complete');
+  assert.ok(renewals >= 3, `expected at least 3 renewals, received ${renewals}`);
 });
 
 test('applies rename and delete operations to the exact Hermes session', async () => {

@@ -3,7 +3,7 @@ import { db } from "./runtime";
 import { randomToken, sha256 } from "./security";
 import { webSessionIdForThread } from "./web-session";
 
-const LEASE_MS = 90_000;
+export const TASK_LEASE_MS = 90_000;
 
 interface TaskCandidate {
   id: string;
@@ -69,7 +69,7 @@ export async function claimTask(input: {
        FROM tasks k JOIN threads t ON t.id = k.thread_id
        LEFT JOIN devices d ON d.id = k.device_id
       WHERE ${routeClause}
-        AND (k.lease_expires_at IS NULL OR k.lease_expires_at < ?)
+        AND (k.lease_expires_at IS NULL OR k.lease_expires_at <= ?)
       ORDER BY k.created_at ASC LIMIT 1`
   ).bind(...params).first<TaskCandidate>();
   if (!candidate) return null;
@@ -103,11 +103,11 @@ export async function claimTask(input: {
   const contextMessages = boundMessages([...parseSnapshot(candidate.contextSnapshot), ...handoffMessages]);
 
   const leaseToken = randomToken();
-  const leaseExpiresAt = now + LEASE_MS;
+  const leaseExpiresAt = now + TASK_LEASE_MS;
   const update = await db().prepare(
     `UPDATE tasks SET status = 'running', route = ?, lease_owner = ?, lease_token_hash = ?,
             lease_generation = lease_generation + 1, lease_expires_at = ?, updated_at = ?
-      WHERE id = ? AND lease_generation = ? AND (lease_expires_at IS NULL OR lease_expires_at < ?)`
+      WHERE id = ? AND lease_generation = ? AND (lease_expires_at IS NULL OR lease_expires_at <= ?)`
   ).bind(input.route, input.owner, await sha256(leaseToken), leaseExpiresAt, now,
     candidate.id, candidate.leaseGeneration, now).run();
   if (update.meta.changes !== 1) return null;
@@ -127,6 +127,42 @@ export async function claimTask(input: {
   } };
 }
 
+export async function renewTask(input: {
+  owner: string;
+  taskId: string;
+  leaseToken: string;
+  actorType: "device" | "runner";
+}): Promise<{ leaseExpiresAt: number } | null> {
+  const now = Date.now();
+  const leaseExpiresAt = now + TASK_LEASE_MS;
+  const tokenHash = await sha256(input.leaseToken);
+  const existing = await db().prepare(
+    `SELECT organization_id AS organizationId, route, lease_generation AS leaseGeneration
+       FROM tasks WHERE id = ?`
+  ).bind(input.taskId).first<{
+    organizationId: string;
+    route: "local" | "cloud";
+    leaseGeneration: number;
+  }>();
+  if (!existing) return null;
+  const update = await db().prepare(
+    `UPDATE tasks SET lease_expires_at = ?, updated_at = ?
+      WHERE id = ? AND status = 'running' AND lease_owner = ? AND lease_token_hash = ?
+        AND lease_expires_at > ?`
+  ).bind(leaseExpiresAt, now, input.taskId, input.owner, tokenHash, now).run();
+  if (update.meta.changes !== 1) return null;
+  await audit({
+    organizationId: existing.organizationId,
+    actorType: input.actorType,
+    actorId: input.owner,
+    action: "task.lease.renew",
+    targetType: "task",
+    targetId: input.taskId,
+    metadata: { route: existing.route, generation: existing.leaseGeneration, leaseExpiresAt },
+  });
+  return { leaseExpiresAt };
+}
+
 export async function completeTask(input: {
   owner: string;
   taskId: string;
@@ -138,15 +174,36 @@ export async function completeTask(input: {
   const now = Date.now();
   const status = input.error ? "failed" : "completed";
   const tokenHash = await sha256(input.leaseToken);
-  const existing = await db().prepare("SELECT organization_id AS organizationId FROM tasks WHERE id = ?")
-    .bind(input.taskId).first<{ organizationId: string }>();
+  const existing = await db().prepare(
+    `SELECT organization_id AS organizationId, route, lease_generation AS leaseGeneration,
+            created_at AS createdAt FROM tasks WHERE id = ?`
+  ).bind(input.taskId).first<{
+    organizationId: string;
+    route: "local" | "cloud";
+    leaseGeneration: number;
+    createdAt: number;
+  }>();
   if (!existing) return false;
   const update = await db().prepare(
     `UPDATE tasks SET status = ?, result = ?, error = ?, completed_at = ?, updated_at = ?,
-            lease_expires_at = NULL
-      WHERE id = ? AND status = 'running' AND lease_owner = ? AND lease_token_hash = ?`
-  ).bind(status, input.result ?? null, input.error ?? null, now, now, input.taskId, input.owner, tokenHash).run();
+            lease_owner = NULL, lease_token_hash = NULL, lease_expires_at = NULL
+      WHERE id = ? AND status = 'running' AND lease_owner = ? AND lease_token_hash = ?
+        AND lease_expires_at > ?`
+  ).bind(status, input.result ?? null, input.error ?? null, now, now,
+    input.taskId, input.owner, tokenHash, now).run();
   if (update.meta.changes !== 1) return false;
-  await audit({ organizationId: existing.organizationId, actorType: input.actorType, actorId: input.owner, action: `task.${status}`, targetType: "task", targetId: input.taskId });
+  await audit({
+    organizationId: existing.organizationId,
+    actorType: input.actorType,
+    actorId: input.owner,
+    action: `task.${status}`,
+    targetType: "task",
+    targetId: input.taskId,
+    metadata: {
+      route: existing.route,
+      generation: existing.leaseGeneration,
+      durationMs: Math.max(0, now - existing.createdAt),
+    },
+  });
   return true;
 }

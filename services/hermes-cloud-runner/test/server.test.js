@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const http = require('http');
 const test = require('node:test');
-const { configFromEnv, execute } = require('../server');
+const { configFromEnv, execute, withLeaseRenewal } = require('../server');
 
 test('requires control plane, runner, and model provider credentials', () => {
   assert.throws(() => configFromEnv({}), /HERMES_CONTROL_PLANE_URL/);
@@ -39,4 +39,15 @@ test('cloud execution preserves the synced thread context', async () => {
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
+});
+
+test('renews a cloud lease throughout long-running model work', async () => {
+  let renewals = 0;
+  const result = await withLeaseRenewal(
+    () => new Promise((resolve) => setTimeout(() => resolve('complete'), 28)),
+    async () => { renewals += 1; },
+    5,
+  );
+  assert.equal(result, 'complete');
+  assert.ok(renewals >= 3, `expected at least 3 renewals, received ${renewals}`);
 });

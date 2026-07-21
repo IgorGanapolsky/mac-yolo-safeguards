@@ -24,6 +24,7 @@ const REQUEST_TIMEOUT_MS = 15_000;
 // 150s covers a cold local-model load (~44s measured for qwen3:8b-64k with a
 // 65536-token context) plus generation time; 75s was tripping on cold starts.
 const TASK_TIMEOUT_MS = 150_000;
+const LEASE_RENEW_MS = 30_000;
 const MAX_CONTEXT_MESSAGES = 60;
 const MAX_CONTEXT_CHARS = 48_000;
 
@@ -369,6 +370,25 @@ async function executeLocal(config, task) {
   return contentText(payload.message?.content || payload.output || payload.content || payload.response) || JSON.stringify(payload);
 }
 
+async function withLeaseRenewal(work, renew, intervalMs = LEASE_RENEW_MS) {
+  let stopped = false;
+  let renewal = Promise.resolve();
+  const timer = setInterval(() => {
+    renewal = renewal.then(async () => {
+      if (!stopped) await renew();
+    }).catch((error) => {
+      console.error(`[hermes-cloud-connector] lease renewal failed: ${error instanceof Error ? error.message : String(error)}`);
+    });
+  }, intervalMs);
+  timer.unref?.();
+  try { return await work(); }
+  finally {
+    stopped = true;
+    clearInterval(timer);
+    await renewal;
+  }
+}
+
 async function executeThreadOperation(config, operation) {
   if (operation.operation === 'clear_all') {
     try {
@@ -458,7 +478,10 @@ async function cycle(config, options = {}) {
   const claim = await response.json();
   if (!response.ok) throw new Error(claim.error || `Claim failed (${response.status})`);
   try {
-    const result = await executeLocal(config, claim.task);
+    const result = await withLeaseRenewal(
+      () => executeLocal(config, claim.task),
+      () => signedPost(config, '/api/device/tasks/renew', { taskId: claim.task.id, leaseToken: claim.task.leaseToken }),
+    );
     await signedPost(config, '/api/device/tasks/complete', { taskId: claim.task.id, leaseToken: claim.task.leaseToken, result });
   } catch (error) {
     await signedPost(config, '/api/device/tasks/complete', { taskId: claim.task.id, leaseToken: claim.task.leaseToken, error: error instanceof Error ? error.message : String(error) });
@@ -501,5 +524,5 @@ async function main() {
   }
 }
 
-module.exports = { boundContextMessages, buildWebSessionSystemPrompt, canonicalRequest, claimAndExecuteThreadOperation, collectGatewaySessions, contentText, createIdentity, executeLocal, executeThreadOperation, gatewayHeaders, loadConfig, pairingDashboardUrl, pairingMatchesControlPlane, parseDotEnvValue, parseTerminalCwd, resolveGatewayApiKey, resolveWorkspacePath, saveConfig, selectContextSessionIds, signedHeaders, sha256, syncGatewaySessions, timestampMillis };
+module.exports = { boundContextMessages, buildWebSessionSystemPrompt, canonicalRequest, claimAndExecuteThreadOperation, collectGatewaySessions, contentText, createIdentity, executeLocal, executeThreadOperation, gatewayHeaders, loadConfig, pairingDashboardUrl, pairingMatchesControlPlane, parseDotEnvValue, parseTerminalCwd, resolveGatewayApiKey, resolveWorkspacePath, saveConfig, selectContextSessionIds, signedHeaders, sha256, syncGatewaySessions, timestampMillis, withLeaseRenewal };
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });
