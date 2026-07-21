@@ -32,7 +32,7 @@ describe('resolveChatMachineHeaderDisplay', () => {
       workers: [],
       savedMacCount: 0,
     });
-    expect(display.machineLabel).toBe('Your computer');
+    expect(display.machineLabel).toBe(USB_UNKNOWN_MACHINE_LABEL);
     expect(display.machineEndpoint).toBeUndefined();
     expect(formatChatMachineHeaderLine(display).toLowerCase()).not.toContain('usb');
     expect(formatChatMachineHeaderLine(display)).not.toContain('127.0.0.1');
@@ -540,7 +540,8 @@ describe('formatMacConnectionRetryBanner', () => {
       machineLabel: USB_UNKNOWN_MACHINE_LABEL,
       machineEndpoint: 'USB',
     });
-    expect(text).toBe(`Can't reach ${USB_UNKNOWN_MACHINE_LABEL} (USB) — tap to retry`);
+    // Retry banner uses sentence-case "your computer" (dual-copy SoT #737).
+    expect(text).toBe("Can't reach your computer (USB) — tap to retry");
     expect(text).not.toContain('direct link');
   });
 

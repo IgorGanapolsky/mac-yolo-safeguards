@@ -1,16 +1,16 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, StyleSheet, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { colors } from '../theme/colors';
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
-import { resolvePairQrPayload } from '../utils/pairQrResolve';
+import { resolvePairQrPayloadDetailed } from '../utils/pairQrResolve';
 import MacPairingHelp from './MacPairingHelp';
 
 type PairQrScannerModalProps = {
   visible: boolean;
   onClose: () => void;
   onScanned: (params: SetupDeepLinkParams) => Promise<void>;
-  onInvalidScan?: () => void;
+  onInvalidScan?: (message?: string) => void;
 };
 
 export default function PairQrScannerModal({
@@ -20,11 +20,13 @@ export default function PairQrScannerModal({
   onInvalidScan,
 }: PairQrScannerModalProps) {
   const [permission, requestPermission] = useCameraPermissions();
+  const [scanError, setScanError] = useState<string | null>(null);
   const handledRef = useRef(false);
 
   useEffect(() => {
     if (!visible) {
       handledRef.current = false;
+      setScanError(null);
     }
   }, [visible]);
 
@@ -39,20 +41,23 @@ export default function PairQrScannerModal({
       if (handledRef.current) {
         return;
       }
-      const setup = await resolvePairQrPayload(result.data);
-      if (!setup) {
-        onInvalidScan?.();
+      const resolved = await resolvePairQrPayloadDetailed(result.data);
+      if (!resolved.ok) {
+        setScanError(resolved.message);
+        onInvalidScan?.(resolved.message);
         return;
       }
       handledRef.current = true;
+      setScanError(null);
       try {
-        await onScanned(setup);
+        await onScanned(resolved.params);
         onClose();
       } catch {
         handledRef.current = false;
+        setScanError('Could not finish pairing — try Find computers or rescan a Tailscale pair QR.');
       }
     },
-    [onClose, onScanned],
+    [onClose, onInvalidScan, onScanned],
   );
 
   return (
@@ -60,9 +65,14 @@ export default function PairQrScannerModal({
       <View style={styles.container}>
         <Text style={styles.title}>Scan QR from your computer</Text>
         <Text style={styles.subtitle}>
-          Scan the QR on your Mac&apos;s Hermes Mobile pairing page (same home Wi‑Fi). No QR? Go back
-          and tap Find computers.
+          Scan the live pair QR (Tailscale or home Wi‑Fi) — not a saved file:// page. USB is
+          optional. No QR? Go back and tap Find computers.
         </Text>
+        {scanError ? (
+          <Text style={styles.errorText} testID="pair-qr-scan-error">
+            {scanError}
+          </Text>
+        ) : null}
         <MacPairingHelp variant="qr-pairing" compact testID="pair-qr-scanner-help" />
 
         {!permission ? (
@@ -109,6 +119,13 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     lineHeight: 18,
     marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.error,
+    lineHeight: 18,
+    marginBottom: 12,
   },
   camera: {
     flex: 1,

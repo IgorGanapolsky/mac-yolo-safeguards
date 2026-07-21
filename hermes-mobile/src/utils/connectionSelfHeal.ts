@@ -205,7 +205,34 @@ export function shouldClearUsbPrimaryOnCellular(input: {
   return isTailscaleGatewayUrl(failover) && failover !== input.primaryUrl.trim();
 }
 
-/** When cellular blocks LAN, pick a reachable Tailscale URL for the active Mac (or any saved tailnet route). */
+/** First Tailscale URL among profiles/discoveries that is not the primary. */
+function firstOtherTailscaleUrl(
+  primary: string,
+  profiles: GatewayProfile[],
+  discoveries: DiscoveredGateway[],
+): string | null {
+  for (const profile of profiles) {
+    const url = profile.gatewayUrl.trim();
+    if (url && url !== primary && isTailscaleGatewayUrl(url)) {
+      return url;
+    }
+  }
+  for (const discovery of discoveries) {
+    const url = discovery.gatewayUrl.trim();
+    if (url && url !== primary && isTailscaleGatewayUrl(url)) {
+      return url;
+    }
+  }
+  return null;
+}
+
+/**
+ * When cellular/off-Wi‑Fi blocks LAN/USB, pick a Tailscale URL.
+ * Prefer same-machine Tailscale for the active computer; if the sticky primary is
+ * USB loopback and that Mac has no Tailscale sibling, fall through to any saved
+ * Tailscale computer (e.g. Mac mini) — never stay stuck on "Computer via USB"
+ * theater when Tailscale peers exist.
+ */
 export function resolveCellularTailscaleFailoverUrl(input: {
   primaryUrl: string;
   profiles: GatewayProfile[];
@@ -249,23 +276,14 @@ export function resolveCellularTailscaleFailoverUrl(input: {
         return profile.gatewayUrl;
       }
     }
+    // Sticky USB/LAN primary with no same-machine Tailscale: any Tailscale computer.
+    if (isLoopbackGatewayUrl(primary) || isPrivateLanGatewayUrl(primary)) {
+      return firstOtherTailscaleUrl(primary, input.profiles, discoveries);
+    }
+    return null;
   }
 
-  if (!active) {
-    for (const profile of input.profiles) {
-      const url = profile.gatewayUrl.trim();
-      if (url && url !== primary && isTailscaleGatewayUrl(url)) {
-        return url;
-      }
-    }
-    for (const discovery of discoveries) {
-      const url = discovery.gatewayUrl.trim();
-      if (url && url !== primary && isTailscaleGatewayUrl(url)) {
-        return url;
-      }
-    }
-  }
-  return null;
+  return firstOtherTailscaleUrl(primary, input.profiles, discoveries);
 }
 
 /** Pick the per-profile API key that matches a gateway URL before heal/failover probes. */

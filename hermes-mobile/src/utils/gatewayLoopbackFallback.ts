@@ -71,8 +71,14 @@ export function cellularTailscaleFallbackUrls(input: {
   if (Platform.OS === 'web') {
     return [];
   }
+  // Off-Wi‑Fi with sticky USB loopback: do not scope to the USB Mac only — that traps
+  // heal on "Computer via USB" when another Tailscale computer (mini) is reachable.
+  const usbStuckOffWifi =
+    !input.wifiConnected && isLoopbackGatewayUrl(input.primaryUrl);
   const scopedProfiles = input.profiles?.length
-    ? profilesForActiveMachine(input.profiles, input.activeProfileId)
+    ? usbStuckOffWifi
+      ? input.profiles
+      : profilesForActiveMachine(input.profiles, input.activeProfileId)
     : undefined;
   const profileUrls =
     scopedProfiles?.map((profile) => profile.gatewayUrl) ?? input.profileUrls ?? [];
