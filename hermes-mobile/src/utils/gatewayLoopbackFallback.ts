@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import type { GatewayProfile } from '../types/gatewayProfile';
-import { profilesForActiveMachine } from '../services/gatewayProfiles';
+import { profileMachineKey, profilesForActiveMachine } from '../services/gatewayProfiles';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
 import { buildGatewayUrlFromLanIp, isLoopbackGatewayUrl } from './gatewayUrlPolicy';
 import { buildTailscaleGatewayUrl, isTailscaleGatewayUrl } from './tailscaleHosts';
@@ -71,12 +71,17 @@ export function cellularTailscaleFallbackUrls(input: {
   if (Platform.OS === 'web') {
     return [];
   }
-  // Off-Wi‑Fi with sticky USB loopback: do not scope to the USB Mac only — that traps
-  // heal on "Computer via USB" when another Tailscale computer (mini) is reachable.
-  const usbStuckOffWifi =
-    !input.wifiConnected && isLoopbackGatewayUrl(input.primaryUrl);
+  // Off-Wi‑Fi anonymous USB only: unscope so heal can catalog Tailscale peers.
+  // Named USB (MacBook Pro) stays scoped — never probe/activate mini behind the user's back.
+  const active =
+    input.profiles?.find((profile) => profile.id === input.activeProfileId) ?? null;
+  const anonymousUsbStuckOffWifi =
+    !input.wifiConnected &&
+    isLoopbackGatewayUrl(input.primaryUrl) &&
+    active != null &&
+    !profileMachineKey(active);
   const scopedProfiles = input.profiles?.length
-    ? usbStuckOffWifi
+    ? anonymousUsbStuckOffWifi
       ? input.profiles
       : profilesForActiveMachine(input.profiles, input.activeProfileId)
     : undefined;

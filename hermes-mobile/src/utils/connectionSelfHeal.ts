@@ -2,6 +2,7 @@ import type { GatewayProfile } from '../types/gatewayProfile';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import {
   findProfileForGatewayUrl,
+  profileMachineKey,
   profilesForActiveMachine,
   profilesShareMachine,
   shouldProbeGatewayUrlForActiveProfile,
@@ -228,10 +229,9 @@ function firstOtherTailscaleUrl(
 
 /**
  * When cellular/off-Wi‑Fi blocks LAN/USB, pick a Tailscale URL.
- * Prefer same-machine Tailscale for the active computer; if the sticky primary is
- * USB loopback and that Mac has no Tailscale sibling, fall through to any saved
- * Tailscale computer (e.g. Mac mini) — never stay stuck on "Computer via USB"
- * theater when Tailscale peers exist.
+ * Prefer same-machine Tailscale for the active computer.
+ * Anonymous USB (no machine key) may fall through to any Tailscale peer.
+ * Named USB/LAN (MacBook Pro) must NOT silently jump to Mac mini — selection sticks.
  */
 export function resolveCellularTailscaleFailoverUrl(input: {
   primaryUrl: string;
@@ -276,8 +276,11 @@ export function resolveCellularTailscaleFailoverUrl(input: {
         return profile.gatewayUrl;
       }
     }
-    // Sticky USB/LAN primary with no same-machine Tailscale: any Tailscale computer.
-    if (isLoopbackGatewayUrl(primary) || isPrivateLanGatewayUrl(primary)) {
+    // Anonymous sticky USB/LAN only — never auto-steal a named MacBook → mini.
+    if (
+      !profileMachineKey(active) &&
+      (isLoopbackGatewayUrl(primary) || isPrivateLanGatewayUrl(primary))
+    ) {
       return firstOtherTailscaleUrl(primary, input.profiles, discoveries);
     }
     return null;
