@@ -63,6 +63,39 @@ gate. The expected profiles are:
 
 ## Hardened `tinker-yolo` contract
 
+### Local tool-using agent
+
+Bare `tinker-yolo`, `tinker-yolo agent`, and `tinker-yolo chat` now start the
+same local agent loop instead of delegating to the chat-only `ollama run` UI.
+The agent declares JSON-schema tools to Ollama, executes returned calls, appends
+the results, and continues until Qwen returns a final answer.
+
+The local catalogue is:
+
+- workspace working-directory discovery, file listing, reading, and ripgrep;
+- atomic file writes and exact replacements;
+- bounded shell execution with network access and a secret-sanitized child env;
+- HTTP fetch and public web search.
+
+Direct file operations remain inside the starting workspace. Shell commands
+have ordinary local-account authority, matching the explicit yolo contract, but
+use workspace-validated cwd, a bounded process group, output caps, and a
+ten-minute absolute timeout. Every call writes a content-free, mode-0600,
+hash-chained receipt under `~/.hermes/tinker/receipts/`.
+
+Useful forms:
+
+```text
+tinker-yolo
+tinker-yolo agent "inspect this repo and run its focused tests"
+tinker-yolo chat --workspace /path/to/repo --model qwen3-hermes-tinker:q4
+```
+
+This path uses local Ollama only. It neither reads the Tinker API key nor makes
+a provider call. See
+[the July 2026 research ingest](./RESEARCH-TINKER-YOLO-FULL-TOOLS-JULY-2026.md)
+for the official tool-use evidence and threat model.
+
 Read-only and local commands do not activate training:
 
 ```text
