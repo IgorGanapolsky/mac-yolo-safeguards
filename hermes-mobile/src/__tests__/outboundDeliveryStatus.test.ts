@@ -25,10 +25,10 @@ describe('outboundDeliveryStatus', () => {
     ).toBe('✓ Sent');
   });
 
-  it('shows waiting instead of sent when relay is up but Mac HTTP is down', () => {
+  it('does not contradict Connected with Waiting for computer when Mac HTTP is down', () => {
     expect(
       outboundDeliveryLabel('sent', { connectionState: 'connected', macHttpOk: false }),
-    ).toBe('○ Waiting for computer…');
+    ).toBe('○ Still waiting for reply…');
   });
 
   it('shows resend hint when send failed but Mac health is ok', () => {

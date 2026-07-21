@@ -1,5 +1,6 @@
 import {
   MEGA_SESSION_RUN_STALE_AUTO_FAIL_MS,
+  RUN_HARD_TIMEOUT_MS,
   RUN_NO_TOKEN_FAIL_MS,
   RUN_STALE_AUTO_FAIL_MS,
   RUN_STALE_IDLE_MS,
@@ -15,6 +16,7 @@ import {
   shouldAutoClearStalledRun,
   shouldFailRunAwaitingFirstToken,
   shouldFailRunForStreamIdle,
+  shouldHardTimeoutRun,
   stampRunProgressActivity,
 } from '../utils/runStaleDetection';
 import type { RunProgressState } from '../types/chatDisplay';
@@ -82,14 +84,15 @@ describe('runStaleDetection', () => {
     expect(msUntilRunStaleAutoFail(progress, 1_000 + 60_000)).toBe(RUN_STALE_AUTO_FAIL_MS - 60_000);
   });
 
-  it('fails runs with zero output tokens only after the no-token window', () => {
+  it('fails runs with zero output tokens at the hard-timeout wall (≤ no-token window)', () => {
     const progress = baseProgress({ startedAtMs: 1_000, outputTokens: 0, lastProgressAtMs: 1_000 });
-    expect(shouldFailRunAwaitingFirstToken(progress, 1_000 + RUN_NO_TOKEN_FAIL_MS - 1)).toBe(false);
-    expect(shouldFailRunAwaitingFirstToken(progress, 1_000 + RUN_NO_TOKEN_FAIL_MS)).toBe(true);
-    expect(msUntilNoTokenFail(progress, 1_000 + 15_000)).toBe(RUN_NO_TOKEN_FAIL_MS - 15_000);
+    expect(RUN_HARD_TIMEOUT_MS).toBeLessThanOrEqual(RUN_NO_TOKEN_FAIL_MS);
+    expect(shouldFailRunAwaitingFirstToken(progress, 1_000 + RUN_HARD_TIMEOUT_MS - 1)).toBe(false);
+    expect(shouldFailRunAwaitingFirstToken(progress, 1_000 + RUN_HARD_TIMEOUT_MS)).toBe(true);
+    expect(msUntilNoTokenFail(progress, 1_000 + 15_000)).toBe(RUN_HARD_TIMEOUT_MS - 15_000);
   });
 
-  it('does not false-stall while SSE is in flight or tools still tick', () => {
+  it('does not false-stall while SSE is in flight before the hard timeout', () => {
     const progress = baseProgress({
       startedAtMs: 0,
       outputTokens: 0,
@@ -97,15 +100,30 @@ describe('runStaleDetection', () => {
       detail: 'Agent-sync',
     });
     expect(
-      shouldFailRunAwaitingFirstToken(progress, RUN_NO_TOKEN_FAIL_MS + 1, { streamInFlight: true }),
+      shouldFailRunAwaitingFirstToken(progress, RUN_HARD_TIMEOUT_MS - 1, { streamInFlight: true }),
     ).toBe(false);
     const toolTicking = baseProgress({
       startedAtMs: 0,
       outputTokens: 0,
-      lastProgressAtMs: RUN_NO_TOKEN_FAIL_MS - 10_000,
+      lastProgressAtMs: RUN_HARD_TIMEOUT_MS - 10_000,
       detail: 'reading vault',
     });
-    expect(shouldFailRunAwaitingFirstToken(toolTicking, RUN_NO_TOKEN_FAIL_MS)).toBe(false);
+    expect(
+      shouldFailRunAwaitingFirstToken(toolTicking, RUN_HARD_TIMEOUT_MS - 1, { streamInFlight: false }),
+    ).toBe(false);
+  });
+
+  it('hard-fails awaiting-first-token at 2m even when streamInFlight is stuck', () => {
+    const progress = baseProgress({
+      startedAtMs: 0,
+      outputTokens: 0,
+      lastProgressAtMs: 0,
+    });
+    expect(
+      shouldFailRunAwaitingFirstToken(progress, RUN_HARD_TIMEOUT_MS, { streamInFlight: true }),
+    ).toBe(true);
+    expect(shouldHardTimeoutRun(progress, RUN_HARD_TIMEOUT_MS)).toBe(true);
+    expect(shouldAutoClearStalledRun(progress, RUN_HARD_TIMEOUT_MS)).toBe(true);
   });
 
   it('does not fail awaiting-first-token once output tokens arrive', () => {
@@ -146,7 +164,7 @@ describe('runStaleDetection', () => {
       outputTokens: 0,
       lastProgressAtMs: 0,
     });
-    expect(shouldAutoClearStalledRun(awaiting, RUN_NO_TOKEN_FAIL_MS + 1)).toBe(true);
+    expect(shouldAutoClearStalledRun(awaiting, RUN_HARD_TIMEOUT_MS)).toBe(true);
 
     const idle = baseProgress({
       startedAtMs: 0,
