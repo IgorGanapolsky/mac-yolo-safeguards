@@ -854,6 +854,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 - `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx`, `apps/hermes-control-plane/app/api/billing/portal/route.ts`, `apps/hermes-control-plane/app/api/billing/checkout/route.ts`, `apps/hermes-control-plane/app/api/health/route.ts`, `apps/hermes-control-plane/tests/frictionless-onboarding.test.mjs`, `apps/hermes-control-plane/tests/rendered-html.test.mjs`, `saas/saas-watchdog.sh`, `tests/test-saas-watchdog.sh`, `plan.md` → **codex-thumbgate-production** (T-THUMBGATE-PROD-RECOVERY-20260720: prevent paid accounts from opening duplicate subscriptions and make Manage plan open a verified organization-scoped Stripe billing portal) (2026-07-20T23:59:32Z)
 
+- `apps/hermes-control-plane/public/og.png`, `apps/hermes-control-plane/app/layout.tsx`, `apps/hermes-control-plane/tests/rendered-html.test.mjs`, `plan.md` → **codex-thumbgate-production** (T-THUMBGATE-PROD-RECOVERY-20260720: replace the missing large-card declaration with one verified Hermes-native ThumbGate social preview) (2026-07-21T00:16:05Z)
+
 ## 3. Decisions Log
 
 - 2026-07-20T22:15:00Z `cursor-transport-ssot`: **T-TRANSPORT-LABEL-SSOT** — Root cause: picker collapsed to USB when cable live (only Tailscale actives preserved) while header labeled active LAN as Home Wi‑Fi; scan banner said "Using USB" for discovery path. Fix: preserve active non-USB when cable live; discovery copy "Found N over USB"; status region uses resolveHeaderTransportLabel when connected. Focused Jest green. PR #647.
