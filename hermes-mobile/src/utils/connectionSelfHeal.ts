@@ -163,12 +163,17 @@ export function shouldPreferUsbProbeFirst(input: {
 /**
  * On cellular, do not accept a successful loopback /health as the session route when a
  * Tailscale alternate exists — clears false "USB Connected" from ghost adb reverse.
+ * Skip defer when live USB reverse is confirmed (real cable on 5G).
  */
 export function shouldDeferLoopbackSuccessOnCellular(input: {
   primaryUrl: string;
   wifiConnected: boolean;
   hasTailscaleAlternate: boolean;
+  liveUsbConfirmed?: boolean;
 }): boolean {
+  if (input.liveUsbConfirmed) {
+    return false;
+  }
   return (
     !input.wifiConnected &&
     isLoopbackGatewayUrl(input.primaryUrl) &&
@@ -176,12 +181,20 @@ export function shouldDeferLoopbackSuccessOnCellular(input: {
   );
 }
 
-/** Clear USB-primary on cellular when a same-machine Tailscale URL is available. */
+/**
+ * Clear USB-primary on cellular when a same-machine Tailscale URL is available.
+ * Never clear when live USB reverse is confirmed (cable + hostname) — product lock.
+ */
 export function shouldClearUsbPrimaryOnCellular(input: {
   primaryUrl: string;
   wifiConnected: boolean;
   failoverUrl: string | null | undefined;
+  /** Live adb reverse /health for the cable — blocks ghost-clear of a real USB path. */
+  liveUsbConfirmed?: boolean;
 }): boolean {
+  if (input.liveUsbConfirmed) {
+    return false;
+  }
   const failover = input.failoverUrl?.trim();
   if (!failover || input.wifiConnected) {
     return false;
