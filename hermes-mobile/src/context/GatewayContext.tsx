@@ -8,6 +8,7 @@ import React, {
 import { createContext, useContext } from 'use-context-selector';
 import { AppState, Linking, Platform } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
+import { isTailscaleVpnActive } from '../utils/tailscaleVpnDetect';
 import {
   cacheDirectory as fileSystemCacheDirectory,
   getInfoAsync as fileSystemGetInfoAsync,
@@ -359,6 +360,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const [tailscaleDiscoveries, setTailscaleDiscoveries] = useState<DiscoveredGateway[]>([]);
   const [tailscaleDiscoveryProbing, setTailscaleDiscoveryProbing] = useState(false);
   const [tailscaleVpnActive, setTailscaleVpnActive] = useState(false);
+  /** Set after a completed hit to a Tailscale host — Samsung NetInfo often stays cellular. */
+  const reachedTailscaleHostRef = useRef(false);
   const [tailnetProbeHostCount, setTailnetProbeHostCount] = useState(0);
   const [effectiveGatewayUrl, setEffectiveGatewayUrl] = useState(
     DEFAULT_GATEWAY_SETTINGS.gatewayUrl,
@@ -1246,19 +1249,31 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     const interval = setInterval(() => {
       refreshHealth();
     }, 30000);
-    const netSub = NetInfo.addEventListener((state) => {
+    const applyNetInfo = (state: {
+      type?: string | null;
+      isConnected?: boolean | null;
+      details?: unknown;
+    }) => {
       const isWifi = state.type === 'wifi' && state.isConnected !== false;
       wifiConnectedRef.current = isWifi;
       setWifiConnected(isWifi);
-      setTailscaleVpnActive(state.type === 'vpn' && state.isConnected !== false);
+      const ipAddress = (state.details as { ipAddress?: string } | null)?.ipAddress;
+      setTailscaleVpnActive(
+        isTailscaleVpnActive({
+          netInfoType: state.type,
+          isConnected: state.isConnected,
+          ipAddress,
+          reachedTailscaleHost: reachedTailscaleHostRef.current,
+        }),
+      );
+    };
+    const netSub = NetInfo.addEventListener((state) => {
+      applyNetInfo(state);
       refreshHealth();
       void probeTailscaleComputersRef.current();
     });
     void NetInfo.fetch().then((state) => {
-      const isWifi = state.type === 'wifi' && state.isConnected !== false;
-      wifiConnectedRef.current = isWifi;
-      setWifiConnected(isWifi);
-      setTailscaleVpnActive(state.type === 'vpn' && state.isConnected !== false);
+      applyNetInfo(state);
     });
     return () => {
       clearInterval(interval);
@@ -2734,6 +2749,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       const discovered = await discoverTailscaleGateways(probeHosts);
+      if (discovered.length > 0) {
+        reachedTailscaleHostRef.current = true;
+        setTailscaleVpnActive(true);
+      }
       const hostsToPersist = tailnetHostsFromDiscoveries(discovered);
       if (hostsToPersist.length > 0) {
         const mergedHosts = await tailnetProbeStorage.merge(

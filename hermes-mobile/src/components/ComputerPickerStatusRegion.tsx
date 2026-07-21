@@ -232,11 +232,12 @@ export default function ComputerPickerStatusRegion({
 const styles = StyleSheet.create({
   region: {
     minHeight: COMPUTER_PICKER_STATUS_MIN_HEIGHT,
-    marginBottom: 12,
-    padding: 12,
-    borderRadius: 12,
+    marginBottom: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 16,
     borderWidth: 1,
-    gap: 6,
+    gap: 8,
     justifyContent: 'center',
   },
   cardHelp: {

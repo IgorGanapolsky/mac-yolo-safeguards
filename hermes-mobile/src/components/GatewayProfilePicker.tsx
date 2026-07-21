@@ -65,7 +65,7 @@ export default function GatewayProfilePicker({
       ) : null}
       {profiles.length === 0 && !scanning ? (
         <Text style={styles.emptyText}>
-          No saved computers yet. Tap Find computers or scan the QR on your computer.
+          No saved computers yet. Tap Find computers or scan the pair QR.
         </Text>
       ) : null}
       {profiles.length > 0 ? (
@@ -155,10 +155,10 @@ export default function GatewayProfilePicker({
                 onPress={() => onRemove(profile.id)}
                 hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
                 accessibilityRole="button"
-                accessibilityLabel={`Forget this Mac: ${lines.title}`}
+                accessibilityLabel={`Forget this computer: ${lines.title}`}
                 testID={`remove-gateway-profile-${profile.id}`}
               >
-                <Text style={styles.removeText}>Forget this Mac</Text>
+                <Text style={styles.removeText}>Forget</Text>
               </Pressable>
             ) : null}
           </View>
@@ -172,23 +172,24 @@ export default function GatewayProfilePicker({
 
 const styles = StyleSheet.create({
   list: {
-    gap: 10,
-    marginBottom: 4,
+    gap: 12,
+    marginTop: 12,
+    marginBottom: 8,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   selectButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    minHeight: 64,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 18,
+    minHeight: 72,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.borderLight,
     backgroundColor: 'rgba(255, 255, 255, 0.045)',
@@ -215,6 +216,7 @@ const styles = StyleSheet.create({
   labelBlock: {
     flex: 1,
     minWidth: 0,
+    gap: 4,
   },
   profileLabel: {
     color: colors.text,
@@ -227,13 +229,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
-    marginTop: 2,
   },
   meta: {
     color: colors.textMuted,
     fontSize: 12,
-    marginTop: 3,
     fontWeight: '700',
+    marginTop: 2,
+    lineHeight: 16,
   },
   metaConnected: {
     color: colors.success,
@@ -248,9 +250,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   removeButton: {
-    minWidth: 72,
+    minWidth: 56,
     minHeight: 44,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 12,
     justifyContent: 'center',
     alignItems: 'center',
@@ -267,6 +269,6 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 13,
     lineHeight: 18,
-    marginBottom: 12,
+    marginVertical: 12,
   },
 });

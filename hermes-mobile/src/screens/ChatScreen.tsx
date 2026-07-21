@@ -7322,9 +7322,8 @@ export default function ChatScreen() {
               keyboardShouldPersistTaps="handled"
               testID="mac-picker-scroll"
             >
-              <Text style={styles.modalSubtitle}>
-                Pick the computer you want to use. The header shows your active path (Home Wi‑Fi,
-                USB, or Tailscale). Tap Find computers if yours is missing.
+              <Text style={styles.modalSubtitle} testID="mac-picker-subtitle">
+                Tap a computer to use it. Find computers if yours is missing.
               </Text>
               <ComputerPickerStatusRegion
                 scanning={profileScanning || isScanningMacs}
@@ -8151,24 +8150,25 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
   macPickerContent: {
-    paddingBottom: 4,
+    paddingBottom: 16,
+    gap: 4,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
     color: colors.text,
   },
   modalSubtitle: {
-    fontSize: 11,
+    fontSize: 13,
     color: colors.textMuted,
-    marginBottom: 12,
-    lineHeight: 16,
+    marginBottom: 16,
+    lineHeight: 18,
   },
   fieldLabel: {
     fontSize: 11,
