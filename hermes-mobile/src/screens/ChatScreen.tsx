@@ -211,6 +211,7 @@ import {
 import { isChatAtTop, isChatNearBottom } from '../utils/chatScrollSync';
 import {
   FLASHLIST_LAYOUT_QUIET_MS,
+  FLASHLIST_LAYOUT_QUIET_RATCHET_MS,
   nextChatNearBottom,
 } from '../utils/chatFlashListScrollGuard';
 import {
@@ -895,10 +896,19 @@ export default function ChatScreen() {
   const endProgrammaticScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const contentSizeFollowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   const releaseProgrammaticScrollGuard = useCallback(() => {
     programmaticScrollInFlightRef.current = false;
     layoutQuietUntilMsRef.current = Date.now() + FLASHLIST_LAYOUT_QUIET_MS;
+  }, []);
+
+  const ratchetLayoutQuietFromContentSize = useCallback(() => {
+    const now = Date.now();
+    const floor = Math.max(layoutQuietUntilMsRef.current, now);
+    layoutQuietUntilMsRef.current = floor + FLASHLIST_LAYOUT_QUIET_RATCHET_MS;
   }, []);
 
   const scrollChatToLatest = useCallback((animated = false) => {
@@ -7075,33 +7085,42 @@ export default function ChatScreen() {
                 onContentSizeChange={() => {
                   // Never setState synchronously here — FlashList calls this during
                   // layout; setState→remeasure→setState is the max-update-depth crash.
+                  // queueMicrotask is not enough (still same turn as layout); use
+                  // coalesced setTimeout(0) + quiet-window ratchet for hydrate storms.
                   if (
                     programmaticScrollInFlightRef.current ||
                     Date.now() < layoutQuietUntilMsRef.current
                   ) {
+                    ratchetLayoutQuietFromContentSize();
                     return;
                   }
-                  if (pinScrollAfterHydrationRef.current) {
+                  if (contentSizeFollowTimerRef.current != null) {
+                    clearTimeout(contentSizeFollowTimerRef.current);
+                    contentSizeFollowTimerRef.current = null;
+                  }
+                  const pinAfterHydration = pinScrollAfterHydrationRef.current;
+                  if (pinAfterHydration) {
                     pinScrollAfterHydrationRef.current = false;
                     userScrolledUpRef.current = false;
                     lastDistanceFromBottomRef.current = 0;
                     streamScrollLastAtRef.current = 0;
-                    queueMicrotask(() => {
-                      setChatNearBottom((prev) => (prev ? prev : true));
-                      scrollChatToLatest(false);
-                    });
-                    return;
                   }
-                  // force=false: respect pin + throttle during stream (see scrollChatToLatestIfPinned).
-                  queueMicrotask(() => {
+                  contentSizeFollowTimerRef.current = setTimeout(() => {
+                    contentSizeFollowTimerRef.current = null;
                     if (
                       programmaticScrollInFlightRef.current ||
                       Date.now() < layoutQuietUntilMsRef.current
                     ) {
                       return;
                     }
+                    if (pinAfterHydration) {
+                      setChatNearBottom((prev) => (prev ? prev : true));
+                      scrollChatToLatest(false);
+                      return;
+                    }
+                    // force=false: respect pin + throttle during stream.
                     scrollChatToLatestIfPinned(false, false);
-                  });
+                  }, 0);
                 }}
                 getItemType={(item) => {
                   const role = item.message.role?.toLowerCase() ?? 'unknown';
