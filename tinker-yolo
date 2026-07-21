@@ -459,6 +459,11 @@ usage() {
   cat <<'USAGE'
 tinker-yolo — evidence-gated Tinker customization for Hermes
 
+Bare `tinker-yolo` (no arguments) drops straight into `chat` — like
+claude-yolo/codex-yolo — whenever the default model is already deployed
+locally. If it isn't deployed yet, bare invocation falls back to `status`
+so you can see what's missing instead of hitting a hard error.
+
 Read-only / free:
   status                     lightweight local status; no Tinker import
   recommend [--json]         host-aware Inkling vs local-baseline decision
@@ -483,6 +488,13 @@ Inkling remains a remote candidate; these training commands retain Qwen/Qwen3-8B
 `ask` is the explicit per-call Inkling route and never changes the Hermes default.
 USAGE
 }
+
+if [ "$#" -eq 0 ] && command -v ollama >/dev/null 2>&1; then
+  bare_model="${TINKER_CHAT_MODEL:-qwen3-hermes-tinker:latest}"
+  if ollama list 2>/dev/null | awk '{print $1}' | grep -qx "$bare_model"; then
+    exec ollama run "$bare_model"
+  fi
+fi
 
 command="${1:-status}"
 [ "$#" -gt 0 ] && shift || true
