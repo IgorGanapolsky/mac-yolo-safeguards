@@ -652,6 +652,49 @@ describe('resolveHeaderTransportLabel / USB allow rule', () => {
     expect(formatChatMachineHeaderLine(display)).toBe('Igors-Mac-mini · Tailscale');
     expect(formatChatMachineHeaderLine(display).toLowerCase()).not.toContain('usb');
   });
+
+  it('names the live Mac when sticky activeProfile URL disagrees with gatewayUrl (Reach out goal)', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_book',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://100.87.85.85:8642',
+        hostname: 'Igors-MacBook-Pro.local',
+        addedAt: '2026-07-20T00:00:00.000Z',
+      },
+      gatewayUrl: 'http://100.94.135.78:8642',
+      health: {
+        level: 'green',
+        checkedAt: '2026-07-20T22:20:00.000Z',
+        hostname: 'Igors-Mac-mini.local',
+        directGatewayReachable: true,
+      },
+      connectionMode: 'gateway',
+      isPaired: true,
+      workers: [],
+      savedMacCount: 2,
+      profiles: [
+        {
+          id: 'mac_book',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          hostname: 'Igors-MacBook-Pro.local',
+          addedAt: '2026-07-20T00:00:00.000Z',
+        },
+        {
+          id: 'mac_mini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini.local',
+          addedAt: '2026-07-20T00:00:00.000Z',
+        },
+      ],
+      wifiConnected: false,
+    });
+    expect(display.machineLabel).toBe('Igors-Mac-mini');
+    expect(display.machineLabel).not.toContain('MacBook');
+    expect(display.machineEndpoint).toBe('Tailscale');
+  });
 });
 
 describe('profileDisplayName generic labels', () => {
