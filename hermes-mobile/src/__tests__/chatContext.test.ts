@@ -39,6 +39,38 @@ describe('chatContext', () => {
     expect(label).toBe('Mac Pro (192.168.12.208)');
   });
 
+  it('prefers URL-matched profile over sticky active profile on a different host', () => {
+    const label = resolveChatMachineLabel(
+      'http://100.94.135.78:8642',
+      sampleHealth({ hostname: 'Igors-Mac-mini.local' }),
+      {
+        id: 'mac_book',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://100.87.85.85:8642',
+        hostname: 'Igors-MacBook-Pro.local',
+        addedAt: '2026-07-20T00:00:00Z',
+      },
+      [
+        {
+          id: 'mac_book',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          hostname: 'Igors-MacBook-Pro.local',
+          addedAt: '2026-07-20T00:00:00Z',
+        },
+        {
+          id: 'mac_mini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini.local',
+          addedAt: '2026-07-20T00:00:00Z',
+        },
+      ],
+    );
+    expect(label).toContain('Igors-Mac-mini');
+    expect(label).not.toContain('MacBook');
+  });
+
   it('falls back to health hostname when profile missing', () => {
     const label = resolveChatMachineLabel(
       'http://192.168.12.208:8642',

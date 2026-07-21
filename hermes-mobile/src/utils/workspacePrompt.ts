@@ -65,6 +65,29 @@ export function buildWorkspaceSystemPrompt(
 }
 
 /**
+ * Workspace for system_message: selected project wins; on a fresh/empty transcript
+ * fall back to the pending Start-fresh handoff path so project lane is not dropped.
+ */
+export function resolveEffectiveWorkspacePath(
+  projectWorkspace?: string | null,
+  handoffWorkspace?: string | null,
+  options?: { transcriptEmpty?: boolean; forceHandoffWorkspace?: boolean },
+): string | undefined {
+  const fromProject = projectWorkspace?.trim();
+  if (fromProject) {
+    return fromProject;
+  }
+  const fromHandoff = handoffWorkspace?.trim();
+  if (
+    fromHandoff &&
+    (options?.forceHandoffWorkspace || options?.transcriptEmpty === true)
+  ) {
+    return fromHandoff;
+  }
+  return undefined;
+}
+
+/**
  * System message for every mobile chat turn — execution mandate plus optional workspace pin.
  * Sent even when no Project is selected so Hermes does not stall with refusal monologues.
  */
@@ -73,16 +96,19 @@ export function buildMobileChatSystemPrompt(
   projectContext?: MobileChatProjectContext,
 ): string {
   const sections = [MOBILE_EXECUTION_DIRECTIVE];
-  const path = workspacePath?.trim();
+  const continuity = projectContext?.continuityHandoff;
+  const path = resolveEffectiveWorkspacePath(workspacePath, continuity?.workspacePath, {
+    transcriptEmpty: projectContext?.transcriptEmpty,
+    forceHandoffWorkspace: projectContext?.forceContinuityInject,
+  });
   if (path) {
     sections.push(
       buildWorkspaceSystemPrompt(path, {
-        vaultSlug: projectContext?.vaultSlug,
+        vaultSlug: projectContext?.vaultSlug?.trim() || continuity?.vaultSlug,
         handoffSummary: projectContext?.handoffSummary,
       }),
     );
   }
-  const continuity = projectContext?.continuityHandoff;
   if (
     continuity &&
     shouldInjectContinuityHandoff({
