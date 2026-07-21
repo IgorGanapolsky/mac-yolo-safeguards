@@ -360,6 +360,13 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
 - `docs/RESEARCH-TAILSCALE-PEER-RELAY-APERTURE-JULY-2026.md`, `parallel-research/tailscale-peer-relay-aperture-july-2026.*`, `plan.md` → **codex-peer-relay-research** (T-TAILSCALE-PEER-RELAY-RESEARCH-20260721; research/docs only, no Hermes Mobile source edits) (2026-07-21T21:12:00Z)
+||||||| parent of 1689ff2b (fix(mobile): suppress [SILENT] sentinel on FlatList tip)
+- T-OUTPUT-WIPE-PRESERVE / streamAssistantText+chatMessageMerge+tests → **released by cursor-output-wipe** (done; handoff to cursor-flashlist-v2 for [SILENT] fold) (2026-07-21T21:33:09Z)
+- T-255 emptyStreamReplyRecovery tests → **released by cursor-empty-stream-refresh** for [SILENT] fold (2026-07-21T21:33:09Z)
+- T-269 chatMessageMerge.test.ts → **released by cursor-dup-bubble** for [SILENT] fold (2026-07-21T21:33:09Z)
+- `hermes-mobile/src/utils/streamAssistantText.ts`, `hermes-mobile/src/utils/emptyStreamReplyRecovery.ts`, `hermes-mobile/src/utils/chatMessageMerge.ts`, `hermes-mobile/src/__tests__/streamAssistantText.test.ts`, `hermes-mobile/src/__tests__/emptyStreamReplyRecovery.test.ts`, `hermes-mobile/src/__tests__/chatMessageMerge.test.ts`, `hermes-mobile/src/screens/ChatScreen.tsx` ([SILENT] + FlatList only) → **cursor-flashlist-v2** (T-FLASHLIST-TOKENS-LIVE) (2026-07-21T21:33:09Z)
+
+- `hermes-mobile/src/utils/streamAssistantText.ts`, `hermes-mobile/src/utils/emptyStreamReplyRecovery.ts`, `hermes-mobile/src/utils/chatMessageMerge.ts`, related tests, `hermes-mobile/src/screens/ChatScreen.tsx` ([SILENT] sentinel + FlatList list only) → **cursor-flashlist-v2** (T-FLASHLIST-TOKENS-LIVE + fold terra [SILENT]; coord 0a4aa4cf/9cf37bcb — no GatewayContext) (2026-07-21T21:13:30Z)
 
 - `tinker-yolo`, `tools/tinker-yolo-agent.py`, `tests/test-tinker-yolo-agent.py`, `tests/test-kimi-tinker-yolo.sh`, `docs/HERMES-TINKER-INKLING.md`, `docs/RESEARCH-TINKER-YOLO-FULL-TOOLS-JULY-2026.md`, `parallel-research/tinker-yolo-full-tools-july-2026.json`, `plan.md` → **codex-tinker-full-tools** (T-TINKER-FULL-TOOLS-20260721: local Ollama tool loop with filesystem, shell, internet, budgets, and receipts; preserve all paid/data-upload gates) (2026-07-21T18:45:11Z)
 - T-TINKER-FULL-TOOLS-20260721 claimed files → **released by codex-tinker-full-tools** after the task's recorded 10/10 agent tests, 25/25 wrapper tests, full CI mirror, two-Mac installation proof, and completion entry (2026-07-21T20:04:00Z)

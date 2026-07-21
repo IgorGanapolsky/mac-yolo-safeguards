@@ -407,6 +407,7 @@ import {
   EMPTY_STREAM_TIMEOUT_PLACEHOLDER,
   GENERIC_EMPTY_STREAM_PLACEHOLDER,
   isDeferredStreamPlaceholder,
+  isSilentAssistantCompletion,
   isTelegramDeferredEmptyStream,
   preferRicherAssistantText,
   snapshotAssistantBodies,
@@ -5645,7 +5646,7 @@ export default function ChatScreen() {
 
       const updateAssistant = (text: string) => {
         const incoming = text.trim();
-        if (!incoming) {
+        if (!incoming || isSilentAssistantCompletion(incoming)) {
           return;
         }
         const body = preferRicherAssistantText(activeAssistantTextRef.current, incoming);
@@ -5983,8 +5984,10 @@ export default function ChatScreen() {
 
       const telegramDeferred = isTelegramDeferredEmptyStream(activeSess, assistantText);
       const summarizationStub = isSummarizationStub(assistantText);
+      const silentCompletion = isSilentAssistantCompletion(assistantText);
       const awaitRealReply =
         !assistantText.trim() ||
+        silentCompletion ||
         summarizationStub ||
         shouldAwaitGatewayReplyAfterSend({
           assistantText,
@@ -5992,7 +5995,7 @@ export default function ChatScreen() {
           streamFailed: false,
         });
       if (awaitRealReply) {
-        if (summarizationStub || !assistantText.trim()) {
+        if (summarizationStub || silentCompletion || !assistantText.trim()) {
           updateAssistant(
             telegramDeferred ? TELEGRAM_QUEUED_REPLY_PLACEHOLDER : GENERIC_EMPTY_STREAM_PLACEHOLDER,
           );
