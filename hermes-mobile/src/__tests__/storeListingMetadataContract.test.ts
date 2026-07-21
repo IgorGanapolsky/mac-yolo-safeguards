@@ -10,12 +10,12 @@ function read(p: string): string {
 }
 
 describe('store listing metadata contract (stellar live)', () => {
-  it('Play and iOS titles lead with Hermes AI Agent Leash', () => {
+  it('Play title is Hermes AI: Mac Agent Leash; iOS name Hermes AI Agent Leash', () => {
     const playTitle = read(path.join(ANDROID, 'title.txt'));
     const iosName = read(path.join(IOS, 'name.txt'));
     expect(playTitle.length).toBeLessThanOrEqual(30);
     expect(iosName.length).toBeLessThanOrEqual(30);
-    expect(playTitle).toBe('Hermes AI Agent Leash');
+    expect(playTitle).toBe('Hermes AI: Mac Agent Leash');
     expect(iosName).toBe('Hermes AI Agent Leash');
   });
 
