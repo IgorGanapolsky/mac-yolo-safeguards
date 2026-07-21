@@ -110,7 +110,12 @@ export async function POST(request: Request) {
           (id, organization_id, thread_id, device_id, prompt, status, route, idempotency_key, lease_generation, created_by_user_id, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`
       ).bind(taskId, session.organizationId, threadId, device.id, prompt, status, route, idempotencyKey, session.userId, now, now),
-      db().prepare("UPDATE threads SET updated_at = ? WHERE id = ?").bind(now, threadId),
+      db().prepare(
+        `UPDATE threads SET updated_at = ?,
+           source_updated_at = CASE WHEN source_session_id IS NULL THEN source_updated_at
+             ELSE MAX(COALESCE(source_updated_at, 0), ?) END
+         WHERE id = ?`
+      ).bind(now, now, threadId),
     ]);
   } catch (error) {
     if (String(error).includes("tasks_org_idempotency_unique")) {
