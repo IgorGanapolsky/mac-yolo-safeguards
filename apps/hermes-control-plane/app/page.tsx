@@ -1,14 +1,11 @@
 import Link from "next/link";
 import { BillingPlan } from "./BillingPlan";
 import { FunnelSignals } from "./FunnelSignals";
-import { formatAgo, formatLatency, getPublicTelemetry } from "@/lib/public-telemetry";
-
 function Mark() {
   return <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>;
 }
 
-export default async function Home() {
-  const telemetry = await getPublicTelemetry();
+export default function Home() {
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -60,15 +57,15 @@ export default async function Home() {
           aria-label="Live production telemetry — sign in to see your own dashboard"
           data-funnel-event="hero_console_click"
         >
-          <div className="console-header"><span className="console-title"><Mark /> Live production telemetry</span><span className="status-chip online">Real receipts</span></div>
+          <div className="console-header"><span className="console-title"><Mark /> Your receipts live here</span><span className="status-chip online">After sign-in</span></div>
           <div className="route-map">
-            <div className="route-node local-node"><span className="node-icon">⌘</span><div><strong>Machines online now</strong><small>Signed heartbeats, 2-minute window</small></div><span className="status-chip active">{telemetry ? telemetry.machinesOnlineNow : "—"}</span></div>
-            <div className="route-line"><span /><b>Fenced cloud continuations · {telemetry ? telemetry.cloudRunsCompleted : "—"} completed</b><span /></div>
-            <div className="route-node cloud-node"><span className="node-icon">☁</span><div><strong>P95 task completion</strong><small>Measured from real task receipts</small></div><span className="status-chip active">{telemetry ? formatLatency(telemetry.p95CompletionMs) : "—"}</span></div>
+            <div className="route-node local-node"><span className="node-icon">⌘</span><div><strong>Machines online</strong><small>Signed heartbeats, 2-minute window</small></div><span className="status-chip offline">—</span></div>
+            <div className="route-line"><span /><b>Fenced cloud continuations</b><span /></div>
+            <div className="route-node cloud-node"><span className="node-icon">☁</span><div><strong>P95 task completion</strong><small>Measured from real task receipts</small></div><span className="status-chip offline">—</span></div>
           </div>
           <div className="task-card">
-            <div className="task-meta"><span>LAST CLOUD CONTINUATION</span><span>{telemetry ? formatAgo(telemetry.lastCloudRunAt) : "—"}</span></div>
-            <p>{telemetry && telemetry.cloudRunsCompleted > 0 ? "Numbers on this card come from live production data, not a mockup. Sign in to see your own receipts." : "Awaiting first production receipts — this card renders live data, never a mockup."}</p>
+            <div className="task-meta"><span>LIVE DATA</span><span>PRIVATE</span></div>
+            <p>No mockups and no public counters: your machines, receipts, and latency render only inside your signed-in dashboard.</p>
           </div>
           <div className="audit-line"><span>tap to</span><strong>open your dashboard</strong><span>→</span></div>
         </Link>
