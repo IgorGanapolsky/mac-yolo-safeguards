@@ -14,6 +14,14 @@ const pairingCodePattern = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/;
 const connectorInstallCommand = "curl -fsSL https://raw.githubusercontent.com/IgorGanapolsky/mac-yolo-safeguards/main/saas/install-connector.sh | bash";
 
 function Mark() { return <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>; }
+/** 12-hour clock with seconds, e.g. "Jul 21, 1:23:45 PM" — used everywhere a thread/task timestamp is shown. */
+function formatTimestamp12h(timestamp: number | null): string {
+  if (!timestamp) return "—";
+  const date = new Date(timestamp);
+  const datePart = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const timePart = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+  return `${datePart}, ${timePart}`;
+}
 function age(timestamp: number | null) {
   if (!timestamp) return "never connected";
   const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
@@ -42,6 +50,7 @@ export default function DashboardClient() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [installCopied, setInstallCopied] = useState(false);
+  const [chatsCollapsed, setChatsCollapsed] = useState(false);
   const autoSelectedThread = useRef(false);
 
   useEffect(() => {
@@ -65,7 +74,11 @@ export default function DashboardClient() {
     ]);
     if (deviceResponse.ok) setDevices((await deviceResponse.json() as { devices: Device[] }).devices);
     if (threadResponse.ok) {
-      const nextThreads = (await threadResponse.json() as { threads: Thread[] }).threads;
+      // Server already orders by updated_at DESC; re-sort defensively so the
+      // sidebar is guaranteed newest-first regardless of API changes.
+      const nextThreads = (await threadResponse.json() as { threads: Thread[] }).threads
+        .slice()
+        .sort((left, right) => right.updatedAt - left.updatedAt);
       setThreads(nextThreads);
       if (!autoSelectedThread.current && !selectedThread && nextThreads.length) {
         autoSelectedThread.current = true;
@@ -169,8 +182,17 @@ export default function DashboardClient() {
         <a href="/dashboard" className="brand"><Mark /><span>ThumbGate <small>Hermes Web</small></span></a>
         <div className="workspace-label">NAVIGATION</div>
         <button className={!selectedThread ? "side-item active" : "side-item"} onClick={() => setSelectedThread(null)}><span>H</span>Hermes<em>{activeTasks.length}</em></button>
-        <div className="workspace-label">CHATS</div>
-        <div className="thread-list">{threads.map((thread) => <button key={thread.id} title={thread.title} className={selectedThread === thread.id ? "side-item active" : "side-item"} onClick={() => setSelectedThread(thread.id)}><span>{thread.sourceSessionId ? "⌘" : "›_"}</span>{thread.title}<em>{thread.messageCount || thread.taskCount}</em></button>)}</div>
+        <button
+          type="button"
+          className="workspace-label workspace-label-toggle"
+          aria-expanded={!chatsCollapsed}
+          aria-controls="chat-thread-list"
+          onClick={() => setChatsCollapsed((collapsed) => !collapsed)}
+        >
+          <span aria-hidden="true" className={chatsCollapsed ? "chevron chevron-collapsed" : "chevron"}>▾</span>
+          CHATS ({threads.length})
+        </button>
+        {!chatsCollapsed && <div className="thread-list" id="chat-thread-list">{threads.map((thread) => <button key={thread.id} title={thread.title} className={selectedThread === thread.id ? "side-item active" : "side-item"} onClick={() => setSelectedThread(thread.id)}><span>{thread.sourceSessionId ? "⌘" : "›_"}</span><span className="side-item-body"><span className="side-item-title">{thread.title}</span><time className="side-item-time">{formatTimestamp12h(thread.updatedAt)}</time></span><em>{thread.messageCount || thread.taskCount}</em></button>)}</div>}
         <div className="sidebar-bottom"><div className="avatar">{user.name.slice(0, 1).toUpperCase()}</div><div><strong>{user.name}</strong><small>{accountPlan} plan</small></div><form action="/api/auth/logout" method="post"><button title="Sign out">↗</button></form></div>
       </aside>
 
@@ -192,11 +214,14 @@ export default function DashboardClient() {
               {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><p>{message.content}</p></article>) : <div className="conversation-empty">This thread has no cloud snapshot yet. Keep the paired Hermes connector online to sync it.</div>}
               {threadDetails?.tasks.flatMap((task, index) => [
                 <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
-                task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{task.route}</span><p>{task.result}</p></article> : null,
+                task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{task.route}</span><p>{task.result}</p></article>
+                  : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>failed</span><p>{task.error}</p></article>
+                  : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{task.route === "cloud" ? "cloud runner" : "your machine"}</span><p>Waiting for {task.route === "cloud" ? "the fenced cloud runner" : "your paired machine"} to pick this up…</p></article>
+                  : null,
               ])}
             </div>}
             <form className="composer" onSubmit={createTask}><textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Tell Hermes what to do next…" rows={4} /><div><small>{devices.length ? "Routes to your paired machine or fenced cloud runner" : "Pair a machine before creating a task"}</small><button className="button button-primary button-small" disabled={busy || !devices.length}>Run task →</button></div></form>
-            <div className="task-list" id="task-activity">{visibleTasks.length === 0 ? <div className="empty-state"><Mark /><h3>No tasks yet</h3><p>Pair a machine, then continue a Hermes thread from anywhere.</p></div> : visibleTasks.map((task) => <article key={task.id} className="dashboard-task"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time>{new Date(task.createdAt).toLocaleString()}</time></div><h3>{task.threadTitle}</h3><p>{task.prompt}</p><div className="task-foot"><span>{task.route === "cloud" ? "☁ Cloud runner" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>{["needs_failover", "offline_blocked"].includes(task.status) && <button onClick={() => void failover(task.id)}>Continue in cloud →</button>}</div>{task.result && <pre>{task.result}</pre>}{task.error && <div className="task-error">{task.error}</div>}</article>)}</div>
+            <div className="task-list" id="task-activity">{visibleTasks.length === 0 ? <div className="empty-state"><Mark /><h3>No tasks yet</h3><p>Pair a machine, then continue a Hermes thread from anywhere.</p></div> : visibleTasks.map((task) => <article key={task.id} className="dashboard-task"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time>{formatTimestamp12h(task.createdAt)}</time></div><h3>{task.threadTitle}</h3><p>{task.prompt}</p><div className="task-foot"><span>{task.route === "cloud" ? "☁ Cloud runner" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>{["needs_failover", "offline_blocked"].includes(task.status) && <button onClick={() => void failover(task.id)}>Continue in cloud →</button>}</div>{task.result && <pre>{task.result}</pre>}{task.error && <div className="task-error">{task.error}</div>}</article>)}</div>
           </section>
 
           <aside className="right-rail">
