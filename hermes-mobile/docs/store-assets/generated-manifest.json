@@ -1,5 +1,44 @@
 {
-  "frames": 6,
+  "generator": "deterministic-product-story-v2",
+  "privacy": "No runtime screenshots, personal identifiers, addresses, or user content",
+  "frames": [
+    {
+      "stem": "01_approve",
+      "headline": "Connect any computer",
+      "subtitle": "Tailscale, home Wi-Fi, or USB",
+      "screen": "connect"
+    },
+    {
+      "stem": "02_block",
+      "headline": "Control your AI agent",
+      "subtitle": "Chat and send files from anywhere",
+      "screen": "chat"
+    },
+    {
+      "stem": "03_standing",
+      "headline": "Approve risky actions",
+      "subtitle": "Allow once or block in one tap",
+      "screen": "approval"
+    },
+    {
+      "stem": "04_pair",
+      "headline": "Set safety rules once",
+      "subtitle": "Stop destructive commands automatically",
+      "screen": "rules"
+    },
+    {
+      "stem": "05_thumbgate",
+      "headline": "Hermes learns what works",
+      "subtitle": "Rate replies and keep the context",
+      "screen": "memory"
+    },
+    {
+      "stem": "06_works",
+      "headline": "One phone. Every computer.",
+      "subtitle": "Move between your machines instantly",
+      "screen": "machines"
+    }
+  ],
   "assets": {
     "fastlane/metadata/android/en-US/images/phoneScreenshots/01_approve.png": {
       "width": 1080,
@@ -72,41 +111,33 @@
     "fastlane/screenshots/en-US/06_works_ipad129.png": {
       "width": 2048,
       "height": 2732
+    },
+    "fastlane/metadata/android/en-US/images/featureGraphic.png": {
+      "width": 1024,
+      "height": 500
     }
   },
-  "rawSimilarity": {
-    "01_approve_vs_02_block": 19.45,
-    "01_approve_vs_03_standing": 14.54,
-    "01_approve_vs_04_pair": 12.16,
-    "01_approve_vs_05_thumbgate": 17.96,
-    "01_approve_vs_06_works": 22.26,
-    "02_block_vs_03_standing": 25.93,
-    "02_block_vs_04_pair": 20.93,
-    "02_block_vs_05_thumbgate": 40.93,
-    "02_block_vs_06_works": 23.28,
-    "03_standing_vs_04_pair": 12.51,
-    "03_standing_vs_05_thumbgate": 31.62,
-    "03_standing_vs_06_works": 28.03,
-    "04_pair_vs_05_thumbgate": 16.41,
-    "04_pair_vs_06_works": 12.13,
-    "05_thumbgate_vs_06_works": 33.73
+  "contrastRatios": {
+    "headline_on_background": 18.62,
+    "subtitle_on_background": 8.9,
+    "cyan_on_background": 10.94
   },
   "framedSimilarity": {
-    "01_approve_vs_02_block": 43.72,
-    "01_approve_vs_03_standing": 43.93,
-    "01_approve_vs_04_pair": 41.14,
-    "01_approve_vs_05_thumbgate": 46.14,
-    "01_approve_vs_06_works": 49.0,
-    "02_block_vs_03_standing": 46.07,
-    "02_block_vs_04_pair": 43.77,
-    "02_block_vs_05_thumbgate": 51.37,
-    "02_block_vs_06_works": 44.42,
-    "03_standing_vs_04_pair": 41.86,
-    "03_standing_vs_05_thumbgate": 54.52,
-    "03_standing_vs_06_works": 52.31,
-    "04_pair_vs_05_thumbgate": 43.62,
-    "04_pair_vs_06_works": 41.41,
-    "05_thumbgate_vs_06_works": 55.94
+    "01_approve_vs_02_block": 68.5,
+    "01_approve_vs_03_standing": 43.98,
+    "01_approve_vs_04_pair": 57.79,
+    "01_approve_vs_05_thumbgate": 51.05,
+    "01_approve_vs_06_works": 76.81,
+    "02_block_vs_03_standing": 46.28,
+    "02_block_vs_04_pair": 48.54,
+    "02_block_vs_05_thumbgate": 50.98,
+    "02_block_vs_06_works": 69.37,
+    "03_standing_vs_04_pair": 70.3,
+    "03_standing_vs_05_thumbgate": 72.31,
+    "03_standing_vs_06_works": 47.01,
+    "04_pair_vs_05_thumbgate": 76.85,
+    "04_pair_vs_06_works": 55.34,
+    "05_thumbgate_vs_06_works": 54.74
   },
   "ascNote": "Only _67 + ipad129 emitted to avoid APP_IPHONE_67 double-upload"
 }
