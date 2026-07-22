@@ -8,6 +8,8 @@ const EVENTS = new Set([
   "free_control_click",
   "cloud_continuity_click",
   "watchdog_probe",
+  "play_store_click",
+  "app_store_click",
 ]);
 
 export async function POST(request: Request) {
