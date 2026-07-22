@@ -8,7 +8,6 @@ import {
   LandingPricingCtaFree,
   LandingPricingCtaPaid,
 } from "./LandingAuthChrome";
-import { APP_STORE_URL, PLAY_STORE_URL } from "./storeLinks";
 import styles from "./landing.module.css";
 
 function Mark() {
@@ -206,14 +205,14 @@ export default function Home() {
         </div>
         <div className="hero-actions">
           <a
-            href={PLAY_STORE_URL}
+            href="/go/android"
             className="button button-secondary"
             data-funnel-event="play_store_click"
           >
             Get it on Google Play
           </a>
           <a
-            href={APP_STORE_URL}
+            href="/go/ios"
             className="button button-secondary"
             data-funnel-event="app_store_click"
           >
