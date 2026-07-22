@@ -4,10 +4,10 @@ import { colors } from '../theme/colors';
 import type { GatewayHealthLevel } from '../types/gateway';
 
 const LABELS: Record<GatewayHealthLevel, string> = {
-  green: 'Gateway healthy',
-  amber: 'Gateway warning',
-  red: 'Gateway unreachable',
-  unknown: 'Gateway unknown',
+  green: 'Connected',
+  amber: 'Needs attention',
+  red: "Can't reach your Mac",
+  unknown: 'Checking…',
 };
 
 const DOT_COLORS: Record<GatewayHealthLevel, string> = {
@@ -24,9 +24,11 @@ interface HealthPillProps {
 
 export default function HealthPill({ level, detail }: HealthPillProps) {
   return (
-    <View style={styles.pill}>
-      <View style={[styles.dot, { backgroundColor: DOT_COLORS[level] }]} />
-      <Text style={styles.label}>{LABELS[level]}</Text>
+    <View style={styles.pill} testID="health-pill">
+      <View style={styles.labelRow}>
+        <View style={[styles.dot, { backgroundColor: DOT_COLORS[level] }]} />
+        <Text style={styles.label}>{LABELS[level]}</Text>
+      </View>
       {detail ? (
         <Text style={styles.detail} numberOfLines={1} ellipsizeMode="tail">
           {detail}
@@ -38,18 +40,22 @@ export default function HealthPill({ level, detail }: HealthPillProps) {
 
 const styles = StyleSheet.create({
   pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
     alignSelf: 'stretch',
     flexShrink: 1,
     maxWidth: '100%',
-    flexWrap: 'wrap',
     backgroundColor: colors.cardBg,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: colors.borderLight,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
+    gap: 2,
+    justifyContent: 'center',
+    minHeight: 36,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   dot: {
@@ -65,6 +71,6 @@ const styles = StyleSheet.create({
   detail: {
     fontSize: 10,
     color: colors.textMuted,
-    flexShrink: 1,
+    marginLeft: 16,
   },
 });
