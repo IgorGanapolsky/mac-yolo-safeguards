@@ -102,7 +102,7 @@ export function resolveOutboundFailureLabel(
   const reason = failureReason?.trim();
   if (reason) {
     if (isWrongKeyFailureReason(reason)) {
-      return '⚠ Outdated connection — tap Re-pair this Mac';
+      return '⚠ Need to reconnect — tap Re-pair this Mac';
     }
     if (isSessionBusyFailureReason(reason)) {
       return `⚠ ${OUTBOUND_SESSION_BUSY_HINT}`;

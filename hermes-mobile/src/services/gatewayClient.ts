@@ -24,8 +24,8 @@ export function buildAuthHeaders(apiKey?: string | null): Record<string, string>
 }
 
 /** Consumer-facing auth-mismatch label — never say "API key". */
-export const GATEWAY_WRONG_KEY_MESSAGE = 'Outdated connection';
-export const GATEWAY_AUTH_REPAIR_HEADER = 'Outdated connection — tap to reconnect';
+export const GATEWAY_WRONG_KEY_MESSAGE = 'Need to reconnect';
+export const GATEWAY_AUTH_REPAIR_HEADER = 'Need to reconnect — tap to refresh';
 export const GATEWAY_AUTH_REPAIR_SETTINGS_STATUS = 'Needs re-pair';
 
 /** Labels that are relay/chrome — never use them as the re-pair Mac target. */
@@ -44,7 +44,7 @@ export function authRepairTargetLabel(machineLabel?: string | null): string {
 /** Primary CTA is Re-pair this Mac — never Settings paste as the lead path. */
 export function gatewayAuthRepairBanner(machineLabel?: string | null): string {
   const target = authRepairTargetLabel(machineLabel);
-  return `Outdated connection for ${target}. Tap Re-pair this Mac to reconnect.`;
+  return `Need to reconnect to ${target}. Tap Re-pair this Mac.`;
 }
 
 export type GatewayAuthProbeResult = {

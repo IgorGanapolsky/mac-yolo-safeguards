@@ -2,7 +2,11 @@ import type { GatewayHealthSnapshot } from '../types/gateway';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import type { ConnectionMode } from '../types/gateway';
 import type { RelayWorker } from '../types/mobileRelay';
-import { GATEWAY_WRONG_KEY_MESSAGE, normalizeGatewayUrl } from '../services/gatewayClient';
+import {
+  GATEWAY_AUTH_REPAIR_HEADER,
+  GATEWAY_WRONG_KEY_MESSAGE,
+  normalizeGatewayUrl,
+} from '../services/gatewayClient';
 import {
   findProfileForGatewayUrl,
   isGenericMachineLabel,
@@ -447,8 +451,8 @@ export function formatMacConnectionRetryBanner(input: {
 
   if (input.authMismatch) {
     return label === 'your computer'
-      ? `${GATEWAY_WRONG_KEY_MESSAGE} — tap to reconnect`
-      : `${GATEWAY_WRONG_KEY_MESSAGE} (${label}) — tap to reconnect`;
+      ? GATEWAY_AUTH_REPAIR_HEADER
+      : `${GATEWAY_WRONG_KEY_MESSAGE} (${label}) — tap to refresh`;
   }
 
   if (input.connectionState === 'connecting' && !input.connectingStuck) {

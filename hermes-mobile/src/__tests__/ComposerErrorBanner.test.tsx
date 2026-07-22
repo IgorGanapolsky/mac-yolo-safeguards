@@ -8,7 +8,7 @@ describe('ComposerErrorBanner', () => {
     const onDismiss = jest.fn();
     const { getByTestId } = render(
       <ComposerErrorBanner
-        message="Outdated connection for Igors-Mac-mini. Tap Re-pair this Mac to reconnect."
+        message="Need to reconnect to Igors-Mac-mini. Tap Re-pair this Mac."
         onDismiss={onDismiss}
         actionLabel="Re-pair this Mac"
         onAction={onAction}
@@ -23,7 +23,7 @@ describe('ComposerErrorBanner', () => {
     const onDismiss = jest.fn();
     const { queryByTestId, getByTestId } = render(
       <ComposerErrorBanner
-        message="Outdated connection for Igors-Mac-mini. Tap Re-pair this Mac to reconnect."
+        message="Need to reconnect to Igors-Mac-mini. Tap Re-pair this Mac."
         onDismiss={onDismiss}
       />,
     );

@@ -582,7 +582,7 @@ describe('formatMacConnectionRetryBanner', () => {
       machineEndpoint: 'Tailscale',
       authMismatch: true,
     });
-    expect(text).toBe('Outdated connection (Igors-Mac-mini) — tap to reconnect');
+    expect(text).toBe('Need to reconnect (Igors-Mac-mini) — tap to refresh');
     expect(text).not.toContain('tap to retry');
   });
 });

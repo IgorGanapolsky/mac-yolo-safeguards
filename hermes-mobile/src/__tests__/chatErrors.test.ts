@@ -59,7 +59,7 @@ describe('isAuthApiError', () => {
     expect(kind).toBe('auth');
     expect(message).toBe(gatewayAuthRepairBanner('Igors-Mac-mini'));
     expect(message).toContain('Re-pair this Mac');
-    expect(message).toContain('Outdated connection');
+    expect(message).toContain('Need to reconnect');
     expect(message).not.toContain('Settings → Your active machines');
     expect(message.toLowerCase()).not.toContain('settings →');
   });

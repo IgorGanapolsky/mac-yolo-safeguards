@@ -4,7 +4,7 @@ import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
 export const WRONG_KEY_PRIMARY_CTA = 'Re-pair this Mac';
 
 /** Consumer-facing banner — never say "API key". */
-export const WRONG_KEY_REPAIR_HINT = 'Outdated connection — tap to reconnect';
+export const WRONG_KEY_REPAIR_HINT = 'Need to reconnect — tap to refresh';
 
 export type WrongKeyRecoveryPlan = {
   clearStaleProfileKey: boolean;

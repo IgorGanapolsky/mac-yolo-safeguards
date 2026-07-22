@@ -21,7 +21,7 @@ describe('wrongKeyRecovery', () => {
     expect(plan.primaryCta).toBe(WRONG_KEY_PRIMARY_CTA);
     expect(plan.primaryCta).toBe('Re-pair this Mac');
     expect(plan.banner).toBe(WRONG_KEY_REPAIR_HINT);
-    expect(plan.banner.toLowerCase()).toContain('outdated connection');
+    expect(plan.banner.toLowerCase()).toContain('need to reconnect');
     expect(plan.banner.toLowerCase()).not.toContain('api key');
     expect(plan.banner.toLowerCase()).not.toContain('settings');
   });
@@ -49,10 +49,11 @@ describe('wrongKeyRecovery', () => {
     ).toBe(true);
   });
 
-  it('detects legacy Wrong key and new outdated-connection copy', () => {
+  it('detects legacy Wrong key, outdated-connection, and need-to-reconnect copy', () => {
     expect(isWrongKeyFailure(GATEWAY_WRONG_KEY_MESSAGE)).toBe(true);
     expect(isWrongKeyFailure(`⚠ ${GATEWAY_WRONG_KEY_MESSAGE}`)).toBe(true);
     expect(isWrongKeyFailure('Wrong key for this computer')).toBe(true);
+    expect(isWrongKeyFailure('Need to reconnect — tap to refresh')).toBe(true);
     expect(isWrongKeyFailure('Outdated connection — tap to reconnect')).toBe(true);
     expect(isWrongKeyFailure('Network timeout')).toBe(false);
   });

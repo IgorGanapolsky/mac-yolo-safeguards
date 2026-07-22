@@ -40,7 +40,7 @@ function connectionCopy(
   if (authMismatch) {
     return {
       label: 'Not connected',
-      detail: 'Outdated connection — tap to reconnect',
+      detail: 'Need to reconnect — tap to refresh',
       color: colors.error,
     };
   }

@@ -5,7 +5,7 @@ import { profileMatchesDiscoveredGateway } from './gatewayProfilePicker';
 
 /**
  * Fresh-user privacy contract: silent Tailscale/USB discovery must NOT invent
- * "saved computers" (and then show Outdated connection / Re-pair) before the
+ * "saved computers" (and then show Need to reconnect / Re-pair) before the
  * user pairs or taps Find computers / Add.
  *
  * Returning users may auto-persist discoveries that match an already-saved Mac

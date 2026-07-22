@@ -175,14 +175,14 @@ describe('release safety net (T-114)', () => {
   it('wrong-key recovery prefers Re-pair this Mac over Settings-only dead end', () => {
     const recovery = read('hermes-mobile/src/utils/wrongKeyRecovery.ts');
     expect(recovery).toContain('Re-pair this Mac');
-    expect(recovery).toContain('Outdated connection');
+    expect(recovery).toContain('Need to reconnect');
     expect(recovery).toContain('attemptPairServerRefresh');
     expect(recovery).toContain('clearStaleProfileKey');
-    expect(recovery).toContain("WRONG_KEY_REPAIR_HINT = 'Outdated connection — tap to reconnect'");
+    expect(recovery).toContain("WRONG_KEY_REPAIR_HINT = 'Need to reconnect — tap to refresh'");
     expect(recovery).not.toMatch(/WRONG_KEY_REPAIR_HINT = '[^']*API key/);
     const banner = read('hermes-mobile/src/services/gatewayClient.ts');
     expect(banner).toContain('Re-pair this Mac');
-    expect(banner).toContain('Outdated connection');
+    expect(banner).toContain('Need to reconnect');
     expect(banner).not.toMatch(/GATEWAY_WRONG_KEY_MESSAGE = '[^']*API key/);
     expect(banner.toLowerCase()).not.toContain('settings → your active machines');
   });
@@ -220,7 +220,7 @@ describe('release safety net (T-114)', () => {
     expect(safetyNet).toContain('SHIP BLOCK');
     const client = read('hermes-mobile/src/services/gatewayClient.ts');
     expect(client).toContain('Re-pair this Mac');
-    expect(client).toContain('Outdated connection');
+    expect(client).toContain('Need to reconnect');
     expect(client).not.toMatch(/Settings → Your active machines/);
     const ctx = read('hermes-mobile/src/context/GatewayContext.tsx');
     expect(ctx).toContain('resolvePairServerSetupParams');

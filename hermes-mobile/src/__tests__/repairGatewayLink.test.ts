@@ -76,7 +76,7 @@ describe('repairGatewayLink', () => {
         checkedAt: '2026-07-17T00:00:00Z',
         authMismatch: true,
         directGatewayReachable: false,
-        errorMessage: 'Outdated connection',
+        errorMessage: 'Need to reconnect',
       }),
     });
     expect(fresh).toBeNull();
