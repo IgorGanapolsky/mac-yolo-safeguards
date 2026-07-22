@@ -153,6 +153,7 @@ if (rejectFirst) {
 }
 if (['1', 'true', 'yes'].includes((process.env.ASC_USE_LIVE_VERSION || '').toLowerCase())) {
   args.push('--use_live_version', 'true');
+  args.push('--edit_live', 'true');
 }
 if (['1', 'true', 'yes'].includes((process.env.ASC_SKIP_METADATA || '').toLowerCase())) {
   args.push('--skip_metadata', 'true');
