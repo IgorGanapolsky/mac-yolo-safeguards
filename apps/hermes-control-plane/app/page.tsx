@@ -8,6 +8,7 @@ import {
   LandingPricingCtaFree,
   LandingPricingCtaPaid,
 } from "./LandingAuthChrome";
+import { APP_STORE_URL, PLAY_STORE_URL } from "./storeLinks";
 import styles from "./landing.module.css";
 
 function Mark() {
@@ -194,6 +195,30 @@ export default function Home() {
             </ul>
             <LandingPricingCtaPaid />
           </article>
+        </div>
+      </section>
+
+      <section id="mobile" className="section-block">
+        <div className="section-heading">
+          <p className="eyebrow">Native apps</p>
+          <h2>Same Hermes control, in your pocket.</h2>
+          <p>The native app adds push-notified Leash approvals for when you&apos;re away from a browser. Install it alongside web control, or instead of it.</p>
+        </div>
+        <div className="hero-actions">
+          <a
+            href={PLAY_STORE_URL}
+            className="button button-secondary"
+            data-funnel-event="play_store_click"
+          >
+            Get it on Google Play
+          </a>
+          <a
+            href={APP_STORE_URL}
+            className="button button-secondary"
+            data-funnel-event="app_store_click"
+          >
+            Download on the App Store
+          </a>
         </div>
       </section>
 
