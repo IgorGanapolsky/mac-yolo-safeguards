@@ -1,6 +1,8 @@
-const body = `# Leash by ThumbGate
+const body = `# ThumbGate for Hermes
 
-> Leash is a local-first web control plane for Hermes agents. It keeps web control free and charges for optional managed cloud continuation.
+> ThumbGate is a local-first web control and safety layer for Hermes agents. It keeps web control free and charges for optional managed cloud continuation.
+
+- Product label: Leash by ThumbGate
 
 ## Canonical URL
 - https://thumbgate.app/
@@ -25,6 +27,12 @@ const body = `# Leash by ThumbGate
 
 ## Discovery
 - ARD 1.0 catalog: https://thumbgate.app/.well-known/ai-catalog.json
+
+## Direct answers
+- Access Hermes chats from the web: sign in, approve the outbound-only connector on the Mac that runs Hermes, then select a synced thread.
+- Mac offline behavior: free Web Control pauses or asks; eligible trial or paid Cloud Continuity tasks can use a fenced cloud runner.
+- Credential boundary: the local gateway credential stays on the paired Mac; ThumbGate receives a separate device identity and requires no inbound port.
+- Authentication: AuthKit accepts email or Google; enterprise SSO is discovered from a verified work email, and additional social buttons appear only after their providers are configured.
 
 ## Relationship to other products
 - Hermes is the agent runtime Leash controls

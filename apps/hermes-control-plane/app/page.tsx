@@ -19,16 +19,52 @@ function Mark() {
  * Session chrome hydrates via /api/me after paint (LandingAuthChrome).
  */
 export default function Home() {
+  const faqs = [
+    {
+      question: "What is ThumbGate?",
+      answer: "ThumbGate is the web control and safety layer for Hermes. It lets an authenticated user see and continue Hermes chats while the user's own Mac remains the default executor.",
+    },
+    {
+      question: "What happens when the paired Mac goes offline?",
+      answer: "Free Web Control pauses or asks. A trial or paid Cloud Continuity plan can hand an eligible task to a fenced cloud runner with a renewable 90-second lease.",
+    },
+    {
+      question: "Does ThumbGate upload the Mac's gateway credential?",
+      answer: "No. The connector creates a separate device key, dials out over HTTPS, and keeps the local gateway credential on the paired machine. ThumbGate needs no inbound port.",
+    },
+  ];
   const structuredData = {
     "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: "ThumbGate for Hermes",
-    url: "https://thumbgate.app/",
-    applicationCategory: "DeveloperApplication",
-    operatingSystem: "Web, macOS, iOS, Android",
-    description: "Hermes chats and Leash controls on the web, with signed machine pairing and fenced cloud continuation.",
-    offers: [
-      { "@type": "Offer", name: "Web Control", price: "0", priceCurrency: "USD" },
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://thumbgate.app/#organization",
+        name: "ThumbGate",
+        url: "https://thumbgate.app/",
+        logo: "https://thumbgate.app/favicon.svg",
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://thumbgate.app/#software",
+        name: "ThumbGate for Hermes",
+        url: "https://thumbgate.app/",
+        provider: { "@id": "https://thumbgate.app/#organization" },
+        applicationCategory: "DeveloperApplication",
+        operatingSystem: "Web, macOS, iOS, Android",
+        description: "Hermes chats and Leash controls on the web, with signed machine pairing and fenced cloud continuation.",
+        offers: [
+          { "@type": "Offer", name: "Web Control", price: "0", priceCurrency: "USD" },
+        ],
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://thumbgate.app/#faq",
+        mainEntity: faqs.map((faq) => ({
+          "@type": "Question",
+          name: faq.question,
+          acceptedAnswer: { "@type": "Answer", text: faq.answer },
+        })),
+      },
     ],
   };
 
@@ -51,7 +87,7 @@ export default function Home() {
           <h1>Your agent, wherever you are.<br /><span>Even when your Mac isn&apos;t.</span></h1>
           <p className="hero-lede">Chat with Hermes, approve what it&apos;s about to run, and watch it work—from your phone or any browser. Free while your Mac is on. Turn on Cloud Continuity and it keeps going even after you close the lid.</p>
           <LandingAuthHero />
-          <p className="signin-note">Hermes Web by ThumbGate. Sign in with AuthKit (Google, Apple, Microsoft, GitHub, email, or enterprise SSO)—no new ThumbGate password.</p>
+          <p className="signin-note">Hermes Web by ThumbGate. Sign in with email or Google; enterprise SSO is discovered from a verified work email, and additional social providers appear only after they are configured.</p>
           <div className="trust-row"><span>No inbound ports</span><span>Private-key pairing</span><span>Cloud only when enabled</span></div>
         </div>
 
@@ -116,6 +152,22 @@ export default function Home() {
           <article><span>01</span><h3>Pair without a gateway secret</h3><p>The connector creates a device key on the machine. You approve its short code and fingerprint from the signed-in dashboard.</p></article>
           <article><span>02</span><h3>Route by live heartbeat</h3><p>Online tasks stay on your Hermes machine. Offline, free accounts pause or ask; automatic fenced cloud failover needs Cloud Continuity.</p></article>
           <article><span>03</span><h3>Fence every execution</h3><p>Local and cloud workers claim expiring generations. A stale worker cannot overwrite the result after another runner takes over.</p></article>
+        </div>
+      </section>
+
+      <section id="answers" className="section-block" aria-labelledby="answers-heading">
+        <div className="section-heading">
+          <p className="eyebrow">Direct answers</p>
+          <h2 id="answers-heading">Hermes web control, without the guesswork.</h2>
+        </div>
+        <div className="steps-grid">
+          {faqs.map((faq, index) => (
+            <article key={faq.question}>
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <h3>{faq.question}</h3>
+              <p>{faq.answer}</p>
+            </article>
+          ))}
         </div>
       </section>
 
