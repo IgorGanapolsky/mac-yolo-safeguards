@@ -49,6 +49,22 @@ describe('ManualComputerAddressForm', () => {
     expect(getByTestId('mac-picker-manual-input-row')).toBeTruthy();
   });
 
+  it('uses compact picker row without subtitle when compactMode is set', () => {
+    const { getByText, queryByText, getByTestId } = render(
+      <ManualComputerAddressForm
+        onAddProfile={jest.fn()}
+        pickerMode
+        compactMode
+        testIDPrefix="mac-picker-manual"
+      />,
+    );
+    expect(getByText('Paste your Mac’s Tailscale IP')).toBeTruthy();
+    expect(queryByText(/On the Mac: Tailscale → copy 100\.x → paste → Connect/)).toBeNull();
+    expect(getByTestId('mac-picker-manual-input-row')).not.toHaveStyle({
+      flexDirection: 'column',
+    });
+  });
+
   it('shows error for empty input', async () => {
     const { getByTestId, findByText } = render(
       <ManualComputerAddressForm onAddProfile={jest.fn()} />,

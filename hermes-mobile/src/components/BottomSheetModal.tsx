@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -12,6 +12,9 @@ import {
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { COMPOSER_KEYBOARD_GAP } from '../utils/composerKeyboard';
 import { colors } from '../theme/colors';
+
+/** Hold keyboard lift until IME height settles — Android metrics poll jitters the sheet. */
+const KEYBOARD_LIFT_DEBOUNCE_MS = 160;
 
 type BottomSheetModalProps = {
   visible: boolean;
@@ -33,8 +36,25 @@ export default function BottomSheetModal({
   testID,
 }: BottomSheetModalProps) {
   const { inset: keyboardInset } = useKeyboardInset({ focused: visible });
+  const [stableInset, setStableInset] = useState(0);
+
+  useEffect(() => {
+    if (!visible) {
+      setStableInset(0);
+      return undefined;
+    }
+    if (keyboardInset <= 0) {
+      setStableInset(0);
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      setStableInset(keyboardInset);
+    }, KEYBOARD_LIFT_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [keyboardInset, visible]);
+
   const keyboardLift =
-    visible && keyboardInset > 0 ? keyboardInset + COMPOSER_KEYBOARD_GAP : 0;
+    visible && stableInset > 0 ? stableInset + COMPOSER_KEYBOARD_GAP : 0;
 
   const contentLiftStyle =
     keyboardLift > 0 ? { marginBottom: keyboardLift } : undefined;

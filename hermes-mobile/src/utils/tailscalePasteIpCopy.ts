@@ -21,8 +21,7 @@ export const TAILSCALE_PASTE_IP_PLACEHOLDER = '100.x.x.x or MagicDNS name';
 
 export const TAILSCALE_PASTE_IP_HERMES_HINT = 'Hermes must be open on that Mac.';
 
-export const MAC_PICKER_SUBTITLE =
-  'Pick a computer, or paste your Mac’s Tailscale IP below. Tap Find computers if yours is missing.';
+export const MAC_PICKER_SUBTITLE = 'Tap a computer, or paste Tailscale IP below.';
 
 export const SCAN_NONE_FOUND_TITLE = 'None found yet';
 
