@@ -72,8 +72,19 @@ describe('ApprovalsScreen', () => {
   });
 
   it('shows empty state when no pending approvals', () => {
-    const { getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    const { getByText, getByTestId } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByText('No pending approvals')).toBeTruthy();
+    expect(getByTestId('thumbgate-promo-leash_empty')).toBeTruthy();
+  });
+
+  it('shows disconnected Leash promo when not connected to a Mac', () => {
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        connectionState: 'disconnected',
+      }),
+    );
+    const { getByTestId } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    expect(getByTestId('thumbgate-promo-leash_disconnected')).toBeTruthy();
   });
 
   it('shows Pro upsell when free weekly allowance remains but not Pro', async () => {
