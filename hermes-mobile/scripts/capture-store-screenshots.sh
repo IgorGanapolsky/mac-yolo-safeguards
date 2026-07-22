@@ -47,12 +47,27 @@ screencap() {
   local name="$1"
   local wait="${2:-3}"
   sleep "$wait"
-  local path="/sdcard/hermes-store-${name}.png"
-  adb -s "$DEVICE" shell screencap -p "$path"
-  adb -s "$DEVICE" pull "$path" "$OUT_ANDROID/${name}.png" >/dev/null
-  cp "$OUT_ANDROID/${name}.png" "$OUT_IOS/${name}.png"
-  adb -s "$DEVICE" shell rm -f "$path" >/dev/null || true
-  echo "captured $name ($(identify -format '%wx%h' "$OUT_ANDROID/${name}.png" 2>/dev/null || echo unknown))"
+  local destination="$OUT_ANDROID/${name}.png"
+  local temporary="${destination}.tmp"
+  local signature
+
+  # Keep the screenshot off shared device storage. A fixed /sdcard path creates
+  # a write-then-pull race that another Android app can tamper with.
+  rm -f "$temporary"
+  if ! adb -s "$DEVICE" exec-out screencap -p >"$temporary"; then
+    rm -f "$temporary"
+    echo "capture $name: adb exec-out failed" >&2
+    return 1
+  fi
+  signature="$(od -An -tx1 -N8 "$temporary" | tr -d ' \n')"
+  if [[ "$signature" != "89504e470d0a1a0a" ]]; then
+    rm -f "$temporary"
+    echo "capture $name: invalid PNG stream" >&2
+    return 1
+  fi
+  mv -f "$temporary" "$destination"
+  cp "$destination" "$OUT_IOS/${name}.png"
+  echo "captured $name ($(identify -format '%wx%h' "$destination" 2>/dev/null || echo unknown))"
 }
 
 want_frame() {
