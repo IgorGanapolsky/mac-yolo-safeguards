@@ -833,7 +833,7 @@ function provisionSafeLocalModel(env = process.env) {
 
 function localOnlyEnv(env, model) {
   const childEnv = { ...env };
-  for (const name of PAID_CREDENTIAL_ENV) childEnv[name] = '';
+  for (const name of PAID_CREDENTIAL_ENV) delete childEnv[name];
   const loc = locations(env);
   Object.assign(childEnv, {
     HERMES_ZERO_SPEND: '1',
@@ -851,7 +851,7 @@ function localOnlyEnv(env, model) {
 
 function localOnlyGrokEnv(env, model) {
   const childEnv = { ...env };
-  for (const name of PAID_CREDENTIAL_ENV) childEnv[name] = '';
+  for (const name of PAID_CREDENTIAL_ENV) delete childEnv[name];
   const loc = locations(env);
   const directGrok = manifestEntry('grok', env);
   Object.assign(childEnv, {
@@ -871,7 +871,7 @@ function localOnlyGrokEnv(env, model) {
 
 function localOnlyOpenCodeEnv(env, model) {
   const childEnv = { ...env };
-  for (const name of PAID_CREDENTIAL_ENV) childEnv[name] = '';
+  for (const name of PAID_CREDENTIAL_ENV) delete childEnv[name];
   const loc = locations(env);
   const config = localOpenCodeConfig(model);
   const configPath = path.join(loc.localOpenCodeHome, 'opencode.json');

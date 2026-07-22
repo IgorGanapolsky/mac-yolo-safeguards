@@ -171,9 +171,9 @@ assert.strictEqual(capturedGrok.GROK_YOLO_LOCAL_HOME, path.join(home, '.hermes',
 assert.strictEqual(capturedGrok.GROK_TELEMETRY_ENABLED, '0');
 assert.strictEqual(capturedGrok.OTEL_LOG_USER_PROMPTS, '0');
 assert.strictEqual(capturedGrok.OTEL_LOG_TOOL_DETAILS, '0');
-assert.strictEqual(capturedGrok.XAI_API_KEY, '');
-assert.strictEqual(capturedGrok.OPENAI_API_KEY, '');
-assert.strictEqual(capturedGrok.OPENROUTER_API_KEY, '');
+assert.strictEqual(capturedGrok.XAI_API_KEY, null);
+assert.strictEqual(capturedGrok.OPENAI_API_KEY, null);
+assert.strictEqual(capturedGrok.OPENROUTER_API_KEY, null);
 const grokReceipt = JSON.parse(fs.readFileSync(path.join(home, '.hermes', 'receipts', 'zero-spend', 'latest.json'), 'utf8'));
 assert.strictEqual(grokReceipt.command, 'grok-yolo');
 assert.strictEqual(grokReceipt.policy, 'local-only');
@@ -197,10 +197,10 @@ assert.strictEqual(capturedOpenCode.OPENCODE_DISABLE_AUTOUPDATE, '1');
 assert.strictEqual(capturedOpenCode.OPENCODE_DISABLE_DEFAULT_PLUGINS, '1');
 assert.strictEqual(capturedOpenCode.OPENCODE_DISABLE_MODELS_FETCH, '1');
 assert.strictEqual(capturedOpenCode.OPENCODE_ENABLE_EXA, '0');
-assert.strictEqual(capturedOpenCode.META_MODEL_API_KEY, '');
-assert.strictEqual(capturedOpenCode.MODEL_API_KEY, '');
-assert.strictEqual(capturedOpenCode.OPENAI_API_KEY, '');
-assert.strictEqual(capturedOpenCode.OPENROUTER_API_KEY, '');
+assert.strictEqual(capturedOpenCode.META_MODEL_API_KEY, null);
+assert.strictEqual(capturedOpenCode.MODEL_API_KEY, null);
+assert.strictEqual(capturedOpenCode.OPENAI_API_KEY, null);
+assert.strictEqual(capturedOpenCode.OPENROUTER_API_KEY, null);
 assert.deepStrictEqual(JSON.parse(capturedOpenCode.OPENCODE_CONFIG_CONTENT), localOpenCodeConfig);
 assert.match(capturedOpenCode.XDG_DATA_HOME, /zero-spend\/opencode-home\/data$/);
 const openCodeReceipt = JSON.parse(fs.readFileSync(path.join(home, '.hermes', 'receipts', 'zero-spend', 'latest.json'), 'utf8'));
@@ -238,9 +238,9 @@ assert.deepStrictEqual(captured, {
   HERMES_YOLO_PROVIDER: 'custom:ollama-local-64k',
   HERMES_YOLO_MODEL: 'qwen3.5:9b-hermes-64k',
   HERMES_YOLO_TOOLSETS: 'terminal,file,code_execution,memory,clarify',
-  OPENROUTER_API_KEY: '',
-  META_MODEL_API_KEY: '',
-  PARALLEL_API_KEY: '',
+  OPENROUTER_API_KEY: null,
+  META_MODEL_API_KEY: null,
+  PARALLEL_API_KEY: null,
 });
 
 const receipt = JSON.parse(fs.readFileSync(path.join(home, '.hermes', 'receipts', 'zero-spend', 'latest.json'), 'utf8'));
@@ -269,7 +269,7 @@ assert.strictEqual(persistentLocalGrok.status, 0, persistentLocalGrok.stderr);
 const capturedPersistentGrok = JSON.parse(fs.readFileSync(grokCapture, 'utf8'));
 assert.strictEqual(capturedPersistentGrok.GROK_YOLO_LOCAL_ONLY, '1');
 assert.strictEqual(capturedPersistentGrok.GROK_YOLO_LOCAL_MODEL, 'qwen3.5:9b-hermes-64k');
-assert.strictEqual(capturedPersistentGrok.XAI_API_KEY, '');
+assert.strictEqual(capturedPersistentGrok.XAI_API_KEY, null);
 assert.strictEqual(
   JSON.parse(fs.readFileSync(path.join(home, '.hermes', 'receipts', 'zero-spend', 'latest.json'), 'utf8')).outcome,
   'local-pass',

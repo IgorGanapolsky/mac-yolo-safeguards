@@ -302,8 +302,8 @@ const localEnvSource = {
   OTEL_LOG_TOOL_DETAILS: '1',
 };
 const localEnv = buildLocalEnv('qwen3.5:9b-hermes-64k', localEnvSource);
-assert.strictEqual(localEnv.XAI_API_KEY, '');
-assert.strictEqual(localEnv.OPENAI_API_KEY, '');
+assert.strictEqual(localEnv.XAI_API_KEY, undefined);
+assert.strictEqual(localEnv.OPENAI_API_KEY, undefined);
 assert.strictEqual(localEnv.GROK_YOLO_LOCAL_ONLY, '1');
 assert.strictEqual(localEnv.GROK_TELEMETRY_ENABLED, '0');
 assert.strictEqual(localEnv.OTEL_LOG_USER_PROMPTS, '0');

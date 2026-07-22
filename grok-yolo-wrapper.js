@@ -464,7 +464,7 @@ function buildLocalEnv(model, env = process.env) {
   const verifiedModel = validateLocalModel(model);
   const { grokHome } = ensureLocalConfig(verifiedModel, env);
   const childEnv = { ...env };
-  for (const name of PAID_CREDENTIAL_ENV) childEnv[name] = '';
+  for (const name of PAID_CREDENTIAL_ENV) delete childEnv[name];
   Object.assign(childEnv, {
     GROK_HOME: grokHome,
     GROK_YOLO_LOCAL_ONLY: '1',
