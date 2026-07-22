@@ -1,0 +1,62 @@
+{
+  "capturedAt": "2026-07-22T01:17:00Z",
+  "storefront": "US",
+  "methodology": {
+    "apple": "Apple iTunes Search API, country=us, entity=software, limit=200. Position is the 1-based occurrence of trackId 6786778037.",
+    "google": "Signed-out Google Play web search, hl=en_US, gl=US. Position is the 1-based unique package occurrence in the returned search HTML; only the first 30 packages were exposed for most queries.",
+    "caveat": "These are reproducible anonymous web/API snapshots, not universal ranks. Store apps can personalize results by account, device, locale, history, inventory, and experiments. null means not observed inside the captured result window, not mathematically absent from every store result."
+  },
+  "listings": {
+    "apple": {
+      "trackId": 6786778037,
+      "publicHttp": 200,
+      "liveName": "Hermes Mobile: AI Agent Leash",
+      "version": "1.2",
+      "priceUsd": 9.99,
+      "averageUserRating": 0,
+      "userRatingCount": 0
+    },
+    "googleFree": {
+      "package": "com.iganapolsky.hermesmobile",
+      "publicHttp": 200,
+      "liveName": "Hermes AI: Agent Leash",
+      "liveShortDescription": "Hermes AI for your computer — not phone AI"
+    },
+    "googlePaid": {
+      "package": "com.iganapolsky.hermesmobile.paid",
+      "publicHttp": 404,
+      "note": "Not public at capture time, so it cannot rank in public search yet."
+    }
+  },
+  "queries": [
+    {"term":"Hermes AI Agent Leash","applePosition":1,"appleWindow":194,"googleFreePosition":1,"googleWindow":30},
+    {"term":"Hermes AI","applePosition":96,"appleWindow":191,"googleFreePosition":null,"googleWindow":20},
+    {"term":"Hermes agent","applePosition":59,"appleWindow":130,"googleFreePosition":null,"googleWindow":20},
+    {"term":"Hermes Mobile","applePosition":48,"appleWindow":165,"googleFreePosition":7,"googleWindow":29},
+    {"term":"AI agent","applePosition":null,"appleWindow":189,"googleFreePosition":null,"googleWindow":30},
+    {"term":"AI assistant","applePosition":null,"appleWindow":185,"googleFreePosition":null,"googleWindow":30},
+    {"term":"remote AI agent","applePosition":130,"appleWindow":195,"googleFreePosition":null,"googleWindow":30},
+    {"term":"computer AI agent","applePosition":null,"appleWindow":190,"googleFreePosition":null,"googleWindow":30},
+    {"term":"desktop AI agent","applePosition":134,"appleWindow":194,"googleFreePosition":null,"googleWindow":30},
+    {"term":"Mac AI agent","applePosition":null,"appleWindow":198,"googleFreePosition":null,"googleWindow":30},
+    {"term":"Windows AI agent","applePosition":null,"appleWindow":194,"googleFreePosition":null,"googleWindow":11},
+    {"term":"Linux AI agent","applePosition":null,"appleWindow":196,"googleFreePosition":null,"googleWindow":30},
+    {"term":"remote coding agent","applePosition":null,"appleWindow":176,"googleFreePosition":null,"googleWindow":30},
+    {"term":"remote coding assistant","applePosition":null,"appleWindow":162,"googleFreePosition":null,"googleWindow":9},
+    {"term":"approve AI tools","applePosition":null,"appleWindow":195,"googleFreePosition":null,"googleWindow":30},
+    {"term":"local AI agent","applePosition":null,"appleWindow":195,"googleFreePosition":null,"googleWindow":30},
+    {"term":"self hosted AI assistant","applePosition":null,"appleWindow":187,"googleFreePosition":null,"googleWindow":30},
+    {"term":"AI agent control","applePosition":null,"appleWindow":195,"googleFreePosition":null,"googleWindow":30},
+    {"term":"agent leash","applePosition":1,"appleWindow":54,"googleFreePosition":1,"googleWindow":30},
+    {"term":"phone remote AI","applePosition":null,"appleWindow":194,"googleFreePosition":null,"googleWindow":30},
+    {"term":"control AI agent","applePosition":null,"appleWindow":194,"googleFreePosition":null,"googleWindow":30},
+    {"term":"AI coding assistant","applePosition":null,"appleWindow":193,"googleFreePosition":null,"googleWindow":30},
+    {"term":"desktop AI assistant","applePosition":null,"appleWindow":187,"googleFreePosition":null,"googleWindow":30}
+  ],
+  "observedGoogleTopResults": {
+    "Hermes AI Agent Leash": ["com.iganapolsky.hermesmobile","com.hermesagent.android","hermes.agent.mobile","com.xermes.xermes","com.axiomlabs.hermesrelay"],
+    "Hermes AI": ["com.hermesagent.android","com.axiomlabs.hermesrelay","com.google.ai.edge.gallery","com.anthropic.claude","ai.perplexity.app.android"],
+    "Hermes agent": ["com.hermesagent.android","com.axiomlabs.hermesrelay","com.burslabs.projecthermes","com.minimax.ai","com.anthropic.claude"],
+    "Hermes Mobile": ["com.hermesagent.android","com.retroguru.hermes","gr.directsolutions.hermesv_mobile","com.axiomlabs.hermesrelay","com.rafaelfelipeac.hermes"]
+  }
+}
