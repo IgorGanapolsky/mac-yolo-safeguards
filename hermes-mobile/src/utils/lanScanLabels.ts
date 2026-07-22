@@ -70,7 +70,7 @@ export function formatLanScanResultLabel(input: number | LanScanReachCounts): st
   const counts = asReachCounts(input);
   const { foundCount } = counts;
   if (foundCount === 0) {
-    return 'No Hermes computers found';
+    return 'None found yet';
   }
 
   const lan = counts.lanCount ?? 0;
@@ -97,7 +97,7 @@ export function formatLanScanResultLabel(input: number | LanScanReachCounts): st
 
 export function formatLanScanResultDetail(result: LanScanResult): string {
   if (result.foundCount === 0) {
-    return 'Use Hermes Relay for anywhere approvals, or start Hermes nearby and scan again for direct control.';
+    return 'Paste your Mac’s Tailscale IP below. Hermes must be open on that Mac.';
   }
 
   const lan = result.lanCount ?? 0;

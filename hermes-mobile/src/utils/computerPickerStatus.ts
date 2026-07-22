@@ -173,9 +173,9 @@ export function resolveComputerPickerStatus(
 
   return {
     kind: 'help',
-    title: 'Missing your other computer?',
+    title: 'Paste your Mac’s Tailscale IP',
     detail:
-      'Start Hermes on that computer, keep Tailscale on both devices, then tap Find computers — or enter its 100.x address below.',
+      'On the Mac: Tailscale → copy 100.x → paste → Connect. Hermes must be open on that Mac.',
     discoveries: [],
   };
 }
