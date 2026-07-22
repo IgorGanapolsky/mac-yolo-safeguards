@@ -6,8 +6,7 @@
   <string>com.igor.hermes-academic-research-agent</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/bin/env</string>
-    <string>node</string>
+    <string>__NODE_BIN__</string>
     <string>__REPO_ROOT__/tools/hermes-academic-research-ingest.js</string>
   </array>
   <key>WorkingDirectory</key>
