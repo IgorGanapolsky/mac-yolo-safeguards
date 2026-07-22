@@ -8,7 +8,6 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 - Repo: `mac-yolo-safeguards` (+ `hermes-mobile/` app, `~/.hermes` desktop agent — separate, not this repo)
 - Updated: 2026-07-22 by `terra-chat-history-reconcile` (T-CHAT-HISTORY-RECONCILE)
-- Updated: 2026-07-22 by `grok-authkit-max-age` (T-AUTHKIT-ORDINARY-LOGIN-20260722)
 - Active agents (claim your id here): `terra-chat-history-reconcile`, `claude-code`, `cursor`, `antigravity`, `gemini`, `replit`, `cursor-mac-pro-picker`, `cursor-transport-ssot`, `cursor-stuck-wait`, `cursor-output-wipe`, `codex-thumbgate-feedback`, `codex-tinker-computer-use`, `terra-ci-ndk-pin`, `cursor-ts-vpn-detect`, `codex-aso-dominance-research`, `codex-usb-transport-preserve`, `grok-swarm-harness-roi`, `grok-authkit-max-age`
 - Active branch of record: `main`
 - Merge discipline: branch-per-agent → rebase onto `main` → **sequential** merge, gated on `npm test` + Maestro E2E (`hermes-mobile/docs/proofs/continuous/latest.json`).
