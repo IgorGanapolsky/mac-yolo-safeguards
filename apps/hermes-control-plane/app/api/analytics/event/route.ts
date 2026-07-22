@@ -7,6 +7,8 @@ const EVENTS = new Set([
   "sign_in_click",
   "free_control_click",
   "cloud_continuity_click",
+  "mobile_app_ios_click",
+  "mobile_app_android_click",
   "watchdog_probe",
 ]);
 

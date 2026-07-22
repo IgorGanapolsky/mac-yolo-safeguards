@@ -8,6 +8,9 @@ import {
   macPairingStepsForVariant,
 } from '../utils/macPairingUx';
 
+const THUMBGATE_WEB_URL =
+  'https://thumbgate.app/?utm_source=hermes-mobile&utm_medium=app&utm_campaign=cross_promo';
+
 type MacPairingHelpProps = {
   variant?: MacPairingHelpVariant;
   compact?: boolean;
@@ -44,6 +47,16 @@ export default function MacPairingHelp({
           testID="mac-pairing-install-link"
         >
           <Text style={styles.installLink}>Learn how to install Hermes on your computer →</Text>
+        </TouchableOpacity>
+      ) : null}
+      {variant === 'getting-started' ? (
+        <TouchableOpacity
+          onPress={() => Linking.openURL(THUMBGATE_WEB_URL)}
+          accessibilityRole="link"
+          accessibilityLabel="Open Hermes Web at ThumbGate.app"
+          testID="thumbgate-web-link"
+        >
+          <Text style={styles.webLink}>Open Hermes Web at ThumbGate.app →</Text>
         </TouchableOpacity>
       ) : null}
       {!compact && variant === 'qr-pairing' ? (
@@ -106,6 +119,12 @@ const styles = StyleSheet.create({
   installLink: {
     fontSize: 12,
     fontWeight: '700',
+    color: colors.accent,
+    marginTop: 2,
+  },
+  webLink: {
+    fontSize: 12,
+    fontWeight: '800',
     color: colors.accent,
     marginTop: 2,
   },
