@@ -44,9 +44,6 @@ const APPEAR_STATE_PATH =
 const PAIR_SCRIPT =
   process.env.HERMES_USB_APPEAR_PAIR_SCRIPT || path.join(__dirname, 'hermes-mobile-pair.js');
 const PAIR_TIMEOUT_MS = Number(process.env.HERMES_USB_APPEAR_PAIR_TIMEOUT_MS || 90_000);
-/** Default --open (matches ephemeral adb-appear watcher). Set HERMES_USB_APPEAR_PAIR_OPEN=0 for --no-serve. */
-const PAIR_OPEN =
-  process.env.HERMES_USB_APPEAR_PAIR_OPEN !== '0' && process.env.HERMES_USB_APPEAR_PAIR_OPEN !== 'false';
 
 function notifyUsbFailure(summary) {
   if (!summary.anyFailed) return { sent: false, reason: 'no_failure' };
@@ -153,7 +150,10 @@ function saveAppearState(state, statePath = APPEAR_STATE_PATH) {
 }
 
 function defaultPairArgs() {
-  return PAIR_OPEN ? ['--open'] : ['--no-serve'];
+  // A cable appearance is not an instruction to show the QR fallback. The pairing
+  // script still applies the USB loopback profile and opens Hermes via adb, but does
+  // not create a browser tab. QR is available only from an explicit pairing action.
+  return ['--no-serve'];
 }
 
 /**
