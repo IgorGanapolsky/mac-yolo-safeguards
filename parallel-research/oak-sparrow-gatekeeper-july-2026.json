@@ -1,0 +1,592 @@
+{
+  "run_id": "trun_e537362426404da194b0c189dfa0297d",
+  "interaction_id": "trun_e537362426404da194b0c189dfa0297d",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_e537362426404da194b0c189dfa0297d",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Reasoning: The field_answer provides a comprehensive marketing brief with multiple sections (identity, product function, buyers, risks, claim matrix, cross-promotion rules, do-not-claim list, open items, and sources). It addresses most aspects requested by the field description, including claims about Gatekeeper, ThumbGate, Hermes Web, and cross-promotion cautions. However, the excerpts supplied do not corroborate many of the Oak and Sparrow-specific assertions (e.g., exact operator, product naming, URLs, and some governance claims). Since completeness evaluates whether the field answer covers what is expected (not whether it is verifiably supported by excerpts), the answer appears complete in content scope. Yet, according to the provided excerpts, many substantive claims are not supported by the excerpts, which affects the \u201csupported\u201d assessment. Therefore, completeness = true, supported = false given the excerpts constraint.",
+        "citations": [
+          {
+            "url": "https://www.gatekeeperhq.com/contract-lifecycle-management",
+            "excerpts": [
+              "Gatekeeper Contract Lifecycle Management\nCentralise your contracts in a secure contract repository \u00b7 Increase visibility of key dates so you never miss another renewal \u00b7 Track ongoing compliance status"
+            ],
+            "title": "Gatekeeper Contract Lifecycle Management"
+          },
+          {
+            "url": "https://www.gatekeeperhq.com/contract-lifecycle-management-software",
+            "excerpts": [
+              "Contract Lifecycle Management Software | CLM Platform - Gatekeeper\nGatekeeper accelerates contract cycles from request to close-out, enforces your terms, and blocks risky clauses - keeping every agreement compliant,"
+            ],
+            "title": "Contract Lifecycle Management Software | CLM Platform - Gatekeeper"
+          },
+          {
+            "url": "https://providers.apis.io/providers/gatekeeper",
+            "excerpts": [
+              "Gatekeeper | APIs.io Providers\nMay 11, 2026 \u2014 Gatekeeper is a SaaS contract lifecycle management (CLM) and vendor management platform that helps procurement, legal, and finance teams"
+            ],
+            "title": "Gatekeeper | APIs.io Providers"
+          },
+          {
+            "url": "https://marketplace.microsoft.com/en-us/product/web-apps/gatekeeper.gk-trial?tab=overview",
+            "excerpts": [
+              "Gatekeeper Contract Management\nGatekeeper's contract management & vendor management software offers complete visibility and control over your contract universe. With Gatekeeper you can:."
+            ],
+            "title": "Gatekeeper Contract Management"
+          },
+          {
+            "url": "https://www.gatekeeperhq.com/contract-management-software",
+            "excerpts": [
+              "Contract Lifecycle Management Software - Gatekeeper\nRating 4.8 (5) Gatekeeper allows you to centrally store and track all of your contract and supplier information in the cloud. All in one place - Company wide."
+            ],
+            "title": "Contract Lifecycle Management Software - Gatekeeper"
+          },
+          {
+            "url": "https://hermes-tutorials.dev/blog/2026-06-13-hermes-community-momentum-june-2026",
+            "excerpts": [
+              "Hermes Agent Crosses 192K Stars, Mobile App Hits Play Store ...\nA community-built Hermes Agent Mobile app hit the Play Store (5K+ downloads, 4.3\u2605 rating). Tutorial content, Reddit discussions, and community tools are growing fast \u2014 the ecosystem is maturing."
+            ],
+            "title": "Hermes Agent Crosses 192K Stars, Mobile App Hits Play Store ..."
+          },
+          {
+            "url": "https://apps.apple.com/us/app/hermes-agent-mobile/id6767006319",
+            "excerpts": [
+              "Hermes Agent Mobile - App Store\nIt is designed for people who already run a reachable Hermes Web UI server and want a focused mobile way to keep up with agent work from iPhone. Connect to your own server, open existing sessions, start new conversations, and follow streamed responses as they arrive."
+            ],
+            "title": "Hermes Agent Mobile - App Store"
+          },
+          {
+            "url": "https://www.uzairansar.com/hermes-mobile",
+            "excerpts": [
+              "Hermes Agent Mobile | Uzair Ansar\nA native iOS app for running Hermes from your phone. Connect it to your self-hosted WebUI, reopen sessions, stream responses, attach files, and switch models without touching the Mac."
+            ],
+            "title": "Hermes Agent Mobile | Uzair Ansar"
+          },
+          {
+            "url": "https://onepilotapp.com/agents/hermes/app",
+            "excerpts": [
+              "Hermes Agent App for iPhone & iPad (2026) \u2014 Onepilot\nThere is no official Hermes app, and no app can run Hermes on the phone itself. Onepilot is the next best thing and arguably the right thing: a native iOS app that deploys Hermes to a host you own and gives you a real cockpit around it \u2014 not a browser tab."
+            ],
+            "title": "Hermes Agent App for iPhone & iPad (2026) \u2014 Onepilot"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/issues/11911",
+            "excerpts": [
+              "[Feature Request] Native Mobile App (iOS & Android) with ...\nI'd love to see an official Hermes mobile app for both iOS and Android that supports voice calling \u2014 allowing users to have real-time phone conversations with their Hermes AI assistant."
+            ],
+            "title": "[Feature Request] Native Mobile App (iOS & Android) with ..."
+          },
+          {
+            "url": "http://gatekeeperhq.com/",
+            "excerpts": [
+              "## Meet Your Gatekeeper Agents Agents that actually work.\n## Unified Vendor & Contract Lifecycle Management See how it delivers Protection \u2726 Performance.\nTransform vendor management with Gatekeeper's unified platform, leveraging AI agents for faster compliance, streamlined contracting, and enhanced"
+            ],
+            "title": "Gatekeeper | Unified Vendor Management | Accelerate ..."
+          },
+          {
+            "url": "https://www.zoominfo.com/c/trysparrowcom-inc/468553402",
+            "excerpts": [
+              "Sparrow - Overview, News & Similar companies\n7 days ago \u2014 Sparrow is a modern leave management platform that automates and streamlines employee leave from compliance and paperwork to payroll and return-to-work"
+            ],
+            "title": "Sparrow - Overview, News & Similar companies"
+          },
+          {
+            "url": "https://www.gatekeeper-systems.com/gatekeeper-launches-saas-based-video-management-software-solution-announces-first-school-district-customer-deployment-2",
+            "excerpts": [
+              "Gatekeeper Launches SaaS-Based Video Management ...\nApr 21, 2021 \u2014 Gatekeeper is a leading provider of intelligent video solutions designed to provide a safer transportation environment for children, passengers,"
+            ],
+            "title": "Gatekeeper Launches SaaS-Based Video Management ..."
+          },
+          {
+            "url": "https://www.gatekeeper-systems.com/wp-content/uploads/2021/06/GSI_MDA_Q2_2021_v8.pdf",
+            "excerpts": [
+              "GATEKEEPER SYSTEMS INC.\nFor example, in April. 2021 the Company launched a new Software-as-a-Service (SaaS) based video management solution designed to store and manage school bus"
+            ],
+            "title": "GATEKEEPER SYSTEMS INC."
+          },
+          {
+            "url": "https://www.capterra.com/p/145449/Gatekeeper",
+            "excerpts": [
+              "Gatekeeper Software Pricing, Alternatives & More 2026\nJun 3, 2026 \u2014 Gatekeeper includes core contract lifecycle management and supplier management features such as a central contract repository, configurable workflow management,"
+            ],
+            "title": "Gatekeeper Software Pricing, Alternatives & More 2026"
+          },
+          {
+            "url": "https://thumbgate-production.up.railway.app/",
+            "excerpts": [
+              "ThumbGate \u2014 Pre-action checks for AI coding agents\nPricing is workflow-scoped and shared after the intake call. Annual pre-pay available. Enterprise Pilot. Start the AI Agent Governance Sprint with one repeat"
+            ],
+            "title": "ThumbGate \u2014 Pre-action checks for AI coding agents"
+          },
+          {
+            "url": "https://clawhub.ai/igorganapolsky/thumbgate",
+            "excerpts": [
+              "ThumbGate \u2014 ClawHub\nThumbGate \u2014 Pre-Action Gates for AI Agents Stop your AI from making the same mistake twice. Repeated AI mistakes cost real money in tokens. Thumbs-down once \u2014 ThumbGate blocks that exact pattern on every future call, across every agent you use."
+            ],
+            "title": "ThumbGate \u2014 ClawHub"
+          },
+          {
+            "url": "https://thumbgate.ai/chatgpt-app",
+            "excerpts": [
+              "ThumbGate for ChatGPT - GPT Action + Agent Guardrails\nUse the live ThumbGate GPT to preflight risky agent actions, capture typed thumbs-up/down lessons, and route those lessons into local enforcement for Codex, Claude Code, Cursor, Gemini CLI, and MCP-compatible agents."
+            ],
+            "title": "ThumbGate for ChatGPT - GPT Action + Agent Guardrails"
+          },
+          {
+            "url": "https://github.com/IgorGanapolsky/ThumbGate",
+            "excerpts": [
+              "GitHub - IgorGanapolsky/ThumbGate: ThumbGate Pre-Action ...\nThumbGate is the local-first Pre-Action Checks engine for AI coding agents. It runs in the PreToolUse hook on your machine: it evaluates a proposed tool call and logs the decision before tool execution."
+            ],
+            "title": "GitHub - IgorGanapolsky/ThumbGate: ThumbGate Pre-Action ..."
+          },
+          {
+            "url": "https://thumbgate.ai/",
+            "excerpts": [
+              "ThumbGate \u2014 Stop risky AI-agent actions before they run\nThumbGate's role: the pre-action gate between generated intent and executed action. Verification after a pull request is useful, but it is too late for force-pushes, destructive SQL, unsafe deploys, leaked secrets, and costly external API calls."
+            ],
+            "title": "ThumbGate \u2014 Stop risky AI-agent actions before they run"
+          },
+          {
+            "url": "https://www.oak.id/",
+            "excerpts": [
+              "Oak: The AI-Native Identity Operating System\nOak White Gloves - a dedicated identity services team that builds, migrates, and manages identity programs end to end, right there with you."
+            ],
+            "title": "Oak: The AI-Native Identity Operating System"
+          },
+          {
+            "url": "https://www.finsmes.com/2026/07/oak-raises-60m-in-seed-funding.html",
+            "excerpts": [
+              "Oak Raises $60M in Seed Funding\n1 day ago \u2014 Founded by Shai Morag and Tal Marom, Oak is the AI-native identity operating system that rewires enterprise identity and access management. An"
+            ],
+            "title": "Oak Raises $60M in Seed Funding"
+          },
+          {
+            "url": "http://techcrunch.com/2026/07/15/backed-by-60m-in-funding-oak-steps-out-of-stealth-to-fix-the-identity-mess-that-ai-agents-are-making-worse",
+            "excerpts": [
+              "Co-founded by serial entrepreneur Shai Morag, Israeli identity management startup Oak is emerging out of stealth with $60 million in seed\nIsraeli startup [Oak](https://www.oak.id/) is stepping out of stealth to fill, it says."
+            ],
+            "title": "Backed by $60M in funding, Oak steps out of stealth to fix the identity mess ..."
+          },
+          {
+            "url": "http://prnewswire.com/news-releases/oak-raises-60m-in-seed-funding-to-build-the-ai-native-identity-operating-system-302826349.html",
+            "excerpts": [
+              "Founded by serial entrepreneur Shai Morag and co-founder Tal Marom, Oak is building a unified platform to replace legacy identity architecture for the enterprise AI era, governing every identity from humans to AI agents\nOak is the AI-native Identity Operating System that rewires enterprise identity and access management\nThe AI-native platform will replace the fragmented stack of legacy identity governance and security tools with a single, continuously updated control plane that governs every identity across an organization, whether human, machine, or AI agent"
+            ],
+            "title": "Oak Raises $60M in Seed Funding to Build the AI-Native Identity Operating System"
+          },
+          {
+            "url": "http://linkedin.com/in/tal-marom",
+            "excerpts": [
+              "Backed by $60M in seed funding and founded by Shai Morag and Tal Marom, Oak replaces the fragmented legacy identity stack with one unified control plane."
+            ],
+            "title": "Tal Marom - CPO & Co-Founder, Oak Identity Security OS"
+          },
+          {
+            "url": "https://www.gatekeeperhq.com/blog/best-vendor-management-software",
+            "excerpts": [
+              "Best Vendor Management Software 2026: VLM features ...\nBest Vendor Management Software 2026: VLM features, comparisons and reviews ... Gatekeeper was incredible to work with when it came to pricing,"
+            ],
+            "title": "Best Vendor Management Software 2026: VLM features ..."
+          },
+          {
+            "url": "https://www.hyperstart.com/blog/gatekeeper-pricing",
+            "excerpts": [
+              "Gatekeeper Pricing: Plans, Costs, and Features - HyperStart CLM\nPricing: $1,245/month (billed annually) \u00b7 For: Businesses managing up to 150 contracts and suppliers \u00b7 Features: Core contract management"
+            ],
+            "title": "Gatekeeper Pricing: Plans, Costs, and Features - HyperStart CLM"
+          },
+          {
+            "url": "https://hackernoon.com/best-vendor-management-software-of-2026-reviews-and-pricing",
+            "excerpts": [
+              "Best Vendor Management Software of 2026: Reviews & Pricing\n1. Gatekeeper \u00b7 Unified Platform: Connects vendor onboarding, risk, contracts, and spend seamlessly. \u00b7 The Best AI in the Category: Gatekeeper's"
+            ],
+            "title": "Best Vendor Management Software of 2026: Reviews & Pricing"
+          },
+          {
+            "url": "https://technologymatch.com/blog/best-vendor-performance-management-tools-for-it-leaders",
+            "excerpts": [
+              "Best Vendor Performance Management Tools for IT Leaders in 2026\nGatekeeper is the only platform in this review with publicly published pricing, starting at $1,125/month. Prevalent averages approximately"
+            ],
+            "title": "Best Vendor Performance Management Tools for IT Leaders in 2026"
+          },
+          {
+            "url": "https://www.businesswire.com/news/home/20231129257870/en/Strata-Identitys-Maverics-Achieves-SOC-2-Type-II-Certification",
+            "excerpts": [
+              "Strata Identity's Maverics Achieves SOC 2 Type II Certification\nNov 29, 2023 \u00b7 The Maverics Identity Orchestration Platform received a System and Organization Controls (SOC) 2 Type II certification which validates that Strata maintains"
+            ],
+            "title": "Strata Identity's Maverics Achieves SOC 2 Type II Certification"
+          },
+          {
+            "url": "https://startups.gallery/companies/oak-id",
+            "excerpts": [
+              "Oak\n2 days ago \u2014 Oak: Identity security OS. Find top early-stage startups backed by leading investors. Find startup jobs and funding news."
+            ],
+            "title": "Oak"
+          },
+          {
+            "url": "https://drj.com/industry_news/oak-raises-60m-in-seed-funding-to-build-the-ai-native-identity-operating-system",
+            "excerpts": [
+              "Oak Raises $60M in Seed Funding to Build the AI-Native ...\n1 day ago \u2014 Oak's solution is already generally available and deployed across enterprise customers. Identity is the gateway to the modern enterprise,"
+            ],
+            "title": "Oak Raises $60M in Seed Funding to Build the AI-Native ..."
+          },
+          {
+            "url": "https://finder.startupnationcentral.org/company_page/oak-security-ai",
+            "excerpts": [
+              "OAK SECURITY AI - Startup Nation Finder\n2 days ago \u2014 OAK SECURITY AI provides enterprises with a unified identity security ... Target customers, Enterprise & Professional Services, SMBs & SMEs"
+            ],
+            "title": "OAK SECURITY AI - Startup Nation Finder"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/",
+            "excerpts": [
+              "Hermes Agent | Nous Research\nHermes Agent \u2014 the open-source agent that grows with you. Native app for macOS, Windows, and Linux. By Nous Research."
+            ],
+            "title": "Hermes Agent | Nous Research"
+          },
+          {
+            "url": "https://docs.openwebui.com/getting-started/quick-start/connect-an-agent/hermes-agent",
+            "excerpts": [
+              "Hermes Agent - Open WebUI\nHermes Agent by Nous Research is an autonomous AI agent with built-in tools: terminal access, file operations, web search, memory, and extensible skills."
+            ],
+            "title": "Hermes Agent - Open WebUI"
+          },
+          {
+            "url": "https://github.com/nousresearch/hermes-agent",
+            "excerpts": [
+              "GitHub - NousResearch/hermes-agent: The agent that grows with ...\nThe self-improving AI agent built by Nous Research. It's the only agent with a built-in learning loop \u2014 it creates skills from experience, improves them during use, nudges itself to persist knowledge, searches its own past conversations, and builds a deepening model of who you are across sessions."
+            ],
+            "title": "GitHub - NousResearch/hermes-agent: The agent that grows with ..."
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs",
+            "excerpts": [
+              "Hermes Agent Documentation\nThe self-improving AI agent built by Nous Research. The only agent with a built-in learning loop \u2014 it creates skills from experience, improves them during use,"
+            ],
+            "title": "Hermes Agent Documentation"
+          },
+          {
+            "url": "https://www.i-scoop.eu/hermes-agent-from-nous-research",
+            "excerpts": [
+              "Hermes Agent from Nous Research - i-SCOOP\nApr 17, 2026 \u00b7 Hermes does include web search and browser automation in its broader feature set, but its identity is still persistence and self improvement"
+            ],
+            "title": "Hermes Agent from Nous Research - i-SCOOP"
+          },
+          {
+            "url": "https://thumbgate.ai/about",
+            "excerpts": [
+              "About Igor Ganapolsky \u2014 ThumbGate\nIgor Ganapolsky \u2014 Senior AI & Mobile Engineer building ThumbGate, an agent-governance layer for Claude Code, Cursor, Codex, and Gemini. Production Stripe Connect, Agentic RAG, and React Native experience."
+            ],
+            "title": "About Igor Ganapolsky \u2014 ThumbGate"
+          },
+          {
+            "url": "https://github.com/igorganapolsky",
+            "excerpts": [
+              "Igor Ganapolsky IgorGanapolsky\nI build AI systems, mobile products, and developer tooling. Current focus: ThumbGate.ai - self-improving agent governance that turns thumbs-up/down feedback"
+            ],
+            "title": "Igor Ganapolsky IgorGanapolsky"
+          },
+          {
+            "url": "https://www.threads.com/%40igorganapolsky",
+            "excerpts": [
+              "Igor Ganapolsky (@igorganapolsky) \u2022 Threads, Say more\nIgor Ganapolsky. AI agent actions, block mistakes from repeating. Open source: github.com/IgorGanapolsky/ThumbGate linkedin.com/in/igor-ganapolsky-859317343"
+            ],
+            "title": "Igor Ganapolsky (@igorganapolsky) \u2022 Threads, Say more"
+          },
+          {
+            "url": "https://thumbgate.ai/pricing",
+            "excerpts": [
+              "Pricing \u2014 ThumbGate\nThumbGate pricing: free CLI forever, $19/mo Pro dashboard, and custom Enterprise enforcement scoped after intake. One clear subscription path."
+            ],
+            "title": "Pricing \u2014 ThumbGate"
+          },
+          {
+            "url": "http://oakandsparrowsystemsenterprise.io/",
+            "excerpts": [
+              "### Company\n* About & team\n* [Full company profile](https://www.oakandsparrowsystemsenterprise.com/about)\n* [GitHub](https://github.com/OakandSparrowSystemsEnterprises)\n* [LinkedIn](https://www.linkedin.com/company/oak-sparrow-systems-enterprises)\nBuilding the ethical infrastructure for the automated age, designed to govern AI and protect our humanity. We do not extract, we steward.\nOak & Sparrow Systems Enterprises\n[](https://github.com/OakandSparrowSystemsEnterprises) [](https://www.linkedin.com/company/oak-sparrow-systems-enterprises)\nled the financial integration of a three-company merger, and has founded and advised technology ventures in the food and AI space. rowsystemsenterprise.com.\nDeterministic AI governance. We sit between your employees and commercial AI systems, enforcing compliance before data leaves the building.\nO Oak & Sparrow Problem How It Works The Artifact Regulations Talk to Us AI Governance Infrastructure ... Your employees use AI. Your AI tools don't know the law. Your employees don't either. Right now, employees are pasting customer data, financial records, and protected information into ChatGPT, Copilot, and Gemini. There's nothing between them and a regulatory violation. \u26e8 Data leaves the building An employee pastes a customer's SSN into ChatGPT. That data is now on OpenAI's servers. You can't get it back. You can't prove it didn't happen. HIPAA fine: $50K\u2013$1.5M \u25c8 No audit trail exists Your compliance team can't see what employees send to AI systems. There's no log, no chain of custody, no evidence governance was ever in place. CCPA fine: $2,500\u2013$7,500 per record \u2691 The laws are here HIPAA, FERPA, CCPA, COPPA, FCC CPNI \u2014 all enforceable today. The EU AI Act activates August 2026. Fines reach 7% of global revenue. There is no grace period. EU AI Act: up to \u20ac35M or 7% revenue How It Works One layer between your people and the AI. That's all it takes. Gatekeeper intercepts every interaction with commercial AI systems. It evaluates the content against human law, blocks violations before they happen, and seals every decision as a cryptographic artifact. 01 Intercept Employee types into ChatGPT Gatekeeper captures the input before it reaches the AI system. The text is held at the browser boundary. Nothing has been transmitted yet. 02 Evaluate Text evaluated against the law 93 deontic rules derived from active statutes. HIPAA, FERPA, CCPA, COPPA, CPNI, PCI, FINRA. Each rule maps to a specific legal citation. Deterministic enforcement \u2014 no AI in the gate. 03 Enforce Block or pass. Seal the artifact. Violations are blocked \u2014 the data never reaches the AI system. Clean inputs pass through. Every decision is sealed as a SHA-256 linked artifact with the statutory basis recorded. The Artifact ... We enforce the laws that already exist. Every Gatekeeper rule traces to a specific statute. The ontology is built from the law \u2014 not from assumptions about what the law might say. Active HIPAA Protected health information. Patient records, diagnoses, prescriptions, medical identifiers. $50,000 \u2013 $1,500,000 per violation Active FCC CPNI Customer proprietary network information. Call records, billing data, service usage for telecom. $100,000 \u2013 $500,000 per violation Active CCPA / CPRA California consumer privacy. Personal information of California residents. $2,500 \u2013 $7,500 per record Active FERPA Student education records. Grades, transcripts, disciplinary records, IEPs. Loss of federal funding Active COPPA Children's online privacy. Data collection from children under 13. $50,000+ per violation Active FINRA / PCI DSS Financial records, trading data, payment card information, audit trails. $50,000 \u2013 $1,000,000+ Aug 2026 EU AI Act Comprehensive AI regulation. Transparency, risk assessment, human oversight requirements. \u20ac35M or 7% of global annual revenue 2026 State Chatbot Laws SB-1001 (CA), Colorado AI Act, and growing state-level AI disclosure and companion chatbot requirements. Enforcement ramping Get Started The laws are live. The fines are real. The clock is running. Talk to us about a pilot deployment. 30 days. Your employees. Your AI tools. Your artifact chain. See exactly what's happening before someone else does. Schedule a Conversation [GitHub](https://github.com/OakandSparrowSystemsEnterprises) [LinkedIn](https://linkedin.com/company/oak-and-sparrow-systems-enterprise-llc) Contact"
+            ],
+            "title": "Gatekeeper by Oak & Sparrow \u2014 Governance for AI"
+          },
+          {
+            "url": "https://tracxn.com/d/companies/gatekeepersystems/__VMZDA5s65GqujYn4qNMLgJ_gcdcjdCsfSIk2d5KGUGc",
+            "excerpts": [
+              "Gatekeeper Systems - 2026 Company Profile\nMay 15, 2026 \u2014 Gatekeeper Systems is an acquired company based in Irvine (United States), founded in 1998. It operates as a Loss prevention technology"
+            ],
+            "title": "Gatekeeper Systems - 2026 Company Profile"
+          },
+          {
+            "url": "http://deep-tech-week.com/organizations/oak-and-sparrow-systems-enterprise-llc",
+            "excerpts": [
+              "Oak and Sparrow Systems Enterprise LLC offers Gatekeeper, an AI governance layer that intercepts employee interactions with commercial AI systems before data\nOak and Sparrow Systems Enterprise LLC offers Gatekeeper, an AI governance layer that intercepts employee interactions with commercial AI systems before"
+            ],
+            "title": "Oak and Sparrow Systems Enterprise LLC"
+          },
+          {
+            "url": "https://www.gatekeeper-systems.com/investors/press-releases",
+            "excerpts": [
+              "Press Releases - Gatekeeper Systems\nGatekeeper is a leading provider of intelligent video solutions designed to provide a safer transportation environment for children, passengers, and public"
+            ],
+            "title": "Press Releases - Gatekeeper Systems"
+          },
+          {
+            "url": "https://tracxn.com/d/companies/gatekeepersystems/__65FwkkKQHemsEOyj5SKAHTyLr2alnZQzvq-lyO2SD00",
+            "excerpts": [
+              "Gatekeeper Systems - 2026 Company Profile & Team\nMar 6, 2026 \u2014 Gatekeeper Systems is a public company based in Abbotsford (Canada), founded in 1997 by Doug Dyment. It operates as a Video management"
+            ],
+            "title": "Gatekeeper Systems - 2026 Company Profile & Team"
+          },
+          {
+            "url": "https://paseo.sh/hermes",
+            "excerpts": [
+              "Hermes Agent Mobile and Desktop App, Open Source\nOpen source mobile and desktop app for Nous Research's Hermes Agent. Launch sessions on your machine, monitor progress, ship code from anywhere."
+            ],
+            "title": "Hermes Agent Mobile and Desktop App, Open Source"
+          },
+          {
+            "url": "https://www.halmob.com/blog/hermes-workspace-mobile-agent-orchestration",
+            "excerpts": [
+              "Hermes Workspace Mobile: Agent Orchestration Goes Mobile\nOn April 21, 2026, Nous Research shipped Hermes Workspace Mobile, a phone app for their open multi-agent platform. It brings live tool runs, persistent memory, a skills catalog, a terminal, and recursive subagent orchestration to a device that fits in your pocket."
+            ],
+            "title": "Hermes Workspace Mobile: Agent Orchestration Goes Mobile"
+          },
+          {
+            "url": "https://explainx.ai/blog/hermes-webui-self-hosted-ai-agent-interface-2026",
+            "excerpts": [
+              "Hermes WebUI: The Self-Hosted AI Agent Interface That ...\nComprehensive guide to Hermes WebUI by Nous Research - a self-hosted web interface for autonomous AI agents with persistent memory, scheduled jobs, 10+ messaging platforms, and self-improving skills. Learn setup, features, and how it compares to Claude Code and OpenClaw."
+            ],
+            "title": "Hermes WebUI: The Self-Hosted AI Agent Interface That ..."
+          },
+          {
+            "url": "https://x.com/PrajwalTomar_/article/2064324584254710262",
+            "excerpts": [
+              "Hermes Agent Is CRACKED Now And Most Builders Have ...\n1 day ago \u2014 Hermes Agent is an open-source autonomous AI agent built by Nous Research. Same lab behind the Hermes, Nomos, and Psyche model families."
+            ],
+            "title": "Hermes Agent Is CRACKED Now And Most Builders Have ..."
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/user-guide/features/web-dashboard",
+            "excerpts": [
+              "Web Dashboard | Hermes Agent\nThe web dashboard is a browser-based UI for managing your Hermes Agent installation. Instead of editing YAML files or running CLI commands, you can configure settings, manage API keys, and monitor sessions from a clean web interface."
+            ],
+            "title": "Web Dashboard | Hermes Agent"
+          },
+          {
+            "url": "https://deepwiki.com/nousresearch/hermes-agent/3.4-web-ui-dashboard",
+            "excerpts": [
+              "Web UI Dashboard | nousresearch/hermes-agent | DeepWiki\nThe Hermes Web UI Dashboard provides a comprehensive browser-based interface for managing a Hermes Agent installation. It offers an accessible way to configure the agent, manage API keys and environment variables, oversee active sessions and cron jobs, browse skills and toolsets, and inspect analytics and logs."
+            ],
+            "title": "Web UI Dashboard | nousresearch/hermes-agent | DeepWiki"
+          },
+          {
+            "url": "https://www.beri.net/tools/oak-identity",
+            "excerpts": [
+              "Oak \u2014 Overview, Features & Use Cases | THE D*AI*LY BRIEF\n1 day ago \u2014 The AI-native identity operating system for humans, machines, and AI agents. Contact for pricing. Oak is an AI-native identity operating system"
+            ],
+            "title": "Oak \u2014 Overview, Features & Use Cases | THE D*AI*LY BRIEF"
+          },
+          {
+            "url": "http://greylock.com/portfolio-news/introducing-oak-the-ai-native-indentity-operating-system",
+            "excerpts": [
+              "An AI-native platform that governs every identity across an organization. Identity has become the largest unresolved problem in enterprise security. Legacy tooling built to govern it (IGA, IAM) was designed for a static world of human users and periodic certification. Two shifts have broken that model. First, machine and AI-agent identities now vastly outnumber human ones by more than 100 to 1, and that ratio is compounding as agentic AI spreads through the enterprise. Second, AI has made it possible to operate on identity data at a coverage and speed that manual, rules-based systems cannot approach. We believe this has opened a rare window to consolidate a fragmented, multi-billion-dollar market around a single platform, and Oak has assembled a well equipped team to do it. The Oak founding team has worked this problem from the inside for years. From our first conversation with Shai Morag, it was clear we were meeting an exceptional founder: he brought the urgency and hunger of someone with everything still to prove, paired with hard-won experience that comes from having already built and sold three security companies. He is joined by co-founder and CPO Tal Marom, who led product teams at Tenable and Salesforce, alongside a bench of identity and AI veterans drawn from the industry's best security companies and elite technology units. Oak is building an AI-native platform that replaces the fragmented stack of legacy identity governance and security tools with a single, continuously updated control plane: one that governs every identity across an organization, whether human, machine, or AI agent. Oak emerges from stealth today with $60 million in seed financing co-led by Greylock, Accel, and CRV. We're privileged to partner with Shai, Tal, and the entire Oak team as they build the Identity Operating System for the AI era.\nTo learn more, or to join them, visit [oak.id\nHe is joined by co-founder and CPO Tal Marom, who led product teams at Tenable and Salesforce, alongside a bench of identity and AI veterans drawn from the industry's best security companies and elite technology units. Oak is building an AI-native platform that replaces the fragmented stack of legacy identity governance and security tools with a single, continuously updated control plane: one that governs every identity across an organization, whether human, machine, or AI agent. Oak emerges from stealth today with $60 million in seed financing co-led by Greylock, Accel, and CRV. We're privileged to partner with Shai, Tal, and the entire Oak team as they build the Identity Operating System for the AI era.\nOak is building an AI-native platform that replaces the fragmented stack of legacy identity governance and security tools with a single, continuously updated control plane: one that governs every identity across an organization, whether human, machine, or AI agent. Oak emerges from stealth today with $60 million in seed financing co-led by Greylock, Accel, and CRV. We're privileged to partner with Shai, Tal, and the entire Oak team as they build the Identity Operating System for the AI era."
+            ],
+            "title": "Introducing Oak: The AI-Native Identity Operating System | Greylock"
+          },
+          {
+            "url": "http://x.com/GreylockVC/status/2077421172162175066",
+            "excerpts": [
+              "Oak builds a live identity graph across every application and identity type, then governs the full lifecycle by comparing the access each"
+            ],
+            "title": "Greylock Partners on X: \"Today we're introducing Oak, the AI-native Identity Operating System.\n\nEvery enterprise now runs on identities its security tools were never built to see: machines, service accounts, and a fast-growing population of AI agents. \n\nLegacy identity governance was built for a static https://t.co/dYsWqzvwih\" / X"
+          },
+          {
+            "url": "http://gatekeeperhq.com/gatekeeper_platform",
+            "excerpts": [
+              "The Gatekeeper Platform provides a suite of Vendor Management , Contract Management , Kanban Workflow, Collaboration and Reporting features. Customers can extend the functionality of Gatekeeper with additional modules to meet their required use-cases, as well as integrating with over 220 third party solutions."
+            ],
+            "title": "The Gatekeeper Contract Management Platform"
+          },
+          {
+            "url": "https://www.gatekeeperhq.com/vendor-lifecycle-management",
+            "excerpts": [
+              "Vendor Lifecycle Management - Gatekeeper\nGatekeeper is an all-in-one Vendor Lifecycle Management Platform built on automation, artificial intelligence and vendor-facing features."
+            ],
+            "title": "Vendor Lifecycle Management - Gatekeeper"
+          },
+          {
+            "url": "http://platform.tracxn.com/a/d/company/5670ea8de4b096284b28e420/gatekeeper#a:about",
+            "excerpts": [
+              "(last verified: 2026-06-18) Gatekeeper provides contract management software for businesses.\nIt features AI-based solutions for vendor management, workflow & compliance automation, integrated e-signature, expense management, etc."
+            ],
+            "title": null
+          },
+          {
+            "url": "https://www.oakandsparrowsystemsenterprise.com/about",
+            "excerpts": [],
+            "title": "About \u2014 Oak & Sparrow Systems Enterprises"
+          },
+          {
+            "url": "https://www.gatekeeperhq.com/",
+            "excerpts": [],
+            "title": "Gatekeeper | Unified Vendor Management | Accelerate Compliance and Savings"
+          },
+          {
+            "url": "https://www.gatekeeperhq.com/about",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://www.gatekeeperhq.com/security",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://www.gatekeeperhq.com/about-us",
+            "excerpts": [],
+            "title": "Vision & Values"
+          },
+          {
+            "url": "https://www.crunchbase.com/organization/gatekeeper-2",
+            "excerpts": [
+              "Gatekeeper - Crunchbase Company Profile & Funding\nFounders Patrick O'Connor. About the Company. Gatekeeper is a next-generation contract and supplier management platform that was born in the cloud and works"
+            ],
+            "title": "Gatekeeper - Crunchbase Company Profile & Funding"
+          },
+          {
+            "url": "https://tracxn.com/d/companies/gatekeeper/__mimbKBvzOE71idvf1slXvCUDdkg404SSqX0hUavRl38",
+            "excerpts": [
+              "Gatekeeper - 2026 Company Profile, Team, Funding & Competitors\nGatekeeper has raised funding over 1 round. Its latest funding round was a PE round on Oct 17, 2023 for $*****. 1 investor participated in its latest round."
+            ],
+            "title": "Gatekeeper - 2026 Company Profile, Team, Funding & Competitors"
+          },
+          {
+            "url": "https://getlatka.com/companies/gatekeeperhq.com",
+            "excerpts": [
+              "Gatekeeper Revenue History: Bootstrapped (2023)\nDec 1, 2023 \u2014 Founded in 2010, Gatekeeper has grown to $14M in revenue without raising any venture capital or outside funding. Founder / CEO Patrick O'Connor"
+            ],
+            "title": "Gatekeeper Revenue History: Bootstrapped (2023)"
+          },
+          {
+            "url": "https://www.f6s.com/company/gatekeeper-gatekeeperhq.com?flow=seePage",
+            "excerpts": [
+              "Gatekeeper (gatekeeperhq.com) | F6S\nGatekeeper (gatekeeperhq.com) - Software - The only unified platform for contracting, managing third\u2011party compliance."
+            ],
+            "title": "Gatekeeper (gatekeeperhq.com) | F6S"
+          },
+          {
+            "url": "https://oakandsparrowsystemsenterprise.io/",
+            "excerpts": [
+              "Gatekeeper by Oak & Sparrow \u2014 Governance for AI\nBuilding the ethical infrastructure for the automated age, designed to govern AI and protect our humanity. \"The manager in the room for your AI.\"."
+            ],
+            "title": "Gatekeeper by Oak & Sparrow \u2014 Governance for AI"
+          },
+          {
+            "url": "https://luma.com/oak-sparrow-system-enterprise-launch-eve",
+            "excerpts": [
+              "Oak & Sparrow System Enterprise: Launch Event & Demo Night\nWe are Oak and Sparrow Systems Enterprise LLC, and we are launching our flagship product Gatekeeper: The AI Governance Layer. As of now, AI has no receipt."
+            ],
+            "title": "Oak & Sparrow System Enterprise: Launch Event & Demo Night"
+          },
+          {
+            "url": "https://coremanaged.com/core-manageds-soc2-and-iso-27001-readiness-services",
+            "excerpts": [
+              "SOC2 and ISO 27001 Readiness Services | Core Managed\nOur SOC2 and ISO 27001 Readiness solution provides an approach that fortifies your defenses, setting the stage for successful certification."
+            ],
+            "title": "SOC2 and ISO 27001 Readiness Services | Core Managed"
+          },
+          {
+            "url": "https://helloskip.com/b/oak-and-sparrow-systems-enterprise-llc",
+            "excerpts": [
+              "Oak And Sparrow Systems Enterprise, Llc\nWe specialize in custom software development, data analytics, and IT consulting, enabling organizations to streamline operations and maximize efficiency. With a"
+            ],
+            "title": "Oak And Sparrow Systems Enterprise, Llc"
+          },
+          {
+            "url": "https://about.me/eazyigz",
+            "excerpts": [
+              "Igor Ganapolsky - Fort Lauderdale, FL, Manhattan College, Pace ...\nI am an Android engineer and Open Source enthusiast living in Florida. My interests include Android devices, Raspberry Pi, and IoT (internet of things)."
+            ],
+            "title": "Igor Ganapolsky - Fort Lauderdale, FL, Manhattan College, Pace ..."
+          },
+          {
+            "url": "https://www.linkedin.com/in/igor-ganapolsky-859317343",
+            "excerpts": [
+              "Igor Ganapolsky - Senior AI Systems Engineer | GCP & AWS | LinkedIn\n15+ years experience building high-traffic mobile (React Native/Android) and web ecosystems. Founder of ThumbGate.ai, a security layer for autonomous AI agents."
+            ],
+            "title": "Igor Ganapolsky - Senior AI Systems Engineer | GCP & AWS | LinkedIn"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/tree/main/web",
+            "excerpts": [
+              "hermes-agent/web at main \u00b7 NousResearch/hermes-agent \u00b7 GitHub\nREADME.md Hermes Agent \u2014 Web UI Browser-based dashboard for managing Hermes Agent configuration, API keys, and monitoring active sessions."
+            ],
+            "title": "hermes-agent/web at main \u00b7 NousResearch/hermes-agent \u00b7 GitHub"
+          },
+          {
+            "url": "http://github.com/JPeetz/Hermes-Studio",
+            "excerpts": [
+              "4 days ago \u2014 Hermes Studio is an open-source, self-hosted web dashboard for Hermes Agent by NousResearch. It turns the Hermes AI agent into a full workspace"
+            ],
+            "title": "JPeetz/Hermes-Studio: Web UI & dashboard ..."
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/features/web-dashboard.md",
+            "excerpts": [
+              "hermes-agent/website/docs/user-guide/features/web-dashboard ...\nWeb Dashboard The web dashboard is a browser-based UI for managing your Hermes Agent installation. Instead of editing YAML files or running CLI commands, you can configure settings, manage API keys, and monitor sessions from a clean web interface."
+            ],
+            "title": "hermes-agent/website/docs/user-guide/features/web-dashboard ..."
+          },
+          {
+            "url": "https://hermesatlas.com/projects/NousResearch/hermes-agent",
+            "excerpts": [
+              "hermes-agent \u2014 Hermes Agent Core & Official | Hermes Atlas\nThe Hermes Handbook \u2014 beginner's guide \u2192 The official Hermes Agent repo by Nous Research. Referenced in the install and next-steps chapters."
+            ],
+            "title": "hermes-agent \u2014 Hermes Agent Core & Official | Hermes Atlas"
+          },
+          {
+            "url": "https://www.oakandsparrowsystemsenterprise.com/",
+            "excerpts": [
+              "Building the ethical infrastructure for the automated age, designed to govern AI and protect our humanity. Gatekeeper is the manager in the room for your AI. It checks every decision against your rules before the AI acts, and it keeps a sealed record of what happened. We do not extract, we steward. One screenshot is all it takes."
+            ],
+            "title": "Gatekeeper \u2014 the manager in the room for your AI"
+          },
+          {
+            "url": "https://www.gatekeeperhq.com/blog/best-contract-management-software",
+            "excerpts": [
+              "Best Contract Management Software 2026 - Gatekeeper\nJan 8, 2026 \u2014 Gatekeeper is the only unified platform that connects contract, third-party and spend management in one continuous lifecycle. Powered by LuminIQ"
+            ],
+            "title": "Best Contract Management Software 2026 - Gatekeeper"
+          },
+          {
+            "url": "https://sourceforge.net/software/compare/Gatekeeper-vs-Universal-Contract-Manager",
+            "excerpts": [
+              "Gatekeeper vs. Universal Contract Manager Comparison\nGatekeeper is a powerful, AI-driven contract management solution that gives businesses total control and visibility over their contract agreements Gatekeeper"
+            ],
+            "title": "Gatekeeper vs. Universal Contract Manager Comparison"
+          },
+          {
+            "url": "https://www.apacciooutlook.com/gatekeeper",
+            "excerpts": [
+              "Gatekeeper | Top Enterprise Contract Management Company-2020\nAs a better way for contract management, Gatekeeper brings all aspects of managing suppliers and contracts in one place with its AI-driven contract management"
+            ],
+            "title": "Gatekeeper | Top Enterprise Contract Management Company-2020"
+          },
+          {
+            "url": "https://contracko.com/alternatives/gatekeeper-alternative",
+            "excerpts": [
+              "Gatekeeper Alternative - AI Repository - Contracko\nGatekeeper is a mature vendor-and-contract management suite with native AI and obligation tracking sold on an unlimited-users model from around $1,245/mo."
+            ],
+            "title": "Gatekeeper Alternative - AI Repository - Contracko"
+          }
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "oak-sparrow-gatekeeper-july-2026.md"
+  }
+}
