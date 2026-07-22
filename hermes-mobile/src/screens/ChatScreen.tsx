@@ -400,7 +400,10 @@ import {
   resolveTelegramInboxReplySessionId,
 } from '../services/telegramInbox';
 import { isTelegramSession, pickPrimaryTelegramSession, buildSessionPickerSections, sessionSourceLabel } from '../utils/sessionSelection';
-import { resolveSessionAfterListLoad } from '../utils/sessionListSelection';
+import {
+  ensureCurrentSessionSelectable,
+  resolveSessionAfterListLoad,
+} from '../utils/sessionListSelection';
 import {
   extractAssistantFromRunCompletedPayload,
   findNewAssistantReply,
@@ -2491,11 +2494,15 @@ export default function ChatScreen() {
         skipSessionAutoSelectRef.current = false;
       }
 
-      const selectableSessions = filterDismissedThreadSessions(finalSessions, {
-        dismissedSessionIds: dismissedSessionIdsRef.current,
-        hideCronSessions: hideCronSessionsRef.current,
-        hideAutomationSessions: hideAutomationSessionsRef.current,
-      });
+      const selectableSessions = ensureCurrentSessionSelectable(
+        filterDismissedThreadSessions(finalSessions, {
+          dismissedSessionIds: dismissedSessionIdsRef.current,
+          hideCronSessions: hideCronSessionsRef.current,
+          hideAutomationSessions: hideAutomationSessionsRef.current,
+        }),
+        finalSessions,
+        currentSessionRef.current?.id,
+      );
       const rememberedSessionId = await storage.loadLastSessionForComputer(computerSessionKeys);
 
       const resolvedSession = resolveSessionAfterListLoad({
