@@ -120,6 +120,17 @@ describe('chatOutboundDisplay', () => {
     ]);
   });
 
+  it('hides cron scaffolding persisted with escaped newlines', () => {
+    const escapedCronSystemPrompt =
+      '[IMPORTANT:\\nYou are running as a scheduled cron job.\\nDELIVERY: Your final response will be automatically delivered to the user.\\nDo not use send_message.\\nSILENT: Return [SILENT] when there is nothing to report.]';
+
+    expect(
+      filterChatTimelineMessages({
+        messages: [{ id: 'cron-prompt', role: 'user', content: escapedCronSystemPrompt }],
+      }),
+    ).toEqual([]);
+  });
+
   it('keeps normal cron-related conversation visible', () => {
     const messages: HermesMessage[] = [
       { id: 'user-1', role: 'user', content: 'Can you schedule a cron job for 9 AM?' },

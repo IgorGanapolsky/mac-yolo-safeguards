@@ -63,7 +63,13 @@ export function isCronSystemDeliveryScaffolding(content: unknown): boolean {
   if (typeof content !== 'string') {
     return false;
   }
-  const normalized = content.normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
+  const normalized = content
+    .normalize('NFKC')
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
   if (
     !/^\[?important\s*:/.test(normalized) ||
     !/\byou are running as a scheduled cron job\b/.test(normalized)
