@@ -39,6 +39,32 @@ describe('promptReplyElapsed', () => {
     });
   });
 
+  it('freezes elapsed for a newest-first assistant reply with a later timestamp', () => {
+    const sentAt = '2026-07-22T08:00:00.000Z';
+    const replyAt = '2026-07-22T08:01:04.000Z';
+    const messages: HermesMessage[] = [
+      { id: 'asst-1', role: 'assistant', content: 'Here is the correction.', created_at: replyAt },
+      { id: 'user-1', role: 'user', content: 'make money today', created_at: sentAt },
+    ];
+    expect(resolvePromptReplyElapsedState({ messages, userIndex: 1 })).toEqual({
+      mode: 'frozen',
+      durationSec: 64,
+    });
+  });
+
+  it('hides Waiting after the hard-timeout marks the user turn failed', () => {
+    const messages: HermesMessage[] = [
+      {
+        id: 'user-1',
+        role: 'user',
+        content: 'make money today',
+        created_at: '2026-07-22T08:00:00.000Z',
+        outboundStatus: 'failed',
+      },
+    ];
+    expect(resolvePromptReplyElapsedState({ messages, userIndex: 0 })).toEqual({ mode: 'hidden' });
+  });
+
   it('keeps waiting live through empty-stream timeout placeholders', () => {
     const sentAt = '2026-07-14T22:00:00.000Z';
     const messages: HermesMessage[] = [

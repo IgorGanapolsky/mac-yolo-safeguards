@@ -65,6 +65,25 @@ function findSubstantiveAssistantReplyAfter(
   return undefined;
 }
 
+function findSubstantiveAssistantReplyByTimestamp(
+  messages: readonly HermesMessage[],
+  userSinceMs: number,
+): HermesMessage | undefined {
+  let earliestReply: HermesMessage | undefined;
+  let earliestReplyMs = Number.POSITIVE_INFINITY;
+  for (const message of messages) {
+    if (isNonSubstantiveAssistantReply(message)) {
+      continue;
+    }
+    const replyMs = messageSentAtMs(message);
+    if (replyMs != null && replyMs >= userSinceMs && replyMs < earliestReplyMs) {
+      earliestReply = message;
+      earliestReplyMs = replyMs;
+    }
+  }
+  return earliestReply;
+}
+
 export type PromptReplyElapsedState =
   | { mode: 'live'; sinceMs: number }
   | { mode: 'frozen'; durationSec: number }
@@ -101,8 +120,13 @@ export function resolvePromptReplyElapsedState(input: {
   if (sinceMs == null) {
     return { mode: 'hidden' };
   }
+  if (userMessage.outboundStatus === 'failed') {
+    return { mode: 'hidden' };
+  }
 
-  const reply = findSubstantiveAssistantReplyAfter(messages, userIndex);
+  const reply =
+    findSubstantiveAssistantReplyAfter(messages, userIndex) ??
+    findSubstantiveAssistantReplyByTimestamp(messages, sinceMs);
   if (reply) {
     const replyMs = messageSentAtMs(reply);
     if (replyMs != null && replyMs >= sinceMs) {
