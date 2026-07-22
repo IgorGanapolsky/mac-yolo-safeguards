@@ -127,7 +127,7 @@ try {
   assert.equal(landing.status, 200);
   assert.match(html, /Leash/);
   assert.match(html, /by ThumbGate/);
-  assert.match(html, /Your Hermes chats/);
+  assert.match(html, /Your agent, wherever you are/);
   // Static shell defaults to anon/loading chrome (session via /api/me after paint).
   assert.match(html, /Sign-in required|Checking session/);
   assert.match(html, /Sign in to Hermes Web/);
