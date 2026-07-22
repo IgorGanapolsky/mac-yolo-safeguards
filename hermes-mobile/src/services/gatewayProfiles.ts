@@ -891,7 +891,22 @@ export function upsertDiscoveredProfile(
       }
       return true;
     }
-    if (hostname && p.hostname && hostname.toLowerCase() === p.hostname.toLowerCase() && hostname.toLowerCase() !== 'localhost') {
+    if (
+      hostname &&
+      p.hostname &&
+      hostname.toLowerCase() === p.hostname.toLowerCase() &&
+      hostname.toLowerCase() !== 'localhost'
+    ) {
+      // Hostname-only match must not retarget another Mac's URL onto this row
+      // (Pro identity + mini Tailscale URL used to steal the mini entry).
+      const urlOwnedByOther = state.profiles.some(
+        (other) =>
+          other.id !== p.id &&
+          normalizeGatewayUrlBase(other.gatewayUrl) === gatewayUrl,
+      );
+      if (urlOwnedByOther) {
+        return false;
+      }
       return true;
     }
     if (
@@ -911,15 +926,23 @@ export function upsertDiscoveredProfile(
       if (p.id !== existing.id) {
         return p;
       }
+      // Never stamp a foreign /health hostname onto the matched row (e.g. Pro identity
+      // onto mini Tailscale URL during saveSettings→applyHeal). That flips machine key
+      // and dedupe silently merges mini→Pro (2026-07-22 force-switch rage).
+      const acceptIncomingIdentity = shouldAcceptHealthIdentityForProfile(p, {
+        hostname,
+        localIp,
+      });
+      const nextHostname = acceptIncomingIdentity ? hostname || p.hostname : p.hostname;
       const keepExistingLabel =
         p.label &&
         !isGenericProfileLabel(p.label) &&
-        (!discovered.label?.trim() || isGenericProfileLabel(label));
+        (!discovered.label?.trim() || isGenericProfileLabel(label) || !acceptIncomingIdentity);
       const finalLabel = keepExistingLabel
         ? p.label
         : resolveStoredProfileLabel({
             gatewayUrl,
-            hostname: hostname || p.hostname,
+            hostname: nextHostname,
             label: discovered.label || label || p.label,
             localIp: localIp || p.localIp,
           });
@@ -928,7 +951,7 @@ export function upsertDiscoveredProfile(
         ...p,
         gatewayUrl,
         label: finalLabel,
-        hostname: hostname || p.hostname,
+        hostname: nextHostname,
         localIp: localIp || p.localIp,
         lastConnectedAt: now,
       };

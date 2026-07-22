@@ -121,6 +121,10 @@ import {
   type SessionContinuityHandoff,
 } from '../utils/sessionContinuityHandoff';
 import {
+  resolveMessageHydrateCredentials,
+  resolveProfileSwitchRestorePlan,
+} from '../utils/profileSwitchSessionRestore';
+import {
   formatSessionCreated,
   formatSessionTitle,
   filterDismissedThreadSessions,
@@ -231,6 +235,11 @@ import {
   shouldPreserveTranscriptOnSessionChange,
   shouldSuppressConnectionHelpForLocalOutbound,
 } from '../utils/disconnectMessagePreserve';
+import {
+  nextOutboundEpoch,
+  planProfileSwitchChatReset,
+  shouldAcceptOutboundMutation,
+} from '../utils/profileSwitchChatReset';
 import {
   COMPOSER_DRAFT_COMPOSE_FIRST_KEY,
   captureComposerTextForFreshChat,
@@ -2432,10 +2441,17 @@ export default function ChatScreen() {
       silent?: boolean;
       projectState?: ChatProjectState;
       computerSessionKeys?: string[] | null;
+      /** Use immediately after a computer switch — React state may still hold the prior Mac. */
+      gatewayUrlOverride?: string | null;
+      apiKeyOverride?: string | null;
+      /** Bypass macChatLive gate during intentional profile switches. */
+      forceWhileOffline?: boolean;
     },
   ) => {
     const selectionProjectState = options?.projectState ?? projectState;
     const computerSessionKeys = options?.computerSessionKeys ?? activeComputerSessionKeys;
+    const listGatewayUrl = options?.gatewayUrlOverride?.trim() || gatewayUrl;
+    const listApiKey = options?.apiKeyOverride ?? apiKey;
     const loadGen = ++sessionsLoadGenRef.current;
     if (isDemo) {
       const mockSessions: HermesSession[] = [
@@ -2465,7 +2481,7 @@ export default function ChatScreen() {
       return;
     }
 
-    if (!macChatLive) {
+    if (!macChatLive && !options?.forceWhileOffline) {
       if (loadGen === sessionsLoadGenRef.current) {
         setIsLoadingSessions(false);
       }
@@ -2477,7 +2493,7 @@ export default function ChatScreen() {
         setIsLoadingSessions(true);
       }
       setErrorMessage(null);
-      const list = await listSessions(gatewayUrl, apiKey);
+      const list = await listSessions(listGatewayUrl, listApiKey);
       if (loadGen !== sessionsLoadGenRef.current) {
         return;
       }
@@ -2524,6 +2540,9 @@ export default function ChatScreen() {
       });
 
       if (resolvedSession !== undefined) {
+        // Keep ref in sync before awaiters (profile-switch hydrate) read it —
+        // React state alone would still be null until the next render.
+        currentSessionRef.current = resolvedSession;
         setCurrentSession(resolvedSession);
       }
 
@@ -2555,9 +2574,64 @@ export default function ChatScreen() {
         }
         return;
       }
+      const resetPlan = planProfileSwitchChatReset({
+        fromProfileId: activeGatewayProfile?.id,
+        toProfileId: profileId,
+      });
       profileSwitchBusyRef.current = true;
       setProfileSwitchBusy(true);
       haptics.light();
+
+      // PRODUCT LAW: clear composer + transcript BEFORE await selectGatewayProfile.
+      // Clearing after the await (or only when closePicker) paints machine B's identity
+      // with machine A's optimistic/typed bubbles mid-switch.
+      if (resetPlan?.clearUiBeforeAwait) {
+        intentionalProfileSwitchRef.current = true;
+        outboundEpochRef.current = nextOutboundEpoch(outboundEpochRef.current);
+        pendingOutboundSendsRef.current = 0;
+        isSendingRef.current = false;
+        setIsSending(false);
+        activeChatStreamRef.current = false;
+        setIsChatStreamActive(false);
+        activeOutboundSendBodyRef.current = null;
+        outboundQueueRef.current = [];
+        setQueuedOutboundCount(0);
+        pendingOutboundClaimRef.current = null;
+        lastCommittedOutboundBodyRef.current = null;
+        persistedPendingRef.current = [];
+        const priorSessionId = currentSessionRef.current?.id;
+        void clearPendingOutbound(priorSessionId);
+        void clearPendingOutbound(PENDING_NEW_SESSION_KEY);
+        const draftKey = composerDraftSessionKey(priorSessionId);
+        if (draftKey) {
+          void clearComposerDraft(draftKey);
+        }
+        void clearComposerDraft(COMPOSER_DRAFT_COMPOSE_FIRST_KEY);
+        inputValueRef.current = '';
+        setInputValue('');
+        setComposerAttachments([]);
+        composerAttachmentsRef.current = [];
+        pinnedOutboundTextRef.current = null;
+        pinnedOutboundStatusRef.current = 'pending';
+        setPinnedOutboundText(null);
+        setPinnedOutboundSentAt(null);
+        setPinnedOutboundStatus('pending');
+        setRunProgress(null);
+        setToolStatus(null);
+        transcriptDigestRef.current = '';
+        lastTranscriptChangeAtMsRef.current = Date.now();
+        deadRunSurfacedRef.current = false;
+        messagesRef.current = [];
+        setMessages([]);
+        setCurrentSession(null);
+        pinScrollAfterHydrationRef.current = true;
+        userScrolledUpRef.current = false;
+        lastDistanceFromBottomRef.current = 0;
+        if (options?.closePicker) {
+          setMacPickerVisible(false);
+        }
+      }
+
       try {
         const ok = await selectGatewayProfile(profileId, { ensureProfile: options?.ensureProfile });
         if (!ok) {
@@ -2565,34 +2639,55 @@ export default function ChatScreen() {
         }
         await refreshHealth();
         connectEvents();
-        if (options?.closePicker) {
-          setMacPickerVisible(false);
-          pinScrollAfterHydrationRef.current = true;
-          userScrolledUpRef.current = false;
-          lastDistanceFromBottomRef.current = 0;
-          setCurrentSession(null);
-          setMessages([]);
-        }
-        if (options?.reloadSessions) {
-          const pickedProfile = gatewayProfiles.find((profile) => profile.id === profileId);
+
+        // #816 already cleared composer/messages before await — do NOT clear again.
+        // Reload + hydrate THIS machine's prior session so mini is not an empty greeting.
+        const pickedProfile =
+          gatewayProfiles.find((profile) => profile.id === profileId) ??
+          options?.ensureProfile ??
+          null;
+        const restorePlan = resolveProfileSwitchRestorePlan({
+          profileId,
+          pickedProfile,
+          ensureProfile: options?.ensureProfile,
+        });
+        const shouldReloadSessions =
+          Boolean(restorePlan) &&
+          (options?.reloadSessions !== false || Boolean(resetPlan));
+        if (shouldReloadSessions && restorePlan) {
+          const resolvedKey = await secureCredentials.resolveApiKeyForProfile?.(
+            restorePlan.profileId,
+          );
+          const profileKey = resolvedKey || apiKey;
           await loadSessionsList(true, {
-            computerSessionKeys: resolveComputerSessionStorageKeys(
-              pickedProfile,
-              pickedProfile?.gatewayUrl,
-            ),
+            computerSessionKeys: restorePlan.computerSessionKeys,
+            gatewayUrlOverride: restorePlan.gatewayUrl,
+            apiKeyOverride: profileKey,
+            forceWhileOffline: true,
           });
+          if (currentSessionRef.current) {
+            await refreshSessionMessagesRef.current?.({
+              background: false,
+              force: true,
+              gatewayUrlOverride: restorePlan.gatewayUrl,
+              apiKeyOverride: profileKey,
+            });
+          }
         }
       } finally {
+        intentionalProfileSwitchRef.current = false;
         profileSwitchBusyRef.current = false;
         setProfileSwitchBusy(false);
       }
     },
     [
       activeGatewayProfile?.id,
+      apiKey,
       connectEvents,
       gatewayProfiles,
       refreshHealth,
       selectGatewayProfile,
+      setRunProgress,
     ],
   );
 
