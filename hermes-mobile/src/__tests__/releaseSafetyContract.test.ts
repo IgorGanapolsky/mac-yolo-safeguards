@@ -225,6 +225,8 @@ describe('release safety contract', () => {
     // EAS GraphQL rejects --rollout-percentage 100 (run 29889285465).
     expect(workflow).toContain('EAS rejects 100');
     expect(workflow).toContain('omit --rollout-percentage');
+    expect(workflow).toContain('Promotion to 100 is not supported');
+    expect(workflow).not.toContain('PROMOTE_TO=99');
     expect(workflow).toContain('require-stranger-cold-start-proof.cjs');
     expect(workflow).toContain('HERMES_STRANGER_PROOF_WAIT_SEC');
     expect(workflow).toMatch(/checks:\s*read/);
