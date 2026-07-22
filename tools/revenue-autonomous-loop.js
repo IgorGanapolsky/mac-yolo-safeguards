@@ -35,6 +35,7 @@ const {
   buildGithubFollowupBody,
   TEMPLATE_VERSION: FOLLOWUP_TEMPLATE_VERSION,
 } = require('./governed-agent-sales-copy');
+const { verifyChromeGmailSent } = require('./chrome-gmail-sent-verify');
 
 const REPO = path.resolve(__dirname, '..');
 
@@ -655,13 +656,54 @@ end tell
   };
 }
 
+function maybeVerifyChromeSent(email, sendResult) {
+  // clicked_send is not delivery proof. Opt-out: REVENUE_SKIP_SENT_VERIFY=1
+  if (process.env.REVENUE_SKIP_SENT_VERIFY === '1') return sendResult;
+  if (!sendResult || !sendResult.ok) return sendResult;
+  if (sendResult.channel !== 'chrome_gmail') return sendResult;
+  if (process.env.REVENUE_NO_CHROME_GMAIL === '1') return sendResult;
+  try {
+    const v = verifyChromeGmailSent({
+      to: email && email.to,
+      subject: email && email.subject ? String(email.subject).slice(0, 40) : '',
+    });
+    if (v && v.ok) {
+      return {
+        ...sendResult,
+        verifiedInSent: true,
+        sentHits: v.hitCount,
+      };
+    }
+    return {
+      ok: false,
+      channel: 'chrome_gmail',
+      status: sendResult.status,
+      stdout: sendResult.stdout,
+      stderr: `clicked_send_but_not_in_sent:${(v && v.error) || 'no_hit'}`,
+      verifiedInSent: false,
+    };
+  } catch (err) {
+    // Don't fail the send path on verify infrastructure flake unless forced
+    if (process.env.REVENUE_REQUIRE_SENT_VERIFY === '1') {
+      return {
+        ok: false,
+        channel: 'chrome_gmail',
+        status: sendResult.status,
+        stderr: `sent_verify_error:${err.message}`,
+        verifiedInSent: false,
+      };
+    }
+    return { ...sendResult, verifiedInSent: false, verifyError: err.message };
+  }
+}
+
 function tryGmailSend(email) {
   // Chrome-first when API lacks scopes (ibm-yolo --cash sets REVENUE_CHROME_GMAIL_FIRST=1).
   const chromeFirst = process.env.REVENUE_CHROME_GMAIL_FIRST === '1';
   const noChrome = process.env.REVENUE_NO_CHROME_GMAIL === '1';
 
   if (chromeFirst && !noChrome) {
-    const chrome = tryChromeGmailSend(email);
+    const chrome = maybeVerifyChromeSent(email, tryChromeGmailSend(email));
     if (chrome.ok) return chrome;
     const api = tryGmailApiSend(email);
     if (api.ok) return api;
@@ -678,7 +720,7 @@ function tryGmailSend(email) {
   const api = tryGmailApiSend(email);
   if (api.ok) return api;
   if (noChrome) return api;
-  const chrome = tryChromeGmailSend(email);
+  const chrome = maybeVerifyChromeSent(email, tryChromeGmailSend(email));
   if (chrome.ok) return chrome;
   return {
     ok: false,
@@ -724,6 +766,16 @@ function writeBoard(summary) {
     for (const d of summary.due) {
       lines.push(
         `- **${d.prospect_label}** stage=${d.stage} last_touch=${d.last_touch} route=${d.route} hours=${d.hours_since.toFixed(1)}`,
+      );
+    }
+  }
+  lines.push('', '## Gmail outreach replies (hot)', '');
+  if (!(summary.hotReplies || []).length) {
+    lines.push('_No new outreach replies (or scan skipped)._');
+  } else {
+    for (const h of summary.hotReplies) {
+      lines.push(
+        `- **${h.prospect || h.email || h.id}** kind=${h.kind} — \`${h.replyCmd || 'buyer-reply-packet'}\``,
       );
     }
   }
@@ -1018,6 +1070,29 @@ async function run(args) {
     { mode: 0o600 },
   );
 
+  // High-ROI: surface inbound replies so agents act with buyer-reply-packet (skip in --fast).
+  let hotReplies = [];
+  if (!args.fast && process.env.REVENUE_REPLY_SCAN !== '0') {
+    try {
+      const { run: runReplyScan } = require('./gmail-outreach-reply-scan');
+      const scan = runReplyScan({
+        chrome: args.chrome !== false && process.env.REVENUE_NO_CHROME_GMAIL !== '1',
+        baseline: false,
+        ntfy: false,
+        json: true,
+        help: false,
+      });
+      hotReplies = (scan && scan.hot) || [];
+      actions.push(
+        `gmail_reply_scan hot=${hotReplies.length} chrome=${scan && scan.chromeOk} board=${scan && scan.boardPath}`,
+      );
+    } catch (err) {
+      actions.push(`gmail_reply_scan_error:${(err.message || '').slice(0, 80)}`);
+    }
+  } else {
+    actions.push('gmail_reply_scan=skipped');
+  }
+
   const summary = {
     ok: true,
     checkedAt,
@@ -1033,6 +1108,7 @@ async function run(args) {
       route: d.route,
       hours_since: d.hours_since,
     })),
+    hotReplies,
     actions,
     sentCount,
     pendingMcp: pendingSends.length,
