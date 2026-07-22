@@ -47,7 +47,7 @@ describe('ComputerPickerStatusRegion', () => {
         expect.objectContaining({ minHeight: COMPUTER_PICKER_STATUS_MIN_HEIGHT }),
       ]),
     );
-    expect(getByText('Missing your other machine?')).toBeTruthy();
+    expect(getByText('Missing your other computer?')).toBeTruthy();
     expect(queryByTestId('tailscale-discovery-probing')).toBeNull();
     expect(queryByTestId('mac-scan-progress-result')).toBeNull();
 
@@ -131,7 +131,7 @@ describe('ComputerPickerStatusRegion', () => {
       />,
     );
 
-    expect(getByText('Tailscale is off on this phone')).toBeTruthy();
+    expect(getByText('Looking for Tailscale computers…')).toBeTruthy();
     expect(queryByText('On Tailscale — searching for your computer')).toBeNull();
   });
 });

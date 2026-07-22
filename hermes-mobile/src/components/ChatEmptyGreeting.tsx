@@ -60,7 +60,8 @@ export function greetingSubtitle(
     return `Can't reach ${route} yet — tap header to retry.`;
   }
 
-  return 'Ask anything. Plug in USB or pick a computer above to connect.';
+  // Never market USB as the only path — Tailscale / Find computers / picker are primary off-cable.
+  return 'Ask anything. Find computers or pick one above to connect — USB is optional.';
 }
 
 export default function ChatEmptyGreeting({

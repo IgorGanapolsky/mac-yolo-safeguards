@@ -1388,19 +1388,30 @@ describe('ChatScreen', () => {
   });
 
   it('explains how a new user adds a missing Tailscale Mac from the Mac picker', async () => {
+    Object.assign(mockGatewayState, {
+      connectionState: 'disconnected',
+      health: { ok: false, level: 'red' },
+      tailscaleVpnActive: true,
+      tailscaleDiscoveries: [],
+      settings: {
+        ...mockGatewayState.settings,
+        demoMode: false,
+      },
+    });
     const { getByTestId, getByText } = await renderChatScreen();
 
     fireEvent.press(getByTestId('chat-context-mac-button'));
 
     expect(getByTestId('mac-picker-scroll')).toBeTruthy();
     expect(getByTestId('mac-picker-status-region')).toBeTruthy();
-    expect(getByText('Missing your other machine?')).toBeTruthy();
-    expect(getByText(/Start Hermes on your other machine/)).toBeTruthy();
+    expect(getByText('Missing your other computer?')).toBeTruthy();
+    expect(getByText(/Start Hermes on that computer/)).toBeTruthy();
     expect(getByTestId('mac-picker-manual-form')).toBeTruthy();
     expect(getByText('Add by Tailscale address')).toBeTruthy();
-    expect(
-      getByText("Enter your Mac's Tailscale name or 100.x address, then Connect."),
-    ).toBeTruthy();
+    expect(getByText(/Your computer’s Tailscale name or 100\.x address/)).toBeTruthy();
+    expect(getByTestId('mac-picker-subtitle')).toHaveTextContent(
+      /Tap a computer to use it/,
+    );
   });
 
   it('keeps one computer-picker status region instead of stacking discovery banners', async () => {
@@ -1498,7 +1509,7 @@ describe('ChatScreen', () => {
 
     const { getByTestId, queryByTestId, queryByText } = await renderChatScreen();
     fireEvent.press(getByTestId('chat-context-mac-button'));
-    expect(getByTestId('remove-gateway-profile-macmini')).toHaveTextContent(/^Forget this Mac$/);
+    expect(getByTestId('remove-gateway-profile-macmini')).toHaveTextContent('Forget this Mac');
     expect(queryByText('Remove')).toBeNull();
 
     fireEvent.press(getByTestId('remove-gateway-profile-macmini'));

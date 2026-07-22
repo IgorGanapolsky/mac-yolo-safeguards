@@ -43,9 +43,10 @@ describe('ManualComputerAddressForm', () => {
       />,
     );
     expect(getByText('Add by Tailscale address')).toBeTruthy();
-    expect(getByText(/Tailscale name or 100\.x address, then Connect/)).toBeTruthy();
+    expect(getByText(/Your computer’s Tailscale name or 100\.x address/)).toBeTruthy();
     expect(getByTestId('mac-picker-manual-input')).toBeTruthy();
     expect(getByTestId('mac-picker-manual-submit')).toBeTruthy();
+    expect(getByTestId('mac-picker-manual-input-row')).toBeTruthy();
   });
 
   it('shows error for empty input', async () => {
