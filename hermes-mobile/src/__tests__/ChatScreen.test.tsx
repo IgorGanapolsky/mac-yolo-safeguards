@@ -1391,6 +1391,8 @@ describe('ChatScreen', () => {
     Object.assign(mockGatewayState, {
       connectionState: 'disconnected',
       health: { ok: false, level: 'red' },
+      activeGatewayProfile: null,
+      gatewayProfiles: [],
       tailscaleVpnActive: true,
       tailscaleDiscoveries: [],
       settings: {
@@ -1404,12 +1406,54 @@ describe('ChatScreen', () => {
 
     expect(getByTestId('mac-picker-scroll')).toBeTruthy();
     expect(getByTestId('mac-picker-status-region')).toBeTruthy();
+    expect(getByTestId('mac-picker-manual-form')).toBeTruthy();
     expect(getAllByText('Paste your Mac’s Tailscale IP').length).toBeGreaterThanOrEqual(1);
     expect(getAllByText(/On the Mac: Tailscale → copy 100\.x → paste → Connect/).length).toBeGreaterThanOrEqual(1);
-    expect(getByTestId('mac-picker-manual-form')).toBeTruthy();
+    expect(getAllByText(/Hermes must be open on that Mac/).length).toBeGreaterThanOrEqual(1);
     expect(getByTestId('mac-picker-subtitle')).toHaveTextContent(
-      /paste your Mac’s Tailscale IP/,
+      /Tap a computer, or paste Tailscale IP below/,
     );
+  });
+
+  it('lists saved computers above picker help and collapses idle help when profiles exist', async () => {
+    Object.assign(mockGatewayState, {
+      tailscaleVpnActive: true,
+      tailscaleDiscoveries: [],
+      activeGatewayProfile: {
+        id: 'macbook',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://10.2.29.103:8642',
+        localIp: '10.2.29.103',
+        addedAt: '2026-07-02T00:00:00Z',
+      },
+      gatewayProfiles: [
+        {
+          id: 'macmini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          localIp: '100.94.135.78',
+          addedAt: '2026-07-02T00:00:00Z',
+        },
+        {
+          id: 'macbook',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://10.2.29.103:8642',
+          localIp: '10.2.29.103',
+          addedAt: '2026-07-02T00:00:00Z',
+        },
+      ],
+    });
+    const { getByTestId, queryByTestId, queryByText, getByText } = await renderChatScreen();
+
+    fireEvent.press(getByTestId('chat-context-mac-button'));
+
+    expect(getByTestId('gateway-profile-list')).toBeTruthy();
+    expect(getByTestId('mac-picker-status-region-help-link')).toBeTruthy();
+    expect(getByText('Missing another computer?')).toBeTruthy();
+    expect(queryByTestId('mac-picker-status-region')).toBeNull();
+    expect(getByTestId('mac-picker-manual-input-row')).not.toHaveStyle({
+      flexDirection: 'column',
+    });
   });
 
   it('keeps one computer-picker status region instead of stacking discovery banners', async () => {
@@ -1505,7 +1549,7 @@ describe('ChatScreen', () => {
       ],
     });
 
-    const { getByTestId, queryByTestId, queryByText } = await renderChatScreen();
+    const { getByTestId, queryByTestId, queryByText, getByText } = await renderChatScreen();
     fireEvent.press(getByTestId('chat-context-mac-button'));
     expect(getByTestId('remove-gateway-profile-macmini')).toHaveTextContent('Forget this Mac');
     expect(queryByText('Remove')).toBeNull();
@@ -1719,7 +1763,7 @@ describe('ChatScreen', () => {
   });
 
   it('hides Type a message below while the attach picker sheet is open', async () => {
-    const { getByTestId, queryByTestId, queryByText } = await renderChatScreen();
+    const { getByTestId, queryByTestId, queryByText, getByText } = await renderChatScreen();
 
     fireEvent.press(getByTestId('open-sessions-modal'));
     fireEvent.press(getByTestId('modal-new-chat-button'));
