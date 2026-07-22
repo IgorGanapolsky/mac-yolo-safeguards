@@ -65,7 +65,7 @@ export default function GatewayProfilePicker({
       ) : null}
       {profiles.length === 0 && !scanning ? (
         <Text style={styles.emptyText}>
-          No saved computers yet. Tap Find computers or scan the pair QR.
+          No saved computers yet. Paste a Tailscale IP above, or tap Find computers.
         </Text>
       ) : null}
       {profiles.length > 0 ? (

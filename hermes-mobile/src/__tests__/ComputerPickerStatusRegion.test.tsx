@@ -47,7 +47,7 @@ describe('ComputerPickerStatusRegion', () => {
         expect.objectContaining({ minHeight: COMPUTER_PICKER_STATUS_MIN_HEIGHT }),
       ]),
     );
-    expect(getByText('Missing your other computer?')).toBeTruthy();
+    expect(getByText('Paste your Mac’s Tailscale IP')).toBeTruthy();
     expect(queryByTestId('tailscale-discovery-probing')).toBeNull();
     expect(queryByTestId('mac-scan-progress-result')).toBeNull();
 
