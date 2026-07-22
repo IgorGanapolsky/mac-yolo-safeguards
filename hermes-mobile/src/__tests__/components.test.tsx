@@ -81,22 +81,22 @@ describe('GateApprovalCard', () => {
 describe('HealthPill', () => {
   it('renders correctly for green level', () => {
     const { getByText } = render(<HealthPill level="green" />);
-    expect(getByText('Gateway healthy')).toBeTruthy();
+    expect(getByText('Connected')).toBeTruthy();
   });
 
   it('renders correctly for red level with details', () => {
     const { getByText } = render(<HealthPill level="red" detail="error 500" />);
-    expect(getByText('Gateway unreachable')).toBeTruthy();
+    expect(getByText("Can't reach your Mac")).toBeTruthy();
     expect(getByText('error 500')).toBeTruthy();
   });
 
   it('renders correctly for amber level', () => {
     const { getByText } = render(<HealthPill level="amber" />);
-    expect(getByText('Gateway warning')).toBeTruthy();
+    expect(getByText('Needs attention')).toBeTruthy();
   });
 
   it('renders correctly for unknown level', () => {
     const { getByText } = render(<HealthPill level="unknown" />);
-    expect(getByText('Gateway unknown')).toBeTruthy();
+    expect(getByText('Checking…')).toBeTruthy();
   });
 });

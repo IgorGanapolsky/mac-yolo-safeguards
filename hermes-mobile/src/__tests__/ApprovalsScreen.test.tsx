@@ -43,7 +43,7 @@ describe('ApprovalsScreen', () => {
     expect(getByText('Approve blocked tools from your phone — tap notifications on lock screen')).toBeTruthy();
   });
 
-  it('keeps header refresh visible beside long gateway health detail', () => {
+  it('keeps header refresh vertically centered beside health pill', () => {
     useGateway.mockReturnValue(
       mockUseGateway({
         health: { level: 'green', gatewayState: 'unpaired', directGatewayReachable: true },
@@ -52,9 +52,13 @@ describe('ApprovalsScreen', () => {
     );
 
     const { getByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
-    expect(getByText('Direct link OK · relay not paired')).toBeTruthy();
+    expect(getByText('Direct link OK · pair relay in Settings')).toBeTruthy();
+    expect(getByText('Connected')).toBeTruthy();
     expect(getByTestId('leash-header-pill-row')).toBeTruthy();
     expect(getByTestId('leash-header-refresh')).toBeTruthy();
+    const refreshStyle = getByTestId('leash-header-refresh').props.style;
+    const flat = Array.isArray(refreshStyle) ? Object.assign({}, ...refreshStyle) : refreshStyle;
+    expect(flat.alignSelf).toBe('center');
   });
 
   it('shows paywall when ThumbGate Leash is not unlocked', async () => {
@@ -72,8 +76,13 @@ describe('ApprovalsScreen', () => {
   });
 
   it('shows empty state when no pending approvals', () => {
-    const { getByText, getByTestId } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    const { getByText, getByTestId, queryByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByText('No pending approvals')).toBeTruthy();
+    const body = getByTestId('leash-empty-body');
+    expect(body.props.children).toContain('your Mac');
+    expect(String(body.props.children)).not.toMatch(/config\.yaml|approvals\.mode|git push|rm,/i);
+    expect(queryByText(/Tap Refresh above/i)).toBeNull();
+    expect(queryByText(/Hermes Mobile connected\. Gateway healthy/i)).toBeNull();
     expect(getByTestId('thumbgate-promo-leash_empty')).toBeTruthy();
   });
 
@@ -85,6 +94,25 @@ describe('ApprovalsScreen', () => {
     );
     const { getByTestId } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByTestId('thumbgate-promo-leash_disconnected')).toBeTruthy();
+  });
+
+  it('collapses connection prose to one headline line when linked', () => {
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        connectionState: 'connected',
+        health: { level: 'green', gatewayState: 'running', hostname: 'Computer via Tailscale' },
+        sessionGreeting: 'Hermes Mobile connected. Gateway healthy.',
+        settings: { ...mockGatewaySettings, connectionMode: 'gateway' },
+        effectiveGatewayUrl: 'http://100.64.0.1:8642',
+      }),
+    );
+    const { getByTestId, queryByText, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    expect(getByTestId('leash-connection-status')).toBeTruthy();
+    expect(getByText(/Direct local link/i)).toBeTruthy();
+    expect(queryByText(/^Machine:/)).toBeNull();
+    expect(queryByText(/^IP:/)).toBeNull();
+    expect(queryByText(/Hermes Mobile connected\. Gateway healthy/i)).toBeNull();
+    expect(queryByText(/Tap Refresh above/i)).toBeNull();
   });
 
   it('shows Pro upsell when free weekly allowance remains but not Pro', async () => {

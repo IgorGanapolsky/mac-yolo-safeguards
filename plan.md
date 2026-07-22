@@ -1104,6 +1104,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `hermes-mobile/src/__tests__/easBuildGuard.test.ts`, `plan.md` → **cursor-silent-bubble-hide** (T-EAS-GUARD-DATE-ROLL-20260723: CI crossed 2026-07-23 UTC and exposed a date-dependent process test; test-only deterministic future window, production guard unchanged) (2026-07-23T00:04:00Z)
 
 ## 3. Decisions Log
+- 2026-07-22T19:39:53Z `cursor-leash-calm-ui`: **T-LEASH-CALM-UI** — Leash status row vertically centers Refresh; HealthPill primary labels use Connected / Needs attention / Can't reach your Mac; empty state is one short plain-language line (no config.yaml/mode dump); connection block collapsed to one headline (+ action footnote only when unpaired/disconnected); removed sessionGreeting + pull-hint redundancy. Jest 223/1965 + typecheck green.
+
 
 - 2026-07-22T22:53:00Z `codex-hermes-academic-launchd`: **Started T-HERMES-ACADEMIC-LAUNCHD-NODE-20260722 from live deployment evidence.** PR #830 merged as `02610cea` with required CI green, but the first exact-main installer kickstart returned exit 127 and `env: node: No such file or directory`; the interactive executable is `/opt/homebrew/bin/node`, which launchd does not inherit. The fix is bounded to resolving and substituting an executable absolute Node path plus a regression contract and a second live kickstart; no research policy, schedule, provider, or spend behavior changes.
 
