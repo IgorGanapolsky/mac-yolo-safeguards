@@ -175,6 +175,19 @@ check('maybePairOnAppear runs pair once on absent→present edge', () => {
   assert.deepStrictEqual(calls, ['R3CY90QPM7E'], 'must not re-pair while continuously present');
 });
 
+check('appear pairing uses silent USB arguments and never requests a browser', () => {
+  let received = null;
+  const result = watchdog.runAppearPair('R3CY90QPM7E', {
+    pairRunner: (serial, invocation) => {
+      received = { serial, ...invocation };
+      return { serial, paired: true, reason: 'paired' };
+    },
+  });
+  assert.strictEqual(result.paired, true);
+  assert.deepStrictEqual(received.args, ['--no-serve']);
+  assert.strictEqual(received.args.includes('--open'), false);
+});
+
 check('maybePairOnAppear retries when pipeline is busy', () => {
   const appearPath = path.join(tmpDir, 'appear-busy.json');
   const first = watchdog.maybePairOnAppear(['R3CY90QPM7E'], {
