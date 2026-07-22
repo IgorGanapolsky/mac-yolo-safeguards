@@ -42,8 +42,8 @@ describe('ManualComputerAddressForm', () => {
         testIDPrefix="mac-picker-manual"
       />,
     );
-    expect(getByText('Add by Tailscale address')).toBeTruthy();
-    expect(getByText(/Your computer’s Tailscale name or 100\.x address/)).toBeTruthy();
+    expect(getByText('Paste your Mac’s Tailscale IP')).toBeTruthy();
+    expect(getByText(/On the Mac: Tailscale → copy 100\.x → paste → Connect/)).toBeTruthy();
     expect(getByTestId('mac-picker-manual-input')).toBeTruthy();
     expect(getByTestId('mac-picker-manual-submit')).toBeTruthy();
     expect(getByTestId('mac-picker-manual-input-row')).toBeTruthy();

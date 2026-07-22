@@ -154,7 +154,7 @@ describe('computerPickerStatus', () => {
       tailscaleDiscoveries: [],
     });
     expect(status.kind).toBe('help');
-    expect(status.title).toBe('Missing your other computer?');
+    expect(status.title).toBe('Paste your Mac’s Tailscale IP');
   });
 
   it('never claims Using USB when active path is Home Wi-Fi', () => {
