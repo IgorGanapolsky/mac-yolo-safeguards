@@ -26,4 +26,4 @@ node tools/thumbgate-aeo-monitor.js --execute --write --json
 bash scripts/install-thumbgate-aeo-monitor.sh
 ```
 
-The LaunchAgent runs Mondays at 9:15 AM local time. It never edits content automatically. Citation loss becomes evidence for the normal branch → tests → canary → promote/revert workflow.
+The installer copies the bounded monitor, its prompt set, and the existing search wrapper into `~/.local/share/thumbgate-aeo/`, so launchd never depends on a disposable git worktree. The LaunchAgent runs Mondays at 9:15 AM local time. It never edits content automatically. Citation loss becomes evidence for the normal branch → tests → canary → promote/revert workflow.

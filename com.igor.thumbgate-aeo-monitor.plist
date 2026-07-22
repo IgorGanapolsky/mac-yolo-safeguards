@@ -7,13 +7,13 @@
   <key>ProgramArguments</key>
   <array>
     <string>{{NODE}}</string>
-    <string>{{REPO}}/tools/thumbgate-aeo-monitor.js</string>
+    <string>{{RUNTIME}}/tools/thumbgate-aeo-monitor.js</string>
     <string>--execute</string>
     <string>--write</string>
     <string>--json</string>
   </array>
   <key>WorkingDirectory</key>
-  <string>{{REPO}}</string>
+  <string>{{RUNTIME}}</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>HOME</key>
