@@ -5,12 +5,28 @@
     "googleFree": {
       "package": "com.iganapolsky.hermesmobile",
       "publicHttp": 404,
-      "checkedLocales": ["hl=en&gl=US", "hl=en&gl=CA", "hl=en&gl=GB", "hl=en&gl=DE"],
+      "checkedLocales": [
+        "hl=en&gl=US",
+        "hl=en&gl=CA",
+        "hl=en&gl=GB",
+        "hl=en&gl=DE"
+      ],
       "developerApi": {
-        "productionTrack": { "release": "1.2", "versionCode": 18, "status": "completed" },
+        "productionTrack": {
+          "release": "1.2",
+          "versionCode": 18,
+          "status": "completed"
+        },
         "listingIntact": true,
         "screenshotCount": 6
-      }
+      },
+      "consoleStatus": "Unpublished",
+      "consoleAppId": "4973118708450369499",
+      "unpublishActor": "iganapolsky@gmail.com",
+      "unpublishAtLocalConsole": "2026-07-22T09:28",
+      "unpublishPath": "Advanced settings \u2192 Publish status",
+      "accountPolicy": "No issues found with your developer account.",
+      "spamHypothesisRetracted": true
     },
     "googlePaid": {
       "package": "com.iganapolsky.hermesmobile.paid",
@@ -19,7 +35,11 @@
       "price": "$4.99",
       "firstLiveTickUtc": "2026-07-22T10:13:40Z",
       "developerApi": {
-        "productionTrack": { "release": "paid-15", "versionCode": 15, "status": "completed" },
+        "productionTrack": {
+          "release": "paid-15",
+          "versionCode": 15,
+          "status": "completed"
+        },
         "screenshotCount": 6
       }
     },
@@ -34,25 +54,94 @@
       "screenshotUrls": [],
       "ipadScreenshotUrls": [],
       "appletvScreenshotUrls": [],
-      "userRatingCount": 0
+      "userRatingCount": 0,
+      "ascStatus": "1.3 Ready for Distribution",
+      "ascBuild": "24",
+      "screenshotsInAsc": [
+        "01_approve_67",
+        "02_block_67",
+        "03_standing_67",
+        "04_pair_67",
+        "05_thumbgate_67",
+        "06_works_67"
+      ],
+      "previewVideoPresent": true,
+      "publicProductPageHasScreenshots": true,
+      "lookupApiScreenshotUrlsEmptyQuirk": true
     }
   },
   "serpBaselineUS": {
     "playSearch": {
-      "hermes ai agent": ["com.hermesagent.android", "com.axiomlabs.hermesrelay", "tech.butterfly.app", "com.coddykit.learn.ai.agents", "com.minimax.ai", "com.google.ai.edge.gallery", "com.anthropic.claude", "com.burslabs.projecthermes", "ai.perplexity.app.android", "ai.mainfunc.genspark"],
-      "hermes mobile": ["com.hermesagent.android", "com.retroguru.hermes", "gr.directsolutions.hermesv_mobile", "com.axiomlabs.hermesrelay", "com.iganapolsky.hermesmobile.paid", "com.rafaelfelipeac.hermes", "com.hermes.hermes.android", "com.ccc.hermes", "com.xermes.xermes", "com.nascence.haermesmobile3"],
-      "hermes leash": ["com.axiomlabs.hermesrelay", "com.retroguru.hermes", "com.rafaelfelipeac.hermes", "com.Androtiyas.Hermes", "com.hermes.whats"]
+      "hermes ai agent": [
+        "com.hermesagent.android",
+        "com.axiomlabs.hermesrelay",
+        "tech.butterfly.app",
+        "com.coddykit.learn.ai.agents",
+        "com.minimax.ai",
+        "com.google.ai.edge.gallery",
+        "com.anthropic.claude",
+        "com.burslabs.projecthermes",
+        "ai.perplexity.app.android",
+        "ai.mainfunc.genspark"
+      ],
+      "hermes mobile": [
+        "com.hermesagent.android",
+        "com.retroguru.hermes",
+        "gr.directsolutions.hermesv_mobile",
+        "com.axiomlabs.hermesrelay",
+        "com.iganapolsky.hermesmobile.paid",
+        "com.rafaelfelipeac.hermes",
+        "com.hermes.hermes.android",
+        "com.ccc.hermes",
+        "com.xermes.xermes",
+        "com.nascence.haermesmobile3"
+      ],
+      "hermes leash": [
+        "com.axiomlabs.hermesrelay",
+        "com.retroguru.hermes",
+        "com.rafaelfelipeac.hermes",
+        "com.Androtiyas.Hermes",
+        "com.hermes.whats"
+      ]
     },
     "iosSearch": {
-      "hermes ai agent": ["io.yoclaw", "tech.butterfly.app", "co.vulcanlabs.moodtracker", "co.appnation.geniechat", "hermes.agent.openclaw", "com.nextgen.aibot", "com.sof.7017openclaw", "Herms.lpu.com", "com.uzairansar.hermesmobile", "com.rethinkingstudio.ClawControl"],
-      "Hermes AI Agent Leash (exact)": ["com.iganapolsky.hermesmobile"],
-      "agent leash": ["com.iganapolsky.hermesmobile"]
+      "hermes ai agent": [
+        "io.yoclaw",
+        "tech.butterfly.app",
+        "co.vulcanlabs.moodtracker",
+        "co.appnation.geniechat",
+        "hermes.agent.openclaw",
+        "com.nextgen.aibot",
+        "com.sof.7017openclaw",
+        "Herms.lpu.com",
+        "com.uzairansar.hermesmobile",
+        "com.rethinkingstudio.ClawControl"
+      ],
+      "Hermes AI Agent Leash (exact)": [
+        "com.iganapolsky.hermesmobile"
+      ],
+      "agent leash": [
+        "com.iganapolsky.hermesmobile"
+      ]
     }
   },
   "competitors": [
-    { "package": "com.hermesagent.android", "name": "Hermes Agent - Android", "rating": 4.7, "notes": "multi-provider terminal agent, Telegram/Slack/Discord gateways, active changelog" },
-    { "package": "com.axiomlabs.hermesrelay", "name": "Hermes-Relay", "notes": "open-source (Codename-11/hermes-relay), sideload for full phone control, roams via Tailscale" },
-    { "package": "hermes.agent.mobile", "name": "Hermes Agent Client - OnDev AI", "notes": "smaller, mobile-first coding workspace" }
+    {
+      "package": "com.hermesagent.android",
+      "name": "Hermes Agent - Android",
+      "rating": 4.7,
+      "notes": "multi-provider terminal agent, Telegram/Slack/Discord gateways, active changelog"
+    },
+    {
+      "package": "com.axiomlabs.hermesrelay",
+      "name": "Hermes-Relay",
+      "notes": "open-source (Codename-11/hermes-relay), sideload for full phone control, roams via Tailscale"
+    },
+    {
+      "package": "hermes.agent.mobile",
+      "name": "Hermes Agent Client - OnDev AI",
+      "notes": "smaller, mobile-first coding workspace"
+    }
   ],
   "sources": [
     "https://appdrift.co/blog/ios-app-store-keywords-field",
@@ -75,5 +164,6 @@
     "https://launchshots.app/blog/app-store-preview-video-guide",
     "https://developer.apple.com/app-store/app-previews/",
     "https://higgsfield.ai/blog/make-100-creative-ads"
-  ]
+  ],
+  "followUpAtUtc": "2026-07-22T17:10:00Z"
 }

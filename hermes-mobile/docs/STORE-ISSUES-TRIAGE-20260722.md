@@ -10,22 +10,39 @@ plus in-flight claims `T-SUBTITLE-PAID-ONCE`, `T-PLAY-PAID-DOWNLOAD`). This tria
 re-doing that work and instead documents gaps, root-causes the new regression, and closes
 what nobody else had claimed.
 
-## P0 — open, needs Igor awareness (not "fixed")
+## P0 — open product decision (not a Google suspension)
 
-### 1. Free Play package `com.iganapolsky.hermesmobile` returns public HTTP 404
+### 1. Free Play package `com.iganapolsky.hermesmobile` is **Unpublished** (public HTTP 404)
 
-- **Evidence:** `curl -A Mozilla/5.0 https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile&hl=en&gl=US` → `404` (also `gl=CA/GB/DE`). Play Developer API shows production track `status: completed` (v1.2, versionCode 18) and full listing/screenshot data intact.
-- **Timing:** flipped in the same window (~2026-07-22 10:13 UTC) the sibling paid package `com.iganapolsky.hermesmobile.paid` went from `in_review_public_only` to publicly live.
-- **Hypothesis (unconfirmed):** Google Play repetitive-content/spam policy enforcement against two near-identical sibling listings from the same developer, triggered once both were simultaneously public.
-- **Status: OPEN.** A read-only Play Console check (dashboard/policy-status/publishing-overview banners for both apps, screenshots saved) was dispatched this session. Do not resubmit, change country availability, or file an appeal until that Console evidence confirms the actual reason — guessing and acting on the guess risks making a policy strike worse.
-- **Owner:** flagged in `plan.md` Decisions Log; whoever picks up `T-PLAY-PAID-REVIEW-POLL` or a new `T-PLAY-FREE-SUSPENSION` task should action once Console evidence lands.
+- **Public evidence:** `curl -A Mozilla/5.0 https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile&hl=en&gl=US` → `404` (also `gl=CA/GB/DE`).
+- **Console evidence (2026-07-22, authenticated Chrome as IgorGanapolsky / account `5120393192891708058`):**
+  - App list status: **`Unpublished`**, last updated Jul 22, 2026 (package `com.iganapolsky.hermesmobile`, Console app id `4973118708450369499`).
+  - Sibling paid package `com.iganapolsky.hermesmobile.paid` (app id `4972002147362988720`): **`Production`**.
+  - Account Policy status: **"No issues found with your developer account."** — this is **not** a spam/policy suspension.
+  - Production track for the free app still shows **Active latest release 1.2**, 1 country/region, ~3 installs — the binary/release was not deleted; only publish availability changed.
+  - **Activity log smoking gun:** `Advanced settings → Publish status` changed by **`iganapolsky@gmail.com`** on **Jul 22, 2026 09:28** (Console activity log, 30-day window). Not the service account. Not Google auto-action.
+- **Earlier hypothesis (spam/repetitive-content) is RETRACTED.** Timing near the paid package going live was correlative, not causal.
+- **Status: OPEN PRODUCT DECISION — do not auto-republish.** Unpublishing from Igor's Google account may have been intentional (funnel traffic to the new `$4.99` paid download package) or accidental. Republishing is a consequential store action; leave free unpublished until product intent is explicit. Meanwhile the paid package is the only live Android storefront.
+- Related in-flight claims: `T-PLAY-PAID-DOWNLOAD`, `T-PLAY-PAID-REVIEW-POLL` (paid is already live; poller can stay as a watchdog).
 
-### 2. Live iOS listing (v1.3, $9.99) has zero screenshots
+### 2. iOS screenshots — CORRECTED: present in ASC + public product page
 
-- **Evidence:** `itunes.apple.com/lookup?id=6786778037` → `screenshotUrls: []`, `ipadScreenshotUrls: []`, `appletvScreenshotUrls: []` on the current public build.
-- **Impact:** a paid ($9.99) app with an empty screenshot gallery is a severe, self-inflicted conversion loss independent of ranking.
-- **Fix path:** the repo already has a regenerated 6-frame iPhone 6.7"/iPad 12.9" set (PR #783, today, currently `CONFLICTING` with main). Once that PR's frame content is available, upload via App Store Connect (no local ASC API issuer id — Chrome session required per `verify-app-store-publish-state` skill). This session ran the read-only ASC status check to confirm exactly what's uploaded for v1.3 today before touching anything.
-- **Status:** upload not yet performed this session pending the ASC check result; do not claim "iOS screenshots fixed" until a fresh `itunes.apple.com/lookup` shows non-empty `screenshotUrls`.
+- **Retracted earlier P0.** `itunes.apple.com/lookup?id=6786778037` still returns `screenshotUrls: []` (API quirk), but:
+  - **ASC v1.3** (`Ready for Distribution`, build `24`) shows frames `01_approve_67` … `06_works_67` plus an App Preview video (`PurpleVideo221`).
+  - **Public product page** `https://apps.apple.com/us/app/hermes-ai-agent-leash/id6786778037` embeds the same `PurpleSource*` screenshot URLs (verified 2026-07-22).
+- **No upload action needed from this session** for the current live set. PR #783 (regenerated cross-platform frames) remains an asset-quality upgrade path, not an empty-gallery emergency.
+
+## P1 — ASC soft deadline (actionable, not blocking Ready for Distribution)
+
+### 2b. Age Ratings — Social Media questionnaire due 2026-09-07
+
+- ASC banner on v1.3: **"Update Your Age Ratings Responses about Social Media — Respond to new questions about social media capabilities in the App Information section of this app by September 7, 2026."**
+- Status is still `1.3 Ready for Distribution` today; this is a soft deadline, not a rejection. Fill via App Information → Age Ratings before Sept 7. No financial fields involved.
+
+### 2c. ASC session restore note
+
+- Initial Chrome ASC reconnaissance hit `authResult=FAILED` login wall ([Check ASC review status via Chrome](4cf0029e-72e1-4725-aff8-9a7aff737deb)).
+- Restored via `bash .cursor/skills/ingest-chat-credentials/scripts/ensure-asc-session.sh --force-fill --skip-api` → `keychain_login_verified` for `igor.ganapolsky@icloud.com`. No password echoed; no user homework.
 
 ## P1 — verified healthy, no action needed
 
@@ -60,7 +77,7 @@ note in the canonical doc.)
 
 - Confirmed via Developer API: production track `paid-15` (versionCode 15) `status:
   completed`, title `Hermes Mobile: AI Agent | Pay once $4.99...`, 6 screenshots attached
-  (shares first-frame sha256 with the free package — see P0 #1 hypothesis).
+  (shares first-frame sha256 with the free package's stored listing assets).
 - Confirmed via public curl: HTTP 200, `og:title` "Hermes Mobile: AI Agent - Apps on
   Google Play", price meta `$4.99`, developer `IgorGanapolsky`.
 - **This is good news that predates this session** (`T-PLAY-PAID-REVIEW-POLL` LaunchAgent
@@ -88,8 +105,8 @@ Free package title: `Hermes AI: Agent Leash` (per Developer API `edits.listings`
 `Hermes AI: Mac Agent Leash` (per fastlane source-of-truth `title.txt`, not yet re-pushed).
 Paid package title: `Hermes Mobile: AI Agent`. Not urgent, but the two live Play titles for
 sibling apps from the same developer don't share a consistent naming pattern — worth
-aligning once the P0 #1 suspension question is resolved (aligning them further right now,
-mid-investigation, could complicate root-causing the near-duplicate-content hypothesis).
+aligning once the free-package publish-status product decision is settled (paid is the only
+live Android storefront today).
 
 ## What this session did NOT touch (by design, to avoid clobbering active work)
 
@@ -111,7 +128,7 @@ won on both stores. The commercially meaningful category term (`hermes ai agent`
 currently owned by two established, better-rated competitors (Hermes Agent - Android,
 4.7★; Hermes-Relay, open-source with an active GitHub community) that have real
 install/rating velocity Hermes Mobile does not yet have — no metadata or screenshot change
-closes that gap by itself. The **immediate, controllable lever** is fixing the free-package
-404 (P0 #1) and the iOS empty-screenshot gallery (P0 #2), because right now those are
-actively suppressing conversion and visibility on top of the competitive gap, not because
-either fix will produce a top-ranking.
+closes that gap by itself. The **immediate, controllable lever** is the free-package
+publish-status product decision (P0 #1): either keep free Unpublished and market the paid
+`$4.99` download as the sole Android storefront, or republish free as the IAP bridge.
+iOS screenshots are already live; do not spend cycles on a Lookup-API false alarm.

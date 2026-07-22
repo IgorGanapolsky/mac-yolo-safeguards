@@ -12,37 +12,26 @@ creative, and a direct-competitor teardown). It does not restate the canonical d
 
 | Listing | 2026-07-21 (canonical doc) | 2026-07-22 16:20 UTC (this addendum) | Evidence |
 |---|---|---|---|
-| Google **free**, `com.iganapolsky.hermesmobile` | HTTP 200, publicly live | **HTTP 404** across `gl=US/CA/GB/DE`, `hl=en/en_US` | `curl -A Mozilla/5.0 https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile` → 404, re-checked 4 locales |
-| Google **paid**, `com.iganapolsky.hermesmobile.paid` | HTTP 404, not public | **HTTP 200, publicly live**, title "Hermes Mobile: AI Agent", $4.99 | First `live` poll tick `hermes-mobile/docs/proofs/play-paid-review-20260722/tick-20260722T101340Z.json` at `10:13:40Z`; confirmed again at `16:18:06Z` in `play-paid-review-latest.json` |
-| Apple, `id6786778037` | HTTP 200, v1.2, name `Hermes Mobile: AI Agent Leash`, 0 ratings | HTTP 200, **v1.3** (released `2026-07-21T18:43:44Z`), name **`Hermes AI Agent Leash`**, price **$9.99**, still 0 ratings, **`screenshotUrls: []`, `ipadScreenshotUrls: []`** | `itunes.apple.com/lookup?id=6786778037` |
+| Google **free**, `com.iganapolsky.hermesmobile` | HTTP 200, publicly live | **HTTP 404 / Console status `Unpublished`** | Public curl 404; Play Console app list `Unpublished` (app id `4973118708450369499`); Activity log: `Advanced settings → Publish status` changed by `iganapolsky@gmail.com` on Jul 22, 2026 09:28; account Policy status "No issues found" |
+| Google **paid**, `com.iganapolsky.hermesmobile.paid` | HTTP 404, not public | **HTTP 200, publicly live**, title "Hermes Mobile: AI Agent", $4.99 | First `live` poll tick `hermes-mobile/docs/proofs/play-paid-review-20260722/tick-20260722T101340Z.json` at `10:13:40Z`; Console status `Production` |
+| Apple, `id6786778037` | HTTP 200, v1.2, name `Hermes Mobile: AI Agent Leash`, 0 ratings | HTTP 200, **v1.3** (released `2026-07-21T18:43:44Z`), name **`Hermes AI Agent Leash`**, price **$9.99**, still 0 ratings; ASC `Ready for Distribution` build 24 with 6 screenshots + preview video live on the public product page | ASC Chrome + `apps.apple.com` HTML; Lookup API still returns empty `screenshotUrls` (API quirk — do not treat as empty gallery) |
 
-### Root cause: free-package 404 (open, not fixed)
+### Root cause: free-package 404 (resolved as Unpublished, not a suspension)
 
-The free package's Play Developer API state is **unchanged and healthy** — `edits.tracks`
-shows the production release (`1.2`, versionCode `18`) as `status: completed`, and
-`edits.listings/en-US` plus `edits.listings/en-US/phoneScreenshots` return full title,
-description, and 6 screenshot objects (sha256 intact). This rules out data loss, a failed
-publish, or an empty edit. The break is specifically in **public storefront visibility**.
+Follow-up Console evidence (same session, after ASC Keychain session restore) **retracts**
+the spam/repetitive-content hypothesis. The free package was set to **Unpublished** by
+`iganapolsky@gmail.com` via Advanced settings → Publish status on Jul 22, 2026 09:28.
+Account Policy Center reports no developer-account issues. The production release 1.2
+remains Active on the track (~3 installs, 1 country) — only storefront availability was
+toggled. **Do not auto-republish**; treat as an open product decision (funnel to paid vs
+restore free IAP bridge). Details: `docs/STORE-ISSUES-TRIAGE-20260722.md`.
 
-The two packages are near-identical siblings from the same developer (shared first-frame
-screenshot sha256 `05907aa5859c46ca...`, overlapping description skeleton, same icon
-family) and the paid package crossed from "in review" to "publicly live" in the exact
-window the free package went dark. This is the observable signature of Google Play's
-repetitive-content / spam-policy enforcement against near-duplicate listings — Play
-Console policy pages are the only authoritative confirmation, and that check was
-dispatched read-only in this session (see `docs/STORE-ISSUES-TRIAGE-20260722.md` for the
-outcome). **Do not treat this as resolved, and do not resubmit/edit-availability/appeal
-before Console evidence confirms the actual reason** — an unconfirmed guess is not a fix.
+### iOS screenshots: present (Lookup API empty is a red herring)
 
-### iOS: zero screenshots on a live, paid, $9.99 listing
-
-The public `screenshotUrls` array for the current v1.3 build is empty for iPhone, iPad,
-and Apple TV. A $9.99 paid download with no screenshots on its product page is a severe,
-self-inflicted conversion loss, independent of ranking — most users will not purchase a
-paid app with an empty gallery. This is closeable: the repository already carries a
-generated 6-frame iPhone 6.7" + iPad 12.9" set at `fastlane/screenshots/en-US/` (refreshed
-today by PR #783, still `CONFLICTING`), which only needs an ASC upload once the frame
-content lands on `main`.
+ASC v1.3 Ready for Distribution shows frames `01_approve_67` … `06_works_67` plus an App
+Preview video, and the public product page embeds those `PurpleSource*` URLs. The
+iTunes Lookup API returning `screenshotUrls: []` is an API quirk — not an empty gallery.
+PR #783 remains an asset-quality upgrade, not an emergency upload.
 
 ## 2. Updated SERP baseline (2026-07-22, signed-out, US)
 
