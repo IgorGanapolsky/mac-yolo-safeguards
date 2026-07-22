@@ -51,7 +51,9 @@ test("builds the public Leash subscription landing page", async () => {
   const chrome = await readFile(new URL("../app/LandingAuthChrome.tsx", import.meta.url), "utf8");
   assert.match(chrome, /data-funnel-event="free_control_click"/);
   assert.match(chrome, /data-funnel-event="cloud_continuity_click"/);
-  assert.match(chrome, /data-funnel-event="sign_in_click"/);
+  assert.match(chrome, /data-funnel-event=\{isSession \? "dashboard_open_click" : "sign_in_click"\}/);
+  assert.equal((chrome.match(/"sign_in_click"/g) ?? []).length, 1);
+  assert.equal((chrome.match(/fetch\("\/api\/me"/g) ?? []).length, 1);
   assert.match(page, /90s<\/strong><span>execution lease/);
   assert.match(page, /application\/ld\+json/);
   assert.match(page, /SoftwareApplication/);

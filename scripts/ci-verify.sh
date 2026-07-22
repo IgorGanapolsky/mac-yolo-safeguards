@@ -84,6 +84,9 @@ node tests/test-hermes-self-harness.js
 node tests/test-merge-gateway-readiness.js
 node tests/test-tencentdb-memory-readiness.js
 node tests/test-athena-agent-revenue-gap.js
+node tests/test-governed-agent-sales-copy.js
+node tests/test-chrome-gmail-sent-verify.js
+node tests/test-gmail-outreach-reply-scan.js
 node tests/test-revenue-autonomous-loop.js
 node tests/test-ralph-gsd-loop.js
 node tests/test-smart-ops-controller.js
