@@ -34,11 +34,15 @@ export function isTailscaleVpnActive(input: TailscaleVpnDetectInput): boolean {
   return false;
 }
 
-export function isTailscaleVpnActiveFromNetInfo(state: NetInfoState): boolean {
+export function isTailscaleVpnActiveFromNetInfo(
+  state: NetInfoState,
+  reachedTailscaleHost = false,
+): boolean {
   const ipAddress = (state.details as { ipAddress?: string } | null)?.ipAddress;
   return isTailscaleVpnActive({
     netInfoType: state.type,
     isConnected: state.isConnected,
     ipAddress,
+    reachedTailscaleHost,
   });
 }
