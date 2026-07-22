@@ -48,12 +48,29 @@ const worker = {
 
     const response = await handler.fetch(request, env, ctx);
 
-    // HTML documents must never be cached: hashed /assets/* from an old build
-    // 404 after the next deploy, leaving stale pages rendered but inert.
+    // HTML cache policy (July 2026 blazing-fast research):
+    // - Anonymous marketing GET / can be edge-cached briefly (static shell; auth via /api/me).
+    // - Dashboard + anything with a session cookie stays no-store.
+    // - Keep s-maxage short so deploys that change hashed /assets/* recover quickly
+    //   (stale HTML still self-heals via vite:preloadError reload in layout).
     const contentType = response.headers.get("content-type") ?? "";
     if (contentType.includes("text/html")) {
       const headers = new Headers(response.headers);
-      headers.set("cache-control", "no-store");
+      const path = url.pathname;
+      const cookie = request.headers.get("cookie") ?? "";
+      const hasSession = /(?:^|;\s*)hermes_session=/.test(cookie);
+      const isPublicMarketing =
+        request.method === "GET" &&
+        !hasSession &&
+        (path === "/" || path === "");
+      if (isPublicMarketing) {
+        headers.set(
+          "cache-control",
+          "public, max-age=0, s-maxage=60, stale-while-revalidate=600",
+        );
+      } else {
+        headers.set("cache-control", "no-store");
+      }
       return new Response(response.body, {
         status: response.status,
         statusText: response.statusText,
