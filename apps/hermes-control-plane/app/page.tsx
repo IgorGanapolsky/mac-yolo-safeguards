@@ -47,9 +47,9 @@ export default function Home() {
 
       <section id="main-content" className="hero" tabIndex={-1}>
         <div className="hero-copy">
-          <p className="eyebrow"><span className="live-dot" /> Hermes-native. Web-ready.</p>
-          <h1>Your Hermes chats<br /><span>from any screen.</span></h1>
-          <p className="hero-lede">The dark, focused Hermes workspace you already know—adapted for desktop and mobile web. Your Mac runs the work locally; paid cloud continuity can take over when it goes offline.</p>
+          <p className="eyebrow"><span className="live-dot" /> Hermes-native. Web + mobile.</p>
+          <h1>Your agent, wherever you are.<br /><span>Even when your Mac isn&apos;t.</span></h1>
+          <p className="hero-lede">Chat with Hermes, approve what it&apos;s about to run, and watch it work—from your phone or any browser. Free while your Mac is on. Turn on Cloud Continuity and it keeps going even after you close the lid.</p>
           <LandingAuthHero />
           <p className="signin-note">Hermes Web by ThumbGate. Sign in with AuthKit (Google, Apple, Microsoft, GitHub, email, or enterprise SSO)—no new ThumbGate password.</p>
           <div className="trust-row"><span>No inbound ports</span><span>Private-key pairing</span><span>Cloud only when enabled</span></div>
@@ -120,7 +120,7 @@ export default function Home() {
       </section>
 
       <section id="pricing" className="pricing-section">
-        <div className="pricing-copy"><p className="eyebrow">Free control. Paid continuity.</p><h2>Pay for the infrastructure that keeps working.</h2><p>Web control of your own online Hermes machine stays free. Managed cloud execution is the paid product.</p></div>
+        <div className="pricing-copy"><p className="eyebrow">Free control. Paid continuity.</p><h2>You don&apos;t pay to chat. You pay so your agent never has to wait for you.</h2><p>Web control of your own online Hermes machine stays free, always. Cloud Continuity is the only paid step—it keeps your agent running when your Mac can&apos;t.</p></div>
         <div className="price-grid">
           <article className="price-card">
             <div><span>Web Control</span><strong>$0<small>/month</small></strong></div>
