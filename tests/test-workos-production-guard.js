@@ -2,7 +2,7 @@
 'use strict';
 
 const assert = require('assert');
-const { PROD_CLIENT_ID, STAGING_CLIENT_ID, PROD_AUTHKIT_HOST } = require('../tools/workos-production-guard');
+const { PROD_CLIENT_ID, STAGING_CLIENT_ID, PROD_AUTHKIT_HOST, EXPECTED_METHODS } = require('../tools/workos-production-guard');
 
 function test(name, fn) {
   try {
@@ -26,4 +26,13 @@ test('exports stable production client and authkit host constants', () => {
 test('guard module loads', () => {
   const mod = require('../tools/workos-production-guard');
   assert.equal(typeof mod.check, 'function');
+});
+
+test('expected sign-in methods are non-empty with lowercase markers', () => {
+  assert.ok(Array.isArray(EXPECTED_METHODS));
+  assert.ok(EXPECTED_METHODS.length > 0);
+  for (const method of EXPECTED_METHODS) {
+    assert.equal(typeof method.name, 'string');
+    assert.equal(method.marker, method.marker.toLowerCase());
+  }
 });
