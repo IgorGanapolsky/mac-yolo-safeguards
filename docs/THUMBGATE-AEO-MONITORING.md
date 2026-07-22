@@ -1,0 +1,29 @@
+# ThumbGate AI/search visibility monitoring
+
+ThumbGate tracks a stable, brand-neutral three-prompt set weekly instead of treating one manual LLM query as proof. The monitor is a **web-source citation proxy**. It does not claim direct Google AI Overview telemetry.
+
+## What is measured
+
+- Technical discovery: landing JSON-LD and visible FAQ, robots, sitemap, `llms.txt`, and ARD 1.0.
+- Citation count: results whose canonical host is `thumbgate.app`.
+- Brand mention share: results that cite or name ThumbGate.
+- Deterministic mention sentiment: a small, auditable positive/negative term set; not an ML sentiment model.
+- Citation and mention deltas against the preceding receipt.
+
+## Cost and privacy
+
+- One Parallel Turbo request per weekly run, containing all three public prompts.
+- Estimated scheduled maximum: **$0.005/month** (five runs).
+- Hard local monthly stop: **$0.10/month**, well below the product-wide $10/month ceiling.
+- Receipts live at `~/.hermes/receipts/thumbgate-aeo/` with mode `0600`.
+- No chat, account, customer, or workspace data is queried or stored.
+
+## Commands
+
+```bash
+node tools/thumbgate-aeo-monitor.js --json
+node tools/thumbgate-aeo-monitor.js --execute --write --json
+bash scripts/install-thumbgate-aeo-monitor.sh
+```
+
+The LaunchAgent runs Mondays at 9:15 AM local time. It never edits content automatically. Citation loss becomes evidence for the normal branch → tests → canary → promote/revert workflow.
