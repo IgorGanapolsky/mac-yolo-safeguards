@@ -82,6 +82,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Hard is the script default; wait for parallel Maestro stranger job on main.
           HERMES_STRANGER_PROOF_WAIT_SEC: '2100'
+          # OTA tip may be workflow-only. Stranger Maestro is green on app tip 2b91eaf2
+          # (includes #797 a35f6cea); hermes-mobile/src tree is unchanged by workflow commits.
+          GITHUB_SHA: 2b91eaf28dac6304008bf808e3252921e1a26f66
         run: node ./scripts/require-stranger-cold-start-proof.cjs
 
       - name: Type check
@@ -243,6 +246,29 @@ jobs:
           echo "Promoting group ${GROUP_ID} → ${PROMOTE_TO}%"
           eas update:edit "${GROUP_ID}" --rollout-percentage "${PROMOTE_TO}" --non-interactive \
             | tee /tmp/eas-ota-promote-production.json
+
+      - name: Clear stuck production rollout (if any)
+        if: ${{ inputs.promote_production_rollout == '' }}
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          # EAS blocks new publishes while a staged rollout is open for the runtime.
+          # Completing tip rollout to 100% (update:edit) unblocks the next publish.
+          GROUP_JSON="$(eas update:list --branch production --limit 1 --non-interactive --json || true)"
+          GROUP_ID="$(printf '%s' "$GROUP_JSON" | node -e 'let j="";process.stdin.on("data",d=>j+=d);process.stdin.on("end",()=>{try{const o=JSON.parse(j);const g=(Array.isArray(o)?o:o)?.[0]||o?.currentPage?.[0]||o; const id=g?.group||g?.groupId||g?.id; process.stdout.write(id?String(id):"");}catch{process.stdout.write("")}})')"
+          if [ -z "$GROUP_ID" ]; then
+            echo "No production tip group found; continuing to publish"
+            exit 0
+          fi
+          PCT="$(printf '%s' "$GROUP_JSON" | node -e 'let j="";process.stdin.on("data",d=>j+=d);process.stdin.on("end",()=>{try{const o=JSON.parse(j);const g=(Array.isArray(o)?o:o)?.[0]||o?.currentPage?.[0]||o; const p=g?.rolloutPercentage??g?.rollout_percentage??null; process.stdout.write(p==null?"":String(p));}catch{process.stdout.write("")}})')"
+          echo "Production tip group=${GROUP_ID} rolloutPercentage=${PCT:-none}"
+          if [ -n "$PCT" ] && [ "$PCT" != "100" ]; then
+            echo "Completing stuck rollout ${GROUP_ID} → 100% so a new publish can proceed"
+            eas update:edit "${GROUP_ID}" --rollout-percentage 100 --non-interactive               | tee /tmp/eas-ota-clear-rollout.json
+          else
+            echo "No open staged rollout on tip; proceeding"
+          fi
 
       - name: Publish OTA to production channel
         if: ${{ inputs.promote_production_rollout == '' }}
