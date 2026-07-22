@@ -13,12 +13,13 @@ async function main() {
 
   const app = await ascGet(`/v1/apps/${appId}`);
   const versions = await ascGet(`/v1/apps/${appId}/appStoreVersions?filter[platform]=IOS&limit=5`);
-  const v10 = (versions.data || []).find((v) => v.attributes?.versionString === '1.0');
+  const versionString = process.env.ASC_APP_VERSION || '1.3';
+  const vLive = (versions.data || []).find((v) => v.attributes?.versionString === versionString);
 
   let screenshots = [];
   let localizations = [];
-  if (v10) {
-    const locs = await ascGet(`/v1/appStoreVersions/${v10.id}/appStoreVersionLocalizations?limit=5`);
+  if (vLive) {
+    const locs = await ascGet(`/v1/appStoreVersions/${vLive.id}/appStoreVersionLocalizations?limit=5`);
     localizations = (locs.data || []).map((l) => ({
       locale: l.attributes?.locale,
       descriptionLen: l.attributes?.description?.length ?? 0,
@@ -125,9 +126,9 @@ async function main() {
 
   let reviewNotes = null;
   let reviewNotesSafe = { ok: true, violations: [] };
-  if (v10) {
+  if (vLive) {
     try {
-      const detail = await ascGet(`/v1/appStoreVersions/${v10.id}/appStoreReviewDetail`);
+      const detail = await ascGet(`/v1/appStoreVersions/${vLive.id}/appStoreReviewDetail`);
       reviewNotes = detail.data?.attributes?.notes ?? null;
       const violations = findReviewNotesViolations(reviewNotes || '');
       reviewNotesSafe = { ok: violations.length === 0, violations };
@@ -139,10 +140,10 @@ async function main() {
   const payload = {
     appName: app.data?.attributes?.name,
     bundleId: app.data?.attributes?.bundleId,
-    version10: v10
+    liveVersion: vLive
       ? {
-          state: v10.attributes?.appStoreState,
-          version: v10.attributes?.versionString,
+          state: vLive.attributes?.appStoreState,
+          version: vLive.attributes?.versionString,
         }
       : null,
     localizations,
