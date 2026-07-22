@@ -40,6 +40,33 @@ node tools/buyer-reply-packet.js --kind hosting --name Martijn
 - **“We already host agents”** → Hosting moves work; it does not enforce OS/loop stop or tool approval.
 - **“Not now”** → Close politely; leave the spend-spike hook.
 
+## Inbound replies (highest ROI after send)
+
+```bash
+# Scan Gmail for replies to Diagnostic / governed-agents follow-ups
+node tools/gmail-outreach-reply-scan.js --json
+# Board: business_os/revenue/gmail-reply-hot-leads-YYYY-MM-DD.md
+
+# Paste-ready response for a hot lead
+node tools/buyer-reply-packet.js --kind engaged|langsmith|hosting|gateway|not_now \
+  --name Ann --link 'https://buy.stripe.com/…'
+```
+
+Revenue autonomous loop (non-`--fast`) runs the reply scan and lists hot leads on the money board.
+
+## Sent verification
+
+```bash
+# Prove a recipient appears in Gmail Sent (Chrome session)
+node tools/chrome-gmail-sent-verify.js --to newman@quantstruct.com --json
+```
+
+Chrome Gmail sends in the revenue loop verify Sent by default (`REVENUE_SKIP_SENT_VERIFY=1` to skip; `REVENUE_REQUIRE_SENT_VERIFY=1` to fail closed on verify errors).
+
+## UFA (ufa.foundation) — skip as priority
+
+Ultimate Fighting Agents is a live SF jailbreak/PvP arena, not a buyer pipeline. Do **not** enter/sponsor as a cash-path move. Optional spectator only. Social angle lives in `docs/social/governed-agents-hard-stop-pack.md`.
+
 ## Honesty
 
 - Live Stripe links only (HTTP 200). Never invent cleared revenue.
