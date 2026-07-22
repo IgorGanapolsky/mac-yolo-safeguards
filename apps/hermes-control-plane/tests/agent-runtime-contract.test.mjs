@@ -33,11 +33,14 @@ test("keeps the public landing static (no server session/D1) and defers auth chr
   // Client chrome owns session UX + single primary sign-in.
   const chrome = readFileSync(new URL("../app/LandingAuthChrome.tsx", import.meta.url), "utf8");
   assert.match(chrome, /fetch\("\/api\/me"/);
-  assert.match(chrome, /Open dashboard/);
+  assert.equal((chrome.match(/fetch\("\/api\/me"/g) ?? []).length, 1);
+  assert.match(chrome, /let landingAuthRequest: Promise<AuthMode> \| null = null/);
+  assert.match(chrome, /if \(!landingAuthRequest\)/);
+  assert.equal((chrome.match(/"sign_in_click"/g) ?? []).length, 1);
+  assert.match(chrome, /Open Hermes on the web/);
   assert.match(chrome, /Sign in to Hermes Web/);
   assert.match(chrome, /Sign out before leaving a shared device/);
-  assert.match(chrome, /After you sign in/);
-  assert.doesNotMatch(chrome, /Sign in to private dashboard/);
+  assert.doesNotMatch(chrome, /After you sign in|Sign in to private dashboard|Open private dashboard|Open dashboard/);
   // Worker allows short edge cache for anonymous marketing HTML only.
   const worker = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf8");
   assert.match(worker, /s-maxage=60/);

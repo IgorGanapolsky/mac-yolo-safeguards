@@ -220,6 +220,10 @@ test("keeps every workspace telemetry value behind authentication", () => {
   // Auth chrome is client-side; no D1/session on the public page source.
   assert.doesNotMatch(landing, /currentSession\(/);
   const chrome = readFileSync(new URL("../app/LandingAuthChrome.tsx", import.meta.url), "utf8");
+  assert.equal((chrome.match(/"sign_in_click"/g) ?? []).length, 1);
+  assert.equal((chrome.match(/fetch\("\/api\/me"/g) ?? []).length, 1);
+  assert.match(chrome, /landingAuthRequest/);
+  assert.doesNotMatch(chrome, /After you sign in|Sign in to private dashboard|Open private dashboard|Open dashboard/);
   assert.match(chrome, /className="landing-action" href="#pair"/);
   assert.match(chrome, /className="landing-action" href="#pricing"/);
   assert.match(chrome, /No workspace telemetry is fetched or rendered on this public page/);
