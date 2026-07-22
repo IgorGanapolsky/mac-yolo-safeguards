@@ -159,6 +159,21 @@ Phone gateway setup: always `node tools/hermes-mobile-pair.js` when `adb devices
 - Lessons must record: date, concrete artifacts (PIDs, file paths, command lines, before/after metrics), root cause, fix, and any heuristic update.
 - Vague captures ("worked great!") are worse than no capture — they pollute retrieval.
 
+## Closed feedback loop on discovered bug classes (added 2026-07-22)
+
+When a session finds a real, recurring failure class — not a one-off typo — encode a
+deterministic check for it in `tools/` and wire it into `.github/workflows/ci.yml`,
+rather than relying on remembering to re-verify by hand next time. Pattern from
+Anthropic's AI-native SDLC security writeup: shift detection left, prefer deterministic
+checks over agentic re-verification for facts that are cheap to check by URL/API.
+
+Example: `tools/check-store-links.js` — added after a stale ground-truth table caused
+six live social posts to link a Play package Igor had ordered unpublished (2026-07-22).
+Checks live Play/App Store state plus scans `docs/social/hermes-mobile-content-*` for
+dead-link promotion; runs in the `revenue-public-checks` CI job. Network failures warn,
+they never fail CI — only a confirmed contradicting state (or a doc scan hit, which is
+network-independent) fails the build.
+
 ## Parallel research routing (added 2026-07-13)
 
 **Default:** `parallel-cli search` (web-search) for lookups, pricing, API docs, and current events. Fast and cost-effective.
