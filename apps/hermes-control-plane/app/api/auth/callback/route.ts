@@ -2,6 +2,7 @@ import { createSession, sessionCookie } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { db, runtimeEnv } from "@/lib/runtime";
 import { sha256 } from "@/lib/security";
+import { workosSessionIdFromAccessToken } from "@/lib/workos-session";
 
 interface WorkOSUser {
   id: string;
@@ -16,6 +17,7 @@ interface AuthenticationResponse {
   user?: WorkOSUser;
   organization_id?: string | null;
   authentication_method?: string;
+  access_token?: string;
   error?: string;
   message?: string;
 }
@@ -54,6 +56,11 @@ export async function GET(request: Request) {
     console.error("WorkOS callback failed", authResponse.status, payload.error ?? payload.message ?? "unknown error");
     return Response.redirect(new URL("/?auth_error=authentication_failed", url.origin), 302);
   }
+  const workosSessionId = workosSessionIdFromAccessToken(payload.access_token);
+  if (!workosSessionId) {
+    console.error("WorkOS callback did not include a valid provider session");
+    return Response.redirect(new URL("/?auth_error=invalid_provider_session", url.origin), 302);
+  }
 
   const now = Date.now();
   const workosUser = payload.user;
@@ -91,7 +98,7 @@ export async function GET(request: Request) {
     ).bind(crypto.randomUUID(), organizationId, userId, now).run();
   }
 
-  const sessionToken = await createSession(userId, organizationId);
+  const sessionToken = await createSession(userId, organizationId, workosSessionId);
   await audit({ organizationId, actorType: "user", actorId: userId, action: "auth.login", targetType: "session", metadata: { method: payload.authentication_method ?? "AuthKit" } });
   return new Response(null, {
     status: 302,

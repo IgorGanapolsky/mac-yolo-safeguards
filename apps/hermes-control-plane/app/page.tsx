@@ -59,7 +59,7 @@ export default async function Home() {
           <p className="hero-lede">The dark, focused Hermes workspace you already know—adapted for desktop and mobile web. Your Mac runs the work locally; paid cloud continuity can take over when it goes offline.</p>
           <div className="hero-actions">
             <Link href={workspaceHref} className="button button-primary" data-funnel-event={workspaceEvent}>
-              Open Hermes on the web <span aria-hidden="true">→</span>
+              {session ? "Open Hermes on the web" : "Sign in to Hermes Web"} <span aria-hidden="true">→</span>
             </Link>
             <a href="#how-it-works" className="button button-ghost">See the failover path</a>
           </div>
@@ -82,7 +82,7 @@ export default async function Home() {
             ) : (
               <Link className="landing-action" href="/api/auth/login" data-funnel-event="sign_in_click">
                 <span className="action-icon" aria-hidden="true">⌘</span>
-                <span><strong>Open private dashboard</strong><small>Authenticate before any chats, machines, tasks, receipts, or live routing are loaded.</small></span>
+                <span><strong>Sign in to private dashboard</strong><small>Authenticate before any chats, machines, tasks, receipts, or live routing are loaded.</small></span>
                 <b aria-hidden="true">→</b>
               </Link>
             )}

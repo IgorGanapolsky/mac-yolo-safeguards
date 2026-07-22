@@ -130,7 +130,10 @@ try {
   assert.match(html, /Your Hermes work/);
   assert.match(html, /Sign-in required/);
   assert.match(html, />Sign in</);
+  assert.match(html, /Sign in to Hermes Web/);
+  assert.match(html, /Sign in to private dashboard/);
   assert.doesNotMatch(html, />Sign out</);
+  assert.doesNotMatch(html, /Open private dashboard/);
   assert.doesNotMatch(html, /Igor|Ganapolsky/i);
 
   const anonymousDashboard = await fetch(`http://127.0.0.1:${port}/dashboard`, { redirect: "manual" });
@@ -227,6 +230,7 @@ try {
   worker = undefined;
 
   const sessionToken = "thumbgate-local-e2e-session";
+  const workosSessionId = "session_01HQAG1HENBZMAZD82YRXDFC0B";
   const now = Date.now();
   const sessionHash = createHash("sha256").update(sessionToken).digest("base64url");
   const seed = spawnSync(
@@ -244,7 +248,7 @@ try {
       [
         `INSERT INTO users (id, workos_user_id, email, name, created_at, updated_at) VALUES ('e2e-user', 'workos-e2e-user', 'e2e@example.com', 'E2E User', ${now}, ${now})`,
         `INSERT INTO organizations (id, name, plan, created_at, updated_at) VALUES ('e2e-org', 'E2E Workspace', 'pro', ${now}, ${now})`,
-        `INSERT INTO sessions (id_hash, user_id, organization_id, expires_at, created_at) VALUES ('${sessionHash}', 'e2e-user', 'e2e-org', ${now + 60_000}, ${now})`,
+        `INSERT INTO sessions (id_hash, user_id, organization_id, workos_session_id, expires_at, created_at) VALUES ('${sessionHash}', 'e2e-user', 'e2e-org', '${workosSessionId}', ${now + 60_000}, ${now})`,
       ].join("; "),
     ],
     { encoding: "utf8", env: { ...process.env, CI: "1" } },
@@ -311,7 +315,11 @@ try {
     redirect: "manual",
   });
   assert.equal(logout.status, 303);
-  assert.equal(logout.headers.get("location"), `http://127.0.0.1:${port}/`);
+  const providerLogout = new URL(logout.headers.get("location"));
+  assert.equal(providerLogout.origin + providerLogout.pathname, "https://api.workos.com/user_management/sessions/logout");
+  assert.equal(providerLogout.searchParams.get("session_id"), workosSessionId);
+  const providerReturnTo = new URL(providerLogout.searchParams.get("return_to"));
+  assert.equal(providerReturnTo.pathname + providerReturnTo.search, "/?signed_out=1");
   assert.match(logout.headers.get("set-cookie") || "", /hermes_session=;.*Max-Age=0/i);
 
   const postLogoutLanding = await fetch(`http://127.0.0.1:${port}/`);
@@ -324,7 +332,7 @@ try {
   assert.equal(postLogoutMe.status, 401);
 
   console.log(
-    "Cloudflare Worker E2E: missing schema degrades 503; migrated anonymous redirect/API 401; seeded opaque session renders private state; logout clears cookie, revokes session, and restores denial",
+    "Cloudflare Worker E2E: missing schema degrades 503; migrated anonymous redirect/API 401; seeded provider-bound opaque session renders private state; logout clears cookie, revokes D1 session, redirects through WorkOS logout, and restores denial",
   );
 } finally {
   if (worker && worker.exitCode === null) {
