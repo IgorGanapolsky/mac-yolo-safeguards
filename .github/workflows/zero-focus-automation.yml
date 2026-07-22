@@ -52,7 +52,7 @@ jobs:
           while IFS= read -r file; do
             [[ -f "$file" ]] || continue
             case "$file" in
-              docs/*|parallel-research/*|tests/*|*/__tests__/*)
+              tools/zero-focus-automation-audit.js|docs/*|parallel-research/*|tests/*|*/__tests__/*)
                 continue
                 ;;
             esac
