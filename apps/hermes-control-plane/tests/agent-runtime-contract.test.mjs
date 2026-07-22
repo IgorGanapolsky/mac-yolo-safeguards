@@ -22,21 +22,27 @@ test("fails closed at the server boundary for every private dashboard route", ()
   assert.match(dashboardLayout, /return children/);
 });
 
-test("makes the landing-page session state explicit without loading workspace telemetry", () => {
-  assert.match(landing, /const session = await currentSession\(\)/);
-  assert.match(landing, /const workspaceHref = session \? "\/dashboard" : "\/api\/auth\/login"/);
-  assert.match(landing, />Open dashboard<\/Link>/);
-  assert.match(landing, />Sign in<\/Link>/);
-  assert.match(landing, /session \? "Session active" : "Sign-in required"/);
-  assert.match(landing, /session \? "Open Hermes on the web" : "Sign in to Hermes Web"/);
-  assert.match(landing, /<strong>Sign in to private dashboard<\/strong>/);
-  assert.match(landing, /<form action="\/api\/auth\/logout" method="post">/);
-  assert.match(landing, /type="submit"[^>]*>Sign out<\/button>/);
-  assert.match(landing, /Sign out before leaving a shared device/);
+test("keeps the public landing static (no server session/D1) and defers auth chrome to client", () => {
+  // Static shell — no cookies()/currentSession on marketing HTML path.
+  assert.doesNotMatch(landing, /currentSession\(/);
+  assert.doesNotMatch(landing, /await currentSession/);
+  assert.match(landing, /LandingAuthNav|LandingAuthHero|LandingAuthPanel/);
   assert.match(landing, /href="#main-content">Skip to main content<\/a>/);
   assert.match(landing, /id="main-content"[^>]*tabIndex=\{-1\}/);
-  assert.match(landing, /No workspace telemetry is fetched or rendered on this public page/);
   assert.doesNotMatch(landing, /fetch\("\/api\/(threads|tasks|devices|lessons|feedback)/);
+  // Client chrome owns session UX + single primary sign-in.
+  const chrome = readFileSync(new URL("../app/LandingAuthChrome.tsx", import.meta.url), "utf8");
+  assert.match(chrome, /fetch\("\/api\/me"/);
+  assert.match(chrome, /Open dashboard/);
+  assert.match(chrome, /Sign in to Hermes Web/);
+  assert.match(chrome, /Sign out before leaving a shared device/);
+  assert.match(chrome, /After you sign in/);
+  assert.doesNotMatch(chrome, /Sign in to private dashboard/);
+  // Worker allows short edge cache for anonymous marketing HTML only.
+  const worker = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf8");
+  assert.match(worker, /s-maxage=60/);
+  assert.match(worker, /hermes_session/);
+  assert.match(worker, /isPublicMarketing/);
 });
 
 test("terminates the local and WorkOS sessions instead of silently signing back in", () => {
@@ -48,6 +54,10 @@ test("terminates the local and WorkOS sessions instead of silently signing back 
   // Ordinary login must use AuthKit without step-up reauth params (would skip chooser).
   assert.match(authLogin, /authorization\.searchParams\.set\("provider", "authkit"\)/);
   assert.doesNotMatch(authLogin, /searchParams\.set\(["']max_age["']/);
+  // Login hot path must not write D1 auth_states (signed state instead).
+  assert.match(authLogin, /createSignedAuthState/);
+  assert.doesNotMatch(authLogin, /auth_states/);
+  assert.match(authCallback, /verifySignedAuthState/);
   // Logout is provider-independent: delete local session + WorkOS session_id logout.
   assert.match(authLogout, /DELETE FROM sessions WHERE id_hash = \?/);
   assert.match(authLogout, /workosLogoutUrl\(session\.workosSessionId, returnTo\)/);
