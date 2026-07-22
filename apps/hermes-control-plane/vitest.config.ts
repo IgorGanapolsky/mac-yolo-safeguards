@@ -6,7 +6,7 @@ export default defineConfig({
     environment: "node",
     coverage: {
       provider: "v8",
-      include: ["lib/security.ts", "lib/entitlements.ts", "lib/device-auth.ts"],
+      include: ["lib/security.ts", "lib/entitlements.ts", "lib/device-auth.ts", "lib/workos-session.ts"],
       thresholds: {
         lines: 80,
         functions: 80,

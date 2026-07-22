@@ -22,5 +22,6 @@ export async function GET(request: Request) {
   authorization.searchParams.set("redirect_uri", current.WORKOS_REDIRECT_URI);
   authorization.searchParams.set("provider", "authkit");
   authorization.searchParams.set("state", state);
+  authorization.searchParams.set("max_age", "0");
   return Response.redirect(authorization, 302);
 }

@@ -9,6 +9,7 @@ export interface AppSession {
   sessionHash: string;
   userId: string;
   organizationId: string;
+  workosSessionId: string | null;
   email: string;
   name: string;
   avatarUrl: string | null;
@@ -28,6 +29,7 @@ export async function currentSession(): Promise<AppSession | null> {
   const tokenHash = await sha256(token);
   const row = await db().prepare(
     `SELECT s.id_hash AS sessionHash, s.user_id AS userId, s.organization_id AS organizationId,
+            s.workos_session_id AS workosSessionId,
             u.email, u.name, u.avatar_url AS avatarUrl, o.plan,
             o.trial_ends_at AS trialEndsAt
        FROM sessions s
@@ -44,12 +46,12 @@ export async function requireSession(): Promise<AppSession> {
   return session;
 }
 
-export async function createSession(userId: string, organizationId: string): Promise<string> {
+export async function createSession(userId: string, organizationId: string, workosSessionId: string): Promise<string> {
   const token = randomToken();
   const now = Date.now();
   await db().prepare(
-    "INSERT INTO sessions (id_hash, user_id, organization_id, expires_at, created_at) VALUES (?, ?, ?, ?, ?)"
-  ).bind(await sha256(token), userId, organizationId, now + SESSION_TTL_MS, now).run();
+    "INSERT INTO sessions (id_hash, user_id, organization_id, workos_session_id, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+  ).bind(await sha256(token), userId, organizationId, workosSessionId, now + SESSION_TTL_MS, now).run();
   return token;
 }
 
