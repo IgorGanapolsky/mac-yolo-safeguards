@@ -1,6 +1,10 @@
 import { requireSession } from "@/lib/auth";
 import { audit } from "@/lib/audit";
-import { hasCloudContinuationAccess, hasLocalControlAccess } from "@/lib/entitlements";
+import {
+  evaluateTaskAdmission,
+  governanceAuditMetadata,
+  governanceError,
+} from "@/lib/agent-governance";
 import { db } from "@/lib/runtime";
 import { jsonError } from "@/lib/security";
 
@@ -9,11 +13,6 @@ interface DeviceRoute {
   failoverMode: "disabled" | "manual" | "auto";
   lastSeenAt: number | null;
 }
-
-const MAX_ACTIVE_TASKS = 10;
-const MAX_DAILY_TASKS = 250;
-const TRIAL_CLOUD_TASKS = 5;
-const PRO_CLOUD_TASKS_PER_30_DAYS = 100;
 
 export async function GET(request: Request) {
   let session;
@@ -39,8 +38,21 @@ export async function POST(request: Request) {
   try { session = await requireSession(); } catch { return jsonError("sign in required", 401); }
   const org = await db().prepare("SELECT plan, trial_ends_at AS trialEndsAt FROM organizations WHERE id = ?")
     .bind(session.organizationId).first<{ plan: string; trialEndsAt: number | null }>();
-  if (!org || !hasLocalControlAccess(org.plan)) {
-    return jsonError("this workspace is suspended", 402);
+  if (!org || org.plan === "suspended") {
+    const decision = evaluateTaskAdmission({
+      organization: org ?? { plan: "suspended", trialEndsAt: null },
+      route: "blocked",
+      usage: {},
+    });
+    await audit({
+      organizationId: session.organizationId,
+      actorType: "user",
+      actorId: session.userId,
+      action: "task.policy.denied",
+      targetType: "task-admission",
+      metadata: governanceAuditMetadata(decision, { stage: "admission", route: "blocked" }),
+    });
+    return governanceError(decision);
   }
   const payload = await request.json().catch(() => null) as {
     prompt?: string; threadId?: string; deviceId?: string; idempotencyKey?: string;
@@ -67,8 +79,36 @@ export async function POST(request: Request) {
   else if (device.failoverMode === "manual") { status = "needs_failover"; route = "blocked"; }
   else { status = "offline_blocked"; route = "blocked"; }
 
-  if (route === "cloud" && !hasCloudContinuationAccess(org)) {
-    return jsonError("managed cloud continuation requires an active trial or subscription", 402);
+  const now = Date.now();
+  const usage = await db().prepare(
+    `SELECT
+       SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS dailyTasks,
+       SUM(CASE WHEN status NOT IN ('completed', 'failed') THEN 1 ELSE 0 END) AS activeTasks,
+       SUM(CASE WHEN route = 'cloud' AND created_at >= ? THEN 1 ELSE 0 END) AS cloudTasks
+     FROM tasks WHERE organization_id = ?`
+  ).bind(now - 24 * 60 * 60 * 1000, now - 30 * 24 * 60 * 60 * 1000, session.organizationId)
+    .first<{ dailyTasks: number | null; activeTasks: number | null; cloudTasks: number | null }>();
+  const decision = evaluateTaskAdmission({
+    organization: org,
+    route,
+    usage: {
+      dailyTasks: usage?.dailyTasks ?? 0,
+      activeTasks: usage?.activeTasks ?? 0,
+      cloudTasks: usage?.cloudTasks ?? 0,
+    },
+    now,
+  });
+  if (!decision.allowed) {
+    await audit({
+      organizationId: session.organizationId,
+      actorType: "user",
+      actorId: session.userId,
+      action: "task.policy.denied",
+      targetType: "task-admission",
+      targetId: payload?.threadId ?? null,
+      metadata: governanceAuditMetadata(decision, { stage: "admission", route }),
+    });
+    return governanceError(decision);
   }
 
   let threadId = payload?.threadId;
@@ -83,22 +123,6 @@ export async function POST(request: Request) {
     await db().prepare(
       "INSERT INTO threads (id, organization_id, title, created_by_user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
     ).bind(threadId, session.organizationId, title, session.userId, threadCreatedAt, threadCreatedAt).run();
-  }
-
-  const now = Date.now();
-  const usage = await db().prepare(
-    `SELECT
-       SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS dailyTasks,
-       SUM(CASE WHEN status NOT IN ('completed', 'failed') THEN 1 ELSE 0 END) AS activeTasks,
-       SUM(CASE WHEN route = 'cloud' AND created_at >= ? THEN 1 ELSE 0 END) AS cloudTasks
-     FROM tasks WHERE organization_id = ?`
-  ).bind(now - 24 * 60 * 60 * 1000, now - 30 * 24 * 60 * 60 * 1000, session.organizationId)
-    .first<{ dailyTasks: number | null; activeTasks: number | null; cloudTasks: number | null }>();
-  if ((usage?.activeTasks ?? 0) >= MAX_ACTIVE_TASKS) return jsonError("finish an active task before starting another", 429);
-  if ((usage?.dailyTasks ?? 0) >= MAX_DAILY_TASKS) return jsonError("daily task safety limit reached", 429);
-  const cloudLimit = org.plan === "trial" ? TRIAL_CLOUD_TASKS : PRO_CLOUD_TASKS_PER_30_DAYS;
-  if (route === "cloud" && (usage?.cloudTasks ?? 0) >= cloudLimit) {
-    return jsonError(org.plan === "trial" ? "trial cloud continuation limit reached" : "monthly cloud continuation limit reached", 429);
   }
 
   const taskId = crypto.randomUUID();
@@ -125,6 +149,19 @@ export async function POST(request: Request) {
     }
     throw error;
   }
-  await audit({ organizationId: session.organizationId, actorType: "user", actorId: session.userId, action: "task.create", targetType: "task", targetId: taskId, metadata: { route, status, deviceId: device.id } });
+  await audit({
+    organizationId: session.organizationId,
+    actorType: "user",
+    actorId: session.userId,
+    action: "task.create",
+    targetType: "task",
+    targetId: taskId,
+    metadata: {
+      route,
+      status,
+      deviceId: device.id,
+      ...governanceAuditMetadata(decision, { stage: "admission", route }),
+    },
+  });
   return Response.json({ task: { id: taskId, threadId, prompt, status, route, deviceId: device.id, createdAt: now } }, { status: 201 });
 }

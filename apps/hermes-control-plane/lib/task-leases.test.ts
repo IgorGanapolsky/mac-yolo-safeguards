@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   audit: vi.fn().mockResolvedValue(undefined),
   state: {
     existing: null as Record<string, unknown> | null,
+    firsts: [] as Array<Record<string, unknown> | null>,
     changes: 1,
     runs: [] as Array<{ sql: string; args: unknown[] }>,
   },
@@ -12,7 +13,7 @@ const mocks = vi.hoisted(() => ({
 function statement(sql: string, args: unknown[] = []) {
   return {
     bind(...nextArgs: unknown[]) { return statement(sql, nextArgs); },
-    async first() { return mocks.state.existing; },
+    async first() { return mocks.state.firsts.length ? mocks.state.firsts.shift() : mocks.state.existing; },
     async all() { return { results: [] }; },
     async run() {
       mocks.state.runs.push({ sql, args });
@@ -30,10 +31,11 @@ vi.mock("./security", () => ({
   sha256: async (value: string) => `hash:${value}`,
 }));
 
-import { completeTask, renewTask, TASK_LEASE_MS } from "./task-leases";
+import { claimTask, completeTask, renewTask, TASK_LEASE_MS } from "./task-leases";
 
 beforeEach(() => {
   mocks.state.existing = null;
+  mocks.state.firsts = [];
   mocks.state.changes = 1;
   mocks.state.runs = [];
   mocks.audit.mockClear();
@@ -41,6 +43,74 @@ beforeEach(() => {
 });
 
 describe("fenced task leases", () => {
+  it("fails a cloud claim closed when entitlement expired and records policy lineage", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(5_000);
+    mocks.state.firsts = [{
+      id: "task-1",
+      organizationId: "org-1",
+      threadId: "thread-1",
+      threadTitle: "Thread",
+      prompt: "continue",
+      currentRoute: "local",
+      leaseGeneration: 0,
+      sourceSessionId: "session-1",
+      contextSnapshot: null,
+      syncedAt: null,
+      createdAt: 1_000,
+      plan: "trial",
+      trialEndsAt: 4_999,
+      cloudTasks: 0,
+    }];
+
+    expect(await claimTask({ route: "cloud", owner: "cloud:runner-1" })).toBeNull();
+    expect(mocks.state.runs[0].sql).toContain("status = 'offline_blocked', route = 'blocked'");
+    expect(mocks.state.runs[0].args[0]).toBe("Governance policy denied cloud execution: managed cloud continuation requires an active trial or subscription");
+    expect(mocks.audit).toHaveBeenCalledWith(expect.objectContaining({
+      action: "task.policy.denied",
+      targetId: "task-1",
+      metadata: expect.objectContaining({
+        policyVersion: "2026-07-22.1",
+        decision: "deny",
+        code: "cloud_entitlement_required",
+        stage: "automatic_claim",
+      }),
+    }));
+  });
+
+  it("allows an in-budget automatic claim and binds the budget check atomically", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(8_000);
+    mocks.state.firsts = [{
+      id: "task-2",
+      organizationId: "org-1",
+      threadId: "thread-1",
+      threadTitle: "Thread",
+      prompt: "continue",
+      currentRoute: "local",
+      leaseGeneration: 4,
+      sourceSessionId: "session-1",
+      contextSnapshot: null,
+      syncedAt: null,
+      createdAt: 7_000,
+      plan: "pro",
+      trialEndsAt: null,
+      cloudTasks: 99,
+    }];
+
+    const claimed = await claimTask({ route: "cloud", owner: "cloud:runner-1" });
+    expect(claimed?.task).toMatchObject({ id: "task-2", leaseGeneration: 5, leaseToken: "lease-token" });
+    expect(mocks.state.runs[0].sql).toContain("cloud_budget.created_at >= ?");
+    expect(mocks.state.runs[0].args.at(-1)).toBe(100);
+    expect(mocks.audit).toHaveBeenCalledWith(expect.objectContaining({
+      action: "task.claim",
+      metadata: expect.objectContaining({
+        policyVersion: "2026-07-22.1",
+        decision: "allow",
+        observed: 100,
+        stage: "automatic_claim",
+      }),
+    }));
+  });
+
   it("renews only the current unexpired owner and records content-free metadata", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_000);
     mocks.state.existing = { organizationId: "org-1", route: "local", leaseGeneration: 7 };
