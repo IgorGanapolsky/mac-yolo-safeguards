@@ -1,4 +1,10 @@
 import { audit } from "./audit";
+import {
+  AGENT_GOVERNANCE_POLICY_VERSION,
+  evaluateCloudContinuation,
+  governanceAuditMetadata,
+  type GovernanceDecision,
+} from "./agent-governance";
 import { db } from "./runtime";
 import { randomToken, sha256 } from "./security";
 import { webSessionIdForThread } from "./web-session";
@@ -11,11 +17,15 @@ interface TaskCandidate {
   threadId: string;
   threadTitle: string;
   prompt: string;
+  currentRoute: "local" | "cloud" | "blocked";
   leaseGeneration: number;
   sourceSessionId: string | null;
   contextSnapshot: string | null;
   syncedAt: number | null;
   createdAt: number;
+  plan: string;
+  trialEndsAt: number | null;
+  cloudTasks: number;
 }
 
 interface ContextMessage { role: "user" | "assistant" | "system"; content: string }
@@ -64,15 +74,50 @@ export async function claimTask(input: {
   const params = input.route === "local" ? [input.deviceId!, now] : [now - 60_000, now];
   const candidate = await db().prepare(
     `SELECT k.id, k.organization_id AS organizationId, k.thread_id AS threadId, t.title AS threadTitle, k.prompt,
-            k.lease_generation AS leaseGeneration, k.created_at AS createdAt,
-            t.source_session_id AS sourceSessionId, t.context_snapshot AS contextSnapshot, t.synced_at AS syncedAt
+            k.route AS currentRoute, k.lease_generation AS leaseGeneration, k.created_at AS createdAt,
+            t.source_session_id AS sourceSessionId, t.context_snapshot AS contextSnapshot, t.synced_at AS syncedAt,
+            o.plan, o.trial_ends_at AS trialEndsAt,
+            (SELECT COUNT(*) FROM tasks AS cloud_usage
+              WHERE cloud_usage.organization_id = k.organization_id AND cloud_usage.route = 'cloud'
+                AND cloud_usage.created_at >= ?) AS cloudTasks
        FROM tasks k JOIN threads t ON t.id = k.thread_id
+       JOIN organizations o ON o.id = k.organization_id
        LEFT JOIN devices d ON d.id = k.device_id
       WHERE ${routeClause}
         AND (k.lease_expires_at IS NULL OR k.lease_expires_at <= ?)
       ORDER BY k.created_at ASC LIMIT 1`
-  ).bind(...params).first<TaskCandidate>();
+  ).bind(now - 30 * 24 * 60 * 60 * 1000, ...params).first<TaskCandidate>();
   if (!candidate) return null;
+
+  let cloudDecision: GovernanceDecision | null = null;
+  if (input.route === "cloud") {
+    cloudDecision = evaluateCloudContinuation({
+      organization: { plan: candidate.plan, trialEndsAt: candidate.trialEndsAt },
+      cloudTasks: candidate.cloudTasks,
+      cloudTaskDelta: candidate.currentRoute === "cloud" ? 0 : 1,
+      now,
+    });
+    if (!cloudDecision.allowed) {
+      const blocked = await db().prepare(
+        `UPDATE tasks SET status = 'offline_blocked', route = 'blocked', error = ?, updated_at = ?,
+                lease_owner = NULL, lease_token_hash = NULL, lease_expires_at = NULL
+          WHERE id = ? AND lease_generation = ? AND (lease_expires_at IS NULL OR lease_expires_at <= ?)`
+      ).bind(`Governance policy denied cloud execution: ${cloudDecision.message}`,
+        now, candidate.id, candidate.leaseGeneration, now).run();
+      if (blocked.meta.changes === 1) {
+        await audit({
+          organizationId: candidate.organizationId,
+          actorType: "runner",
+          actorId: input.owner,
+          action: "task.policy.denied",
+          targetType: "task",
+          targetId: candidate.id,
+          metadata: governanceAuditMetadata(cloudDecision, { stage: "automatic_claim", route: "cloud" }),
+        });
+      }
+      return null;
+    }
+  }
 
   let sourceSessionId = candidate.sourceSessionId;
   if (input.route === "local" && !sourceSessionId) {
@@ -107,11 +152,30 @@ export async function claimTask(input: {
   const update = await db().prepare(
     `UPDATE tasks SET status = 'running', route = ?, lease_owner = ?, lease_token_hash = ?,
             lease_generation = lease_generation + 1, lease_expires_at = ?, updated_at = ?
-      WHERE id = ? AND lease_generation = ? AND (lease_expires_at IS NULL OR lease_expires_at <= ?)`
+      WHERE id = ? AND lease_generation = ? AND (lease_expires_at IS NULL OR lease_expires_at <= ?)
+        AND (? <> 'cloud' OR route = 'cloud' OR
+          (SELECT COUNT(*) FROM tasks AS cloud_budget
+            WHERE cloud_budget.organization_id = ? AND cloud_budget.route = 'cloud'
+              AND cloud_budget.created_at >= ?) < ?)`
   ).bind(input.route, input.owner, await sha256(leaseToken), leaseExpiresAt, now,
-    candidate.id, candidate.leaseGeneration, now).run();
+    candidate.id, candidate.leaseGeneration, now, input.route, candidate.organizationId,
+    now - 30 * 24 * 60 * 60 * 1000, cloudDecision?.limit ?? 0).run();
   if (update.meta.changes !== 1) return null;
-  await audit({ organizationId: candidate.organizationId, actorType: input.route === "local" ? "device" : "runner", actorId: input.owner, action: "task.claim", targetType: "task", targetId: candidate.id, metadata: { route: input.route, generation: candidate.leaseGeneration + 1 } });
+  await audit({
+    organizationId: candidate.organizationId,
+    actorType: input.route === "local" ? "device" : "runner",
+    actorId: input.owner,
+    action: "task.claim",
+    targetType: "task",
+    targetId: candidate.id,
+    metadata: {
+      route: input.route,
+      generation: candidate.leaseGeneration + 1,
+      ...(cloudDecision
+        ? governanceAuditMetadata(cloudDecision, { stage: "automatic_claim", route: "cloud" })
+        : { policyVersion: AGENT_GOVERNANCE_POLICY_VERSION, decision: "allow", stage: "automatic_claim" }),
+    },
+  });
   return { task: {
     id: candidate.id,
     organizationId: candidate.organizationId,
