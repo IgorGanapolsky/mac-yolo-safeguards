@@ -23,7 +23,7 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(layout, /images: \["\/og\.png"\]/);
   assert.match(layout, /agent observability/);
   assert.match(page, /ThumbGate/);
-  assert.match(page, /Your Hermes chats/);
+  assert.match(page, /Your agent, wherever you are/);
   assert.match(page, /Free control\. Paid continuity\./);
   assert.match(page, /Web Control/);
   assert.match(page, /Cloud Continuity/);
