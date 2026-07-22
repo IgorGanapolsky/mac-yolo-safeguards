@@ -1391,6 +1391,8 @@ describe('ChatScreen', () => {
     Object.assign(mockGatewayState, {
       connectionState: 'disconnected',
       health: { ok: false, level: 'red' },
+      activeGatewayProfile: null,
+      gatewayProfiles: [],
       tailscaleVpnActive: true,
       tailscaleDiscoveries: [],
       settings: {
@@ -1398,18 +1400,61 @@ describe('ChatScreen', () => {
         demoMode: false,
       },
     });
-    const { getByTestId, getByText, getAllByText } = await renderChatScreen();
+    const { getByTestId, getByText } = await renderChatScreen();
 
     fireEvent.press(getByTestId('chat-context-mac-button'));
 
     expect(getByTestId('mac-picker-scroll')).toBeTruthy();
     expect(getByTestId('mac-picker-status-region')).toBeTruthy();
-    expect(getAllByText('Paste your Mac’s Tailscale IP').length).toBeGreaterThanOrEqual(1);
-    expect(getAllByText(/On the Mac: Tailscale → copy 100\.x → paste → Connect/).length).toBeGreaterThanOrEqual(1);
+    expect(getByText('Missing your other computer?')).toBeTruthy();
+    expect(getByText(/Start Hermes on that computer/)).toBeTruthy();
     expect(getByTestId('mac-picker-manual-form')).toBeTruthy();
+    expect(getByText('Paste your Mac’s Tailscale IP')).toBeTruthy();
+    expect(getByText(/On the Mac: Tailscale → copy 100\.x → paste → Connect/)).toBeTruthy();
     expect(getByTestId('mac-picker-subtitle')).toHaveTextContent(
-      /paste your Mac’s Tailscale IP/,
+      /Tap a computer, or paste Tailscale IP below/,
     );
+  });
+
+  it('lists saved computers above picker help and collapses idle help when profiles exist', async () => {
+    Object.assign(mockGatewayState, {
+      tailscaleVpnActive: true,
+      tailscaleDiscoveries: [],
+      activeGatewayProfile: {
+        id: 'macbook',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://10.2.29.103:8642',
+        localIp: '10.2.29.103',
+        addedAt: '2026-07-02T00:00:00Z',
+      },
+      gatewayProfiles: [
+        {
+          id: 'macmini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          localIp: '100.94.135.78',
+          addedAt: '2026-07-02T00:00:00Z',
+        },
+        {
+          id: 'macbook',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://10.2.29.103:8642',
+          localIp: '10.2.29.103',
+          addedAt: '2026-07-02T00:00:00Z',
+        },
+      ],
+    });
+    const { getByTestId, queryByTestId, queryByText } = await renderChatScreen();
+
+    fireEvent.press(getByTestId('chat-context-mac-button'));
+
+    expect(getByTestId('gateway-profile-list')).toBeTruthy();
+    expect(queryByText('Missing your other computer?')).toBeNull();
+    expect(getByTestId('mac-picker-status-region-help-link')).toBeTruthy();
+    expect(queryByTestId('mac-picker-status-region')).toBeNull();
+    expect(getByTestId('mac-picker-manual-input-row')).not.toHaveStyle({
+      flexDirection: 'column',
+    });
   });
 
   it('keeps one computer-picker status region instead of stacking discovery banners', async () => {
