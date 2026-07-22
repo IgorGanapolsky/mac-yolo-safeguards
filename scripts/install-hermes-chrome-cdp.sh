@@ -3,6 +3,11 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+source "${repo_root}/scripts/hermes-interactive-chrome-gate.sh"
+if ! hermes_require_interactive_chrome; then
+  exit 0
+fi
 home="${HOME}"
 uid="$(id -u)"
 gui_domain="gui/${uid}"

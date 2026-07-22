@@ -145,6 +145,26 @@ Mirrored: `~/.grok/AGENTS.md`, `.cursor/rules/always-agent-mode.mdc`.
 
 Phone gateway setup: always `node tools/hermes-mobile-pair.js` when `adb devices` shows a device — never "open Settings and paste URL".
 
+## No desktop hijack (permanent, 2026-07-22)
+
+**User directive:** Agents must not steal Igor's Mac desktop, focus, or interactive Google Chrome while he is working.
+
+**Hard ban unless Igor explicitly asks in that same message:**
+
+| Banned | Why |
+|--------|-----|
+| `osascript` driving **Google Chrome** (activate, quit, front window, JS injection) | Steals focus; hijacks daily browser |
+| `drive-logged-in-chrome` / `use-existing-browser-sessions` skills | Same — interactive Chrome only |
+| Cursor **Computer Use** / headed Playwright / browser MCP on Igor's profile | Full-screen hijack |
+| LaunchAgent `com.hermes.chrome-cdp` auto-install/heal on login | Starts Chrome every 120s |
+| `install-browser-bridge.sh --profile=daily` | Quits Igor's Chrome |
+
+**Prefer instead (in order):** `gh`, Play Developer API, App Store Connect API (`.p8` when issuer available), Gmail API/MCP, Stripe CLI, `adb`, SSH to fleet hosts, headless Playwright in Docker or a **dedicated non-daily profile**, background LaunchAgents with **no GUI**.
+
+**Opt-in gate:** Interactive Chrome/CDP scripts honor `HERMES_ALLOW_INTERACTIVE_CHROME=1` only when Igor explicitly requested browser control in that message. Default is off. See [docs/HEADLESS-BACKGROUND-OPS.md](./docs/HEADLESS-BACKGROUND-OPS.md), [docs/NO-DESKTOP-HIJACK.md](./docs/NO-DESKTOP-HIJACK.md), and [`.cursor/rules/no-desktop-hijack.mdc`](./.cursor/rules/no-desktop-hijack.mdc).
+
+**If blocked:** Report the blocker and what CLI/API path was tried — do not fall back to Chrome hijack silently.
+
 ## No dead code, no speculative scaffolding
 
 - Don't add features, abstractions, error handling, or tests for scenarios that can't happen.
@@ -283,7 +303,7 @@ Mobile-specific detail: [hermes-mobile/AGENTS.md](./hermes-mobile/AGENTS.md).
 
 - Make money / cash / outreach / pipeline stuck → `.claude/skills/execute-revenue-cash-path/SKILL.md` (also `~/.grok/skills/execute-revenue-cash-path/`) then `node tools/revenue-autonomous-loop.js --auto-send --json` (LaunchAgent `com.igor.revenue-autonomous-loop` every 4h)
 - Apollo / founder email / enrich contact → `.claude/skills/apollo-io-sales/SKILL.md`
-- Stripe Payment Links / "logged into Chrome" / login wall vs Playwright → `.claude/skills/drive-logged-in-chrome/SKILL.md` + use-existing-browser-sessions
+- Stripe Payment Links / "logged into Chrome" / login wall vs Playwright → **blocked by default** (see § No desktop hijack). Use Stripe CLI/API first; `.claude/skills/drive-logged-in-chrome/SKILL.md` only when Igor explicitly asked in that message with `HERMES_ALLOW_INTERACTIVE_CHROME=1`.
 
 When the user describes a symptom, prefer invoking the relevant skill over ad-hoc diagnosis:
 - Mac sluggish / fans / load avg → `mac-freeze-rescue`

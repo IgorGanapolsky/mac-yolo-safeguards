@@ -86,7 +86,10 @@ process.stdin.on("data", d => raw += d).on("end", () => {
 
 if [[ "$pair_valid" != 'yes' ]]; then
   logline "pair service stale or unreachable -> regenerating for $tail_ip"
-  "$NODE_BIN" "$PAIR_SCRIPT" --no-adb --no-dev-unlock >/dev/null 2>&1 || true
+  # Mini (and other headless hosts) need local-key fallback when SSH self-lookup is a no-op.
+  # Pair-server KeepAlive may also rewrite pair.json via --server-only; that path must emit
+  # secretless pairCode (see hermes-mobile-pair.js refreshPairAssetsFromLocalGateway).
+  "$NODE_BIN" "$PAIR_SCRIPT" --no-adb --no-dev-unlock --allow-local-key-fallback >/dev/null 2>&1 || true
   kickstart com.igor.hermes-mobile-pair-server
   sleep 1
   pair_json="$($CURL_BIN -sS --max-time 5 "$PAIR_URL" 2>/dev/null || true)"
