@@ -272,7 +272,7 @@ export default function ChatConnectionPanel({
             <FreshUserOnboardingCard
               profiles={profiles}
               activeProfileId={activeProfileId}
-              tailscaleMacLabel={primaryTailscaleLabel}
+              tailscaleMacLabel={macLabel?.trim() || primaryTailscaleLabel}
               wifiConnected={wifiConnected}
             />
           ) : null}
