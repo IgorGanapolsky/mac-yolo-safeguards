@@ -60,6 +60,34 @@ Cloudflare Worker secrets; Production app redirect URI set to
 `https://thumbgate.app/api/auth/callback`; Email+Password enabled; live login
 chain ends on `progressive-mouse-13.authkit.app`.
 
+## Incident: Google SSO silently missing after the cutover above (fixed same day)
+
+The staging environment Igor was using before the cutover ships several
+sample/test SSO connections by default, which is what he saw as "a whole
+bunch of SSO options." Production above was correctly provisioned with
+email+password only — but that meant no social OAuth, a real (if unintended)
+UX regression nobody had checked for.
+
+**Fix applied (2026-07-22):** Added a **Google OAuth provider** under
+Authentication -> Providers in WorkOS Production — this is the free,
+own-developer-app social OAuth explicitly allowed above, NOT a paid
+Enterprise SSO connection (those remain at 0). Google Cloud project
+`hermes-mobile-dist-78361` ("Hermes Mobile"), OAuth consent screen
+configured (External audience, published to production, non-sensitive
+scopes only — no verification required), Web-application client
+`WorkOS Production AuthKit` with the WorkOS-provided redirect URI
+`https://auth.workos.com/sso/oauth/google/PTeA9h1BjHjJNdBmaWCsxAbIA/callback`.
+Verified live end-to-end: `/api/auth/login` -> AuthKit page renders both
+"Continue with email" and "Continue with Google" -> clicking Google reaches
+the real `accounts.google.com` chooser with the correct client id and scopes.
+
+**Regression guard added:** `tools/workos-production-guard.js` now fetches
+the hosted AuthKit page body and asserts `EXPECTED_METHODS` render (currently
+`email`, `google`) — the redirect-chain check alone would not have caught
+this class of regression. Scheduled (not PR-blocking) in
+`.github/workflows/workos-production-guard.yml`, every 6h. Update
+`EXPECTED_METHODS` the same day a method is deliberately added/removed.
+
 ## Secrets hygiene
 
 - Never commit WorkOS API keys.
