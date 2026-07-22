@@ -1,7 +1,7 @@
 # ThumbGate.app — "Sign In does nothing for ~20s" Investigation Report
 
-**Date:** July 2026  
-**Stack:** React 19 + vinext (Cloudflare's Vite-based Next-API replacement) on Cloudflare Workers, WorkOS AuthKit for authentication.  
+**Date:** July 2026
+**Stack:** React 19 + vinext (Cloudflare's Vite-based Next-API replacement) on Cloudflare Workers, WorkOS AuthKit for authentication.
 **Method:** Evidence-based root-cause ranking with measurable acceptance thresholds, implementation details per layer, cost impact, and a verification matrix that distinguishes ThumbGate-controlled latency from WorkOS-controlled latency.
 
 ---
