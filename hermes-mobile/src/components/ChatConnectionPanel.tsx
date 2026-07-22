@@ -280,7 +280,6 @@ export default function ChatConnectionPanel({
           {(tailscaleDiscoveries.length > 0 || tailscaleSearching) ? (
             <TailscaleDiscoveryBanner
               discoveries={tailscaleDiscoveries}
-              adding={tailscaleDiscoveryProbing}
               probing={tailscaleSearching}
               onAdd={onAddTailscaleComputer}
               prominent

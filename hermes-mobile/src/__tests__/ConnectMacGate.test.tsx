@@ -334,4 +334,37 @@ describe('ConnectMacGate', () => {
     expect(view.queryByText('Same home Wi‑Fi')).toBeNull();
     expect(view.queryByText('Use Tailscale from cellular')).toBeNull();
   });
+
+  it('promotes Tailscale candidates and demotes QR / competing Wi-Fi loaders', () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    mockUseGateway.mockReturnValue(
+      gateway({
+        profileScanning: true,
+        tailscaleDiscoveryProbing: true,
+        tailscaleDiscoveries: [
+          {
+            gatewayUrl: 'http://100.94.135.78:8642',
+            hostname: 'Igors-Mac-mini.local',
+            label: 'Igors-Mac-mini',
+          },
+          {
+            gatewayUrl: 'http://100.87.85.85:8642',
+            hostname: 'Igors-MacBook-Pro.local',
+            label: 'Igors-MacBook-Pro',
+          },
+        ],
+      }),
+    );
+
+    const view = render(<ConnectMacGate />);
+
+    expect(view.getByTestId('tailscale-discovery-banner')).toBeTruthy();
+    expect(view.getByText('Add Igors-Mac-mini')).toBeTruthy();
+    expect(view.getByText('Add Igors-MacBook-Pro')).toBeTruthy();
+    expect(view.queryByText('Adding…')).toBeNull();
+    expect(view.queryByTestId('connect-mac-scan-progress')).toBeNull();
+    expect(view.queryByTestId('connect-search-wifi')).toBeNull();
+    expect(view.queryByTestId('connect-scan-qr')).toBeNull();
+  });
 });
+
