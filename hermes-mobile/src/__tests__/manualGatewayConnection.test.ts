@@ -43,9 +43,10 @@ describe('connectManualGatewayAddress', () => {
         { gatewayUrl, fallbackLabel: 'Tailscale computer', persistProfile },
         deps,
       ),
-    ).rejects.toThrow('No Hermes computer answered at this address');
+    ).rejects.toThrow('Couldn’t reach Hermes at this Tailscale address.');
     expect(persistProfile).not.toHaveBeenCalled();
     expect(deps.saveApiKey).not.toHaveBeenCalled();
+    expect(deps.fetchGatewayHealth).toHaveBeenCalledWith(gatewayUrl, null, 12_000);
   });
 
   it('does not persist a reachable address that is not paired', async () => {
@@ -61,7 +62,7 @@ describe('connectManualGatewayAddress', () => {
         { gatewayUrl, fallbackLabel: 'Tailscale computer', persistProfile },
         deps,
       ),
-    ).rejects.toThrow('this phone is not paired with that computer');
+    ).rejects.toThrow('Hermes is reachable, but this phone still needs to pair.');
     expect(persistProfile).not.toHaveBeenCalled();
   });
 
@@ -91,9 +92,29 @@ describe('connectManualGatewayAddress', () => {
       'http://100.70.124.54:8765',
       'AB23CD45',
     );
-    expect(deps.fetchGatewayHealth).toHaveBeenCalledWith(gatewayUrl, 'fresh-key', 5000);
+    expect(deps.fetchGatewayHealth).toHaveBeenCalledWith(gatewayUrl, 'fresh-key', 12_000);
     expect(deps.saveApiKey).toHaveBeenCalledWith('fresh-key');
     expect(persistProfile).toHaveBeenCalledWith('Igors-MacBook-Pro', gatewayUrl);
+  });
+
+  it('keeps the short probe window for a home-network address', async () => {
+    const persistProfile = jest.fn().mockResolvedValue(undefined);
+    const deps = dependencies();
+
+    await connectManualGatewayAddress(
+      {
+        gatewayUrl: 'http://192.168.68.60:8642',
+        fallbackLabel: 'Home network computer',
+        persistProfile,
+      },
+      deps,
+    );
+
+    expect(deps.fetchGatewayHealth).toHaveBeenCalledWith(
+      'http://192.168.68.60:8642',
+      null,
+      5000,
+    );
   });
 
   it('restores the previous credential if profile persistence fails', async () => {

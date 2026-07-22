@@ -1,0 +1,48 @@
+name: CodeQL
+
+# Integrated SAST scanning (JS/TS + Python) posted directly on PRs, per the
+# "Integrated SAST Scanning" practice from Anthropic's AI-native SDLC security
+# writeup (https://www.claude.com/blog/how-anthropic-secures-its-ai-native-software-development-lifecycle):
+# static analysis running alongside agentic review, not gating on it alone.
+# Free for public repos; this repo is public.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  schedule:
+    - cron: '23 4 * * 1' # weekly, off-peak, catches new CodeQL query packs
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: CodeQL analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, python]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:${{ matrix.language }}'
