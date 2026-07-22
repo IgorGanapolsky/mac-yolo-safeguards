@@ -51,6 +51,9 @@ import ConnectMacGate from './src/components/ConnectMacGate';
 import OtaUpdateBanner from './src/components/OtaUpdateBanner';
 import { useHermesDeepLinks } from './src/hooks/useHermesDeepLinks';
 import type { SetupDeepLinkParams } from './src/utils/setupDeepLink';
+import {
+  applySetupDeepLinkWithThumbgate as applySetupDeepLinkPreservingTransport,
+} from './src/utils/applySetupDeepLinkWithThumbgate';
 import { trackAppOpen, trackScreenView } from './src/services/productAnalytics';
 import {
   flushCrashQueue,
@@ -291,23 +294,14 @@ function HermesNavigationRoot() {
     retryGatewayBootstrap,
   } = useGateway();
   const applySetupDeepLinkWithThumbgate = useCallback(
-    async (params: SetupDeepLinkParams) => {
-      await applySetupDeepLink(params);
-      const thumbgateKey = params.thumbgateApiKey?.trim();
-      if (!thumbgateKey) {
-        return;
-      }
-      const nextKey = params.apiKey?.trim() || apiKey;
-      const nextSettings = params.gatewayUrl?.trim()
-        ? {
-            ...settings,
-            gatewayUrl: params.gatewayUrl.trim(),
-            connectionMode: 'relay' as const,
-            demoMode: false,
-          }
-        : settings;
-      await saveSettings(nextSettings, nextKey, thumbgateKey);
-    },
+    (params: SetupDeepLinkParams) =>
+      applySetupDeepLinkPreservingTransport({
+        params,
+        currentSettings: settings,
+        currentApiKey: apiKey,
+        saveSettings,
+        applySetupDeepLink,
+      }),
     [applySetupDeepLink, apiKey, saveSettings, settings],
   );
   const forceE2eDemoMode = useCallback(async () => {
