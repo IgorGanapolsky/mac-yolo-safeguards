@@ -127,14 +127,18 @@ try {
   assert.equal(landing.status, 200);
   assert.match(html, /Leash/);
   assert.match(html, /by ThumbGate/);
-  assert.match(html, /Your Hermes work/);
-  assert.match(html, /Sign-in required/);
+  assert.match(html, /Your Hermes chats/);
+  // Static shell defaults to anon/loading chrome (session via /api/me after paint).
+  assert.match(html, /Sign-in required|Checking session/);
   assert.match(html, />Sign in</);
   assert.match(html, /Sign in to Hermes Web/);
-  assert.match(html, /Sign in to private dashboard/);
+  assert.match(html, /After you sign in/);
+  assert.doesNotMatch(html, /Sign in to private dashboard/);
   assert.doesNotMatch(html, />Sign out</);
   assert.doesNotMatch(html, /Open private dashboard/);
   assert.doesNotMatch(html, /Igor|Ganapolsky/i);
+  // Preconnect WorkOS/AuthKit for faster sign-in hops.
+  assert.match(html, /preconnect[^>]+api\.workos\.com|api\.workos\.com/);
 
   const anonymousDashboard = await fetch(`http://127.0.0.1:${port}/dashboard`, { redirect: "manual" });
   assert.equal(anonymousDashboard.status, 307);
@@ -219,7 +223,8 @@ try {
   assert.equal(watchdogProbe.status, 204);
 
   const session = await fetch(`http://127.0.0.1:${port}/api/me`);
-  assert.equal(session.status, 401);
+  // Landing chrome uses 200 + authenticated:false (not 401) to avoid console noise.
+  assert.equal(session.status, 200);
   assert.deepEqual(await session.json(), {
     authenticated: false,
     workosConfigured: false,
@@ -280,11 +285,12 @@ try {
   const authenticatedLanding = await fetch(`http://127.0.0.1:${port}/`, { headers: authenticatedHeaders });
   const authenticatedHtml = await authenticatedLanding.text();
   assert.equal(authenticatedLanding.status, 200);
-  assert.match(authenticatedHtml, /Session active/);
-  assert.match(authenticatedHtml, />Open dashboard</);
-  assert.match(authenticatedHtml, /action="\/api\/auth\/logout"/);
-  assert.match(authenticatedHtml, />Sign out</);
+  // Marketing HTML is static (no D1 session read). Session chrome comes from /api/me.
+  assert.match(authenticatedHtml, /Sign in to Hermes Web|Open Hermes on the web/);
   assert.doesNotMatch(authenticatedHtml, /e2e@example\.com/);
+  // With a session cookie, HTML must not be edge-cached for other users.
+  const landingCache = authenticatedLanding.headers.get("cache-control") || "";
+  assert.match(landingCache, /no-store/);
 
   const authenticatedDashboard = await fetch(`http://127.0.0.1:${port}/dashboard`, {
     headers: authenticatedHeaders,
@@ -325,11 +331,12 @@ try {
   const postLogoutLanding = await fetch(`http://127.0.0.1:${port}/`);
   const postLogoutHtml = await postLogoutLanding.text();
   assert.equal(postLogoutLanding.status, 200);
-  assert.match(postLogoutHtml, /Sign-in required/);
+  assert.match(postLogoutHtml, /Sign-in required|Checking session|After you sign in/);
   assert.match(postLogoutHtml, />Sign in</);
   assert.doesNotMatch(postLogoutHtml, />Sign out</);
   const postLogoutMe = await fetch(`http://127.0.0.1:${port}/api/me`, { headers: authenticatedHeaders });
-  assert.equal(postLogoutMe.status, 401);
+  assert.equal(postLogoutMe.status, 200);
+  assert.equal((await postLogoutMe.json()).authenticated, false);
 
   console.log(
     "Cloudflare Worker E2E: missing schema degrades 503; migrated anonymous redirect/API 401; seeded provider-bound opaque session renders private state; logout clears cookie, revokes D1 session, redirects through WorkOS logout, and restores denial",
