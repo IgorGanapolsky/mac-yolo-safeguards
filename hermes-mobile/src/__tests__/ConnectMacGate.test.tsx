@@ -367,4 +367,3 @@ describe('ConnectMacGate', () => {
     expect(view.queryByTestId('connect-scan-qr')).toBeNull();
   });
 });
-
