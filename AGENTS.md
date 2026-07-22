@@ -289,6 +289,12 @@ Mobile detail: [hermes-mobile/AGENTS.md](./hermes-mobile/AGENTS.md), [hermes-mob
 
 Mobile-specific detail: [hermes-mobile/AGENTS.md](./hermes-mobile/AGENTS.md).
 
+## GitHub Code Quality guardrails (Hermes Mobile)
+
+GitHub Code Quality is **paid** (~$10/active committer/month + metered AI). This public personal-account repo may return **404** on `GET /repos/{owner}/{repo}/code-quality/setup` until a Team/Enterprise plan enables it — CI still uploads Cobertura (`hermes-mobile/coverage/cobertura-coverage.xml`) as a prerequisite.
+
+Agents: run `node tools/github-code-quality-status.js` before enable/disable decisions. Prefer **evaluate** coverage rulesets (`.github/code-quality-coverage-ruleset.evaluate.json`) before **active** enforcement. Do **not** enable org-wide scanning or leave Code Quality on when unused. Disable via `PATCH .../code-quality/setup` with `state=not-configured` when the product is not delivering value. Detail: [docs/CURSOR-AUTOMATIONS.md](./docs/CURSOR-AUTOMATIONS.md#github-code-quality-hermes-mobile-evaluate-first).
+
 ## Change protocol
 
 ```

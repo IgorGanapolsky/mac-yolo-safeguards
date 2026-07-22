@@ -196,11 +196,16 @@ jobs:
   mobile-checks:
     name: Hermes Mobile typecheck and tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      code-quality: write
     defaults:
       run:
         working-directory: hermes-mobile
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
@@ -229,6 +234,23 @@ jobs:
 
       - name: Unit tests with coverage
         run: npm run test:ci
+
+      - name: Upload Cobertura coverage artifact
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hermes-mobile-cobertura
+          path: hermes-mobile/coverage/cobertura-coverage.xml
+          if-no-files-found: error
+
+      - name: Upload coverage to GitHub Code Quality
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/upload-code-coverage@1c15be36fc3733ba839b1dd643bd9556e4426dc1 # v1
+        with:
+          file: coverage/cobertura-coverage.xml
+          language: TypeScript
+          label: code-coverage/hermes-mobile-jest
+          fail-on-error: false
 
       - name: Export and scan public Android JavaScript
         env:

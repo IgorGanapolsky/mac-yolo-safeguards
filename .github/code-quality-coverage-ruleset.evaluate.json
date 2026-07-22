@@ -1,0 +1,19 @@
+{
+  "name": "Hermes Mobile coverage gate (evaluate)",
+  "target": "branch",
+  "enforcement": "evaluate",
+  "conditions": {
+    "ref_name": {
+      "include": ["~DEFAULT_BRANCH"]
+    }
+  },
+  "rules": [
+    {
+      "type": "code_coverage",
+      "parameters": {
+        "minimum_coverage_percentage": 64,
+        "maximum_coverage_drop": 2
+      }
+    }
+  ]
+}
