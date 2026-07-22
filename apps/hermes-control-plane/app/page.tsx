@@ -200,6 +200,10 @@ export default function Home() {
       <footer>
         <Link href="/" className="brand"><Mark /><span>ThumbGate <small>Hermes Web</small></span></Link>
         <p>Your Hermes workspace, wherever you are.</p>
+        <nav className="footer-app-links" aria-label="Get the mobile app">
+          <a href="https://apps.apple.com/us/app/hermes-mobile-ai-agent-leash/id6786778037">Hermes Mobile on the App Store</a>
+          <a href="/get-android">Hermes Mobile on Google Play</a>
+        </nav>
       </footer>
     </main>
   );

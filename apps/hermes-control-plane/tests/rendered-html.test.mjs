@@ -51,6 +51,11 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /Run the connector installer/);
   assert.match(page, /Pair a Mac that already runs Hermes/);
   assert.match(page, /Chats appear after you sign in/);
+  assert.match(page, /apps\.apple\.com\/us\/app\/hermes-mobile-ai-agent-leash\/id6786778037/);
+  assert.match(page, /href="\/get-android"/);
+  const getAndroidRoute = await readFile(new URL("../app/get-android/route.ts", import.meta.url), "utf8");
+  assert.match(getAndroidRoute, /play\.google\.com\/store\/apps\/details\?id=com\.iganapolsky\.hermesmobile\.paid/);
+  assert.match(getAndroidRoute, /NextResponse\.redirect/);
   assert.match(page, /Automatic fenced cloud continuation requires Cloud Continuity/);
   assert.doesNotMatch(page, /Connect once\. Your chats appear\./);
   // Pricing CTAs live in client chrome (static shell + /api/me personalization).
