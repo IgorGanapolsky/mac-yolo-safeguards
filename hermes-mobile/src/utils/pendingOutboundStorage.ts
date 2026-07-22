@@ -5,6 +5,13 @@ import { hasUnsyncedLocalMessages } from './chatMessageMerge';
 
 export const PENDING_OUTBOUND_STORAGE_KEY = 'hermes-mobile:pending_outbound_by_session';
 
+/**
+ * Acknowledged optimistic bubbles only bridge the short gap before gateway
+ * history includes the turn. Keeping them longer can resurrect an old prompt
+ * after the gateway compacts it out of the current context window.
+ */
+export const SENT_OUTBOUND_SNAPSHOT_MAX_AGE_MS = 15 * 60 * 1000;
+
 /** Used when the user sends before a gateway session id exists. */
 export const PENDING_NEW_SESSION_KEY = '__pending_new_session__';
 
@@ -83,6 +90,33 @@ function sanitizeSnapshot(sessionId: string, raw: unknown): PendingOutboundSnaps
   };
 }
 
+function isAcknowledgedSnapshot(snapshot: PendingOutboundSnapshot): boolean {
+  if (snapshot.pinnedStatus === 'sent') {
+    return true;
+  }
+  const userMessages = snapshot.messages.filter(
+    (message) => message.role?.toLowerCase() === 'user',
+  );
+  return (
+    userMessages.length > 0 &&
+    userMessages.every((message) => message.outboundStatus === 'sent')
+  );
+}
+
+export function isExpiredAcknowledgedOutboundSnapshot(
+  snapshot: PendingOutboundSnapshot,
+  nowMs = Date.now(),
+): boolean {
+  if (!isAcknowledgedSnapshot(snapshot)) {
+    return false;
+  }
+  const updatedAtMs = Date.parse(snapshot.updatedAt);
+  if (!Number.isFinite(updatedAtMs)) {
+    return true;
+  }
+  return nowMs - updatedAtMs > SENT_OUTBOUND_SNAPSHOT_MAX_AGE_MS;
+}
+
 async function loadPendingOutboundMap(): Promise<PendingOutboundMap> {
   try {
     const raw = await AsyncStorage.getItem(PENDING_OUTBOUND_STORAGE_KEY);
@@ -96,7 +130,7 @@ async function loadPendingOutboundMap(): Promise<PendingOutboundMap> {
     const next: PendingOutboundMap = {};
     for (const [key, value] of Object.entries(parsed)) {
       const snapshot = sanitizeSnapshot(key, value);
-      if (snapshot) {
+      if (snapshot && !isExpiredAcknowledgedOutboundSnapshot(snapshot)) {
         next[key] = snapshot;
       }
     }
