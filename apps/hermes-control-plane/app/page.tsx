@@ -61,11 +61,45 @@ export default function Home() {
       </section>
 
       <section id="pair" className="setup-section">
-        <div className="section-heading"><p className="eyebrow">THREE-STEP PAIRING</p><h2>Connect once. Your chats appear.</h2><p>The connector dials out over HTTPS, creates a device key, opens a prefilled approval page, and keeps its local gateway credential on your machine.</p></div>
+        <div className="section-heading">
+          <p className="eyebrow">THREE-STEP PAIRING</p>
+          <h2>Pair a Mac that already runs Hermes.</h2>
+          <p>
+            The connector dials out over HTTPS, creates a device key on the machine, and keeps your local gateway credential local—it is never uploaded.
+            Chats appear after you sign in, approve the device, and the connector syncs sessions from Hermes on that Mac.
+          </p>
+        </div>
         <ol className="setup-steps">
-          <li><span>01</span><div><h3>Run one installer</h3><p>The connector installs as an always-on service and opens ThumbGate for you.</p></div></li>
-          <li><span>02</span><div><h3>Approve your Mac</h3><p>The short code is already filled. Verify the named machine and approve it.</p></div></li>
-          <li><span>03</span><div><h3>Choose the offline rule</h3><p>Pause, ask first, or continue on a fenced cloud runner when the machine disappears.</p></div></li>
+          <li>
+            <span>01</span>
+            <div>
+              <h3>Run the connector installer</h3>
+              <p>
+                On a Mac with Hermes already installed, the installer starts an always-on connector service (while that Mac is on)
+                and opens ThumbGate for approval.
+              </p>
+            </div>
+          </li>
+          <li>
+            <span>02</span>
+            <div>
+              <h3>Sign in and approve the Mac</h3>
+              <p>
+                In the happy path the short code is prefilled in the dashboard URL. Verify the named machine and fingerprint, then approve.
+                If the code is missing, paste the eight-character code from the installer output.
+              </p>
+            </div>
+          </li>
+          <li>
+            <span>03</span>
+            <div>
+              <h3>Choose the offline rule</h3>
+              <p>
+                Free web control defaults to pause or ask when the Mac disappears.
+                Automatic fenced cloud continuation requires Cloud Continuity (trial or paid)—it is not included in free pairing.
+              </p>
+            </div>
+          </li>
         </ol>
       </section>
 
@@ -80,7 +114,7 @@ export default function Home() {
         <div className="section-heading"><p className="eyebrow">The safe handoff</p><h2>One thread. One executor. Always recoverable.</h2></div>
         <div className="steps-grid">
           <article><span>01</span><h3>Pair without a gateway secret</h3><p>The connector creates a device key on the machine. You approve its short code and fingerprint from the signed-in dashboard.</p></article>
-          <article><span>02</span><h3>Route by live heartbeat</h3><p>Online tasks stay on your Hermes machine. Offline tasks pause, ask, or fail over automatically based on your policy.</p></article>
+          <article><span>02</span><h3>Route by live heartbeat</h3><p>Online tasks stay on your Hermes machine. Offline, free accounts pause or ask; automatic fenced cloud failover needs Cloud Continuity.</p></article>
           <article><span>03</span><h3>Fence every execution</h3><p>Local and cloud workers claim expiring generations. A stale worker cannot overwrite the result after another runner takes over.</p></article>
         </div>
       </section>
