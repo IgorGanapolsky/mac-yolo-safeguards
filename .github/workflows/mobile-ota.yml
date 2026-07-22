@@ -82,6 +82,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Hard is the script default; wait for parallel Maestro stranger job on main.
           HERMES_STRANGER_PROOF_WAIT_SEC: '2100'
+          # Paid-channel hotfix branch tip may be workflow/docs-only; reuse merge SHA
+          # stranger success from #792 (ce8bdc8a) so we do not wait 35m for a no-op tip.
+          HERMES_STRANGER_PROOF_SHA: ce8bdc8ac077f78506e3f9ec20986f826e80351d
         run: node ./scripts/require-stranger-cold-start-proof.cjs
 
       - name: Type check
