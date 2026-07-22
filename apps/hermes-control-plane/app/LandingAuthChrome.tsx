@@ -1,29 +1,35 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import styles from "./landing.module.css";
 
 type AuthMode = "loading" | "anon" | "session";
 
+let landingAuthRequest: Promise<AuthMode> | null = null;
+
+function getLandingAuth(): Promise<AuthMode> {
+  if (!landingAuthRequest) {
+    landingAuthRequest = fetch("/api/me", {
+      credentials: "same-origin",
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        if (!response.ok) return "anon";
+        const body = (await response.json()) as { authenticated?: boolean };
+        return body.authenticated ? "session" : "anon";
+      })
+      .catch(() => "anon");
+  }
+  return landingAuthRequest;
+}
+
 function useLandingAuth(): AuthMode {
   const [mode, setMode] = useState<AuthMode>("loading");
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const response = await fetch("/api/me", { credentials: "same-origin", cache: "no-store" });
-        if (cancelled) return;
-        if (!response.ok) {
-          setMode("anon");
-          return;
-        }
-        const body = (await response.json()) as { authenticated?: boolean };
-        setMode(body.authenticated ? "session" : "anon");
-      } catch {
-        if (!cancelled) setMode("anon");
-      }
-    })();
+    getLandingAuth().then((nextMode) => {
+      if (!cancelled) setMode(nextMode);
+    });
     return () => {
       cancelled = true;
     };
@@ -42,29 +48,13 @@ export function LandingAuthNav() {
       <a href="#pricing" className="nav-link">Pricing</a>
       {isSession ? (
         <div className={styles.sessionNav} aria-label="Authenticated session actions">
-          <Link
-            href="/dashboard"
-            className={`button button-small button-secondary ${styles.dashboardButton}`}
-            data-funnel-event="dashboard_open_click"
-          >
-            Open dashboard
-          </Link>
           <form action="/api/auth/logout" method="post">
             <button type="submit" className={`button button-small ${styles.signOutButton}`}>
               Sign out
             </button>
           </form>
         </div>
-      ) : (
-        <a
-          href="/api/auth/login"
-          className="button button-small button-secondary"
-          data-funnel-event="sign_in_click"
-          aria-busy={mode === "loading" || undefined}
-        >
-          Sign in
-        </a>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -106,25 +96,6 @@ export function LandingAuthPanel() {
         </span>
       </div>
       <div className="landing-action-list">
-        {isSession ? (
-          <Link className="landing-action" href="/dashboard" data-funnel-event="dashboard_open_click">
-            <span className="action-icon" aria-hidden="true">⌘</span>
-            <span>
-              <strong>Open private dashboard</strong>
-              <small>Your authenticated session is active. Workspace data still loads only inside the private dashboard.</small>
-            </span>
-            <b aria-hidden="true">→</b>
-          </Link>
-        ) : (
-          <a className="landing-action" href="#pair" data-funnel-event="pair_panel_click">
-            <span className="action-icon" aria-hidden="true">⌘</span>
-            <span>
-              <strong>After you sign in</strong>
-              <small>Use the purple Sign in button above, then pair your Mac. One auth path — not a second login control.</small>
-            </span>
-            <b aria-hidden="true">→</b>
-          </a>
-        )}
         <a className="landing-action" href="#pair">
           <span className="action-icon" aria-hidden="true">+</span>
           <span>

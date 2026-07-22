@@ -130,9 +130,9 @@ try {
   assert.match(html, /Your Hermes chats/);
   // Static shell defaults to anon/loading chrome (session via /api/me after paint).
   assert.match(html, /Sign-in required|Checking session/);
-  assert.match(html, />Sign in</);
   assert.match(html, /Sign in to Hermes Web/);
-  assert.match(html, /After you sign in/);
+  assert.equal((html.match(/data-funnel-event="sign_in_click"/g) ?? []).length, 1);
+  assert.doesNotMatch(html, /After you sign in/);
   assert.doesNotMatch(html, /Sign in to private dashboard/);
   assert.doesNotMatch(html, />Sign out</);
   assert.doesNotMatch(html, /Open private dashboard/);
@@ -331,8 +331,9 @@ try {
   const postLogoutLanding = await fetch(`http://127.0.0.1:${port}/`);
   const postLogoutHtml = await postLogoutLanding.text();
   assert.equal(postLogoutLanding.status, 200);
-  assert.match(postLogoutHtml, /Sign-in required|Checking session|After you sign in/);
-  assert.match(postLogoutHtml, />Sign in</);
+  assert.match(postLogoutHtml, /Sign-in required|Checking session/);
+  assert.match(postLogoutHtml, /Sign in to Hermes Web/);
+  assert.equal((postLogoutHtml.match(/data-funnel-event="sign_in_click"/g) ?? []).length, 1);
   assert.doesNotMatch(postLogoutHtml, />Sign out</);
   const postLogoutMe = await fetch(`http://127.0.0.1:${port}/api/me`, { headers: authenticatedHeaders });
   assert.equal(postLogoutMe.status, 200);
