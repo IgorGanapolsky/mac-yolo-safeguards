@@ -56,3 +56,19 @@ export function isEmptyTranscriptWithSessionMeta(input: {
 }): boolean {
   return input.hasCurrentSession && input.messageCount === 0;
 }
+
+/**
+ * Immediate post-switch /messages must use the TARGET Mac credentials.
+ * React GatewayContext may still close over the prior Mac until re-render.
+ */
+export function resolveMessageHydrateCredentials(input: {
+  gatewayUrlOverride?: string | null;
+  apiKeyOverride?: string | null;
+  fallbackGatewayUrl: string;
+  fallbackApiKey: string;
+}): { gatewayUrl: string; apiKey: string } {
+  return {
+    gatewayUrl: input.gatewayUrlOverride?.trim() || input.fallbackGatewayUrl,
+    apiKey: input.apiKeyOverride ?? input.fallbackApiKey,
+  };
+}

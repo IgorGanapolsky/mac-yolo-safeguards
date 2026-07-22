@@ -1,5 +1,6 @@
 import {
   isEmptyTranscriptWithSessionMeta,
+  resolveMessageHydrateCredentials,
   resolveProfileSwitchRestorePlan,
 } from '../utils/profileSwitchSessionRestore';
 
@@ -59,5 +60,25 @@ describe('profileSwitchSessionRestore', () => {
         messageCount: 12,
       }),
     ).toBe(false);
+  });
+
+  it('prefers target Mac URL/key for post-switch hydrate (Greptile P1)', () => {
+    expect(
+      resolveMessageHydrateCredentials({
+        gatewayUrlOverride: mini.gatewayUrl,
+        apiKeyOverride: 'mini-key',
+        fallbackGatewayUrl: 'http://100.87.85.85:8642',
+        fallbackApiKey: 'pro-key',
+      }),
+    ).toEqual({ gatewayUrl: mini.gatewayUrl, apiKey: 'mini-key' });
+    expect(
+      resolveMessageHydrateCredentials({
+        fallbackGatewayUrl: 'http://100.87.85.85:8642',
+        fallbackApiKey: 'pro-key',
+      }),
+    ).toEqual({
+      gatewayUrl: 'http://100.87.85.85:8642',
+      apiKey: 'pro-key',
+    });
   });
 });

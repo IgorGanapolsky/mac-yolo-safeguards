@@ -775,7 +775,13 @@ export default function ChatScreen() {
   const currentSessionRef = useRef(currentSession);
   const telegramReplySessionIdRef = useRef(telegramReplySessionId);
   const refreshSessionMessagesRef = useRef<
-    ((options?: { background?: boolean; manual?: boolean; force?: boolean }) => Promise<void>) | null
+    ((options?: {
+      background?: boolean;
+      manual?: boolean;
+      force?: boolean;
+      gatewayUrlOverride?: string | null;
+      apiKeyOverride?: string | null;
+    }) => Promise<void>) | null
   >(null);
   const inputFocusedRef = useRef(false);
   /** Android-only: one re-render when composer focuses so padding latches before keyboard inset. */
@@ -2782,13 +2788,27 @@ export default function ChatScreen() {
   }, [sessions, currentSession?.id, telegramReplySessionId]);
 
   const refreshSessionMessages = useCallback(
-    async (options?: { background?: boolean; manual?: boolean; force?: boolean }) => {
+    async (options?: {
+      background?: boolean;
+      manual?: boolean;
+      force?: boolean;
+      /** Target Mac credentials during profile switch (React context may still be pre-switch). */
+      gatewayUrlOverride?: string | null;
+      apiKeyOverride?: string | null;
+    }) => {
       const activeSession = currentSessionRef.current;
       if (!activeSession) {
         transcriptDigestRef.current = '';
         setMessages([]);
         return;
       }
+
+      const { gatewayUrl: fetchGatewayUrl, apiKey: fetchApiKey } = resolveMessageHydrateCredentials({
+        gatewayUrlOverride: options?.gatewayUrlOverride,
+        apiKeyOverride: options?.apiKeyOverride,
+        fallbackGatewayUrl: gatewayUrl,
+        fallbackApiKey: apiKey,
+      });
 
       if (!macChatLive && !options?.force) {
         // Keep the transcript visible during transient disconnect; reload on reconnect.
@@ -2952,9 +2972,9 @@ export default function ChatScreen() {
         if (isTelegramInboxSession(activeSession)) {
           const { messages: tgMessages, replySessionId, threadCount, messageCap } =
             await fetchTelegramInboxMessages(
-              gatewayUrl,
+              fetchGatewayUrl,
               sessionsRef.current,
-              apiKey,
+              fetchApiKey,
               undefined,
               undefined,
               {
@@ -2972,7 +2992,7 @@ export default function ChatScreen() {
           setTelegramReplySessionId(replySessionId);
           setTelegramInboxMeta({ threadCount, messageCap });
         } else {
-          const history = await listMessages(gatewayUrl, activeSession.id, apiKey);
+          const history = await listMessages(fetchGatewayUrl, activeSession.id, fetchApiKey);
           if (
             refreshGeneration !== refreshGenerationRef.current ||
             currentSessionRef.current?.id !== requestedSessionId
