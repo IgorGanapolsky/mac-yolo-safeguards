@@ -208,6 +208,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SHA: ${{ github.sha }}
+          HERMES_STRANGER_PROOF_SHA: ce8bdc8ac077f78506e3f9ec20986f826e80351d
+          HERMES_STRANGER_PROOF_WAIT_SEC: '120'
           HERMES_CONTINUOUS_LATEST_JSON: /tmp/hermes-ota-proof/latest.json
           HERMES_FRESH_USER_PROOF_JSON: /tmp/hermes-ota-proof/fresh-user-latest.json
         run: |
