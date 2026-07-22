@@ -43,10 +43,10 @@ import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import { haptics } from '../services/haptics';
 import { scheduleRunCompletedNotification } from '../services/hermesNotifications';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
+import { MAC_PICKER_SUBTITLE } from '../utils/tailscalePasteIpCopy';
 import ComputerPickerStatusRegion from '../components/ComputerPickerStatusRegion';
 import ManualComputerAddressForm from '../components/ManualComputerAddressForm';
 import { confirmForgetGatewayProfileAfterHostDismiss } from '../utils/confirmForgetGatewayProfile';
-import { MAC_PICKER_SUBTITLE } from '../utils/tailscalePasteIpCopy';
 import { confirmClearAllChatsAfterHostDismiss } from '../utils/confirmClearAllChats';
 import { profileDisplayName } from '../services/gatewayProfiles';
 import {
@@ -632,6 +632,10 @@ export default function ChatScreen() {
   /** Mac picker row tap — header shows target computer before async connect finishes. */
   const [profileSwitchBusy, setProfileSwitchBusy] = useState(false);
   const profileSwitchBusyRef = useRef(false);
+  /** Bumped on Choose-computer switch so in-flight machine-A stream commits cannot paint on B. */
+  const outboundEpochRef = useRef(0);
+  /** True while an intentional profile switch is clearing/reloading chat identity. */
+  const intentionalProfileSwitchRef = useRef(false);
   const switchingSessionIdRef = useRef<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   /** True while Start fresh chat is forking/stopping — show spinner so tap isn't silent. */
@@ -648,6 +652,11 @@ export default function ChatScreen() {
   const [attachPickerVisible, setAttachPickerVisible] = useState(false);
   const [macPickerVisible, setMacPickerVisible] = useState(false);
   const [macPickerHelpExpanded, setMacPickerHelpExpanded] = useState(false);
+
+  const closeMacPicker = useCallback(() => {
+    setMacPickerVisible(false);
+    setMacPickerHelpExpanded(false);
+  }, []);
   const [liveUsbProbed, setLiveUsbProbed] = useState<LiveUsbPickerInput | null>(null);
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [projectModalVisible, setProjectModalVisible] = useState(false);
@@ -1203,10 +1212,6 @@ export default function ChatScreen() {
       }),
     [activeGatewayProfile?.id, gatewayProfiles, liveUsbGateway],
   );
-  const closeMacPicker = useCallback(() => {
-    setMacPickerVisible(false);
-    setMacPickerHelpExpanded(false);
-  }, []);
   const healthProbePending = useMemo(() => isGatewayHealthPending(health), [health]);
   const usbCableLikely = useMemo(
     () =>
@@ -3566,6 +3571,7 @@ export default function ChatScreen() {
       pendingOutboundSends: pendingOutboundSendsRef.current,
       isSending: isSendingRef.current,
       hasActiveRun,
+      intentionalProfileSwitch: intentionalProfileSwitchRef.current,
     });
     if (preserveTranscript) {
       // False disconnect / sticky-session flicker: keep local bubbles; refresh merges later.
@@ -5212,6 +5218,14 @@ export default function ChatScreen() {
     setIsSending(true);
     activeOutboundSendBodyRef.current = normalizedDisplay;
     pendingOutboundClaimRef.current = null;
+    // Capture epoch at send start — machine switch bumps outboundEpochRef and must
+    // drop every later optimistic/stream mutation from this send.
+    const sendEpoch = outboundEpochRef.current;
+    const isSendEpochLive = () =>
+      shouldAcceptOutboundMutation({
+        mutationEpoch: sendEpoch,
+        activeEpoch: outboundEpochRef.current,
+      });
 
     let outboundLockReleased = false;
     const releaseOutboundSendLock = () => {
@@ -5222,7 +5236,12 @@ export default function ChatScreen() {
       isSendingRef.current = false;
       setIsSending(false);
       activeOutboundSendBodyRef.current = null;
-      drainOutboundQueue();
+      if (isSendEpochLive()) {
+        drainOutboundQueue();
+      } else {
+        outboundQueueRef.current = [];
+        setQueuedOutboundCount(0);
+      }
     };
 
     const collectRecoveryRunIds = (): string[] => {
@@ -5655,7 +5674,7 @@ export default function ChatScreen() {
     );
 
     const markOutboundBubbleStatus = (status: 'sent' | 'failed', failureReason?: string) => {
-      if (!committedUserMessageId) {
+      if (!committedUserMessageId || !isSendEpochLive()) {
         return;
       }
       pinnedOutboundStatusRef.current = status;
@@ -5668,6 +5687,9 @@ export default function ChatScreen() {
         setPinnedOutboundSentAt(null);
       }
       commitMessages((prev) => {
+        if (!isSendEpochLive()) {
+          return prev;
+        }
         const next = prev.map((message) =>
           message.id === committedUserMessageId
             ? {
@@ -5723,6 +5745,9 @@ export default function ChatScreen() {
             },
       );
       setTimeout(() => {
+        if (!isSendEpochLive()) {
+          return;
+        }
         markOutboundBubbleStatus('sent');
         const assistantText = `[Demo Mode] I received: "${userText}". Since the gateway is in demo mode, I'm providing a mock reply. Let me know if you want to test live controls!`;
         const assistantMessage: HermesMessage = {
@@ -5730,9 +5755,11 @@ export default function ChatScreen() {
           content: assistantText,
           created_at: new Date().toISOString(),
         };
-        commitMessages((prev) => [...prev, assistantMessage]);
-        setRunProgress(null);
-        haptics.success();
+        commitMessages((prev) => (isSendEpochLive() ? [...prev, assistantMessage] : prev));
+        if (isSendEpochLive()) {
+          setRunProgress(null);
+          haptics.success();
+        }
       }, 1500);
       return true;
     }
@@ -5810,6 +5837,9 @@ export default function ChatScreen() {
       const priorAssistants = snapshotAssistantBodies(messagesRef.current);
 
       const updateAssistant = (text: string) => {
+        if (!isSendEpochLive()) {
+          return;
+        }
         const incoming = text.trim();
         if (!incoming || isSilentAssistantCompletion(incoming)) {
           return;
@@ -5825,6 +5855,9 @@ export default function ChatScreen() {
             assistantBubbleAdded = true;
             activeAssistantIdRef.current = existing.id;
             commitMessages((prev) => {
+              if (!isSendEpochLive()) {
+                return prev;
+              }
               const next = prev.map((m) =>
                 m.id === existing.id
                   ? { ...m, content: preferRicherAssistantText(m.content, body) }
@@ -5840,6 +5873,9 @@ export default function ChatScreen() {
         if (!assistantBubbleAdded) {
           assistantBubbleAdded = true;
           commitMessages((prev) => {
+            if (!isSendEpochLive()) {
+              return prev;
+            }
             const next = [
               ...prev,
               {
@@ -5856,6 +5892,9 @@ export default function ChatScreen() {
           return;
         }
         commitMessages((prev) => {
+          if (!isSendEpochLive()) {
+            return prev;
+          }
           const next = prev.map((m) =>
             m.id === assistantId
               ? { ...m, content: preferRicherAssistantText(m.content, body) }
@@ -6145,6 +6184,13 @@ export default function ChatScreen() {
         }
       }
 
+      if (!isSendEpochLive()) {
+        // User switched computers mid-send — keep machine-A delivery on A; do not
+        // mutate machine-B's transcript or run chrome.
+        releaseOutboundSendLock();
+        return false;
+      }
+
       markMessageDeliveredToMac();
 
       const telegramDeferred = isTelegramDeferredEmptyStream(activeSess, assistantText);
@@ -6309,7 +6355,9 @@ export default function ChatScreen() {
       };
 
       releaseOutboundSendLock();
-      if (!deferredTelegramPollRef.current) {
+      if (!isSendEpochLive()) {
+        releaseOutboundPending();
+      } else if (!deferredTelegramPollRef.current) {
         const completedStartedAt = sendStartedAtRef.current;
         if (sendSucceeded) {
           const replyPreview = (activeAssistantTextRef.current || '')
@@ -6374,7 +6422,9 @@ export default function ChatScreen() {
         }
       }
 
-      if (!isDemo && !suppressPostSendRefresh && currentSessionRef.current) {
+      if (!isSendEpochLive()) {
+        // Already released pending above when epoch died mid-switch.
+      } else if (!isDemo && !suppressPostSendRefresh && currentSessionRef.current) {
         void refreshSessionMessagesRef.current?.({ background: true }).finally(releaseOutboundPending);
       } else {
         releaseOutboundPending();
