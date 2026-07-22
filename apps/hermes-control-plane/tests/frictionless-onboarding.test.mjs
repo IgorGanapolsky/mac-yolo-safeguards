@@ -216,9 +216,13 @@ test("keeps every workspace telemetry value behind authentication", () => {
   const publicTelemetryModule = new URL("../lib/public-telemetry.ts", import.meta.url);
   assert.equal(existsSync(publicTelemetryModule), false);
   assert.match(landing, /<nav className="hero-console hero-actions-panel" aria-label="Private workspace actions">/);
-  assert.match(landing, /className="landing-action" href="\/api\/auth\/login"/);
-  assert.match(landing, /className="landing-action" href="#pair"/);
-  assert.match(landing, /className="landing-action" href="#pricing"/);
-  assert.match(landing, /No workspace telemetry is fetched or rendered on this public page/);
+  assert.match(landing, /LandingAuthPanel/);
+  // Auth chrome is client-side; no D1/session on the public page source.
+  assert.doesNotMatch(landing, /currentSession\(/);
+  const chrome = readFileSync(new URL("../app/LandingAuthChrome.tsx", import.meta.url), "utf8");
+  assert.match(chrome, /className="landing-action" href="#pair"/);
+  assert.match(chrome, /className="landing-action" href="#pricing"/);
+  assert.match(chrome, /No workspace telemetry is fetched or rendered on this public page/);
+  assert.doesNotMatch(chrome, /getPublicTelemetry|Live production telemetry|Machines online now/);
   assert.doesNotMatch(landing, /getPublicTelemetry|Live production telemetry|Machines online now|P95 task completion|LAST CLOUD CONTINUATION|cloudRunsCompleted|machinesOnlineNow/);
 });

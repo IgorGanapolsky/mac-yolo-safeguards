@@ -1,17 +1,24 @@
 import Link from "next/link";
 import { BillingPlan } from "./BillingPlan";
 import { FunnelSignals } from "./FunnelSignals";
-import { currentSession } from "@/lib/auth";
+import {
+  LandingAuthHero,
+  LandingAuthNav,
+  LandingAuthPanel,
+  LandingPricingCtaFree,
+  LandingPricingCtaPaid,
+} from "./LandingAuthChrome";
 import styles from "./landing.module.css";
 
 function Mark() {
   return <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>;
 }
 
-export default async function Home() {
-  const session = await currentSession();
-  const workspaceHref = session ? "/dashboard" : "/api/auth/login";
-  const workspaceEvent = session ? "dashboard_open_click" : "sign_in_click";
+/**
+ * Public marketing shell is static: no cookie jar reads and no D1 on first paint.
+ * Session chrome hydrates via /api/me after paint (LandingAuthChrome).
+ */
+export default function Home() {
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -35,21 +42,7 @@ export default async function Home() {
       <FunnelSignals />
       <nav className="topbar landing-nav" aria-label="Primary navigation">
         <Link href="/" className="brand"><Mark /><span>ThumbGate <small>Hermes Web</small></span></Link>
-        <div className="nav-actions">
-          <a href="#pair" className="nav-link">Pair</a>
-          <a href="#how-it-works" className="nav-link">How it works</a>
-          <a href="#pricing" className="nav-link">Pricing</a>
-          {session ? (
-            <div className={styles.sessionNav} aria-label="Authenticated session actions">
-              <Link href="/dashboard" className={`button button-small button-secondary ${styles.dashboardButton}`} data-funnel-event="dashboard_open_click">Open dashboard</Link>
-              <form action="/api/auth/logout" method="post">
-                <button type="submit" className={`button button-small ${styles.signOutButton}`}>Sign out</button>
-              </form>
-            </div>
-          ) : (
-            <Link href="/api/auth/login" className="button button-small button-secondary" data-funnel-event="sign_in_click">Sign in</Link>
-          )}
-        </div>
+        <LandingAuthNav />
       </nav>
 
       <section id="main-content" className="hero" tabIndex={-1}>
@@ -57,48 +50,13 @@ export default async function Home() {
           <p className="eyebrow"><span className="live-dot" /> Hermes-native. Web-ready.</p>
           <h1>Your Hermes chats<br /><span>from any screen.</span></h1>
           <p className="hero-lede">The dark, focused Hermes workspace you already know—adapted for desktop and mobile web. Your Mac runs the work locally; paid cloud continuity can take over when it goes offline.</p>
-          <div className="hero-actions">
-            <Link href={workspaceHref} className="button button-primary" data-funnel-event={workspaceEvent}>
-              {session ? "Open Hermes on the web" : "Sign in to Hermes Web"} <span aria-hidden="true">→</span>
-            </Link>
-            <a href="#how-it-works" className="button button-ghost">See the failover path</a>
-          </div>
+          <LandingAuthHero />
           <p className="signin-note">Hermes Web by ThumbGate. Sign in with AuthKit (Google, Apple, Microsoft, GitHub, email, or enterprise SSO)—no new ThumbGate password.</p>
           <div className="trust-row"><span>No inbound ports</span><span>Private-key pairing</span><span>Cloud only when enabled</span></div>
         </div>
 
         <nav className="hero-console hero-actions-panel" aria-label="Private workspace actions">
-          <div className="console-header">
-            <span className="console-title"><Mark /> Your workspace is private</span>
-            <span className="action-label">{session ? "Session active" : "Sign-in required"}</span>
-          </div>
-          <div className="landing-action-list">
-            {session ? (
-              <Link className="landing-action" href="/dashboard" data-funnel-event="dashboard_open_click">
-                <span className="action-icon" aria-hidden="true">⌘</span>
-                <span><strong>Open private dashboard</strong><small>Your authenticated session is active. Workspace data still loads only inside the private dashboard.</small></span>
-                <b aria-hidden="true">→</b>
-              </Link>
-            ) : (
-              <Link className="landing-action" href="/api/auth/login" data-funnel-event="sign_in_click">
-                <span className="action-icon" aria-hidden="true">⌘</span>
-                <span><strong>Sign in to private dashboard</strong><small>Authenticate before any chats, machines, tasks, receipts, or live routing are loaded.</small></span>
-                <b aria-hidden="true">→</b>
-              </Link>
-            )}
-            <a className="landing-action" href="#pair">
-              <span className="action-icon" aria-hidden="true">+</span>
-              <span><strong>Pair your Mac</strong><small>Read the public setup steps, then sign in to approve the short code.</small></span>
-              <b aria-hidden="true">→</b>
-            </a>
-            <a className="landing-action" href="#pricing">
-              <span className="action-icon" aria-hidden="true">☁</span>
-              <span><strong>Review plans</strong><small>Compare public plan details without exposing workspace activity.</small></span>
-              <b aria-hidden="true">→</b>
-            </a>
-          </div>
-          <p className="honesty-note">No workspace telemetry is fetched or rendered on this public page.</p>
-          {session ? <p className={styles.sessionNotice}>This browser has an active session. Sign out before leaving a shared device.</p> : null}
+          <LandingAuthPanel />
         </nav>
       </section>
 
@@ -130,12 +88,33 @@ export default async function Home() {
       <section id="pricing" className="pricing-section">
         <div className="pricing-copy"><p className="eyebrow">Free control. Paid continuity.</p><h2>Pay for the infrastructure that keeps working.</h2><p>Web control of your own online Hermes machine stays free. Managed cloud execution is the paid product.</p></div>
         <div className="price-grid">
-          <article className="price-card"><div><span>Web Control</span><strong>$0<small>/month</small></strong></div><ul><li>Signed machine pairing</li><li>Synced Hermes threads</li><li>Local task continuation while online</li><li>Pause or ask when offline</li></ul><Link href={workspaceHref} className="button button-secondary" data-funnel-event="free_control_click">Use web control free →</Link></article>
-          <article className="price-card featured"><div><span>Cloud Continuity</span><BillingPlan /></div><ul><li>Everything in Web Control</li><li>100 cloud continuations every 30 days</li><li>Automatic fenced failover</li><li>14-day trial with 5 cloud runs</li></ul><Link href={workspaceHref} className="button button-primary" data-funnel-event="cloud_continuity_click">Try cloud continuity →</Link></article>
+          <article className="price-card">
+            <div><span>Web Control</span><strong>$0<small>/month</small></strong></div>
+            <ul>
+              <li>Signed machine pairing</li>
+              <li>Synced Hermes threads</li>
+              <li>Local task continuation while online</li>
+              <li>Pause or ask when offline</li>
+            </ul>
+            <LandingPricingCtaFree />
+          </article>
+          <article className="price-card featured">
+            <div><span>Cloud Continuity</span><BillingPlan /></div>
+            <ul>
+              <li>Everything in Web Control</li>
+              <li>100 cloud continuations every 30 days</li>
+              <li>Automatic fenced failover</li>
+              <li>14-day trial with 5 cloud runs</li>
+            </ul>
+            <LandingPricingCtaPaid />
+          </article>
         </div>
       </section>
 
-      <footer><Link href="/" className="brand"><Mark /><span>ThumbGate <small>Hermes Web</small></span></Link><p>Your Hermes workspace, wherever you are.</p></footer>
+      <footer>
+        <Link href="/" className="brand"><Mark /><span>ThumbGate <small>Hermes Web</small></span></Link>
+        <p>Your Hermes workspace, wherever you are.</p>
+      </footer>
     </main>
   );
 }
