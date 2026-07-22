@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -13,6 +13,9 @@ import {
 } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import TabBarIcon from './src/components/TabBarIcon';
+import ChatScreen from './src/screens/ChatScreen';
+import ApprovalsScreen from './src/screens/ApprovalsScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 
 // Hold native splash until React paints — prevents flash of empty black window.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -66,22 +69,6 @@ import { syncLeashEntitlementSnapshot } from './src/utils/thumbgateLeash';
 import { shouldCollapseTabBarForKeyboard } from './src/utils/tabBarKeyboardPolicy';
 import { colors } from './src/theme/colors';
 
-const ChatScreen = React.lazy(() => import('./src/screens/ChatScreen'));
-const ApprovalsScreen = React.lazy(() => import('./src/screens/ApprovalsScreen'));
-const SettingsScreen = React.lazy(() => import('./src/screens/SettingsScreen'));
-
-function TabScreenFallback() {
-  return (
-    <View style={styles.tabFallback} testID="tab-screen-loading">
-      <ActivityIndicator size="small" color={colors.accent} />
-    </View>
-  );
-}
-
-function LazyTabScreen({ children }: { children: React.ReactNode }) {
-  return <Suspense fallback={<TabScreenFallback />}>{children}</Suspense>;
-}
-
 type RootTabParamList = {
   Leash: undefined;
   Chat: undefined;
@@ -119,21 +106,9 @@ function tabTestIdFor(routeName: keyof RootTabParamList): string {
 const renderTabBar = (props: BottomTabBarProps) => <GlassmorphicTabBar {...props} />;
 
 const TAB_SCREENS: Record<HermesTabName, () => React.ReactNode> = {
-  Chat: () => (
-    <LazyTabScreen>
-      <ChatScreen />
-    </LazyTabScreen>
-  ),
-  Leash: () => (
-    <LazyTabScreen>
-      <ApprovalsScreen />
-    </LazyTabScreen>
-  ),
-  Settings: () => (
-    <LazyTabScreen>
-      <SettingsScreen />
-    </LazyTabScreen>
-  ),
+  Chat: () => <ChatScreen />,
+  Leash: () => <ApprovalsScreen />,
+  Settings: () => <SettingsScreen />,
 };
 
 function HermesTabNavigator() {
@@ -556,11 +531,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.textSecondary,
-  },
-  tabFallback: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.backgroundStart,
   },
 });
