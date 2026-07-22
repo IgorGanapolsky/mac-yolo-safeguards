@@ -103,6 +103,47 @@ describe('chatOutboundDisplay', () => {
     expect(timeline.map((entry) => entry.message.content)).toEqual(['ship fix', 'Done on your Mac.']);
   });
 
+  it('never renders persisted cron delivery scaffolding as a bubble', () => {
+    const cronSystemPrompt =
+      '[IMPORTANT: You are running as a scheduled cron job. DELIVERY: Your final response will be automatically delivered to the user — do NOT use send_message or try to deliver the output yourself. Just produce your report/output as your final response and the system handles the rest. SILENT: If there is nothing to report, return [SILENT].]';
+    const messages: HermesMessage[] = [
+      { id: 'cron-prompt', role: 'user', content: cronSystemPrompt },
+      { id: 'user-1', role: 'user', content: 'make money today', outboundStatus: 'sent' },
+      { id: 'asst-1', role: 'assistant', content: 'I found three qualified leads.' },
+    ];
+
+    const timeline = filterChatTimelineMessages({ messages, includeToolActivity: false });
+
+    expect(timeline.map((entry) => entry.message.content)).toEqual([
+      'make money today',
+      'I found three qualified leads.',
+    ]);
+  });
+
+  it('hides cron scaffolding persisted with escaped newlines', () => {
+    const escapedCronSystemPrompt =
+      '[IMPORTANT:\\nYou are running as a scheduled cron job.\\nDELIVERY: Your final response will be automatically delivered to the user.\\nDo not use send_message.\\nSILENT: Return [SILENT] when there is nothing to report.]';
+
+    expect(
+      filterChatTimelineMessages({
+        messages: [{ id: 'cron-prompt', role: 'user', content: escapedCronSystemPrompt }],
+      }),
+    ).toEqual([]);
+  });
+
+  it('keeps normal cron-related conversation visible', () => {
+    const messages: HermesMessage[] = [
+      { id: 'user-1', role: 'user', content: 'Can you schedule a cron job for 9 AM?' },
+      { id: 'asst-1', role: 'assistant', content: 'I can help set up that scheduled job.' },
+    ];
+
+    expect(
+      filterChatTimelineMessages({ messages, includeToolActivity: false }).map(
+        (entry) => entry.message.content,
+      ),
+    ).toEqual(messages.map((message) => message.content));
+  });
+
   it('hides in-flight working-status placeholders so tool polls cannot spam the transcript', () => {
     const messages: HermesMessage[] = [
       { id: 'user-1', role: 'user', content: 'Make money today', outboundStatus: 'sent' },
