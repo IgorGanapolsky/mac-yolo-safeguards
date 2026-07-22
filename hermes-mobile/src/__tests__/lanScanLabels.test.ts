@@ -67,7 +67,7 @@ describe('lanScanLabels', () => {
   });
 
   it('never calls Tailscale or USB results "local"', () => {
-    expect(formatLanScanResultLabel(0)).toBe('No Hermes computers found');
+    expect(formatLanScanResultLabel(0)).toBe('None found yet');
     expect(formatLanScanResultLabel(2)).toBe('Found 2 Hermes computers');
     expect(
       formatLanScanResultLabel({

@@ -7457,7 +7457,7 @@ export default function ChatScreen() {
               testID="mac-picker-scroll"
             >
               <Text style={styles.modalSubtitle} testID="mac-picker-subtitle">
-                Tap a computer to use it. Find computers if yours is missing.
+                Pick a computer, or paste your Mac’s Tailscale IP below. Tap Find computers if yours is missing.
               </Text>
               <ComputerPickerStatusRegion
                 scanning={profileScanning || isScanningMacs}

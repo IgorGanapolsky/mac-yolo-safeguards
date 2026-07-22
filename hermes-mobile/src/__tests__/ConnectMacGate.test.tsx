@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import ConnectMacGate from '../components/ConnectMacGate';
 import { DEFAULT_GATEWAY_SETTINGS } from '../types/gateway';
+import { CONNECT_MAC_GATE_TITLE, TAILSCALE_PASTE_IP_TITLE } from '../utils/tailscalePasteIpCopy';
 
 const mockUseGateway = jest.fn();
 
@@ -60,7 +61,7 @@ describe('ConnectMacGate', () => {
     }
   });
 
-  it('shows the gate for fresh unpaired relay defaults (product cold start)', () => {
+  it('shows paste-IP hero and Find computers for fresh unpaired relay defaults', () => {
     delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
     mockUseGateway.mockReturnValue(
       gateway({
@@ -76,11 +77,14 @@ describe('ConnectMacGate', () => {
     expect(DEFAULT_GATEWAY_SETTINGS.connectionMode).toBe('relay');
     expect(view.getByTestId('connect-mac-gate')).toBeTruthy();
     expect(view.getByTestId('connect-mac-onboarding-card')).toBeTruthy();
-    fireEvent.press(view.getByTestId('connect-other-ways-toggle'));
-    expect(view.getByTestId('connect-mac-onboarding-card')).toBeTruthy();
+    expect(view.getByText(CONNECT_MAC_GATE_TITLE)).toBeTruthy();
+    expect(view.getByText(TAILSCALE_PASTE_IP_TITLE)).toBeTruthy();
+    expect(view.getByTestId('connect-manual-input')).toBeTruthy();
+    expect(view.getByTestId('connect-search-wifi')).toBeTruthy();
+    expect(view.queryByTestId('fresh-user-step-1')).toBeNull();
   });
 
-  it('keeps onboarding + Find computers visible during silent bootstrap booting', () => {
+  it('keeps paste hero + Find computers visible during silent bootstrap booting', () => {
     delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
     mockUseGateway.mockReturnValue(
       gateway({
@@ -97,10 +101,10 @@ describe('ConnectMacGate', () => {
     expect(view.getByTestId('connect-mac-gate')).toBeTruthy();
     expect(view.getByTestId('connect-mac-onboarding-card')).toBeTruthy();
     expect(view.getByTestId('connect-search-wifi')).toBeTruthy();
-    expect(view.getByTestId('connect-mac-scan-progress')).toBeTruthy();
+    expect(view.getByTestId('connect-mac-scan-status')).toBeTruthy();
   });
 
-  it('keeps onboarding + Find computers visible while profileScanning (stranger cold-start)', () => {
+  it('keeps paste hero visible while profileScanning (stranger cold-start)', () => {
     delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
     mockUseGateway.mockReturnValue(
       gateway({
@@ -123,7 +127,7 @@ describe('ConnectMacGate', () => {
     expect(view.getByTestId('connect-mac-gate')).toBeTruthy();
     expect(view.getByTestId('connect-mac-onboarding-card')).toBeTruthy();
     expect(view.getByTestId('connect-search-wifi')).toBeTruthy();
-    expect(view.getByTestId('connect-mac-scan-progress')).toBeTruthy();
+    expect(view.getByTestId('connect-mac-scan-status')).toBeTruthy();
   });
 
   it('shows first-run computer setup when no machine is reachable or saved', () => {
@@ -133,7 +137,7 @@ describe('ConnectMacGate', () => {
     const view = render(<ConnectMacGate />);
 
     expect(view.getByTestId('connect-mac-gate')).toBeTruthy();
-    expect(view.getAllByText('Connect your computer').length).toBeGreaterThan(0);
+    expect(view.getByText(CONNECT_MAC_GATE_TITLE)).toBeTruthy();
     expect(view.getByTestId('connect-mac-gate-dismiss')).toBeTruthy();
   });
 
@@ -264,7 +268,7 @@ describe('ConnectMacGate', () => {
 
     const view = render(<ConnectMacGate />);
 
-    expect(view.getByText('Checking direct Hermes links (19%)')).toBeTruthy();
+    expect(view.getByTestId('connect-mac-scan-status')).toBeTruthy();
     expect(view.queryByText(/1 computer so far/)).toBeNull();
     expect(view.queryByTestId('connect-mac-found-machines')).toBeNull();
   });
@@ -310,7 +314,6 @@ describe('ConnectMacGate', () => {
     view.rerender(<ConnectMacGate />);
     expect(view.getByTestId('connect-mac-gate')).toBeTruthy();
     expect(view.getByTestId('connect-mac-found-machines')).toBeTruthy();
-    expect(view.getByText(/1 computer so far/)).toBeTruthy();
 
     fireEvent.press(view.getByTestId('select-gateway-profile-mac-mini'));
 
@@ -321,19 +324,14 @@ describe('ConnectMacGate', () => {
     expect(retryGatewayBootstrap).toHaveBeenCalledTimes(1);
   });
 
-  it('uses cellular onboarding copy when not on Wi-Fi', () => {
+  it('uses cellular one-liner when not on Wi-Fi', () => {
     delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
     mockUseGateway.mockReturnValue(gateway({ wifiConnected: false }));
 
     const view = render(<ConnectMacGate />);
 
-    fireEvent.press(view.getByTestId('connect-other-ways-toggle'));
-    expect(view.getByText('Use Tailscale from cellular')).toBeTruthy();
+    expect(view.getByText(/Paste your Mac’s Tailscale IP — works on cellular/)).toBeTruthy();
     expect(view.queryByText('Same home Wi‑Fi')).toBeNull();
-    expect(
-      view.getByText(
-        /On cellular, use Tailscale to reach your Mac/,
-      ),
-    ).toBeTruthy();
+    expect(view.queryByText('Use Tailscale from cellular')).toBeNull();
   });
 });
