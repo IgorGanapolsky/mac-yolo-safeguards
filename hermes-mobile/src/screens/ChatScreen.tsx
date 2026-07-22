@@ -147,6 +147,7 @@ import {
   normalizeMessageText,
   findDeferredPlaceholderAfterLastUser,
 } from '../utils/chatMessageMerge';
+import { reconcileChatHistory } from '../utils/chatHistoryReconciliation';
 import {
   dedupeAdjacentOptimisticUserBubbles,
   findPendingOptimisticUserBubble,
@@ -2748,7 +2749,8 @@ export default function ChatScreen() {
         if (currentSessionRef.current?.id !== requestedSessionId) {
           return;
         }
-        const resolved = clearResolvedFailedOutboundStatuses(merged);
+        const reconciled = reconcileChatHistory(merged, messagesRef.current);
+        const resolved = clearResolvedFailedOutboundStatuses(reconciled);
         const nextMessages = resolved.messages;
         const digest =
           transcriptDigest(nextMessages) + (resolved.cleared ? '|outbound-cleared' : '');
