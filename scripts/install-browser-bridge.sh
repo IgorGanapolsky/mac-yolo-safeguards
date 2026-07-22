@@ -13,6 +13,28 @@ set -euo pipefail
 
 say() { printf '\033[1;35m▸ %s\033[0m\n' "$1"; }
 
+for arg in "$@"; do
+  case "$arg" in
+    --help|-h)
+      cat <<'EOF'
+Usage: install-browser-bridge.sh [--mode=debugger|cdp] [--profile=dedicated|daily]
+
+  --mode=debugger  chrome.debugger extension path (default steal; NO Chrome restart)
+  --mode=cdp       LaunchAgent + --remote-debugging-port (legacy / fallback)
+
+  --profile=dedicated  Hermes-isolated Chrome profile (cdp mode default)
+  --profile=daily      Everyday Chrome profile (cdp mode; quits Chrome once)
+
+After this finishes, Hermes Mobile Chat → Tools → Browser Automation can drive
+the Mac browser. No adb. No phone extension.
+
+Requires HERMES_ALLOW_INTERACTIVE_CHROME=1 (default off — no desktop hijack).
+EOF
+      exit 0
+      ;;
+  esac
+done
+
 repo_root_early="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck disable=SC1091
 source "${repo_root_early}/scripts/hermes-interactive-chrome-gate.sh"
