@@ -32,7 +32,7 @@ const body = `# ThumbGate for Hermes
 - Access Hermes chats from the web: sign in, approve the outbound-only connector on the Mac that runs Hermes, then select a synced thread.
 - Mac offline behavior: free Web Control pauses or asks; eligible trial or paid Cloud Continuity tasks can use a fenced cloud runner.
 - Credential boundary: the local gateway credential stays on the paired Mac; ThumbGate receives a separate device identity and requires no inbound port.
-- Authentication: AuthKit accepts email; enterprise SSO is discovered from a verified work email, and social buttons appear only for configured providers.
+- Authentication: AuthKit accepts email or Google; enterprise SSO is discovered from a verified work email, and additional social buttons appear only after their providers are configured.
 
 ## Relationship to other products
 - Hermes is the agent runtime Leash controls

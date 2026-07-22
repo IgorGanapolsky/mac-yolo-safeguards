@@ -87,7 +87,7 @@ export default function Home() {
           <h1>Your agent, wherever you are.<br /><span>Even when your Mac isn&apos;t.</span></h1>
           <p className="hero-lede">Chat with Hermes, approve what it&apos;s about to run, and watch it work—from your phone or any browser. Free while your Mac is on. Turn on Cloud Continuity and it keeps going even after you close the lid.</p>
           <LandingAuthHero />
-          <p className="signin-note">Hermes Web by ThumbGate. AuthKit currently accepts email; enterprise SSO is discovered from a verified work email, and configured social providers appear automatically.</p>
+          <p className="signin-note">Hermes Web by ThumbGate. Sign in with email or Google; enterprise SSO is discovered from a verified work email, and additional social providers appear only after they are configured.</p>
           <div className="trust-row"><span>No inbound ports</span><span>Private-key pairing</span><span>Cloud only when enabled</span></div>
         </div>
 

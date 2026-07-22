@@ -27,7 +27,7 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /Free control\. Paid continuity\./);
   assert.match(page, /Web Control/);
   assert.match(page, /Cloud Continuity/);
-  assert.match(page, /AuthKit currently accepts email/);
+  assert.match(page, /Sign in with email or Google/);
   assert.match(page, /enterprise SSO is discovered from a verified work email/);
   assert.doesNotMatch(page, /Sign in with AuthKit \(Google, Apple, Microsoft, GitHub/);
   assert.match(page, /<BillingPlan \/>/);
@@ -74,7 +74,7 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(sitemap, /2026-07-22/);
   assert.match(llms, /Aggregate, content-free product analytics/);
   assert.match(llms, /## Direct answers/);
-  assert.match(llms, /social buttons appear only for configured providers/);
+  assert.match(llms, /additional social buttons appear only after their providers are configured/);
   assert.match(llms, /CloudCLI is a separate/);
   assert.doesNotMatch(page, /Igor|Ganapolsky/i);
   assert.doesNotMatch(`${layout}\n${robots}\n${sitemap}\n${llms}`, /Igor|Ganapolsky/i);
