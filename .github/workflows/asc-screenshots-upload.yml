@@ -32,6 +32,8 @@ jobs:
       ASC_USE_LIVE_VERSION: "1"
       ASC_SKIP_METADATA: "1"
       ASC_SKIP_DEDUPE: ${{ inputs.skip_dedupe }}
+      # Avoid fastlane SyncAppPreviews nil edit-version crash on READY_FOR_SALE.
+      ASC_SKIP_PREVIEWS: "1"
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
