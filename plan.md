@@ -1058,6 +1058,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - T-ANDROID-AGENT-BOUNDARY-20260722 claimed files → **released by codex-android-agent-boundary** after the primary-paper mitigation was implemented; focused Jest 4/4, full Jest 221 suites / 1,945 pass / 1 skip, TypeScript, release-safety 7 suites / 124 pass / 1 skip, Expo Doctor 19/19, privacy scan, 39-flow Maestro validation, script syntax, valid/invalid Python capture behavior, and physical-phone PNG streaming all passed. Continuous E2E was invoked and skipped because the phone was awake; no app-runtime or device-journey claim is made. (2026-07-22T11:20:00Z)
 
 - `hermes-mobile/src/services/manualGatewayConnection.ts`, `hermes-mobile/src/__tests__/manualGatewayConnection.test.ts`, `plan.md` → **codex-manual-tailscale** (T-MANUAL-TAILSCALE-RETRY-P0-20260722: manual 100.x/MagicDNS cellular VPN wake window and concise truthful errors; no picker UI overlap) (2026-07-22T14:58:34Z)
+- T-MANUAL-TAILSCALE-RETRY-P0-20260722 claimed files above → **released by codex-manual-tailscale** after commit `45982cb5` passed the ownership gate, focused/full Jest, typecheck, release-safety, diff check, and live Mac mini Tailscale reachability/policy proof; physical-phone proof remains pending because ADB was unavailable (2026-07-22T15:02:00Z)
 
 ## 3. Decisions Log
 
