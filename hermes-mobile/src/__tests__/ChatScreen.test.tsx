@@ -876,6 +876,94 @@ describe('ChatScreen', () => {
     });
   });
 
+  it('resumes another living thread when the sticky target 404s (dead cron/sticky)', async () => {
+    const { listSessions, createSessionWithUniqueTitle, listMessages, sendChatMessage } =
+      jest.requireMock('../services/hermesChatClient') as {
+        listSessions: jest.Mock;
+        createSessionWithUniqueTitle: jest.Mock;
+        listMessages: jest.Mock;
+        sendChatMessage: jest.Mock;
+      };
+    const { streamSessionChat } = jest.requireMock('../services/hermesGatewayClient') as {
+      streamSessionChat: jest.Mock;
+    };
+    const { storage } = jest.requireMock('../services/storage') as {
+      storage: { loadLastSessionForComputer: jest.Mock };
+    };
+    listSessions.mockResolvedValue([
+      {
+        id: 'cron_dead_sticky',
+        source: 'cron',
+        title: 'Scheduled job',
+        last_active_at: '2026-07-22T15:28:00.000Z',
+      },
+      {
+        id: 'mobile_alive_thread',
+        source: 'api_server',
+        title: 'Why we made zero dollars',
+        last_active_at: '2026-07-22T12:00:00.000Z',
+      },
+    ]);
+    listMessages.mockResolvedValue([
+      { id: 'u0', role: 'user', content: 'Prior context from the long thread' },
+      { id: 'a0', role: 'assistant', content: 'Prior assistant turn' },
+    ]);
+    storage.loadLastSessionForComputer.mockResolvedValue('cron_dead_sticky');
+    createSessionWithUniqueTitle.mockClear();
+    sendChatMessage.mockClear();
+    streamSessionChat.mockReset();
+    streamSessionChat.mockImplementation(
+      (
+        _gatewayUrl: string,
+        sessionId: string,
+        _text: string,
+        _apiKey: string,
+        onEvent: (event: { event: string; data: Record<string, unknown> }) => void,
+        _systemPrompt: string,
+        onOpen?: () => void,
+      ) => {
+        if (sessionId === 'cron_dead_sticky') {
+          return Promise.reject(
+            new Error(JSON.stringify({ error: { code: 'session_not_found', message: 'gone' } })),
+          );
+        }
+        onOpen?.();
+        onEvent({ event: 'assistant.delta', data: { delta: 'Resumed with context.' } });
+        return Promise.resolve('Resumed with context.');
+      },
+    );
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: { ok: true, level: 'green', hostname: 'demo-mac.local' },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const { getByTestId, queryByText } = await renderChatScreen();
+
+    await act(async () => {
+      fireEvent.changeText(getByTestId('chat-input'), 'Are you sure?');
+      fireEvent.press(getByTestId('chat-send-button'));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(streamSessionChat).toHaveBeenCalled();
+    });
+    // Must not blank-create a history=0 chat titled from the follow-up.
+    expect(createSessionWithUniqueTitle).not.toHaveBeenCalled();
+    const streamedIds = streamSessionChat.mock.calls.map((call) => call[1]);
+    expect(streamedIds).toContain('mobile_alive_thread');
+    expect(streamedIds).not.toContain('cron_dead_sticky');
+    expect(sendChatMessage).not.toHaveBeenCalled();
+    expect(queryByText(/That chat was removed or your computer restarted/)).toBeNull();
+  });
+
   it('auto-creates a fresh session and retries once when the gateway reports the target session was removed', async () => {
     const { listSessions, createSessionWithUniqueTitle, sendChatMessage } = jest.requireMock(
       '../services/hermesChatClient',
@@ -945,7 +1033,7 @@ describe('ChatScreen', () => {
       await Promise.resolve();
     });
 
-    // Exactly one auto-create + retry: the second stream targets the NEW id.
+    // Title-resume binds the stale id; 404 recovery creates once and retries.
     await waitFor(() => {
       expect(createSessionWithUniqueTitle).toHaveBeenCalledTimes(1);
       expect(streamSessionChat).toHaveBeenCalledTimes(2);
