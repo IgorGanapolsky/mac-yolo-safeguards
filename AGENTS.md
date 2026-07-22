@@ -33,6 +33,73 @@ Note: AGENTS.md is read natively by Cursor, gemini/Gemini, Copilot, Aider, Winds
 
 ---
 
+## Planner / worker swarm economics (2026-07-22)
+
+Harness quality beats model mix. Same models thrash without ownership; explicit roles + thrash detection ship more finished AC per dollar. Source lesson: Cursor agent-swarm model economics, applied at **human tempo** (worktrees + sequential merge — not a custom 1k commits/sec VCS).
+
+### Roles (context efficiency)
+
+| Role | Does | Does not |
+|------|------|----------|
+| **Planner** | Decompose goal → leaf tasks, write AcceptanceCheck, claim free files, record design in `plan.md` §3 | Implement worker leaves in the same context; delegate the same design question to two subtrees |
+| **Worker** | Implement **one** claimed free leaf; stacked verification; ship | Invent design; edit foreign claims; self-merge megafile conflicts |
+
+Set `AGENT_ROLE=planner` or `worker` (default worker). Session start prints guidance via `node tools/agent-swarm-harness.js`.
+
+### Model economics
+
+- **Frontier** (Claude/Grok/Cursor frontier): planning, ambiguous product/architecture, AcceptanceCheck quality.
+- **Cheap/local** (`tinker-yolo` q4, Composer-class): execute explicit leaves once AC + claims are locked.
+- **Anti-pattern:** five frontier agents re-deriving the same design on a megafile.
+
+### Thrash detection (not productivity)
+
+Measure finished AcceptanceChecks, multi-claimer count, and megafile contention — **not** commit rate.
+
+```bash
+node tools/agent-swarm-harness.js          # human brief + Field Guide
+node tools/agent-swarm-harness.js --json   # machine-readable
+node tools/plan-coordination-snapshot.js   # active tasks (named + numeric T- ids)
+```
+
+If harness reports contention or HOT megafile multi-owner → mark `blocked`, log, **STOP**.
+
+### Megafiles (serialize or split)
+
+Known choke points (also in harness `MEGAFILES`):
+
+- `hermes-mobile/src/context/GatewayContext.tsx`
+- `hermes-mobile/src/screens/ChatScreen.tsx`
+- `hermes-mobile/src/services/gatewayDiscovery.ts` / `gatewayProfiles.ts` / `tailscaleDiscovery.ts`
+- `hermes-mobile/src/utils/gatewayProfilePicker.ts`
+- `hermes-mobile/src/components/ConnectMacGate.tsx`
+- `tools/hermes-cloud-connector.js`
+- `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx`
+
+PRs that touch these **must** cite a `plan.md` §3 decision (`D-YYYY-MM-DD-…` or “Decisions Log”). Check:
+
+```bash
+git diff --name-only origin/main...HEAD | node tools/agent-swarm-harness.js check-hot-files --stdin --body-file pr-body.md
+```
+
+### Field Guide (stigmergy)
+
+Agents curate short successor context at [`docs/agent-field-guide/index.md`](./docs/agent-field-guide/index.md) (≤80 lines). Capture **surprises**, prune stale lines. Injected automatically by `agent-session-start` / `agent-swarm-harness`.
+
+### Stacked verification lenses
+
+No single check is enough. Before “done” / “shipped”:
+
+1. Focused unit tests for the claimed surface  
+2. Typecheck when TS/mobile touched  
+3. Continuous E2E pass **or** honest skip reason (phone lease / no device)  
+4. Greptile on onboarding / auth / OTA / pairing PRs  
+5. Sequential merge onto `main` only when required checks are green  
+
+Detail: [`docs/AGENT-SWARM-HARNESS.md`](./docs/AGENT-SWARM-HARNESS.md).
+
+---
+
 ## Honesty Protocol
 
 1. Never issue a canned completion statement (`"Done"`, `"Shipped"`, `"All clean"`) without verifiable evidence in the same response.
