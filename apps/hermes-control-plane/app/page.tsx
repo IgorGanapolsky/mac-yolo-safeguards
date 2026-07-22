@@ -63,7 +63,7 @@ export default async function Home() {
             </Link>
             <a href="#how-it-works" className="button button-ghost">See the failover path</a>
           </div>
-          <p className="signin-note">Hermes Web by ThumbGate. Continue with Google or Apple—no new password.</p>
+          <p className="signin-note">Hermes Web by ThumbGate. Sign in with AuthKit (Google, Apple, Microsoft, GitHub, email, or enterprise SSO)—no new ThumbGate password.</p>
           <div className="trust-row"><span>No inbound ports</span><span>Private-key pairing</span><span>Cloud only when enabled</span></div>
         </div>
 
