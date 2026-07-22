@@ -50,7 +50,7 @@ EOF
 
 cat > "$TMP/fake-pair.js" <<'EOF'
 const fs = require('fs');
-fs.writeFileSync(process.env.REPAIR_MARKER, 'repaired');
+fs.writeFileSync(process.env.REPAIR_MARKER, process.argv.slice(2).join(' '));
 EOF
 
 chmod +x "$TMP/bin/"*
@@ -82,10 +82,12 @@ fi
 rm -f "$TMP/launchctl.log" "$TMP/open.log" "$TMP/repaired"
 if TAILSCALE_MODE=online GATEWAY_MODE=healthy PAIR_MODE=stale run_watchdog \
   && [[ -f "$TMP/repaired" ]] \
+  && grep -q -- '--allow-local-key-fallback' "$TMP/repaired" \
+  && grep -q -- '--no-adb' "$TMP/repaired" \
   && grep -q 'com.igor.hermes-mobile-pair-server' "$TMP/launchctl.log"; then
-  ok 'stale LAN pair payload is regenerated and KeepAlive pair server is kicked'
+  ok 'stale LAN pair payload is regenerated with local-key fallback and KeepAlive pair server is kicked'
 else
-  bad 'stale LAN pair payload is regenerated and KeepAlive pair server is kicked'
+  bad 'stale LAN pair payload is regenerated with local-key fallback and KeepAlive pair server is kicked'
 fi
 
 rm -f "$TMP/launchctl.log" "$TMP/open.log" "$TMP/repaired"

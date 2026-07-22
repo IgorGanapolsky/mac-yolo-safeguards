@@ -802,9 +802,11 @@ function refreshPairAssetsFromLocalGateway() {
   } catch {
     priorExtras = [];
   }
-  // Seed for live /pair remints — do NOT bake a secretless code into static QR/HTML here.
-  // HTTP GET /pair mints a fresh display-TTL code on every load/refresh.
   // pairServer MUST be phone-reachable (Tailscale preferred) — Camera QR is not USB.
+  // P0 2026-07-22: --server-only used to write a legacy key= deepLink into pair.json.
+  // The Tailscale health watchdog validates /pair.json for pairCode; legacy links made
+  // every launchd tick exit 1 even when the pair HTTP page reminted secretless codes.
+  // Keep HTTP /pair live remints, but also persist a secretless pairCode in pair.json.
   const pairSeed = {
     gatewayUrl,
     apiKey,
@@ -818,15 +820,8 @@ function refreshPairAssetsFromLocalGateway() {
     pairServer: phonePairServer,
     pageUrl: cameraPageUrl,
   };
-  const deepLink = buildDeepLink(
-    gatewayUrl,
-    apiKey,
-    hostname,
-    relayCode,
-    tailnetProbeHosts,
-    [],
-    thumbgateApiKey,
-  );
+  const minted = mintPairingCode(pairSeed, { ttlMs: PAIRING_CODE_DISPLAY_TTL_MS });
+  const deepLink = buildSecretlessDeepLink(minted.code, phonePairServer, hostname);
   const prevHost = String(previous?.hostname || '')
     .replace(/\.local$/i, '')
     .trim()
@@ -848,11 +843,11 @@ function refreshPairAssetsFromLocalGateway() {
     relayCode,
     tailnetProbeHosts,
     pairSeed,
-    expiresAt: Date.now() + PAIRING_CODE_DISPLAY_TTL_MS,
-    remainingMs: PAIRING_CODE_DISPLAY_TTL_MS,
+    expiresAt: minted.expiresAt,
+    remainingMs: minted.remainingMs,
   });
   console.log(
-    `  pair.json: ${hostname} → ${gatewayUrl} (localIp ${lanIp}; pairServer ${phonePairServer})`,
+    `  pair.json: ${hostname} → ${gatewayUrl} (localIp ${lanIp}; pairServer ${phonePairServer}; pairCode)`,
   );
   return { health, lanIp, hostname, gatewayUrl, pageUrl: cameraPageUrl };
 }
