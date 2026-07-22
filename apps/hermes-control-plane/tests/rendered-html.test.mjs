@@ -22,14 +22,15 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(layout, /height: 630/);
   assert.match(layout, /images: \["\/og\.png"\]/);
   assert.match(layout, /agent observability/);
-  assert.match(page, /Leash/);
-  assert.match(page, /by ThumbGate/);
-  assert.match(page, /Your Hermes work/);
+  assert.match(page, /ThumbGate/);
+  assert.match(page, /Your Hermes chats/);
   assert.match(page, /Free control\. Paid continuity\./);
   assert.match(page, /Web Control/);
   assert.match(page, /Cloud Continuity/);
   assert.match(page, /Sign in with AuthKit \(Google, Apple, Microsoft, GitHub, email, or enterprise SSO\)/);
   assert.match(page, /<BillingPlan \/>/);
+  assert.match(page, /LandingAuthHero|LandingAuthNav/);
+  assert.doesNotMatch(page, /currentSession\(/);
   assert.doesNotMatch(page, /\$29|price: "29"/);
   assert.match(billingPlan, /\/api\/billing\/plan/);
   assert.match(billingPlanRoute, /STRIPE_PRICE_ID/);
@@ -46,8 +47,11 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(dashboard, /\? manageBilling\(\) : subscribe\(\)/);
   assert.match(page, /100 cloud continuations/);
   assert.match(page, /Run one installer/);
-  assert.match(page, /data-funnel-event="free_control_click"/);
-  assert.match(page, /data-funnel-event="cloud_continuity_click"/);
+  // Pricing CTAs live in client chrome (static shell + /api/me personalization).
+  const chrome = await readFile(new URL("../app/LandingAuthChrome.tsx", import.meta.url), "utf8");
+  assert.match(chrome, /data-funnel-event="free_control_click"/);
+  assert.match(chrome, /data-funnel-event="cloud_continuity_click"/);
+  assert.match(chrome, /data-funnel-event="sign_in_click"/);
   assert.match(page, /90s<\/strong><span>execution lease/);
   assert.match(page, /application\/ld\+json/);
   assert.match(page, /SoftwareApplication/);
