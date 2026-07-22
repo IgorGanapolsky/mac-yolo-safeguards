@@ -29,13 +29,20 @@ export function shouldClearMissingCurrentSession(input: {
  * Session-id effect historically did setMessages([]) then refresh. During a
  * false disconnect refresh is a no-op, so clearing discarded the transcript.
  * Keep local bubbles whenever we still have unsynced / failed outbound work.
+ *
+ * Intentional Choose-computer / profile switches must NEVER preserve — otherwise
+ * machine A's optimistic bubble paints under machine B's identity mid-switch.
  */
 export function shouldPreserveTranscriptOnSessionChange(input: {
   messages: readonly HermesMessage[];
   pendingOutboundSends: number;
   isSending: boolean;
   hasActiveRun: boolean;
+  intentionalProfileSwitch?: boolean;
 }): boolean {
+  if (input.intentionalProfileSwitch) {
+    return false;
+  }
   if (input.pendingOutboundSends > 0 || input.isSending || input.hasActiveRun) {
     return true;
   }
