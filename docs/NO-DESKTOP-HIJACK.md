@@ -9,9 +9,9 @@ Canonical rule: [AGENTS.md](../AGENTS.md) § No desktop hijack.
 | Env | Default | Effect |
 |-----|---------|--------|
 | `HERMES_ALLOW_INTERACTIVE_CHROME` | `0` (unset) | `hermes-chrome-cdp.sh`, `install-hermes-chrome-cdp.sh`, `install-browser-bridge.sh`, `configure-browser-control.sh --apply`, and `install-agent-launchagents.sh` **do not** launch/heal/install CDP Chrome |
-| `HERMES_ALLOW_INTERACTIVE_CHROME=1` | — | Allowed **only** when Igor explicitly asked for browser control in that same message |
+| `HERMES_ALLOW_INTERACTIVE_CHROME=1` | — | Allowed **only** when Igor explicitly asked for browser control in that same message (e.g. `use my Chrome`, `drive my Chrome`) |
 
-Gate helper: `scripts/hermes-interactive-chrome-gate.sh`.
+Gate helper: `scripts/hermes-interactive-chrome-gate.sh`. Regression: `tests/test-install-agent-launchagents-chrome-gate.js`.
 
 ## Disable on a Mac (one-time)
 

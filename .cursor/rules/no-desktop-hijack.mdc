@@ -5,18 +5,21 @@ alwaysApply: true
 
 # No desktop hijack (hard rule)
 
-**Default:** CLI, API, SSH, `adb`, headless Docker Playwright only. Igor's daily-driver Mac stays usable.
+**Default:** CLI, API, SSH, `adb`, headless Docker Playwright only. Igor's daily-driver Mac stays usable. **Interactive Chrome on the daily driver is forbidden.**
 
-**NEVER unless Igor explicitly requests it in that same message:**
+**Explicit opt-in required in the same user message.** Accept phrases like: `use my Chrome`, `drive my Chrome`, `open Chrome for me`, `use Computer Use`, `take over my browser`. If Igor did not say one of these (or equivalent), **stop** and use headless/API paths instead.
+
+**NEVER without that explicit opt-in:**
 
 - `osascript` / AppleScript driving **Google Chrome** (activate, quit, front window, JS injection)
-- `drive-logged-in-chrome`, `use-existing-browser-sessions`, or any skill that opens/focuses his Chrome
-- Cursor **Computer Use**, headed Playwright, browser MCP on Igor's profile
-- `com.hermes.chrome-cdp` install/heal or CDP against the daily-driver browser
+- `drive-logged-in-chrome`, `use-existing-browser-sessions`, `web-browsing-with-computer-use`, or any skill that opens/focuses his Chrome
+- Cursor **Computer Use**, headed Playwright (`headless: false`), browser MCP / CDP on Igor's daily-driver profile
+- `com.hermes.chrome-cdp` install/heal or CDP against port 9222 on the daily driver
 - `install-browser-bridge.sh --profile=daily` (quits Chrome)
+- `cursor-ide-browser` lock/click/type on Igor's logged-in tabs
 
-**Prefer (in order):** `gh`, Play Developer API, App Store Connect API (`.p8`), Gmail API/MCP, Stripe CLI, `adb`, SSH to Mac mini/fleet, headless Playwright in Docker or isolated profile.
+**Prefer (in order):** `gh`, Play Developer API, ASC API / `asc-cli` (`.p8`), Gmail API/MCP, Stripe CLI, `adb`, SSH to Mac mini (`100.94.135.78`), headless Playwright in Docker or `~/.hermes/chrome-cdp-profile` only after opt-in.
 
-**Opt-in gate:** `HERMES_ALLOW_INTERACTIVE_CHROME=1` only when Igor explicitly asked for browser control in that turn.
+**Opt-in gate:** set `HERMES_ALLOW_INTERACTIVE_CHROME=1` only when Igor explicitly asked for browser control in **that same message**. Never set it proactively.
 
 Canonical: [AGENTS.md](../../AGENTS.md) § No desktop hijack · [docs/HEADLESS-BACKGROUND-OPS.md](../../docs/HEADLESS-BACKGROUND-OPS.md) · [docs/NO-DESKTOP-HIJACK.md](../../docs/NO-DESKTOP-HIJACK.md)
