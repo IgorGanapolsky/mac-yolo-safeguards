@@ -59,8 +59,9 @@ const worker = {
       const path = url.pathname;
       const cookie = request.headers.get("cookie") ?? "";
       const hasSession = /(?:^|;\s*)hermes_session=/.test(cookie);
+      // Include HEAD so probes/CDNs see the same cache policy as GET.
       const isPublicMarketing =
-        request.method === "GET" &&
+        (request.method === "GET" || request.method === "HEAD") &&
         !hasSession &&
         (path === "/" || path === "");
       if (isPublicMarketing) {
