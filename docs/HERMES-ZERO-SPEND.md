@@ -2,9 +2,13 @@
 
 Hermes zero-spend mode is a host-level, fail-closed command boundary for the
 MacBook Pro and Mac mini. The fleet-wide provider block is active when
-`~/.hermes/NO_PAID_SPEND` exists. `grok-yolo` is a narrower permanent exception:
-its shim remains local-only through loopback Ollama even when that global marker
-is absent, and fails closed when its verified local model is unavailable.
+`~/.hermes/NO_PAID_SPEND` exists. `grok-yolo`, `hermes-yolo`, and `opencode`
+are marker-gated like every other guarded command: while the marker is active
+their shims are local-only through loopback Ollama and fail closed when the
+verified local model is unavailable; once the marker is removed (`--disable`)
+they pass through to the preserved, authenticated original — for `grok-yolo`
+that means the real paid Grok CLI, since Igor's Grok Max subscription makes
+that the intended default route, not an accident to guard against.
 The marker, manifest, and receipts are mode `0600`; no API key or prompt text is
 written to them.
 
@@ -44,14 +48,16 @@ summarize secrets into tracked files, or install a second pruning service.
 When the fleet marker is disabled, the shim passes through to the preserved
 authenticated OpenCode binary and its normal provider configuration.
 
-The `grok-yolo` exception is narrow. The gate sets
+While zero-spend is active, the `grok-yolo` route is narrow. The gate sets
 `GROK_YOLO_LOCAL_ONLY=1`, supplies the already-verified 64K Ollama model, blanks
-paid-provider credentials, and gives Grok Build a private isolated home. The
-wrapper pins its model alias and loopback endpoint, disables web search and
-subagents, and rejects `--model` overrides. Direct `grok` still exits `73`.
-Receipts record `backend: grok-build-ollama`, `inferenceScope: local`, and
-`providerCostUsd: 0`; that field means no provider invoice, not free electricity
-or hardware.
+paid-provider credentials (by deleting the variables, not setting them to an
+empty string — an empty `XAI_API_KEY` still makes the Grok CLI attempt API-key
+auth instead of falling through to the OAuth session), and gives Grok Build a
+private isolated home. The wrapper pins its model alias and loopback endpoint,
+disables web search and subagents, and rejects `--model` overrides. Direct
+`grok` still exits `73`. Receipts record `backend: grok-build-ollama`,
+`inferenceScope: local`, and `providerCostUsd: 0`; that field means no provider
+invoice, not free electricity or hardware.
 
 Grok Build external OpenTelemetry stays available for content-free fleet
 metrics. It remains off until both the external OTEL master switch and an

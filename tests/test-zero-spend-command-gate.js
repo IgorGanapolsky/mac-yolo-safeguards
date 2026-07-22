@@ -264,28 +264,36 @@ assert.strictEqual(capturedOpenCodeAfterDisable.OPENCODE_CONFIG, null);
 assert.strictEqual(capturedOpenCodeAfterDisable.META_MODEL_API_KEY, 'must-not-reach-child');
 assert.strictEqual(capturedOpenCodeAfterDisable.MODEL_API_KEY, 'must-not-reach-child');
 fs.unlinkSync(grokCapture);
-const persistentLocalGrok = run(path.join(bin, 'grok-yolo'), [], env);
-assert.strictEqual(persistentLocalGrok.status, 0, persistentLocalGrok.stderr);
-const capturedPersistentGrok = JSON.parse(fs.readFileSync(grokCapture, 'utf8'));
-assert.strictEqual(capturedPersistentGrok.GROK_YOLO_LOCAL_ONLY, '1');
-assert.strictEqual(capturedPersistentGrok.GROK_YOLO_LOCAL_MODEL, 'qwen3.5:9b-hermes-64k');
-assert.strictEqual(capturedPersistentGrok.XAI_API_KEY, null);
+const grokAfterDisable = run(path.join(bin, 'grok-yolo'), ['hello'], env);
+assert.strictEqual(grokAfterDisable.status, 0, grokAfterDisable.stderr);
+const capturedGrokAfterDisable = JSON.parse(fs.readFileSync(grokCapture, 'utf8'));
+assert.deepStrictEqual(capturedGrokAfterDisable.args, ['hello']);
+assert.strictEqual(capturedGrokAfterDisable.HERMES_ZERO_SPEND, null);
+assert.strictEqual(capturedGrokAfterDisable.GROK_YOLO_LOCAL_ONLY, null);
 assert.strictEqual(
-  JSON.parse(fs.readFileSync(path.join(home, '.hermes', 'receipts', 'zero-spend', 'latest.json'), 'utf8')).outcome,
-  'local-pass',
+  capturedGrokAfterDisable.XAI_API_KEY,
+  'must-not-reach-child',
+  'grok-yolo must reach the real paid CLI unmodified once zero-spend is disabled',
 );
-
-fs.unlinkSync(grokCapture);
-const missingPersistentModel = run(path.join(bin, 'grok-yolo'), [], {
-  ...env,
-  HERMES_ZERO_SPEND_LOCAL_MODELS: 'not-a-safe-local-model',
-});
-assert.strictEqual(missingPersistentModel.status, 69, missingPersistentModel.stderr);
-assert.strictEqual(fs.existsSync(grokCapture), false, 'grok-yolo must fail closed without its local model');
 
 const directGrokAfterDisable = run(path.join(bin, 'grok'), ['hello'], env);
 assert.strictEqual(directGrokAfterDisable.status, 0, directGrokAfterDisable.stderr);
 assert.strictEqual(fs.existsSync(directGrokSentinel), true, 'global marker still controls non-yolo commands');
+
+const reenabled = run(process.execPath, [sourceGate, '--install'], env);
+assert.strictEqual(reenabled.status, 0, reenabled.stderr);
+assert.strictEqual(JSON.parse(reenabled.stdout).active, true);
+fs.unlinkSync(grokCapture);
+const missingModelWhileActive = run(path.join(bin, 'grok-yolo'), [], {
+  ...env,
+  HERMES_ZERO_SPEND_LOCAL_MODELS: 'not-a-safe-local-model',
+});
+assert.strictEqual(missingModelWhileActive.status, 69, missingModelWhileActive.stderr);
+assert.strictEqual(
+  fs.existsSync(grokCapture),
+  false,
+  'grok-yolo must still fail closed without its local model while zero-spend is active',
+);
 
 const fakeOllamaState = path.join(root, 'fake-ollama-model-created');
 const capturedModelFile = path.join(root, 'captured-Modelfile');
