@@ -429,12 +429,14 @@ describe('release safety contract', () => {
     expect(env).toContain('wait_for_adb_device "$device_id" "$MAESTRO_ANDROID_ADB_WAIT_ATTEMPTS"');
   });
 
-  it('e2e-bootstrap waits for lazy Leash tab load', () => {
+  it('e2e-bootstrap waits for Leash tab content (not endless loading fallback)', () => {
     const bootstrap = read('hermes-mobile/.maestro/e2e-bootstrap.yaml');
     expect(bootstrap).toContain('hermes://setup?demo=1');
     expect(bootstrap).toContain('hermes://leash');
     expect(bootstrap).toContain('THUMBGATE_LEASH');
     expect(bootstrap).toContain('id: "tab-leash"');
+    expect(bootstrap).toContain('assertNotVisible:');
+    expect(bootstrap).toContain('id: "tab-screen-loading"');
     expect(bootstrap).toContain('hermes://chat');
     expect(bootstrap).toContain('chat-screen-header');
     expect(bootstrap).toContain('chat-input');

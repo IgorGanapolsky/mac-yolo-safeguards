@@ -152,6 +152,10 @@ export default function ConnectMacGate() {
     gatewayBootstrapPhase === 'booting' ||
     gatewayBootstrapPhase === 'searching' ||
     profileScanning;
+  // User-directed Find computers / profile scan collapses the numbered steps.
+  // Silent bootstrap "booting/searching" must NOT hide the onboarding card or
+  // Find computers CTA — stranger cold-start and real first launches need them.
+  const userDirectedSearch = isSearching || profileScanning;
 
   // First-run only. Saved Macs / transient Tailscale blips stay on Chat
   // (ChatConnectionPanel) — never re-mount this overlay on AppState or toggles.
@@ -286,7 +290,7 @@ export default function ConnectMacGate() {
                 </View>
               ) : null}
 
-              {!searching ? (
+              {!userDirectedSearch ? (
                 <>
                   <FreshUserOnboardingCard
                     profiles={gatewayProfiles}
@@ -315,7 +319,7 @@ export default function ConnectMacGate() {
                 </>
               ) : null}
 
-              {!searching && showOtherWays ? (
+              {!userDirectedSearch && showOtherWays ? (
                 <>
                   {tailscaleDiscoveries.length > 0 ? (
                     <TailscaleDiscoveryBanner

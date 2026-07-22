@@ -80,6 +80,26 @@ describe('ConnectMacGate', () => {
     expect(view.getByTestId('connect-mac-onboarding-card')).toBeTruthy();
   });
 
+  it('keeps onboarding + Find computers visible during silent bootstrap booting', () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    mockUseGateway.mockReturnValue(
+      gateway({
+        settings: {
+          ...DEFAULT_GATEWAY_SETTINGS,
+          demoMode: false,
+        },
+        gatewayBootstrapPhase: 'booting',
+        gatewayProfiles: [],
+        effectiveGatewayUrl: '',
+      }),
+    );
+    const view = render(<ConnectMacGate />);
+    expect(view.getByTestId('connect-mac-gate')).toBeTruthy();
+    expect(view.getByTestId('connect-mac-onboarding-card')).toBeTruthy();
+    expect(view.getByTestId('connect-search-wifi')).toBeTruthy();
+    expect(view.getByTestId('connect-mac-scan-progress')).toBeTruthy();
+  });
+
   it('shows first-run computer setup when no machine is reachable or saved', () => {
     delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
     mockUseGateway.mockReturnValue(gateway());
