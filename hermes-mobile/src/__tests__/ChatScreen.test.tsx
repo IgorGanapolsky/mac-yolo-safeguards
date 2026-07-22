@@ -1406,11 +1406,10 @@ describe('ChatScreen', () => {
 
     expect(getByTestId('mac-picker-scroll')).toBeTruthy();
     expect(getByTestId('mac-picker-status-region')).toBeTruthy();
-    expect(getByText('Missing your other computer?')).toBeTruthy();
-    expect(getByText(/Start Hermes on that computer/)).toBeTruthy();
     expect(getByTestId('mac-picker-manual-form')).toBeTruthy();
     expect(getByText('Paste your Mac’s Tailscale IP')).toBeTruthy();
     expect(getByText(/On the Mac: Tailscale → copy 100\.x → paste → Connect/)).toBeTruthy();
+    expect(getByText(/Hermes must be open on that Mac/)).toBeTruthy();
     expect(getByTestId('mac-picker-subtitle')).toHaveTextContent(
       /Tap a computer, or paste Tailscale IP below/,
     );
@@ -1449,7 +1448,7 @@ describe('ChatScreen', () => {
     fireEvent.press(getByTestId('chat-context-mac-button'));
 
     expect(getByTestId('gateway-profile-list')).toBeTruthy();
-    expect(queryByText('Missing your other computer?')).toBeNull();
+    expect(queryByText('Missing another computer?')).toBeNull();
     expect(getByTestId('mac-picker-status-region-help-link')).toBeTruthy();
     expect(queryByTestId('mac-picker-status-region')).toBeNull();
     expect(getByTestId('mac-picker-manual-input-row')).not.toHaveStyle({
