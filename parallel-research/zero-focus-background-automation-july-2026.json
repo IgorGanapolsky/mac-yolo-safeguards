@@ -1,0 +1,624 @@
+{
+  "run_id": "trun_d3be5e813aa94970867a3d887aac3b70",
+  "interaction_id": "trun_d3be5e813aa94970867a3d887aac3b70",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_d3be5e813aa94970867a3d887aac3b70",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Reasoning: The provided field_answer offers a comprehensive, multi-section architecture and concrete constraints addressing macOS launchd usage (LaunchAgent vs LaunchDaemon), session isolation, CI runner strategies (hosted/self-hosted), Playwright/Puppeteer in containers with ephemeral profiles and strict isolation, Docker alternatives on Apple Silicon, Android/iOS build strategies without GUI, App Store/Play API usage vs UI, API/CLI coverage for external services, a fail-closed policy with static/dynamic detectors, phased migration plan, risk/ROI analysis, and a detailed implementation plan for 24 hours, 7 days, and 30 days. It includes sections for mitigations, phased migration, and concreteAppendices. The excerpts provided contain relevant material (differences between LaunchAgents and LaunchDaemons, isolation concepts, and related macOS/background execution topics) that substantiate core parts of the field_answer. Therefore, completeness is high and the field_answer is supported by excerpts. Minor risk: some exact URLs/dates cited in the field_answer may not be explicitly present in the excerpts list, but the general concepts are corroborated by the excerpts.",
+        "citations": [
+          {
+            "url": "https://github.com/tjluoma/launchd-keepalive",
+            "excerpts": [
+              "GitHub - tjluoma/launchd-keepalive: Mac OS X plist files for use with ...\nA plist to keep an app running all of the time unless it exits cleanly (ie the user told it to quit). It uses KeepAlive but adds a check called SuccessfulExit."
+            ],
+            "title": "GitHub - tjluoma/launchd-keepalive: Mac OS X plist files for use with ..."
+          },
+          {
+            "url": "https://apple.stackexchange.com/questions/290945/what-are-the-differences-between-launchagents-and-launchdaemons",
+            "excerpts": [
+              "launchd - What are the differences between LaunchAgents and ...\nOn macOS 10.12.5, I only see LaunchAgents in the Users Library directory. Are the agents only invoked if a user is logged in? Yes, LaunchAgents are only invoked when the user logs into a graphical session. LaunchDaemons are typically launched when the system boots and are run outside of a specific user session."
+            ],
+            "title": "launchd - What are the differences between LaunchAgents and ..."
+          },
+          {
+            "url": "https://nokyotsu.com/qscripts/2011/02/launchd-start-and-keep-alive-script-in.html",
+            "excerpts": [
+              "launchd: Start and keep alive a script in OS X\nFeb 4, 2011 \u2014 You want to start a script, and make sure it always keeps running in the background. First write a file org.myscript.plist containing:"
+            ],
+            "title": "launchd: Start and keep alive a script in OS X"
+          },
+          {
+            "url": "https://www.launchd.info/",
+            "excerpts": [
+              "A launchd Tutorial\nlaunchd differentiates between agents and daemons. The main difference is that an agent is run on behalf of the logged in user while a daemon runs on behalf of"
+            ],
+            "title": "A launchd Tutorial"
+          },
+          {
+            "url": "https://ss64.com/mac/launchctl.html",
+            "excerpts": [
+              "LAUNCHCTL Command: load or unload daemons with launchd in ...\nBackground agents may be loaded independently of a GUI login. Aqua agents are loaded only when a user has logged in at the GUI. LoginWindow agents are loaded"
+            ],
+            "title": "LAUNCHCTL Command: load or unload daemons with launchd in ..."
+          },
+          {
+            "url": "https://foreground.computer/",
+            "excerpts": [
+              "Foreground\nForeground is focused on privacy. Your tracking data is stored in a local database on your computer and never sent, synced, transmitted, or shared with anyone else. Nobody but you can see it, and no third-parties can analyse it or profit from it. Let's take a look at it."
+            ],
+            "title": "Foreground"
+          },
+          {
+            "url": "https://foreground.computer/features.html",
+            "excerpts": [
+              "Foreground features - foreground.computer\nSet Foreground to start automatically on boot, configure the idle timeout, pause and resume tracking, and manage your set of categories and their default scores."
+            ],
+            "title": "Foreground features - foreground.computer"
+          },
+          {
+            "url": "https://github.com/infosimples/detect-headless",
+            "excerpts": [
+              "Detect Headless - GitHub\nAccess https://infosimples.github.io/detect-headless to run several headless detection tests against your browser. - infosimples/detect-headless."
+            ],
+            "title": "Detect Headless - GitHub"
+          },
+          {
+            "url": "https://www.nimbleway.com/blog/what-is-a-headless-browser",
+            "excerpts": [
+              "What Is a Headless Browser? Uses, Benefits, and Automation Tools\nYes, websites can detect headless browsers by analyzing specific behaviors or browser fingerprinting, though techniques like proper configuration and proxies"
+            ],
+            "title": "What Is a Headless Browser? Uses, Benefits, and Automation Tools"
+          },
+          {
+            "url": "https://kameleo.io/glossary/headless-browser-detection",
+            "excerpts": [
+              "Headless Browser Detection - Glossary - Kameleo\nHow Detection Works\n___Browser properties: Looking for special flags or values such as navigator. ...\n___Event handling: Testing how the browser responds to user actions (clicks, typing, scrolling) -headless browsers may behave differently."
+            ],
+            "title": "Headless Browser Detection - Glossary - Kameleo"
+          },
+          {
+            "url": "https://lumakes.com/en/articles/orbstack",
+            "excerpts": [
+              "OrbStack: The Apple Silicon-Native Docker Desktop Alternative\nThis article is about OrbStack, a Docker Desktop replacement rewritten from scratch for Apple Silicon."
+            ],
+            "title": "OrbStack: The Apple Silicon-Native Docker Desktop Alternative"
+          },
+          {
+            "url": "https://kb.parallels.com/en/129871",
+            "excerpts": [
+              "Using Rosetta to run x86-64 Docker Containers and ...\nRosetta is a translation layer by Apple, that allows running code written for x86-64 architecture on Apple silicon systems, where it would otherwise not be"
+            ],
+            "title": "Using Rosetta to run x86-64 Docker Containers and ..."
+          },
+          {
+            "url": "https://oneuptime.com/blog/post/2026-01-16-docker-mac-apple-silicon/view",
+            "excerpts": [
+              "Running Docker on Apple Silicon: ARM64 Images, Rosetta, and ...\nRunning Docker on Apple Silicon: ARM64 Images, Rosetta, and Performance Settings Configure Docker Desktop for M1/M2/M3/M4 Macs. Covers multi-architecture images, Rosetta emulation for AMD64, VirtioFS volumes, and fixing common ARM64 compatibility issues."
+            ],
+            "title": "Running Docker on Apple Silicon: ARM64 Images, Rosetta, and ..."
+          },
+          {
+            "url": "https://mybyways.com/blog/using-rosetta-in-a-utm-linux-vm-with-docker-on-apple-silicon",
+            "excerpts": [
+              "Using Rosetta in a UTM Linux VM with Docker on Apple Silicon\nMar 12, 2023 \u00b7 Select Virtualize > Linux; Make sure to check \u201cUse Apple Virtualization\u201d and \u201cEnable Rosetta (x86_64 Emulation)\u201d; Download your Linux ISO\u00a0"
+            ],
+            "title": "Using Rosetta in a UTM Linux VM with Docker on Apple Silicon"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/75912343/how-to-use-dockers-rosetta-2-x86-64-emulation-when-building-a-docker-image-on-a",
+            "excerpts": [
+              "How to use docker's Rosetta 2 x86_64 emulation when building ...\nA dockerfile that builds successfully on a laptop with intel chip doesn't successfully build on a laptop that has an M2/arm/apple silicon chip. How can I emulate the x86_64/amd64 environment on the arm based mac using Rosetta 2?"
+            ],
+            "title": "How to use docker's Rosetta 2 x86_64 emulation when building ..."
+          },
+          {
+            "url": "https://www.pantsbuild.org/dev/docs/contributions/releases/github-actions-macos-arm64-runners",
+            "excerpts": [
+              "GitHub Actions macOS runners - Pantsbuild\nGitHub Actions does not yet have hosted runners for MacOS ARM64. So we must run our own self-hosted runner. This document describes how to set one up."
+            ],
+            "title": "GitHub Actions macOS runners - Pantsbuild"
+          },
+          {
+            "url": "https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md",
+            "excerpts": [
+              "macos-26-arm64-Readme.md - runner-images - GitHub\nLatest commit. github-actions[bot] Hosted Runners Images Bot. Actions ... [macOS] macos-latest label will use macos-26 in June 2026 \u00b7 [macOS] The macOS\u00a0... Macos 26 \u00b7 Installed Software \u00b7 Xcode"
+            ],
+            "title": "macos-26-arm64-Readme.md - runner-images - GitHub"
+          },
+          {
+            "url": "http://github.com/orgs/community/discussions/28628",
+            "excerpts": [
+              "The GitHub Action Runner agent only supports two modes: either you start with --ephemeral, which runs exactly one job and then removes your agent, or it runs"
+            ],
+            "title": "Self-Hosted Runner: \"once\" and \"timeout\" options #28628"
+          },
+          {
+            "url": "https://docs.github.com/en/actions/reference/runners/self-hosted-runners",
+            "excerpts": [
+              "Self-hosted runners reference - GitHub Docs\nFind information about setting up and using self-hosted runners. ARM64 - Linux, macOS, Windows 's runs-on labels and groups: support for Windows, Linux, and"
+            ],
+            "title": "Self-hosted runners reference - GitHub Docs"
+          },
+          {
+            "url": "https://trstringer.com/create-ephemeral-self-hosted-runners-github-actions",
+            "excerpts": [
+              "Create Ephemeral Self-Hosted Runners for GitHub Actions\nIn this blog post I'm going to show how to create the first part of the process to automate this entire ephemeral runner workflow. Creating the base image \u00b7 Get the GitHub runner \u00b7 Create the runner systemd"
+            ],
+            "title": "Create Ephemeral Self-Hosted Runners for GitHub Actions"
+          },
+          {
+            "url": "https://devguide.dev/blog/how-to-setup-playwright-with-docker",
+            "excerpts": [
+              "How To Set Up Playwright(Python) with Docker - DevGuide.dev\nThink of it as a digital safe space for your browser automation experiments. In this guide, we\u2019ll walk you through setting up Playwright with Docker, so you can automate tasks, and keep your sanity intact."
+            ],
+            "title": "How To Set Up Playwright(Python) with Docker - DevGuide.dev"
+          },
+          {
+            "url": "https://medium.com/%40pothiwalapranav/automate-browser-testing-with-playwright-and-docker-28e3d591cec0",
+            "excerpts": [
+              "Automate Browser Testing with Playwright and Docker\nOne powerful tool for browser testing is Playwright, which not only automates interactions with browsers but can also be seamlessly integrated into a Docker-based workflow."
+            ],
+            "title": "Automate Browser Testing with Playwright and Docker"
+          },
+          {
+            "url": "https://qaskills.sh/blog/playwright-browser-contexts-isolation-guide",
+            "excerpts": [
+              "Playwright Browser Contexts & Isolation: Complete 2026 Guide\nContexts are Playwright's superpower for isolation. Use the default per-test context for ninety-five percent of tests, storage state for auth, manual contexts for multi-user scenarios, and persistent contexts only when you genuinely need a stable profile."
+            ],
+            "title": "Playwright Browser Contexts & Isolation: Complete 2026 Guide"
+          },
+          {
+            "url": "https://www.morphllm.com/browserless-docker",
+            "excerpts": [
+              "Browserless Docker Guide: Self-Host Chromium, Playwright ...\nBrowserless Docker lets you self-host browser automation with Chrome, Playwright-compatible WebSocket endpoints, queueing, timeouts, and enterprise deployment controls."
+            ],
+            "title": "Browserless Docker Guide: Self-Host Chromium, Playwright ..."
+          },
+          {
+            "url": "https://playwright.bootcss.com/python/docs/ci",
+            "excerpts": [
+              "Continuous Integration | Playwright\nThis is typically too small for Chromium and will cause Chromium to crash when rendering large pages. To fix, run the container with docker run --shm-size=1gb to increase the size of /dev/shm."
+            ],
+            "title": "Continuous Integration | Playwright"
+          },
+          {
+            "url": "https://mcplane.com/mcp_servers/ios-simulator",
+            "excerpts": [
+              "iOS Simulator MCP Server for UI Automation and Testing | MCPlane\nMCP server for macOS that exposes iOS Simulator automation and QA tooling. Enables LLMs, agents, and QA scripts to control, inspect, and capture screenshots/video from simulated iOS devices."
+            ],
+            "title": "iOS Simulator MCP Server for UI Automation and Testing | MCPlane"
+          },
+          {
+            "url": "https://mcpmarket.com/server/ios-simulator",
+            "excerpts": [
+              "iOS Simulator MCP Server: UI Inspection & Automation\nThis tool acts as a Model Context Protocol (MCP) server, bridging the gap between development workflows and iOS simulators. It grants developers the ability to programmatically interact with simulators, retrieve information about the current state, control UI elements, and even capture screenshots."
+            ],
+            "title": "iOS Simulator MCP Server: UI Inspection & Automation"
+          },
+          {
+            "url": "https://developer.apple.com/forums/thread/737381",
+            "excerpts": [
+              "Problems using a Mac as a headless build server\nSep 15, 2023 \u2014 My team has a Mac desktop we use as a build server to do tests, packaging, codesigning, and notarization. The service was kicked off inside"
+            ],
+            "title": "Problems using a Mac as a headless build server"
+          },
+          {
+            "url": "http://remoteopenclaw.com/skills/dpearson2699/swift-ios-skills/ios-simulator",
+            "excerpts": [
+              "If you call simctl boot separately, follow it with xcrun simctl bootstatus <UDID> before continuing.\nIn scripts and CI, use xcrun simctl bootstatus <UDID> -b before install, launch, push, or location commands."
+            ],
+            "title": "iOS Simulator | Skills Directory - Remote OpenClaw"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/76832574/how-to-build-for-testing-ios-with-xcode-and-run-test-on-real-device-with-ci",
+            "excerpts": [
+              "how to build for testing iOS with xcode and run test on real ...\nI am working on CI /CD for iOS development and I'm facing an issue with XCUITest . I want to build the project for testing and then upload the zip to pCloudy"
+            ],
+            "title": "how to build for testing iOS with xcode and run test on real ..."
+          },
+          {
+            "url": "https://docs.fastlane.tools/actions/supply",
+            "excerpts": [
+              "supply - fastlane docs\nBefore using supply to connect to Google Play Store, you'll need to set up your app manually first by uploading at least one build to Google Play Store. See fastlane/fastlane#14686 for more info."
+            ],
+            "title": "supply - fastlane docs"
+          },
+          {
+            "url": "https://sarunw.com/posts/using-app-store-connect-api-with-fastlane-match",
+            "excerpts": [
+              "Using App Store Connect API with Fastlane Match\nFeb 22, 2021 \u2014 It provides an official way to interact with App Store Connect, and Fastlane already supports this. Let's see what we need to do to adopt it."
+            ],
+            "title": "Using App Store Connect API with Fastlane Match"
+          },
+          {
+            "url": "https://about.gitlab.com/blog/android-publishing-with-gitlab-and-fastlane",
+            "excerpts": [
+              "Publishing Android apps to Play Store with GitLab & fastlane\nJan 28, 2019 \u00b7 Setting up supply supply is a feature built into fastlane which will help you manage screenshots, descriptions, and other localized metadata/"
+            ],
+            "title": "Publishing Android apps to Play Store with GitLab & fastlane"
+          },
+          {
+            "url": "https://docs.fastlane.tools/app-store-connect-api",
+            "excerpts": [
+              "Using App Store Connect API - fastlane docs\nApp Store Connect API Introduction The App Store Connect API (which Apple announced at WWDC18 and is continuously working on) is an official public API used to manage app metadata, pricing and availability, provisioning, and more. This API follows the JSON API spec and introduces a new authorization option using API Keys to generate a JSON Web Token (JWT). fastlane has historically used Apple"
+            ],
+            "title": "Using App Store Connect API - fastlane docs"
+          },
+          {
+            "url": "https://www.droidunplugged.com/2025/03/play-store-uploads-with-fastlanesupply-4.html",
+            "excerpts": [
+              "Play Store Uploads with Fastlane Supply - 4\nWith Fastlane Supply, you\u2019ve completely automated the process of uploading your Android app to the Google Play Store. Whether you\u2019re uploading a new version to beta for testing or pushing to production for your users, Fastlane handles it all."
+            ],
+            "title": "Play Store Uploads with Fastlane Supply - 4"
+          },
+          {
+            "url": "https://robotomail.com/blog/gmail-api-python",
+            "excerpts": [
+              "Gmail API Python Client: Auth, Sending, and Automation Guide\nA complete guide to the Gmail API Python client. Learn auth, sending emails, handling attachments, and when to use agent-native alternatives for automation."
+            ],
+            "title": "Gmail API Python Client: Auth, Sending, and Automation Guide"
+          },
+          {
+            "url": "https://github.com/Aswinraj040/GMail_Automation_Project",
+            "excerpts": [
+              "GitHub - Aswinraj040/GMail_Automation_Project: A Python-based ...\nA Python-based Gmail automation tool that fetches emails from your inbox and processes them based on custom rules defined in a rules.json file. It supports actions like marking as read/unread, labeling, and deleting \u2014 all handled securely via the Gmail API and OAuth2 authentication."
+            ],
+            "title": "GitHub - Aswinraj040/GMail_Automation_Project: A Python-based ..."
+          },
+          {
+            "url": "https://pytutorial.com/gmail-api-python-guide-for-automation",
+            "excerpts": [
+              "Gmail API Python Guide for Automation - PyTutorial\nLearn to automate Gmail with Python using the official Gmail API. This guide covers setup, authentication, and sending, reading, and managing emails programmatically."
+            ],
+            "title": "Gmail API Python Guide for Automation - PyTutorial"
+          },
+          {
+            "url": "https://nodemailer.com/smtp/oauth2",
+            "excerpts": [
+              "OAuth2 - Nodemailer\nNodemailer includes built-in helpers that automate OAuth2 token management specifically for Gmail. These helpers can automatically refresh expired tokens, generate new tokens using service accounts, or integrate with your custom token provider."
+            ],
+            "title": "OAuth2 - Nodemailer"
+          },
+          {
+            "url": "https://www.outrightcrm.com/blog/gmail-api-automation-guide",
+            "excerpts": [
+              "Gmail API: Unlock Seamless Automation with Python in 2026\nLearn how to use the Gmail API for smooth email automation. Boost productivity, connect with Python, and streamline your Gmail workflows today."
+            ],
+            "title": "Gmail API: Unlock Seamless Automation with Python in 2026"
+          },
+          {
+            "url": "https://codersera.com/blog/android-emulator-docker-without-kvm",
+            "excerpts": [
+              "Android Emulator in Docker, No KVM: Redroid + CI Setup\nTwo ways to run Android in a container with no hardware acceleration: Redroid (containerized Android that never touches /dev/kvm) and the SDK emulator in software mode."
+            ],
+            "title": "Android Emulator in Docker, No KVM: Redroid + CI Setup"
+          },
+          {
+            "url": "https://www.opensourceprojects.dev/post/5b371030-e099-48e0-8f0f-04c47a151e50",
+            "excerpts": [
+              "Run a full Android emulator inside a Docker container.\nWhat if you could spin up a full Android emulator as easily as you run any other Docker container? That\u2019s exactly what the docker-android project makes possible."
+            ],
+            "title": "Run a full Android emulator inside a Docker container."
+          },
+          {
+            "url": "https://www.atkinsondev.com/post/android-emulator-tests-github-actions",
+            "excerpts": [
+              "Running Android emulator tests in GitHub Actions\nThe connected Android tests can include testing UI interactions, on-device database queries, and more. If you're using GitHub Actions for your CI, you can run your connected Android tests using an Android Emulator."
+            ],
+            "title": "Running Android emulator tests in GitHub Actions"
+          },
+          {
+            "url": "https://hub.docker.com/r/amrka/android-emulator",
+            "excerpts": [
+              "amrka/android-emulator - Docker Image\nThe use of this Docker image simplifies the process of running an Android emulator within a Docker container. This can be achieved through a few basic commands or by utilizing a simple Docker compose file."
+            ],
+            "title": "amrka/android-emulator - Docker Image"
+          },
+          {
+            "url": "https://medium.com/%40Amr.sa/running-android-emulator-in-a-docker-container-19ecb68e1909",
+            "excerpts": [
+              "Running Android Emulator in a Docker Container - Medium\nIn this blog post, we will not only explore the benefits of using a Docker container to run your Android emulator but also demonstrate a step-by-step guide on how to set it up, providing a"
+            ],
+            "title": "Running Android Emulator in a Docker Container - Medium"
+          },
+          {
+            "url": "http://lists.gnu.org/archive/html/emacs-elpa-diffs/2021-08/msg07725.html",
+            "excerpts": [
+              "(last verified: 2026-06-28) ... xcrun simctl\" \"Path to the simulator controller command. -The string is splitted by spaces, then unquoted\n... xcrun simctl\" \"Path to the simulator controller command. -The string is splitted by spaces, then unquoted"
+            ],
+            "title": null
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/user-guide/features/browser",
+            "excerpts": [
+              "Browser Automation | Hermes Agent\nWhen another app drives the visible Camofox browser (a desktop assistant, a custom integration, another agent), configure Hermes to operate inside that same identity instead of spawning its own isolated profile."
+            ],
+            "title": "Browser Automation | Hermes Agent"
+          },
+          {
+            "url": "https://playwright.dev/docs/puppeteer",
+            "excerpts": [
+              "Migrating from Puppeteer | Playwright\nMigrating from Puppeteer Migration Principles This guide describes migration to Playwright Library and Playwright Test from Puppeteer. The APIs have similarities, but Playwright offers much more possibilities for web testing and cross-browser automation. Most Puppeteer APIs can be used as is The use of ElementHandle is discouraged, use Locator objects and web-first assertions instead"
+            ],
+            "title": "Migrating from Puppeteer | Playwright"
+          },
+          {
+            "url": "https://www.browserless.io/blog/headless-chrome",
+            "excerpts": [
+              "Headless Chrome Explained: Puppeteer, Playwright, and ...\nApr 21, 2026 \u2014 Everything developers need to know about headless Chrome, from Puppeteer and Playwright basics to why self-hosting fails at scale and how"
+            ],
+            "title": "Headless Chrome Explained: Puppeteer, Playwright, and ..."
+          },
+          {
+            "url": "https://developer.android.com/studio/run/emulator-console",
+            "excerpts": [],
+            "title": "Send emulator console commands \u00a0|\u00a0 Android Studio \u00a0|\u00a0 Android Developers"
+          },
+          {
+            "url": "https://developer.android.com/studio/run/emulator-commandline",
+            "excerpts": [],
+            "title": "Start the emulator from the command line \u00a0|\u00a0 Android Studio \u00a0|\u00a0 Android Developers"
+          },
+          {
+            "url": "https://orbstack.dev/",
+            "excerpts": [],
+            "title": "OrbStack \u00b7 Fast, light, simple Docker & Linux"
+          },
+          {
+            "url": "https://www.docker.com/products/docker-desktop/",
+            "excerpts": [],
+            "title": "Docker Desktop: The #1 Containerization Tool for Developers | Docker"
+          },
+          {
+            "url": "https://github.com/abiosoft/colima",
+            "excerpts": [],
+            "title": "GitHub - abiosoft/colima: Container runtimes on macOS (and Linux) with minimal setup \u00b7 GitHub"
+          },
+          {
+            "url": "https://playwright.dev/docs/browser-contexts",
+            "excerpts": [],
+            "title": "Isolation | Playwright"
+          },
+          {
+            "url": "https://playwright.dev/docs/ci",
+            "excerpts": [],
+            "title": "Continuous Integration | Playwright"
+          },
+          {
+            "url": "https://playwright.dev/docs/docker",
+            "excerpts": [],
+            "title": "Docker | Playwright"
+          },
+          {
+            "url": "https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/about-self-hosted-runners",
+            "excerpts": [],
+            "title": "Self-hosted runners"
+          },
+          {
+            "url": "https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/autoscaling-with-self-hosted-runners",
+            "excerpts": [],
+            "title": "Self-hosted runners reference"
+          },
+          {
+            "url": "https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html",
+            "excerpts": [],
+            "title": "Creating Launch Daemons and Agents"
+          },
+          {
+            "url": "https://docs.fastlane.tools/actions/supply/",
+            "excerpts": [],
+            "title": "supply - fastlane docs"
+          },
+          {
+            "url": "https://nshipster.com/simctl/",
+            "excerpts": [],
+            "title": "simctl - NSHipster"
+          },
+          {
+            "url": "https://docs.fastlane.tools/actions/deliver/",
+            "excerpts": [],
+            "title": "deliver - fastlane docs"
+          },
+          {
+            "url": "https://docs.fastlane.tools/app-store-connect-api/",
+            "excerpts": [],
+            "title": "Using App Store Connect API - fastlane docs"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/appstoreconnectapi",
+            "excerpts": [],
+            "title": "App Store Connect API | Apple Developer Documentation"
+          },
+          {
+            "url": "https://playwright.dev/docs/api/class-browsercontext",
+            "excerpts": [],
+            "title": "BrowserContext | Playwright"
+          },
+          {
+            "url": "https://playwright.dev/docs/auth",
+            "excerpts": [],
+            "title": "Authentication | Playwright"
+          },
+          {
+            "url": "https://github.com/microsoft/playwright/issues/2467",
+            "excerpts": [],
+            "title": "browser(firefox): support proxy bypass by aslushnikov \u00b7 Pull Request #2467 \u00b7 microsoft/playwright \u00b7 GitHub"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/appstoreconnectapi/build",
+            "excerpts": [],
+            "title": "Build | Apple Developer Documentation"
+          },
+          {
+            "url": "https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners",
+            "excerpts": [],
+            "title": "GitHub-hosted runners"
+          },
+          {
+            "url": "https://www.unix.com/man-page/mojave/1/taskpolicy/",
+            "excerpts": [],
+            "title": "taskpolicy(8) mojave man page | unix.com"
+          },
+          {
+            "url": "https://docs.fastlane.tools/actions/pilot/",
+            "excerpts": [],
+            "title": "pilot - fastlane docs"
+          },
+          {
+            "url": "https://docs.fastlane.tools/actions/match/",
+            "excerpts": [],
+            "title": "match - fastlane docs"
+          },
+          {
+            "url": "https://docs.expo.dev/build/introduction/",
+            "excerpts": [],
+            "title": "modificationDate: March 01, 2026 title: EAS Build description: EAS Build is a hosted service for building app binaries for your Expo and React Native projects."
+          },
+          {
+            "url": "https://docs.expo.dev/submit/introduction/",
+            "excerpts": [],
+            "title": "modificationDate: May 23, 2026 title: EAS Submit description: EAS Submit is a hosted service for submitting Android and iOS app binaries to the Google Play Store and Apple App Store from the command line."
+          },
+          {
+            "url": "https://www.manpagez.com/man/1/sandbox-exec/",
+            "excerpts": [],
+            "title": "man page sandbox-exec section 1"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/security/app_sandbox",
+            "excerpts": [],
+            "title": "App Sandbox | Apple Developer Documentation"
+          },
+          {
+            "url": "https://www.docker.com/pricing/",
+            "excerpts": [],
+            "title": "Pricing | Docker"
+          },
+          {
+            "url": "https://docs.stripe.com/api",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://docs.stripe.com/stripe-cli",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://docs.docker.com/engine/reference/run/#resource-limits",
+            "excerpts": [],
+            "title": "Running containers"
+          },
+          {
+            "url": "https://docs.docker.com/config/containers/resource_constraints/",
+            "excerpts": [],
+            "title": "Resource constraints"
+          },
+          {
+            "url": "https://docs.docker.com/engine/reference/run/",
+            "excerpts": [],
+            "title": "Running containers"
+          },
+          {
+            "url": "https://www.anthropic.com/news/building-effective-agents",
+            "excerpts": [],
+            "title": "Building Effective AI Agents \\ Anthropic"
+          },
+          {
+            "url": "https://docs.anthropic.com/en/docs/build-with-claude/computer-use",
+            "excerpts": [],
+            "title": "Computer use tool"
+          },
+          {
+            "url": "https://developers.google.com/gmail/api/guides",
+            "excerpts": [],
+            "title": "Gmail API overview \u00a0|\u00a0 Google for Developers"
+          },
+          {
+            "url": "https://developers.google.com/workspace/gmail/api/quickstart/python",
+            "excerpts": [],
+            "title": "Python quickstart \u00a0|\u00a0 Gmail \u00a0|\u00a0 Google for Developers"
+          },
+          {
+            "url": "https://cli.github.com/manual/",
+            "excerpts": [],
+            "title": "Manual | GitHub CLI"
+          },
+          {
+            "url": "https://playwright.dev/docs/api/class-browsertype",
+            "excerpts": [],
+            "title": "BrowserType | Playwright"
+          },
+          {
+            "url": "https://github.com/budtmo/docker-android",
+            "excerpts": [],
+            "title": "GitHub - budtmo/docker-android: Android in docker solution with noVNC supported and video recording \u00b7 GitHub"
+          },
+          {
+            "url": "https://www.genymotion.com/",
+            "excerpts": [],
+            "title": "Genymotion - Android Emulator in the Cloud and for PC & Mac"
+          },
+          {
+            "url": "https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/using-labels-with-self-hosted-runners",
+            "excerpts": [],
+            "title": "Using labels with self-hosted runners"
+          },
+          {
+            "url": "https://developer.twitter.com/en/docs/twitter-api",
+            "excerpts": [],
+            "title": "X Developer Platform - X"
+          },
+          {
+            "url": "https://developer.twitter.com/en/docs/twitter-api/getting-started/about-twitter-api",
+            "excerpts": [],
+            "title": "X Developer Platform - X"
+          },
+          {
+            "url": "https://help.apple.com/itc/transporteruserguide/",
+            "excerpts": [],
+            "title": "Transporter User Guide 4.2"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution",
+            "excerpts": [],
+            "title": "Notarizing macOS software before distribution | Apple Developer Documentation"
+          },
+          {
+            "url": "https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/LaunchServicesKeys.html",
+            "excerpts": [],
+            "title": "Launch Services Keys"
+          },
+          {
+            "url": "https://docs.stripe.com/webhooks",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://github.com/actions/runner-images",
+            "excerpts": [],
+            "title": "GitHub - actions/runner-images: GitHub Actions runner images \u00b7 GitHub"
+          },
+          {
+            "url": "https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/removing-self-hosted-runners",
+            "excerpts": [],
+            "title": "Removing self-hosted runners"
+          },
+          {
+            "url": "https://docs.github.com/en/actions/hosting-your-own-runners/adding-self-hosted-runners",
+            "excerpts": [],
+            "title": "Adding self-hosted runners"
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "zero-focus-background-automation-july-2026.md"
+  }
+}

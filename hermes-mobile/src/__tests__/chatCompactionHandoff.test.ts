@@ -12,10 +12,13 @@ import { prepareMessagesForDisplay } from '../utils/chatMessageDisplay';
 
 const COMPACTION_PREFIX =
   '[CONTEXT COMPACTION — REFERENCE ONLY] Earlier turns were compacted into the summary below.';
+const PRIOR_CONTEXT_PREFIX =
+  '[PRIOR CONTEXT — for reference only; not a new message]';
 
 describe('chatCompactionHandoff', () => {
   it('detects compaction handoff prefixes', () => {
     expect(isContextCompactionHandoff(`${COMPACTION_PREFIX} treat as reference.`)).toBe(true);
+    expect(isContextCompactionHandoff(`${PRIOR_CONTEXT_PREFIX}\nold work`)).toBe(true);
     expect(isContextCompactionHandoff('[CONTEXT SUMMARY]: old summary body')).toBe(true);
     expect(isContextCompactionHandoff('[CONTEXT COMPACTION] summary only')).toBe(true);
     expect(isContextCompactionHandoff('Be honest, it is wishful thinking.')).toBe(false);
@@ -44,6 +47,53 @@ describe('chatCompactionHandoff', () => {
     ]);
     expect(visible).toHaveLength(2);
     expect(visible.map((m) => m.content)).toEqual(['What happened?', 'Real reply after compaction.']);
+  });
+
+  it('hides the live PRIOR CONTEXT wrapper that displaced current prompts', () => {
+    const liveWrapper = `${PRIOR_CONTEXT_PREFIX}
+
+[END OF PRIOR CONTEXT — COMPACTION SUMMARY BELOW]
+
+${COMPACTION_PREFIX}
+## Historical Task Snapshot
+old browser automation work
+
+${COMPACTION_END_MARKER}`;
+    const visible = stripCompactionHandoffsFromMessages([
+      { role: 'assistant', content: liveWrapper },
+      { role: 'user', content: 'Why we made zero dollars' },
+      { role: 'assistant', content: 'Because the pipeline produced no paid conversions.' },
+    ]);
+    expect(visible.map((message) => message.content)).toEqual([
+      'Why we made zero dollars',
+      'Because the pipeline produced no paid conversions.',
+    ]);
+  });
+
+  it('preserves only a real post-summary message and keeps its role', () => {
+    const wrappedUser = `${PRIOR_CONTEXT_PREFIX}
+${COMPACTION_PREFIX}
+old work
+
+${COMPACTION_END_MARKER}
+What happened to my latest prompt?`;
+    const visible = stripCompactionHandoffsFromMessages([
+      { role: 'user', content: wrappedUser, timestamp: '2026-07-22T17:45:06Z' },
+    ]);
+    expect(visible).toEqual([
+      {
+        role: 'user',
+        content: 'What happened to my latest prompt?',
+        timestamp: '2026-07-22T17:45:06Z',
+      },
+    ]);
+  });
+
+  it('does not hide ordinary prose that mentions prior context', () => {
+    const ordinary = 'The prior context explains why this decision was made.';
+    expect(stripCompactionHandoffsFromMessages([{ role: 'assistant', content: ordinary }])).toEqual([
+      { role: 'assistant', content: ordinary },
+    ]);
   });
 
   it('hides short summarization stubs from the transcript', () => {

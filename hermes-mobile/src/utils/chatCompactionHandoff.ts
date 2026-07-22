@@ -3,6 +3,8 @@ import { isMessageDisplayEmpty } from './chatMessageMerge';
 
 /** Keep in sync with SUMMARY_PREFIX / LEGACY_SUMMARY_PREFIX in agent/context_compressor.py */
 const COMPACTION_PREFIXES = [
+  '[PRIOR CONTEXT — for reference only; not a new message]',
+  '[PRIOR CONTEXT - for reference only; not a new message]',
   '[CONTEXT COMPACTION — REFERENCE ONLY]',
   '[CONTEXT COMPACTION - REFERENCE ONLY]',
   '[CONTEXT COMPACTION]',
@@ -12,13 +14,14 @@ const COMPACTION_PREFIXES = [
 
 /**
  * User-visible / model-emitted summarization stubs that are NOT a real reply.
- * Includes Hermes CONTEXT COMPACTION blobs and short Cursor-style notices
- * like "Earlier conversation summarized to save context."
+ * Includes Hermes PRIOR CONTEXT / CONTEXT COMPACTION wrappers and short
+ * Cursor-style notices like "Earlier conversation summarized to save context."
  */
 const SUMMARIZATION_STUB_RES = [
   /earlier\s+conversation\s+summariz/i,
   /summariz(?:ed|ing)?\s+to\s+save\s+context/i,
   /earlier\s+turns\s+were\s+compacted/i,
+  /\[prior\s+context\s+[—-]\s+for\s+reference\s+only/i,
   /\[context\s+compaction/i,
   /\[context\s+summary\]/i,
   /\[earlier\s+conversation\s+digest/i,
