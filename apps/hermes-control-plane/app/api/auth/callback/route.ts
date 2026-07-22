@@ -1,4 +1,5 @@
 import { createSession, sessionCookie } from "@/lib/auth";
+import { verifySignedAuthState } from "@/lib/auth-state";
 import { audit } from "@/lib/audit";
 import { db, runtimeEnv } from "@/lib/runtime";
 import { sha256 } from "@/lib/security";
@@ -28,16 +29,25 @@ export async function GET(request: Request) {
   const state = url.searchParams.get("state");
   if (!code || !state) return Response.redirect(new URL("/?auth_error=missing_callback_parameters", url.origin), 302);
 
-  const stateHash = await sha256(state);
-  const authState = await db().prepare(
-    "SELECT return_to AS returnTo FROM auth_states WHERE state_hash = ? AND expires_at > ?"
-  ).bind(stateHash, Date.now()).first<{ returnTo: string }>();
-  if (!authState) return Response.redirect(new URL("/?auth_error=invalid_state", url.origin), 302);
-  await db().prepare("DELETE FROM auth_states WHERE state_hash = ?").bind(stateHash).run();
-
   const current = runtimeEnv();
   if (!current.WORKOS_CLIENT_ID || !current.WORKOS_API_KEY) {
     return Response.redirect(new URL("/?auth_error=workos_not_configured", url.origin), 302);
+  }
+
+  // Prefer stateless signed state (no D1). Fall back to legacy auth_states rows
+  // for any in-flight logins started before this deploy.
+  let returnTo = "/dashboard";
+  const signed = await verifySignedAuthState(state, current.WORKOS_API_KEY);
+  if (signed) {
+    returnTo = signed.returnTo;
+  } else {
+    const stateHash = await sha256(state);
+    const authState = await db().prepare(
+      "SELECT return_to AS returnTo FROM auth_states WHERE state_hash = ? AND expires_at > ?"
+    ).bind(stateHash, Date.now()).first<{ returnTo: string }>();
+    if (!authState) return Response.redirect(new URL("/?auth_error=invalid_state", url.origin), 302);
+    await db().prepare("DELETE FROM auth_states WHERE state_hash = ?").bind(stateHash).run();
+    returnTo = authState.returnTo;
   }
   const authResponse = await fetch("https://api.workos.com/user_management/authenticate", {
     method: "POST",
@@ -103,7 +113,7 @@ export async function GET(request: Request) {
   return new Response(null, {
     status: 302,
     headers: {
-      location: new URL(authState.returnTo, url.origin).toString(),
+      location: new URL(returnTo, url.origin).toString(),
       "set-cookie": sessionCookie(sessionToken),
       "cache-control": "no-store",
     },

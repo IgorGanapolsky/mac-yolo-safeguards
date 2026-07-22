@@ -55,6 +55,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
+      <head>
+        {/* Warm WorkOS + AuthKit before Sign in (July 2026 speed research). */}
+        <link rel="preconnect" href="https://api.workos.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://api.workos.com" />
+        <link rel="preconnect" href="https://progressive-mouse-13.authkit.app" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://progressive-mouse-13.authkit.app" />
+      </head>
       <body>
         {children}
         <script
