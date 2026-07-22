@@ -136,7 +136,10 @@ try {
   assert.doesNotMatch(html, /Sign in to private dashboard/);
   assert.doesNotMatch(html, />Sign out</);
   assert.doesNotMatch(html, /Open private dashboard/);
-  assert.doesNotMatch(html, /Igor|Ganapolsky/i);
+  const htmlWithoutApprovedStoreUrls = html
+    .replaceAll("https://apps.apple.com/us/app/hermes-ai-agent-leash/id6786778037", "")
+    .replaceAll("https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile.paid&amp;hl=en&amp;gl=US", "");
+  assert.doesNotMatch(htmlWithoutApprovedStoreUrls, /Igor|Ganapolsky/i);
   // Preconnect WorkOS/AuthKit for faster sign-in hops.
   assert.match(html, /preconnect[^>]+api\.workos\.com|api\.workos\.com/);
 
