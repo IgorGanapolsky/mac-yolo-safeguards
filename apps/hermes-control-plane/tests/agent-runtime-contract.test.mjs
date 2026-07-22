@@ -45,7 +45,10 @@ test("terminates the local and WorkOS sessions instead of silently signing back 
   assert.match(authCallback, /createSession\(userId, organizationId, workosSessionId\)/);
   assert.match(auth, /s\.workos_session_id AS workosSessionId/);
   assert.match(auth, /INSERT INTO sessions \(id_hash, user_id, organization_id, workos_session_id/);
-  assert.match(authLogin, /authorization\.searchParams\.set\("max_age", "0"\)/);
+  // Ordinary login must use AuthKit without step-up reauth params (would skip chooser).
+  assert.match(authLogin, /authorization\.searchParams\.set\("provider", "authkit"\)/);
+  assert.doesNotMatch(authLogin, /searchParams\.set\(["']max_age["']/);
+  // Logout is provider-independent: delete local session + WorkOS session_id logout.
   assert.match(authLogout, /DELETE FROM sessions WHERE id_hash = \?/);
   assert.match(authLogout, /workosLogoutUrl\(session\.workosSessionId, returnTo\)/);
   assert.match(authLogout, /"set-cookie": clearSessionCookie\(\)/);
