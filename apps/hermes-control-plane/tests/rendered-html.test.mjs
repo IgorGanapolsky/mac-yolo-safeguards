@@ -46,7 +46,11 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(portalRoute, /billing\.portal\.created/);
   assert.match(dashboard, /\? manageBilling\(\) : subscribe\(\)/);
   assert.match(page, /100 cloud continuations/);
-  assert.match(page, /Run one installer/);
+  assert.match(page, /Run the connector installer/);
+  assert.match(page, /Pair a Mac that already runs Hermes/);
+  assert.match(page, /Chats appear after you sign in/);
+  assert.match(page, /Automatic fenced cloud continuation requires Cloud Continuity/);
+  assert.doesNotMatch(page, /Connect once\. Your chats appear\./);
   // Pricing CTAs live in client chrome (static shell + /api/me personalization).
   const chrome = await readFile(new URL("../app/LandingAuthChrome.tsx", import.meta.url), "utf8");
   assert.match(chrome, /data-funnel-event="free_control_click"/);
