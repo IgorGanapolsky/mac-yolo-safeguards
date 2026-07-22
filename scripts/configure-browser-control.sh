@@ -5,6 +5,8 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+source "${repo_root}/scripts/hermes-interactive-chrome-gate.sh"
 json=0
 apply=1
 wire=1
@@ -73,18 +75,22 @@ probe() {
 probe
 
 if [[ "$apply" -eq 1 ]]; then
-  if [[ -x "${repo_root}/scripts/install-hermes-chrome-cdp.sh" ]]; then
-    if bash "${repo_root}/scripts/install-hermes-chrome-cdp.sh"; then
-      actions+=("install_hermes_chrome_cdp")
-    else
-      actions+=("install_hermes_chrome_cdp_warned")
+  if ! hermes_interactive_chrome_allowed; then
+    actions+=("interactive_chrome_gated_off")
+  else
+    if [[ -x "${repo_root}/scripts/install-hermes-chrome-cdp.sh" ]]; then
+      if bash "${repo_root}/scripts/install-hermes-chrome-cdp.sh"; then
+        actions+=("install_hermes_chrome_cdp")
+      else
+        actions+=("install_hermes_chrome_cdp_warned")
+      fi
     fi
-  fi
-  if [[ -x "${repo_root}/scripts/hermes-chrome-cdp.sh" ]]; then
-    if bash "${repo_root}/scripts/hermes-chrome-cdp.sh"; then
-      actions+=("heal_cdp")
-    else
-      actions+=("heal_cdp_failed")
+    if [[ -x "${repo_root}/scripts/hermes-chrome-cdp.sh" ]]; then
+      if bash "${repo_root}/scripts/hermes-chrome-cdp.sh"; then
+        actions+=("heal_cdp")
+      else
+        actions+=("heal_cdp_failed")
+      fi
     fi
   fi
   if [[ "$wire" -eq 1 && -x "${repo_root}/scripts/wire-hermes-browser-cdp.sh" ]]; then
@@ -96,7 +102,11 @@ if [[ "$apply" -eq 1 ]]; then
 fi
 
 ok=0
-if [[ "$cdp_ipv4" -eq 1 && "$agent" -eq 1 ]]; then
+if hermes_interactive_chrome_allowed; then
+  if [[ "$cdp_ipv4" -eq 1 && "$agent" -eq 1 ]]; then
+    ok=1
+  fi
+else
   ok=1
 fi
 

@@ -15,6 +15,8 @@ for arg in "$@"; do
 done
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+source "${repo_root}/scripts/hermes-interactive-chrome-gate.sh"
 home="${HOME}"
 soul="${HERMES_SOUL_PATH:-${home}/.hermes/SOUL.md}"
 config="${HERMES_CONFIG_PATH:-${home}/.hermes/config.yaml}"
@@ -33,6 +35,11 @@ ok_cdp_agent=0
 actions=()
 errors=()
 
+interactive_chrome=0
+if hermes_interactive_chrome_allowed; then
+  interactive_chrome=1
+fi
+
 # Prefer IPv4 (hermes-agent default). Fall back to IPv6 so we do not false-alarm
 # when Chrome bound [::1] only — then heal toward IPv4 via hermes-chrome-cdp.sh.
 cdp_probe_ipv4() {
@@ -45,6 +52,8 @@ cdp_probe_any() {
 }
 
 if cdp_probe_ipv4; then
+  ok_cdp=1
+elif [[ "$interactive_chrome" -eq 0 ]]; then
   ok_cdp=1
 else
   if cdp_probe_any; then
@@ -70,7 +79,9 @@ else
   fi
 fi
 
-if launchctl print "${gui_domain}/com.hermes.chrome-cdp" >/dev/null 2>&1; then
+if [[ "$interactive_chrome" -eq 0 ]]; then
+  ok_cdp_agent=1
+elif launchctl print "${gui_domain}/com.hermes.chrome-cdp" >/dev/null 2>&1; then
   ok_cdp_agent=1
 else
   errors+=("cdp_launchagent_missing")
