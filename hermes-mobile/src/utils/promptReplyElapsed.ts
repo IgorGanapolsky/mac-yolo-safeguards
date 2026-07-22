@@ -65,6 +65,32 @@ function findSubstantiveAssistantReplyAfter(
   return undefined;
 }
 
+/**
+ * History catch-up: cron/session reloads can place a completed assistant before the
+ * originating user bubble in array order while timestamps still prove the reply landed.
+ */
+function findSubstantiveAssistantReplyByTimestamp(
+  messages: readonly HermesMessage[],
+  userSinceMs: number,
+): HermesMessage | undefined {
+  let best: HermesMessage | undefined;
+  let bestMs = Number.POSITIVE_INFINITY;
+  for (const message of messages) {
+    if (isNonSubstantiveAssistantReply(message)) {
+      continue;
+    }
+    const replyMs = messageSentAtMs(message);
+    if (replyMs == null || replyMs < userSinceMs) {
+      continue;
+    }
+    if (replyMs < bestMs) {
+      best = message;
+      bestMs = replyMs;
+    }
+  }
+  return best;
+}
+
 export type PromptReplyElapsedState =
   | { mode: 'live'; sinceMs: number }
   | { mode: 'frozen'; durationSec: number }
@@ -102,7 +128,9 @@ export function resolvePromptReplyElapsedState(input: {
     return { mode: 'hidden' };
   }
 
-  const reply = findSubstantiveAssistantReplyAfter(messages, userIndex);
+  const reply =
+    findSubstantiveAssistantReplyAfter(messages, userIndex) ??
+    findSubstantiveAssistantReplyByTimestamp(messages, sinceMs);
   if (reply) {
     const replyMs = messageSentAtMs(reply);
     if (replyMs != null && replyMs >= sinceMs) {
@@ -111,6 +139,7 @@ export function resolvePromptReplyElapsedState(input: {
         durationSec: Math.max(0, Math.floor((replyMs - sinceMs) / 1000)),
       };
     }
+    // Assistant body exists after this user in the transcript — never keep live Waiting.
     return { mode: 'hidden' };
   }
 

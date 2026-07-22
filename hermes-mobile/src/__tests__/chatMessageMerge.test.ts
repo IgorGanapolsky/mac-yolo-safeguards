@@ -358,6 +358,74 @@ describe('mergeServerMessagesWithPending', () => {
     expect(merged.some((m) => m.id === 'user-pending')).toBe(true);
   });
 
+  it('keeps sent optimistic user-* when server omits the correction between assistants', () => {
+    const correction = 'Please correct the Skool post before publishing';
+    const server: HermesMessage[] = [
+      {
+        id: 'gw-a1',
+        role: 'assistant',
+        content: 'Drafted the Skool update.',
+        created_at: '2026-07-22T06:54:00.000Z',
+      },
+      {
+        id: 'gw-a2',
+        role: 'assistant',
+        content: 'Corrected the Skool post with your feedback.',
+        created_at: '2026-07-22T07:58:00.000Z',
+      },
+    ];
+    const local: HermesMessage[] = [
+      server[0]!,
+      {
+        id: 'user-corr',
+        role: 'user',
+        content: correction,
+        outboundStatus: 'sent',
+        created_at: '2026-07-22T07:10:00.000Z',
+      },
+    ];
+
+    const merged = mergeServerMessagesWithPending(server, local);
+
+    expect(merged.map((message) => message.id)).toEqual(['gw-a1', 'user-corr', 'gw-a2']);
+    expect(merged[1]?.content).toBe(correction);
+    expect(merged[1]?.outboundStatus).toBe('sent');
+  });
+
+  it('keeps pending optimistic user-* until server history matches even after assistant replies exist', () => {
+    const correction = 'Please correct the Skool post before publishing';
+    const server: HermesMessage[] = [
+      {
+        id: 'gw-a1',
+        role: 'assistant',
+        content: 'Drafted the Skool update.',
+        created_at: '2026-07-22T06:54:00.000Z',
+      },
+      {
+        id: 'gw-a2',
+        role: 'assistant',
+        content: 'Corrected the Skool post with your feedback.',
+        created_at: '2026-07-22T07:58:00.000Z',
+      },
+    ];
+    const local: HermesMessage[] = [
+      {
+        id: 'user-corr',
+        role: 'user',
+        content: correction,
+        outboundStatus: 'pending',
+        created_at: '2026-07-22T07:10:00.000Z',
+      },
+    ];
+
+    const merged = mergeServerMessagesWithPending(server, local);
+
+    expect(merged.some((message) => message.id === 'user-corr')).toBe(true);
+    expect(merged.findIndex((message) => message.id === 'user-corr')).toBeLessThan(
+      merged.findIndex((message) => message.id === 'gw-a2'),
+    );
+  });
+
   it('collapse prefers longer near-duplicate over a shorter later bubble', () => {
     const longBody = `${REVENUE_ACK_B} Extra evidence and next steps stay visible.`;
     const messages: HermesMessage[] = [

@@ -161,24 +161,64 @@ export function hasUnsyncedLocalMessages(messages: HermesMessage[]): boolean {
   });
 }
 
-/** Match only the latest server user line — avoids dropping a new optimistic bubble when an older turn repeats the same text. */
-function serverHasLatestUserMessage(serverMessages: HermesMessage[], body: string): boolean {
+/** True when gateway history contains any equivalent user record for this optimistic body. */
+function serverHasMatchingUserMessage(serverMessages: HermesMessage[], body: string): boolean {
   if (!body) {
     return false;
   }
-  for (let index = serverMessages.length - 1; index >= 0; index -= 1) {
-    const message = serverMessages[index];
-    if (message.role?.toLowerCase() !== 'user') {
+  return serverMessages.some(
+    (message) => message.role?.toLowerCase() === 'user' && serverUserAcknowledgesBody(message, body),
+  );
+}
+
+function messageCreatedAtMs(message: Pick<HermesMessage, 'created_at' | 'timestamp'>): number | null {
+  for (const candidate of [message.created_at, message.timestamp]) {
+    if (candidate == null) {
       continue;
     }
-    return serverUserAcknowledgesBody(message, body);
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+      return candidate < 1e12 ? candidate * 1000 : candidate;
+    }
+    const parsed = Date.parse(String(candidate));
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
   }
-  return false;
+  return null;
+}
+
+/**
+ * Place unmatched optimistic user turns before later server messages (by timestamp)
+ * so Waiting can clear against an already-loaded assistant reply.
+ */
+function insertUnmatchedUserTurnsChronologically(
+  serverMessages: HermesMessage[],
+  unmatchedUsers: HermesMessage[],
+): HermesMessage[] {
+  if (unmatchedUsers.length === 0) {
+    return serverMessages;
+  }
+  const result = [...serverMessages];
+  for (const user of unmatchedUsers) {
+    const userMs = messageCreatedAtMs(user);
+    let insertAt = result.length;
+    if (userMs != null) {
+      for (let index = 0; index < result.length; index += 1) {
+        const candidateMs = messageCreatedAtMs(result[index]!);
+        if (candidateMs != null && candidateMs > userMs) {
+          insertAt = index;
+          break;
+        }
+      }
+    }
+    result.splice(insertAt, 0, user);
+  }
+  return result;
 }
 
 /**
  * True when the gateway transcript already committed this user turn (trailing user line).
- * Unlike serverHasLatestUserMessage, ignores older repeated prompts after an assistant reply.
+ * Unlike a latest-user-only match, ignores older repeated prompts after an assistant reply.
  */
 function serverEndsWithMatchingUser(serverMessages: HermesMessage[], body: string): boolean {
   if (!body) {
@@ -486,8 +526,8 @@ function serverHasNearDuplicateAssistant(
   });
 }
 
-/** Drop adjacent duplicate bubbles (gateway / Telegram occasionally echo twice). */
-export function dedupeChatMessages(messages: HermesMessage[]): HermesMessage[] {
+/** Exact role+body fingerprint dedupe only (no near-duplicate assistant collapse). */
+function dedupeExactChatMessages(messages: HermesMessage[]): HermesMessage[] {
   const seen = new Set<string>();
   const deduped: HermesMessage[] = [];
   for (const message of messages) {
@@ -498,7 +538,12 @@ export function dedupeChatMessages(messages: HermesMessage[]): HermesMessage[] {
     seen.add(fp);
     deduped.push(message);
   }
-  return collapseNearDuplicateAssistantTurns(deduped);
+  return deduped;
+}
+
+/** Drop adjacent duplicate bubbles (gateway / Telegram occasionally echo twice). */
+export function dedupeChatMessages(messages: HermesMessage[]): HermesMessage[] {
+  return collapseNearDuplicateAssistantTurns(dedupeExactChatMessages(messages));
 }
 
 /** Keep in-flight / not-yet-synced bubbles when gateway refresh races mobile send. */
@@ -513,13 +558,16 @@ export function mergeServerMessagesWithPending(
       message.role?.toLowerCase() !== 'assistant' ||
       !isSilentAssistantCompletion(message.content),
   );
-  let dedupedServer = dedupeDeferredStreamPlaceholders(dedupeChatMessages(visibleServerMessages));
+  // Exact-dedupe first. Near-duplicate assistant collapse waits until after unmatched
+  // optimistic user-* turns are re-inserted — otherwise omitted user gaps collapse shut.
+  let dedupedServer = dedupeDeferredStreamPlaceholders(dedupeExactChatMessages(visibleServerMessages));
   if (localMessages.length === 0) {
-    return dedupedServer;
+    return collapseNearDuplicateAssistantTurns(dedupedServer);
   }
 
   const serverFingerprints = new Set(dedupedServer.map(messageFingerprint));
   const pendingTail: HermesMessage[] = [];
+  const unmatchedOptimisticUsers: HermesMessage[] = [];
 
   const serverHasFreshAssistantReply = serverHasAssistantReplyAfterLastUser(dedupedServer);
   const hasUnackedPendingUser = localMessages.some((message) => {
@@ -601,24 +649,28 @@ export function mergeServerMessagesWithPending(
           dedupedServer = annotateTrailingServerUserWithOutbound(dedupedServer, message);
           continue;
         }
-        pendingTail.push(message);
+        // Keep until the gateway shows this user turn — never rely on delivery status alone.
+        unmatchedOptimisticUsers.push(message);
         continue;
       }
       // Failed phone-only bubble while Mac already answered → drop (clears permanent stall badge).
       if (isOrphanFailedOutboundBubble(message, dedupedServer)) {
         continue;
       }
-      if (
-        serverFingerprints.has(messageFingerprint(message)) ||
-        serverHasLatestUserMessage(dedupedServer, body)
-      ) {
+      // Vault/bcbb16dd: retain sent/completed user-* until an equivalent gateway user exists.
+      // History refresh that omits the correction between assistants must not erase the bubble.
+      if (serverHasMatchingUserMessage(dedupedServer, body)) {
         continue;
       }
+      unmatchedOptimisticUsers.push(message);
+      continue;
     }
     if (!serverFingerprints.has(messageFingerprint(message))) {
       pendingTail.push(message);
     }
   }
+
+  dedupedServer = insertUnmatchedUserTurnsChronologically(dedupedServer, unmatchedOptimisticUsers);
 
   if (pendingTail.length === 0) {
     return collapseNearDuplicateAssistantTurns(
@@ -626,9 +678,11 @@ export function mergeServerMessagesWithPending(
     );
   }
   const merged = dedupeToolDumpMessages([...dedupedServer, ...pendingTail]);
-  const hasPendingUser = pendingTail.some(
-    (message) => isOptimisticUserMessage(message) && message.outboundStatus === 'pending',
-  );
+  const hasPendingUser =
+    unmatchedOptimisticUsers.some((message) => message.outboundStatus === 'pending') ||
+    pendingTail.some(
+      (message) => isOptimisticUserMessage(message) && message.outboundStatus === 'pending',
+    );
   const normalized = hasPendingUser ? merged : dedupeChatMessages(merged);
   return collapseNearDuplicateAssistantTurns(dedupeDeferredStreamPlaceholders(normalized));
 }

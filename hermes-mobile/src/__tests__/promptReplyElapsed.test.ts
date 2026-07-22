@@ -39,6 +39,54 @@ describe('promptReplyElapsed', () => {
     });
   });
 
+  it('clears live Waiting when history already has an assistant reply after the user (catch-up)', () => {
+    const sentAt = '2026-07-21T21:44:00.000Z';
+    const replyAt = '2026-07-22T08:01:00.000Z';
+    const messages: HermesMessage[] = [
+      {
+        id: 'user-cron',
+        role: 'user',
+        content: 'make money today',
+        created_at: sentAt,
+        outboundStatus: 'sent',
+      },
+      {
+        id: 'asst-cron',
+        role: 'assistant',
+        content: 'Scheduled job finished with the next outreach steps.',
+        created_at: replyAt,
+      },
+    ];
+    expect(resolvePromptReplyElapsedState({ messages, userIndex: 0 })).toEqual({
+      mode: 'frozen',
+      durationSec: Math.floor((Date.parse(replyAt) - Date.parse(sentAt)) / 1000),
+    });
+  });
+
+  it('clears live Waiting via timestamp catch-up when assistant precedes user in array order', () => {
+    const sentAt = '2026-07-21T21:44:00.000Z';
+    const replyAt = '2026-07-22T08:01:00.000Z';
+    const messages: HermesMessage[] = [
+      {
+        id: 'asst-cron',
+        role: 'assistant',
+        content: 'Scheduled job finished with the next outreach steps.',
+        created_at: replyAt,
+      },
+      {
+        id: 'user-cron',
+        role: 'user',
+        content: 'make money today',
+        created_at: sentAt,
+        outboundStatus: 'sent',
+      },
+    ];
+    expect(resolvePromptReplyElapsedState({ messages, userIndex: 1 })).toEqual({
+      mode: 'frozen',
+      durationSec: Math.floor((Date.parse(replyAt) - Date.parse(sentAt)) / 1000),
+    });
+  });
+
   it('keeps waiting live through empty-stream timeout placeholders', () => {
     const sentAt = '2026-07-14T22:00:00.000Z';
     const messages: HermesMessage[] = [
