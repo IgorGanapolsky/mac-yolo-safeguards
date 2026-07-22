@@ -51,6 +51,7 @@ function testWatchdogScriptExists() {
   assert.ok(body.includes('disabled_toolsets'));
   assert.ok(body.includes('No constraints') || body.includes('NO-CONSTRAINTS'));
   assert.ok(body.includes('com.hermes.chrome-cdp'));
+  assert.ok(body.includes('hermes-interactive-chrome-gate') || body.includes('HERMES_ALLOW_INTERACTIVE_CHROME'));
   assert.ok(!/\brg -[a-z]*q\b/.test(body), 'watchdog must not depend on ripgrep (mini runner PATH)');
   assert.ok(!/disabled_toolsets:\s*\[browser\]/.test(body) || body.includes('never'));
   // Must not instruct disabling browser
@@ -74,6 +75,7 @@ function testChromeCdpScripts() {
   assert.ok(chromeBody.includes('remote-debugging-address'));
   assert.ok(chromeBody.includes('webSocketDebuggerUrl'));
   assert.ok(chromeBody.includes('reclaim_non_cdp_squat') || chromeBody.includes('CDP squat reclaim'));
+  assert.ok(chromeBody.includes('hermes-interactive-chrome-gate') || chromeBody.includes('HERMES_ALLOW_INTERACTIVE_CHROME'));
   const watchdogBody = fs.readFileSync(watchdog, 'utf8');
   assert.ok(watchdogBody.includes('cdp_probe_ipv4') || watchdogBody.includes('cdp_ipv4_down'));
   console.log('ok chrome-cdp install scripts');

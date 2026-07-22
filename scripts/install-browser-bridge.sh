@@ -13,6 +13,13 @@ set -euo pipefail
 
 say() { printf '\033[1;35m▸ %s\033[0m\n' "$1"; }
 
+repo_root_early="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+source "${repo_root_early}/scripts/hermes-interactive-chrome-gate.sh"
+if ! hermes_require_interactive_chrome; then
+  exit 0
+fi
+
 MODE="cdp"
 PROFILE="dedicated"
 for arg in "$@"; do

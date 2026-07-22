@@ -1,0 +1,22 @@
+---
+description: NEVER drive Igor's interactive Chrome, steal macOS focus, or use Computer Use unless he explicitly asks in that turn.
+alwaysApply: true
+---
+
+# No desktop hijack (hard rule)
+
+**Default:** CLI, API, SSH, `adb`, headless Docker Playwright only. Igor's daily-driver Mac stays usable.
+
+**NEVER unless Igor explicitly requests it in that same message:**
+
+- `osascript` / AppleScript driving **Google Chrome** (activate, quit, front window, JS injection)
+- `drive-logged-in-chrome`, `use-existing-browser-sessions`, or any skill that opens/focuses his Chrome
+- Cursor **Computer Use**, headed Playwright, browser MCP on Igor's profile
+- `com.hermes.chrome-cdp` install/heal or CDP against the daily-driver browser
+- `install-browser-bridge.sh --profile=daily` (quits Chrome)
+
+**Prefer (in order):** `gh`, Play Developer API, App Store Connect API (`.p8`), Gmail API/MCP, Stripe CLI, `adb`, SSH to Mac mini/fleet, headless Playwright in Docker or isolated profile.
+
+**Opt-in gate:** `HERMES_ALLOW_INTERACTIVE_CHROME=1` only when Igor explicitly asked for browser control in that turn.
+
+Canonical: [AGENTS.md](../../AGENTS.md) § No desktop hijack · [docs/HEADLESS-BACKGROUND-OPS.md](../../docs/HEADLESS-BACKGROUND-OPS.md) · [docs/NO-DESKTOP-HIJACK.md](../../docs/NO-DESKTOP-HIJACK.md)

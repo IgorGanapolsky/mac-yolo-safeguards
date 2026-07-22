@@ -7,6 +7,14 @@
 # the squat over IPv4 and hang/fail even though DevTools is alive on IPv6.
 set -euo pipefail
 
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+source "${repo_root}/scripts/hermes-interactive-chrome-gate.sh"
+if ! hermes_interactive_chrome_allowed; then
+  hermes_interactive_chrome_block_message
+  exit 0
+fi
+
 # Optional persistent mode from install-browser-bridge.sh (daily vs dedicated).
 STATE_FILE="${HERMES_BROWSER_BRIDGE_STATE:-${HOME}/.hermes/browser-bridge.env}"
 if [[ -f "$STATE_FILE" ]]; then

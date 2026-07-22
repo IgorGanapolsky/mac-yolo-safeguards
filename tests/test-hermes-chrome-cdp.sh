@@ -31,6 +31,7 @@ grep -q 'reclaim_non_cdp_squat\|CDP squat reclaim' <<<"$body" || bad "chrome scr
 grep -q 'webSocketDebuggerUrl' <<<"$body" || bad "chrome script must validate CDP JSON"
 grep -q '::1\|cdp_ok_ipv4' <<<"$body" || bad "chrome script must distinguish IPv4 vs IPv6 CDP"
 grep -q 'chrome-cdp-profile' <<<"$body" || bad "chrome script must scope kills to hermes profile"
+grep -q 'HERMES_ALLOW_INTERACTIVE_CHROME\|hermes-interactive-chrome-gate' <<<"$body" || bad "chrome script must gate interactive Chrome (default off)"
 
 plist_body="$(cat "$plist")"
 grep -q 'HERMES_CDP_BIND' <<<"$plist_body" || bad "plist must set HERMES_CDP_BIND"

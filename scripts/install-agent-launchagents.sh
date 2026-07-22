@@ -101,16 +101,19 @@ fi
 
 # Browser control (Chrome CDP) + prevention watchdog — separate installers
 # because they use dedicated labels outside the com.igor.* template list.
-if [[ -x "${repo_root}/scripts/install-hermes-chrome-cdp.sh" ]]; then
+# Default OFF: never auto-launch interactive Chrome on the daily driver (2026-07-22).
+if [[ "${HERMES_ALLOW_INTERACTIVE_CHROME:-0}" == "1" && -x "${repo_root}/scripts/install-hermes-chrome-cdp.sh" ]]; then
   bash "${repo_root}/scripts/install-hermes-chrome-cdp.sh" || \
     echo "WARN: install-hermes-chrome-cdp.sh did not reach IPv4 CDP yet" >&2
+else
+  echo "SKIP com.hermes.chrome-cdp (HERMES_ALLOW_INTERACTIVE_CHROME!=1)"
 fi
 if [[ -f "${repo_root}/com.igor.hermes-prevention-watchdog.plist" ]]; then
   install_one "com.igor.hermes-prevention-watchdog.plist"
 fi
 
 echo ""
-echo "Installed ${#plists[@]} LaunchAgent templates (+ repo-root-hygiene + chrome-cdp). Verify with:"
+echo "Installed ${#plists[@]} LaunchAgent templates (+ repo-root-hygiene; chrome-cdp only when HERMES_ALLOW_INTERACTIVE_CHROME=1). Verify with:"
 echo "  bash scripts/verify-agent-automations.sh"
 echo "  bash scripts/configure-browser-control.sh --status --json"
 echo "  node tools/agent-session-start.js"
