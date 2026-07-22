@@ -1,0 +1,451 @@
+{
+  "run_id": "trun_d3be5e813aa949708927e582e28c055a",
+  "interaction_id": "trun_d3be5e813aa949708927e582e28c055a",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_d3be5e813aa949708927e582e28c055a",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Assessment reasoning:\n- The field_description and the user query ask for a comprehensive ASO playbook for July 2026, covering ranking signals for Apple and Google Play, keyword mechanics, PPO/experiments, and a competitive teardown of Hermes-related apps, plus best practices for creatives and how new/low-install apps can rank with long-tail terms. The provided field_answer delivers a structured, multi-section synthesis: executive insights, Apple ranking signals (including fields indexed, surface area, and signal hierarchy), Google Play signals (including vitals and store listing experiments), keyword mechanics side-by-side, PPO and Play listing experiments guidance, real-world competitive teardown of Hermes Agent variants, best practices for screenshot/video creatives, and a strategic synthesis with actionable playbook steps. It also cites primary sources and lists references. \n- Completeness evaluation: The answer covers (a) ranking signals for Apple and Google Play, (b) keyword field mechanics differences, (c) PPO/CPP and Play listing experiments, (d) strategies for ranking new/low-install apps with long-tail terms, (e) competitive teardown of Hermes apps across Android and iOS, (f) creative/screenshot/video guidance, and (g) strategic synthesis for launching a Hermes-style agent app. There are no obvious missing high-impact sections given the user query. Therefore, completeness is true.\n- Additional note on sources: The field_answer includes numerous citations and sections that align with the excerpts provided (Apple/Google official docs, Store Listing Experiments, Android Vitals, CPP, etc.), supporting the overall content. While exact numeric weights are not public, the answer frames them as consensus and cites official docs where possible. This aligns with the Excerpts set, and thus the field_answer is reasonably supported by the excerpts.\n- Support evaluation: The excerpts list several sources about ASO ranking factors, screenshot OCR indexing, CPP indexing, Google Play listing experiments, Android Vitals, and Hermes app listings, which corroborate the key claims in the field_answer. The competitive teardown details reflect the Hermes app entries present in the excerpts (Hermes Agent on Play, Hermes Relay, Hermes AI Personal Agent). Given alignment between field_answer and excerpts, support is true.\n- Confidence: High. The field_answer is coherent, thorough, and aligns with the provided excerpts and listed sources.\n",
+        "citations": [
+          {
+            "url": "https://fractalmarket.ing/blog/aso-mobile-app-optimization-2026.html",
+            "excerpts": [
+              "ASO in 2026: Complete App Store Optimization Guide\nThe definitive ASO guide for 2026 \u2014 keyword strategy, creative testing, conversion rate optimization, and AI-powered ranking techniques for App Store and Google Play."
+            ],
+            "title": "ASO in 2026: Complete App Store Optimization Guide"
+          },
+          {
+            "url": "https://www.applaunchflow.com/blog/google-play-store-optimization-2026",
+            "excerpts": [
+              "Google Play Store Optimization & ASO Guide 2026"
+            ],
+            "title": "Google Play Store Optimization & ASO Guide 2026 AppLaunchFlow https://www.applaunchflow.com \u203a ..."
+          },
+          {
+            "url": "https://animavie.org/app-store-aso",
+            "excerpts": [
+              "App Store & Google Play ASO in 2026: new factors to watch\nUnderstand where app store discovery is heading in 2026: retention, conversion, engagement and new ad placements. Includes actionable checklists."
+            ],
+            "title": "App Store & Google Play ASO in 2026: new factors to watch"
+          },
+          {
+            "url": "https://www.whixframe.com/blog/aso-guide-2026",
+            "excerpts": [
+              "App Store Optimization (ASO) Complete Guide 2026 \u2014 Rank #1 on ...\nThe definitive ASO guide for 2026. Learn how to write titles, subtitles, keyword fields, and descriptions that rank on the App Store and Google Play. Includes keyword research strategy, conversion rate optimization, and A/B testing tactics used by top-grossing apps."
+            ],
+            "title": "App Store Optimization (ASO) Complete Guide 2026 \u2014 Rank #1 on ..."
+          },
+          {
+            "url": "https://asoscan.com/blog/aso-ranking-factors-2026",
+            "excerpts": [
+              "ASO in 2026: New App Store & Play Ranking Signals \u2014 ASOScan\nThe ASO changes that matter in 2026: Apple screenshot OCR indexing, organic Custom Product Pages (now 70 per app), Google Play experiments, and the shift to engagement signals."
+            ],
+            "title": "ASO in 2026: New App Store & Play Ranking Signals \u2014 ASOScan"
+          },
+          {
+            "url": "https://asoworld.com/insight/app-store-ranking-in-2026-why-retention-and-engagement-now-matter-more-than-keywords",
+            "excerpts": [
+              "App Store Ranking Factors 2026: Complete ASO Guide - ASO World\nThe ranking factor list for 2026 hasn't completely replaced its predecessor \u2014 but the weights within it have shifted materially. Here is the current hierarchy based on consolidated analysis from App Radar, ASO World, Phiture, Moburst, and Apple's own documentation."
+            ],
+            "title": "App Store Ranking Factors 2026: Complete ASO Guide - ASO World"
+          },
+          {
+            "url": "https://theapplaunchpad.com/blog/app-store-ranking-factors",
+            "excerpts": [
+              "App Store Ranking Factors in 2026: Powerful guide\nApple ranks apps based on three main App Store ranking factors including metadata relevance, listing conversion performance, and user engagement"
+            ],
+            "title": "App Store Ranking Factors in 2026: Powerful guide"
+          },
+          {
+            "url": "https://www.appstemple.com/guides/app-store-search-algorithm",
+            "excerpts": [
+              "App Store Search Algorithm 2026: Ranking Factors Explained\nApple's App Store search algorithm is not a static formula published anywhere \u2014 it's an evolving system that shifted meaningfully between mid-2025 and May 2026."
+            ],
+            "title": "App Store Search Algorithm 2026: Ranking Factors Explained"
+          },
+          {
+            "url": "https://asoworld.com/en/insight/app-store-ranking-in-2026-why-retention-and-engagement-now-matter-more-than-keywords",
+            "excerpts": [
+              "App Store Ranking Factors 2026: Complete ASO Guide -ASOWorld UK\nComprehensive 2026 App Store Ranking Factors: Apple LLM Algorithm Updates, Increased Weight of User Behavior Signals, CPP Keyword Linking, Retention Rate Optimization, and Google Play Ranking Strategy Guide. in UK."
+            ],
+            "title": "App Store Ranking Factors 2026: Complete ASO Guide -ASOWorld UK"
+          },
+          {
+            "url": "https://www.appypie.com/blog/app-store-optimization-guide",
+            "excerpts": [
+              "App Store Optimization (ASO): Complete Guide to Ranking ...\nWhat are the most important ASO ranking factors in 2026? The top ranking factors in 2026 are keyword relevance in metadata, download velocity, conversion rate, ratings, and, on Google Play, user retention."
+            ],
+            "title": "App Store Optimization (ASO): Complete Guide to Ranking ..."
+          },
+          {
+            "url": "https://f-droid.org/packages/com.nousresearch.hermesagent",
+            "excerpts": [
+              "Hermes Agent | F-Droid - Free and Open Source Android App ...\nUse the app to chat with local Gemma LiteRT-LM or Qwen GGUF models, attach files, dictate by voice, and keep model downloads resumable through Android DownloadManager."
+            ],
+            "title": "Hermes Agent | F-Droid - Free and Open Source Android App ..."
+          },
+          {
+            "url": "https://apkamp.com/com.hermesagent.android",
+            "excerpts": [
+              "Download Hermes Agent - Android APK latest version App by Hen ...\nDownload Hermes Agent - Android APK latest version 1.0.0 by Hen Works - Fastest - Free - Safe for android devices. AI Agent on your Android \u2014 multi-model chat, terminal, code execution & more."
+            ],
+            "title": "Download Hermes Agent - Android APK latest version App by Hen ..."
+          },
+          {
+            "url": "https://www.appbrain.com/app/hermes-agent-android/com.hermesagent.android",
+            "excerpts": [
+              "Hermes Agent - Android APK Download for Android - AppBrain\nHermes Agent - Android is a free tools app developed by Hen Works that has 1,000+ downloads."
+            ],
+            "title": "Hermes Agent - Android APK Download for Android - AppBrain"
+          },
+          {
+            "url": "https://dev.to/athenaios/running-hermes-agent-on-android-a-production-ai-agent-in-your-pocket-18nb",
+            "excerpts": [
+              "Running Hermes Agent on Android: A Production AI Agent in ...\nOver the past weeks, I built and deployed an entire professional portfolio site \u2014 portfolio design, HTML/CSS edits, Git versioning, GitHub Pages deployment, README documentation, and even a separate open-source project \u2014 all through my agent, without touching a laptop."
+            ],
+            "title": "Running Hermes Agent on Android: A Production AI Agent in ..."
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?hl=en-US&id=com.hermesagent.android",
+            "excerpts": [
+              "Hermes Agent - Android - Apps on Google Play\nHermes Agent brings a powerful AI assistant directly to your Android device. Run AI agents locally with a built-in terminal, supporting multiple AI providers and advanced features \u2014 all from"
+            ],
+            "title": "Hermes Agent - Android - Apps on Google Play"
+          },
+          {
+            "url": "https://appdrift.co/blog/google-play-store-listing-experiments",
+            "excerpts": [
+              "Google Play Store Listing Experiments: A/B Guide 2026\nStep-by-step guide to running Store Listing Experiments on Google Play. A/B test icons, screenshots, and descriptions for more downloads."
+            ],
+            "title": "Google Play Store Listing Experiments: A/B Guide 2026"
+          },
+          {
+            "url": "https://www.apptweak.com/en/aso-blog/store-listing-experiments-a-guide-to-play-store-a-b-testing",
+            "excerpts": [
+              "A Guide to Google Play Store Listing Experiments - AppTweak\nGoogle\u2019s new store listing features enhance A/B test customization for ASO. This blog covers best practices and the new Google Play updates. Before jumping into the specificities, understand the benefits of incorporating store listing experiments into your ASO strategy on Google Play."
+            ],
+            "title": "A Guide to Google Play Store Listing Experiments - AppTweak"
+          },
+          {
+            "url": "https://appscreens.com/blog/google-play-store-listing-experiments",
+            "excerpts": [
+              "Google Play Store Listing Experiments in 2026: Android ...\nGoogle Play Store Listing Experiments let you A/B test screenshots, icons, feature graphics, videos, and localized text with real Play Store visitors before applying changes to everyone. Start with one clear hypothesis, one asset type, enough traffic, and a minimum seven-day run."
+            ],
+            "title": "Google Play Store Listing Experiments in 2026: Android ..."
+          },
+          {
+            "url": "https://support.google.com/googleplay/android-developer/answer/13393723?hl=en",
+            "excerpts": [
+              "Best practices for your store listing - Play Console Help\nEnter text for your short description and full description fields. Each text field contains a counter to help you stay within character limits. A full description allows for 4,000"
+            ],
+            "title": "Best practices for your store listing - Play Console Help"
+          },
+          {
+            "url": "https://play.google.com/console/about/store-listing-experiments",
+            "excerpts": [
+              "Store listing experiments | Google Play Console\nOptimize your Google Play store listing to help increase installs and retention. Run A/B tests to find the most effective graphics and localized text. Accelerate your user growth with our"
+            ],
+            "title": "Store listing experiments | Google Play Console"
+          },
+          {
+            "url": "https://appshots.dev/blog/aso-guide-2026-screenshots",
+            "excerpts": [
+              "App Store Optimization (ASO) Guide 2026: How Screenshots ...\nComplete ASO guide focused on visual assets. Learn how screenshots affect conversion rates and app store rankings with data-driven strategies."
+            ],
+            "title": "App Store Optimization (ASO) Guide 2026: How Screenshots ..."
+          },
+          {
+            "url": "https://www.nakxi.com/blog/how-to-create-app-store-screenshots-that-actually-convert-2026",
+            "excerpts": [
+              "How to Create App Store Screenshots That Convert (2026 Guide) - Nakxi\nMar 1, 2026 \u00b7 This guide covers everything you need \u2014 sizing, layout, messaging, ASO strategy, and tools \u2014 to create professional app screenshots that rank"
+            ],
+            "title": "How to Create App Store Screenshots That Convert (2026 Guide) - Nakxi"
+          },
+          {
+            "url": "https://appfollow.io/blog/aso-screenshots-best-practices",
+            "excerpts": [
+              "ASO Screenshots: 2026 Best Practices & App Store Image Specs - AppFollow\nJun 2, 2026 \u00b7 A data-backed playbook for ASO screenshots in 2026 \u2014 App Store & Google Play specs, conversion best practices, A/B testing, and solutions."
+            ],
+            "title": "ASO Screenshots: 2026 Best Practices & App Store Image Specs - AppFollow"
+          },
+          {
+            "url": "https://appscreens.com/app-store-optimization-screenshots",
+            "excerpts": [
+              "AppScreens: ASO Screenshot Optimization for App Store ...\nImprove ASO with App Store and Google Play screenshot variants. Generate every size and language from one responsive design, then test and iterate to improve conversion."
+            ],
+            "title": "AppScreens: ASO Screenshot Optimization for App Store ..."
+          },
+          {
+            "url": "https://screencraftapp.com/blog/app-store-screenshots-guide-2026",
+            "excerpts": [
+              "App Store Screenshots That Convert \u2014 2026 Guide with ...\nComplete guide to designing App Store and Google Play screenshots that increase install rates by 25-40%. Covers iOS 2026 requirements, 35-locale localization, RTL layouts, AI captions, and batch export automation."
+            ],
+            "title": "App Store Screenshots That Convert \u2014 2026 Guide with ..."
+          },
+          {
+            "url": "https://apps.apple.com/ph/app/hermes-ai-personal-agent/id6759341434",
+            "excerpts": [
+              "Hermes AI: Personal Agent - App Store\nDownload Hermes AI: Personal Agent by Ilya Vishneuski on the App Store. See screenshots, ratings and reviews, user tips and more games like Hermes AI: Personal"
+            ],
+            "title": "Hermes AI: Personal Agent - App Store"
+          },
+          {
+            "url": "https://apps.apple.com/us/app/hermes-ai-personal-agent/id6759341434",
+            "excerpts": [
+              "Hermes AI: Personal Agent - App Store - Apple\nJun 30, 2026 \u00b7 Hermes AI: Personal Agent for iPhone Free. Stay connected to your AI agent from your iPhone. Chat, monitor activity, and approve actions in"
+            ],
+            "title": "Hermes AI: Personal Agent - App Store - Apple"
+          },
+          {
+            "url": "https://apps.apple.com/ca/app/hermes-ai-personal-agent/id6759341434",
+            "excerpts": [
+              "Hermes AI: Personal Agent - App Store\nHermes AI \u2014 Control Your AI Agent Anywhere Stay connected to your AI agent from your iPhone. Chat, monitor activity, and approve actions in real time \u2014 all in one place. Fully Managed Agent (Subscription required) Get a ready-to-use agent without the hassle. We handle deployment, maintenance, and support \u2014 so you can focus on results."
+            ],
+            "title": "Hermes AI: Personal Agent - App Store"
+          },
+          {
+            "url": "https://apps.apple.com/gb/app/hermes-ai-personal-agent/id6759341434",
+            "excerpts": [
+              "Hermes AI: Personal Agent - App Store\nHermes AI \u2014 Control Your AI Agent Anywhere Stay connected to your AI agent from your iPhone. Chat, monitor activity, and approve actions in real time \u2014 all in one place. Fully Managed Agent (Subscription required) Get a ready-to-use agent without the hassle. We handle deployment, maintenance, and support \u2014 so you can focus on results."
+            ],
+            "title": "Hermes AI: Personal Agent - App Store"
+          },
+          {
+            "url": "https://apps.apple.com/fr/app/hermes-ai-personal-agent/id6759341434?l=en-GB&platform=iphone&see-all=customers-also-bought-apps",
+            "excerpts": [
+              "Hermes AI: Personal Agent - You Might Also Like - App Store\nBrowse apps and games similar to Hermes AI: Personal Agent and more on the App Store."
+            ],
+            "title": "Hermes AI: Personal Agent - You Might Also Like - App Store"
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?hl=en-US&id=com.axiomlabs.hermesrelay",
+            "excerpts": [
+              "Hermes-Relay - Apps on Google Play\nHermes-Relay is the native Android client for the Hermes agent platform. Point it at your own Hermes instance and chat with your agent, talk to it hands-free, and manage it \u2014 models, keys,"
+            ],
+            "title": "Hermes-Relay - Apps on Google Play"
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?hl=en-IN&id=com.axiomlabs.hermesrelay",
+            "excerpts": [
+              "Hermes-Relay - Apps on Google Play\nHermes Relay connects directly to your Hermes API Server over HTTP/SSE for real-time streaming chat. Point it at your server, optionally scan a QR code to auto-configure, and start talking to"
+            ],
+            "title": "Hermes-Relay - Apps on Google Play"
+          },
+          {
+            "url": "https://onepilotapp.com/agents/hermes/app",
+            "excerpts": [
+              "Hermes Agent App for iPhone & iPad (2026) \u2014 Onepilot\nA native iOS app that treats the host as the source of truth and reaches it over SSH. It deploys the agent for you, then gives you the things a chat window can't: the shell, the files Hermes writes, the diffs, the schedule \u2014 for Hermes and for other frameworks in the same app."
+            ],
+            "title": "Hermes Agent App for iPhone & iPad (2026) \u2014 Onepilot"
+          },
+          {
+            "url": "http://aihumanlove.com/blog/hermes-agent-minimax-m3-guide.html",
+            "excerpts": [
+              "Hermes Agent is a free open-source AI agent from Nous Research.\nermes-agent) is an open-source autonomous AI agent built by Nous Research, released in February 2026 under the MIT licence."
+            ],
+            "title": "Hermes Agent + MiniMax M3: Free Open-Source AI Agent"
+          },
+          {
+            "url": "http://linkedin.com/company/nousresearch",
+            "excerpts": [
+              "We are best known for Hermes Agent, our open-source AI agent harness, alongside the Hermes series of general-purpose, human-aligned models"
+            ],
+            "title": null
+          },
+          {
+            "url": "https://www.digitalmarketingmaterial.com/google-play-vs-apple-app-store-optimization",
+            "excerpts": [
+              "Google Play vs Apple App Store ASO Strategies Explained\nCompare Google Play vs Apple App Store optimization strategies, ranking factors, keywords, and tips to improve app visibility."
+            ],
+            "title": "Google Play vs Apple App Store ASO Strategies Explained"
+          },
+          {
+            "url": "https://www.apptweak.com/en/aso-blog/aso-apple-app-store-vs-google-play-store-differences",
+            "excerpts": [
+              "Google Play vs App Store: Key ASO differences explained (2026)\nExplore the core ASO differences between Google Play Store and App Store. Compare features, ranking factors, monetization, and tools."
+            ],
+            "title": "Google Play vs App Store: Key ASO differences explained (2026)"
+          },
+          {
+            "url": "https://wavesmark.com/blogs/google-play-vs-apple-app-store-keyword-strategies",
+            "excerpts": [
+              "Google Play vs Apple App Store Keyword Strategies\nCompare Google Play and Apple App Store keyword optimization techniques and find the best ASO practices for higher app visibility."
+            ],
+            "title": "Google Play vs Apple App Store Keyword Strategies"
+          },
+          {
+            "url": "https://appmarketingplus.com/google-play-aso-the-complete-android-app-ranking-guide-for-2026",
+            "excerpts": [
+              "Google Play ASO: Complete Android Ranking Guide 2026\nKeyword and description changes typically take 5\u201310 days for Google Play\u2019s crawler to re-index your listing. Initial ranking movement is visible within 2\u20133 weeks. Full compounding impact from combined metadata, creative, and rating improvements takes 2\u20134 months. Q: How do I find the right keywords for Google Play ASO?"
+            ],
+            "title": "Google Play ASO: Complete Android Ranking Guide 2026"
+          },
+          {
+            "url": "https://www.mansooritechnologies.com/blog/app-store-vs-google-play-aso-comparison",
+            "excerpts": [
+              "App Store Optimization (ASO) for 2026: Google Play vs Apple ...\nApple and Google rank apps very differently. This deep dive explains the algorithmic differences between the App Store and Google Play, and why your ASO strategy must treat them separately."
+            ],
+            "title": "App Store Optimization (ASO) for 2026: Google Play vs Apple ..."
+          },
+          {
+            "url": "https://www.mobileaction.co/blog/aso-long-tail-optimization",
+            "excerpts": [
+              "ASO long-tail optimization: Unlock hidden App Store traffic in 2026!\nLong-tail keywords help you reach the users who truly value your app's niche. This means the users you gain are more likely to stick around."
+            ],
+            "title": "ASO long-tail optimization: Unlock hidden App Store traffic in 2026!"
+          },
+          {
+            "url": "https://admiral.media/apple-search-ads-benchmarks",
+            "excerpts": [
+              "Apple Search Ads Benchmarks: CPT, CPI, TTR & ROAS by App\nDoes Apple Search Ads work for small budgets?#. Yes, but with constraints. ASA works on any budget \u2014 you can start with $1,000/month. However"
+            ],
+            "title": "Apple Search Ads Benchmarks: CPT, CPI, TTR & ROAS by App"
+          },
+          {
+            "url": "https://app-sprout.com/blog/app-store-optimization-guide-2025",
+            "excerpts": [
+              "The Complete Guide to App Store Optimization (ASO) in 2025\nComplete App Store Optimization guide for 2025. Learn ASO strategies to increase app downloads, improve rankings, and boost visibility on iOS and Android."
+            ],
+            "title": "The Complete Guide to App Store Optimization (ASO) in 2025"
+          },
+          {
+            "url": "https://www.apptweak.com/en/aso-blog/guide-to-apple-search-ads",
+            "excerpts": [
+              "The ultimate guide to Apple Ads for 2026 - AppTweak\nGain quick insights on keyword optimization, bid management, and ad creative strategies to excel in your Apple Ads campaigns."
+            ],
+            "title": "The ultimate guide to Apple Ads for 2026 - AppTweak"
+          },
+          {
+            "url": "https://adapty.io/blog/apple-search-ads",
+            "excerpts": [
+              "Apple Search Ads Tutorial: Placements, Pricing & Bidding - Adapty\nMonthly budget cap: $10,000 per app. Limitations: No keyword control, limited targeting, and basic reporting that ends at the install. Apple Ads"
+            ],
+            "title": "Apple Search Ads Tutorial: Placements, Pricing & Bidding - Adapty"
+          },
+          {
+            "url": "https://shotlingo.com/blog/apple-product-page-optimization-ppo-guide",
+            "excerpts": [
+              "Apple Product Page Optimization (PPO) Guide for 2026\nThis guide walks you through what Apple Product Page Optimization is, how it differs from Custom Product Pages, how to set up your first test in App Store Connect, how to read the results without fooling yourself, and the advanced tactics that ASO teams are using this year."
+            ],
+            "title": "Apple Product Page Optimization (PPO) Guide for 2026"
+          },
+          {
+            "url": "https://dev.to/shotlingo/apple-product-page-optimization-ppo-guide-for-2026-4a4p",
+            "excerpts": [
+              "Apple Product Page Optimization (PPO) Guide for 2026\nThis guide walks you through what Apple Product Page Optimization is, how it differs from Custom Product Pages, how to set up your first test in App Store Connect, how to read the results without fooling yourself, and the advanced tactics that ASO teams are using this year."
+            ],
+            "title": "Apple Product Page Optimization (PPO) Guide for 2026"
+          },
+          {
+            "url": "https://appbot.co/blog/product-page-optimization",
+            "excerpts": [
+              "App Store Product Page Optimization: 2026 Guide (PPO + ...\nProduct Page Optimization is Apple's built-in A/B testing tool for the App Store. It lets you test up to three versions (called treatments) of"
+            ],
+            "title": "App Store Product Page Optimization: 2026 Guide (PPO + ..."
+          },
+          {
+            "url": "https://asoenginelabs.com/en/blog/apple-product-page-optimization",
+            "excerpts": [
+              "Apple Product Page Optimization (PPO) Guide | ASOEngineLabs\nAdvanced strategies for Apple's Product Page Optimization. Learn how to run effective A/B tests with up to 3 alternate product pages."
+            ],
+            "title": "Apple Product Page Optimization (PPO) Guide | ASOEngineLabs"
+          },
+          {
+            "url": "https://nextgrowthlabs.com/blog/guide-to-apples-product-page-optimization",
+            "excerpts": [
+              "Guide to Apple\u2019s Product Page Optimization - NextGrowthLabs\nProduct page optimization or PPO is a feature of the Apple App Store. It allows developers and marketers to identify the best product page version for their app. Apple introduced this feature in iOS 15 in 2021 at the World Wide Development Conference (WWDC)."
+            ],
+            "title": "Guide to Apple\u2019s Product Page Optimization - NextGrowthLabs"
+          },
+          {
+            "url": "https://developer.apple.com/app-store/discoverability/",
+            "excerpts": [],
+            "title": "Discovery on the App Store and Mac App Store - App Store - Apple Developer"
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?id=com.hermesagent.android",
+            "excerpts": [],
+            "title": "Hermes Agent - Android - Apps on Google Play"
+          },
+          {
+            "url": "https://developer.apple.com/help/app-store-connect/manage-product-pages/product-page-optimization",
+            "excerpts": [],
+            "title": "Page Not Found - Apple Developer"
+          },
+          {
+            "url": "https://asoworld.com/insight/app-store-ranking-in-2026-why-retendion-and-engagement-now-matter-more-than-keywords",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://developer.apple.com/help/app-store-connect/manage-product-pages/optimize-your-product-page",
+            "excerpts": [],
+            "title": "Page Not Found - Apple Developer"
+          },
+          {
+            "url": "https://apkamp.com/com.axiomlabs.hermesrelay",
+            "excerpts": [],
+            "title": "APK Downloader Lite - Fast & Direct Google Play Download (2026)"
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?id=com.hermesagent.android&hl=en_US",
+            "excerpts": [],
+            "title": "Hermes Agent - Android - Apps on Google Play"
+          },
+          {
+            "url": "https://developer.apple.com/help/app-store-connect/manage-product-pages/optimize-your-product-page/",
+            "excerpts": [],
+            "title": "Page Not Found - Apple Developer"
+          },
+          {
+            "url": "https://developer.apple.com/app-store/product-page-optimization/",
+            "excerpts": [],
+            "title": "Product Page Optimization - App Store - Apple Developer"
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?id=com.axiomlabs.hermesrelay",
+            "excerpts": [],
+            "title": "Hermes-Relay - Apps on Google Play"
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?id=com.axiomlabs.hermesrelay&hl=en",
+            "excerpts": [],
+            "title": "Hermes-Relay - Apps on Google Play"
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?id=com.hermesagent.android&hl=en",
+            "excerpts": [],
+            "title": "Hermes Agent - Android - Apps on Google Play"
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?id=com.axiomlabs.hermesrelay&hl=en_US&gl=US",
+            "excerpts": [],
+            "title": "Hermes-Relay - Apps on Google Play"
+          },
+          {
+            "url": "https://www.asoworld.com/insight/app-store-ranking-in-2026-why-retention-and-engagement-now-matter-more-than-keywords",
+            "excerpts": [],
+            "title": "App Store Ranking Factors 2026: Complete ASO Guide - ASO World"
+          },
+          {
+            "url": "https://developer.apple.com/app-store/product-page/",
+            "excerpts": [],
+            "title": "Creating Your Product Page - App Store - Apple Developer"
+          },
+          {
+            "url": "https://support.google.com/googleplay/android-developer/answer/9866131",
+            "excerpts": [],
+            "title": "Fetched web page"
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "hermes-aso-dominance-july-2026.md"
+  }
+}
