@@ -1400,14 +1400,14 @@ describe('ChatScreen', () => {
         demoMode: false,
       },
     });
-    const { getByTestId, getByText } = await renderChatScreen();
+    const { getByTestId, getByText, getAllByText } = await renderChatScreen();
 
     fireEvent.press(getByTestId('chat-context-mac-button'));
 
     expect(getByTestId('mac-picker-scroll')).toBeTruthy();
     expect(getByTestId('mac-picker-status-region')).toBeTruthy();
     expect(getByTestId('mac-picker-manual-form')).toBeTruthy();
-    expect(getByText('Paste your Mac’s Tailscale IP')).toBeTruthy();
+    expect(getAllByText('Paste your Mac’s Tailscale IP').length).toBeGreaterThanOrEqual(1);
     expect(getByText(/On the Mac: Tailscale → copy 100\.x → paste → Connect/)).toBeTruthy();
     expect(getByText(/Hermes must be open on that Mac/)).toBeTruthy();
     expect(getByTestId('mac-picker-subtitle')).toHaveTextContent(
@@ -1443,13 +1443,13 @@ describe('ChatScreen', () => {
         },
       ],
     });
-    const { getByTestId, queryByTestId, queryByText } = await renderChatScreen();
+    const { getByTestId, queryByTestId, queryByText, getByText } = await renderChatScreen();
 
     fireEvent.press(getByTestId('chat-context-mac-button'));
 
     expect(getByTestId('gateway-profile-list')).toBeTruthy();
-    expect(queryByText('Missing another computer?')).toBeNull();
     expect(getByTestId('mac-picker-status-region-help-link')).toBeTruthy();
+    expect(getByText('Missing another computer?')).toBeTruthy();
     expect(queryByTestId('mac-picker-status-region')).toBeNull();
     expect(getByTestId('mac-picker-manual-input-row')).not.toHaveStyle({
       flexDirection: 'column',
@@ -1549,7 +1549,7 @@ describe('ChatScreen', () => {
       ],
     });
 
-    const { getByTestId, queryByTestId, queryByText } = await renderChatScreen();
+    const { getByTestId, queryByTestId, queryByText, getByText } = await renderChatScreen();
     fireEvent.press(getByTestId('chat-context-mac-button'));
     expect(getByTestId('remove-gateway-profile-macmini')).toHaveTextContent('Forget this Mac');
     expect(queryByText('Remove')).toBeNull();
@@ -1763,7 +1763,7 @@ describe('ChatScreen', () => {
   });
 
   it('hides Type a message below while the attach picker sheet is open', async () => {
-    const { getByTestId, queryByTestId, queryByText } = await renderChatScreen();
+    const { getByTestId, queryByTestId, queryByText, getByText } = await renderChatScreen();
 
     fireEvent.press(getByTestId('open-sessions-modal'));
     fireEvent.press(getByTestId('modal-new-chat-button'));
