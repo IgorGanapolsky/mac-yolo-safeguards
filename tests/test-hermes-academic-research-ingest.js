@@ -118,5 +118,12 @@ for (const file of ['latest.json', 'corpus.jsonl']) {
 }
 assert.strictEqual(fs.statSync(outDir).mode & 0o777, 0o700);
 
+const installer = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'install-hermes-academic-research-agent.sh'), 'utf8');
+const launchAgent = fs.readFileSync(path.join(__dirname, '..', 'com.igor.hermes-academic-research-agent.plist'), 'utf8');
+assert.match(installer, /command -v node/);
+assert.match(installer, /__NODE_BIN__/);
+assert.match(launchAgent, /<string>__NODE_BIN__<\/string>/);
+assert.doesNotMatch(launchAgent, /<string>\/usr\/bin\/env<\/string>\s*<string>node<\/string>/);
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log('Hermes academic research ingestion tests: PASS');
