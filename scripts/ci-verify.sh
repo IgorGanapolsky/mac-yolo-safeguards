@@ -39,6 +39,7 @@ node --check tools/openmono-roi-audit.js
 node --check tools/kimi-model-upgrade-audit.js
 node --check tools/plan-coordination-snapshot.js
 node --check tools/agent-swarm-harness.js
+node --check tools/workos-production-guard.js
 node --check tests/test-openrouter-graphify-tools.js
 node --check tests/test-glm52-hermes-config.js
 node --check tests/test-hermes-self-harness.js
@@ -92,6 +93,7 @@ node tests/test-openmono-roi-audit.js
 node tests/test-kimi-model-upgrade-audit.js
 node tests/test-plan-coordination-snapshot.js
 node tests/test-agent-swarm-harness.js
+node tests/test-workos-production-guard.js
 tests/test-secondary-browser-reclaim.sh
 tests/test-adb-reverse-device-filter.sh
 tests/test-global-phone-pipeline-lock.sh
