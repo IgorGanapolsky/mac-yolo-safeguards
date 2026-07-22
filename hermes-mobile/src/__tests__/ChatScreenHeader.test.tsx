@@ -17,7 +17,7 @@ describe('ChatScreenHeader', () => {
       />,
     );
     expect(getByTestId('chat-header-model-strip').props.children).toContain('Qwen3.5 9B Hermes');
-    expect(getByTestId('chat-header-model-strip').props.children).toContain('1,240 tokens');
+    expect(getByTestId('chat-header-model-strip').props.children).toContain('1,240 session');
     expect(queryByTestId('chat-header-details-toggle')).toBeNull();
     expect(queryByTestId('chat-header-details-chevron')).toBeNull();
   });
@@ -184,7 +184,7 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
-    expect(getByTestId('chat-context-link').props.children).toContain('Relay only');
+    expect(getByTestId('chat-context-link').props.children).toContain('Needs computer link');
   });
 
   it('shows endpoint while connected when multi-Mac detail is enabled', () => {
@@ -225,9 +225,9 @@ describe('ChatScreenHeader', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
         threadTitle="New chat"
-        machineLabel="Hermes account relay"
+        machineLabel="Your computer"
         machineEndpoint="pair once"
-        routeStatusLabel="Pair relay in Settings for Wi‑Fi, cellular, or USB"
+        routeStatusLabel="Use Tailscale for cellular, or home Wi‑Fi when local"
         connectionState="disconnected"
         onOpenThreads={jest.fn()}
         onPressMachine={jest.fn()}
@@ -235,7 +235,7 @@ describe('ChatScreenHeader', () => {
     );
 
     expect(getByTestId('chat-context-link').props.children).toContain(
-      'Pair relay in Settings for Wi‑Fi, cellular, or USB',
+      'Use Tailscale for cellular, or home Wi‑Fi when local',
     );
   });
 
@@ -245,7 +245,7 @@ describe('ChatScreenHeader', () => {
         threadTitle="New chat"
         machineLabel="Igors-MacBook-Pro"
         machineEndpoint={undefined}
-        routeStatusLabel="Pair relay in Settings for Wi‑Fi, cellular, or USB"
+        routeStatusLabel="Use Tailscale for cellular, or home Wi‑Fi when local"
         connectionState="connecting"
         needsPair
         onOpenThreads={jest.fn()}
@@ -254,7 +254,7 @@ describe('ChatScreenHeader', () => {
     );
 
     expect(getByTestId('chat-context-link').props.children).toContain(
-      'Pair relay in Settings for Wi‑Fi, cellular, or USB',
+      'Use Tailscale for cellular, or home Wi‑Fi when local',
     );
     expect(String(getByTestId('chat-context-link').props.children)).not.toContain('Connecting');
     expect(queryByTestId('chat-context-mac-endpoint')).toBeNull();
@@ -502,7 +502,7 @@ describe('ChatScreenHeader', () => {
     const label = getByTestId('chat-header-hermes-status').props.children;
     expect(label).toContain('qwen3:8b-64k');
     expect(label).not.toContain('hermes-agent');
-    expect(label).toBe('Hermes (active) · qwen3:8b-64k · 1,000 tokens');
+    expect(label).toBe('Hermes (active) · qwen3:8b-64k · 1,000 session');
   });
 
   it('shows live in/out tokens from run progress while a turn is active', () => {
@@ -542,7 +542,7 @@ describe('buildHermesStatusLabel', () => {
         { model: 'qwen3:8b-64k', input_tokens: 500, output_tokens: 20 },
         'google/gemini-2.5-flash',
       ),
-    ).toBe('Hermes (active) · qwen3:8b-64k · 520 tokens');
+    ).toBe('Hermes (active) · qwen3:8b-64k · 520 session');
   });
 
   it('hides gateway platform labels and falls back to the next source', () => {

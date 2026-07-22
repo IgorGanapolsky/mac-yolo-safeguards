@@ -464,6 +464,34 @@ export function shouldProbeGatewayUrlForActiveProfile(
   return isDiscoveredUrlAllowedForActiveProfile(state, gatewayUrl);
 }
 
+/**
+ * USB loopback may adopt a Tailscale URL only when it does not steal another Mac.
+ * - Anonymous USB (no machine key) → any Tailscale (escape "Computer via USB" theater).
+ * - Named USB (e.g. MacBook Pro) → same-machine Tailscale only.
+ * Never silently activate Mac mini while USB identity is MacBook (or vice versa).
+ */
+export function canUsbLoopbackEscapeToUrl(
+  state: GatewayProfileState,
+  successfulUrl: string,
+): boolean {
+  const active = activeProfile(state);
+  if (!active || !isLoopbackGatewayUrl(active.gatewayUrl)) {
+    return false;
+  }
+  if (!isTailscaleGatewayUrl(successfulUrl)) {
+    return false;
+  }
+  const activeKey = profileMachineKey(active);
+  if (!activeKey) {
+    return true;
+  }
+  const matched = findProfileForGatewayUrl(state.profiles, successfulUrl);
+  if (!matched) {
+    return false;
+  }
+  return profilesShareMachine(active, matched);
+}
+
 /** Heal must not repoint settings/active profile at another saved Mac. */
 export function resolveHealPersistDecision(
   state: GatewayProfileState,
@@ -476,7 +504,8 @@ export function resolveHealPersistDecision(
 } {
   const active = activeProfile(state);
   const allowed = isDiscoveredUrlAllowedForActiveProfile(state, successfulUrl);
-  if (state.activeProfileId && !allowed) {
+  const usbLoopbackEscape = canUsbLoopbackEscapeToUrl(state, successfulUrl);
+  if (state.activeProfileId && !allowed && !usbLoopbackEscape) {
     return {
       catalogOnly: true,
       returnUrl: active?.gatewayUrl?.trim() || successfulUrl,
@@ -486,7 +515,7 @@ export function resolveHealPersistDecision(
   return {
     catalogOnly: false,
     returnUrl: successfulUrl,
-    requestedActivation,
+    requestedActivation: usbLoopbackEscape ? true : requestedActivation,
   };
 }
 
@@ -947,11 +976,35 @@ export function removeProfile(state: GatewayProfileState, profileId: string): Ga
   return dedupeGatewayProfiles({ profiles, activeProfileId });
 }
 
+/**
+ * Refuse foreign /health identity. Overwriting mini's hostname with MacBook Pro
+ * (USB cable answering while Tailscale mini is active) then running dedupe merges
+ * the two computers and silently steals the user's selection (2026-07-21 rage).
+ */
+export function shouldAcceptHealthIdentityForProfile(
+  profile: GatewayProfile,
+  health: { hostname?: string; localIp?: string },
+): boolean {
+  const priorKey = profileMachineKey(profile);
+  const incomingKey = normalizeMachineKey(health.hostname);
+  if (priorKey && incomingKey && priorKey !== incomingKey) {
+    return false;
+  }
+  return true;
+}
+
 export function touchProfileHealth(
   state: GatewayProfileState,
   profileId: string,
   health: { hostname?: string; localIp?: string },
 ): GatewayProfileState {
+  const target = state.profiles.find((p) => p.id === profileId);
+  if (!target) {
+    return state;
+  }
+  if (!shouldAcceptHealthIdentityForProfile(target, health)) {
+    return state;
+  }
   const profiles = state.profiles.map((p) => {
     if (p.id !== profileId) {
       return p;

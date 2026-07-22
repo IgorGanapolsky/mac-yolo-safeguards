@@ -83,7 +83,7 @@ function linkMeta(
   if (link.label === GATEWAY_AUTH_REPAIR_HEADER) {
     return { label: link.label, color: colors.error, connected: false };
   }
-  if (link.label === 'Relay only') {
+  if (link.label === 'Needs computer link' || link.label === 'Relay only') {
     return { label: link.label, color: colors.warning, connected: false };
   }
   if (needsPair) {
@@ -126,7 +126,7 @@ export function buildHermesStatusLabel(
   } else {
     const totalTokens = (currentSession?.input_tokens ?? 0) + (currentSession?.output_tokens ?? 0);
     if (totalTokens > 0) {
-      tokensLabel = ` · ${totalTokens.toLocaleString()} tokens`;
+      tokensLabel = ` · ${totalTokens.toLocaleString()} session`;
     }
   }
 

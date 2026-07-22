@@ -28,7 +28,7 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /Free control\. Paid continuity\./);
   assert.match(page, /Web Control/);
   assert.match(page, /Cloud Continuity/);
-  assert.match(page, /Continue with Google or Apple/);
+  assert.match(page, /Sign in with AuthKit \(Google, Apple, Microsoft, GitHub, email, or enterprise SSO\)/);
   assert.match(page, /<BillingPlan \/>/);
   assert.doesNotMatch(page, /\$29|price: "29"/);
   assert.match(billingPlan, /\/api\/billing\/plan/);

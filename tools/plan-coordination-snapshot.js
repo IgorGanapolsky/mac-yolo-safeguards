@@ -46,20 +46,32 @@ function parseMeta(text) {
   return { updated, activeAgents, activeBranch };
 }
 
+/** Match numeric (T-1) and named (T-LEASH-LAZY-SPINNER, T-TINKER-…-20260721) task ids. */
+const TASK_ROW_RE = /^\| T-[A-Za-z0-9][-A-Za-z0-9]*/;
+
+function parseClaimedFiles(filesCell) {
+  if (!filesCell) return [];
+  return [...String(filesCell).matchAll(/`([^`]+)`/g)]
+    .map((match) => match[1].trim())
+    .filter(Boolean);
+}
+
 function parseActiveTasks(text) {
   const tasks = [];
   for (const line of text.split('\n')) {
-    if (!/^\| T-\d+/.test(line)) continue;
+    if (!TASK_ROW_RE.test(line)) continue;
     const cols = line.split('|').map((cell) => cell.trim()).filter(Boolean);
     if (cols.length < 4) continue;
     const [id, task, status, owner] = cols;
     if (status !== 'in_progress' && status !== 'blocked') continue;
+    const files = cols[4] || '';
     tasks.push({
       id,
       task,
       status,
       owner,
-      files: cols[4] || '',
+      files,
+      claimedFiles: parseClaimedFiles(files),
     });
   }
   return tasks;
@@ -156,9 +168,15 @@ function formatHuman(snapshot) {
   if (snapshot.activeTasks.length === 0) {
     lines.push('Active tasks: none (in_progress/blocked)');
   } else {
-    lines.push('Active tasks:');
-    for (const task of snapshot.activeTasks) {
+    const maxShow = 12;
+    lines.push(`Active tasks (${snapshot.activeTasks.length}):`);
+    for (const task of snapshot.activeTasks.slice(0, maxShow)) {
       lines.push(`  ${task.id} [${task.status}] ${task.owner}: ${task.task}`);
+    }
+    if (snapshot.activeTasks.length > maxShow) {
+      lines.push(
+        `  … +${snapshot.activeTasks.length - maxShow} more (run node tools/agent-swarm-harness.js --json)`,
+      );
     }
   }
 
@@ -218,11 +236,14 @@ function main() {
 module.exports = {
   snapshotPlan,
   parseActiveTasks,
+  parseClaimedFiles,
   parseFileLocks,
   parseOwnershipLocks,
   validateOwnership,
   parseMeta,
   formatHuman,
+  TASK_ROW_RE,
+  isClaimedPath,
 };
 
 if (require.main === module) {

@@ -1,0 +1,73 @@
+.skipLink {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 100;
+  padding: 12px 16px;
+  border: 1px solid rgba(34, 211, 238, 0.55);
+  border-radius: 12px;
+  background: #090d18;
+  color: #dffbff;
+  font-weight: 700;
+  transform: translateY(-160%);
+}
+
+.skipLink:focus {
+  transform: translateY(0);
+}
+
+.sessionNav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sessionNav form {
+  display: inline-flex;
+  margin: 0;
+}
+
+.signOutButton {
+  min-height: 44px;
+  border: 1px solid rgba(34, 211, 238, 0.32);
+  background: rgba(34, 211, 238, 0.07);
+  color: #dffbff;
+}
+
+.signOutButton:hover {
+  border-color: rgba(34, 211, 238, 0.62);
+  background: rgba(34, 211, 238, 0.14);
+}
+
+.sessionNotice {
+  margin: -6px 0 0;
+  padding-left: 10px;
+  border-left: 2px solid rgba(34, 211, 238, 0.4);
+  color: #aeb8c4;
+  font: 10px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (max-width: 700px) {
+  .sessionNav {
+    gap: 6px;
+  }
+
+  .sessionNav :global(.button) {
+    min-height: 44px;
+    padding-inline: 10px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 520px) {
+  .dashboardButton {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skipLink,
+  .signOutButton {
+    transition: none;
+  }
+}

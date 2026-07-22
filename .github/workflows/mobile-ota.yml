@@ -24,7 +24,9 @@ on:
         type: boolean
         default: false
       production_rollout_percentage:
-        description: Staged rollout % for production channel (1-100)
+        # EAS GraphQL rejects --rollout-percentage 100 ("must be between 0 and 99").
+        # Pass 100 (or leave blank for full) to omit the flag = full channel publish.
+        description: Staged rollout % for production (1-99 staged; 100 = full channel, no flag)
         required: false
         type: string
         default: '10'
@@ -235,6 +237,12 @@ jobs:
           set -euo pipefail
           GROUP_ID="$(eas update:list --branch production --limit 1 --non-interactive --json \
             | node -e 'const fs=require("fs"); const j=JSON.parse(fs.readFileSync(0,"utf8")); const g=(Array.isArray(j)?j:j)?.[0]||j?.currentPage?.[0]||j; const id=g?.group||g?.groupId||g?.id; if(!id){process.stderr.write("No production update group to promote\n"); process.exit(1)}; process.stdout.write(String(id));')"
+          # Do not silently change a requested full rollout into 99%. A full-channel
+          # publish must omit --rollout-percentage; this edit path always passes one.
+          if [[ "${PROMOTE_TO}" == "100" ]]; then
+            echo "Promotion to 100 is not supported: publish a new full-channel update (omit --rollout-percentage)" >&2
+            exit 1
+          fi
           echo "Promoting group ${GROUP_ID} → ${PROMOTE_TO}%"
           eas update:edit "${GROUP_ID}" --rollout-percentage "${PROMOTE_TO}" --non-interactive \
             | tee /tmp/eas-ota-promote-production.json
@@ -257,14 +265,26 @@ jobs:
           else
             echo "Code signing: skipped (no EXPO_UPDATE_PRIVATE_KEY secret — see docs)"
           fi
-          echo "Production staged rollout: ${OTA_PRODUCTION_ROLLOUT_PERCENTAGE}%"
+          # EAS: "Rollout percentage must be between 0 and 99" — 100 means full channel
+          # (omit --rollout-percentage). Run 29889285465 failed when dispatch passed 100.
+          ROLLOUT_ARGS=()
+          PCT="${OTA_PRODUCTION_ROLLOUT_PERCENTAGE}"
+          if [[ "${PCT}" == "100" ]]; then
+            echo "Production full channel (omit --rollout-percentage; EAS rejects 100)"
+          elif [[ "${PCT}" =~ ^[0-9]+$ ]] && (( PCT >= 1 && PCT <= 99 )); then
+            ROLLOUT_ARGS=(--rollout-percentage "${PCT}")
+            echo "Production staged rollout: ${PCT}%"
+          else
+            echo "Invalid production_rollout_percentage=${PCT} (use 1-99 staged, or 100 full)" >&2
+            exit 1
+          fi
           echo "::group::eas update --channel production"
           eas update \
             --channel production \
             --environment production \
             --non-interactive \
             --message "${OTA_MESSAGE}" \
-            --rollout-percentage "${OTA_PRODUCTION_ROLLOUT_PERCENTAGE}" \
+            "${ROLLOUT_ARGS[@]}" \
             "${SIGN_ARGS[@]}" \
             | tee "/tmp/eas-ota-production.json"
           echo "::endgroup::"

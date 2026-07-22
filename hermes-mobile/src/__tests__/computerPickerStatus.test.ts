@@ -75,11 +75,11 @@ describe('computerPickerStatus', () => {
       tailscaleDiscoveries: [],
     });
     expect(status.kind).toBe('help');
-    expect(status.title).toBe('Tailscale is off on this phone');
+    expect(status.title).toBe('Looking for Tailscale computers…');
     expect(status.title).not.toMatch(/^On Tailscale/);
   });
 
-  it('does not render cached Tailscale discoveries after VPN disconnects', () => {
+  it('still shows Add chips when discoveries exist even if NetInfo says VPN off', () => {
     const status = resolveComputerPickerStatus({
       scanning: false,
       scanProgress: null,
@@ -89,9 +89,9 @@ describe('computerPickerStatus', () => {
       tailscaleVpnActive: false,
       tailscaleDiscoveries: [discovery],
     });
-    expect(status.kind).toBe('help');
-    expect(status.title).toBe('Tailscale is off on this phone');
-    expect(status.discoveries).toEqual([]);
+    expect(status.kind).toBe('tailscale_found');
+    expect(status.discoveries).toEqual([discovery]);
+    expect(status.title).not.toMatch(/off on this phone/i);
   });
 
   it('keeps a completed Wi-Fi scan visible while an off-VPN probe finishes', () => {
@@ -154,7 +154,7 @@ describe('computerPickerStatus', () => {
       tailscaleDiscoveries: [],
     });
     expect(status.kind).toBe('help');
-    expect(status.title).toBe('Missing your other machine?');
+    expect(status.title).toBe('Missing your other computer?');
   });
 
   it('never claims Using USB when active path is Home Wi-Fi', () => {

@@ -48,6 +48,25 @@ Fly.io secrets:
 
 - `HERMES_CONTROL_PLANE_URL`, `HERMES_CLOUD_RUNNER_TOKEN`
 - `OPENAI_BASE_URL`, `OPENAI_API_KEY`, `OPENAI_MODEL`
+- Optional polling overrides: `ACTIVE_POLL_MS` (default `1000`) and
+  `IDLE_POLL_MS` (default `30000`; legacy `POLL_MS` is accepted as the idle value)
+
+Local connector polling can be overridden with
+`HERMES_CONNECTOR_ACTIVE_POLL_MS`, `HERMES_CONNECTOR_IDLE_POLL_MS`,
+`HERMES_CONNECTOR_HEARTBEAT_MS`, and `HERMES_CONNECTOR_SESSION_SYNC_MS`.
+The defaults deliberately keep active queues responsive while backing off idle work:
+
+| Source | Active/default cadence | Idle requests/day |
+| --- | --- | ---: |
+| Cloud runner claim | 1 second after work; 30 seconds after an empty claim | 2,880 |
+| Connector task + thread claims | 1 second after work; 15 seconds after empty claims | 11,520 |
+| Connector heartbeat | 30 seconds | 2,880 |
+| Connector session sync | 60 seconds | 1,440 |
+| **Idle baseline** | | **18,720** |
+
+The budget excludes signed-in dashboard refreshes and real task traffic. It replaced the
+July 21, 2026 fixed-poll baseline of about 93,600 requests/day, which was enough to consume
+Cloudflare's 100,000-request daily allowance while the product was otherwise idle.
 
 The Stripe webhook endpoint is `/api/billing/webhook`; it promotes a workspace to `pro` for an active subscription and suspends new task creation after deletion. WorkOS must list the deployed `/api/auth/callback` URL and have Google and Apple social connections enabled.
 

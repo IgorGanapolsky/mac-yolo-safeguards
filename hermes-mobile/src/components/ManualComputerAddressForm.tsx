@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Keyboard, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { cleanManualGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
@@ -9,16 +9,21 @@ import LoadingButton from './ui/LoadingButton';
 
 export type ManualComputerAddressFormProps = {
   onAddProfile: (label: string, gatewayUrl: string) => Promise<void>;
-  /** When true, use fresh-user picker copy (Your Mac / Tailscale name). */
+  /** When true, use fresh-user picker copy (Your computer / Tailscale name). */
   pickerMode?: boolean;
   testIDPrefix?: string;
 };
+
+/** Stack Connect under the field when the sheet is too narrow for a comfortable row. */
+const STACK_CONNECT_BELOW_WIDTH = 380;
 
 export default function ManualComputerAddressForm({
   onAddProfile,
   pickerMode = false,
   testIDPrefix = 'chat-manual',
 }: ManualComputerAddressFormProps) {
+  const { width } = useWindowDimensions();
+  const stackConnect = pickerMode || width < STACK_CONNECT_BELOW_WIDTH;
   const [manualInput, setManualInput] = useState('');
   const [addingProfile, setAddingProfile] = useState(false);
   const [manualInputError, setManualInputError] = useState<string | null>(null);
@@ -52,19 +57,25 @@ export default function ManualComputerAddressForm({
 
   const title = pickerMode ? 'Add by Tailscale address' : 'Connect manually (Tailscale or IP)';
   const subtitle = pickerMode
-    ? "Enter your Mac's Tailscale name or 100.x address, then Connect."
+    ? 'Your computer’s Tailscale name or 100.x address.'
     : "Add by entering your computer's Tailscale or local IP address:";
   const placeholder = pickerMode
-    ? 'e.g. your-mac or 100.x.x.x'
+    ? 'e.g. your-computer or 100.x.x.x'
     : 'e.g. your-device-name or a 100.x address';
 
   return (
-    <View style={styles.manualEntry} testID={`${testIDPrefix}-form`}>
+    <View
+      style={[styles.manualEntry, pickerMode ? styles.manualEntryPicker : null]}
+      testID={`${testIDPrefix}-form`}
+    >
       <Text style={styles.manualEntryTitle}>{title}</Text>
       <Text style={styles.manualEntrySubtitle}>{subtitle}</Text>
-      <View style={styles.manualInputRow}>
+      <View
+        style={[styles.manualInputRow, stackConnect ? styles.manualInputColumn : null]}
+        testID={`${testIDPrefix}-input-row`}
+      >
         <TextInput
-          style={styles.manualInput}
+          style={[styles.manualInput, stackConnect ? styles.manualInputStacked : null]}
           placeholder={placeholder}
           placeholderTextColor={colors.textMuted}
           value={manualInput}
@@ -80,7 +91,7 @@ export default function ManualComputerAddressForm({
           loading={addingProfile}
           onPress={handleManualConnect}
           testID={`${testIDPrefix}-submit`}
-          style={styles.manualButton}
+          style={[styles.manualButton, stackConnect ? styles.manualButtonStacked : null]}
         />
       </View>
       {manualInputError ? (
@@ -94,46 +105,61 @@ export default function ManualComputerAddressForm({
 
 const styles = StyleSheet.create({
   manualEntry: {
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: 4,
+    paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
-    gap: 8,
+    gap: 12,
+  },
+  manualEntryPicker: {
+    marginBottom: 4,
   },
   manualEntryTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
     color: colors.text,
   },
   manualEntrySubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textSecondary,
-    lineHeight: 16,
+    lineHeight: 18,
   },
   manualInputRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
     alignItems: 'center',
+  },
+  manualInputColumn: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
   manualInput: {
     flex: 1,
-    height: 44,
+    height: 48,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.borderLight,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     color: colors.text,
-    fontSize: 13,
+    fontSize: 14,
+  },
+  manualInputStacked: {
+    flex: undefined,
+    width: '100%',
   },
   manualButton: {
-    paddingVertical: 10,
-    height: 44,
-    minWidth: 90,
+    paddingVertical: 12,
+    height: 48,
+    minWidth: 100,
+  },
+  manualButtonStacked: {
+    width: '100%',
+    minWidth: undefined,
   },
   manualError: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.error,
-    marginTop: 2,
+    lineHeight: 18,
   },
 });

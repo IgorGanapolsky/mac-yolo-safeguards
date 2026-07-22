@@ -12,9 +12,6 @@ const DEFAULT_GATEWAY_ENV = path.join(os.homedir(), '.hermes', '.env');
 const DEFAULT_HERMES_CONFIG = path.join(os.homedir(), '.hermes', 'config.yaml');
 const DEFAULT_CONTROL_PLANE = 'https://thumbgate.app';
 const DEFAULT_SESSION_GATEWAY = 'http://127.0.0.1:8642';
-const POLL_MS = 3_000;
-const HEARTBEAT_MS = 15_000;
-const SESSION_SYNC_MS = 60_000;
 const SESSION_LIMIT = 60;
 // Sessions beyond this limit sync title-only and render "0 synced messages" in
 // the web dashboard. 40 covers a typical active week; per-session content stays
@@ -27,6 +24,29 @@ const TASK_TIMEOUT_MS = 150_000;
 const LEASE_RENEW_MS = 30_000;
 const MAX_CONTEXT_MESSAGES = 60;
 const MAX_CONTEXT_CHARS = 48_000;
+
+function positiveMilliseconds(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function connectorPollingSchedule(env = process.env) {
+  const activePollMs = positiveMilliseconds(env.HERMES_CONNECTOR_ACTIVE_POLL_MS, 1_000);
+  const idlePollMs = Math.max(
+    activePollMs,
+    positiveMilliseconds(env.HERMES_CONNECTOR_IDLE_POLL_MS, 15_000),
+  );
+  return {
+    activePollMs,
+    idlePollMs,
+    heartbeatMs: positiveMilliseconds(env.HERMES_CONNECTOR_HEARTBEAT_MS, 30_000),
+    sessionSyncMs: positiveMilliseconds(env.HERMES_CONNECTOR_SESSION_SYNC_MS, 60_000),
+  };
+}
+
+function nextConnectorPollDelay(didWork, schedule = connectorPollingSchedule()) {
+  return didWork ? schedule.activePollMs : schedule.idlePollMs;
+}
 
 function base64Url(value) { return Buffer.from(value).toString('base64url'); }
 function sha256(value) { return base64Url(crypto.createHash('sha256').update(value).digest()); }
@@ -147,7 +167,7 @@ async function startPairing(config, configPath) {
   process.stdout.write(`\n${opened ? 'Opened the ThumbGate approval page in your browser.' : `Pair this Hermes machine at ${config.controlPlaneUrl}/dashboard`}\nCode: ${result.body.userCode}\nFingerprint: ${result.body.fingerprint}\n\n`);
   const deadline = Date.now() + result.body.expiresIn * 1000;
   while (Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+    await new Promise((resolve) => setTimeout(resolve, 3_000));
     const response = await fetch(`${config.controlPlaneUrl}/api/pairing/status`, {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ deviceCode: config.deviceCode }),
     });
@@ -509,20 +529,22 @@ async function main() {
   if (process.argv.includes('--pair-only')) return;
   if (process.argv.includes('--sync-only')) { await syncGatewaySessions(config, { configPath }); return; }
   if (process.argv.includes('--once')) { await cycle(config, { heartbeat: true, syncSessions: true, configPath }); return; }
+  const schedule = connectorPollingSchedule();
   let lastHeartbeat = 0;
   let lastSessionSync = 0;
   while (true) {
+    let didWork = false;
     try {
       const now = Date.now();
-      const heartbeat = now - lastHeartbeat >= HEARTBEAT_MS;
+      const heartbeat = now - lastHeartbeat >= schedule.heartbeatMs;
       if (heartbeat) lastHeartbeat = now;
-      const syncSessions = now - lastSessionSync >= SESSION_SYNC_MS;
+      const syncSessions = now - lastSessionSync >= schedule.sessionSyncMs;
       if (syncSessions) lastSessionSync = now;
-      await cycle(config, { heartbeat, syncSessions, configPath });
+      didWork = await cycle(config, { heartbeat, syncSessions, configPath });
     } catch (error) { console.error(`[hermes-cloud-connector] ${error instanceof Error ? error.message : error}`); }
-    await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+    await new Promise((resolve) => setTimeout(resolve, nextConnectorPollDelay(didWork, schedule)));
   }
 }
 
-module.exports = { boundContextMessages, buildWebSessionSystemPrompt, canonicalRequest, claimAndExecuteThreadOperation, collectGatewaySessions, contentText, createIdentity, executeLocal, executeThreadOperation, gatewayHeaders, loadConfig, pairingDashboardUrl, pairingMatchesControlPlane, parseDotEnvValue, parseTerminalCwd, resolveGatewayApiKey, resolveWorkspacePath, saveConfig, selectContextSessionIds, signedHeaders, sha256, syncGatewaySessions, timestampMillis, withLeaseRenewal };
+module.exports = { boundContextMessages, buildWebSessionSystemPrompt, canonicalRequest, claimAndExecuteThreadOperation, collectGatewaySessions, connectorPollingSchedule, contentText, createIdentity, executeLocal, executeThreadOperation, gatewayHeaders, loadConfig, nextConnectorPollDelay, pairingDashboardUrl, pairingMatchesControlPlane, parseDotEnvValue, parseTerminalCwd, resolveGatewayApiKey, resolveWorkspacePath, saveConfig, selectContextSessionIds, signedHeaders, sha256, syncGatewaySessions, timestampMillis, withLeaseRenewal };
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });

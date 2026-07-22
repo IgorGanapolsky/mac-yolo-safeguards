@@ -196,20 +196,20 @@ describe('isConnectivityMessage', () => {
   });
 
   it('explains LAN-only gateway URLs', () => {
-    expect(friendlyMacUnreachableMessage('http://10.2.29.103:8642')).toContain('relay');
+    expect(friendlyMacUnreachableMessage('http://10.2.29.103:8642')).toContain('Tailscale');
   });
 
   it('recognizes Mac unreachable retry banner copy as connectivity', () => {
     expect(isConnectivityMessage("Can't reach direct link (10.2.29.103:8642) — tap to retry")).toBe(true);
   });
 
-  it('explains relay-only chat when relay socket is up but LAN is down', () => {
+  it('explains chat needs a computer link when account path is up but Mac HTTP is down', () => {
     const message = chatSendBlockedMessage({
       connectionMode: 'relay',
       connectionState: 'connected',
       gatewayUrl: 'http://10.2.29.103:8642',
     });
-    expect(message).toContain('direct link');
+    expect(message).toContain('Tailscale');
     expect(isConnectivityMessage(message)).toBe(true);
   });
 

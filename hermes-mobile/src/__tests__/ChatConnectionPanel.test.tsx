@@ -39,11 +39,13 @@ describe('buildConnectionStatusChips', () => {
 });
 
 describe('ChatConnectionPanel', () => {
-  it('shows fresh-user onboarding card when no profiles are saved', () => {
-    const { getByTestId, getAllByText } = render(
+  it('keeps fresh-user steps behind Other ways to connect', () => {
+    const { getByTestId, queryByTestId, getAllByText } = render(
       <ChatConnectionPanel connectionState="disconnected" onSearchMac={jest.fn()} profiles={[]} />,
     );
 
+    expect(queryByTestId('fresh-user-onboarding-card')).toBeNull();
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
     expect(getByTestId('fresh-user-onboarding-card')).toBeTruthy();
     expect(getAllByText('Connect your computer').length).toBeGreaterThan(0);
     expect(getByTestId('chat-connection-search')).toBeTruthy();
@@ -65,6 +67,7 @@ describe('ChatConnectionPanel', () => {
       />,
     );
 
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
     expect(getByText(/Your computers/)).toBeTruthy();
     expect(getByTestId('gateway-profile-list')).toBeTruthy();
     expect(getByTestId('select-gateway-profile-p1')).toBeTruthy();
@@ -94,8 +97,8 @@ describe('ChatConnectionPanel', () => {
       />,
     );
 
-    expect(getByText(/Cannot reach this computer/)).toBeTruthy();
-    expect(queryByText(/· Now/)).toBeTruthy();
+    expect(getByText(/is saved but not reachable right now/)).toBeTruthy();
+    expect(queryByText(/· Now/)).toBeNull();
   });
 
   it('shows relay workers that are not already saved locally', () => {
@@ -127,6 +130,7 @@ describe('ChatConnectionPanel', () => {
       />,
     );
 
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
     expect(getByTestId('relay-worker-row-mac-mini')).toBeTruthy();
   });
 
@@ -287,6 +291,7 @@ describe('ChatConnectionPanel', () => {
         tailnetProbeHostCount={2}
       />,
     );
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
     expect(getByTestId('tailscale-discovery-probing')).toBeTruthy();
   });
 
@@ -307,6 +312,7 @@ describe('ChatConnectionPanel', () => {
         onAddTailscaleComputer={onAdd}
       />,
     );
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
     expect(getByTestId('tailscale-discovery-banner')).toBeTruthy();
     fireEvent.press(getByTestId('tailscale-add-igors-mac-mini'));
     expect(onAdd).toHaveBeenCalledWith(
@@ -335,7 +341,7 @@ describe('ChatConnectionPanel', () => {
   });
 
   it('shows Tailscale onboarding steps for unreachable saved mini on Tailscale', () => {
-    const { getByText, queryByText } = render(
+    const { getByTestId, getByText, queryByText } = render(
       <ChatConnectionPanel
         connectionState="disconnected"
         connectionHealAttempt={6}
@@ -351,6 +357,7 @@ describe('ChatConnectionPanel', () => {
         onSearchMac={jest.fn()}
       />,
     );
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
     expect(getByText('Tailscale connected')).toBeTruthy();
     expect(queryByText('Same home Wi‑Fi')).toBeNull();
   });
@@ -370,6 +377,7 @@ describe('ChatConnectionPanel', () => {
       />,
     );
 
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
     expect(getByTestId('chat-manual-input')).toBeTruthy();
     expect(getByTestId('chat-manual-submit')).toBeTruthy();
 
@@ -397,6 +405,7 @@ describe('ChatConnectionPanel', () => {
       />,
     );
 
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
     // Test invalid input handling
     fireEvent.changeText(getByTestId('chat-manual-input'), '   ');
     fireEvent.press(getByTestId('chat-manual-submit'));

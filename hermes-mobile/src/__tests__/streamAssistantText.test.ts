@@ -4,6 +4,7 @@ import {
   findNewAssistantReply,
   GENERIC_EMPTY_STREAM_PLACEHOLDER,
   isDeferredStreamPlaceholder,
+  isSilentAssistantCompletion,
   isTelegramDeferredEmptyStream,
   isTransientWorkingStatusPlaceholder,
   preferRicherAssistantText,
@@ -30,6 +31,21 @@ describe('streamAssistantText', () => {
 
   it('falls back to output field on run.completed', () => {
     expect(extractAssistantFromRunCompletedPayload({ output: 'from output' })).toBe('from output');
+  });
+
+  it('treats the gateway [SILENT] sentinel as an empty, non-user-facing completion', () => {
+    expect(isSilentAssistantCompletion(' [silent] ')).toBe(true);
+    expect(isSilentAssistantCompletion('[SILENT] with tool output')).toBe(false);
+    expect(isDeferredStreamPlaceholder('[SILENT]')).toBe(true);
+    expect(extractAssistantFromRunCompletedPayload({ output: '[SILENT]' })).toBe('');
+    expect(
+      extractAssistantFromRunCompletedPayload({
+        messages: [
+          { role: 'assistant', content: '[SILENT]' },
+          { role: 'assistant', content: 'A real reply.' },
+        ],
+      }),
+    ).toBe('A real reply.');
   });
 
   it('detects telegram deferred empty stream', () => {

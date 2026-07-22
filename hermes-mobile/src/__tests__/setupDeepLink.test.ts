@@ -23,6 +23,8 @@ describe('setupDeepLink', () => {
       macName: 'Mac-Mini',
       relayCode: 'MOON-DUST',
     });
+    expect(parseRelayDeepLink(link)).toBeNull();
+    expect(parseRelayDeepLink('hermes://setup?relay=moon-dust')).toBeNull();
   });
 
   it('builds and parses setup URLs', () => {

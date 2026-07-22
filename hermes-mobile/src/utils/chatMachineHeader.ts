@@ -89,8 +89,11 @@ export function isUsbHeaderTransportAllowed(input: {
   );
 }
 
-/** Generic USB label when loopback is selected but live cable identity is unknown. */
-export const USB_UNKNOWN_MACHINE_LABEL = 'Computer via USB';
+/**
+ * Generic label when loopback is selected but live cable identity is unknown.
+ * Must not say "Computer via USB" — that markets a dead USB path off-home (2026-07-21).
+ */
+export const USB_UNKNOWN_MACHINE_LABEL = 'Your computer';
 
 function healthHostname(health?: GatewayHealthSnapshot | null): string | undefined {
   return health?.hostname?.replace(/\.local$/i, '').trim() || undefined;
@@ -309,7 +312,7 @@ export function resolveChatMachineHeaderDisplay(input: {
 
   if (input.connectionMode === 'relay') {
     if (!input.isPaired && !input.activeProfile) {
-      machineLabel = 'Hermes account relay';
+      machineLabel = 'Your computer';
     } else if (input.isPaired) {
       const worker = selectRelayWorker(input.workers, input.activeWorkerId);
       if (worker && !input.activeProfile) {
@@ -387,7 +390,7 @@ export function resolveChatMachineHeaderDisplay(input: {
         workerName !== machineLabel &&
         !machineLabel.includes(workerName)
       ) {
-        detailParts.push(`relay · ${workerName}`);
+        detailParts.push(`Tailscale · ${workerName}`);
       }
     }
   }
@@ -399,7 +402,7 @@ export function resolveChatMachineHeaderDisplay(input: {
       claimTransport &&
       (savedMacCount > 1 ||
         usbAllowed ||
-        detailParts.some((part) => part.startsWith('relay ·')) ||
+        detailParts.some((part) => part.startsWith('Tailscale ·')) ||
         (isTailscaleGatewayUrl(gatewayUrl) &&
           hasNamedMachine &&
           !isTailnetRouteLabel(machineLabel)) ||
@@ -428,6 +431,7 @@ export function formatMacConnectionRetryBanner(input: {
   const label =
     input.machineLabel &&
     !isGenericMachineLabel(input.machineLabel) &&
+    input.machineLabel !== 'Your computer' &&
     input.machineLabel !== 'Hermes account relay' &&
     !/^(http|https)$/i.test(input.machineLabel)
       ? input.machineLabel
@@ -435,7 +439,9 @@ export function formatMacConnectionRetryBanner(input: {
           machineName !== 'computer' &&
           !/^(http|https)$/i.test(machineName)
         ? machineName
-        : machineName !== 'Hermes account relay' && !/^(http|https)$/i.test(machineName)
+        : machineName !== 'Your computer' &&
+          machineName !== 'Hermes account relay' &&
+          !/^(http|https)$/i.test(machineName)
           ? machineName
           : 'your computer';
 

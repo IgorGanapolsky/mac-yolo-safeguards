@@ -32,8 +32,8 @@ export function greetingSubtitle(
     ? /^(mac|computer|your mac|your computer|my mac|mac via usb|computer via usb|mac via network|http|https)$/i.test(route)
     : false;
 
-  if (route === 'Hermes account relay') {
-    return 'Ask anything — pair Hermes relay for Wi‑Fi, cellular, or USB when you are away from your computer.';
+  if (route === 'Your computer' || route === 'Hermes account relay') {
+    return 'Ask anything — use Tailscale when you are away, or home Wi‑Fi when you are local.';
   }
 
   if (route === 'Computer not configured') {
@@ -60,7 +60,8 @@ export function greetingSubtitle(
     return `Can't reach ${route} yet — tap header to retry.`;
   }
 
-  return 'Ask anything. Plug in USB or pick a computer above to connect.';
+  // Never market USB as the only path — Tailscale / Find computers / picker are primary off-cable.
+  return 'Ask anything. Find computers or pick one above to connect — USB is optional.';
 }
 
 export default function ChatEmptyGreeting({

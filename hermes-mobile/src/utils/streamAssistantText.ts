@@ -19,9 +19,18 @@ export const GENERIC_EMPTY_STREAM_PLACEHOLDER =
 export const EMPTY_STREAM_TIMEOUT_PLACEHOLDER =
   'Still no reply text. Hermes keeps checking your Mac automatically — Stop if a run is active, or start a fresh chat for faster replies.';
 
+/**
+ * Internal gateway sentinel for a tool-only turn. It is not assistant prose and
+ * must follow the empty-stream recovery path rather than become a chat bubble.
+ */
+export function isSilentAssistantCompletion(content: string | undefined): boolean {
+  return content?.normalize('NFKC').trim().toUpperCase() === '[SILENT]';
+}
+
 export function isDeferredStreamPlaceholder(content: string | undefined): boolean {
   const body = content?.trim() ?? '';
   return (
+    isSilentAssistantCompletion(body) ||
     body === TELEGRAM_QUEUED_REPLY_PLACEHOLDER ||
     body === GENERIC_EMPTY_STREAM_PLACEHOLDER ||
     body === EMPTY_STREAM_TIMEOUT_PLACEHOLDER ||
@@ -73,7 +82,11 @@ export function extractAssistantFromRunCompletedPayload(data: Record<string, unk
   }
   for (const key of ['output', 'content', 'response'] as const) {
     const value = data[key];
-    if (typeof value === 'string' && value.trim()) {
+    if (
+      typeof value === 'string' &&
+      value.trim() &&
+      !isSilentAssistantCompletion(value)
+    ) {
       return value.trim();
     }
   }
@@ -94,7 +107,11 @@ export function extractAssistantFromTranscriptMessages(messages: unknown): strin
       continue;
     }
     const content = msg.content;
-    if (typeof content === 'string' && content.trim()) {
+    if (
+      typeof content === 'string' &&
+      content.trim() &&
+      !isSilentAssistantCompletion(content)
+    ) {
       parts.push(content.trim());
     }
   }

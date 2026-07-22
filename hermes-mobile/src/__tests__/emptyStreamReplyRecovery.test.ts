@@ -32,6 +32,13 @@ describe('emptyStreamReplyRecovery', () => {
     ).toBe(false);
     expect(
       shouldAwaitGatewayReplyAfterSend({
+        assistantText: '[SILENT]',
+        streamAccepted: true,
+        streamFailed: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldAwaitGatewayReplyAfterSend({
         assistantText: '',
         streamAccepted: false,
         streamFailed: true,
@@ -45,6 +52,12 @@ describe('emptyStreamReplyRecovery', () => {
       { role: 'assistant', content: GENERIC_EMPTY_STREAM_PLACEHOLDER },
     ];
     expect(serverHasAssistantReplyAfterLastUser(server)).toBe(false);
+
+    const silentOnly: HermesMessage[] = [
+      { role: 'user', content: 'Print money make money faster' },
+      { role: 'assistant', content: '[SILENT]' },
+    ];
+    expect(serverHasAssistantReplyAfterLastUser(silentOnly)).toBe(false);
 
     const withReply: HermesMessage[] = [
       { role: 'user', content: 'Print money make money faster' },

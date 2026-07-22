@@ -496,7 +496,10 @@ tinker-yolo — evidence-gated Tinker customization for Hermes
 Bare `tinker-yolo` (no arguments) starts a real local coding-agent REPL — like
 claude-yolo/codex-yolo — whenever the default model is already deployed. The
 agent has workspace filesystem read/write/search, bounded shell execution, and
-internet fetch/search tools. It sends nothing to Tinker and costs $0.
+internet fetch/search plus guarded macOS computer use. Hammerspoon supplies
+Accessibility, screenshot, mouse, keyboard, app, and scroll execution; the
+compact local Qwen3-VL model supplies optional visual grounding. It
+sends nothing to Tinker and costs $0.
 
 Read-only / free:
   status                     lightweight local status; no Tinker import
@@ -506,8 +509,12 @@ Read-only / free:
   agent ["task"] [options]    local tool-using agent
   chat ["task"] [options]     alias for agent
       [--model TAG] [--workspace PATH] [--max-turns N]
-      [--max-tool-calls N] [--json] [--no-project-instructions]
-      default qwen3-hermes-tinker:q4; purely local; $0
+      [--max-tool-calls N] [--request-timeout 10..600]
+      [--ollama-url URL] [--vision-ollama-url URL]
+      [--vision-model TAG] [--no-computer-use]
+      [--json] [--no-project-instructions]
+      default qwen3-hermes-tinker:q4; isolated planner :11436;
+      sequential local vision :11436; purely local; $0
 
 Metered inference (prompt-only upload; both flags mandatory):
   ask "prompt" --approve-paid --max-cost-usd N
@@ -541,7 +548,8 @@ case "$command" in
     echo "tinker-yolo status: venv=$([ -x "$PY" ] && echo ok || echo MISSING) dataset_rows=$(dataset_rows) zero_spend=$([ -e "$MARKER" ] && echo true || echo false)"
     have="$(ollama list 2>/dev/null | awk '/qwen3-hermes-tinker/{print $1" ("$3$4")"}' | tr '\n' ' ')"
     echo "deployed model: ${have:-none}"
-    echo "local agent: $([ -f "$AGENT" ] && echo ready || echo MISSING) tools=filesystem,shell,internet"
+    echo "local agent: $([ -f "$AGENT" ] && echo ready || echo MISSING) tools=filesystem,shell,internet,computer vision_model=${TINKER_VISION_MODEL:-qwen3-vl:4b-instruct}"
+    echo "local endpoints: planner=${TINKER_OLLAMA_URL:-http://127.0.0.1:11436} vision=${TINKER_VISION_OLLAMA_URL:-http://127.0.0.1:11436}"
     usage
     exit 0 ;;
   recommend)

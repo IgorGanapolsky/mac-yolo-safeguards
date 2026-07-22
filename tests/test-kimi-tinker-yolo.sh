@@ -171,6 +171,14 @@ grep -qx '.*/tools/tinker-yolo-agent.py' "$AGENT_ARGS" \
 "$TINKER" --help | grep -q 'default qwen3-hermes-tinker:q4' \
   && ok "tinker-yolo help names q4 default" || no "tinker-yolo help q4 default"
 
+help_output="$("$TINKER" --help)"
+status_output="$("$TINKER" status)"
+{ grep -q 'guarded macOS computer use' <<<"$help_output" \
+    && grep -q -- '--request-timeout 10..600' <<<"$help_output" \
+    && grep -q 'tools=filesystem,shell,internet,computer' <<<"$status_output" \
+    && grep -q 'vision_model=qwen3-vl:4b-instruct' <<<"$status_output"; } \
+  && ok "tinker-yolo advertises bounded computer-use runtime" || no "tinker-yolo computer-use contract"
+
 printf '%s\n' '{"messages":[{"role":"user","content":"safe fixture"},{"role":"assistant","content":"safe answer"}]}' > "$TINKER_DATASET"
 chmod 644 "$TINKER_DATASET"
 set +e; "$TINKER" proof --approve-paid --approve-data-upload --max-cost-usd 1 >/dev/null 2>&1; c=$?; set -e

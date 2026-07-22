@@ -54,11 +54,45 @@ export type ChatTimelineFilterInput = {
   includeToolActivity?: boolean;
 };
 
+/**
+ * Cron runners prepend this delivery-only control block to scheduled runs.
+ * It is model instruction scaffolding, never a conversation turn, regardless
+ * of the role the gateway assigns while persisting the transcript.
+ */
+export function isCronSystemDeliveryScaffolding(content: unknown): boolean {
+  if (typeof content !== 'string') {
+    return false;
+  }
+  const normalized = content
+    .normalize('NFKC')
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+  if (
+    !/^\[?important\s*:/.test(normalized) ||
+    !/\byou are running as a scheduled cron job\b/.test(normalized)
+  ) {
+    return false;
+  }
+  const markers = [
+    /\bdelivery\s*:\s*(?:your\s+)?final response\b/,
+    /\bfinal response (?:will be )?automatically delivered\b/,
+    /\bdo not use send_message\b/,
+    /\bsilent\s*:\s*/,
+  ];
+  return markers.filter((marker) => marker.test(normalized)).length >= 2;
+}
+
 /** FlashList data — hide tool spam + in-flight working status; user bubbles always stay. */
 export function filterChatTimelineMessages(input: ChatTimelineFilterInput): ChatTimelineEntry[] {
   const includeTools = input.includeToolActivity ?? false;
   const timeline: ChatTimelineEntry[] = [];
   input.messages.forEach((message, originalIndex) => {
+    if (isCronSystemDeliveryScaffolding(message.content)) {
+      return;
+    }
     if (shouldHideToolDumpFromTimeline(message, includeTools)) {
       return;
     }

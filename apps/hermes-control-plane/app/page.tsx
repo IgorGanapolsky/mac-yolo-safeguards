@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BillingPlan } from "./BillingPlan";
 import { FunnelSignals } from "./FunnelSignals";
 import { currentSession } from "@/lib/auth";
+import styles from "./landing.module.css";
 
 function Mark() {
   return <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>;
@@ -26,33 +27,43 @@ export default async function Home() {
 
   return (
     <main className="landing-shell">
+      <a className={styles.skipLink} href="#main-content">Skip to main content</a>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
       <FunnelSignals />
-      <nav className="topbar landing-nav">
+      <nav className="topbar landing-nav" aria-label="Primary navigation">
         <Link href="/" className="brand"><Mark /><span>ThumbGate <small>Hermes Web</small></span></Link>
         <div className="nav-actions">
           <a href="#pair" className="nav-link">Pair</a>
           <a href="#how-it-works" className="nav-link">How it works</a>
           <a href="#pricing" className="nav-link">Pricing</a>
-          <Link href={workspaceHref} className="button button-small button-secondary" data-funnel-event={workspaceEvent}>{session ? "Open dashboard" : "Sign in"}</Link>
+          {session ? (
+            <div className={styles.sessionNav} aria-label="Authenticated session actions">
+              <Link href="/dashboard" className={`button button-small button-secondary ${styles.dashboardButton}`} data-funnel-event="dashboard_open_click">Open dashboard</Link>
+              <form action="/api/auth/logout" method="post">
+                <button type="submit" className={`button button-small ${styles.signOutButton}`}>Sign out</button>
+              </form>
+            </div>
+          ) : (
+            <Link href="/api/auth/login" className="button button-small button-secondary" data-funnel-event="sign_in_click">Sign in</Link>
+          )}
         </div>
       </nav>
 
-      <section className="hero">
+      <section id="main-content" className="hero" tabIndex={-1}>
         <div className="hero-copy">
           <p className="eyebrow"><span className="live-dot" /> Hermes-native. Web-ready.</p>
           <h1>Your Hermes chats<br /><span>from any screen.</span></h1>
           <p className="hero-lede">The dark, focused Hermes workspace you already know—adapted for desktop and mobile web. Your Mac runs the work locally; paid cloud continuity can take over when it goes offline.</p>
           <div className="hero-actions">
             <Link href={workspaceHref} className="button button-primary" data-funnel-event={workspaceEvent}>
-              Open Hermes on the web <span aria-hidden="true">→</span>
+              {session ? "Open Hermes on the web" : "Sign in to Hermes Web"} <span aria-hidden="true">→</span>
             </Link>
             <a href="#how-it-works" className="button button-ghost">See the failover path</a>
           </div>
-          <p className="signin-note">Hermes Web by ThumbGate. Continue with Google or Apple—no new password.</p>
+          <p className="signin-note">Hermes Web by ThumbGate. Sign in with AuthKit (Google, Apple, Microsoft, GitHub, email, or enterprise SSO)—no new ThumbGate password.</p>
           <div className="trust-row"><span>No inbound ports</span><span>Private-key pairing</span><span>Cloud only when enabled</span></div>
         </div>
 
@@ -71,7 +82,7 @@ export default async function Home() {
             ) : (
               <Link className="landing-action" href="/api/auth/login" data-funnel-event="sign_in_click">
                 <span className="action-icon" aria-hidden="true">⌘</span>
-                <span><strong>Open private dashboard</strong><small>Authenticate before any chats, machines, tasks, receipts, or live routing are loaded.</small></span>
+                <span><strong>Sign in to private dashboard</strong><small>Authenticate before any chats, machines, tasks, receipts, or live routing are loaded.</small></span>
                 <b aria-hidden="true">→</b>
               </Link>
             )}
@@ -87,6 +98,7 @@ export default async function Home() {
             </a>
           </div>
           <p className="honesty-note">No workspace telemetry is fetched or rendered on this public page.</p>
+          {session ? <p className={styles.sessionNotice}>This browser has an active session. Sign out before leaving a shared device.</p> : null}
         </nav>
       </section>
 
