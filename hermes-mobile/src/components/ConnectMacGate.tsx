@@ -286,34 +286,31 @@ export default function ConnectMacGate() {
                 </View>
               ) : null}
 
-              {!searching ? (
-                <>
-                  <FreshUserOnboardingCard
-                    profiles={gatewayProfiles}
-                    tailscaleMacLabel={primaryTailscaleLabel}
-                    wifiConnected={wifiConnected}
-                    testID="connect-mac-onboarding-card"
-                  />
-                  {!profileScanResult ? (
-                    <Text style={styles.statusText}>{describeBootstrapPhase(gatewayBootstrapPhase)}</Text>
-                  ) : null}
-                  <LoadingButton
-                    label="Find computers"
-                    loadingLabel="Finding computers…"
-                    loading={false}
-                    onPress={() => runWifiSearch()}
-                    testID="connect-search-wifi"
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowOtherWays((visible) => !visible)}
-                    accessibilityRole="button"
-                    accessibilityState={{ expanded: showOtherWays }}
-                    testID="connect-other-ways-toggle"
-                  >
-                    <Text style={styles.otherWaysLink}>Other ways to connect</Text>
-                  </TouchableOpacity>
-                </>
+              <FreshUserOnboardingCard
+                profiles={gatewayProfiles}
+                tailscaleMacLabel={primaryTailscaleLabel}
+                wifiConnected={wifiConnected}
+                hideSteps={searching}
+                testID="connect-mac-onboarding-card"
+              />
+              {!searching && !profileScanResult ? (
+                <Text style={styles.statusText}>{describeBootstrapPhase(gatewayBootstrapPhase)}</Text>
               ) : null}
+              <LoadingButton
+                label="Find computers"
+                loadingLabel="Finding computers…"
+                loading={searching}
+                onPress={() => runWifiSearch()}
+                testID="connect-search-wifi"
+              />
+              <TouchableOpacity
+                onPress={() => setShowOtherWays((visible) => !visible)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: showOtherWays }}
+                testID="connect-other-ways-toggle"
+              >
+                <Text style={styles.otherWaysLink}>Other ways to connect</Text>
+              </TouchableOpacity>
 
               {!searching && showOtherWays ? (
                 <>

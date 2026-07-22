@@ -15,6 +15,8 @@ type FreshUserOnboardingCardProps = {
   activeProfileId?: string | null;
   tailscaleMacLabel?: string;
   wifiConnected?: boolean;
+  /** When true, keep the card mounted (Maestro testID) but hide numbered steps during discovery. */
+  hideSteps?: boolean;
   testID?: string;
 };
 
@@ -23,6 +25,7 @@ export default function FreshUserOnboardingCard({
   activeProfileId = null,
   tailscaleMacLabel,
   wifiConnected = true,
+  hideSteps = false,
   testID = 'fresh-user-onboarding-card',
 }: FreshUserOnboardingCardProps) {
   const freshUser = isFreshUserUnpaired(profiles);
@@ -39,9 +42,9 @@ export default function FreshUserOnboardingCard({
       <Text style={styles.heading} testID="fresh-user-onboarding-heading">
         {heading}
       </Text>
-      {steps.map((item) => (
-        <OnboardingStepRow key={item.step} item={item} />
-      ))}
+      {hideSteps
+        ? null
+        : steps.map((item) => <OnboardingStepRow key={item.step} item={item} />)}
     </View>
   );
 }
