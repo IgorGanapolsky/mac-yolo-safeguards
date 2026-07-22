@@ -288,6 +288,17 @@ jobs:
             "${SIGN_ARGS[@]}" \
             | tee "/tmp/eas-ota-production.json"
           echo "::endgroup::"
+          echo "::group::eas update --channel production-android-paid"
+          # Paid Play SKU (com.iganapolsky.hermesmobile.paid) listens on this channel, not production.
+          # Omit rollout-percentage here so the paid install tip is not stuck outside a 10% bucket.
+          eas update \
+            --channel production-android-paid \
+            --environment production \
+            --non-interactive \
+            --message "${OTA_MESSAGE} (production-android-paid)" \
+            "${SIGN_ARGS[@]}" \
+            | tee "/tmp/eas-ota-production-android-paid.json"
+          echo "::endgroup::"
           if [ -f "$RUNNER_TEMP/expo-update-private-key.pem" ]; then
             rm -f "$RUNNER_TEMP/expo-update-private-key.pem"
           fi
@@ -297,5 +308,7 @@ jobs:
         if: always()
         with:
           name: hermes-mobile-ota-production
-          path: /tmp/eas-ota-production.json
+          path: |
+            /tmp/eas-ota-production.json
+            /tmp/eas-ota-production-android-paid.json
           retention-days: 14
