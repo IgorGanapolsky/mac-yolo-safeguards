@@ -24,4 +24,14 @@ describe('FreshUserOnboardingCard', () => {
     expect(getByText('Use Tailscale from cellular')).toBeTruthy();
     expect(queryByText('Same home Wi‑Fi')).toBeNull();
   });
+
+  it('keeps the card mounted when hideSteps collapses numbered steps', () => {
+    const { getByTestId, queryByTestId } = render(
+      <FreshUserOnboardingCard profiles={[]} hideSteps testID="connect-mac-onboarding-card" />,
+    );
+
+    expect(getByTestId('connect-mac-onboarding-card')).toBeTruthy();
+    expect(getByTestId('fresh-user-onboarding-heading')).toBeTruthy();
+    expect(queryByTestId('fresh-user-step-1')).toBeNull();
+  });
 });

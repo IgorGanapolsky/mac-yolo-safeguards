@@ -290,34 +290,37 @@ export default function ConnectMacGate() {
                 </View>
               ) : null}
 
-              {!userDirectedSearch ? (
-                <>
-                  <FreshUserOnboardingCard
-                    profiles={gatewayProfiles}
-                    tailscaleMacLabel={primaryTailscaleLabel}
-                    wifiConnected={wifiConnected}
-                    testID="connect-mac-onboarding-card"
-                  />
-                  {!profileScanResult ? (
-                    <Text style={styles.statusText}>{describeBootstrapPhase(gatewayBootstrapPhase)}</Text>
-                  ) : null}
-                  <LoadingButton
-                    label="Find computers"
-                    loadingLabel="Finding computers…"
-                    loading={false}
-                    onPress={() => runWifiSearch()}
-                    testID="connect-search-wifi"
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowOtherWays((visible) => !visible)}
-                    accessibilityRole="button"
-                    accessibilityState={{ expanded: showOtherWays }}
-                    testID="connect-other-ways-toggle"
-                  >
-                    <Text style={styles.otherWaysLink}>Other ways to connect</Text>
-                  </TouchableOpacity>
-                </>
+              {/*
+                Always mount connect-mac-onboarding-card while the gate is shown.
+                Tip 48d5e825 still failed stranger Maestro when profileScanning was
+                true (userDirectedSearch), so do not unmount the testID for any scan.
+                Hide numbered steps during user-directed discovery for calm UX.
+              */}
+              <FreshUserOnboardingCard
+                profiles={gatewayProfiles}
+                tailscaleMacLabel={primaryTailscaleLabel}
+                wifiConnected={wifiConnected}
+                hideSteps={userDirectedSearch}
+                testID="connect-mac-onboarding-card"
+              />
+              {!userDirectedSearch && !profileScanResult ? (
+                <Text style={styles.statusText}>{describeBootstrapPhase(gatewayBootstrapPhase)}</Text>
               ) : null}
+              <LoadingButton
+                label="Find computers"
+                loadingLabel="Finding computers…"
+                loading={userDirectedSearch}
+                onPress={() => runWifiSearch()}
+                testID="connect-search-wifi"
+              />
+              <TouchableOpacity
+                onPress={() => setShowOtherWays((visible) => !visible)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: showOtherWays }}
+                testID="connect-other-ways-toggle"
+              >
+                <Text style={styles.otherWaysLink}>Other ways to connect</Text>
+              </TouchableOpacity>
 
               {!userDirectedSearch && showOtherWays ? (
                 <>
