@@ -147,6 +147,7 @@ import {
   normalizeMessageText,
   findDeferredPlaceholderAfterLastUser,
 } from '../utils/chatMessageMerge';
+import { reconcileChatHistory } from '../utils/chatHistoryReconciliation';
 import {
   dedupeAdjacentOptimisticUserBubbles,
   findPendingOptimisticUserBubble,
@@ -429,6 +430,7 @@ import {
 import { shouldShowEmptyStreamRefreshCta } from '../utils/emptyStreamRefreshCta';
 import {
   msUntilLivePromptHardTimeout,
+  messageSentAtMs,
   resolveLastUserPromptSentAtMs,
   resolvePromptReplyElapsedState,
   shouldHardTimeoutLivePromptWait,
@@ -2748,7 +2750,8 @@ export default function ChatScreen() {
         if (currentSessionRef.current?.id !== requestedSessionId) {
           return;
         }
-        const resolved = clearResolvedFailedOutboundStatuses(merged);
+        const reconciled = reconcileChatHistory(merged, messagesRef.current);
+        const resolved = clearResolvedFailedOutboundStatuses(reconciled);
         const nextMessages = resolved.messages;
         const digest =
           transcriptDigest(nextMessages) + (resolved.cleared ? '|outbound-cleared' : '');
@@ -3165,12 +3168,34 @@ export default function ChatScreen() {
   }, [isSending, isChatStreamActive, setChatStreamProgressActive]);
 
   const failPendingOutboundBubbles = useCallback(
-    (failureReason: string) => {
+    (failureReason: string, options?: { includeSentLiveWait?: boolean }) => {
       let failedText: string | null = null;
       commitMessages((prev) => {
         let changed = false;
-        const next = prev.map((message) => {
-          if (message.role?.toLowerCase() !== 'user' || message.outboundStatus !== 'pending') {
+        let lastUserIndex = -1;
+        for (let i = prev.length - 1; i >= 0; i -= 1) {
+          if (prev[i]?.role?.toLowerCase() === 'user') {
+            lastUserIndex = i;
+            break;
+          }
+        }
+        const next = prev.map((message, index) => {
+          const isUser = message.role?.toLowerCase() === 'user';
+          if (!isUser) {
+            return message;
+          }
+          const pending = message.outboundStatus === 'pending';
+          const sentLiveWait =
+            Boolean(options?.includeSentLiveWait) &&
+            index === lastUserIndex &&
+            (message.outboundStatus === 'sent' || message.outboundStatus == null) &&
+            resolvePromptReplyElapsedState({
+              messages: prev,
+              userIndex: index,
+              // Force the "would still be live if not timed out" check before hide-on-timeout.
+              nowMs: messageSentAtMs(message) ?? Date.now(),
+            }).mode === 'live';
+          if (!pending && !sentLiveWait) {
             return message;
           }
           changed = true;
@@ -3314,7 +3339,18 @@ export default function ChatScreen() {
     if (lastUserIndex < 0) {
       return;
     }
-    const elapsed = resolvePromptReplyElapsedState({ messages, userIndex: lastUserIndex });
+    // Evaluate as-of send time so already-timed-out "Sent" bubbles still enter the fail path
+    // (display uses Date.now() and hides Waiting after PROMPT_REPLY_HARD_TIMEOUT_MS).
+    const lastUser = messages[lastUserIndex]!;
+    const sinceMs = messageSentAtMs(lastUser);
+    if (sinceMs == null) {
+      return;
+    }
+    const elapsed = resolvePromptReplyElapsedState({
+      messages,
+      userIndex: lastUserIndex,
+      nowMs: sinceMs,
+    });
     if (elapsed.mode !== 'live') {
       return;
     }
@@ -3328,7 +3364,7 @@ export default function ChatScreen() {
       setIsChatStreamActive(false);
       awaitingGatewayReplyRef.current = false;
       setAwaitingGatewayReply(false);
-      failPendingOutboundBubbles(RUN_HARD_TIMEOUT_DETAIL);
+      failPendingOutboundBubbles(RUN_HARD_TIMEOUT_DETAIL, { includeSentLiveWait: true });
       setRunProgress((prev) =>
         prev && prev.phase !== 'completed' && prev.phase !== 'failed'
           ? {
