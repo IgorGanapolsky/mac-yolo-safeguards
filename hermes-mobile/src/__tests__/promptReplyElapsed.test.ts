@@ -20,7 +20,13 @@ describe('promptReplyElapsed', () => {
     const messages: HermesMessage[] = [
       { id: 'user-1', role: 'user', content: 'make money today', created_at: sentAt },
     ];
-    expect(resolvePromptReplyElapsedState({ messages, userIndex: 0 })).toEqual({
+    expect(
+      resolvePromptReplyElapsedState({
+        messages,
+        userIndex: 0,
+        nowMs: Date.parse(sentAt) + 30_000,
+      }),
+    ).toEqual({
       mode: 'live',
       sinceMs: Date.parse(sentAt),
     });
@@ -65,6 +71,26 @@ describe('promptReplyElapsed', () => {
     expect(resolvePromptReplyElapsedState({ messages, userIndex: 0 })).toEqual({ mode: 'hidden' });
   });
 
+  it('hides Waiting for already-sent bubbles past the hard timeout', () => {
+    const sentAt = '2026-07-21T21:44:00.000Z';
+    const messages: HermesMessage[] = [
+      {
+        id: 'user-1',
+        role: 'user',
+        content: 'Are you burning through my firecrawl credits????',
+        created_at: sentAt,
+        outboundStatus: 'sent',
+      },
+    ];
+    expect(
+      resolvePromptReplyElapsedState({
+        messages,
+        userIndex: 0,
+        nowMs: Date.parse(sentAt) + PROMPT_REPLY_HARD_TIMEOUT_MS,
+      }),
+    ).toEqual({ mode: 'hidden' });
+  });
+
   it('keeps waiting live through empty-stream timeout placeholders', () => {
     const sentAt = '2026-07-14T22:00:00.000Z';
     const messages: HermesMessage[] = [
@@ -76,7 +102,13 @@ describe('promptReplyElapsed', () => {
         created_at: '2026-07-14T22:02:00.000Z',
       },
     ];
-    expect(resolvePromptReplyElapsedState({ messages, userIndex: 0 })).toEqual({
+    expect(
+      resolvePromptReplyElapsedState({
+        messages,
+        userIndex: 0,
+        nowMs: Date.parse(sentAt) + 30_000,
+      }),
+    ).toEqual({
       mode: 'live',
       sinceMs: Date.parse(sentAt),
     });
