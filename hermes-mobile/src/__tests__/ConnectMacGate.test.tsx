@@ -76,6 +76,8 @@ describe('ConnectMacGate', () => {
     expect(DEFAULT_GATEWAY_SETTINGS.connectionMode).toBe('relay');
     expect(view.getByTestId('connect-mac-gate')).toBeTruthy();
     expect(view.getByTestId('connect-mac-onboarding-card')).toBeTruthy();
+    fireEvent.press(view.getByTestId('connect-other-ways-toggle'));
+    expect(view.getByTestId('connect-mac-onboarding-card')).toBeTruthy();
   });
 
   it('shows first-run computer setup when no machine is reachable or saved', () => {
@@ -279,11 +281,12 @@ describe('ConnectMacGate', () => {
 
     const view = render(<ConnectMacGate />);
 
+    fireEvent.press(view.getByTestId('connect-other-ways-toggle'));
     expect(view.getByText('Use Tailscale from cellular')).toBeTruthy();
     expect(view.queryByText('Same home Wi‑Fi')).toBeNull();
     expect(
       view.getByText(
-        /On cellular, use Tailscale — we also search when you are on home Wi‑Fi/,
+        /On cellular, use Tailscale to reach your Mac/,
       ),
     ).toBeTruthy();
   });

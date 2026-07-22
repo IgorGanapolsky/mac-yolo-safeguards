@@ -71,6 +71,7 @@ export default function ConnectMacGate() {
   const [qrVisible, setQrVisible] = useState(false);
   const [invalidQrHint, setInvalidQrHint] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [showOtherWays, setShowOtherWays] = useState(false);
 
   const [manualInput, setManualInput] = useState('');
   const [addingProfile, setAddingProfile] = useState(false);
@@ -256,35 +257,19 @@ export default function ConnectMacGate() {
               </View>
               <Text style={styles.body}>
                 {onCellular
-                  ? 'Hermes on your phone talks to Hermes on your computer. On cellular, use Tailscale — we also search when you are on home Wi‑Fi.'
-                  : 'Hermes on your phone talks to Hermes on your computer. Follow the steps below — we search your home Wi‑Fi automatically.'}
+                  ? 'On cellular, use Tailscale to reach your Mac. Find computers also checks when you are on home Wi‑Fi.'
+                  : 'Find computers searches your home Wi‑Fi for your Mac.'}
               </Text>
 
-              <FreshUserOnboardingCard
-                profiles={gatewayProfiles}
-                tailscaleMacLabel={primaryTailscaleLabel}
-                wifiConnected={wifiConnected}
-                testID="connect-mac-onboarding-card"
-              />
-
-              {tailscaleDiscoveries.length > 0 ? (
-                <TailscaleDiscoveryBanner
-                  discoveries={tailscaleDiscoveries}
-                  adding={tailscaleDiscoveryProbing}
-                  onAdd={(discovery) => {
-                    void addDiscoveredTailscaleComputer(discovery);
-                  }}
-                  prominent
+              {searching || profileScanResult ? (
+                <MacScanProgressCard
+                  scanning={searching}
+                  progress={profileScanProgress}
+                  result={profileScanResult}
+                  connectableProfileCount={pickerProfiles.length}
+                  testID="connect-mac-scan-progress"
                 />
               ) : null}
-
-              <MacScanProgressCard
-                scanning={searching}
-                progress={profileScanProgress}
-                result={profileScanResult}
-                connectableProfileCount={pickerProfiles.length}
-                testID="connect-mac-scan-progress"
-              />
 
               {pickerProfiles.length > 0 ? (
                 <View style={styles.foundBlock} testID="connect-mac-found-machines">
@@ -301,31 +286,58 @@ export default function ConnectMacGate() {
                 </View>
               ) : null}
 
-              {!searching && !profileScanResult ? (
-                <Text style={styles.statusText}>{describeBootstrapPhase(gatewayBootstrapPhase)}</Text>
+              {!searching ? (
+                <>
+                  <FreshUserOnboardingCard
+                    profiles={gatewayProfiles}
+                    tailscaleMacLabel={primaryTailscaleLabel}
+                    wifiConnected={wifiConnected}
+                    testID="connect-mac-onboarding-card"
+                  />
+                  {!profileScanResult ? (
+                    <Text style={styles.statusText}>{describeBootstrapPhase(gatewayBootstrapPhase)}</Text>
+                  ) : null}
+                  <LoadingButton
+                    label="Find computers"
+                    loadingLabel="Finding computers…"
+                    loading={false}
+                    onPress={() => runWifiSearch()}
+                    testID="connect-search-wifi"
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowOtherWays((visible) => !visible)}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: showOtherWays }}
+                    testID="connect-other-ways-toggle"
+                  >
+                    <Text style={styles.otherWaysLink}>Other ways to connect</Text>
+                  </TouchableOpacity>
+                </>
               ) : null}
 
-              {invalidQrHint ? <Text style={styles.hintError}>{invalidQrHint}</Text> : null}
-
-              <LoadingButton
-                label="Find computers"
-                loadingLabel="Finding computers…"
-                loading={searching}
-                onPress={() => runWifiSearch()}
-                testID="connect-search-wifi"
-              />
-
-              <LoadingButton
-                label="Scan QR from your computer"
-                variant="secondary"
-                onPress={() => {
-                  setInvalidQrHint(null);
-                  setQrVisible(true);
-                }}
-                testID="connect-scan-qr"
-              />
-
-              <View style={styles.manualEntry}>
+              {!searching && showOtherWays ? (
+                <>
+                  {tailscaleDiscoveries.length > 0 ? (
+                    <TailscaleDiscoveryBanner
+                      discoveries={tailscaleDiscoveries}
+                      adding={tailscaleDiscoveryProbing}
+                      onAdd={(discovery) => {
+                        void addDiscoveredTailscaleComputer(discovery);
+                      }}
+                      prominent
+                    />
+                  ) : null}
+                  <LoadingButton
+                    label="Scan QR from your computer"
+                    variant="secondary"
+                    onPress={() => {
+                      setInvalidQrHint(null);
+                      setQrVisible(true);
+                    }}
+                    testID="connect-scan-qr"
+                  />
+                  {invalidQrHint ? <Text style={styles.hintError}>{invalidQrHint}</Text> : null}
+                  <View style={styles.manualEntry}>
                 <Text style={styles.manualEntryTitle}>Connect manually (Tailscale or IP)</Text>
                 <Text style={styles.manualEntrySubtitle}>
                   Add by entering your computer's Tailscale or local IP address:
@@ -363,30 +375,32 @@ export default function ConnectMacGate() {
                     {manualInputError}
                   </Text>
                 ) : null}
-              </View>
+                  </View>
 
-              {isDemoModeAllowed() ? (
-                <View style={styles.demoEntry}>
-                  <Text style={styles.demoEntryTitle}>Just exploring?</Text>
-                  <Text style={styles.demoEntrySubtitle}>
-                    Try Hermes with sample data — no computer required. You can connect a real
-                    computer anytime from Settings.
+                  {isDemoModeAllowed() ? (
+                    <View style={styles.demoEntry}>
+                      <Text style={styles.demoEntryTitle}>Just exploring?</Text>
+                      <Text style={styles.demoEntrySubtitle}>
+                        Try Hermes with sample data — no computer required. You can connect a real
+                        computer anytime from Settings.
+                      </Text>
+                      <LoadingButton
+                        label="Explore in demo mode"
+                        loadingLabel="Starting demo…"
+                        loading={enablingDemo}
+                        variant="secondary"
+                        onPress={handleExploreDemo}
+                        testID="connect-explore-demo"
+                      />
+                    </View>
+                  ) : null}
+
+                  <Text style={styles.footnote}>
+                    Need Hermes on your computer first? Open the setup guide from Settings — tap Not now
+                    above to use chat first.
                   </Text>
-                  <LoadingButton
-                    label="Explore in demo mode"
-                    loadingLabel="Starting demo…"
-                    loading={enablingDemo}
-                    variant="secondary"
-                    onPress={handleExploreDemo}
-                    testID="connect-explore-demo"
-                  />
-                </View>
+                </>
               ) : null}
-
-              <Text style={styles.footnote}>
-                Need Hermes on your computer first? Open the setup guide from Settings — tap Not now
-                above to use chat first.
-              </Text>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -470,6 +484,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.accent,
+  },
+  otherWaysLink: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   hintError: {
     fontSize: 12,
