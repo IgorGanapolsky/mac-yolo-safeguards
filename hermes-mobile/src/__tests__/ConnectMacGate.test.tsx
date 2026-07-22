@@ -75,7 +75,7 @@ describe('ConnectMacGate', () => {
     const view = render(<ConnectMacGate />);
     expect(DEFAULT_GATEWAY_SETTINGS.connectionMode).toBe('relay');
     expect(view.getByTestId('connect-mac-gate')).toBeTruthy();
-    expect(view.queryByTestId('connect-mac-onboarding-card')).toBeNull();
+    expect(view.getByTestId('connect-mac-onboarding-card')).toBeTruthy();
     fireEvent.press(view.getByTestId('connect-other-ways-toggle'));
     expect(view.getByTestId('connect-mac-onboarding-card')).toBeTruthy();
   });
@@ -116,7 +116,6 @@ describe('ConnectMacGate', () => {
     const view = render(<ConnectMacGate />);
 
     expect(view.getByTestId('connect-mac-gate')).toBeTruthy();
-    fireEvent.press(view.getByTestId('connect-other-ways-toggle'));
     expect(view.getByTestId('connect-mac-onboarding-card')).toBeTruthy();
   });
 

@@ -288,6 +288,12 @@ export default function ConnectMacGate() {
 
               {!searching ? (
                 <>
+                  <FreshUserOnboardingCard
+                    profiles={gatewayProfiles}
+                    tailscaleMacLabel={primaryTailscaleLabel}
+                    wifiConnected={wifiConnected}
+                    testID="connect-mac-onboarding-card"
+                  />
                   {!profileScanResult ? (
                     <Text style={styles.statusText}>{describeBootstrapPhase(gatewayBootstrapPhase)}</Text>
                   ) : null}
@@ -311,12 +317,6 @@ export default function ConnectMacGate() {
 
               {!searching && showOtherWays ? (
                 <>
-                  <FreshUserOnboardingCard
-                    profiles={gatewayProfiles}
-                    tailscaleMacLabel={primaryTailscaleLabel}
-                    wifiConnected={wifiConnected}
-                    testID="connect-mac-onboarding-card"
-                  />
                   {tailscaleDiscoveries.length > 0 ? (
                     <TailscaleDiscoveryBanner
                       discoveries={tailscaleDiscoveries}
