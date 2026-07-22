@@ -18,6 +18,7 @@ import GateApprovalCard from '../components/GateApprovalCard';
 import GlassCard from '../components/GlassCard';
 import HealthPill from '../components/HealthPill';
 import ProUpgradeCard from '../components/ProUpgradeCard';
+import ThumbGatePromoCard from '../components/ThumbGatePromoCard';
 import { isDeveloperLeashUnlockAllowed } from '../utils/demoModePolicy';
 import { thumbgateProPriceLabel } from '../constants/monetization';
 import { colors } from '../theme/colors';
@@ -36,6 +37,7 @@ import {
   type LeashDecisionRecord,
 } from '../services/leashDecisionHistory';
 import { PENDING_APPROVALS_RENDER_CAP } from '../utils/pendingApprovalsCap';
+import { resolveLeashThumbGatePromoSurface } from '../utils/thumbgatePromoCopy';
 
 type RootTabParamList = {
   Leash: undefined;
@@ -194,6 +196,12 @@ export default function ApprovalsScreen() {
   const visibleApprovals = glance
     ? []
     : pendingApprovals.slice(0, PENDING_APPROVALS_RENDER_CAP);
+  const leashPromoSurface = leashUnlocked
+    ? resolveLeashThumbGatePromoSurface({
+        connectionState,
+        pendingApprovalsCount: pendingApprovals.length,
+      })
+    : null;
 
   const healthLevel = health?.level ?? 'unknown';
   const connectionDisplay = formatLeashConnectionDisplay({
@@ -439,6 +447,10 @@ export default function ApprovalsScreen() {
             ) : null}
           </>
         )}
+
+        {leashPromoSurface ? (
+          <ThumbGatePromoCard surface={leashPromoSurface} style={styles.emptyCard} />
+        ) : null}
 
         {leashUnlocked && decisionHistory.length > 0 ? (
           <GlassCard style={styles.historyCard} testID="leash-decision-history">
