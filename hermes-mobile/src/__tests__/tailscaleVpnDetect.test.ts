@@ -53,6 +53,18 @@ describe('tailscaleVpnDetect', () => {
     ).toBe(true);
   });
 
+  it('clears completed-probe reachability when the next probe is empty', () => {
+    const cellular = {
+      type: 'cellular',
+      isConnected: true,
+      isInternetReachable: true,
+      details: { ipAddress: '192.0.0.2', cellularGeneration: null, carrier: null },
+    } as unknown as NetInfoState;
+
+    expect(isTailscaleVpnActiveFromNetInfo(cellular, true)).toBe(true);
+    expect(isTailscaleVpnActiveFromNetInfo(cellular, false)).toBe(false);
+  });
+
   it('reads NetInfoState details.ipAddress for Samsung cellular+tun0 false negatives', () => {
     const state = {
       type: 'cellular',
