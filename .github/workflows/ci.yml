@@ -187,6 +187,9 @@ jobs:
       - name: GitHub issue template check
         run: node tools/github-issue-template-check.js
 
+      - name: Store link freshness check
+        run: node tools/check-store-links.js
+
       - name: Publication readiness
         run: node tools/publication-readiness.js
 
