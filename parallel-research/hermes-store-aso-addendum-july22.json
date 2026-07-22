@@ -1,0 +1,79 @@
+{
+  "capturedAtUtc": "2026-07-22T16:20:00Z",
+  "method": "signed-out Google Play web search HTML + Apple iTunes Search/Lookup API; web-search synthesis (not a parallel-cli deep-research run)",
+  "listingStatus": {
+    "googleFree": {
+      "package": "com.iganapolsky.hermesmobile",
+      "publicHttp": 404,
+      "checkedLocales": ["hl=en&gl=US", "hl=en&gl=CA", "hl=en&gl=GB", "hl=en&gl=DE"],
+      "developerApi": {
+        "productionTrack": { "release": "1.2", "versionCode": 18, "status": "completed" },
+        "listingIntact": true,
+        "screenshotCount": 6
+      }
+    },
+    "googlePaid": {
+      "package": "com.iganapolsky.hermesmobile.paid",
+      "publicHttp": 200,
+      "title": "Hermes Mobile: AI Agent",
+      "price": "$4.99",
+      "firstLiveTickUtc": "2026-07-22T10:13:40Z",
+      "developerApi": {
+        "productionTrack": { "release": "paid-15", "versionCode": 15, "status": "completed" },
+        "screenshotCount": 6
+      }
+    },
+    "ios": {
+      "bundleId": "com.iganapolsky.hermesmobile",
+      "ascAppId": "6786778037",
+      "publicHttp": 200,
+      "version": "1.3",
+      "currentVersionReleaseDateUtc": "2026-07-21T18:43:44Z",
+      "trackName": "Hermes AI Agent Leash",
+      "price": 9.99,
+      "screenshotUrls": [],
+      "ipadScreenshotUrls": [],
+      "appletvScreenshotUrls": [],
+      "userRatingCount": 0
+    }
+  },
+  "serpBaselineUS": {
+    "playSearch": {
+      "hermes ai agent": ["com.hermesagent.android", "com.axiomlabs.hermesrelay", "tech.butterfly.app", "com.coddykit.learn.ai.agents", "com.minimax.ai", "com.google.ai.edge.gallery", "com.anthropic.claude", "com.burslabs.projecthermes", "ai.perplexity.app.android", "ai.mainfunc.genspark"],
+      "hermes mobile": ["com.hermesagent.android", "com.retroguru.hermes", "gr.directsolutions.hermesv_mobile", "com.axiomlabs.hermesrelay", "com.iganapolsky.hermesmobile.paid", "com.rafaelfelipeac.hermes", "com.hermes.hermes.android", "com.ccc.hermes", "com.xermes.xermes", "com.nascence.haermesmobile3"],
+      "hermes leash": ["com.axiomlabs.hermesrelay", "com.retroguru.hermes", "com.rafaelfelipeac.hermes", "com.Androtiyas.Hermes", "com.hermes.whats"]
+    },
+    "iosSearch": {
+      "hermes ai agent": ["io.yoclaw", "tech.butterfly.app", "co.vulcanlabs.moodtracker", "co.appnation.geniechat", "hermes.agent.openclaw", "com.nextgen.aibot", "com.sof.7017openclaw", "Herms.lpu.com", "com.uzairansar.hermesmobile", "com.rethinkingstudio.ClawControl"],
+      "Hermes AI Agent Leash (exact)": ["com.iganapolsky.hermesmobile"],
+      "agent leash": ["com.iganapolsky.hermesmobile"]
+    }
+  },
+  "competitors": [
+    { "package": "com.hermesagent.android", "name": "Hermes Agent - Android", "rating": 4.7, "notes": "multi-provider terminal agent, Telegram/Slack/Discord gateways, active changelog" },
+    { "package": "com.axiomlabs.hermesrelay", "name": "Hermes-Relay", "notes": "open-source (Codename-11/hermes-relay), sideload for full phone control, roams via Tailscale" },
+    { "package": "hermes.agent.mobile", "name": "Hermes Agent Client - OnDev AI", "notes": "smaller, mobile-first coding workspace" }
+  ],
+  "sources": [
+    "https://appdrift.co/blog/ios-app-store-keywords-field",
+    "https://www.appalize.com/blog/keyword-research/ios-keyword-field-rules-character-limits-optimization",
+    "https://appfollow.io/blog/best-practices-of-aso-search",
+    "https://asotxt.com/wiki/keyword-field",
+    "https://sentarys.com/blog/hundred-char-keyword-field",
+    "https://vmobify.com/blog/google-play-algorithm-2026/",
+    "https://appfollow.io/blog/aso-ranking-factors",
+    "https://asomobile.net/en/blog/app-listings-in-google-play-2026/",
+    "https://appdrift.co/blog/google-play-description-optimization",
+    "https://playaudit.app/blog/google-play-aso-guide",
+    "https://appscreenshotstudio.com/blog/first-three-app-store-screenshots-2026-conversion-playbook",
+    "https://screenfast.app/blog/app-store-screenshot-ctr-benchmarks",
+    "https://screenfast.app/blog/first-vs-second-app-store-screenshot",
+    "https://screenhance.com/blog/state-of-app-store-screenshots-2026",
+    "https://appscreens.com/blog/app-store-screenshot-optimization",
+    "https://www.applaunchflow.com/blog/best-app-preview-video-tools-2026",
+    "https://theapplaunchpad.com/blog/app-store-preview-videos-guidelines/",
+    "https://launchshots.app/blog/app-store-preview-video-guide",
+    "https://developer.apple.com/app-store/app-previews/",
+    "https://higgsfield.ai/blog/make-100-creative-ads"
+  ]
+}
