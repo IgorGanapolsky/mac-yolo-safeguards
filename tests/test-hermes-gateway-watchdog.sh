@@ -83,9 +83,22 @@ run_wd() {
     MOCK_GATEWAY_PID="$TMP/gwpid" \
     "$@" \
     bash "$WD"
-  # The gateway start remains asynchronous; pin/warmup are deliberately synchronous.
-  for _ in $(seq 1 10); do
-    grep -q "STARTED\|PIN\|WARMUP" "$TMP/start" "$TMP/calls" 2>/dev/null && break
+  # Start is asynchronous (nohup). Never treat PIN/WARMUP as proof the start
+  # landed — on busy CI runners PIN is recorded first and a late STARTED then
+  # leaks into the next scenario (false T1 miss + false T2 double-start).
+  if grep -q "no proc.*starting" "$TMP/wd.log" 2>/dev/null; then
+    for _ in $(seq 1 40); do
+      grep -q "STARTED" "$TMP/start" 2>/dev/null && break
+      sleep 0.05
+    done
+  else
+    for _ in $(seq 1 10); do
+      grep -q "PIN\|WARMUP" "$TMP/calls" 2>/dev/null && break
+      sleep 0.05
+    done
+  fi
+  for _ in $(seq 1 40); do
+    pgrep -f "$BIN/pybin" >/dev/null 2>&1 || break
     sleep 0.05
   done
 }
