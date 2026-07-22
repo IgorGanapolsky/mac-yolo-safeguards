@@ -215,7 +215,18 @@ function annotateTrailingServerUserWithOutbound(
       return serverMessages;
     }
     if (role === 'user' && serverUserAcknowledgesBody(message, body)) {
-      if (message.outboundStatus) {
+      // Never clobber a live pending recovery; otherwise transfer missing delivery state.
+      if (message.outboundStatus === 'pending') {
+        return serverMessages;
+      }
+      if (
+        message.outboundStatus &&
+        message.outboundStatus === optimistic.outboundStatus &&
+        (message.outboundFailureReason ?? '') === (optimistic.outboundFailureReason ?? '')
+      ) {
+        return serverMessages;
+      }
+      if (message.outboundStatus && optimistic.outboundStatus !== 'failed') {
         return serverMessages;
       }
       const next = [...serverMessages];
@@ -613,6 +624,11 @@ export function mergeServerMessagesWithPending(
         serverFingerprints.has(messageFingerprint(message)) ||
         serverHasLatestUserMessage(dedupedServer, body)
       ) {
+        // Keep stall/fail delivery state on the gateway-acked user line so recovery
+        // can reactivate that same bubble instead of echoing a second user-* row.
+        if (message.outboundStatus === 'failed' || message.outboundStatus === 'sent') {
+          dedupedServer = annotateTrailingServerUserWithOutbound(dedupedServer, message);
+        }
         continue;
       }
     }
