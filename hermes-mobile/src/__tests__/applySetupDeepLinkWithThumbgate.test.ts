@@ -95,6 +95,44 @@ describe('applySetupDeepLinkWithThumbgate', () => {
     expect(persistedSettings.gatewayUrl).toBe('http://127.0.0.1:8642');
   });
 
+  it('finishes on the selected Tailscale computer even when the prior snapshot was relay', async () => {
+    let persistedSettings: GatewaySettings = {
+      ...currentSettings,
+      connectionMode: 'relay' as const,
+      gatewayUrl: 'https://relay.example.test',
+    };
+    const params: SetupDeepLinkParams = {
+      gatewayUrl: 'http://100.94.135.78:8642',
+      apiKey: 'mac-mini-key',
+      thumbgateApiKey: 'thumbgate-key',
+      macName: 'Igors-Mac-mini',
+    };
+    const saveSettings = jest.fn(async (nextSettings) => {
+      persistedSettings = { ...nextSettings };
+    });
+    const applySetupDeepLink = jest.fn(async (setup) => {
+      persistedSettings = {
+        ...persistedSettings,
+        connectionMode: 'gateway',
+        gatewayUrl: setup.gatewayUrl ?? '',
+      };
+    });
+
+    await applySetupDeepLinkWithThumbgate({
+      params,
+      currentSettings: persistedSettings,
+      currentApiKey: 'relay-computer-key',
+      saveSettings,
+      applySetupDeepLink,
+    });
+
+    expect(persistedSettings.connectionMode).toBe('gateway');
+    expect(persistedSettings.gatewayUrl).toBe('http://100.94.135.78:8642');
+    expect(applySetupDeepLink).toHaveBeenCalledWith(
+      expect.objectContaining({ macName: 'Igors-Mac-mini' }),
+    );
+  });
+
   it('still applies direct setup when ThumbGate credential persistence fails', async () => {
     const saveError = new Error('secure store unavailable');
     const params: SetupDeepLinkParams = {
