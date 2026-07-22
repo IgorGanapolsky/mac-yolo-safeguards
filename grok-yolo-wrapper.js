@@ -296,11 +296,26 @@ function localDoctor(options = {}) {
   const installedModels = options.installedModels || installedOllamaModels(env, probe);
   const ollamaBinary = findOllamaBinary(env);
   const modelAvailable = installedModels.includes(underlyingModel);
-  const ready = Boolean(binary) && versionReady && modelAvailable;
+
+  // The grok CLI now requires an x.ai sign-in before it will run ANY model,
+  // including a fully local custom base_url model. The isolated GROK_HOME
+  // sandbox holds no credential by design (T-347), so this must be probed
+  // for explicitly instead of assumed — otherwise an unauthenticated grok
+  // silently opens its interactive TUI and hangs instead of failing closed.
+  let authenticated = false;
+  if (binary && versionReady && modelAvailable) {
+    const { grokHome } = ensureLocalConfig(underlyingModel, env);
+    const authProbe = probe(binary, ['models'], { ...env, GROK_HOME: grokHome });
+    const catalog = parseModelsOutput(`${authProbe.stdout}\n${authProbe.stderr}`);
+    authenticated = authProbe.status === 0 && catalog.authenticatedWithGrokCom;
+  }
+
+  const ready = Boolean(binary) && versionReady && modelAvailable && authenticated;
   let blocker = null;
   if (!binary) blocker = 'grok_binary_missing';
   else if (!versionReady) blocker = 'grok_cli_update_required';
   else if (!modelAvailable) blocker = 'local_ollama_model_unavailable';
+  else if (!authenticated) blocker = 'grok_cli_requires_signin_for_local_model';
   return {
     schema: 'grok-yolo/doctor-v2',
     ready,
@@ -316,9 +331,9 @@ function localDoctor(options = {}) {
     ollamaBinary,
     endpoint: LOCAL_BASE_URL,
     endpointScope: 'loopback',
-    authenticated: true,
-    authMode: 'none_local',
-    billingMode: 'local_provider_cost_zero',
+    authenticated,
+    authMode: authenticated ? 'none_local' : 'none',
+    billingMode: authenticated ? 'local_provider_cost_zero' : 'blocked_unauthenticated_local',
     providerCostUsd: 0,
     grokHome: localGrokHome(env),
     externalOtel: externalOtelStatus(env),
