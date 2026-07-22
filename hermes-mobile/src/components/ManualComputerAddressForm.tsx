@@ -15,10 +15,12 @@ import LoadingButton from './ui/LoadingButton';
 
 export type ManualComputerAddressFormProps = {
   onAddProfile: (label: string, gatewayUrl: string) => Promise<void>;
-  /** Choose-computer modal — same paste-IP hero copy as the gate. */
+  /** Choose-computer modal — paste-IP copy from #787. */
   pickerMode?: boolean;
   /** First-run ConnectMacGate hero — dominant paste IP row at top of viewport. */
   heroMode?: boolean;
+  /** Picker with saved profiles: one-line label + input row, no subtitle. */
+  compactMode?: boolean;
   testIDPrefix?: string;
 };
 
@@ -29,10 +31,12 @@ export default function ManualComputerAddressForm({
   onAddProfile,
   pickerMode = false,
   heroMode = false,
+  compactMode = false,
   testIDPrefix = 'chat-manual',
 }: ManualComputerAddressFormProps) {
   const { width } = useWindowDimensions();
-  const stackConnect = pickerMode || heroMode || width < STACK_CONNECT_BELOW_WIDTH;
+  const stackConnect =
+    (pickerMode && !compactMode) || heroMode || width < STACK_CONNECT_BELOW_WIDTH;
   const [manualInput, setManualInput] = useState('');
   const [addingProfile, setAddingProfile] = useState(false);
   const [manualInputError, setManualInputError] = useState<string | null>(null);
@@ -74,28 +78,47 @@ export default function ManualComputerAddressForm({
   const placeholder = usePasteHeroCopy
     ? TAILSCALE_PASTE_IP_PLACEHOLDER
     : 'e.g. your-device-name or a 100.x address';
+  const showSubtitle = !compactMode;
 
   return (
     <View
       style={[
         styles.manualEntry,
         pickerMode ? styles.manualEntryPicker : null,
+        compactMode ? styles.manualEntryCompact : null,
         heroMode ? styles.manualEntryHero : null,
       ]}
       testID={`${testIDPrefix}-form`}
     >
-      <Text style={[styles.manualEntryTitle, heroMode ? styles.manualEntryTitleHero : null]}>
+      <Text
+        style={[
+          styles.manualEntryTitle,
+          compactMode ? styles.manualEntryTitleCompact : null,
+          heroMode ? styles.manualEntryTitleHero : null,
+        ]}
+      >
         {title}
       </Text>
-      <Text style={[styles.manualEntrySubtitle, heroMode ? styles.manualEntrySubtitleHero : null]}>
-        {subtitle}
-      </Text>
+      {showSubtitle ? (
+        <Text
+          style={[
+            styles.manualEntrySubtitle,
+            heroMode ? styles.manualEntrySubtitleHero : null,
+          ]}
+        >
+          {subtitle}
+        </Text>
+      ) : null}
       <View
         style={[styles.manualInputRow, stackConnect ? styles.manualInputColumn : null]}
         testID={`${testIDPrefix}-input-row`}
       >
         <TextInput
-          style={[styles.manualInput, stackConnect ? styles.manualInputStacked : null]}
+          style={[
+            styles.manualInput,
+            compactMode ? styles.manualInputCompact : null,
+            stackConnect ? styles.manualInputStacked : null,
+          ]}
           placeholder={placeholder}
           placeholderTextColor={colors.textMuted}
           value={manualInput}
@@ -111,7 +134,11 @@ export default function ManualComputerAddressForm({
           loading={addingProfile}
           onPress={handleManualConnect}
           testID={`${testIDPrefix}-submit`}
-          style={[styles.manualButton, stackConnect ? styles.manualButtonStacked : null]}
+          style={[
+            styles.manualButton,
+            compactMode ? styles.manualButtonCompact : null,
+            stackConnect ? styles.manualButtonStacked : null,
+          ]}
         />
       </View>
       {manualInputError ? (
@@ -134,6 +161,11 @@ const styles = StyleSheet.create({
   manualEntryPicker: {
     marginBottom: 4,
   },
+  manualEntryCompact: {
+    marginTop: 0,
+    paddingTop: 8,
+    gap: 6,
+  },
   manualEntryHero: {
     marginTop: 0,
     paddingTop: 0,
@@ -144,6 +176,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: colors.text,
+  },
+  manualEntryTitleCompact: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textSecondary,
   },
   manualEntryTitleHero: {
     fontSize: 17,
@@ -177,6 +214,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 14,
   },
+  manualInputCompact: {
+    height: 42,
+    fontSize: 13,
+    paddingHorizontal: 12,
+  },
   manualInputStacked: {
     flex: undefined,
     width: '100%',
@@ -185,6 +227,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     height: 48,
     minWidth: 100,
+  },
+  manualButtonCompact: {
+    height: 42,
+    minWidth: 88,
+    paddingVertical: 10,
   },
   manualButtonStacked: {
     width: '100%',
