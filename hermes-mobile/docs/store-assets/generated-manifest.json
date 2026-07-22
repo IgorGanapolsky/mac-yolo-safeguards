@@ -111,6 +111,10 @@
     "fastlane/screenshots/en-US/06_works_ipad129.png": {
       "width": 2048,
       "height": 2732
+    },
+    "fastlane/metadata/android/en-US/images/featureGraphic.png": {
+      "width": 1024,
+      "height": 500
     }
   },
   "contrastRatios": {

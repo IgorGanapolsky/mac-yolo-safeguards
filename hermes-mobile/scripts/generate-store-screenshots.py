@@ -21,6 +21,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 ROOT = Path(__file__).resolve().parents[1]
 OUT_PLAY = ROOT / "fastlane/metadata/android/en-US/images/phoneScreenshots"
 OUT_IOS = ROOT / "fastlane/screenshots/en-US"
+OUT_FEATURE = ROOT / "fastlane/metadata/android/en-US/images/featureGraphic.png"
 
 COLORS = {
     "bg": (7, 10, 20),
@@ -369,6 +370,52 @@ def make_frame(frame: Frame, canvas: tuple[int, int], outfile: Path) -> None:
     image.save(outfile, format="PNG", optimize=True)
 
 
+def make_feature_graphic() -> None:
+    """Render the Play browse graphic around the product outcome, never price/platform lock-in."""
+    w, h = 1024, 500
+    image = gradient_background((w, h), COLORS["cyan"])
+    draw = ImageDraw.Draw(image)
+
+    # Compact vector mark; avoids coupling the graphic to adaptive-icon padding.
+    mark = (58, 58, 150, 150)
+    draw.rounded_rectangle(mark, radius=24, fill=COLORS["purple"])
+    draw.rounded_rectangle((82, 78, 96, 132), radius=7, fill=COLORS["text"])
+    draw.rounded_rectangle((112, 78, 126, 132), radius=7, fill=COLORS["text"])
+    draw.rounded_rectangle((86, 99, 122, 113), radius=7, fill=COLORS["cyan"])
+    draw.text((176, 62), "HERMES MOBILE", font=font(27, True), fill=COLORS["cyan"])
+
+    draw.text((58, 184), "Control your AI agent", font=font(53, True), fill=COLORS["text"])
+    draw.text((58, 248), "from anywhere", font=font(53, True), fill=COLORS["text"])
+    draw.text((60, 332), "Connect. Chat. Approve safely.", font=font(29), fill=COLORS["muted"])
+
+    pill_y = 402
+    pills = [
+        (58, 245, "TAILSCALE"),
+        (266, 433, "HOME WI-FI"),
+        (454, 580, "USB"),
+    ]
+    for x1, x2, label in pills:
+        rounded_card(draw, (x1, pill_y, x2, pill_y + 56), fill=(18, 31, 45), outline=COLORS["cyan"], radius=28)
+        label_font = font(20, True)
+        label_width = draw.textbbox((0, 0), label, font=label_font)[2]
+        draw.text((x1 + (x2 - x1 - label_width) // 2, pill_y + 17), label, font=label_font, fill=COLORS["cyan"])
+
+    # A single high-signal approval card makes the differentiator legible at browse size.
+    rounded_card(draw, (675, 70, 966, 430), fill=(18, 22, 37), outline=COLORS["purple"], radius=34, width=4)
+    draw.text((716, 112), "LEASH", font=font(22, True), fill=COLORS["orange"])
+    draw.text((716, 158), "Action needs", font=font(31, True), fill=COLORS["text"])
+    draw.text((716, 198), "approval", font=font(31, True), fill=COLORS["text"])
+    rounded_card(draw, (716, 260, 925, 310), fill=(9, 12, 21), outline=COLORS["line"], radius=14)
+    draw.text((738, 275), "npm run deploy", font=font(19, True), fill=COLORS["cyan"])
+    rounded_card(draw, (716, 338, 812, 390), fill=(48, 24, 35), outline=COLORS["red"], radius=17)
+    draw.text((742, 353), "Block", font=font(18, True), fill=COLORS["red"])
+    rounded_card(draw, (828, 338, 925, 390), fill=COLORS["purple"], outline=COLORS["purple"], radius=17)
+    draw.text((842, 353), "Allow", font=font(18, True), fill=COLORS["text"])
+
+    OUT_FEATURE.parent.mkdir(parents=True, exist_ok=True)
+    image.save(OUT_FEATURE, format="PNG", optimize=True)
+
+
 def pixel_similarity(a: Path, b: Path) -> float:
     i1 = Image.open(a).convert("RGB").resize((270, 480))
     i2 = Image.open(b).convert("RGB").resize((270, 480))
@@ -441,12 +488,19 @@ def main() -> int:
         make_frame(frame, (2048, 2732), OUT_IOS / f"{frame.stem}_ipad129.png")
         print(f"frame {idx}/6: {frame.headline}")
 
+    make_feature_graphic()
+    print("feature graphic: Control your AI agent from anywhere")
+
     play_files = sorted(OUT_PLAY.glob("*.png"))
     similarity = validate_pairwise(play_files)
     assets: dict[str, dict[str, int]] = {}
     for path in play_files + sorted(OUT_IOS.glob("*.png")):
         with Image.open(path) as img:
             assets[str(path.relative_to(ROOT))] = {"width": img.width, "height": img.height}
+    with Image.open(OUT_FEATURE) as feature:
+        if feature.size != (1024, 500):
+            raise SystemExit(f"Play feature graphic has invalid dimensions: {feature.size}")
+        assets[str(OUT_FEATURE.relative_to(ROOT))] = {"width": feature.width, "height": feature.height}
 
     manifest = ROOT / "docs/store-assets/generated-manifest.json"
     manifest.parent.mkdir(parents=True, exist_ok=True)
