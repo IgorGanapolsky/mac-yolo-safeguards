@@ -152,10 +152,9 @@ export default function ConnectMacGate() {
     gatewayBootstrapPhase === 'booting' ||
     gatewayBootstrapPhase === 'searching' ||
     profileScanning;
-  // User-directed Find computers / profile scan collapses the numbered steps.
-  // Silent bootstrap "booting/searching" must NOT hide the onboarding card or
-  // Find computers CTA — stranger cold-start and real first launches need them.
-  const userDirectedSearch = isSearching || profileScanning;
+  // Never hide numbered onboarding or Find computers while the gate is open.
+  // Cold-start profileScanning / auto-retry used to collapse them (#755), which
+  // broke stranger cold-start (gate visible, connect-mac-onboarding-card gone).
 
   // First-run only. Saved Macs / transient Tailscale blips stay on Chat
   // (ChatConnectionPanel) — never re-mount this overlay on AppState or toggles.
@@ -265,6 +264,13 @@ export default function ConnectMacGate() {
                   : 'Find computers searches your home Wi‑Fi for your Mac.'}
               </Text>
 
+              <FreshUserOnboardingCard
+                profiles={gatewayProfiles}
+                tailscaleMacLabel={primaryTailscaleLabel}
+                wifiConnected={wifiConnected}
+                testID="connect-mac-onboarding-card"
+              />
+
               {searching || profileScanResult ? (
                 <MacScanProgressCard
                   scanning={searching}
@@ -290,36 +296,28 @@ export default function ConnectMacGate() {
                 </View>
               ) : null}
 
-              {!userDirectedSearch ? (
-                <>
-                  <FreshUserOnboardingCard
-                    profiles={gatewayProfiles}
-                    tailscaleMacLabel={primaryTailscaleLabel}
-                    wifiConnected={wifiConnected}
-                    testID="connect-mac-onboarding-card"
-                  />
-                  {!profileScanResult ? (
-                    <Text style={styles.statusText}>{describeBootstrapPhase(gatewayBootstrapPhase)}</Text>
-                  ) : null}
-                  <LoadingButton
-                    label="Find computers"
-                    loadingLabel="Finding computers…"
-                    loading={false}
-                    onPress={() => runWifiSearch()}
-                    testID="connect-search-wifi"
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowOtherWays((visible) => !visible)}
-                    accessibilityRole="button"
-                    accessibilityState={{ expanded: showOtherWays }}
-                    testID="connect-other-ways-toggle"
-                  >
-                    <Text style={styles.otherWaysLink}>Other ways to connect</Text>
-                  </TouchableOpacity>
-                </>
+              {!profileScanResult ? (
+                <Text style={styles.statusText}>{describeBootstrapPhase(gatewayBootstrapPhase)}</Text>
               ) : null}
 
-              {!userDirectedSearch && showOtherWays ? (
+              <LoadingButton
+                label="Find computers"
+                loadingLabel="Finding computers…"
+                loading={searching}
+                onPress={() => runWifiSearch()}
+                testID="connect-search-wifi"
+              />
+
+              <TouchableOpacity
+                onPress={() => setShowOtherWays((visible) => !visible)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: showOtherWays }}
+                testID="connect-other-ways-toggle"
+              >
+                <Text style={styles.otherWaysLink}>Other ways to connect</Text>
+              </TouchableOpacity>
+
+              {showOtherWays ? (
                 <>
                   {tailscaleDiscoveries.length > 0 ? (
                     <TailscaleDiscoveryBanner
@@ -342,43 +340,43 @@ export default function ConnectMacGate() {
                   />
                   {invalidQrHint ? <Text style={styles.hintError}>{invalidQrHint}</Text> : null}
                   <View style={styles.manualEntry}>
-                <Text style={styles.manualEntryTitle}>Connect manually (Tailscale or IP)</Text>
-                <Text style={styles.manualEntrySubtitle}>
-                  Add by entering your computer's Tailscale or local IP address:
-                </Text>
-                <View style={styles.manualInputRow}>
-                  <TextInput
-                    style={styles.manualInput}
-                    placeholder="e.g. your-device-name or a 100.x address"
-                    placeholderTextColor={colors.textMuted}
-                    value={manualInput}
-                    onChangeText={setManualInput}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    keyboardType="url"
-                    testID="connect-manual-input"
-                    onFocus={() => {
-                      setManualInputFocused(true);
-                      requestAnimationFrame(() => {
-                        scrollRef.current?.scrollToEnd({ animated: true });
-                      });
-                    }}
-                    onBlur={() => setManualInputFocused(false)}
-                  />
-                  <LoadingButton
-                    label="Connect"
-                    loadingLabel="Connecting…"
-                    loading={addingProfile}
-                    onPress={handleManualConnect}
-                    testID="connect-manual-submit"
-                    style={styles.manualButton}
-                  />
-                </View>
-                {manualInputError ? (
-                  <Text style={styles.manualError} testID="connect-manual-error">
-                    {manualInputError}
-                  </Text>
-                ) : null}
+                    <Text style={styles.manualEntryTitle}>Connect manually (Tailscale or IP)</Text>
+                    <Text style={styles.manualEntrySubtitle}>
+                      Add by entering your computer's Tailscale or local IP address:
+                    </Text>
+                    <View style={styles.manualInputRow}>
+                      <TextInput
+                        style={styles.manualInput}
+                        placeholder="e.g. your-device-name or a 100.x address"
+                        placeholderTextColor={colors.textMuted}
+                        value={manualInput}
+                        onChangeText={setManualInput}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        keyboardType="url"
+                        testID="connect-manual-input"
+                        onFocus={() => {
+                          setManualInputFocused(true);
+                          requestAnimationFrame(() => {
+                            scrollRef.current?.scrollToEnd({ animated: true });
+                          });
+                        }}
+                        onBlur={() => setManualInputFocused(false)}
+                      />
+                      <LoadingButton
+                        label="Connect"
+                        loadingLabel="Connecting…"
+                        loading={addingProfile}
+                        onPress={handleManualConnect}
+                        testID="connect-manual-submit"
+                        style={styles.manualButton}
+                      />
+                    </View>
+                    {manualInputError ? (
+                      <Text style={styles.manualError} testID="connect-manual-error">
+                        {manualInputError}
+                      </Text>
+                    ) : null}
                   </View>
 
                   {isDemoModeAllowed() ? (

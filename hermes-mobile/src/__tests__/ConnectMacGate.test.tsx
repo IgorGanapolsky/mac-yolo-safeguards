@@ -100,6 +100,32 @@ describe('ConnectMacGate', () => {
     expect(view.getByTestId('connect-mac-scan-progress')).toBeTruthy();
   });
 
+  it('keeps onboarding + Find computers visible while profileScanning (stranger cold-start)', () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    mockUseGateway.mockReturnValue(
+      gateway({
+        settings: {
+          ...DEFAULT_GATEWAY_SETTINGS,
+          demoMode: false,
+        },
+        profileScanning: true,
+        profileScanProgress: {
+          stage: 'gateway_health',
+          completedHosts: 3,
+          totalHosts: 100,
+          foundCount: 0,
+        },
+        gatewayProfiles: [],
+        effectiveGatewayUrl: '',
+      }),
+    );
+    const view = render(<ConnectMacGate />);
+    expect(view.getByTestId('connect-mac-gate')).toBeTruthy();
+    expect(view.getByTestId('connect-mac-onboarding-card')).toBeTruthy();
+    expect(view.getByTestId('connect-search-wifi')).toBeTruthy();
+    expect(view.getByTestId('connect-mac-scan-progress')).toBeTruthy();
+  });
+
   it('shows first-run computer setup when no machine is reachable or saved', () => {
     delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
     mockUseGateway.mockReturnValue(gateway());
