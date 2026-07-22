@@ -549,6 +549,15 @@ else
   bad "server-only refresh preserves USB loopback when adb reverse is live"
 fi
 
+# --server-only must persist secretless pairCode in pair.json (watchdog /pair.json contract).
+if [[ "$PAIR_JS" == *"buildSecretlessDeepLink(minted.code, phonePairServer"* ]] \
+  && [[ "$PAIR_JS" == *"pairCode)"* ]] \
+  && [[ "$PAIR_JS" == *"function refreshPairAssetsFromLocalGateway"* ]]; then
+  ok "server-only refresh writes secretless pairCode into pair.json"
+else
+  bad "server-only refresh writes secretless pairCode into pair.json"
+fi
+
 # --- T-PAIR-CODE-TTL: display TTL + refresh so QR never shows a dead single-use code ----
 
 if [[ "$LIB_JS" == *"PAIRING_CODE_DISPLAY_TTL_MS"* ]] \
