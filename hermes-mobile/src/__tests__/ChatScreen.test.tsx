@@ -1408,8 +1408,8 @@ describe('ChatScreen', () => {
     expect(getByTestId('mac-picker-status-region')).toBeTruthy();
     expect(getByTestId('mac-picker-manual-form')).toBeTruthy();
     expect(getAllByText('Paste your Mac’s Tailscale IP').length).toBeGreaterThanOrEqual(1);
-    expect(getByText(/On the Mac: Tailscale → copy 100\.x → paste → Connect/)).toBeTruthy();
-    expect(getByText(/Hermes must be open on that Mac/)).toBeTruthy();
+    expect(getAllByText(/On the Mac: Tailscale → copy 100\.x → paste → Connect/).length).toBeGreaterThanOrEqual(1);
+    expect(getAllByText(/Hermes must be open on that Mac/).length).toBeGreaterThanOrEqual(1);
     expect(getByTestId('mac-picker-subtitle')).toHaveTextContent(
       /Tap a computer, or paste Tailscale IP below/,
     );
