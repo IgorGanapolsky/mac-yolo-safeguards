@@ -3571,7 +3571,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const presentation = useMemo(() => resolvePresentationState(settings), [settings]);
 
   useEffect(() => {
-    if (connectionState !== 'connected' && connectionState !== 'demo') {
+    if (connectionState === 'disconnected') {
       signOfLifeSentRef.current = false;
       return;
     }
