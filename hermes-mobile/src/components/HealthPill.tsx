@@ -3,11 +3,11 @@ import { StyleSheet, View, Text } from 'react-native';
 import { colors } from '../theme/colors';
 import type { GatewayHealthLevel } from '../types/gateway';
 
-const LABELS: Record<GatewayHealthLevel, string> = {
-  green: 'Connected',
-  amber: 'Needs attention',
-  red: "Can't reach your Mac",
-  unknown: 'Checking…',
+const DEFAULT_LABELS: Record<GatewayHealthLevel, string> = {
+  green: 'Gateway healthy',
+  amber: 'Gateway warning',
+  red: 'Gateway unreachable',
+  unknown: 'Gateway unknown',
 };
 
 const DOT_COLORS: Record<GatewayHealthLevel, string> = {
@@ -19,15 +19,18 @@ const DOT_COLORS: Record<GatewayHealthLevel, string> = {
 
 interface HealthPillProps {
   level: GatewayHealthLevel;
+  /** User-facing override (Leash only). Callers must resolve authMismatch / direct reachability first. */
+  label?: string;
   detail?: string;
 }
 
-export default function HealthPill({ level, detail }: HealthPillProps) {
+export default function HealthPill({ level, label, detail }: HealthPillProps) {
+  const displayLabel = label ?? DEFAULT_LABELS[level];
   return (
     <View style={styles.pill} testID="health-pill">
       <View style={styles.labelRow}>
         <View style={[styles.dot, { backgroundColor: DOT_COLORS[level] }]} />
-        <Text style={styles.label}>{LABELS[level]}</Text>
+        <Text style={styles.label}>{displayLabel}</Text>
       </View>
       {detail ? (
         <Text style={styles.detail} numberOfLines={1} ellipsizeMode="tail">

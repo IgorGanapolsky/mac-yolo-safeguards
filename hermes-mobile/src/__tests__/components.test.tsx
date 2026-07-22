@@ -79,24 +79,31 @@ describe('GateApprovalCard', () => {
 });
 
 describe('HealthPill', () => {
-  it('renders correctly for green level', () => {
+  it('renders technical default labels for Settings/Ops callers', () => {
     const { getByText } = render(<HealthPill level="green" />);
+    expect(getByText('Gateway healthy')).toBeTruthy();
+  });
+
+  it('renders caller-provided label for Leash calm status', () => {
+    const { getByText } = render(<HealthPill level="green" label="Connected" />);
     expect(getByText('Connected')).toBeTruthy();
   });
 
   it('renders correctly for red level with details', () => {
-    const { getByText } = render(<HealthPill level="red" detail="error 500" />);
+    const { getByText } = render(
+      <HealthPill level="red" label={"Can't reach your Mac"} detail="error 500" />,
+    );
     expect(getByText("Can't reach your Mac")).toBeTruthy();
     expect(getByText('error 500')).toBeTruthy();
   });
 
   it('renders correctly for amber level', () => {
-    const { getByText } = render(<HealthPill level="amber" />);
+    const { getByText } = render(<HealthPill level="amber" label="Needs attention" />);
     expect(getByText('Needs attention')).toBeTruthy();
   });
 
   it('renders correctly for unknown level', () => {
-    const { getByText } = render(<HealthPill level="unknown" />);
+    const { getByText } = render(<HealthPill level="unknown" label="Checking…" />);
     expect(getByText('Checking…')).toBeTruthy();
   });
 });

@@ -277,7 +277,7 @@ export default function ApprovalsScreen() {
           <>
             <View style={styles.pillRow} testID="leash-header-pill-row">
               <View style={styles.pillSlot}>
-                <HealthPill level={healthLevel} detail={gatewayHealthDetail} />
+                <HealthPill level={healthLevel} label={calmStatus.label} detail={gatewayHealthDetail} />
               </View>
               <TouchableOpacity
                 style={[styles.headerRefreshBtn, refreshing && styles.headerRefreshBtnDisabled]}
