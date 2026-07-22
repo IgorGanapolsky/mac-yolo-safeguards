@@ -3,6 +3,7 @@ import type { HermesMessage } from '../types/chat';
 import {
   PENDING_NEW_SESSION_KEY,
   PENDING_OUTBOUND_STORAGE_KEY,
+  SENT_OUTBOUND_SNAPSHOT_MAX_AGE_MS,
   clearPendingOutbound,
   extractPersistableOutboundFromTranscript,
   loadPendingOutbound,
@@ -135,5 +136,109 @@ describe('pendingOutboundStorage', () => {
     });
     await clearPendingOutbound('sess-x');
     expect(await AsyncStorage.getItem(PENDING_OUTBOUND_STORAGE_KEY)).toBeNull();
+  });
+
+  it('drops an old acknowledged snapshot instead of appending it after newer server history', async () => {
+    const now = Date.parse('2026-07-22T12:00:00.000Z');
+    await AsyncStorage.setItem(
+      PENDING_OUTBOUND_STORAGE_KEY,
+      JSON.stringify({
+        'sess-stale': {
+          sessionId: 'sess-stale',
+          messages: [
+            {
+              id: 'user-stale',
+              role: 'user',
+              content: 'Are you burning through my credits?',
+              outboundStatus: 'sent',
+            },
+          ],
+          pinnedText: 'Are you burning through my credits?',
+          pinnedSentAt: '2026-07-22T01:30:00.000Z',
+          pinnedStatus: 'sent',
+          updatedAt: new Date(now - SENT_OUTBOUND_SNAPSHOT_MAX_AGE_MS - 1).toISOString(),
+        },
+      }),
+    );
+
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+    await expect(loadPendingOutbound('sess-stale')).resolves.toBeNull();
+    jest.restoreAllMocks();
+  });
+
+  it('drops an old sent bubble even if a later stream save left pinnedStatus pending', async () => {
+    const now = Date.parse('2026-07-22T12:00:00.000Z');
+    await AsyncStorage.setItem(
+      PENDING_OUTBOUND_STORAGE_KEY,
+      JSON.stringify({
+        'sess-streaming-stale': {
+          sessionId: 'sess-streaming-stale',
+          messages: [
+            {
+              id: 'user-streaming-stale',
+              role: 'user',
+              content: 'old acknowledged prompt',
+              outboundStatus: 'sent',
+            },
+            {
+              id: 'asst-streaming-stale',
+              role: 'assistant',
+              content: GENERIC_EMPTY_STREAM_PLACEHOLDER,
+            },
+          ],
+          pinnedText: 'old acknowledged prompt',
+          pinnedSentAt: '2026-07-22T01:30:00.000Z',
+          pinnedStatus: 'pending',
+          updatedAt: new Date(now - SENT_OUTBOUND_SNAPSHOT_MAX_AGE_MS - 1).toISOString(),
+        },
+      }),
+    );
+
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+    await expect(loadPendingOutbound('sess-streaming-stale')).resolves.toBeNull();
+    jest.restoreAllMocks();
+  });
+
+  it('keeps fresh acknowledged snapshots during the gateway history bridge window', async () => {
+    await savePendingOutbound('sess-fresh-sent', {
+      messages: [
+        { id: 'user-fresh-sent', role: 'user', content: 'fresh prompt', outboundStatus: 'sent' },
+      ],
+      pinnedStatus: 'sent',
+    });
+
+    await expect(loadPendingOutbound('sess-fresh-sent')).resolves.toMatchObject({
+      pinnedStatus: 'sent',
+    });
+  });
+
+  it('keeps old pending snapshots recoverable until delivery succeeds or fails', async () => {
+    const now = Date.parse('2026-07-22T12:00:00.000Z');
+    await AsyncStorage.setItem(
+      PENDING_OUTBOUND_STORAGE_KEY,
+      JSON.stringify({
+        'sess-old-pending': {
+          sessionId: 'sess-old-pending',
+          messages: [
+            {
+              id: 'user-old-pending',
+              role: 'user',
+              content: 'still needs delivery',
+              outboundStatus: 'pending',
+            },
+          ],
+          pinnedText: 'still needs delivery',
+          pinnedSentAt: '2026-07-22T01:30:00.000Z',
+          pinnedStatus: 'pending',
+          updatedAt: new Date(now - SENT_OUTBOUND_SNAPSHOT_MAX_AGE_MS - 1).toISOString(),
+        },
+      }),
+    );
+
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+    await expect(loadPendingOutbound('sess-old-pending')).resolves.toMatchObject({
+      pinnedStatus: 'pending',
+    });
+    jest.restoreAllMocks();
   });
 });
