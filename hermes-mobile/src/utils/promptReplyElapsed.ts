@@ -109,8 +109,10 @@ export function msUntilLivePromptHardTimeout(
 export function resolvePromptReplyElapsedState(input: {
   messages: readonly HermesMessage[];
   userIndex: number;
+  /** Injected for tests; defaults to Date.now(). */
+  nowMs?: number;
 }): PromptReplyElapsedState {
-  const { messages, userIndex } = input;
+  const { messages, userIndex, nowMs = Date.now() } = input;
   const userMessage = messages[userIndex];
   if (!userMessage || userMessage.role?.toLowerCase() !== 'user') {
     return { mode: 'hidden' };
@@ -139,6 +141,12 @@ export function resolvePromptReplyElapsedState(input: {
   }
 
   if (userIndex !== indexOfLastUserMessage(messages)) {
+    return { mode: 'hidden' };
+  }
+
+  // Sent bubbles past the hard timeout must not keep ticking "Waiting 10h…".
+  // failPendingOutboundBubbles only mutates pending; display must clear anyway.
+  if (shouldHardTimeoutLivePromptWait(sinceMs, nowMs)) {
     return { mode: 'hidden' };
   }
 
