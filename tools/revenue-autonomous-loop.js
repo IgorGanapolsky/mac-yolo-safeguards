@@ -30,6 +30,11 @@ const crypto = require('crypto');
 const { spawnSync } = require('child_process');
 const https = require('https');
 const http = require('http');
+const {
+  buildGovernedFollowupEmail,
+  buildGithubFollowupBody,
+  TEMPLATE_VERSION: FOLLOWUP_TEMPLATE_VERSION,
+} = require('./governed-agent-sales-copy');
 
 const REPO = path.resolve(__dirname, '..');
 
@@ -685,20 +690,8 @@ function tryGmailSend(email) {
 }
 
 function buildFollowupEmail(prospect, contact, offerRow) {
-  const link = offerRow && offerRow.ok !== false ? offerRow.url || offerRow.payment_link_url : null;
-  const name = (contact && contact.person) || prospect.prospect_label;
-  const offer = prospect.route || 'our reliability offer';
-  const subject = `Quick close-loop: ${String(offer).slice(0, 60)}`;
-  let body = `Hi${name && name !== prospect.prospect_label ? ` ${name.split(' ')[0]}` : ''} —\n\n`;
-  body += `Following up on agent reliability / runaway-loop hardening for ${prospect.prospect_label}.\n\n`;
-  body += `If that pain is still current, reply with the one failure pattern that repeats. `;
-  if (link && offerRow && offerRow.http === 200) {
-    body += `When you're ready to start a scoped paid step (${offer}), live checkout:\n${link}\n\n`;
-  } else {
-    body += `I won't send a broken pay link — reply and we'll scope first.\n\n`;
-  }
-  body += `If not now, reply "not now" and I'll close the loop.\n\n— Igor\n`;
-  return { to: contact.email, subject, body, offer: prospect.route, link };
+  // High-ROI governed-agents framing (visibility → control → assure).
+  return buildGovernedFollowupEmail(prospect, contact, offerRow);
 }
 
 function writeBoard(summary) {
@@ -891,14 +884,7 @@ async function run(args) {
         const gh = githubUrlFromNotes(row.notes);
         if (gh && process.env.REVENUE_AUTO_GH === '1') {
           attempts += 1;
-          const body = [
-            `Following up on agent reliability / runaway-loop cost — still an issue on your side?`,
-            ``,
-            `If useful, ThumbGate has a scoped diagnostic path; happy to share a live checkout link off-thread.`,
-            `Reply here or email iganapolsky@gmail.com. If not now, say so and I'll stop pinging.`,
-            ``,
-            `— Igor (autonomous follow-up)`,
-          ].join('\n');
+          const body = buildGithubFollowupBody();
           const res = tryGithubFollowup(gh, body);
           if (res.ok) {
             sentCount += 1;
@@ -966,7 +952,7 @@ async function run(args) {
 
       const reservation = acquireSendReservation({
         to: c2.email,
-        template: 'revenue-autonomous-followup-v1',
+        template: email.template || FOLLOWUP_TEMPLATE_VERSION,
         prospect: row.prospect_label,
       });
       if (!reservation.ok) {
