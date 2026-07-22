@@ -105,11 +105,13 @@ test('thread continuation only advances the sync boundary when context arrived',
 });
 
 test('sellable failover has explicit abuse and inference-cost ceilings', () => {
-  const taskRoute = require('node:fs').readFileSync('apps/hermes-control-plane/app/api/tasks/route.ts', 'utf8');
+  const governance = require('node:fs').readFileSync('apps/hermes-control-plane/lib/agent-governance.ts', 'utf8');
   const syncRoute = require('node:fs').readFileSync('apps/hermes-control-plane/app/api/device/sessions/sync/route.ts', 'utf8');
   const runner = require('node:fs').readFileSync('services/hermes-cloud-runner/server.js', 'utf8');
-  assert.match(taskRoute, /TRIAL_CLOUD_TASKS = 5/);
-  assert.match(taskRoute, /PRO_CLOUD_TASKS_PER_30_DAYS = 100/);
+  assert.match(governance, /maxActiveTasks: 10/);
+  assert.match(governance, /maxDailyTasks: 250/);
+  assert.match(governance, /trialCloudTasksPer30Days: 5/);
+  assert.match(governance, /paidCloudTasksPer30Days: 100/);
   assert.match(syncRoute, /MAX_BODY_BYTES = 1_000_000/);
   assert.match(runner, /MODEL_MAX_TOKENS.*2_048/);
   assert.match(runner, /MODEL_TIMEOUT_MS.*75_000/);
@@ -117,18 +119,25 @@ test('sellable failover has explicit abuse and inference-cost ceilings', () => {
 
 test('free local control and paid cloud continuation are enforced by route', () => {
   const entitlements = require('node:fs').readFileSync('apps/hermes-control-plane/lib/entitlements.ts', 'utf8');
+  const governance = require('node:fs').readFileSync('apps/hermes-control-plane/lib/agent-governance.ts', 'utf8');
   const taskRoute = require('node:fs').readFileSync('apps/hermes-control-plane/app/api/tasks/route.ts', 'utf8');
   const failoverRoute = require('node:fs').readFileSync('apps/hermes-control-plane/app/api/tasks/failover/route.ts', 'utf8');
+  const taskLeases = require('node:fs').readFileSync('apps/hermes-control-plane/lib/task-leases.ts', 'utf8');
   assert.match(entitlements, /hasLocalControlAccess/);
   assert.match(entitlements, /plan !== "suspended"/);
   assert.match(entitlements, /hasCloudContinuationAccess/);
-  assert.match(taskRoute, /route === "cloud" && !hasCloudContinuationAccess\(org\)/);
+  assert.match(governance, /evaluateTaskAdmission/);
+  assert.match(governance, /evaluateCloudContinuation/);
+  assert.match(taskRoute, /evaluateTaskAdmission/);
   assert.ok(
-    taskRoute.indexOf('route === "cloud" && !hasCloudContinuationAccess(org)')
+    taskRoute.indexOf('evaluateTaskAdmission({')
       < taskRoute.indexOf('INSERT INTO threads'),
-    'cloud entitlement must be checked before creating a thread',
+    'governance must be checked before creating a thread',
   );
-  assert.match(failoverRoute, /!hasCloudContinuationAccess\(organization\)/);
+  assert.match(failoverRoute, /evaluateCloudContinuation/);
+  assert.match(failoverRoute, /stage: "manual_failover"/);
+  assert.match(taskLeases, /evaluateCloudContinuation/);
+  assert.match(taskLeases, /stage: "automatic_claim"/);
   assert.doesNotMatch(taskRoute, /active subscription is required to start new work/);
 });
 
