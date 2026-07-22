@@ -128,7 +128,7 @@ describe('formatLeashConnectionDisplay', () => {
     expect(display.headline).toContain('computer');
   });
 
-  it('shows USB direct link when relay is unpaired but Mac HTTP is up', () => {
+  it('shows USB Connected when relay is unpaired but Mac HTTP is up', () => {
     const display = formatLeashConnectionDisplay({
       connectionMode: 'relay',
       connectionState: 'disconnected',
@@ -140,8 +140,26 @@ describe('formatLeashConnectionDisplay', () => {
       }),
       isPaired: false,
     });
-    expect(display.headline).toBe('USB link to Igors-MacBook-Pro');
-    expect(display.footnote).toContain('Pair Hermes relay');
+    expect(display.headline).toBe('Connected via USB · Igors-MacBook-Pro');
+    expect(display.footnote).toMatch(/Optional/i);
+    expect(display.headline).not.toMatch(/not paired/i);
+    expect(display.footnote).not.toMatch(/not paired/i);
+  });
+
+  it('does not treat cloud-relay green alone as a direct Mac link', () => {
+    const display = formatLeashConnectionDisplay({
+      connectionMode: 'relay',
+      connectionState: 'disconnected',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      health: sampleHealth({
+        level: 'green',
+        gatewayState: 'unpaired',
+        directGatewayReachable: false,
+      }),
+      isPaired: false,
+    });
+    expect(display.headline).toBe("Can't reach your computer");
+    expect(display.headline).not.toMatch(/not paired/i);
   });
 });
 

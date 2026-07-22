@@ -23,9 +23,16 @@ import { isDeveloperLeashUnlockAllowed } from '../utils/demoModePolicy';
 import { thumbgateProPriceLabel } from '../constants/monetization';
 import { colors } from '../theme/colors';
 import { useGateway } from '../context/GatewayContext';
+import {
+  resolveCalmConnectionStatus,
+  resolveLeashHealthDetail,
+  shouldSurfaceLeashEventError,
+  isMacDirectReachable,
+} from '../utils/connectionStatusContract';
 import { formatLeashConnectionDisplay } from '../utils/gatewayEndpoint';
 import { buildLeashEmptyExplanation } from '../utils/leashUx';
 import { hasThumbgateLeashPro, isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
+import type { GatewayHealthLevel } from '../types/gateway';
 import { CHAT_APPROVAL_EDIT_PREFIX } from '../services/approvalResolver';
 import { fromPendingApproval } from '../utils/approvalNormalize';
 import {
@@ -199,7 +206,15 @@ export default function ApprovalsScreen() {
       })
     : null;
 
-  const healthLevel = health?.level ?? 'unknown';
+  const calmStatus = resolveCalmConnectionStatus({ health });
+  const healthLevel: GatewayHealthLevel =
+    calmStatus.status === 'connected'
+      ? 'green'
+      : calmStatus.status === 'needs_attention'
+        ? 'amber'
+        : calmStatus.status === 'checking'
+          ? 'unknown'
+          : 'red';
   const connectionDisplay = formatLeashConnectionDisplay({
     connectionMode: settings.connectionMode,
     connectionState,
@@ -207,27 +222,28 @@ export default function ApprovalsScreen() {
     health,
     isPaired,
   });
-  const gatewayHealthDetail = (() => {
-    if (settings.connectionMode === 'relay' && health?.gatewayState === 'unpaired') {
-      return health?.directGatewayReachable
-        ? 'Direct link OK · pair relay in Settings'
-        : 'Pair relay in Settings';
-    }
-    if (health?.gatewayState === 'running') {
-      return 'Hermes running on your Mac';
-    }
-    return undefined;
-  })();
+  const gatewayHealthDetail = resolveLeashHealthDetail({
+    connectionMode: settings.connectionMode,
+    isPaired,
+    health,
+  });
+  const macDirectOk = isMacDirectReachable(health);
   const connectionLine = connectionDisplay.machineName
     ? connectionDisplay.headline.includes(connectionDisplay.machineName)
       ? connectionDisplay.headline
       : `${connectionDisplay.headline} · ${connectionDisplay.machineName}`
     : connectionDisplay.headline;
+  // Optional approvals footnote only — never a contradictory "not paired" banner when Mac is up.
   const showConnectionAction =
     Boolean(connectionDisplay.footnote) &&
+    !macDirectOk &&
     (connectionState !== 'connected' && connectionState !== 'demo'
       ? true
       : settings.connectionMode === 'relay' && !isPaired);
+  const surfaceEventError = shouldSurfaceLeashEventError({
+    lastEventError,
+    health,
+  });
 
   const handleApprovalEdit = (approval: typeof pendingApprovals[number]) => {
     if (settings.glanceMode) {
@@ -547,7 +563,11 @@ export default function ApprovalsScreen() {
           </GlassCard>
         ) : null}
 
-        {leashUnlocked && lastEventError ? <Text style={styles.errorText}>{lastEventError}</Text> : null}
+        {leashUnlocked && surfaceEventError && lastEventError ? (
+          <Text style={styles.errorText} testID="leash-event-error">
+            {lastEventError}
+          </Text>
+        ) : null}
 
         {leashUnlocked ? (
           <TouchableOpacity

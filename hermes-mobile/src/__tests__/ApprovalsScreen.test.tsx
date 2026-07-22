@@ -46,19 +46,48 @@ describe('ApprovalsScreen', () => {
   it('keeps header refresh vertically centered beside health pill', () => {
     useGateway.mockReturnValue(
       mockUseGateway({
-        health: { level: 'green', gatewayState: 'unpaired', directGatewayReachable: true },
+        health: {
+          level: 'green',
+          gatewayState: 'unpaired',
+          directGatewayReachable: true,
+          hostname: 'Igors-Mac-mini.local',
+        },
         settings: { ...mockGatewaySettings, connectionMode: 'relay' },
       }),
     );
 
-    const { getByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
-    expect(getByText('Direct link OK · pair relay in Settings')).toBeTruthy();
+    const { getByTestId, getByText, queryByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByText('Connected')).toBeTruthy();
+    expect(getByText('Igors-Mac-mini')).toBeTruthy();
+    expect(queryByText(/not paired/i)).toBeNull();
+    expect(queryByText(/pair relay/i)).toBeNull();
     expect(getByTestId('leash-header-pill-row')).toBeTruthy();
     expect(getByTestId('leash-header-refresh')).toBeTruthy();
     const refreshStyle = getByTestId('leash-header-refresh').props.style;
     const flat = Array.isArray(refreshStyle) ? Object.assign({}, ...refreshStyle) : refreshStyle;
     expect(flat.alignSelf).toBe('center');
+  });
+
+  it('never shows red Not paired when Mac HTTP is already reachable', () => {
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        health: {
+          level: 'green',
+          gatewayState: 'unpaired',
+          directGatewayReachable: true,
+          hostname: 'Igors-Mac-mini.local',
+        },
+        isPaired: false,
+        lastEventError:
+          'Not paired — run desktop bridge pairing and enter the code in Settings.',
+        settings: { ...mockGatewaySettings, connectionMode: 'relay' },
+      }),
+    );
+
+    const { getByText, queryByTestId, queryByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    expect(getByText('Connected')).toBeTruthy();
+    expect(queryByTestId('leash-event-error')).toBeNull();
+    expect(queryByText(/Not paired/i)).toBeNull();
   });
 
   it('shows paywall when ThumbGate Leash is not unlocked', async () => {

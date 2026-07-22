@@ -1,5 +1,9 @@
 import { Platform } from 'react-native';
 import { normalizeGatewayUrl } from '../services/gatewayClient';
+import {
+  isMacDirectReachable,
+  resolveOptionalApprovalsFootnote,
+} from './connectionStatusContract';
 import { isLoopbackGatewayUrl, isValidGatewayUrl } from './gatewayUrlPolicy';
 import { isTailnetRouteLabel } from './tailscaleHosts';
 import type { ConnectionMode, GatewayHealthSnapshot } from '../types/gateway';
@@ -152,22 +156,29 @@ export function formatLeashConnectionDisplay(input: {
 
   if (input.connectionMode === 'relay') {
     if (!input.isPaired) {
-      const directOk =
-        input.health?.directGatewayReachable === true || input.health?.level === 'green';
+      // Only Mac HTTP proves a direct link — relay/cloud green must not fake it.
+      const directOk = isMacDirectReachable(input.health);
       if (directOk && input.gatewayUrl.trim()) {
         const usb = isLoopbackGatewayUrl(input.gatewayUrl);
+        const name = machineName.replace(/\.local$/i, '');
         return {
-          headline: usb
-            ? `USB link to ${machineName.replace(/\.local$/i, '')}`
-            : `Direct link to ${machineName.replace(/\.local$/i, '')}`,
+          headline: usb ? `Connected via USB · ${name}` : `Connected · ${name}`,
           machineName,
           lanIp: usb ? undefined : lanIp,
-          footnote: 'Pair Hermes relay in Settings for approvals on Wi‑Fi or cellular',
+          footnote: resolveOptionalApprovalsFootnote({
+            connectionMode: 'relay',
+            isPaired: false,
+            macDirectOk: true,
+          }),
         };
       }
       return {
-        headline: 'Hermes relay not paired',
-        footnote: 'Pair in Settings — approvals on Wi‑Fi, cellular, or USB',
+        headline: "Can't reach your computer",
+        footnote: resolveOptionalApprovalsFootnote({
+          connectionMode: 'relay',
+          isPaired: false,
+          macDirectOk: false,
+        }),
       };
     }
     if (input.connectionState === 'connected') {
