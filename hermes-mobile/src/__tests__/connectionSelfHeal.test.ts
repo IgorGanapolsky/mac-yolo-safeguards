@@ -1,6 +1,7 @@
 import type { GatewayProfile } from '../types/gatewayProfile';
 import {
   buildSelfHealProbeUrls,
+  isForeignUsbVsActiveRemote,
   resolveApiKeyForGatewayProbe,
   resolveCellularTailscaleFailoverUrl,
   savedProfileFallbackUrls,
@@ -262,6 +263,49 @@ describe('USB primary on cellular', () => {
         activeGatewayUrl: 'http://100.94.135.78:8642',
         effectiveGatewayUrl: 'http://100.94.135.78:8642',
         wifiConnected: true,
+        liveUsbSameMachine: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('never prefers USB when active is Tailscale to another machine (mini remote + Pro cable)', () => {
+    // User selected Mac mini over Tailscale; phone is cabled to MacBook Pro.
+    expect(
+      isForeignUsbVsActiveRemote({
+        activeGatewayUrl: 'http://100.94.135.78:8642',
+        effectiveGatewayUrl: 'http://100.94.135.78:8642',
+        liveUsbSameMachine: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldPreferUsbProbeFirst({
+        activeGatewayUrl: 'http://100.94.135.78:8642',
+        effectiveGatewayUrl: 'http://100.94.135.78:8642',
+        wifiConnected: true,
+        liveUsbSameMachine: false,
+      }),
+    ).toBe(false);
+    // Same Mac Tailscale + cable → not foreign; prefer USB allowed.
+    expect(
+      isForeignUsbVsActiveRemote({
+        activeGatewayUrl: 'http://100.87.85.85:8642',
+        effectiveGatewayUrl: 'http://100.87.85.85:8642',
+        liveUsbSameMachine: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPreferUsbProbeFirst({
+        activeGatewayUrl: 'http://100.87.85.85:8642',
+        effectiveGatewayUrl: 'http://100.87.85.85:8642',
+        wifiConnected: false,
+        liveUsbSameMachine: true,
+      }),
+    ).toBe(true);
+    // Sticky Tailscale id + already on USB (same-Mac handoff) is NOT foreign.
+    expect(
+      isForeignUsbVsActiveRemote({
+        activeGatewayUrl: 'http://100.87.85.85:8642',
+        effectiveGatewayUrl: 'http://127.0.0.1:8642',
         liveUsbSameMachine: false,
       }),
     ).toBe(false);

@@ -127,6 +127,8 @@ export function resolveUsbTransportHandoff(
   if (!isUsbHandoffSourceUrl(current)) {
     return { ...base, shouldHandoff: false, reason: 'not_remote_route' };
   }
+  // Active session is this Mac's Tailscale/LAN only — never hand off to USB when
+  // the cable is a different machine (mini Tailscale + Pro USB must stay on mini).
   if (!profileMatchesHostname(input.activeProfile, host)) {
     return { ...base, shouldHandoff: false, reason: 'foreign_usb_host' };
   }

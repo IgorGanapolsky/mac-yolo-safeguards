@@ -153,18 +153,47 @@ export function buildSelfHealProbeUrls(input: {
 }
 
 /**
+ * Active session is Tailscale/LAN to a Mac that is **not** the cabled host.
+ * Preferring USB would steal the intentional remote session (e.g. mini via
+ * Tailscale while Pro is plugged into the phone). Always honor the remote Mac.
+ *
+ * Not foreign when the *effective* route is already USB (same-Mac handoff kept
+ * sticky Tailscale profile id while chat URL is 127.0.0.1).
+ */
+export function isForeignUsbVsActiveRemote(input: {
+  activeGatewayUrl?: string | null;
+  effectiveGatewayUrl?: string | null;
+  /** Live reverse hostname matches the active/sticky Mac identity. */
+  liveUsbSameMachine?: boolean;
+}): boolean {
+  const effective = input.effectiveGatewayUrl?.trim() ?? '';
+  // Already chatting over USB — not a remote-other-Mac session to protect.
+  if (effective && isLoopbackGatewayUrl(effective)) {
+    return false;
+  }
+  const active = input.activeGatewayUrl?.trim() ?? '';
+  if (!active || isLoopbackGatewayUrl(active)) {
+    return false;
+  }
+  const remote =
+    isTailscaleGatewayUrl(active) || isPrivateLanGatewayUrl(active);
+  if (!remote) {
+    return false;
+  }
+  // Remote sticky + cable is a different Mac (or no same-machine proof).
+  return input.liveUsbSameMachine !== true;
+}
+
+/**
  * Prefer USB in autoDiscover **probe order only** — never force USB as the only path.
  *
- * Product (2026-07-23): when live reverse matches the *same* sticky Mac, try USB
- * first (even if the saved profile URL is Tailscale — handoff keeps activeProfileId
- * on the Tailscale row while effective URL may be 127.0.0.1). If USB probe fails,
- * callers MUST fall through to Tailscale/LAN. Sticky *foreign* Mac (mini while
- * cabled to Pro) sets liveUsbSameMachine=false → do not prefer USB.
+ * Product (2026-07-23):
+ * - Same sticky Mac + live reverse → try USB first (even if sticky URL is Tailscale).
+ * - USB probe fails → fall through to Tailscale/LAN (never USB-only).
+ * - **Active Tailscale/LAN to another Mac** (mini remote, Pro cable) → never prefer USB.
  *
- * Ghost guard: without liveUsbSameMachine, still require Wi‑Fi + an already-loopback
+ * Ghost guard: without liveUsbSameMachine, still require Wi‑Fi + already-loopback
  * profile/effective URL (cellular ghost 127.0.0.1 without live hostname stays out).
- *
- * Never: require USB, fail closed without USB, or block Tailscale as fallback.
  */
 export function shouldPreferUsbProbeFirst(input: {
   activeGatewayUrl?: string | null;
@@ -174,9 +203,20 @@ export function shouldPreferUsbProbeFirst(input: {
   /**
    * Live adb reverse /health hostname matches the sticky/active Mac.
    * When true, prefer USB first (not force) even on cellular / Tailscale sticky URL.
+   * When false/absent and sticky is remote Tailscale/LAN → never prefer USB.
    */
   liveUsbSameMachine?: boolean;
 }): boolean {
+  // HARD: user is on Tailscale/LAN to machine A; cable is machine B → stay on A.
+  if (
+    isForeignUsbVsActiveRemote({
+      activeGatewayUrl: input.activeGatewayUrl,
+      effectiveGatewayUrl: input.effectiveGatewayUrl,
+      liveUsbSameMachine: input.liveUsbSameMachine,
+    })
+  ) {
+    return false;
+  }
   if (input.liveUsbSameMachine) {
     return true;
   }
@@ -192,7 +232,7 @@ export function shouldPreferUsbProbeFirst(input: {
  * Prefer keeping a **healthy** same-Mac USB route over re-applying sticky Tailscale/LAN
  * in the same autoDiscover pass (stops USB→Tailscale thrash while cable is live).
  * Not a force: if USB dies, callers fall through and probe sticky remote.
- * Foreign sticky Mac (mini vs Pro cable) returns false — honor sticky Tailscale.
+ * Foreign sticky Mac (mini Tailscale while Pro cabled) returns false — stay on mini.
  */
 export function shouldKeepUsbOverStickyRemote(input: {
   effectiveGatewayUrl?: string | null;
@@ -201,6 +241,7 @@ export function shouldKeepUsbOverStickyRemote(input: {
 }): boolean {
   const effective = input.effectiveGatewayUrl?.trim() ?? '';
   const sticky = input.stickyProfileUrl?.trim() ?? '';
+  // Never "keep USB" when the cable is a different Mac than the sticky session.
   if (!input.liveUsbSameMachine || !isLoopbackGatewayUrl(effective)) {
     return false;
   }

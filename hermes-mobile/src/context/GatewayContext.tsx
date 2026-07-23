@@ -103,6 +103,7 @@ import {
   resolveCellularTailscaleFailoverUrl,
   shouldClearUsbPrimaryOnCellular,
   shouldDeferLoopbackSuccessOnCellular,
+  isForeignUsbVsActiveRemote,
   shouldKeepUsbOverStickyRemote,
   shouldPreferUsbProbeFirst,
 } from '../utils/connectionSelfHeal';
@@ -1526,9 +1527,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     const activeForDiscovery = activeProfile(profileStateRef.current);
     const effectiveUrl =
       effectiveGatewayUrlRef.current.trim() || currentUrl || '';
-    // Live cable identity — prefer same-Mac USB first over sticky Tailscale (2026-07-23).
-    // Prefer only: USB probe failure falls through to Tailscale/LAN. Never force USB-only.
-    // Foreign sticky Mac (mini while cabled to Pro) keeps liveUsbSameMachine=false.
+    // Live cable identity — prefer same-Mac USB first only when it matches the
+    // *active* computer (2026-07-23). Prefer not force; USB fail → Tailscale/LAN.
+    // HARD: active Tailscale/LAN to mini while Pro is cabled → never prefer USB.
     let liveUsbHostname: string | null = null;
     if (Platform.OS !== 'web') {
       try {
@@ -1547,15 +1548,20 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       ? { liveUsbHostname }
       : undefined;
     // Prefer USB when: already on loopback (profile or effective) on Wi‑Fi, OR live
-    // reverse matches the sticky Mac (Wi‑Fi or cellular). Ghost 127.0.0.1 without a
-    // matching hostname stays out. Empty sticky + USB must not steal unpaired sessions
-    // (false-green Connected + Wrong key — user crisis 2026-07-14).
-    const preferUsbFirst = shouldPreferUsbProbeFirst({
-      activeGatewayUrl: activeForDiscovery?.gatewayUrl,
-      effectiveGatewayUrl: effectiveUrl,
-      wifiConnected: wifiConnectedRef.current,
-      liveUsbSameMachine: Boolean(activeForDiscovery && liveUsbSameMachine),
-    });
+    // reverse matches the sticky Mac. Never when active is remote to another Mac.
+    // Empty sticky + USB must not steal unpaired sessions (2026-07-14 wrong-key crisis).
+    const preferUsbFirst =
+      !isForeignUsbVsActiveRemote({
+        activeGatewayUrl: activeForDiscovery?.gatewayUrl,
+        effectiveGatewayUrl: effectiveUrl,
+        liveUsbSameMachine: Boolean(activeForDiscovery && liveUsbSameMachine),
+      }) &&
+      shouldPreferUsbProbeFirst({
+        activeGatewayUrl: activeForDiscovery?.gatewayUrl,
+        effectiveGatewayUrl: effectiveUrl,
+        wifiConnected: wifiConnectedRef.current,
+        liveUsbSameMachine: Boolean(activeForDiscovery && liveUsbSameMachine),
+      });
 
     const commitDiscoveredUrl = (
       url: string,
