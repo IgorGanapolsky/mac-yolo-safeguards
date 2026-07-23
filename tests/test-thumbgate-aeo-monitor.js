@@ -63,10 +63,10 @@ assert.deepStrictEqual(visibilityDelta({ metrics: { citationCount: 2, mentionCou
 function technicalFetch(url) {
   const pathname = new URL(url).pathname;
   const bodies = {
-    '/': '<script type="application/ld+json">FAQPage</script><h2>What is ThumbGate?</h2>',
+    '/': '<script type="application/ld+json">FAQPage SoftwareApplication MobileApplication</script><h3>What is ThumbGate?</h3><h3>What is Hermes Mobile?</h3>',
     '/robots.txt': 'Disallow: /dashboard\nSitemap: https://thumbgate.app/sitemap.xml',
     '/sitemap.xml': '<loc>https://thumbgate.app/</loc>',
-    '/llms.txt': '# ThumbGate for Hermes\nhttps://thumbgate.app/',
+    '/llms.txt': '# Leash by ThumbGate\nhttps://thumbgate.app/\nHermes Mobile\nhttps://thumbgate.app/go/android\nhttps://thumbgate.app/go/ios',
     '/.well-known/ai-catalog.json': '{"specVersion":"1.0"}',
   };
   return Promise.resolve({ ok: true, status: 200, text: async () => bodies[pathname] || '' });

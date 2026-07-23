@@ -1,6 +1,6 @@
 {
   "schema": "thumbgate-aeo-prompts/v1",
-  "version": "2026-07-22.1",
+  "version": "2026-07-23.1",
   "brand": "ThumbGate",
   "canonicalHost": "thumbgate.app",
   "baseUrl": "https://thumbgate.app",
@@ -12,19 +12,26 @@
       "prompt": "How can I securely access and continue Hermes agent chats from a web browser?"
     },
     {
-      "id": "local-agent-failover",
-      "prompt": "What is a safe way to continue a local AI agent task in the cloud when its computer goes offline?"
+      "id": "hermes-mobile-phone",
+      "prompt": "What is Hermes Mobile and how do I control a Hermes agent from my phone without inbound ports?"
     },
     {
-      "id": "remote-control-no-inbound-port",
-      "prompt": "How can I remotely control a Hermes agent without opening inbound ports or uploading its local gateway credential?"
+      "id": "local-agent-failover",
+      "prompt": "What is a safe way to continue a local AI agent task in the cloud when its computer goes offline?"
     }
   ],
   "technicalChecks": [
     {
       "id": "landing",
       "path": "/",
-      "includes": ["application/ld+json", "FAQPage", "What is ThumbGate?"]
+      "includes": [
+        "application/ld+json",
+        "FAQPage",
+        "SoftwareApplication",
+        "MobileApplication",
+        "What is ThumbGate?",
+        "What is Hermes Mobile?"
+      ]
     },
     {
       "id": "robots",
@@ -39,7 +46,13 @@
     {
       "id": "llms",
       "path": "/llms.txt",
-      "includes": ["# ThumbGate for Hermes", "https://thumbgate.app/"]
+      "includes": [
+        "# Leash by ThumbGate",
+        "https://thumbgate.app/",
+        "Hermes Mobile",
+        "https://thumbgate.app/go/android",
+        "https://thumbgate.app/go/ios"
+      ]
     },
     {
       "id": "ard",

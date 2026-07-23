@@ -89,11 +89,16 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /90s<\/strong><span>execution lease/);
   assert.match(page, /application\/ld\+json/);
   assert.match(page, /SoftwareApplication/);
+  assert.match(page, /MobileApplication/);
+  assert.match(page, /FAQPage/);
+  assert.match(page, /What is ThumbGate\?/);
+  assert.match(page, /What is Hermes Mobile\?/);
+  assert.match(page, /id="faq"/);
   assert.match(page, /RemoteControlDiagram/);
   const diagram = await readFile(new URL("../app/RemoteControlDiagram.tsx", import.meta.url), "utf8");
   assert.match(diagram, /Your phone/);
   assert.match(diagram, /Encrypted pairing/);
-  assert.doesNotMatch(page, /FAQPage|What is ThumbGate\?/);
+  assert.match(layout, /Hermes Mobile/);
   assert.match(robots, /disallow: \["\/dashboard", "\/api\/"\]/);
   assert.match(robots, /https:\/\/thumbgate\.app\/sitemap\.xml/);
   assert.match(sitemap, /https:\/\/thumbgate\.app\//);
@@ -101,6 +106,10 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(llms, /Aggregate, content-free product analytics/);
   assert.match(llms, /## Direct answers/);
   assert.match(llms, /web dashboard for Hermes remote control/);
+  assert.match(llms, /## Hermes Mobile \(phone app\)/);
+  assert.match(llms, /https:\/\/thumbgate\.app\/go\/android/);
+  assert.match(llms, /https:\/\/thumbgate\.app\/go\/ios/);
+  assert.match(llms, /What is Hermes Mobile\?/);
   assert.match(llms, /CloudCLI is a separate/);
   assert.doesNotMatch(page, /Igor|Ganapolsky/i);
   assert.doesNotMatch(`${layout}\n${robots}\n${sitemap}\n${llms}`, /Igor|Ganapolsky/i);

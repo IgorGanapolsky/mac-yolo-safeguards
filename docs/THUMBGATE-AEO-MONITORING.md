@@ -4,11 +4,21 @@ ThumbGate tracks a stable, brand-neutral three-prompt set weekly instead of trea
 
 ## What is measured
 
-- Technical discovery: landing JSON-LD and visible FAQ, robots, sitemap, `llms.txt`, and ARD 1.0.
+- Technical discovery: landing JSON-LD (SoftwareApplication + MobileApplication + FAQPage) and visible FAQ, robots, sitemap, `llms.txt` (including Hermes Mobile store answers), and ARD 1.0.
 - Citation count: results whose canonical host is `thumbgate.app`.
 - Brand mention share: results that cite or name ThumbGate.
 - Deterministic mention sentiment: a small, auditable positive/negative term set; not an ML sentiment model.
 - Citation and mention deltas against the preceding receipt.
+
+## Prompt set (v2026-07-23.1)
+
+Three stable prompts (exactly three — monitor enforces the count):
+
+1. Secure Hermes web chat / browser control
+2. Hermes Mobile phone control without inbound ports
+3. Local-agent cloud failover when the machine is offline
+
+Do not treat store **ranking** as an AEO metric. ASO lives in Play/ASC metadata; this monitor is a web citation proxy only.
 
 ## Cost and privacy
 
