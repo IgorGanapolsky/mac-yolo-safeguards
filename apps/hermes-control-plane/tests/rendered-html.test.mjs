@@ -40,6 +40,9 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /data-funnel-event="app_store_click"/);
   assert.match(page, /id="mobile"/);
   assert.match(page, /Google Play/);
+  assert.match(page, /store-badge-play/);
+  assert.match(page, /store-badge-ios/);
+  assert.match(page, /Prefer the native app/);
   assert.match(page, /App Store/);
   const storeLinks = await readFile(new URL("../app/storeLinks.ts", import.meta.url), "utf8");
   const androidGo = await readFile(new URL("../app/go/android/route.ts", import.meta.url), "utf8");
@@ -89,6 +92,7 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /90s<\/strong><span>execution lease/);
   assert.match(page, /application\/ld\+json/);
   assert.match(page, /SoftwareApplication/);
+  assert.match(page, /RemoteControlDiagram/);
   assert.doesNotMatch(page, /FAQPage|What is ThumbGate\?/);
   assert.match(robots, /disallow: \["\/dashboard", "\/api\/"\]/);
   assert.match(robots, /https:\/\/thumbgate\.app\/sitemap\.xml/);
