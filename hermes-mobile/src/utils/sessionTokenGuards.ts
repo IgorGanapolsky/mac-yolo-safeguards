@@ -147,20 +147,25 @@ export function megaSessionRecentsBadge(
 }
 
 /**
- * One-shot nudge when opening a WARN session from Recents — banner alone is easy to ignore.
- * BLOCK sessions use shouldForceFreshOnSessionSelect (hard gate).
+ * One-shot nudge when opening a WARN or BLOCK session from Recents.
+ * Reopen is always allowed for reading; Send stays hard-blocked on BLOCK.
  */
 export function shouldSuggestFreshOnSessionSelect(
   session: SessionTokenFields | null | undefined,
 ): boolean {
-  return classifyMegaSession(session) === 'warn';
+  const level = classifyMegaSession(session);
+  return level === 'warn' || level === 'block';
 }
 
-/** Selecting a BLOCK session from Recents should force Start fresh instead of reopen. */
+/**
+ * @deprecated Prefer opening mega threads for reading + Start-fresh on Send.
+ * Always false — Recents/reconnect must not trap users in empty New chat.
+ * Kept so older call sites compile; Send still uses isMegaSessionSendBlocked.
+ */
 export function shouldForceFreshOnSessionSelect(
-  session: SessionTokenFields | null | undefined,
+  _session: SessionTokenFields | null | undefined,
 ): boolean {
-  return classifyMegaSession(session) === 'block';
+  return false;
 }
 
 export function formatMegaSessionTokenCount(totalTokens: number): string {
