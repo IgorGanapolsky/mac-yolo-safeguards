@@ -57,6 +57,13 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
+        {/* Display face for landing hero — Inter at 75px reads soft/generic for buyers. */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
+          rel="stylesheet"
+        />
         {/* Warm WorkOS + AuthKit before Sign in (July 2026 speed research). */}
         <link rel="preconnect" href="https://api.workos.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://api.workos.com" />
