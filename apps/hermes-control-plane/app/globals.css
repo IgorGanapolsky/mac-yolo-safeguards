@@ -83,15 +83,33 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .composer{padding:16px}
 .composer textarea{min-height:98px;width:100%;resize:vertical;background:var(--composer);border:1px solid var(--line);border-radius:20px;padding:16px;color:var(--ink);font:14px/1.55 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 .composer textarea:focus{border-color:rgba(34,211,238,.55);box-shadow:0 0 0 3px rgba(34,211,238,.08);outline:none}
-.composer-route{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0 4px}
-.composer-route-label{font:650 10px/1 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-right:4px}
+.composer-where{margin:10px 0 4px;display:grid;gap:8px}
+.composer-where-label{margin:0;font:650 11px/1.2 Inter,ui-sans-serif,system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.composer-route{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .composer-route label{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:999px;font-size:12px;color:var(--muted);cursor:pointer;background:rgba(255,255,255,.03)}
 .composer-route label.is-selected{border-color:rgba(34,211,238,.45);color:var(--ink);background:rgba(34,211,238,.08)}
 .composer-route label:has(input:disabled){opacity:.45;cursor:not-allowed}
 .composer-route input{accent-color:var(--accent)}
 .route-label-short{display:none}
-.composer-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px}
-.composer-actions small{flex:1;min-width:0;color:var(--muted);font-size:11px;line-height:1.4}
+.composer-route-explain{
+  margin:0;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:rgba(34,211,238,.06);
+  display:grid;
+  gap:4px;
+}
+.composer-route-explain strong{
+  font:650 13px/1.3 Inter,ui-sans-serif,system-ui,sans-serif;
+  color:var(--ink);
+}
+.composer-route-explain p{
+  margin:0;
+  color:var(--muted);
+  font:12px/1.45 Inter,ui-sans-serif,system-ui,sans-serif;
+}
+.composer-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:8px}
 .composer-run{flex:0 0 auto}
 .conversation-history{background:rgba(7,10,18,.55)}
 .conversation-message{border-radius:18px;background:rgba(255,255,255,.045);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -175,7 +193,7 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 @media(max-width:700px){
   :root{
     --mobile-tab-h:calc(64px + env(safe-area-inset-bottom,0px));
-    --composer-dock-space:240px;
+    --composer-dock-space:300px;
   }
   body{padding-bottom:0}
   /* Clear sticky composer + bottom tabs so Run never hides under chrome */
@@ -238,20 +256,17 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     padding:12px 14px;
     font-size:16px; /* iOS: avoid focus zoom */
   }
+  .composer-where{margin:8px 0 0;gap:8px}
+  .composer-where-label{font-size:10px;letter-spacing:.06em}
   .composer-route{
     display:grid;
     grid-template-columns:1fr 1fr 1fr;
     gap:0;
-    margin:8px 0 0;
+    margin:0;
     border:1px solid var(--line);
     border-radius:12px;
     overflow:hidden;
-    background:rgba(255,255,255,.03);
-  }
-  .composer-route-label{
-    position:absolute;
-    width:1px;height:1px;padding:0;margin:-1px;
-    overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;
+    background:#111827;
   }
   .composer-route label{
     display:grid;
@@ -270,8 +285,8 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .composer-route label:last-of-type{border-right:0}
   .composer-route label.is-selected{
     color:var(--ink);
-    background:rgba(34,211,238,.12);
-    box-shadow:inset 0 0 0 1px rgba(34,211,238,.35);
+    background:rgba(34,211,238,.14);
+    box-shadow:inset 0 0 0 1px rgba(34,211,238,.4);
   }
   .composer-route input{
     position:absolute;
@@ -281,20 +296,21 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   }
   .route-label-full{display:none}
   .route-label-short{display:inline}
+  .composer-route-explain{
+    padding:10px 12px;
+    border-radius:12px;
+    background:#111827;
+    border:1px solid rgba(34,211,238,.22);
+  }
+  .composer-route-explain strong{font-size:13px}
+  .composer-route-explain p{font-size:12px;line-height:1.4;color:#9CA3AF}
   .composer-actions{
     display:grid;
     grid-template-columns:1fr;
     gap:8px;
     margin-top:10px;
   }
-  .composer-actions small{
-    order:2;
-    max-width:none;
-    font-size:11px;
-    line-height:1.35;
-  }
   .composer-run{
-    order:1;
     width:100%;
     min-height:48px;
     border-radius:14px;

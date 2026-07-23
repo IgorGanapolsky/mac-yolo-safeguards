@@ -195,10 +195,14 @@ test("lets users choose Mac vs Continuity VPS on every task not only offline fai
   const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
   const taskRouting = readFileSync(new URL("../lib/task-routing.ts", import.meta.url), "utf8");
   assert.match(dashboard, /routePreference/);
-  assert.match(dashboard, /Continuity \(VPS\)/);
   assert.match(dashboard, /My Mac/);
-  assert.match(dashboard, /Auto \(Mac first\)/);
-  assert.match(dashboard, /aria-label="Where to run this task"/);
+  assert.match(dashboard, /Where should this run\?/);
+  assert.match(dashboard, /composer-route-explain/);
+  assert.match(dashboard, /Auto — Mac first/);
+  assert.match(dashboard, /My Mac only/);
+  assert.match(dashboard, /Continuity \(cloud VPS\)/);
+  assert.match(dashboard, /aria-labelledby="composer-where-label"/);
+  assert.doesNotMatch(dashboard, /composer-route-label/);
   assert.match(tasksRoute, /routePreference/);
   assert.match(tasksRoute, /decideTaskRoute/);
   assert.match(taskRouting, /preference === "cloud"/);

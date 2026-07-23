@@ -101,6 +101,30 @@ export default function DashboardClient() {
   const [prompt, setPrompt] = useState("");
   /** Where this task should run: Mac, Continuity VPS, or auto offline failover. */
   const [routePreference, setRoutePreference] = useState<"local" | "cloud" | "auto">("auto");
+
+  /** Plain-English copy for the Mac / Continuity / Auto control (always show, never jargon-only). */
+  const routeExplain =
+    !devices.length
+      ? {
+          title: "Pair a Mac first",
+          body: "Install the connector on your computer (Settings), then you can choose where work runs.",
+        }
+      : routePreference === "local"
+        ? {
+            title: "My Mac only",
+            body: "Runs on your paired computer. If the Mac is asleep or offline, this task waits — Continuity will not start.",
+          }
+        : routePreference === "cloud"
+          ? {
+              title: "Continuity (cloud VPS)",
+              body: organization?.cloudAccess
+                ? "Always runs on ThumbGate’s cloud runner, even if your Mac is online. Uses a Continuity run from your plan."
+                : "Needs a Continuity trial or Pro plan. Start Continuity to use the cloud runner.",
+            }
+          : {
+              title: "Auto — Mac first",
+              body: "Uses your Mac while it’s online. If the Mac goes offline, Continuity can continue based on that Mac’s “If Mac goes offline” setting in Settings.",
+            };
   const [pairCode, setPairCode] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -120,6 +144,24 @@ export default function DashboardClient() {
   /** Bottom-tab highlight on phone: path + hash, not always-Hermes. */
   const [mobileTab, setMobileTab] = useState<"hermes" | "leash" | "lessons" | "settings">("hermes");
   const autoSelectedThread = useRef(false);
+  const composerObserverRef = useRef<ResizeObserver | null>(null);
+  /**
+   * `--composer-dock-space` (globals.css) reserves room below the fixed mobile composer
+   * so it never overlaps content. A static guess breaks the moment the textarea grows or
+   * the route explainer wraps to a second line — measure the real box instead.
+   */
+  const setComposerNode = useCallback((node: HTMLFormElement | null) => {
+    composerObserverRef.current?.disconnect();
+    composerObserverRef.current = null;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const applyDockSpace = () => {
+      document.documentElement.style.setProperty("--composer-dock-space", `${Math.ceil(node.offsetHeight) + 16}px`);
+    };
+    applyDockSpace();
+    const observer = new ResizeObserver(applyDockSpace);
+    observer.observe(node);
+    composerObserverRef.current = observer;
+  }, []);
 
   useEffect(() => {
     function syncMobileTab() {
@@ -588,7 +630,7 @@ export default function DashboardClient() {
                   : null,
               ])}
             </div>}
-            <form className="composer" onSubmit={(event) => void createTask(event)}>
+            <form className="composer" ref={setComposerNode} onSubmit={(event) => void createTask(event)}>
               <textarea
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
@@ -598,34 +640,34 @@ export default function DashboardClient() {
                 aria-label="Message for Hermes"
                 disabled={busy}
               />
-              <div className="composer-route" role="group" aria-label="Where to run this task">
-                <span className="composer-route-label">Run on</span>
-                <label className={routePreference === "local" ? "is-selected" : ""}>
-                  <input type="radio" name="routePreference" value="local" checked={routePreference === "local"} onChange={() => setRoutePreference("local")} />
-                  <span className="route-label-full">My Mac</span>
-                  <span className="route-label-short">Mac</span>
-                </label>
-                <label className={routePreference === "cloud" ? "is-selected" : ""} title={organization?.cloudAccess ? "Fenced Continuity VPS even if a Mac is online" : "Requires Continuity trial or Pro"}>
-                  <input type="radio" name="routePreference" value="cloud" checked={routePreference === "cloud"} onChange={() => setRoutePreference("cloud")} disabled={!organization?.cloudAccess} />
-                  <span className="route-label-full">Continuity (VPS)</span>
-                  <span className="route-label-short">Continuity</span>
-                </label>
-                <label className={routePreference === "auto" ? "is-selected" : ""}>
-                  <input type="radio" name="routePreference" value="auto" checked={routePreference === "auto"} onChange={() => setRoutePreference("auto")} />
-                  <span className="route-label-full">Auto (Mac first)</span>
-                  <span className="route-label-short">Auto</span>
-                </label>
+              <div className="composer-where">
+                <p className="composer-where-label" id="composer-where-label">Where should this run?</p>
+                <div className="composer-route" role="radiogroup" aria-labelledby="composer-where-label">
+                  <label className={routePreference === "local" ? "is-selected" : ""}>
+                    <input type="radio" name="routePreference" value="local" checked={routePreference === "local"} onChange={() => setRoutePreference("local")} />
+                    <span className="route-label-full">My Mac</span>
+                    <span className="route-label-short">My Mac</span>
+                  </label>
+                  <label
+                    className={routePreference === "cloud" ? "is-selected" : ""}
+                    title={organization?.cloudAccess ? "Cloud VPS even if your Mac is online" : "Requires Continuity trial or Pro"}
+                  >
+                    <input type="radio" name="routePreference" value="cloud" checked={routePreference === "cloud"} onChange={() => setRoutePreference("cloud")} disabled={!organization?.cloudAccess} />
+                    <span className="route-label-full">Continuity</span>
+                    <span className="route-label-short">Continuity</span>
+                  </label>
+                  <label className={routePreference === "auto" ? "is-selected" : ""}>
+                    <input type="radio" name="routePreference" value="auto" checked={routePreference === "auto"} onChange={() => setRoutePreference("auto")} />
+                    <span className="route-label-full">Auto</span>
+                    <span className="route-label-short">Auto</span>
+                  </label>
+                </div>
+                <div className="composer-route-explain" role="status" aria-live="polite">
+                  <strong>{routeExplain.title}</strong>
+                  <p>{routeExplain.body}</p>
+                </div>
               </div>
               <div className="composer-actions">
-                <small>
-                  {!devices.length
-                    ? "Pair a machine before creating a task"
-                    : routePreference === "cloud"
-                      ? "Always Continuity VPS for this task (Mac may stay idle)"
-                      : routePreference === "local"
-                        ? "Always your paired Mac (blocks if offline — no silent Continuity)"
-                        : "Mac while online; if offline, use each Mac’s offline setting"}
-                </small>
                 <button
                   type="submit"
                   className="button button-primary button-small composer-run"
