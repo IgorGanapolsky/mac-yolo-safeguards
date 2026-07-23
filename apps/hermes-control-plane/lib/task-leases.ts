@@ -100,8 +100,16 @@ export async function claimTask(input: {
     ? "k.route = 'local' AND k.device_id = ? AND k.status IN ('local_pending', 'cloud_pending', 'running')"
     : `((k.route = 'cloud' AND k.status IN ('cloud_pending', 'running'))
         OR (k.route = 'local' AND k.status = 'local_pending' AND d.failover_mode = 'auto'
+            AND (d.last_seen_at IS NULL OR d.last_seen_at < ?))
+        OR (k.route = 'local' AND k.status = 'running' AND d.failover_mode = 'auto'
             AND (d.last_seen_at IS NULL OR d.last_seen_at < ?)))`;
-  const params = input.route === "local" ? [input.deviceId!, now] : [now - 60_000, now];
+  // The 'running' branch above is what lets cloud take over a task the Mac claimed and then
+  // went offline mid-execution (lid closed while running) — not just tasks never claimed
+  // locally. reclassifyStaleLocalTasks() above only sweeps lease_owner IS NULL tasks, so it
+  // can't reach this case; both branches require the task's own lease to already be expired
+  // (enforced by the trailing lease_expires_at check below), so the fencing-token CAS in the
+  // UPDATE still owns correctness.
+  const params = input.route === "local" ? [input.deviceId!, now] : [now - 60_000, now - 60_000, now];
   const candidate = await db().prepare(
     `SELECT k.id, k.organization_id AS organizationId, k.thread_id AS threadId, t.title AS threadTitle, k.prompt,
             k.route AS currentRoute, k.lease_generation AS leaseGeneration, k.created_at AS createdAt,

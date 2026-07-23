@@ -1,4 +1,10 @@
 import { createSession, sessionCookie } from "@/lib/auth";
+import {
+  normalizeEmail,
+  pickBestMembership,
+  shouldBackfillWorkosOrganizationId,
+  type MembershipCandidate,
+} from "@/lib/auth-identity";
 import { verifySignedAuthState } from "@/lib/auth-state";
 import { audit } from "@/lib/audit";
 import { db, runtimeEnv } from "@/lib/runtime";
@@ -23,6 +29,118 @@ interface AuthenticationResponse {
   message?: string;
 }
 
+async function resolveLocalUser(workosUser: WorkOSUser, now: number): Promise<{ userId: string }> {
+  const normalized = normalizeEmail(workosUser.email);
+  let user = await db().prepare(
+    "SELECT id FROM users WHERE workos_user_id = ?",
+  ).bind(workosUser.id).first<{ id: string }>();
+
+  if (!user) {
+    // WorkOS can issue a different workos_user_id for the same person (fresh Google SSO).
+    // Email fallback prevents forking a second user + empty org.
+    user = await db().prepare(
+      "SELECT id FROM users WHERE lower(email) = ?",
+    ).bind(normalized).first<{ id: string }>();
+  }
+
+  const userId = user?.id ?? crypto.randomUUID();
+  const displayName = workosUser.name?.trim()
+    || [workosUser.first_name, workosUser.last_name].filter(Boolean).join(" ")
+    || workosUser.email;
+
+  if (user) {
+    await db().prepare(
+      "UPDATE users SET workos_user_id = ?, email = ?, name = ?, avatar_url = ?, updated_at = ? WHERE id = ?",
+    ).bind(workosUser.id, workosUser.email, displayName, workosUser.profile_picture_url ?? null, now, userId).run();
+  } else {
+    await db().prepare(
+      "INSERT INTO users (id, workos_user_id, email, name, avatar_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    ).bind(userId, workosUser.id, workosUser.email, displayName, workosUser.profile_picture_url ?? null, now, now).run();
+  }
+
+  return { userId };
+}
+
+async function listMemberships(userId: string): Promise<MembershipCandidate[]> {
+  const rows = await db().prepare(
+    `SELECT m.organization_id AS organizationId,
+            o.plan AS plan,
+            o.workos_organization_id AS workosOrganizationId,
+            m.created_at AS membershipCreatedAt,
+            (SELECT COUNT(*) FROM devices d
+              WHERE d.organization_id = m.organization_id AND d.revoked_at IS NULL) AS deviceCount
+       FROM memberships m
+       JOIN organizations o ON o.id = m.organization_id
+      WHERE m.user_id = ?`,
+  ).bind(userId).all<{
+    organizationId: string;
+    plan: string;
+    workosOrganizationId: string | null;
+    membershipCreatedAt: number;
+    deviceCount: number;
+  }>();
+
+  return (rows.results ?? []).map((row) => ({
+    organizationId: row.organizationId,
+    plan: row.plan,
+    workosOrganizationId: row.workosOrganizationId,
+    membershipCreatedAt: row.membershipCreatedAt,
+    deviceCount: Number(row.deviceCount) || 0,
+  }));
+}
+
+async function resolveOrganization(
+  userId: string,
+  displayName: string,
+  preferredWorkosOrgId: string | null,
+  now: number,
+): Promise<string> {
+  const memberships = await listMemberships(userId);
+  const chosen = pickBestMembership(memberships, preferredWorkosOrgId);
+
+  if (chosen) {
+    if (shouldBackfillWorkosOrganizationId(chosen, preferredWorkosOrgId) && preferredWorkosOrgId) {
+      // Link WorkOS org id onto the existing workspace so future logins match cleanly.
+      // UNIQUE on workos_organization_id: ignore if another row already owns it.
+      try {
+        await db().prepare(
+          "UPDATE organizations SET workos_organization_id = ?, updated_at = ? WHERE id = ? AND (workos_organization_id IS NULL OR workos_organization_id = '')",
+        ).bind(preferredWorkosOrgId, now, chosen.organizationId).run();
+      } catch (error) {
+        console.warn("auth.callback: could not backfill workos_organization_id", error);
+      }
+    }
+    return chosen.organizationId;
+  }
+
+  // No memberships yet — attach to existing WorkOS org if present, else create.
+  const existingOrg = preferredWorkosOrgId
+    ? await db().prepare(
+      "SELECT id FROM organizations WHERE workos_organization_id = ?",
+    ).bind(preferredWorkosOrgId).first<{ id: string }>()
+    : null;
+
+  const organizationId = existingOrg?.id ?? crypto.randomUUID();
+  if (!existingOrg) {
+    await db().prepare(
+      "INSERT INTO organizations (id, workos_organization_id, name, plan, trial_ends_at, created_at, updated_at) VALUES (?, ?, ?, 'trial', ?, ?, ?)",
+    ).bind(
+      organizationId,
+      preferredWorkosOrgId,
+      `${displayName}'s workspace`,
+      now + 14 * 24 * 60 * 60 * 1000,
+      now,
+      now,
+    ).run();
+  }
+
+  await db().prepare(
+    "INSERT OR IGNORE INTO memberships (id, organization_id, user_id, role, created_at) VALUES (?, ?, ?, 'owner', ?)",
+  ).bind(crypto.randomUUID(), organizationId, userId, now).run();
+
+  return organizationId;
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
@@ -43,12 +161,13 @@ export async function GET(request: Request) {
   } else {
     const stateHash = await sha256(state);
     const authState = await db().prepare(
-      "SELECT return_to AS returnTo FROM auth_states WHERE state_hash = ? AND expires_at > ?"
+      "SELECT return_to AS returnTo FROM auth_states WHERE state_hash = ? AND expires_at > ?",
     ).bind(stateHash, Date.now()).first<{ returnTo: string }>();
     if (!authState) return Response.redirect(new URL("/?auth_error=invalid_state", url.origin), 302);
     await db().prepare("DELETE FROM auth_states WHERE state_hash = ?").bind(stateHash).run();
     returnTo = authState.returnTo;
   }
+
   const authResponse = await fetch("https://api.workos.com/user_management/authenticate", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -66,6 +185,7 @@ export async function GET(request: Request) {
     console.error("WorkOS callback failed", authResponse.status, payload.error ?? payload.message ?? "unknown error");
     return Response.redirect(new URL("/?auth_error=authentication_failed", url.origin), 302);
   }
+
   const workosSessionId = workosSessionIdFromAccessToken(payload.access_token);
   if (!workosSessionId) {
     console.error("WorkOS callback did not include a valid provider session");
@@ -74,42 +194,28 @@ export async function GET(request: Request) {
 
   const now = Date.now();
   const workosUser = payload.user;
-  let user = await db().prepare("SELECT id FROM users WHERE workos_user_id = ?").bind(workosUser.id).first<{ id: string }>();
-  const userId = user?.id ?? crypto.randomUUID();
-  const displayName = workosUser.name?.trim() || [workosUser.first_name, workosUser.last_name].filter(Boolean).join(" ") || workosUser.email;
-  if (user) {
-    await db().prepare("UPDATE users SET email = ?, name = ?, avatar_url = ?, updated_at = ? WHERE id = ?")
-      .bind(workosUser.email, displayName, workosUser.profile_picture_url ?? null, now, userId).run();
-  } else {
-    await db().prepare(
-      "INSERT INTO users (id, workos_user_id, email, name, avatar_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
-    ).bind(userId, workosUser.id, workosUser.email, displayName, workosUser.profile_picture_url ?? null, now, now).run();
-    user = { id: userId };
-  }
+  const displayName = workosUser.name?.trim()
+    || [workosUser.first_name, workosUser.last_name].filter(Boolean).join(" ")
+    || workosUser.email;
 
-  const membership = await db().prepare(
-    `SELECT m.organization_id AS organizationId FROM memberships m
-      JOIN organizations o ON o.id = m.organization_id
-     WHERE m.user_id = ? AND (? IS NULL OR o.workos_organization_id = ?) LIMIT 1`
-  ).bind(userId, payload.organization_id ?? null, payload.organization_id ?? null).first<{ organizationId: string }>();
-  let organizationId = membership?.organizationId;
-  if (!organizationId) {
-    const existingOrg = payload.organization_id
-      ? await db().prepare("SELECT id FROM organizations WHERE workos_organization_id = ?").bind(payload.organization_id).first<{ id: string }>()
-      : null;
-    organizationId = existingOrg?.id ?? crypto.randomUUID();
-    if (!existingOrg) {
-      await db().prepare(
-        "INSERT INTO organizations (id, workos_organization_id, name, plan, trial_ends_at, created_at, updated_at) VALUES (?, ?, ?, 'trial', ?, ?, ?)"
-      ).bind(organizationId, payload.organization_id ?? null, `${displayName}'s workspace`, now + 14 * 24 * 60 * 60 * 1000, now, now).run();
-    }
-    await db().prepare(
-      "INSERT OR IGNORE INTO memberships (id, organization_id, user_id, role, created_at) VALUES (?, ?, ?, 'owner', ?)"
-    ).bind(crypto.randomUUID(), organizationId, userId, now).run();
-  }
+  const { userId } = await resolveLocalUser(workosUser, now);
+  const organizationId = await resolveOrganization(
+    userId,
+    displayName,
+    payload.organization_id ?? null,
+    now,
+  );
 
   const sessionToken = await createSession(userId, organizationId, workosSessionId);
-  await audit({ organizationId, actorType: "user", actorId: userId, action: "auth.login", targetType: "session", metadata: { method: payload.authentication_method ?? "AuthKit" } });
+  await audit({
+    organizationId,
+    actorType: "user",
+    actorId: userId,
+    action: "auth.login",
+    targetType: "session",
+    metadata: { method: payload.authentication_method ?? "AuthKit" },
+  });
+
   return new Response(null, {
     status: 302,
     headers: {

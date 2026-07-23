@@ -9,9 +9,12 @@ const CONTROL_TIMEOUT_MS = Number(process.env.CONTROL_TIMEOUT_MS || 15_000);
 const MODEL_TIMEOUT_MS = Number(process.env.MODEL_TIMEOUT_MS || 75_000);
 const MODEL_MAX_TOKENS = Number(process.env.MODEL_MAX_TOKENS || 2_048);
 const LEASE_RENEW_MS = Number(process.env.LEASE_RENEW_MS || 30_000);
+const CONTROL_RETRIES = Math.max(1, Number(process.env.CONTROL_RETRIES || 3));
+const CONTROL_RETRY_BASE_MS = Number(process.env.CONTROL_RETRY_BASE_MS || 400);
 let lastPollAt = 0;
 let lastTaskAt = 0;
 let lastError = null;
+let consecutiveErrors = 0;
 
 function positiveMilliseconds(value, fallback) {
   const parsed = Number(value);
@@ -47,15 +50,62 @@ function configFromEnv(env = process.env) {
   };
 }
 
-async function callControl(config, pathname, body = {}) {
+function isTransientControlError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /timeout|aborted|fetch failed|ECONNRESET|ECONNREFUSED|ENOTFOUND|socket|network|Unexpected end of JSON|empty response|502|503|504/i.test(message);
+}
+
+async function readJsonBody(response) {
+  const text = await response.text();
+  if (!text || !text.trim()) {
+    if (response.status === 204 || response.ok) return null;
+    throw new Error(`Control plane HTTP ${response.status}: empty response`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`Unexpected end of JSON input (${response.status}): ${reason}`);
+  }
+}
+
+async function callControlOnce(config, pathname, body = {}) {
   const response = await fetch(`${config.controlPlaneUrl}${pathname}`, {
-    method: 'POST', headers: { authorization: `Bearer ${config.token}`, 'x-hermes-runner': config.runnerId, 'content-type': 'application/json' }, body: JSON.stringify(body),
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${config.token}`,
+      'x-hermes-runner': config.runnerId,
+      'content-type': 'application/json',
+      accept: 'application/json',
+    },
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(CONTROL_TIMEOUT_MS),
   });
   if (response.status === 204) return null;
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload.error || `Control plane HTTP ${response.status}`);
+  const payload = await readJsonBody(response);
+  if (!response.ok) {
+    const errMsg = payload && typeof payload === 'object' ? (payload.error || payload.message) : null;
+    throw new Error(errMsg || `Control plane HTTP ${response.status}`);
+  }
   return payload;
+}
+
+async function callControl(config, pathname, body = {}, options = {}) {
+  const retries = Number.isFinite(options.retries) ? options.retries : CONTROL_RETRIES;
+  let lastFailure = null;
+  for (let attempt = 1; attempt <= retries; attempt += 1) {
+    try {
+      return await callControlOnce(config, pathname, body);
+    } catch (error) {
+      lastFailure = error;
+      const transient = isTransientControlError(error);
+      if (!transient || attempt >= retries) break;
+      const delay = CONTROL_RETRY_BASE_MS * (2 ** (attempt - 1));
+      console.warn(`[hermes-cloud-runner] control ${pathname} attempt ${attempt}/${retries} failed (${error instanceof Error ? error.message : String(error)}); retry in ${delay}ms`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw lastFailure;
 }
 
 async function execute(config, task) {
@@ -67,9 +117,14 @@ async function execute(config, task) {
     body: JSON.stringify({ model: config.model, messages: [...context, { role: 'user', content: task.prompt }], max_tokens: MODEL_MAX_TOKENS, stream: false }),
     signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
   });
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload.error?.message || payload.error || `Model provider HTTP ${response.status}`);
-  return payload.choices?.[0]?.message?.content ?? JSON.stringify(payload);
+  const payload = await readJsonBody(response);
+  if (!response.ok) {
+    const errMsg = payload && typeof payload === 'object'
+      ? (payload.error?.message || payload.error || payload.message)
+      : null;
+    throw new Error(errMsg || `Model provider HTTP ${response.status}`);
+  }
+  return payload?.choices?.[0]?.message?.content ?? JSON.stringify(payload);
 }
 
 async function withLeaseRenewal(work, renew, intervalMs = LEASE_RENEW_MS) {
@@ -111,8 +166,18 @@ async function runOnce(config) {
 function healthServer(port = Number(process.env.PORT || 8080)) {
   return http.createServer((request, response) => {
     if (request.url !== '/health') { response.writeHead(404).end(); return; }
-    response.writeHead(lastError ? 503 : 200, { 'content-type': 'application/json' });
-    response.end(JSON.stringify({ ok: !lastError, lastPollAt, lastTaskAt, degraded: Boolean(lastError) }));
+    // Only mark degraded after multiple consecutive failures so rare JSON/timeout blips
+    // do not flap the health endpoint.
+    const degraded = consecutiveErrors >= 3;
+    response.writeHead(degraded ? 503 : 200, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({
+      ok: !degraded,
+      lastPollAt,
+      lastTaskAt,
+      degraded,
+      consecutiveErrors,
+      lastError,
+    }));
   }).listen(port, '0.0.0.0');
 }
 
@@ -122,11 +187,29 @@ async function main() {
   healthServer();
   while (true) {
     let didWork = false;
-    try { didWork = await runOnce(config); lastError = null; }
-    catch (error) { lastError = error instanceof Error ? error.message : String(error); console.error(`[hermes-cloud-runner] ${lastError}`); }
+    try {
+      didWork = await runOnce(config);
+      lastError = null;
+      consecutiveErrors = 0;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+      consecutiveErrors += 1;
+      console.error(`[hermes-cloud-runner] ${lastError}`);
+    }
     await new Promise((resolve) => setTimeout(resolve, nextPollDelay(didWork, schedule)));
   }
 }
 
-module.exports = { callControl, configFromEnv, execute, nextPollDelay, pollingSchedule, runOnce, withLeaseRenewal };
+module.exports = {
+  callControl,
+  callControlOnce,
+  configFromEnv,
+  execute,
+  isTransientControlError,
+  nextPollDelay,
+  pollingSchedule,
+  readJsonBody,
+  runOnce,
+  withLeaseRenewal,
+};
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });
