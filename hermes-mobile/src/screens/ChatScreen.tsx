@@ -141,6 +141,10 @@ import {
   ensureSessionCreatedAt,
 } from '../utils/sessionDisplay';
 import { findResumableSessionByPromptTitle } from '../utils/resumeExistingSession';
+import {
+  isUnsendableChatSession,
+  planStaleSessionRecovery,
+} from '../utils/sessionSendTarget';
 import { formatMessageTimestamp, prepareMessagesForDisplay, resolveMessageTimestamp } from '../utils/chatMessageDisplay';
 import {
   isMessageBodyEmpty,
@@ -5507,7 +5511,14 @@ export default function ChatScreen() {
       currentSessionRef.current = null;
       setCurrentSession(null);
     }
-    const createdNewSession = !activeSess;
+    // Dead cron / harness stickies 404 into blank history=0 chats — never stream them.
+    if (activeSess && !isDemo && isUnsendableChatSession(activeSess)) {
+      invalidateRemovedSession(activeSess.id);
+      activeSess = null;
+      currentSessionRef.current = null;
+      setCurrentSession(null);
+    }
+    let createdNewSession = false;
     if (!activeSess) {
       if (isDemo) {
         const demoTitle = titleFromFirstPrompt(userText) ?? GENERIC_NEW_SESSION_TITLE;
@@ -5520,23 +5531,58 @@ export default function ChatScreen() {
         setSessions([activeSess]);
         setCurrentSession(activeSess);
       } else {
+        // Prefer a living mobile thread over createSession(empty) after sticky wipe.
+        // Never do this after intentional New chat / Start fresh (skipSessionAutoSelect).
+        const allowStickyResume = !skipSessionAutoSelectRef.current;
+        if (allowStickyResume) {
+          const resumePlan = planStaleSessionRecovery({
+            sessions: sessionsRef.current,
+            staleSessionId: sessionForSend?.id,
+            rememberedSessionId: await storage.loadLastSessionForComputer(
+              activeComputerSessionKeys,
+            ),
+            projectState,
+            removedSessionIds: removedSessionIdsRef.current,
+          });
+          if (resumePlan.action === 'resume') {
+            activeSess = ensureSessionCreatedAt(resumePlan.session);
+            setCurrentSession(activeSess);
+            void storage.saveLastSessionForComputer(
+              activeComputerSessionKeys,
+              activeSess.id,
+            );
+            try {
+              const prior = await listMessages(gatewayUrl, activeSess.id, apiKey);
+              if (prior.length > 0) {
+                const merged = mergeServerMessagesWithPending(prior, messagesRef.current);
+                messagesRef.current = merged;
+                setMessages(merged);
+              }
+            } catch {
+              // Server-side history still loads for the resumed session id on stream.
+            }
+          }
+        }
         // After Start fresh / pending continuity, never rebind by title — that can
         // land back on a near-duplicate "Make money today" thread and look discarded.
         const skipResumeByTitle = Boolean(continuityHandoffRef.current);
-        const resumable = skipResumeByTitle
-          ? null
-          : findResumableSessionByPromptTitle(
+        const resumable =
+          activeSess || skipResumeByTitle
+            ? null
+            : findResumableSessionByPromptTitle(
               sessionsRef.current.filter(
                 (session) =>
                   !isTelegramInboxSession(session) &&
-                  !removedSessionIdsRef.current.has(session.id),
+                  !removedSessionIdsRef.current.has(session.id) &&
+                  !isUnsendableChatSession(session),
               ),
               userText,
             );
-        if (resumable) {
+        if (!activeSess && resumable) {
           activeSess = ensureSessionCreatedAt(resumable);
           setCurrentSession(activeSess);
-        } else {
+        } else if (!activeSess) {
+          createdNewSession = true;
           const placeholderTitle = firstPromptThreadTitle;
           await releaseMacOperatorSlot(gatewayUrl, apiKey, collectRecoveryRunIds());
           try {
@@ -5557,7 +5603,9 @@ export default function ChatScreen() {
             if (isSessionInUseError(err)) {
               const forkSource = sessionsRef.current.find(
                 (session) =>
-                  !isTelegramInboxSession(session) && !isMegaSessionSendBlocked(session),
+                  !isTelegramInboxSession(session) &&
+                  !isMegaSessionSendBlocked(session) &&
+                  !isUnsendableChatSession(session),
               );
               if (forkSource) {
                 try {
@@ -6082,10 +6130,42 @@ export default function ChatScreen() {
         );
       };
 
-      // Create a fresh session and rebind chat state to it — used to self-heal
-      // when the gateway reports the target session was removed/restarted.
+      // Self-heal a missing/404 target. Prefer resuming a living mobile thread
+      // (keeps prior context) over createSession(empty) titled from the follow-up.
       const recoverWithFreshSession = async (staleSessionId: string): Promise<boolean> => {
         invalidateRemovedSession(staleSessionId);
+        const recoveryPlan = planStaleSessionRecovery({
+          sessions: sessionsRef.current,
+          staleSessionId,
+          rememberedSessionId: await storage.loadLastSessionForComputer(
+            activeComputerSessionKeys,
+          ),
+          projectState,
+          removedSessionIds: removedSessionIdsRef.current,
+        });
+        if (recoveryPlan.action === 'resume') {
+          const resumed = ensureSessionCreatedAt(recoveryPlan.session);
+          activeSess = resumed;
+          targetSessionId = resumed.id;
+          setSessions((prev) => [
+            resumed,
+            ...prev.filter((s) => s.id !== resumed.id && s.id !== staleSessionId),
+          ]);
+          setCurrentSession(resumed);
+          void storage.saveLastSessionForComputer(activeComputerSessionKeys, resumed.id);
+          setErrorMessage((prev) => (prev?.includes('That chat was removed') ? null : prev));
+          // Hydrate transcript so the user sees prior turns, not a blank follow-up bubble.
+          try {
+            const prior = await listMessages(gatewayUrl, resumed.id, apiKey);
+            if (prior.length > 0) {
+              messagesRef.current = prior;
+              setMessages(prior);
+            }
+          } catch {
+            // Stream retry still carries server-side history for the resumed id.
+          }
+          return true;
+        }
         let fresh: HermesSession;
         try {
           fresh = ensureSessionCreatedAt(
