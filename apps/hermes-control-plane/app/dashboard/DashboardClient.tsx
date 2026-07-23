@@ -1,6 +1,7 @@
 "use client";
 
 import { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormattedMessage } from "../FormattedMessage";
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
@@ -97,6 +98,8 @@ export default function DashboardClient() {
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
   const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
   const [prompt, setPrompt] = useState("");
+  /** Where this task should run: Mac, Continuity VPS, or auto offline failover. */
+  const [routePreference, setRoutePreference] = useState<"local" | "cloud" | "auto">("auto");
   const [pairCode, setPairCode] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -243,9 +246,22 @@ export default function DashboardClient() {
   async function createTask(event: FormEvent) {
     event.preventDefault(); if (!prompt.trim()) return;
     setBusy(true); setNotice(null);
-    const response = await fetch("/api/tasks", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt, threadId: selectedThread, idempotencyKey: crypto.randomUUID() }) });
-    const body = await response.json() as { task?: { route: string; threadId: string }; error?: string };
-    setNotice(response.ok && body.task ? `Task routed ${body.task.route}.` : body.error ?? "Task routing failed");
+    const response = await fetch("/api/tasks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        prompt,
+        threadId: selectedThread,
+        idempotencyKey: crypto.randomUUID(),
+        routePreference,
+      }),
+    });
+    const body = await response.json() as { task?: { route: string; threadId: string; preference?: string }; error?: string };
+    setNotice(
+      response.ok && body.task
+        ? `Task routed ${body.task.route}${body.task.preference ? ` (${body.task.preference})` : ""}.`
+        : body.error ?? "Task routing failed",
+    );
     if (response.ok && body.task) { setPrompt(""); setSelectedThread(body.task.threadId); await load(); }
     setBusy(false);
   }
@@ -496,23 +512,52 @@ export default function DashboardClient() {
           <section className="panel task-panel" id="hermes-console">
             <div className="panel-heading"><div><p className="eyebrow">THREAD CONSOLE</p><h2>Continue the work</h2></div><span>{selectedThread ? `${threadDetails?.snapshot.length ?? 0} synced messages` : `${visibleTasks.length} tasks`}</span></div>
             {selectedThread && <div className="conversation-history">
-              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><p>{message.content}</p></article>) : <div className="conversation-empty">This thread has no cloud snapshot yet. Keep the paired Hermes connector online to sync it.</div>}
+              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : <div className="conversation-empty">This thread has no cloud snapshot yet. Keep the paired Hermes connector online to sync it.</div>}
               {threadDetails?.tasks.flatMap((task, index) => [
                 <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
-                task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{task.route}</span><p>{task.result}</p>{feedbackControls(task.id)}</article>
-                  : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>failed</span><p>{task.error}</p></article>
+                task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{task.route}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
+                  : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>failed</span><FormattedMessage text={task.error} /></article>
                   : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{task.route === "cloud" ? "cloud runner" : "your machine"}</span><p>Waiting for {task.route === "cloud" ? "the fenced cloud runner" : "your paired machine"} to pick this up…</p></article>
                   : null,
               ])}
             </div>}
-            <form className="composer" onSubmit={createTask}><textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Tell Hermes what to do next…" rows={4} /><div><small>{devices.length ? "Routes to your paired machine or fenced cloud runner" : "Pair a machine before creating a task"}</small><button className="button button-primary button-small" disabled={busy || !devices.length}>Run task →</button></div></form>
+            <form className="composer" onSubmit={createTask}>
+              <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Tell Hermes what to do next…" rows={4} />
+              <div className="composer-route" role="group" aria-label="Where to run this task">
+                <span className="composer-route-label">Run on</span>
+                <label className={routePreference === "local" ? "is-selected" : ""}>
+                  <input type="radio" name="routePreference" value="local" checked={routePreference === "local"} onChange={() => setRoutePreference("local")} />
+                  My Mac
+                </label>
+                <label className={routePreference === "cloud" ? "is-selected" : ""} title={organization?.cloudAccess ? "Fenced Continuity VPS even if a Mac is online" : "Requires Continuity trial or Pro"}>
+                  <input type="radio" name="routePreference" value="cloud" checked={routePreference === "cloud"} onChange={() => setRoutePreference("cloud")} disabled={!organization?.cloudAccess} />
+                  Continuity (VPS)
+                </label>
+                <label className={routePreference === "auto" ? "is-selected" : ""}>
+                  <input type="radio" name="routePreference" value="auto" checked={routePreference === "auto"} onChange={() => setRoutePreference("auto")} />
+                  Auto (Mac, then offline policy)
+                </label>
+              </div>
+              <div>
+                <small>
+                  {!devices.length
+                    ? "Pair a machine before creating a task"
+                    : routePreference === "cloud"
+                      ? "Always Continuity VPS for this task (Mac may stay idle)"
+                      : routePreference === "local"
+                        ? "Always your paired Mac (blocks if offline — no silent Continuity)"
+                        : "Mac while online; Continuity only if offline policy says so"}
+                </small>
+                <button className="button button-primary button-small" disabled={busy || !devices.length}>Run task →</button>
+              </div>
+            </form>
             <div className="task-list" id="task-activity">{visibleTasks.length === 0 ? <div className="empty-state"><Mark /><h3>No tasks yet</h3><p>Pair a machine, then continue a Hermes thread from anywhere.</p></div> : visibleTasks.map((task) => <article key={task.id} className="dashboard-task"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time></div><h3>{task.threadTitle}</h3><p>{task.prompt}</p><div className="task-foot"><span>{task.route === "cloud" ? "☁ Cloud runner" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>{["needs_failover", "offline_blocked"].includes(task.status) && <button onClick={() => void failover(task.id)}>Continue in cloud →</button>}</div>{task.result && <><pre>{task.result}</pre>{feedbackControls(task.id)}</>}{task.error && <div className="task-error">{task.error}</div>}</article>)}</div>
           </section>
 
           <aside className="right-rail">
             <section className="panel connection-panel" id="leash-control">
               <div className="panel-heading"><div><p className="eyebrow">CONNECTION</p><h2>{onlineDevices.length ? "Connector online" : devices.length ? "Connector reconnecting" : "Pair your first machine"}</h2></div><span>{onlineDevices.length ? "LIVE" : devices.length ? "RETRYING" : "STEP 1 OF 3"}</span></div>
-              <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "KeepAlive is retrying automatically" : "Run the one-command connector installer"}</strong><p>{devices.length ? "Tasks stay local while reachable and follow each machine's offline policy when it disappears." : "The installer creates a device key, opens this approval page with the code filled, and starts an always-on service."}</p></div></div>
+              <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "KeepAlive is retrying automatically" : "Run the one-command connector installer"}</strong><p>{devices.length ? "Pick My Mac or Continuity (VPS) on every task. Auto still uses each machine's offline policy when the lid closes." : "The installer creates a device key, opens this approval page with the code filled, and starts an always-on service."}</p></div></div>
               {!devices.length && <div className="installer-command"><code>{connectorInstallCommand}</code><button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy one-line installer"}</button></div>}
               {!devices.length && <div className="account-recovery"><p>Signed in as <strong>{user.email}</strong>. If your machines are paired to another email, switch accounts here.</p><form action="/api/auth/logout" method="post"><button className="button button-secondary button-small">Switch account</button></form></div>}
               <ol className="dashboard-setup-steps"><li className={devices.length ? "is-done" : "is-current"}><span>1</span>Install connector</li><li className={devices.length ? "is-done" : ""}><span>2</span>Approve short code</li><li className={onlineDevices.length ? "is-done" : devices.length ? "is-current" : ""}><span>3</span>Choose offline policy</li></ol>
@@ -539,11 +584,11 @@ export default function DashboardClient() {
                     </div>
                   </div>
                   <code>{device.fingerprint}</code>
-                  <label>Offline policy
+                  <label>If this Mac goes offline
                     <select value={device.failoverMode} onChange={(event) => void updateFailover(device.id, event.target.value as Device["failoverMode"])}>
-                      <option value="manual">Ask before cloud</option>
-                      <option value="auto">Continue automatically</option>
-                      <option value="disabled">Pause until online</option>
+                      <option value="manual">Ask me first before switching to the cloud</option>
+                      <option value="auto">Switch to the cloud automatically</option>
+                      <option value="disabled">Pause and wait for this Mac</option>
                     </select>
                   </label>
                   <button

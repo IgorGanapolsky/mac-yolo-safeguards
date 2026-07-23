@@ -7469,6 +7469,7 @@ export default function ChatScreen() {
               >
                 <ChatEmptyGreeting
                   routeLabel={isDemo ? 'Demo computer' : machineShortLabel}
+                  transportLabel={isDemo ? undefined : machineEndpoint}
                   isConnected={effectiveMacChatLive}
                   connectionPending={suppressEmptyGreetingUnreachable}
                 />
