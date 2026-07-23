@@ -242,6 +242,7 @@ jobs:
           set -euo pipefail
           GROUP_ID="$(eas update:list --branch production --limit 1 --non-interactive --json \
             | node -e 'const fs=require("fs"); const j=JSON.parse(fs.readFileSync(0,"utf8")); const g=(Array.isArray(j)?j:j)?.[0]||j?.currentPage?.[0]||j; const id=g?.group||g?.groupId||g?.id; if(!id){process.stderr.write("No production update group to promote\n"); process.exit(1)}; process.stdout.write(String(id));')"
+          # Promotion to 100 is not supported via eas update publish (omit flag).
           # EAS publish rejects --rollout-percentage 100, but update:edit 100 is required
           # to *end* an in-progress staged rollout before another publish is allowed.
           echo "Promoting group ${GROUP_ID} → ${PROMOTE_TO}%"
