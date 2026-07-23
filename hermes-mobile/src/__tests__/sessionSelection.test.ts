@@ -58,6 +58,23 @@ describe('sessionSelection', () => {
     expect(pickDefaultSession([smoke], emptyProjectState)).toBeNull();
   });
 
+  it('never returns automated cron sessions as default', () => {
+    const cron: HermesSession = {
+      id: 'cron_0eb498680d96_20260721_204200',
+      source: 'cron',
+      title: 'Scheduled job',
+      last_active_at: '2026-07-22T15:00:00.000Z',
+    };
+    const mobile: HermesSession = {
+      id: 'mobile_1784665204206_b230283b',
+      source: 'api_server',
+      title: 'Why we made zero dollars',
+      last_active_at: '2026-07-22T12:00:00.000Z',
+    };
+    expect(pickDefaultSession([cron], emptyProjectState)).toBeNull();
+    expect(pickDefaultSession([cron, mobile], emptyProjectState)?.id).toBe(mobile.id);
+  });
+
   it('ignores project binding to smoke sessions', () => {
     const smoke: HermesSession = {
       id: 'smoke-1',
