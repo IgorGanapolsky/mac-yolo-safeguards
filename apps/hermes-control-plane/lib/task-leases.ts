@@ -48,6 +48,34 @@ function boundMessages(messages: ContextMessage[], maxChars = 64_000): ContextMe
   return result;
 }
 
+
+/** When a Mac dies mid-queue: auto → cloud Continuity; manual → needs human approve. */
+export async function reclassifyStaleLocalTasks(now = Date.now()): Promise<void> {
+  const staleBefore = now - 60_000;
+  await db().batch([
+    db().prepare(
+      `UPDATE tasks SET status = 'cloud_pending', route = 'cloud', updated_at = ?
+        WHERE status = 'local_pending' AND lease_owner IS NULL
+          AND (lease_expires_at IS NULL OR lease_expires_at <= ?)
+          AND device_id IN (
+            SELECT id FROM devices
+             WHERE revoked_at IS NULL AND failover_mode = 'auto'
+               AND (last_seen_at IS NULL OR last_seen_at < ?)
+          )`,
+    ).bind(now, now, staleBefore),
+    db().prepare(
+      `UPDATE tasks SET status = 'needs_failover', route = 'blocked', updated_at = ?
+        WHERE status = 'local_pending' AND lease_owner IS NULL
+          AND (lease_expires_at IS NULL OR lease_expires_at <= ?)
+          AND device_id IN (
+            SELECT id FROM devices
+             WHERE revoked_at IS NULL AND failover_mode = 'manual'
+               AND (last_seen_at IS NULL OR last_seen_at < ?)
+          )`,
+    ).bind(now, now, staleBefore),
+  ]);
+}
+
 export async function claimTask(input: {
   route: "local" | "cloud";
   owner: string;
@@ -66,6 +94,7 @@ export async function claimTask(input: {
   leaseExpiresAt: number;
 } } | null> {
   const now = Date.now();
+  if (input.route === "cloud") await reclassifyStaleLocalTasks(now);
   const routeClause = input.route === "local"
     ? "k.route = 'local' AND k.device_id = ? AND k.status IN ('local_pending', 'cloud_pending', 'running')"
     : `((k.route = 'cloud' AND k.status IN ('cloud_pending', 'running'))
