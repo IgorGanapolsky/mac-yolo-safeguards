@@ -584,11 +584,11 @@ export default function DashboardClient() {
                     </div>
                   </div>
                   <code>{device.fingerprint}</code>
-                  <label>Offline policy
+                  <label>If this Mac goes offline
                     <select value={device.failoverMode} onChange={(event) => void updateFailover(device.id, event.target.value as Device["failoverMode"])}>
-                      <option value="manual">Ask before cloud</option>
-                      <option value="auto">Continue automatically</option>
-                      <option value="disabled">Pause until online</option>
+                      <option value="manual">Ask me first before switching to the cloud</option>
+                      <option value="auto">Switch to the cloud automatically</option>
+                      <option value="disabled">Pause and wait for this Mac</option>
                     </select>
                   </label>
                   <button
