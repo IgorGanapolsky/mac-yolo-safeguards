@@ -3,8 +3,9 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("builds the public Leash subscription landing page", async () => {
-  const [page, billingPlan, billingPlanRoute, checkoutRoute, portalRoute, dashboard, layout, robots, sitemap, llms] = await Promise.all([
+  const [page, approvalDemo, billingPlan, billingPlanRoute, checkoutRoute, portalRoute, dashboard, layout, robots, sitemap, llms] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/ApprovalGateDemo.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/BillingPlan.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/billing/plan/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/billing/checkout/route.ts", import.meta.url), "utf8"),
@@ -32,6 +33,15 @@ test("builds the public Leash subscription landing page", async () => {
   assert.doesNotMatch(page, /Sign in with AuthKit \(Google, Apple, Microsoft, GitHub/);
   assert.match(page, /<BillingPlan \/>/);
   assert.match(page, /LandingAuthHero|LandingAuthNav/);
+  assert.match(page, /<ApprovalGateDemo \/>/);
+  assert.match(approvalDemo, /See the exact call before it runs/);
+  assert.match(approvalDemo, /npm test/);
+  assert.match(approvalDemo, /git push --force origin main/);
+  assert.match(approvalDemo, /Approve call/);
+  assert.match(approvalDemo, /Deny call/);
+  assert.match(approvalDemo, /Denied · never executed/);
+  assert.match(approvalDemo, /sends no command, reads no workspace data, and creates no approval/);
+  assert.doesNotMatch(approvalDemo, /fetch\(|XMLHttpRequest|WebSocket|EventSource/);
   assert.doesNotMatch(page, /currentSession\(/);
   assert.doesNotMatch(page, /\$29|price: "29"/);
   assert.match(billingPlan, /\/api\/billing\/plan/);

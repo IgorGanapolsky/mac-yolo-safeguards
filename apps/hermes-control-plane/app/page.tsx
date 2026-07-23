@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ApprovalGateDemo } from "./ApprovalGateDemo";
 import { BillingPlan } from "./BillingPlan";
 import { FunnelSignals } from "./FunnelSignals";
 import {
@@ -147,12 +148,7 @@ export default function Home() {
       </section>
 
       <section id="how-it-works" className="section-block">
-        <div className="section-heading"><p className="eyebrow">The safe handoff</p><h2>One thread. One executor. Always recoverable.</h2></div>
-        <div className="steps-grid">
-          <article><span>01</span><h3>Pair without a gateway secret</h3><p>The connector creates a device key on the machine. You approve its short code and fingerprint from the signed-in dashboard.</p></article>
-          <article><span>02</span><h3>Route by live heartbeat</h3><p>Online tasks stay on your Hermes machine. Offline, free accounts pause or ask; automatic fenced cloud failover needs Cloud Continuity.</p></article>
-          <article><span>03</span><h3>Fence every execution</h3><p>Local and cloud workers claim expiring generations. A stale worker cannot overwrite the result after another runner takes over.</p></article>
-        </div>
+        <ApprovalGateDemo />
       </section>
 
       <section id="answers" className="section-block" aria-labelledby="answers-heading">
