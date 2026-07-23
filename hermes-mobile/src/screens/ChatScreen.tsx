@@ -43,10 +43,10 @@ import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import { haptics } from '../services/haptics';
 import { scheduleRunCompletedNotification } from '../services/hermesNotifications';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
+import { MAC_PICKER_SUBTITLE } from '../utils/tailscalePasteIpCopy';
 import ComputerPickerStatusRegion from '../components/ComputerPickerStatusRegion';
 import ManualComputerAddressForm from '../components/ManualComputerAddressForm';
 import { confirmForgetGatewayProfileAfterHostDismiss } from '../utils/confirmForgetGatewayProfile';
-import { MAC_PICKER_SUBTITLE } from '../utils/tailscalePasteIpCopy';
 import { confirmClearAllChatsAfterHostDismiss } from '../utils/confirmClearAllChats';
 import { profileDisplayName } from '../services/gatewayProfiles';
 import {
@@ -120,6 +120,10 @@ import {
   shouldSkipAutoRetitleForContinuity,
   type SessionContinuityHandoff,
 } from '../utils/sessionContinuityHandoff';
+import {
+  resolveMessageHydrateCredentials,
+  resolveProfileSwitchRestorePlan,
+} from '../utils/profileSwitchSessionRestore';
 import {
   formatSessionCreated,
   formatSessionTitle,
@@ -231,6 +235,11 @@ import {
   shouldPreserveTranscriptOnSessionChange,
   shouldSuppressConnectionHelpForLocalOutbound,
 } from '../utils/disconnectMessagePreserve';
+import {
+  nextOutboundEpoch,
+  planProfileSwitchChatReset,
+  shouldAcceptOutboundMutation,
+} from '../utils/profileSwitchChatReset';
 import {
   COMPOSER_DRAFT_COMPOSE_FIRST_KEY,
   captureComposerTextForFreshChat,
@@ -623,6 +632,10 @@ export default function ChatScreen() {
   /** Mac picker row tap — header shows target computer before async connect finishes. */
   const [profileSwitchBusy, setProfileSwitchBusy] = useState(false);
   const profileSwitchBusyRef = useRef(false);
+  /** Bumped on Choose-computer switch so in-flight machine-A stream commits cannot paint on B. */
+  const outboundEpochRef = useRef(0);
+  /** True while an intentional profile switch is clearing/reloading chat identity. */
+  const intentionalProfileSwitchRef = useRef(false);
   const switchingSessionIdRef = useRef<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   /** True while Start fresh chat is forking/stopping — show spinner so tap isn't silent. */
@@ -639,6 +652,11 @@ export default function ChatScreen() {
   const [attachPickerVisible, setAttachPickerVisible] = useState(false);
   const [macPickerVisible, setMacPickerVisible] = useState(false);
   const [macPickerHelpExpanded, setMacPickerHelpExpanded] = useState(false);
+
+  const closeMacPicker = useCallback(() => {
+    setMacPickerVisible(false);
+    setMacPickerHelpExpanded(false);
+  }, []);
   const [liveUsbProbed, setLiveUsbProbed] = useState<LiveUsbPickerInput | null>(null);
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [projectModalVisible, setProjectModalVisible] = useState(false);
@@ -766,7 +784,13 @@ export default function ChatScreen() {
   const currentSessionRef = useRef(currentSession);
   const telegramReplySessionIdRef = useRef(telegramReplySessionId);
   const refreshSessionMessagesRef = useRef<
-    ((options?: { background?: boolean; manual?: boolean; force?: boolean }) => Promise<void>) | null
+    ((options?: {
+      background?: boolean;
+      manual?: boolean;
+      force?: boolean;
+      gatewayUrlOverride?: string | null;
+      apiKeyOverride?: string | null;
+    }) => Promise<void>) | null
   >(null);
   const inputFocusedRef = useRef(false);
   /** Android-only: one re-render when composer focuses so padding latches before keyboard inset. */
@@ -1188,10 +1212,6 @@ export default function ChatScreen() {
       }),
     [activeGatewayProfile?.id, gatewayProfiles, liveUsbGateway],
   );
-  const closeMacPicker = useCallback(() => {
-    setMacPickerVisible(false);
-    setMacPickerHelpExpanded(false);
-  }, []);
   const healthProbePending = useMemo(() => isGatewayHealthPending(health), [health]);
   const usbCableLikely = useMemo(
     () =>
@@ -2432,10 +2452,17 @@ export default function ChatScreen() {
       silent?: boolean;
       projectState?: ChatProjectState;
       computerSessionKeys?: string[] | null;
+      /** Use immediately after a computer switch — React state may still hold the prior Mac. */
+      gatewayUrlOverride?: string | null;
+      apiKeyOverride?: string | null;
+      /** Bypass macChatLive gate during intentional profile switches. */
+      forceWhileOffline?: boolean;
     },
   ) => {
     const selectionProjectState = options?.projectState ?? projectState;
     const computerSessionKeys = options?.computerSessionKeys ?? activeComputerSessionKeys;
+    const listGatewayUrl = options?.gatewayUrlOverride?.trim() || gatewayUrl;
+    const listApiKey = options?.apiKeyOverride ?? apiKey;
     const loadGen = ++sessionsLoadGenRef.current;
     if (isDemo) {
       const mockSessions: HermesSession[] = [
@@ -2465,7 +2492,7 @@ export default function ChatScreen() {
       return;
     }
 
-    if (!macChatLive) {
+    if (!macChatLive && !options?.forceWhileOffline) {
       if (loadGen === sessionsLoadGenRef.current) {
         setIsLoadingSessions(false);
       }
@@ -2477,7 +2504,7 @@ export default function ChatScreen() {
         setIsLoadingSessions(true);
       }
       setErrorMessage(null);
-      const list = await listSessions(gatewayUrl, apiKey);
+      const list = await listSessions(listGatewayUrl, listApiKey);
       if (loadGen !== sessionsLoadGenRef.current) {
         return;
       }
@@ -2524,6 +2551,9 @@ export default function ChatScreen() {
       });
 
       if (resolvedSession !== undefined) {
+        // Keep ref in sync before awaiters (profile-switch hydrate) read it —
+        // React state alone would still be null until the next render.
+        currentSessionRef.current = resolvedSession;
         setCurrentSession(resolvedSession);
       }
 
@@ -2555,9 +2585,64 @@ export default function ChatScreen() {
         }
         return;
       }
+      const resetPlan = planProfileSwitchChatReset({
+        fromProfileId: activeGatewayProfile?.id,
+        toProfileId: profileId,
+      });
       profileSwitchBusyRef.current = true;
       setProfileSwitchBusy(true);
       haptics.light();
+
+      // PRODUCT LAW: clear composer + transcript BEFORE await selectGatewayProfile.
+      // Clearing after the await (or only when closePicker) paints machine B's identity
+      // with machine A's optimistic/typed bubbles mid-switch.
+      if (resetPlan?.clearUiBeforeAwait) {
+        intentionalProfileSwitchRef.current = true;
+        outboundEpochRef.current = nextOutboundEpoch(outboundEpochRef.current);
+        pendingOutboundSendsRef.current = 0;
+        isSendingRef.current = false;
+        setIsSending(false);
+        activeChatStreamRef.current = false;
+        setIsChatStreamActive(false);
+        activeOutboundSendBodyRef.current = null;
+        outboundQueueRef.current = [];
+        setQueuedOutboundCount(0);
+        pendingOutboundClaimRef.current = null;
+        lastCommittedOutboundBodyRef.current = null;
+        persistedPendingRef.current = [];
+        const priorSessionId = currentSessionRef.current?.id;
+        void clearPendingOutbound(priorSessionId);
+        void clearPendingOutbound(PENDING_NEW_SESSION_KEY);
+        const draftKey = composerDraftSessionKey(priorSessionId);
+        if (draftKey) {
+          void clearComposerDraft(draftKey);
+        }
+        void clearComposerDraft(COMPOSER_DRAFT_COMPOSE_FIRST_KEY);
+        inputValueRef.current = '';
+        setInputValue('');
+        setComposerAttachments([]);
+        composerAttachmentsRef.current = [];
+        pinnedOutboundTextRef.current = null;
+        pinnedOutboundStatusRef.current = 'pending';
+        setPinnedOutboundText(null);
+        setPinnedOutboundSentAt(null);
+        setPinnedOutboundStatus('pending');
+        setRunProgress(null);
+        setToolStatus(null);
+        transcriptDigestRef.current = '';
+        lastTranscriptChangeAtMsRef.current = Date.now();
+        deadRunSurfacedRef.current = false;
+        messagesRef.current = [];
+        setMessages([]);
+        setCurrentSession(null);
+        pinScrollAfterHydrationRef.current = true;
+        userScrolledUpRef.current = false;
+        lastDistanceFromBottomRef.current = 0;
+        if (options?.closePicker) {
+          setMacPickerVisible(false);
+        }
+      }
+
       try {
         const ok = await selectGatewayProfile(profileId, { ensureProfile: options?.ensureProfile });
         if (!ok) {
@@ -2565,34 +2650,55 @@ export default function ChatScreen() {
         }
         await refreshHealth();
         connectEvents();
-        if (options?.closePicker) {
-          setMacPickerVisible(false);
-          pinScrollAfterHydrationRef.current = true;
-          userScrolledUpRef.current = false;
-          lastDistanceFromBottomRef.current = 0;
-          setCurrentSession(null);
-          setMessages([]);
-        }
-        if (options?.reloadSessions) {
-          const pickedProfile = gatewayProfiles.find((profile) => profile.id === profileId);
+
+        // #816 already cleared composer/messages before await — do NOT clear again.
+        // Reload + hydrate THIS machine's prior session so mini is not an empty greeting.
+        const pickedProfile =
+          gatewayProfiles.find((profile) => profile.id === profileId) ??
+          options?.ensureProfile ??
+          null;
+        const restorePlan = resolveProfileSwitchRestorePlan({
+          profileId,
+          pickedProfile,
+          ensureProfile: options?.ensureProfile,
+        });
+        const shouldReloadSessions =
+          Boolean(restorePlan) &&
+          (options?.reloadSessions !== false || Boolean(resetPlan));
+        if (shouldReloadSessions && restorePlan) {
+          const resolvedKey = await secureCredentials.resolveApiKeyForProfile?.(
+            restorePlan.profileId,
+          );
+          const profileKey = resolvedKey || apiKey;
           await loadSessionsList(true, {
-            computerSessionKeys: resolveComputerSessionStorageKeys(
-              pickedProfile,
-              pickedProfile?.gatewayUrl,
-            ),
+            computerSessionKeys: restorePlan.computerSessionKeys,
+            gatewayUrlOverride: restorePlan.gatewayUrl,
+            apiKeyOverride: profileKey,
+            forceWhileOffline: true,
           });
+          if (currentSessionRef.current) {
+            await refreshSessionMessagesRef.current?.({
+              background: false,
+              force: true,
+              gatewayUrlOverride: restorePlan.gatewayUrl,
+              apiKeyOverride: profileKey,
+            });
+          }
         }
       } finally {
+        intentionalProfileSwitchRef.current = false;
         profileSwitchBusyRef.current = false;
         setProfileSwitchBusy(false);
       }
     },
     [
       activeGatewayProfile?.id,
+      apiKey,
       connectEvents,
       gatewayProfiles,
       refreshHealth,
       selectGatewayProfile,
+      setRunProgress,
     ],
   );
 
@@ -2687,13 +2793,27 @@ export default function ChatScreen() {
   }, [sessions, currentSession?.id, telegramReplySessionId]);
 
   const refreshSessionMessages = useCallback(
-    async (options?: { background?: boolean; manual?: boolean; force?: boolean }) => {
+    async (options?: {
+      background?: boolean;
+      manual?: boolean;
+      force?: boolean;
+      /** Target Mac credentials during profile switch (React context may still be pre-switch). */
+      gatewayUrlOverride?: string | null;
+      apiKeyOverride?: string | null;
+    }) => {
       const activeSession = currentSessionRef.current;
       if (!activeSession) {
         transcriptDigestRef.current = '';
         setMessages([]);
         return;
       }
+
+      const { gatewayUrl: fetchGatewayUrl, apiKey: fetchApiKey } = resolveMessageHydrateCredentials({
+        gatewayUrlOverride: options?.gatewayUrlOverride,
+        apiKeyOverride: options?.apiKeyOverride,
+        fallbackGatewayUrl: gatewayUrl,
+        fallbackApiKey: apiKey,
+      });
 
       if (!macChatLive && !options?.force) {
         // Keep the transcript visible during transient disconnect; reload on reconnect.
@@ -2857,9 +2977,9 @@ export default function ChatScreen() {
         if (isTelegramInboxSession(activeSession)) {
           const { messages: tgMessages, replySessionId, threadCount, messageCap } =
             await fetchTelegramInboxMessages(
-              gatewayUrl,
+              fetchGatewayUrl,
               sessionsRef.current,
-              apiKey,
+              fetchApiKey,
               undefined,
               undefined,
               {
@@ -2877,7 +2997,7 @@ export default function ChatScreen() {
           setTelegramReplySessionId(replySessionId);
           setTelegramInboxMeta({ threadCount, messageCap });
         } else {
-          const history = await listMessages(gatewayUrl, activeSession.id, apiKey);
+          const history = await listMessages(fetchGatewayUrl, activeSession.id, fetchApiKey);
           if (
             refreshGeneration !== refreshGenerationRef.current ||
             currentSessionRef.current?.id !== requestedSessionId
@@ -3451,6 +3571,7 @@ export default function ChatScreen() {
       pendingOutboundSends: pendingOutboundSendsRef.current,
       isSending: isSendingRef.current,
       hasActiveRun,
+      intentionalProfileSwitch: intentionalProfileSwitchRef.current,
     });
     if (preserveTranscript) {
       // False disconnect / sticky-session flicker: keep local bubbles; refresh merges later.
@@ -5097,6 +5218,14 @@ export default function ChatScreen() {
     setIsSending(true);
     activeOutboundSendBodyRef.current = normalizedDisplay;
     pendingOutboundClaimRef.current = null;
+    // Capture epoch at send start — machine switch bumps outboundEpochRef and must
+    // drop every later optimistic/stream mutation from this send.
+    const sendEpoch = outboundEpochRef.current;
+    const isSendEpochLive = () =>
+      shouldAcceptOutboundMutation({
+        mutationEpoch: sendEpoch,
+        activeEpoch: outboundEpochRef.current,
+      });
 
     let outboundLockReleased = false;
     const releaseOutboundSendLock = () => {
@@ -5107,7 +5236,12 @@ export default function ChatScreen() {
       isSendingRef.current = false;
       setIsSending(false);
       activeOutboundSendBodyRef.current = null;
-      drainOutboundQueue();
+      if (isSendEpochLive()) {
+        drainOutboundQueue();
+      } else {
+        outboundQueueRef.current = [];
+        setQueuedOutboundCount(0);
+      }
     };
 
     const collectRecoveryRunIds = (): string[] => {
@@ -5540,7 +5674,7 @@ export default function ChatScreen() {
     );
 
     const markOutboundBubbleStatus = (status: 'sent' | 'failed', failureReason?: string) => {
-      if (!committedUserMessageId) {
+      if (!committedUserMessageId || !isSendEpochLive()) {
         return;
       }
       pinnedOutboundStatusRef.current = status;
@@ -5553,6 +5687,9 @@ export default function ChatScreen() {
         setPinnedOutboundSentAt(null);
       }
       commitMessages((prev) => {
+        if (!isSendEpochLive()) {
+          return prev;
+        }
         const next = prev.map((message) =>
           message.id === committedUserMessageId
             ? {
@@ -5608,6 +5745,9 @@ export default function ChatScreen() {
             },
       );
       setTimeout(() => {
+        if (!isSendEpochLive()) {
+          return;
+        }
         markOutboundBubbleStatus('sent');
         const assistantText = `[Demo Mode] I received: "${userText}". Since the gateway is in demo mode, I'm providing a mock reply. Let me know if you want to test live controls!`;
         const assistantMessage: HermesMessage = {
@@ -5615,9 +5755,11 @@ export default function ChatScreen() {
           content: assistantText,
           created_at: new Date().toISOString(),
         };
-        commitMessages((prev) => [...prev, assistantMessage]);
-        setRunProgress(null);
-        haptics.success();
+        commitMessages((prev) => (isSendEpochLive() ? [...prev, assistantMessage] : prev));
+        if (isSendEpochLive()) {
+          setRunProgress(null);
+          haptics.success();
+        }
       }, 1500);
       return true;
     }
@@ -5695,6 +5837,9 @@ export default function ChatScreen() {
       const priorAssistants = snapshotAssistantBodies(messagesRef.current);
 
       const updateAssistant = (text: string) => {
+        if (!isSendEpochLive()) {
+          return;
+        }
         const incoming = text.trim();
         if (!incoming || isSilentAssistantCompletion(incoming)) {
           return;
@@ -5710,6 +5855,9 @@ export default function ChatScreen() {
             assistantBubbleAdded = true;
             activeAssistantIdRef.current = existing.id;
             commitMessages((prev) => {
+              if (!isSendEpochLive()) {
+                return prev;
+              }
               const next = prev.map((m) =>
                 m.id === existing.id
                   ? { ...m, content: preferRicherAssistantText(m.content, body) }
@@ -5725,6 +5873,9 @@ export default function ChatScreen() {
         if (!assistantBubbleAdded) {
           assistantBubbleAdded = true;
           commitMessages((prev) => {
+            if (!isSendEpochLive()) {
+              return prev;
+            }
             const next = [
               ...prev,
               {
@@ -5741,6 +5892,9 @@ export default function ChatScreen() {
           return;
         }
         commitMessages((prev) => {
+          if (!isSendEpochLive()) {
+            return prev;
+          }
           const next = prev.map((m) =>
             m.id === assistantId
               ? { ...m, content: preferRicherAssistantText(m.content, body) }
@@ -6030,6 +6184,13 @@ export default function ChatScreen() {
         }
       }
 
+      if (!isSendEpochLive()) {
+        // User switched computers mid-send — keep machine-A delivery on A; do not
+        // mutate machine-B's transcript or run chrome.
+        releaseOutboundSendLock();
+        return false;
+      }
+
       markMessageDeliveredToMac();
 
       const telegramDeferred = isTelegramDeferredEmptyStream(activeSess, assistantText);
@@ -6194,7 +6355,9 @@ export default function ChatScreen() {
       };
 
       releaseOutboundSendLock();
-      if (!deferredTelegramPollRef.current) {
+      if (!isSendEpochLive()) {
+        releaseOutboundPending();
+      } else if (!deferredTelegramPollRef.current) {
         const completedStartedAt = sendStartedAtRef.current;
         if (sendSucceeded) {
           const replyPreview = (activeAssistantTextRef.current || '')
@@ -6259,7 +6422,9 @@ export default function ChatScreen() {
         }
       }
 
-      if (!isDemo && !suppressPostSendRefresh && currentSessionRef.current) {
+      if (!isSendEpochLive()) {
+        // Already released pending above when epoch died mid-switch.
+      } else if (!isDemo && !suppressPostSendRefresh && currentSessionRef.current) {
         void refreshSessionMessagesRef.current?.({ background: true }).finally(releaseOutboundPending);
       } else {
         releaseOutboundPending();

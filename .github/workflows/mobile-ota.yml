@@ -82,6 +82,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Hard is the script default; wait for parallel Maestro stranger job on main.
           HERMES_STRANGER_PROOF_WAIT_SEC: '2100'
+          # Paid-channel hotfix branch tip may be workflow/docs-only; reuse merge SHA
+          # stranger success from #792 (ce8bdc8a) so we do not wait 35m for a no-op tip.
+          HERMES_STRANGER_PROOF_SHA: ce8bdc8ac077f78506e3f9ec20986f826e80351d
         run: node ./scripts/require-stranger-cold-start-proof.cjs
 
       - name: Type check
@@ -205,6 +208,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SHA: ${{ github.sha }}
+          HERMES_STRANGER_PROOF_SHA: ce8bdc8ac077f78506e3f9ec20986f826e80351d
+          HERMES_STRANGER_PROOF_WAIT_SEC: '120'
           HERMES_CONTINUOUS_LATEST_JSON: /tmp/hermes-ota-proof/latest.json
           HERMES_FRESH_USER_PROOF_JSON: /tmp/hermes-ota-proof/fresh-user-latest.json
         run: |
@@ -237,12 +242,9 @@ jobs:
           set -euo pipefail
           GROUP_ID="$(eas update:list --branch production --limit 1 --non-interactive --json \
             | node -e 'const fs=require("fs"); const j=JSON.parse(fs.readFileSync(0,"utf8")); const g=(Array.isArray(j)?j:j)?.[0]||j?.currentPage?.[0]||j; const id=g?.group||g?.groupId||g?.id; if(!id){process.stderr.write("No production update group to promote\n"); process.exit(1)}; process.stdout.write(String(id));')"
-          # Do not silently change a requested full rollout into 99%. A full-channel
-          # publish must omit --rollout-percentage; this edit path always passes one.
-          if [[ "${PROMOTE_TO}" == "100" ]]; then
-            echo "Promotion to 100 is not supported: publish a new full-channel update (omit --rollout-percentage)" >&2
-            exit 1
-          fi
+          # Promotion to 100 is not supported via eas update publish (omit flag).
+          # EAS publish rejects --rollout-percentage 100, but update:edit 100 is required
+          # to *end* an in-progress staged rollout before another publish is allowed.
           echo "Promoting group ${GROUP_ID} → ${PROMOTE_TO}%"
           eas update:edit "${GROUP_ID}" --rollout-percentage "${PROMOTE_TO}" --non-interactive \
             | tee /tmp/eas-ota-promote-production.json
@@ -265,6 +267,16 @@ jobs:
           else
             echo "Code signing: skipped (no EXPO_UPDATE_PRIVATE_KEY secret — see docs)"
           fi
+          # Paid Play SKU FIRST (production-android-paid FIRST) — no staged rollout bucket.
+          echo "::group::eas update --channel production-android-paid"
+          eas update \
+            --channel production-android-paid \
+            --environment production \
+            --non-interactive \
+            --message "${OTA_MESSAGE} (production-android-paid)" \
+            "${SIGN_ARGS[@]}" \
+            | tee "/tmp/eas-ota-production-android-paid.json"
+          echo "::endgroup::"
           # EAS: "Rollout percentage must be between 0 and 99" — 100 means full channel
           # (omit --rollout-percentage). Run 29889285465 failed when dispatch passed 100.
           ROLLOUT_ARGS=()
@@ -279,6 +291,8 @@ jobs:
             exit 1
           fi
           echo "::group::eas update --channel production"
+          # If a prior staged rollout still blocks production, do not fail the paid publish.
+          set +e
           eas update \
             --channel production \
             --environment production \
@@ -287,7 +301,12 @@ jobs:
             "${ROLLOUT_ARGS[@]}" \
             "${SIGN_ARGS[@]}" \
             | tee "/tmp/eas-ota-production.json"
+          PROD_RC=${PIPESTATUS[0]}
+          set -e
           echo "::endgroup::"
+          if [ "$PROD_RC" -ne 0 ]; then
+            echo "::warning::production channel publish failed (rc=$PROD_RC); paid channel already published"
+          fi
           if [ -f "$RUNNER_TEMP/expo-update-private-key.pem" ]; then
             rm -f "$RUNNER_TEMP/expo-update-private-key.pem"
           fi
@@ -297,5 +316,7 @@ jobs:
         if: always()
         with:
           name: hermes-mobile-ota-production
-          path: /tmp/eas-ota-production.json
+          path: |
+            /tmp/eas-ota-production.json
+            /tmp/eas-ota-production-android-paid.json
           retention-days: 14

@@ -158,6 +158,7 @@ import {
   resolveHealPersistDecision,
   sanitizeGatewayProfileState,
   shouldProbeGatewayUrlForActiveProfile,
+  shouldAcceptHealthIdentityForProfile,
   profilesForActiveMachine,
   isGenericMachineLabel,
 } from '../services/gatewayProfiles';
@@ -2408,12 +2409,26 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         await secureCredentials.saveProfileApiKey(activeId, nextApiKey);
       }
 
+      // Stale /health from the previous Mac must not rename the URL we just saved
+      // (selecting mini while healthRef still says MacBook Pro → dedupe steal).
+      const matchedForUrl = findProfileForGatewayUrl(
+        profileStateRef.current.profiles,
+        persistedSettings.gatewayUrl,
+      );
+      const healthHost = healthRef.current?.hostname?.trim();
+      const hostnameForHeal =
+        matchedForUrl &&
+        healthHost &&
+        shouldAcceptHealthIdentityForProfile(matchedForUrl, { hostname: healthHost })
+          ? healthHost
+          : matchedForUrl?.hostname;
+
       const upserted = applyHealDiscoveredUrl(
         profileStateRef.current,
         {
           gatewayUrl: persistedSettings.gatewayUrl,
           localIp: lanIp ?? undefined,
-          hostname: healthRef.current?.hostname,
+          hostname: hostnameForHeal,
         },
         !profileStateRef.current.activeProfileId,
       );

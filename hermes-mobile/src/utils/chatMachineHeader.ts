@@ -7,6 +7,7 @@ import {
   findProfileForGatewayUrl,
   isGenericMachineLabel,
   profileDisplayName,
+  profileMachineKey,
   stripTransportSuffixFromComputerName,
 } from '../services/gatewayProfiles';
 import type { LeashConnectionState } from './gatewayEndpoint';
@@ -17,6 +18,7 @@ import {
 } from './gatewayEndpoint';
 import { isMacGatewayHttpOk } from './gatewayConnection';
 import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
+import { profileMatchesHostname } from './gatewayProfilePicker';
 import { relayWorkerDisplayName, selectRelayWorker } from './relayRouting';
 import { isTailnetRouteLabel, isTailscaleGatewayUrl } from './tailscaleHosts';
 
@@ -167,6 +169,22 @@ export function resolveMachineDisplayName(
   }
 
   if (loopbackUsb) {
+    // User just selected a remote Mac (mini Tailscale) while effective URL is still
+    // Pro USB — keep the selected name, do not flash the cable Mac (2026-07-22).
+    if (
+      switchInFlight &&
+      activeProfile &&
+      !isLoopbackGatewayUrl(activeProfile.gatewayUrl)
+    ) {
+      const stickyName = profileDisplayName(activeProfile);
+      if (!isUnresolvedMachineName(stickyName)) {
+        return stickyName;
+      }
+      const stickyHost = activeProfile.hostname?.replace(/\.local$/i, '').trim();
+      if (stickyHost && !isUnresolvedMachineName(stickyHost)) {
+        return stickyHost;
+      }
+    }
     if (isLiveUsbHealthIdentity(health) && fromHealth) {
       return fromHealth;
     }
@@ -174,23 +192,46 @@ export function resolveMachineDisplayName(
     return USB_UNKNOWN_MACHINE_LABEL;
   }
 
-  // PRODUCT LAW (multi-Mac): header must name the Mac that owns the live gatewayUrl.
-  // 2026-07-20 Reach-out-goal: activeProfile stayed MacBook Pro while chat POSTed to
-  // Mini — UI said Pro/GLM, history lived on Mini, looked like "zero context".
+  // PRODUCT LAW (multi-Mac): during a switch, prefer the user-selected active Mac.
+  // Exception (2026-07-20 Reach-out-goal): non-loopback gatewayUrl already belongs to a
+  // *different* saved computer AND live /health agrees — chat really POSTed there.
+  // Stale Pro USB/health must not rename a just-selected Mini (2026-07-22 rage).
   if (switchInFlight) {
+    const urlMatched = findProfileForGatewayUrl(_profiles ?? [], gatewayUrl);
+    const activeKey = activeProfile ? profileMachineKey(activeProfile) : undefined;
+    const urlKey = urlMatched ? profileMachineKey(urlMatched) : undefined;
+    const urlOwnsDifferentMac = Boolean(activeKey && urlKey && activeKey !== urlKey);
+    const healthAgreesWithUrl =
+      Boolean(fromHealth) &&
+      Boolean(urlMatched) &&
+      !isLoopbackGatewayUrl(gatewayUrl) &&
+      profileMatchesHostname(urlMatched!, fromHealth!);
+
+    if (urlOwnsDifferentMac && healthAgreesWithUrl) {
+      if (fromHealth && !isUnresolvedMachineName(fromHealth)) {
+        return fromHealth;
+      }
+      if (urlMatched) {
+        const matchedName = profileDisplayName(urlMatched);
+        if (!isUnresolvedMachineName(matchedName)) {
+          return matchedName;
+        }
+      }
+    }
+
+    if (activeProfile) {
+      const stickyName = profileDisplayName(activeProfile);
+      if (!isUnresolvedMachineName(stickyName)) {
+        return stickyName;
+      }
+      const stickyHost = activeProfile.hostname?.replace(/\.local$/i, '').trim();
+      if (stickyHost && !isUnresolvedMachineName(stickyHost)) {
+        return stickyHost;
+      }
+    }
+
     if (fromHealth && !isUnresolvedMachineName(fromHealth)) {
       return fromHealth;
-    }
-    const urlMatched = findProfileForGatewayUrl(_profiles ?? [], gatewayUrl);
-    if (urlMatched) {
-      const matchedName = profileDisplayName(urlMatched);
-      if (!isUnresolvedMachineName(matchedName)) {
-        return matchedName;
-      }
-      const matchedHost = urlMatched.hostname?.replace(/\.local$/i, '').trim();
-      if (matchedHost && !isUnresolvedMachineName(matchedHost)) {
-        return matchedHost;
-      }
     }
     const fromUrl = formatGatewayMachineParts(gatewayUrl, health).machineName;
     if (fromUrl && !isUnresolvedMachineName(fromUrl)) {
