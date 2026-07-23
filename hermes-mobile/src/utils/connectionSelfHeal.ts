@@ -153,15 +153,18 @@ export function buildSelfHealProbeUrls(input: {
 }
 
 /**
- * Prefer USB in autoDiscover probe order.
+ * Prefer USB in autoDiscover **probe order only** — never force USB as the only path.
  *
- * Product lock (2026-07-23): USB when cable present for the *same* sticky Mac —
- * even if the saved profile URL is Tailscale (handoff keeps activeProfileId on the
- * Tailscale row while effective URL is 127.0.0.1). Sticky *foreign* Tailscale Mac
- * (mini while cabled to Pro) sets liveUsbSameMachine=false and must not prefer USB.
+ * Product (2026-07-23): when live reverse matches the *same* sticky Mac, try USB
+ * first (even if the saved profile URL is Tailscale — handoff keeps activeProfileId
+ * on the Tailscale row while effective URL may be 127.0.0.1). If USB probe fails,
+ * callers MUST fall through to Tailscale/LAN. Sticky *foreign* Mac (mini while
+ * cabled to Pro) sets liveUsbSameMachine=false → do not prefer USB.
  *
  * Ghost guard: without liveUsbSameMachine, still require Wi‑Fi + an already-loopback
  * profile/effective URL (cellular ghost 127.0.0.1 without live hostname stays out).
+ *
+ * Never: require USB, fail closed without USB, or block Tailscale as fallback.
  */
 export function shouldPreferUsbProbeFirst(input: {
   activeGatewayUrl?: string | null;
@@ -170,7 +173,7 @@ export function shouldPreferUsbProbeFirst(input: {
   wifiConnected: boolean;
   /**
    * Live adb reverse /health hostname matches the sticky/active Mac.
-   * When true, prefer USB even on cellular and even when sticky URL is Tailscale.
+   * When true, prefer USB first (not force) even on cellular / Tailscale sticky URL.
    */
   liveUsbSameMachine?: boolean;
 }): boolean {
@@ -186,7 +189,9 @@ export function shouldPreferUsbProbeFirst(input: {
 }
 
 /**
- * True when last-selected sticky Tailscale/LAN must NOT yank a healthy same-Mac USB route.
+ * Prefer keeping a **healthy** same-Mac USB route over re-applying sticky Tailscale/LAN
+ * in the same autoDiscover pass (stops USB→Tailscale thrash while cable is live).
+ * Not a force: if USB dies, callers fall through and probe sticky remote.
  * Foreign sticky Mac (mini vs Pro cable) returns false — honor sticky Tailscale.
  */
 export function shouldKeepUsbOverStickyRemote(input: {

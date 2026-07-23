@@ -267,6 +267,26 @@ describe('USB primary on cellular', () => {
     ).toBe(false);
   });
 
+  it('prefer USB is probe-order only — never force when cable is absent or foreign', () => {
+    // No live same-Mac cable + sticky Tailscale → do not prefer USB (Tailscale remains valid).
+    expect(
+      shouldPreferUsbProbeFirst({
+        activeGatewayUrl: 'http://100.87.85.85:8642',
+        effectiveGatewayUrl: 'http://100.87.85.85:8642',
+        wifiConnected: true,
+        liveUsbSameMachine: false,
+      }),
+    ).toBe(false);
+    // Not already on USB → do not "keep USB" over sticky remote (no force-lock).
+    expect(
+      shouldKeepUsbOverStickyRemote({
+        effectiveGatewayUrl: 'http://100.87.85.85:8642',
+        stickyProfileUrl: 'http://100.87.85.85:8642',
+        liveUsbSameMachine: true,
+      }),
+    ).toBe(false);
+  });
+
   it('keeps USB over sticky same-Mac Tailscale when cable is live', () => {
     expect(
       shouldKeepUsbOverStickyRemote({

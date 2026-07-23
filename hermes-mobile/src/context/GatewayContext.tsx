@@ -1526,7 +1526,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     const activeForDiscovery = activeProfile(profileStateRef.current);
     const effectiveUrl =
       effectiveGatewayUrlRef.current.trim() || currentUrl || '';
-    // Live cable identity — same-Mac USB must win over sticky Tailscale URL (2026-07-23).
+    // Live cable identity — prefer same-Mac USB first over sticky Tailscale (2026-07-23).
+    // Prefer only: USB probe failure falls through to Tailscale/LAN. Never force USB-only.
     // Foreign sticky Mac (mini while cabled to Pro) keeps liveUsbSameMachine=false.
     let liveUsbHostname: string | null = null;
     if (Platform.OS !== 'web') {
@@ -1561,7 +1562,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       makeActive = false,
     ): Promise<string> => persistDiscoveredGatewayUrl(url, makeActive, usbProbeOptions);
 
-    // 1. Prefer USB when cable matches sticky Mac (or already on USB + Wi‑Fi)
+    // 1. Prefer USB first when cable matches sticky Mac (or already on USB + Wi‑Fi); fall through on failure
     if (Platform.OS !== 'web' && preferUsbFirst) {
       for (const fallbackUrl of usbLoopbackFallbackUrls(effectiveUrl || currentUrl || '')) {
         if (
@@ -1585,7 +1586,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     }
 
     // 2. Remember and prefer the last explicitly user-selected computer —
-    // but never yank healthy same-Mac USB back to that Mac's Tailscale/LAN URL.
+    // prefer not to yank healthy same-Mac USB back to Tailscale/LAN in this pass; if USB dies, fall through.
     const lastSelectedId = await storage.loadLastSelectedProfileId();
     let lastSelectedUrl: string | undefined;
     if (lastSelectedId) {

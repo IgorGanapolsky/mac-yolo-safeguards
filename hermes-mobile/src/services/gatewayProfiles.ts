@@ -529,7 +529,7 @@ export function resolveHealPersistDecision(
  * loopback when:
  * - the active computer is already USB, or
  * - a saved loopback row shares the active machine identity, or
- * - liveUsbHostname matches the sticky Mac (same-machine USB prefer; product 2026-07-23).
+ * - liveUsbHostname matches the sticky Mac (same-machine USB *prefer*, not force; 2026-07-23).
  */
 export function isDiscoveredUrlAllowedForActiveProfile(
   state: GatewayProfileState,
@@ -545,8 +545,9 @@ export function isDiscoveredUrlAllowedForActiveProfile(
   }
   const matched = findProfileForGatewayUrl(state.profiles, successfulUrl);
   if (!matched) {
-    // Never let anonymous 127.0.0.1 steal a Tailscale/LAN selection — unless the
-    // live cable hostname proves it is the same sticky Mac (USB prefer-when-cabled).
+    // Anonymous 127.0.0.1 must not steal a foreign Tailscale/LAN selection. Allow
+    // loopback only when live cable hostname proves the *same* sticky Mac (prefer
+    // USB first in discover — Tailscale remains a valid fallback if USB fails).
     if (isLoopbackGatewayUrl(successfulUrl)) {
       if (isLoopbackGatewayUrl(active.gatewayUrl)) {
         return true;

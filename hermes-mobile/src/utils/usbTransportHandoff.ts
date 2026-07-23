@@ -8,10 +8,11 @@ import { profileMatchesHostname } from './gatewayProfilePicker';
 import { resolveHeaderTransportLabel } from './chatMachineHeader';
 
 /**
- * Product lock (2026-07-20 / hardened 2026-07-21):
- * - Plug: Connected via Tailscale/LAN + same-Mac USB reverse healthy → prefer USB
+ * Product (2026-07-20 / hardened 2026-07-21; prefer-not-force 2026-07-23):
+ * - Plug: Connected via Tailscale/LAN + same-Mac USB reverse healthy → **prefer** USB
  *   (Wi‑Fi *or* cellular — live probe is the ghost guard, not NetInfo wifi).
- * - Unplug: USB reverse gone → fall back to same Mac Tailscale/LAN.
+ * - Unplug / USB probe fail → fall back to same-Mac Tailscale/LAN (never USB-only).
+ * - Never force USB when reverse is dead; never block Tailscale as fallback.
  * Never change activeProfileId or clear the conversation.
  */
 
