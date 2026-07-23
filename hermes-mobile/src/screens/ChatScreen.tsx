@@ -7353,6 +7353,11 @@ export default function ChatScreen() {
           runProgress={progressBanner}
           onOpenThreads={openSessionsModal}
           onOpenTools={() => setToolsModalVisible(true)}
+          onPressThreadTitle={
+            currentSession
+              ? () => handleRenameSession(currentSession.id, threadHeaderTitle)
+              : undefined
+          }
           onPressMachine={() => {
             haptics.selection();
             if (effectiveAuthMismatch) {
