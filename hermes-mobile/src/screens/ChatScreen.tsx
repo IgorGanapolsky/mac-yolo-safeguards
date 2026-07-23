@@ -360,6 +360,7 @@ import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
 import {
   detectUsbHostMismatch,
   profilesForSwitchComputerPicker,
+  resolveActivePickerProfileId,
   type LiveUsbPickerInput,
 } from '../utils/gatewayProfilePicker';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
@@ -1215,6 +1216,16 @@ export default function ChatScreen() {
         liveUsb: liveUsbGateway,
       }),
     [activeGatewayProfile?.id, gatewayProfiles, liveUsbGateway],
+  );
+  // Single radio only: map active alias onto the collapsed physical-machine row.
+  const switchComputerActiveProfileId = useMemo(
+    () =>
+      resolveActivePickerProfileId(
+        switchComputerProfiles,
+        activeGatewayProfile?.id ?? null,
+        gatewayProfiles,
+      ),
+    [activeGatewayProfile?.id, gatewayProfiles, switchComputerProfiles],
   );
   const healthProbePending = useMemo(() => isGatewayHealthPending(health), [health]);
   const usbCableLikely = useMemo(
@@ -7729,7 +7740,7 @@ export default function ChatScreen() {
               </Text>
               <GatewayProfilePicker
                 profiles={switchComputerProfiles}
-                activeProfileId={activeGatewayProfile?.id ?? null}
+                activeProfileId={switchComputerActiveProfileId}
                 activeReachable={macHttpOk}
                 authNeedsRepair={effectiveAuthMismatch}
                 activeConnecting={headerConnectionState === 'connecting'}

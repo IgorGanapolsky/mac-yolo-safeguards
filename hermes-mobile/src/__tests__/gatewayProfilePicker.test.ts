@@ -2,12 +2,15 @@ import { profileDisplayName } from '../services/gatewayProfiles';
 import {
   detectUsbHostMismatch,
   formatUsbHostMismatchMessage,
+  machinePickerGroupKey,
+  normalizeMachinePickerName,
   profileConnectionRouteLabel,
   profileMatchesDiscoveredGateway,
   profileMatchesHostname,
   profilePickerLines,
   profilesForDevicePicker,
   profilesForSwitchComputerPicker,
+  resolveActivePickerProfileId,
   synthesizeLiveUsbProfile,
   resolveProfileFromPickerRows,
   profileConnectionRouteDisplayLabel,
@@ -18,6 +21,57 @@ import {
 } from '../utils/gatewayProfilePicker';
 
 describe('gatewayProfilePicker', () => {
+  it('groups fleet Mac Pro aliases so USB + Tailscale never dual-select', () => {
+    expect(normalizeMachinePickerName('Igors-MacBook-Pro')).toBe('igorsmacbookpro');
+    expect(normalizeMachinePickerName('Igors-MacBook-Pro (Mac Pro)')).toBe('igorsmacbookpro');
+    const usb = {
+      id: 'mac_igors_macbook_pro',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      hostname: 'Igors-MacBook-Pro.local',
+      addedAt: '2026-07-23T00:00:00Z',
+    };
+    const ts = {
+      id: 'mac_book_ts',
+      label: 'Igors-MacBook-Pro (Mac Pro)',
+      gatewayUrl: 'http://100.87.85.85:8642',
+      hostname: 'Igors-MacBook-Pro',
+      localIp: '100.87.85.85',
+      addedAt: '2026-07-23T00:00:01Z',
+    };
+    expect(machinePickerGroupKey(usb)).toBe(machinePickerGroupKey(ts));
+    const rows = profilesForSwitchComputerPicker([usb, ts], {
+      activeProfileId: ts.id,
+      liveUsb: { reachable: true, hostname: 'Igors-MacBook-Pro.local' },
+    });
+    expect(rows).toHaveLength(1);
+    expect(resolveActivePickerProfileId(rows, ts.id, [usb, ts])).toBe(rows[0]!.id);
+  });
+
+  it('never marks two picker rows selected for one active profile', () => {
+    const pro = {
+      id: 'mac_book_ts',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://100.87.85.85:8642',
+      hostname: 'Igors-MacBook-Pro',
+      addedAt: '2026-07-23T00:00:00Z',
+    };
+    const mini = {
+      id: 'mac_mini_ts',
+      label: 'Tailscale 100.94.135.78',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-23T00:00:01Z',
+    };
+    const rows = profilesForSwitchComputerPicker([pro, mini], {
+      activeProfileId: pro.id,
+    });
+    const activeId = resolveActivePickerProfileId(rows, pro.id, [pro, mini]);
+    const selected = rows.filter((row) => row.id === activeId);
+    expect(selected).toHaveLength(1);
+    expect(selected[0]!.id).toBe(pro.id);
+  });
+
   it('splits hostname and IP for picker rows', () => {
     const lines = profilePickerLines({
       id: 'mac_10_2_29_103',

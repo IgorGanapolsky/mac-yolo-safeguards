@@ -7,6 +7,7 @@ import {
   isCablePluggedInForProfile,
   profileConnectionRouteDisplayLabel,
   profilePickerLines,
+  resolveActivePickerProfileId,
   type LiveUsbPickerInput,
 } from '../utils/gatewayProfilePicker';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
@@ -60,6 +61,8 @@ export default function GatewayProfilePicker({
   const showScanCard = !hideScanCard && Boolean(scanning || scanResult);
   const multiMac = profiles.length > 1;
   const showRouteHints = showReachabilityHints || multiMac;
+  // Collapse aliases → one selected radio. Never paint two · Now / filled dots.
+  const resolvedActiveId = resolveActivePickerProfileId(profiles, activeProfileId);
 
   return (
     <View>
@@ -73,8 +76,12 @@ export default function GatewayProfilePicker({
       ) : null}
       {profiles.length > 0 ? (
         <View style={[styles.list, dense ? styles.listDense : null]} testID="gateway-profile-list">
-      {profiles.map((profile) => {
-        const isActive = profile.id === activeProfileId;
+      {profiles.map((profile, index) => {
+        // First match only — duplicate ids must not both look selected.
+        const isActive =
+          Boolean(resolvedActiveId) &&
+          profile.id === resolvedActiveId &&
+          profiles.findIndex((row) => row.id === resolvedActiveId) === index;
         const cablePluggedIn = isCablePluggedInForProfile(profile, liveUsb);
         const lines = profilePickerLines(profile, { cablePluggedIn });
         const routeHint = showRouteHints
@@ -237,7 +244,8 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.accent,
+    // Default transparent — never pre-fill every radio (dual-select illusion).
+    backgroundColor: 'transparent',
   },
   labelBlock: {
     flex: 1,

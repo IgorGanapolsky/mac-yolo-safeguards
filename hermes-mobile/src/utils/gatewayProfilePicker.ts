@@ -147,24 +147,77 @@ export function isCablePluggedInForProfile(
 }
 
 /** Group key: one computer name, not one transport. */
+/**
+ * Strip fleet aliases / noise so USB + Tailscale rows for the same Mac collapse.
+ * "Igors-MacBook-Pro" and "Igors-MacBook-Pro (Mac Pro)" must share one key —
+ * otherwise Choose computer shows two Pro radios and dual-select thrash.
+ */
+export function normalizeMachinePickerName(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/\.local$/i, '')
+    .replace(/\.tail[a-z0-9]+\.ts\.net$/i, '')
+    .replace(/\s*\(mac pro\)\s*$/i, '')
+    .replace(/^tailscale\s+/i, '')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
 export function machinePickerGroupKey(profile: GatewayProfile): string {
-  const name = profileDisplayName(profile).trim().toLowerCase().replace(/\.local$/i, '');
-  if (name && !isGenericMachineLabel(name)) {
-    return `name:${name}`;
+  const display = profileDisplayName(profile);
+  const fleet = fleetComputerDisplayName(display);
+  const nameKey = normalizeMachinePickerName(fleet || display);
+  // Bare Tailscale IPs / "tailscale 100.x" labels are not stable machine names.
+  if (
+    nameKey &&
+    !isGenericMachineLabel(display) &&
+    !/^\d{1,3}(\d{1,3}){3}$/.test(nameKey) &&
+    !nameKey.startsWith('tailscale')
+  ) {
+    return `name:${nameKey}`;
   }
   const host = (profile.hostname || gatewayUrlHostname(profile.gatewayUrl) || '')
     .trim()
     .toLowerCase()
     .replace(/\.local$/i, '')
     .replace(/\.tail[a-z0-9]+\.ts\.net$/i, '');
-  if (host && host !== 'localhost' && host !== '127.0.0.1') {
-    return `host:${host}`;
+  const hostKey = normalizeMachinePickerName(host);
+  if (hostKey && hostKey !== 'localhost' && hostKey !== '127001') {
+    return `host:${hostKey}`;
   }
   const ip = profile.localIp?.trim() || extractLanIpFromGatewayUrl(profile.gatewayUrl);
   if (ip && !isLoopbackHost(ip)) {
     return `ip:${ip}`;
   }
   return `id:${profile.id}`;
+}
+
+/**
+ * Map the active saved profile onto the single collapsed picker row for that machine.
+ * Prevents "no radio selected" when the active Tailscale alias was collapsed into USB
+ * (or vice versa) — and never marks two rows selected.
+ */
+export function resolveActivePickerProfileId(
+  pickerProfiles: GatewayProfile[],
+  activeProfileId: string | null | undefined,
+  allProfiles: GatewayProfile[] = pickerProfiles,
+): string | null {
+  const activeId = activeProfileId?.trim() || null;
+  if (!activeId) {
+    return null;
+  }
+  if (pickerProfiles.some((profile) => profile.id === activeId)) {
+    return activeId;
+  }
+  const active =
+    allProfiles.find((profile) => profile.id === activeId) ??
+    pickerProfiles.find((profile) => profile.id === activeId);
+  if (!active) {
+    return null;
+  }
+  const key = machinePickerGroupKey(active);
+  const match = pickerProfiles.find((profile) => machinePickerGroupKey(profile) === key);
+  return match?.id ?? null;
 }
 
 /**
@@ -248,8 +301,15 @@ export function collapseToOneProfilePerMachine(
     groups.set(key, list);
   }
   const collapsed: GatewayProfile[] = [];
+  const seenIds = new Set<string>();
   for (const group of groups.values()) {
-    collapsed.push(preferredProfileForMachine(group, options));
+    const preferred = preferredProfileForMachine(group, options);
+    // Defense: never emit the same profile id twice (dual-selected radios).
+    if (seenIds.has(preferred.id)) {
+      continue;
+    }
+    seenIds.add(preferred.id);
+    collapsed.push(preferred);
   }
   return collapsed.sort((a, b) => {
     const aCable = isCablePluggedInForProfile(a, options.liveUsb) ? 0 : 1;

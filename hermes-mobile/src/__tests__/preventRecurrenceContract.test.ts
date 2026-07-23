@@ -841,5 +841,21 @@ describe('July 23 session crisis recurrence gates (S29–S38)', () => {
     const tests = read('hermes-mobile/src/__tests__/continuitySessionResume.test.ts');
     expect(tests).toMatch(/mega_previous|521_000|too large/i);
   });
+
+  it('S47: Choose computer never dual-selects two radios; Mac Pro fleet aliases collapse', () => {
+    const picker = read('hermes-mobile/src/utils/gatewayProfilePicker.ts');
+    expect(picker).toContain('export function normalizeMachinePickerName');
+    expect(picker).toContain('export function resolveActivePickerProfileId');
+    expect(picker).toMatch(/\(mac pro\)|mac pro/i);
+    expect(picker).toContain('seenIds');
+    const ui = read('hermes-mobile/src/components/GatewayProfilePicker.tsx');
+    expect(ui).toContain('resolveActivePickerProfileId');
+    expect(ui).toMatch(/transparent/);
+    expect(ui).toMatch(/findIndex/);
+    const chat = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chat).toContain('switchComputerActiveProfileId');
+    const tests = read('hermes-mobile/src/__tests__/gatewayProfilePicker.test.ts');
+    expect(tests).toMatch(/dual-select|never marks two picker rows selected/i);
+  });
 });
 
