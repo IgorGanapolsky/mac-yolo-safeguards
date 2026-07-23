@@ -131,9 +131,11 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
   return (
     <View style={styles.wrap} testID="pro-upgrade-card" collapsable={false} accessible={true}>
       <Text style={styles.title}>ThumbGate Pro</Text>
+      <Text style={styles.tagline}>Self-Improving Firewall for your AI agents</Text>
       <Text style={styles.body}>
         Hermes Chat is free. {THUMBGATE_LEASH_PRODUCT_NAME} ({priceLabel}) unlocks mobile approval
-        cards on this phone
+        cards on this phone plus lesson-backed gates that remember thumbs feedback, promote or
+        demote rules, and re-rank what matters next
         {isAndroidLifetime
           ? ' — one-time unlock on Google Play.'
           : '. Subscriptions are managed on the ThumbGate web dashboard, not inside this app.'}
@@ -221,6 +223,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '900',
     color: colors.text,
+  },
+  tagline: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.secondary,
   },
   body: {
     fontSize: 13,

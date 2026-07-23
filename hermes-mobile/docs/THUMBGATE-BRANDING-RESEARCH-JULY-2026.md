@@ -154,12 +154,14 @@ ThumbGate (parent — thumbgate.ai, CLI, lesson DB, firewall hooks)
 | Store | Field | Copy | Chars |
 |-------|-------|------|-------|
 | Play + iOS (repo) | Title / Name | `Hermes Mobile: ThumbGate Leash` | 28/30 |
-| Play | Short | `Firewall for YOUR AI agents — approve from phone. Mac, Linux, Windows.` | 68/80 |
+| Play | Short | `Self-Improving Firewall for your AI agents — approve + learn. Mac/Linux/Win.` | 78/80 |
 | iOS (repo, post-review) | Subtitle | `Your computer, not cloud` | 24/30 |
 
-**Why #1:** Matches thumbgate.ai governance/firewall positioning, in-app "ThumbGate Leash" Pro name, IAP wiring, and cross-platform honesty in short description.
+**Why #1:** Matches ThumbGate **Self-Improving Firewall** positioning (lessons, promote/demote, re-rank), in-app "ThumbGate Leash" Pro name, IAP wiring, and cross-platform honesty in short description.
 
-**Keywords indexed:** ThumbGate, Leash, firewall, AI agents, Mac, Linux, Windows.
+**Keywords indexed:** ThumbGate, Leash, self-improving firewall, AI agents, Mac, Linux, Windows.
+
+> **Note (2026-07-23):** Live Play/ASC short strings are owned by `T-LISTING-ALIGN-*` / listing lane — do not push this research string without that lane.
 
 ---
 
@@ -195,11 +197,11 @@ ThumbGate (parent — thumbgate.ai, CLI, lesson DB, firewall hooks)
 
 ### Play full description — insert after paragraph 1 (optional)
 
-> **ThumbGate Leash** is the mobile firewall for agent tool calls: see the diff, approve or deny, and sync standing gate rules with your desktop ThumbGate install.
+> **ThumbGate Leash** is the mobile side of the self-improving firewall for agent tool calls: see the diff, approve or deny, and sync standing gate rules with your desktop ThumbGate lessons (promote/demote + re-rank).
 
 ### iOS promotional text (post-review paste)
 
-> ThumbGate firewall for YOUR AI agents — approve risky commands from your phone. Mac, Linux, or Windows gateway; not a cloud IDE burning credits. Leash Pro $19.99/mo.
+> ThumbGate Self-Improving Firewall for your AI agents — approve risky commands from your phone; lessons promote/demote and re-rank over time. Mac, Linux, or Windows gateway; not a cloud IDE burning credits.
 
 ### Feature graphic / screenshot caption
 

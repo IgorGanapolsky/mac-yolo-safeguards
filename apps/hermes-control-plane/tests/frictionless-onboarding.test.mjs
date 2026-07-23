@@ -154,7 +154,7 @@ test("routes paid accounts to billing management without opening a duplicate che
 });
 
 test("uses ThumbGate for Hermes identity and production URLs", () => {
-  assert.match(layout, /ThumbGate — Your Hermes chats from any screen/);
+  assert.match(layout, /ThumbGate — Self-Improving Firewall for your AI Agents/);
   assert.match(layout, /metadataBase: new URL\("https:\/\/thumbgate\.app"\)/);
   assert.match(dashboardPage, /title: "Hermes Web"/);
   assert.match(landing, /name: "ThumbGate for Hermes"/);
