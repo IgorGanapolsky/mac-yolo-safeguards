@@ -129,6 +129,33 @@ describe('outboundSendDedupe', () => {
     expect(reactivated[0]?.id).toBe('user-1');
   });
 
+  it('reuses gateway-acked failed bubble after merge annotated outboundStatus (no user- prefix)', () => {
+    const prompt = 'Make money faster';
+    const messages: HermesMessage[] = [
+      {
+        id: 'gw-42',
+        role: 'user',
+        content: prompt,
+        outboundStatus: 'failed',
+        outboundFailureReason: 'Run stalled on your Mac — recovering automatically…',
+      },
+    ];
+    expect(findFailedOptimisticUserBubble(messages, prompt)?.id).toBe('gw-42');
+    expect(findReusableOptimisticUserBubble(messages, prompt)?.id).toBe('gw-42');
+    const reactivated = reactivateOptimisticUserBubble(messages, 'gw-42');
+    expect(reactivated).toHaveLength(1);
+    expect(reactivated[0]?.id).toBe('gw-42');
+    expect(reactivated[0]?.outboundStatus).toBe('pending');
+    expect(reactivated[0]?.outboundFailureReason).toBeUndefined();
+    // Recovery must not invent a second user-* row for the same intent.
+    const afterCommit = dedupeAdjacentOptimisticUserBubbles([
+      ...reactivated,
+      { id: 'user-echo', role: 'user', content: prompt, outboundStatus: 'pending' },
+    ]);
+    expect(afterCommit).toHaveLength(1);
+    expect(afterCommit[0]?.outboundStatus).toBe('pending');
+  });
+
   it('dedupes adjacent optimistic user rows with the same body', () => {
     const messages: HermesMessage[] = [
       { id: 'gw-1', role: 'user', content: 'make money faster' },
@@ -155,6 +182,24 @@ describe('outboundSendDedupe', () => {
     const deduped = dedupeAdjacentOptimisticUserBubbles(messages);
     expect(deduped).toHaveLength(1);
     expect(deduped[0]?.id).toBe('user-2');
+    expect(deduped[0]?.outboundStatus).toBe('pending');
+  });
+
+  it('collapses gateway-acked failed + user-* pending echo into one bubble', () => {
+    const prompt = 'Make money faster';
+    const messages: HermesMessage[] = [
+      {
+        id: 'gw-42',
+        role: 'user',
+        content: prompt,
+        outboundStatus: 'failed',
+        outboundFailureReason: 'Run stalled on your Mac — recovering automatically…',
+      },
+      { id: 'user-99', role: 'user', content: prompt, outboundStatus: 'pending' },
+    ];
+    const deduped = dedupeAdjacentOptimisticUserBubbles(messages);
+    expect(deduped).toHaveLength(1);
+    expect(deduped[0]?.id).toBe('user-99');
     expect(deduped[0]?.outboundStatus).toBe('pending');
   });
 
