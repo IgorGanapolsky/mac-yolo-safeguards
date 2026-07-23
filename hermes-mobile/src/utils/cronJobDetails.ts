@@ -67,14 +67,23 @@ export function formatCronJobTimestamp(
   return deltaMs >= 0 ? `${absolute} (${unit} ago)` : `${absolute} (in ${unit})`;
 }
 
-export function cronJobStatusLabel(job: HermesCronJob): string {
+/**
+ * Shared pause detection for status label AND Pause/Resume controls.
+ * Gateways may set `paused`, `enabled: false`, or a paused `state` — treat all as paused.
+ */
+export function isCronJobPaused(job: HermesCronJob): boolean {
   if (job.paused === true || job.enabled === false) {
+    return true;
+  }
+  const state = firstNonEmptyString(job.state);
+  return Boolean(state && /pause/i.test(state));
+}
+
+export function cronJobStatusLabel(job: HermesCronJob): string {
+  if (isCronJobPaused(job)) {
     return 'Paused';
   }
   const state = firstNonEmptyString(job.state);
-  if (state && /pause/i.test(state)) {
-    return 'Paused';
-  }
   if (state && state !== 'scheduled') {
     return state.charAt(0).toUpperCase() + state.slice(1);
   }
@@ -124,6 +133,11 @@ export function buildCronJobDetailLines(
   const lastStatus = firstNonEmptyString(job.last_status, job.lastStatus);
   if (lastStatus) {
     lines.push({ label: 'Last result', value: lastStatus });
+  }
+
+  const lastError = firstNonEmptyString(job.last_error, job.lastError, job.last_delivery_error);
+  if (lastError) {
+    lines.push({ label: 'Last error', value: clipPurpose(lastError, 240) });
   }
 
   const nextRun = formatCronJobTimestamp(cronJobNextRunAt(job), nowMs);

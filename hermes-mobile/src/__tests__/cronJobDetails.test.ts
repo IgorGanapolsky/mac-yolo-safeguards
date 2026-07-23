@@ -3,6 +3,7 @@ import {
   cronJobPurpose,
   cronJobStatusLabel,
   formatCronJobTimestamp,
+  isCronJobPaused,
 } from '../utils/cronJobDetails';
 import type { HermesCronJob } from '../types/gatewayApi';
 
@@ -34,8 +35,12 @@ describe('cronJobDetails', () => {
 
   it('labels paused vs active', () => {
     expect(cronJobStatusLabel(sampleJob)).toBe('Active');
+    expect(isCronJobPaused(sampleJob)).toBe(false);
     expect(cronJobStatusLabel({ ...sampleJob, paused: true })).toBe('Paused');
+    expect(isCronJobPaused({ ...sampleJob, paused: true })).toBe(true);
     expect(cronJobStatusLabel({ ...sampleJob, enabled: false })).toBe('Paused');
+    expect(isCronJobPaused({ ...sampleJob, enabled: false })).toBe(true);
+    expect(isCronJobPaused({ ...sampleJob, state: 'paused' })).toBe(true);
   });
 
   it('clips purpose from prompt', () => {
@@ -84,5 +89,21 @@ describe('cronJobDetails', () => {
     );
     const labels = lines.map((line) => line.label);
     expect(labels).toEqual(['Status', 'Schedule']);
+  });
+
+  it('includes last error when gateway returns one', () => {
+    const lines = buildCronJobDetailLines(
+      {
+        id: 'err',
+        name: 'Broken script',
+        schedule: 'every 1440m',
+        last_status: 'error',
+        last_error: 'Script not found: /Users/example/.hermes/scripts/echo',
+      },
+      nowMs,
+    );
+    const byLabel = Object.fromEntries(lines.map((line) => [line.label, line.value]));
+    expect(byLabel['Last result']).toBe('error');
+    expect(byLabel['Last error']).toMatch(/Script not found/);
   });
 });
