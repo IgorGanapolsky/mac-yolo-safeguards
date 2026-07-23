@@ -318,7 +318,9 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     // Anonymous 127.0.0.1 is not a free pass over a Tailscale/LAN selection (mini→Pro rage).
     expect(profilesSrc).toContain('Never let anonymous 127.0.0.1 steal a Tailscale/LAN selection');
     expect(healSrc).toContain('shouldProbeGatewayUrlForActiveProfile');
+    expect(healSrc).toContain('shouldKeepUsbOverStickyRemote');
     expect(ctxSrc).toContain('healPersistAcceptedProbedUrl');
+    expect(ctxSrc).toContain('liveUsbSameMachine');
     expect(ctxSrc).toContain('Catalog-only (e.g. Pro USB while mini is active)');
   });
 
