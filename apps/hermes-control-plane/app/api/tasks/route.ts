@@ -6,6 +6,7 @@ import {
   governanceError,
 } from "@/lib/agent-governance";
 import { db } from "@/lib/runtime";
+import { evaluateCloudPromptToolPolicy } from "@/lib/cloud-tool-policy";
 import { jsonError } from "@/lib/security";
 
 interface DeviceRoute {
@@ -78,6 +79,13 @@ export async function POST(request: Request) {
   else if (device.failoverMode === "auto") { status = "cloud_pending"; route = "cloud"; }
   else if (device.failoverMode === "manual") { status = "needs_failover"; route = "blocked"; }
   else { status = "offline_blocked"; route = "blocked"; }
+
+  if (route === "cloud") {
+    const toolPolicy = evaluateCloudPromptToolPolicy(prompt);
+    if (!toolPolicy.allowed) {
+      return jsonError(toolPolicy.message, 409);
+    }
+  }
 
   const now = Date.now();
   const usage = await db().prepare(

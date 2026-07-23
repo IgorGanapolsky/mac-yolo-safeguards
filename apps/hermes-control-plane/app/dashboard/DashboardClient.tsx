@@ -4,7 +4,16 @@ import { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent, useCallbac
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
-type Device = { id: string; name: string; fingerprint: string; failoverMode: "disabled" | "manual" | "auto"; lastSeenAt: number | null; online: boolean };
+type Device = {
+  id: string;
+  name: string;
+  fingerprint: string;
+  failoverMode: "disabled" | "manual" | "auto";
+  lastSeenAt: number | null;
+  online: boolean;
+  stale?: boolean;
+  presence?: "online" | "stale" | "offline";
+};
 type Thread = { id: string; title: string; taskCount: number; updatedAt: number; source: string; model: string | null; preview: string | null; messageCount: number; sourceSessionId: string | null; syncedAt: number | null; deviceName: string | null };
 type Task = { id: string; threadId: string; threadTitle: string; prompt: string; status: string; route: string; result: string | null; error: string | null; createdAt: number; updatedAt: number; completedAt: number | null; deviceName: string | null };
 type ThreadDetails = { snapshot: Array<{ role: string; content: string }>; tasks: Array<{ id: string; prompt: string; result: string | null; error: string | null; route: string; status: string; createdAt: number }> };
@@ -28,7 +37,14 @@ function age(timestamp: number | null) {
   const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
   if (seconds < 60) return `${seconds}s ago`;
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  return `${Math.floor(seconds / 3600)}h ago`;
+  if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86_400)}d ago`;
+}
+
+function deviceStatusLabel(device: Device) {
+  if (device.online || device.presence === "online") return "Online";
+  if (device.stale || device.presence === "stale") return `Stale · last seen ${age(device.lastSeenAt)}`;
+  return `Last seen ${age(device.lastSeenAt)}`;
 }
 
 function latency(milliseconds: number | null) {
@@ -237,6 +253,21 @@ export default function DashboardClient() {
   async function updateFailover(deviceId: string, failoverMode: Device["failoverMode"]) {
     const response = await fetch("/api/devices", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ deviceId, failoverMode }) });
     const body = await response.json() as { error?: string }; setNotice(response.ok ? `Failover policy set to ${failoverMode}.` : body.error ?? "Update failed"); await load();
+  }
+
+  async function revokeDevice(device: Device) {
+    if (!window.confirm(`Remove ${device.name} from this workspace? The always-on connector on that Mac will stop being authorized until you pair again.`)) return;
+    setBusy(true);
+    setNotice(null);
+    const response = await fetch("/api/devices", {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ deviceId: device.id }),
+    });
+    const body = await response.json() as { error?: string };
+    setNotice(response.ok ? `${device.name} removed.` : body.error ?? "Could not remove machine");
+    if (response.ok) await load();
+    setBusy(false);
   }
 
   async function failover(taskId: string) {
@@ -495,7 +526,48 @@ export default function DashboardClient() {
                 <a className="button button-secondary button-small" href="#web-settings">{devices.length ? "Open offline controls" : "Open pairing settings"}</a>
               </div>
             </details>
-            <section className="panel" id="web-settings"><div className="panel-heading"><div><p className="eyebrow">SETTINGS</p><h2>Paired Hermes</h2></div></div>{devices.map((device) => <article key={device.id} className="device-card"><div><span className={`device-light ${device.online ? "is-online" : ""}`} /><div><strong>{device.name}</strong><small>{device.online ? "Online" : `Last seen ${age(device.lastSeenAt)}`}</small></div></div><code>{device.fingerprint}</code><label>Offline policy<select value={device.failoverMode} onChange={(event) => void updateFailover(device.id, event.target.value as Device["failoverMode"])}><option value="manual">Ask before cloud</option><option value="auto">Continue automatically</option><option value="disabled">Pause until online</option></select></label></article>)}<form className="pair-form" onSubmit={pair}><label>Pairing code<input value={pairCode} onChange={(event) => setPairCode(event.target.value.toUpperCase())} placeholder="ABCD-EFGH" maxLength={9} /></label><button className="button button-secondary button-small" disabled={busy || !pairingCodePattern.test(pairCode)}>Approve machine</button></form><p className="helper-copy">The connector prefills this short code and keeps both its device private key and your local Hermes gateway credential on the machine.</p></section>
+            <section className="panel" id="web-settings">
+              <div className="panel-heading"><div><p className="eyebrow">SETTINGS</p><h2>Paired Hermes connectors</h2></div></div>
+              <p className="helper-copy">These are ThumbGate cloud connectors — not Tailscale peers. A Mac only appears after you run the one-line installer on that machine and approve its code here. Tailscale alone (phone path) does not register a dashboard machine.</p>
+              {devices.map((device) => (
+                <article key={device.id} className={`device-card${device.stale || device.presence === "stale" ? " is-stale" : ""}`}>
+                  <div>
+                    <span className={`device-light ${device.online ? "is-online" : device.stale || device.presence === "stale" ? "is-stale" : ""}`} />
+                    <div>
+                      <strong>{device.name}</strong>
+                      <small>{deviceStatusLabel(device)} · id {device.id.slice(0, 8)}</small>
+                    </div>
+                  </div>
+                  <code>{device.fingerprint}</code>
+                  <label>Offline policy
+                    <select value={device.failoverMode} onChange={(event) => void updateFailover(device.id, event.target.value as Device["failoverMode"])}>
+                      <option value="manual">Ask before cloud</option>
+                      <option value="auto">Continue automatically</option>
+                      <option value="disabled">Pause until online</option>
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className="button button-secondary button-small device-remove"
+                    disabled={busy}
+                    onClick={() => void revokeDevice(device)}
+                  >
+                    {(device.stale || device.presence === "stale") ? "Remove stale machine" : "Remove machine"}
+                  </button>
+                </article>
+              ))}
+              {devices.length > 0 && (
+                <div className="installer-command">
+                  <code>{connectorInstallCommand}</code>
+                  <button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy installer for another Mac"}</button>
+                </div>
+              )}
+              <form className="pair-form" onSubmit={pair}>
+                <label>Pairing code<input value={pairCode} onChange={(event) => setPairCode(event.target.value.toUpperCase())} placeholder="ABCD-EFGH" maxLength={9} /></label>
+                <button className="button button-secondary button-small" disabled={busy || !pairingCodePattern.test(pairCode)}>Approve machine</button>
+              </form>
+              <p className="helper-copy">Run the installer on each Mac you want listed (for example your Mac mini). Re-approving the same machine reuses its connector key instead of creating a second ghost card.</p>
+            </section>
           </aside>
         </div>
       </section>

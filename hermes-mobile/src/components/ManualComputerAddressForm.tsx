@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   manualEntry: {
     marginTop: 4,
     paddingTop: 16,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.borderLight,
     gap: 12,
   },
@@ -164,7 +164,9 @@ const styles = StyleSheet.create({
   manualEntryCompact: {
     marginTop: 0,
     paddingTop: 8,
-    gap: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    gap: 8,
   },
   manualEntryHero: {
     marginTop: 0,

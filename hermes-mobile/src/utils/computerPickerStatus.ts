@@ -4,7 +4,6 @@ import { resolveHeaderTransportLabel } from './chatMachineHeader';
 import {
   formatLanScanResultDetail,
   formatLanScanResultLabel,
-  formatLanScanStageLabel,
 } from './lanScanLabels';
 
 /** Fixed status band so discovery ticks cannot reflow the profile list. */
@@ -13,8 +12,17 @@ export const COMPUTER_PICKER_STATUS_MIN_HEIGHT = 88;
 /** Shorter band when saved profiles exist and help is collapsed. */
 export const COMPUTER_PICKER_STATUS_COMPACT_MIN_HEIGHT = 56;
 
+/**
+ * Reserved slot when the status card is collapsed to a help link (or dual-Connected
+ * suppress). Matches compact band so list/Find computers do not jump when a scan starts.
+ */
+export const COMPUTER_PICKER_STATUS_COLLAPSED_MIN_HEIGHT = 56;
+
 /** Hold scan/probe label flips long enough to stop modal jitter. */
-export const COMPUTER_PICKER_STATUS_DEBOUNCE_MS = 400;
+export const COMPUTER_PICKER_STATUS_DEBOUNCE_MS = 450;
+
+/** Stable list floor so mid-scan profile upserts do not collapse the sheet. */
+export const COMPUTER_PICKER_LIST_MIN_HEIGHT = 72;
 
 export type ComputerPickerStatusKind =
   | 'searching'
@@ -61,12 +69,11 @@ export function resolveComputerPickerStatus(
     !input.scanning;
 
   if (input.scanning) {
-    const title = input.scanProgress
-      ? formatLanScanStageLabel(input.scanProgress)
-      : 'Searching for your computer…';
+    // Stable copy only — mid-scan host % / stage labels reflow the sheet (jitter).
+    // Detailed progress stays on MacScanProgressCard when that surface is shown.
     return {
       kind: 'searching',
-      title,
+      title: 'Searching for your computer…',
       detail:
         input.tailscaleVpnActive
           ? 'Looking on Wi‑Fi and Tailscale. Keep Hermes open on your computer.'
@@ -195,10 +202,33 @@ export function shouldHideIdlePickerHelp(
   return status.kind === 'help';
 }
 
+/**
+ * Collapse the status card to a reserved help slot when it would duplicate the
+ * selected row ("Connected · …" twice) or show idle help over an already-filled list.
+ */
+export function shouldCollapsePickerStatusBand(
+  status: ComputerPickerStatusSnapshot,
+  savedProfileCount: number,
+  helpExpanded: boolean,
+): boolean {
+  if (shouldHideIdlePickerHelp(status, savedProfileCount, helpExpanded)) {
+    return true;
+  }
+  if (helpExpanded || savedProfileCount === 0) {
+    return false;
+  }
+  // Row already shows Connected / route — a second Connected card thrash + jumps.
+  return status.kind === 'active';
+}
+
 /** Signature used to debounce rapid discovery label / mode flips. */
 export function computerPickerStatusSignature(
   status: ComputerPickerStatusSnapshot,
 ): string {
+  // Searching titles are intentionally stable — ignore any residual detail noise.
+  if (status.kind === 'searching') {
+    return `searching\u0001${status.title}`;
+  }
   const discoveryKeys = status.discoveries
     .map((d) => d.gatewayUrl)
     .sort()

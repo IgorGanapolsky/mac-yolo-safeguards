@@ -60,7 +60,7 @@ export function LandingAuthNav() {
   );
 }
 
-/** Single primary hero CTA (not triplicated in the side panel). */
+/** Dual-track hero CTA: free sign-in stays primary, but a real paid-intent path sits next to it — not buried in the pricing section. */
 export function LandingAuthHero() {
   const mode = useLandingAuth();
   const isSession = mode === "session";
@@ -74,7 +74,9 @@ export function LandingAuthHero() {
         {isSession ? "Open Hermes on the web" : "Sign in to Hermes Web"}{" "}
         <span aria-hidden="true">→</span>
       </a>
-      <a href="#pricing" className="button button-ghost">See pricing</a>
+      <a href="#pricing" className="button button-secondary" data-funnel-event="cloud_continuity_click">
+        Try Continuity — 14 days free
+      </a>
     </div>
   );
 }
@@ -109,7 +111,7 @@ export function LandingAuthPanel() {
           <span className="action-icon" aria-hidden="true">☁</span>
           <span>
             <strong>Continuity</strong>
-            <small>Keep work running on a VPS when the Mac is offline.</small>
+            <small>Can pick up eligible work on a VPS when offline — still proving this out.</small>
           </span>
           <b aria-hidden="true">→</b>
         </a>

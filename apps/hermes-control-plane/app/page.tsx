@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BillingPlan } from "./BillingPlan";
 import { FailoverPathDemo } from "./FailoverPathDemo";
 import { FunnelSignals } from "./FunnelSignals";
+import { RemoteControlDiagram } from "./RemoteControlDiagram";
 import {
   LandingAuthHero,
   LandingAuthNav,
@@ -51,10 +52,10 @@ export default function Home() {
           <p className="eyebrow"><span className="live-dot" /> Hermes remote control</p>
           <h1>Hermes dashboard<br /><span>from any browser.</span></h1>
           <p className="hero-lede">
-            Chat and control your Hermes agents on the web. Continuity keeps eligible work running on a VPS when your Mac is offline.
+            Chat and control your Hermes agents on the web. Continuity can pick up eligible work on a VPS when your Mac is offline — a capability we&apos;re still proving out in real use.
           </p>
           <LandingAuthHero />
-          <p className="signin-note">Hermes Web by ThumbGate. Continue with Google or Apple—no new password.</p>
+          <p className="signin-note">Hermes Web by ThumbGate. Continue with Google today — more providers activate once configured.</p>
           <div className="trust-row"><span>No inbound ports</span><span>Private-key pairing</span><span>Cloud only when enabled</span></div>
           <div className="hero-store-links" aria-label="Hermes Mobile apps">
             <a
@@ -81,6 +82,7 @@ export default function Home() {
         </div>
 
         <nav className="hero-console hero-actions-panel" aria-label="Private workspace actions">
+          <RemoteControlDiagram />
           <LandingAuthPanel />
         </nav>
       </section>
