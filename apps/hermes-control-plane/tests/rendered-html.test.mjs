@@ -86,7 +86,9 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(chrome, /data-funnel-event=\{isSession \? "dashboard_open_click" : "sign_in_click"\}/);
   assert.equal((chrome.match(/"sign_in_click"/g) ?? []).length, 1);
   assert.equal((chrome.match(/fetch\("\/api\/me"/g) ?? []).length, 1);
-  assert.match(page, /90s<\/strong><span>execution lease/);
+  // No fake public "stats" strip (hardcoded 1/0/90s/24/7 that looked live but wasn't).
+  assert.doesNotMatch(page, /proof-strip|signed device identity|shared private keys/);
+  assert.match(page, /90s lease/);
   assert.match(page, /application\/ld\+json/);
   assert.match(page, /SoftwareApplication/);
   assert.match(page, /RemoteControlDiagram/);
