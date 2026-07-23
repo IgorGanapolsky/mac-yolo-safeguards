@@ -44,6 +44,7 @@ export function LandingAuthNav() {
   return (
     <div className="nav-actions" data-landing-auth={mode}>
       <a href="#pair" className="nav-link">Pair</a>
+      <a href="#mobile" className="nav-link">Apps</a>
       <a href="#how-it-works" className="nav-link">How it works</a>
       <a href="#pricing" className="nav-link">Pricing</a>
       {isSession ? (
