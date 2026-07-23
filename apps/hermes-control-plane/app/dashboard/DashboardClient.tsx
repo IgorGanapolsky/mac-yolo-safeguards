@@ -684,10 +684,16 @@ export default function DashboardClient() {
           <aside className="right-rail">
             <section className="panel connection-panel" id="leash-control">
               <div className="panel-heading"><div><p className="eyebrow">CONNECTION</p><h2>{onlineDevices.length ? "Connector online" : devices.length ? "Connector reconnecting" : "Pair your first machine"}</h2></div><span>{onlineDevices.length ? "LIVE" : devices.length ? "RETRYING" : "STEP 1 OF 3"}</span></div>
-              <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "KeepAlive is retrying automatically" : "Run the one-command connector installer"}</strong><p>{devices.length ? "Pick My Mac or Continuity (VPS) on every task. Auto still uses each machine's offline policy when the lid closes." : "The installer creates a device key, opens this approval page with the code filled, and starts an always-on service."}</p></div></div>
-              {!devices.length && <div className="installer-command"><code>{connectorInstallCommand}</code><button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy one-line installer"}</button></div>}
+              <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "Connector reconnecting automatically" : "One-time setup on your Mac"}</strong><p>{devices.length ? "Paired Macs stay connected via an always-on service on the computer — you don’t reinstall for normal use. Choose My Mac / Continuity / Auto when you run a task." : "macOS will not let a website install software on your Mac. Once you run the one-line installer in Terminal, the connector runs forever and re-pairs itself after sleep or reboot."}</p></div></div>
+              {!devices.length && (
+                <div className="installer-command">
+                  <p className="installer-why">Why a Terminal command? Apple blocks remote silent install of background services. This is a <strong>one-time</strong> step on that Mac — not every session.</p>
+                  <code>{connectorInstallCommand}</code>
+                  <button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy one-line installer"}</button>
+                </div>
+              )}
               {!devices.length && <div className="account-recovery"><p>Signed in as <strong>{user.email}</strong>. If your machines are paired to another email, switch accounts here.</p><form action="/api/auth/logout" method="post"><button className="button button-secondary button-small">Switch account</button></form></div>}
-              <ol className="dashboard-setup-steps"><li className={devices.length ? "is-done" : "is-current"}><span>1</span>Install connector</li><li className={devices.length ? "is-done" : ""}><span>2</span>Approve short code</li><li className={onlineDevices.length ? "is-done" : devices.length ? "is-current" : ""}><span>3</span>Choose offline policy</li></ol>
+              <ol className="dashboard-setup-steps"><li className={devices.length ? "is-done" : "is-current"}><span>1</span>{devices.length ? "Connector installed" : "Install once on Mac"}</li><li className={devices.length ? "is-done" : ""}><span>2</span>{devices.length ? "Machine approved" : "Approve short code"}</li><li className={onlineDevices.length ? "is-done" : devices.length ? "is-current" : ""}><span>3</span>{onlineDevices.length ? "Online & autonomous" : "Stay online"}</li></ol>
               <p className="privacy-boundary">Bounded Hermes thread context syncs to this control plane. The device private key and local gateway credential stay on the machine.</p>
             </section>
             <details className="panel safety-panel" id="execution-safety" open={safetyExpanded} onToggle={(event) => setSafetyExpanded(event.currentTarget.open)}>
@@ -700,7 +706,15 @@ export default function DashboardClient() {
             </details>
             <section className="panel" id="web-settings">
               <div className="panel-heading"><div><p className="eyebrow">SETTINGS</p><h2>Paired Hermes connectors</h2></div></div>
-              <p className="helper-copy">These are ThumbGate cloud connectors — not Tailscale peers. A Mac only appears after you run the one-line installer on that machine and approve its code here. Tailscale alone (phone path) does not register a dashboard machine.</p>
+              {devices.length > 0 ? (
+                <p className="helper-copy">
+                  These Macs already run the ThumbGate connector as an always-on service. After the one-time install they reconnect on their own (sleep, reboot, network blips) — you do <strong>not</strong> copy an installer every time.
+                </p>
+              ) : (
+                <p className="helper-copy">
+                  A browser cannot install a background service on macOS (Apple security). You run one Terminal command once on that Mac; then pairing and reconnects are automatic.
+                </p>
+              )}
               {devices.map((device) => (
                 <article key={device.id} className={`device-card${device.stale || device.presence === "stale" ? " is-stale" : ""}`}>
                   <div>
@@ -729,16 +743,27 @@ export default function DashboardClient() {
                 </article>
               ))}
               {devices.length > 0 && (
-                <div className="installer-command">
-                  <code>{connectorInstallCommand}</code>
-                  <button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy installer for another Mac"}</button>
-                </div>
+                <details className="add-mac-details">
+                  <summary>Add another Mac (optional)</summary>
+                  <p className="helper-copy">
+                    Only needed for a <strong>new</strong> computer that has never been paired. Paste the command in Terminal on that Mac once. Same machine re-approving reuses its key (no ghost cards).
+                  </p>
+                  <div className="installer-command">
+                    <code>{connectorInstallCommand}</code>
+                    <button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy installer for another Mac"}</button>
+                  </div>
+                  <form className="pair-form" onSubmit={pair}>
+                    <label>Pairing code (if the installer opened a code)<input value={pairCode} onChange={(event) => setPairCode(event.target.value.toUpperCase())} placeholder="ABCD-EFGH" maxLength={9} /></label>
+                    <button className="button button-secondary button-small" disabled={busy || !pairingCodePattern.test(pairCode)}>Approve machine</button>
+                  </form>
+                </details>
               )}
-              <form className="pair-form" onSubmit={pair}>
-                <label>Pairing code<input value={pairCode} onChange={(event) => setPairCode(event.target.value.toUpperCase())} placeholder="ABCD-EFGH" maxLength={9} /></label>
-                <button className="button button-secondary button-small" disabled={busy || !pairingCodePattern.test(pairCode)}>Approve machine</button>
-              </form>
-              <p className="helper-copy">Run the installer on each Mac you want listed (for example your Mac mini). Re-approving the same machine reuses its connector key instead of creating a second ghost card.</p>
+              {!devices.length && (
+                <form className="pair-form" onSubmit={pair}>
+                  <label>Pairing code<input value={pairCode} onChange={(event) => setPairCode(event.target.value.toUpperCase())} placeholder="ABCD-EFGH" maxLength={9} /></label>
+                  <button className="button button-secondary button-small" disabled={busy || !pairingCodePattern.test(pairCode)}>Approve machine</button>
+                </form>
+              )}
             </section>
           </aside>
         </div>

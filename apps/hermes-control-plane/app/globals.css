@@ -127,6 +127,16 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .dashboard-setup-steps .is-done span{color:#34D399;background:rgba(16,185,129,.12)}
 .installer-command{margin:0 14px 14px;padding:12px;display:grid;gap:10px;background:var(--composer);border:1px solid var(--line);border-radius:14px}
 .installer-command code{color:var(--text-secondary);font:10px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere;user-select:all}
+.installer-why{margin:0;color:var(--muted);font-size:12px;line-height:1.45}
+.installer-why strong{color:var(--text-secondary)}
+.add-mac-details{margin:8px 14px 16px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.03)}
+.add-mac-details summary{cursor:pointer;font:650 13px/1.3 Inter,ui-sans-serif,system-ui,sans-serif;color:var(--text-secondary);list-style:none}
+.add-mac-details summary::-webkit-details-marker{display:none}
+.add-mac-details summary::before{content:"▸ ";color:var(--accent)}
+.add-mac-details[open] summary::before{content:"▾ "}
+.add-mac-details .helper-copy{padding:10px 0 8px}
+.add-mac-details .installer-command{margin:0 0 12px}
+.add-mac-details .pair-form{padding:0}
 .mobile-web-tabs{display:none}
 .dashboard-shell.chat-rail-collapsed{grid-template-columns:76px minmax(0,1fr)}
 .sidebar-header{display:flex;align-items:center;justify-content:space-between;gap:8px}

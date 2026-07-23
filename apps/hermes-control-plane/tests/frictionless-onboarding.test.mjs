@@ -252,11 +252,15 @@ test("lists connectors not Tailscale peers and can revoke ghost machines", () =>
   const devicePairing = readFileSync(new URL("../lib/device-pairing.ts", import.meta.url), "utf8");
   const healthRoute = readFileSync(new URL("../app/api/health/route.ts", import.meta.url), "utf8");
   assert.match(dashboard, /Paired Hermes connectors/);
-  assert.match(dashboard, /not Tailscale peers/);
   assert.match(dashboard, /Remove machine/);
   assert.match(dashboard, /Remove stale machine/);
   assert.match(dashboard, /deviceStatusLabel/);
   assert.match(dashboard, /Copy installer for another Mac/);
+  assert.match(dashboard, /Add another Mac \(optional\)/);
+  assert.match(dashboard, /always-on service/);
+  assert.match(dashboard, /do <strong>not<\/strong> copy an installer every time/);
+  assert.match(dashboard, /one-time/);
+  assert.match(dashboard, /Apple security|cannot install/);
   assert.match(dashboard, /method: "DELETE"/);
   assert.match(devicesRoute, /export async function DELETE/);
   assert.match(devicesRoute, /device\.revoke/);
