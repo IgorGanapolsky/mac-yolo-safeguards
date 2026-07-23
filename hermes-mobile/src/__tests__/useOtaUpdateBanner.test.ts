@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react-native';
 import { Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Updates from 'expo-updates';
 
 jest.spyOn(Alert, 'alert').mockImplementation(() => {});
@@ -12,6 +13,7 @@ jest.mock('expo-updates', () => ({
   fetchUpdateAsync: jest.fn().mockResolvedValue({ isNew: true }),
   reloadAsync: jest.fn().mockResolvedValue(undefined),
   useUpdates: jest.fn(),
+  updateId: null,
 }));
 
 const mockUseUpdates = Updates.useUpdates as jest.MockedFunction<typeof Updates.useUpdates>;
@@ -28,8 +30,18 @@ const baseReturn = {
 };
 
 describe('useOtaUpdateBanner', () => {
-  beforeEach(() => {
+  const prevThaw = process.env.EXPO_PUBLIC_OTA_BILLING_THAW;
+
+  beforeEach(async () => {
     jest.clearAllMocks();
+    await AsyncStorage.clear();
+    // Existing prompt tests assume prompts are allowed (billing thawed).
+    process.env.EXPO_PUBLIC_OTA_BILLING_THAW = '1';
+  });
+
+  afterEach(() => {
+    if (prevThaw === undefined) delete process.env.EXPO_PUBLIC_OTA_BILLING_THAW;
+    else process.env.EXPO_PUBLIC_OTA_BILLING_THAW = prevThaw;
   });
 
   it('returns idle when OTA is disabled (dev builds)', () => {
@@ -214,5 +226,24 @@ describe('useOtaUpdateBanner', () => {
       later?.onPress?.();
     });
     expect(result.current.state).toBe('idle');
+  });
+
+  it('stays idle and skips Alert/check during Expo billing freeze', () => {
+    delete process.env.EXPO_PUBLIC_OTA_BILLING_THAW;
+    delete process.env.EXPO_PUBLIC_OTA_CLIENT_PROMPTS;
+    (Updates as any).isEnabled = true;
+    mockUseUpdates.mockReturnValue({
+      ...baseReturn,
+      isUpdatePending: true,
+    });
+
+    const { result } = renderHook(() => {
+      const { useOtaUpdateBanner } = require('../hooks/useOtaUpdateBanner');
+      return useOtaUpdateBanner();
+    });
+
+    expect(result.current.state).toBe('idle');
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(Updates.checkForUpdateAsync).not.toHaveBeenCalled();
   });
 });

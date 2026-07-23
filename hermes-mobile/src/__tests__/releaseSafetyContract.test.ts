@@ -207,15 +207,17 @@ describe('release safety contract', () => {
     expect(eas.build['e2e-test'].channel).toBe('e2e-test');
   });
 
-  it('mobile-ota workflow: preview on push; production gated + staged rollout', () => {
+  it('mobile-ota workflow: no push auto-publish; opt-in preview/production + billing freeze', () => {
     const workflow = read('.github/workflows/mobile-ota.yml');
-    expect(workflow).toContain('branches:');
-    expect(workflow).toContain('- main');
-    expect(workflow).toContain('hermes-mobile/**');
     expect(workflow).toContain('workflow_dispatch');
     expect(workflow).toContain('runtimeVersion');
     expect(workflow).toContain('eas update');
-    // Crisis law: preview may publish on push; production needs publish_production + proof.
+    // Billing freeze 2026-07-23: never auto-publish on push (spam burned Expo).
+    expect(workflow).not.toMatch(/on:\s*\n\s*push:/);
+    expect(workflow).toContain('publish_preview');
+    expect(workflow).toContain('require-expo-billing-thaw.sh');
+    expect(workflow).toContain('billing-freeze-gate');
+    // Crisis law: production needs publish_production + proof; preview is opt-in.
     expect(workflow).toContain('publish-preview-ota');
     expect(workflow).toContain('publish-production-ota');
     expect(workflow).toContain('publish_production');
