@@ -139,8 +139,23 @@ describe('runProgressDisplay', () => {
           detail: 'Hermes is working on your computer…',
         },
         false,
+        { messageCount: 1 },
       ),
     ).toBe(true);
+  });
+
+  it('hides stale working chrome on empty New chat (anti-thrash)', () => {
+    expect(
+      shouldShowComposerProgressBanner(
+        {
+          phase: 'working',
+          startedAtMs: Date.now(),
+          detail: 'Working on your computer…',
+        },
+        false,
+        { messageCount: 0 },
+      ),
+    ).toBe(false);
   });
 
   it('filters gateway platform labels from displayable LLM model', () => {

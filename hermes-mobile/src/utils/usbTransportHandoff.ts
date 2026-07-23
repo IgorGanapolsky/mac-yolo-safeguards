@@ -13,7 +13,23 @@ import { resolveHeaderTransportLabel } from './chatMachineHeader';
  *   (Wi‑Fi *or* cellular — live probe is the ghost guard, not NetInfo wifi).
  * - Unplug: USB reverse gone → fall back to same Mac Tailscale/LAN.
  * Never change activeProfileId or clear the conversation.
+ *
+ * Emergency anti-thrash (2026-07-23): min interval between successful handoffs so
+ * flaky adb reverse does not flip Tailscale↔USB every 5s heal tick.
  */
+export const USB_HANDOFF_MIN_INTERVAL_MS = 45_000;
+
+/** True when enough time has passed since the last successful URL handoff. */
+export function shouldAllowUsbHandoffAttempt(
+  lastSuccessfulHandoffAtMs: number | null | undefined,
+  nowMs: number,
+  minIntervalMs: number = USB_HANDOFF_MIN_INTERVAL_MS,
+): boolean {
+  if (lastSuccessfulHandoffAtMs == null || !Number.isFinite(lastSuccessfulHandoffAtMs)) {
+    return true;
+  }
+  return nowMs - lastSuccessfulHandoffAtMs >= minIntervalMs;
+}
 
 export type UsbTransportHandoffInput = {
   currentGatewayUrl: string;

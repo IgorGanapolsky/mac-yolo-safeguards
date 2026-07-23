@@ -183,6 +183,7 @@ import {
   resolveSameMachineRemoteUrl,
   resolveUsbToRemoteHandoff,
   resolveUsbTransportHandoff,
+  shouldAllowUsbHandoffAttempt,
 } from '../utils/usbTransportHandoff';
 import { resolveProfileAfterEnsureUpsert } from '../utils/resolveEnsureProfile';
 import {
@@ -423,6 +424,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const maybeHandoffUsbToRemoteRef = useRef<() => Promise<boolean>>(async () => false);
   const connectionHealInFlightRef = useRef(false);
   const usbHandoffInFlightRef = useRef(false);
+  /** Emergency thrash guard: last successful Tailscale↔USB URL flip. */
+  const lastUsbHandoffSuccessAtMsRef = useRef<number | null>(null);
   const connectionHealAttemptRef = useRef(0);
   const [connectionHealAttempt, setConnectionHealAttempt] = useState(0);
   const [connectionHealInFlight, setConnectionHealInFlight] = useState(false);
@@ -1972,6 +1975,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     ) {
       return false;
     }
+    if (!shouldAllowUsbHandoffAttempt(lastUsbHandoffSuccessAtMsRef.current, Date.now())) {
+      return false;
+    }
     const currentUrl =
       effectiveGatewayUrlRef.current.trim() || settingsRef.current.gatewayUrl.trim();
     if (!isUsbHandoffSourceUrl(currentUrl)) {
@@ -2057,6 +2063,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       healthRef.current = snapshot;
       setConnectionState('connected');
       connectEventsRef.current();
+      lastUsbHandoffSuccessAtMsRef.current = Date.now();
       return true;
     } catch {
       return false;
@@ -2076,6 +2083,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       settingsRef.current.demoMode ||
       usbHandoffInFlightRef.current
     ) {
+      return false;
+    }
+    if (!shouldAllowUsbHandoffAttempt(lastUsbHandoffSuccessAtMsRef.current, Date.now())) {
       return false;
     }
     const currentUrl =
@@ -2156,6 +2166,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       healthRef.current = snapshot;
       setConnectionState('connected');
       connectEventsRef.current();
+      lastUsbHandoffSuccessAtMsRef.current = Date.now();
       return true;
     } catch {
       return false;
@@ -2165,6 +2176,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   }, [isLoaded]);
 
   const runBidirectionalUsbHandoff = useCallback(async () => {
+    if (!shouldAllowUsbHandoffAttempt(lastUsbHandoffSuccessAtMsRef.current, Date.now())) {
+      return;
+    }
     const toUsb = await maybeHandoffTailscaleToUsbRef.current();
     if (!toUsb) {
       await maybeHandoffUsbToRemoteRef.current();

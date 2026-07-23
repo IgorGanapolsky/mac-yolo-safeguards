@@ -5,6 +5,8 @@ import {
   resolveSameMachineRemoteUrl,
   resolveUsbToRemoteHandoff,
   resolveUsbTransportHandoff,
+  shouldAllowUsbHandoffAttempt,
+  USB_HANDOFF_MIN_INTERVAL_MS,
   usbHandoffPreservesConversation,
 } from '../utils/usbTransportHandoff';
 
@@ -220,5 +222,15 @@ describe('usbHandoffPreservesConversation', () => {
         afterMessageCount: 0,
       }),
     ).toBe(false);
+  });
+});
+
+describe('USB handoff thrash guard', () => {
+  it('allows first handoff and blocks within min interval', () => {
+    expect(shouldAllowUsbHandoffAttempt(null, 1_000_000)).toBe(true);
+    expect(shouldAllowUsbHandoffAttempt(1_000_000, 1_000_000 + 1_000)).toBe(false);
+    expect(
+      shouldAllowUsbHandoffAttempt(1_000_000, 1_000_000 + USB_HANDOFF_MIN_INTERVAL_MS),
+    ).toBe(true);
   });
 });

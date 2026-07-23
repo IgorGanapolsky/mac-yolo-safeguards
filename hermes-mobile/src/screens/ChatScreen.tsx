@@ -200,6 +200,7 @@ import {
   shouldShowCompletedRunBanner,
   shouldRetainRunProgressAfterVisibleReply,
   retainActiveRunProgressForLiveTokens,
+  shouldClearStaleRunOnEmptyCompose,
   shouldShowComposerProgressBanner,
 } from '../utils/runProgressDisplay';
 import {
@@ -6629,7 +6630,11 @@ export default function ChatScreen() {
   );
 
   const showComposerProgressBanner = useMemo(() => {
-    if (!shouldShowComposerProgressBanner(progressBanner, isSending)) {
+    if (
+      !shouldShowComposerProgressBanner(progressBanner, isSending, {
+        messageCount: messages.length,
+      })
+    ) {
       return false;
     }
     const failedConnectivity =
@@ -6647,7 +6652,24 @@ export default function ChatScreen() {
     isDemo,
     connectionHeal,
     alternateHealRoutes,
+    messages.length,
   ]);
+
+  // Emergency thrash: empty New chat + ghost "Working on your computer…"
+  useEffect(() => {
+    if (
+      !shouldClearStaleRunOnEmptyCompose({
+        messageCount: messages.length,
+        isSending,
+        streamActive: isChatStreamActive,
+        progress: runProgress,
+      })
+    ) {
+      return;
+    }
+    setRunProgress(null);
+    setIsChatStreamActive(false);
+  }, [messages.length, isSending, isChatStreamActive, runProgress]);
 
   const emptyReplyRunRefreshEligible = useMemo(
     () =>

@@ -404,10 +404,45 @@ export function isActiveChatRun(runProgress: RunProgressState | null | undefined
   return runProgress.phase !== 'completed' && runProgress.phase !== 'failed';
 }
 
-/** Show composer progress whenever run state exists — including pre-runId delivery/thinking. */
+/**
+ * Show composer progress when run state exists — including pre-runId delivery/thinking.
+ *
+ * Emergency anti-thrash (2026-07-23): empty New-chat compose-first + stale
+ * "Working on your computer…" remounts empty greeting vs banner. Hide active
+ * working chrome when there is no transcript and we are not sending.
+ */
 export function shouldShowComposerProgressBanner(
   progress: RunProgressState | null | undefined,
-  _isSending: boolean,
+  isSending: boolean,
+  options?: { messageCount?: number },
 ): boolean {
-  return Boolean(progress);
+  if (!progress) {
+    return false;
+  }
+  const messageCount = options?.messageCount ?? 0;
+  if (
+    messageCount === 0 &&
+    !isSending &&
+    progress.phase !== 'failed' &&
+    progress.phase !== 'completed'
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/** Clear ghost run chrome on empty compose so Connected empty chat stops jittering. */
+export function shouldClearStaleRunOnEmptyCompose(input: {
+  messageCount: number;
+  isSending: boolean;
+  streamActive: boolean;
+  progress: RunProgressState | null | undefined;
+}): boolean {
+  if (input.messageCount > 0 || input.isSending || input.streamActive) {
+    return false;
+  }
+  if (!input.progress) {
+    return false;
+  }
+  return isActiveChatRun(input.progress);
 }
