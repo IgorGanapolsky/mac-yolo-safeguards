@@ -6,11 +6,13 @@ Hermes Mobile ships JS and asset fixes over the air (EAS Update) so Igor's phone
 
 | Channel | Build profile | OTA publish | Audience |
 |---------|---------------|-------------|----------|
-| `production` | `eas.json` → `build.production` | **Fresh-user gated** — `npm run ota:publish` / workflow_dispatch only after `e2e=pass` | Store / release APK |
-| `preview` | `build.preview` | `main` push (CI) or `npm run ota:preview` | Internal EAS preview APK |
+| `production` | `eas.json` → `build.production` | **Billing thaw + fresh-user gated** — batched tip-of-day `workflow_dispatch` only | Store / release APK |
+| `preview` | `build.preview` | Opt-in `workflow_dispatch` + `publish_preview=true` (no push auto-publish) | Internal EAS preview APK |
 | `e2e-test` | `build.e2e-test` | `npm run ota:e2e` | Maestro / automation builds |
 
-**Crisis 2026-07-15 (updated):** Production OTA is **not** automatic on every `main` merge. CI publishes **preview** on push; **production** requires `workflow_dispatch` with `publish_production=true` plus a fresh-user / continuous proof artifact (`e2e=pass`), then publishes with **staged `--rollout-percentage`** (default 10%; promote via `promote_production_rollout`). Play **1.0/vc14** NSC is on the production track — still do **not** claim all installs updated. OTA cannot deliver native NSC. Law: [VERSIONING-AND-RELEASES-JULY-2026.md](./VERSIONING-AND-RELEASES-JULY-2026.md). Local: `npm run ota:gate` then `npm run ota:publish`.
+**Billing freeze 2026-07-23:** Expo Visa 2394 failed a **$78** subscription charge after agents burned EAS Update (`mobile-ota.yml` **121 runs / 48h**, including preview-on-every-main-push + many production dispatches). Workflow is **disabled_manually** on GitHub. Local/`ota:publish` refused by `scripts/require-expo-billing-thaw.sh` unless `HERMES_OTA_BILLING_THAW=1`. **Merge PRs OK; OTA deferred** until billing works. Then batch **one** coherent tip-of-day publish — never one OTA per small PR.
+
+**Crisis 2026-07-15 (updated):** Production OTA is **not** automatic on every `main` merge. Preview is **not** automatic either (removed 2026-07-23). **Production** requires `workflow_dispatch` with `publish_production=true` plus a fresh-user / continuous proof artifact (`e2e=pass`), then publishes with **staged `--rollout-percentage`** (default 10%; promote via `promote_production_rollout`). OTA cannot deliver native NSC. Law: [VERSIONING-AND-RELEASES-JULY-2026.md](./VERSIONING-AND-RELEASES-JULY-2026.md). Local: thaw + `npm run ota:gate` then `npm run ota:publish`.
 
 **Previously:** Production channel received automatic OTA from `.github/workflows/mobile-ota.yml` on every push — that shipped live bugs without brand-new-user proof.
 
