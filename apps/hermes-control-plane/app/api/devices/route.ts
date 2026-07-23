@@ -1,5 +1,6 @@
 import { requireSession } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { devicePresenceLabel, isDeviceOnline, isDeviceStale } from "@/lib/device-pairing";
 import { db } from "@/lib/runtime";
 import { displayFingerprint, jsonError } from "@/lib/security";
 
@@ -15,6 +16,7 @@ interface DeviceRow {
 export async function GET() {
   let session;
   try { session = await requireSession(); } catch { return jsonError("sign in required", 401); }
+  const now = Date.now();
   const result = await db().prepare(
     `SELECT id, name, fingerprint, failover_mode AS failoverMode, last_seen_at AS lastSeenAt, created_at AS createdAt
        FROM devices WHERE organization_id = ? AND revoked_at IS NULL
@@ -23,7 +25,9 @@ export async function GET() {
   return Response.json({ devices: result.results.map((device: DeviceRow) => ({
     ...device,
     fingerprint: displayFingerprint(device.fingerprint),
-    online: Boolean(device.lastSeenAt && Date.now() - device.lastSeenAt < 60_000),
+    online: isDeviceOnline(device.lastSeenAt, now),
+    stale: isDeviceStale(device.lastSeenAt, now),
+    presence: devicePresenceLabel(device.lastSeenAt, now),
   })) });
 }
 
