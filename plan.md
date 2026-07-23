@@ -423,6 +423,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- `hermes-mobile/src/constants/monetization.ts`, `hermes-mobile/src/__tests__/ProUpgradeCard.test.tsx`, `plan.md` → **claude-code** (T-THUMBGATE-DOMAIN-FIX-20260722: THUMBGATE_PRO_URL/THUMBGATE_WEB_SUBSCRIPTION_URL pointed at thumbgate.ai — an unrelated $499 consulting product — instead of thumbgate.app; fix only, no other monetization/paywall copy changes) (2026-07-22T19:30:00Z)
+
 - `scripts/install-hermes-academic-research-agent.sh`, `com.igor.hermes-academic-research-agent.plist`, `tests/test-hermes-academic-research-ingest.js`, `plan.md` → **codex-hermes-academic-launchd** (T-HERMES-ACADEMIC-LAUNCHD-NODE-20260722: replace launchd-invisible `/usr/bin/env node` with an installer-resolved absolute Node executable and prove live exit 0) (2026-07-22T22:53:00Z)
 
 - `.github/workflows/asc-screenshots-upload.yml`, `hermes-mobile/scripts/upload-app-store-metadata.sh`, `hermes-mobile/scripts/asc-api.js`, `hermes-mobile/scripts/verify-asc-listing.js`, `plan.md` → **cursor-asc-screenshots-ci** (T-ASC-SCREENSHOTS-CI-20260722) (2026-07-22T21:56:00Z)
