@@ -1,27 +1,20 @@
-const body = `# ThumbGate for Hermes
+const body = `# Leash by ThumbGate
 
-> ThumbGate lets you chat with and approve your Hermes agents from any phone or browser while your Mac does the work. It also runs a self-improving firewall in the background: it remembers lessons, re-ranks what matters next, promotes repeated failures into gates, and expires stale auto-promoted policy. Web control stays free; optional managed cloud continuation is paid.
-
-- Product label: Leash by ThumbGate
-- Primary pitch: Control your Hermes agents from anywhere
-- Secondary capability: self-improving firewall built from thumbs feedback
+> ThumbGate is the Hermes web dashboard and Continuity product: remote control of Hermes from any browser, free while your machine is online, with optional paid VPS continuity when it goes offline.
 
 ## Canonical URL
 - https://thumbgate.app/
 
 ## Core capabilities
+- Web remote control dashboard for Hermes (chats, machines, Leash controls)
 - Signed pairing to a user's Hermes machine without inbound ports
-- Web and mobile thread visibility and continuation
-- Pre-action Leash approvals for blocked agent tool calls
-- Private thumbs feedback, durable lessons, lesson re-ranking, gate promotion, and expiry of stale auto-promoted gates
+- Optional managed cloud / VPS continuation when a paired machine is offline
 - Renewable, expiring fenced leases so only the current unexpired executor can complete a task
-- Optional managed cloud continuation when a paired machine is offline
 - Aggregate, content-free product analytics and an auditable task trail
-- Authenticated workspace lessons dashboard
 
 ## Pricing
-- Web Control: $0/month
-- Cloud Continuity is a recurring paid subscription
+- Web Control: $0/month (dashboard while the machine is online)
+- Cloud Continuity is a recurring paid subscription (VPS failover when offline)
 - Current price and billing interval: https://thumbgate.app/api/billing/plan
 
 ## Privacy boundary
@@ -33,14 +26,14 @@ const body = `# ThumbGate for Hermes
 - ARD 1.0 catalog: https://thumbgate.app/.well-known/ai-catalog.json
 
 ## Direct answers
-- Access Hermes chats from the web: sign in, approve the outbound-only connector on the Mac that runs Hermes, then select a synced thread.
+- What is this? A web dashboard for Hermes remote control, plus Continuity so work can keep running on a VPS when the Mac is offline.
+- Access Hermes from the web: sign in, approve the outbound-only connector on the Mac that runs Hermes, then open the dashboard.
 - Mac offline behavior: free Web Control pauses or asks; eligible trial or paid Cloud Continuity tasks can use a fenced cloud runner.
 - Credential boundary: the local gateway credential stays on the paired Mac; ThumbGate receives a separate device identity and requires no inbound port.
-- Authentication: AuthKit accepts email or Google; enterprise SSO is discovered from a verified work email, and additional social buttons appear only after their providers are configured.
 
 ## Relationship to other products
 - Hermes is the agent runtime Leash controls
-- ThumbGate supplies the governance and safety layer
+- ThumbGate supplies the web dashboard, pairing, and Continuity
 - CloudCLI is a separate cloud development environment and session UI
 - Hermes is the only execution runtime; ThumbGate does not substitute a bare model completion for a paired Hermes session
 `;

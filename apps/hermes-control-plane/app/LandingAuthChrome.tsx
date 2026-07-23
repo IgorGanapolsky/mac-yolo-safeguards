@@ -73,14 +73,14 @@ export function LandingAuthHero() {
         {isSession ? "Open Hermes on the web" : "Sign in to Hermes Web"}{" "}
         <span aria-hidden="true">→</span>
       </a>
-      <a href="#how-it-works" className="button button-ghost">See the failover path</a>
+      <a href="#pricing" className="button button-ghost">See pricing</a>
     </div>
   );
 }
 
 /**
  * Private-workspace panel: no second Sign-in when anon.
- * Points to pair + explains primary CTA.
+ * Points to pair + Continuity (keeps public HTML free of workspace telemetry).
  */
 export function LandingAuthPanel() {
   const mode = useLandingAuth();
@@ -100,15 +100,15 @@ export function LandingAuthPanel() {
           <span className="action-icon" aria-hidden="true">+</span>
           <span>
             <strong>Pair your Mac</strong>
-            <small>Read the public setup steps, then sign in to approve the short code.</small>
+            <small>One installer. Approve a short code.</small>
           </span>
           <b aria-hidden="true">→</b>
         </a>
         <a className="landing-action" href="#pricing">
           <span className="action-icon" aria-hidden="true">☁</span>
           <span>
-            <strong>Review plans</strong>
-            <small>Compare public plan details without exposing workspace activity.</small>
+            <strong>Continuity</strong>
+            <small>Keep work running on a VPS when the Mac is offline.</small>
           </span>
           <b aria-hidden="true">→</b>
         </a>
