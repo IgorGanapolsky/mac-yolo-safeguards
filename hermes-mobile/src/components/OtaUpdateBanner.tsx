@@ -5,6 +5,8 @@ import {
   Pressable,
   View,
   ActivityIndicator,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGateway } from '../context/GatewayContext';
@@ -23,7 +25,7 @@ import {
  * Mounted above navigation in App.tsx — MUST pad for status-bar / cutout
  * insets itself (ChatScreen SafeAreaView does not wrap this banner).
  *
- * No-ops in debug builds (Updates.isEnabled === false).
+ * No-ops in debug builds (Updates.isEnabled === false) and during billing freeze.
  */
 export default function OtaUpdateBanner() {
   const insets = useSafeAreaInsets();
@@ -39,10 +41,13 @@ export default function OtaUpdateBanner() {
   const isReloading = state === 'reloading';
   const label = isPending || isReloading ? 'Restart' : 'Download & restart';
   const minTap = otaBannerActionMinSize();
+  const statusBarHeight =
+    Platform.OS === 'android' ? Number(StatusBar.currentHeight ?? 0) : 0;
+  const paddingTop = otaBannerTopPadding(insets.top, statusBarHeight);
 
   return (
     <View
-      style={[styles.container, { paddingTop: otaBannerTopPadding(insets.top) }]}
+      style={[styles.container, { paddingTop }]}
       testID="ota-update-banner"
       accessibilityRole="summary"
     >

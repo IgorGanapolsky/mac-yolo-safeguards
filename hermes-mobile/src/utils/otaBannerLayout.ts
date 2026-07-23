@@ -5,11 +5,17 @@ export const OTA_BANNER_MIN_TAP_PT = 44;
 export const OTA_BANNER_CONTENT_PAD_TOP = 10;
 
 /**
- * Top padding so the Update-ready banner never draws under the status bar /
- * cutout. Always place interactive Restart / dismiss *below* `safeAreaTop`.
+ * Android edge-to-edge often reports `insets.top === 0` for views mounted
+ * outside a screen SafeAreaView. Fall back to StatusBar height / 24dp floor
+ * so Restart/X never sit under the system status icons.
  */
-export function otaBannerTopPadding(safeAreaTop: number): number {
-  const top = Number.isFinite(safeAreaTop) ? Math.max(0, safeAreaTop) : 0;
+export function otaBannerTopPadding(
+  safeAreaTop: number,
+  statusBarHeight: number = 0,
+): number {
+  const inset = Number.isFinite(safeAreaTop) ? Math.max(0, safeAreaTop) : 0;
+  const status = Number.isFinite(statusBarHeight) ? Math.max(0, statusBarHeight) : 0;
+  const top = Math.max(inset, status, inset === 0 && status === 0 ? 24 : 0);
   return top + OTA_BANNER_CONTENT_PAD_TOP;
 }
 

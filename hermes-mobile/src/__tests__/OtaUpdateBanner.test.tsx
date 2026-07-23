@@ -48,7 +48,9 @@ describe('OtaUpdateBanner', () => {
   it('pads below the status-bar inset so Restart/dismiss stay tappable', () => {
     const { getByTestId } = render(<OtaUpdateBanner />);
     const banner = getByTestId('ota-update-banner');
-    expect(resolveStyle(banner.props.style).paddingTop).toBe(47 + 10);
+    const paddingTop = resolveStyle(banner.props.style).paddingTop as number;
+    // Mocked insets.top=47; Android StatusBar.currentHeight may also apply via max()
+    expect(paddingTop).toBeGreaterThanOrEqual(47 + 10);
   });
 
   it('exposes ≥44pt Restart and dismiss targets', () => {

@@ -231,6 +231,7 @@ describe('useOtaUpdateBanner', () => {
   it('stays idle and skips Alert/check during Expo billing freeze', () => {
     delete process.env.EXPO_PUBLIC_OTA_BILLING_THAW;
     delete process.env.EXPO_PUBLIC_OTA_CLIENT_PROMPTS;
+    delete process.env.HERMES_OTA_BILLING_THAW;
     (Updates as any).isEnabled = true;
     mockUseUpdates.mockReturnValue({
       ...baseReturn,
@@ -245,5 +246,29 @@ describe('useOtaUpdateBanner', () => {
     expect(result.current.state).toBe('idle');
     expect(Alert.alert).not.toHaveBeenCalled();
     expect(Updates.checkForUpdateAsync).not.toHaveBeenCalled();
+  });
+
+  it('never calls reloadAsync during billing freeze even if applyNow is invoked', async () => {
+    delete process.env.EXPO_PUBLIC_OTA_BILLING_THAW;
+    delete process.env.EXPO_PUBLIC_OTA_CLIENT_PROMPTS;
+    delete process.env.HERMES_OTA_BILLING_THAW;
+    (Updates as any).isEnabled = true;
+    mockUseUpdates.mockReturnValue({
+      ...baseReturn,
+      isUpdatePending: true,
+    });
+
+    const { result } = renderHook(() => {
+      const { useOtaUpdateBanner } = require('../hooks/useOtaUpdateBanner');
+      return useOtaUpdateBanner();
+    });
+
+    await act(async () => {
+      await result.current.applyNow();
+    });
+
+    expect(Updates.reloadAsync).not.toHaveBeenCalled();
+    expect(Updates.fetchUpdateAsync).not.toHaveBeenCalled();
+    expect(result.current.state).toBe('idle');
   });
 });

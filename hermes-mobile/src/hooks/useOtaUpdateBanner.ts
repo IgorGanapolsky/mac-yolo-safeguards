@@ -25,7 +25,8 @@ function updateFingerprint(isPending: boolean, isAvailable: boolean): string {
 
 /**
  * Encapsulates OTA update detection + banner state.
- * Returns `idle` in dev builds (Updates.isEnabled === false).
+ * Returns `idle` in dev builds (Updates.isEnabled === false) and during the
+ * Expo billing freeze (never fetch/reload — prevents CDN OTA wiping local APK).
  */
 export function useOtaUpdateBanner({
   isFirstSession = false,
@@ -42,9 +43,6 @@ export function useOtaUpdateBanner({
   const firstSessionReloadStartedRef = useRef(false);
   const suppressPrompts = shouldSuppressOtaClientPrompts();
 
-  // Manual fallback check on mount (covers cases where ON_LOAD event missed).
-  // Skipped during Expo billing freeze — CDN check itself is free, but we avoid
-  // surfacing a Restart nag while publishes are frozen.
   useEffect(() => {
     if (!Updates.isEnabled || suppressPrompts) return;
     Updates.checkForUpdateAsync().catch(() => {});
@@ -76,6 +74,11 @@ export function useOtaUpdateBanner({
   }, [isUpdateAvailable, isUpdatePending]);
 
   const applyNow = useCallback(async () => {
+    // Hard stop during billing freeze — never reloadAsync (CDN OTA wipe).
+    if (shouldSuppressOtaClientPrompts()) {
+      setIsReloading(false);
+      return;
+    }
     setIsReloading(true);
     try {
       if (!isUpdatePending) {
@@ -93,8 +96,6 @@ export function useOtaUpdateBanner({
     }
 
     if (isUpdatePending) {
-      // A bundle that was already pending at launch is safe to apply before a
-      // stranger has to make any onboarding decisions.
       if (!firstSessionFetchStartedRef.current && !firstSessionReloadStartedRef.current) {
         firstSessionReloadStartedRef.current = true;
         void applyNow();
@@ -103,8 +104,6 @@ export function useOtaUpdateBanner({
     }
 
     if (isUpdateAvailable && !firstSessionFetchStartedRef.current) {
-      // Apply before a stranger sees onboarding. A restart decision here can
-      // leave a fresh user stuck behind a stale connection flow.
       firstSessionFetchStartedRef.current = true;
       void applyNow();
     }
@@ -156,6 +155,7 @@ export function useOtaUpdateBanner({
     suppressPrompts,
   ]);
 
+  // Freeze / dismiss / first-session: never surface "Applying update…"
   if (
     !Updates.isEnabled ||
     !isOnboardingResolved ||

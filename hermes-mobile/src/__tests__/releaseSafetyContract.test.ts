@@ -176,12 +176,16 @@ describe('release safety contract', () => {
     expect(app.expo.plugins).toContain('expo-updates');
   });
 
-  it('app.config.js disables OTA for E2E automation and pins production channel otherwise', () => {
+  it('app.config.js disables OTA for E2E automation, billing freeze, and pins production channel otherwise', () => {
     const appConfig = read('hermes-mobile/app.config.js');
     expect(appConfig).toContain('EXPO_PUBLIC_E2E_AUTOMATION');
     expect(appConfig).toContain('expo-channel-name');
-    expect(appConfig).toContain("checkAutomatically: e2eAutomation ? 'NEVER' :");
-    expect(appConfig).toContain('e2eAutomation ? false : baseUpdates.enabled !== false');
+    expect(appConfig).toContain('billingFreezeActive');
+    expect(appConfig).toContain('otaControllerOff');
+    expect(appConfig).toContain("checkAutomatically: otaControllerOff");
+    expect(appConfig).toContain('enabled: otaControllerOff ? false');
+    expect(appConfig).toContain('HERMES_OTA_BILLING_THAW');
+    expect(appConfig).toContain('2026-08-15');
   });
 
   it('syncs expo_runtime_version before phone release builds (appVersion policy)', () => {
