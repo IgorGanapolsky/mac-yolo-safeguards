@@ -119,6 +119,21 @@ async function main() {
     const infoLocs = await ascGet(`/v1/appInfos/${info.id}/appInfoLocalizations?limit=10`);
     const infoEn = (infoLocs.data || []).find((l) => l.attributes?.locale === 'en-US');
     if (!infoEn) continue;
+    // Live READY_FOR_SALE appInfo locks name+subtitle (ASC 409 INVALID_STATE).
+    // Public rename ships with the next approved version's appInfo (already staged there).
+    if (state === 'READY_FOR_SALE') {
+      results.push({
+        appInfo: state,
+        currentName: infoEn.attributes?.name,
+        currentSubtitle: infoEn.attributes?.subtitle,
+        infoLoc: {
+          skipped: true,
+          reason:
+            'READY_FOR_SALE locks name/subtitle; wait for WAITING_FOR_REVIEW/PREPARE version to release',
+        },
+      });
+      continue;
+    }
     try {
       const result = await ascPatch(`/v1/appInfoLocalizations/${infoEn.id}`, {
         type: 'appInfoLocalizations',
@@ -127,12 +142,14 @@ async function main() {
       });
       results.push({
         appInfo: state,
+        previousName: infoEn.attributes?.name,
         previousSubtitle: infoEn.attributes?.subtitle,
         infoLoc: result?.errors ? { ok: false, errors: result.errors } : { ok: true },
       });
     } catch (err) {
       results.push({
         appInfo: state,
+        previousName: infoEn.attributes?.name,
         previousSubtitle: infoEn.attributes?.subtitle,
         infoLoc: { ok: false, error: err.message || String(err) },
       });
