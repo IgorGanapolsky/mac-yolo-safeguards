@@ -1,6 +1,7 @@
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import { normalizeGatewayUrl } from './gatewayClient';
+import { dedupeDiscoveredGatewaysByMachine } from './gatewayDiscovery';
 import { findProfileForGatewayUrl, profileDisplayName } from './gatewayProfiles';
 import { profileMatchesDiscoveredGateway } from '../utils/gatewayProfilePicker';
 import {
@@ -177,7 +178,9 @@ export async function discoverTailscaleGateways(
       label: item.label || existing.label,
     });
   }
-  return Array.from(map.values());
+  // Probe hosts often include both MagicDNS and CGNAT for the same Mac —
+  // collapse to one chip per physical machine (prefer MagicDNS URL).
+  return dedupeDiscoveredGatewaysByMachine(Array.from(map.values()));
 }
 
 export function isDiscoveredComputerAlreadySaved(
@@ -240,7 +243,9 @@ export function filterNewTailscaleDiscoveries(
   profiles: GatewayProfile[],
   discovered: DiscoveredGateway[],
 ): DiscoveredGateway[] {
-  return discovered.filter((item) => !isDiscoveredComputerAlreadySaved(profiles, item));
+  return dedupeDiscoveredGatewaysByMachine(
+    discovered.filter((item) => !isDiscoveredComputerAlreadySaved(profiles, item)),
+  );
 }
 
 export function tailscaleDiscoveryLabel(discovered: DiscoveredGateway): string {

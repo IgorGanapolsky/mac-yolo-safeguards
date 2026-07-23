@@ -42,4 +42,37 @@ describe('TailscaleDiscoveryBanner', () => {
       expect(getByText('Add Igors-Mac-mini')).toBeTruthy();
     });
   });
+
+  it('renders one Add chip per physical Mac when MagicDNS+CGNAT twins arrive', () => {
+    const { queryAllByText, getByText } = render(
+      <TailscaleDiscoveryBanner
+        discoveries={[
+          {
+            gatewayUrl: 'http://100.94.135.78:8642',
+            hostname: 'Igors-Mac-mini.local',
+            label: 'Igors-Mac-mini',
+          },
+          {
+            gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642',
+            hostname: 'Igors-Mac-mini.local',
+            label: 'Igors-Mac-mini',
+          },
+          {
+            gatewayUrl: 'http://100.87.85.85:8642',
+            hostname: 'Igors-MacBook-Pro.local',
+            label: 'Igors-MacBook-Pro',
+          },
+          {
+            gatewayUrl: 'http://igors-macbook-pro.tail12aa33.ts.net:8642',
+            hostname: 'Igors-MacBook-Pro.local',
+            label: 'Igors-MacBook-Pro',
+          },
+        ]}
+      />,
+    );
+
+    expect(queryAllByText('Add Igors-Mac-mini')).toHaveLength(1);
+    expect(queryAllByText('Add Igors-MacBook-Pro')).toHaveLength(1);
+    expect(getByText('Computer found on Tailscale')).toBeTruthy();
+  });
 });

@@ -12,8 +12,10 @@ import {
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
 import {
   buildTailscaleGatewayUrl,
+  isTailscaleGatewayHost,
   isTailscaleIpv4,
   isTailscaleGatewayUrl,
+  magicDnsDeviceName,
   mergeTailnetProbeHosts,
 } from '../utils/tailscaleHosts';
 import {
@@ -270,6 +272,14 @@ export function discoveredMachineKey(item: DiscoveredGateway): string {
     .trim()
     .toLowerCase()
     .replace(/\.local$/i, '');
+  if (host && host !== 'localhost' && !isTailscaleGatewayHost(host)) {
+    return `name:${host}`;
+  }
+  // MagicDNS short name when /health omitted hostname but URL is *.ts.net.
+  const magicName = magicDnsDeviceName(item.gatewayUrl)?.toLowerCase();
+  if (magicName) {
+    return `name:${magicName.replace(/-\d+$/, '')}`;
+  }
   if (host && host !== 'localhost') {
     return `name:${host}`;
   }
@@ -286,6 +296,11 @@ export function discoveredMachineKey(item: DiscoveredGateway): string {
 
 function discoveryRouteRank(item: DiscoveredGateway): number {
   if (isTailscaleGatewayUrl(item.gatewayUrl)) {
+    const host = gatewayUrlHostname(item.gatewayUrl)?.toLowerCase() ?? '';
+    // Prefer MagicDNS over bare CGNAT twin for the same physical Mac.
+    if (host.endsWith('.ts.net')) {
+      return 4;
+    }
     return 3;
   }
   if (isLoopbackGatewayUrl(item.gatewayUrl)) {

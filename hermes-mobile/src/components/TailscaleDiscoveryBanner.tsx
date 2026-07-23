@@ -1,6 +1,7 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
+import { dedupeDiscoveredGatewaysByMachine } from '../services/gatewayDiscovery';
 import { tailscaleDiscoveryLabel } from '../services/tailscaleDiscovery';
 import { colors } from '../theme/colors';
 import GlassCard from './GlassCard';
@@ -20,6 +21,10 @@ export default function TailscaleDiscoveryBanner({
   prominent = false,
 }: TailscaleDiscoveryBannerProps) {
   const [addingKey, setAddingKey] = useState<string | null>(null);
+  const uniqueDiscoveries = useMemo(
+    () => dedupeDiscoveredGatewaysByMachine(discoveries),
+    [discoveries],
+  );
   const handleAdd = useCallback(
     async (discovery: DiscoveredGateway) => {
       if (!onAdd || addingKey) {
@@ -35,13 +40,13 @@ export default function TailscaleDiscoveryBanner({
     [addingKey, onAdd],
   );
 
-  if (discoveries.length === 0 && !probing) {
+  if (uniqueDiscoveries.length === 0 && !probing) {
     return null;
   }
 
   const cardStyle = prominent ? styles.cardProminent : styles.card;
 
-  if (discoveries.length === 0 && probing) {
+  if (uniqueDiscoveries.length === 0 && probing) {
     return (
       <GlassCard style={cardStyle} testID="tailscale-discovery-probing">
         <Text style={styles.title}>On Tailscale — searching for your computer</Text>
@@ -62,7 +67,7 @@ export default function TailscaleDiscoveryBanner({
           : 'Add your computer to switch between machines without a USB cable.'}
       </Text>
       <View style={styles.chips}>
-        {discoveries.map((discovery) => {
+        {uniqueDiscoveries.map((discovery) => {
           const label = tailscaleDiscoveryLabel(discovery);
           const adding = addingKey === discovery.gatewayUrl;
           return (
