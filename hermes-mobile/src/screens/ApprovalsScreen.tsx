@@ -24,11 +24,15 @@ import { thumbgateProPriceLabel } from '../constants/monetization';
 import { colors } from '../theme/colors';
 import { useGateway } from '../context/GatewayContext';
 import {
-  formatLeashConnectionDisplay,
-  formatListeningOnGatewayLine,
-} from '../utils/gatewayEndpoint';
+  resolveCalmConnectionStatus,
+  resolveLeashHealthDetail,
+  shouldSurfaceLeashEventError,
+  isMacDirectReachable,
+} from '../utils/connectionStatusContract';
+import { formatLeashConnectionDisplay } from '../utils/gatewayEndpoint';
 import { buildLeashEmptyExplanation } from '../utils/leashUx';
 import { hasThumbgateLeashPro, isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
+import type { GatewayHealthLevel } from '../types/gateway';
 import { CHAT_APPROVAL_EDIT_PREFIX } from '../services/approvalResolver';
 import { fromPendingApproval } from '../utils/approvalNormalize';
 import {
@@ -79,7 +83,6 @@ export default function ApprovalsScreen() {
     settings,
     isPaired,
     presentation,
-    sessionGreeting,
     effectiveGatewayUrl,
     setApprovalEditSeed,
     patchSettings,
@@ -203,7 +206,15 @@ export default function ApprovalsScreen() {
       })
     : null;
 
-  const healthLevel = health?.level ?? 'unknown';
+  const calmStatus = resolveCalmConnectionStatus({ health });
+  const healthLevel: GatewayHealthLevel =
+    calmStatus.status === 'connected'
+      ? 'green'
+      : calmStatus.status === 'needs_attention'
+        ? 'amber'
+        : calmStatus.status === 'checking'
+          ? 'unknown'
+          : 'red';
   const connectionDisplay = formatLeashConnectionDisplay({
     connectionMode: settings.connectionMode,
     connectionState,
@@ -211,20 +222,28 @@ export default function ApprovalsScreen() {
     health,
     isPaired,
   });
-  const gatewayHealthDetail = (() => {
-    if (settings.connectionMode === 'relay' && health?.gatewayState === 'unpaired') {
-      return health?.directGatewayReachable
-        ? 'Direct link OK · relay not paired'
-        : 'Relay not paired';
-    }
-    if (health?.gatewayState === 'running') {
-      return 'Hermes gateway running on computer';
-    }
-    if (health?.gatewayState) {
-      return `Gateway ${health.gatewayState}`;
-    }
-    return undefined;
-  })();
+  const gatewayHealthDetail = resolveLeashHealthDetail({
+    connectionMode: settings.connectionMode,
+    isPaired,
+    health,
+  });
+  const macDirectOk = isMacDirectReachable(health);
+  const connectionLine = connectionDisplay.machineName
+    ? connectionDisplay.headline.includes(connectionDisplay.machineName)
+      ? connectionDisplay.headline
+      : `${connectionDisplay.headline} · ${connectionDisplay.machineName}`
+    : connectionDisplay.headline;
+  // Optional approvals footnote only — never a contradictory "not paired" banner when Mac is up.
+  const showConnectionAction =
+    Boolean(connectionDisplay.footnote) &&
+    !macDirectOk &&
+    (connectionState !== 'connected' && connectionState !== 'demo'
+      ? true
+      : settings.connectionMode === 'relay' && !isPaired);
+  const surfaceEventError = shouldSurfaceLeashEventError({
+    lastEventError,
+    health,
+  });
 
   const handleApprovalEdit = (approval: typeof pendingApprovals[number]) => {
     if (settings.glanceMode) {
@@ -258,7 +277,7 @@ export default function ApprovalsScreen() {
           <>
             <View style={styles.pillRow} testID="leash-header-pill-row">
               <View style={styles.pillSlot}>
-                <HealthPill level={healthLevel} detail={gatewayHealthDetail} />
+                <HealthPill level={healthLevel} label={calmStatus.label} detail={gatewayHealthDetail} />
               </View>
               <TouchableOpacity
                 style={[styles.headerRefreshBtn, refreshing && styles.headerRefreshBtnDisabled]}
@@ -276,26 +295,15 @@ export default function ApprovalsScreen() {
               </TouchableOpacity>
             </View>
             <View style={styles.connectionBlock} testID="leash-connection-status">
-              <Text style={styles.connectionHeadline}>{connectionDisplay.headline}</Text>
-              {connectionDisplay.machineName ? (
-                <Text style={styles.connectionDetail}>
-                  Machine: <Text style={styles.connectionValue}>{connectionDisplay.machineName}</Text>
+              <Text style={styles.connectionHeadline} numberOfLines={2}>
+                {connectionLine}
+              </Text>
+              {showConnectionAction && connectionDisplay.footnote ? (
+                <Text style={styles.connectionFootnote} numberOfLines={2}>
+                  {connectionDisplay.footnote}
                 </Text>
-              ) : null}
-              {connectionDisplay.lanIp ? (
-                <Text style={styles.connectionDetail}>
-                  IP: <Text style={styles.connectionValue}>{connectionDisplay.lanIp}</Text>
-                </Text>
-              ) : null}
-              {connectionDisplay.footnote ? (
-                <Text style={styles.connectionFootnote}>{connectionDisplay.footnote}</Text>
               ) : null}
             </View>
-            {sessionGreeting ? (
-              <Text style={styles.greeting} accessibilityRole="text">
-                {sessionGreeting}
-              </Text>
-            ) : null}
           </>
         ) : null}
       </View>
@@ -317,13 +325,6 @@ export default function ApprovalsScreen() {
           ) : undefined
         }
       >
-        {leashUnlocked ? (
-          <View testID="leash-pull-hint" accessible={true}>
-            <Text style={styles.pullHint}>
-              Tap Refresh above to recheck Hermes Relay or the selected direct machine.
-            </Text>
-          </View>
-        ) : null}
         {/*
           Paid upgrade surface — always first for non-Pro so fresh free users and Maestro
           find pro-upgrade-card without scrolling past toggles/history.
@@ -360,30 +361,9 @@ export default function ApprovalsScreen() {
             <View testID="no-pending-approvals" accessible={true} collapsable={false}>
               <Text style={styles.emptyTitle}>No pending approvals</Text>
             </View>
-            <Text style={styles.emptyBody}>
-              When your coding agent tries a risky tool (rm, git push --force, etc.) or asks
-              “confirm you want to proceed” in chat, the approval card appears here — approve,
-              deny, or thumbs up/down with ThumbGate memory.
+            <Text style={styles.emptyBody} testID="leash-empty-body">
+              {buildLeashEmptyExplanation(settings)}
             </Text>
-            <Text style={styles.hintMuted}>{buildLeashEmptyExplanation(settings)}</Text>
-            {settings.connectionMode === 'relay' && !isPaired ? (
-              <Text style={styles.hintMuted}>
-                Relay mode — pair in Settings with your Hermes desktop bridge.
-              </Text>
-            ) : settings.connectionMode === 'relay' && connectionState === 'connected' ? (
-              <Text style={styles.hintMuted}>
-                {formatListeningOnGatewayLine(
-                  effectiveGatewayUrl,
-                  health,
-                  '— waiting for blocked commands.',
-                )}
-              </Text>
-            ) : settings.connectionMode === 'gateway' ? (
-              <Text style={styles.hintMuted}>
-                Local fallback: run node tools/hermes-mobile-pair.js on a machine, then Settings → Scan pairing QR.
-              </Text>
-            ) : null}
-
           </GlassCard>
         ) : glance && stackApproval ? (
           <>
@@ -583,7 +563,11 @@ export default function ApprovalsScreen() {
           </GlassCard>
         ) : null}
 
-        {leashUnlocked && lastEventError ? <Text style={styles.errorText}>{lastEventError}</Text> : null}
+        {leashUnlocked && surfaceEventError && lastEventError ? (
+          <Text style={styles.errorText} testID="leash-event-error">
+            {lastEventError}
+          </Text>
+        ) : null}
 
         {leashUnlocked ? (
           <TouchableOpacity
@@ -630,7 +614,7 @@ const styles = StyleSheet.create({
   pillRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
     gap: 8,
     marginBottom: 10,
   },
@@ -641,13 +625,14 @@ const styles = StyleSheet.create({
   },
   headerRefreshBtn: {
     flexShrink: 0,
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.borderLight,
     paddingHorizontal: 12,
     paddingVertical: 8,
     minWidth: 92,
+    minHeight: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -660,19 +645,10 @@ const styles = StyleSheet.create({
     color: colors.secondary,
   },
   connectionBlock: {
-    gap: 3,
+    gap: 2,
   },
   connectionHeadline: {
     fontSize: 13,
-    color: colors.text,
-    fontWeight: '800',
-  },
-  connectionDetail: {
-    fontSize: 12,
-    color: colors.textMuted,
-    lineHeight: 17,
-  },
-  connectionValue: {
     color: colors.text,
     fontWeight: '700',
   },
@@ -681,12 +657,6 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     lineHeight: 16,
     marginTop: 2,
-  },
-  greeting: {
-    marginTop: 10,
-    fontSize: 12,
-    color: colors.secondary,
-    lineHeight: 17,
   },
   stackHint: {
     marginHorizontal: 20,
@@ -701,14 +671,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingBottom: 32,
-  },
-  pullHint: {
-    marginHorizontal: 20,
-    marginBottom: 10,
-    fontSize: 11,
-    lineHeight: 15,
-    color: colors.textMuted,
-    textAlign: 'center',
+    paddingTop: 4,
   },
   emptyCard: {
     marginHorizontal: 16,
@@ -717,18 +680,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: colors.text,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   emptyBody: {
     fontSize: 13,
     color: colors.textSecondary,
     lineHeight: 19,
-  },
-  hint: {
-    marginTop: 16,
-    fontSize: 12,
-    color: colors.accent,
-    fontWeight: '700',
   },
   hintMuted: {
     marginTop: 12,
