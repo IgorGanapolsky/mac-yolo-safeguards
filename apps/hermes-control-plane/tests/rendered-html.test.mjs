@@ -23,13 +23,14 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(layout, /images: \["\/og\.png"\]/);
   assert.match(layout, /agent observability/);
   assert.match(page, /ThumbGate/);
-  assert.match(page, /Self-Improving Firewall/);
-  assert.match(page, /for your AI agents/);
+  assert.match(page, /Control your Hermes agents/i);
+  assert.match(page, /self-improving firewall/i);
   assert.match(page, /Free control\. Paid continuity\./);
   assert.match(page, /Web Control/);
   assert.match(page, /Cloud Continuity/);
+  assert.match(page, /Hermes Web by ThumbGate/);
   assert.match(page, /Sign in with email or Google/);
-  assert.match(page, /enterprise SSO is discovered from a verified work email/);
+  assert.match(page, /more providers activate once configured/);
   assert.doesNotMatch(page, /Sign in with AuthKit \(Google, Apple, Microsoft, GitHub/);
   assert.match(page, /<BillingPlan \/>/);
   assert.match(page, /LandingAuthHero|LandingAuthNav/);
