@@ -418,18 +418,24 @@ export function resolveProfileFromPickerRows(
   return savedProfiles.find((p) => p.id === profileId) ?? null;
 }
 
+/** Stable Choose-computer row identity — id alone can collide across distinct Macs. */
+export function pickerRowKey(profile: GatewayProfile): string {
+  return `${profile.id}::${normalizeGatewayUrl(profile.gatewayUrl).httpBase}`;
+}
+
 /**
- * Drop duplicate profile ids so React keys stay unique and at most one row can
- * match `activeProfileId` (duplicate ids lit every matching radio as Connected).
+ * Drop exact duplicate picker rows (same id + same gateway URL) so React keys stay
+ * unique. Distinct Macs that incorrectly share a profile id must both remain visible.
  */
 export function dedupePickerProfilesById(profiles: GatewayProfile[]): GatewayProfile[] {
   const seen = new Set<string>();
   const out: GatewayProfile[] = [];
   for (const profile of profiles) {
-    if (seen.has(profile.id)) {
+    const key = pickerRowKey(profile);
+    if (seen.has(key)) {
       continue;
     }
-    seen.add(profile.id);
+    seen.add(key);
     out.push(profile);
   }
   return out;
@@ -437,8 +443,8 @@ export function dedupePickerProfilesById(profiles: GatewayProfile[]): GatewayPro
 
 /**
  * Exactly one Choose-computer row may show as selected / Connected.
- * Prefer the exact `activeProfileId` row; if that id was collapsed into another
- * route for the same physical Mac, select that representative row instead.
+ * Returns a pickerRowKey (id::gatewayUrl), not a bare profile id — colliding ids
+ * for distinct Macs must not light every matching radio.
  */
 export function resolveSelectedPickerProfileId(
   profiles: GatewayProfile[],
@@ -448,19 +454,37 @@ export function resolveSelectedPickerProfileId(
   if (!activeProfileId || profiles.length === 0) {
     return null;
   }
-  const exact = profiles.find((profile) => profile.id === activeProfileId);
-  if (exact) {
-    return exact.id;
-  }
   const active = options.activeProfile;
-  if (!active) {
-    return null;
+  if (active && active.id === activeProfileId) {
+    const exactActive = profiles.find(
+      (profile) => pickerRowKey(profile) === pickerRowKey(active),
+    );
+    if (exactActive) {
+      return pickerRowKey(exactActive);
+    }
+    const activeKey = machinePickerGroupKey(active);
+    const sameMachine = profiles.find(
+      (profile) => machinePickerGroupKey(profile) === activeKey,
+    );
+    if (sameMachine) {
+      return pickerRowKey(sameMachine);
+    }
   }
-  const activeKey = machinePickerGroupKey(active);
-  const sameMachine = profiles.find(
-    (profile) => machinePickerGroupKey(profile) === activeKey,
-  );
-  return sameMachine?.id ?? null;
+  const idMatches = profiles.filter((profile) => profile.id === activeProfileId);
+  if (idMatches.length === 1) {
+    return pickerRowKey(idMatches[0]);
+  }
+  if (idMatches.length > 1 && active) {
+    const byUrl = idMatches.find(
+      (profile) =>
+        normalizeGatewayUrl(profile.gatewayUrl).httpBase ===
+        normalizeGatewayUrl(active.gatewayUrl).httpBase,
+    );
+    if (byUrl) {
+      return pickerRowKey(byUrl);
+    }
+  }
+  return idMatches[0] ? pickerRowKey(idMatches[0]) : null;
 }
 
 function sortUsbProfilesFirst(profiles: GatewayProfile[]): GatewayProfile[] {

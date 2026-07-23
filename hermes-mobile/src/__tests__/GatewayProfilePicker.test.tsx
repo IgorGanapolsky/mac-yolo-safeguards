@@ -193,36 +193,33 @@ describe('GatewayProfilePicker', () => {
 
   it('never paints more than one Connected/selected radio (duplicate profile ids)', () => {
     const sharedId = 'mac_100_94_135_78';
-    const macBookAway = {
+    const mini = {
       id: sharedId,
-      label: 'Igors-MacBook-Pro',
-      gatewayUrl: 'http://100.87.85.85:8642',
-      hostname: 'Igors-MacBook-Pro',
-      localIp: '100.87.85.85',
-      addedAt: '2026-07-23T14:00:00.000Z',
-    };
-    const miniIp = {
-      id: sharedId,
-      label: 'Tailscale 100.94.135.78',
+      label: 'Igors-Mac-mini',
       gatewayUrl: 'http://100.94.135.78:8642',
+      hostname: 'Igors-Mac-mini',
       localIp: '100.94.135.78',
-      addedAt: '2026-07-23T14:01:00.000Z',
+      addedAt: '2026-07-23T12:00:00.000Z',
     };
-    const usb = {
+    // Exact duplicate row (same id + URL) — must collapse to one Connected radio.
+    const miniDup = {
+      ...mini,
+      label: 'Tailscale 100.94.135.78',
+    };
+    const macBook = {
       id: 'mac_igors_macbook_pro',
       label: 'Igors-MacBook-Pro',
       gatewayUrl: 'http://127.0.0.1:8642',
       hostname: 'Igors-MacBook-Pro',
-      addedAt: '2026-07-23T14:00:30.000Z',
+      addedAt: '2026-07-23T12:01:00.000Z',
     };
-    const { getByTestId, queryByTestId } = render(
+    const { getByTestId, queryAllByTestId } = render(
       <GatewayProfilePicker
-        profiles={[usb, macBookAway, miniIp]}
+        profiles={[mini, miniDup, macBook]}
         activeProfileId={sharedId}
-        onSelect={jest.fn()}
+        activeProfile={mini}
         activeReachable
-        showReachabilityHints
-        liveUsb={{ reachable: true, hostname: 'Igors-MacBook-Pro.local' }}
+        onSelect={jest.fn()}
       />,
     );
     expect(getByTestId(`select-gateway-profile-${sharedId}`).props.accessibilityState).toEqual(
@@ -235,9 +232,42 @@ describe('GatewayProfilePicker', () => {
     expect(getByTestId('gateway-profile-item-mac_igors_macbook_pro')).not.toHaveTextContent(
       /Connected/,
     );
-    // Second duplicate-id row is not mounted after dedupe.
-    expect(queryByTestId('select-gateway-profile-mac_100_94_135_78')).toBeTruthy();
+    // Exact duplicate collapsed — only one mini row mounted.
+    expect(queryAllByTestId(`gateway-profile-item-${sharedId}`)).toHaveLength(1);
   });
+
+  it('keeps two distinct Macs visible when they incorrectly share a profile id', () => {
+    const sharedId = 'mac_100_94_135_78';
+    const mini = {
+      id: sharedId,
+      label: 'Igors-Mac-mini',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      hostname: 'Igors-Mac-mini',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-23T12:00:00.000Z',
+    };
+    const macBookTs = {
+      id: sharedId,
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://100.87.85.85:8642',
+      hostname: 'Igors-MacBook-Pro',
+      localIp: '100.87.85.85',
+      addedAt: '2026-07-23T12:01:00.000Z',
+    };
+    const { getByText, getAllByTestId } = render(
+      <GatewayProfilePicker
+        profiles={[mini, macBookTs]}
+        activeProfileId={sharedId}
+        activeProfile={mini}
+        activeReachable
+        onSelect={jest.fn()}
+      />,
+    );
+    expect(getByText('Igors-Mac-mini')).toBeTruthy();
+    expect(getByText(/Igors-MacBook-Pro/)).toBeTruthy();
+    expect(getAllByTestId(`gateway-profile-item-${sharedId}`)).toHaveLength(2);
+  });
+
 
   it('marks exactly one row selected when USB + Tailscale MacBook + mini are listed', () => {
     const macBookUsb = {

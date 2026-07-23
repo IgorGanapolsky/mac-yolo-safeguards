@@ -12,6 +12,7 @@ import {
   resolveProfileFromPickerRows,
   resolveSelectedPickerProfileId,
   dedupePickerProfilesById,
+  pickerRowKey,
   profileConnectionRouteDisplayLabel,
   resolveUsbMatchingProfileId,
   shouldOfferUsbLinkRepair,
@@ -739,9 +740,29 @@ describe('gatewayProfilePicker', () => {
         addedAt: '2026-07-23T14:01:00.000Z',
       },
     ];
-    expect(dedupePickerProfilesById(rows)).toHaveLength(2);
-    expect(resolveSelectedPickerProfileId(rows, sharedId)).toBe(sharedId);
-    expect(resolveSelectedPickerProfileId(dedupePickerProfilesById(rows), sharedId)).toBe(sharedId);
+    // Shared ids across distinct Macs must not hide either computer (Greptile P1 on #883).
+    expect(dedupePickerProfilesById(rows)).toHaveLength(3);
+    const miniRow = rows[2];
+    expect(
+      resolveSelectedPickerProfileId(rows, sharedId, { activeProfile: miniRow }),
+    ).toBe(pickerRowKey(miniRow));
+    expect(
+      resolveSelectedPickerProfileId(dedupePickerProfilesById(rows), sharedId, {
+        activeProfile: miniRow,
+      }),
+    ).toBe(pickerRowKey(miniRow));
+  });
+
+  it('dedupePickerProfilesById keeps only exact id+URL duplicates', () => {
+    const a = {
+      id: 'mac_100_94_135_78',
+      label: 'Igors-Mac-mini',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      hostname: 'Igors-Mac-mini',
+      addedAt: '2026-07-23T14:00:00.000Z',
+    };
+    const dup = { ...a, label: 'Tailscale 100.94.135.78' };
+    expect(dedupePickerProfilesById([a, dup])).toHaveLength(1);
   });
 
   it('resolveSelectedPickerProfileId follows collapsed active Mac onto the visible row', () => {
@@ -770,7 +791,7 @@ describe('gatewayProfilePicker', () => {
     };
     expect(
       resolveSelectedPickerProfileId([visibleTs, mini], activeUsb.id, { activeProfile: activeUsb }),
-    ).toBe(visibleTs.id);
+    ).toBe(pickerRowKey(visibleTs));
   });
 
   it('Choose computer title uses health hostname after Tailscale IP enrich', () => {
