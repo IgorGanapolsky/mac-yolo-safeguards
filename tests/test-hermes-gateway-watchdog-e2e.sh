@@ -8,7 +8,8 @@
 #
 #   Phase A  cold boot     : no gateway -> watchdog launches it -> healthy -> on-demand + pre-warm
 #   Phase B  steady state  : same pid   -> no double-start, no forced pin, no re-warm (idempotent)
-#   Phase C  crash recovery: gateway killed -> watchdog relaunches -> healthy -> re-warm new pid
+#   Phase C  crash recovery: gateway killed -> cooldown holds it down -> expiry
+#             permits relaunch -> healthy -> re-warm new pid
 #
 # Requires only python3 (present on CI runners); no live Ollama/gateway needed.
 set -u
@@ -78,6 +79,7 @@ run_wd() {
     HERMES_MEMORY_PRESSURE_LEVEL="1" \
     HERMES_NOW_EPOCH="1000" \
     YOLO_MEMORY_RECOVERY_FILE="$TMP/recovery-until" \
+    YOLO_HERMES_GATEWAY_CIRCUIT_FILE="$TMP/circuit-open" \
     bash "$WD"
 }
 
@@ -144,7 +146,16 @@ if wait_down; then ok "C: gateway crash detected (health != 200)"; \
   else bad "C: killed gateway still answering"; fi
 
 warm_before_c="$(count WARMUP)"
-run_wd                                    # detects down + no proc -> relaunch
+echo 1600 > "$TMP/recovery-until"
+run_wd                                    # recovery circuit must keep it down
+sleep 0.4
+if [ "$(health)" != "200" ] && [ -z "$(gw_pids)" ]; then
+  ok "C: recovery cooldown keeps the crashed gateway stopped"
+else
+  bad "C: watchdog restarted the gateway during recovery cooldown"
+fi
+: > "$TMP/recovery-until"
+run_wd                                    # cooldown expired -> relaunch
 if wait_health; then ok "C: watchdog auto-recovered the gateway (health 200)"; \
   else bad "C: gateway never recovered after crash"; fi
 

@@ -1,49 +1,77 @@
-# Hermes Mobile — Evidence-to-Installs Content Engine v2.0
+# Hermes Web App + Mobile — Evidence-to-Installs Content Engine v3.0
 
 Canonical merge of "Revenue-Focused Daily Content Engine v1" + "Evidence-to-Installs
-Content Engine v1.0" (both provided by Igor 2026-07-20), reconciled against live store
-evidence fetched the same day. This file is the engine; the TSV memory log lives at
+Content Engine v1.0" (both re-supplied by Igor 2026-07-22, superseding the 2026-07-20
+drafts), reconciled against live store evidence fetched the same day. v3.0 broadens
+scope from mobile-only to **web app (Thumbgate.app) + Hermes Mobile + GitHub** as
+co-equal targets. This file is the engine; the TSV memory log lives at
 `docs/social/hermes-mobile-content-log.tsv`.
 
 ## Purpose
 
 Generate one platform-native piece of content per run that drives, in priority order:
-1. Qualified store visits → installs → retained installers (Play + App Store)
-2. Successful fresh-user pairing and first chat
-3. Leash Pro discovery and verified purchases
-4. GitHub traffic, testers, developer trust (founder's voice)
-5. Newsletter/waitlist signups (owned channel — see Newsletter section)
+1. Qualified web app (Thumbgate.app) visits, installs, and retained users
+2. Qualified Google Play / App Store visits → installs → retained installers
+3. Successful fresh-user pairing and first chat (web or mobile)
+4. Leash Pro discovery, trials, and verified purchases
+5. GitHub traffic, contributors, testers, and developer trust (founder's voice)
+6. Honest reviews only after a successful product experience
+7. Newsletter/waitlist signups (owned channel — see Newsletter section)
 
-Never optimize for post count or impressions alone. Never auto-publish: output is a
-draft unless the run input says `PublishMode: PUBLISH_APPROVED` for a named platform.
+Never optimize for post count, impressions, or generic engagement alone. Never
+auto-publish: output is a draft unless the run input says
+`PublishMode: PUBLISH_APPROVED` for a named, authenticated platform.
 
-## Product ground truth (verified 2026-07-20 — re-verify every run, never trust this table blindly)
+## Product
+
+Web: Thumbgate.app · Play: `com.iganapolsky.hermesmobile` · GitHub:
+https://github.com/IgorGanapolsky/mac-yolo-safeguards/tree/main/hermes-mobile
+
+Positioning (broadened v3.0): Hermes Web App and Mobile is an independent web +
+mobile control plane for AI agents running on a computer the user operates. Chat
+with agents, monitor their real state, and — with an active Leash entitlement —
+approve or deny risky commands remotely. Simple line: **"Control the AI agent on
+your computer from your phone or web."** (Mobile-specific copy may still use the
+narrower "approve or deny before it runs — from your phone" framing when the post
+targets mobile-only readers.)
+
+Never imply affiliation with Nous Research, Anthropic, OpenAI, Google, Cursor, or
+other vendors unless current repository evidence proves it.
+
+## Product ground truth (re-verified 2026-07-22 via live Play/iTunes fetch — re-verify every run, never trust this table blindly)
+
+**STANDING RULE, overrides anything below that implies a free tier: Hermes Mobile
+may NEVER be described as free-to-install, on any store, on any package — Android
+and iOS are both paid-upfront downloads.** Igor stated this directly and emphatically
+2026-07-22 ("we are not allowed to list free apps!!!! our hermes mobile app is
+paid!!!!") and the free Android package was unpublished the same day to enforce it.
+Reason not disclosed — treat as firm regardless.
 
 | Fact | Value | Source checked |
 |---|---|---|
-| Store name (both stores) | **Hermes Mobile: AI Agent Leash** | Play page + iTunes lookup |
-| Google Play | LIVE, **free** app + in-app "$4.99 per item", updated Jul 17 2026, downloads "1+" | https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile |
-| iOS App Store | **LIVE since 2026-07-14** (v1.2, 2026-07-17), **$9.99 paid download**, 0 ratings | https://apps.apple.com/us/app/hermes-mobile-ai-agent-leash/id6786778037 (iTunes lookup by bundle id) |
-| Leash Pro pricing | **Platform-split**: iOS = $19.99/mo subscription (`thumbgate_leash_monthly`); Android = **$4.99 one-time** unlock (`hermes_pro_lifetime`) | `src/constants/monetization.ts` + store pages |
-| Free tier | Chat/steer/watch free; **10 routed Leash approvals per ISO week** free | `FREE_LEASH_APPROVALS_PER_WEEK` in monetization.ts |
-| Traction | ~0 installs, ~0 revenue, 0 ratings | Play "1+" downloads, iTunes `userRatingCount: 0` |
+| Google Play — free package | **UNPUBLISHED 2026-07-22** (`com.iganapolsky.hermesmobile`) — do not link or promote; live fetch now returns HTTP 404 | curl of the public listing URL, 2026-07-22 |
+| Google Play — paid package | **LIVE**, "Hermes Mobile: AI Agent", **$4.99 paid download**, `com.iganapolsky.hermesmobile.paid` — this is the ONLY Android package to ever link | https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile.paid — HTTP 200, `$4.99` present |
+| iOS App Store | **LIVE**, "Hermes AI Agent Leash", v1.3 (released 2026-07-21), **$9.99 paid download**, 0 ratings | iTunes lookup by bundle id `com.iganapolsky.hermesmobile`, 2026-07-22 |
+| In-app subscriptions | **NONE** — no StoreKit/Play Billing subscription SKU ships in the app; any Leash subscription is sold web-only at thumbgate.ai | `src/constants/monetization.ts` (`THUMBGATE_WEB_SUBSCRIPTION_URL`, deprecated `THUMBGATE_PRO_PRICE_LABEL`) |
+| Post-download Leash quota | `FREE_LEASH_APPROVALS_PER_WEEK = 10` routed approvals per ISO week ships in code | `src/constants/monetization.ts` — **do not call this "free tier" in copy** (conflicts with the no-free-anywhere rule); frame it only as "included with your paid download" if mentioned at all, and prefer omitting the exact number unless it's re-verified live in-app |
+| Android Pro unlock price | Code constant says `$4.99 once` (`ANDROID_PRO_UNLOCK_PRICE_LABEL`) — **unresolved**: unclear whether this stacks on top of the $4.99 paid download or is the same $4.99. Do not quote a specific unlock price in copy until this is confirmed against the live in-app purchase flow. | `src/constants/monetization.ts` — flag as open question, don't guess |
+| Traction | ~0 installs, ~0 revenue, 0 ratings on both stores | Play listing, iTunes `userRatingCount: 0` |
 
-Pricing rule for copy: never write a single "$19/mo" as THE price. Say "from your
-phone — free chat; paid Leash unlock" and let the store page carry exact pricing, OR
-state the platform-correct price only when the post targets one platform's users.
+Pricing rule for copy: state only what's directly verified above. Never say "free"
+in a store/download context on either platform. Say "a paid download — from $4.99"
+(Android) or "a paid download — $9.99" (iOS), and let the store page carry exact
+current pricing. Never mention an iOS subscription price (there isn't one in-app).
 
-## Positioning
+## Mechanism, pains, differentiators
 
-The phone-based control plane for developers running autonomous AI coding agents on
-a computer they operate.
-
-Simple line: **"Approve or deny your AI agent's risky commands before they run — from
-your phone."**
+(Simple line and broadened positioning now live in the Product section above.)
 
 Mechanism: any agent routed through YOUR Hermes gateway pauses on risky tool calls;
 your phone shows a card with the command + risk context; you tap Approve or Deny
 BEFORE it executes. Thumbs-down (ThumbGate/Leash) persists the block as a durable
-rule. Chat is free; the approve/deny cards are the paid Leash tier.
+rule. **Never call chat "free" in store-facing copy** — both platforms are paid
+downloads; frame it as "your paid download includes chat, steer, and watch; Leash
+approve/deny cards come with it."
 
 Pains it stops (all evidenced by public 2026 incidents — cite, don't invent):
 runaway loops / silent token burn, destructive shell (`rm -rf`, force-push, prod
@@ -71,8 +99,14 @@ diff review; honest self-healing connection status; no ads, no rate-us dark patt
    store keywords.
 5. One "why now" web search: agent runaway-cost/destruction incidents, human-in-the-
    loop discourse, agents gaining shell permissions.
+6. Use live store pricing on every run — never reuse a remembered price or
+   availability from a prior post or from this doc's ground-truth table below.
+7. Treat any search-rank or category-rank observation as a dated snapshot for that
+   query/region/day, never a universal or permanent ranking claim.
 
 ### Hard truth guards
+- **Never call Hermes Mobile "free" to install/download on either store, ever** — see
+  the standing no-free-anywhere rule in the ground-truth section above.
 - ~0 installs/revenue: NEVER imply traction ("thousands of devs", "developers love").
 - Sentry crash reporting ships: say "crash logs only, never sold" — NEVER "zero
   telemetry".
@@ -80,9 +114,23 @@ diff review; honest self-healing connection status; no ads, no rate-us dark patt
   claim universal connectivity.
 - Never imply affiliation with Nous Research, Anthropic, OpenAI, Google, Cursor, etc.
 - Never claim ranking gains, guaranteed savings, or customer counts.
+- Never claim "free approvals" (Leash approvals are a paid/entitled tier past the
+  free weekly cap) or "keys never leave the device" (remote paths can route through
+  a relay/tunnel) as unconditional facts.
 - Never ask for a positive review; ask for an honest review only after a verified
   good experience.
 - Search-rank statements are dated snapshots, never permanent claims.
+- Publishing is claimed successful only when the resulting URL opens and shows the
+  intended content; without a verified URL, report Drafted or Blocked, never Posted.
+
+## Daily inputs (per run)
+
+1. Date (`YYYY-MM-DD`).
+2. `PublishMode`: `DRAFT_ONLY` or `PUBLISH_APPROVED`.
+3. `AuthenticatedPlatforms`: comma-separated platform names actually logged in this
+   run — never draft for `PUBLISH_APPROVED` on a platform not in this list.
+4. `AvailableAssets`: verified screenshots, demos, videos, or `none`.
+5. Memory log rows (see TSV columns below).
 
 ## Memory / dedup
 
@@ -128,6 +176,11 @@ autonomous workflows
 6. Measurement plan: post click → store visitor → installer → retained → paired →
    first chat → first approval → purchase.
 7. TSV memory row(s).
+
+ASO note: Apple's App Store and Google Play use different searchable-field and
+keyword models — see [Apple search guidance](https://developer.apple.com/app-store/search/)
+and [Google's custom store listings](https://support.google.com/googleplay/android-developer/answer/9867158?hl=en).
+Never place competitor trademarks in either store's keyword fields.
 
 ## Newsletter (owned channel — decided 2026-07-20)
 

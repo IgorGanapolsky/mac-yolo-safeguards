@@ -7,27 +7,13 @@ import type {
   ReclaimFiredPayload,
 } from '../types/gateway';
 import { resolveDisplayLanIp } from '../utils/gatewayUrlPolicy';
+import {
+  normalizeGatewayUrl,
+  type NormalizedGatewayBase,
+} from '../utils/gatewayUrlNormalize';
 
-export interface NormalizedGatewayBase {
-  httpBase: string;
-  wsBase: string;
-}
-
-/** Strip /v1, /health paths so callers can paste tunnel URLs flexibly. */
-export function normalizeGatewayUrl(input: string): NormalizedGatewayBase {
-  let trimmed = input.trim().replace(/\/+$/, '');
-  trimmed = trimmed.replace(/\/health\/detailed$/, '');
-  trimmed = trimmed.replace(/\/health$/, '');
-  trimmed = trimmed.replace(/\/v1$/, '');
-  trimmed = trimmed.replace(/\/+$/, '');
-
-  if (!/^[a-zA-Z]+:\/\//.test(trimmed)) {
-    trimmed = `http://${trimmed}`;
-  }
-
-  const wsBase = trimmed.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
-  return { httpBase: trimmed, wsBase };
-}
+export type { NormalizedGatewayBase };
+export { normalizeGatewayUrl };
 
 export function buildAuthHeaders(apiKey?: string | null): Record<string, string> {
   const headers: Record<string, string> = { Accept: 'application/json' };

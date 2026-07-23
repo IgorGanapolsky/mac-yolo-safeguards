@@ -1,37 +1,60 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
-import { CONTINUITY_CHIP_LABEL } from '../utils/sessionContinuityHandoff';
+import {
+  CONTINUITY_CHIP_AUTO_DISMISS_MS,
+  CONTINUITY_CHIP_LABEL,
+} from '../utils/sessionContinuityHandoff';
 
 type Props = {
-  visible: boolean;
-  onDismiss: () => void;
+  visible?: boolean;
+  onDismiss?: () => void;
   label?: string;
+  /** Override auto-dismiss window (tests). */
+  autoDismissMs?: number;
 };
 
+/**
+ * Ephemeral continuity hint. Prefer seamless (visible=false).
+ * When shown, auto-dismisses after ~2.5s — never sticky until manual Dismiss.
+ */
 export default function ContinuingFromSessionChip({
-  visible,
+  visible = false,
   onDismiss,
   label = CONTINUITY_CHIP_LABEL,
+  autoDismissMs = CONTINUITY_CHIP_AUTO_DISMISS_MS,
 }: Props) {
+  useEffect(() => {
+    if (!visible || !onDismiss) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      onDismiss();
+    }, autoDismissMs);
+    return () => clearTimeout(timer);
+  }, [visible, onDismiss, autoDismissMs]);
+
   if (!visible) {
     return null;
   }
+
   return (
     <View style={styles.wrap} testID="continuing-from-session-chip">
       <Text style={styles.label} numberOfLines={1}>
         {label}
       </Text>
-      <Pressable
-        onPress={onDismiss}
-        accessibilityRole="button"
-        accessibilityLabel="Dismiss continuing from last session"
-        hitSlop={8}
-        testID="continuing-from-session-chip-dismiss"
-        style={({ pressed }) => [styles.dismiss, pressed && styles.dismissPressed]}
-      >
-        <Text style={styles.dismissText}>Dismiss</Text>
-      </Pressable>
+      {onDismiss ? (
+        <Pressable
+          onPress={onDismiss}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss continuing from last session"
+          hitSlop={8}
+          testID="continuing-from-session-chip-dismiss"
+          style={({ pressed }) => [styles.dismiss, pressed && styles.dismissPressed]}
+        >
+          <Text style={styles.dismissText}>Dismiss</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

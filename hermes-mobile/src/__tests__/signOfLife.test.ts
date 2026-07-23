@@ -3,7 +3,7 @@ import { emitSignOfLife } from '../services/signOfLife';
 import { haptics } from '../services/haptics';
 
 jest.mock('../services/haptics', () => ({
-  haptics: { light: jest.fn() },
+  haptics: { light: jest.fn(), connection: jest.fn() },
 }));
 
 describe('emitSignOfLife', () => {
@@ -11,9 +11,10 @@ describe('emitSignOfLife', () => {
     jest.clearAllMocks();
   });
 
-  it('fires optional haptic when requested', async () => {
+  it('fires optional connection haptic when requested', async () => {
     await emitSignOfLife('Hermes Mobile connected', { haptic: true });
-    expect(haptics.light).toHaveBeenCalled();
+    expect(haptics.connection).toHaveBeenCalled();
+    expect(haptics.light).not.toHaveBeenCalled();
   });
 
   it('announces for accessibility when screen reader is on', async () => {

@@ -4,6 +4,7 @@ import {
   computerPickerStatusSignature,
   resolveComputerPickerStatus,
   shouldCommitComputerPickerStatus,
+  shouldHideIdlePickerHelp,
 } from '../utils/computerPickerStatus';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
@@ -75,11 +76,11 @@ describe('computerPickerStatus', () => {
       tailscaleDiscoveries: [],
     });
     expect(status.kind).toBe('help');
-    expect(status.title).toBe('Tailscale is off on this phone');
+    expect(status.title).toBe('Looking for Tailscale computers…');
     expect(status.title).not.toMatch(/^On Tailscale/);
   });
 
-  it('does not render cached Tailscale discoveries after VPN disconnects', () => {
+  it('still shows Add chips when discoveries exist even if NetInfo says VPN off', () => {
     const status = resolveComputerPickerStatus({
       scanning: false,
       scanProgress: null,
@@ -89,9 +90,9 @@ describe('computerPickerStatus', () => {
       tailscaleVpnActive: false,
       tailscaleDiscoveries: [discovery],
     });
-    expect(status.kind).toBe('help');
-    expect(status.title).toBe('Tailscale is off on this phone');
-    expect(status.discoveries).toEqual([]);
+    expect(status.kind).toBe('tailscale_found');
+    expect(status.discoveries).toEqual([discovery]);
+    expect(status.title).not.toMatch(/off on this phone/i);
   });
 
   it('keeps a completed Wi-Fi scan visible while an off-VPN probe finishes', () => {
@@ -154,7 +155,64 @@ describe('computerPickerStatus', () => {
       tailscaleDiscoveries: [],
     });
     expect(status.kind).toBe('help');
-    expect(status.title).toBe('Missing your other machine?');
+    expect(status.title).toBe('Paste your Mac’s Tailscale IP');
+  });
+
+  it('hides idle help when saved profiles exist unless expanded', () => {
+    const status = resolveComputerPickerStatus({
+      scanning: false,
+      scanProgress: null,
+      scanResult: null,
+      showScanResult: false,
+      tailscaleProbing: false,
+      tailscaleVpnActive: true,
+      tailscaleDiscoveries: [],
+    });
+    expect(shouldHideIdlePickerHelp(status, 2, false)).toBe(true);
+    expect(shouldHideIdlePickerHelp(status, 2, true)).toBe(false);
+    expect(shouldHideIdlePickerHelp(status, 0, false)).toBe(false);
+  });
+
+  it('never claims Using USB when active path is Home Wi-Fi', () => {
+    const status = resolveComputerPickerStatus({
+      scanning: false,
+      scanProgress: null,
+      scanResult: {
+        foundCount: 1,
+        lanCount: 0,
+        tailscaleCount: 0,
+        usbCount: 1,
+        completedAtMs: 1,
+      },
+      showScanResult: true,
+      tailscaleProbing: false,
+      tailscaleVpnActive: false,
+      tailscaleDiscoveries: [],
+      activeGatewayUrl: 'http://192.168.68.61:8642',
+      wifiConnected: true,
+      activeReachable: true,
+    });
+    expect(status.kind).toBe('active');
+    expect(status.title).toBe('Connected · Home Wi‑Fi');
+    expect(status.title).not.toMatch(/USB/i);
+    expect(status.detail).not.toMatch(/Using USB/i);
+  });
+
+  it('shows Connected · USB when loopback is the active path', () => {
+    const status = resolveComputerPickerStatus({
+      scanning: false,
+      scanProgress: null,
+      scanResult: null,
+      showScanResult: false,
+      tailscaleProbing: false,
+      tailscaleVpnActive: true,
+      tailscaleDiscoveries: [],
+      activeGatewayUrl: 'http://127.0.0.1:8642',
+      wifiConnected: true,
+      activeReachable: true,
+    });
+    expect(status.kind).toBe('active');
+    expect(status.title).toBe('Connected · USB');
   });
 
   it('debounces rapid signature flips but commits first paint immediately', () => {

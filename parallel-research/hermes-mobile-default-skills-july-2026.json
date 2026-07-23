@@ -1,0 +1,332 @@
+{
+  "run_id": "trun_5fb9422f44014c4b9ae1ebae05292450",
+  "interaction_id": "trun_5fb9422f44014c4b9ae1ebae05292450",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_5fb9422f44014c4b9ae1ebae05292450",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Assessment reasoning:\n- Field description calls for an output under 1800 words, leading with essential allowlist, citing sources, and distinguishing essentials vs demote aspects.\n- The provided field_answer describes Hermes Agent default skills, distinguishing bundled (essential) vs optional/demoted integrations (Spotify, Discord, Home Assistant) and includes a demote verdict for those. It also includes a Security/OAuth discussion and a mid-2026 official toolset model, which aligns with the Information of interest.\n- Relevance check: The answer covers what constitutes essential allowlist (bundled, always on) and what is demoted (opt-in only), includes a framework for evaluating hobby integrations, and cites multiple sources at the end. It also references OpenClaw/OpenClaw-style defaults for comparison, which matches the Competitor Defaults section.\n- Completeness judgment: The field answer directly addresses essential vs demote, discusses OAuth risk when strangers interact, and outlines the official toolset model. It appears to cover all aspects expected by the field description and query, within the word limit. Therefore, completeness = true.\n- Excerpt support check: The excerpts provided include notes about bundled vs optional skills, optional-skills catalog, and security considerations, which substantiate the key claims in the field answer. Therefore, supported = true.\n- Confidence: Moderate to high given alignment between the answer and excerpts; minor risk about exact phrasing versus excerpts, but core claims are supported.\n",
+        "citations": [
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/skills",
+            "excerpts": [
+              "Skills Hub | Hermes Agent\nDrive the macOS desktop in the background \u2014 screenshots, mouse, keyboard, scroll, drag \u2014 without stealing the user's cursor, keyboard focus, or Space. Works with any tool-capable model. Load this skill whenever the `computer_use` tool is available."
+            ],
+            "title": "Skills Hub | Hermes Agent"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/blob/main/website/docs/integrations/providers.md",
+            "excerpts": [
+              "hermes-agent/website/docs/integrations/providers.md ...\nvor 2 Tagen \u2014 Hermes supports GitHub Copilot as a first-class provider with two modes: copilot \u2014 Direct Copilot API (recommended). Uses your GitHub Copilot"
+            ],
+            "title": "hermes-agent/website/docs/integrations/providers.md ..."
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/integrations",
+            "excerpts": [
+              "Integrations | Hermes Agent\nHermes Agent connects to external systems for AI inference, tool servers, IDE workflows, programmatic access, and more. These integrations extend what Hermes can do and where it can run."
+            ],
+            "title": "Integrations | Hermes Agent"
+          },
+          {
+            "url": "https://github.com/nous-hermeshub/hermes-community-hub/blob/main/skills/api-integration/discord-automation/SKILL.md",
+            "excerpts": [
+              "hermes-community-hub/skills/api-integration/discord ... - GitHub\nFiles Expand file tree Breadcrumbs hermes-community-hub skills api-integration discord-automation"
+            ],
+            "title": "hermes-community-hub/skills/api-integration/discord ... - GitHub"
+          },
+          {
+            "url": "https://note.com/takuma_hayakawa/n/n5bfda4759477?hl=en-US",
+            "excerpts": [
+              "Hermes Agent \u00d7 Discord Setup Method | Complete Guide\nIn this series, Day 1 covered the differences between Codex and Hermes, Day 2 covered how to get started, and Day 3 covered how to set up Memory, SOUL, and Skills. This time, it is a Discord connection guide to get Hermes into a state where you can use it daily."
+            ],
+            "title": "Hermes Agent \u00d7 Discord Setup Method | Complete Guide"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/blob/main/website/docs/guides/oauth-over-ssh.md",
+            "excerpts": [
+              "hermes-agent/website/docs/guides/oauth-over-ssh.md at main ...\nThis works perfectly when Hermes and your browser are on the same machine. It breaks the moment they aren't: your laptop's browser tries to reach 127.0.0.1 on your laptop, but the listener is bound to 127.0.0.1 on the remote server."
+            ],
+            "title": "hermes-agent/website/docs/guides/oauth-over-ssh.md at main ..."
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/guides/oauth-over-ssh",
+            "excerpts": [
+              "OAuth over SSH / Remote Hosts | Hermes Agent\nThis works perfectly when Hermes and your browser are on the same machine. It breaks the moment they aren't: your laptop's browser tries to reach 127.0.0.1 on your laptop, but the listener is bound to 127.0.0.1 on the remote server."
+            ],
+            "title": "OAuth over SSH / Remote Hosts | Hermes Agent"
+          },
+          {
+            "url": "https://deepwiki.com/nousresearch-hermes-agent/hermes-agent/3.2-oauth-and-token-lifecycle",
+            "excerpts": [
+              "OAuth & Token Lifecycle | nousresearch-hermes-agent/hermes ...\nHermes Agent implements a three-tier credential hierarchy for OAuth-based providers. This ensures that long-lived credentials (refresh tokens) are used to generate short-lived session tokens, which are then used to mint specific keys for the inference runtime."
+            ],
+            "title": "OAuth & Token Lifecycle | nousresearch-hermes-agent/hermes ..."
+          },
+          {
+            "url": "http://github.com/NousResearch/hermes-agent/issues/7826",
+            "excerpts": [
+              "## Critical Findings (4)\n### C1: Unrestricted shell command execution (local backend)\n### C2: Full filesystem read access with no deny list\n* Dangerous command detection is regex-based and bypassable.\n* The terminal tool passes arbitrary commands to `bash -c` via `subprocess.Popen` . The LLM can execute ANY shell command on the host when `env_type=\"local\"` (the default)."
+            ],
+            "title": "Security Audit: 4 Critical, 9 High severity findings in default configuration \u00b7 Issue #7826 \u00b7 NousResearch/hermes-agent \u00b7 GitHub"
+          },
+          {
+            "url": "https://www.hermes-ai.net/docs/installation",
+            "excerpts": [
+              "Installation \u2014 Hermes Agent Docs\nThe wizard guides you through OAuth login, API-key setup, or a custom OpenAI-compatible endpoint. You can also run hermes setup to configure models and tools in one flow."
+            ],
+            "title": "Installation \u2014 Hermes Agent Docs"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/issues/492",
+            "excerpts": [
+              "Tool Allowlists, Requirement Declarations, Scheduled Execution ...\nMar 6, 2026 \u00b7 Hermes Agent has Skills (instruction-based SKILL.md files with YAML frontmatter) and Cron Jobs (scheduled agent runs with a prompt), but"
+            ],
+            "title": "Tool Allowlists, Requirement Declarations, Scheduled Execution ..."
+          },
+          {
+            "url": "http://github.com/nousresearch/hermes-agent/blob/main/website/docs/reference/optional-skills-catalog.md",
+            "excerpts": [
+              "Optional Skills Catalog Optional skills ship with hermes-agent under `optional-skills/` but are **not active by default** .\nOptional skills ship with hermes - agent under optional - skills / but are not active by default. its full definition, setup, and usage. ## Navigation Menu Toggle navigation Appearance settings Search or jump to... Search code, repositories, users, issues, pull requests... Appearance settings Resetting focus NousResearch / **hermes-agent** Public [Notifications](https://github.com/login?return_to=%2FNousResearch%2Fhermes-agent) You must be signed in to change notification settings [Fork 39\\.5k](https://github.com/login?return_to=%2FNousResearch%2Fhermes-agent) [Star 214k](https://github.com/login?return_to=%2FNousResearch%2Fhermes-agent) Code [Issues 5k+](https://github.com/NousResearch/hermes-agent/issues) [Pull requests 5k+](https://github.com/NousResearch/hermes-agent/pulls) Actions Projects Security and quality Insights Files Expand file tree main Breadcrumbs hermes-agent / website / docs / reference / optional-skills-catalog.md Copy path More file actions More file actions Latest commit History [History](https://github. com/NousResearch/hermes-agent/commits/main/website/docs/reference/optional-skills-catalog.md) History 234 lines (184 loc) \u00b7 27.5 KB main Breadcrumbs hermes-agent / website / docs / reference / optional-skills-catalog.md Copy path Top File metadata and controls Preview Code Blame 234 lines (184 loc) \u00b7 27.5 KB [Raw](https://github.com/nousresearch/hermes-agent/raw/refs/heads/main/website/docs/reference/optional-skills-catalog.md) Copy raw file Download raw file Outline Edit and raw actions |sidebar\\_position |9 | |title |Optional Skills Catalog | |description |Official optional skills shipped with hermes-agent \u2014 install via hermes skills install official/<category>/<skill> | Optional Skills Catalog Optional skills ship with hermes-agent under `optional-skills/` but are **not active by default** . Install them explicitly: ``` hermes skills install official/ < category > / < skill > ``` For example: ``` hermes skills install official/blockchain/solana hermes skills install official/mlops/flash-attention ``` Each skill below links to a dedicated page with its full definition, setup, and usage. To uninstall: ``` hermes skills uninstall < skill-name > ``` autonomous-ai-agents |Skill |Description | |**antigravity-cli** |Operate the Antigravity CLI (agy): plugins, auth, sandbox. | |**blackbox** |Delegate coding tasks to Blackbox AI CLI agent. Multi-model agent with built-in judge that runs tasks through multiple LLMs and picks the best result. Requires the blackbox CLI and a Blackbox AI API key. | |**grok** |Delegate coding to xAI Grok Build CLI (features, PRs). | |**honcho** |Configure and use Honcho memory with Hermes -- cross-session user modeling, multi-profile peer isolation, observation config, dialectic reasoning, session summaries, and context budget enforcement. Use when setting up Honcho, troubleshoo... | ... |**hermes-s6-container-supervision** |Modify, debug, or extend the s6-overlay supervision tree inside the Hermes Agent Docker image \u2014 adding new services, debugging profile gateways, understanding the Architecture B main-program pattern. | |**pinggy-tunnel** |Zero-install localhost tunnels over SSH via Pinggy. | |**watchers** |Poll RSS, JSON APIs, and GitHub with watermark dedup. | dogfood |Skill |Description | |**adversarial-ux-test** |Roleplay the most difficult, tech-resistant user for your product. Browse the app as that persona, find every UX pain point, then filter complaints through a pragmatism layer to separate real problems from noise. Creates actionable ticke... | email |Skill |Description | |**agentmail** |Give the agent its own dedicated email inbox via AgentMail. Send, receive, and manage email autonomously using agent-owned email addresses (e.g. hermes-agent@agentmail.to ). | finance |Skill |Description | ... |**lbo-model** |Build leveraged buyout models in Excel \u2014 sources & uses, debt schedule, cash sweep, exit multiple, IRR/MOIC sensitivity. Pairs with excel-author. Use for PE screening, sponsor-case valuation, or illustrative LBO in a pitch. | |**merger-model** |Build accretion/dilution (merger) models in Excel \u2014 pro-forma P&L, synergies, financing mix, EPS impact. Pairs with excel-author. Use for M&A pitches, board materials, or deal evaluation. | |**pptx-author** |Build PowerPoint decks headless with python-pptx. Pairs with excel-author for model-backed decks where every number traces to a workbook cell. Use for pitch decks, IC memos, earnings notes. | |**stocks** |Stock quotes, history, search, compare, crypto via Yahoo. | gaming |Skill |Description | |**minecraft-modpack-server** |Host modded Minecraft servers (CurseForge, Modrinth). | |**pokemon-player** |Play Pokemon via headless emulator + RAM reads. | health |Skill |Description | ... |**mcporter** |Use the mcporter CLI to list, configure, auth, and call MCP servers/tools directly (HTTP or stdio), including ad-hoc servers, config edits, and CLI/type generation. | migration |Skill |Description | |**openclaw-migration** |Migrate a user's OpenClaw customization footprint into Hermes Agent. Imports Hermes-compatible memories, SOUL.md, command allowlists, user skills, and selected workspace assets from ~/.openclaw, then reports exactly what could not be mig... | mlops |Skill |Description | |**huggingface-accelerate** |Simplest distributed training API. 4 lines to add distributed support to any PyTorch script. Unified API for DeepSpeed/FSDP/Megatron/DDP. Automatic device placement, mixed precision (FP16/BF16/FP8). Interactive config, single launch comm... | |**axolotl** |Axolotl: YAML LLM fine-tuning (LoRA, DPO, GRPO). | |**chroma** |Open-source embedding database for AI applications.\nemail |Skill |Description | |**agentmail** |Give the agent its own dedicated email inbox via AgentMail. Send, receive, and manage email autonomously using agent-owned email addresses (e.g. hermes-agent@agentmail.to ). |\n|description |Official optional skills shipped with hermes-agent \u2014 install via hermes skills install official/<category>/<skill> |"
+            ],
+            "title": "hermes-agent/website/docs/reference/optional-skills-catalog.md at main \u00b7 NousResearch/hermes-agent \u00b7 GitHub"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/features/skills.md",
+            "excerpts": [
+              "hermes-agent/website/docs/user-guide/features/skills.md at ...\nBy default every profile is seeded with the bundled skill catalog, and each hermes update adds any newly bundled skills. If you want a profile with no bundled skills \u2014 and that stays empty across updates \u2014 you have two paths:"
+            ],
+            "title": "hermes-agent/website/docs/user-guide/features/skills.md at ..."
+          },
+          {
+            "url": "https://skillsmp.com/creators/nousresearch/hermes-agent/skills-autonomous-ai-agents-hermes-agent",
+            "excerpts": [
+              "hermes-agent Agent Skill | SkillsMP\nThis skill helps you work with Hermes Agent effectively \u2014 setting it up, configuring features, spawning additional agent instances, troubleshooting issues, finding the right commands and settings, and understanding how the system works when you need to extend or contribute to it."
+            ],
+            "title": "hermes-agent Agent Skill | SkillsMP"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/issues/7826",
+            "excerpts": [],
+            "title": "Security Audit: 4 Critical, 9 High severity findings in default configuration \u00b7 Issue #7826 \u00b7 NousResearch/hermes-agent \u00b7 GitHub"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/blob/main/website/docs/reference/optional-skills-catalog.md",
+            "excerpts": [],
+            "title": "hermes-agent/website/docs/reference/optional-skills-catalog.md at main \u00b7 NousResearch/hermes-agent \u00b7 GitHub"
+          },
+          {
+            "url": "https://openclaw.cc/en/gateway/config-agents.html",
+            "excerpts": [
+              "Configuration \u2014 agents | OpenClaw Docs\nskills: optional per-agent skill allowlist. If omitted, the agent inherits agents.defaults.skills when set; an explicit list replaces defaults instead of merging, and [] means no skills."
+            ],
+            "title": "Configuration \u2014 agents | OpenClaw Docs"
+          },
+          {
+            "url": "https://docs.openclaw.kr/tools/skills-config",
+            "excerpts": [
+              "Skills Config - OpenClaw\nAll skills-related configuration lives under skills in ~/.openclaw/openclaw.json. For built-in image generation/editing, prefer agents.defaults.imageGenerationModel plus the core image_generate tool. skills.entries.* is only for custom or third-party skill workflows."
+            ],
+            "title": "Skills Config - OpenClaw"
+          },
+          {
+            "url": "https://openclawlab.com/en/docs/tools/skills",
+            "excerpts": [
+              "Skills \u2013 OpenClaw - Open Source AI Coding Assistant\nOpenClaw uses AgentSkills -compatible skill folders to teach the agent how to use tools. Each skill is a directory containing a SKILL.md with YAML frontmatter and instructions."
+            ],
+            "title": "Skills \u2013 OpenClaw - Open Source AI Coding Assistant"
+          },
+          {
+            "url": "https://docs.openclaw.ai/tools/skills",
+            "excerpts": [
+              "Skills - OpenClaw Docs\nSkills teach your agent how to use tools. Learn how they load, how precedence works, and how to configure gating, allowlists, and environment injection."
+            ],
+            "title": "Skills - OpenClaw Docs"
+          },
+          {
+            "url": "https://github.com/openclaw/openclaw/blob/main/docs/tools/skills.md",
+            "excerpts": [
+              "openclaw/docs/tools/skills.md at main \u00b7 openclaw/openclaw\n`openclaw skills install` installs into the active workspace `skills/` directory by default. Add `--global` to install into the shared `~/.openclaw/skills` directory, visible to all local agents unless agent allowlists narrow it."
+            ],
+            "title": "openclaw/docs/tools/skills.md at main \u00b7 openclaw/openclaw"
+          },
+          {
+            "url": "https://hermes-agent.ai/integrations/home-assistant",
+            "excerpts": [
+              "Hermes Agent + Home Assistant \u2014 Smart Home Tools\nHermes integrates with Home Assistant through a long-lived access token. That enables smart-home tools for listing entities, reading state, listing services, and calling services, plus gateway event workflows when you want state changes to trigger agent runs."
+            ],
+            "title": "Hermes Agent + Home Assistant \u2014 Smart Home Tools"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/reference/optional-skills-catalog",
+            "excerpts": [
+              "Optional Skills Catalog | Hermes Agent\nOptional Skills Catalog Optional skills ship with hermes-agent under optional-skills/ but are not active by default. Install them explicitly: ... For example: ... Each skill below links to a dedicated page with its full definition, setup, and usage. To uninstall:"
+            ],
+            "title": "Optional Skills Catalog | Hermes Agent"
+          },
+          {
+            "url": "https://codesstar.github.io/hermes-skill-atlas/article/hermes-skill-catalog.html",
+            "excerpts": [
+              "Hermes Agent Skill \u5b8c\u6574\u76ee\u5f55\nSkill Catalog the complete map of hermes skills. Hermes Agent \u751f\u6001 200+ \u4e2a Skill\u3001\u63d2\u4ef6\u3001\u5de5\u5177\u5b8c\u6574\u76ee\u5f55\u3002 \u6db5\u76d6 14 \u4e2a\u5206\u7c7b\uff0c4 \u79cd\u6765\u6e90\u3002 \u70b9\u51fb\u4efb\u610f Skill \u67e5\u770b\u8be6\u60c5\u548c\u5b89\u88c5\u65b9\u5f0f\u3002"
+            ],
+            "title": "Hermes Agent Skill \u5b8c\u6574\u76ee\u5f55"
+          },
+          {
+            "url": "https://llmbase.ai/skills/sundial-org/home-assistant",
+            "excerpts": [
+              "home-assistant Hermes AI Agent Skill | LLMBase\nThe skill enhances your agent's understanding of home-assistant, helping it follow established patterns, avoid common mistakes, and produce production-ready output."
+            ],
+            "title": "home-assistant Hermes AI Agent Skill | LLMBase"
+          },
+          {
+            "url": "https://www.hermes-ai.net/skills",
+            "excerpts": [
+              "Skills \u2014 Hermes Agent | Discover, Install, and Reuse Agent Skills\nBrowse the Hermes Agent skills ecosystem, discover community skill hubs, and explore the built-in skill categories that make Hermes reusable and self-improving."
+            ],
+            "title": "Skills \u2014 Hermes Agent | Discover, Install, and Reuse Agent Skills"
+          },
+          {
+            "url": "http://hermes-agent.nousresearch.com/docs/reference/skills-catalog",
+            "excerpts": [
+              "Bundled Skills Catalog | Hermes Agent Each skill below links to a dedicated page with its full definition, setup, and usage. Hermes also syncs bundled skills on hermes update, but the sync manifest respects local deletions and user edits."
+            ],
+            "title": "Bundled Skills Catalog | Hermes Agent"
+          },
+          {
+            "url": "https://hermesagent.org.cn/en/docs/reference/skills-catalog",
+            "excerpts": [
+              "Bundled Skills Catalog - Hermes Agent CN\nEach skill below links to a dedicated page with its full definition, setup, and usage. Hermes also syncs bundled skills on hermes update, but the sync manifest respects local deletions and user edits."
+            ],
+            "title": "Bundled Skills Catalog - Hermes Agent CN"
+          },
+          {
+            "url": "http://upd.dev/NousResearch/hermes-agent/releases",
+            "excerpts": [
+              "# Hermes Agent v0.8.0 (v2026.4.8)\n* **OpenViking atexit safety net** for session commit ([#5664](https://github.com/NousResearch/hermes-agent/pull/5664))\n* **OpenViking tenant-scoping headers** for multi-tenant servers ([#4936](https://github.com/NousResearch/hermes-agent/pull/4936))"
+            ],
+            "title": "description: hermes-agent - The agent that grows with you title: hermes-agent image: https://upd.dev/NousResearch/hermes-agent/-/summary-card"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/user-guide/features/skills",
+            "excerpts": [
+              "Skills System | Hermes Agent - nous research\nSkills are on-demand knowledge documents the agent can load when needed. They follow a progressive disclosure pattern to minimize token usage and are compatible"
+            ],
+            "title": "Skills System | Hermes Agent - nous research"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/releases",
+            "excerpts": [
+              "Releases \u00b7 NousResearch/hermes-agent - GitHub\nHeavier or niche skills moved from bundled to optional (the Baoyu creative set, dspy, subagent-driven-development, minecraft-modpack-server, pokemon-player, hermes-s6-container-supervision) \u2014 still one hermes skills install away, just not loaded by default."
+            ],
+            "title": "Releases \u00b7 NousResearch/hermes-agent - GitHub"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/reference/skills-catalog",
+            "excerpts": [
+              "Bundled Skills Catalog - Hermes Agent\nIf a skill listed here is missing from your profile's ~/.hermes/skills/ tree, it is still shipped with Hermes; restore it with hermes skills reset <name> --"
+            ],
+            "title": "Bundled Skills Catalog - Hermes Agent"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/guides/work-with-skills",
+            "excerpts": [
+              "Working with Skills | Hermes Agent - nous research\n/skills install https://example.com/SKILL.md --name my-skill. What happens: The skill directory is copied to ~/.hermes/skills/; It appears in your skills_list"
+            ],
+            "title": "Working with Skills | Hermes Agent - nous research"
+          },
+          {
+            "url": "https://hermes-agent.org/",
+            "excerpts": [
+              "Hermes Agent \u2014 Open-Source AI Agent with Persistent Memory\nSelf-hosted AI agent that remembers your projects, builds skills automatically, and reaches you on Telegram, Discord & more. MIT license. No tracking."
+            ],
+            "title": "Hermes Agent \u2014 Open-Source AI Agent with Persistent Memory"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/",
+            "excerpts": [
+              "Hermes Agent \u2014 The Agent That Grows With You | Nous Research\nAn open-source agent that grows with you \u2014 learns your projects, builds its own skills, and reaches you wherever you are. By Nous Research."
+            ],
+            "title": "Hermes Agent \u2014 The Agent That Grows With You | Nous Research"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/desktop",
+            "excerpts": [
+              "Hermes Desktop | Nous Research\nOne agent, one memory, every surface. It learns your projects, auto-generates skills, and never forgets how it solved a problem. Natural-language scheduling for reports, backups, and briefings \u2014 running unattended through the gateway, focused every time."
+            ],
+            "title": "Hermes Desktop | Nous Research"
+          },
+          {
+            "url": "https://blakecrosley.com/guides/hermes",
+            "excerpts": [
+              "Hermes Agent v0.16 Reference: Surface Release + Desktop App ...\nv0.16 (June 5, 2026) ships the native Hermes Desktop app, a full browser admin panel, the /undo command, new models (DeepSeek-V4-Flash, MiniMax-M3, Qwen3.7-Plus, Gemini-3.5-Flash), a leaner skill set with an environments relevance gate, and the CVE-2026-48710 Starlette fix."
+            ],
+            "title": "Hermes Agent v0.16 Reference: Surface Release + Desktop App ..."
+          },
+          {
+            "url": "https://docs.openwebui.com/getting-started/quick-start/connect-an-agent/hermes-agent",
+            "excerpts": [
+              "Hermes Agent\nHermes Agent by Nous Research is an autonomous AI agent with built-in tools: terminal access, file operations, web search, memory, and extensible skills. It"
+            ],
+            "title": "Hermes Agent"
+          },
+          {
+            "url": "https://openclaw-ai.com/en/docs/tools/skills",
+            "excerpts": [
+              "Skills | OpenClaw Docs\nOpenClaw uses AgentSkills -compatible skill folders to teach the agent how to use tools. Each skill is a directory containing a SKILL.md with YAML frontmatter and instructions."
+            ],
+            "title": "Skills | OpenClaw Docs"
+          },
+          {
+            "url": "https://docs.openclaw.ai/reference/AGENTS.default",
+            "excerpts": [
+              "Default AGENTS.md - OpenClaw\nDefault OpenClaw agent instructions and skills roster for the personal assistant setup"
+            ],
+            "title": "Default AGENTS.md - OpenClaw"
+          },
+          {
+            "url": "https://docs.openclaw.ai/tools/skills.md",
+            "excerpts": [
+              "docs.openclaw.ai\nsummary: \"Skills teach your agent how to use tools. Learn how they load, how precedence works, and how to configure gating, allowlists, and environment injection.\" - Adding or modifying skills. - Changing skill gating, allowlists, or load rules. - Understanding skill precedence and snapshot behavior. tools."
+            ],
+            "title": "docs.openclaw.ai"
+          },
+          {
+            "url": "https://fme.safe.com/guides/ai-agent-architecture/ai-agent-tools",
+            "excerpts": [
+              "AI Agent Tools: Tutorial & Example\nWithout systematic guidance, agents either default to familiar tools repeatedly or make random selections that break workflows."
+            ],
+            "title": "AI Agent Tools: Tutorial & Example"
+          },
+          {
+            "url": "https://hermesagents.cc/",
+            "excerpts": [
+              "Hermes One - Your AI Agent, Always Improving\nSwitch between a work agent, a research agent, and a personal assistant without any crossover. Every profile is fully independent, so one agent's memory never leaks into another's. Hermes automatically creates reusable skills after completing complex tasks and improves them the next time they're used."
+            ],
+            "title": "Hermes One - Your AI Agent, Always Improving"
+          },
+          {
+            "url": "https://github.com/nousresearch/hermes-agent",
+            "excerpts": [
+              "GitHub - NousResearch/hermes-agent: The agent that grows with ...\nThe self-improving AI agent built by Nous Research. It's the only agent with a built-in learning loop \u2014 it creates skills from experience, improves them during use, nudges itself to persist knowledge, searches its own past conversations, and builds a deepening model of who you are across sessions."
+            ],
+            "title": "GitHub - NousResearch/hermes-agent: The agent that grows with ..."
+          },
+          {
+            "url": "https://hermex.dev/",
+            "excerpts": [
+              "Hermex \u2014 AI Software Factory\nHermex coordinates the rest \u2014 using your existing AI stack: Cursor, Claude Code, Codex, Figma, and more. The entire pipeline is built on proprietary multi-agent architecture."
+            ],
+            "title": "Hermex \u2014 AI Software Factory"
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "hermes-mobile-default-skills-july-2026.md"
+  }
+}

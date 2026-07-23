@@ -35,6 +35,8 @@ type GatewayProfilePickerProps = {
    * do not mount MacScanProgressCard — stacking caused layout thrash.
    */
   hideScanCard?: boolean;
+  /** Tighter rows for Choose computer modal density. */
+  dense?: boolean;
 };
 
 export default function GatewayProfilePicker({
@@ -53,6 +55,7 @@ export default function GatewayProfilePicker({
   selectionDisabled = false,
   liveUsb = null,
   hideScanCard = false,
+  dense = false,
 }: GatewayProfilePickerProps) {
   const showScanCard = !hideScanCard && Boolean(scanning || scanResult);
   const multiMac = profiles.length > 1;
@@ -65,11 +68,11 @@ export default function GatewayProfilePicker({
       ) : null}
       {profiles.length === 0 && !scanning ? (
         <Text style={styles.emptyText}>
-          No saved computers yet. Tap Find computers or scan the QR on your computer.
+          No saved computers yet. Paste a Tailscale IP above, or tap Find computers.
         </Text>
       ) : null}
       {profiles.length > 0 ? (
-        <View style={styles.list} testID="gateway-profile-list">
+        <View style={[styles.list, dense ? styles.listDense : null]} testID="gateway-profile-list">
       {profiles.map((profile) => {
         const isActive = profile.id === activeProfileId;
         const cablePluggedIn = isCablePluggedInForProfile(profile, liveUsb);
@@ -107,9 +110,13 @@ export default function GatewayProfilePicker({
               : colors.error
           : colors.textMuted;
         return (
-          <View key={profile.id} style={styles.row} testID={`gateway-profile-item-${profile.id}`}>
+          <View key={profile.id} style={[styles.row, dense ? styles.rowDense : null]} testID={`gateway-profile-item-${profile.id}`}>
             <TouchableOpacity
-              style={[styles.selectButton, isActive && styles.selectButtonActive]}
+              style={[
+                styles.selectButton,
+                dense ? styles.selectButtonDense : null,
+                isActive && styles.selectButtonActive,
+              ]}
               onPress={() => onSelect(profile.id, profile)}
               disabled={selectionDisabled}
               accessibilityState={{ selected: isActive, disabled: selectionDisabled }}
@@ -136,10 +143,13 @@ export default function GatewayProfilePicker({
                 <Text
                   style={[
                     styles.meta,
+                    dense ? styles.metaDense : null,
                     isActive && activeReachable && !authNeedsRepair ? styles.metaConnected : null,
                     isActive && authNeedsRepair ? styles.metaNeedsRepair : null,
                     isActive && !activeReachable && !authNeedsRepair ? styles.metaUnreachable : null,
                   ]}
+                  numberOfLines={dense ? 1 : 2}
+                  ellipsizeMode="tail"
                 >
                   {meta}
                   {isActive ? ' · Now' : ''}
@@ -150,6 +160,7 @@ export default function GatewayProfilePicker({
               <Pressable
                 style={({ pressed }) => [
                   styles.removeButton,
+                  dense ? styles.removeButtonDense : null,
                   pressed ? styles.removeButtonPressed : null,
                 ]}
                 onPress={() => onRemove(profile.id)}
@@ -172,26 +183,42 @@ export default function GatewayProfilePicker({
 
 const styles = StyleSheet.create({
   list: {
-    gap: 10,
+    gap: 12,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  listDense: {
+    gap: 8,
+    marginTop: 0,
     marginBottom: 4,
   },
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 4,
+  },
+  rowDense: {
+    gap: 2,
   },
   selectButton: {
-    flex: 1,
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    minHeight: 64,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 18,
+    minHeight: 72,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.borderLight,
     backgroundColor: 'rgba(255, 255, 255, 0.045)',
+  },
+  selectButtonDense: {
+    gap: 10,
+    minHeight: 56,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 14,
   },
   selectButtonActive: {
     borderColor: colors.accent,
@@ -215,6 +242,7 @@ const styles = StyleSheet.create({
   labelBlock: {
     flex: 1,
     minWidth: 0,
+    gap: 4,
   },
   profileLabel: {
     color: colors.text,
@@ -227,13 +255,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
-    marginTop: 2,
   },
   meta: {
     color: colors.textMuted,
     fontSize: 12,
-    marginTop: 3,
     fontWeight: '700',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  metaDense: {
+    fontSize: 11,
+    lineHeight: 14,
+    marginTop: 0,
   },
   metaConnected: {
     color: colors.success,
@@ -248,12 +281,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   removeButton: {
-    minWidth: 72,
     minHeight: 44,
     paddingHorizontal: 10,
     paddingVertical: 12,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    alignSelf: 'flex-start',
+  },
+  removeButtonDense: {
+    minHeight: 36,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
   },
   removeButtonPressed: {
     opacity: 0.7,
@@ -267,6 +305,6 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 13,
     lineHeight: 18,
-    marginBottom: 12,
+    marginVertical: 12,
   },
 });

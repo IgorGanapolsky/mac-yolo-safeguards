@@ -22,9 +22,6 @@ export type ChatPendingApproval = ChatTextApproval | ChatRunApproval;
 
 const APPROVE_EXACT_RE = /[Rr]eply\s+(?:[Ww]ith\s+)?[Ee]xactly:?\s*["'`]?([A-Z0-9_\- ]{4,})["'`]?/;
 const APPROVE_LINE_RE = /(?:^|\n)\s*(APPROVE [A-Z0-9_\- ]{4,})\s*(?:\n|$)/i;
-const CONFIRM_PROCEED_RE =
-  /\b(?:please\s+)?confirm\s+(?:that\s+)?(?:you\s+want\s+to\s+)?proceed\b|\b(?:do\s+you\s+want\s+(?:me|us)\s+to\s+proceed|should\s+(?:i|we)\s+proceed|shall\s+(?:i|we)\s+proceed)\b/i;
-const PROCEED_WITH_RE = /\bproceed\s+with\s+([^.!?\n]{3,160})/i;
 const NUDGE_MARKER = '[Hermes Approval Nudge]';
 
 function parseSourceText(message: HermesMessage): string {
@@ -35,35 +32,25 @@ function parseSourceText(message: HermesMessage): string {
   return message.content ?? '';
 }
 
+function parseExplicitApprovalPhrase(
+  text: string,
+): Omit<ChatTextApproval, 'sourceMessageIndex'> | null {
+  const match = text.match(APPROVE_EXACT_RE) ?? text.match(APPROVE_LINE_RE);
+  const approveText = match?.[1]?.trim();
+  if (!approveText || !/^APPROVE\b/i.test(approveText)) {
+    return null;
+  }
+  const titleMatch = text.match(/Target:\s*([^\n]+)/i);
+  const title = titleMatch?.[1]?.trim() || approveText;
+  return { kind: 'text', approveText, title };
+}
+
 export function parseApprovalNudgeFromContent(content: string): Omit<ChatTextApproval, 'sourceMessageIndex'> | null {
   const text = content ?? '';
-  if (
-    !text.includes(NUDGE_MARKER) &&
-    !APPROVE_EXACT_RE.test(text) &&
-    !APPROVE_LINE_RE.test(text) &&
-    !CONFIRM_PROCEED_RE.test(text)
-  ) {
+  if (!text.includes(NUDGE_MARKER)) {
     return null;
   }
-  const match = text.match(APPROVE_EXACT_RE) ?? text.match(APPROVE_LINE_RE);
-  if (match?.[1]) {
-    const approveText = match[1].trim();
-    const titleMatch = text.match(/Target:\s*([^\n]+)/i);
-    const title = titleMatch?.[1]?.trim() || approveText;
-    return { kind: 'text', approveText, title };
-  }
-  if (!CONFIRM_PROCEED_RE.test(text)) {
-    return null;
-  }
-  const proceedWith = text.match(PROCEED_WITH_RE)?.[1]?.trim();
-  const firstSentence = text
-    .split(/[.!?\n]/)
-    .map((part) => part.trim())
-    .find(Boolean);
-  const title = proceedWith
-    ? `Proceed with ${proceedWith}`
-    : firstSentence?.slice(0, 90) || 'Confirm proceed';
-  return { kind: 'text', approveText: 'Proceed', title };
+  return parseExplicitApprovalPhrase(text);
 }
 
 /** Target / Thread metadata without an inline APPROVE line (Telegram relay format). */
@@ -121,7 +108,7 @@ function inferApprovePhraseForTargetMessage(
     if (next.role !== 'user') {
       continue;
     }
-    const parsed = parseApprovalNudgeFromContent(parseSourceText(next));
+    const parsed = parseExplicitApprovalPhrase(parseSourceText(next));
     if (parsed?.approveText) {
       return parsed.approveText;
     }
@@ -149,7 +136,7 @@ export function listInlineTextApprovals(
     if (message.role !== 'assistant') {
       return;
     }
-    const parsed = parseApprovalNudgeFromContent(parseSourceText(message));
+    const parsed = parseExplicitApprovalPhrase(parseSourceText(message));
     if (!parsed) {
       return;
     }
@@ -235,7 +222,7 @@ export function findUnresolvedUserApprovalPhrase(
     if (message.role !== 'user') {
       continue;
     }
-    const parsed = parseApprovalNudgeFromContent(parseSourceText(message));
+    const parsed = parseExplicitApprovalPhrase(parseSourceText(message));
     if (!parsed) {
       continue;
     }

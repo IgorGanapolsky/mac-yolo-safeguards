@@ -100,12 +100,30 @@ else
   bad "identical mini/laptop keys classify as SSH success (not cleared)"
 fi
 
-# USB reverse secretless pairServer must prefer loopback (source contract)
+# USB reverse adb deep-link pairServer prefers loopback; Camera/HTTP uses Tailscale.
 if grep -q "127.0.0.1:\${PAIR_PORT}" "$REPO/tools/hermes-mobile-pair.js" \
-  && grep -q 'pairExchangeBase' "$REPO/tools/hermes-mobile-pair.js"; then
-  ok "pair script uses 127.0.0.1 pairExchangeBase when USB reverse :8765 is up"
+  && grep -q 'adbPairExchangeBase' "$REPO/tools/hermes-mobile-pair.js" \
+  && grep -q 'resolvePhoneReachablePairServerUrl' "$REPO/tools/hermes-mobile-pair.js"; then
+  ok "pair script splits adb loopback vs Camera/HTTP Tailscale pairServer"
 else
-  bad "pair script uses 127.0.0.1 pairExchangeBase when USB reverse :8765 is up"
+  bad "pair script splits adb loopback vs Camera/HTTP Tailscale pairServer"
+fi
+
+# Camera/HTTP remints must not redeem against LAN when Tailscale IP exists.
+if grep -q 'resolveLiveMintPairServerUrl' "$REPO/tools/hermes-mobile-pair.js" \
+  && grep -q 'Stale seed often stores LAN while Camera QR already uses Tailscale' "$REPO/tools/hermes-mobile-pair.js" \
+  && grep -q 'Pair exchange (Camera/HTTP)' "$REPO/tools/hermes-mobile-pair.js"; then
+  ok "live mint upgrades LAN pairServer to Tailscale for Camera QR redeem"
+else
+  bad "live mint upgrades LAN pairServer to Tailscale for Camera QR redeem"
+fi
+
+# --open must prefer live HTTP over file://
+if grep -q 'Prefer live HTTP (Tailscale/LAN) over file://' "$REPO/tools/hermes-mobile-pair.js" \
+  && grep -q 'const openTarget = pageUrl || htmlPath' "$REPO/tools/hermes-mobile-pair.js"; then
+  ok "pair --open launches live HTTP pair page not file://"
+else
+  bad "pair --open launches live HTTP pair page not file://"
 fi
 
 # Host/key consistency: never bind mini key to USB/local URL
@@ -311,12 +329,20 @@ else
   bad "pair adb deep link quotes URI for &name= params"
 fi
 
-# Unattended session-start pairing must never expose the credential-bearing LAN server.
+# Unattended session-start pairing must never expose the credential-bearing LAN server,
+# but phone-install MUST still adb-apply mini Tailscale (--force-mini-usb-primary).
 SESSION_START="$REPO/tools/agent-session-start.js"
-if grep -Fq '`node "${pairScript}" --mini-tailscale --no-serve`' "$SESSION_START"; then
-  ok "queued phone install pairs without serving on LAN"
+if grep -Fq '`node "${pairScript}" --mini-tailscale --force-mini-usb-primary --no-serve`' "$SESSION_START"; then
+  ok "queued phone install pairs mini Tailscale without serving on LAN"
 else
-  bad "queued phone install pairs without serving on LAN"
+  bad "queued phone install pairs mini Tailscale without serving on LAN"
+fi
+
+if grep -Fq "!forceMiniUsbPrimary" "$REPO/tools/hermes-mobile-pair.js" \
+  && grep -Fq "forceMiniUsbPrimary" "$REPO/tools/hermes-mobile-pair.js"; then
+  ok "force-mini-usb-primary still applies adb under --mini-tailscale --no-serve"
+else
+  bad "force-mini-usb-primary still applies adb under --mini-tailscale --no-serve"
 fi
 
 if grep -Fq "pair = runNode('tools/hermes-mobile-pair.js', ['--no-serve'], 90_000);" "$SESSION_START" \
@@ -477,10 +503,123 @@ else
   bad "pair script guards --mini-tailscale against live USB-cabled Mac hijack"
 fi
 
-if grep -Fq "usbHijackGuardTripped || (args.has('--no-serve') && args.has('--mini-tailscale'))" "$REPO/tools/hermes-mobile-pair.js"; then
-  ok "pair.json write + adb push both gated on the USB hijack guard, not just --no-serve"
+if grep -Fq "usbHijackGuardTripped ||" "$REPO/tools/hermes-mobile-pair.js" \
+  && grep -Fq "args.has('--no-serve') && args.has('--mini-tailscale') && !forceMiniUsbPrimary" "$REPO/tools/hermes-mobile-pair.js"; then
+  ok "pair.json write + adb push gated on USB hijack guard; force-mini overrides no-serve skip"
 else
-  bad "pair.json write + adb push both gated on the USB hijack guard, not just --no-serve"
+  bad "pair.json write + adb push gated on USB hijack guard; force-mini overrides no-serve skip"
+fi
+
+# P0 2026-07-21: file:// pair page must embed QR (Chrome often fails sibling PNG loads),
+# and loopback/USB must not claim "same Wi‑Fi" as the primary instruction.
+if [[ "$PAIR_JS" == *'data:image/png;base64,'* ]] \
+  && [[ "$PAIR_JS" == *'USB cable pairing auto-opens Hermes'* || "$PAIR_JS" == *'USB cable: Hermes opens automatically'* ]] \
+  && [[ "$PAIR_JS" == *'USB gateway'* ]] \
+  && [[ "$PAIR_JS" == *'isLoopbackGatewayUrl(gatewayUrl)'* ]] \
+  && [[ "$PAIR_JS" == *'file://'* ]]; then
+  ok "pair page embeds QR data URL + USB-first copy for loopback gateways"
+else
+  bad "pair page embeds QR data URL + USB-first copy for loopback gateways"
+fi
+
+# Camera QR must encode the HTTP pair page (never a stale hermes:// pairCode).
+if [[ "$PAIR_JS" == *"resolveCameraPageUrl"* ]] \
+  && [[ "$PAIR_JS" == *"const qrPayload = cameraPageUrl"* ]] \
+  && [[ "$PAIR_JS" == *"mintLivePairSession"* ]] \
+  && [[ "$PAIR_JS" == *"/pair-live.json"* ]]; then
+  ok "Camera QR points at HTTP /pair; live mint regenerates codes"
+else
+  bad "Camera QR points at HTTP /pair; live mint regenerates codes"
+fi
+
+
+if [[ "$PAIR_JS" == *'Stock Camera cannot open hermes://'* || "$PAIR_JS" == *'Stock Android Camera cannot open hermes://'* ]] \
+  && [[ "$PAIR_JS" == *'Tailscale'* ]] \
+  && [[ "$PAIR_JS" == *'USB cable'* ]]; then
+  ok "USB copy explains Tailscale Camera path + USB cable primary"
+else
+  bad "USB copy explains Tailscale Camera path + USB cable primary"
+fi
+
+# --server-only refresh must not clobber a live USB loopback primary with Tailscale.
+if [[ "$PAIR_JS" == *"keeping USB loopback primary"* ]] \
+  && [[ "$PAIR_JS" == *"usbReverseLive"* ]]; then
+  ok "server-only refresh preserves USB loopback when adb reverse is live"
+else
+  bad "server-only refresh preserves USB loopback when adb reverse is live"
+fi
+
+# --server-only must persist secretless pairCode in pair.json (watchdog /pair.json contract).
+if [[ "$PAIR_JS" == *"buildSecretlessDeepLink(minted.code, phonePairServer"* ]] \
+  && [[ "$PAIR_JS" == *"pairCode)"* ]] \
+  && [[ "$PAIR_JS" == *"function refreshPairAssetsFromLocalGateway"* ]]; then
+  ok "server-only refresh writes secretless pairCode into pair.json"
+else
+  bad "server-only refresh writes secretless pairCode into pair.json"
+fi
+
+# --- T-PAIR-CODE-TTL: display TTL + refresh so QR never shows a dead single-use code ----
+
+if [[ "$LIB_JS" == *"PAIRING_CODE_DISPLAY_TTL_MS"* ]] \
+  && [[ "$LIB_JS" == *"PAIRING_CODE_REFRESH_MS"* ]] \
+  && [[ "$LIB_JS" == *"pairingCodeRemainingMs"* ]]; then
+  ok "pair-lib exports display TTL + refresh constants"
+else
+  bad "pair-lib exports display TTL + refresh constants"
+fi
+
+if run_node "
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  if (lib.PAIRING_CODE_TTL_MS !== 120_000) process.exit(1);
+  if (lib.PAIRING_CODE_DISPLAY_TTL_MS < 15 * 60_000) process.exit(2);
+  if (lib.PAIRING_CODE_REFRESH_MS !== 60_000) process.exit(3);
+  const store = lib.createPairingCodeStore();
+  const frozen = Date.now();
+  const code = lib.putPairingCode(store, { apiKey: 'x' }, {
+    ttlMs: lib.PAIRING_CODE_DISPLAY_TTL_MS,
+    now: () => frozen,
+  });
+  const entry = store.get(code);
+  const remaining = lib.pairingCodeRemainingMs(entry, frozen + 30_000);
+  if (remaining !== lib.PAIRING_CODE_DISPLAY_TTL_MS - 30_000) process.exit(4);
+  // Still single-use after long display TTL.
+  const first = lib.takePairingCode(store, code);
+  if (!first.ok) process.exit(5);
+  const second = lib.takePairingCode(store, code);
+  if (second.ok) process.exit(6);
+"; then
+  ok "display TTL is ≥15m, refresh is 60s, and codes stay single-use"
+else
+  bad "display TTL is ≥15m, refresh is 60s, and codes stay single-use"
+fi
+
+if [[ "$PAIR_JS" == *"PAIRING_CODE_DISPLAY_TTL_MS"* ]] \
+  && [[ "$PAIR_JS" == *"Code expires in"* ]] \
+  && [[ "$PAIR_JS" == *"Refreshing pairing code"* ]] \
+  && [[ "$PAIR_JS" == *"savePairSeed"* ]] \
+  && [[ "$PAIR_JS" == *"fresh mint"* ]]; then
+  ok "pair page labels remaining TTL and remints from pair-seed"
+else
+  bad "pair page labels remaining TTL and remints from pair-seed"
+fi
+
+if run_node "
+  const fs = require('fs');
+  const src = fs.readFileSync('$REPO/tools/hermes-mobile-pair.js', 'utf8');
+  // Contract: mintPairingCode returns { code, expiresAt } and adb path uses .code
+  if (!src.includes('minted.code')) process.exit(1);
+  if (!src.includes('ttlMs: PAIRING_CODE_DISPLAY_TTL_MS')) process.exit(2);
+  if (!src.includes('Never bake a stale single-use code')) process.exit(3);
+  // Two consecutive logical mints must produce different codes (fresh each open).
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  const store = lib.createPairingCodeStore();
+  const a = lib.putPairingCode(store, { apiKey: 'a' }, { ttlMs: lib.PAIRING_CODE_DISPLAY_TTL_MS });
+  const b = lib.putPairingCode(store, { apiKey: 'b' }, { ttlMs: lib.PAIRING_CODE_DISPLAY_TTL_MS });
+  if (a === b) process.exit(4);
+"; then
+  ok "adb/open path mints a fresh display-TTL code each time"
+else
+  bad "adb/open path mints a fresh display-TTL code each time"
 fi
 
 printf "\nResults: %s passed, %s failed\n" "$pass" "$fail"

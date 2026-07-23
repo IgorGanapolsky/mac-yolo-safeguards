@@ -2,6 +2,7 @@ import type { HermesSession } from '../types/chat';
 import type { ChatProjectState } from '../types/chatProject';
 import { shouldClearMissingCurrentSession } from './disconnectMessagePreserve';
 import { pickDefaultSession } from './sessionSelection';
+import { isSendableChatSession } from './sessionSendTarget';
 import { isMegaSessionSendBlocked } from './sessionTokenGuards';
 
 export type SessionListSelectionInput = {
@@ -16,6 +17,29 @@ export type SessionListSelectionInput = {
   selectLatest?: boolean;
 };
 
+/**
+ * Guarantee the actively-open session survives a Threads-list display filter
+ * (hide cron, hide automation, dismissed ids). Those filters are recents-list
+ * preferences, not a statement that the open thread stopped existing — but
+ * `resolveSessionAfterListLoad` treats "current id missing from `sessions`" as
+ * "the thread is gone" and falls back to remembered/project/latest selection.
+ * Without this, any refresh (reconnect, transport switch) that re-applies
+ * "hide cron after Clear all" drops the open cron/scheduled-job thread from
+ * the filtered list, and the user is silently bounced to a different thread —
+ * indistinguishable from their messages having been erased.
+ */
+export function ensureCurrentSessionSelectable(
+  filteredSessions: HermesSession[],
+  allSessions: HermesSession[],
+  currentSessionId: string | null | undefined,
+): HermesSession[] {
+  if (!currentSessionId || filteredSessions.some((session) => session.id === currentSessionId)) {
+    return filteredSessions;
+  }
+  const openSession = allSessions.find((session) => session.id === currentSessionId);
+  return openSession ? [openSession, ...filteredSessions] : filteredSessions;
+}
+
 function findNonMegaSession(
   sessions: HermesSession[],
   sessionId: string | null | undefined,
@@ -24,7 +48,7 @@ function findNonMegaSession(
     return null;
   }
   const match = sessions.find((session) => session.id === sessionId) ?? null;
-  if (!match || isMegaSessionSendBlocked(match)) {
+  if (!match || isMegaSessionSendBlocked(match) || !isSendableChatSession(match)) {
     return null;
   }
   return match;

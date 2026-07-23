@@ -4,8 +4,10 @@ import type { ConnectionMode } from '../types/gateway';
 import type { RelayWorker } from '../types/mobileRelay';
 import { GATEWAY_WRONG_KEY_MESSAGE, normalizeGatewayUrl } from '../services/gatewayClient';
 import {
+  findProfileForGatewayUrl,
   isGenericMachineLabel,
   profileDisplayName,
+  profileMachineKey,
   stripTransportSuffixFromComputerName,
 } from '../services/gatewayProfiles';
 import type { LeashConnectionState } from './gatewayEndpoint';
@@ -14,14 +16,34 @@ import {
   formatGatewayMachineParts,
   isPrivateLanGatewayUrl,
 } from './gatewayEndpoint';
+import { isMacGatewayHttpOk } from './gatewayConnection';
 import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
+import { profileMatchesHostname } from './gatewayProfilePicker';
 import { relayWorkerDisplayName, selectRelayWorker } from './relayRouting';
 import { isTailnetRouteLabel, isTailscaleGatewayUrl } from './tailscaleHosts';
 
 /**
+ * PRODUCT LAW (2026-07-20): never claim Tailscale/USB/Home Wi‑Fi as the live path when
+ * connectionMode is relay, the account is unpaired, and direct Mac HTTP is down.
+ * Tailnet presence ≠ app paired — that misdiagnosis showed "Connecting · Tailscale"
+ * above "Hermes relay is not paired yet".
+ */
+export function shouldClaimHeaderTransport(input: {
+  connectionMode: ConnectionMode;
+  isPaired: boolean;
+  health?: GatewayHealthSnapshot | null;
+}): boolean {
+  if (input.connectionMode === 'relay' && !input.isPaired && !isMacGatewayHttpOk(input.health)) {
+    return false;
+  }
+  return true;
+}
+
+/**
  * Header transport chip from the URL that actually succeeded this session.
- * USB is allowed only for live loopback on Wi‑Fi — never on cellular (ghost adb reverse),
- * and never for Tailscale/MagicDNS/100.x (remote mini in another city).
+ * USB: live loopback on Wi‑Fi, or cellular when /health proves a live cable Mac
+ * (hostname + green|amber). Ghost 127.0.0.1 on cellular without live health stays silent.
+ * Never USB for Tailscale/MagicDNS/100.x (remote mini in another city).
  */
 export function resolveHeaderTransportLabel(input: {
   gatewayUrl: string;
@@ -37,9 +59,17 @@ export function resolveHeaderTransportLabel(input: {
     return 'Tailscale';
   }
   if (isLoopbackGatewayUrl(gatewayUrl)) {
-    // Cellular + 127.0.0.1 is almost always a stale USB primary / wireless-adb ghost.
+    // Cellular + 127.0.0.1 without live /health is a stale USB primary / wireless-adb ghost.
+    // Live hostname on green|amber proves adb reverse — claim USB even on 5G (product lock).
     if (input.wifiConnected === false) {
-      return undefined;
+      const host = input.health?.hostname?.trim();
+      const live =
+        Boolean(host) &&
+        !input.health?.authMismatch &&
+        (input.health?.level === 'green' || input.health?.level === 'amber');
+      if (!live) {
+        return undefined;
+      }
     }
     return 'USB';
   }
@@ -49,20 +79,23 @@ export function resolveHeaderTransportLabel(input: {
   return formatGatewayEndpointLine(gatewayUrl, input.health)?.trim() || undefined;
 }
 
-/** USB header chip is honest only when loopback is the reach URL and phone is on Wi‑Fi. */
+/** USB header chip when loopback is the reach URL and Wi‑Fi or live-cable health confirms. */
 export function isUsbHeaderTransportAllowed(input: {
   gatewayUrl: string;
   wifiConnected?: boolean;
+  health?: GatewayHealthSnapshot | null;
 }): boolean {
   return (
     isLoopbackGatewayUrl(input.gatewayUrl) &&
-    input.wifiConnected !== false &&
     resolveHeaderTransportLabel(input) === 'USB'
   );
 }
 
-/** Generic USB label when loopback is selected but live cable identity is unknown. */
-export const USB_UNKNOWN_MACHINE_LABEL = 'Computer via USB';
+/**
+ * Generic label when loopback is selected but live cable identity is unknown.
+ * Must not say "Computer via USB" — that markets a dead USB path off-home (2026-07-21).
+ */
+export const USB_UNKNOWN_MACHINE_LABEL = 'Your computer';
 
 function healthHostname(health?: GatewayHealthSnapshot | null): string | undefined {
   return health?.hostname?.replace(/\.local$/i, '').trim() || undefined;
@@ -136,6 +169,22 @@ export function resolveMachineDisplayName(
   }
 
   if (loopbackUsb) {
+    // User just selected a remote Mac (mini Tailscale) while effective URL is still
+    // Pro USB — keep the selected name, do not flash the cable Mac (2026-07-22).
+    if (
+      switchInFlight &&
+      activeProfile &&
+      !isLoopbackGatewayUrl(activeProfile.gatewayUrl)
+    ) {
+      const stickyName = profileDisplayName(activeProfile);
+      if (!isUnresolvedMachineName(stickyName)) {
+        return stickyName;
+      }
+      const stickyHost = activeProfile.hostname?.replace(/\.local$/i, '').trim();
+      if (stickyHost && !isUnresolvedMachineName(stickyHost)) {
+        return stickyHost;
+      }
+    }
     if (isLiveUsbHealthIdentity(health) && fromHealth) {
       return fromHealth;
     }
@@ -143,15 +192,52 @@ export function resolveMachineDisplayName(
     return USB_UNKNOWN_MACHINE_LABEL;
   }
 
-  if (switchInFlight && activeProfile) {
-    const switchingName = profileDisplayName(activeProfile);
-    if (!isUnresolvedMachineName(switchingName)) {
-      return switchingName;
+  // PRODUCT LAW (multi-Mac): during a switch, prefer the user-selected active Mac.
+  // Exception (2026-07-20 Reach-out-goal): non-loopback gatewayUrl already belongs to a
+  // *different* saved computer AND live /health agrees — chat really POSTed there.
+  // Stale Pro USB/health must not rename a just-selected Mini (2026-07-22 rage).
+  if (switchInFlight) {
+    const urlMatched = findProfileForGatewayUrl(_profiles ?? [], gatewayUrl);
+    const activeKey = activeProfile ? profileMachineKey(activeProfile) : undefined;
+    const urlKey = urlMatched ? profileMachineKey(urlMatched) : undefined;
+    const urlOwnsDifferentMac = Boolean(activeKey && urlKey && activeKey !== urlKey);
+    const healthAgreesWithUrl =
+      Boolean(fromHealth) &&
+      Boolean(urlMatched) &&
+      !isLoopbackGatewayUrl(gatewayUrl) &&
+      profileMatchesHostname(urlMatched!, fromHealth!);
+
+    if (urlOwnsDifferentMac && healthAgreesWithUrl) {
+      if (fromHealth && !isUnresolvedMachineName(fromHealth)) {
+        return fromHealth;
+      }
+      if (urlMatched) {
+        const matchedName = profileDisplayName(urlMatched);
+        if (!isUnresolvedMachineName(matchedName)) {
+          return matchedName;
+        }
+      }
     }
-    const switchingHost = activeProfile.hostname?.replace(/\.local$/i, '').trim();
-    if (switchingHost && !isUnresolvedMachineName(switchingHost)) {
-      return switchingHost;
+
+    if (activeProfile) {
+      const stickyName = profileDisplayName(activeProfile);
+      if (!isUnresolvedMachineName(stickyName)) {
+        return stickyName;
+      }
+      const stickyHost = activeProfile.hostname?.replace(/\.local$/i, '').trim();
+      if (stickyHost && !isUnresolvedMachineName(stickyHost)) {
+        return stickyHost;
+      }
     }
+
+    if (fromHealth && !isUnresolvedMachineName(fromHealth)) {
+      return fromHealth;
+    }
+    const fromUrl = formatGatewayMachineParts(gatewayUrl, health).machineName;
+    if (fromUrl && !isUnresolvedMachineName(fromUrl)) {
+      return stripTransportSuffixFromComputerName(fromUrl);
+    }
+    return 'Your computer';
   }
 
   if (activeProfile) {
@@ -249,7 +335,10 @@ export function resolveChatMachineHeaderDisplay(input: {
   savedMacCount?: number;
   profiles?: GatewayProfile[];
   isDemo?: boolean;
-  /** When false (cellular), never claim USB — even if gatewayUrl is still loopback. */
+  /**
+   * When false (cellular), only claim USB if live /health proves the cable
+   * (see resolveHeaderTransportLabel). Ghost loopback stays silent.
+   */
   wifiConnected?: boolean;
 }): ChatMachineHeaderDisplay {
   const gatewayUrl = input.gatewayUrl?.trim() ?? '';
@@ -264,7 +353,7 @@ export function resolveChatMachineHeaderDisplay(input: {
 
   if (input.connectionMode === 'relay') {
     if (!input.isPaired && !input.activeProfile) {
-      machineLabel = 'Hermes account relay';
+      machineLabel = 'Your computer';
     } else if (input.isPaired) {
       const worker = selectRelayWorker(input.workers, input.activeWorkerId);
       if (worker && !input.activeProfile) {
@@ -285,16 +374,26 @@ export function resolveChatMachineHeaderDisplay(input: {
     };
   }
 
-  const usbAllowed = isUsbHeaderTransportAllowed({
-    gatewayUrl,
-    wifiConnected: input.wifiConnected,
-  });
-  const hasNamedMachine = Boolean(machineLabel && !isGenericMachineLabel(machineLabel));
-  const ipLine = resolveHeaderTransportLabel({
-    gatewayUrl,
-    wifiConnected: input.wifiConnected,
+  const claimTransport = shouldClaimHeaderTransport({
+    connectionMode: input.connectionMode,
+    isPaired: input.isPaired,
     health: input.health,
   });
+  const usbAllowed =
+    claimTransport &&
+    isUsbHeaderTransportAllowed({
+      gatewayUrl,
+      wifiConnected: input.wifiConnected,
+      health: input.health,
+    });
+  const hasNamedMachine = Boolean(machineLabel && !isGenericMachineLabel(machineLabel));
+  const ipLine = claimTransport
+    ? resolveHeaderTransportLabel({
+        gatewayUrl,
+        wifiConnected: input.wifiConnected,
+        health: input.health,
+      })
+    : undefined;
   const detailParts: string[] = [];
   const savedMacCount = input.savedMacCount ?? 0;
   const profileIp = input.activeProfile?.localIp?.trim();
@@ -310,6 +409,7 @@ export function resolveChatMachineHeaderDisplay(input: {
     );
 
   // Show transport when multi-Mac, USB (Wi‑Fi only), Tailscale/Home Wi‑Fi, or IP not in label.
+  // Unpaired relay without direct Mac HTTP never claims a transport chip (see shouldClaimHeaderTransport).
   if (
     ipLine &&
     (savedMacCount > 1 ||
@@ -331,7 +431,7 @@ export function resolveChatMachineHeaderDisplay(input: {
         workerName !== machineLabel &&
         !machineLabel.includes(workerName)
       ) {
-        detailParts.push(`relay · ${workerName}`);
+        detailParts.push(`Tailscale · ${workerName}`);
       }
     }
   }
@@ -340,13 +440,14 @@ export function resolveChatMachineHeaderDisplay(input: {
     machineLabel,
     machineEndpoint: detailParts.length > 0 ? detailParts.join(' · ') : undefined,
     showDetailWhenConnected:
-      savedMacCount > 1 ||
-      usbAllowed ||
-      detailParts.some((part) => part.startsWith('relay ·')) ||
-      (isTailscaleGatewayUrl(gatewayUrl) &&
-        hasNamedMachine &&
-        !isTailnetRouteLabel(machineLabel)) ||
-      detailParts.includes('Home Wi‑Fi'),
+      claimTransport &&
+      (savedMacCount > 1 ||
+        usbAllowed ||
+        detailParts.some((part) => part.startsWith('Tailscale ·')) ||
+        (isTailscaleGatewayUrl(gatewayUrl) &&
+          hasNamedMachine &&
+          !isTailnetRouteLabel(machineLabel)) ||
+        detailParts.includes('Home Wi‑Fi')),
   };
 }
 
@@ -371,6 +472,7 @@ export function formatMacConnectionRetryBanner(input: {
   const label =
     input.machineLabel &&
     !isGenericMachineLabel(input.machineLabel) &&
+    input.machineLabel !== 'Your computer' &&
     input.machineLabel !== 'Hermes account relay' &&
     !/^(http|https)$/i.test(input.machineLabel)
       ? input.machineLabel
@@ -378,7 +480,9 @@ export function formatMacConnectionRetryBanner(input: {
           machineName !== 'computer' &&
           !/^(http|https)$/i.test(machineName)
         ? machineName
-        : machineName !== 'Hermes account relay' && !/^(http|https)$/i.test(machineName)
+        : machineName !== 'Your computer' &&
+          machineName !== 'Hermes account relay' &&
+          !/^(http|https)$/i.test(machineName)
           ? machineName
           : 'your computer';
 

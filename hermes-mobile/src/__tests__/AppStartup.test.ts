@@ -19,4 +19,13 @@ describe('App startup safety', () => {
     const appBody = appTsx.split('export default function App')[1] ?? '';
     expect(appBody).not.toContain('useAiSdkDevTools()');
   });
+
+  it('eagerly mounts tab screens (no React.lazy Suspense hang on Leash)', () => {
+    expect(appTsx).not.toMatch(/React\.lazy\s*\(/);
+    expect(appTsx).not.toMatch(/\bSuspense\b/);
+    expect(appTsx).not.toContain('tab-screen-loading');
+    expect(appTsx).toMatch(/import ChatScreen from ['"]\.\/src\/screens\/ChatScreen['"]/);
+    expect(appTsx).toMatch(/import ApprovalsScreen from ['"]\.\/src\/screens\/ApprovalsScreen['"]/);
+    expect(appTsx).toMatch(/import SettingsScreen from ['"]\.\/src\/screens\/SettingsScreen['"]/);
+  });
 });

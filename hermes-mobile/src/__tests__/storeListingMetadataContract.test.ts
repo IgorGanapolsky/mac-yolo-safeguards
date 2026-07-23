@@ -10,9 +10,20 @@ function read(p: string): string {
 }
 
 describe('store listing metadata contract (stellar live)', () => {
+  it('Play title is the platform-neutral Hermes AI: Agent Leash', () => {
+    const playTitle = read(path.join(ANDROID, 'title.txt'));
+    const iosName = read(path.join(IOS, 'name.txt'));
+    expect(playTitle.length).toBeLessThanOrEqual(30);
+    expect(iosName.length).toBeLessThanOrEqual(30);
+    expect(playTitle).toBe('Hermes AI: Agent Leash');
+    expect(playTitle).not.toMatch(/\bMac Agent Leash\b/i);
+    expect(iosName).toBe('Hermes AI Agent Leash');
+  });
+
   it('Play short description is Mac-remote wedge within 80 chars', () => {
     const short = read(path.join(ANDROID, 'short_description.txt'));
     expect(short.length).toBeLessThanOrEqual(80);
+    expect(short).toMatch(/Hermes AI/i);
     expect(short).toMatch(/Mac/i);
     expect(short).toMatch(/4\.99/);
     expect(short).not.toMatch(/19\.99/);

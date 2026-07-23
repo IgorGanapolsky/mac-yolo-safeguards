@@ -222,6 +222,11 @@ describe('release safety contract', () => {
     expect(workflow).toContain('--rollout-percentage');
     expect(workflow).toContain('production_rollout_percentage');
     expect(workflow).toContain('promote_production_rollout');
+    // EAS GraphQL rejects --rollout-percentage 100 (run 29889285465).
+    expect(workflow).toContain('EAS rejects 100');
+    expect(workflow).toContain('omit --rollout-percentage');
+    expect(workflow).toContain('Promotion to 100 is not supported');
+    expect(workflow).not.toContain('PROMOTE_TO=99');
     expect(workflow).toContain('require-stranger-cold-start-proof.cjs');
     expect(workflow).toContain('HERMES_STRANGER_PROOF_WAIT_SEC');
     expect(workflow).toMatch(/checks:\s*read/);
@@ -429,12 +434,14 @@ describe('release safety contract', () => {
     expect(env).toContain('wait_for_adb_device "$device_id" "$MAESTRO_ANDROID_ADB_WAIT_ATTEMPTS"');
   });
 
-  it('e2e-bootstrap waits for lazy Leash tab load', () => {
+  it('e2e-bootstrap waits for Leash tab content (not endless loading fallback)', () => {
     const bootstrap = read('hermes-mobile/.maestro/e2e-bootstrap.yaml');
     expect(bootstrap).toContain('hermes://setup?demo=1');
     expect(bootstrap).toContain('hermes://leash');
     expect(bootstrap).toContain('THUMBGATE_LEASH');
     expect(bootstrap).toContain('id: "tab-leash"');
+    expect(bootstrap).toContain('assertNotVisible:');
+    expect(bootstrap).toContain('id: "tab-screen-loading"');
     expect(bootstrap).toContain('hermes://chat');
     expect(bootstrap).toContain('chat-screen-header');
     expect(bootstrap).toContain('chat-input');

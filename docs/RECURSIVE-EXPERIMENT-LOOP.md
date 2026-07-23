@@ -11,7 +11,11 @@ source-backed, and guarded against fake wins.
 - Tight evaluator: every selected experiment must have a runnable command or
   explicit verifier.
 - Adoption ledger: improvements are recorded as `adopt`, `retry`, or `reject`
-  from before/after metrics plus evaluator, reward-hack, and variance gates.
+  from before/after metrics plus evaluator, reward-hack, variance, holdout,
+  sample-review, and immutable-provenance gates.
+- Immutable provenance: every adoptable record binds the current git revision,
+  experiment configuration, narrative evidence, and one or more evidence
+  artifacts to SHA-256 digests.
 - Agent Arena-style token efficiency: candidate model runs are scored by
   verified task improvement per 1k output tokens, with penalties for tool
   hallucinations, bash recovery failures, latency, cost, and evaluator failure.
@@ -38,6 +42,9 @@ node tools/recursive-experiment-loop.js record \
   --evaluator pass \
   --reward-hack pass \
   --variance pass \
+  --holdout pass \
+  --sample-review pass \
+  --evidence-file artifacts/evals/cross-agent-holdout.json \
   --evidence "tests and sync packet diff verified" \
   --json
 node tools/recursive-experiment-loop.js ledger --json
@@ -60,13 +67,36 @@ state into the repo.
 
 | Decision | Meaning |
 | --- | --- |
-| `adopt` | The evaluator passed, reward-hack check passed, variance check passed, and the metric improved beyond `--min-delta`. Hermes may keep the change. |
-| `retry` | The metric improved but a required evidence gate is missing. Run the experiment again with complete evidence before changing defaults. |
-| `reject` | The evaluator failed, reward-hack check failed, variance failed, or the metric did not improve. Do not promote the change. |
+| `adopt` | The evaluator, reward-hack, variance, holdout, and sample-review checks passed; the metric improved beyond `--min-delta`; and git/config/evidence provenance is complete. Hermes may keep the change. |
+| `retry` | The metric improved but a required status or hashed evidence artifact is missing. Run the experiment again with complete evidence before changing defaults. |
+| `reject` | An evidence gate failed or the metric did not improve. Do not promote the change. |
 
 This is the important Recursive-style upgrade: Hermes must not accept its own
 claim that a loop got smarter. It needs a before/after metric and independent
 verification.
+
+The v2 ledger record does not trust a mutable filename alone. It stores:
+
+- the current `git rev-parse HEAD`;
+- a clean-worktree assertion so the revision actually identifies the tested
+  candidate;
+- a stable hash of the selected experiment configuration;
+- the path, byte size, and SHA-256 digest of each `--evidence-file`;
+- a SHA-256 digest of `--evidence` text when present; and
+- a stable manifest hash over those fields.
+
+Changing an evidence artifact changes the manifest hash. Older v1 ledger lines
+remain readable by `ledger`, but they do not satisfy the v2 adoption contract.
+
+## Poolside Model Factory Delta
+
+Poolside's public Model Factory material reinforces four controls that matter to
+Hermes: reproducible experiment configuration, immutable/versioned evidence,
+holdout evaluation, and continuous sample inspection for reward hacking. Hermes
+already had evaluator, reward-hack, variance, token-efficiency, and private-ledger
+gates. The v2 adoption contract adds only the missing controls; it does not add
+Poolside models, Poolside CLI, cloud inference, autonomous self-modification, or
+another paid provider.
 
 ## Token Efficiency Gate
 

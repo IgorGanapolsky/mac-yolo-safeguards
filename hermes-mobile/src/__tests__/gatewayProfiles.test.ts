@@ -22,6 +22,7 @@ import {
   shouldProbeGatewayUrlForActiveProfile,
   resolveHealPersistDecision,
   isDiscoveredUrlAllowedForActiveProfile,
+  touchProfileHealth,
 } from '../services/gatewayProfiles';
 import { EMPTY_GATEWAY_PROFILE_STATE } from '../types/gatewayProfile';
 
@@ -676,6 +677,43 @@ describe('gatewayProfiles', () => {
     expect(next.activeProfileId).not.toBe('mac_book_tail');
   });
 
+  it('upsert refuses foreign Pro hostname on mini Tailscale URL (force-switch root cause)', () => {
+    let state = upsertDiscoveredProfile(
+      EMPTY_GATEWAY_PROFILE_STATE,
+      {
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-Mac-mini',
+      },
+      true,
+    );
+    state = upsertDiscoveredProfile(
+      state,
+      {
+        gatewayUrl: 'http://100.87.85.85:8642',
+        hostname: 'Igors-MacBook-Pro',
+      },
+      false,
+    );
+    expect(state.profiles).toHaveLength(2);
+    expect(profileMachineKey(activeProfile(state)!)).toBe('igors-mac-mini');
+
+    // saveSettings→applyHeal used to stamp stale Pro /health onto the mini URL.
+    const poisoned = upsertDiscoveredProfile(
+      state,
+      {
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-MacBook-Pro',
+      },
+      false,
+    );
+    const mini = poisoned.profiles.find((p) => p.gatewayUrl.includes('100.94.135.78'));
+    expect(mini).toBeTruthy();
+    expect(profileMachineKey(mini!)).toBe('igors-mac-mini');
+    expect(mini?.hostname?.toLowerCase()).toContain('mini');
+    expect(poisoned.activeProfileId).toBe(state.activeProfileId);
+    expect(poisoned.profiles).toHaveLength(2);
+  });
+
   it('applyHealDiscoveredUrl updates active profile URL for same-machine Tailscale heal', () => {
     const state = dedupeGatewayProfiles({
       profiles: [
@@ -730,6 +768,94 @@ describe('gatewayProfiles', () => {
       },
     ];
     expect(profilesForActiveMachine(profiles, 'mini').map((p) => p.id)).toEqual(['mini']);
+  });
+
+  it('resolveHealPersistDecision allows anonymous USB to activate Tailscale computer', () => {
+    const state = {
+      profiles: [
+        {
+          id: 'usb',
+          label: 'Computer via USB',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          localIp: '127.0.0.1',
+          addedAt: '2026-07-21T00:00:00Z',
+        },
+        {
+          id: 'mini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini',
+          localIp: '100.94.135.78',
+          addedAt: '2026-07-21T00:00:01Z',
+        },
+      ],
+      activeProfileId: 'usb',
+    };
+    const decision = resolveHealPersistDecision(state, 'http://100.94.135.78:8642', false);
+    expect(decision.catalogOnly).toBe(false);
+    expect(decision.requestedActivation).toBe(true);
+    expect(decision.returnUrl).toBe('http://100.94.135.78:8642');
+  });
+
+  it('resolveHealPersistDecision does not let named USB MacBook escape to mini Tailscale', () => {
+    const state = {
+      profiles: [
+        {
+          id: 'usb',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          hostname: 'Igors-MacBook-Pro',
+          localIp: '127.0.0.1',
+          addedAt: '2026-07-21T00:00:00Z',
+        },
+        {
+          id: 'mini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini',
+          localIp: '100.94.135.78',
+          addedAt: '2026-07-21T00:00:01Z',
+        },
+      ],
+      activeProfileId: 'usb',
+    };
+    const decision = resolveHealPersistDecision(state, 'http://100.94.135.78:8642', true);
+    expect(decision.catalogOnly).toBe(true);
+    expect(decision.requestedActivation).toBe(false);
+    expect(decision.returnUrl).toBe('http://127.0.0.1:8642');
+  });
+
+  it('touchProfileHealth refuses foreign MacBook hostname on active Mac mini', () => {
+    const state = dedupeGatewayProfiles({
+      profiles: [
+        {
+          id: 'mini',
+          label: 'Igors-Mac-mini',
+          hostname: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          addedAt: '2026-07-21T00:00:00Z',
+        },
+        {
+          id: 'book',
+          label: 'Igors-MacBook-Pro',
+          hostname: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          addedAt: '2026-07-21T00:00:01Z',
+        },
+      ],
+      activeProfileId: 'mini',
+    });
+    const miniId = state.activeProfileId!;
+    expect(profileMachineKey(activeProfile(state)!)).toBe('igors-mac-mini');
+    const next = touchProfileHealth(state, miniId, {
+      hostname: 'Igors-MacBook-Pro.local',
+      localIp: '127.0.0.1',
+    });
+    expect(next.activeProfileId).toBe(miniId);
+    const mini = activeProfile(next)!;
+    expect(profileMachineKey(mini)).toBe('igors-mac-mini');
+    expect(mini.hostname).toMatch(/mini/i);
+    expect(next.profiles).toHaveLength(2);
   });
 
   it('resolveHealPersistDecision blocks cross-machine gateway repointing', () => {

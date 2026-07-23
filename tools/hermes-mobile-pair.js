@@ -10,6 +10,8 @@
  *   [--mini-tailscale] fetches the mini's key/health for programmatic use; if a phone is
  *     verifiably USB-cabled to THIS Mac when that flag is used, pair.json/adb push are
  *     skipped so the live USB session is never hijacked (override: --force-mini-usb-primary).
+ *   [--mini-tailscale --force-mini-usb-primary --no-serve] still applies the mini deep link
+ *     over adb (session-start phone-install path) without binding a LAN pair server.
  */
 
 const fs = require('fs');
@@ -37,6 +39,9 @@ const {
   putPairingCode,
   takePairingCode,
   pruneExpiredPairingCodes,
+  pairingCodeRemainingMs,
+  PAIRING_CODE_DISPLAY_TTL_MS,
+  PAIRING_CODE_REFRESH_MS,
   writePairJsonAtomic,
 } = require('./hermes-mobile-pair-lib.js');
 const { pipelineBusyReason } = require('./agent-phone-pipeline-lock.js');
@@ -133,6 +138,7 @@ function resolveLanIp(health) {
 }
 
 const PAIR_CODES_PATH = path.join(OUT_DIR, 'pair-codes.json');
+const PAIR_SEED_PATH = path.join(OUT_DIR, 'pair-seed.json');
 
 /**
  * Secretless one-time pairing code (T-330 priority 3): file-backed so the short-lived
@@ -154,16 +160,41 @@ function savePairCodesFile(map) {
   fs.writeFileSync(PAIR_CODES_PATH, JSON.stringify(map), { mode: 0o600 });
 }
 
-function mintPairingCode(payload) {
+function savePairSeed(seed) {
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+  fs.writeFileSync(PAIR_SEED_PATH, `${JSON.stringify(seed, null, 2)}\n`, { mode: 0o600 });
+}
+
+function loadPairSeed() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(PAIR_SEED_PATH, 'utf8'));
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Mint a single-use pairing code. Defaults to DISPLAY TTL (20m) so a QR left on the
+ * pair page does not go dead at 120s. Returns { code, expiresAt, ttlMs }.
+ */
+function mintPairingCode(payload, options = {}) {
   const map = loadPairCodesFile();
   const now = Date.now();
   for (const [code, entry] of Object.entries(map)) {
     if (!entry || now > entry.expiresAt) delete map[code];
   }
   const store = new Map(Object.entries(map));
-  const code = putPairingCode(store, payload);
+  const ttlMs = options.ttlMs ?? PAIRING_CODE_DISPLAY_TTL_MS;
+  const code = putPairingCode(store, payload, { ttlMs, now: () => now });
+  const entry = store.get(code);
   savePairCodesFile(Object.fromEntries(store));
-  return code;
+  return {
+    code,
+    expiresAt: entry.expiresAt,
+    ttlMs,
+    remainingMs: pairingCodeRemainingMs(entry, now),
+  };
 }
 
 /** Single-use, TTL-bound exchange — never returns the same code twice. */
@@ -351,27 +382,256 @@ function syncVaultProjectsCatalog() {
   }
 }
 
-function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relayCode, tailnetProbeHosts }) {
-  fs.mkdirSync(OUT_DIR, { recursive: true });
-  syncVaultProjectsCatalog();
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatRemainingLabel(remainingMs) {
+  const totalSec = Math.max(0, Math.ceil(remainingMs / 1000));
+  const mins = Math.floor(totalSec / 60);
+  const secs = totalSec % 60;
+  if (mins <= 0) return `${secs}s`;
+  return `${mins}m ${String(secs).padStart(2, '0')}s`;
+}
+
+/**
+ * Build the live pair HTML. Never bake a stale single-use code into a long-lived static
+ * file for HTTP `/pair` — callers mint immediately before render.
+ */
+function buildLivePairHtml({
+  gatewayUrl,
+  deepLink,
+  pageUrl,
+  hostname,
+  imgTag,
+  expiresAt,
+  remainingMs,
+  refreshMs = PAIRING_CODE_REFRESH_MS,
+}) {
   const displayName = (hostname || '').replace(/\.local$/i, '') || 'Mac';
+  const usbPrimary = isLoopbackGatewayUrl(gatewayUrl);
+  const pairingInstructions = usbPrimary
+    ? 'On cellular: install Tailscale on this phone and your computer, then scan this QR (it opens over Tailscale). USB cable pairing auto-opens Hermes without a scan. Stock Camera cannot open hermes:// links by itself.'
+    : 'Scan this QR with your phone camera on the same Wi‑Fi or with Tailscale on. On cellular without Tailscale, the QR cannot reach your computer — that is expected.';
+  const gatewayLabel = usbPrimary ? 'USB gateway (cable only)' : 'Your computer';
+  const safeDeepLink = String(deepLink || '').replace(/'/g, "\\'");
+  const remainingLabel = formatRemainingLabel(remainingMs);
+  const refreshSec = Math.max(5, Math.round(refreshMs / 1000));
+  const livePageHint = pageUrl
+    ? `<p>Prefer this live link (not a saved <code>file://</code> page): <code>${escapeHtml(pageUrl)}</code></p>`
+    : '';
+  return `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta http-equiv="Cache-Control" content="no-store"/>
+<title>Hermes Mobile — Pair</title>
+<style>
+  body { font-family: system-ui, sans-serif; background:#0b0f19; color:#e5e7eb; text-align:center; padding:24px; }
+  img { max-width:280px; margin:16px auto; border-radius:12px; background:#fff; padding:12px; display:block; }
+  a.btn { display:inline-block; margin-top:16px; padding:14px 22px; background:#6366f1; color:#fff;
+    text-decoration:none; border-radius:12px; font-weight:700; }
+  p { max-width:420px; margin:12px auto; line-height:1.5; color:#9ca3af; }
+  code { color:#22d3ee; font-size:11px; word-break:break-all; }
+  #ttl { color:#fbbf24; font-weight:600; }
+  #status { color:#a5b4fc; min-height:1.2em; }
+  .hint { display:inline-block; margin-top:10px; padding:4px 10px; border:1px solid #374151; border-radius:999px; font-size:12px; color:#a5b4fc; }
+  [data-view] { display:none; }
+</style></head>
+<body>
+  <h1>Hermes Mobile</h1>
+  <h2 style="color:#a5b4fc;font-size:15px;margin:0 0 8px">${escapeHtml(displayName)}</h2>
+
+  <div data-view="mac">
+    <span class="hint">Viewing on this Mac</span>
+    <p>Show this QR to your <strong>phone</strong> (Camera or Hermes scan). Do not rely on a saved <code>file://</code> snapshot — use the live Tailscale/Wi‑Fi pair link. USB cable: Hermes opens automatically (no scan).</p>
+    ${imgTag || ''}
+    ${livePageHint}
+    <p id="ttl-mac">Code expires in <span id="ttl-value-mac">${escapeHtml(remainingLabel)}</span></p>
+    <p>${escapeHtml(gatewayLabel)}: <code>${escapeHtml(gatewayUrl)}</code></p>
+  </div>
+
+  <div data-view="phone">
+    <span class="hint">Viewing on your phone</span>
+    <p>${escapeHtml(pairingInstructions)}</p>
+    <p id="ttl">Code expires in <span id="ttl-value">${escapeHtml(remainingLabel)}</span></p>
+    <p id="status"></p>
+    <p>${escapeHtml(gatewayLabel)}: <code>${escapeHtml(gatewayUrl)}</code></p>
+    <a class="btn" id="open-btn" href="${escapeHtml(deepLink)}">Open in Hermes Mobile</a>
+    <p>No typing — Hermes Mobile links automatically.</p>
+  </div>
+
+  <script>
+    (function () {
+      // Same generated page renders on the Mac (file:// --open, or this Mac's own
+      // browser hitting :8765/pair) and on the phone (QR scan) — only the phone can
+      // act on hermes://, so pick which half to show instead of a dead Open button.
+      var isPhone = /Android|iPhone|iPad/i.test(navigator.userAgent);
+      var view = document.querySelector('[data-view="' + (isPhone ? 'phone' : 'mac') + '"]');
+      if (view) view.style.display = 'block';
+
+      var expiresAt = ${Number(expiresAt) || 0};
+      var refreshMs = ${Number(refreshMs) || 60000};
+      var deepLink = '${safeDeepLink}';
+      var pageUrl = ${JSON.stringify(pageUrl || '')};
+      var statusEl = document.getElementById('status');
+      var ttlEl = document.getElementById(isPhone ? 'ttl-value' : 'ttl-value-mac');
+      var openBtn = document.getElementById('open-btn');
+      function formatRemaining(ms) {
+        var totalSec = Math.max(0, Math.ceil(ms / 1000));
+        var mins = Math.floor(totalSec / 60);
+        var secs = totalSec % 60;
+        if (mins <= 0) return secs + 's';
+        return mins + 'm ' + String(secs).padStart(2, '0') + 's';
+      }
+      function tick() {
+        var remaining = Math.max(0, expiresAt - Date.now());
+        if (ttlEl) ttlEl.textContent = formatRemaining(remaining);
+        if (remaining <= 0) {
+          if (statusEl) statusEl.textContent = 'Code expired — refreshing…';
+          window.location.reload();
+          return;
+        }
+        if (remaining <= refreshMs) {
+          if (statusEl) statusEl.textContent = 'Refreshing pairing code…';
+          window.location.reload();
+        }
+      }
+      setInterval(tick, 1000);
+      setTimeout(function () {
+        if (statusEl) statusEl.textContent = 'Refreshing pairing code…';
+        window.location.reload();
+      }, refreshMs);
+      // Auto-open once per browser tab session so 60s remints do not spam hermes://.
+      // Phone only — hermes:// has no handler on the Mac, so opening it there is a no-op.
+      if (isPhone) {
+        try {
+          if (deepLink && !sessionStorage.getItem('hermesPairAutoOpened')) {
+            sessionStorage.setItem('hermesPairAutoOpened', '1');
+            setTimeout(function () { window.location.href = deepLink; }, 600);
+          }
+        } catch (e) {
+          if (deepLink) setTimeout(function () { window.location.href = deepLink; }, 600);
+        }
+      }
+      if (openBtn && deepLink) openBtn.href = deepLink;
+      if (pageUrl) { /* keep pageUrl for live reload identity */ }
+    })();
+  </script>
+</body></html>`;
+}
+
+function resolveCameraPageUrl(lanIp) {
+  const tailnetIp = localTailscaleIpv4();
+  if (tailnetIp) return `http://${tailnetIp}:${PAIR_PORT}/pair`;
+  return `http://${lanIp}:${PAIR_PORT}/pair`;
+}
+
+/**
+ * Phone-reachable pair-exchange base for Camera / HTTP / Tailscale QR paths.
+ * Prefer Tailscale MagicDNS IP over LAN — cellular phones cannot redeem against
+ * 10.x/192.168.x even when the QR page itself was opened via Tailscale.
+ * Never use 127.0.0.1 here (that only works for adb reverse deep links).
+ */
+function resolvePhoneReachablePairServerUrl(lanIp) {
+  const tailnetIp = localTailscaleIpv4();
+  if (tailnetIp) return `http://${tailnetIp}:${PAIR_PORT}`;
+  const lan = String(lanIp || '').trim();
+  if (lan && lan !== '127.0.0.1' && lan !== 'localhost') {
+    return `http://${lan}:${PAIR_PORT}`;
+  }
+  return `http://127.0.0.1:${PAIR_PORT}`;
+}
+
+/** Prefer Tailscale/LAN for HTTP remints; keep loopback only when seed has no better host. */
+function resolveLiveMintPairServerUrl(seed) {
+  const lanIp = seed?.localIp || detectLocalLanIp() || '127.0.0.1';
+  const phoneReachable = resolvePhoneReachablePairServerUrl(lanIp);
+  const fromSeed = String(seed?.pairServer || '').replace(/\/$/, '');
+  if (!fromSeed) return phoneReachable;
+  // Stale seed often stores LAN while Camera QR already uses Tailscale — upgrade.
+  if (phoneReachable.includes('100.') && !fromSeed.includes('100.')) {
+    return phoneReachable;
+  }
+  // Never redeem Camera/HTTP codes against loopback unless that is truly all we have.
+  if (fromSeed.includes('127.0.0.1') && !phoneReachable.includes('127.0.0.1')) {
+    return phoneReachable;
+  }
+  return fromSeed;
+}
+
+function writePairQrPng(qrPayload) {
   const qrPath = path.join(OUT_DIR, 'pair-qr.png');
-  let imgTag = '';
-  const qr = spawnSync('npx', ['--yes', 'qrcode', '-o', qrPath, pageUrl], {
+  const qr = spawnSync('npx', ['--yes', 'qrcode', '-o', qrPath, qrPayload], {
     cwd: REPO,
     encoding: 'utf8',
     timeout: 20_000,
   });
-  if (qr.status === 0 && fs.existsSync(qrPath)) {
-    imgTag = `<img src="/pair-qr.png" alt="Pair QR code" width="280" height="280"/>`;
+  if (qr.status !== 0 || !fs.existsSync(qrPath)) {
+    return { qrPath, imgTag: '' };
+  }
+  // Data URL so file:// (Mac --open) never depends on Chrome loading a sibling PNG.
+  const b64 = fs.readFileSync(qrPath).toString('base64');
+  return {
+    qrPath,
+    imgTag: `<img src="data:image/png;base64,${b64}" alt="Pair QR code" width="280" height="280"/>`,
+  };
+}
+
+/**
+ * Persist non-secret-path seed + QR that points at the HTTP pair page (never a stale
+ * hermes:// code). Live `/pair` remints from pair-seed.json on every GET.
+ */
+function writePairAssets({
+  gatewayUrl,
+  lanIp,
+  deepLink,
+  pageUrl,
+  hostname,
+  relayCode,
+  tailnetProbeHosts,
+  pairSeed,
+  expiresAt,
+  remainingMs,
+}) {
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+  syncVaultProjectsCatalog();
+  const displayName = (hostname || '').replace(/\.local$/i, '') || 'Mac';
+  // Always encode the HTTP pair page for Camera. Stock Android Camera ignores hermes://
+  // and a baked deep-link code dies after TTL while the QR still looks valid.
+  const cameraPageUrl = resolveCameraPageUrl(lanIp);
+  const qrPayload = cameraPageUrl;
+  const { imgTag } = writePairQrPng(qrPayload);
+
+  if (pairSeed) {
+    const phonePairServer = resolvePhoneReachablePairServerUrl(lanIp);
+    savePairSeed({
+      ...pairSeed,
+      // HTTP remints / Camera deep links must redeem against a phone-reachable host.
+      // Keep any explicit Tailscale pairServer; upgrade LAN/loopback seeds to Tailscale.
+      pairServer: resolveLiveMintPairServerUrl({
+        ...pairSeed,
+        localIp: lanIp,
+        pairServer: pairSeed.pairServer || phonePairServer,
+      }),
+      pageUrl: cameraPageUrl,
+      updatedAt: new Date().toISOString(),
+    });
   }
 
   const pairJson = {
     gatewayUrl,
-    deepLink,
-    qrUrl: pageUrl,
+    // deepLink may be a just-minted adb link; HTTP /pair remints and must not reuse this.
+    deepLink: deepLink || '',
+    qrUrl: qrPayload,
     hostname: displayName,
     localIp: lanIp,
+    codeExpiresAt: expiresAt || null,
     ...(relayCode ? { relayCode: relayCode.trim().toUpperCase() } : {}),
     ...(Array.isArray(tailnetProbeHosts) && tailnetProbeHosts.length > 0
       ? { tailnetProbeHosts }
@@ -381,35 +641,69 @@ function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relay
   writePairJsonAtomic(path.join(OUT_DIR, 'pair.json'), pairJson);
 
   const htmlPath = path.join(OUT_DIR, 'index.html');
-  const html = `<!DOCTYPE html>
-<html lang="en"><head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Hermes Mobile — Pair</title>
-<style>
-  body { font-family: system-ui, sans-serif; background:#0b0f19; color:#e5e7eb; text-align:center; padding:24px; }
-  img { max-width:280px; margin:16px auto; border-radius:12px; background:#fff; padding:12px; }
-  a.btn { display:inline-block; margin-top:16px; padding:14px 22px; background:#6366f1; color:#fff;
-    text-decoration:none; border-radius:12px; font-weight:700; }
-  p { max-width:420px; margin:12px auto; line-height:1.5; color:#9ca3af; }
-  code { color:#22d3ee; font-size:11px; word-break:break-all; }
-</style></head>
-<body>
-  <h1>Hermes Mobile</h1>
-  <h2 style="color:#a5b4fc;font-size:15px;margin:0 0 8px">${displayName}</h2>
-  <p>Scan the QR with your phone camera (same Wi‑Fi) or tap Open below.</p>
-  ${imgTag}
-  <p>Gateway: <code>${gatewayUrl}</code></p>
-  <a class="btn" href="${deepLink}">Open in Hermes Mobile</a>
-  <p>No typing — Hermes Mobile links automatically.</p>
-  <script>
-    setTimeout(function () {
-      window.location.href = '${deepLink.replace(/'/g, "\\'")}';
-    }, 600);
-  </script>
-</body></html>`;
+  const html = buildLivePairHtml({
+    gatewayUrl,
+    deepLink: deepLink || cameraPageUrl,
+    pageUrl: pageUrl || cameraPageUrl,
+    hostname: displayName,
+    imgTag,
+    expiresAt: expiresAt || Date.now() + PAIRING_CODE_DISPLAY_TTL_MS,
+    remainingMs: remainingMs ?? PAIRING_CODE_DISPLAY_TTL_MS,
+    refreshMs: PAIRING_CODE_REFRESH_MS,
+  });
   fs.writeFileSync(htmlPath, html);
-  return { htmlPath, pairJson };
+  return { htmlPath, pairJson, cameraPageUrl };
+}
+
+/** Mint a fresh secretless deep link from the on-disk seed (HTTP /pair + /pair-live.json). */
+function mintLivePairSession() {
+  const seed = loadPairSeed();
+  if (!seed || !seed.gatewayUrl || !seed.apiKey) {
+    return { ok: false, reason: 'no_seed' };
+  }
+  // Camera/HTTP path: always mint against Tailscale/LAN — never stale LAN while QR is Tailscale.
+  const pairServer = resolveLiveMintPairServerUrl(seed);
+  const minted = mintPairingCode(
+    {
+      gatewayUrl: seed.gatewayUrl,
+      apiKey: seed.apiKey,
+      macName: seed.macName || seed.hostname || 'Mac',
+      relayCode: seed.relayCode || '',
+      tailnetProbeHosts: seed.tailnetProbeHosts || [],
+      extraComputers: seed.extraComputers || [],
+      thumbgateApiKey: seed.thumbgateApiKey || '',
+    },
+    { ttlMs: PAIRING_CODE_DISPLAY_TTL_MS },
+  );
+  const deepLink = buildSecretlessDeepLink(minted.code, pairServer, seed.macName || seed.hostname);
+  const lanIp = seed.localIp || detectLocalLanIp() || '127.0.0.1';
+  const cameraPageUrl = seed.pageUrl || resolveCameraPageUrl(lanIp);
+  const { imgTag } = writePairQrPng(cameraPageUrl);
+  const html = buildLivePairHtml({
+    gatewayUrl: seed.gatewayUrl,
+    deepLink,
+    pageUrl: cameraPageUrl,
+    hostname: seed.macName || seed.hostname || 'Mac',
+    imgTag,
+    expiresAt: minted.expiresAt,
+    remainingMs: minted.remainingMs,
+    refreshMs: PAIRING_CODE_REFRESH_MS,
+  });
+  // Keep on-disk index.html aligned with the live mint for --open / file viewers.
+  fs.writeFileSync(path.join(OUT_DIR, 'index.html'), html);
+  return {
+    ok: true,
+    deepLink,
+    code: minted.code,
+    expiresAt: minted.expiresAt,
+    remainingMs: minted.remainingMs,
+    refreshMs: PAIRING_CODE_REFRESH_MS,
+    ttlMs: minted.ttlMs,
+    pageUrl: cameraPageUrl,
+    gatewayUrl: seed.gatewayUrl,
+    hostname: seed.macName || seed.hostname || 'Mac',
+    html,
+  };
 }
 
 function printTerminalQr(pageUrl) {
@@ -448,13 +742,17 @@ function ensurePairServerDaemon(lanIp) {
  * Rewrite pair.json from THIS Mac's /health so a stale --mini-tailscale artifact
  * cannot keep advertising Mac mini hostname + Pro localIp (Find computers found-2/show-1).
  * Crisis 2026-07-15 P0.
+ *
+ * P0 2026-07-21: --server-only used to always prefer Tailscale and clobber a just-written
+ * USB loopback primary (runPairMain → writePairAssets → ensurePairServerDaemon → here).
+ * When adb reverse :8642 is up and loopback auth verifies, keep USB as the pair-page primary.
  */
 function refreshPairAssetsFromLocalGateway() {
   const health = fetchHealth();
   const lanIp = resolveLanIp(health);
   const hostname = (health.hostname || os.hostname() || 'Mac').replace(/\.local$/i, '');
   const tailnetIp = localTailscaleIpv4();
-  const gatewayUrl = tailnetIp ? `http://${tailnetIp}:8642` : `http://${lanIp}:8642`;
+  let gatewayUrl = tailnetIp ? `http://${tailnetIp}:8642` : `http://${lanIp}:8642`;
   const apiKey = readLocalApiKey();
   const thumbgateApiKey = readThumbgateApiKey();
   const relayCode =
@@ -469,16 +767,8 @@ function refreshPairAssetsFromLocalGateway() {
       'MOBILE_RELAY_PAIR_CODE',
     ]);
   const tailnetProbeHosts = discoverTailnetProbeHosts();
-  const pageUrl = `http://${lanIp}:${PAIR_PORT}/pair`;
-  const deepLink = buildDeepLink(
-    gatewayUrl,
-    apiKey,
-    hostname,
-    relayCode,
-    tailnetProbeHosts,
-    [],
-    thumbgateApiKey,
-  );
+  const cameraPageUrl = resolveCameraPageUrl(lanIp);
+  const phonePairServer = resolvePhoneReachablePairServerUrl(lanIp);
   const pairPath = path.join(OUT_DIR, 'pair.json');
   let previous = null;
   if (fs.existsSync(pairPath)) {
@@ -488,6 +778,50 @@ function refreshPairAssetsFromLocalGateway() {
       previous = null;
     }
   }
+  const serial = adbDevice();
+  const usbReverseLive =
+    Boolean(serial) &&
+    !String(serial).startsWith('emulator-') &&
+    !assertUsbAdbReverses(serial).missing.includes(8642);
+  const loopback = 'http://127.0.0.1:8642';
+  if (usbReverseLive && verifyGatewayAuthSync(loopback, apiKey).ok) {
+    gatewayUrl = loopback;
+    console.log('  pair.json refresh: keeping USB loopback primary (adb reverse + auth verified)');
+  } else if (previous && isLoopbackGatewayUrl(previous.gatewayUrl) && !usbReverseLive) {
+    // Cable gone — fall through to Tailscale/LAN rewrite below.
+    console.log('  pair.json refresh: prior USB primary, no live reverse — promoting network gateway');
+  }
+  // Preserve fleet extras (e.g. Mac mini) across --server-only refresh so HTTP remints
+  // still seed Find computers after a cellular/Tailscale redeem.
+  let priorExtras = [];
+  try {
+    const priorSeed = loadPairSeed();
+    if (Array.isArray(priorSeed?.extraComputers)) {
+      priorExtras = priorSeed.extraComputers;
+    }
+  } catch {
+    priorExtras = [];
+  }
+  // pairServer MUST be phone-reachable (Tailscale preferred) — Camera QR is not USB.
+  // P0 2026-07-22: --server-only used to write a legacy key= deepLink into pair.json.
+  // The Tailscale health watchdog validates /pair.json for pairCode; legacy links made
+  // every launchd tick exit 1 even when the pair HTTP page reminted secretless codes.
+  // Keep HTTP /pair live remints, but also persist a secretless pairCode in pair.json.
+  const pairSeed = {
+    gatewayUrl,
+    apiKey,
+    macName: hostname,
+    hostname,
+    relayCode,
+    tailnetProbeHosts,
+    extraComputers: priorExtras,
+    thumbgateApiKey,
+    localIp: lanIp,
+    pairServer: phonePairServer,
+    pageUrl: cameraPageUrl,
+  };
+  const minted = mintPairingCode(pairSeed, { ttlMs: PAIRING_CODE_DISPLAY_TTL_MS });
+  const deepLink = buildSecretlessDeepLink(minted.code, phonePairServer, hostname);
   const prevHost = String(previous?.hostname || '')
     .replace(/\.local$/i, '')
     .trim()
@@ -504,13 +838,18 @@ function refreshPairAssetsFromLocalGateway() {
     gatewayUrl,
     lanIp,
     deepLink,
-    pageUrl,
+    pageUrl: cameraPageUrl,
     hostname,
     relayCode,
     tailnetProbeHosts,
+    pairSeed,
+    expiresAt: minted.expiresAt,
+    remainingMs: minted.remainingMs,
   });
-  console.log(`  pair.json: ${hostname} → ${gatewayUrl} (localIp ${lanIp})`);
-  return { health, lanIp, hostname, gatewayUrl };
+  console.log(
+    `  pair.json: ${hostname} → ${gatewayUrl} (localIp ${lanIp}; pairServer ${phonePairServer}; pairCode)`,
+  );
+  return { health, lanIp, hostname, gatewayUrl, pageUrl: cameraPageUrl };
 }
 
 function runServerOnly() {
@@ -621,13 +960,51 @@ function createPairServer(lanIp) {
     }
     if (url === '/pair-qr.png') {
       const png = fs.readFileSync(path.join(OUT_DIR, 'pair-qr.png'));
-      res.writeHead(200, { 'Content-Type': 'image/png' });
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' });
       res.end(png);
       return;
     }
+    if (url === '/pair-live.json') {
+      const live = mintLivePairSession();
+      if (!live.ok) {
+        res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ error: live.reason || 'unavailable' }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(
+        JSON.stringify({
+          deepLink: live.deepLink,
+          expiresAt: live.expiresAt,
+          remainingMs: live.remainingMs,
+          refreshMs: live.refreshMs,
+          ttlMs: live.ttlMs,
+          pageUrl: live.pageUrl,
+          gatewayUrl: live.gatewayUrl,
+          hostname: live.hostname,
+        }),
+      );
+      return;
+    }
     if (url === '/pair' || url === '/') {
-      const html = fs.readFileSync(path.join(OUT_DIR, 'index.html'), 'utf8');
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      const live = mintLivePairSession();
+      if (live.ok) {
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store',
+        });
+        res.end(live.html);
+        return;
+      }
+      // Fallback: static HTML (legacy / seed missing) — never pretend a dead code is live.
+      const htmlPath = path.join(OUT_DIR, 'index.html');
+      if (!fs.existsSync(htmlPath)) {
+        res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Pair seed missing — run node tools/hermes-mobile-pair.js');
+        return;
+      }
+      const html = fs.readFileSync(htmlPath, 'utf8');
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
       res.end(html);
       return;
     }
@@ -692,12 +1069,18 @@ function runPairMain(args) {
       gatewayUrl = `http://${lanIpFromHealth}:8642`;
     }
   }
-  const lanIp = detectLocalLanIp() || resolveLanIp(health);
+  // Prefer the target Mac's /health local_ip when pairing mini/Tailscale so pair.json
+  // cannot advertise this laptop's LAN IP under Igors-Mac-mini (Find-computers merge poison).
+  const hostClassEarly = classifyGatewayHost(gatewayUrl);
+  const lanIp =
+    hostClassEarly === 'mini' || args.has('--mini-tailscale')
+      ? resolveLanIp(health) || detectLocalLanIp()
+      : detectLocalLanIp() || resolveLanIp(health);
   const allowLocalKeyFallback = args.has('--allow-local-key-fallback');
   const skipAuthProbe = args.has('--skip-auth-probe');
   const apiKeyBefore = readLocalApiKey();
   let apiKey;
-  const hostClass = classifyGatewayHost(gatewayUrl);
+  const hostClass = hostClassEarly;
   // P0 2026-07-16: never treat miniSSH_key === laptop_key as failure (cleared embed → Wrong key).
   if (hostClass === 'mini') {
     const miniResolved = classifyMiniApiKeyResolution(apiKeyBefore, { allowLocalKeyFallback });
@@ -874,37 +1257,52 @@ function runPairMain(args) {
         'pair.json and the phone stay on this Mac. Pass --force-mini-usb-primary to override.',
     );
   }
-  const pageUrl = `http://${lanIp}:${PAIR_PORT}/pair`;
+  const pageUrl = resolveCameraPageUrl(lanIp);
+  const phonePairServer = resolvePhoneReachablePairServerUrl(lanIp);
   // Secretless pairing (T-330 priority 3): only when a pair server will actually run to
   // serve the exchange. `--no-serve` unattended/session-start flows keep the legacy
   // embedded-key link unchanged (no server exists there to exchange a code against).
-  // P0 2026-07-16: when USB reverse :8765 is up, deep-link pairServer MUST be loopback —
-  // LAN 10.x is unreachable from cellular/Tailscale-only paths even with reverse tunnels.
-  const pairExchangeBase =
+  // Split audiences:
+  // - adb `am start` deep link: loopback when USB reverse :8765 is up (works on 5G via adb)
+  // - Camera / HTTP /pair remints: Tailscale (or LAN) so cellular+VPN can redeem without USB
+  const adbPairExchangeBase =
     usbPairing && reversed8765
       ? `http://127.0.0.1:${PAIR_PORT}`
-      : `http://${lanIp}:${PAIR_PORT}`;
-  if (pairExchangeBase.includes('127.0.0.1')) {
-    console.log('  Pair exchange: http://127.0.0.1:8765 (adb reverse — works on 5G/VPN)');
+      : phonePairServer;
+  if (adbPairExchangeBase.includes('127.0.0.1')) {
+    console.log('  Pair exchange (adb): http://127.0.0.1:8765 (USB reverse)');
   }
+  console.log(`  Pair exchange (Camera/HTTP): ${phonePairServer}`);
   const secretlessPairing = !args.has('--no-serve') && !args.has('--legacy-key-link');
+  // Seed stores phone-reachable pairServer so live /pair remints work off-USB.
+  const pairSeed = {
+    gatewayUrl,
+    apiKey,
+    macName: hostname,
+    hostname,
+    relayCode,
+    tailnetProbeHosts,
+    extraComputers,
+    thumbgateApiKey,
+    localIp: lanIp,
+    pairServer: phonePairServer,
+    pageUrl,
+  };
+  let minted = null;
   const deepLink = secretlessPairing
-    ? buildSecretlessDeepLink(
-        mintPairingCode({
-          gatewayUrl,
-          apiKey,
-          macName: hostname,
-          relayCode,
-          tailnetProbeHosts,
-          extraComputers,
-          thumbgateApiKey,
-        }),
-        pairExchangeBase,
-        hostname,
-      )
+    ? (() => {
+        minted = mintPairingCode(pairSeed, { ttlMs: PAIRING_CODE_DISPLAY_TTL_MS });
+        // adb open uses loopback when reverse is live; HTTP page remints use phonePairServer.
+        return buildSecretlessDeepLink(minted.code, adbPairExchangeBase, hostname);
+      })()
     : buildDeepLink(gatewayUrl, apiKey, hostname, relayCode, tailnetProbeHosts, extraComputers, thumbgateApiKey);
+  // P0 2026-07-20: `--no-serve --mini-tailscale` used to always skip adb/pair.json, even with
+  // `--force-mini-usb-primary`. Session-start phone-install then left the phone on a stale
+  // Wrong-key / unreachable mini Tailscale profile while infra was healthy.
+  const forceMiniUsbPrimary = args.has('--force-mini-usb-primary');
   const skipPairAssetWrite =
-    usbHijackGuardTripped || (args.has('--no-serve') && args.has('--mini-tailscale'));
+    usbHijackGuardTripped ||
+    (args.has('--no-serve') && args.has('--mini-tailscale') && !forceMiniUsbPrimary);
   let htmlPath = path.join(OUT_DIR, 'index.html');
   if (skipPairAssetWrite) {
     console.log(
@@ -921,12 +1319,21 @@ function runPairMain(args) {
       hostname,
       relayCode,
       tailnetProbeHosts,
+      pairSeed,
+      expiresAt: minted?.expiresAt,
+      remainingMs: minted?.remainingMs,
     }));
   }
 
   console.log('Hermes Mobile pairing');
   console.log('  Gateway:', gatewayUrl);
   console.log('  Pair page:', pageUrl);
+  if (minted) {
+    console.log(
+      `  Pair code: fresh mint, expires in ${formatRemainingLabel(minted.remainingMs)} ` +
+        `(display TTL ${Math.round(minted.ttlMs / 1000)}s; page remints every ${Math.round(PAIRING_CODE_REFRESH_MS / 1000)}s)`,
+    );
+  }
   console.log('  Local file:', htmlPath);
   const secrets = [apiKey, thumbgateApiKey, ...extraComputers.map((c) => c.apiKey)].filter(Boolean);
   const redactedLink = redactDeepLinkSecrets(deepLink, secrets);
@@ -949,6 +1356,11 @@ function runPairMain(args) {
           : '  adb: skipped (--mini-tailscale --no-serve; phone keeps primary from full USB/MBP pair)',
       );
     } else {
+      if (forceMiniUsbPrimary && args.has('--no-serve') && args.has('--mini-tailscale')) {
+        console.log(
+          '  adb: applying mini Tailscale primary (--force-mini-usb-primary with --no-serve)',
+        );
+      }
       // Serialized handshake (T-330 priority 1): one setup intent, wait for an auth ack
       // (Hermes app confirmed foreground), THEN send the optional secondary developer-unlock
       // intent. Previously these fired consecutively with zero delay, which could race a
@@ -988,7 +1400,10 @@ function runPairMain(args) {
   }
 
   if (args.has('--open')) {
-    spawnSync('open', [htmlPath], { stdio: 'inherit' });
+    // Prefer live HTTP (Tailscale/LAN) over file:// — Camera QR and remints are HTTP-only.
+    const openTarget = pageUrl || htmlPath;
+    spawnSync('open', [openTarget], { stdio: 'inherit' });
+    console.log(`  Opened: ${openTarget}`);
   }
 }
 

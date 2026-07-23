@@ -146,7 +146,7 @@ describe('GatewayProfilePicker', () => {
     );
   });
 
-  it('labels destructive action Forget this Mac (not Remove) for saved non-USB computers', () => {
+  it('labels destructive action Forget (not Remove) for saved non-USB computers', () => {
     const onRemove = jest.fn();
     const { getByTestId, queryByText } = render(
       <GatewayProfilePicker
@@ -157,11 +157,37 @@ describe('GatewayProfilePicker', () => {
       />,
     );
     const forget = getByTestId('remove-gateway-profile-mac_192_168_12_50');
-    expect(forget).toHaveTextContent(/^Forget this Mac$/);
+    expect(forget).toHaveTextContent('Forget this Mac');
     expect(queryByText('Remove')).toBeNull();
     expect(forget.props.accessibilityRole).toBe('button');
     expect(forget.props.hitSlop).toEqual({ top: 14, bottom: 14, left: 14, right: 14 });
     fireEvent.press(forget);
     expect(onRemove).toHaveBeenCalledWith('mac_192_168_12_50');
+  });
+
+  it('places Forget below the full-width machine card so long hostnames stay readable', () => {
+    const longHostname = 'Igors-MacBook-Pro-with-a-very-long-hostname';
+    const longProfile = {
+      ...profiles[0],
+      id: 'long-hostname',
+      label: longHostname,
+      hostname: `${longHostname}.local`,
+    };
+    const { getByTestId, getByText } = render(
+      <GatewayProfilePicker
+        profiles={[longProfile, profiles[1]]}
+        activeProfileId={longProfile.id}
+        onSelect={jest.fn()}
+        onRemove={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId(`gateway-profile-item-${longProfile.id}`)).toHaveStyle({
+      flexDirection: 'column',
+    });
+    expect(getByText(`${longHostname} (Mac Pro)`).props.numberOfLines).toBe(2);
+    expect(getByTestId(`remove-gateway-profile-${longProfile.id}`)).toHaveTextContent(
+      'Forget this Mac',
+    );
   });
 });

@@ -132,6 +132,9 @@ check('buildFollowupEmail includes live link only when http 200', () => {
     { url: 'https://buy.stripe.com/x', http: 200 },
   );
   assert.match(withLink.body, /buy\.stripe\.com\/x/);
+  assert.match(withLink.body, /visibility|Governed|hard stop/i);
+  assert.match(withLink.subject, /Governed agents/i);
+  assert.match(withLink.template, /v2-governed/);
   const noLink = buildFollowupEmail(
     { prospect_label: 'acme', route: 'Agent Reliability Diagnostic ($499)' },
     { email: 'a@b.com', person: 'Ann' },

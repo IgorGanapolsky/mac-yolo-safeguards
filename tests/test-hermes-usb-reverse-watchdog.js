@@ -123,7 +123,11 @@ check('runOnce heals every physical serial and skips emulators', () => {
       ['emulator-5554', 'device'],
     ],
   });
-  const summary = watchdog.runOnce({ adbCommand: fakeAdbPath });
+  const summary = watchdog.runOnce({
+    adbCommand: fakeAdbPath,
+    skipPair: true,
+    appearStatePath: path.join(tmpDir, 'appear-heal.json'),
+  });
   assert.strictEqual(summary.devicesChecked, 1, 'emulator serial must never be touched');
   assert.strictEqual(summary.results[0].serial, 'R3CY90QPM7E');
   assert.strictEqual(summary.healed, true);
@@ -134,10 +138,118 @@ check('runOnce heals every physical serial and skips emulators', () => {
 
 check('runOnce reports zero devices checked when nothing is authorized', () => {
   writeState({ reversed: {}, failPorts: [], devices: [] });
-  const summary = watchdog.runOnce({ adbCommand: fakeAdbPath });
+  const summary = watchdog.runOnce({
+    adbCommand: fakeAdbPath,
+    skipPair: true,
+    appearStatePath: path.join(tmpDir, 'appear-empty.json'),
+  });
   assert.strictEqual(summary.devicesChecked, 0);
   assert.strictEqual(summary.healed, false);
   assert.strictEqual(summary.anyFailed, false);
+});
+
+check('maybePairOnAppear runs pair once on absent→present edge', () => {
+  const appearPath = path.join(tmpDir, 'appear-edge.json');
+  const calls = [];
+  const first = watchdog.maybePairOnAppear(['R3CY90QPM7E'], {
+    appearStatePath: appearPath,
+    pipelineBusyReason: () => '',
+    pairRunner: (serial) => {
+      calls.push(serial);
+      return { serial, paired: true, reason: 'paired' };
+    },
+  });
+  assert.deepStrictEqual(first.appeared, ['R3CY90QPM7E']);
+  assert.strictEqual(first.pairAttempts[0].paired, true);
+  assert.deepStrictEqual(calls, ['R3CY90QPM7E']);
+
+  const second = watchdog.maybePairOnAppear(['R3CY90QPM7E'], {
+    appearStatePath: appearPath,
+    pipelineBusyReason: () => '',
+    pairRunner: (serial) => {
+      calls.push(serial);
+      return { serial, paired: true, reason: 'paired' };
+    },
+  });
+  assert.deepStrictEqual(second.appeared, []);
+  assert.deepStrictEqual(calls, ['R3CY90QPM7E'], 'must not re-pair while continuously present');
+});
+
+check('appear pairing uses silent USB arguments and never requests a browser', () => {
+  let received = null;
+  const result = watchdog.runAppearPair('R3CY90QPM7E', {
+    pairRunner: (serial, invocation) => {
+      received = { serial, ...invocation };
+      return { serial, paired: true, reason: 'paired' };
+    },
+  });
+  assert.strictEqual(result.paired, true);
+  assert.deepStrictEqual(received.args, ['--no-serve']);
+  assert.strictEqual(received.args.includes('--open'), false);
+});
+
+check('maybePairOnAppear retries when pipeline is busy', () => {
+  const appearPath = path.join(tmpDir, 'appear-busy.json');
+  const first = watchdog.maybePairOnAppear(['R3CY90QPM7E'], {
+    appearStatePath: appearPath,
+    pipelineBusyReason: () => 'maestro running',
+    pairRunner: () => {
+      throw new Error('pairRunner must not run while busy');
+    },
+  });
+  assert.strictEqual(first.pairAttempts[0].paired, false);
+  assert.match(first.pairAttempts[0].reason, /pipeline_busy/);
+  assert.deepStrictEqual(first.knownPresent, []);
+
+  const second = watchdog.maybePairOnAppear(['R3CY90QPM7E'], {
+    appearStatePath: appearPath,
+    pipelineBusyReason: () => '',
+    pairRunner: (serial) => ({ serial, paired: true, reason: 'paired' }),
+  });
+  assert.strictEqual(second.pairAttempts[0].paired, true);
+  assert.deepStrictEqual(second.knownPresent, ['R3CY90QPM7E']);
+});
+
+check('maybePairOnAppear re-pairs after disconnect then reconnect', () => {
+  const appearPath = path.join(tmpDir, 'appear-reconnect.json');
+  let calls = 0;
+  const runner = (serial) => {
+    calls += 1;
+    return { serial, paired: true, reason: 'paired' };
+  };
+  watchdog.maybePairOnAppear(['R3CY90QPM7E'], {
+    appearStatePath: appearPath,
+    pipelineBusyReason: () => '',
+    pairRunner: runner,
+  });
+  watchdog.maybePairOnAppear([], {
+    appearStatePath: appearPath,
+    pipelineBusyReason: () => '',
+    pairRunner: runner,
+  });
+  watchdog.maybePairOnAppear(['R3CY90QPM7E'], {
+    appearStatePath: appearPath,
+    pipelineBusyReason: () => '',
+    pairRunner: runner,
+  });
+  assert.strictEqual(calls, 2);
+});
+
+check('runOnce with skipPair still heals reverses and records appear skip', () => {
+  writeState({
+    reversed: {},
+    failPorts: [],
+    devices: [['R3CY90QPM7E', 'device']],
+  });
+  const appearPath = path.join(tmpDir, 'appear-skip.json');
+  const summary = watchdog.runOnce({
+    adbCommand: fakeAdbPath,
+    skipPair: true,
+    appearStatePath: appearPath,
+  });
+  assert.strictEqual(summary.healed, true);
+  assert.strictEqual(summary.appear.pairAttempts[0].reason, 'skip_pair');
+  assert.strictEqual(summary.paired, false);
 });
 
 fs.rmSync(tmpDir, { recursive: true, force: true });

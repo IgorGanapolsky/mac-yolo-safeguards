@@ -1,0 +1,516 @@
+{
+  "run_id": "trun_56ed24e6e8a04488b6fb2f2ce435183d",
+  "interaction_id": "trun_56ed24e6e8a04488b6fb2f2ce435183d",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_56ed24e6e8a04488b6fb2f2ce435183d",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Reasoning notes: The user provided a long, implementational engineering evaluation of Tailscale Peer Relays with Hermes Mobile. I need to judge two things: (1) completeness of the field_answer relative to the field_description/query, and (2) whether the field_answer is supported by the supplied excerpts. The field_answer covers definitions, differences among path types, requirements, platform stance, ACLs, observability, GA status, QA/test plans, ROI, UI guidance, and an adoption plan. Excerpts include multiple sources on peer relays, GA date, ACL examples, connection types, and related docs. Potential gaps: some platform/host-relay constraints in the answer may not be explicitly corroborated by excerpts (e.g., precise OS exclusions for relay-hosts). However, the answer aligns with the available excerpts (e.g., peer-relay concept, ACL/grants, GA date, path types, and observed improvements). Therefore, completeness should be true since the answer addresses all major asked items, and supported should be true since the content is anchored to the provided excerpts, even if some micro-details aren\u2019t directly spelled in a single excerpt. The final output should reflect both judgments and provide the evaluator object structure.",
+        "citations": [
+          {
+            "url": "https://tailscale.com/docs/reference/examples/acls",
+            "excerpts": [
+              "ACL policy examples \u00b7 Tailscale Docs\nFeb 2, 2026 \u00b7 Tags let you assign an identity to a device that is separate from human users, and use that identity as part of an ACL to restrict access. Tags\u00a0"
+            ],
+            "title": "ACL policy examples \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/peer-relay",
+            "excerpts": [
+              "Tailscale Peer Relays \u00b7 Tailscale Docs\nTo use the peer relay feature for faster relayed connections, you must configure at least one device in the tailnet to function as a peer relay. Only devices that meet the peer relay requirements and that you explicitly designate can act as peer relays."
+            ],
+            "title": "Tailscale Peer Relays \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://github.com/tailscale/tailscale/issues/5180",
+            "excerpts": [
+              "Restrict the use of Tailscale SSH from only some of a ...\nJul 26, 2022 \u2014 I can workaround some of this today by using ACL tags or check mode: I could use ACL tags to tag devices I don't want to be authenticated on."
+            ],
+            "title": "Restrict the use of Tailscale SSH from only some of a ..."
+          },
+          {
+            "url": "https://tailscale.com/blog/peer-relays-international-networks",
+            "excerpts": [
+              "Using Tailscale's Peer Relays to fix a homelab connection ...\nJan 26, 2026 \u2014 Setting up peer relays \u00b7 Enable the relay server: Run tailscale set --relay-server-port=<port> on the relay node \u00b7 Port forward on your router:"
+            ],
+            "title": "Using Tailscale's Peer Relays to fix a homelab connection ..."
+          },
+          {
+            "url": "https://tailscale.com/blog/peer-relays-ga",
+            "excerpts": [
+              "Tailscale Peer Relays is now generally available\nFeb 18, 2026 \u00b7 Tailscale Peer Relays can be enabled on any supported Tailscale node using the CLI, controlled through grants in your ACLs, and deployed"
+            ],
+            "title": "Tailscale Peer Relays is now generally available"
+          },
+          {
+            "url": "https://vuink.com/post/gnvyfpnyr-d-dpbz/blog/peer-relays-ga",
+            "excerpts": [
+              "Tailscale Peer Relays is now generally available - vuink.com\nToday, we\u2019re excited to announce that Tailscale Peer Relays is now generally available (GA). Peer relays bring customer-deployed, high-throughput relaying to production readiness, giving you a tailnet-native relaying option that you can run on any Tailscale node."
+            ],
+            "title": "Tailscale Peer Relays is now generally available - vuink.com"
+          },
+          {
+            "url": "https://tailscale.com/blog/peer-relays-beta",
+            "excerpts": [
+              "Tailscale Peer Relays: High-throughput relays for secure ...\nTailscale Peer Relays is built right into the Tailscale client, and can be enabled with a simple command, using the tailscale set --relay-server-port flag from the Tailscale CLI."
+            ],
+            "title": "Tailscale Peer Relays: High-throughput relays for secure ..."
+          },
+          {
+            "url": "https://blog.therainisme.com/posts/tailscale-peer-relay",
+            "excerpts": [
+              "Make Tailscale NAT Traversal More Stable with Peer Relay\nIn October 2025, Tailscale introduced the Peer Relay feature, making NAT traversal simpler and more stable. Peer Relay lets you designate any device in your Tailnet as a relay node to forward encrypted traffic between other devices."
+            ],
+            "title": "Make Tailscale NAT Traversal More Stable with Peer Relay"
+          },
+          {
+            "url": "https://www.techbloat.com/tailscale-peer-relays-solving-the-nat-traversal-nightmare.html",
+            "excerpts": [
+              "Tailscale Peer Relays: Solving the NAT Traversal Nightmare\nThis is the networking gap that Tailscale\u2019s connectivity model is designed to handle. Direct peer-to-peer paths are preferred because they are efficient and low-latency, but the system must assume that direct NAT traversal will sometimes fail."
+            ],
+            "title": "Tailscale Peer Relays: Solving the NAT Traversal Nightmare"
+          },
+          {
+            "url": "https://tailscale.com/blog/nat-traversal-improvements-pt-1",
+            "excerpts": [
+              "How Tailscale is improving NAT traversal (part 1)\nWhen device A connects to device B, it first contacts B via the nearest DERP relay to exchange information (like observed IP addresses/ports and keys) and to begin sending data. In parallel, each side uses that information to attempt a direct UDP connection through any intervening NATs or firewalls."
+            ],
+            "title": "How Tailscale is improving NAT traversal (part 1)"
+          },
+          {
+            "url": "https://umatechnology.org/tailscale-peer-relays-solving-the-nat-traversal-nightmare",
+            "excerpts": [
+              "Tailscale Peer Relays: Solving the NAT Traversal Nightmare\nPeer relays provide a fallback path when direct NAT traversal cannot succeed. Instead of abandoning the connection, Tailscale can route encrypted traffic through an intermediary so the devices remain reachable while preserving the end-to-end security model that makes the tailnet private."
+            ],
+            "title": "Tailscale Peer Relays: Solving the NAT Traversal Nightmare"
+          },
+          {
+            "url": "https://tailscale.com/docs/reference/connection-types",
+            "excerpts": [
+              "Connection types \u00b7 Tailscale Docs\nJun 1, 2026 \u2014 A peer relay server is generally faster than a DERP server and runs within your own infrastructure (so there's no need to traverse gateways or"
+            ],
+            "title": "Connection types \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://signalreads.com/articles/tailscale-peer-relays-is-now-generally-available",
+            "excerpts": [
+              "Tailscale Peer Relays is now generally available - A ...\nOur team, like many in 2026, is distributed. We've got engineers in different cities, some working from home, others accessing cloud instances, and a few managing on-prem GPU clusters."
+            ],
+            "title": "Tailscale Peer Relays is now generally available - A ..."
+          },
+          {
+            "url": "https://sesamedisk.com/tailscale-peer-relays-available",
+            "excerpts": [
+              "Tailscale Peer Relays Now Generally Available - Sesame Disk\nTailscale\u2019s Peer Relays are now available, enhancing secure connectivity for self-hosted services and remote access. Learn how to implement them."
+            ],
+            "title": "Tailscale Peer Relays Now Generally Available - Sesame Disk"
+          },
+          {
+            "url": "https://github.com/RyanMoreau/tailscale-sdk",
+            "excerpts": [
+              "GitHub - RyanMoreau/tailscale-sdk: Zero-dependency TypeScript ...\nThe included React dashboard demonstrates how to use the SDK with TanStack Query hooks. It provides a full UI for managing your tailnet \u2014 devices, auth keys, DNS, ACLs, and more."
+            ],
+            "title": "GitHub - RyanMoreau/tailscale-sdk: Zero-dependency TypeScript ..."
+          },
+          {
+            "url": "https://tailscale.com/docs/install/android",
+            "excerpts": [
+              "Install Tailscale on Android \u00b7 Tailscale Docs\nDownload Tailscale from the Google Play Store or go to the Tailscale Download page. Launch the app and select Get Started, accept the prompts to install a VPN configuration, and allow push notifications."
+            ],
+            "title": "Install Tailscale on Android \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://www.youtube.com/watch?v=1wqUoiDIxqU",
+            "excerpts": [
+              "Reimagining Tailscale for Android - YouTube\nWe just released the most exciting to the Tailscale Android app in years! The new app represents a total rethinking of almost every aspect"
+            ],
+            "title": "Reimagining Tailscale for Android - YouTube"
+          },
+          {
+            "url": "https://gist.github.com/aschober/eeb316027c5037fc3af5fb0327ab44fd",
+            "excerpts": [
+              "Setup SSH and Tailscale on Android 15 Linux Terminal App\nSetup SSH and Tailscale on Linux Terminal App This guide outlines the steps to set up an SSH server and Tailscale on a fresh Debian installation inside the Android Linux Terminal App."
+            ],
+            "title": "Setup SSH and Tailscale on Android 15 Linux Terminal App"
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?hl=en-US&id=com.tailscale.ipn",
+            "excerpts": [
+              "Tailscale - Apps on Google Play\nSecurely connect people, workloads, and even AI agents to anything on the internet with Tailscale, the secure connectivity platform built on WireGuard\u00ae."
+            ],
+            "title": "Tailscale - Apps on Google Play"
+          },
+          {
+            "url": "https://www.kxxt.dev/blog/full-tailscale-on-android-and-remote-unlocking",
+            "excerpts": [
+              "Full-Featured Tailscale on Android and Remote Unlocking - kxxt\nJun 5, 2025 \u2014 Tailscale is directly integrated into system routing decisions. You can use another Android VPN app with it without any special configuration."
+            ],
+            "title": "Full-Featured Tailscale on Android and Remote Unlocking - kxxt"
+          },
+          {
+            "url": "https://github.com/tailscale/tailscale/issues/17791",
+            "excerpts": [
+              "FR: Peer Relay Operator & ENV support \u00b7 Issue #17791\nNov 7, 2025 \u2014 tailscale status worked just like docs said, but this was much more concise. All that said, peer relays are amazing. Was able to reduce my"
+            ],
+            "title": "FR: Peer Relay Operator & ENV support \u00b7 Issue #17791"
+          },
+          {
+            "url": "https://devsecopsschool.com/blog/how-to-install-configure-tailscale-in-linux-windows-macos",
+            "excerpts": [
+              "How to install & Configure Tailscale in Linux, Windows ...\nHow to install & Configure Tailscale in Linux, Windows & MacOS? \u00b7 1) Tailnet Basics (org vs personal) \u00b7 2) Install Tailscale (per OS) \u00b7 3) Add a"
+            ],
+            "title": "How to install & Configure Tailscale in Linux, Windows ..."
+          },
+          {
+            "url": "https://forum.gl-inet.com/t/tailscale-direct-to-router-relay-on-all-lan-devices/57146",
+            "excerpts": [
+              "Tailscale Direct to router - relay on all LAN devices\nFor all devices behind the router, I end up showing relayed (through one of the public DERP servers). This seems to be the case whether the client is Linux or Windows based. I enabled \"Allow Remote Access LAN\". While this allowed me to access internal IPs, it didn't solve the Direct Connection issue when using Tailscale IPs."
+            ],
+            "title": "Tailscale Direct to router - relay on all LAN devices"
+          },
+          {
+            "url": "https://www.youtube.com/watch?v=EE7xstC8Kw4&vl=en",
+            "excerpts": [
+              "Connecting Linux + Windows + Mac Together with Tailscale\nSending files and connecting between Linux, Apple, Windows, iOS and Android is a solved problem with Tailscale, which creates a VPN across"
+            ],
+            "title": "Connecting Linux + Windows + Mac Together with Tailscale"
+          },
+          {
+            "url": "https://tailscale.com/kb/1218/android",
+            "excerpts": [],
+            "title": "Use NextDNS"
+          },
+          {
+            "url": "https://tailscale.com/docs/reference/syntax/policy-file",
+            "excerpts": [
+              "Syntax reference for the tailnet policy file \u00b7 Tailscale Docs\nAuto approvers autoApprovers Automation Specify who can bypass the approval process to advertise subnet routers, exit nodes, and app connectors."
+            ],
+            "title": "Syntax reference for the tailnet policy file \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://tailscale.com/blog/auto-approvers",
+            "excerpts": [
+              "Manage Routes & Exit Nodes with Tailscale Auto Approvers\nWe're introducing the concepts of autoApprovers for routes and exit nodes. This lets you specify in your ACL file which users can self-approve routes and exit"
+            ],
+            "title": "Manage Routes & Exit Nodes with Tailscale Auto Approvers"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/access-control/acls",
+            "excerpts": [
+              "Manage permissions using ACLs \u00b7 Tailscale Docs\nJan 5, 2026 \u00b7 You can edit your tailnet's access rules by using the Access controls page of the admin console, GitOps for Tailscale ACLs, or the Tailscale API"
+            ],
+            "title": "Manage permissions using ACLs \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://reactnative.dev/docs/hermes",
+            "excerpts": [
+              "Using Hermes - React Native\nReact Native comes with a bundled versionof Hermes.We building a version of Hermes for you whenever we release a new version of React Native. This will make sure you're consuming a version of Hermes which is fully compatible with the version of React Native you're using. This change is fully transparent to users of React Native. You can still disab"
+            ],
+            "title": "Using Hermes - React Native"
+          },
+          {
+            "url": "https://railway.com/deploy/hermes-gateway-via-tailscale",
+            "excerpts": [
+              "Deploy Hermes Gateway via Tailscale - railway.com\nDeploys a Hermes AI agent as a Slack-native assistant, with Tailscale running inside the container for private SSH access. Each agent registers as its own tailnet node, with persistent memory and skills that survive redeploys via a mounted volume."
+            ],
+            "title": "Deploy Hermes Gateway via Tailscale - railway.com"
+          },
+          {
+            "url": "https://proxymac.com/en/blog/articles/hermes-agent-mac-setup-guide-2026.html",
+            "excerpts": [
+              "Hermes Agent Mac Setup: Install, Gateway & Migration (2026)\nThis guide walks through a Mac setup \u2014MacBook or a headless Mac mini\u2014without assuming you rent cloud hardware. Note: ProxyMac publishes Mac setup guides on this site; Hermes Agent is vendor-neutral and installs the same on any Mac. Facts below come from the upstream repo and docs as of May 2026."
+            ],
+            "title": "Hermes Agent Mac Setup: Install, Gateway & Migration (2026)"
+          },
+          {
+            "url": "https://www.tothenew.com/blog/hermes-v1-by-default-in-react-native-0-84-the-biggest-performance-win-of-2026",
+            "excerpts": [
+              "Hermes V1 by Default in React Native 0.84\nApr 6, 2026 \u2014 Hermes has been the default engine since 0.70, but Hermes V1 (released in stages during 2025 and stabilized in 0.84) brings a rewritten compiler"
+            ],
+            "title": "Hermes V1 by Default in React Native 0.84"
+          },
+          {
+            "url": "https://www.callstack.com/blog/technical-guide-compiling-hermes-for-apple-platforms",
+            "excerpts": [
+              "Technical Guide: Compiling Hermes for Apple Platforms\nWant to use Hermes in your React Native app on iOS ? Find out how to compile Hermes for Apple platforms. Check the first part of our expert technical guide."
+            ],
+            "title": "Technical Guide: Compiling Hermes for Apple Platforms"
+          },
+          {
+            "url": "https://tailscale.com/docs/reference/troubleshooting",
+            "excerpts": [
+              "Troubleshooting guide \u00b7 Tailscale Docs\nIf you need to generate a bug report to help Tailscale Support debug an issue, follow the instructions at Generate a bug report. If you want to enable debug mode for the Tailscale client menu to assist in troubleshooting, follow the instructions at Debug menu and options."
+            ],
+            "title": "Troubleshooting guide \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://tailscale.com/docs/reference/troubleshooting/connectivity",
+            "excerpts": [
+              "Troubleshoot device connectivity \u00b7 Tailscale Docs\nConnectivity problems can range from latency and packet loss to an inability to connect to another device or the internet. The following topics cover some of the more common connectivity issues in a Tailscale network (known as a tailnet). Troubleshoot device connectivity."
+            ],
+            "title": "Troubleshoot device connectivity \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://www.wikieduonline.com/wiki/Troubleshooting_tailscale",
+            "excerpts": [
+              "Troubleshooting tailscale - wikieduonline\ntailscale status --json | grep Online tailscale status --json | jq '.Peer [] | select (.Online==true) | {HostName, TailscaleIPs, Online, Relay}'"
+            ],
+            "title": "Troubleshooting tailscale - wikieduonline"
+          },
+          {
+            "url": "https://tailscale.com/docs/reference/troubleshooting/network-configuration/derp-routing",
+            "excerpts": [
+              "Troubleshoot DERP traffic routing issues\n2026/03/16 \u2014 This tailscale ping device2 example indicates the device was reached using the \"sea\" relay on the first ping, and by direct path on the second"
+            ],
+            "title": "Troubleshoot DERP traffic routing issues"
+          },
+          {
+            "url": "https://tailscale.com/changelog",
+            "excerpts": [
+              "Changelog\nAll Platforms. An issue causing a deadlock when processing peer changes and disconnecting from the Tailscale control server is resolved."
+            ],
+            "title": "Changelog"
+          },
+          {
+            "url": "https://github.com/tailscale/tailscale/releases",
+            "excerpts": [
+              "Releases \u00b7 tailscale/tailscale\nPlease refer to the changelog available at https:// tailscale .com/ changelog . Assets 2. Source code (zip). last week. Source code (tar.gz). last week."
+            ],
+            "title": "Releases \u00b7 tailscale/tailscale"
+          },
+          {
+            "url": "https://pkgs.tailscale.com/stable",
+            "excerpts": [
+              "Tailscale Packages - stable track\nWant to know what's new? Check the Tailscale changelog . Requires Android 8 or newer. Note that this APK does not install updates automatically. You will need"
+            ],
+            "title": "Tailscale Packages - stable track"
+          },
+          {
+            "url": "https://pub.dev/packages/tailscale/changelog",
+            "excerpts": [
+              "tailscale changelog | Dart package\nMay 9, 2026 \u2014 This release is a major API and transport rebuild for public POSIX usage. It keeps the embedded-tsnet lifecycle model, but replaces the old"
+            ],
+            "title": "tailscale changelog | Dart package"
+          },
+          {
+            "url": "https://github.com/SagerNet/sing-box/issues/3657",
+            "excerpts": [
+              "Tailscale peer-relay feature doesn't work \u00b7 Issue #3657 \u00b7 SagerNet/sing- ...\nI confirm that I have provided the simplest configuration that can be used to reproduce the error I reported, instead of depending on remote"
+            ],
+            "title": "Tailscale peer-relay feature doesn't work \u00b7 Issue #3657 \u00b7 SagerNet/sing- ..."
+          },
+          {
+            "url": "https://libraries.io/npm/react-native-wireguard-vpn",
+            "excerpts": [
+              "react-native-wireguard-vpn 1.0.15 on npm - Libraries.io\nA React Native module for implementing WireGuard VPN functionality in iOS and Android applications. This package provides a native implementation of WireGuard tunneling with a simple JavaScript interface."
+            ],
+            "title": "react-native-wireguard-vpn 1.0.15 on npm - Libraries.io"
+          },
+          {
+            "url": "https://github.com/usama7365/react-native-wireguard-vpn",
+            "excerpts": [
+              "GitHub - usama7365/react-native-wireguard-vpn\nA React Native module for implementing WireGuard VPN functionality in iOS and Android applications. This package provides a native implementation of WireGuard tunneling with a simple JavaScript interface."
+            ],
+            "title": "GitHub - usama7365/react-native-wireguard-vpn"
+          },
+          {
+            "url": "https://deepwiki.com/usama7365/react-native-wireguard-vpn",
+            "excerpts": [
+              "usama7365/react-native-wireguard-vpn | DeepWiki\nThe react-native-wireguard-vpn module is a cross-platform React Native library that enables JavaScript/TypeScript applications to establish and manage WireGuard VPN tunnels on both Android and iOS devices."
+            ],
+            "title": "usama7365/react-native-wireguard-vpn | DeepWiki"
+          },
+          {
+            "url": "https://npm.io/package/react-native-wireguard-vpn",
+            "excerpts": [
+              "React-native-wireguard-vpn NPM | npm.io\nA React Native module for implementing WireGuard VPN functionality in iOS and Android applications. This package provides a native implementation of WireGuard tunneling with a simple JavaScript interface."
+            ],
+            "title": "React-native-wireguard-vpn NPM | npm.io"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/tree/main/apps/desktop",
+            "excerpts": [
+              "hermes-agent/apps/desktop at main \u00b7 NousResearch/hermes-agent\nDesktop supports a managed local backend, explicit remote gateways, and Hermes Cloud connections. Remote and cloud modes use the same remote-capability path; authentication and discovery differ, not the renderer feature model."
+            ],
+            "title": "hermes-agent/apps/desktop at main \u00b7 NousResearch/hermes-agent"
+          },
+          {
+            "url": "https://hermes-agent.ai/blog/connect-hermes-desktop-remote-backend",
+            "excerpts": [
+              "How to Connect Hermes Desktop to a Remote Hermes Backend\nUse Hermes Desktop with a remote Hermes backend: when to choose it, how local/custom endpoints work, what to check in provider setup, and how to avoid exposing the dashboard."
+            ],
+            "title": "How to Connect Hermes Desktop to a Remote Hermes Backend"
+          },
+          {
+            "url": "https://github.com/Codename-11/hermes-relay/blob/main/desktop/README.md",
+            "excerpts": [
+              "hermes-relay/desktop/README.md at main - GitHub\nhermes-relay-cli Thin-client CLI for Hermes-Relay \u2014 talk to a remote Hermes agent over WSS from any terminal. The agent brain (LLM + tools + sessions + memory) runs on your Hermes host. This CLI is the local line-mode thin-client: it handles pairing, persists the session token, and renders the agent's stream to plain stdout so >, |, and jq"
+            ],
+            "title": "hermes-relay/desktop/README.md at main - GitHub"
+          },
+          {
+            "url": "https://hermesatlas.com/projects/Codename-11/hermes-relay",
+            "excerpts": [
+              "Codename-11/hermes-relay \u2014 Hermes Agent Integrations ...\nHermes-Relay is a native Android companion and CLI tool designed to extend the Hermes agent platform to mobile and remote environments. It connects to a user's self-hosted Hermes instance via WSS to provide streaming chat, hands-free voice interaction, and full agent management."
+            ],
+            "title": "Codename-11/hermes-relay \u2014 Hermes Agent Integrations ..."
+          },
+          {
+            "url": "https://enyst.github.io/hermes-gateway.html",
+            "excerpts": [
+              "Hermes Agent Gateway Architecture \u2014 Engel Nyst\nBoth Hermes and OpenClaw converged on the same architecture: a central gateway process with pluggable platform adapters. The terminology differs but the bones are identical."
+            ],
+            "title": "Hermes Agent Gateway Architecture \u2014 Engel Nyst"
+          },
+          {
+            "url": "https://github.com/corasan/rn-servers/blob/main/README.md",
+            "excerpts": [
+              "rn-servers/README.md at main \u00b7 corasan/rn-servers \u00b7 GitHub\nThis requires the tailscale CLI, an active Tailscale connection, and MagicDNS. Use rn-server tailscale status my-app to inspect setup errors, and disable the route with rn-server tailscale disable my-app. Expo and bare React Native projects are detected from package.json. A custom server command can be registered with a {port} placeholder:"
+            ],
+            "title": "rn-servers/README.md at main \u00b7 corasan/rn-servers \u00b7 GitHub"
+          },
+          {
+            "url": "https://pinchtab.com/docs/tailscale-bridge-orchestrator",
+            "excerpts": [
+              "A Tailscale Bridge Story: One Orchestrator, Remote Browsers\nThat gives you one control plane and multiple places where browser execution can live. This post walks through the exact setup, the mistakes that are easy to make, and the key distinction between http and https when attaching a remote bridge. There are several practical ways to use this setup."
+            ],
+            "title": "A Tailscale Bridge Story: One Orchestrator, Remote Browsers"
+          },
+          {
+            "url": "https://meowscript.com/guides/setup-tailscale-remote-access",
+            "excerpts": [
+              "Complete Tailscale Setup Guide: Access Your Home Network From ...\nStep-by-step instructions for setting up Tailscale on any device - from Raspberry Pi to NAS to Docker. Get secure remote access in minutes."
+            ],
+            "title": "Complete Tailscale Setup Guide: Access Your Home Network From ..."
+          },
+          {
+            "url": "https://www.relayuk.bt.com/how-to-use-relay-uk/download-app.html",
+            "excerpts": [
+              "Download app - How to use Relay UK\nWe'll show you how to download, link your phone number and set up the Relay UK app on an iPhone, iPad, Android phone and tablet, Windows and Mac computer."
+            ],
+            "title": "Download app - How to use Relay UK"
+          },
+          {
+            "url": "https://github.com/tailscale/tailscale/issues/14225",
+            "excerpts": [
+              "Android Relay server unavailable only when always on ...\nNov 26, 2024 \u2014 The application warns that the relay server is unavailable. The problems seams to only happen if Always-On VPN is activated."
+            ],
+            "title": "Android Relay server unavailable only when always on ..."
+          },
+          {
+            "url": "https://tailscale.com/docs/reference/device-connectivity",
+            "excerpts": [
+              "Device connectivity \u00b7 Tailscale Docs\nJan 7, 2026 \u2014 By default, relayed connections use a DERP server. However, if you set up a Tailscale Peer Relay server in your tailnet, relayed connections use"
+            ],
+            "title": "Device connectivity \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://deepwiki.com/tailscale/tailscale-android/4.1-vpn-connection-management",
+            "excerpts": [
+              "VPN Connection Management | tailscale/tailscale-android ...\nThis document covers the VPN connection management system in the Tailscale Android client, including how VPN connections are initiated, configured, maintained, and terminated through the integration of Android's VpnService with the Go backend."
+            ],
+            "title": "VPN Connection Management | tailscale/tailscale-android ..."
+          },
+          {
+            "url": "https://github.com/LiuTangLei/tailscale-ios/blob/main/README.md",
+            "excerpts": [
+              "tailscale-ios/README.md at main \u00b7 LiuTangLei/tailscale-ios\nAn unofficial iOS client experiment for Tailscale-compatible tailnets, including Headscale deployments. The app embeds a Go Tailscale backend through gomobile and runs the data plane inside an iOS Packet Tunnel Network Extension."
+            ],
+            "title": "tailscale-ios/README.md at main \u00b7 LiuTangLei/tailscale-ios"
+          },
+          {
+            "url": "https://deepwiki.com/tailscale/tailscale-android",
+            "excerpts": [
+              "tailscale/tailscale-android | DeepWiki\nThis document provides a high-level overview of the Tailscale Android client repository, which contains the open-source Android application for Tailscale's WireGuard-based VPN service $1."
+            ],
+            "title": "tailscale/tailscale-android | DeepWiki"
+          },
+          {
+            "url": "https://tailscale.com/docs/install/ios",
+            "excerpts": [
+              "Install Tailscale on iOS \u00b7 Tailscale Docs\nTailscale works with iOS 15.0 or later. It supports both iPhone and iPad. Download Tailscale from the App Store or scan the QR code on the Tailscale Download page. Launch the app, select Get Started, accept the prompts to install a VPN configuration, and allow push notifications."
+            ],
+            "title": "Install Tailscale on iOS \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://hermesdesktop.homes/",
+            "excerpts": [
+              "Hermes Desktop \u2014 Desktop Companion for Hermes Agent\nChoose Local or Remote Decide whether to run Hermes locally on your machine or connect to a remote Hermes API server. Remote mode prompts for a URL and API key."
+            ],
+            "title": "Hermes Desktop \u2014 Desktop Companion for Hermes Agent"
+          },
+          {
+            "url": "https://github.com/fathah/hermes-desktop",
+            "excerpts": [
+              "GitHub - fathah/hermes-desktop: Desktop Companion for Hermes ...\nIn remote mode, the app talks to your configured remote URL with the same streaming protocol. The desktop app parses the stream in real time, rendering tool progress, markdown content, and token usage as it arrives."
+            ],
+            "title": "GitHub - fathah/hermes-desktop: Desktop Companion for Hermes ..."
+          },
+          {
+            "url": "https://www.everydev.ai/tools/hermes-desktop",
+            "excerpts": [
+              "Hermes Desktop by dodo-reach - Native macOS Hermes SSH Client ...\nA native macOS companion app for Hermes Agent that connects directly over SSH to manage sessions, files, skills, cron jobs, usage, and a real terminal."
+            ],
+            "title": "Hermes Desktop by dodo-reach - Native macOS Hermes SSH Client ..."
+          },
+          {
+            "url": "https://dodo-reach.github.io/hermes-desktop",
+            "excerpts": [
+              "Hermes Desktop \u2014 A native Mac app for your Hermes Agent host\nHermes Desktop is a native macOS app for your Hermes Agent host. Browse sessions, edit files, run a real terminal \u2014 all over SSH, no gateway, no second copy of your data."
+            ],
+            "title": "Hermes Desktop \u2014 A native Mac app for your Hermes Agent host"
+          },
+          {
+            "url": "https://github.com/Yasuui/hermes-mobile",
+            "excerpts": [
+              "GitHub - Yasuui/hermes-mobile: Premium native iOS app for ...\nHermes Mobile gives you a Claude-Code-like interface on your iPhone: streaming chat, live file diffs, an embedded terminal, and full visibility into every sub-agent action \u2014 all connected securely over Tailscale to your Mac."
+            ],
+            "title": "GitHub - Yasuui/hermes-mobile: Premium native iOS app for ..."
+          },
+          {
+            "url": "https://www.relaypayments.com/app",
+            "excerpts": [
+              "Download the Free Relay Mobile App for Fleets and Truck ...\nJun 11, 2023 \u2014 The Relay Payments mobile app puts fuel discounts, parking reservations, lumper payments and more right at your fingertips."
+            ],
+            "title": "Download the Free Relay Mobile App for Fleets and Truck ..."
+          },
+          {
+            "url": "https://www.holysheep.ai/articles/en-hermes-agentchajianxitongkuozhanaizhongzhuanzhango-2026-04-10-0087.html",
+            "excerpts": [
+              "Hermes-Agent Plugin System: Extending AI Relay Station ...\nImagine deploying a multi-agent orchestration pipeline at 3 AM, only to hit ConnectionError: timeout after 30000ms when your relay station attempts to route requests through a third-party proxy. That was my reality three weeks ago until I discovered how the Hermes-Agent plugin architecture transforms AI relay stations from fragile bottlenecks into resilient, scalable infrastructure. Today, I"
+            ],
+            "title": "Hermes-Agent Plugin System: Extending AI Relay Station ..."
+          },
+          {
+            "url": "https://tailscale.com/docs/features/tailscale-funnel",
+            "excerpts": [
+              "Tailscale Funnel \u00b7 Tailscale Docs\nUsing Funnel to share a local resource creates an encrypted tunnel from the internet to a specific resource on your device. Tailscale does this using a TCP proxy and Funnel relay servers. When you share a local resource with Funnel, it creates a unique Funnel URL that you can share."
+            ],
+            "title": "Tailscale Funnel \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://tailscale.com/docs/reference/examples/funnel",
+            "excerpts": [
+              "Tailscale Funnel examples\nOct 14, 2025 \u00b7 If a shared Funnel is already in use, Tailscale returns an error message when establishing the SSH reverse proxy. Share a simple file server \u00b7 Serve a static site \u00b7 Expose a development server"
+            ],
+            "title": "Tailscale Funnel examples"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/developer-guide/architecture",
+            "excerpts": [
+              "Architecture | Hermes Agent\nArchitecture This page is the top-level map of Hermes Agent internals. Use it to orient yourself in the codebase, then dive into subsystem-specific docs for implementation details. System Overview"
+            ],
+            "title": "Architecture | Hermes Agent"
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "tailscale-peer-relay-aperture-july-2026-initial.md"
+  }
+}

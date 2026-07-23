@@ -1,7 +1,9 @@
 import { createSession, sessionCookie } from "@/lib/auth";
+import { verifySignedAuthState } from "@/lib/auth-state";
 import { audit } from "@/lib/audit";
 import { db, runtimeEnv } from "@/lib/runtime";
 import { sha256 } from "@/lib/security";
+import { workosSessionIdFromAccessToken } from "@/lib/workos-session";
 
 interface WorkOSUser {
   id: string;
@@ -16,6 +18,7 @@ interface AuthenticationResponse {
   user?: WorkOSUser;
   organization_id?: string | null;
   authentication_method?: string;
+  access_token?: string;
   error?: string;
   message?: string;
 }
@@ -26,16 +29,25 @@ export async function GET(request: Request) {
   const state = url.searchParams.get("state");
   if (!code || !state) return Response.redirect(new URL("/?auth_error=missing_callback_parameters", url.origin), 302);
 
-  const stateHash = await sha256(state);
-  const authState = await db().prepare(
-    "SELECT return_to AS returnTo FROM auth_states WHERE state_hash = ? AND expires_at > ?"
-  ).bind(stateHash, Date.now()).first<{ returnTo: string }>();
-  if (!authState) return Response.redirect(new URL("/?auth_error=invalid_state", url.origin), 302);
-  await db().prepare("DELETE FROM auth_states WHERE state_hash = ?").bind(stateHash).run();
-
   const current = runtimeEnv();
   if (!current.WORKOS_CLIENT_ID || !current.WORKOS_API_KEY) {
     return Response.redirect(new URL("/?auth_error=workos_not_configured", url.origin), 302);
+  }
+
+  // Prefer stateless signed state (no D1). Fall back to legacy auth_states rows
+  // for any in-flight logins started before this deploy.
+  let returnTo = "/dashboard";
+  const signed = await verifySignedAuthState(state, current.WORKOS_API_KEY);
+  if (signed) {
+    returnTo = signed.returnTo;
+  } else {
+    const stateHash = await sha256(state);
+    const authState = await db().prepare(
+      "SELECT return_to AS returnTo FROM auth_states WHERE state_hash = ? AND expires_at > ?"
+    ).bind(stateHash, Date.now()).first<{ returnTo: string }>();
+    if (!authState) return Response.redirect(new URL("/?auth_error=invalid_state", url.origin), 302);
+    await db().prepare("DELETE FROM auth_states WHERE state_hash = ?").bind(stateHash).run();
+    returnTo = authState.returnTo;
   }
   const authResponse = await fetch("https://api.workos.com/user_management/authenticate", {
     method: "POST",
@@ -53,6 +65,11 @@ export async function GET(request: Request) {
   if (!authResponse.ok || !payload.user) {
     console.error("WorkOS callback failed", authResponse.status, payload.error ?? payload.message ?? "unknown error");
     return Response.redirect(new URL("/?auth_error=authentication_failed", url.origin), 302);
+  }
+  const workosSessionId = workosSessionIdFromAccessToken(payload.access_token);
+  if (!workosSessionId) {
+    console.error("WorkOS callback did not include a valid provider session");
+    return Response.redirect(new URL("/?auth_error=invalid_provider_session", url.origin), 302);
   }
 
   const now = Date.now();
@@ -91,9 +108,14 @@ export async function GET(request: Request) {
     ).bind(crypto.randomUUID(), organizationId, userId, now).run();
   }
 
-  const sessionToken = await createSession(userId, organizationId);
+  const sessionToken = await createSession(userId, organizationId, workosSessionId);
   await audit({ organizationId, actorType: "user", actorId: userId, action: "auth.login", targetType: "session", metadata: { method: payload.authentication_method ?? "AuthKit" } });
-  const redirect = Response.redirect(new URL(authState.returnTo, url.origin), 302);
-  redirect.headers.append("set-cookie", sessionCookie(sessionToken));
-  return redirect;
+  return new Response(null, {
+    status: 302,
+    headers: {
+      location: new URL(returnTo, url.origin).toString(),
+      "set-cookie": sessionCookie(sessionToken),
+      "cache-control": "no-store",
+    },
+  });
 }

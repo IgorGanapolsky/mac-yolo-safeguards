@@ -63,6 +63,42 @@ export function shouldShowCompletedRunBanner(hasVisibleAssistantReply: boolean):
   return !hasVisibleAssistantReply;
 }
 
+/**
+ * After the HTTP/SSE stream resolves with a visible assistant bubble, do NOT
+ * wipe runProgress if the Mac job is still alive — otherwise Connected chrome
+ * falls back to a static session total (e.g. "221,821 tokens") while tools /
+ * scheduled remote work keep producing live usage.
+ */
+export function shouldRetainRunProgressAfterVisibleReply(options: {
+  deferredPollActive?: boolean;
+  awaitingGatewayReply?: boolean;
+}): boolean {
+  return Boolean(options.deferredPollActive || options.awaitingGatewayReply);
+}
+
+/**
+ * Keep an active (non-terminal) runProgress snapshot for live token/header
+ * updates without flashing "Reply ready" completed chrome.
+ */
+export function retainActiveRunProgressForLiveTokens(
+  prev: RunProgressState | null | undefined,
+): RunProgressState | null {
+  if (!prev) {
+    return null;
+  }
+  if (prev.phase === 'failed') {
+    return prev;
+  }
+  if (prev.phase === 'completed') {
+    return {
+      ...prev,
+      phase: 'working',
+      detail: prev.detail?.trim() || 'Working on your computer…',
+    };
+  }
+  return prev;
+}
+
 /** Plain reply glance line for the dismiss banner (coord with notification snippet helper). */
 export function runProgressCompletedSnippet(progress: RunProgressState): string | null {
   const preview = progress.replyPreview?.trim();
@@ -190,7 +226,8 @@ export function buildConnectedModelTokenLabel(options: {
   } else {
     const total = (options.sessionInputTokens ?? 0) + (options.sessionOutputTokens ?? 0);
     if (total > 0) {
-      tokens = `${total.toLocaleString()} tokens`;
+      // Honest label: this is cumulative session/context, not live run usage.
+      tokens = `${total.toLocaleString()} session`;
     }
   }
   if (!model && !tokens) {

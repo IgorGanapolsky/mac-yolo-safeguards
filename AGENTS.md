@@ -33,6 +33,73 @@ Note: AGENTS.md is read natively by Cursor, gemini/Gemini, Copilot, Aider, Winds
 
 ---
 
+## Planner / worker swarm economics (2026-07-22)
+
+Harness quality beats model mix. Same models thrash without ownership; explicit roles + thrash detection ship more finished AC per dollar. Source lesson: Cursor agent-swarm model economics, applied at **human tempo** (worktrees + sequential merge — not a custom 1k commits/sec VCS).
+
+### Roles (context efficiency)
+
+| Role | Does | Does not |
+|------|------|----------|
+| **Planner** | Decompose goal → leaf tasks, write AcceptanceCheck, claim free files, record design in `plan.md` §3 | Implement worker leaves in the same context; delegate the same design question to two subtrees |
+| **Worker** | Implement **one** claimed free leaf; stacked verification; ship | Invent design; edit foreign claims; self-merge megafile conflicts |
+
+Set `AGENT_ROLE=planner` or `worker` (default worker). Session start prints guidance via `node tools/agent-swarm-harness.js`.
+
+### Model economics
+
+- **Frontier** (Claude/Grok/Cursor frontier): planning, ambiguous product/architecture, AcceptanceCheck quality.
+- **Cheap/local** (`tinker-yolo` q4, Composer-class): execute explicit leaves once AC + claims are locked.
+- **Anti-pattern:** five frontier agents re-deriving the same design on a megafile.
+
+### Thrash detection (not productivity)
+
+Measure finished AcceptanceChecks, multi-claimer count, and megafile contention — **not** commit rate.
+
+```bash
+node tools/agent-swarm-harness.js          # human brief + Field Guide
+node tools/agent-swarm-harness.js --json   # machine-readable
+node tools/plan-coordination-snapshot.js   # active tasks (named + numeric T- ids)
+```
+
+If harness reports contention or HOT megafile multi-owner → mark `blocked`, log, **STOP**.
+
+### Megafiles (serialize or split)
+
+Known choke points (also in harness `MEGAFILES`):
+
+- `hermes-mobile/src/context/GatewayContext.tsx`
+- `hermes-mobile/src/screens/ChatScreen.tsx`
+- `hermes-mobile/src/services/gatewayDiscovery.ts` / `gatewayProfiles.ts` / `tailscaleDiscovery.ts`
+- `hermes-mobile/src/utils/gatewayProfilePicker.ts`
+- `hermes-mobile/src/components/ConnectMacGate.tsx`
+- `tools/hermes-cloud-connector.js`
+- `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx`
+
+PRs that touch these **must** cite a `plan.md` §3 decision (`D-YYYY-MM-DD-…` or “Decisions Log”). Check:
+
+```bash
+git diff --name-only origin/main...HEAD | node tools/agent-swarm-harness.js check-hot-files --stdin --body-file pr-body.md
+```
+
+### Field Guide (stigmergy)
+
+Agents curate short successor context at [`docs/agent-field-guide/index.md`](./docs/agent-field-guide/index.md) (≤80 lines). Capture **surprises**, prune stale lines. Injected automatically by `agent-session-start` / `agent-swarm-harness`.
+
+### Stacked verification lenses
+
+No single check is enough. Before “done” / “shipped”:
+
+1. Focused unit tests for the claimed surface  
+2. Typecheck when TS/mobile touched  
+3. Continuous E2E pass **or** honest skip reason (phone lease / no device)  
+4. Greptile on onboarding / auth / OTA / pairing PRs  
+5. Sequential merge onto `main` only when required checks are green  
+
+Detail: [`docs/AGENT-SWARM-HARNESS.md`](./docs/AGENT-SWARM-HARNESS.md).
+
+---
+
 ## Honesty Protocol
 
 1. Never issue a canned completion statement (`"Done"`, `"Shipped"`, `"All clean"`) without verifiable evidence in the same response.
@@ -78,6 +145,26 @@ Mirrored: `~/.grok/AGENTS.md`, `.cursor/rules/always-agent-mode.mdc`.
 
 Phone gateway setup: always `node tools/hermes-mobile-pair.js` when `adb devices` shows a device — never "open Settings and paste URL".
 
+## No desktop hijack (permanent, 2026-07-22)
+
+**User directive:** Agents must not steal Igor's Mac desktop, focus, or interactive Google Chrome while he is working.
+
+**Hard ban unless Igor explicitly asks in that same message:**
+
+| Banned | Why |
+|--------|-----|
+| `osascript` driving **Google Chrome** (activate, quit, front window, JS injection) | Steals focus; hijacks daily browser |
+| `drive-logged-in-chrome` / `use-existing-browser-sessions` skills | Same — interactive Chrome only |
+| Cursor **Computer Use** / headed Playwright / browser MCP on Igor's profile | Full-screen hijack |
+| LaunchAgent `com.hermes.chrome-cdp` auto-install/heal on login | Starts Chrome every 120s |
+| `install-browser-bridge.sh --profile=daily` | Quits Igor's Chrome |
+
+**Prefer instead (in order):** `gh`, Play Developer API, App Store Connect API (`.p8` when issuer available), Gmail API/MCP, Stripe CLI, `adb`, SSH to fleet hosts, headless Playwright in Docker or a **dedicated non-daily profile**, background LaunchAgents with **no GUI**.
+
+**Opt-in gate:** Interactive Chrome/CDP scripts honor `HERMES_ALLOW_INTERACTIVE_CHROME=1` only when Igor explicitly requested browser control in that message. Default is off. See [docs/HEADLESS-BACKGROUND-OPS.md](./docs/HEADLESS-BACKGROUND-OPS.md), [docs/NO-DESKTOP-HIJACK.md](./docs/NO-DESKTOP-HIJACK.md), and [`.cursor/rules/no-desktop-hijack.mdc`](./.cursor/rules/no-desktop-hijack.mdc).
+
+**If blocked:** Report the blocker and what CLI/API path was tried — do not fall back to Chrome hijack silently.
+
 ## No dead code, no speculative scaffolding
 
 - Don't add features, abstractions, error handling, or tests for scenarios that can't happen.
@@ -91,6 +178,21 @@ Phone gateway setup: always `node tools/hermes-mobile-pair.js` when `adb devices
 - After every fix / incident / non-trivial decision: capture via `mcp__thumbgate__capture_memory_feedback`.
 - Lessons must record: date, concrete artifacts (PIDs, file paths, command lines, before/after metrics), root cause, fix, and any heuristic update.
 - Vague captures ("worked great!") are worse than no capture — they pollute retrieval.
+
+## Closed feedback loop on discovered bug classes (added 2026-07-22)
+
+When a session finds a real, recurring failure class — not a one-off typo — encode a
+deterministic check for it in `tools/` and wire it into `.github/workflows/ci.yml`,
+rather than relying on remembering to re-verify by hand next time. Pattern from
+Anthropic's AI-native SDLC security writeup: shift detection left, prefer deterministic
+checks over agentic re-verification for facts that are cheap to check by URL/API.
+
+Example: `tools/check-store-links.js` — added after a stale ground-truth table caused
+six live social posts to link a Play package Igor had ordered unpublished (2026-07-22).
+Checks live Play/App Store state plus scans `docs/social/hermes-mobile-content-*` for
+dead-link promotion; runs in the `revenue-public-checks` CI job. Network failures warn,
+they never fail CI — only a confirmed contradicting state (or a doc scan hit, which is
+network-independent) fails the build.
 
 ## Parallel research routing (added 2026-07-13)
 
@@ -187,6 +289,12 @@ Mobile detail: [hermes-mobile/AGENTS.md](./hermes-mobile/AGENTS.md), [hermes-mob
 
 Mobile-specific detail: [hermes-mobile/AGENTS.md](./hermes-mobile/AGENTS.md).
 
+## GitHub Code Quality guardrails (Hermes Mobile)
+
+GitHub Code Quality is **paid** (~$10/active committer/month + metered AI). This public personal-account repo may return **404** on `GET /repos/{owner}/{repo}/code-quality/setup` until a Team/Enterprise plan enables it — CI still uploads Cobertura (`hermes-mobile/coverage/cobertura-coverage.xml`) as a prerequisite.
+
+Agents: run `node tools/github-code-quality-status.js` before enable/disable decisions. Prefer **evaluate** coverage rulesets (`.github/code-quality-coverage-ruleset.evaluate.json`) before **active** enforcement. Do **not** enable org-wide scanning or leave Code Quality on when unused. Disable via `PATCH .../code-quality/setup` with `state=not-configured` when the product is not delivering value. Detail: [docs/CURSOR-AUTOMATIONS.md](./docs/CURSOR-AUTOMATIONS.md#github-code-quality-hermes-mobile-evaluate-first).
+
 ## Change protocol
 
 ```
@@ -201,7 +309,7 @@ Mobile-specific detail: [hermes-mobile/AGENTS.md](./hermes-mobile/AGENTS.md).
 
 - Make money / cash / outreach / pipeline stuck → `.claude/skills/execute-revenue-cash-path/SKILL.md` (also `~/.grok/skills/execute-revenue-cash-path/`) then `node tools/revenue-autonomous-loop.js --auto-send --json` (LaunchAgent `com.igor.revenue-autonomous-loop` every 4h)
 - Apollo / founder email / enrich contact → `.claude/skills/apollo-io-sales/SKILL.md`
-- Stripe Payment Links / "logged into Chrome" / login wall vs Playwright → `.claude/skills/drive-logged-in-chrome/SKILL.md` + use-existing-browser-sessions
+- Stripe Payment Links / "logged into Chrome" / login wall vs Playwright → **blocked by default** (see § No desktop hijack). Use Stripe CLI/API first; `.claude/skills/drive-logged-in-chrome/SKILL.md` only when Igor explicitly asked in that message with `HERMES_ALLOW_INTERACTIVE_CHROME=1`.
 
 When the user describes a symptom, prefer invoking the relevant skill over ad-hoc diagnosis:
 - Mac sluggish / fans / load avg → `mac-freeze-rescue`

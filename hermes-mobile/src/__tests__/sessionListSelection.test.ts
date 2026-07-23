@@ -1,6 +1,9 @@
 import type { HermesSession } from '../types/chat';
 import type { ChatProjectState } from '../types/chatProject';
-import { resolveSessionAfterListLoad } from '../utils/sessionListSelection';
+import {
+  ensureCurrentSessionSelectable,
+  resolveSessionAfterListLoad,
+} from '../utils/sessionListSelection';
 
 const sessions: HermesSession[] = [
   { id: 'sess_a', title: 'Print money', last_active_at: '2026-06-28T12:00:00Z' },
@@ -101,6 +104,37 @@ describe('resolveSessionAfterListLoad', () => {
         selectLatest: true,
       })?.id,
     ).toBe('sess_a');
+  });
+
+  it('ignores remembered automated cron stickies and picks a sendable thread', () => {
+    const withCron: HermesSession[] = [
+      {
+        id: 'cron_0eb498680d96_20260721_204200',
+        source: 'cron',
+        title: 'Scheduled',
+        last_active_at: '2026-07-22T15:28:00Z',
+      },
+      {
+        id: 'mobile_1784665204206_b230283b',
+        source: 'api_server',
+        title: 'Why we made zero dollars',
+        last_active_at: '2026-07-22T12:00:00Z',
+      },
+    ];
+    expect(
+      resolveSessionAfterListLoad({
+        sessions: withCron,
+        projectState: {
+          projects: [],
+          sessionProjectMap: {},
+          sessionLabels: {},
+          activeProjectId: null,
+        },
+        currentSessionId: null,
+        rememberedSessionId: 'cron_0eb498680d96_20260721_204200',
+        selectLatest: true,
+      })?.id,
+    ).toBe('mobile_1784665204206_b230283b');
   });
 
   it('returns undefined when already on resolved session', () => {
@@ -210,5 +244,56 @@ describe('resolveSessionAfterListLoad', () => {
         selectLatest: true,
       }),
     ).toBeNull();
+  });
+});
+
+describe('ensureCurrentSessionSelectable', () => {
+  const cronSession: HermesSession = {
+    id: 'cron_abc123',
+    source: 'cron',
+    title: 'Scheduled job',
+    last_active_at: '2026-07-21T20:42:00Z',
+  };
+  const allSessions: HermesSession[] = [
+    cronSession,
+    { id: 'sess_other', title: 'Other thread', last_active_at: '2026-07-22T06:31:00Z' },
+  ];
+
+  it('leaves the filtered list untouched when the current session already survived filtering', () => {
+    expect(ensureCurrentSessionSelectable(allSessions, allSessions, 'cron_abc123')).toBe(
+      allSessions,
+    );
+  });
+
+  it('leaves the filtered list untouched when there is no current session', () => {
+    const filtered = [allSessions[1]];
+    expect(ensureCurrentSessionSelectable(filtered, allSessions, null)).toBe(filtered);
+  });
+
+  it('re-adds the open session when a display filter (hide cron) dropped it', () => {
+    // Simulates: user has "hide cron" on (e.g. from a prior Clear all) and is
+    // actively viewing a cron/scheduled-job thread when the list refreshes.
+    const filtered = allSessions.filter((session) => session.source !== 'cron');
+    const result = ensureCurrentSessionSelectable(filtered, allSessions, 'cron_abc123');
+    expect(result.map((s) => s.id)).toEqual(['cron_abc123', 'sess_other']);
+  });
+
+  it('does not resurrect a session that was actually deleted, not just filtered', () => {
+    const filtered = [allSessions[1]];
+    const result = ensureCurrentSessionSelectable(filtered, [allSessions[1]], 'cron_abc123');
+    expect(result).toBe(filtered);
+  });
+
+  it('feeds resolveSessionAfterListLoad a list that keeps the open cron session selected', () => {
+    const filtered = allSessions.filter((session) => session.source !== 'cron');
+    const selectable = ensureCurrentSessionSelectable(filtered, allSessions, 'cron_abc123');
+    expect(
+      resolveSessionAfterListLoad({
+        sessions: selectable,
+        projectState,
+        currentSessionId: 'cron_abc123',
+        selectLatest: false,
+      }),
+    ).toBeUndefined(); // undefined = "keep the open thread", not a jump to sess_other
   });
 });

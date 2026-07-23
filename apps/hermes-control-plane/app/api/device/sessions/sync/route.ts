@@ -80,7 +80,11 @@ export async function POST(request: Request) {
          title = excluded.title, source = excluded.source, model = excluded.model, preview = excluded.preview,
          message_count = excluded.message_count,
          context_snapshot = COALESCE(excluded.context_snapshot, threads.context_snapshot),
-         source_updated_at = excluded.source_updated_at,
+         source_updated_at = CASE
+           WHEN threads.source_updated_at IS NULL OR excluded.source_updated_at > threads.source_updated_at
+             THEN excluded.source_updated_at
+           ELSE threads.source_updated_at
+         END,
          synced_at = COALESCE(excluded.synced_at, threads.synced_at), updated_at = excluded.updated_at`
     ).bind(crypto.randomUUID(), identity.organizationId, title, identity.id, sourceSessionId, source, model, preview,
       messageCount, snapshot, sourceUpdatedAt, snapshot ? now : null, owner.userId, now, now));

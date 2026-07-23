@@ -1,5 +1,5 @@
-import { db, runtimeEnv } from "@/lib/runtime";
-import { randomToken, sha256 } from "@/lib/security";
+import { createSignedAuthState } from "@/lib/auth-state";
+import { runtimeEnv } from "@/lib/runtime";
 
 export async function GET(request: Request) {
   const current = runtimeEnv();
@@ -9,13 +9,13 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const requestedReturn = requestUrl.searchParams.get("return_to") ?? "/dashboard";
   const returnTo = requestedReturn.startsWith("/") && !requestedReturn.startsWith("//") ? requestedReturn : "/dashboard";
-  const state = randomToken(24);
-  const now = Date.now();
-  await db().batch([
-    db().prepare("INSERT INTO auth_states (state_hash, return_to, expires_at, created_at) VALUES (?, ?, ?, ?)")
-      .bind(await sha256(state), returnTo, now + 10 * 60 * 1000, now),
-    db().prepare("DELETE FROM auth_states WHERE expires_at < ?").bind(now),
-  ]);
+
+  // Stateless signed OAuth state — no D1 write on the login hot path.
+  const state = await createSignedAuthState(returnTo, current.WORKOS_API_KEY);
+
+  // Ordinary sign-in: AuthKit without max_age. WorkOS treats max_age=0 as
+  // step-up reauthentication and may skip the multi-provider chooser.
+  // See https://workos.com/docs/authkit/reauthentication
   const authorization = new URL("https://api.workos.com/user_management/authorize");
   authorization.searchParams.set("response_type", "code");
   authorization.searchParams.set("client_id", current.WORKOS_CLIENT_ID);

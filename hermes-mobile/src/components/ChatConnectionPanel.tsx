@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 import type { GatewayProfile } from '../types/gatewayProfile';
@@ -22,7 +22,6 @@ import {
   freshUserConnectionBody,
   freshUserConnectionTitle,
   freshUserPrimaryActionLabel,
-  shouldHideConnectionStatusChips,
   shouldShowFreshUserOnboardingSteps,
   isOnTailscaleRoute,
 } from '../utils/freshUserOnboarding';
@@ -35,6 +34,8 @@ import TailscaleDiscoveryBanner from './TailscaleDiscoveryBanner';
 import FreshUserOnboardingCard from './FreshUserOnboardingCard';
 import LoadingButton from './ui/LoadingButton';
 import ManualComputerAddressForm from './ManualComputerAddressForm';
+import ThumbGatePromoCard from './ThumbGatePromoCard';
+import { shouldShowThumbGatePromoOnConnectionPanel } from '../utils/thumbgatePromoCopy';
 
 type ChatConnectionPanelProps = {
   connectionState: 'disconnected' | 'connecting' | 'connected' | 'demo';
@@ -106,17 +107,9 @@ export function buildConnectionStatusChips(input: {
   return chips;
 }
 
-function chipColor(tone: ConnectionStatusChip['tone']): string {
-  if (tone === 'ok') return colors.success;
-  if (tone === 'bad') return colors.error;
-  if (tone === 'warn') return colors.warning;
-  return colors.textMuted;
-}
-
 export default function ChatConnectionPanel({
   connectionState,
   connectionMode = 'gateway',
-  isRelayPaired = false,
   relayWorkers = [],
   activeRelayWorkerId = null,
   macLabel,
@@ -128,7 +121,6 @@ export default function ChatConnectionPanel({
   activeProfileReachable = false,
   activeProfileConnecting = false,
   usbLoopback = false,
-  usbCableLikely = false,
   wifiConnected = true,
   cellularBlocksDirect = false,
   usbHostMismatch = null,
@@ -148,6 +140,7 @@ export default function ChatConnectionPanel({
   liveUsb = null,
   testID = 'chat-connection-panel',
 }: ChatConnectionPanelProps) {
+  const [showOtherWays, setShowOtherWays] = useState(false);
   const heal = connectionHealSnapshot(connectionHealAttempt, connectionHealInFlight);
   const onlyLoopbackProfiles = hasOnlyLoopbackProfiles(profiles);
   const showUsbFix = Boolean(
@@ -167,10 +160,7 @@ export default function ChatConnectionPanel({
     tailscaleDiscoveryProbing &&
     tailscaleDiscoveries.length === 0 &&
     (tailnetProbeHostCount > 0 || onlyLoopbackProfiles);
-  const macHttpOk = activeProfileReachable;
-  const wifiProfileReachable = macHttpOk && !usbLoopback && wifiConnected;
   const showOnboardingSteps = shouldShowFreshUserOnboardingSteps({ profiles, heal });
-  const hideStatusChips = shouldHideConnectionStatusChips({ profiles, heal });
   const freshUser = profiles.length === 0 || showOnboardingSteps;
   const onTailscaleRoute = isOnTailscaleRoute(profiles, activeProfileId);
   const primaryTailscaleLabel =
@@ -212,6 +202,12 @@ export default function ChatConnectionPanel({
     liveUsb,
   });
   const primaryActionLabel = freshUserPrimaryActionLabel(showUsbFix);
+  const showThumbGatePromo = shouldShowThumbGatePromoOnConnectionPanel({
+    connectionState,
+    profileCount: profiles.length,
+    healExhausted: heal.exhausted,
+    activeProfileReachable,
+  });
 
   return (
     <View style={styles.wrap} testID={testID}>
@@ -227,86 +223,6 @@ export default function ChatConnectionPanel({
         </View>
       </View>
 
-      {showOnboardingSteps ? (
-        <FreshUserOnboardingCard
-          profiles={profiles}
-          activeProfileId={activeProfileId}
-          tailscaleMacLabel={primaryTailscaleLabel}
-          wifiConnected={wifiConnected}
-        />
-      ) : null}
-
-      {(tailscaleDiscoveries.length > 0 || tailscaleSearching) ? (
-        <TailscaleDiscoveryBanner
-          discoveries={tailscaleDiscoveries}
-          adding={tailscaleDiscoveryProbing}
-          probing={tailscaleSearching}
-          onAdd={onAddTailscaleComputer}
-          prominent
-        />
-      ) : null}
-
-      <View style={styles.actionRow}>
-        {showUsbFix ? (
-          <LoadingButton
-            label={primaryActionLabel}
-            loadingLabel="Fixing USB connection…"
-            loading={usbFixBusy}
-            onPress={() => onFixUsbLink?.()}
-            testID="chat-connection-fix-usb"
-            style={styles.primaryAction}
-          />
-        ) : (
-          <LoadingButton
-            label={primaryActionLabel}
-            loadingLabel="Finding computers…"
-            loading={searching}
-            onPress={onSearchMac}
-            testID="chat-connection-search"
-            style={styles.primaryAction}
-          />
-        )}
-      </View>
-
-      {onAddProfile ? (
-        <ManualComputerAddressForm onAddProfile={onAddProfile} testIDPrefix="chat-manual" />
-      ) : null}
-
-      {onOpenSettings ? (
-        <TouchableOpacity
-          onPress={onOpenSettings}
-          testID="chat-open-settings-link"
-          accessibilityRole="link"
-        >
-          <Text style={styles.settingsLink}>Advanced options in Settings</Text>
-        </TouchableOpacity>
-      ) : null}
-
-      {pickerProfiles.length > 0 ? (
-        <View style={styles.savedBlock}>
-          <Text style={styles.savedHeading}>Your computers</Text>
-          <Text style={styles.savedHint}>
-            Tap the computer to use. Plugged-in Macs are chosen automatically when the cable is
-            connected.
-          </Text>
-          <GatewayProfilePicker
-            profiles={pickerProfiles}
-            activeProfileId={activeProfileId}
-            activeReachable={activeProfileReachable}
-            activeConnecting={activeProfileConnecting}
-            selectionDisabled={selectionDisabled}
-            onSelect={(profileId, profile) => onSelectProfile?.(profileId, profile)}
-            wifiConnected={wifiConnected}
-            showReachabilityHints={pickerProfiles.length > 1}
-            liveUsb={liveUsb}
-          />
-        </View>
-      ) : null}
-
-      {relayWorkersNotInSaved.length > 0 ? (
-        <RelayWorkerList workers={relayWorkersNotInSaved} activeWorkerId={activeRelayWorkerId} />
-      ) : null}
-
       {showScanCard ? (
         <MacScanProgressCard
           scanning={searching}
@@ -314,39 +230,113 @@ export default function ChatConnectionPanel({
           result={scanResult}
           testID="chat-connection-scan-progress"
         />
-      ) : hideStatusChips ? null : (
-        <View style={styles.tipRow} testID="chat-connection-status-pills">
-          {buildConnectionStatusChips({
-            macHttpOk,
-            usbLoopback,
-            usbCableLikely,
-            isRelayPaired,
-            wifiConnected,
-            wifiProfileReachable,
-          }).map((chip) => (
-            <View
-              key={chip.id}
-              style={[styles.tipPill, styles.statusPill]}
-              testID={`status-pill-${chip.id}`}
-            >
-              <View
-                style={[
-                  styles.statusPillDot,
-                  { backgroundColor: chipColor(chip.tone) },
-                ]}
-              />
-              <Text style={styles.statusPillText}>{chip.label}</Text>
-            </View>
-          ))}
-        </View>
-      )}
+      ) : null}
 
-      <TouchableOpacity
-        onPress={() => Linking.openURL(HERMES_MAC_GET_STARTED_URL)}
-        testID="chat-connection-install-link"
-      >
-        <Text style={styles.installLink}>Need Hermes on your computer? Open setup guide →</Text>
-      </TouchableOpacity>
+      {!searching ? (
+        <>
+          <View style={styles.actionRow}>
+            {showUsbFix ? (
+              <LoadingButton
+                label={primaryActionLabel}
+                loadingLabel="Fixing USB connection…"
+                loading={usbFixBusy}
+                onPress={() => onFixUsbLink?.()}
+                testID="chat-connection-fix-usb"
+                style={styles.primaryAction}
+              />
+            ) : (
+              <LoadingButton
+                label={primaryActionLabel}
+                loadingLabel="Finding computers…"
+                loading={false}
+                onPress={onSearchMac}
+                testID="chat-connection-search"
+                style={styles.primaryAction}
+              />
+            )}
+          </View>
+          <TouchableOpacity
+            onPress={() => setShowOtherWays((visible) => !visible)}
+            testID="chat-connection-other-ways-toggle"
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showOtherWays }}
+          >
+            <Text style={styles.settingsLink}>Other ways to connect</Text>
+          </TouchableOpacity>
+        </>
+      ) : null}
+
+      {!searching && showOtherWays ? (
+        <>
+          {showOnboardingSteps ? (
+            <FreshUserOnboardingCard
+              profiles={profiles}
+              activeProfileId={activeProfileId}
+              tailscaleMacLabel={macLabel?.trim() || primaryTailscaleLabel}
+              wifiConnected={wifiConnected}
+            />
+          ) : null}
+
+          {(tailscaleDiscoveries.length > 0 || tailscaleSearching) ? (
+            <TailscaleDiscoveryBanner
+              discoveries={tailscaleDiscoveries}
+              probing={tailscaleSearching}
+              onAdd={onAddTailscaleComputer}
+              prominent
+            />
+          ) : null}
+
+          {onAddProfile ? (
+            <ManualComputerAddressForm onAddProfile={onAddProfile} testIDPrefix="chat-manual" />
+          ) : null}
+
+          {onOpenSettings ? (
+            <TouchableOpacity
+              onPress={onOpenSettings}
+              testID="chat-open-settings-link"
+              accessibilityRole="link"
+            >
+              <Text style={styles.settingsLink}>Advanced options in Settings</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {pickerProfiles.length > 0 ? (
+            <View style={styles.savedBlock}>
+              <Text style={styles.savedHeading}>Your computers</Text>
+              <Text style={styles.savedHint}>
+                Tap the computer to use. Plugged-in Macs are chosen automatically when the cable is
+                connected.
+              </Text>
+              <GatewayProfilePicker
+                profiles={pickerProfiles}
+                activeProfileId={activeProfileId}
+                activeReachable={activeProfileReachable}
+                activeConnecting={activeProfileConnecting}
+                selectionDisabled={selectionDisabled}
+                onSelect={(profileId, profile) => onSelectProfile?.(profileId, profile)}
+                wifiConnected={wifiConnected}
+                showReachabilityHints={pickerProfiles.length > 1}
+                liveUsb={liveUsb}
+              />
+            </View>
+          ) : null}
+
+          {relayWorkersNotInSaved.length > 0 ? (
+            <RelayWorkerList workers={relayWorkersNotInSaved} activeWorkerId={activeRelayWorkerId} />
+          ) : null}
+
+          <TouchableOpacity
+            onPress={() => Linking.openURL(HERMES_MAC_GET_STARTED_URL)}
+            testID="chat-connection-install-link"
+          >
+            <Text style={styles.installLink}>Need Hermes on your computer? Open setup guide →</Text>
+          </TouchableOpacity>
+        </>
+      ) : null}
+
+      {showThumbGatePromo ? (
+        <ThumbGatePromoCard surface="connection_unreachable" />
+      ) : null}
     </View>
   );
 }

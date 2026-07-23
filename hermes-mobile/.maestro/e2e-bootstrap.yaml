@@ -51,6 +51,8 @@ appId: com.iganapolsky.hermesmobile
     visible:
       id: "THUMBGATE_LEASH"
     timeout: 90000
+- assertNotVisible:
+    id: "tab-screen-loading"
 - runFlow:
     when:
       visible:

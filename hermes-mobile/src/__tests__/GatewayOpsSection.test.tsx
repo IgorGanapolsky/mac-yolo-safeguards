@@ -139,7 +139,7 @@ describe('GatewayOpsSection', () => {
     expect(queryByText('Network request failed')).toBeNull();
   });
 
-  it('automatically enables configured toolsets returned disabled by the gateway', async () => {
+  it('automatically enables only essential configured toolsets returned disabled by the gateway', async () => {
     gatewayClient.listToolsets.mockResolvedValue([
       {
         name: 'skills',
@@ -154,6 +154,13 @@ describe('GatewayOpsSection', () => {
         enabled: false,
         configured: true,
         tools: ['todo'],
+      },
+      {
+        name: 'spotify',
+        label: 'Spotify',
+        enabled: false,
+        configured: true,
+        tools: ['spotify_play'],
       },
       {
         name: 'x_search',
@@ -171,7 +178,7 @@ describe('GatewayOpsSection', () => {
       }),
     );
 
-    const { getByTestId } = render(<GatewayOpsSection />);
+    const { getByTestId, queryByTestId } = render(<GatewayOpsSection />);
 
     await waitFor(() => {
       expect(gatewayClient.setToolsetEnabled).toHaveBeenCalledWith(
@@ -188,17 +195,81 @@ describe('GatewayOpsSection', () => {
       );
       expect(gatewayClient.setToolsetEnabled).not.toHaveBeenCalledWith(
         'http://192.168.12.208:8642',
+        'spotify',
+        true,
+        'sk-test-key',
+      );
+      expect(gatewayClient.setToolsetEnabled).not.toHaveBeenCalledWith(
+        'http://192.168.12.208:8642',
         'x_search',
         true,
         'sk-test-key',
       );
       expect(getByTestId('toolset-switch-skills').props.value).toBe(true);
       expect(getByTestId('toolset-switch-todo').props.value).toBe(true);
-      expect(getByTestId('toolset-switch-x_search').props.value).toBe(false);
+      expect(queryByTestId('toolset-switch-x_search')).toBeNull();
     });
   });
 
-  it('keeps configured toolsets on while automatic enable writes are pending', async () => {
+  it('keeps hobby integrations out of primary Essentials and collapses On your Mac', async () => {
+    gatewayClient.listToolsets.mockResolvedValue([
+      {
+        name: 'session_search',
+        label: 'Session Search',
+        enabled: true,
+        configured: true,
+        tools: ['search'],
+        description: 'search past conversations',
+      },
+      {
+        name: 'homeassistant',
+        label: 'Home Assistant',
+        enabled: false,
+        configured: false,
+        tools: ['hass'],
+        description: 'smart home device control',
+      },
+      {
+        name: 'spotify',
+        label: 'Spotify',
+        enabled: true,
+        configured: true,
+        tools: ['play'],
+        description: 'playback',
+      },
+      {
+        name: 'discord',
+        label: 'Discord',
+        enabled: true,
+        configured: true,
+        tools: ['discord'],
+      },
+    ]);
+
+    const { getByTestId, queryByTestId, getByText } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('toolsets-essentials-title')).toBeTruthy();
+      expect(getByTestId('toolset-switch-session_search')).toBeTruthy();
+    });
+
+    expect(queryByTestId('toolset-switch-homeassistant')).toBeNull();
+    expect(queryByTestId('toolset-add-key-homeassistant')).toBeNull();
+    expect(queryByTestId('toolset-switch-spotify')).toBeNull();
+    expect(queryByTestId('toolsets-advanced-list')).toBeNull();
+    expect(getByText(/On your Mac \(2\)/)).toBeTruthy();
+
+    fireEvent.press(getByTestId('toolsets-advanced-toggle'));
+
+    await waitFor(() => {
+      expect(getByTestId('toolsets-advanced-list')).toBeTruthy();
+      expect(getByTestId('toolset-switch-spotify')).toBeTruthy();
+      expect(getByTestId('toolset-switch-discord')).toBeTruthy();
+      expect(queryByTestId('toolset-add-key-spotify')).toBeNull();
+    });
+  });
+
+  it('keeps configured essential toolsets on while automatic enable writes are pending', async () => {
     gatewayClient.listToolsets.mockResolvedValue([
       {
         name: 'web',
@@ -208,11 +279,11 @@ describe('GatewayOpsSection', () => {
         tools: ['web_search'],
       },
       {
-        name: 'x_search',
-        label: 'X Search',
+        name: 'spotify',
+        label: 'Spotify',
         enabled: false,
-        configured: false,
-        tools: ['x_search'],
+        configured: true,
+        tools: ['spotify_play'],
       },
     ]);
     let resolveAutoEnable:
@@ -225,7 +296,7 @@ describe('GatewayOpsSection', () => {
         }),
     );
 
-    const { getByTestId } = render(<GatewayOpsSection />);
+    const { getByTestId, queryByTestId } = render(<GatewayOpsSection />);
 
     await waitFor(() => {
       expect(gatewayClient.setToolsetEnabled).toHaveBeenCalledWith(
@@ -234,8 +305,14 @@ describe('GatewayOpsSection', () => {
         true,
         'sk-test-key',
       );
+      expect(gatewayClient.setToolsetEnabled).not.toHaveBeenCalledWith(
+        'http://192.168.12.208:8642',
+        'spotify',
+        true,
+        'sk-test-key',
+      );
       expect(getByTestId('toolset-switch-web').props.value).toBe(true);
-      expect(getByTestId('toolset-switch-x_search').props.value).toBe(false);
+      expect(queryByTestId('toolset-switch-spotify')).toBeNull();
     });
 
     await act(async () => {
@@ -243,7 +320,7 @@ describe('GatewayOpsSection', () => {
     });
   });
 
-  it('hides Keys button for ready toolsets that need no API key', async () => {
+  it('hides Keys button for ready essential toolsets that need no API key', async () => {
     gatewayClient.listToolsets.mockResolvedValue([
       {
         name: 'web',
@@ -255,7 +332,7 @@ describe('GatewayOpsSection', () => {
       {
         name: 'x_search',
         label: 'X Search',
-        enabled: false,
+        enabled: true,
         configured: false,
         tools: ['x_search'],
       },
@@ -273,22 +350,39 @@ describe('GatewayOpsSection', () => {
     });
 
     expect(queryByTestId('toolset-add-key-web')).toBeNull();
-    expect(getByTestId('toolset-add-key-x_search')).toBeTruthy();
+    expect(queryByTestId('toolset-add-key-x_search')).toBeNull();
     expect(getByTestId('toolset-switch-web').props.disabled).not.toBe(true);
+
+    fireEvent.press(getByTestId('toolsets-advanced-toggle'));
+    await waitFor(() => {
+      expect(getByTestId('toolset-add-key-x_search')).toBeTruthy();
+    });
   });
 
-  it('opens Add key sheet when enabling a tool that still needs credentials', async () => {
+  it('opens Add key sheet from On your Mac for non-hobby tools that need credentials', async () => {
     gatewayClient.listToolsets.mockResolvedValue([
+      {
+        name: 'web',
+        label: 'Web Search',
+        enabled: true,
+        configured: true,
+        tools: ['web_search'],
+      },
       {
         name: 'x_search',
         label: 'X Search',
-        enabled: false,
+        enabled: true,
         configured: false,
         tools: ['x_search'],
       },
     ]);
 
     const { getByTestId } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('toolsets-advanced-toggle')).toBeTruthy();
+    });
+    fireEvent.press(getByTestId('toolsets-advanced-toggle'));
 
     await waitFor(() => {
       expect(getByTestId('toolset-add-key-x_search')).toBeTruthy();

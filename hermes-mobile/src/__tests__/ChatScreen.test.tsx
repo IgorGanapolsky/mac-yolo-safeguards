@@ -505,7 +505,7 @@ describe('ChatScreen', () => {
     }
   });
 
-  it('keeps chat available in relay mode when the account is not paired yet', async () => {
+  it('keeps cloud approval pairing distinct from computer transport in Chat', async () => {
     Object.assign(mockGatewayState, {
       connectionState: 'disconnected',
       effectiveGatewayUrl: '',
@@ -525,8 +525,10 @@ describe('ChatScreen', () => {
 
     expect(queryByTestId('chat-connection-panel')).toBeNull();
     expect(getByTestId('chat-input')).toBeTruthy();
-    expect(getByTestId('chat-context-mac').props.children).toBe('Hermes account relay');
-    expect(getByTestId('chat-context-link').props.children).toContain('Pair relay in Settings for Wi‑Fi, cellular, or USB');
+    expect(getByTestId('chat-context-mac').props.children).toBe('Your computer');
+    expect(getByTestId('chat-context-link').props.children).toContain(
+      'Pair to receive approval requests anywhere',
+    );
   });
 
   it('allows text input and shows send button active', async () => {
@@ -874,6 +876,94 @@ describe('ChatScreen', () => {
     });
   });
 
+  it('resumes another living thread when the sticky target 404s (dead cron/sticky)', async () => {
+    const { listSessions, createSessionWithUniqueTitle, listMessages, sendChatMessage } =
+      jest.requireMock('../services/hermesChatClient') as {
+        listSessions: jest.Mock;
+        createSessionWithUniqueTitle: jest.Mock;
+        listMessages: jest.Mock;
+        sendChatMessage: jest.Mock;
+      };
+    const { streamSessionChat } = jest.requireMock('../services/hermesGatewayClient') as {
+      streamSessionChat: jest.Mock;
+    };
+    const { storage } = jest.requireMock('../services/storage') as {
+      storage: { loadLastSessionForComputer: jest.Mock };
+    };
+    listSessions.mockResolvedValue([
+      {
+        id: 'cron_dead_sticky',
+        source: 'cron',
+        title: 'Scheduled job',
+        last_active_at: '2026-07-22T15:28:00.000Z',
+      },
+      {
+        id: 'mobile_alive_thread',
+        source: 'api_server',
+        title: 'Why we made zero dollars',
+        last_active_at: '2026-07-22T12:00:00.000Z',
+      },
+    ]);
+    listMessages.mockResolvedValue([
+      { id: 'u0', role: 'user', content: 'Prior context from the long thread' },
+      { id: 'a0', role: 'assistant', content: 'Prior assistant turn' },
+    ]);
+    storage.loadLastSessionForComputer.mockResolvedValue('cron_dead_sticky');
+    createSessionWithUniqueTitle.mockClear();
+    sendChatMessage.mockClear();
+    streamSessionChat.mockReset();
+    streamSessionChat.mockImplementation(
+      (
+        _gatewayUrl: string,
+        sessionId: string,
+        _text: string,
+        _apiKey: string,
+        onEvent: (event: { event: string; data: Record<string, unknown> }) => void,
+        _systemPrompt: string,
+        onOpen?: () => void,
+      ) => {
+        if (sessionId === 'cron_dead_sticky') {
+          return Promise.reject(
+            new Error(JSON.stringify({ error: { code: 'session_not_found', message: 'gone' } })),
+          );
+        }
+        onOpen?.();
+        onEvent({ event: 'assistant.delta', data: { delta: 'Resumed with context.' } });
+        return Promise.resolve('Resumed with context.');
+      },
+    );
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: { ok: true, level: 'green', hostname: 'demo-mac.local' },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const { getByTestId, queryByText } = await renderChatScreen();
+
+    await act(async () => {
+      fireEvent.changeText(getByTestId('chat-input'), 'Are you sure?');
+      fireEvent.press(getByTestId('chat-send-button'));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(streamSessionChat).toHaveBeenCalled();
+    });
+    // Must not blank-create a history=0 chat titled from the follow-up.
+    expect(createSessionWithUniqueTitle).not.toHaveBeenCalled();
+    const streamedIds = streamSessionChat.mock.calls.map((call) => call[1]);
+    expect(streamedIds).toContain('mobile_alive_thread');
+    expect(streamedIds).not.toContain('cron_dead_sticky');
+    expect(sendChatMessage).not.toHaveBeenCalled();
+    expect(queryByText(/That chat was removed or your computer restarted/)).toBeNull();
+  });
+
   it('auto-creates a fresh session and retries once when the gateway reports the target session was removed', async () => {
     const { listSessions, createSessionWithUniqueTitle, sendChatMessage } = jest.requireMock(
       '../services/hermesChatClient',
@@ -943,7 +1033,7 @@ describe('ChatScreen', () => {
       await Promise.resolve();
     });
 
-    // Exactly one auto-create + retry: the second stream targets the NEW id.
+    // Title-resume binds the stale id; 404 recovery creates once and retries.
     await waitFor(() => {
       expect(createSessionWithUniqueTitle).toHaveBeenCalledTimes(1);
       expect(streamSessionChat).toHaveBeenCalledTimes(2);
@@ -1386,19 +1476,72 @@ describe('ChatScreen', () => {
   });
 
   it('explains how a new user adds a missing Tailscale Mac from the Mac picker', async () => {
-    const { getByTestId, getByText } = await renderChatScreen();
+    Object.assign(mockGatewayState, {
+      connectionState: 'disconnected',
+      health: { ok: false, level: 'red' },
+      activeGatewayProfile: null,
+      gatewayProfiles: [],
+      tailscaleVpnActive: true,
+      tailscaleDiscoveries: [],
+      settings: {
+        ...mockGatewayState.settings,
+        demoMode: false,
+      },
+    });
+    const { getByTestId, getByText, getAllByText } = await renderChatScreen();
 
     fireEvent.press(getByTestId('chat-context-mac-button'));
 
     expect(getByTestId('mac-picker-scroll')).toBeTruthy();
     expect(getByTestId('mac-picker-status-region')).toBeTruthy();
-    expect(getByText('Missing your other machine?')).toBeTruthy();
-    expect(getByText(/Start Hermes on your other machine/)).toBeTruthy();
     expect(getByTestId('mac-picker-manual-form')).toBeTruthy();
-    expect(getByText('Add by Tailscale address')).toBeTruthy();
-    expect(
-      getByText("Enter your Mac's Tailscale name or 100.x address, then Connect."),
-    ).toBeTruthy();
+    expect(getAllByText('Paste your Mac’s Tailscale IP').length).toBeGreaterThanOrEqual(1);
+    expect(getAllByText(/On the Mac: Tailscale → copy 100\.x → paste → Connect/).length).toBeGreaterThanOrEqual(1);
+    expect(getAllByText(/Hermes must be open on that Mac/).length).toBeGreaterThanOrEqual(1);
+    expect(getByTestId('mac-picker-subtitle')).toHaveTextContent(
+      /Tap a computer, or paste Tailscale IP below/,
+    );
+  });
+
+  it('lists saved computers above picker help and collapses idle help when profiles exist', async () => {
+    Object.assign(mockGatewayState, {
+      tailscaleVpnActive: true,
+      tailscaleDiscoveries: [],
+      activeGatewayProfile: {
+        id: 'macbook',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://10.2.29.103:8642',
+        localIp: '10.2.29.103',
+        addedAt: '2026-07-02T00:00:00Z',
+      },
+      gatewayProfiles: [
+        {
+          id: 'macmini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          localIp: '100.94.135.78',
+          addedAt: '2026-07-02T00:00:00Z',
+        },
+        {
+          id: 'macbook',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://10.2.29.103:8642',
+          localIp: '10.2.29.103',
+          addedAt: '2026-07-02T00:00:00Z',
+        },
+      ],
+    });
+    const { getByTestId, queryByTestId, queryByText, getByText } = await renderChatScreen();
+
+    fireEvent.press(getByTestId('chat-context-mac-button'));
+
+    expect(getByTestId('gateway-profile-list')).toBeTruthy();
+    expect(getByTestId('mac-picker-status-region-help-link')).toBeTruthy();
+    expect(getByText('Missing another computer?')).toBeTruthy();
+    expect(queryByTestId('mac-picker-status-region')).toBeNull();
+    expect(getByTestId('mac-picker-manual-input-row')).not.toHaveStyle({
+      flexDirection: 'column',
+    });
   });
 
   it('keeps one computer-picker status region instead of stacking discovery banners', async () => {
@@ -1494,9 +1637,9 @@ describe('ChatScreen', () => {
       ],
     });
 
-    const { getByTestId, queryByTestId, queryByText } = await renderChatScreen();
+    const { getByTestId, queryByTestId, queryByText, getByText } = await renderChatScreen();
     fireEvent.press(getByTestId('chat-context-mac-button'));
-    expect(getByTestId('remove-gateway-profile-macmini')).toHaveTextContent(/^Forget this Mac$/);
+    expect(getByTestId('remove-gateway-profile-macmini')).toHaveTextContent('Forget this Mac');
     expect(queryByText('Remove')).toBeNull();
 
     fireEvent.press(getByTestId('remove-gateway-profile-macmini'));
@@ -1708,7 +1851,7 @@ describe('ChatScreen', () => {
   });
 
   it('hides Type a message below while the attach picker sheet is open', async () => {
-    const { getByTestId, queryByTestId, queryByText } = await renderChatScreen();
+    const { getByTestId, queryByTestId, queryByText, getByText } = await renderChatScreen();
 
     fireEvent.press(getByTestId('open-sessions-modal'));
     fireEvent.press(getByTestId('modal-new-chat-button'));
@@ -2718,9 +2861,9 @@ describe('ChatScreen', () => {
         await Promise.resolve();
       });
 
-      // Footer chip is the interactive picker; header project lane stays always visible.
+      // Footer chip is the sole project picker — header must not duplicate the lane label.
       expect(getByTestId('vault-project-picker-chip')).toBeTruthy();
-      expect(getByTestId('chat-header-project-picker')).toBeTruthy();
+      expect(queryByTestId('chat-header-project-picker')).toBeNull();
       expect(queryByTestId('chat-header-details-toggle')).toBeNull();
 
       fireEvent.press(getByTestId('vault-project-picker-chip'));
@@ -2729,6 +2872,21 @@ describe('ChatScreen', () => {
         expect(getByTestId('project-modal')).toBeTruthy();
         expect(getByTestId('project-pick-demo-hermes-mobile')).toBeTruthy();
       });
+    });
+
+    it('does not render a duplicate header Project lane control', async () => {
+      const { getByTestId, queryByTestId, queryAllByTestId, queryByText } = await renderChatScreen();
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(queryByTestId('chat-header-project-picker')).toBeNull();
+      expect(queryByTestId('chat-context-project')).toBeNull();
+      expect(queryAllByTestId('vault-project-picker-chip')).toHaveLength(1);
+      expect(getByTestId('vault-project-picker-chip')).toBeTruthy();
+      expect(queryByText(/Project lane \(optional\) ›/)).toBeNull();
     });
   });
 

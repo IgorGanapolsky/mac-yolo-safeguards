@@ -1,0 +1,26 @@
+name: control-plane-live-smoke
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run live smoke against thumbgate.app
+        run: bash scripts/control-plane-live-smoke.sh
+      - name: Alert on failure (ntfy)
+        if: failure()
+        run: |
+          curl -fsS -m 10 \
+            -H "Title: thumbgate.app smoke FAILED" \
+            -H "Priority: high" \
+            -d "control-plane-live-smoke failed on $(date -u +%FT%TZ) — run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            https://ntfy.sh/yolo-guard-fdh8ktuw1vtxb5sb || true

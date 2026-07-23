@@ -2,6 +2,7 @@ import type { GatewayProfile } from '../types/gatewayProfile';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import {
   findProfileForGatewayUrl,
+  profileMachineKey,
   profilesForActiveMachine,
   profilesShareMachine,
   shouldProbeGatewayUrlForActiveProfile,
@@ -163,12 +164,17 @@ export function shouldPreferUsbProbeFirst(input: {
 /**
  * On cellular, do not accept a successful loopback /health as the session route when a
  * Tailscale alternate exists — clears false "USB Connected" from ghost adb reverse.
+ * Skip defer when live USB reverse is confirmed (real cable on 5G).
  */
 export function shouldDeferLoopbackSuccessOnCellular(input: {
   primaryUrl: string;
   wifiConnected: boolean;
   hasTailscaleAlternate: boolean;
+  liveUsbConfirmed?: boolean;
 }): boolean {
+  if (input.liveUsbConfirmed) {
+    return false;
+  }
   return (
     !input.wifiConnected &&
     isLoopbackGatewayUrl(input.primaryUrl) &&
@@ -176,12 +182,20 @@ export function shouldDeferLoopbackSuccessOnCellular(input: {
   );
 }
 
-/** Clear USB-primary on cellular when a same-machine Tailscale URL is available. */
+/**
+ * Clear USB-primary on cellular when a same-machine Tailscale URL is available.
+ * Never clear when live USB reverse is confirmed (cable + hostname) — product lock.
+ */
 export function shouldClearUsbPrimaryOnCellular(input: {
   primaryUrl: string;
   wifiConnected: boolean;
   failoverUrl: string | null | undefined;
+  /** Live adb reverse /health for the cable — blocks ghost-clear of a real USB path. */
+  liveUsbConfirmed?: boolean;
 }): boolean {
+  if (input.liveUsbConfirmed) {
+    return false;
+  }
   const failover = input.failoverUrl?.trim();
   if (!failover || input.wifiConnected) {
     return false;
@@ -192,7 +206,33 @@ export function shouldClearUsbPrimaryOnCellular(input: {
   return isTailscaleGatewayUrl(failover) && failover !== input.primaryUrl.trim();
 }
 
-/** When cellular blocks LAN, pick a reachable Tailscale URL for the active Mac (or any saved tailnet route). */
+/** First Tailscale URL among profiles/discoveries that is not the primary. */
+function firstOtherTailscaleUrl(
+  primary: string,
+  profiles: GatewayProfile[],
+  discoveries: DiscoveredGateway[],
+): string | null {
+  for (const profile of profiles) {
+    const url = profile.gatewayUrl.trim();
+    if (url && url !== primary && isTailscaleGatewayUrl(url)) {
+      return url;
+    }
+  }
+  for (const discovery of discoveries) {
+    const url = discovery.gatewayUrl.trim();
+    if (url && url !== primary && isTailscaleGatewayUrl(url)) {
+      return url;
+    }
+  }
+  return null;
+}
+
+/**
+ * When cellular/off-Wi‑Fi blocks LAN/USB, pick a Tailscale URL.
+ * Prefer same-machine Tailscale for the active computer.
+ * Anonymous USB (no machine key) may fall through to any Tailscale peer.
+ * Named USB/LAN (MacBook Pro) must NOT silently jump to Mac mini — selection sticks.
+ */
 export function resolveCellularTailscaleFailoverUrl(input: {
   primaryUrl: string;
   profiles: GatewayProfile[];
@@ -236,23 +276,17 @@ export function resolveCellularTailscaleFailoverUrl(input: {
         return profile.gatewayUrl;
       }
     }
+    // Anonymous sticky USB/LAN only — never auto-steal a named MacBook → mini.
+    if (
+      !profileMachineKey(active) &&
+      (isLoopbackGatewayUrl(primary) || isPrivateLanGatewayUrl(primary))
+    ) {
+      return firstOtherTailscaleUrl(primary, input.profiles, discoveries);
+    }
+    return null;
   }
 
-  if (!active) {
-    for (const profile of input.profiles) {
-      const url = profile.gatewayUrl.trim();
-      if (url && url !== primary && isTailscaleGatewayUrl(url)) {
-        return url;
-      }
-    }
-    for (const discovery of discoveries) {
-      const url = discovery.gatewayUrl.trim();
-      if (url && url !== primary && isTailscaleGatewayUrl(url)) {
-        return url;
-      }
-    }
-  }
-  return null;
+  return firstOtherTailscaleUrl(primary, input.profiles, discoveries);
 }
 
 /** Pick the per-profile API key that matches a gateway URL before heal/failover probes. */

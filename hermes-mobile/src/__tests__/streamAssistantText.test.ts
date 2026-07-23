@@ -4,8 +4,10 @@ import {
   findNewAssistantReply,
   GENERIC_EMPTY_STREAM_PLACEHOLDER,
   isDeferredStreamPlaceholder,
+  isSilentAssistantCompletion,
   isTelegramDeferredEmptyStream,
   isTransientWorkingStatusPlaceholder,
+  preferRicherAssistantText,
   resolveWorkingPlaceholderAfterToolPoll,
   snapshotAssistantBodies,
   TELEGRAM_QUEUED_REPLY_PLACEHOLDER,
@@ -31,11 +33,37 @@ describe('streamAssistantText', () => {
     expect(extractAssistantFromRunCompletedPayload({ output: 'from output' })).toBe('from output');
   });
 
+  it('treats the gateway [SILENT] sentinel as an empty, non-user-facing completion', () => {
+    expect(isSilentAssistantCompletion(' [silent] ')).toBe(true);
+    expect(isSilentAssistantCompletion('*[SILENT]*')).toBe(true);
+    expect(isSilentAssistantCompletion('`[SILENT]`')).toBe(true);
+    expect(isSilentAssistantCompletion('[SILENT] with tool output')).toBe(false);
+    expect(isDeferredStreamPlaceholder('[SILENT]')).toBe(true);
+    expect(extractAssistantFromRunCompletedPayload({ output: '[SILENT]' })).toBe('');
+    expect(
+      extractAssistantFromRunCompletedPayload({
+        messages: [
+          { role: 'assistant', content: '[SILENT]' },
+          { role: 'assistant', content: 'A real reply.' },
+        ],
+      }),
+    ).toBe('A real reply.');
+  });
+
   it('detects telegram deferred empty stream', () => {
     const telegram: HermesSession = { id: 'tg-1', source: 'telegram' };
     expect(isTelegramDeferredEmptyStream(telegram, '')).toBe(true);
     expect(isTelegramDeferredEmptyStream(telegram, 'hello')).toBe(false);
     expect(isTelegramDeferredEmptyStream({ id: 'cli', source: 'cli' }, '')).toBe(false);
+  });
+
+  it('never replaces richer streamed text with a shorter refresh or placeholder', () => {
+    const long =
+      'Honest answer: not today. Warm outreach can still land a Stripe dollar this afternoon.';
+    expect(preferRicherAssistantText(long, 'Short ack.')).toBe(long);
+    expect(preferRicherAssistantText(long, GENERIC_EMPTY_STREAM_PLACEHOLDER)).toBe(long);
+    expect(preferRicherAssistantText(GENERIC_EMPTY_STREAM_PLACEHOLDER, long)).toBe(long);
+    expect(preferRicherAssistantText('Short.', `${long} More.`).startsWith('Honest')).toBe(true);
   });
 
   it('finds a new assistant reply not in the pre-send snapshot', () => {
@@ -57,6 +85,20 @@ describe('streamAssistantText', () => {
       { role: 'assistant', content: 'Real answer' },
     ];
     expect(findNewAssistantReply(messages, prior)).toBe('Real answer');
+  });
+
+  it('scopes new replies to the latest user turn and prefers the longest body', () => {
+    const prior = snapshotAssistantBodies([{ role: 'assistant', content: 'Old reply' }]);
+    const long =
+      'Long honest answer about Stripe and PayPal timing with concrete next actions.';
+    const messages: HermesMessage[] = [
+      { role: 'user', content: 'older' },
+      { role: 'assistant', content: 'Brand new unrelated early bubble' },
+      { role: 'user', content: 'What time today for next dollar?' },
+      { role: 'assistant', content: 'Short' },
+      { role: 'assistant', content: long },
+    ];
+    expect(findNewAssistantReply(messages, prior)).toBe(long);
   });
 
   it('ignores summarization stubs when scanning for new replies', () => {

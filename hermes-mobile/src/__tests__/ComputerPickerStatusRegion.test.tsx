@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import ComputerPickerStatusRegion from '../components/ComputerPickerStatusRegion';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { LanScanResult } from '../types/lanScan';
@@ -47,7 +47,7 @@ describe('ComputerPickerStatusRegion', () => {
         expect.objectContaining({ minHeight: COMPUTER_PICKER_STATUS_MIN_HEIGHT }),
       ]),
     );
-    expect(getByText('Missing your other machine?')).toBeTruthy();
+    expect(getByText('Paste your Mac’s Tailscale IP')).toBeTruthy();
     expect(queryByTestId('tailscale-discovery-probing')).toBeNull();
     expect(queryByTestId('mac-scan-progress-result')).toBeNull();
 
@@ -131,7 +131,27 @@ describe('ComputerPickerStatusRegion', () => {
       />,
     );
 
-    expect(getByText('Tailscale is off on this phone')).toBeTruthy();
+    expect(getByText('Looking for Tailscale computers…')).toBeTruthy();
     expect(queryByText('On Tailscale — searching for your computer')).toBeNull();
+  });
+
+  it('collapses idle help into a link when saved profiles exist', () => {
+    const onExpandHelp = jest.fn();
+    const { getByTestId, queryByTestId } = render(
+      <ComputerPickerStatusRegion
+        scanning={false}
+        scanProgress={null}
+        scanResult={null}
+        tailscaleProbing={false}
+        tailscaleVpnActive
+        tailscaleDiscoveries={[]}
+        savedProfileCount={2}
+        onExpandHelp={onExpandHelp}
+      />,
+    );
+
+    expect(queryByTestId('mac-picker-status-region')).toBeNull();
+    fireEvent.press(getByTestId('mac-picker-status-region-help-link'));
+    expect(onExpandHelp).toHaveBeenCalledTimes(1);
   });
 });

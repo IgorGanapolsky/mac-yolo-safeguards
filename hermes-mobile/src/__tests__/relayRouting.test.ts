@@ -30,7 +30,7 @@ describe('relayRouting', () => {
     expect(selectRelayWorker(workers, null)?.id).toBe('mac-mini');
   });
 
-  it('shows account relay instead of local machine when unpaired', () => {
+  it('labels an unpaired cloud approval queue without implying computer transport', () => {
     const display = resolveRelayRouteDisplay({
       connectionMode: 'relay',
       isPaired: false,
@@ -40,9 +40,9 @@ describe('relayRouting', () => {
       fallbackMachineLabel: '192.168.1.10',
     });
 
-    expect(display.machineLabel).toBe('Hermes account relay');
+    expect(display.machineLabel).toBe('Cloud approvals');
     expect(display.endpointLabel).toBeUndefined();
-    expect(display.routeStatus).toContain('Pair relay in Settings');
+    expect(display.routeStatus).toBe('Pair to receive approval requests anywhere');
   });
 
   it('suppresses pair relay nag while silently reconnecting on Wi-Fi', () => {
@@ -63,7 +63,7 @@ describe('relayRouting', () => {
     expect(display.routeStatus).toBe('Reconnecting…');
   });
 
-  it('never says Reconnecting for fresh loopback / empty URL while healing', () => {
+  it('does not describe a fresh unpaired approval queue as a computer connection', () => {
     const empty = resolveRelayRouteDisplay({
       connectionMode: 'relay',
       isPaired: false,
@@ -74,7 +74,7 @@ describe('relayRouting', () => {
       heal: { attempt: 1, inFlight: true, exhausted: false },
       macHttpOk: false,
     });
-    expect(empty.routeStatus).toBe('Looking for your Mac…');
+    expect(empty.routeStatus).toBe('Waiting for approval pairing…');
     expect(empty.routeStatus.toLowerCase()).not.toContain('reconnect');
 
     const usb = resolveRelayRouteDisplay({
@@ -87,10 +87,10 @@ describe('relayRouting', () => {
       heal: { attempt: 1, inFlight: true, exhausted: false },
       macHttpOk: false,
     });
-    expect(usb.routeStatus).toBe('Looking for your Mac…');
+    expect(usb.routeStatus).toBe('Waiting for approval pairing…');
   });
 
-  it('routes paired relay to active worker and hides LAN endpoint details', () => {
+  it('labels paired relay workers as cloud approvals, not Tailscale transport', () => {
     const display = resolveRelayRouteDisplay({
       connectionMode: 'relay',
       isPaired: true,
@@ -102,8 +102,8 @@ describe('relayRouting', () => {
     });
 
     expect(display.machineLabel).toBe('Igors-Mac-mini · skool_top1percent');
-    expect(display.endpointLabel).toBe('via Hermes relay');
-    expect(display.routeStatus).toContain('Hermes account');
+    expect(display.endpointLabel).toBe('cloud approvals');
+    expect(display.routeStatus).toContain('Approval requests anywhere');
   });
 
   it('keeps direct fallback display in gateway mode', () => {

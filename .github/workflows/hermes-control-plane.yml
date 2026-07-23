@@ -9,6 +9,16 @@ on:
       - "tests/test-hermes-cloud-connector.js"
       - "tests/test-hermes-business-e2e.js"
       - "tests/test-hermes-cloudflare-deploy-config.js"
+      - "tests/test-thumbgate-aeo-monitor.js"
+      - "tools/thumbgate-aeo-monitor.js"
+      - "config/thumbgate-aeo-prompts.json"
+      - "com.igor.thumbgate-aeo-monitor.plist"
+      - "scripts/install-thumbgate-aeo-monitor.sh"
+      - "docs/THUMBGATE-AEO-MONITORING.md"
+      - "docs/RESEARCH-THUMBGATE-AEO-JULY-2026.md"
+      - "tests/test-saas-watchdog.sh"
+      - "saas/saas-watchdog.sh"
+      - "com.igor.saas-watchdog.plist"
       - "docs/HERMES-CLOUDFLARE-MIGRATION.md"
       - ".github/workflows/hermes-control-plane.yml"
   push:
@@ -20,6 +30,16 @@ on:
       - "tests/test-hermes-cloud-connector.js"
       - "tests/test-hermes-business-e2e.js"
       - "tests/test-hermes-cloudflare-deploy-config.js"
+      - "tests/test-thumbgate-aeo-monitor.js"
+      - "tools/thumbgate-aeo-monitor.js"
+      - "config/thumbgate-aeo-prompts.json"
+      - "com.igor.thumbgate-aeo-monitor.plist"
+      - "scripts/install-thumbgate-aeo-monitor.sh"
+      - "docs/THUMBGATE-AEO-MONITORING.md"
+      - "docs/RESEARCH-THUMBGATE-AEO-JULY-2026.md"
+      - "tests/test-saas-watchdog.sh"
+      - "saas/saas-watchdog.sh"
+      - "com.igor.saas-watchdog.plist"
       - "docs/HERMES-CLOUDFLARE-MIGRATION.md"
 
 permissions:
@@ -40,12 +60,22 @@ jobs:
         working-directory: apps/hermes-control-plane
       - run: npm run lint
         working-directory: apps/hermes-control-plane
+      - name: Reject high or critical dependency advisories
+        run: npm run test:security
+        working-directory: apps/hermes-control-plane
+      - name: Enforce control-plane unit coverage thresholds
+        run: npm run test:unit
+        working-directory: apps/hermes-control-plane
       - run: npm test
         working-directory: apps/hermes-control-plane
       - run: npm run test:cloudflare-config
         working-directory: apps/hermes-control-plane
-      - run: npm run test:cloudflare-worker
+      - name: Verify bounded ThumbGate AI/search visibility monitor
+        run: node tests/test-thumbgate-aeo-monitor.js
+      - name: Run local Cloudflare Worker session-lifecycle E2E
+        run: npm run test:e2e
         working-directory: apps/hermes-control-plane
+      - run: bash tests/test-saas-watchdog.sh
       - run: node --test tests/test-hermes-cloud-connector.js
       - run: node --test tests/test-hermes-business-e2e.js
       - run: npm test

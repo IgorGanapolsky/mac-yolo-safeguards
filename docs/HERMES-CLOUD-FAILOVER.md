@@ -21,14 +21,18 @@ The control plane rejects expired timestamps, reused nonces, revoked devices, an
 1. A heartbeat seen within 60 seconds routes new tasks to the local Hermes connector.
 2. If the device is offline, `disabled` pauses, `manual` waits for dashboard approval, and `auto` queues the task for cloud execution.
 3. A worker claims a 90-second lease with an incrementing generation and an opaque fencing token.
-4. Completion succeeds only for the current lease owner and token. A stale local or cloud worker cannot overwrite a newer run.
-5. When a local heartbeat returns, unclaimed cloud tasks are moved back to local. A cloud task already running retains its lease; this prevents duplicate execution.
+4. While execution is active, the local connector or cloud runner renews that same lease every 30 seconds. Renewal succeeds only while the current owner, token, generation, and original lease remain valid; an expired lease cannot be revived.
+5. Completion succeeds only for the current owner and token while the lease is still unexpired. Completion clears all lease authority. A stale local or cloud worker therefore cannot overwrite a newer run or complete after its deadline.
+6. When a local heartbeat returns, unclaimed cloud tasks are moved back to local. A cloud task already running retains its renewable lease; this prevents duplicate execution.
 
 The connector also reads the authenticated Hermes session API on `127.0.0.1:8642`, the
 same contract used by Hermes Mobile. It syncs metadata for recent sessions and bounded
 recent-message snapshots for continuity. Existing-session work is sent back through
-`/api/sessions/:id/chat`; a web-created thread without a source session uses the local
-OpenAI-compatible model gateway. Gateway credentials and device private keys stay local.
+`/api/sessions/:id/chat`. A web-created thread is assigned a deterministic source-session
+ID by the control plane; the connector creates that session in Hermes when necessary,
+pins the active `terminal.cwd` from the local Hermes configuration, and then uses the same
+session-chat endpoint for every turn. There is no bare model-completion fallback. Gateway
+credentials, the configured workspace path, and device private keys stay local.
 
 This is continuity of a queued Hermes prompt and thread, not transparent migration of live process memory. Tool access available only on the Mac cannot be reproduced by the cloud runner unless an equivalent cloud integration is separately configured.
 
@@ -44,6 +48,25 @@ Fly.io secrets:
 
 - `HERMES_CONTROL_PLANE_URL`, `HERMES_CLOUD_RUNNER_TOKEN`
 - `OPENAI_BASE_URL`, `OPENAI_API_KEY`, `OPENAI_MODEL`
+- Optional polling overrides: `ACTIVE_POLL_MS` (default `1000`) and
+  `IDLE_POLL_MS` (default `30000`; legacy `POLL_MS` is accepted as the idle value)
+
+Local connector polling can be overridden with
+`HERMES_CONNECTOR_ACTIVE_POLL_MS`, `HERMES_CONNECTOR_IDLE_POLL_MS`,
+`HERMES_CONNECTOR_HEARTBEAT_MS`, and `HERMES_CONNECTOR_SESSION_SYNC_MS`.
+The defaults deliberately keep active queues responsive while backing off idle work:
+
+| Source | Active/default cadence | Idle requests/day |
+| --- | --- | ---: |
+| Cloud runner claim | 1 second after work; 30 seconds after an empty claim | 2,880 |
+| Connector task + thread claims | 1 second after work; 15 seconds after empty claims | 11,520 |
+| Connector heartbeat | 30 seconds | 2,880 |
+| Connector session sync | 60 seconds | 1,440 |
+| **Idle baseline** | | **18,720** |
+
+The budget excludes signed-in dashboard refreshes and real task traffic. It replaced the
+July 21, 2026 fixed-poll baseline of about 93,600 requests/day, which was enough to consume
+Cloudflare's 100,000-request daily allowance while the product was otherwise idle.
 
 The Stripe webhook endpoint is `/api/billing/webhook`; it promotes a workspace to `pro` for an active subscription and suspends new task creation after deletion. WorkOS must list the deployed `/api/auth/callback` URL and have Google and Apple social connections enabled.
 
@@ -53,3 +76,5 @@ The Stripe webhook endpoint is `/api/billing/webhook`; it promotes a workspace t
 - Connector signature/config: `node --test tests/test-hermes-cloud-connector.js`
 - Cloud runner: `npm test` in `services/hermes-cloud-runner`
 - Fly health: `GET /health` reports the latest poll and task timestamps without secrets
+- Anonymous security boundary: `/dashboard` redirects to hosted sign-in before its private client shell renders; workspace APIs return `401`
+- ARD capability catalog: `GET /.well-known/ai-catalog.json` validates as ARD 1.0 and contains only public documentation/discovery URLs

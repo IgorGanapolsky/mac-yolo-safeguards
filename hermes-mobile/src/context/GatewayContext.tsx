@@ -7,7 +7,8 @@ import React, {
 } from 'react';
 import { createContext, useContext } from 'use-context-selector';
 import { AppState, Linking, Platform } from 'react-native';
-import NetInfo from '@react-native-community/netinfo';
+import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
+import { isTailscaleVpnActive } from '../utils/tailscaleVpnDetect';
 import {
   cacheDirectory as fileSystemCacheDirectory,
   getInfoAsync as fileSystemGetInfoAsync,
@@ -104,6 +105,10 @@ import {
   shouldDeferLoopbackSuccessOnCellular,
   shouldPreferUsbProbeFirst,
 } from '../utils/connectionSelfHeal';
+import {
+  shouldRunBackgroundTailscaleProbe,
+  type ProbeTailscaleComputersOptions,
+} from '../utils/tailscaleProbeCadence';
 import { CONNECTION_HEAL_EXHAUSTED_AFTER } from '../utils/connectionErrorPolicy';
 import { planWrongKeyRecovery } from '../utils/wrongKeyRecovery';
 import {
@@ -127,6 +132,7 @@ import {
 } from '../utils/gatewayProfilePicker';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
+import { expandTailnetProbeHosts } from '../utils/tailnetProbeExpand';
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
 import { syncExtraProfileApiKeys } from '../utils/gatewayProfileCredentialSync';
 import {
@@ -156,6 +162,7 @@ import {
   resolveHealPersistDecision,
   sanitizeGatewayProfileState,
   shouldProbeGatewayUrlForActiveProfile,
+  shouldAcceptHealthIdentityForProfile,
   profilesForActiveMachine,
   isGenericMachineLabel,
 } from '../services/gatewayProfiles';
@@ -165,11 +172,19 @@ import {
   discoverGatewayOnPhoneSubnet,
   discoverGatewayViaPairServer,
   pairServerHostFromGatewayUrl,
+  probeLiveUsbGateway,
   resolvePairServerMachineName,
   resolvePairServerRelayCode,
   resolvePairServerSetupParams,
   summarizeDiscoveredReach,
 } from '../services/gatewayDiscovery';
+import {
+  isUsbHandoffSourceUrl,
+  resolveSameMachineRemoteUrl,
+  resolveUsbToRemoteHandoff,
+  resolveUsbTransportHandoff,
+} from '../utils/usbTransportHandoff';
+import { resolveProfileAfterEnsureUpsert } from '../utils/resolveEnsureProfile';
 import {
   collectTailnetProbeHosts,
   discoverTailscaleGatewayForProfile,
@@ -263,7 +278,7 @@ export type GatewayContextValue = {
   tailscaleDiscoveryProbing: boolean;
   tailscaleVpnActive: boolean;
   tailnetProbeHostCount: number;
-  probeTailscaleComputers: () => Promise<void>;
+  probeTailscaleComputers: (options?: ProbeTailscaleComputersOptions) => Promise<void>;
   addDiscoveredTailscaleComputer: (discovery: DiscoveredGateway) => Promise<void>;
   connectionHealAttempt: number;
   connectionHealInFlight: boolean;
@@ -351,6 +366,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const [tailscaleDiscoveries, setTailscaleDiscoveries] = useState<DiscoveredGateway[]>([]);
   const [tailscaleDiscoveryProbing, setTailscaleDiscoveryProbing] = useState(false);
   const [tailscaleVpnActive, setTailscaleVpnActive] = useState(false);
+  /** Set after a completed hit to a Tailscale host — Samsung NetInfo often stays cellular. */
+  const reachedTailscaleHostRef = useRef(false);
   const [tailnetProbeHostCount, setTailnetProbeHostCount] = useState(0);
   const [effectiveGatewayUrl, setEffectiveGatewayUrl] = useState(
     DEFAULT_GATEWAY_SETTINGS.gatewayUrl,
@@ -396,12 +413,36 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   >(async () => false);
   const tailnetProbeHostsRef = useRef<string[]>([]);
   const tailscaleProbeInFlightRef = useRef(false);
-  const probeTailscaleComputersRef = useRef<() => Promise<void>>(async () => {});
+  const lastTailscaleProbeAtMsRef = useRef(0);
+  const lastNetInfoStateRef = useRef<NetInfoState | null>(null);
+  const probeTailscaleComputersRef = useRef<
+    (options?: ProbeTailscaleComputersOptions) => Promise<void>
+  >(async () => {});
   const runConnectionSelfHealRef = useRef<() => Promise<void>>(async () => {});
+  const maybeHandoffTailscaleToUsbRef = useRef<() => Promise<boolean>>(async () => false);
+  const maybeHandoffUsbToRemoteRef = useRef<() => Promise<boolean>>(async () => false);
   const connectionHealInFlightRef = useRef(false);
+  const usbHandoffInFlightRef = useRef(false);
   const connectionHealAttemptRef = useRef(0);
   const [connectionHealAttempt, setConnectionHealAttempt] = useState(0);
   const [connectionHealInFlight, setConnectionHealInFlight] = useState(false);
+  const updateTailscaleVpnActive = useCallback((netInfoState?: NetInfoState) => {
+    if (netInfoState) {
+      lastNetInfoStateRef.current = netInfoState;
+    }
+    const currentNetInfoState = lastNetInfoStateRef.current;
+    const ipAddress = (
+      currentNetInfoState?.details as { ipAddress?: string } | null | undefined
+    )?.ipAddress;
+    setTailscaleVpnActive(
+      isTailscaleVpnActive({
+        netInfoType: currentNetInfoState?.type,
+        isConnected: currentNetInfoState?.isConnected,
+        ipAddress,
+        reachedTailscaleHost: reachedTailscaleHostRef.current,
+      }),
+    );
+  }, []);
 
   const addGatewayListener = useCallback((listener: (event: GatewayEventMessage) => void) => {
     listenersRef.current.add(listener);
@@ -893,6 +934,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         primaryUrl,
         wifiConnected: wifiConnectedRef.current,
         hasTailscaleAlternate: cellularTailscaleAlternates.length > 0,
+        // Heal path: if primary is already USB, prefer keeping it when cable is the intent.
+        // Foreign/ghost clears still rely on missing hostname elsewhere.
+        liveUsbConfirmed:
+          isLoopbackGatewayUrl(primaryUrl) && isMacGatewayHttpOk(healthRef.current),
       });
       const acceptHealUrl = async (fallbackUrl: string, snapshot: Awaited<ReturnType<typeof probeMacGatewayOk>>) => {
         const applied = await persistDiscoveredGatewayUrl(fallbackUrl, true);
@@ -1231,25 +1276,25 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     const interval = setInterval(() => {
       refreshHealth();
     }, 30000);
-    const netSub = NetInfo.addEventListener((state) => {
+    const applyNetInfo = (state: NetInfoState) => {
       const isWifi = state.type === 'wifi' && state.isConnected !== false;
       wifiConnectedRef.current = isWifi;
       setWifiConnected(isWifi);
-      setTailscaleVpnActive(state.type === 'vpn' && state.isConnected !== false);
+      updateTailscaleVpnActive(state);
+    };
+    const netSub = NetInfo.addEventListener((state) => {
+      applyNetInfo(state);
       refreshHealth();
-      void probeTailscaleComputersRef.current();
+      void probeTailscaleComputersRef.current({ showUi: false, force: false });
     });
     void NetInfo.fetch().then((state) => {
-      const isWifi = state.type === 'wifi' && state.isConnected !== false;
-      wifiConnectedRef.current = isWifi;
-      setWifiConnected(isWifi);
-      setTailscaleVpnActive(state.type === 'vpn' && state.isConnected !== false);
+      applyNetInfo(state);
     });
     return () => {
       clearInterval(interval);
       netSub();
     };
-  }, [isLoaded, refreshHealth]);
+  }, [isLoaded, refreshHealth, updateTailscaleVpnActive]);
 
   const disconnectEvents = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -1781,7 +1826,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     connectionHealInFlightRef.current = true;
     setConnectionHealInFlight(true);
     try {
-      await probeTailscaleComputersRef.current();
+      await probeTailscaleComputersRef.current({ showUi: false, force: true });
       const lastLanIp = await storage.loadLastGatewayLanIp();
       const primaryUrl =
         effectiveGatewayUrlRef.current || settingsRef.current.gatewayUrl;
@@ -1912,6 +1957,219 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setConnectionHealInFlight(false);
     }
   }, [autoDiscoverGateway, isLoaded, persistDiscoveredGatewayUrl, refreshHealth]);
+
+  /**
+   * Product lock: Connected via Tailscale/LAN + same-Mac USB reverse healthy →
+   * switch effective chat URL to USB without changing activeProfileId / clearing chat.
+   * Runs on Wi‑Fi and cellular — live USB hostname is the ghost guard.
+   */
+  const maybeHandoffTailscaleToUsb = useCallback(async (): Promise<boolean> => {
+    if (
+      Platform.OS === 'web' ||
+      !isLoaded ||
+      settingsRef.current.demoMode ||
+      usbHandoffInFlightRef.current
+    ) {
+      return false;
+    }
+    const currentUrl =
+      effectiveGatewayUrlRef.current.trim() || settingsRef.current.gatewayUrl.trim();
+    if (!isUsbHandoffSourceUrl(currentUrl)) {
+      return false;
+    }
+    // Upgrade path only — disconnected Macs use runConnectionSelfHeal.
+    if (!isMacGatewayHttpOk(healthRef.current)) {
+      return false;
+    }
+
+    usbHandoffInFlightRef.current = true;
+    try {
+      const discovery = await probeLiveUsbGateway();
+      const active = activeProfile(profileStateRef.current);
+      const decision = resolveUsbTransportHandoff({
+        currentGatewayUrl: currentUrl,
+        wifiConnected: wifiConnectedRef.current,
+        liveUsbReachable: Boolean(discovery),
+        liveUsbHostname: discovery?.hostname,
+        activeProfile: active,
+      });
+      if (!decision.shouldHandoff) {
+        return false;
+      }
+
+      const probeKey = await resolveApiKeyForGatewayProbe({
+        gatewayUrl: decision.usbGatewayUrl,
+        profiles: profileStateRef.current.profiles,
+        activeProfileId: profileStateRef.current.activeProfileId,
+        fallbackKey: apiKeyRef.current,
+        resolveProfileKey: (profileId) => secureCredentials.resolveApiKeyForProfile(profileId),
+      });
+      if (probeKey !== apiKeyRef.current) {
+        setApiKey(probeKey);
+        apiKeyRef.current = probeKey;
+      }
+      const snapshot = await fetchGatewayHealth(decision.usbGatewayUrl, probeKey);
+      if (snapshot.authMismatch || !isGatewayHealthOk(snapshot)) {
+        return false;
+      }
+      const healthHost = snapshot.hostname?.trim() || discovery?.hostname?.trim();
+      const confirmed = resolveUsbTransportHandoff({
+        currentGatewayUrl: currentUrl,
+        wifiConnected: wifiConnectedRef.current,
+        liveUsbReachable: true,
+        liveUsbHostname: healthHost,
+        activeProfile: active,
+      });
+      if (!confirmed.shouldHandoff) {
+        return false;
+      }
+
+      const priorActiveId = profileStateRef.current.activeProfileId;
+      // Catalog-only upsert: keep Tailscale/LAN identity; do not activate a USB profile row.
+      const upserted = applyHealDiscoveredUrl(
+        profileStateRef.current,
+        {
+          gatewayUrl: confirmed.usbGatewayUrl,
+          hostname: healthHost,
+          localIp: '127.0.0.1',
+          label: active?.label,
+        },
+        false,
+      );
+      const nextState: GatewayProfileState = {
+        ...upserted,
+        activeProfileId: priorActiveId ?? upserted.activeProfileId,
+      };
+      profileStateRef.current = nextState;
+      setProfileState(nextState);
+      await gatewayProfiles.save(nextState);
+
+      const nextSettings = {
+        ...settingsRef.current,
+        gatewayUrl: confirmed.usbGatewayUrl,
+      };
+      await storage.saveGatewaySettings(nextSettings);
+      setSettings(nextSettings);
+      settingsRef.current = nextSettings;
+      effectiveGatewayUrlRef.current = confirmed.usbGatewayUrl;
+      setEffectiveGatewayUrl(confirmed.usbGatewayUrl);
+      setHealth(snapshot);
+      healthRef.current = snapshot;
+      setConnectionState('connected');
+      connectEventsRef.current();
+      return true;
+    } catch {
+      return false;
+    } finally {
+      usbHandoffInFlightRef.current = false;
+    }
+  }, [isLoaded]);
+
+  /**
+   * Product lock (vice versa): USB reverse gone → restore same-Mac Tailscale/LAN
+   * without changing activeProfileId / clearing chat.
+   */
+  const maybeHandoffUsbToRemote = useCallback(async (): Promise<boolean> => {
+    if (
+      Platform.OS === 'web' ||
+      !isLoaded ||
+      settingsRef.current.demoMode ||
+      usbHandoffInFlightRef.current
+    ) {
+      return false;
+    }
+    const currentUrl =
+      effectiveGatewayUrlRef.current.trim() || settingsRef.current.gatewayUrl.trim();
+    if (!isLoopbackGatewayUrl(currentUrl)) {
+      return false;
+    }
+
+    usbHandoffInFlightRef.current = true;
+    try {
+      const discovery = await probeLiveUsbGateway();
+      if (discovery) {
+        return false;
+      }
+      const active = activeProfile(profileStateRef.current);
+      const remoteGatewayUrl = resolveSameMachineRemoteUrl({
+        activeProfile: active,
+        candidateUrls: profilesForActiveMachine(
+          profileStateRef.current.profiles,
+          profileStateRef.current.activeProfileId,
+        ).map((profile) => profile.gatewayUrl),
+      });
+      const decision = resolveUsbToRemoteHandoff({
+        currentGatewayUrl: currentUrl,
+        liveUsbReachable: false,
+        activeProfile: active,
+        remoteGatewayUrl,
+      });
+      if (!decision.shouldHandoff) {
+        return false;
+      }
+
+      const probeKey = await resolveApiKeyForGatewayProbe({
+        gatewayUrl: decision.remoteGatewayUrl,
+        profiles: profileStateRef.current.profiles,
+        activeProfileId: profileStateRef.current.activeProfileId,
+        fallbackKey: apiKeyRef.current,
+        resolveProfileKey: (profileId) => secureCredentials.resolveApiKeyForProfile(profileId),
+      });
+      if (probeKey !== apiKeyRef.current) {
+        setApiKey(probeKey);
+        apiKeyRef.current = probeKey;
+      }
+      const snapshot = await fetchGatewayHealth(decision.remoteGatewayUrl, probeKey);
+      if (snapshot.authMismatch || !isGatewayHealthOk(snapshot)) {
+        return false;
+      }
+
+      const priorActiveId = profileStateRef.current.activeProfileId;
+      const upserted = applyHealDiscoveredUrl(
+        profileStateRef.current,
+        {
+          gatewayUrl: decision.remoteGatewayUrl,
+          hostname: snapshot.hostname?.trim() || active?.hostname,
+          localIp: active?.localIp,
+          label: active?.label,
+        },
+        false,
+      );
+      const nextState: GatewayProfileState = {
+        ...upserted,
+        activeProfileId: priorActiveId ?? upserted.activeProfileId,
+      };
+      profileStateRef.current = nextState;
+      setProfileState(nextState);
+      await gatewayProfiles.save(nextState);
+
+      const nextSettings = {
+        ...settingsRef.current,
+        gatewayUrl: decision.remoteGatewayUrl,
+      };
+      await storage.saveGatewaySettings(nextSettings);
+      setSettings(nextSettings);
+      settingsRef.current = nextSettings;
+      effectiveGatewayUrlRef.current = decision.remoteGatewayUrl;
+      setEffectiveGatewayUrl(decision.remoteGatewayUrl);
+      setHealth(snapshot);
+      healthRef.current = snapshot;
+      setConnectionState('connected');
+      connectEventsRef.current();
+      return true;
+    } catch {
+      return false;
+    } finally {
+      usbHandoffInFlightRef.current = false;
+    }
+  }, [isLoaded]);
+
+  const runBidirectionalUsbHandoff = useCallback(async () => {
+    const toUsb = await maybeHandoffTailscaleToUsbRef.current();
+    if (!toUsb) {
+      await maybeHandoffUsbToRemoteRef.current();
+    }
+  }, []);
 
   const connectGatewayWebSocket = useCallback(async () => {
     disconnectEvents();
@@ -2158,12 +2416,26 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         await secureCredentials.saveProfileApiKey(activeId, nextApiKey);
       }
 
+      // Stale /health from the previous Mac must not rename the URL we just saved
+      // (selecting mini while healthRef still says MacBook Pro → dedupe steal).
+      const matchedForUrl = findProfileForGatewayUrl(
+        profileStateRef.current.profiles,
+        persistedSettings.gatewayUrl,
+      );
+      const healthHost = healthRef.current?.hostname?.trim();
+      const hostnameForHeal =
+        matchedForUrl &&
+        healthHost &&
+        shouldAcceptHealthIdentityForProfile(matchedForUrl, { hostname: healthHost })
+          ? healthHost
+          : matchedForUrl?.hostname;
+
       const upserted = applyHealDiscoveredUrl(
         profileStateRef.current,
         {
           gatewayUrl: persistedSettings.gatewayUrl,
           localIp: lanIp ?? undefined,
-          hostname: healthRef.current?.hostname,
+          hostname: hostnameForHeal,
         },
         !profileStateRef.current.activeProfileId,
       );
@@ -2215,8 +2487,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         await saveSettings(nextSettings, apiKeyRef.current);
       }
       let profile = profileStateRef.current.profiles.find((p) => p.id === profileId);
-      // Live USB rows are often synthesized for the picker and not yet saved.
-      // Upsert ensureProfile so the tap is never a silent no-op.
+      // Live USB / discovery rows are often synthesized for the picker and not yet saved.
+      // Upsert ensureProfile so the tap is never a silent no-op — but NEVER fall back to an
+      // unrelated USB row when the user tapped Tailscale Mac mini (2026-07-21 switch rage).
       if (!profile && options?.ensureProfile) {
         const ensure = options.ensureProfile;
         const ensuredState = upsertDiscoveredProfile(
@@ -2231,20 +2504,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         );
         profileStateRef.current = ensuredState;
         setProfileState(ensuredState);
-        // Upsert may merge into an existing loopback row under a different id.
-        profile =
-          ensuredState.profiles.find((p) => p.id === profileId) ??
-          ensuredState.profiles.find((p) => p.id === ensure.id) ??
-          ensuredState.profiles.find(
-            (p) =>
-              isLoopbackGatewayUrl(p.gatewayUrl) &&
-              isLoopbackGatewayUrl(ensure.gatewayUrl) &&
-              (!ensure.hostname ||
-                !p.hostname ||
-                p.hostname.replace(/\.local$/i, '').toLowerCase() ===
-                  ensure.hostname.replace(/\.local$/i, '').toLowerCase()),
-          ) ??
-          ensuredState.profiles.find((p) => isLoopbackGatewayUrl(p.gatewayUrl));
+        profile = resolveProfileAfterEnsureUpsert({
+          state: ensuredState,
+          requestedProfileId: profileId,
+          ensure,
+        });
       }
       if (!profile) {
         setLastEventError(
@@ -2437,22 +2701,55 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setProfileScanning(false);
       setProfileScanProgress(null);
-      void probeTailscaleComputersRef.current();
+      void probeTailscaleComputersRef.current({ showUi: false, force: false });
     }
   }, [persistDiscoveredGatewayUrl]);
 
-  const probeTailscaleComputers = useCallback(async () => {
-    if (tailscaleProbeInFlightRef.current || settingsRef.current.demoMode) {
+  const probeTailscaleComputers = useCallback(
+    async (options?: ProbeTailscaleComputersOptions) => {
+    const showUi = options?.showUi ?? true;
+    const force = options?.force ?? true;
+    if (settingsRef.current.demoMode) {
+      return;
+    }
+    if (
+      !force &&
+      !shouldRunBackgroundTailscaleProbe({
+        lastAtMs: lastTailscaleProbeAtMsRef.current,
+        nowMs: Date.now(),
+      })
+    ) {
+      return;
+    }
+    if (tailscaleProbeInFlightRef.current) {
       return;
     }
     tailscaleProbeInFlightRef.current = true;
-    setTailscaleDiscoveryProbing(true);
+    lastTailscaleProbeAtMsRef.current = Date.now();
     try {
       let storedHosts =
         tailnetProbeHostsRef.current.length > 0
           ? tailnetProbeHostsRef.current
           : await tailnetProbeStorage.load();
       tailnetProbeHostsRef.current = storedHosts;
+
+      // Preflight: Samsung NetInfo often stays `cellular` while tun0 is up. Prove
+      // the tunnel with one quick host probe BEFORE flipping probing=true, so the
+      // picker does not flash "Tailscale is off" (computerPickerStatus gates on
+      // vpnActive while probing).
+      const preflightHosts = expandTailnetProbeHosts(
+        collectTailnetProbeHosts(profileStateRef.current.profiles, storedHosts),
+      ).slice(0, 3);
+      if (preflightHosts.length > 0) {
+        const preflightHits = await discoverTailscaleGateways(preflightHosts);
+        reachedTailscaleHostRef.current = preflightHits.some((item) =>
+          isTailscaleGatewayUrl(item.gatewayUrl),
+        );
+        updateTailscaleVpnActive();
+      }
+      if (showUi) {
+        setTailscaleDiscoveryProbing(true);
+      }
 
       if (storedHosts.length === 0) {
         const lastLanIp = await storage.loadLastGatewayLanIp();
@@ -2490,9 +2787,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
       setTailnetProbeHostCount(storedHosts.length);
 
-      let probeHosts = collectTailnetProbeHosts(
-        profileStateRef.current.profiles,
-        storedHosts,
+      let probeHosts = expandTailnetProbeHosts(
+        collectTailnetProbeHosts(
+          profileStateRef.current.profiles,
+          storedHosts,
+        ),
       );
       if (probeHosts.length === 0) {
         const boot = await bootstrapTailnetProbeHostsFromPairServers(storedHosts);
@@ -2503,17 +2802,25 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             tailnetProbeHostsRef,
           );
           setTailnetProbeHostCount(storedHosts.length);
-          probeHosts = collectTailnetProbeHosts(
-            profileStateRef.current.profiles,
-            storedHosts,
+          probeHosts = expandTailnetProbeHosts(
+            collectTailnetProbeHosts(
+              profileStateRef.current.profiles,
+              storedHosts,
+            ),
           );
         }
       }
       if (probeHosts.length === 0) {
+        reachedTailscaleHostRef.current = false;
+        updateTailscaleVpnActive();
         setTailscaleDiscoveries([]);
         return;
       }
       const discovered = await discoverTailscaleGateways(probeHosts);
+      reachedTailscaleHostRef.current = discovered.some((item) =>
+        isTailscaleGatewayUrl(item.gatewayUrl),
+      );
+      updateTailscaleVpnActive();
       const hostsToPersist = tailnetHostsFromDiscoveries(discovered);
       if (hostsToPersist.length > 0) {
         const mergedHosts = await tailnetProbeStorage.merge(
@@ -2541,8 +2848,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         setProfileState(nextState);
         await gatewayProfiles.save(nextState);
       }
-      // USB→Tailscale on cellular must run even when discoveries are empty (Tailscale
-      // already saved) — otherwise ghost 127.0.0.1 stays primary forever.
+      // USB→Tailscale on cellular must run when reverse is *dead* (ghost 127.0.0.1).
+      // Never yank a live cable path — product lock prefers USB when reverse is healthy.
       const activeAfter = activeProfile(profileStateRef.current);
       const priorUrl =
         effectiveGatewayUrlRef.current.trim() || settingsRef.current.gatewayUrl.trim();
@@ -2552,13 +2859,20 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         activeProfile: activeAfter,
         discoveries: discovered,
       });
+      let liveUsbConfirmed = false;
+      if (isLoopbackGatewayUrl(priorUrl)) {
+        const liveUsb = await probeLiveUsbGateway();
+        liveUsbConfirmed = Boolean(liveUsb?.hostname?.trim());
+      }
       if (
         failoverUrl &&
         failoverUrl !== priorUrl &&
+        !liveUsbConfirmed &&
         (shouldClearUsbPrimaryOnCellular({
           primaryUrl: priorUrl,
           wifiConnected: wifiConnectedRef.current,
           failoverUrl,
+          liveUsbConfirmed,
         }) ||
           !wifiConnectedRef.current ||
           isPrivateLanGatewayUrl(priorUrl))
@@ -2570,18 +2884,41 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setTailscaleDiscoveries(fresh);
     } finally {
       tailscaleProbeInFlightRef.current = false;
-      setTailscaleDiscoveryProbing(false);
+      if (showUi) {
+        setTailscaleDiscoveryProbing(false);
+      }
     }
-  }, [persistDiscoveredGatewayUrl, refreshHealth]);
+  },
+  [persistDiscoveredGatewayUrl, refreshHealth, updateTailscaleVpnActive],
+  );
 
   const addDiscoveredTailscaleComputer = useCallback(async (discovery: DiscoveredGateway) => {
-    const nextState = upsertDiscoveredProfile(profileStateRef.current, discovery, false);
-    profileStateRef.current = nextState;
-    setProfileState(nextState);
-    await gatewayProfiles.save(nextState);
+    // Catalog + activate — "Add" must switch, not leave the user stuck on MacBook USB.
+    const cataloged = upsertDiscoveredProfile(profileStateRef.current, discovery, false);
+    profileStateRef.current = cataloged;
+    setProfileState(cataloged);
+    await gatewayProfiles.save(cataloged);
     setTailscaleDiscoveries((prev) =>
       prev.filter((item) => item.gatewayUrl !== discovery.gatewayUrl),
     );
+    const ensure: GatewayProfile = {
+      id: profileIdFromGatewayUrl(discovery.gatewayUrl, discovery.hostname),
+      label: discovery.label || discovery.hostname || 'Computer',
+      gatewayUrl: discovery.gatewayUrl,
+      hostname: discovery.hostname,
+      localIp: discovery.localIp,
+      addedAt: new Date().toISOString(),
+    };
+    const matched =
+      resolveProfileAfterEnsureUpsert({
+        state: cataloged,
+        requestedProfileId: ensure.id,
+        ensure,
+      }) ?? findProfileForGatewayUrl(cataloged.profiles, discovery.gatewayUrl);
+    if (matched) {
+      await selectGatewayProfileRef.current?.(matched.id, { ensureProfile: matched });
+      return;
+    }
     haptics.success();
   }, []);
 
@@ -2594,11 +2931,34 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   }, [runConnectionSelfHeal]);
 
   useEffect(() => {
+    maybeHandoffTailscaleToUsbRef.current = maybeHandoffTailscaleToUsb;
+  }, [maybeHandoffTailscaleToUsb]);
+
+  useEffect(() => {
+    maybeHandoffUsbToRemoteRef.current = maybeHandoffUsbToRemote;
+  }, [maybeHandoffUsbToRemote]);
+
+  // Do NOT depend on health.checkedAt — health polls every 30s and would flip the
+  // Choose computer modal into "searching" on every tick (picker jitter).
+  useEffect(() => {
     if (!isLoaded || settings.demoMode) {
       return;
     }
-    void probeTailscaleComputers();
-  }, [isLoaded, settings.demoMode, health?.checkedAt, profileState.profiles.length, wifiConnected, probeTailscaleComputers]);
+    void probeTailscaleComputers({ showUi: false, force: false });
+  }, [isLoaded, settings.demoMode, profileState.profiles.length, wifiConnected, probeTailscaleComputers]);
+
+  // Bidirectional transport handoff while Connected: plug → USB, unplug → Tailscale/LAN.
+  // Do NOT depend on health.checkedAt — handoff itself writes health and would retrigger.
+  useEffect(() => {
+    if (Platform.OS === 'web' || !isLoaded || settings.demoMode) {
+      return;
+    }
+    void runBidirectionalUsbHandoff();
+    const timer = setInterval(() => {
+      void runBidirectionalUsbHandoff();
+    }, CONNECTION_SELF_HEAL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [isLoaded, settings.demoMode, wifiConnected, runBidirectionalUsbHandoff]);
 
   useEffect(() => {
     if (Platform.OS === 'web' || !isLoaded || settings.demoMode) {
@@ -2608,6 +2968,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       if (nextAppState !== 'active') {
         return;
       }
+      // Plug/unplug while backgrounded: flip transport without clearing chat.
+      void runBidirectionalUsbHandoff();
       if (
         !shouldRunForegroundUsbHeal({
           platform: Platform.OS,
@@ -2620,7 +2982,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       connectionHealAttemptRef.current = 0;
       setConnectionHealAttempt(0);
       void runConnectionSelfHealRef.current();
-      void probeTailscaleComputersRef.current();
+      void probeTailscaleComputersRef.current({ showUi: false, force: false });
     };
     const sub = AppState.addEventListener('change', handleAppStateChange);
     return () => sub.remove();
@@ -2650,7 +3012,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     effectiveGatewayUrlRef.current = url;
     setEffectiveGatewayUrl(url);
     await refreshHealth();
-    await probeTailscaleComputers();
+    await probeTailscaleComputers({ showUi: false, force: true });
 
     // Brand-new install: do not silent Find-computers + auto-select a Mac.
     // That path persisted Tailscale/USB discoveries and showed Outdated connection
@@ -2670,7 +3032,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       effectiveGatewayUrlRef.current = url;
       setEffectiveGatewayUrl(url);
       await refreshHealth();
-      await probeTailscaleComputers();
+      await probeTailscaleComputers({ showUi: false, force: true });
     }
 
     const reachable = checkGatewayReachable({
@@ -2784,7 +3146,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         const merged = await tailnetProbeStorage.merge(params.tailnetProbeHosts);
         tailnetProbeHostsRef.current = merged;
         setTailnetProbeHostCount(merged.length);
-        void probeTailscaleComputersRef.current();
+        void probeTailscaleComputersRef.current({ showUi: false, force: true });
       }
 
       const persistDecision = evaluatePairDeepLinkApply({
@@ -2805,7 +3167,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
       if (!params.gatewayUrl?.trim()) {
         await upsertExtraComputers();
-        void probeTailscaleComputersRef.current();
+        void probeTailscaleComputersRef.current({ showUi: false, force: true });
         if (relayPairSucceeded) {
           haptics.success();
           await refreshHealth();
@@ -2911,7 +3273,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       await saveSettings(nextSettings, nextKey);
       haptics.success();
       await refreshHealth();
-      void probeTailscaleComputersRef.current();
+      void probeTailscaleComputersRef.current({ showUi: false, force: true });
     },
     [refreshHealth, saveSettings, bootstrapGateway],
   );
@@ -3255,7 +3617,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const presentation = useMemo(() => resolvePresentationState(settings), [settings]);
 
   useEffect(() => {
-    if (connectionState !== 'connected' && connectionState !== 'demo') {
+    if (connectionState === 'disconnected') {
       signOfLifeSentRef.current = false;
       return;
     }

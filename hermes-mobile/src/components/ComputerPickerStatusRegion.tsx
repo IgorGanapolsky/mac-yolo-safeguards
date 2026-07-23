@@ -11,11 +11,13 @@ import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 import { tailscaleDiscoveryLabel } from '../services/tailscaleDiscovery';
 import { colors } from '../theme/colors';
 import {
+  COMPUTER_PICKER_STATUS_COMPACT_MIN_HEIGHT,
   COMPUTER_PICKER_STATUS_DEBOUNCE_MS,
   COMPUTER_PICKER_STATUS_MIN_HEIGHT,
   computerPickerStatusSignature,
   resolveComputerPickerStatus,
   shouldCommitComputerPickerStatus,
+  shouldHideIdlePickerHelp,
   type ComputerPickerStatusSnapshot,
 } from '../utils/computerPickerStatus';
 
@@ -28,8 +30,16 @@ type ComputerPickerStatusRegionProps = {
   tailscaleProbing: boolean;
   tailscaleVpnActive: boolean;
   tailscaleDiscoveries: DiscoveredGateway[];
+  activeGatewayUrl?: string | null;
+  wifiConnected?: boolean;
+  activeReachable?: boolean;
   addingTailscale?: boolean;
   onAddTailscale?: (discovery: DiscoveredGateway) => void;
+  /** Saved profile count — idle help collapses when > 0 unless expanded. */
+  savedProfileCount?: number;
+  helpExpanded?: boolean;
+  onExpandHelp?: () => void;
+  compact?: boolean;
   testID?: string;
 };
 
@@ -40,8 +50,15 @@ export default function ComputerPickerStatusRegion({
   tailscaleProbing,
   tailscaleVpnActive,
   tailscaleDiscoveries,
+  activeGatewayUrl = null,
+  wifiConnected = true,
+  activeReachable = false,
   addingTailscale = false,
   onAddTailscale,
+  savedProfileCount = 0,
+  helpExpanded = false,
+  onExpandHelp,
+  compact = false,
   testID = 'mac-picker-status-region',
 }: ComputerPickerStatusRegionProps) {
   const [resultExpired, setResultExpired] = useState(false);
@@ -54,6 +71,9 @@ export default function ComputerPickerStatusRegion({
       tailscaleProbing,
       tailscaleVpnActive,
       tailscaleDiscoveries,
+      activeGatewayUrl,
+      wifiConnected,
+      activeReachable,
     }),
   );
   const commitMetaRef = useRef<{
@@ -87,6 +107,9 @@ export default function ComputerPickerStatusRegion({
       tailscaleProbing,
       tailscaleVpnActive,
       tailscaleDiscoveries,
+      activeGatewayUrl,
+      wifiConnected,
+      activeReachable,
     });
     const nextSignature = computerPickerStatusSignature(next);
     const nowMs = Date.now();
@@ -155,10 +178,32 @@ export default function ComputerPickerStatusRegion({
     tailscaleProbing,
     tailscaleVpnActive,
     tailscaleDiscoveries,
+    activeGatewayUrl,
+    wifiConnected,
+    activeReachable,
   ]);
 
+  const hideIdleHelp = shouldHideIdlePickerHelp(status, savedProfileCount, helpExpanded);
+
+  if (hideIdleHelp) {
+    if (!onExpandHelp) {
+      return null;
+    }
+    return (
+      <TouchableOpacity
+        style={styles.helpLinkRow}
+        onPress={onExpandHelp}
+        testID={`${testID}-help-link`}
+      >
+        <Text style={styles.helpLinkText}>Missing another computer?</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  const minHeight = compact ? COMPUTER_PICKER_STATUS_COMPACT_MIN_HEIGHT : COMPUTER_PICKER_STATUS_MIN_HEIGHT;
+
   const borderTint =
-    status.kind === 'result'
+    status.kind === 'result' || status.kind === 'active'
       ? status.success
         ? styles.cardSuccess
         : styles.cardWarn
@@ -169,7 +214,15 @@ export default function ComputerPickerStatusRegion({
           : styles.cardHelp;
 
   return (
-    <View style={[styles.region, borderTint]} testID={testID}>
+    <View
+      style={[
+        styles.region,
+        compact ? styles.regionCompact : null,
+        { minHeight },
+        borderTint,
+      ]}
+      testID={testID}
+    >
       <View style={styles.row}>
         {status.kind === 'searching' ? (
           <ActivityIndicator color={colors.accent} size="small" />
@@ -177,15 +230,18 @@ export default function ComputerPickerStatusRegion({
         <Text
           style={[
             styles.title,
-            status.kind === 'result' && status.success ? styles.titleSuccess : null,
+            compact ? styles.titleCompact : null,
+            (status.kind === 'result' || status.kind === 'active') && status.success
+              ? styles.titleSuccess
+              : null,
             status.kind === 'result' && !status.success ? styles.titleWarn : null,
           ]}
-          numberOfLines={2}
+          numberOfLines={compact ? 1 : 2}
         >
           {status.title}
         </Text>
       </View>
-      <Text style={styles.detail} numberOfLines={3}>
+      <Text style={[styles.detail, compact ? styles.detailCompact : null]} numberOfLines={compact ? 2 : 3}>
         {status.detail}
       </Text>
       {status.kind === 'tailscale_found' && status.discoveries.length > 0 ? (
@@ -214,13 +270,19 @@ export default function ComputerPickerStatusRegion({
 
 const styles = StyleSheet.create({
   region: {
-    minHeight: COMPUTER_PICKER_STATUS_MIN_HEIGHT,
-    marginBottom: 12,
-    padding: 12,
-    borderRadius: 12,
+    marginBottom: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
     borderWidth: 1,
     gap: 6,
     justifyContent: 'center',
+  },
+  regionCompact: {
+    marginBottom: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 4,
   },
   cardHelp: {
     borderColor: 'rgba(34, 211, 238, 0.28)',
@@ -254,6 +316,10 @@ const styles = StyleSheet.create({
     color: colors.text,
     lineHeight: 19,
   },
+  titleCompact: {
+    fontSize: 13,
+    lineHeight: 17,
+  },
   titleSuccess: {
     color: colors.success,
   },
@@ -265,15 +331,19 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     color: colors.textSecondary,
   },
+  detailCompact: {
+    fontSize: 11,
+    lineHeight: 15,
+  },
   chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 4,
+    marginTop: 2,
   },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 999,
     backgroundColor: 'rgba(34, 211, 238, 0.12)',
     borderWidth: 1,
@@ -282,6 +352,16 @@ const styles = StyleSheet.create({
   chipText: {
     color: colors.accent,
     fontWeight: '800',
-    fontSize: 13,
+    fontSize: 12,
+  },
+  helpLinkRow: {
+    alignSelf: 'flex-start',
+    marginBottom: 6,
+    paddingVertical: 4,
+  },
+  helpLinkText: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

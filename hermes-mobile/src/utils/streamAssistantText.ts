@@ -19,9 +19,29 @@ export const GENERIC_EMPTY_STREAM_PLACEHOLDER =
 export const EMPTY_STREAM_TIMEOUT_PLACEHOLDER =
   'Still no reply text. Hermes keeps checking your Mac automatically — Stop if a run is active, or start a fresh chat for faster replies.';
 
+/**
+ * Internal gateway / cron sentinel for a tool-only or "nothing to report" turn.
+ * It is not assistant prose and must never become a chat bubble or thumbs target.
+ */
+export function isSilentAssistantCompletion(content: string | undefined): boolean {
+  if (typeof content !== 'string') {
+    return false;
+  }
+  const body = content.normalize('NFKC').trim();
+  if (!body) {
+    return false;
+  }
+  if (body.toUpperCase() === '[SILENT]') {
+    return true;
+  }
+  // Exact sentinel wrapped only in markdown emphasis / backticks (no other prose).
+  return /^[*_`~\s]*\[SILENT\][*_`~\s]*$/i.test(body);
+}
+
 export function isDeferredStreamPlaceholder(content: string | undefined): boolean {
   const body = content?.trim() ?? '';
   return (
+    isSilentAssistantCompletion(body) ||
     body === TELEGRAM_QUEUED_REPLY_PLACEHOLDER ||
     body === GENERIC_EMPTY_STREAM_PLACEHOLDER ||
     body === EMPTY_STREAM_TIMEOUT_PLACEHOLDER ||
@@ -73,7 +93,11 @@ export function extractAssistantFromRunCompletedPayload(data: Record<string, unk
   }
   for (const key of ['output', 'content', 'response'] as const) {
     const value = data[key];
-    if (typeof value === 'string' && value.trim()) {
+    if (
+      typeof value === 'string' &&
+      value.trim() &&
+      !isSilentAssistantCompletion(value)
+    ) {
       return value.trim();
     }
   }
@@ -94,7 +118,11 @@ export function extractAssistantFromTranscriptMessages(messages: unknown): strin
       continue;
     }
     const content = msg.content;
-    if (typeof content === 'string' && content.trim()) {
+    if (
+      typeof content === 'string' &&
+      content.trim() &&
+      !isSilentAssistantCompletion(content)
+    ) {
       parts.push(content.trim());
     }
   }
@@ -128,13 +156,56 @@ export function snapshotAssistantBodies(messages: HermesMessage[]): Set<string> 
   return bodies;
 }
 
-/** First assistant bubble that appeared after send and was not in the pre-send snapshot. */
+/**
+ * Never replace richer streamed/completed assistant text with a shorter refresh.
+ * Placeholders lose to any substantive body; equal length keeps incoming.
+ */
+export function preferRicherAssistantText(
+  current: string | undefined,
+  incoming: string | undefined,
+): string {
+  const cur = current?.trim() ?? '';
+  const next = incoming?.trim() ?? '';
+  if (!next) {
+    return cur;
+  }
+  if (!cur) {
+    return next;
+  }
+  const curPlaceholder = isDeferredStreamPlaceholder(cur);
+  const nextPlaceholder = isDeferredStreamPlaceholder(next);
+  if (curPlaceholder && !nextPlaceholder) {
+    return next;
+  }
+  if (!curPlaceholder && nextPlaceholder) {
+    return cur;
+  }
+  if (next.length > cur.length) {
+    return next;
+  }
+  if (cur.length > next.length) {
+    return cur;
+  }
+  return next;
+}
+
+/** Newest substantive assistant after the last user that was not in the pre-send snapshot. */
 export function findNewAssistantReply(
   messages: HermesMessage[],
   priorBodies: Set<string>,
 ): string | null {
-  for (const message of messages) {
-    if (message.role?.toLowerCase() !== 'assistant') {
+  let lastUserIndex = -1;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]?.role?.toLowerCase() === 'user') {
+      lastUserIndex = index;
+      break;
+    }
+  }
+  const start = lastUserIndex >= 0 ? lastUserIndex + 1 : 0;
+  let best: string | null = null;
+  for (let index = start; index < messages.length; index += 1) {
+    const message = messages[index];
+    if (!message || message.role?.toLowerCase() !== 'assistant') {
       continue;
     }
     if (isMessageDisplayEmpty(message.content)) {
@@ -147,9 +218,11 @@ export function findNewAssistantReply(
       continue;
     }
     const body = normalizeMessageText(message.content);
-    if (!priorBodies.has(body)) {
-      return message.content.trim();
+    if (priorBodies.has(body)) {
+      continue;
     }
+    const trimmed = message.content.trim();
+    best = best == null ? trimmed : preferRicherAssistantText(best, trimmed);
   }
-  return null;
+  return best;
 }
