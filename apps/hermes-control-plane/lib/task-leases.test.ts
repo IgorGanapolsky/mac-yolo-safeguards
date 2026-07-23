@@ -176,7 +176,16 @@ describe("fenced task leases", () => {
     expect(update.args.at(-1)).toBe(4_000);
     expect(mocks.audit).toHaveBeenCalledWith(expect.objectContaining({
       action: "task.completed",
-      metadata: { route: "cloud", generation: 3, durationMs: 2_500 },
+      metadata: expect.objectContaining({
+        route: "cloud",
+        generation: 3,
+        durationMs: 2_500,
+        receipt: expect.objectContaining({
+          outcome: "claimed_done",
+          verb: "task.complete.cloud",
+          note: "self_reported_only",
+        }),
+      }),
     }));
     expect(JSON.stringify(mocks.audit.mock.calls)).not.toContain("private result");
   });
