@@ -123,6 +123,7 @@ import {
 import {
   resolveMessageHydrateCredentials,
   resolveProfileSwitchRestorePlan,
+  shouldSkipBackgroundSessionReload,
 } from '../utils/profileSwitchSessionRestore';
 import {
   formatSessionCreated,
@@ -2688,6 +2689,12 @@ export default function ChatScreen() {
               apiKeyOverride: profileKey,
             });
           }
+        } else if (options?.reloadSessions !== false) {
+          // No resolvable restore plan (unexpected — e.g. picked profile vanished
+          // mid-switch). The background reload effects are gated off for the whole
+          // switch window above, so this is the only remaining path that will ever
+          // populate sessions for the newly active Mac — never leave it un-loaded.
+          await loadSessionsList(true, { forceWhileOffline: true });
         }
       } finally {
         intentionalProfileSwitchRef.current = false;
@@ -2738,7 +2745,14 @@ export default function ChatScreen() {
   }, [gatewayUrl, isDemo, activeComputerSessionKeys]);
 
   useEffect(() => {
-    if (isProjectsLoaded) {
+    // Intentional profile switch owns session-list loading for its whole window
+    // (handleSelectGatewayProfile always reloads with the target Mac's explicit
+    // gatewayUrl/apiKey overrides). This effect fires on the very gatewayUrl/apiKey
+    // change a switch produces — an ungated call here races the switch's restore with
+    // stale/unscoped state and can win the loadGen race, clobbering the just-restored
+    // thread back to an empty session (P0 2026-07-23: mini switch showed a fresh chat
+    // instead of the prior conversation despite #833).
+    if (isProjectsLoaded && !shouldSkipBackgroundSessionReload(intentionalProfileSwitchRef.current)) {
       // Reconnect/heal must not force selectLatest — that can jump threads and wipe
       // local optimistic/failed bubbles while the transcript refresh is still blocked.
       const selectLatest = !currentSessionRef.current;
@@ -2750,6 +2764,12 @@ export default function ChatScreen() {
     const wasLive = prevMacChatLiveRef.current;
     prevMacChatLiveRef.current = macChatLive;
     if (isDemo || wasLive === null || wasLive || !macChatLive) {
+      return;
+    }
+    // Same race as above: refreshHealth() during a switch flips macChatLive
+    // false→true mid-switch, so this reconnect path must also stand down for the
+    // switch's explicit, correctly-scoped restore (see shouldSkipBackgroundSessionReload).
+    if (shouldSkipBackgroundSessionReload(intentionalProfileSwitchRef.current)) {
       return;
     }
     void loadSessionsList(false, { silent: true }).then(() => {
