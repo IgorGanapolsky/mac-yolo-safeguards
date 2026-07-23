@@ -30,6 +30,7 @@ import {
 } from '../services/hermesGatewayClient';
 import type { HermesCronJob, HermesSkill, HermesToolset } from '../types/gatewayApi';
 import { formatCronSchedule } from '../utils/sessionDisplay';
+import { buildCronJobDetailLines } from '../utils/cronJobDetails';
 import {
   configuredToolsetsToAutoEnable,
   formatToolsetLabel,
@@ -101,8 +102,26 @@ const DEMO_SKILLS: HermesSkill[] = [
 ];
 
 const DEMO_JOBS: HermesCronJob[] = [
-  { id: 'demo-1', name: 'yolo-health', schedule: '0 */6 * * *', paused: false },
-  { id: 'demo-2', name: 'hermes-audit', schedule: '0 9 * * 1', paused: true },
+  {
+    id: 'demo-1',
+    name: 'yolo-health',
+    schedule: '0 */6 * * *',
+    paused: false,
+    prompt: 'Health-check Hermes gateway and write a short status note.',
+    created_at: '2026-07-01T12:00:00.000Z',
+    last_run_at: '2026-07-23T06:00:00.000Z',
+    next_run_at: '2026-07-23T12:00:00.000Z',
+    last_status: 'ok',
+  },
+  {
+    id: 'demo-2',
+    name: 'hermes-audit',
+    schedule: '0 9 * * 1',
+    paused: true,
+    prompt: 'Weekly audit of mobile pair health and open todos.',
+    created_at: '2026-06-20T09:00:00.000Z',
+    last_run_at: '2026-07-21T09:00:00.000Z',
+  },
 ];
 
 export default function GatewayOpsSection() {
@@ -137,6 +156,7 @@ export default function GatewayOpsSection() {
   const [error, setError] = useState<string | undefined>();
   const [catalogErrors, setCatalogErrors] = useState<Partial<Record<CatalogSection, boolean>>>({});
   const [expandedToolsets, setExpandedToolsets] = useState<Set<string>>(new Set());
+  const [expandedJobIds, setExpandedJobIds] = useState<Set<string>>(new Set());
   const [advancedToolsetsOpen, setAdvancedToolsetsOpen] = useState(false);
   const [togglingToolset, setTogglingToolset] = useState<string | null>(null);
   const [integrationsToolset, setIntegrationsToolset] = useState<HermesToolset | null>(null);
@@ -657,6 +677,10 @@ export default function GatewayOpsSection() {
       ) : null}
 
       <Text style={styles.sectionTitle}>Cron jobs ({jobs.length})</Text>
+      <Text style={styles.sectionHint}>
+        Tap a job name for schedule, last/next run, and purpose. Run / Pause / Delete stay one tap
+        away.
+      </Text>
       <GlassCard>
         {jobs.length === 0 ? (
           <Text style={styles.meta} testID="jobs-empty-state">
@@ -665,52 +689,95 @@ export default function GatewayOpsSection() {
               : 'No scheduled jobs yet.'}
           </Text>
         ) : (
-          jobs.map((job) => (
-            <View key={job.id} style={styles.jobRow}>
-              <View style={styles.jobInfo}>
-                <Text style={styles.rowTitle} numberOfLines={2}>{job.name ?? job.id}</Text>
-                <Text style={styles.rowDesc}>{formatCronSchedule(job.schedule)}</Text>
+          jobs.map((job) => {
+            const expanded = expandedJobIds.has(job.id);
+            const detailLines = buildCronJobDetailLines(job);
+            return (
+              <View key={job.id} style={styles.jobRow} testID={`job-row-${job.id}`}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setExpandedJobIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(job.id)) {
+                        next.delete(job.id);
+                      } else {
+                        next.add(job.id);
+                      }
+                      return next;
+                    });
+                  }}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded }}
+                  accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} details for ${job.name ?? job.id}`}
+                  testID={`job-expand-${job.id}`}
+                  style={styles.jobInfo}
+                >
+                  <View style={styles.jobTitleRow}>
+                    <Text style={styles.rowTitle} numberOfLines={2}>
+                      {job.name ?? job.id}
+                    </Text>
+                    <Text style={styles.expandHint}>{expanded ? '▾' : '▸'}</Text>
+                  </View>
+                  <Text style={styles.rowDesc}>{formatCronSchedule(job.schedule)}</Text>
+                  {!expanded && job.prompt ? (
+                    <Text style={styles.jobPurposePreview} numberOfLines={2}>
+                      {job.prompt.replace(/\s+/g, ' ').trim()}
+                    </Text>
+                  ) : null}
+                </TouchableOpacity>
+                {expanded ? (
+                  <View style={styles.jobDetails} testID={`job-details-${job.id}`}>
+                    {detailLines.map((line) => (
+                      <View key={`${job.id}-${line.label}`} style={styles.jobDetailRow}>
+                        <Text style={styles.jobDetailLabel}>{line.label}</Text>
+                        <Text style={styles.jobDetailValue} selectable>
+                          {line.value}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.jobActions}
+                >
+                  <TouchableOpacity
+                    style={styles.jobBtn}
+                    onPress={() => handleJobAction(job, 'run')}
+                    testID={`job-run-${job.id}`}
+                  >
+                    <Text style={styles.jobBtnText}>Run</Text>
+                  </TouchableOpacity>
+                  {job.paused ? (
+                    <TouchableOpacity
+                      style={styles.jobBtn}
+                      onPress={() => handleJobAction(job, 'resume')}
+                      testID={`job-resume-${job.id}`}
+                    >
+                      <Text style={styles.jobBtnText}>Resume</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.jobBtn}
+                      onPress={() => handleJobAction(job, 'pause')}
+                      testID={`job-pause-${job.id}`}
+                    >
+                      <Text style={styles.jobBtnText}>Pause</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={styles.jobBtnDelete}
+                    onPress={() => handleJobAction(job, 'delete')}
+                    testID={`job-delete-${job.id}`}
+                    accessibilityLabel={`Delete cron job ${job.name ?? job.id}`}
+                  >
+                    <Text style={styles.jobBtnDeleteText}>Delete</Text>
+                  </TouchableOpacity>
+                </ScrollView>
               </View>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.jobActions}
-              >
-                <TouchableOpacity
-                  style={styles.jobBtn}
-                  onPress={() => handleJobAction(job, 'run')}
-                  testID={`job-run-${job.id}`}
-                >
-                  <Text style={styles.jobBtnText}>Run</Text>
-                </TouchableOpacity>
-                {job.paused ? (
-                  <TouchableOpacity
-                    style={styles.jobBtn}
-                    onPress={() => handleJobAction(job, 'resume')}
-                    testID={`job-resume-${job.id}`}
-                  >
-                    <Text style={styles.jobBtnText}>Resume</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.jobBtn}
-                    onPress={() => handleJobAction(job, 'pause')}
-                    testID={`job-pause-${job.id}`}
-                  >
-                    <Text style={styles.jobBtnText}>Pause</Text>
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity
-                  style={styles.jobBtnDelete}
-                  onPress={() => handleJobAction(job, 'delete')}
-                  testID={`job-delete-${job.id}`}
-                  accessibilityLabel={`Delete cron job ${job.name ?? job.id}`}
-                >
-                  <Text style={styles.jobBtnDeleteText}>Delete</Text>
-                </TouchableOpacity>
-              </ScrollView>
-            </View>
-          ))
+            );
+          })
         )}
       </GlassCard>
 
@@ -837,6 +904,38 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   jobInfo: { flex: 1 },
+  jobTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  jobPurposePreview: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  jobDetails: {
+    marginTop: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(148, 163, 184, 0.08)',
+    gap: 8,
+  },
+  jobDetailRow: { gap: 2 },
+  jobDetailLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textMuted,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  jobDetailValue: {
+    fontSize: 12,
+    color: colors.text,
+    lineHeight: 17,
+  },
   jobActions: {
     flexDirection: 'row',
     gap: 6,

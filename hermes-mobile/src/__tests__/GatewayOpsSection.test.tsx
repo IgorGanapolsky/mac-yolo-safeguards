@@ -412,4 +412,38 @@ describe('GatewayOpsSection', () => {
       expect(getByTestId('job-delete-cron-long-name')).toBeTruthy();
     });
   });
+
+  it('expands cron job details for purpose, started, and last run', async () => {
+    gatewayClient.listJobs.mockResolvedValue([
+      {
+        id: 'job-detail-1',
+        name: 'Pipeline Dashboard Refresh',
+        schedule: { kind: 'interval', minutes: 120, display: 'every 120m' },
+        prompt: 'Refresh the revenue pipeline dashboard from metrics.db.',
+        created_at: '2026-06-15T17:39:53.520Z',
+        last_run_at: '2026-07-23T13:07:35.770Z',
+        next_run_at: '2026-07-23T15:07:35.770Z',
+        last_status: 'ok',
+        paused: false,
+      },
+    ]);
+
+    const { getByTestId, getByText, queryByTestId } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('job-expand-job-detail-1')).toBeTruthy();
+    });
+    expect(queryByTestId('job-details-job-detail-1')).toBeNull();
+
+    fireEvent.press(getByTestId('job-expand-job-detail-1'));
+
+    await waitFor(() => {
+      expect(getByTestId('job-details-job-detail-1')).toBeTruthy();
+      expect(getByText('Purpose')).toBeTruthy();
+      expect(getByText(/revenue pipeline dashboard/i)).toBeTruthy();
+      expect(getByText('Started')).toBeTruthy();
+      expect(getByText('Last run')).toBeTruthy();
+      expect(getByText('Next run')).toBeTruthy();
+    });
+  });
 });
