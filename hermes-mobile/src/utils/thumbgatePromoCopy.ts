@@ -25,7 +25,7 @@ const SURFACE_COPY: Record<ThumbGatePromoSurface, Omit<ThumbGatePromoCopy, 'url'
   },
   leash_empty: {
     headline: 'Self-Improving Firewall',
-    body: 'Review past approvals, promote or demote gates from thumbs lessons, manage your account, and open Hermes from a desktop browser.',
+    body: 'Review past approvals and thumbs lessons, manage your account, and open Hermes from a desktop browser.',
   },
   connection_unreachable: {
     headline: 'Self-Improving Firewall in the browser',

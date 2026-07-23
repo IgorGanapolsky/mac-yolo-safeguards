@@ -1,6 +1,6 @@
 const body = `# ThumbGate for Hermes
 
-> ThumbGate is the self-improving firewall for your AI agents: a local-first web control and safety layer for Hermes that remembers lessons, promotes or demotes gates, and re-ranks what matters next. Web control stays free; optional managed cloud continuation is paid.
+> ThumbGate is the self-improving firewall for your AI agents: a local-first web control and safety layer for Hermes that remembers lessons, re-ranks what matters next, promotes repeated failures into gates, and expires stale auto-promoted policy. Web control stays free; optional managed cloud continuation is paid.
 
 - Product label: Leash by ThumbGate
 - Primary pitch: Self-Improving Firewall for your AI Agents
@@ -12,7 +12,7 @@ const body = `# ThumbGate for Hermes
 - Signed pairing to a user's Hermes machine without inbound ports
 - Web and mobile thread visibility and continuation
 - Pre-action Leash approvals for blocked agent tool calls
-- Private thumbs feedback, durable lessons, promote/demote gates, and lesson re-ranking
+- Private thumbs feedback, durable lessons, lesson re-ranking, gate promotion, and expiry of stale auto-promoted gates
 - Renewable, expiring fenced leases so only the current unexpired executor can complete a task
 - Optional managed cloud continuation when a paired machine is offline
 - Aggregate, content-free product analytics and an auditable task trail

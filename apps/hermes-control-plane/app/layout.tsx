@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     default: "ThumbGate — Self-Improving Firewall for your AI Agents",
     template: "%s | ThumbGate for Hermes",
   },
-  description: "Self-improving firewall for your AI agents: approve Hermes tool calls, remember lessons from thumbs feedback, promote or demote gates, and re-rank what matters next—plus signed Mac pairing and optional fenced cloud continuation.",
+  description: "Self-improving firewall for your AI agents: approve Hermes tool calls, remember lessons from thumbs feedback, promote repeated failures into gates, re-rank relevant lessons, and improve the next decision—plus signed Mac pairing and optional fenced cloud continuation.",
   alternates: { canonical: "/" },
   applicationName: "ThumbGate for Hermes",
   category: "developer tools",
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     url: "https://thumbgate.app/",
     siteName: "ThumbGate for Hermes",
     title: "ThumbGate — Self-Improving Firewall for your AI Agents",
-    description: "Approve Hermes tool calls, remember lessons, promote or demote gates, and re-rank what matters next—with signed Mac pairing and optional fenced cloud continuation.",
+    description: "Approve Hermes tool calls, remember lessons, promote repeated failures into gates, re-rank relevant lessons, and improve the next decision—with signed Mac pairing and optional fenced cloud continuation.",
     images: [{
       url: "/og.png",
       width: 1200,
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "ThumbGate — Self-Improving Firewall for your AI Agents",
-    description: "Self-improving firewall for your AI agents: lessons, promote/demote, re-rank—plus Hermes chats on the web.",
+    description: "Self-improving firewall for your AI agents: lessons, promote, re-rank, expire stale gates—plus Hermes chats on the web.",
     images: ["/og.png"],
   },
   icons: {

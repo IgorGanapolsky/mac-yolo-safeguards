@@ -157,7 +157,7 @@ ThumbGate (parent — thumbgate.ai, CLI, lesson DB, firewall hooks)
 | Play | Short | `Self-Improving Firewall for your AI agents — approve + learn. Mac/Linux/Win.` | 78/80 |
 | iOS (repo, post-review) | Subtitle | `Your computer, not cloud` | 24/30 |
 
-**Why #1:** Matches ThumbGate **Self-Improving Firewall** positioning (lessons, promote/demote, re-rank), in-app "ThumbGate Leash" Pro name, IAP wiring, and cross-platform honesty in short description.
+**Why #1:** Matches ThumbGate **Self-Improving Firewall** positioning (lessons, promote, re-rank, expire stale gates), in-app "ThumbGate Leash" Pro name, IAP wiring, and cross-platform honesty in short description.
 
 **Keywords indexed:** ThumbGate, Leash, self-improving firewall, AI agents, Mac, Linux, Windows.
 
@@ -197,11 +197,11 @@ ThumbGate (parent — thumbgate.ai, CLI, lesson DB, firewall hooks)
 
 ### Play full description — insert after paragraph 1 (optional)
 
-> **ThumbGate Leash** is the mobile side of the self-improving firewall for agent tool calls: see the diff, approve or deny, and sync standing gate rules with your desktop ThumbGate lessons (promote/demote + re-rank).
+> **ThumbGate Leash** is the mobile side of the self-improving firewall for agent tool calls: see the diff, approve or deny, and sync standing gate rules with your desktop ThumbGate lessons (promote + re-rank + expire).
 
 ### iOS promotional text (post-review paste)
 
-> ThumbGate Self-Improving Firewall for your AI agents — approve risky commands from your phone; lessons promote/demote and re-rank over time. Mac, Linux, or Windows gateway; not a cloud IDE burning credits.
+> ThumbGate Self-Improving Firewall for your AI agents — approve risky commands from your phone; lessons re-rank and promote into gates over time. Mac, Linux, or Windows gateway; not a cloud IDE burning credits.
 
 ### Feature graphic / screenshot caption
 

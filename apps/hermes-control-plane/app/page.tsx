@@ -23,7 +23,7 @@ export default function Home() {
   const faqs = [
     {
       question: "What is ThumbGate?",
-      answer: "ThumbGate is the self-improving firewall for your AI agents: approve risky Hermes tool calls, capture thumbs feedback as durable lessons, promote or demote gates, and re-rank what matters next—while your Mac stays the default executor and chats stay available on the web.",
+      answer: "ThumbGate is the self-improving firewall for your AI agents: approve risky Hermes tool calls, capture thumbs feedback as durable lessons, promote repeated failures into gates, re-rank relevant lessons, and improve the next decision—while your Mac stays the default executor, chats stay available on the web, and policy stays under your control.",
     },
     {
       question: "What happens when the paired Mac goes offline?",
@@ -86,7 +86,7 @@ export default function Home() {
         <div className="hero-copy">
           <p className="eyebrow"><span className="live-dot" /> Self-improving firewall · Hermes-native</p>
           <h1>Self-Improving Firewall<br /><span>for your AI agents.</span></h1>
-          <p className="hero-lede">Approve what Hermes is about to run, remember lessons from thumbs feedback, promote or demote gates, and re-rank what matters next—so the firewall improves over time. Chat from your phone or any browser; your Mac still runs the work. Cloud Continuity keeps eligible threads going when the lid closes.</p>
+          <p className="hero-lede">Approve what Hermes is about to run, remember lessons from thumbs feedback, promote repeated failures into gates, re-rank relevant lessons, and improve the next decision—so the firewall improves under your control. Chat from your phone or any browser; your Mac still runs the work. Cloud Continuity keeps eligible threads going when the lid closes.</p>
           <LandingAuthHero />
           <p className="signin-note">Hermes Web by ThumbGate. Sign in with email or Google; enterprise SSO is discovered from a verified work email, and additional social providers appear only after they are configured.</p>
           <div className="trust-row"><span>No inbound ports</span><span>Private-key pairing</span><span>Cloud only when enabled</span></div>

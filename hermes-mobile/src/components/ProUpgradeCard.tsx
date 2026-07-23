@@ -135,7 +135,7 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
       <Text style={styles.body}>
         Hermes Chat is free. {THUMBGATE_LEASH_PRODUCT_NAME} ({priceLabel}) unlocks mobile approval
         cards on this phone plus lesson-backed gates that remember thumbs feedback, promote or
-        demote rules, and re-rank what matters next
+        re-rank what matters next, and promote repeated failures into gates
         {isAndroidLifetime
           ? ' — one-time unlock on Google Play.'
           : '. Subscriptions are managed on the ThumbGate web dashboard, not inside this app.'}
