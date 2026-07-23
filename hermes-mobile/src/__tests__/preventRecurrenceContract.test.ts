@@ -625,4 +625,19 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(chatScreen).toMatch(/needsPair=\{/);
     expect(chatScreen).toMatch(/connectionMode === 'relay'/);
   });
+
+  it('S29: never paint Continuing-from-last-session over empty New chat', () => {
+    const chip = read('hermes-mobile/src/components/ContinuingFromSessionChip.tsx');
+    expect(chip).toMatch(/return null/);
+    expect(chip).not.toContain('continuing-from-session-chip');
+    const handoff = read('hermes-mobile/src/utils/sessionContinuityHandoff.ts');
+    expect(handoff).toMatch(
+      /export function shouldShowContinuityChip[\s\S]*?\{\s*return false;\s*\}/,
+    );
+    const chatScreen = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chatScreen).not.toContain('ContinuingFromSessionChip');
+    expect(chatScreen).toContain('resolveContinuitySessionResumeId');
+    const resume = read('hermes-mobile/src/utils/continuitySessionResume.ts');
+    expect(resume).toContain('export function resolveContinuitySessionResumeId');
+  });
 });
