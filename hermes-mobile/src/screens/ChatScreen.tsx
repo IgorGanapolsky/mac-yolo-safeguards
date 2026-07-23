@@ -356,6 +356,7 @@ import {
   shouldSuppressEmptyGreetingUnreachable,
 } from '../utils/macUnreachableCopy';
 import { hasValidSavedComputer } from '../utils/freshUserOnboarding';
+import { resolvePrimaryConnectionStatus } from '../utils/chatPrimaryStatus';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { isInvalidGatewayProfile } from '../services/gatewayProfiles';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
@@ -1797,14 +1798,43 @@ export default function ChatScreen() {
     });
   }, [health?.authMismatch, repairComputerLabel]);
 
-  const routeStatusLabel =
-    settings.connectionMode === 'relay' &&
-    !isPaired &&
-    relayRouteDisplay.routeStatus !== 'Direct link'
-      ? relayRouteDisplay.routeStatus
-      : !effectiveMacHttpOk && connectionHealExhausted
-        ? savedMacUnreachableStatus(machineShortLabel)
-        : undefined;
+  // Quality law: primary status is computer reach, never cloud-pair jargon over a
+  // saved Mac that is simply unreachable (Igor 2026-07-23 Leash/Chat confusion).
+  const primaryConnectionStatus = resolvePrimaryConnectionStatus({
+    connectionMode: settings.connectionMode,
+    isPaired,
+    macHttpOk: effectiveMacHttpOk,
+    hasSavedComputer: hasValidSavedComputer(gatewayProfiles),
+    connectionState,
+    authMismatch: effectiveAuthMismatch,
+    cloudUnpairedLabel: relayRouteDisplay.routeStatus,
+    computerUnreachableLabel: savedMacUnreachableStatus(machineShortLabel),
+  });
+  const routeStatusLabel = (() => {
+    if (
+      primaryConnectionStatus.kind === 'connected' ||
+      primaryConnectionStatus.kind === 'demo'
+    ) {
+      return undefined;
+    }
+    // Silent heal: don't thrash primary status while reconnect is in flight.
+    if (connectionHealInFlight && !connectionHealExhausted) {
+      return undefined;
+    }
+    if (primaryConnectionStatus.kind === 'computer_unreachable') {
+      return primaryConnectionStatus.label;
+    }
+    if (primaryConnectionStatus.kind === 'cloud_pair_required') {
+      return primaryConnectionStatus.label;
+    }
+    if (primaryConnectionStatus.kind === 'auth_repair') {
+      return primaryConnectionStatus.label;
+    }
+    if (!effectiveMacHttpOk && connectionHealExhausted) {
+      return savedMacUnreachableStatus(machineShortLabel);
+    }
+    return undefined;
+  })();
 
   const suppressEmptyGreetingUnreachable = shouldSuppressEmptyGreetingUnreachable({
     healthProbePending,
