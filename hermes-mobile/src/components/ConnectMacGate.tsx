@@ -22,7 +22,11 @@ import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import {
   profilesForDevicePicker,
   profilesForSwitchComputerPicker,
+  synthesizeLiveUsbProfile,
+  type LiveUsbPickerInput,
 } from '../utils/gatewayProfilePicker';
+import { isInvalidGatewayProfile } from '../services/gatewayProfiles';
+import { probeLiveUsbGateway } from '../services/gatewayDiscovery';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import {
   isE2eAutomationBuild,
@@ -37,6 +41,13 @@ import {
   GATE_SCAN_QR_LINK,
   GATE_SEARCHING_STATUS,
 } from '../utils/tailscalePasteIpCopy';
+import {
+  USB_CABLE_GATE_BODY,
+  USB_CABLE_GATE_TITLE,
+  USB_PROBE_INTERVAL_MS,
+  shouldAutoSelectLiveUsbOnGate,
+  usbCableGateButtonLabel,
+} from '../utils/usbCableGateOffer';
 import { haptics } from '../services/haptics';
 
 const AUTO_RETRY_MS = 12000;
@@ -45,7 +56,8 @@ const GATE_SURFACE = '#0F1321';
 
 /**
  * First-run full-screen gate when no Mac is configured yet.
- * Stranger-first: paste Tailscale IP is the hero; Find computers / QR are secondary.
+ * When USB reverse is live (phone → 127.0.0.1:8642), offer that cable as the primary CTA.
+ * Otherwise stranger-first: paste Tailscale IP; Find computers / QR are secondary.
  */
 export default function ConnectMacGate() {
   const {
@@ -74,6 +86,9 @@ export default function ConnectMacGate() {
   const [invalidQrHint, setInvalidQrHint] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [enablingDemo, setEnablingDemo] = useState(false);
+  const [liveUsb, setLiveUsb] = useState<LiveUsbPickerInput | null>(null);
+  const [usingUsb, setUsingUsb] = useState(false);
+  const autoUsbAppliedRef = useRef(false);
   const scrollRef = useRef<ScrollView>(null);
   const { inset: keyboardInset } = useKeyboardInset({ focused: false });
 
@@ -114,10 +129,38 @@ export default function ConnectMacGate() {
     [retryGatewayBootstrap, selectGatewayProfile],
   );
 
+  const handleUseUsbCable = useCallback(async () => {
+    const hostname = liveUsb?.hostname?.trim();
+    if (!liveUsb?.reachable || !hostname) {
+      return;
+    }
+    setUsingUsb(true);
+    try {
+      const profile = synthesizeLiveUsbProfile(hostname);
+      await selectGatewayProfile(profile.id, { ensureProfile: profile });
+      await retryGatewayBootstrap();
+      haptics.success();
+    } catch {
+      haptics.warning();
+    } finally {
+      setUsingUsb(false);
+    }
+  }, [liveUsb, retryGatewayBootstrap, selectGatewayProfile]);
+
+  const hasSavedNonLoopbackMac = useMemo(
+    () =>
+      gatewayProfiles.some(
+        (profile) =>
+          !isInvalidGatewayProfile(profile) && !isLoopbackGatewayUrl(profile.gatewayUrl),
+      ),
+    [gatewayProfiles],
+  );
+
   const pickerProfiles = useMemo(() => {
     const activeId = activeGatewayProfile?.id ?? null;
     const switchRows = profilesForSwitchComputerPicker(gatewayProfiles, {
       activeProfileId: activeId,
+      liveUsb,
     });
     if (switchRows.length > 0) {
       return switchRows;
@@ -125,7 +168,7 @@ export default function ConnectMacGate() {
     return profilesForDevicePicker(gatewayProfiles).filter(
       (profile) => !isLoopbackGatewayUrl(profile.gatewayUrl),
     );
-  }, [activeGatewayProfile?.id, gatewayProfiles]);
+  }, [activeGatewayProfile?.id, gatewayProfiles, liveUsb]);
 
   const searching =
     isSearching ||
@@ -156,6 +199,8 @@ export default function ConnectMacGate() {
   const onCellular = !wifiConnected;
   const contextBody = onCellular ? CONNECT_MAC_GATE_BODY_CELLULAR : CONNECT_MAC_GATE_BODY_WIFI;
   const hasTailscaleCandidates = tailscaleDiscoveries.length > 0;
+  const usbHostname = liveUsb?.hostname?.trim() ?? '';
+  const showUsbOffer = Boolean(liveUsb?.reachable && usbHostname);
 
   const runWifiSearch = useCallback(async () => {
     setInvalidQrHint(null);
@@ -174,6 +219,55 @@ export default function ConnectMacGate() {
     }
     void probeTailscaleComputers();
   }, [probeTailscaleComputers, showGate]);
+
+  useEffect(() => {
+    if (!showGate) {
+      setLiveUsb(null);
+      autoUsbAppliedRef.current = false;
+      return;
+    }
+    let cancelled = false;
+    const probe = async () => {
+      try {
+        const discovery = await probeLiveUsbGateway();
+        if (cancelled) {
+          return;
+        }
+        if (discovery?.hostname?.trim()) {
+          setLiveUsb({ reachable: true, hostname: discovery.hostname });
+          return;
+        }
+        setLiveUsb(discovery ? { reachable: true } : null);
+      } catch {
+        if (!cancelled) {
+          setLiveUsb(null);
+        }
+      }
+    };
+    void probe();
+    const timer = setInterval(() => {
+      void probe();
+    }, USB_PROBE_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [showGate]);
+
+  useEffect(() => {
+    if (
+      !shouldAutoSelectLiveUsbOnGate({
+        liveUsbReachable: Boolean(liveUsb?.reachable),
+        liveUsbHostname: liveUsb?.hostname,
+        hasSavedNonLoopbackMac,
+        alreadyApplied: autoUsbAppliedRef.current,
+      })
+    ) {
+      return;
+    }
+    autoUsbAppliedRef.current = true;
+    void handleUseUsbCable();
+  }, [handleUseUsbCable, hasSavedNonLoopbackMac, liveUsb]);
 
   useEffect(() => {
     if (!showGate || searching) {
@@ -198,6 +292,7 @@ export default function ConnectMacGate() {
 
   const showCompactScanStatus =
     !hasTailscaleCandidates &&
+    !showUsbOffer &&
     searching &&
     !profileScanResult &&
     pickerProfiles.length === 0;
@@ -238,6 +333,22 @@ export default function ConnectMacGate() {
 
               <Text style={styles.body}>{contextBody}</Text>
 
+              {showUsbOffer ? (
+                <View style={styles.usbOffer} testID="connect-mac-usb-offer">
+                  <Text style={styles.usbOfferTitle}>{USB_CABLE_GATE_TITLE}</Text>
+                  <Text style={styles.usbOfferBody}>{USB_CABLE_GATE_BODY}</Text>
+                  <LoadingButton
+                    label={usbCableGateButtonLabel(usbHostname)}
+                    loadingLabel="Connecting…"
+                    loading={usingUsb}
+                    onPress={() => {
+                      void handleUseUsbCable();
+                    }}
+                    testID="connect-mac-use-usb"
+                  />
+                </View>
+              ) : null}
+
               <View style={styles.heroBlock} testID="connect-mac-onboarding-card">
                 <ManualComputerAddressForm
                   heroMode
@@ -256,7 +367,7 @@ export default function ConnectMacGate() {
                 <TailscaleDiscoveryBanner
                   discoveries={tailscaleDiscoveries}
                   onAdd={addDiscoveredTailscaleComputer}
-                  prominent
+                  prominent={!showUsbOffer}
                 />
               ) : null}
 
@@ -267,6 +378,7 @@ export default function ConnectMacGate() {
                     profiles={pickerProfiles}
                     activeProfileId={activeGatewayProfile?.id ?? null}
                     activeProfile={activeGatewayProfile}
+                    liveUsb={liveUsb}
                     onSelect={(profileId, profile) => {
                       void handleSelectProfile(profileId, profile);
                     }}
@@ -277,6 +389,7 @@ export default function ConnectMacGate() {
               ) : null}
 
               {!hasTailscaleCandidates &&
+              !showUsbOffer &&
               (searching || profileScanResult) &&
               pickerProfiles.length === 0 ? (
                 <MacScanProgressCard
@@ -288,7 +401,7 @@ export default function ConnectMacGate() {
                 />
               ) : null}
 
-              {!hasTailscaleCandidates ? (
+              {!hasTailscaleCandidates || showUsbOffer ? (
                 <View style={styles.secondaryRow}>
                   <LoadingButton
                     label="Find computers"
@@ -395,6 +508,24 @@ const styles = StyleSheet.create({
   body: {
     fontSize: 14,
     lineHeight: 20,
+    color: colors.textSecondary,
+  },
+  usbOffer: {
+    gap: 10,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    backgroundColor: colors.cardBg,
+  },
+  usbOfferTitle: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: colors.text,
+  },
+  usbOfferBody: {
+    fontSize: 13,
+    lineHeight: 18,
     color: colors.textSecondary,
   },
   heroBlock: {

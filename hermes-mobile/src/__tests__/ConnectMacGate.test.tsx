@@ -1,8 +1,10 @@
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import ConnectMacGate from '../components/ConnectMacGate';
 import { DEFAULT_GATEWAY_SETTINGS } from '../types/gateway';
 import { CONNECT_MAC_GATE_TITLE, TAILSCALE_PASTE_IP_TITLE } from '../utils/tailscalePasteIpCopy';
+import { USB_CABLE_GATE_TITLE } from '../utils/usbCableGateOffer';
+import { probeLiveUsbGateway } from '../services/gatewayDiscovery';
 
 const mockUseGateway = jest.fn();
 
@@ -17,6 +19,12 @@ jest.mock('../services/haptics', () => ({
     light: jest.fn(),
   },
 }));
+
+jest.mock('../services/gatewayDiscovery', () => ({
+  probeLiveUsbGateway: jest.fn().mockResolvedValue(null),
+}));
+
+const mockProbeLiveUsb = probeLiveUsbGateway as jest.MockedFunction<typeof probeLiveUsbGateway>;
 
 function gateway(overrides = {}) {
   return {
@@ -54,6 +62,7 @@ describe('ConnectMacGate', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    mockProbeLiveUsb.mockResolvedValue(null);
     if (originalE2e === undefined) {
       delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
     } else {
@@ -365,5 +374,71 @@ describe('ConnectMacGate', () => {
     expect(view.queryByTestId('connect-mac-scan-progress')).toBeNull();
     expect(view.queryByTestId('connect-search-wifi')).toBeNull();
     expect(view.queryByTestId('connect-scan-qr')).toBeNull();
+  });
+
+  it('surfaces Using this USB cable when loopback /health is live', async () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    const selectGatewayProfile = jest.fn().mockResolvedValue(true);
+    const retryGatewayBootstrap = jest.fn().mockResolvedValue(true);
+    mockProbeLiveUsb.mockResolvedValue({
+      gatewayUrl: 'http://127.0.0.1:8642',
+      hostname: 'Igors-MacBook-Pro.local',
+      label: 'Igors-MacBook-Pro',
+    });
+    mockUseGateway.mockReturnValue(
+      gateway({
+        selectGatewayProfile,
+        retryGatewayBootstrap,
+        gatewayProfiles: [],
+      }),
+    );
+
+    const view = render(<ConnectMacGate />);
+
+    await waitFor(() => {
+      expect(view.getByTestId('connect-mac-usb-offer')).toBeTruthy();
+    });
+    expect(view.getByText(USB_CABLE_GATE_TITLE)).toBeTruthy();
+    expect(view.getByTestId('connect-mac-use-usb')).toBeTruthy();
+    expect(view.getByText(/Use Igors-MacBook-Pro via this USB cable/)).toBeTruthy();
+
+    await waitFor(() => {
+      expect(selectGatewayProfile).toHaveBeenCalled();
+    });
+    expect(selectGatewayProfile.mock.calls[0][1].ensureProfile.gatewayUrl).toBe(
+      'http://127.0.0.1:8642',
+    );
+    expect(retryGatewayBootstrap).toHaveBeenCalled();
+  });
+
+  it('one-tap Use USB selects the synthesized loopback profile', async () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    const selectGatewayProfile = jest.fn().mockResolvedValue(true);
+    const retryGatewayBootstrap = jest.fn().mockResolvedValue(true);
+    // Probe never resolves during this test — inject via press after forcing state
+    // by resolving once then clearing auto path with a prior select count.
+    mockProbeLiveUsb.mockResolvedValue({
+      gatewayUrl: 'http://127.0.0.1:8642',
+      hostname: 'Igors-MacBook-Pro.local',
+      label: 'Igors-MacBook-Pro',
+    });
+    mockUseGateway.mockReturnValue(
+      gateway({
+        selectGatewayProfile,
+        retryGatewayBootstrap,
+        gatewayProfiles: [],
+      }),
+    );
+
+    const view = render(<ConnectMacGate />);
+    await waitFor(() => {
+      expect(view.getByTestId('connect-mac-use-usb')).toBeTruthy();
+    });
+
+    const before = selectGatewayProfile.mock.calls.length;
+    await act(async () => {
+      fireEvent.press(view.getByTestId('connect-mac-use-usb'));
+    });
+    expect(selectGatewayProfile.mock.calls.length).toBeGreaterThan(before);
   });
 });

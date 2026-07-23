@@ -58,12 +58,18 @@
 | **Relay deep link** | `hermes://relay?code=XXXX` | Same; user taps link (SMS/email/web) |
 | **Local QR** | Connect Mac gate → Scan QR | Same Wi‑Fi or pair page URL; Mac Hermes gateway |
 | **LAN discovery** | Settings → Find Macs | Same Wi‑Fi; mDNS/Bonjour |
+| **USB cable (when live)** | Connect Mac gate → **Using this USB cable** | Mac ran **Connect phone** so the phone can reach `http://127.0.0.1:8642` (port reverse). The app probes loopback `/health` — it does **not** use Android USB host APIs. Strangers without that Mac-side step never see the USB CTA; Tailscale IP / QR remain the path. |
+
+### What “USB” means in product
+
+Hermes USB is **not** “the phone noticed a cable plugged in.” It is: the Mac’s Hermes **Connect phone** flow (or agent `adb reverse`) forwarded gateway ports so the phone’s `127.0.0.1:8642` answers with the Mac’s `/health`. If that probe is healthy, ConnectMacGate surfaces **Using this USB cable** as the primary CTA and may auto-select when no Tailscale/LAN Mac is saved yet. Sticky Tailscale selections are not stolen (see #899 / handoff rules).
 
 ### Blockers
 
 - No cloud account signup — pairing assumes user already operates Hermes on a Mac.
 - QR/pair page must be served by user's Mac (`/pair.json` or gateway URL).
 - Stranger on cellular with LAN-only saved profile sees tunnel wizard — must paste tunnel URL manually.
+- USB auto-offer requires Mac-side Connect phone / reverse — not available to strangers who only installed the phone app.
 
 ### Ready when
 
