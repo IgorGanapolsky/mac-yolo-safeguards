@@ -1181,6 +1181,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 ## 3. Decisions Log
 
+- D-2026-07-23-emergency-usb-sticky-pair: Combine #893 (USB↔Tailscale autoDiscover steal) + #898 (setup-pair lastSelected/force-active stickiness) as single tip #899 so main never lands half the fix. No Expo OTA.
+
 - 2026-07-23T16:25:00Z `cursor-asc-rename-ship`: **D-2026-07-23-hermes-mobile-serp-74.** iTunes `hermes mobile` → ours #74 (`Hermes AI Agent Leash`); #1 exact-title logistics `Hermes Mobile` (ch.dataphone.Hermes). Live name still 409-locked. Patched live+1.4 promotionalText to lead with Hermes Mobile; 1.4 keywords+name already staged. Public SERP flip only after 1.4 Approved+Released. No phone/device PR touch (#893/#898). No OTA. No fake expedite for ASO.
 - 2026-07-23T16:10:00Z `cursor-asc-rename-ship`: **T-ASC-RENAME-HERMES-MOBILE-20260723 / D-2026-07-23-asc-name-not-live-metadata.** Attempted ASC PATCH of live `READY_FOR_SALE` appInfoLocalization name+subtitle → **409 INVALID_STATE**. iOS **1.4** `WAITING_FOR_REVIEW` (`releaseType: AFTER_APPROVAL`) already has name `Hermes Mobile: AI Agent`. Proof: `hermes-mobile/docs/ASC-RENAME-HERMES-MOBILE-20260723.md`. No Expo OTA.
 
