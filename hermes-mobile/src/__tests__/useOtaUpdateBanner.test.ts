@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react-native';
 import { Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Updates from 'expo-updates';
 
 jest.spyOn(Alert, 'alert').mockImplementation(() => {});
@@ -12,6 +13,7 @@ jest.mock('expo-updates', () => ({
   fetchUpdateAsync: jest.fn().mockResolvedValue({ isNew: true }),
   reloadAsync: jest.fn().mockResolvedValue(undefined),
   useUpdates: jest.fn(),
+  updateId: null,
 }));
 
 const mockUseUpdates = Updates.useUpdates as jest.MockedFunction<typeof Updates.useUpdates>;
@@ -28,8 +30,18 @@ const baseReturn = {
 };
 
 describe('useOtaUpdateBanner', () => {
-  beforeEach(() => {
+  const prevThaw = process.env.EXPO_PUBLIC_OTA_BILLING_THAW;
+
+  beforeEach(async () => {
     jest.clearAllMocks();
+    await AsyncStorage.clear();
+    // Existing prompt tests assume prompts are allowed (billing thawed).
+    process.env.EXPO_PUBLIC_OTA_BILLING_THAW = '1';
+  });
+
+  afterEach(() => {
+    if (prevThaw === undefined) delete process.env.EXPO_PUBLIC_OTA_BILLING_THAW;
+    else process.env.EXPO_PUBLIC_OTA_BILLING_THAW = prevThaw;
   });
 
   it('returns idle when OTA is disabled (dev builds)', () => {
@@ -48,7 +60,7 @@ describe('useOtaUpdateBanner', () => {
     expect(Alert.alert).not.toHaveBeenCalled();
   });
 
-  it('returns available when useUpdates reports isUpdateAvailable', () => {
+  it('returns available without Alert — banner-only UI', () => {
     (Updates as any).isEnabled = true;
     mockUseUpdates.mockReturnValue({
       ...baseReturn,
@@ -63,17 +75,11 @@ describe('useOtaUpdateBanner', () => {
 
     expect(result.current.state).toBe('available');
     expect(result.current.message).toContain('new version');
-    expect(Alert.alert).toHaveBeenCalledWith(
-      'Update available',
-      'A new version of Hermes is available.',
-      expect.arrayContaining([
-        expect.objectContaining({ text: 'Later', style: 'cancel' }),
-        expect.objectContaining({ text: 'Download & restart' }),
-      ]),
-    );
+    // Dual UI kill: never Alert.alert alongside OtaUpdateBanner
+    expect(Alert.alert).not.toHaveBeenCalled();
   });
 
-  it('shows Alert once per session when update becomes available', () => {
+  it('never fires Alert.alert even when update becomes available', () => {
     (Updates as any).isEnabled = true;
     mockUseUpdates.mockReturnValue({
       ...baseReturn,
@@ -85,12 +91,12 @@ describe('useOtaUpdateBanner', () => {
       return useOtaUpdateBanner();
     });
 
-    expect(Alert.alert).toHaveBeenCalledTimes(1);
+    expect(Alert.alert).not.toHaveBeenCalled();
     rerender({});
-    expect(Alert.alert).toHaveBeenCalledTimes(1);
+    expect(Alert.alert).not.toHaveBeenCalled();
   });
 
-  it('returns pending when useUpdates reports isUpdatePending', () => {
+  it('returns pending without Alert — banner-only UI', () => {
     (Updates as any).isEnabled = true;
     mockUseUpdates.mockReturnValue({
       ...baseReturn,
@@ -104,14 +110,7 @@ describe('useOtaUpdateBanner', () => {
 
     expect(result.current.state).toBe('pending');
     expect(result.current.message).toContain('ready');
-    expect(Alert.alert).toHaveBeenCalledWith(
-      'Update available',
-      'A new version of Hermes is downloaded and ready.',
-      expect.arrayContaining([
-        expect.objectContaining({ text: 'Later', style: 'cancel' }),
-        expect.objectContaining({ text: 'Restart' }),
-      ]),
-    );
+    expect(Alert.alert).not.toHaveBeenCalled();
   });
 
   it('calls reloadAsync on applyNow when update already pending', async () => {
@@ -193,11 +192,14 @@ describe('useOtaUpdateBanner', () => {
     expect(result.current.state).toBe('idle');
   });
 
-  it('Later button on Alert calls dismiss', () => {
+  it('stays idle and skips Alert/check during Expo billing freeze', () => {
+    delete process.env.EXPO_PUBLIC_OTA_BILLING_THAW;
+    delete process.env.EXPO_PUBLIC_OTA_CLIENT_PROMPTS;
+    delete process.env.HERMES_OTA_BILLING_THAW;
     (Updates as any).isEnabled = true;
     mockUseUpdates.mockReturnValue({
       ...baseReturn,
-      isUpdateAvailable: true,
+      isUpdatePending: true,
     });
 
     const { result } = renderHook(() => {
@@ -205,14 +207,32 @@ describe('useOtaUpdateBanner', () => {
       return useOtaUpdateBanner();
     });
 
-    const buttons = (Alert.alert as jest.Mock).mock.calls[0][2] as Array<{
-      text: string;
-      onPress?: () => void;
-    }>;
-    const later = buttons.find((b) => b.text === 'Later');
-    act(() => {
-      later?.onPress?.();
+    expect(result.current.state).toBe('idle');
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(Updates.checkForUpdateAsync).not.toHaveBeenCalled();
+  });
+
+  it('never calls reloadAsync during billing freeze even if applyNow is invoked', async () => {
+    delete process.env.EXPO_PUBLIC_OTA_BILLING_THAW;
+    delete process.env.EXPO_PUBLIC_OTA_CLIENT_PROMPTS;
+    delete process.env.HERMES_OTA_BILLING_THAW;
+    (Updates as any).isEnabled = true;
+    mockUseUpdates.mockReturnValue({
+      ...baseReturn,
+      isUpdatePending: true,
     });
+
+    const { result } = renderHook(() => {
+      const { useOtaUpdateBanner } = require('../hooks/useOtaUpdateBanner');
+      return useOtaUpdateBanner();
+    });
+
+    await act(async () => {
+      await result.current.applyNow();
+    });
+
+    expect(Updates.reloadAsync).not.toHaveBeenCalled();
+    expect(Updates.fetchUpdateAsync).not.toHaveBeenCalled();
     expect(result.current.state).toBe('idle');
   });
 });
