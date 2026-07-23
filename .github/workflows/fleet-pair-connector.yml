@@ -1,0 +1,175 @@
+# Install / finalize ThumbGate cloud connector on a fleet Mac (self-hosted).
+#
+# Phase 1 — emit public identity (no private key leaves the host):
+#   gh workflow run fleet-pair-connector.yml -f phase=emit -f runner_label=mac-mini -f device_name=Igors-Mac-mini
+#
+# Then register on a wrangler-authenticated Mac:
+#   node tools/fleet-register-connector-device.js --organization-id … --name Igors-Mac-mini --public-jwk '…'
+#
+# Phase 2 — write deviceId + bootstrap launchd:
+#   gh workflow run fleet-pair-connector.yml -f phase=finalize -f runner_label=mac-mini -f device_id=<uuid>
+name: Fleet pair ThumbGate connector
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: emit (public identity artifact) or finalize (write deviceId + launchd)
+        required: true
+        default: emit
+        type: choice
+        options: [emit, finalize]
+      runner_label:
+        description: Self-hosted runner label
+        required: true
+        default: mac-mini
+      device_name:
+        description: Device display name for the dashboard
+        required: true
+        default: Igors-Mac-mini
+      control_plane_url:
+        description: ThumbGate control plane URL
+        required: true
+        default: https://thumbgate.app
+      device_id:
+        description: Required for finalize — control-plane device UUID
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  connector:
+    name: Connector ${{ inputs.phase }}
+    runs-on: [self-hosted, "${{ inputs.runner_label }}"]
+    timeout-minutes: 15
+    steps:
+      - name: Checkout connector sources
+        if: inputs.phase == 'emit'
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            tools/hermes-cloud-connector.js
+          sparse-checkout-cone-mode: false
+
+      - name: Emit public identity artifact
+        if: inputs.phase == 'emit'
+        env:
+          HERMES_CONTROL_PLANE_URL: ${{ inputs.control_plane_url }}
+          HERMES_DEVICE_NAME: ${{ inputs.device_name }}
+        run: |
+          set -euo pipefail
+          DEST="$HOME/.hermes/connector"
+          CONFIG="$HOME/.hermes/cloud-connector.json"
+          mkdir -p "$DEST"
+          cp tools/hermes-cloud-connector.js "$DEST/hermes-cloud-connector.js"
+          chmod 700 "$DEST/hermes-cloud-connector.js"
+          NODE="$(command -v node)"
+          if [ ! -f "$CONFIG" ]; then
+            "$NODE" -e '
+              const c=require(process.argv[1]);
+              const os=require("os");
+              const name=process.env.HERMES_DEVICE_NAME||os.hostname();
+              const config={
+                ...c.createIdentity(name),
+                controlPlaneUrl: process.env.HERMES_CONTROL_PLANE_URL,
+                sessionGatewayUrl: "http://127.0.0.1:8642",
+              };
+              c.saveConfig(process.env.HOME+"/.hermes/cloud-connector.json", config);
+              console.log("CREATED_IDENTITY", config.deviceName);
+            ' "$DEST/hermes-cloud-connector.js"
+          else
+            echo "REUSING_EXISTING_CONFIG"
+            # Keep private key; only refresh display name / control plane URL.
+            "$NODE" -e '
+              const c=require(process.argv[1]);
+              const cfg=c.loadConfig(process.env.HOME+"/.hermes/cloud-connector.json");
+              cfg.deviceName=process.env.HERMES_DEVICE_NAME||cfg.deviceName;
+              cfg.controlPlaneUrl=process.env.HERMES_CONTROL_PLANE_URL||cfg.controlPlaneUrl;
+              c.saveConfig(process.env.HOME+"/.hermes/cloud-connector.json", cfg);
+            ' "$DEST/hermes-cloud-connector.js"
+          fi
+          "$NODE" -e '
+            const fs=require("fs");
+            const cfg=JSON.parse(fs.readFileSync(process.env.HOME+"/.hermes/cloud-connector.json","utf8"));
+            if (!cfg.publicJwk || !cfg.privateKeyPem) throw new Error("config missing key material");
+            const out={
+              deviceName: cfg.deviceName,
+              deviceId: cfg.deviceId||null,
+              publicJwk: cfg.publicJwk,
+              controlPlaneUrl: cfg.controlPlaneUrl,
+              hostname: require("os").hostname(),
+            };
+            fs.writeFileSync("connector-public-identity.json", JSON.stringify(out, null, 2));
+            console.log(JSON.stringify({
+              deviceName: out.deviceName,
+              deviceId: out.deviceId,
+              hostname: out.hostname,
+              hasPublicJwk: Boolean(out.publicJwk),
+            }));
+          '
+
+      - name: Upload public identity artifact
+        if: inputs.phase == 'emit'
+        uses: actions/upload-artifact@v4
+        with:
+          name: connector-public-identity
+          path: connector-public-identity.json
+          retention-days: 3
+
+      - name: Finalize deviceId and launchd
+        if: inputs.phase == 'finalize'
+        env:
+          DEVICE_ID: ${{ inputs.device_id }}
+          HERMES_CONTROL_PLANE_URL: ${{ inputs.control_plane_url }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DEVICE_ID}" ]; then
+            echo "device_id input is required for finalize" >&2
+            exit 2
+          fi
+          CONFIG="$HOME/.hermes/cloud-connector.json"
+          DEST="$HOME/.hermes/connector"
+          test -f "$CONFIG"
+          test -f "$DEST/hermes-cloud-connector.js"
+          NODE="$(command -v node)"
+          DEVICE_ID="$DEVICE_ID" "$NODE" -e '
+            const fs=require("fs");
+            const path=process.env.HOME+"/.hermes/cloud-connector.json";
+            const cfg=JSON.parse(fs.readFileSync(path,"utf8"));
+            cfg.deviceId=process.env.DEVICE_ID;
+            cfg.controlPlaneUrl=process.env.HERMES_CONTROL_PLANE_URL||cfg.controlPlaneUrl;
+            fs.writeFileSync(path, JSON.stringify(cfg, null, 2)+"\n", {mode:0o600});
+            console.log("WROTE_DEVICE_ID", cfg.deviceId, cfg.deviceName);
+          '
+          LABEL=com.hermes.connector
+          PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+          mkdir -p "$HOME/Library/LaunchAgents"
+          cat > "$PLIST" <<PLISTEOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>Label</key><string>$LABEL</string>
+            <key>ProgramArguments</key><array>
+              <string>$NODE</string><string>$DEST/hermes-cloud-connector.js</string><string>run</string>
+            </array>
+            <key>EnvironmentVariables</key><dict>
+              <key>HERMES_CONTROL_PLANE_URL</key><string>${HERMES_CONTROL_PLANE_URL}</string>
+              <key>HERMES_CONNECTOR_CONFIG</key><string>$CONFIG</string>
+              <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+            </dict>
+            <key>KeepAlive</key><true/>
+            <key>RunAtLoad</key><true/>
+            <key>StandardOutPath</key><string>/tmp/hermes-connector.log</string>
+            <key>StandardErrorPath</key><string>/tmp/hermes-connector.log</string>
+          </dict></plist>
+          PLISTEOF
+          # Strip accidental leading spaces from heredoc
+          sed -i '' 's/^          //' "$PLIST" 2>/dev/null || sed -i 's/^          //' "$PLIST"
+          launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
+          launchctl bootstrap "gui/$(id -u)" "$PLIST"
+          # One heartbeat cycle for evidence
+          "$NODE" "$DEST/hermes-cloud-connector.js" --once || true
+          echo "FINALIZED"
+          "$NODE" -e 'const c=require("fs").readFileSync(process.env.HOME+"/.hermes/cloud-connector.json","utf8"); const j=JSON.parse(c); console.log(JSON.stringify({deviceId:j.deviceId,deviceName:j.deviceName},null,2));'
