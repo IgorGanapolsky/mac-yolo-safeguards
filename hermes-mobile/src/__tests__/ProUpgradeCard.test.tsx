@@ -109,7 +109,7 @@ describe('ProUpgradeCard', () => {
 
     await waitFor(() => {
       expect(trackProductEvent).toHaveBeenCalledWith('upgrade_tap_thumbgate_web_subscription', {
-        url: expect.stringContaining('thumbgate.ai'),
+        url: expect.stringContaining('thumbgate.app'),
       });
       expect(Linking.openURL).toHaveBeenCalledWith(
         expect.stringContaining('utm_campaign=web_subscription'),
