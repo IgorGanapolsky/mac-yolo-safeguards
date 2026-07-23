@@ -82,8 +82,8 @@ export function FailoverPathDemo() {
     const delay = reduceMotion ? 1800 : 1400;
     const steps: Phase[] = ["pending", "running", "offline_choice", "ask", "cloud"];
     let index = 0;
-    setPolicy("manual");
-    setPhase(steps[0]);
+    // Only advance from the interval callback — never setState at effect body start
+    // (eslint react-hooks/set-state-in-effect).
     const timer = window.setInterval(() => {
       index = (index + 1) % steps.length;
       const next = steps[index];
@@ -97,6 +97,16 @@ export function FailoverPathDemo() {
     setAutoplay(false);
     setPolicy("manual");
     setPhase("pending");
+  }
+
+  function toggleAutoplay() {
+    if (autoplay) {
+      setAutoplay(false);
+      return;
+    }
+    setPolicy("manual");
+    setPhase("pending");
+    setAutoplay(true);
   }
 
   function approveCall() {
@@ -142,7 +152,7 @@ export function FailoverPathDemo() {
             type="button"
             className={styles.ghostButton}
             aria-pressed={autoplay}
-            onClick={() => setAutoplay((value) => !value)}
+            onClick={toggleAutoplay}
           >
             {autoplay ? "Stop autoplay" : "Autoplay path"}
           </button>
