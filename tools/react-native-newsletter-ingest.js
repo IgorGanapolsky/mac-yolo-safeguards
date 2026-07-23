@@ -135,19 +135,34 @@ async function fetchUrl(url, timeoutMs = 45000) {
 }
 
 function decodeXml(text) {
+  // &amp; MUST be decoded last. Decoding it first would turn a legitimately
+  // double-encoded sequence like "&amp;lt;" into "&lt;" and then the very
+  // next .replace() in this same pass would decode that into "<" too — an
+  // unintended double-decode that unwraps more entity levels than the input
+  // actually had. Doing &amp; last means each entity is decoded exactly once.
   return String(text || '')
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
-    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&');
 }
 
+// Trust boundary note: this only strips markup from remote RSS/blog fetches
+// to produce a local plain-text summary used for keyword scoring — the
+// result is never re-rendered as HTML or executed, so the residual risk of
+// an HTML-filter bypass here is low. We still close the known gaps in the
+// original `<script>...</script>` pair-matching regex (missed unterminated
+// or self-closing script/style tags, e.g. a feed truncated mid-tag) with a
+// defense-in-depth pass rather than reaching for a full HTML parser
+// dependency, since none exists in this repo and this tool doesn't warrant
+// adding one.
 function stripHtml(html) {
   return decodeXml(html)
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, ' ')
+    .replace(/<\/?(?:script|style)\b[^>]*>/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -178,7 +193,12 @@ function parseRssItems(xml, limit = 20) {
 function extractJsonLdBlogPosting(html) {
   const blocks = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi) || [];
   for (const block of blocks) {
-    const raw = block.replace(/<script[^>]*>/i, '').replace(/<\/script>/i, '');
+    // Extract the inner JSON via a single capturing match instead of two
+    // sequential .replace() calls that strip the open/close tags: stripping
+    // in two passes can leave a match behind if removing one tag creates a
+    // new "<...>" adjacency (incomplete multi-character sanitization), and a
+    // direct capture sidesteps that class of bug entirely.
+    const raw = (block.match(/<script[^>]*>([\s\S]*?)<\/script>/i) || [])[1] || '';
     try {
       const data = JSON.parse(raw);
       if (data && data['@type'] === 'BlogPosting') {
