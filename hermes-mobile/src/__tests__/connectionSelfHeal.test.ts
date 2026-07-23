@@ -7,6 +7,7 @@ import {
   savedProfileFallbackUrls,
   shouldClearUsbPrimaryOnCellular,
   shouldDeferLoopbackSuccessOnCellular,
+  shouldForceUsbForCurrentChattingMachine,
   shouldKeepUsbOverStickyRemote,
   shouldPreferUsbProbeFirst,
 } from '../utils/connectionSelfHeal';
@@ -268,8 +269,22 @@ describe('USB primary on cellular', () => {
     ).toBe(false);
   });
 
-  it('never prefers USB when active is Tailscale to another machine (mini remote + Pro cable)', () => {
-    // User selected Mac mini over Tailscale; phone is cabled to MacBook Pro.
+  it('forces USB only for the CURRENT chatting machine when cable matches', () => {
+    // Plug-in + USB on this Mac → force.
+    expect(
+      shouldForceUsbForCurrentChattingMachine({ liveUsbSameMachine: true }),
+    ).toBe(true);
+    // No same-machine reverse → do not force.
+    expect(
+      shouldForceUsbForCurrentChattingMachine({ liveUsbSameMachine: false }),
+    ).toBe(false);
+    expect(
+      shouldForceUsbForCurrentChattingMachine({ liveUsbSameMachine: undefined }),
+    ).toBe(false);
+  });
+
+  it('never forces USB when active is Tailscale to another machine (mini remote + Pro cable)', () => {
+    // User chatting with Mac mini over Tailscale; phone cabled to MacBook Pro.
     expect(
       isForeignUsbVsActiveRemote({
         activeGatewayUrl: 'http://100.94.135.78:8642',
@@ -285,7 +300,7 @@ describe('USB primary on cellular', () => {
         liveUsbSameMachine: false,
       }),
     ).toBe(false);
-    // Same Mac Tailscale + cable → not foreign; prefer USB allowed.
+    // Same current Mac + cable → force USB first.
     expect(
       isForeignUsbVsActiveRemote({
         activeGatewayUrl: 'http://100.87.85.85:8642',

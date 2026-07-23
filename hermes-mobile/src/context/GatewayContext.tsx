@@ -1527,9 +1527,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     const activeForDiscovery = activeProfile(profileStateRef.current);
     const effectiveUrl =
       effectiveGatewayUrlRef.current.trim() || currentUrl || '';
-    // Live cable identity — prefer same-Mac USB first only when it matches the
-    // *active* computer (2026-07-23). Prefer not force; USB fail → Tailscale/LAN.
-    // HARD: active Tailscale/LAN to mini while Pro is cabled → never prefer USB.
+    // Live cable: force USB first only when reverse matches the CURRENT chatting
+    // Mac (2026-07-23). Different Mac on cable (mini chat + Pro USB) → never USB.
+    // USB probe fail → fall through to Tailscale/LAN.
     let liveUsbHostname: string | null = null;
     if (Platform.OS !== 'web') {
       try {
@@ -2030,9 +2030,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   }, [autoDiscoverGateway, isLoaded, persistDiscoveredGatewayUrl, refreshHealth]);
 
   /**
-   * Product lock: Connected via Tailscale/LAN + same-Mac USB reverse healthy →
-   * switch effective chat URL to USB without changing activeProfileId / clearing chat.
-   * Runs on Wi‑Fi and cellular — live USB hostname is the ghost guard.
+   * Plug-in: if USB reverse is healthy on the CURRENT chatting machine, force the
+   * chat URL to USB (keep activeProfileId / transcript). Different Mac on the cable
+   * → no handoff (user stays on that machine's Tailscale/LAN).
+   * Runs on Wi‑Fi and cellular — live USB hostname is the ghost/foreign-Mac guard.
    */
   const maybeHandoffTailscaleToUsb = useCallback(async (): Promise<boolean> => {
     if (

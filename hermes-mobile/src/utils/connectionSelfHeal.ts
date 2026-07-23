@@ -153,9 +153,33 @@ export function buildSelfHealProbeUrls(input: {
 }
 
 /**
+ * Product (2026-07-23) — single rule:
+ *
+ * **Force USB only when** the phone is plugged in and live reverse is healthy
+ * for the **CURRENT chatting machine** (active profile hostname matches USB /health).
+ *
+ * **Never force USB when** the user is on Tailscale/LAN to a *different* Mac
+ * (e.g. mini over Tailscale while Pro is cabled) — stay on that remote session.
+ *
+ * If same-Mac USB probe fails → fall through to Tailscale/LAN (not USB-only forever).
+ */
+
+/**
+ * True when we should switch/keep the chat route on USB for the current Mac.
+ * Requires live same-machine reverse (caller sets liveUsbSameMachine from
+ * activeProfile + USB /health hostname).
+ */
+export function shouldForceUsbForCurrentChattingMachine(input: {
+  /** Live adb reverse hostname matches the active/current chat Mac. */
+  liveUsbSameMachine?: boolean;
+}): boolean {
+  return input.liveUsbSameMachine === true;
+}
+
+/**
  * Active session is Tailscale/LAN to a Mac that is **not** the cabled host.
- * Preferring USB would steal the intentional remote session (e.g. mini via
- * Tailscale while Pro is plugged into the phone). Always honor the remote Mac.
+ * Forcing USB would steal the intentional remote session (mini via Tailscale
+ * while Pro is plugged in). Always honor the current chatting machine.
  *
  * Not foreign when the *effective* route is already USB (same-Mac handoff kept
  * sticky Tailscale profile id while chat URL is 127.0.0.1).
@@ -181,19 +205,18 @@ export function isForeignUsbVsActiveRemote(input: {
     return false;
   }
   // Remote sticky + cable is a different Mac (or no same-machine proof).
-  return input.liveUsbSameMachine !== true;
+  return !shouldForceUsbForCurrentChattingMachine({
+    liveUsbSameMachine: input.liveUsbSameMachine,
+  });
 }
 
 /**
- * Prefer USB in autoDiscover **probe order only** — never force USB as the only path.
+ * autoDiscover probe order: force USB first only for the current chatting Mac.
  *
- * Product (2026-07-23):
- * - Same sticky Mac + live reverse → try USB first (even if sticky URL is Tailscale).
- * - USB probe fails → fall through to Tailscale/LAN (never USB-only).
- * - **Active Tailscale/LAN to another Mac** (mini remote, Pro cable) → never prefer USB.
- *
- * Ghost guard: without liveUsbSameMachine, still require Wi‑Fi + already-loopback
- * profile/effective URL (cellular ghost 127.0.0.1 without live hostname stays out).
+ * - liveUsbSameMachine → force USB first (plug-in path for this Mac).
+ * - Foreign remote (mini Tailscale + Pro cable) → never USB first.
+ * - Already on loopback + Wi‑Fi → keep probing USB first.
+ * - USB probe fails → callers fall through to Tailscale/LAN.
  */
 export function shouldPreferUsbProbeFirst(input: {
   activeGatewayUrl?: string | null;
@@ -201,13 +224,12 @@ export function shouldPreferUsbProbeFirst(input: {
   effectiveGatewayUrl?: string | null;
   wifiConnected: boolean;
   /**
-   * Live adb reverse /health hostname matches the sticky/active Mac.
-   * When true, prefer USB first (not force) even on cellular / Tailscale sticky URL.
-   * When false/absent and sticky is remote Tailscale/LAN → never prefer USB.
+   * Live adb reverse /health hostname matches the sticky/active (current chat) Mac.
+   * When true → force USB first for this machine. When false + remote sticky → never USB.
    */
   liveUsbSameMachine?: boolean;
 }): boolean {
-  // HARD: user is on Tailscale/LAN to machine A; cable is machine B → stay on A.
+  // HARD: current chat is Tailscale/LAN to machine A; cable is machine B → stay on A.
   if (
     isForeignUsbVsActiveRemote({
       activeGatewayUrl: input.activeGatewayUrl,
@@ -217,7 +239,12 @@ export function shouldPreferUsbProbeFirst(input: {
   ) {
     return false;
   }
-  if (input.liveUsbSameMachine) {
+  // Plug-in + USB available on the CURRENT chatting machine → force USB first.
+  if (
+    shouldForceUsbForCurrentChattingMachine({
+      liveUsbSameMachine: input.liveUsbSameMachine,
+    })
+  ) {
     return true;
   }
   const active = input.activeGatewayUrl?.trim() ?? '';
@@ -229,10 +256,10 @@ export function shouldPreferUsbProbeFirst(input: {
 }
 
 /**
- * Prefer keeping a **healthy** same-Mac USB route over re-applying sticky Tailscale/LAN
- * in the same autoDiscover pass (stops USB→Tailscale thrash while cable is live).
- * Not a force: if USB dies, callers fall through and probe sticky remote.
- * Foreign sticky Mac (mini Tailscale while Pro cabled) returns false — stay on mini.
+ * Keep a healthy same-Mac USB route over re-applying sticky Tailscale/LAN in the
+ * same autoDiscover pass (stops USB→Tailscale thrash while cable is live).
+ * If USB dies, callers fall through and probe sticky remote.
+ * Foreign Mac cable (mini chat + Pro USB) returns false — stay on mini.
  */
 export function shouldKeepUsbOverStickyRemote(input: {
   effectiveGatewayUrl?: string | null;
@@ -241,8 +268,12 @@ export function shouldKeepUsbOverStickyRemote(input: {
 }): boolean {
   const effective = input.effectiveGatewayUrl?.trim() ?? '';
   const sticky = input.stickyProfileUrl?.trim() ?? '';
-  // Never "keep USB" when the cable is a different Mac than the sticky session.
-  if (!input.liveUsbSameMachine || !isLoopbackGatewayUrl(effective)) {
+  if (
+    !shouldForceUsbForCurrentChattingMachine({
+      liveUsbSameMachine: input.liveUsbSameMachine,
+    }) ||
+    !isLoopbackGatewayUrl(effective)
+  ) {
     return false;
   }
   if (!sticky || isLoopbackGatewayUrl(sticky)) {
