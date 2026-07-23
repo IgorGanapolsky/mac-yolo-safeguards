@@ -125,7 +125,7 @@ describe('sessionTokenGuards', () => {
     expect(shouldAutoFreshAndResendOnMegaBlock('block')).toBe(true);
   });
 
-  it('badges recents and forces fresh reopen on BLOCK sessions', () => {
+  it('badges recents and offers fresh (never force-blocks open) on large sessions', () => {
     expect(megaSessionRecentsBadge({ input_tokens: 50_000 })).toBeNull();
     expect(megaSessionRecentsBadge({ input_tokens: MEGA_SESSION_TOKEN_WARN })).toBe('Large');
     expect(megaSessionRecentsBadge({ input_tokens: MEGA_SESSION_TOKEN_BLOCK })).toBe('Too large');
@@ -135,13 +135,14 @@ describe('sessionTokenGuards', () => {
         api_call_count: 5,
       }),
     ).toBe('Too large');
+    // Open is never force-blocked — reconnect/remount restores for reading.
     expect(shouldForceFreshOnSessionSelect({ input_tokens: 400_000 })).toBe(false);
-    expect(shouldForceFreshOnSessionSelect({ input_tokens: 516_000 })).toBe(true);
+    expect(shouldForceFreshOnSessionSelect({ input_tokens: 516_000 })).toBe(false);
     expect(
       shouldForceFreshOnSessionSelect({ input_tokens: 1_700_000, api_call_count: 50 }),
     ).toBe(false);
     expect(shouldSuggestFreshOnSessionSelect({ input_tokens: 150_000 })).toBe(true);
-    expect(shouldSuggestFreshOnSessionSelect({ input_tokens: 516_000 })).toBe(false);
+    expect(shouldSuggestFreshOnSessionSelect({ input_tokens: 516_000 })).toBe(true);
     expect(megaSessionForceFreshSelectCopy(516_000)).toContain('Start a fresh chat');
   });
 

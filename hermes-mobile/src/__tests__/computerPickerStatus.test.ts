@@ -345,4 +345,19 @@ describe('computerPickerStatus', () => {
       }),
     ).toBe(false);
   });
+
+  it('iOS/iPad searching copy states USB cable does not connect Hermes', () => {
+    const status = resolveComputerPickerStatus({
+      scanning: true,
+      scanProgress: null,
+      scanResult: null,
+      showScanResult: false,
+      tailscaleProbing: false,
+      tailscaleVpnActive: true,
+      tailscaleDiscoveries: [],
+      platform: 'ios',
+    });
+    expect(status.detail).toMatch(/USB cable does not connect Hermes on iPad/i);
+    expect(status.detail).toMatch(/Tailscale|Wi‑Fi|Wi-Fi/i);
+  });
 });

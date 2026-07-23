@@ -52,6 +52,8 @@ export type ResolveComputerPickerStatusInput = {
   wifiConnected?: boolean;
   /** True when the active Mac answers HTTP (header would say Connected). */
   activeReachable?: boolean;
+  /** iOS/iPad has no adb reverse USB path — be honest in the status band. */
+  platform?: 'ios' | 'android' | 'web' | string;
 };
 
 /**
@@ -71,13 +73,17 @@ export function resolveComputerPickerStatus(
   if (input.scanning) {
     // Stable copy only — mid-scan host % / stage labels reflow the sheet (jitter).
     // Detailed progress stays on MacScanProgressCard when that surface is shown.
+    const iosUsbHint =
+      input.platform === 'ios'
+        ? ' USB cable does not connect Hermes on iPad — use Tailscale or Home Wi‑Fi.'
+        : '';
     return {
       kind: 'searching',
       title: 'Searching for your computer…',
       detail:
-        input.tailscaleVpnActive
+        (input.tailscaleVpnActive
           ? 'Looking on Wi‑Fi and Tailscale. Keep Hermes open on your computer.'
-          : 'Looking on Wi‑Fi. Tailscale is off on this phone.',
+          : 'Looking on Wi‑Fi. Tailscale is off on this phone.') + iosUsbHint,
       discoveries: [],
     };
   }

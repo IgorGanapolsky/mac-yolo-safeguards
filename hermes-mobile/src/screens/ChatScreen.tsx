@@ -192,6 +192,12 @@ import {
   type PendingOutboundSnapshot,
 } from '../utils/pendingOutboundStorage';
 import {
+  loadSessionTranscriptCache,
+  resolveResumeSeedMessages,
+  saveSessionTranscriptCache,
+  shouldShowFullScreenSessionLoading,
+} from '../utils/sessionTranscriptCache';
+import {
   resolveChatOutputFeedbackBusyKey,
   shouldShowChatOutputFeedback,
 } from '../utils/chatOutputFeedback';
@@ -321,11 +327,9 @@ import {
   sessionTotalTokens,
   megaSessionBannerCopy,
   megaSessionDisplayTokens,
-  megaSessionForceFreshSelectCopy,
   megaSessionSendWarnMessage,
   megaSessionSendWarnTitle,
   shouldAutoFreshAndResendOnMegaBlock,
-  shouldForceFreshOnSessionSelect,
   shouldSuggestFreshOnSessionSelect,
 } from '../utils/sessionTokenGuards';
 import {
@@ -358,6 +362,7 @@ import {
   shouldSuppressEmptyGreetingUnreachable,
 } from '../utils/macUnreachableCopy';
 import { hasValidSavedComputer } from '../utils/freshUserOnboarding';
+import { resolvePrimaryConnectionStatus } from '../utils/chatPrimaryStatus';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { isInvalidGatewayProfile } from '../services/gatewayProfiles';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
@@ -938,6 +943,8 @@ export default function ChatScreen() {
       const rawNext = typeof updater === 'function' ? updater(prev) : updater;
       const next = dedupeAdjacentOptimisticUserBubbles(rawNext);
       messagesRef.current = next;
+      // Keep a last-known transcript so phone-call/background resume is not a blank spinner.
+      void saveSessionTranscriptCache(currentSessionRef.current?.id, next);
       return next;
     });
   }, []);
@@ -1167,14 +1174,31 @@ export default function ChatScreen() {
         persistedPendingRef.current = [];
         return;
       }
-      const [forSession, forNew] = await Promise.all([
+      const [forSession, forNew, cachedTranscript] = await Promise.all([
         loadPendingOutbound(sessionId),
         loadPendingOutbound(PENDING_NEW_SESSION_KEY),
+        loadSessionTranscriptCache(sessionId),
       ]);
       const snapshot = forSession ?? forNew;
       applyPersistedOutboundSnapshot(snapshot);
       if (!forSession && forNew) {
         await migratePendingOutbound(PENDING_NEW_SESSION_KEY, sessionId);
+      }
+      // Phone call / remount / reconnect: seed last-known bubbles immediately so
+      // "Fetching session history…" never blanks a chat we already had on device.
+      if (
+        messagesRef.current.length === 0 &&
+        currentSessionRef.current?.id === sessionId
+      ) {
+        const seeded = resolveResumeSeedMessages(
+          cachedTranscript,
+          snapshot?.messages ?? null,
+        );
+        if (seeded.length > 0 && messagesRef.current.length === 0) {
+          messagesRef.current = seeded;
+          setMessages(seeded);
+          transcriptDigestRef.current = transcriptDigest(seeded);
+        }
       }
     },
     [applyPersistedOutboundSnapshot, isDemo],
@@ -1799,14 +1823,43 @@ export default function ChatScreen() {
     });
   }, [health?.authMismatch, repairComputerLabel]);
 
-  const routeStatusLabel =
-    settings.connectionMode === 'relay' &&
-    !isPaired &&
-    relayRouteDisplay.routeStatus !== 'Direct link'
-      ? relayRouteDisplay.routeStatus
-      : !effectiveMacHttpOk && connectionHealExhausted
-        ? savedMacUnreachableStatus(machineShortLabel)
-        : undefined;
+  // Quality law: primary status is computer reach, never cloud-pair jargon over a
+  // saved Mac that is simply unreachable (Igor 2026-07-23 Leash/Chat confusion).
+  const primaryConnectionStatus = resolvePrimaryConnectionStatus({
+    connectionMode: settings.connectionMode,
+    isPaired,
+    macHttpOk: effectiveMacHttpOk,
+    hasSavedComputer: hasValidSavedComputer(gatewayProfiles),
+    connectionState,
+    authMismatch: effectiveAuthMismatch,
+    cloudUnpairedLabel: relayRouteDisplay.routeStatus,
+    computerUnreachableLabel: savedMacUnreachableStatus(machineShortLabel),
+  });
+  const routeStatusLabel = (() => {
+    if (
+      primaryConnectionStatus.kind === 'connected' ||
+      primaryConnectionStatus.kind === 'demo'
+    ) {
+      return undefined;
+    }
+    // Silent heal: don't thrash primary status while reconnect is in flight.
+    if (connectionHealInFlight && !connectionHealExhausted) {
+      return undefined;
+    }
+    if (primaryConnectionStatus.kind === 'computer_unreachable') {
+      return primaryConnectionStatus.label;
+    }
+    if (primaryConnectionStatus.kind === 'cloud_pair_required') {
+      return primaryConnectionStatus.label;
+    }
+    if (primaryConnectionStatus.kind === 'auth_repair') {
+      return primaryConnectionStatus.label;
+    }
+    if (!effectiveMacHttpOk && connectionHealExhausted) {
+      return savedMacUnreachableStatus(machineShortLabel);
+    }
+    return undefined;
+  })();
 
   const suppressEmptyGreetingUnreachable = shouldSuppressEmptyGreetingUnreachable({
     healthProbePending,
@@ -2925,7 +2978,10 @@ export default function ChatScreen() {
           refreshInFlightRef.current = false;
           refreshQueuedRef.current = false;
           refreshQueuedForceRef.current = false;
-          setIsLoadingMessages(true);
+          // Only full-screen load when we have nothing to show (resume seed may already paint).
+          if (messagesRef.current.length === 0) {
+            setIsLoadingMessages(true);
+          }
           // Fall through and start the user-requested refresh immediately.
         } else if (options?.background) {
           refreshQueuedRef.current = true;
@@ -2988,6 +3044,7 @@ export default function ChatScreen() {
         lastTranscriptChangeAtMsRef.current = Date.now();
         messagesRef.current = nextMessages;
         setMessages(nextMessages);
+        void saveSessionTranscriptCache(requestedSessionId, nextMessages);
         if (resolved.cleared) {
           lastFailedSendTextRef.current = null;
           setPinnedOutboundStatus('pending');
@@ -3069,7 +3126,8 @@ export default function ChatScreen() {
       try {
         if (options?.manual) {
           setIsPullRefreshing(true);
-        } else if (!options?.background && (messagesRef.current.length === 0 || options?.force)) {
+        } else if (!options?.background && messagesRef.current.length === 0) {
+          // Never blank an already-seeded transcript behind a full-screen spinner.
           setIsLoadingMessages(true);
         }
         setErrorMessage(null);
@@ -3715,10 +3773,15 @@ export default function ChatScreen() {
     }
     const sub = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'background' || nextState === 'inactive') {
-        persistOutboundSnapshot(currentSessionRef.current?.id, messagesRef.current);
+        const sid = currentSessionRef.current?.id;
+        const snapshot = messagesRef.current;
+        persistOutboundSnapshot(sid, snapshot);
+        void saveSessionTranscriptCache(sid, snapshot);
         return;
       }
       if (nextState === 'active') {
+        // Seed last-known transcript first, then soft-refresh — phone call resume
+        // must not full-screen "Fetching session history…" over empty messages.
         void hydratePersistedOutboundForSession(currentSessionRef.current?.id).then(() => {
           refreshSessionMessagesRef.current?.({ background: true, force: true });
         });
@@ -6866,15 +6929,6 @@ export default function ChatScreen() {
   const handleSelectAgentThread = useCallback(
     async (session: HermesSession) => {
       haptics.light();
-      if (shouldForceFreshOnSessionSelect(session)) {
-        const total = megaSessionDisplayTokens(session);
-        Alert.alert('Chat too large', megaSessionForceFreshSelectCopy(total), [
-          { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
-          { text: 'Cancel', style: 'cancel' },
-        ]);
-        return;
-      }
-
       const openSelectedSession = async () => {
         if (switchingSessionIdRef.current) {
           return;
@@ -6900,15 +6954,17 @@ export default function ChatScreen() {
         }
       };
 
+      // Mega warn/block: offer Start fresh once, but always allow Open for reading.
+      // Force-block open used to strand reconnect on empty New chat (P0 2026-07-23).
       if (
         shouldSuggestFreshOnSessionSelect(session) &&
         megaSessionSuggestFreshOfferedRef.current !== session.id
       ) {
         megaSessionSuggestFreshOfferedRef.current = session.id;
-        const total = sessionTotalTokens(session);
+        const total = megaSessionDisplayTokens(session);
         Alert.alert('Large chat session', megaSessionSendWarnMessage(total), [
           { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
-          { text: 'Open anyway', onPress: () => void openSelectedSession() },
+          { text: 'Open for reading', onPress: () => void openSelectedSession() },
         ]);
         return;
       }
@@ -7449,7 +7505,10 @@ export default function ChatScreen() {
           </ScrollView>
         ) : null}
 
-        {!showMacConnectionHelp && (isLoadingMessages && messages.length === 0 ? (
+        {!showMacConnectionHelp && (shouldShowFullScreenSessionLoading({
+          isLoadingMessages,
+          messageCount: messages.length,
+        }) ? (
           <View style={styles.loadingContainer} testID="chat-session-loading">
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.loadingText}>Fetching session history...</Text>

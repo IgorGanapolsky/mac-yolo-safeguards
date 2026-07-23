@@ -627,6 +627,23 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(chatScreen).toMatch(/connectionMode === 'relay'/);
   });
 
+  it('S50: primary status never leads with cloud-pair jargon when a saved Mac is unreachable (2026-07-23)', () => {
+    const primary = read('hermes-mobile/src/utils/chatPrimaryStatus.ts');
+    expect(primary).toContain('export function resolvePrimaryConnectionStatus');
+    expect(primary).toContain('computer_unreachable');
+    expect(primary).toContain('cloud_pair_required');
+    expect(primary).toContain('shouldLoadGatewayToolsCatalog');
+    expect(primary).toContain('shouldReceiveLiveApprovals');
+    const chatScreen = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chatScreen).toContain('resolvePrimaryConnectionStatus');
+    const ops = read('hermes-mobile/src/components/GatewayOpsSection.tsx');
+    expect(ops).toContain('shouldLoadGatewayToolsCatalog');
+    // Mega last-session is restorable for reading (send still blocked elsewhere).
+    const sessionList = read('hermes-mobile/src/utils/sessionListSelection.ts');
+    expect(sessionList).toContain('findReadableSession');
+    expect(sessionList).toMatch(/mega/i);
+  });
+
   it('S29: never paint Continuing-from-last-session over empty New chat', () => {
     const chip = read('hermes-mobile/src/components/ContinuingFromSessionChip.tsx');
     expect(chip).toMatch(/return null/);

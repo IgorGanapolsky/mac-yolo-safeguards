@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -75,6 +76,7 @@ export default function ComputerPickerStatusRegion({
       activeGatewayUrl,
       wifiConnected,
       activeReachable,
+      platform: Platform.OS,
     }),
   );
   const commitMetaRef = useRef<{
@@ -111,6 +113,7 @@ export default function ComputerPickerStatusRegion({
       activeGatewayUrl,
       wifiConnected,
       activeReachable,
+      platform: Platform.OS,
     });
     const nextSignature = computerPickerStatusSignature(next);
     const nowMs = Date.now();

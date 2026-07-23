@@ -54,6 +54,7 @@ import {
   gatewayFeatureIsPhoneToggleable,
 } from '../utils/gatewayFeatureCatalog';
 import { isMacGatewayHttpOk } from '../utils/gatewayConnection';
+import { shouldLoadGatewayToolsCatalog } from '../utils/chatPrimaryStatus';
 import {
   REPAIR_CONNECTION_TIMEOUT_MS,
   assertRepairSucceeded,
@@ -203,6 +204,22 @@ export default function GatewayOpsSection() {
       return;
     }
 
+    // Quality: never hammer a dead gateway and never leave a stale catalog looking "live".
+    if (
+      !shouldLoadGatewayToolsCatalog({
+        macHttpOk: isMacGatewayHttpOk(health),
+        isDemo: false,
+      })
+    ) {
+      setSkills([]);
+      setToolsets([]);
+      setJobs([]);
+      setError("Can't load tools — reconnect your computer first");
+      setInitialLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
     if (options?.refresh) {
       setRefreshing(true);
     } else {
@@ -316,7 +333,7 @@ export default function GatewayOpsSection() {
       setInitialLoading(false);
       setRefreshing(false);
     }
-  }, [apiKey, applyToolsetsFromServer, isDemo, gatewayUrl]);
+  }, [apiKey, applyToolsetsFromServer, health, isDemo, gatewayUrl]);
 
   useFocusEffect(
     useCallback(() => {
