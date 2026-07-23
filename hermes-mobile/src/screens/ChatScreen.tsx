@@ -1560,14 +1560,14 @@ export default function ChatScreen() {
     if (!showMacConnectionHelp || isDemo) {
       return;
     }
-    void probeTailscaleComputers();
+    void probeTailscaleComputers({ showUi: true, force: true });
   }, [showMacConnectionHelp, isDemo, probeTailscaleComputers]);
 
   useEffect(() => {
     if (!macPickerVisible || isDemo) {
       return;
     }
-    void probeTailscaleComputers();
+    void probeTailscaleComputers({ showUi: true, force: true });
   }, [macPickerVisible, isDemo, probeTailscaleComputers]);
 
   useEffect(() => {

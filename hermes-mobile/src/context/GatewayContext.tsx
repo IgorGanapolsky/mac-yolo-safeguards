@@ -105,6 +105,10 @@ import {
   shouldDeferLoopbackSuccessOnCellular,
   shouldPreferUsbProbeFirst,
 } from '../utils/connectionSelfHeal';
+import {
+  shouldRunBackgroundTailscaleProbe,
+  type ProbeTailscaleComputersOptions,
+} from '../utils/tailscaleProbeCadence';
 import { CONNECTION_HEAL_EXHAUSTED_AFTER } from '../utils/connectionErrorPolicy';
 import { planWrongKeyRecovery } from '../utils/wrongKeyRecovery';
 import {
@@ -274,7 +278,7 @@ export type GatewayContextValue = {
   tailscaleDiscoveryProbing: boolean;
   tailscaleVpnActive: boolean;
   tailnetProbeHostCount: number;
-  probeTailscaleComputers: () => Promise<void>;
+  probeTailscaleComputers: (options?: ProbeTailscaleComputersOptions) => Promise<void>;
   addDiscoveredTailscaleComputer: (discovery: DiscoveredGateway) => Promise<void>;
   connectionHealAttempt: number;
   connectionHealInFlight: boolean;
@@ -409,8 +413,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   >(async () => false);
   const tailnetProbeHostsRef = useRef<string[]>([]);
   const tailscaleProbeInFlightRef = useRef(false);
+  const lastTailscaleProbeAtMsRef = useRef(0);
   const lastNetInfoStateRef = useRef<NetInfoState | null>(null);
-  const probeTailscaleComputersRef = useRef<() => Promise<void>>(async () => {});
+  const probeTailscaleComputersRef = useRef<
+    (options?: ProbeTailscaleComputersOptions) => Promise<void>
+  >(async () => {});
   const runConnectionSelfHealRef = useRef<() => Promise<void>>(async () => {});
   const maybeHandoffTailscaleToUsbRef = useRef<() => Promise<boolean>>(async () => false);
   const maybeHandoffUsbToRemoteRef = useRef<() => Promise<boolean>>(async () => false);
@@ -1278,7 +1285,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     const netSub = NetInfo.addEventListener((state) => {
       applyNetInfo(state);
       refreshHealth();
-      void probeTailscaleComputersRef.current();
+      void probeTailscaleComputersRef.current({ showUi: false, force: false });
     });
     void NetInfo.fetch().then((state) => {
       applyNetInfo(state);
@@ -1819,7 +1826,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     connectionHealInFlightRef.current = true;
     setConnectionHealInFlight(true);
     try {
-      await probeTailscaleComputersRef.current();
+      await probeTailscaleComputersRef.current({ showUi: false, force: true });
       const lastLanIp = await storage.loadLastGatewayLanIp();
       const primaryUrl =
         effectiveGatewayUrlRef.current || settingsRef.current.gatewayUrl;
@@ -2694,15 +2701,31 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setProfileScanning(false);
       setProfileScanProgress(null);
-      void probeTailscaleComputersRef.current();
+      void probeTailscaleComputersRef.current({ showUi: false, force: false });
     }
   }, [persistDiscoveredGatewayUrl]);
 
-  const probeTailscaleComputers = useCallback(async () => {
-    if (tailscaleProbeInFlightRef.current || settingsRef.current.demoMode) {
+  const probeTailscaleComputers = useCallback(
+    async (options?: ProbeTailscaleComputersOptions) => {
+    const showUi = options?.showUi ?? true;
+    const force = options?.force ?? true;
+    if (settingsRef.current.demoMode) {
+      return;
+    }
+    if (
+      !force &&
+      !shouldRunBackgroundTailscaleProbe({
+        lastAtMs: lastTailscaleProbeAtMsRef.current,
+        nowMs: Date.now(),
+      })
+    ) {
+      return;
+    }
+    if (tailscaleProbeInFlightRef.current) {
       return;
     }
     tailscaleProbeInFlightRef.current = true;
+    lastTailscaleProbeAtMsRef.current = Date.now();
     try {
       let storedHosts =
         tailnetProbeHostsRef.current.length > 0
@@ -2724,7 +2747,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         );
         updateTailscaleVpnActive();
       }
-      setTailscaleDiscoveryProbing(true);
+      if (showUi) {
+        setTailscaleDiscoveryProbing(true);
+      }
 
       if (storedHosts.length === 0) {
         const lastLanIp = await storage.loadLastGatewayLanIp();
@@ -2859,9 +2884,13 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setTailscaleDiscoveries(fresh);
     } finally {
       tailscaleProbeInFlightRef.current = false;
-      setTailscaleDiscoveryProbing(false);
+      if (showUi) {
+        setTailscaleDiscoveryProbing(false);
+      }
     }
-  }, [persistDiscoveredGatewayUrl, refreshHealth, updateTailscaleVpnActive]);
+  },
+  [persistDiscoveredGatewayUrl, refreshHealth, updateTailscaleVpnActive],
+  );
 
   const addDiscoveredTailscaleComputer = useCallback(async (discovery: DiscoveredGateway) => {
     // Catalog + activate — "Add" must switch, not leave the user stuck on MacBook USB.
@@ -2909,12 +2938,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     maybeHandoffUsbToRemoteRef.current = maybeHandoffUsbToRemote;
   }, [maybeHandoffUsbToRemote]);
 
+  // Do NOT depend on health.checkedAt — health polls every 30s and would flip the
+  // Choose computer modal into "searching" on every tick (picker jitter).
   useEffect(() => {
     if (!isLoaded || settings.demoMode) {
       return;
     }
-    void probeTailscaleComputers();
-  }, [isLoaded, settings.demoMode, health?.checkedAt, profileState.profiles.length, wifiConnected, probeTailscaleComputers]);
+    void probeTailscaleComputers({ showUi: false, force: false });
+  }, [isLoaded, settings.demoMode, profileState.profiles.length, wifiConnected, probeTailscaleComputers]);
 
   // Bidirectional transport handoff while Connected: plug → USB, unplug → Tailscale/LAN.
   // Do NOT depend on health.checkedAt — handoff itself writes health and would retrigger.
@@ -2951,7 +2982,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       connectionHealAttemptRef.current = 0;
       setConnectionHealAttempt(0);
       void runConnectionSelfHealRef.current();
-      void probeTailscaleComputersRef.current();
+      void probeTailscaleComputersRef.current({ showUi: false, force: false });
     };
     const sub = AppState.addEventListener('change', handleAppStateChange);
     return () => sub.remove();
@@ -2981,7 +3012,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     effectiveGatewayUrlRef.current = url;
     setEffectiveGatewayUrl(url);
     await refreshHealth();
-    await probeTailscaleComputers();
+    await probeTailscaleComputers({ showUi: false, force: true });
 
     // Brand-new install: do not silent Find-computers + auto-select a Mac.
     // That path persisted Tailscale/USB discoveries and showed Outdated connection
@@ -3001,7 +3032,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       effectiveGatewayUrlRef.current = url;
       setEffectiveGatewayUrl(url);
       await refreshHealth();
-      await probeTailscaleComputers();
+      await probeTailscaleComputers({ showUi: false, force: true });
     }
 
     const reachable = checkGatewayReachable({
@@ -3115,7 +3146,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         const merged = await tailnetProbeStorage.merge(params.tailnetProbeHosts);
         tailnetProbeHostsRef.current = merged;
         setTailnetProbeHostCount(merged.length);
-        void probeTailscaleComputersRef.current();
+        void probeTailscaleComputersRef.current({ showUi: false, force: true });
       }
 
       const persistDecision = evaluatePairDeepLinkApply({
@@ -3136,7 +3167,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
       if (!params.gatewayUrl?.trim()) {
         await upsertExtraComputers();
-        void probeTailscaleComputersRef.current();
+        void probeTailscaleComputersRef.current({ showUi: false, force: true });
         if (relayPairSucceeded) {
           haptics.success();
           await refreshHealth();
@@ -3242,7 +3273,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       await saveSettings(nextSettings, nextKey);
       haptics.success();
       await refreshHealth();
-      void probeTailscaleComputersRef.current();
+      void probeTailscaleComputersRef.current({ showUi: false, force: true });
     },
     [refreshHealth, saveSettings, bootstrapGateway],
   );
