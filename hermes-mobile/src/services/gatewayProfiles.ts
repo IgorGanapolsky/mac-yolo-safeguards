@@ -457,11 +457,12 @@ export function profilesForActiveMachine(
 export function shouldProbeGatewayUrlForActiveProfile(
   state: GatewayProfileState,
   gatewayUrl: string,
+  options?: { liveUsbHostname?: string | null },
 ): boolean {
   if (!state.activeProfileId) {
     return true;
   }
-  return isDiscoveredUrlAllowedForActiveProfile(state, gatewayUrl);
+  return isDiscoveredUrlAllowedForActiveProfile(state, gatewayUrl, options);
 }
 
 /**
@@ -497,13 +498,14 @@ export function resolveHealPersistDecision(
   state: GatewayProfileState,
   successfulUrl: string,
   requestedActivation: boolean,
+  options?: { liveUsbHostname?: string | null },
 ): {
   catalogOnly: boolean;
   returnUrl: string;
   requestedActivation: boolean;
 } {
   const active = activeProfile(state);
-  const allowed = isDiscoveredUrlAllowedForActiveProfile(state, successfulUrl);
+  const allowed = isDiscoveredUrlAllowedForActiveProfile(state, successfulUrl, options);
   const usbLoopbackEscape = canUsbLoopbackEscapeToUrl(state, successfulUrl);
   if (state.activeProfileId && !allowed && !usbLoopbackEscape) {
     return {
@@ -524,12 +526,15 @@ export function resolveHealPersistDecision(
  *
  * Unmatched USB/loopback is NOT a free pass: a cable to MacBook Pro answers on
  * 127.0.0.1 even when the user selected Mac mini over Tailscale. Only allow
- * loopback when the active computer is already USB, or a saved loopback row
- * shares the active machine identity.
+ * loopback when:
+ * - the active computer is already USB, or
+ * - a saved loopback row shares the active machine identity, or
+ * - liveUsbHostname matches the sticky Mac (same-machine USB *prefer*, not force; 2026-07-23).
  */
 export function isDiscoveredUrlAllowedForActiveProfile(
   state: GatewayProfileState,
   successfulUrl: string,
+  options?: { liveUsbHostname?: string | null },
 ): boolean {
   if (!state.activeProfileId) {
     return true;
@@ -540,9 +545,16 @@ export function isDiscoveredUrlAllowedForActiveProfile(
   }
   const matched = findProfileForGatewayUrl(state.profiles, successfulUrl);
   if (!matched) {
-    // Never let anonymous 127.0.0.1 steal a Tailscale/LAN selection.
+    // Anonymous 127.0.0.1 must not steal a foreign Tailscale/LAN selection. Allow
+    // loopback only when live cable hostname proves the *same* sticky Mac (prefer
+    // USB first in discover — Tailscale remains a valid fallback if USB fails).
     if (isLoopbackGatewayUrl(successfulUrl)) {
-      return isLoopbackGatewayUrl(active.gatewayUrl);
+      if (isLoopbackGatewayUrl(active.gatewayUrl)) {
+        return true;
+      }
+      const liveKey = normalizeMachineKey(options?.liveUsbHostname ?? undefined);
+      const activeKey = profileMachineKey(active);
+      return Boolean(liveKey && activeKey && liveKey === activeKey);
     }
     return false;
   }

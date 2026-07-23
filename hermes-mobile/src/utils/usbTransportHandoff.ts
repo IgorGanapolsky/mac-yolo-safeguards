@@ -8,10 +8,11 @@ import { profileMatchesHostname } from './gatewayProfilePicker';
 import { resolveHeaderTransportLabel } from './chatMachineHeader';
 
 /**
- * Product lock (2026-07-20 / hardened 2026-07-21):
- * - Plug: Connected via Tailscale/LAN + same-Mac USB reverse healthy → prefer USB
- *   (Wi‑Fi *or* cellular — live probe is the ghost guard, not NetInfo wifi).
- * - Unplug: USB reverse gone → fall back to same Mac Tailscale/LAN.
+ * Product (2026-07-20 / hardened 2026-07-23):
+ * - Plug + USB reverse healthy on the **CURRENT chatting machine** → force route to USB
+ *   (Wi‑Fi or cellular; live hostname is the ghost/foreign-Mac guard).
+ * - Cable is a **different** Mac than the current chat → never hand off (stay Tailscale/LAN).
+ * - Unplug / USB probe fail → fall back to same-Mac Tailscale/LAN.
  * Never change activeProfileId or clear the conversation.
  */
 
@@ -126,6 +127,8 @@ export function resolveUsbTransportHandoff(
   if (!isUsbHandoffSourceUrl(current)) {
     return { ...base, shouldHandoff: false, reason: 'not_remote_route' };
   }
+  // Active session is this Mac's Tailscale/LAN only — never hand off to USB when
+  // the cable is a different machine (mini Tailscale + Pro USB must stay on mini).
   if (!profileMatchesHostname(input.activeProfile, host)) {
     return { ...base, shouldHandoff: false, reason: 'foreign_usb_host' };
   }

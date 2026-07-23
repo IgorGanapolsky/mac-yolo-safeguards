@@ -103,6 +103,8 @@ import {
   resolveCellularTailscaleFailoverUrl,
   shouldClearUsbPrimaryOnCellular,
   shouldDeferLoopbackSuccessOnCellular,
+  isForeignUsbVsActiveRemote,
+  shouldKeepUsbOverStickyRemote,
   shouldPreferUsbProbeFirst,
 } from '../utils/connectionSelfHeal';
 import {
@@ -763,7 +765,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   }, [isLoaded]);
 
   const persistDiscoveredGatewayUrl = useCallback(
-    async (successfulUrl: string, makeProfileActive = false): Promise<string> => {
+    async (
+      successfulUrl: string,
+      makeProfileActive = false,
+      options?: { liveUsbHostname?: string | null },
+    ): Promise<string> => {
       if (settingsRef.current.demoMode) {
         return successfulUrl;
       }
@@ -774,6 +780,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         profileStateRef.current,
         successfulUrl,
         requestedActivation,
+        options,
       );
       const active = activeProfile(profileStateRef.current);
       const lanIp = extractLanIpFromGatewayUrl(successfulUrl);
@@ -1517,23 +1524,60 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       throw new Error('failed');
     };
 
-    const commitDiscoveredUrl = persistDiscoveredGatewayUrl;
-
     const activeForDiscovery = activeProfile(profileStateRef.current);
-    // Prefer USB ONLY when the active profile is already USB loopback AND phone is on Wi‑Fi.
-    // Preferring USB on cellular keeps a ghost 127.0.0.1 primary ("USB Connected" off-cable).
-    // Preferring USB when there is no active profile (or after a Tailscale deep-link pair)
-    // steals the session to 127.0.0.1: health can be green via adb reverse without a key,
-    // chat then 401 → false-green Connected + Wrong key (user crisis 2026-07-14).
-    const preferUsbFirst = shouldPreferUsbProbeFirst({
-      activeGatewayUrl: activeForDiscovery?.gatewayUrl,
-      wifiConnected: wifiConnectedRef.current,
-    });
+    const effectiveUrl =
+      effectiveGatewayUrlRef.current.trim() || currentUrl || '';
+    // Live cable: force USB first only when reverse matches the CURRENT chatting
+    // Mac (2026-07-23). Different Mac on cable (mini chat + Pro USB) → never USB.
+    // USB probe fail → fall through to Tailscale/LAN.
+    let liveUsbHostname: string | null = null;
+    if (Platform.OS !== 'web') {
+      try {
+        const liveUsb = await probeLiveUsbGateway();
+        liveUsbHostname = liveUsb?.hostname?.trim() || null;
+      } catch {
+        liveUsbHostname = null;
+      }
+    }
+    const liveUsbSameMachine = Boolean(
+      liveUsbHostname &&
+        activeForDiscovery &&
+        profileMatchesHostname(activeForDiscovery, liveUsbHostname),
+    );
+    const usbProbeOptions = liveUsbHostname
+      ? { liveUsbHostname }
+      : undefined;
+    // Prefer USB when: already on loopback (profile or effective) on Wi‑Fi, OR live
+    // reverse matches the sticky Mac. Never when active is remote to another Mac.
+    // Empty sticky + USB must not steal unpaired sessions (2026-07-14 wrong-key crisis).
+    const preferUsbFirst =
+      !isForeignUsbVsActiveRemote({
+        activeGatewayUrl: activeForDiscovery?.gatewayUrl,
+        effectiveGatewayUrl: effectiveUrl,
+        liveUsbSameMachine: Boolean(activeForDiscovery && liveUsbSameMachine),
+      }) &&
+      shouldPreferUsbProbeFirst({
+        activeGatewayUrl: activeForDiscovery?.gatewayUrl,
+        effectiveGatewayUrl: effectiveUrl,
+        wifiConnected: wifiConnectedRef.current,
+        liveUsbSameMachine: Boolean(activeForDiscovery && liveUsbSameMachine),
+      });
 
-    // 1. Prefer USB only when the user's active computer is already the USB profile
+    const commitDiscoveredUrl = (
+      url: string,
+      makeActive = false,
+    ): Promise<string> => persistDiscoveredGatewayUrl(url, makeActive, usbProbeOptions);
+
+    // 1. Prefer USB first when cable matches sticky Mac (or already on USB + Wi‑Fi); fall through on failure
     if (Platform.OS !== 'web' && preferUsbFirst) {
-      for (const fallbackUrl of usbLoopbackFallbackUrls(currentUrl || '')) {
-        if (!shouldProbeGatewayUrlForActiveProfile(profileStateRef.current, fallbackUrl)) {
+      for (const fallbackUrl of usbLoopbackFallbackUrls(effectiveUrl || currentUrl || '')) {
+        if (
+          !shouldProbeGatewayUrlForActiveProfile(
+            profileStateRef.current,
+            fallbackUrl,
+            usbProbeOptions,
+          )
+        ) {
           continue;
         }
         try {
@@ -1547,13 +1591,40 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // 2. Remember and prefer the last explicitly user-selected computer
+    // 2. Remember and prefer the last explicitly user-selected computer —
+    // prefer not to yank healthy same-Mac USB back to Tailscale/LAN in this pass; if USB dies, fall through.
     const lastSelectedId = await storage.loadLastSelectedProfileId();
     let lastSelectedUrl: string | undefined;
     if (lastSelectedId) {
       const preferredProfile = profileStateRef.current.profiles.find((p) => p.id === lastSelectedId);
       if (preferredProfile && preferredProfile.gatewayUrl) {
         lastSelectedUrl = preferredProfile.gatewayUrl;
+        const keepUsb = shouldKeepUsbOverStickyRemote({
+          effectiveGatewayUrl: effectiveUrl,
+          stickyProfileUrl: preferredProfile.gatewayUrl,
+          liveUsbSameMachine: Boolean(activeForDiscovery && liveUsbSameMachine),
+        });
+        if (keepUsb) {
+          for (const fallbackUrl of usbLoopbackFallbackUrls(effectiveUrl)) {
+            if (
+              !shouldProbeGatewayUrlForActiveProfile(
+                profileStateRef.current,
+                fallbackUrl,
+                usbProbeOptions,
+              )
+            ) {
+              continue;
+            }
+            try {
+              const applied = await commitDiscoveredUrl(await probe(fallbackUrl), true);
+              if (healPersistAcceptedProbedUrl(applied, fallbackUrl)) {
+                return applied;
+              }
+            } catch (_) {
+              // USB died — fall through to sticky remote
+            }
+          }
+        }
         try {
           return await commitDiscoveredUrl(await probe(preferredProfile.gatewayUrl), true);
         } catch (_) {
@@ -1959,9 +2030,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   }, [autoDiscoverGateway, isLoaded, persistDiscoveredGatewayUrl, refreshHealth]);
 
   /**
-   * Product lock: Connected via Tailscale/LAN + same-Mac USB reverse healthy →
-   * switch effective chat URL to USB without changing activeProfileId / clearing chat.
-   * Runs on Wi‑Fi and cellular — live USB hostname is the ghost guard.
+   * Plug-in: if USB reverse is healthy on the CURRENT chatting machine, force the
+   * chat URL to USB (keep activeProfileId / transcript). Different Mac on the cable
+   * → no handoff (user stays on that machine's Tailscale/LAN).
+   * Runs on Wi‑Fi and cellular — live USB hostname is the ghost/foreign-Mac guard.
    */
   const maybeHandoffTailscaleToUsb = useCallback(async (): Promise<boolean> => {
     if (

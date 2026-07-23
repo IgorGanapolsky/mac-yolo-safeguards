@@ -1,11 +1,14 @@
 import type { GatewayProfile } from '../types/gatewayProfile';
 import {
   buildSelfHealProbeUrls,
+  isForeignUsbVsActiveRemote,
   resolveApiKeyForGatewayProbe,
   resolveCellularTailscaleFailoverUrl,
   savedProfileFallbackUrls,
   shouldClearUsbPrimaryOnCellular,
   shouldDeferLoopbackSuccessOnCellular,
+  shouldForceUsbForCurrentChattingMachine,
+  shouldKeepUsbOverStickyRemote,
   shouldPreferUsbProbeFirst,
 } from '../utils/connectionSelfHeal';
 
@@ -230,6 +233,132 @@ describe('USB primary on cellular', () => {
       shouldPreferUsbProbeFirst({
         activeGatewayUrl: 'http://100.87.85.85:8642',
         wifiConnected: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('prefers USB when effective URL is loopback even if sticky profile is Tailscale', () => {
+    expect(
+      shouldPreferUsbProbeFirst({
+        activeGatewayUrl: 'http://100.87.85.85:8642',
+        effectiveGatewayUrl: 'http://127.0.0.1:8642',
+        wifiConnected: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('prefers USB on cellular when live reverse matches sticky Mac', () => {
+    expect(
+      shouldPreferUsbProbeFirst({
+        activeGatewayUrl: 'http://100.87.85.85:8642',
+        effectiveGatewayUrl: 'http://100.87.85.85:8642',
+        wifiConnected: false,
+        liveUsbSameMachine: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not prefer USB for sticky foreign Tailscale Mac (mini vs Pro cable)', () => {
+    expect(
+      shouldPreferUsbProbeFirst({
+        activeGatewayUrl: 'http://100.94.135.78:8642',
+        effectiveGatewayUrl: 'http://100.94.135.78:8642',
+        wifiConnected: true,
+        liveUsbSameMachine: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('forces USB only for the CURRENT chatting machine when cable matches', () => {
+    // Plug-in + USB on this Mac → force.
+    expect(
+      shouldForceUsbForCurrentChattingMachine({ liveUsbSameMachine: true }),
+    ).toBe(true);
+    // No same-machine reverse → do not force.
+    expect(
+      shouldForceUsbForCurrentChattingMachine({ liveUsbSameMachine: false }),
+    ).toBe(false);
+    expect(
+      shouldForceUsbForCurrentChattingMachine({ liveUsbSameMachine: undefined }),
+    ).toBe(false);
+  });
+
+  it('never forces USB when active is Tailscale to another machine (mini remote + Pro cable)', () => {
+    // User chatting with Mac mini over Tailscale; phone cabled to MacBook Pro.
+    expect(
+      isForeignUsbVsActiveRemote({
+        activeGatewayUrl: 'http://100.94.135.78:8642',
+        effectiveGatewayUrl: 'http://100.94.135.78:8642',
+        liveUsbSameMachine: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldPreferUsbProbeFirst({
+        activeGatewayUrl: 'http://100.94.135.78:8642',
+        effectiveGatewayUrl: 'http://100.94.135.78:8642',
+        wifiConnected: true,
+        liveUsbSameMachine: false,
+      }),
+    ).toBe(false);
+    // Same current Mac + cable → force USB first.
+    expect(
+      isForeignUsbVsActiveRemote({
+        activeGatewayUrl: 'http://100.87.85.85:8642',
+        effectiveGatewayUrl: 'http://100.87.85.85:8642',
+        liveUsbSameMachine: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPreferUsbProbeFirst({
+        activeGatewayUrl: 'http://100.87.85.85:8642',
+        effectiveGatewayUrl: 'http://100.87.85.85:8642',
+        wifiConnected: false,
+        liveUsbSameMachine: true,
+      }),
+    ).toBe(true);
+    // Sticky Tailscale id + already on USB (same-Mac handoff) is NOT foreign.
+    expect(
+      isForeignUsbVsActiveRemote({
+        activeGatewayUrl: 'http://100.87.85.85:8642',
+        effectiveGatewayUrl: 'http://127.0.0.1:8642',
+        liveUsbSameMachine: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('prefer USB is probe-order only — never force when cable is absent or foreign', () => {
+    // No live same-Mac cable + sticky Tailscale → do not prefer USB (Tailscale remains valid).
+    expect(
+      shouldPreferUsbProbeFirst({
+        activeGatewayUrl: 'http://100.87.85.85:8642',
+        effectiveGatewayUrl: 'http://100.87.85.85:8642',
+        wifiConnected: true,
+        liveUsbSameMachine: false,
+      }),
+    ).toBe(false);
+    // Not already on USB → do not "keep USB" over sticky remote (no force-lock).
+    expect(
+      shouldKeepUsbOverStickyRemote({
+        effectiveGatewayUrl: 'http://100.87.85.85:8642',
+        stickyProfileUrl: 'http://100.87.85.85:8642',
+        liveUsbSameMachine: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps USB over sticky same-Mac Tailscale when cable is live', () => {
+    expect(
+      shouldKeepUsbOverStickyRemote({
+        effectiveGatewayUrl: 'http://127.0.0.1:8642',
+        stickyProfileUrl: 'http://100.87.85.85:8642',
+        liveUsbSameMachine: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldKeepUsbOverStickyRemote({
+        effectiveGatewayUrl: 'http://127.0.0.1:8642',
+        stickyProfileUrl: 'http://100.94.135.78:8642',
+        liveUsbSameMachine: false,
       }),
     ).toBe(false);
   });
