@@ -1685,3 +1685,5 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 
 - 2026-07-23T10:44Z `cursor-recovery-ota-unit`: T-OTA-PROMOTE-CONTRACT-ALIGN — #840 made update:edit 100 the clear-stuck-rollout path; test still asserted #762 reject-100 strings → continuous E2E unit=fail. Align test to publish-rejects-100 / edit-allows-100 wording.
+
+- 2026-07-23T10:50Z `cursor-recovery-ota-unit`: **OTA FREEZE** — Expo billing declined (~$78). Disabled workflow `Hermes Mobile OTA` (id 309704497) `state=disabled_manually`. No preview/prod `eas update` until billing restored. Continue merge #779/#828/#845 code-only.
