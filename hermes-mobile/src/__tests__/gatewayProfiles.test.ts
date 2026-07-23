@@ -677,6 +677,43 @@ describe('gatewayProfiles', () => {
     expect(next.activeProfileId).not.toBe('mac_book_tail');
   });
 
+  it('upsert refuses foreign Pro hostname on mini Tailscale URL (force-switch root cause)', () => {
+    let state = upsertDiscoveredProfile(
+      EMPTY_GATEWAY_PROFILE_STATE,
+      {
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-Mac-mini',
+      },
+      true,
+    );
+    state = upsertDiscoveredProfile(
+      state,
+      {
+        gatewayUrl: 'http://100.87.85.85:8642',
+        hostname: 'Igors-MacBook-Pro',
+      },
+      false,
+    );
+    expect(state.profiles).toHaveLength(2);
+    expect(profileMachineKey(activeProfile(state)!)).toBe('igors-mac-mini');
+
+    // saveSettings→applyHeal used to stamp stale Pro /health onto the mini URL.
+    const poisoned = upsertDiscoveredProfile(
+      state,
+      {
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-MacBook-Pro',
+      },
+      false,
+    );
+    const mini = poisoned.profiles.find((p) => p.gatewayUrl.includes('100.94.135.78'));
+    expect(mini).toBeTruthy();
+    expect(profileMachineKey(mini!)).toBe('igors-mac-mini');
+    expect(mini?.hostname?.toLowerCase()).toContain('mini');
+    expect(poisoned.activeProfileId).toBe(state.activeProfileId);
+    expect(poisoned.profiles).toHaveLength(2);
+  });
+
   it('applyHealDiscoveredUrl updates active profile URL for same-machine Tailscale heal', () => {
     const state = dedupeGatewayProfiles({
       profiles: [
