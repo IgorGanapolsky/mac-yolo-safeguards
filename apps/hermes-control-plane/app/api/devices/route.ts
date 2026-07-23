@@ -17,7 +17,8 @@ export async function GET() {
   try { session = await requireSession(); } catch { return jsonError("sign in required", 401); }
   const result = await db().prepare(
     `SELECT id, name, fingerprint, failover_mode AS failoverMode, last_seen_at AS lastSeenAt, created_at AS createdAt
-       FROM devices WHERE organization_id = ? AND revoked_at IS NULL ORDER BY created_at DESC`
+       FROM devices WHERE organization_id = ? AND revoked_at IS NULL
+       ORDER BY CASE WHEN last_seen_at IS NULL THEN 1 ELSE 0 END, last_seen_at DESC, created_at DESC`
   ).bind(session.organizationId).all<DeviceRow>();
   return Response.json({ devices: result.results.map((device: DeviceRow) => ({
     ...device,
@@ -38,5 +39,28 @@ export async function PATCH(request: Request) {
   ).bind(payload.failoverMode, Date.now(), payload.deviceId, session.organizationId).run();
   if (update.meta.changes !== 1) return jsonError("device not found", 404);
   await audit({ organizationId: session.organizationId, actorType: "user", actorId: session.userId, action: "device.failover_mode.update", targetType: "device", targetId: payload.deviceId, metadata: { failoverMode: payload.failoverMode } });
+  return Response.json({ ok: true });
+}
+
+/** Soft-revoke a paired connector so ghost / stale machines leave the dashboard. */
+export async function DELETE(request: Request) {
+  let session;
+  try { session = await requireSession(); } catch { return jsonError("sign in required", 401); }
+  const payload = await request.json().catch(() => null) as { deviceId?: string } | null;
+  if (!payload?.deviceId) return jsonError("deviceId is required");
+  const now = Date.now();
+  const update = await db().prepare(
+    "UPDATE devices SET revoked_at = ?, updated_at = ? WHERE id = ? AND organization_id = ? AND revoked_at IS NULL"
+  ).bind(now, now, payload.deviceId, session.organizationId).run();
+  if (update.meta.changes !== 1) return jsonError("device not found", 404);
+  await audit({
+    organizationId: session.organizationId,
+    actorType: "user",
+    actorId: session.userId,
+    action: "device.revoke",
+    targetType: "device",
+    targetId: payload.deviceId,
+    metadata: {},
+  });
   return Response.json({ ok: true });
 }
