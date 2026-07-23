@@ -1,9 +1,10 @@
 const body = `# ThumbGate for Hermes
 
-> ThumbGate is the self-improving firewall for your AI agents: a local-first web control and safety layer for Hermes that remembers lessons, re-ranks what matters next, promotes repeated failures into gates, and expires stale auto-promoted policy. Web control stays free; optional managed cloud continuation is paid.
+> ThumbGate lets you chat with and approve your Hermes agents from any phone or browser while your Mac does the work. It also runs a self-improving firewall in the background: it remembers lessons, re-ranks what matters next, promotes repeated failures into gates, and expires stale auto-promoted policy. Web control stays free; optional managed cloud continuation is paid.
 
 - Product label: Leash by ThumbGate
-- Primary pitch: Self-Improving Firewall for your AI Agents
+- Primary pitch: Control your Hermes agents from anywhere
+- Secondary capability: self-improving firewall built from thumbs feedback
 
 ## Canonical URL
 - https://thumbgate.app/

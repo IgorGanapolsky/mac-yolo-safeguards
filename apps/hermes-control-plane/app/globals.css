@@ -182,4 +182,12 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .section-heading > p:last-child{color:var(--muted);font-size:15px;line-height:1.65;margin:16px 0 0;max-width:62ch}
 .steps-grid-after-demo{margin-top:28px}
 
-@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.button,.nav-link{transition:none}.button:hover{transform:none}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.button,.nav-link{transition:none}.button:hover{transform:none}.diagram-flow{animation:none}}
+
+.mini-caption{margin:14px 0 0;color:var(--muted);font-size:12px;line-height:1.5;max-width:520px}
+.remote-diagram{padding:4px 6px 16px;margin-bottom:14px;border-bottom:1px solid var(--line)}
+.remote-diagram svg{width:100%;height:auto;display:block}
+.diagram-flow{animation:diagram-dash 1.6s linear infinite}
+@keyframes diagram-dash{to{stroke-dashoffset:-24}}
+.remote-diagram-labels{display:flex;justify-content:space-between;margin-top:8px;color:var(--muted);font:10px ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.06em}
+.remote-diagram-labels span:nth-child(2){color:var(--primary)}

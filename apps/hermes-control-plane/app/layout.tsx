@@ -4,10 +4,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://thumbgate.app"),
   title: {
-    default: "ThumbGate — Self-Improving Firewall for your AI Agents",
+    default: "ThumbGate — Control Your Hermes Agents From Anywhere",
     template: "%s | ThumbGate for Hermes",
   },
-  description: "Self-improving firewall for your AI agents: approve Hermes tool calls, remember lessons from thumbs feedback, promote repeated failures into gates, re-rank relevant lessons, and improve the next decision—plus signed Mac pairing and optional fenced cloud continuation.",
+  description: "Chat with and approve your Hermes agents from any phone or browser while your Mac does the work. Includes signed Mac pairing, optional fenced cloud continuation, and a self-improving firewall built from thumbs feedback.",
   alternates: { canonical: "/" },
   applicationName: "ThumbGate for Hermes",
   category: "developer tools",
@@ -29,19 +29,19 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://thumbgate.app/",
     siteName: "ThumbGate for Hermes",
-    title: "ThumbGate — Self-Improving Firewall for your AI Agents",
-    description: "Approve Hermes tool calls, remember lessons, promote repeated failures into gates, re-rank relevant lessons, and improve the next decision—with signed Mac pairing and optional fenced cloud continuation.",
+    title: "ThumbGate — Control Your Hermes Agents From Anywhere",
+    description: "Chat with and approve your Hermes agents from any phone or browser while your Mac does the work. Includes a self-improving firewall built from thumbs feedback.",
     images: [{
       url: "/og.png",
       width: 1200,
       height: 630,
-      alt: "ThumbGate — Self-Improving Firewall for your AI Agents",
+      alt: "ThumbGate — Control Your Hermes Agents From Anywhere",
     }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "ThumbGate — Self-Improving Firewall for your AI Agents",
-    description: "Self-improving firewall for your AI agents: lessons, promote, re-rank, expire stale gates—plus Hermes chats on the web.",
+    title: "ThumbGate — Control Your Hermes Agents From Anywhere",
+    description: "Chat with and approve your Hermes agents from any phone or browser while your Mac does the work.",
     images: ["/og.png"],
   },
   icons: {
