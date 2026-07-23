@@ -2341,9 +2341,30 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timer);
   }, [connectionState, settings.demoMode, refreshHealth]);
 
+  // Bug (live P0, 2026-07-23, Igor's S25): a saved profile marked "unreachable" —
+  // Tailscale/health genuinely down at the phone — never self-healed while the app
+  // sat foregrounded; only a full force-stop + relaunch reconnected it, even though
+  // the Mac's own /health answered instantly the whole time. Root cause, proven by a
+  // regression test that logs connectionHealAttempt over 5 simulated minutes: this
+  // effect depended on `health?.level` / `health?.checkedAt` / `health?.directGatewayReachable`
+  // — fields that mutate on EVERY health poll, including the fully independent 30-second
+  // background poll a few effects up (which runs forever, unconditionally, regardless of
+  // heal-attempt exhaustion). Every one of those unrelated ticks re-ran this effect, tearing
+  // down the exhausted-phase `reconnectInterval` and re-arming a fresh
+  // SAVED_PROFILE_RECONNECT_INTERVAL_MS countdown — so the retry could never accumulate an
+  // uninterrupted 30s span. Measured effect: the intended 30s cooldown-then-resume cadence
+  // silently degraded to ~60s (attempt count advanced only every other independent poll
+  // tick), and real device probe latency (up to 15s per candidate URL, several candidates)
+  // stretches that further — matching several minutes of visible "Can't reach your
+  // computer" with a genuinely healthy backend. Fix: key the effect off a *stable* derived
+  // reachability boolean (only changes value when reachability actually flips) instead of
+  // the raw, constantly-churning health snapshot fields, so the retry interval survives
+  // unrelated health polls and fires on its documented schedule.
+  const gatewayHealthOk = isMacGatewayHttpOk(health);
+  const gatewayAuthMismatch = health?.authMismatch === true;
   useEffect(() => {
-    if (!isLoaded || settings.demoMode || isMacGatewayHttpOk(health)) {
-      if (isMacGatewayHttpOk(health)) {
+    if (!isLoaded || settings.demoMode || gatewayHealthOk) {
+      if (gatewayHealthOk) {
         connectionHealAttemptRef.current = 0;
         setConnectionHealAttempt(0);
       }
@@ -2353,8 +2374,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     const hasSavedActiveProfile =
       activeProfileId !== null &&
       profileStateRef.current.profiles.some((profile) => profile.id === activeProfileId);
-    const canProbeSavedProfile =
-      hasSavedActiveProfile && healthRef.current?.authMismatch !== true;
+    const canProbeSavedProfile = hasSavedActiveProfile && !gatewayAuthMismatch;
 
     if (connectionHealAttempt >= CONNECTION_HEAL_EXHAUSTED_AFTER) {
       if (!canProbeSavedProfile) {
@@ -2376,9 +2396,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   }, [
     isLoaded,
     settings.demoMode,
-    health?.level,
-    health?.checkedAt,
-    health?.directGatewayReachable,
+    gatewayHealthOk,
+    gatewayAuthMismatch,
     wifiConnected,
     connectionHealAttempt,
     profileState.activeProfileId,
