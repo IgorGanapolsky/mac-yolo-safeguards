@@ -44,6 +44,7 @@ import { haptics } from '../services/haptics';
 import { scheduleRunCompletedNotification } from '../services/hermesNotifications';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
 import { MAC_PICKER_SUBTITLE } from '../utils/tailscalePasteIpCopy';
+import { connectionStateForConnectingDisplay } from '../utils/connectingStatusDisplay';
 import ComputerPickerStatusRegion from '../components/ComputerPickerStatusRegion';
 import ManualComputerAddressForm from '../components/ManualComputerAddressForm';
 import { confirmForgetGatewayProfileAfterHostDismiss } from '../utils/confirmForgetGatewayProfile';
@@ -1763,10 +1764,13 @@ export default function ChatScreen() {
   const machineProfileSwitchInFlight =
     profileSwitchBusy ||
     isActiveProfileSwitchInFlight(activeGatewayProfile, gatewayUrl);
-  const headerConnectionState =
+  const headerConnectionState = connectionStateForConnectingDisplay(
     machineProfileSwitchInFlight && connectionState !== 'demo'
       ? 'connecting'
-      : connectionState;
+      : connectionState,
+    // Profile-switch "connecting" is intentional and brief — don't demote it.
+    machineProfileSwitchInFlight ? false : connectingStuck,
+  );
 
   // SHIP BLOCK: health authMismatch must surface the Wrong-key banner and never leave
   // green Connected with silent auth failure (fresh install dual-state crisis).

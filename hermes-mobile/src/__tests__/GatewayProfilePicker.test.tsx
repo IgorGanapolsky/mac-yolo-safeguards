@@ -126,6 +126,41 @@ describe('GatewayProfilePicker', () => {
     );
   });
 
+  it('shows Cannot reach after Connecting window ends (stuck → not connecting)', () => {
+    const { getByTestId, rerender } = render(
+      <GatewayProfilePicker
+        profiles={profiles}
+        activeProfileId="mac_192_168_12_208"
+        onSelect={jest.fn()}
+        activeReachable={false}
+        activeConnecting
+        wifiConnected
+        showReachabilityHints
+      />,
+    );
+    expect(getByTestId('gateway-profile-item-mac_192_168_12_208')).toHaveTextContent(
+      /Connecting/,
+    );
+
+    rerender(
+      <GatewayProfilePicker
+        profiles={profiles}
+        activeProfileId="mac_192_168_12_208"
+        onSelect={jest.fn()}
+        activeReachable={false}
+        activeConnecting={false}
+        wifiConnected
+        showReachabilityHints
+      />,
+    );
+    expect(getByTestId('gateway-profile-item-mac_192_168_12_208')).toHaveTextContent(
+      /Cannot reach this computer/,
+    );
+    expect(getByTestId('gateway-profile-item-mac_192_168_12_208')).not.toHaveTextContent(
+      /Connecting/,
+    );
+  });
+
   it('shows amber needs re-pair for active profile when auth fails', () => {
     const { getByTestId } = render(
       <GatewayProfilePicker

@@ -556,7 +556,8 @@ export default function SettingsScreen() {
             activeProfileId={activeGatewayProfile?.id ?? null}
             activeReachable={macHttpOk}
             authNeedsRepair={health?.authMismatch === true}
-            activeConnecting={connectionState === 'connecting'}
+            // Prefer Can't-reach over infinite Connecting when health already failed.
+            activeConnecting={connectionState === 'connecting' && macHttpOk}
             onSelect={handleSelectProfile}
             onRemove={handleRemoveProfile}
             scanning={profileScanning || isScanningMacs}

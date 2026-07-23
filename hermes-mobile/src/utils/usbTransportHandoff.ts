@@ -8,8 +8,11 @@ import { profileMatchesHostname } from './gatewayProfilePicker';
 import { resolveHeaderTransportLabel } from './chatMachineHeader';
 
 /**
- * Product lock (2026-07-20 / hardened 2026-07-21):
- * - Plug: Connected via Tailscale/LAN + same-Mac USB reverse healthy → prefer USB
+ * Product lock (2026-07-20 / hardened 2026-07-21 / clarified 2026-07-23):
+ * - Default: phone USB-cabled + reverse healthy → prefer USB for the *selected* Mac.
+ * - Sticky: if the user already selected another Tailscale machine (e.g. mini),
+ *   Pro USB must NOT steal — reason `foreign_usb_host`.
+ * - Plug: Tailscale/LAN + same-Mac USB reverse healthy → prefer USB
  *   (Wi‑Fi *or* cellular — live probe is the ghost guard, not NetInfo wifi).
  * - Unplug: USB reverse gone → fall back to same Mac Tailscale/LAN.
  * Never change activeProfileId or clear the conversation.

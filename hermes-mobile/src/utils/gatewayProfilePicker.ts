@@ -56,9 +56,10 @@ export function profilePickerLines(
   options: { cablePluggedIn?: boolean } = {},
 ): ProfilePickerLines {
   const title = fleetComputerDisplayName(profileDisplayName(profile));
-  // Cable presence is secondary. Label the row's actual route first so Home Wi‑Fi
-  // never reads as "Using USB" when the active path is a LAN URL.
-  if (options.cablePluggedIn && isLoopbackGatewayUrl(profile.gatewayUrl)) {
+  // Product lock (2026-07-23): when the live cable matches this Mac, USB is the
+  // preferred path — show it as primary. Sticky other-Mac (e.g. mini on Tailscale
+  // while Pro is cabled) never sets cablePluggedIn on the foreign row.
+  if (options.cablePluggedIn) {
     return {
       title,
       detail: 'USB cable connected · Tailscale is the away-from-home option',
@@ -69,33 +70,22 @@ export function profilePickerLines(
   }
   const endpoint = profilePickerEndpoint(profile);
   if (isTailscaleGatewayUrl(profile.gatewayUrl)) {
-    const base = endpoint ? `Tailscale · ${endpoint}` : 'Tailscale';
     return {
       title,
-      detail: options.cablePluggedIn ? `${base} · USB cable also available` : base,
+      detail: endpoint ? `Tailscale · ${endpoint}` : 'Tailscale',
     };
   }
   const endpointInTitle = Boolean(
     endpoint && title.toLowerCase().includes(endpoint.split(':')[0].toLowerCase()),
   );
   if (isPrivateLanGatewayUrl(profile.gatewayUrl)) {
-    if (options.cablePluggedIn) {
-      const base = endpoint && !endpointInTitle ? endpoint : 'Home Wi‑Fi';
-      return { title, detail: `${base} · USB cable also available` };
-    }
     if (endpoint && !endpointInTitle) {
       return { title, detail: endpoint };
     }
     return { title };
   }
   if (endpoint && !endpointInTitle) {
-    return {
-      title,
-      detail: options.cablePluggedIn ? `${endpoint} · USB cable also available` : endpoint,
-    };
-  }
-  if (options.cablePluggedIn) {
-    return { title, detail: 'USB cable also available' };
+    return { title, detail: endpoint };
   }
   return { title };
 }
@@ -106,9 +96,9 @@ export function profileConnectionRouteDisplayLabel(
   wifiConnected: boolean,
   options: { cablePluggedIn?: boolean } = {},
 ): string {
-  // Only the USB/loopback row may claim the cable as the active route.
-  // LAN/Tailscale rows keep their route label even when a cable is plugged in.
-  if (options.cablePluggedIn && isLoopbackGatewayUrl(profile.gatewayUrl)) {
+  // Cable matched to this Mac → prefer USB (chat handoff uses loopback). Foreign
+  // sticky machines never pass cablePluggedIn (hostname mismatch).
+  if (options.cablePluggedIn) {
     return 'USB';
   }
   const route = profileConnectionRouteLabel(profile, wifiConnected);
@@ -188,15 +178,17 @@ export function preferredProfileForMachine(
   if (activeInGroup) {
     const activeIsUsb = isLoopbackGatewayUrl(activeInGroup.gatewayUrl);
     const cableLive = options.liveUsb?.reachable === true;
-    // Preserve Tailscale (and USB when already selected). When a live cable would otherwise
-    // steal the row (USB score 100 > Wi‑Fi 70), also preserve the active Home Wi‑Fi /
-    // Tailscale identity so the picker cannot say "Using USB" while the header says
-    // Home Wi‑Fi. Without a cable, still allow ranking to prefer Tailscale over a stale
-    // home-Wi‑Fi alias (away-from-home).
+    const liveHost = options.liveUsb?.hostname?.trim();
+    const cableMatchesActive =
+      Boolean(liveHost) && profileMatchesHostname(activeInGroup, liveHost ?? '');
+    // Keep the active profile id selected (radio highlight). Chat still handoffs to
+    // USB via resolveUsbTransportHandoff when cableMatchesActive; foreign cable
+    // (Pro USB while mini is sticky) never matches → sticky Tailscale wins.
     if (
       activeIsUsb ||
       isTailscaleGatewayUrl(activeInGroup.gatewayUrl) ||
-      cableLive
+      (cableLive && !cableMatchesActive) ||
+      cableMatchesActive
     ) {
       return activeInGroup;
     }

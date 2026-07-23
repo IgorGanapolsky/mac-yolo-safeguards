@@ -105,7 +105,7 @@ describe('gatewayProfilePicker', () => {
     expect(profilePickerLines(profiles[1]).title).toBe('Igors-Mac-mini');
   });
 
-  it('keeps the active Tailscale identity selected when its live USB alias is found', () => {
+  it('keeps active Tailscale id selected but prefers USB labels when cable matches that Mac', () => {
     const activeProfileId = 'mac_book_ts';
     const liveUsb = {
       reachable: true,
@@ -143,19 +143,18 @@ describe('gatewayProfilePicker', () => {
     expect(profiles).toHaveLength(2);
     const activeRow = profiles.find((profile) => profile.id === activeProfileId);
     expect(activeRow).toBeTruthy();
-    expect(profileConnectionRouteLabel(activeRow!, true)).toBe('Tailscale');
     expect(isCablePluggedInForProfile(activeRow!, liveUsb)).toBe(true);
-    expect(profilePickerLines(activeRow!, { cablePluggedIn: true }).detail).toMatch(
-      /Tailscale · 100\.87\.85\.85:8642 · USB cable also available/,
+    expect(profilePickerLines(activeRow!, { cablePluggedIn: true }).detail).toBe(
+      'USB cable connected · Tailscale is the away-from-home option',
     );
     expect(profileConnectionRouteDisplayLabel(activeRow!, true, { cablePluggedIn: true })).toBe(
-      'Tailscale',
+      'USB',
     );
     expect(profiles.map((profile) => profile.id)).not.toContain('mac_book_usb');
     expect(profiles.map((profile) => profile.id)).toContain('mac_mini_ts');
   });
 
-  it('keeps active Home Wi-Fi selected when cable is live (header/picker SSoT)', () => {
+  it('prefers USB labels for active Home Wi-Fi when cable matches that Mac', () => {
     const activeProfileId = 'mac_book_lan';
     const liveUsb = {
       reachable: true,
@@ -184,15 +183,11 @@ describe('gatewayProfilePicker', () => {
 
     expect(profiles).toHaveLength(1);
     expect(profiles[0].id).toBe(activeProfileId);
-    expect(profileConnectionRouteLabel(profiles[0], true)).toBe('Wi-Fi');
     expect(profileConnectionRouteDisplayLabel(profiles[0], true, { cablePluggedIn: true })).toBe(
-      'Home Wi‑Fi',
+      'USB',
     );
     expect(profilePickerLines(profiles[0], { cablePluggedIn: true }).detail).toBe(
-      '192.168.68.61:8642 · USB cable also available',
-    );
-    expect(profilePickerLines(profiles[0], { cablePluggedIn: true }).detail).not.toMatch(
-      /USB cable connected/i,
+      'USB cable connected · Tailscale is the away-from-home option',
     );
   });
 
