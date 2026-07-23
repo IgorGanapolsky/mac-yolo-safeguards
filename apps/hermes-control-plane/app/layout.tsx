@@ -13,11 +13,16 @@ export const metadata: Metadata = {
   category: "developer tools",
   keywords: [
     "Hermes agent",
+    "Hermes Mobile",
+    "Hermes Mobile AI Agent",
+    "Hermes AI Agent",
+    "AI agent phone app",
     "Hermes web dashboard",
     "AI agent remote control",
     "agent failover",
     "cloud continuity",
     "agent observability",
+    "Leash approvals",
   ],
   robots: {
     index: true,

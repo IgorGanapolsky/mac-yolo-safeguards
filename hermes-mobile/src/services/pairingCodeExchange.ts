@@ -52,16 +52,35 @@ export async function exchangePairingCode(
   if (!base || !trimmedCode) {
     return null;
   }
-  try {
-    const response = await fetchJsonImpl(`${base}/pair-exchange?code=${encodeURIComponent(trimmedCode)}`);
-    if (!response.ok) {
+
+  const tryExchange = async (baseUrl: string): Promise<PairExchangePayload | null> => {
+    try {
+      const response = await fetchJsonImpl(`${baseUrl}/pair-exchange?code=${encodeURIComponent(trimmedCode)}`);
+      if (!response.ok) {
+        return null;
+      }
+      const payload = await response.json();
+      return isPairExchangePayload(payload) ? payload : null;
+    } catch {
       return null;
     }
-    const payload = await response.json();
-    return isPairExchangePayload(payload) ? payload : null;
-  } catch {
-    return null;
+  };
+
+  const primary = await tryExchange(base);
+  if (primary) {
+    return primary;
   }
+
+  // Fallback: try loopback (USB adb reverse) when the primary URL is unreachable.
+  // This handles the common case where the deep link carries a Tailscale pairServer URL
+  // but the phone is paired via USB and doesn't have Tailscale VPN active.
+  const portMatch = base.match(/:(\d+)$/);
+  const isLoopback = /\/\/(127\.0\.0\.1|localhost)(:\d+)?/i.test(base);
+  if (portMatch && !isLoopback) {
+    return tryExchange(`http://127.0.0.1:${portMatch[1]}`);
+  }
+
+  return null;
 }
 
 /**

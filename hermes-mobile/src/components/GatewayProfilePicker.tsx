@@ -68,7 +68,7 @@ export default function GatewayProfilePicker({
     activeProfile,
   });
   const multiMac = pickerProfiles.length > 1;
-  const showRouteHints = showReachabilityHints || multiMac;
+  const showRouteHints = true;
 
   return (
     <View>
