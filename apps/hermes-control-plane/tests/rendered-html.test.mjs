@@ -33,7 +33,10 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /by ThumbGate/);
   assert.match(page, /Your Hermes work/);
   assert.match(page, /Leash/);
-  assert.match(page, /Run one installer/);
+  const sellJourney = await readFile(new URL("../app/LandingSellJourney.tsx", import.meta.url), "utf8");
+  assert.match(sellJourney, /Run one installer/);
+  assert.match(sellJourney, /Copy installer/);
+  assert.match(page, /LandingSellJourney/);
   assert.match(page, /href="\/go\/android"/);
   assert.match(page, /href="\/go\/ios"/);
   assert.match(page, /data-funnel-event="play_store_click"/);
@@ -76,7 +79,6 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(portalRoute, /billing\.portal\.created/);
   assert.match(dashboard, /\? manageBilling\(\) : subscribe\(\)/);
   assert.match(page, /100 cloud continuations/);
-  assert.match(page, /Run one installer/);
   assert.match(page, /Connect your Mac\. Open the dashboard\./);
   assert.match(page, /Continuity \(VPS\)/);
   // Pricing CTAs live in client chrome (static shell + /api/me personalization).
@@ -86,14 +88,18 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(chrome, /data-funnel-event=\{isSession \? "dashboard_open_click" : "sign_in_click"\}/);
   assert.equal((chrome.match(/"sign_in_click"/g) ?? []).length, 1);
   assert.equal((chrome.match(/fetch\("\/api\/me"/g) ?? []).length, 1);
-  assert.match(page, /90s<\/strong><span>execution lease/);
+  // No fake public "stats" strip (hardcoded 1/0/90s/24/7).
+  assert.doesNotMatch(page, /proof-strip|signed device identity|shared private keys/);
+  assert.match(page, /90s lease/);
+  assert.match(page, /LandingSellJourney|LandingStickyCta|LandingFaq/);
   assert.match(page, /application\/ld\+json/);
   assert.match(page, /SoftwareApplication/);
   assert.match(page, /RemoteControlDiagram/);
   const diagram = await readFile(new URL("../app/RemoteControlDiagram.tsx", import.meta.url), "utf8");
   assert.match(diagram, /Your phone/);
   assert.match(diagram, /Encrypted pairing/);
-  assert.doesNotMatch(page, /FAQPage|What is ThumbGate\?/);
+  // FAQ is interactive client island; schema still includes FAQPage for SEO.
+  assert.match(page, /FAQPage|What is ThumbGate\?/);
   assert.match(robots, /disallow: \["\/dashboard", "\/api\/"\]/);
   assert.match(robots, /https:\/\/thumbgate\.app\/sitemap\.xml/);
   assert.match(sitemap, /https:\/\/thumbgate\.app\//);
