@@ -1,5 +1,5 @@
 import type { HermesMessage } from '../types/chat';
-import { idHasPrefix } from './messageIds';
+import { coerceMessageId, idHasPrefix } from './messageIds';
 import { normalizeMessageText } from './chatMessageMerge';
 
 export type OutboundSendDedupeInput = {
@@ -78,6 +78,25 @@ export function shouldSkipQueueOutboundBubbleCommit(input: {
   return Boolean(queued && lastCommitted && queued === lastCommitted);
 }
 
+/**
+ * Phone `user-*` rows OR gateway-acked user rows that still carry delivery status.
+ * Merge annotates outboundStatus onto server ids — stall recovery must reuse those,
+ * not require the original optimistic `user-*` prefix (2026-07-22 echo class).
+ */
+export function isDeliveryTrackedUserBubble(message: HermesMessage | undefined): boolean {
+  if (!message || message.role?.toLowerCase() !== 'user') {
+    return false;
+  }
+  if (idHasPrefix(message.id, 'user-')) {
+    return true;
+  }
+  return Boolean(message.outboundStatus);
+}
+
+function userBubbleBody(message: HermesMessage): string {
+  return normalizeMessageText(message.rawContent?.trim() || message.content?.trim() || '');
+}
+
 export function findPendingOptimisticUserBubble(
   messages: HermesMessage[],
   body: string,
@@ -88,20 +107,17 @@ export function findPendingOptimisticUserBubble(
   }
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
-    if (message.role?.toLowerCase() !== 'user' || !idHasPrefix(message.id, 'user-')) {
+    if (!isDeliveryTrackedUserBubble(message) || message.outboundStatus !== 'pending') {
       continue;
     }
-    if (message.outboundStatus !== 'pending') {
-      continue;
-    }
-    if (normalizeMessageText(message.content || '') === normalized) {
+    if (userBubbleBody(message) === normalized) {
       return message;
     }
   }
   return undefined;
 }
 
-/** Failed optimistic bubble for the same intent — stall recovery must reuse, not echo. */
+/** Failed optimistic / gateway-acked bubble for the same intent — stall recovery must reuse, not echo. */
 export function findFailedOptimisticUserBubble(
   messages: HermesMessage[],
   body: string,
@@ -112,13 +128,10 @@ export function findFailedOptimisticUserBubble(
   }
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
-    if (message.role?.toLowerCase() !== 'user' || !idHasPrefix(message.id, 'user-')) {
+    if (!isDeliveryTrackedUserBubble(message) || message.outboundStatus !== 'failed') {
       continue;
     }
-    if (message.outboundStatus !== 'failed') {
-      continue;
-    }
-    if (normalizeMessageText(message.content || '') === normalized) {
+    if (userBubbleBody(message) === normalized) {
       return message;
     }
   }
@@ -139,13 +152,10 @@ export function findSentOptimisticUserBubbleAwaitingReply(
   }
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
-    if (message.role?.toLowerCase() !== 'user' || !idHasPrefix(message.id, 'user-')) {
+    if (!isDeliveryTrackedUserBubble(message) || message.outboundStatus !== 'sent') {
       continue;
     }
-    if (message.outboundStatus !== 'sent') {
-      continue;
-    }
-    if (normalizeMessageText(message.content || '') !== normalized) {
+    if (userBubbleBody(message) !== normalized) {
       continue;
     }
     let hasAssistantAfter = false;
@@ -183,12 +193,13 @@ export function reactivateOptimisticUserBubble(
   messages: HermesMessage[],
   messageId: string,
 ): HermesMessage[] {
-  if (!messageId) {
+  const targetId = coerceMessageId(messageId);
+  if (!targetId) {
     return messages;
   }
   let changed = false;
   const next = messages.map((message) => {
-    if (message.id !== messageId) {
+    if (coerceMessageId(message.id) !== targetId) {
       return message;
     }
     if (message.outboundStatus === 'pending' && !message.outboundFailureReason) {
@@ -204,7 +215,23 @@ export function reactivateOptimisticUserBubble(
   return changed ? next : messages;
 }
 
-/** Drop adjacent optimistic user-* rows that repeat the same normalized body. */
+function outboundDedupeRank(message: HermesMessage): number {
+  if (message.outboundStatus === 'pending') {
+    return 3;
+  }
+  if (message.outboundStatus === 'sent') {
+    return 2;
+  }
+  if (message.outboundStatus === 'failed') {
+    return 1;
+  }
+  return 0;
+}
+
+/**
+ * Drop adjacent delivery-tracked user rows that repeat the same normalized body.
+ * Covers user-* ↔ gateway-id pairs after merge annotates outboundStatus onto server ids.
+ */
 export function dedupeAdjacentOptimisticUserBubbles(messages: HermesMessage[]): HermesMessage[] {
   if (messages.length < 2) {
     return messages;
@@ -212,20 +239,12 @@ export function dedupeAdjacentOptimisticUserBubbles(messages: HermesMessage[]): 
   const deduped: HermesMessage[] = [];
   for (const message of messages) {
     const previous = deduped[deduped.length - 1];
-    const isOptimisticUser =
-      message.role?.toLowerCase() === 'user' && idHasPrefix(message.id, 'user-');
-    const previousIsOptimisticUser =
-      previous?.role?.toLowerCase() === 'user' && idHasPrefix(previous.id, 'user-');
     if (
-      isOptimisticUser &&
-      previousIsOptimisticUser &&
-      normalizeMessageText(message.content || '') === normalizeMessageText(previous.content || '')
+      isDeliveryTrackedUserBubble(message) &&
+      isDeliveryTrackedUserBubble(previous) &&
+      userBubbleBody(message) === userBubbleBody(previous!)
     ) {
-      // Prefer pending over failed when stall-recovery raced a duplicate commit.
-      if (
-        previous?.outboundStatus === 'failed' &&
-        message.outboundStatus === 'pending'
-      ) {
+      if (outboundDedupeRank(message) > outboundDedupeRank(previous!)) {
         deduped[deduped.length - 1] = message;
       }
       continue;
