@@ -60,7 +60,7 @@ describe('useOtaUpdateBanner', () => {
     expect(Alert.alert).not.toHaveBeenCalled();
   });
 
-  it('returns available when useUpdates reports isUpdateAvailable', () => {
+  it('returns available without Alert — banner-only UI', () => {
     (Updates as any).isEnabled = true;
     mockUseUpdates.mockReturnValue({
       ...baseReturn,
@@ -75,17 +75,11 @@ describe('useOtaUpdateBanner', () => {
 
     expect(result.current.state).toBe('available');
     expect(result.current.message).toContain('new version');
-    expect(Alert.alert).toHaveBeenCalledWith(
-      'Update available',
-      'A new version of Hermes is available.',
-      expect.arrayContaining([
-        expect.objectContaining({ text: 'Later', style: 'cancel' }),
-        expect.objectContaining({ text: 'Download & restart' }),
-      ]),
-    );
+    // Dual UI kill: never Alert.alert alongside OtaUpdateBanner
+    expect(Alert.alert).not.toHaveBeenCalled();
   });
 
-  it('shows Alert once per session when update becomes available', () => {
+  it('never fires Alert.alert even when update becomes available', () => {
     (Updates as any).isEnabled = true;
     mockUseUpdates.mockReturnValue({
       ...baseReturn,
@@ -97,12 +91,12 @@ describe('useOtaUpdateBanner', () => {
       return useOtaUpdateBanner();
     });
 
-    expect(Alert.alert).toHaveBeenCalledTimes(1);
+    expect(Alert.alert).not.toHaveBeenCalled();
     rerender({});
-    expect(Alert.alert).toHaveBeenCalledTimes(1);
+    expect(Alert.alert).not.toHaveBeenCalled();
   });
 
-  it('returns pending when useUpdates reports isUpdatePending', () => {
+  it('returns pending without Alert — banner-only UI', () => {
     (Updates as any).isEnabled = true;
     mockUseUpdates.mockReturnValue({
       ...baseReturn,
@@ -116,14 +110,7 @@ describe('useOtaUpdateBanner', () => {
 
     expect(result.current.state).toBe('pending');
     expect(result.current.message).toContain('ready');
-    expect(Alert.alert).toHaveBeenCalledWith(
-      'Update available',
-      'A new version of Hermes is downloaded and ready.',
-      expect.arrayContaining([
-        expect.objectContaining({ text: 'Later', style: 'cancel' }),
-        expect.objectContaining({ text: 'Restart' }),
-      ]),
-    );
+    expect(Alert.alert).not.toHaveBeenCalled();
   });
 
   it('calls reloadAsync on applyNow when update already pending', async () => {
@@ -201,29 +188,6 @@ describe('useOtaUpdateBanner', () => {
     expect(result.current.state).toBe('available');
     act(() => {
       result.current.dismiss();
-    });
-    expect(result.current.state).toBe('idle');
-  });
-
-  it('Later button on Alert calls dismiss', () => {
-    (Updates as any).isEnabled = true;
-    mockUseUpdates.mockReturnValue({
-      ...baseReturn,
-      isUpdateAvailable: true,
-    });
-
-    const { result } = renderHook(() => {
-      const { useOtaUpdateBanner } = require('../hooks/useOtaUpdateBanner');
-      return useOtaUpdateBanner();
-    });
-
-    const buttons = (Alert.alert as jest.Mock).mock.calls[0][2] as Array<{
-      text: string;
-      onPress?: () => void;
-    }>;
-    const later = buttons.find((b) => b.text === 'Later');
-    act(() => {
-      later?.onPress?.();
     });
     expect(result.current.state).toBe('idle');
   });

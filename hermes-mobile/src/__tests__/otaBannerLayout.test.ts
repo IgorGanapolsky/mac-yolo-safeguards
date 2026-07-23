@@ -13,6 +13,8 @@ describe('otaBannerLayout', () => {
 
   it('falls back to StatusBar height when safe-area inset is 0 (Android edge-to-edge)', () => {
     expect(otaBannerTopPadding(0, 36)).toBe(36 + OTA_BANNER_CONTENT_PAD_TOP);
+    // Galaxy S24-class statusBars frame height (device proof 2026-07-23)
+    expect(otaBannerTopPadding(0, 103)).toBe(103 + OTA_BANNER_CONTENT_PAD_TOP);
   });
 
   it('uses a 24dp floor when both inset and status bar are 0', () => {

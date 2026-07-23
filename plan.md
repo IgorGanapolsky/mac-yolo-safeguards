@@ -1187,6 +1187,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 - 2026-07-23T19:15:33Z `cursor-ota-banner-safe-area`: **T-OTA-BANNER-SAFE-AREA-20260723** — Root cause: `OtaUpdateBanner` mounts above nav outside ChatScreen SafeAreaView; paddingVertical only → Restart/X under status bar. Fix: top safe-area insets + ≥44pt targets; persist dismiss; suppress auto client OTA nag during Expo billing freeze (CDN download of already-published updates does not cost $; publish remains frozen). NO eas update.
 
+- 2026-07-23T20:35:00Z `cursor-ota-banner-safe-area`: **T-OTA-BANNER-SAFE-AREA dual-UI kill** — Root cause of dual prompts: `useOtaUpdateBanner` fired `Alert.alert` AND `OtaUpdateBanner`. Removed Alert; banner-only + safe-area + billing freeze NEVER. NO eas update.
+
 - 2026-07-23T16:25:00Z `cursor-asc-rename-ship`: **D-2026-07-23-hermes-mobile-serp-74.** iTunes `hermes mobile` → ours #74 (`Hermes AI Agent Leash`); #1 exact-title logistics `Hermes Mobile` (ch.dataphone.Hermes). Live name still 409-locked. Patched live+1.4 promotionalText to lead with Hermes Mobile; 1.4 keywords+name already staged. Public SERP flip only after 1.4 Approved+Released. No phone/device PR touch (#893/#898). No OTA. No fake expedite for ASO.
 - 2026-07-23T16:10:00Z `cursor-asc-rename-ship`: **T-ASC-RENAME-HERMES-MOBILE-20260723 / D-2026-07-23-asc-name-not-live-metadata.** Attempted ASC PATCH of live `READY_FOR_SALE` appInfoLocalization name+subtitle → **409 INVALID_STATE**. iOS **1.4** `WAITING_FOR_REVIEW` (`releaseType: AFTER_APPROVAL`) already has name `Hermes Mobile: AI Agent`. Proof: `hermes-mobile/docs/ASC-RENAME-HERMES-MOBILE-20260723.md`. No Expo OTA.
 

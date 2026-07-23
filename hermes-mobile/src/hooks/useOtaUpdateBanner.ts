@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Updates from 'expo-updates';
 import { shouldSuppressOtaClientPrompts } from '../utils/otaClientPromptPolicy';
@@ -27,6 +26,9 @@ function updateFingerprint(isPending: boolean, isAvailable: boolean): string {
  * Encapsulates OTA update detection + banner state.
  * Returns `idle` in dev builds (Updates.isEnabled === false) and during the
  * Expo billing freeze (never fetch/reload — prevents CDN OTA wiping local APK).
+ *
+ * ONE UI only: the in-app `OtaUpdateBanner`. Never also fire `Alert.alert`
+ * (dual "Update available" modal + banner under the status bar).
  */
 export function useOtaUpdateBanner({
   isFirstSession = false,
@@ -38,7 +40,6 @@ export function useOtaUpdateBanner({
   const { isUpdateAvailable, isUpdatePending } = Updates.useUpdates();
   const [dismissed, setDismissed] = useState(false);
   const [isReloading, setIsReloading] = useState(false);
-  const alertShownRef = useRef(false);
   const firstSessionFetchStartedRef = useRef(false);
   const firstSessionReloadStartedRef = useRef(false);
   const suppressPrompts = shouldSuppressOtaClientPrompts();
@@ -113,45 +114,6 @@ export function useOtaUpdateBanner({
     isOnboardingResolved,
     isUpdateAvailable,
     isUpdatePending,
-    suppressPrompts,
-  ]);
-
-  useEffect(() => {
-    if (
-      !Updates.isEnabled ||
-      !isOnboardingResolved ||
-      isFirstSession ||
-      dismissed ||
-      suppressPrompts ||
-      alertShownRef.current
-    ) {
-      return;
-    }
-    if (!isUpdatePending && !isUpdateAvailable) return;
-
-    alertShownRef.current = true;
-    const isPending = isUpdatePending;
-    const message = isPending
-      ? 'A new version of Hermes is downloaded and ready.'
-      : 'A new version of Hermes is available.';
-
-    Alert.alert('Update available', message, [
-      { text: 'Later', style: 'cancel', onPress: dismiss },
-      {
-        text: isPending ? 'Restart' : 'Download & restart',
-        onPress: () => {
-          void applyNow();
-        },
-      },
-    ]);
-  }, [
-    isUpdateAvailable,
-    isUpdatePending,
-    dismissed,
-    dismiss,
-    applyNow,
-    isFirstSession,
-    isOnboardingResolved,
     suppressPrompts,
   ]);
 
