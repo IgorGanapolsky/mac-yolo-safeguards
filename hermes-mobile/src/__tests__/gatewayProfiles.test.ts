@@ -916,6 +916,41 @@ describe('gatewayProfiles', () => {
     expect(profileMachineKey(healed)).toBe('igors-mac-mini');
     expect(healed.gatewayUrl).toBe('http://100.94.135.78:8642');
     expect(healed.gatewayUrl).not.toContain('127.0.0.1');
+    // Foreign Pro cable hostname must still be rejected while mini is sticky.
+    expect(
+      isDiscoveredUrlAllowedForActiveProfile(state, 'http://127.0.0.1:8642', {
+        liveUsbHostname: 'Igors-MacBook-Pro.local',
+      }),
+    ).toBe(false);
+  });
+
+  it('allows same-Mac USB when live cable hostname matches sticky Tailscale Mac', () => {
+    const state = dedupeGatewayProfiles({
+      profiles: [
+        {
+          id: 'book_ts',
+          label: 'Igors-MacBook-Pro',
+          hostname: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          addedAt: '2026-06-28T00:00:00Z',
+        },
+      ],
+      activeProfileId: 'book_ts',
+    });
+    expect(isDiscoveredUrlAllowedForActiveProfile(state, 'http://127.0.0.1:8642')).toBe(false);
+    expect(
+      isDiscoveredUrlAllowedForActiveProfile(state, 'http://127.0.0.1:8642', {
+        liveUsbHostname: 'Igors-MacBook-Pro.local',
+      }),
+    ).toBe(true);
+    const decision = resolveHealPersistDecision(
+      state,
+      'http://127.0.0.1:8642',
+      true,
+      { liveUsbHostname: 'Igors-MacBook-Pro.local' },
+    );
+    expect(decision.catalogOnly).toBe(false);
+    expect(decision.returnUrl).toBe('http://127.0.0.1:8642');
   });
 
   it('blocks Pro USB profile from rewriting mini Tailscale on heal', () => {

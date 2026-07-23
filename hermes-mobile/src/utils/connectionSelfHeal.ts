@@ -152,13 +152,57 @@ export function buildSelfHealProbeUrls(input: {
   return ordered;
 }
 
-/** Prefer USB probe only when the active route is loopback AND the phone is on Wi‑Fi. */
+/**
+ * Prefer USB in autoDiscover probe order.
+ *
+ * Product lock (2026-07-23): USB when cable present for the *same* sticky Mac —
+ * even if the saved profile URL is Tailscale (handoff keeps activeProfileId on the
+ * Tailscale row while effective URL is 127.0.0.1). Sticky *foreign* Tailscale Mac
+ * (mini while cabled to Pro) sets liveUsbSameMachine=false and must not prefer USB.
+ *
+ * Ghost guard: without liveUsbSameMachine, still require Wi‑Fi + an already-loopback
+ * profile/effective URL (cellular ghost 127.0.0.1 without live hostname stays out).
+ */
 export function shouldPreferUsbProbeFirst(input: {
   activeGatewayUrl?: string | null;
+  /** Session reach URL — may be USB while sticky profile URL remains Tailscale. */
+  effectiveGatewayUrl?: string | null;
   wifiConnected: boolean;
+  /**
+   * Live adb reverse /health hostname matches the sticky/active Mac.
+   * When true, prefer USB even on cellular and even when sticky URL is Tailscale.
+   */
+  liveUsbSameMachine?: boolean;
 }): boolean {
-  const url = input.activeGatewayUrl?.trim() ?? '';
-  return Boolean(url && isLoopbackGatewayUrl(url) && input.wifiConnected);
+  if (input.liveUsbSameMachine) {
+    return true;
+  }
+  const active = input.activeGatewayUrl?.trim() ?? '';
+  const effective = input.effectiveGatewayUrl?.trim() ?? '';
+  const onUsb =
+    (Boolean(active) && isLoopbackGatewayUrl(active)) ||
+    (Boolean(effective) && isLoopbackGatewayUrl(effective));
+  return Boolean(onUsb && input.wifiConnected);
+}
+
+/**
+ * True when last-selected sticky Tailscale/LAN must NOT yank a healthy same-Mac USB route.
+ * Foreign sticky Mac (mini vs Pro cable) returns false — honor sticky Tailscale.
+ */
+export function shouldKeepUsbOverStickyRemote(input: {
+  effectiveGatewayUrl?: string | null;
+  stickyProfileUrl?: string | null;
+  liveUsbSameMachine: boolean;
+}): boolean {
+  const effective = input.effectiveGatewayUrl?.trim() ?? '';
+  const sticky = input.stickyProfileUrl?.trim() ?? '';
+  if (!input.liveUsbSameMachine || !isLoopbackGatewayUrl(effective)) {
+    return false;
+  }
+  if (!sticky || isLoopbackGatewayUrl(sticky)) {
+    return false;
+  }
+  return isTailscaleGatewayUrl(sticky) || isPrivateLanGatewayUrl(sticky);
 }
 
 /**
