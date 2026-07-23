@@ -412,4 +412,90 @@ describe('GatewayOpsSection', () => {
       expect(getByTestId('job-delete-cron-long-name')).toBeTruthy();
     });
   });
+
+  it('expands gateway feature details for known capabilities', async () => {
+    gatewayClient.getCapabilities.mockResolvedValue({
+      features: {
+        chat_completions: true,
+        run_stop: true,
+        toolsets_write: true,
+      },
+      default_model: 'qwen3:8b-64k',
+    });
+
+    const { getByTestId, getByText, queryByTestId } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('feature-expand-chat_completions')).toBeTruthy();
+    });
+    expect(queryByTestId('feature-details-chat_completions')).toBeNull();
+
+    fireEvent.press(getByTestId('feature-expand-chat_completions'));
+
+    await waitFor(() => {
+      expect(getByTestId('feature-details-chat_completions')).toBeTruthy();
+      expect(getByText(/multi-turn messages/i)).toBeTruthy();
+      expect(getByText('API flag')).toBeTruthy();
+    });
+    // Protocol capabilities are not fake-toggleable from the phone.
+    expect(getByTestId('feature-switch-chat_completions').props.disabled).toBe(true);
+  });
+
+  it('expands cron job details for purpose, started, and last run', async () => {
+    gatewayClient.listJobs.mockResolvedValue([
+      {
+        id: 'job-detail-1',
+        name: 'Pipeline Dashboard Refresh',
+        schedule: { kind: 'interval', minutes: 120, display: 'every 120m' },
+        prompt: 'Refresh the revenue pipeline dashboard from metrics.db.',
+        created_at: '2026-06-15T17:39:53.520Z',
+        last_run_at: '2026-07-23T13:07:35.770Z',
+        next_run_at: '2026-07-23T15:07:35.770Z',
+        last_status: 'ok',
+        paused: false,
+      },
+    ]);
+
+    const { getByTestId, getByText, queryByTestId } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('job-expand-job-detail-1')).toBeTruthy();
+    });
+    expect(queryByTestId('job-details-job-detail-1')).toBeNull();
+
+    fireEvent.press(getByTestId('job-expand-job-detail-1'));
+
+    await waitFor(() => {
+      expect(getByTestId('job-details-job-detail-1')).toBeTruthy();
+      expect(getByText('Purpose')).toBeTruthy();
+      expect(getByText(/revenue pipeline dashboard/i)).toBeTruthy();
+      expect(getByText('Started')).toBeTruthy();
+      expect(getByText('Last run')).toBeTruthy();
+      expect(getByText('Next run')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('job-expand-job-detail-1'));
+    await waitFor(() => {
+      expect(queryByTestId('job-details-job-detail-1')).toBeNull();
+    });
+  });
+
+  it('shows Resume when job is paused via enabled:false (not only paused:true)', async () => {
+    gatewayClient.listJobs.mockResolvedValue([
+      {
+        id: 'job-disabled-1',
+        name: 'Disabled job',
+        schedule: '0 9 * * *',
+        enabled: false,
+        paused: false,
+      },
+    ]);
+
+    const { getByTestId, queryByTestId } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('job-resume-job-disabled-1')).toBeTruthy();
+    });
+    expect(queryByTestId('job-pause-job-disabled-1')).toBeNull();
+  });
 });
