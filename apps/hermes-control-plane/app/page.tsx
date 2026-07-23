@@ -10,6 +10,7 @@ import {
   LandingPricingCtaFree,
   LandingPricingCtaPaid,
 } from "./LandingAuthChrome";
+import { StoreBadgeRow } from "./StoreBadges";
 import styles from "./landing.module.css";
 
 function Mark() {
@@ -57,28 +58,7 @@ export default function Home() {
           <LandingAuthHero />
           <p className="signin-note">Hermes Web by ThumbGate. Continue with Google today — more providers activate once configured.</p>
           <div className="trust-row"><span>No inbound ports</span><span>Private-key pairing</span><span>Cloud only when enabled</span></div>
-          <div className="hero-store-links" aria-label="Hermes Mobile apps">
-            <a
-              href="/go/android"
-              className="store-link store-link-play"
-              data-funnel-event="play_store_click"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <span className="store-link-badge" aria-hidden="true">▶</span>
-              <span><strong>Google Play</strong><small>Hermes Mobile</small></span>
-            </a>
-            <a
-              href="/go/ios"
-              className="store-link store-link-ios"
-              data-funnel-event="app_store_click"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <span className="store-link-badge" aria-hidden="true">A</span>
-              <span><strong>App Store</strong><small>Hermes AI Agent Leash</small></span>
-            </a>
-          </div>
+          <StoreBadgeRow />
         </div>
 
         <nav className="hero-console hero-actions-panel" aria-label="Private workspace actions">
@@ -160,28 +140,7 @@ export default function Home() {
             Hermes Mobile pairs to your Mac the same way as the web dashboard—chat, Leash approvals, and continuity settings when you&apos;re away from a browser.
           </p>
         </div>
-        <div className="hero-store-links hero-store-links-lg">
-          <a
-            href="/go/android"
-            className="store-link store-link-play"
-            data-funnel-event="play_store_click"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <span className="store-link-badge" aria-hidden="true">▶</span>
-            <span><strong>Get it on Google Play</strong><small>Hermes Mobile for Android</small></span>
-          </a>
-          <a
-            href="/go/ios"
-            className="store-link store-link-ios"
-            data-funnel-event="app_store_click"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <span className="store-link-badge" aria-hidden="true">A</span>
-            <span><strong>Download on the App Store</strong><small>Hermes AI Agent Leash</small></span>
-          </a>
-        </div>
+        <StoreBadgeRow className="hero-store-links-lg" size="lg" />
       </section>
 
       <footer>
