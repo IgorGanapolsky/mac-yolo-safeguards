@@ -1547,7 +1547,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       : undefined;
     // Prefer USB when: already on loopback (profile or effective) on Wi‑Fi, OR live
     // reverse matches the sticky Mac (Wi‑Fi or cellular). Ghost 127.0.0.1 without a
-    // matching hostname stays out. Empty sticky + USB must not steal unpaired sessions.
+    // matching hostname stays out. Empty sticky + USB must not steal unpaired sessions
+    // (false-green Connected + Wrong key — user crisis 2026-07-14).
     const preferUsbFirst = shouldPreferUsbProbeFirst({
       activeGatewayUrl: activeForDiscovery?.gatewayUrl,
       effectiveGatewayUrl: effectiveUrl,
