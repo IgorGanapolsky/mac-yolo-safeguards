@@ -87,3 +87,5 @@ Requires `EXPO_TOKEN` in the environment (never commit).
 ## Complements release APK path
 
 `npm run android:phone` / `install-phone-release.sh` remains the supported USB install path. OTA complements it — it does not replace store submits or Firebase internal distribution.
+
+<!-- 2026-07-22: production-android-paid channel must be published with production OTA for paid Play SKU. -->
