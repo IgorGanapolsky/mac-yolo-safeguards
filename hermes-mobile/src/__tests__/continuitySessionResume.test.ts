@@ -22,6 +22,17 @@ describe('resolveContinuitySessionResumeId', () => {
     ).toBeNull();
   });
 
+  it('returns null while sticky compose-first is active after skipAutoSelect cleared', () => {
+    expect(
+      resolveContinuitySessionResumeId({
+        handoff: handoff('sess-prior'),
+        skipAutoSelect: false,
+        composeFirstActive: true,
+        sessionIds: ['sess-prior', 'sess-other'],
+      }),
+    ).toBeNull();
+  });
+
   it('resumes previousSessionId when it still exists on the Mac', () => {
     expect(
       resolveContinuitySessionResumeId({

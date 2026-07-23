@@ -696,6 +696,12 @@ export default function ChatScreen() {
   const [connectionPanelRefreshing, setConnectionPanelRefreshing] = useState(false);
   const [telegramInboxMeta, setTelegramInboxMeta] = useState({ threadCount: 0, messageCap: 250 });
   const skipSessionAutoSelectRef = useRef(false);
+  /**
+   * Sticky compose-first after Start fresh / New chat / Clear all.
+   * Survives list refresh after the one-shot skipSessionAutoSelectRef clears so
+   * continuity resume cannot yank the prior transcript back under empty New chat.
+   */
+  const continuityComposeFirstRef = useRef(false);
   /** Recent-thread tap — survives in-flight listSessions before project state persists. */
   const manualSessionSelectRef = useRef<string | null>(null);
   /** Invalidates in-flight dismissed-session hydration after clear-all. */
@@ -2096,6 +2102,7 @@ export default function ChatScreen() {
   ]);
 
   const consumeContinuityHandoffAfterSend = useCallback(() => {
+    continuityComposeFirstRef.current = false;
     if (!continuityHandoffRef.current) {
       return;
     }
@@ -2558,10 +2565,13 @@ export default function ChatScreen() {
 
       // Pending continuity handoff must not leave empty "New chat" when the prior
       // session still exists — that paired with the old Continuing banner and lied.
+      // Skip while sticky compose-first is active (Start fresh) — skipAutoSelect is
+      // one-shot and would otherwise reopen the prior thread on the next refresh.
       if (!resolvedSession && !currentSessionRef.current) {
         const continuityResumeId = resolveContinuitySessionResumeId({
           handoff: continuityHandoffRef.current,
           skipAutoSelect,
+          composeFirstActive: continuityComposeFirstRef.current,
           sessionIds: selectableSessions.map((session) => session.id),
         });
         if (continuityResumeId) {
@@ -2570,6 +2580,7 @@ export default function ChatScreen() {
           );
           if (continuitySession) {
             resolvedSession = continuitySession;
+            continuityComposeFirstRef.current = false;
           }
         }
       }
@@ -3989,6 +4000,7 @@ export default function ChatScreen() {
     setToolStatus(null);
     setRunProgress(null);
     skipSessionAutoSelectRef.current = true;
+    continuityComposeFirstRef.current = true;
     setComposerFocusNonce((n) => n + 1);
     if (!preserveComposer) {
       inputValueRef.current = '';
@@ -4006,6 +4018,7 @@ export default function ChatScreen() {
       };
       setSessions((prev) => [newSess, ...prev]);
       setCurrentSession(newSess);
+      continuityComposeFirstRef.current = false;
       if (activeProject) {
         const next = bindSessionToProject(
           projectState,
@@ -4197,6 +4210,7 @@ export default function ChatScreen() {
 
     // Drop transcript immediately so a slow gateway reload cannot flash old messages.
     skipSessionAutoSelectRef.current = true;
+    continuityComposeFirstRef.current = true;
     manualSessionSelectRef.current = null;
     void clearPendingOutbound(currentSessionRef.current?.id);
     void clearPendingOutbound(PENDING_NEW_SESSION_KEY);
@@ -4308,6 +4322,7 @@ export default function ChatScreen() {
       await persistProjectState(nextState);
 
       skipSessionAutoSelectRef.current = true;
+      continuityComposeFirstRef.current = true;
       try {
         await loadSessionsList(false, { silent: true, projectState: nextState });
       } catch (err) {
@@ -6436,6 +6451,7 @@ export default function ChatScreen() {
       if (isSessionRemovedError(err) || message.includes('That chat was removed')) {
         invalidateRemovedSession(targetSessionId);
         skipSessionAutoSelectRef.current = true;
+        continuityComposeFirstRef.current = true;
         suppressPostSendRefresh = true;
         setCurrentSession(null);
         setMessages([]);
@@ -6825,6 +6841,7 @@ export default function ChatScreen() {
         setRecentChatsDismissed(false);
         setSessionModalVisible(false);
         skipSessionAutoSelectRef.current = false;
+        continuityComposeFirstRef.current = false;
         manualSessionSelectRef.current = session.id;
         currentSessionRef.current = session;
         transcriptDigestRef.current = '';
