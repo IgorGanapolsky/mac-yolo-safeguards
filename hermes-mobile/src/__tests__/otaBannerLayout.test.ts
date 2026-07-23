@@ -1,0 +1,33 @@
+import {
+  OTA_BANNER_CONTENT_PAD_TOP,
+  OTA_BANNER_MIN_TAP_PT,
+  otaBannerActionMinSize,
+  otaBannerTopPadding,
+} from '../utils/otaBannerLayout';
+
+describe('otaBannerLayout', () => {
+  it('places banner content fully below the status-bar inset', () => {
+    expect(otaBannerTopPadding(47)).toBe(47 + OTA_BANNER_CONTENT_PAD_TOP);
+    expect(otaBannerTopPadding(24)).toBe(24 + OTA_BANNER_CONTENT_PAD_TOP);
+  });
+
+  it('falls back to StatusBar height when safe-area inset is 0 (Android edge-to-edge)', () => {
+    expect(otaBannerTopPadding(0, 36)).toBe(36 + OTA_BANNER_CONTENT_PAD_TOP);
+    // Galaxy S24-class statusBars frame height (device proof 2026-07-23)
+    expect(otaBannerTopPadding(0, 103)).toBe(103 + OTA_BANNER_CONTENT_PAD_TOP);
+  });
+
+  it('uses a 24dp floor when both inset and status bar are 0', () => {
+    expect(otaBannerTopPadding(0, 0)).toBe(24 + OTA_BANNER_CONTENT_PAD_TOP);
+  });
+
+  it('never uses a negative inset', () => {
+    expect(otaBannerTopPadding(-10, -5)).toBe(24 + OTA_BANNER_CONTENT_PAD_TOP);
+    expect(otaBannerTopPadding(Number.NaN)).toBe(24 + OTA_BANNER_CONTENT_PAD_TOP);
+  });
+
+  it('keeps Restart/dismiss at least 44pt', () => {
+    expect(otaBannerActionMinSize()).toBe(OTA_BANNER_MIN_TAP_PT);
+    expect(OTA_BANNER_MIN_TAP_PT).toBeGreaterThanOrEqual(44);
+  });
+});
