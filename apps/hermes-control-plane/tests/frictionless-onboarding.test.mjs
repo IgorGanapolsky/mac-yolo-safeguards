@@ -215,16 +215,22 @@ test("shows the signed-in email when a zero-device workspace may be the wrong ac
 test("lists connectors not Tailscale peers and can revoke ghost machines", () => {
   const devicesRoute = readFileSync(new URL("../app/api/devices/route.ts", import.meta.url), "utf8");
   const approveRoute = readFileSync(new URL("../app/api/pairing/approve/route.ts", import.meta.url), "utf8");
+  const devicePairing = readFileSync(new URL("../lib/device-pairing.ts", import.meta.url), "utf8");
+  const healthRoute = readFileSync(new URL("../app/api/health/route.ts", import.meta.url), "utf8");
   assert.match(dashboard, /Paired Hermes connectors/);
   assert.match(dashboard, /not Tailscale peers/);
   assert.match(dashboard, /Remove machine/);
+  assert.match(dashboard, /Remove stale machine/);
+  assert.match(dashboard, /deviceStatusLabel/);
   assert.match(dashboard, /Copy installer for another Mac/);
   assert.match(dashboard, /method: "DELETE"/);
   assert.match(devicesRoute, /export async function DELETE/);
   assert.match(devicesRoute, /device\.revoke/);
-  assert.match(approveRoute, /fingerprint = \?/);
+  assert.match(devicesRoute, /isDeviceStale|presence/);
+  assert.match(approveRoute, /decideDevicePairing/);
   assert.match(approveRoute, /device\.pair\.reuse|reused/);
-  assert.match(approveRoute, /revoked_at IS NULL/);
+  assert.match(devicePairing, /export function decideDevicePairing/);
+  assert.match(healthRoute, /device\.pair\.reuse/);
 });
 
 test("keeps every workspace telemetry value behind authentication", () => {
