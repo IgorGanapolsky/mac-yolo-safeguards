@@ -120,6 +120,7 @@ import {
   shouldSkipAutoRetitleForContinuity,
   type SessionContinuityHandoff,
 } from '../utils/sessionContinuityHandoff';
+import { resolveContinuitySessionResumeId } from '../utils/continuitySessionResume';
 import {
   resolveMessageHydrateCredentials,
   resolveProfileSwitchRestorePlan,
@@ -2545,7 +2546,7 @@ export default function ChatScreen() {
       );
       const rememberedSessionId = await storage.loadLastSessionForComputer(computerSessionKeys);
 
-      const resolvedSession = resolveSessionAfterListLoad({
+      let resolvedSession = resolveSessionAfterListLoad({
         sessions: selectableSessions,
         projectState: selectionProjectState,
         currentSessionId: currentSessionRef.current?.id,
@@ -2554,6 +2555,24 @@ export default function ChatScreen() {
         skipAutoSelect,
         selectLatest,
       });
+
+      // Pending continuity handoff must not leave empty "New chat" when the prior
+      // session still exists — that paired with the old Continuing banner and lied.
+      if (!resolvedSession && !currentSessionRef.current) {
+        const continuityResumeId = resolveContinuitySessionResumeId({
+          handoff: continuityHandoffRef.current,
+          skipAutoSelect,
+          sessionIds: selectableSessions.map((session) => session.id),
+        });
+        if (continuityResumeId) {
+          const continuitySession = selectableSessions.find(
+            (session) => session.id === continuityResumeId,
+          );
+          if (continuitySession) {
+            resolvedSession = continuitySession;
+          }
+        }
+      }
 
       if (resolvedSession !== undefined) {
         // Keep ref in sync before awaiters (profile-switch hydrate) read it —
