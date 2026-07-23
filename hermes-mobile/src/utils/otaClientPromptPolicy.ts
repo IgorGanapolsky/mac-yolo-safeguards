@@ -13,18 +13,23 @@
  */
 export const OTA_BILLING_FREEZE_UNTIL_MS = Date.parse('2026-08-15T00:00:00.000Z');
 
-function envFlag(name: string): string {
+function envFlagValue(value: string | undefined): string {
   try {
-    return String(process.env[name] ?? '').trim();
+    return String(value ?? '').trim();
   } catch {
     return '';
   }
 }
 
+// NOTE: these must stay static `process.env.EXPO_PUBLIC_X` member accesses (not a
+// computed `process.env[name]` lookup) — Expo/Metro's inline-environment-variables
+// babel transform only rewrites literal member expressions for EXPO_PUBLIC_* vars.
+// A dynamic lookup never gets inlined into the bundle, so the thaw flags would be
+// silently unreadable at runtime and this escape hatch would never work.
 export function isOtaBillingFreezeActive(nowMs: number = Date.now()): boolean {
-  if (envFlag('EXPO_PUBLIC_OTA_CLIENT_PROMPTS') === '1') return false;
-  if (envFlag('EXPO_PUBLIC_OTA_BILLING_THAW') === '1') return false;
-  if (envFlag('HERMES_OTA_BILLING_THAW') === '1') return false;
+  if (envFlagValue(process.env.EXPO_PUBLIC_OTA_CLIENT_PROMPTS) === '1') return false;
+  if (envFlagValue(process.env.EXPO_PUBLIC_OTA_BILLING_THAW) === '1') return false;
+  if (envFlagValue(process.env.HERMES_OTA_BILLING_THAW) === '1') return false;
   return nowMs < OTA_BILLING_FREEZE_UNTIL_MS;
 }
 

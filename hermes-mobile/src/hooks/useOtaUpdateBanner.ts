@@ -14,11 +14,18 @@ export interface OtaBannerResult {
 
 const DISMISS_STORAGE_KEY = 'hermes.otaUpdateBanner.dismissedFingerprint';
 
-function updateFingerprint(isPending: boolean, isAvailable: boolean): string {
-  const updateId =
-    typeof Updates.updateId === 'string' && Updates.updateId.length > 0
-      ? Updates.updateId
-      : 'none';
+// Fingerprint must key off the OFFERED update's id (availableUpdate /
+// downloadedUpdate from useUpdates()), not `Updates.updateId` — that constant is
+// the CURRENTLY RUNNING bundle's id and does not change while a newer update is
+// offered. Keying off it collides a dismissal of update B with a later update C
+// published while the device is still running the same embedded bundle, hiding
+// the banner for updates the user never actually dismissed.
+function updateFingerprint(
+  isPending: boolean,
+  isAvailable: boolean,
+  offeredUpdateId?: string
+): string {
+  const updateId = offeredUpdateId && offeredUpdateId.length > 0 ? offeredUpdateId : 'none';
   return `${updateId}:${isPending ? 'pending' : isAvailable ? 'available' : 'idle'}`;
 }
 
@@ -37,7 +44,9 @@ export function useOtaUpdateBanner({
   isFirstSession?: boolean;
   isOnboardingResolved?: boolean;
 } = {}): OtaBannerResult {
-  const { isUpdateAvailable, isUpdatePending } = Updates.useUpdates();
+  const { isUpdateAvailable, isUpdatePending, availableUpdate, downloadedUpdate } =
+    Updates.useUpdates();
+  const offeredUpdateId = downloadedUpdate?.updateId ?? availableUpdate?.updateId;
   const [dismissed, setDismissed] = useState(false);
   const [isReloading, setIsReloading] = useState(false);
   const firstSessionFetchStartedRef = useRef(false);
@@ -52,7 +61,7 @@ export function useOtaUpdateBanner({
   useEffect(() => {
     if (!Updates.isEnabled || suppressPrompts) return;
     let cancelled = false;
-    const fingerprint = updateFingerprint(isUpdatePending, isUpdateAvailable);
+    const fingerprint = updateFingerprint(isUpdatePending, isUpdateAvailable, offeredUpdateId);
     if (!isUpdatePending && !isUpdateAvailable) return;
 
     void AsyncStorage.getItem(DISMISS_STORAGE_KEY)
@@ -66,13 +75,13 @@ export function useOtaUpdateBanner({
     return () => {
       cancelled = true;
     };
-  }, [isUpdateAvailable, isUpdatePending, suppressPrompts]);
+  }, [isUpdateAvailable, isUpdatePending, offeredUpdateId, suppressPrompts]);
 
   const dismiss = useCallback(() => {
     setDismissed(true);
-    const fingerprint = updateFingerprint(isUpdatePending, isUpdateAvailable);
+    const fingerprint = updateFingerprint(isUpdatePending, isUpdateAvailable, offeredUpdateId);
     void AsyncStorage.setItem(DISMISS_STORAGE_KEY, fingerprint).catch(() => {});
-  }, [isUpdateAvailable, isUpdatePending]);
+  }, [isUpdateAvailable, isUpdatePending, offeredUpdateId]);
 
   const applyNow = useCallback(async () => {
     // Hard stop during billing freeze — never reloadAsync (CDN OTA wipe).
