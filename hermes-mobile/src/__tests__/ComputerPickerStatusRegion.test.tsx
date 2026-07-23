@@ -119,6 +119,31 @@ describe('ComputerPickerStatusRegion', () => {
     expect(getByText('Found 2 on Tailscale')).toBeTruthy();
   });
 
+  it('shows Add chips mid-scan when Tailscale discoveries already exist', () => {
+    const onAdd = jest.fn();
+    const { getByTestId, getByText } = render(
+      <ComputerPickerStatusRegion
+        scanning
+        scanProgress={{
+          stage: 'gateway_health',
+          completedHosts: 2,
+          totalHosts: 10,
+          foundCount: 2,
+        }}
+        scanResult={null}
+        tailscaleProbing
+        tailscaleVpnActive={false}
+        tailscaleDiscoveries={[discovery]}
+        onAddTailscale={onAdd}
+      />,
+    );
+
+    expect(getByText(/Looking on Wi‑Fi and Tailscale/)).toBeTruthy();
+    expect(getByTestId('mac-picker-status-region-tailscale-chips')).toBeTruthy();
+    fireEvent.press(getByTestId('tailscale-add-igors-mac-mini'));
+    expect(onAdd).toHaveBeenCalledWith(discovery);
+  });
+
   it('shows honest off-VPN copy while a tailnet probe is in flight', () => {
     const { getByText, queryByText } = render(
       <ComputerPickerStatusRegion

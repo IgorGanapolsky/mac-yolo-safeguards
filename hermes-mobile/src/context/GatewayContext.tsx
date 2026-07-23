@@ -2625,9 +2625,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       const preScanTailnet = tailnetProbeHostsRef.current.length
         ? tailnetProbeHostsRef.current
         : await tailnetProbeStorage.load();
-      // Parallel Tailscale preflight while LAN scan runs so Samsung wifi+LAN
-      // NetInfo cannot keep the Choose-computer banner on a false "off" state.
-      void probeTailscaleComputersRef.current({ showUi: false, force: true });
+      // Do not fire-and-forget probeTailscaleComputers here: a late empty probe
+      // can overwrite a successful scan-time reachedTailscaleHostRef=true
+      // (Greptile 2026-07-23). Scan + finally probe are the SSoT.
       const { gateways: discovered, tailnetProbeHosts } = await discoverAllGatewaysOnLan(
         lastLanIp,
         {
@@ -2757,10 +2757,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       ).slice(0, 3);
       if (preflightHosts.length > 0) {
         const preflightHits = await discoverTailscaleGateways(preflightHosts);
-        reachedTailscaleHostRef.current = preflightHits.some((item) =>
-          isTailscaleGatewayUrl(item.gatewayUrl),
-        );
-        updateTailscaleVpnActive();
+        // Promote only — never demote sticky reachability from a partial preflight
+        // (race with Find-computers scan that already proved a 100.x peer).
+        if (
+          preflightHits.some((item) => isTailscaleGatewayUrl(item.gatewayUrl))
+        ) {
+          reachedTailscaleHostRef.current = true;
+          updateTailscaleVpnActive();
+        }
       }
       if (showUi) {
         setTailscaleDiscoveryProbing(true);
@@ -2826,15 +2830,15 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         }
       }
       if (probeHosts.length === 0) {
-        reachedTailscaleHostRef.current = false;
-        updateTailscaleVpnActive();
+        // No hosts to probe yet — clear Add chips but keep sticky reachability
+        // if Find-computers already proved a Tailscale peer this session.
         setTailscaleDiscoveries([]);
         return;
       }
       const discovered = await discoverTailscaleGateways(probeHosts);
-      reachedTailscaleHostRef.current = discovered.some((item) =>
-        isTailscaleGatewayUrl(item.gatewayUrl),
-      );
+      const hit = discovered.some((item) => isTailscaleGatewayUrl(item.gatewayUrl));
+      // Demote only after a completed probe of real hosts returned zero hits.
+      reachedTailscaleHostRef.current = hit;
       updateTailscaleVpnActive();
       const hostsToPersist = tailnetHostsFromDiscoveries(discovered);
       if (hostsToPersist.length > 0) {

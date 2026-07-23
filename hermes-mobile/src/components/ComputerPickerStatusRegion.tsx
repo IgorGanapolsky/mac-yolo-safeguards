@@ -244,7 +244,7 @@ export default function ComputerPickerStatusRegion({
       <Text style={[styles.detail, compact ? styles.detailCompact : null]} numberOfLines={compact ? 2 : 3}>
         {status.detail}
       </Text>
-      {status.kind === 'tailscale_found' && status.discoveries.length > 0 ? (
+      {status.discoveries.length > 0 ? (
         <View style={styles.chips} testID={`${testID}-tailscale-chips`}>
           {status.discoveries.map((discovery) => {
             const label = tailscaleDiscoveryLabel(discovery);
