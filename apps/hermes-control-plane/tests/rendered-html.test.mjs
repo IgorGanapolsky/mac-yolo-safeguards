@@ -29,7 +29,9 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /Free control\. Paid continuity\./);
   assert.match(page, /Web Control/);
   assert.match(page, /Cloud Continuity/);
-  assert.match(page, /Continue with Google or Apple/);
+  assert.match(page, /Continue with Google today/);
+  assert.doesNotMatch(page, /Continue with Google or Apple/);
+  assert.match(page, /still proving out in real use/);
   assert.match(page, /by ThumbGate/);
   assert.match(page, /Your Hermes work/);
   assert.match(page, /Leash/);
@@ -84,6 +86,8 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(chrome, /data-funnel-event="free_control_click"/);
   assert.match(chrome, /data-funnel-event="cloud_continuity_click"/);
   assert.match(chrome, /data-funnel-event=\{isSession \? "dashboard_open_click" : "sign_in_click"\}/);
+  assert.match(chrome, /Try Continuity — 14 days free/);
+  assert.match(chrome, /Can pick up eligible work on a VPS when offline — still proving this out/);
   assert.equal((chrome.match(/"sign_in_click"/g) ?? []).length, 1);
   assert.equal((chrome.match(/fetch\("\/api\/me"/g) ?? []).length, 1);
   assert.match(page, /90s<\/strong><span>execution lease/);
@@ -94,7 +98,7 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(diagram, /Your phone/);
   assert.match(diagram, /Encrypted pairing/);
   assert.doesNotMatch(page, /FAQPage|What is ThumbGate\?/);
-  assert.match(robots, /disallow: \["\/dashboard", "\/api\/"\]/);
+  assert.match(robots, /disallow: \["\/dashboard", "\/admin", "\/api\/"\]/);
   assert.match(robots, /https:\/\/thumbgate\.app\/sitemap\.xml/);
   assert.match(sitemap, /https:\/\/thumbgate\.app\//);
   assert.match(sitemap, /2026-07-22/);
