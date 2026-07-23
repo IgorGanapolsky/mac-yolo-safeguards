@@ -592,6 +592,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         let savedSettings = await storage.loadGatewaySettings();
         const lastLanIp = await storage.loadLastGatewayLanIp();
         let loadedProfiles = await gatewayProfiles.load();
+        // Hydrate IP→hostname memory so nameless Tailscale rows show real Mac names.
+        await import('../utils/machineIdentityCache')
+          .then((m) => m.loadMachineIdentityCache())
+          .catch(() => {});
         // Android Auto Backup / cloud restore can revive AsyncStorage + SecureStore
         // after a Play reinstall while cache (our marker) stays empty. Wipe pairing
         // so a stranger cold-start never inherits stale wrong-key Macs.
@@ -852,6 +856,17 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         setConnectionState('connected');
         setRunProgress((previous) =>
           previous?.phase === 'sending' ? null : previous,
+        );
+      }
+      // Stamp IP→hostname so iPad/Android both keep real Mac names after one success.
+      if (isGatewayHealthOk(snapshot) && snapshot.hostname?.trim()) {
+        const url =
+          effectiveGatewayUrlRef.current.trim() || settingsRef.current.gatewayUrl.trim();
+        void import('../utils/machineIdentityCache').then(({ observeMachineIdentity }) =>
+          observeMachineIdentity({
+            gatewayUrl: url,
+            hostname: snapshot.hostname,
+          }),
         );
       }
     };

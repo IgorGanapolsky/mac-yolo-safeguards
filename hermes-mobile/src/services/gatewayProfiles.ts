@@ -340,6 +340,27 @@ export function profileDisplayName(profile: GatewayProfile): string {
   if (hostname && hostname !== ip) {
     return hostname;
   }
+  // Same on Android + iPad: last successful /health name for this IP (nameless Tailscale rows).
+  // Dynamic import kept lazy to avoid load-order cycles with GatewayContext.
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const identity = require('../utils/machineIdentityCache') as {
+      getMachineIdentityCacheMemory: () => Record<string, { label: string }>;
+      resolveCachedMachineDisplayName: (
+        p: GatewayProfile,
+        cache: Record<string, { label: string }>,
+      ) => string | null;
+    };
+    const cached = identity.resolveCachedMachineDisplayName(
+      profile,
+      identity.getMachineIdentityCacheMemory(),
+    );
+    if (cached) {
+      return cached;
+    }
+  } catch {
+    // Display still works without the cache module.
+  }
   // Derive a real device name from a Tailscale MagicDNS host (phone.tailXXXX.ts.net ->
   // phone) so name-less or stale-generic-labelled Tailscale profiles show a real name
   // instead of "Computer". Must run before the stale-label fallback below.
