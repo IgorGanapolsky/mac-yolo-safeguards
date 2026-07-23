@@ -90,6 +90,20 @@ function parseJson(text) {
   }
 }
 
+// Strip cue tags (e.g. <c>, <00:00:01.000>) to a fixed point instead of a
+// single .replace pass: a single pass can leave a fresh "<...>" behind when
+// removing one match joins text on either side of it into a new one, so we
+// loop until nothing changes rather than trusting one sweep to be complete.
+function stripHtmlTags(value) {
+  let previous;
+  let current = String(value);
+  do {
+    previous = current;
+    current = current.replace(/<[^>]+>/g, '');
+  } while (current !== previous);
+  return current;
+}
+
 function stripVtt(text) {
   return String(text)
     .split(/\r?\n/)
@@ -102,7 +116,7 @@ function stripVtt(text) {
       if (/^\d\d:\d\d:\d\d[.,]\d{3}\s+-->\s+\d\d:\d\d:\d\d[.,]\d{3}/.test(trimmed)) return false;
       return true;
     })
-    .map((line) => line.replace(/<[^>]+>/g, '').trim())
+    .map((line) => stripHtmlTags(line).trim())
     .filter(Boolean)
     .join('\n')
     .replace(/\n{3,}/g, '\n\n');
