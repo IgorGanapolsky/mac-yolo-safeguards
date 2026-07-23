@@ -137,11 +137,14 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   assert.match(dashboard, /href="#leash-control"/);
   assert.match(dashboard, /href="#web-settings"/);
   assert.match(dashboard, /mobileTab === "hermes"/);
+  assert.match(dashboard, /data-mobile-tab=\{mobileTab\}/);
   assert.match(dashboard, /className=\{mobileTab === "settings" \? "is-active"/);
+  assert.match(dashboard, /hermes-scroll-pane/);
   assert.match(globals, /@media\(max-width:700px\)[\s\S]*\.mobile-web-tabs/);
+  assert.match(globals, /100dvh/);
+  assert.match(globals, /hermes-scroll-pane/);
+  assert.match(globals, /data-mobile-tab="hermes"/);
   assert.match(globals, /task-panel \.composer/);
-  assert.match(globals, /position:fixed/);
-  assert.match(globals, /--mobile-tab-h/);
   assert.match(globals, /safe-area-inset-bottom/);
   assert.match(globals, /\.mobile-web-tabs a\.is-active/);
   assert.doesNotMatch(globals, /\.mobile-web-tabs a:first-child\{color/);

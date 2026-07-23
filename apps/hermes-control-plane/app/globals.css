@@ -201,14 +201,57 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .lesson-list{display:grid;gap:18px}.lesson-card{padding:22px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(150deg,rgba(255,255,255,.055),rgba(17,24,39,.76));box-shadow:0 20px 48px rgba(0,0,0,.22)}.lesson-card-top{display:flex;align-items:center;justify-content:space-between;gap:16px}.lesson-card-top time{color:var(--muted);font:10px ui-monospace,SFMono-Regular,Menlo,monospace}.lesson-signal{padding:7px 9px;border-radius:9px;font-size:11px;font-weight:700}.lesson-signal.signal-up{color:#6ee7b7;background:rgba(16,185,129,.12)}.lesson-signal.signal-down{color:#fca5a5;background:rgba(239,68,68,.12)}.lesson-card>.eyebrow{margin:20px 0 8px}.lesson-card h2{margin:0 0 15px;font-size:17px;line-height:1.45}.lesson-card pre{max-height:360px;overflow:auto;white-space:pre-wrap;margin:0;padding:16px;border-left:2px solid var(--accent);background:#090c14;color:var(--text-secondary);font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}.lesson-note{margin-top:14px;padding:14px;border:1px solid rgba(248,113,113,.22);border-radius:12px;background:rgba(239,68,68,.06)}.lesson-note strong{font-size:10px;color:#fca5a5;text-transform:uppercase;letter-spacing:.08em}.lesson-note p{margin:7px 0 0;color:var(--text-secondary);font-size:13px;line-height:1.55}.lesson-empty{min-height:300px;display:grid;place-content:center;justify-items:center;text-align:center;border:1px dashed var(--line);border-radius:22px;color:var(--muted)}.lesson-empty h2{color:var(--text);margin:0 0 8px}.lesson-empty p{margin:0 0 18px}.lessons-footer{padding:28px 0;color:var(--muted);font-size:11px;text-align:center}
 
 @media(max-width:700px){
-  :root{
-    --mobile-tab-h:calc(64px + env(safe-area-inset-bottom,0px));
-    --composer-dock-space:300px;
+  /* === Mobile app shell (2026): one scroll region per tab, no fixed overlay jank === */
+  html,body{
+    height:100%;
+    overflow:hidden;
+    overscroll-behavior:none;
   }
   body{padding-bottom:0}
-  /* Clear sticky composer + bottom tabs so Run never hides under chrome */
-  .dashboard-main{padding-bottom:calc(var(--mobile-tab-h) + var(--composer-dock-space))}
-  /* Toasts must sit above the dock — top-of-screen on phone, never under metrics bleed */
+  .dashboard-shell{
+    height:100dvh;
+    max-height:100dvh;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  .sidebar-resize-handle{display:none}
+  .sidebar{
+    position:relative;
+    z-index:30;
+    flex:0 0 auto;
+    height:auto;
+    max-height:none;
+    padding:10px 14px;
+    border-right:0;
+    border-bottom:1px solid var(--line);
+    background:#0B0F19;
+  }
+  .sidebar.is-collapsed{padding-inline:14px}
+  .sidebar.is-collapsed .sidebar-header{flex-direction:row}
+  .sidebar.is-collapsed .sidebar-header .brand>span{display:inline}
+  .sidebar:not(.is-collapsed) .workspace-label{display:block}
+  .sidebar:not(.is-collapsed) .thread-list{display:flex}
+  .sidebar:not(.is-collapsed) .sidebar-bottom{display:grid}
+  .sidebar-content{max-height:min(52dvh,480px);overflow:auto;-webkit-overflow-scrolling:touch}
+  .side-item.thread-item{min-height:64px}
+  .thread-menu-trigger{align-self:center}
+  .thread-actions{top:57px;right:2px}
+  .chat-dialog-backdrop{padding:14px}
+  .chat-dialog{padding:22px}
+  .panel{border-radius:16px}
+  /* Main stage fills remaining viewport; never document-scrolls under chrome */
+  .dashboard-main{
+    flex:1 1 auto;
+    min-height:0;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    padding:10px 12px 0;
+  }
+  .dashboard-header{flex:0 0 auto;padding-bottom:12px;margin:0}
+  .dashboard-header h1{font-size:20px;line-height:1.2}
+  .header-actions .status-chip{display:none}
   .notice.notice-toast{
     position:fixed;
     z-index:80;
@@ -219,45 +262,67 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     border-radius:14px;
     box-shadow:0 12px 40px rgba(0,0,0,.45);
   }
-  .sidebar-resize-handle{display:none}
-  .sidebar{position:sticky;top:0;z-index:20;background:rgba(9,11,20,.92);backdrop-filter:blur(18px)}
-  .sidebar{padding:10px 14px}
-  .sidebar.is-collapsed{padding-inline:14px}
-  .sidebar.is-collapsed .sidebar-header{flex-direction:row}
-  .sidebar.is-collapsed .sidebar-header .brand>span{display:inline}
-  .sidebar:not(.is-collapsed) .workspace-label{display:block}
-  .sidebar:not(.is-collapsed) .thread-list{display:flex}
-  .sidebar:not(.is-collapsed) .sidebar-bottom{display:grid}
-  .sidebar-content{max-height:min(68vh,620px)}
-  .side-item.thread-item{min-height:64px}
-  .thread-menu-trigger{align-self:center}
-  .thread-actions{top:57px;right:2px}
-  .chat-dialog-backdrop{padding:14px}
-  .chat-dialog{padding:22px}
-  .panel,.metric-grid{border-radius:20px}
-  /* Keep metric cards under the dock so they never steal taps */
-  .metric-grid{position:relative;z-index:1}
-  .conversation-message{max-width:94%}
-  .conversation-history{max-height:min(42vh,360px)}
-  .task-panel .panel-heading{padding-inline:14px}
-  #task-activity{
-    scroll-margin-bottom:calc(var(--mobile-tab-h) + var(--composer-dock-space) + 24px);
-    scroll-margin-top:80px;
+  /* Metrics clutter mobile shell — hide (status lives in tabs / settings) */
+  .metric-grid{display:none !important}
+  .dashboard-grid{
+    flex:1 1 auto;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    grid-template-columns:1fr;
+    gap:0;
   }
-  /* Sticky composer dock: solid opaque so metrics never bleed through */
+  /* Tab panes: only one section visible */
+  .task-panel,.right-rail{display:none;min-height:0}
+  .dashboard-shell[data-mobile-tab="hermes"] .task-panel{
+    display:flex;
+    flex-direction:column;
+    flex:1 1 auto;
+    min-height:0;
+    overflow:hidden;
+    border:1px solid var(--line);
+    background:#0B0F19;
+  }
+  .dashboard-shell[data-mobile-tab="leash"] .right-rail,
+  .dashboard-shell[data-mobile-tab="settings"] .right-rail{
+    display:block;
+    flex:1 1 auto;
+    min-height:0;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+  }
+  .dashboard-shell[data-mobile-tab="leash"] #web-settings{display:none}
+  .dashboard-shell[data-mobile-tab="settings"] .connection-panel,
+  .dashboard-shell[data-mobile-tab="settings"] .safety-panel{display:none}
+  .task-panel .panel-heading{flex:0 0 auto;padding:12px 14px;border-bottom:1px solid var(--line)}
+  .hermes-scroll-pane{
+    flex:1 1 auto;
+    min-height:0;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+  }
+  .conversation-history{
+    max-height:none;
+    border-bottom:1px solid var(--line);
+  }
+  .conversation-message{max-width:94%}
+  .task-list{max-height:none}
+  /* Composer is part of the Hermes column — NOT position:fixed over other sections */
   .task-panel .composer{
-    position:fixed;
-    z-index:55;
-    left:0;
-    right:0;
-    bottom:var(--mobile-tab-h);
+    position:relative !important;
+    z-index:1;
+    left:auto !important;
+    right:auto !important;
+    bottom:auto !important;
+    flex:0 0 auto;
     margin:0;
-    padding:10px 12px 12px;
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
     background:#0B0F19;
     border-top:1px solid var(--line);
-    box-shadow:0 -14px 40px rgba(0,0,0,.55);
-    isolation:isolate;
-    pointer-events:auto;
+    box-shadow:0 -10px 28px rgba(0,0,0,.35);
   }
   .composer textarea{
     min-height:64px;
@@ -327,20 +392,20 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     font-size:15px;
     font-weight:700;
   }
+  /* Tab bar is shell chrome (flex child), not a floating layer over content */
   .mobile-web-tabs{
-    position:fixed;
-    z-index:50;
-    left:0;right:0;bottom:0;
+    position:relative !important;
+    z-index:40;
+    left:auto;right:auto;bottom:auto;
+    flex:0 0 auto;
     height:auto;
-    min-height:64px;
-    padding:6px 0 env(safe-area-inset-bottom,0px);
-    display:grid;
+    min-height:56px;
+    padding:6px 0 calc(6px + env(safe-area-inset-bottom,0px));
+    display:grid !important;
     grid-template-columns:repeat(4,1fr);
-    background:rgba(9,11,20,.96);
+    background:#0B0F19;
     border-top:1px solid var(--brand-line);
-    box-shadow:0 -10px 30px rgba(0,0,0,.3);
-    backdrop-filter:blur(18px);
-    -webkit-backdrop-filter:blur(18px);
+    box-shadow:none;
   }
   .mobile-web-tabs a{
     min-width:44px;
