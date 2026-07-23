@@ -23,6 +23,8 @@ function dependencies(
     resolvePairServerSetupParams: jest.fn().mockResolvedValue(null),
     exchangePairingCode: jest.fn().mockResolvedValue(null),
     fetchGatewayHealth: jest.fn().mockResolvedValue(health()),
+    findSavedProfileForUrl: jest.fn().mockResolvedValue(null),
+    resolveProfileApiKey: jest.fn().mockResolvedValue(null),
     ...overrides,
   };
 }
@@ -132,6 +134,93 @@ describe('connectManualGatewayAddress', () => {
     ).rejects.toThrow('storage failed');
     expect(deps.saveApiKey).toHaveBeenNthCalledWith(1, 'fresh-key');
     expect(deps.saveApiKey).toHaveBeenNthCalledWith(2, 'previous-key');
+  });
+
+  it('reuses a previously-saved profile’s own key instead of a stale/wrong active key (T-MANUAL-TAILSCALE-KNOWN-PROFILE-KEY)', async () => {
+    // Reproduces the live 2026-07-23 bug: Igor pastes his Mac mini's genuinely-healthy
+    // Tailscale IP. /health succeeds (Hermes is reachable), but the pair-server
+    // auto-fetch fails (e.g. an expired pairing code sitting in a stale pair.json —
+    // see scripts/hermes-tailscale-health-watchdog.sh, which only checks the pairCode
+    // param is present, not that it hasn't expired). The phone's currently-active key
+    // belongs to a DIFFERENT Mac (Igors-MacBook-Pro), so blindly falling back to it
+    // trips authMismatch even though this exact Mac mini profile was already paired
+    // successfully before and has its own correct key on file.
+    const persistProfile = jest.fn().mockResolvedValue(undefined);
+    const findSavedProfileForUrl = jest.fn().mockResolvedValue({ id: 'mini-profile-id' });
+    const resolveProfileApiKey = jest.fn().mockResolvedValue('minis-own-correct-key');
+    const deps = dependencies({
+      loadApiKey: jest.fn().mockResolvedValue('macbook-pros-key'), // wrong Mac's active key
+      resolvePairServerSetupParams: jest.fn().mockResolvedValue(null), // pair-server auto-fetch failed
+      findSavedProfileForUrl,
+      resolveProfileApiKey,
+      fetchGatewayHealth: jest.fn().mockImplementation((_url, apiKey) =>
+        Promise.resolve(
+          apiKey === 'minis-own-correct-key'
+            ? health({ hostname: 'Igors-Mac-mini.local' })
+            : health({ level: 'red', directGatewayReachable: false, authMismatch: true }),
+        ),
+      ),
+    });
+
+    await connectManualGatewayAddress(
+      { gatewayUrl, fallbackLabel: 'Tailscale computer', persistProfile },
+      deps,
+    );
+
+    expect(findSavedProfileForUrl).toHaveBeenCalledWith(gatewayUrl);
+    expect(resolveProfileApiKey).toHaveBeenCalledWith('mini-profile-id');
+    expect(deps.fetchGatewayHealth).toHaveBeenCalledWith(
+      gatewayUrl,
+      'minis-own-correct-key',
+      12_000,
+    );
+    expect(persistProfile).toHaveBeenCalledWith('Igors-Mac-mini', gatewayUrl);
+  });
+
+  it('still throws the honest auth-mismatch error when no saved profile matches and the active key is wrong', async () => {
+    // First-time/never-paired Mac: no saved profile to borrow a key from, so the
+    // existing (documented) behavior — an honest failure — is preserved rather than
+    // silently guessing.
+    const persistProfile = jest.fn();
+    const deps = dependencies({
+      loadApiKey: jest.fn().mockResolvedValue('some-other-macs-key'),
+      resolvePairServerSetupParams: jest.fn().mockResolvedValue(null),
+      findSavedProfileForUrl: jest.fn().mockResolvedValue(null),
+      fetchGatewayHealth: jest.fn().mockResolvedValue(
+        health({ level: 'red', directGatewayReachable: false, authMismatch: true }),
+      ),
+    });
+
+    await expect(
+      connectManualGatewayAddress(
+        { gatewayUrl, fallbackLabel: 'Tailscale computer', persistProfile },
+        deps,
+      ),
+    ).rejects.toThrow('Hermes is reachable, but this phone still needs to pair.');
+    expect(persistProfile).not.toHaveBeenCalled();
+  });
+
+  it('prefers a freshly pair-server-exchanged key over a saved profile key', async () => {
+    const persistProfile = jest.fn().mockResolvedValue(undefined);
+    const findSavedProfileForUrl = jest.fn().mockResolvedValue({ id: 'mini-profile-id' });
+    const deps = dependencies({
+      resolvePairServerSetupParams: jest.fn().mockResolvedValue({
+        pairingCode: 'AB23CD45',
+        pairServerUrl: 'http://100.70.124.54:8765',
+      }),
+      exchangePairingCode: jest.fn().mockResolvedValue({ apiKey: 'brand-new-fresh-key' }),
+      findSavedProfileForUrl,
+      fetchGatewayHealth: jest.fn().mockResolvedValue(health()),
+    });
+
+    await connectManualGatewayAddress(
+      { gatewayUrl, fallbackLabel: 'Tailscale computer', persistProfile },
+      deps,
+    );
+
+    // Pair-server auto-fetch succeeded, so the saved-profile lookup is never consulted.
+    expect(findSavedProfileForUrl).not.toHaveBeenCalled();
+    expect(deps.fetchGatewayHealth).toHaveBeenCalledWith(gatewayUrl, 'brand-new-fresh-key', 12_000);
   });
 
   it('clears a fresh credential if first-time profile persistence fails', async () => {
