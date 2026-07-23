@@ -11,6 +11,14 @@ describe('thumbgatePromoCopy', () => {
     expect(thumbGatePromoCopy('leash_empty').url).toBe(THUMBGATE_WEB_URL);
   });
 
+  it('gives Choose computer a calm web escape label without implying a Mac profile', () => {
+    const picker = thumbGatePromoCopy('computer_picker');
+    expect(picker.buttonLabel).toBe('Use ThumbGate on the web');
+    expect(picker.url).toBe(THUMBGATE_WEB_URL);
+    expect(picker.headline).toBe('ThumbGate.app');
+    expect(picker.body).not.toMatch(/connected|gateway|LAN/i);
+  });
+
   it('returns honest copy per surface without implying a live Mac connection', () => {
     const disconnected = thumbGatePromoCopy('leash_disconnected');
     expect(disconnected.headline).toBe('Hermes on the web');

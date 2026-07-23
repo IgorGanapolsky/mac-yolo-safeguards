@@ -12,6 +12,7 @@ import {
   TAILSCALE_PASTE_IP_TITLE,
 } from '../utils/tailscalePasteIpCopy';
 import LoadingButton from './ui/LoadingButton';
+import ThumbGatePickerEscapeHatch from './ThumbGatePickerEscapeHatch';
 
 export type ManualComputerAddressFormProps = {
   onAddProfile: (label: string, gatewayUrl: string) => Promise<void>;
@@ -146,6 +147,7 @@ export default function ManualComputerAddressForm({
           {manualInputError}
         </Text>
       ) : null}
+      {pickerMode ? <ThumbGatePickerEscapeHatch /> : null}
     </View>
   );
 }

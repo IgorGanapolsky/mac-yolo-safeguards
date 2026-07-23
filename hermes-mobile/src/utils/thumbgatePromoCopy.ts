@@ -9,7 +9,14 @@ export const THUMBGATE_WEB_URL =
 
 export const THUMBGATE_PROMO_BUTTON_LABEL = 'Open ThumbGate';
 
-export type ThumbGatePromoSurface = 'leash_disconnected' | 'leash_empty' | 'connection_unreachable';
+/** Choose-computer sheet — web escape hatch (not a Mac/profile row). */
+export const THUMBGATE_PICKER_ESCAPE_LABEL = 'Use ThumbGate on the web';
+
+export type ThumbGatePromoSurface =
+  | 'leash_disconnected'
+  | 'leash_empty'
+  | 'connection_unreachable'
+  | 'computer_picker';
 
 export type ThumbGatePromoCopy = {
   headline: string;
@@ -31,13 +38,18 @@ const SURFACE_COPY: Record<ThumbGatePromoSurface, Omit<ThumbGatePromoCopy, 'url'
     headline: 'Try Hermes on the web',
     body: 'When your phone cannot reach your computer, sign in at ThumbGate to pair a Mac and continue in the browser.',
   },
+  computer_picker: {
+    headline: 'ThumbGate.app',
+    body: 'Prefer the browser? Continue on ThumbGate while your Macs catch up.',
+  },
 };
 
 export function thumbGatePromoCopy(surface: ThumbGatePromoSurface): ThumbGatePromoCopy {
   const block = SURFACE_COPY[surface];
   return {
     ...block,
-    buttonLabel: THUMBGATE_PROMO_BUTTON_LABEL,
+    buttonLabel:
+      surface === 'computer_picker' ? THUMBGATE_PICKER_ESCAPE_LABEL : THUMBGATE_PROMO_BUTTON_LABEL,
     url: THUMBGATE_WEB_URL,
   };
 }
