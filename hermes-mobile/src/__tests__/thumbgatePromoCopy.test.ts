@@ -18,6 +18,8 @@ describe('thumbgatePromoCopy', () => {
     expect(disconnected.body).toMatch(/lesson-backed gates/);
 
     const unreachable = thumbGatePromoCopy('connection_unreachable');
+    expect(unreachable.headline).toBe('Try ThumbGate.app');
+    expect(unreachable.body).toMatch(/ThumbGate\.app/);
     expect(unreachable.body).toMatch(/cannot reach your computer/i);
     expect(unreachable.body).not.toMatch(/connected/i);
   });
