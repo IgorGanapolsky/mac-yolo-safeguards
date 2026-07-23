@@ -7,6 +7,7 @@ import {
 } from "./agent-governance";
 import { db } from "./runtime";
 import { randomToken, sha256 } from "./security";
+import { evaluateCloudPromptToolPolicy } from "./cloud-tool-policy";
 import { webSessionIdForThread } from "./web-session";
 
 export const TASK_LEASE_MS = 90_000;
@@ -120,6 +121,26 @@ export async function claimTask(input: {
 
   let cloudDecision: GovernanceDecision | null = null;
   if (input.route === "cloud") {
+    const toolPolicy = evaluateCloudPromptToolPolicy(candidate.prompt);
+    if (!toolPolicy.allowed) {
+      const blocked = await db().prepare(
+        `UPDATE tasks SET status = 'offline_blocked', route = 'blocked', error = ?, updated_at = ?,
+                lease_owner = NULL, lease_token_hash = NULL, lease_expires_at = NULL
+          WHERE id = ? AND lease_generation = ? AND (lease_expires_at IS NULL OR lease_expires_at <= ?)`
+      ).bind(toolPolicy.message, now, candidate.id, candidate.leaseGeneration, now).run();
+      if (blocked.meta.changes === 1) {
+        await audit({
+          organizationId: candidate.organizationId,
+          actorType: "runner",
+          actorId: input.owner,
+          action: "task.policy.denied",
+          targetType: "task",
+          targetId: candidate.id,
+          metadata: { code: toolPolicy.code, matched: toolPolicy.matched, stage: "automatic_claim", route: "cloud" },
+        });
+      }
+      return null;
+    }
     cloudDecision = evaluateCloudContinuation({
       organization: { plan: candidate.plan, trialEndsAt: candidate.trialEndsAt },
       cloudTasks: candidate.cloudTasks,

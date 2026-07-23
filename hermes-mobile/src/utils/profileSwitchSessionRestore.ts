@@ -72,3 +72,28 @@ export function resolveMessageHydrateCredentials(input: {
     apiKey: input.apiKeyOverride ?? input.fallbackApiKey,
   };
 }
+
+/**
+ * P0 2026-07-23 (post-#833 regression): ChatScreen has two independent background
+ * effects that call `loadSessionsList` whenever `gatewayUrl`/`apiKey`/`macChatLive`
+ * change — exactly what happens on every intentional computer switch. Neither passes
+ * the target Mac's `gatewayUrlOverride`/`apiKeyOverride`, and one runs with
+ * `selectLatest=false` while `currentSessionRef.current` is still the just-cleared
+ * `null` from the switch reset. When either background call's async work resolves
+ * AFTER `handleSelectGatewayProfile`'s explicit, correctly-scoped restore, it wins
+ * the `sessionsLoadGenRef` race and can overwrite the restored thread with an empty
+ * session (`resolveSessionAfterListLoad` returns `null` when `rememberedSessionId`
+ * doesn't resolve and `currentSessionId` is still null) — the user sees a fresh/empty
+ * chat instead of the Mac's prior conversation, even though #833's restore logic ran
+ * and briefly set the correct session first.
+ *
+ * `handleSelectGatewayProfile` is the single source of truth for session state during
+ * a switch (it always calls `loadSessionsList` itself with the right overrides once
+ * `resolveProfileSwitchRestorePlan` resolves) — background reload effects must stand
+ * down for the whole switch window (`intentionalProfileSwitchRef.current`).
+ */
+export function shouldSkipBackgroundSessionReload(
+  intentionalProfileSwitchInFlight: boolean,
+): boolean {
+  return intentionalProfileSwitchInFlight === true;
+}
