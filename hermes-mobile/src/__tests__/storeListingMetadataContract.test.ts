@@ -22,20 +22,20 @@ describe('store listing metadata contract (stellar live)', () => {
     expect(iosName).toBe('Hermes Mobile: AI Agent');
   });
 
-  it('Play short description is Hermes Mobile Mac wedge within 80 chars', () => {
+  it('Play short description is Mac-remote wedge within 80 chars', () => {
     const short = read(path.join(ANDROID, 'short_description.txt'));
     const paidShort = read(path.join(ANDROID, 'paid_short_description.txt'));
     expect(short.length).toBeLessThanOrEqual(80);
     expect(paidShort.length).toBeLessThanOrEqual(80);
-    expect(short).toMatch(/Hermes Mobile/i);
+    // Title already carries "Hermes Mobile"; short spends chars on job + price + anti-confusion.
     expect(short).toMatch(/Mac/i);
     expect(short).toMatch(/4\.99/);
     expect(short).not.toMatch(/19\.99/);
     expect(short).toMatch(/once/i);
     expect(short).toMatch(/not phone AI/i);
-    expect(paidShort).toMatch(/Hermes Mobile/i);
     expect(paidShort).toMatch(/4\.99/);
     expect(paidShort).toMatch(/not phone AI/i);
+    expect(paidShort).toMatch(/Pay once|paid/i);
   });
 
   it('Play full description does not claim iOS is still in review', () => {
