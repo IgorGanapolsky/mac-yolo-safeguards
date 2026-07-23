@@ -222,10 +222,11 @@ describe('release safety contract', () => {
     expect(workflow).toContain('--rollout-percentage');
     expect(workflow).toContain('production_rollout_percentage');
     expect(workflow).toContain('promote_production_rollout');
-    // EAS GraphQL rejects --rollout-percentage 100 (run 29889285465).
-    expect(workflow).toContain('EAS rejects 100');
-    expect(workflow).toContain('omit --rollout-percentage');
-    expect(workflow).toContain('Promotion to 100 is not supported');
+    // Publish with --rollout-percentage 100 is rejected (run 29889285465);
+    // update:edit to 100 is required to end a staged rollout before the next publish (#840).
+    expect(workflow).toContain('EAS publish rejects --rollout-percentage 100');
+    expect(workflow).toContain('update:edit 100 is required');
+    expect(workflow).toContain('Promotion to 100 is not supported via eas update publish');
     expect(workflow).not.toContain('PROMOTE_TO=99');
     expect(workflow).toContain('require-stranger-cold-start-proof.cjs');
     expect(workflow).toContain('HERMES_STRANGER_PROOF_WAIT_SEC');
