@@ -30,6 +30,7 @@ import {
 } from '../services/hermesGatewayClient';
 import type { HermesCronJob, HermesSkill, HermesToolset } from '../types/gatewayApi';
 import { formatCronSchedule } from '../utils/sessionDisplay';
+import { buildCronJobDetailLines, isCronJobPaused } from '../utils/cronJobDetails';
 import {
   configuredToolsetsToAutoEnable,
   formatToolsetLabel,
@@ -48,6 +49,10 @@ import AgentDashboardStrip from './AgentDashboardStrip';
 import IntegrationsSheet from './IntegrationsSheet';
 import { buildAgentDashboardStats } from '../utils/agentDashboardStats';
 import { formatGatewayModelPickerLabel, primaryGatewayModelLabel } from '../utils/gatewayCapabilitiesDisplay';
+import {
+  buildGatewayFeatureRows,
+  gatewayFeatureIsPhoneToggleable,
+} from '../utils/gatewayFeatureCatalog';
 import { isMacGatewayHttpOk } from '../utils/gatewayConnection';
 import { shouldLoadGatewayToolsCatalog } from '../utils/chatPrimaryStatus';
 import {
@@ -102,8 +107,26 @@ const DEMO_SKILLS: HermesSkill[] = [
 ];
 
 const DEMO_JOBS: HermesCronJob[] = [
-  { id: 'demo-1', name: 'yolo-health', schedule: '0 */6 * * *', paused: false },
-  { id: 'demo-2', name: 'hermes-audit', schedule: '0 9 * * 1', paused: true },
+  {
+    id: 'demo-1',
+    name: 'yolo-health',
+    schedule: '0 */6 * * *',
+    paused: false,
+    prompt: 'Health-check Hermes gateway and write a short status note.',
+    created_at: '2026-07-01T12:00:00.000Z',
+    last_run_at: '2026-07-23T06:00:00.000Z',
+    next_run_at: '2026-07-23T12:00:00.000Z',
+    last_status: 'ok',
+  },
+  {
+    id: 'demo-2',
+    name: 'hermes-audit',
+    schedule: '0 9 * * 1',
+    paused: true,
+    prompt: 'Weekly audit of mobile pair health and open todos.',
+    created_at: '2026-06-20T09:00:00.000Z',
+    last_run_at: '2026-07-21T09:00:00.000Z',
+  },
 ];
 
 export default function GatewayOpsSection() {
@@ -138,6 +161,9 @@ export default function GatewayOpsSection() {
   const [error, setError] = useState<string | undefined>();
   const [catalogErrors, setCatalogErrors] = useState<Partial<Record<CatalogSection, boolean>>>({});
   const [expandedToolsets, setExpandedToolsets] = useState<Set<string>>(new Set());
+  const [expandedJobIds, setExpandedJobIds] = useState<Set<string>>(new Set());
+  const [expandedFeatureKeys, setExpandedFeatureKeys] = useState<Set<string>>(new Set());
+  const [expandedSkillNames, setExpandedSkillNames] = useState<Set<string>>(new Set());
   const [advancedToolsetsOpen, setAdvancedToolsetsOpen] = useState(false);
   const [togglingToolset, setTogglingToolset] = useState<string | null>(null);
   const [integrationsToolset, setIntegrationsToolset] = useState<HermesToolset | null>(null);
@@ -434,7 +460,7 @@ export default function GatewayOpsSection() {
     }
   };
 
-  const enabledFeatures = Object.entries(featureFlags).filter(([, v]) => v === true);
+  const featureRows = buildGatewayFeatureRows(featureFlags);
   const toolsetsWritable = phoneToggleAvailable === true || isDemo;
   const phoneToggleBlocked = phoneToggleAvailable === false;
   const { essentials: essentialToolsets, advanced: advancedToolsets } =
@@ -674,6 +700,10 @@ export default function GatewayOpsSection() {
       ) : null}
 
       <Text style={styles.sectionTitle}>Cron jobs ({jobs.length})</Text>
+      <Text style={styles.sectionHint}>
+        Tap a job name for schedule, last/next run, and purpose. Run / Pause / Delete stay one tap
+        away.
+      </Text>
       <GlassCard>
         {jobs.length === 0 ? (
           <Text style={styles.meta} testID="jobs-empty-state">
@@ -682,57 +712,102 @@ export default function GatewayOpsSection() {
               : 'No scheduled jobs yet.'}
           </Text>
         ) : (
-          jobs.map((job) => (
-            <View key={job.id} style={styles.jobRow}>
-              <View style={styles.jobInfo}>
-                <Text style={styles.rowTitle} numberOfLines={2}>{job.name ?? job.id}</Text>
-                <Text style={styles.rowDesc}>{formatCronSchedule(job.schedule)}</Text>
+          jobs.map((job) => {
+            const expanded = expandedJobIds.has(job.id);
+            const detailLines = buildCronJobDetailLines(job);
+            return (
+              <View key={job.id} style={styles.jobRow} testID={`job-row-${job.id}`}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setExpandedJobIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(job.id)) {
+                        next.delete(job.id);
+                      } else {
+                        next.add(job.id);
+                      }
+                      return next;
+                    });
+                  }}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded }}
+                  accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} details for ${job.name ?? job.id}`}
+                  testID={`job-expand-${job.id}`}
+                  style={styles.jobInfo}
+                >
+                  <View style={styles.jobTitleRow}>
+                    <Text style={styles.rowTitle} numberOfLines={2}>
+                      {job.name ?? job.id}
+                    </Text>
+                    <Text style={styles.expandHint}>{expanded ? '▾' : '▸'}</Text>
+                  </View>
+                  <Text style={styles.rowDesc}>{formatCronSchedule(job.schedule)}</Text>
+                  {!expanded && job.prompt ? (
+                    <Text style={styles.jobPurposePreview} numberOfLines={2}>
+                      {job.prompt.replace(/\s+/g, ' ').trim()}
+                    </Text>
+                  ) : null}
+                </TouchableOpacity>
+                {expanded ? (
+                  <View style={styles.jobDetails} testID={`job-details-${job.id}`}>
+                    {detailLines.map((line) => (
+                      <View key={`${job.id}-${line.label}`} style={styles.jobDetailRow}>
+                        <Text style={styles.jobDetailLabel}>{line.label}</Text>
+                        <Text style={styles.jobDetailValue} selectable>
+                          {line.value}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.jobActions}
+                >
+                  <TouchableOpacity
+                    style={styles.jobBtn}
+                    onPress={() => handleJobAction(job, 'run')}
+                    testID={`job-run-${job.id}`}
+                  >
+                    <Text style={styles.jobBtnText}>Run</Text>
+                  </TouchableOpacity>
+                  {isCronJobPaused(job) ? (
+                    <TouchableOpacity
+                      style={styles.jobBtn}
+                      onPress={() => handleJobAction(job, 'resume')}
+                      testID={`job-resume-${job.id}`}
+                    >
+                      <Text style={styles.jobBtnText}>Resume</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.jobBtn}
+                      onPress={() => handleJobAction(job, 'pause')}
+                      testID={`job-pause-${job.id}`}
+                    >
+                      <Text style={styles.jobBtnText}>Pause</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={styles.jobBtnDelete}
+                    onPress={() => handleJobAction(job, 'delete')}
+                    testID={`job-delete-${job.id}`}
+                    accessibilityLabel={`Delete cron job ${job.name ?? job.id}`}
+                  >
+                    <Text style={styles.jobBtnDeleteText}>Delete</Text>
+                  </TouchableOpacity>
+                </ScrollView>
               </View>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.jobActions}
-              >
-                <TouchableOpacity
-                  style={styles.jobBtn}
-                  onPress={() => handleJobAction(job, 'run')}
-                  testID={`job-run-${job.id}`}
-                >
-                  <Text style={styles.jobBtnText}>Run</Text>
-                </TouchableOpacity>
-                {job.paused ? (
-                  <TouchableOpacity
-                    style={styles.jobBtn}
-                    onPress={() => handleJobAction(job, 'resume')}
-                    testID={`job-resume-${job.id}`}
-                  >
-                    <Text style={styles.jobBtnText}>Resume</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.jobBtn}
-                    onPress={() => handleJobAction(job, 'pause')}
-                    testID={`job-pause-${job.id}`}
-                  >
-                    <Text style={styles.jobBtnText}>Pause</Text>
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity
-                  style={styles.jobBtnDelete}
-                  onPress={() => handleJobAction(job, 'delete')}
-                  testID={`job-delete-${job.id}`}
-                  accessibilityLabel={`Delete cron job ${job.name ?? job.id}`}
-                >
-                  <Text style={styles.jobBtnDeleteText}>Delete</Text>
-                </TouchableOpacity>
-              </ScrollView>
-            </View>
-          ))
+            );
+          })
         )}
       </GlassCard>
 
       <Text style={styles.sectionTitle}>Skills ({skills.length})</Text>
-      <Text style={styles.sectionHint}>Read-only catalog from /v1/skills. Invoke via Chat.</Text>
+      <Text style={styles.sectionHint}>
+        Tap a skill for the full description. Skills are invoked from Chat — not toggled here.
+      </Text>
       <GlassCard>
         {skills.length === 0 ? (
           <Text style={styles.meta} testID="skills-empty-state">
@@ -741,29 +816,152 @@ export default function GatewayOpsSection() {
               : 'No skills are installed on this computer.'}
           </Text>
         ) : (
-          skills.slice(0, 20).map((skill) => (
-            <View key={skill.name} style={styles.listRow}>
-              <Text style={styles.rowTitle}>{skill.name}</Text>
-              {skill.description ? (
-                <Text style={styles.rowDesc} numberOfLines={2}>{skill.description}</Text>
-              ) : null}
-            </View>
-          ))
+          skills.map((skill) => {
+            const expanded = expandedSkillNames.has(skill.name);
+            return (
+              <TouchableOpacity
+                key={skill.name}
+                style={styles.listRow}
+                onPress={() => {
+                  setExpandedSkillNames((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(skill.name)) {
+                      next.delete(skill.name);
+                    } else {
+                      next.add(skill.name);
+                    }
+                    return next;
+                  });
+                }}
+                accessibilityRole="button"
+                accessibilityState={{ expanded }}
+                testID={`skill-expand-${skill.name}`}
+              >
+                <View style={styles.jobTitleRow}>
+                  <Text style={[styles.rowTitle, { flex: 1 }]}>{skill.name}</Text>
+                  <Text style={styles.expandHint}>{expanded ? '▾' : '▸'}</Text>
+                </View>
+                {skill.description ? (
+                  <Text style={styles.rowDesc} numberOfLines={expanded ? undefined : 2}>
+                    {skill.description}
+                  </Text>
+                ) : (
+                  <Text style={styles.rowDesc}>No description from the Mac.</Text>
+                )}
+                {expanded && skill.category ? (
+                  <Text style={styles.jobDetailLabel}>Category · {skill.category}</Text>
+                ) : null}
+              </TouchableOpacity>
+            );
+          })
         )}
       </GlassCard>
 
-      <Text style={styles.sectionTitle}>Gateway features</Text>
-      <GlassCard>
-        <Text style={styles.meta}>
-          {catalogErrors.capabilities
-            ? 'Gateway features could not load. Tap Refresh to retry.'
-            : enabledFeatures.length > 0
-            ? `${enabledFeatures.length} capabilities active on this gateway`
-            : 'Connect your computer above to discover features'}
-        </Text>
-        {enabledFeatures.slice(0, 8).map(([key]) => (
-          <Text key={key} style={styles.featureLine}>✓ {key.replace(/_/g, ' ')}</Text>
-        ))}
+      <Text style={styles.sectionTitle}>Gateway features ({featureRows.length})</Text>
+      <Text style={styles.sectionHint}>
+        What this Hermes build on your computer supports (protocol). Tap for details. These are not
+        user prefs — turn tools on/off under Essentials above when the Mac allows phone toggles.
+      </Text>
+      <GlassCard testID="gateway-features-card">
+        {catalogErrors.capabilities ? (
+          <Text style={styles.meta}>
+            Gateway features could not load. Tap Refresh to retry.
+          </Text>
+        ) : featureRows.length === 0 ? (
+          <Text style={styles.meta}>
+            Connect your computer above to discover features.
+          </Text>
+        ) : (
+          featureRows.map((row) => {
+            const expanded = expandedFeatureKeys.has(row.key);
+            const toggleable = gatewayFeatureIsPhoneToggleable(row.key);
+            return (
+              <View key={row.key} style={styles.featureRow} testID={`feature-row-${row.key}`}>
+                <View style={styles.featureHeader}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setExpandedFeatureKeys((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(row.key)) {
+                          next.delete(row.key);
+                        } else {
+                          next.add(row.key);
+                        }
+                        return next;
+                      });
+                    }}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded }}
+                    accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} ${row.info.title}`}
+                    testID={`feature-expand-${row.key}`}
+                    style={styles.featureMain}
+                  >
+                    <View style={styles.jobTitleRow}>
+                      <Text style={[styles.rowTitle, { flex: 1 }]} numberOfLines={2}>
+                        {row.info.title}
+                      </Text>
+                      <Text style={styles.expandHint}>{expanded ? '▾' : '▸'}</Text>
+                    </View>
+                    <Text style={styles.rowDesc} numberOfLines={expanded ? undefined : 2}>
+                      {row.info.summary}
+                    </Text>
+                  </TouchableOpacity>
+                  <View style={styles.featureToggleCol}>
+                    <Switch
+                      value={row.active}
+                      disabled={!toggleable}
+                      onValueChange={() => {
+                        // Protocol features are not phone-writable today.
+                      }}
+                      testID={`feature-switch-${row.key}`}
+                      accessibilityLabel={
+                        toggleable
+                          ? `Toggle ${row.info.title}`
+                          : `${row.info.title} is always on for this gateway`
+                      }
+                      accessibilityState={{ disabled: !toggleable, checked: row.active }}
+                    />
+                    <Text style={styles.featureToggleHint}>
+                      {toggleable ? 'Phone' : 'On'}
+                    </Text>
+                  </View>
+                </View>
+                {expanded ? (
+                  <View style={styles.jobDetails} testID={`feature-details-${row.key}`}>
+                    <View style={styles.jobDetailRow}>
+                      <Text style={styles.jobDetailLabel}>About</Text>
+                      <Text style={styles.jobDetailValue} selectable>
+                        {row.info.detail}
+                      </Text>
+                    </View>
+                    <View style={styles.jobDetailRow}>
+                      <Text style={styles.jobDetailLabel}>API flag</Text>
+                      <Text style={styles.jobDetailValue} selectable>
+                        {row.key}
+                      </Text>
+                    </View>
+                    {row.valueLabel ? (
+                      <View style={styles.jobDetailRow}>
+                        <Text style={styles.jobDetailLabel}>Value</Text>
+                        <Text style={styles.jobDetailValue} selectable>
+                          {row.valueLabel}
+                        </Text>
+                      </View>
+                    ) : null}
+                    <View style={styles.jobDetailRow}>
+                      <Text style={styles.jobDetailLabel}>Control</Text>
+                      <Text style={styles.jobDetailValue}>
+                        {toggleable
+                          ? 'Can be changed from this phone when the Mac allows it.'
+                          : 'Built into the gateway protocol — not a per-user switch. Use Essentials tool toggles for tools the agent can run.'}
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+            );
+          })
+        )}
       </GlassCard>
 
       <IntegrationsSheet
@@ -822,6 +1020,30 @@ const styles = StyleSheet.create({
   },
   meta: { fontSize: 13, color: colors.textMuted, lineHeight: 18 },
   featureLine: { fontSize: 12, color: colors.secondary, marginTop: 4 },
+  featureRow: {
+    marginBottom: 12,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    gap: 8,
+  },
+  featureHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  featureMain: { flex: 1 },
+  featureToggleCol: {
+    alignItems: 'center',
+    gap: 2,
+    paddingTop: 2,
+  },
+  featureToggleHint: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: colors.textMuted,
+    letterSpacing: 0.3,
+  },
   listRow: { marginBottom: 12 },
   toolsetRow: {
     marginBottom: 14,
@@ -854,6 +1076,38 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   jobInfo: { flex: 1 },
+  jobTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  jobPurposePreview: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  jobDetails: {
+    marginTop: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(148, 163, 184, 0.08)',
+    gap: 8,
+  },
+  jobDetailRow: { gap: 2 },
+  jobDetailLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textMuted,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  jobDetailValue: {
+    fontSize: 12,
+    color: colors.text,
+    lineHeight: 17,
+  },
   jobActions: {
     flexDirection: 'row',
     gap: 6,
