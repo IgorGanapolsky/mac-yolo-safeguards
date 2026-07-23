@@ -3,7 +3,16 @@
 const assert = require('node:assert/strict');
 const http = require('http');
 const test = require('node:test');
-const { configFromEnv, execute, nextPollDelay, pollingSchedule, withLeaseRenewal } = require('../server');
+const {
+  callControl,
+  configFromEnv,
+  execute,
+  isTransientControlError,
+  nextPollDelay,
+  pollingSchedule,
+  readJsonBody,
+  withLeaseRenewal,
+} = require('../server');
 
 test('requires control plane, runner, and model provider credentials', () => {
   assert.throws(() => configFromEnv({}), /HERMES_CONTROL_PLANE_URL/);
@@ -61,4 +70,53 @@ test('renews a cloud lease throughout long-running model work', async () => {
   );
   assert.equal(result, 'complete');
   assert.ok(renewals >= 3, `expected at least 3 renewals, received ${renewals}`);
+});
+
+test('classifies control-plane JSON and timeout blips as transient', () => {
+  assert.equal(isTransientControlError(new Error('Unexpected end of JSON input (200): Unexpected end of JSON input')), true);
+  assert.equal(isTransientControlError(new Error('The operation was aborted due to timeout')), true);
+  assert.equal(isTransientControlError(new Error('Control plane HTTP 401')), false);
+});
+
+test('readJsonBody tolerates empty 204-style bodies and rejects truncated JSON', async () => {
+  const emptyOk = await readJsonBody({ status: 200, ok: true, text: async () => '' });
+  assert.equal(emptyOk, null);
+  await assert.rejects(
+    () => readJsonBody({ status: 200, ok: true, text: async () => '{"choices":' }),
+    /Unexpected end of JSON input/,
+  );
+  const ok = await readJsonBody({ status: 200, ok: true, text: async () => '{"ok":true}' });
+  assert.deepEqual(ok, { ok: true });
+});
+
+test('callControl retries transient empty/truncated JSON then succeeds', async () => {
+  let hits = 0;
+  const server = http.createServer((request, response) => {
+    hits += 1;
+    if (hits < 3) {
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end('{"partial":'); // truncated
+      return;
+    }
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ task: { id: 't1' } }));
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  try {
+    const payload = await callControl(
+      {
+        controlPlaneUrl: `http://127.0.0.1:${address.port}`,
+        token: 't',
+        runnerId: 'r',
+      },
+      '/api/runner/tasks/claim',
+      {},
+      { retries: 3 },
+    );
+    assert.equal(payload.task.id, 't1');
+    assert.equal(hits, 3);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });
