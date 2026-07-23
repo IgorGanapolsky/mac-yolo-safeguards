@@ -221,7 +221,7 @@ import {
   shouldFailRunForStreamIdle,
   shouldHardTimeoutRun,
 } from '../utils/runStaleDetection';
-import { isChatAtTop, isChatNearBottom } from '../utils/chatScrollSync';
+import { isChatNearBottom } from '../utils/chatScrollSync';
 import {
   FLASHLIST_LAYOUT_QUIET_MS,
   FLASHLIST_LAYOUT_QUIET_RATCHET_MS,
@@ -836,7 +836,6 @@ export default function ChatScreen() {
   const removedSessionIdsRef = useRef<Set<string>>(new Set());
   const [inputFocused, setInputFocused] = useState(false);
   const [chatNearBottom, setChatNearBottom] = useState(true);
-  const [chatNearTop, setChatNearTop] = useState(true);
   /** True only while the software keyboard is actually on screen (didShow → didHide). */
   const [keyboardScreenVisible, setKeyboardScreenVisible] = useState(false);
 
@@ -1023,10 +1022,6 @@ export default function ChatScreen() {
     [isChatStreamingActive, scrollChatToLatest],
   );
 
-  const scrollChatToTop = useCallback((animated = true) => {
-    flatListRef.current?.scrollToOffset({ offset: 0, animated });
-  }, []);
-
   const handleJumpToBottom = useCallback(() => {
     haptics.light();
     userScrolledUpRef.current = false;
@@ -1034,11 +1029,6 @@ export default function ChatScreen() {
     setChatNearBottom(true);
     scrollChatToLatest(true);
   }, [scrollChatToLatest]);
-
-  const handleJumpToTop = useCallback(() => {
-    haptics.light();
-    scrollChatToTop(true);
-  }, [scrollChatToTop]);
 
   const handleChatScrollBeginDrag = useCallback(() => {
     userDraggingRef.current = true;
@@ -1062,7 +1052,6 @@ export default function ChatScreen() {
         contentOffset.y,
         contentSize.height,
       );
-      const nearTop = isChatAtTop(contentOffset.y);
       const streaming = isChatStreamingActive();
       const wasFollowing = shouldAutoScroll(
         distanceFromBottom,
@@ -1095,7 +1084,6 @@ export default function ChatScreen() {
         return;
       }
       setChatNearBottom((prev) => nextChatNearBottom(prev, nearBottom));
-      setChatNearTop((prev) => (prev === nearTop ? prev : nearTop));
     },
     [isChatStreamingActive],
   );
@@ -7488,9 +7476,7 @@ export default function ChatScreen() {
               />
               <ChatScrollControls
                 showJumpToBottom={!chatNearBottom && chatTimelineMessages.length > 0}
-                showJumpToTop={!chatNearTop && chatTimelineMessages.length > 2}
                 onJumpToBottom={handleJumpToBottom}
-                onJumpToTop={handleJumpToTop}
               />
               </>
             )}

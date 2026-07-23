@@ -3,46 +3,40 @@ import { View, Pressable, Text, StyleSheet } from 'react-native';
 import { colors } from '../theme/colors';
 
 type Props = {
+  /** Only show when the user has scrolled away from the latest messages. */
   showJumpToBottom: boolean;
-  showJumpToTop: boolean;
   onJumpToBottom: () => void;
-  onJumpToTop: () => void;
+  /**
+   * @deprecated Jump-to-top was permanent chrome that felt useless in chat.
+   * Ignored — kept optional so older call sites do not type-error mid-rebase.
+   */
+  showJumpToTop?: boolean;
+  onJumpToTop?: () => void;
 };
 
+/**
+ * Single jump-to-latest control (chat industry default).
+ * No ↑ stack — native scroll covers "go to oldest"; dual arrows were clutter.
+ */
 export default function ChatScrollControls({
   showJumpToBottom,
-  showJumpToTop,
   onJumpToBottom,
-  onJumpToTop,
 }: Props) {
-  if (!showJumpToBottom && !showJumpToTop) {
+  if (!showJumpToBottom) {
     return null;
   }
 
   return (
     <View style={styles.container} pointerEvents="box-none">
-      {showJumpToTop ? (
-        <Pressable
-          onPress={onJumpToTop}
-          style={styles.button}
-          testID="chat-scroll-to-top"
-          accessibilityRole="button"
-          accessibilityLabel="Scroll to top"
-        >
-          <Text style={styles.icon}>↑</Text>
-        </Pressable>
-      ) : null}
-      {showJumpToBottom ? (
-        <Pressable
-          onPress={onJumpToBottom}
-          style={[styles.button, showJumpToTop ? styles.buttonStacked : null]}
-          testID="chat-scroll-to-bottom"
-          accessibilityRole="button"
-          accessibilityLabel="Scroll to bottom"
-        >
-          <Text style={styles.icon}>↓</Text>
-        </Pressable>
-      ) : null}
+      <Pressable
+        onPress={onJumpToBottom}
+        style={styles.button}
+        testID="chat-scroll-to-bottom"
+        accessibilityRole="button"
+        accessibilityLabel="Jump to latest messages"
+      >
+        <Text style={styles.icon}>↓</Text>
+      </Pressable>
     </View>
   );
 }
@@ -68,9 +62,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 4,
-  },
-  buttonStacked: {
-    marginTop: 8,
   },
   icon: {
     fontSize: 18,

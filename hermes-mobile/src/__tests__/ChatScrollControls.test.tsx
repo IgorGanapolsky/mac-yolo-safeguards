@@ -3,36 +3,35 @@ import { fireEvent, render } from '@testing-library/react-native';
 import ChatScrollControls from '../components/ChatScrollControls';
 
 describe('ChatScrollControls', () => {
-  it('renders jump controls with Maestro testIDs', () => {
+  it('renders only jump-to-latest (no useless ↑ stack)', () => {
     const onJumpToBottom = jest.fn();
-    const onJumpToTop = jest.fn();
-    const { getByTestId } = render(
-      <ChatScrollControls
-        showJumpToBottom
-        showJumpToTop
-        onJumpToBottom={onJumpToBottom}
-        onJumpToTop={onJumpToTop}
-      />,
+    const { getByTestId, queryByTestId } = render(
+      <ChatScrollControls showJumpToBottom onJumpToBottom={onJumpToBottom} />,
     );
 
-    fireEvent.press(getByTestId('chat-scroll-to-top'));
+    expect(queryByTestId('chat-scroll-to-top')).toBeNull();
     fireEvent.press(getByTestId('chat-scroll-to-bottom'));
-
-    expect(onJumpToTop).toHaveBeenCalledTimes(1);
     expect(onJumpToBottom).toHaveBeenCalledTimes(1);
   });
 
-  it('hides controls when neither shortcut is needed', () => {
+  it('hides when already near latest messages', () => {
+    const { queryByTestId } = render(
+      <ChatScrollControls showJumpToBottom={false} onJumpToBottom={jest.fn()} />,
+    );
+
+    expect(queryByTestId('chat-scroll-to-bottom')).toBeNull();
+    expect(queryByTestId('chat-scroll-to-top')).toBeNull();
+  });
+
+  it('ignores deprecated jump-to-top props without rendering ↑', () => {
     const { queryByTestId } = render(
       <ChatScrollControls
         showJumpToBottom={false}
-        showJumpToTop={false}
+        showJumpToTop
         onJumpToBottom={jest.fn()}
         onJumpToTop={jest.fn()}
       />,
     );
-
-    expect(queryByTestId('chat-scroll-to-bottom')).toBeNull();
     expect(queryByTestId('chat-scroll-to-top')).toBeNull();
   });
 });
