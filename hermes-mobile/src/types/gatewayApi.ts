@@ -67,12 +67,34 @@ export interface HermesToolsetEnvSaveResult {
 export interface HermesCronJob {
   id: string;
   name?: string;
-  schedule?: string | { kind?: string; expr?: string; display?: string };
+  schedule?: string | { kind?: string; expr?: string; display?: string; minutes?: number };
+  /** Agent prompt / purpose for the scheduled run. */
   prompt?: string;
+  description?: string;
+  purpose?: string;
   enabled?: boolean;
   paused?: boolean;
+  state?: string;
+  /** ISO timestamps — gateways use either last_run or last_run_at. */
   last_run?: string;
+  last_run_at?: string;
+  lastRunAt?: string;
   next_run?: string;
+  next_run_at?: string;
+  nextRunAt?: string;
+  created_at?: string;
+  createdAt?: string;
+  started_at?: string;
+  last_status?: string;
+  lastStatus?: string;
+  last_error?: string;
+  skill?: string;
+  skills?: string[];
+  workdir?: string;
+  work_dir?: string;
+  repeat?: { times?: number | null; completed?: number | null };
+  paused_at?: string;
+  paused_reason?: string;
 }
 
 export type ChatStreamEvent = {
