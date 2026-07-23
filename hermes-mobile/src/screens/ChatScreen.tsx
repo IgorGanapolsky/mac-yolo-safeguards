@@ -1595,7 +1595,7 @@ export default function ChatScreen() {
       return;
     }
     let cancelled = false;
-    void probeLiveUsbGateway().then((discovery) => {
+    const applyProbe = (discovery: Awaited<ReturnType<typeof probeLiveUsbGateway>>) => {
       if (cancelled) {
         return;
       }
@@ -1607,9 +1607,16 @@ export default function ChatScreen() {
         return;
       }
       setLiveUsbProbed(discovery ? { reachable: true } : null);
-    });
+    };
+    // Probe immediately and re-check while the sheet is open so a mid-session plug
+    // surfaces the USB row without auto-stealing sticky Tailscale (#893).
+    void probeLiveUsbGateway().then(applyProbe);
+    const intervalId = setInterval(() => {
+      void probeLiveUsbGateway().then(applyProbe);
+    }, 2500);
     return () => {
       cancelled = true;
+      clearInterval(intervalId);
     };
   }, [isDemo, liveUsbFromHealth?.hostname, macPickerVisible, showMacConnectionHelp]);
 

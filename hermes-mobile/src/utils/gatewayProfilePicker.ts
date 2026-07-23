@@ -312,7 +312,7 @@ function hasNamedUsbLoopbackProfile(profiles: GatewayProfile[]): boolean {
 
 export type SwitchComputerPickerOptions = {
   activeProfileId?: string | null;
-  /** Live adb-reverse probe — prefers cable path when collapsing one row per Mac. */
+  /** Live adb-reverse probe — surfaces a distinct USB row; remote aliases still collapse. */
   liveUsb?: LiveUsbPickerInput | null;
 };
 
@@ -478,8 +478,9 @@ function sortUsbProfilesFirst(profiles: GatewayProfile[]): GatewayProfile[] {
 }
 
 /**
- * Switch-computer list: one row per physical machine, regardless of saved route aliases.
- * A verified live cable wins for that machine; otherwise its active/Tailscale route wins.
+ * Switch-computer list: one row per remote alias group, plus a distinct USB row when
+ * adb reverse is live. Collapse must never hide the cable path behind Tailscale/LAN —
+ * sticky mini Tailscale stays selected, but MacBook USB remains tappable (2026-07-23).
  */
 export function profilesForSwitchComputerPicker(
   profiles: GatewayProfile[],
@@ -514,11 +515,19 @@ export function profilesForSwitchComputerPicker(
   if (hasNamedUsbLoopbackProfile(valid)) {
     valid = valid.filter((p) => !isGenericUsbLoopbackProfile(p));
   }
+
+  // Keep live USB as its own selectable transport. Collapse only non-USB aliases so
+  // fleet Tailscale/LAN names still share one radio — without stealing the cable row.
+  const liveUsbRows = liveUsbReachable
+    ? valid.filter((profile) => isLoopbackGatewayUrl(profile.gatewayUrl))
+    : [];
+  const remoteRows = valid.filter((profile) => !isLoopbackGatewayUrl(profile.gatewayUrl));
+  const collapsedRemote = collapseToOneProfilePerMachine(remoteRows, {
+    liveUsb,
+    activeProfileId: options.activeProfileId,
+  });
   return dedupePickerProfilesById(
-    collapseToOneProfilePerMachine(valid, {
-      liveUsb,
-      activeProfileId: options.activeProfileId,
-    }),
+    sortUsbProfilesFirst([...liveUsbRows, ...collapsedRemote]),
   );
 }
 
