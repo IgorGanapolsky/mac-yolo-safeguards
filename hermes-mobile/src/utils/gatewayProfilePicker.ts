@@ -149,7 +149,7 @@ export function isCablePluggedInForProfile(
 /** Group key: one computer name, not one transport. */
 /**
  * Strip fleet aliases / noise so USB + Tailscale rows for the same Mac collapse.
- * "Igors-MacBook-Pro" and "Igors-MacBook-Pro (Mac Pro)" must share one key —
+ * Bare MacBook Pro hostnames and the "(Mac Pro)" fleet alias must share one key —
  * otherwise Choose computer shows two Pro radios and dual-select thrash.
  */
 export function normalizeMachinePickerName(name: string): string {
