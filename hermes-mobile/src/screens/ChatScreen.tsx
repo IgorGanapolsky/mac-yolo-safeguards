@@ -46,6 +46,7 @@ import GatewayProfilePicker from '../components/GatewayProfilePicker';
 import ComputerPickerStatusRegion from '../components/ComputerPickerStatusRegion';
 import ManualComputerAddressForm from '../components/ManualComputerAddressForm';
 import { confirmForgetGatewayProfileAfterHostDismiss } from '../utils/confirmForgetGatewayProfile';
+import { MAC_PICKER_SUBTITLE } from '../utils/tailscalePasteIpCopy';
 import { confirmClearAllChatsAfterHostDismiss } from '../utils/confirmClearAllChats';
 import { profileDisplayName } from '../services/gatewayProfiles';
 import {
@@ -234,11 +235,6 @@ import {
   shouldPreserveTranscriptOnSessionChange,
   shouldSuppressConnectionHelpForLocalOutbound,
 } from '../utils/disconnectMessagePreserve';
-import {
-  nextOutboundEpoch,
-  planProfileSwitchChatReset,
-  shouldAcceptOutboundMutation,
-} from '../utils/profileSwitchChatReset';
 import {
   COMPOSER_DRAFT_COMPOSE_FIRST_KEY,
   captureComposerTextForFreshChat,
@@ -631,10 +627,6 @@ export default function ChatScreen() {
   /** Mac picker row tap — header shows target computer before async connect finishes. */
   const [profileSwitchBusy, setProfileSwitchBusy] = useState(false);
   const profileSwitchBusyRef = useRef(false);
-  /** Bumped on Choose-computer switch so in-flight machine-A stream commits cannot paint on B. */
-  const outboundEpochRef = useRef(0);
-  /** True while an intentional profile switch is clearing/reloading chat identity. */
-  const intentionalProfileSwitchRef = useRef(false);
   const switchingSessionIdRef = useRef<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   /** True while Start fresh chat is forking/stopping — show spinner so tap isn't silent. */
@@ -650,6 +642,7 @@ export default function ChatScreen() {
   const [toolsModalVisible, setToolsModalVisible] = useState(false);
   const [attachPickerVisible, setAttachPickerVisible] = useState(false);
   const [macPickerVisible, setMacPickerVisible] = useState(false);
+  const [macPickerHelpExpanded, setMacPickerHelpExpanded] = useState(false);
   const [liveUsbProbed, setLiveUsbProbed] = useState<LiveUsbPickerInput | null>(null);
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [projectModalVisible, setProjectModalVisible] = useState(false);
@@ -1199,6 +1192,10 @@ export default function ChatScreen() {
       }),
     [activeGatewayProfile?.id, gatewayProfiles, liveUsbGateway],
   );
+  const closeMacPicker = useCallback(() => {
+    setMacPickerVisible(false);
+    setMacPickerHelpExpanded(false);
+  }, []);
   const healthProbePending = useMemo(() => isGatewayHealthPending(health), [health]);
   const usbCableLikely = useMemo(
     () =>
@@ -2562,64 +2559,9 @@ export default function ChatScreen() {
         }
         return;
       }
-      const resetPlan = planProfileSwitchChatReset({
-        fromProfileId: activeGatewayProfile?.id,
-        toProfileId: profileId,
-      });
       profileSwitchBusyRef.current = true;
       setProfileSwitchBusy(true);
       haptics.light();
-
-      // PRODUCT LAW: clear composer + transcript BEFORE await selectGatewayProfile.
-      // Clearing after the await (or only when closePicker) paints machine B's identity
-      // with machine A's optimistic/typed bubbles mid-switch.
-      if (resetPlan?.clearUiBeforeAwait) {
-        intentionalProfileSwitchRef.current = true;
-        outboundEpochRef.current = nextOutboundEpoch(outboundEpochRef.current);
-        pendingOutboundSendsRef.current = 0;
-        isSendingRef.current = false;
-        setIsSending(false);
-        activeChatStreamRef.current = false;
-        setIsChatStreamActive(false);
-        activeOutboundSendBodyRef.current = null;
-        outboundQueueRef.current = [];
-        setQueuedOutboundCount(0);
-        pendingOutboundClaimRef.current = null;
-        lastCommittedOutboundBodyRef.current = null;
-        persistedPendingRef.current = [];
-        const priorSessionId = currentSessionRef.current?.id;
-        void clearPendingOutbound(priorSessionId);
-        void clearPendingOutbound(PENDING_NEW_SESSION_KEY);
-        const draftKey = composerDraftSessionKey(priorSessionId);
-        if (draftKey) {
-          void clearComposerDraft(draftKey);
-        }
-        void clearComposerDraft(COMPOSER_DRAFT_COMPOSE_FIRST_KEY);
-        inputValueRef.current = '';
-        setInputValue('');
-        setComposerAttachments([]);
-        composerAttachmentsRef.current = [];
-        pinnedOutboundTextRef.current = null;
-        pinnedOutboundStatusRef.current = 'pending';
-        setPinnedOutboundText(null);
-        setPinnedOutboundSentAt(null);
-        setPinnedOutboundStatus('pending');
-        setRunProgress(null);
-        setToolStatus(null);
-        transcriptDigestRef.current = '';
-        lastTranscriptChangeAtMsRef.current = Date.now();
-        deadRunSurfacedRef.current = false;
-        messagesRef.current = [];
-        setMessages([]);
-        setCurrentSession(null);
-        pinScrollAfterHydrationRef.current = true;
-        userScrolledUpRef.current = false;
-        lastDistanceFromBottomRef.current = 0;
-        if (options?.closePicker) {
-          setMacPickerVisible(false);
-        }
-      }
-
       try {
         const ok = await selectGatewayProfile(profileId, { ensureProfile: options?.ensureProfile });
         if (!ok) {
@@ -2629,11 +2571,14 @@ export default function ChatScreen() {
         connectEvents();
         if (options?.closePicker) {
           setMacPickerVisible(false);
+          pinScrollAfterHydrationRef.current = true;
+          userScrolledUpRef.current = false;
+          lastDistanceFromBottomRef.current = 0;
+          setCurrentSession(null);
+          setMessages([]);
         }
-        const shouldReloadSessions = options?.reloadSessions || Boolean(resetPlan);
-        if (shouldReloadSessions) {
-          const pickedProfile =
-            gatewayProfiles.find((profile) => profile.id === profileId) ?? options?.ensureProfile;
+        if (options?.reloadSessions) {
+          const pickedProfile = gatewayProfiles.find((profile) => profile.id === profileId);
           await loadSessionsList(true, {
             computerSessionKeys: resolveComputerSessionStorageKeys(
               pickedProfile,
@@ -2642,7 +2587,6 @@ export default function ChatScreen() {
           });
         }
       } finally {
-        intentionalProfileSwitchRef.current = false;
         profileSwitchBusyRef.current = false;
         setProfileSwitchBusy(false);
       }
@@ -2653,7 +2597,6 @@ export default function ChatScreen() {
       gatewayProfiles,
       refreshHealth,
       selectGatewayProfile,
-      setRunProgress,
     ],
   );
 
@@ -3511,7 +3454,6 @@ export default function ChatScreen() {
       pendingOutboundSends: pendingOutboundSendsRef.current,
       isSending: isSendingRef.current,
       hasActiveRun,
-      intentionalProfileSwitch: intentionalProfileSwitchRef.current,
     });
     if (preserveTranscript) {
       // False disconnect / sticky-session flicker: keep local bubbles; refresh merges later.
@@ -5158,14 +5100,6 @@ export default function ChatScreen() {
     setIsSending(true);
     activeOutboundSendBodyRef.current = normalizedDisplay;
     pendingOutboundClaimRef.current = null;
-    // Capture epoch at send start — machine switch bumps outboundEpochRef and must
-    // drop every later optimistic/stream mutation from this send.
-    const sendEpoch = outboundEpochRef.current;
-    const isSendEpochLive = () =>
-      shouldAcceptOutboundMutation({
-        mutationEpoch: sendEpoch,
-        activeEpoch: outboundEpochRef.current,
-      });
 
     let outboundLockReleased = false;
     const releaseOutboundSendLock = () => {
@@ -5176,12 +5110,7 @@ export default function ChatScreen() {
       isSendingRef.current = false;
       setIsSending(false);
       activeOutboundSendBodyRef.current = null;
-      if (isSendEpochLive()) {
-        drainOutboundQueue();
-      } else {
-        outboundQueueRef.current = [];
-        setQueuedOutboundCount(0);
-      }
+      drainOutboundQueue();
     };
 
     const collectRecoveryRunIds = (): string[] => {
@@ -5658,7 +5587,7 @@ export default function ChatScreen() {
     );
 
     const markOutboundBubbleStatus = (status: 'sent' | 'failed', failureReason?: string) => {
-      if (!committedUserMessageId || !isSendEpochLive()) {
+      if (!committedUserMessageId) {
         return;
       }
       pinnedOutboundStatusRef.current = status;
@@ -5671,9 +5600,6 @@ export default function ChatScreen() {
         setPinnedOutboundSentAt(null);
       }
       commitMessages((prev) => {
-        if (!isSendEpochLive()) {
-          return prev;
-        }
         const next = prev.map((message) =>
           message.id === committedUserMessageId
             ? {
@@ -5729,9 +5655,6 @@ export default function ChatScreen() {
             },
       );
       setTimeout(() => {
-        if (!isSendEpochLive()) {
-          return;
-        }
         markOutboundBubbleStatus('sent');
         const assistantText = `[Demo Mode] I received: "${userText}". Since the gateway is in demo mode, I'm providing a mock reply. Let me know if you want to test live controls!`;
         const assistantMessage: HermesMessage = {
@@ -5739,11 +5662,9 @@ export default function ChatScreen() {
           content: assistantText,
           created_at: new Date().toISOString(),
         };
-        commitMessages((prev) => (isSendEpochLive() ? [...prev, assistantMessage] : prev));
-        if (isSendEpochLive()) {
-          setRunProgress(null);
-          haptics.success();
-        }
+        commitMessages((prev) => [...prev, assistantMessage]);
+        setRunProgress(null);
+        haptics.success();
       }, 1500);
       return true;
     }
@@ -5821,9 +5742,6 @@ export default function ChatScreen() {
       const priorAssistants = snapshotAssistantBodies(messagesRef.current);
 
       const updateAssistant = (text: string) => {
-        if (!isSendEpochLive()) {
-          return;
-        }
         const incoming = text.trim();
         if (!incoming || isSilentAssistantCompletion(incoming)) {
           return;
@@ -5839,9 +5757,6 @@ export default function ChatScreen() {
             assistantBubbleAdded = true;
             activeAssistantIdRef.current = existing.id;
             commitMessages((prev) => {
-              if (!isSendEpochLive()) {
-                return prev;
-              }
               const next = prev.map((m) =>
                 m.id === existing.id
                   ? { ...m, content: preferRicherAssistantText(m.content, body) }
@@ -5857,9 +5772,6 @@ export default function ChatScreen() {
         if (!assistantBubbleAdded) {
           assistantBubbleAdded = true;
           commitMessages((prev) => {
-            if (!isSendEpochLive()) {
-              return prev;
-            }
             const next = [
               ...prev,
               {
@@ -5876,9 +5788,6 @@ export default function ChatScreen() {
           return;
         }
         commitMessages((prev) => {
-          if (!isSendEpochLive()) {
-            return prev;
-          }
           const next = prev.map((m) =>
             m.id === assistantId
               ? { ...m, content: preferRicherAssistantText(m.content, body) }
@@ -6200,13 +6109,6 @@ export default function ChatScreen() {
         }
       }
 
-      if (!isSendEpochLive()) {
-        // User switched computers mid-send — keep machine-A delivery on A; do not
-        // mutate machine-B's transcript or run chrome.
-        releaseOutboundSendLock();
-        return false;
-      }
-
       markMessageDeliveredToMac();
 
       const telegramDeferred = isTelegramDeferredEmptyStream(activeSess, assistantText);
@@ -6371,9 +6273,7 @@ export default function ChatScreen() {
       };
 
       releaseOutboundSendLock();
-      if (!isSendEpochLive()) {
-        releaseOutboundPending();
-      } else if (!deferredTelegramPollRef.current) {
+      if (!deferredTelegramPollRef.current) {
         const completedStartedAt = sendStartedAtRef.current;
         if (sendSucceeded) {
           const replyPreview = (activeAssistantTextRef.current || '')
@@ -6438,9 +6338,7 @@ export default function ChatScreen() {
         }
       }
 
-      if (!isSendEpochLive()) {
-        // Already released pending above when epoch died mid-switch.
-      } else if (!isDemo && !suppressPostSendRefresh && currentSessionRef.current) {
+      if (!isDemo && !suppressPostSendRefresh && currentSessionRef.current) {
         void refreshSessionMessagesRef.current?.({ background: true }).finally(releaseOutboundPending);
       } else {
         releaseOutboundPending();
@@ -7628,12 +7526,13 @@ export default function ChatScreen() {
 
       <BottomSheetModal
         visible={macPickerVisible}
-        onClose={() => setMacPickerVisible(false)}
+        onClose={closeMacPicker}
+        contentStyle={styles.macPickerSheetContent}
         testID="mac-picker-modal"
       >
-            <View style={styles.modalHeader}>
+            <View style={styles.macPickerHeader}>
               <Text style={styles.modalTitle}>Choose your computer</Text>
-              <TouchableOpacity onPress={() => setMacPickerVisible(false)}>
+              <TouchableOpacity onPress={closeMacPicker}>
                 <Text style={styles.modalCloseBtn}>Close</Text>
               </TouchableOpacity>
             </View>
@@ -7643,32 +7542,14 @@ export default function ChatScreen() {
               keyboardShouldPersistTaps="handled"
               testID="mac-picker-scroll"
             >
-              <Text style={styles.modalSubtitle} testID="mac-picker-subtitle">
-                Pick a computer, or paste your Mac’s Tailscale IP below. Tap Find computers if yours is missing.
+              <Text
+                style={styles.macPickerSubtitle}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                testID="mac-picker-subtitle"
+              >
+                {MAC_PICKER_SUBTITLE}
               </Text>
-              <ComputerPickerStatusRegion
-                scanning={profileScanning || isScanningMacs}
-                scanProgress={profileScanProgress}
-                scanResult={profileScanResult}
-                tailscaleProbing={tailscaleDiscoveryProbing}
-                tailscaleVpnActive={tailscaleVpnActive}
-                tailscaleDiscoveries={tailscaleDiscoveries}
-                activeGatewayUrl={gatewayUrl}
-                wifiConnected={wifiConnected}
-                activeReachable={macHttpOk}
-                addingTailscale={tailscaleDiscoveryProbing}
-                onAddTailscale={(discovery) => {
-                  void addDiscoveredTailscaleComputer(discovery);
-                }}
-              />
-              <ManualComputerAddressForm
-                pickerMode
-                testIDPrefix="mac-picker-manual"
-                onAddProfile={async (label, gatewayUrl) => {
-                  await addGatewayProfile(label, gatewayUrl);
-                  setMacPickerVisible(false);
-                }}
-              />
               <GatewayProfilePicker
                 profiles={switchComputerProfiles}
                 activeProfileId={activeGatewayProfile?.id ?? null}
@@ -7680,6 +7561,7 @@ export default function ChatScreen() {
                 scanProgress={profileScanProgress}
                 scanResult={profileScanResult}
                 hideScanCard
+                dense
                 wifiConnected={wifiConnected}
                 showReachabilityHints={switchComputerProfiles.length > 1}
                 liveUsb={liveUsbGateway}
@@ -7696,21 +7578,44 @@ export default function ChatScreen() {
                         const profile =
                           switchComputerProfiles.find((p) => p.id === profileId) ??
                           gatewayProfiles.find((p) => p.id === profileId);
-                        // Alert inside BottomSheetModal (RN Modal) is swallowed on Android —
-                        // dismiss sheet first so Forget confirm actually appears.
-                        confirmForgetGatewayProfileAfterHostDismiss(
-                          () => setMacPickerVisible(false),
-                          {
-                            profileId,
-                            computerName: profile
-                              ? profileDisplayName(profile)
-                              : 'this computer',
-                            onConfirm: removeGatewayProfile,
-                          },
-                        );
+                        confirmForgetGatewayProfileAfterHostDismiss(closeMacPicker, {
+                          profileId,
+                          computerName: profile
+                            ? profileDisplayName(profile)
+                            : 'this computer',
+                          onConfirm: removeGatewayProfile,
+                        });
                       }
                     : undefined
                 }
+              />
+              <ComputerPickerStatusRegion
+                scanning={profileScanning || isScanningMacs}
+                scanProgress={profileScanProgress}
+                scanResult={profileScanResult}
+                tailscaleProbing={tailscaleDiscoveryProbing}
+                tailscaleVpnActive={tailscaleVpnActive}
+                tailscaleDiscoveries={tailscaleDiscoveries}
+                activeGatewayUrl={gatewayUrl}
+                wifiConnected={wifiConnected}
+                activeReachable={macHttpOk}
+                addingTailscale={tailscaleDiscoveryProbing}
+                savedProfileCount={switchComputerProfiles.length}
+                helpExpanded={macPickerHelpExpanded}
+                onExpandHelp={() => setMacPickerHelpExpanded(true)}
+                compact={switchComputerProfiles.length > 0}
+                onAddTailscale={(discovery) => {
+                  void addDiscoveredTailscaleComputer(discovery);
+                }}
+              />
+              <ManualComputerAddressForm
+                pickerMode
+                compactMode={switchComputerProfiles.length > 0}
+                testIDPrefix="mac-picker-manual"
+                onAddProfile={async (label, gatewayUrl) => {
+                  await addGatewayProfile(label, gatewayUrl);
+                  closeMacPicker();
+                }}
               />
               <LoadingButton
                 label="Find computers"
@@ -7727,7 +7632,7 @@ export default function ChatScreen() {
                   }
                 }}
                 testID="chat-find-macs-on-wifi"
-                style={styles.newChatBtn}
+                style={styles.macPickerFindBtn}
               />
             </ScrollView>
       </BottomSheetModal>
@@ -8470,9 +8375,29 @@ const styles = StyleSheet.create({
   macPickerScroll: {
     flexGrow: 0,
   },
+  macPickerSheetContent: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
+  },
+  macPickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  macPickerSubtitle: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginBottom: 8,
+    lineHeight: 16,
+  },
   macPickerContent: {
-    paddingBottom: 16,
-    gap: 4,
+    paddingBottom: 8,
+    gap: 2,
+  },
+  macPickerFindBtn: {
+    marginTop: 4,
   },
   modalHeader: {
     flexDirection: 'row',
