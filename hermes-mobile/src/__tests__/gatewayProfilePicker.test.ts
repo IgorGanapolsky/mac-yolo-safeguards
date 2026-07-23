@@ -106,7 +106,8 @@ describe('gatewayProfilePicker', () => {
       'USB cable connected · Tailscale is the away-from-home option',
     );
     expect(profiles.map((p) => p.id)).toContain('mac_mini_ts');
-    expect(resolveSelectedPickerProfileId(profiles, 'mac_mini_ts')).toBe('mac_mini_ts');
+    const miniTs = profiles.find((p) => p.id === 'mac_mini_ts')!;
+    expect(resolveSelectedPickerProfileId(profiles, 'mac_mini_ts')).toBe(pickerRowKey(miniTs));
   });
 
   it('keeps active Tailscale selected and still exposes a tappable USB row', () => {
@@ -158,7 +159,7 @@ describe('gatewayProfilePicker', () => {
     expect(profileConnectionRouteDisplayLabel(activeRow!, true, { cablePluggedIn: true })).toBe(
       'Tailscale',
     );
-    expect(resolveSelectedPickerProfileId(profiles, activeProfileId)).toBe(activeProfileId);
+    expect(resolveSelectedPickerProfileId(profiles, activeProfileId)).toBe(pickerRowKey(activeRow!));
     expect(profiles.map((profile) => profile.id)).toContain('mac_mini_ts');
   });
 
@@ -199,7 +200,7 @@ describe('gatewayProfilePicker', () => {
     expect(profilePickerLines(profiles[0], { cablePluggedIn: true }).detail).toMatch(
       /USB cable connected/i,
     );
-    expect(resolveSelectedPickerProfileId(profiles, activeProfileId)).toBe(activeProfileId);
+    expect(resolveSelectedPickerProfileId(profiles, activeProfileId)).toBe(pickerRowKey(profiles[1]));
   });
 
   it('uses Tailscale for Mac Pro when USB is not reachable and preserves Mac mini', () => {
