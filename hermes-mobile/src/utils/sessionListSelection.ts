@@ -2,7 +2,7 @@ import type { HermesSession } from '../types/chat';
 import type { ChatProjectState } from '../types/chatProject';
 import { shouldClearMissingCurrentSession } from './disconnectMessagePreserve';
 import { pickDefaultSession } from './sessionSelection';
-import { isSendableChatSession } from './sessionSendTarget';
+import { isUnsendableChatSession } from './sessionSendTarget';
 import { isMegaSessionSendBlocked } from './sessionTokenGuards';
 
 export type SessionListSelectionInput = {
@@ -40,7 +40,12 @@ export function ensureCurrentSessionSelectable(
   return openSession ? [openSession, ...filteredSessions] : filteredSessions;
 }
 
-function findNonMegaSession(
+/**
+ * Sessions safe to open for reading after reconnect/remount.
+ * Mega-blocked threads ARE restorable (user can read; Send still hard-gates
+ * Start fresh). Cron / automation stickies stay excluded.
+ */
+export function findReadableSession(
   sessions: HermesSession[],
   sessionId: string | null | undefined,
 ): HermesSession | null {
@@ -48,16 +53,37 @@ function findNonMegaSession(
     return null;
   }
   const match = sessions.find((session) => session.id === sessionId) ?? null;
-  if (!match || isMegaSessionSendBlocked(match) || !isSendableChatSession(match)) {
+  if (!match || isUnsendableChatSession(match)) {
     return null;
   }
   return match;
 }
 
+/** Prefer a non-mega thread when inventing a default; fall back to any readable. */
+function findPreferredDefaultSession(
+  sessions: HermesSession[],
+  projectState: ChatProjectState,
+): HermesSession | null {
+  const picked = pickDefaultSession(sessions, projectState) ?? sessions[0] ?? null;
+  if (picked && !isUnsendableChatSession(picked) && !isMegaSessionSendBlocked(picked)) {
+    return picked;
+  }
+  const nonMega = sessions.find(
+    (session) => !isUnsendableChatSession(session) && !isMegaSessionSendBlocked(session),
+  );
+  if (nonMega) {
+    return nonMega;
+  }
+  return sessions.find((session) => !isUnsendableChatSession(session)) ?? null;
+}
+
 /**
  * Pick the session to activate after listSessions completes.
  * Returns `undefined` when React state should not change (already on target).
- * Never auto-restores a hard-blocked mega session after clear/relaunch.
+ *
+ * Remembered last-session (incl. mega-blocked) restores for reading after
+ * reconnect/remount. Send remains blocked by mega send gates + banner.
+ * Cron/automation stickies never auto-bind.
  */
 export function resolveSessionAfterListLoad(
   input: SessionListSelectionInput,
@@ -73,12 +99,8 @@ export function resolveSessionAfterListLoad(
   } = input;
 
   if (manualSelectSessionId) {
-    const manual = sessions.find((session) => session.id === manualSelectSessionId);
+    const manual = findReadableSession(sessions, manualSelectSessionId);
     if (manual) {
-      // Recents hard-gate forces Start fresh; do not bind the mega id here either.
-      if (isMegaSessionSendBlocked(manual)) {
-        return currentSessionId ? null : undefined;
-      }
       return manual.id === currentSessionId ? undefined : manual;
     }
     // User tapped a recent thread before listSessions finished — never resurrect project binding.
@@ -88,8 +110,7 @@ export function resolveSessionAfterListLoad(
   if (currentSessionId) {
     const current = sessions.find((session) => session.id === currentSessionId);
     if (current) {
-      // Keep the open thread (banner / Start fresh handle mega UX). Never
-      // *select* a mega id via remembered/project/default paths below.
+      // Keep the open thread (banner / Start fresh handle mega UX).
       return undefined;
     }
   }
@@ -101,7 +122,6 @@ export function resolveSessionAfterListLoad(
 
   // Sticky session missing from an empty/incomplete reconnect list — keep it.
   // Clearing here wiped the transcript while refresh was a no-op (false disconnect).
-  // Exception: never keep a sticky mega-blocked id when it vanished from the list.
   if (
     currentSessionId &&
     !shouldClearMissingCurrentSession({
@@ -115,30 +135,25 @@ export function resolveSessionAfterListLoad(
 
   let nextSession: HermesSession | null = null;
 
-  nextSession = findNonMegaSession(sessions, rememberedSessionId);
+  // Prefer the last open thread on this Mac — including mega (read + Start fresh CTA).
+  nextSession = findReadableSession(sessions, rememberedSessionId);
 
   if (projectState.activeProjectId) {
     const project = projectState.projects.find((p) => p.id === projectState.activeProjectId);
     const preferredId = project?.activeSessionId ?? project?.sessionIds[0];
     if (!nextSession) {
-      nextSession = findNonMegaSession(sessions, preferredId);
+      nextSession = findReadableSession(sessions, preferredId);
     }
   }
 
   if (!nextSession && sessions.length > 0) {
     if (selectLatest || !currentSessionId) {
-      const picked = pickDefaultSession(sessions, projectState) ?? sessions[0];
-      nextSession = picked && !isMegaSessionSendBlocked(picked) ? picked : null;
-      if (!nextSession) {
-        nextSession =
-          sessions.find((session) => !isMegaSessionSendBlocked(session)) ?? null;
-      }
+      nextSession = findPreferredDefaultSession(sessions, projectState);
     }
   }
 
   if (!nextSession) {
     // Current id missing from a non-empty list → real delete; otherwise keep sticky.
-    // Also open empty chat when every candidate is mega-blocked.
     if (
       currentSessionId &&
       shouldClearMissingCurrentSession({

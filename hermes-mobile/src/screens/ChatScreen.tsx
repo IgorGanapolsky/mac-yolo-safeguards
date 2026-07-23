@@ -321,11 +321,9 @@ import {
   sessionTotalTokens,
   megaSessionBannerCopy,
   megaSessionDisplayTokens,
-  megaSessionForceFreshSelectCopy,
   megaSessionSendWarnMessage,
   megaSessionSendWarnTitle,
   shouldAutoFreshAndResendOnMegaBlock,
-  shouldForceFreshOnSessionSelect,
   shouldSuggestFreshOnSessionSelect,
 } from '../utils/sessionTokenGuards';
 import {
@@ -358,6 +356,7 @@ import {
   shouldSuppressEmptyGreetingUnreachable,
 } from '../utils/macUnreachableCopy';
 import { hasValidSavedComputer } from '../utils/freshUserOnboarding';
+import { resolvePrimaryConnectionStatus } from '../utils/chatPrimaryStatus';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { isInvalidGatewayProfile } from '../services/gatewayProfiles';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
@@ -1799,14 +1798,43 @@ export default function ChatScreen() {
     });
   }, [health?.authMismatch, repairComputerLabel]);
 
-  const routeStatusLabel =
-    settings.connectionMode === 'relay' &&
-    !isPaired &&
-    relayRouteDisplay.routeStatus !== 'Direct link'
-      ? relayRouteDisplay.routeStatus
-      : !effectiveMacHttpOk && connectionHealExhausted
-        ? savedMacUnreachableStatus(machineShortLabel)
-        : undefined;
+  // Quality law: primary status is computer reach, never cloud-pair jargon over a
+  // saved Mac that is simply unreachable (Igor 2026-07-23 Leash/Chat confusion).
+  const primaryConnectionStatus = resolvePrimaryConnectionStatus({
+    connectionMode: settings.connectionMode,
+    isPaired,
+    macHttpOk: effectiveMacHttpOk,
+    hasSavedComputer: hasValidSavedComputer(gatewayProfiles),
+    connectionState,
+    authMismatch: effectiveAuthMismatch,
+    cloudUnpairedLabel: relayRouteDisplay.routeStatus,
+    computerUnreachableLabel: savedMacUnreachableStatus(machineShortLabel),
+  });
+  const routeStatusLabel = (() => {
+    if (
+      primaryConnectionStatus.kind === 'connected' ||
+      primaryConnectionStatus.kind === 'demo'
+    ) {
+      return undefined;
+    }
+    // Silent heal: don't thrash primary status while reconnect is in flight.
+    if (connectionHealInFlight && !connectionHealExhausted) {
+      return undefined;
+    }
+    if (primaryConnectionStatus.kind === 'computer_unreachable') {
+      return primaryConnectionStatus.label;
+    }
+    if (primaryConnectionStatus.kind === 'cloud_pair_required') {
+      return primaryConnectionStatus.label;
+    }
+    if (primaryConnectionStatus.kind === 'auth_repair') {
+      return primaryConnectionStatus.label;
+    }
+    if (!effectiveMacHttpOk && connectionHealExhausted) {
+      return savedMacUnreachableStatus(machineShortLabel);
+    }
+    return undefined;
+  })();
 
   const suppressEmptyGreetingUnreachable = shouldSuppressEmptyGreetingUnreachable({
     healthProbePending,
@@ -6866,15 +6894,6 @@ export default function ChatScreen() {
   const handleSelectAgentThread = useCallback(
     async (session: HermesSession) => {
       haptics.light();
-      if (shouldForceFreshOnSessionSelect(session)) {
-        const total = megaSessionDisplayTokens(session);
-        Alert.alert('Chat too large', megaSessionForceFreshSelectCopy(total), [
-          { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
-          { text: 'Cancel', style: 'cancel' },
-        ]);
-        return;
-      }
-
       const openSelectedSession = async () => {
         if (switchingSessionIdRef.current) {
           return;
@@ -6900,15 +6919,17 @@ export default function ChatScreen() {
         }
       };
 
+      // Mega warn/block: offer Start fresh once, but always allow Open for reading.
+      // Force-block open used to strand reconnect on empty New chat (P0 2026-07-23).
       if (
         shouldSuggestFreshOnSessionSelect(session) &&
         megaSessionSuggestFreshOfferedRef.current !== session.id
       ) {
         megaSessionSuggestFreshOfferedRef.current = session.id;
-        const total = sessionTotalTokens(session);
+        const total = megaSessionDisplayTokens(session);
         Alert.alert('Large chat session', megaSessionSendWarnMessage(total), [
           { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
-          { text: 'Open anyway', onPress: () => void openSelectedSession() },
+          { text: 'Open for reading', onPress: () => void openSelectedSession() },
         ]);
         return;
       }
