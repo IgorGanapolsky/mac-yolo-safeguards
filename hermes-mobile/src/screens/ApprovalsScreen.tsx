@@ -19,6 +19,7 @@ import GlassCard from '../components/GlassCard';
 import HealthPill from '../components/HealthPill';
 import ProUpgradeCard from '../components/ProUpgradeCard';
 import ThumbGatePromoCard from '../components/ThumbGatePromoCard';
+import LeashCommonToolsSection from '../components/LeashCommonToolsSection';
 import { isDeveloperLeashUnlockAllowed } from '../utils/demoModePolicy';
 import { thumbgateProPriceLabel } from '../constants/monetization';
 import { colors } from '../theme/colors';
@@ -496,6 +497,16 @@ export default function ApprovalsScreen() {
             <Text style={styles.hintMuted}>
               Injects a fake blocked-command card here. Does not touch your relay or computer.
             </Text>
+            <LeashCommonToolsSection
+              approvalRequiredIds={settings.leashApprovalRequiredToolIds ?? []}
+              customTools={settings.leashCustomTools ?? []}
+              onChangeApprovalRequiredIds={(next) => {
+                void patchSettings({ leashApprovalRequiredToolIds: next });
+              }}
+              onChangeCustomTools={(next) => {
+                void patchSettings({ leashCustomTools: next });
+              }}
+            />
             <View style={styles.switchRow}>
               <View style={styles.switchLabelCol}>
                 <Text style={styles.switchLabel}>Thumbs down → remember block</Text>
