@@ -9,6 +9,7 @@ import {
   LandingPricingCtaFree,
   LandingPricingCtaPaid,
 } from "./LandingAuthChrome";
+import { RemoteControlDiagram } from "./RemoteControlDiagram";
 import styles from "./landing.module.css";
 
 function Mark() {
@@ -23,11 +24,11 @@ export default function Home() {
   const faqs = [
     {
       question: "What is ThumbGate?",
-      answer: "ThumbGate is the self-improving firewall for your AI agents: approve risky Hermes tool calls, capture thumbs feedback as durable lessons, promote repeated failures into gates, re-rank relevant lessons, and improve the next decision—while your Mac stays the default executor, chats stay available on the web, and policy stays under your control.",
+      answer: "ThumbGate lets you chat with and approve your Hermes agents from any phone or browser, while your Mac keeps doing the actual work. It also runs a self-improving firewall in the background, turning your thumbs feedback into approval gates over time.",
     },
     {
       question: "What happens when the paired Mac goes offline?",
-      answer: "Free Web Control pauses or asks. A trial or paid Cloud Continuity plan can hand an eligible task to a fenced cloud runner with a renewable 90-second lease.",
+      answer: "Free Web Control pauses or asks you first. Cloud Continuity (trial or paid) can pick up an eligible task on a fenced 90-second cloud lease, on the same thread — this is a new capability we're still proving out in real use.",
     },
     {
       question: "Does ThumbGate upload the Mac's gateway credential?",
@@ -52,7 +53,7 @@ export default function Home() {
         provider: { "@id": "https://thumbgate.app/#organization" },
         applicationCategory: "DeveloperApplication",
         operatingSystem: "Web, macOS, iOS, Android",
-        description: "Self-improving firewall for your AI agents: Hermes chats and Leash controls on the web, lesson-backed gates from thumbs feedback, signed machine pairing, and fenced cloud continuation.",
+        description: "Control your Hermes agents from your phone or any browser while your Mac does the work. Includes signed machine pairing, fenced cloud continuation, and a self-improving firewall built from thumbs feedback.",
         offers: [
           { "@type": "Offer", name: "Web Control", price: "0", priceCurrency: "USD" },
         ],
@@ -84,15 +85,17 @@ export default function Home() {
 
       <section id="main-content" className="hero" tabIndex={-1}>
         <div className="hero-copy">
-          <p className="eyebrow"><span className="live-dot" /> Self-improving firewall · Hermes-native</p>
-          <h1>Self-Improving Firewall<br /><span>for your AI agents.</span></h1>
-          <p className="hero-lede">Approve what Hermes is about to run, remember lessons from thumbs feedback, promote repeated failures into gates, re-rank relevant lessons, and improve the next decision—so the firewall improves under your control. Chat from your phone or any browser; your Mac still runs the work. Cloud Continuity keeps eligible threads going when the lid closes.</p>
+          <p className="eyebrow"><span className="live-dot" /> Hermes-native · works on any phone or browser</p>
+          <h1>Control your Hermes agents<br /><span>from anywhere.</span></h1>
+          <p className="hero-lede">Chat, approve, and steer your agents from your phone — your Mac keeps doing the work.</p>
           <LandingAuthHero />
-          <p className="signin-note">Hermes Web by ThumbGate. Sign in with email or Google; enterprise SSO is discovered from a verified work email, and additional social providers appear only after they are configured.</p>
+          <p className="mini-caption">Includes a self-improving firewall: your thumbs feedback quietly becomes approval gates over time.</p>
+          <p className="mini-caption">Hermes Web by ThumbGate. Sign in with email or Google today — more providers activate once configured.</p>
           <div className="trust-row"><span>No inbound ports</span><span>Private-key pairing</span><span>Cloud only when enabled</span></div>
         </div>
 
         <nav className="hero-console hero-actions-panel" aria-label="Private workspace actions">
+          <RemoteControlDiagram />
           <LandingAuthPanel />
         </nav>
       </section>
@@ -101,10 +104,7 @@ export default function Home() {
         <div className="section-heading">
           <p className="eyebrow">THREE-STEP PAIRING</p>
           <h2>Pair a Mac that already runs Hermes.</h2>
-          <p>
-            The connector dials out over HTTPS, creates a device key on the machine, and keeps your local gateway credential local—it is never uploaded.
-            Chats appear after you sign in, approve the device, and the connector syncs sessions from Hermes on that Mac.
-          </p>
+          <p>Your gateway credential never leaves that Mac. Chats appear after you sign in and approve the device.</p>
         </div>
         <ol className="setup-steps">
           <li>
@@ -151,9 +151,7 @@ export default function Home() {
         <div className="section-heading">
           <p className="eyebrow">The failover path</p>
           <h2>Approve the call. Survive the lid close.</h2>
-          <p>
-            ThumbGate is not a vague “safe handoff.” You see the tool call, approve or deny it, then pick what happens when the Mac disappears—pause, ask you, or continue in a fenced cloud runner on the same thread. Your Hermes work stays one executor at a time.
-          </p>
+          <p>See the tool call, approve or deny it, then pick what happens if the Mac disappears.</p>
         </div>
         <FailoverPathDemo />
         <div className="steps-grid steps-grid-after-demo">
@@ -180,7 +178,7 @@ export default function Home() {
       </section>
 
       <section id="pricing" className="pricing-section">
-        <div className="pricing-copy"><p className="eyebrow">Free control. Paid continuity.</p><h2>You don&apos;t pay to chat. You pay so your agent never has to wait for you.</h2><p>Web control of your own online Hermes machine stays free, always. Cloud Continuity is the only paid step—it keeps your agent running when your Mac can&apos;t.</p></div>
+        <div className="pricing-copy"><p className="eyebrow">Free control. Paid continuity.</p><h2>Chatting and approving is always free. Cloud Continuity is the one paid step.</h2><p>Web control of your own online Hermes machine stays free, always. Cloud Continuity lets an eligible task keep going in the cloud when your Mac can&apos;t.</p></div>
         <div className="price-grid">
           <article className="price-card">
             <div><span>Web Control</span><strong>$0<small>/month</small></strong></div>
@@ -231,7 +229,7 @@ export default function Home() {
 
       <footer>
         <Link href="/" className="brand"><Mark /><span>ThumbGate <small>Hermes Web</small></span></Link>
-        <p>Self-Improving Firewall for your AI agents — Hermes wherever you are.</p>
+        <p>Control your Hermes agents from anywhere — with a self-improving firewall built in.</p>
       </footer>
     </main>
   );
