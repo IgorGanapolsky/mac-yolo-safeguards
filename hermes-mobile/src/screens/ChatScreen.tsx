@@ -321,11 +321,9 @@ import {
   sessionTotalTokens,
   megaSessionBannerCopy,
   megaSessionDisplayTokens,
-  megaSessionForceFreshSelectCopy,
   megaSessionSendWarnMessage,
   megaSessionSendWarnTitle,
   shouldAutoFreshAndResendOnMegaBlock,
-  shouldForceFreshOnSessionSelect,
   shouldSuggestFreshOnSessionSelect,
 } from '../utils/sessionTokenGuards';
 import {
@@ -6866,15 +6864,6 @@ export default function ChatScreen() {
   const handleSelectAgentThread = useCallback(
     async (session: HermesSession) => {
       haptics.light();
-      if (shouldForceFreshOnSessionSelect(session)) {
-        const total = megaSessionDisplayTokens(session);
-        Alert.alert('Chat too large', megaSessionForceFreshSelectCopy(total), [
-          { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
-          { text: 'Cancel', style: 'cancel' },
-        ]);
-        return;
-      }
-
       const openSelectedSession = async () => {
         if (switchingSessionIdRef.current) {
           return;
@@ -6900,15 +6889,17 @@ export default function ChatScreen() {
         }
       };
 
+      // Mega warn/block: offer Start fresh once, but always allow Open for reading.
+      // Force-block open used to strand reconnect on empty New chat (P0 2026-07-23).
       if (
         shouldSuggestFreshOnSessionSelect(session) &&
         megaSessionSuggestFreshOfferedRef.current !== session.id
       ) {
         megaSessionSuggestFreshOfferedRef.current = session.id;
-        const total = sessionTotalTokens(session);
+        const total = megaSessionDisplayTokens(session);
         Alert.alert('Large chat session', megaSessionSendWarnMessage(total), [
           { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
-          { text: 'Open anyway', onPress: () => void openSelectedSession() },
+          { text: 'Open for reading', onPress: () => void openSelectedSession() },
         ]);
         return;
       }
