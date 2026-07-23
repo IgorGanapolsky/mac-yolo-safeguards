@@ -282,4 +282,56 @@ describe('GatewayProfilePicker', () => {
     expect(getByTestId('gateway-profile-item-mac_mini_ts')).not.toHaveTextContent(/Connected/);
     expect(getByTestId('gateway-profile-item-mac_book_ts')).toHaveTextContent(/Connected/);
   });
+
+  it('reserves dense list minHeight and reports selected:1 under progress updates', () => {
+    const { getByTestId, rerender } = render(
+      <GatewayProfilePicker
+        profiles={profiles}
+        activeProfileId="mac_192_168_12_208"
+        onSelect={jest.fn()}
+        dense
+        hideScanCard
+        scanning
+        scanProgress={{
+          stage: 'gateway_health',
+          completedHosts: 1,
+          totalHosts: 6,
+          foundCount: 0,
+        }}
+        activeReachable
+      />,
+    );
+    const list = getByTestId('gateway-profile-list');
+    expect(list.props.accessibilityValue).toEqual({ text: 'selected:1' });
+    expect(list.props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ minHeight: expect.any(Number) })]),
+    );
+
+    rerender(
+      <GatewayProfilePicker
+        profiles={profiles}
+        activeProfileId="mac_192_168_12_208"
+        onSelect={jest.fn()}
+        dense
+        hideScanCard
+        scanning
+        scanProgress={{
+          stage: 'gateway_health',
+          completedHosts: 5,
+          totalHosts: 6,
+          foundCount: 2,
+        }}
+        activeReachable
+      />,
+    );
+    expect(getByTestId('gateway-profile-list').props.accessibilityValue).toEqual({
+      text: 'selected:1',
+    });
+    const selected = [
+      getByTestId('select-gateway-profile-mac_192_168_12_208').props.accessibilityState?.selected,
+      getByTestId('select-gateway-profile-mac_192_168_12_50').props.accessibilityState?.selected,
+      getByTestId('select-gateway-profile-mac_usb').props.accessibilityState?.selected,
+    ].filter(Boolean);
+    expect(selected).toHaveLength(1);
+  });
 });
