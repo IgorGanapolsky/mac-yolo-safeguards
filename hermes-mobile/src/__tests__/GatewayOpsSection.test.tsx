@@ -412,4 +412,85 @@ describe('GatewayOpsSection', () => {
       expect(getByTestId('job-delete-cron-long-name')).toBeTruthy();
     });
   });
+
+  it('expands a cron job row to show purpose, last run, and next run', async () => {
+    gatewayClient.listJobs.mockResolvedValue([
+      {
+        id: 'cron-details',
+        name: 'daily-hermes-update',
+        schedule: '0 3 * * *',
+        paused: false,
+        prompt: 'Pull latest fleet config and restart the gateway if healthy.',
+        last_run: '2026-07-22T09:00:00.000Z',
+        next_run: '2026-07-23T09:00:00.000Z',
+      },
+    ]);
+
+    const { getByTestId, getByText, queryByText } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('job-row-cron-details')).toBeTruthy();
+    });
+
+    expect(queryByText(/Pull latest fleet config/)).toBeNull();
+
+    await act(async () => {
+      fireEvent.press(getByTestId('job-row-cron-details'));
+    });
+
+    expect(getByText(/Pull latest fleet config/)).toBeTruthy();
+    expect(getByText(/Last ran:/)).toBeTruthy();
+    expect(getByText(/Next run:/)).toBeTruthy();
+  });
+
+  it('expands a cron job row with no gateway details without crashing', async () => {
+    gatewayClient.listJobs.mockResolvedValue([
+      { id: 'cron-bare', name: 'bare-job', schedule: '0 9 * * 1', paused: true },
+    ]);
+
+    const { getByTestId, getByText } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('job-row-cron-bare')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('job-row-cron-bare'));
+    });
+
+    expect(getByText(/Last ran: never yet/)).toBeTruthy();
+    expect(getByText(/Next run: paused/)).toBeTruthy();
+  });
+
+  it('shows descriptions for known gateway capabilities and expands the full list', async () => {
+    gatewayClient.getCapabilities.mockResolvedValue({
+      features: {
+        chat_completions: true,
+        chat_completions_streaming: true,
+        responses_api: true,
+        responses_streaming: true,
+        run_submission: true,
+        run_status: true,
+        run_events_sse: true,
+        run_stop: true,
+        an_unknown_future_capability: true,
+      },
+      default_model: 'qwen3:8b-64k',
+    });
+
+    const { getByTestId, getByText, queryByText } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByText('9 capabilities active on this gateway')).toBeTruthy();
+    });
+
+    expect(getByText(/Start a new agent run from the phone\./)).toBeTruthy();
+    expect(queryByText(/an unknown future capability/)).toBeNull();
+
+    await act(async () => {
+      fireEvent.press(getByTestId('features-expand-toggle'));
+    });
+
+    expect(getByText(/an unknown future capability/)).toBeTruthy();
+  });
 });

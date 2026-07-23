@@ -29,7 +29,7 @@ import {
   probeToolsetsWriteAccess,
 } from '../services/hermesGatewayClient';
 import type { HermesCronJob, HermesSkill, HermesToolset } from '../types/gatewayApi';
-import { formatCronSchedule } from '../utils/sessionDisplay';
+import { formatCronSchedule, formatSessionCreated } from '../utils/sessionDisplay';
 import {
   configuredToolsetsToAutoEnable,
   formatToolsetLabel,
@@ -100,6 +100,23 @@ const DEMO_SKILLS: HermesSkill[] = [
   { name: 'verify-answerguard-fix', description: 'Full AnswerGuard verification contract', category: 'qa' },
 ];
 
+/**
+ * Human-readable descriptions for known gateway API-surface capabilities.
+ * These describe protocol endpoints the gateway exposes — not optional
+ * features a user can turn on/off, so intentionally no toggle exists.
+ * Unknown keys render with just their name; no description is invented.
+ */
+const FEATURE_DESCRIPTIONS: Record<string, string> = {
+  chat_completions: 'Non-streaming chat requests (OpenAI-compatible /v1/chat/completions).',
+  chat_completions_streaming: 'Token-by-token streaming for chat responses.',
+  responses_api: 'OpenAI-compatible /v1/responses endpoint.',
+  responses_streaming: 'Streaming support for the responses API.',
+  run_submission: 'Start a new agent run from the phone.',
+  run_status: 'Poll the current state of an agent run.',
+  run_events_sse: 'Live run updates over Server-Sent Events (used for the chat stream).',
+  run_stop: 'Stop an in-progress agent run from the phone.',
+};
+
 const DEMO_JOBS: HermesCronJob[] = [
   { id: 'demo-1', name: 'yolo-health', schedule: '0 */6 * * *', paused: false },
   { id: 'demo-2', name: 'hermes-audit', schedule: '0 9 * * 1', paused: true },
@@ -137,6 +154,8 @@ export default function GatewayOpsSection() {
   const [error, setError] = useState<string | undefined>();
   const [catalogErrors, setCatalogErrors] = useState<Partial<Record<CatalogSection, boolean>>>({});
   const [expandedToolsets, setExpandedToolsets] = useState<Set<string>>(new Set());
+  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
+  const [featuresExpanded, setFeaturesExpanded] = useState(false);
   const [advancedToolsetsOpen, setAdvancedToolsetsOpen] = useState(false);
   const [togglingToolset, setTogglingToolset] = useState<string | null>(null);
   const [integrationsToolset, setIntegrationsToolset] = useState<HermesToolset | null>(null);
@@ -356,6 +375,18 @@ export default function GatewayOpsSection() {
       togglingToolsetRef.current = null;
       setTogglingToolset(null);
     }
+  };
+
+  const toggleJobExpanded = (id: string) => {
+    setExpandedJobs((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   };
 
   const toggleToolsetExpanded = (name: string) => {
@@ -665,12 +696,43 @@ export default function GatewayOpsSection() {
               : 'No scheduled jobs yet.'}
           </Text>
         ) : (
-          jobs.map((job) => (
+          jobs.map((job) => {
+            const jobExpanded = expandedJobs.has(job.id);
+            const lastRun = formatSessionCreated(job.last_run);
+            const nextRun = formatSessionCreated(job.next_run);
+            const hasDetails = Boolean(job.prompt || lastRun || nextRun);
+            return (
             <View key={job.id} style={styles.jobRow}>
-              <View style={styles.jobInfo}>
-                <Text style={styles.rowTitle} numberOfLines={2}>{job.name ?? job.id}</Text>
-                <Text style={styles.rowDesc}>{formatCronSchedule(job.schedule)}</Text>
-              </View>
+              <TouchableOpacity
+                style={styles.jobInfo}
+                onPress={() => toggleJobExpanded(job.id)}
+                accessibilityLabel={`${job.name ?? job.id} details`}
+                testID={`job-row-${job.id}`}
+              >
+                <View style={styles.toolsetHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.rowTitle} numberOfLines={2}>{job.name ?? job.id}</Text>
+                    <Text style={styles.rowDesc}>{formatCronSchedule(job.schedule)}</Text>
+                  </View>
+                  <Text style={styles.expandHint}>{jobExpanded ? '▾' : '▸'}</Text>
+                </View>
+                {jobExpanded ? (
+                  <View style={styles.toolList}>
+                    {job.prompt ? (
+                      <Text style={styles.rowDesc}>Purpose: {job.prompt}</Text>
+                    ) : null}
+                    <Text style={styles.rowDesc}>
+                      Last ran: {lastRun ?? 'never yet'}
+                    </Text>
+                    <Text style={styles.rowDesc}>
+                      Next run: {nextRun ?? (job.paused ? 'paused' : 'not scheduled by gateway')}
+                    </Text>
+                    {!hasDetails ? (
+                      <Text style={styles.rowDesc}>No additional details from gateway.</Text>
+                    ) : null}
+                  </View>
+                ) : null}
+              </TouchableOpacity>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -710,7 +772,8 @@ export default function GatewayOpsSection() {
                 </TouchableOpacity>
               </ScrollView>
             </View>
-          ))
+            );
+          })
         )}
       </GlassCard>
 
@@ -736,6 +799,9 @@ export default function GatewayOpsSection() {
       </GlassCard>
 
       <Text style={styles.sectionTitle}>Gateway features</Text>
+      <Text style={styles.sectionHint}>
+        Read-only — these describe your gateway's API surface, not optional features to turn off.
+      </Text>
       <GlassCard>
         <Text style={styles.meta}>
           {catalogErrors.capabilities
@@ -744,9 +810,24 @@ export default function GatewayOpsSection() {
             ? `${enabledFeatures.length} capabilities active on this gateway`
             : 'Connect your computer above to discover features'}
         </Text>
-        {enabledFeatures.slice(0, 8).map(([key]) => (
-          <Text key={key} style={styles.featureLine}>✓ {key.replace(/_/g, ' ')}</Text>
+        {(featuresExpanded ? enabledFeatures : enabledFeatures.slice(0, 8)).map(([key]) => (
+          <View key={key} style={styles.featureRow}>
+            <Text style={styles.featureLine}>✓ {key.replace(/_/g, ' ')}</Text>
+            {FEATURE_DESCRIPTIONS[key] ? (
+              <Text style={styles.rowDesc}>{FEATURE_DESCRIPTIONS[key]}</Text>
+            ) : null}
+          </View>
         ))}
+        {enabledFeatures.length > 8 ? (
+          <TouchableOpacity
+            onPress={() => setFeaturesExpanded((v) => !v)}
+            testID="features-expand-toggle"
+          >
+            <Text style={styles.expandHint}>
+              {featuresExpanded ? 'Show fewer ▾' : `Show all ${enabledFeatures.length} ▸`}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
       </GlassCard>
 
       <IntegrationsSheet
@@ -805,6 +886,7 @@ const styles = StyleSheet.create({
   },
   meta: { fontSize: 13, color: colors.textMuted, lineHeight: 18 },
   featureLine: { fontSize: 12, color: colors.secondary, marginTop: 4 },
+  featureRow: { marginTop: 4 },
   listRow: { marginBottom: 12 },
   toolsetRow: {
     marginBottom: 14,
