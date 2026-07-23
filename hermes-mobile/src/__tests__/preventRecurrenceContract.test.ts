@@ -596,6 +596,17 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(gate).not.toMatch(/pickerProfiles\.length\s*>\s*0\)/);
   });
 
+  it('S30: ConnectMacGate probes live USB and offers Using this USB cable (2026-07-23)', () => {
+    const gate = read('hermes-mobile/src/components/ConnectMacGate.tsx');
+    expect(gate).toContain('probeLiveUsbGateway');
+    expect(gate).toContain('connect-mac-usb-offer');
+    expect(gate).toContain('USB_CABLE_GATE_TITLE');
+    expect(gate).toContain('shouldAutoSelectLiveUsbOnGate');
+    const offer = read('hermes-mobile/src/utils/usbCableGateOffer.ts');
+    expect(offer).toContain("Using this USB cable");
+    expect(offer).toContain('shouldAutoSelectLiveUsbOnGate');
+  });
+
   it('S27: fresh install never silent-saves Tailscale Macs; Android allowBackup stays off', () => {
     const policy = read('hermes-mobile/src/utils/discoveryPersistPolicy.ts');
     expect(policy).toContain('export function partitionSilentDiscoveries');
