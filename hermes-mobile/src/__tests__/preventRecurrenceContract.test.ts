@@ -640,4 +640,16 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     const resume = read('hermes-mobile/src/utils/continuitySessionResume.ts');
     expect(resume).toContain('export function resolveContinuitySessionResumeId');
   });
+
+  it('S48: Mac switch clears sticky session ref and opens that Mac last session', () => {
+    const restore = read('hermes-mobile/src/utils/profileSwitchSessionRestore.ts');
+    expect(restore).toContain('clearStickySessionRef');
+    expect(restore).toContain('sessionIdForPostSwitchListLoad');
+    expect(restore).toContain('resolvePostSwitchSession');
+    const chatScreen = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chatScreen).toContain('currentSessionRef.current = null');
+    expect(chatScreen).toContain('intentionalProfileSwitch: true');
+    expect(chatScreen).toContain('resolvePostSwitchSession');
+    expect(chatScreen).toContain('sessionIdForPostSwitchListLoad');
+  });
 });

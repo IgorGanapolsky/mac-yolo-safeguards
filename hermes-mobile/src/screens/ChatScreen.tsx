@@ -123,7 +123,9 @@ import {
 import { resolveContinuitySessionResumeId } from '../utils/continuitySessionResume';
 import {
   resolveMessageHydrateCredentials,
+  resolvePostSwitchSession,
   resolveProfileSwitchRestorePlan,
+  sessionIdForPostSwitchListLoad,
   shouldSkipBackgroundSessionReload,
 } from '../utils/profileSwitchSessionRestore';
 import {
@@ -2470,6 +2472,11 @@ export default function ChatScreen() {
       apiKeyOverride?: string | null;
       /** Bypass macChatLive gate during intentional profile switches. */
       forceWhileOffline?: boolean;
+      /**
+       * Intentional Choose-computer switch: ignore sticky prior-Mac session id so
+       * selectLatest / remembered / default can open THIS Mac's last thread.
+       */
+      intentionalProfileSwitch?: boolean;
     },
   ) => {
     const selectionProjectState = options?.projectState ?? projectState;
@@ -2549,14 +2556,21 @@ export default function ChatScreen() {
           hideAutomationSessions: hideAutomationSessionsRef.current,
         }),
         finalSessions,
-        currentSessionRef.current?.id,
+        sessionIdForPostSwitchListLoad({
+          intentionalProfileSwitch: Boolean(options?.intentionalProfileSwitch),
+          stickySessionId: currentSessionRef.current?.id,
+        }),
       );
       const rememberedSessionId = await storage.loadLastSessionForComputer(computerSessionKeys);
+      const listCurrentSessionId = sessionIdForPostSwitchListLoad({
+        intentionalProfileSwitch: Boolean(options?.intentionalProfileSwitch),
+        stickySessionId: currentSessionRef.current?.id,
+      });
 
       let resolvedSession = resolveSessionAfterListLoad({
         sessions: selectableSessions,
         projectState: selectionProjectState,
-        currentSessionId: currentSessionRef.current?.id,
+        currentSessionId: listCurrentSessionId,
         manualSelectSessionId: manualSessionSelectRef.current,
         rememberedSessionId,
         skipAutoSelect,
@@ -2582,6 +2596,25 @@ export default function ChatScreen() {
             resolvedSession = continuitySession;
             continuityComposeFirstRef.current = false;
           }
+        }
+      }
+
+      // Choose-computer switch: if list-load still left compose empty, open this Mac's
+      // remembered / most-recent sendable thread (never stay on New chat while threads exist).
+      if (
+        options?.intentionalProfileSwitch &&
+        !resolvedSession &&
+        !currentSessionRef.current &&
+        !skipAutoSelect &&
+        !continuityComposeFirstRef.current
+      ) {
+        const postSwitch = resolvePostSwitchSession({
+          sessions: selectableSessions,
+          rememberedSessionId,
+          projectState: selectionProjectState,
+        });
+        if (postSwitch) {
+          resolvedSession = postSwitch;
         }
       }
 
@@ -2669,6 +2702,9 @@ export default function ChatScreen() {
         deadRunSurfacedRef.current = false;
         messagesRef.current = [];
         setMessages([]);
+        // Must clear the ref too — React state alone leaves resolveSessionAfterListLoad
+        // seeing the prior Mac's session id (sticky keep / wrong hydrate target).
+        currentSessionRef.current = null;
         setCurrentSession(null);
         pinScrollAfterHydrationRef.current = true;
         userScrolledUpRef.current = false;
@@ -2710,6 +2746,7 @@ export default function ChatScreen() {
             gatewayUrlOverride: restorePlan.gatewayUrl,
             apiKeyOverride: profileKey,
             forceWhileOffline: true,
+            intentionalProfileSwitch: true,
           });
           if (currentSessionRef.current) {
             await refreshSessionMessagesRef.current?.({
