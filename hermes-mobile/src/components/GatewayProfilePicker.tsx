@@ -71,7 +71,7 @@ export default function GatewayProfilePicker({
   });
   const multiMac = pickerProfiles.length > 1;
   const showRouteHints = showReachabilityHints || multiMac;
-  const selectedCount = pickerProfiles.filter((p) => p.id === selectedProfileId).length;
+  const selectedCount = pickerProfiles.filter((p) => pickerRowKey(p) === selectedRowKey).length;
 
   return (
     <View>
