@@ -25,10 +25,10 @@ export function isWeakLocalCodingModel(model: string | undefined | null): boolea
 export function weakLocalModelWarning(model: string | undefined | null): string | null {
   if (!isWeakLocalCodingModel(model)) return null;
   const short = formatLlmModelShortName(model) ?? displayableLlmModel(model) ?? 'Local SLM';
-  return `${short} is a local worker — too weak for product work. Start a fresh chat after the Mac switches to GLM/Claude/GPT.`;
+  return `${short} is a local worker — too weak for product work. Hermes will continue after the Mac switches to GLM/Claude/GPT.`;
 }
 
-/** Mega / poisoned threads: prefer Start fresh when input context is already huge. */
+/** Legacy cumulative input floor — auto-heal owns remediation (not a Start-fresh nag). */
 export const POISONED_SESSION_INPUT_TOKENS = 20_000;
 
 export function shouldForceFreshChatForContext(inputTokens: number | undefined | null): boolean {

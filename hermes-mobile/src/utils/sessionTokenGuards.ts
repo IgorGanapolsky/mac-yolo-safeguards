@@ -98,7 +98,7 @@ export function isMegaSession(
   return classifyMegaSession(session) !== 'normal';
 }
 
-/** True when Send must be refused — only Start fresh chat is allowed. */
+/** True when Send must migrate off this session (auto-heal) before delivery. */
 export function isMegaSessionSendBlocked(
   session: SessionTokenFields | null | undefined,
 ): boolean {
@@ -108,8 +108,8 @@ export function isMegaSessionSendBlocked(
 /**
  * Pure send-gate used by ChatScreen + unit tests.
  * - normal → allow
- * - warn → only `send_anyway`
- * - block → never allow send on the same session (auto-fresh + resend migrates)
+ * - warn → only `send_anyway` (legacy) or auto-heal path (`fresh`)
+ * - block → never allow send on the same session (auto-heal + resend migrates)
  */
 export function shouldAllowMegaSessionSend(
   level: MegaSessionLevel,
@@ -121,15 +121,15 @@ export function shouldAllowMegaSessionSend(
   if (level === 'block') {
     return false;
   }
-  return choice === 'send_anyway';
+  return choice === 'send_anyway' || choice === 'fresh';
 }
 
 /**
- * Hard-block Send: auto-start a fresh chat and deliver the already-typed draft
- * (no extra alert that drops the prompt). Keeps Start-fresh spinner/attachments.
+ * Auto-heal + resend on warn/block so the typed draft is never stuck behind a
+ * homework "Start fresh" alert.
  */
 export function shouldAutoFreshAndResendOnMegaBlock(level: MegaSessionLevel): boolean {
-  return level === 'block';
+  return level === 'warn' || level === 'block';
 }
 
 /** Recents rail badge for large / blocked threads. */
@@ -147,16 +147,16 @@ export function megaSessionRecentsBadge(
 }
 
 /**
- * One-shot nudge when opening a WARN session from Recents — banner alone is easy to ignore.
- * BLOCK sessions use shouldForceFreshOnSessionSelect (hard gate).
+ * WARN reopen no longer shows a Start-fresh homework alert — idle auto-heal owns it.
+ * Kept for callers that still branch on warn; always false as a nag trigger.
  */
 export function shouldSuggestFreshOnSessionSelect(
-  session: SessionTokenFields | null | undefined,
+  _session: SessionTokenFields | null | undefined,
 ): boolean {
-  return classifyMegaSession(session) === 'warn';
+  return false;
 }
 
-/** Selecting a BLOCK session from Recents should force Start fresh instead of reopen. */
+/** Selecting a BLOCK session from Recents should auto-heal instead of reopen. */
 export function shouldForceFreshOnSessionSelect(
   session: SessionTokenFields | null | undefined,
 ): boolean {
@@ -175,12 +175,12 @@ export function formatMegaSessionTokenCount(totalTokens: number): string {
 
 export function megaSessionBannerCopy(totalTokens: number): string {
   const label = formatMegaSessionTokenCount(totalTokens);
-  return `This chat's working context is very large (~${label} tokens) — replies may slow down or stall. Start a fresh chat for faster responses.`;
+  return `This chat's working context is very large (~${label} tokens) — optimizing conversation in the background.`;
 }
 
 export function megaSessionSendBlockedCopy(totalTokens: number): string {
   const label = formatMegaSessionTokenCount(totalTokens);
-  return `This chat's context is too large (~${label} tokens) to send safely. Start a fresh chat to continue.`;
+  return `This chat's context is too large (~${label} tokens) — optimizing conversation so you can keep chatting.`;
 }
 
 export function megaSessionSendWarnTitle(): string {
@@ -190,24 +190,23 @@ export function megaSessionSendWarnTitle(): string {
 export function megaSessionSendWarnMessage(totalTokens: number): string {
   const label = formatMegaSessionTokenCount(totalTokens);
   if (totalTokens >= MEGA_SESSION_TOKEN_BLOCK || totalTokens >= MEGA_CONTEXT_TOKEN_BLOCK) {
-    return `This thread's working context is about ${label} tokens — too large to send safely. Start a fresh chat (your Mac stays connected).`;
+    return `This thread's working context is about ${label} tokens — too large to send safely. Optimizing conversation (your Mac stays connected).`;
   }
-  return `This thread's working context is about ${label} tokens on your computer. New messages may take a long time or stall. Start a fresh chat instead?`;
+  return `This thread's working context is about ${label} tokens on your computer. Optimizing conversation for faster replies.`;
 }
 
 export function megaSessionForceFreshSelectCopy(totalTokens: number): string {
   const label = formatMegaSessionTokenCount(totalTokens);
-  return `This chat's context is too large (~${label} tokens) to reopen safely. Start a fresh chat instead.`;
+  return `This chat's context is too large (~${label} tokens) to reopen safely. Optimizing conversation…`;
 }
 
-/** Header chrome: only warn when mega-session classification says so (not raw cumulative 20k). */
+/**
+ * Header chrome: never use a Start-fresh homework nag as the primary large-context
+ * remedy (2026-07-22). Auto-heal owns remediation; token strip stays informative.
+ */
 export function shouldShowLargeChatHeaderWarning(
-  session: SessionTokenFields | null | undefined,
-  runInputTokens?: number | null,
+  _session: SessionTokenFields | null | undefined,
+  _runInputTokens?: number | null,
 ): boolean {
-  if (classifyMegaSession(session) !== 'normal') {
-    return true;
-  }
-  // Live run usage without session api_call_count — treat as soft signal only above warn floor.
-  return (runInputTokens ?? 0) >= MEGA_SESSION_TOKEN_WARN;
+  return false;
 }
