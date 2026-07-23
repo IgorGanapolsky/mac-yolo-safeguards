@@ -4,6 +4,18 @@ import { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent, useCallbac
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
+type ContinuityUsage = {
+  used: number;
+  baseLimit: number;
+  bonus: number;
+  limit: number;
+  remaining: number;
+  windowDays: number;
+  cloudAccess: boolean;
+  plan: string;
+  packConfigured: boolean;
+  packRuns: number;
+};
 type Device = {
   id: string;
   name: string;
@@ -91,12 +103,15 @@ function clampSidebarWidth(width: number) {
 export default function DashboardClient() {
   const [user, setUser] = useState<User | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
+  const [continuityUsage, setContinuityUsage] = useState<ContinuityUsage | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
   const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
   const [prompt, setPrompt] = useState("");
+  /** Where this task should run: Mac, Continuity VPS, or auto offline failover. */
+  const [routePreference, setRoutePreference] = useState<"local" | "cloud" | "auto">("auto");
   const [pairCode, setPairCode] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -171,8 +186,10 @@ export default function DashboardClient() {
       window.location.replace(`/api/auth/login?return_to=${encodeURIComponent(returnTo)}`);
       return;
     }
-    const identity = await me.json() as { user: User; organization: Organization };
-    setUser(identity.user); setOrganization(identity.organization);
+    const identity = await me.json() as { user: User; organization: Organization; continuityUsage?: ContinuityUsage };
+    setUser(identity.user);
+    setOrganization(identity.organization);
+    setContinuityUsage(identity.continuityUsage ?? null);
     const [deviceResponse, threadResponse, taskResponse] = await Promise.all([
       fetch("/api/devices", { cache: "no-store" }), fetch("/api/threads", { cache: "no-store" }), fetch("/api/tasks", { cache: "no-store" }),
     ]);
@@ -243,9 +260,22 @@ export default function DashboardClient() {
   async function createTask(event: FormEvent) {
     event.preventDefault(); if (!prompt.trim()) return;
     setBusy(true); setNotice(null);
-    const response = await fetch("/api/tasks", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt, threadId: selectedThread, idempotencyKey: crypto.randomUUID() }) });
-    const body = await response.json() as { task?: { route: string; threadId: string }; error?: string };
-    setNotice(response.ok && body.task ? `Task routed ${body.task.route}.` : body.error ?? "Task routing failed");
+    const response = await fetch("/api/tasks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        prompt,
+        threadId: selectedThread,
+        idempotencyKey: crypto.randomUUID(),
+        routePreference,
+      }),
+    });
+    const body = await response.json() as { task?: { route: string; threadId: string; preference?: string }; error?: string };
+    setNotice(
+      response.ok && body.task
+        ? `Task routed ${body.task.route}${body.task.preference ? ` (${body.task.preference})` : ""}.`
+        : body.error ?? "Task routing failed",
+    );
     if (response.ok && body.task) { setPrompt(""); setSelectedThread(body.task.threadId); await load(); }
     setBusy(false);
   }
@@ -275,9 +305,27 @@ export default function DashboardClient() {
     const body = await response.json() as { error?: string }; setNotice(response.ok ? "Cloud failover approved." : body.error ?? "Failover failed"); await load();
   }
 
+  async function buyContinuityPack() {
+    setBusy(true);
+    setNotice(null);
+    const response = await fetch("/api/billing/checkout", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "pack" }),
+    });
+    const body = await response.json() as { url?: string; error?: string };
+    if (response.ok && body.url) window.location.href = body.url;
+    else setNotice(body.error ?? "Run pack checkout unavailable");
+    setBusy(false);
+  }
+
   async function subscribe() {
     setBusy(true);
-    const response = await fetch("/api/billing/checkout", { method: "POST" });
+    const response = await fetch("/api/billing/checkout", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "subscription" }),
+    });
     const body = await response.json() as { url?: string; error?: string };
     if (response.ok && body.url) window.location.href = body.url; else setNotice(body.error ?? "Checkout is unavailable");
     setBusy(false);
@@ -488,9 +536,42 @@ export default function DashboardClient() {
         <nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">
           <a className="metric-card" href="#web-settings" aria-label={`View ${devices.length} paired machines in settings`}><span>Paired machines</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>View machines →</b></a>
           <a className="metric-card" href="#task-activity" aria-label={`View ${activeTasks.length} active tasks`}><span>Active tasks</span><strong>{activeTasks.length}</strong><small>{tasks.filter((task) => task.route === "cloud" && !terminal.has(task.status)).length} routed to cloud</small><b>View activity →</b></a>
-          <a className="metric-card" href="#task-activity" aria-label={`View task receipts; P95 completion is ${latency(p95CompletionLatency)}`}><span>P95 completion</span><strong>{latency(p95CompletionLatency)}</strong><small>{p95CompletionLatency === null ? "Waiting for completed runs" : "Measured from real task receipts"}</small><b>View receipts →</b></a>
+          <a className="metric-card" href="#continuity-usage" aria-label={continuityUsage?.cloudAccess ? `Continuity usage ${continuityUsage.used} of ${continuityUsage.limit} runs` : "Continuity usage unavailable"}><span>Continuity runs</span><strong>{continuityUsage?.cloudAccess ? `${continuityUsage.used}/${continuityUsage.limit}` : "—"}</strong><small>{continuityUsage?.cloudAccess ? `${continuityUsage.remaining} left · ${continuityUsage.windowDays}d window${continuityUsage.bonus ? ` · +${continuityUsage.bonus} pack` : ""}` : "Trial or Pro required"}</small><b>Usage details →</b></a>
           <a className="metric-card" href="#execution-safety" aria-label="Explain fenced execution safety" onClick={() => setSafetyExpanded(true)}><span>Execution safety</span><strong className="safe-copy">Fenced</strong><small>One signed runner; 90-second lease</small><b>Explain safety →</b></a>
         </nav>
+        {continuityUsage?.cloudAccess && (
+          <section className="panel continuity-usage-panel" id="continuity-usage">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">CONTINUITY</p>
+                <h2>Included VPS runs</h2>
+              </div>
+              <span>{continuityUsage.remaining} remaining</span>
+            </div>
+            <p className="helper-copy">
+              Flat Continuity plan includes {continuityUsage.baseLimit} cloud runs every {continuityUsage.windowDays} days
+              {continuityUsage.bonus > 0 ? ` plus ${continuityUsage.bonus} from packs` : ""}.
+              Used {continuityUsage.used} of {continuityUsage.limit}.
+              Pick <strong>Continuity (VPS)</strong> on any task to spend a run — not only when a Mac is offline.
+            </p>
+            <div className="continuity-usage-bar" aria-hidden="true">
+              <i style={{ width: `${continuityUsage.limit ? Math.min(100, Math.round((continuityUsage.used / continuityUsage.limit) * 100)) : 0}%` }} />
+            </div>
+            {continuityUsage.remaining === 0 && (
+              <p className="helper-copy">
+                Included runs are used up.
+                {continuityUsage.packConfigured
+                  ? ` Buy a +${continuityUsage.packRuns} run pack, or wait for the next window.`
+                  : " Wait for the next 30-day window, or ask ops to enable run packs (STRIPE_CONTINUITY_PACK_PRICE_ID)."}
+              </p>
+            )}
+            {continuityUsage.packConfigured && (
+              <button type="button" className="button button-secondary button-small" disabled={busy} onClick={() => void buyContinuityPack()}>
+                Buy +{continuityUsage.packRuns} Continuity runs →
+              </button>
+            )}
+          </section>
+        )}
 
         <div className="dashboard-grid">
           <section className="panel task-panel" id="hermes-console">
@@ -505,14 +586,43 @@ export default function DashboardClient() {
                   : null,
               ])}
             </div>}
-            <form className="composer" onSubmit={createTask}><textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Tell Hermes what to do next…" rows={4} /><div><small>{devices.length ? "Routes to your paired machine or fenced cloud runner" : "Pair a machine before creating a task"}</small><button className="button button-primary button-small" disabled={busy || !devices.length}>Run task →</button></div></form>
+            <form className="composer" onSubmit={createTask}>
+              <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Tell Hermes what to do next…" rows={4} />
+              <div className="composer-route" role="group" aria-label="Where to run this task">
+                <span className="composer-route-label">Run on</span>
+                <label className={routePreference === "local" ? "is-selected" : ""}>
+                  <input type="radio" name="routePreference" value="local" checked={routePreference === "local"} onChange={() => setRoutePreference("local")} />
+                  My Mac
+                </label>
+                <label className={routePreference === "cloud" ? "is-selected" : ""} title={organization?.cloudAccess ? "Fenced Continuity VPS even if a Mac is online" : "Requires Continuity trial or Pro"}>
+                  <input type="radio" name="routePreference" value="cloud" checked={routePreference === "cloud"} onChange={() => setRoutePreference("cloud")} disabled={!organization?.cloudAccess} />
+                  Continuity (VPS)
+                </label>
+                <label className={routePreference === "auto" ? "is-selected" : ""}>
+                  <input type="radio" name="routePreference" value="auto" checked={routePreference === "auto"} onChange={() => setRoutePreference("auto")} />
+                  Auto (Mac, then offline policy)
+                </label>
+              </div>
+              <div>
+                <small>
+                  {!devices.length
+                    ? "Pair a machine before creating a task"
+                    : routePreference === "cloud"
+                      ? "Always Continuity VPS for this task (Mac may stay idle)"
+                      : routePreference === "local"
+                        ? "Always your paired Mac (blocks if offline — no silent Continuity)"
+                        : "Mac while online; Continuity only if offline policy says so"}
+                </small>
+                <button className="button button-primary button-small" disabled={busy || !devices.length}>Run task →</button>
+              </div>
+            </form>
             <div className="task-list" id="task-activity">{visibleTasks.length === 0 ? <div className="empty-state"><Mark /><h3>No tasks yet</h3><p>Pair a machine, then continue a Hermes thread from anywhere.</p></div> : visibleTasks.map((task) => <article key={task.id} className="dashboard-task"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time></div><h3>{task.threadTitle}</h3><p>{task.prompt}</p><div className="task-foot"><span>{task.route === "cloud" ? "☁ Cloud runner" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>{["needs_failover", "offline_blocked"].includes(task.status) && <button onClick={() => void failover(task.id)}>Continue in cloud →</button>}</div>{task.result && <><pre>{task.result}</pre>{feedbackControls(task.id)}</>}{task.error && <div className="task-error">{task.error}</div>}</article>)}</div>
           </section>
 
           <aside className="right-rail">
             <section className="panel connection-panel" id="leash-control">
               <div className="panel-heading"><div><p className="eyebrow">CONNECTION</p><h2>{onlineDevices.length ? "Connector online" : devices.length ? "Connector reconnecting" : "Pair your first machine"}</h2></div><span>{onlineDevices.length ? "LIVE" : devices.length ? "RETRYING" : "STEP 1 OF 3"}</span></div>
-              <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "KeepAlive is retrying automatically" : "Run the one-command connector installer"}</strong><p>{devices.length ? "Tasks stay local while reachable and follow each machine's offline policy when it disappears." : "The installer creates a device key, opens this approval page with the code filled, and starts an always-on service."}</p></div></div>
+              <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "KeepAlive is retrying automatically" : "Run the one-command connector installer"}</strong><p>{devices.length ? "Pick My Mac or Continuity (VPS) on every task. Auto still uses each machine's offline policy when the lid closes." : "The installer creates a device key, opens this approval page with the code filled, and starts an always-on service."}</p></div></div>
               {!devices.length && <div className="installer-command"><code>{connectorInstallCommand}</code><button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy one-line installer"}</button></div>}
               {!devices.length && <div className="account-recovery"><p>Signed in as <strong>{user.email}</strong>. If your machines are paired to another email, switch accounts here.</p><form action="/api/auth/logout" method="post"><button className="button button-secondary button-small">Switch account</button></form></div>}
               <ol className="dashboard-setup-steps"><li className={devices.length ? "is-done" : "is-current"}><span>1</span>Install connector</li><li className={devices.length ? "is-done" : ""}><span>2</span>Approve short code</li><li className={onlineDevices.length ? "is-done" : devices.length ? "is-current" : ""}><span>3</span>Choose offline policy</li></ol>

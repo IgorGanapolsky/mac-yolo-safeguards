@@ -16,6 +16,8 @@ export const organizations = sqliteTable("organizations", {
   name: text("name").notNull(),
   plan: text("plan", { enum: ["trial", "pro", "team", "suspended"] }).notNull().default("trial"),
   trialEndsAt: integer("trial_ends_at"),
+  /** Extra Continuity runs from pack purchases (added to plan included quota). */
+  cloudTaskBonus: integer("cloud_task_bonus").notNull().default(0),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });

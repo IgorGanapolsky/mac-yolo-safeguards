@@ -8,6 +8,7 @@ import {
 import { db } from "@/lib/runtime";
 import { evaluateCloudPromptToolPolicy } from "@/lib/cloud-tool-policy";
 import { jsonError } from "@/lib/security";
+import { decideTaskRoute, parseRoutePreference } from "@/lib/task-routing";
 
 interface DeviceRoute {
   id: string;
@@ -37,8 +38,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   let session;
   try { session = await requireSession(); } catch { return jsonError("sign in required", 401); }
-  const org = await db().prepare("SELECT plan, trial_ends_at AS trialEndsAt FROM organizations WHERE id = ?")
-    .bind(session.organizationId).first<{ plan: string; trialEndsAt: number | null }>();
+  const org = await db().prepare(
+    "SELECT plan, trial_ends_at AS trialEndsAt, COALESCE(cloud_task_bonus, 0) AS cloudTaskBonus FROM organizations WHERE id = ?",
+  ).bind(session.organizationId).first<{ plan: string; trialEndsAt: number | null; cloudTaskBonus: number }>();
   if (!org || org.plan === "suspended") {
     const decision = evaluateTaskAdmission({
       organization: org ?? { plan: "suspended", trialEndsAt: null },
@@ -56,10 +58,16 @@ export async function POST(request: Request) {
     return governanceError(decision);
   }
   const payload = await request.json().catch(() => null) as {
-    prompt?: string; threadId?: string; deviceId?: string; idempotencyKey?: string;
+    prompt?: string;
+    threadId?: string;
+    deviceId?: string;
+    idempotencyKey?: string;
+    /** local = Mac only; cloud = Continuity always; auto = offline failover (default). */
+    routePreference?: string;
   } | null;
   const prompt = payload?.prompt?.trim().slice(0, 24_000);
   if (!prompt) return jsonError("prompt is required");
+  const preference = parseRoutePreference(payload?.routePreference);
 
   const device = payload?.deviceId
     ? await db().prepare(
@@ -70,15 +78,12 @@ export async function POST(request: Request) {
         `SELECT id, failover_mode AS failoverMode, last_seen_at AS lastSeenAt FROM devices
           WHERE organization_id = ? AND revoked_at IS NULL ORDER BY last_seen_at DESC NULLS LAST, created_at DESC LIMIT 1`
       ).bind(session.organizationId).first<DeviceRoute>();
+  // Continuity-only runs still need a paired device id for org/thread ownership.
   if (!device) return jsonError("pair a Hermes machine before starting work", 409);
 
-  const online = Boolean(device.lastSeenAt && Date.now() - device.lastSeenAt < 60_000);
-  let status: string;
-  let route: "local" | "cloud" | "blocked";
-  if (online) { status = "local_pending"; route = "local"; }
-  else if (device.failoverMode === "auto") { status = "cloud_pending"; route = "cloud"; }
-  else if (device.failoverMode === "manual") { status = "needs_failover"; route = "blocked"; }
-  else { status = "offline_blocked"; route = "blocked"; }
+  const decisionRoute = decideTaskRoute({ preference, device });
+  const status = decisionRoute.status;
+  const route = decisionRoute.route;
 
   if (route === "cloud") {
     const toolPolicy = evaluateCloudPromptToolPolicy(prompt);
@@ -104,6 +109,7 @@ export async function POST(request: Request) {
       activeTasks: usage?.activeTasks ?? 0,
       cloudTasks: usage?.cloudTasks ?? 0,
     },
+    cloudTaskBonus: org.cloudTaskBonus,
     now,
   });
   if (!decision.allowed) {
@@ -167,9 +173,21 @@ export async function POST(request: Request) {
     metadata: {
       route,
       status,
+      preference,
       deviceId: device.id,
       ...governanceAuditMetadata(decision, { stage: "admission", route }),
     },
   });
-  return Response.json({ task: { id: taskId, threadId, prompt, status, route, deviceId: device.id, createdAt: now } }, { status: 201 });
+  return Response.json({
+    task: {
+      id: taskId,
+      threadId,
+      prompt,
+      status,
+      route,
+      preference,
+      deviceId: device.id,
+      createdAt: now,
+    },
+  }, { status: 201 });
 }
