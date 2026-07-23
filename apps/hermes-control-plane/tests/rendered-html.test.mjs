@@ -29,7 +29,9 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /Free control\. Paid continuity\./);
   assert.match(page, /Web Control/);
   assert.match(page, /Cloud Continuity/);
-  assert.match(page, /Continue with Google or Apple/);
+  assert.match(page, /Continue with Google today/);
+  assert.doesNotMatch(page, /Continue with Google or Apple/);
+  assert.match(page, /still proving out in real use/);
   assert.match(page, /by ThumbGate/);
   assert.match(page, /Your Hermes work/);
   assert.match(page, /Leash/);
@@ -86,7 +88,6 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(chrome, /data-funnel-event=\{isSession \? "dashboard_open_click" : "sign_in_click"\}/);
   assert.equal((chrome.match(/"sign_in_click"/g) ?? []).length, 1);
   assert.equal((chrome.match(/fetch\("\/api\/me"/g) ?? []).length, 1);
-  assert.match(page, /90s<\/strong><span>execution lease/);
   assert.match(page, /application\/ld\+json/);
   assert.match(page, /SoftwareApplication/);
   assert.match(page, /RemoteControlDiagram/);
