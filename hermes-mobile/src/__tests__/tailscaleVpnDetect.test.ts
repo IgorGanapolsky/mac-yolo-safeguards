@@ -34,6 +34,47 @@ describe('tailscaleVpnDetect', () => {
     ).toBe(true);
   });
 
+  it('Samsung wifi+LAN NetInfo alone is not Tailscale-on (tun0 invisible to NetInfo)', () => {
+    expect(
+      isTailscaleVpnActive({
+        netInfoType: 'wifi',
+        isConnected: true,
+        ipAddress: '192.168.68.120',
+      }),
+    ).toBe(false);
+  });
+
+  it('treats successful 100.x peer probe as Tailscale-on even when NetInfo says wifi+LAN', () => {
+    expect(
+      isTailscaleVpnActive({
+        netInfoType: 'wifi',
+        isConnected: true,
+        ipAddress: '192.168.68.120',
+        reachedTailscaleHost: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('reads Samsung wifi+LAN NetInfoState with completed Tailscale reachability', () => {
+    const samsungWifiLan = {
+      type: 'wifi',
+      isConnected: true,
+      isInternetReachable: true,
+      details: {
+        ipAddress: '192.168.68.120',
+        subnet: '255.255.255.0',
+        ssid: 'Home',
+        bssid: null,
+        frequency: 5200,
+        strength: 99,
+        isConnectionExpensive: false,
+      },
+    } as unknown as NetInfoState;
+
+    expect(isTailscaleVpnActiveFromNetInfo(samsungWifiLan)).toBe(false);
+    expect(isTailscaleVpnActiveFromNetInfo(samsungWifiLan, true)).toBe(true);
+  });
+
   it('never infers VPN from probing alone — only from a completed reach hit', () => {
     expect(
       isTailscaleVpnActive({

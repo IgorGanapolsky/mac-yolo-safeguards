@@ -64,14 +64,21 @@ export function resolveComputerPickerStatus(
     const title = input.scanProgress
       ? formatLanScanStageLabel(input.scanProgress)
       : 'Searching for your computer…';
+    // Successful 100.x / *.ts.net discoveries (or a completed probe) prove the
+    // tunnel is up even when Samsung NetInfo stays on wifi+LAN (2026-07-23).
+    const provenTailscaleOn =
+      input.tailscaleVpnActive ||
+      discoveries.length > 0 ||
+      (input.scanResult?.tailscaleCount ?? 0) > 0;
     return {
       kind: 'searching',
       title,
-      detail:
-        input.tailscaleVpnActive
-          ? 'Looking on Wi‑Fi and Tailscale. Keep Hermes open on your computer.'
-          : 'Looking on Wi‑Fi. Tailscale is off on this phone.',
-      discoveries: [],
+      detail: provenTailscaleOn
+        ? 'Looking on Wi‑Fi and Tailscale. Keep Hermes open on your computer.'
+        : 'Looking on Wi‑Fi. Checking Tailscale…',
+      // Surface Add chips mid-scan when discovery already found Tailscale peers
+      // (e.g. 2 computers counted) instead of hiding them until scan ends.
+      discoveries: provenTailscaleOn ? discoveries : [],
     };
   }
 

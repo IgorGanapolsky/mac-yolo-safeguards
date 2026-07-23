@@ -13,7 +13,7 @@ Two concrete failure modes hit dogfood on 2026-07-21 (S25, 5G, VPN key icon lit)
 
 | Symptom | Root cause | Fix in this change |
 |--------|------------|--------------------|
-| Banner **“Tailscale is off on this phone”** while system VPN key is on | `GatewayContext` used `NetInfo.type === 'vpn'`. Samsung keeps `type=cellular` even with `tun0` `100.x` up. | Multi-signal `tailscaleVpnDetect` + reachability override after a successful Tailscale host probe; preflight before `probing=true` so picker copy does not flash false-off |
+| Banner **“Tailscale is off on this phone”** while system VPN key is on | `GatewayContext` used `NetInfo.type === 'vpn'`. Samsung keeps `type=cellular` even with `tun0` `100.x` up. **Also (2026-07-23):** Samsung on home Wi‑Fi keeps `type=wifi` + LAN IP while tun0 `100.70.124.54` is Active — NetInfo never exposes the CGNAT address. | Multi-signal `tailscaleVpnDetect` + reachability override after a successful Tailscale host probe; preflight / scan-time `reachedTailscaleHostRef` flip; Choose-computer mid-scan never asserts “off” until proven; discoveries keep Add chips while scanning |
 | Only one Mac / **Cannot reach** on MagicDNS | Stale MagicDNS node (bare name offline for weeks) vs live `*-1` rename / CGNAT IP; probe list not expanded | `expandTailnetProbeHosts` adds bare ↔ `-1` MagicDNS siblings; prefer probing stored CGNAT IPs alongside names |
 | Mini missing from picker | Never in phone probe list / saved profiles (not a Tailscale ACL block — phone `curl` to both Macs `:8642/health` → 200) | Expansion + re-pair seeding; Find computers probes expanded hosts |
 

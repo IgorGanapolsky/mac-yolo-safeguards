@@ -48,7 +48,69 @@ describe('computerPickerStatus', () => {
     });
     expect(status.kind).toBe('searching');
     expect(status.title).toMatch(/Checking direct Hermes links|Searching for Hermes/);
-    expect(status.discoveries).toEqual([]);
+    expect(status.detail).toMatch(/Wi‑Fi and Tailscale/);
+    // Mid-scan: keep Add chips when discovery already found Tailscale peers.
+    expect(status.discoveries).toEqual([discovery]);
+  });
+
+  it('does not claim Tailscale is off mid-scan when Samsung NetInfo false-negatives VPN', () => {
+    const status = resolveComputerPickerStatus({
+      scanning: true,
+      scanProgress: scanningProgress,
+      scanResult: null,
+      showScanResult: false,
+      tailscaleProbing: false,
+      tailscaleVpnActive: false,
+      tailscaleDiscoveries: [],
+    });
+    expect(status.kind).toBe('searching');
+    expect(status.detail).toBe('Looking on Wi‑Fi. Checking Tailscale…');
+    expect(status.detail).not.toMatch(/Tailscale is off/i);
+  });
+
+  it('treats mid-scan Tailscale discoveries as proof Tailscale is on (wifi NetInfo false-off)', () => {
+    const mini = {
+      ...discovery,
+      gatewayUrl: 'http://100.94.135.78:8642',
+      label: 'Igors-Mac-mini',
+    };
+    const pro = {
+      ...discovery,
+      gatewayUrl: 'http://100.87.85.85:8642',
+      label: 'Igors-MacBook-Pro',
+      localIp: '100.87.85.85',
+    };
+    const status = resolveComputerPickerStatus({
+      scanning: true,
+      scanProgress: {
+        ...scanningProgress,
+        foundCount: 2,
+      },
+      scanResult: null,
+      showScanResult: false,
+      tailscaleProbing: true,
+      // Samsung: NetInfo still wifi+LAN so vpnActive stays false until probe flips it.
+      tailscaleVpnActive: false,
+      tailscaleDiscoveries: [mini, pro],
+    });
+    expect(status.kind).toBe('searching');
+    expect(status.detail).toMatch(/Wi‑Fi and Tailscale/);
+    expect(status.detail).not.toMatch(/Tailscale is off/i);
+    expect(status.discoveries).toHaveLength(2);
+  });
+
+  it('treats scanResult.tailscaleCount as Tailscale-on during scanning without NetInfo vpn', () => {
+    const status = resolveComputerPickerStatus({
+      scanning: true,
+      scanProgress: scanningProgress,
+      scanResult,
+      showScanResult: true,
+      tailscaleProbing: false,
+      tailscaleVpnActive: false,
+      tailscaleDiscoveries: [],
+    });
+    expect(status.detail).toMatch(/Wi‑Fi and Tailscale/);
+    expect(status.detail).not.toMatch(/Tailscale is off/i);
   });
 
   it('shows a single Tailscale searching line when probing with no discoveries', () => {

@@ -2625,6 +2625,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       const preScanTailnet = tailnetProbeHostsRef.current.length
         ? tailnetProbeHostsRef.current
         : await tailnetProbeStorage.load();
+      // Parallel Tailscale preflight while LAN scan runs so Samsung wifi+LAN
+      // NetInfo cannot keep the Choose-computer banner on a false "off" state.
+      void probeTailscaleComputersRef.current({ showUi: false, force: true });
       const { gateways: discovered, tailnetProbeHosts } = await discoverAllGatewaysOnLan(
         lastLanIp,
         {
@@ -2644,6 +2647,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       // Probe known Tailscale hosts for their /health hostname so raw 100.x CGNAT IPs show the
       // real machine name instead of a nameless "Computer <IP>". Reuses the
       // existing per-host probe; unreachable hosts return null and are skipped.
+      // A successful 100.x hit also flips VPN-active immediately so Choose-computer
+      // does not keep "Tailscale is off" while Samsung NetInfo reports wifi+LAN.
       if (tailnetProbeHostsRef.current.length > 0) {
         try {
           const namedTailscale = await discoverTailscaleGateways(tailnetProbeHostsRef.current);
@@ -2652,9 +2657,19 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
               state = upsertDiscoveredProfile(state, item, false);
             }
           }
+          if (
+            namedTailscale.some((item) => isTailscaleGatewayUrl(item.gatewayUrl)) ||
+            discovered.some((item) => isTailscaleGatewayUrl(item.gatewayUrl))
+          ) {
+            reachedTailscaleHostRef.current = true;
+            updateTailscaleVpnActive();
+          }
         } catch {
           // Naming is best-effort; a probe failure must never break discovery.
         }
+      } else if (discovered.some((item) => isTailscaleGatewayUrl(item.gatewayUrl))) {
+        reachedTailscaleHostRef.current = true;
+        updateTailscaleVpnActive();
       }
       state = dedupeGatewayProfiles(state);
       const active = activeProfile(state);
@@ -2703,7 +2718,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setProfileScanProgress(null);
       void probeTailscaleComputersRef.current({ showUi: false, force: false });
     }
-  }, [persistDiscoveredGatewayUrl]);
+  }, [persistDiscoveredGatewayUrl, updateTailscaleVpnActive]);
 
   const probeTailscaleComputers = useCallback(
     async (options?: ProbeTailscaleComputersOptions) => {
