@@ -1539,11 +1539,11 @@ describe('ChatScreen', () => {
     expect(getByTestId('mac-picker-status-region-help-link')).toBeTruthy();
     expect(getByText('Missing another computer?')).toBeTruthy();
     expect(queryByTestId('mac-picker-status-region')).toBeNull();
+    expect(getByTestId('mac-picker-status-region-slot')).toBeTruthy();
     expect(getByTestId('mac-picker-manual-input-row')).not.toHaveStyle({
       flexDirection: 'column',
     });
   });
-
   it('keeps one computer-picker status region instead of stacking discovery banners', async () => {
     Object.assign(mockGatewayState, {
       tailscaleDiscoveryProbing: true,

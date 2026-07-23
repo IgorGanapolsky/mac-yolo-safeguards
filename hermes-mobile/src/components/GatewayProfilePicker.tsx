@@ -14,6 +14,7 @@ import {
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { colors } from '../theme/colors';
 import { GATEWAY_AUTH_REPAIR_SETTINGS_STATUS } from '../services/gatewayClient';
+import { COMPUTER_PICKER_LIST_MIN_HEIGHT } from '../utils/computerPickerStatus';
 
 type GatewayProfilePickerProps = {
   profiles: GatewayProfile[];
@@ -69,6 +70,7 @@ export default function GatewayProfilePicker({
   });
   const multiMac = pickerProfiles.length > 1;
   const showRouteHints = showReachabilityHints || multiMac;
+  const selectedCount = pickerProfiles.filter((p) => p.id === selectedProfileId).length;
 
   return (
     <View>
@@ -81,7 +83,22 @@ export default function GatewayProfilePicker({
         </Text>
       ) : null}
       {pickerProfiles.length > 0 ? (
-        <View style={[styles.list, dense ? styles.listDense : null]} testID="gateway-profile-list">
+        <View
+          style={[
+            styles.list,
+            dense ? styles.listDense : null,
+            dense
+              ? {
+                  minHeight: Math.max(
+                    COMPUTER_PICKER_LIST_MIN_HEIGHT,
+                    pickerProfiles.length * 64,
+                  ),
+                }
+              : null,
+          ]}
+          testID="gateway-profile-list"
+          accessibilityValue={{ text: `selected:${selectedCount}` }}
+        >
       {pickerProfiles.map((profile) => {
         // Selection is a single profile id — never paint Connected/radio from reachability alone.
         const isActive = profile.id === selectedProfileId;
@@ -204,7 +221,7 @@ const styles = StyleSheet.create({
   listDense: {
     gap: 8,
     marginTop: 0,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   row: {
     flexDirection: 'column',
@@ -222,21 +239,23 @@ const styles = StyleSheet.create({
     minHeight: 72,
     paddingVertical: 16,
     paddingHorizontal: 16,
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.borderLight,
     backgroundColor: 'rgba(255, 255, 255, 0.045)',
   },
   selectButtonDense: {
-    gap: 10,
-    minHeight: 56,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 14,
+    gap: 12,
+    minHeight: 60,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
   },
   selectButtonActive: {
-    borderColor: colors.accent,
-    backgroundColor: 'rgba(34, 211, 238, 0.09)',
+    // Soft selection — avoid thick teal frame that fights status cards.
+    borderWidth: 1,
+    borderColor: 'rgba(34, 211, 238, 0.45)',
+    backgroundColor: 'rgba(34, 211, 238, 0.08)',
   },
   selectDot: {
     width: 20,
@@ -278,8 +297,8 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   metaDense: {
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 12,
+    lineHeight: 16,
     marginTop: 0,
   },
   metaConnected: {
