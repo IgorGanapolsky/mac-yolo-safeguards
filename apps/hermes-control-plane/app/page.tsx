@@ -92,6 +92,10 @@ export default function Home() {
           <p className="mini-caption">Includes a self-improving firewall: your thumbs feedback quietly becomes approval gates over time.</p>
           <p className="mini-caption">Hermes Web by ThumbGate. Sign in with email or Google today — more providers activate once configured.</p>
           <div className="trust-row"><span>No inbound ports</span><span>Private-key pairing</span><span>Cloud only when enabled</span></div>
+          <div className="hero-store-links">
+            <a href="/go/android" className="store-link" data-funnel-event="play_store_click">Get it on Google Play</a>
+            <a href="/go/ios" className="store-link" data-funnel-event="app_store_click">Download on the App Store</a>
+          </div>
         </div>
 
         <nav className="hero-console hero-actions-panel" aria-label="Private workspace actions">
