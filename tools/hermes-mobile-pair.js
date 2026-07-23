@@ -419,7 +419,14 @@ function buildLivePairHtml({
     ? 'On cellular: install Tailscale on this phone and your computer, then scan this QR (it opens over Tailscale). USB cable pairing auto-opens Hermes without a scan. Stock Camera cannot open hermes:// links by itself.'
     : 'Scan this QR with your phone camera on the same Wi‑Fi or with Tailscale on. On cellular without Tailscale, the QR cannot reach your computer — that is expected.';
   const gatewayLabel = usbPrimary ? 'USB gateway (cable only)' : 'Your computer';
-  const safeDeepLink = String(deepLink || '').replace(/'/g, "\\'");
+  // JSON.stringify gives a complete, correctly-ordered JS string literal
+  // (handles backslashes before quotes, control chars, everything) — the
+  // previous hand-rolled `.replace(/'/g, "\\'")` only escaped `'` and left
+  // `\` itself unescaped, so a deepLink ending in a backslash could break out
+  // of the surrounding `'...'` literal inside the inline <script> below. The
+  // extra `</` -> `<\/` swap stops the value from prematurely closing the
+  // </script> tag it's embedded in, which JSON.stringify alone doesn't guard.
+  const safeDeepLink = JSON.stringify(String(deepLink || '')).replace(/<\//g, '<\\/');
   const remainingLabel = formatRemainingLabel(remainingMs);
   const refreshSec = Math.max(5, Math.round(refreshMs / 1000));
   const livePageHint = pageUrl
@@ -477,7 +484,7 @@ function buildLivePairHtml({
 
       var expiresAt = ${Number(expiresAt) || 0};
       var refreshMs = ${Number(refreshMs) || 60000};
-      var deepLink = '${safeDeepLink}';
+      var deepLink = ${safeDeepLink};
       var pageUrl = ${JSON.stringify(pageUrl || '')};
       var statusEl = document.getElementById('status');
       var ttlEl = document.getElementById(isPhone ? 'ttl-value' : 'ttl-value-mac');
