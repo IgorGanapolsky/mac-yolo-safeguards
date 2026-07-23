@@ -2,6 +2,7 @@ import {
   isEmptyTranscriptWithSessionMeta,
   resolveMessageHydrateCredentials,
   resolveProfileSwitchRestorePlan,
+  shouldSkipBackgroundSessionReload,
 } from '../utils/profileSwitchSessionRestore';
 
 describe('profileSwitchSessionRestore', () => {
@@ -79,6 +80,16 @@ describe('profileSwitchSessionRestore', () => {
     ).toEqual({
       gatewayUrl: 'http://100.87.85.85:8642',
       apiKey: 'pro-key',
+    });
+  });
+
+  describe('P0 2026-07-23: background reload race clobbers the restored thread', () => {
+    it('skips background session reload while an intentional profile switch is in flight', () => {
+      expect(shouldSkipBackgroundSessionReload(true)).toBe(true);
+    });
+
+    it('allows normal background reload (reconnect/heal) outside a switch', () => {
+      expect(shouldSkipBackgroundSessionReload(false)).toBe(false);
     });
   });
 });
