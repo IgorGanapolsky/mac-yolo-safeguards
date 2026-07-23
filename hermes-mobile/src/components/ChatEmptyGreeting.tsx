@@ -13,9 +13,22 @@ export function greetingForTime(date = new Date()): string {
   return 'Good evening';
 }
 
+/** Header transport chips worth echoing in the empty greeting. */
+export function resolveGreetingTransportLabel(
+  machineEndpoint?: string | null,
+): string | undefined {
+  const first = machineEndpoint?.split(' · ')[0]?.trim();
+  if (first === 'USB' || first === 'Tailscale' || first === 'Home Wi‑Fi') {
+    return first;
+  }
+  return undefined;
+}
+
 type ChatEmptyGreetingProps = {
   /** Only for routes not already shown in the chat header (e.g. unpaired relay). */
   routeLabel?: string;
+  /** Active path chip from header SSoT (USB / Tailscale / Home Wi‑Fi). */
+  transportLabel?: string;
   isConnected?: boolean;
   /** Bootstrap / silent heal — avoid flashing unreachable copy on cold start. */
   connectionPending?: boolean;
@@ -26,8 +39,10 @@ export function greetingSubtitle(
   routeLabel?: string,
   isConnected = false,
   connectionPending = false,
+  transportLabel?: string,
 ): string {
   const route = routeLabel?.trim();
+  const transport = resolveGreetingTransportLabel(transportLabel);
   const isGeneric = route
     ? /^(mac|computer|your mac|your computer|my mac|mac via usb|computer via usb|mac via network|http|https)$/i.test(route)
     : false;
@@ -44,6 +59,9 @@ export function greetingSubtitle(
   // share truth (dual-state crisis: green Connected + heal flag still true).
   if (isConnected) {
     if (route && !isGeneric) {
+      if (transport) {
+        return `Ask anything — connected via ${route} · ${transport}.`;
+      }
       return `Ask anything — connected via ${route}.`;
     }
     return 'Ask anything.';
@@ -66,12 +84,18 @@ export function greetingSubtitle(
 
 export default function ChatEmptyGreeting({
   routeLabel,
+  transportLabel,
   isConnected = false,
   connectionPending = false,
   testID = 'chat-empty-greeting',
 }: ChatEmptyGreetingProps) {
   const greeting = greetingForTime();
-  const subtitle = greetingSubtitle(routeLabel, isConnected, connectionPending);
+  const subtitle = greetingSubtitle(
+    routeLabel,
+    isConnected,
+    connectionPending,
+    transportLabel,
+  );
 
   return (
     <View style={styles.wrap} testID={testID}>
