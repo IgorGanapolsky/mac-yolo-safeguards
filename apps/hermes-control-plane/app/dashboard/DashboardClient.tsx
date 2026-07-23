@@ -115,7 +115,36 @@ export default function DashboardClient() {
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
   const [feedbackDialog, setFeedbackDialog] = useState<{ taskId: string; note: string } | null>(null);
   const [feedbackBusyTask, setFeedbackBusyTask] = useState<string | null>(null);
+  /** Bottom-tab highlight on phone: path + hash, not always-Hermes. */
+  const [mobileTab, setMobileTab] = useState<"hermes" | "leash" | "lessons" | "settings">("hermes");
   const autoSelectedThread = useRef(false);
+
+  useEffect(() => {
+    function syncMobileTab() {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      if (path.includes("/dashboard/lessons")) {
+        setMobileTab("lessons");
+        return;
+      }
+      if (hash === "#leash-control" || hash === "#execution-safety") {
+        setMobileTab("leash");
+        return;
+      }
+      if (hash === "#web-settings") {
+        setMobileTab("settings");
+        return;
+      }
+      setMobileTab("hermes");
+    }
+    syncMobileTab();
+    window.addEventListener("hashchange", syncMobileTab);
+    window.addEventListener("popstate", syncMobileTab);
+    return () => {
+      window.removeEventListener("hashchange", syncMobileTab);
+      window.removeEventListener("popstate", syncMobileTab);
+    };
+  }, []);
 
   useEffect(() => {
     const storedPreference = window.localStorage.getItem(chatRailPreferenceKey);
@@ -521,23 +550,33 @@ export default function DashboardClient() {
               ])}
             </div>}
             <form className="composer" onSubmit={createTask}>
-              <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Tell Hermes what to do next…" rows={4} />
+              <textarea
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+                placeholder="Tell Hermes what to do next…"
+                rows={3}
+                enterKeyHint="send"
+                aria-label="Message for Hermes"
+              />
               <div className="composer-route" role="group" aria-label="Where to run this task">
                 <span className="composer-route-label">Run on</span>
                 <label className={routePreference === "local" ? "is-selected" : ""}>
                   <input type="radio" name="routePreference" value="local" checked={routePreference === "local"} onChange={() => setRoutePreference("local")} />
-                  My Mac
+                  <span className="route-label-full">My Mac</span>
+                  <span className="route-label-short">Mac</span>
                 </label>
                 <label className={routePreference === "cloud" ? "is-selected" : ""} title={organization?.cloudAccess ? "Fenced Continuity VPS even if a Mac is online" : "Requires Continuity trial or Pro"}>
                   <input type="radio" name="routePreference" value="cloud" checked={routePreference === "cloud"} onChange={() => setRoutePreference("cloud")} disabled={!organization?.cloudAccess} />
-                  Continuity (VPS)
+                  <span className="route-label-full">Continuity (VPS)</span>
+                  <span className="route-label-short">Continuity</span>
                 </label>
                 <label className={routePreference === "auto" ? "is-selected" : ""}>
                   <input type="radio" name="routePreference" value="auto" checked={routePreference === "auto"} onChange={() => setRoutePreference("auto")} />
-                  Auto (Mac, then offline policy)
+                  <span className="route-label-full">Auto (Mac first)</span>
+                  <span className="route-label-short">Auto</span>
                 </label>
               </div>
-              <div>
+              <div className="composer-actions">
                 <small>
                   {!devices.length
                     ? "Pair a machine before creating a task"
@@ -545,9 +584,11 @@ export default function DashboardClient() {
                       ? "Always Continuity VPS for this task (Mac may stay idle)"
                       : routePreference === "local"
                         ? "Always your paired Mac (blocks if offline — no silent Continuity)"
-                        : "Mac while online; Continuity only if offline policy says so"}
+                        : "Mac while online; if offline, use each Mac’s offline setting"}
                 </small>
-                <button className="button button-primary button-small" disabled={busy || !devices.length}>Run task →</button>
+                <button className="button button-primary button-small composer-run" disabled={busy || !devices.length || !prompt.trim()}>
+                  Run task →
+                </button>
               </div>
             </form>
             <div className="task-list" id="task-activity">{visibleTasks.length === 0 ? <div className="empty-state"><Mark /><h3>No tasks yet</h3><p>Pair a machine, then continue a Hermes thread from anywhere.</p></div> : visibleTasks.map((task) => <article key={task.id} className="dashboard-task"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time></div><h3>{task.threadTitle}</h3><p>{task.prompt}</p><div className="task-foot"><span>{task.route === "cloud" ? "☁ Cloud runner" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>{["needs_failover", "offline_blocked"].includes(task.status) && <button onClick={() => void failover(task.id)}>Continue in cloud →</button>}</div>{task.result && <><pre>{task.result}</pre>{feedbackControls(task.id)}</>}{task.error && <div className="task-error">{task.error}</div>}</article>)}</div>
@@ -616,10 +657,10 @@ export default function DashboardClient() {
         </div>
       </section>
       <nav className="mobile-web-tabs" aria-label="Hermes workspace">
-        <a href="#hermes-console"><b aria-hidden="true">H</b><span>Hermes</span></a>
-        <a href="#leash-control"><b aria-hidden="true">✓</b><span>Leash</span></a>
-        <a href="/dashboard/lessons"><b aria-hidden="true">👍</b><span>Lessons</span></a>
-        <a href="#web-settings"><b aria-hidden="true">≡</b><span>Settings</span></a>
+        <a href="#hermes-console" className={mobileTab === "hermes" ? "is-active" : undefined} aria-current={mobileTab === "hermes" ? "page" : undefined} onClick={() => setMobileTab("hermes")}><b aria-hidden="true">H</b><span>Hermes</span></a>
+        <a href="#leash-control" className={mobileTab === "leash" ? "is-active" : undefined} aria-current={mobileTab === "leash" ? "page" : undefined} onClick={() => setMobileTab("leash")}><b aria-hidden="true">✓</b><span>Leash</span></a>
+        <a href="/dashboard/lessons" className={mobileTab === "lessons" ? "is-active" : undefined} aria-current={mobileTab === "lessons" ? "page" : undefined} onClick={() => setMobileTab("lessons")}><b aria-hidden="true">👍</b><span>Lessons</span></a>
+        <a href="#web-settings" className={mobileTab === "settings" ? "is-active" : undefined} aria-current={mobileTab === "settings" ? "page" : undefined} onClick={() => setMobileTab("settings")}><b aria-hidden="true">≡</b><span>Settings</span></a>
       </nav>
       {feedbackDialog && <div className="chat-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target && !feedbackBusyTask) setFeedbackDialog(null); }}>
         <form className="chat-dialog feedback-dialog" role="dialog" aria-modal="true" aria-labelledby="feedback-dialog-title" onSubmit={(event) => { event.preventDefault(); void saveFeedback(feedbackDialog.taskId, "down", feedbackDialog.note); }}>

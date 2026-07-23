@@ -136,7 +136,18 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   assert.match(dashboard, /href="#hermes-console"/);
   assert.match(dashboard, /href="#leash-control"/);
   assert.match(dashboard, /href="#web-settings"/);
+  assert.match(dashboard, /mobileTab === "hermes"/);
+  assert.match(dashboard, /className=\{mobileTab === "settings" \? "is-active"/);
   assert.match(globals, /@media\(max-width:700px\)[\s\S]*\.mobile-web-tabs/);
+  assert.match(globals, /task-panel \.composer/);
+  assert.match(globals, /position:fixed/);
+  assert.match(globals, /--mobile-tab-h/);
+  assert.match(globals, /safe-area-inset-bottom/);
+  assert.match(globals, /\.mobile-web-tabs a\.is-active/);
+  assert.doesNotMatch(globals, /\.mobile-web-tabs a:first-child\{color/);
+  assert.match(dashboard, /route-label-short/);
+  assert.match(dashboard, /composer-actions/);
+  assert.match(dashboard, /composer-run/);
 });
 
 test("renders the configured Stripe price instead of duplicating marketing price copy", () => {
@@ -186,7 +197,7 @@ test("lets users choose Mac vs Continuity VPS on every task not only offline fai
   assert.match(dashboard, /routePreference/);
   assert.match(dashboard, /Continuity \(VPS\)/);
   assert.match(dashboard, /My Mac/);
-  assert.match(dashboard, /Auto \(Mac, then offline policy\)/);
+  assert.match(dashboard, /Auto \(Mac first\)/);
   assert.match(dashboard, /aria-label="Where to run this task"/);
   assert.match(tasksRoute, /routePreference/);
   assert.match(tasksRoute, /decideTaskRoute/);
