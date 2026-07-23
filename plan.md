@@ -423,6 +423,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- `hermes-mobile/src/utils/megaSessionAutoHeal.ts`, `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/components/ChatScreenHeader.tsx`, `hermes-mobile/src/utils/sessionTokenGuards.ts`, `hermes-mobile/src/utils/weakLocalModel.ts`, `hermes-mobile/src/__tests__/megaSessionAutoHeal.test.ts`, `hermes-mobile/src/__tests__/ChatScreenHeader.test.tsx`, `hermes-mobile/src/__tests__/sessionTokenGuards.test.ts`, `hermes-mobile/src/__tests__/weakLocalModel.test.ts`, `plan.md` → **cursor-mega-auto-heal** (T-MEGA-AUTO-HEAL-20260722 land #828) (2026-07-23T11:50:00Z)
 - `hermes-mobile/src/constants/monetization.ts`, `hermes-mobile/src/__tests__/ProUpgradeCard.test.tsx`, `plan.md` → **claude-code** (T-THUMBGATE-DOMAIN-FIX-20260722: THUMBGATE_PRO_URL/THUMBGATE_WEB_SUBSCRIPTION_URL pointed at thumbgate.ai — an unrelated $499 consulting product — instead of thumbgate.app; fix only, no other monetization/paywall copy changes) (2026-07-22T19:30:00Z)
 
 - `scripts/install-hermes-academic-research-agent.sh`, `com.igor.hermes-academic-research-agent.plist`, `tests/test-hermes-academic-research-ingest.js`, `plan.md` → **codex-hermes-academic-launchd** (T-HERMES-ACADEMIC-LAUNCHD-NODE-20260722: replace launchd-invisible `/usr/bin/env node` with an installer-resolved absolute Node executable and prove live exit 0) (2026-07-22T22:53:00Z)
@@ -1683,3 +1684,5 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - 2026-07-22T22:32:38Z `cursor-asc-upload-pinfix`: ASC upload workflow run 29963099153 `startup_failure` in 1s with 0 jobs — `ruby/setup-ruby@4f8a715e...` 404 on GitHub API; pin to `v1.321.0` SHA `95ef2b04`.
 - 2026-07-22T22:41:24Z `cursor-asc-skip-previews`: ASC upload run 29963587788 failed: fastlane SyncAppPreviews `get_edit_app_store_version` nil on READY_FOR_SALE while `ASC_USE_LIVE_VERSION=1`. Skip `--app_preview_path` for live/CI screenshot uploads.
 
+
+- `T-MEGA-AUTO-HEAL-20260722` → **done** (landed via #828 rebase 2026-07-23; silent context rotate, no Start-fresh nag)

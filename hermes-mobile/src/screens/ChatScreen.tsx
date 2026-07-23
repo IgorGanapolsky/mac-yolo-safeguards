@@ -312,20 +312,19 @@ import {
 } from '../utils/deadRunDetection';
 import {
   classifyMegaSession,
-  isMegaSession,
   isMegaSessionSendBlocked,
   sessionTotalTokens,
-  megaSessionBannerCopy,
   megaSessionDisplayTokens,
-  megaSessionForceFreshSelectCopy,
-  megaSessionSendWarnMessage,
-  megaSessionSendWarnTitle,
   shouldAutoFreshAndResendOnMegaBlock,
   shouldForceFreshOnSessionSelect,
-  shouldSuggestFreshOnSessionSelect,
 } from '../utils/sessionTokenGuards';
 import {
-  compactionStallBannerCopy,
+  megaSessionOptimizingCopy,
+  selectRecentTurnsForDisplay,
+  shouldKeepLocalHistoryAfterAutoHeal,
+  shouldTriggerMegaAutoHeal,
+} from '../utils/megaSessionAutoHeal';
+import {
   isSummarizationStub,
   lastTurnIsCompactionStall,
   shouldAutoOfferFreshOnCompactionStall,
@@ -642,9 +641,11 @@ export default function ChatScreen() {
   const intentionalProfileSwitchRef = useRef(false);
   const switchingSessionIdRef = useRef<string | null>(null);
   const [isSending, setIsSending] = useState(false);
-  /** True while Start fresh chat is forking/stopping — show spinner so tap isn't silent. */
+  /** True while auto-heal / Start fresh is rotating model context — show Optimizing… */
   const [isStartingFreshChat, setIsStartingFreshChat] = useState(false);
   const isStartingFreshChatRef = useRef(false);
+  /** Keep recent visible turns after silent mega auto-heal until the new session has server history. */
+  const preserveLocalTranscriptRef = useRef(false);
   /** Pending vault/local handoff so a fresh chat can pick up where the last session left off. */
   const [continuityHandoff, setContinuityHandoff] = useState<SessionContinuityHandoff | null>(null);
   const continuityHandoffRef = useRef<SessionContinuityHandoff | null>(null);
@@ -767,7 +768,7 @@ export default function ChatScreen() {
   const pinScrollAfterHydrationRef = useRef(false);
   const messagesRef = useRef<HermesMessage[]>([]);
   const compactionFreshOfferSessionIdRef = useRef<string | null>(null);
-  const megaSessionSuggestFreshOfferedRef = useRef<string | null>(null);
+  const megaAutoHealedSessionIdRef = useRef<string | null>(null);
   const sessionsLoadGenRef = useRef(0);
   const prevMacChatLiveRef = useRef<boolean | null>(null);
   const sendStartedAtRef = useRef(Date.now());
@@ -2807,8 +2808,10 @@ export default function ChatScreen() {
     }) => {
       const activeSession = currentSessionRef.current;
       if (!activeSession) {
-        transcriptDigestRef.current = '';
-        setMessages([]);
+        if (!preserveLocalTranscriptRef.current) {
+          transcriptDigestRef.current = '';
+          setMessages([]);
+        }
         return;
       }
 
@@ -2880,7 +2883,21 @@ export default function ChatScreen() {
         if (currentSessionRef.current?.id !== requestedSessionId) {
           return;
         }
-        const reconciled = reconcileChatHistory(merged, messagesRef.current);
+        const localBefore = messagesRef.current;
+        if (
+          shouldKeepLocalHistoryAfterAutoHeal({
+            preserveLocalTranscript: preserveLocalTranscriptRef.current,
+            serverMessageCount: merged.length,
+            localRecentCount: localBefore.length,
+          })
+        ) {
+          // New session still empty — keep recent turns visible after silent auto-heal.
+          return;
+        }
+        if (preserveLocalTranscriptRef.current && merged.length > 0) {
+          preserveLocalTranscriptRef.current = false;
+        }
+        const reconciled = reconcileChatHistory(merged, localBefore);
         const resolved = clearResolvedFailedOutboundStatuses(reconciled);
         // Refresh bypasses commitMessages — still collapse gateway-acked + user-* echo pairs.
         const nextMessages = dedupeAdjacentOptimisticUserBubbles(resolved.messages);
@@ -3999,23 +4016,27 @@ export default function ChatScreen() {
   };
 
   /**
-   * Leave mega/stalled thread → empty compose surface.
-   * Busy spinner via isStartingFreshChat; draft+attachments survive handleNewChat clear.
+   * Rotate model context (mega auto-heal or explicit Start fresh).
+   * Busy spinner via isStartingFreshChat; draft+attachments + recent turns survive.
    */
-  const handleStartFreshChat = useCallback(async (): Promise<boolean> => {
+  const handleStartFreshChat = useCallback(
+    async (options?: { preserveVisibleHistory?: boolean }): Promise<boolean> => {
     if (isStartingFreshChatRef.current) {
       return false;
     }
     isStartingFreshChatRef.current = true;
     setIsStartingFreshChat(true);
     haptics.selection();
+    const preserveVisibleHistory = options?.preserveVisibleHistory !== false;
+    const recentTurns = preserveVisibleHistory
+      ? selectRecentTurnsForDisplay(messagesRef.current)
+      : [];
     const preservedText = captureComposerTextForFreshChat(inputValueRef.current);
     const attachmentsToRestore = [...composerAttachmentsRef.current];
     try {
-      // Capture continuity before wiping transcript so the next chat can continue.
+      // Capture continuity before wiping model context so the next chat can continue.
       await persistContinuityFromCurrentThread();
       // Kill zombie "Delivering…" / mega-token banner: clear local run state AND best-effort stop Mac run.
-      // (Previously only null'd runProgress while isChatStreamActive + sendProgressSnapshotRef kept the UI alive.)
       const stopIds = [
         runProgressRef.current?.runId,
         sendProgressSnapshotRef.current?.runId,
@@ -4031,9 +4052,17 @@ export default function ChatScreen() {
       setPinnedOutboundSentAt(null);
       setPinnedOutboundStatus('pending');
       setErrorMessage(null);
-      setMessages([]);
-      messagesRef.current = [];
-      transcriptDigestRef.current = '';
+      if (recentTurns.length === 0) {
+        setMessages([]);
+        messagesRef.current = [];
+        transcriptDigestRef.current = '';
+        preserveLocalTranscriptRef.current = false;
+      } else {
+        messagesRef.current = recentTurns;
+        setMessages(recentTurns);
+        transcriptDigestRef.current = transcriptDigest(recentTurns);
+        preserveLocalTranscriptRef.current = true;
+      }
       setToolStatus(null);
       setRecentChatsDismissed(true);
 
@@ -4046,11 +4075,15 @@ export default function ChatScreen() {
         }
       }
 
-      // Always open an empty compose-first chat. Gateway `/fork` copies transcript
-      // (mega sessions → multi-million-token clones + long hangs); "Start fresh" means empty.
-      // Preserve whatever the user already typed so they do not retype after Start fresh.
+      // Open a new compose session without forking mega transcript onto the Mac.
       currentSessionRef.current = null;
       await handleNewChat({ preserveComposer: true });
+      if (recentTurns.length > 0) {
+        messagesRef.current = recentTurns;
+        setMessages(recentTurns);
+        transcriptDigestRef.current = transcriptDigest(recentTurns);
+        preserveLocalTranscriptRef.current = true;
+      }
       if (shouldRestoreComposerAfterFreshChat(preservedText)) {
         pendingFreshComposerTransferRef.current = preservedText;
         inputValueRef.current = preservedText;
@@ -4076,8 +4109,7 @@ export default function ChatScreen() {
   ]);
 
   /**
-   * warn-level only. Hard-block is handled by shouldAutoFreshAndResendOnMegaBlock
-   * (auto fresh + continue send) so the typed draft is never dropped on a hung alert.
+   * warn/block → silent auto-heal + continue send (no homework alert).
    */
   const confirmMegaSessionSend = useCallback(async (): Promise<'allow' | 'fresh' | 'cancel'> => {
     const session = currentSessionRef.current;
@@ -4085,30 +4117,8 @@ export default function ChatScreen() {
     if (level === 'normal') {
       return 'allow';
     }
-    if (level === 'block') {
-      // Hard-block: only path is a new chat. Auto-fresh so Send can deliver the typed draft.
-      return 'fresh';
-    }
-    const total = megaSessionDisplayTokens(session);
-    return new Promise<'allow' | 'fresh' | 'cancel'>((resolve) => {
-      Alert.alert(megaSessionSendWarnTitle(), megaSessionSendWarnMessage(total), [
-        { text: 'Start fresh chat', style: 'default', onPress: () => resolve('fresh') },
-        { text: 'Send anyway', style: 'destructive', onPress: () => resolve('allow') },
-        { text: 'Cancel', style: 'cancel', onPress: () => resolve('cancel') },
-      ]);
-    });
+    return 'fresh';
   }, []);
-
-  const megaSessionWarning = useMemo(() => {
-    const total = megaSessionDisplayTokens(currentSession);
-    if (lastTurnIsCompactionStall(messages)) {
-      return compactionStallBannerCopy(total);
-    }
-    if (!isMegaSession(currentSession)) {
-      return null;
-    }
-    return megaSessionBannerCopy(total);
-  }, [currentSession, messages]);
 
   const showEmptyStreamRefreshBanner = useMemo(
     () => !isDemo && macChatLive && shouldShowEmptyStreamRefreshCta(messages),
@@ -4129,8 +4139,37 @@ export default function ChatScreen() {
 
   const megaSessionSendHardBlocked = isMegaSessionSendBlocked(currentSession);
 
+  // Silent mega auto-heal: rotate model context when warn/block — no Start-fresh nag.
   useEffect(() => {
-    if (isDemo || isSending || runProgress) {
+    if (isDemo || isSending || runProgress || isStartingFreshChat) {
+      return;
+    }
+    const sessionId = currentSession?.id ?? null;
+    const level = classifyMegaSession(currentSession);
+    if (
+      !shouldTriggerMegaAutoHeal({
+        level,
+        sessionId,
+        alreadyHealedSessionId: megaAutoHealedSessionIdRef.current,
+        isBusy: false,
+      })
+    ) {
+      return;
+    }
+    megaAutoHealedSessionIdRef.current = sessionId;
+    void handleStartFreshChat({ preserveVisibleHistory: true });
+  }, [
+    currentSession,
+    handleStartFreshChat,
+    isDemo,
+    isSending,
+    isStartingFreshChat,
+    runProgress,
+  ]);
+
+  // Compaction stall → silent auto-heal (coord: chatCompactionHandoff display SSOT in PR #810).
+  useEffect(() => {
+    if (isDemo || isSending || runProgress || isStartingFreshChat) {
       return;
     }
     const sessionId = currentSession?.id ?? null;
@@ -4145,12 +4184,17 @@ export default function ChatScreen() {
       return;
     }
     compactionFreshOfferSessionIdRef.current = sessionId;
-    const total = megaSessionDisplayTokens(currentSession);
-    Alert.alert('Chat stalled after summarization', compactionStallBannerCopy(total), [
-      { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
-      { text: 'Keep waiting', style: 'cancel' },
-    ]);
-  }, [currentSession, handleStartFreshChat, isDemo, isSending, messages, runProgress]);
+    megaAutoHealedSessionIdRef.current = sessionId;
+    void handleStartFreshChat({ preserveVisibleHistory: true });
+  }, [
+    currentSession,
+    handleStartFreshChat,
+    isDemo,
+    isSending,
+    isStartingFreshChat,
+    messages,
+    runProgress,
+  ]);
 
   const executeClearAllChats = useCallback(async () => {
     haptics.warning();
@@ -6360,9 +6404,7 @@ export default function ChatScreen() {
                 return next;
               });
               setErrorMessage(
-                summarizationStub
-                  ? compactionStallBannerCopy(megaSessionDisplayTokens(currentSessionRef.current))
-                  : EMPTY_REPLY_FAILURE_REASON,
+                summarizationStub ? megaSessionOptimizingCopy() : EMPTY_REPLY_FAILURE_REASON,
               );
             },
           });
@@ -6768,52 +6810,33 @@ export default function ChatScreen() {
     async (session: HermesSession) => {
       haptics.light();
       if (shouldForceFreshOnSessionSelect(session)) {
-        const total = megaSessionDisplayTokens(session);
-        Alert.alert('Chat too large', megaSessionForceFreshSelectCopy(total), [
-          { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
-          { text: 'Cancel', style: 'cancel' },
-        ]);
+        // Silent auto-heal — do not reopen a blocked mega thread or nag Start fresh.
+        megaAutoHealedSessionIdRef.current = session.id;
+        void handleStartFreshChat({ preserveVisibleHistory: true });
         return;
       }
 
-      const openSelectedSession = async () => {
-        if (switchingSessionIdRef.current) {
-          return;
-        }
-        switchingSessionIdRef.current = session.id;
-        setSwitchingSessionId(session.id);
-        setIsLoadingMessages(true);
-        setRecentChatsDismissed(false);
-        setSessionModalVisible(false);
-        skipSessionAutoSelectRef.current = false;
-        manualSessionSelectRef.current = session.id;
-        currentSessionRef.current = session;
-        transcriptDigestRef.current = '';
-        messagesRef.current = [];
-        setMessages([]);
-        setCurrentSession(session);
-        // Load transcript immediately — do not wait on project persist (Recents taps felt dead).
-        void refreshSessionMessagesRef.current?.({ background: false, force: true });
-        if (activeProject) {
-          const next = setActiveSession(projectState, activeProject.id, session.id);
-          await persistProjectState(next);
-        }
-      };
-
-      if (
-        shouldSuggestFreshOnSessionSelect(session) &&
-        megaSessionSuggestFreshOfferedRef.current !== session.id
-      ) {
-        megaSessionSuggestFreshOfferedRef.current = session.id;
-        const total = sessionTotalTokens(session);
-        Alert.alert('Large chat session', megaSessionSendWarnMessage(total), [
-          { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
-          { text: 'Open anyway', onPress: () => void openSelectedSession() },
-        ]);
+      if (switchingSessionIdRef.current) {
         return;
       }
-
-      await openSelectedSession();
+      switchingSessionIdRef.current = session.id;
+      setSwitchingSessionId(session.id);
+      setIsLoadingMessages(true);
+      setRecentChatsDismissed(false);
+      setSessionModalVisible(false);
+      skipSessionAutoSelectRef.current = false;
+      manualSessionSelectRef.current = session.id;
+      currentSessionRef.current = session;
+      transcriptDigestRef.current = '';
+      messagesRef.current = [];
+      setMessages([]);
+      setCurrentSession(session);
+      // Load transcript immediately — do not wait on project persist (Recents taps felt dead).
+      void refreshSessionMessagesRef.current?.({ background: false, force: true });
+      if (activeProject) {
+        const next = setActiveSession(projectState, activeProject.id, session.id);
+        await persistProjectState(next);
+      }
     },
     [activeProject, handleStartFreshChat, projectState, persistProjectState],
   );
@@ -7530,7 +7553,7 @@ export default function ChatScreen() {
             fallbackModel={progressBannerFallbackModel}
             showTechnicalStats={settings.includeToolActivity}
             compact={keyboardOpen}
-            megaSessionWarning={megaSessionWarning}
+            megaSessionWarning={null}
             sessionTokens={sessionTotalTokens(currentSession)}
             macHttpOk={effectiveMacHttpOk}
             onSwitchMac={() => setMacPickerVisible(true)}
@@ -7558,33 +7581,18 @@ export default function ChatScreen() {
             terminalToolName={operatorTerminalLine?.toolName}
             terminalPreview={operatorTerminalLine?.text}
           />
-        ) : megaSessionWarning || isStartingFreshChat ? (
-          <View style={styles.megaSessionBanner} testID="mega-session-banner">
-            <Text style={styles.megaSessionBannerText}>
-              {isStartingFreshChat
-                ? 'Starting a fresh chat on your computer…'
-                : megaSessionWarning}
-            </Text>
-            <Pressable
-              onPress={() => void handleStartFreshChat()}
-              disabled={isStartingFreshChat}
-              accessibilityState={{ busy: isStartingFreshChat, disabled: isStartingFreshChat }}
-              style={({ pressed }) => [
-                styles.megaSessionBannerAction,
-                isStartingFreshChat && styles.megaSessionBannerActionBusy,
-                pressed && !isStartingFreshChat && styles.megaSessionBannerActionPressed,
-              ]}
-              testID="mega-session-start-fresh-chat"
-            >
-              {isStartingFreshChat ? (
-                <View style={styles.megaSessionBannerActionRow} testID="mega-session-start-fresh-spinner">
-                  <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={styles.megaSessionBannerActionText}>Starting…</Text>
-                </View>
-              ) : (
-                <Text style={styles.megaSessionBannerActionText}>Start fresh chat</Text>
-              )}
-            </Pressable>
+        ) : isStartingFreshChat ? (
+          <View
+            style={styles.megaSessionBanner}
+            testID="mega-session-banner"
+            accessibilityState={{ busy: isStartingFreshChat }}
+          >
+            <View style={styles.megaSessionBannerActionRow} testID="mega-session-start-fresh-spinner">
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.megaSessionBannerText} testID="mega-session-optimizing">
+                {megaSessionOptimizingCopy()}
+              </Text>
+            </View>
           </View>
         ) : null}
 
@@ -7665,9 +7673,11 @@ export default function ChatScreen() {
           onBlur={handleInputBlur}
           onSubmit={handleSubmit}
           placeholder={
-            megaSessionSendHardBlocked
-              ? 'Chat too large — start a fresh chat'
-              : inputPlaceholder
+            isStartingFreshChat
+              ? megaSessionOptimizingCopy()
+              : megaSessionSendHardBlocked
+                ? megaSessionOptimizingCopy()
+                : inputPlaceholder
           }
           sendMuted={
             megaSessionSendHardBlocked ||

@@ -10,7 +10,6 @@ import {
   displayableLlmModel,
 } from '../utils/runProgressDisplay';
 import { weakLocalModelWarning } from '../utils/weakLocalModel';
-import { shouldShowLargeChatHeaderWarning } from '../utils/sessionTokenGuards';
 import ExpandableThreadTitle from './ExpandableThreadTitle';
 
 type ChatScreenHeaderProps = {
@@ -181,10 +180,6 @@ export default function ChatScreenHeader({
     displayableLlmModel(runProgress?.model) ??
     displayableLlmModel(gatewayModel);
   const localModelWarning = weakLocalModelWarning(resolvedModel);
-  const hugeContext = shouldShowLargeChatHeaderWarning(
-    currentSession,
-    runProgress?.inputTokens,
-  );
   const modelTokenStrip = link.connected
     ? buildConnectedModelTokenLabel({
         sessionModel: currentSession?.model,
@@ -306,11 +301,6 @@ export default function ChatScreenHeader({
       {localModelWarning ? (
         <Text style={styles.modelWarning} testID="chat-header-weak-model-warning">
           {localModelWarning}
-        </Text>
-      ) : null}
-      {hugeContext && !localModelWarning ? (
-        <Text style={styles.modelWarning} testID="chat-header-poisoned-context-warning">
-          This chat is large — Start fresh chat so the model cannot keep drifting from old context.
         </Text>
       ) : null}
     </View>

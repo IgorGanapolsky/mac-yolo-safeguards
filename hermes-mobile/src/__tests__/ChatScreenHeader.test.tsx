@@ -61,8 +61,8 @@ describe('ChatScreenHeader', () => {
     expect(queryByTestId('chat-header-poisoned-context-warning')).toBeNull();
   });
 
-  it('warns when estimated working context is huge', () => {
-    const { getByTestId } = render(
+  it('does not nag Start fresh when estimated working context is huge', () => {
+    const { queryByTestId } = render(
       <ChatScreenHeader
         threadTitle="Deploy fix"
         machineLabel="MacBook Pro"
@@ -81,7 +81,7 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
-    expect(getByTestId('chat-header-poisoned-context-warning').props.children).toMatch(/Start fresh/i);
+    expect(queryByTestId('chat-header-poisoned-context-warning')).toBeNull();
   });
 
   it('always shows secondary chrome and transport without a caret toggle', () => {

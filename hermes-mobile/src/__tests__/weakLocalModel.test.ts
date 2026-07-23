@@ -20,10 +20,11 @@ describe('weakLocalModel', () => {
     expect(isWeakLocalCodingModel('hermes-agent')).toBe(false);
   });
 
-  it('returns actionable warning copy for weak models', () => {
+  it('returns actionable warning copy for weak models without Start-fresh homework', () => {
     const warning = weakLocalModelWarning('qwen3.5:9b-hermes-64k');
     expect(warning).toMatch(/local worker/i);
-    expect(warning).toMatch(/Start a fresh chat/i);
+    expect(warning).toMatch(/GLM\/Claude\/GPT/i);
+    expect(warning).not.toMatch(/Start a fresh chat/i);
     expect(weakLocalModelWarning('glm-coding')).toBeNull();
   });
 
