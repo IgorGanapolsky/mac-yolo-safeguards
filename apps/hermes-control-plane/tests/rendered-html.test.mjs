@@ -89,6 +89,10 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /90s<\/strong><span>execution lease/);
   assert.match(page, /application\/ld\+json/);
   assert.match(page, /SoftwareApplication/);
+  assert.match(page, /RemoteControlDiagram/);
+  const diagram = await readFile(new URL("../app/RemoteControlDiagram.tsx", import.meta.url), "utf8");
+  assert.match(diagram, /Your phone/);
+  assert.match(diagram, /Encrypted pairing/);
   assert.doesNotMatch(page, /FAQPage|What is ThumbGate\?/);
   assert.match(robots, /disallow: \["\/dashboard", "\/api\/"\]/);
   assert.match(robots, /https:\/\/thumbgate\.app\/sitemap\.xml/);
