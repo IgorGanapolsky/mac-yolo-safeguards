@@ -9,6 +9,7 @@ import {
   dedupeGatewayProfiles,
   formatProfileLabel,
   profileDisplayName,
+  profileNeedsMachineNameEnrichment,
   stripTransportSuffixFromComputerName,
   isInvalidGatewayProfile,
   sanitizeGatewayProfileState,
@@ -1043,4 +1044,53 @@ describe('gatewayProfiles', () => {
     expect(legacyState.profiles[0].id).toBe('mac_igors_mac_mini');
     expect(legacyState.activeProfileId).toBe('mac_igors_mac_mini');
   });
+
+  it('enriches nameless Tailscale CGNAT profile to /health hostname (Choose computer title)', () => {
+    const nameless = {
+      id: 'mac_100_94_135_78',
+      label: 'Tailscale 100.94.135.78',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-23T12:00:00.000Z',
+    };
+    expect(profileDisplayName(nameless)).toBe('Tailscale 100.94.135.78');
+    expect(profileNeedsMachineNameEnrichment(nameless)).toBe(true);
+
+    const next = applyTailscaleDiscoveriesToProfileState(
+      { profiles: [nameless], activeProfileId: nameless.id },
+      [
+        {
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini.local',
+          // Poisoned LAN local_ip must not block URL match / enrich.
+          localIp: '192.168.68.60',
+          label: 'Igors-Mac-mini',
+        },
+      ],
+    );
+    const mini = next.profiles.find((p) => p.gatewayUrl.includes('100.94.135.78'))!;
+    expect(profileDisplayName(mini)).toBe('Igors-Mac-mini');
+    expect(mini.hostname).toMatch(/Igors-Mac-mini/i);
+    expect(mini.localIp).toBe('100.94.135.78');
+    expect(profileNeedsMachineNameEnrichment(mini)).toBe(false);
+  });
+
+  it('sanitize relabels Tailscale IP label once hostname is known', () => {
+    const state = sanitizeGatewayProfileState({
+      profiles: [
+        {
+          id: 'mac_100_94_135_78',
+          label: 'Tailscale 100.94.135.78',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini.local',
+          localIp: '100.94.135.78',
+          addedAt: '2026-07-23T12:00:00.000Z',
+        },
+      ],
+      activeProfileId: 'mac_100_94_135_78',
+    });
+    expect(state.profiles[0].label).toBe('Igors-Mac-mini');
+    expect(profileDisplayName(state.profiles[0])).toBe('Igors-Mac-mini');
+  });
+
 });

@@ -4,21 +4,20 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://thumbgate.app"),
   title: {
-    default: "ThumbGate — Control Your Hermes Agents From Anywhere",
+    default: "ThumbGate — Hermes dashboard & continuity",
     template: "%s | ThumbGate for Hermes",
   },
-  description: "Chat with and approve your Hermes agents from any phone or browser while your Mac does the work. Includes signed Mac pairing, optional fenced cloud continuation, and a self-improving firewall built from thumbs feedback.",
+  description: "Web remote control for Hermes agents. Free dashboard while your Mac is online; paid Continuity keeps work running on a VPS when it is offline.",
   alternates: { canonical: "/" },
   applicationName: "ThumbGate for Hermes",
   category: "developer tools",
   keywords: [
     "Hermes agent",
-    "self-improving firewall",
-    "AI agent firewall",
-    "AI agent control plane",
+    "Hermes web dashboard",
+    "AI agent remote control",
     "agent failover",
+    "cloud continuity",
     "agent observability",
-    "runaway agent safeguards",
   ],
   robots: {
     index: true,
@@ -29,19 +28,19 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://thumbgate.app/",
     siteName: "ThumbGate for Hermes",
-    title: "ThumbGate — Control Your Hermes Agents From Anywhere",
-    description: "Chat with and approve your Hermes agents from any phone or browser while your Mac does the work. Includes a self-improving firewall built from thumbs feedback.",
+    title: "ThumbGate — Hermes dashboard & continuity",
+    description: "Remote control Hermes from any browser. Continuity keeps eligible work on a VPS when your Mac is offline.",
     images: [{
       url: "/og.png",
       width: 1200,
       height: 630,
-      alt: "ThumbGate — Control Your Hermes Agents From Anywhere",
+      alt: "ThumbGate Hermes web dashboard and continuity",
     }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "ThumbGate — Control Your Hermes Agents From Anywhere",
-    description: "Chat with and approve your Hermes agents from any phone or browser while your Mac does the work.",
+    title: "ThumbGate — Hermes dashboard & continuity",
+    description: "Web remote control for Hermes. Paid Continuity when your machine is offline.",
     images: ["/og.png"],
   },
   icons: {
@@ -58,6 +57,13 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
+        {/* Display face for landing hero — Inter at 75px reads soft/generic for buyers. */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
+          rel="stylesheet"
+        />
         {/* Warm WorkOS + AuthKit before Sign in (July 2026 speed research). */}
         <link rel="preconnect" href="https://api.workos.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://api.workos.com" />

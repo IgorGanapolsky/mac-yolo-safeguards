@@ -131,7 +131,7 @@ import {
   profileMatchesHostname,
 } from '../utils/gatewayProfilePicker';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
-import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
+import { isTailnetRouteLabel, isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
 import { expandTailnetProbeHosts } from '../utils/tailnetProbeExpand';
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
 import { syncExtraProfileApiKeys } from '../utils/gatewayProfileCredentialSync';
@@ -2591,11 +2591,20 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       const state = profileStateRef.current;
+      const trimmedLabel = label.trim();
+      const friendlyName =
+        trimmedLabel &&
+        !isGenericMachineLabel(trimmedLabel) &&
+        !isTailnetRouteLabel(trimmedLabel) &&
+        !/^\d{1,3}(\.\d{1,3}){3}$/.test(trimmedLabel)
+          ? trimmedLabel.replace(/\.local$/i, '')
+          : undefined;
       const nextState = upsertDiscoveredProfile(
         state,
         {
           gatewayUrl,
-          label,
+          label: trimmedLabel || label,
+          hostname: friendlyName ? `${friendlyName}.local` : undefined,
         },
         true,
       );

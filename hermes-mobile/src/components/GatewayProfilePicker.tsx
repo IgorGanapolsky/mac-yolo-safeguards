@@ -4,18 +4,24 @@ import type { GatewayProfile } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 import MacScanProgressCard from './MacScanProgressCard';
 import {
+  dedupePickerProfilesById,
   isCablePluggedInForProfile,
   profileConnectionRouteDisplayLabel,
   profilePickerLines,
+  pickerRowKey,
+  resolveSelectedPickerProfileId,
   type LiveUsbPickerInput,
 } from '../utils/gatewayProfilePicker';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { colors } from '../theme/colors';
 import { GATEWAY_AUTH_REPAIR_SETTINGS_STATUS } from '../services/gatewayClient';
+import { COMPUTER_PICKER_LIST_MIN_HEIGHT } from '../utils/computerPickerStatus';
 
 type GatewayProfilePickerProps = {
   profiles: GatewayProfile[];
   activeProfileId: string | null;
+  /** Full active profile — used when its id was collapsed into another route row. */
+  activeProfile?: GatewayProfile | null;
   /** Prefer receiving the full profile so live USB rows (not yet saved) still select. */
   onSelect: (profileId: string, profile: GatewayProfile) => void;
   onRemove?: (profileId: string) => void;
@@ -42,6 +48,7 @@ type GatewayProfilePickerProps = {
 export default function GatewayProfilePicker({
   profiles,
   activeProfileId,
+  activeProfile = null,
   onSelect,
   onRemove,
   activeReachable = false,
@@ -58,23 +65,44 @@ export default function GatewayProfilePicker({
   dense = false,
 }: GatewayProfilePickerProps) {
   const showScanCard = !hideScanCard && Boolean(scanning || scanResult);
-  const multiMac = profiles.length > 1;
+  const pickerProfiles = dedupePickerProfilesById(profiles);
+  const selectedRowKey = resolveSelectedPickerProfileId(pickerProfiles, activeProfileId, {
+    activeProfile,
+  });
+  const multiMac = pickerProfiles.length > 1;
   const showRouteHints = showReachabilityHints || multiMac;
+  const selectedCount = pickerProfiles.filter((p) => pickerRowKey(p) === selectedRowKey).length;
 
   return (
     <View>
       {showScanCard ? (
         <MacScanProgressCard scanning={scanning} progress={scanProgress} result={scanResult} />
       ) : null}
-      {profiles.length === 0 && !scanning ? (
+      {pickerProfiles.length === 0 && !scanning ? (
         <Text style={styles.emptyText}>
           No saved computers yet. Paste a Tailscale IP above, or tap Find computers.
         </Text>
       ) : null}
-      {profiles.length > 0 ? (
-        <View style={[styles.list, dense ? styles.listDense : null]} testID="gateway-profile-list">
-      {profiles.map((profile) => {
-        const isActive = profile.id === activeProfileId;
+      {pickerProfiles.length > 0 ? (
+        <View
+          style={[
+            styles.list,
+            dense ? styles.listDense : null,
+            dense
+              ? {
+                  minHeight: Math.max(
+                    COMPUTER_PICKER_LIST_MIN_HEIGHT,
+                    pickerProfiles.length * 64,
+                  ),
+                }
+              : null,
+          ]}
+          testID="gateway-profile-list"
+          accessibilityValue={{ text: `selected:${selectedCount}` }}
+        >
+      {pickerProfiles.map((profile) => {
+        // Selection is a single row key — never paint Connected/radio from reachability alone.
+        const isActive = pickerRowKey(profile) === selectedRowKey;
         const cablePluggedIn = isCablePluggedInForProfile(profile, liveUsb);
         const lines = profilePickerLines(profile, { cablePluggedIn });
         const routeHint = showRouteHints
@@ -110,7 +138,11 @@ export default function GatewayProfilePicker({
               : colors.error
           : colors.textMuted;
         return (
-          <View key={profile.id} style={[styles.row, dense ? styles.rowDense : null]} testID={`gateway-profile-item-${profile.id}`}>
+          <View
+            key={pickerRowKey(profile)}
+            style={[styles.row, dense ? styles.rowDense : null]}
+            testID={`gateway-profile-item-${profile.id}`}
+          >
             <TouchableOpacity
               style={[
                 styles.selectButton,
@@ -156,7 +188,7 @@ export default function GatewayProfilePicker({
                 </Text>
               </View>
             </TouchableOpacity>
-            {onRemove && profiles.length > 1 && !isUsb ? (
+            {onRemove && pickerProfiles.length > 1 && !isUsb ? (
               <Pressable
                 style={({ pressed }) => [
                   styles.removeButton,
@@ -190,7 +222,7 @@ const styles = StyleSheet.create({
   listDense: {
     gap: 8,
     marginTop: 0,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   row: {
     flexDirection: 'column',
@@ -208,21 +240,23 @@ const styles = StyleSheet.create({
     minHeight: 72,
     paddingVertical: 16,
     paddingHorizontal: 16,
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.borderLight,
     backgroundColor: 'rgba(255, 255, 255, 0.045)',
   },
   selectButtonDense: {
-    gap: 10,
-    minHeight: 56,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 14,
+    gap: 12,
+    minHeight: 60,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
   },
   selectButtonActive: {
-    borderColor: colors.accent,
-    backgroundColor: 'rgba(34, 211, 238, 0.09)',
+    // Soft selection — avoid thick teal frame that fights status cards.
+    borderWidth: 1,
+    borderColor: 'rgba(34, 211, 238, 0.45)',
+    backgroundColor: 'rgba(34, 211, 238, 0.08)',
   },
   selectDot: {
     width: 20,
@@ -264,8 +298,8 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   metaDense: {
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 12,
+    lineHeight: 16,
     marginTop: 0,
   },
   metaConnected: {

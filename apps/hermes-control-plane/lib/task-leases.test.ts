@@ -23,7 +23,13 @@ function statement(sql: string, args: unknown[] = []) {
 }
 
 vi.mock("./runtime", () => ({
-  db: () => ({ prepare(sql: string) { return statement(sql); } }),
+  db: () => ({
+    prepare(sql: string) { return statement(sql); },
+    async batch(items: Array<{ run: () => Promise<unknown> }>) {
+      for (const item of items) await item.run();
+      return items.map(() => ({ meta: { changes: mocks.state.changes } }));
+    },
+  }),
 }));
 vi.mock("./audit", () => ({ audit: mocks.audit }));
 vi.mock("./security", () => ({
@@ -63,8 +69,10 @@ describe("fenced task leases", () => {
     }];
 
     expect(await claimTask({ route: "cloud", owner: "cloud:runner-1" })).toBeNull();
-    expect(mocks.state.runs[0].sql).toContain("status = 'offline_blocked', route = 'blocked'");
-    expect(mocks.state.runs[0].args[0]).toBe("Governance policy denied cloud execution: managed cloud continuation requires an active trial or subscription");
+    const denyRun = mocks.state.runs.find((run) => run.sql.includes("status = 'offline_blocked'"));
+    expect(denyRun?.sql).toContain("status = 'offline_blocked', route = 'blocked'");
+    expect(denyRun?.args[0]).toBe("Governance policy denied cloud execution: managed cloud continuation requires an active trial or subscription");
+    expect(mocks.state.runs.some((run) => run.sql.includes("status = 'cloud_pending'"))).toBe(true);
     expect(mocks.audit).toHaveBeenCalledWith(expect.objectContaining({
       action: "task.policy.denied",
       targetId: "task-1",
@@ -98,8 +106,10 @@ describe("fenced task leases", () => {
 
     const claimed = await claimTask({ route: "cloud", owner: "cloud:runner-1" });
     expect(claimed?.task).toMatchObject({ id: "task-2", leaseGeneration: 5, leaseToken: "lease-token" });
-    expect(mocks.state.runs[0].sql).toContain("cloud_budget.created_at >= ?");
-    expect(mocks.state.runs[0].args.at(-1)).toBe(100);
+    const leaseRun = mocks.state.runs.find((run) => run.sql.includes("cloud_budget.created_at >= ?"));
+    expect(leaseRun?.sql).toContain("cloud_budget.created_at >= ?");
+    expect(leaseRun?.args.at(-1)).toBe(100);
+    expect(mocks.state.runs.some((run) => run.sql.includes("status = 'cloud_pending'"))).toBe(true);
     expect(mocks.audit).toHaveBeenCalledWith(expect.objectContaining({
       action: "task.claim",
       metadata: expect.objectContaining({

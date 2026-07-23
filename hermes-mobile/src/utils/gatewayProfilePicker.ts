@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import type { GatewayProfile } from '../types/gatewayProfile';
+import { normalizeGatewayUrl } from '../services/gatewayClient';
 import { profileIdFromGatewayUrl } from '../services/gatewayProfiles';
 import {
   extractLanIpFromGatewayUrl,
@@ -311,7 +312,7 @@ function hasNamedUsbLoopbackProfile(profiles: GatewayProfile[]): boolean {
 
 export type SwitchComputerPickerOptions = {
   activeProfileId?: string | null;
-  /** Live adb-reverse probe — prefers cable path when collapsing one row per Mac. */
+  /** Live adb-reverse probe — surfaces a distinct USB row; remote aliases still collapse. */
   liveUsb?: LiveUsbPickerInput | null;
 };
 
@@ -417,6 +418,75 @@ export function resolveProfileFromPickerRows(
   return savedProfiles.find((p) => p.id === profileId) ?? null;
 }
 
+/** Stable Choose-computer row identity — id alone can collide across distinct Macs. */
+export function pickerRowKey(profile: GatewayProfile): string {
+  return `${profile.id}::${normalizeGatewayUrl(profile.gatewayUrl).httpBase}`;
+}
+
+/**
+ * Drop exact duplicate picker rows (same id + same gateway URL) so React keys stay
+ * unique. Distinct Macs that incorrectly share a profile id must both remain visible.
+ */
+export function dedupePickerProfilesById(profiles: GatewayProfile[]): GatewayProfile[] {
+  const seen = new Set<string>();
+  const out: GatewayProfile[] = [];
+  for (const profile of profiles) {
+    const key = pickerRowKey(profile);
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    out.push(profile);
+  }
+  return out;
+}
+
+/**
+ * Exactly one Choose-computer row may show as selected / Connected.
+ * Returns a pickerRowKey (id::gatewayUrl), not a bare profile id — colliding ids
+ * for distinct Macs must not light every matching radio.
+ */
+export function resolveSelectedPickerProfileId(
+  profiles: GatewayProfile[],
+  activeProfileId: string | null | undefined,
+  options: { activeProfile?: GatewayProfile | null } = {},
+): string | null {
+  if (!activeProfileId || profiles.length === 0) {
+    return null;
+  }
+  const active = options.activeProfile;
+  if (active && active.id === activeProfileId) {
+    const exactActive = profiles.find(
+      (profile) => pickerRowKey(profile) === pickerRowKey(active),
+    );
+    if (exactActive) {
+      return pickerRowKey(exactActive);
+    }
+    const activeKey = machinePickerGroupKey(active);
+    const sameMachine = profiles.find(
+      (profile) => machinePickerGroupKey(profile) === activeKey,
+    );
+    if (sameMachine) {
+      return pickerRowKey(sameMachine);
+    }
+  }
+  const idMatches = profiles.filter((profile) => profile.id === activeProfileId);
+  if (idMatches.length === 1) {
+    return pickerRowKey(idMatches[0]);
+  }
+  if (idMatches.length > 1 && active) {
+    const byUrl = idMatches.find(
+      (profile) =>
+        normalizeGatewayUrl(profile.gatewayUrl).httpBase ===
+        normalizeGatewayUrl(active.gatewayUrl).httpBase,
+    );
+    if (byUrl) {
+      return pickerRowKey(byUrl);
+    }
+  }
+  return idMatches[0] ? pickerRowKey(idMatches[0]) : null;
+}
+
 function sortUsbProfilesFirst(profiles: GatewayProfile[]): GatewayProfile[] {
   return [...profiles].sort((a, b) => {
     const aUsb = isLoopbackGatewayUrl(a.gatewayUrl);
@@ -432,8 +502,9 @@ function sortUsbProfilesFirst(profiles: GatewayProfile[]): GatewayProfile[] {
 }
 
 /**
- * Switch-computer list: one row per physical machine, regardless of saved route aliases.
- * A verified live cable wins for that machine; otherwise its active/Tailscale route wins.
+ * Switch-computer list: one row per remote alias group, plus a distinct USB row when
+ * adb reverse is live. Collapse must never hide the cable path behind Tailscale/LAN —
+ * sticky mini Tailscale stays selected, but MacBook USB remains tappable (2026-07-23).
  */
 export function profilesForSwitchComputerPicker(
   profiles: GatewayProfile[],
@@ -468,10 +539,20 @@ export function profilesForSwitchComputerPicker(
   if (hasNamedUsbLoopbackProfile(valid)) {
     valid = valid.filter((p) => !isGenericUsbLoopbackProfile(p));
   }
-  return collapseToOneProfilePerMachine(valid, {
+
+  // Keep live USB as its own selectable transport. Collapse only non-USB aliases so
+  // fleet Tailscale/LAN names still share one radio — without stealing the cable row.
+  const liveUsbRows = liveUsbReachable
+    ? valid.filter((profile) => isLoopbackGatewayUrl(profile.gatewayUrl))
+    : [];
+  const remoteRows = valid.filter((profile) => !isLoopbackGatewayUrl(profile.gatewayUrl));
+  const collapsedRemote = collapseToOneProfilePerMachine(remoteRows, {
     liveUsb,
     activeProfileId: options.activeProfileId,
   });
+  return dedupePickerProfilesById(
+    sortUsbProfilesFirst([...liveUsbRows, ...collapsedRemote]),
+  );
 }
 
 export type UsbHostMismatch = {
@@ -590,6 +671,13 @@ export function profileMatchesDiscoveredGateway(
 ): boolean {
   if (isLoopbackGatewayUrl(discovered.gatewayUrl)) {
     return false;
+  }
+  // Same gateway URL must match even when /health returned a LAN local_ip and the
+  // saved row still only has the Tailscale CGNAT address (nameless picker row).
+  const discoveredBase = normalizeGatewayUrl(discovered.gatewayUrl).httpBase;
+  const profileBase = normalizeGatewayUrl(profile.gatewayUrl).httpBase;
+  if (discoveredBase && profileBase && discoveredBase === profileBase) {
+    return true;
   }
   const hostNeedle = discovered.hostname?.trim();
   if (hostNeedle && profileMatchesHostname(profile, hostNeedle)) {
