@@ -110,6 +110,32 @@ describe('streamAssistantText', () => {
     expect(findNewAssistantReply(messages, prior)).toBe('Ship the affiliate funnel.');
   });
 
+  it('does not treat incomplete Let-me preambles as a finished reply (zero-dollars dual bubble)', () => {
+    const prior = snapshotAssistantBodies([]);
+    const messages: HermesMessage[] = [
+      { role: 'user', content: 'Why we made zero dollars?' },
+      {
+        role: 'assistant',
+        content: 'Let me check our revenue pipeline status across all active channels:',
+      },
+      {
+        role: 'assistant',
+        content: 'Let me find the actual revenue evidence and pipeline:',
+      },
+    ];
+    expect(findNewAssistantReply(messages, prior)).toBeNull();
+
+    const withAnswer: HermesMessage[] = [
+      ...messages,
+      {
+        role: 'assistant',
+        content:
+          'Cleared revenue is still $0. Stripe shows no successful charges this week; pipeline is stuck at outreach with no booked calls.',
+      },
+    ];
+    expect(findNewAssistantReply(withAnswer, prior)).toContain('Cleared revenue is still $0');
+  });
+
   it('recognizes deferred stream placeholders', () => {
     expect(isDeferredStreamPlaceholder(TELEGRAM_QUEUED_REPLY_PLACEHOLDER)).toBe(true);
     expect(

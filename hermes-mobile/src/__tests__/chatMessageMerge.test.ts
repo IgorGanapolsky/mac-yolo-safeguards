@@ -286,6 +286,29 @@ describe('mergeServerMessagesWithPending', () => {
     ).toBe(false);
   });
 
+  it('collapses device screenshot investigative preambles (zero-dollars dual Let me…)', () => {
+    const preambleA = 'Let me check our revenue pipeline status across all active channels:';
+    const preambleB = 'Let me find the actual revenue evidence and pipeline:';
+    expect(areNearDuplicateAssistantBodies(preambleA, preambleB)).toBe(true);
+
+    const messages: HermesMessage[] = [
+      { id: 'u1', role: 'user', content: 'Why we made zero dollars?' },
+      { id: 'a1', role: 'assistant', content: preambleA, created_at: '2026-07-23T13:04:00Z' },
+      { id: 'a2', role: 'assistant', content: preambleB, created_at: '2026-07-23T13:06:00Z' },
+    ];
+    const collapsed = collapseNearDuplicateAssistantTurns(messages);
+    expect(collapsed).toHaveLength(2);
+    expect(collapsed.filter((m) => m.role === 'assistant')).toHaveLength(1);
+    expect([preambleA, preambleB]).toContain(collapsed[1]?.content);
+
+    expect(
+      areNearDuplicateAssistantBodies(
+        'Let me check the weather in Brooklyn for the weekend.',
+        'Let me find the actual revenue evidence and pipeline:',
+      ),
+    ).toBe(false);
+  });
+
   it('collapses consecutive near-duplicate assistant bubbles keeping the later one', () => {
     const messages: HermesMessage[] = [
       { id: 'u1', role: 'user', content: 'Make money today' },

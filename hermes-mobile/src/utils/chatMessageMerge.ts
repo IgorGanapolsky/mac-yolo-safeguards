@@ -305,6 +305,51 @@ function tokenJaccard(a: string[], b: string[]): number {
 }
 
 /**
+ * Short "Let me check/find…" status lines that stall-recovery or multi-pass agents
+ * often emit as separate assistant rows with no real answer body.
+ * Case from device 2026-07-23: "Let me check our revenue pipeline…" vs
+ * "Let me find the actual revenue evidence and pipeline:".
+ */
+const INVESTIGATIVE_PREAMBLE_OPEN =
+  /^(let me|i will|i'll|i am going to|i'm going to|checking|looking|searching|finding|investigat)/i;
+
+function contentAssistantTokens(tokens: string[]): string[] {
+  // Drop glue words that inflate openOverlap without proving same topic.
+  return tokens.filter((token) => token.length >= 5);
+}
+
+function isInvestigativePreamble(normalized: string): boolean {
+  if (normalized.length === 0 || normalized.length > 140) {
+    return false;
+  }
+  return INVESTIGATIVE_PREAMBLE_OPEN.test(normalized);
+}
+
+/**
+ * Incomplete status-only assistant text — not a finished answer.
+ * Must not clear deferred reply polls or fire success haptics (device 2026-07-23).
+ */
+export function isIncompleteInvestigativePreamble(content: string | undefined): boolean {
+  const raw = content?.trim() ?? '';
+  if (!raw || raw.length > 140) {
+    return false;
+  }
+  const normalized = normalizeMessageText(stripInvisibleChars(raw));
+  if (!isInvestigativePreamble(normalized)) {
+    return false;
+  }
+  // Trailing colon / ellipsis / "…" = mid-thought. Short body without terminal
+  // sentence end is also treated as incomplete status.
+  if (/[:…]\s*$/.test(raw) || /\.\.\.\s*$/.test(raw)) {
+    return true;
+  }
+  if (!/[.!?]"?\s*$/.test(raw) && raw.length <= 100) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * True when two assistant bodies are the same turn paraphrased / streamed growth.
  * Catches gateway double-completions like "I'll activate your revenue engine…" vs
  * "I'll activate our revenue engines…" that exact fingerprint dedupe misses.
@@ -335,8 +380,34 @@ export function areNearDuplicateAssistantBodies(a: string, b: string): boolean {
   const maxLen = Math.max(na.length, nb.length);
   const jaccard = tokenJaccard(tokensA, tokensB);
 
+  // Short investigative preambles: require shared *topic* tokens (revenue/pipeline),
+  // not just "let" — collapses stall-recovery / second-pass "Let me check…" twins.
+  if (
+    maxLen <= 140 &&
+    isIncompleteInvestigativePreamble(a) &&
+    isIncompleteInvestigativePreamble(b)
+  ) {
+    const contentA = contentAssistantTokens(tokensA);
+    const contentB = contentAssistantTokens(tokensB);
+    if (contentA.length >= 1 && contentB.length >= 1) {
+      const contentBSet = new Set(contentB);
+      const sharedContent = contentA.filter((token) => contentBSet.has(token)).length;
+      if (sharedContent >= 2) {
+        return true;
+      }
+      // One shared domain word + weak open/jaccard still counts for very short twins.
+      if (sharedContent >= 1 && (openOverlap >= 0.25 || jaccard >= 0.15) && maxLen <= 100) {
+        return true;
+      }
+    }
+  }
+
   // Short ack-style paraphrases share openings even when body Jaccard is low (~0.2).
   if (openOverlap >= 0.5 && maxLen <= 480) {
+    return true;
+  }
+  // Slightly looser for short bodies (openOverlap 0.375 + jaccard ~0.2 from device case).
+  if (maxLen <= 120 && openOverlap >= 0.375 && jaccard >= 0.18) {
     return true;
   }
   if (openOverlap >= 0.5 && jaccard >= 0.3) {

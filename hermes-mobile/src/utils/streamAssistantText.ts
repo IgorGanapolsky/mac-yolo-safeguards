@@ -1,6 +1,10 @@
 import type { HermesMessage, HermesSession } from '../types/chat';
 import { isSummarizationStub } from './chatCompactionHandoff';
-import { isMessageDisplayEmpty, normalizeMessageText } from './chatMessageMerge';
+import {
+  isIncompleteInvestigativePreamble,
+  isMessageDisplayEmpty,
+  normalizeMessageText,
+} from './chatMessageMerge';
 import { isTelegramSession } from './sessionSelection';
 
 /** Shown when gateway returns an empty stream for a Telegram-bound session (message queued). */
@@ -215,6 +219,12 @@ export function findNewAssistantReply(
       continue;
     }
     if (isSummarizationStub(message.content)) {
+      continue;
+    }
+    // Incomplete "Let me check/find…" lines are not finished answers. Treating them
+    // as a reply clears deferred poll + success haptic, then a second pass lands as
+    // another bubble (device 2026-07-23 zero-dollars dual preamble).
+    if (isIncompleteInvestigativePreamble(message.content)) {
       continue;
     }
     const body = normalizeMessageText(message.content);
