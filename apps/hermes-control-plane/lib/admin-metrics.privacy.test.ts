@@ -9,6 +9,7 @@ describe("admin metrics privacy contract", () => {
     // Continuity list must not pull prompt/result columns into admin payload construction beyond canary detection
     expect(source).toMatch(/SELECT id, status, route, created_at/);
     expect(source).not.toMatch(/SELECT[^;]*\bprompt\b[^;]*FROM tasks[^;]*ORDER BY created_at DESC\s*LIMIT 50/s);
-    expect(source).not.toMatch(/\bip\b|\bclient_ip\b|\bremote_addr\b/i);
+    expect(source).not.toMatch(/\bclient_ip\b|\bremote_addr\b|\bip_address\b/i);
+    expect(source).toContain("ipAddresses: false");
   });
 });
