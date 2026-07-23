@@ -20,16 +20,16 @@ export type ThumbGatePromoCopy = {
 
 const SURFACE_COPY: Record<ThumbGatePromoSurface, Omit<ThumbGatePromoCopy, 'url' | 'buttonLabel'>> = {
   leash_disconnected: {
-    headline: 'Hermes on the web',
-    body: 'Sign in at ThumbGate to review Leash decisions and chat history from any browser. Your Mac still runs the work locally.',
+    headline: 'Self-Improving Firewall on the web',
+    body: 'Sign in at ThumbGate to review Leash decisions, lesson-backed gates, and chat history from any browser. Your Mac still runs the work locally.',
   },
   leash_empty: {
-    headline: 'ThumbGate on the web',
-    body: 'Review past approvals, manage your account, and open Hermes from a desktop browser.',
+    headline: 'Self-Improving Firewall',
+    body: 'Review past approvals and thumbs lessons, manage your account, and open Hermes from a desktop browser.',
   },
   connection_unreachable: {
-    headline: 'Try Hermes on the web',
-    body: 'When your phone cannot reach your computer, sign in at ThumbGate to pair a Mac and continue in the browser.',
+    headline: 'Self-Improving Firewall in the browser',
+    body: 'When your phone cannot reach your computer, sign in at ThumbGate to pair a Mac and continue in the browser—with the same lesson-backed gates.',
   },
 };
 

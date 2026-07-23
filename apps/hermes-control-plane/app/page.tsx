@@ -23,7 +23,7 @@ export default function Home() {
   const faqs = [
     {
       question: "What is ThumbGate?",
-      answer: "ThumbGate is the web control and safety layer for Hermes. It lets an authenticated user see and continue Hermes chats while the user's own Mac remains the default executor.",
+      answer: "ThumbGate is the self-improving firewall for your AI agents: approve risky Hermes tool calls, capture thumbs feedback as durable lessons, promote repeated failures into gates, re-rank relevant lessons, and improve the next decision—while your Mac stays the default executor, chats stay available on the web, and policy stays under your control.",
     },
     {
       question: "What happens when the paired Mac goes offline?",
@@ -52,7 +52,7 @@ export default function Home() {
         provider: { "@id": "https://thumbgate.app/#organization" },
         applicationCategory: "DeveloperApplication",
         operatingSystem: "Web, macOS, iOS, Android",
-        description: "Hermes chats and Leash controls on the web, with signed machine pairing and fenced cloud continuation.",
+        description: "Self-improving firewall for your AI agents: Hermes chats and Leash controls on the web, lesson-backed gates from thumbs feedback, signed machine pairing, and fenced cloud continuation.",
         offers: [
           { "@type": "Offer", name: "Web Control", price: "0", priceCurrency: "USD" },
         ],
@@ -84,9 +84,9 @@ export default function Home() {
 
       <section id="main-content" className="hero" tabIndex={-1}>
         <div className="hero-copy">
-          <p className="eyebrow"><span className="live-dot" /> Hermes-native. Web + mobile.</p>
-          <h1>Your agent, wherever you are.<br /><span>Even when your Mac isn&apos;t.</span></h1>
-          <p className="hero-lede">Chat with Hermes, approve what it&apos;s about to run, and watch it work—from your phone or any browser. Free while your Mac is on. Turn on Cloud Continuity and it keeps going even after you close the lid.</p>
+          <p className="eyebrow"><span className="live-dot" /> Self-improving firewall · Hermes-native</p>
+          <h1>Self-Improving Firewall<br /><span>for your AI agents.</span></h1>
+          <p className="hero-lede">Approve what Hermes is about to run, remember lessons from thumbs feedback, promote repeated failures into gates, re-rank relevant lessons, and improve the next decision—so the firewall improves under your control. Chat from your phone or any browser; your Mac still runs the work. Cloud Continuity keeps eligible threads going when the lid closes.</p>
           <LandingAuthHero />
           <p className="signin-note">Hermes Web by ThumbGate. Sign in with email or Google; enterprise SSO is discovered from a verified work email, and additional social providers appear only after they are configured.</p>
           <div className="trust-row"><span>No inbound ports</span><span>Private-key pairing</span><span>Cloud only when enabled</span></div>
@@ -231,7 +231,7 @@ export default function Home() {
 
       <footer>
         <Link href="/" className="brand"><Mark /><span>ThumbGate <small>Hermes Web</small></span></Link>
-        <p>Your Hermes workspace, wherever you are.</p>
+        <p>Self-Improving Firewall for your AI agents — Hermes wherever you are.</p>
       </footer>
     </main>
   );

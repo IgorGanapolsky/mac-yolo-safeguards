@@ -25,7 +25,7 @@ describe('ThumbGatePromoCard', () => {
     );
 
     expect(getByTestId('thumbgate-promo-connection_unreachable')).toBeTruthy();
-    expect(getByText('Try Hermes on the web')).toBeTruthy();
+    expect(getByText('Self-Improving Firewall in the browser')).toBeTruthy();
     expect(trackProductEvent).toHaveBeenCalledWith('thumbgate_promo_view', {
       surface: 'connection_unreachable',
     });

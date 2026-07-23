@@ -52,6 +52,8 @@ describe('ProUpgradeCard', () => {
     });
 
     expect(getByText(/one-time unlock on Google Play/i)).toBeTruthy();
+    expect(getByText(/Self-Improving Firewall for your AI agents/i)).toBeTruthy();
+    expect(getByText(/lesson-backed gates/i)).toBeTruthy();
     expect(getAllByText(/\$4\.99 once/i).length).toBeGreaterThan(0);
     expect(queryByText(/\$19/)).toBeNull();
     expect(queryByText(/Subscribe/i)).toBeNull();

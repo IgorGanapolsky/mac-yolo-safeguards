@@ -13,8 +13,9 @@ describe('thumbgatePromoCopy', () => {
 
   it('returns honest copy per surface without implying a live Mac connection', () => {
     const disconnected = thumbGatePromoCopy('leash_disconnected');
-    expect(disconnected.headline).toBe('Hermes on the web');
+    expect(disconnected.headline).toBe('Self-Improving Firewall on the web');
     expect(disconnected.body).toMatch(/Your Mac still runs the work locally/);
+    expect(disconnected.body).toMatch(/lesson-backed gates/);
 
     const unreachable = thumbGatePromoCopy('connection_unreachable');
     expect(unreachable.body).toMatch(/cannot reach your computer/i);
