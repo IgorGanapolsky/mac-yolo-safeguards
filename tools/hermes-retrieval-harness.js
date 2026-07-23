@@ -289,31 +289,75 @@ function readFileRange(options = {}) {
   };
 }
 
+// This tool's whole purpose is letting an operator search the repo with an
+// arbitrary regex, so we deliberately do NOT reject/escape metacharacters.
+// Instead we bound the blast radius of a mistyped or hostile pattern:
+//   1. reject patterns above a sane length before constructing the RegExp,
+//   2. heuristically flag classic catastrophic-backtracking shapes
+//      (nested quantifiers like `(a+)+`, `(a*)*`, or quantified alternation
+//      with overlapping branches like `(a|a)*`) so we fail fast with a clear
+//      error instead of hanging the process,
+//   3. wrap construction *and* use in a try/catch that reports a clean error
+//      instead of crashing on a malformed pattern.
+// The realistic threat here is an operator mis-typing a bad pattern and
+// hanging their own local process — not a remote attacker — so this bound is
+// intentionally pragmatic rather than a full regex-safety analyzer.
+const MAX_GREP_PATTERN_LENGTH = 500;
+const CATASTROPHIC_REGEX_SHAPES = [
+  /\([^()]*[+*][^()]*\)[+*]/, // nested quantifiers, e.g. (a+)+ or (a*)*
+  /\([^()]*\|[^()]*\)[+*]\1?/, // quantified alternation, e.g. (a|a)*
+];
+
+function assertSafeGrepPattern(rawPattern) {
+  if (rawPattern.length > MAX_GREP_PATTERN_LENGTH) {
+    throw new Error(
+      `Pattern too long (${rawPattern.length} chars, max ${MAX_GREP_PATTERN_LENGTH}) — refusing to construct RegExp.`,
+    );
+  }
+  for (const shape of CATASTROPHIC_REGEX_SHAPES) {
+    if (shape.test(rawPattern)) {
+      throw new Error(
+        'Pattern looks like it may cause catastrophic backtracking (nested/overlapping quantifiers) — refusing to run it as-is.',
+      );
+    }
+  }
+}
+
 function grep(options = {}) {
   const repo = path.resolve(options.repo || DEFAULT_REPO);
   if (!options.pattern) throw new Error('grep requires --pattern');
-  const pattern = new RegExp(options.pattern, 'i');
+  assertSafeGrepPattern(options.pattern);
+  let pattern;
+  try {
+    pattern = new RegExp(options.pattern, 'i');
+  } catch (error) {
+    throw new Error(`Invalid --pattern: ${error.message}`);
+  }
   const inventory = buildInventory(options);
   const matches = [];
-  for (const file of inventory.files) {
-    const fullPath = path.join(repo, file.path);
-    let lines;
-    try {
-      lines = fs.readFileSync(fullPath, 'utf8').split('\n');
-    } catch (error) {
-      continue;
-    }
-    for (let index = 0; index < lines.length; index += 1) {
-      if (!pattern.test(lines[index])) continue;
-      matches.push({
-        path: file.path,
-        line: index + 1,
-        text: lines[index].trim().slice(0, 360),
-      });
-      if (matches.length >= (options.limit || 20)) {
-        return { pattern: options.pattern, repo, matches };
+  try {
+    for (const file of inventory.files) {
+      const fullPath = path.join(repo, file.path);
+      let lines;
+      try {
+        lines = fs.readFileSync(fullPath, 'utf8').split('\n');
+      } catch (error) {
+        continue;
+      }
+      for (let index = 0; index < lines.length; index += 1) {
+        if (!pattern.test(lines[index])) continue;
+        matches.push({
+          path: file.path,
+          line: index + 1,
+          text: lines[index].trim().slice(0, 360),
+        });
+        if (matches.length >= (options.limit || 20)) {
+          return { pattern: options.pattern, repo, matches };
+        }
       }
     }
+  } catch (error) {
+    throw new Error(`grep failed while applying --pattern: ${error.message}`);
   }
   return { pattern: options.pattern, repo, matches };
 }
