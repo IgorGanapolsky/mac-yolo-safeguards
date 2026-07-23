@@ -540,7 +540,6 @@ export default function SettingsScreen() {
         ) : null}
         <TailscaleDiscoveryBanner
           discoveries={tailscaleDiscoveries}
-          adding={tailscaleDiscoveryProbing}
           onAdd={(discovery) => {
             void addDiscoveredTailscaleComputer(discovery);
           }}
