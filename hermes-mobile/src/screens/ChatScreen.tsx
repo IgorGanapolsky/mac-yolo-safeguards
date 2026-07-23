@@ -2216,9 +2216,9 @@ export default function ChatScreen() {
       return `Message → ${label}`;
     }
     if (isTelegramSession(currentSession)) {
-      return 'Message Hermes on this thread';
+      return 'Message ThumbGate on this thread';
     }
-    return 'Type a message to Hermes';
+    return 'Type a message to ThumbGate';
   }, [currentSession, currentSession?.id, currentSession?.source, telegramReplySessionId, sessions, isSending, queuedOutboundCount, runProgress?.phase]);
 
   useEffect(() => {
@@ -5791,7 +5791,7 @@ export default function ChatScreen() {
           ? {
               ...prev,
               phase: 'working',
-              detail: 'Hermes is working on your computer…',
+              detail: 'ThumbGate is working on your computer…',
             }
           : prev,
       );
@@ -5804,12 +5804,12 @@ export default function ChatScreen() {
           ? {
               ...prev,
               phase: 'working',
-              detail: 'Hermes is working on your computer…',
+              detail: 'ThumbGate is working on your computer…',
             }
           : {
               phase: 'working',
               startedAtMs: sendStartedAtRef.current,
-              detail: 'Hermes is working on your computer…',
+              detail: 'ThumbGate is working on your computer…',
               sessionId: targetSessionIdForProgress,
             },
       );
@@ -5885,7 +5885,7 @@ export default function ChatScreen() {
       } catch (err) {
         rollbackOutboundBubble();
         setErrorMessage(
-          'No Hermes thread is ready on this view. Pick a chat session from the dropdown, or start a new mobile session.',
+          'No ThumbGate thread is ready on this view. Pick a chat session from the dropdown, or start a new mobile session.',
         );
         applyChatApiError(err, 'Could not start a new chat on your computer.');
         releaseOutboundSendLock();
@@ -6136,12 +6136,12 @@ export default function ChatScreen() {
                 ? {
                     ...prev,
                     phase: 'working',
-                    detail: 'Hermes is working on your computer…',
+                    detail: 'ThumbGate is working on your computer…',
                   }
                 : {
                     phase: 'working',
                     startedAtMs: sendStartedAtRef.current,
-                    detail: 'Hermes is working on your computer…',
+                    detail: 'ThumbGate is working on your computer…',
                     sessionId: targetSessionIdForProgress,
                   },
             );
@@ -6313,13 +6313,13 @@ export default function ChatScreen() {
           );
         }
         if (telegramDeferred) {
-          setToolStatus('Queued on active Hermes thread — waiting for reply…');
+          setToolStatus('Queued on active ThumbGate thread — waiting for reply…');
           setRunProgress((prev) =>
             prev
               ? {
                   ...prev,
                   phase: 'running',
-                  detail: 'Queued on Hermes thread — your computer may still be running tools',
+                  detail: 'Queued on ThumbGate thread — your computer may still be running tools',
                 }
               : prev,
           );
@@ -6595,7 +6595,7 @@ export default function ChatScreen() {
             ? `${queuedOutboundCount} more message(s) queued after this`
             : isSending
               ? 'Delivering your message…'
-              : 'Hermes is working on your computer…',
+              : 'ThumbGate is working on your computer…',
         sessionId: activeId,
       };
       if (currentSession) {
@@ -8012,7 +8012,7 @@ export default function ChatScreen() {
               </TouchableOpacity>
             </View>
             <Text style={styles.modalSubtitle}>
-              Tag prompts with an AI-Agent-Sync project lane. Hermes runs tools in that repo on your computer.
+              Tag prompts with an AI-Agent-Sync project lane. ThumbGate runs tools in that repo on your computer.
             </Text>
             {vaultCatalogLoading ? (
               <ActivityIndicator size="small" color={colors.primary} style={{ marginBottom: 12 }} />

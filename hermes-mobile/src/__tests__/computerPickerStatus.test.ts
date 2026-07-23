@@ -47,7 +47,7 @@ describe('computerPickerStatus', () => {
       tailscaleDiscoveries: [discovery],
     });
     expect(status.kind).toBe('searching');
-    expect(status.title).toMatch(/Checking direct Hermes links|Searching for Hermes/);
+    expect(status.title).toMatch(/Checking direct ThumbGate links|Searching for ThumbGate/);
     expect(status.discoveries).toEqual([]);
   });
 
@@ -111,7 +111,7 @@ describe('computerPickerStatus', () => {
       tailscaleDiscoveries: [],
     });
     expect(status.kind).toBe('result');
-    expect(status.title).toBe('Found 1 local Hermes computer');
+    expect(status.title).toBe('Found 1 local ThumbGate computer');
   });
 
   it('shows Tailscale found chips only when not scanning and discoveries exist', () => {

@@ -316,7 +316,7 @@ export async function initHermesNotifications(): Promise<void> {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(CHANNEL_APPROVALS, {
       name: 'Approvals',
-      description: 'Urgent Hermes approvals with Approve and Deny actions',
+      description: 'Urgent ThumbGate approvals with Approve and Deny actions',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 220, 120, 220],
       lightColor: NOTIFICATION_COLOR,
@@ -326,7 +326,7 @@ export async function initHermesNotifications(): Promise<void> {
     // New ids — Android refuses to downgrade hermes-runs / hermes-results importance.
     await Notifications.setNotificationChannelAsync(CHANNEL_STATUS_V2, {
       name: 'Live run status (quiet)',
-      description: 'Silent status-bar updates while Hermes works — never heads-up',
+      description: 'Silent status-bar updates while ThumbGate works — never heads-up',
       importance: androidStatusChannelImportance(Notifications.AndroidImportance),
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       enableVibrate: false,
@@ -760,7 +760,7 @@ export async function scheduleRunCompletedNotification(
       !/reply ready/i.test(detail) &&
       detail.trim().length > 24 &&
       success);
-  const title = success ? (hasReplyText ? 'Hermes replied' : 'Hermes finished') : 'Hermes run stopped';
+  const title = success ? (hasReplyText ? 'ThumbGate replied' : 'ThumbGate finished') : 'ThumbGate run stopped';
 
   // Quiet shade only — never heads-up (Settings may disable entirely).
   await Notifications.scheduleNotificationAsync({
@@ -840,7 +840,7 @@ export async function scheduleRunStallNotification(
   await Notifications.scheduleNotificationAsync({
     identifier: RUN_STALL_NOTIFICATION_ID,
     content: {
-      title: 'Hermes run might be stalled',
+      title: 'ThumbGate run might be stalled',
       subtitle: 'Computer · warning',
       body: 'No updates from your computer for 45 seconds. Open chat or stop the run.',
       categoryIdentifier: CATEGORY_RUN,

@@ -43,7 +43,7 @@ describe('buildLeashThumbgateCaptureBody', () => {
     );
 
     expect(body.signal).toBe('down');
-    expect(body.context).toContain('Hermes Mobile chat output');
+    expect(body.context).toContain('ThumbGate chat output');
     expect(body.context).toContain('session: sess_1');
     expect(body.whatWentWrong).toBe('This should have become a Leash approval card.');
     expect(body.tags).toEqual(
@@ -63,7 +63,7 @@ describe('buildLeashThumbgateCaptureBody', () => {
 
     expect(body.signal).toBe('up');
     expect(body.context).toContain('Useful final report');
-    expect(body.whatWorked).toBe('Operator marked this Hermes output as useful.');
+    expect(body.whatWorked).toBe('Operator marked this ThumbGate output as useful.');
     expect(body.tags).toContain('thumbs-up');
   });
 
@@ -78,6 +78,6 @@ describe('buildLeashThumbgateCaptureBody', () => {
 
     expect(body.context.length).toBeLessThan(1900);
     expect(body.context).toContain('...');
-    expect(body.whatToChange).toContain('Adjust future Hermes outputs');
+    expect(body.whatToChange).toContain('Adjust future ThumbGate outputs');
   });
 });

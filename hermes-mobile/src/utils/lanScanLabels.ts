@@ -49,14 +49,14 @@ export function formatLanScanStageLabel(progress: LanScanProgress): string {
   const links = progress.linkCount ?? 0;
   if (progress.stage === 'pair_server') {
     if (links > progress.foundCount && progress.foundCount > 0) {
-      return `Searching for Hermes computers (${pct}%) · checking ${links} links across ${progress.foundCount} ${nounComputer(progress.foundCount)}`;
+      return `Searching for ThumbGate computers (${pct}%) · checking ${links} links across ${progress.foundCount} ${nounComputer(progress.foundCount)}`;
     }
-    return `Searching for Hermes computers (${pct}%)${computersHint}`;
+    return `Searching for ThumbGate computers (${pct}%)${computersHint}`;
   }
   if (links > progress.foundCount && progress.foundCount > 0) {
-    return `Checking direct Hermes links (${pct}%) · ${links} links across ${progress.foundCount} ${nounComputer(progress.foundCount)}`;
+    return `Checking direct ThumbGate links (${pct}%) · ${links} links across ${progress.foundCount} ${nounComputer(progress.foundCount)}`;
   }
-  return `Checking direct Hermes links (${pct}%)${computersHint}`;
+  return `Checking direct ThumbGate links (${pct}%)${computersHint}`;
 }
 
 /**
@@ -79,7 +79,7 @@ export function formatLanScanResultLabel(input: number | LanScanReachCounts): st
   const classified = lan + tailscale + usb;
 
   if (classified === 0) {
-    return `Found ${foundCount} Hermes ${nounComputer(foundCount)}`;
+    return `Found ${foundCount} ThumbGate ${nounComputer(foundCount)}`;
   }
 
   if (tailscale > 0 && lan === 0 && usb === 0) {
@@ -89,15 +89,15 @@ export function formatLanScanResultLabel(input: number | LanScanReachCounts): st
     return `Found ${foundCount} over USB`;
   }
   if (lan > 0 && tailscale === 0 && usb === 0) {
-    return `Found ${foundCount} local Hermes ${nounComputer(foundCount)}`;
+    return `Found ${foundCount} local ThumbGate ${nounComputer(foundCount)}`;
   }
 
-  return `Found ${foundCount} Hermes ${nounComputer(foundCount)}`;
+  return `Found ${foundCount} ThumbGate ${nounComputer(foundCount)}`;
 }
 
 export function formatLanScanResultDetail(result: LanScanResult): string {
   if (result.foundCount === 0) {
-    return 'Paste your Mac’s Tailscale IP below. Hermes must be open on that Mac.';
+    return 'Paste your Mac’s Tailscale IP below. ThumbGate must be open on that Mac.';
   }
 
   const lan = result.lanCount ?? 0;

@@ -8,7 +8,7 @@ export function buildLeashEmptyExplanation(settings: GatewaySettings): string {
   if (settings.safetyMode) {
     return 'Approval-first is on. Cards appear when your Mac blocks a risky tool.';
   }
-  return 'When Hermes on your Mac blocks a risky tool, the card shows up here.';
+  return 'When ThumbGate on your Mac blocks a risky tool, the card shows up here.';
 }
 
 /**

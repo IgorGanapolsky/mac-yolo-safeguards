@@ -183,7 +183,7 @@ export function formatLeashConnectionDisplay(input: {
     }
     if (input.connectionState === 'connected') {
       return {
-        headline: 'Hermes relay linked to your active machine',
+        headline: 'ThumbGate relay linked to your active machine',
         machineName,
         lanIp,
         footnote: 'Approval alerts route over the internet; Wi-Fi is only a local fallback',
@@ -191,13 +191,13 @@ export function formatLeashConnectionDisplay(input: {
     }
     if (input.connectionState === 'connecting') {
       return {
-        headline: 'Connecting Hermes relay to your active machine…',
+        headline: 'Connecting ThumbGate relay to your active machine…',
         machineName,
         lanIp,
       };
     }
     return {
-      headline: 'Hermes relay disconnected',
+      headline: 'ThumbGate relay disconnected',
       machineName,
       lanIp,
       footnote: 'Check pairing in Settings',
@@ -210,7 +210,7 @@ export function formatLeashConnectionDisplay(input: {
         headline: 'Direct local link to your computer',
         machineName,
         lanIp,
-        footnote: 'Phone receives instant alerts when Hermes blocks a risky command',
+        footnote: 'Phone receives instant alerts when ThumbGate blocks a risky command',
       };
     case 'connecting':
       return {
@@ -222,7 +222,7 @@ export function formatLeashConnectionDisplay(input: {
       return {
         headline: 'No direct local link',
         footnote:
-          'Use Hermes relay from Settings, or scan a nearby computer QR for local fallback',
+          'Use ThumbGate relay from Settings, or scan a nearby computer QR for local fallback',
       };
   }
 }

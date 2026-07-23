@@ -41,7 +41,7 @@ describe('lanScanLabels', () => {
       foundCount: 0,
     });
     expect(pairServerStage).toContain('25%');
-    expect(pairServerStage).toContain('Searching for Hermes computers');
+    expect(pairServerStage).toContain('Searching for ThumbGate computers');
     expect(pairServerStage).not.toMatch(/local/i);
 
     const midScan = formatLanScanStageLabel({
@@ -68,7 +68,7 @@ describe('lanScanLabels', () => {
 
   it('never calls Tailscale or USB results "local"', () => {
     expect(formatLanScanResultLabel(0)).toBe('None found yet');
-    expect(formatLanScanResultLabel(2)).toBe('Found 2 Hermes computers');
+    expect(formatLanScanResultLabel(2)).toBe('Found 2 ThumbGate computers');
     expect(
       formatLanScanResultLabel({
         foundCount: 3,
@@ -109,7 +109,7 @@ describe('lanScanLabels', () => {
         tailscaleCount: 0,
         usbCount: 0,
       }),
-    ).toBe('Found 2 local Hermes computers');
+    ).toBe('Found 2 local ThumbGate computers');
     expect(
       formatLanScanResultLabel({
         foundCount: 2,
@@ -117,7 +117,7 @@ describe('lanScanLabels', () => {
         tailscaleCount: 1,
         usbCount: 0,
       }),
-    ).toBe('Found 2 Hermes computers');
+    ).toBe('Found 2 ThumbGate computers');
   });
 
   it('details match reach path (off-home Tailscale must not say local list)', () => {

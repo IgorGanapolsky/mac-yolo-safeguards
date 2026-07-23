@@ -79,8 +79,8 @@ describe('runProgressDisplay', () => {
   });
 
   it('humanizes composer status lines', () => {
-    expect(humanizeComposerStatus('tool.completed: skill_view')).toBe('Hermes is working on your computer…');
-    expect(humanizeComposerStatus('Queued on active Hermes thread — waiting for reply…')).toContain('Queued');
+    expect(humanizeComposerStatus('tool.completed: skill_view')).toBe('ThumbGate is working on your computer…');
+    expect(humanizeComposerStatus('Queued on active ThumbGate thread — waiting for reply…')).toContain('Queued');
   });
 
   it('treats non-terminal run progress as an active chat run', () => {

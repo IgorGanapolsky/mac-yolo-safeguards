@@ -85,8 +85,8 @@ export function useOtaUpdateBanner({
     alertShownRef.current = true;
     const isPending = isUpdatePending;
     const message = isPending
-      ? 'A new version of Hermes is downloaded and ready.'
-      : 'A new version of Hermes is available.';
+      ? 'A new version of ThumbGate is downloaded and ready.'
+      : 'A new version of ThumbGate is available.';
 
     Alert.alert('Update available', message, [
       { text: 'Later', style: 'cancel', onPress: dismiss },
@@ -123,7 +123,7 @@ export function useOtaUpdateBanner({
   if (isUpdatePending) {
     return {
       state: 'pending',
-      message: 'A new version of Hermes is downloaded and ready.',
+      message: 'A new version of ThumbGate is downloaded and ready.',
       dismiss,
       applyNow,
     };
@@ -132,7 +132,7 @@ export function useOtaUpdateBanner({
   if (isUpdateAvailable) {
     return {
       state: 'available',
-      message: 'A new version of Hermes is available.',
+      message: 'A new version of ThumbGate is available.',
       dismiss,
       applyNow,
     };

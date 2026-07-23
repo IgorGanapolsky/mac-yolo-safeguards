@@ -99,13 +99,13 @@ export async function connectManualGatewayAddress(
   );
 
   if (health.authMismatch) {
-    throw new Error('Hermes is reachable, but this phone still needs to pair.');
+    throw new Error('ThumbGate is reachable, but this phone still needs to pair.');
   }
   if (!health.directGatewayReachable) {
     throw new Error(
       tailscaleAddress
-        ? 'Couldn’t reach Hermes at this Tailscale address.'
-        : 'Couldn’t reach Hermes at this address.',
+        ? 'Couldn’t reach ThumbGate at this Tailscale address.'
+        : 'Couldn’t reach ThumbGate at this address.',
     );
   }
 

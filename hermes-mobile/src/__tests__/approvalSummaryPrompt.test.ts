@@ -2,7 +2,7 @@ import { buildApprovalSummaryPrompt } from '../utils/approvalSummaryPrompt';
 
 describe('buildApprovalSummaryPrompt', () => {
   const FIXED_HEADER = [
-    'You are Hermes Leash. Summarize this ThumbGate-blocked tool call for a human operator.',
+    'You are ThumbGate Leash. Summarize this ThumbGate-blocked tool call for a human operator.',
     'Focus on: what would run, blast radius, and whether approve is reasonable.',
     'Keep under 3 sentences. Redact secrets and paths if present.',
   ];

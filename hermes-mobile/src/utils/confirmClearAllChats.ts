@@ -2,7 +2,7 @@ import { Alert } from 'react-native';
 
 export const CLEAR_ALL_CHATS_TITLE = 'Clear all chats?';
 export const CLEAR_ALL_CHATS_MESSAGE =
-  'This deletes every thread on your computer from Hermes. You cannot undo this.';
+  'This deletes every thread on your computer from ThumbGate. You cannot undo this.';
 
 /** Delay so RN Modal unmounts before Alert — Android otherwise swallows the dialog. */
 export const CLEAR_ALL_CONFIRM_AFTER_MODAL_MS = 50;

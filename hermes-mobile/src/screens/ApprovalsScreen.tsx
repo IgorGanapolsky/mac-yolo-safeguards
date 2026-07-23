@@ -539,7 +539,7 @@ export default function ApprovalsScreen() {
               <View style={styles.switchLabelCol}>
                 <Text style={styles.switchLabel}>Approval-first mode</Text>
                 <Text style={styles.switchDesc}>
-                  Prioritize lock-screen approval alerts. Hermes tab still opens on launch.
+                  Prioritize lock-screen approval alerts. ThumbGate tab still opens on launch.
                 </Text>
               </View>
               <Switch

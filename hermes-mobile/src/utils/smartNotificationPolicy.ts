@@ -131,7 +131,7 @@ export function buildApprovalNotificationBody(pending: PendingApproval): string 
     }
   }
   if (lines.length === 0) {
-    lines.push((pending.reason || 'Open Hermes to review').slice(0, 160));
+    lines.push((pending.reason || 'Open ThumbGate to review').slice(0, 160));
   }
   return lines.join('\n').slice(0, 220);
 }

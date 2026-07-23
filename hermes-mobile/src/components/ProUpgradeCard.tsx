@@ -120,7 +120,7 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
         result.status === 'not_configured' || result.status === 'error'
           ? result.message
           : isAndroidLifetime
-            ? 'No Hermes Pro unlock found on this Google Play account.'
+            ? 'No ThumbGate Pro unlock found on this Google Play account.'
             : 'No legacy App Store purchase found. New subscriptions are on the ThumbGate web dashboard.',
       );
     } finally {
@@ -133,7 +133,7 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
       <Text style={styles.title}>ThumbGate Pro</Text>
       <Text style={styles.tagline}>Self-Improving Firewall for your AI agents</Text>
       <Text style={styles.body}>
-        Hermes Chat is free. {THUMBGATE_LEASH_PRODUCT_NAME} ({priceLabel}) unlocks mobile approval
+        ThumbGate Chat is free. {THUMBGATE_LEASH_PRODUCT_NAME} ({priceLabel}) unlocks mobile approval
         cards on this phone plus lesson-backed gates that remember thumbs feedback, promote or
         re-rank what matters next, and promote repeated failures into gates
         {isAndroidLifetime

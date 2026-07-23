@@ -18,8 +18,8 @@ export const MAC_GETTING_STARTED_STEPS: MacPairingStep[] = [
   },
   {
     step: 2,
-    title: 'Open Hermes on your computer',
-    body: 'Start Hermes on your computer and leave it running.',
+    title: 'Open ThumbGate on your computer',
+    body: 'Start ThumbGate on your computer and leave it running.',
   },
   {
     step: 3,
@@ -39,12 +39,12 @@ export const MAC_QR_PAIRING_STEPS: MacPairingStep[] = [
   {
     step: 1,
     title: 'Try Find computers first',
-    body: 'Go back and tap Find computers — that works without a QR. Use this scanner only if your Mac is already showing a Hermes Mobile pairing page.',
+    body: 'Go back and tap Find computers — that works without a QR. Use this scanner only if your Mac is already showing a ThumbGate pairing page.',
   },
   {
     step: 2,
     title: 'Pairing page on your Mac',
-    body: 'Your Mac must show the Hermes Mobile pairing page in a web browser on the same home Wi‑Fi. The main Hermes app does not generate this QR by itself.',
+    body: 'Your Mac must show the ThumbGate pairing page in a web browser on the same home Wi‑Fi. The main ThumbGate app does not generate this QR by itself.',
   },
   {
     step: 3,

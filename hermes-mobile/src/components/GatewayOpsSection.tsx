@@ -346,7 +346,7 @@ export default function GatewayOpsSection() {
         setPhoneToggleAvailable(false);
         Alert.alert(
           'Enable on your Mac',
-          'This Hermes build on your computer does not accept tool toggles from the phone yet. On your Mac run: hermes tools',
+          'This ThumbGate build on your computer does not accept tool toggles from the phone yet. On your Mac run: hermes tools',
         );
       } else {
         Alert.alert('Could not update toolset', message);
@@ -646,7 +646,7 @@ export default function GatewayOpsSection() {
           </TouchableOpacity>
           <Text style={styles.sectionHint}>
             Extra integrations already set up on this computer. Collapsed by default — not part of
-            the Hermes Mobile essentials.
+            the ThumbGate essentials.
           </Text>
           {advancedToolsetsOpen ? (
             <GlassCard testID="toolsets-advanced-list">

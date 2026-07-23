@@ -121,6 +121,6 @@ export async function resolvePairQrPayloadDetailed(data: string): Promise<Resolv
   return {
     ok: false,
     reason: 'empty',
-    message: 'No Hermes pairing data in that QR.',
+    message: 'No ThumbGate pairing data in that QR.',
   };
 }

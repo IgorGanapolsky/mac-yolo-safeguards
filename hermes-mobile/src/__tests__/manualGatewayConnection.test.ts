@@ -43,7 +43,7 @@ describe('connectManualGatewayAddress', () => {
         { gatewayUrl, fallbackLabel: 'Tailscale computer', persistProfile },
         deps,
       ),
-    ).rejects.toThrow('Couldn’t reach Hermes at this Tailscale address.');
+    ).rejects.toThrow('Couldn’t reach ThumbGate at this Tailscale address.');
     expect(persistProfile).not.toHaveBeenCalled();
     expect(deps.saveApiKey).not.toHaveBeenCalled();
     expect(deps.fetchGatewayHealth).toHaveBeenCalledWith(gatewayUrl, null, 12_000);
@@ -62,7 +62,7 @@ describe('connectManualGatewayAddress', () => {
         { gatewayUrl, fallbackLabel: 'Tailscale computer', persistProfile },
         deps,
       ),
-    ).rejects.toThrow('Hermes is reachable, but this phone still needs to pair.');
+    ).rejects.toThrow('ThumbGate is reachable, but this phone still needs to pair.');
     expect(persistProfile).not.toHaveBeenCalled();
   });
 

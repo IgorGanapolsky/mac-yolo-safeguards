@@ -65,7 +65,7 @@ describe('useOtaUpdateBanner', () => {
     expect(result.current.message).toContain('new version');
     expect(Alert.alert).toHaveBeenCalledWith(
       'Update available',
-      'A new version of Hermes is available.',
+      'A new version of ThumbGate is available.',
       expect.arrayContaining([
         expect.objectContaining({ text: 'Later', style: 'cancel' }),
         expect.objectContaining({ text: 'Download & restart' }),
@@ -106,7 +106,7 @@ describe('useOtaUpdateBanner', () => {
     expect(result.current.message).toContain('ready');
     expect(Alert.alert).toHaveBeenCalledWith(
       'Update available',
-      'A new version of Hermes is downloaded and ready.',
+      'A new version of ThumbGate is downloaded and ready.',
       expect.arrayContaining([
         expect.objectContaining({ text: 'Later', style: 'cancel' }),
         expect.objectContaining({ text: 'Restart' }),

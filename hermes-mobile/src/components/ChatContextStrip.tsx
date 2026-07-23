@@ -111,7 +111,7 @@ export default function ChatContextStrip({
           </Text>
         ) : (
           <Text style={styles.projectHint} testID="chat-context-project">
-            {channelHint ?? 'No project pinned — Hermes uses the computer default workspace'}
+            {channelHint ?? 'No project pinned — ThumbGate uses the computer default workspace'}
           </Text>
         )}
         {onPressProject ? <Text style={styles.switchChevron}>▾</Text> : null}

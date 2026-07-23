@@ -180,7 +180,7 @@ export function formatHandoffMarkdown(handoff: SessionContinuityHandoff): string
     'secret_safe: true',
     '---',
     '',
-    '# Hermes Mobile — last session handoff',
+    '# ThumbGate — last session handoff',
     '',
     'Short continuity note for a fresh mobile chat. No secrets.',
     'Do not let MEMORY.md or a dynamic project lane wipe this context — system_prompt + this file win.',

@@ -142,7 +142,7 @@ export function isGatewayReachable(input: {
 export function describeBootstrapPhase(phase: GatewayBootstrapPhase): string {
   switch (phase) {
     case 'booting':
-      return 'Starting Hermes Mobile…';
+      return 'Starting ThumbGate…';
     case 'searching':
       return 'Searching your home Wi‑Fi for your computer…';
     case 'connected':

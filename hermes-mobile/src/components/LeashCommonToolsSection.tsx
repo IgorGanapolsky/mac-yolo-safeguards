@@ -58,7 +58,7 @@ export default function LeashCommonToolsSection({
     <View testID="leash-common-tools">
       <Text style={styles.sectionTitle}>Common tools</Text>
       <Text style={styles.hint}>
-        All tools start allowed. Turn one off to require Approve / Deny on Leash when Hermes
+        All tools start allowed. Turn one off to require Approve / Deny on Leash when ThumbGate
         tries to use it.
       </Text>
       {rows.map((row) => {
