@@ -66,6 +66,8 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
+        {/* vinext drops viewportFit from export const viewport — force safe-area for sticky composer/tabs. */}
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         {/* Warm WorkOS + AuthKit before Sign in (July 2026 speed research). */}
         <link rel="preconnect" href="https://api.workos.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://api.workos.com" />
