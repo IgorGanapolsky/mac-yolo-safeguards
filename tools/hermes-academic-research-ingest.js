@@ -271,6 +271,15 @@ async function fetchBounded(url, options = {}) {
     const buffer = Buffer.from(await response.arrayBuffer());
     if (buffer.byteLength > MAX_RESPONSE_BYTES) throw new Error(`${parsed.hostname} response exceeds ${MAX_RESPONSE_BYTES} bytes`);
     return { body: buffer.toString('utf8'), contentType: response.headers.get('content-type') || '' };
+  } catch (error) {
+    const details = [];
+    if (error?.name && error.name !== 'Error') details.push(error.name);
+    if (error?.message) details.push(error.message);
+    if (error?.cause?.code) details.push(`cause=${error.cause.code}`);
+    if (error?.cause?.message && error.cause.message !== error.message) {
+      details.push(`causeMessage=${error.cause.message}`);
+    }
+    throw new Error(`${parsed.hostname} metadata request failed: ${details.join('; ') || 'unknown error'}`);
   } finally {
     clearTimeout(timeout);
   }
