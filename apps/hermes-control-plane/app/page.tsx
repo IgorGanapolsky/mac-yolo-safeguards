@@ -9,6 +9,7 @@ import {
   LandingPricingCtaFree,
   LandingPricingCtaPaid,
 } from "./LandingAuthChrome";
+import { APP_STORE_URL, PLAY_STORE_URL } from "./storeLinks";
 import styles from "./landing.module.css";
 
 function Mark() {
@@ -56,6 +57,28 @@ export default function Home() {
           <LandingAuthHero />
           <p className="signin-note">Hermes Web by ThumbGate. Continue with Google or Apple—no new password.</p>
           <div className="trust-row"><span>No inbound ports</span><span>Private-key pairing</span><span>Cloud only when enabled</span></div>
+          <div className="hero-store-links" aria-label="Hermes Mobile apps">
+            <a
+              href={PLAY_STORE_URL}
+              className="store-link store-link-play"
+              data-funnel-event="play_store_click"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span className="store-link-badge" aria-hidden="true">▶</span>
+              <span><strong>Google Play</strong><small>Hermes Mobile</small></span>
+            </a>
+            <a
+              href={APP_STORE_URL}
+              className="store-link store-link-ios"
+              data-funnel-event="app_store_click"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span className="store-link-badge" aria-hidden="true">A</span>
+              <span><strong>App Store</strong><small>Hermes AI Agent Leash</small></span>
+            </a>
+          </div>
         </div>
 
         <nav className="hero-console hero-actions-panel" aria-label="Private workspace actions">
@@ -124,6 +147,39 @@ export default function Home() {
             </ul>
             <LandingPricingCtaPaid />
           </article>
+        </div>
+      </section>
+
+
+      <section id="mobile" className="section-block">
+        <div className="section-heading">
+          <p className="eyebrow">On your phone</p>
+          <h2>Same remote control. Push approvals in your pocket.</h2>
+          <p>
+            Hermes Mobile pairs to your Mac the same way as the web dashboard—chat, Leash approvals, and continuity settings when you&apos;re away from a browser.
+          </p>
+        </div>
+        <div className="hero-store-links hero-store-links-lg">
+          <a
+            href={PLAY_STORE_URL}
+            className="store-link store-link-play"
+            data-funnel-event="play_store_click"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span className="store-link-badge" aria-hidden="true">▶</span>
+            <span><strong>Get it on Google Play</strong><small>com.iganapolsky.hermesmobile.paid</small></span>
+          </a>
+          <a
+            href={APP_STORE_URL}
+            className="store-link store-link-ios"
+            data-funnel-event="app_store_click"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span className="store-link-badge" aria-hidden="true">A</span>
+            <span><strong>Download on the App Store</strong><small>Hermes AI Agent Leash</small></span>
+          </a>
         </div>
       </section>
 
