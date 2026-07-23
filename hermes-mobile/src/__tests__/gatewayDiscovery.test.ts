@@ -197,6 +197,15 @@ describe('gatewayDiscovery', () => {
     expect(deduped.every((g) => classifyDiscoveredReach(g) === 'tailscale')).toBe(true);
   });
 
+  it('keeps distinct MagicDNS -N siblings as separate machines when hostname is absent', () => {
+    const siblings = [
+      { gatewayUrl: 'http://macbook-pro-1.tail12aa33.ts.net:8642' },
+      { gatewayUrl: 'http://macbook-pro-2.tail12aa33.ts.net:8642' },
+    ];
+    expect(countUniqueDiscoveredMachines(siblings)).toBe(2);
+    expect(dedupeDiscoveredGatewaysByMachine(siblings)).toHaveLength(2);
+  });
+
   it('collapses MagicDNS + CGNAT chip doubles to one row per Mac (Connect your Mac rage)', () => {
     const doubles = [
       {
