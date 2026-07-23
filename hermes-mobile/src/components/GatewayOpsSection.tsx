@@ -30,7 +30,7 @@ import {
 } from '../services/hermesGatewayClient';
 import type { HermesCronJob, HermesSkill, HermesToolset } from '../types/gatewayApi';
 import { formatCronSchedule } from '../utils/sessionDisplay';
-import { buildCronJobDetailLines } from '../utils/cronJobDetails';
+import { buildCronJobDetailLines, isCronJobPaused } from '../utils/cronJobDetails';
 import {
   configuredToolsetsToAutoEnable,
   formatToolsetLabel,
@@ -755,7 +755,7 @@ export default function GatewayOpsSection() {
                   >
                     <Text style={styles.jobBtnText}>Run</Text>
                   </TouchableOpacity>
-                  {job.paused ? (
+                  {isCronJobPaused(job) ? (
                     <TouchableOpacity
                       style={styles.jobBtn}
                       onPress={() => handleJobAction(job, 'resume')}
