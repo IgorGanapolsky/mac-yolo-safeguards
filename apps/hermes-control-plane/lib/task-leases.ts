@@ -26,6 +26,7 @@ interface TaskCandidate {
   createdAt: number;
   plan: string;
   trialEndsAt: number | null;
+  cloudTaskBonus: number | null;
   cloudTasks: number;
 }
 
@@ -107,6 +108,7 @@ export async function claimTask(input: {
             k.route AS currentRoute, k.lease_generation AS leaseGeneration, k.created_at AS createdAt,
             t.source_session_id AS sourceSessionId, t.context_snapshot AS contextSnapshot, t.synced_at AS syncedAt,
             o.plan, o.trial_ends_at AS trialEndsAt,
+            COALESCE(o.cloud_task_bonus, 0) AS cloudTaskBonus,
             (SELECT COUNT(*) FROM tasks AS cloud_usage
               WHERE cloud_usage.organization_id = k.organization_id AND cloud_usage.route = 'cloud'
                 AND cloud_usage.created_at >= ?) AS cloudTasks
@@ -145,6 +147,7 @@ export async function claimTask(input: {
       organization: { plan: candidate.plan, trialEndsAt: candidate.trialEndsAt },
       cloudTasks: candidate.cloudTasks,
       cloudTaskDelta: candidate.currentRoute === "cloud" ? 0 : 1,
+      cloudTaskBonus: candidate.cloudTaskBonus,
       now,
     });
     if (!cloudDecision.allowed) {

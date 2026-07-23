@@ -14,16 +14,16 @@ const TOOL_CALL = {
 
 const OFFLINE_COPY: Record<OfflinePolicy, { label: string; blurb: string }> = {
   disabled: {
-    label: "Pause until online",
-    blurb: "Task freezes as offline_blocked. Nothing runs in the cloud.",
+    label: "Wait until this Mac is back",
+    blurb: "Work stays paused. No Continuity spend until the Mac is online again.",
   },
   manual: {
     label: "Ask me first",
-    blurb: "Task sits at needs_failover until you explicitly continue on cloud.",
+    blurb: "Nothing runs on Continuity until you tap Continue. Safe default.",
   },
   auto: {
-    label: "Auto cloud continuity",
-    blurb: "A fenced cloud runner claims the 90s lease and keeps the same thread.",
+    label: "Keep going on Continuity",
+    blurb: "A fenced Continuity VPS picks up the same chat thread automatically.",
   },
 };
 
@@ -40,9 +40,9 @@ function phaseLabel(phase: Phase): string {
     case "paused":
       return "Paused · waiting for Mac";
     case "ask":
-      return "Needs failover · waiting on you";
+      return "Waiting for you · Continue on Continuity?";
     case "cloud":
-      return "Cloud continuity · fenced lease";
+      return "Continuity VPS · fenced lease";
     default:
       return "Demo";
   }
@@ -68,9 +68,9 @@ export function FailoverPathDemo() {
       case "paused":
         return "Work paused until the Mac heartbeats again. No cloud spend.";
       case "ask":
-        return "You are asked before cloud. Approve failover only when you want it.";
+        return "You decide. Continuity does not start until you approve.";
       case "cloud":
-        return "Cloud runner took over with a fresh fenced lease. Same chat thread.";
+        return "Continuity VPS took over with a fresh fenced lease. Same chat thread.";
       default:
         return "";
     }
@@ -144,7 +144,7 @@ export function FailoverPathDemo() {
           <p className={styles.eyebrow}>Interactive demo · no real tools run</p>
           <h3 id={titleId}>Watch ThumbGate approve, deny, and fail over</h3>
           <p className={styles.lede}>
-            Click the buttons. This is the exact product path: Leash decides the call, then your offline policy decides who finishes the work.
+            Click the buttons. This is the product path: Leash decides the call, then “If Mac goes offline” decides who finishes the work.
           </p>
         </div>
         <div className={styles.headerActions}>
@@ -218,8 +218,8 @@ export function FailoverPathDemo() {
 
               {phase === "offline_choice" || phase === "paused" || phase === "ask" || phase === "cloud" ? (
                 <div className={styles.offlineBlock}>
-                  <p className={styles.offlineBanner}>Mac heartbeat lost. Offline policy decides next.</p>
-                  <div className={styles.policyRow} role="group" aria-label="Offline policy">
+                  <p className={styles.offlineBanner}>Mac went offline. What should happen next?</p>
+                  <div className={styles.policyRow} role="group" aria-label="If Mac goes offline">
                     {(Object.keys(OFFLINE_COPY) as OfflinePolicy[]).map((key) => (
                       <button
                         key={key}
@@ -245,8 +245,8 @@ export function FailoverPathDemo() {
                     <div className={`${styles.outcome} ${styles.ask}`}>
                       <strong>needs_failover</strong>
                       <p>ThumbGate waits for an explicit continue. Nothing spends until you approve.</p>
-                      <button type="button" className={styles.approveButton} onClick={continueInCloud} aria-label="Continue this task in cloud">
-                        Continue in cloud →
+                      <button type="button" className={styles.approveButton} onClick={continueInCloud} aria-label="Continue this task on Continuity">
+                        Continue on Continuity →
                       </button>
                     </div>
                   ) : null}
@@ -284,8 +284,8 @@ export function FailoverPathDemo() {
           <li className={phase === "offline_choice" || phase === "paused" || phase === "ask" || phase === "cloud" ? styles.legendActive : ""}>
             <span>03</span>
             <div>
-              <strong>Offline policy</strong>
-              <p>Pause, ask, or auto-continue. Cloud only when you enabled it.</p>
+              <strong>If Mac goes offline</strong>
+              <p>Wait for the Mac, ask you first, or keep going on Continuity.</p>
             </div>
           </li>
           <li className={phase === "cloud" ? styles.legendActive : ""}>

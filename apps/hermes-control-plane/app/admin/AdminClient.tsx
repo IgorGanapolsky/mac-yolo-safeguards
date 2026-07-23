@@ -331,7 +331,7 @@ export function AdminClient(props: {
                     <tr>
                       <th>Name</th>
                       <th>Status</th>
-                      <th>Offline policy</th>
+                      <th>If offline</th>
                       <th>Last seen</th>
                       <th>Id</th>
                     </tr>
@@ -348,7 +348,7 @@ export function AdminClient(props: {
                       >
                         <td>{device.name}</td>
                         <td>{device.online ? "online" : "stale"}</td>
-                        <td>{device.failoverMode}</td>
+                        <td>{device.failoverMode === "manual" ? "ask me first" : device.failoverMode === "auto" ? "auto Continuity" : device.failoverMode === "disabled" ? "wait for Mac" : device.failoverMode}</td>
                         <td>{fmtAge(device.ageSeconds)}</td>
                         <td><code>{device.deviceIdPrefix}…</code></td>
                       </ExpandableRow>

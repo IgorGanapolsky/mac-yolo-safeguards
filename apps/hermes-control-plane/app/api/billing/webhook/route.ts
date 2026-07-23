@@ -1,3 +1,4 @@
+import { CONTINUITY_PACK_RUNS } from "@/lib/continuity-usage";
 import { db, runtimeEnv } from "@/lib/runtime";
 
 function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
@@ -24,10 +25,11 @@ export async function POST(request: Request) {
     id: string;
     type: string;
     data: { object: {
-      metadata?: { organization_id?: string };
+      metadata?: { organization_id?: string; kind?: string; pack_runs?: string };
       client_reference_id?: string;
       status?: string;
       payment_status?: string;
+      mode?: string;
     } };
   };
   if (!event.id || !event.type) return new Response("invalid event", { status: 400 });
@@ -38,6 +40,7 @@ export async function POST(request: Request) {
   ).bind(event.id, event.type, organizationId, now)];
   const subscriptionStatus = event.data.object.status;
   const checkoutPaid = event.data.object.payment_status;
+  const isPack = event.data.object.metadata?.kind === "continuity_pack";
   const grantsAccess = event.type === "checkout.session.completed"
     ? ["paid", "no_payment_required"].includes(checkoutPaid ?? "")
     : ["customer.subscription.created", "customer.subscription.updated"].includes(event.type)
@@ -45,7 +48,18 @@ export async function POST(request: Request) {
   const revokesAccess = event.type === "customer.subscription.deleted"
     || (["customer.subscription.created", "customer.subscription.updated"].includes(event.type)
       && ["canceled", "incomplete_expired", "past_due", "unpaid"].includes(subscriptionStatus ?? ""));
-  if (organizationId && (grantsAccess || revokesAccess)) {
+
+  if (organizationId && event.type === "checkout.session.completed" && grantsAccess && isPack) {
+    const packRuns = Math.max(
+      1,
+      Number.parseInt(event.data.object.metadata?.pack_runs ?? String(CONTINUITY_PACK_RUNS), 10) || CONTINUITY_PACK_RUNS,
+    );
+    statements.push(db().prepare(
+      `UPDATE organizations
+          SET cloud_task_bonus = COALESCE(cloud_task_bonus, 0) + ?, updated_at = ?
+        WHERE id = ?`,
+    ).bind(packRuns, now, organizationId));
+  } else if (organizationId && (grantsAccess || revokesAccess) && !isPack) {
     statements.push(db().prepare("UPDATE organizations SET plan = ?, updated_at = ? WHERE id = ?")
       .bind(grantsAccess ? "pro" : "suspended", now, organizationId));
     // Paid Continuity: turn on automatic VPS failover for paired machines (user can still change in Settings).

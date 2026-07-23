@@ -186,12 +186,35 @@ test("lets users choose Mac vs Continuity VPS on every task not only offline fai
   assert.match(dashboard, /routePreference/);
   assert.match(dashboard, /Continuity \(VPS\)/);
   assert.match(dashboard, /My Mac/);
-  assert.match(dashboard, /Auto \(Mac, then offline policy\)/);
+  assert.match(dashboard, /Auto \(Mac first\)/);
+  assert.match(dashboard, /If Mac goes offline/);
+  assert.match(dashboard, /Ask me first/);
+  assert.match(dashboard, /Keep going on Continuity/);
+  assert.match(dashboard, /Wait until this Mac is back/);
+  assert.doesNotMatch(dashboard, /Ask before cloud/);
   assert.match(dashboard, /aria-label="Where to run this task"/);
   assert.match(tasksRoute, /routePreference/);
   assert.match(tasksRoute, /decideTaskRoute/);
   assert.match(taskRouting, /preference === "cloud"/);
   assert.match(taskRouting, /preference === "local"/);
+});
+
+test("surfaces Continuity included-run quota and optional pack checkout", () => {
+  const meRoute = readFileSync(new URL("../app/api/me/route.ts", import.meta.url), "utf8");
+  const checkoutRoute = readFileSync(new URL("../app/api/billing/checkout/route.ts", import.meta.url), "utf8");
+  const webhookRoute = readFileSync(new URL("../app/api/billing/webhook/route.ts", import.meta.url), "utf8");
+  const continuityUsage = readFileSync(new URL("../lib/continuity-usage.ts", import.meta.url), "utf8");
+  assert.match(dashboard, /continuityUsage/);
+  assert.match(dashboard, /Continuity runs/);
+  assert.match(dashboard, /Included VPS runs/);
+  assert.match(dashboard, /Buy \+/);
+  assert.match(meRoute, /continuityUsage/);
+  assert.match(meRoute, /buildContinuityUsage/);
+  assert.match(checkoutRoute, /kind === "pack"/);
+  assert.match(checkoutRoute, /STRIPE_CONTINUITY_PACK_PRICE_ID/);
+  assert.match(webhookRoute, /continuity_pack/);
+  assert.match(webhookRoute, /cloud_task_bonus/);
+  assert.match(continuityUsage, /CONTINUITY_PACK_RUNS/);
 });
 
 test("explains fenced execution through a visible interactive safety panel", () => {
@@ -273,7 +296,7 @@ test("explains the failover path with an interactive approve/deny demo", () => {
   assert.match(failoverDemo, /Deny call/);
   assert.match(failoverDemo, /Approve call/);
   assert.match(failoverDemo, /Close Mac lid/);
-  assert.match(failoverDemo, /Continue in cloud/);
+  assert.match(failoverDemo, /Continue on Continuity/);
   assert.match(failoverDemo, /aria-live="polite"/);
   assert.match(failoverDemo, /no real tools run/);
   assert.doesNotMatch(failoverDemo, /fetch\(|sendBeacon|localStorage/);
