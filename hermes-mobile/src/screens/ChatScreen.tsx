@@ -192,6 +192,12 @@ import {
   type PendingOutboundSnapshot,
 } from '../utils/pendingOutboundStorage';
 import {
+  loadSessionTranscriptCache,
+  resolveResumeSeedMessages,
+  saveSessionTranscriptCache,
+  shouldShowFullScreenSessionLoading,
+} from '../utils/sessionTranscriptCache';
+import {
   resolveChatOutputFeedbackBusyKey,
   shouldShowChatOutputFeedback,
 } from '../utils/chatOutputFeedback';
@@ -938,6 +944,8 @@ export default function ChatScreen() {
       const rawNext = typeof updater === 'function' ? updater(prev) : updater;
       const next = dedupeAdjacentOptimisticUserBubbles(rawNext);
       messagesRef.current = next;
+      // Keep a last-known transcript so phone-call/background resume is not a blank spinner.
+      void saveSessionTranscriptCache(currentSessionRef.current?.id, next);
       return next;
     });
   }, []);
@@ -1167,14 +1175,31 @@ export default function ChatScreen() {
         persistedPendingRef.current = [];
         return;
       }
-      const [forSession, forNew] = await Promise.all([
+      const [forSession, forNew, cachedTranscript] = await Promise.all([
         loadPendingOutbound(sessionId),
         loadPendingOutbound(PENDING_NEW_SESSION_KEY),
+        loadSessionTranscriptCache(sessionId),
       ]);
       const snapshot = forSession ?? forNew;
       applyPersistedOutboundSnapshot(snapshot);
       if (!forSession && forNew) {
         await migratePendingOutbound(PENDING_NEW_SESSION_KEY, sessionId);
+      }
+      // Phone call / remount / reconnect: seed last-known bubbles immediately so
+      // "Fetching session history…" never blanks a chat we already had on device.
+      if (
+        messagesRef.current.length === 0 &&
+        currentSessionRef.current?.id === sessionId
+      ) {
+        const seeded = resolveResumeSeedMessages(
+          cachedTranscript,
+          snapshot?.messages ?? null,
+        );
+        if (seeded.length > 0 && messagesRef.current.length === 0) {
+          messagesRef.current = seeded;
+          setMessages(seeded);
+          transcriptDigestRef.current = transcriptDigest(seeded);
+        }
       }
     },
     [applyPersistedOutboundSnapshot, isDemo],
@@ -2925,7 +2950,10 @@ export default function ChatScreen() {
           refreshInFlightRef.current = false;
           refreshQueuedRef.current = false;
           refreshQueuedForceRef.current = false;
-          setIsLoadingMessages(true);
+          // Only full-screen load when we have nothing to show (resume seed may already paint).
+          if (messagesRef.current.length === 0) {
+            setIsLoadingMessages(true);
+          }
           // Fall through and start the user-requested refresh immediately.
         } else if (options?.background) {
           refreshQueuedRef.current = true;
@@ -2988,6 +3016,7 @@ export default function ChatScreen() {
         lastTranscriptChangeAtMsRef.current = Date.now();
         messagesRef.current = nextMessages;
         setMessages(nextMessages);
+        void saveSessionTranscriptCache(requestedSessionId, nextMessages);
         if (resolved.cleared) {
           lastFailedSendTextRef.current = null;
           setPinnedOutboundStatus('pending');
@@ -3069,7 +3098,8 @@ export default function ChatScreen() {
       try {
         if (options?.manual) {
           setIsPullRefreshing(true);
-        } else if (!options?.background && (messagesRef.current.length === 0 || options?.force)) {
+        } else if (!options?.background && messagesRef.current.length === 0) {
+          // Never blank an already-seeded transcript behind a full-screen spinner.
           setIsLoadingMessages(true);
         }
         setErrorMessage(null);
@@ -3715,10 +3745,15 @@ export default function ChatScreen() {
     }
     const sub = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'background' || nextState === 'inactive') {
-        persistOutboundSnapshot(currentSessionRef.current?.id, messagesRef.current);
+        const sid = currentSessionRef.current?.id;
+        const snapshot = messagesRef.current;
+        persistOutboundSnapshot(sid, snapshot);
+        void saveSessionTranscriptCache(sid, snapshot);
         return;
       }
       if (nextState === 'active') {
+        // Seed last-known transcript first, then soft-refresh — phone call resume
+        // must not full-screen "Fetching session history…" over empty messages.
         void hydratePersistedOutboundForSession(currentSessionRef.current?.id).then(() => {
           refreshSessionMessagesRef.current?.({ background: true, force: true });
         });
@@ -7449,7 +7484,10 @@ export default function ChatScreen() {
           </ScrollView>
         ) : null}
 
-        {!showMacConnectionHelp && (isLoadingMessages && messages.length === 0 ? (
+        {!showMacConnectionHelp && (shouldShowFullScreenSessionLoading({
+          isLoadingMessages,
+          messageCount: messages.length,
+        }) ? (
           <View style={styles.loadingContainer} testID="chat-session-loading">
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.loadingText}>Fetching session history...</Text>
