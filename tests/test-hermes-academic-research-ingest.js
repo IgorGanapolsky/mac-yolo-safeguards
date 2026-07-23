@@ -10,6 +10,7 @@ const {
   buildArxivUrl,
   buildHuggingFaceUrl,
   buildReceipt,
+  fetchBounded,
   parseArgs,
   parseArxivAtom,
   parseHuggingFaceModels,
@@ -125,5 +126,33 @@ assert.match(installer, /__NODE_BIN__/);
 assert.match(launchAgent, /<string>__NODE_BIN__<\/string>/);
 assert.doesNotMatch(launchAgent, /<string>\/usr\/bin\/env<\/string>\s*<string>node<\/string>/);
 
-fs.rmSync(tmp, { recursive: true, force: true });
-console.log('Hermes academic research ingestion tests: PASS');
+async function verifyFetchDiagnostics() {
+  const originalFetch = global.fetch;
+  let calls = 0;
+  global.fetch = async () => {
+    calls += 1;
+    const error = new TypeError('fetch failed');
+    error.cause = Object.assign(new Error('socket closed'), { code: 'ECONNRESET' });
+    throw error;
+  };
+  try {
+    await assert.rejects(
+      fetchBounded('https://huggingface.co/api/models?limit=1'),
+      /huggingface\.co metadata request failed: TypeError; fetch failed; cause=ECONNRESET; causeMessage=socket closed/,
+    );
+    assert.strictEqual(calls, 1);
+  } finally {
+    global.fetch = originalFetch;
+  }
+}
+
+verifyFetchDiagnostics()
+  .then(() => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    console.log('Hermes academic research ingestion tests: PASS');
+  })
+  .catch((error) => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    console.error(error.stack || error.message);
+    process.exitCode = 1;
+  });
