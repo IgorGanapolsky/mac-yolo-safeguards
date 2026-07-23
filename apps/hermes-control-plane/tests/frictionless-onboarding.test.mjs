@@ -225,8 +225,13 @@ test("makes ThumbGate real with private thumbs feedback and a lessons dashboard"
   assert.match(feedbackRoute, /ON CONFLICT\(organization_id, user_id, task_id\)/);
   assert.match(lessonsRoute, /WHERE f\.organization_id = \?/);
   assert.match(lessonsRoute, /ORDER BY f\.updated_at DESC/);
+  assert.match(lessonsRoute, /unratedCompleted/);
+  assert.match(lessonsRoute, /completedResponses/);
   assert.match(lessonsClient, /Your Hermes lessons/);
-  assert.match(lessonsClient, /Feedback is private to this ThumbGate workspace/);
+  assert.match(lessonsClient, /thumbs you leave on completed answers/);
+  assert.match(lessonsClient, /WORKSPACE ACTIVITY/);
+  assert.match(lessonsClient, /0 ratings yet/);
+  assert.match(lessonsClient, /Ratings are private to this ThumbGate workspace/);
   assert.match(schema, /responseFeedback = sqliteTable\("response_feedback"/);
 });
 
