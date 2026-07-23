@@ -60,12 +60,24 @@ jobs:
           HERMES_DEVICE_NAME: ${{ inputs.device_name }}
         run: |
           set -euo pipefail
+          export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
           DEST="$HOME/.hermes/connector"
           CONFIG="$HOME/.hermes/cloud-connector.json"
           mkdir -p "$DEST"
+          test -f tools/hermes-cloud-connector.js
           cp tools/hermes-cloud-connector.js "$DEST/hermes-cloud-connector.js"
           chmod 700 "$DEST/hermes-cloud-connector.js"
-          NODE="$(command -v node)"
+          NODE="$(command -v node || true)"
+          if [ -z "$NODE" ]; then
+            for candidate in /opt/homebrew/bin/node /usr/local/bin/node; do
+              if [ -x "$candidate" ]; then NODE="$candidate"; break; fi
+            done
+          fi
+          if [ -z "$NODE" ]; then
+            echo "node not found on PATH=$PATH" >&2
+            exit 1
+          fi
+          echo "Using node=$NODE ($("$NODE" -v))"
           if [ ! -f "$CONFIG" ]; then
             "$NODE" -e '
               const c=require(process.argv[1]);
@@ -81,7 +93,6 @@ jobs:
             ' "$DEST/hermes-cloud-connector.js"
           else
             echo "REUSING_EXISTING_CONFIG"
-            # Keep private key; only refresh display name / control plane URL.
             "$NODE" -e '
               const c=require(process.argv[1]);
               const cfg=c.loadConfig(process.env.HOME+"/.hermes/cloud-connector.json");
@@ -125,6 +136,7 @@ jobs:
           HERMES_CONTROL_PLANE_URL: ${{ inputs.control_plane_url }}
         run: |
           set -euo pipefail
+          export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
           if [ -z "${DEVICE_ID}" ]; then
             echo "device_id input is required for finalize" >&2
             exit 2
@@ -133,7 +145,13 @@ jobs:
           DEST="$HOME/.hermes/connector"
           test -f "$CONFIG"
           test -f "$DEST/hermes-cloud-connector.js"
-          NODE="$(command -v node)"
+          NODE="$(command -v node || true)"
+          if [ -z "$NODE" ]; then
+            for candidate in /opt/homebrew/bin/node /usr/local/bin/node; do
+              if [ -x "$candidate" ]; then NODE="$candidate"; break; fi
+            done
+          fi
+          test -n "$NODE"
           DEVICE_ID="$DEVICE_ID" "$NODE" -e '
             const fs=require("fs");
             const path=process.env.HOME+"/.hermes/cloud-connector.json";
@@ -165,11 +183,9 @@ jobs:
             <key>StandardErrorPath</key><string>/tmp/hermes-connector.log</string>
           </dict></plist>
           PLISTEOF
-          # Strip accidental leading spaces from heredoc
           sed -i '' 's/^          //' "$PLIST" 2>/dev/null || sed -i 's/^          //' "$PLIST"
           launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
           launchctl bootstrap "gui/$(id -u)" "$PLIST"
-          # One heartbeat cycle for evidence
           "$NODE" "$DEST/hermes-cloud-connector.js" --once || true
           echo "FINALIZED"
           "$NODE" -e 'const c=require("fs").readFileSync(process.env.HOME+"/.hermes/cloud-connector.json","utf8"); const j=JSON.parse(c); console.log(JSON.stringify({deviceId:j.deviceId,deviceName:j.deviceName},null,2));'
