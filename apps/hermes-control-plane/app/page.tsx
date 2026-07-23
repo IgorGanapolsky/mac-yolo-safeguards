@@ -10,12 +10,9 @@ import {
   LandingPricingCtaFree,
   LandingPricingCtaPaid,
 } from "./LandingAuthChrome";
+import { BrandMark } from "./BrandMark";
 import { StoreBadgeRow } from "./StoreBadges";
 import styles from "./landing.module.css";
-
-function Mark() {
-  return <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>;
-}
 
 /**
  * Public marketing shell is static: no cookie jar reads and no D1 on first paint.
@@ -44,7 +41,7 @@ export default function Home() {
       />
       <FunnelSignals />
       <nav className="topbar landing-nav" aria-label="Primary navigation">
-        <Link href="/" className="brand"><Mark /><span>ThumbGate <small>Hermes Web</small></span></Link>
+        <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Hermes Web</small></span></Link>
         <LandingAuthNav />
       </nav>
 
@@ -144,7 +141,7 @@ export default function Home() {
       </section>
 
       <footer>
-        <Link href="/" className="brand"><Mark /><span>ThumbGate <small>Hermes Web</small></span></Link>
+        <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Hermes Web</small></span></Link>
         <p>Your Hermes work, on the web—and still running when the lid closes.</p>
       </footer>
     </main>

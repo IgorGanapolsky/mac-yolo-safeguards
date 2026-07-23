@@ -92,7 +92,8 @@ export function LandingAuthPanel() {
     <>
       <div className="console-header">
         <span className="console-title">
-          <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span> Your workspace is private
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="brand-mark" src="/brand/thumbgate-mark-inline-v3.svg" alt="" width={22} height={22} decoding="async" /> Your workspace is private
         </span>
         <span className="action-label">
           {mode === "loading" ? "Checking session…" : isSession ? "Session active" : "Sign-in required"}

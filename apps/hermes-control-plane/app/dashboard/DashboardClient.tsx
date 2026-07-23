@@ -1,6 +1,8 @@
 "use client";
 
 import { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BrandMark } from "../BrandMark";
+import { FormattedMessage } from "../FormattedMessage";
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
@@ -31,7 +33,7 @@ const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 480;
 type ThreadSortOrder = "newest" | "oldest" | "alphabetical";
 
-function Mark() { return <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>; }
+function Mark() { return <BrandMark title="" size={26} />; }
 function age(timestamp: number | null) {
   if (!timestamp) return "never connected";
   const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
@@ -577,11 +579,11 @@ export default function DashboardClient() {
           <section className="panel task-panel" id="hermes-console">
             <div className="panel-heading"><div><p className="eyebrow">THREAD CONSOLE</p><h2>Continue the work</h2></div><span>{selectedThread ? `${threadDetails?.snapshot.length ?? 0} synced messages` : `${visibleTasks.length} tasks`}</span></div>
             {selectedThread && <div className="conversation-history">
-              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><p>{message.content}</p></article>) : <div className="conversation-empty">This thread has no cloud snapshot yet. Keep the paired Hermes connector online to sync it.</div>}
+              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : <div className="conversation-empty">This thread has no cloud snapshot yet. Keep the paired Hermes connector online to sync it.</div>}
               {threadDetails?.tasks.flatMap((task, index) => [
                 <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
-                task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{task.route}</span><p>{task.result}</p>{feedbackControls(task.id)}</article>
-                  : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>failed</span><p>{task.error}</p></article>
+                task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{task.route}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
+                  : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>failed</span><FormattedMessage text={task.error} /></article>
                   : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{task.route === "cloud" ? "cloud runner" : "your machine"}</span><p>Waiting for {task.route === "cloud" ? "the fenced cloud runner" : "your paired machine"} to pick this up…</p></article>
                   : null,
               ])}

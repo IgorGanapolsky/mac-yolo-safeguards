@@ -53,8 +53,13 @@ export const metadata: Metadata = {
     images: ["/og.png"],
   },
   icons: {
-    icon: "/favicon.svg",
+    // Match thumbgate.ai: TG gate monogram + PNG app icon / apple touch
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/thumbgate-icon.png", type: "image/png", sizes: "512x512" },
+    ],
     shortcut: "/favicon.svg",
+    apple: "/apple-touch-icon.png",
   },
 };
 
