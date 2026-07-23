@@ -34,6 +34,16 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /Your Hermes work/);
   assert.match(page, /Leash/);
   assert.match(page, /Run one installer/);
+  assert.match(page, /PLAY_STORE_URL/);
+  assert.match(page, /APP_STORE_URL/);
+  assert.match(page, /data-funnel-event="play_store_click"/);
+  assert.match(page, /data-funnel-event="app_store_click"/);
+  assert.match(page, /id="mobile"/);
+  assert.match(page, /Google Play/);
+  assert.match(page, /App Store/);
+  const storeLinks = await readFile(new URL("../app/storeLinks.ts", import.meta.url), "utf8");
+  assert.match(storeLinks, /com\.iganapolsky\.hermesmobile\.paid/);
+  assert.match(storeLinks, /id6786778037/);
   assert.doesNotMatch(page, /Sign in with AuthKit \(Google, Apple, Microsoft, GitHub/);
   assert.match(page, /<BillingPlan \/>/);
   assert.match(page, /LandingAuthHero|LandingAuthNav/);
