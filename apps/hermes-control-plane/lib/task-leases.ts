@@ -9,6 +9,7 @@ import {
   buildTaskCompletionReceipt,
   receiptAuditMetadata,
 } from "./execution-receipt";
+import { recordModelUsage, type ModelUsageInput } from "./model-usage";
 import { db } from "./runtime";
 import { randomToken, sha256 } from "./security";
 import { evaluateCloudPromptToolPolicy } from "./cloud-tool-policy";
@@ -300,6 +301,14 @@ export async function completeTask(input: {
   externalCheckPassed?: boolean | null;
   externalCheckKind?: string | null;
   externalEvidenceId?: string | null;
+  /** OpenAI-compatible usage from the model provider (no prompt bodies). */
+  usage?: {
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+    model?: string;
+    provider?: string;
+  } | null;
 }): Promise<boolean> {
   const now = Date.now();
   // Soft task row status still tracks executor report; audit receipt carries true outcome semantics.
@@ -346,7 +355,28 @@ export async function completeTask(input: {
       generation: existing.leaseGeneration,
       durationMs: Math.max(0, now - existing.createdAt),
       ...receiptAuditMetadata(receipt),
+      hasUsage: Boolean(input.usage),
     },
   });
+
+  if (input.usage && (input.usage.promptTokens || input.usage.completionTokens)) {
+    const usageRow: ModelUsageInput = {
+      organizationId: existing.organizationId,
+      taskId: input.taskId,
+      route: existing.route,
+      model: input.usage.model || "unknown",
+      provider: input.usage.provider ?? (input.actorType === "runner" ? "openai_compatible" : "device"),
+      promptTokens: Number(input.usage.promptTokens) || 0,
+      completionTokens: Number(input.usage.completionTokens) || 0,
+      totalTokens: Number(input.usage.totalTokens) || 0,
+    };
+    try {
+      await recordModelUsage(usageRow);
+    } catch (error) {
+      // Never fail lease completion if usage table is missing or insert fails.
+      console.warn("model_usage insert failed", error instanceof Error ? error.message : String(error));
+    }
+  }
+
   return true;
 }

@@ -1,3 +1,5 @@
+import { aggregateModelUsage } from "./model-usage";
+import { microsToUsd } from "./model-usage-pricing";
 import { db, runtimeEnv } from "./runtime";
 
 const RUNNER_HEALTH_URL =
@@ -5,6 +7,7 @@ const RUNNER_HEALTH_URL =
   || "https://igor-hermes-cloud-runner.fly.dev/health";
 
 const CONTINUITY_PRICE_USD = 10; // list price for projected revenue
+const CONTINUITY_INFRA_USD_PER_MONTH = Number(process.env.CONTINUITY_INFRA_USD_PER_MONTH || 5);
 
 export type AdminMetrics = {
   checkedAt: number;
@@ -67,11 +70,24 @@ export type AdminMetrics = {
   tokens: {
     available: boolean;
     note: string;
+    rows24h: number;
+    promptTokens24h: number;
+    completionTokens24h: number;
+    totalTokens24h: number;
+    rows30d: number;
+    promptTokens30d: number;
+    completionTokens30d: number;
+    totalTokens30d: number;
   };
   cost: {
     available: boolean;
     note: string;
+    estimatedModelUsd24h: number;
+    estimatedModelUsd30d: number;
     estimatedContinuityInfraUsdPerMonth: number;
+    /** Rough monthly total = infra + (30d model * 1) — not annualized; model is trailing 30d. */
+    estimatedCombinedUsd30d: number;
+    priceBasis: string;
   };
   privacy: {
     chatBodies: false;
@@ -268,15 +284,41 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
       durationMs: task.completedAt && task.createdAt ? Math.max(0, task.completedAt - task.createdAt) : null,
       isCanary: Boolean(task.isCanary),
     })),
-    tokens: {
-      available: false,
-      note: "Token/cost telemetry is not stored on the control plane yet. Continuity runner uses OpenAI-compatible provider; add provider usage export if you need token burn here. No LangSmith required.",
-    },
-    cost: {
-      available: false,
-      note: "No per-task $ ledger yet. Estimate: Fly shared-cpu Continuity runner + model calls.",
-      estimatedContinuityInfraUsdPerMonth: 5,
-    },
+    tokens: await (async () => {
+      const u24 = await aggregateModelUsage(dayAgo);
+      const u30 = await aggregateModelUsage(window30d);
+      const hasRows = u24.rows > 0 || u30.rows > 0;
+      return {
+        available: true,
+        note: hasRows
+          ? "From model_usage ledger (OpenAI-compatible usage on Continuity complete). No prompt bodies. No LangSmith."
+          : "Ledger ready; no usage rows yet. After Continuity runs complete with provider usage, totals appear here. No LangSmith required.",
+        rows24h: u24.rows,
+        promptTokens24h: u24.promptTokens,
+        completionTokens24h: u24.completionTokens,
+        totalTokens24h: u24.totalTokens,
+        rows30d: u30.rows,
+        promptTokens30d: u30.promptTokens,
+        completionTokens30d: u30.completionTokens,
+        totalTokens30d: u30.totalTokens,
+      };
+    })(),
+    cost: await (async () => {
+      const u24 = await aggregateModelUsage(dayAgo);
+      const u30 = await aggregateModelUsage(window30d);
+      const model24 = microsToUsd(u24.estimatedUsdMicros);
+      const model30 = microsToUsd(u30.estimatedUsdMicros);
+      const infra = Number.isFinite(CONTINUITY_INFRA_USD_PER_MONTH) ? CONTINUITY_INFRA_USD_PER_MONTH : 5;
+      return {
+        available: true,
+        note: "Model $ from token ledger × MODEL_PRICE_*_USD_PER_1M (defaults 0.15 in / 0.60 out). Infra is Fly Continuity estimate (CONTINUITY_INFRA_USD_PER_MONTH).",
+        estimatedModelUsd24h: model24,
+        estimatedModelUsd30d: model30,
+        estimatedContinuityInfraUsdPerMonth: infra,
+        estimatedCombinedUsd30d: Number((model30 + infra).toFixed(6)),
+        priceBasis: `in=$${envPrice("MODEL_PRICE_INPUT_USD_PER_1M", 0.15)}/1M out=$${envPrice("MODEL_PRICE_OUTPUT_USD_PER_1M", 0.6)}/1M`,
+      };
+    })(),
     privacy: {
       chatBodies: false,
       ipAddresses: false,
@@ -284,4 +326,9 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
       note: "Admin metrics intentionally omit chat bodies, IPs, fingerprints, and emails. Paid machines shown as names + online/stale only (connector sessions; not Tailscale API).",
     },
   };
+}
+
+function envPrice(name: string, fallback: number): number {
+  const n = Number(process.env[name]?.trim());
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
 }

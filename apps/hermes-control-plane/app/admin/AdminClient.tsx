@@ -218,12 +218,21 @@ export function AdminClient(props: {
             <article className="admin-panel">
               <h2>Tokens / cost</h2>
               <p className="admin-muted">{m.tokens.note}</p>
-              <p className="admin-muted">{m.cost.note}</p>
               <ul className="admin-kv">
-                <li><span>Est. Continuity infra</span><b>~${m.cost.estimatedContinuityInfraUsdPerMonth}/mo</b></li>
+                <li><span>Usage rows 24h</span><b>{m.tokens.rows24h}</b></li>
+                <li><span>Prompt tokens 24h</span><b>{m.tokens.promptTokens24h.toLocaleString()}</b></li>
+                <li><span>Completion tokens 24h</span><b>{m.tokens.completionTokens24h.toLocaleString()}</b></li>
+                <li><span>Total tokens 24h</span><b>{m.tokens.totalTokens24h.toLocaleString()}</b></li>
+                <li><span>Total tokens 30d</span><b>{m.tokens.totalTokens30d.toLocaleString()}</b></li>
+                <li><span>Model $ 24h (est.)</span><b>${m.cost.estimatedModelUsd24h.toFixed(4)}</b></li>
+                <li><span>Model $ 30d (est.)</span><b>${m.cost.estimatedModelUsd30d.toFixed(4)}</b></li>
+                <li><span>Infra (Fly Continuity)</span><b>~${m.cost.estimatedContinuityInfraUsdPerMonth}/mo</b></li>
+                <li><span>Combined 30d (model+infra)</span><b>~${m.cost.estimatedCombinedUsd30d.toFixed(4)}</b></li>
               </ul>
+              <p className="admin-muted">{m.cost.note}</p>
+              <p className="admin-muted">Price basis: {m.cost.priceBasis}</p>
               <p className="admin-muted">
-                <strong>LangChain / LangSmith not required.</strong> This page is D1 + Fly health + Stripe-derived plan counts.
+                <strong>LangChain / LangSmith not required.</strong> Ledger is D1 <code>model_usage</code> from Continuity completes.
               </p>
             </article>
           </section>

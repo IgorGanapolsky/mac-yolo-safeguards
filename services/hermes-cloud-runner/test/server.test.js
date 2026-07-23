@@ -36,7 +36,7 @@ test('backs off empty cloud polls while draining active work quickly', () => {
   });
 });
 
-test('cloud execution preserves the synced thread context', async () => {
+test('cloud execution preserves the synced thread context and usage', async () => {
   let received;
   const server = http.createServer((request, response) => {
     let body = '';
@@ -44,7 +44,11 @@ test('cloud execution preserves the synced thread context', async () => {
     request.on('end', () => {
       received = JSON.parse(body);
       response.setHeader('content-type', 'application/json');
-      response.end(JSON.stringify({ choices: [{ message: { content: 'cloud continued' } }] }));
+      response.end(JSON.stringify({
+        model: 'test-model',
+        choices: [{ message: { content: 'cloud continued' } }],
+        usage: { prompt_tokens: 12, completion_tokens: 4, total_tokens: 16 },
+      }));
     });
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -53,7 +57,14 @@ test('cloud execution preserves the synced thread context', async () => {
     const result = await execute({ openaiBaseUrl: `http://127.0.0.1:${address.port}`, openaiKey: 'test-key', model: 'test-model' }, {
       prompt: 'next step', contextMessages: [{ role: 'user', content: 'original request' }, { role: 'assistant', content: 'original answer' }],
     });
-    assert.equal(result, 'cloud continued');
+    assert.equal(result.content, 'cloud continued');
+    assert.deepEqual(result.usage, {
+      promptTokens: 12,
+      completionTokens: 4,
+      totalTokens: 16,
+      model: 'test-model',
+      provider: 'openai_compatible',
+    });
     assert.deepEqual(received.messages.map((message) => message.content), ['original request', 'original answer', 'next step']);
     assert.equal(received.max_tokens, 2048);
   } finally {
