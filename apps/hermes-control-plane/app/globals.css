@@ -161,7 +161,7 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 
 @media(max-width:700px){
   body{padding-bottom:78px}
-  .dashboard-main{padding-bottom:92px}
+  .dashboard-main{padding-bottom:calc(140px + env(safe-area-inset-bottom))}
   .sidebar-resize-handle{display:none}
   .sidebar{position:sticky;top:0;z-index:20;background:rgba(9,11,20,.92);backdrop-filter:blur(18px)}
   .sidebar{padding:10px 14px}
