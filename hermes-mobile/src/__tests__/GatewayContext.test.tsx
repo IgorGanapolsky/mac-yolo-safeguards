@@ -227,6 +227,7 @@ function ProgressProbe() {
       <Text testID="connection-heal-attempt">{gateway.connectionHealAttempt}</Text>
       <Text testID="active-profile-id">{gateway.activeGatewayProfile?.id ?? 'none'}</Text>
       <Text testID="run-progress-detail">{gateway.runProgress?.detail ?? 'none'}</Text>
+      <Text testID="gateway-reachable">{String(gateway.health?.directGatewayReachable ?? false)}</Text>
       <Text
         testID="chat-stream-lock"
         onPress={() => gateway.setChatStreamProgressActive(true)}
@@ -394,6 +395,106 @@ describe('GatewayProvider', () => {
       jest.useRealTimers();
     }
   });
+
+  it('P0 2026-07-23: a saved profile stuck "unreachable" self-heals in the foreground, on its documented ~30s cadence, without any AppState/relaunch trigger, once the backend is genuinely healthy again', async () => {
+    // Live bug Igor hit on his S25: phone showed a full-screen "Can't reach your
+    // computer" / Tailscale-unreachable state while `curl http://<mac>:8642/health`
+    // from the Mac itself answered instantly the whole time. The app never recovered
+    // on its own — only `adb shell am force-stop` + relaunch fixed it. Root cause:
+    // the exhausted-phase reconnect effect depended on raw `health` snapshot fields
+    // (`level`/`checkedAt`/`directGatewayReachable`) that mutate on every tick of the
+    // fully independent 30s background health poll a few effects up. That unrelated
+    // churn tore down and re-armed the reconnect `setInterval` before it could reach
+    // its own SAVED_PROFILE_RECONNECT_INTERVAL_MS deadline, silently degrading the
+    // documented ~30s retry cadence toward ~60s+ (worse with real device probe
+    // latency) — this is what a real "unreachable" screen sitting for minutes looks
+    // like. This test uses a realistically slow (not instant) failing fetch to
+    // reproduce that drift, then proves two things a naive single-shot retry test
+    // would miss: (1) the retry cadence itself stays close to the documented ~30s
+    // pace instead of drifting slower the longer it stays down, and (2) recovery
+    // happens without simulating any app backgrounding, foregrounding, or restart.
+    jest.useFakeTimers();
+    try {
+      const gatewayProfilesMock = jest.requireMock('../services/gatewayProfiles');
+      gatewayProfilesMock.gatewayProfiles.load.mockResolvedValue({
+        profiles: [
+          {
+            id: 'saved-mac',
+            label: 'Saved Mac',
+            gatewayUrl: 'http://100.87.85.85:8642',
+            hostname: 'Saved Mac',
+            addedAt: '2026-07-19T00:00:00.000Z',
+          },
+        ],
+        activeProfileId: 'saved-mac',
+      });
+      let online = false;
+      // Realistic device timing: an unreachable host takes real wall-clock time to
+      // fail (VPN/TCP timeout), not an instant rejection — an idealized instant-fetch
+      // mock hides the exact drift the independent health poll causes.
+      global.fetch = jest.fn(
+        () =>
+          new Promise((resolve) => {
+            setTimeout(
+              () =>
+                resolve({
+                  ok: online,
+                  status: online ? 200 : 503,
+                  json: async () =>
+                    online
+                      ? { status: 'ok', gateway_state: 'running', pid: 1 }
+                      : { error: 'unreachable' },
+                }),
+              online ? 50 : 800,
+            );
+          }),
+      ) as jest.Mock;
+
+      const { getByTestId } = render(
+        <GatewayProvider>
+          <ProgressProbe />
+        </GatewayProvider>,
+      );
+
+      // Drive 5 simulated minutes while genuinely unreachable, in small steps so the
+      // independent 30s health poll and the exhausted-phase reconnect interval
+      // interleave the way they would on a real device (never perfect lockstep).
+      // No AppState change, no unmount/remount — the app just sits foregrounded.
+      for (let i = 0; i < 60; i += 1) {
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(5_000);
+        });
+      }
+      expect(getByTestId('gateway-reachable').props.children).toBe('false');
+      const attemptsAfterFiveMinutes = Number(
+        getByTestId('connection-heal-attempt').props.children,
+      );
+      expect(attemptsAfterFiveMinutes).toBeGreaterThanOrEqual(6);
+      // The regression contract: after the quiet-heal window, the exhausted-phase
+      // interval must keep firing close to its documented ~30s cadence for the whole
+      // 5 minutes, not decay toward ~60s+ as the unrelated health-poll churn causes.
+      // Pre-fix this consistently plateaus at 10; post-fix it reaches 13+.
+      expect(attemptsAfterFiveMinutes).toBeGreaterThanOrEqual(12);
+
+      // The backend is genuinely healthy now (matches Igor's live report). The app
+      // must self-heal in the foreground — no background/foreground cycle, no
+      // remount/relaunch simulated.
+      online = true;
+      let reachable = false;
+      for (let i = 0; i < 24 && !reachable; i += 1) {
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(5_000);
+        });
+        reachable = getByTestId('gateway-reachable').props.children === 'true';
+      }
+
+      expect(reachable).toBe(true);
+      expect(getByTestId('connection-heal-attempt').props.children).toBe(0);
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  }, 30000);
 
   it('shows connected (not Reconnecting) when HTTP /health is OK even if the events socket never opens', async () => {
     // The real :8642 gateway exposes NO events WebSocket — the socket errors/closes
