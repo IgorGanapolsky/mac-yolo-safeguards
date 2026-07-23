@@ -9,7 +9,6 @@ import {
   LandingPricingCtaFree,
   LandingPricingCtaPaid,
 } from "./LandingAuthChrome";
-import { APP_STORE_URL, PLAY_STORE_URL } from "./storeLinks";
 import styles from "./landing.module.css";
 
 function Mark() {
@@ -59,7 +58,7 @@ export default function Home() {
           <div className="trust-row"><span>No inbound ports</span><span>Private-key pairing</span><span>Cloud only when enabled</span></div>
           <div className="hero-store-links" aria-label="Hermes Mobile apps">
             <a
-              href={PLAY_STORE_URL}
+              href="/go/android"
               className="store-link store-link-play"
               data-funnel-event="play_store_click"
               target="_blank"
@@ -69,7 +68,7 @@ export default function Home() {
               <span><strong>Google Play</strong><small>Hermes Mobile</small></span>
             </a>
             <a
-              href={APP_STORE_URL}
+              href="/go/ios"
               className="store-link store-link-ios"
               data-funnel-event="app_store_click"
               target="_blank"
@@ -161,7 +160,7 @@ export default function Home() {
         </div>
         <div className="hero-store-links hero-store-links-lg">
           <a
-            href={PLAY_STORE_URL}
+            href="/go/android"
             className="store-link store-link-play"
             data-funnel-event="play_store_click"
             target="_blank"
@@ -171,7 +170,7 @@ export default function Home() {
             <span><strong>Get it on Google Play</strong><small>Hermes Mobile for Android</small></span>
           </a>
           <a
-            href={APP_STORE_URL}
+            href="/go/ios"
             className="store-link store-link-ios"
             data-funnel-event="app_store_click"
             target="_blank"
