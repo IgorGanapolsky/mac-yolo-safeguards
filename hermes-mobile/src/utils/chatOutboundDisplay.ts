@@ -1,7 +1,10 @@
 import type { HermesMessage } from '../types/chat';
 import { shouldHideToolDumpFromTimeline, dedupeToolDumpMessages } from './chatToolDump';
 import { isMessageDisplayEmpty, normalizeMessageText } from './chatMessageMerge';
-import { isTransientWorkingStatusPlaceholder } from './streamAssistantText';
+import {
+  isSilentAssistantCompletion,
+  isTransientWorkingStatusPlaceholder,
+} from './streamAssistantText';
 
 /** Visual-top clearance for inverted FlatList (maps to paddingBottom). */
 export const CHAT_LIST_HEADER_CLEARANCE = 16;
@@ -91,6 +94,10 @@ export function filterChatTimelineMessages(input: ChatTimelineFilterInput): Chat
   const timeline: ChatTimelineEntry[] = [];
   input.messages.forEach((message, originalIndex) => {
     if (isCronSystemDeliveryScaffolding(message.content)) {
+      return;
+    }
+    // Cron "nothing to report" sentinel — gateway persists it; never show as a bubble.
+    if (isSilentAssistantCompletion(message.content)) {
       return;
     }
     if (shouldHideToolDumpFromTimeline(message, includeTools)) {
