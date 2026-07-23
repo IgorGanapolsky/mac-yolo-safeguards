@@ -276,9 +276,10 @@ export function discoveredMachineKey(item: DiscoveredGateway): string {
     return `name:${host}`;
   }
   // MagicDNS short name when /health omitted hostname but URL is *.ts.net.
+  // Keep trailing -N (macbook-pro-1 vs macbook-pro-2 are distinct nodes).
   const magicName = magicDnsDeviceName(item.gatewayUrl)?.toLowerCase();
   if (magicName) {
-    return `name:${magicName.replace(/-\d+$/, '')}`;
+    return `name:${magicName}`;
   }
   if (host && host !== 'localhost') {
     return `name:${host}`;
