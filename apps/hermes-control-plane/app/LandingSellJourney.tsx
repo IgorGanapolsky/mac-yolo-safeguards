@@ -183,11 +183,14 @@ export function LandingSellGrid() {
         <p>Interactive product path — not a screenshot. Tap the demo and feel the Leash.</p>
         <em>Try it below →</em>
       </a>
-      <a className={styles.sellCard} href="#pricing">
-        <kbd>FREE → PAID</kbd>
-        <strong>$0 while your Mac is online.</strong>
-        <p>Pay only for Continuity when the machine disappears and work must keep going.</p>
-        <em>See pricing →</em>
+      <a className={styles.sellCard} href="#pricing" data-funnel-event="cloud_continuity_click">
+        <kbd>PAID · CONTINUITY</kbd>
+        <strong>Mac lid closes. Work does not.</strong>
+        <p>
+          Free web control pauses when the machine disappears. Continuity moves eligible threads to a fenced VPS —
+          14-day trial, 5 cloud runs, then list price on the pricing card.
+        </p>
+        <em>See Continuity pricing →</em>
       </a>
       <a className={styles.sellCard} href="#mobile">
         <kbd>PHONE + WEB</kbd>
@@ -220,19 +223,20 @@ export function LandingFinalCta() {
   return (
     <section className={styles.finalCta} aria-label="Get started">
       <div>
-        <p className="eyebrow">Ship the remote control layer</p>
-        <h2>Your Hermes agents. Browser. Phone. Offline-safe.</h2>
+        <p className="eyebrow">Two paths · one product</p>
+        <h2>Free while the Mac is online. Continuity when it is not.</h2>
         <p>
-          Pair a Mac in minutes. Chat from the web. Keep eligible work alive on Continuity when the lid closes.
-          Free to start — pay only for cloud failover.
+          Web control is free forever for chats and Leash while your machine is reachable. Continuity is the paid
+          VPS that finishes eligible work after sleep, crash, or offline — 14-day trial with 5 cloud runs, then the
+          list price on the pricing card. No LangSmith. No inbound ports.
         </p>
       </div>
       <div className={styles.finalActions}>
-        <a href="/api/auth/login" className="button button-primary" data-funnel-event="sign_in_click">
-          Start free →
+        <a href="#pricing" className="button button-primary" data-funnel-event="cloud_continuity_click">
+          Get Continuity trial →
         </a>
-        <a href="#pricing" className="button button-secondary" data-funnel-event="cloud_continuity_click">
-          Continuity pricing
+        <a href="/api/auth/login" className="button button-secondary" data-funnel-event="sign_in_click">
+          Free web control only →
         </a>
       </div>
     </section>
@@ -243,13 +247,13 @@ export function LandingStickyCta() {
   return (
     <div className={styles.stickyCta} role="region" aria-label="Quick start">
       <p>
-        <strong>Ready in one installer.</strong> Free web control. Continuity when you need it.
+        <strong>Free online.</strong> Continuity when the lid closes — trial 5 VPS runs.
       </p>
-      <a href="/api/auth/login" className="button button-primary button-small" data-funnel-event="sign_in_click">
-        Sign in free →
+      <a href="#pricing" className="button button-primary button-small" data-funnel-event="cloud_continuity_click">
+        Continuity →
       </a>
-      <a href="#pair" className="button button-ghost button-small">
-        Pair Mac
+      <a href="/api/auth/login" className="button button-ghost button-small" data-funnel-event="sign_in_click">
+        Free control
       </a>
     </div>
   );

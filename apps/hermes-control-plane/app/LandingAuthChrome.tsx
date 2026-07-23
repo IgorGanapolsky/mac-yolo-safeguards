@@ -60,7 +60,7 @@ export function LandingAuthNav() {
   );
 }
 
-/** Single primary hero CTA (not triplicated in the side panel). */
+/** Hero CTAs: free entry + paid Continuity path (dual-track, honest). */
 export function LandingAuthHero() {
   const mode = useLandingAuth();
   const isSession = mode === "session";
@@ -71,10 +71,19 @@ export function LandingAuthHero() {
         className="button button-primary"
         data-funnel-event={isSession ? "dashboard_open_click" : "sign_in_click"}
       >
-        {isSession ? "Open your dashboard" : "Start free — sign in"}{" "}
+        {isSession ? "Open your dashboard" : "Start free web control"}{" "}
         <span aria-hidden="true">→</span>
       </a>
-      <a href="#how-it-works" className="button button-ghost">Try the interactive demo</a>
+      <a
+        href="#pricing"
+        className="button button-secondary"
+        data-funnel-event="cloud_continuity_click"
+      >
+        Continuity when the lid closes →
+      </a>
+      <a href="#how-it-works" className="button button-ghost">
+        Watch fail-over demo
+      </a>
     </div>
   );
 }
@@ -116,8 +125,8 @@ export function LandingAuthPanel() {
         <a className="landing-action" href="#pricing" data-funnel-event="cloud_continuity_click">
           <span className="action-icon" aria-hidden="true">☁</span>
           <span>
-            <strong>Continuity (paid)</strong>
-            <small>VPS keeps eligible work alive when the lid closes.</small>
+            <strong>Continuity — paid VPS</strong>
+            <small>Lid closes mid-task? 14-day trial · 5 cloud runs · then ~$10/mo.</small>
           </span>
           <b aria-hidden="true">→</b>
         </a>
@@ -146,9 +155,10 @@ export function LandingPricingCtaFree() {
 
 export function LandingPricingCtaPaid() {
   const href = useSessionHref();
+  // Same login URL; funnel event marks Continuity intent for analytics.
   return (
     <a href={href} className="button button-primary" data-funnel-event="cloud_continuity_click">
-      Try cloud continuity →
+      Start Continuity trial — 5 VPS runs →
     </a>
   );
 }

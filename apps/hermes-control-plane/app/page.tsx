@@ -123,22 +123,25 @@ export default function Home() {
 
       <section id="main-content" className="hero" tabIndex={-1}>
         <div className="hero-copy">
-          <p className="eyebrow"><span className="live-dot" /> Sell Hermes control — free to start</p>
+          <p className="eyebrow"><span className="live-dot" /> Free online · Continuity when offline</p>
           <h1>
             Hermes dashboard from any browser.
             <br />
             <span>Keep going when the Mac sleeps.</span>
           </h1>
           <p className="hero-lede">
-            ThumbGate is the remote-control dashboard for Hermes: chat, Leash approvals, and machines on the web.
-            Continuity is the paid VPS that finishes eligible work when your machine disappears.
+            Chat and Leash from the web while your Mac is online — free. When the lid closes mid-task, free control
+            pauses. Continuity is the paid fenced VPS that finishes eligible work: 14-day trial, 5 cloud runs, then
+            list price.
           </p>
           <LandingAuthHero />
-          <p className="signin-note">Hermes Web by ThumbGate. Continue with Google or Apple—no new password.</p>
+          <p className="signin-note">
+            Free path: sign in and pair. Paid path: enable Continuity after trial when offline work matters.
+          </p>
           <div className="trust-row">
-            <span>Free web control</span>
-            <span>Private-key pairing</span>
-            <span>Cloud only when you enable it</span>
+            <span>Free while Mac is online</span>
+            <span>Continuity = paid VPS failover</span>
+            <span>14-day trial · 5 cloud runs</span>
           </div>
           <div className="hero-store-links" aria-label="Hermes Mobile apps">
             <a
@@ -199,9 +202,12 @@ export default function Home() {
 
       <section id="pricing" className="pricing-section">
         <div className="pricing-copy">
-          <p className="eyebrow">Free control. Paid continuity.</p>
-          <h2>Pay only when the Mac can&apos;t run the work.</h2>
-          <p>Start free today. Upgrade Continuity the first time you need the VPS to finish a thread.</p>
+          <p className="eyebrow">Where the money is · Continuity</p>
+          <h2>Pay when the Mac can&apos;t finish the work.</h2>
+          <p>
+            Free Web Control is the daily driver. Continuity is the upgrade you buy when offline / sleep / crash would
+            kill a thread — trial first (5 cloud runs in 14 days), then the list price shown on the card.
+          </p>
         </div>
         <div className="price-grid">
           <article className="price-card">
