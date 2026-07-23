@@ -34,6 +34,7 @@ import {
   configuredToolsetsToAutoEnable,
   formatToolsetLabel,
   markToolsetsEnabled,
+  partitionMobileToolsets,
   toolsetAddKeyCtaLabel,
   toolsetNeedsApiKey,
   toolsetShowsKeyButton,
@@ -136,6 +137,7 @@ export default function GatewayOpsSection() {
   const [error, setError] = useState<string | undefined>();
   const [catalogErrors, setCatalogErrors] = useState<Partial<Record<CatalogSection, boolean>>>({});
   const [expandedToolsets, setExpandedToolsets] = useState<Set<string>>(new Set());
+  const [advancedToolsetsOpen, setAdvancedToolsetsOpen] = useState(false);
   const [togglingToolset, setTogglingToolset] = useState<string | null>(null);
   const [integrationsToolset, setIntegrationsToolset] = useState<HermesToolset | null>(null);
   const togglingToolsetRef = useRef<string | null>(null);
@@ -418,7 +420,9 @@ export default function GatewayOpsSection() {
   const enabledFeatures = Object.entries(featureFlags).filter(([, v]) => v === true);
   const toolsetsWritable = phoneToggleAvailable === true || isDemo;
   const phoneToggleBlocked = phoneToggleAvailable === false;
-  const keysNeeded = toolsetsNeedingKeys(toolsets);
+  const { essentials: essentialToolsets, advanced: advancedToolsets } =
+    partitionMobileToolsets(toolsets);
+  const keysNeeded = toolsetsNeedingKeys(essentialToolsets);
   const integrationsConfigAvailable =
     featureFlags.integrations_config === true || isDemo;
   const macHttpReachable = isMacGatewayHttpOk(health);
@@ -438,6 +442,69 @@ export default function GatewayOpsSection() {
         models: [gatewayModel],
       })
     : null;
+
+  const renderToolsetRow = (ts: HermesToolset) => {
+    const expanded = expandedToolsets.has(ts.name);
+    const label = formatToolsetLabel(ts.label, ts.name);
+    const busy = togglingToolset === ts.name;
+    const needsKey = toolsetNeedsApiKey(ts);
+    const showKeyButton = toolsetShowsKeyButton(ts);
+    return (
+      <View key={ts.name} style={styles.toolsetRow}>
+        <View style={styles.toolsetHeader}>
+          <TouchableOpacity
+            style={styles.toolsetMain}
+            onPress={() => toggleToolsetExpanded(ts.name)}
+            accessibilityLabel={`${label} tools`}
+            testID={`toolset-row-${ts.name}`}
+          >
+            <View style={styles.toolsetText}>
+              <Text style={styles.rowTitle}>{label}</Text>
+              <Text style={styles.rowDesc}>
+                {toolsetStatusLine(ts, { phoneToggleBlocked })}
+              </Text>
+              {ts.description ? (
+                <Text style={styles.rowDesc} numberOfLines={expanded ? undefined : 2}>
+                  {ts.description}
+                </Text>
+              ) : null}
+            </View>
+            <Text style={styles.expandHint}>{expanded ? '▾' : '▸'}</Text>
+          </TouchableOpacity>
+          {showKeyButton ? (
+            <TouchableOpacity
+              style={[styles.addKeyBtn, needsKey ? styles.addKeyBtnNeeded : null]}
+              onPress={() => {
+                haptics.selection();
+                setIntegrationsToolset(ts);
+              }}
+              testID={`toolset-add-key-${ts.name}`}
+              accessibilityLabel={`${toolsetAddKeyCtaLabel(ts)} for ${label}`}
+            >
+              <Text style={[styles.addKeyText, needsKey ? styles.addKeyTextNeeded : null]}>
+                {toolsetAddKeyCtaLabel(ts)}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+          <Switch
+            value={ts.enabled ?? false}
+            onValueChange={(value) => handleToolsetToggle(ts, value)}
+            disabled={busy}
+            trackColor={{ false: '#374151', true: colors.primary }}
+            thumbColor={ts.enabled ? '#ffffff' : '#9CA3AF'}
+            testID={`toolset-switch-${ts.name}`}
+          />
+        </View>
+        {expanded && ts.tools && ts.tools.length > 0 ? (
+          <View style={styles.toolList}>
+            {ts.tools.map((tool) => (
+              <Text key={tool} style={styles.toolName}>{tool}</Text>
+            ))}
+          </View>
+        ) : null}
+      </View>
+    );
+  };
 
   const handleRepairConnection = useCallback(async () => {
     const probeUrl = effectiveGatewayUrl || settings.gatewayUrl;
@@ -537,7 +604,9 @@ export default function GatewayOpsSection() {
         <ActivityIndicator color={colors.secondary} style={styles.loader} />
       ) : null}
 
-      <Text style={styles.sectionTitle}>Toolsets ({toolsets.length})</Text>
+      <Text style={styles.sectionTitle} testID="toolsets-essentials-title">
+        Essentials ({essentialToolsets.length})
+      </Text>
       <Text style={styles.sectionHint}>
         {toolsetsSectionHint({
           phoneToggleAvailable: toolsetsWritable,
@@ -551,71 +620,41 @@ export default function GatewayOpsSection() {
               ? 'Tools could not load from your computer. Tap Refresh to retry.'
               : 'No toolsets are installed on this computer.'}
           </Text>
+        ) : essentialToolsets.length === 0 ? (
+          <Text style={styles.meta} testID="toolsets-essentials-empty">
+            No essential tools reported by your computer yet.
+          </Text>
         ) : (
-          toolsets.map((ts) => {
-            const expanded = expandedToolsets.has(ts.name);
-            const label = formatToolsetLabel(ts.label, ts.name);
-            const busy = togglingToolset === ts.name;
-            const needsKey = toolsetNeedsApiKey(ts);
-            const showKeyButton = toolsetShowsKeyButton(ts);
-            return (
-              <View key={ts.name} style={styles.toolsetRow}>
-                <View style={styles.toolsetHeader}>
-                  <TouchableOpacity
-                    style={styles.toolsetMain}
-                    onPress={() => toggleToolsetExpanded(ts.name)}
-                    accessibilityLabel={`${label} tools`}
-                    testID={`toolset-row-${ts.name}`}
-                  >
-                    <View style={styles.toolsetText}>
-                      <Text style={styles.rowTitle}>{label}</Text>
-                      <Text style={styles.rowDesc}>
-                        {toolsetStatusLine(ts, { phoneToggleBlocked })}
-                      </Text>
-                      {ts.description ? (
-                        <Text style={styles.rowDesc} numberOfLines={expanded ? undefined : 2}>
-                          {ts.description}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <Text style={styles.expandHint}>{expanded ? '▾' : '▸'}</Text>
-                  </TouchableOpacity>
-                  {showKeyButton ? (
-                    <TouchableOpacity
-                      style={[styles.addKeyBtn, needsKey ? styles.addKeyBtnNeeded : null]}
-                      onPress={() => {
-                        haptics.selection();
-                        setIntegrationsToolset(ts);
-                      }}
-                      testID={`toolset-add-key-${ts.name}`}
-                      accessibilityLabel={`${toolsetAddKeyCtaLabel(ts)} for ${label}`}
-                    >
-                      <Text style={[styles.addKeyText, needsKey ? styles.addKeyTextNeeded : null]}>
-                        {toolsetAddKeyCtaLabel(ts)}
-                      </Text>
-                    </TouchableOpacity>
-                  ) : null}
-                  <Switch
-                    value={ts.enabled ?? false}
-                    onValueChange={(value) => handleToolsetToggle(ts, value)}
-                    disabled={busy}
-                    trackColor={{ false: '#374151', true: colors.primary }}
-                    thumbColor={ts.enabled ? '#ffffff' : '#9CA3AF'}
-                    testID={`toolset-switch-${ts.name}`}
-                  />
-                </View>
-                {expanded && ts.tools && ts.tools.length > 0 ? (
-                  <View style={styles.toolList}>
-                    {ts.tools.map((tool) => (
-                      <Text key={tool} style={styles.toolName}>{tool}</Text>
-                    ))}
-                  </View>
-                ) : null}
-              </View>
-            );
-          })
+          essentialToolsets.map(renderToolsetRow)
         )}
       </GlassCard>
+
+      {advancedToolsets.length > 0 ? (
+        <>
+          <TouchableOpacity
+            onPress={() => {
+              haptics.selection();
+              setAdvancedToolsetsOpen((open) => !open);
+            }}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: advancedToolsetsOpen }}
+            testID="toolsets-advanced-toggle"
+          >
+            <Text style={styles.sectionTitle}>
+              On your Mac ({advancedToolsets.length}) {advancedToolsetsOpen ? '▾' : '▸'}
+            </Text>
+          </TouchableOpacity>
+          <Text style={styles.sectionHint}>
+            Extra integrations already set up on this computer. Collapsed by default — not part of
+            the Hermes Mobile essentials.
+          </Text>
+          {advancedToolsetsOpen ? (
+            <GlassCard testID="toolsets-advanced-list">
+              {advancedToolsets.map(renderToolsetRow)}
+            </GlassCard>
+          ) : null}
+        </>
+      ) : null}
 
       <Text style={styles.sectionTitle}>Cron jobs ({jobs.length})</Text>
       <GlassCard>

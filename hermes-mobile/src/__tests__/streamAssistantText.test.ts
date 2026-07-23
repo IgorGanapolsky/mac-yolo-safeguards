@@ -35,6 +35,8 @@ describe('streamAssistantText', () => {
 
   it('treats the gateway [SILENT] sentinel as an empty, non-user-facing completion', () => {
     expect(isSilentAssistantCompletion(' [silent] ')).toBe(true);
+    expect(isSilentAssistantCompletion('*[SILENT]*')).toBe(true);
+    expect(isSilentAssistantCompletion('`[SILENT]`')).toBe(true);
     expect(isSilentAssistantCompletion('[SILENT] with tool output')).toBe(false);
     expect(isDeferredStreamPlaceholder('[SILENT]')).toBe(true);
     expect(extractAssistantFromRunCompletedPayload({ output: '[SILENT]' })).toBe('');

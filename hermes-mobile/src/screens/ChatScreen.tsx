@@ -2807,7 +2807,8 @@ export default function ChatScreen() {
           void clearPendingOutbound(PENDING_NEW_SESSION_KEY);
           persistedPendingRef.current = [];
         }
-        return serverMessages;
+        // Always run merge strip so bare hydrate cannot resurrect `[SILENT]`.
+        return mergeServerMessagesWithPending(serverMessages, []);
       };
 
       if (isDemo) {

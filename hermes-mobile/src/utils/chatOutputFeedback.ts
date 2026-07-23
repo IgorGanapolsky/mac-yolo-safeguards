@@ -1,6 +1,9 @@
 import type { HermesMessage } from '../types/chat';
 import { isMessageBodyEmpty } from './chatMessageMerge';
-import { isDeferredStreamPlaceholder } from './streamAssistantText';
+import {
+  isDeferredStreamPlaceholder,
+  isSilentAssistantCompletion,
+} from './streamAssistantText';
 
 export function shouldShowChatOutputFeedback(
   message: HermesMessage,
@@ -19,6 +22,10 @@ export function shouldShowChatOutputFeedback(
     return false;
   }
   if (isMessageBodyEmpty(message.content, message.rawContent)) {
+    return false;
+  }
+  // Cron `[SILENT]` is a protocol ack, not a model reply — never offer thumbs.
+  if (isSilentAssistantCompletion(message.content)) {
     return false;
   }
   // Status placeholders are not real replies — never offer thumbs.

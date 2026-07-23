@@ -20,11 +20,22 @@ export const EMPTY_STREAM_TIMEOUT_PLACEHOLDER =
   'Still no reply text. Hermes keeps checking your Mac automatically — Stop if a run is active, or start a fresh chat for faster replies.';
 
 /**
- * Internal gateway sentinel for a tool-only turn. It is not assistant prose and
- * must follow the empty-stream recovery path rather than become a chat bubble.
+ * Internal gateway / cron sentinel for a tool-only or "nothing to report" turn.
+ * It is not assistant prose and must never become a chat bubble or thumbs target.
  */
 export function isSilentAssistantCompletion(content: string | undefined): boolean {
-  return content?.normalize('NFKC').trim().toUpperCase() === '[SILENT]';
+  if (typeof content !== 'string') {
+    return false;
+  }
+  const body = content.normalize('NFKC').trim();
+  if (!body) {
+    return false;
+  }
+  if (body.toUpperCase() === '[SILENT]') {
+    return true;
+  }
+  // Exact sentinel wrapped only in markdown emphasis / backticks (no other prose).
+  return /^[*_`~\s]*\[SILENT\][*_`~\s]*$/i.test(body);
 }
 
 export function isDeferredStreamPlaceholder(content: string | undefined): boolean {

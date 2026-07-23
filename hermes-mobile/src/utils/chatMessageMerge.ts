@@ -27,6 +27,11 @@ function stripInvisibleChars(text: string): string {
     .replace(/\u00ad/g, ''); // soft hyphen
 }
 
+/** Drop cron/gateway `[SILENT]` protocol markers from any role before state/UI ingest. */
+export function stripSilentProtocolMessages(messages: HermesMessage[]): HermesMessage[] {
+  return messages.filter((message) => !isSilentAssistantCompletion(message.content));
+}
+
 export function isMessageDisplayEmpty(content: string | undefined): boolean {
   return normalizeMessageText(stripInvisibleChars(content?.trim() || '')).length === 0;
 }
@@ -506,13 +511,9 @@ export function mergeServerMessagesWithPending(
   serverMessages: HermesMessage[],
   localMessages: HermesMessage[],
 ): HermesMessage[] {
-  // `[SILENT]` is an internal tool-only completion sentinel, not visible assistant text.
-  // Drop it here as well as in the live stream so transcript refresh cannot resurrect it.
-  const visibleServerMessages = serverMessages.filter(
-    (message) =>
-      message.role?.toLowerCase() !== 'assistant' ||
-      !isSilentAssistantCompletion(message.content),
-  );
+  // `[SILENT]` is an internal cron/tool completion sentinel — never user-facing.
+  // Role-agnostic: gateway sometimes persists the marker under unexpected roles.
+  const visibleServerMessages = stripSilentProtocolMessages(serverMessages);
   let dedupedServer = dedupeDeferredStreamPlaceholders(dedupeChatMessages(visibleServerMessages));
   if (localMessages.length === 0) {
     return dedupedServer;

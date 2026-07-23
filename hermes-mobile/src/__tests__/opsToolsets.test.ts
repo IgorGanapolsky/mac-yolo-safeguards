@@ -1,8 +1,13 @@
 import {
   configuredToolsetsToAutoEnable,
+  ESSENTIAL_MOBILE_TOOLSET_NAMES,
   fallbackEnvFieldsForToolset,
   formatToolsetLabel,
+  HOBBY_INTEGRATION_TOOLSET_NAMES,
+  isEssentialMobileToolset,
+  isHobbyIntegrationToolset,
   markToolsetsEnabled,
+  partitionMobileToolsets,
   toolsetAddKeyCtaLabel,
   toolsetNeedsApiKey,
   toolsetShowsKeyButton,
@@ -41,7 +46,7 @@ describe('opsToolsets', () => {
     ).toBe('1 tool · needs API key');
   });
 
-  it('prompts add key when off and not configured', () => {
+  it('prompts add key when off and not configured for non-hobby tools', () => {
     expect(
       toolsetStatusLine({
         name: 'x_search',
@@ -52,10 +57,53 @@ describe('opsToolsets', () => {
     ).toBe('1 tool · add key to enable');
   });
 
-  it('auto-enables only configured toolsets that are currently off', () => {
+  it('never pushes Add key copy for hobby integrations', () => {
+    expect(
+      toolsetStatusLine({
+        name: 'homeassistant',
+        enabled: false,
+        configured: false,
+        tools: ['hass'],
+      }),
+    ).toBe('1 tool · set up on your Mac');
+    expect(toolsetShowsKeyButton({ name: 'homeassistant', configured: false })).toBe(false);
+    expect(toolsetShowsKeyButton({ name: 'spotify', configured: false })).toBe(false);
+    expect(toolsetShowsKeyButton({ name: 'discord', configured: false })).toBe(false);
+  });
+
+  it('locks the July 2026 essential allowlist + hobby denylist', () => {
+    expect(ESSENTIAL_MOBILE_TOOLSET_NAMES).toEqual([
+      'session_search',
+      'clarify',
+      'delegation',
+      'cronjob',
+      'memory',
+      'todo',
+      'skills',
+      'terminal',
+      'file',
+      'web',
+      'browser',
+      'computer_use',
+      'code_execution',
+    ]);
+    expect(HOBBY_INTEGRATION_TOOLSET_NAMES).toEqual([
+      'homeassistant',
+      'spotify',
+      'discord',
+      'discord_admin',
+      'yuanbao',
+    ]);
+    expect(isEssentialMobileToolset('clarify')).toBe(true);
+    expect(isEssentialMobileToolset('spotify')).toBe(false);
+    expect(isHobbyIntegrationToolset('discord_admin')).toBe(true);
+  });
+
+  it('auto-enables only essential configured toolsets that are currently off', () => {
     const toolsets = [
       { name: 'skills', configured: true, enabled: false, tools: ['skills_list'] },
       { name: 'todo', configured: true, enabled: false, tools: ['todo'] },
+      { name: 'spotify', configured: true, enabled: false, tools: ['spotify_play'] },
       { name: 'x_search', configured: false, enabled: false, tools: ['x_search'] },
       { name: 'memory', configured: true, enabled: true, tools: ['memory'] },
     ];
@@ -69,7 +117,61 @@ describe('opsToolsets', () => {
       { name: 'todo', configured: true, enabled: true, tools: ['todo'] },
       toolsets[2],
       toolsets[3],
+      toolsets[4],
     ]);
+  });
+
+  it('partitions essentials vs On your Mac and hides unconfigured hobby/media', () => {
+    const toolsets = [
+      {
+        name: 'spotify',
+        label: 'Spotify',
+        configured: true,
+        enabled: true,
+        tools: ['play'],
+      },
+      {
+        name: 'homeassistant',
+        label: 'Home Assistant',
+        configured: false,
+        enabled: false,
+        tools: ['hass'],
+      },
+      {
+        name: 'clarify',
+        label: 'Clarifying Questions',
+        configured: true,
+        enabled: true,
+        tools: ['clarify'],
+      },
+      {
+        name: 'session_search',
+        label: 'Session Search',
+        configured: true,
+        enabled: true,
+        tools: ['search'],
+      },
+      {
+        name: 'x_search',
+        label: 'X Search',
+        configured: false,
+        enabled: false,
+        tools: ['x_search'],
+      },
+      {
+        name: 'image_gen',
+        label: 'Image Gen',
+        configured: true,
+        enabled: false,
+        tools: ['image_generate'],
+      },
+    ];
+
+    const { essentials, advanced } = partitionMobileToolsets(toolsets);
+    expect(essentials.map((toolset) => toolset.name)).toEqual(['session_search', 'clarify']);
+    expect(advanced.map((toolset) => toolset.name)).toEqual(['image_gen', 'spotify']);
+    expect(advanced.some((toolset) => toolset.name === 'homeassistant')).toBe(false);
+    expect(advanced.some((toolset) => toolset.name === 'x_search')).toBe(false);
   });
 
   it('notes off-for-phone when toggles are blocked', () => {
@@ -97,7 +199,7 @@ describe('opsToolsets', () => {
     ).toContain('hermes tools');
     expect(
       toolsetsSectionHint({ phoneToggleAvailable: true, keysNeededCount: 0 }),
-    ).toContain('automatically');
+    ).toContain('Essential tools');
   });
 
   it('detects toolsets_write from capabilities features or endpoints', () => {
@@ -111,14 +213,13 @@ describe('opsToolsets', () => {
     expect(capabilitiesAdvertiseToolsetsWrite({}, {})).toBe(false);
   });
 
-  it('lists toolsets that still need keys', () => {
+  it('lists toolsets that still need keys but skips hobby Add-key noise', () => {
     const toolsets = [
       { name: 'web', configured: true },
       { name: 'homeassistant', configured: false },
+      { name: 'x_search', configured: false },
     ];
-    expect(toolsetsNeedingKeys(toolsets).map((toolset) => toolset.name)).toEqual([
-      'homeassistant',
-    ]);
+    expect(toolsetsNeedingKeys(toolsets).map((toolset) => toolset.name)).toEqual(['x_search']);
     expect(requiredEnvKeysForToolset('homeassistant')).toEqual(['HASS_TOKEN', 'HASS_URL']);
   });
 
