@@ -7876,15 +7876,6 @@ export default function ChatScreen() {
                   void addDiscoveredTailscaleComputer(discovery);
                 }}
               />
-              <ManualComputerAddressForm
-                pickerMode
-                compactMode={switchComputerProfiles.length > 0}
-                testIDPrefix="mac-picker-manual"
-                onAddProfile={async (label, gatewayUrl) => {
-                  await addGatewayProfile(label, gatewayUrl);
-                  closeMacPicker();
-                }}
-              />
               <LoadingButton
                 label="Find computers"
                 loadingLabel="Finding computers…"
@@ -7901,6 +7892,15 @@ export default function ChatScreen() {
                 }}
                 testID="chat-find-macs-on-wifi"
                 style={styles.macPickerFindBtn}
+              />
+              <ManualComputerAddressForm
+                pickerMode
+                compactMode={switchComputerProfiles.length > 0}
+                testIDPrefix="mac-picker-manual"
+                onAddProfile={async (label, gatewayUrl) => {
+                  await addGatewayProfile(label, gatewayUrl);
+                  closeMacPicker();
+                }}
               />
             </ScrollView>
       </BottomSheetModal>
@@ -8645,8 +8645,8 @@ const styles = StyleSheet.create({
   },
   macPickerSheetContent: {
     paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 12,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
   macPickerHeader: {
     flexDirection: 'row',
@@ -8655,14 +8655,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   macPickerSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textMuted,
-    marginBottom: 8,
-    lineHeight: 16,
+    marginBottom: 12,
+    lineHeight: 18,
   },
   macPickerContent: {
     paddingBottom: 8,
-    gap: 2,
+    gap: 12,
   },
   macPickerFindBtn: {
     marginTop: 4,

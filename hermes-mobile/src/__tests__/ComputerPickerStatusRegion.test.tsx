@@ -3,7 +3,10 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import ComputerPickerStatusRegion from '../components/ComputerPickerStatusRegion';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { LanScanResult } from '../types/lanScan';
-import { COMPUTER_PICKER_STATUS_MIN_HEIGHT } from '../utils/computerPickerStatus';
+import {
+  COMPUTER_PICKER_STATUS_DEBOUNCE_MS,
+  COMPUTER_PICKER_STATUS_MIN_HEIGHT,
+} from '../utils/computerPickerStatus';
 
 const discovery: DiscoveredGateway = {
   gatewayUrl: 'http://100.94.135.78:8642',
@@ -77,7 +80,7 @@ describe('ComputerPickerStatusRegion', () => {
     );
 
     act(() => {
-      jest.advanceTimersByTime(400);
+      jest.advanceTimersByTime(COMPUTER_PICKER_STATUS_DEBOUNCE_MS);
     });
 
     // Result wins over Tailscale-found while showScanResult is active — still one region.
@@ -114,7 +117,7 @@ describe('ComputerPickerStatusRegion', () => {
     expect(queryByText('Found 2 on Tailscale')).toBeNull();
 
     act(() => {
-      jest.advanceTimersByTime(400);
+      jest.advanceTimersByTime(COMPUTER_PICKER_STATUS_DEBOUNCE_MS);
     });
     expect(getByText('Found 2 on Tailscale')).toBeTruthy();
   });
@@ -135,7 +138,7 @@ describe('ComputerPickerStatusRegion', () => {
     expect(queryByText('On Tailscale — searching for your computer')).toBeNull();
   });
 
-  it('collapses idle help into a link when saved profiles exist', () => {
+  it('collapses idle help into a reserved help slot when saved profiles exist', () => {
     const onExpandHelp = jest.fn();
     const { getByTestId, queryByTestId } = render(
       <ComputerPickerStatusRegion
@@ -151,7 +154,66 @@ describe('ComputerPickerStatusRegion', () => {
     );
 
     expect(queryByTestId('mac-picker-status-region')).toBeNull();
+    expect(getByTestId('mac-picker-status-region-slot')).toBeTruthy();
     fireEvent.press(getByTestId('mac-picker-status-region-help-link'));
     expect(onExpandHelp).toHaveBeenCalledTimes(1);
+  });
+
+  it('suppresses Connected status card when profiles already show Connected on the row', () => {
+    const { getByTestId, queryByTestId, queryByText } = render(
+      <ComputerPickerStatusRegion
+        scanning={false}
+        scanProgress={null}
+        scanResult={null}
+        tailscaleProbing={false}
+        tailscaleVpnActive
+        tailscaleDiscoveries={[]}
+        activeGatewayUrl="http://127.0.0.1:8642"
+        activeReachable
+        savedProfileCount={1}
+        onExpandHelp={jest.fn()}
+        compact
+      />,
+    );
+    expect(queryByTestId('mac-picker-status-region')).toBeNull();
+    expect(getByTestId('mac-picker-status-region-slot')).toBeTruthy();
+    expect(queryByText(/Connected ·/)).toBeNull();
+  });
+
+  it('keeps a stable reserved slot while progress ticks do not change searching signature', () => {
+    const { getByTestId, getByText, rerender } = render(
+      <ComputerPickerStatusRegion
+        scanning
+        scanProgress={{
+          stage: 'gateway_health',
+          completedHosts: 1,
+          totalHosts: 8,
+          foundCount: 0,
+        }}
+        scanResult={null}
+        tailscaleProbing={false}
+        tailscaleVpnActive
+        tailscaleDiscoveries={[]}
+      />,
+    );
+    expect(getByTestId('mac-picker-status-region')).toBeTruthy();
+    expect(getByText('Searching for your computer…')).toBeTruthy();
+
+    rerender(
+      <ComputerPickerStatusRegion
+        scanning
+        scanProgress={{
+          stage: 'gateway_health',
+          completedHosts: 7,
+          totalHosts: 8,
+          foundCount: 2,
+        }}
+        scanResult={null}
+        tailscaleProbing={false}
+        tailscaleVpnActive
+        tailscaleDiscoveries={[]}
+      />,
+    );
+    expect(getByText('Searching for your computer…')).toBeTruthy();
   });
 });
