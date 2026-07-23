@@ -626,3 +626,206 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(chatScreen).toMatch(/connectionMode === 'relay'/);
   });
 });
+
+/**
+ * 2026-07-23 session crisis class — connection thrash, multi-Mac USB, Tools UX,
+ * notifications, hobby spam. Behavioral suites + source locks.
+ */
+describe('July 23 session crisis recurrence gates (S29–S38)', () => {
+  it('S29: USB handoff never steals foreign Tailscale Mac; same-Mac cable may hand off', () => {
+    const handoff = read('hermes-mobile/src/utils/usbTransportHandoff.ts');
+    expect(handoff).toContain('export function resolveUsbTransportHandoff');
+    expect(handoff).toContain('foreign_usb_host');
+    expect(handoff).toContain('profileMatchesHostname');
+    expect(handoff).toMatch(/same-Mac|CURRENT chatting|current chatting|foreign/i);
+    const heal = read('hermes-mobile/src/utils/connectionSelfHeal.ts');
+    expect(heal).toContain('export function shouldPreferUsbProbeFirst');
+    // Probe-first USB only for loopback sticky — never auto-steal Tailscale named Macs.
+    expect(heal).toMatch(/isLoopbackGatewayUrl/);
+  });
+
+  it('S30: hobby integrations never primary Add-key spam (Spotify/HA/Discord)', () => {
+    const ops = read('hermes-mobile/src/utils/opsToolsets.ts');
+    expect(ops).toContain('HOBBY_INTEGRATION_TOOLSET_NAMES');
+    expect(ops).toContain("'spotify'");
+    expect(ops).toContain("'homeassistant'");
+    expect(ops).toContain('toolsetShowsKeyButton');
+    expect(ops).toMatch(/isHobbyIntegrationToolset[\s\S]*return false/);
+    expect(ops).toContain('partitionMobileToolsets');
+    const tests = read('hermes-mobile/src/__tests__/opsToolsets.test.ts');
+    expect(tests).toMatch(/hobby|spotify|homeassistant/i);
+  });
+
+  it('S31: Tools cron jobs expose expandable purpose/started/last-run details', () => {
+    const details = read('hermes-mobile/src/utils/cronJobDetails.ts');
+    expect(details).toContain('export function buildCronJobDetailLines');
+    expect(details).toMatch(/Purpose|Started|Last run|Next run/);
+    const ops = read('hermes-mobile/src/components/GatewayOpsSection.tsx');
+    expect(ops).toContain('buildCronJobDetailLines');
+    expect(ops).toContain('job-expand-');
+    expect(ops).toContain('expandedJobIds');
+  });
+
+  it('S32: gateway features expandable + never fake phone toggles for protocol flags', () => {
+    const catalog = read('hermes-mobile/src/utils/gatewayFeatureCatalog.ts');
+    expect(catalog).toContain('export function buildGatewayFeatureRows');
+    expect(catalog).toContain('export function gatewayFeatureIsPhoneToggleable');
+    expect(catalog).toMatch(
+      /export function gatewayFeatureIsPhoneToggleable[\s\S]*?\{\s*return false;\s*\}/,
+    );
+    const ops = read('hermes-mobile/src/components/GatewayOpsSection.tsx');
+    expect(ops).toContain('feature-expand-');
+    expect(ops).toContain('gatewayFeatureIsPhoneToggleable');
+    expect(ops).toMatch(/Essentials/);
+  });
+
+  it('S33: notifications — run status never heads-up; approvals only when backgrounded', () => {
+    const policy = read('hermes-mobile/src/utils/smartNotificationPolicy.ts');
+    expect(policy).toContain('SILENT_STATUS_NOTIFICATION_TYPES');
+    expect(policy).toContain('run_progress');
+    expect(policy).toContain('run_completed');
+    expect(policy).toContain('shouldPresentIntrusiveNotification');
+    const notif = read('hermes-mobile/src/services/hermesNotifications.ts');
+    expect(notif).toContain('CHANNEL_STATUS_V2');
+    expect(notif).toContain('RUN_STATUS_MIN_INTERVAL_MS');
+    expect(notif).toContain('androidStatusChannelImportance');
+    const prefs = read('hermes-mobile/src/utils/notificationPreferences.ts');
+    // Live run shade is opt-in — never default spam-on.
+    expect(prefs).toMatch(/notificationLiveRunStatus[\s\S]*\?\? false/);
+  });
+
+  it('S34: pair deep link uses pairCode for secretless; legacy embeds key; mini-tailscale preserved', () => {
+    const pairJs = read('tools/hermes-mobile-pair.js');
+    expect(pairJs).toContain('pairCode');
+    expect(pairJs).toContain('/pair-exchange');
+    expect(pairJs).toContain('--legacy-key-link');
+    expect(pairJs).toContain('--mini-tailscale');
+    expect(pairJs).toContain('force-mini-usb-primary');
+    const setup = read('hermes-mobile/src/utils/setupDeepLink.ts');
+    expect(setup).toContain('pairCode');
+    expect(setup).toContain('pairServer');
+  });
+
+  it('S35: release-safety includes July 23 session regression suite', () => {
+    const pkg = read('hermes-mobile/package.json');
+    expect(pkg).toContain('july23SessionRegression.test.ts');
+    expect(pkg).toContain('preventRecurrenceContract.test.ts');
+    expect(pkg).toContain('smartNotificationPolicy');
+  });
+
+  it('S36: phone install is release APK only — never Metro debug as production path', () => {
+    const install = read('hermes-mobile/scripts/install-phone-release.sh');
+    expect(install).toContain('app-release.apk');
+    expect(install).toMatch(/release|embedded JS|never a Metro/i);
+    const pkg = JSON.parse(read('hermes-mobile/package.json'));
+    expect(pkg.scripts['android:phone']).toContain('install-phone-release');
+  });
+
+  it('S37: multi-Mac extra computers carry scoped keys in pair deep link extras', () => {
+    const pairJs = read('tools/hermes-mobile-pair.js');
+    expect(pairJs).toMatch(/extraUrl|extraKey|extraName/);
+    const setup = read('hermes-mobile/src/utils/setupDeepLink.ts');
+    expect(setup).toMatch(/extraUrl|extraKey|extraComputers|extraName/i);
+  });
+
+  it('S38: continuous E2E skipped is not pass; OTA gate hard-requires stranger proof', () => {
+    const gate = read('hermes-mobile/scripts/require-fresh-user-ota-gate.sh');
+    expect(gate).toContain('e2e=skipped is NOT pass');
+    expect(gate).toContain('e2e=pass');
+    const continuous = read('hermes-mobile/scripts/run-continuous-e2e.sh');
+    expect(continuous).toMatch(/skipped|phone|in use|e2e/i);
+  });
+
+  it('S39: dual Let-me assistant bubbles collapse via near-duplicate merge', () => {
+    const merge = read('hermes-mobile/src/utils/chatMessageMerge.ts');
+    expect(merge).toContain('export function areNearDuplicateAssistantBodies');
+    expect(merge).toContain('export function collapseNearDuplicateAssistantTurns');
+    expect(merge).toContain('export function dedupeChatMessages');
+    const tests = read('hermes-mobile/src/__tests__/chatMessageMerge.test.ts');
+    expect(tests).toMatch(/near-duplicate|nearDuplicate|REVENUE_ACK/i);
+    const july = read('hermes-mobile/src/__tests__/july23SessionRegression.test.ts');
+    expect(july).toMatch(/dual Let-me|near-duplicate|collapseNearDuplicate/i);
+  });
+
+  it('S40: continuity chip never sticky-lies; inject handoff + short auto-dismiss', () => {
+    const cont = read('hermes-mobile/src/utils/sessionContinuityHandoff.ts');
+    expect(cont).toContain('export function shouldShowContinuityChip');
+    expect(cont).toContain('export function shouldInjectContinuityHandoff');
+    expect(cont).toContain('CONTINUITY_CHIP_AUTO_DISMISS_MS');
+    // Chip is seamless-default: function body returns false for normal paths.
+    expect(cont).toMatch(
+      /export function shouldShowContinuityChip[\s\S]*?return false;\s*\}/,
+    );
+    const prompt = read('hermes-mobile/src/utils/workspacePrompt.ts');
+    expect(prompt).toContain('shouldInjectContinuityHandoff');
+    expect(prompt).toContain('buildContinuitySystemPromptSection');
+  });
+
+  it('S41: USB unplug restores same-Mac remote; conversation id preserved', () => {
+    const handoff = read('hermes-mobile/src/utils/usbTransportHandoff.ts');
+    expect(handoff).toContain('export function resolveUsbToRemoteHandoff');
+    expect(handoff).toContain('export function usbHandoffPreservesConversation');
+    expect(handoff).toContain('preserveActiveProfileId');
+    expect(handoff).toMatch(/still_usb|no_remote|remote_is_loopback/);
+  });
+
+  it('S42: device/E2E composer probe string remains only make money today', () => {
+    const agents = read('hermes-mobile/Agents.md');
+    expect(agents).toContain('make money today');
+    expect(agents).toMatch(/typeableProbe|gibberish|Never type/i);
+    // Maestro chat flows must not reintroduce probe gibberish.
+    const maestroDir = path.join(root, 'hermes-mobile', '.maestro');
+    if (fs.existsSync(maestroDir)) {
+      const banned = [
+        'typeableProbe',
+        'e2e-chat-send-persist',
+        'smoke test message',
+        'asdfghjkl',
+      ];
+      const walk = (dir: string): string[] => {
+        const out: string[] = [];
+        for (const name of fs.readdirSync(dir)) {
+          const full = path.join(dir, name);
+          const st = fs.statSync(full);
+          if (st.isDirectory()) out.push(...walk(full));
+          else if (/\.(yaml|yml)$/i.test(name)) out.push(full);
+        }
+        return out;
+      };
+      for (const file of walk(maestroDir)) {
+        const body = fs.readFileSync(file, 'utf8');
+        // Only flag input: lines in chat-ish flows, not comments about the ban.
+        if (!/inputText:|adb.*input|typeText:/i.test(body)) continue;
+        for (const bad of banned) {
+          expect(body).not.toContain(bad);
+        }
+      }
+    }
+  });
+
+  it('S43: resume-by-title skips mega-session traps (findResumableSessionByPromptTitle)', () => {
+    const resume = read('hermes-mobile/src/utils/resumeExistingSession.ts');
+    expect(resume).toContain('export function findResumableSessionByPromptTitle');
+    expect(resume).toContain('isMegaSessionSendBlocked');
+    const tests = read('hermes-mobile/src/__tests__/resumeExistingSession.test.ts');
+    expect(tests.length).toBeGreaterThan(100);
+  });
+
+  it('S44: release-safety also wires dual-bubble + continuity unit suites', () => {
+    const pkg = read('hermes-mobile/package.json');
+    expect(pkg).toContain('july23SessionRegression.test.ts');
+    // Behavioral suites must stay on the ship gate — greps alone are not enough.
+    expect(pkg).toContain('opsToolsets.test.ts');
+    expect(pkg).toContain('cronJobDetails.test.ts');
+    expect(pkg).toContain('gatewayFeatureCatalog.test.ts');
+    expect(pkg).toContain('smartNotificationPolicy.test.ts');
+  });
+
+  it('S45: ghost USB reverse cannot steal without live /health hostname', () => {
+    const handoff = read('hermes-mobile/src/utils/usbTransportHandoff.ts');
+    expect(handoff).toContain('missing_usb_hostname');
+    expect(handoff).toContain('liveUsbHostname');
+    expect(handoff).toContain('liveUsbHealthConfirmsCable');
+  });
+});
+

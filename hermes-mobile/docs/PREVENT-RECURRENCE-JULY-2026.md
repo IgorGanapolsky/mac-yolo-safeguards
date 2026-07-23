@@ -2,7 +2,7 @@
 
 **Audience:** Igor's AI fleet (Cursor parent + workers, Claude Code, Codex, Gemini, Antigravity)  
 **Companion:** [MULTI-AGENT-VAULT-COORDINATION-JULY-2026.md](./MULTI-AGENT-VAULT-COORDINATION-JULY-2026.md)  
-**Last updated:** 2026-07-14
+**Last updated:** 2026-07-23
 
 This document maps session failures to durable prevention: automated guards, process rituals, and vault coordination. One pass — no duplicate research subagents. **Do not fight P0 stall ChatScreen fixes** — layer prevention (utils, LaunchAgents, contracts) on top.
 
@@ -39,6 +39,36 @@ This document maps session failures to durable prevention: automated guards, pro
 | S23 | Multi-Mac pairing risked binding the mini's URL to the MacBook Pro's `API_SERVER_KEY` (or vice versa) | `extraComputers[].apiKey` flows end-to-end from `buildDeepLink()` → `setupDeepLink.ts` → `syncExtraProfileApiKeys()` → per-profile `secureCredentials.saveProfileApiKey(profile.id, apiKey)`; `hermes-mobile-pair-lib.js`'s `MINI_KEY_UNAVAILABLE` guard refuses to fall back to the laptop key | `npm test -- --watchman=false src/__tests__/gatewayProfileCredentialSync.test.ts src/__tests__/preventRecurrenceContract.test.ts` |
 
 **S24 — Tailscale route must not show "home Wi‑Fi" step 1 (in flight, PR #397):** `freshUserOnboardingSteps()` step 1 hardcoded "Same home Wi‑Fi" regardless of route, which is actively wrong for a user whose only working path is Tailscale. The Tailscale-first onboarding fix (`isOnTailscaleRoute()` + route-aware step 1 copy) is being delivered separately on `fix/tailscale-onboarding-discovery` (PR #397) with its own `freshUserOnboarding.test.ts` / `ChatConnectionPanel.test.tsx` / `setupDeepLink.test.ts` coverage — intentionally not duplicated here to avoid colliding with that in-flight branch. `.maestro/tailscale-profile-disconnected-copy.yaml` locks in the structural onboarding-card contract today and is the flow to extend with the exact step-1 copy assertion once PR #397 merges.
+
+### 2026-07-23 session crisis class (S29–S45) — release-blocking
+
+Wired into `npm run test:release-safety` via `preventRecurrenceContract.test.ts` (S29–S45) + behavioral `july23SessionRegression.test.ts`.
+
+| # | Failure mode | Automated guard | Verify |
+|---|--------------|-----------------|--------|
+| S29 | USB reverse on Pro steals active mini Tailscale chat | `resolveUsbTransportHandoff` → `foreign_usb_host` when `!profileMatchesHostname`; probe-first USB only for loopback sticky | `july23SessionRegression` + S29 |
+| S30 | Spotify/HA "Add key" spam in Settings essentials | `HOBBY_INTEGRATION_TOOLSET_NAMES` + `partitionMobileToolsets` + `toolsetShowsKeyButton` false for hobby | `opsToolsets` + S30 |
+| S31 | Cron jobs opaque list (no purpose/started/last run) | `buildCronJobDetailLines` + expand UI `job-expand-` | `cronJobDetails` + S31 |
+| S32 | Fake phone toggles for gateway protocol features | `gatewayFeatureIsPhoneToggleable` always `false` + expand-only rows | `gatewayFeatureCatalog` + S32 |
+| S33 | Intrusive run-progress / stall notification spam | `SILENT_STATUS_NOTIFICATION_TYPES` + `shouldPresentIntrusiveNotification`; live-run opt-in default false | `smartNotificationPolicy` + S33 |
+| S34 | Pair deep link param thrash (`pairCode` vs `code`) | pair.js + `parseSetupDeepLink` prefer `pairCode`; `--legacy-key-link` / `--mini-tailscale` preserved | S34 |
+| S35 | July-23 suites fall off ship gate | `package.json` `test:release-safety` includes `july23SessionRegression` | S35 / S44 |
+| S36 | Metro debug install mistaken for production path | `install-phone-release.sh` + `android:phone` → release APK only | S36 |
+| S37 | Multi-Mac extras without scoped keys | `extraUrl`/`extraKey`/`extraName` in pair + setupDeepLink | S37 |
+| S38 | Agents ship on `e2e=skipped` | OTA gate: `e2e=skipped is NOT pass` | S38 |
+| S39 | Dual "Let me…" assistant bubbles | `areNearDuplicateAssistantBodies` + `collapseNearDuplicateAssistantTurns` | `chatMessageMerge` + S39 |
+| S40 | Continuity chip sticky-lies "Continuing…" on empty New chat | `shouldShowContinuityChip` always seamless-false; inject via system_prompt only; auto-dismiss ≤2.5s | `sessionContinuityHandoff` + S40 |
+| S41 | USB unplug wipes chat or switches profile | `resolveUsbToRemoteHandoff` + `usbHandoffPreservesConversation` | S41 |
+| S42 | Gibberish Maestro/adb composer probes | Only **`make money today`**; Maestro walk bans probe strings | S42 |
+| S43 | Resume-by-title re-traps mega-session poison | `findResumableSessionByPromptTitle` skips `isMegaSessionSendBlocked` | S43 |
+| S44 | Behavioral suites missing from release-safety | ops/cron/features/notifications + july23 wired | S44 |
+| S45 | Ghost `adb reverse` without live hostname steals route | `missing_usb_hostname` + `liveUsbHealthConfirmsCable` | S45 |
+
+```bash
+cd hermes-mobile && npm run test:release-safety
+# focused:
+npm test -- --watchman=false src/__tests__/july23SessionRegression.test.ts src/__tests__/preventRecurrenceContract.test.ts
+```
 
 Install/heal LaunchAgents: `bash scripts/install-hermes-chrome-cdp.sh` then `bash scripts/install-agent-launchagents.sh`.
 
