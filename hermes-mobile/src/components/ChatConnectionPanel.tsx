@@ -272,7 +272,7 @@ export default function ChatConnectionPanel({
             <FreshUserOnboardingCard
               profiles={profiles}
               activeProfileId={activeProfileId}
-              tailscaleMacLabel={primaryTailscaleLabel}
+              tailscaleMacLabel={macLabel?.trim() || primaryTailscaleLabel}
               wifiConnected={wifiConnected}
             />
           ) : null}
@@ -280,7 +280,6 @@ export default function ChatConnectionPanel({
           {(tailscaleDiscoveries.length > 0 || tailscaleSearching) ? (
             <TailscaleDiscoveryBanner
               discoveries={tailscaleDiscoveries}
-              adding={tailscaleDiscoveryProbing}
               probing={tailscaleSearching}
               onAdd={onAddTailscaleComputer}
               prominent

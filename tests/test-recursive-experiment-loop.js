@@ -10,6 +10,7 @@ const {
   DEFAULT_EXPERIMENTS,
   RECURSIVE_PUBLIC_PATTERNS,
   artifactCoverage,
+  buildProvenanceManifest,
   evaluateOutcome,
   metricDelta,
   parseArgs,
@@ -160,13 +161,16 @@ test('metricDelta supports higher-is-better and lower-is-better metrics', () => 
   assert.strictEqual(metricDelta('nope', 1).ok, false);
 });
 
-test('evaluateOutcome adopts only when evaluator, reward-hack, variance, and metric gates pass', () => {
+test('evaluateOutcome adopts only when every evidence gate and the metric pass', () => {
   const outcome = evaluateOutcome({
     before: 4,
     after: 9,
     evaluator: 'pass',
     rewardHack: 'pass',
     variance: 'pass',
+    holdout: 'pass',
+    sampleReview: 'pass',
+    provenance: 'pass',
     minDelta: 1,
   });
   assert.strictEqual(outcome.decision, 'adopt');
@@ -182,6 +186,9 @@ test('evaluateOutcome retries incomplete evidence instead of adopting from vibes
   });
   assert.strictEqual(outcome.decision, 'retry');
   assert(outcome.issues.includes('variance check missing'));
+  assert(outcome.issues.includes('holdout evidence missing'));
+  assert(outcome.issues.includes('sample review evidence missing'));
+  assert(outcome.issues.includes('provenance evidence missing'));
 });
 
 test('evaluateOutcome rejects failed evaluators and non-improvements', () => {
@@ -191,6 +198,9 @@ test('evaluateOutcome rejects failed evaluators and non-improvements', () => {
     evaluator: 'fail',
     rewardHack: 'pass',
     variance: 'pass',
+    holdout: 'pass',
+    sampleReview: 'pass',
+    provenance: 'pass',
   });
   assert.strictEqual(outcome.decision, 'reject');
   assert(outcome.issues.includes('evaluator failed'));
@@ -200,7 +210,10 @@ test('evaluateOutcome rejects failed evaluators and non-improvements', () => {
 test('recordOutcome appends a private ledger record and summarizes decisions', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'recursive-ledger-'));
   const ledger = path.join(tmp, 'ledger.jsonl');
+  const evidenceFile = path.join(tmp, 'evaluator.json');
+  fs.writeFileSync(evidenceFile, '{"passed":true}\n');
   const result = recordOutcome({
+    repo: fixtureRepo(),
     ledger,
     experiment: 'cross_agent_sync_packet',
     before: 1,
@@ -208,9 +221,16 @@ test('recordOutcome appends a private ledger record and summarizes decisions', (
     evaluator: 'pass',
     rewardHack: 'pass',
     variance: 'pass',
+    holdout: 'pass',
+    sampleReview: 'pass',
     evidence: 'unit test fixture',
+    evidenceFiles: [evidenceFile],
+    codeRevision: '0123456789abcdef',
   });
   assert.strictEqual(result.record.evaluation.decision, 'adopt');
+  assert.strictEqual(result.record.schema, 'hermes-recursive-experiment-outcome/v2');
+  assert.strictEqual(result.record.provenance.complete, true);
+  assert.match(result.record.provenance.manifestHash, /^[a-f0-9]{64}$/);
   const summary = readLedger(ledger);
   assert.strictEqual(summary.total, 1);
   assert.strictEqual(summary.adopt, 1);
@@ -233,11 +253,81 @@ test('parseArgs supports outcome recording flags', () => {
     'pass',
     '--variance',
     'pass',
+    '--holdout',
+    'pass',
+    '--sample-review',
+    'pass',
+    '--evidence-file',
+    'proof-one.json',
+    '--evidence-file',
+    'proof-two.json',
   ]);
   assert.strictEqual(args._[0], 'record');
   assert.strictEqual(args.experiment, 'cross_agent_sync_packet');
   assert.strictEqual(args.before, 1);
   assert.strictEqual(args.after, 2);
+  assert.strictEqual(args.holdout, 'pass');
+  assert.strictEqual(args.sampleReview, 'pass');
+  assert.deepStrictEqual(args.evidenceFiles, ['proof-one.json', 'proof-two.json']);
+});
+
+test('recordOutcome retries when immutable provenance evidence is missing', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'recursive-missing-proof-'));
+  const result = recordOutcome({
+    repo: fixtureRepo(),
+    ledger: path.join(tmp, 'ledger.jsonl'),
+    experiment: 'cross_agent_sync_packet',
+    before: 1,
+    after: 3,
+    evaluator: 'pass',
+    rewardHack: 'pass',
+    variance: 'pass',
+    holdout: 'pass',
+    sampleReview: 'pass',
+    codeRevision: '0123456789abcdef',
+  });
+  assert.strictEqual(result.record.evaluation.decision, 'retry');
+  assert(result.record.evaluation.issues.includes('provenance evidence missing'));
+  assert(result.record.provenance.errors.includes('hashed evidence artifact missing'));
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+test('provenance manifest changes when an evidence artifact changes', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'recursive-provenance-'));
+  const evidenceFile = path.join(tmp, 'holdout.json');
+  const experiment = DEFAULT_EXPERIMENTS.find((item) => item.id === 'cross_agent_sync_packet');
+  const options = {
+    repo: fixtureRepo(),
+    evidenceFile,
+    evidence: 'reviewed sample 7',
+    codeRevision: '0123456789abcdef',
+  };
+  fs.writeFileSync(evidenceFile, '{"score":0.8}\n');
+  const first = buildProvenanceManifest(options, experiment);
+  fs.writeFileSync(evidenceFile, '{"score":0.9}\n');
+  const second = buildProvenanceManifest(options, experiment);
+  assert.strictEqual(first.complete, true);
+  assert.strictEqual(second.complete, true);
+  assert.notStrictEqual(first.evidenceArtifacts[0].sha256, second.evidenceArtifacts[0].sha256);
+  assert.notStrictEqual(first.manifestHash, second.manifestHash);
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+test('provenance refuses a dirty candidate revision', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'recursive-dirty-provenance-'));
+  const evidenceFile = path.join(tmp, 'holdout.json');
+  fs.writeFileSync(evidenceFile, '{"score":0.9}\n');
+  const experiment = DEFAULT_EXPERIMENTS.find((item) => item.id === 'cross_agent_sync_packet');
+  const manifest = buildProvenanceManifest({
+    repo: fixtureRepo(),
+    evidenceFile,
+    codeRevision: '0123456789abcdef',
+    codeStateClean: false,
+  }, experiment);
+  assert.strictEqual(manifest.complete, false);
+  assert.strictEqual(manifest.worktreeClean, false);
+  assert(manifest.errors.includes('git worktree is dirty; commit the candidate before adoption'));
+  fs.rmSync(tmp, { recursive: true, force: true });
 });
 
 test('scoreEfficiencyRun promotes efficient evaluated runs to cheap or local candidates', () => {

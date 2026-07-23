@@ -179,4 +179,7 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 
 @media(max-width:700px){.response-feedback{flex-wrap:wrap}.response-feedback a{width:100%;margin-left:0}.lessons-shell{padding-top:28px}.lessons-header{display:grid}.lessons-header h1{font-size:30px}.lesson-metrics{grid-template-columns:1fr}.lesson-metrics button{min-height:74px;border-right:0;border-bottom:1px solid var(--brand-line)}.lesson-metrics button:last-child{border-bottom:0}.lesson-search>div{display:grid}.lesson-card{padding:17px}.lesson-card-top{align-items:flex-start}.lesson-card-top time{text-align:right}}
 
+.section-heading > p:last-child{color:var(--muted);font-size:15px;line-height:1.65;margin:16px 0 0;max-width:62ch}
+.steps-grid-after-demo{margin-top:28px}
+
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.button,.nav-link{transition:none}.button:hover{transform:none}}
