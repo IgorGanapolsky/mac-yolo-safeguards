@@ -1,8 +1,15 @@
 import { Platform } from 'react-native';
 
-/** ThumbGate Pro product page (marketing). */
+/**
+ * ThumbGate Pro product page (marketing).
+ * This is thumbgate.APP (Hermes Web — the actual Cloud Continuity/Leash
+ * checkout), NOT thumbgate.ai (an unrelated $499 one-time consulting/gate-setup
+ * product on separate infra). Verified 2026-07-22: they are two different
+ * products under the same brand name; a prior version of this file pointed
+ * paying upgrade taps at the wrong one.
+ */
 export const THUMBGATE_PRO_URL =
-  'https://thumbgate.ai/?utm_source=hermes-mobile&utm_medium=app&utm_campaign=pro_upgrade';
+  'https://thumbgate.app/?utm_source=hermes-mobile&utm_medium=app&utm_campaign=pro_upgrade';
 
 /**
  * Web dashboard for ThumbGate / Leash subscriptions.
@@ -10,7 +17,7 @@ export const THUMBGATE_PRO_URL =
  * StoreKit / Play Billing subscription SKUs inside Hermes Mobile.
  */
 export const THUMBGATE_WEB_SUBSCRIPTION_URL =
-  'https://thumbgate.ai/?utm_source=hermes-mobile&utm_medium=app&utm_campaign=web_subscription';
+  'https://thumbgate.app/?utm_source=hermes-mobile&utm_medium=app&utm_campaign=web_subscription';
 
 /** @deprecated Prefer thumbgateProPriceLabel() — never surface $19/mo in the app. */
 export const THUMBGATE_PRO_PRICE_LABEL = '$4.99 once';
