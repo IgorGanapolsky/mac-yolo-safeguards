@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import type { GatewayProfile } from '../types/gatewayProfile';
+import { normalizeGatewayUrl } from '../services/gatewayClient';
 import { profileIdFromGatewayUrl } from '../services/gatewayProfiles';
 import {
   extractLanIpFromGatewayUrl,
@@ -417,6 +418,51 @@ export function resolveProfileFromPickerRows(
   return savedProfiles.find((p) => p.id === profileId) ?? null;
 }
 
+/**
+ * Drop duplicate profile ids so React keys stay unique and at most one row can
+ * match `activeProfileId` (duplicate ids lit every matching radio as Connected).
+ */
+export function dedupePickerProfilesById(profiles: GatewayProfile[]): GatewayProfile[] {
+  const seen = new Set<string>();
+  const out: GatewayProfile[] = [];
+  for (const profile of profiles) {
+    if (seen.has(profile.id)) {
+      continue;
+    }
+    seen.add(profile.id);
+    out.push(profile);
+  }
+  return out;
+}
+
+/**
+ * Exactly one Choose-computer row may show as selected / Connected.
+ * Prefer the exact `activeProfileId` row; if that id was collapsed into another
+ * route for the same physical Mac, select that representative row instead.
+ */
+export function resolveSelectedPickerProfileId(
+  profiles: GatewayProfile[],
+  activeProfileId: string | null | undefined,
+  options: { activeProfile?: GatewayProfile | null } = {},
+): string | null {
+  if (!activeProfileId || profiles.length === 0) {
+    return null;
+  }
+  const exact = profiles.find((profile) => profile.id === activeProfileId);
+  if (exact) {
+    return exact.id;
+  }
+  const active = options.activeProfile;
+  if (!active) {
+    return null;
+  }
+  const activeKey = machinePickerGroupKey(active);
+  const sameMachine = profiles.find(
+    (profile) => machinePickerGroupKey(profile) === activeKey,
+  );
+  return sameMachine?.id ?? null;
+}
+
 function sortUsbProfilesFirst(profiles: GatewayProfile[]): GatewayProfile[] {
   return [...profiles].sort((a, b) => {
     const aUsb = isLoopbackGatewayUrl(a.gatewayUrl);
@@ -468,10 +514,12 @@ export function profilesForSwitchComputerPicker(
   if (hasNamedUsbLoopbackProfile(valid)) {
     valid = valid.filter((p) => !isGenericUsbLoopbackProfile(p));
   }
-  return collapseToOneProfilePerMachine(valid, {
-    liveUsb,
-    activeProfileId: options.activeProfileId,
-  });
+  return dedupePickerProfilesById(
+    collapseToOneProfilePerMachine(valid, {
+      liveUsb,
+      activeProfileId: options.activeProfileId,
+    }),
+  );
 }
 
 export type UsbHostMismatch = {
@@ -590,6 +638,13 @@ export function profileMatchesDiscoveredGateway(
 ): boolean {
   if (isLoopbackGatewayUrl(discovered.gatewayUrl)) {
     return false;
+  }
+  // Same gateway URL must match even when /health returned a LAN local_ip and the
+  // saved row still only has the Tailscale CGNAT address (nameless picker row).
+  const discoveredBase = normalizeGatewayUrl(discovered.gatewayUrl).httpBase;
+  const profileBase = normalizeGatewayUrl(profile.gatewayUrl).httpBase;
+  if (discoveredBase && profileBase && discoveredBase === profileBase) {
+    return true;
   }
   const hostNeedle = discovered.hostname?.trim();
   if (hostNeedle && profileMatchesHostname(profile, hostNeedle)) {

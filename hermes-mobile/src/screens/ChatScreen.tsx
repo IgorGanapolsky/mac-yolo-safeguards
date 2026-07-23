@@ -7720,6 +7720,7 @@ export default function ChatScreen() {
               <GatewayProfilePicker
                 profiles={switchComputerProfiles}
                 activeProfileId={activeGatewayProfile?.id ?? null}
+                activeProfile={activeGatewayProfile}
                 activeReachable={macHttpOk}
                 authNeedsRepair={effectiveAuthMismatch}
                 activeConnecting={headerConnectionState === 'connecting'}

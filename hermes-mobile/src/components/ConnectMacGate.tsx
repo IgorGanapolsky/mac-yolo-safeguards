@@ -266,6 +266,7 @@ export default function ConnectMacGate() {
                   <GatewayProfilePicker
                     profiles={pickerProfiles}
                     activeProfileId={activeGatewayProfile?.id ?? null}
+                    activeProfile={activeGatewayProfile}
                     onSelect={(profileId, profile) => {
                       void handleSelectProfile(profileId, profile);
                     }}

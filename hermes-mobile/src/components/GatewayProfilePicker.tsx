@@ -4,9 +4,11 @@ import type { GatewayProfile } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 import MacScanProgressCard from './MacScanProgressCard';
 import {
+  dedupePickerProfilesById,
   isCablePluggedInForProfile,
   profileConnectionRouteDisplayLabel,
   profilePickerLines,
+  resolveSelectedPickerProfileId,
   type LiveUsbPickerInput,
 } from '../utils/gatewayProfilePicker';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
@@ -16,6 +18,8 @@ import { GATEWAY_AUTH_REPAIR_SETTINGS_STATUS } from '../services/gatewayClient';
 type GatewayProfilePickerProps = {
   profiles: GatewayProfile[];
   activeProfileId: string | null;
+  /** Full active profile — used when its id was collapsed into another route row. */
+  activeProfile?: GatewayProfile | null;
   /** Prefer receiving the full profile so live USB rows (not yet saved) still select. */
   onSelect: (profileId: string, profile: GatewayProfile) => void;
   onRemove?: (profileId: string) => void;
@@ -42,6 +46,7 @@ type GatewayProfilePickerProps = {
 export default function GatewayProfilePicker({
   profiles,
   activeProfileId,
+  activeProfile = null,
   onSelect,
   onRemove,
   activeReachable = false,
@@ -58,7 +63,11 @@ export default function GatewayProfilePicker({
   dense = false,
 }: GatewayProfilePickerProps) {
   const showScanCard = !hideScanCard && Boolean(scanning || scanResult);
-  const multiMac = profiles.length > 1;
+  const pickerProfiles = dedupePickerProfilesById(profiles);
+  const selectedProfileId = resolveSelectedPickerProfileId(pickerProfiles, activeProfileId, {
+    activeProfile,
+  });
+  const multiMac = pickerProfiles.length > 1;
   const showRouteHints = showReachabilityHints || multiMac;
 
   return (
@@ -66,15 +75,16 @@ export default function GatewayProfilePicker({
       {showScanCard ? (
         <MacScanProgressCard scanning={scanning} progress={scanProgress} result={scanResult} />
       ) : null}
-      {profiles.length === 0 && !scanning ? (
+      {pickerProfiles.length === 0 && !scanning ? (
         <Text style={styles.emptyText}>
           No saved computers yet. Paste a Tailscale IP above, or tap Find computers.
         </Text>
       ) : null}
-      {profiles.length > 0 ? (
+      {pickerProfiles.length > 0 ? (
         <View style={[styles.list, dense ? styles.listDense : null]} testID="gateway-profile-list">
-      {profiles.map((profile) => {
-        const isActive = profile.id === activeProfileId;
+      {pickerProfiles.map((profile) => {
+        // Selection is a single profile id — never paint Connected/radio from reachability alone.
+        const isActive = profile.id === selectedProfileId;
         const cablePluggedIn = isCablePluggedInForProfile(profile, liveUsb);
         const lines = profilePickerLines(profile, { cablePluggedIn });
         const routeHint = showRouteHints
@@ -110,7 +120,11 @@ export default function GatewayProfilePicker({
               : colors.error
           : colors.textMuted;
         return (
-          <View key={profile.id} style={[styles.row, dense ? styles.rowDense : null]} testID={`gateway-profile-item-${profile.id}`}>
+          <View
+            key={`${profile.id}::${profile.gatewayUrl}`}
+            style={[styles.row, dense ? styles.rowDense : null]}
+            testID={`gateway-profile-item-${profile.id}`}
+          >
             <TouchableOpacity
               style={[
                 styles.selectButton,
@@ -156,7 +170,7 @@ export default function GatewayProfilePicker({
                 </Text>
               </View>
             </TouchableOpacity>
-            {onRemove && profiles.length > 1 && !isUsb ? (
+            {onRemove && pickerProfiles.length > 1 && !isUsb ? (
               <Pressable
                 style={({ pressed }) => [
                   styles.removeButton,
