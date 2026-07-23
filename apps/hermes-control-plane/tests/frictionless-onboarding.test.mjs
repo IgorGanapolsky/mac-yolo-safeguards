@@ -186,7 +186,12 @@ test("lets users choose Mac vs Continuity VPS on every task not only offline fai
   assert.match(dashboard, /routePreference/);
   assert.match(dashboard, /Continuity \(VPS\)/);
   assert.match(dashboard, /My Mac/);
-  assert.match(dashboard, /Auto \(Mac, then offline policy\)/);
+  assert.match(dashboard, /Auto \(Mac first\)/);
+  assert.match(dashboard, /If Mac goes offline/);
+  assert.match(dashboard, /Ask me first/);
+  assert.match(dashboard, /Keep going on Continuity/);
+  assert.match(dashboard, /Wait until this Mac is back/);
+  assert.doesNotMatch(dashboard, /Ask before cloud/);
   assert.match(dashboard, /aria-label="Where to run this task"/);
   assert.match(tasksRoute, /routePreference/);
   assert.match(tasksRoute, /decideTaskRoute/);
@@ -291,7 +296,7 @@ test("explains the failover path with an interactive approve/deny demo", () => {
   assert.match(failoverDemo, /Deny call/);
   assert.match(failoverDemo, /Approve call/);
   assert.match(failoverDemo, /Close Mac lid/);
-  assert.match(failoverDemo, /Continue in cloud/);
+  assert.match(failoverDemo, /Continue on Continuity/);
   assert.match(failoverDemo, /aria-live="polite"/);
   assert.match(failoverDemo, /no real tools run/);
   assert.doesNotMatch(failoverDemo, /fetch\(|sendBeacon|localStorage/);

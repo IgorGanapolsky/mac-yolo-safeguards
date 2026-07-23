@@ -59,6 +59,24 @@ function deviceStatusLabel(device: Device) {
   return `Last seen ${age(device.lastSeenAt)}`;
 }
 
+/** Plain-English labels for device.failover_mode — never show raw API tokens in the UI. */
+const OFFLINE_MODE_LABEL: Record<Device["failoverMode"], string> = {
+  manual: "Ask me first",
+  auto: "Keep going on Continuity",
+  disabled: "Wait until this Mac is back",
+};
+
+function offlineModeHint(mode: Device["failoverMode"]): string {
+  switch (mode) {
+    case "manual":
+      return "If this Mac sleeps or disconnects, unfinished work waits for you. You tap “Continue on Continuity” only when you want the VPS to finish it.";
+    case "auto":
+      return "If this Mac sleeps or disconnects, Continuity (paid VPS) picks up unfinished work automatically so the thread keeps going.";
+    case "disabled":
+      return "If this Mac sleeps or disconnects, work stays paused until it comes back. No Continuity spend.";
+  }
+}
+
 function latency(milliseconds: number | null) {
   if (milliseconds === null) return "—";
   if (milliseconds < 1000) return `${milliseconds}ms`;
@@ -282,7 +300,9 @@ export default function DashboardClient() {
 
   async function updateFailover(deviceId: string, failoverMode: Device["failoverMode"]) {
     const response = await fetch("/api/devices", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ deviceId, failoverMode }) });
-    const body = await response.json() as { error?: string }; setNotice(response.ok ? `Failover policy set to ${failoverMode}.` : body.error ?? "Update failed"); await load();
+    const body = await response.json() as { error?: string };
+    setNotice(response.ok ? `If Mac goes offline: ${OFFLINE_MODE_LABEL[failoverMode]}.` : body.error ?? "Update failed");
+    await load();
   }
 
   async function revokeDevice(device: Device) {
@@ -302,7 +322,7 @@ export default function DashboardClient() {
 
   async function failover(taskId: string) {
     const response = await fetch("/api/tasks/failover", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ taskId }) });
-    const body = await response.json() as { error?: string }; setNotice(response.ok ? "Cloud failover approved." : body.error ?? "Failover failed"); await load();
+    const body = await response.json() as { error?: string }; setNotice(response.ok ? "Continuity approved — this task will finish on the VPS." : body.error ?? "Could not continue on Continuity"); await load();
   }
 
   async function buyContinuityPack() {
@@ -600,7 +620,7 @@ export default function DashboardClient() {
                 </label>
                 <label className={routePreference === "auto" ? "is-selected" : ""}>
                   <input type="radio" name="routePreference" value="auto" checked={routePreference === "auto"} onChange={() => setRoutePreference("auto")} />
-                  Auto (Mac, then offline policy)
+                  Auto (Mac first)
                 </label>
               </div>
               <div>
@@ -611,29 +631,29 @@ export default function DashboardClient() {
                       ? "Always Continuity VPS for this task (Mac may stay idle)"
                       : routePreference === "local"
                         ? "Always your paired Mac (blocks if offline — no silent Continuity)"
-                        : "Mac while online; Continuity only if offline policy says so"}
+                        : "Mac while online; if offline, use each Mac’s “If Mac goes offline” setting"}
                 </small>
                 <button className="button button-primary button-small" disabled={busy || !devices.length}>Run task →</button>
               </div>
             </form>
-            <div className="task-list" id="task-activity">{visibleTasks.length === 0 ? <div className="empty-state"><Mark /><h3>No tasks yet</h3><p>Pair a machine, then continue a Hermes thread from anywhere.</p></div> : visibleTasks.map((task) => <article key={task.id} className="dashboard-task"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time></div><h3>{task.threadTitle}</h3><p>{task.prompt}</p><div className="task-foot"><span>{task.route === "cloud" ? "☁ Cloud runner" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>{["needs_failover", "offline_blocked"].includes(task.status) && <button onClick={() => void failover(task.id)}>Continue in cloud →</button>}</div>{task.result && <><pre>{task.result}</pre>{feedbackControls(task.id)}</>}{task.error && <div className="task-error">{task.error}</div>}</article>)}</div>
+            <div className="task-list" id="task-activity">{visibleTasks.length === 0 ? <div className="empty-state"><Mark /><h3>No tasks yet</h3><p>Pair a machine, then continue a Hermes thread from anywhere.</p></div> : visibleTasks.map((task) => <article key={task.id} className="dashboard-task"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time></div><h3>{task.threadTitle}</h3><p>{task.prompt}</p><div className="task-foot"><span>{task.route === "cloud" ? "☁ Continuity VPS" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>{["needs_failover", "offline_blocked"].includes(task.status) && <button onClick={() => void failover(task.id)}>Continue on Continuity →</button>}</div>{task.result && <><pre>{task.result}</pre>{feedbackControls(task.id)}</>}{task.error && <div className="task-error">{task.error}</div>}</article>)}</div>
           </section>
 
           <aside className="right-rail">
             <section className="panel connection-panel" id="leash-control">
               <div className="panel-heading"><div><p className="eyebrow">CONNECTION</p><h2>{onlineDevices.length ? "Connector online" : devices.length ? "Connector reconnecting" : "Pair your first machine"}</h2></div><span>{onlineDevices.length ? "LIVE" : devices.length ? "RETRYING" : "STEP 1 OF 3"}</span></div>
-              <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "KeepAlive is retrying automatically" : "Run the one-command connector installer"}</strong><p>{devices.length ? "Pick My Mac or Continuity (VPS) on every task. Auto still uses each machine's offline policy when the lid closes." : "The installer creates a device key, opens this approval page with the code filled, and starts an always-on service."}</p></div></div>
+              <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "KeepAlive is retrying automatically" : "Run the one-command connector installer"}</strong><p>{devices.length ? "Pick My Mac or Continuity (VPS) on every task. Auto uses each Mac’s “If Mac goes offline” setting when the lid closes." : "The installer creates a device key, opens this approval page with the code filled, and starts an always-on service."}</p></div></div>
               {!devices.length && <div className="installer-command"><code>{connectorInstallCommand}</code><button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy one-line installer"}</button></div>}
               {!devices.length && <div className="account-recovery"><p>Signed in as <strong>{user.email}</strong>. If your machines are paired to another email, switch accounts here.</p><form action="/api/auth/logout" method="post"><button className="button button-secondary button-small">Switch account</button></form></div>}
-              <ol className="dashboard-setup-steps"><li className={devices.length ? "is-done" : "is-current"}><span>1</span>Install connector</li><li className={devices.length ? "is-done" : ""}><span>2</span>Approve short code</li><li className={onlineDevices.length ? "is-done" : devices.length ? "is-current" : ""}><span>3</span>Choose offline policy</li></ol>
+              <ol className="dashboard-setup-steps"><li className={devices.length ? "is-done" : "is-current"}><span>1</span>Install connector</li><li className={devices.length ? "is-done" : ""}><span>2</span>Approve short code</li><li className={onlineDevices.length ? "is-done" : devices.length ? "is-current" : ""}><span>3</span>Choose what happens if Mac sleeps</li></ol>
               <p className="privacy-boundary">Bounded Hermes thread context syncs to this control plane. The device private key and local gateway credential stay on the machine.</p>
             </section>
             <details className="panel safety-panel" id="execution-safety" open={safetyExpanded} onToggle={(event) => setSafetyExpanded(event.currentTarget.open)}>
               <summary><span><span className="eyebrow">EXECUTION SAFETY</span><strong>What “Fenced” means</strong></span><span aria-hidden="true">⌄</span></summary>
               <div className="safety-explanation">
                 <p>ThumbGate gives each task to one signed runner at a time. Its 90-second lease must keep renewing; if that runner disappears, the lease expires before another runner can take over.</p>
-                <ul><li>Prevents duplicate or stale runners from continuing work.</li><li>Rejects completion receipts from an expired lease.</li><li>{devices.length ? "Your machine’s offline policy decides whether work pauses, asks, or continues in paid cloud." : "No task can execute until you pair a machine."}</li></ul>
-                <a className="button button-secondary button-small" href="#web-settings">{devices.length ? "Open offline controls" : "Open pairing settings"}</a>
+                <ul><li>Prevents duplicate or stale runners from continuing work.</li><li>Rejects completion receipts from an expired lease.</li><li>{devices.length ? "Each Mac’s “If Mac goes offline” setting decides whether work waits for you, pauses, or keeps going on Continuity." : "No task can execute until you pair a machine."}</li></ul>
+                <a className="button button-secondary button-small" href="#web-settings">{devices.length ? "Open Mac offline settings" : "Open pairing settings"}</a>
               </div>
             </details>
             <section className="panel" id="web-settings">
@@ -649,13 +669,14 @@ export default function DashboardClient() {
                     </div>
                   </div>
                   <code>{device.fingerprint}</code>
-                  <label>Offline policy
-                    <select value={device.failoverMode} onChange={(event) => void updateFailover(device.id, event.target.value as Device["failoverMode"])}>
-                      <option value="manual">Ask before cloud</option>
-                      <option value="auto">Continue automatically</option>
-                      <option value="disabled">Pause until online</option>
+                  <label>If Mac goes offline
+                    <select value={device.failoverMode} onChange={(event) => void updateFailover(device.id, event.target.value as Device["failoverMode"])} aria-describedby={`offline-hint-${device.id}`}>
+                      <option value="manual">{OFFLINE_MODE_LABEL.manual}</option>
+                      <option value="auto">{OFFLINE_MODE_LABEL.auto}</option>
+                      <option value="disabled">{OFFLINE_MODE_LABEL.disabled}</option>
                     </select>
                   </label>
+                  <p className="device-offline-hint" id={`offline-hint-${device.id}`}>{offlineModeHint(device.failoverMode)}</p>
                   <button
                     type="button"
                     className="button button-secondary button-small device-remove"

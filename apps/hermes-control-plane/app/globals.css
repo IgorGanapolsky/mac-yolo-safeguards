@@ -71,6 +71,7 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .header-actions .status-chip i,.device-light.is-online{background:var(--success);box-shadow:0 0 8px rgba(16,185,129,.7)}
 .device-light.is-stale{background:var(--orange);box-shadow:0 0 8px rgba(255,184,107,.55)}
 .device-card.is-stale{border-color:rgba(255,184,107,.35)}
+.device-offline-hint{margin:8px 0 0;padding:0;color:#7a8680;font:10px/1.45 ui-sans-serif,system-ui,sans-serif;text-transform:none;letter-spacing:0;max-width:36ch}
 .device-remove{margin-top:8px;min-height:44px}
 .status-chip.online,.status-chip.active{color:#34D399;background:rgba(16,185,129,.12)}
 .notice{background:rgba(34,211,238,.08);color:#CFFAFE;border-color:rgba(34,211,238,.24);border-radius:12px}

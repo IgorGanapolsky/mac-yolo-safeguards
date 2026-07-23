@@ -60,7 +60,7 @@ test("builds the public Leash subscription landing page", async () => {
   const failoverDemo = await readFile(new URL("../app/FailoverPathDemo.tsx", import.meta.url), "utf8");
   assert.match(failoverDemo, /Deny call/);
   assert.match(failoverDemo, /Approve call/);
-  assert.match(failoverDemo, /Continue in cloud/);
+  assert.match(failoverDemo, /Continue on Continuity/);
   assert.match(failoverDemo, /needs_failover/);
   assert.match(failoverDemo, /offline_blocked/);
   assert.match(failoverDemo, /Interactive demo · no real tools run/);
