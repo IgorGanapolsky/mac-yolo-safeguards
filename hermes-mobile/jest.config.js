@@ -48,6 +48,7 @@ module.exports = {
     },
   },
   coverageDirectory: 'coverage',
+  coverageReporters: ['text', 'lcov', 'cobertura'],
   watchman: false,
   testPathIgnorePatterns: [
     '/node_modules/',
