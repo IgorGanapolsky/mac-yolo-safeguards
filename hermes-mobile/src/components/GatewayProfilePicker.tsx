@@ -8,6 +8,7 @@ import {
   isCablePluggedInForProfile,
   profileConnectionRouteDisplayLabel,
   profilePickerLines,
+  pickerRowKey,
   resolveSelectedPickerProfileId,
   type LiveUsbPickerInput,
 } from '../utils/gatewayProfilePicker';
@@ -65,12 +66,12 @@ export default function GatewayProfilePicker({
 }: GatewayProfilePickerProps) {
   const showScanCard = !hideScanCard && Boolean(scanning || scanResult);
   const pickerProfiles = dedupePickerProfilesById(profiles);
-  const selectedProfileId = resolveSelectedPickerProfileId(pickerProfiles, activeProfileId, {
+  const selectedRowKey = resolveSelectedPickerProfileId(pickerProfiles, activeProfileId, {
     activeProfile,
   });
   const multiMac = pickerProfiles.length > 1;
   const showRouteHints = showReachabilityHints || multiMac;
-  const selectedCount = pickerProfiles.filter((p) => p.id === selectedProfileId).length;
+  const selectedCount = pickerProfiles.filter((p) => pickerRowKey(p) === selectedRowKey).length;
 
   return (
     <View>
@@ -100,8 +101,8 @@ export default function GatewayProfilePicker({
           accessibilityValue={{ text: `selected:${selectedCount}` }}
         >
       {pickerProfiles.map((profile) => {
-        // Selection is a single profile id — never paint Connected/radio from reachability alone.
-        const isActive = profile.id === selectedProfileId;
+        // Selection is a single row key — never paint Connected/radio from reachability alone.
+        const isActive = pickerRowKey(profile) === selectedRowKey;
         const cablePluggedIn = isCablePluggedInForProfile(profile, liveUsb);
         const lines = profilePickerLines(profile, { cablePluggedIn });
         const routeHint = showRouteHints
@@ -138,7 +139,7 @@ export default function GatewayProfilePicker({
           : colors.textMuted;
         return (
           <View
-            key={`${profile.id}::${profile.gatewayUrl}`}
+            key={pickerRowKey(profile)}
             style={[styles.row, dense ? styles.rowDense : null]}
             testID={`gateway-profile-item-${profile.id}`}
           >
