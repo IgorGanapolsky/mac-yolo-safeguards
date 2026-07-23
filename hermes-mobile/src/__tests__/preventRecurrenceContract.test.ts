@@ -827,5 +827,19 @@ describe('July 23 session crisis recurrence gates (S29–S38)', () => {
     expect(handoff).toContain('liveUsbHostname');
     expect(handoff).toContain('liveUsbHealthConfirmsCable');
   });
+
+  it('S46: continue-from-last-session never sticky-traps mega-blocked threads', () => {
+    const list = read('hermes-mobile/src/utils/sessionListSelection.ts');
+    expect(list).toContain('continuityPreviousSessionId');
+    expect(list).toMatch(/Hard-blocked mega|never sticky-trap|leavingMegaSticky/i);
+    const resume = read('hermes-mobile/src/utils/continuitySessionResume.ts');
+    expect(resume).toContain('export function resolveContinuityResumeDecision');
+    expect(resume).toContain('compose_fresh_with_inject');
+    expect(resume).toContain('mega_previous');
+    const chat = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chat).toContain('continuityPreviousSessionId');
+    const tests = read('hermes-mobile/src/__tests__/continuitySessionResume.test.ts');
+    expect(tests).toMatch(/mega_previous|521_000|too large/i);
+  });
 });
 

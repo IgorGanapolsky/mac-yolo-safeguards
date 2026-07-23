@@ -57,6 +57,8 @@ import {
   mergeServerMessagesWithPending,
 } from '../utils/chatMessageMerge';
 import { findResumableSessionByPromptTitle } from '../utils/resumeExistingSession';
+import { resolveContinuityResumeDecision } from '../utils/continuitySessionResume';
+import { resolveSessionAfterListLoad } from '../utils/sessionListSelection';
 
 const miniTs: GatewayProfile = {
   id: 'mini',
@@ -455,6 +457,64 @@ describe('July 23 session regression — resume by title never traps mega-sessio
       'make money today',
     );
     expect(match?.id).toBe('new');
+  });
+});
+
+describe('July 23 session regression — continue never lands on too-large mega', () => {
+  const mega = {
+    id: 'sess_mega',
+    title: '[IMPORTANT: The user has inv...',
+    input_tokens: 521_000,
+    last_active_at: '2026-07-23T14:40:00Z',
+  };
+  const healthy = {
+    id: 'sess_ok',
+    title: 'make money today',
+    input_tokens: 12_000,
+    last_active_at: '2026-07-23T14:00:00Z',
+  };
+  const emptyProject = {
+    projects: [],
+    sessionProjectMap: {},
+    sessionLabels: {},
+    activeProjectId: null,
+  };
+
+  it('list load leaves sticky mega and opens compose-first or a healthy thread', () => {
+    expect(
+      resolveSessionAfterListLoad({
+        sessions: [mega as never],
+        projectState: emptyProject,
+        currentSessionId: 'sess_mega',
+        rememberedSessionId: 'sess_mega',
+        selectLatest: true,
+      }),
+    ).toBeNull();
+    expect(
+      resolveSessionAfterListLoad({
+        sessions: [mega as never, healthy as never],
+        projectState: emptyProject,
+        currentSessionId: 'sess_mega',
+        selectLatest: true,
+      })?.id,
+    ).toBe('sess_ok');
+  });
+
+  it('continuity decision never resumes mega previousSessionId', () => {
+    expect(
+      resolveContinuityResumeDecision({
+        handoff: {
+          version: 1,
+          writtenAt: '2026-07-23T00:00:00.000Z',
+          lastGoal: 'make money today',
+          openTodos: [],
+          lastAssistantSummary: 'Working.',
+          previousSessionId: 'sess_mega',
+          vaultRelativePath: 'Handoffs/hermes-mobile-last.md',
+        },
+        sessions: [mega as never, healthy as never],
+      }),
+    ).toEqual({ action: 'compose_fresh_with_inject', reason: 'mega_previous' });
   });
 });
 

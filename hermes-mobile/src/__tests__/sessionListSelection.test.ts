@@ -210,13 +210,14 @@ describe('resolveSessionAfterListLoad', () => {
     ).toBe('sess_a');
   });
 
-  it('keeps an already-open mega thread so Start fresh banner can render', () => {
+  it('leaves an already-open mega thread so continue is not a Send-disabled trap', () => {
     const mega: HermesSession = {
       id: 'sess_mega',
       title: 'I believe we should separate th...',
       input_tokens: 1_632_047,
       last_active_at: '2026-07-14T21:38:00Z',
     };
+    // Only mega exists → compose-first (null). Continuity injects on next send.
     expect(
       resolveSessionAfterListLoad({
         sessions: [mega],
@@ -225,7 +226,57 @@ describe('resolveSessionAfterListLoad', () => {
         rememberedSessionId: 'sess_mega',
         selectLatest: true,
       }),
-    ).toBeUndefined();
+    ).toBeNull();
+  });
+
+  it('leaves open mega and picks a healthy thread when one exists', () => {
+    const mega: HermesSession = {
+      id: 'sess_mega',
+      title: '[IMPORTANT: The user has inv...',
+      input_tokens: 521_000,
+      last_active_at: '2026-07-23T14:40:00Z',
+    };
+    expect(
+      resolveSessionAfterListLoad({
+        sessions: [mega, ...sessions],
+        projectState,
+        currentSessionId: 'sess_mega',
+        rememberedSessionId: 'sess_mega',
+        selectLatest: true,
+      })?.id,
+    ).toBe('sess_a');
+  });
+
+  it('true-resumes continuity previousSessionId when that thread is still sendable', () => {
+    expect(
+      resolveSessionAfterListLoad({
+        sessions,
+        projectState: { ...projectState, activeProjectId: null, projects: [] },
+        currentSessionId: null,
+        rememberedSessionId: 'sess_a',
+        continuityPreviousSessionId: 'sess_b',
+        selectLatest: true,
+      })?.id,
+    ).toBe('sess_b');
+  });
+
+  it('never true-resumes continuity previousSessionId when it is mega-blocked', () => {
+    const mega: HermesSession = {
+      id: 'sess_mega',
+      title: 'poison',
+      input_tokens: 521_000,
+      last_active_at: '2026-07-23T14:40:00Z',
+    };
+    expect(
+      resolveSessionAfterListLoad({
+        sessions: [mega, ...sessions],
+        projectState: { ...projectState, activeProjectId: null, projects: [] },
+        currentSessionId: null,
+        continuityPreviousSessionId: 'sess_mega',
+        rememberedSessionId: 'sess_a',
+        selectLatest: true,
+      })?.id,
+    ).toBe('sess_a');
   });
 
   it('opens empty chat when every candidate is mega-blocked', () => {

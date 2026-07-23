@@ -13,6 +13,11 @@ export type SessionListSelectionInput = {
   manualSelectSessionId?: string | null;
   /** Last selected session for the active saved computer/profile. */
   rememberedSessionId?: string | null;
+  /**
+   * Continuity handoff previousSessionId — true-resume when still sendable.
+   * Never used when that id is mega-blocked (compose-first + inject instead).
+   */
+  continuityPreviousSessionId?: string | null;
   skipAutoSelect?: boolean;
   selectLatest?: boolean;
 };
@@ -68,6 +73,7 @@ export function resolveSessionAfterListLoad(
     currentSessionId,
     manualSelectSessionId,
     rememberedSessionId,
+    continuityPreviousSessionId,
     skipAutoSelect,
     selectLatest,
   } = input;
@@ -88,9 +94,12 @@ export function resolveSessionAfterListLoad(
   if (currentSessionId) {
     const current = sessions.find((session) => session.id === currentSessionId);
     if (current) {
-      // Keep the open thread (banner / Start fresh handle mega UX). Never
-      // *select* a mega id via remembered/project/default paths below.
-      return undefined;
+      // Hard-blocked mega only: never sticky-trap (Send-disabled + too-large banner).
+      // Cron / other open stickies still keep so list filters don't bounce the user.
+      if (!isMegaSessionSendBlocked(current)) {
+        return undefined;
+      }
+      // mega: fall through to non-mega remembered/project/default or compose-first.
     }
   }
 
@@ -110,12 +119,23 @@ export function resolveSessionAfterListLoad(
       skipAutoSelect,
     })
   ) {
-    return undefined;
+    // Still leave poison mega stickies that vanished from a non-empty list.
+    const sticky = sessions.find((session) => session.id === currentSessionId);
+    if (sticky && isMegaSessionSendBlocked(sticky)) {
+      // fall through
+    } else {
+      return undefined;
+    }
   }
 
   let nextSession: HermesSession | null = null;
 
-  nextSession = findNonMegaSession(sessions, rememberedSessionId);
+  // Continuity true-resume: prefer prior handoff thread when still sendable.
+  nextSession = findNonMegaSession(sessions, continuityPreviousSessionId);
+
+  if (!nextSession) {
+    nextSession = findNonMegaSession(sessions, rememberedSessionId);
+  }
 
   if (projectState.activeProjectId) {
     const project = projectState.projects.find((p) => p.id === projectState.activeProjectId);
@@ -125,8 +145,18 @@ export function resolveSessionAfterListLoad(
     }
   }
 
+  const leavingMegaSticky = Boolean(
+    currentSessionId &&
+      sessions.some(
+        (session) =>
+          session.id === currentSessionId && isMegaSessionSendBlocked(session),
+      ),
+  );
+
   if (!nextSession && sessions.length > 0) {
-    if (selectLatest || !currentSessionId) {
+    // Also pick when abandoning a hard-blocked mega sticky (selectLatest may be false
+    // on silent refresh — still must not leave the user Send-disabled).
+    if (selectLatest || !currentSessionId || leavingMegaSticky) {
       const picked = pickDefaultSession(sessions, projectState) ?? sessions[0];
       nextSession = picked && !isMegaSessionSendBlocked(picked) ? picked : null;
       if (!nextSession) {
@@ -138,13 +168,14 @@ export function resolveSessionAfterListLoad(
 
   if (!nextSession) {
     // Current id missing from a non-empty list → real delete; otherwise keep sticky.
-    // Also open empty chat when every candidate is mega-blocked.
+    // Also open empty chat when every candidate is mega-blocked / leaving mega sticky.
     if (
-      currentSessionId &&
-      shouldClearMissingCurrentSession({
-        sessionsLength: sessions.length,
-        currentSessionId,
-      })
+      leavingMegaSticky ||
+      (currentSessionId &&
+        shouldClearMissingCurrentSession({
+          sessionsLength: sessions.length,
+          currentSessionId,
+        }))
     ) {
       return null;
     }

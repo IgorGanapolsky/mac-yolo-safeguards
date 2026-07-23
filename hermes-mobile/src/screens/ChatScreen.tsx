@@ -2543,6 +2543,9 @@ export default function ChatScreen() {
         currentSessionRef.current?.id,
       );
       const rememberedSessionId = await storage.loadLastSessionForComputer(computerSessionKeys);
+      // Continuity true-resume when prior thread is still sendable; never bind mega.
+      const continuityPreviousSessionId =
+        continuityHandoffRef.current?.previousSessionId ?? null;
 
       const resolvedSession = resolveSessionAfterListLoad({
         sessions: selectableSessions,
@@ -2550,6 +2553,7 @@ export default function ChatScreen() {
         currentSessionId: currentSessionRef.current?.id,
         manualSelectSessionId: manualSessionSelectRef.current,
         rememberedSessionId,
+        continuityPreviousSessionId,
         skipAutoSelect,
         selectLatest,
       });
@@ -2557,8 +2561,14 @@ export default function ChatScreen() {
       if (resolvedSession !== undefined) {
         // Keep ref in sync before awaiters (profile-switch hydrate) read it —
         // React state alone would still be null until the next render.
+        // null = leave mega/poison sticky for compose-first + continuity inject.
         currentSessionRef.current = resolvedSession;
         setCurrentSession(resolvedSession);
+        if (resolvedSession === null) {
+          messagesRef.current = [];
+          setMessages([]);
+          transcriptDigestRef.current = '';
+        }
       }
 
       if (
