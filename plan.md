@@ -7,16 +7,13 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 ## 0. Meta (read this header first)
 
 - Repo: `mac-yolo-safeguards` (+ `hermes-mobile/` app, `~/.hermes` desktop agent — separate, not this repo)
-<<<<<<< HEAD
 - Updated: 2026-07-22 by `cursor-ts-watchdog-repair` (T-TS-WATCHDOG-SECRETLESS-20260722; coord T-NO-DESKTOP-HIJACK)
 - Active agents (claim your id here): `cursor-profile-switch-bleed`, `cursor-ts-watchdog-repair`, `claude-code`, `cursor`, `antigravity`, `gemini`, `replit`, `cursor-mac-pro-picker`, `cursor-transport-ssot`, `cursor-stuck-wait`, `cursor-output-wipe`, `codex-thumbgate-feedback`, `codex-tinker-computer-use`, `terra-ci-ndk-pin`, `cursor-ts-vpn-detect`, `cursor-aso-listing-dominance`, `codex-aso-dominance-research`, `codex-usb-transport-preserve`, `grok-swarm-harness-roi`, `grok-authkit-max-age`, `terra-ota-rollout-clamp`, `cursor-thumbgate-promo-leash`, `cursor-no-desktop-hijack`
 ||||||| parent of a5d4b6e3 (fix(mobile): Settings essentials allowlist; hide hobby tool zoo)
 - Updated: 2026-07-22 by `cursor-ts-watchdog-repair` (T-TS-WATCHDOG-SECRETLESS-20260722; coord T-NO-DESKTOP-HIJACK)
 - Active agents (claim your id here): `cursor-profile-switch-bleed`, `cursor-ts-watchdog-repair`, `claude-code`, `cursor`, `antigravity`, `gemini`, `replit`, `cursor-mac-pro-picker`, `cursor-transport-ssot`, `cursor-stuck-wait`, `cursor-output-wipe`, `codex-thumbgate-feedback`, `codex-tinker-computer-use`, `terra-ci-ndk-pin`, `cursor-ts-vpn-detect`, `cursor-aso-listing-dominance`, `codex-aso-dominance-research`, `codex-usb-transport-preserve`, `grok-swarm-harness-roi`, `grok-authkit-max-age`, `terra-ota-rollout-clamp`, `cursor-thumbgate-promo-leash`, `cursor-no-desktop-hijack`, `codex-hermes-academic-rag`
-=======
 - Updated: 2026-07-22 by `cursor-default-skills` (T-DEFAULT-SKILLS-ESSENTIALS; coord T-PROFILE-SWITCH-CHAT-BLEED merge)
 - Active agents (claim your id here): `cursor-default-skills`, `cursor-profile-switch-bleed`, `cursor-ts-watchdog-repair`, `claude-code`, `cursor`, `antigravity`, `gemini`, `replit`, `cursor-mac-pro-picker`, `cursor-transport-ssot`, `cursor-stuck-wait`, `cursor-output-wipe`, `codex-thumbgate-feedback`, `codex-tinker-computer-use`, `terra-ci-ndk-pin`, `cursor-ts-vpn-detect`, `cursor-aso-listing-dominance`, `codex-aso-dominance-research`, `codex-usb-transport-preserve`, `grok-swarm-harness-roi`, `grok-authkit-max-age`, `terra-ota-rollout-clamp`, `cursor-thumbgate-promo-leash`, `cursor-no-desktop-hijack`, `codex-hermes-academic-rag`
->>>>>>> a5d4b6e3 (fix(mobile): Settings essentials allowlist; hide hobby tool zoo)
 - Active branch of record: `main`
 - Merge discipline: branch-per-agent → rebase onto `main` → **sequential** merge, gated on `npm test` + Maestro E2E (`hermes-mobile/docs/proofs/continuous/latest.json`).
 - **THE RULES (see AGENTS.md "Multi-agent coordination" for the full Never-list):**
