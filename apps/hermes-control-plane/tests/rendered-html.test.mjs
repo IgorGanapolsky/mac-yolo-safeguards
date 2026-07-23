@@ -100,7 +100,7 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(diagram, /Encrypted pairing/);
   // FAQ is interactive client island; schema still includes FAQPage for SEO.
   assert.match(page, /FAQPage|What is ThumbGate\?/);
-  assert.match(robots, /disallow: \["\/dashboard", "\/api\/"\]/);
+  assert.match(robots, /disallow: \["\/dashboard", "\/admin", "\/api\/"\]/);
   assert.match(robots, /https:\/\/thumbgate\.app\/sitemap\.xml/);
   assert.match(sitemap, /https:\/\/thumbgate\.app\//);
   assert.match(sitemap, /2026-07-22/);
