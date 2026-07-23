@@ -60,7 +60,7 @@ export default function GatewayProfilePicker({
 }: GatewayProfilePickerProps) {
   const showScanCard = !hideScanCard && Boolean(scanning || scanResult);
   const multiMac = profiles.length > 1;
-  const showRouteHints = showReachabilityHints || multiMac;
+  const showRouteHints = true;
   // Collapse aliases → one selected radio. Never paint two · Now / filled dots.
   const resolvedActiveId = resolveActivePickerProfileId(profiles, activeProfileId);
 
