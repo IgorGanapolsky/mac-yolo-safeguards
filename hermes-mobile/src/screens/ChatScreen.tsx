@@ -43,10 +43,10 @@ import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import { haptics } from '../services/haptics';
 import { scheduleRunCompletedNotification } from '../services/hermesNotifications';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
-import { MAC_PICKER_SUBTITLE } from '../utils/tailscalePasteIpCopy';
 import ComputerPickerStatusRegion from '../components/ComputerPickerStatusRegion';
 import ManualComputerAddressForm from '../components/ManualComputerAddressForm';
 import { confirmForgetGatewayProfileAfterHostDismiss } from '../utils/confirmForgetGatewayProfile';
+import { MAC_PICKER_SUBTITLE } from '../utils/tailscalePasteIpCopy';
 import { confirmClearAllChatsAfterHostDismiss } from '../utils/confirmClearAllChats';
 import { profileDisplayName } from '../services/gatewayProfiles';
 import {
@@ -120,10 +120,6 @@ import {
   shouldSkipAutoRetitleForContinuity,
   type SessionContinuityHandoff,
 } from '../utils/sessionContinuityHandoff';
-import {
-  resolveMessageHydrateCredentials,
-  resolveProfileSwitchRestorePlan,
-} from '../utils/profileSwitchSessionRestore';
 import {
   formatSessionCreated,
   formatSessionTitle,
@@ -240,11 +236,6 @@ import {
   shouldSuppressConnectionHelpForLocalOutbound,
 } from '../utils/disconnectMessagePreserve';
 import {
-  nextOutboundEpoch,
-  planProfileSwitchChatReset,
-  shouldAcceptOutboundMutation,
-} from '../utils/profileSwitchChatReset';
-import {
   COMPOSER_DRAFT_COMPOSE_FIRST_KEY,
   captureComposerTextForFreshChat,
   composerDraftSessionKey,
@@ -312,20 +303,19 @@ import {
 } from '../utils/deadRunDetection';
 import {
   classifyMegaSession,
-  isMegaSession,
   isMegaSessionSendBlocked,
   sessionTotalTokens,
-  megaSessionBannerCopy,
   megaSessionDisplayTokens,
-  megaSessionForceFreshSelectCopy,
-  megaSessionSendWarnMessage,
-  megaSessionSendWarnTitle,
   shouldAutoFreshAndResendOnMegaBlock,
   shouldForceFreshOnSessionSelect,
-  shouldSuggestFreshOnSessionSelect,
 } from '../utils/sessionTokenGuards';
 import {
-  compactionStallBannerCopy,
+  megaSessionOptimizingCopy,
+  selectRecentTurnsForDisplay,
+  shouldKeepLocalHistoryAfterAutoHeal,
+  shouldTriggerMegaAutoHeal,
+} from '../utils/megaSessionAutoHeal';
+import {
   isSummarizationStub,
   lastTurnIsCompactionStall,
   shouldAutoOfferFreshOnCompactionStall,
@@ -636,15 +626,13 @@ export default function ChatScreen() {
   /** Mac picker row tap — header shows target computer before async connect finishes. */
   const [profileSwitchBusy, setProfileSwitchBusy] = useState(false);
   const profileSwitchBusyRef = useRef(false);
-  /** Bumped on Choose-computer switch so in-flight machine-A stream commits cannot paint on B. */
-  const outboundEpochRef = useRef(0);
-  /** True while an intentional profile switch is clearing/reloading chat identity. */
-  const intentionalProfileSwitchRef = useRef(false);
   const switchingSessionIdRef = useRef<string | null>(null);
   const [isSending, setIsSending] = useState(false);
-  /** True while Start fresh chat is forking/stopping — show spinner so tap isn't silent. */
+  /** True while auto-heal / Start fresh is rotating model context — show Optimizing… */
   const [isStartingFreshChat, setIsStartingFreshChat] = useState(false);
   const isStartingFreshChatRef = useRef(false);
+  /** Keep recent visible turns after silent mega auto-heal until the new session has server history. */
+  const preserveLocalTranscriptRef = useRef(false);
   /** Pending vault/local handoff so a fresh chat can pick up where the last session left off. */
   const [continuityHandoff, setContinuityHandoff] = useState<SessionContinuityHandoff | null>(null);
   const continuityHandoffRef = useRef<SessionContinuityHandoff | null>(null);
@@ -656,11 +644,6 @@ export default function ChatScreen() {
   const [attachPickerVisible, setAttachPickerVisible] = useState(false);
   const [macPickerVisible, setMacPickerVisible] = useState(false);
   const [macPickerHelpExpanded, setMacPickerHelpExpanded] = useState(false);
-
-  const closeMacPicker = useCallback(() => {
-    setMacPickerVisible(false);
-    setMacPickerHelpExpanded(false);
-  }, []);
   const [liveUsbProbed, setLiveUsbProbed] = useState<LiveUsbPickerInput | null>(null);
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [projectModalVisible, setProjectModalVisible] = useState(false);
@@ -767,7 +750,7 @@ export default function ChatScreen() {
   const pinScrollAfterHydrationRef = useRef(false);
   const messagesRef = useRef<HermesMessage[]>([]);
   const compactionFreshOfferSessionIdRef = useRef<string | null>(null);
-  const megaSessionSuggestFreshOfferedRef = useRef<string | null>(null);
+  const megaAutoHealedSessionIdRef = useRef<string | null>(null);
   const sessionsLoadGenRef = useRef(0);
   const prevMacChatLiveRef = useRef<boolean | null>(null);
   const sendStartedAtRef = useRef(Date.now());
@@ -788,13 +771,7 @@ export default function ChatScreen() {
   const currentSessionRef = useRef(currentSession);
   const telegramReplySessionIdRef = useRef(telegramReplySessionId);
   const refreshSessionMessagesRef = useRef<
-    ((options?: {
-      background?: boolean;
-      manual?: boolean;
-      force?: boolean;
-      gatewayUrlOverride?: string | null;
-      apiKeyOverride?: string | null;
-    }) => Promise<void>) | null
+    ((options?: { background?: boolean; manual?: boolean; force?: boolean }) => Promise<void>) | null
   >(null);
   const inputFocusedRef = useRef(false);
   /** Android-only: one re-render when composer focuses so padding latches before keyboard inset. */
@@ -1216,6 +1193,10 @@ export default function ChatScreen() {
       }),
     [activeGatewayProfile?.id, gatewayProfiles, liveUsbGateway],
   );
+  const closeMacPicker = useCallback(() => {
+    setMacPickerVisible(false);
+    setMacPickerHelpExpanded(false);
+  }, []);
   const healthProbePending = useMemo(() => isGatewayHealthPending(health), [health]);
   const usbCableLikely = useMemo(
     () =>
@@ -2456,17 +2437,10 @@ export default function ChatScreen() {
       silent?: boolean;
       projectState?: ChatProjectState;
       computerSessionKeys?: string[] | null;
-      /** Use immediately after a computer switch — React state may still hold the prior Mac. */
-      gatewayUrlOverride?: string | null;
-      apiKeyOverride?: string | null;
-      /** Bypass macChatLive gate during intentional profile switches. */
-      forceWhileOffline?: boolean;
     },
   ) => {
     const selectionProjectState = options?.projectState ?? projectState;
     const computerSessionKeys = options?.computerSessionKeys ?? activeComputerSessionKeys;
-    const listGatewayUrl = options?.gatewayUrlOverride?.trim() || gatewayUrl;
-    const listApiKey = options?.apiKeyOverride ?? apiKey;
     const loadGen = ++sessionsLoadGenRef.current;
     if (isDemo) {
       const mockSessions: HermesSession[] = [
@@ -2496,7 +2470,7 @@ export default function ChatScreen() {
       return;
     }
 
-    if (!macChatLive && !options?.forceWhileOffline) {
+    if (!macChatLive) {
       if (loadGen === sessionsLoadGenRef.current) {
         setIsLoadingSessions(false);
       }
@@ -2508,7 +2482,7 @@ export default function ChatScreen() {
         setIsLoadingSessions(true);
       }
       setErrorMessage(null);
-      const list = await listSessions(listGatewayUrl, listApiKey);
+      const list = await listSessions(gatewayUrl, apiKey);
       if (loadGen !== sessionsLoadGenRef.current) {
         return;
       }
@@ -2555,9 +2529,6 @@ export default function ChatScreen() {
       });
 
       if (resolvedSession !== undefined) {
-        // Keep ref in sync before awaiters (profile-switch hydrate) read it —
-        // React state alone would still be null until the next render.
-        currentSessionRef.current = resolvedSession;
         setCurrentSession(resolvedSession);
       }
 
@@ -2589,64 +2560,9 @@ export default function ChatScreen() {
         }
         return;
       }
-      const resetPlan = planProfileSwitchChatReset({
-        fromProfileId: activeGatewayProfile?.id,
-        toProfileId: profileId,
-      });
       profileSwitchBusyRef.current = true;
       setProfileSwitchBusy(true);
       haptics.light();
-
-      // PRODUCT LAW: clear composer + transcript BEFORE await selectGatewayProfile.
-      // Clearing after the await (or only when closePicker) paints machine B's identity
-      // with machine A's optimistic/typed bubbles mid-switch.
-      if (resetPlan?.clearUiBeforeAwait) {
-        intentionalProfileSwitchRef.current = true;
-        outboundEpochRef.current = nextOutboundEpoch(outboundEpochRef.current);
-        pendingOutboundSendsRef.current = 0;
-        isSendingRef.current = false;
-        setIsSending(false);
-        activeChatStreamRef.current = false;
-        setIsChatStreamActive(false);
-        activeOutboundSendBodyRef.current = null;
-        outboundQueueRef.current = [];
-        setQueuedOutboundCount(0);
-        pendingOutboundClaimRef.current = null;
-        lastCommittedOutboundBodyRef.current = null;
-        persistedPendingRef.current = [];
-        const priorSessionId = currentSessionRef.current?.id;
-        void clearPendingOutbound(priorSessionId);
-        void clearPendingOutbound(PENDING_NEW_SESSION_KEY);
-        const draftKey = composerDraftSessionKey(priorSessionId);
-        if (draftKey) {
-          void clearComposerDraft(draftKey);
-        }
-        void clearComposerDraft(COMPOSER_DRAFT_COMPOSE_FIRST_KEY);
-        inputValueRef.current = '';
-        setInputValue('');
-        setComposerAttachments([]);
-        composerAttachmentsRef.current = [];
-        pinnedOutboundTextRef.current = null;
-        pinnedOutboundStatusRef.current = 'pending';
-        setPinnedOutboundText(null);
-        setPinnedOutboundSentAt(null);
-        setPinnedOutboundStatus('pending');
-        setRunProgress(null);
-        setToolStatus(null);
-        transcriptDigestRef.current = '';
-        lastTranscriptChangeAtMsRef.current = Date.now();
-        deadRunSurfacedRef.current = false;
-        messagesRef.current = [];
-        setMessages([]);
-        setCurrentSession(null);
-        pinScrollAfterHydrationRef.current = true;
-        userScrolledUpRef.current = false;
-        lastDistanceFromBottomRef.current = 0;
-        if (options?.closePicker) {
-          setMacPickerVisible(false);
-        }
-      }
-
       try {
         const ok = await selectGatewayProfile(profileId, { ensureProfile: options?.ensureProfile });
         if (!ok) {
@@ -2654,55 +2570,34 @@ export default function ChatScreen() {
         }
         await refreshHealth();
         connectEvents();
-
-        // #816 already cleared composer/messages before await — do NOT clear again.
-        // Reload + hydrate THIS machine's prior session so mini is not an empty greeting.
-        const pickedProfile =
-          gatewayProfiles.find((profile) => profile.id === profileId) ??
-          options?.ensureProfile ??
-          null;
-        const restorePlan = resolveProfileSwitchRestorePlan({
-          profileId,
-          pickedProfile,
-          ensureProfile: options?.ensureProfile,
-        });
-        const shouldReloadSessions =
-          Boolean(restorePlan) &&
-          (options?.reloadSessions !== false || Boolean(resetPlan));
-        if (shouldReloadSessions && restorePlan) {
-          const resolvedKey = await secureCredentials.resolveApiKeyForProfile?.(
-            restorePlan.profileId,
-          );
-          const profileKey = resolvedKey || apiKey;
+        if (options?.closePicker) {
+          setMacPickerVisible(false);
+          pinScrollAfterHydrationRef.current = true;
+          userScrolledUpRef.current = false;
+          lastDistanceFromBottomRef.current = 0;
+          setCurrentSession(null);
+          setMessages([]);
+        }
+        if (options?.reloadSessions) {
+          const pickedProfile = gatewayProfiles.find((profile) => profile.id === profileId);
           await loadSessionsList(true, {
-            computerSessionKeys: restorePlan.computerSessionKeys,
-            gatewayUrlOverride: restorePlan.gatewayUrl,
-            apiKeyOverride: profileKey,
-            forceWhileOffline: true,
+            computerSessionKeys: resolveComputerSessionStorageKeys(
+              pickedProfile,
+              pickedProfile?.gatewayUrl,
+            ),
           });
-          if (currentSessionRef.current) {
-            await refreshSessionMessagesRef.current?.({
-              background: false,
-              force: true,
-              gatewayUrlOverride: restorePlan.gatewayUrl,
-              apiKeyOverride: profileKey,
-            });
-          }
         }
       } finally {
-        intentionalProfileSwitchRef.current = false;
         profileSwitchBusyRef.current = false;
         setProfileSwitchBusy(false);
       }
     },
     [
       activeGatewayProfile?.id,
-      apiKey,
       connectEvents,
       gatewayProfiles,
       refreshHealth,
       selectGatewayProfile,
-      setRunProgress,
     ],
   );
 
@@ -2797,27 +2692,15 @@ export default function ChatScreen() {
   }, [sessions, currentSession?.id, telegramReplySessionId]);
 
   const refreshSessionMessages = useCallback(
-    async (options?: {
-      background?: boolean;
-      manual?: boolean;
-      force?: boolean;
-      /** Target Mac credentials during profile switch (React context may still be pre-switch). */
-      gatewayUrlOverride?: string | null;
-      apiKeyOverride?: string | null;
-    }) => {
+    async (options?: { background?: boolean; manual?: boolean; force?: boolean }) => {
       const activeSession = currentSessionRef.current;
       if (!activeSession) {
-        transcriptDigestRef.current = '';
-        setMessages([]);
+        if (!preserveLocalTranscriptRef.current) {
+          transcriptDigestRef.current = '';
+          setMessages([]);
+        }
         return;
       }
-
-      const { gatewayUrl: fetchGatewayUrl, apiKey: fetchApiKey } = resolveMessageHydrateCredentials({
-        gatewayUrlOverride: options?.gatewayUrlOverride,
-        apiKeyOverride: options?.apiKeyOverride,
-        fallbackGatewayUrl: gatewayUrl,
-        fallbackApiKey: apiKey,
-      });
 
       if (!macChatLive && !options?.force) {
         // Keep the transcript visible during transient disconnect; reload on reconnect.
@@ -2880,7 +2763,21 @@ export default function ChatScreen() {
         if (currentSessionRef.current?.id !== requestedSessionId) {
           return;
         }
-        const reconciled = reconcileChatHistory(merged, messagesRef.current);
+        const localBefore = messagesRef.current;
+        if (
+          shouldKeepLocalHistoryAfterAutoHeal({
+            preserveLocalTranscript: preserveLocalTranscriptRef.current,
+            serverMessageCount: merged.length,
+            localRecentCount: localBefore.length,
+          })
+        ) {
+          // New session still empty — keep recent turns visible after silent auto-heal.
+          return;
+        }
+        if (preserveLocalTranscriptRef.current && merged.length > 0) {
+          preserveLocalTranscriptRef.current = false;
+        }
+        const reconciled = reconcileChatHistory(merged, localBefore);
         const resolved = clearResolvedFailedOutboundStatuses(reconciled);
         const nextMessages = resolved.messages;
         const digest =
@@ -2931,8 +2828,7 @@ export default function ChatScreen() {
           void clearPendingOutbound(PENDING_NEW_SESSION_KEY);
           persistedPendingRef.current = [];
         }
-        // Always run merge strip so bare hydrate cannot resurrect `[SILENT]`.
-        return mergeServerMessagesWithPending(serverMessages, []);
+        return serverMessages;
       };
 
       if (isDemo) {
@@ -2981,9 +2877,9 @@ export default function ChatScreen() {
         if (isTelegramInboxSession(activeSession)) {
           const { messages: tgMessages, replySessionId, threadCount, messageCap } =
             await fetchTelegramInboxMessages(
-              fetchGatewayUrl,
+              gatewayUrl,
               sessionsRef.current,
-              fetchApiKey,
+              apiKey,
               undefined,
               undefined,
               {
@@ -3001,7 +2897,7 @@ export default function ChatScreen() {
           setTelegramReplySessionId(replySessionId);
           setTelegramInboxMeta({ threadCount, messageCap });
         } else {
-          const history = await listMessages(fetchGatewayUrl, activeSession.id, fetchApiKey);
+          const history = await listMessages(gatewayUrl, activeSession.id, apiKey);
           if (
             refreshGeneration !== refreshGenerationRef.current ||
             currentSessionRef.current?.id !== requestedSessionId
@@ -3575,7 +3471,6 @@ export default function ChatScreen() {
       pendingOutboundSends: pendingOutboundSendsRef.current,
       isSending: isSendingRef.current,
       hasActiveRun,
-      intentionalProfileSwitch: intentionalProfileSwitchRef.current,
     });
     if (preserveTranscript) {
       // False disconnect / sticky-session flicker: keep local bubbles; refresh merges later.
@@ -3998,20 +3893,25 @@ export default function ChatScreen() {
   };
 
   /**
-   * Leave mega/stalled thread → empty compose surface.
-   * Busy spinner via isStartingFreshChat; draft+attachments survive handleNewChat clear.
+   * Rotate model context (mega auto-heal or explicit Start fresh).
+   * Busy spinner via isStartingFreshChat; draft+attachments + recent turns survive.
    */
-  const handleStartFreshChat = useCallback(async (): Promise<boolean> => {
+  const handleStartFreshChat = useCallback(
+    async (options?: { preserveVisibleHistory?: boolean }): Promise<boolean> => {
     if (isStartingFreshChatRef.current) {
       return false;
     }
     isStartingFreshChatRef.current = true;
     setIsStartingFreshChat(true);
     haptics.selection();
+    const preserveVisibleHistory = options?.preserveVisibleHistory !== false;
+    const recentTurns = preserveVisibleHistory
+      ? selectRecentTurnsForDisplay(messagesRef.current)
+      : [];
     const preservedText = captureComposerTextForFreshChat(inputValueRef.current);
     const attachmentsToRestore = [...composerAttachmentsRef.current];
     try {
-      // Capture continuity before wiping transcript so the next chat can continue.
+      // Capture continuity before wiping model context so the next chat can continue.
       await persistContinuityFromCurrentThread();
       // Kill zombie "Delivering…" / mega-token banner: clear local run state AND best-effort stop Mac run.
       // (Previously only null'd runProgress while isChatStreamActive + sendProgressSnapshotRef kept the UI alive.)
@@ -4030,9 +3930,18 @@ export default function ChatScreen() {
       setPinnedOutboundSentAt(null);
       setPinnedOutboundStatus('pending');
       setErrorMessage(null);
-      setMessages([]);
-      messagesRef.current = [];
-      transcriptDigestRef.current = '';
+      if (recentTurns.length === 0) {
+        setMessages([]);
+        messagesRef.current = [];
+        transcriptDigestRef.current = '';
+        preserveLocalTranscriptRef.current = false;
+      } else {
+        // Keep recent turns on screen while model context resets.
+        messagesRef.current = recentTurns;
+        setMessages(recentTurns);
+        transcriptDigestRef.current = transcriptDigest(recentTurns);
+        preserveLocalTranscriptRef.current = true;
+      }
       setToolStatus(null);
       setRecentChatsDismissed(true);
 
@@ -4045,11 +3954,16 @@ export default function ChatScreen() {
         }
       }
 
-      // Always open an empty compose-first chat. Gateway `/fork` copies transcript
-      // (mega sessions → multi-million-token clones + long hangs); "Start fresh" means empty.
-      // Preserve whatever the user already typed so they do not retype after Start fresh.
+      // Open a new compose session without forking mega transcript onto the Mac.
+      // Preserve typed composer text + recent visible turns (auto-heal must not blank history).
       currentSessionRef.current = null;
       await handleNewChat({ preserveComposer: true });
+      if (recentTurns.length > 0) {
+        messagesRef.current = recentTurns;
+        setMessages(recentTurns);
+        transcriptDigestRef.current = transcriptDigest(recentTurns);
+        preserveLocalTranscriptRef.current = true;
+      }
       if (shouldRestoreComposerAfterFreshChat(preservedText)) {
         pendingFreshComposerTransferRef.current = preservedText;
         inputValueRef.current = preservedText;
@@ -4075,8 +3989,7 @@ export default function ChatScreen() {
   ]);
 
   /**
-   * warn-level only. Hard-block is handled by shouldAutoFreshAndResendOnMegaBlock
-   * (auto fresh + continue send) so the typed draft is never dropped on a hung alert.
+   * warn/block → silent auto-heal + continue send (no homework alert).
    */
   const confirmMegaSessionSend = useCallback(async (): Promise<'allow' | 'fresh' | 'cancel'> => {
     const session = currentSessionRef.current;
@@ -4084,30 +3997,9 @@ export default function ChatScreen() {
     if (level === 'normal') {
       return 'allow';
     }
-    if (level === 'block') {
-      // Hard-block: only path is a new chat. Auto-fresh so Send can deliver the typed draft.
-      return 'fresh';
-    }
-    const total = megaSessionDisplayTokens(session);
-    return new Promise<'allow' | 'fresh' | 'cancel'>((resolve) => {
-      Alert.alert(megaSessionSendWarnTitle(), megaSessionSendWarnMessage(total), [
-        { text: 'Start fresh chat', style: 'default', onPress: () => resolve('fresh') },
-        { text: 'Send anyway', style: 'destructive', onPress: () => resolve('allow') },
-        { text: 'Cancel', style: 'cancel', onPress: () => resolve('cancel') },
-      ]);
-    });
+    // Auto-heal path: migrate draft to a fresh model context without user homework.
+    return 'fresh';
   }, []);
-
-  const megaSessionWarning = useMemo(() => {
-    const total = megaSessionDisplayTokens(currentSession);
-    if (lastTurnIsCompactionStall(messages)) {
-      return compactionStallBannerCopy(total);
-    }
-    if (!isMegaSession(currentSession)) {
-      return null;
-    }
-    return megaSessionBannerCopy(total);
-  }, [currentSession, messages]);
 
   const showEmptyStreamRefreshBanner = useMemo(
     () => !isDemo && macChatLive && shouldShowEmptyStreamRefreshCta(messages),
@@ -4128,8 +4020,37 @@ export default function ChatScreen() {
 
   const megaSessionSendHardBlocked = isMegaSessionSendBlocked(currentSession);
 
+  // Silent mega auto-heal: rotate model context when warn/block — no Start-fresh nag.
   useEffect(() => {
-    if (isDemo || isSending || runProgress) {
+    if (isDemo || isSending || runProgress || isStartingFreshChat) {
+      return;
+    }
+    const sessionId = currentSession?.id ?? null;
+    const level = classifyMegaSession(currentSession);
+    if (
+      !shouldTriggerMegaAutoHeal({
+        level,
+        sessionId,
+        alreadyHealedSessionId: megaAutoHealedSessionIdRef.current,
+        isBusy: false,
+      })
+    ) {
+      return;
+    }
+    megaAutoHealedSessionIdRef.current = sessionId;
+    void handleStartFreshChat({ preserveVisibleHistory: true });
+  }, [
+    currentSession,
+    handleStartFreshChat,
+    isDemo,
+    isSending,
+    isStartingFreshChat,
+    runProgress,
+  ]);
+
+  // Compaction stall → silent auto-heal (coord: chatCompactionHandoff display SSOT in PR #810).
+  useEffect(() => {
+    if (isDemo || isSending || runProgress || isStartingFreshChat) {
       return;
     }
     const sessionId = currentSession?.id ?? null;
@@ -4144,12 +4065,17 @@ export default function ChatScreen() {
       return;
     }
     compactionFreshOfferSessionIdRef.current = sessionId;
-    const total = megaSessionDisplayTokens(currentSession);
-    Alert.alert('Chat stalled after summarization', compactionStallBannerCopy(total), [
-      { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
-      { text: 'Keep waiting', style: 'cancel' },
-    ]);
-  }, [currentSession, handleStartFreshChat, isDemo, isSending, messages, runProgress]);
+    megaAutoHealedSessionIdRef.current = sessionId;
+    void handleStartFreshChat({ preserveVisibleHistory: true });
+  }, [
+    currentSession,
+    handleStartFreshChat,
+    isDemo,
+    isSending,
+    isStartingFreshChat,
+    messages,
+    runProgress,
+  ]);
 
   const executeClearAllChats = useCallback(async () => {
     haptics.warning();
@@ -5222,14 +5148,6 @@ export default function ChatScreen() {
     setIsSending(true);
     activeOutboundSendBodyRef.current = normalizedDisplay;
     pendingOutboundClaimRef.current = null;
-    // Capture epoch at send start — machine switch bumps outboundEpochRef and must
-    // drop every later optimistic/stream mutation from this send.
-    const sendEpoch = outboundEpochRef.current;
-    const isSendEpochLive = () =>
-      shouldAcceptOutboundMutation({
-        mutationEpoch: sendEpoch,
-        activeEpoch: outboundEpochRef.current,
-      });
 
     let outboundLockReleased = false;
     const releaseOutboundSendLock = () => {
@@ -5240,12 +5158,7 @@ export default function ChatScreen() {
       isSendingRef.current = false;
       setIsSending(false);
       activeOutboundSendBodyRef.current = null;
-      if (isSendEpochLive()) {
-        drainOutboundQueue();
-      } else {
-        outboundQueueRef.current = [];
-        setQueuedOutboundCount(0);
-      }
+      drainOutboundQueue();
     };
 
     const collectRecoveryRunIds = (): string[] => {
@@ -5722,7 +5635,7 @@ export default function ChatScreen() {
     );
 
     const markOutboundBubbleStatus = (status: 'sent' | 'failed', failureReason?: string) => {
-      if (!committedUserMessageId || !isSendEpochLive()) {
+      if (!committedUserMessageId) {
         return;
       }
       pinnedOutboundStatusRef.current = status;
@@ -5735,9 +5648,6 @@ export default function ChatScreen() {
         setPinnedOutboundSentAt(null);
       }
       commitMessages((prev) => {
-        if (!isSendEpochLive()) {
-          return prev;
-        }
         const next = prev.map((message) =>
           message.id === committedUserMessageId
             ? {
@@ -5793,9 +5703,6 @@ export default function ChatScreen() {
             },
       );
       setTimeout(() => {
-        if (!isSendEpochLive()) {
-          return;
-        }
         markOutboundBubbleStatus('sent');
         const assistantText = `[Demo Mode] I received: "${userText}". Since the gateway is in demo mode, I'm providing a mock reply. Let me know if you want to test live controls!`;
         const assistantMessage: HermesMessage = {
@@ -5803,11 +5710,9 @@ export default function ChatScreen() {
           content: assistantText,
           created_at: new Date().toISOString(),
         };
-        commitMessages((prev) => (isSendEpochLive() ? [...prev, assistantMessage] : prev));
-        if (isSendEpochLive()) {
-          setRunProgress(null);
-          haptics.success();
-        }
+        commitMessages((prev) => [...prev, assistantMessage]);
+        setRunProgress(null);
+        haptics.success();
       }, 1500);
       return true;
     }
@@ -5885,9 +5790,6 @@ export default function ChatScreen() {
       const priorAssistants = snapshotAssistantBodies(messagesRef.current);
 
       const updateAssistant = (text: string) => {
-        if (!isSendEpochLive()) {
-          return;
-        }
         const incoming = text.trim();
         if (!incoming || isSilentAssistantCompletion(incoming)) {
           return;
@@ -5903,9 +5805,6 @@ export default function ChatScreen() {
             assistantBubbleAdded = true;
             activeAssistantIdRef.current = existing.id;
             commitMessages((prev) => {
-              if (!isSendEpochLive()) {
-                return prev;
-              }
               const next = prev.map((m) =>
                 m.id === existing.id
                   ? { ...m, content: preferRicherAssistantText(m.content, body) }
@@ -5921,9 +5820,6 @@ export default function ChatScreen() {
         if (!assistantBubbleAdded) {
           assistantBubbleAdded = true;
           commitMessages((prev) => {
-            if (!isSendEpochLive()) {
-              return prev;
-            }
             const next = [
               ...prev,
               {
@@ -5940,9 +5836,6 @@ export default function ChatScreen() {
           return;
         }
         commitMessages((prev) => {
-          if (!isSendEpochLive()) {
-            return prev;
-          }
           const next = prev.map((m) =>
             m.id === assistantId
               ? { ...m, content: preferRicherAssistantText(m.content, body) }
@@ -6264,13 +6157,6 @@ export default function ChatScreen() {
         }
       }
 
-      if (!isSendEpochLive()) {
-        // User switched computers mid-send — keep machine-A delivery on A; do not
-        // mutate machine-B's transcript or run chrome.
-        releaseOutboundSendLock();
-        return false;
-      }
-
       markMessageDeliveredToMac();
 
       const telegramDeferred = isTelegramDeferredEmptyStream(activeSess, assistantText);
@@ -6359,9 +6245,7 @@ export default function ChatScreen() {
                 return next;
               });
               setErrorMessage(
-                summarizationStub
-                  ? compactionStallBannerCopy(megaSessionDisplayTokens(currentSessionRef.current))
-                  : EMPTY_REPLY_FAILURE_REASON,
+                summarizationStub ? megaSessionOptimizingCopy() : EMPTY_REPLY_FAILURE_REASON,
               );
             },
           });
@@ -6435,9 +6319,7 @@ export default function ChatScreen() {
       };
 
       releaseOutboundSendLock();
-      if (!isSendEpochLive()) {
-        releaseOutboundPending();
-      } else if (!deferredTelegramPollRef.current) {
+      if (!deferredTelegramPollRef.current) {
         const completedStartedAt = sendStartedAtRef.current;
         if (sendSucceeded) {
           const replyPreview = (activeAssistantTextRef.current || '')
@@ -6502,9 +6384,7 @@ export default function ChatScreen() {
         }
       }
 
-      if (!isSendEpochLive()) {
-        // Already released pending above when epoch died mid-switch.
-      } else if (!isDemo && !suppressPostSendRefresh && currentSessionRef.current) {
+      if (!isDemo && !suppressPostSendRefresh && currentSessionRef.current) {
         void refreshSessionMessagesRef.current?.({ background: true }).finally(releaseOutboundPending);
       } else {
         releaseOutboundPending();
@@ -6767,11 +6647,9 @@ export default function ChatScreen() {
     async (session: HermesSession) => {
       haptics.light();
       if (shouldForceFreshOnSessionSelect(session)) {
-        const total = megaSessionDisplayTokens(session);
-        Alert.alert('Chat too large', megaSessionForceFreshSelectCopy(total), [
-          { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
-          { text: 'Cancel', style: 'cancel' },
-        ]);
+        // Silent auto-heal — do not reopen a blocked mega thread or nag Start fresh.
+        megaAutoHealedSessionIdRef.current = session.id;
+        void handleStartFreshChat({ preserveVisibleHistory: true });
         return;
       }
 
@@ -6798,19 +6676,6 @@ export default function ChatScreen() {
           await persistProjectState(next);
         }
       };
-
-      if (
-        shouldSuggestFreshOnSessionSelect(session) &&
-        megaSessionSuggestFreshOfferedRef.current !== session.id
-      ) {
-        megaSessionSuggestFreshOfferedRef.current = session.id;
-        const total = sessionTotalTokens(session);
-        Alert.alert('Large chat session', megaSessionSendWarnMessage(total), [
-          { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
-          { text: 'Open anyway', onPress: () => void openSelectedSession() },
-        ]);
-        return;
-      }
 
       await openSelectedSession();
     },
@@ -7529,7 +7394,7 @@ export default function ChatScreen() {
             fallbackModel={progressBannerFallbackModel}
             showTechnicalStats={settings.includeToolActivity}
             compact={keyboardOpen}
-            megaSessionWarning={megaSessionWarning}
+            megaSessionWarning={null}
             sessionTokens={sessionTotalTokens(currentSession)}
             macHttpOk={effectiveMacHttpOk}
             onSwitchMac={() => setMacPickerVisible(true)}
@@ -7557,33 +7422,18 @@ export default function ChatScreen() {
             terminalToolName={operatorTerminalLine?.toolName}
             terminalPreview={operatorTerminalLine?.text}
           />
-        ) : megaSessionWarning || isStartingFreshChat ? (
-          <View style={styles.megaSessionBanner} testID="mega-session-banner">
-            <Text style={styles.megaSessionBannerText}>
-              {isStartingFreshChat
-                ? 'Starting a fresh chat on your computer…'
-                : megaSessionWarning}
-            </Text>
-            <Pressable
-              onPress={() => void handleStartFreshChat()}
-              disabled={isStartingFreshChat}
-              accessibilityState={{ busy: isStartingFreshChat, disabled: isStartingFreshChat }}
-              style={({ pressed }) => [
-                styles.megaSessionBannerAction,
-                isStartingFreshChat && styles.megaSessionBannerActionBusy,
-                pressed && !isStartingFreshChat && styles.megaSessionBannerActionPressed,
-              ]}
-              testID="mega-session-start-fresh-chat"
-            >
-              {isStartingFreshChat ? (
-                <View style={styles.megaSessionBannerActionRow} testID="mega-session-start-fresh-spinner">
-                  <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={styles.megaSessionBannerActionText}>Starting…</Text>
-                </View>
-              ) : (
-                <Text style={styles.megaSessionBannerActionText}>Start fresh chat</Text>
-              )}
-            </Pressable>
+        ) : isStartingFreshChat ? (
+          <View
+            style={styles.megaSessionBanner}
+            testID="mega-session-banner"
+            accessibilityState={{ busy: isStartingFreshChat }}
+          >
+            <View style={styles.megaSessionBannerActionRow} testID="mega-session-start-fresh-spinner">
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.megaSessionBannerText} testID="mega-session-optimizing">
+                {megaSessionOptimizingCopy()}
+              </Text>
+            </View>
           </View>
         ) : null}
 
@@ -7664,9 +7514,11 @@ export default function ChatScreen() {
           onBlur={handleInputBlur}
           onSubmit={handleSubmit}
           placeholder={
-            megaSessionSendHardBlocked
-              ? 'Chat too large — start a fresh chat'
-              : inputPlaceholder
+            isStartingFreshChat
+              ? megaSessionOptimizingCopy()
+              : megaSessionSendHardBlocked
+                ? megaSessionOptimizingCopy()
+                : inputPlaceholder
           }
           sendMuted={
             megaSessionSendHardBlocked ||

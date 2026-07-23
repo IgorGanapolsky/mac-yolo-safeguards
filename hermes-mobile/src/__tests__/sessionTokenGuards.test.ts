@@ -61,7 +61,7 @@ describe('sessionTokenGuards', () => {
     expect(shouldShowLargeChatHeaderWarning(busyButHealthy)).toBe(false);
   });
 
-  it('does not show header "chat is large" at cumulative 20k when context is healthy', () => {
+  it('never shows header Start-fresh nag (auto-heal is primary)', () => {
     const scheduledJobShape = {
       input_tokens: 29_661,
       output_tokens: 8_067,
@@ -70,6 +70,12 @@ describe('sessionTokenGuards', () => {
     expect(estimatedContextTokens(scheduledJobShape)).toBe(2_472);
     expect(classifyMegaSession(scheduledJobShape)).toBe('normal');
     expect(shouldShowLargeChatHeaderWarning(scheduledJobShape, 19_634)).toBe(false);
+    expect(
+      shouldShowLargeChatHeaderWarning({
+        input_tokens: 1_200_000,
+        api_call_count: 8,
+      }),
+    ).toBe(false);
   });
 
   it('classifies warn and block on estimated context when api_call_count is known', () => {
@@ -109,23 +115,23 @@ describe('sessionTokenGuards', () => {
     expect(megaSessionDisplayTokens(null)).toBe(0);
   });
 
-  it('hard-blocks Send at BLOCK and never allows send_anyway', () => {
+  it('hard-blocks Send at BLOCK; warn allows auto-heal fresh path', () => {
     expect(shouldAllowMegaSessionSend('normal')).toBe(true);
     expect(shouldAllowMegaSessionSend('warn', 'send_anyway')).toBe(true);
     expect(shouldAllowMegaSessionSend('warn', 'cancel')).toBe(false);
-    expect(shouldAllowMegaSessionSend('warn', 'fresh')).toBe(false);
+    expect(shouldAllowMegaSessionSend('warn', 'fresh')).toBe(true);
     expect(shouldAllowMegaSessionSend('block', 'send_anyway')).toBe(false);
     expect(shouldAllowMegaSessionSend('block', 'fresh')).toBe(false);
     expect(shouldAllowMegaSessionSend('block', 'cancel')).toBe(false);
   });
 
-  it('auto-migrates draft to a fresh chat on hard-block Send', () => {
+  it('auto-migrates draft via auto-heal on warn and block Send', () => {
     expect(shouldAutoFreshAndResendOnMegaBlock('normal')).toBe(false);
-    expect(shouldAutoFreshAndResendOnMegaBlock('warn')).toBe(false);
+    expect(shouldAutoFreshAndResendOnMegaBlock('warn')).toBe(true);
     expect(shouldAutoFreshAndResendOnMegaBlock('block')).toBe(true);
   });
 
-  it('badges recents and forces fresh reopen on BLOCK sessions', () => {
+  it('badges recents and auto-heals BLOCK reopen without Start-fresh nag', () => {
     expect(megaSessionRecentsBadge({ input_tokens: 50_000 })).toBeNull();
     expect(megaSessionRecentsBadge({ input_tokens: MEGA_SESSION_TOKEN_WARN })).toBe('Large');
     expect(megaSessionRecentsBadge({ input_tokens: MEGA_SESSION_TOKEN_BLOCK })).toBe('Too large');
@@ -140,16 +146,20 @@ describe('sessionTokenGuards', () => {
     expect(
       shouldForceFreshOnSessionSelect({ input_tokens: 1_700_000, api_call_count: 50 }),
     ).toBe(false);
-    expect(shouldSuggestFreshOnSessionSelect({ input_tokens: 150_000 })).toBe(true);
+    expect(shouldSuggestFreshOnSessionSelect({ input_tokens: 150_000 })).toBe(false);
     expect(shouldSuggestFreshOnSessionSelect({ input_tokens: 516_000 })).toBe(false);
-    expect(megaSessionForceFreshSelectCopy(516_000)).toContain('Start a fresh chat');
+    expect(megaSessionForceFreshSelectCopy(516_000)).toMatch(/Optimizing conversation/i);
+    expect(megaSessionForceFreshSelectCopy(516_000)).not.toMatch(/Start a fresh chat/i);
   });
 
-  it('formats large counts for banners with stronger fresh-chat CTA', () => {
+  it('formats large counts for banners without Start-fresh homework CTA', () => {
     expect(formatMegaSessionTokenCount(4_927_413)).toBe('4.9M');
     expect(formatMegaSessionTokenCount(220_000)).toBe('220k');
     expect(megaSessionBannerCopy(220_000)).toContain('220k tokens');
     expect(megaSessionBannerCopy(220_000)).toContain('working context');
-    expect(megaSessionSendBlockedCopy(220_000)).toContain('Start a fresh chat');
+    expect(megaSessionBannerCopy(220_000)).toMatch(/optimizing conversation/i);
+    expect(megaSessionBannerCopy(220_000)).not.toMatch(/Start a fresh chat/i);
+    expect(megaSessionSendBlockedCopy(220_000)).toMatch(/optimizing conversation/i);
+    expect(megaSessionSendBlockedCopy(220_000)).not.toMatch(/Start a fresh chat/i);
   });
 });
