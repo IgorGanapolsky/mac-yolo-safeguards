@@ -10,6 +10,8 @@ import {
   profilesForSwitchComputerPicker,
   synthesizeLiveUsbProfile,
   resolveProfileFromPickerRows,
+  resolveSelectedPickerProfileId,
+  dedupePickerProfilesById,
   profileConnectionRouteDisplayLabel,
   resolveUsbMatchingProfileId,
   shouldOfferUsbLinkRepair,
@@ -688,6 +690,96 @@ describe('gatewayProfilePicker', () => {
     };
     expect(resolveProfileFromPickerRows(usb.id, [usb, mini], [mini])).toEqual(usb);
     expect(resolveProfileFromPickerRows('missing', [usb], [mini])).toBeNull();
+  });
+
+  it('profileMatchesDiscoveredGateway matches Tailscale URL even when local_ip is LAN', () => {
+    const nameless = {
+      id: 'mac_100_94_135_78',
+      label: 'Tailscale 100.94.135.78',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-23T12:00:00.000Z',
+    };
+    expect(
+      profileMatchesDiscoveredGateway(nameless, {
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-Mac-mini.local',
+        label: 'Igors-Mac-mini',
+        localIp: '192.168.68.60',
+      }),
+    ).toBe(true);
+  });
+
+  it('resolveSelectedPickerProfileId returns exactly one id even with duplicate profile ids', () => {
+    const sharedId = 'mac_100_94_135_78';
+    const rows = [
+      {
+        id: 'mac_book_usb',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://127.0.0.1:8642',
+        hostname: 'Igors-MacBook-Pro',
+        addedAt: '2026-07-23T14:00:00.000Z',
+      },
+      {
+        id: sharedId,
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://100.87.85.85:8642',
+        hostname: 'Igors-MacBook-Pro',
+        localIp: '100.87.85.85',
+        addedAt: '2026-07-23T14:00:30.000Z',
+      },
+      {
+        id: sharedId,
+        label: 'Tailscale 100.94.135.78',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        localIp: '100.94.135.78',
+        addedAt: '2026-07-23T14:01:00.000Z',
+      },
+    ];
+    expect(dedupePickerProfilesById(rows)).toHaveLength(2);
+    expect(resolveSelectedPickerProfileId(rows, sharedId)).toBe(sharedId);
+    expect(resolveSelectedPickerProfileId(dedupePickerProfilesById(rows), sharedId)).toBe(sharedId);
+  });
+
+  it('resolveSelectedPickerProfileId follows collapsed active Mac onto the visible row', () => {
+    const activeUsb = {
+      id: 'mac_book_usb',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      hostname: 'Igors-MacBook-Pro',
+      addedAt: '2026-07-23T14:00:00.000Z',
+    };
+    const visibleTs = {
+      id: 'mac_book_ts',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://100.87.85.85:8642',
+      hostname: 'Igors-MacBook-Pro',
+      localIp: '100.87.85.85',
+      addedAt: '2026-07-23T14:00:30.000Z',
+    };
+    const mini = {
+      id: 'mac_mini_ts',
+      label: 'Igors-Mac-mini',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      hostname: 'Igors-Mac-mini',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-23T14:01:00.000Z',
+    };
+    expect(
+      resolveSelectedPickerProfileId([visibleTs, mini], activeUsb.id, { activeProfile: activeUsb }),
+    ).toBe(visibleTs.id);
+  });
+
+  it('Choose computer title uses health hostname after Tailscale IP enrich', () => {
+    const named = {
+      id: 'mac_100_94_135_78',
+      label: 'Igors-Mac-mini',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      hostname: 'Igors-Mac-mini.local',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-23T12:00:00.000Z',
+    };
+    expect(profilePickerLines(named).title).toBe('Igors-Mac-mini');
   });
 
 });

@@ -553,6 +553,7 @@ export default function SettingsScreen() {
           <GatewayProfilePicker
             profiles={profilesForSwitchComputerPicker(savedMacProfiles)}
             activeProfileId={activeGatewayProfile?.id ?? null}
+            activeProfile={activeGatewayProfile}
             activeReachable={macHttpOk}
             authNeedsRepair={health?.authMismatch === true}
             activeConnecting={connectionState === 'connecting'}

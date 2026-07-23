@@ -828,6 +828,17 @@ export function shouldActivateDiscoveredUrl(
   return matched.id === state.activeProfileId;
 }
 
+/**
+ * True when Choose computer would show "Tailscale 100.x" / generic Tailscale label
+ * because hostname was never persisted from /health or MagicDNS.
+ */
+export function profileNeedsMachineNameEnrichment(profile: GatewayProfile): boolean {
+  if (!isTailscaleGatewayUrl(profile.gatewayUrl)) {
+    return false;
+  }
+  return isGenericMachineLabel(profileDisplayName(profile));
+}
+
 /** Persist every healthy Tailscale /health discovery as a saved computer profile. */
 export function applyTailscaleDiscoveriesToProfileState(
   state: GatewayProfileState,
@@ -849,8 +860,13 @@ export function upsertDiscoveredProfile(
   const gatewayUrl = normalizeGatewayUrlBase(discovered.gatewayUrl);
   const hostname = discovered.hostname?.trim();
   const id = profileIdFromGatewayUrl(gatewayUrl, hostname);
+  const urlIp = extractLanIpFromGatewayUrl(gatewayUrl);
+  // Never let /health LAN local_ip replace a Tailscale CGNAT URL identity.
   const localIp =
-    discovered.localIp?.trim() || extractLanIpFromGatewayUrl(gatewayUrl) || undefined;
+    (urlIp && isTailscaleIpv4(urlIp) ? urlIp : undefined) ||
+    discovered.localIp?.trim() ||
+    urlIp ||
+    undefined;
   const label = resolveStoredProfileLabel({
     gatewayUrl,
     hostname,

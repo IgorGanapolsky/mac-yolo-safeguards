@@ -310,6 +310,11 @@ export default function ChatConnectionPanel({
               <GatewayProfilePicker
                 profiles={pickerProfiles}
                 activeProfileId={activeProfileId}
+                activeProfile={
+                  activeProfileId
+                    ? profiles.find((profile) => profile.id === activeProfileId) ?? null
+                    : null
+                }
                 activeReachable={activeProfileReachable}
                 activeConnecting={activeProfileConnecting}
                 selectionDisabled={selectionDisabled}

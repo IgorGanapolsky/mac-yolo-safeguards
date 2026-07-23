@@ -190,4 +190,96 @@ describe('GatewayProfilePicker', () => {
       'Forget this Mac',
     );
   });
+
+  it('never paints more than one Connected/selected radio (duplicate profile ids)', () => {
+    const sharedId = 'mac_100_94_135_78';
+    const macBookAway = {
+      id: sharedId,
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://100.87.85.85:8642',
+      hostname: 'Igors-MacBook-Pro',
+      localIp: '100.87.85.85',
+      addedAt: '2026-07-23T14:00:00.000Z',
+    };
+    const miniIp = {
+      id: sharedId,
+      label: 'Tailscale 100.94.135.78',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-23T14:01:00.000Z',
+    };
+    const usb = {
+      id: 'mac_igors_macbook_pro',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      hostname: 'Igors-MacBook-Pro',
+      addedAt: '2026-07-23T14:00:30.000Z',
+    };
+    const { getByTestId, queryByTestId } = render(
+      <GatewayProfilePicker
+        profiles={[usb, macBookAway, miniIp]}
+        activeProfileId={sharedId}
+        onSelect={jest.fn()}
+        activeReachable
+        showReachabilityHints
+        liveUsb={{ reachable: true, hostname: 'Igors-MacBook-Pro.local' }}
+      />,
+    );
+    expect(getByTestId(`select-gateway-profile-${sharedId}`).props.accessibilityState).toEqual(
+      expect.objectContaining({ selected: true }),
+    );
+    expect(getByTestId('select-gateway-profile-mac_igors_macbook_pro').props.accessibilityState).toEqual(
+      expect.objectContaining({ selected: false }),
+    );
+    expect(getByTestId(`gateway-profile-item-${sharedId}`)).toHaveTextContent(/Connected/);
+    expect(getByTestId('gateway-profile-item-mac_igors_macbook_pro')).not.toHaveTextContent(
+      /Connected/,
+    );
+    // Second duplicate-id row is not mounted after dedupe.
+    expect(queryByTestId('select-gateway-profile-mac_100_94_135_78')).toBeTruthy();
+  });
+
+  it('marks exactly one row selected when USB + Tailscale MacBook + mini are listed', () => {
+    const macBookUsb = {
+      id: 'mac_book_usb',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      hostname: 'Igors-MacBook-Pro',
+      addedAt: '2026-07-23T14:00:00.000Z',
+    };
+    const macBookTs = {
+      id: 'mac_book_ts',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://100.87.85.85:8642',
+      hostname: 'Igors-MacBook-Pro',
+      localIp: '100.87.85.85',
+      addedAt: '2026-07-23T14:00:30.000Z',
+    };
+    const miniTs = {
+      id: 'mac_mini_ts',
+      label: 'Tailscale 100.94.135.78',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-23T14:01:00.000Z',
+    };
+    const { getByTestId } = render(
+      <GatewayProfilePicker
+        profiles={[macBookUsb, macBookTs, miniTs]}
+        activeProfileId="mac_book_ts"
+        onSelect={jest.fn()}
+        activeReachable
+        showReachabilityHints
+        liveUsb={{ reachable: true, hostname: 'Igors-MacBook-Pro.local' }}
+      />,
+    );
+    const selectedFlags = [
+      getByTestId('select-gateway-profile-mac_book_usb').props.accessibilityState?.selected,
+      getByTestId('select-gateway-profile-mac_book_ts').props.accessibilityState?.selected,
+      getByTestId('select-gateway-profile-mac_mini_ts').props.accessibilityState?.selected,
+    ];
+    expect(selectedFlags.filter(Boolean)).toHaveLength(1);
+    expect(selectedFlags).toEqual([false, true, false]);
+    expect(getByTestId('gateway-profile-item-mac_mini_ts')).not.toHaveTextContent(/Connected/);
+    expect(getByTestId('gateway-profile-item-mac_book_ts')).toHaveTextContent(/Connected/);
+  });
 });
