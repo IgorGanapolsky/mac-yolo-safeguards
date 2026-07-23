@@ -88,6 +88,8 @@ export interface HermesCronJob {
   last_status?: string;
   lastStatus?: string;
   last_error?: string;
+  lastError?: string;
+  last_delivery_error?: string;
   skill?: string;
   skills?: string[];
   workdir?: string;

@@ -473,5 +473,29 @@ describe('GatewayOpsSection', () => {
       expect(getByText('Last run')).toBeTruthy();
       expect(getByText('Next run')).toBeTruthy();
     });
+
+    fireEvent.press(getByTestId('job-expand-job-detail-1'));
+    await waitFor(() => {
+      expect(queryByTestId('job-details-job-detail-1')).toBeNull();
+    });
+  });
+
+  it('shows Resume when job is paused via enabled:false (not only paused:true)', async () => {
+    gatewayClient.listJobs.mockResolvedValue([
+      {
+        id: 'job-disabled-1',
+        name: 'Disabled job',
+        schedule: '0 9 * * *',
+        enabled: false,
+        paused: false,
+      },
+    ]);
+
+    const { getByTestId, queryByTestId } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('job-resume-job-disabled-1')).toBeTruthy();
+    });
+    expect(queryByTestId('job-pause-job-disabled-1')).toBeNull();
   });
 });
