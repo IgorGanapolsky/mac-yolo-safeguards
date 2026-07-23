@@ -23,7 +23,7 @@ export async function GET() {
          (SELECT COALESCE(SUM(count), 0) FROM funnel_counters WHERE day = ? AND event = 'sign_in_click') AS sign_in_clicks_today,
          (SELECT COALESCE(SUM(count), 0) FROM funnel_counters WHERE day = ? AND event = 'cloud_continuity_click') AS cloud_continuity_clicks_today,
          (SELECT COUNT(*) FROM audit_events WHERE created_at >= ? AND action = 'auth.login') AS logins_last_24h,
-         (SELECT COUNT(*) FROM audit_events WHERE created_at >= ? AND action = 'device.pair') AS pairings_last_24h,
+         (SELECT COUNT(*) FROM audit_events WHERE created_at >= ? AND action IN ('device.pair', 'device.pair.reuse')) AS pairings_last_24h,
          (SELECT COUNT(*) FROM audit_events WHERE created_at >= ? AND action = 'billing.checkout.created') AS checkout_created_last_24h,
          (SELECT COUNT(*) FROM audit_events WHERE created_at >= ? AND action = 'billing.checkout.failed') AS checkout_failed_last_24h,
          (SELECT COUNT(*) FROM audit_events WHERE created_at >= ? AND action = 'billing.portal.created') AS portal_created_last_24h,

@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { defaultFailoverModeForOrganization } from "@/lib/continuity-defaults";
+import { decideDevicePairing, type FailoverMode } from "@/lib/device-pairing";
 import { db } from "@/lib/runtime";
 import { displayFingerprint, jsonError, sha256 } from "@/lib/security";
 
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
   ).bind(session.organizationId).first<{ plan: string; trialEndsAt: number | null }>();
   const defaultFailover = defaultFailoverModeForOrganization(
     organization ?? { plan: "free", trialEndsAt: null },
-  );
+  ) as FailoverMode;
   const now = Date.now();
 
   // Prefer the active row for this fingerprint; otherwise revive the newest revoked twin.
@@ -48,16 +49,14 @@ export async function POST(request: Request) {
     revokedAt: number | null;
   }>();
 
-  let deviceId: string;
-  let failoverMode: string;
-  let reused = false;
+  const decision = decideDevicePairing({
+    existing,
+    defaultFailover,
+    newDeviceId: crypto.randomUUID(),
+  });
+  const { deviceId, failoverMode, reused } = decision;
 
-  if (existing) {
-    deviceId = existing.id;
-    failoverMode = existing.revokedAt == null
-      ? existing.failoverMode
-      : defaultFailover;
-    reused = true;
+  if (decision.kind === "reuse") {
     await db().batch([
       db().prepare(
         `UPDATE devices
@@ -76,8 +75,6 @@ export async function POST(request: Request) {
       ).bind(session.organizationId, session.userId, deviceId, now, grant.id),
     ]);
   } else {
-    deviceId = crypto.randomUUID();
-    failoverMode = defaultFailover;
     await db().batch([
       db().prepare(
         `INSERT INTO devices (id, organization_id, name, public_jwk, fingerprint, failover_mode, created_at, updated_at)
