@@ -154,7 +154,7 @@ test("routes paid accounts to billing management without opening a duplicate che
 });
 
 test("uses ThumbGate for Hermes identity and production URLs", () => {
-  assert.match(layout, /ThumbGate — Self-Improving Firewall for your AI Agents/);
+  assert.match(layout, /ThumbGate — Hermes dashboard & continuity/);
   assert.match(layout, /metadataBase: new URL\("https:\/\/thumbgate\.app"\)/);
   assert.match(dashboardPage, /title: "Hermes Web"/);
   assert.match(landing, /name: "ThumbGate for Hermes"/);
@@ -234,7 +234,7 @@ test("keeps every workspace telemetry value behind authentication", () => {
 test("explains the failover path with an interactive approve/deny demo", () => {
   const failoverDemo = readFileSync(new URL("../app/FailoverPathDemo.tsx", import.meta.url), "utf8");
   assert.match(landing, /<FailoverPathDemo \/>/);
-  assert.match(landing, /Approve the call\. Survive the lid close\./);
+  assert.match(landing, /Remote control\. Keep going offline\./);
   assert.match(failoverDemo, /Deny call/);
   assert.match(failoverDemo, /Approve call/);
   assert.match(failoverDemo, /Close Mac lid/);

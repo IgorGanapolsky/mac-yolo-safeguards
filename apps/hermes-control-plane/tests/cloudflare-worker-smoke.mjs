@@ -127,7 +127,7 @@ try {
   assert.equal(landing.status, 200);
   assert.match(html, /Leash/);
   assert.match(html, /by ThumbGate/);
-  assert.match(html, /Self-Improving Firewall/);
+  assert.match(html, /Hermes dashboard/);
   assert.match(html, /for your AI agents/);
   // Static shell defaults to anon/loading chrome (session via /api/me after paint).
   assert.match(html, /Sign-in required|Checking session/);
