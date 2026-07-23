@@ -223,10 +223,10 @@ test("keeps every workspace telemetry value behind authentication", () => {
   assert.equal((chrome.match(/"sign_in_click"/g) ?? []).length, 1);
   assert.equal((chrome.match(/fetch\("\/api\/me"/g) ?? []).length, 1);
   assert.match(chrome, /landingAuthRequest/);
-  assert.doesNotMatch(chrome, /After you sign in|Sign in to private dashboard|Open private dashboard|Open dashboard/);
-  assert.match(chrome, /className="landing-action" href="#pair"/);
+  assert.doesNotMatch(chrome, /After you sign in|Sign in to private dashboard|Open private dashboard/);
+  assert.match(chrome, /className="landing-action" href=\{isSession \? "\/dashboard" : "#pair"\}|className="landing-action" href="#pair"/);
   assert.match(chrome, /className="landing-action" href="#pricing"/);
-  assert.match(chrome, /No workspace telemetry is fetched or rendered on this public page/);
+  assert.match(chrome, /No workspace telemetry is fetched or rendered on this public page|Public page is marketing only/);
   assert.doesNotMatch(chrome, /getPublicTelemetry|Live production telemetry|Machines online now/);
   assert.doesNotMatch(landing, /getPublicTelemetry|Live production telemetry|Machines online now|P95 task completion|LAST CLOUD CONTINUATION|cloudRunsCompleted|machinesOnlineNow/);
 });

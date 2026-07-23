@@ -2,6 +2,13 @@ import Link from "next/link";
 import { BillingPlan } from "./BillingPlan";
 import { FailoverPathDemo } from "./FailoverPathDemo";
 import { FunnelSignals } from "./FunnelSignals";
+import {
+  LandingFaq,
+  LandingFinalCta,
+  LandingSellGrid,
+  LandingSellJourney,
+  LandingStickyCta,
+} from "./LandingSellJourney";
 import { RemoteControlDiagram } from "./RemoteControlDiagram";
 import {
   LandingAuthHero,
@@ -19,18 +26,85 @@ function Mark() {
 /**
  * Public marketing shell is static: no cookie jar reads and no D1 on first paint.
  * Session chrome hydrates via /api/me after paint (LandingAuthChrome).
+ * Interactive sell surfaces are client islands (pair journey, FAQ, sticky CTA).
  */
+const FAQ_ITEMS = [
+  {
+    question: "What is ThumbGate?",
+    answer:
+      "ThumbGate is the Hermes web dashboard and Continuity product: remote control of Hermes from any browser, free while your Mac is online, with optional paid VPS continuity when it goes offline.",
+  },
+  {
+    question: "What is Hermes Mobile?",
+    answer:
+      "Hermes Mobile is the iOS and Android app that chats with your Hermes agent on your Mac, handles Leash approvals, and switches between paired computers—same remote-control model as the ThumbGate web dashboard.",
+  },
+  {
+    question: "Where can I download Hermes Mobile?",
+    answer:
+      "Get Hermes Mobile on Google Play and the App Store. Use https://thumbgate.app/go/android and https://thumbgate.app/go/ios for the current store listings.",
+  },
+  {
+    question: "How do I control Hermes from my phone?",
+    answer:
+      "Install Hermes Mobile, pair once to the Mac that runs Hermes (home Wi‑Fi, USB when cabled, or Tailscale off home network), then chat and approve work from your pocket. No inbound ports are required.",
+  },
+  {
+    question: "Does ThumbGate open inbound ports on my Mac?",
+    answer:
+      "No. The connector dials out over HTTPS with private-key pairing. Your local gateway credential stays on the Mac; ThumbGate uses a separate device identity.",
+  },
+  {
+    question: "What happens when my Mac is offline?",
+    answer:
+      "Free Web Control pauses or asks. Eligible trial or paid Cloud Continuity tasks can continue on a fenced VPS runner so work stays recoverable when the lid closes.",
+  },
+] as const;
+
 export default function Home() {
   const structuredData = {
     "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: "ThumbGate for Hermes",
-    url: "https://thumbgate.app/",
-    applicationCategory: "DeveloperApplication",
-    operatingSystem: "Web, macOS, iOS, Android",
-    description: "Web dashboard for Hermes remote control, with optional VPS continuity when your machine is offline.",
-    offers: [
-      { "@type": "Offer", name: "Web Control", price: "0", priceCurrency: "USD" },
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        name: "ThumbGate for Hermes",
+        url: "https://thumbgate.app/",
+        applicationCategory: "DeveloperApplication",
+        operatingSystem: "Web, macOS, iOS, Android",
+        description:
+          "Web dashboard for Hermes remote control, with optional VPS continuity when your machine is offline.",
+        offers: [
+          { "@type": "Offer", name: "Web Control", price: "0", priceCurrency: "USD" },
+        ],
+      },
+      {
+        "@type": "MobileApplication",
+        name: "Hermes Mobile",
+        alternateName: ["Hermes Mobile: AI Agent", "Hermes AI Agent Leash"],
+        applicationCategory: "DeveloperApplication",
+        operatingSystem: "iOS, Android",
+        description:
+          "Phone app to chat with Hermes on your Mac, approve Leash actions, and switch computers without inbound ports.",
+        url: "https://thumbgate.app/#mobile",
+        installUrl: [
+          "https://thumbgate.app/go/android",
+          "https://thumbgate.app/go/ios",
+        ],
+        offers: [
+          { "@type": "Offer", price: "0", priceCurrency: "USD" },
+        ],
+      },
+      {
+        "@type": "FAQPage",
+        mainEntity: FAQ_ITEMS.map((item) => ({
+          "@type": "Question",
+          name: item.question,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: item.answer,
+          },
+        })),
+      },
     ],
   };
 
@@ -49,14 +123,26 @@ export default function Home() {
 
       <section id="main-content" className="hero" tabIndex={-1}>
         <div className="hero-copy">
-          <p className="eyebrow"><span className="live-dot" /> Hermes remote control</p>
-          <h1>Hermes dashboard<br /><span>from any browser.</span></h1>
+          <p className="eyebrow"><span className="live-dot" /> Free online · Continuity when offline</p>
+          <h1>
+            Hermes dashboard from any browser.
+            <br />
+            <span>Keep going when the Mac sleeps.</span>
+          </h1>
           <p className="hero-lede">
-            Chat and control your Hermes agents on the web. Continuity keeps eligible work running on a VPS when your Mac is offline.
+            Chat and Leash from the web while your Mac is online — free. When the lid closes mid-task, free control
+            pauses. Continuity is the paid fenced VPS that finishes eligible work: 14-day trial, 5 cloud runs, then
+            list price.
           </p>
           <LandingAuthHero />
-          <p className="signin-note">Hermes Web by ThumbGate. Continue with Google or Apple—no new password.</p>
-          <div className="trust-row"><span>No inbound ports</span><span>Private-key pairing</span><span>Cloud only when enabled</span></div>
+          <p className="signin-note">
+            Free path: sign in and pair. Paid path: enable Continuity after trial when offline work matters.
+          </p>
+          <div className="trust-row">
+            <span>Free while Mac is online</span>
+            <span>Continuity = paid VPS failover</span>
+            <span>14-day trial · 5 cloud runs</span>
+          </div>
           <div className="hero-store-links" aria-label="Hermes Mobile apps">
             <a
               href="/go/android"
@@ -89,31 +175,23 @@ export default function Home() {
 
       <section id="pair" className="setup-section">
         <div className="section-heading">
-          <p className="eyebrow">Pair once</p>
+          <p className="eyebrow">Pair once · click each step</p>
           <h2>Connect your Mac. Open the dashboard.</h2>
+          <p>Interactive setup — copy the installer, sign in, choose offline policy. Real product path, not a brochure.</p>
         </div>
-        <ol className="setup-steps">
-          <li><span>01</span><div><h3>Run one installer</h3><p>Connector dials out over HTTPS. No inbound ports.</p></div></li>
-          <li><span>02</span><div><h3>Approve the Mac</h3><p>Sign in and confirm the short code.</p></div></li>
-          <li><span>03</span><div><h3>Pick offline behavior</h3><p>Pause, ask, or continue on Continuity (VPS).</p></div></li>
-        </ol>
-      </section>
-
-      <section className="proof-strip">
-        <div><strong>1</strong><span>signed device identity</span></div>
-        <div><strong>0</strong><span>shared private keys</span></div>
-        <div><strong>90s</strong><span>execution lease</span></div>
-        <div><strong>24/7</strong><span>web dashboard</span></div>
+        <LandingSellJourney />
       </section>
 
       <section id="how-it-works" className="section-block">
         <div className="section-heading">
-          <p className="eyebrow">Dashboard + Continuity</p>
+          <p className="eyebrow">Interactive · not a screenshot</p>
           <h2>Remote control. Keep going offline.</h2>
           <p>
-            Free web dashboard while your Mac is online. Paid Continuity can fail eligible threads over to a fenced VPS runner when the machine disappears—one thread, one executor. Your Hermes work stays recoverable.
+            Free web dashboard while your Mac is online. Paid Continuity can fail eligible threads over to a fenced VPS runner
+            when the machine disappears — one thread, one executor. Your Hermes work stays recoverable.
           </p>
         </div>
+        <LandingSellGrid />
         <FailoverPathDemo />
         <div className="steps-grid steps-grid-after-demo">
           <article><span>01</span><h3>Web dashboard</h3><p>Chats, machines, and Leash controls from any browser.</p></article>
@@ -124,8 +202,12 @@ export default function Home() {
 
       <section id="pricing" className="pricing-section">
         <div className="pricing-copy">
-          <p className="eyebrow">Free control. Paid continuity.</p>
-          <h2>Pay only when the Mac can&apos;t run the work.</h2>
+          <p className="eyebrow">Where the money is · Continuity</p>
+          <h2>Pay when the Mac can&apos;t finish the work.</h2>
+          <p>
+            Free Web Control is the daily driver. Continuity is the upgrade you buy when offline / sleep / crash would
+            kill a thread — trial first (5 cloud runs in 14 days), then the list price shown on the card.
+          </p>
         </div>
         <div className="price-grid">
           <article className="price-card">
@@ -151,13 +233,13 @@ export default function Home() {
         </div>
       </section>
 
-
       <section id="mobile" className="section-block">
         <div className="section-heading">
           <p className="eyebrow">On your phone</p>
           <h2>Same remote control. Push approvals in your pocket.</h2>
           <p>
-            Hermes Mobile pairs to your Mac the same way as the web dashboard—chat, Leash approvals, and continuity settings when you&apos;re away from a browser.
+            Hermes Mobile pairs to your Mac the same way as the web dashboard — chat, Leash approvals, and continuity
+            settings when you&apos;re away from a browser.
           </p>
         </div>
         <div className="hero-store-links hero-store-links-lg">
@@ -184,10 +266,22 @@ export default function Home() {
         </div>
       </section>
 
+      <section id="faq" className="section-block" aria-labelledby="faq-heading">
+        <div className="section-heading">
+          <p className="eyebrow">Answers · click to expand</p>
+          <h2 id="faq-heading">What people ask before they pair.</h2>
+        </div>
+        <LandingFaq items={FAQ_ITEMS} />
+      </section>
+
+      <LandingFinalCta />
+
       <footer>
         <Link href="/" className="brand"><Mark /><span>ThumbGate <small>Hermes Web</small></span></Link>
-        <p>Your Hermes work, on the web—and still running when the lid closes.</p>
+        <p>Your Hermes work, on the web — and still running when the lid closes.</p>
       </footer>
+
+      <LandingStickyCta />
     </main>
   );
 }

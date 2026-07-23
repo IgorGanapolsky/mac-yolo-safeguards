@@ -60,7 +60,7 @@ export function LandingAuthNav() {
   );
 }
 
-/** Single primary hero CTA (not triplicated in the side panel). */
+/** Hero CTAs: free entry + paid Continuity path (dual-track, honest). */
 export function LandingAuthHero() {
   const mode = useLandingAuth();
   const isSession = mode === "session";
@@ -71,10 +71,19 @@ export function LandingAuthHero() {
         className="button button-primary"
         data-funnel-event={isSession ? "dashboard_open_click" : "sign_in_click"}
       >
-        {isSession ? "Open Hermes on the web" : "Sign in to Hermes Web"}{" "}
+        {isSession ? "Open your dashboard" : "Start free web control"}{" "}
         <span aria-hidden="true">→</span>
       </a>
-      <a href="#pricing" className="button button-ghost">See pricing</a>
+      <a
+        href="#pricing"
+        className="button button-secondary"
+        data-funnel-event="cloud_continuity_click"
+      >
+        Continuity when the lid closes →
+      </a>
+      <a href="#how-it-works" className="button button-ghost">
+        Watch fail-over demo
+      </a>
     </div>
   );
 }
@@ -97,24 +106,32 @@ export function LandingAuthPanel() {
         </span>
       </div>
       <div className="landing-action-list">
-        <a className="landing-action" href="#pair">
-          <span className="action-icon" aria-hidden="true">+</span>
+        <a className="landing-action" href={isSession ? "/dashboard" : "#pair"}>
+          <span className="action-icon" aria-hidden="true">→</span>
           <span>
-            <strong>Pair your Mac</strong>
-            <small>One installer. Approve a short code.</small>
+            <strong>{isSession ? "Open dashboard" : "Pair your Mac"}</strong>
+            <small>{isSession ? "Your private Hermes workspace." : "One installer. Approve a short code."}</small>
           </span>
           <b aria-hidden="true">→</b>
         </a>
-        <a className="landing-action" href="#pricing">
+        <a className="landing-action" href="#how-it-works">
+          <span className="action-icon" aria-hidden="true">▶</span>
+          <span>
+            <strong>Play product demo</strong>
+            <small>Approve, deny, fail over — click through the real path.</small>
+          </span>
+          <b aria-hidden="true">→</b>
+        </a>
+        <a className="landing-action" href="#pricing" data-funnel-event="cloud_continuity_click">
           <span className="action-icon" aria-hidden="true">☁</span>
           <span>
-            <strong>Continuity</strong>
-            <small>Keep work running on a VPS when the Mac is offline.</small>
+            <strong>Continuity — paid VPS</strong>
+            <small>Lid closes mid-task? 14-day trial · 5 cloud runs · then ~$10/mo.</small>
           </span>
           <b aria-hidden="true">→</b>
         </a>
       </div>
-      <p className="honesty-note">No workspace telemetry is fetched or rendered on this public page.</p>
+      <p className="honesty-note">Public page is marketing only — no private chat content here.</p>
       {isSession ? (
         <p className={styles.sessionNotice}>This browser has an active session. Sign out before leaving a shared device.</p>
       ) : null}
@@ -138,9 +155,10 @@ export function LandingPricingCtaFree() {
 
 export function LandingPricingCtaPaid() {
   const href = useSessionHref();
+  // Same login URL; funnel event marks Continuity intent for analytics.
   return (
     <a href={href} className="button button-primary" data-funnel-event="cloud_continuity_click">
-      Try cloud continuity →
+      Start Continuity trial — 5 VPS runs →
     </a>
   );
 }

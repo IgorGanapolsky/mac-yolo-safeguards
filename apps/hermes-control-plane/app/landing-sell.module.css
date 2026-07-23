@@ -1,0 +1,359 @@
+/* Interactive sell surfaces — client components only */
+
+.pairJourney {
+  display: grid;
+  gap: 14px;
+}
+
+.stepCard {
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.03), transparent 55%);
+  color: inherit;
+  overflow: hidden;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.stepCard:hover {
+  border-color: rgba(34, 211, 238, 0.45);
+  background: linear-gradient(160deg, rgba(34, 211, 238, 0.08), transparent 60%);
+}
+
+.stepCardActive {
+  border-color: rgba(34, 211, 238, 0.7);
+  background: linear-gradient(160deg, rgba(34, 211, 238, 0.12), rgba(79, 70, 229, 0.08) 70%);
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.18);
+}
+
+.stepHeader {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px 18px;
+  align-items: start;
+  width: 100%;
+  margin: 0;
+  padding: 22px 22px 20px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.stepIndex {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  background: rgba(34, 211, 238, 0.08);
+  color: var(--accent, #22d3ee);
+  font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.stepBody h3 {
+  margin: 2px 0 8px;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+.stepBody p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.stepDetail {
+  display: grid;
+  gap: 12px;
+  padding: 0 22px 20px;
+}
+
+.stepDetail code {
+  display: block;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.35);
+  color: #d8f7ff;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-all;
+}
+
+.stepActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.policyGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.policyBtn {
+  min-height: 88px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.22);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.policyBtn:hover {
+  border-color: rgba(34, 211, 238, 0.4);
+}
+
+.policyBtnActive {
+  border-color: rgba(34, 211, 238, 0.75);
+  background: rgba(34, 211, 238, 0.1);
+}
+
+.policyBtn strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.policyBtn span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.sellGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  margin: 0 0 28px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--line);
+}
+
+.sellCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 168px;
+  padding: 24px 22px;
+  background: var(--bg, #070a12);
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.sellCard:hover {
+  background: rgba(34, 211, 238, 0.06);
+}
+
+.sellCard kbd {
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  background: rgba(34, 211, 238, 0.08);
+  color: var(--accent, #22d3ee);
+  font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.04em;
+}
+
+.sellCard strong {
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+.sellCard p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+  flex: 1;
+}
+
+.sellCard em {
+  font-style: normal;
+  color: #c8f7ff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.faqList {
+  display: grid;
+  gap: 10px;
+  max-width: 820px;
+}
+
+.faqItem {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+
+.faqItem[open] {
+  border-color: rgba(34, 211, 238, 0.4);
+  background: rgba(34, 211, 238, 0.04);
+}
+
+.faqItem summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  font-weight: 650;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+.faqItem summary::-webkit-details-marker {
+  display: none;
+}
+
+.faqItem summary::after {
+  content: "+";
+  color: var(--accent, #22d3ee);
+  font: 700 18px/1 ui-monospace, monospace;
+}
+
+.faqItem[open] summary::after {
+  content: "−";
+}
+
+.faqItem p {
+  margin: 0;
+  padding: 0 20px 18px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.finalCta {
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto 100px;
+  padding: 36px 32px;
+  border-radius: 20px;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  background:
+    radial-gradient(600px 180px at 10% 0%, rgba(34, 211, 238, 0.16), transparent 60%),
+    radial-gradient(500px 160px at 90% 100%, rgba(79, 70, 229, 0.18), transparent 55%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.03), transparent);
+  display: grid;
+  grid-template-columns: 1.4fr auto;
+  gap: 24px;
+  align-items: center;
+}
+
+.finalCta h2 {
+  margin: 0 0 10px;
+  font-family: "Plus Jakarta Sans", Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(26px, 3vw, 36px);
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.finalCta p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.55;
+  max-width: 52ch;
+}
+
+.finalActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.stickyCta {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  z-index: 40;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(720px, calc(100% - 24px));
+  padding: 10px 12px 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  background: rgba(7, 10, 18, 0.92);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.stickyCta p {
+  margin: 0;
+  flex: 1;
+  font-size: 13px;
+  color: #d7e0ea;
+  line-height: 1.35;
+}
+
+.stickyCta p strong {
+  color: #fff;
+}
+
+.stickyCta a {
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .sellGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .policyGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .finalCta {
+    grid-template-columns: 1fr;
+    width: calc(100% - 28px);
+  }
+
+  .finalActions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 700px) {
+  .stickyCta {
+    bottom: 10px;
+    border-radius: 18px;
+    flex-wrap: wrap;
+  }
+
+  .stickyCta p {
+    flex: 1 1 100%;
+  }
+
+  .stickyCta a {
+    flex: 1;
+    text-align: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stepCard,
+  .policyBtn,
+  .sellCard {
+    transition: none;
+  }
+}
