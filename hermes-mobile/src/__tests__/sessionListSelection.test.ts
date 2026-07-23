@@ -106,6 +106,37 @@ describe('resolveSessionAfterListLoad', () => {
     ).toBe('sess_a');
   });
 
+  it('ignores remembered automated cron stickies and picks a sendable thread', () => {
+    const withCron: HermesSession[] = [
+      {
+        id: 'cron_0eb498680d96_20260721_204200',
+        source: 'cron',
+        title: 'Scheduled',
+        last_active_at: '2026-07-22T15:28:00Z',
+      },
+      {
+        id: 'mobile_1784665204206_b230283b',
+        source: 'api_server',
+        title: 'Why we made zero dollars',
+        last_active_at: '2026-07-22T12:00:00Z',
+      },
+    ];
+    expect(
+      resolveSessionAfterListLoad({
+        sessions: withCron,
+        projectState: {
+          projects: [],
+          sessionProjectMap: {},
+          sessionLabels: {},
+          activeProjectId: null,
+        },
+        currentSessionId: null,
+        rememberedSessionId: 'cron_0eb498680d96_20260721_204200',
+        selectLatest: true,
+      })?.id,
+    ).toBe('mobile_1784665204206_b230283b');
+  });
+
   it('returns undefined when already on resolved session', () => {
     expect(
       resolveSessionAfterListLoad({

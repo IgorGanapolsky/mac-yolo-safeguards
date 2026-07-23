@@ -34,6 +34,8 @@ import TailscaleDiscoveryBanner from './TailscaleDiscoveryBanner';
 import FreshUserOnboardingCard from './FreshUserOnboardingCard';
 import LoadingButton from './ui/LoadingButton';
 import ManualComputerAddressForm from './ManualComputerAddressForm';
+import ThumbGatePromoCard from './ThumbGatePromoCard';
+import { shouldShowThumbGatePromoOnConnectionPanel } from '../utils/thumbgatePromoCopy';
 
 type ChatConnectionPanelProps = {
   connectionState: 'disconnected' | 'connecting' | 'connected' | 'demo';
@@ -200,6 +202,12 @@ export default function ChatConnectionPanel({
     liveUsb,
   });
   const primaryActionLabel = freshUserPrimaryActionLabel(showUsbFix);
+  const showThumbGatePromo = shouldShowThumbGatePromoOnConnectionPanel({
+    connectionState,
+    profileCount: profiles.length,
+    healExhausted: heal.exhausted,
+    activeProfileReachable,
+  });
 
   return (
     <View style={styles.wrap} testID={testID}>
@@ -325,6 +333,10 @@ export default function ChatConnectionPanel({
             <Text style={styles.installLink}>Need Hermes on your computer? Open setup guide →</Text>
           </TouchableOpacity>
         </>
+      ) : null}
+
+      {showThumbGatePromo ? (
+        <ThumbGatePromoCard surface="connection_unreachable" />
       ) : null}
     </View>
   );

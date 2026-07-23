@@ -6,7 +6,8 @@ description: >
   make money, outreach, prospects, enrich email, find founder email, no public email,
   pipeline send, Partner Pilot, cold call, leads, Apollo, or when tempted to give up
   because leads.csv says "no public email." Slash: /apollo-io-sales. NEVER skip Apollo
-  when money depends on a real inbox.
+  when money depends on a real inbox. Do NOT open Igor's Chrome unless he explicitly asked
+  for Chrome UI in that message — use `apollo` CLI first (AGENTS.md § No desktop hijack).
 ---
 
 # Apollo.io sales enrichment (mandatory for cash outreach)
@@ -21,7 +22,7 @@ apollo auth whoami
 apollo usage credits
 ```
 
-If `whoami` fails: open Chrome tab `https://app.apollo.io` (usually already logged in) and `apollo auth login` — do **not** ask Igor for an API key first. Chrome is often already on Apollo (see drive-logged-in-chrome).
+If `whoami` fails: use `apollo auth login` CLI — do **not** open Chrome or ask Igor for an API key first. Chrome is a last resort only when Igor explicitly asked for Chrome UI (see AGENTS.md § No desktop hijack).
 
 ## Default workflow (before any "can't email them")
 

@@ -1,5 +1,43 @@
 import type { HermesToolset } from '../types/gatewayApi';
 
+/**
+ * July 2026 Hermes Mobile essentials — phone remote for a Mac agent.
+ * Rationale + citations: docs/DEFAULT-SKILLS-JULY-2026.md
+ *
+ * Order is primary Settings display order.
+ */
+export const ESSENTIAL_MOBILE_TOOLSET_NAMES = [
+  'session_search',
+  'clarify',
+  'delegation',
+  'cronjob',
+  'memory',
+  'todo',
+  'skills',
+  'terminal',
+  'file',
+  'web',
+  'browser',
+  'computer_use',
+  'code_execution',
+] as const;
+
+/** Consumer / Mac-personal integrations — never auto-enable or primary-list for strangers. */
+export const HOBBY_INTEGRATION_TOOLSET_NAMES = [
+  'homeassistant',
+  'spotify',
+  'discord',
+  'discord_admin',
+  'yuanbao',
+] as const;
+
+const ESSENTIAL_SET = new Set<string>(ESSENTIAL_MOBILE_TOOLSET_NAMES);
+const HOBBY_SET = new Set<string>(HOBBY_INTEGRATION_TOOLSET_NAMES);
+
+const ESSENTIAL_ORDER = new Map<string, number>(
+  ESSENTIAL_MOBILE_TOOLSET_NAMES.map((name, index) => [name, index]),
+);
+
 /** Known env keys when the Mac has not yet advertised /v1/toolsets/{name}/config. */
 export const FALLBACK_TOOLSET_ENV_KEYS: Record<
   string,
@@ -27,7 +65,15 @@ export const FALLBACK_TOOLSET_ENV_KEYS: Record<
   ],
 };
 
-/** Strip leading emoji from gateway toolset labels for compact mobile rows. */
+export function isEssentialMobileToolset(name: string): boolean {
+  return ESSENTIAL_SET.has(name);
+}
+
+export function isHobbyIntegrationToolset(name: string): boolean {
+  return HOBBY_SET.has(name);
+}
+
+/** Strip leading emoji from gateway labels for compact mobile rows. */
 export function formatToolsetLabel(label: string | undefined, fallbackName: string): string {
   const raw = (label ?? fallbackName).trim();
   const withoutEmoji = raw.replace(/^[\p{Extended_Pictographic}\p{Emoji_Presentation}\uFE0F]+\s*/u, '');
@@ -38,8 +84,15 @@ export function toolsetNeedsApiKey(toolset: HermesToolset): boolean {
   return toolset.configured === false;
 }
 
-/** Only unconfigured toolsets need the Add key affordance — ready tools are keyless. */
+/**
+ * Add key is for non-hobby tools that still need credentials.
+ * Hobby integrations (HA / Spotify / Discord) never push Add key on mobile —
+ * set those up on the Mac if the user wants them.
+ */
 export function toolsetShowsKeyButton(toolset: HermesToolset): boolean {
+  if (isHobbyIntegrationToolset(toolset.name)) {
+    return false;
+  }
   return toolsetNeedsApiKey(toolset);
 }
 
@@ -67,6 +120,8 @@ export function toolsetStatusLine(
     }
   } else if (toolset.enabled) {
     parts.push('needs API key');
+  } else if (isHobbyIntegrationToolset(toolset.name)) {
+    parts.push('set up on your Mac');
   } else {
     parts.push('add key to enable');
   }
@@ -81,19 +136,27 @@ export function toolsetsSectionHint(options: {
     const keyWord = options.keysNeededCount === 1 ? 'tool needs' : 'tools need';
     const base = `${options.keysNeededCount} ${keyWord} an API key — tap Add key beside the switch.`;
     if (options.phoneToggleAvailable) {
-      return `Ready tools with no missing keys turn on automatically for Chat. ${base}`;
+      return `Essential tools with no missing keys turn on automatically for Chat. ${base}`;
     }
     return `${base} Turn other ready tools on from your Mac with hermes tools until phone toggles are available.`;
   }
   if (options.phoneToggleAvailable) {
-    return 'Ready tools (no missing keys) turn on automatically for Chat.';
+    return 'Essential tools (no missing keys) turn on automatically for Chat. Other Mac integrations stay under On your Mac.';
   }
-  return 'Your computer is connected. Ready tools with no keys can be turned on from your Mac with hermes tools. Phone toggles arrive with the next Hermes update on your computer.';
+  return 'Your computer is connected. Essential tools with no keys can be turned on from your Mac with hermes tools. Phone toggles arrive with the next Hermes update on your computer.';
 }
 
-/** Configured (= no missing keys) toolsets should start ON for Chat. */
+/**
+ * Only essential, configured toolsets auto-enable for phone Chat.
+ * Hobby / media integrations stay off unless the user toggles them in Advanced.
+ */
 export function configuredToolsetsToAutoEnable(toolsets: HermesToolset[]): HermesToolset[] {
-  return toolsets.filter((toolset) => toolset.configured === true && toolset.enabled !== true);
+  return toolsets.filter(
+    (toolset) =>
+      isEssentialMobileToolset(toolset.name) &&
+      toolset.configured === true &&
+      toolset.enabled !== true,
+  );
 }
 
 export function markToolsetsEnabled(
@@ -126,10 +189,46 @@ export function toolsetAddKeyCtaLabel(toolset: HermesToolset): string {
 
 /** Human labels for toolsets that still need credentials (for summary copy). */
 export function toolsetsNeedingKeys(toolsets: HermesToolset[]): HermesToolset[] {
-  return toolsets.filter((toolset) => toolsetNeedsApiKey(toolset));
+  return toolsets.filter(
+    (toolset) => toolsetNeedsApiKey(toolset) && toolsetShowsKeyButton(toolset),
+  );
 }
 
 /** Known env var names for unconfigured toolsets (mobile fallback catalog). */
 export function requiredEnvKeysForToolset(name: string): string[] {
   return (FALLBACK_TOOLSET_ENV_KEYS[name] ?? []).map((field) => field.key);
+}
+
+function compareEssentialOrder(a: HermesToolset, b: HermesToolset): number {
+  const ai = ESSENTIAL_ORDER.get(a.name) ?? Number.MAX_SAFE_INTEGER;
+  const bi = ESSENTIAL_ORDER.get(b.name) ?? Number.MAX_SAFE_INTEGER;
+  if (ai !== bi) {
+    return ai - bi;
+  }
+  return (a.label ?? a.name).localeCompare(b.label ?? b.name);
+}
+
+/**
+ * Primary list = essentials only.
+ * Advanced ("On your Mac") = non-essentials the Mac already has configured or enabled.
+ * Unconfigured hobby/media tools are hidden so strangers never see Add key for HA/Spotify/Discord.
+ */
+export function partitionMobileToolsets(toolsets: HermesToolset[]): {
+  essentials: HermesToolset[];
+  advanced: HermesToolset[];
+} {
+  const essentials = toolsets
+    .filter((toolset) => isEssentialMobileToolset(toolset.name))
+    .sort(compareEssentialOrder);
+
+  const advanced = toolsets
+    .filter((toolset) => {
+      if (isEssentialMobileToolset(toolset.name)) {
+        return false;
+      }
+      return toolset.configured === true || toolset.enabled === true;
+    })
+    .sort((a, b) => (a.label ?? a.name).localeCompare(b.label ?? b.name));
+
+  return { essentials, advanced };
 }

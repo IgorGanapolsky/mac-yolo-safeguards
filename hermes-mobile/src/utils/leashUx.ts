@@ -1,18 +1,14 @@
 import type { GatewaySettings } from '../types/gateway';
 
-/** Explains why ThumbGate Leash may be empty — avoids "is sync broken?" confusion. */
+/** Short empty-state body for Leash — calm, plain language, no config jargon. */
 export function buildLeashEmptyExplanation(settings: GatewaySettings): string {
   if (settings.demoMode) {
-    return 'Demo mode uses mock cards from Settings → Developer Tools or Leash → Preview approval card.';
+    return 'Demo mode — preview a card from Leash options below.';
   }
   if (settings.safetyMode) {
-    return 'Approval-first mode is on — Hermes still opens on launch; cards appear when Hermes Relay or a direct machine blocks a risky tool call.';
+    return 'Approval-first is on. Cards appear when your Mac blocks a risky tool.';
   }
-  return (
-    'Daily Hermes chat lives on the Chat tab. ThumbGate Leash lights up when Hermes approvals are enabled ' +
-    '(~/.hermes/config.yaml approvals.mode: manual or smart) and blocks a command. ' +
-    'Preview a card from Leash → Preview approval card (smoke test).'
-  );
+  return 'When Hermes on your Mac blocks a risky tool, the card shows up here.';
 }
 
 /**

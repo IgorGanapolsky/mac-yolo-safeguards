@@ -51,6 +51,34 @@ describe('ChatConnectionPanel', () => {
     expect(getByTestId('chat-connection-search')).toBeTruthy();
   });
 
+  it('shows ThumbGate promo when no computers are saved', () => {
+    const { getByTestId } = render(
+      <ChatConnectionPanel connectionState="disconnected" onSearchMac={jest.fn()} profiles={[]} />,
+    );
+
+    expect(getByTestId('thumbgate-promo-connection_unreachable')).toBeTruthy();
+  });
+
+  it('hides ThumbGate promo when connected', () => {
+    const { queryByTestId } = render(
+      <ChatConnectionPanel
+        connectionState="connected"
+        onSearchMac={jest.fn()}
+        profiles={[
+          {
+            id: 'p1',
+            label: 'Mac mini',
+            gatewayUrl: 'http://192.168.1.50:8642',
+            addedAt: '2026-06-23T12:00:00Z',
+          },
+        ]}
+        activeProfileReachable
+      />,
+    );
+
+    expect(queryByTestId('thumbgate-promo-connection_unreachable')).toBeNull();
+  });
+
   it('shows saved computers when profiles are provided', () => {
     const { getByTestId, getByText } = render(
       <ChatConnectionPanel

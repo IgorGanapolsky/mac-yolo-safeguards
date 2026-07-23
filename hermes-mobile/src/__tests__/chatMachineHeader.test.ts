@@ -789,6 +789,74 @@ describe('resolveHeaderTransportLabel / USB allow rule', () => {
     expect(display.machineLabel).not.toContain('MacBook');
     expect(display.machineEndpoint).toBe('Tailscale');
   });
+
+  it('keeps user-selected mini while effective URL is still Pro USB mid-switch', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_mini',
+        label: 'Igors-Mac-mini',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-Mac-mini.local',
+        addedAt: '2026-07-22T00:00:00.000Z',
+      },
+      gatewayUrl: 'http://127.0.0.1:8642',
+      health: {
+        level: 'green',
+        checkedAt: '2026-07-22T21:00:00.000Z',
+        hostname: 'Igors-MacBook-Pro.local',
+        directGatewayReachable: true,
+      },
+      connectionMode: 'gateway',
+      isPaired: true,
+      workers: [],
+      savedMacCount: 2,
+      profiles: [
+        {
+          id: 'mac_mini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini.local',
+          addedAt: '2026-07-22T00:00:00.000Z',
+        },
+        {
+          id: 'mac_book',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          hostname: 'Igors-MacBook-Pro.local',
+          addedAt: '2026-07-22T00:00:01.000Z',
+        },
+      ],
+      wifiConnected: true,
+    });
+    expect(display.machineLabel).toBe('Igors-Mac-mini');
+    expect(display.machineLabel).not.toContain('MacBook');
+  });
+
+  it('keeps mini sticky when URL matches mini even if stale health says Pro', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_mini',
+        label: 'Igors-Mac-mini',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-Mac-mini.local',
+        addedAt: '2026-07-22T00:00:00.000Z',
+      },
+      gatewayUrl: 'http://100.94.135.78:8642',
+      health: {
+        level: 'green',
+        checkedAt: '2026-07-22T21:00:00.000Z',
+        hostname: 'Igors-MacBook-Pro.local',
+        directGatewayReachable: true,
+      },
+      connectionMode: 'gateway',
+      isPaired: true,
+      workers: [],
+      savedMacCount: 2,
+      wifiConnected: false,
+    });
+    expect(display.machineLabel).toBe('Igors-Mac-mini');
+    expect(display.machineLabel).not.toContain('MacBook');
+  });
 });
 
 describe('profileDisplayName generic labels', () => {

@@ -2,6 +2,7 @@ import type { HermesSession } from '../types/chat';
 import type { ChatProjectState } from '../types/chatProject';
 import { shouldClearMissingCurrentSession } from './disconnectMessagePreserve';
 import { pickDefaultSession } from './sessionSelection';
+import { isSendableChatSession } from './sessionSendTarget';
 import { isMegaSessionSendBlocked } from './sessionTokenGuards';
 
 export type SessionListSelectionInput = {
@@ -47,7 +48,7 @@ function findNonMegaSession(
     return null;
   }
   const match = sessions.find((session) => session.id === sessionId) ?? null;
-  if (!match || isMegaSessionSendBlocked(match)) {
+  if (!match || isMegaSessionSendBlocked(match) || !isSendableChatSession(match)) {
     return null;
   }
   return match;

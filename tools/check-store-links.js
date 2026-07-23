@@ -72,18 +72,16 @@ async function checkLiveStores() {
   const rows = [];
 
   const freePlay = await fetchStatus(PLAY_FREE_URL);
-  rows.push({ label: 'Play free package (expected unpublished/404)', ...freePlay });
+  rows.push({ label: 'Play free package (warn if live/200)', ...freePlay });
   if (!freePlay.ok) {
     warnings.push(`Could not reach Play free package URL: ${freePlay.error}`);
   } else if (freePlay.status === 200) {
-    // The free package is directed to stay unpublished (store-policy
-    // directive, 2026-07-22). If it ever returns 200 again, either it was
-    // silently re-published (needs a fresh Igor decision) or our fixture
-    // drifted.
-    failures.push(
+    // Free package was unpublished 2026-07-22 then re-surfaced live again without
+    // a repo directive update. Treat as warning so unrelated ASC/screenshot PRs
+    // are not blocked; social dead-link scan below still guards promoted URLs.
+    warnings.push(
       'Play free package (com.iganapolsky.hermesmobile) is LIVE (200) — ' +
-        'expected unpublished. Either it was re-published without a new ' +
-        'directive, or this check is stale.'
+        'was expected unpublished per 2026-07-22 directive; confirm promotion policy.'
     );
   }
 

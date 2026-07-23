@@ -4,6 +4,7 @@ import {
   computerPickerStatusSignature,
   resolveComputerPickerStatus,
   shouldCommitComputerPickerStatus,
+  shouldHideIdlePickerHelp,
 } from '../utils/computerPickerStatus';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
@@ -154,7 +155,22 @@ describe('computerPickerStatus', () => {
       tailscaleDiscoveries: [],
     });
     expect(status.kind).toBe('help');
-    expect(status.title).toBe('Missing your other computer?');
+    expect(status.title).toBe('Paste your Mac’s Tailscale IP');
+  });
+
+  it('hides idle help when saved profiles exist unless expanded', () => {
+    const status = resolveComputerPickerStatus({
+      scanning: false,
+      scanProgress: null,
+      scanResult: null,
+      showScanResult: false,
+      tailscaleProbing: false,
+      tailscaleVpnActive: true,
+      tailscaleDiscoveries: [],
+    });
+    expect(shouldHideIdlePickerHelp(status, 2, false)).toBe(true);
+    expect(shouldHideIdlePickerHelp(status, 2, true)).toBe(false);
+    expect(shouldHideIdlePickerHelp(status, 0, false)).toBe(false);
   });
 
   it('never claims Using USB when active path is Home Wi-Fi', () => {

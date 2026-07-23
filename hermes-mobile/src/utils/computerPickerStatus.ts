@@ -10,6 +10,9 @@ import {
 /** Fixed status band so discovery ticks cannot reflow the profile list. */
 export const COMPUTER_PICKER_STATUS_MIN_HEIGHT = 88;
 
+/** Shorter band when saved profiles exist and help is collapsed. */
+export const COMPUTER_PICKER_STATUS_COMPACT_MIN_HEIGHT = 56;
+
 /** Hold scan/probe label flips long enough to stop modal jitter. */
 export const COMPUTER_PICKER_STATUS_DEBOUNCE_MS = 400;
 
@@ -173,11 +176,23 @@ export function resolveComputerPickerStatus(
 
   return {
     kind: 'help',
-    title: 'Missing your other computer?',
+    title: 'Paste your Mac’s Tailscale IP',
     detail:
-      'Start Hermes on that computer, keep Tailscale on both devices, then tap Find computers — or enter its 100.x address below.',
+      'On the Mac: Tailscale → copy 100.x → paste → Connect. Hermes must be open on that Mac.',
     discoveries: [],
   };
+}
+
+/** Hide the large teal help card when saved profiles already fill the picker. */
+export function shouldHideIdlePickerHelp(
+  status: ComputerPickerStatusSnapshot,
+  savedProfileCount: number,
+  helpExpanded: boolean,
+): boolean {
+  if (helpExpanded || savedProfileCount === 0) {
+    return false;
+  }
+  return status.kind === 'help';
 }
 
 /** Signature used to debounce rapid discovery label / mode flips. */

@@ -7,6 +7,14 @@
  * max_age step-up. Enforces the $10/mo ops policy's "no public staging auth"
  * rule. Does not call WorkOS billing APIs (no secrets).
  *
+ * Also asserts which sign-in METHODS actually render on the hosted AuthKit
+ * page (EXPECTED_METHODS below). Root cause this closes (2026-07-22): the
+ * redirect-chain check alone never noticed when available sign-in methods
+ * changed — Igor had to notice by eye that Google SSO silently vanished after
+ * a staging->production cutover. Update EXPECTED_METHODS whenever a method is
+ * deliberately added/removed (same update-on-purpose contract as the client
+ * ID / host constants below).
+ *
  * Usage:
  *   node tools/workos-production-guard.js
  *   node tools/workos-production-guard.js --json
@@ -18,6 +26,16 @@ const { spawnSync } = require('child_process');
 const PROD_CLIENT_ID = 'client_01KY0306CYDV6QSXE43QKM2ZXW';
 const STAGING_CLIENT_ID = 'client_01KY0305JKQ2D3AN0DN88A8EYM';
 const PROD_AUTHKIT_HOST = 'progressive-mouse-13.authkit.app';
+
+// Sign-in methods that must render on the hosted AuthKit page. Each entry is
+// a case-insensitive substring to look for in the page body. Update this list
+// the same day a method is deliberately enabled/disabled in the WorkOS
+// Dashboard (Authentication -> Providers/Methods) — see
+// docs/WORKOS-PRODUCTION-SPEND-CAP.md.
+const EXPECTED_METHODS = [
+  { name: 'email', marker: 'continue with email' },
+  { name: 'google', marker: 'continue with google' },
+];
 
 function parseArgs(argv) {
   const args = { json: false, base: 'https://thumbgate.app' };
@@ -40,6 +58,44 @@ function curlHeaders(url) {
 function locationFromHeaders(headers) {
   const m = headers.match(/^location:\s*(\S+)/im);
   return m ? m[1].trim() : null;
+}
+
+function curlBody(url) {
+  const res = spawnSync('curl', ['-sL', url], { encoding: 'utf8', timeout: 20000 });
+  if (res.status !== 0) {
+    throw new Error(`curl failed for ${url}: ${res.stderr || res.stdout || res.status}`);
+  }
+  return res.stdout || '';
+}
+
+function checkSignInMethods(finalUrl) {
+  const failures = [];
+  const warnings = [];
+  let body = '';
+  try {
+    body = curlBody(finalUrl).toLowerCase();
+  } catch (error) {
+    // A fetch error here is a warning, not a failure — this check must not
+    // make unrelated CI runs flaky on a transient network blip. The
+    // redirect-chain checks above are the hard gate; this is a second,
+    // best-effort layer on top.
+    warnings.push(`could not fetch AuthKit page body to verify sign-in methods: ${error.message}`);
+    return { failures, warnings, methodsFound: [] };
+  }
+  const methodsFound = [];
+  for (const method of EXPECTED_METHODS) {
+    const present = body.includes(method.marker);
+    if (present) {
+      methodsFound.push(method.name);
+    } else {
+      failures.push(
+        `expected sign-in method "${method.name}" (marker "${method.marker}") not found on ` +
+          `the hosted AuthKit page — either it was disabled and EXPECTED_METHODS needs updating, ` +
+          `or this is an unintentional regression`,
+      );
+    }
+  }
+  return { failures, warnings, methodsFound };
 }
 
 function followHosts(startUrl, maxHops = 8) {
@@ -118,6 +174,14 @@ function check(base) {
     );
   }
 
+  let methodsFound = [];
+  if (anyAuthkit && !anyStaging) {
+    const methodCheck = checkSignInMethods(chain.finalUrl);
+    failures.push(...methodCheck.failures);
+    warnings.push(...methodCheck.warnings);
+    methodsFound = methodCheck.methodsFound;
+  }
+
   return {
     ok: failures.length === 0,
     base,
@@ -127,6 +191,8 @@ function check(base) {
     hasMaxAge,
     hosts: chain.hosts,
     finalHost: chain.finalHost,
+    expectedMethods: EXPECTED_METHODS.map((m) => m.name),
+    methodsFound,
     spendCapUsd: 10,
     policy: 'AuthKit only; no custom domains ($99); no enterprise SSO connections; public site must not use staging',
     failures,
@@ -154,6 +220,9 @@ function main() {
     console.log(`ok=${report.ok} finalHost=${report.finalHost || '?'}`);
     console.log(`client_id=${report.clientId || '?'} max_age=${report.hasMaxAge}`);
     if (report.hosts) console.log(`chain: ${report.hosts.join(' -> ')}`);
+    if (report.expectedMethods) {
+      console.log(`sign-in methods: expected=[${report.expectedMethods.join(', ')}] found=[${(report.methodsFound || []).join(', ')}]`);
+    }
     console.log(`policy: ${report.policy}`);
     for (const w of report.warnings || []) console.log(`WARN: ${w}`);
     for (const f of report.failures || []) console.log(`FAIL: ${f}`);
@@ -161,7 +230,7 @@ function main() {
   process.exit(report.ok ? 0 : 1);
 }
 
-module.exports = { check, PROD_CLIENT_ID, STAGING_CLIENT_ID, PROD_AUTHKIT_HOST };
+module.exports = { check, PROD_CLIENT_ID, STAGING_CLIENT_ID, PROD_AUTHKIT_HOST, EXPECTED_METHODS };
 
 if (require.main === module) {
   main();

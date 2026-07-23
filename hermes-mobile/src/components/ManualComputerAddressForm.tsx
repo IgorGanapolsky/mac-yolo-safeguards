@@ -5,12 +5,22 @@ import { cleanManualGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
 import { haptics } from '../services/haptics';
 import { connectManualGatewayAddress } from '../services/manualGatewayConnection';
+import {
+  TAILSCALE_PASTE_IP_DETAIL,
+  TAILSCALE_PASTE_IP_HERMES_HINT,
+  TAILSCALE_PASTE_IP_PLACEHOLDER,
+  TAILSCALE_PASTE_IP_TITLE,
+} from '../utils/tailscalePasteIpCopy';
 import LoadingButton from './ui/LoadingButton';
 
 export type ManualComputerAddressFormProps = {
   onAddProfile: (label: string, gatewayUrl: string) => Promise<void>;
-  /** When true, use fresh-user picker copy (Your computer / Tailscale name). */
+  /** Choose-computer modal — paste-IP copy from #787. */
   pickerMode?: boolean;
+  /** First-run ConnectMacGate hero — dominant paste IP row at top of viewport. */
+  heroMode?: boolean;
+  /** Picker with saved profiles: one-line label + input row, no subtitle. */
+  compactMode?: boolean;
   testIDPrefix?: string;
 };
 
@@ -20,10 +30,13 @@ const STACK_CONNECT_BELOW_WIDTH = 380;
 export default function ManualComputerAddressForm({
   onAddProfile,
   pickerMode = false,
+  heroMode = false,
+  compactMode = false,
   testIDPrefix = 'chat-manual',
 }: ManualComputerAddressFormProps) {
   const { width } = useWindowDimensions();
-  const stackConnect = pickerMode || width < STACK_CONNECT_BELOW_WIDTH;
+  const stackConnect =
+    (pickerMode && !compactMode) || heroMode || width < STACK_CONNECT_BELOW_WIDTH;
   const [manualInput, setManualInput] = useState('');
   const [addingProfile, setAddingProfile] = useState(false);
   const [manualInputError, setManualInputError] = useState<string | null>(null);
@@ -55,27 +68,57 @@ export default function ManualComputerAddressForm({
     }
   };
 
-  const title = pickerMode ? 'Add by Tailscale address' : 'Connect manually (Tailscale or IP)';
-  const subtitle = pickerMode
-    ? 'Your computer’s Tailscale name or 100.x address.'
+  const usePasteHeroCopy = pickerMode || heroMode;
+  const title = usePasteHeroCopy
+    ? TAILSCALE_PASTE_IP_TITLE
+    : 'Connect manually (Tailscale or IP)';
+  const subtitle = usePasteHeroCopy
+    ? `${TAILSCALE_PASTE_IP_DETAIL} ${TAILSCALE_PASTE_IP_HERMES_HINT}`
     : "Add by entering your computer's Tailscale or local IP address:";
-  const placeholder = pickerMode
-    ? 'e.g. your-computer or 100.x.x.x'
+  const placeholder = usePasteHeroCopy
+    ? TAILSCALE_PASTE_IP_PLACEHOLDER
     : 'e.g. your-device-name or a 100.x address';
+  const showSubtitle = !compactMode;
 
   return (
     <View
-      style={[styles.manualEntry, pickerMode ? styles.manualEntryPicker : null]}
+      style={[
+        styles.manualEntry,
+        pickerMode ? styles.manualEntryPicker : null,
+        compactMode ? styles.manualEntryCompact : null,
+        heroMode ? styles.manualEntryHero : null,
+      ]}
       testID={`${testIDPrefix}-form`}
     >
-      <Text style={styles.manualEntryTitle}>{title}</Text>
-      <Text style={styles.manualEntrySubtitle}>{subtitle}</Text>
+      <Text
+        style={[
+          styles.manualEntryTitle,
+          compactMode ? styles.manualEntryTitleCompact : null,
+          heroMode ? styles.manualEntryTitleHero : null,
+        ]}
+      >
+        {title}
+      </Text>
+      {showSubtitle ? (
+        <Text
+          style={[
+            styles.manualEntrySubtitle,
+            heroMode ? styles.manualEntrySubtitleHero : null,
+          ]}
+        >
+          {subtitle}
+        </Text>
+      ) : null}
       <View
         style={[styles.manualInputRow, stackConnect ? styles.manualInputColumn : null]}
         testID={`${testIDPrefix}-input-row`}
       >
         <TextInput
-          style={[styles.manualInput, stackConnect ? styles.manualInputStacked : null]}
+          style={[
+            styles.manualInput,
+            compactMode ? styles.manualInputCompact : null,
+            stackConnect ? styles.manualInputStacked : null,
+          ]}
           placeholder={placeholder}
           placeholderTextColor={colors.textMuted}
           value={manualInput}
@@ -91,7 +134,11 @@ export default function ManualComputerAddressForm({
           loading={addingProfile}
           onPress={handleManualConnect}
           testID={`${testIDPrefix}-submit`}
-          style={[styles.manualButton, stackConnect ? styles.manualButtonStacked : null]}
+          style={[
+            styles.manualButton,
+            compactMode ? styles.manualButtonCompact : null,
+            stackConnect ? styles.manualButtonStacked : null,
+          ]}
         />
       </View>
       {manualInputError ? (
@@ -114,15 +161,38 @@ const styles = StyleSheet.create({
   manualEntryPicker: {
     marginBottom: 4,
   },
+  manualEntryCompact: {
+    marginTop: 0,
+    paddingTop: 8,
+    gap: 6,
+  },
+  manualEntryHero: {
+    marginTop: 0,
+    paddingTop: 0,
+    borderTopWidth: 0,
+    gap: 10,
+  },
   manualEntryTitle: {
     fontSize: 15,
     fontWeight: '800',
     color: colors.text,
   },
+  manualEntryTitleCompact: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  manualEntryTitleHero: {
+    fontSize: 17,
+  },
   manualEntrySubtitle: {
     fontSize: 13,
     color: colors.textSecondary,
     lineHeight: 18,
+  },
+  manualEntrySubtitleHero: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   manualInputRow: {
     flexDirection: 'row',
@@ -144,6 +214,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 14,
   },
+  manualInputCompact: {
+    height: 42,
+    fontSize: 13,
+    paddingHorizontal: 12,
+  },
   manualInputStacked: {
     flex: undefined,
     width: '100%',
@@ -152,6 +227,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     height: 48,
     minWidth: 100,
+  },
+  manualButtonCompact: {
+    height: 42,
+    minWidth: 88,
+    paddingVertical: 10,
   },
   manualButtonStacked: {
     width: '100%',

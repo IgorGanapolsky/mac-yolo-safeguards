@@ -209,9 +209,13 @@ function shortErrorMessage(error) {
 }
 
 function checkCloudHardStop(failures) {
-  // Crisis 2026-07-16: Starter Builds $91/$45 overage until credit reset 2026-07-22.
-  // Block Expo *cloud* eas build unless explicitly overridden for local/emergency.
-  const until = process.env.HERMES_EAS_CLOUD_HARD_STOP_UNTIL || '2026-07-22';
+  // Optional calendar hard-stop (UTC date YYYY-MM-DD). Empty = no window.
+  // Crisis 2026-07-16 Starter Builds overage used until=2026-07-22; after that date the
+  // default is off so CI / agents are not calendar-blocked forever.
+  const until = String(process.env.HERMES_EAS_CLOUD_HARD_STOP_UNTIL || '').trim();
+  if (!until) {
+    return;
+  }
   const bypass = process.env.HERMES_EAS_ALLOW_CLOUD_BUILD === 'YES_CLOUD_EAS_DESPITE_OVERAGE';
   const localOnly = (process.env.EAS_BUILD_WORKER_TYPE || '').toLowerCase() === 'local'
     || process.argv.includes('--local');
