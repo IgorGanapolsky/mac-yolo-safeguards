@@ -1,6 +1,6 @@
 const body = `# Leash by ThumbGate
 
-> ThumbGate is the Hermes web dashboard and Continuity product: remote control of Hermes from any browser, free while your machine is online, with optional paid VPS continuity when it goes offline.
+> ThumbGate is the Hermes web dashboard and Continuity product: remote control of Hermes from any browser, free while your machine is online, with paid Continuity that can pick up eligible work on a VPS when it goes offline (a capability still being proven out in real use).
 
 ## Canonical URL
 - https://thumbgate.app/
@@ -26,7 +26,7 @@ const body = `# Leash by ThumbGate
 - ARD 1.0 catalog: https://thumbgate.app/.well-known/ai-catalog.json
 
 ## Direct answers
-- What is this? A web dashboard for Hermes remote control, plus Continuity so work can keep running on a VPS when the Mac is offline.
+- What is this? A web dashboard for Hermes remote control, plus Continuity which can pick up eligible work on a VPS when the Mac is offline — unproven at scale, for now.
 - Access Hermes from the web: sign in, approve the outbound-only connector on the Mac that runs Hermes, then open the dashboard.
 - Mac offline behavior: free Web Control pauses or asks; eligible trial or paid Cloud Continuity tasks can use a fenced cloud runner.
 - Credential boundary: the local gateway credential stays on the paired Mac; ThumbGate receives a separate device identity and requires no inbound port.

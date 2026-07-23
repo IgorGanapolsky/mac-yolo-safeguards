@@ -9,6 +9,7 @@ import {
   LandingPricingCtaFree,
   LandingPricingCtaPaid,
 } from "./LandingAuthChrome";
+import { RemoteControlDiagram } from "./RemoteControlDiagram";
 import styles from "./landing.module.css";
 
 function Mark() {
@@ -51,14 +52,19 @@ export default function Home() {
           <p className="eyebrow"><span className="live-dot" /> Hermes remote control</p>
           <h1>Hermes dashboard<br /><span>from any browser.</span></h1>
           <p className="hero-lede">
-            Chat and control your Hermes agents on the web. Continuity keeps eligible work running on a VPS when your Mac is offline.
+            Chat and control your Hermes agents on the web. Continuity can pick up eligible work on a VPS when your Mac is offline — a capability we&apos;re still proving out in real use.
           </p>
           <LandingAuthHero />
-          <p className="signin-note">Hermes Web by ThumbGate. Continue with Google or Apple—no new password.</p>
+          <p className="signin-note">Hermes Web by ThumbGate. Continue with Google today — more providers activate once configured.</p>
           <div className="trust-row"><span>No inbound ports</span><span>Private-key pairing</span><span>Cloud only when enabled</span></div>
+          <div className="hero-store-links">
+            <a href="/go/android" className="store-link" data-funnel-event="play_store_click">Get it on Google Play</a>
+            <a href="/go/ios" className="store-link" data-funnel-event="app_store_click">Download on the App Store</a>
+          </div>
         </div>
 
         <nav className="hero-console hero-actions-panel" aria-label="Private workspace actions">
+          <RemoteControlDiagram />
           <LandingAuthPanel />
         </nav>
       </section>

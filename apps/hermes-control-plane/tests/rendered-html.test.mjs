@@ -29,8 +29,13 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /Free control\. Paid continuity\./);
   assert.match(page, /Web Control/);
   assert.match(page, /Cloud Continuity/);
-  assert.match(page, /Continue with Google or Apple/);
+  assert.match(page, /Continue with Google today/);
+  assert.doesNotMatch(page, /Continue with Google or Apple/);
   assert.match(page, /by ThumbGate/);
+  assert.match(page, /<RemoteControlDiagram \/>/);
+  assert.match(page, /Get it on Google Play/);
+  assert.match(page, /Download on the App Store/);
+  assert.match(page, /still proving out in real use/);
   assert.match(page, /Your Hermes work/);
   assert.match(page, /Leash/);
   assert.match(page, /Run one installer/);
