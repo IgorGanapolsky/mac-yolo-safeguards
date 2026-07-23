@@ -41,7 +41,13 @@ if (!privateKey) {
   fail('Service account JSON missing private_key');
 }
 
-console.log(`Firebase distribute auth: checking ${clientEmail} (project_id=${projectId || 'unknown'})`);
+function maskIdentifier(value) {
+  const atIndex = value.indexOf('@');
+  if (atIndex <= 1) return '***';
+  return `${value.slice(0, 2)}***${value.slice(atIndex)}`;
+}
+
+console.log(`Firebase distribute auth: checking ${maskIdentifier(clientEmail)} (project_id=${projectId || 'unknown'})`);
 
 const projectNumber = firebaseProject.projectNumber;
 

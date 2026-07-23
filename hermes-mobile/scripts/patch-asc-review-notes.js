@@ -41,13 +41,16 @@ async function main() {
   const after = await ascGet(`/v1/appStoreVersions/${version.id}/appStoreReviewDetail`);
   const notes = after.data?.attributes?.notes || '';
   assertReviewNotesSafe(notes, 'ASC review notes after patch');
+  const versionId = version.id;
+  const versionState = version.attributes?.appStoreState;
+  const detailId = detail.id;
   console.log(
     JSON.stringify(
       {
         ok: true,
-        versionId: version.id,
-        versionState: version.attributes?.appStoreState,
-        detailId: detail.id,
+        versionId,
+        versionState,
+        detailId,
         beforeViolations,
         notesLen: notes.length,
         hasDemo: /Demo mode/i.test(notes),
