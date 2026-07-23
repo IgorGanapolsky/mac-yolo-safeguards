@@ -311,6 +311,16 @@ function isSmokeLikeLabel(text: string): boolean {
 
 const GATEWAY_CRON_TITLE_RE = /^session\s+cron(?:\s+[a-f0-9]+)?$/i;
 
+/**
+ * Lightweight cron detection from a session id alone — for call sites (e.g. run-completed
+ * notification scheduling) that only have the id, not a full HermesSession object.
+ * Subset of isAutomatedCronSession's id-pattern check below; keep in sync with it.
+ */
+export function isCronSessionId(id: string | null | undefined): boolean {
+  if (!id) return false;
+  return /^cron_[a-f0-9]+$/i.test(id) || /^session\s+cron\s+[a-f0-9]+$/i.test(id);
+}
+
 /** Gateway cron sessions often ship titles like "Session cron 42446aa3dc68". */
 export function isAutomatedCronSession(session: HermesSession, title?: string | null): boolean {
   const candidate = (title ?? session.title ?? '').trim();

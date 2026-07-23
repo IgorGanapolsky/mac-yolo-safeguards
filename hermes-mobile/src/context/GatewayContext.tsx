@@ -208,6 +208,7 @@ import { requestStoreReviewIfThresholdReached } from '../services/storeReview';
 import { fromPendingApproval } from '../utils/approvalNormalize';
 import { shouldScheduleApprovalNotification } from '../utils/smartNotificationPolicy';
 import { withDerivedNotificationsEnabled } from '../utils/notificationPreferences';
+import { isCronSessionId } from '../utils/sessionDisplay';
 import {
   cappedBadgeCount,
   dedupeAndCapPendingApprovals,
@@ -1397,9 +1398,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         progress?.detail?.trim() ||
         (typeof payload.message === 'string' ? payload.message : '') ||
         (failed ? 'Run ended with an error' : 'Task finished');
+      // Background/cron-triggered runs finish silently in-app — only a reply a human is
+      // actually waiting on (chat completion, scheduled elsewhere) is worth interrupting for.
       if (
         settingsRef.current.notificationCompletion &&
-        AppState.currentState !== 'active'
+        AppState.currentState !== 'active' &&
+        !isCronSessionId(progress?.sessionId)
       ) {
         scheduleRunCompletedNotification(detail, {
           success: !failed,
