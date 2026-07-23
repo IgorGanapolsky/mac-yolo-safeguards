@@ -18,7 +18,6 @@ import MacScanProgressCard from './MacScanProgressCard';
 import GatewayProfilePicker from './GatewayProfilePicker';
 import ManualComputerAddressForm from './ManualComputerAddressForm';
 import LoadingButton from './ui/LoadingButton';
-import { tailscaleDiscoveryLabel } from '../services/tailscaleDiscovery';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import {
   profilesForDevicePicker,
@@ -64,7 +63,6 @@ export default function ConnectMacGate() {
     scanForGatewayProfiles,
     selectGatewayProfile,
     tailscaleDiscoveries,
-    tailscaleDiscoveryProbing,
     addDiscoveredTailscaleComputer,
     probeTailscaleComputers,
     addGatewayProfile,
@@ -157,6 +155,7 @@ export default function ConnectMacGate() {
 
   const onCellular = !wifiConnected;
   const contextBody = onCellular ? CONNECT_MAC_GATE_BODY_CELLULAR : CONNECT_MAC_GATE_BODY_WIFI;
+  const hasTailscaleCandidates = tailscaleDiscoveries.length > 0;
 
   const runWifiSearch = useCallback(async () => {
     setInvalidQrHint(null);
@@ -164,11 +163,10 @@ export default function ConnectMacGate() {
     try {
       await scanForGatewayProfiles();
       await retryGatewayBootstrap();
-      void probeTailscaleComputers();
     } finally {
       setIsSearching(false);
     }
-  }, [probeTailscaleComputers, retryGatewayBootstrap, scanForGatewayProfiles]);
+  }, [retryGatewayBootstrap, scanForGatewayProfiles]);
 
   useEffect(() => {
     if (!showGate) {
@@ -199,7 +197,10 @@ export default function ConnectMacGate() {
   }, [handleDismiss, showGate]);
 
   const showCompactScanStatus =
-    searching && !profileScanResult && pickerProfiles.length === 0;
+    !hasTailscaleCandidates &&
+    searching &&
+    !profileScanResult &&
+    pickerProfiles.length === 0;
 
   return (
     <>
@@ -251,13 +252,10 @@ export default function ConnectMacGate() {
                 </Text>
               ) : null}
 
-              {tailscaleDiscoveries.length > 0 ? (
+              {hasTailscaleCandidates ? (
                 <TailscaleDiscoveryBanner
                   discoveries={tailscaleDiscoveries}
-                  adding={tailscaleDiscoveryProbing}
-                  onAdd={(discovery) => {
-                    void addDiscoveredTailscaleComputer(discovery);
-                  }}
+                  onAdd={addDiscoveredTailscaleComputer}
                   prominent
                 />
               ) : null}
@@ -277,7 +275,9 @@ export default function ConnectMacGate() {
                 </View>
               ) : null}
 
-              {(searching || profileScanResult) && pickerProfiles.length === 0 ? (
+              {!hasTailscaleCandidates &&
+              (searching || profileScanResult) &&
+              pickerProfiles.length === 0 ? (
                 <MacScanProgressCard
                   scanning={searching}
                   progress={profileScanProgress}
@@ -287,27 +287,29 @@ export default function ConnectMacGate() {
                 />
               ) : null}
 
-              <View style={styles.secondaryRow}>
-                <LoadingButton
-                  label="Find computers"
-                  loadingLabel="Finding…"
-                  loading={searching}
-                  variant="secondary"
-                  onPress={() => runWifiSearch()}
-                  testID="connect-search-wifi"
-                  style={styles.secondaryButton}
-                />
-                <TouchableOpacity
-                  onPress={() => {
-                    setInvalidQrHint(null);
-                    setQrVisible(true);
-                  }}
-                  accessibilityRole="button"
-                  testID="connect-scan-qr"
-                >
-                  <Text style={styles.secondaryLink}>{GATE_SCAN_QR_LINK}</Text>
-                </TouchableOpacity>
-              </View>
+              {!hasTailscaleCandidates ? (
+                <View style={styles.secondaryRow}>
+                  <LoadingButton
+                    label="Find computers"
+                    loadingLabel="Finding…"
+                    loading={searching}
+                    variant="secondary"
+                    onPress={() => runWifiSearch()}
+                    testID="connect-search-wifi"
+                    style={styles.secondaryButton}
+                  />
+                  <TouchableOpacity
+                    onPress={() => {
+                      setInvalidQrHint(null);
+                      setQrVisible(true);
+                    }}
+                    accessibilityRole="button"
+                    testID="connect-scan-qr"
+                  >
+                    <Text style={styles.secondaryLink}>{GATE_SCAN_QR_LINK}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
 
               {invalidQrHint ? <Text style={styles.hintError}>{invalidQrHint}</Text> : null}
 

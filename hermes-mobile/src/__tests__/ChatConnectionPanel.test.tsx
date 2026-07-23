@@ -323,8 +323,8 @@ describe('ChatConnectionPanel', () => {
     expect(getByTestId('tailscale-discovery-probing')).toBeTruthy();
   });
 
-  it('shows Tailscale discovery banner for reachable tailnet Macs', () => {
-    const onAdd = jest.fn();
+  it('shows Tailscale discovery banner for reachable tailnet Macs', async () => {
+    const onAdd = jest.fn().mockResolvedValue(undefined);
     const { getByTestId } = render(
       <ChatConnectionPanel
         connectionState="disconnected"
@@ -343,10 +343,41 @@ describe('ChatConnectionPanel', () => {
     fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
     expect(getByTestId('tailscale-discovery-banner')).toBeTruthy();
     fireEvent.press(getByTestId('tailscale-add-igors-mac-mini'));
-    expect(onAdd).toHaveBeenCalledWith(
-      expect.objectContaining({ gatewayUrl: 'http://100.94.135.78:8642' }),
-    );
+    await waitFor(() => {
+      expect(onAdd).toHaveBeenCalledWith(
+        expect.objectContaining({ gatewayUrl: 'http://100.94.135.78:8642' }),
+      );
+    });
   });
+
+  it('does not blank every Tailscale chip when global probing is true', () => {
+    const { getByTestId, getByText, queryAllByText } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        onSearchMac={jest.fn()}
+        tailscaleDiscoveryProbing
+        tailscaleDiscoveries={[
+          {
+            gatewayUrl: 'http://100.94.135.78:8642',
+            hostname: 'Igors-Mac-mini.local',
+            label: 'Igors-Mac-mini',
+          },
+          {
+            gatewayUrl: 'http://100.87.85.85:8642',
+            hostname: 'Igors-MacBook-Pro.local',
+            label: 'Igors-MacBook-Pro',
+          },
+        ]}
+        onAddTailscaleComputer={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
+    expect(getByText('Add Igors-Mac-mini')).toBeTruthy();
+    expect(getByText('Add Igors-MacBook-Pro')).toBeTruthy();
+    expect(queryAllByText('Adding…')).toHaveLength(0);
+  });
+
 
   it('hides status pills during silent heal for returning users', () => {
     const { queryByTestId } = render(

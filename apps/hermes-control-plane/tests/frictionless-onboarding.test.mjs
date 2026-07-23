@@ -230,3 +230,16 @@ test("keeps every workspace telemetry value behind authentication", () => {
   assert.doesNotMatch(chrome, /getPublicTelemetry|Live production telemetry|Machines online now/);
   assert.doesNotMatch(landing, /getPublicTelemetry|Live production telemetry|Machines online now|P95 task completion|LAST CLOUD CONTINUATION|cloudRunsCompleted|machinesOnlineNow/);
 });
+
+test("explains the failover path with an interactive approve/deny demo", () => {
+  const failoverDemo = readFileSync(new URL("../app/FailoverPathDemo.tsx", import.meta.url), "utf8");
+  assert.match(landing, /<FailoverPathDemo \/>/);
+  assert.match(landing, /Approve the call\. Survive the lid close\./);
+  assert.match(failoverDemo, /Deny call/);
+  assert.match(failoverDemo, /Approve call/);
+  assert.match(failoverDemo, /Close Mac lid/);
+  assert.match(failoverDemo, /Continue in cloud/);
+  assert.match(failoverDemo, /aria-live="polite"/);
+  assert.match(failoverDemo, /no real tools run/);
+  assert.doesNotMatch(failoverDemo, /fetch\(|sendBeacon|localStorage/);
+});

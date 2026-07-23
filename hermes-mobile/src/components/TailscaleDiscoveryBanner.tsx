@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import { tailscaleDiscoveryLabel } from '../services/tailscaleDiscovery';
@@ -7,20 +7,34 @@ import GlassCard from './GlassCard';
 
 type TailscaleDiscoveryBannerProps = {
   discoveries: DiscoveredGateway[];
-  adding?: boolean;
   probing?: boolean;
-  onAdd?: (discovery: DiscoveredGateway) => void;
+  onAdd?: (discovery: DiscoveredGateway) => Promise<void> | void;
   /** When true, renders as the primary action block (Switch computer / onboarding). */
   prominent?: boolean;
 };
 
 export default function TailscaleDiscoveryBanner({
   discoveries,
-  adding = false,
   probing = false,
   onAdd,
   prominent = false,
 }: TailscaleDiscoveryBannerProps) {
+  const [addingKey, setAddingKey] = useState<string | null>(null);
+  const handleAdd = useCallback(
+    async (discovery: DiscoveredGateway) => {
+      if (!onAdd || addingKey) {
+        return;
+      }
+      setAddingKey(discovery.gatewayUrl);
+      try {
+        await onAdd(discovery);
+      } finally {
+        setAddingKey(null);
+      }
+    },
+    [addingKey, onAdd],
+  );
+
   if (discoveries.length === 0 && !probing) {
     return null;
   }
@@ -50,12 +64,13 @@ export default function TailscaleDiscoveryBanner({
       <View style={styles.chips}>
         {discoveries.map((discovery) => {
           const label = tailscaleDiscoveryLabel(discovery);
+          const adding = addingKey === discovery.gatewayUrl;
           return (
             <TouchableOpacity
               key={discovery.gatewayUrl}
               style={[styles.chip, prominent ? styles.chipProminent : null]}
-              onPress={() => onAdd?.(discovery)}
-              disabled={adding || !onAdd}
+              onPress={() => void handleAdd(discovery)}
+              disabled={Boolean(addingKey) || !onAdd}
               testID={`tailscale-add-${label.replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()}`}
             >
               <Text style={styles.chipText}>
