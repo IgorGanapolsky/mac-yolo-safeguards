@@ -152,13 +152,64 @@ export function buildSelfHealProbeUrls(input: {
   return ordered;
 }
 
-/** Prefer USB probe only when the active route is loopback AND the phone is on Wi‑Fi. */
+/**
+ * Prefer USB in autoDiscover probe order.
+ *
+ * Product lock (2026-07-23): USB when a cable is present for the *same* sticky Mac —
+ * even if the saved profile URL is Tailscale (a same-Mac USB↔Tailscale handoff keeps
+ * activeProfileId on the Tailscale row while the effective session URL is 127.0.0.1).
+ * Sticky *foreign* Tailscale Mac (mini while cabled to Pro) sets liveUsbSameMachine=false
+ * and must not prefer USB — the cable answers for a different Mac than the one selected.
+ *
+ * Ghost guard: without liveUsbSameMachine, still require Wi‑Fi + an already-loopback
+ * profile/effective URL (a cellular ghost 127.0.0.1 with no confirmed live hostname stays out).
+ */
 export function shouldPreferUsbProbeFirst(input: {
   activeGatewayUrl?: string | null;
+  /** Session reach URL — may be USB while the sticky saved profile URL remains Tailscale. */
+  effectiveGatewayUrl?: string | null;
   wifiConnected: boolean;
+  /**
+   * Live adb-reverse /health hostname matches the sticky/active Mac.
+   * When true, prefer USB even on cellular and even when the sticky URL is Tailscale.
+   */
+  liveUsbSameMachine?: boolean;
 }): boolean {
-  const url = input.activeGatewayUrl?.trim() ?? '';
-  return Boolean(url && isLoopbackGatewayUrl(url) && input.wifiConnected);
+  if (input.liveUsbSameMachine) {
+    return true;
+  }
+  const active = input.activeGatewayUrl?.trim() ?? '';
+  const effective = input.effectiveGatewayUrl?.trim() ?? '';
+  const onUsb =
+    (Boolean(active) && isLoopbackGatewayUrl(active)) ||
+    (Boolean(effective) && isLoopbackGatewayUrl(effective));
+  return Boolean(onUsb && input.wifiConnected);
+}
+
+/**
+ * True when the last-selected sticky Tailscale/LAN profile must NOT yank a healthy
+ * same-Mac USB route out from under the user (the P0 2026-07-23 duplicate-active/header-
+ * banner race: autoDiscover's step-2 "remember last selected computer" re-probes and
+ * reactivates the sticky remote URL every tick, even while the cable is live and answering
+ * for the exact same physical Mac).
+ *
+ * A foreign sticky Mac (mini while cabled to Pro) returns false — honor sticky Tailscale;
+ * the cable is not this Mac's cable.
+ */
+export function shouldKeepUsbOverStickyRemote(input: {
+  effectiveGatewayUrl?: string | null;
+  stickyProfileUrl?: string | null;
+  liveUsbSameMachine: boolean;
+}): boolean {
+  const effective = input.effectiveGatewayUrl?.trim() ?? '';
+  const sticky = input.stickyProfileUrl?.trim() ?? '';
+  if (!input.liveUsbSameMachine || !isLoopbackGatewayUrl(effective)) {
+    return false;
+  }
+  if (!sticky || isLoopbackGatewayUrl(sticky)) {
+    return false;
+  }
+  return isTailscaleGatewayUrl(sticky) || isPrivateLanGatewayUrl(sticky);
 }
 
 /**
