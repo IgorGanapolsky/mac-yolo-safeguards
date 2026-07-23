@@ -38,8 +38,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   let session;
   try { session = await requireSession(); } catch { return jsonError("sign in required", 401); }
-  const org = await db().prepare("SELECT plan, trial_ends_at AS trialEndsAt FROM organizations WHERE id = ?")
-    .bind(session.organizationId).first<{ plan: string; trialEndsAt: number | null }>();
+  const org = await db().prepare(
+    "SELECT plan, trial_ends_at AS trialEndsAt, COALESCE(cloud_task_bonus, 0) AS cloudTaskBonus FROM organizations WHERE id = ?",
+  ).bind(session.organizationId).first<{ plan: string; trialEndsAt: number | null; cloudTaskBonus: number }>();
   if (!org || org.plan === "suspended") {
     const decision = evaluateTaskAdmission({
       organization: org ?? { plan: "suspended", trialEndsAt: null },
@@ -108,6 +109,7 @@ export async function POST(request: Request) {
       activeTasks: usage?.activeTasks ?? 0,
       cloudTasks: usage?.cloudTasks ?? 0,
     },
+    cloudTaskBonus: org.cloudTaskBonus,
     now,
   });
   if (!decision.allowed) {

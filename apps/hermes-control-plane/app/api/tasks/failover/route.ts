@@ -12,13 +12,14 @@ export async function POST(request: Request) {
   let session;
   try { session = await requireSession(); } catch { return jsonError("sign in required", 401); }
   const organization = await db().prepare(
-    "SELECT plan, trial_ends_at AS trialEndsAt FROM organizations WHERE id = ?",
-  ).bind(session.organizationId).first<{ plan: string; trialEndsAt: number | null }>();
-  const governedOrganization = organization ?? { plan: "suspended", trialEndsAt: null };
+    "SELECT plan, trial_ends_at AS trialEndsAt, COALESCE(cloud_task_bonus, 0) AS cloudTaskBonus FROM organizations WHERE id = ?",
+  ).bind(session.organizationId).first<{ plan: string; trialEndsAt: number | null; cloudTaskBonus: number }>();
+  const governedOrganization = organization ?? { plan: "suspended", trialEndsAt: null, cloudTaskBonus: 0 };
   const entitlementDecision = evaluateCloudContinuation({
     organization: governedOrganization,
     cloudTasks: 0,
     cloudTaskDelta: 0,
+    cloudTaskBonus: governedOrganization.cloudTaskBonus,
   });
   if (!entitlementDecision.allowed) {
     await audit({
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
     organization: governedOrganization,
     cloudTasks: usage?.cloudTasks ?? 0,
     cloudTaskDelta: 1,
+    cloudTaskBonus: governedOrganization.cloudTaskBonus,
     now,
   });
   if (!decision.allowed) {
