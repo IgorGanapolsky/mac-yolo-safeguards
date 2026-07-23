@@ -770,7 +770,7 @@ describe('July 23 session crisis recurrence gates (S29–S38)', () => {
   });
 
   it('S42: device/E2E composer probe string remains only make money today', () => {
-    const agents = read('hermes-mobile/Agents.md');
+    const agents = read('hermes-mobile/AGENTS.md');
     expect(agents).toContain('make money today');
     expect(agents).toMatch(/typeableProbe|gibberish|Never type/i);
     // Maestro chat flows must not reintroduce probe gibberish.
