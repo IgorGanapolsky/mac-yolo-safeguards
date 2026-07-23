@@ -122,6 +122,9 @@ import {
   shouldRunForegroundUsbHeal,
 } from '../utils/pairDeepLinkApply';
 import {
+  stickActiveProfileToSetupPrimary,
+} from '../utils/setupPairPrimaryStickiness';
+import {
   partitionSilentDiscoveries,
   shouldAutoScanOnBootstrap,
 } from '../utils/discoveryPersistPolicy';
@@ -3253,10 +3256,20 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         );
       }
       nextProfileState = sanitizeGatewayProfileState(nextProfileState);
+      // Pair primary must stick even when extras (mini) are catalog-upserted and a prior
+      // sticky Mac was lastSelected — otherwise USB MacBook pair remounts as mini Tailscale.
+      nextProfileState = stickActiveProfileToSetupPrimary(
+        nextProfileState,
+        gatewayUrl,
+        macName,
+      );
       if (persistDecision.shouldPersistProfiles) {
         profileStateRef.current = nextProfileState;
         setProfileState(nextProfileState);
         await gatewayProfiles.save(nextProfileState);
+        if (nextProfileState.activeProfileId) {
+          await storage.saveLastSelectedProfileId(nextProfileState.activeProfileId);
+        }
       }
 
       if (params.apiKey?.trim() && nextProfileState.activeProfileId) {
