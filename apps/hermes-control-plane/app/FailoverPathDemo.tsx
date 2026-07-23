@@ -19,7 +19,7 @@ const OFFLINE_COPY: Record<OfflinePolicy, { label: string; blurb: string }> = {
   },
   manual: {
     label: "Ask me first",
-    blurb: "Task sits at needs_failover until you tap Continue in cloud.",
+    blurb: "Task sits at needs_failover until you explicitly continue on cloud.",
   },
   auto: {
     label: "Auto cloud continuity",
@@ -245,7 +245,7 @@ export function FailoverPathDemo() {
                     <div className={`${styles.outcome} ${styles.ask}`}>
                       <strong>needs_failover</strong>
                       <p>ThumbGate waits for an explicit continue. Nothing spends until you approve.</p>
-                      <button type="button" className={styles.approveButton} onClick={continueInCloud}>
+                      <button type="button" className={styles.approveButton} onClick={continueInCloud} aria-label="Continue this task in cloud">
                         Continue in cloud →
                       </button>
                     </div>
