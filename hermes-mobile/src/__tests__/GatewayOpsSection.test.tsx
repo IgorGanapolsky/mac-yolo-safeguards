@@ -413,6 +413,34 @@ describe('GatewayOpsSection', () => {
     });
   });
 
+  it('expands gateway feature details for known capabilities', async () => {
+    gatewayClient.getCapabilities.mockResolvedValue({
+      features: {
+        chat_completions: true,
+        run_stop: true,
+        toolsets_write: true,
+      },
+      default_model: 'qwen3:8b-64k',
+    });
+
+    const { getByTestId, getByText, queryByTestId } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('feature-expand-chat_completions')).toBeTruthy();
+    });
+    expect(queryByTestId('feature-details-chat_completions')).toBeNull();
+
+    fireEvent.press(getByTestId('feature-expand-chat_completions'));
+
+    await waitFor(() => {
+      expect(getByTestId('feature-details-chat_completions')).toBeTruthy();
+      expect(getByText(/multi-turn messages/i)).toBeTruthy();
+      expect(getByText('API flag')).toBeTruthy();
+    });
+    // Protocol capabilities are not fake-toggleable from the phone.
+    expect(getByTestId('feature-switch-chat_completions').props.disabled).toBe(true);
+  });
+
   it('expands cron job details for purpose, started, and last run', async () => {
     gatewayClient.listJobs.mockResolvedValue([
       {
