@@ -7,6 +7,7 @@ import {
 import { fetchGatewayHealth } from './gatewayClient';
 import { exchangePairingCode } from './pairingCodeExchange';
 import { secureCredentials } from './secureCredentials';
+import { gatewayProfiles, findProfileForGatewayUrl } from './gatewayProfiles';
 import { isTailscaleGatewayUrl, normalizeTailnetProbeHost } from '../utils/tailscaleHosts';
 import { tailnetProbeStorage } from './tailnetProbeStorage';
 
@@ -14,6 +15,8 @@ type PairExchangeResult = {
   apiKey?: string;
   macName?: string;
 };
+
+export type SavedProfileMatch = { id: string } | null;
 
 export type ManualGatewayConnectionDependencies = {
   loadApiKey: () => Promise<string | null>;
@@ -33,6 +36,14 @@ export type ManualGatewayConnectionDependencies = {
    * cross-app tailnet peer list — see docs/RESEARCH-TAILSCALE-ANDROID-DISCOVERY-JULY-2026.md).
    */
   rememberTailnetProbeHost: (gatewayUrl: string) => Promise<void>;
+  /**
+   * Find an already-saved Hermes computer (by gateway URL/host/IP) so its OWN
+   * previously-authenticated key can be tried before falling back to whichever
+   * key happens to be currently active — which may belong to a different Mac
+   * in a multi-computer fleet. See T-MANUAL-TAILSCALE-KNOWN-PROFILE-KEY.
+   */
+  findSavedProfileForUrl: (gatewayUrl: string) => Promise<SavedProfileMatch>;
+  resolveProfileApiKey: (profileId: string) => Promise<string | null>;
 };
 
 async function rememberTailnetProbeHost(gatewayUrl: string): Promise<void> {
@@ -51,6 +62,12 @@ const defaultDependencies: ManualGatewayConnectionDependencies = {
   exchangePairingCode,
   fetchGatewayHealth,
   rememberTailnetProbeHost,
+  findSavedProfileForUrl: async (gatewayUrl) => {
+    const state = await gatewayProfiles.load();
+    const match = findProfileForGatewayUrl(state.profiles, gatewayUrl);
+    return match ? { id: match.id } : null;
+  },
+  resolveProfileApiKey: (profileId) => secureCredentials.resolveApiKeyForProfile(profileId),
 };
 
 const MANUAL_PROBE_TIMEOUT_MS = 5000;
@@ -107,7 +124,20 @@ export async function connectManualGatewayAddress(
 ): Promise<void> {
   const previousApiKey = (await dependencies.loadApiKey())?.trim() || null;
   const pair = await pairingCandidate(input.gatewayUrl, dependencies);
-  const candidateApiKey = pair.apiKey || previousApiKey;
+
+  // If the pair-server auto-fetch didn't yield a fresh key (unreachable, stale/expired
+  // pairing code, etc.), prefer a key we already know is THIS Mac's own — not whichever
+  // key happens to be currently active, which may belong to a different computer in a
+  // multi-Mac fleet and would surface a misleading "still needs to pair" auth error.
+  let savedProfileApiKey: string | null = null;
+  if (!pair.apiKey) {
+    const savedProfile = await dependencies.findSavedProfileForUrl(input.gatewayUrl);
+    if (savedProfile) {
+      savedProfileApiKey = (await dependencies.resolveProfileApiKey(savedProfile.id))?.trim() || null;
+    }
+  }
+
+  const candidateApiKey = pair.apiKey || savedProfileApiKey || previousApiKey;
   const tailscaleAddress = isTailscaleGatewayUrl(input.gatewayUrl);
   const health = await dependencies.fetchGatewayHealth(
     input.gatewayUrl,
