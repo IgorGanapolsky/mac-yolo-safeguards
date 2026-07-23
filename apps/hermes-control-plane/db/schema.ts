@@ -181,3 +181,22 @@ export const funnelCounters = sqliteTable("funnel_counters", {
   count: integer("count").notNull().default(0),
   updatedAt: integer("updated_at").notNull(),
 }, (table) => [primaryKey({ columns: [table.day, table.event] })]);
+
+/** LLM usage ledger for Continuity / future model paths — no prompt bodies. */
+export const modelUsage = sqliteTable("model_usage", {
+  id: text("id").primaryKey(),
+  organizationId: text("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  taskId: text("task_id").references(() => tasks.id, { onDelete: "set null" }),
+  route: text("route").notNull(),
+  model: text("model").notNull(),
+  provider: text("provider"),
+  promptTokens: integer("prompt_tokens").notNull().default(0),
+  completionTokens: integer("completion_tokens").notNull().default(0),
+  totalTokens: integer("total_tokens").notNull().default(0),
+  /** USD * 1e6 integer microdollars for stable aggregation. */
+  estimatedUsdMicros: integer("estimated_usd_micros").notNull().default(0),
+  createdAt: integer("created_at").notNull(),
+}, (table) => [
+  index("model_usage_created_idx").on(table.createdAt),
+  index("model_usage_org_created_idx").on(table.organizationId, table.createdAt),
+]);

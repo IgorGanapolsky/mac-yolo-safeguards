@@ -5,6 +5,11 @@ import {
   governanceAuditMetadata,
   type GovernanceDecision,
 } from "./agent-governance";
+import {
+  buildTaskCompletionReceipt,
+  receiptAuditMetadata,
+} from "./execution-receipt";
+import { recordModelUsage, type ModelUsageInput } from "./model-usage";
 import { db } from "./runtime";
 import { randomToken, sha256 } from "./security";
 import { evaluateCloudPromptToolPolicy } from "./cloud-tool-policy";
@@ -100,8 +105,16 @@ export async function claimTask(input: {
     ? "k.route = 'local' AND k.device_id = ? AND k.status IN ('local_pending', 'cloud_pending', 'running')"
     : `((k.route = 'cloud' AND k.status IN ('cloud_pending', 'running'))
         OR (k.route = 'local' AND k.status = 'local_pending' AND d.failover_mode = 'auto'
+            AND (d.last_seen_at IS NULL OR d.last_seen_at < ?))
+        OR (k.route = 'local' AND k.status = 'running' AND d.failover_mode = 'auto'
             AND (d.last_seen_at IS NULL OR d.last_seen_at < ?)))`;
-  const params = input.route === "local" ? [input.deviceId!, now] : [now - 60_000, now];
+  // The 'running' branch above is what lets cloud take over a task the Mac claimed and then
+  // went offline mid-execution (lid closed while running) — not just tasks never claimed
+  // locally. reclassifyStaleLocalTasks() above only sweeps lease_owner IS NULL tasks, so it
+  // can't reach this case; both branches require the task's own lease to already be expired
+  // (enforced by the trailing lease_expires_at check below), so the fencing-token CAS in the
+  // UPDATE still owns correctness.
+  const params = input.route === "local" ? [input.deviceId!, now] : [now - 60_000, now - 60_000, now];
   const candidate = await db().prepare(
     `SELECT k.id, k.organization_id AS organizationId, k.thread_id AS threadId, t.title AS threadTitle, k.prompt,
             k.route AS currentRoute, k.lease_generation AS leaseGeneration, k.created_at AS createdAt,
@@ -284,8 +297,21 @@ export async function completeTask(input: {
   result?: string;
   error?: string;
   actorType: "device" | "runner";
+  /** Optional external verifier the executor cannot self-sign (provider receipt, row, webhook, human). */
+  externalCheckPassed?: boolean | null;
+  externalCheckKind?: string | null;
+  externalEvidenceId?: string | null;
+  /** OpenAI-compatible usage from the model provider (no prompt bodies). */
+  usage?: {
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+    model?: string;
+    provider?: string;
+  } | null;
 }): Promise<boolean> {
   const now = Date.now();
+  // Soft task row status still tracks executor report; audit receipt carries true outcome semantics.
   const status = input.error ? "failed" : "completed";
   const tokenHash = await sha256(input.leaseToken);
   const existing = await db().prepare(
@@ -306,6 +332,17 @@ export async function completeTask(input: {
   ).bind(status, input.result ?? null, input.error ?? null, now, now,
     input.taskId, input.owner, tokenHash, now).run();
   if (update.meta.changes !== 1) return false;
+  const receipt = buildTaskCompletionReceipt({
+    actorType: input.actorType,
+    actorId: input.owner,
+    taskId: input.taskId,
+    route: existing.route,
+    error: input.error,
+    externalCheckPassed: input.externalCheckPassed,
+    externalCheckKind: input.externalCheckKind,
+    externalEvidenceId: input.externalEvidenceId,
+    now,
+  });
   await audit({
     organizationId: existing.organizationId,
     actorType: input.actorType,
@@ -317,7 +354,29 @@ export async function completeTask(input: {
       route: existing.route,
       generation: existing.leaseGeneration,
       durationMs: Math.max(0, now - existing.createdAt),
+      ...receiptAuditMetadata(receipt),
+      hasUsage: Boolean(input.usage),
     },
   });
+
+  if (input.usage && (input.usage.promptTokens || input.usage.completionTokens)) {
+    const usageRow: ModelUsageInput = {
+      organizationId: existing.organizationId,
+      taskId: input.taskId,
+      route: existing.route,
+      model: input.usage.model || "unknown",
+      provider: input.usage.provider ?? (input.actorType === "runner" ? "openai_compatible" : "device"),
+      promptTokens: Number(input.usage.promptTokens) || 0,
+      completionTokens: Number(input.usage.completionTokens) || 0,
+      totalTokens: Number(input.usage.totalTokens) || 0,
+    };
+    try {
+      await recordModelUsage(usageRow);
+    } catch (error) {
+      // Never fail lease completion if usage table is missing or insert fails.
+      console.warn("model_usage insert failed", error instanceof Error ? error.message : String(error));
+    }
+  }
+
   return true;
 }

@@ -52,6 +52,10 @@ test("terminates the local and WorkOS sessions instead of silently signing back 
   assert.match(authCallback, /workosSessionIdFromAccessToken\(payload\.access_token\)/);
   assert.match(authCallback, /auth_error=invalid_provider_session/);
   assert.match(authCallback, /createSession\(userId, organizationId, workosSessionId\)/);
+  // Self-heal: email fallback + pick org with devices so logins never land on empty forks.
+  assert.match(authCallback, /lower\(email\) = \?/);
+  assert.match(authCallback, /pickBestMembership/);
+  assert.match(authCallback, /shouldBackfillWorkosOrganizationId/);
   assert.match(auth, /s\.workos_session_id AS workosSessionId/);
   assert.match(auth, /INSERT INTO sessions \(id_hash, user_id, organization_id, workos_session_id/);
   // Ordinary login must use AuthKit without step-up reauth params (would skip chooser).
