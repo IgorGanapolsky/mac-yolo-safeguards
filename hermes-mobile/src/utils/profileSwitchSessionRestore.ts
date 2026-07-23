@@ -1,5 +1,8 @@
+import type { HermesSession } from '../types/chat';
+import type { ChatProjectState } from '../types/chatProject';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import { resolveComputerSessionStorageKeys } from './computerSessionStorage';
+import { pickResumeSessionAfterStaleTarget } from './sessionSendTarget';
 
 /**
  * Intentional computer switch must always clear local transcript + reload the
@@ -14,6 +17,11 @@ export type ProfileSwitchRestorePlan = {
   reloadSessions: true;
   /** Force /messages even if macChatLive briefly flaps during the switch. */
   forceMessageHydrate: true;
+  /**
+   * Clear currentSessionRef when clearing UI — otherwise list-load still sees the
+   * prior Mac's session id and can skip selecting this Mac's last thread (New chat).
+   */
+  clearStickySessionRef: true;
   computerSessionKeys: string[];
   gatewayUrl: string;
   profileId: string;
@@ -43,6 +51,7 @@ export function resolveProfileSwitchRestorePlan(input: {
     clearLocalTranscript: true,
     reloadSessions: true,
     forceMessageHydrate: true,
+    clearStickySessionRef: true,
     computerSessionKeys: resolveComputerSessionStorageKeys(profile, gatewayUrl),
     gatewayUrl,
     profileId,
@@ -96,4 +105,40 @@ export function shouldSkipBackgroundSessionReload(
   intentionalProfileSwitchInFlight: boolean,
 ): boolean {
   return intentionalProfileSwitchInFlight === true;
+}
+
+/**
+ * After Choose-computer switch, never treat the prior Mac's session id as sticky.
+ * Pass null into resolveSessionAfterListLoad so selectLatest / remembered / default win.
+ */
+export function sessionIdForPostSwitchListLoad(input: {
+  intentionalProfileSwitch: boolean;
+  stickySessionId?: string | null;
+}): string | null {
+  if (input.intentionalProfileSwitch) {
+    return null;
+  }
+  return input.stickySessionId?.trim() || null;
+}
+
+/**
+ * Pick the session to open on the newly selected Mac when list-load left compose empty.
+ * Prefer remembered last session for that computer, else most-recent sendable mobile thread.
+ */
+export function resolvePostSwitchSession(input: {
+  sessions: HermesSession[];
+  rememberedSessionId?: string | null;
+  projectState: ChatProjectState;
+  /** Prior Mac session id — never resume it on the new Mac. */
+  staleSessionId?: string | null;
+}): HermesSession | null {
+  if (!input.sessions.length) {
+    return null;
+  }
+  return pickResumeSessionAfterStaleTarget({
+    sessions: input.sessions,
+    staleSessionId: input.staleSessionId,
+    rememberedSessionId: input.rememberedSessionId,
+    projectState: input.projectState,
+  });
 }
