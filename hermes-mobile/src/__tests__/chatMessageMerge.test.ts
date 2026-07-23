@@ -61,6 +61,7 @@ describe('mergeServerMessagesWithPending', () => {
     const server: HermesMessage[] = [
       { role: 'user', content: 'make money today' },
       { role: 'assistant', content: '[SILENT]' },
+      { role: 'user', content: '[SILENT]' },
     ];
     const merged = mergeServerMessagesWithPending(server, []);
     expect(merged.map((message) => message.content)).toEqual(['make money today']);

@@ -41,10 +41,10 @@ describe('EAS build guard process contract', () => {
     );
   });
 
-  it('hard-stops Expo cloud builds during Starter overage window', () => {
-    // Keep until-date in the future so this contract does not expire with the
-    // calendar (UTC rolled past 2026-07-22 and the fixed fixture went green).
-    const until = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  it('hard-stops Expo cloud builds during a configured future overage window', () => {
+    // Keep this process-level contract independent of the live incident's expiry date.
+    // The production default may expire; this test must still exercise the guarded branch.
+    const hardStopUntil = '2099-12-31';
     const result = spawnSync(
       process.execPath,
       [
@@ -63,12 +63,12 @@ describe('EAS build guard process contract', () => {
         encoding: 'utf8',
         env: {
           ...process.env,
-          HERMES_EAS_CLOUD_HARD_STOP_UNTIL: until,
+          HERMES_EAS_CLOUD_HARD_STOP_UNTIL: hardStopUntil,
           HERMES_EAS_ALLOW_CLOUD_BUILD: '',
         },
       },
     );
     expect(result.status).not.toBe(0);
-    expect(result.stderr + result.stdout).toMatch(new RegExp(`HARD-STOPPED until ${until}`));
+    expect(result.stderr + result.stdout).toContain(`HARD-STOPPED until ${hardStopUntil}`);
   });
 });
