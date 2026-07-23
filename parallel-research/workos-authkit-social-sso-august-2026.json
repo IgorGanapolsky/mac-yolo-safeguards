@@ -1,0 +1,412 @@
+{
+  "run_id": "trun_c952ecf15ab54779b1e7111424a2943a",
+  "interaction_id": "trun_c952ecf15ab54779b1e7111424a2943a",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_c952ecf15ab54779b1e7111424a2943a",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Assessment reasoning: The field_description asks for a decision-grade report on enabling Google/Apple/GitHub under a $10/mo cap, step-by-step enablement, gotchas, regression testing, and mid-2026 changes, focusing on official WorkOS docs and pricing. The provided field_answer delivers: (1) a verdict that social logins are free within the 1M MAU tier and identifies the $99/mo custom domain as the break point; (2) detailed step-by-step enablement for Google, Apple, and GitHub; (3) a cost breakdown showing $0 for social providers and $125/connection for enterprise SSO plus the $99/mo custom domain; (4) common reasons for buttons disappearing during cutover with staging vs production isolation; (5) regression testing guidance including HTML markers, button counts, end-to-end tests, and API snapshots; (6) mid-2026 WorkOS changes and their relevance; and synthesis/recommendations for ThumbGate/hermes-control-plane. Cross-check with excerpts: pricing excerpts confirm free tier and $125/connection; Apple docs confirm the Apple integration requirements; various excerpts discuss providers and AuthKit docs, all supporting the general claims. Therefore, the field answer is complete. The excerpts provided cover the factual basis for the pricing, enablement, and environment isolation points; so the answer is supported by excerpts.",
+        "citations": [
+          {
+            "url": "https://workos.com/pricing",
+            "excerpts": [
+              "Pricing - WorkOS\nWorkOS User Management is free for up to 1 million monthly active users. A user is considered active if they perform any user action (for example: sign up, sign"
+            ],
+            "title": "Pricing - WorkOS"
+          },
+          {
+            "url": "http://workos.com/blog/clerk-pricing",
+            "excerpts": [
+              "(last verified: 2026-06-23) WorkOS uses a modular pricing structure](https://workos.com/pricing) including: **User Management:** Free for the first 1,000,000 MAUs, with every additional 1 million MAUs costing $2500 **Single Sign-On (SSO):** $125/connection/month"
+            ],
+            "title": null
+          },
+          {
+            "url": "https://workos.com/blog/enterprise-sso-providers-b2b-saas",
+            "excerpts": [
+              "Top 7 enterprise SSO providers for B2B SaaS apps in 2026 - WorkOS\nPricing: Per SSO connection per month, with automatic volume discounts at scale. Predictable for B2B: your cost scales with your enterprise customer count"
+            ],
+            "title": "Top 7 enterprise SSO providers for B2B SaaS apps in 2026 - WorkOS"
+          },
+          {
+            "url": "https://www.scalekit.com/blog/workos-alternatives",
+            "excerpts": [
+              "WorkOS Alternatives for Enterprise Readiness in 2026 - Scalekit\nThe free tier includes 7,500 MAUs and 3 SSO connections. Beyond that, the Growth tier ($249/month for 5 connections) and Scale tier ($799/month for 10"
+            ],
+            "title": "WorkOS Alternatives for Enterprise Readiness in 2026 - Scalekit"
+          },
+          {
+            "url": "https://workos.com/docs/authkit/sessions",
+            "excerpts": [
+              "Sessions \u2013 AuthKit \u2013 WorkOS Docs\nsub : the WorkOS user id \u00b7 sid : the session ID (used for signing out) \u00b7 iss : https://api.workos.com/ (will be your custom auth domain if configured) \u00b7 org_id :"
+            ],
+            "title": "Sessions \u2013 AuthKit \u2013 WorkOS Docs"
+          },
+          {
+            "url": "http://github.com/workos/authkit-tanstack-start",
+            "excerpts": [
+              "workos/authkit-tanstack-start Page: GitHub repository URL: https://github.com/workos/authkit-tanstack-start Description: The WorkOS library for TanStack Start provides convenient helpers for authentication and session management using WorkOS & AuthKit with TanStack Start. - workos/authkit-tanstack-start Stars: 40 Forks: 9 Topics: frontend, authkit License: MIT license Default branch: main Created: 2025-10-03T14:31:34.000Z Commits: 131 Top-level files"
+            ],
+            "title": "GitHub - workos/authkit-tanstack-start: The WorkOS library for TanStack Start provides convenient helpers for authentication and session management using WorkOS & AuthKit with TanStack Start. \u00b7 GitHub"
+          },
+          {
+            "url": "https://workos.com/docs/integrations/apple.md",
+            "excerpts": [
+              "workos.com\nFor your production environment, please follow the steps below to create and specify your own Apple Team ID, Apple Service ID, and Apple Private Key. Please note that when you are using WorkOS default credentials, Apple's authentication flow will display the WorkOS name, logo, and other information to users."
+            ],
+            "title": "workos.com"
+          },
+          {
+            "url": "http://github.com/workos/authkit-react",
+            "excerpts": [
+              "Add authentication to your React app with WorkOS AuthKit. Handles sign-in, sign-up, token refresh, and session management via a hosted OAuth flow."
+            ],
+            "title": "workos/authkit-react"
+          },
+          {
+            "url": "https://github.com/workos/authkit",
+            "excerpts": [
+              "workos/authkit - GitHub\nThis is the fastest way to add authentication to your app with AuthKit and WorkOS User Management. with the headless WorkOS User Management APIs."
+            ],
+            "title": "workos/authkit - GitHub"
+          },
+          {
+            "url": "https://workos.com/docs/authkit/users/introduction",
+            "excerpts": [
+              "AuthKit \u2013 WorkOS Docs\nIntegrating AuthKit into your app is quick and easy. In this guide, we\u2019ll walk you through adding a hosted authentication flow to your application using AuthKit."
+            ],
+            "title": "AuthKit \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://github.com/workos/workos-custom-ui-authkit-example",
+            "excerpts": [
+              "Example: custom login UI with WorkOS Node SDK\nThe app handles these WorkOS authentication errors: organization_selection_required \u2014 user belongs to multiple orgs, show picker; sso_required \u2014 domain requires"
+            ],
+            "title": "Example: custom login UI with WorkOS Node SDK"
+          },
+          {
+            "url": "http://workos.com/",
+            "excerpts": [
+              "AuthKit. Flexible authentication UI powered by WorkOS and Radix.\nA unified platform with modern APIs. WorkOS provides a single, elegant interface that abstracts dozens of enterprise integrations. Read the docs."
+            ],
+            "title": "WorkOS \u2014 Your app, Enterprise Ready."
+          },
+          {
+            "url": "https://workos.com/docs/authkit",
+            "excerpts": [
+              "Get started with AuthKit - WorkOS\nSet up AuthKit in your app using either the AI Installer & CLI or a manual framework-specific guide."
+            ],
+            "title": "Get started with AuthKit - WorkOS"
+          },
+          {
+            "url": "https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/about-the-user-authorization-callback-url",
+            "excerpts": [
+              "About the user authorization callback URL - GitHub Docs\nWhen you register a GitHub App, you can specify a callback URL. When you use the web application flow to generate a user access token in order to act on behalf of a user, users will be redirected to the callback URL after they authorize the GitHub App."
+            ],
+            "title": "About the user authorization callback URL - GitHub Docs"
+          },
+          {
+            "url": "https://developers.figma.com/docs/rest-api/oauth-apps",
+            "excerpts": [
+              "OAuth apps | Developer Docs - developers.figma.com\nOn the OAuth credentials page, click Add a redirect URL and add one or more redirect URLs for your OAuth app. Redirect URLs correspond to the callback URLs you use for exchanging and refreshing tokens."
+            ],
+            "title": "OAuth apps | Developer Docs - developers.figma.com"
+          },
+          {
+            "url": "https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/about-the-setup-url",
+            "excerpts": [
+              "About the setup URL - GitHub Docs\nWhen you register a GitHub App, you can specify a setup URL. When users install your GitHub App, they are redirected to the setup URL. If additional setup is required after installation, you can use this URL to tell users what steps to take next."
+            ],
+            "title": "About the setup URL - GitHub Docs"
+          },
+          {
+            "url": "https://www.better-auth.com/docs/authentication/github",
+            "excerpts": [
+              "GitHub - Better Auth\nMake sure to set the redirect URL to http://localhost:3000/api/auth/callback/github for local development. For production, you should set it to the URL of your\u00a0... Configure the provider \u00b7 Sign In with GitHub"
+            ],
+            "title": "GitHub - Better Auth"
+          },
+          {
+            "url": "http://currents.dev/posts/testing-authentication-with-playwright-the-complete-guide",
+            "excerpts": [
+              "Use `page.route()` to intercept the redirect to the OAuth provider and send the browser straight back to your callback URL with a mock authorization code: test ( \"dashboard loads after OAuth login\" , async ({ page }) => { await page. route ( \"https://accounts.google.com/**\" , async ( route ) => { const url = new URL (route. request (). url ()); const state = url.searchParams. get ( \"state\" ); const redirectUri = url.searchParams. get ( \"redirect_uri\" ); await route. fulfill ({ status: 302 , headers: { Location: `${ redirectUri }?code=mock-auth-code&state=${ state }` , }, }); }); await page. goto ( \"/login\" ); await page. getByRole ( \"button\" , { name: \"Continue with Google\" }). click (); await expect (page). toHaveURL ( \"/dashboard\" ); }); Copy Copied! This intercepts the browser-side redirect. Your backend still needs to handle the mock authorization code. The simplest approach is a test-mode bypass in your token exchange endpoint that accepts any code and returns a valid session. If you don't want to modify your backend, the [oauth2-mock-server](https://www.npmjs.com/package/oauth2-mock-server) npm package runs a local OAuth server with configurable token responses. Point your app's OAuth config at it during tests. The `state` parameter matters. OAuth uses it to prevent CSRF. Your mock must echo back the exact `state` value from the original redirect, or the app will reject the callback. ... Mocking PKCE Flows If your app uses PKCE (required for public clients like SPAs), the mock needs to handle the `code_verifier` / `code_challenge` exchange. During the authorization redirect, the app sends a `code_challenge` derived from a random `code_verifier` . When exchanging the authorization code for a token, the app sends the original `code_verifier` , and the server verifies it matches the challenge. Your `page.route()` mock doesn't need to validate PKCE itself because it's bypassing the provider entirely. But your backend's token exchange endpoint does. If your backend validates the `code_verifier` against the `code_challenge` , the test-mode bypass needs to skip that check too, or the token exchange will fail even though the browser-side mock worked. When using [oauth2-mock-server](https://www.npmjs.com/package/oauth2-mock-server) , PKCE is handled automatically: it supports the Authorization Code grant with PKCE out of the box. Point your app's OAuth config at it and the full `code_challenge` / `code_verifier` cycle runs against a real (local) server. The important thing: your scheduled real-provider tests (not the mocked ones) are what catch broken PKCE implementations. A wrong hash algorithm, a missing `code_challenge_method=S256` parameter, or a `code_verifier` that doesn't meet the [43-128 character requirement](https://datatracker.ietf.org/doc/html/rfc7636.1) all pass in mocked environments and fail in production. ... When OAuth Mocking Breaks Finally, check your backend logs for the token exchange step."
+            ],
+            "title": "Testing Authentication with Playwright: The Complete Guide<!-- --> | <!-- -->Apr 2026<!-- --> | Currents.dev Blog"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/signinwithapple",
+            "excerpts": [
+              "Sign in with Apple | Apple Developer Documentation\nSign in with Apple gives your users a fast and safe way to sign in to your apps and websites using their Apple Account. Incorporating Sign in with Apple"
+            ],
+            "title": "Sign in with Apple | Apple Developer Documentation"
+          },
+          {
+            "url": "https://developer.apple.com/design/human-interface-guidelines/sign-in-with-apple",
+            "excerpts": [
+              "Sign in with Apple | Apple Developer Documentation\nSign in with Apple lets people use the Apple Account they already have to sign in or sign up, and skip filling out forms, verifying email addresses, and"
+            ],
+            "title": "Sign in with Apple | Apple Developer Documentation"
+          },
+          {
+            "url": "https://developer.apple.com/help/account/access/sign-in-to-your-developer-account",
+            "excerpts": [
+              "Sign in to your developer account - Access - Account - Help ...\nSign in to your Apple Account on the Apple Developer website to access basic developer resources. If you\u2019re enrolled in a paid program (the Apple Developer Program or Apple Developer Enterprise Program), sign in with the Apple Account you used to enroll."
+            ],
+            "title": "Sign in to your developer account - Access - Account - Help ..."
+          },
+          {
+            "url": "https://developer.apple.com/programs",
+            "excerpts": [
+              "Apple Developer Program - Apple Developer\nSign in using your Apple Account and accept the Apple Developer Agreement to register for free. Enroll as an individual or organization."
+            ],
+            "title": "Apple Developer Program - Apple Developer"
+          },
+          {
+            "url": "https://developer.apple.com/help/account/capabilities/configure-sign-in-with-apple-for-the-web",
+            "excerpts": [
+              "Configure Sign in with Apple for the web\nUse Sign in with Apple to let your users sign in to your app\u2019s accompanying website with their Apple Account. To configure web authentication, you must create a Services ID and associate your website to an existing primary iOS, macOS, tvOS, or watchOS App ID enabled for Sign in with Apple."
+            ],
+            "title": "Configure Sign in with Apple for the web"
+          },
+          {
+            "url": "https://docs.github.com/en/apps/creating-github-apps/about-creating-github-apps/about-creating-github-apps",
+            "excerpts": [],
+            "title": "About creating GitHub Apps"
+          },
+          {
+            "url": "https://support.google.com/cloud/answer/6158849",
+            "excerpts": [],
+            "title": "Manage OAuth Clients - Google Cloud Platform Console Help"
+          },
+          {
+            "url": "https://workos.com/authkit",
+            "excerpts": [],
+            "title": "AuthKit by WorkOS"
+          },
+          {
+            "url": "https://workos.com/user-management",
+            "excerpts": [],
+            "title": "User Management \u2014 WorkOS"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/signinwithapplejs",
+            "excerpts": [],
+            "title": "Sign in with Apple JS | Apple Developer Documentation"
+          },
+          {
+            "url": "https://workos.com/docs/authkit/domains",
+            "excerpts": [],
+            "title": "AuthKit \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://workos.com/docs/integrations/apple",
+            "excerpts": [],
+            "title": "Apple"
+          },
+          {
+            "url": "https://workos.com/changelog",
+            "excerpts": [],
+            "title": "Changelog \u2014 WorkOS"
+          },
+          {
+            "url": "https://workos.com/docs/authkit/custom-domains",
+            "excerpts": [],
+            "title": "Redirecting to: /docs/authkit.md"
+          },
+          {
+            "url": "https://workos.com/docs/user-management/custom-domain",
+            "excerpts": [],
+            "title": "Redirecting to: /docs/authkit.md"
+          },
+          {
+            "url": "https://workos.com/docs/authkit/social-login/google",
+            "excerpts": [],
+            "title": "Social Login \u2013 AuthKit \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://workos.com/docs/user-management/social-login/google",
+            "excerpts": [],
+            "title": "Social Login \u2013 AuthKit \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://workos.com/docs/authkit/customization",
+            "excerpts": [],
+            "title": "AuthKit \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://github.com/workos/authkit-tanstack-start",
+            "excerpts": [
+              "workos/authkit-tanstack-start\nThe WorkOS library for TanStack Start provides convenient helpers for authentication and session management using WorkOS & AuthKit with TanStack Start."
+            ],
+            "title": "workos/authkit-tanstack-start"
+          },
+          {
+            "url": "https://workos.com/docs/sdks/authkit-react",
+            "excerpts": [
+              "AuthKit React SDK\nAdd authentication to your React app with WorkOS AuthKit. Handles sign-in, sign-up, token refresh, and session management via a hosted OAuth flow."
+            ],
+            "title": "AuthKit React SDK"
+          },
+          {
+            "url": "https://www.authkit.com/",
+            "excerpts": [
+              "AuthKit by WorkOS\nAuthKit integrates seamlessly with WorkOS, the only end-to-end platform to make your app Enterprise Ready with SAML, SCIM, RBAC, and more."
+            ],
+            "title": "AuthKit by WorkOS"
+          },
+          {
+            "url": "https://workos.com/docs/sdks/authkit-tanstack-start",
+            "excerpts": [
+              "AuthKit TanStack Start SDK\nReact Hooks. useAuth() - Access user info and loading state in client components. useAccessToken() - Get the current access token with automatic refresh."
+            ],
+            "title": "AuthKit TanStack Start SDK"
+          },
+          {
+            "url": "https://github.com/workos",
+            "excerpts": [
+              "WorkOS - GitHub\nExample applications demonstrating the use of the WorkOS Go SDK to support SSO, Directory Sync, Admin Portal, and Magic Link."
+            ],
+            "title": "WorkOS - GitHub"
+          },
+          {
+            "url": "https://workos.com/docs/authkit/environments",
+            "excerpts": [
+              "Staging vs. production environments \u2013 AuthKit \u2013 WorkOS Docs\nEvery WorkOS workspace includes a staging environment and a production environment. These are fully separate: API keys, organizations, connections, users,"
+            ],
+            "title": "Staging vs. production environments \u2013 AuthKit \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://workos.com/docs/authkit/social-login",
+            "excerpts": [
+              "Social Login \u2013 AuthKit \u2013 WorkOS Docs\nWorkOS provides integration guides for common providers such as Google, Microsoft, GitHub, Apple, GitLab, LinkedIn, and Slack. After a provider has been configured and enabled, it will appear as a sign in option on the AuthKit authentication page."
+            ],
+            "title": "Social Login \u2013 AuthKit \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://workos.com/blog/react-router-v7-social-login-guide",
+            "excerpts": [
+              "Social login in React Router v7: Google, GitHub, and ...\n5 hours ago \u2014 This guide covers how social login works in React Router v7, how to implement it from scratch to understand the moving parts, and how WorkOS AuthKit lets"
+            ],
+            "title": "Social login in React Router v7: Google, GitHub, and ..."
+          },
+          {
+            "url": "http://intel.aikido.dev/cve/AIKIDO-2026-309251",
+            "excerpts": [
+              "5 days ago \u2014 @workos-inc/authkit-"
+            ],
+            "title": "@workos-inc/authkit-nextjs - AIKIDO-2026-309251"
+          },
+          {
+            "url": "https://workos.com/docs/authkit/branding",
+            "excerpts": [],
+            "title": "Branding"
+          },
+          {
+            "url": "https://github.com/workos/authkit/blob/main/README.md",
+            "excerpts": [],
+            "title": "authkit/README.md at main \u00b7 workos/authkit \u00b7 GitHub"
+          },
+          {
+            "url": "https://workos.com/docs/user-management/environments",
+            "excerpts": [],
+            "title": "Staging vs. production environments"
+          },
+          {
+            "url": "https://workos.com/docs/authkit/users",
+            "excerpts": [],
+            "title": "AuthKit \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://workos.com/docs/user-management/authentication",
+            "excerpts": [],
+            "title": "AuthKit \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps",
+            "excerpts": [
+              "Authorizing OAuth apps - GitHub Docs\nIf left out, GitHub will redirect users to the callback URL configured in the OAuth app settings. If provided, the redirect URL's host (excluding sub-domains) and port must exactly match the callback URL."
+            ],
+            "title": "Authorizing OAuth apps - GitHub Docs"
+          },
+          {
+            "url": "http://docs.teleskope.ai/connectors/saas/github",
+            "excerpts": [
+              "Github ## {% stepper %} {% step %} **Create a Github App** Since Teleskope follows a single-tenant architecture, each customer will have their own dedicated Teleskope instance, with a custom callback URL. **Requirements** Admin User: User must be an organization **admin** to create the application and install in org Callback URL: Teleskope will provide you with your dedicated callback URL Setup URL: Teleskope will provide you with your dedicated setup URL **Create a new app in GitHub** Go to your Developer settings: http(s):///settings/apps Select GitHub Apps and then New GitHub App Give your app a unique name and add an optional description Avoid using spaces in the app name Use https://teleskope.ai as a homepage URL Enter your dedicated Teleskope Setup URL https://observatory.{baseURL}/settings/clouds/github?organization\\\\_name={githubOrgName} (Optional) Create a Webhook Secret Create a private key"
+            ],
+            "title": "Github"
+          },
+          {
+            "url": "https://workos.com/",
+            "excerpts": [
+              "WorkOS \u2014 Your app, Enterprise Ready.\nA unified platform with modern APIs. WorkOS provides a single, elegant interface that abstracts dozens of enterprise integrations. Read the docs. Blog \u00b7 Guides \u00b7 Podcast \u00b7 Customers"
+            ],
+            "title": "WorkOS \u2014 Your app, Enterprise Ready."
+          },
+          {
+            "url": "https://workos.com/docs/authkit/remix",
+            "excerpts": [
+              "AuthKit \u2013 WorkOS Docs\nYou can set a redirect URI in the Redirects section of the WorkOS Dashboard . We recommend using http://localhost:3000/callback as the default here. WorkOS"
+            ],
+            "title": "AuthKit \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://github.com/workos/authkit-nextjs",
+            "excerpts": [
+              "workos/authkit-nextjs: The WorkOS library for Next.js ...\nTo use the signOut method , you'll need to set a default Logout URI in your WorkOS dashboard settings under \"Redirects\". Optional configuration. Certain"
+            ],
+            "title": "workos/authkit-nextjs: The WorkOS library for Next.js ..."
+          },
+          {
+            "url": "https://workos.com/docs/custom-domains/auth-api",
+            "excerpts": [
+              "Authentication API Domain \u2013 Custom Domains \u2013 WorkOS Docs\nWorkOS authentication requests are done via the Authentication API, which defaults to api.workos.com . This can be configured to a custom domain"
+            ],
+            "title": "Authentication API Domain \u2013 Custom Domains \u2013 WorkOS Docs"
+          },
+          {
+            "url": "http://workos.com/changelog",
+            "excerpts": [
+              "What we're shipping The Changelog Subscribe via email or RSS July 7, 2026 July 7, 2026 AuthKit for Astro AuthKit for Astro ## AuthKit for Astro Easily add AuthKit authentication to any Astro site Read more July 3, 2026 July 3, 2026 Widgets API Widgets API ## Widgets API The Widgets API is a session-aware GraphQL API for the browser that lets you build UI with WorkOS data directly. Read more July 2, 2026 July 2, 2026 Step-up Auth Step-up Auth ## Step-up Auth AuthKit now supports step-up authentication, which makes a user re-verify their session before performing a sensitive action. Read more July 1, 2026 July 1, 2026 Management MCP Server Management MCP Server ## Management MCP Server The WorkOS Management MCP server exposes hundreds of operations across the product to manage WorkOS.\nWhat we're shipping The Changelog Subscribe via email or RSS July 7, 2026 July 7, 2026 AuthKit for Astro AuthKit for Astro ## AuthKit for Astro Easily add AuthKit authentication to any Astro site Read more July 3, 2026 July 3, 2026 Widgets API Widgets API ## Widgets API The Widgets API is a session-aware GraphQL API for the browser that lets you build UI with WorkOS data directly. Read more July 2, 2026 July 2, 2026 Step-up Auth Step-up Auth ## Step-up Auth AuthKit now supports step-up authentication, which makes a user re-verify their session before performing a sensitive action. Read more July 1, 2026 July 1, 2026 Management MCP Server Management MCP Server ## Management MCP Server The WorkOS Management MCP server exposes hundreds of operations across the product to manage WorkOS"
+            ],
+            "title": "Changelog \u2014 WorkOS"
+          },
+          {
+            "url": "https://github.com/workos/authkit-nextjs/releases",
+            "excerpts": [
+              "Releases \u00b7 workos/authkit-nextjs\n\u26a0 BREAKING CHANGES Upgrade. BREAKING CHANGES add OAuth state verification on callback to prevent CSRF attacks. Bug Fixes actions: catch TokenRefreshError in"
+            ],
+            "title": "Releases \u00b7 workos/authkit-nextjs"
+          },
+          {
+            "url": "http://workos.com/compare/clerk",
+            "excerpts": [
+              "AuthKit adds hosted sign-in, social login, MFA, and passkeys. No UI to build. 60+pre-built integrations: Okta, Entra, Google Workspace,"
+            ],
+            "title": "WorkOS vs Clerk"
+          },
+          {
+            "url": "https://workos.com/docs/sdks/authkit-nextjs",
+            "excerpts": [
+              "AuthKit Next.js SDK\n0 (2026-04-23). \u26a0 BREAKING CHANGES . Upgrade @ workos - inc /node to v9 (#407); set minimum Node.js version to 22.11.0 (#408). Miscellaneous Chores. set minimum Node"
+            ],
+            "title": "AuthKit Next.js SDK"
+          },
+          {
+            "url": "https://workos.com/docs/authkit/nextjs",
+            "excerpts": [
+              "AuthKit \u2013 WorkOS Docs\nLet's add the necessary dependencies and configuration in your WorkOS Dashboard. Install dependencies. For a Next.js integration, use the authkit - nextjs library"
+            ],
+            "title": "AuthKit \u2013 WorkOS Docs"
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "workos-authkit-social-sso-august-2026.md"
+  }
+}
