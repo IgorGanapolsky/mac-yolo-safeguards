@@ -390,7 +390,7 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     );
   });
 
-  it('S25: Mac Pro USB and Tailscale aliases render as one physical-machine row', () => {
+  it('S25: live USB stays selectable beside Mac Pro Tailscale (never cable-only collapse)', () => {
     const macBookUsb = {
       id: 'mac_book_usb',
       label: 'Igors-MacBook-Pro',
@@ -418,13 +418,14 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
       activeProfileId: 'mac_book_ts',
       liveUsb: { reachable: true, hostname: 'Igors-MacBook-Pro.local' },
     });
-    expect(rows.map((r) => r.id)).toEqual(['mac_book_ts', 'mac_mini_ts']);
-    expect(profileConnectionRouteLabel(rows[0], true)).toBe('Tailscale');
+    expect(rows.map((r) => r.id)).toEqual(['mac_book_usb', 'mac_book_ts', 'mac_mini_ts']);
+    expect(profileConnectionRouteLabel(rows[0], true)).toBe('USB');
+    expect(profileConnectionRouteLabel(rows[1], true)).toBe('Tailscale');
     expect(profilePickerLines(rows[0], { cablePluggedIn: true }).title).toBe(
       'Igors-MacBook-Pro (Mac Pro)',
     );
-    expect(profilePickerLines(rows[0], { cablePluggedIn: true }).detail).toMatch(/cable/i);
-    expect(profilePickerLines(rows[1]).title).toBe('Igors-Mac-mini');
+    expect(profilePickerLines(rows[0], { cablePluggedIn: true }).detail).toMatch(/USB cable connected/i);
+    expect(profilePickerLines(rows[2]).title).toBe('Igors-Mac-mini');
   });
 
   it('S19: Repair link is bounded (30s Tailscale headroom) and never leaves an infinite spinner', () => {
@@ -651,5 +652,16 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(chatScreen).toContain('intentionalProfileSwitch: true');
     expect(chatScreen).toContain('resolvePostSwitchSession');
     expect(chatScreen).toContain('sessionIdForPostSwitchListLoad');
+  });
+
+  it('S49: live USB dual-transport row stays selectable while sticky Tailscale remains (2026-07-23)', () => {
+    const picker = read('hermes-mobile/src/utils/gatewayProfilePicker.ts');
+    expect(picker).toContain('liveUsbRows');
+    expect(picker).toContain('collapsedRemote');
+    expect(picker).toMatch(/Keep live USB as its own selectable transport/);
+    const chat = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chat).toContain('setInterval');
+    expect(chat).toContain('probeLiveUsbGateway');
+    expect(chat).toMatch(/2500/);
   });
 });
