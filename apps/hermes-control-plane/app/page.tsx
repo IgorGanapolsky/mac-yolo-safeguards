@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BillingPlan } from "./BillingPlan";
 import { FailoverPathDemo } from "./FailoverPathDemo";
 import { FunnelSignals } from "./FunnelSignals";
+import { RemoteControlDiagram } from "./RemoteControlDiagram";
 import {
   LandingAuthHero,
   LandingAuthNav,
@@ -54,33 +55,48 @@ export default function Home() {
             Chat and control your Hermes agents on the web. Continuity keeps eligible work running on a VPS when your Mac is offline.
           </p>
           <LandingAuthHero />
+          <div className="hero-store-promo" aria-label="Get Hermes Mobile">
+            <p className="hero-store-kicker">Prefer the native app?</p>
+            <div className="hero-store-links">
+              <a
+                href="/go/android"
+                className="store-badge store-badge-play"
+                data-funnel-event="play_store_click"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span className="store-badge-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M3.6 2.7c-.3.2-.5.6-.5 1.1v16.4c0 .5.2.9.5 1.1l.1.1 9.1-9.1v-.3L3.7 2.6l-.1.1zm12.1 7L12.4 12l3.3 2.3 3.9-2.2c.9-.5.9-1.4 0-1.9l-3.9-2.5zM4.1 20.8l8.2-8.2 2.6 1.8-9.6 5.5c-.5.3-1 .2-1.2.9zm0-17.6c.2 0 .5 0 .8-.2l9.6 5.5-2.6 1.8L4.1 2.6v.6z"/></svg>
+                </span>
+                <span className="store-badge-copy">
+                  <small>GET IT ON</small>
+                  <strong>Google Play</strong>
+                </span>
+              </a>
+              <a
+                href="/go/ios"
+                className="store-badge store-badge-ios"
+                data-funnel-event="app_store_click"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span className="store-badge-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M18.7 12.9c0-2.1 1.7-3.1 1.8-3.2-1-1.4-2.5-1.6-3.1-1.6-1.3-.1-2.5.8-3.2.8s-1.7-.8-2.8-.7c-1.4.1-2.8.9-3.5 2.2-1.5 2.6-.4 6.5 1.1 8.6.7 1 1.6 2.2 2.7 2.1 1.1 0 1.5-.7 2.8-.7s1.6.7 2.8.7 1.9-1 2.6-2c.8-1.1 1.1-2.2 1.1-2.3-.1 0-2.2-.8-2.3-3.4zM15.6 6.5c.6-.7 1-1.7.9-2.7-1 .1-2.1.6-2.8 1.4-.6.7-1.1 1.7-.9 2.6 1 .1 2.1-.5 2.8-1.3z"/></svg>
+                </span>
+                <span className="store-badge-copy">
+                  <small>Download on the</small>
+                  <strong>App Store</strong>
+                </span>
+              </a>
+            </div>
+            <p className="hero-store-note">Hermes Mobile · chat, approvals, and pairing from your phone</p>
+          </div>
           <p className="signin-note">Hermes Web by ThumbGate. Continue with Google or Apple—no new password.</p>
           <div className="trust-row"><span>No inbound ports</span><span>Private-key pairing</span><span>Cloud only when enabled</span></div>
-          <div className="hero-store-links" aria-label="Hermes Mobile apps">
-            <a
-              href="/go/android"
-              className="store-link store-link-play"
-              data-funnel-event="play_store_click"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <span className="store-link-badge" aria-hidden="true">▶</span>
-              <span><strong>Google Play</strong><small>Hermes Mobile</small></span>
-            </a>
-            <a
-              href="/go/ios"
-              className="store-link store-link-ios"
-              data-funnel-event="app_store_click"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <span className="store-link-badge" aria-hidden="true">A</span>
-              <span><strong>App Store</strong><small>Hermes AI Agent Leash</small></span>
-            </a>
-          </div>
         </div>
 
         <nav className="hero-console hero-actions-panel" aria-label="Private workspace actions">
+          <RemoteControlDiagram />
           <LandingAuthPanel />
         </nav>
       </section>
@@ -161,23 +177,33 @@ export default function Home() {
         <div className="hero-store-links hero-store-links-lg">
           <a
             href="/go/android"
-            className="store-link store-link-play"
+            className="store-badge store-badge-play"
             data-funnel-event="play_store_click"
             target="_blank"
             rel="noopener noreferrer"
           >
-            <span className="store-link-badge" aria-hidden="true">▶</span>
-            <span><strong>Get it on Google Play</strong><small>Hermes Mobile for Android</small></span>
+            <span className="store-badge-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M3.6 2.7c-.3.2-.5.6-.5 1.1v16.4c0 .5.2.9.5 1.1l.1.1 9.1-9.1v-.3L3.7 2.6l-.1.1zm12.1 7L12.4 12l3.3 2.3 3.9-2.2c.9-.5.9-1.4 0-1.9l-3.9-2.5zM4.1 20.8l8.2-8.2 2.6 1.8-9.6 5.5c-.5.3-1 .2-1.2.9zm0-17.6c.2 0 .5 0 .8-.2l9.6 5.5-2.6 1.8L4.1 2.6v.6z"/></svg>
+            </span>
+            <span className="store-badge-copy">
+              <small>GET IT ON</small>
+              <strong>Google Play</strong>
+            </span>
           </a>
           <a
             href="/go/ios"
-            className="store-link store-link-ios"
+            className="store-badge store-badge-ios"
             data-funnel-event="app_store_click"
             target="_blank"
             rel="noopener noreferrer"
           >
-            <span className="store-link-badge" aria-hidden="true">A</span>
-            <span><strong>Download on the App Store</strong><small>Hermes AI Agent Leash</small></span>
+            <span className="store-badge-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M18.7 12.9c0-2.1 1.7-3.1 1.8-3.2-1-1.4-2.5-1.6-3.1-1.6-1.3-.1-2.5.8-3.2.8s-1.7-.8-2.8-.7c-1.4.1-2.8.9-3.5 2.2-1.5 2.6-.4 6.5 1.1 8.6.7 1 1.6 2.2 2.7 2.1 1.1 0 1.5-.7 2.8-.7s1.6.7 2.8.7 1.9-1 2.6-2c.8-1.1 1.1-2.2 1.1-2.3-.1 0-2.2-.8-2.3-3.4zM15.6 6.5c.6-.7 1-1.7.9-2.7-1 .1-2.1.6-2.8 1.4-.6.7-1.1 1.7-.9 2.6 1 .1 2.1-.5 2.8-1.3z"/></svg>
+            </span>
+            <span className="store-badge-copy">
+              <small>Download on the</small>
+              <strong>App Store</strong>
+            </span>
           </a>
         </div>
       </section>
