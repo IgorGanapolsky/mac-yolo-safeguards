@@ -139,7 +139,12 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === '/health') return json(res, 200, { ok: true, service: 'hermes-relay' });
     return json(res, 404, { error: 'not found' });
-  } catch (e) { return json(res, 500, { error: String(e && e.message || e) }); }
+  } catch (e) {
+    // Full stack stays server-side only; this relay is public-internet-facing (see file
+    // header) so the response body must never carry internal paths/line numbers.
+    console.error('[hermes-relay] request failed:', e && e.stack || e);
+    return json(res, 500, { error: 'internal error' });
+  }
 });
 
 if (require.main === module) {
