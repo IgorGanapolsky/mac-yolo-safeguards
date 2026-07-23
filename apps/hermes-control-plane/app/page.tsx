@@ -168,7 +168,7 @@ export default function Home() {
             rel="noopener noreferrer"
           >
             <span className="store-link-badge" aria-hidden="true">▶</span>
-            <span><strong>Get it on Google Play</strong><small>com.iganapolsky.hermesmobile.paid</small></span>
+            <span><strong>Get it on Google Play</strong><small>Hermes Mobile for Android</small></span>
           </a>
           <a
             href={APP_STORE_URL}
