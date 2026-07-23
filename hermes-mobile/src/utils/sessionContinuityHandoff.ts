@@ -289,23 +289,15 @@ export function shouldInjectContinuityHandoff(opts: {
 }
 
 /**
- * Continuity resume is seamless by default — skip the banner when the transcript
- * already loaded (or there is no handoff). Callers that briefly surface the chip
- * must auto-dismiss via CONTINUITY_CHIP_AUTO_DISMISS_MS (never sticky Dismiss-only).
+ * Continuity resume is seamless — never surface a banner/Dismiss chip.
+ * Handoff still injects via shouldInjectContinuityHandoff / system_prompt.
+ * (#654 silent path; #833 briefly reintroduced ephemeral UI — permanently killed.)
  */
-export function shouldShowContinuityChip(opts: {
+export function shouldShowContinuityChip(_opts: {
   handoff: SessionContinuityHandoff | null | undefined;
   chipDismissed: boolean;
   transcriptEmpty: boolean;
 }): boolean {
-  if (!opts.handoff || opts.chipDismissed) {
-    return false;
-  }
-  // Prefer seamless: once bubbles exist, never show the strip.
-  if (!opts.transcriptEmpty) {
-    return false;
-  }
-  // Still seamless for empty compose — handoff injects via system_prompt only.
   return false;
 }
 
