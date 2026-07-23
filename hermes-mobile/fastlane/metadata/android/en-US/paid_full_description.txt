@@ -1,6 +1,6 @@
 THIS ANDROID LISTING IS A PAID DOWNLOAD ($4.99 once)
 
-Hermes Mobile: AI Agent is the pay-upfront Android download of the phone control plane for a Hermes AI agent on your own Mac, Linux, or Windows computer — not on-device phone AI. Chat with your agent, see honest connection state, and approve or deny risky commands before they execute.
+Hermes Mobile: AI Agent is the pay-upfront Android download of the phone control plane for a Hermes AI agent on your own Mac, Linux, or Windows computer — not on-device phone AI. Chat from your phone, pair over Home Wi‑Fi, Tailscale, USB, or QR, see honest connection state, and approve or deny risky commands with Leash before they execute.
 
 Package com.iganapolsky.hermesmobile.paid is the paid-upfront listing. The free package com.iganapolsky.hermesmobile remains available with an optional $4.99 once in-app unlock for Leash / Pro features. Same product family, same publisher (Igor Ganapolsky).
 

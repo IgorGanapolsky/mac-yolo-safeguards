@@ -1,4 +1,6 @@
-Hermes Mobile is the phone control plane for a Hermes AI agent on your own Mac, Linux, or Windows computer — not on-device phone AI. Chat with your agent, see honest connection state, and approve or deny risky commands before they execute.
+Hermes Mobile: AI Agent is the phone control plane for a Hermes AI agent on your own Mac, Linux, or Windows computer — not on-device phone AI. Chat with your agent from your phone, pair over Home Wi‑Fi, Tailscale, USB, or QR, see honest connection state, and approve or deny risky commands with Leash before they execute.
+
+Search Hermes Mobile, AI agent, remote Mac agent, Tailscale AI control, or coding agent phone control — this app is remote desktop-agent supervision, not a phone chatbot.
 
 Hermes Mobile is built for developers whose workflows also involve Cursor, Claude Code, ChatGPT or OpenAI Codex, Gemini CLI, Replit Agent, GitHub Copilot, Windsurf, OpenClaw, and other coding agents.
 

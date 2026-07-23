@@ -1,6 +1,6 @@
-Control your computer’s Hermes AI agent from your phone — not a phone chatbot. Chat, pair, and approve tools on Mac, Windows, or Linux.
+Hermes Mobile: AI Agent — control your computer’s Hermes AI agent from your phone. Not a phone chatbot. Chat, pair, and approve tools on Mac, Windows, or Linux via Home Wi‑Fi, Tailscale, USB, or QR pairing.
 
-Hermes Mobile is an independent operator client for Hermes on your own computer — not on-device phone AI. It is designed for developers whose workflows also involve Cursor, Claude Code, ChatGPT or OpenAI Codex, Gemini CLI, Replit Agent, GitHub Copilot, Windsurf, OpenClaw, and other coding agents.
+Hermes Mobile is the independent phone operator client for Hermes on your own desktop — remote coding-agent control with Leash safety approvals. Built for developers whose workflows also involve Cursor, Claude Code, ChatGPT or OpenAI Codex, Gemini CLI, Replit Agent, GitHub Copilot, Windsurf, OpenClaw, and other coding agents.
 
 Hermes Mobile does not sign in to or replace those products. It supervises the Hermes agent and tools running on your computer.
 
@@ -35,6 +35,8 @@ Requires a compatible Hermes setup on your computer. Remote access requires your
 Hermes Mobile is independent and is not affiliated with Nous Research, Anthropic, OpenAI, Google, Replit, GitHub, Cursor, Windsurf, or OpenClaw.
 
 Looking for on-device “Hermes Agent”? That is a different product. Hermes Mobile controls desktop agents on your own Mac, Linux, or Windows computer.
+
+Also known as Hermes AI Agent Leash — same app, same publisher (Igor Ganapolsky). Search Hermes Mobile, AI agent leash, remote Mac agent, Tailscale phone control, or coding agent phone control to find us.
 
 Source and setup: github.com/IgorGanapolsky/mac-yolo-safeguards
 
