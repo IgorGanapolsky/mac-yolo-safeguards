@@ -1868,7 +1868,7 @@ describe('ChatScreen', () => {
     expect(queryByText('Type a message below.')).toBeNull();
   });
 
-  it('cold start never auto-opens a mega-blocked session (empty composer instead)', async () => {
+  it('cold start restores remembered mega-blocked session for reading with banner', async () => {
     const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
       listSessions: jest.Mock;
       listMessages: jest.Mock;
@@ -1904,14 +1904,16 @@ describe('ChatScreen', () => {
     const { getByTestId, queryByTestId } = await renderChatScreen();
 
     await waitFor(() => {
-      expect(getByTestId('chat-empty-state')).toBeTruthy();
+      expect(queryByTestId('chat-empty-state')).toBeNull();
+      expect(getByTestId('mega-session-banner')).toBeTruthy();
     });
-    expect(queryByTestId('mega-session-banner')).toBeNull();
-    expect(listMessages).not.toHaveBeenCalledWith(
-      expect.anything(),
-      'mega-session-1',
-      expect.anything(),
-    );
+    await waitFor(() => {
+      expect(listMessages).toHaveBeenCalledWith(
+        expect.anything(),
+        'mega-session-1',
+        expect.anything(),
+      );
+    });
   });
 
   it('sends make money today in a fresh chat when Mac still has a mega-blocked thread', async () => {
@@ -1937,7 +1939,10 @@ describe('ChatScreen', () => {
         output_tokens: 0,
       },
     ]);
-    listMessages.mockResolvedValue([]);
+    listMessages.mockResolvedValue([
+      { role: 'user', content: 'old turn' },
+      { role: 'assistant', content: 'old reply' },
+    ]);
     storage.loadLastSessionForComputer.mockResolvedValue('blocked-mega-session');
     createSessionWithUniqueTitle.mockResolvedValueOnce({
       id: 'fresh-session',
@@ -1972,8 +1977,9 @@ describe('ChatScreen', () => {
     });
 
     const alertSpy = jest.spyOn(Alert, 'alert');
-    const { getByTestId, queryByTestId } = await renderChatScreen();
-    await waitFor(() => expect(getByTestId('chat-empty-state')).toBeTruthy());
+    const { getByTestId } = await renderChatScreen();
+    // Mega restores for reading; Send auto-freshs into a new session.
+    await waitFor(() => expect(getByTestId('mega-session-banner')).toBeTruthy());
 
     await act(async () => {
       fireEvent.changeText(getByTestId('chat-input'), 'make money today');
@@ -1998,7 +2004,6 @@ describe('ChatScreen', () => {
         expect.any(Function),
       );
     });
-    expect(queryByTestId('mega-session-banner')).toBeNull();
     alertSpy.mockRestore();
   });
 

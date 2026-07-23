@@ -192,13 +192,14 @@ describe('resolveSessionAfterListLoad', () => {
     ).toBeNull();
   });
 
-  it('never restores a remembered mega-blocked session after relaunch', () => {
+  it('restores a remembered mega-blocked session for reading after relaunch/reconnect', () => {
     const mega: HermesSession = {
       id: 'sess_mega',
       title: 'I believe we should separate th...',
       input_tokens: 1_632_047,
       last_active_at: '2026-07-14T21:38:00Z',
     };
+    // Prefer last thread for reading even when mega; Send still hard-gates Start fresh.
     expect(
       resolveSessionAfterListLoad({
         sessions: [mega, ...sessions],
@@ -207,7 +208,7 @@ describe('resolveSessionAfterListLoad', () => {
         rememberedSessionId: 'sess_mega',
         selectLatest: true,
       })?.id,
-    ).toBe('sess_a');
+    ).toBe('sess_mega');
   });
 
   it('keeps an already-open mega thread so Start fresh banner can render', () => {
@@ -228,7 +229,7 @@ describe('resolveSessionAfterListLoad', () => {
     ).toBeUndefined();
   });
 
-  it('opens empty chat when every candidate is mega-blocked', () => {
+  it('restores the only mega-blocked remembered session instead of empty New chat', () => {
     const mega: HermesSession = {
       id: 'sess_mega',
       title: 'too large',
@@ -242,8 +243,26 @@ describe('resolveSessionAfterListLoad', () => {
         currentSessionId: null,
         rememberedSessionId: 'sess_mega',
         selectLatest: true,
-      }),
-    ).toBeNull();
+      })?.id,
+    ).toBe('sess_mega');
+  });
+
+  it('still ignores remembered automated cron stickies', () => {
+    const cron: HermesSession = {
+      id: 'cron_dead',
+      source: 'cron',
+      title: 'nightly',
+      last_active_at: '2026-07-14T21:38:00Z',
+    };
+    expect(
+      resolveSessionAfterListLoad({
+        sessions: [cron, ...sessions],
+        projectState: { ...projectState, activeProjectId: null, projects: [] },
+        currentSessionId: null,
+        rememberedSessionId: 'cron_dead',
+        selectLatest: true,
+      })?.id,
+    ).toBe('sess_a');
   });
 });
 
