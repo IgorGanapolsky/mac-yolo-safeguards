@@ -92,7 +92,7 @@ describe("versioned agent governance", () => {
     expect(response.status).toBe(429);
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(await response.json()).toEqual({
-      error: "monthly cloud continuation limit reached",
+      error: "included Continuity runs used up — buy a run pack or wait for the next 30-day window",
       code: "cloud_task_limit",
       policyVersion: AGENT_GOVERNANCE_POLICY_VERSION,
     });

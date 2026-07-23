@@ -74,18 +74,22 @@ export function evaluateCloudContinuation(input: {
   organization: GovernanceOrganization;
   cloudTasks: number | null | undefined;
   cloudTaskDelta: 0 | 1;
+  /** Extra Continuity runs from pack purchases. */
+  cloudTaskBonus?: number | null;
   now?: number;
 }): GovernanceDecision {
   if (!hasCloudContinuationAccess(input.organization, input.now)) {
     return deny("cloud", "cloud_entitlement_required", "managed cloud continuation requires an active trial or subscription", 402);
   }
-  const limit = cloudTaskLimit(input.organization.plan);
+  const limit = cloudTaskLimit(input.organization.plan) + safeCount(input.cloudTaskBonus);
   const projected = safeCount(input.cloudTasks) + input.cloudTaskDelta;
   if (projected > limit) {
     return deny(
       "cloud",
       "cloud_task_limit",
-      input.organization.plan === "trial" ? "trial cloud continuation limit reached" : "monthly cloud continuation limit reached",
+      input.organization.plan === "trial"
+        ? "trial Continuity run limit reached — upgrade or buy a run pack"
+        : "included Continuity runs used up — buy a run pack or wait for the next 30-day window",
       429,
       limit,
       projected,
@@ -98,6 +102,7 @@ export function evaluateTaskAdmission(input: {
   organization: GovernanceOrganization;
   route: "local" | "cloud" | "blocked";
   usage: Partial<TaskUsage>;
+  cloudTaskBonus?: number | null;
   now?: number;
 }): GovernanceDecision {
   if (!hasLocalControlAccess(input.organization.plan)) {
@@ -118,6 +123,7 @@ export function evaluateTaskAdmission(input: {
       organization: input.organization,
       cloudTasks: input.usage.cloudTasks,
       cloudTaskDelta: 1,
+      cloudTaskBonus: input.cloudTaskBonus,
       now: input.now,
     });
   }

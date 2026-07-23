@@ -4,6 +4,18 @@ import { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent, useCallbac
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
+type ContinuityUsage = {
+  used: number;
+  baseLimit: number;
+  bonus: number;
+  limit: number;
+  remaining: number;
+  windowDays: number;
+  cloudAccess: boolean;
+  plan: string;
+  packConfigured: boolean;
+  packRuns: number;
+};
 type Device = {
   id: string;
   name: string;
@@ -91,6 +103,7 @@ function clampSidebarWidth(width: number) {
 export default function DashboardClient() {
   const [user, setUser] = useState<User | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
+  const [continuityUsage, setContinuityUsage] = useState<ContinuityUsage | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -173,8 +186,10 @@ export default function DashboardClient() {
       window.location.replace(`/api/auth/login?return_to=${encodeURIComponent(returnTo)}`);
       return;
     }
-    const identity = await me.json() as { user: User; organization: Organization };
-    setUser(identity.user); setOrganization(identity.organization);
+    const identity = await me.json() as { user: User; organization: Organization; continuityUsage?: ContinuityUsage };
+    setUser(identity.user);
+    setOrganization(identity.organization);
+    setContinuityUsage(identity.continuityUsage ?? null);
     const [deviceResponse, threadResponse, taskResponse] = await Promise.all([
       fetch("/api/devices", { cache: "no-store" }), fetch("/api/threads", { cache: "no-store" }), fetch("/api/tasks", { cache: "no-store" }),
     ]);
@@ -290,9 +305,27 @@ export default function DashboardClient() {
     const body = await response.json() as { error?: string }; setNotice(response.ok ? "Cloud failover approved." : body.error ?? "Failover failed"); await load();
   }
 
+  async function buyContinuityPack() {
+    setBusy(true);
+    setNotice(null);
+    const response = await fetch("/api/billing/checkout", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "pack" }),
+    });
+    const body = await response.json() as { url?: string; error?: string };
+    if (response.ok && body.url) window.location.href = body.url;
+    else setNotice(body.error ?? "Run pack checkout unavailable");
+    setBusy(false);
+  }
+
   async function subscribe() {
     setBusy(true);
-    const response = await fetch("/api/billing/checkout", { method: "POST" });
+    const response = await fetch("/api/billing/checkout", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "subscription" }),
+    });
     const body = await response.json() as { url?: string; error?: string };
     if (response.ok && body.url) window.location.href = body.url; else setNotice(body.error ?? "Checkout is unavailable");
     setBusy(false);
@@ -503,9 +536,42 @@ export default function DashboardClient() {
         <nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">
           <a className="metric-card" href="#web-settings" aria-label={`View ${devices.length} paired machines in settings`}><span>Paired machines</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>View machines →</b></a>
           <a className="metric-card" href="#task-activity" aria-label={`View ${activeTasks.length} active tasks`}><span>Active tasks</span><strong>{activeTasks.length}</strong><small>{tasks.filter((task) => task.route === "cloud" && !terminal.has(task.status)).length} routed to cloud</small><b>View activity →</b></a>
-          <a className="metric-card" href="#task-activity" aria-label={`View task receipts; P95 completion is ${latency(p95CompletionLatency)}`}><span>P95 completion</span><strong>{latency(p95CompletionLatency)}</strong><small>{p95CompletionLatency === null ? "Waiting for completed runs" : "Measured from real task receipts"}</small><b>View receipts →</b></a>
+          <a className="metric-card" href="#continuity-usage" aria-label={continuityUsage?.cloudAccess ? `Continuity usage ${continuityUsage.used} of ${continuityUsage.limit} runs` : "Continuity usage unavailable"}><span>Continuity runs</span><strong>{continuityUsage?.cloudAccess ? `${continuityUsage.used}/${continuityUsage.limit}` : "—"}</strong><small>{continuityUsage?.cloudAccess ? `${continuityUsage.remaining} left · ${continuityUsage.windowDays}d window${continuityUsage.bonus ? ` · +${continuityUsage.bonus} pack` : ""}` : "Trial or Pro required"}</small><b>Usage details →</b></a>
           <a className="metric-card" href="#execution-safety" aria-label="Explain fenced execution safety" onClick={() => setSafetyExpanded(true)}><span>Execution safety</span><strong className="safe-copy">Fenced</strong><small>One signed runner; 90-second lease</small><b>Explain safety →</b></a>
         </nav>
+        {continuityUsage?.cloudAccess && (
+          <section className="panel continuity-usage-panel" id="continuity-usage">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">CONTINUITY</p>
+                <h2>Included VPS runs</h2>
+              </div>
+              <span>{continuityUsage.remaining} remaining</span>
+            </div>
+            <p className="helper-copy">
+              Flat Continuity plan includes {continuityUsage.baseLimit} cloud runs every {continuityUsage.windowDays} days
+              {continuityUsage.bonus > 0 ? ` plus ${continuityUsage.bonus} from packs` : ""}.
+              Used {continuityUsage.used} of {continuityUsage.limit}.
+              Pick <strong>Continuity (VPS)</strong> on any task to spend a run — not only when a Mac is offline.
+            </p>
+            <div className="continuity-usage-bar" aria-hidden="true">
+              <i style={{ width: `${continuityUsage.limit ? Math.min(100, Math.round((continuityUsage.used / continuityUsage.limit) * 100)) : 0}%` }} />
+            </div>
+            {continuityUsage.remaining === 0 && (
+              <p className="helper-copy">
+                Included runs are used up.
+                {continuityUsage.packConfigured
+                  ? ` Buy a +${continuityUsage.packRuns} run pack, or wait for the next window.`
+                  : " Wait for the next 30-day window, or ask ops to enable run packs (STRIPE_CONTINUITY_PACK_PRICE_ID)."}
+              </p>
+            )}
+            {continuityUsage.packConfigured && (
+              <button type="button" className="button button-secondary button-small" disabled={busy} onClick={() => void buyContinuityPack()}>
+                Buy +{continuityUsage.packRuns} Continuity runs →
+              </button>
+            )}
+          </section>
+        )}
 
         <div className="dashboard-grid">
           <section className="panel task-panel" id="hermes-console">
