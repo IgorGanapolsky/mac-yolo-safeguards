@@ -2,36 +2,45 @@
 
 Agent: `cursor-asc-rename-ship` · App `6786778037` / `com.iganapolsky.hermesmobile`
 
-## Attempt: live name PATCH
+## Why "hermes mobile" search does not show us (Igor screenshot + iTunes)
 
-PATCH `/v1/appInfoLocalizations/{READY_FOR_SALE en-US}` with:
+Fresh `itunes.apple.com/search?term=hermes%20mobile&entity=software&country=us&limit=200` (2026-07-23):
 
-- name: `Hermes Mobile: AI Agent`
-- subtitle: `Chat & approve Mac tools`
+| Rank | App | Why it wins |
+|------|-----|-------------|
+| **#1** | **Hermes Mobile** (`ch.dataphone.Hermes`) | Exact title match + Swiss logistics/truck brand; owns the query |
+| #2–4 | Hermex, HermesPilot, Atomic Hermes | Ratings + "Hermes"/"AI Agent" in title |
+| **#74** | **Ours** — still titled **Hermes AI Agent Leash** | Name has "Hermes" but **not** "Mobile"; near-zero install signal |
 
-**Result:** HTTP **409** `ENTITY_ERROR.ATTRIBUTE.INVALID.INVALID_STATE`
+Web App Store first screen matches Igor’s screenshot: truck **Hermes Mobile**, Hermex, HermesPilot, Atomic Hermes — not us.
 
-- “The field 'name' can not be modified in the current state.”
-- “The field 'subtitle' can not be modified in the current state.”
+## Live name cannot flip today
 
-## ASC appInfo states (API read)
+PATCH live `READY_FOR_SALE` appInfoLocalization name → **409**  
+`The field 'name' can not be modified in the current state.`
 
-| appStoreState | name | subtitle |
-|---------------|------|----------|
-| READY_FOR_SALE (live v1.3) | Hermes AI Agent Leash | Hermes AI agent for your Mac |
-| WAITING_FOR_REVIEW (v1.4) | Hermes Mobile: AI Agent | Chat & approve Mac tools |
+Same for subtitle.
 
-v1.4 keywords (en-US): `remote,coding,devtools,leash,operator,safety,pair,tailscale,desktop,usb,wifi,phone,block,qr,command`  
-v1.4: `WAITING_FOR_REVIEW`, `releaseType: AFTER_APPROVAL`, review submission submitted ~2026-07-23T13:02Z.
+## What IS already staged / just patched
 
-## Public iTunes (same session)
+| Surface | State | Name / meta |
+|---------|-------|-------------|
+| Public iTunes (v1.3) | LIVE | still `Hermes AI Agent Leash` |
+| ASC appInfo WAITING_FOR_REVIEW (v1.4) | In queue ~3h+ | **`Hermes Mobile: AI Agent`** + subtitle `Chat & approve Mac tools` |
+| Live v1.3 promotionalText | **Patched now** | Starts with `Hermes Mobile:` (READY_FOR_SALE allows promo only) |
+| v1.4 keywords + promo | **Patched now** | keywords ≤100 + same promo; name already correct |
 
-- lookup `id=6786778037`: trackName **Hermes AI Agent Leash**, version **1.3**
-- search exact `Hermes Mobile: AI Agent`: our app still listed under old trackName (#3)
-- search `hermes ai`: our bundle **absent** from top 8 (competitors)
+v1.4: `WAITING_FOR_REVIEW`, `releaseType: AFTER_APPROVAL`, submitted ~2026-07-23T13:02Z.
 
-## Honesty
+## When the user will see us for "hermes mobile"
 
-Public App Store display name changes when **1.4 is Approved and auto-released** — not via live metadata-only edit, not via Expo OTA, and not by burning a new binary for this rename (1.4 already carries it).
+1. Apple Approves **1.4** and it auto-releases (`AFTER_APPROVAL`).
+2. Public `trackName` becomes **Hermes Mobile: AI Agent** (iTunes/App Store index; often minutes–hours after release).
+3. Then exact/phrase search should jump far above #74 because title contains **Hermes Mobile**.  
+   **Honesty:** the logistics app titled exactly **Hermes Mobile** may still beat us on that exact query (title exact-match + age). We should appear on the first screen once renamed; we will not overnight “own” the query vs the truck app.
 
-Repo `fastlane/metadata/ios/en-US/{name,subtitle,keywords}.txt` already match the staged 1.4 copy.
+**Not available:** metadata-only live rename; Expo OTA; ASC API expedited review (Contact Us only; marketing rename is not a valid expedite reason — do not burn it).
+
+## Repo
+
+`fastlane/metadata/ios/en-US/{name,subtitle,keywords,promotional_text}.txt` aligned to staged 1.4 + live promo patch.

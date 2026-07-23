@@ -45,6 +45,13 @@
 | Exact-title iTunes search | Still ranks old trackName (#3 under similar queries) | Expect #1 for exact `Hermes Mobile: AI Agent` **after** 1.4 goes live (index lag possible) |
 | Broad `hermes ai` SERP | Competitors own top slots | May stay buried even after rename — install/rating velocity, not title alone |
 
+## "hermes mobile" SERP (2026-07-23 — Igor fury)
+
+- iTunes US: **ours #74** as `Hermes AI Agent Leash`; **#1 = logistics truck app** literally named **Hermes Mobile** (`ch.dataphone.Hermes`).
+- First screen = Hermex / truck Hermes Mobile / HermesPilot / Atomic Hermes — matches screenshot.
+- **Live name still 409-locked.** Staged on 1.4. **Live promo patched** to lead with `Hermes Mobile:` (does not replace title ranking).
+- Public first-screen for “hermes mobile” only after **1.4 Approved + release**. Truck app may still rank above us on that exact phrase.
+
 ## Still blocked / follow-ups
 
 - Phone was offline the scrub session — privacy cover of existing captures, not a fresh demo recapture. Re-run `capture-store-screenshots.sh` when device is available for pristine UI.
