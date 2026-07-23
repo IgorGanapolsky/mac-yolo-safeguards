@@ -50,6 +50,9 @@ function makeJwt() {
     JSON.stringify({ iss: process.env.EXPO_ASC_API_KEY_ISSUER_ID, iat: now, exp: now + 1200, aud: 'appstoreconnect-v1' }),
   ).toString('base64url');
   const data = `${header}.${payload}`;
+  // NOT a password hash: this is an ES256 (ECDSA-SHA256) JWT signature used to
+  // authenticate as an App Store Connect API key, per Apple's required auth
+  // scheme. SHA256 is the mandated digest for ES256 — not user password storage.
   const sign = crypto.createSign('SHA256');
   sign.update(data);
   sign.end();
@@ -110,6 +113,11 @@ async function ascUploadBinaryAsset(filePath, { reservePath, reserveData, assetT
   const fileBytes = fs.readFileSync(filePath);
   const fileName = path.basename(filePath);
   const fileSize = fileBytes.length;
+  // NOT a password hash: Apple's App Store Connect API contract requires the
+  // `sourceFileChecksum` attribute on binary-asset PATCH requests to be an MD5
+  // hex digest of the uploaded bytes (integrity check, not a security boundary).
+  // See https://developer.apple.com/documentation/appstoreconnectapi — changing
+  // this algorithm would produce a checksum Apple's servers reject.
   const sourceFileChecksum = crypto.createHash('md5').update(fileBytes).digest('hex');
 
   const reserved = await ascPost(reservePath, {
