@@ -33,7 +33,16 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /<BillingPlan \/>/);
   assert.match(page, /LandingAuthHero|LandingAuthNav/);
   assert.doesNotMatch(page, /currentSession\(/);
+  assert.match(page, /<FailoverPathDemo \/>/);
+  assert.match(page, /Approve the call\. Survive the lid close\./);
   assert.doesNotMatch(page, /\$29|price: "29"/);
+  const failoverDemo = await readFile(new URL("../app/FailoverPathDemo.tsx", import.meta.url), "utf8");
+  assert.match(failoverDemo, /Deny call/);
+  assert.match(failoverDemo, /Approve call/);
+  assert.match(failoverDemo, /Continue in cloud/);
+  assert.match(failoverDemo, /needs_failover/);
+  assert.match(failoverDemo, /offline_blocked/);
+  assert.match(failoverDemo, /Interactive demo · no real tools run/);
   assert.match(billingPlan, /\/api\/billing\/plan/);
   assert.match(billingPlanRoute, /STRIPE_PRICE_ID/);
   assert.match(billingPlanRoute, /unitAmount: price\.unit_amount/);
