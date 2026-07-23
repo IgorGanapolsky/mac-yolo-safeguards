@@ -40,6 +40,10 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /data-funnel-event="app_store_click"/);
   assert.match(page, /id="mobile"/);
   assert.match(page, /Google Play/);
+  assert.match(page, /RemoteControlDiagram/);
+  const diagram = await readFile(new URL("../app/RemoteControlDiagram.tsx", import.meta.url), "utf8");
+  assert.match(diagram, /Your phone/);
+  assert.match(diagram, /Encrypted pairing/);
   assert.match(page, /App Store/);
   const storeLinks = await readFile(new URL("../app/storeLinks.ts", import.meta.url), "utf8");
   const androidGo = await readFile(new URL("../app/go/android/route.ts", import.meta.url), "utf8");

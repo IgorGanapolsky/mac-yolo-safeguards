@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BillingPlan } from "./BillingPlan";
 import { FailoverPathDemo } from "./FailoverPathDemo";
 import { FunnelSignals } from "./FunnelSignals";
+import { RemoteControlDiagram } from "./RemoteControlDiagram";
 import {
   LandingAuthHero,
   LandingAuthNav,
@@ -81,6 +82,7 @@ export default function Home() {
         </div>
 
         <nav className="hero-console hero-actions-panel" aria-label="Private workspace actions">
+          <RemoteControlDiagram />
           <LandingAuthPanel />
         </nav>
       </section>
