@@ -166,11 +166,22 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 @media(max-width:700px){
   :root{
     --mobile-tab-h:calc(64px + env(safe-area-inset-bottom,0px));
-    --composer-dock-space:220px;
+    --composer-dock-space:240px;
   }
   body{padding-bottom:0}
   /* Clear sticky composer + bottom tabs so Run never hides under chrome */
   .dashboard-main{padding-bottom:calc(var(--mobile-tab-h) + var(--composer-dock-space))}
+  /* Toasts must sit above the dock — top-of-screen on phone, never under metrics bleed */
+  .notice.notice-toast{
+    position:fixed;
+    z-index:80;
+    top:max(10px, env(safe-area-inset-top, 0px));
+    left:10px;
+    right:10px;
+    margin:0;
+    border-radius:14px;
+    box-shadow:0 12px 40px rgba(0,0,0,.45);
+  }
   .sidebar-resize-handle{display:none}
   .sidebar{position:sticky;top:0;z-index:20;background:rgba(9,11,20,.92);backdrop-filter:blur(18px)}
   .sidebar{padding:10px 14px}
@@ -187,23 +198,29 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .chat-dialog-backdrop{padding:14px}
   .chat-dialog{padding:22px}
   .panel,.metric-grid{border-radius:20px}
+  /* Keep metric cards under the dock so they never steal taps */
+  .metric-grid{position:relative;z-index:1}
   .conversation-message{max-width:94%}
   .conversation-history{max-height:min(42vh,360px)}
   .task-panel .panel-heading{padding-inline:14px}
-  /* Sticky composer dock: always above bottom tabs; never clipped */
+  #task-activity{
+    scroll-margin-bottom:calc(var(--mobile-tab-h) + var(--composer-dock-space) + 24px);
+    scroll-margin-top:80px;
+  }
+  /* Sticky composer dock: solid opaque so metrics never bleed through */
   .task-panel .composer{
     position:fixed;
-    z-index:45;
+    z-index:55;
     left:0;
     right:0;
     bottom:var(--mobile-tab-h);
     margin:0;
     padding:10px 12px 12px;
-    background:rgba(9,11,20,.97);
+    background:#0B0F19;
     border-top:1px solid var(--line);
-    box-shadow:0 -14px 40px rgba(0,0,0,.4);
-    backdrop-filter:blur(18px);
-    -webkit-backdrop-filter:blur(18px);
+    box-shadow:0 -14px 40px rgba(0,0,0,.55);
+    isolation:isolate;
+    pointer-events:auto;
   }
   .composer textarea{
     min-height:64px;

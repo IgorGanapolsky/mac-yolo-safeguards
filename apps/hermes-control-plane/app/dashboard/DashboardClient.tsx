@@ -272,26 +272,58 @@ export default function DashboardClient() {
   }
 
   async function createTask(event: FormEvent) {
-    event.preventDefault(); if (!prompt.trim()) return;
-    setBusy(true); setNotice(null);
-    const response = await fetch("/api/tasks", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        prompt,
-        threadId: selectedThread,
-        idempotencyKey: crypto.randomUUID(),
-        routePreference,
-      }),
-    });
-    const body = await response.json() as { task?: { route: string; threadId: string; preference?: string }; error?: string };
-    setNotice(
-      response.ok && body.task
-        ? `Task routed ${body.task.route}${body.task.preference ? ` (${body.task.preference})` : ""}.`
-        : body.error ?? "Task routing failed",
-    );
-    if (response.ok && body.task) { setPrompt(""); setSelectedThread(body.task.threadId); await load(); }
-    setBusy(false);
+    event.preventDefault();
+    const text = prompt.trim();
+    if (!text) {
+      setNotice("Type a message first, then tap Run task.");
+      return;
+    }
+    if (!devices.length) {
+      setNotice("Pair a Mac first (open Settings → run the installer).");
+      return;
+    }
+    setBusy(true);
+    setNotice(null);
+    try {
+      const response = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          prompt: text,
+          threadId: selectedThread,
+          idempotencyKey: crypto.randomUUID(),
+          routePreference,
+        }),
+      });
+      let body: { task?: { route: string; threadId: string; preference?: string }; error?: string } = {};
+      try {
+        body = await response.json() as typeof body;
+      } catch {
+        setNotice(`Could not start task (HTTP ${response.status}). Try again.`);
+        return;
+      }
+      if (response.ok && body.task) {
+        const where =
+          body.task.route === "cloud"
+            ? "Continuity VPS"
+            : body.task.route === "local"
+              ? "your Mac"
+              : "awaiting route";
+        setNotice(`Sent — running on ${where}.`);
+        setPrompt("");
+        setSelectedThread(body.task.threadId);
+        await load();
+        window.requestAnimationFrame(() => {
+          document.getElementById("task-activity")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      } else {
+        setNotice(body.error ?? "Task routing failed");
+      }
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Network error — task not sent.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function updateFailover(deviceId: string, failoverMode: Device["failoverMode"]) {
@@ -527,7 +559,12 @@ export default function DashboardClient() {
 
       <section className="dashboard-main">
         <header className="dashboard-header"><div><p className="eyebrow">HERMES WEB</p><h1>{selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title : "Your Hermes workspace"}</h1></div><div className="header-actions"><span className="status-chip online"><i /> ThumbGate online</span><button className="button button-small button-secondary" onClick={() => void (["pro", "team"].includes(organization.plan) ? manageBilling() : subscribe())} disabled={busy}>{["pro", "team"].includes(organization.plan) ? "Manage plan" : organization.cloudAccess ? "Keep cloud after trial" : "Add cloud failover"}</button></div></header>
-        {notice && <div className="notice" role="status"><span>{notice}</span><button onClick={() => setNotice(null)}>×</button></div>}
+        {notice && (
+          <div className="notice notice-toast" role="status" aria-live="polite">
+            <span>{notice}</span>
+            <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss">×</button>
+          </div>
+        )}
 
         <nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">
           <a className="metric-card" href="#web-settings" aria-label={`View ${devices.length} paired machines in settings`}><span>Paired machines</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>View machines →</b></a>
@@ -549,7 +586,7 @@ export default function DashboardClient() {
                   : null,
               ])}
             </div>}
-            <form className="composer" onSubmit={createTask}>
+            <form className="composer" onSubmit={(event) => void createTask(event)}>
               <textarea
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
@@ -557,6 +594,7 @@ export default function DashboardClient() {
                 rows={3}
                 enterKeyHint="send"
                 aria-label="Message for Hermes"
+                disabled={busy}
               />
               <div className="composer-route" role="group" aria-label="Where to run this task">
                 <span className="composer-route-label">Run on</span>
@@ -586,8 +624,13 @@ export default function DashboardClient() {
                         ? "Always your paired Mac (blocks if offline — no silent Continuity)"
                         : "Mac while online; if offline, use each Mac’s offline setting"}
                 </small>
-                <button className="button button-primary button-small composer-run" disabled={busy || !devices.length || !prompt.trim()}>
-                  Run task →
+                <button
+                  type="submit"
+                  className="button button-primary button-small composer-run"
+                  disabled={busy || !devices.length}
+                  aria-busy={busy}
+                >
+                  {busy ? "Sending…" : !devices.length ? "Pair a Mac first" : "Run task →"}
                 </button>
               </div>
             </form>
