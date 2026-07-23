@@ -192,6 +192,33 @@ describe('resolveSessionAfterListLoad', () => {
     ).toBeNull();
   });
 
+  it('machine switch resumes this Mac remembered session and ignores continuity foreign id', () => {
+    expect(
+      resolveSessionAfterListLoad({
+        sessions,
+        projectState: { ...projectState, activeProjectId: null, projects: [] },
+        currentSessionId: null,
+        rememberedSessionId: 'sess_b',
+        continuityPreviousSessionId: 'sess_a',
+        machineSwitch: true,
+        selectLatest: true,
+      })?.id,
+    ).toBe('sess_b');
+  });
+
+  it('machine switch opens newest sendable when memory missing', () => {
+    expect(
+      resolveSessionAfterListLoad({
+        sessions,
+        projectState: { ...projectState, activeProjectId: null, projects: [] },
+        currentSessionId: null,
+        rememberedSessionId: null,
+        machineSwitch: true,
+        selectLatest: true,
+      })?.id,
+    ).toBe('sess_a');
+  });
+
   it('never restores a remembered mega-blocked session after relaunch', () => {
     const mega: HermesSession = {
       id: 'sess_mega',

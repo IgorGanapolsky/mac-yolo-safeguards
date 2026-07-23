@@ -1,6 +1,7 @@
 import type { HermesSession } from '../types/chat';
 import type { ChatProjectState } from '../types/chatProject';
 import { shouldClearMissingCurrentSession } from './disconnectMessagePreserve';
+import { pickSessionAfterComputerSwitch } from './profileSwitchSessionRestore';
 import { pickDefaultSession } from './sessionSelection';
 import { isSendableChatSession } from './sessionSendTarget';
 import { isMegaSessionSendBlocked } from './sessionTokenGuards';
@@ -18,6 +19,12 @@ export type SessionListSelectionInput = {
    * Never used when that id is mega-blocked (compose-first + inject instead).
    */
   continuityPreviousSessionId?: string | null;
+  /**
+   * True after intentional Choose-computer switch. Skips global continuity
+   * previousSessionId (belongs to the other Mac) and always prefers this
+   * machine's remembered / newest sendable thread.
+   */
+  machineSwitch?: boolean;
   skipAutoSelect?: boolean;
   selectLatest?: boolean;
 };
@@ -74,9 +81,24 @@ export function resolveSessionAfterListLoad(
     manualSelectSessionId,
     rememberedSessionId,
     continuityPreviousSessionId,
+    machineSwitch,
     skipAutoSelect,
     selectLatest,
   } = input;
+
+  // Computer switch: always resolve a target-Mac thread (or compose-first).
+  // Never reuse continuity previousSessionId from the Mac we just left.
+  if (machineSwitch && !manualSelectSessionId && !skipAutoSelect) {
+    const switched = pickSessionAfterComputerSwitch({
+      sessions,
+      rememberedSessionId,
+      projectState,
+    });
+    if (!switched) {
+      return null;
+    }
+    return switched.id === currentSessionId ? undefined : switched;
+  }
 
   if (manualSelectSessionId) {
     const manual = sessions.find((session) => session.id === manualSelectSessionId);

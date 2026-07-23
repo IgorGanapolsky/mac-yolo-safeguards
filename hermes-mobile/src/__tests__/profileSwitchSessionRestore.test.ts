@@ -1,8 +1,10 @@
 import {
   isEmptyTranscriptWithSessionMeta,
+  pickSessionAfterComputerSwitch,
   resolveMessageHydrateCredentials,
   resolveProfileSwitchRestorePlan,
 } from '../utils/profileSwitchSessionRestore';
+import type { HermesSession } from '../types/chat';
 
 describe('profileSwitchSessionRestore', () => {
   const mini = {
@@ -60,6 +62,55 @@ describe('profileSwitchSessionRestore', () => {
         messageCount: 12,
       }),
     ).toBe(false);
+  });
+
+  it('pickSessionAfterComputerSwitch prefers remembered non-mega, then newest mobile', () => {
+    const sessions: HermesSession[] = [
+      {
+        id: 'mobile_old',
+        title: 'older mobile',
+        source: 'api_server',
+        last_active_at: '2026-07-20T00:00:00Z',
+        input_tokens: 1_000,
+      },
+      {
+        id: 'mobile_new',
+        title: 'newest mobile',
+        source: 'api_server',
+        last_active_at: '2026-07-23T12:00:00Z',
+        input_tokens: 2_000,
+      },
+      {
+        id: 'mega_poison',
+        title: 'too large',
+        last_active_at: '2026-07-23T13:00:00Z',
+        input_tokens: 521_000,
+      },
+    ];
+    expect(
+      pickSessionAfterComputerSwitch({
+        sessions,
+        rememberedSessionId: 'mobile_old',
+      })?.id,
+    ).toBe('mobile_old');
+    expect(
+      pickSessionAfterComputerSwitch({
+        sessions,
+        rememberedSessionId: 'mega_poison',
+      })?.id,
+    ).toBe('mobile_new');
+    expect(
+      pickSessionAfterComputerSwitch({
+        sessions,
+        rememberedSessionId: null,
+      })?.id,
+    ).toBe('mobile_new');
+    expect(
+      pickSessionAfterComputerSwitch({
+        sessions: [sessions[2]!],
+        rememberedSessionId: 'mega_poison',
+      }),
+    ).toBeNull();
   });
 
   it('prefers target Mac URL/key for post-switch hydrate (Greptile P1)', () => {

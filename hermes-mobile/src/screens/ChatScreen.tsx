@@ -2460,6 +2460,11 @@ export default function ChatScreen() {
       apiKeyOverride?: string | null;
       /** Bypass macChatLive gate during intentional profile switches. */
       forceWhileOffline?: boolean;
+      /**
+       * Intentional Choose-computer switch: resume THIS Mac's last/newest
+       * sendable thread; ignore continuity previousSessionId from the other Mac.
+       */
+      machineSwitch?: boolean;
     },
   ) => {
     const selectionProjectState = options?.projectState ?? projectState;
@@ -2543,8 +2548,11 @@ export default function ChatScreen() {
       );
       const rememberedSessionId = await storage.loadLastSessionForComputer(computerSessionKeys);
       // Continuity true-resume when prior thread is still sendable; never bind mega.
-      const continuityPreviousSessionId =
-        continuityHandoffRef.current?.previousSessionId ?? null;
+      // Skip on machine switch — previousSessionId is from the other Mac.
+      const machineSwitch = options?.machineSwitch === true;
+      const continuityPreviousSessionId = machineSwitch
+        ? null
+        : continuityHandoffRef.current?.previousSessionId ?? null;
 
       const resolvedSession = resolveSessionAfterListLoad({
         sessions: selectableSessions,
@@ -2553,6 +2561,7 @@ export default function ChatScreen() {
         manualSelectSessionId: manualSessionSelectRef.current,
         rememberedSessionId,
         continuityPreviousSessionId,
+        machineSwitch,
         skipAutoSelect,
         selectLatest,
       });
@@ -2688,6 +2697,7 @@ export default function ChatScreen() {
             gatewayUrlOverride: restorePlan.gatewayUrl,
             apiKeyOverride: profileKey,
             forceWhileOffline: true,
+            machineSwitch: true,
           });
           if (currentSessionRef.current) {
             await refreshSessionMessagesRef.current?.({

@@ -1,5 +1,15 @@
+import type { HermesSession } from '../types/chat';
+import type { ChatProjectState } from '../types/chatProject';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import { resolveComputerSessionStorageKeys } from './computerSessionStorage';
+import {
+  isMobileChatSession,
+  isTelegramSession,
+  pickDefaultSession,
+  sortSessionsByRecency,
+} from './sessionSelection';
+import { isSendableChatSession } from './sessionSendTarget';
+import { isMegaSessionSendBlocked } from './sessionTokenGuards';
 
 /**
  * Intentional computer switch must always clear local transcript + reload the
@@ -71,4 +81,54 @@ export function resolveMessageHydrateCredentials(input: {
     gatewayUrl: input.gatewayUrlOverride?.trim() || input.fallbackGatewayUrl,
     apiKey: input.apiKeyOverride ?? input.fallbackApiKey,
   };
+}
+
+/**
+ * After switching computers, pick which thread to open on the TARGET Mac.
+ *
+ * Product (2026-07-23):
+ * - Never keep the previous Mac's transcript (caller cleared).
+ * - Never auto-open hard-blocked mega sessions.
+ * - Prefer last session remembered for THIS machine, then newest mobile chat,
+ *   then any sendable default. Empty list → compose-first (null).
+ * - Do NOT use global continuity previousSessionId (that id belongs to the
+ *   other Mac and was the silent "empty New chat" resume failure).
+ */
+export function pickSessionAfterComputerSwitch(input: {
+  sessions: HermesSession[];
+  rememberedSessionId?: string | null;
+  projectState?: ChatProjectState | null;
+}): HermesSession | null {
+  const sessions = input.sessions.filter(
+    (session) =>
+      Boolean(session?.id?.trim()) &&
+      !isTelegramSession(session) &&
+      isSendableChatSession(session) &&
+      !isMegaSessionSendBlocked(session),
+  );
+  if (sessions.length === 0) {
+    return null;
+  }
+
+  const remembered = input.rememberedSessionId?.trim();
+  if (remembered) {
+    const match = sessions.find((session) => session.id === remembered);
+    if (match) {
+      return match;
+    }
+  }
+
+  const mobile = sortSessionsByRecency(sessions.filter(isMobileChatSession));
+  if (mobile[0]) {
+    return mobile[0];
+  }
+
+  if (input.projectState) {
+    const picked = pickDefaultSession(sessions, input.projectState);
+    if (picked && isSendableChatSession(picked) && !isMegaSessionSendBlocked(picked)) {
+      return picked;
+    }
+  }
+
+  return sortSessionsByRecency(sessions)[0] ?? null;
 }
