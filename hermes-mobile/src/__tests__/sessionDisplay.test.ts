@@ -17,6 +17,7 @@ import {
   shouldAutoTitleSession,
   isBackfillPreservedSessionTitle,
   ensureSessionCreatedAt,
+  isCronSessionId,
 } from '../utils/sessionDisplay';
 
 describe('sessionDisplay', () => {
@@ -398,5 +399,27 @@ describe('sessionDisplay', () => {
         preview: 'Reply with exactly: GUARDRAILS OK',
       }),
     ).toBe(false);
+  });
+});
+
+describe('isCronSessionId', () => {
+  it('recognizes cron_ prefixed ids', () => {
+    expect(isCronSessionId('cron_42446aa3dc68')).toBe(true);
+    expect(isCronSessionId('CRON_ABCDEF')).toBe(true);
+  });
+
+  it('recognizes "session cron <hex>" ids', () => {
+    expect(isCronSessionId('session cron 42446aa3dc68')).toBe(true);
+  });
+
+  it('does not flag a normal chat session id', () => {
+    expect(isCronSessionId('sess_user_new')).toBe(false);
+    expect(isCronSessionId('api-1f52b9d7dfb32d11')).toBe(false);
+  });
+
+  it('handles missing id without throwing', () => {
+    expect(isCronSessionId(undefined)).toBe(false);
+    expect(isCronSessionId(null)).toBe(false);
+    expect(isCronSessionId('')).toBe(false);
   });
 });

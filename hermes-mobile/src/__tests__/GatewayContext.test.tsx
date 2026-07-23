@@ -251,6 +251,32 @@ function ProgressProbe() {
       >
         seed
       </Text>
+      <Text
+        testID="seed-progress-cron"
+        onPress={() =>
+          gateway.setRunProgress({
+            phase: 'sending',
+            startedAtMs: Date.now(),
+            detail: 'Sending to your computer…',
+            sessionId: 'cron_42446aa3dc68',
+          })
+        }
+      >
+        seed-cron
+      </Text>
+      <Text
+        testID="seed-progress-chat"
+        onPress={() =>
+          gateway.setRunProgress({
+            phase: 'sending',
+            startedAtMs: Date.now(),
+            detail: 'Sending to your computer…',
+            sessionId: 'sess_user_normal',
+          })
+        }
+      >
+        seed-chat
+      </Text>
     </>
   );
 }
@@ -996,6 +1022,127 @@ describe('GatewayProvider', () => {
 
     await waitFor(() => {
       expect(getByTestId('run-progress-detail').props.children).toBe('none');
+    });
+  });
+
+  it('does not push a completion notification for a background cron session', async () => {
+    const approvalNotifications = jest.requireMock('../services/approvalNotifications');
+    (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
+      connectionMode: 'gateway',
+      cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      usePortal: false,
+      redactPii: true,
+      notificationsEnabled: true,
+      notificationApprovals: true,
+      notificationLiveRunStatus: true,
+      notificationCompletion: true,
+      demoMode: false,
+      glanceMode: false,
+      thumbgateCaptureOnDown: true,
+      thumbgateCaptureOnUp: false,
+      thumbgateApiUrl: 'https://thumbgate.example.com',
+    });
+
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <ProgressProbe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('connection-state').props.children).toBe('connected');
+    });
+
+    const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
+    const { AppState } = require('react-native');
+    const originalCurrentState = AppState.currentState;
+    Object.defineProperty(AppState, 'currentState', {
+      value: 'background',
+      configurable: true,
+    });
+
+    act(() => {
+      getByTestId('seed-progress-cron').props.onPress();
+    });
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          event: 'run.completed',
+          payload: { session_id: 'cron_42446aa3dc68' },
+        }),
+      });
+    });
+
+    await waitFor(() => {
+      expect(approvalNotifications.clearRunProgressNotification).toHaveBeenCalled();
+    });
+    expect(approvalNotifications.scheduleRunCompletedNotification).not.toHaveBeenCalled();
+
+    Object.defineProperty(AppState, 'currentState', {
+      value: originalCurrentState,
+      configurable: true,
+    });
+  });
+
+  it('still pushes a completion notification for a background chat session', async () => {
+    const approvalNotifications = jest.requireMock('../services/approvalNotifications');
+    (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
+      connectionMode: 'gateway',
+      cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      usePortal: false,
+      redactPii: true,
+      notificationsEnabled: true,
+      notificationApprovals: true,
+      notificationLiveRunStatus: true,
+      notificationCompletion: true,
+      demoMode: false,
+      glanceMode: false,
+      thumbgateCaptureOnDown: true,
+      thumbgateCaptureOnUp: false,
+      thumbgateApiUrl: 'https://thumbgate.example.com',
+    });
+
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <ProgressProbe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('connection-state').props.children).toBe('connected');
+    });
+
+    const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
+    const { AppState } = require('react-native');
+    const originalCurrentState = AppState.currentState;
+    Object.defineProperty(AppState, 'currentState', {
+      value: 'background',
+      configurable: true,
+    });
+
+    act(() => {
+      getByTestId('seed-progress-chat').props.onPress();
+    });
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          event: 'run.completed',
+          payload: { session_id: 'sess_user_normal' },
+        }),
+      });
+    });
+
+    await waitFor(() => {
+      expect(approvalNotifications.scheduleRunCompletedNotification).toHaveBeenCalled();
+    });
+
+    Object.defineProperty(AppState, 'currentState', {
+      value: originalCurrentState,
+      configurable: true,
     });
   });
 
