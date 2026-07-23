@@ -3,7 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 const { discoverPattern } = require('./ops-paths');
 
 const usage = `Usage:
@@ -126,11 +126,15 @@ function main() {
       continue;
     }
 
-    // Execute open command
+    // Execute open command. Use execFileSync with an argv array instead of
+    // building a shell string: hand-escaping only `"` for a double-quoted
+    // shell string still leaves `$`, backticks, and `\` live, so a crafted
+    // action_value (e.g. containing `$(...)`) could inject a command.
+    // execFileSync never invokes a shell, so action_value is passed to
+    // `open` as a single literal argument — no escaping needed at all.
     log(`Opening action: ${action.action_value.slice(0, 100)}...`);
     try {
-      let cmd = `open "${action.action_value.replace(/"/g, '\\"')}"`;
-      execSync(cmd, { stdio: 'inherit' });
+      execFileSync('open', [action.action_value], { stdio: 'inherit' });
       log('Successfully opened action via OS open command.');
     } catch (err) {
       log(`Warning: Failed to execute open command: ${err.message}`);

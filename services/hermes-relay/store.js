@@ -47,7 +47,14 @@ function slugify(input) {
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+    // Two anchored, non-global replaces instead of the classic
+    // `/^-+|-+$/g` trim-polyfill pattern: that global alternation-of-anchors
+    // shape is a known polynomial-ReDoS trap (js/polynomial-redos) once it
+    // runs on attacker-influenced input (this feeds worker-supplied
+    // machineId), because the engine retries the `-+$` branch at every
+    // position instead of stopping after one anchored match.
+    .replace(/^-+/, '')
+    .replace(/-+$/, '')
     .slice(0, 48) || 'worker';
 }
 
