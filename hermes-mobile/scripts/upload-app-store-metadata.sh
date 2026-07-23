@@ -121,6 +121,14 @@ if (fs.existsSync(shotDir) && !['1', 'true', 'yes'].includes((process.env.ASC_SK
   }
 }
 
+const useLive = ['1', 'true', 'yes'].includes((process.env.ASC_USE_LIVE_VERSION || '').toLowerCase());
+// fastlane 2.233+: SyncAppPreviews calls get_edit_app_store_version (not live) and
+// NoMethodErrors when only a READY_FOR_SALE version exists. Skip previews for live
+// screenshot-only uploads (CI ASC_USE_LIVE_VERSION=1).
+const skipPreviews =
+  ['1', 'true', 'yes'].includes((process.env.ASC_SKIP_PREVIEWS || '').toLowerCase()) ||
+  useLive;
+
 const args = [
   'deliver',
   '--app_identifier',
@@ -133,25 +141,25 @@ const args = [
   'fastlane/metadata/ios',
   '--screenshots_path',
   'fastlane/screenshots',
-  '--app_preview_path',
-  'fastlane/app_previews',
   '--skip_binary_upload',
   'true',
   '--skip_app_version_update',
   'true',
   '--overwrite_screenshots',
   'true',
-  '--overwrite_preview_videos',
-  'true',
   '--precheck_include_in_app_purchases',
   'false',
   '--force',
   'true',
 ];
+if (!skipPreviews) {
+  args.push('--app_preview_path', 'fastlane/app_previews');
+  args.push('--overwrite_preview_videos', 'true');
+}
 if (rejectFirst) {
   args.push('--reject_if_possible', 'true');
 }
-if (['1', 'true', 'yes'].includes((process.env.ASC_USE_LIVE_VERSION || '').toLowerCase())) {
+if (useLive) {
   args.push('--use_live_version', 'true');
   args.push('--edit_live', 'true');
 }
