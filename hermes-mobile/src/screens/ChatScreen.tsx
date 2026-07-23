@@ -2899,7 +2899,8 @@ export default function ChatScreen() {
         }
         const reconciled = reconcileChatHistory(merged, localBefore);
         const resolved = clearResolvedFailedOutboundStatuses(reconciled);
-        const nextMessages = resolved.messages;
+        // Refresh bypasses commitMessages — still collapse gateway-acked + user-* echo pairs.
+        const nextMessages = dedupeAdjacentOptimisticUserBubbles(resolved.messages);
         const digest =
           transcriptDigest(nextMessages) + (resolved.cleared ? '|outbound-cleared' : '');
         if (digest === transcriptDigestRef.current) {

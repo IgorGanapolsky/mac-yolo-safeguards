@@ -144,6 +144,25 @@ describe('mergeServerMessagesWithPending', () => {
     expect(merged[0]?.outboundStatus).toBe('pending');
   });
 
+  it('transfers failed stall status onto server user line when optimistic duplicate is dropped', () => {
+    const prompt = 'Make money faster';
+    const server: HermesMessage[] = [{ id: 'gw-u', role: 'user', content: prompt }];
+    const local: HermesMessage[] = [
+      {
+        id: 'user-1',
+        role: 'user',
+        content: prompt,
+        outboundStatus: 'failed',
+        outboundFailureReason: 'Run stalled on your Mac — recovering automatically…',
+      },
+    ];
+    const merged = mergeServerMessagesWithPending(server, local);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.id).toBe('gw-u');
+    expect(merged[0]?.outboundStatus).toBe('failed');
+    expect(merged[0]?.outboundFailureReason).toContain('Run stalled');
+  });
+
   it('drops an optimistic prompt when the gateway appends a separate context block', () => {
     const prompt = 'Can you pick up where you left off????';
     const server: HermesMessage[] = [

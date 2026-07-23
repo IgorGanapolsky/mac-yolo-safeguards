@@ -128,4 +128,25 @@ describe('stalledChatRecovery', () => {
     expect(after.filter((m) => m.role === 'user' && m.content === prompt)).toHaveLength(1);
     expect(after[0]?.outboundStatus).toBe('pending');
   });
+
+  it('stall recovery reuses gateway-acked failed turn — no second Make money faster bubble', () => {
+    const prompt = 'Make money faster';
+    const messages: HermesMessage[] = [
+      {
+        id: 'gw-scheduled-job-u1',
+        role: 'user',
+        content: prompt,
+        created_at: '2026-07-22T20:07:00.000Z',
+        outboundStatus: 'failed',
+        outboundFailureReason: 'Run stalled on your Mac — recovering automatically…',
+      },
+    ];
+    expect(findLastStalledFailedOutboundText(messages)).toBe(prompt);
+    const reusable = findReusableOptimisticUserBubble(messages, prompt);
+    expect(reusable?.id).toBe('gw-scheduled-job-u1');
+    const after = reactivateOptimisticUserBubble(messages, reusable!.id!);
+    expect(after.filter((m) => m.role === 'user' && m.content === prompt)).toHaveLength(1);
+    expect(after[0]?.id).toBe('gw-scheduled-job-u1');
+    expect(after[0]?.outboundStatus).toBe('pending');
+  });
 });
