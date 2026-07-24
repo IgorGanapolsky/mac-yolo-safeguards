@@ -294,15 +294,17 @@ export default function DashboardClient() {
         }
       } else setFeedback({});
     }
-  }, []);
+  }, [selectedThread]);
 
-  const loadThreadDetails = useCallback(async (threadId: string | null) => {
-    if (!threadId) { setThreadDetails(null); return; }
-    const detailResponse = await fetch(`/api/thread-messages?thread_id=${encodeURIComponent(threadId)}`, { cache: "no-store" });
-    if (detailResponse.ok) setThreadDetails(await detailResponse.json() as ThreadDetails);
-  }, []);
-
-  useEffect(() => { void loadThreadDetails(selectedThread); }, [selectedThread, loadThreadDetails]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!selectedThread) { setThreadDetails(null); return; }
+    const controller = new AbortController();
+    fetch(`/api/thread-messages?thread_id=${encodeURIComponent(selectedThread)}`, { cache: "no-store", signal: controller.signal })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d && !controller.signal.aborted) setThreadDetails(d as ThreadDetails); });
+    return () => controller.abort();
+  }, [selectedThread]);
 
   useEffect(() => {
     const initial = window.setTimeout(() => void load(), 0);
