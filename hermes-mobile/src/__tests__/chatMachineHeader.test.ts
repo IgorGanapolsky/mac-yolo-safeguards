@@ -935,6 +935,33 @@ describe('resolveHeaderTransportLabel / USB allow rule', () => {
     expect(display.machineLabel).not.toMatch(/100\.94\.135\.78/);
     expect(display.machineEndpoint).toBe('Tailscale');
   });
+
+  it('P0 2026-07-24: Connected green /health without hostname never titles Tailscale CGNAT IP', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_100_94_135_78',
+        label: 'Tailscale 100.94.135.78',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        localIp: '100.94.135.78',
+        addedAt: '2026-07-24T00:00:00.000Z',
+      },
+      gatewayUrl: 'http://100.94.135.78:8642',
+      health: {
+        level: 'green',
+        checkedAt: '2026-07-24T19:00:00.000Z',
+        directGatewayReachable: true,
+      },
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 1,
+      wifiConnected: false,
+    });
+    expect(display.machineLabel).toBe('Your computer');
+    expect(display.machineLabel).not.toMatch(/100\.94\.135\.78/);
+    expect(display.machineEndpoint).toBe('Tailscale');
+    expect(formatChatMachineHeaderLine(display)).toBe('Your computer · Tailscale');
+  });
 });
 
 describe('profileDisplayName generic labels', () => {

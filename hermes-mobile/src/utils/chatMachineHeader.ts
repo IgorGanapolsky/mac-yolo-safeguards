@@ -273,6 +273,17 @@ export function resolveMachineDisplayName(
     name = fromHealth;
   }
 
+  // PRODUCT LAW (2026-07-24): never title a Tailscale Mac as "Tailscale <CGNAT-IP>".
+  // Transport badge already says Tailscale; IP is not a machine name. Covers Connected
+  // green|amber /health that omitted hostname (main preferred hostname only when present).
+  if (
+    isTailscaleGatewayUrl(gatewayUrl) &&
+    isGenericMachineLabel(name) &&
+    /^tailscale \d{1,3}(\.\d{1,3}){3}$/i.test(name.trim())
+  ) {
+    name = 'Your computer';
+  }
+
   // Never bake "USB" into the computer title (e.g. saved "Mac mini USB" + Tailscale).
   return stripTransportSuffixFromComputerName(name);
 }
