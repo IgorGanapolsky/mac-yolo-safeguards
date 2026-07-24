@@ -194,6 +194,17 @@ test("makes every dashboard metric a labeled shortcut instead of an inert card",
   assert.doesNotMatch(dashboard, /<article><span>Paired machines/);
 });
 
+test("dashboard uses shell-first SWR navigation cache (Issues-style instant nav)", () => {
+  assert.match(dashboard, /dashboard-nav-cache/);
+  assert.match(dashboard, /thumbgate\.cache\.threads|DASHBOARD_CACHE_KEYS\.threads/);
+  assert.match(dashboard, /prefetchThreadDetails/);
+  assert.match(dashboard, /onPointerEnter/);
+  assert.match(dashboard, /readCachedThreadDetails|threadCacheRef/);
+  assert.match(dashboard, /selectPreheatThreadIds/);
+  const signOut = readFileSync(new URL("../app/SignOutForm.tsx", import.meta.url), "utf8");
+  assert.match(signOut, /clearDashboardNavCache/);
+});
+
 test("lets users choose Mac vs Continuity VPS on every task not only offline failover", () => {
   const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
   const taskRouting = readFileSync(new URL("../lib/task-routing.ts", import.meta.url), "utf8");

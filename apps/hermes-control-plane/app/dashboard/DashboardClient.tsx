@@ -4,6 +4,17 @@ import { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent, useCallbac
 import { BrandMark } from "../BrandMark";
 import { FormattedMessage } from "../FormattedMessage";
 import { SignOutForm } from "../SignOutForm";
+import {
+  DASHBOARD_CACHE_KEYS,
+  type CachedIdentity,
+  type CachedThreadDetails,
+  isThreadDetailFresh,
+  pruneThreadDetailStorage,
+  readJsonSessionStorage,
+  selectPreheatThreadIds,
+  threadDetailsStorageKey,
+  writeJsonSessionStorage,
+} from "@/lib/dashboard-nav-cache";
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
@@ -92,16 +103,33 @@ function clampSidebarWidth(width: number) {
 }
 
 export default function DashboardClient() {
-  const [user, setUser] = useState<User | null>(null);
-  const [organization, setOrganization] = useState<Organization | null>(null);
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [threads, setThreads] = useState<Thread[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [selectedThread, setSelectedThread] = useState<string | null>(null);
+  /** Shell-first: hydrate from sessionStorage so revisits paint before network. */
+  const [user, setUser] = useState<User | null>(() => {
+    const cached = readJsonSessionStorage<CachedIdentity<User, Organization>>(DASHBOARD_CACHE_KEYS.me);
+    return cached?.user ?? null;
+  });
+  const [organization, setOrganization] = useState<Organization | null>(() => {
+    const cached = readJsonSessionStorage<CachedIdentity<User, Organization>>(DASHBOARD_CACHE_KEYS.me);
+    return cached?.organization ?? null;
+  });
+  const [devices, setDevices] = useState<Device[]>(() => readJsonSessionStorage<Device[]>(DASHBOARD_CACHE_KEYS.devices) ?? []);
+  const [threads, setThreads] = useState<Thread[]>(() => readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? []);
+  const [tasks, setTasks] = useState<Task[]>(() => readJsonSessionStorage<Task[]>(DASHBOARD_CACHE_KEYS.tasks) ?? []);
+  const [selectedThread, setSelectedThread] = useState<string | null>(() => {
+    const stored = readJsonSessionStorage<string>(DASHBOARD_CACHE_KEYS.selectedThread);
+    if (stored) return stored;
+    const cachedThreads = readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? [];
+    return cachedThreads[0]?.id ?? null;
+  });
   const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
   const [prompt, setPrompt] = useState("");
   /** Where this task should run: Mac, Continuity VPS, or auto offline failover. */
   const [routePreference, setRoutePreference] = useState<"local" | "cloud" | "auto">("auto");
+  /** True once first network load finishes (or fails auth). */
+  const [workspaceHydrated, setWorkspaceHydrated] = useState(false);
+  /** In-memory thread detail cache for instant switch + hover preheat. */
+  const threadCacheRef = useRef<Map<string, ThreadDetails>>(new Map());
+  const preheatInflightRef = useRef<Set<string>>(new Set());
 
   /** Plain-English copy for the Mac / Continuity / Auto control (always show, never jargon-only). */
   const routeExplain =
@@ -144,8 +172,55 @@ export default function DashboardClient() {
   const [feedbackBusyTask, setFeedbackBusyTask] = useState<string | null>(null);
   /** Bottom-tab highlight on phone: path + hash, not always-Hermes. */
   const [mobileTab, setMobileTab] = useState<"hermes" | "leash" | "lessons" | "settings">("hermes");
-  const autoSelectedThread = useRef(false);
+  const autoSelectedThread = useRef(Boolean(selectedThread));
+  const focusedTaskFromUrl = useRef(false);
+  const selectedThreadRef = useRef(selectedThread);
+  selectedThreadRef.current = selectedThread;
   const composerObserverRef = useRef<ResizeObserver | null>(null);
+
+  const persistThreadDetails = useCallback((threadId: string, details: ThreadDetails) => {
+    threadCacheRef.current.set(threadId, details);
+    writeJsonSessionStorage(threadDetailsStorageKey(threadId), {
+      details,
+      cachedAt: Date.now(),
+    } satisfies CachedThreadDetails<ThreadDetails>);
+    if (typeof sessionStorage !== "undefined") {
+      pruneThreadDetailStorage(sessionStorage);
+    }
+  }, []);
+
+  const readCachedThreadDetails = useCallback((threadId: string): ThreadDetails | null => {
+    const mem = threadCacheRef.current.get(threadId);
+    if (mem) return mem;
+    const stored = readJsonSessionStorage<CachedThreadDetails<ThreadDetails>>(threadDetailsStorageKey(threadId));
+    if (!stored?.details) return null;
+    threadCacheRef.current.set(threadId, stored.details);
+    return stored.details;
+  }, []);
+
+  const prefetchThreadDetails = useCallback(async (threadId: string, opts?: { force?: boolean }) => {
+    if (!threadId) return;
+    if (!opts?.force) {
+      const existing = readCachedThreadDetails(threadId);
+      const meta = readJsonSessionStorage<CachedThreadDetails<ThreadDetails>>(threadDetailsStorageKey(threadId));
+      if (existing && meta && isThreadDetailFresh(meta.cachedAt)) return;
+      if (preheatInflightRef.current.has(threadId)) return;
+    }
+    preheatInflightRef.current.add(threadId);
+    try {
+      const detailResponse = await fetch(
+        `/api/thread-messages?thread_id=${encodeURIComponent(threadId)}`,
+        { cache: "no-store" },
+      );
+      if (!detailResponse.ok) return;
+      const details = await detailResponse.json() as ThreadDetails;
+      persistThreadDetails(threadId, details);
+    } catch {
+      // Prefetch is best-effort; open path will revalidate.
+    } finally {
+      preheatInflightRef.current.delete(threadId);
+    }
+  }, [persistThreadDetails, readCachedThreadDetails]);
   /**
    * `--composer-dock-space` (globals.css) reserves room below the fixed mobile composer
    * so it never overlaps content. A static guess breaks the moment the textarea grows or
@@ -240,7 +315,7 @@ export default function DashboardClient() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  const load = useCallback(async () => {
+  const loadWorkspace = useCallback(async () => {
     const me = await fetch("/api/me", { cache: "no-store" });
     if (me.status === 401) {
       const returnTo = `${window.location.pathname}${window.location.search}`;
@@ -248,22 +323,66 @@ export default function DashboardClient() {
       return;
     }
     const identity = await me.json() as { user: User; organization: Organization };
-    setUser(identity.user); setOrganization(identity.organization);
+    setUser(identity.user);
+    setOrganization(identity.organization);
+    writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.me, {
+      user: identity.user,
+      organization: identity.organization,
+      cachedAt: Date.now(),
+    } satisfies CachedIdentity<User, Organization>);
+
     const [deviceResponse, threadResponse, taskResponse] = await Promise.all([
-      fetch("/api/devices", { cache: "no-store" }), fetch("/api/threads", { cache: "no-store" }), fetch("/api/tasks", { cache: "no-store" }),
+      fetch("/api/devices", { cache: "no-store" }),
+      fetch("/api/threads", { cache: "no-store" }),
+      fetch("/api/tasks", { cache: "no-store" }),
     ]);
-    if (deviceResponse.ok) setDevices((await deviceResponse.json() as { devices: Device[] }).devices);
+    if (deviceResponse.ok) {
+      const nextDevices = (await deviceResponse.json() as { devices: Device[] }).devices;
+      setDevices(nextDevices);
+      writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.devices, nextDevices);
+    }
+    let activeSelected = selectedThreadRef.current;
     if (threadResponse.ok) {
       const nextThreads = sortThreadsNewestFirst((await threadResponse.json() as { threads: Thread[] }).threads);
       setThreads(nextThreads);
-      if (!autoSelectedThread.current && !selectedThread && nextThreads.length) {
+      writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.threads, nextThreads);
+      if (!autoSelectedThread.current && !activeSelected && nextThreads.length) {
         autoSelectedThread.current = true;
+        // Keep contract for first-synced-thread open (frictionless onboarding).
         setSelectedThread(nextThreads[0].id);
+        activeSelected = nextThreads[0].id;
+        writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, nextThreads[0].id);
       }
+      const preheatIds = selectPreheatThreadIds(nextThreads, activeSelected, 3);
+      for (const id of preheatIds) void prefetchThreadDetails(id);
     }
     if (taskResponse.ok) {
       const nextTasks = (await taskResponse.json() as { tasks: Task[] }).tasks;
       setTasks(nextTasks);
+      writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.tasks, nextTasks);
+      if (!focusedTaskFromUrl.current && typeof window !== "undefined") {
+        const focusTaskId = new URLSearchParams(window.location.search).get("task");
+        const focusThreadId = new URLSearchParams(window.location.search).get("thread");
+        if (focusTaskId || focusThreadId) {
+          focusedTaskFromUrl.current = true;
+          const focusTask = focusTaskId ? nextTasks.find((task) => task.id === focusTaskId) : undefined;
+          const threadId = focusTask?.threadId ?? focusThreadId;
+          if (threadId) {
+            autoSelectedThread.current = true;
+            activeSelected = threadId;
+            setSelectedThread(threadId);
+            writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, threadId);
+            const cached = readCachedThreadDetails(threadId);
+            if (cached) setThreadDetails(cached);
+          }
+          window.setTimeout(() => {
+            const el = focusTaskId
+              ? document.getElementById(`task-${focusTaskId}`)
+              : document.getElementById("task-activity");
+            el?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }, 120);
+        }
+      }
       const taskIds = nextTasks.filter((task) => task.result && task.status === "completed").map((task) => task.id);
       if (taskIds.length) {
         const feedbackResponse = await fetch(`/api/feedback?task_ids=${encodeURIComponent(taskIds.join(","))}`, { cache: "no-store" });
@@ -273,17 +392,35 @@ export default function DashboardClient() {
         }
       } else setFeedback({});
     }
-    if (selectedThread) {
-      const detailResponse = await fetch(`/api/thread-messages?thread_id=${encodeURIComponent(selectedThread)}`, { cache: "no-store" });
-      if (detailResponse.ok) setThreadDetails(await detailResponse.json() as ThreadDetails);
-    } else setThreadDetails(null);
-  }, [selectedThread]);
+    setWorkspaceHydrated(true);
+  }, [prefetchThreadDetails, readCachedThreadDetails]);
+
+  // Revalidate active thread messages (SWR) without resetting list state.
+  const revalidateSelectedThread = useCallback(async (threadId: string) => {
+    const cached = readCachedThreadDetails(threadId);
+    if (cached) setThreadDetails(cached);
+    await prefetchThreadDetails(threadId, { force: true });
+    const next = threadCacheRef.current.get(threadId);
+    if (next) setThreadDetails(next);
+  }, [prefetchThreadDetails, readCachedThreadDetails]);
 
   useEffect(() => {
-    const initial = window.setTimeout(() => void load(), 0);
-    const timer = window.setInterval(() => void load(), 5000);
+    const initial = window.setTimeout(() => void loadWorkspace(), 0);
+    const timer = window.setInterval(() => void loadWorkspace(), 5000);
     return () => { window.clearTimeout(initial); window.clearInterval(timer); };
-  }, [load]);
+    // Intentionally not re-binding when selectedThread flips — list poll stays stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- shell-first: one poller, not one-per-thread
+  }, []);
+
+  // Instant thread paint + revalidate when selection changes.
+  useEffect(() => {
+    if (!selectedThread) {
+      setThreadDetails(null);
+      return;
+    }
+    writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, selectedThread);
+    void revalidateSelectedThread(selectedThread);
+  }, [selectedThread, revalidateSelectedThread]);
   useEffect(() => {
     if (!user || !pairingCodePattern.test(pairCode)) return;
     const currentUrl = new URL(window.location.href);
@@ -312,7 +449,7 @@ export default function DashboardClient() {
     const response = await fetch("/api/pairing/approve", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ userCode: pairCode }) });
     const body = await response.json() as { device?: Device; error?: string };
     setNotice(response.ok && body.device ? `${body.device.name} paired. Recent Hermes chats are syncing now.` : body.error ?? "Pairing failed");
-    if (response.ok) { setPairCode(""); await load(); }
+    if (response.ok) { setPairCode(""); await loadWorkspace(); }
     setBusy(false);
   }
 
@@ -357,7 +494,7 @@ export default function DashboardClient() {
         setNotice(`Sent — running on ${where}.`);
         setPrompt("");
         setSelectedThread(body.task.threadId);
-        await load();
+        await loadWorkspace();
         window.requestAnimationFrame(() => {
           document.getElementById("task-activity")?.scrollIntoView({ behavior: "smooth", block: "start" });
         });
@@ -373,7 +510,7 @@ export default function DashboardClient() {
 
   async function updateFailover(deviceId: string, failoverMode: Device["failoverMode"]) {
     const response = await fetch("/api/devices", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ deviceId, failoverMode }) });
-    const body = await response.json() as { error?: string }; setNotice(response.ok ? `Failover policy set to ${failoverMode}.` : body.error ?? "Update failed"); await load();
+    const body = await response.json() as { error?: string }; setNotice(response.ok ? `Failover policy set to ${failoverMode}.` : body.error ?? "Update failed"); await loadWorkspace();
   }
 
   async function revokeDevice(device: Device) {
@@ -387,13 +524,13 @@ export default function DashboardClient() {
     });
     const body = await response.json() as { error?: string };
     setNotice(response.ok ? `${device.name} removed.` : body.error ?? "Could not remove machine");
-    if (response.ok) await load();
+    if (response.ok) await loadWorkspace();
     setBusy(false);
   }
 
   async function failover(taskId: string) {
     const response = await fetch("/api/tasks/failover", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ taskId }) });
-    const body = await response.json() as { error?: string }; setNotice(response.ok ? "Cloud failover approved." : body.error ?? "Failover failed"); await load();
+    const body = await response.json() as { error?: string }; setNotice(response.ok ? "Cloud failover approved." : body.error ?? "Failover failed"); await loadWorkspace();
   }
 
   async function subscribe() {
@@ -542,7 +679,7 @@ export default function DashboardClient() {
         setNotice(`${body.cleared ?? threads.length} chats cleared. Paired Hermes machines will apply the deletion safely.`);
       }
       setChatDialog(null);
-      await load();
+      await loadWorkspace();
     } finally {
       setChatOperationBusy(false);
     }
@@ -551,13 +688,29 @@ export default function DashboardClient() {
   function openThread(threadId: string | null) {
     setThreadMenu(null);
     setSelectedThread(threadId);
+    if (threadId) {
+      const cached = readCachedThreadDetails(threadId);
+      if (cached) setThreadDetails(cached);
+      void prefetchThreadDetails(threadId, { force: false });
+      writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, threadId);
+    } else {
+      setThreadDetails(null);
+    }
     if (window.matchMedia("(max-width: 700px)").matches) {
       setChatRailExpanded(false);
       window.localStorage.setItem(chatRailPreferenceKey, "false");
+      setMobileTab("hermes");
     }
   }
 
-  if (!user || !organization) return <main className="loading-screen"><Mark /><p>Opening the control plane…</p></main>;
+  if (!user || !organization) {
+    return (
+      <main className="loading-screen">
+        <Mark />
+        <p>{workspaceHydrated ? "Sign in required…" : "Opening the control plane…"}</p>
+      </main>
+    );
+  }
 
   return (
     <main
@@ -587,7 +740,21 @@ export default function DashboardClient() {
           </div>
           <nav className="thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.map((thread) => (
             <div key={thread.id} className="thread-row">
-              <button title={`${thread.title} — ${formatDateTime(thread.updatedAt)}`} aria-current={selectedThread === thread.id ? "page" : undefined} className={selectedThread === thread.id ? "side-item thread-item active" : "side-item thread-item"} onClick={() => openThread(thread.id)}><span className="thread-icon">{thread.sourceSessionId ? "⌘" : "›_"}</span><span className="thread-copy"><strong>{thread.title}</strong><time dateTime={new Date(thread.updatedAt).toISOString()}>{formatDateTime(thread.updatedAt)}</time></span><em>{thread.messageCount || thread.taskCount}</em></button>
+              <button
+                title={`${thread.title} — ${formatDateTime(thread.updatedAt)}`}
+                aria-current={selectedThread === thread.id ? "page" : undefined}
+                className={selectedThread === thread.id ? "side-item thread-item active" : "side-item thread-item"}
+                onClick={() => openThread(thread.id)}
+                onPointerEnter={() => void prefetchThreadDetails(thread.id)}
+                onFocus={() => void prefetchThreadDetails(thread.id)}
+              >
+                <span className="thread-icon">{thread.sourceSessionId ? "⌘" : "›_"}</span>
+                <span className="thread-copy">
+                  <strong>{thread.title}</strong>
+                  <time dateTime={new Date(thread.updatedAt).toISOString()}>{formatDateTime(thread.updatedAt)}</time>
+                </span>
+                <em>{thread.messageCount || thread.taskCount}</em>
+              </button>
               <button type="button" className="thread-menu-trigger" aria-label={`Actions for ${thread.title}`} aria-haspopup="menu" aria-expanded={threadMenu === thread.id} onClick={() => setThreadMenu((current) => current === thread.id ? null : thread.id)}>•••</button>
               {threadMenu === thread.id && <div className="thread-actions" role="menu" aria-label={`Actions for ${thread.title}`}>
                 <button type="button" className="thread-action" role="menuitem" onClick={() => openRenameDialog(thread)}><span aria-hidden="true">✎</span> Rename</button>
@@ -636,7 +803,7 @@ export default function DashboardClient() {
                   : null,
               ])}
             </div>}
-            <div className="task-list" id="task-activity">{visibleTasks.length === 0 ? <div className="empty-state"><Mark /><h3>No tasks yet</h3><p>Pair a machine, then continue a Hermes thread from anywhere.</p></div> : visibleTasks.map((task) => <article key={task.id} className="dashboard-task"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time></div><h3>{task.threadTitle}</h3><p>{task.prompt}</p><div className="task-foot"><span>{task.route === "cloud" ? "☁ Cloud runner" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>{["needs_failover", "offline_blocked"].includes(task.status) && <button onClick={() => void failover(task.id)}>Continue in cloud →</button>}</div>{task.result && <><pre>{task.result}</pre>{feedbackControls(task.id)}</>}{task.error && <div className="task-error">{task.error}</div>}</article>)}</div>
+            <div className="task-list" id="task-activity">{visibleTasks.length === 0 ? <div className="empty-state"><Mark /><h3>No tasks yet</h3><p>Pair a machine, then continue a Hermes thread from anywhere.</p></div> : visibleTasks.map((task) => <article key={task.id} id={`task-${task.id}`} className="dashboard-task"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time></div><h3>{task.threadTitle}</h3><p>{task.prompt}</p><div className="task-foot"><span>{task.route === "cloud" ? "☁ Cloud runner" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>{["needs_failover", "offline_blocked"].includes(task.status) && <button onClick={() => void failover(task.id)}>Continue in cloud →</button>}</div>{task.result && <><pre>{task.result}</pre>{feedbackControls(task.id)}</>}{task.error && <div className="task-error">{task.error}</div>}</article>)}</div>
             </div>
             <form className="composer" ref={setComposerNode} onSubmit={(event) => void createTask(event)}>
               <textarea
