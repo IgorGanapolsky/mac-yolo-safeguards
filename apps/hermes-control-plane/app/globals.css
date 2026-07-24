@@ -2,7 +2,7 @@
 
 :root { --ink:#F9FAFB;--text-secondary:#D1D5DB;--muted:#9CA3AF;--line:rgba(255,255,255,.08);--brand-line:rgba(79,70,229,.2);--panel:rgba(255,255,255,.04);--panel-solid:#111827;--primary:#4F46E5;--secondary:#6366F1;--accent:#22D3EE;--accent-dim:rgba(34,211,238,.12);--green:#22D3EE;--green-strong:#67E8F9;--green-dim:rgba(34,211,238,.12);--success:#10B981;--orange:#F59E0B;--danger:#EF4444;--bg:#0B0F19;--bg-end:#111827;--user-bubble:#3D3834;--user-bubble-text:#F4F1EC;--composer:#1A1D24; }
 *{box-sizing:border-box} html{scroll-behavior:smooth;background:var(--bg)} body{margin:0;color:var(--ink);background:var(--bg);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased} button,input,textarea,select{font:inherit} a{color:inherit;text-decoration:none} button{color:inherit}
-.landing-shell{min-height:100vh;overflow:hidden;background:radial-gradient(circle at 82% 17%,rgba(58,119,74,.18),transparent 27rem),radial-gradient(circle at 9% 42%,rgba(113,86,39,.08),transparent 24rem),var(--bg)}
+.landing-shell{min-height:100vh;overflow-x:hidden;background:radial-gradient(circle at 82% 17%,rgba(58,119,74,.18),transparent 27rem),radial-gradient(circle at 9% 42%,rgba(113,86,39,.08),transparent 24rem),var(--bg)}
 .topbar{width:min(1180px,calc(100% - 40px));margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:76px}.landing-nav{border-bottom:1px solid var(--line)}.brand{display:inline-flex;align-items:center;gap:11px;font-weight:700;letter-spacing:-.02em}.brand small{display:inline-block;margin-left:5px;color:var(--muted);font-size:.62em;font-weight:550;letter-spacing:0}
 /* Canonical ThumbGate.ai TG gate monogram (not the old green triple-tile) */
 .brand-mark{width:28px;height:28px;display:inline-block;flex:0 0 auto;object-fit:contain;vertical-align:middle}.nav-actions{display:flex;gap:24px;align-items:center}.nav-link{color:var(--muted);font-size:14px;transition:color .2s}.nav-link:hover{color:var(--ink)}
@@ -191,9 +191,14 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .lesson-activity{margin:22px 0 0;padding:16px 18px;border:1px solid var(--line);border-radius:20px;background:rgba(255,255,255,.03)}
 .lesson-activity .eyebrow{margin:0 0 12px}
 .lesson-activity ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.lesson-activity li{display:grid;gap:4px}
-.lesson-activity li strong{font:700 22px/1.1 Plus Jakarta Sans,Inter,ui-sans-serif,system-ui,sans-serif;color:var(--ink)}
-.lesson-activity li span{color:var(--muted);font-size:11px;line-height:1.35}
+.lesson-activity li{display:grid}
+.lesson-activity li a{display:grid;gap:4px;padding:8px;margin:-8px;border-radius:12px;min-height:44px;text-decoration:none;transition:background .15s ease}
+.lesson-activity li a:hover,.lesson-activity li a:focus-visible{background:rgba(147,245,138,.08)}
+.lesson-activity li a strong{font:700 22px/1.1 Plus Jakarta Sans,Inter,ui-sans-serif,system-ui,sans-serif;color:var(--ink)}
+.lesson-activity li a span{color:var(--muted);font-size:11px;line-height:1.35}
+.lesson-card-title-link{color:inherit;text-decoration:none}
+.lesson-card-title-link:hover,.lesson-card-title-link:focus-visible{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+.lesson-card-actions{margin-top:16px;display:flex;flex-wrap:wrap;gap:10px}
 .lesson-activity .helper-copy{margin:14px 0 0;padding:0;color:var(--muted);font-size:12px;line-height:1.5}
 .lesson-metrics{margin:24px 0;display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--brand-line);border-radius:20px;overflow:hidden;background:rgba(255,255,255,.025)}
 .lesson-metrics button{min-height:96px;padding:18px;border:0;border-right:1px solid var(--brand-line);display:grid;gap:8px;text-align:left;background:transparent;color:var(--text-secondary);cursor:pointer}.lesson-metrics button:last-child{border-right:0}.lesson-metrics button.is-active{background:rgba(99,102,241,.16);color:#c7d2fe}.lesson-metrics span{font-size:11px}.lesson-metrics strong{font:28px ui-monospace,SFMono-Regular,Menlo,monospace}
@@ -201,11 +206,18 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .lesson-list{display:grid;gap:18px}.lesson-card{padding:22px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(150deg,rgba(255,255,255,.055),rgba(17,24,39,.76));box-shadow:0 20px 48px rgba(0,0,0,.22)}.lesson-card-top{display:flex;align-items:center;justify-content:space-between;gap:16px}.lesson-card-top time{color:var(--muted);font:10px ui-monospace,SFMono-Regular,Menlo,monospace}.lesson-signal{padding:7px 9px;border-radius:9px;font-size:11px;font-weight:700}.lesson-signal.signal-up{color:#6ee7b7;background:rgba(16,185,129,.12)}.lesson-signal.signal-down{color:#fca5a5;background:rgba(239,68,68,.12)}.lesson-card>.eyebrow{margin:20px 0 8px}.lesson-card h2{margin:0 0 15px;font-size:17px;line-height:1.45}.lesson-card pre{max-height:360px;overflow:auto;white-space:pre-wrap;margin:0;padding:16px;border-left:2px solid var(--accent);background:#090c14;color:var(--text-secondary);font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}.lesson-note{margin-top:14px;padding:14px;border:1px solid rgba(248,113,113,.22);border-radius:12px;background:rgba(239,68,68,.06)}.lesson-note strong{font-size:10px;color:#fca5a5;text-transform:uppercase;letter-spacing:.08em}.lesson-note p{margin:7px 0 0;color:var(--text-secondary);font-size:13px;line-height:1.55}.lesson-empty{min-height:300px;display:grid;place-content:center;justify-items:center;text-align:center;border:1px dashed var(--line);border-radius:22px;color:var(--muted)}.lesson-empty h2{color:var(--text);margin:0 0 8px}.lesson-empty p{margin:0 0 18px}.lessons-footer{padding:28px 0;color:var(--muted);font-size:11px;text-align:center}
 
 @media(max-width:700px){
-  /* === Mobile app shell (2026): one scroll region per tab, no fixed overlay jank === */
-  html,body{
+  /* === Mobile app shell: lock overflow ONLY when dashboard app shell is mounted === */
+  html:has(.dashboard-shell),
+  body:has(.dashboard-shell){
     height:100%;
     overflow:hidden;
     overscroll-behavior:none;
+  }
+  html,body{
+    min-height:100%;
+    overflow-x:hidden;
+    overflow-y:auto;
+    overscroll-behavior-y:auto;
   }
   body{padding-bottom:0}
   .dashboard-shell{

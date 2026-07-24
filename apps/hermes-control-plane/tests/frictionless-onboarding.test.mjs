@@ -194,6 +194,19 @@ test("makes every dashboard metric a labeled shortcut instead of an inert card",
   assert.doesNotMatch(dashboard, /<article><span>Paired machines/);
 });
 
+test("lessons workspace activity stats and lesson cards deep-link into Hermes", () => {
+  assert.match(lessonsClient, /href="\/dashboard"/);
+  assert.match(lessonsClient, /href="\/dashboard#task-activity"/);
+  assert.match(lessonsClient, /Open in Hermes/);
+  assert.match(lessonsClient, /hermesTaskHref|params\.set\("task"/);
+  assert.match(lessonsRoute, /k\.thread_id AS threadId/);
+  assert.match(dashboard, /focusedTaskFromUrl/);
+  assert.match(dashboard, /URLSearchParams\(window\.location\.search\)\.get\("task"\)/);
+  assert.match(dashboard, /id=\{`task-\$\{task\.id\}`\}/);
+  assert.match(globals, /\.lesson-activity li a\{/);
+  assert.match(globals, /\.lesson-card-actions\{/);
+});
+
 test("lets users choose Mac vs Continuity VPS on every task not only offline failover", () => {
   const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
   const taskRouting = readFileSync(new URL("../lib/task-routing.ts", import.meta.url), "utf8");
