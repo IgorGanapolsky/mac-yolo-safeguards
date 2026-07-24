@@ -5,6 +5,10 @@ import {
   governanceAuditMetadata,
   type GovernanceDecision,
 } from "./agent-governance";
+import {
+  buildTaskCompletionReceipt,
+  receiptAuditMetadata,
+} from "./execution-receipt";
 import { db } from "./runtime";
 import { randomToken, sha256 } from "./security";
 import { evaluateCloudPromptToolPolicy } from "./cloud-tool-policy";
@@ -284,8 +288,13 @@ export async function completeTask(input: {
   result?: string;
   error?: string;
   actorType: "device" | "runner";
+  /** Optional external verifier the executor cannot self-sign (provider receipt, row, webhook, human). */
+  externalCheckPassed?: boolean | null;
+  externalCheckKind?: string | null;
+  externalEvidenceId?: string | null;
 }): Promise<boolean> {
   const now = Date.now();
+  // Soft task row status still tracks executor report; audit receipt carries true outcome semantics.
   const status = input.error ? "failed" : "completed";
   const tokenHash = await sha256(input.leaseToken);
   const existing = await db().prepare(
@@ -306,6 +315,17 @@ export async function completeTask(input: {
   ).bind(status, input.result ?? null, input.error ?? null, now, now,
     input.taskId, input.owner, tokenHash, now).run();
   if (update.meta.changes !== 1) return false;
+  const receipt = buildTaskCompletionReceipt({
+    actorType: input.actorType,
+    actorId: input.owner,
+    taskId: input.taskId,
+    route: existing.route,
+    error: input.error,
+    externalCheckPassed: input.externalCheckPassed,
+    externalCheckKind: input.externalCheckKind,
+    externalEvidenceId: input.externalEvidenceId,
+    now,
+  });
   await audit({
     organizationId: existing.organizationId,
     actorType: input.actorType,
@@ -317,6 +337,7 @@ export async function completeTask(input: {
       route: existing.route,
       generation: existing.leaseGeneration,
       durationMs: Math.max(0, now - existing.createdAt),
+      ...receiptAuditMetadata(receipt),
     },
   });
   return true;
