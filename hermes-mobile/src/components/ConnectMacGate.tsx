@@ -92,6 +92,7 @@ export default function ConnectMacGate() {
   const [invalidQrHint, setInvalidQrHint] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [enablingDemo, setEnablingDemo] = useState(false);
+  const [manualNeedsPair, setManualNeedsPair] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const { inset: keyboardInset } = useKeyboardInset({ focused: false });
 
@@ -272,6 +273,7 @@ export default function ConnectMacGate() {
                   heroMode
                   testIDPrefix="connect-manual"
                   onAddProfile={handleManualProfileAdded}
+                  onNeedsPairChange={setManualNeedsPair}
                 />
               </View>
 
@@ -313,6 +315,7 @@ export default function ConnectMacGate() {
                   progress={profileScanProgress}
                   result={profileScanResult}
                   connectableProfileCount={pickerProfiles.length}
+                  suppressEmptyResult={manualNeedsPair}
                   testID="connect-mac-scan-progress"
                 />
               ) : null}

@@ -28,6 +28,12 @@ export const SCAN_NONE_FOUND_TITLE = 'None found yet';
 export const SCAN_NONE_FOUND_DETAIL =
   'Paste your Mac’s Tailscale IP below. Hermes must be open on that Mac.';
 
+/** After paste proves Tailscale reachability but auth is missing. */
+export const MANUAL_NEEDS_PAIR_TITLE = 'Mac found — finish pairing';
+
+export const MANUAL_NEEDS_PAIR_DETAIL =
+  'This phone still needs a pairing key. Tap Scan QR from your Mac (or open the pair page on that computer).';
+
 export const PICKER_EMPTY_FOOTER =
   'No saved computers yet. Paste a Tailscale IP above, or tap Find computers.';
 
