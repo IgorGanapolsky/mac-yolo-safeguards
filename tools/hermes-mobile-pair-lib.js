@@ -38,6 +38,16 @@ function gatewayUrlHost(gatewayUrl) {
   }
 }
 
+function gatewayUrlPort(gatewayUrl) {
+  try {
+    const parsed = new URL(gatewayUrl.trim());
+    if (parsed.port) return Number(parsed.port);
+    return parsed.protocol === 'https:' ? 443 : 80;
+  } catch {
+    return 0;
+  }
+}
+
 function isMacMiniGatewayUrl(gatewayUrl) {
   const host = gatewayUrlHost(gatewayUrl);
   return host === MAC_MINI_TAILSCALE_IP || /mac-mini|igors-mac-mini/.test(host);
@@ -100,6 +110,39 @@ function setupUsbAdbReverses(serial, options = {}) {
     }
   }
   return { ok: failures.length === 0, failures, ports };
+}
+
+function removeUsbAdbReverse(serial, port, options = {}) {
+  const adbBin = options.adbCommand ?? 'adb';
+  const result = spawnSync(adbBin, ['-s', serial, 'reverse', '--remove', `tcp:${port}`], {
+    encoding: 'utf8',
+    timeout: 10_000,
+  });
+  return result.status === 0;
+}
+
+/**
+ * Decide which USB adb-reverse ports this pair run should (re)establish.
+ *
+ * Port 8642 is the DEFAULT loopback gateway — THIS Mac. `install-phone-release.sh`'s
+ * auto-pair used to call `setupUsbAdbReverses` unconditionally, which silently re-adds
+ * `tcp:8642` even when the operator already pointed the phone at a different gateway on
+ * purpose (an SSH tunnel like `127.0.0.1:18642` fronting a Mac mini, or an explicit
+ * `--force-mini-usb-primary` run). That live loopback :8642 reverse then gets picked up as
+ * "this Mac is USB-primary" and steals the phone away from the intended target — the
+ * 2026-07-24 multi-agent hijack incident (Stabilize mini + chat probe, 075266a1). Port 8765
+ * (pair.json sweep) is always kept regardless of gateway target.
+ */
+function resolveUsbReversePorts(options = {}) {
+  const { explicitGatewayUrl, forceMiniUsbPrimary } = options;
+  const explicitNonDefaultLoopback =
+    !!explicitGatewayUrl &&
+    isLoopbackGatewayUrl(explicitGatewayUrl) &&
+    gatewayUrlPort(explicitGatewayUrl) !== 8642;
+  if (forceMiniUsbPrimary || explicitNonDefaultLoopback) {
+    return USB_ADB_REVERSE_PORTS.filter((port) => port !== 8642);
+  }
+  return USB_ADB_REVERSE_PORTS;
 }
 
 function assertUsbAdbReverses(serial, options = {}) {
@@ -741,6 +784,7 @@ module.exports = {
   readEnvKey,
   readLocalApiKey,
   gatewayUrlHost,
+  gatewayUrlPort,
   isMacMiniGatewayUrl,
   isLoopbackGatewayUrl,
   classifyGatewayHost,
@@ -749,6 +793,8 @@ module.exports = {
   adbReverseList,
   adbReverseHasPort,
   setupUsbAdbReverses,
+  removeUsbAdbReverse,
+  resolveUsbReversePorts,
   assertUsbAdbReverses,
   fetchRemoteMiniApiKey,
   classifyMiniApiKeyResolution,
