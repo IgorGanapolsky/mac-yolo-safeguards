@@ -21,11 +21,6 @@ jest.mock('../services/haptics', () => ({
   },
 }));
 
-jest.mock('../native/hermesGlasses', () => ({
-  isGlassesConnected: jest.fn().mockResolvedValue(false),
-  launchHermesOnGlasses: jest.fn(),
-}));
-
 jest.mock('../services/secureCredentials', () => ({
   secureCredentials: {
     loadThumbgateApiKey: jest.fn().mockResolvedValue(''),
@@ -229,6 +224,13 @@ describe('SettingsScreen', () => {
   it('does not render Pro subscribe UI', () => {
     const { queryByTestId } = render(<SettingsScreen />);
     expect(queryByTestId('unlock-thumbgate-leash')).toBeNull();
+  });
+
+  it('does not show speculative AI glasses / Jetpack XR Settings section', () => {
+    const { queryByText, queryByTestId } = render(<SettingsScreen />);
+    expect(queryByText(/AI glasses/i)).toBeNull();
+    expect(queryByText(/Jetpack XR/i)).toBeNull();
+    expect(queryByTestId('launch-on-glasses-button')).toBeNull();
   });
 
   it('shows Demo mode toggle when store review demo is allowed', () => {

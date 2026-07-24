@@ -19,7 +19,6 @@ import GlassCard from '../components/GlassCard';
 import { colors } from '../theme/colors';
 import { haptics } from '../services/haptics';
 import { HERMES_MOBILE_CLOUD_URL, THUMBGATE_API_URL } from '../constants/appIdentity';
-import { isGlassesConnected, launchHermesOnGlasses } from '../native/hermesGlasses';
 import PairQrScannerModal from '../components/PairQrScannerModal';
 import MacPairingHelp from '../components/MacPairingHelp';
 
@@ -96,7 +95,6 @@ export default function SettingsScreen() {
   const [isAutoConnecting, setIsAutoConnecting] = useState(false);
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [qrScannerVisible, setQrScannerVisible] = useState(false);
-  const [glassesConnected, setGlassesConnected] = useState(false);
 
   const leaveSettings = useCallback(() => {
     Keyboard.dismiss();
@@ -218,11 +216,6 @@ export default function SettingsScreen() {
       return () => cancelAnimationFrame(frame);
     }, [probeTailscaleComputers]),
   );
-
-  useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    isGlassesConnected().then(setGlassesConnected).catch(() => setGlassesConnected(false));
-  }, []);
 
   // Sync state if context changes externally
   useEffect(() => {
@@ -937,42 +930,6 @@ export default function SettingsScreen() {
             />
           </View>
         </GlassCard>
-
-        {Platform.OS === 'android' ? (
-          <>
-            <Text style={styles.sectionTitle}>🕶️ AI glasses</Text>
-            <GlassCard>
-              <Text style={styles.description}>
-                Launch the native projected ThumbGate Leash activity on paired AI glasses. Currently supports
-                Jetpack XR on Android (emulator or hardware). Other platforms coming. Requires
-                prebuild with the XR config plugin.
-              </Text>
-              <TouchableOpacity
-                style={[
-                  styles.pairButton,
-                  !glassesConnected && styles.saveButtonDisabled,
-                ]}
-                disabled={!glassesConnected}
-                testID="launch-on-glasses-button"
-                onPress={async () => {
-                  try {
-                    await launchHermesOnGlasses();
-                    haptics.success();
-                  } catch (err) {
-                    Alert.alert(
-                      'Glasses launch failed',
-                      err instanceof Error ? err.message : 'Could not launch projected activity',
-                    );
-                  }
-                }}
-              >
-                <Text style={styles.pairButtonText}>
-                  {glassesConnected ? 'LAUNCH LEASH ON GLASSES' : 'GLASSES NOT CONNECTED'}
-                </Text>
-              </TouchableOpacity>
-            </GlassCard>
-          </>
-        ) : null}
 
         {isDemoModeAllowed() ? (
           <>
