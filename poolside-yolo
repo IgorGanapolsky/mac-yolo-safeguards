@@ -124,7 +124,13 @@ case "$1" in
     ((has_out)) || extra+=(-o json)
     exec "$PBIN" exec "${extra[@]}" "$@" ;;
   -*)
-    exec "$PBIN" "$@" ;;
+    has_mode=0
+    for a in "$@"; do case "$a" in --mode|--mode=*) has_mode=1;; esac; done
+    if ((has_mode)); then
+      exec "$PBIN" "$@"
+    else
+      exec "$PBIN" --mode allow-all "$@"
+    fi ;;
   *)
     # Bare task string -> autonomous one-shot, mirroring kimi-yolo's routing.
     exec "$PBIN" exec -p "$*" --unsafe-auto-allow -o json ;;
