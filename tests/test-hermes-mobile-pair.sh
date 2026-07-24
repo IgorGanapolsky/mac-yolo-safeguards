@@ -286,6 +286,47 @@ else
   bad "pair script removes a stale tcp:8642 reverse when skipping it for mini-primary"
 fi
 
+# --- 2026-07-24 follow-up: the pairing decision above must be persisted somewhere
+#     durable so the independent, always-on hermes-usb-reverse-watchdog LaunchAgent
+#     (which cannot see --force-mini-usb-primary/--gateway-url) does not undo it
+#     within one 15s poll cycle (T-USB-WATCHDOG-MINI-PRIMARY-20260724) -------------
+
+if [[ "$PAIR_LIB" == *"function writeUsbReversePrimaryIntent"* ]] \
+  && [[ "$PAIR_LIB" == *"function readUsbReversePrimaryIntent"* ]] \
+  && [[ "$PAIR_LIB" == *"USB_REVERSE_INTENT_STATE_PATH"* ]]; then
+  ok "pair-lib exports a durable usb-reverse-primary-intent read/write pair"
+else
+  bad "pair-lib exports a durable usb-reverse-primary-intent read/write pair"
+fi
+
+if [[ "$PAIR_JS" == *"writeUsbReversePrimaryIntent({"* ]] \
+  && [[ "$PAIR_JS" == *"skip8642: usbReverseSkipped8642"* ]]; then
+  ok "pair script persists the usbReverseSkipped8642 decision on every USB pairing run"
+else
+  bad "pair script persists the usbReverseSkipped8642 decision on every USB pairing run"
+fi
+
+if run_node "
+  const os = require('os');
+  const path = require('path');
+  const fs = require('fs');
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'usb-intent-test-'));
+  const statePath = path.join(tmp, 'intent.json');
+  lib.writeUsbReversePrimaryIntent({ skip8642: true, gatewayUrl: 'http://127.0.0.1:18642', forceMiniUsbPrimary: true }, statePath);
+  const readBack = lib.readUsbReversePrimaryIntent(statePath);
+  if (!readBack || readBack.skip8642 !== true) process.exit(1);
+  if (readBack.gatewayUrl !== 'http://127.0.0.1:18642') process.exit(2);
+  if (!readBack.updatedAt) process.exit(3);
+  const missing = lib.readUsbReversePrimaryIntent(path.join(tmp, 'no-such-file.json'));
+  if (missing !== null) process.exit(4);
+  fs.rmSync(tmp, { recursive: true, force: true });
+"; then
+  ok "usb-reverse-primary-intent round-trips through a durable JSON state file and defaults to null when absent"
+else
+  bad "usb-reverse-primary-intent round-trips through a durable JSON state file and defaults to null when absent"
+fi
+
 INSTALL_SH="$(cat "$REPO/hermes-mobile/scripts/install-phone-release.sh")"
 if [[ "$INSTALL_SH" == *"HERMES_PAIR_GATEWAY_URL"* ]] \
   && [[ "$INSTALL_SH" == *"HERMES_FORCE_MINI_USB_PRIMARY"* ]] \
