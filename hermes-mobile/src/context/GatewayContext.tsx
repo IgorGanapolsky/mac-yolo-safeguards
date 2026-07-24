@@ -852,6 +852,35 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     await gatewayProfiles.save(touched);
   }, []);
 
+  /** Persist /health hostname onto the active Tailscale/LAN profile (never leave Tailscale 100.x). */
+  const enrichActiveProfileFromHealthSnapshot = useCallback(
+    async (snapshot: GatewayHealthSnapshot, gatewayUrlHint?: string) => {
+      const activeId = profileStateRef.current.activeProfileId;
+      if (!activeId) {
+        return;
+      }
+      if (!snapshot.hostname?.trim() && !snapshot.localIp?.trim()) {
+        return;
+      }
+      const urlHint =
+        gatewayUrlHint?.trim() ||
+        effectiveGatewayUrlRef.current ||
+        settingsRef.current.gatewayUrl;
+      const sanitizedLocalIp = resolveDisplayLanIp(snapshot.localIp, urlHint);
+      const touched = touchProfileHealth(profileStateRef.current, activeId, {
+        hostname: snapshot.hostname,
+        localIp: sanitizedLocalIp,
+      });
+      if (touched === profileStateRef.current) {
+        return;
+      }
+      profileStateRef.current = touched;
+      setProfileState(touched);
+      await gatewayProfiles.save(touched);
+    },
+    [],
+  );
+
   const refreshHealth = useCallback(async () => {
     const publishHealth = (snapshot: GatewayHealthSnapshot) => {
       const wasUnreachable = !isGatewayHealthOk(healthRef.current);
@@ -1854,6 +1883,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
                 setEffectiveGatewayUrl(gatewayUrl);
                 setHealth(snapshot);
                 healthRef.current = snapshot;
+                void enrichActiveProfileFromHealthSnapshot(snapshot, gatewayUrl);
                 connectionHealAttemptRef.current = 0;
                 setConnectionHealAttempt(0);
                 setConnectionState('connected');
@@ -1949,6 +1979,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
                       await persistDiscoveredGatewayUrl(url, true);
                       setHealth(refreshed);
                       healthRef.current = refreshed;
+                      void enrichActiveProfileFromHealthSnapshot(refreshed, url);
                       connectionHealAttemptRef.current = 0;
                       setConnectionHealAttempt(0);
                       setConnectionState('connected');
@@ -1993,6 +2024,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           // Never override auth probe — fetchGatewayHealth already sets directGatewayReachable.
           setHealth(snapshot);
           healthRef.current = snapshot;
+          void enrichActiveProfileFromHealthSnapshot(snapshot, url);
           connectionHealAttemptRef.current = 0;
           setConnectionHealAttempt(0);
           setConnectionState('connected');
@@ -2023,7 +2055,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       connectionHealInFlightRef.current = false;
       setConnectionHealInFlight(false);
     }
-  }, [autoDiscoverGateway, isLoaded, persistDiscoveredGatewayUrl, refreshHealth]);
+  }, [autoDiscoverGateway, enrichActiveProfileFromHealthSnapshot, isLoaded, persistDiscoveredGatewayUrl, refreshHealth]);
 
   /**
    * Product lock: Connected via Tailscale/LAN + same-Mac USB reverse healthy →
@@ -2221,6 +2253,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setEffectiveGatewayUrl(decision.remoteGatewayUrl);
       setHealth(snapshot);
       healthRef.current = snapshot;
+      void enrichActiveProfileFromHealthSnapshot(snapshot, decision.remoteGatewayUrl);
       setConnectionState('connected');
       connectEventsRef.current();
       return true;
