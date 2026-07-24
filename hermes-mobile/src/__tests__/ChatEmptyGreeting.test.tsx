@@ -3,6 +3,7 @@ import { render } from '@testing-library/react-native';
 import ChatEmptyGreeting, {
   greetingForTime,
   greetingSubtitle,
+  resolveGreetingTransportLabel,
 } from '../components/ChatEmptyGreeting';
 
 describe('ChatEmptyGreeting', () => {
@@ -50,6 +51,27 @@ describe('ChatEmptyGreeting', () => {
     expect(getByTestId('chat-empty-greeting-subtitle').props.children).toBe(
       'Ask anything — connected via Igors-MacBook-Pro.',
     );
+  });
+
+  it('echoes header transport in connected greeting', () => {
+    expect(resolveGreetingTransportLabel('Tailscale · worker')).toBe('Tailscale');
+    expect(resolveGreetingTransportLabel('USB')).toBe('USB');
+    expect(resolveGreetingTransportLabel('Home Wi‑Fi')).toBe('Home Wi‑Fi');
+    expect(resolveGreetingTransportLabel('192.168.1.10:8642')).toBeUndefined();
+
+    const { getByTestId } = render(
+      <ChatEmptyGreeting
+        routeLabel="Igors-MacBook-Pro"
+        transportLabel="Tailscale"
+        isConnected
+      />,
+    );
+    expect(getByTestId('chat-empty-greeting-subtitle').props.children).toBe(
+      'Ask anything — connected via Igors-MacBook-Pro · Tailscale.',
+    );
+    expect(
+      greetingSubtitle('Igors-MacBook-Pro', true, false, 'USB'),
+    ).toBe('Ask anything — connected via Igors-MacBook-Pro · USB.');
   });
 
   it('shows unreachable copy when disconnected with a machine label', () => {

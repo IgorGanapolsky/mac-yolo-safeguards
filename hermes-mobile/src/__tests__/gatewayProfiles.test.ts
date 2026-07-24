@@ -917,6 +917,44 @@ describe('gatewayProfiles', () => {
     expect(profileMachineKey(healed)).toBe('igors-mac-mini');
     expect(healed.gatewayUrl).toBe('http://100.94.135.78:8642');
     expect(healed.gatewayUrl).not.toContain('127.0.0.1');
+    // Foreign Pro cable hostname must still be rejected while mini is sticky.
+    expect(
+      isDiscoveredUrlAllowedForActiveProfile(state, 'http://127.0.0.1:8642', {
+        liveUsbHostname: 'Igors-MacBook-Pro.local',
+      }),
+    ).toBe(false);
+  });
+
+  it('allows same-Mac USB when the live cable hostname matches the sticky Tailscale Mac', () => {
+    // P0 2026-07-23: after a same-Mac USB↔Tailscale handoff, the sticky profile stays the
+    // Tailscale row while the cable is live for the identical Mac — the live cable hostname
+    // must unlock loopback for THIS Mac only, not any anonymous 127.0.0.1.
+    const state = dedupeGatewayProfiles({
+      profiles: [
+        {
+          id: 'book_ts',
+          label: 'Igors-MacBook-Pro',
+          hostname: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          addedAt: '2026-06-28T00:00:00Z',
+        },
+      ],
+      activeProfileId: 'book_ts',
+    });
+    expect(isDiscoveredUrlAllowedForActiveProfile(state, 'http://127.0.0.1:8642')).toBe(false);
+    expect(
+      isDiscoveredUrlAllowedForActiveProfile(state, 'http://127.0.0.1:8642', {
+        liveUsbHostname: 'Igors-MacBook-Pro.local',
+      }),
+    ).toBe(true);
+    const decision = resolveHealPersistDecision(
+      state,
+      'http://127.0.0.1:8642',
+      true,
+      { liveUsbHostname: 'Igors-MacBook-Pro.local' },
+    );
+    expect(decision.catalogOnly).toBe(false);
+    expect(decision.returnUrl).toBe('http://127.0.0.1:8642');
   });
 
   it('blocks Pro USB profile from rewriting mini Tailscale on heal', () => {
@@ -1093,4 +1131,97 @@ describe('gatewayProfiles', () => {
     expect(profileDisplayName(state.profiles[0])).toBe('Igors-Mac-mini');
   });
 
+  describe('P0 2026-07-23: duplicate-"active"-picker-row / Connecting+Not-connected race', () => {
+    // Live bug report: the "Choose your computer" picker rendered THREE rows for what the
+    // user believed was one physical Mac, with TWO of them simultaneously showing a filled
+    // ("selected") radio, while the header showed "Connecting" and a banner below
+    // simultaneously said "Not connected". `GatewayProfilePicker` computes
+    // `isActive = profile.id === activeProfileId` per row from a single `activeProfileId`
+    // prop shared across the whole render pass — two rows can only both paint as selected if
+    // (a) two profile objects in the list literally share the same `.id`, or (b) the
+    // underlying `activeProfileId`/session URL was churning (flapping) across rapid
+    // re-renders while the modal was open. These tests prove which one it actually is.
+
+    it('never produces two saved-profile ids that collide for the same USB+Tailscale MacBook Pro shape', () => {
+      // Exact machine identities from the bug report: USB-cabled MacBook Pro (loopback),
+      // that same Pro reachable over Tailscale, and the unrelated Mac mini over Tailscale.
+      const usbId = profileIdFromGatewayUrl('http://127.0.0.1:8642', 'Igors-MacBook-Pro');
+      const tailscaleProId = profileIdFromGatewayUrl(
+        'http://100.87.85.85:8642',
+        'Igors-MacBook-Pro',
+      );
+      const tailscaleMiniId = profileIdFromGatewayUrl(
+        'http://100.94.135.78:8642',
+        'Igors-Mac-mini',
+      );
+      // Refutes the "duplicate literal id" hypothesis: USB loopback ids are hostname-keyed,
+      // Tailscale/LAN ids are IP-keyed — a route change for the same Mac never collides with
+      // a different Mac's id, and USB vs Tailscale for the SAME Mac never collide either.
+      expect(usbId).not.toBe(tailscaleProId);
+      expect(usbId).not.toBe(tailscaleMiniId);
+      expect(tailscaleProId).not.toBe(tailscaleMiniId);
+      expect(new Set([usbId, tailscaleProId, tailscaleMiniId]).size).toBe(3);
+    });
+
+    it('dedupeGatewayProfiles never leaves two profiles sharing one id after repeated same-Mac discovery', () => {
+      // Simulates the exact flap: USB discovery, then Tailscale re-discovery of the SAME
+      // Mac (sticky-remote reprobe), then USB re-discovery again — as autoDiscover would do
+      // once per tick while racing the sticky-profile reprobe this fix closes.
+      let state = EMPTY_GATEWAY_PROFILE_STATE;
+      state = upsertDiscoveredProfile(
+        state,
+        { gatewayUrl: 'http://127.0.0.1:8642', hostname: 'Igors-MacBook-Pro', localIp: '127.0.0.1' },
+        true,
+      );
+      state = upsertDiscoveredProfile(
+        state,
+        { gatewayUrl: 'http://100.87.85.85:8642', hostname: 'Igors-MacBook-Pro', localIp: '100.87.85.85' },
+        true,
+      );
+      state = upsertDiscoveredProfile(
+        state,
+        { gatewayUrl: 'http://100.94.135.78:8642', hostname: 'Igors-Mac-mini', localIp: '100.94.135.78' },
+        false,
+      );
+      state = upsertDiscoveredProfile(
+        state,
+        { gatewayUrl: 'http://127.0.0.1:8642', hostname: 'Igors-MacBook-Pro', localIp: '127.0.0.1' },
+        true,
+      );
+      const ids = state.profiles.map((p) => p.id);
+      expect(new Set(ids).size).toBe(ids.length);
+      // At most one profile id can ever equal activeProfileId — GatewayProfilePicker's
+      // `isActive = profile.id === activeProfileId` can therefore never mark two rows
+      // active from a single consistent render; any observed "two selected" screenshot is
+      // proof of activeProfileId churning across renders, not a duplicate-id data bug.
+      expect(state.profiles.filter((p) => p.id === state.activeProfileId).length).toBe(1);
+    });
+
+    it('root cause: sticky Tailscale profile stays probe-preferred over a live same-Mac USB cable pre-fix', () => {
+      // Documents the exact pre-fix defect this PR closes: with no effective-URL/live-cable
+      // awareness, shouldProbeGatewayUrlForActiveProfile allowed the sticky Tailscale URL to
+      // be reprobed and reactivated even while the identical Mac already answers on the cable,
+      // which is what repeatedly flips activeProfileId/gatewayUrl and produces the render race.
+      const state = dedupeGatewayProfiles({
+        profiles: [
+          {
+            id: 'book_ts',
+            label: 'Igors-MacBook-Pro',
+            hostname: 'Igors-MacBook-Pro',
+            gatewayUrl: 'http://100.87.85.85:8642',
+            addedAt: '2026-06-28T00:00:00Z',
+          },
+        ],
+        activeProfileId: 'book_ts',
+      });
+      // Without the live cable hostname, loopback stays blocked (correct — must not steal
+      // an anonymous cable). With it, this fix now allows the SAME Mac's cable through.
+      expect(shouldProbeGatewayUrlForActiveProfile(state, 'http://127.0.0.1:8642')).toBe(false);
+      expect(
+        shouldProbeGatewayUrlForActiveProfile(state, 'http://127.0.0.1:8642', {
+          liveUsbHostname: 'Igors-MacBook-Pro.local',
+        }),
+      ).toBe(true);
+    });
+  });
 });
