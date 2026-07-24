@@ -13,6 +13,7 @@ type Activity = {
 type Lesson = {
   id: string;
   taskId: string;
+  threadId?: string;
   signal: "up" | "down";
   note: string | null;
   updatedAt: number;
@@ -22,6 +23,13 @@ type Lesson = {
   completedAt: number | null;
   threadTitle: string;
 };
+
+function hermesTaskHref(lesson: Lesson) {
+  const params = new URLSearchParams();
+  params.set("task", lesson.taskId);
+  if (lesson.threadId) params.set("thread", lesson.threadId);
+  return `/dashboard?${params.toString()}#task-activity`;
+}
 
 function formatDateTime(timestamp: number) {
   return new Intl.DateTimeFormat("en-US", {
@@ -98,9 +106,9 @@ export default function LessonsClient() {
     <section className="lesson-activity" aria-label="Workspace activity (not lessons)">
       <p className="eyebrow">WORKSPACE ACTIVITY</p>
       <ul>
-        <li><strong>{activity.threads}</strong><span>chats synced</span></li>
-        <li><strong>{activity.completedResponses}</strong><span>completed web answers</span></li>
-        <li><strong>{activity.unratedCompleted}</strong><span>still unrated</span></li>
+        <li><a href="/dashboard" aria-label={`View ${activity.threads} synced chats in Hermes`}><strong>{activity.threads}</strong><span>chats synced</span></a></li>
+        <li><a href="/dashboard#task-activity" aria-label={`View ${activity.completedResponses} completed web answers`}><strong>{activity.completedResponses}</strong><span>completed web answers</span></a></li>
+        <li><a href="/dashboard#task-activity" aria-label={`View ${activity.unratedCompleted} completed answers waiting for a thumbs rating`}><strong>{activity.unratedCompleted}</strong><span>still unrated</span></a></li>
       </ul>
       <p className="helper-copy">
         Chats and prompts live under Hermes. This page only lists answers you explicitly rate.
@@ -171,7 +179,11 @@ export default function LessonsClient() {
               <time dateTime={new Date(lesson.updatedAt).toISOString()}>{formatDateTime(lesson.updatedAt)}</time>
             </div>
             <p className="eyebrow">{lesson.threadTitle} · {lesson.route}</p>
-            <h2>{lesson.prompt}</h2>
+            <h2>
+              <a className="lesson-card-title-link" href={hermesTaskHref(lesson)}>
+                {lesson.prompt}
+              </a>
+            </h2>
             <pre>{lesson.result}</pre>
             {lesson.note && (
               <div className="lesson-note">
@@ -179,6 +191,11 @@ export default function LessonsClient() {
                 <p>{lesson.note}</p>
               </div>
             )}
+            <div className="lesson-card-actions">
+              <a className="button button-secondary button-small" href={hermesTaskHref(lesson)}>
+                Open in Hermes →
+              </a>
+            </div>
           </article>
         ))
       )}
