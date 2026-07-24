@@ -200,6 +200,10 @@ import {
 import { tailnetProbeStorage } from '../services/tailnetProbeStorage';
 import { isGatewaySmokeTestMessage } from '../utils/gatewaySmokeMessages';
 import { isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
+import {
+  annotatePendingReasonForDisabledTool,
+  toolAttemptRequiresLeashApproval,
+} from '../utils/leashCommonTools';
 import { withDeveloperLeashUnlocked } from '../utils/developerLeashUnlock';
 import {
   initializeThumbgateIapListeners,
@@ -1334,11 +1338,20 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    const pending = gateBlockedToPending(event);
-    if (pending) {
+    const pendingRaw = gateBlockedToPending(event);
+    if (pendingRaw) {
       if (!isThumbgateLeashUnlocked(settingsRef.current)) {
         return;
       }
+      const leashToolMatch = toolAttemptRequiresLeashApproval(pendingRaw.toolName, {
+        approvalRequiredIds: settingsRef.current.leashApprovalRequiredToolIds,
+        customTools: settingsRef.current.leashCustomTools,
+        command: pendingRaw.command,
+      });
+      const pending: PendingApproval = {
+        ...pendingRaw,
+        reason: annotatePendingReasonForDisabledTool(pendingRaw.reason, leashToolMatch),
+      };
       if (
         isGatewaySmokeTestMessage(pending.reason) ||
         (pending.command && isGatewaySmokeTestMessage(pending.command))

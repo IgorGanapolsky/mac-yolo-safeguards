@@ -57,6 +57,7 @@ export function mockUseGateway(overrides: Record<string, unknown> = {}) {
     retryGatewayBootstrap: jest.fn().mockResolvedValue(true),
     applySetupDeepLink: jest.fn().mockResolvedValue(undefined),
     saveSettings: jest.fn().mockResolvedValue(undefined),
+    patchSettings: jest.fn().mockResolvedValue(undefined),
     addGatewayProfile: jest.fn().mockResolvedValue(undefined),
     connectEvents: jest.fn(),
     disconnectEvents: jest.fn(),

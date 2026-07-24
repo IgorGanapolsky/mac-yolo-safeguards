@@ -17,6 +17,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import GateApprovalCard from '../components/GateApprovalCard';
 import GlassCard from '../components/GlassCard';
 import HealthPill from '../components/HealthPill';
+import LeashCommonToolsSection from '../components/LeashCommonToolsSection';
 import ProUpgradeCard from '../components/ProUpgradeCard';
 import ThumbGatePromoCard from '../components/ThumbGatePromoCard';
 import { isDeveloperLeashUnlockAllowed } from '../utils/demoModePolicy';
@@ -478,6 +479,22 @@ export default function ApprovalsScreen() {
                 {item.triggerCondition ? ` — ${item.triggerCondition}` : ''}
               </Text>
             ))}
+          </GlassCard>
+        ) : null}
+
+        {leashUnlocked ? (
+          <GlassCard style={styles.leashSettingsCard} testID="leash-common-tools-card">
+            <LeashCommonToolsSection
+              approvalRequiredIds={settings.leashApprovalRequiredToolIds ?? []}
+              customTools={settings.leashCustomTools ?? []}
+              macConnected={macDirectOk}
+              onChangeApprovalRequiredIds={(next) => {
+                void patchSettings({ leashApprovalRequiredToolIds: next });
+              }}
+              onChangeCustomTools={(next) => {
+                void patchSettings({ leashCustomTools: next });
+              }}
+            />
           </GlassCard>
         ) : null}
 

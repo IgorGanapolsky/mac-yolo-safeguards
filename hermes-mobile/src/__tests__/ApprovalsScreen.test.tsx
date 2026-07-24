@@ -276,6 +276,56 @@ describe('ApprovalsScreen', () => {
     ).toBeTruthy();
   });
 
+  it('renders the Leash common-tools section with builtin rows allowed by default', () => {
+    const { getByTestId, getAllByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    expect(getByTestId('leash-common-tools-card')).toBeTruthy();
+    expect(getByTestId('leash-tool-row-terminal')).toBeTruthy();
+    expect(getAllByText('Allowed without prompt').length).toBeGreaterThan(0);
+  });
+
+  it('shows the disconnected notice on Leash common-tools when the Mac is unreachable', () => {
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        health: { level: 'red', checkedAt: '2026-06-18T12:00:00.000Z' },
+      }),
+    );
+    const { getByTestId } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    expect(getByTestId('leash-common-tools-disconnected')).toBeTruthy();
+  });
+
+  it('hides the disconnected notice on Leash common-tools when the Mac is reachable', () => {
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        health: {
+          level: 'green',
+          checkedAt: '2026-06-18T12:00:00.000Z',
+          directGatewayReachable: true,
+        },
+      }),
+    );
+    const { queryByTestId } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    expect(queryByTestId('leash-common-tools-disconnected')).toBeNull();
+  });
+
+  it('adding a custom tool on Leash persists it via patchSettings', () => {
+    const patchSettings = jest.fn().mockResolvedValue(undefined);
+    useGateway.mockReturnValue(mockUseGateway({ patchSettings }));
+    const { getByTestId } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    fireEvent.changeText(getByTestId('leash-custom-tool-input'), 'Stripe CLI');
+    fireEvent.press(getByTestId('leash-custom-tool-add'));
+    expect(patchSettings).toHaveBeenCalledWith({
+      leashCustomTools: [{ id: 'custom_stripe_cli', label: 'Stripe CLI' }],
+    });
+  });
+
+  it('toggling a Leash common-tool switch persists via patchSettings', () => {
+    const patchSettings = jest.fn().mockResolvedValue(undefined);
+    useGateway.mockReturnValue(mockUseGateway({ patchSettings }));
+    const { getByTestId } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    fireEvent(getByTestId('leash-tool-switch-terminal'), 'valueChange', false);
+    expect(patchSettings).toHaveBeenCalledWith({ leashApprovalRequiredToolIds: ['terminal'] });
+  });
+
   it('mentions lock screen in hero subtitle when quick-approve layout is on', () => {
     useGateway.mockReturnValue(
       mockUseGateway({

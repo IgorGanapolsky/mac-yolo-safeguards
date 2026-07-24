@@ -166,6 +166,13 @@ function Probe() {
     <>
       <Text testID="connection-state">{gateway.connectionState}</Text>
       <Text testID="pending-count">{gateway.pendingApprovals.length}</Text>
+      <Text testID="pending-reason">{gateway.pendingApprovals[0]?.reason ?? ''}</Text>
+      <Text
+        testID="patch-leash-required-tools"
+        onPress={() => void gateway.patchSettings({ leashApprovalRequiredToolIds: ['terminal'] })}
+      >
+        patch
+      </Text>
       <Text testID="pending-chat-relay-text">{gateway.pendingChatRelayText ?? ''}</Text>
       <Text testID="transcript-nonce">{gateway.transcriptSyncNonce}</Text>
       <Text testID="last-error">{gateway.lastEventError ?? ''}</Text>
@@ -465,6 +472,44 @@ describe('GatewayProvider', () => {
 
     await waitFor(() => {
       expect(getByTestId('pending-count').props.children).toBe(1);
+    });
+  });
+
+  it('annotates GATE.BLOCKED reason only for a Leash common-tool the user marked "requires approval"', async () => {
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <Probe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('connection-state').props.children).toBe('connected');
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('patch-leash-required-tools'));
+    });
+
+    const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          event: 'GATE.BLOCKED',
+          timestamp: '2026-06-18T12:00:00.000Z',
+          payload: {
+            actionId: 'act_ws_leash_1',
+            toolName: 'run_command',
+            reason: 'blocked',
+            command: 'rm -rf /',
+          },
+        }),
+      });
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('pending-reason').props.children).toBe(
+        'Disabled on Leash · Shell / terminal — blocked',
+      );
     });
   });
 

@@ -1,4 +1,5 @@
 import { HERMES_MOBILE_CLOUD_URL, THUMBGATE_API_URL } from '../constants/appIdentity';
+import type { LeashCustomToolDef } from '../utils/leashCommonTools';
 
 export type GatewayHealthLevel = 'green' | 'amber' | 'red' | 'unknown';
 
@@ -110,6 +111,10 @@ export interface GatewaySettings {
   includeToolActivity?: boolean;
   /** User dismissed first-run ConnectMacGate — show ChatConnectionPanel instead of re-trapping. */
   connectMacGateDismissed?: boolean;
+  /** Leash common-tools row ids the user marked "Requires approve/deny" (empty = all allowed). */
+  leashApprovalRequiredToolIds?: string[];
+  /** Leash user-added custom tool rows (see LeashCommonToolsSection). */
+  leashCustomTools?: LeashCustomToolDef[];
 }
 
 export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
@@ -136,4 +141,6 @@ export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
   developerLeashUnlock: false,
   routeChatConfirmationsToLeash: true,
   includeToolActivity: false,
+  leashApprovalRequiredToolIds: [],
+  leashCustomTools: [],
 };
