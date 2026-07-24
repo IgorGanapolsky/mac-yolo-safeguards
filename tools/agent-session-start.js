@@ -36,6 +36,7 @@ const {
   CONTINUOUS_E2E_LABEL,
   maybeKickstartContinuousE2e,
 } = require('./continuous-e2e-kickstart');
+const { checkGraphStaleness, format: formatGraphStaleness } = require('./graphify-staleness-check');
 const E2E_STALE_MS = 30 * 60 * 1000;
 const args = process.argv.slice(2);
 const json = args.includes('--json');
@@ -193,6 +194,22 @@ const swarmReport = buildHarnessReport({
 });
 if (!json) {
   process.stdout.write(`\n${formatSwarmHarness(swarmReport)}\n`);
+}
+
+const graphReport = checkGraphStaleness();
+if (!json) {
+  process.stdout.write(`\n${formatGraphStaleness(graphReport)}\n`);
+}
+if (graphReport.stale && graphReport.graphifyAvailable) {
+  const updateRes = spawnSync(
+    process.execPath,
+    [path.join(REPO, 'tools/graphify-staleness-check.js'), '--update'],
+    { cwd: REPO, encoding: 'utf8', timeout: 10_000 },
+  );
+  if (!json && updateRes.stdout) {
+    const line = updateRes.stdout.split('\n').find((l) => l.includes('Background rebuild'));
+    if (line) process.stdout.write(`  ${line.trim()}\n`);
+  }
 }
 
 const verify = runBash('scripts/verify-agent-automations.sh', 20_000);
