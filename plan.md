@@ -20,6 +20,269 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 | ID  | Task | Status | Owner | Files (claim) | AcceptanceCheck |
 | T-USB-WATCHDOG-MINI-PRIMARY-20260724 | Follow-up to PR #967: `hermes-usb-reverse-watchdog` LaunchAgent (15s) has no mini-primary awareness and re-adds `tcp:8642` within ~1-2min, flapping UI back to laptop | done | cursor-usb-watchdog-mini-primary | `tools/hermes-usb-reverse-watchdog.js`, `tools/hermes-mobile-pair-lib.js` (add readUsbReversePrimaryIntent/writeUsbReversePrimaryIntent state helpers only), `tools/hermes-mobile-pair.js` (persist intent after usbReversePorts decision only), `tests/test-hermes-usb-reverse-watchdog.js`, `tests/test-hermes-mobile-pair.sh` (intent-persist assertion only), `plan.md` | Watchdog reads a durable `~/.hermes/usb-reverse-primary-intent.json` written by `hermes-mobile-pair.js` on every USB pairing decision; when intent says mini-primary/non-default-loopback, watchdog does NOT re-add `tcp:8642` and actively removes it if present, while still healing `tcp:8765`/other configured ports; normal (non-mini-primary) sessions heal `tcp:8642` exactly as before; live device proof on `R3CY90QPM7E` that 8642 stays absent across 2+ watchdog cycles while mini stays Connected via `:18642` |
+| T-FLEET-REPO-INTEL-20260724 | Fleet-wide local repo intelligence (grepai + hermes-context) for all agents — JetBrains Context equivalent without jbcontext | done | grok-fleet-repo-intel | tools/install-fleet-repo-intelligence.sh, tools/fleet-repo-intelligence-status.js, docs/RESEARCH-JETBRAINS-CONTEXT-FLEET-202607.md, docs/LOCAL-SEMANTIC-CODE-INDEX.md, tools/agent-session-start.js (status only), com.igor.fleet-repo-intelligence.plist, .cursor/rules/fleet-repo-intelligence.mdc, .grok/skills/fleet-repo-intelligence/, plan.md | Install green; status files>0; session-start prints index; LaunchAgent daily; agents prefer semantic search first |
+=== Multi-agent coordination (plan.md) ===
+Last plan update: 2026-07-23T23:20:00Z by `cursor-899-babysit-merge` (merge origin/main into #899; resolve conflicts; land USB↔Tailscale steal fix)
+Branch of record: `main`
+Registered agents: `cursor-899-babysit-merge`, `cursor-greeting-transport`, `cursor-ota-banner-safe-area`, `cursor-stall-echo`, `cursor-default-skills`, `cursor-profile-switch-bleed`, `cursor-ts-watchdog-repair`, `claude-code`, `cursor-emergency-usb-ts-race`, `cursor-emergency-sticky-pair-20260723`, `cursor-emergency-893-898-combine`, `cursor`, `antigravity`, `gemini`, `replit`, `cursor-mac-pro-picker`, `cursor-transport-ssot`, `cursor-stuck-wait`, `cursor-output-wipe`, `codex-thumbgate-feedback`, `codex-tinker-computer-use`, `terra-ci-ndk-pin`, `cursor-ts-vpn-detect`, `cursor-aso-listing-dominance`, `codex-aso-dominance-research`, `codex-usb-transport-preserve`, `grok-swarm-harness-roi`, `grok-authkit-max-age`, `terra-ota-rollout-clamp`, `cursor-thumbgate-promo-leash`, `cursor-no-desktop-hijack`, `codex-hermes-academic-rag`, `cursor-continuity-banner-empty`, `cursor-8642-hijack-fix`, `cursor-usb-watchdog-mini-primary`
+Active tasks (84):
+  T-EMERGENCY-STICKY-PAIR-PRIMARY-20260723 [in_progress] cursor-emergency-sticky-pair-20260723: P0 emergency: setup deep-link pair must stick primary Mac (save lastSelected + force active after extras); stop mini remount thrash after USB MacBook pair
+  T-CHOOSE-COMPUTER-TS-HOSTNAME-20260723 [in_progress] cursor-choose-computer-hostname: P0: Choose computer single-select + Igors-Mac-mini name for Tailscale 100.x
+  T-THUMBGATE-SIF-PITCH-20260723 [in_progress] cursor-sif-pitch: Pitch ThumbGate as Self-Improving Firewall for your AI Agents (landing/meta/promo/Pro; no store metadata; no OTA)
+  T-ASC-SCREENSHOTS-CI-20260722 [in_progress] cursor-asc-screenshots-ci: Headless CI upload of Hermes iOS screenshots to live ASC v1.3 (no Chrome/2FA)
+  T-PAIR-STATUS-FALSE-NEG [in_progress] cursor-pair-status-honesty: P0: Leash never shows invalid/not paired when Mac HTTP reachable (calm Connected/Checking/Can't reach)
+  T-TS-WATCHDOG-SECRETLESS-20260722 [in_progress] cursor-ts-watchdog-repair: P0: Tailscale health watchdog launchd exit 1 — repair without `--allow-local-key-fallback` + `--server-only` overwrites pair.json to legacy key=
+  T-THUMBGATE-AEO-MONITOR-20260722 [in_progress] codex-thumbgate-aeo: Continuously measure ThumbGate AI/search citation visibility with a stable prompt set, hard spend ceiling, answer-first public content, and regression-proof technical discovery
+  T-CODEQL-DEFAULT-SETUP-20260722 [in_progress] codex-thumbgate-aeo: Remove the redundant advanced CodeQL workflow that GitHub rejects while repository default setup is enabled
+  T-THUMBGATE-PROMO-LEASH-20260722 [in_progress] cursor-thumbgate-promo-leash: Surface honest ThumbGate web promo on Leash tab and unreachable connection states
+  T-NO-DESKTOP-HIJACK-20260722 [in_progress] cursor-no-desktop-hijack: Durable no desktop hijack: gate Chrome CDP, ban interactive Chrome/Computer Use by default, prefer CLI/API
+  T-SILENT-BUBBLE-HIDE [in_progress] cursor-silent-bubble-hide: P0: never render cron `[SILENT]` completion sentinel as a chat bubble
+  T-EAS-GUARD-DATE-ROLL-20260723 [in_progress] cursor-silent-bubble-hide: Remove UTC-midnight flake from EAS hard-stop process contract blocking all mobile PRs
+  … +72 more (run node tools/agent-swarm-harness.js --json)
+File locks (342):
+  `tools/hermes-usb-reverse-watchdog.js`, `tools/hermes-mobile-pair-lib.js` (add readUsbReversePrimaryIntent/writeUsbReversePrimaryIntent state helpers only), `tools/hermes-mobile-pair.js` (persist intent after usbReversePorts decision only), `tests/test-hermes-usb-reverse-watchdog.js`, `tests/test-hermes-mobile-pair.sh` (intent-persist assertion only), `plan.md` → **cursor-usb-watchdog-mini-primary** (T-USB-WATCHDOG-MINI-PRIMARY-20260724: teach the always-on USB reverse watchdog to respect mini-primary/non-default-loopback pairing intent from PR #967's follow-up, per cursor-8642-hijack-fix's discovered-task entry above; does not touch GatewayContext.tsx/ChatScreen.tsx/other HOT files) (2026-07-24T13:10:00-04:00)
+  `hermes-mobile/src/components/ThumbGatePromoCard.tsx`, `hermes-mobile/src/utils/thumbgatePromoCopy.ts` (connection_unreachable headline + open handler only), `hermes-mobile/src/__tests__/ThumbGatePromoCard.test.tsx`, `hermes-mobile/src/__tests__/thumbgatePromoCopy.test.ts` (headline/open cases only), `plan.md` → **cursor-thumbgate-open-cta** (T-THUMBGATE-OPEN-CTA-20260723: Open ThumbGate no-op — open URL before/without awaiting analytics; Alert on fail; headline Try ThumbGate.app; no OTA) (2026-07-23T21:05Z)
+  `apps/hermes-control-plane/package.json` (postcss override bump only), `apps/hermes-control-plane/package-lock.json`, `plan.md` → **claude-code-fix-postcss-audit-20260723** (T-FIX-POSTCSS-AUDIT-BLOCK-20260723: `npm audit --audit-level=high` started failing on `main` itself ~2026-07-23T20:07Z on a new GHSA advisory for postcss<=8.5.11 — the existing `overrides.postcss` pin (8.5.10) is itself vulnerable. CORRECTION: this is a real vulnerability worth fixing, but is NOT a hard merge block — #933 and #935 both merged with this check still failing, proving it isn't in the required-checks list. Bumping to a patched 8.5.x, no major version change) (2026-07-23T20:15:00Z)
+  `hermes-mobile/app.config.js` (billing-freeze NEVER/enabled gate only), `hermes-mobile/src/services/appOtaUpdate.ts` (freeze no-op apply only), `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` (freeze cases), `hermes-mobile/src/utils/otaBannerLayout.ts` (StatusBar fallback), → **cursor-ota-banner-safe-area** (T-OTA-BANNER-SAFE-AREA-20260723 emergency hardening: native ON_LOAD was replacing embedded APK with CDN OTA) (2026-07-23T19:50:57Z)
+  `hermes-mobile/docs/OTA_UPDATES.md`, `hermes-mobile/scripts/ota-publish-gated.sh`, `.github/workflows/mobile-ota.yml`, `hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts` (billing freeze asserts only) → **reclaimed by cursor-ota-banner-safe-area** from stale T-CRISIS-20260715 (2026-07-15; no open branch advancing freeze) (2026-07-23T19:19:03Z)
+  `hermes-mobile/src/components/OtaUpdateBanner.tsx`, `hermes-mobile/src/hooks/useOtaUpdateBanner.ts`, `hermes-mobile/src/utils/otaBannerLayout.ts`, `hermes-mobile/src/utils/otaClientPromptPolicy.ts`, `hermes-mobile/src/__tests__/OtaUpdateBanner.test.tsx`, `hermes-mobile/src/__tests__/otaBannerLayout.test.ts`, `hermes-mobile/src/__tests__/otaClientPromptPolicy.test.ts`, `hermes-mobile/src/__tests__/useOtaUpdateBanner.test.ts`, `hermes-mobile/docs/OTA_UPDATES.md`, `hermes-mobile/scripts/require-expo-billing-thaw.sh`, `.github/workflows/mobile-ota.yml` (billing freeze gate only), `hermes-mobile/scripts/ota-publish-gated.sh` (thaw gate only), `hermes-mobile/src/__tests__/releaseSafetyContract.test.ts` (freeze contract only), `hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts` (freeze S-line only), `hermes-mobile/src/components/VaultProjectPickerChip.tsx` (composer gap only), `hermes-mobile/src/__tests__/VaultProjectPickerChip.test.tsx` (gap only), `plan.md` → **cursor-ota-banner-safe-area** (T-OTA-BANNER-SAFE-AREA-20260723; reclaim stale T-OTA-POPUP locks from 2026-07-18; NEVER-APK phone proof done) (2026-07-23T20:52:00Z)
+  `hermes-mobile/src/components/ChatEmptyGreeting.tsx`, `hermes-mobile/src/__tests__/ChatEmptyGreeting.test.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` (empty-greeting transportLabel wire only), `plan.md` → **cursor-greeting-transport** (T-GREETING-TRANSPORT-20260723; audited stale greeting locks have no live worktree) (2026-07-23T20:35:00Z)
+  `hermes-mobile/docs/LISTING-ALIGN-HERMES-MOBILE-20260723.md`, `hermes-mobile/docs/ASC-RENAME-HERMES-MOBILE-20260723.md`, `hermes-mobile/scripts/push-asc-listing-copy.js`, `hermes-mobile/fastlane/metadata/ios/en-US/keywords.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/promotional_text.txt`, `plan.md` → **cursor-asc-rename-ship** (T-ASC-RENAME-HERMES-MOBILE-20260723; no pairing/device; no OTA; do not clobber #893/#898) (2026-07-23T17:59:00Z)
+  … +334 more (read plan.md §2)
+Obsidian agents: read OBSIDIAN.md then claim in plan.md before editing.
+
+=== Agent swarm harness (planner/worker economics) ===
+Role: worker | active tasks: 84 | owners in_progress: 66/3
+WARN: concurrency over cap — serialize before claiming more work.
+Contention (460):
+  hermes-mobile/src/context/GatewayContext.tsx: cursor-emergency-sticky-pair-20260723(T-EMERGENCY-STICKY-PAIR-PRIMARY-20260723) vs cursor-choose-computer-hostname(T-CHOOSE-COMPUTER-TS-HOSTNAME-20260723)
+  hermes-mobile/src/context/GatewayContext.tsx: cursor-emergency-sticky-pair-20260723(T-EMERGENCY-STICKY-PAIR-PRIMARY-20260723) vs gpt-5.6-terra-chat-reconcile (reclaimed stale `cursor-stuck-wait` 2026-07-22T12:12:00Z)(T-STUCK-WAIT-HARD-TIMEOUT)
+  hermes-mobile/src/context/GatewayContext.tsx: cursor-emergency-sticky-pair-20260723(T-EMERGENCY-STICKY-PAIR-PRIMARY-20260723) vs cursor-usb-bidir-handoff(T-USB-BIDIR-HANDOFF)
+  hermes-mobile/src/context/GatewayContext.tsx: cursor-emergency-sticky-pair-20260723(T-EMERGENCY-STICKY-PAIR-PRIMARY-20260723) vs cursor-leash-badge(T-228)
+  hermes-mobile/src/context/GatewayContext.tsx: cursor-emergency-sticky-pair-20260723(T-EMERGENCY-STICKY-PAIR-PRIMARY-20260723) vs cursor-profile-switch(T-255)
+  hermes-mobile/src/context/GatewayContext.tsx: cursor-emergency-sticky-pair-20260723(T-EMERGENCY-STICKY-PAIR-PRIMARY-20260723) vs cursor-fresh-never-reconnect(T-342)
+  hermes-mobile/src/components/ChatConnectionPanel.tsx: cursor-choose-computer-hostname(T-CHOOSE-COMPUTER-TS-HOSTNAME-20260723) vs cursor-thumbgate-promo-leash(T-THUMBGATE-PROMO-LEASH-20260722)
+  hermes-mobile/src/screens/ChatScreen.tsx: cursor-choose-computer-hostname(T-CHOOSE-COMPUTER-TS-HOSTNAME-20260723) vs cursor-silent-bubble-hide(T-SILENT-BUBBLE-HIDE)
+  … +452 more
+Megafile watch:
+  HOT hermes-mobile/src/context/GatewayContext.tsx → cursor-emergency-sticky-pair-20260723, cursor-choose-computer-hostname, gpt-5.6-terra-chat-reconcile (reclaimed stale `cursor-stuck-wait` 2026-07-22T12:12:00Z), cursor-usb-bidir-handoff, cursor-leash-badge, cursor-profile-switch, cursor-fresh-never-reconnect (T-EMERGENCY-STICKY-PAIR-PRIMARY-20260723, T-CHOOSE-COMPUTER-TS-HOSTNAME-20260723, T-STUCK-WAIT-HARD-TIMEOUT, T-USB-BIDIR-HANDOFF, T-228, T-255, T-342)
+  HOT hermes-mobile/src/screens/ChatScreen.tsx → cursor-choose-computer-hostname, cursor-silent-bubble-hide, gpt-5.6-terra-chat-reconcile (reclaimed stale `cursor-stuck-wait` 2026-07-22T12:12:00Z), cursor-transport-ssot, cursor-usb-bidir-handoff, cursor-flashlist-v2, cursor-mega-context-banner, cursor-stall-echo, cursor-continuity-banner-empty, cursor, cursor-profile-switch, cursor-b376420e, cursor-clarification-ui, cursor-attach-fs-legacy, cursor-prompt-elapsed-ux, cursor-fresh-never-reconnect, cursor-remove-persona-avatar (T-CHOOSE-COMPUTER-TS-HOSTNAME-20260723, T-SILENT-BUBBLE-HIDE, T-STUCK-WAIT-HARD-TIMEOUT, T-TRANSPORT-LABEL-SSOT, T-FLASHLIST-MAX-DEPTH, T-FLASHLIST-MAX-DEPTH-V2, T-MEGA-CONTEXT-BANNER, T-STALL-ECHO, T-CONTINUITY-BANNER-EMPTY-20260723, T-129, T-145, T-255, T-227, T-257, T-ATTACH-FS-LEGACY, T-337, T-342, T-REMOVE-PERSONA-AVATAR)
+  HOT hermes-mobile/src/services/gatewayProfiles.ts → cursor-choose-computer-hostname, cursor-usb-demote-stabilize (T-CHOOSE-COMPUTER-TS-HOSTNAME-20260723, T-USB-DEMOTE-CELLULAR, T-MINI-STICKY-PROFILE)
+  watch hermes-mobile/src/services/tailscaleDiscovery.ts → cursor-choose-computer-hostname (T-CHOOSE-COMPUTER-TS-HOSTNAME-20260723)
+  HOT hermes-mobile/src/utils/gatewayProfilePicker.ts → cursor-choose-computer-hostname, cursor-transport-ssot, cursor-pr566-569-reconcile (T-CHOOSE-COMPUTER-TS-HOSTNAME-20260723, T-TRANSPORT-LABEL-SSOT, T-PICKER-TRANSPORT-LABEL)
+  HOT hermes-mobile/src/components/ConnectMacGate.tsx → cursor-choose-computer-hostname, cursor-leash-lazy-spinner, terra-paid-user-connect-ux, cursor-hermes-connect-ux-reclaim, codex, cursor-crisis-20260715 (T-CHOOSE-COMPUTER-TS-HOSTNAME-20260723, T-LEASH-LAZY-SPINNER, T-PAID-USER-CONNECT-UX-20260722, T-CONNECT-UX-CONTRACT-20260721, T-65, T-CRISIS-20260715)
+  HOT tools/hermes-cloud-connector.js → codex-hermes-public-control-plane, codex-hermes-business-20260720, codex-thumbgate-poll-budget (T-HERMES-PUBLIC-CONTROL-PLANE, T-HERMES-BUSINESS-LAUNCH, T-THUMBGATE-POLL-BUDGET-20260721)
+  HOT apps/hermes-control-plane/app/dashboard/DashboardClient.tsx → codex-thumbgate-feedback, codex-hermes-public-control-plane, codex-hermes-business-20260720, codex-hermes-cloudflare-20260720 (T-THUMBGATE-REAL-FEEDBACK-20260721, T-HERMES-PUBLIC-CONTROL-PLANE, T-HERMES-BUSINESS-LAUNCH, T-HERMES-CLOUDFLARE-20260720)
+Model economics: frontier plans; cheap/local executes explicit leaves.
+Role guidance:
+  - Implement only claimed free leaves; stop if a file is owned by another agent.
+  - Do not invent design decisions — escalate or append plan.md §3 and re-plan.
+  - Prefer cheap/local models (tinker-yolo / Composer-class) once AC is explicit.
+  - Never self-merge megafile conflicts; use a neutral rebase onto main + sequential merge.
+  - Ship only after stacked verification (unit + typecheck + E2E or honest skip + Greptile if sensitive).
+Actions:
+  → Concurrency 66 > cap 3: finish or block before starting another in_progress owner.
+  → File contention detected (460): mark blocked + STOP rather than editing overlapping claims.
+  → Megafile multi-owner: hermes-mobile/src/context/GatewayContext.tsx, hermes-mobile/src/screens/ChatScreen.tsx, hermes-mobile/src/services/gatewayProfiles.ts, hermes-mobile/src/utils/gatewayProfilePicker.ts, hermes-mobile/src/components/ConnectMacGate.tsx, tools/hermes-cloud-connector.js, apps/hermes-control-plane/app/dashboard/DashboardClient.tsx — split work or serialize; no parallel design.
+  → Read docs/agent-field-guide/index.md (injected below) before expanding scope.
+  → Worker mode: implement only free claimed leaves; escalate design questions.
+
+--- Field Guide (docs/agent-field-guide/index.md) ---
+# Agent Field Guide (line budget ≤ 80)
+
+Agents own this file. Capture **surprises** that shorten the next trajectory.
+Prune stale lines when over budget. Weights are frozen — only written surprises transfer.
+
+## Coordination (never skip)
+
+1. Read `plan.md` → claim free files → commit claim **before** code.
+2. Cap **2–3** concurrent in_progress owners on Hermes Mobile.
+3. Never edit another agent's §2 claim; `blocked` + STOP.
+4. Run `node tools/agent-swarm-harness.js` at session start (also via `agent-session-start`).
+
+## Planner vs worker
+
+- **Planner:** decompose, write AcceptanceCheck, claim files, record design in §3. No leaf implementation in the same context.
+- **Worker:** implement one claimed leaf. No new design. Escalate ambiguity.
+- **Economics:** frontier for planning; cheap/local (`tinker-yolo` q4) for explicit leaves.
+
+## Megafiles (serialize or split)
+
+`GatewayContext.tsx`, `ChatScreen.tsx`, `gatewayDiscovery.ts`, `gatewayProfiles.ts`,
+`tailscaleDiscovery.ts`, `gatewayProfilePicker.ts`, `ConnectMacGate.tsx`,
+`hermes-cloud-connector.js`, control-plane `DashboardClient.tsx`.
+
+Hot-file PRs need a `plan.md` §3 decision pointer (or `D-YYYY-MM-DD-…`).
+
+## Thrash signals (not productivity)
+
+High commit rate + multi-claimer conflicts = busywork. Measure finished AC, not activity.
+
+## Verification stack (decorrelated lenses)
+
+Unit → typecheck → continuous E2E (or honest skip) → Greptile on auth/onboarding/OTA →
+merge only when required checks green. Never “unit green = shipped.”
+
+## Real-user product
+
+Every Hermes Mobile test is a stranger: no assumed adb reverse, no demo=1 false greens,
+no Igor-only USB path. Production OTA needs E2E pass or fresh-user proof.
+
+=== Code graph (Graphify) ===
+Nodes: 151,126 | Links: 195,625 | Age: fresh (4.3h)
+Query: .graphify-venv/bin/graphify query "<question>"
+=== Agent LaunchAgent status ===
+com.igor.ceo-operating-brief: loaded
+	state = not running
+	run interval = 86400 seconds
+	last exit code = (never exited)
+---
+com.igor.hermes-source-packs: loaded
+	state = not running
+		state = active
+		state = active
+	run interval = 1800 seconds
+	last exit code = 0
+---
+com.igor.react-native-newsletter-ingest: loaded
+	state = not running
+	run interval = 604800 seconds
+	last exit code = (never exited)
+---
+com.igor.hermes-contribution-opportunities: loaded
+	state = not running
+		state = active
+		state = active
+	run interval = 1800 seconds
+	last exit code = 0
+---
+com.igor.hermes-mobile-continuous-e2e: loaded
+	state = not running
+		state = active
+		state = active
+	run interval = 900 seconds
+	last exit code = 0
+---
+com.igor.hermes-mobile-play-paid-review-poll: loaded
+	state = not running
+		state = active
+		state = active
+	run interval = 900 seconds
+	last exit code = 0
+---
+com.igor.hermes-usb-reverse-watchdog: loaded
+	state = not running
+		state = active
+		state = active
+	run interval = 15 seconds
+	last exit code = 0
+---
+com.igor.shutdown-simulators: loaded
+	state = not running
+		state = active
+		state = active
+	run interval = 60 seconds
+	last exit code = 0
+---
+com.igor.revenue-autonomous-loop: loaded
+	state = not running
+		state = active
+		state = active
+	run interval = 14400 seconds
+	last exit code = 78: EX_CONFIG
+---
+com.igor.smart-ops: loaded
+	state = not running
+		state = active
+		state = active
+	run interval = 3600 seconds
+	last exit code = 78: EX_CONFIG
+---
+com.igor.ralph-gsd-loop: MISSING
+---
+com.igor.agent-vault-sync: loaded
+	state = not running
+		state = active
+		state = active
+	run interval = 1800 seconds
+	last exit code = 78: EX_CONFIG
+---
+com.igor.repo-root-hygiene: loaded
+	state = not running
+		state = active
+		state = active
+	run interval = 300 seconds
+	last exit code = 78: EX_CONFIG
+---
+Install agent jobs: bash scripts/install-agent-automations.sh
+Install sim guard: ./install.sh (repo root)
+OK com.igor.shutdown-simulators
+OK com.igor.hermes-contribution-opportunities
+OK com.igor.hermes-mobile-continuous-e2e
+
+=== Hermes Mobile auto-pair: skipped (pid=81601 agent=cursor-usb-cellular-ts-off-fallback branch=fix/usb-cellular-tailscale-off-fallback-20260724 sha=79639ec7 started=13:58:19) ===
+
+=== Hermes Mobile phone install: skipped — pid=81601 agent=cursor-usb-cellular-ts-off-fallback branch=fix/usb-cellular-tailscale-off-fallback-20260724 sha=79639ec7 started=13:58:19 ===
+
+=== Hermes Mobile continuous E2E ===
+com.igor.hermes-mobile-continuous-e2e: loaded
+	state = running
+		state = active
+		state = active
+	run interval = 900 seconds
+---
+Latest cycle:
+{
+  "updatedAt": "2026-07-24T18:45:17Z",
+  "unit": "skipped",
+  "e2e": "skipped",
+  "detail": "skipped continuous E2E: physical phone is awake and actively in use",
+  "flows": [".maestro/ship-guard.yaml", ".maestro/chat-send-persistence.yaml"],
+  "logDir": "/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/hermes-mobile/docs/proofs/continuous"
+}
+---
+deviceVerified=false (true only when e2e=pass)
+Last 8 log lines:
+skipped continuous E2E: physical phone is awake and actively in use
+skipped continuous E2E: physical phone is awake and actively in use
+skipped continuous E2E: physical phone is awake and actively in use
+skipped continuous E2E: physical phone is awake and actively in use
+skipped continuous E2E: phone lease busy (pid=81601 agent=cursor-usb-cellular-ts-off-fallback branch=fix/usb-cellular-tailscale-off-fallback-20260724 sha=79639ec7 started=13:58:19)
+skipped continuous E2E: phone lease busy (pid=81601 agent=cursor-usb-cellular-ts-off-fallback branch=fix/usb-cellular-tailscale-off-fallback-20260724 sha=79639ec7 started=13:58:19)
+skipped continuous E2E: physical phone is awake and actively in use
+
+=== Hermes Mobile continuous E2E kickstart ===
+Skipped continuous E2E kickstart (phone pipeline busy).
+
+=== Smart ops (efficient) ===
+duration_ms=31412 agents=6/7
+revenue ok=true open=$15481 due=3 sent=0 noop=false
+agents_loaded=6/7
+heal=com.igor.ralph-gsd-loop
+revenue=ran ok=true due=3 sent=0 noop=false
+reply_monitor=skipped_fresh_39.1m
+CEO brief (DS/ML/RAG) @ 2026-07-24T18:51:56.429Z
+Gateway: ok 10.2.29.103
+Device: R3CY90QPM7E
+Jest CI: skipped (--full to run)
+Revenue: [send-next] All caught up! No prospects found in "ready" stage.
+
+Next actions:
+1. [product] Agent: node tools/hermes-mobile-pair.js (adb deep link to R3CY90QPM7E)
+2. [product] npm run launch:preflight:android in hermes-mobile (device connected)
+3. [revenue] Revenue blocked: Reddit outreach requires human account (drafts in business_os/active_leads.md)
+
+CEO pick: Agent: node tools/hermes-mobile-pair.js (adb deep link to R3CY90QPM7E)
+
+=== AI-Agent-Sync vault pull ===
+vault pull skipped: 7 tracked dirty file(s); agent live
+
+=== AI-Agent-Sync vault brief ===
+Wrote 4 sync artifacts:
+Dirty entries observed: 4
+Active tasks observed: 24 (status line only),  (grepai paths only if needed),  (new), OK com.igor.shutdown-simulators
+OK com.igor.hermes-contribution-opportunities
+OK com.igor.hermes-mobile-continuous-e2e (wire job),  (new),  (new), vault Agent-State/grok.md + Handoffs,  | Install script green; status shows indexed files; session-start prints index health; MCP grepai works; LaunchAgent installed; agents instructed to query semantic index first |
 | T-EMERGENCY-STICKY-PAIR-PRIMARY-20260723 | P0 emergency: setup deep-link pair must stick primary Mac (save lastSelected + force active after extras); stop mini remount thrash after USB MacBook pair | in_progress | cursor-emergency-sticky-pair-20260723 | `hermes-mobile/src/utils/setupPairPrimaryStickiness.ts` (new), `hermes-mobile/src/__tests__/setupPairPrimaryStickiness.test.ts` (new), `hermes-mobile/src/context/GatewayContext.tsx` (applySetupDeepLink lastSelected + force-active only), `hermes-mobile/docs/proofs/emergency-20260723/` (evidence), `plan.md` | Jest green; after USB MacBook pair UI shows MacBook Connected not mini; lastSelected=paired id |
 |-----|------|--------|-------|---------------|-----------------|
 | T-CONNECTED-STALLED-CONTRADICTION-20260724 | P0: USB reconnect leaves a failed bubble showing stale "not connected yet" beside a Connected header | done | cursor-connected-stalled-contradiction | `hermes-mobile/src/utils/outboundDeliveryStatus.ts`, `hermes-mobile/src/__tests__/outboundDeliveryStatus.test.ts`, `hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts`, `plan.md` | Root cause: `resolveOutboundFailureLabel` fell through to the raw truncated failure reason for connectivity-class messages regardless of current `macHttpOk`; a send that failed while the Mac was unreachable kept the bubble showing "Your computer is not connected yet…" forever, even after `macHttpOk` flipped true and the header said Connected. Fix: connectivity-class reasons now render `OUTBOUND_RECONNECTED_RETRY_HINT` ("Your computer reconnected — tap ↑ to send again") once `macHttpOk` is true, keeping the original actionable copy only while genuinely disconnected. Focused Jest 85/85, full Jest 2129/2130 (pre-existing unrelated `RunProgressBanner` timing flake, green in isolation), typecheck clean; live device `R3CY90QPM7E` over USB confirmed `/health` 200 (Igors-MacBook-Pro reachable) during verification |
@@ -426,6 +689,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-FIND-COMPUTERS-TAILSCALE-SCOPE-20260723 | P0: "Find computers" button on ConnectMacGate only ran the LAN-only subnet sweep, not a genuine Tailscale-wide search — away from home (cellular, no LAN peers) it reported "None found yet" even though a real Tailscale probe finds the Mac (the same passive auto-probe on mount already proves reachability) | done | claude-agent-find-computers-tailscale | `hermes-mobile/src/components/ConnectMacGate.tsx` (runWifiSearch: run probeTailscaleComputers({showUi:true,force:true}) concurrently with scanForGatewayProfiles; no other logic touched), `hermes-mobile/src/__tests__/ConnectMacGate.test.tsx` (new regression test), `plan.md` | Root cause: `scanForGatewayProfiles`'s own `finally` block already fires a Tailscale follow-up, but only `{showUi:false, force:false}` — a silent, 30s-cadence-gated best-effort call that no-ops whenever the mount-time `probeTailscaleComputers()` (wired via a separate `useEffect`, not the button) already ran recently; the button never called a forced Tailscale probe itself. Fix: `runWifiSearch` now awaits `Promise.all([scanForGatewayProfiles(), probeTailscaleComputers({showUi:true,force:true})])` so a tap always performs a fresh, non-debounced, UI-visible Tailscale-wide search alongside the LAN sweep — home Wi-Fi and cellular both work from one button. New Jest test proves the gap (fails on pre-fix code: `probeTailscaleComputers` 0 calls from the tap) and proves the fix (passes: 1 call each, forced+showUi). `npx tsc --noEmit -p .` clean; full suite 236/236 suites, 2086 passed + 1 pre-existing skip, 0 failures. PR #TBD |
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
+
+- fleet repo intelligence install/status/docs/session-start MCP slice → **grok-fleet-repo-intel** (T-FLEET-REPO-INTEL-20260724) (2026-07-24)
 - `.gitleaks.toml` (allowlist additions only), `plan.md` → **claude-code-gitleaks-allowlist-audit-20260724** (T-GITLEAKS-ALLOWLIST-AUDIT-20260724: full security audit at Igor's request found 31 historical false-positive secret findings via a full-history scan — all manually verified as SecureStore/AsyncStorage key names or dev fixtures, not real secrets. Adds precise path-based allowlist entries for the specific verified files, does not weaken the pre-commit hook's ability to catch real new secrets) (2026-07-24T15:35:00Z)
 - `tools/hermes-usb-reverse-watchdog.js`, `tools/hermes-mobile-pair-lib.js`, `tools/hermes-mobile-pair.js`, `tests/test-hermes-usb-reverse-watchdog.js`, `tests/test-hermes-mobile-pair.sh` → **released by cursor-usb-watchdog-mini-primary** after PR #979 merged as `117e08a7` (T-USB-WATCHDOG-MINI-PRIMARY-20260724 done) (2026-07-24T13:45:00-04:00)
 - `tools/hermes-usb-reverse-watchdog.js`, `tools/hermes-mobile-pair-lib.js` (add readUsbReversePrimaryIntent/writeUsbReversePrimaryIntent state helpers only), `tools/hermes-mobile-pair.js` (persist intent after usbReversePorts decision only), `tests/test-hermes-usb-reverse-watchdog.js`, `tests/test-hermes-mobile-pair.sh` (intent-persist assertion only), `plan.md` → **cursor-usb-watchdog-mini-primary** (T-USB-WATCHDOG-MINI-PRIMARY-20260724: teach the always-on USB reverse watchdog to respect mini-primary/non-default-loopback pairing intent from PR #967's follow-up, per cursor-8642-hijack-fix's discovered-task entry above; does not touch GatewayContext.tsx/ChatScreen.tsx/other HOT files) (2026-07-24T13:10:00-04:00)
@@ -1855,6 +2120,11 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - 2026-07-24T17:07:07Z `claude-agent-codeql-error-fixes`: **Completed T-CODEQL-ERROR-ALERTS-20260724.** #25: PR #880 (2026-07-23) had already bounded `grep --pattern`'s `new RegExp()` with a length cap + catastrophic-backtracking-shape heuristic, but that's a runtime guard not a taint-clearing sanitizer, so CodeQL correctly kept the alert open. Real fix: escape regex metacharacters (`escapeRegExp`, the canonical fix CodeQL's own advisory documents) before `new RegExp()`, turning `grep --pattern` into a safe case-insensitive literal-substring search — no metacharacters survive, so no input can trigger catastrophic backtracking. No repo caller relied on live regex syntax in `--pattern` (verified via repo-wide grep); documented in `docs/HERMES-RETRIEVAL-HARNESS.md`. #26: `hasApiKeyInstruction` was a boolean (`/Set the API key/i.test(notes)`) whose *name* (not its value) matches CodeQL's sensitive-term heuristic; the preceding `assertReviewNotesSafe(notes, ...)` call already throws if that phrase is present, so the flag is always `false` in practice — renamed to `hasGatewaySetupReminder` (verified no downstream consumer reads the old key name). #27/#28: `clientEmail` (derived from `FIREBASE_SERVICE_ACCOUNT_JSON`, a credential-bearing env var) was logged in clear text via `console.log`/the shared `fail()`→`console.error` sink; added `maskEmail()` (shows first 3 chars of the local-part + full domain, e.g. `her***@project.iam.gserviceaccount.com`) and applied it at both log sites, preserving enough diagnostic value (which project/SA domain) without printing the full identity string. Verification: `node --check` clean on all 4 touched `.js`/`.cjs` files; `node tests/test-hermes-retrieval-harness.js` passes (49 assertions incl. 3 new ones proving `escapeRegExp` and that a literal `(a+)+$` grep pattern matches nothing instead of hanging/throwing); no test file exists for `patch-asc-review-notes.js` or `verify-firebase-distribute-auth.cjs` (network/ASC-API scripts, none run). PR opened off a fresh `origin/main` fetch. (2026-07-24T17:07:07Z)
 - 2026-07-24T11:05:00Z `claude-local-semantic-code-index` (T-LOCAL-SEMANTIC-CODE-INDEX-20260724): **Free/local alternative to JetBrains "Context" evaluated and wired up.** Evaluated 4 candidates for real maturity (GitHub stars/activity, not just search snippets): `yoanbernabeu/grepai` (1.8k★, actively maintained, 58 open issues, single Go binary, native MCP server documented for Claude Code, default local Ollama embeddings + GOB file store — no external DB), `Helweg/opencode-codebase-index` (152★, real but far smaller, opencode-first), CocoIndex Code (11k★ for the whole framework but requires an external DB service for the vector store — disqualified on setup complexity), Roo Code codebase indexing (24.4k★ but **repo archived 2026-05-15**, not usable standalone from Claude Code — disqualified, abandoned). **Picked grepai.** Installed via `brew install yoanbernabeu/tap/grepai` (0.35.0). Reused the `nomic-embed-text` Ollama model already present on this Mac — zero new model downloads. **Real rough edge found and worked around:** `grepai watch` auto-detects every git worktree sharing this repo's `.git` dir and indexes ALL of them with no opt-out flag (confirmed via `strings` on the binary: "Detected N linked worktree(s), watching all") — on this repo's ~130 concurrent agent worktrees that would have hammered the shared Mac's Ollama daemon. Worked around by building the index in an isolated plain `git clone` (own `.git`, not a worktree) at `~/.hermes/semantic-index/mac-yolo-safeguards`, checked out from `origin/main`, so `grepai watch` there only ever sees itself. Wired `.mcp.json`'s new `grepai` entry to point `grepai mcp-serve` at that clone path explicitly, so it resolves the same regardless of which subdirectory a session's cwd is in. Verified retrieval quality with a real query (`grepai search "reconnect retry timer"`) — top hit was `hermes-mobile/src/context/GatewayContext.tsx`, the actual saved-profile reconnect-backoff logic, found by meaning (the literal string doesn't appear in the file). Full evaluation table, install steps, the worktree-fanout gotcha, and honest limitations (first full build is slow under this Mac's current load; no auto-refresh; indexes `main` only, not live WIP branches) are in `docs/LOCAL-SEMANTIC-CODE-INDEX.md`. Zero ongoing cost, zero cloud API calls. No `hermes-mobile/` app code touched; no app CI suite affected.
 
+### D-2026-07-24-fleet-repo-intel
+Primary: local grepai isolated clone (not jbcontext). Daily LaunchAgent + session-start status so all Mac agents share one index. Parallel research trun_fc3268d892f541d6810050e3ed7bb566.
+||||||| c5f2fcea
 - `tools/agent-cost-analyzer.js`, `tests/test-agent-cost-analyzer.js`, `docs/GRAPHIFY-CONTEXT-RAG-PARTITION.md`, `plan.md` → **claude-code** (T-CONTEXT-INTELLIGENCE-ROI-20260724: implement the high-ROI context-intelligence items from the JetBrains Context analysis — per-agent cost/latency rollup joining real receipt data to plan.md finished-AC count; Graphify-vs-Context partition doc; jbcontext adoption gated on missing JetBrains license) (2026-07-24T14:35:00Z)
 
 - 2026-07-24T14:35:00Z `claude-code` (T-CONTEXT-INTELLIGENCE-ROI-20260724): **Build-vs-adopt decision for JetBrains Context (D-2026-07-24-CONTEXT-INTELLIGENCE).** Triggered by Igor's question on the JetBrains Context announcement (semantic retrieval for coding agents, −68% turns / −59% latency / −48% cost "up to"). Investigation found three of my own initial analysis claims were WRONG and changed the build plan: (1) **Graphify already supports multi-repo** via `merge-graphs <g1> <g2>` + `merge-driver` (verified in `--help`) — so "multi-repo closes a real Graphify gap" was false; the gap is usage, not capability. (2) **jbcontext CLI is not installed and no JetBrains AI license exists** on this machine — so Context adoption is BLOCKED on Gate 1 honestly; will not fabricate auth. (3) **A cost tool already exists** (`hermes-harness-eval.js` mines per-route cost from receipts; `hermes-economic-router.js` has per-route `costUsd`/`latencyMs`) — so "we lack a jbcontext-analyze analog" was partially false. The genuinely non-duplicative gap: `agent-swarm-harness.js` declares its metric as "Finished AC per $" (line 211) but **never computes the "$" denominator** — it measures coordination (contention, multi-claimers) only. The missing piece is a JOIN: receipts (`route.model/provider` + `execution.durationMs`, real data at `~/.hermes/receipts/hermes-yolo/history.jsonl`, 25 rows) → agent-id → finished-AC count from plan.md `done` rows. That is the one high-ROI, non-duplicative, buildable tool. Multi-repo query helper CANCELLED — Graphify supports it but neither `hermes-mobile/` nor `apps/hermes-control-plane/` has a built `graph.json` yet, so there are no inputs to merge; building the wrapper now = speculative scaffolding. Partition doc captures the Graphify↔Context↔grepai (already wired by T-LOCAL-SEMANTIC-CODE-INDEX-20260724) division of labor instead.
+
+- `hermes-mobile/app.json`, `.worktrees/release-android-paid-20260724/` (branch `release/android-paid-20260724`), `plan.md` → **claude-android-paid-release** (T-ANDROID-PAID-BINARY-RELEASE-20260724: Igor said "you let me down" — 70 real fix commits merged to main tonight (reconnect/iPad/Tailscale-pairing/CodeQL/dedupe) never reached his phone because Expo OTA is billing-frozen and no store binary was cut. Verified via direct Play Developer API query that the live `com.iganapolsky.hermesmobile.paid` production track is versionCode **18**, built from commit `741854b1` — which is **70 commits behind `origin/main`** (missing #938 iPad fix, #878/#856/#939 CodeQL fixes, and more). Building a fresh `production-android-paid` EAS binary off current `origin/main` tip, versionCode will auto-become 19 via remote autoIncrement (confirmed via `eas build:version:get -e production-android-paid` = 18 stored remote), submitting to Play production track, re-verifying live via API.) (2026-07-24T19:50:00Z)

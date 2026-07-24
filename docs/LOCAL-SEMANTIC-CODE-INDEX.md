@@ -110,10 +110,20 @@ git pull
 grepai watch --background   # re-embeds only what changed since last run
 ```
 
-There is no cron/launchd job installed for this yet — refreshing is a manual step. If this
-index proves useful enough to rely on daily, the natural next step is a daily `git pull &&
-grepai watch --background` launchd job (not done in this change to avoid adding an unrequested
-background job to an already-busy machine without asking first).
+### Fleet refresh (2026-07-24)
+
+**Installed:** `bash tools/install-fleet-repo-intelligence.sh` installs LaunchAgent
+`com.igor.fleet-repo-intelligence` (daily interval) that re-runs the install/heal path
+(isolated clone `git pull` + ensure watcher). Status for every agent session:
+
+```
+node tools/fleet-repo-intelligence-status.js
+```
+
+Research / decision: `docs/RESEARCH-JETBRAINS-CONTEXT-FLEET-202607.md` (JetBrains Context
+vs local stack; fleet architecture for all agents).
+
+**Still do not** run `grepai watch` from the multi-worktree live checkout.
 
 ## Verified retrieval quality (real test query, real results)
 
