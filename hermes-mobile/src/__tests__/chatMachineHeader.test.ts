@@ -857,6 +857,111 @@ describe('resolveHeaderTransportLabel / USB allow rule', () => {
     expect(display.machineLabel).toBe('Igors-Mac-mini');
     expect(display.machineLabel).not.toContain('MacBook');
   });
+
+  it('P0 2026-07-24: Connected Tailscale never shows Tailscale CGNAT IP when /health.hostname is live', () => {
+    const nameless = {
+      id: 'mac_100_94_135_78',
+      label: 'Tailscale 100.94.135.78',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-24T00:00:00.000Z',
+    };
+    const health = {
+      level: 'green' as const,
+      checkedAt: '2026-07-24T19:00:00.000Z',
+      hostname: 'Igors-Mac-mini.local',
+      directGatewayReachable: true,
+    };
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: nameless,
+      gatewayUrl: nameless.gatewayUrl,
+      health,
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 1,
+      wifiConnected: false,
+    });
+    expect(display.machineLabel).toBe('Igors-Mac-mini');
+    expect(display.machineLabel).not.toMatch(/100\.94\.135\.78/);
+    expect(display.machineEndpoint).toBe('Tailscale');
+    expect(formatChatMachineHeaderLine(display)).toBe('Igors-Mac-mini · Tailscale');
+  });
+
+  it('P0 2026-07-24: profile without hostname still prefers live /health hostname over Tailscale IP label', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_100_94_135_78',
+        label: 'Tailscale 100.94.135.78',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        addedAt: '2026-07-24T00:00:00.000Z',
+      },
+      gatewayUrl: 'http://100.94.135.78:8642',
+      health: {
+        level: 'amber',
+        checkedAt: '2026-07-24T19:00:00.000Z',
+        hostname: 'Igors-Mac-mini.local',
+        directGatewayReachable: true,
+      },
+      connectionMode: 'gateway',
+      isPaired: true,
+      workers: [],
+      savedMacCount: 2,
+      wifiConnected: false,
+    });
+    expect(display.machineLabel).toBe('Igors-Mac-mini');
+    expect(display.machineEndpoint).toBe('Tailscale');
+  });
+
+  it('P0 2026-07-24: health null uses persisted profile hostname not Tailscale IP label', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_100_94_135_78',
+        label: 'Tailscale 100.94.135.78',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-Mac-mini.local',
+        localIp: '100.94.135.78',
+        addedAt: '2026-07-24T00:00:00.000Z',
+      },
+      gatewayUrl: 'http://100.94.135.78:8642',
+      health: null,
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 1,
+      wifiConnected: false,
+    });
+    expect(display.machineLabel).toBe('Igors-Mac-mini');
+    expect(display.machineLabel).not.toMatch(/100\.94\.135\.78/);
+    expect(display.machineEndpoint).toBe('Tailscale');
+  });
+
+  it('P0 2026-07-24: Connected green /health without hostname never titles Tailscale CGNAT IP', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_100_94_135_78',
+        label: 'Tailscale 100.94.135.78',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        localIp: '100.94.135.78',
+        addedAt: '2026-07-24T00:00:00.000Z',
+      },
+      gatewayUrl: 'http://100.94.135.78:8642',
+      health: {
+        level: 'green',
+        checkedAt: '2026-07-24T19:00:00.000Z',
+        directGatewayReachable: true,
+      },
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 1,
+      wifiConnected: false,
+    });
+    expect(display.machineLabel).toBe('Your computer');
+    expect(display.machineLabel).not.toMatch(/100\.94\.135\.78/);
+    expect(display.machineEndpoint).toBe('Tailscale');
+    expect(formatChatMachineHeaderLine(display)).toBe('Your computer · Tailscale');
+  });
 });
 
 describe('profileDisplayName generic labels', () => {
