@@ -68,6 +68,26 @@ describe('sessionContinuityHandoff', () => {
     expect(buildSessionContinuityHandoff({ messages: [] })).toBeNull();
   });
 
+  it('captures a handoff for an ordinary outgoing thread (plain "+ New chat", not just Start-fresh)', () => {
+    // Regression for the "It's hopeless?" amnesia report: handleNewChat now calls
+    // persistContinuityFromCurrentThread() unconditionally before clearing the
+    // transcript. This proves a real outgoing thread still yields a handoff...
+    const handoff = buildSessionContinuityHandoff({
+      messages: [
+        { role: 'user', content: 'iPad ATS still failing, stores not published' },
+        { role: 'assistant', content: '- Fix ATS exception domain\n- Resubmit build' },
+      ],
+      sessionId: 'sess-outgoing',
+      sessionTitle: 'iPad ATS crisis',
+    });
+    expect(handoff).not.toBeNull();
+    expect(handoff!.lastGoal).toContain('iPad ATS');
+
+    // ...while calling handleNewChat FROM handleStartFreshChat (messages already
+    // cleared to [] by that point) safely no-ops instead of double-persisting.
+    expect(buildSessionContinuityHandoff({ messages: [], sessionId: 'sess-outgoing' })).toBeNull();
+  });
+
   it('extracts goal/todos/summary helpers', () => {
     const messages = [
       { role: 'user', content: 'pick up where you left off' },
