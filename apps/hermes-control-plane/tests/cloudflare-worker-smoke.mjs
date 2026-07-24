@@ -194,6 +194,7 @@ try {
     landingViewsToday: 0,
     signInClicksToday: 0,
     cloudContinuityClicksToday: 0,
+    clientErrorsToday: 0,
     loginsLast24h: 0,
     pairingsLast24h: 0,
     checkoutCreatedLast24h: 0,
@@ -223,6 +224,16 @@ try {
     body: JSON.stringify({ schemaVersion: 1, event: "watchdog_probe" }),
   });
   assert.equal(watchdogProbe.status, 204);
+
+  const clientError = await fetch(`http://127.0.0.1:${port}/api/analytics/event`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: `http://127.0.0.1:${port}`,
+    },
+    body: JSON.stringify({ schemaVersion: 1, event: "client_error" }),
+  });
+  assert.equal(clientError.status, 204);
 
   const session = await fetch(`http://127.0.0.1:${port}/api/me`);
   // Landing chrome uses 200 + authenticated:false (not 401) to avoid console noise.

@@ -59,7 +59,11 @@ health_code="$(code "$APP_URL/api/health")"
 health_body="$(body "$APP_URL/api/health")"
 plan_code="$(code "$APP_URL/api/billing/plan")"
 plan_body="$(body "$APP_URL/api/billing/plan")"
+# /api/me is intentionally 200 + authenticated:false for landing chrome (not a private gate).
 session_code="$(code "$APP_URL/api/me")"
+session_body="$(body "$APP_URL/api/me")"
+# Real private-surface gate: unauthenticated tasks must be 401.
+private_tasks_code="$(code "$APP_URL/api/tasks")"
 
 signin_probe="$(signin_chain "$APP_URL")"
 signin_code="${signin_probe%%|*}"
@@ -109,7 +113,18 @@ case "$redirect_target" in https://thumbgate.app/*|https://thumbgate.app) : ;; *
 case "$health_body" in *'"ok":true'*'"ready":true'*'"status":"ok"'*'"database":"available"'*'"schema":"current"'*) : ;; *) concerns+=("health payload invalid or not ready") ;; esac
 case "$health_body" in *'"workosAuthConfigured":true'*'"stripeCheckoutConfigured":true'*'"stripeWebhookConfigured":true'*'"cloudRunnerConfigured":true'*) : ;; *) concerns+=("production configuration incomplete") ;; esac
 [ "$workers_health" = 200 ] || concerns+=("Workers.dev health $workers_health")
-[ "$session_code" = 401 ] || concerns+=("anonymous session gate $session_code")
+# Accept either legacy 401 or intentional public 200 + authenticated:false.
+session_ok=false
+if [ "$session_code" = 401 ]; then
+  session_ok=true
+elif [ "$session_code" = 200 ]; then
+  case "$session_body" in
+    *'"authenticated":false'*|*'\"authenticated\":false'*|*'\"authenticated\": false'*|*'\"authenticated\": false'*) session_ok=true ;;
+    *'"authenticated": false'*) session_ok=true ;;
+  esac
+fi
+[ "$session_ok" = true ] || concerns+=("anonymous /api/me gate $session_code")
+[ "$private_tasks_code" = 401 ] || concerns+=("anonymous /api/tasks gate $private_tasks_code")
 [ "$plan_code" = 200 ] || concerns+=("billing plan $plan_code")
 case "$plan_body" in *'"configured":true'*'"active":true'*'"unitAmount":'*'"currency":'*'"interval":'*) : ;; *) concerns+=("billing plan payload invalid") ;; esac
 case "$plan_unit_amount" in ''|null|0) concerns+=("billing plan amount invalid") ;; esac
@@ -141,9 +156,9 @@ ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 status=ok
 [ "${#concerns[@]}" -gt 0 ] && status=degraded
 /bin/mkdir -p "$(dirname "$LOG")"
-printf '{"ts":"%s","status":"%s","landing":"%s","aliasLanding":"%s","httpRedirect":"%s","hsts":%s,"health":"%s","workersHealth":"%s","signinChain":%s,"aliasSigninChain":%s,"sessionGate":"%s","billingPlan":"%s","billingUnitAmount":"%s","analyticsIngest":"%s","analyticsLatestAt":"%s","auditLatestAt":"%s","deviceHeartbeatLatestAt":"%s","billingEventLatestAt":"%s","realBillingEventLatestAt":"%s","checkoutCreatedLast24h":"%s","checkoutFailedLast24h":"%s","portalCreatedLast24h":"%s","portalFailedLast24h":"%s","billingEventsLast24h":"%s","paidOrganizationsTotal":"%s","webhookGate":"%s","runner":"%s","runnerDegraded":"%s","concerns":%d}\n' \
+printf '{"ts":"%s","status":"%s","landing":"%s","aliasLanding":"%s","httpRedirect":"%s","hsts":%s,"health":"%s","workersHealth":"%s","signinChain":%s,"aliasSigninChain":%s,"sessionGate":"%s","privateTasksGate":"%s","billingPlan":"%s","billingUnitAmount":"%s","analyticsIngest":"%s","analyticsLatestAt":"%s","auditLatestAt":"%s","deviceHeartbeatLatestAt":"%s","billingEventLatestAt":"%s","realBillingEventLatestAt":"%s","checkoutCreatedLast24h":"%s","checkoutFailedLast24h":"%s","portalCreatedLast24h":"%s","portalFailedLast24h":"%s","billingEventsLast24h":"%s","paidOrganizationsTotal":"%s","webhookGate":"%s","runner":"%s","runnerDegraded":"%s","concerns":%d}\n' \
   "$ts" "$status" "$landing" "$alias_landing" "$redirect_code" "$hsts" "$health_code" "$workers_health" \
-  "$signin_ok" "$alias_signin_ok" "$session_code" "$plan_code" "${plan_unit_amount:-unknown}" "$analytics_code" "${analytics_latest_at:-unknown}" \
+  "$signin_ok" "$alias_signin_ok" "$session_code" "$private_tasks_code" "$plan_code" "${plan_unit_amount:-unknown}" "$analytics_code" "${analytics_latest_at:-unknown}" \
   "${audit_latest_at:-unknown}" "${device_heartbeat_latest_at:-unknown}" "${billing_event_latest_at:-unknown}" \
   "${real_billing_event_latest_at:-unknown}" "${checkout_created_last_24h:-unknown}" "${checkout_failed_last_24h:-unknown}" \
   "${portal_created_last_24h:-unknown}" "${portal_failed_last_24h:-unknown}" \

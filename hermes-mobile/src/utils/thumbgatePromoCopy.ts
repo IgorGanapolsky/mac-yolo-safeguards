@@ -28,8 +28,8 @@ const SURFACE_COPY: Record<ThumbGatePromoSurface, Omit<ThumbGatePromoCopy, 'url'
     body: 'Review past approvals and thumbs lessons, manage your account, and open Hermes from a desktop browser.',
   },
   connection_unreachable: {
-    headline: 'Self-Improving Firewall in the browser',
-    body: 'When your phone cannot reach your computer, sign in at ThumbGate to pair a Mac and continue in the browser—with the same lesson-backed gates.',
+    headline: 'Try ThumbGate.app',
+    body: 'When your phone cannot reach your computer, sign in at ThumbGate.app to pair a Mac and continue in the browser.',
   },
 };
 

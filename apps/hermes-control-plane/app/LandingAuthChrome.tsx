@@ -1,13 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SignOutForm } from "./SignOutForm";
 import styles from "./landing.module.css";
 
 type AuthMode = "loading" | "anon" | "session";
 
 let landingAuthRequest: Promise<AuthMode> | null = null;
 
-function getLandingAuth(): Promise<AuthMode> {
+function bustLandingAuthCache() {
+  landingAuthRequest = null;
+}
+
+function getLandingAuth(force = false): Promise<AuthMode> {
+  if (force) bustLandingAuthCache();
   if (!landingAuthRequest) {
     landingAuthRequest = fetch("/api/me", {
       credentials: "same-origin",
@@ -27,7 +33,10 @@ function useLandingAuth(): AuthMode {
   const [mode, setMode] = useState<AuthMode>("loading");
   useEffect(() => {
     let cancelled = false;
-    getLandingAuth().then((nextMode) => {
+    // After logout, URL is /?signed_out=1 — never trust a stale module cache.
+    const force = typeof window !== "undefined"
+      && new URLSearchParams(window.location.search).has("signed_out");
+    getLandingAuth(force).then((nextMode) => {
       if (!cancelled) setMode(nextMode);
     });
     return () => {
@@ -49,18 +58,14 @@ export function LandingAuthNav() {
       <a href="#pricing" className="nav-link">Pricing</a>
       {isSession ? (
         <div className={styles.sessionNav} aria-label="Authenticated session actions">
-          <form action="/api/auth/logout" method="post">
-            <button type="submit" className={`button button-small ${styles.signOutButton}`}>
-              Sign out
-            </button>
-          </form>
+          <SignOutForm buttonClassName={`button button-small ${styles.signOutButton}`} data-testid="landing-sign-out" />
         </div>
       ) : null}
     </div>
   );
 }
 
-/** Single primary hero CTA (not triplicated in the side panel). */
+/** Dual-track hero CTA: free sign-in stays primary, but a real paid-intent path sits next to it — not buried in the pricing section. */
 export function LandingAuthHero() {
   const mode = useLandingAuth();
   const isSession = mode === "session";
@@ -74,7 +79,9 @@ export function LandingAuthHero() {
         {isSession ? "Open Hermes on the web" : "Sign in to Hermes Web"}{" "}
         <span aria-hidden="true">→</span>
       </a>
-      <a href="#pricing" className="button button-ghost">See pricing</a>
+      <a href="#pricing" className="button button-secondary" data-funnel-event="cloud_continuity_click">
+        Try Continuity — 14 days free
+      </a>
     </div>
   );
 }
@@ -90,7 +97,8 @@ export function LandingAuthPanel() {
     <>
       <div className="console-header">
         <span className="console-title">
-          <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span> Your workspace is private
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="brand-mark" src="/brand/thumbgate-mark-inline-v3.svg" alt="" width={22} height={22} decoding="async" /> Your workspace is private
         </span>
         <span className="action-label">
           {mode === "loading" ? "Checking session…" : isSession ? "Session active" : "Sign-in required"}
@@ -109,7 +117,7 @@ export function LandingAuthPanel() {
           <span className="action-icon" aria-hidden="true">☁</span>
           <span>
             <strong>Continuity</strong>
-            <small>Keep work running on a VPS when the Mac is offline.</small>
+            <small>Can pick up eligible work on a VPS when offline — still proving this out.</small>
           </span>
           <b aria-hidden="true">→</b>
         </a>

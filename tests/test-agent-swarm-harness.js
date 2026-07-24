@@ -14,6 +14,7 @@ const {
   checkHotFiles,
   extractDecisionRefs,
   loadFieldGuide,
+  specificationDrivenDesign,
   MEGAFILES,
   FIELD_GUIDE_LINE_BUDGET,
 } = require('../tools/agent-swarm-harness');
@@ -113,7 +114,26 @@ test('buildHarnessReport works on temp plan with field guide present', () => {
   assert.ok(report.contention.length >= 1);
   assert.ok(Array.isArray(report.roleGuidance));
   assert.ok(report.modelEconomics.worker.includes('Cheap') || report.modelEconomics.worker.includes('cheap') || report.modelEconomics.worker.length > 0);
+  assert.ok(report.sdd && Array.isArray(report.sdd.steps));
+  assert.ok(report.sdd.steps.some((s) => s.id === 'gap-analysis'));
+  assert.ok(report.roleGuidance.some((t) => /gap/i.test(t)));
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('specificationDrivenDesign maps Ozkary loop onto repo artifacts', () => {
+  const sdd = specificationDrivenDesign();
+  const ids = sdd.steps.map((s) => s.id);
+  assert.deepStrictEqual(ids, [
+    'discover',
+    'blueprint',
+    'modular-specs',
+    'execute',
+    'gap-analysis',
+    'traceability',
+  ]);
+  assert.ok(sdd.source.url.includes('ozkary.com'));
+  assert.ok(sdd.antiPatterns.length >= 3);
+  assert.ok(sdd.steps.every((s) => s.ourArtifact && s.name));
 });
 
 test('repo Field Guide exists and is within line budget', () => {

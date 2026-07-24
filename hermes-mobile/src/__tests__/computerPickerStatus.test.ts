@@ -3,6 +3,7 @@ import {
   COMPUTER_PICKER_STATUS_MIN_HEIGHT,
   computerPickerStatusSignature,
   resolveComputerPickerStatus,
+  shouldCollapsePickerStatusBand,
   shouldCommitComputerPickerStatus,
   shouldHideIdlePickerHelp,
 } from '../utils/computerPickerStatus';
@@ -47,8 +48,31 @@ describe('computerPickerStatus', () => {
       tailscaleDiscoveries: [discovery],
     });
     expect(status.kind).toBe('searching');
-    expect(status.title).toMatch(/Checking direct Hermes links|Searching for Hermes/);
+    expect(status.title).toBe('Searching for your computer…');
     expect(status.discoveries).toEqual([]);
+  });
+
+  it('keeps searching title stable across progress ticks (no % thrash)', () => {
+    const a = resolveComputerPickerStatus({
+      scanning: true,
+      scanProgress: scanningProgress,
+      scanResult: null,
+      showScanResult: false,
+      tailscaleProbing: false,
+      tailscaleVpnActive: true,
+      tailscaleDiscoveries: [],
+    });
+    const b = resolveComputerPickerStatus({
+      scanning: true,
+      scanProgress: { ...scanningProgress, completedHosts: 9, foundCount: 2 },
+      scanResult: null,
+      showScanResult: false,
+      tailscaleProbing: false,
+      tailscaleVpnActive: true,
+      tailscaleDiscoveries: [],
+    });
+    expect(computerPickerStatusSignature(a)).toBe(computerPickerStatusSignature(b));
+    expect(a.title).toBe(b.title);
   });
 
   it('shows a single Tailscale searching line when probing with no discoveries', () => {
@@ -171,6 +195,25 @@ describe('computerPickerStatus', () => {
     expect(shouldHideIdlePickerHelp(status, 2, false)).toBe(true);
     expect(shouldHideIdlePickerHelp(status, 2, true)).toBe(false);
     expect(shouldHideIdlePickerHelp(status, 0, false)).toBe(false);
+  });
+
+  it('collapses dual Connected status band when a selected row already shows Connected', () => {
+    const status = resolveComputerPickerStatus({
+      scanning: false,
+      scanProgress: null,
+      scanResult: null,
+      showScanResult: false,
+      tailscaleProbing: false,
+      tailscaleVpnActive: true,
+      tailscaleDiscoveries: [],
+      activeGatewayUrl: 'http://127.0.0.1:8642',
+      activeReachable: true,
+      wifiConnected: true,
+    });
+    expect(status.kind).toBe('active');
+    expect(shouldCollapsePickerStatusBand(status, 1, false)).toBe(true);
+    expect(shouldCollapsePickerStatusBand(status, 1, true)).toBe(false);
+    expect(shouldCollapsePickerStatusBand(status, 0, false)).toBe(false);
   });
 
   it('never claims Using USB when active path is Home Wi-Fi', () => {

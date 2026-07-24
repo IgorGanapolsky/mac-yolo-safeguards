@@ -1,6 +1,6 @@
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
-import ConnectMacGate from '../components/ConnectMacGate';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import ConnectMacGate, { connectMacGateCardMaxWidth } from '../components/ConnectMacGate';
 import { DEFAULT_GATEWAY_SETTINGS } from '../types/gateway';
 import { CONNECT_MAC_GATE_TITLE, TAILSCALE_PASTE_IP_TITLE } from '../utils/tailscalePasteIpCopy';
 
@@ -365,5 +365,65 @@ describe('ConnectMacGate', () => {
     expect(view.queryByTestId('connect-mac-scan-progress')).toBeNull();
     expect(view.queryByTestId('connect-search-wifi')).toBeNull();
     expect(view.queryByTestId('connect-scan-qr')).toBeNull();
+  });
+
+  it('keeps the phone-sized card on narrow windows', () => {
+    expect(connectMacGateCardMaxWidth(375)).toBe(420);
+    expect(connectMacGateCardMaxWidth(699)).toBe(420);
+  });
+
+  it('widens the card on tablet-sized windows without going edge to edge', () => {
+    // iPad portrait (~834pt): wider than phone, nowhere near full width.
+    expect(connectMacGateCardMaxWidth(834)).toBe(459);
+    // iPad Pro landscape (~1366pt): capped, never edge to edge.
+    expect(connectMacGateCardMaxWidth(1366)).toBe(640);
+  });
+
+  it('Find computers triggers a forced Tailscale probe, not just the LAN sweep (away-from-home gap)', async () => {
+    // Regression for the live bug: on cellular with no LAN peers and no
+    // recently-cached Tailscale hosts, tapping "Find computers" only ran the
+    // LAN-only scanForGatewayProfiles() and reported "None found yet" even
+    // though a genuine Tailscale probe would have found the Mac. The fix
+    // wires probeTailscaleComputers({ force: true }) into the same tap so
+    // it searches everywhere Hermes can reach a Mac, cellular included.
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    const scanForGatewayProfiles = jest.fn().mockResolvedValue([]);
+    const probeTailscaleComputers = jest.fn().mockResolvedValue(undefined);
+    const retryGatewayBootstrap = jest.fn().mockResolvedValue(undefined);
+    mockUseGateway.mockReturnValue(
+      gateway({
+        settings: {
+          ...DEFAULT_GATEWAY_SETTINGS,
+          demoMode: false,
+        },
+        wifiConnected: false, // away from home / on cellular
+        gatewayProfiles: [],
+        effectiveGatewayUrl: '',
+        tailscaleDiscoveries: [],
+        scanForGatewayProfiles,
+        probeTailscaleComputers,
+        retryGatewayBootstrap,
+      }),
+    );
+
+    const view = render(<ConnectMacGate />);
+
+    // Before the fix, mount only fires the un-forced/default probe via the
+    // separate useEffect; clear that call so we can prove the button press
+    // itself performs a *forced* probe.
+    probeTailscaleComputers.mockClear();
+
+    fireEvent.press(view.getByTestId('connect-search-wifi'));
+
+    await waitFor(() => {
+      expect(scanForGatewayProfiles).toHaveBeenCalledTimes(1);
+      expect(probeTailscaleComputers).toHaveBeenCalledTimes(1);
+    });
+
+    // The Tailscale probe triggered by the tap must be forced (bypass the
+    // 30s background cadence gate) and visible in the UI, not the silent
+    // best-effort background variant scanForGatewayProfiles's own finally
+    // block fires internally.
+    expect(probeTailscaleComputers).toHaveBeenCalledWith({ showUi: true, force: true });
   });
 });

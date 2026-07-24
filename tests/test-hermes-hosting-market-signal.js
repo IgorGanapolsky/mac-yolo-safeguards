@@ -24,7 +24,10 @@ check('parseArgs defaults', () => {
 
 check('buildSignal demo uses default MyClaw source', () => {
   const s = buildSignal({ demo: true });
-  assert.ok(s.source.includes('hasantoxr') || s.source.includes('x.com'));
+  // Exact hostname match (not a raw substring test) so a lookalike host such as
+  // "https://evil.com/x.com" or "https://x.com.evil.com" cannot pass this check.
+  const sourceHost = new URL(s.source).hostname;
+  assert.ok(s.source.includes('hasantoxr') || sourceHost === 'x.com');
   assert.ok(s.icp.toLowerCase().includes('hermes') || s.icp.includes('always-on'));
 });
 

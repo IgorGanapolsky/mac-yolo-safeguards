@@ -19,7 +19,9 @@ const catalog = JSON.parse(readFileSync(new URL("../public/.well-known/ai-catalo
 test("fails closed at the server boundary for every private dashboard route", () => {
   assert.match(dashboardLayout, /await currentSession\(\)/);
   assert.match(dashboardLayout, /if \(!session\) redirect\("\/api\/auth\/login\?return_to=%2Fdashboard"\)/);
-  assert.match(dashboardLayout, /return children/);
+  // Server gate first; children may sit next to ClientErrorBeacon (content-free crash counter).
+  assert.match(dashboardLayout, /\{children\}/);
+  assert.match(dashboardLayout, /ClientErrorBeacon/);
 });
 
 test("keeps the public landing static (no server session/D1) and defers auth chrome to client", () => {
@@ -61,11 +63,15 @@ test("terminates the local and WorkOS sessions instead of silently signing back 
   assert.match(authLogin, /createSignedAuthState/);
   assert.doesNotMatch(authLogin, /auth_states/);
   assert.match(authCallback, /verifySignedAuthState/);
-  // Logout is provider-independent: delete local session + WorkOS session_id logout.
-  assert.match(authLogout, /DELETE FROM sessions WHERE id_hash = \?/);
+  // Logout: wipe local sessions for the user, server-side WorkOS revoke, cookie clear.
+  // Browser WorkOS logout is only a fallback when server revoke cannot run.
+  assert.match(authLogout, /DELETE FROM sessions WHERE user_id = \?/);
+  assert.match(authLogout, /revokeWorkosSession/);
   assert.match(authLogout, /workosLogoutUrl\(session\.workosSessionId, returnTo\)/);
   assert.match(authLogout, /"set-cookie": clearSessionCookie\(\)/);
+  assert.match(authLogout, /export async function GET/);
   assert.match(workosSession, /\/user_management\/sessions\/logout/);
+  assert.match(workosSession, /\/user_management\/sessions\/revoke/);
   assert.match(workosSession, /logout\.searchParams\.set\("session_id", sessionId\)/);
 });
 

@@ -71,7 +71,8 @@ case "$format" in
       https://thumbgate.app|https://thumbgate.app/|https://app.thumbgate.app|https://app.thumbgate.app/) printf '200' ;;
       https://thumbgate.app/api/health|https://hermes-control-plane.iganapolsky.workers.dev/api/health) printf '200' ;;
       https://thumbgate.app/api/billing/plan) printf '200' ;;
-      https://thumbgate.app/api/me) printf '401' ;;
+      https://thumbgate.app/api/me) printf '200' ;;
+      https://thumbgate.app/api/tasks) printf '401' ;;
       https://thumbgate.app/api/analytics/event)
         [[ "$method" == POST ]] && printf '204' || printf '405'
         ;;
@@ -83,7 +84,10 @@ case "$format" in
   *)
     case "$url" in
       https://thumbgate.app/api/health)
-        printf '{"ok":true,"ready":true,"status":"ok","database":"available","schema":"current","config":{"workosAuthConfigured":true,"stripeCheckoutConfigured":true,"stripeWebhookConfigured":true,"cloudRunnerConfigured":true},"telemetry":{"analyticsLatestAt":1784584500000,"auditLatestAt":1784584400000,"deviceHeartbeatLatestAt":null,"billingEventLatestAt":1784584300000,"realBillingEventLatestAt":null,"checkoutCreatedLast24h":1,"checkoutFailedLast24h":0,"portalCreatedLast24h":1,"portalFailedLast24h":0,"billingEventsLast24h":0,"paidOrganizationsTotal":1}}'
+        printf '{"ok":true,"ready":true,"status":"ok","database":"available","schema":"current","config":{"workosAuthConfigured":true,"stripeCheckoutConfigured":true,"stripeWebhookConfigured":true,"cloudRunnerConfigured":true},"telemetry":{"analyticsLatestAt":1784584500000,"auditLatestAt":1784584400000,"deviceHeartbeatLatestAt":null,"billingEventLatestAt":1784584300000,"realBillingEventLatestAt":null,"checkoutCreatedLast24h":1,"checkoutFailedLast24h":0,"portalCreatedLast24h":1,"portalFailedLast24h":0,"billingEventsLast24h":0,"paidOrganizationsTotal":1,"clientErrorsToday":0}}'
+        ;;
+      https://thumbgate.app/api/me)
+        printf '{"authenticated":false,"workosConfigured":true}'
         ;;
       https://thumbgate.app/api/billing/plan)
         printf '{"configured":true,"active":true,"unitAmount":1000,"currency":"usd","interval":"month"}'

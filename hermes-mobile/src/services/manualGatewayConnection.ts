@@ -7,7 +7,8 @@ import {
 import { fetchGatewayHealth } from './gatewayClient';
 import { exchangePairingCode } from './pairingCodeExchange';
 import { secureCredentials } from './secureCredentials';
-import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
+import { isTailscaleGatewayUrl, normalizeTailnetProbeHost } from '../utils/tailscaleHosts';
+import { tailnetProbeStorage } from './tailnetProbeStorage';
 
 type PairExchangeResult = {
   apiKey?: string;
@@ -25,7 +26,22 @@ export type ManualGatewayConnectionDependencies = {
     apiKey?: string | null,
     timeoutMs?: number,
   ) => Promise<GatewayHealthSnapshot>;
+  /**
+   * Remember a Tailscale host that answered /health but failed auth, so Find
+   * computers / the background Tailscale probe can rediscover it later instead
+   * of forgetting the exact address the user just typed (Android exposes no
+   * cross-app tailnet peer list — see docs/RESEARCH-TAILSCALE-ANDROID-DISCOVERY-JULY-2026.md).
+   */
+  rememberTailnetProbeHost: (gatewayUrl: string) => Promise<void>;
 };
+
+async function rememberTailnetProbeHost(gatewayUrl: string): Promise<void> {
+  const host = normalizeTailnetProbeHost(gatewayUrl);
+  if (!host) {
+    return;
+  }
+  await tailnetProbeStorage.merge([host]);
+}
 
 const defaultDependencies: ManualGatewayConnectionDependencies = {
   loadApiKey: () => secureCredentials.loadApiKey(),
@@ -34,6 +50,7 @@ const defaultDependencies: ManualGatewayConnectionDependencies = {
   resolvePairServerSetupParams,
   exchangePairingCode,
   fetchGatewayHealth,
+  rememberTailnetProbeHost,
 };
 
 const MANUAL_PROBE_TIMEOUT_MS = 5000;
@@ -99,6 +116,16 @@ export async function connectManualGatewayAddress(
   );
 
   if (health.authMismatch) {
+    if (tailscaleAddress) {
+      // Proven reachable over Tailscale but wrong/missing key — keep the host so
+      // Find computers and the background probe resurface it (re-pair CTA) on the
+      // next cycle instead of "None found yet" for an address we already reached.
+      try {
+        await dependencies.rememberTailnetProbeHost(input.gatewayUrl);
+      } catch {
+        // Best-effort memory; never let storage failure mask the real pairing error.
+      }
+    }
     throw new Error('Hermes is reachable, but this phone still needs to pair.');
   }
   if (!health.directGatewayReachable) {

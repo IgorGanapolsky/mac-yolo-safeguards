@@ -5,7 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/dashboard", "/api/"],
+      disallow: ["/dashboard", "/admin", "/api/"],
     },
     sitemap: "https://thumbgate.app/sitemap.xml",
     host: "https://thumbgate.app",

@@ -1,1 +1,1 @@
-remote,coding,devtools,leash,operator,safety,pair,tailscale,desktop,usb,wifi,phone,block,qr,command
+remote,coding,devtools,leash,operator,safety,pair,tailscale,desktop,usb,wifi,phone,block,qr,macbook

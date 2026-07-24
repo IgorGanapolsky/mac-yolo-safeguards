@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# hermes-context - local, incremental, multi-repo semantic code search.
+#
+# The stolen idea (JetBrains Context, announced 2026-07): give coding agents a
+# pre-built semantic index of a codebase so they stop burning turns/tokens on
+# cold grep/find exploration, and let them search across repos beyond the one
+# currently checked out. This is the $0, fully local version: chunks + embeds
+# repo files via Ollama's nomic-embed-text (already on this fleet) into
+# ~/.hermes/context-index/, incrementally (unchanged files are never
+# re-embedded), and lets ANY agent on this Mac (Claude Code, hermes-yolo,
+# opencode-yolo, kimi-yolo, poolside-yolo, tinker-yolo) query across every
+# indexed repo at once. No code ever leaves the machine.
+#
+#   hermes-context index /path/to/repo [--name X]
+#   hermes-context search "query" [--repo X] [--top N] [--json]
+#   hermes-context list
+#   hermes-context doctor [--json]
+set -euo pipefail
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  SOURCE_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" != /* ]] && SOURCE="$SOURCE_DIR/$SOURCE"
+done
+HERE="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+
+exec python3 "$HERE/scripts/hermes-context.py" "$@"

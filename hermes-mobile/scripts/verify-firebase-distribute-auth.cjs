@@ -17,6 +17,23 @@ function fail(message) {
   process.exit(1);
 }
 
+// js/clear-text-logging (CWE-312/359/532): clientEmail/projectId are derived
+// from FIREBASE_SERVICE_ACCOUNT_JSON (process.env), a credential-bearing
+// source, so CodeQL treats any value extracted from it as sensitive even
+// though the service account *email* isn't the private key itself. Mask the
+// identifying local-part before it reaches console.log/console.error so a
+// leaked CI log still shows enough to debug (which project, which SA
+// domain) without printing the full identity string in clear text.
+function maskEmail(email) {
+  const str = String(email || '');
+  const at = str.indexOf('@');
+  if (at <= 0) return str ? `${str.slice(0, 2)}***` : str;
+  const local = str.slice(0, at);
+  const domain = str.slice(at);
+  const visible = local.slice(0, Math.min(3, local.length));
+  return `${visible}***${domain}`;
+}
+
 if (!SA_JSON) {
   fail('FIREBASE_SERVICE_ACCOUNT_JSON is not set (see scripts/sync-firebase-secrets.sh)');
 }
@@ -41,7 +58,7 @@ if (!privateKey) {
   fail('Service account JSON missing private_key');
 }
 
-console.log(`Firebase distribute auth: checking ${clientEmail} (project_id=${projectId || 'unknown'})`);
+console.log(`Firebase distribute auth: checking ${maskEmail(clientEmail)} (project_id=${projectId || 'unknown'})`);
 
 const projectNumber = firebaseProject.projectNumber;
 
@@ -148,7 +165,7 @@ async function verifyAppDistributionAccess() {
   }
   if (/403|permission|PERMISSION_DENIED/i.test(detail) || response.statusCode === 403) {
     fail(
-      `Service account ${clientEmail} lacks Firebase App Distribution permission (HTTP ${response.statusCode}).\n` +
+      `Service account ${maskEmail(clientEmail)} lacks Firebase App Distribution permission (HTTP ${response.statusCode}).\n` +
         '  Fix: Firebase Console -> Hermes Mobile -> Project settings -> Service accounts -> generate key,\n' +
         `  OR grant roles/firebaseappdistro.admin on Hermes Mobile Firebase (${firebaseProject.projectNumber}),\n` +
         '  then set GitHub secret FIREBASE_SERVICE_ACCOUNT_JSON.',

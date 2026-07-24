@@ -41,7 +41,8 @@ describe('tailscaleDiscovery', () => {
     expect(discovered).toEqual({
       gatewayUrl: 'http://100.94.135.78:8642',
       hostname: 'Igors-Mac-mini.local',
-      localIp: '192.168.68.56',
+      // Prefer probed Tailscale CGNAT IP over /health LAN local_ip.
+      localIp: '100.94.135.78',
       label: 'Igors-Mac-mini',
     });
     expect(tailscaleDiscoveryLabel(discovered!)).toBe('Igors-Mac-mini');

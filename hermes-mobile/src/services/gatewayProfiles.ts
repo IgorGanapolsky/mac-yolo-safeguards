@@ -457,11 +457,12 @@ export function profilesForActiveMachine(
 export function shouldProbeGatewayUrlForActiveProfile(
   state: GatewayProfileState,
   gatewayUrl: string,
+  options?: { liveUsbHostname?: string | null },
 ): boolean {
   if (!state.activeProfileId) {
     return true;
   }
-  return isDiscoveredUrlAllowedForActiveProfile(state, gatewayUrl);
+  return isDiscoveredUrlAllowedForActiveProfile(state, gatewayUrl, options);
 }
 
 /**
@@ -497,13 +498,14 @@ export function resolveHealPersistDecision(
   state: GatewayProfileState,
   successfulUrl: string,
   requestedActivation: boolean,
+  options?: { liveUsbHostname?: string | null },
 ): {
   catalogOnly: boolean;
   returnUrl: string;
   requestedActivation: boolean;
 } {
   const active = activeProfile(state);
-  const allowed = isDiscoveredUrlAllowedForActiveProfile(state, successfulUrl);
+  const allowed = isDiscoveredUrlAllowedForActiveProfile(state, successfulUrl, options);
   const usbLoopbackEscape = canUsbLoopbackEscapeToUrl(state, successfulUrl);
   if (state.activeProfileId && !allowed && !usbLoopbackEscape) {
     return {
@@ -524,12 +526,15 @@ export function resolveHealPersistDecision(
  *
  * Unmatched USB/loopback is NOT a free pass: a cable to MacBook Pro answers on
  * 127.0.0.1 even when the user selected Mac mini over Tailscale. Only allow
- * loopback when the active computer is already USB, or a saved loopback row
- * shares the active machine identity.
+ * loopback when:
+ * - the active computer is already USB, or
+ * - a saved loopback row shares the active machine identity, or
+ * - liveUsbHostname matches the sticky Mac (same-machine USB prefer; product 2026-07-23).
  */
 export function isDiscoveredUrlAllowedForActiveProfile(
   state: GatewayProfileState,
   successfulUrl: string,
+  options?: { liveUsbHostname?: string | null },
 ): boolean {
   if (!state.activeProfileId) {
     return true;
@@ -540,9 +545,15 @@ export function isDiscoveredUrlAllowedForActiveProfile(
   }
   const matched = findProfileForGatewayUrl(state.profiles, successfulUrl);
   if (!matched) {
-    // Never let anonymous 127.0.0.1 steal a Tailscale/LAN selection.
+    // Never let anonymous 127.0.0.1 steal a Tailscale/LAN selection — unless the
+    // live cable hostname proves it is the same sticky Mac (USB prefer-when-cabled).
     if (isLoopbackGatewayUrl(successfulUrl)) {
-      return isLoopbackGatewayUrl(active.gatewayUrl);
+      if (isLoopbackGatewayUrl(active.gatewayUrl)) {
+        return true;
+      }
+      const liveKey = normalizeMachineKey(options?.liveUsbHostname ?? undefined);
+      const activeKey = profileMachineKey(active);
+      return Boolean(liveKey && activeKey && liveKey === activeKey);
     }
     return false;
   }
@@ -828,6 +839,17 @@ export function shouldActivateDiscoveredUrl(
   return matched.id === state.activeProfileId;
 }
 
+/**
+ * True when Choose computer would show "Tailscale 100.x" / generic Tailscale label
+ * because hostname was never persisted from /health or MagicDNS.
+ */
+export function profileNeedsMachineNameEnrichment(profile: GatewayProfile): boolean {
+  if (!isTailscaleGatewayUrl(profile.gatewayUrl)) {
+    return false;
+  }
+  return isGenericMachineLabel(profileDisplayName(profile));
+}
+
 /** Persist every healthy Tailscale /health discovery as a saved computer profile. */
 export function applyTailscaleDiscoveriesToProfileState(
   state: GatewayProfileState,
@@ -849,8 +871,13 @@ export function upsertDiscoveredProfile(
   const gatewayUrl = normalizeGatewayUrlBase(discovered.gatewayUrl);
   const hostname = discovered.hostname?.trim();
   const id = profileIdFromGatewayUrl(gatewayUrl, hostname);
+  const urlIp = extractLanIpFromGatewayUrl(gatewayUrl);
+  // Never let /health LAN local_ip replace a Tailscale CGNAT URL identity.
   const localIp =
-    discovered.localIp?.trim() || extractLanIpFromGatewayUrl(gatewayUrl) || undefined;
+    (urlIp && isTailscaleIpv4(urlIp) ? urlIp : undefined) ||
+    discovered.localIp?.trim() ||
+    urlIp ||
+    undefined;
   const label = resolveStoredProfileLabel({
     gatewayUrl,
     hostname,

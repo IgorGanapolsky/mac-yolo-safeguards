@@ -5,8 +5,13 @@ import {
   governanceAuditMetadata,
   type GovernanceDecision,
 } from "./agent-governance";
+import {
+  buildTaskCompletionReceipt,
+  receiptAuditMetadata,
+} from "./execution-receipt";
 import { db } from "./runtime";
 import { randomToken, sha256 } from "./security";
+import { evaluateCloudPromptToolPolicy } from "./cloud-tool-policy";
 import { webSessionIdForThread } from "./web-session";
 
 export const TASK_LEASE_MS = 90_000;
@@ -48,6 +53,34 @@ function boundMessages(messages: ContextMessage[], maxChars = 64_000): ContextMe
   return result;
 }
 
+
+/** When a Mac dies mid-queue: auto → cloud Continuity; manual → needs human approve. */
+export async function reclassifyStaleLocalTasks(now = Date.now()): Promise<void> {
+  const staleBefore = now - 60_000;
+  await db().batch([
+    db().prepare(
+      `UPDATE tasks SET status = 'cloud_pending', route = 'cloud', updated_at = ?
+        WHERE status = 'local_pending' AND lease_owner IS NULL
+          AND (lease_expires_at IS NULL OR lease_expires_at <= ?)
+          AND device_id IN (
+            SELECT id FROM devices
+             WHERE revoked_at IS NULL AND failover_mode = 'auto'
+               AND (last_seen_at IS NULL OR last_seen_at < ?)
+          )`,
+    ).bind(now, now, staleBefore),
+    db().prepare(
+      `UPDATE tasks SET status = 'needs_failover', route = 'blocked', updated_at = ?
+        WHERE status = 'local_pending' AND lease_owner IS NULL
+          AND (lease_expires_at IS NULL OR lease_expires_at <= ?)
+          AND device_id IN (
+            SELECT id FROM devices
+             WHERE revoked_at IS NULL AND failover_mode = 'manual'
+               AND (last_seen_at IS NULL OR last_seen_at < ?)
+          )`,
+    ).bind(now, now, staleBefore),
+  ]);
+}
+
 export async function claimTask(input: {
   route: "local" | "cloud";
   owner: string;
@@ -66,12 +99,21 @@ export async function claimTask(input: {
   leaseExpiresAt: number;
 } } | null> {
   const now = Date.now();
+  if (input.route === "cloud") await reclassifyStaleLocalTasks(now);
   const routeClause = input.route === "local"
     ? "k.route = 'local' AND k.device_id = ? AND k.status IN ('local_pending', 'cloud_pending', 'running')"
     : `((k.route = 'cloud' AND k.status IN ('cloud_pending', 'running'))
         OR (k.route = 'local' AND k.status = 'local_pending' AND d.failover_mode = 'auto'
+            AND (d.last_seen_at IS NULL OR d.last_seen_at < ?))
+        OR (k.route = 'local' AND k.status = 'running' AND d.failover_mode = 'auto'
             AND (d.last_seen_at IS NULL OR d.last_seen_at < ?)))`;
-  const params = input.route === "local" ? [input.deviceId!, now] : [now - 60_000, now];
+  // The 'running' branch above is what lets cloud take over a task the Mac claimed and then
+  // went offline mid-execution (lid closed while running) — not just tasks never claimed
+  // locally. reclassifyStaleLocalTasks() above only sweeps lease_owner IS NULL tasks, so it
+  // can't reach this case; both branches require the task's own lease to already be expired
+  // (enforced by the trailing lease_expires_at check below), so the fencing-token CAS in the
+  // UPDATE still owns correctness.
+  const params = input.route === "local" ? [input.deviceId!, now] : [now - 60_000, now - 60_000, now];
   const candidate = await db().prepare(
     `SELECT k.id, k.organization_id AS organizationId, k.thread_id AS threadId, t.title AS threadTitle, k.prompt,
             k.route AS currentRoute, k.lease_generation AS leaseGeneration, k.created_at AS createdAt,
@@ -91,6 +133,26 @@ export async function claimTask(input: {
 
   let cloudDecision: GovernanceDecision | null = null;
   if (input.route === "cloud") {
+    const toolPolicy = evaluateCloudPromptToolPolicy(candidate.prompt);
+    if (!toolPolicy.allowed) {
+      const blocked = await db().prepare(
+        `UPDATE tasks SET status = 'offline_blocked', route = 'blocked', error = ?, updated_at = ?,
+                lease_owner = NULL, lease_token_hash = NULL, lease_expires_at = NULL
+          WHERE id = ? AND lease_generation = ? AND (lease_expires_at IS NULL OR lease_expires_at <= ?)`
+      ).bind(toolPolicy.message, now, candidate.id, candidate.leaseGeneration, now).run();
+      if (blocked.meta.changes === 1) {
+        await audit({
+          organizationId: candidate.organizationId,
+          actorType: "runner",
+          actorId: input.owner,
+          action: "task.policy.denied",
+          targetType: "task",
+          targetId: candidate.id,
+          metadata: { code: toolPolicy.code, matched: toolPolicy.matched, stage: "automatic_claim", route: "cloud" },
+        });
+      }
+      return null;
+    }
     cloudDecision = evaluateCloudContinuation({
       organization: { plan: candidate.plan, trialEndsAt: candidate.trialEndsAt },
       cloudTasks: candidate.cloudTasks,
@@ -234,8 +296,13 @@ export async function completeTask(input: {
   result?: string;
   error?: string;
   actorType: "device" | "runner";
+  /** Optional external verifier the executor cannot self-sign (provider receipt, row, webhook, human). */
+  externalCheckPassed?: boolean | null;
+  externalCheckKind?: string | null;
+  externalEvidenceId?: string | null;
 }): Promise<boolean> {
   const now = Date.now();
+  // Soft task row status still tracks executor report; audit receipt carries true outcome semantics.
   const status = input.error ? "failed" : "completed";
   const tokenHash = await sha256(input.leaseToken);
   const existing = await db().prepare(
@@ -256,6 +323,17 @@ export async function completeTask(input: {
   ).bind(status, input.result ?? null, input.error ?? null, now, now,
     input.taskId, input.owner, tokenHash, now).run();
   if (update.meta.changes !== 1) return false;
+  const receipt = buildTaskCompletionReceipt({
+    actorType: input.actorType,
+    actorId: input.owner,
+    taskId: input.taskId,
+    route: existing.route,
+    error: input.error,
+    externalCheckPassed: input.externalCheckPassed,
+    externalCheckKind: input.externalCheckKind,
+    externalEvidenceId: input.externalEvidenceId,
+    now,
+  });
   await audit({
     organizationId: existing.organizationId,
     actorType: input.actorType,
@@ -267,6 +345,7 @@ export async function completeTask(input: {
       route: existing.route,
       generation: existing.leaseGeneration,
       durationMs: Math.max(0, now - existing.createdAt),
+      ...receiptAuditMetadata(receipt),
     },
   });
   return true;
