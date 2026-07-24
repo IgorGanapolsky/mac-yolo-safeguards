@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('assert');
-const { execFileSync, execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -386,11 +386,16 @@ const testLockPath = path.join(require('os').tmpdir(), `hermes-yolo-test-${proce
 const versionReceiptRoot = fs.mkdtempSync(path.join(require('os').tmpdir(), 'hermes-yolo-version-receipts-'));
 try {
   try { fs.unlinkSync(testLockPath); } catch (e) { /* may not exist */ }
-  // HERMES_YOLO_NO_PREFLIGHT bypasses slow Telegram API calls during testing
-  const stdout = execSync(`HERMES_YOLO_NO_PREFLIGHT=1 HERMES_YOLO_LOCK_PATH=${testLockPath} node ${binaryPath} --version`, {
+  // HERMES_YOLO_NO_PREFLIGHT bypasses slow Telegram API calls during testing.
+  // Use execFileSync with an argument array (not a shell template string) so
+  // that testLockPath (built from os.tmpdir(), itself environment-derived)
+  // can never be interpreted as shell syntax.
+  const stdout = execFileSync('node', [binaryPath, '--version'], {
     encoding: 'utf8',
     env: {
       ...process.env,
+      HERMES_YOLO_NO_PREFLIGHT: '1',
+      HERMES_YOLO_LOCK_PATH: testLockPath,
       HERMES_YOLO_RECEIPT_DIR: versionReceiptRoot,
     },
   });

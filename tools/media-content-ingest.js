@@ -54,6 +54,13 @@ function requireValue(argv, index, flag) {
   return argv[index];
 }
 
+// CodeQL js/shell-command-injection-from-environment note: `args` below can
+// carry environment-derived values (e.g. process.env.MEDIA_INGEST_WHISPER_MODEL
+// in transcribeAudio()), but spawnSync is called with the argument-array form
+// and no `shell: true` option, so Node execs `command` directly — no shell is
+// ever invoked and no element of `args` can be interpreted as shell syntax.
+// This is already the safe array-args pattern; there is no string-interpolated
+// shell command here to convert.
 function run(command, args, options = {}) {
   return spawnSync(command, args, {
     encoding: 'utf8',

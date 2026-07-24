@@ -2,7 +2,7 @@
 /**
  * Verify an Android APK is a shippable Hermes Mobile Expo release build.
  */
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -48,7 +48,7 @@ function fail(message) {
 }
 
 function listZipEntries(apkPath) {
-  const out = execSync(`unzip -Z1 ${JSON.stringify(apkPath)}`, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+  const out = execFileSync('unzip', ['-Z1', apkPath], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
   return out.split('\n').map((line) => line.trim()).filter(Boolean);
 }
 
@@ -56,7 +56,7 @@ function sampleApkStrings(apkPath) {
   const chunks = [];
   for (const member of ['classes.dex', EMBEDDED_JS_BUNDLE_PATH]) {
     try {
-      const buf = execSync(`unzip -p ${JSON.stringify(apkPath)} ${JSON.stringify(member)}`, {
+      const buf = execFileSync('unzip', ['-p', apkPath, member], {
         maxBuffer: 16 * 1024 * 1024,
       });
       chunks.push(buf.toString('latin1'));
@@ -72,7 +72,11 @@ function readBadging(apkPath) {
   if (!aapt) {
     return { packageName: undefined, applicationLabel: undefined };
   }
-  const badging = execSync(`${aapt} dump badging ${JSON.stringify(apkPath)}`, { encoding: 'utf8' });
+  // `aapt` may originate from the AAPT_PATH environment variable (see findAapt()
+  // above). Use execFileSync with an argument array — never a shell template
+  // string — so an attacker-controlled path can never be interpreted as shell
+  // syntax, regardless of its content.
+  const badging = execFileSync(aapt, ['dump', 'badging', apkPath], { encoding: 'utf8' });
   const labelMatch =
     badging.match(/^application-label:'([^']+)'/m) ||
     badging.match(/^application-label: '([^']+)'/m) ||
