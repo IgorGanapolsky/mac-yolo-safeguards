@@ -173,6 +173,7 @@ export default function DashboardClient() {
   /** Bottom-tab highlight on phone: path + hash, not always-Hermes. */
   const [mobileTab, setMobileTab] = useState<"hermes" | "leash" | "lessons" | "settings">("hermes");
   const autoSelectedThread = useRef(Boolean(selectedThread));
+  /** One-shot deep link from lessons page: /dashboard?task=…&thread=…#task-activity */
   const focusedTaskFromUrl = useRef(false);
   const selectedThreadRef = useRef(selectedThread);
   selectedThreadRef.current = selectedThread;
