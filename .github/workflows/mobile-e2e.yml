@@ -43,6 +43,9 @@ on:
   # Maestro ship-guard and stranger cold-start checks when main enforces merge queue.
   merge_group:
 
+permissions:
+  contents: read
+
 # Per-ref concurrency. A single GLOBAL group was tried to serialise the emulator, but
 # GitHub keeps only ONE pending run per concurrency group: each new run cancelled the
 # previously-queued one. Measured 2026-07-10 with 4 agents pushing: 18 of the last 20

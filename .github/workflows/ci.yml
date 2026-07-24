@@ -11,6 +11,9 @@ on:
   # queue runs do not re-trigger the 2026-07-10 cancel storm on PR branches.
   merge_group:
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
