@@ -168,6 +168,26 @@ export function resolveMachineDisplayName(
     }
   }
 
+  // P0 2026-07-24: Tailscale/LAN header must never stay "Tailscale 100.x" / generic
+  // when /health returns a real hostname (e.g. Igors-Mac-mini.local). Prefer live
+  // identity when the saved name is unresolved, or when health agrees with the
+  // selected profile. Never let stale health rename a sticky named mini to Pro.
+  // USB keeps the multi-Mac cable law below.
+  if (
+    !loopbackUsb &&
+    fromHealth &&
+    !isUnresolvedMachineName(fromHealth) &&
+    !isTailnetRouteLabel(fromHealth)
+  ) {
+    const profileName = activeProfile ? profileDisplayName(activeProfile) : '';
+    const profileUnresolved = !profileName || isUnresolvedMachineName(profileName);
+    const healthAgrees =
+      !activeProfile || profileMatchesHostname(activeProfile, fromHealth);
+    if (profileUnresolved || healthAgrees) {
+      return fromHealth;
+    }
+  }
+
   if (loopbackUsb) {
     // User just selected a remote Mac (mini Tailscale) while effective URL is still
     // Pro USB — keep the selected name, do not flash the cable Mac (2026-07-22).
