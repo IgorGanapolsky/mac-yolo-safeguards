@@ -548,3 +548,9 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .admin-table-detail-row td{background:rgba(255,255,255,.02);padding:12px 6px}
 @media(max-width:980px){.admin-grid-4,.admin-grid-3,.admin-grid-2{grid-template-columns:1fr 1fr}}
 @media(max-width:700px){.admin-grid-4,.admin-grid-3,.admin-grid-2{grid-template-columns:1fr}}
+
+/* One-click sign-out — 44px target; never a tiny ↗ glyph */
+.sign-out-button{min-height:44px;min-width:44px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer}
+.sign-out-button:disabled{opacity:.65;cursor:wait}
+.sidebar-bottom .sign-out-button{background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--text)}
+.header-actions .sign-out-button{white-space:nowrap}
