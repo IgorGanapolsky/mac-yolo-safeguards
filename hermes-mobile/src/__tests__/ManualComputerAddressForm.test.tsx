@@ -90,4 +90,25 @@ describe('ManualComputerAddressForm', () => {
     expect(getByTestId('chat-manual-input').props.value).toBe('100.70.124.54');
     expect(onAddProfile).not.toHaveBeenCalled();
   });
+
+  it('shows Mac found finish-pairing card and notifies parent when needs-pair', async () => {
+    mockConnectManualGatewayAddress.mockRejectedValueOnce(
+      new Error('Hermes is reachable, but this phone still needs to pair.'),
+    );
+    const onNeedsPairChange = jest.fn();
+    const { getByTestId, findByTestId, queryByTestId } = render(
+      <ManualComputerAddressForm
+        onAddProfile={jest.fn()}
+        onNeedsPairChange={onNeedsPairChange}
+        testIDPrefix="connect-manual"
+      />,
+    );
+
+    fireEvent.changeText(getByTestId('connect-manual-input'), '100.94.135.78');
+    fireEvent.press(getByTestId('connect-manual-submit'));
+
+    expect(await findByTestId('connect-manual-needs-pair')).toBeTruthy();
+    expect(queryByTestId('connect-manual-error')).toBeNull();
+    expect(onNeedsPairChange).toHaveBeenCalledWith(true);
+  });
 });

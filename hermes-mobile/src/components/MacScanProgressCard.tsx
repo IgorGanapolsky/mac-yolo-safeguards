@@ -14,6 +14,8 @@ type MacScanProgressCardProps = {
   progress: LanScanProgress | null;
   result: LanScanResult | null;
   connectableProfileCount?: number;
+  /** Hide empty "None found yet" when paste IP already proved a Mac (needs pair). */
+  suppressEmptyResult?: boolean;
   testID?: string;
 };
 
@@ -24,6 +26,7 @@ export default function MacScanProgressCard({
   progress,
   result,
   connectableProfileCount,
+  suppressEmptyResult = false,
   testID = 'mac-scan-progress',
 }: MacScanProgressCardProps) {
   const [showResult, setShowResult] = useState(false);
@@ -72,6 +75,9 @@ export default function MacScanProgressCard({
   }
 
   if (showResult && result) {
+    if (suppressEmptyResult && result.foundCount <= 0) {
+      return null;
+    }
     const success = result.foundCount > 0;
     return (
       <View
