@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   }
   const rows = await db().prepare(
     `SELECT f.id, f.task_id AS taskId, f.signal, f.note, f.updated_at AS updatedAt,
-            k.prompt, k.result, k.route, k.completed_at AS completedAt,
+            k.prompt, k.result, k.route, k.completed_at AS completedAt, k.thread_id AS threadId,
             COALESCE(t.title_override, t.title) AS threadTitle
        FROM response_feedback f
        JOIN tasks k ON k.id = f.task_id AND k.organization_id = f.organization_id
