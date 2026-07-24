@@ -19,7 +19,9 @@ const catalog = JSON.parse(readFileSync(new URL("../public/.well-known/ai-catalo
 test("fails closed at the server boundary for every private dashboard route", () => {
   assert.match(dashboardLayout, /await currentSession\(\)/);
   assert.match(dashboardLayout, /if \(!session\) redirect\("\/api\/auth\/login\?return_to=%2Fdashboard"\)/);
-  assert.match(dashboardLayout, /return children/);
+  // Server gate first; children may sit next to ClientErrorBeacon (content-free crash counter).
+  assert.match(dashboardLayout, /\{children\}/);
+  assert.match(dashboardLayout, /ClientErrorBeacon/);
 });
 
 test("keeps the public landing static (no server session/D1) and defers auth chrome to client", () => {

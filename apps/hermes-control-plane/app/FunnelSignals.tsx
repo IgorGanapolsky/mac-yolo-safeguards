@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { ClientErrorBeacon } from "./ClientErrorBeacon";
 
 const endpoint = "/api/analytics/event";
 
@@ -23,5 +24,6 @@ export function FunnelSignals() {
     return () => document.removeEventListener("click", trackClick);
   }, []);
 
-  return null;
+  // Landing also mounts the content-free client error counter.
+  return <ClientErrorBeacon />;
 }
