@@ -59,6 +59,7 @@ link "$REPO/yolo-health"                      "$INSTALL_HOME/.local/bin/yolo-hea
 link "$REPO/opencode-yolo"                     "$INSTALL_HOME/.local/bin/opencode-yolo"
 link "$REPO/kimi-yolo"                         "$INSTALL_HOME/.local/bin/kimi-yolo"
 link "$REPO/tinker-yolo"                       "$INSTALL_HOME/.local/bin/tinker-yolo"
+link "$REPO/poolside-yolo"                     "$INSTALL_HOME/.local/bin/poolside-yolo"
 link "$REPO/scripts/heal-launchd-paths.sh"     "$INSTALL_HOME/.local/bin/heal-launchd-paths.sh"
 link "$REPO/scripts/grok-yolo-leak-reaper.sh"  "$INSTALL_HOME/.local/bin/grok-yolo-leak-reaper.sh"
 

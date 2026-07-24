@@ -33,5 +33,39 @@ export async function GET(request: Request) {
             SUM(CASE WHEN signal = 'down' THEN 1 ELSE 0 END) AS down
        FROM response_feedback WHERE organization_id = ?`
   ).bind(session.organizationId).first<{ total: number; up: number | null; down: number | null }>();
-  return Response.json({ lessons: rows.results, counts: { total: counts?.total ?? 0, up: counts?.up ?? 0, down: counts?.down ?? 0 } });
+  /** Activity is NOT the same as lessons — chats/tasks can exist with zero thumbs. */
+  const activity = await db().prepare(
+    `SELECT
+       (SELECT COUNT(*) FROM threads WHERE organization_id = ? AND deleted_at IS NULL) AS threads,
+       (SELECT COUNT(*) FROM tasks WHERE organization_id = ?) AS tasks,
+       (SELECT COUNT(*) FROM tasks WHERE organization_id = ? AND status = 'completed' AND result IS NOT NULL) AS completedResponses,
+       (SELECT COUNT(*) FROM tasks k
+         WHERE k.organization_id = ?
+           AND k.status = 'completed'
+           AND k.result IS NOT NULL
+           AND NOT EXISTS (
+             SELECT 1 FROM response_feedback f
+              WHERE f.organization_id = k.organization_id AND f.task_id = k.id
+           )) AS unratedCompleted`
+  ).bind(
+    session.organizationId,
+    session.organizationId,
+    session.organizationId,
+    session.organizationId,
+  ).first<{
+    threads: number;
+    tasks: number;
+    completedResponses: number;
+    unratedCompleted: number;
+  }>();
+  return Response.json({
+    lessons: rows.results,
+    counts: { total: counts?.total ?? 0, up: counts?.up ?? 0, down: counts?.down ?? 0 },
+    activity: {
+      threads: activity?.threads ?? 0,
+      tasks: activity?.tasks ?? 0,
+      completedResponses: activity?.completedResponses ?? 0,
+      unratedCompleted: activity?.unratedCompleted ?? 0,
+    },
+  });
 }
