@@ -145,6 +145,8 @@ export default function DashboardClient() {
   /** Bottom-tab highlight on phone: path + hash, not always-Hermes. */
   const [mobileTab, setMobileTab] = useState<"hermes" | "leash" | "lessons" | "settings">("hermes");
   const autoSelectedThread = useRef(false);
+  /** One-shot deep link from lessons page: /dashboard?task=…&thread=…#task-activity */
+  const focusedTaskFromUrl = useRef(false);
   const composerObserverRef = useRef<ResizeObserver | null>(null);
   /**
    * `--composer-dock-space` (globals.css) reserves room below the fixed mobile composer
@@ -264,6 +266,25 @@ export default function DashboardClient() {
     if (taskResponse.ok) {
       const nextTasks = (await taskResponse.json() as { tasks: Task[] }).tasks;
       setTasks(nextTasks);
+      if (!focusedTaskFromUrl.current && typeof window !== "undefined") {
+        const focusTaskId = new URLSearchParams(window.location.search).get("task");
+        const focusThreadId = new URLSearchParams(window.location.search).get("thread");
+        if (focusTaskId || focusThreadId) {
+          focusedTaskFromUrl.current = true;
+          const focusTask = focusTaskId ? nextTasks.find((task) => task.id === focusTaskId) : undefined;
+          const threadId = focusTask?.threadId ?? focusThreadId;
+          if (threadId) {
+            autoSelectedThread.current = true;
+            setSelectedThread(threadId);
+          }
+          window.setTimeout(() => {
+            const el = focusTaskId
+              ? document.getElementById(`task-${focusTaskId}`)
+              : document.getElementById("task-activity");
+            el?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }, 120);
+        }
+      }
       const taskIds = nextTasks.filter((task) => task.result && task.status === "completed").map((task) => task.id);
       if (taskIds.length) {
         const feedbackResponse = await fetch(`/api/feedback?task_ids=${encodeURIComponent(taskIds.join(","))}`, { cache: "no-store" });
@@ -636,7 +657,7 @@ export default function DashboardClient() {
                   : null,
               ])}
             </div>}
-            <div className="task-list" id="task-activity">{visibleTasks.length === 0 ? <div className="empty-state"><Mark /><h3>No tasks yet</h3><p>Pair a machine, then continue a Hermes thread from anywhere.</p></div> : visibleTasks.map((task) => <article key={task.id} className="dashboard-task"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time></div><h3>{task.threadTitle}</h3><p>{task.prompt}</p><div className="task-foot"><span>{task.route === "cloud" ? "☁ Cloud runner" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>{["needs_failover", "offline_blocked"].includes(task.status) && <button onClick={() => void failover(task.id)}>Continue in cloud →</button>}</div>{task.result && <><pre>{task.result}</pre>{feedbackControls(task.id)}</>}{task.error && <div className="task-error">{task.error}</div>}</article>)}</div>
+            <div className="task-list" id="task-activity">{visibleTasks.length === 0 ? <div className="empty-state"><Mark /><h3>No tasks yet</h3><p>Pair a machine, then continue a Hermes thread from anywhere.</p></div> : visibleTasks.map((task) => <article key={task.id} id={`task-${task.id}`} className="dashboard-task"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time></div><h3>{task.threadTitle}</h3><p>{task.prompt}</p><div className="task-foot"><span>{task.route === "cloud" ? "☁ Cloud runner" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>{["needs_failover", "offline_blocked"].includes(task.status) && <button onClick={() => void failover(task.id)}>Continue in cloud →</button>}</div>{task.result && <><pre>{task.result}</pre>{feedbackControls(task.id)}</>}{task.error && <div className="task-error">{task.error}</div>}</article>)}</div>
             </div>
             <form className="composer" ref={setComposerNode} onSubmit={(event) => void createTask(event)}>
               <textarea
