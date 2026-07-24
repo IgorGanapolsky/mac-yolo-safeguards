@@ -939,14 +939,41 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         activeProfileId,
         profiles: profileStateRef.current.profiles,
       });
+      // Stale healthRef.current is still red from the just-failed Tailscale/LAN
+      // attempt at the moment autoDiscoverGateway hands refreshHealth a freshly
+      // committed loopback primaryUrl (2026-07-24 cellular+Tailscale-off stuck-red
+      // header bug) — trusting only healthRef.current here is a chicken-and-egg
+      // check that can never pass on the very cycle that should recover. Live-
+      // confirm the cable answers for the *same* sticky Mac via a fresh hostname
+      // probe (same pattern autoDiscoverGateway's liveUsbSameMachine uses) before
+      // falling back to the cheaper already-OK-health check.
+      let liveUsbConfirmed =
+        isLoopbackGatewayUrl(primaryUrl) && isMacGatewayHttpOk(healthRef.current);
+      if (
+        !liveUsbConfirmed &&
+        isLoopbackGatewayUrl(primaryUrl) &&
+        !wifiConnectedRef.current &&
+        Platform.OS !== 'web'
+      ) {
+        const activeProfileForCellularCheck = activeProfile(profileStateRef.current);
+        if (activeProfileForCellularCheck) {
+          try {
+            const liveUsb = await probeLiveUsbGateway();
+            const liveUsbHostnameForCheck = liveUsb?.hostname?.trim() || null;
+            liveUsbConfirmed = Boolean(
+              liveUsbHostnameForCheck &&
+                profileMatchesHostname(activeProfileForCellularCheck, liveUsbHostnameForCheck),
+            );
+          } catch {
+            liveUsbConfirmed = false;
+          }
+        }
+      }
       const deferLoopbackOnCellular = shouldDeferLoopbackSuccessOnCellular({
         primaryUrl,
         wifiConnected: wifiConnectedRef.current,
         hasTailscaleAlternate: cellularTailscaleAlternates.length > 0,
-        // Heal path: if primary is already USB, prefer keeping it when cable is the intent.
-        // Foreign/ghost clears still rely on missing hostname elsewhere.
-        liveUsbConfirmed:
-          isLoopbackGatewayUrl(primaryUrl) && isMacGatewayHttpOk(healthRef.current),
+        liveUsbConfirmed,
       });
       const acceptHealUrl = async (fallbackUrl: string, snapshot: Awaited<ReturnType<typeof probeMacGatewayOk>>) => {
         const applied = await persistDiscoveredGatewayUrl(fallbackUrl, true);
