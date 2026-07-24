@@ -1215,6 +1215,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 - `hermes-mobile/scripts/install-phone-release.sh` (auto-pair invocation flags only), `tools/hermes-mobile-pair.js` (runPairMain USB adb-reverse port selection only; no refreshPairAssetsFromLocalGateway touch — cursor-ts-watchdog-repair scope preserved), `tools/hermes-mobile-pair-lib.js` (add resolveUsbReversePorts/removeUsbAdbReverse helpers only), `tests/test-hermes-mobile-pair.sh`, `plan.md` → **cursor-8642-hijack-fix** (T-8642-AUTOPAIR-HIJACK-20260724: fix `install-phone-release.sh` auto-pair unconditionally re-adding `adb reverse tcp:8642` to the laptop, hijacking a mini-primary/SSH-tunnel (127.0.0.1:18642) setup mid-multi-agent-race; follow-up to Stabilize mini + chat probe [075266a1](075266a1)) (2026-07-24T12:10:00-04:00)
 
+- `hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts` (S9/8642-hijack cases only) → **cursor-8642-hijack-fix** addendum to T-8642-AUTOPAIR-HIJACK-20260724 (found a second literal-string contract test asserting the old `setupUsbAdbReverses(serial)` call signature; updated + added S-8642-HIJACK case) (2026-07-24T12:35:00-04:00)
+
 ## 3. Decisions Log
 
 - D-2026-07-23-emergency-usb-sticky-pair: Combine #893 (USB↔Tailscale autoDiscover steal) + #898 (setup-pair lastSelected/force-active stickiness) as single tip #899 so main never lands half the fix. No Expo OTA.

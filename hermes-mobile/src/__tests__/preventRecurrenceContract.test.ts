@@ -234,11 +234,23 @@ describe('prevent recurrence contract (July 2026 CI gates)', () => {
     expect(pairLib).toContain('USB_ADB_REVERSE_PORTS');
     expect(pairLib).toContain('setupUsbAdbReverses');
     expect(pairLib).toContain('assertUsbAdbReverses');
-    expect(pairJs).toContain('setupUsbAdbReverses(serial)');
-    expect(pairJs).toContain('assertUsbAdbReverses(serial)');
+    expect(pairJs).toContain('setupUsbAdbReverses(serial, { ports: usbReversePorts })');
+    expect(pairJs).toContain('assertUsbAdbReverses(serial, { requiredPorts: usbReversePorts })');
     expect(pairJs).toContain('tcp:8765 missing');
     expect(pairJs).toContain('pair.json sweep');
     expect(pairJs).not.toContain('Only reverse pair page port when we will serve it');
+  });
+
+  it('S-8642-HIJACK: auto-pair never re-adds tcp:8642 when a mini-primary/explicit gateway is set (2026-07-24)', () => {
+    const pairJs = read('tools/hermes-mobile-pair.js');
+    const pairLib = read('tools/hermes-mobile-pair-lib.js');
+    const installSh = read('hermes-mobile/scripts/install-phone-release.sh');
+    expect(pairLib).toContain('function resolveUsbReversePorts');
+    expect(pairLib).toContain('function removeUsbAdbReverse');
+    expect(pairJs).toContain('resolveUsbReversePorts');
+    expect(pairJs).toContain('removeUsbAdbReverse(serial, 8642)');
+    expect(installSh).toContain('HERMES_PAIR_GATEWAY_URL');
+    expect(installSh).toContain('HERMES_FORCE_MINI_USB_PRIMARY');
   });
 
   it('Maestro chat composer inputText uses canonical device message only', () => {
