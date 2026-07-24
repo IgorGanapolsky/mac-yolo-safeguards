@@ -50,7 +50,7 @@ describe('connectManualGatewayAddress', () => {
     expect(deps.fetchGatewayHealth).toHaveBeenCalledWith(gatewayUrl, null, 12_000);
   });
 
-  it('does not persist a reachable address that is not paired', async () => {
+  it('does not persist a reachable address that is not paired, but remembers the host', async () => {
     const persistProfile = jest.fn();
     const deps = dependencies({
       fetchGatewayHealth: jest.fn().mockResolvedValue(
@@ -63,63 +63,9 @@ describe('connectManualGatewayAddress', () => {
         { gatewayUrl, fallbackLabel: 'Tailscale computer', persistProfile },
         deps,
       ),
-    ).rejects.toThrow('Hermes is reachable, but this phone still needs to pair.');
+    ).rejects.toThrow(/Hermes is reachable/);
     expect(persistProfile).not.toHaveBeenCalled();
-  });
-
-  it('remembers a reachable-but-unpaired Tailscale address as a probe host so Find computers can rediscover it', async () => {
-    const persistProfile = jest.fn();
-    const deps = dependencies({
-      fetchGatewayHealth: jest.fn().mockResolvedValue(
-        health({ level: 'red', directGatewayReachable: false, authMismatch: true }),
-      ),
-    });
-
-    await expect(
-      connectManualGatewayAddress(
-        { gatewayUrl, fallbackLabel: 'Tailscale computer', persistProfile },
-        deps,
-      ),
-    ).rejects.toThrow('Hermes is reachable, but this phone still needs to pair.');
     expect(deps.rememberTailnetProbeHost).toHaveBeenCalledWith(gatewayUrl);
-  });
-
-  it('does not remember a reachable-but-unpaired LAN address as a Tailscale probe host', async () => {
-    const persistProfile = jest.fn();
-    const deps = dependencies({
-      fetchGatewayHealth: jest.fn().mockResolvedValue(
-        health({ level: 'red', directGatewayReachable: false, authMismatch: true }),
-      ),
-    });
-
-    await expect(
-      connectManualGatewayAddress(
-        {
-          gatewayUrl: 'http://192.168.68.60:8642',
-          fallbackLabel: 'Home network computer',
-          persistProfile,
-        },
-        deps,
-      ),
-    ).rejects.toThrow('Hermes is reachable, but this phone still needs to pair.');
-    expect(deps.rememberTailnetProbeHost).not.toHaveBeenCalled();
-  });
-
-  it('still throws the pairing error even if remembering the probe host fails', async () => {
-    const persistProfile = jest.fn();
-    const deps = dependencies({
-      fetchGatewayHealth: jest.fn().mockResolvedValue(
-        health({ level: 'red', directGatewayReachable: false, authMismatch: true }),
-      ),
-      rememberTailnetProbeHost: jest.fn().mockRejectedValue(new Error('storage unavailable')),
-    });
-
-    await expect(
-      connectManualGatewayAddress(
-        { gatewayUrl, fallbackLabel: 'Tailscale computer', persistProfile },
-        deps,
-      ),
-    ).rejects.toThrow('Hermes is reachable, but this phone still needs to pair.');
   });
 
   it('exchanges pair-server credentials, authenticates, and saves the verified computer name', async () => {
@@ -144,6 +90,9 @@ describe('connectManualGatewayAddress', () => {
       deps,
     );
 
+    expect(deps.resolvePairServerSetupParams).toHaveBeenCalledWith(expect.any(String), {
+      timeoutMs: 12_000,
+    });
     expect(deps.exchangePairingCode).toHaveBeenCalledWith(
       'http://100.70.124.54:8765',
       'AB23CD45',

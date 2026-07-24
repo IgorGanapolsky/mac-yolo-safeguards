@@ -655,8 +655,13 @@ function writePairAssets({
   return { htmlPath, pairJson, cameraPageUrl };
 }
 
-/** Mint a fresh secretless deep link from the on-disk seed (HTTP /pair + /pair-live.json). */
-function mintLivePairSession() {
+/**
+ * Mint a fresh secretless pair session from the on-disk seed.
+ * @param {{ light?: boolean }} [options] light=true skips QR/HTML disk work so /pair.json
+ * stays under the phone's ~1.5s pair-server probe timeout on cellular Tailscale.
+ */
+function mintLivePairSession(options = {}) {
+  const light = options.light === true;
   const seed = loadPairSeed();
   if (!seed || !seed.gatewayUrl || !seed.apiKey) {
     return { ok: false, reason: 'no_seed' };
@@ -678,24 +683,9 @@ function mintLivePairSession() {
   const deepLink = buildSecretlessDeepLink(minted.code, pairServer, seed.macName || seed.hostname);
   const lanIp = seed.localIp || detectLocalLanIp() || '127.0.0.1';
   const cameraPageUrl = seed.pageUrl || resolveCameraPageUrl(lanIp);
-  const { imgTag } = writePairQrPng(cameraPageUrl);
-  const html = buildLivePairHtml({
-    gatewayUrl: seed.gatewayUrl,
-    deepLink,
-    pageUrl: cameraPageUrl,
-    hostname: seed.macName || seed.hostname || 'Mac',
-    imgTag,
-    expiresAt: minted.expiresAt,
-    remainingMs: minted.remainingMs,
-    refreshMs: PAIRING_CODE_REFRESH_MS,
-  });
-  // Keep on-disk index.html aligned with the live mint for --open / file viewers.
-  fs.writeFileSync(path.join(OUT_DIR, 'index.html'), html);
-  // P0 2026-07-24: Play Store installs paste Tailscale IP → phone GETs /pair.json then
-  // /pair-exchange. Static pair.json on disk kept advertising expired codes while /pair
-  // reminted live — "Hermes is reachable, but this phone still needs to pair." Always
-  // rewrite pair.json with the same mint so Connect/Find computers redeem works.
   const displayName = (seed.macName || seed.hostname || 'Mac').replace(/\.local$/i, '');
+  // P0 2026-07-24: always rewrite pair.json with this mint so Connect/Find computers
+  // redeem against a code still present in the in-memory exchange store.
   const pairJson = {
     gatewayUrl: seed.gatewayUrl,
     deepLink,
@@ -713,6 +703,24 @@ function mintLivePairSession() {
   } catch {
     // Non-fatal: in-memory exchange still works for this process.
   }
+
+  let html;
+  if (!light) {
+    const { imgTag } = writePairQrPng(cameraPageUrl);
+    html = buildLivePairHtml({
+      gatewayUrl: seed.gatewayUrl,
+      deepLink,
+      pageUrl: cameraPageUrl,
+      hostname: displayName,
+      imgTag,
+      expiresAt: minted.expiresAt,
+      remainingMs: minted.remainingMs,
+      refreshMs: PAIRING_CODE_REFRESH_MS,
+    });
+    // Keep on-disk index.html aligned with the live mint for --open / file viewers.
+    fs.writeFileSync(path.join(OUT_DIR, 'index.html'), html);
+  }
+
   return {
     ok: true,
     deepLink,
@@ -914,8 +922,8 @@ function createPairServer(lanIp) {
     const url = req.url?.split('?')[0] ?? '/';
     const method = (req.method || 'GET').toUpperCase();
     if (url === '/pair.json') {
-      // Live remint — never serve a disk snapshot whose pairCode is already dead in memory.
-      const live = mintLivePairSession();
+      // Light remint — phone Connect uses this under a ~1.5s client timeout; skip QR/HTML.
+      const live = mintLivePairSession({ light: true });
       if (live.ok && live.pairJson) {
         res.writeHead(200, {
           'Content-Type': 'application/json',

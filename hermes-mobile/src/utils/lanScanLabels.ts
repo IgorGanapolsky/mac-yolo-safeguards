@@ -70,7 +70,8 @@ export function formatLanScanResultLabel(input: number | LanScanReachCounts): st
   const counts = asReachCounts(input);
   const { foundCount } = counts;
   if (foundCount === 0) {
-    return 'None found yet';
+    // Paste-IP is the primary path — never imply the typed address was ignored.
+    return 'Auto-scan found nothing';
   }
 
   const lan = counts.lanCount ?? 0;
@@ -97,7 +98,7 @@ export function formatLanScanResultLabel(input: number | LanScanReachCounts): st
 
 export function formatLanScanResultDetail(result: LanScanResult): string {
   if (result.foundCount === 0) {
-    return 'Paste your Mac’s Tailscale IP below. Hermes must be open on that Mac.';
+    return 'That does not mean your pasted IP failed — use Connect above, or Scan QR from your Mac.';
   }
 
   const lan = result.lanCount ?? 0;

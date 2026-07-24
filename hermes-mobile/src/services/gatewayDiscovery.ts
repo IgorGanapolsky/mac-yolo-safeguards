@@ -99,9 +99,15 @@ async function probeGatewayHealth(url: string): Promise<boolean> {
   }
 }
 
-async function fetchPairServerConfig(host: string): Promise<PairServerPayload | null> {
+/** LAN sweep uses PROBE_TIMEOUT_MS; single-host Tailscale pair needs longer (cellular VPN wake). */
+const PAIR_SERVER_TARGETED_TIMEOUT_MS = 10_000;
+
+async function fetchPairServerConfig(
+  host: string,
+  timeoutMs: number = PROBE_TIMEOUT_MS,
+): Promise<PairServerPayload | null> {
   const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+  const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`http://${host}:${PAIR_SERVER_PORT}/pair.json`, {
       signal: controller.signal,
@@ -110,14 +116,15 @@ async function fetchPairServerConfig(host: string): Promise<PairServerPayload | 
       return null;
     }
     const body = (await res.json()) as Partial<PairServerPayload>;
-    if (!body.gatewayUrl?.trim()) {
+    // Accept deepLink-only payloads (secretless pair) even when gatewayUrl is empty.
+    if (!body.gatewayUrl?.trim() && !body.deepLink?.trim()) {
       return null;
     }
     const tailnetProbeHosts = Array.isArray(body.tailnetProbeHosts)
       ? body.tailnetProbeHosts.filter((host): host is string => typeof host === 'string')
       : undefined;
     return {
-      gatewayUrl: body.gatewayUrl.trim(),
+      gatewayUrl: (body.gatewayUrl || '').trim(),
       deepLink: body.deepLink?.trim() ?? '',
       qrUrl: body.qrUrl,
       hostname: body.hostname,
@@ -170,8 +177,17 @@ export function pairServerHostFromGatewayUrl(gatewayUrl: string): string | null 
 }
 
 /** Fetch fresh gateway URL + API key from the Mac pair server (rotated keys). */
-export async function resolvePairServerSetupParams(host: string): Promise<SetupDeepLinkParams | null> {
-  const payload = await fetchPairServerConfig(host.trim());
+export async function resolvePairServerSetupParams(
+  host: string,
+  options?: { timeoutMs?: number },
+): Promise<SetupDeepLinkParams | null> {
+  const trimmed = host.trim();
+  if (!trimmed) {
+    return null;
+  }
+  // Targeted Connect (user pasted this host) gets a long timeout; LAN sweep keeps 1.5s.
+  const timeoutMs = options?.timeoutMs ?? PAIR_SERVER_TARGETED_TIMEOUT_MS;
+  const payload = await fetchPairServerConfig(trimmed, timeoutMs);
   if (!payload?.deepLink?.trim()) {
     return null;
   }

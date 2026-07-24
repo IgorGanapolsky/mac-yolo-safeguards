@@ -9,6 +9,13 @@ Prune stale lines when over budget. Weights are frozen — only written surprise
 2. Cap **2–3** concurrent in_progress owners on Hermes Mobile.
 3. Never edit another agent's §2 claim; `blocked` + STOP.
 4. Run `node tools/agent-swarm-harness.js` at session start (also via `agent-session-start`).
+5. Before broad repo thrash: `node tools/agent-repo-intelligence.js "<task>"` (graphify + field guide). JetBrains `jbcontext` is optional SaaS — not required.
+
+## Surprises (2026-07-24)
+
+- Play free package `com.iganapolsky.hermesmobile` must stay **unpublished**; only `…hermesmobile.paid` is public ($4.99).
+- `/pair.json` must **light-remint** live codes (~ms); full QR remint was ~1.4s and killed Play Store 1.5s pair exchange → "reachable but needs to pair".
+- Settings must **not** show AI glasses UI (phone↔Mac product only).
 
 ## Planner vs worker
 

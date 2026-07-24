@@ -19,7 +19,6 @@ import GlassCard from '../components/GlassCard';
 import { colors } from '../theme/colors';
 import { haptics } from '../services/haptics';
 import { HERMES_MOBILE_CLOUD_URL, THUMBGATE_API_URL } from '../constants/appIdentity';
-import { isGlassesConnected, launchHermesOnGlasses } from '../native/hermesGlasses';
 import PairQrScannerModal from '../components/PairQrScannerModal';
 import MacPairingHelp from '../components/MacPairingHelp';
 
@@ -96,7 +95,6 @@ export default function SettingsScreen() {
   const [isAutoConnecting, setIsAutoConnecting] = useState(false);
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [qrScannerVisible, setQrScannerVisible] = useState(false);
-  const [glassesConnected, setGlassesConnected] = useState(false);
 
   const leaveSettings = useCallback(() => {
     Keyboard.dismiss();
@@ -185,7 +183,7 @@ export default function SettingsScreen() {
     if (!granted) {
       Alert.alert(
         'Notifications blocked',
-        'Enable notifications in system settings to get approval alerts and live run status while Hermes is in the background.',
+        'Enable notifications in system settings to get approval alerts and live run status while ThumbGate is in the background.',
       );
     }
     return granted;
@@ -218,11 +216,6 @@ export default function SettingsScreen() {
       return () => cancelAnimationFrame(frame);
     }, [probeTailscaleComputers]),
   );
-
-  useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    isGlassesConnected().then(setGlassesConnected).catch(() => setGlassesConnected(false));
-  }, []);
 
   // Sync state if context changes externally
   useEffect(() => {
@@ -262,7 +255,7 @@ export default function SettingsScreen() {
           'Connected',
           health?.level === 'green'
             ? `Direct local link healthy at ${url}`
-            : `Using ${url}. If Chat still fails, turn on Tailscale or scan the QR from Hermes on your computer.`,
+            : `Using ${url}. If Chat still fails, turn on Tailscale or scan the QR from ThumbGate on your computer.`,
         );
       }
     } catch (err) {
@@ -354,7 +347,7 @@ export default function SettingsScreen() {
   const handlePair = async () => {
     Keyboard.dismiss();
     if (!pairCode.trim()) {
-      Alert.alert('Pairing code required', 'On your computer, open Hermes pairing and enter the code it shows you.');
+      Alert.alert('Pairing code required', 'On your computer, open ThumbGate pairing and enter the code it shows you.');
       return;
     }
     try {
@@ -419,7 +412,7 @@ export default function SettingsScreen() {
       if (!demoMode) {
         Alert.alert(
           'Scan failed',
-          err instanceof Error ? err.message : 'Could not search for Hermes computers.',
+          err instanceof Error ? err.message : 'Could not search for ThumbGate computers.',
         );
       }
     } finally {
@@ -465,7 +458,7 @@ export default function SettingsScreen() {
           <TouchableOpacity
             onPress={leaveSettings}
             accessibilityRole="button"
-            accessibilityLabel="Done — return to Hermes chat"
+            accessibilityLabel="Done — return to ThumbGate chat"
             testID="settings-done"
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
@@ -497,7 +490,7 @@ export default function SettingsScreen() {
           </View>
         </GlassCard>
 
-        <Text style={styles.sectionTitle}>Hermes Machines</Text>
+        <Text style={styles.sectionTitle}>ThumbGate Machines</Text>
         {cellularBlocksDirect ? (
           <GlassCard style={styles.tunnelWizardCard} testID="settings-cellular-tunnel-banner">
             <Text style={styles.tunnelWizardTitle} testID="settings-tunnel-wizard-title">
@@ -505,10 +498,10 @@ export default function SettingsScreen() {
             </Text>
             <Text style={styles.description} testID="settings-tunnel-wizard-body">
               Your saved computer uses a private Wi‑Fi address. On cellular, Chat needs a tunnel URL
-              pointing at Hermes port 8642 on your computer.
+              pointing at ThumbGate port 8642 on your computer.
             </Text>
             <Text style={styles.tunnelStep} testID="settings-tunnel-step-1">
-              1. On your computer, expose Hermes on port 8642 — Tailscale MagicDNS, ngrok, or Cloudflare
+              1. On your computer, expose ThumbGate on port 8642 — Tailscale MagicDNS, ngrok, or Cloudflare
               Tunnel.
             </Text>
             <Text style={styles.tunnelStep} testID="settings-tunnel-step-2">
@@ -574,7 +567,7 @@ export default function SettingsScreen() {
             style={styles.pairButton}
           />
           <Text style={styles.description}>
-            Hermes on your computer must be running. Find computers searches home Wi‑Fi and Tailscale.
+            ThumbGate on your computer must be running. Find computers searches home Wi‑Fi and Tailscale.
           </Text>
           <MacPairingHelp variant="getting-started" compact testID="settings-mac-pairing-help" />
           <TouchableOpacity
@@ -697,7 +690,7 @@ export default function SettingsScreen() {
             <View style={styles.switchLabelCol}>
               <Text style={styles.switchLabel}>Cloud approvals (optional)</Text>
               <Text style={styles.switchDesc}>
-                Pair your Hermes account for approval requests anywhere. Does not provide live Chat or computer tools.
+                Pair your ThumbGate account for approval requests anywhere. Does not provide live Chat or computer tools.
               </Text>
             </View>
             <Switch
@@ -938,41 +931,7 @@ export default function SettingsScreen() {
           </View>
         </GlassCard>
 
-        {Platform.OS === 'android' ? (
-          <>
-            <Text style={styles.sectionTitle}>🕶️ AI glasses</Text>
-            <GlassCard>
-              <Text style={styles.description}>
-                Launch the native projected ThumbGate Leash activity on paired AI glasses. Currently supports
-                Jetpack XR on Android (emulator or hardware). Other platforms coming. Requires
-                prebuild with the XR config plugin.
-              </Text>
-              <TouchableOpacity
-                style={[
-                  styles.pairButton,
-                  !glassesConnected && styles.saveButtonDisabled,
-                ]}
-                disabled={!glassesConnected}
-                testID="launch-on-glasses-button"
-                onPress={async () => {
-                  try {
-                    await launchHermesOnGlasses();
-                    haptics.success();
-                  } catch (err) {
-                    Alert.alert(
-                      'Glasses launch failed',
-                      err instanceof Error ? err.message : 'Could not launch projected activity',
-                    );
-                  }
-                }}
-              >
-                <Text style={styles.pairButtonText}>
-                  {glassesConnected ? 'LAUNCH LEASH ON GLASSES' : 'GLASSES NOT CONNECTED'}
-                </Text>
-              </TouchableOpacity>
-            </GlassCard>
-          </>
-        ) : null}
+        {/* Jetpack XR projected-activity scaffolding stays in native-glasses/ only — not Settings. */}
 
         {isDemoModeAllowed() ? (
           <>
@@ -1020,7 +979,7 @@ export default function SettingsScreen() {
         </TouchableOpacity>
 
         <Text style={styles.footerText}>
-          Hermes Mobile v0.1.0 • {connectionMode === 'relay' ? 'Relay' : 'WS'}: {connectionState}
+          ThumbGate v0.1.0 • {connectionMode === 'relay' ? 'Relay' : 'WS'}: {connectionState}
           {isPaired ? ' • paired' : ''}
         </Text>
       </ScrollView>

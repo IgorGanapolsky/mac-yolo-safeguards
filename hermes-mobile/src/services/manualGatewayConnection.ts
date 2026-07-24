@@ -19,7 +19,10 @@ export type ManualGatewayConnectionDependencies = {
   loadApiKey: () => Promise<string | null>;
   saveApiKey: (apiKey: string) => Promise<void>;
   clearApiKey: () => Promise<void>;
-  resolvePairServerSetupParams: (host: string) => Promise<SetupDeepLinkParams | null>;
+  resolvePairServerSetupParams: (
+    host: string,
+    options?: { timeoutMs?: number },
+  ) => Promise<SetupDeepLinkParams | null>;
   exchangePairingCode: (pairServerUrl: string, code: string) => Promise<PairExchangeResult | null>;
   fetchGatewayHealth: (
     gatewayUrl: string,
@@ -29,8 +32,7 @@ export type ManualGatewayConnectionDependencies = {
   /**
    * Remember a Tailscale host that answered /health but failed auth, so Find
    * computers / the background Tailscale probe can rediscover it later instead
-   * of forgetting the exact address the user just typed (Android exposes no
-   * cross-app tailnet peer list — see docs/RESEARCH-TAILSCALE-ANDROID-DISCOVERY-JULY-2026.md).
+   * of forgetting the exact address the user just typed.
    */
   rememberTailnetProbeHost: (gatewayUrl: string) => Promise<void>;
 };
@@ -55,8 +57,9 @@ const defaultDependencies: ManualGatewayConnectionDependencies = {
 
 const MANUAL_PROBE_TIMEOUT_MS = 5000;
 // Cellular VPN routes can take several seconds to wake after Android resumes Tailscale.
-// Match the established repair path instead of declaring a healthy 100.x endpoint dead.
 const TAILSCALE_MANUAL_PROBE_TIMEOUT_MS = 12_000;
+// Play Store Connect path: pair.json + exchange must not abort at LAN-sweep 1.5s.
+const TAILSCALE_PAIR_TIMEOUT_MS = 12_000;
 
 function displayComputerName(value?: string | null): string | null {
   const cleaned = value?.trim().replace(/\.local$/i, '');
@@ -66,29 +69,49 @@ function displayComputerName(value?: string | null): string | null {
 async function pairingCandidate(
   gatewayUrl: string,
   dependencies: ManualGatewayConnectionDependencies,
-): Promise<{ apiKey: string | null; computerName: string | null }> {
+): Promise<{ apiKey: string | null; computerName: string | null; exchanged: boolean }> {
   const host = pairServerHostFromGatewayUrl(gatewayUrl);
   if (!host) {
-    return { apiKey: null, computerName: null };
+    return { apiKey: null, computerName: null, exchanged: false };
   }
 
-  const setup = await dependencies.resolvePairServerSetupParams(host);
+  const isTailscale = isTailscaleGatewayUrl(gatewayUrl);
+  const setup = await dependencies.resolvePairServerSetupParams(
+    host,
+    isTailscale ? { timeoutMs: TAILSCALE_PAIR_TIMEOUT_MS } : { timeoutMs: 5_000 },
+  );
   if (!setup) {
-    return { apiKey: null, computerName: null };
+    return { apiKey: null, computerName: null, exchanged: false };
   }
 
   let apiKey = setup.apiKey?.trim() || null;
   let computerName = displayComputerName(setup.macName);
+  let exchanged = false;
   if (setup.pairingCode?.trim() && setup.pairServerUrl?.trim()) {
-    const exchanged = await dependencies.exchangePairingCode(
-      setup.pairServerUrl,
-      setup.pairingCode,
-    );
-    apiKey = exchanged?.apiKey?.trim() || apiKey;
-    computerName = displayComputerName(exchanged?.macName) || computerName;
+    // One retry: remint races / single-use code already taken by background scan.
+    for (let attempt = 0; attempt < 2 && !apiKey; attempt += 1) {
+      const setupAttempt =
+        attempt === 0
+          ? setup
+          : await dependencies.resolvePairServerSetupParams(host, {
+              timeoutMs: isTailscale ? TAILSCALE_PAIR_TIMEOUT_MS : 5_000,
+            });
+      if (!setupAttempt?.pairingCode?.trim() || !setupAttempt.pairServerUrl?.trim()) {
+        break;
+      }
+      const exchangedPayload = await dependencies.exchangePairingCode(
+        setupAttempt.pairServerUrl,
+        setupAttempt.pairingCode,
+      );
+      apiKey = exchangedPayload?.apiKey?.trim() || apiKey;
+      computerName = displayComputerName(exchangedPayload?.macName) || computerName;
+      if (apiKey) {
+        exchanged = true;
+      }
+    }
   }
 
-  return { apiKey, computerName };
+  return { apiKey, computerName, exchanged };
 }
 
 export type ConnectManualGatewayInput = {
@@ -99,7 +122,8 @@ export type ConnectManualGatewayInput = {
 
 /**
  * Prove that a manually entered address is an authenticated Hermes computer before
- * it is saved or selected. A failed probe leaves both profiles and credentials unchanged.
+ * it is saved or selected. A failed probe leaves both profiles and credentials unchanged
+ * except remembering a Tailscale host that was proven reachable for Find computers.
  */
 export async function connectManualGatewayAddress(
   input: ConnectManualGatewayInput,
@@ -117,18 +141,25 @@ export async function connectManualGatewayAddress(
 
   if (health.authMismatch) {
     if (tailscaleAddress) {
-      // Proven reachable over Tailscale but wrong/missing key — keep the host so
-      // Find computers and the background probe resurface it (re-pair CTA) on the
-      // next cycle instead of "None found yet" for an address we already reached.
+      // Proven reachable — never leave Find computers saying "None found yet".
       try {
         await dependencies.rememberTailnetProbeHost(input.gatewayUrl);
       } catch {
-        // Best-effort memory; never let storage failure mask the real pairing error.
+        // Best-effort memory.
       }
     }
-    throw new Error('Hermes is reachable, but this phone still needs to pair.');
+    if (!candidateApiKey) {
+      throw new Error(
+        tailscaleAddress
+          ? 'Hermes is reachable at this IP, but pairing timed out. Tap Scan QR from your Mac (open the pair page on that computer), then scan.'
+          : 'Hermes is reachable, but this phone still needs to pair. Scan the QR on your Mac.',
+      );
+    }
+    throw new Error(
+      'Hermes is reachable, but this phone still needs to pair. Scan QR from your Mac to finish.',
+    );
   }
-  if (!health.directGatewayReachable) {
+  if (!health.directGatewayReachable && !health.authMismatch) {
     throw new Error(
       tailscaleAddress
         ? 'Couldn’t reach Hermes at this Tailscale address.'
