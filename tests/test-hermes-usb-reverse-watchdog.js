@@ -57,6 +57,14 @@ if (args[0] === '-s' && args[2] === 'reverse' && args[3] === '--list') {
   process.stdout.write(lines.join('\\n'));
   process.exit(0);
 }
+if (args[0] === '-s' && args[2] === 'reverse' && args[3] === '--remove' && args[4] && args[4].startsWith('tcp:')) {
+  const serial = args[1];
+  const port = Number(args[4].slice(4));
+  const state = readState();
+  state.reversed[serial] = (state.reversed[serial] || []).filter((p) => p !== port);
+  writeState(state);
+  process.exit(0);
+}
 if (args[0] === '-s' && args[2] === 'reverse' && args[3].startsWith('tcp:')) {
   const serial = args[1];
   const port = Number(args[3].slice(4));
@@ -250,6 +258,77 @@ check('runOnce with skipPair still heals reverses and records appear skip', () =
   assert.strictEqual(summary.healed, true);
   assert.strictEqual(summary.appear.pairAttempts[0].reason, 'skip_pair');
   assert.strictEqual(summary.paired, false);
+});
+
+check('healSerial skips re-adding tcp:8642 when mini-primary intent is active', () => {
+  writeState({ reversed: {}, failPorts: [], devices: [['R3CY90QPM7E', 'device']] });
+  const result = watchdog.healSerial('R3CY90QPM7E', {
+    adbCommand: fakeAdbPath,
+    intent: { skip8642: true, gatewayUrl: 'http://127.0.0.1:18642' },
+  });
+  assert.strictEqual(result.skip8642, true);
+  assert.deepStrictEqual(result.missing, [8765]);
+  assert.deepStrictEqual(result.reapplied, [8765]);
+  const state = readState();
+  assert.deepStrictEqual(state.reversed.R3CY90QPM7E, [8765]);
+  assert.strictEqual(state.reversed.R3CY90QPM7E.includes(8642), false, 'must never re-add 8642 under mini-primary intent');
+});
+
+check('healSerial actively removes a stale tcp:8642 that reappeared while mini-primary intent is active', () => {
+  writeState({ reversed: { R3CY90QPM7E: [8642, 8765] }, failPorts: [], devices: [['R3CY90QPM7E', 'device']] });
+  const result = watchdog.healSerial('R3CY90QPM7E', {
+    adbCommand: fakeAdbPath,
+    intent: { skip8642: true, gatewayUrl: 'http://127.0.0.1:18642' },
+  });
+  assert.strictEqual(result.skip8642, true);
+  assert.strictEqual(result.removed8642, true, 'a live stale tcp:8642 must be actively removed, not just left alone');
+  const state = readState();
+  assert.deepStrictEqual(state.reversed.R3CY90QPM7E, [8765]);
+});
+
+check('healSerial heals tcp:8642 normally when no mini-primary intent is on record', () => {
+  writeState({ reversed: {}, failPorts: [], devices: [['R3CY90QPM7E', 'device']] });
+  const result = watchdog.healSerial('R3CY90QPM7E', {
+    adbCommand: fakeAdbPath,
+    intentStatePath: path.join(tmpDir, 'no-such-intent-file.json'),
+  });
+  assert.strictEqual(result.skip8642, false);
+  assert.deepStrictEqual(result.missing.sort(), [8642, 8765]);
+  assert.deepStrictEqual(result.reapplied.sort(), [8642, 8765]);
+  const state = readState();
+  assert.deepStrictEqual(state.reversed.R3CY90QPM7E.sort(), [8642, 8765]);
+});
+
+check('healSerial reads a real persisted intent file written by hermes-mobile-pair-lib', () => {
+  const { writeUsbReversePrimaryIntent } = require('../tools/hermes-mobile-pair-lib');
+  const intentStatePath = path.join(tmpDir, 'persisted-intent.json');
+  writeUsbReversePrimaryIntent(
+    { skip8642: true, gatewayUrl: 'http://127.0.0.1:18642', forceMiniUsbPrimary: true },
+    intentStatePath,
+  );
+  writeState({ reversed: {}, failPorts: [], devices: [['R3CY90QPM7E', 'device']] });
+  const result = watchdog.healSerial('R3CY90QPM7E', { adbCommand: fakeAdbPath, intentStatePath });
+  assert.strictEqual(result.skip8642, true);
+  const state = readState();
+  assert.strictEqual(state.reversed.R3CY90QPM7E.includes(8642), false);
+});
+
+check('runOnce excludes tcp:8642 from "already live" ports display and healing under mini-primary intent', () => {
+  writeState({ reversed: { R3CY90QPM7E: [8765] }, failPorts: [], devices: [['R3CY90QPM7E', 'device']] });
+  const intentStatePath = path.join(tmpDir, 'runonce-intent.json');
+  const { writeUsbReversePrimaryIntent } = require('../tools/hermes-mobile-pair-lib');
+  writeUsbReversePrimaryIntent({ skip8642: true, gatewayUrl: 'http://127.0.0.1:18642' }, intentStatePath);
+  const summary = watchdog.runOnce({
+    adbCommand: fakeAdbPath,
+    skipPair: true,
+    appearStatePath: path.join(tmpDir, 'appear-mini-primary.json'),
+    intentStatePath,
+  });
+  assert.strictEqual(summary.results[0].skip8642, true);
+  assert.strictEqual(summary.results[0].missing.length, 0, 'tcp:8765 alone must satisfy healing under mini-primary intent');
+  assert.strictEqual(summary.anyFailed, false);
+  const state = readState();
+  assert.strictEqual(state.reversed.R3CY90QPM7E.includes(8642), false);
 });
 
 fs.rmSync(tmpDir, { recursive: true, force: true });
