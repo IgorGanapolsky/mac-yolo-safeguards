@@ -72,5 +72,21 @@ paths = [
   '''.*\.test\.(ts|tsx|js|jsx)$''',
   '''.*/tests?/.*''',
   '''.*_test\.(js|ts|py|go|sh)$''',
+  '''.*/test_[A-Za-z0-9_]+\.(js|ts)$''',  # reversed naming, e.g. hermes-mobile/test_merge.js
   '''.*\.example(\.[a-z]+)?$''',
+]
+
+[[allowlists]]
+description = '''
+Storage/lookup key NAMES, not secret values — manually verified 2026-07-24 during a
+full-history gitleaks audit. These are the string labels expo-secure-store /
+AsyncStorage use to look up a value at runtime; the actual secret is never in source.
+The "generic-api-key" rule above also over-matches JS object properties literally
+named `key` (e.g. a workflow action id), which is unrelated to credentials.
+'''
+paths = [
+  '''hermes-mobile/src/services/secureCredentials\.ts$''',
+  '''hermes-mobile/src/services/marketingAttribution\.ts$''',
+  '''tools/hermes-loop-state\.js$''',
+  '''tests/test-hermes-loop-state\.js$''',
 ]
