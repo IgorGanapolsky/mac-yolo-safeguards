@@ -885,4 +885,36 @@ describe('profileDisplayName generic labels', () => {
       }),
     ).toBe('Igors-Mac-mini');
   });
+
+  it('prefers live /health hostname over Tailscale CGNAT IP label (header P0 2026-07-24)', () => {
+    const miniTs: GatewayProfile = {
+      id: 'mini_ts_ip',
+      label: 'Computer via Tailscale',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-24T00:00:00.000Z',
+    };
+    const health = {
+      level: 'green' as const,
+      checkedAt: '2026-07-24T00:00:00.000Z',
+      hostname: 'Igors-Mac-mini.local',
+      localIp: '192.168.68.54',
+      directGatewayReachable: true,
+    };
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: miniTs,
+      gatewayUrl: miniTs.gatewayUrl,
+      health,
+      connectionMode: 'gateway',
+      isPaired: true,
+      workers: [],
+      savedMacCount: 2,
+      wifiConnected: false,
+    });
+    expect(display.machineLabel).toBe('Igors-Mac-mini');
+    expect(display.machineLabel).not.toMatch(/100\.94/);
+    expect(display.machineEndpoint).toBe('Tailscale');
+  });
+
+
 });
