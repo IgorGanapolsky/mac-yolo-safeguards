@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent, type ReactNode } from "react";
+import { clearDashboardNavCache } from "@/lib/dashboard-nav-cache";
 
 type SignOutFormProps = {
   className?: string;
@@ -28,6 +29,8 @@ export function SignOutForm({
       return;
     }
     setPending(true);
+    // Drop shell-first nav cache so the next account never sees prior workspace lists.
+    clearDashboardNavCache();
     // Native form POST continues → 303 home (or WorkOS fallback).
   }
 
