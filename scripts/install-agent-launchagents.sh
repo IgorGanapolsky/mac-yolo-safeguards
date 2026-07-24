@@ -119,3 +119,9 @@ echo "  bash scripts/configure-browser-control.sh --status --json"
 echo "  node tools/agent-session-start.js"
 echo "  node tools/revenue-autonomous-loop.js --json"
 echo "  node tools/ralph-gsd-loop.js --once --json"
+
+# Fleet repo intelligence (local JetBrains Context equivalent)
+if [[ -f "$REPO_ROOT/tools/install-fleet-repo-intelligence.sh" ]]; then
+  bash "$REPO_ROOT/tools/install-fleet-repo-intelligence.sh" || true
+fi
+

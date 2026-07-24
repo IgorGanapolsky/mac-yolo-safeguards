@@ -37,6 +37,17 @@ const {
   maybeKickstartContinuousE2e,
 } = require('./continuous-e2e-kickstart');
 const { checkGraphStaleness, format: formatGraphStaleness } = require('./graphify-staleness-check');
+
+function printFleetRepoIntelligence() {
+  const statusScript = path.join(REPO, 'tools/fleet-repo-intelligence-status.js');
+  if (!fs.existsSync(statusScript)) return;
+  const r = runNode('tools/fleet-repo-intelligence-status.js', [], 25_000);
+  if (r.stdout) process.stdout.write(`\n${r.stdout}${r.stdout.endsWith('\n') ? '' : '\n'}`);
+  if (r.status !== 0 && r.stderr) {
+    process.stderr.write(r.stderr.slice(0, 400));
+  }
+}
+
 const E2E_STALE_MS = 30 * 60 * 1000;
 const args = process.argv.slice(2);
 const json = args.includes('--json');
@@ -370,6 +381,11 @@ if (!json) {
   } else if (smartOps.stderr) {
     process.stderr.write(smartOps.stderr.slice(0, 500));
   }
+}
+
+// Local JetBrains Context equivalent (grepai + hermes-context) — every agent sees health.
+if (!json) {
+  printFleetRepoIntelligence();
 }
 
 const briefArgs = ['tools/ceo-operating-brief.js'];

@@ -1,0 +1,20 @@
+---
+description: Prefer fleet local semantic repo intelligence (grepai / hermes-context) before cold codebase exploration
+globs:
+alwaysApply: true
+---
+
+# Fleet repo intelligence (JetBrains Context local equivalent)
+
+Before cold `rg`/`find` exploration of unfamiliar areas of this monorepo:
+
+1. Prefer **MCP `grepai_*` tools** (repo `.mcp.json` → isolated index of `main`).
+2. Or CLI: `grepai search "…"` from `~/.hermes/semantic-index/mac-yolo-safeguards`.
+3. Multi-repo: `hermes-context search "…"`.
+4. Structure: `.graphify-venv/bin/graphify query "…"` when `graphify-out/graph.json` exists.
+
+Do **not** run `grepai watch` from a multi-worktree checkout (indexes all worktrees and hammers Ollama). Refresh only via `bash tools/install-fleet-repo-intelligence.sh`.
+
+Status: `node tools/fleet-repo-intelligence-status.js`
+
+Official `jbcontext` (JetBrains Context) is optional/not required for this fleet.
