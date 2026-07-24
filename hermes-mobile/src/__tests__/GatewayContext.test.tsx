@@ -395,6 +395,111 @@ describe('GatewayProvider', () => {
     }
   });
 
+  it('heals to same-Mac USB automatically when Tailscale is unreachable on cellular (2026-07-24)', async () => {
+    // Live repro: R3CY90QPM7E on 5G, Tailscale toggle OFF, cable + adb reverse
+    // live into Igors-MacBook-Pro. Header must flip to Connected · USB within
+    // one heal cycle — no "Tap to reconnect" required.
+    jest.useFakeTimers();
+    try {
+      const netInfoMock = jest.requireMock('@react-native-community/netinfo');
+      netInfoMock.fetch.mockResolvedValue({
+        type: 'cellular',
+        isConnected: true,
+        details: {},
+      });
+
+      const gatewayProfilesMock = jest.requireMock('../services/gatewayProfiles');
+      gatewayProfilesMock.gatewayProfiles.load.mockResolvedValue({
+        profiles: [
+          {
+            id: 'mac_pro_ts',
+            label: 'Igors-MacBook-Pro',
+            gatewayUrl: 'http://100.87.85.85:8642',
+            hostname: 'Igors-MacBook-Pro',
+            addedAt: '2026-07-20T00:00:00.000Z',
+          },
+        ],
+        activeProfileId: 'mac_pro_ts',
+      });
+      (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
+        connectionMode: 'gateway',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        gatewayUrl: 'http://100.87.85.85:8642',
+        usePortal: false,
+        redactPii: true,
+        notificationsEnabled: false,
+        demoMode: false,
+        glanceMode: false,
+        safetyMode: false,
+        thumbgateCaptureOnDown: true,
+        thumbgateCaptureOnUp: false,
+        thumbgateApiUrl: 'https://thumbgate.example.com',
+        thumbgateProActive: true,
+        approvalPolicy: 'balanced',
+        analyticsOptOut: false,
+        includeToolActivity: true,
+      });
+      (secureCredentials.resolveApiKeyForProfile as jest.Mock).mockResolvedValue('sk-pro');
+
+      global.fetch = jest.fn((input: unknown) => {
+        const url = String(input);
+        if (url.startsWith('http://127.0.0.1:8642')) {
+          if (url.includes('/api/sessions')) {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: async () => ({ sessions: [] }),
+            });
+          }
+          if (url.includes('/health/detailed')) {
+            return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
+          }
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              status: 'ok',
+              hostname: 'Igors-MacBook-Pro',
+              gateway_state: 'running',
+              pid: 1,
+            }),
+          });
+        }
+        // Tailscale URL: unreachable — the phone's Tailscale toggle is off.
+        return Promise.reject(new Error('Network request failed'));
+      }) as jest.Mock;
+
+      function HealProbe() {
+        const gateway = useGateway();
+        return (
+          <>
+            <Text testID="heal-loaded">{gateway.isLoaded ? 'yes' : 'no'}</Text>
+            <Text testID="heal-connection-state">{gateway.connectionState}</Text>
+            <Text testID="heal-gateway-url">{gateway.settings.gatewayUrl}</Text>
+          </>
+        );
+      }
+
+      const { getByTestId } = render(
+        <GatewayProvider>
+          <HealProbe />
+        </GatewayProvider>,
+      );
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(10_000);
+      });
+
+      await waitFor(() => {
+        expect(getByTestId('heal-connection-state').props.children).toBe('connected');
+      });
+      expect(getByTestId('heal-gateway-url').props.children).toBe('http://127.0.0.1:8642');
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  });
+
   it('shows connected (not Reconnecting) when HTTP /health is OK even if the events socket never opens', async () => {
     // The real :8642 gateway exposes NO events WebSocket — the socket errors/closes
     // forever. A reachable /health means chat works, so the app must report
