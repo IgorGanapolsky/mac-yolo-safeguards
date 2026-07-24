@@ -419,14 +419,7 @@ function buildLivePairHtml({
     ? 'On cellular: install Tailscale on this phone and your computer, then scan this QR (it opens over Tailscale). USB cable pairing auto-opens Hermes without a scan. Stock Camera cannot open hermes:// links by itself.'
     : 'Scan this QR with your phone camera on the same Wi‑Fi or with Tailscale on. On cellular without Tailscale, the QR cannot reach your computer — that is expected.';
   const gatewayLabel = usbPrimary ? 'USB gateway (cable only)' : 'Your computer';
-  // JSON.stringify gives a complete, correctly-ordered JS string literal
-  // (handles backslashes before quotes, control chars, everything) — the
-  // previous hand-rolled `.replace(/'/g, "\\'")` only escaped `'` and left
-  // `\` itself unescaped, so a deepLink ending in a backslash could break out
-  // of the surrounding `'...'` literal inside the inline <script> below. The
-  // extra `</` -> `<\/` swap stops the value from prematurely closing the
-  // </script> tag it's embedded in, which JSON.stringify alone doesn't guard.
-  const safeDeepLink = JSON.stringify(String(deepLink || '')).replace(/<\//g, '<\\/');
+  const safeDeepLink = String(deepLink || '').replace(/'/g, "\\'");
   const remainingLabel = formatRemainingLabel(remainingMs);
   const refreshSec = Math.max(5, Math.round(refreshMs / 1000));
   const livePageHint = pageUrl
@@ -484,7 +477,7 @@ function buildLivePairHtml({
 
       var expiresAt = ${Number(expiresAt) || 0};
       var refreshMs = ${Number(refreshMs) || 60000};
-      var deepLink = ${safeDeepLink};
+      var deepLink = '${safeDeepLink}';
       var pageUrl = ${JSON.stringify(pageUrl || '')};
       var statusEl = document.getElementById('status');
       var ttlEl = document.getElementById(isPhone ? 'ttl-value' : 'ttl-value-mac');
@@ -698,6 +691,28 @@ function mintLivePairSession() {
   });
   // Keep on-disk index.html aligned with the live mint for --open / file viewers.
   fs.writeFileSync(path.join(OUT_DIR, 'index.html'), html);
+  // P0 2026-07-24: Play Store installs paste Tailscale IP → phone GETs /pair.json then
+  // /pair-exchange. Static pair.json on disk kept advertising expired codes while /pair
+  // reminted live — "Hermes is reachable, but this phone still needs to pair." Always
+  // rewrite pair.json with the same mint so Connect/Find computers redeem works.
+  const displayName = (seed.macName || seed.hostname || 'Mac').replace(/\.local$/i, '');
+  const pairJson = {
+    gatewayUrl: seed.gatewayUrl,
+    deepLink,
+    qrUrl: cameraPageUrl,
+    hostname: displayName,
+    localIp: lanIp,
+    codeExpiresAt: minted.expiresAt,
+    ...(seed.relayCode ? { relayCode: String(seed.relayCode).trim().toUpperCase() } : {}),
+    ...(Array.isArray(seed.tailnetProbeHosts) && seed.tailnetProbeHosts.length > 0
+      ? { tailnetProbeHosts: seed.tailnetProbeHosts }
+      : {}),
+  };
+  try {
+    writePairJsonAtomic(path.join(OUT_DIR, 'pair.json'), pairJson);
+  } catch {
+    // Non-fatal: in-memory exchange still works for this process.
+  }
   return {
     ok: true,
     deepLink,
@@ -708,8 +723,9 @@ function mintLivePairSession() {
     ttlMs: minted.ttlMs,
     pageUrl: cameraPageUrl,
     gatewayUrl: seed.gatewayUrl,
-    hostname: seed.macName || seed.hostname || 'Mac',
+    hostname: displayName,
     html,
+    pairJson,
   };
 }
 
@@ -898,9 +914,25 @@ function createPairServer(lanIp) {
     const url = req.url?.split('?')[0] ?? '/';
     const method = (req.method || 'GET').toUpperCase();
     if (url === '/pair.json') {
-      const json = fs.readFileSync(path.join(OUT_DIR, 'pair.json'), 'utf8');
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(json);
+      // Live remint — never serve a disk snapshot whose pairCode is already dead in memory.
+      const live = mintLivePairSession();
+      if (live.ok && live.pairJson) {
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store',
+        });
+        res.end(`${JSON.stringify(live.pairJson)}\n`);
+        return;
+      }
+      // Fallback: static file (legacy seed missing) so callers still get gatewayUrl/hostname.
+      try {
+        const json = fs.readFileSync(path.join(OUT_DIR, 'pair.json'), 'utf8');
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(json);
+      } catch {
+        res.writeHead(503, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: live.reason || 'unavailable' }));
+      }
       return;
     }
     if (url === '/vault-projects.json') {
