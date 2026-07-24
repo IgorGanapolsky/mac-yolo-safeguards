@@ -1,8 +1,9 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import SettingsScreen from '../screens/SettingsScreen';
 import { mockGatewaySettings, mockUseGateway } from '../testUtils/gatewayFixtures';
+import { isGlassesConnected } from '../native/hermesGlasses';
 
 jest.mock('../services/approvalNotifications', () => ({
   requestHermesNotificationPermission: jest.fn().mockResolvedValue(true),
@@ -367,5 +368,40 @@ describe('SettingsScreen', () => {
         notificationsEnabled: false,
       }),
     );
+  });
+
+  it('hides the AI glasses section for the overwhelming majority of users with no glasses paired', async () => {
+    const originalOs = Platform.OS;
+    Platform.OS = 'android';
+    (isGlassesConnected as jest.Mock).mockResolvedValue(false);
+    try {
+      const { queryByTestId, queryByText } = render(<SettingsScreen />);
+
+      await waitFor(() => {
+        expect(isGlassesConnected).toHaveBeenCalled();
+      });
+      expect(queryByText('🕶️ AI glasses')).toBeNull();
+      expect(queryByTestId('launch-on-glasses-button')).toBeNull();
+    } finally {
+      Platform.OS = originalOs;
+    }
+  });
+
+  it('shows the AI glasses launch button once glasses are actually paired', async () => {
+    const originalOs = Platform.OS;
+    Platform.OS = 'android';
+    (isGlassesConnected as jest.Mock).mockResolvedValue(true);
+    try {
+      const { getByTestId, getByText } = render(<SettingsScreen />);
+
+      await waitFor(() => {
+        expect(getByText('🕶️ AI glasses')).toBeTruthy();
+      });
+      expect(getByTestId('launch-on-glasses-button')).toBeTruthy();
+      expect(getByText('LAUNCH LEASH ON GLASSES')).toBeTruthy();
+    } finally {
+      Platform.OS = originalOs;
+      (isGlassesConnected as jest.Mock).mockResolvedValue(false);
+    }
   });
 });

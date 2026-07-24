@@ -938,7 +938,7 @@ export default function SettingsScreen() {
           </View>
         </GlassCard>
 
-        {Platform.OS === 'android' ? (
+        {Platform.OS === 'android' && glassesConnected ? (
           <>
             <Text style={styles.sectionTitle}>🕶️ AI glasses</Text>
             <GlassCard>
@@ -948,11 +948,7 @@ export default function SettingsScreen() {
                 prebuild with the XR config plugin.
               </Text>
               <TouchableOpacity
-                style={[
-                  styles.pairButton,
-                  !glassesConnected && styles.saveButtonDisabled,
-                ]}
-                disabled={!glassesConnected}
+                style={styles.pairButton}
                 testID="launch-on-glasses-button"
                 onPress={async () => {
                   try {
@@ -966,9 +962,7 @@ export default function SettingsScreen() {
                   }
                 }}
               >
-                <Text style={styles.pairButtonText}>
-                  {glassesConnected ? 'LAUNCH LEASH ON GLASSES' : 'GLASSES NOT CONNECTED'}
-                </Text>
+                <Text style={styles.pairButtonText}>LAUNCH LEASH ON GLASSES</Text>
               </TouchableOpacity>
             </GlassCard>
           </>
