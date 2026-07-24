@@ -120,9 +120,13 @@ import {
   shouldSkipAutoRetitleForContinuity,
   type SessionContinuityHandoff,
 } from '../utils/sessionContinuityHandoff';
+import { resolveContinuitySessionResumeId } from '../utils/continuitySessionResume';
 import {
   resolveMessageHydrateCredentials,
+  resolvePostSwitchSession,
   resolveProfileSwitchRestorePlan,
+  sessionIdForPostSwitchListLoad,
+  shouldSkipBackgroundSessionReload,
 } from '../utils/profileSwitchSessionRestore';
 import {
   formatSessionCreated,
@@ -694,6 +698,12 @@ export default function ChatScreen() {
   const [connectionPanelRefreshing, setConnectionPanelRefreshing] = useState(false);
   const [telegramInboxMeta, setTelegramInboxMeta] = useState({ threadCount: 0, messageCap: 250 });
   const skipSessionAutoSelectRef = useRef(false);
+  /**
+   * Sticky compose-first after Start fresh / New chat / Clear all.
+   * Survives list refresh after the one-shot skipSessionAutoSelectRef clears so
+   * continuity resume cannot yank the prior transcript back under empty New chat.
+   */
+  const continuityComposeFirstRef = useRef(false);
   /** Recent-thread tap — survives in-flight listSessions before project state persists. */
   const manualSessionSelectRef = useRef<string | null>(null);
   /** Invalidates in-flight dismissed-session hydration after clear-all. */
@@ -1585,7 +1595,7 @@ export default function ChatScreen() {
       return;
     }
     let cancelled = false;
-    void probeLiveUsbGateway().then((discovery) => {
+    const applyProbe = (discovery: Awaited<ReturnType<typeof probeLiveUsbGateway>>) => {
       if (cancelled) {
         return;
       }
@@ -1597,9 +1607,16 @@ export default function ChatScreen() {
         return;
       }
       setLiveUsbProbed(discovery ? { reachable: true } : null);
-    });
+    };
+    // Probe immediately and re-check while the sheet is open so a mid-session plug
+    // surfaces the USB row without auto-stealing sticky Tailscale (#893).
+    void probeLiveUsbGateway().then(applyProbe);
+    const intervalId = setInterval(() => {
+      void probeLiveUsbGateway().then(applyProbe);
+    }, 2500);
     return () => {
       cancelled = true;
+      clearInterval(intervalId);
     };
   }, [isDemo, liveUsbFromHealth?.hostname, macPickerVisible, showMacConnectionHelp]);
 
@@ -2094,6 +2111,7 @@ export default function ChatScreen() {
   ]);
 
   const consumeContinuityHandoffAfterSend = useCallback(() => {
+    continuityComposeFirstRef.current = false;
     if (!continuityHandoffRef.current) {
       return;
     }
@@ -2461,6 +2479,11 @@ export default function ChatScreen() {
       apiKeyOverride?: string | null;
       /** Bypass macChatLive gate during intentional profile switches. */
       forceWhileOffline?: boolean;
+      /**
+       * Intentional Choose-computer switch: ignore sticky prior-Mac session id so
+       * selectLatest / remembered / default can open THIS Mac's last thread.
+       */
+      intentionalProfileSwitch?: boolean;
     },
   ) => {
     const selectionProjectState = options?.projectState ?? projectState;
@@ -2540,19 +2563,67 @@ export default function ChatScreen() {
           hideAutomationSessions: hideAutomationSessionsRef.current,
         }),
         finalSessions,
-        currentSessionRef.current?.id,
+        sessionIdForPostSwitchListLoad({
+          intentionalProfileSwitch: Boolean(options?.intentionalProfileSwitch),
+          stickySessionId: currentSessionRef.current?.id,
+        }),
       );
       const rememberedSessionId = await storage.loadLastSessionForComputer(computerSessionKeys);
+      const listCurrentSessionId = sessionIdForPostSwitchListLoad({
+        intentionalProfileSwitch: Boolean(options?.intentionalProfileSwitch),
+        stickySessionId: currentSessionRef.current?.id,
+      });
 
-      const resolvedSession = resolveSessionAfterListLoad({
+      let resolvedSession = resolveSessionAfterListLoad({
         sessions: selectableSessions,
         projectState: selectionProjectState,
-        currentSessionId: currentSessionRef.current?.id,
+        currentSessionId: listCurrentSessionId,
         manualSelectSessionId: manualSessionSelectRef.current,
         rememberedSessionId,
         skipAutoSelect,
         selectLatest,
       });
+
+      // Pending continuity handoff must not leave empty "New chat" when the prior
+      // session still exists — that paired with the old Continuing banner and lied.
+      // Skip while sticky compose-first is active (Start fresh) — skipAutoSelect is
+      // one-shot and would otherwise reopen the prior thread on the next refresh.
+      if (!resolvedSession && !currentSessionRef.current) {
+        const continuityResumeId = resolveContinuitySessionResumeId({
+          handoff: continuityHandoffRef.current,
+          skipAutoSelect,
+          composeFirstActive: continuityComposeFirstRef.current,
+          sessionIds: selectableSessions.map((session) => session.id),
+        });
+        if (continuityResumeId) {
+          const continuitySession = selectableSessions.find(
+            (session) => session.id === continuityResumeId,
+          );
+          if (continuitySession) {
+            resolvedSession = continuitySession;
+            continuityComposeFirstRef.current = false;
+          }
+        }
+      }
+
+      // Choose-computer switch: if list-load still left compose empty, open this Mac's
+      // remembered / most-recent sendable thread (never stay on New chat while threads exist).
+      if (
+        options?.intentionalProfileSwitch &&
+        !resolvedSession &&
+        !currentSessionRef.current &&
+        !skipAutoSelect &&
+        !continuityComposeFirstRef.current
+      ) {
+        const postSwitch = resolvePostSwitchSession({
+          sessions: selectableSessions,
+          rememberedSessionId,
+          projectState: selectionProjectState,
+        });
+        if (postSwitch) {
+          resolvedSession = postSwitch;
+        }
+      }
 
       if (resolvedSession !== undefined) {
         // Keep ref in sync before awaiters (profile-switch hydrate) read it —
@@ -2638,6 +2709,9 @@ export default function ChatScreen() {
         deadRunSurfacedRef.current = false;
         messagesRef.current = [];
         setMessages([]);
+        // Must clear the ref too — React state alone leaves resolveSessionAfterListLoad
+        // seeing the prior Mac's session id (sticky keep / wrong hydrate target).
+        currentSessionRef.current = null;
         setCurrentSession(null);
         pinScrollAfterHydrationRef.current = true;
         userScrolledUpRef.current = false;
@@ -2679,6 +2753,7 @@ export default function ChatScreen() {
             gatewayUrlOverride: restorePlan.gatewayUrl,
             apiKeyOverride: profileKey,
             forceWhileOffline: true,
+            intentionalProfileSwitch: true,
           });
           if (currentSessionRef.current) {
             await refreshSessionMessagesRef.current?.({
@@ -2688,6 +2763,12 @@ export default function ChatScreen() {
               apiKeyOverride: profileKey,
             });
           }
+        } else if (options?.reloadSessions !== false) {
+          // No resolvable restore plan (unexpected — e.g. picked profile vanished
+          // mid-switch). The background reload effects are gated off for the whole
+          // switch window above, so this is the only remaining path that will ever
+          // populate sessions for the newly active Mac — never leave it un-loaded.
+          await loadSessionsList(true, { forceWhileOffline: true });
         }
       } finally {
         intentionalProfileSwitchRef.current = false;
@@ -2738,7 +2819,14 @@ export default function ChatScreen() {
   }, [gatewayUrl, isDemo, activeComputerSessionKeys]);
 
   useEffect(() => {
-    if (isProjectsLoaded) {
+    // Intentional profile switch owns session-list loading for its whole window
+    // (handleSelectGatewayProfile always reloads with the target Mac's explicit
+    // gatewayUrl/apiKey overrides). This effect fires on the very gatewayUrl/apiKey
+    // change a switch produces — an ungated call here races the switch's restore with
+    // stale/unscoped state and can win the loadGen race, clobbering the just-restored
+    // thread back to an empty session (P0 2026-07-23: mini switch showed a fresh chat
+    // instead of the prior conversation despite #833).
+    if (isProjectsLoaded && !shouldSkipBackgroundSessionReload(intentionalProfileSwitchRef.current)) {
       // Reconnect/heal must not force selectLatest — that can jump threads and wipe
       // local optimistic/failed bubbles while the transcript refresh is still blocked.
       const selectLatest = !currentSessionRef.current;
@@ -2750,6 +2838,12 @@ export default function ChatScreen() {
     const wasLive = prevMacChatLiveRef.current;
     prevMacChatLiveRef.current = macChatLive;
     if (isDemo || wasLive === null || wasLive || !macChatLive) {
+      return;
+    }
+    // Same race as above: refreshHealth() during a switch flips macChatLive
+    // false→true mid-switch, so this reconnect path must also stand down for the
+    // switch's explicit, correctly-scoped restore (see shouldSkipBackgroundSessionReload).
+    if (shouldSkipBackgroundSessionReload(intentionalProfileSwitchRef.current)) {
       return;
     }
     void loadSessionsList(false, { silent: true }).then(() => {
@@ -3950,6 +4044,7 @@ export default function ChatScreen() {
     setToolStatus(null);
     setRunProgress(null);
     skipSessionAutoSelectRef.current = true;
+    continuityComposeFirstRef.current = true;
     setComposerFocusNonce((n) => n + 1);
     if (!preserveComposer) {
       inputValueRef.current = '';
@@ -3967,6 +4062,7 @@ export default function ChatScreen() {
       };
       setSessions((prev) => [newSess, ...prev]);
       setCurrentSession(newSess);
+      continuityComposeFirstRef.current = false;
       if (activeProject) {
         const next = bindSessionToProject(
           projectState,
@@ -4158,6 +4254,7 @@ export default function ChatScreen() {
 
     // Drop transcript immediately so a slow gateway reload cannot flash old messages.
     skipSessionAutoSelectRef.current = true;
+    continuityComposeFirstRef.current = true;
     manualSessionSelectRef.current = null;
     void clearPendingOutbound(currentSessionRef.current?.id);
     void clearPendingOutbound(PENDING_NEW_SESSION_KEY);
@@ -4269,6 +4366,7 @@ export default function ChatScreen() {
       await persistProjectState(nextState);
 
       skipSessionAutoSelectRef.current = true;
+      continuityComposeFirstRef.current = true;
       try {
         await loadSessionsList(false, { silent: true, projectState: nextState });
       } catch (err) {
@@ -6397,6 +6495,7 @@ export default function ChatScreen() {
       if (isSessionRemovedError(err) || message.includes('That chat was removed')) {
         invalidateRemovedSession(targetSessionId);
         skipSessionAutoSelectRef.current = true;
+        continuityComposeFirstRef.current = true;
         suppressPostSendRefresh = true;
         setCurrentSession(null);
         setMessages([]);
@@ -6786,6 +6885,7 @@ export default function ChatScreen() {
         setRecentChatsDismissed(false);
         setSessionModalVisible(false);
         skipSessionAutoSelectRef.current = false;
+        continuityComposeFirstRef.current = false;
         manualSessionSelectRef.current = session.id;
         currentSessionRef.current = session;
         transcriptDigestRef.current = '';
@@ -7253,6 +7353,11 @@ export default function ChatScreen() {
           runProgress={progressBanner}
           onOpenThreads={openSessionsModal}
           onOpenTools={() => setToolsModalVisible(true)}
+          onPressThreadTitle={
+            currentSession
+              ? () => handleRenameSession(currentSession.id, threadHeaderTitle)
+              : undefined
+          }
           onPressMachine={() => {
             haptics.selection();
             if (effectiveAuthMismatch) {
@@ -7369,6 +7474,7 @@ export default function ChatScreen() {
               >
                 <ChatEmptyGreeting
                   routeLabel={isDemo ? 'Demo computer' : machineShortLabel}
+                  transportLabel={isDemo ? undefined : machineEndpoint}
                   isConnected={effectiveMacChatLive}
                   connectionPending={suppressEmptyGreetingUnreachable}
                 />
@@ -7720,6 +7826,7 @@ export default function ChatScreen() {
               <GatewayProfilePicker
                 profiles={switchComputerProfiles}
                 activeProfileId={activeGatewayProfile?.id ?? null}
+                activeProfile={activeGatewayProfile}
                 activeReachable={macHttpOk}
                 authNeedsRepair={effectiveAuthMismatch}
                 activeConnecting={headerConnectionState === 'connecting'}
@@ -7775,15 +7882,6 @@ export default function ChatScreen() {
                   void addDiscoveredTailscaleComputer(discovery);
                 }}
               />
-              <ManualComputerAddressForm
-                pickerMode
-                compactMode={switchComputerProfiles.length > 0}
-                testIDPrefix="mac-picker-manual"
-                onAddProfile={async (label, gatewayUrl) => {
-                  await addGatewayProfile(label, gatewayUrl);
-                  closeMacPicker();
-                }}
-              />
               <LoadingButton
                 label="Find computers"
                 loadingLabel="Finding computers…"
@@ -7800,6 +7898,15 @@ export default function ChatScreen() {
                 }}
                 testID="chat-find-macs-on-wifi"
                 style={styles.macPickerFindBtn}
+              />
+              <ManualComputerAddressForm
+                pickerMode
+                compactMode={switchComputerProfiles.length > 0}
+                testIDPrefix="mac-picker-manual"
+                onAddProfile={async (label, gatewayUrl) => {
+                  await addGatewayProfile(label, gatewayUrl);
+                  closeMacPicker();
+                }}
               />
             </ScrollView>
       </BottomSheetModal>
@@ -8544,8 +8651,8 @@ const styles = StyleSheet.create({
   },
   macPickerSheetContent: {
     paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 12,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
   macPickerHeader: {
     flexDirection: 'row',
@@ -8554,14 +8661,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   macPickerSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textMuted,
-    marginBottom: 8,
-    lineHeight: 16,
+    marginBottom: 12,
+    lineHeight: 18,
   },
   macPickerContent: {
     paddingBottom: 8,
-    gap: 2,
+    gap: 12,
   },
   macPickerFindBtn: {
     marginTop: 4,

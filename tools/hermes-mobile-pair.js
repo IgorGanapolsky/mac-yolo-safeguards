@@ -32,6 +32,9 @@ const {
   classifyGatewayHost,
   classifyMiniApiKeyResolution,
   setupUsbAdbReverses,
+  removeUsbAdbReverse,
+  resolveUsbReversePorts,
+  writeUsbReversePrimaryIntent,
   assertUsbAdbReverses,
   ANDROID_PACKAGE_NAME,
   waitForForegroundAck,
@@ -691,6 +694,28 @@ function mintLivePairSession() {
   });
   // Keep on-disk index.html aligned with the live mint for --open / file viewers.
   fs.writeFileSync(path.join(OUT_DIR, 'index.html'), html);
+  // P0 2026-07-24: Play Store installs paste Tailscale IP → phone GETs /pair.json then
+  // /pair-exchange. Static pair.json on disk kept advertising expired codes while /pair
+  // reminted live — "Hermes is reachable, but this phone still needs to pair." Always
+  // rewrite pair.json with the same mint so Connect/Find computers redeem works.
+  const displayName = (seed.macName || seed.hostname || 'Mac').replace(/\.local$/i, '');
+  const pairJson = {
+    gatewayUrl: seed.gatewayUrl,
+    deepLink,
+    qrUrl: cameraPageUrl,
+    hostname: displayName,
+    localIp: lanIp,
+    codeExpiresAt: minted.expiresAt,
+    ...(seed.relayCode ? { relayCode: String(seed.relayCode).trim().toUpperCase() } : {}),
+    ...(Array.isArray(seed.tailnetProbeHosts) && seed.tailnetProbeHosts.length > 0
+      ? { tailnetProbeHosts: seed.tailnetProbeHosts }
+      : {}),
+  };
+  try {
+    writePairJsonAtomic(path.join(OUT_DIR, 'pair.json'), pairJson);
+  } catch {
+    // Non-fatal: in-memory exchange still works for this process.
+  }
   return {
     ok: true,
     deepLink,
@@ -701,8 +726,9 @@ function mintLivePairSession() {
     ttlMs: minted.ttlMs,
     pageUrl: cameraPageUrl,
     gatewayUrl: seed.gatewayUrl,
-    hostname: seed.macName || seed.hostname || 'Mac',
+    hostname: displayName,
     html,
+    pairJson,
   };
 }
 
@@ -891,9 +917,25 @@ function createPairServer(lanIp) {
     const url = req.url?.split('?')[0] ?? '/';
     const method = (req.method || 'GET').toUpperCase();
     if (url === '/pair.json') {
-      const json = fs.readFileSync(path.join(OUT_DIR, 'pair.json'), 'utf8');
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(json);
+      // Live remint — never serve a disk snapshot whose pairCode is already dead in memory.
+      const live = mintLivePairSession();
+      if (live.ok && live.pairJson) {
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store',
+        });
+        res.end(`${JSON.stringify(live.pairJson)}\n`);
+        return;
+      }
+      // Fallback: static file (legacy seed missing) so callers still get gatewayUrl/hostname.
+      try {
+        const json = fs.readFileSync(path.join(OUT_DIR, 'pair.json'), 'utf8');
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(json);
+      } catch {
+        res.writeHead(503, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: live.reason || 'unavailable' }));
+      }
       return;
     }
     if (url === '/vault-projects.json') {
@@ -1126,15 +1168,41 @@ function runPairMain(args) {
   const usbPairing = serial && !serial.startsWith('emulator-') && !args.has('--no-adb');
   let reversed8642 = false;
   let reversed8765 = false;
+  // 2026-07-24 hijack fix: `install-phone-release.sh`'s plain auto-pair call used to run
+  // this with zero flags, so `setupUsbAdbReverses` always re-added `tcp:8642` and stole the
+  // phone back to THIS Mac even when the operator already pointed it at a mini/SSH-tunnel
+  // gateway (`--force-mini-usb-primary`, or an explicit non-default loopback like
+  // `--gateway-url=http://127.0.0.1:18642`). Skip (and actively remove a stale) tcp:8642
+  // reverse in that case; tcp:8765 (pair.json sweep) is always kept.
+  const usbReversePorts = resolveUsbReversePorts({
+    explicitGatewayUrl,
+    forceMiniUsbPrimary: args.has('--force-mini-usb-primary'),
+  });
+  const usbReverseSkipped8642 = !usbReversePorts.includes(8642);
   if (usbPairing) {
-    setupUsbAdbReverses(serial);
-    const reverseCheck = assertUsbAdbReverses(serial);
-    reversed8642 = !reverseCheck.missing.includes(8642);
+    // Persist this run's decision so the always-on `hermes-usb-reverse-watchdog`
+    // LaunchAgent (which cannot see --force-mini-usb-primary/--gateway-url flags —
+    // it only polls live adb state every 15s) does not silently undo it. Follow-up
+    // to #967 (T-USB-WATCHDOG-MINI-PRIMARY-20260724).
+    writeUsbReversePrimaryIntent({
+      skip8642: usbReverseSkipped8642,
+      gatewayUrl: gatewayUrl || explicitGatewayUrl || '',
+      forceMiniUsbPrimary: args.has('--force-mini-usb-primary'),
+      reason: usbReverseSkipped8642 ? 'mini-primary-or-explicit-non-default-loopback' : 'default-laptop-primary',
+    });
+    setupUsbAdbReverses(serial, { ports: usbReversePorts });
+    if (usbReverseSkipped8642) {
+      removeUsbAdbReverse(serial, 8642);
+    }
+    const reverseCheck = assertUsbAdbReverses(serial, { requiredPorts: usbReversePorts });
+    reversed8642 = !usbReverseSkipped8642 && !reverseCheck.missing.includes(8642);
     reversed8765 = !reverseCheck.missing.includes(8765);
     console.log(
-      reversed8642
-        ? `  adb reverse: tcp:8642 → Mac (${serial})`
-        : `  adb reverse: tcp:8642 failed on ${serial}`,
+      usbReverseSkipped8642
+        ? `  adb reverse: tcp:8642 skipped+removed (mini-primary/explicit gateway ${gatewayUrl} — not clobbering with laptop loopback)`
+        : reversed8642
+          ? `  adb reverse: tcp:8642 → Mac (${serial})`
+          : `  adb reverse: tcp:8642 failed on ${serial}`,
     );
     if (reversed8765) {
       console.log(`  adb reverse: tcp:8765 → Mac (${serial}) (pair.json sweep)`);

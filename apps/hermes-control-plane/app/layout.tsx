@@ -1,24 +1,36 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
+
+/**
+ * Phone notch / home-indicator safe areas.
+ * Note: vinext may still emit a bare viewport meta without viewport-fit; we also
+ * force-correct it in <head> below so the FIRST effective meta includes cover.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0B0F19",
+  colorScheme: "dark",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://thumbgate.app"),
   title: {
-    default: "ThumbGate — Self-Improving Firewall for your AI Agents",
+    default: "ThumbGate — Hermes dashboard & continuity",
     template: "%s | ThumbGate for Hermes",
   },
-  description: "Self-improving firewall for your AI agents: approve Hermes tool calls, remember lessons from thumbs feedback, promote repeated failures into gates, re-rank relevant lessons, and improve the next decision—plus signed Mac pairing and optional fenced cloud continuation.",
+  description: "Web remote control for Hermes agents. Free dashboard while your Mac is online; paid Continuity keeps work running on a VPS when it is offline.",
   alternates: { canonical: "/" },
   applicationName: "ThumbGate for Hermes",
   category: "developer tools",
   keywords: [
     "Hermes agent",
-    "self-improving firewall",
-    "AI agent firewall",
-    "AI agent control plane",
+    "Hermes web dashboard",
+    "AI agent remote control",
     "agent failover",
+    "cloud continuity",
     "agent observability",
-    "runaway agent safeguards",
   ],
   robots: {
     index: true,
@@ -29,24 +41,29 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://thumbgate.app/",
     siteName: "ThumbGate for Hermes",
-    title: "ThumbGate — Self-Improving Firewall for your AI Agents",
-    description: "Approve Hermes tool calls, remember lessons, promote repeated failures into gates, re-rank relevant lessons, and improve the next decision—with signed Mac pairing and optional fenced cloud continuation.",
+    title: "ThumbGate — Hermes dashboard & continuity",
+    description: "Remote control Hermes from any browser. Continuity keeps eligible work on a VPS when your Mac is offline.",
     images: [{
       url: "/og.png",
       width: 1200,
       height: 630,
-      alt: "ThumbGate — Self-Improving Firewall for your AI Agents",
+      alt: "ThumbGate Hermes web dashboard and continuity",
     }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "ThumbGate — Self-Improving Firewall for your AI Agents",
-    description: "Self-improving firewall for your AI agents: lessons, promote, re-rank, expire stale gates—plus Hermes chats on the web.",
+    title: "ThumbGate — Hermes dashboard & continuity",
+    description: "Web remote control for Hermes. Paid Continuity when your machine is offline.",
     images: ["/og.png"],
   },
   icons: {
-    icon: "/favicon.svg",
+    // Match thumbgate.ai: TG gate monogram + PNG app icon / apple touch
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/thumbgate-icon.png", type: "image/png", sizes: "512x512" },
+    ],
     shortcut: "/favicon.svg",
+    apple: "/apple-touch-icon.png",
   },
 };
 
@@ -63,6 +80,14 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://api.workos.com" />
         <link rel="preconnect" href="https://progressive-mouse-13.authkit.app" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://progressive-mouse-13.authkit.app" />
+        {/* vinext may inject a viewport meta WITHOUT viewport-fit first; browsers honor the first.
+            Normalize to a single cover meta so env(safe-area-inset-*) works on notched phones. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){var nodes=document.querySelectorAll('meta[name=viewport]');if(!nodes.length){var m=document.createElement('meta');m.setAttribute('name','viewport');m.setAttribute('content','width=device-width, initial-scale=1, viewport-fit=cover');document.head.appendChild(m);return;}var content='width=device-width, initial-scale=1, viewport-fit=cover';nodes[0].setAttribute('content',content);for(var i=1;i<nodes.length;i++){nodes[i].parentNode&&nodes[i].parentNode.removeChild(nodes[i]);}})();",
+          }}
+        />
       </head>
       <body>
         {children}

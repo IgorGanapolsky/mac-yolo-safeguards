@@ -74,12 +74,20 @@ export async function GET(request: Request) {
 
   const now = Date.now();
   const workosUser = payload.user;
+  const normalizedEmail = workosUser.email.trim().toLowerCase();
   let user = await db().prepare("SELECT id FROM users WHERE workos_user_id = ?").bind(workosUser.id).first<{ id: string }>();
+  if (!user) {
+    // WorkOS can issue a different workos_user_id for a login that resolves to the same
+    // real person (observed in production: a fresh Google sign-in minted a second id for an
+    // email that already had an account). Falling back to email prevents silently forking a
+    // duplicate user/org — self-heal the stored workos_user_id onto the new one instead.
+    user = await db().prepare("SELECT id FROM users WHERE lower(email) = ?").bind(normalizedEmail).first<{ id: string }>();
+  }
   const userId = user?.id ?? crypto.randomUUID();
   const displayName = workosUser.name?.trim() || [workosUser.first_name, workosUser.last_name].filter(Boolean).join(" ") || workosUser.email;
   if (user) {
-    await db().prepare("UPDATE users SET email = ?, name = ?, avatar_url = ?, updated_at = ? WHERE id = ?")
-      .bind(workosUser.email, displayName, workosUser.profile_picture_url ?? null, now, userId).run();
+    await db().prepare("UPDATE users SET workos_user_id = ?, email = ?, name = ?, avatar_url = ?, updated_at = ? WHERE id = ?")
+      .bind(workosUser.id, workosUser.email, displayName, workosUser.profile_picture_url ?? null, now, userId).run();
   } else {
     await db().prepare(
       "INSERT INTO users (id, workos_user_id, email, name, avatar_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"

@@ -127,8 +127,9 @@ try {
   assert.equal(landing.status, 200);
   assert.match(html, /Leash/);
   assert.match(html, /by ThumbGate/);
-  assert.match(html, /Self-Improving Firewall/);
-  assert.match(html, /for your AI agents/);
+  assert.match(html, /Hermes dashboard/i);
+  assert.match(html, /from any browser/i);
+  assert.doesNotMatch(html, /Self-Improving Firewall|self-improving firewall/);
   // Static shell defaults to anon/loading chrome (session via /api/me after paint).
   assert.match(html, /Sign-in required|Checking session/);
   assert.match(html, /Sign in to Hermes Web/);
@@ -193,6 +194,7 @@ try {
     landingViewsToday: 0,
     signInClicksToday: 0,
     cloudContinuityClicksToday: 0,
+    clientErrorsToday: 0,
     loginsLast24h: 0,
     pairingsLast24h: 0,
     checkoutCreatedLast24h: 0,
@@ -222,6 +224,16 @@ try {
     body: JSON.stringify({ schemaVersion: 1, event: "watchdog_probe" }),
   });
   assert.equal(watchdogProbe.status, 204);
+
+  const clientError = await fetch(`http://127.0.0.1:${port}/api/analytics/event`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: `http://127.0.0.1:${port}`,
+    },
+    body: JSON.stringify({ schemaVersion: 1, event: "client_error" }),
+  });
+  assert.equal(clientError.status, 204);
 
   const session = await fetch(`http://127.0.0.1:${port}/api/me`);
   // Landing chrome uses 200 + authenticated:false (not 401) to avoid console noise.

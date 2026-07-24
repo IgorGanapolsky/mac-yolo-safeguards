@@ -11,13 +11,14 @@ import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 import { tailscaleDiscoveryLabel } from '../services/tailscaleDiscovery';
 import { colors } from '../theme/colors';
 import {
+  COMPUTER_PICKER_STATUS_COLLAPSED_MIN_HEIGHT,
   COMPUTER_PICKER_STATUS_COMPACT_MIN_HEIGHT,
   COMPUTER_PICKER_STATUS_DEBOUNCE_MS,
   COMPUTER_PICKER_STATUS_MIN_HEIGHT,
   computerPickerStatusSignature,
   resolveComputerPickerStatus,
+  shouldCollapsePickerStatusBand,
   shouldCommitComputerPickerStatus,
-  shouldHideIdlePickerHelp,
   type ComputerPickerStatusSnapshot,
 } from '../utils/computerPickerStatus';
 
@@ -183,20 +184,24 @@ export default function ComputerPickerStatusRegion({
     activeReachable,
   ]);
 
-  const hideIdleHelp = shouldHideIdlePickerHelp(status, savedProfileCount, helpExpanded);
+  const collapsed = shouldCollapsePickerStatusBand(status, savedProfileCount, helpExpanded);
 
-  if (hideIdleHelp) {
-    if (!onExpandHelp) {
-      return null;
-    }
+  if (collapsed) {
     return (
-      <TouchableOpacity
-        style={styles.helpLinkRow}
-        onPress={onExpandHelp}
-        testID={`${testID}-help-link`}
+      <View
+        style={[styles.collapsedSlot, { minHeight: COMPUTER_PICKER_STATUS_COLLAPSED_MIN_HEIGHT }]}
+        testID={`${testID}-slot`}
       >
-        <Text style={styles.helpLinkText}>Missing another computer?</Text>
-      </TouchableOpacity>
+        {onExpandHelp ? (
+          <TouchableOpacity
+            style={styles.helpLinkRow}
+            onPress={onExpandHelp}
+            testID={`${testID}-help-link`}
+          >
+            <Text style={styles.helpLinkText}>Missing another computer?</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
     );
   }
 
@@ -269,12 +274,16 @@ export default function ComputerPickerStatusRegion({
 }
 
 const styles = StyleSheet.create({
+  collapsedSlot: {
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
   region: {
-    marginBottom: 10,
+    marginBottom: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    borderRadius: 14,
-    borderWidth: 1,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
     gap: 6,
     justifyContent: 'center',
   },
@@ -285,24 +294,24 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   cardHelp: {
-    borderColor: 'rgba(34, 211, 238, 0.28)',
-    backgroundColor: 'rgba(34, 211, 238, 0.08)',
+    borderColor: 'rgba(34, 211, 238, 0.18)',
+    backgroundColor: 'rgba(34, 211, 238, 0.05)',
   },
   cardSearching: {
-    borderColor: 'rgba(99, 102, 241, 0.35)',
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    borderColor: 'rgba(99, 102, 241, 0.22)',
+    backgroundColor: 'rgba(99, 102, 241, 0.07)',
   },
   cardAccent: {
-    borderColor: colors.accent,
-    backgroundColor: 'rgba(34, 211, 238, 0.1)',
+    borderColor: 'rgba(34, 211, 238, 0.35)',
+    backgroundColor: 'rgba(34, 211, 238, 0.08)',
   },
   cardSuccess: {
-    borderColor: 'rgba(16, 185, 129, 0.35)',
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderColor: 'rgba(16, 185, 129, 0.28)',
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
   },
   cardWarn: {
-    borderColor: 'rgba(245, 158, 11, 0.35)',
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderColor: 'rgba(245, 158, 11, 0.28)',
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
   },
   row: {
     flexDirection: 'row',
@@ -346,7 +355,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
     backgroundColor: 'rgba(34, 211, 238, 0.12)',
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.accent,
   },
   chipText: {
@@ -356,8 +365,7 @@ const styles = StyleSheet.create({
   },
   helpLinkRow: {
     alignSelf: 'flex-start',
-    marginBottom: 6,
-    paddingVertical: 4,
+    paddingVertical: 8,
   },
   helpLinkText: {
     color: colors.accent,

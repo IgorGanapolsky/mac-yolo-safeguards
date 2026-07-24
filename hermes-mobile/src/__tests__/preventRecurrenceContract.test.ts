@@ -7,6 +7,11 @@ import {
   resolveEffectiveMacHttpOk,
 } from '../utils/gatewayConnection';
 import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
+import { friendlyMacUnreachableMessage } from '../utils/chatErrors';
+import {
+  OUTBOUND_RECONNECTED_RETRY_HINT,
+  resolveOutboundFailureLabel,
+} from '../utils/outboundDeliveryStatus';
 import {
   assertUsbHeaderIdentityLaw,
   resolveChatMachineHeaderDisplay,
@@ -74,6 +79,21 @@ describe('prevent recurrence contract (July 2026 CI gates)', () => {
         authMismatch: true,
       }),
     ).toBe(false);
+  });
+
+  it('S50: Connected header never coexists with a stale "not connected yet" failed bubble (2026-07-24 USB reconnect)', () => {
+    // Reproduces the exact screenshot: Igors-MacBook-Pro over USB reconnects (macHttpOk flips
+    // true again) while an older send is still marked failed with the connectivity reason that
+    // was true only at the moment it failed. Header must say Connected (optionally "chat
+    // stalled"), and the bubble must never repeat the raw "not connected yet" copy beside it.
+    const link = resolveChatLinkDisplay({ connectionState: 'connected', macHttpOk: true });
+    expect(link.label.startsWith('Connected')).toBe(true);
+
+    const staleReason = friendlyMacUnreachableMessage();
+    const bubbleLabel = resolveOutboundFailureLabel(staleReason, true);
+    expect(bubbleLabel).toBe(`⚠ ${OUTBOUND_RECONNECTED_RETRY_HINT}`);
+    expect(bubbleLabel.toLowerCase()).not.toContain('not connected yet');
+    expect(bubbleLabel.toLowerCase()).not.toContain('use tailscale');
   });
 
   it('wires preventRecurrenceContract into test:release-safety', () => {
@@ -234,11 +254,23 @@ describe('prevent recurrence contract (July 2026 CI gates)', () => {
     expect(pairLib).toContain('USB_ADB_REVERSE_PORTS');
     expect(pairLib).toContain('setupUsbAdbReverses');
     expect(pairLib).toContain('assertUsbAdbReverses');
-    expect(pairJs).toContain('setupUsbAdbReverses(serial)');
-    expect(pairJs).toContain('assertUsbAdbReverses(serial)');
+    expect(pairJs).toContain('setupUsbAdbReverses(serial, { ports: usbReversePorts })');
+    expect(pairJs).toContain('assertUsbAdbReverses(serial, { requiredPorts: usbReversePorts })');
     expect(pairJs).toContain('tcp:8765 missing');
     expect(pairJs).toContain('pair.json sweep');
     expect(pairJs).not.toContain('Only reverse pair page port when we will serve it');
+  });
+
+  it('S-8642-HIJACK: auto-pair never re-adds tcp:8642 when a mini-primary/explicit gateway is set (2026-07-24)', () => {
+    const pairJs = read('tools/hermes-mobile-pair.js');
+    const pairLib = read('tools/hermes-mobile-pair-lib.js');
+    const installSh = read('hermes-mobile/scripts/install-phone-release.sh');
+    expect(pairLib).toContain('function resolveUsbReversePorts');
+    expect(pairLib).toContain('function removeUsbAdbReverse');
+    expect(pairJs).toContain('resolveUsbReversePorts');
+    expect(pairJs).toContain('removeUsbAdbReverse(serial, 8642)');
+    expect(installSh).toContain('HERMES_PAIR_GATEWAY_URL');
+    expect(installSh).toContain('HERMES_FORCE_MINI_USB_PRIMARY');
   });
 
   it('Maestro chat composer inputText uses canonical device message only', () => {
@@ -322,6 +354,17 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(ctxSrc).toContain('Catalog-only (e.g. Pro USB while mini is active)');
   });
 
+  it('S29: autoDiscover must never yank a live same-Mac USB session back to a sticky Tailscale/LAN URL (P0 2026-07-23)', () => {
+    // Duplicate-"active"-picker-row + Connecting/Not-connected header-banner race: autoDiscover
+    // step 2 unconditionally re-probed+reactivated loadLastSelectedProfileId's sticky URL every
+    // tick even while the cable was already live for the identical Mac.
+    const healSrc = read('hermes-mobile/src/utils/connectionSelfHeal.ts');
+    const ctxSrc = read('hermes-mobile/src/context/GatewayContext.tsx');
+    expect(healSrc).toContain('shouldKeepUsbOverStickyRemote');
+    expect(ctxSrc).toContain('liveUsbSameMachine');
+    expect(ctxSrc).toContain('shouldKeepUsbOverStickyRemote');
+  });
+
   it('S27: bidirectional USB↔Tailscale handoff same Mac without clearing session (#product-lock)', () => {
     const handoffSrc = read('hermes-mobile/src/utils/usbTransportHandoff.ts');
     const ctxSrc = read('hermes-mobile/src/context/GatewayContext.tsx');
@@ -390,7 +433,7 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     );
   });
 
-  it('S25: Mac Pro USB and Tailscale aliases render as one physical-machine row', () => {
+  it('S25: live USB stays selectable beside Mac Pro Tailscale (never cable-only collapse)', () => {
     const macBookUsb = {
       id: 'mac_book_usb',
       label: 'Igors-MacBook-Pro',
@@ -418,13 +461,14 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
       activeProfileId: 'mac_book_ts',
       liveUsb: { reachable: true, hostname: 'Igors-MacBook-Pro.local' },
     });
-    expect(rows.map((r) => r.id)).toEqual(['mac_book_ts', 'mac_mini_ts']);
-    expect(profileConnectionRouteLabel(rows[0], true)).toBe('Tailscale');
+    expect(rows.map((r) => r.id)).toEqual(['mac_book_usb', 'mac_book_ts', 'mac_mini_ts']);
+    expect(profileConnectionRouteLabel(rows[0], true)).toBe('USB');
+    expect(profileConnectionRouteLabel(rows[1], true)).toBe('Tailscale');
     expect(profilePickerLines(rows[0], { cablePluggedIn: true }).title).toBe(
       'Igors-MacBook-Pro (Mac Pro)',
     );
-    expect(profilePickerLines(rows[0], { cablePluggedIn: true }).detail).toMatch(/cable/i);
-    expect(profilePickerLines(rows[1]).title).toBe('Igors-Mac-mini');
+    expect(profilePickerLines(rows[0], { cablePluggedIn: true }).detail).toMatch(/USB cable connected/i);
+    expect(profilePickerLines(rows[2]).title).toBe('Igors-Mac-mini');
   });
 
   it('S19: Repair link is bounded (30s Tailscale headroom) and never leaves an infinite spinner', () => {
@@ -570,12 +614,21 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     const workflow = read('.github/workflows/mobile-ota.yml');
     expect(workflow).toContain('require-stranger-cold-start-proof.cjs');
     expect(workflow).toContain('HERMES_STRANGER_PROOF_WAIT_SEC');
-    // Crisis law: preview-on-push; production only via publish_production + staged rollout.
+    // Billing freeze 2026-07-23: no push auto-preview; opt-in publish_preview + thaw.
     expect(workflow).toContain('publish-preview-ota');
+    expect(workflow).toContain('publish_preview');
     expect(workflow).toContain('publish_production');
+    expect(workflow).toContain('require-expo-billing-thaw.sh');
+    expect(workflow).not.toMatch(/on:\s*\n\s*push:/);
     expect(workflow).toContain('--rollout-percentage');
     expect(workflow).not.toContain('for CH in preview production');
     expect(workflow).toMatch(/checks:\s*read/);
+    const thaw = read('hermes-mobile/scripts/require-expo-billing-thaw.sh');
+    expect(thaw).toContain('HERMES_OTA_BILLING_THAW');
+    expect(thaw).toContain('Expo billing freeze');
+    expect(thaw).toMatch(/exit 1/);
+    const gated = read('hermes-mobile/scripts/ota-publish-gated.sh');
+    expect(gated).toContain('require-expo-billing-thaw.sh');
     const stranger = read('hermes-mobile/scripts/require-stranger-cold-start-proof.cjs');
     expect(stranger).toContain('checkGithubStrangerProof');
     const pairJs = read('tools/hermes-mobile-pair.js');
@@ -624,5 +677,43 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     const chatScreen = read('hermes-mobile/src/screens/ChatScreen.tsx');
     expect(chatScreen).toMatch(/needsPair=\{/);
     expect(chatScreen).toMatch(/connectionMode === 'relay'/);
+  });
+
+  it('S29: never paint Continuing-from-last-session over empty New chat', () => {
+    const chip = read('hermes-mobile/src/components/ContinuingFromSessionChip.tsx');
+    expect(chip).toMatch(/return null/);
+    expect(chip).not.toContain('continuing-from-session-chip');
+    const handoff = read('hermes-mobile/src/utils/sessionContinuityHandoff.ts');
+    expect(handoff).toMatch(
+      /export function shouldShowContinuityChip[\s\S]*?\{\s*return false;\s*\}/,
+    );
+    const chatScreen = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chatScreen).not.toContain('ContinuingFromSessionChip');
+    expect(chatScreen).toContain('resolveContinuitySessionResumeId');
+    const resume = read('hermes-mobile/src/utils/continuitySessionResume.ts');
+    expect(resume).toContain('export function resolveContinuitySessionResumeId');
+  });
+
+  it('S48: Mac switch clears sticky session ref and opens that Mac last session', () => {
+    const restore = read('hermes-mobile/src/utils/profileSwitchSessionRestore.ts');
+    expect(restore).toContain('clearStickySessionRef');
+    expect(restore).toContain('sessionIdForPostSwitchListLoad');
+    expect(restore).toContain('resolvePostSwitchSession');
+    const chatScreen = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chatScreen).toContain('currentSessionRef.current = null');
+    expect(chatScreen).toContain('intentionalProfileSwitch: true');
+    expect(chatScreen).toContain('resolvePostSwitchSession');
+    expect(chatScreen).toContain('sessionIdForPostSwitchListLoad');
+  });
+
+  it('S49: live USB dual-transport row stays selectable while sticky Tailscale remains (2026-07-23)', () => {
+    const picker = read('hermes-mobile/src/utils/gatewayProfilePicker.ts');
+    expect(picker).toContain('liveUsbRows');
+    expect(picker).toContain('collapsedRemote');
+    expect(picker).toMatch(/Keep live USB as its own selectable transport/);
+    const chat = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chat).toContain('setInterval');
+    expect(chat).toContain('probeLiveUsbGateway');
+    expect(chat).toMatch(/2500/);
   });
 });

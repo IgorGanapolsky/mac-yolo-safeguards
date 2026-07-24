@@ -2,6 +2,7 @@ import {
   isGatewayLiveForDelivery,
   outboundDeliveryLabel,
   OUTBOUND_NO_REPLY_MAC_LIVE,
+  OUTBOUND_RECONNECTED_RETRY_HINT,
   OUTBOUND_RUN_STALLED_HINT,
   OUTBOUND_SESSION_BUSY_HINT,
   OUTBOUND_SLOW_REPLY_HINT,
@@ -11,6 +12,7 @@ import {
 import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
 import { OUTBOUND_STUCK_FAILURE_REASON } from '../utils/outboundSendRecovery';
 import { RUN_NO_TOKEN_FAIL_DETAIL } from '../utils/runStaleDetection';
+import { friendlyMacUnreachableMessage } from '../utils/chatErrors';
 
 describe('outboundDeliveryStatus', () => {
   it('shows waiting instead of sent when Mac is unreachable', () => {
@@ -107,5 +109,37 @@ describe('outboundDeliveryStatus', () => {
 
   it('treats demo as live for delivery', () => {
     expect(isGatewayLiveForDelivery({ connectionState: 'demo', macHttpOk: false })).toBe(true);
+  });
+
+  describe('reconnect contradiction (2026-07-24 USB reconnect: header Connected, bubble "not connected yet")', () => {
+    const staleConnectivityReason = friendlyMacUnreachableMessage();
+
+    it('never shows the raw "not connected yet" reason once Mac HTTP is reachable again', () => {
+      const label = resolveOutboundFailureLabel(staleConnectivityReason, true);
+      expect(label).toBe(`⚠ ${OUTBOUND_RECONNECTED_RETRY_HINT}`);
+      expect(label.toLowerCase()).not.toContain('not connected yet');
+    });
+
+    it('still shows the actionable unreachable copy while genuinely disconnected', () => {
+      const label = resolveOutboundFailureLabel(staleConnectivityReason, false);
+      expect(label.toLowerCase()).toContain('not connected yet');
+    });
+
+    it('same contradiction via the home Wi‑Fi private-LAN variant of the message', () => {
+      const lanReason = friendlyMacUnreachableMessage('http://192.168.1.5:8642');
+      expect(resolveOutboundFailureLabel(lanReason, true)).toBe(
+        `⚠ ${OUTBOUND_RECONNECTED_RETRY_HINT}`,
+      );
+    });
+
+    it('outboundDeliveryLabel routes the failed bubble through the same reconnect guard', () => {
+      expect(
+        outboundDeliveryLabel('failed', {
+          connectionState: 'connected',
+          macHttpOk: true,
+          failureReason: staleConnectivityReason,
+        }),
+      ).toBe(`⚠ ${OUTBOUND_RECONNECTED_RETRY_HINT}`);
+    });
   });
 });

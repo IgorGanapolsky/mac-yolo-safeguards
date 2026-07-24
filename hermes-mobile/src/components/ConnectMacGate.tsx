@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useGateway } from '../context/GatewayContext';
@@ -43,11 +44,28 @@ const AUTO_RETRY_MS = 12000;
 
 const GATE_SURFACE = '#0F1321';
 
+/** Below this window width, keep the phone-sized card (420pt max). */
+const TABLET_BREAKPOINT = 700;
+
+/**
+ * A 420pt-max card centered on a full iPad canvas leaves hundreds of points
+ * of dead space on both sides. Scale the card wider on tablets without ever
+ * going edge-to-edge on very large screens (iPad Pro landscape).
+ */
+export function connectMacGateCardMaxWidth(windowWidth: number): number {
+  if (!Number.isFinite(windowWidth) || windowWidth < TABLET_BREAKPOINT) {
+    return 420;
+  }
+  return Math.min(Math.round(windowWidth * 0.55), 640);
+}
+
 /**
  * First-run full-screen gate when no Mac is configured yet.
  * Stranger-first: paste Tailscale IP is the hero; Find computers / QR are secondary.
  */
 export default function ConnectMacGate() {
+  const { width: windowWidth } = useWindowDimensions();
+  const cardMaxWidth = connectMacGateCardMaxWidth(windowWidth);
   const {
     settings,
     gatewayBootstrapPhase,
@@ -161,12 +179,23 @@ export default function ConnectMacGate() {
     setInvalidQrHint(null);
     setIsSearching(true);
     try {
-      await scanForGatewayProfiles();
+      // "Find computers" must search everywhere Hermes can reach a Mac, not just
+      // the phone's own Wi-Fi subnet. scanForGatewayProfiles is a LAN-only sweep
+      // (fast when actually on the same network as the Mac); its own background
+      // Tailscale follow-up is debounced/best-effort and silently no-ops when a
+      // probe already ran recently, so a tap here can otherwise report "None
+      // found yet" while away from home even though Tailscale can see the Mac.
+      // Run both concurrently and force the Tailscale probe so a tap always
+      // performs a fresh, non-debounced Tailscale-wide search.
+      await Promise.all([
+        scanForGatewayProfiles(),
+        probeTailscaleComputers({ showUi: true, force: true }),
+      ]);
       await retryGatewayBootstrap();
     } finally {
       setIsSearching(false);
     }
-  }, [retryGatewayBootstrap, scanForGatewayProfiles]);
+  }, [probeTailscaleComputers, retryGatewayBootstrap, scanForGatewayProfiles]);
 
   useEffect(() => {
     if (!showGate) {
@@ -221,7 +250,7 @@ export default function ConnectMacGate() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
           >
-            <View style={styles.card}>
+            <View style={[styles.card, { maxWidth: cardMaxWidth }]}>
               <View style={styles.headerRow}>
                 <Text style={styles.title}>{CONNECT_MAC_GATE_TITLE}</Text>
                 <TouchableOpacity
@@ -266,6 +295,7 @@ export default function ConnectMacGate() {
                   <GatewayProfilePicker
                     profiles={pickerProfiles}
                     activeProfileId={activeGatewayProfile?.id ?? null}
+                    activeProfile={activeGatewayProfile}
                     onSelect={(profileId, profile) => {
                       void handleSelectProfile(profileId, profile);
                     }}

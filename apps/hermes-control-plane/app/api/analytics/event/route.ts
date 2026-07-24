@@ -10,6 +10,8 @@ const EVENTS = new Set([
   "watchdog_probe",
   "play_store_click",
   "app_store_click",
+  // Aggregate browser exceptions (ClientErrorBeacon) — counter only, no stack/PII.
+  "client_error",
 ]);
 
 export async function POST(request: Request) {

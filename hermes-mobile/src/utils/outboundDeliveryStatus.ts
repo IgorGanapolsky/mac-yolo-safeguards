@@ -3,7 +3,7 @@ import { GATEWAY_WRONG_KEY_MESSAGE, GATEWAY_AUTH_REPAIR_HEADER } from '../servic
 import { EMPTY_REPLY_FAILURE_REASON } from './emptyStreamReplyRecovery';
 import { OUTBOUND_STUCK_FAILURE_REASON } from './outboundSendRecovery';
 import { RUN_NO_TOKEN_FAIL_DETAIL } from './runStaleDetection';
-import { isRawAbortMessage, USER_RUN_INTERRUPTED_MESSAGE } from './chatErrors';
+import { isConnectivityMessage, isRawAbortMessage, USER_RUN_INTERRUPTED_MESSAGE } from './chatErrors';
 
 export type OutboundDeliveryStatus = 'pending' | 'sent' | 'failed';
 
@@ -31,6 +31,15 @@ export const OUTBOUND_SESSION_BUSY_HINT =
 
 export const OUTBOUND_UNREACHABLE_HINT =
   "Couldn't reach your computer — tap Computer above";
+
+/**
+ * Header already reads Connected (or Connected — chat stalled) by the time this renders —
+ * never show the stale "computer is not connected yet" copy that was true only when the
+ * bubble first failed (2026-07-24 USB reconnect contradiction: header Connected, bubble red
+ * "not connected yet" for the same message).
+ */
+export const OUTBOUND_RECONNECTED_RETRY_HINT =
+  'Your computer reconnected — tap ↑ to send again';
 
 /** Header already says Connected — do not contradict with "Waiting for computer". */
 export const OUTBOUND_CONNECTED_WAITING_REPLY =
@@ -94,6 +103,11 @@ function isEmptyReplyFailureReason(reason: string): boolean {
   );
 }
 
+/** Reason recorded while the Mac was genuinely unreachable — stale once macHttpOk flips true. */
+function isConnectivityFailureReason(reason: string): boolean {
+  return isConnectivityMessage(reason);
+}
+
 /** Map gateway failure reasons to bubble copy with a clear next step. */
 export function resolveOutboundFailureLabel(
   failureReason: string | undefined,
@@ -118,6 +132,14 @@ export function resolveOutboundFailureLabel(
     }
     if (isRawAbortMessage(reason)) {
       return `⚠ ${USER_RUN_INTERRUPTED_MESSAGE}`;
+    }
+    // RELEASE BLOCK: never pair a live "Connected" header with a bubble still claiming
+    // "not connected yet" — that stale reason was true only at the moment this send failed.
+    if (isConnectivityFailureReason(reason)) {
+      if (macHttpOk) {
+        return `⚠ ${OUTBOUND_RECONNECTED_RETRY_HINT}`;
+      }
+      return `⚠ ${truncateOutboundFailureReason(reason)}`;
     }
     if (macHttpOk) {
       return `⚠ ${truncateOutboundFailureReason(reason)}`;

@@ -12,9 +12,7 @@ import {
   redactSecrets,
   shouldInjectContinuityHandoff,
   shouldShowContinuityChip,
-  shouldAutoDismissContinuityChip,
   shouldSkipAutoRetitleForContinuity,
-  CONTINUITY_CHIP_AUTO_DISMISS_MS,
   CONTINUITY_VAULT_REL_PATH,
 } from '../utils/sessionContinuityHandoff';
 
@@ -145,7 +143,7 @@ describe('sessionContinuityHandoff', () => {
     ).toBe(true);
   });
 
-  it('never shows continuity chip by default — resume is seamless', () => {
+  it('never shows continuity chip — resume is seamless (no Dismiss UI)', () => {
     const handoff = buildSessionContinuityHandoff({
       messages: [
         { role: 'user', content: 'Ship continuity' },
@@ -166,17 +164,5 @@ describe('sessionContinuityHandoff', () => {
         transcriptEmpty: false,
       }),
     ).toBe(false);
-  });
-
-  it('auto-dismisses continuity chip after the ephemeral window', () => {
-    const shownAt = 1_000_000;
-    expect(shouldAutoDismissContinuityChip(shownAt, shownAt + CONTINUITY_CHIP_AUTO_DISMISS_MS - 1)).toBe(
-      false,
-    );
-    expect(shouldAutoDismissContinuityChip(shownAt, shownAt + CONTINUITY_CHIP_AUTO_DISMISS_MS)).toBe(
-      true,
-    );
-    expect(shouldAutoDismissContinuityChip(null, shownAt + 10_000)).toBe(false);
-    expect(CONTINUITY_CHIP_AUTO_DISMISS_MS).toBeLessThanOrEqual(3000);
   });
 });
