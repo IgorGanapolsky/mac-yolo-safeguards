@@ -34,6 +34,7 @@ const {
   setupUsbAdbReverses,
   removeUsbAdbReverse,
   resolveUsbReversePorts,
+  writeUsbReversePrimaryIntent,
   assertUsbAdbReverses,
   ANDROID_PACKAGE_NAME,
   waitForForegroundAck,
@@ -1179,6 +1180,16 @@ function runPairMain(args) {
   });
   const usbReverseSkipped8642 = !usbReversePorts.includes(8642);
   if (usbPairing) {
+    // Persist this run's decision so the always-on `hermes-usb-reverse-watchdog`
+    // LaunchAgent (which cannot see --force-mini-usb-primary/--gateway-url flags —
+    // it only polls live adb state every 15s) does not silently undo it. Follow-up
+    // to #967 (T-USB-WATCHDOG-MINI-PRIMARY-20260724).
+    writeUsbReversePrimaryIntent({
+      skip8642: usbReverseSkipped8642,
+      gatewayUrl: gatewayUrl || explicitGatewayUrl || '',
+      forceMiniUsbPrimary: args.has('--force-mini-usb-primary'),
+      reason: usbReverseSkipped8642 ? 'mini-primary-or-explicit-non-default-loopback' : 'default-laptop-primary',
+    });
     setupUsbAdbReverses(serial, { ports: usbReversePorts });
     if (usbReverseSkipped8642) {
       removeUsbAdbReverse(serial, 8642);
