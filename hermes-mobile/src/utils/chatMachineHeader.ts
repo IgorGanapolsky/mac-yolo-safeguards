@@ -240,6 +240,20 @@ export function resolveMachineDisplayName(
     return 'Your computer';
   }
 
+  // PRODUCT LAW (2026-07-24 Connected Tailscale): never show "Tailscale <CGNAT-IP>" when
+  // live green|amber /health.hostname is available (prefer health → persisted hostname).
+  if (
+    isTailscaleGatewayUrl(gatewayUrl) &&
+    fromHealth &&
+    !isUnresolvedMachineName(fromHealth) &&
+    !health?.authMismatch &&
+    (health?.level === 'green' || health?.level === 'amber')
+  ) {
+    if (!activeProfile || isUnresolvedMachineName(profileDisplayName(activeProfile))) {
+      return fromHealth;
+    }
+  }
+
   if (activeProfile) {
     const fromProfile = profileDisplayName(activeProfile);
     if (!isUnresolvedMachineName(fromProfile)) {
