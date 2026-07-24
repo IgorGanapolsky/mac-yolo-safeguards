@@ -216,6 +216,18 @@ describe('ChatInputBar', () => {
     expect(onSend).toHaveBeenCalledWith('');
   });
 
+  it('sizes the text field to fill available width instead of wrapping the placeholder early', () => {
+    const { getByTestId } = render(<ChatInputBar {...baseProps} />);
+    const input = getByTestId('chat-input');
+    const flat = StyleSheet.flatten(input.props.style);
+
+    // Android's multiline EditText ignores flex:1 directly inside a row and shrinks
+    // to its content width, wrapping the placeholder even with room to spare. The
+    // TextInput must fill its wrapping View at 100% instead of carrying its own flex.
+    expect(flat.width).toBe('100%');
+    expect(flat.flex).toBeUndefined();
+  });
+
   it('calls onRemoveAttachment when chip remove is pressed', () => {
     const onRemoveAttachment = jest.fn();
     const attachments = [

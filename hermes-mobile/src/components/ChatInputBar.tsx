@@ -142,47 +142,53 @@ function ChatInputBar({
         >
           <Text style={styles.attachIcon}>📎</Text>
         </TouchableOpacity>
-        <TextInput
-          ref={inputRef}
-          style={[styles.input, androidComposerInputStyle]}
-          value={value}
-          onChangeText={(text) => {
-            latestTextRef.current = text;
-            onChangeText(text);
-          }}
-          placeholder={placeholder}
-          placeholderTextColor={colors.textMuted}
-          selectionColor={colors.primary}
-          cursorColor={colors.accent}
-          underlineColorAndroid="transparent"
-          editable
-          multiline
-          autoCorrect={true}
-          autoCapitalize="sentences"
-          spellCheck={true}
-          keyboardType="default"
-          textContentType="none"
-          smartInsertDelete={true}
-          keyboardAppearance="dark"
-          importantForAutofill="no"
-          returnKeyType="send"
-          blurOnSubmit={false}
-          onFocus={onFocus}
-          onBlur={() => {
-            onBlur();
-          }}
-          onEndEditing={(event) => {
-            const endedText = event.nativeEvent.text;
-            if (endedText.trim() || !latestTextRef.current.trim()) {
-              latestTextRef.current = endedText;
-            }
-          }}
-          onSubmitEditing={(event) => {
-            latestTextRef.current = event.nativeEvent.text;
-            onSubmit(event.nativeEvent.text);
-          }}
-          testID="chat-input"
-        />
+        {/* Android's multiline EditText ignores flex:1 sizing directly in a row and
+            wraps text at its intrinsic content width instead of the available space.
+            Nesting it in a plain View that takes the flex means Yoga lays out the
+            View correctly, and the TextInput just fills that View at width: 100%. */}
+        <View style={styles.inputWrapper}>
+          <TextInput
+            ref={inputRef}
+            style={[styles.input, androidComposerInputStyle]}
+            value={value}
+            onChangeText={(text) => {
+              latestTextRef.current = text;
+              onChangeText(text);
+            }}
+            placeholder={placeholder}
+            placeholderTextColor={colors.textMuted}
+            selectionColor={colors.primary}
+            cursorColor={colors.accent}
+            underlineColorAndroid="transparent"
+            editable
+            multiline
+            autoCorrect={true}
+            autoCapitalize="sentences"
+            spellCheck={true}
+            keyboardType="default"
+            textContentType="none"
+            smartInsertDelete={true}
+            keyboardAppearance="dark"
+            importantForAutofill="no"
+            returnKeyType="send"
+            blurOnSubmit={false}
+            onFocus={onFocus}
+            onBlur={() => {
+              onBlur();
+            }}
+            onEndEditing={(event) => {
+              const endedText = event.nativeEvent.text;
+              if (endedText.trim() || !latestTextRef.current.trim()) {
+                latestTextRef.current = endedText;
+              }
+            }}
+            onSubmitEditing={(event) => {
+              latestTextRef.current = event.nativeEvent.text;
+              onSubmit(event.nativeEvent.text);
+            }}
+            testID="chat-input"
+          />
+        </View>
         {stopMode ? (
           <TouchableOpacity
             style={styles.stopButton}
@@ -314,8 +320,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 22,
   },
-  input: {
+  inputWrapper: {
     flex: 1,
+    minWidth: 0,
+  },
+  input: {
+    width: '100%',
     backgroundColor: 'transparent',
     borderWidth: 0,
     borderRadius: 20,
