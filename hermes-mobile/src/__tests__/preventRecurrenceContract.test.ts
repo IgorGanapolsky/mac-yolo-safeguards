@@ -322,6 +322,17 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(ctxSrc).toContain('Catalog-only (e.g. Pro USB while mini is active)');
   });
 
+  it('S29: autoDiscover must never yank a live same-Mac USB session back to a sticky Tailscale/LAN URL (P0 2026-07-23)', () => {
+    // Duplicate-"active"-picker-row + Connecting/Not-connected header-banner race: autoDiscover
+    // step 2 unconditionally re-probed+reactivated loadLastSelectedProfileId's sticky URL every
+    // tick even while the cable was already live for the identical Mac.
+    const healSrc = read('hermes-mobile/src/utils/connectionSelfHeal.ts');
+    const ctxSrc = read('hermes-mobile/src/context/GatewayContext.tsx');
+    expect(healSrc).toContain('shouldKeepUsbOverStickyRemote');
+    expect(ctxSrc).toContain('liveUsbSameMachine');
+    expect(ctxSrc).toContain('shouldKeepUsbOverStickyRemote');
+  });
+
   it('S27: bidirectional USB↔Tailscale handoff same Mac without clearing session (#product-lock)', () => {
     const handoffSrc = read('hermes-mobile/src/utils/usbTransportHandoff.ts');
     const ctxSrc = read('hermes-mobile/src/context/GatewayContext.tsx');
@@ -571,12 +582,21 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     const workflow = read('.github/workflows/mobile-ota.yml');
     expect(workflow).toContain('require-stranger-cold-start-proof.cjs');
     expect(workflow).toContain('HERMES_STRANGER_PROOF_WAIT_SEC');
-    // Crisis law: preview-on-push; production only via publish_production + staged rollout.
+    // Billing freeze 2026-07-23: no push auto-preview; opt-in publish_preview + thaw.
     expect(workflow).toContain('publish-preview-ota');
+    expect(workflow).toContain('publish_preview');
     expect(workflow).toContain('publish_production');
+    expect(workflow).toContain('require-expo-billing-thaw.sh');
+    expect(workflow).not.toMatch(/on:\s*\n\s*push:/);
     expect(workflow).toContain('--rollout-percentage');
     expect(workflow).not.toContain('for CH in preview production');
     expect(workflow).toMatch(/checks:\s*read/);
+    const thaw = read('hermes-mobile/scripts/require-expo-billing-thaw.sh');
+    expect(thaw).toContain('HERMES_OTA_BILLING_THAW');
+    expect(thaw).toContain('Expo billing freeze');
+    expect(thaw).toMatch(/exit 1/);
+    const gated = read('hermes-mobile/scripts/ota-publish-gated.sh');
+    expect(gated).toContain('require-expo-billing-thaw.sh');
     const stranger = read('hermes-mobile/scripts/require-stranger-cold-start-proof.cjs');
     expect(stranger).toContain('checkGithubStrangerProof');
     const pairJs = read('tools/hermes-mobile-pair.js');

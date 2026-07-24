@@ -51,10 +51,10 @@ export function shouldAutoClearStalledRun(
   if (!progress || progress.phase === 'completed' || progress.phase === 'failed') {
     return false;
   }
-  if (shouldHardTimeoutRun(progress, nowMs)) {
+  if (shouldHardTimeoutRun(progress, nowMs, session)) {
     return true;
   }
-  if (shouldFailRunAwaitingFirstToken(progress, nowMs)) {
+  if (shouldFailRunAwaitingFirstToken(progress, nowMs, { session })) {
     return true;
   }
   if (shouldFailRunForStreamIdle(progress, nowMs, session)) {
@@ -86,8 +86,17 @@ export const RUN_NO_TOKEN_FAIL_DETAIL =
 /**
  * Absolute wall-clock fail that ignores stuck streamInFlight.
  * Prevents Connected+Waiting forever when SSE never closes (1h hang class).
+ *
+ * 2m was a false-kill class (2026-07-23): mini local qwen3.5:9b on a ~445k
+ * session took latency=274.3s before first tokens while the phone already
+ * painted "Timed out waiting for your computer". Keep this above measured
+ * local-LLM first-token latency; stream-idle + no-token still recover sooner
+ * when the SSE is actually dead.
  */
-export const RUN_HARD_TIMEOUT_MS = 2 * 60 * 1000;
+export const RUN_HARD_TIMEOUT_MS = 10 * 60 * 1000;
+
+/** Mega / huge-context turns (local Ollama) get a longer absolute ceiling. */
+export const MEGA_SESSION_RUN_HARD_TIMEOUT_MS = 15 * 60 * 1000;
 
 export const RUN_HARD_TIMEOUT_DETAIL =
   'Timed out waiting for your computer — tap ↑ to send again, or Stop if a run is still active.';
@@ -97,7 +106,20 @@ export type RunStaleLevel = 'normal' | 'long' | 'idle' | 'expired';
 export type NoTokenFailOptions = {
   /** Open SSE / chat stream means the Mac is still talking — never false-stall. */
   streamInFlight?: boolean;
+  /** When set, mega sessions use MEGA_SESSION_RUN_HARD_TIMEOUT_MS. */
+  session?: SessionTokenFields | null;
 };
+
+function resolveRunHardTimeoutMs(session?: SessionTokenFields | null): number {
+  if (isMegaSession(session)) {
+    return MEGA_SESSION_RUN_HARD_TIMEOUT_MS;
+  }
+  const sessionTokens = session ? sessionTotalTokens(session) : 0;
+  if (sessionTokens >= 500_000) {
+    return MEGA_SESSION_RUN_HARD_TIMEOUT_MS;
+  }
+  return RUN_HARD_TIMEOUT_MS;
+}
 
 export function isRunAwaitingFirstToken(progress: RunProgressState): boolean {
   if (progress.phase === 'completed' || progress.phase === 'failed') {
@@ -109,18 +131,20 @@ export function isRunAwaitingFirstToken(progress: RunProgressState): boolean {
 export function shouldHardTimeoutRun(
   progress: RunProgressState | null | undefined,
   nowMs = Date.now(),
+  session?: SessionTokenFields | null,
 ): boolean {
   if (!progress || progress.phase === 'completed' || progress.phase === 'failed') {
     return false;
   }
-  return nowMs - progress.startedAtMs >= RUN_HARD_TIMEOUT_MS;
+  return nowMs - progress.startedAtMs >= resolveRunHardTimeoutMs(session);
 }
 
 export function msUntilRunHardTimeout(
   progress: RunProgressState,
   nowMs = Date.now(),
+  session?: SessionTokenFields | null,
 ): number {
-  return Math.max(0, RUN_HARD_TIMEOUT_MS - (nowMs - progress.startedAtMs));
+  return Math.max(0, resolveRunHardTimeoutMs(session) - (nowMs - progress.startedAtMs));
 }
 
 export function shouldFailRunAwaitingFirstToken(
@@ -132,7 +156,7 @@ export function shouldFailRunAwaitingFirstToken(
     return false;
   }
   // Stuck open SSE must not block forever — absolute hard timeout wins.
-  if (shouldHardTimeoutRun(progress, nowMs)) {
+  if (shouldHardTimeoutRun(progress, nowMs, options?.session)) {
     return true;
   }
   if (options?.streamInFlight) {
@@ -151,7 +175,7 @@ export function msUntilNoTokenFail(
   nowMs = Date.now(),
   options?: NoTokenFailOptions,
 ): number {
-  const hardRemaining = msUntilRunHardTimeout(progress, nowMs);
+  const hardRemaining = msUntilRunHardTimeout(progress, nowMs, options?.session);
   if (options?.streamInFlight) {
     return hardRemaining;
   }

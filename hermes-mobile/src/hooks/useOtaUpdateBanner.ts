@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Updates from 'expo-updates';
+import { shouldSuppressOtaClientPrompts } from '../utils/otaClientPromptPolicy';
 
 export type OtaBannerState = 'idle' | 'available' | 'pending' | 'reloading';
 
@@ -11,9 +12,30 @@ export interface OtaBannerResult {
   applyNow: () => Promise<void>;
 }
 
+const DISMISS_STORAGE_KEY = 'hermes.otaUpdateBanner.dismissedFingerprint';
+
+// Fingerprint must key off the OFFERED update's id (availableUpdate /
+// downloadedUpdate from useUpdates()), not `Updates.updateId` — that constant is
+// the CURRENTLY RUNNING bundle's id and does not change while a newer update is
+// offered. Keying off it collides a dismissal of update B with a later update C
+// published while the device is still running the same embedded bundle, hiding
+// the banner for updates the user never actually dismissed.
+function updateFingerprint(
+  isPending: boolean,
+  isAvailable: boolean,
+  offeredUpdateId?: string
+): string {
+  const updateId = offeredUpdateId && offeredUpdateId.length > 0 ? offeredUpdateId : 'none';
+  return `${updateId}:${isPending ? 'pending' : isAvailable ? 'available' : 'idle'}`;
+}
+
 /**
  * Encapsulates OTA update detection + banner state.
- * Returns `idle` in dev builds (Updates.isEnabled === false).
+ * Returns `idle` in dev builds (Updates.isEnabled === false) and during the
+ * Expo billing freeze (never fetch/reload — prevents CDN OTA wiping local APK).
+ *
+ * ONE UI only: the in-app `OtaUpdateBanner`. Never also fire `Alert.alert`
+ * (dual "Update available" modal + banner under the status bar).
  */
 export function useOtaUpdateBanner({
   isFirstSession = false,
@@ -22,22 +44,51 @@ export function useOtaUpdateBanner({
   isFirstSession?: boolean;
   isOnboardingResolved?: boolean;
 } = {}): OtaBannerResult {
-  const { isUpdateAvailable, isUpdatePending } = Updates.useUpdates();
+  const { isUpdateAvailable, isUpdatePending, availableUpdate, downloadedUpdate } =
+    Updates.useUpdates();
+  const offeredUpdateId = downloadedUpdate?.updateId ?? availableUpdate?.updateId;
   const [dismissed, setDismissed] = useState(false);
   const [isReloading, setIsReloading] = useState(false);
-  const alertShownRef = useRef(false);
   const firstSessionFetchStartedRef = useRef(false);
   const firstSessionReloadStartedRef = useRef(false);
+  const suppressPrompts = shouldSuppressOtaClientPrompts();
 
-  // Manual fallback check on mount (covers cases where ON_LOAD event missed)
   useEffect(() => {
-    if (!Updates.isEnabled) return;
+    if (!Updates.isEnabled || suppressPrompts) return;
     Updates.checkForUpdateAsync().catch(() => {});
-  }, []);
+  }, [suppressPrompts]);
 
-  const dismiss = useCallback(() => setDismissed(true), []);
+  useEffect(() => {
+    if (!Updates.isEnabled || suppressPrompts) return;
+    let cancelled = false;
+    const fingerprint = updateFingerprint(isUpdatePending, isUpdateAvailable, offeredUpdateId);
+    if (!isUpdatePending && !isUpdateAvailable) return;
+
+    void AsyncStorage.getItem(DISMISS_STORAGE_KEY)
+      .then((stored) => {
+        if (!cancelled && stored === fingerprint) {
+          setDismissed(true);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isUpdateAvailable, isUpdatePending, offeredUpdateId, suppressPrompts]);
+
+  const dismiss = useCallback(() => {
+    setDismissed(true);
+    const fingerprint = updateFingerprint(isUpdatePending, isUpdateAvailable, offeredUpdateId);
+    void AsyncStorage.setItem(DISMISS_STORAGE_KEY, fingerprint).catch(() => {});
+  }, [isUpdateAvailable, isUpdatePending, offeredUpdateId]);
 
   const applyNow = useCallback(async () => {
+    // Hard stop during billing freeze — never reloadAsync (CDN OTA wipe).
+    if (shouldSuppressOtaClientPrompts()) {
+      setIsReloading(false);
+      return;
+    }
     setIsReloading(true);
     try {
       if (!isUpdatePending) {
@@ -50,11 +101,11 @@ export function useOtaUpdateBanner({
   }, [isUpdatePending]);
 
   useEffect(() => {
-    if (!Updates.isEnabled || !isOnboardingResolved || !isFirstSession) return;
+    if (!Updates.isEnabled || !isOnboardingResolved || !isFirstSession || suppressPrompts) {
+      return;
+    }
 
     if (isUpdatePending) {
-      // A bundle that was already pending at launch is safe to apply before a
-      // stranger has to make any onboarding decisions.
       if (!firstSessionFetchStartedRef.current && !firstSessionReloadStartedRef.current) {
         firstSessionReloadStartedRef.current = true;
         void applyNow();
@@ -63,51 +114,26 @@ export function useOtaUpdateBanner({
     }
 
     if (isUpdateAvailable && !firstSessionFetchStartedRef.current) {
-      // Apply before a stranger sees onboarding. A restart decision here can
-      // leave a fresh user stuck behind a stale connection flow.
       firstSessionFetchStartedRef.current = true;
       void applyNow();
     }
-  }, [applyNow, isFirstSession, isOnboardingResolved, isUpdateAvailable, isUpdatePending]);
-
-  useEffect(() => {
-    if (
-      !Updates.isEnabled ||
-      !isOnboardingResolved ||
-      isFirstSession ||
-      dismissed ||
-      alertShownRef.current
-    ) {
-      return;
-    }
-    if (!isUpdatePending && !isUpdateAvailable) return;
-
-    alertShownRef.current = true;
-    const isPending = isUpdatePending;
-    const message = isPending
-      ? 'A new version of Hermes is downloaded and ready.'
-      : 'A new version of Hermes is available.';
-
-    Alert.alert('Update available', message, [
-      { text: 'Later', style: 'cancel', onPress: dismiss },
-      {
-        text: isPending ? 'Restart' : 'Download & restart',
-        onPress: () => {
-          void applyNow();
-        },
-      },
-    ]);
   }, [
-    isUpdateAvailable,
-    isUpdatePending,
-    dismissed,
-    dismiss,
     applyNow,
     isFirstSession,
     isOnboardingResolved,
+    isUpdateAvailable,
+    isUpdatePending,
+    suppressPrompts,
   ]);
 
-  if (!Updates.isEnabled || !isOnboardingResolved || isFirstSession || dismissed) {
+  // Freeze / dismiss / first-session: never surface "Applying update…"
+  if (
+    !Updates.isEnabled ||
+    !isOnboardingResolved ||
+    isFirstSession ||
+    dismissed ||
+    suppressPrompts
+  ) {
     return { state: 'idle', message: '', dismiss, applyNow };
   }
 

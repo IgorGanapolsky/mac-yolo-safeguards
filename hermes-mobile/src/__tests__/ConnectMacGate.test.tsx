@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
-import ConnectMacGate from '../components/ConnectMacGate';
+import ConnectMacGate, { connectMacGateCardMaxWidth } from '../components/ConnectMacGate';
 import { DEFAULT_GATEWAY_SETTINGS } from '../types/gateway';
 import { CONNECT_MAC_GATE_TITLE, TAILSCALE_PASTE_IP_TITLE } from '../utils/tailscalePasteIpCopy';
 
@@ -365,5 +365,17 @@ describe('ConnectMacGate', () => {
     expect(view.queryByTestId('connect-mac-scan-progress')).toBeNull();
     expect(view.queryByTestId('connect-search-wifi')).toBeNull();
     expect(view.queryByTestId('connect-scan-qr')).toBeNull();
+  });
+
+  it('keeps the phone-sized card on narrow windows', () => {
+    expect(connectMacGateCardMaxWidth(375)).toBe(420);
+    expect(connectMacGateCardMaxWidth(699)).toBe(420);
+  });
+
+  it('widens the card on tablet-sized windows without going edge to edge', () => {
+    // iPad portrait (~834pt): wider than phone, nowhere near full width.
+    expect(connectMacGateCardMaxWidth(834)).toBe(459);
+    // iPad Pro landscape (~1366pt): capped, never edge to edge.
+    expect(connectMacGateCardMaxWidth(1366)).toBe(640);
   });
 });
