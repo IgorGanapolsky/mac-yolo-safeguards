@@ -177,6 +177,13 @@ describe('gatewayDiscovery', () => {
       }
     };
     expect(deduped.every((g) => isPreferredDiscoveryUrl(g.gatewayUrl))).toBe(true);
+    // MagicDNS ranks above bare CGNAT for the same hostname.
+    expect(deduped.map((g) => g.gatewayUrl).sort()).toEqual(
+      [
+        'http://igors-mac-mini.tail12aa33.ts.net:8642',
+        'http://igors-macbook-pro-1.tail12aa33.ts.net:8642',
+      ].sort(),
+    );
 
     // Off-home / cellular: winners are Tailscale — never count as "local" LAN.
     const reach = summarizeDiscoveredReach(aliases);
@@ -188,6 +195,47 @@ describe('gatewayDiscovery', () => {
       otherCount: 0,
     });
     expect(deduped.every((g) => classifyDiscoveredReach(g) === 'tailscale')).toBe(true);
+  });
+
+  it('keeps distinct MagicDNS -N siblings as separate machines when hostname is absent', () => {
+    const siblings = [
+      { gatewayUrl: 'http://macbook-pro-1.tail12aa33.ts.net:8642' },
+      { gatewayUrl: 'http://macbook-pro-2.tail12aa33.ts.net:8642' },
+    ];
+    expect(countUniqueDiscoveredMachines(siblings)).toBe(2);
+    expect(dedupeDiscoveredGatewaysByMachine(siblings)).toHaveLength(2);
+  });
+
+  it('collapses MagicDNS + CGNAT chip doubles to one row per Mac (Connect your Mac rage)', () => {
+    const doubles = [
+      {
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-Mac-mini.local',
+        localIp: '100.94.135.78',
+        label: 'Igors-Mac-mini',
+      },
+      {
+        gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642',
+        hostname: 'Igors-Mac-mini.local',
+        label: 'Igors-Mac-mini',
+      },
+      {
+        gatewayUrl: 'http://100.87.85.85:8642',
+        hostname: 'Igors-MacBook-Pro.local',
+        localIp: '100.87.85.85',
+        label: 'Igors-MacBook-Pro',
+      },
+      {
+        gatewayUrl: 'http://igors-macbook-pro.tail12aa33.ts.net:8642',
+        hostname: 'Igors-MacBook-Pro.local',
+        label: 'Igors-MacBook-Pro',
+      },
+    ];
+    expect(countUniqueDiscoveredMachines(doubles)).toBe(2);
+    const deduped = dedupeDiscoveredGatewaysByMachine(doubles);
+    expect(deduped).toHaveLength(2);
+    expect(deduped.every((g) => g.gatewayUrl.includes('.ts.net'))).toBe(true);
+    expect(deduped.find((g) => g.label === 'Igors-Mac-mini')?.localIp).toBe('100.94.135.78');
   });
 
   it('classifies RFC1918/.local as lan and loopback as usb (Tailscale CGNAT never lan)', () => {

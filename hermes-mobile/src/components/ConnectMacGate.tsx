@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGateway } from '../context/GatewayContext';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { colors } from '../theme/colors';
@@ -94,6 +95,9 @@ export default function ConnectMacGate() {
   const [enablingDemo, setEnablingDemo] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const { inset: keyboardInset } = useKeyboardInset({ focused: false });
+  const safeInsets = useSafeAreaInsets();
+  // Keep "Connect your Mac" / Not now below the Android status bar (coord #923 OTA banner).
+  const topSafePad = Math.max(safeInsets.top, Platform.OS === 'android' ? 28 : 0);
 
   const handleDismiss = useCallback(async () => {
     try {
@@ -234,6 +238,7 @@ export default function ConnectMacGate() {
             style={styles.cardScroll}
             contentContainerStyle={[
               styles.cardScrollContent,
+              { paddingTop: 24 + topSafePad },
               keyboardInset > 0 ? { paddingBottom: 24 + keyboardInset } : null,
             ]}
             keyboardShouldPersistTaps="handled"

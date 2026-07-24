@@ -1,6 +1,7 @@
 import {
   collectTailnetProbeHosts,
   discoveredGatewayFromHealth,
+  discoverTailscaleGateways,
   filterNewTailscaleDiscoveries,
   tailscaleDiscoveryLabel,
 } from '../services/tailscaleDiscovery';
@@ -125,5 +126,89 @@ describe('tailscaleDiscovery', () => {
       discovered,
     );
     expect(lanOnlyStillShowsTailscale).toHaveLength(1);
+  });
+
+  it('collapses MagicDNS + CGNAT twins to one chip per physical Mac', () => {
+    // Fixture that previously rendered: Add Igors-Mac-mini ×2, Add Igors-MacBook-Pro ×2
+    const doubles = [
+      {
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-Mac-mini.local',
+        localIp: '100.94.135.78',
+        label: 'Igors-Mac-mini',
+      },
+      {
+        gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642',
+        hostname: 'Igors-Mac-mini.local',
+        label: 'Igors-Mac-mini',
+      },
+      {
+        gatewayUrl: 'http://100.87.85.85:8642',
+        hostname: 'Igors-MacBook-Pro.local',
+        localIp: '100.87.85.85',
+        label: 'Igors-MacBook-Pro',
+      },
+      {
+        gatewayUrl: 'http://igors-macbook-pro.tail12aa33.ts.net:8642',
+        hostname: 'Igors-MacBook-Pro.local',
+        label: 'Igors-MacBook-Pro',
+      },
+    ];
+    const unique = filterNewTailscaleDiscoveries([], doubles);
+    expect(unique).toHaveLength(2);
+    expect(unique.map((d) => tailscaleDiscoveryLabel(d)).sort()).toEqual([
+      'Igors-Mac-mini',
+      'Igors-MacBook-Pro',
+    ]);
+    // Prefer MagicDNS URL over bare CGNAT twin; keep CGNAT localIp when present.
+    expect(
+      unique.find((d) => d.hostname?.includes('Mac-mini'))?.gatewayUrl,
+    ).toBe('http://igors-mac-mini.tail12aa33.ts.net:8642');
+    expect(
+      unique.find((d) => d.hostname?.includes('Mac-mini'))?.localIp,
+    ).toBe('100.94.135.78');
+    expect(
+      unique.find((d) => d.hostname?.includes('MacBook-Pro'))?.gatewayUrl,
+    ).toBe('http://igors-macbook-pro.tail12aa33.ts.net:8642');
+  });
+});
+
+describe('discoverTailscaleGateways machine dedupe', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn();
+  });
+
+  it('probes MagicDNS+CGNAT hosts and returns one discovery per hostname', async () => {
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      const mini =
+        url.includes('100.94.135.78') || url.includes('igors-mac-mini.tail12aa33.ts.net');
+      const pro =
+        url.includes('100.87.85.85') || url.includes('igors-macbook-pro.tail12aa33.ts.net');
+      if (!mini && !pro) {
+        return Promise.resolve({ ok: false, json: async () => ({}) });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          status: 'ok',
+          hostname: mini ? 'Igors-Mac-mini.local' : 'Igors-MacBook-Pro.local',
+          local_ip: mini ? '192.168.68.56' : '192.168.68.77',
+        }),
+      });
+    });
+
+    const discovered = await discoverTailscaleGateways([
+      '100.94.135.78',
+      'igors-mac-mini.tail12aa33.ts.net',
+      '100.87.85.85',
+      'igors-macbook-pro.tail12aa33.ts.net',
+    ]);
+
+    expect(discovered).toHaveLength(2);
+    expect(discovered.map((d) => tailscaleDiscoveryLabel(d)).sort()).toEqual([
+      'Igors-Mac-mini',
+      'Igors-MacBook-Pro',
+    ]);
+    expect(discovered.every((d) => d.gatewayUrl.includes('.ts.net'))).toBe(true);
   });
 });
