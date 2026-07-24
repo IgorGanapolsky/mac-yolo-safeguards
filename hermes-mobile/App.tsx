@@ -71,6 +71,7 @@ import { refreshFreeLeashWeeklyState } from './src/utils/freeLeashAllowance';
 import { syncLeashEntitlementSnapshot } from './src/utils/thumbgateLeash';
 import { shouldCollapseTabBarForKeyboard } from './src/utils/tabBarKeyboardPolicy';
 import { colors } from './src/theme/colors';
+import { TABLET_CONTENT_MAX_WIDTH, useTabletContainerStyle, useIsTablet } from './src/utils/tabletLayout';
 
 type RootTabParamList = {
   Leash: undefined;
@@ -180,18 +181,21 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
     };
   }, []);
 
+  const isTablet = useIsTablet();
+
   return (
-    <View
-      style={[
-        styles.navBar,
-        collapseForKeyboard ? styles.navBarKeyboardHidden : null,
-        {
-          paddingBottom: collapseForKeyboard ? 0 : Math.max(insets.bottom, 8),
-          opacity: collapseForKeyboard ? 0 : 1,
-        },
-      ]}
-      pointerEvents={collapseForKeyboard ? 'none' : 'auto'}
-    >
+    <View style={[styles.navBar, isTablet && { width: TABLET_CONTENT_MAX_WIDTH, marginLeft: 'auto', marginRight: 'auto', borderRadius: 20, overflow: 'hidden' }]}>
+      <View
+        style={[
+          styles.navBar,
+          collapseForKeyboard ? styles.navBarKeyboardHidden : null,
+          {
+            paddingBottom: collapseForKeyboard ? 0 : Math.max(insets.bottom, 8),
+            opacity: collapseForKeyboard ? 0 : 1,
+          },
+        ]}
+        pointerEvents={collapseForKeyboard ? 'none' : 'auto'}
+      >
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
         const isFocused = state.index === index;
@@ -251,6 +255,7 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
           </TouchableOpacity>
         );
       })}
+      </View>
     </View>
   );
 }
@@ -280,6 +285,7 @@ const linking = {
 
 function HermesNavigationRoot() {
   const navigationRef = useRef<NavigationContainerRef<RootTabParamList>>(null);
+  const tabletContainerStyle = useTabletContainerStyle();
   const {
     runAgentTool,
     refreshHealth,
@@ -333,20 +339,22 @@ function HermesNavigationRoot() {
   );
 
   return (
-    <View style={{ flex: 1 }}>
-      <NavigationContainer
-        ref={navigationRef}
-        theme={NavigationTheme}
-        linking={linking}
-        onStateChange={(state) => {
-          const route = state?.routes[state.index ?? 0];
-          if (route?.name) {
-            void trackScreenView(route.name);
-          }
-        }}
-      >
-        <HermesTabNavigator />
-      </NavigationContainer>
+    <View style={styles.flexFill}>
+      <View style={tabletContainerStyle}>
+        <NavigationContainer
+          ref={navigationRef}
+          theme={NavigationTheme}
+          linking={linking}
+          onStateChange={(state) => {
+            const route = state?.routes[state.index ?? 0];
+            if (route?.name) {
+              void trackScreenView(route.name);
+            }
+          }}
+        >
+          <HermesTabNavigator />
+        </NavigationContainer>
+      </View>
     </View>
   );
 }
@@ -423,6 +431,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.backgroundStart,
     position: 'relative',
+  },
+  flexFill: {
+    flex: 1,
   },
   ambientGlowPrimary: {
     position: 'absolute',

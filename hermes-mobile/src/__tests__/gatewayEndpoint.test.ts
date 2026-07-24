@@ -101,7 +101,7 @@ describe('formatLeashConnectionDisplay', () => {
       health: null,
       isPaired: true,
     });
-    expect(display.headline).toBe('Hermes relay linked to your active machine');
+    expect(display.headline).toBe('ThumbGate relay linked to your active machine');
   });
 
   it('explains gateway mode with machine name and IP', () => {

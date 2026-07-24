@@ -294,7 +294,7 @@ export function humanizeRunProgressDetail(detail: string | undefined, phase?: st
     if (phase === 'failed') {
       return 'Something went wrong on your computer';
     }
-    return 'Hermes is working on your computer…';
+    return 'ThumbGate is working on your computer…';
   }
 
   if (raw === 'Sending to your computer…') {
@@ -314,13 +314,13 @@ export function humanizeRunProgressDetail(detail: string | undefined, phase?: st
   }
 
   if (/waiting for provider/i.test(raw)) {
-    return 'Hermes is thinking…';
+    return 'ThumbGate is thinking…';
   }
   if (/waiting for your approval/i.test(raw)) {
     return 'Waiting for your approval';
   }
   if (/tool\.completed/i.test(raw) || /tool\.started/i.test(raw)) {
-    return 'Hermes is working on your computer…';
+    return 'ThumbGate is working on your computer…';
   }
 
   if (isRawAbortMessage(raw)) {
@@ -379,7 +379,7 @@ export function staleRunProgressTitle(progress: RunProgressState): string {
 }
 
 export function staleRunProgressDetail(): string {
-  return 'Hermes may be stuck. Stop the run and try again if nothing changes.';
+  return 'ThumbGate may be stuck. Stop the run and try again if nothing changes.';
 }
 
 export function humanizeComposerStatus(status: string): string {
@@ -387,11 +387,11 @@ export function humanizeComposerStatus(status: string): string {
   if (trimmed === 'Sent without live stream (connection fallback)') {
     return 'Message sent — waiting for reply from your computer…';
   }
-  if (trimmed === 'Queued on active Hermes thread — waiting for reply…') {
+  if (trimmed === 'Queued on active ThumbGate thread — waiting for reply…') {
     return 'Queued on your computer — reply will appear when the current task finishes…';
   }
   if (/^tool\./i.test(trimmed)) {
-    return 'Hermes is working on your computer…';
+    return 'ThumbGate is working on your computer…';
   }
   return humanizeRunProgressDetail(trimmed);
 }

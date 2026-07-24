@@ -25,7 +25,7 @@ export default function ClarificationPromptCard({
 
   return (
     <View style={styles.wrap} testID="clarification-prompt-card">
-      <Text style={styles.kicker}>Hermes needs your choice</Text>
+      <Text style={styles.kicker}>ThumbGate needs your choice</Text>
       <Text style={styles.question} testID="clarification-question">
         {question}
       </Text>

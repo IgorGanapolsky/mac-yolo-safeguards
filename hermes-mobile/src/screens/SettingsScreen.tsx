@@ -185,7 +185,7 @@ export default function SettingsScreen() {
     if (!granted) {
       Alert.alert(
         'Notifications blocked',
-        'Enable notifications in system settings to get approval alerts and live run status while Hermes is in the background.',
+        'Enable notifications in system settings to get approval alerts and live run status while ThumbGate is in the background.',
       );
     }
     return granted;
@@ -262,7 +262,7 @@ export default function SettingsScreen() {
           'Connected',
           health?.level === 'green'
             ? `Direct local link healthy at ${url}`
-            : `Using ${url}. If Chat still fails, turn on Tailscale or scan the QR from Hermes on your computer.`,
+            : `Using ${url}. If Chat still fails, turn on Tailscale or scan the QR from ThumbGate on your computer.`,
         );
       }
     } catch (err) {
@@ -354,7 +354,7 @@ export default function SettingsScreen() {
   const handlePair = async () => {
     Keyboard.dismiss();
     if (!pairCode.trim()) {
-      Alert.alert('Pairing code required', 'On your computer, open Hermes pairing and enter the code it shows you.');
+      Alert.alert('Pairing code required', 'On your computer, open ThumbGate pairing and enter the code it shows you.');
       return;
     }
     try {
@@ -419,7 +419,7 @@ export default function SettingsScreen() {
       if (!demoMode) {
         Alert.alert(
           'Scan failed',
-          err instanceof Error ? err.message : 'Could not search for Hermes computers.',
+          err instanceof Error ? err.message : 'Could not search for ThumbGate computers.',
         );
       }
     } finally {
@@ -465,7 +465,7 @@ export default function SettingsScreen() {
           <TouchableOpacity
             onPress={leaveSettings}
             accessibilityRole="button"
-            accessibilityLabel="Done — return to Hermes chat"
+            accessibilityLabel="Done — return to ThumbGate chat"
             testID="settings-done"
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
@@ -497,7 +497,7 @@ export default function SettingsScreen() {
           </View>
         </GlassCard>
 
-        <Text style={styles.sectionTitle}>Hermes Machines</Text>
+        <Text style={styles.sectionTitle}>ThumbGate Machines</Text>
         {cellularBlocksDirect ? (
           <GlassCard style={styles.tunnelWizardCard} testID="settings-cellular-tunnel-banner">
             <Text style={styles.tunnelWizardTitle} testID="settings-tunnel-wizard-title">
@@ -505,10 +505,10 @@ export default function SettingsScreen() {
             </Text>
             <Text style={styles.description} testID="settings-tunnel-wizard-body">
               Your saved computer uses a private Wi‑Fi address. On cellular, Chat needs a tunnel URL
-              pointing at Hermes port 8642 on your computer.
+              pointing at ThumbGate port 8642 on your computer.
             </Text>
             <Text style={styles.tunnelStep} testID="settings-tunnel-step-1">
-              1. On your computer, expose Hermes on port 8642 — Tailscale MagicDNS, ngrok, or Cloudflare
+              1. On your computer, expose ThumbGate on port 8642 — Tailscale MagicDNS, ngrok, or Cloudflare
               Tunnel.
             </Text>
             <Text style={styles.tunnelStep} testID="settings-tunnel-step-2">
@@ -574,7 +574,7 @@ export default function SettingsScreen() {
             style={styles.pairButton}
           />
           <Text style={styles.description}>
-            Hermes on your computer must be running. Find computers searches home Wi‑Fi and Tailscale.
+            ThumbGate on your computer must be running. Find computers searches home Wi‑Fi and Tailscale.
           </Text>
           <MacPairingHelp variant="getting-started" compact testID="settings-mac-pairing-help" />
           <TouchableOpacity
@@ -697,7 +697,7 @@ export default function SettingsScreen() {
             <View style={styles.switchLabelCol}>
               <Text style={styles.switchLabel}>Cloud approvals (optional)</Text>
               <Text style={styles.switchDesc}>
-                Pair your Hermes account for approval requests anywhere. Does not provide live Chat or computer tools.
+                Pair your ThumbGate account for approval requests anywhere. Does not provide live Chat or computer tools.
               </Text>
             </View>
             <Switch
@@ -1020,7 +1020,7 @@ export default function SettingsScreen() {
         </TouchableOpacity>
 
         <Text style={styles.footerText}>
-          Hermes Mobile v0.1.0 • {connectionMode === 'relay' ? 'Relay' : 'WS'}: {connectionState}
+          ThumbGate v0.1.0 • {connectionMode === 'relay' ? 'Relay' : 'WS'}: {connectionState}
           {isPaired ? ' • paired' : ''}
         </Text>
       </ScrollView>

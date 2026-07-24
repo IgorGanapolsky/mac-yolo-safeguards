@@ -5,7 +5,7 @@ import { isTelegramSession } from './sessionSelection';
 
 /** Shown when gateway returns an empty stream for a Telegram-bound session (message queued). */
 export const TELEGRAM_QUEUED_REPLY_PLACEHOLDER =
-  'Message queued on this Hermes thread. Your computer may still be running tools from a prior turn — the reply will appear here when it finishes.';
+  'Message queued on this ThumbGate thread. Your computer may still be running tools from a prior turn — the reply will appear here when it finishes.';
 
 /**
  * Shown when the live stream ends without assistant text but the Mac may still be
@@ -13,11 +13,11 @@ export const TELEGRAM_QUEUED_REPLY_PLACEHOLDER =
  * read the old "did not return text yet" line as a product failure.
  */
 export const GENERIC_EMPTY_STREAM_PLACEHOLDER =
-  'Working on your computer… Hermes may be using tools (browser, search, terminal). The reply will show here when ready.';
+  'Working on your computer… ThumbGate may be using tools (browser, search, terminal). The reply will show here when ready.';
 
 /** After soft timeout with no reply text — auto-poll continues; Refresh is optional fallback. */
 export const EMPTY_STREAM_TIMEOUT_PLACEHOLDER =
-  'Still no reply text. Hermes keeps checking your Mac automatically — Stop if a run is active, or start a fresh chat for faster replies.';
+  'Still no reply text. ThumbGate keeps checking your Mac automatically — Stop if a run is active, or start a fresh chat for faster replies.';
 
 /**
  * Internal gateway / cron sentinel for a tool-only or "nothing to report" turn.

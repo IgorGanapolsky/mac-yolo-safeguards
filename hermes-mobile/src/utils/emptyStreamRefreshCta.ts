@@ -3,7 +3,7 @@ import { EMPTY_STREAM_TIMEOUT_PLACEHOLDER } from './streamAssistantText';
 
 /** Shown above composer while auto-polling for reply text after a soft timeout. */
 export const EMPTY_STREAM_REFRESH_BANNER_HINT =
-  'Still waiting for reply text from your Mac. Hermes is checking automatically — Stop if a run is active, or start a fresh chat.';
+  'Still waiting for reply text from your Mac. ThumbGate is checking automatically — Stop if a run is active, or start a fresh chat.';
 
 export function emptyStreamBannerHint(elapsedMs: number): string {
   const elapsedSec = Math.max(1, Math.floor(elapsedMs / 1000));

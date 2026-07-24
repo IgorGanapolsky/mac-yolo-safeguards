@@ -283,7 +283,7 @@ describe('applyStreamEvent — run lifecycle', () => {
     const state = createStreamActivityState();
     const next = applyStreamEvent(state, evt('run.started', { model: 'qwen3:8b', input_tokens: 3 }));
     expect(next.runProgress?.phase).toBe('working');
-    expect(next.runProgress?.detail).toBe('Hermes is working on your computer…');
+    expect(next.runProgress?.detail).toBe('ThumbGate is working on your computer…');
     expect(next.runProgress?.model).toBe('qwen3:8b');
     expect(next.runProgress?.inputTokens).toBe(3);
     expect(next.toolCalls).toEqual([]);

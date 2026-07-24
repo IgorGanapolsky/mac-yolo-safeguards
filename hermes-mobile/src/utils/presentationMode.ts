@@ -55,12 +55,12 @@ export function buildSessionGreeting(input: {
 
   if (input.pendingCount > 0) {
     const noun = input.pendingCount === 1 ? 'approval' : 'approvals';
-    return `Hermes Mobile ready. ${input.pendingCount} pending ${noun}. ${health}.`;
+    return `ThumbGate ready. ${input.pendingCount} pending ${noun}. ${health}.`;
   }
 
   if (input.glanceMode) {
-    return `Hermes Mobile ready. No pending approvals. ${health}.`;
+    return `ThumbGate ready. No pending approvals. ${health}.`;
   }
 
-  return `Hermes Mobile connected. ${health}.`;
+  return `ThumbGate connected. ${health}.`;
 }

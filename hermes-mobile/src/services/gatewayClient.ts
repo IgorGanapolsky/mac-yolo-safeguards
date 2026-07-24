@@ -33,7 +33,7 @@ export function authRepairTargetLabel(machineLabel?: string | null): string {
   const target = machineLabel?.trim();
   if (
     !target ||
-    /^hermes account relay$/i.test(target) ||
+    /^(hermes|thumbgate) account relay$/i.test(target) ||
     /^(your computer|computer|computer via usb)$/i.test(target)
   ) {
     return 'your computer';
@@ -250,7 +250,7 @@ export function buildGateActionMessage(
   const payload: Record<string, string> = {
     actionId,
     decision,
-    operatorNote: operatorNote ?? `Decision ${decision} from Hermes Mobile`,
+    operatorNote: operatorNote ?? `Decision ${decision} from ThumbGate`,
   };
   if (choice) {
     payload.choice = choice;

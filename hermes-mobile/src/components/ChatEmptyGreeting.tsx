@@ -47,7 +47,7 @@ export function greetingSubtitle(
     ? /^(mac|computer|your mac|your computer|my mac|mac via usb|computer via usb|mac via network|http|https)$/i.test(route)
     : false;
 
-  if (route === 'Your computer' || route === 'Hermes account relay') {
+  if (route === 'Your computer' || route === 'ThumbGate account relay') {
     return 'Ask anything — use Tailscale when you are away, or home Wi‑Fi when you are local.';
   }
 

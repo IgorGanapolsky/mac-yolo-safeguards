@@ -72,7 +72,7 @@ export function resolveLeashHealthDetail(input: {
     return 'Pair approvals in Settings';
   }
   if (health.gatewayState === 'running') {
-    return 'Hermes running on your Mac';
+    return 'ThumbGate running on your Mac';
   }
   return undefined;
 }

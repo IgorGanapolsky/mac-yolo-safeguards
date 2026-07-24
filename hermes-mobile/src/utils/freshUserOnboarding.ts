@@ -150,13 +150,13 @@ export function freshUserOnboardingSteps(input: {
       },
       {
         step: 2,
-        title: 'Hermes running on your Mac',
-        body: `Start Hermes on ${macLabel} and leave it running.`,
+        title: 'ThumbGate running on your Mac',
+        body: `Start ThumbGate on ${macLabel} and leave it running.`,
       },
       {
         step: 3,
         title: 'Find your computer',
-        body: 'Tap Find computers below. We search your Tailscale network for Hermes.',
+        body: 'Tap Find computers below. We search your Tailscale network for ThumbGate.',
       },
       {
         step: 4,
@@ -180,8 +180,8 @@ export function freshUserOnboardingSteps(input: {
       },
       {
         step: 2,
-        title: 'Open Hermes on your computer',
-        body: 'Start Hermes on your computer and leave it running.',
+        title: 'Open ThumbGate on your computer',
+        body: 'Start ThumbGate on your computer and leave it running.',
       },
       {
         step: 3,
@@ -199,8 +199,8 @@ export function freshUserOnboardingSteps(input: {
     },
     {
       step: 2,
-      title: 'Open Hermes on your computer',
-      body: 'Start Hermes on your computer and leave it running.',
+      title: 'Open ThumbGate on your computer',
+      body: 'Start ThumbGate on your computer and leave it running.',
     },
     {
       step: 3,
@@ -266,8 +266,8 @@ export function freshUserConnectionBody(input: {
   }
   if (input.searching) {
     return input.onTailscaleRoute
-      ? 'Searching your Tailscale network for Hermes on your computer…'
-      : 'Searching your home Wi‑Fi for Hermes on your computer…';
+      ? 'Searching your Tailscale network for ThumbGate on your computer…'
+      : 'Searching your home Wi‑Fi for ThumbGate on your computer…';
   }
   if (input.healInFlight && !input.healExhausted && !input.freshUser) {
     const attempt = Math.max(0, input.healAttempt ?? 0);

@@ -104,7 +104,7 @@ export function acceptPairSetupPayload(
       return {
         ok: false,
         reason: 'unsupported_scheme',
-        message: 'Unsupported pairing link. Scan the Hermes pair page QR (http) or use Find computers.',
+        message: 'Unsupported pairing link. Scan the ThumbGate pair page QR (http) or use Find computers.',
       };
     }
     if (hostLooksLoopback(gatewayUrl) && !allowLoopback) {

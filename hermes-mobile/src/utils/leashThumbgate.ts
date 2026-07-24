@@ -15,7 +15,7 @@ export function buildLeashThumbgateCaptureBody(
   tags: string[];
 } {
   const contextParts = [
-    `Hermes Leash · ${approval.toolName}`,
+    `ThumbGate Leash · ${approval.toolName}`,
     approval.reason,
     approval.command ? `command: ${approval.command}` : '',
     approval.workspacePath ? `workspace: ${approval.workspacePath}` : '',
@@ -29,7 +29,7 @@ export function buildLeashThumbgateCaptureBody(
       signal: 'down',
       context: contextParts.join(' · '),
       whatWentWrong: approval.reason,
-      whatToChange: `Block or escalate ${approval.toolName} like this from Hermes Mobile Leash`,
+      whatToChange: `Block or escalate ${approval.toolName} like this from ThumbGate Leash`,
       tags,
     };
   }
@@ -37,7 +37,7 @@ export function buildLeashThumbgateCaptureBody(
   return {
     signal: 'up',
     context: contextParts.join(' · '),
-    whatWorked: `Operator allowed ${approval.toolName} from Hermes Mobile Leash`,
+    whatWorked: `Operator allowed ${approval.toolName} from ThumbGate Leash`,
     tags,
   };
 }
@@ -62,7 +62,7 @@ export function buildChatOutputThumbgateCaptureBody(
   const explanation = options.explanation?.trim();
   const sessionTitle = options.session?.title?.trim();
   const context = [
-    'Hermes Mobile chat output',
+    'ThumbGate chat output',
     sessionTitle ? `thread: ${sessionTitle}` : '',
     options.session?.id ? `session: ${options.session.id}` : '',
     message.id ? `message: ${message.id}` : '',
@@ -76,9 +76,9 @@ export function buildChatOutputThumbgateCaptureBody(
     return {
       signal,
       context,
-      whatWentWrong: explanation || 'Operator marked this Hermes output as unhelpful.',
+      whatWentWrong: explanation || 'Operator marked this ThumbGate output as unhelpful.',
       whatToChange:
-        explanation || 'Adjust future Hermes outputs using this chat-output feedback signal.',
+        explanation || 'Adjust future ThumbGate outputs using this chat-output feedback signal.',
       tags,
     };
   }
@@ -86,7 +86,7 @@ export function buildChatOutputThumbgateCaptureBody(
   return {
     signal,
     context,
-    whatWorked: explanation || 'Operator marked this Hermes output as useful.',
+    whatWorked: explanation || 'Operator marked this ThumbGate output as useful.',
     tags,
   };
 }
