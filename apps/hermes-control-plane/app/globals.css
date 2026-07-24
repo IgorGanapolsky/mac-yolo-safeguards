@@ -265,14 +265,14 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .dashboard-header h1{font-size:20px;line-height:1.2}
   .header-actions .status-chip{display:none}
   .notice.notice-toast{
-    position:fixed;
-    z-index:80;
-    top:max(10px, env(safe-area-inset-top, 0px));
-    left:10px;
-    right:10px;
-    margin:0;
-    border-radius:14px;
-    box-shadow:0 12px 40px rgba(0,0,0,.45);
+    position:relative;
+    z-index:10;
+    top:auto;
+    left:auto;
+    right:auto;
+    margin:8px 0 12px;
+    border-radius:12px;
+    box-shadow:none;
   }
   /* Metrics clutter mobile shell — hide (status lives in tabs / settings) */
   .metric-grid{display:none !important}
@@ -386,13 +386,8 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .route-label-full{display:none}
   .route-label-short{display:inline}
   .composer-route-explain{
-    padding:10px 12px;
-    border-radius:12px;
-    background:#0F172A;
-    border:1px solid rgba(56,189,248,.3);
+    display:none;
   }
-  .composer-route-explain strong{font-size:13px;color:#F8FAFC;font-weight:700}
-  .composer-route-explain p{font-size:12px;line-height:1.45;color:#E2E8F0}
   .composer-actions{
     display:grid;
     grid-template-columns:1fr;
