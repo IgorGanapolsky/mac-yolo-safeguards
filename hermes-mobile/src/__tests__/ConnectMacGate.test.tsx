@@ -1,10 +1,12 @@
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import ConnectMacGate, { connectMacGateCardMaxWidth } from '../components/ConnectMacGate';
 import { DEFAULT_GATEWAY_SETTINGS } from '../types/gateway';
 import { CONNECT_MAC_GATE_TITLE, TAILSCALE_PASTE_IP_TITLE } from '../utils/tailscalePasteIpCopy';
+import { connectManualGatewayAddress } from '../services/manualGatewayConnection';
 
 const mockUseGateway = jest.fn();
+const mockConnectManual = jest.mocked(connectManualGatewayAddress);
 
 jest.mock('../context/GatewayContext', () => ({
   useGateway: () => mockUseGateway(),
@@ -16,6 +18,10 @@ jest.mock('../services/haptics', () => ({
     warning: jest.fn(),
     light: jest.fn(),
   },
+}));
+
+jest.mock('../services/manualGatewayConnection', () => ({
+  connectManualGatewayAddress: jest.fn(),
 }));
 
 function gateway(overrides = {}) {
@@ -377,5 +383,32 @@ describe('ConnectMacGate', () => {
     expect(connectMacGateCardMaxWidth(834)).toBe(459);
     // iPad Pro landscape (~1366pt): capped, never edge to edge.
     expect(connectMacGateCardMaxWidth(1366)).toBe(640);
+  });
+
+  it('hides empty None found scan card after paste proves reachable-but-unpaired', async () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    mockConnectManual.mockRejectedValueOnce(
+      new Error('Hermes is reachable, but this phone still needs to pair.'),
+    );
+    mockUseGateway.mockReturnValue(
+      gateway({
+        profileScanResult: {
+          foundCount: 0,
+          lanCount: 0,
+          tailscaleCount: 0,
+          usbCount: 0,
+        },
+        profileScanning: false,
+      }),
+    );
+
+    const view = render(<ConnectMacGate />);
+    expect(view.getByTestId('connect-mac-scan-progress-result')).toBeTruthy();
+
+    fireEvent.changeText(view.getByTestId('connect-manual-input'), '100.94.135.78');
+    fireEvent.press(view.getByTestId('connect-manual-submit'));
+
+    expect(await view.findByTestId('connect-manual-needs-pair')).toBeTruthy();
+    expect(view.queryByTestId('connect-mac-scan-progress-result')).toBeNull();
   });
 });
