@@ -119,8 +119,8 @@ export default function DashboardClient() {
           ? {
               title: "Continuity (cloud VPS)",
               body: organization?.cloudAccess
-                ? "Always runs on ThumbGate’s cloud runner, even if your Mac is online. Uses a Continuity run from your plan."
-                : "Needs a Continuity trial or Pro plan. Start Continuity to use the cloud runner.",
+                ? "Always runs on Continuity, even if your Mac is online. Uses a Continuity run from your plan."
+                : "Needs a Continuity trial or Pro plan to use cloud failover.",
             }
           : {
               title: "Auto — Mac first",
@@ -294,15 +294,21 @@ export default function DashboardClient() {
         }
       } else setFeedback({});
     }
-    if (selectedThread) {
-      const detailResponse = await fetch(`/api/thread-messages?thread_id=${encodeURIComponent(selectedThread)}`, { cache: "no-store" });
-      if (detailResponse.ok) setThreadDetails(await detailResponse.json() as ThreadDetails);
-    } else setThreadDetails(null);
-  }, [selectedThread]);
+  }, []);
+
+  const loadThreadDetails = useCallback(async (threadId: string | null) => {
+    if (!threadId) { setThreadDetails(null); return; }
+    const detailResponse = await fetch(`/api/thread-messages?thread_id=${encodeURIComponent(threadId)}`, { cache: "no-store" });
+    if (detailResponse.ok) setThreadDetails(await detailResponse.json() as ThreadDetails);
+  }, []);
+
+  useEffect(() => { void loadThreadDetails(selectedThread); }, [selectedThread, loadThreadDetails]);
 
   useEffect(() => {
     const initial = window.setTimeout(() => void load(), 0);
-    const timer = window.setInterval(() => void load(), 5000);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, 5000);
     return () => { window.clearTimeout(initial); window.clearInterval(timer); };
   }, [load]);
   useEffect(() => {
@@ -653,11 +659,11 @@ export default function DashboardClient() {
                 <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
                 task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{task.route}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
                   : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>failed</span><FormattedMessage text={task.error} /></article>
-                  : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{task.route === "cloud" ? "cloud runner" : "your machine"}</span><p>Waiting for {task.route === "cloud" ? "the fenced cloud runner" : "your paired machine"} to pick this up…</p></article>
+                  : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{task.route === "cloud" ? "Continuity" : "your machine"}</span><p>Waiting for {task.route === "cloud" ? "Continuity cloud failover" : "your paired machine"} to pick this up…</p></article>
                   : null,
               ])}
             </div>}
-            <div className="task-list" id="task-activity">{visibleTasks.length === 0 ? <div className="empty-state"><Mark /><h3>No tasks yet</h3><p>Pair a machine, then continue a Hermes thread from anywhere.</p></div> : visibleTasks.map((task) => <article key={task.id} id={`task-${task.id}`} className="dashboard-task"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time></div><h3>{task.threadTitle}</h3><p>{task.prompt}</p><div className="task-foot"><span>{task.route === "cloud" ? "☁ Cloud runner" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>{["needs_failover", "offline_blocked"].includes(task.status) && <button onClick={() => void failover(task.id)}>Continue in cloud →</button>}</div>{task.result && <><pre>{task.result}</pre>{feedbackControls(task.id)}</>}{task.error && <div className="task-error">{task.error}</div>}</article>)}</div>
+            <div className="task-list" id="task-activity">{visibleTasks.length === 0 ? <div className="empty-state"><Mark /><h3>No tasks yet</h3><p>Pair a machine, then continue a Hermes thread from anywhere.</p></div> : visibleTasks.map((task) => <article key={task.id} id={`task-${task.id}`} className="dashboard-task"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time></div><h3>{task.threadTitle}</h3><p>{task.prompt}</p><div className="task-foot"><span>{task.route === "cloud" ? "☁ Continuity" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>{["needs_failover", "offline_blocked"].includes(task.status) && <button onClick={() => void failover(task.id)}>Continue in cloud →</button>}</div>{task.result && <><pre>{task.result}</pre>{feedbackControls(task.id)}</>}{task.error && <div className="task-error">{task.error}</div>}</article>)}</div>
             </div>
             <form className="composer" ref={setComposerNode} onSubmit={(event) => void createTask(event)}>
               <textarea

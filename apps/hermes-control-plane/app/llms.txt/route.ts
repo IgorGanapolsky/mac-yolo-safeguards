@@ -28,7 +28,7 @@ const body = `# Leash by ThumbGate
 ## Direct answers
 - What is this? A web dashboard for Hermes remote control, plus Continuity so work can keep running on a VPS when the Mac is offline.
 - Access Hermes from the web: sign in, approve the outbound-only connector on the Mac that runs Hermes, then open the dashboard.
-- Mac offline behavior: free Web Control pauses or asks; eligible trial or paid Cloud Continuity tasks can use a fenced cloud runner.
+- Mac offline behavior: free Web Control pauses or asks; eligible trial or paid Continuity tasks can use fenced cloud failover.
 - Credential boundary: the local gateway credential stays on the paired Mac; ThumbGate receives a separate device identity and requires no inbound port.
 
 ## Relationship to other products

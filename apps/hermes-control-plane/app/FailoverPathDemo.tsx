@@ -23,7 +23,7 @@ const OFFLINE_COPY: Record<OfflinePolicy, { label: string; blurb: string }> = {
   },
   auto: {
     label: "Auto cloud continuity",
-    blurb: "A fenced cloud runner claims the 90s lease and keeps the same thread.",
+    blurb: "Continuity claims the 90s lease and keeps the same thread.",
   },
 };
 
@@ -70,7 +70,7 @@ export function FailoverPathDemo() {
       case "ask":
         return "You are asked before cloud. Approve failover only when you want it.";
       case "cloud":
-        return "Cloud runner took over with a fresh fenced lease. Same chat thread.";
+        return "Continuity took over with a fresh fenced lease. Same chat thread.";
       default:
         return "";
     }
@@ -237,7 +237,7 @@ export function FailoverPathDemo() {
                   {phase === "paused" ? (
                     <div className={`${styles.outcome} ${styles.paused}`}>
                       <strong>offline_blocked</strong>
-                      <p>No cloud runner starts. Work resumes when the Mac comes back online.</p>
+                      <p>No Continuity failover. Work resumes when the Mac comes back online.</p>
                     </div>
                   ) : null}
 
@@ -254,7 +254,7 @@ export function FailoverPathDemo() {
                   {phase === "cloud" ? (
                     <div className={`${styles.outcome} ${styles.cloud}`}>
                       <strong>cloud_pending → completed</strong>
-                      <p>Fenced cloud runner claimed generation N+1. Stale Mac receipts cannot overwrite it.</p>
+                      <p>Continuity claimed generation N+1. Stale Mac receipts cannot overwrite it.</p>
                       <button type="button" className={styles.ghostButton} onClick={reset}>
                         Run the demo again
                       </button>
@@ -292,7 +292,7 @@ export function FailoverPathDemo() {
             <span>04</span>
             <div>
               <strong>Fenced failover</strong>
-              <p>A cloud runner takes the next lease. No double-write, same thread.</p>
+              <p>Continuity takes the next lease. No double-write, same thread.</p>
             </div>
           </li>
         </ol>
