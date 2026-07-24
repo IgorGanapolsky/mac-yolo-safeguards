@@ -140,6 +140,11 @@ function redact(value) {
   return text;
 }
 
+// NOT a password hash: `sha()` produces short, deterministic content
+// fingerprints (goal/session ids, nonces, source/serialized digests) for
+// receipts and dedup — never a credential or secret. SHA256 is already the
+// strong end of the spectrum here (not MD5/SHA1); truncation is for id
+// readability, not security, since these values aren't used as auth secrets.
 function sha(value, length = 16) {
   return crypto.createHash('sha256').update(String(value)).digest('hex').slice(0, length);
 }
