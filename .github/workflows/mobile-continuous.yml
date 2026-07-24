@@ -12,6 +12,9 @@ on:
   merge_group:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: hermes-mobile-continuous
   cancel-in-progress: false
