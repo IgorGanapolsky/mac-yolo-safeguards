@@ -81,6 +81,19 @@ rm -f "$ARGS_OUT" "$ENV_OUT"
 "$WRAPPER" login >/dev/null 2>&1 || true
 grep -qx "login" "$ARGS_OUT" 2>/dev/null && ok "login passthrough" || no "login passthrough ($(cat "$ARGS_OUT" 2>/dev/null))"
 
+# 6b. a flag-led invocation still gets forced into autonomous mode (no silent
+#     drop into pool's default approval-prompt TUI)
+rm -f "$ARGS_OUT"
+"$WRAPPER" -C /tmp >/dev/null 2>&1 || true
+grep -q -- "--mode" "$ARGS_OUT" && grep -q "allow-all" "$ARGS_OUT" && grep -q -- "-C" "$ARGS_OUT" \
+  && ok "flag-led invocation forces --mode allow-all" || no "flag-led invocation forces --mode allow-all ($(tr '\n' ' ' < "$ARGS_OUT" 2>/dev/null))"
+
+# 6c. an explicit --mode is respected (no double --mode)
+rm -f "$ARGS_OUT"
+"$WRAPPER" --mode accept-edits >/dev/null 2>&1 || true
+[ "$(grep -c -- "--mode" "$ARGS_OUT")" -eq 1 ] && grep -q "accept-edits" "$ARGS_OUT" \
+  && ok "respects explicit --mode" || no "respects explicit --mode ($(tr '\n' ' ' < "$ARGS_OUT"))"
+
 # 7. gateway down => exit 69
 export POOLSIDE_YOLO_GATEWAY_URL="http://127.0.0.1:4997/v1"  # nothing listening
 set +e; "$WRAPPER" "hi" >/dev/null 2>&1; code=$?; set -e
