@@ -99,14 +99,17 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(chrome, /Can pick up eligible work on a VPS when offline — still proving this out/);
   assert.equal((chrome.match(/"sign_in_click"/g) ?? []).length, 1);
   assert.equal((chrome.match(/fetch\("\/api\/me"/g) ?? []).length, 1);
-  assert.match(page, /90s<\/strong><span>execution lease/);
+  // Lease copy lives in steps + FailoverPathDemo (not the old stats-strip HTML).
+  assert.match(page, /90s lease/);
   assert.match(page, /application\/ld\+json/);
   assert.match(page, /SoftwareApplication/);
   assert.match(page, /RemoteControlDiagram/);
   const diagram = await readFile(new URL("../app/RemoteControlDiagram.tsx", import.meta.url), "utf8");
   assert.match(diagram, /Your phone/);
   assert.match(diagram, /Encrypted pairing/);
-  assert.match(page, /What people ask before they pair/);
+  // Landing no longer ships a FAQ block; keep mobile + pricing anchors instead.
+  assert.match(page, /id="mobile"/);
+  assert.match(page, /id="pricing"/);
   assert.match(robots, /disallow: \["\/dashboard", "\/admin", "\/api\/"\]/);
   assert.match(robots, /https:\/\/thumbgate\.app\/sitemap\.xml/);
   assert.match(sitemap, /https:\/\/thumbgate\.app\//);
