@@ -29,6 +29,15 @@ function before(text, earlier, later) {
   return earlierIndex !== -1 && laterIndex !== -1 && earlierIndex < laterIndex;
 }
 
+// Exact-match URL presence check (not a raw substring test on the full document text).
+// Extracts every URL token from `text` and requires one to equal `url` exactly, so a
+// document containing a lookalike (e.g. an evil.com URL that merely embeds `url` as a
+// substring) cannot satisfy the check.
+function includesExactUrl(text, url) {
+  const urls = text.match(/https?:\/\/[^\s)\]"'<>]+/g) || [];
+  return urls.includes(url);
+}
+
 function main() {
   const failures = [];
   const readme = read('README.md');
@@ -42,7 +51,7 @@ function main() {
 
   check(readme.includes('**Paid reliability help:**'), 'README has one-line paid reliability CTA', failures);
   check(before(readme, '**Paid reliability help:**', '## Background'), 'README paid CTA appears before Background', failures);
-  check(readme.includes('https://cal.com/igor-g-kvqxfo/30min'), 'README links Cal.com triage', failures);
+  check(includesExactUrl(readme, 'https://cal.com/igor-g-kvqxfo/30min'), 'README links Cal.com triage', failures);
   check(readme.includes('./docs/PARTNER-PILOT.md'), 'README links Partner Pilot', failures);
   check(readme.includes('./docs/SALES-CLOSE-KIT.md'), 'README links Sales Close Kit', failures);
   check(readme.includes('paid-hardening-inquiry.yml'), 'README links paid hardening inquiry', failures);

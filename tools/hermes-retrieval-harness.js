@@ -289,37 +289,29 @@ function readFileRange(options = {}) {
   };
 }
 
-// This tool's whole purpose is letting an operator search the repo with an
-// arbitrary regex, so we deliberately do NOT reject/escape metacharacters.
-// Instead we bound the blast radius of a mistyped or hostile pattern:
-//   1. reject patterns above a sane length before constructing the RegExp,
-//   2. heuristically flag classic catastrophic-backtracking shapes
-//      (nested quantifiers like `(a+)+`, `(a*)*`, or quantified alternation
-//      with overlapping branches like `(a|a)*`) so we fail fast with a clear
-//      error instead of hanging the process,
-//   3. wrap construction *and* use in a try/catch that reports a clean error
-//      instead of crashing on a malformed pattern.
-// The realistic threat here is an operator mis-typing a bad pattern and
-// hanging their own local process — not a remote attacker — so this bound is
-// intentionally pragmatic rather than a full regex-safety analyzer.
+// `--pattern` is command-line-argument-controlled (untrusted per CodeQL
+// js/regex-injection, CWE-400/730). A prior fix (PR #880) tried to keep
+// `--pattern` as a live, unescaped regex and only bound the blast radius
+// (length cap + a catastrophic-backtracking-shape heuristic). CodeQL still
+// flagged it, correctly: those are runtime guards, not a taint-clearing
+// sanitizer, and the heuristic can't catch every ReDoS shape anyway.
+// The actual fix: escape regex metacharacters before the string ever reaches
+// `new RegExp(...)`, so `grep --pattern` is a safe, case-insensitive literal
+// substring search. No metacharacters survive escaping, so no pattern —
+// however long or adversarial — can trigger catastrophic backtracking.
+// (No repo caller currently passes real regex syntax to this command; the
+// documented example in docs/HERMES-RETRIEVAL-HARNESS.md is a literal phrase.)
 const MAX_GREP_PATTERN_LENGTH = 500;
-const CATASTROPHIC_REGEX_SHAPES = [
-  /\([^()]*[+*][^()]*\)[+*]/, // nested quantifiers, e.g. (a+)+ or (a*)*
-  /\([^()]*\|[^()]*\)[+*]\1?/, // quantified alternation, e.g. (a|a)*
-];
+
+function escapeRegExp(rawString) {
+  return String(rawString).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 function assertSafeGrepPattern(rawPattern) {
   if (rawPattern.length > MAX_GREP_PATTERN_LENGTH) {
     throw new Error(
       `Pattern too long (${rawPattern.length} chars, max ${MAX_GREP_PATTERN_LENGTH}) — refusing to construct RegExp.`,
     );
-  }
-  for (const shape of CATASTROPHIC_REGEX_SHAPES) {
-    if (shape.test(rawPattern)) {
-      throw new Error(
-        'Pattern looks like it may cause catastrophic backtracking (nested/overlapping quantifiers) — refusing to run it as-is.',
-      );
-    }
   }
 }
 
@@ -329,7 +321,7 @@ function grep(options = {}) {
   assertSafeGrepPattern(options.pattern);
   let pattern;
   try {
-    pattern = new RegExp(options.pattern, 'i');
+    pattern = new RegExp(escapeRegExp(options.pattern), 'i');
   } catch (error) {
     throw new Error(`Invalid --pattern: ${error.message}`);
   }
@@ -399,6 +391,7 @@ function main(argv = process.argv.slice(2)) {
 module.exports = {
   TEXT_EXTENSIONS,
   buildInventory,
+  escapeRegExp,
   grep,
   main,
   parseArgs,

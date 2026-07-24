@@ -38,6 +38,16 @@ function gatewayUrlHost(gatewayUrl) {
   }
 }
 
+function gatewayUrlPort(gatewayUrl) {
+  try {
+    const parsed = new URL(gatewayUrl.trim());
+    if (parsed.port) return Number(parsed.port);
+    return parsed.protocol === 'https:' ? 443 : 80;
+  } catch {
+    return 0;
+  }
+}
+
 function isMacMiniGatewayUrl(gatewayUrl) {
   const host = gatewayUrlHost(gatewayUrl);
   return host === MAC_MINI_TAILSCALE_IP || /mac-mini|igors-mac-mini/.test(host);
@@ -100,6 +110,87 @@ function setupUsbAdbReverses(serial, options = {}) {
     }
   }
   return { ok: failures.length === 0, failures, ports };
+}
+
+function removeUsbAdbReverse(serial, port, options = {}) {
+  const adbBin = options.adbCommand ?? 'adb';
+  const result = spawnSync(adbBin, ['-s', serial, 'reverse', '--remove', `tcp:${port}`], {
+    encoding: 'utf8',
+    timeout: 10_000,
+  });
+  return result.status === 0;
+}
+
+/**
+ * Decide which USB adb-reverse ports this pair run should (re)establish.
+ *
+ * Port 8642 is the DEFAULT loopback gateway — THIS Mac. `install-phone-release.sh`'s
+ * auto-pair used to call `setupUsbAdbReverses` unconditionally, which silently re-adds
+ * `tcp:8642` even when the operator already pointed the phone at a different gateway on
+ * purpose (an SSH tunnel like `127.0.0.1:18642` fronting a Mac mini, or an explicit
+ * `--force-mini-usb-primary` run). That live loopback :8642 reverse then gets picked up as
+ * "this Mac is USB-primary" and steals the phone away from the intended target — the
+ * 2026-07-24 multi-agent hijack incident (Stabilize mini + chat probe, 075266a1). Port 8765
+ * (pair.json sweep) is always kept regardless of gateway target.
+ */
+function resolveUsbReversePorts(options = {}) {
+  const { explicitGatewayUrl, forceMiniUsbPrimary } = options;
+  const explicitNonDefaultLoopback =
+    !!explicitGatewayUrl &&
+    isLoopbackGatewayUrl(explicitGatewayUrl) &&
+    gatewayUrlPort(explicitGatewayUrl) !== 8642;
+  if (forceMiniUsbPrimary || explicitNonDefaultLoopback) {
+    return USB_ADB_REVERSE_PORTS.filter((port) => port !== 8642);
+  }
+  return USB_ADB_REVERSE_PORTS;
+}
+
+/**
+ * Durable, cross-reboot record of the last USB reverse-port decision made by a real
+ * pairing run (`hermes-mobile-pair.js`'s `runPairMain`). The always-on
+ * `hermes-usb-reverse-watchdog` LaunchAgent has no concept of pairing intent on its
+ * own — it only sees live adb state every 15s — so without this file it will
+ * silently restore a laptop-primary `tcp:8642` reverse within one poll cycle of any
+ * deliberate mini-primary/SSH-tunnel session (2026-07-24 follow-up to the
+ * #967 8642-autopair-hijack fix; T-USB-WATCHDOG-MINI-PRIMARY-20260724).
+ *
+ * Stored under `~/.hermes` (not `/tmp`) specifically so it survives reboots without
+ * requiring an interactive env var on every watchdog tick.
+ */
+const USB_REVERSE_INTENT_STATE_PATH =
+  process.env.HERMES_USB_REVERSE_INTENT_STATE || path.join(os.homedir(), '.hermes', 'usb-reverse-primary-intent.json');
+
+/**
+ * @param {{ skip8642: boolean, gatewayUrl?: string, forceMiniUsbPrimary?: boolean, reason?: string }} intent
+ */
+function writeUsbReversePrimaryIntent(intent, statePath = USB_REVERSE_INTENT_STATE_PATH) {
+  try {
+    const payload = { ...intent, updatedAt: new Date().toISOString() };
+    fs.mkdirSync(path.dirname(statePath), { recursive: true });
+    const tmp = `${statePath}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(tmp, `${JSON.stringify(payload, null, 2)}\n`);
+    fs.renameSync(tmp, statePath);
+    return true;
+  } catch (err) {
+    // Best-effort: a write failure here must never fail the pairing run itself.
+    console.error(
+      `hermes-mobile-pair-lib: usb-reverse-primary-intent write failed: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+    return false;
+  }
+}
+
+/** @returns {{ skip8642: boolean, gatewayUrl?: string, forceMiniUsbPrimary?: boolean, reason?: string, updatedAt?: string } | null} */
+function readUsbReversePrimaryIntent(statePath = USB_REVERSE_INTENT_STATE_PATH) {
+  try {
+    const raw = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+    if (!raw || typeof raw !== 'object') return null;
+    return { skip8642: raw.skip8642 === true, ...raw };
+  } catch {
+    return null;
+  }
 }
 
 function assertUsbAdbReverses(serial, options = {}) {
@@ -741,6 +832,7 @@ module.exports = {
   readEnvKey,
   readLocalApiKey,
   gatewayUrlHost,
+  gatewayUrlPort,
   isMacMiniGatewayUrl,
   isLoopbackGatewayUrl,
   classifyGatewayHost,
@@ -749,6 +841,11 @@ module.exports = {
   adbReverseList,
   adbReverseHasPort,
   setupUsbAdbReverses,
+  removeUsbAdbReverse,
+  resolveUsbReversePorts,
+  USB_REVERSE_INTENT_STATE_PATH,
+  writeUsbReversePrimaryIntent,
+  readUsbReversePrimaryIntent,
   assertUsbAdbReverses,
   fetchRemoteMiniApiKey,
   classifyMiniApiKeyResolution,

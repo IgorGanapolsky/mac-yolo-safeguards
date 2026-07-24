@@ -179,12 +179,23 @@ export default function ConnectMacGate() {
     setInvalidQrHint(null);
     setIsSearching(true);
     try {
-      await scanForGatewayProfiles();
+      // "Find computers" must search everywhere Hermes can reach a Mac, not just
+      // the phone's own Wi-Fi subnet. scanForGatewayProfiles is a LAN-only sweep
+      // (fast when actually on the same network as the Mac); its own background
+      // Tailscale follow-up is debounced/best-effort and silently no-ops when a
+      // probe already ran recently, so a tap here can otherwise report "None
+      // found yet" while away from home even though Tailscale can see the Mac.
+      // Run both concurrently and force the Tailscale probe so a tap always
+      // performs a fresh, non-debounced Tailscale-wide search.
+      await Promise.all([
+        scanForGatewayProfiles(),
+        probeTailscaleComputers({ showUi: true, force: true }),
+      ]);
       await retryGatewayBootstrap();
     } finally {
       setIsSearching(false);
     }
-  }, [retryGatewayBootstrap, scanForGatewayProfiles]);
+  }, [probeTailscaleComputers, retryGatewayBootstrap, scanForGatewayProfiles]);
 
   useEffect(() => {
     if (!showGate) {

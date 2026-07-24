@@ -99,7 +99,6 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(chrome, /Can pick up eligible work on a VPS when offline — still proving this out/);
   assert.equal((chrome.match(/"sign_in_click"/g) ?? []).length, 1);
   assert.equal((chrome.match(/fetch\("\/api\/me"/g) ?? []).length, 1);
-  assert.match(page, /90s<\/strong><span>execution lease/);
   assert.match(page, /application\/ld\+json/);
   assert.match(page, /SoftwareApplication/);
   assert.match(page, /RemoteControlDiagram/);

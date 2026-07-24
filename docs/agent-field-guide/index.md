@@ -10,6 +10,11 @@ Prune stale lines when over budget. Weights are frozen — only written surprise
 3. Never edit another agent's §2 claim; `blocked` + STOP.
 4. Run `node tools/agent-swarm-harness.js` at session start (also via `agent-session-start`).
 
+## SDD loop (specs govern agents)
+
+discover → blueprint → modular-specs → execute → **gap-analysis** → verify.  
+Gap mid-build: update AC/claim/§3 **first**, then code. `node tools/agent-swarm-harness.js sdd`.
+
 ## Planner vs worker
 
 - **Planner:** decompose, write AcceptanceCheck, claim files, record design in §3. No leaf implementation in the same context.

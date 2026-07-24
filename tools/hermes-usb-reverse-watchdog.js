@@ -29,7 +29,14 @@ const { execFileSync, spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { USB_ADB_REVERSE_PORTS, assertUsbAdbReverses, setupUsbAdbReverses } = require('./hermes-mobile-pair-lib');
+const {
+  USB_ADB_REVERSE_PORTS,
+  assertUsbAdbReverses,
+  setupUsbAdbReverses,
+  adbReverseHasPort,
+  removeUsbAdbReverse,
+  readUsbReversePrimaryIntent,
+} = require('./hermes-mobile-pair-lib');
 const { pipelineBusyReason } = require('./agent-phone-pipeline-lock');
 
 const NTFY = process.env.HERMES_NTFY_URL || 'https://ntfy.sh/yolo-guard-fdh8ktuw1vtxb5sb';
@@ -107,12 +114,43 @@ function isPhysicalSerial(serial) {
 }
 
 /**
- * @returns {{ serial: string, missing: number[], reapplied: number[], failed: number[] }}
+ * A mini-primary/non-default-loopback session (`--force-mini-usb-primary` or an
+ * explicit SSH-tunnel `--gateway-url`) records its intent via
+ * `writeUsbReversePrimaryIntent` (see `hermes-mobile-pair.js`). Without honoring it
+ * here, this always-on 15s watchdog would silently restore `tcp:8642` and hijack the
+ * phone back to this Mac within one poll cycle — the exact regression #967 fixed on
+ * the pairing/install path but could not fix on this independent LaunchAgent
+ * (T-USB-WATCHDOG-MINI-PRIMARY-20260724, follow-up to 8642-autopair-hijack-fix).
+ *
+ * @returns {{ skip8642: boolean, source: object|null }}
+ */
+function currentReverseIntent(options = {}) {
+  if (options.intent !== undefined) {
+    return { skip8642: !!(options.intent && options.intent.skip8642), source: options.intent };
+  }
+  const intent = readUsbReversePrimaryIntent(options.intentStatePath);
+  return { skip8642: !!(intent && intent.skip8642), source: intent };
+}
+
+/**
+ * @returns {{ serial: string, missing: number[], reapplied: number[], failed: number[], skip8642: boolean, removed8642: boolean }}
  */
 function healSerial(serial, options = {}) {
-  const before = assertUsbAdbReverses(serial, options);
+  const basePorts = options.ports ?? USB_ADB_REVERSE_PORTS;
+  const { skip8642 } = currentReverseIntent(options);
+  const ports = skip8642 ? basePorts.filter((port) => port !== 8642) : basePorts;
+
+  // Mini-primary intent is active: actively remove a stale tcp:8642 the moment it
+  // reappears (e.g. re-added by a different pairing invocation) instead of only
+  // reacting to a "missing" required port, since 8642 is no longer required here.
+  let removed8642 = false;
+  if (skip8642 && basePorts.includes(8642) && adbReverseHasPort(serial, 8642, options)) {
+    removed8642 = removeUsbAdbReverse(serial, 8642, options);
+  }
+
+  const before = assertUsbAdbReverses(serial, { ...options, requiredPorts: ports });
   if (before.ok) {
-    return { serial, missing: [], reapplied: [], failed: [] };
+    return { serial, missing: [], reapplied: [], failed: [], skip8642, removed8642 };
   }
   const setup = setupUsbAdbReverses(serial, { ...options, ports: before.missing });
   const after = assertUsbAdbReverses(serial, { ...options, requiredPorts: before.missing });
@@ -122,6 +160,8 @@ function healSerial(serial, options = {}) {
     reapplied: before.missing.filter((port) => !after.missing.includes(port)),
     failed: after.missing,
     setupFailures: setup.failures,
+    skip8642,
+    removed8642,
   };
 }
 
@@ -297,8 +337,15 @@ function main() {
     console.log('hermes-usb-reverse-watchdog: no authorized USB devices attached');
   } else {
     for (const r of summary.results) {
+      if (r.skip8642) {
+        console.log(
+          `hermes-usb-reverse-watchdog: ${r.serial} — mini-primary intent active, tcp:8642 excluded from healing${
+            r.removed8642 ? ' (removed stale tcp:8642)' : ''
+          }`,
+        );
+      }
       if (r.missing.length === 0) {
-        console.log(`hermes-usb-reverse-watchdog: ${r.serial} — ports ${USB_ADB_REVERSE_PORTS.join(', ')} already live`);
+        console.log(`hermes-usb-reverse-watchdog: ${r.serial} — ports ${(r.skip8642 ? USB_ADB_REVERSE_PORTS.filter((p) => p !== 8642) : USB_ADB_REVERSE_PORTS).join(', ')} already live`);
       } else if (r.reapplied.length > 0) {
         console.log(
           `hermes-usb-reverse-watchdog: ${r.serial} — re-applied adb reverse for port(s) ${r.reapplied.join(', ')} (were missing: ${r.missing.join(', ')})`,
@@ -329,6 +376,7 @@ if (require.main === module) {
 module.exports = {
   listAuthorizedSerials,
   isPhysicalSerial,
+  currentReverseIntent,
   healSerial,
   runOnce,
   notifyUsbFailure,

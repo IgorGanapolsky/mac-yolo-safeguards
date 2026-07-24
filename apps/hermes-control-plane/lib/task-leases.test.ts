@@ -7,13 +7,17 @@ const mocks = vi.hoisted(() => ({
     firsts: [] as Array<Record<string, unknown> | null>,
     changes: 1,
     runs: [] as Array<{ sql: string; args: unknown[] }>,
+    selects: [] as Array<{ sql: string; args: unknown[] }>,
   },
 }));
 
 function statement(sql: string, args: unknown[] = []) {
   return {
     bind(...nextArgs: unknown[]) { return statement(sql, nextArgs); },
-    async first() { return mocks.state.firsts.length ? mocks.state.firsts.shift() : mocks.state.existing; },
+    async first() {
+      mocks.state.selects.push({ sql, args });
+      return mocks.state.firsts.length ? mocks.state.firsts.shift() : mocks.state.existing;
+    },
     async all() { return { results: [] }; },
     async run() {
       mocks.state.runs.push({ sql, args });
@@ -44,6 +48,7 @@ beforeEach(() => {
   mocks.state.firsts = [];
   mocks.state.changes = 1;
   mocks.state.runs = [];
+  mocks.state.selects = [];
   mocks.audit.mockClear();
   vi.restoreAllMocks();
 });
@@ -121,6 +126,46 @@ describe("fenced task leases", () => {
     }));
   });
 
+  it("lets cloud reclaim a task the Mac abandoned mid-execution, not just one never claimed locally", async () => {
+    // Regression: previously the cloud claim query only matched status='local_pending'.
+    // A task the Mac claimed and then went offline mid-run (status='running', expired
+    // lease, lease_owner still set) could never be picked up by anyone but that same Mac
+    // reconnecting — reclassifyStaleLocalTasks() above only sweeps lease_owner IS NULL rows,
+    // so it can't reach this case either.
+    vi.spyOn(Date, "now").mockReturnValue(100_000);
+    mocks.state.firsts = [{
+      id: "task-abandoned",
+      organizationId: "org-1",
+      threadId: "thread-1",
+      threadTitle: "Thread",
+      prompt: "continue",
+      currentRoute: "local",
+      leaseGeneration: 1,
+      sourceSessionId: "session-1",
+      contextSnapshot: null,
+      syncedAt: null,
+      createdAt: 10_000,
+      plan: "pro",
+      trialEndsAt: null,
+      cloudTasks: 0,
+    }];
+
+    const claimed = await claimTask({ route: "cloud", owner: "cloud:runner-1" });
+    expect(claimed?.task).toMatchObject({ id: "task-abandoned", leaseGeneration: 2 });
+
+    const select = mocks.state.selects.find((s) => s.sql.includes("k.status = 'running' AND d.failover_mode = 'auto'"));
+    expect(select).toBeDefined();
+    // cloudTasks 30-day window, then two staleness thresholds (local_pending clause,
+    // running-recovery clause), then the trailing lease_expires_at check — all four
+    // must bind positionally in the exact order their `?` placeholders appear in the SQL.
+    expect(select!.args).toEqual([
+      100_000 - 30 * 24 * 60 * 60 * 1000,
+      100_000 - 60_000,
+      100_000 - 60_000,
+      100_000,
+    ]);
+  });
+
   it("renews only the current unexpired owner and records content-free metadata", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_000);
     mocks.state.existing = { organizationId: "org-1", route: "local", leaseGeneration: 7 };
@@ -176,7 +221,16 @@ describe("fenced task leases", () => {
     expect(update.args.at(-1)).toBe(4_000);
     expect(mocks.audit).toHaveBeenCalledWith(expect.objectContaining({
       action: "task.completed",
-      metadata: { route: "cloud", generation: 3, durationMs: 2_500 },
+      metadata: expect.objectContaining({
+        route: "cloud",
+        generation: 3,
+        durationMs: 2_500,
+        receipt: expect.objectContaining({
+          outcome: "claimed_done",
+          verb: "task.complete.cloud",
+          note: "self_reported_only",
+        }),
+      }),
     }));
     expect(JSON.stringify(mocks.audit.mock.calls)).not.toContain("private result");
   });

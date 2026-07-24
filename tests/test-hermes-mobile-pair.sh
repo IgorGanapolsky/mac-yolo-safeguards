@@ -241,13 +241,100 @@ else
   bad "pair-lib exports USB adb reverse helpers (8642 + 8765)"
 fi
 
-if [[ "$PAIR_JS" == *"setupUsbAdbReverses(serial)"* ]] \
-  && [[ "$PAIR_JS" == *"assertUsbAdbReverses(serial)"* ]] \
+if [[ "$PAIR_JS" == *"setupUsbAdbReverses(serial, { ports: usbReversePorts })"* ]] \
+  && [[ "$PAIR_JS" == *"assertUsbAdbReverses(serial, { requiredPorts: usbReversePorts })"* ]] \
   && [[ "$PAIR_JS" == *"tcp:8765 missing"* ]] \
   && [[ "$PAIR_JS" == *"pair.json sweep"* ]]; then
   ok "USB pair always reverses tcp:8765 (--no-serve still needs pair.json tunnel)"
 else
   bad "USB pair always reverses tcp:8765 (--no-serve still needs pair.json tunnel)"
+fi
+
+# --- 2026-07-24: install-phone-release.sh auto-pair must not clobber a mini-primary/
+#     explicit-gateway session by blindly re-adding tcp:8642 to THIS Mac's loopback ------
+
+if [[ "$PAIR_LIB" == *"function resolveUsbReversePorts"* ]] \
+  && [[ "$PAIR_LIB" == *"function removeUsbAdbReverse"* ]]; then
+  ok "pair-lib exports resolveUsbReversePorts + removeUsbAdbReverse (8642 hijack guard)"
+else
+  bad "pair-lib exports resolveUsbReversePorts + removeUsbAdbReverse (8642 hijack guard)"
+fi
+
+if run_node "
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  const defaultPorts = lib.resolveUsbReversePorts({});
+  if (JSON.stringify(defaultPorts) !== JSON.stringify([8642, 8765])) process.exit(1);
+  const forced = lib.resolveUsbReversePorts({ forceMiniUsbPrimary: true });
+  if (forced.includes(8642) || !forced.includes(8765)) process.exit(2);
+  const tunneled = lib.resolveUsbReversePorts({ explicitGatewayUrl: 'http://127.0.0.1:18642' });
+  if (tunneled.includes(8642) || !tunneled.includes(8765)) process.exit(3);
+  const explicitDefault = lib.resolveUsbReversePorts({ explicitGatewayUrl: 'http://127.0.0.1:8642' });
+  if (!explicitDefault.includes(8642)) process.exit(4);
+  const remote = lib.resolveUsbReversePorts({ explicitGatewayUrl: 'http://100.94.135.78:8642' });
+  if (!remote.includes(8642)) process.exit(5);
+"; then
+  ok "resolveUsbReversePorts drops tcp:8642 only for mini-primary/non-default loopback gateways"
+else
+  bad "resolveUsbReversePorts drops tcp:8642 only for mini-primary/non-default loopback gateways"
+fi
+
+if [[ "$PAIR_JS" == *"usbReverseSkipped8642"* ]] \
+  && [[ "$PAIR_JS" == *"removeUsbAdbReverse(serial, 8642)"* ]] \
+  && [[ "$PAIR_JS" == *"not clobbering with laptop loopback"* ]]; then
+  ok "pair script removes a stale tcp:8642 reverse when skipping it for mini-primary"
+else
+  bad "pair script removes a stale tcp:8642 reverse when skipping it for mini-primary"
+fi
+
+# --- 2026-07-24 follow-up: the pairing decision above must be persisted somewhere
+#     durable so the independent, always-on hermes-usb-reverse-watchdog LaunchAgent
+#     (which cannot see --force-mini-usb-primary/--gateway-url) does not undo it
+#     within one 15s poll cycle (T-USB-WATCHDOG-MINI-PRIMARY-20260724) -------------
+
+if [[ "$PAIR_LIB" == *"function writeUsbReversePrimaryIntent"* ]] \
+  && [[ "$PAIR_LIB" == *"function readUsbReversePrimaryIntent"* ]] \
+  && [[ "$PAIR_LIB" == *"USB_REVERSE_INTENT_STATE_PATH"* ]]; then
+  ok "pair-lib exports a durable usb-reverse-primary-intent read/write pair"
+else
+  bad "pair-lib exports a durable usb-reverse-primary-intent read/write pair"
+fi
+
+if [[ "$PAIR_JS" == *"writeUsbReversePrimaryIntent({"* ]] \
+  && [[ "$PAIR_JS" == *"skip8642: usbReverseSkipped8642"* ]]; then
+  ok "pair script persists the usbReverseSkipped8642 decision on every USB pairing run"
+else
+  bad "pair script persists the usbReverseSkipped8642 decision on every USB pairing run"
+fi
+
+if run_node "
+  const os = require('os');
+  const path = require('path');
+  const fs = require('fs');
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'usb-intent-test-'));
+  const statePath = path.join(tmp, 'intent.json');
+  lib.writeUsbReversePrimaryIntent({ skip8642: true, gatewayUrl: 'http://127.0.0.1:18642', forceMiniUsbPrimary: true }, statePath);
+  const readBack = lib.readUsbReversePrimaryIntent(statePath);
+  if (!readBack || readBack.skip8642 !== true) process.exit(1);
+  if (readBack.gatewayUrl !== 'http://127.0.0.1:18642') process.exit(2);
+  if (!readBack.updatedAt) process.exit(3);
+  const missing = lib.readUsbReversePrimaryIntent(path.join(tmp, 'no-such-file.json'));
+  if (missing !== null) process.exit(4);
+  fs.rmSync(tmp, { recursive: true, force: true });
+"; then
+  ok "usb-reverse-primary-intent round-trips through a durable JSON state file and defaults to null when absent"
+else
+  bad "usb-reverse-primary-intent round-trips through a durable JSON state file and defaults to null when absent"
+fi
+
+INSTALL_SH="$(cat "$REPO/hermes-mobile/scripts/install-phone-release.sh")"
+if [[ "$INSTALL_SH" == *"HERMES_PAIR_GATEWAY_URL"* ]] \
+  && [[ "$INSTALL_SH" == *"HERMES_FORCE_MINI_USB_PRIMARY"* ]] \
+  && [[ "$INSTALL_SH" == *'PAIR_ARGS+=(--gateway-url="${HERMES_PAIR_GATEWAY_URL}")'* ]] \
+  && [[ "$INSTALL_SH" == *'PAIR_ARGS+=(--force-mini-usb-primary)'* ]]; then
+  ok "install-phone-release.sh auto-pair propagates mini-primary/explicit gateway intent"
+else
+  bad "install-phone-release.sh auto-pair propagates mini-primary/explicit gateway intent"
 fi
 
 if run_node "

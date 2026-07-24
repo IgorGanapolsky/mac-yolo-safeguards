@@ -229,7 +229,11 @@ async function killAgent(pid) {
   const target = live.find((r) => r.pid === n);
   if (!target) return { ok: false, error: 'pid is not a currently-running agent (refused)' };
   try { process.kill(n, 'SIGTERM'); return { ok: true, pid: n, sent: 'SIGTERM', command: target.command }; }
-  catch (e) { return { ok: false, error: String(e && e.message || e) }; }
+  catch (e) {
+    // Full stack stays server-side only; the HTTP client gets a safe, generic message.
+    console.error('[hermes-dashboard] killAgent failed:', e && e.stack || e);
+    return { ok: false, error: 'failed to signal process' };
+  }
 }
 
 function gatewayStatus() {
@@ -295,7 +299,9 @@ const server = http.createServer(async (req, res) => {
     }
     return send(404, 'text/plain', 'not found');
   } catch (e) {
-    return send(500, 'application/json', JSON.stringify({ error: String(e && e.message || e) }));
+    // Full stack stays server-side only; the HTTP client gets a safe, generic message.
+    console.error('[hermes-dashboard] request failed:', e && e.stack || e);
+    return send(500, 'application/json', JSON.stringify({ error: 'internal error' }));
   }
 });
 

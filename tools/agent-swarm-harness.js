@@ -11,11 +11,13 @@
  *   - Field Guide injection (stigmergy / shared successor context)
  *   - model economics defaults (frontier plans; cheap/local executes leaves)
  *   - stacked verification lenses + decision-id gate for hot files
+ *   - Specification-Driven Design loop (modular specs → gap analysis → verify)
  *
  * Usage:
  *   node tools/agent-swarm-harness.js [--json] [--plan path] [--role planner|worker]
  *   node tools/agent-swarm-harness.js check-hot-files --stdin [--body-file path]
  *   node tools/agent-swarm-harness.js field-guide
+ *   node tools/agent-swarm-harness.js sdd
  */
 
 const fs = require('fs');
@@ -54,6 +56,7 @@ const ROLE_GUIDANCE = Object.freeze({
     'Record non-obvious decisions in plan.md §3 (Decisions Log) with a durable D- id when useful.',
     'Prefer frontier models for planning; do not implement worker leaves in the same context.',
     'Cap concurrent active owners at 2–3 on this mobile codebase.',
+    'When a gap appears mid-build: update the modular claim/AC (spec) first, then the code.',
   ],
   worker: [
     'Implement only claimed free leaves; stop if a file is owned by another agent.',
@@ -61,8 +64,63 @@ const ROLE_GUIDANCE = Object.freeze({
     'Prefer cheap/local models (tinker-yolo / Composer-class) once AC is explicit.',
     'Never self-merge megafile conflicts; use a neutral rebase onto main + sequential merge.',
     'Ship only after stacked verification (unit + typecheck + E2E or honest skip + Greptile if sensitive).',
+    'If requirements are missing, stop and escalate gap analysis — do not vibe-code past the AC.',
   ],
 });
+
+/**
+ * Specification-Driven Design loop (production mapping of SDD / AI Storming).
+ * Specs live as durable repo artifacts, not chat history.
+ * Source framing: ozkary.com SDD / AI Storming (2026-07) + this repo's plan.md protocol.
+ */
+function specificationDrivenDesign() {
+  return {
+    principle:
+      'Treat agents as peer programmers governed by modular specs + guardrails, not vibe-coding chat.',
+    source: {
+      label: 'Specification-Driven Design / AI Storming (Ozkary, 2026-07)',
+      url: 'https://www.ozkary.com/2026/07/beyond-the-prompt-building-enterprise-solutions-with-ai-specification-driven-design.html',
+    },
+    steps: [
+      {
+        id: 'discover',
+        name: 'Discovery & system decomposition',
+        ourArtifact: 'plan.md leaf tasks + modular file claims (not big-bang prompts)',
+      },
+      {
+        id: 'blueprint',
+        name: 'Governance & guardrails blueprint',
+        ourArtifact: 'AGENTS.md Never-list, megafile serialization, ROLE_GUIDANCE',
+      },
+      {
+        id: 'modular-specs',
+        name: 'Modular markdown specifications',
+        ourArtifact: 'AcceptanceCheck per leaf + docs/agent-field-guide + plan.md §3 decisions',
+      },
+      {
+        id: 'execute',
+        name: 'Bounded execution (peer programmer)',
+        ourArtifact: 'One claimed free leaf per worker; worktree isolation',
+      },
+      {
+        id: 'gap-analysis',
+        name: 'Continuous gap analysis',
+        ourArtifact: 'Update AC/claim/§3 first when a missing requirement surfaces; then re-implement',
+      },
+      {
+        id: 'traceability',
+        name: 'Traceability & verification',
+        ourArtifact: 'Stacked lenses (unit/typecheck/E2E/Greptile) + thrash metrics (not commit rate)',
+      },
+    ],
+    antiPatterns: [
+      'Planless terminal thrash (monolithic files, bypassed architecture)',
+      'Chat-window-only context (no permanent specs)',
+      'Unit-green = shipped',
+      'Commit rate as productivity',
+    ],
+  };
+}
 
 function parseArgs(argv) {
   const args = {
@@ -76,7 +134,12 @@ function parseArgs(argv) {
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
-    if (arg === 'check-hot-files' || arg === 'field-guide' || arg === 'brief') {
+    if (
+      arg === 'check-hot-files' ||
+      arg === 'field-guide' ||
+      arg === 'brief' ||
+      arg === 'sdd'
+    ) {
       args.command = arg;
     } else if (arg === '--json') {
       args.json = true;
@@ -293,6 +356,7 @@ function buildHarnessReport({ planPath = DEFAULT_PLAN, role = null } = {}) {
     megafiles: MEGAFILES,
     modelEconomics: modelEconomics(),
     verificationStack: verificationStack(),
+    sdd: specificationDrivenDesign(),
     fieldGuide: {
       ok: fieldGuide.ok,
       path: fieldGuide.path,
@@ -305,6 +369,7 @@ function buildHarnessReport({ planPath = DEFAULT_PLAN, role = null } = {}) {
       'AGENTS.md (planner/worker + multi-agent Never list)',
       'docs/agent-field-guide/index.md',
       'docs/AGENT-SWARM-HARNESS.md',
+      'docs/SDD-SPECIFICATION-DRIVEN-DESIGN.md',
       'plan.md',
     ],
   };
@@ -349,6 +414,12 @@ function formatHuman(report) {
     }
   }
   lines.push('Model economics: frontier plans; cheap/local executes explicit leaves.');
+  if (report.sdd) {
+    lines.push(`SDD: ${report.sdd.principle}`);
+    lines.push(
+      `  loop: ${report.sdd.steps.map((s) => s.id).join(' → ')} (gap → update AC/claim first)`,
+    );
+  }
   lines.push('Role guidance:');
   for (const tip of report.roleGuidance) {
     lines.push(`  - ${tip}`);
@@ -408,7 +479,37 @@ function main() {
     console.log(`Usage:
   node tools/agent-swarm-harness.js [--json] [--plan path] [--role planner|worker]
   node tools/agent-swarm-harness.js check-hot-files --stdin [--body-file path]
-  node tools/agent-swarm-harness.js field-guide`);
+  node tools/agent-swarm-harness.js field-guide
+  node tools/agent-swarm-harness.js sdd [--json]`);
+    process.exit(0);
+  }
+
+  if (args.command === 'sdd') {
+    const sdd = specificationDrivenDesign();
+    if (args.json) {
+      console.log(JSON.stringify(sdd, null, 2));
+    } else {
+      const lines = [
+        '=== Specification-Driven Design (swarm harness) ===',
+        sdd.principle,
+        `Source: ${sdd.source.label}`,
+        `  ${sdd.source.url}`,
+        '',
+        'Loop (update specs before code when gaps appear):',
+      ];
+      for (const step of sdd.steps) {
+        lines.push(`  ${step.id.padEnd(14)} ${step.name}`);
+        lines.push(`                 → ${step.ourArtifact}`);
+      }
+      lines.push('');
+      lines.push('Anti-patterns:');
+      for (const ap of sdd.antiPatterns) {
+        lines.push(`  - ${ap}`);
+      }
+      lines.push('');
+      lines.push('See docs/SDD-SPECIFICATION-DRIVEN-DESIGN.md');
+      console.log(lines.join('\n'));
+    }
     process.exit(0);
   }
 
@@ -470,6 +571,7 @@ module.exports = {
   checkHotFiles,
   extractDecisionRefs,
   modelEconomics,
+  specificationDrivenDesign,
   parseArgs,
 };
 
