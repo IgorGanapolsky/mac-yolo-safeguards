@@ -46,7 +46,7 @@ export default function TailscaleDiscoveryBanner({
       <GlassCard style={cardStyle} testID="tailscale-discovery-probing">
         <Text style={styles.title}>On Tailscale — searching for your computer</Text>
         <Text style={styles.body}>
-          Looking for Hermes on your tailnet. Works on cellular or any Wi‑Fi when Tailscale is on
+          Looking for ThumbGate on your tailnet. Works on cellular or any Wi‑Fi when Tailscale is on
           both devices.
         </Text>
       </GlassCard>

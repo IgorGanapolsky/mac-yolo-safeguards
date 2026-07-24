@@ -13,13 +13,13 @@ export const DEFERRED_REPLY_POLL_MAX_WITH_TOOLS_MS = 180_000;
 export const EMPTY_STREAM_SELF_HEAL_AFTER_MS = 30_000;
 
 export const EMPTY_REPLY_FAILURE_REASON =
-  'Still no reply text — your Mac may be stuck in tools. Hermes keeps checking automatically; Stop if a run is active, or start a fresh chat.';
+  'Still no reply text — your Mac may be stuck in tools. ThumbGate keeps checking automatically; Stop if a run is active, or start a fresh chat.';
 
 /** User-facing status while auto-polling after send with no reply yet. */
 export function emptyStreamCheckingStatus(elapsedMs: number): string {
   const elapsedSec = Math.max(1, Math.floor(elapsedMs / 1000));
   if (elapsedMs < EMPTY_STREAM_SELF_HEAL_AFTER_MS) {
-    return 'Working on your computer… Hermes may be using tools. The reply will show here when ready.';
+    return 'Working on your computer… ThumbGate may be using tools. The reply will show here when ready.';
   }
   return `Checking your Mac… (${elapsedSec}s)`;
 }

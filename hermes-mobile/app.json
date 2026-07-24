@@ -6,7 +6,7 @@
     "experiments": {
       "reactCompiler": true
     },
-    "version": "1.2",
+    "version": "1.5",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -17,6 +17,7 @@
     },
     "ios": {
       "supportsTablet": true,
+      "isTabletAware": true,
       "bundleIdentifier": "com.iganapolsky.hermesmobile",
       "userInterfaceStyle": "dark",
       "infoPlist": {

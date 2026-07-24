@@ -43,7 +43,7 @@ describe('runNotificationCopy', () => {
         detail: 'Reply ready on your computer',
         replySnippet: 'Here is what I found.',
       }),
-    ).toBe('Hermes replied');
+    ).toBe('ThumbGate replied');
   });
 
   it('completed body uses reply snippet when provided', () => {

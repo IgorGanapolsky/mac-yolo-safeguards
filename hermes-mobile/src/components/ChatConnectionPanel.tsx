@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import type { ConnectionMode } from '../types/gateway';
@@ -141,6 +142,7 @@ export default function ChatConnectionPanel({
   testID = 'chat-connection-panel',
 }: ChatConnectionPanelProps) {
   const [showOtherWays, setShowOtherWays] = useState(false);
+  const insets = useSafeAreaInsets();
   const heal = connectionHealSnapshot(connectionHealAttempt, connectionHealInFlight);
   const onlyLoopbackProfiles = hasOnlyLoopbackProfiles(profiles);
   const showUsbFix = Boolean(
@@ -210,7 +212,7 @@ export default function ChatConnectionPanel({
   });
 
   return (
-    <View style={styles.wrap} testID={testID}>
+    <View style={[styles.wrap, { paddingBottom: 18 + insets.bottom }]} testID={testID}>
       <View style={styles.hero}>
         <View style={[styles.heroOrb, searching ? styles.heroOrbSearching : null]}>
           <View style={[styles.heroOrbInner, searching ? styles.heroOrbInnerSearching : null]} />
@@ -234,7 +236,7 @@ export default function ChatConnectionPanel({
 
       {!searching ? (
         <>
-          <View style={styles.actionRow}>
+          <View style={[styles.actionRow, { paddingBottom: insets.bottom }]}>
             {showUsbFix ? (
               <LoadingButton
                 label={primaryActionLabel}
@@ -334,7 +336,7 @@ export default function ChatConnectionPanel({
             onPress={() => Linking.openURL(HERMES_MAC_GET_STARTED_URL)}
             testID="chat-connection-install-link"
           >
-            <Text style={styles.installLink}>Need Hermes on your computer? Open setup guide →</Text>
+            <Text style={styles.installLink}>Need ThumbGate on your computer? Open setup guide →</Text>
           </TouchableOpacity>
         </>
       ) : null}

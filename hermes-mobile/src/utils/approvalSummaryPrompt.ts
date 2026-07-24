@@ -3,7 +3,7 @@ export function buildApprovalSummaryPrompt(diff: string, toolName?: string): str
   const tool = toolName?.trim() || 'unknown_tool';
   const body = diff.trim().slice(0, 4000);
   return [
-    'You are Hermes Leash. Summarize this ThumbGate-blocked tool call for a human operator.',
+    'You are ThumbGate Leash. Summarize this ThumbGate-blocked tool call for a human operator.',
     'Focus on: what would run, blast radius, and whether approve is reasonable.',
     'Keep under 3 sentences. Redact secrets and paths if present.',
     `Tool: ${tool}`,

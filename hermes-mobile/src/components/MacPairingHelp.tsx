@@ -43,7 +43,7 @@ export default function MacPairingHelp({
           accessibilityRole="link"
           testID="mac-pairing-install-link"
         >
-          <Text style={styles.installLink}>Learn how to install Hermes on your computer →</Text>
+          <Text style={styles.installLink}>Learn how to install ThumbGate on your computer →</Text>
         </TouchableOpacity>
       ) : null}
       {!compact && variant === 'qr-pairing' ? (

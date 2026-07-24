@@ -185,7 +185,7 @@ export default function IntegrationsSheet({
     } catch (err) {
       if (err instanceof HermesGatewayApiError && (err.status === 404 || err.status === 501)) {
         setError(
-          'Your Mac needs a Hermes update to accept keys from the phone. On your Mac run: hermes tools',
+          'Your Mac needs a ThumbGate update to accept keys from the phone. On your Mac run: hermes tools',
         );
       } else {
         setError(err instanceof Error ? err.message : 'Could not save key');
@@ -288,7 +288,7 @@ export default function IntegrationsSheet({
 
       {usedFallback && !integrationsConfigAvailable ? (
         <Text style={styles.hint}>
-          If Save fails, update Hermes on your Mac, or run hermes tools and paste the key there.
+          If Save fails, update ThumbGate on your Mac, or run hermes tools and paste the key there.
         </Text>
       ) : null}
 

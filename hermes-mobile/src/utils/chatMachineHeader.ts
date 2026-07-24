@@ -473,7 +473,7 @@ export function formatMacConnectionRetryBanner(input: {
     input.machineLabel &&
     !isGenericMachineLabel(input.machineLabel) &&
     input.machineLabel !== 'Your computer' &&
-    input.machineLabel !== 'Hermes account relay' &&
+    input.machineLabel !== 'ThumbGate account relay' &&
     !/^(http|https)$/i.test(input.machineLabel)
       ? input.machineLabel
       : !isGenericMachineLabel(machineName) &&
@@ -481,7 +481,7 @@ export function formatMacConnectionRetryBanner(input: {
           !/^(http|https)$/i.test(machineName)
         ? machineName
         : machineName !== 'Your computer' &&
-          machineName !== 'Hermes account relay' &&
+          machineName !== 'ThumbGate account relay' &&
           !/^(http|https)$/i.test(machineName)
           ? machineName
           : 'your computer';

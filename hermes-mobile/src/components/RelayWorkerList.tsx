@@ -21,7 +21,7 @@ export default function RelayWorkerList({
 
   return (
     <View style={styles.wrap} testID={testID}>
-      <Text style={styles.heading}>On your Hermes account</Text>
+      <Text style={styles.heading}>On your ThumbGate account</Text>
       <Text style={styles.hint}>
         These computers check in over the internet. Direct chat still needs Wi‑Fi or a tunnel URL
         unless cloud chat relay is enabled.

@@ -109,20 +109,20 @@ describe('hermesNotifications', () => {
         phase: 'streaming',
         startedAtMs: Date.now(),
       }),
-    ).toBe('Hermes is responding');
+    ).toBe('ThumbGate is responding');
     expect(
       runProgressNotificationTitle({
         phase: 'completed',
         startedAtMs: Date.now(),
         replyPreview: 'The requested work is ready.',
       }),
-    ).toBe('Hermes replied');
+    ).toBe('ThumbGate replied');
     expect(
       runProgressNotificationTitle({
         phase: 'completed',
         startedAtMs: Date.now(),
       }),
-    ).toBe('Hermes finished');
+    ).toBe('ThumbGate finished');
   });
 
   it('dismisses run notifications when the app is foregrounded', () => {
@@ -278,7 +278,7 @@ describe('hermesNotifications', () => {
       );
 
       const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
-      expect(call.content.title).toBe('Hermes finished');
+      expect(call.content.title).toBe('ThumbGate finished');
       expect(call.content.body).toBe('Reply ready — open chat to read it.');
       expect(call.content.body).not.toMatch(/3\s*min|computer/i);
     });
@@ -291,7 +291,7 @@ describe('hermesNotifications', () => {
       });
 
       const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
-      expect(call.content.title).toBe('Hermes replied');
+      expect(call.content.title).toBe('ThumbGate replied');
       expect(call.content.subtitle).toBe('Reply received');
       expect(call.content.body).toBe('The OTA fix is merged and ready to verify.');
       expect(call.content.channelId).toBe(CHANNEL_RESULTS_V2);
@@ -311,7 +311,7 @@ describe('hermesNotifications', () => {
       );
 
       const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
-      expect(call.content.title).toBe('Hermes replied');
+      expect(call.content.title).toBe('ThumbGate replied');
       expect(call.content.body).toBe('Here is the revenue status for today.');
       expect(call.content.body).not.toMatch(/^\d+\s*min/);
       expect(call.content.body).not.toContain('3 min');

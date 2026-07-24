@@ -76,7 +76,7 @@ export function resolveComputerPickerStatus(
       title: 'Searching for your computer…',
       detail:
         input.tailscaleVpnActive
-          ? 'Looking on Wi‑Fi and Tailscale. Keep Hermes open on your computer.'
+          ? 'Looking on Wi‑Fi and Tailscale. Keep ThumbGate open on your computer.'
           : 'Looking on Wi‑Fi. Tailscale is off on this phone.',
       discoveries: [],
     };
@@ -87,7 +87,7 @@ export function resolveComputerPickerStatus(
       kind: 'searching',
       title: 'On Tailscale — searching for your computer',
       detail:
-        'Looking for Hermes on your tailnet. Works on cellular or any Wi‑Fi when Tailscale is on both devices.',
+        'Looking for ThumbGate on your tailnet. Works on cellular or any Wi‑Fi when Tailscale is on both devices.',
       discoveries: [],
     };
   }
@@ -185,7 +185,7 @@ export function resolveComputerPickerStatus(
     kind: 'help',
     title: 'Paste your Mac’s Tailscale IP',
     detail:
-      'On the Mac: Tailscale → copy 100.x → paste → Connect. Hermes must be open on that Mac.',
+      'On the Mac: Tailscale → copy 100.x → paste → Connect. ThumbGate must be open on that Mac.',
     discoveries: [],
   };
 }

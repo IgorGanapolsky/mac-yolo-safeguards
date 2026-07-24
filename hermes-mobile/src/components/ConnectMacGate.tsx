@@ -360,7 +360,7 @@ export default function ConnectMacGate() {
           await retryGatewayBootstrap();
         }}
         onInvalidScan={() =>
-          setInvalidQrHint('That QR is not a Hermes pairing code. Open Connect phone on your computer.')
+          setInvalidQrHint('That QR is not a ThumbGate pairing code. Open Connect phone on your computer.')
         }
       />
     </>

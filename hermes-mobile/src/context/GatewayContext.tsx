@@ -1099,7 +1099,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       if (skipLan) {
         throw new Error('Off Wi‑Fi — direct Mac link unavailable on cellular');
       }
-      throw new Error('Hermes gateway unreachable on your Wi‑Fi');
+      throw new Error('ThumbGate gateway unreachable on your Wi‑Fi');
     };
 
     if (currentSettings.connectionMode === 'relay') {
@@ -1135,7 +1135,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           checkedAt: new Date().toISOString(),
           directGatewayReachable: false,
           errorMessage:
-            error instanceof Error ? error.message : 'Hermes Mobile cloud relay unreachable',
+            error instanceof Error ? error.message : 'ThumbGate cloud relay unreachable',
         });
       }
       return;
@@ -1180,7 +1180,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         checkedAt: new Date().toISOString(),
         directGatewayReachable: false,
         errorMessage:
-          error instanceof Error ? error.message : 'Hermes gateway unreachable on your Wi‑Fi',
+          error instanceof Error ? error.message : 'ThumbGate gateway unreachable on your Wi‑Fi',
       });
     }
 
@@ -1254,7 +1254,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setConnectionState('disconnected');
       relayConnectionConfirmedRef.current = false;
       setLastEventError(
-        error instanceof Error ? error.message : 'Hermes Mobile cloud relay poll failed',
+        error instanceof Error ? error.message : 'ThumbGate cloud relay poll failed',
       );
     }
   }, [stopRelayPolling]);
@@ -2300,7 +2300,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           setLastEventError(
             isGatewayHealthOk(healthRef.current)
               ? undefined
-              : 'Phone cannot use 127.0.0.1 for your computer. Use Hermes Relay or scan that computer QR for direct fallback.',
+              : 'Phone cannot use 127.0.0.1 for your computer. Use ThumbGate Relay or scan that computer QR for direct fallback.',
           );
         }
         if (!isGatewayHealthOk(healthRef.current)) {
@@ -3182,7 +3182,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           relayPairSucceeded = true;
         } catch (error) {
           setLastEventError(
-            error instanceof Error ? error.message : 'Hermes Relay pairing failed',
+            error instanceof Error ? error.message : 'ThumbGate Relay pairing failed',
           );
         }
       }
@@ -3593,7 +3593,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           ),
         );
         const verdict = choice === 'deny' ? 'block' : 'allow';
-        const reason = choice === 'deny' ? 'Rejected from Hermes Mobile' : undefined;
+        const reason = choice === 'deny' ? 'Rejected from ThumbGate' : undefined;
         await submitVerdict(
           currentSettings.cloudUrl,
           mobileTokenRef.current,

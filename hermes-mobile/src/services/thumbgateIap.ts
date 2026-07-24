@@ -46,7 +46,7 @@ function storeUnavailableMessage(): string {
     return 'In-app purchases are only available on iOS and Android.';
   }
   if (isExpoGoClient()) {
-    return 'Install the Hermes Mobile dev client or store build — Expo Go cannot run Google Play / App Store billing.';
+    return 'Install the ThumbGate dev client or store build — Expo Go cannot run Google Play / App Store billing.';
   }
   return 'Store billing is unavailable in this build.';
 }
@@ -268,7 +268,7 @@ export async function restoreThumbgateLeashPurchases(): Promise<ThumbgateIapResu
     return {
       status: 'error',
       message: isAndroidLifetimeUnlock()
-        ? 'No Hermes Pro purchase found on this store account.'
+        ? 'No ThumbGate Pro purchase found on this store account.'
         : 'No legacy App Store Leash purchase found. New subscriptions are managed on the web.',
     };
   } catch (error) {

@@ -41,7 +41,7 @@ export default function VaultProjectPickerChip({
           </Text>
         ) : !projectName ? (
           <Text style={styles.hint} numberOfLines={1} testID="vault-project-optional-hint">
-            Optional — tells Hermes which folder on your Mac to use
+            Optional — tells ThumbGate which folder on your Mac to use
           </Text>
         ) : null}
       </View>

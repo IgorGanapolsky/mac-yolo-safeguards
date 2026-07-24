@@ -73,15 +73,15 @@ export function runProgressNotificationTitleFromState(input: {
     return 'Waiting for your approval';
   }
   if (phase === 'completed' || isReplyReadyDetail(input.detail)) {
-    return hasSnippet ? 'Hermes replied' : 'Hermes finished';
+    return hasSnippet ? 'ThumbGate replied' : 'ThumbGate finished';
   }
   if (phase === 'failed') {
-    return 'Hermes run stopped';
+    return 'ThumbGate run stopped';
   }
   if (phase === 'streaming' || hasSnippet) {
-    return 'Hermes is responding';
+    return 'ThumbGate is responding';
   }
-  return 'Hermes is working';
+  return 'ThumbGate is working';
 }
 
 /**

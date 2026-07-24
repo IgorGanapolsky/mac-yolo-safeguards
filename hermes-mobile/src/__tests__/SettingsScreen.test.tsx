@@ -125,7 +125,7 @@ describe('SettingsScreen', () => {
     expect(getAllByText('Cloud approvals (optional)').length).toBeGreaterThan(0);
     expect(
       getByText(
-        'Pair your Hermes account for approval requests anywhere. Does not provide live Chat or computer tools.',
+        'Pair your ThumbGate account for approval requests anywhere. Does not provide live Chat or computer tools.',
       ),
     ).toBeTruthy();
     expect(getByTestId('relay-route-title').props.children).toBe('Cloud approvals');

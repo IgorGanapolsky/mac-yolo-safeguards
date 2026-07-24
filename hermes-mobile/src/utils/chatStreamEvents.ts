@@ -339,7 +339,7 @@ export function applyStreamEvent(
   if (eventName === 'run.started' || eventName === 'message.started') {
     runProgress = startRunProgress(
       { ...state, runProgress },
-      runProgress?.detail ?? 'Hermes is working on your computer…',
+      runProgress?.detail ?? 'ThumbGate is working on your computer…',
       runProgress?.phase ?? 'working',
       data,
     );
@@ -349,7 +349,7 @@ export function applyStreamEvent(
   if (eventName === 'tool.progress') {
     runProgress = startRunProgress(
       { ...state, runProgress },
-      runProgress?.detail ?? 'Hermes is working on your computer…',
+      runProgress?.detail ?? 'ThumbGate is working on your computer…',
       runProgress?.phase ?? 'working',
       data,
     );
@@ -416,7 +416,7 @@ export function applyStreamEvent(
       }
       runProgress = startRunProgress(
         { ...state, runProgress },
-        runProgress?.detail ?? 'Hermes is working on your computer…',
+        runProgress?.detail ?? 'ThumbGate is working on your computer…',
         runProgress?.phase ?? 'working',
         data,
       );

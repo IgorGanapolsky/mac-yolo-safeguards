@@ -19,14 +19,14 @@ export const TAILSCALE_PASTE_IP_DETAIL =
 
 export const TAILSCALE_PASTE_IP_PLACEHOLDER = '100.x.x.x or MagicDNS name';
 
-export const TAILSCALE_PASTE_IP_HERMES_HINT = 'Hermes must be open on that Mac.';
+export const TAILSCALE_PASTE_IP_HERMES_HINT = 'ThumbGate must be open on that Mac.';
 
 export const MAC_PICKER_SUBTITLE = 'Tap a computer, or paste Tailscale IP below.';
 
 export const SCAN_NONE_FOUND_TITLE = 'None found yet';
 
 export const SCAN_NONE_FOUND_DETAIL =
-  'Paste your Mac’s Tailscale IP below. Hermes must be open on that Mac.';
+  'Paste your Mac’s Tailscale IP below. ThumbGate must be open on that Mac.';
 
 export const PICKER_EMPTY_FOOTER =
   'No saved computers yet. Paste a Tailscale IP above, or tap Find computers.';

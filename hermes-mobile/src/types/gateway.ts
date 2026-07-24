@@ -110,6 +110,13 @@ export interface GatewaySettings {
   includeToolActivity?: boolean;
   /** User dismissed first-run ConnectMacGate — show ChatConnectionPanel instead of re-trapping. */
   connectMacGateDismissed?: boolean;
+  /**
+   * Leash common-tools policy: tool ids that are OFF (require Approve/Deny).
+   * Empty / missing = all common tools enabled (default-ON product lock).
+   */
+  leashApprovalRequiredToolIds?: string[];
+  /** User-defined Leash tools (same ON/OFF semantics as builtins). */
+  leashCustomTools?: Array<{ id: string; label: string; description?: string }>;
 }
 
 export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
@@ -136,4 +143,6 @@ export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
   developerLeashUnlock: false,
   routeChatConfirmationsToLeash: true,
   includeToolActivity: false,
+  leashApprovalRequiredToolIds: [],
+  leashCustomTools: [],
 };

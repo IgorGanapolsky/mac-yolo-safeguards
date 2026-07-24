@@ -7,8 +7,7 @@ import {
 import { fetchGatewayHealth } from './gatewayClient';
 import { exchangePairingCode } from './pairingCodeExchange';
 import { secureCredentials } from './secureCredentials';
-import { isTailscaleGatewayUrl, normalizeTailnetProbeHost } from '../utils/tailscaleHosts';
-import { tailnetProbeStorage } from './tailnetProbeStorage';
+import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
 
 type PairExchangeResult = {
   apiKey?: string;
@@ -26,22 +25,7 @@ export type ManualGatewayConnectionDependencies = {
     apiKey?: string | null,
     timeoutMs?: number,
   ) => Promise<GatewayHealthSnapshot>;
-  /**
-   * Remember a Tailscale host that answered /health but failed auth, so Find
-   * computers / the background Tailscale probe can rediscover it later instead
-   * of forgetting the exact address the user just typed (Android exposes no
-   * cross-app tailnet peer list — see docs/RESEARCH-TAILSCALE-ANDROID-DISCOVERY-JULY-2026.md).
-   */
-  rememberTailnetProbeHost: (gatewayUrl: string) => Promise<void>;
 };
-
-async function rememberTailnetProbeHost(gatewayUrl: string): Promise<void> {
-  const host = normalizeTailnetProbeHost(gatewayUrl);
-  if (!host) {
-    return;
-  }
-  await tailnetProbeStorage.merge([host]);
-}
 
 const defaultDependencies: ManualGatewayConnectionDependencies = {
   loadApiKey: () => secureCredentials.loadApiKey(),
@@ -50,13 +34,15 @@ const defaultDependencies: ManualGatewayConnectionDependencies = {
   resolvePairServerSetupParams,
   exchangePairingCode,
   fetchGatewayHealth,
-  rememberTailnetProbeHost,
 };
 
 const MANUAL_PROBE_TIMEOUT_MS = 5000;
 // Cellular VPN routes can take several seconds to wake after Android resumes Tailscale.
 // Match the established repair path instead of declaring a healthy 100.x endpoint dead.
 const TAILSCALE_MANUAL_PROBE_TIMEOUT_MS = 12_000;
+// Pair server fetch also needs a longer timeout on Tailscale routes — the 1.5s default
+// in gatewayDiscovery is tuned for LAN sweeps, not a single targeted Tailscale probe.
+const TAILSCALE_PAIR_SERVER_TIMEOUT_MS = 8_000;
 
 function displayComputerName(value?: string | null): string | null {
   const cleaned = value?.trim().replace(/\.local$/i, '');
@@ -70,6 +56,42 @@ async function pairingCandidate(
   const host = pairServerHostFromGatewayUrl(gatewayUrl);
   if (!host) {
     return { apiKey: null, computerName: null };
+  }
+
+  // On Tailscale, the pair server may need extra time to respond (VPN route wake-up).
+  const isTailscale = isTailscaleGatewayUrl(gatewayUrl);
+  if (isTailscale) {
+    // Directly fetch pair.json with a longer timeout instead of relying on the 1.5s default.
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), TAILSCALE_PAIR_SERVER_TIMEOUT_MS);
+      const res = await fetch(
+        `http://${host}:8765/pair.json`,
+        { signal: controller.signal },
+      );
+      clearTimeout(timer);
+      if (res.ok) {
+        const body = await res.json() as { deepLink?: string };
+        if (body.deepLink?.trim()) {
+          const parsed = (await import('../utils/setupDeepLink')).parseSetupDeepLink(body.deepLink);
+          if (parsed) {
+            let apiKey = parsed.apiKey?.trim() || null;
+            let computerName = displayComputerName(parsed.macName);
+            if (parsed.pairingCode?.trim() && parsed.pairServerUrl?.trim()) {
+              const exchanged = await dependencies.exchangePairingCode(
+                parsed.pairServerUrl,
+                parsed.pairingCode,
+              );
+              apiKey = exchanged?.apiKey?.trim() || apiKey;
+              computerName = displayComputerName(exchanged?.macName) || computerName;
+            }
+            return { apiKey, computerName };
+          }
+        }
+      }
+    } catch {
+      // Fall through to default resolve
+    }
   }
 
   const setup = await dependencies.resolvePairServerSetupParams(host);
@@ -116,23 +138,39 @@ export async function connectManualGatewayAddress(
   );
 
   if (health.authMismatch) {
-    if (tailscaleAddress) {
-      // Proven reachable over Tailscale but wrong/missing key — keep the host so
-      // Find computers and the background probe resurface it (re-pair CTA) on the
-      // next cycle instead of "None found yet" for an address we already reached.
-      try {
-        await dependencies.rememberTailnetProbeHost(input.gatewayUrl);
-      } catch {
-        // Best-effort memory; never let storage failure mask the real pairing error.
-      }
+    // If we got an API key from the pair server, retry health with it.
+    // Otherwise, the pair server wasn't reachable — give a actionable message.
+    if (!candidateApiKey) {
+      throw new Error(
+        tailscaleAddress
+          ? 'ThumbGate is reachable at this Tailscale address. Open ThumbGate on your Mac and tap the pair button to get a pairing code.'
+          : 'ThumbGate is reachable but needs pairing. Open ThumbGate on your Mac and tap the pair button.',
+      );
     }
-    throw new Error('Hermes is reachable, but this phone still needs to pair.');
+    // Retry health with the pair-server API key
+    const retry = await dependencies.fetchGatewayHealth(
+      input.gatewayUrl,
+      candidateApiKey,
+      tailscaleAddress ? TAILSCALE_MANUAL_PROBE_TIMEOUT_MS : MANUAL_PROBE_TIMEOUT_MS,
+    );
+    if (retry.authMismatch) {
+      throw new Error(
+        'Pairing key mismatch. Open ThumbGate on your Mac to generate a new pairing code.',
+      );
+    }
+    if (!retry.directGatewayReachable) {
+      throw new Error(
+        tailscaleAddress
+          ? 'Couldn\u2019t reach ThumbGate at this Tailscale address.'
+          : 'Couldn\u2019t reach ThumbGate at this address.',
+      );
+    }
   }
   if (!health.directGatewayReachable) {
     throw new Error(
       tailscaleAddress
-        ? 'Couldn’t reach Hermes at this Tailscale address.'
-        : 'Couldn’t reach Hermes at this address.',
+        ? 'Couldn’t reach ThumbGate at this Tailscale address.'
+        : 'Couldn’t reach ThumbGate at this address.',
     );
   }
 

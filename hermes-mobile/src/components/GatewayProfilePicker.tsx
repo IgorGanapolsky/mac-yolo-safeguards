@@ -8,14 +8,12 @@ import {
   isCablePluggedInForProfile,
   profileConnectionRouteDisplayLabel,
   profilePickerLines,
-  pickerRowKey,
   resolveSelectedPickerProfileId,
   type LiveUsbPickerInput,
 } from '../utils/gatewayProfilePicker';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { colors } from '../theme/colors';
 import { GATEWAY_AUTH_REPAIR_SETTINGS_STATUS } from '../services/gatewayClient';
-import { COMPUTER_PICKER_LIST_MIN_HEIGHT } from '../utils/computerPickerStatus';
 
 type GatewayProfilePickerProps = {
   profiles: GatewayProfile[];
@@ -66,12 +64,11 @@ export default function GatewayProfilePicker({
 }: GatewayProfilePickerProps) {
   const showScanCard = !hideScanCard && Boolean(scanning || scanResult);
   const pickerProfiles = dedupePickerProfilesById(profiles);
-  const selectedRowKey = resolveSelectedPickerProfileId(pickerProfiles, activeProfileId, {
+  const selectedProfileId = resolveSelectedPickerProfileId(pickerProfiles, activeProfileId, {
     activeProfile,
   });
   const multiMac = pickerProfiles.length > 1;
-  const showRouteHints = showReachabilityHints || multiMac;
-  const selectedCount = pickerProfiles.filter((p) => pickerRowKey(p) === selectedRowKey).length;
+  const showRouteHints = true;
 
   return (
     <View>
@@ -84,25 +81,10 @@ export default function GatewayProfilePicker({
         </Text>
       ) : null}
       {pickerProfiles.length > 0 ? (
-        <View
-          style={[
-            styles.list,
-            dense ? styles.listDense : null,
-            dense
-              ? {
-                  minHeight: Math.max(
-                    COMPUTER_PICKER_LIST_MIN_HEIGHT,
-                    pickerProfiles.length * 64,
-                  ),
-                }
-              : null,
-          ]}
-          testID="gateway-profile-list"
-          accessibilityValue={{ text: `selected:${selectedCount}` }}
-        >
+        <View style={[styles.list, dense ? styles.listDense : null]} testID="gateway-profile-list">
       {pickerProfiles.map((profile) => {
-        // Selection is a single row key — never paint Connected/radio from reachability alone.
-        const isActive = pickerRowKey(profile) === selectedRowKey;
+        // Selection is a single profile id — never paint Connected/radio from reachability alone.
+        const isActive = profile.id === selectedProfileId;
         const cablePluggedIn = isCablePluggedInForProfile(profile, liveUsb);
         const lines = profilePickerLines(profile, { cablePluggedIn });
         const routeHint = showRouteHints
@@ -139,7 +121,7 @@ export default function GatewayProfilePicker({
           : colors.textMuted;
         return (
           <View
-            key={pickerRowKey(profile)}
+            key={`${profile.id}::${profile.gatewayUrl}`}
             style={[styles.row, dense ? styles.rowDense : null]}
             testID={`gateway-profile-item-${profile.id}`}
           >
@@ -222,7 +204,7 @@ const styles = StyleSheet.create({
   listDense: {
     gap: 8,
     marginTop: 0,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   row: {
     flexDirection: 'column',
@@ -240,23 +222,21 @@ const styles = StyleSheet.create({
     minHeight: 72,
     paddingVertical: 16,
     paddingHorizontal: 16,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 16,
+    borderWidth: 1,
     borderColor: colors.borderLight,
     backgroundColor: 'rgba(255, 255, 255, 0.045)',
   },
   selectButtonDense: {
-    gap: 12,
-    minHeight: 60,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 12,
+    gap: 10,
+    minHeight: 56,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 14,
   },
   selectButtonActive: {
-    // Soft selection — avoid thick teal frame that fights status cards.
-    borderWidth: 1,
-    borderColor: 'rgba(34, 211, 238, 0.45)',
-    backgroundColor: 'rgba(34, 211, 238, 0.08)',
+    borderColor: colors.accent,
+    backgroundColor: 'rgba(34, 211, 238, 0.09)',
   },
   selectDot: {
     width: 20,
@@ -298,8 +278,8 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   metaDense: {
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 11,
+    lineHeight: 14,
     marginTop: 0,
   },
   metaConnected: {
