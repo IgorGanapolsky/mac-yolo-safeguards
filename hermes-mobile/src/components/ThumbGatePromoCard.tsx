@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Linking, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { Alert, Linking, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import GlassCard from './GlassCard';
 import { trackProductEvent } from '../services/productAnalytics';
 import { colors } from '../theme/colors';
@@ -13,6 +13,10 @@ type ThumbGatePromoCardProps = {
   style?: object;
 };
 
+const OPEN_FAIL_TITLE = 'Could not open ThumbGate';
+const OPEN_FAIL_MESSAGE =
+  'Open https://thumbgate.app in your browser to continue.';
+
 export default function ThumbGatePromoCard({ surface, style }: ThumbGatePromoCardProps) {
   const copy = thumbGatePromoCopy(surface);
 
@@ -21,8 +25,13 @@ export default function ThumbGatePromoCard({ surface, style }: ThumbGatePromoCar
   }, [surface]);
 
   const openThumbGate = async () => {
-    await trackProductEvent('thumbgate_promo_tap', { surface, url: copy.url });
-    await Linking.openURL(copy.url);
+    // Never await analytics before opening — a hung PostHog fetch made the CTA a no-op.
+    void trackProductEvent('thumbgate_promo_tap', { surface, url: copy.url });
+    try {
+      await Linking.openURL(copy.url);
+    } catch {
+      Alert.alert(OPEN_FAIL_TITLE, OPEN_FAIL_MESSAGE);
+    }
   };
 
   return (
@@ -35,12 +44,15 @@ export default function ThumbGatePromoCard({ surface, style }: ThumbGatePromoCar
         testID="thumbgate-promo-open"
         accessibilityRole="button"
         accessibilityLabel={copy.buttonLabel}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
         <Text style={styles.buttonText}>{copy.buttonLabel}</Text>
       </TouchableOpacity>
     </GlassCard>
   );
 }
+
+export { OPEN_FAIL_TITLE, OPEN_FAIL_MESSAGE };
 
 const styles = StyleSheet.create({
   card: {

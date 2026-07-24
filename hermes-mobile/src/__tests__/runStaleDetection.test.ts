@@ -1,4 +1,5 @@
 import {
+  MEGA_SESSION_RUN_HARD_TIMEOUT_MS,
   MEGA_SESSION_RUN_STALE_AUTO_FAIL_MS,
   RUN_HARD_TIMEOUT_MS,
   RUN_NO_TOKEN_FAIL_MS,
@@ -84,12 +85,15 @@ describe('runStaleDetection', () => {
     expect(msUntilRunStaleAutoFail(progress, 1_000 + 60_000)).toBe(RUN_STALE_AUTO_FAIL_MS - 60_000);
   });
 
-  it('fails runs with zero output tokens at the hard-timeout wall (≤ no-token window)', () => {
+  it('fails closed-stream runs via no-token window before the hard-timeout wall', () => {
     const progress = baseProgress({ startedAtMs: 1_000, outputTokens: 0, lastProgressAtMs: 1_000 });
-    expect(RUN_HARD_TIMEOUT_MS).toBeLessThanOrEqual(RUN_NO_TOKEN_FAIL_MS);
-    expect(shouldFailRunAwaitingFirstToken(progress, 1_000 + RUN_HARD_TIMEOUT_MS - 1)).toBe(false);
-    expect(shouldFailRunAwaitingFirstToken(progress, 1_000 + RUN_HARD_TIMEOUT_MS)).toBe(true);
-    expect(msUntilNoTokenFail(progress, 1_000 + 15_000)).toBe(RUN_HARD_TIMEOUT_MS - 15_000);
+    expect(RUN_HARD_TIMEOUT_MS).toBeGreaterThan(RUN_NO_TOKEN_FAIL_MS);
+    expect(shouldFailRunAwaitingFirstToken(progress, 1_000 + RUN_NO_TOKEN_FAIL_MS - 1)).toBe(false);
+    expect(shouldFailRunAwaitingFirstToken(progress, 1_000 + RUN_NO_TOKEN_FAIL_MS)).toBe(true);
+    // With SSE open, no-token wait extends to the hard-timeout ceiling.
+    expect(msUntilNoTokenFail(progress, 1_000 + 15_000, { streamInFlight: true })).toBe(
+      RUN_HARD_TIMEOUT_MS - 15_000,
+    );
   });
 
   it('does not false-stall while SSE is in flight before the hard timeout', () => {
@@ -99,21 +103,25 @@ describe('runStaleDetection', () => {
       lastProgressAtMs: 0,
       detail: 'Agent-sync',
     });
+    // Measured mini qwen first-token latency was 274.3s — must survive past 2m.
+    expect(
+      shouldFailRunAwaitingFirstToken(progress, 274_300, { streamInFlight: true }),
+    ).toBe(false);
     expect(
       shouldFailRunAwaitingFirstToken(progress, RUN_HARD_TIMEOUT_MS - 1, { streamInFlight: true }),
     ).toBe(false);
     const toolTicking = baseProgress({
       startedAtMs: 0,
       outputTokens: 0,
-      lastProgressAtMs: RUN_HARD_TIMEOUT_MS - 10_000,
+      lastProgressAtMs: RUN_NO_TOKEN_FAIL_MS - 10_000,
       detail: 'reading vault',
     });
     expect(
-      shouldFailRunAwaitingFirstToken(toolTicking, RUN_HARD_TIMEOUT_MS - 1, { streamInFlight: false }),
+      shouldFailRunAwaitingFirstToken(toolTicking, RUN_NO_TOKEN_FAIL_MS - 1, { streamInFlight: false }),
     ).toBe(false);
   });
 
-  it('hard-fails awaiting-first-token at 2m even when streamInFlight is stuck', () => {
+  it('hard-fails awaiting-first-token at the hard-timeout wall even when streamInFlight is stuck', () => {
     const progress = baseProgress({
       startedAtMs: 0,
       outputTokens: 0,
@@ -124,6 +132,21 @@ describe('runStaleDetection', () => {
     ).toBe(true);
     expect(shouldHardTimeoutRun(progress, RUN_HARD_TIMEOUT_MS)).toBe(true);
     expect(shouldAutoClearStalledRun(progress, RUN_HARD_TIMEOUT_MS)).toBe(true);
+  });
+
+  it('gives mega sessions a longer hard-timeout ceiling', () => {
+    const progress = baseProgress({ startedAtMs: 0, outputTokens: 0, lastProgressAtMs: 0 });
+    // Working-context block (≥200k / call) — not cumulative traffic alone.
+    const mega = { input_tokens: 220_000, output_tokens: 1_000, api_call_count: 1 };
+    expect(MEGA_SESSION_RUN_HARD_TIMEOUT_MS).toBeGreaterThan(RUN_HARD_TIMEOUT_MS);
+    expect(shouldHardTimeoutRun(progress, RUN_HARD_TIMEOUT_MS, mega)).toBe(false);
+    expect(shouldHardTimeoutRun(progress, MEGA_SESSION_RUN_HARD_TIMEOUT_MS, mega)).toBe(true);
+    expect(
+      shouldFailRunAwaitingFirstToken(progress, RUN_HARD_TIMEOUT_MS, {
+        streamInFlight: true,
+        session: mega,
+      }),
+    ).toBe(false);
   });
 
   it('does not fail awaiting-first-token once output tokens arrive', () => {

@@ -1,4 +1,5 @@
 import * as Updates from 'expo-updates';
+import { shouldSuppressOtaClientPrompts } from '../utils/otaClientPromptPolicy';
 
 /** Max wait for Expo update manifest probe (Tools → Check for update). */
 export const OTA_CHECK_TIMEOUT_MS = 30_000;
@@ -88,6 +89,14 @@ function formatDiagnosticsSuffix(d: OtaDiagnostics): string {
 
 export async function checkForAppUpdate(): Promise<OtaUpdateCheckResult> {
   const diagnostics = getOtaDiagnostics();
+  if (shouldSuppressOtaClientPrompts()) {
+    return {
+      status: 'disabled',
+      message:
+        'OTA client checks frozen (Expo billing freeze 2026-07-23). Local release APK only until HERMES_OTA_BILLING_THAW=1.',
+      diagnostics,
+    };
+  }
   if (!isOtaUpdatesEnabled()) {
     return {
       status: 'disabled',
@@ -135,6 +144,13 @@ export async function checkForAppUpdate(): Promise<OtaUpdateCheckResult> {
 }
 
 export async function fetchAndApplyAppUpdate(): Promise<OtaUpdateApplyResult> {
+  if (shouldSuppressOtaClientPrompts()) {
+    return {
+      status: 'noop',
+      message:
+        'OTA apply frozen (Expo billing freeze). Will not reloadAsync — protects local USB/dogfood installs.',
+    };
+  }
   if (!isOtaUpdatesEnabled()) {
     return {
       status: 'noop',
