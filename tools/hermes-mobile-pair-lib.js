@@ -145,6 +145,54 @@ function resolveUsbReversePorts(options = {}) {
   return USB_ADB_REVERSE_PORTS;
 }
 
+/**
+ * Durable, cross-reboot record of the last USB reverse-port decision made by a real
+ * pairing run (`hermes-mobile-pair.js`'s `runPairMain`). The always-on
+ * `hermes-usb-reverse-watchdog` LaunchAgent has no concept of pairing intent on its
+ * own — it only sees live adb state every 15s — so without this file it will
+ * silently restore a laptop-primary `tcp:8642` reverse within one poll cycle of any
+ * deliberate mini-primary/SSH-tunnel session (2026-07-24 follow-up to the
+ * #967 8642-autopair-hijack fix; T-USB-WATCHDOG-MINI-PRIMARY-20260724).
+ *
+ * Stored under `~/.hermes` (not `/tmp`) specifically so it survives reboots without
+ * requiring an interactive env var on every watchdog tick.
+ */
+const USB_REVERSE_INTENT_STATE_PATH =
+  process.env.HERMES_USB_REVERSE_INTENT_STATE || path.join(os.homedir(), '.hermes', 'usb-reverse-primary-intent.json');
+
+/**
+ * @param {{ skip8642: boolean, gatewayUrl?: string, forceMiniUsbPrimary?: boolean, reason?: string }} intent
+ */
+function writeUsbReversePrimaryIntent(intent, statePath = USB_REVERSE_INTENT_STATE_PATH) {
+  try {
+    const payload = { ...intent, updatedAt: new Date().toISOString() };
+    fs.mkdirSync(path.dirname(statePath), { recursive: true });
+    const tmp = `${statePath}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(tmp, `${JSON.stringify(payload, null, 2)}\n`);
+    fs.renameSync(tmp, statePath);
+    return true;
+  } catch (err) {
+    // Best-effort: a write failure here must never fail the pairing run itself.
+    console.error(
+      `hermes-mobile-pair-lib: usb-reverse-primary-intent write failed: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+    return false;
+  }
+}
+
+/** @returns {{ skip8642: boolean, gatewayUrl?: string, forceMiniUsbPrimary?: boolean, reason?: string, updatedAt?: string } | null} */
+function readUsbReversePrimaryIntent(statePath = USB_REVERSE_INTENT_STATE_PATH) {
+  try {
+    const raw = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+    if (!raw || typeof raw !== 'object') return null;
+    return { skip8642: raw.skip8642 === true, ...raw };
+  } catch {
+    return null;
+  }
+}
+
 function assertUsbAdbReverses(serial, options = {}) {
   const ports = options.ports ?? USB_ADB_REVERSE_PORTS;
   const requiredPorts = options.requiredPorts ?? ports;
@@ -795,6 +843,9 @@ module.exports = {
   setupUsbAdbReverses,
   removeUsbAdbReverse,
   resolveUsbReversePorts,
+  USB_REVERSE_INTENT_STATE_PATH,
+  writeUsbReversePrimaryIntent,
+  readUsbReversePrimaryIntent,
   assertUsbAdbReverses,
   fetchRemoteMiniApiKey,
   classifyMiniApiKeyResolution,

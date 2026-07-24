@@ -654,7 +654,7 @@ export default function DashboardClient() {
                   <label className={routePreference === "local" ? "is-selected" : ""}>
                     <input type="radio" name="routePreference" value="local" checked={routePreference === "local"} onChange={() => setRoutePreference("local")} />
                     <span className="route-label-full">My Mac</span>
-                    <span className="route-label-short">My Mac</span>
+                    <span className="route-label-short">Mac</span>
                   </label>
                   <label
                     className={routePreference === "cloud" ? "is-selected" : ""}
@@ -662,7 +662,7 @@ export default function DashboardClient() {
                   >
                     <input type="radio" name="routePreference" value="cloud" checked={routePreference === "cloud"} onChange={() => setRoutePreference("cloud")} disabled={!organization?.cloudAccess} />
                     <span className="route-label-full">Continuity</span>
-                    <span className="route-label-short">Continuity</span>
+                    <span className="route-label-short">Cloud</span>
                   </label>
                   <label className={routePreference === "auto" ? "is-selected" : ""}>
                     <input type="radio" name="routePreference" value="auto" checked={routePreference === "auto"} onChange={() => setRoutePreference("auto")} />
