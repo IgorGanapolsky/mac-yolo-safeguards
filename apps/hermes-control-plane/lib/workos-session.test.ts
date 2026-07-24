@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { workosLogoutUrl, workosSessionIdFromAccessToken } from "./workos-session";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { revokeWorkosSession, workosLogoutUrl, workosSessionIdFromAccessToken } from "./workos-session";
 
 function accessToken(payload: Record<string, unknown>): string {
   const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
@@ -38,5 +38,37 @@ describe("workosLogoutUrl", () => {
 
   it("rejects an invalid provider session ID", () => {
     expect(() => workosLogoutUrl("../session", "https://thumbgate.app/")).toThrow("Invalid WorkOS session ID");
+  });
+});
+
+describe("revokeWorkosSession", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("no-ops without a valid session id", async () => {
+    await expect(revokeWorkosSession(null, "sk_test")).resolves.toEqual({
+      revoked: false,
+      reason: "missing_or_invalid_session_id",
+    });
+  });
+
+  it("revokes via the WorkOS sessions API", async () => {
+    const fetchMock = vi.fn(async () => new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(revokeWorkosSession("session_01HQAG1HENBZMAZD82YRXDFC0B", "sk_test")).resolves.toEqual({
+      revoked: true,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.workos.com/user_management/sessions/revoke",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("treats already-revoked sessions as success", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 404 })));
+    await expect(revokeWorkosSession("session_01HQAG1HENBZMAZD82YRXDFC0B", "sk_test")).resolves.toEqual({
+      revoked: true,
+    });
   });
 });

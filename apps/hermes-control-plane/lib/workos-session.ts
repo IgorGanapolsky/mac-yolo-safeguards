@@ -23,3 +23,41 @@ export function workosLogoutUrl(sessionId: string, returnTo: string): string {
   logout.searchParams.set("return_to", returnTo);
   return logout.toString();
 }
+
+/**
+ * End the WorkOS session server-side so the browser only needs one hop back to ThumbGate.
+ * Browser-only WorkOS logout redirects often feel like "I have to press Sign out twice"
+ * when the provider page fails, stalls, or the local session had no stored sid.
+ */
+export async function revokeWorkosSession(
+  sessionId: string | null | undefined,
+  apiKey: string | null | undefined,
+): Promise<{ revoked: boolean; reason?: string }> {
+  if (!sessionId || !WORKOS_SESSION_ID.test(sessionId)) {
+    return { revoked: false, reason: "missing_or_invalid_session_id" };
+  }
+  if (!apiKey?.trim()) {
+    return { revoked: false, reason: "missing_api_key" };
+  }
+  try {
+    const response = await fetch("https://api.workos.com/user_management/sessions/revoke", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${apiKey.trim()}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ session_id: sessionId }),
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (response.ok || response.status === 404) {
+      // 404 = already gone — treat as success for logout UX
+      return { revoked: true };
+    }
+    return { revoked: false, reason: `http_${response.status}` };
+  } catch (error) {
+    return {
+      revoked: false,
+      reason: error instanceof Error ? error.message : "revoke_failed",
+    };
+  }
+}
