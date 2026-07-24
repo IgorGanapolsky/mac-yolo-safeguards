@@ -176,8 +176,11 @@ export default function DashboardClient() {
   /** One-shot deep link from lessons page: /dashboard?task=…&thread=…#task-activity */
   const focusedTaskFromUrl = useRef(false);
   const selectedThreadRef = useRef(selectedThread);
-  selectedThreadRef.current = selectedThread;
   const composerObserverRef = useRef<ResizeObserver | null>(null);
+
+  useEffect(() => {
+    selectedThreadRef.current = selectedThread;
+  }, [selectedThread]);
 
   const persistThreadDetails = useCallback((threadId: string, details: ThreadDetails) => {
     threadCacheRef.current.set(threadId, details);
@@ -396,14 +399,13 @@ export default function DashboardClient() {
     setWorkspaceHydrated(true);
   }, [prefetchThreadDetails, readCachedThreadDetails]);
 
-  // Revalidate active thread messages (SWR) without resetting list state.
+  // Async SWR only — no synchronous setState (eslint react-hooks/set-state-in-effect).
   const revalidateSelectedThread = useCallback(async (threadId: string) => {
-    const cached = readCachedThreadDetails(threadId);
-    if (cached) setThreadDetails(cached);
     await prefetchThreadDetails(threadId, { force: true });
     const next = threadCacheRef.current.get(threadId);
-    if (next) setThreadDetails(next);
-  }, [prefetchThreadDetails, readCachedThreadDetails]);
+    // Only apply if still on this thread (avoid race when switching quickly).
+    if (next && selectedThreadRef.current === threadId) setThreadDetails(next);
+  }, [prefetchThreadDetails]);
 
   useEffect(() => {
     const initial = window.setTimeout(() => void loadWorkspace(), 0);
@@ -413,14 +415,18 @@ export default function DashboardClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- shell-first: one poller, not one-per-thread
   }, []);
 
-  // Instant thread paint + revalidate when selection changes.
+  // Persist selection + background revalidate. Instant paint is in openThread / deep-link handlers.
   useEffect(() => {
-    if (!selectedThread) {
-      setThreadDetails(null);
-      return;
-    }
+    if (!selectedThread) return;
     writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, selectedThread);
-    void revalidateSelectedThread(selectedThread);
+    let cancelled = false;
+    void (async () => {
+      await revalidateSelectedThread(selectedThread);
+      if (cancelled) return;
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedThread, revalidateSelectedThread]);
   useEffect(() => {
     if (!user || !pairingCodePattern.test(pairCode)) return;
@@ -664,7 +670,15 @@ export default function DashboardClient() {
         if (!response.ok) { setNotice(body.error ?? "Delete failed"); return; }
         const remaining = threads.filter((thread) => thread.id !== chatDialog.thread.id);
         setThreads(remaining);
-        if (selectedThread === chatDialog.thread.id) setSelectedThread(remaining[0]?.id ?? null);
+        if (selectedThread === chatDialog.thread.id) {
+          const nextId = remaining[0]?.id ?? null;
+          setSelectedThread(nextId);
+          if (!nextId) setThreadDetails(null);
+          else {
+            const cached = readCachedThreadDetails(nextId);
+            if (cached) setThreadDetails(cached);
+          }
+        }
         setNotice("Chat deleted. The paired Hermes machine will apply the deletion safely.");
       } else {
         const response = await fetch("/api/threads", {
