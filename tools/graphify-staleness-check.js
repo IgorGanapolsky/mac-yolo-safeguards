@@ -54,7 +54,7 @@ function checkGraphStaleness() {
     const raw = fs.readFileSync(GRAPH_JSON, 'utf8');
     const parsed = JSON.parse(raw);
     nodeCount = (parsed.nodes || []).length;
-    linkCount = (parsed.links || []).length;
+    linkCount = (parsed.links || parsed.edges || []).length;
   } catch {
     /* graph may be mid-write */
   }
