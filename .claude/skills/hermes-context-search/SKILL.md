@@ -1,17 +1,21 @@
 ---
 name: hermes-context-search
 description: >
-  Local, incremental, multi-repo semantic code search across Igor's repos
-  (mac-yolo-safeguards, hermes-mobile, hermes-eval, skool_top1percent,
-  business-os-revenue, ...) via `hermes-context`, built $0/local using Ollama's
-  nomic-embed-text — the fleet's own version of JetBrains Context (2026-07).
-  Use BEFORE cold grep/find exploration of an unfamiliar repo, or when a
-  question spans multiple repos at once ("where do we handle X across the
-  fleet"). Do NOT use for a repo you already know well or a single obvious
-  file lookup — plain Grep is faster there.
+  DEPRECATED as of 2026-07-24 in favor of `grepai` (see docs/LOCAL-SEMANTIC-CODE-INDEX.md
+  and the `grepai` MCP server in .mcp.json) — a more mature, actively-maintained (1.8k★)
+  equivalent with native MCP integration and Tree-sitter-aware chunking, independently
+  wired up the same day by another agent. Prefer the `grepai` MCP tool for semantic
+  code search going forward. This tool remains as a zero-dependency CLI fallback
+  (no separate binary install, no MCP config) if `grepai` is ever unavailable.
 ---
 
-# hermes-context: multi-repo semantic search
+# hermes-context: multi-repo semantic search (fallback — prefer `grepai` MCP tool)
+
+**Use `grepai` instead when available** (check `.mcp.json` for the `grepai` MCP server,
+or run `grepai status` — see `docs/LOCAL-SEMANTIC-CODE-INDEX.md`). Both use the same
+local `nomic-embed-text` Ollama model at $0 cost; grepai's AST-aware chunking and native
+MCP integration (a first-class tool call, not a shell-out) make it the better default.
+Fall back to this tool only if `grepai` isn't installed/configured in the current repo.
 
 ## When to invoke
 
