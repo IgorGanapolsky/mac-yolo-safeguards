@@ -322,6 +322,17 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(ctxSrc).toContain('Catalog-only (e.g. Pro USB while mini is active)');
   });
 
+  it('S29: autoDiscover must never yank a live same-Mac USB session back to a sticky Tailscale/LAN URL (P0 2026-07-23)', () => {
+    // Duplicate-"active"-picker-row + Connecting/Not-connected header-banner race: autoDiscover
+    // step 2 unconditionally re-probed+reactivated loadLastSelectedProfileId's sticky URL every
+    // tick even while the cable was already live for the identical Mac.
+    const healSrc = read('hermes-mobile/src/utils/connectionSelfHeal.ts');
+    const ctxSrc = read('hermes-mobile/src/context/GatewayContext.tsx');
+    expect(healSrc).toContain('shouldKeepUsbOverStickyRemote');
+    expect(ctxSrc).toContain('liveUsbSameMachine');
+    expect(ctxSrc).toContain('shouldKeepUsbOverStickyRemote');
+  });
+
   it('S27: bidirectional USB↔Tailscale handoff same Mac without clearing session (#product-lock)', () => {
     const handoffSrc = read('hermes-mobile/src/utils/usbTransportHandoff.ts');
     const ctxSrc = read('hermes-mobile/src/context/GatewayContext.tsx');
