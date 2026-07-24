@@ -62,7 +62,7 @@ describe('connectManualGatewayAddress', () => {
         { gatewayUrl, fallbackLabel: 'Tailscale computer', persistProfile },
         deps,
       ),
-    ).rejects.toThrow('ThumbGate is reachable, but this phone still needs to pair.');
+    ).rejects.toThrow('ThumbGate is reachable at this Tailscale address.');
     expect(persistProfile).not.toHaveBeenCalled();
   });
 
