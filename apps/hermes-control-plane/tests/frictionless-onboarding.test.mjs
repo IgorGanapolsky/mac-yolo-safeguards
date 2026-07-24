@@ -246,7 +246,12 @@ test("shows the signed-in email when a zero-device workspace may be the wrong ac
   assert.match(dashboard, /Signed in as <strong>\{user\.email\}<\/strong>/);
   assert.match(dashboard, /If your machines are paired to another email/);
   assert.match(dashboard, /Switch account/);
-  assert.match(dashboard, /action="\/api\/auth\/logout" method="post"/);
+  // Shared SignOutForm posts to /api/auth/logout (one-click, busy-safe).
+  assert.match(dashboard, /SignOutForm/);
+  assert.match(dashboard, /dashboard-switch-account/);
+  const signOutForm = readFileSync(new URL("../app/SignOutForm.tsx", import.meta.url), "utf8");
+  assert.match(signOutForm, /action="\/api\/auth\/logout" method="post"/);
+  assert.match(signOutForm, /type="submit"/);
 });
 
 test("lists connectors not Tailscale peers and can revoke ghost machines", () => {
