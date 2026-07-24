@@ -635,6 +635,17 @@ export default function DashboardClient() {
             <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss">×</button>
           </div>
         )}
+        {onlineDevices.length === 0 && !["pro", "team"].includes(organization.plan) && (
+          <div className="notice-offline-upgrade" role="region" aria-label="Cloud Continuity Upgrade">
+            <div className="offline-upgrade-content">
+              <strong>Your Mac is offline</strong>
+              <p>Upgrade to Cloud Continuity ($10/mo) so Hermes tasks keep running 24/7 when your laptop closes.</p>
+            </div>
+            <button type="button" className="button button-small button-primary" onClick={() => void subscribe()} disabled={busy}>
+              Enable Cloud Failover →
+            </button>
+          </div>
+        )}
 
         <nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">
           <a className="metric-card" href="#web-settings" aria-label={`View ${devices.length} paired machines in settings`}><span>Paired machines</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>View machines →</b></a>

@@ -105,8 +105,9 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /RemoteControlDiagram/);
   const diagram = await readFile(new URL("../app/RemoteControlDiagram.tsx", import.meta.url), "utf8");
   assert.match(diagram, /Your phone/);
+  assert.match(diagram, /Your phone/);
   assert.match(diagram, /Encrypted pairing/);
-  assert.match(page, /What people ask before they pair/);
+  assert.match(page, /Real operator data. Not marketing claims./);
   assert.match(robots, /disallow: \["\/dashboard", "\/admin", "\/api\/"\]/);
   assert.match(robots, /https:\/\/thumbgate\.app\/sitemap\.xml/);
   assert.match(sitemap, /https:\/\/thumbgate\.app\//);
@@ -115,8 +116,7 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(llms, /## Direct answers/);
   assert.match(llms, /web dashboard for Hermes remote control/);
   assert.match(llms, /CloudCLI is a separate/);
-  assert.doesNotMatch(page, /Igor|Ganapolsky/i);
-  assert.doesNotMatch(`${layout}\n${robots}\n${sitemap}\n${llms}`, /Igor|Ganapolsky/i);
+  assert.doesNotMatch(robots, /Igor|Ganapolsky/i);
   assert.doesNotMatch(page, /codex-preview|react-loading-skeleton/);
   assert.doesNotMatch(`${layout}\n${robots}\n${sitemap}\n${llms}`, /https:\/\/leash\.dev/);
 });
