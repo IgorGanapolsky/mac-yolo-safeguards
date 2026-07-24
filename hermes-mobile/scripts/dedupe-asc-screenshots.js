@@ -21,6 +21,9 @@ function makeJwt() {
     JSON.stringify({ iss: process.env.EXPO_ASC_API_KEY_ISSUER_ID, iat: now, exp: now + 1200, aud: 'appstoreconnect-v1' }),
   ).toString('base64url');
   const data = `${header}.${payload}`;
+  // NOT a password hash: this is an ES256 (ECDSA-SHA256) JWT signature used to
+  // authenticate as an App Store Connect API key, per Apple's required auth
+  // scheme. SHA256 is the mandated digest for ES256 — not user password storage.
   const sign = crypto.createSign('SHA256');
   sign.update(data);
   sign.end();
