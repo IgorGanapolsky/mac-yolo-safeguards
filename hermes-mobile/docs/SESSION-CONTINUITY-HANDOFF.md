@@ -4,10 +4,12 @@ When a Hermes Mobile chat grows into a mega-session (or the user taps **Start fr
 
 ## What the user sees
 
-1. Tap **Start fresh chat** (mega banner, empty-stream CTA, or menu).
+1. Tap **Start fresh chat** (mega banner, empty-stream CTA, or menu) — **or** just start any ordinary new session ("+ New chat", "Clear all", "New thread" in the session picker).
 2. No banner / no **Dismiss** — resume is seamless. Prior context is restored under the hood.
 3. The next send injects a system section `Continue from handoff` with last goal, workspace/vault lane, open todos, last assistant clip, prior session id, and Mac name.
 4. Saying **pick up where you left off** (or similar) also forces that handoff into context. The session title is **not** auto-retitled to that phrase — it uses the last goal instead.
+
+**2026-07-24 fix (T-MOBILE-CONTINUITY-NEWCHAT-20260724):** `persistContinuityFromCurrentThread()` used to run only inside the explicit "Start fresh chat" mega-reset path. A brand-new session opened the ordinary way (the common case) never had a prior thread's goal/todos captured, so its first turn got zero continuity — root cause of a live "It's hopeless?" session (title = first message) getting a generic clarifying reply with no crisis awareness. `handleNewChat` now calls the persist step itself, before it clears the transcript, so every new-chat path captures the outgoing thread. When called from `handleStartFreshChat` (which already cleared messages first) this is a safe no-op — `buildSessionContinuityHandoff` returns `null` on an empty transcript.
 
 ## Where it is stored
 

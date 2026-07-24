@@ -117,6 +117,7 @@ import { buildMobileChatSystemPrompt } from '../utils/workspacePrompt';
 import {
   buildSessionContinuityHandoff,
   continuityTitleFromHandoff,
+  isPickUpWhereLeftOffPhrase,
   shouldSkipAutoRetitleForContinuity,
   type SessionContinuityHandoff,
 } from '../utils/sessionContinuityHandoff';
@@ -653,6 +654,14 @@ export default function ChatScreen() {
   const [continuityHandoff, setContinuityHandoff] = useState<SessionContinuityHandoff | null>(null);
   const continuityHandoffRef = useRef<SessionContinuityHandoff | null>(null);
   continuityHandoffRef.current = continuityHandoff;
+  /**
+   * True only for an explicit reset (Start-fresh chat / "pick up where we left
+   * off"). Ordinary "+ New chat" also persists continuity now (for injection
+   * into that thread's first send) but must NOT suppress resume-by-title —
+   * that recovery path (stale/removed session, same first-prompt text) has to
+   * keep working for a plain new chat. Cleared alongside the handoff on send.
+   */
+  const explicitContinuityResetRef = useRef(false);
   /** HTTP chat stream in flight — keep WS from clearing runProgress before first token. */
   const [isChatStreamActive, setIsChatStreamActive] = useState(false);
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
@@ -2112,6 +2121,7 @@ export default function ChatScreen() {
 
   const consumeContinuityHandoffAfterSend = useCallback(() => {
     continuityComposeFirstRef.current = false;
+    explicitContinuityResetRef.current = false;
     if (!continuityHandoffRef.current) {
       return;
     }
@@ -4017,6 +4027,13 @@ export default function ChatScreen() {
   }, [messages, isSending, runProgress, isLoadingMessages, scrollChatToLatestIfPinned, isChatStreamingActive]);
 
   const handleNewChat = async (options?: { preserveComposer?: boolean }) => {
+    // Capture continuity from the thread being left BEFORE it is cleared below.
+    // Covers ordinary "+ New chat" / "Clear all" / "New thread" — not just the
+    // explicit "Start fresh chat" mega-reset — so a plain new session still
+    // inherits last goal / open todos instead of true amnesia. When called from
+    // handleStartFreshChat, messages are already cleared by then, so
+    // buildSessionContinuityHandoff no-ops (null) and this is a safe no-op.
+    void persistContinuityFromCurrentThread();
     const preserveComposer = options?.preserveComposer === true;
     const preservedText = preserveComposer
       ? captureComposerTextForFreshChat(inputValueRef.current)
@@ -4109,6 +4126,9 @@ export default function ChatScreen() {
     const attachmentsToRestore = [...composerAttachmentsRef.current];
     try {
       // Capture continuity before wiping transcript so the next chat can continue.
+      // Explicit reset — unlike a plain "+ New chat", this must suppress
+      // resume-by-title so we never silently land back on a near-duplicate thread.
+      explicitContinuityResetRef.current = true;
       await persistContinuityFromCurrentThread();
       // Kill zombie "Delivering…" / mega-token banner: clear local run state AND best-effort stop Mac run.
       // (Previously only null'd runProgress while isChatStreamActive + sendProgressSnapshotRef kept the UI alive.)
@@ -5662,9 +5682,15 @@ export default function ChatScreen() {
             }
           }
         }
-        // After Start fresh / pending continuity, never rebind by title — that can
-        // land back on a near-duplicate "Make money today" thread and look discarded.
-        const skipResumeByTitle = Boolean(continuityHandoffRef.current);
+        // After an explicit Start fresh / "pick up where we left off", never rebind
+        // by title — that can land back on a near-duplicate "Make money today"
+        // thread and look discarded. A plain "+ New chat" also persists continuity
+        // now (for handoff injection) but must NOT block this recovery path, or a
+        // stale/removed session with the same first-prompt text can no longer
+        // silently retry on a fresh session id.
+        const skipResumeByTitle =
+          Boolean(continuityHandoffRef.current) &&
+          (explicitContinuityResetRef.current || isPickUpWhereLeftOffPhrase(userText));
         const resumable =
           activeSess || skipResumeByTitle
             ? null
