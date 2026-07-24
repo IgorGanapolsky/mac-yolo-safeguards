@@ -136,7 +136,21 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   assert.match(dashboard, /href="#hermes-console"/);
   assert.match(dashboard, /href="#leash-control"/);
   assert.match(dashboard, /href="#web-settings"/);
+  assert.match(dashboard, /mobileTab === "hermes"/);
+  assert.match(dashboard, /data-mobile-tab=\{mobileTab\}/);
+  assert.match(dashboard, /className=\{mobileTab === "settings" \? "is-active"/);
+  assert.match(dashboard, /hermes-scroll-pane/);
   assert.match(globals, /@media\(max-width:700px\)[\s\S]*\.mobile-web-tabs/);
+  assert.match(globals, /100dvh/);
+  assert.match(globals, /hermes-scroll-pane/);
+  assert.match(globals, /data-mobile-tab="hermes"/);
+  assert.match(globals, /task-panel \.composer/);
+  assert.match(globals, /safe-area-inset-bottom/);
+  assert.match(globals, /\.mobile-web-tabs a\.is-active/);
+  assert.doesNotMatch(globals, /\.mobile-web-tabs a:first-child\{color/);
+  assert.match(dashboard, /route-label-short/);
+  assert.match(dashboard, /composer-actions/);
+  assert.match(dashboard, /composer-run/);
 });
 
 test("renders the configured Stripe price instead of duplicating marketing price copy", () => {
@@ -184,10 +198,14 @@ test("lets users choose Mac vs Continuity VPS on every task not only offline fai
   const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
   const taskRouting = readFileSync(new URL("../lib/task-routing.ts", import.meta.url), "utf8");
   assert.match(dashboard, /routePreference/);
-  assert.match(dashboard, /Continuity \(VPS\)/);
   assert.match(dashboard, /My Mac/);
-  assert.match(dashboard, /Auto \(Mac, then offline policy\)/);
-  assert.match(dashboard, /aria-label="Where to run this task"/);
+  assert.match(dashboard, /Where should this run\?/);
+  assert.match(dashboard, /composer-route-explain/);
+  assert.match(dashboard, /Auto — Mac first/);
+  assert.match(dashboard, /My Mac only/);
+  assert.match(dashboard, /Continuity \(cloud VPS\)/);
+  assert.match(dashboard, /aria-labelledby="composer-where-label"/);
+  assert.doesNotMatch(dashboard, /composer-route-label/);
   assert.match(tasksRoute, /routePreference/);
   assert.match(tasksRoute, /decideTaskRoute/);
   assert.match(taskRouting, /preference === "cloud"/);
@@ -214,8 +232,13 @@ test("makes ThumbGate real with private thumbs feedback and a lessons dashboard"
   assert.match(feedbackRoute, /ON CONFLICT\(organization_id, user_id, task_id\)/);
   assert.match(lessonsRoute, /WHERE f\.organization_id = \?/);
   assert.match(lessonsRoute, /ORDER BY f\.updated_at DESC/);
+  assert.match(lessonsRoute, /unratedCompleted/);
+  assert.match(lessonsRoute, /completedResponses/);
   assert.match(lessonsClient, /Your Hermes lessons/);
-  assert.match(lessonsClient, /Feedback is private to this ThumbGate workspace/);
+  assert.match(lessonsClient, /thumbs you leave on completed answers/);
+  assert.match(lessonsClient, /WORKSPACE ACTIVITY/);
+  assert.match(lessonsClient, /0 ratings yet/);
+  assert.match(lessonsClient, /Ratings are private to this ThumbGate workspace/);
   assert.match(schema, /responseFeedback = sqliteTable\("response_feedback"/);
 });
 
@@ -223,7 +246,12 @@ test("shows the signed-in email when a zero-device workspace may be the wrong ac
   assert.match(dashboard, /Signed in as <strong>\{user\.email\}<\/strong>/);
   assert.match(dashboard, /If your machines are paired to another email/);
   assert.match(dashboard, /Switch account/);
-  assert.match(dashboard, /action="\/api\/auth\/logout" method="post"/);
+  // Shared SignOutForm posts to /api/auth/logout (one-click, busy-safe).
+  assert.match(dashboard, /SignOutForm/);
+  assert.match(dashboard, /dashboard-switch-account/);
+  const signOutForm = readFileSync(new URL("../app/SignOutForm.tsx", import.meta.url), "utf8");
+  assert.match(signOutForm, /action="\/api\/auth\/logout" method="post"/);
+  assert.match(signOutForm, /type="submit"/);
 });
 
 test("lists connectors not Tailscale peers and can revoke ghost machines", () => {
@@ -232,11 +260,15 @@ test("lists connectors not Tailscale peers and can revoke ghost machines", () =>
   const devicePairing = readFileSync(new URL("../lib/device-pairing.ts", import.meta.url), "utf8");
   const healthRoute = readFileSync(new URL("../app/api/health/route.ts", import.meta.url), "utf8");
   assert.match(dashboard, /Paired Hermes connectors/);
-  assert.match(dashboard, /not Tailscale peers/);
   assert.match(dashboard, /Remove machine/);
   assert.match(dashboard, /Remove stale machine/);
   assert.match(dashboard, /deviceStatusLabel/);
   assert.match(dashboard, /Copy installer for another Mac/);
+  assert.match(dashboard, /Add another Mac \(optional\)/);
+  assert.match(dashboard, /always-on service/);
+  assert.match(dashboard, /do <strong>not<\/strong> copy an installer every time/);
+  assert.match(dashboard, /one-time/);
+  assert.match(dashboard, /Apple security|cannot install/);
   assert.match(dashboard, /method: "DELETE"/);
   assert.match(devicesRoute, /export async function DELETE/);
   assert.match(devicesRoute, /device\.revoke/);

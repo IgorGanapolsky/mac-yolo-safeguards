@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useGateway } from '../context/GatewayContext';
@@ -43,11 +44,28 @@ const AUTO_RETRY_MS = 12000;
 
 const GATE_SURFACE = '#0F1321';
 
+/** Below this window width, keep the phone-sized card (420pt max). */
+const TABLET_BREAKPOINT = 700;
+
+/**
+ * A 420pt-max card centered on a full iPad canvas leaves hundreds of points
+ * of dead space on both sides. Scale the card wider on tablets without ever
+ * going edge-to-edge on very large screens (iPad Pro landscape).
+ */
+export function connectMacGateCardMaxWidth(windowWidth: number): number {
+  if (!Number.isFinite(windowWidth) || windowWidth < TABLET_BREAKPOINT) {
+    return 420;
+  }
+  return Math.min(Math.round(windowWidth * 0.55), 640);
+}
+
 /**
  * First-run full-screen gate when no Mac is configured yet.
  * Stranger-first: paste Tailscale IP is the hero; Find computers / QR are secondary.
  */
 export default function ConnectMacGate() {
+  const { width: windowWidth } = useWindowDimensions();
+  const cardMaxWidth = connectMacGateCardMaxWidth(windowWidth);
   const {
     settings,
     gatewayBootstrapPhase,
@@ -221,7 +239,7 @@ export default function ConnectMacGate() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
           >
-            <View style={styles.card}>
+            <View style={[styles.card, { maxWidth: cardMaxWidth }]}>
               <View style={styles.headerRow}>
                 <Text style={styles.title}>{CONNECT_MAC_GATE_TITLE}</Text>
                 <TouchableOpacity
