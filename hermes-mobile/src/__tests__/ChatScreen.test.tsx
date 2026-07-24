@@ -1374,6 +1374,82 @@ describe('ChatScreen', () => {
     });
   });
 
+  it('renames the active thread from the header pencil button without opening the thread list', async () => {
+    const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listSessions: jest.Mock;
+      listMessages: jest.Mock;
+    };
+    const { chatProjects } = jest.requireMock('../services/chatProjects') as {
+      chatProjects: { load: jest.Mock; save: jest.Mock };
+    };
+
+    listSessions.mockResolvedValue([
+      {
+        id: 'sess-rename-me',
+        title: 'Original thread title',
+        last_active_at: '2026-07-23T12:00:00Z',
+      },
+    ]);
+    listMessages.mockResolvedValue([]);
+    chatProjects.save.mockClear();
+    chatProjects.load.mockResolvedValue({
+      projects: [
+        {
+          id: 'demo-hermes-mobile',
+          name: 'hermes-mobile',
+          workspacePath: '~/workspace/git/igor/mac-yolo-safeguards/hermes-mobile',
+          sessionIds: ['sess-rename-me'],
+          activeSessionId: 'sess-rename-me',
+        },
+      ],
+      sessionProjectMap: { 'sess-rename-me': 'demo-hermes-mobile' },
+      sessionLabels: {},
+      activeProjectId: 'demo-hermes-mobile',
+    });
+
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: { ok: true, level: 'green', hostname: 'demo-mac.local' },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const { getByTestId, queryByTestId } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(getByTestId('rename-current-thread-header-btn')).toBeTruthy();
+    });
+
+    // The rename affordance lives in the header, not behind the thread-list sheet.
+    expect(queryByTestId('threads-modal-scroll')).toBeNull();
+
+    fireEvent.press(getByTestId('rename-current-thread-header-btn'));
+
+    await waitFor(() => {
+      expect(getByTestId('rename-modal')).toBeTruthy();
+    });
+    expect(getByTestId('rename-session-input').props.value).toBe('Original thread title');
+
+    fireEvent.changeText(getByTestId('rename-session-input'), 'Renamed from the chat header');
+    fireEvent.press(getByTestId('rename-session-save'));
+
+    await waitFor(() => {
+      expect(chatProjects.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionLabels: expect.objectContaining({
+            'sess-rename-me': 'Renamed from the chat header',
+          }),
+        }),
+      );
+    });
+    expect(queryByTestId('rename-modal')).toBeNull();
+  });
+
   it('clears composer after send and ignores Android IME echo onChangeText', async () => {
     const { getByTestId } = await renderChatScreen();
     const input = getByTestId('chat-input');

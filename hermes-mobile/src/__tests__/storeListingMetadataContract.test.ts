@@ -10,16 +10,25 @@ function read(p: string): string {
 }
 
 describe('store listing metadata contract (stellar live)', () => {
-  it('Play + iOS share one product name: Hermes Mobile: AI Agent', () => {
+  it('Play free/paid + iOS share one product name, never a different brand (e.g. ThumbGate)', () => {
     const playTitle = read(path.join(ANDROID, 'title.txt'));
     const paidTitle = read(path.join(ANDROID, 'paid_title.txt'));
     const iosName = read(path.join(IOS, 'name.txt'));
     expect(playTitle.length).toBeLessThanOrEqual(30);
     expect(paidTitle.length).toBeLessThanOrEqual(30);
     expect(iosName.length).toBeLessThanOrEqual(30);
-    expect(playTitle).toBe('Hermes Mobile: AI Agent');
-    expect(paidTitle).toBe('Hermes Mobile: AI Agent');
-    expect(iosName).toBe('Hermes Mobile: AI Agent');
+    // Canonical name pinned to the live, ASC-locked iOS trackName (id 6786778037) so
+    // free+paid Play and iOS never drift apart again. iOS App Info "Name" cannot be
+    // patched on a READY_FOR_SALE version without a new build (confirmed 409 lock,
+    // 2026-07-23 `cursor-asc-rename-ship`); "Hermes Mobile: AI Agent" stays staged in
+    // ASC 1.4 for the next native build, at which point re-align all three together.
+    expect(playTitle).toBe('Hermes AI Agent Leash');
+    expect(paidTitle).toBe('Hermes AI Agent Leash');
+    expect(iosName).toBe('Hermes AI Agent Leash');
+    expect(playTitle).toBe(paidTitle);
+    expect(playTitle).toBe(iosName);
+    expect(playTitle).not.toMatch(/ThumbGate/i);
+    expect(paidTitle).not.toMatch(/ThumbGate/i);
   });
 
   it('Play short description is Mac-remote wedge within 80 chars', () => {

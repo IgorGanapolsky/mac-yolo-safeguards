@@ -76,13 +76,6 @@ export default function Home() {
         </ol>
       </section>
 
-      <section className="proof-strip">
-        <div><strong>1</strong><span>signed device identity</span></div>
-        <div><strong>0</strong><span>shared private keys</span></div>
-        <div><strong>90s</strong><span>execution lease</span></div>
-        <div><strong>24/7</strong><span>web dashboard</span></div>
-      </section>
-
       <section id="how-it-works" className="section-block">
         <div className="section-heading">
           <p className="eyebrow">Dashboard + Continuity</p>

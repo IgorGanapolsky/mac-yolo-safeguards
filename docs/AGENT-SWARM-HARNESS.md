@@ -6,9 +6,10 @@ Implements the durable parts of [Cursor’s agent-swarm model economics](https:/
 
 | Command | Purpose |
 |---------|---------|
-| `node tools/agent-swarm-harness.js` | Session brief: role, contention, megafiles, Field Guide, actions |
+| `node tools/agent-swarm-harness.js` | Session brief: role, contention, megafiles, SDD loop, Field Guide, actions |
 | `node tools/agent-swarm-harness.js --json` | Machine-readable brief |
 | `node tools/agent-swarm-harness.js --role planner` | Planner guidance (design + AC only) |
+| `node tools/agent-swarm-harness.js sdd` | Specification-Driven Design loop map (specs → gap analysis → verify) |
 | `node tools/agent-swarm-harness.js check-hot-files --stdin --body-file pr.md` | Megafile + decision-ref gate |
 | `node tools/agent-swarm-harness.js field-guide` | Print `docs/agent-field-guide/index.md` |
 | `node tools/plan-coordination-snapshot.js` | Active tasks + §2 locks (named + numeric task ids) |
@@ -22,6 +23,17 @@ Implements the durable parts of [Cursor’s agent-swarm model economics](https:/
 4. **Field Guide** — short shared successor context (`docs/agent-field-guide/index.md`, ≤80 lines).
 5. **Model economics default** — frontier plans; cheap/local executes explicit leaves.
 6. **Stacked review lenses** — verification checklist; hot-file PRs need decision refs.
+7. **SDD loop** — modular specs + continuous gap analysis mapped onto plan.md / AC / thrash metrics (see [SDD-SPECIFICATION-DRIVEN-DESIGN.md](./SDD-SPECIFICATION-DRIVEN-DESIGN.md)).
+
+## SDD ↔ harness (short map)
+
+| SDD idea | Harness signal |
+|----------|----------------|
+| Modular markdown specs | Leaf AcceptanceCheck + claims before code |
+| Governance / guardrails | AGENTS.md Never-list + megafile hot-file gate |
+| Gap analysis | Update AC/claim first when requirements appear mid-build |
+| Traceability | Stacked verification; thrash metrics ≠ commit rate |
+| Anti vibe-coding | No planless megafile thrash; chat is not the source of truth |
 
 ## What we deliberately skip
 
@@ -41,3 +53,4 @@ node tests/test-agent-swarm-harness.js
 - [AGENTS.md](../AGENTS.md) — durable Never-list + planner/worker protocol
 - [plan.md](../plan.md) — live claims
 - [docs/agent-field-guide/index.md](./agent-field-guide/index.md) — curated surprises
+- [docs/SDD-SPECIFICATION-DRIVEN-DESIGN.md](./SDD-SPECIFICATION-DRIVEN-DESIGN.md) — full SDD mapping
