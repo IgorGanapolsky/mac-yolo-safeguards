@@ -18,9 +18,8 @@ const SESSION_LIMIT = 60;
 // bounded by MAX_CONTEXT_MESSAGES/MAX_CONTEXT_CHARS so sync cost grows linearly.
 const CONTEXT_SESSION_LIMIT = 40;
 const REQUEST_TIMEOUT_MS = 15_000;
-// 150s covers a cold local-model load (~44s measured for qwen3:8b-64k with a
-// 65536-token context) plus generation time; 75s was tripping on cold starts.
-const TASK_TIMEOUT_MS = 150_000;
+// 600s (10 minutes) covers complex tool-heavy agent tasks (multi-step search, code execution, data science); configurable via HERMES_TASK_TIMEOUT_MS.
+const TASK_TIMEOUT_MS = positiveMilliseconds(process.env.HERMES_TASK_TIMEOUT_MS, 600_000);
 const LEASE_RENEW_MS = 30_000;
 const MAX_CONTEXT_MESSAGES = 60;
 const MAX_CONTEXT_CHARS = 48_000;
