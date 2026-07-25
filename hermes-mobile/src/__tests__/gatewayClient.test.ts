@@ -35,6 +35,15 @@ describe('normalizeGatewayUrl', () => {
     const result = normalizeGatewayUrl('http://127.0.0.1:8642');
     expect(result.wsBase).toBe('ws://127.0.0.1:8642');
   });
+
+  it('auto-appends default port :8642 when a raw IP or hostname lacks a port', () => {
+    const ipResult = normalizeGatewayUrl('100.87.85.85');
+    expect(ipResult.httpBase).toBe('http://100.87.85.85:8642');
+    expect(ipResult.wsBase).toBe('ws://100.87.85.85:8642');
+
+    const hostResult = normalizeGatewayUrl('http://igors-macbook-pro-1');
+    expect(hostResult.httpBase).toBe('http://igors-macbook-pro-1:8642');
+  });
 });
 
 describe('gateBlockedToPending', () => {
