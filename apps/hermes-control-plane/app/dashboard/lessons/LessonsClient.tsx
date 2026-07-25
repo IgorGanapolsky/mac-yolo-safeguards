@@ -94,13 +94,13 @@ export default function LessonsClient() {
     <header className="lessons-header">
       <div>
         <p className="eyebrow">THUMBGATE</p>
-        <h1>Your ThumbGate lessons</h1>
+        <h1>ThumbGate lessons</h1>
         <p>
           Lessons are <strong>thumbs you leave on completed answers</strong> — not every chat or prompt.
           👍 = keep doing this. 👎 = fix this next time.
         </p>
       </div>
-      <a className="button button-secondary button-small" href="/dashboard">← Back to Hermes</a>
+      <a className="button button-secondary button-small" href="/dashboard">← Back to dashboard</a>
     </header>
 
     <section className="lesson-activity" aria-label="Workspace activity (not lessons)">
