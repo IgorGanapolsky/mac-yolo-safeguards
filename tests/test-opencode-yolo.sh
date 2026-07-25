@@ -80,5 +80,21 @@ export OPENCODE_BIN="$ROOT/does-not-exist"
 set +e; "$WRAPPER" --doctor >/dev/null 2>&1; code=$?; set -e
 [ "$code" -eq 127 ] && ok "missing-binary doctor (127)" || no "missing-binary doctor (got $code)"
 
+# 7. cloud models declare image input. Without attachment+modalities opencode's own Read
+#    tool silently swaps the image for the text "ERROR: ... does not support image input",
+#    so the model answers "I can't see images" and nothing surfaces as an error. The local
+#    model stays text-only: a deliberately local run must not be upgraded to the cloud.
+base_env
+"$WRAPPER" run "hi" >/dev/null 2>&1 || true
+python3 - "$ROOT/oc-home/opencode.json" <<'PY' && ok "cloud models accept image attachments" || no "cloud models accept image attachments"
+import json, sys
+models = json.load(open(sys.argv[1]))["provider"]["hermes"]["models"]
+for name in ("glm-coding", "glm-turbo", "opencode-go-glm", "kimi-code", "glm-vision"):
+    m = models[name]
+    assert m.get("attachment") is True, f"{name} missing attachment:true"
+    assert "image" in m["modalities"]["input"], f"{name} missing image modality"
+assert not models["hermes-local"].get("attachment"), "hermes-local must stay text-only"
+PY
+
 echo "opencode-yolo tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
