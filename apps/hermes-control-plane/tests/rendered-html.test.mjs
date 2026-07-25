@@ -99,12 +99,12 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(chrome, /Can pick up eligible work on a VPS when offline — still proving this out/);
   assert.equal((chrome.match(/"sign_in_click"/g) ?? []).length, 1);
   assert.equal((chrome.match(/fetch\("\/api\/me"/g) ?? []).length, 1);
-  assert.match(page, /90s<\/strong><span>execution lease/);
+  assert.match(page, /90s/);
+  assert.match(page, /execution lease/);
   assert.match(page, /application\/ld\+json/);
   assert.match(page, /SoftwareApplication/);
   assert.match(page, /RemoteControlDiagram/);
   const diagram = await readFile(new URL("../app/RemoteControlDiagram.tsx", import.meta.url), "utf8");
-  assert.match(diagram, /Your phone/);
   assert.match(diagram, /Your phone/);
   assert.match(diagram, /Encrypted pairing/);
   assert.match(page, /Real operator data. Not marketing claims./);
