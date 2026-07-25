@@ -10,7 +10,20 @@ Hermes Mobile ships JS and asset fixes over the air (EAS Update) so Igor's phone
 | `preview` | `build.preview` | Opt-in `workflow_dispatch` + `publish_preview=true` (no push auto-publish) | Internal EAS preview APK |
 | `e2e-test` | `build.e2e-test` | `npm run ota:e2e` | Maestro / automation builds |
 
-**Billing freeze 2026-07-23:** Expo Visa 2394 failed a **$78** subscription charge after agents burned EAS Update (`mobile-ota.yml` **121 runs / 48h**, including preview-on-every-main-push + many production dispatches). Workflow is **disabled_manually** on GitHub. Local/`ota:publish` refused by `scripts/require-expo-billing-thaw.sh` unless `HERMES_OTA_BILLING_THAW=1`. **Merge PRs OK; OTA deferred** until billing works. Then batch **one** coherent tip-of-day publish — never one OTA per small PR.
+**Billing freeze 2026-07-23:** Expo Visa 2394 failed a **$78** subscription charge after agents burned EAS Update (`mobile-ota.yml` **121 runs / 48h**, including preview-on-every-main-push + many production dispatches). Local/`ota:publish` refused by `scripts/require-expo-billing-thaw.sh` unless repo/env `HERMES_OTA_BILLING_THAW=1`. **Thaw alone is not enough** — see spend budget below.
+
+## OTA spend budget (HARD — never burn Expo overages again)
+
+Permanent caps enforced by `tools/ota-publish-budget.js` (CI job `ota-spend-budget-gate` + local `scripts/ota-spend-guard.sh` before every gated publish):
+
+| Cap | Limit | Notes |
+|-----|-------|-------|
+| Workflow spam | **≤3** `mobile-ota.yml` runs / rolling **48h** (after budget epoch) | Counts success/failure/cancelled **since** `OTA_BUDGET_EPOCH` (default `2026-07-24T20:00:00Z`) so pre-guard crisis history does not lock forever |
+| Production publish | **≤1** successful production OTA / **ET calendar day** (+ rolling 24h) | Tip-of-day batch only; never one OTA per small PR |
+
+**Emergency force (rare):** set both `FORCE_OTA=1` **and** repo Actions variable `HERMES_OTA_FORCE_APPROVED=1` (workflow input `force_ota=true` in CI). One flag alone does nothing.
+
+**Standing rule:** never burn Expo overages. Prefer merge PRs all day, then **one** staged production OTA (default 10% rollout).
 
 **Crisis 2026-07-15 (updated):** Production OTA is **not** automatic on every `main` merge. Preview is **not** automatic either (removed 2026-07-23). **Production** requires `workflow_dispatch` with `publish_production=true` plus a fresh-user / continuous proof artifact (`e2e=pass`), then publishes with **staged `--rollout-percentage`** (default 10%; promote via `promote_production_rollout`). OTA cannot deliver native NSC. Law: [VERSIONING-AND-RELEASES-JULY-2026.md](./VERSIONING-AND-RELEASES-JULY-2026.md). Local: thaw + `npm run ota:gate` then `npm run ota:publish`.
 
@@ -80,11 +93,13 @@ Requires `EXPO_TOKEN` in the environment (never commit).
 ## CI
 
 - **Workflow:** `.github/workflows/mobile-ota.yml`
-- **Trigger:** push to `main` (paths `hermes-mobile/**`) or manual `workflow_dispatch`
+- **Trigger:** manual `workflow_dispatch` only (no push auto-publish after 2026-07-23)
+- **First jobs:** `ota-spend-budget-gate` (`tools/ota-publish-budget.js`) → `billing-freeze-gate` (`HERMES_OTA_BILLING_THAW`) → quality → publish
 - **Production (law):** not automatic on `main`; gated dispatch + fresh-user `e2e=pass`; staged `--rollout-percentage` (default 10%) when publishing production
 - **Promote:** workflow_dispatch `promote_production_rollout` (e.g. `100`) → `eas update:edit`
 - **Code signing:** optional `EXPO_UPDATE_PRIVATE_KEY` PEM secret → `--private-key-path` ([Expo code signing](https://docs.expo.dev/eas-update/code-signing/)); requires cert embedded in a native binary first
 - **Secret:** `EXPO_TOKEN` (required)
+- **Vars:** `HERMES_OTA_BILLING_THAW=1` after billing OK; `HERMES_OTA_FORCE_APPROVED=1` only for emergency budget bypass
 
 ## Complements release APK path
 

@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# Production (or preview) EAS update — only after billing thaw + fresh-user gate.
+# Production (or preview) EAS update — only after spend budget + billing thaw + fresh-user gate.
 set -euo pipefail
 
 CHANNEL="${1:-production}"
 ENVIRONMENT="${2:-$CHANNEL}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT/hermes-mobile"
+
+# HARD spend cap first (2026-07-24) — thaw alone must never recreate overage spam.
+bash ./scripts/ota-spend-guard.sh "$CHANNEL"
 
 bash ./scripts/require-expo-billing-thaw.sh
 

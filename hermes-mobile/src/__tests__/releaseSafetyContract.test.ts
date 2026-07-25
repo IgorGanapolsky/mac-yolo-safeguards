@@ -221,6 +221,12 @@ describe('release safety contract', () => {
     expect(workflow).toContain('publish_preview');
     expect(workflow).toContain('require-expo-billing-thaw.sh');
     expect(workflow).toContain('billing-freeze-gate');
+    // Spend budget HARD (2026-07-24): thaw alone must not recreate overage spam.
+    expect(workflow).toContain('ota-spend-budget-gate');
+    expect(workflow).toContain('ota-publish-budget.js');
+    expect(workflow).toContain('HERMES_OTA_FORCE_APPROVED');
+    expect(workflow).toContain('force_ota');
+    expect(workflow).toMatch(/actions:\s*read/);
     // Crisis law: production needs publish_production + proof; preview is opt-in.
     expect(workflow).toContain('publish-preview-ota');
     expect(workflow).toContain('publish-production-ota');

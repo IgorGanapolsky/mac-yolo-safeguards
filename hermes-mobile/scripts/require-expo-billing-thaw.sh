@@ -3,12 +3,14 @@
 # Refuse eas update / OTA publish until billing is recovered AND an explicit thaw.
 #
 # Thaw (after Igor recovers Expo billing): export HERMES_OTA_BILLING_THAW=1
-# GitHub Actions: set repo variable HERMES_OTA_BILLING_THAW=1, then re-enable
-# workflow "Hermes Mobile OTA" (currently disabled_manually).
+# GitHub Actions: set repo variable HERMES_OTA_BILLING_THAW=1.
+# HARD: spend budget (tools/ota-publish-budget.js / ota-spend-guard.sh) remains
+# mandatory after thaw — never burn Expo overages again (≤3 runs/48h, ≤1 prod/day).
 set -euo pipefail
 
 if [[ "${HERMES_OTA_BILLING_THAW:-}" == "1" ]]; then
   echo "Expo billing thaw acknowledged (HERMES_OTA_BILLING_THAW=1)."
+  echo "Reminder: OTA spend budget still applies (ota-spend-guard.sh) — never burn Expo overages."
   exit 0
 fi
 
@@ -21,6 +23,7 @@ printf '%s\n' \
   '' \
   'Do NOT publish production/preview OTA until Expo billing works again.' \
   'Then set HERMES_OTA_BILLING_THAW=1 (local) / repo Actions variable (CI),' \
-  'batch ONE coherent tip-of-day OTA — never one OTA per small PR.' \
+  'with tools/ota-publish-budget.js wired — batch ONE tip-of-day OTA,' \
+  'never one OTA per small PR, never burn Expo overages again.' \
   >&2
 exit 1

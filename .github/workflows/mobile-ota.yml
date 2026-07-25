@@ -2,6 +2,8 @@
 # Manual workflow_dispatch only. Preview/production both opt-in. Batch tip-of-day OTAs.
 # Production: publish_production + fresh-user e2e=pass (crisis 2026-07-15).
 # Billing: require-expo-billing-thaw.sh unless vars.HERMES_OTA_BILLING_THAW=1.
+# Spend budget (HARD, 2026-07-24): tools/ota-publish-budget.js — ≤3 runs/48h, ≤1 prod/ET-day.
+#   Emergency only: FORCE_OTA=1 + vars.HERMES_OTA_FORCE_APPROVED=1. Never burn Expo overages.
 # Native changes still need EAS build / android:phone — OTA cannot replace native binaries.
 # Staged rollout + optional EXPO_UPDATE_PRIVATE_KEY signing apply to gated production publishes.
 # runtimeVersion: appVersion (hermes-mobile/app.json). See VERSIONING-AND-RELEASES-JULY-2026.md.
@@ -36,6 +38,11 @@ on:
         description: If set, promote an existing production update group to this % (skips publish)
         required: false
         type: string
+      force_ota:
+        description: Emergency bypass spend budget (also requires repo var HERMES_OTA_FORCE_APPROVED=1)
+        required: false
+        type: boolean
+        default: false
 
 # Serialize deploys instead of cancelling mid-run: cancel-in-progress:true can kill a
 # run partway through the eas-update loop, leaving one channel published and the other
@@ -48,10 +55,31 @@ concurrency:
 permissions:
   contents: read
   checks: read
+  actions: read
 
 jobs:
+  ota-spend-budget-gate:
+    name: OTA spend budget gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+      - name: Refuse OTA spam / overage burn
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          FORCE_OTA: ${{ inputs.force_ota == true && '1' || '0' }}
+          HERMES_OTA_FORCE_APPROVED: ${{ vars.HERMES_OTA_FORCE_APPROVED }}
+          INPUT_PUBLISH_PRODUCTION: ${{ inputs.publish_production == true && 'true' || 'false' }}
+          OTA_BUDGET_REQUIRE_PRODUCTION_SLOT: ${{ (inputs.publish_production == true || inputs.promote_production_rollout != '') && '1' || '0' }}
+        run: node ./tools/ota-publish-budget.js --json
+
   billing-freeze-gate:
     name: Expo billing freeze gate
+    needs: [ota-spend-budget-gate]
     runs-on: ubuntu-latest
     defaults:
       run:
