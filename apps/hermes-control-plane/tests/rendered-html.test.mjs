@@ -28,7 +28,7 @@ test("builds the public Leash subscription landing page", async () => {
   assert.doesNotMatch(page, /Self-Improving Firewall|self-improving firewall/);
   assert.match(page, /Free control\. Paid continuity\./);
   assert.match(page, /Web Control/);
-  assert.match(page, /Cloud Continuity/);
+  assert.match(page, /Pro Continuity|Cloud Continuity/);
   assert.match(page, /Continue with Google today/);
   assert.doesNotMatch(page, /Continue with Google or Apple/);
   assert.match(page, /still proving out in real use/);

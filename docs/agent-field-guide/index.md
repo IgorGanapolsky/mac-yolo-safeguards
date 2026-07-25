@@ -42,3 +42,4 @@ merge only when required checks green. Never “unit green = shipped.”
 
 Every Hermes Mobile test is a stranger: no assumed adb reverse, no demo=1 false greens,
 no Igor-only USB path. Production OTA needs E2E pass or fresh-user proof.
+- ARC skill probe: `node tools/arc-skill-efficiency.js --gate` before model-promote claims (fluid holdout, not memorized skill).
