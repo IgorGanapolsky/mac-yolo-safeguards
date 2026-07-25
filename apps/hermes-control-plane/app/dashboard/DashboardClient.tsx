@@ -151,16 +151,24 @@ export default function DashboardClient() {
   const focusedTaskFromUrl = useRef(false);
   const composerObserverRef = useRef<ResizeObserver | null>(null);
   /**
-   * `--composer-dock-space` (globals.css) reserves room below the fixed mobile composer
-   * so it never overlaps content. A static guess breaks the moment the textarea grows or
-   * the route explainer wraps to a second line — measure the real box instead.
+   * Mobile composer is position:absolute docked to the bottom of `.task-panel`.
+   * `--composer-dock-space` (globals.css) pads `.hermes-scroll-pane` by the *measured*
+   * composer height so messages/run controls never cover the textarea. Re-measure on
+   * resize (textarea grow, route chips wrap, keyboard chrome).
    */
   const setComposerNode = useCallback((node: HTMLFormElement | null) => {
     composerObserverRef.current?.disconnect();
     composerObserverRef.current = null;
-    if (!node || typeof ResizeObserver === "undefined") return;
+    if (!node) {
+      if (typeof document !== "undefined") {
+        document.documentElement.style.removeProperty("--composer-dock-space");
+      }
+      return;
+    }
+    if (typeof ResizeObserver === "undefined") return;
     const applyDockSpace = () => {
-      document.documentElement.style.setProperty("--composer-dock-space", `${Math.ceil(node.offsetHeight) + 16}px`);
+      const px = Math.max(160, Math.ceil(node.getBoundingClientRect().height) + 20);
+      document.documentElement.style.setProperty("--composer-dock-space", `${px}px`);
     };
     applyDockSpace();
     const observer = new ResizeObserver(applyDockSpace);
