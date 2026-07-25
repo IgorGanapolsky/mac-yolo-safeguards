@@ -11,8 +11,8 @@ echo "=== Running Automatic Worktree Hygiene ==="
 git worktree prune || true
 
 # 2. Force remove all non-main worktree directories if any exist
-git worktree list --porcelain | grep '^worktree ' | cut -d' ' -f2- | while read -r wt; do
-  if [[ "$wt" != "$repo_root" ]]; then
+git worktree list --porcelain | grep '^worktree ' | cut -d' ' -f2- | while IFS= read -r wt || [ -n "${wt:-}" ]; do
+  if [[ -n "${wt:-}" && "${wt:-}" != "$repo_root" ]]; then
     echo "Pruning stale worktree: $wt"
     git worktree remove --force "$wt" 2>/dev/null || rm -rf "$wt" || true
   fi
