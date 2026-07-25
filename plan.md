@@ -1519,6 +1519,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 - `apps/hermes-control-plane/app/globals.css`, `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx` (composer dock only), `plan.md` → **grok-composer-dock-20260725** (T-COMPOSER-FIXED-DOCK: measure composer height → reserved scroll space + sticky dock) (2026-07-25T12:16:06Z)
 
+- `tools/arc-skill-efficiency.js`, `tests/test-arc-skill-efficiency.js`, `tools/agent-decision-stack.js`, `docs/RESEARCH-ARC-AGI-HERMES-ROI-20260725.md`, `plan.md` → **grok-arc-agi-roi-20260725** (T-ARC-SKILL-EFFICIENCY: ARC-AGI skill-acquisition probe + decision-stack hook) (2026-07-25T12:24:03Z)
+
 ## 3. Decisions Log
 - 2026-07-24T19:45:00Z `cursor-header-ts-hostname`: **D-2026-07-24-header-ts-hostname.** Diagnosis after d27d1f18: `origin/main` already prefers live `/health.hostname` over generic `Tailscale 100.x` labels (Jest: `Igors-Mac-mini · Tailscale`). Screenshot tip still showing CGNAT IP is explained by (1) Connected green/amber `/health` snapshot **without** `hostname` (main then keeps `Tailscale 100.x`), and/or (2) nameless Tailscale profile never enriched because Connected setHealth did not persist hostname. Fix on `fix/header-ts-hostname-20260724`: prefer health hostname; `touchProfileHealth` CGNAT-safe enrich + `enrichActiveProfileFromHealthSnapshot` on Connected paths; **never title** Tailscale CGNAT IP (`Your computer · Tailscale` when Connected without hostname). Parent falsely claimed stuck subagent 66191184 was productive — ThumbGate lesson captured. Device: Hermes package not present on `R3CY90QPM7E` user 0 this session; continuous e2e `skipped` (phone in use). NO Expo OTA (`HERMES_OTA_BILLING_THAW` forbidden).
 
