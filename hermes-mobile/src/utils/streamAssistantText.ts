@@ -15,9 +15,9 @@ export const TELEGRAM_QUEUED_REPLY_PLACEHOLDER =
 export const GENERIC_EMPTY_STREAM_PLACEHOLDER =
   'Working on your computer… Hermes may be using tools (browser, search, terminal). The reply will show here when ready.';
 
-/** After soft timeout with no reply text — auto-poll continues; Refresh is optional fallback. */
+/** After soft timeout with no reply text — brief auto-check, then hard-stop + Leash CTA. */
 export const EMPTY_STREAM_TIMEOUT_PLACEHOLDER =
-  'Still no reply text. Hermes keeps checking your Mac automatically — Stop if a run is active, or start a fresh chat for faster replies.';
+  'Still no reply text. Hermes checks your Mac briefly, then stops — open Leash for approve/deny/warn, Stop if a run is active, or start a fresh chat.';
 
 /**
  * Internal gateway / cron sentinel for a tool-only or "nothing to report" turn.
