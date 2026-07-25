@@ -145,16 +145,18 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
   const insets = useSafeAreaInsets();
   const { inset: keyboardInset } = useKeyboardInset();
   const focusedRouteName = state.routes[state.index]?.name;
-  // Collapse tab bar only on Chat (composer space). Settings/Leash keep tabs
-  // so keyboard focus never traps the operator without an escape hatch.
-  // Re-check Keyboard.metrics so a sticky inset after hideKeyboard cannot
-  // leave the bar permanently pointerEvents=none (breaks Maestro + users).
+  // Collapse tab bar only when a real soft keyboard (>120px) is actively open on Chat.
+  // System gesture insets (<100px) must never hide navigation tabs.
   const keyboardActuallyOpen =
-    keyboardInset > 0 && (Keyboard.metrics()?.height ?? 0) > 0;
+    keyboardInset > 120 && (Keyboard.metrics()?.height ?? 0) > 120;
   const collapseForKeyboard =
     keyboardActuallyOpen && shouldCollapseTabBarForKeyboard(focusedRouteName);
   const leashDevTapCountRef = useRef(0);
   const leashDevTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  if (collapseForKeyboard) {
+    return null;
+  }
 
   const registerLeashDeveloperTap = () => {
     leashDevTapCountRef.current += 1;
@@ -184,13 +186,11 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
     <View
       style={[
         styles.navBar,
-        collapseForKeyboard ? styles.navBarKeyboardHidden : null,
         {
-          paddingBottom: collapseForKeyboard ? 0 : Math.max(insets.bottom, 8),
-          opacity: collapseForKeyboard ? 0 : 1,
+          paddingBottom: Math.max(insets.bottom, 8),
         },
       ]}
-      pointerEvents={collapseForKeyboard ? 'none' : 'auto'}
+      pointerEvents="auto"
     >
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
