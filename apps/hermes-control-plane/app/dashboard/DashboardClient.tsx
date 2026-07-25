@@ -4,6 +4,17 @@ import { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent, useCallbac
 import { BrandMark } from "../BrandMark";
 import { FormattedMessage } from "../FormattedMessage";
 import { SignOutForm } from "../SignOutForm";
+import {
+  DASHBOARD_CACHE_KEYS,
+  type CachedIdentity,
+  type CachedThreadDetails,
+  isThreadDetailFresh,
+  pruneThreadDetailStorage,
+  readJsonSessionStorage,
+  selectPreheatThreadIds,
+  threadDetailsStorageKey,
+  writeJsonSessionStorage,
+} from "@/lib/dashboard-nav-cache";
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
@@ -92,16 +103,33 @@ function clampSidebarWidth(width: number) {
 }
 
 export default function DashboardClient() {
-  const [user, setUser] = useState<User | null>(null);
-  const [organization, setOrganization] = useState<Organization | null>(null);
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [threads, setThreads] = useState<Thread[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [selectedThread, setSelectedThread] = useState<string | null>(null);
+  /** Shell-first: hydrate from sessionStorage so revisits paint before network. */
+  const [user, setUser] = useState<User | null>(() => {
+    const cached = readJsonSessionStorage<CachedIdentity<User, Organization>>(DASHBOARD_CACHE_KEYS.me);
+    return cached?.user ?? null;
+  });
+  const [organization, setOrganization] = useState<Organization | null>(() => {
+    const cached = readJsonSessionStorage<CachedIdentity<User, Organization>>(DASHBOARD_CACHE_KEYS.me);
+    return cached?.organization ?? null;
+  });
+  const [devices, setDevices] = useState<Device[]>(() => readJsonSessionStorage<Device[]>(DASHBOARD_CACHE_KEYS.devices) ?? []);
+  const [threads, setThreads] = useState<Thread[]>(() => readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? []);
+  const [tasks, setTasks] = useState<Task[]>(() => readJsonSessionStorage<Task[]>(DASHBOARD_CACHE_KEYS.tasks) ?? []);
+  const [selectedThread, setSelectedThread] = useState<string | null>(() => {
+    const stored = readJsonSessionStorage<string>(DASHBOARD_CACHE_KEYS.selectedThread);
+    if (stored) return stored;
+    const cachedThreads = readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? [];
+    return cachedThreads[0]?.id ?? null;
+  });
   const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
   const [prompt, setPrompt] = useState("");
   /** Where this task should run: Mac, Continuity VPS, or auto offline failover. */
   const [routePreference, setRoutePreference] = useState<"local" | "cloud" | "auto">("auto");
+  /** True once first network load finishes (or fails auth). */
+  const [workspaceHydrated, setWorkspaceHydrated] = useState(false);
+  /** In-memory thread detail cache for instant switch + hover preheat. */
+  const threadCacheRef = useRef<Map<string, ThreadDetails>>(new Map());
+  const preheatInflightRef = useRef<Set<string>>(new Set());
 
   /** Plain-English copy for the Mac / Continuity / Auto control (always show, never jargon-only). */
   const routeExplain =
@@ -146,7 +174,10 @@ export default function DashboardClient() {
   const [mobileTab, setMobileTab] = useState<"hermes" | "leash" | "lessons" | "settings">("hermes");
   /** Phone shell: hide route-explain blurb so it cannot cover the textarea (Genspark-style compact chrome). */
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
-  const autoSelectedThread = useRef(false);
+  /** Desktop: route explain is secondary chrome — collapsed by default (Genspark-style). */
+  const [routeExplainExpanded, setRouteExplainExpanded] = useState(false);
+  const autoSelectedThread = useRef(Boolean(selectedThread));
+  const selectedThreadRef = useRef(selectedThread);
   /** One-shot deep link from lessons page: /dashboard?task=…&thread=…#task-activity */
   const focusedTaskFromUrl = useRef(false);
   const composerObserverRef = useRef<ResizeObserver | null>(null);
@@ -175,6 +206,55 @@ export default function DashboardClient() {
     observer.observe(node);
     composerObserverRef.current = observer;
   }, []);
+
+
+  useEffect(() => {
+    selectedThreadRef.current = selectedThread;
+  }, [selectedThread]);
+
+  const persistThreadDetails = useCallback((threadId: string, details: ThreadDetails) => {
+    threadCacheRef.current.set(threadId, details);
+    writeJsonSessionStorage(threadDetailsStorageKey(threadId), {
+      details,
+      cachedAt: Date.now(),
+    } satisfies CachedThreadDetails<ThreadDetails>);
+    if (typeof sessionStorage !== "undefined") {
+      pruneThreadDetailStorage(sessionStorage);
+    }
+  }, []);
+
+  const readCachedThreadDetails = useCallback((threadId: string): ThreadDetails | null => {
+    const mem = threadCacheRef.current.get(threadId);
+    if (mem) return mem;
+    const stored = readJsonSessionStorage<CachedThreadDetails<ThreadDetails>>(threadDetailsStorageKey(threadId));
+    if (!stored?.details) return null;
+    threadCacheRef.current.set(threadId, stored.details);
+    return stored.details;
+  }, []);
+
+  const prefetchThreadDetails = useCallback(async (threadId: string, opts?: { force?: boolean }) => {
+    if (!threadId) return;
+    if (!opts?.force) {
+      const existing = readCachedThreadDetails(threadId);
+      const meta = readJsonSessionStorage<CachedThreadDetails<ThreadDetails>>(threadDetailsStorageKey(threadId));
+      if (existing && meta && isThreadDetailFresh(meta.cachedAt)) return;
+      if (preheatInflightRef.current.has(threadId)) return;
+    }
+    preheatInflightRef.current.add(threadId);
+    try {
+      const detailResponse = await fetch(
+        `/api/thread-messages?thread_id=${encodeURIComponent(threadId)}`,
+        { cache: "no-store" },
+      );
+      if (!detailResponse.ok) return;
+      const details = await detailResponse.json() as ThreadDetails;
+      persistThreadDetails(threadId, details);
+    } catch {
+      // Prefetch is best-effort; open path will revalidate.
+    } finally {
+      preheatInflightRef.current.delete(threadId);
+    }
+  }, [persistThreadDetails, readCachedThreadDetails]);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
@@ -261,7 +341,7 @@ export default function DashboardClient() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  const load = useCallback(async () => {
+  const loadWorkspace = useCallback(async () => {
     const me = await fetch("/api/me", { cache: "no-store" });
     if (me.status === 401) {
       const returnTo = `${window.location.pathname}${window.location.search}`;
@@ -269,22 +349,42 @@ export default function DashboardClient() {
       return;
     }
     const identity = await me.json() as { user: User; organization: Organization };
-    setUser(identity.user); setOrganization(identity.organization);
+    setUser(identity.user);
+    setOrganization(identity.organization);
+    writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.me, {
+      user: identity.user,
+      organization: identity.organization,
+      cachedAt: Date.now(),
+    } satisfies CachedIdentity<User, Organization>);
+
     const [deviceResponse, threadResponse, taskResponse] = await Promise.all([
-      fetch("/api/devices", { cache: "no-store" }), fetch("/api/threads", { cache: "no-store" }), fetch("/api/tasks", { cache: "no-store" }),
+      fetch("/api/devices", { cache: "no-store" }),
+      fetch("/api/threads", { cache: "no-store" }),
+      fetch("/api/tasks", { cache: "no-store" }),
     ]);
-    if (deviceResponse.ok) setDevices((await deviceResponse.json() as { devices: Device[] }).devices);
+    if (deviceResponse.ok) {
+      const nextDevices = (await deviceResponse.json() as { devices: Device[] }).devices;
+      setDevices(nextDevices);
+      writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.devices, nextDevices);
+    }
+    let activeSelected = selectedThreadRef.current;
     if (threadResponse.ok) {
       const nextThreads = sortThreadsNewestFirst((await threadResponse.json() as { threads: Thread[] }).threads);
       setThreads(nextThreads);
-      if (!autoSelectedThread.current && !selectedThread && nextThreads.length) {
+      writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.threads, nextThreads);
+      if (!autoSelectedThread.current && !activeSelected && nextThreads.length) {
         autoSelectedThread.current = true;
+        activeSelected = nextThreads[0].id;
         setSelectedThread(nextThreads[0].id);
+        writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, nextThreads[0].id);
       }
+      const preheatIds = selectPreheatThreadIds(nextThreads, activeSelected);
+      for (const id of preheatIds) void prefetchThreadDetails(id);
     }
     if (taskResponse.ok) {
       const nextTasks = (await taskResponse.json() as { tasks: Task[] }).tasks;
       setTasks(nextTasks);
+      writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.tasks, nextTasks);
       if (!focusedTaskFromUrl.current && typeof window !== "undefined") {
         const focusTaskId = new URLSearchParams(window.location.search).get("task");
         const focusThreadId = new URLSearchParams(window.location.search).get("thread");
@@ -295,6 +395,9 @@ export default function DashboardClient() {
           if (threadId) {
             autoSelectedThread.current = true;
             setSelectedThread(threadId);
+            writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, threadId);
+            const cached = readCachedThreadDetails(threadId);
+            if (cached) setThreadDetails(cached);
           }
           window.setTimeout(() => {
             const el = focusTaskId
@@ -313,17 +416,38 @@ export default function DashboardClient() {
         }
       } else setFeedback({});
     }
-    if (selectedThread) {
-      const detailResponse = await fetch(`/api/thread-messages?thread_id=${encodeURIComponent(selectedThread)}`, { cache: "no-store" });
-      if (detailResponse.ok) setThreadDetails(await detailResponse.json() as ThreadDetails);
-    } else setThreadDetails(null);
-  }, [selectedThread]);
+    setWorkspaceHydrated(true);
+  }, [prefetchThreadDetails, readCachedThreadDetails]);
+
+  // Async SWR only — no synchronous setState (eslint react-hooks/set-state-in-effect).
+  const revalidateSelectedThread = useCallback(async (threadId: string) => {
+    await prefetchThreadDetails(threadId, { force: true });
+    const next = threadCacheRef.current.get(threadId);
+    if (next && selectedThreadRef.current === threadId) setThreadDetails(next);
+  }, [prefetchThreadDetails]);
+
 
   useEffect(() => {
-    const initial = window.setTimeout(() => void load(), 0);
-    const timer = window.setInterval(() => void load(), 5000);
+    const initial = window.setTimeout(() => void loadWorkspace(), 0);
+    const timer = window.setInterval(() => void loadWorkspace(), 5000);
     return () => { window.clearTimeout(initial); window.clearInterval(timer); };
-  }, [load]);
+    // Intentionally not re-binding when selectedThread flips — list poll stays stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- shell-first: one poller, not one-per-thread
+  }, []);
+
+  // Persist selection + background revalidate. Instant paint is in openThread / deep-link handlers.
+  useEffect(() => {
+    if (!selectedThread) return;
+    writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, selectedThread);
+    let cancelled = false;
+    void (async () => {
+      await revalidateSelectedThread(selectedThread);
+      if (cancelled) return;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedThread, revalidateSelectedThread]);
   useEffect(() => {
     if (!user || !pairingCodePattern.test(pairCode)) return;
     const currentUrl = new URL(window.location.href);
@@ -352,7 +476,7 @@ export default function DashboardClient() {
     const response = await fetch("/api/pairing/approve", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ userCode: pairCode }) });
     const body = await response.json() as { device?: Device; error?: string };
     setNotice(response.ok && body.device ? `${body.device.name} paired. Recent Hermes chats are syncing now.` : body.error ?? "Pairing failed");
-    if (response.ok) { setPairCode(""); await load(); }
+    if (response.ok) { setPairCode(""); await loadWorkspace(); }
     setBusy(false);
   }
 
@@ -397,7 +521,7 @@ export default function DashboardClient() {
         setNotice(`Sent — running on ${where}.`);
         setPrompt("");
         setSelectedThread(body.task.threadId);
-        await load();
+        await loadWorkspace();
         window.requestAnimationFrame(() => {
           document.getElementById("task-activity")?.scrollIntoView({ behavior: "smooth", block: "start" });
         });
@@ -413,7 +537,7 @@ export default function DashboardClient() {
 
   async function updateFailover(deviceId: string, failoverMode: Device["failoverMode"]) {
     const response = await fetch("/api/devices", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ deviceId, failoverMode }) });
-    const body = await response.json() as { error?: string }; setNotice(response.ok ? `Failover policy set to ${failoverMode}.` : body.error ?? "Update failed"); await load();
+    const body = await response.json() as { error?: string }; setNotice(response.ok ? `Failover policy set to ${failoverMode}.` : body.error ?? "Update failed"); await loadWorkspace();
   }
 
   async function revokeDevice(device: Device) {
@@ -427,13 +551,13 @@ export default function DashboardClient() {
     });
     const body = await response.json() as { error?: string };
     setNotice(response.ok ? `${device.name} removed.` : body.error ?? "Could not remove machine");
-    if (response.ok) await load();
+    if (response.ok) await loadWorkspace();
     setBusy(false);
   }
 
   async function failover(taskId: string) {
     const response = await fetch("/api/tasks/failover", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ taskId }) });
-    const body = await response.json() as { error?: string }; setNotice(response.ok ? "Cloud failover approved." : body.error ?? "Failover failed"); await load();
+    const body = await response.json() as { error?: string }; setNotice(response.ok ? "Cloud failover approved." : body.error ?? "Failover failed"); await loadWorkspace();
   }
 
   async function subscribe() {
@@ -566,7 +690,16 @@ export default function DashboardClient() {
         if (!response.ok) { setNotice(body.error ?? "Delete failed"); return; }
         const remaining = threads.filter((thread) => thread.id !== chatDialog.thread.id);
         setThreads(remaining);
-        if (selectedThread === chatDialog.thread.id) setSelectedThread(remaining[0]?.id ?? null);
+        writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.threads, remaining);
+        if (selectedThread === chatDialog.thread.id) {
+          const nextId = remaining[0]?.id ?? null;
+          setSelectedThread(nextId);
+          if (!nextId) setThreadDetails(null);
+          else {
+            const cached = readCachedThreadDetails(nextId);
+            if (cached) setThreadDetails(cached);
+          }
+        }
         setNotice("Chat deleted. The paired Hermes machine will apply the deletion safely.");
       } else {
         const response = await fetch("/api/threads", {
@@ -577,12 +710,13 @@ export default function DashboardClient() {
         const body = await response.json().catch(() => ({})) as { error?: string; cleared?: number };
         if (!response.ok) { setNotice(body.error ?? "Clear failed"); return; }
         setThreads([]);
+        writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.threads, []);
         setSelectedThread(null);
         setThreadDetails(null);
         setNotice(`${body.cleared ?? threads.length} chats cleared. Paired Hermes machines will apply the deletion safely.`);
       }
       setChatDialog(null);
-      await load();
+      await loadWorkspace();
     } finally {
       setChatOperationBusy(false);
     }
@@ -591,9 +725,19 @@ export default function DashboardClient() {
   function openThread(threadId: string | null) {
     setThreadMenu(null);
     setSelectedThread(threadId);
+    setRouteExplainExpanded(false);
+    if (threadId) {
+      const cached = readCachedThreadDetails(threadId);
+      if (cached) setThreadDetails(cached);
+      void prefetchThreadDetails(threadId, { force: false });
+      writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, threadId);
+    } else {
+      setThreadDetails(null);
+    }
     if (window.matchMedia("(max-width: 700px)").matches) {
       setChatRailExpanded(false);
       window.localStorage.setItem(chatRailPreferenceKey, "false");
+      setMobileTab("hermes");
     }
   }
 
@@ -602,7 +746,7 @@ export default function DashboardClient() {
   return (
     <main
       className={`dashboard-shell${chatRailExpanded ? "" : " chat-rail-collapsed"}`}
-      data-mobile-tab={mobileTab}
+      data-mobile-tab={mobileTab} data-workspace-hydrated={workspaceHydrated ? "1" : "0"}
       style={chatRailExpanded ? { "--sidebar-width": `${sidebarWidth}px` } as CSSProperties : undefined}
     >
       <aside className={`sidebar${chatRailExpanded ? "" : " is-collapsed"}`} aria-label="Hermes navigation">
@@ -627,7 +771,7 @@ export default function DashboardClient() {
           </div>
           <nav className="thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.map((thread) => (
             <div key={thread.id} className="thread-row">
-              <button title={`${thread.title} — ${formatDateTime(thread.updatedAt)}`} aria-current={selectedThread === thread.id ? "page" : undefined} className={selectedThread === thread.id ? "side-item thread-item active" : "side-item thread-item"} onClick={() => openThread(thread.id)}><span className="thread-icon">{thread.sourceSessionId ? "⌘" : "›_"}</span><span className="thread-copy"><strong>{thread.title}</strong><time dateTime={new Date(thread.updatedAt).toISOString()}>{formatDateTime(thread.updatedAt)}</time></span><em>{thread.messageCount || thread.taskCount}</em></button>
+              <button title={`${thread.title} — ${formatDateTime(thread.updatedAt)}`} aria-current={selectedThread === thread.id ? "page" : undefined} className={selectedThread === thread.id ? "side-item thread-item active" : "side-item thread-item"} onClick={() => openThread(thread.id)} onPointerEnter={() => void prefetchThreadDetails(thread.id)} onFocus={() => void prefetchThreadDetails(thread.id)}><span className="thread-icon">{thread.sourceSessionId ? "⌘" : "›_"}</span><span className="thread-copy"><strong>{thread.title}</strong><time dateTime={new Date(thread.updatedAt).toISOString()}>{formatDateTime(thread.updatedAt)}</time></span><em>{thread.messageCount || thread.taskCount}</em></button>
               <button type="button" className="thread-menu-trigger" aria-label={`Actions for ${thread.title}`} aria-haspopup="menu" aria-expanded={threadMenu === thread.id} onClick={() => setThreadMenu((current) => current === thread.id ? null : thread.id)}>•••</button>
               {threadMenu === thread.id && <div className="thread-actions" role="menu" aria-label={`Actions for ${thread.title}`}>
                 <button type="button" className="thread-action" role="menuitem" onClick={() => openRenameDialog(thread)}><span aria-hidden="true">✎</span> Rename</button>
@@ -714,7 +858,7 @@ export default function DashboardClient() {
                 <p className="composer-where-label" id="composer-where-label">Where should this run?</p>
                 <div className="composer-route" role="radiogroup" aria-labelledby="composer-where-label">
                   <label className={routePreference === "local" ? "is-selected" : ""}>
-                    <input type="radio" name="routePreference" value="local" checked={routePreference === "local"} onChange={() => setRoutePreference("local")} />
+                    <input type="radio" name="routePreference" value="local" checked={routePreference === "local"} onChange={() => { setRoutePreference("local"); setRouteExplainExpanded(false); }} />
                     <span className="route-label-full">My Mac</span>
                     <span className="route-label-short">Mac</span>
                   </label>
@@ -722,20 +866,28 @@ export default function DashboardClient() {
                     className={routePreference === "cloud" ? "is-selected" : ""}
                     title={organization?.cloudAccess ? "Cloud VPS even if your Mac is online" : "Requires Continuity trial or Pro"}
                   >
-                    <input type="radio" name="routePreference" value="cloud" checked={routePreference === "cloud"} onChange={() => setRoutePreference("cloud")} disabled={!organization?.cloudAccess} />
+                    <input type="radio" name="routePreference" value="cloud" checked={routePreference === "cloud"} onChange={() => { setRoutePreference("cloud"); setRouteExplainExpanded(false); }} disabled={!organization?.cloudAccess} />
                     <span className="route-label-full">Continuity</span>
                     <span className="route-label-short">Cloud</span>
                   </label>
                   <label className={routePreference === "auto" ? "is-selected" : ""}>
-                    <input type="radio" name="routePreference" value="auto" checked={routePreference === "auto"} onChange={() => setRoutePreference("auto")} />
+                    <input type="radio" name="routePreference" value="auto" checked={routePreference === "auto"} onChange={() => { setRoutePreference("auto"); setRouteExplainExpanded(false); }} />
                     <span className="route-label-full">Auto</span>
                     <span className="route-label-short">Auto</span>
                   </label>
                 </div>
                 {!isNarrowViewport ? (
                   <div className="composer-route-explain" role="status" aria-live="polite">
-                    <strong>{routeExplain.title}</strong>
-                    <p>{routeExplain.body}</p>
+                    <button
+                      type="button"
+                      className="composer-route-explain-toggle"
+                      aria-expanded={routeExplainExpanded}
+                      onClick={() => setRouteExplainExpanded((v) => !v)}
+                    >
+                      <strong>{routeExplain.title}</strong>
+                      <span aria-hidden="true">{routeExplainExpanded ? "▾" : "▸"}</span>
+                    </button>
+                    {routeExplainExpanded ? <p>{routeExplain.body}</p> : null}
                   </div>
                 ) : (
                   <p className="composer-where-label" style={{ margin: 0, textTransform: "none", letterSpacing: 0, fontWeight: 500, color: "#94A3B8" }}>
