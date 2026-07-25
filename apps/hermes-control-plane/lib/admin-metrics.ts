@@ -270,7 +270,7 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
     })),
     tokens: {
       available: true,
-      note: "Hermes Cloud Continuity runs the full Hermes Agentic System — multi-step tool execution, memory recall, and model routing across DeepSeek, Claude, and Qwen.",
+      note: "Hermes Cloud Continuity runs the full Hermes Agentic System — multi-step tool execution, memory recall, and model routing. No LangSmith required.",
     },
     cost: {
       available: true,
