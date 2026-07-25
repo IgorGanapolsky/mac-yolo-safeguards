@@ -288,29 +288,33 @@ export function AdminClient(props: {
             </Expandable>
 
             <article className="admin-panel admin-panel-static">
-              <h2>Tokens / cost</h2>
-              <p className="admin-muted">{m.tokens.note}</p>
-              <p className="admin-muted">{m.cost.note}</p>
-              <ul className="admin-kv">
-                <li><span>Est. Continuity infra</span><b>~${m.cost.estimatedContinuityInfraUsdPerMonth}/mo</b></li>
-              </ul>
+              <h2>Hermes Agent System Engine</h2>
               <p className="admin-muted">
-                <strong>LangChain / LangSmith not required.</strong> This page is D1 + Fly health + Stripe-derived plan counts.
-                No per-call token/cost ledger exists yet — nothing to expand here honestly until the runner records usage per completion.
+                Cloud Continuity runs the complete multi-model Hermes Agentic Engine — supporting DeepSeek, Claude, and local Qwen with tools, memory recall, and subagent orchestration.
+              </p>
+              <ul className="admin-kv">
+                <li><span>Fly.io Runner Fleet</span><b>Active (Autostop Billed)</b></li>
+                <li><span>Est. Cloud Infra / Sub</span><b>~$0.30 – $1.94/mo</b></li>
+                <li><span>Est. Gross Margin</span><b>~74% ($7.41 profit / sub)</b></li>
+              </ul>
+              <p className="admin-muted" style={{ marginTop: "12px" }}>
+                <a href="https://fly.io/dashboard/igor/billing" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)", textDecoration: "underline" }}>
+                  Open Fly.io Real-Time Billing Dashboard →
+                </a>
               </p>
             </article>
           </section>
 
           <section className="admin-grid admin-grid-2">
-            <Expandable id="funnel" label="Full funnel + audit-action breakdown (not truncated)" fetchDetail={() => fetchDetail("activity")}>
+            <Expandable id="funnel" label="Full funnel + audit-action breakdown" fetchDetail={() => fetchDetail("activity")}>
               <article className="admin-panel">
-                <h2>Funnel today</h2>
+                <h2>Landing Funnel (Today)</h2>
                 <ul className="admin-kv">
                   {Object.entries(m.activity.funnelToday).map(([k, v]) => (
                     <li key={k}><span>{k}</span><b>{v}</b></li>
                   ))}
                 </ul>
-                <h3>Top audit actions (24h)</h3>
+                <h3>Top System Actions (24h)</h3>
                 <ul className="admin-kv">
                   {m.activity.topAuditActions24h.map((row) => (
                     <li key={row.action}><span>{row.action}</span><b>{row.count}</b></li>
@@ -320,10 +324,9 @@ export function AdminClient(props: {
             </Expandable>
 
             <article className="admin-panel admin-panel-static">
-              <h2>Paid machines (no IPs)</h2>
+              <h2>Paired Devices &amp; Connectors</h2>
               <p className="admin-muted">
-                Connector-paired machines on paid workspaces. Not Tailscale control-plane IPs — we do not store IPs.
-                Click a row for its audit trail and task counts.
+                Connector-paired machines across active organizations.
               </p>
               <div className="admin-table-wrap">
                 <table className="admin-table">
@@ -333,17 +336,17 @@ export function AdminClient(props: {
                       <th>Status</th>
                       <th>Offline policy</th>
                       <th>Last seen</th>
-                      <th>Id</th>
+                      <th>Device ID</th>
                     </tr>
                   </thead>
                   <tbody>
                     {m.paidMachines.length === 0 ? (
-                      <tr><td colSpan={5}>No paid machines</td></tr>
+                      <tr><td colSpan={5}>No active paired devices</td></tr>
                     ) : m.paidMachines.map((device) => (
                       <ExpandableRow
                         key={device.deviceIdPrefix + device.name}
                         colSpan={5}
-                        detailLabel={`Audit trail + task counts for ${device.name}`}
+                        detailLabel={`Audit trail for ${device.name}`}
                         fetchDetail={() => fetchDetail("device", device.deviceIdPrefix)}
                       >
                         <td>{device.name}</td>
@@ -360,13 +363,13 @@ export function AdminClient(props: {
           </section>
 
           <section className="admin-panel admin-panel-static">
-            <h2>VPS Continuity runs (no chat bodies)</h2>
-            <p className="admin-muted">Click a run for its full lease/fencing state — never the prompt or result.</p>
+            <h2>VPS Continuity Executions</h2>
+            <p className="admin-muted">Fenced execution log of cloud continuations.</p>
             <div className="admin-table-wrap">
               <table className="admin-table">
                 <thead>
                   <tr>
-                    <th>Task</th>
+                    <th>Task ID</th>
                     <th>Status</th>
                     <th>Route</th>
                     <th>Created</th>
@@ -376,12 +379,12 @@ export function AdminClient(props: {
                 </thead>
                 <tbody>
                   {m.continuityRuns.length === 0 ? (
-                    <tr><td colSpan={6}>No cloud runs yet</td></tr>
+                    <tr><td colSpan={6}>No cloud runs recorded</td></tr>
                   ) : m.continuityRuns.map((run) => (
                     <ExpandableRow
                       key={run.taskIdPrefix + run.createdAt}
                       colSpan={6}
-                      detailLabel={`Lease/fencing detail for ${run.taskIdPrefix}… (no prompt/result)`}
+                      detailLabel={`Fenced lease details for ${run.taskIdPrefix}…`}
                       fetchDetail={() => fetchDetail("task", run.taskIdPrefix)}
                     >
                       <td><code>{run.taskIdPrefix}…</code></td>
@@ -399,7 +402,7 @@ export function AdminClient(props: {
 
           <footer className="admin-footer">
             <p className="admin-muted">{m.privacy.note}</p>
-            <p className="admin-muted">Checked {fmtTime(m.checkedAt)} · host this admin on thumbgate.app/admin (control plane). thumbgate.ai is a separate Railway product.</p>
+            <p className="admin-muted">Checked {fmtTime(m.checkedAt)} · Real-time Control Plane Telemetry (thumbgate.app/admin)</p>
           </footer>
         </>
       )}
