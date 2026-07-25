@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import EmptyStreamRefreshBanner from '../components/EmptyStreamRefreshBanner';
+import { EMPTY_STREAM_HARD_STOP_MS } from '../utils/emptyStreamReplyRecovery';
 
 describe('EmptyStreamRefreshBanner', () => {
   it('shows auto-checking spinner when polling is active', () => {
@@ -39,6 +40,27 @@ describe('EmptyStreamRefreshBanner', () => {
 
     fireEvent.press(screen.getByTestId('empty-stream-start-fresh-chat'));
     expect(onStartFreshChat).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows Open Leash CTA and stops the forever spinner after the hard bound', () => {
+    const onOpenLeash = jest.fn();
+    render(
+      <EmptyStreamRefreshBanner
+        autoChecking
+        waitingSinceMs={Date.now() - EMPTY_STREAM_HARD_STOP_MS - 5_000}
+        onRefresh={jest.fn()}
+        onOpenLeash={onOpenLeash}
+        pendingApprovalCount={2}
+        onStartFreshChat={jest.fn()}
+      />,
+    );
+
+    expect(screen.queryByTestId('empty-stream-auto-checking')).toBeNull();
+    expect(screen.getByTestId('empty-stream-hard-stopped')).toBeTruthy();
+    expect(screen.getByTestId('empty-stream-open-leash')).toHaveTextContent('Open Leash (2)');
+    expect(screen.queryByTestId('empty-stream-refresh-button')).toBeNull();
+    fireEvent.press(screen.getByTestId('empty-stream-open-leash'));
+    expect(onOpenLeash).toHaveBeenCalledTimes(1);
   });
 
   it('shows elapsed timer when waitingSinceMs is provided', () => {
