@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
-  Platform,
   Alert,
   Keyboard,
   LogBox,
@@ -127,8 +126,11 @@ function HermesTabNavigator() {
       tabBar={renderTabBar}
       screenOptions={{
         headerShown: false,
-        // Android: hide tab bar so adjustResize can lift the composer; manual lift still runs as backup.
-        tabBarHideOnKeyboard: Platform.OS === 'android',
+        // Never use react-navigation tabBarHideOnKeyboard. On Android
+        // multi-window/PiP, its keyboard-visible flag can stick true after
+        // inset churn → tabs vanish forever with the IME closed. Composer
+        // space is handled only by GlassmorphicTabBar + metrics-verified policy.
+        tabBarHideOnKeyboard: false,
       }}
     >
       {tabOrder.map((name) => (
@@ -145,14 +147,13 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
   const insets = useSafeAreaInsets();
   const { inset: keyboardInset } = useKeyboardInset();
   const focusedRouteName = state.routes[state.index]?.name;
-  // Collapse tab bar only on Chat (composer space). Settings/Leash keep tabs
-  // so keyboard focus never traps the operator without an escape hatch.
-  // Re-check Keyboard.metrics so a sticky inset after hideKeyboard cannot
-  // leave the bar permanently pointerEvents=none (breaks Maestro + users).
-  const keyboardActuallyOpen =
-    keyboardInset > 0 && (Keyboard.metrics()?.height ?? 0) > 0;
-  const collapseForKeyboard =
-    keyboardActuallyOpen && shouldCollapseTabBarForKeyboard(focusedRouteName);
+  // Collapse only on Chat when Keyboard.metrics() confirms the IME is open.
+  // Sticky keyboardInset alone (PiP / multi-window inset churn) must not hide tabs.
+  const collapseForKeyboard = shouldCollapseTabBarForKeyboard({
+    focusedRouteName,
+    keyboardInset,
+    keyboardMetricsHeight: Keyboard.metrics()?.height ?? 0,
+  });
   const leashDevTapCountRef = useRef(0);
   const leashDevTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
