@@ -439,9 +439,11 @@ import {
   deferredReplyPollBudgetMs,
   DEFERRED_REPLY_POLL_MS,
   EMPTY_REPLY_FAILURE_REASON,
+  EMPTY_STREAM_HARD_STOP_STATUS,
   EMPTY_STREAM_SELF_HEAL_AFTER_MS,
   emptyStreamCheckingStatus,
   shouldAwaitGatewayReplyAfterSend,
+  shouldHardStopEmptyStreamWait,
   shouldKeepAutoPollingForReply,
   toolActivityAfterLastUser,
 } from '../utils/emptyStreamReplyRecovery';
@@ -3312,8 +3314,33 @@ export default function ChatScreen() {
                     },
             );
           }
+          if (shouldHardStopEmptyStreamWait(elapsed)) {
+            clearDeferredTelegramPoll();
+            awaitingGatewayReplyRef.current = false;
+            setAwaitingGatewayReply(false);
+            setToolStatus(EMPTY_STREAM_HARD_STOP_STATUS);
+            commitMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId && isDeferredStreamPlaceholder(m.content)
+                  ? { ...m, content: EMPTY_STREAM_TIMEOUT_PLACEHOLDER }
+                  : m,
+              ),
+            );
+            setRunProgress((prev) =>
+              prev && prev.phase !== 'completed'
+                ? { ...prev, phase: 'failed', detail: EMPTY_STREAM_HARD_STOP_STATUS }
+                : prev,
+            );
+            return;
+          }
           if (!softTimeoutSurfaced && elapsed > budgetMs) {
             softTimeoutSurfaced = true;
+            // Product law: do not leave "Checking your Mac…" spinning forever.
+            // Soft timeout surfaces the CTA and stops the aggressive deferred poll;
+            // background HTTP poll (capped by hard stop) can still pick up a late reply.
+            clearDeferredTelegramPoll();
+            awaitingGatewayReplyRef.current = false;
+            setAwaitingGatewayReply(false);
             setToolStatus(emptyStreamCheckingStatus(elapsed));
             commitMessages((prev) =>
               prev.map((m) =>
@@ -3350,31 +3377,16 @@ export default function ChatScreen() {
     if (!shouldShowEmptyStreamRefreshCta(msgs)) {
       return;
     }
-    let lastUserIndex = -1;
-    for (let index = msgs.length - 1; index >= 0; index -= 1) {
-      if (msgs[index]?.role?.toLowerCase() === 'user') {
-        lastUserIndex = index;
-        break;
-      }
-    }
-    if (lastUserIndex < 0) {
+    // Soft-timeout CTA already visible — do NOT re-arm awaitingGatewayReply /
+    // Checking-your-Mac spinner. Background poll (hard-stop capped) is enough.
+    // Re-arming here was the 57-minute "Checking your Mac… (3430s)" class.
+    const lastSentAt = resolveLastUserPromptSentAtMs(msgs);
+    if (lastSentAt != null && shouldHardStopEmptyStreamWait(Date.now() - lastSentAt)) {
+      setToolStatus(EMPTY_STREAM_HARD_STOP_STATUS);
       return;
     }
-    let assistantId: string | undefined;
-    for (let index = lastUserIndex + 1; index < msgs.length; index += 1) {
-      const message = msgs[index];
-      if (message?.role?.toLowerCase() !== 'assistant') {
-        continue;
-      }
-      assistantId = message.id;
-      break;
-    }
-    if (!assistantId) {
-      return;
-    }
-    const priorAssistants = snapshotAssistantBodies(msgs.slice(0, lastUserIndex + 1));
-    startDeferredReplyPoll(assistantId, priorAssistants, { recoveryMode: true });
-  }, [isDemo, macChatLive, startDeferredReplyPoll]);
+    return;
+  }, [isDemo, macChatLive]);
 
   useEffect(() => {
     return () => {
@@ -3811,11 +3823,25 @@ export default function ChatScreen() {
       return;
     }
     const hasEmptyStreamTimeout = shouldShowEmptyStreamRefreshCta(messages);
+    const promptSentAtMs = resolveLastUserPromptSentAtMs(messages);
+    const waitElapsedMs =
+      promptSentAtMs != null ? Math.max(0, Date.now() - promptSentAtMs) : undefined;
     const shouldPoll =
       isTelegramView ||
       connectionState !== 'connected' ||
-      shouldKeepAutoPollingForReply({ awaitingGatewayReply, hasEmptyStreamTimeout });
+      shouldKeepAutoPollingForReply({
+        awaitingGatewayReply,
+        hasEmptyStreamTimeout,
+        waitElapsedMs,
+      });
     if (!shouldPoll) {
+      if (
+        hasEmptyStreamTimeout &&
+        typeof waitElapsedMs === 'number' &&
+        shouldHardStopEmptyStreamWait(waitElapsedMs)
+      ) {
+        setToolStatus(EMPTY_STREAM_HARD_STOP_STATUS);
+      }
       return;
     }
     const intervalMs =
@@ -7702,6 +7728,11 @@ export default function ChatScreen() {
             onRefresh={() => void handleManualSync()}
             onStartFreshChat={() => void handleStartFreshChat()}
             startingFreshChat={isStartingFreshChat}
+            pendingApprovalCount={composerApprovals.length}
+            onOpenLeash={() => {
+              haptics.selection();
+              navigation.navigate('Leash' as never);
+            }}
           />
         ) : null}
 

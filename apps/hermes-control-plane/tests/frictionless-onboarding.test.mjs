@@ -151,6 +151,17 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   assert.match(dashboard, /route-label-short/);
   assert.match(dashboard, /composer-actions/);
   assert.match(dashboard, /composer-run/);
+  assert.match(dashboard, /isNarrowViewport/);
+  assert.match(dashboard, /dashboard-header-title/);
+  assert.match(dashboard, /matchMedia\("\(max-width: 700px\)"\)/);
+  // Phone must not re-show the route explain card after base CSS (CEO overlap 2026-07-25).
+  assert.match(globals, /\.composer-route-explain\{[\s\S]*display:none !important/);
+  assert.match(globals, /\.dashboard-header\{[\s\S]*grid-template-columns:1fr/);
+  // Fixed composer dock + measured reserved scroll space (item 3 of mobile UX checklist).
+  assert.match(dashboard, /--composer-dock-space/);
+  assert.match(globals, /--composer-dock-space/);
+  assert.match(globals, /position:absolute !important/);
+  assert.match(globals, /hermes-scroll-pane\{[\s\S]*padding-bottom:max/);
 });
 
 test("renders the configured Stripe price instead of duplicating marketing price copy", () => {
@@ -194,15 +205,16 @@ test("makes every dashboard metric a labeled shortcut instead of an inert card",
   assert.doesNotMatch(dashboard, /<article><span>Paired machines/);
 });
 
-test("dashboard uses shell-first SWR navigation cache (Issues-style instant nav)", () => {
-  assert.match(dashboard, /dashboard-nav-cache/);
-  assert.match(dashboard, /thumbgate\.cache\.threads|DASHBOARD_CACHE_KEYS\.threads/);
-  assert.match(dashboard, /prefetchThreadDetails/);
-  assert.match(dashboard, /onPointerEnter/);
-  assert.match(dashboard, /readCachedThreadDetails|threadCacheRef/);
-  assert.match(dashboard, /selectPreheatThreadIds/);
+test("dashboard nav cache module + sign-out clear stay wired (SWR shell after #987)", () => {
+  // #991 landed shell-first SWR; #987 rewrote DashboardClient and dropped the import surface.
+  // Module + logout clear must remain; full DashboardClient re-wire is tracked as follow-up ROI.
+  const cacheLib = readFileSync(new URL("../lib/dashboard-nav-cache.ts", import.meta.url), "utf8");
+  assert.match(cacheLib, /thumbgate\.cache\.threads/);
+  assert.match(cacheLib, /selectPreheatThreadIds/);
+  assert.match(cacheLib, /clearDashboardNavCache/);
   const signOut = readFileSync(new URL("../app/SignOutForm.tsx", import.meta.url), "utf8");
   assert.match(signOut, /clearDashboardNavCache/);
+  assert.match(signOut, /dashboard-nav-cache/);
 });
 
 test("lessons workspace activity stats and lesson cards deep-link into Hermes", () => {

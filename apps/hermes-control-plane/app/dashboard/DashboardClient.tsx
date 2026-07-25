@@ -144,26 +144,45 @@ export default function DashboardClient() {
   const [feedbackBusyTask, setFeedbackBusyTask] = useState<string | null>(null);
   /** Bottom-tab highlight on phone: path + hash, not always-Hermes. */
   const [mobileTab, setMobileTab] = useState<"hermes" | "leash" | "lessons" | "settings">("hermes");
+  /** Phone shell: hide route-explain blurb so it cannot cover the textarea (Genspark-style compact chrome). */
+  const [isNarrowViewport, setIsNarrowViewport] = useState(false);
   const autoSelectedThread = useRef(false);
   /** One-shot deep link from lessons page: /dashboard?task=…&thread=…#task-activity */
   const focusedTaskFromUrl = useRef(false);
   const composerObserverRef = useRef<ResizeObserver | null>(null);
   /**
-   * `--composer-dock-space` (globals.css) reserves room below the fixed mobile composer
-   * so it never overlaps content. A static guess breaks the moment the textarea grows or
-   * the route explainer wraps to a second line — measure the real box instead.
+   * Mobile composer is position:absolute docked to the bottom of `.task-panel`.
+   * `--composer-dock-space` (globals.css) pads `.hermes-scroll-pane` by the *measured*
+   * composer height so messages/run controls never cover the textarea. Re-measure on
+   * resize (textarea grow, route chips wrap, keyboard chrome).
    */
   const setComposerNode = useCallback((node: HTMLFormElement | null) => {
     composerObserverRef.current?.disconnect();
     composerObserverRef.current = null;
-    if (!node || typeof ResizeObserver === "undefined") return;
+    if (!node) {
+      if (typeof document !== "undefined") {
+        document.documentElement.style.removeProperty("--composer-dock-space");
+      }
+      return;
+    }
+    if (typeof ResizeObserver === "undefined") return;
     const applyDockSpace = () => {
-      document.documentElement.style.setProperty("--composer-dock-space", `${Math.ceil(node.offsetHeight) + 16}px`);
+      const px = Math.max(160, Math.ceil(node.getBoundingClientRect().height) + 20);
+      document.documentElement.style.setProperty("--composer-dock-space", `${px}px`);
     };
     applyDockSpace();
     const observer = new ResizeObserver(applyDockSpace);
     observer.observe(node);
     composerObserverRef.current = observer;
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(max-width: 700px)");
+    const apply = () => setIsNarrowViewport(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
   }, []);
 
   useEffect(() => {
@@ -628,7 +647,21 @@ export default function DashboardClient() {
       </aside>
 
       <section className="dashboard-main">
-        <header className="dashboard-header"><div><p className="eyebrow">HERMES WEB</p><h1>{selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title : "Your Hermes workspace"}</h1></div><div className="header-actions"><span className="status-chip online"><i /> ThumbGate online</span><button className="button button-small button-secondary" onClick={() => void (["pro", "team"].includes(organization.plan) ? manageBilling() : subscribe())} disabled={busy}>{["pro", "team"].includes(organization.plan) ? "Manage plan" : organization.cloudAccess ? "Keep cloud after trial" : "Add cloud failover"}</button><SignOutForm buttonClassName="button button-small button-secondary sign-out-button" data-testid="dashboard-header-sign-out" /></div></header>
+        <header className="dashboard-header">
+          <div className="dashboard-header-title">
+            <p className="eyebrow">HERMES WEB</p>
+            <h1 title={selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title ?? "Your Hermes workspace" : "Your Hermes workspace"}>
+              {selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title : "Your Hermes workspace"}
+            </h1>
+          </div>
+          <div className="header-actions">
+            <span className="status-chip online"><i /> ThumbGate online</span>
+            <button className="button button-small button-secondary" onClick={() => void (["pro", "team"].includes(organization.plan) ? manageBilling() : subscribe())} disabled={busy}>
+              {["pro", "team"].includes(organization.plan) ? "Manage plan" : organization.cloudAccess ? "Keep cloud after trial" : "Add cloud failover"}
+            </button>
+            <SignOutForm buttonClassName="button button-small button-secondary sign-out-button" data-testid="dashboard-header-sign-out" />
+          </div>
+        </header>
         {notice && (
           <div className="notice notice-toast" role="status" aria-live="polite">
             <span>{notice}</span>
@@ -699,10 +732,16 @@ export default function DashboardClient() {
                     <span className="route-label-short">Auto</span>
                   </label>
                 </div>
-                <div className="composer-route-explain" role="status" aria-live="polite">
-                  <strong>{routeExplain.title}</strong>
-                  <p>{routeExplain.body}</p>
-                </div>
+                {!isNarrowViewport ? (
+                  <div className="composer-route-explain" role="status" aria-live="polite">
+                    <strong>{routeExplain.title}</strong>
+                    <p>{routeExplain.body}</p>
+                  </div>
+                ) : (
+                  <p className="composer-where-label" style={{ margin: 0, textTransform: "none", letterSpacing: 0, fontWeight: 500, color: "#94A3B8" }}>
+                    {routeExplain.title}
+                  </p>
+                )}
               </div>
               <div className="composer-actions">
                 <button
