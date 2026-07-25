@@ -38,8 +38,10 @@ describe('iOS ATS Tailscale cleartext contract', () => {
     const appJson = JSON.parse(
       fs.readFileSync(path.join(root, 'app.json'), 'utf8'),
     );
-    const plugins = appJson?.expo?.plugins ?? [];
-    const flat = plugins.map((p) => (Array.isArray(p) ? p[0] : p));
+    const plugins: unknown[] = appJson?.expo?.plugins ?? [];
+    const flat = plugins.map((p: unknown) =>
+      Array.isArray(p) ? p[0] : p,
+    );
     expect(flat).toContain('./plugins/withIosAtsTailscale.js');
     const plugin = fs.readFileSync(
       path.join(root, 'plugins/withIosAtsTailscale.js'),
