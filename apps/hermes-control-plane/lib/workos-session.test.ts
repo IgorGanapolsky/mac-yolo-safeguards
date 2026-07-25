@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { revokeWorkosSession, workosLogoutUrl, workosSessionIdFromAccessToken } from "./workos-session";
+import { revokeWorkosSession, workosLogoutUrl, workosSessionIdFromAccessToken } from "./workos-session.ts";
 
 function accessToken(payload: Record<string, unknown>): string {
   const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
