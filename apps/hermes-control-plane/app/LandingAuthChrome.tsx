@@ -4,15 +4,19 @@ import { useEffect, useState } from "react";
 import { SignOutForm } from "./SignOutForm";
 import styles from "./landing.module.css";
 
-type AuthMode = "loading" | "anon" | "session";
+type AuthSession = {
+  mode: "loading" | "anon" | "session";
+  plan?: string;
+  cloudAccess?: boolean;
+};
 
-let landingAuthRequest: Promise<AuthMode> | null = null;
+let landingAuthRequest: Promise<AuthSession> | null = null;
 
 function bustLandingAuthCache() {
   landingAuthRequest = null;
 }
 
-function getLandingAuth(force = false): Promise<AuthMode> {
+function getLandingAuth(force = false): Promise<AuthSession> {
   if (force) bustLandingAuthCache();
   if (!landingAuthRequest) {
     landingAuthRequest = fetch("/api/me", {
@@ -20,38 +24,45 @@ function getLandingAuth(force = false): Promise<AuthMode> {
       cache: "no-store",
     })
       .then(async (response) => {
-        if (!response.ok) return "anon";
-        const body = (await response.json()) as { authenticated?: boolean };
-        return body.authenticated ? "session" : "anon";
+        if (!response.ok) return { mode: "anon" as const };
+        const body = (await response.json()) as {
+          authenticated?: boolean;
+          organization?: { plan?: string; cloudAccess?: boolean };
+        };
+        if (!body.authenticated) return { mode: "anon" as const };
+        return {
+          mode: "session" as const,
+          plan: body.organization?.plan ?? "free",
+          cloudAccess: body.organization?.cloudAccess ?? false,
+        };
       })
-      .catch(() => "anon");
+      .catch(() => ({ mode: "anon" as const }));
   }
   return landingAuthRequest;
 }
 
-function useLandingAuth(): AuthMode {
-  const [mode, setMode] = useState<AuthMode>("loading");
+function useLandingAuth(): AuthSession {
+  const [session, setSession] = useState<AuthSession>({ mode: "loading" });
   useEffect(() => {
     let cancelled = false;
-    // After logout, URL is /?signed_out=1 — never trust a stale module cache.
     const force = typeof window !== "undefined"
       && new URLSearchParams(window.location.search).has("signed_out");
-    getLandingAuth(force).then((nextMode) => {
-      if (!cancelled) setMode(nextMode);
+    getLandingAuth(force).then((nextSession) => {
+      if (!cancelled) setSession(nextSession);
     });
     return () => {
       cancelled = true;
     };
   }, []);
-  return mode;
+  return session;
 }
 
 /** Nav session chrome — after paint via /api/me (keeps public HTML static). */
 export function LandingAuthNav() {
-  const mode = useLandingAuth();
-  const isSession = mode === "session";
+  const session = useLandingAuth();
+  const isSession = session.mode === "session";
   return (
-    <div className="nav-actions" data-landing-auth={mode}>
+    <div className="nav-actions" data-landing-auth={session.mode}>
       <a href="#pair" className="nav-link">Pair</a>
       <a href="#mobile" className="nav-link">Apps</a>
       <a href="#how-it-works" className="nav-link">How it works</a>
@@ -67,10 +78,12 @@ export function LandingAuthNav() {
 
 /** Dual-track hero CTA: free sign-in stays primary, but a real paid-intent path sits next to it — not buried in the pricing section. */
 export function LandingAuthHero() {
-  const mode = useLandingAuth();
-  const isSession = mode === "session";
+  const session = useLandingAuth();
+  const isSession = session.mode === "session";
+  const isPaid = isSession && (session.plan === "pro" || session.plan === "team" || session.cloudAccess);
+
   return (
-    <div className="hero-actions" data-landing-hero-auth={mode}>
+    <div className="hero-actions" data-landing-hero-auth={session.mode}>
       <a
         href={isSession ? "/dashboard" : "/api/auth/login"}
         className="button button-primary"
@@ -79,9 +92,19 @@ export function LandingAuthHero() {
         {isSession ? "Open Hermes on the web" : "Sign in to Hermes Web"}{" "}
         <span aria-hidden="true">→</span>
       </a>
-      <a href="#pricing" className="button button-secondary" data-funnel-event="cloud_continuity_click">
-        Try Continuity — 14 days free
-      </a>
+      {isPaid ? (
+        <a href="/api/billing/portal" className="button button-secondary" data-funnel-event="manage_billing_click">
+          Manage Pro Subscription ($10/mo)
+        </a>
+      ) : isSession ? (
+        <a href="/api/billing/checkout" className="button button-secondary" data-funnel-event="upgrade_pro_click">
+          Upgrade to Pro ($10/mo)
+        </a>
+      ) : (
+        <a href="#pricing" className="button button-secondary" data-funnel-event="cloud_continuity_click">
+          Try Continuity — 14 days free
+        </a>
+      )}
     </div>
   );
 }
