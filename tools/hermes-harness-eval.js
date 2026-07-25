@@ -19,12 +19,15 @@ function usage() {
     [--outcome-history PATH]
     [--since-hours N] [--baseline-profile ID --candidate-profile ID]
     [--holdout-case ID ...] [--min-repeats N]
+    [--with-arc] [--skip-arc]
     [--write] [--out PATH] [--wiki-out PATH] [--json]
 
 Mines prompt-free Hermes route, verifier, and outcome receipts into deterministic
 reliability, latency, fallback, lifecycle, cost, value, failure, and
 profile-comparison metrics. Profile promotion requires paired stable case IDs,
-repeated runs, and held-out validation. No model or provider call is made.`;
+repeated runs, and held-out validation. Optional --with-arc (or auto when a
+candidate profile is under promotion) also requires the local ARC-inspired
+skill-acquisition probe to pass holdout before adopt. No model or provider call is made.`;
 }
 
 function parseArgs(argv = process.argv.slice(2)) {
@@ -37,6 +40,8 @@ function parseArgs(argv = process.argv.slice(2)) {
     candidateProfile: null,
     holdoutCases: [],
     minRepeats: 3,
+    withArc: false,
+    skipArc: false,
     write: false,
     out: DEFAULT_OUT,
     wikiOut: DEFAULT_WIKI_OUT,
@@ -53,6 +58,8 @@ function parseArgs(argv = process.argv.slice(2)) {
     else if (arg === '--candidate-profile') args.candidateProfile = parseLabel(requireValue(argv, ++index, arg), arg);
     else if (arg === '--holdout-case') args.holdoutCases.push(parseLabel(requireValue(argv, ++index, arg), arg));
     else if (arg === '--min-repeats') args.minRepeats = parsePositiveInteger(requireValue(argv, ++index, arg), arg);
+    else if (arg === '--with-arc') args.withArc = true;
+    else if (arg === '--skip-arc') args.skipArc = true;
     else if (arg === '--write') args.write = true;
     else if (arg === '--out') args.out = path.resolve(requireValue(argv, ++index, arg));
     else if (arg === '--wiki-out') args.wikiOut = path.resolve(requireValue(argv, ++index, arg));
@@ -209,6 +216,69 @@ function passSummary(records) {
   };
 }
 
+/**
+ * Optional ARC-AGI-inspired skill-acquisition gate (local, $0 API).
+ * Auto-runs when a candidate profile is under promotion unless --skip-arc.
+ * Fail-closed on holdout: never adopt when the probe fails.
+ */
+function runArcSkillGate(options = {}) {
+  const skipArc = Boolean(options.skipArc);
+  const promoteRequested = Boolean(options.baselineProfile && options.candidateProfile);
+  const withArc = Boolean(options.withArc) || (promoteRequested && !skipArc);
+  if (!withArc || skipArc) {
+    return { skipped: true, reason: skipArc ? 'skip-arc' : 'not requested' };
+  }
+  const probePath = path.join(__dirname, 'arc-skill-efficiency.js');
+  if (!fs.existsSync(probePath)) {
+    return { skipped: true, reason: 'tools/arc-skill-efficiency.js missing' };
+  }
+  try {
+    // eslint-disable-next-line import/no-dynamic-require, global-require
+    const probe = require(probePath);
+    if (typeof probe.runBattery !== 'function' && typeof probe.evaluate !== 'function') {
+      // CLI-style module: spawn --gate --json
+      const { spawnSync } = require('child_process');
+      const result = spawnSync(process.execPath, [probePath, '--gate', '--json'], {
+        encoding: 'utf8',
+        timeout: 15_000,
+      });
+      const stdout = (result.stdout || '').trim();
+      let parsed = null;
+      try {
+        parsed = stdout ? JSON.parse(stdout) : null;
+      } catch {
+        parsed = null;
+      }
+      if (!parsed) {
+        return {
+          skipped: false,
+          overallStatus: 'fail',
+          error: `arc probe failed (exit ${result.status}): ${(result.stderr || '').slice(0, 200)}`,
+        };
+      }
+      return {
+        skipped: false,
+        overallStatus: parsed.overallStatus || (result.status === 0 ? 'pass' : 'fail'),
+        metrics: parsed.metrics || null,
+        gate: parsed.gate || null,
+      };
+    }
+    const report = typeof probe.runBattery === 'function' ? probe.runBattery() : probe.evaluate();
+    return {
+      skipped: false,
+      overallStatus: report.overallStatus || 'fail',
+      metrics: report.metrics || null,
+      gate: report.gate || null,
+    };
+  } catch (error) {
+    return {
+      skipped: false,
+      overallStatus: 'fail',
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 function compareProfiles(records, options = {}) {
   const baselineProfile = options.baselineProfile || null;
   const candidateProfile = options.candidateProfile || null;
@@ -280,12 +350,24 @@ function compareProfiles(records, options = {}) {
     holdoutNoRegression,
   };
   const enoughEvidence = pairedCasesPresent && enoughRepeats && holdoutPresent && holdoutEnoughRepeats;
+  const arcSkill = runArcSkillGate(options);
+  const arcHoldoutPass = Boolean(
+    arcSkill.skipped
+    || arcSkill.overallStatus === 'pass'
+  );
+  gates.arcSkillHoldoutPass = arcHoldoutPass;
+  gates.arcSkillRan = !arcSkill.skipped;
+  let status = !enoughEvidence
+    ? 'insufficient-data'
+    : improvement && noRegressions && holdoutNoRegression
+      ? 'adopt'
+      : 'reject';
+  // Fail-closed: ARC holdout failure blocks profile adoption even when case gates pass.
+  if (status === 'adopt' && !arcHoldoutPass) {
+    status = 'reject';
+  }
   return {
-    status: !enoughEvidence
-      ? 'insufficient-data'
-      : improvement && noRegressions && holdoutNoRegression
-        ? 'adopt'
-        : 'reject',
+    status,
     baselineProfile,
     candidateProfile,
     minRepeats,
@@ -293,6 +375,7 @@ function compareProfiles(records, options = {}) {
     aggregate,
     gates,
     perCase,
+    arcSkillEfficiency: arcSkill,
   };
 }
 
