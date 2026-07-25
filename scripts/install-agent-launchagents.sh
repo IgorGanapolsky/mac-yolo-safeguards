@@ -67,6 +67,7 @@ plists=(
   com.igor.smart-ops.plist
   com.igor.ralph-gsd-loop.plist
   com.igor.agent-vault-sync.plist
+  com.igor.worktree-hygiene.plist
 )
 
 install_one() {
