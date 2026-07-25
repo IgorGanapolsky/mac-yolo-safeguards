@@ -50,6 +50,23 @@ describe('shouldCollapseTabBarForKeyboard', () => {
     ).toBe(false);
   });
 
+  it('never collapses for system gesture insets (≤120px) even on Chat', () => {
+    expect(
+      shouldCollapseTabBarForKeyboard({
+        focusedRouteName: 'Chat',
+        keyboardInset: 48,
+        keyboardMetricsHeight: 48,
+      }),
+    ).toBe(false);
+    expect(
+      shouldCollapseTabBarForKeyboard({
+        focusedRouteName: 'Chat',
+        keyboardInset: 120,
+        keyboardMetricsHeight: 120,
+      }),
+    ).toBe(false);
+  });
+
   it('legacy route-only call still gates Chat vs other tabs', () => {
     expect(shouldCollapseTabBarForKeyboard('Chat')).toBe(true);
     expect(shouldCollapseTabBarForKeyboard('Settings')).toBe(false);

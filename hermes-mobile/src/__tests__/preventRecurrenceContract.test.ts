@@ -716,4 +716,42 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(chat).toContain('probeLiveUsbGateway');
     expect(chat).toMatch(/2500/);
   });
+
+  it('S52: bottom tabs never vanish from sticky keyboard / PiP (2026-07-25)', () => {
+    // Screenshot class: Connected Chat with IME closed but no Hermes/Leash/Settings bar.
+    // react-navigation tabBarHideOnKeyboard sticks true on Android multi-window; collapse
+    // must require metrics-verified IME (>120) on Chat only.
+    const app = read('hermes-mobile/App.tsx');
+    expect(app).toMatch(/tabBarHideOnKeyboard:\s*false/);
+    expect(app).not.toMatch(/tabBarHideOnKeyboard:\s*Platform\.OS\s*===\s*['"]android['"]/);
+    expect(app).toContain('keyboardMetricsHeight');
+    expect(app).toContain('shouldCollapseTabBarForKeyboard');
+
+    const policy = read('hermes-mobile/src/utils/tabBarKeyboardPolicy.ts');
+    expect(policy).toContain('keyboardMetricsHeight');
+    expect(policy).toMatch(/> 120|<= 120/);
+
+    const { shouldCollapseTabBarForKeyboard } = require('../utils/tabBarKeyboardPolicy');
+    expect(
+      shouldCollapseTabBarForKeyboard({
+        focusedRouteName: 'Chat',
+        keyboardInset: 320,
+        keyboardMetricsHeight: 0,
+      }),
+    ).toBe(false);
+    expect(
+      shouldCollapseTabBarForKeyboard({
+        focusedRouteName: 'Chat',
+        keyboardInset: 48,
+        keyboardMetricsHeight: 48,
+      }),
+    ).toBe(false);
+    expect(
+      shouldCollapseTabBarForKeyboard({
+        focusedRouteName: 'Chat',
+        keyboardInset: 280,
+        keyboardMetricsHeight: 280,
+      }),
+    ).toBe(true);
+  });
 });

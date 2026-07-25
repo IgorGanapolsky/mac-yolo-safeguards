@@ -37,7 +37,9 @@ export function shouldCollapseTabBarForKeyboard(
   // open" only for Chat route gating — App.tsx always passes both heights.
   const metricsProvided =
     input.keyboardInset !== undefined || input.keyboardMetricsHeight !== undefined;
-  if (metricsProvided && (inset <= 0 || metricsHeight <= 0)) {
+  // >120px: real soft keyboard only. System gesture / home-indicator insets
+  // and sticky PiP churn are typically ≤120 and must never hide tabs.
+  if (metricsProvided && (inset <= 120 || metricsHeight <= 120)) {
     return false;
   }
 
