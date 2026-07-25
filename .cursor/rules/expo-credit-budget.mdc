@@ -1,0 +1,35 @@
+---
+alwaysApply: true
+---
+
+# Never abuse Expo credits — no overages (permanent, 2026-07-24)
+
+**User directive (emphatic):** never abuse Expo/EAS credits and never cause an overage bill again.
+Root incident: 121 `mobile-ota.yml` runs in 48h (2026-07-23) drove an ~$78 Expo charge that the card declined.
+
+## Hard budget
+
+| Limit | Value |
+|-------|-------|
+| Production OTA publishes | **≤ 1 per 24h** |
+| `mobile-ota.yml` runs (incl. failures) | **≤ 3 per rolling 48h** |
+| EAS **cloud builds** | only for native changes or a deliberate store binary — never to test JS |
+| Retry after a failed publish | fix the cause first; a retry consumes budget |
+
+Batch every merged JS fix into **one** OTA. Never publish per-PR.
+
+## Before any EAS spend
+
+1. Check the budget guard (`tools/ota-publish-budget.js` / `hermes-mobile/scripts/ota-spend-guard.js`) — if it exits non-zero, **stop**; do not bypass.
+2. `HERMES_OTA_BILLING_THAW=1` may only be set when the spend guard is wired **and** billing is not mid-decline. Never set it to unblock a single impatient publish.
+3. `npm run ota:gate` — needs continuous `e2e=pass` or a fresh-user proof. `e2e=skipped` is not pass.
+4. Prefer zero-cost verification: `npm test`, local release APK via `npm run android:phone`, `adb`. Never spend EAS credits to observe a JS change.
+
+## Banned
+
+- Looping / re-dispatching `mobile-ota.yml` to "see if it works"
+- Cloud builds as a substitute for local device testing
+- Bypassing the spend guard or thaw gate with `FORCE_*` without Igor's explicit same-message ask
+- Claiming OTA shipped without an `eas update:list` group id
+
+Related: [AGENTS.md](../../AGENTS.md), [hermes-mobile/docs/OTA_UPDATES.md](../../hermes-mobile/docs/OTA_UPDATES.md), [hermes-mobile/docs/VERSIONING-AND-RELEASES.md](../../hermes-mobile/docs/VERSIONING-AND-RELEASES.md).
