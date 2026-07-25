@@ -157,6 +157,11 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   // Phone must not re-show the route explain card after base CSS (CEO overlap 2026-07-25).
   assert.match(globals, /\.composer-route-explain\{[\s\S]*display:none !important/);
   assert.match(globals, /\.dashboard-header\{[\s\S]*grid-template-columns:1fr/);
+  // Fixed composer dock + measured reserved scroll space (item 3 of mobile UX checklist).
+  assert.match(dashboard, /--composer-dock-space/);
+  assert.match(globals, /--composer-dock-space/);
+  assert.match(globals, /position:absolute !important/);
+  assert.match(globals, /hermes-scroll-pane\{[\s\S]*padding-bottom:max/);
 });
 
 test("renders the configured Stripe price instead of duplicating marketing price copy", () => {
