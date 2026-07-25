@@ -24,7 +24,8 @@
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true,
           "NSAllowsLocalNetworking": true
-        }
+        },
+        "NSLocalNetworkUsageDescription": "Hermes Mobile finds your computer on Wi‑Fi and Tailscale so chat can connect."
       },
       "privacyManifests": {
         "NSPrivacyTracking": false,
@@ -77,7 +78,7 @@
           }
         ]
       },
-      "buildNumber": "17"
+      "buildNumber": "18"
     },
     "android": {
       "adaptiveIcon": {
@@ -117,6 +118,7 @@
     "plugins": [
       "./plugins/withEmbeddedJsBundle.js",
       "./plugins/withNetworkSecurityConfig.js",
+      "./plugins/withIosAtsTailscale.js",
       "expo-updates",
       "./plugins/withHermesAiGlasses.js",
       "./plugins/withHermesAppleIntelligence.js",
