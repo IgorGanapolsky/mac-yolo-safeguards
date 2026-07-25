@@ -570,12 +570,46 @@ function resolveLiveMintPairServerUrl(seed) {
 
 function writePairQrPng(qrPayload) {
   const qrPath = path.join(OUT_DIR, 'pair-qr.png');
-  const qr = spawnSync('npx', ['--yes', 'qrcode', '-o', qrPath, qrPayload], {
-    cwd: REPO,
-    encoding: 'utf8',
-    timeout: 20_000,
-  });
-  if (qr.status !== 0 || !fs.existsSync(qrPath)) {
+  // Reuse recent QR (same page URL) — npx qrcode spawnSync blocked the pair HTTP
+  // event loop for minutes when registry/network stalled (iPad pair hang 2026-07-25).
+  try {
+    if (fs.existsSync(qrPath)) {
+      const ageMs = Date.now() - fs.statSync(qrPath).mtimeMs;
+      if (ageMs >= 0 && ageMs < 120_000) {
+        const b64 = fs.readFileSync(qrPath).toString('base64');
+        return {
+          qrPath,
+          imgTag: `<img src="data:image/png;base64,${b64}" alt="Pair QR code" width="280" height="280"/>`,
+        };
+      }
+    }
+  } catch {
+    // fall through to regenerate
+  }
+  const binCandidates = [
+    path.join(REPO, 'node_modules', '.bin', 'qrcode'),
+    path.join(REPO, 'hermes-mobile', 'node_modules', '.bin', 'qrcode'),
+  ];
+  let qr = null;
+  for (const bin of binCandidates) {
+    if (fs.existsSync(bin)) {
+      qr = spawnSync(bin, ['-o', qrPath, qrPayload], {
+        encoding: 'utf8',
+        timeout: 5_000,
+      });
+      if (qr.status === 0) break;
+    }
+  }
+  if (!qr || qr.status !== 0) {
+    qr = spawnSync('npx', ['--yes', 'qrcode', '-o', qrPath, qrPayload], {
+      cwd: REPO,
+      encoding: 'utf8',
+      timeout: 8_000,
+      killSignal: 'SIGKILL',
+    });
+  }
+  if (!qr || qr.status !== 0 || !fs.existsSync(qrPath)) {
+    // Still serve pair HTML/JSON without blocking forever.
     return { qrPath, imgTag: '' };
   }
   // Data URL so file:// (Mac --open) never depends on Chrome loading a sibling PNG.
@@ -585,6 +619,11 @@ function writePairQrPng(qrPayload) {
     imgTag: `<img src="data:image/png;base64,${b64}" alt="Pair QR code" width="280" height="280"/>`,
   };
 }
+
+/**
+ * Persist non-secret-path seed + QR that points at the HTTP pair page (never a stale
+ * hermes:// code). Live `/pair` remints from pair-seed.json on every GET.
+ */
 
 /**
  * Persist non-secret-path seed + QR that points at the HTTP pair page (never a stale
