@@ -41,19 +41,21 @@ Capability map (from package readme): search/crawl, image/video/audio gen, email
    - Never paint full `composer-route-explain` card on ≤700px (CSS `!important` + JS `matchMedia`)  
    - One-line route title on phone instead of multi-line card  
 2. **This research note** for agents (stigmergy).
+3. **SWR restore (2026-07-25 follow-up)** — re-wired `DashboardClient` to `dashboard-nav-cache` after #987 clobber; hover/focus preheat; sign-out clear already present.
+4. **Desktop collapsible route explain** — title row + expand for body (secondary chrome; phone still title-only).
 
-## Backlog (next high-ROI, not this PR)
+## Backlog (remaining high-ROI)
 
-| Idea | Why | Effort |
-|------|-----|--------|
-| Desktop: collapsible route explain (default collapsed after selection) | Genspark secondary chrome | S |
-| Landing: non-commodity hero (operator scene + fenced lease) | SEL + Genspark outcome language | M |
-| Optional `gsk`-adjacent fleet skill pack for Hermes connectors | Power-user parity | M |
-| SWR restore in `DashboardClient` after #987 clobber | Instant nav | M |
+| Idea | Why | Effort | Status |
+|------|-----|--------|--------|
+| Landing: non-commodity hero (operator scene + fenced lease) | SEL + Genspark outcome language | M | Open — `page.tsx` claimed by other agents (SIF/AEO) |
+| Optional `gsk`-adjacent fleet skill pack for Hermes connectors | Power-user parity | M | Open — needs `gsk login` / API key (no-desktop-hijack) |
+| LLM ARC battery (cost-gated) | Fleet model promote with real few-shot LLM | M | Open — deliberately not free CI |
 
 ## Verification checklist
 
 - [x] `gsk --version` → 1.4.2  
-- [ ] Control-plane unit/frictionless tests green  
-- [ ] Deploy worker; phone viewport: title not under Manage plan; no blue route card over textarea  
-- [ ] `plan.md` claim released when PR merges  
+- [x] Control-plane frictionless + nav-cache unit tests green (SWR re-wire)  
+- [x] Mobile dock + hide-explain shipped via #1008/#1013 (production markers)  
+- [ ] Deploy worker after this SWR PR merges  
+- [ ] Landing hero / gsk skill pack / LLM ARC still open  
