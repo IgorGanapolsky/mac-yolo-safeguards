@@ -58,11 +58,11 @@ node tests/test-arc-skill-efficiency.js
 - Spend LLM tokens on grid puzzles in CI (flaky + costly).  
 - Claim Hermes “is AGI” or leaderboard placement.
 
-## Next high-ROI (not this PR)
+## Next high-ROI
 
-1. Optional LLM probe: same battery, few-shot prompts to candidate fleet models → store under `~/.hermes/receipts/arc/` (cost-gated).  
-2. Wire holdout fail into `hermes-harness-eval` profile promotion.  
-3. Continuity offline tasks as *real* few-shot transfer tests (new Mac, no saved profile).
+1. Optional LLM probe: same battery, few-shot prompts to candidate fleet models → store under `~/.hermes/receipts/arc/` (cost-gated). **Open.**  
+2. Wire holdout fail into `hermes-harness-eval` profile promotion. **Done 2026-07-25** — auto when `--baseline-profile`+`--candidate-profile` (or `--with-arc`); `--skip-arc` opt-out; adopt blocked on ARC fail.  
+3. Continuity offline tasks as *real* few-shot transfer tests (new Mac, no saved profile). **Open.**
 
 ## Bottom line
 
