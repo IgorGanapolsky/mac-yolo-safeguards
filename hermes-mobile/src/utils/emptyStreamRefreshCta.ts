@@ -1,16 +1,29 @@
 import type { HermesMessage } from '../types/chat';
+import {
+  EMPTY_STREAM_HARD_STOP_MS,
+  EMPTY_STREAM_HARD_STOP_STATUS,
+  shouldHardStopEmptyStreamWait,
+} from './emptyStreamReplyRecovery';
 import { EMPTY_STREAM_TIMEOUT_PLACEHOLDER } from './streamAssistantText';
 
 /** Shown above composer while auto-polling for reply text after a soft timeout. */
 export const EMPTY_STREAM_REFRESH_BANNER_HINT =
-  'Still waiting for reply text from your Mac. Hermes is checking automatically — Stop if a run is active, or start a fresh chat.';
+  'Still waiting for reply text from your Mac. Hermes is checking automatically — Stop if a run is active, open Leash for approve/deny/warn, or start a fresh chat.';
 
 export function emptyStreamBannerHint(elapsedMs: number): string {
+  if (shouldHardStopEmptyStreamWait(elapsedMs)) {
+    return EMPTY_STREAM_HARD_STOP_STATUS;
+  }
   const elapsedSec = Math.max(1, Math.floor(elapsedMs / 1000));
   if (elapsedMs < 30_000) {
     return EMPTY_STREAM_REFRESH_BANNER_HINT;
   }
-  return `Checking your Mac for a reply… (${elapsedSec}s). Stop if a run is active, or start a fresh chat.`;
+  return `Checking your Mac for a reply… (${elapsedSec}s). Stop if a run is active, open Leash for approvals, or start a fresh chat.`;
+}
+
+/** Cap live "Waiting Xm" display so a Jul-23 prompt cannot paint "Waiting 57m" forever. */
+export function emptyStreamDisplayElapsedMs(elapsedMs: number): number {
+  return Math.min(Math.max(0, elapsedMs), EMPTY_STREAM_HARD_STOP_MS);
 }
 
 export function messageIsEmptyStreamTimeout(content: string | undefined): boolean {
