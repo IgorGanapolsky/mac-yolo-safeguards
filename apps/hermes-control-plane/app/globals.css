@@ -261,8 +261,38 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     flex-direction:column;
     padding:10px 12px 0;
   }
-  .dashboard-header{flex:0 0 auto;padding-bottom:12px;margin:0}
-  .dashboard-header h1{font-size:20px;line-height:1.2}
+  /* Phone: never put long thread title beside Manage plan / Sign out (CEO 2026-07-25 overlap) */
+  .dashboard-header{
+    flex:0 0 auto;
+    display:grid;
+    grid-template-columns:1fr;
+    gap:10px;
+    align-items:stretch;
+    padding-bottom:10px;
+    margin:0;
+  }
+  .dashboard-header-title{min-width:0}
+  .dashboard-header h1{
+    font-size:16px;
+    line-height:1.25;
+    display:-webkit-box;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+    overflow:hidden;
+    word-break:break-word;
+  }
+  .header-actions{
+    justify-content:flex-start;
+    flex-wrap:wrap;
+    gap:8px;
+    width:100%;
+  }
+  .header-actions .button,
+  .header-actions .sign-out-button{
+    flex:1 1 auto;
+    min-height:40px;
+    justify-content:center;
+  }
   .header-actions .status-chip{display:none}
   .notice.notice-toast{
     position:relative;
@@ -385,8 +415,13 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   }
   .route-label-full{display:none}
   .route-label-short{display:inline}
+  /* Hide route blurb on phone — it steals the textarea (cascade-safe !important) */
   .composer-route-explain{
-    display:none;
+    display:none !important;
+  }
+  .composer-where-label{
+    font-size:10px;
+    letter-spacing:.06em;
   }
   .composer-actions{
     display:grid;
@@ -563,3 +598,15 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .sign-out-button:disabled{opacity:.65;cursor:wait}
 .sidebar-bottom .sign-out-button{background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--text)}
 .header-actions .sign-out-button{white-space:nowrap}
+
+/* === Genspark-ROI mobile hard overrides (must stay last so base rules cannot re-show panels) === */
+@media(max-width:700px){
+  .composer-route-explain{display:none !important;height:0 !important;margin:0 !important;padding:0 !important;overflow:hidden !important;border:0 !important}
+  .dashboard-header{display:grid !important;grid-template-columns:1fr !important;align-items:stretch !important}
+  .dashboard-header h1{
+    -webkit-line-clamp:2;
+    display:-webkit-box;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
+}
