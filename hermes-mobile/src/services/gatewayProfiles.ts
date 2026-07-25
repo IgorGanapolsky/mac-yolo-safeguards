@@ -270,7 +270,12 @@ function resolveStoredProfileLabel(input: {
     return bonjourHostname(hostname) ?? GENERIC_USB_PROFILE_LABEL;
   }
   if (isTailscaleGatewayUrl(gatewayUrl)) {
-    return magicDnsDeviceName(gatewayUrl) ?? GENERIC_TAILSCALE_PROFILE_LABEL;
+    // Prefer /health Bonjour hostname over MagicDNS / generic Tailscale label.
+    return (
+      bonjourHostname(hostname) ??
+      magicDnsDeviceName(gatewayUrl) ??
+      GENERIC_TAILSCALE_PROFILE_LABEL
+    );
   }
   const ip = input.localIp?.trim() || extractLanIpFromGatewayUrl(gatewayUrl);
   if (ip) {
@@ -1060,18 +1065,25 @@ export function touchProfileHealth(
       return p;
     }
     const hostname = health.hostname?.trim() || p.hostname;
+    // Never let /health LAN local_ip replace a Tailscale CGNAT URL identity
+    // (SUCCESS 2026-07-23: LAN poison turned mini Tailscale into a Home Wi‑Fi twin).
+    const urlIp = extractLanIpFromGatewayUrl(p.gatewayUrl);
     const localIp =
+      (urlIp && isTailscaleIpv4(urlIp) ? urlIp : undefined) ||
       resolveDisplayLanIp(health.localIp, p.gatewayUrl) ||
       resolveDisplayLanIp(p.localIp, p.gatewayUrl);
-    const label =
-      isIpOnlyProfileLabel(p) || isTailnetRouteLabel(p.label)
-        ? resolveStoredProfileLabel({
-            gatewayUrl: p.gatewayUrl,
-            hostname,
-            label: p.label,
-            localIp,
-          })
-        : p.label;
+    const shouldRelabel =
+      isIpOnlyProfileLabel(p) ||
+      isTailnetRouteLabel(p.label) ||
+      profileNeedsMachineNameEnrichment(p);
+    const label = shouldRelabel
+      ? resolveStoredProfileLabel({
+          gatewayUrl: p.gatewayUrl,
+          hostname,
+          label: p.label,
+          localIp,
+        })
+      : p.label;
     return {
       ...p,
       hostname,
