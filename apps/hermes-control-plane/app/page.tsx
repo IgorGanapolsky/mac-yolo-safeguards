@@ -109,12 +109,23 @@ export default function Home() {
             <LandingPricingCtaFree />
           </article>
           <article className="price-card featured">
-            <div><span>Cloud Continuity</span><BillingPlan /></div>
+            <div><span>Pro Continuity</span><BillingPlan /></div>
             <ul>
               <li>Everything in Web Control</li>
-              <li>100 cloud continuations every 30 days</li>
-              <li>VPS failover when Mac is offline</li>
+              <li>100 cloud continuations / 30 days</li>
+              <li>DeepSeek &amp; Auto model routing</li>
               <li>14-day trial with 5 cloud runs</li>
+            </ul>
+            <LandingPricingCtaPaid />
+          </article>
+          <article className="price-card">
+            <div><span>Team &amp; Enterprise</span><strong>$49<small>/month</small></strong></div>
+            <ul>
+              <li>Everything in Pro Continuity</li>
+              <li>500 cloud continuations / 30 days</li>
+              <li>Claude 3.5 Sonnet &amp; GPT-4o access</li>
+              <li>Custom BYO API Key support</li>
+              <li>Priority Fly.io cloud VPS runner</li>
             </ul>
             <LandingPricingCtaPaid />
           </article>
