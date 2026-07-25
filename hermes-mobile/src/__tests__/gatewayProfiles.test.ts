@@ -1131,6 +1131,27 @@ describe('gatewayProfiles', () => {
     expect(profileDisplayName(state.profiles[0])).toBe('Igors-Mac-mini');
   });
 
+  it('P0 2026-07-24: touchProfileHealth keeps CGNAT localIp when /health reports LAN local_ip', () => {
+    const nameless = {
+      id: 'mac_100_94_135_78',
+      label: 'Tailscale 100.94.135.78',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-24T00:00:00.000Z',
+    };
+    const next = touchProfileHealth(
+      { profiles: [nameless], activeProfileId: nameless.id },
+      nameless.id,
+      { hostname: 'Igors-Mac-mini.local', localIp: '192.168.68.54' },
+    );
+    const enriched = next.profiles[0];
+    expect(enriched.hostname).toMatch(/Igors-Mac-mini/i);
+    expect(enriched.label).toBe('Igors-Mac-mini');
+    expect(enriched.localIp).toBe('100.94.135.78');
+    expect(profileDisplayName(enriched)).toBe('Igors-Mac-mini');
+    expect(profileNeedsMachineNameEnrichment(enriched)).toBe(false);
+  });
+
   describe('P0 2026-07-23: duplicate-"active"-picker-row / Connecting+Not-connected race', () => {
     // Live bug report: the "Choose your computer" picker rendered THREE rows for what the
     // user believed was one physical Mac, with TWO of them simultaneously showing a filled
