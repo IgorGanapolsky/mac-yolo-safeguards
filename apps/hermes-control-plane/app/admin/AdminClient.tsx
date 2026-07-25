@@ -3,8 +3,51 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AdminMetrics } from "@/lib/admin-metrics";
 
+const HUMAN_KEY_MAP: Record<string, string> = {
+  runnerHealthUrl: "Cloud Runner Endpoint",
+  runnerRaw: "Runner Diagnostic State",
+  runnerError: "Runner Connection Errors",
+  runnerFetchMs: "Cloud Runner Latency",
+  d1PingMs: "Database Latency",
+  workosAuthConfigured: "WorkOS Authentication",
+  workosRedirectUri: "OAuth Redirect URI",
+  stripeCheckoutConfigured: "Stripe Billing Engine",
+  stripeWebhookConfigured: "Stripe Event Webhook",
+  cloudRunnerConfigured: "Cloud Runner Authorization",
+  lastPollAt: "Last Health Check",
+  lastTaskAt: "Last Cloud Execution Task",
+  degraded: "Runner Degraded State",
+  consecutiveErrors: "Consecutive Error Count",
+  lastError: "Last Runner Error",
+  sessions: "Active Web Sessions",
+  events: "Recent Billing Events",
+  funnelToday: "Daily Landing Funnel",
+  topAuditActions24h: "24h System Action Audit Log",
+  recentAuditEvents: "Recent Machine Audit Logs",
+  taskCountsByStatus: "Task Execution Counts by Status",
+  failoverMode: "Offline Failover Policy",
+  lastSeenAt: "Last Machine Check-In",
+  revokedAt: "Machine Revocation Status",
+  leaseOwner: "Active Cloud Runner Host",
+  leaseGeneration: "Fencing Token Lease Generation",
+  leaseExpiresAt: "Lease Expiration Timestamp",
+  createdAt: "Registration / Created Date",
+  updatedAt: "Last Activity Timestamp",
+  completedAt: "Task Completion Timestamp",
+  config: "System & Authentication Services",
+};
+
+function humanizeKey(key: string): string {
+  if (HUMAN_KEY_MAP[key]) return HUMAN_KEY_MAP[key];
+  // Convert camelCase to Title Case
+  return key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (str) => str.toUpperCase())
+    .trim();
+}
+
 function fmtTime(ms: number | null | undefined): string {
-  if (!ms || ms === 0) return "Never / No tasks yet";
+  if (!ms || ms === 0) return "Never / No tasks executed yet";
   try {
     const date = new Date(ms);
     const ago = fmtAge(Math.max(0, Math.floor((Date.now() - ms) / 1000)));
@@ -24,7 +67,7 @@ function fmtAge(seconds: number | null): string {
 
 /** Formatted detail view: converts raw timestamps to human dates and renders clean key-value telemetry pairs. */
 function RawDetail({ data }: { data: unknown }) {
-  if (data === null || data === undefined) return <p className="admin-muted">Loading…</p>;
+  if (data === null || data === undefined) return <p className="admin-muted">Loading live telemetry…</p>;
 
   if (typeof data === "object" && data !== null && !Array.isArray(data)) {
     const entries = Object.entries(data as Record<string, unknown>);
@@ -32,35 +75,61 @@ function RawDetail({ data }: { data: unknown }) {
       <div className="admin-formatted-detail">
         <ul className="admin-kv">
           {entries.map(([key, val]) => {
+            const title = humanizeKey(key);
             let rendered: React.ReactNode;
-            if (val === null || val === undefined) rendered = <span className="admin-muted">null</span>;
-            else if (typeof val === "boolean") rendered = <b>{val ? "TRUE" : "FALSE"}</b>;
+
+            if (val === null || val === undefined) rendered = <span className="admin-muted">None / Clear</span>;
+            else if (typeof val === "boolean") rendered = <b className={val ? "badge-success" : "badge-warn"}>{val ? "Active / Configured" : "Inactive / Not Configured"}</b>;
             else if (typeof val === "number") {
               if (val > 1_500_000_000_000) rendered = <b>{fmtTime(val)}</b>;
-              else if (val === 0 && (key.toLowerCase().includes("at") || key.toLowerCase().includes("time"))) rendered = <span className="admin-muted">Never / No tasks yet</span>;
+              else if (val === 0 && (key.toLowerCase().includes("at") || key.toLowerCase().includes("time") || key.toLowerCase().includes("task"))) rendered = <span className="admin-muted">Never / No tasks executed yet</span>;
+              else if (key.endsWith("Ms")) rendered = <b>{val}ms</b>;
               else rendered = <b>{val.toLocaleString()}</b>;
-            } else if (typeof val === "object" && val !== null) {
+            } else if (typeof val === "string" && val.startsWith("http")) {
               rendered = (
-                <div className="admin-nested-kv" style={{ marginTop: "4px" }}>
+                <a href={val} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)", textDecoration: "underline" }}>
+                  {val}
+                </a>
+              );
+            } else if (typeof val === "object" && val !== null && !Array.isArray(val)) {
+              rendered = (
+                <div className="admin-nested-kv" style={{ marginTop: "6px" }}>
                   <ul className="admin-kv">
                     {Object.entries(val as Record<string, unknown>).map(([nk, nv]) => (
                       <li key={nk}>
-                        <span>{nk}</span>
+                        <span>{humanizeKey(nk)}</span>
                         {typeof nv === "number" && nv > 1_500_000_000_000 ? <b>{fmtTime(nv)}</b>
-                          : typeof nv === "number" && nv === 0 && (nk.toLowerCase().includes("at") || nk.toLowerCase().includes("time")) ? <span className="admin-muted">Never / No tasks yet</span>
-                          : typeof nv === "boolean" ? <b>{nv ? "TRUE" : "FALSE"}</b>
-                          : nv === null ? <span className="admin-muted">none</span>
+                          : typeof nv === "number" && nv === 0 && (nk.toLowerCase().includes("at") || nk.toLowerCase().includes("time") || nk.toLowerCase().includes("task")) ? <span className="admin-muted">Never / No tasks executed yet</span>
+                          : typeof nv === "number" && nk.endsWith("Ms") ? <b>{nv}ms</b>
+                          : typeof nv === "boolean" ? <b>{nv ? "Active / Configured" : "Inactive / Not Configured"}</b>
+                          : nv === null ? <span className="admin-muted">None</span>
                           : <b>{String(nv)}</b>}
                       </li>
                     ))}
                   </ul>
                 </div>
               );
+            } else if (Array.isArray(val)) {
+              if (val.length === 0) rendered = <span className="admin-muted">No entries recorded</span>;
+              else {
+                rendered = (
+                  <div className="admin-nested-kv" style={{ marginTop: "6px" }}>
+                    <ul className="admin-kv">
+                      {val.map((item, idx) => (
+                        <li key={idx}>
+                          <span>Entry #{idx + 1}</span>
+                          <b>{typeof item === "object" ? JSON.stringify(item) : String(item)}</b>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              }
             } else rendered = <b>{String(val)}</b>;
 
             return (
               <li key={key}>
-                <span>{key}</span>
+                <span>{title}</span>
                 {rendered}
               </li>
             );
