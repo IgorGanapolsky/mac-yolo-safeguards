@@ -25,8 +25,8 @@
     "drizzle-orm": "0.45.2",
     "next": "16.2.11",
     "postcss": "8.5.22",
-    "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.45.1",
@@ -41,7 +41,7 @@
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
-    "react-server-dom-webpack": "19.2.6",
+    "react-server-dom-webpack": "19.2.8",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
     "vinext": "0.0.50",
@@ -54,7 +54,14 @@
       "esbuild": "0.25.12"
     },
     "postcss": "8.5.22",
-    "sharp": "0.35.3"
+    "sharp": "0.35.3",
+    "brace-expansion": "5.0.8",
+    "minimatch": {
+      "brace-expansion": "5.0.8"
+    },
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-server-dom-webpack": "19.2.8"
   },
   "type": "module"
 }
