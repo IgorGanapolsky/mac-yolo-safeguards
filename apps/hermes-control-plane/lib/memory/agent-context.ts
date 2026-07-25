@@ -1,4 +1,4 @@
-import { db } from "../runtime";
+import { db } from "../runtime.ts";
 
 export interface AgentContext {
   id: string;

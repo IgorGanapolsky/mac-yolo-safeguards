@@ -1,4 +1,5 @@
-import { db } from "../runtime";
+import { db } from "../runtime.ts";
+import { classifyMemoryType, extractTags, splitIntoSentences } from "./classify.ts";
 
 export type MemoryType = "fact" | "preference" | "context" | "pattern" | "summary" | "voice_note" | "agent_insight" | "device";
 export type MemorySource = "chat" | "voice" | "agent" | "device" | "approval" | "task" | "cron" | "manual" | "webhook";
@@ -243,11 +244,10 @@ export async function extractAndStoreMemories(
   source: MemorySource,
   source_id: string
 ): Promise<{ created: number; updated: number }> {
-  const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 15);
   let created = 0;
   let updated = 0;
 
-  for (const sentence of sentences) {
+  for (const sentence of splitIntoSentences(text)) {
     const type = classifyMemoryType(sentence);
     const existing = await db().prepare(
       `SELECT id FROM memory_entries WHERE organization_id = ? AND user_id = ? AND source = ? AND source_id = ? AND content LIKE ?`
@@ -274,31 +274,4 @@ export async function extractAndStoreMemories(
   }
 
   return { created, updated };
-}
-
-function classifyMemoryType(text: string): MemoryType {
-  const lower = text.toLowerCase();
-  if (lower.includes("prefer") || lower.includes("like") || lower.includes("dislike") || lower.includes("want")) return "preference";
-  if (lower.includes("approve") || lower.includes("deny") || lower.includes("allow") || lower.includes("block")) return "approval";
-  if (lower.includes("device") || lower.includes("mac") || lower.includes("computer") || lower.includes("usb") || lower.includes("tailscale")) return "device";
-  if (lower.includes("pattern") || lower.includes("always") || lower.includes("never") || lower.includes("usually")) return "pattern";
-  if (lower.includes("skill") || lower.includes("know how") || lower.includes("can do") || lower.includes("able to")) return "agent_insight";
-  if (lower.includes("summary") || lower.includes("summarize") || lower.includes("tl;dr")) return "summary";
-  return "fact";
-}
-
-function extractTags(text: string): string[] {
-  const tags: string[] = [];
-  const lower = text.toLowerCase();
-  const tagMap: Record<string, string[]> = {
-    coding: ["code", "program", "develop", "build", "deploy", "git", "github", "pr", "commit"],
-    ops: ["server", "deploy", "infra", "aws", "gcp", "cloud", "kubernetes", "docker", "ci", "cd"],
-    debugging: ["bug", "error", "fix", "debug", "issue", "problem", "crash", "fail"],
-    meetings: ["meeting", "call", "sync", "standup", "review", "discuss"],
-    planning: ["plan", "roadmap", "sprint", "priority", "scope", "design", "architect"],
-  };
-  for (const [tag, keywords] of Object.entries(tagMap)) {
-    if (keywords.some(k => lower.includes(k))) tags.push(tag);
-  }
-  return tags;
 }
