@@ -187,6 +187,24 @@ export function shouldPreferUsbProbeFirst(input: {
 }
 
 /**
+ * High-ROI 2026-07-25: when the sticky Mac is dead (unreachable / wrong key) and a live
+ * cable answers with a hostname, auto-adopt that USB Mac instead of stranding the user on
+ * "Found 1 over USB" + "Outdated connection" forever.
+ *
+ * Does NOT steal a healthy sticky remote (stickyReachable=true). Same-Mac USB prefer still
+ * uses liveUsbSameMachine / shouldPreferUsbProbeFirst.
+ */
+export function shouldAdoptLiveUsbWhenStickyUnreachable(input: {
+  stickyReachable: boolean;
+  liveUsbHostname?: string | null;
+}): boolean {
+  if (input.stickyReachable) {
+    return false;
+  }
+  return Boolean(input.liveUsbHostname?.trim());
+}
+
+/**
  * True when the last-selected sticky Tailscale/LAN profile must NOT yank a healthy
  * same-Mac USB route out from under the user (the P0 2026-07-23 duplicate-active/header-
  * banner race: autoDiscover's step-2 "remember last selected computer" re-probes and

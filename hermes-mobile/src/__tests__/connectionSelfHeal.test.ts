@@ -7,6 +7,7 @@ import {
   shouldClearUsbPrimaryOnCellular,
   shouldDeferLoopbackSuccessOnCellular,
   shouldKeepUsbOverStickyRemote,
+  shouldAdoptLiveUsbWhenStickyUnreachable,
   shouldPreferUsbProbeFirst,
 } from '../utils/connectionSelfHeal';
 
@@ -265,6 +266,27 @@ describe('USB primary on cellular', () => {
         effectiveGatewayUrl: 'http://100.94.135.78:8642',
         wifiConnected: true,
         liveUsbSameMachine: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('adopts live USB when sticky remote is unreachable and cable hostname is live', () => {
+    expect(
+      shouldAdoptLiveUsbWhenStickyUnreachable({
+        stickyReachable: false,
+        liveUsbHostname: 'Igors-MacBook-Pro.local',
+      }),
+    ).toBe(true);
+    expect(
+      shouldAdoptLiveUsbWhenStickyUnreachable({
+        stickyReachable: true,
+        liveUsbHostname: 'Igors-MacBook-Pro.local',
+      }),
+    ).toBe(false);
+    expect(
+      shouldAdoptLiveUsbWhenStickyUnreachable({
+        stickyReachable: false,
+        liveUsbHostname: null,
       }),
     ).toBe(false);
   });

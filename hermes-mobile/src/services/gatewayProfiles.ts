@@ -503,7 +503,11 @@ export function resolveHealPersistDecision(
   state: GatewayProfileState,
   successfulUrl: string,
   requestedActivation: boolean,
-  options?: { liveUsbHostname?: string | null },
+  options?: {
+    liveUsbHostname?: string | null;
+    /** Sticky Mac dead (probe fail / wrong key) + live cable — adopt USB Mac. */
+    allowUsbWhenStickyUnreachable?: boolean;
+  },
 ): {
   catalogOnly: boolean;
   returnUrl: string;
@@ -512,7 +516,11 @@ export function resolveHealPersistDecision(
   const active = activeProfile(state);
   const allowed = isDiscoveredUrlAllowedForActiveProfile(state, successfulUrl, options);
   const usbLoopbackEscape = canUsbLoopbackEscapeToUrl(state, successfulUrl);
-  if (state.activeProfileId && !allowed && !usbLoopbackEscape) {
+  const usbAdoptStickyDead =
+    Boolean(options?.allowUsbWhenStickyUnreachable) &&
+    Boolean(options?.liveUsbHostname?.trim()) &&
+    isLoopbackGatewayUrl(successfulUrl);
+  if (state.activeProfileId && !allowed && !usbLoopbackEscape && !usbAdoptStickyDead) {
     return {
       catalogOnly: true,
       returnUrl: active?.gatewayUrl?.trim() || successfulUrl,
@@ -522,7 +530,8 @@ export function resolveHealPersistDecision(
   return {
     catalogOnly: false,
     returnUrl: successfulUrl,
-    requestedActivation: usbLoopbackEscape ? true : requestedActivation,
+    requestedActivation:
+      usbLoopbackEscape || usbAdoptStickyDead ? true : requestedActivation,
   };
 }
 
@@ -618,12 +627,15 @@ export function applyHealDiscoveredUrl(
   state: GatewayProfileState,
   discovered: DiscoveredGateway,
   requestedActivation: boolean,
+  options?: { allowCrossMachineUsbAdopt?: boolean },
 ): GatewayProfileState {
   const url = discovered.gatewayUrl;
   const priorActive = activeProfile(state);
   const priorMachineKey = priorActive ? profileMachineKey(priorActive) : undefined;
+  const allowCrossMachineUsb =
+    Boolean(options?.allowCrossMachineUsbAdopt) && isLoopbackGatewayUrl(url);
   let next = upsertDiscoveredProfile(state, discovered, false);
-  if (shouldActivateDiscoveredUrl(next, url, requestedActivation)) {
+  if (shouldActivateDiscoveredUrl(next, url, requestedActivation) || allowCrossMachineUsb) {
     next = upsertDiscoveredProfile(next, discovered, true);
   } else if (
     requestedActivation &&
@@ -648,7 +660,9 @@ export function applyHealDiscoveredUrl(
       });
     }
   }
-  if (priorMachineKey) {
+  // Sticky machine lock: heal must not silently switch Macs — unless the operator's sticky
+  // Mac is dead and a live USB cable is being adopted (2026-07-25 auto-connect ROI).
+  if (priorMachineKey && !allowCrossMachineUsb) {
     const afterActive = activeProfile(next);
     if (!afterActive || profileMachineKey(afterActive) !== priorMachineKey) {
       const sameMachine = next.profiles.find(

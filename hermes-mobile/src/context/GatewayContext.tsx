@@ -103,6 +103,7 @@ import {
   resolveCellularTailscaleFailoverUrl,
   shouldClearUsbPrimaryOnCellular,
   shouldDeferLoopbackSuccessOnCellular,
+  shouldAdoptLiveUsbWhenStickyUnreachable,
   shouldKeepUsbOverStickyRemote,
   shouldPreferUsbProbeFirst,
 } from '../utils/connectionSelfHeal';
@@ -770,7 +771,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     async (
       successfulUrl: string,
       makeProfileActive = false,
-      options?: { liveUsbHostname?: string | null },
+      options?: {
+        liveUsbHostname?: string | null;
+        allowUsbWhenStickyUnreachable?: boolean;
+      },
     ): Promise<string> => {
       if (settingsRef.current.demoMode) {
         return successfulUrl;
@@ -787,15 +791,25 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       const active = activeProfile(profileStateRef.current);
       const lanIp = extractLanIpFromGatewayUrl(successfulUrl);
       const pairName = lanIp ? await resolvePairServerMachineName(lanIp).catch(() => null) : null;
+      const liveHost = options?.liveUsbHostname?.trim() || null;
       const upserted = applyHealDiscoveredUrl(
         profileStateRef.current,
         {
           gatewayUrl: successfulUrl,
           localIp: lanIp ?? active?.localIp ?? undefined,
-          hostname: pairName ?? healthRef.current?.hostname ?? active?.hostname,
-          label: pairName ?? active?.label ?? undefined,
+          hostname:
+            pairName ??
+            liveHost ??
+            healthRef.current?.hostname ??
+            active?.hostname,
+          label: pairName ?? liveHost ?? active?.label ?? undefined,
         },
         healDecision.requestedActivation,
+        {
+          allowCrossMachineUsbAdopt: Boolean(
+            options?.allowUsbWhenStickyUnreachable && liveHost,
+          ),
+        },
       );
       profileStateRef.current = upserted;
       setProfileState(upserted);
@@ -1590,8 +1604,15 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       liveUsbSameMachine: Boolean(activeForDiscovery && liveUsbSameMachine),
     });
 
-    const commitDiscoveredUrl = (url: string, makeActive = false): Promise<string> =>
-      persistDiscoveredGatewayUrl(url, makeActive, usbProbeOptions);
+    const commitDiscoveredUrl = (
+      url: string,
+      makeActive = false,
+      extra?: { allowUsbWhenStickyUnreachable?: boolean },
+    ): Promise<string> =>
+      persistDiscoveredGatewayUrl(url, makeActive, {
+        ...usbProbeOptions,
+        ...extra,
+      });
 
     // 1. Prefer USB when cable matches the sticky Mac (or already on USB + Wi‑Fi)
     if (Platform.OS !== 'web' && preferUsbFirst) {
@@ -1620,6 +1641,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     // yank a healthy same-Mac USB session back to that Mac's Tailscale/LAN URL.
     const lastSelectedId = await storage.loadLastSelectedProfileId();
     let lastSelectedUrl: string | undefined;
+    let stickyRemoteFailed = false;
     if (lastSelectedId) {
       const preferredProfile = profileStateRef.current.profiles.find((p) => p.id === lastSelectedId);
       if (preferredProfile && preferredProfile.gatewayUrl) {
@@ -1653,6 +1675,31 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         try {
           return await commitDiscoveredUrl(await probe(preferredProfile.gatewayUrl), true);
         } catch (_) {
+          stickyRemoteFailed = true;
+          // fall through — may adopt live USB when sticky is dead (below)
+        }
+      }
+    }
+
+    // 2b. Sticky remote dead + live USB cable → auto-adopt cabled Mac (2026-07-25).
+    // Fixes "Found 1 over USB" + "Outdated connection" while sticky mini/TS stays selected.
+    if (
+      Platform.OS !== 'web' &&
+      stickyRemoteFailed &&
+      shouldAdoptLiveUsbWhenStickyUnreachable({
+        stickyReachable: false,
+        liveUsbHostname,
+      })
+    ) {
+      for (const fallbackUrl of usbLoopbackFallbackUrls(effectiveUrl || currentUrl || '')) {
+        try {
+          const applied = await commitDiscoveredUrl(await probe(fallbackUrl), true, {
+            allowUsbWhenStickyUnreachable: true,
+          });
+          if (healPersistAcceptedProbedUrl(applied, fallbackUrl)) {
+            return applied;
+          }
+        } catch (_) {
           // fall through
         }
       }
@@ -1668,7 +1715,32 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       try {
         return await commitDiscoveredUrl(await probe(currentUrl));
       } catch (_) {
+        stickyRemoteFailed = true;
         // fall through
+      }
+    }
+
+    // 3b. Same USB adopt when settings URL was the sticky remote that just failed
+    // (no lastSelected id, or lastSelected already handled above).
+    if (
+      Platform.OS !== 'web' &&
+      stickyRemoteFailed &&
+      shouldAdoptLiveUsbWhenStickyUnreachable({
+        stickyReachable: false,
+        liveUsbHostname,
+      })
+    ) {
+      for (const fallbackUrl of usbLoopbackFallbackUrls(effectiveUrl || currentUrl || '')) {
+        try {
+          const applied = await commitDiscoveredUrl(await probe(fallbackUrl), true, {
+            allowUsbWhenStickyUnreachable: true,
+          });
+          if (healPersistAcceptedProbedUrl(applied, fallbackUrl)) {
+            return applied;
+          }
+        } catch (_) {
+          // fall through
+        }
       }
     }
 

@@ -925,6 +925,42 @@ describe('gatewayProfiles', () => {
     ).toBe(false);
   });
 
+  it('adopts USB Mac when sticky is unreachable (allowUsbWhenStickyUnreachable)', () => {
+    // 2026-07-25 ROI: mini sticky dead + MacBook Pro cable live → auto primary USB.
+    const state = dedupeGatewayProfiles({
+      profiles: [
+        {
+          id: 'mini',
+          label: 'Igors-Mac-mini',
+          hostname: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          addedAt: '2026-06-28T00:00:00Z',
+        },
+      ],
+      activeProfileId: 'mini',
+    });
+    const decision = resolveHealPersistDecision(state, 'http://127.0.0.1:8642', true, {
+      liveUsbHostname: 'Igors-MacBook-Pro.local',
+      allowUsbWhenStickyUnreachable: true,
+    });
+    expect(decision.catalogOnly).toBe(false);
+    expect(decision.requestedActivation).toBe(true);
+
+    const next = applyHealDiscoveredUrl(
+      state,
+      {
+        gatewayUrl: 'http://127.0.0.1:8642',
+        hostname: 'Igors-MacBook-Pro',
+        label: 'Igors-MacBook-Pro',
+      },
+      true,
+      { allowCrossMachineUsbAdopt: true },
+    );
+    const healed = activeProfile(next)!;
+    expect(profileMachineKey(healed)).toBe('igors-macbook-pro');
+    expect(healed.gatewayUrl).toContain('127.0.0.1');
+  });
+
   it('allows same-Mac USB when the live cable hostname matches the sticky Tailscale Mac', () => {
     // P0 2026-07-23: after a same-Mac USB↔Tailscale handoff, the sticky profile stays the
     // Tailscale row while the cable is live for the identical Mac — the live cable hostname
