@@ -281,7 +281,7 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
       chatBodies: false,
       ipAddresses: false,
       fingerprints: false,
-      note: "Telemetry enforces zero-knowledge privacy boundaries: no raw chat bodies, IP logs, or credentials leave customer boundaries.",
+      note: "Telemetry enforces zero-knowledge privacy boundaries: no raw chat bodies, IP logs, or credentials leave customer boundaries. No LangSmith / third-party chat export.",
     },
   };
 }
