@@ -99,7 +99,7 @@ export const RUN_HARD_TIMEOUT_MS = 10 * 60 * 1000;
 export const MEGA_SESSION_RUN_HARD_TIMEOUT_MS = 15 * 60 * 1000;
 
 export const RUN_HARD_TIMEOUT_DETAIL =
-  'Timed out waiting for your computer — tap ↑ to send again, or Stop if a run is still active.';
+  'Timed out waiting for your computer — tap ↑ to send again, or tap Stop to cancel this message.';
 
 export type RunStaleLevel = 'normal' | 'long' | 'idle' | 'expired';
 

@@ -41,20 +41,28 @@ describe('emptyStreamRefreshCta', () => {
     expect(shouldShowEmptyStreamRefreshCta(messages)).toBe(false);
   });
 
-  it('does not advertise pull-to-refresh or mandatory manual refresh in empty-stream copy', () => {
+  it('does not advertise pull-to-refresh, run jargon, or mandatory manual refresh in empty-stream copy', () => {
     for (const relativePath of USER_FACING_EMPTY_STREAM_COPY_FILES) {
       const source = fs.readFileSync(path.join(mobileRoot, relativePath), 'utf8');
       assertNoPullToRefreshCopy(source, relativePath);
     }
     expect(EMPTY_STREAM_TIMEOUT_PLACEHOLDER.toLowerCase()).toMatch(/check|leash/);
+    expect(EMPTY_STREAM_TIMEOUT_PLACEHOLDER.toLowerCase()).not.toContain('a run is active');
     expect(EMPTY_REPLY_FAILURE_REASON.toLowerCase()).toMatch(/fresh chat|leash/);
-    expect(EMPTY_STREAM_REFRESH_BANNER_HINT.toLowerCase()).toContain('checking automatically');
-    expect(EMPTY_STREAM_REFRESH_BANNER_HINT.toLowerCase()).toContain('leash');
+    expect(EMPTY_REPLY_FAILURE_REASON.toLowerCase()).not.toContain('stop the run');
+    expect(EMPTY_STREAM_REFRESH_BANNER_HINT.toLowerCase()).toContain('check now');
+    expect(EMPTY_STREAM_REFRESH_BANNER_HINT.toLowerCase()).toContain('start fresh chat');
+    expect(EMPTY_STREAM_REFRESH_BANNER_HINT.toLowerCase()).not.toContain('a run is active');
     expect(EMPTY_STREAM_REFRESH_BANNER_HINT.toLowerCase()).not.toContain('tap refresh');
     expect(emptyStreamBannerHint(45_000)).toContain('(45s)');
-    expect(emptyStreamBannerHint(45_000).toLowerCase()).toContain('leash');
+    expect(emptyStreamBannerHint(45_000).toLowerCase()).toContain('check now');
+    expect(emptyStreamBannerHint(45_000).toLowerCase()).not.toContain('a run is active');
     expect(emptyStreamBannerHint(45_000).toLowerCase()).not.toContain('tap refresh');
     expect(emptyStreamBannerHint(EMPTY_STREAM_HARD_STOP_MS)).toBe(EMPTY_STREAM_HARD_STOP_STATUS);
+    expect(EMPTY_STREAM_HARD_STOP_STATUS.toLowerCase()).not.toContain('a run');
     expect(emptyStreamDisplayElapsedMs(3_430_000)).toBe(EMPTY_STREAM_HARD_STOP_MS);
+    expect(messageIsEmptyStreamTimeout('No reply from your Mac yet. Hermes Mobile keeps checking')).toBe(
+      true,
+    );
   });
 });

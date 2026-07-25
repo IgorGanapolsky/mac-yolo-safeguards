@@ -28,6 +28,9 @@ describe('ChatInputBar', () => {
 
     fireEvent.press(getByTestId('chat-stop-button'));
     expect(onStop).toHaveBeenCalled();
+    expect(getByTestId('chat-stop-button').props.accessibilityLabel).toBe(
+      'Stop working on this message',
+    );
   });
 
   it('uses light text on dark composer field', () => {

@@ -17,7 +17,7 @@ export const GENERIC_EMPTY_STREAM_PLACEHOLDER =
 
 /** After soft timeout with no reply text — brief auto-check, then hard-stop + Leash CTA. */
 export const EMPTY_STREAM_TIMEOUT_PLACEHOLDER =
-  'Still no reply text. Hermes checks your Mac briefly, then stops — open Leash for approve/deny/warn, Stop if a run is active, or start a fresh chat.';
+  'No reply from your Mac yet. Hermes Mobile keeps checking briefly, then stops — open Leash if a tool needs your decision, tap Check now, or Start fresh chat.';
 
 /**
  * Internal gateway / cron sentinel for a tool-only or "nothing to report" turn.
@@ -48,6 +48,7 @@ export function isDeferredStreamPlaceholder(content: string | undefined): boolea
     // Legacy copy (shipped builds + tests)
     body.startsWith('(Hermes did not return text yet') ||
     body.startsWith('Working on your computer…') ||
+    body.startsWith('No reply from your Mac yet') ||
     body.startsWith('Still no reply text.')
   );
 }
@@ -61,7 +62,11 @@ export function isTransientWorkingStatusPlaceholder(content: string | undefined)
   if (!body) {
     return false;
   }
-  if (body === EMPTY_STREAM_TIMEOUT_PLACEHOLDER || body.startsWith('Still no reply text.')) {
+  if (
+    body === EMPTY_STREAM_TIMEOUT_PLACEHOLDER ||
+    body.startsWith('No reply from your Mac yet') ||
+    body.startsWith('Still no reply text.')
+  ) {
     return false;
   }
   if (body === TELEGRAM_QUEUED_REPLY_PLACEHOLDER) {

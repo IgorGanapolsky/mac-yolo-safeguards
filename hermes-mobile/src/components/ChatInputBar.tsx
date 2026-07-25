@@ -188,7 +188,7 @@ function ChatInputBar({
             style={styles.stopButton}
             onPress={onStop}
             testID="chat-stop-button"
-            accessibilityLabel="Stop run"
+            accessibilityLabel="Stop working on this message"
           >
             <View style={styles.stopSquare} />
           </TouchableOpacity>

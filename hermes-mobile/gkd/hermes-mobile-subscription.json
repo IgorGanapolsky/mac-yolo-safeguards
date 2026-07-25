@@ -15,20 +15,14 @@
       "groups": [
         {
           "key": 0,
-          "name": "Stop stuck run",
-          "desc": "Tap Stop when a stuck run banner is visible during dogfood.",
+          "name": "Stop working on this message",
+          "desc": "Tap Stop when a stuck progress banner is visible during dogfood.",
           "enable": true,
           "rules": [
             {
               "key": 0,
               "fastQuery": true,
-              "matches": "[text=\"Stop stuck run\"][visibleToUser=true]",
-              "snapshotUrls": []
-            },
-            {
-              "key": 1,
-              "fastQuery": true,
-              "matches": "[text=\"Stop run\"][visibleToUser=true]",
+              "matches": "[text=\"Stop\"][visibleToUser=true]",
               "snapshotUrls": []
             }
           ]

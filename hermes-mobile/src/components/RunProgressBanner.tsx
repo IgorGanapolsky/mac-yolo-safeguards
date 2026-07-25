@@ -296,10 +296,10 @@ function RunProgressBanner({
               pressed && styles.stopChipPressed,
             ]}
             testID="run-progress-stop"
-            accessibilityLabel={emphasizeStop ? 'Stop stuck run' : 'Stop run'}
+            accessibilityLabel="Stop working on this message"
           >
             <Text style={[styles.stopChipText, emphasizeStop && styles.stopChipTextEmphasis]}>
-              {emphasizeStop ? 'Stop stuck run' : 'Stop'}
+              Stop
             </Text>
           </Pressable>
         ) : null}

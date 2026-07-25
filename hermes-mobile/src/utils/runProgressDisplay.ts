@@ -379,7 +379,7 @@ export function staleRunProgressTitle(progress: RunProgressState): string {
 }
 
 export function staleRunProgressDetail(): string {
-  return 'Hermes may be stuck. Stop the run and try again if nothing changes.';
+  return 'Hermes Mobile may be stuck. Tap Stop to cancel this message, then try again.';
 }
 
 export function humanizeComposerStatus(status: string): string {

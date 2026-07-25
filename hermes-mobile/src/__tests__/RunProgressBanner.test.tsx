@@ -310,7 +310,10 @@ describe('RunProgressBanner', () => {
     expect(getByTestId('run-progress-stale-hint').props.children).toContain(
       'Taking longer than expected',
     );
-    expect(getByText('Stop stuck run')).toBeTruthy();
+    expect(getByText('Stop')).toBeTruthy();
+    expect(getByTestId('run-progress-stop').props.accessibilityLabel).toBe(
+      'Stop working on this message',
+    );
   });
 
   it('expands model and token stats by default', () => {
