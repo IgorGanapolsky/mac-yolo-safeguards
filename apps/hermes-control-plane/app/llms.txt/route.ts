@@ -20,6 +20,7 @@ const body = `# Leash by ThumbGate
 ## Privacy boundary
 - Device private keys and local gateway credentials stay on the paired machine
 - Funnel analytics do not contain prompts, threads, email addresses, IP addresses, cookies, or user-agent strings
+- Optional first-party campaign tokens only (utm_source/medium/campaign + cta_id); free-form query strings are dropped
 - Chats, task receipts, response feedback, and lessons require an authenticated workspace session
 
 ## Discovery
