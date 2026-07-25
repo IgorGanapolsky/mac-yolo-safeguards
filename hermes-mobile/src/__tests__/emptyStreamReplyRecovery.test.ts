@@ -4,10 +4,13 @@ import {
   DEFERRED_REPLY_POLL_MAX_WITH_TOOLS_MS,
   DEFERRED_REPLY_POLL_MS,
   EMPTY_REPLY_FAILURE_REASON,
+  EMPTY_STREAM_HARD_STOP_MS,
+  EMPTY_STREAM_HARD_STOP_STATUS,
   EMPTY_STREAM_SELF_HEAL_AFTER_MS,
   emptyStreamCheckingStatus,
   serverHasAssistantReplyAfterLastUser,
   shouldAwaitGatewayReplyAfterSend,
+  shouldHardStopEmptyStreamWait,
   shouldKeepAutoPollingForReply,
   toolActivityAfterLastUser,
 } from '../utils/emptyStreamReplyRecovery';
@@ -86,12 +89,14 @@ describe('emptyStreamReplyRecovery', () => {
     expect(DEFERRED_REPLY_POLL_MAX_MS).toBe(60_000);
     expect(DEFERRED_REPLY_POLL_MAX_WITH_TOOLS_MS).toBe(180_000);
     expect(EMPTY_STREAM_SELF_HEAL_AFTER_MS).toBe(30_000);
+    expect(EMPTY_STREAM_HARD_STOP_MS).toBe(4 * 60_000);
+    expect(EMPTY_STREAM_HARD_STOP_MS).toBeGreaterThanOrEqual(DEFERRED_REPLY_POLL_MAX_WITH_TOOLS_MS);
     expect(deferredReplyPollBudgetMs({ toolsActive: false })).toBe(60_000);
     expect(deferredReplyPollBudgetMs({ toolsActive: true })).toBe(180_000);
-    expect(EMPTY_REPLY_FAILURE_REASON).toMatch(/fresh chat|checking automatically/i);
+    expect(EMPTY_REPLY_FAILURE_REASON).toMatch(/fresh chat|leash/i);
   });
 
-  it('keeps auto-polling while awaiting reply or after empty-stream timeout', () => {
+  it('keeps auto-polling while awaiting reply or after empty-stream timeout until hard stop', () => {
     expect(
       shouldKeepAutoPollingForReply({
         awaitingGatewayReply: true,
@@ -110,6 +115,29 @@ describe('emptyStreamReplyRecovery', () => {
         hasEmptyStreamTimeout: false,
       }),
     ).toBe(false);
+    expect(
+      shouldKeepAutoPollingForReply({
+        awaitingGatewayReply: true,
+        hasEmptyStreamTimeout: true,
+        waitElapsedMs: EMPTY_STREAM_HARD_STOP_MS,
+      }),
+    ).toBe(false);
+    expect(
+      shouldKeepAutoPollingForReply({
+        awaitingGatewayReply: false,
+        hasEmptyStreamTimeout: true,
+        waitElapsedMs: EMPTY_STREAM_HARD_STOP_MS - 1,
+      }),
+    ).toBe(true);
+  });
+
+  it('hard-stops Checking your Mac forever waits', () => {
+    expect(shouldHardStopEmptyStreamWait(EMPTY_STREAM_HARD_STOP_MS - 1)).toBe(false);
+    expect(shouldHardStopEmptyStreamWait(EMPTY_STREAM_HARD_STOP_MS)).toBe(true);
+    expect(shouldHardStopEmptyStreamWait(3_430_000)).toBe(true);
+    expect(emptyStreamCheckingStatus(3_430_000)).toBe(EMPTY_STREAM_HARD_STOP_STATUS);
+    expect(EMPTY_STREAM_HARD_STOP_STATUS.toLowerCase()).toContain('leash');
+    expect(EMPTY_STREAM_HARD_STOP_STATUS.toLowerCase()).not.toMatch(/checking your mac… \(\d+s\)/);
   });
 
   it('shows self-heal checking copy after 30s without requiring manual refresh', () => {

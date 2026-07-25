@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
-import { emptyStreamBannerHint } from '../utils/emptyStreamRefreshCta';
+import {
+  emptyStreamBannerHint,
+  emptyStreamDisplayElapsedMs,
+} from '../utils/emptyStreamRefreshCta';
+import { shouldHardStopEmptyStreamWait } from '../utils/emptyStreamReplyRecovery';
 import ElapsedSince from './ElapsedSince';
 
 type EmptyStreamRefreshBannerProps = {
@@ -11,6 +15,8 @@ type EmptyStreamRefreshBannerProps = {
   onRefresh: () => void;
   onStartFreshChat?: () => void;
   startingFreshChat?: boolean;
+  onOpenLeash?: () => void;
+  pendingApprovalCount?: number;
 };
 
 export default function EmptyStreamRefreshBanner({
@@ -20,6 +26,8 @@ export default function EmptyStreamRefreshBanner({
   onRefresh,
   onStartFreshChat,
   startingFreshChat = false,
+  onOpenLeash,
+  pendingApprovalCount = 0,
 }: EmptyStreamRefreshBannerProps) {
   const [elapsedMs, setElapsedMs] = useState(0);
 
@@ -34,50 +42,78 @@ export default function EmptyStreamRefreshBanner({
     return () => clearInterval(timer);
   }, [waitingSinceMs]);
 
+  const hardStopped = shouldHardStopEmptyStreamWait(elapsedMs);
+  const displayElapsedMs = emptyStreamDisplayElapsedMs(elapsedMs);
   const hint = emptyStreamBannerHint(elapsedMs);
+  const showSpinner = autoChecking && !hardStopped;
+  const leashLabel =
+    pendingApprovalCount > 0
+      ? `Open Leash (${pendingApprovalCount})`
+      : 'Open Leash';
 
   return (
     <View style={styles.wrap} testID="empty-stream-refresh-banner">
       <View style={styles.statusRow}>
-        {autoChecking ? (
+        {showSpinner ? (
           <ActivityIndicator size="small" color={colors.warning} testID="empty-stream-auto-checking" />
         ) : null}
         <View style={styles.copyColumn}>
           <Text style={styles.text}>{hint}</Text>
-          {waitingSinceMs != null ? (
+          {waitingSinceMs != null && !hardStopped ? (
             <ElapsedSince
-              sinceMs={waitingSinceMs}
+              sinceMs={Date.now() - displayElapsedMs}
               prominent
               prefix="Waiting"
               testID="empty-stream-elapsed"
             />
           ) : null}
+          {hardStopped ? (
+            <Text style={styles.stoppedLabel} testID="empty-stream-hard-stopped">
+              Wait stopped — act on Leash or start fresh
+            </Text>
+          ) : null}
         </View>
       </View>
       <View style={styles.actions}>
-        <Pressable
-          onPress={onRefresh}
-          disabled={busy}
-          accessibilityRole="button"
-          accessibilityLabel="Check again now"
-          accessibilityState={{ busy, disabled: busy }}
-          style={({ pressed }) => [
-            styles.refreshChip,
-            styles.secondaryChip,
-            busy && styles.chipBusy,
-            pressed && !busy && styles.chipPressed,
-          ]}
-          testID="empty-stream-refresh-button"
-        >
-          {busy ? (
-            <View style={styles.chipRow}>
-              <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={styles.refreshChipText}>Checking…</Text>
-            </View>
-          ) : (
-            <Text style={styles.refreshChipText}>Check now</Text>
-          )}
-        </Pressable>
+        {!hardStopped ? (
+          <Pressable
+            onPress={onRefresh}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel="Check again now"
+            accessibilityState={{ busy, disabled: busy }}
+            style={({ pressed }) => [
+              styles.refreshChip,
+              styles.secondaryChip,
+              busy && styles.chipBusy,
+              pressed && !busy && styles.chipPressed,
+            ]}
+            testID="empty-stream-refresh-button"
+          >
+            {busy ? (
+              <View style={styles.chipRow}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={styles.refreshChipText}>Checking…</Text>
+              </View>
+            ) : (
+              <Text style={styles.refreshChipText}>Check now</Text>
+            )}
+          </Pressable>
+        ) : null}
+        {onOpenLeash ? (
+          <Pressable
+            onPress={onOpenLeash}
+            accessibilityRole="button"
+            accessibilityLabel={leashLabel}
+            style={({ pressed }) => [
+              styles.leashChip,
+              pressed && styles.chipPressed,
+            ]}
+            testID="empty-stream-open-leash"
+          >
+            <Text style={styles.leashChipText}>{leashLabel}</Text>
+          </Pressable>
+        ) : null}
         {onStartFreshChat ? (
           <Pressable
             onPress={onStartFreshChat}
@@ -134,6 +170,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.warning,
   },
+  stoppedLabel: {
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '700',
+    color: colors.warning,
+  },
   actions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -158,6 +200,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
+  leashChip: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.55)',
+    backgroundColor: 'rgba(16, 185, 129, 0.14)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
   chipBusy: {
     opacity: 0.85,
   },
@@ -178,5 +228,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     color: colors.primary,
+  },
+  leashChipText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.success,
   },
 });

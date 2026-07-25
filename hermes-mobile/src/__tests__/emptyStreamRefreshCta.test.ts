@@ -4,11 +4,16 @@ import {
   assertNoPullToRefreshCopy,
   EMPTY_STREAM_REFRESH_BANNER_HINT,
   emptyStreamBannerHint,
+  emptyStreamDisplayElapsedMs,
   messageIsEmptyStreamTimeout,
   shouldShowEmptyStreamRefreshCta,
   USER_FACING_EMPTY_STREAM_COPY_FILES,
 } from '../utils/emptyStreamRefreshCta';
-import { EMPTY_REPLY_FAILURE_REASON } from '../utils/emptyStreamReplyRecovery';
+import {
+  EMPTY_REPLY_FAILURE_REASON,
+  EMPTY_STREAM_HARD_STOP_MS,
+  EMPTY_STREAM_HARD_STOP_STATUS,
+} from '../utils/emptyStreamReplyRecovery';
 import {
   EMPTY_STREAM_TIMEOUT_PLACEHOLDER,
 } from '../utils/streamAssistantText';
@@ -41,11 +46,15 @@ describe('emptyStreamRefreshCta', () => {
       const source = fs.readFileSync(path.join(mobileRoot, relativePath), 'utf8');
       assertNoPullToRefreshCopy(source, relativePath);
     }
-    expect(EMPTY_STREAM_TIMEOUT_PLACEHOLDER.toLowerCase()).toContain('checking');
-    expect(EMPTY_REPLY_FAILURE_REASON.toLowerCase()).toContain('checking automatically');
+    expect(EMPTY_STREAM_TIMEOUT_PLACEHOLDER.toLowerCase()).toMatch(/check|leash/);
+    expect(EMPTY_REPLY_FAILURE_REASON.toLowerCase()).toMatch(/fresh chat|leash/);
     expect(EMPTY_STREAM_REFRESH_BANNER_HINT.toLowerCase()).toContain('checking automatically');
+    expect(EMPTY_STREAM_REFRESH_BANNER_HINT.toLowerCase()).toContain('leash');
     expect(EMPTY_STREAM_REFRESH_BANNER_HINT.toLowerCase()).not.toContain('tap refresh');
     expect(emptyStreamBannerHint(45_000)).toContain('(45s)');
+    expect(emptyStreamBannerHint(45_000).toLowerCase()).toContain('leash');
     expect(emptyStreamBannerHint(45_000).toLowerCase()).not.toContain('tap refresh');
+    expect(emptyStreamBannerHint(EMPTY_STREAM_HARD_STOP_MS)).toBe(EMPTY_STREAM_HARD_STOP_STATUS);
+    expect(emptyStreamDisplayElapsedMs(3_430_000)).toBe(EMPTY_STREAM_HARD_STOP_MS);
   });
 });
