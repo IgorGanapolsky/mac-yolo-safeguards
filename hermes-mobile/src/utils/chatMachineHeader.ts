@@ -240,6 +240,20 @@ export function resolveMachineDisplayName(
     return 'Your computer';
   }
 
+  // PRODUCT LAW (2026-07-24 Connected Tailscale): never show "Tailscale <CGNAT-IP>" when
+  // live green|amber /health.hostname is available (prefer health → persisted hostname).
+  if (
+    isTailscaleGatewayUrl(gatewayUrl) &&
+    fromHealth &&
+    !isUnresolvedMachineName(fromHealth) &&
+    !health?.authMismatch &&
+    (health?.level === 'green' || health?.level === 'amber')
+  ) {
+    if (!activeProfile || isUnresolvedMachineName(profileDisplayName(activeProfile))) {
+      return fromHealth;
+    }
+  }
+
   if (activeProfile) {
     const fromProfile = profileDisplayName(activeProfile);
     if (!isUnresolvedMachineName(fromProfile)) {
@@ -257,6 +271,17 @@ export function resolveMachineDisplayName(
 
   if (fromHealth && isUnresolvedMachineName(name)) {
     name = fromHealth;
+  }
+
+  // PRODUCT LAW (2026-07-24): never title a Tailscale Mac as "Tailscale <CGNAT-IP>".
+  // Transport badge already says Tailscale; IP is not a machine name. Covers Connected
+  // green|amber /health that omitted hostname (main preferred hostname only when present).
+  if (
+    isTailscaleGatewayUrl(gatewayUrl) &&
+    isGenericMachineLabel(name) &&
+    /^tailscale \d{1,3}(\.\d{1,3}){3}$/i.test(name.trim())
+  ) {
+    name = 'Your computer';
   }
 
   // Never bake "USB" into the computer title (e.g. saved "Mac mini USB" + Tailscale).
