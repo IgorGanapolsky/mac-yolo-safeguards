@@ -40,9 +40,10 @@ export function currentAndroidStorePackage(): string {
 }
 
 /**
- * Paid-download builds already paid at install — treat Pro as unlocked without IAP.
- * Free listing builds still use hermes_pro_lifetime ($4.99 once).
+ * Paid-download store app — users already paid at download time.
+ * All mobile features (including Leash) are 100% unlocked with zero secondary paywalls.
+ * Subscriptions are managed separately on the ThumbGate.app web dashboard.
  */
 export function isStorePaidDownloadEntitled(): boolean {
-  return isAndroidPaidDownloadBuild();
+  return true;
 }

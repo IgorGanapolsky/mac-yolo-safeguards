@@ -199,12 +199,15 @@ export default function ApprovalsScreen() {
   const visibleApprovals = glance
     ? []
     : pendingApprovals.slice(0, PENDING_APPROVALS_RENDER_CAP);
-  const leashPromoSurface = leashUnlocked
-    ? resolveLeashThumbGatePromoSurface({
-        connectionState,
-        pendingApprovalsCount: pendingApprovals.length,
-      })
-    : null;
+  const leashPromoSurface = resolveLeashThumbGatePromoSurface({
+    connectionState,
+    pendingApprovalsCount: pendingApprovals.length,
+  });
+  // A phone that cannot reach any Mac is the ONE case where the web app is the answer, and it
+  // was the one case we hid it: the promo used to be gated behind leashUnlocked, so an unpaid
+  // user with no reachable computer saw only a $4.99 paywall. Lead with ThumbGate.app here and
+  // hold the upsell until they actually have a working link.
+  const cannotReachComputer = leashPromoSurface === 'leash_disconnected';
 
   const calmStatus = resolveCalmConnectionStatus({ health });
   const healthLevel: GatewayHealthLevel =
@@ -330,7 +333,10 @@ export default function ApprovalsScreen() {
           find pro-upgrade-card without scrolling past toggles/history.
           Locked path embeds the card in the empty state below instead (same testIDs).
         */}
-        {!hasThumbgateLeashPro(settings) && leashUnlocked ? (
+        {cannotReachComputer ? (
+          <ThumbGatePromoCard surface="leash_disconnected" style={styles.emptyCard} />
+        ) : null}
+        {!cannotReachComputer && !hasThumbgateLeashPro(settings) && leashUnlocked ? (
           <GlassCard style={styles.emptyCard} testID="leash-pro-upsell-card">
             <Text style={styles.emptyTitle}>Upgrade for unlimited Leash</Text>
             <Text style={styles.emptyBody}>
@@ -343,7 +349,7 @@ export default function ApprovalsScreen() {
             />
           </GlassCard>
         ) : null}
-        {!leashUnlocked ? (
+        {!leashUnlocked && !cannotReachComputer ? (
           <GlassCard style={styles.emptyCard} testID="leash-pro-upsell-card">
             <Text style={styles.emptyTitle}>ThumbGate Leash is a Pro feature</Text>
             <Text style={styles.emptyBody}>
@@ -428,7 +434,8 @@ export default function ApprovalsScreen() {
           </>
         )}
 
-        {leashPromoSurface ? (
+        {/* Disconnected already rendered this at the top of the screen — don't repeat it here. */}
+        {leashPromoSurface && !cannotReachComputer ? (
           <ThumbGatePromoCard surface={leashPromoSurface} style={styles.emptyCard} />
         ) : null}
 

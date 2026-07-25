@@ -50,7 +50,7 @@ describe('appIdentity', () => {
     const app = JSON.parse(read('hermes-mobile/app.json'));
     expect(app.expo.name).toBe('Hermes Mobile');
     expect(app.expo.slug).toBe('hermes-mobile');
-    expect(app.expo.android.package).toBe('com.iganapolsky.hermesmobile');
+    expect(app.expo.android.package).toBe('com.iganapolsky.hermesmobile.paid');
     expect(app.expo.ios.bundleIdentifier).toBe('com.iganapolsky.hermesmobile');
   });
 
@@ -166,7 +166,7 @@ describe('release safety contract', () => {
 
   it('app.json enables OTA updates with expo-updates plugin and appVersion runtime', () => {
     const app = JSON.parse(read('hermes-mobile/app.json'));
-    expect(app.expo.android.package).toBe('com.iganapolsky.hermesmobile');
+    expect(app.expo.android.package).toBe('com.iganapolsky.hermesmobile.paid');
     expect(app.expo.updates.enabled).toBe(true);
     expect(app.expo.updates.checkAutomatically).toBe('ON_LOAD');
     expect(app.expo.updates.url).toBe(

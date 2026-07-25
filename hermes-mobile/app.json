@@ -6,7 +6,7 @@
     "experiments": {
       "reactCompiler": true
     },
-    "version": "1.4",
+    "version": "1.5",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -86,7 +86,7 @@
         "monochromeImage": "./assets/adaptive-monochrome.png",
         "backgroundColor": "#4F46E5"
       },
-      "package": "com.iganapolsky.hermesmobile",
+      "package": "com.iganapolsky.hermesmobile.paid",
       "versionCode": 19,
       "userInterfaceStyle": "dark",
       "allowBackup": false,
@@ -100,6 +100,7 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
+      "androidStoreSku": "paid",
       "eas": {
         "projectId": "4ed13e30-9b97-4ddd-8a12-59106cae90d6"
       }

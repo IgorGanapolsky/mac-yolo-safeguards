@@ -132,13 +132,15 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
     <View style={styles.wrap} testID="pro-upgrade-card" collapsable={false} accessible={true}>
       <Text style={styles.title}>ThumbGate Pro</Text>
       <Text style={styles.tagline}>Self-Improving Firewall for your AI agents</Text>
+      {/* Kept to two lines on purpose: the old paragraph ran ~55 words and pushed the buttons
+          off-screen on a phone, so the card read as a wall of text instead of an offer. */}
       <Text style={styles.body}>
-        Hermes Chat is free. {THUMBGATE_LEASH_PRODUCT_NAME} ({priceLabel}) unlocks mobile approval
-        cards on this phone plus lesson-backed gates that remember thumbs feedback, promote or
-        re-rank what matters next, and promote repeated failures into gates
+        Hermes Chat is free. ThumbGate Leash ({priceLabel}) unlocks mobile approval cards on this
+        phone plus lesson-backed gates that remember thumbs feedback, promote or re-rank what
+        matters next, and promote repeated failures into gates —{' '}
         {isAndroidLifetime
-          ? ' — one-time unlock on Google Play.'
-          : '. Subscriptions are managed on the ThumbGate web dashboard, not inside this app.'}
+          ? 'one-time unlock on Google Play.'
+          : 'Subscriptions are managed on the ThumbGate web dashboard.'}
       </Text>
       {isAndroidLifetime ? (
         <TouchableOpacity
@@ -179,7 +181,7 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
           at confirmation. Restore purchases if you already unlocked on this account.{' '}
           <Text
             style={styles.legalLink}
-            onPress={() => void Linking.openURL('https://thumbgate.ai/privacy')}
+            onPress={() => void Linking.openURL('https://thumbgate.app/privacy')}
           >
             Privacy Policy
           </Text>
@@ -190,7 +192,7 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
           ThumbGate subscription on the web dashboard. Legacy App Store subscribers can Restore.{' '}
           <Text
             style={styles.legalLink}
-            onPress={() => void Linking.openURL('https://thumbgate.ai/privacy')}
+            onPress={() => void Linking.openURL('https://thumbgate.app/privacy')}
           >
             Privacy Policy
           </Text>

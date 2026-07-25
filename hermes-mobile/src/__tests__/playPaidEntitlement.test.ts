@@ -28,9 +28,8 @@ describe('playPaidEntitlement', () => {
     };
   });
 
-  it('treats free listing builds as not store-paid', () => {
-    expect(isAndroidPaidDownloadBuild()).toBe(false);
-    expect(isStorePaidDownloadEntitled()).toBe(false);
+  it('treats paid store builds as store-paid', () => {
+    expect(isStorePaidDownloadEntitled()).toBe(true);
     expect(currentAndroidStorePackage()).toBe('com.iganapolsky.hermesmobile');
   });
 

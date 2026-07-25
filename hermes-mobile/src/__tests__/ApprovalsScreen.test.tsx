@@ -101,7 +101,7 @@ describe('ApprovalsScreen', () => {
       }),
     );
     const { getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
-    expect(getByText('ThumbGate Leash is a Pro feature')).toBeTruthy();
+    expect(getByText('No pending approvals')).toBeTruthy();
   });
 
   it('shows empty state when no pending approvals', () => {
@@ -155,26 +155,10 @@ describe('ApprovalsScreen', () => {
         },
       }),
     );
-    const { getByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    const { queryByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByText('No pending approvals')).toBeTruthy();
-    expect(getByTestId('leash-pro-upsell-card')).toBeTruthy();
-    expect(getByTestId('pro-upgrade-card')).toBeTruthy();
-    // Android: lifetime IAP CTA. iOS: web subscription CTA (no StoreKit subs).
-    const iapCta = (() => {
-      try {
-        return getByTestId('subscribe-thumbgate-leash-iap');
-      } catch {
-        return null;
-      }
-    })();
-    const webCta = (() => {
-      try {
-        return getByTestId('open-thumbgate-web-subscription');
-      } catch {
-        return null;
-      }
-    })();
-    expect(iapCta || webCta).toBeTruthy();
+    expect(queryByTestId('leash-pro-upsell-card')).toBeNull();
+    expect(queryByTestId('pro-upgrade-card')).toBeNull();
   });
 
   it('renders approval card and resolves via thumbs up', () => {

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   BackHandler,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -355,6 +356,22 @@ export default function ConnectMacGate() {
                   />
                 </View>
               ) : null}
+
+              <View style={styles.thumbgatePromoEntry}>
+                <TouchableOpacity
+                  onPress={() => {
+                    void Linking.openURL('https://thumbgate.app');
+                  }}
+                  accessibilityRole="button"
+                  testID="connect-thumbgate-promo"
+                  style={styles.thumbgatePromoButton}
+                >
+                  <Text style={styles.thumbgatePromoTitle}>⚡ Powered by ThumbGate.app</Text>
+                  <Text style={styles.thumbgatePromoSub}>
+                    Protect & audit AI coding agents with pre-action safety gates. Learn more →
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -390,6 +407,7 @@ const styles = StyleSheet.create({
   cardScrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
+    alignItems: 'center',
     padding: 24,
   },
   card: {
@@ -464,5 +482,29 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
+  },
+  thumbgatePromoEntry: {
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  thumbgatePromoButton: {
+    backgroundColor: '#161B2E',
+    borderRadius: 12,
+    padding: 12,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#2D3756',
+  },
+  thumbgatePromoTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#818CF8',
+  },
+  thumbgatePromoSub: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 16,
   },
 });

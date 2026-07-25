@@ -192,3 +192,11 @@ Every content-engine post's soft CTA may point at the opt-in once it exists; unt
 then CTA = store/GitHub only. Cadence weekly; 10 issues before judging growth.
 Referral/paid layers only after open/click proof. See REVENUE-LOOP.md for the
 send-gate rules (human sends; drafts only).
+
+
+## Never double-post (2026-07-25)
+One LIVE post per channel per campaign beat. Pre-flight content log + live profile before Post. See `~/.grok/skills/never-double-post/SKILL.md`.
+
+
+## Product/creator mentions (2026-07-25)
+Properly name + link + platform-@ related products (Nous Hermes/@NousResearch, Fly.io/@flydotio, Gatekeeper URLs). Never claim affiliation. Skill: `~/.grok/skills/social-product-creator-mentions/SKILL.md`.

@@ -1310,6 +1310,7 @@ function main() {
 
 module.exports = {
   RECEIPT_PATH,
+  RISK_LEVELS,
   ROUTES,
   buildPipeline,
   buildOutcomeContract,
@@ -1319,6 +1320,7 @@ module.exports = {
   providerModelCatalogQuery,
   receiptId,
   render,
+  riskValue,
   routeAllowed,
   scoreRoute,
   taskSignals,

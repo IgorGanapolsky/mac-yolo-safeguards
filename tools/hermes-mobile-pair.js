@@ -570,12 +570,46 @@ function resolveLiveMintPairServerUrl(seed) {
 
 function writePairQrPng(qrPayload) {
   const qrPath = path.join(OUT_DIR, 'pair-qr.png');
-  const qr = spawnSync('npx', ['--yes', 'qrcode', '-o', qrPath, qrPayload], {
-    cwd: REPO,
-    encoding: 'utf8',
-    timeout: 20_000,
-  });
-  if (qr.status !== 0 || !fs.existsSync(qrPath)) {
+  // Reuse recent QR (same page URL) — npx qrcode spawnSync blocked the pair HTTP
+  // event loop for minutes when registry/network stalled (iPad pair hang 2026-07-25).
+  try {
+    if (fs.existsSync(qrPath)) {
+      const ageMs = Date.now() - fs.statSync(qrPath).mtimeMs;
+      if (ageMs >= 0 && ageMs < 120_000) {
+        const b64 = fs.readFileSync(qrPath).toString('base64');
+        return {
+          qrPath,
+          imgTag: `<img src="data:image/png;base64,${b64}" alt="Pair QR code" width="280" height="280"/>`,
+        };
+      }
+    }
+  } catch {
+    // fall through to regenerate
+  }
+  const binCandidates = [
+    path.join(REPO, 'node_modules', '.bin', 'qrcode'),
+    path.join(REPO, 'hermes-mobile', 'node_modules', '.bin', 'qrcode'),
+  ];
+  let qr = null;
+  for (const bin of binCandidates) {
+    if (fs.existsSync(bin)) {
+      qr = spawnSync(bin, ['-o', qrPath, qrPayload], {
+        encoding: 'utf8',
+        timeout: 5_000,
+      });
+      if (qr.status === 0) break;
+    }
+  }
+  if (!qr || qr.status !== 0) {
+    qr = spawnSync('npx', ['--yes', 'qrcode', '-o', qrPath, qrPayload], {
+      cwd: REPO,
+      encoding: 'utf8',
+      timeout: 8_000,
+      killSignal: 'SIGKILL',
+    });
+  }
+  if (!qr || qr.status !== 0 || !fs.existsSync(qrPath)) {
+    // Still serve pair HTML/JSON without blocking forever.
     return { qrPath, imgTag: '' };
   }
   // Data URL so file:// (Mac --open) never depends on Chrome loading a sibling PNG.
@@ -920,11 +954,18 @@ function createPairServer(lanIp) {
       // Live remint — never serve a disk snapshot whose pairCode is already dead in memory.
       const live = mintLivePairSession();
       if (live.ok && live.pairJson) {
+        const hostHeader = (req.headers.host || '').split(':')[0];
+        let pairJson = { ...live.pairJson };
+        if (hostHeader && hostHeader !== '127.0.0.1' && hostHeader !== 'localhost') {
+          if (pairJson.gatewayUrl && pairJson.gatewayUrl.includes('127.0.0.1')) {
+            pairJson.gatewayUrl = pairJson.gatewayUrl.replace('127.0.0.1', hostHeader);
+          }
+        }
         res.writeHead(200, {
           'Content-Type': 'application/json',
           'Cache-Control': 'no-store',
         });
-        res.end(`${JSON.stringify(live.pairJson)}\n`);
+        res.end(`${JSON.stringify(pairJson)}\n`);
         return;
       }
       // Fallback: static file (legacy seed missing) so callers still get gatewayUrl/hostname.
@@ -996,8 +1037,15 @@ function createPairServer(lanIp) {
         res.end(JSON.stringify({ error: result.reason }));
         return;
       }
+      const hostHeader = (req.headers.host || '').split(':')[0];
+      let payload = { ...result.payload };
+      if (hostHeader && hostHeader !== '127.0.0.1' && hostHeader !== 'localhost') {
+        if (payload.gatewayUrl && payload.gatewayUrl.includes('127.0.0.1')) {
+          payload.gatewayUrl = payload.gatewayUrl.replace('127.0.0.1', hostHeader);
+        }
+      }
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result.payload));
+      res.end(JSON.stringify(payload));
       return;
     }
     if (url === '/pair-qr.png') {

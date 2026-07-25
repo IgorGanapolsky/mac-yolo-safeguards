@@ -30,11 +30,16 @@ const {
   isClaimedPath,
 } = require('./plan-coordination-snapshot');
 
+const { routeAllowed, riskValue, RISK_LEVELS, ROUTES, taskSignals } = require('./hermes-economic-router');
+
 const REPO = path.resolve(__dirname, '..');
 const DEFAULT_PLAN = path.join(REPO, 'plan.md');
 const FIELD_GUIDE = path.join(REPO, 'docs/agent-field-guide/index.md');
 const FIELD_GUIDE_LINE_BUDGET = 80;
 const CONCURRENCY_CAP = 3;
+
+/** Trace file for execution tracing (MonitoredAgent pattern). */
+const TRACE_FILE = path.join(REPO, '.harness-trace.jsonl');
 
 /** Files that historically thrash under multi-agent edits (megafile choke points). */
 const MEGAFILES = Object.freeze([
@@ -131,6 +136,8 @@ function parseArgs(argv) {
     bodyFile: null,
     stdin: false,
     help: false,
+    trace: process.env.HARNESS_TRACE !== '0',
+    limit: 0,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -138,7 +145,8 @@ function parseArgs(argv) {
       arg === 'check-hot-files' ||
       arg === 'field-guide' ||
       arg === 'brief' ||
-      arg === 'sdd'
+      arg === 'sdd' ||
+      arg === 'trace'
     ) {
       args.command = arg;
     } else if (arg === '--json') {
@@ -153,11 +161,48 @@ function parseArgs(argv) {
       args.bodyFile = path.resolve(argv[++i] || '');
     } else if (arg === '--help' || arg === '-h') {
       args.help = true;
+    } else if (arg === '--trace') {
+      args.trace = true;
+    } else if (arg === '--no-trace') {
+      args.trace = false;
+    } else if (arg === '--limit') {
+      args.limit = parseInt(argv[++i] || '0', 10);
     } else {
       throw new Error(`Unknown argument: ${arg}`);
     }
   }
   return args;
+}
+
+/**
+ * Emit a trace entry for the harness execution (MonitoredAgent pattern).
+ * Appends JSONL to the trace file with topology + timing info.
+ * @param {object} report - harness report
+ * @param {string|null} role - agent role
+ * @param {boolean} traceEnabled - whether tracing is enabled
+ * @param {string} [traceFilePath] - explicit trace file path (defaults to TRACE_FILE)
+ */
+function emitTrace(report, role, traceEnabled, traceFilePath) {
+  if (!traceEnabled) return;
+  const dest = traceFilePath || TRACE_FILE;
+  const entry = {
+    ts: new Date().toISOString(),
+    role,
+    action: 'harness-check',
+    durationMs: 0, // synchronous, negligible
+    taskId: report.activeTasks?.[0]?.id || 'none',
+    contention: report.contention?.length || 0,
+    megafileHits: report.megafileHits?.length || 0,
+    multiOwnerMega: (report.megafileHits || []).some((h) => h.multiOwner),
+    activeOwners: report.concurrency?.activeOwners || 0,
+    concurrencyOverCap: report.concurrency?.overCap || false,
+    ok: report.ok || false,
+  };
+  try {
+    fs.appendFileSync(dest, JSON.stringify(entry) + '\n');
+  } catch {
+    // Non-blocking - tracing must never break the harness
+  }
 }
 
 function normalizeClaim(claim) {
@@ -319,7 +364,55 @@ function buildActions(report) {
   return actions;
 }
 
-function buildHarnessReport({ planPath = DEFAULT_PLAN, role = null } = {}) {
+/**
+ * Parse risk level from plan.md task rows that have a Risk column.
+ * The snapshot parser doesn't handle extra columns, so we augment here.
+ */
+function augmentTaskRisk(activeTasks, planText) {
+  const riskMap = {};
+  for (const line of planText.split('\n')) {
+    const cells = line.split('|').map((c) => c.trim()).filter(Boolean);
+    if (cells.length < 6) continue;
+    const id = cells[0];
+    // Look for a cell matching known risk levels
+    const knownRisks = ['low', 'medium', 'high', 'critical'];
+    for (const cell of cells) {
+      if (knownRisks.includes(cell.toLowerCase())) {
+        riskMap[id] = cell.toLowerCase();
+        break;
+      }
+    }
+  }
+  for (const task of activeTasks) {
+    if (!task.risk && riskMap[task.id]) {
+      task.risk = riskMap[task.id];
+    }
+  }
+  return activeTasks;
+}
+
+function checkModelRiskGate(activeTasks) {
+  const defaultRoute = ROUTES.find((r) => r.id === 'local_fast') || ROUTES[0];
+  const results = [];
+  for (const task of activeTasks) {
+    if (!task.risk) continue;
+    const signals = taskSignals(task.title || task.id || '');
+    const allowed = routeAllowed(defaultRoute, { risk: task.risk, maxCostUsd: 1e9, latencyMs: 1e9, paidOk: true }, signals);
+    results.push({
+      taskId: task.id,
+      taskTitle: task.title || task.task,
+      taskRisk: task.risk,
+      routeId: defaultRoute.id,
+      routeRiskCeiling: defaultRoute.riskCeiling,
+      routeReliability: defaultRoute.reliability,
+      routeAllowed: allowed.allowed,
+      reasons: allowed.reasons,
+    });
+  }
+  return results;
+}
+
+function buildHarnessReport({ planPath = DEFAULT_PLAN, role = null, trace = false } = {}) {
   const snapshot = snapshotPlan(planPath);
   if (!snapshot.ok) {
     return {
@@ -332,11 +425,12 @@ function buildHarnessReport({ planPath = DEFAULT_PLAN, role = null } = {}) {
 
   // Re-parse with claimedFiles (snapshot may be from older callers without the field).
   const planText = fs.readFileSync(planPath, 'utf8');
-  const activeTasks = parseActiveTasks(planText);
+  const activeTasks = augmentTaskRisk(parseActiveTasks(planText), planText);
   const resolvedRole = resolveRole(role);
   const contention = findFileContention(activeTasks);
   const megafileHits = findMegafileHits(activeTasks);
   const owners = activeOwnerCount(activeTasks);
+  const modelRiskGate = checkModelRiskGate(activeTasks);
   const fieldGuide = loadFieldGuide();
   const report = {
     ok: true,
@@ -354,6 +448,7 @@ function buildHarnessReport({ planPath = DEFAULT_PLAN, role = null } = {}) {
     contention,
     megafileHits,
     megafiles: MEGAFILES,
+    modelRiskGate,
     modelEconomics: modelEconomics(),
     verificationStack: verificationStack(),
     sdd: specificationDrivenDesign(),
@@ -375,6 +470,11 @@ function buildHarnessReport({ planPath = DEFAULT_PLAN, role = null } = {}) {
   };
   report.actions = buildActions(report);
   report.fieldGuideBody = fieldGuide.ok ? fieldGuide.body : '';
+
+  // Emit trace (MonitoredAgent pattern) — trace file lives next to the plan
+  const traceFilePath = path.join(path.dirname(planPath), '.harness-trace.jsonl');
+  emitTrace(report, resolvedRole, trace, traceFilePath);
+
   return report;
 }
 
@@ -414,6 +514,21 @@ function formatHuman(report) {
     }
   }
   lines.push('Model economics: frontier plans; cheap/local executes explicit leaves.');
+  if (report.modelRiskGate && report.modelRiskGate.length > 0) {
+    const blocked = report.modelRiskGate.filter((r) => !r.routeAllowed);
+    if (blocked.length > 0) {
+      lines.push('');
+      lines.push('Model-risk gate (BLOCKED by route ceiling):');
+      for (const risk of blocked.slice(0, 8)) {
+        lines.push(
+          `  BLOCKED: ${risk.taskId} (risk: ${risk.taskRisk}) → ${risk.routeId} ceiling ${risk.routeRiskCeiling}`,
+        );
+      }
+      if (blocked.length > 8) {
+        lines.push(`  … +${blocked.length - 8} more`);
+      }
+    }
+  }
   if (report.sdd) {
     lines.push(`SDD: ${report.sdd.principle}`);
     lines.push(
@@ -477,8 +592,9 @@ function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
     console.log(`Usage:
-  node tools/agent-swarm-harness.js [--json] [--plan path] [--role planner|worker]
+  node tools/agent-swarm-harness.js [--json] [--plan path] [--role planner|worker] [--trace|--no-trace]
   node tools/agent-swarm-harness.js check-hot-files --stdin [--body-file path]
+  node tools/agent-swarm-harness.js trace [--json] [--limit N]
   node tools/agent-swarm-harness.js field-guide
   node tools/agent-swarm-harness.js sdd [--json]`);
     process.exit(0);
@@ -542,7 +658,42 @@ function main() {
     process.exit(result.ok ? 0 : 1);
   }
 
-  const report = buildHarnessReport({ planPath: args.planPath, role: args.role });
+  if (args.command === 'trace') {
+    // Read trace from cwd so it works with test sandboxes and per-repo instances
+    const traceFile = path.join(process.cwd(), '.harness-trace.jsonl');
+    if (!fs.existsSync(traceFile)) {
+      if (args.json) {
+        console.log(JSON.stringify([]));
+      } else {
+        console.log('No trace file found. Run the harness to start tracing.');
+      }
+      process.exit(0);
+    }
+    let lines = fs.readFileSync(traceFile, 'utf8').split('\n').filter(Boolean);
+    if (args.limit > 0) {
+      lines = lines.slice(-args.limit);
+    }
+    const entries = lines.map((l) => {
+      try { return JSON.parse(l); } catch { return null; }
+    }).filter(Boolean);
+    if (args.json) {
+      console.log(JSON.stringify(entries, null, 2));
+    } else {
+      console.log(`=== Harness Trace (${entries.length} entries) ===`);
+      for (const e of entries) {
+        const flags = [];
+        if (e.concurrencyOverCap) flags.push('OVER-CAP');
+        if (e.multiOwnerMega) flags.push('MULTI-OWNER-MEGA');
+        if (!e.ok) flags.push('FAIL');
+        const flagStr = flags.length ? ` [${flags.join(',')}]` : '';
+        console.log(`  ${e.ts}  role=${e.role}  action=${e.action}${flagStr}`);
+        console.log(`    contention=${e.contention}  megafileHits=${e.megafileHits}  owners=${e.activeOwners}`);
+      }
+    }
+    process.exit(0);
+  }
+
+  const report = buildHarnessReport({ planPath: args.planPath, role: args.role, trace: args.trace });
   if (args.json) {
     const jsonSafe = { ...report };
     // Keep JSON payloads bounded for session tooling.
@@ -573,6 +724,9 @@ module.exports = {
   modelEconomics,
   specificationDrivenDesign,
   parseArgs,
+  emitTrace,
+  checkModelRiskGate,
+  TRACE_FILE,
 };
 
 if (require.main === module) {

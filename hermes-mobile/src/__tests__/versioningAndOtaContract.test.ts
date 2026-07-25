@@ -73,7 +73,7 @@ describe('versioning and OTA contract', () => {
     // fresh binary (see T-ANDROID-PAID-BINARY-RELEASE-20260724 in plan.md); iOS ASC was
     // already at 1.4 WAITING_FOR_REVIEW per plan.md 2026-07-23T16:10Z, so this also
     // realigns the shared app.json version with the iOS side.
-    expect(app.expo.version).toBe('1.4');
+    expect(app.expo.version).toBe('1.5');
     expect(app.expo.android?.versionCode ?? 0).toBeGreaterThanOrEqual(14);
     expect(Number(app.expo.ios?.buildNumber ?? 0)).toBeGreaterThanOrEqual(17);
   });

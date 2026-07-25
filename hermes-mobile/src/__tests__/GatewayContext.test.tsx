@@ -1120,6 +1120,9 @@ describe('GatewayProvider', () => {
       );
     }
 
+    const playEnt = require('../utils/playPaidEntitlement');
+    jest.spyOn(playEnt, 'isStorePaidDownloadEntitled').mockReturnValue(false);
+
     const { getByTestId } = render(
       <GatewayProvider>
         <FeedbackProbe />
