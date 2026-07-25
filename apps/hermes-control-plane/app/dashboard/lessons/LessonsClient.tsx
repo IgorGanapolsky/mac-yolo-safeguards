@@ -100,7 +100,7 @@ export default function LessonsClient() {
           👍 = keep doing this. 👎 = fix this next time.
         </p>
       </div>
-      <a className="button button-secondary button-small" href="/dashboard">← Back to Hermes</a>
+      <a className="button button-secondary button-small" href="/dashboard">← Back to dashboard</a>
     </header>
 
     <section className="lesson-activity" aria-label="Workspace activity (not lessons)">
