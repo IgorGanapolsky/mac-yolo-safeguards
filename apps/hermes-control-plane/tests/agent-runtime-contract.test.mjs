@@ -36,7 +36,7 @@ test("keeps the public landing static (no server session/D1) and defers auth chr
   const chrome = readFileSync(new URL("../app/LandingAuthChrome.tsx", import.meta.url), "utf8");
   assert.match(chrome, /fetch\("\/api\/me"/);
   assert.equal((chrome.match(/fetch\("\/api\/me"/g) ?? []).length, 1);
-  assert.match(chrome, /let landingAuthRequest: Promise<AuthMode> \| null = null/);
+  assert.match(chrome, /let landingAuthRequest: Promise<AuthSession> \| null = null/);
   assert.match(chrome, /if \(!landingAuthRequest\)/);
   assert.equal((chrome.match(/"sign_in_click"/g) ?? []).length, 1);
   assert.match(chrome, /Open Hermes on the web/);
