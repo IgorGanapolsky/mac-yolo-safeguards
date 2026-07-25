@@ -5,6 +5,12 @@
  *   node chrome-social-post.js find <urlSubstr>
  *   node chrome-social-post.js exec <urlSubstr> <jsFile>
  *   node chrome-social-post.js goto <url>
+ *
+ * HARD (2026-07-25): before any Post/Publish click, agents must run from repo root:
+ *   node tools/social-publish-gate.js --platform … --campaign …
+ * After publish, before LIVE claim:
+ *   node tools/verify-public-post.js --url …
+ * This helper does not enforce those gates — it only drives Chrome tabs.
  */
 const { execFileSync } = require('child_process');
 const fs = require('fs');
