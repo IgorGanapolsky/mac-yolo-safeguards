@@ -60,9 +60,6 @@ export function resolveChatLinkDisplay(input: {
   if (input.isDemo || input.connectionState === 'demo') {
     return { label: 'Demo', chatReachable: true };
   }
-  if (input.macHttpOk && input.chatStalled) {
-    return { label: 'Connected — chat stalled', chatReachable: true, chatStalled: true };
-  }
   if (input.macHttpOk) {
     return { label: 'Connected', chatReachable: true };
   }

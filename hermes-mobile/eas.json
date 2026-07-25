@@ -31,6 +31,23 @@
       },
       "channel": "preview"
     },
+    "device-internal": {
+      "extends": "preview",
+      "distribution": "internal",
+      "environment": "preview",
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_HERMES_DEV_UNLOCK": "1",
+        "ORG_GRADLE_PROJECT_reactNativeArchitectures": "arm64-v8a",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": false
+      }
+    },
     "e2e-test": {
       "withoutCredentials": true,
       "environment": "preview",

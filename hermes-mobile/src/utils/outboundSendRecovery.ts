@@ -13,7 +13,7 @@ export const OUTBOUND_STREAM_LOCK_MULTIPLIER = 2;
  * Absolute wall-clock fail for Connected+Waiting forever.
  * Ignores stuck streamInFlight / isSending — SSE drops must not hang the UI for hours.
  */
-export const OUTBOUND_HARD_TIMEOUT_MS = 2 * 60_000;
+export const OUTBOUND_HARD_TIMEOUT_MS = 5 * 60_000;
 
 export const OUTBOUND_STUCK_FAILURE_REASON = 'Sent — no reply from computer';
 

@@ -130,8 +130,8 @@ describe('promptReplyElapsed', () => {
     expect(shouldHardTimeoutLivePromptWait(sinceMs, sinceMs + PROMPT_REPLY_HARD_TIMEOUT_MS)).toBe(true);
   });
 
-  it('keeps prompt-wait and outbound hard timeouts aligned at exactly 2 minutes', () => {
-    expect(PROMPT_REPLY_HARD_TIMEOUT_MS).toBe(2 * 60_000);
+  it('keeps prompt-wait and outbound hard timeouts aligned at exactly 5 minutes', () => {
+    expect(PROMPT_REPLY_HARD_TIMEOUT_MS).toBe(5 * 60_000);
     expect(OUTBOUND_HARD_TIMEOUT_MS).toBe(PROMPT_REPLY_HARD_TIMEOUT_MS);
   });
 });

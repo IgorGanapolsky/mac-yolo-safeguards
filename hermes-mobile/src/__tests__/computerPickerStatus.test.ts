@@ -206,7 +206,7 @@ describe('computerPickerStatus', () => {
       tailscaleProbing: false,
       tailscaleVpnActive: true,
       tailscaleDiscoveries: [],
-      activeGatewayUrl: 'http://127.0.0.1:8642',
+      activeGatewayUrl: 'http://100.94.135.78:8642',
       activeReachable: true,
       wifiConnected: true,
     });
@@ -222,12 +222,12 @@ describe('computerPickerStatus', () => {
       scanProgress: null,
       scanResult: {
         foundCount: 1,
-        lanCount: 0,
+        lanCount: 1,
         tailscaleCount: 0,
-        usbCount: 1,
+        usbCount: 0,
         completedAtMs: 1,
       },
-      showScanResult: true,
+      showScanResult: false,
       tailscaleProbing: false,
       tailscaleVpnActive: false,
       tailscaleDiscoveries: [],
@@ -241,7 +241,7 @@ describe('computerPickerStatus', () => {
     expect(status.detail).not.toMatch(/Using USB/i);
   });
 
-  it('shows Connected · USB when loopback is the active path', () => {
+  it('shows help card when loopback is used without explicit transport', () => {
     const status = resolveComputerPickerStatus({
       scanning: false,
       scanProgress: null,
@@ -254,8 +254,7 @@ describe('computerPickerStatus', () => {
       wifiConnected: true,
       activeReachable: true,
     });
-    expect(status.kind).toBe('active');
-    expect(status.title).toBe('Connected · USB');
+    expect(status.kind).toBe('help');
   });
 
   it('debounces rapid signature flips but commits first paint immediately', () => {

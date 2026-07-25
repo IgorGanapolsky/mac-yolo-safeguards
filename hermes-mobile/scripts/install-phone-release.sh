@@ -69,6 +69,7 @@ fi
 
 export ANDROID_HOME="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
 export PATH="${JAVA_HOME}/bin:${ANDROID_HOME}/platform-tools:${PATH}"
+export SENTRY_DISABLE_AUTO_UPLOAD=true
 
 cd "$HERMES_DIR"
 
@@ -211,9 +212,19 @@ verify_and_install() {
   }
 
   echo "=== Installing on $DEVICE ==="
-  adb -s "$DEVICE" install -r "$APK_OUT" || {
-    echo "Error: adb install failed (device $DEVICE)" >&2
-    exit 1
+  local install_out; install_out="$(adb -s "$DEVICE" install -r "$APK_OUT" 2>&1)" || {
+    if echo "$install_out" | grep -q "INSTALL_FAILED_UPDATE_INCOMPATIBLE"; then
+      echo "=== Auto-recovering signature mismatch: uninstalling legacy build from $DEVICE ==="
+      adb -s "$DEVICE" uninstall com.iganapolsky.hermesmobile || true
+      adb -s "$DEVICE" install -r "$APK_OUT" || {
+        echo "Error: adb install failed after auto-uninstall (device $DEVICE)" >&2
+        exit 1
+      }
+    else
+      echo "$install_out" >&2
+      echo "Error: adb install failed (device $DEVICE)" >&2
+      exit 1
+    fi
   }
 }
 

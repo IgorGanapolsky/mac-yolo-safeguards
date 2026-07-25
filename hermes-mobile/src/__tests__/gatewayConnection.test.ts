@@ -185,7 +185,7 @@ describe('gatewayConnection', () => {
     ).toBe(false);
   });
 
-  it('shows amber stalled label when health is ok but last chat failed', () => {
+  it('shows Connected label when health is ok even if last chat failed', () => {
     expect(
       resolveChatLinkDisplay({
         connectionState: 'connected',
@@ -193,9 +193,8 @@ describe('gatewayConnection', () => {
         chatStalled: true,
       }),
     ).toEqual({
-      label: 'Connected — chat stalled',
+      label: 'Connected',
       chatReachable: true,
-      chatStalled: true,
     });
   });
 });

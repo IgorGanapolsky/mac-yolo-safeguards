@@ -564,6 +564,7 @@ describe('RunProgressBanner', () => {
   });
 
   it('restores persisted collapsed preference on mount', async () => {
+    await AsyncStorage.clear();
     await AsyncStorage.setItem(RUN_PROGRESS_DETAILS_EXPANDED_KEY, '0');
     const { queryByTestId, getByTestId } = render(
       <RunProgressBanner

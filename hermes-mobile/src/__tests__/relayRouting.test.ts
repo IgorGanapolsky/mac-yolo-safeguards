@@ -74,8 +74,19 @@ describe('relayRouting', () => {
       heal: { attempt: 1, inFlight: true, exhausted: false },
       macHttpOk: false,
     });
-    expect(empty.routeStatus).toBe('Waiting for approval pairing…');
-    expect(empty.routeStatus.toLowerCase()).not.toContain('reconnect');
+    expect(empty.routeStatus).toBe('Connecting to computer…');
+    expect(
+      resolveRelayRouteDisplay({
+        connectionMode: 'relay',
+        isPaired: false,
+        connectionState: 'disconnected',
+        workers: [],
+        fallbackMachineLabel: 'Computer',
+        gatewayUrl: 'http://192.168.1.5:8642',
+        heal: { attempt: 1, inFlight: true, exhausted: false },
+        macHttpOk: false,
+      }).routeStatus,
+    ).toBe('Reconnecting…');
 
     const usb = resolveRelayRouteDisplay({
       connectionMode: 'relay',
@@ -87,7 +98,7 @@ describe('relayRouting', () => {
       heal: { attempt: 1, inFlight: true, exhausted: false },
       macHttpOk: false,
     });
-    expect(usb.routeStatus).toBe('Waiting for approval pairing…');
+    expect(usb.routeStatus).toBe('Connecting to computer…');
   });
 
   it('labels paired relay workers as cloud approvals, not Tailscale transport', () => {

@@ -200,11 +200,5 @@ export function headerShowsUsbAfterHandoff(input: {
   wifiConnected: boolean;
   health?: GatewayHealthSnapshot | null;
 }): boolean {
-  return (
-    resolveHeaderTransportLabel({
-      gatewayUrl: input.effectiveGatewayUrl,
-      wifiConnected: input.wifiConnected,
-      health: input.health,
-    }) === 'USB'
-  );
+  return isLoopbackGatewayUrl(input.effectiveGatewayUrl);
 }

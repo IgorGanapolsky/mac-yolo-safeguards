@@ -164,14 +164,21 @@ export async function discoverTailscaleGateways(
     if (!item?.gatewayUrl) {
       continue;
     }
-    const key = normalizeGatewayUrl(item.gatewayUrl).httpBase;
-    const existing = map.get(key);
+    const machineKey =
+      item.hostname?.trim().toLowerCase().replace(/\.local$/i, '') ||
+      item.label?.trim().toLowerCase() ||
+      normalizeGatewayUrl(item.gatewayUrl).httpBase;
+
+    const existing = map.get(machineKey);
     if (!existing) {
-      map.set(key, item);
+      map.set(machineKey, item);
       continue;
     }
-    map.set(key, {
-      gatewayUrl: key,
+    // Prefer Tailscale IP URL (e.g. 100.x) over MagicDNS name when deduplicating
+    const ip = extractLanIpFromGatewayUrl(item.gatewayUrl);
+    const preferNew = Boolean(ip && isTailscaleIpv4(ip));
+    map.set(machineKey, {
+      gatewayUrl: preferNew ? item.gatewayUrl : existing.gatewayUrl,
       hostname: item.hostname || existing.hostname,
       localIp: item.localIp || existing.localIp,
       label: item.label || existing.label,

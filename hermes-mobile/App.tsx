@@ -145,14 +145,23 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
   const insets = useSafeAreaInsets();
   const { inset: keyboardInset } = useKeyboardInset();
   const focusedRouteName = state.routes[state.index]?.name;
+  const leashDevTapCountRef = useRef(0);
+  const leashDevTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (leashDevTapTimerRef.current) {
+        clearTimeout(leashDevTapTimerRef.current);
+      }
+    };
+  }, []);
+
   // Collapse tab bar only when a real soft keyboard (>120px) is actively open on Chat.
   // System gesture insets (<100px) must never hide navigation tabs.
   const keyboardActuallyOpen =
     keyboardInset > 120 && (Keyboard.metrics()?.height ?? 0) > 120;
   const collapseForKeyboard =
     keyboardActuallyOpen && shouldCollapseTabBarForKeyboard(focusedRouteName);
-  const leashDevTapCountRef = useRef(0);
-  const leashDevTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   if (collapseForKeyboard) {
     return null;
@@ -173,14 +182,6 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
       });
     }
   };
-
-  useEffect(() => {
-    return () => {
-      if (leashDevTapTimerRef.current) {
-        clearTimeout(leashDevTapTimerRef.current);
-      }
-    };
-  }, []);
 
   return (
     <View

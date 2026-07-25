@@ -59,7 +59,7 @@ export default function TailscaleDiscoveryBanner({
       <Text style={styles.body}>
         {prominent
           ? 'Tap below to add your computer — works on cellular or any Wi‑Fi when Tailscale is running on both devices.'
-          : 'Add your computer to switch between machines without a USB cable.'}
+          : 'Add your computer to switch between machines.'}
       </Text>
       <View style={styles.chips}>
         {discoveries.map((discovery) => {

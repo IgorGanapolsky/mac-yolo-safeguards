@@ -639,14 +639,14 @@ export default function SettingsScreen() {
           <Text style={styles.sectionTitle}>Computer gateway ops</Text>
         </View>
         <Text style={styles.description}>
-          Toolsets, cron jobs, and skills from your computer (Tailscale, home Wi‑Fi, or USB).
+          Toolsets, cron jobs, and skills from your computer (Tailscale or home Wi‑Fi).
         </Text>
         <GatewayOpsSection />
 
         <Text style={styles.sectionTitle}>Computer connection</Text>
         <GlassCard>
           <Text style={styles.description}>
-            Use Tailscale away from home, or USB/home Wi‑Fi nearby, for Chat, tools, and ops.
+            Use Tailscale away from home, or home Wi‑Fi nearby, for Chat, tools, and ops.
           </Text>
           <View style={styles.relayRouteCard} testID="relay-route-card">
             <Text style={styles.relayRouteEyebrow}>Cloud approvals (optional)</Text>

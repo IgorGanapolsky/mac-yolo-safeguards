@@ -135,10 +135,7 @@ export function resolveComputerPickerStatus(
       return {
         kind: 'active',
         title: `Connected · ${activeTransport}`,
-        detail:
-          activeTransport === 'USB'
-            ? 'Chat uses this USB cable. Tap another computer below to switch.'
-            : 'Chat uses this path. A USB cable may also be available for the same computer.',
+        detail: 'Chat uses this path. Tap another computer below to switch.',
         success: true,
         discoveries: [],
       };

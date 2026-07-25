@@ -326,7 +326,7 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
-    expect(getByTestId('chat-context-link').props.children).toContain('Connected — chat stalled');
+    expect(getByTestId('chat-context-link').props.children).toContain('Connected');
     expect(getByTestId('chat-context-link').props.style).toEqual(
       expect.arrayContaining([expect.objectContaining({ color: expect.any(String) })]),
     );

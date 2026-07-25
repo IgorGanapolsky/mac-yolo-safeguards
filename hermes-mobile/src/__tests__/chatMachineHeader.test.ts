@@ -132,8 +132,7 @@ describe('resolveChatMachineHeaderDisplay', () => {
       savedMacCount: 1,
     });
     expect(display.machineLabel).toBe('Igors-Mac-mini');
-    expect(display.machineEndpoint).toBe('USB');
-    expect(display.machineEndpoint).not.toContain('192.168.68.73');
+    expect(display.machineEndpoint).toBeUndefined();
     expect(assertUsbHeaderIdentityLaw({
       display,
       gatewayUrl: 'http://127.0.0.1:8642',
@@ -166,8 +165,8 @@ describe('resolveChatMachineHeaderDisplay', () => {
       savedMacCount: 1,
     });
     expect(display.machineLabel).toBe('Igors-Mac-mini');
-    expect(display.machineEndpoint).toBe('USB');
-    expect(display.showDetailWhenConnected).toBe(true);
+    expect(display.machineEndpoint).toBeUndefined();
+    expect(display.showDetailWhenConnected).toBe(false);
   });
 
   it('prefers live USB hostname when saved profile disagrees with plugged-in Mac', () => {
@@ -190,8 +189,8 @@ describe('resolveChatMachineHeaderDisplay', () => {
       savedMacCount: 2,
     });
     expect(display.machineLabel).toBe('Igors-MacBook-Pro');
-    expect(display.machineEndpoint).toBe('USB');
-    expect(formatChatMachineHeaderLine(display)).toBe('Igors-MacBook-Pro · USB');
+    expect(display.machineEndpoint).toBeUndefined();
+    expect(formatChatMachineHeaderLine(display)).toBe('Igors-MacBook-Pro');
     expect(formatChatMachineHeaderLine(display)).not.toMatch(/Mac-mini/i);
   });
 
@@ -214,7 +213,7 @@ describe('resolveChatMachineHeaderDisplay', () => {
       savedMacCount: 2,
     });
     expect(display.machineLabel).toBe(USB_UNKNOWN_MACHINE_LABEL);
-    expect(display.machineEndpoint).toBe('USB');
+    expect(display.machineEndpoint).toBeUndefined();
     expect(usbHeaderClaimsNamedHost(display)).toBe(false);
     expect(formatChatMachineHeaderLine(display)).not.toMatch(/Mac-mini/i);
   });
@@ -237,7 +236,7 @@ describe('resolveChatMachineHeaderDisplay', () => {
     });
     expect(display.machineLabel).toBe(USB_UNKNOWN_MACHINE_LABEL);
     expect(display.machineLabel).not.toMatch(/127\.0\.0\.1/);
-    expect(display.machineEndpoint).toBe('USB');
+    expect(display.machineEndpoint).toBeUndefined();
   });
 
   it('never invents Mini from profile hostname while USB health is null', () => {
@@ -311,8 +310,8 @@ describe('resolveChatMachineHeaderDisplay', () => {
       savedMacCount: 1,
     });
     expect(display.machineLabel).toBe(USB_UNKNOWN_MACHINE_LABEL);
-    expect(display.machineEndpoint).toBe('USB');
-    expect(formatChatMachineHeaderLine(display)).toBe(`${USB_UNKNOWN_MACHINE_LABEL} · USB`);
+    expect(display.machineEndpoint).toBeUndefined();
+    expect(formatChatMachineHeaderLine(display)).toBe(`${USB_UNKNOWN_MACHINE_LABEL}`);
     expect(formatChatMachineHeaderLine(display)).not.toMatch(/Mac-mini/i);
     expect(
       assertUsbHeaderIdentityLaw({
@@ -366,7 +365,7 @@ describe('resolveChatMachineHeaderDisplay', () => {
       workers: [],
       savedMacCount: 2,
     });
-    expect(formatChatMachineHeaderLine(display)).toBe('Igors-MacBook-Pro · USB');
+    expect(formatChatMachineHeaderLine(display)).toBe('Igors-MacBook-Pro');
     expect(formatChatMachineHeaderLine(display)).not.toMatch(/Mac-mini/i);
     expect(assertUsbHeaderIdentityLaw({ display, gatewayUrl: 'http://127.0.0.1:8642', health })).toBeNull();
   });
@@ -602,45 +601,22 @@ describe('resolveHeaderTransportLabel / USB allow rule', () => {
     ).toBe('Home Wi‑Fi');
   });
 
-  it('allows USB for loopback on Wi‑Fi; cellular needs live /health (ghost guard)', () => {
+  it('returns undefined for loopback transport label (no USB chip)', () => {
     expect(
       isUsbHeaderTransportAllowed({
         gatewayUrl: 'http://127.0.0.1:8642',
         wifiConnected: true,
-      }),
-    ).toBe(true);
-    expect(
-      resolveHeaderTransportLabel({
-        gatewayUrl: 'http://127.0.0.1:8642',
-        wifiConnected: true,
-      }),
-    ).toBe('USB');
-    expect(
-      isUsbHeaderTransportAllowed({
-        gatewayUrl: 'http://127.0.0.1:8642',
-        wifiConnected: false,
       }),
     ).toBe(false);
     expect(
       resolveHeaderTransportLabel({
         gatewayUrl: 'http://127.0.0.1:8642',
-        wifiConnected: false,
+        wifiConnected: true,
       }),
     ).toBeUndefined();
-    expect(
-      resolveHeaderTransportLabel({
-        gatewayUrl: 'http://127.0.0.1:8642',
-        wifiConnected: false,
-        health: {
-          level: 'green',
-          checkedAt: '2026-07-21T13:00:00.000Z',
-          hostname: 'Igors-MacBook-Pro.local',
-        },
-      }),
-    ).toBe('USB');
   });
 
-  it('shows USB on cellular when live /health proves the cable (product lock)', () => {
+  it('omits USB label on cellular when loopback is active', () => {
     const display = resolveChatMachineHeaderDisplay({
       activeProfile: {
         id: 'mac_usb',
@@ -663,9 +639,8 @@ describe('resolveHeaderTransportLabel / USB allow rule', () => {
       savedMacCount: 2,
       wifiConnected: false,
     });
-    expect(formatChatMachineHeaderLine(display)).toBe('Igors-MacBook-Pro · USB');
-    expect(display.machineEndpoint).toBe('USB');
-    expect(usbHeaderClaimsNamedHost(display)).toBe(true);
+    expect(formatChatMachineHeaderLine(display)).toBe('Igors-MacBook-Pro');
+    expect(display.machineEndpoint).toBeUndefined();
   });
 
   it('never shows USB on cellular for ghost loopback without live /health', () => {

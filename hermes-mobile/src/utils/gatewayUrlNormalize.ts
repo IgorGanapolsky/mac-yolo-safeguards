@@ -23,7 +23,7 @@ export function normalizeGatewayUrl(input: string): NormalizedGatewayBase {
     trimmed = `http://${trimmed}`;
   }
 
-  // Auto-append default Hermes port :8642 when an explicit port is absent on http scheme (e.g. 100.87.85.85 -> http://100.87.85.85:8642)
+  // Auto-append default Hermes port :8642 when an explicit port is absent on http scheme (e.g. raw IP -> http://IP:8642)
   if (/^http:\/\/[^/:]+$/i.test(trimmed)) {
     trimmed = `${trimmed}:8642`;
   }

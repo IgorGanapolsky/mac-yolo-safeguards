@@ -78,8 +78,7 @@ export function greetingSubtitle(
     return `Can't reach ${route} yet — tap header to retry.`;
   }
 
-  // Never market USB as the only path — Tailscale / Find computers / picker are primary off-cable.
-  return 'Ask anything. Find computers or pick one above to connect — USB is optional.';
+  return 'Ask anything. Find computers or pick one above to connect via Tailscale or home Wi‑Fi.';
 }
 
 export default function ChatEmptyGreeting({

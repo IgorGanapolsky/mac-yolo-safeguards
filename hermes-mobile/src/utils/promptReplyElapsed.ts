@@ -90,7 +90,7 @@ export type PromptReplyElapsedState =
   | { mode: 'hidden' };
 
 /** Absolute live-wait fail — Connected+Waiting must not tick for hours. */
-export const PROMPT_REPLY_HARD_TIMEOUT_MS = 2 * 60_000;
+export const PROMPT_REPLY_HARD_TIMEOUT_MS = 5 * 60_000;
 
 export function shouldHardTimeoutLivePromptWait(
   sinceMs: number,

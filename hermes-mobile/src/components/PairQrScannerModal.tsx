@@ -65,8 +65,8 @@ export default function PairQrScannerModal({
       <View style={styles.container}>
         <Text style={styles.title}>Scan QR from your computer</Text>
         <Text style={styles.subtitle}>
-          Scan the live pair QR (Tailscale or home Wi‑Fi) — not a saved file:// page. USB is
-          optional. No QR? Go back and tap Find computers.
+          Scan the live pair QR (Tailscale or home Wi‑Fi) — not a saved file:// page. No QR?
+          Go back and tap Find computers.
         </Text>
         {scanError ? (
           <Text style={styles.errorText} testID="pair-qr-scan-error">

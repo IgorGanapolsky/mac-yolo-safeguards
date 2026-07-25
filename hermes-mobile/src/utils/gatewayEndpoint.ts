@@ -92,7 +92,7 @@ export function formatGatewayHostLabel(
       fromHealthName?.replace(/\.local$/i, '') ??
       fromUrl.hostname?.replace(/\.local$/i, '') ??
       'Computer';
-    return `${name} · USB`;
+    return name;
   }
 
   const fromHealthName = isUsableHost(health?.hostname);

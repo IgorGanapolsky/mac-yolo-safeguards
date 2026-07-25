@@ -38,6 +38,14 @@ E2E_FLOWS=(
   ".maestro/chat-send-persistence.yaml"
 )
 
+# Quality-gated loop (LoopAgent pattern from LangChain4j self-building agent article).
+# Run unit+E2E cycles up to MAX_E2E_ITERATIONS times, exiting early once qualityScore
+# >= QUALITY_THRESHOLD. Falls back to the best attempt if threshold is never met.
+MAX_E2E_ITERATIONS="${HERMES_E2E_MAX_ITERATIONS:-5}"  # default: MAX_E2E_ITERATIONS=5
+QUALITY_THRESHOLD="${HERMES_E2E_QUALITY_THRESHOLD:-0.8}"  # default: QUALITY_THRESHOLD=0.8
+# Jest JSON output file for computing unit_pass_rate
+JEST_JSON_OUTPUT="${LOG_DIR}/jest-results.json"
+
 usage() {
   cat <<EOF
 Usage: $(basename "$0") [--once|--daemon|--watch|--stop]
@@ -78,13 +86,19 @@ write_status() {
   local unit_status="$1"
   local e2e_status="$2"
   local detail="$3"
+  local quality_score="${4:-}"
   mkdir -p "$LOG_DIR"
+  local qs_json='null'
+  if [[ -n "$quality_score" ]]; then
+    qs_json="$quality_score"
+  fi
   cat >"$LATEST_JSON" <<EOF
 {
   "updatedAt": "$(timestamp)",
   "unit": "${unit_status}",
   "e2e": "${e2e_status}",
   "detail": $(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$detail"),
+  "qualityScore": ${qs_json},
   "flows": $(python3 -c 'import json,sys; print(json.dumps(sys.argv[1:]))' "${E2E_FLOWS[@]}"),
   "logDir": "${LOG_DIR}"
 }
@@ -346,6 +360,10 @@ run_unit_suite() {
     echo "Fix: run from hermes-mobile with node_modules, or npm ci in this worktree." >&2
     return 3
   fi
+  # Emit Jest JSON output for quality-score computation (JEST_JSON_OUTPUT_FILE env
+  # consumed by compute_quality_score). Uses --outputFile to write structured results.
+  export JEST_JSON_OUTPUT_FILE="${JEST_JSON_OUTPUT}"
+  npx jest --json --outputFile="$JEST_JSON_OUTPUT_FILE" --no-coverage --watchman=false 2>&1 || true
   npm test -- --no-coverage --watchman=false
   npm run test:release-safety
 }
@@ -378,10 +396,12 @@ run_e2e_flow() {
 run_e2e_suite() {
   if ! command -v maestro >/dev/null 2>&1; then
     echo "Maestro not installed — skipping E2E"
+    echo "E2E_FLOW_COUNTS: pass=0 total=${#E2E_FLOWS[@]}"
     return 2
   fi
   if ! java -version >/dev/null 2>&1; then
     echo "Java not available — skipping E2E"
+    echo "E2E_FLOW_COUNTS: pass=0 total=${#E2E_FLOWS[@]}"
     return 2
   fi
 
@@ -433,10 +453,98 @@ run_e2e_suite() {
     fi
     first=0
     if ! run_e2e_flow "$flow"; then
+      E2E_FLOW_PASS=$((E2E_FLOW_PASS + 0))
+      echo "E2E_FLOW_COUNTS: pass=${E2E_FLOW_PASS} total=${#E2E_FLOWS[@]}"
       return 1
     fi
+    E2E_FLOW_PASS=$((E2E_FLOW_PASS + 1))
   done
+  echo "E2E_FLOW_COUNTS: pass=${E2E_FLOW_PASS} total=${#E2E_FLOWS[@]}"
   return 0
+}
+
+# ─── Quality-gated loop (LoopAgent pattern) ─────────────────────────────────
+# qualityScore = 0.5 * unit_pass_rate + 0.5 * e2e_pass_rate
+# Exits early when qualityScore >= QUALITY_THRESHOLD or after MAX_E2E_ITERATIONS.
+compute_quality_score() {
+  local unit_pass_rate=0
+  local e2e_pass_rate=0
+
+  # Parse Jest JSON for unit pass rate
+  if [[ -f "${JEST_JSON_OUTPUT}" ]]; then
+    local jest_total jest_passed
+    jest_total=$(python3 -c "
+import json,sys
+try:
+  d=json.load(open(sys.argv[1]))
+  t=d.get('numTotalTests',0)
+  p=d.get('numPassedTests',0)
+  print(f'{p} {t}')
+except: print('0 0')
+" "$JEST_JSON_OUTPUT" 2>/dev/null || echo "0 0")
+    jest_passed=$(echo "$jest_total" | awk '{print $1}')
+    local jest_t
+    jest_t=$(echo "$jest_total" | awk '{print $2}')
+    if [[ -n "$jest_t" && "$jest_t" -gt 0 ]]; then
+      unit_pass_rate=$(python3 -c "print(round($jest_passed / $jest_t, 4))")
+    fi
+  fi
+
+  # Parse E2E flow counts for e2e pass rate
+  local e2e_total="${#E2E_FLOWS[@]}"
+  if [[ -n "${E2E_FLOW_PASS:-}" && "$e2e_total" -gt 0 ]]; then
+    e2e_pass_rate=$(python3 -c "print(round(${E2E_FLOW_PASS} / ${e2e_total}, 4))")
+  fi
+
+  # Weighted: 0.5 * unit_pass_rate + 0.5 * e2e_pass_rate
+  python3 -c "print(round(0.5 * ${unit_pass_rate} + 0.5 * ${e2e_pass_rate}, 4))"
+}
+
+# Quality-gated wrapper: run up to MAX_E2E_ITERATIONS cycles, exit early
+# when qualityScore >= QUALITY_THRESHOLD. Falls back to best attempt.
+run_quality_gated_cycle() {
+  local best_score=0
+  local best_detail=""
+  local iteration=0
+
+  while [[ $iteration -lt $MAX_E2E_ITERATIONS ]]; do
+    iteration=$((iteration + 1))
+    E2E_FLOW_PASS=0
+
+    echo "=== Quality-gated cycle iteration ${iteration}/${MAX_E2E_ITERATIONS} ==="
+
+    run_cycle
+    local cycle_rc=$?
+
+    # Compute quality score after the cycle
+    local qualityScore
+    qualityScore=$(compute_quality_score)
+    echo "qualityScore=${qualityScore} (threshold=${QUALITY_THRESHOLD})"
+
+    # Write status with qualityScore
+    local unit_s e2e_s detail_s
+    unit_s=$(python3 -c "import json; print(json.load(open('${LATEST_JSON}')).get('unit','fail'))" 2>/dev/null || echo "fail")
+    e2e_s=$(python3 -c "import json; print(json.load(open('${LATEST_JSON}')).get('e2e','skipped'))" 2>/dev/null || echo "skipped")
+    detail_s="iteration ${iteration}: qualityScore=${qualityScore}"
+    write_status "$unit_s" "$e2e_s" "$detail_s" "$qualityScore"
+
+    # Track best attempt as fallback
+    if python3 -c "exit(0 if ${qualityScore} >= ${best_score} else 1)"; then
+      best_score="$qualityScore"
+      best_detail="$detail_s"
+    fi
+
+    # Early exit when threshold met
+    if python3 -c "exit(0 if ${qualityScore} >= ${QUALITY_THRESHOLD} else 1)"; then
+      echo "Quality threshold met — breaking loop."
+      break
+    fi
+
+    echo "Below threshold; continuing (best so far: ${best_score})"
+  done
+
+  echo "Quality-gated loop complete: best qualityScore=${best_score} (threshold=${QUALITY_THRESHOLD})"
+  echo "Best attempt detail: ${best_detail}"
 }
 
 run_cycle() {

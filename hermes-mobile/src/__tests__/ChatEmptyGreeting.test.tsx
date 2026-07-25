@@ -24,7 +24,7 @@ describe('ChatEmptyGreeting', () => {
 
     expect(getByTestId('chat-empty-greeting-title').props.children).toBeTruthy();
     expect(getByTestId('chat-empty-greeting-subtitle').props.children).toBe(
-      'Ask anything. Find computers or pick one above to connect — USB is optional.',
+      'Ask anything. Find computers or pick one above to connect via Tailscale or home Wi‑Fi.',
     );
   });
 
@@ -39,7 +39,7 @@ describe('ChatEmptyGreeting', () => {
   it('does not claim connected for generic routes when disconnected', () => {
     const { getByTestId } = render(<ChatEmptyGreeting routeLabel="Computer via USB" />);
     expect(getByTestId('chat-empty-greeting-subtitle').props.children).toBe(
-      'Ask anything. Find computers or pick one above to connect — USB is optional.',
+      'Ask anything. Find computers or pick one above to connect via Tailscale or home Wi‑Fi.',
     );
   });
 

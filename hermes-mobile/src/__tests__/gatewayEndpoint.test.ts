@@ -36,7 +36,7 @@ describe('formatGatewayHostLabel', () => {
       formatGatewayHostLabel('http://127.0.0.1:8642', sampleHealth({
         hostname: 'Igors-MacBook-Pro.local',
       })),
-    ).toBe('Igors-MacBook-Pro · USB');
+    ).toBe('Igors-MacBook-Pro');
   });
 
   it('ignores unknown placeholders from health', () => {

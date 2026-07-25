@@ -59,19 +59,7 @@ export function resolveHeaderTransportLabel(input: {
     return 'Tailscale';
   }
   if (isLoopbackGatewayUrl(gatewayUrl)) {
-    // Cellular + 127.0.0.1 without live /health is a stale USB primary / wireless-adb ghost.
-    // Live hostname on green|amber proves adb reverse — claim USB even on 5G (product lock).
-    if (input.wifiConnected === false) {
-      const host = input.health?.hostname?.trim();
-      const live =
-        Boolean(host) &&
-        !input.health?.authMismatch &&
-        (input.health?.level === 'green' || input.health?.level === 'amber');
-      if (!live) {
-        return undefined;
-      }
-    }
-    return 'USB';
+    return undefined;
   }
   if (isPrivateLanGatewayUrl(gatewayUrl)) {
     return 'Home Wi‑Fi';

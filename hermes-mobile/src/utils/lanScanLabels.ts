@@ -86,7 +86,7 @@ export function formatLanScanResultLabel(input: number | LanScanReachCounts): st
     return `Found ${foundCount} on Tailscale`;
   }
   if (usb > 0 && lan === 0 && tailscale === 0) {
-    return `Found ${foundCount} over USB`;
+    return `Found ${foundCount} Hermes ${nounComputer(foundCount)}`;
   }
   if (lan > 0 && tailscale === 0 && usb === 0) {
     return `Found ${foundCount} local Hermes ${nounComputer(foundCount)}`;
