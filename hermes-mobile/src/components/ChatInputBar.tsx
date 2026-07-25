@@ -13,13 +13,16 @@ import { colors } from '../theme/colors';
 import type { ComposerAttachment } from '../types/chatAttachment';
 import { composerHasSendableContent } from '../utils/chatAttachments';
 
-/** Android multiline fields clip typed glyphs without vertical alignment + font padding fix. */
+/**
+ * Android multiline TextInput placeholder/glyph alignment.
+ * Keep vertical padding symmetric and center the placeholder with the attach/send row
+ * (asymmetric paddingTop/Bottom made the empty-state hint look off-center).
+ */
 const androidComposerInputStyle = Platform.select({
   android: {
     textAlignVertical: 'center' as const,
     includeFontPadding: false,
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingVertical: 10,
   },
   default: {},
 });
@@ -290,17 +293,16 @@ const styles = StyleSheet.create({
   },
   inputBar: {
     flexDirection: 'row',
-    paddingHorizontal: 4,
-    paddingBottom: 2,
-    alignItems: 'flex-end',
+    // Center attach + placeholder + send on the empty single-line state.
+    // Multline growth still works via minHeight/maxHeight on the TextInput.
+    alignItems: 'center',
     gap: 8,
     backgroundColor: colors.composerSurface,
     borderRadius: 26,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.borderLight,
-    paddingLeft: 6,
-    paddingRight: 6,
-    paddingTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     minHeight: 52,
   },
   attachButton: {
@@ -308,7 +310,6 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Platform.OS === 'android' ? 0 : 2,
   },
   attachIcon: {
     fontSize: 20,
@@ -319,11 +320,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 0,
     borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: Platform.OS === 'android' ? 0 : 8,
+    paddingHorizontal: 10,
+    paddingVertical: Platform.OS === 'android' ? 0 : 10,
     color: colors.text,
     fontSize: 16,
-    lineHeight: Platform.OS === 'android' ? undefined : 22,
+    lineHeight: Platform.OS === 'android' ? 22 : 22,
     maxHeight: 120,
     minHeight: 40,
   },

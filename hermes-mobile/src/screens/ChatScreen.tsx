@@ -2217,6 +2217,7 @@ export default function ChatScreen() {
     [currentSession?.id, currentSession?.source],
   );
 
+  // Chat is Hermes on your computer — never "to ThumbGate" (Leash/memory product only).
   const inputPlaceholder = useMemo(() => {
     if (!currentSession) {
       return 'Message your computer…';
@@ -2235,9 +2236,9 @@ export default function ChatScreen() {
       return `Message → ${label}`;
     }
     if (isTelegramSession(currentSession)) {
-      return 'Message Hermes on this thread';
+      return 'Message this thread…';
     }
-    return 'Type a message to Hermes';
+    return 'Message your computer…';
   }, [currentSession, currentSession?.id, currentSession?.source, telegramReplySessionId, sessions, isSending, queuedOutboundCount, runProgress?.phase]);
 
   useEffect(() => {

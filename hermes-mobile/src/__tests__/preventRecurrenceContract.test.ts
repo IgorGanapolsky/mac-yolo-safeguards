@@ -716,4 +716,19 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(chat).toContain('probeLiveUsbGateway');
     expect(chat).toMatch(/2500/);
   });
+
+  it('S50: chat composer never says message ThumbGate (Leash product ≠ chat recipient)', () => {
+    const chat = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    // Default empty-composer placeholder must stay computer-facing, not ThumbGate.
+    expect(chat).toContain("return 'Message your computer…'");
+    expect(chat).not.toMatch(/Type a message to ThumbGate/);
+    expect(chat).not.toMatch(/Message ThumbGate/);
+    const chip = read('hermes-mobile/src/components/VaultProjectPickerChip.tsx');
+    expect(chip).toContain('Optional — which folder on your Mac to use');
+    expect(chip).not.toMatch(/tells ThumbGate/);
+    // Composer row centers empty-state hint with attach/send (2026-07-25).
+    const bar = read('hermes-mobile/src/components/ChatInputBar.tsx');
+    expect(bar).toMatch(/alignItems:\s*'center'/);
+    expect(bar).not.toMatch(/alignItems:\s*'flex-end'/);
+  });
 });
