@@ -453,6 +453,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     paddingTop: 8,
     position: 'relative',
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -10 },
     shadowOpacity: 0.25,
@@ -487,7 +488,7 @@ const styles = StyleSheet.create({
   },
   activeDot: {
     position: 'absolute',
-    bottom: -2,
+    bottom: 2,
     width: 4,
     height: 4,
     borderRadius: 2,
