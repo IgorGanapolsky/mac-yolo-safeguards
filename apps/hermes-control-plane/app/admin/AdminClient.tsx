@@ -334,14 +334,14 @@ export function AdminClient(props: {
       ) : (
         <>
           <section className="admin-grid admin-grid-4">
-            <Expandable id="health" label="Raw control-plane + runner health (fresh fetch, live)" fetchDetail={() => fetchDetail("health")}>
+            <Expandable id="control-plane" label="Database & Auth Services Telemetry" fetchDetail={() => fetchDetail("control-plane")}>
               <article className={`admin-metric ${m.health.controlPlaneOk ? "is-ok" : "is-bad"}`}>
                 <span>Control plane</span>
                 <strong>{m.health.controlPlaneOk ? "OK" : "DOWN"}</strong>
                 <small>D1 {m.health.database}</small>
               </article>
             </Expandable>
-            <Expandable id="runner" label="Raw control-plane + runner health (fresh fetch, live)" fetchDetail={() => fetchDetail("health")}>
+            <Expandable id="runner" label="Cloud Runner Fleet & Fencing Telemetry" fetchDetail={() => fetchDetail("runner")}>
               <article className={`admin-metric ${m.health.runnerOk ? "is-ok" : "is-bad"}`}>
                 <span>VPS Continuity runner</span>
                 <strong>{m.health.runnerOk ? "OK" : "DEGRADED"}</strong>
