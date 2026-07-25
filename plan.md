@@ -2168,3 +2168,8 @@ Primary: local grepai isolated clone (not jbcontext). Daily LaunchAgent + sessio
 - Files: `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx` (SWR re-wire + collapsible route explain only), `apps/hermes-control-plane/app/globals.css` (route-explain toggle only), `apps/hermes-control-plane/tests/frictionless-onboarding.test.mjs` (SWR assertions), `tools/hermes-harness-eval.js` (ARC promote gate), `docs/RESEARCH-GENSPARK-HIGH-ROI-20260725.md`, `docs/RESEARCH-ARC-AGI-HERMES-ROI-20260725.md`, `plan.md`
 - Note: reclaiming DashboardClient for SWR after #987 clobber; feedback UI already on main; not touching page.tsx (SIF/AEO claims).
 - AcceptanceCheck: frictionless SWR test green; nav-cache vitest green; harness-eval tests green; PR merge + deploy.
+
+### T-LESSONS-HEADER-THUMBGATE-BRAND-20260725 (2026-07-25T17:05:00Z)
+- Owner: `claude-code-lessons-header-brand` status: done
+- Files: `apps/hermes-control-plane/app/dashboard/lessons/LessonsClient.tsx` (h1 text only), `apps/hermes-control-plane/tests/frictionless-onboarding.test.mjs` (one assertion string only), `plan.md`
+- Note: Igor's live screenshot showed the Lessons page h1 reading "Your Hermes lessons" while the eyebrow above it and the loading state both already say ThumbGate — inconsistent branding. Changed h1 to "Your ThumbGate lessons" to match; updated the one test assertion checking that exact string. Single-line, non-overlapping with T-SWR-NAV-RESTORE-HIGH-ROI-20260725's SWR-related assertions in the same test file. 24/24 tests green.
