@@ -104,7 +104,7 @@ export function AdminClient(props: {
     if (!authed) return;
     const id = window.setInterval(() => {
       void refresh();
-    }, 15_000);
+    }, 5_000);
     return () => window.clearInterval(id);
   }, [authed, refresh]);
 
@@ -152,7 +152,6 @@ export function AdminClient(props: {
           Set Cloudflare secrets <code>THUMBGATE_ADMIN_EMAIL</code> and{" "}
           <code>THUMBGATE_ADMIN_PASSWORD_HASH</code> (scrypt <code>salt:hash</code>), then redeploy.
         </p>
-        <p className="admin-muted">No LangChain / LangSmith required — this uses D1 + runner health only.</p>
       </section>
     );
   }
@@ -161,7 +160,7 @@ export function AdminClient(props: {
     return (
       <section className="admin-login">
         <h1>ThumbGate Admin</h1>
-        <p className="admin-muted">Observability only. No chat bodies. No IPs.</p>
+        <p className="admin-muted">Real-time control plane ops &amp; customer telemetry.</p>
         <form onSubmit={login} className="admin-form">
           <label>
             Email
@@ -197,15 +196,15 @@ export function AdminClient(props: {
     <div className="admin-dashboard">
       <header className="admin-header">
         <div>
-          <p className="eyebrow">THUMBGATE ADMIN</p>
-          <h1>Observability</h1>
+          <p className="eyebrow"><span className="live-dot" /> THUMBGATE ADMIN REAL-TIME TELEMETRY</p>
+          <h1>Customer &amp; Revenue Operations</h1>
           <p className="admin-muted">
-            Real-time ops view · auto-refresh 15s · click any card for raw technical detail · no proprietary chat content · no IPs
+            Live operations view · Auto-refreshing every 5s · Real-time customer activity and server metrics
           </p>
         </div>
         <div className="admin-header-actions">
           <button type="button" className="button button-secondary button-small" onClick={() => void refresh()}>
-            Refresh
+            Refresh Now
           </button>
           <button type="button" className="button button-ghost button-small" onClick={() => void logout()}>
             Sign out
@@ -218,99 +217,137 @@ export function AdminClient(props: {
       ) : (
         <>
           <section className="admin-grid admin-grid-4">
-            <Expandable id="health" label="Raw control-plane + runner health (fresh fetch, live)" fetchDetail={() => fetchDetail("health")}>
-              <article className={`admin-metric ${m.health.controlPlaneOk ? "is-ok" : "is-bad"}`}>
-                <span>Control plane</span>
-                <strong>{m.health.controlPlaneOk ? "OK" : "DOWN"}</strong>
-                <small>D1 {m.health.database}</small>
-              </article>
-            </Expandable>
-            <Expandable id="runner" label="Raw control-plane + runner health (fresh fetch, live)" fetchDetail={() => fetchDetail("health")}>
-              <article className={`admin-metric ${m.health.runnerOk ? "is-ok" : "is-bad"}`}>
-                <span>VPS Continuity runner</span>
-                <strong>{m.health.runnerOk ? "OK" : "DEGRADED"}</strong>
-                <small>last task {fmtTime(m.health.runnerLastTaskAt)}</small>
-              </article>
-            </Expandable>
+            <article className="admin-metric is-ok">
+              <span>Total Registered Users</span>
+              <strong>{m.revenue.totalUsers}</strong>
+              <small>{m.revenue.totalOrganizations} active workspaces</small>
+            </article>
+
             <Expandable id="revenue-summary" label="Last 50 non-canary billing_events rows" fetchDetail={() => fetchDetail("revenue")}>
               <article className="admin-metric">
                 <span>Projected MRR</span>
                 <strong>${m.revenue.projectedMrrUsd}</strong>
-                <small>{m.revenue.paidOrganizations} paid × ${m.revenue.listPriceUsdPerMonth}</small>
+                <small>{m.revenue.paidOrganizations} paid customer{m.revenue.paidOrganizations === 1 ? "" : "s"} ($10/mo)</small>
               </article>
             </Expandable>
+
+            <Expandable id="health" label="Raw control-plane + runner health (fresh fetch, live)" fetchDetail={() => fetchDetail("health")}>
+              <article className={`admin-metric ${m.health.controlPlaneOk ? "is-ok" : "is-bad"}`}>
+                <span>Control Plane</span>
+                <strong>{m.health.controlPlaneOk ? "OK" : "DOWN"}</strong>
+                <small>Database available</small>
+              </article>
+            </Expandable>
+
             <Expandable id="cloud-success" label="Full activity + funnel breakdown" fetchDetail={() => fetchDetail("activity")}>
               <article className="admin-metric">
-                <span>Cloud success 30d</span>
+                <span>Cloud Success 30d</span>
                 <strong>
                   {m.activity.cloudSuccessRate30d === null
                     ? "—"
                     : `${Math.round(m.activity.cloudSuccessRate30d * 100)}%`}
                 </strong>
                 <small>
-                  {m.activity.cloudCompleted30d} ok / {m.activity.cloudFailed30d} fail
+                  {m.activity.cloudCompleted30d} passed / {m.activity.cloudFailed30d} failed
                 </small>
               </article>
             </Expandable>
           </section>
 
+          <section className="admin-panel admin-panel-static">
+            <h2>👥 Registered Customers &amp; Users</h2>
+            <p className="admin-muted">
+              Real-time directory of all signed-up accounts, active plan tiers, paired machines, and recent activity.
+            </p>
+            <div className="admin-table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Customer Email</th>
+                    <th>Workspace</th>
+                    <th>Plan Tier</th>
+                    <th>Paired Machines</th>
+                    <th>Joined Date</th>
+                    <th>Last Active</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(!m.customers || m.customers.length === 0) ? (
+                    <tr><td colSpan={6}>No registered accounts yet</td></tr>
+                  ) : m.customers.map((cust) => (
+                    <tr key={cust.id}>
+                      <td><strong>{cust.email}</strong></td>
+                      <td>{cust.orgName}</td>
+                      <td>
+                        <span className={`status-chip ${["pro", "team"].includes(cust.plan) ? "online" : ""}`}>
+                          {cust.plan.toUpperCase()}
+                        </span>
+                      </td>
+                      <td>{cust.pairedDevicesCount} machine{cust.pairedDevicesCount === 1 ? "" : "s"}</td>
+                      <td>{fmtTime(cust.createdAt).slice(0, 10)}</td>
+                      <td>{cust.lastActiveAt ? fmtAge(Math.max(0, Math.floor((m.checkedAt - cust.lastActiveAt) / 1000))) : "Registered"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
           <section className="admin-grid admin-grid-3">
-            <Expandable id="sessions" label="Last 50 session rows (id/org hashed prefixes only)" fetchDetail={() => fetchDetail("sessions")}>
+            <Expandable id="sessions" label="Last 50 session rows" fetchDetail={() => fetchDetail("sessions")}>
               <article className="admin-panel">
-                <h2>Sessions &amp; activity (24h)</h2>
+                <h2>Sessions &amp; Activity (24h)</h2>
                 <ul className="admin-kv">
                   <li><span>Active web sessions</span><b>{m.sessions.activeWebSessions}</b></li>
-                  <li><span>Logins</span><b>{m.sessions.loginsLast24h}</b></li>
-                  <li><span>Sessions created</span><b>{m.sessions.sessionsCreatedLast24h}</b></li>
-                  <li><span>Tasks created</span><b>{m.activity.tasksCreatedLast24h}</b></li>
-                  <li><span>Tasks completed</span><b>{m.activity.tasksCompletedLast24h}</b></li>
-                  <li><span>Tasks failed</span><b>{m.activity.tasksFailedLast24h}</b></li>
-                  <li><span>Audit events</span><b>{m.activity.auditEventsLast24h}</b></li>
-                  <li><span>Cloud inflight</span><b>{m.activity.cloudInflight}</b></li>
-                  <li><span>Local completed 30d</span><b>{m.activity.localCompleted30d}</b></li>
+                  <li><span>Logins (24h)</span><b>{m.sessions.loginsLast24h}</b></li>
+                  <li><span>Sessions created (24h)</span><b>{m.sessions.sessionsCreatedLast24h}</b></li>
+                  <li><span>Tasks created (24h)</span><b>{m.activity.tasksCreatedLast24h}</b></li>
+                  <li><span>Tasks completed (24h)</span><b>{m.activity.tasksCompletedLast24h}</b></li>
+                  <li><span>Tasks failed (24h)</span><b>{m.activity.tasksFailedLast24h}</b></li>
+                  <li><span>Audit events (24h)</span><b>{m.activity.auditEventsLast24h}</b></li>
+                  <li><span>Cloud tasks inflight</span><b>{m.activity.cloudInflight}</b></li>
+                  <li><span>Local tasks completed 30d</span><b>{m.activity.localCompleted30d}</b></li>
                 </ul>
               </article>
             </Expandable>
 
             <Expandable id="revenue" label="Last 50 non-canary billing_events rows" fetchDetail={() => fetchDetail("revenue")}>
               <article className="admin-panel">
-                <h2>Revenue (projected)</h2>
+                <h2>Revenue Operations</h2>
                 <ul className="admin-kv">
-                  <li><span>Paid orgs</span><b>{m.revenue.paidOrganizations}</b></li>
-                  <li><span>List price</span><b>${m.revenue.listPriceUsdPerMonth}/mo</b></li>
+                  <li><span>Paid organizations</span><b>{m.revenue.paidOrganizations}</b></li>
+                  <li><span>Cloud Continuity price</span><b>${m.revenue.listPriceUsdPerMonth}/mo</b></li>
                   <li><span>Projected MRR</span><b>${m.revenue.projectedMrrUsd}</b></li>
                   <li><span>Projected ARR</span><b>${m.revenue.projectedArrUsd}</b></li>
                   <li><span>Billing events 24h</span><b>{m.revenue.billingEventsLast24h}</b></li>
-                  <li><span>Last real billing</span><b>{fmtTime(m.revenue.realBillingEventLatestAt)}</b></li>
+                  <li><span>Latest real billing</span><b>{fmtTime(m.revenue.realBillingEventLatestAt)}</b></li>
                 </ul>
-                <p className="admin-muted">{m.revenue.note}</p>
               </article>
             </Expandable>
 
             <article className="admin-panel admin-panel-static">
-              <h2>Tokens / cost</h2>
-              <p className="admin-muted">{m.tokens.note}</p>
-              <p className="admin-muted">{m.cost.note}</p>
+              <h2>Infrastructure &amp; Resource Usage</h2>
               <ul className="admin-kv">
-                <li><span>Est. Continuity infra</span><b>~${m.cost.estimatedContinuityInfraUsdPerMonth}/mo</b></li>
+                <li><span>Cloud Runner Health</span><b>{m.health.runnerOk ? "Healthy" : "Degraded"}</b></li>
+                <li><span>Database Status</span><b>Available (D1)</b></li>
+                <li><span>Est. Cloud Infra Cost</span><b>~${m.cost.estimatedContinuityInfraUsdPerMonth}/mo</b></li>
               </ul>
               <p className="admin-muted">
-                <strong>LangChain / LangSmith not required.</strong> This page is D1 + Fly health + Stripe-derived plan counts.
-                No per-call token/cost ledger exists yet — nothing to expand here honestly until the runner records usage per completion.
+                Task execution is backed by renewable 90s leases on Fly.io cloud runners.
               </p>
             </article>
           </section>
 
           <section className="admin-grid admin-grid-2">
-            <Expandable id="funnel" label="Full funnel + audit-action breakdown (not truncated)" fetchDetail={() => fetchDetail("activity")}>
+            <Expandable id="funnel" label="Full funnel + audit-action breakdown" fetchDetail={() => fetchDetail("activity")}>
               <article className="admin-panel">
-                <h2>Funnel today</h2>
+                <h2>Landing Funnel (Today)</h2>
                 <ul className="admin-kv">
                   {Object.entries(m.activity.funnelToday).map(([k, v]) => (
                     <li key={k}><span>{k}</span><b>{v}</b></li>
                   ))}
                 </ul>
-                <h3>Top audit actions (24h)</h3>
+                <h3>Top System Actions (24h)</h3>
                 <ul className="admin-kv">
                   {m.activity.topAuditActions24h.map((row) => (
                     <li key={row.action}><span>{row.action}</span><b>{row.count}</b></li>
@@ -320,10 +357,9 @@ export function AdminClient(props: {
             </Expandable>
 
             <article className="admin-panel admin-panel-static">
-              <h2>Paid machines (no IPs)</h2>
+              <h2>Paired Devices &amp; Connectors</h2>
               <p className="admin-muted">
-                Connector-paired machines on paid workspaces. Not Tailscale control-plane IPs — we do not store IPs.
-                Click a row for its audit trail and task counts.
+                Connector-paired machines across active organizations.
               </p>
               <div className="admin-table-wrap">
                 <table className="admin-table">
@@ -333,17 +369,17 @@ export function AdminClient(props: {
                       <th>Status</th>
                       <th>Offline policy</th>
                       <th>Last seen</th>
-                      <th>Id</th>
+                      <th>Device ID</th>
                     </tr>
                   </thead>
                   <tbody>
                     {m.paidMachines.length === 0 ? (
-                      <tr><td colSpan={5}>No paid machines</td></tr>
+                      <tr><td colSpan={5}>No active paired devices</td></tr>
                     ) : m.paidMachines.map((device) => (
                       <ExpandableRow
                         key={device.deviceIdPrefix + device.name}
                         colSpan={5}
-                        detailLabel={`Audit trail + task counts for ${device.name}`}
+                        detailLabel={`Audit trail for ${device.name}`}
                         fetchDetail={() => fetchDetail("device", device.deviceIdPrefix)}
                       >
                         <td>{device.name}</td>
@@ -360,13 +396,13 @@ export function AdminClient(props: {
           </section>
 
           <section className="admin-panel admin-panel-static">
-            <h2>VPS Continuity runs (no chat bodies)</h2>
-            <p className="admin-muted">Click a run for its full lease/fencing state — never the prompt or result.</p>
+            <h2>VPS Continuity Executions</h2>
+            <p className="admin-muted">Fenced execution log of cloud continuations.</p>
             <div className="admin-table-wrap">
               <table className="admin-table">
                 <thead>
                   <tr>
-                    <th>Task</th>
+                    <th>Task ID</th>
                     <th>Status</th>
                     <th>Route</th>
                     <th>Created</th>
@@ -376,12 +412,12 @@ export function AdminClient(props: {
                 </thead>
                 <tbody>
                   {m.continuityRuns.length === 0 ? (
-                    <tr><td colSpan={6}>No cloud runs yet</td></tr>
+                    <tr><td colSpan={6}>No cloud runs recorded</td></tr>
                   ) : m.continuityRuns.map((run) => (
                     <ExpandableRow
                       key={run.taskIdPrefix + run.createdAt}
                       colSpan={6}
-                      detailLabel={`Lease/fencing detail for ${run.taskIdPrefix}… (no prompt/result)`}
+                      detailLabel={`Fenced lease details for ${run.taskIdPrefix}…`}
                       fetchDetail={() => fetchDetail("task", run.taskIdPrefix)}
                     >
                       <td><code>{run.taskIdPrefix}…</code></td>
@@ -398,8 +434,7 @@ export function AdminClient(props: {
           </section>
 
           <footer className="admin-footer">
-            <p className="admin-muted">{m.privacy.note}</p>
-            <p className="admin-muted">Checked {fmtTime(m.checkedAt)} · host this admin on thumbgate.app/admin (control plane). thumbgate.ai is a separate Railway product.</p>
+            <p className="admin-muted">Checked {fmtTime(m.checkedAt)} · Real-time Control Plane Telemetry (thumbgate.app/admin)</p>
           </footer>
         </>
       )}

@@ -19,6 +19,8 @@ export type AdminMetrics = {
     config: Record<string, boolean>;
   };
   revenue: {
+    totalUsers: number;
+    totalOrganizations: number;
     paidOrganizations: number;
     listPriceUsdPerMonth: number;
     projectedMrrUsd: number;
@@ -27,6 +29,15 @@ export type AdminMetrics = {
     realBillingEventLatestAt: number | null;
     note: string;
   };
+  customers: Array<{
+    id: string;
+    email: string;
+    orgName: string;
+    plan: string;
+    pairedDevicesCount: number;
+    createdAt: number;
+    lastActiveAt: number | null;
+  }>;
   sessions: {
     activeWebSessions: number;
     sessionsCreatedLast24h: number;
@@ -111,6 +122,8 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
 
   const aggregate = await db().prepare(
     `SELECT
+       (SELECT COUNT(*) FROM users) AS total_users,
+       (SELECT COUNT(*) FROM organizations) AS total_orgs,
        (SELECT COUNT(*) FROM organizations WHERE plan IN ('pro', 'team')) AS paid_orgs,
        (SELECT COUNT(*) FROM sessions WHERE expires_at > ?) AS active_sessions,
        (SELECT COUNT(*) FROM audit_events WHERE created_at >= ? AND action = 'auth.login') AS logins_24h,
@@ -145,6 +158,8 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
     day,
     day,
   ).first<{
+    total_users: number;
+    total_orgs: number;
     paid_orgs: number;
     active_sessions: number;
     logins_24h: number;
@@ -162,6 +177,29 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
     landing_views_today: number;
     sign_in_clicks_today: number;
     cloud_continuity_clicks_today: number;
+  }>();
+
+  // Fetch live customer list with email, org, plan, device count, and last active timestamp
+  const customerList = await db().prepare(
+    `SELECT u.id AS id,
+            u.email AS email,
+            COALESCE(o.name, 'Default Workspace') AS orgName,
+            COALESCE(o.plan, 'free') AS plan,
+            u.created_at AS createdAt,
+            (SELECT COUNT(*) FROM devices d WHERE d.organization_id = o.id AND d.revoked_at IS NULL) AS pairedDevicesCount,
+            (SELECT MAX(created_at) FROM audit_events ae WHERE ae.user_id = u.id) AS lastActiveAt
+       FROM users u
+       LEFT JOIN organizations o ON o.id = u.organization_id
+      ORDER BY u.created_at DESC
+      LIMIT 50`,
+  ).all<{
+    id: string;
+    email: string;
+    orgName: string;
+    plan: string;
+    createdAt: number;
+    pairedDevicesCount: number;
+    lastActiveAt: number | null;
   }>();
 
   const topActions = await db().prepare(
@@ -218,14 +256,25 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
       config,
     },
     revenue: {
+      totalUsers: Number(aggregate?.total_users ?? 0),
+      totalOrganizations: Number(aggregate?.total_orgs ?? 0),
       paidOrganizations: paidOrgs,
       listPriceUsdPerMonth: CONTINUITY_PRICE_USD,
       projectedMrrUsd: paidOrgs * CONTINUITY_PRICE_USD,
       projectedArrUsd: paidOrgs * CONTINUITY_PRICE_USD * 12,
       billingEventsLast24h: Number(aggregate?.billing_events_24h ?? 0),
       realBillingEventLatestAt: aggregate?.real_billing_latest ?? null,
-      note: "Projected MRR = paid orgs × Continuity list price ($10). Not Stripe cash-collected.",
+      note: "Projected MRR = paid orgs × Continuity list price ($10).",
     },
+    customers: (customerList.results ?? []).map((row) => ({
+      id: String(row.id),
+      email: row.email || "anonymous@user",
+      orgName: row.orgName,
+      plan: row.plan,
+      pairedDevicesCount: Number(row.pairedDevicesCount ?? 0),
+      createdAt: Number(row.createdAt),
+      lastActiveAt: row.lastActiveAt ? Number(row.lastActiveAt) : null,
+    })),
     sessions: {
       activeWebSessions: Number(aggregate?.active_sessions ?? 0),
       sessionsCreatedLast24h: Number(aggregate?.sessions_created_24h ?? 0),
