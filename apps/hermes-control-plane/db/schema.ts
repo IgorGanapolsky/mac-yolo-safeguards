@@ -181,3 +181,29 @@ export const funnelCounters = sqliteTable("funnel_counters", {
   count: integer("count").notNull().default(0),
   updatedAt: integer("updated_at").notNull(),
 }, (table) => [primaryKey({ columns: [table.day, table.event] })]);
+
+/**
+ * Campaign-dimensioned funnel counters (first-party UTM + cta_id only).
+ * Empty-string dimensions mean "unset" so PK stays dense for D1.
+ */
+export const funnelAttributionCounters = sqliteTable("funnel_attribution_counters", {
+  day: text("day").notNull(),
+  event: text("event").notNull(),
+  utmSource: text("utm_source").notNull().default(""),
+  utmMedium: text("utm_medium").notNull().default(""),
+  utmCampaign: text("utm_campaign").notNull().default(""),
+  ctaId: text("cta_id").notNull().default(""),
+  count: integer("count").notNull().default(0),
+  updatedAt: integer("updated_at").notNull(),
+}, (table) => [
+  primaryKey({
+    columns: [
+      table.day,
+      table.event,
+      table.utmSource,
+      table.utmMedium,
+      table.utmCampaign,
+      table.ctaId,
+    ],
+  }),
+]);

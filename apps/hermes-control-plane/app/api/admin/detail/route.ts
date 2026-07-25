@@ -88,10 +88,30 @@ export async function GET(request: Request) {
       const funnel = await db().prepare(
         `SELECT event, SUM(count) AS count FROM funnel_counters WHERE day = ? GROUP BY event ORDER BY count DESC`,
       ).bind(day).all();
+      // First-party campaign tokens only (no PII). Table may be empty pre-migration.
+      let attributionToday: unknown[] = [];
+      try {
+        const attribution = await db().prepare(
+          `SELECT event, utm_source AS utmSource, utm_medium AS utmMedium,
+                  utm_campaign AS utmCampaign, cta_id AS ctaId, SUM(count) AS count
+             FROM funnel_attribution_counters
+            WHERE day = ?
+            GROUP BY event, utm_source, utm_medium, utm_campaign, cta_id
+            ORDER BY count DESC
+            LIMIT 50`,
+        ).bind(day).all();
+        attributionToday = attribution.results ?? [];
+      } catch {
+        attributionToday = [];
+      }
       const actions = await db().prepare(
         `SELECT action, COUNT(*) AS count FROM audit_events WHERE created_at >= ? GROUP BY action ORDER BY count DESC LIMIT 50`,
       ).bind(Date.now() - 86_400_000).all();
-      return Response.json({ funnelToday: funnel.results ?? [], topAuditActions24h: actions.results ?? [] });
+      return Response.json({
+        funnelToday: funnel.results ?? [],
+        attributionToday,
+        topAuditActions24h: actions.results ?? [],
+      });
     }
     case "device": {
       if (!id) return jsonError("id required", 400);

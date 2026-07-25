@@ -229,5 +229,39 @@ node tools/verify-public-post.js \
 CI: `node tests/test-social-publish-gate.js` in `revenue-public-checks`.
 
 
+## Campaign analytics + A/B (2026-07-25)
+
+Closed loop for **first-party** measurement (not LinkedIn/X native impressions):
+
+1. **Every CTA** must carry stable tokens:
+   ```
+   https://thumbgate.app/?utm_source=<channel>&utm_medium=social&utm_campaign=<campaign_id>&cta_id=<campaign_id>_<channel>_<diag|play|ios|web>
+   ```
+   `utm_campaign` **must match** the content-log `Campaign` column (or be a clear prefix).
+
+2. **Web dual-write:** `FunnelSignals` sends sanitized utm/cta with landing + store clicks →
+   `funnel_counters` (aggregate) + `funnel_attribution_counters` (campaign dimensions).
+   Privacy: tokens only — no email/IP/UA/prompt (see `lib/funnel-attribution.ts`).
+
+3. **Scoreboard (DS):**
+   ```bash
+   # Without live D1 dump — content-log only + lessons
+   node tools/social-campaign-ds.js
+
+   # With admin activity attribution JSON dump
+   node tools/social-campaign-ds.js --attribution-file /tmp/attribution.json --json
+   ```
+   Joins content-log LIVE posts to attributed landing/sign-in/store clicks.
+   Crowns a **WINNER** only at ≥ `--min-events` (default 5). Emits RAG capture stub.
+
+4. **A/B protocol:** same product, two hooks; shared `utm_campaign` family + distinct `cta_id`
+   (`…-ab-a` / `…-ab-b`). Stop rule is in scoreboard `nextExperiments`.
+
+5. **Agentic RAG:** after each scoreboard run, capture `ragCaptureStub` via ThumbGate
+   (`signal=up` on WINNER, `down` on zero-attribution LIVE posts).
+
+CI: `node tests/test-social-campaign-ds.js` in `revenue-public-checks`.
+
+
 ## Product/creator mentions (2026-07-25)
 Properly name + link + platform-@ related products (Nous Hermes/@NousResearch, Fly.io/@flydotio, Gatekeeper URLs). Never claim affiliation. Skill: `~/.grok/skills/social-product-creator-mentions/SKILL.md`.

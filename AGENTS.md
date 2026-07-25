@@ -214,6 +214,19 @@ the skill text alone is not compliance.
 Also permanent: LinkedIn = `ig5973700@gmail.com` only (`linkedin-account-ig5973700`);
 no Zernio; no Hashnode publish; product/creator mentions without false affiliation.
 
+## Social campaign analytics (added 2026-07-25)
+
+First-party closed loop for campaign improvement (not platform-native impressions):
+
+1. CTAs must include `utm_campaign` (= content-log Campaign) + `cta_id`.
+2. Web `FunnelSignals` dual-writes sanitized tokens to `funnel_attribution_counters`.
+3. Scoreboard: `node tools/social-campaign-ds.js [--attribution-file dump.json]`.
+4. Capture scoreboard `ragCaptureStub` into ThumbGate after each weekly run.
+5. Unit tests: `tests/test-social-campaign-ds.js` + control-plane `funnel-attribution.test.ts`.
+
+Do not claim A/B winners without ≥ min-events attributed funnel hits. Native
+LinkedIn/X impressions remain unmeasured until a separate API path exists.
+
 ## Parallel research routing (added 2026-07-13)
 
 **Default:** `parallel-cli search` (web-search) for lookups, pricing, API docs, and current events. Fast and cost-effective.
