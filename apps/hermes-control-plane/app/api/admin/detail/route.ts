@@ -18,37 +18,54 @@ export async function GET(request: Request) {
   const id = url.searchParams.get("id");
 
   switch (kind) {
-    case "health": {
+    case "control-plane": {
+      const dbStartedAt = Date.now();
+      await db().prepare("SELECT 1").first();
+      const d1PingMs = Date.now() - dbStartedAt;
+      const current = runtimeEnv();
+      return Response.json({
+        databaseStatus: "D1 SQLite Operational",
+        d1LatencyMs: d1PingMs,
+        workosAuthService: Boolean(current.WORKOS_CLIENT_ID && current.WORKOS_API_KEY && current.WORKOS_REDIRECT_URI),
+        oauthRedirectUri: current.WORKOS_REDIRECT_URI ?? "Not Configured",
+        stripeBillingEngine: Boolean(current.STRIPE_SECRET_KEY && current.STRIPE_PRICE_ID),
+        stripeEventWebhook: Boolean(current.STRIPE_WEBHOOK_SECRET),
+        cloudRunnerAuthorization: Boolean(current.HERMES_CLOUD_RUNNER_TOKEN),
+      });
+    }
+    case "runner": {
       const startedAt = Date.now();
-      let runner: unknown = null;
+      let runner: Record<string, unknown> | null = null;
       let runnerError: string | null = null;
       try {
         const response = await fetch(RUNNER_HEALTH_URL, {
           signal: AbortSignal.timeout(8_000),
           headers: { accept: "application/json" },
         });
-        runner = response.ok ? await response.json() : { httpStatus: response.status };
+        runner = response.ok ? await response.json() as Record<string, unknown> : { httpStatus: response.status };
       } catch (error) {
         runnerError = error instanceof Error ? error.message : String(error);
       }
       const runnerFetchMs = Date.now() - startedAt;
+      return Response.json({
+        cloudRunnerEndpoint: RUNNER_HEALTH_URL,
+        runnerStatus: runner?.ok ? "ONLINE (Active)" : "DEGRADED",
+        runnerLatencyMs: runnerFetchMs,
+        lastHealthCheckAt: Number(runner?.lastPollAt ?? 0),
+        lastTaskExecutionAt: Number(runner?.lastTaskAt ?? 0),
+        consecutiveErrors: Number(runner?.consecutiveErrors ?? 0),
+        lastConnectionError: runnerError || runner?.lastError || "None",
+      });
+    }
+    case "health": {
+      // Backwards compatibility alias
       const dbStartedAt = Date.now();
       await db().prepare("SELECT 1").first();
       const d1PingMs = Date.now() - dbStartedAt;
-      const current = runtimeEnv();
       return Response.json({
-        runnerHealthUrl: RUNNER_HEALTH_URL,
-        runnerRaw: runner,
-        runnerError,
-        runnerFetchMs,
+        databaseStatus: "OK",
         d1PingMs,
-        config: {
-          workosAuthConfigured: Boolean(current.WORKOS_CLIENT_ID && current.WORKOS_API_KEY && current.WORKOS_REDIRECT_URI),
-          workosRedirectUri: current.WORKOS_REDIRECT_URI ?? null,
-          stripeCheckoutConfigured: Boolean(current.STRIPE_SECRET_KEY && current.STRIPE_PRICE_ID),
-          stripeWebhookConfigured: Boolean(current.STRIPE_WEBHOOK_SECRET),
-          cloudRunnerConfigured: Boolean(current.HERMES_CLOUD_RUNNER_TOKEN),
-        },
+        cloudRunnerEndpoint: RUNNER_HEALTH_URL,
       });
     }
     case "sessions": {
