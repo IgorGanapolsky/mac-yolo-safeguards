@@ -181,6 +181,12 @@ import {
   shouldAutoRecoverStalledSend,
 } from '../utils/stalledChatRecovery';
 import {
+  AGENT_SELF_CHECK_AUTO_CONTINUE_MS,
+  AGENT_SELF_CHECK_RECOVERING_HINT,
+  resolveAgentSelfCheckContinueText,
+  shouldAutoContinueAfterAgentStall,
+} from '../utils/agentSelfCheckRecovery';
+import {
   PENDING_NEW_SESSION_KEY,
   clearPendingOutbound,
   extractPersistableOutboundFromTranscript,
@@ -840,6 +846,9 @@ export default function ChatScreen() {
   const lastFailedSendTextRef = useRef<string | null>(null);
   const stalledRecoveriesUsedRef = useRef(0);
   const stalledRecoverInFlightRef = useRef(false);
+  /** Opus 5-style agent self-check continues after safety/tool error stalls. */
+  const agentSelfCheckRecoveriesUsedRef = useRef(0);
+  const agentSelfCheckInFlightRef = useRef(false);
   const activeChatStreamRef = useRef(false);
   /** Session ids the gateway rejected as removed/restarted — never resume or target these again. */
   const removedSessionIdsRef = useRef<Set<string>>(new Set());
@@ -1313,6 +1322,8 @@ export default function ChatScreen() {
   useEffect(() => {
     stalledRecoveriesUsedRef.current = 0;
     stalledRecoverInFlightRef.current = false;
+    agentSelfCheckRecoveriesUsedRef.current = 0;
+    agentSelfCheckInFlightRef.current = false;
   }, [currentSession?.id]);
 
   useEffect(() => {
@@ -1393,6 +1404,66 @@ export default function ChatScreen() {
     runProgress?.detail,
     runProgress?.phase,
   ]);
+
+  // Opus 5 steal (TNS 2026-07-24): long-running agents self-check and recover from errors.
+  // When the last assistant turn is a safety-timeout or tool-error stall, auto-nudge continue.
+  useEffect(() => {
+    if (stalledRecoverInFlightRef.current || agentSelfCheckInFlightRef.current) {
+      return;
+    }
+    let lastAssistant: string | null = null;
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (message?.role?.toLowerCase() !== 'assistant') {
+        continue;
+      }
+      const body = message.content?.trim() || message.rawContent?.trim() || '';
+      if (body) {
+        lastAssistant = body;
+        break;
+      }
+    }
+    if (
+      !shouldAutoContinueAfterAgentStall({
+        assistantText: lastAssistant,
+        macHttpOk,
+        isDemo,
+        isSending,
+        recoveriesUsed: agentSelfCheckRecoveriesUsedRef.current,
+      })
+    ) {
+      return;
+    }
+    const continueText = resolveAgentSelfCheckContinueText(lastAssistant);
+    const timer = setTimeout(() => {
+      if (
+        agentSelfCheckInFlightRef.current ||
+        stalledRecoverInFlightRef.current ||
+        isSendingRef.current
+      ) {
+        return;
+      }
+      agentSelfCheckInFlightRef.current = true;
+      agentSelfCheckRecoveriesUsedRef.current += 1;
+      setRunProgress((prev) =>
+        prev
+          ? { ...prev, phase: 'sending', detail: AGENT_SELF_CHECK_RECOVERING_HINT }
+          : {
+              phase: 'sending',
+              startedAtMs: Date.now(),
+              detail: AGENT_SELF_CHECK_RECOVERING_HINT,
+            },
+      );
+      void (async () => {
+        try {
+          await sendUserTextRef.current(continueText, true);
+        } finally {
+          agentSelfCheckInFlightRef.current = false;
+        }
+      })();
+    }, AGENT_SELF_CHECK_AUTO_CONTINUE_MS);
+    return () => clearTimeout(timer);
+  }, [isDemo, isSending, macHttpOk, messages]);
   const hideMacTileForSilentHeal = shouldHideMacTileForSilentHeal({
     silentHealInFlight: connectionHealInFlight,
     macRetryBusy,
