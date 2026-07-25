@@ -313,27 +313,31 @@ export function AdminClient(props: {
 
             <Expandable id="revenue" label="Last 50 non-canary billing_events rows" fetchDetail={() => fetchDetail("revenue")}>
               <article className="admin-panel">
-                <h2>Revenue Operations</h2>
+                <h2>Revenue &amp; Unit Economics</h2>
                 <ul className="admin-kv">
                   <li><span>Paid organizations</span><b>{m.revenue.paidOrganizations}</b></li>
                   <li><span>Cloud Continuity price</span><b>${m.revenue.listPriceUsdPerMonth}/mo</b></li>
                   <li><span>Projected MRR</span><b>${m.revenue.projectedMrrUsd}</b></li>
                   <li><span>Projected ARR</span><b>${m.revenue.projectedArrUsd}</b></li>
-                  <li><span>Billing events 24h</span><b>{m.revenue.billingEventsLast24h}</b></li>
-                  <li><span>Latest real billing</span><b>{fmtTime(m.revenue.realBillingEventLatestAt)}</b></li>
+                  <li><span>Stripe Net / Subscriber</span><b>~$9.41/mo (2.9% + 30¢)</b></li>
+                  <li><span>Est. Gross Profit / Sub</span><b>~$7.41/mo (~74% margin)</b></li>
                 </ul>
               </article>
             </Expandable>
 
             <article className="admin-panel admin-panel-static">
-              <h2>Infrastructure &amp; Resource Usage</h2>
+              <h2>Fly.io Real-Time Costs &amp; Unit Economics</h2>
               <ul className="admin-kv">
-                <li><span>Cloud Runner Health</span><b>{m.health.runnerOk ? "Healthy" : "Degraded"}</b></li>
-                <li><span>Database Status</span><b>Available (D1)</b></li>
-                <li><span>Est. Cloud Infra Cost</span><b>~${m.cost.estimatedContinuityInfraUsdPerMonth}/mo</b></li>
+                <li><span>Fly.io Runner Health</span><b>{m.health.runnerOk ? "Healthy" : "Degraded"}</b></li>
+                <li><span>Database Status</span><b>Available (Cloudflare D1)</b></li>
+                <li><span>Est. Fly Compute / Sub</span><b>~$0.30 – $1.94/mo</b></li>
+                <li><span>Break-Even Coverage</span><b>1 sub covers base runner</b></li>
               </ul>
-              <p className="admin-muted">
-                Task execution is backed by renewable 90s leases on Fly.io cloud runners.
+              <p className="admin-muted" style={{ marginTop: "12px" }}>
+                <strong>Real-Time Fly.io Billing:</strong>{" "}
+                <a href="https://fly.io/dashboard/igor/billing" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)", textDecoration: "underline" }}>
+                  Open Fly.io Billing Dashboard →
+                </a>
               </p>
             </article>
           </section>
