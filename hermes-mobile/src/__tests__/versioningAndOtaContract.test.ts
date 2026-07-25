@@ -63,13 +63,17 @@ describe('versioning and OTA contract', () => {
     expect(gated).toMatch(/require-fresh-user-ota-gate/);
   });
 
-  it('ships dual-store marketing/runtime 1.3 (ASC PREPARE ASO + paid download)', () => {
+  it('ships dual-store marketing/runtime 1.4+ (Android paid store binary, tonight\'s fixes)', () => {
     const app = readJson('app.json') as {
       expo: { version: string; android?: { versionCode?: number }; ios?: { buildNumber?: string } };
     };
-    // ASC 1.3 PREPARE holds subtitle/keywords; live 1.2 cannot take subtitle (409).
-    // Native binary must ship marketing 1.3 so ASO metadata can leave PREPARE.
-    expect(app.expo.version).toBe('1.3');
+    // 2026-07-24: live com.iganapolsky.hermesmobile.paid production was versionCode 18,
+    // built from a commit 70 behind origin/main (missing iPad #938, CodeQL #878/#856/
+    // #939/#973/#877, and other fixes). Marketing version bumped 1.3 -> 1.4 to cut a
+    // fresh binary (see T-ANDROID-PAID-BINARY-RELEASE-20260724 in plan.md); iOS ASC was
+    // already at 1.4 WAITING_FOR_REVIEW per plan.md 2026-07-23T16:10Z, so this also
+    // realigns the shared app.json version with the iOS side.
+    expect(app.expo.version).toBe('1.4');
     expect(app.expo.android?.versionCode ?? 0).toBeGreaterThanOrEqual(14);
     expect(Number(app.expo.ios?.buildNumber ?? 0)).toBeGreaterThanOrEqual(17);
   });
