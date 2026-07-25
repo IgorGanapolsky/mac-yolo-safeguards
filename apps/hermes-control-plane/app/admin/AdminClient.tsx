@@ -4,9 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import type { AdminMetrics } from "@/lib/admin-metrics";
 
 function fmtTime(ms: number | null | undefined): string {
-  if (!ms) return "—";
+  if (!ms || ms === 0) return "Never / No tasks yet";
   try {
-    return new Date(ms).toISOString().replace("T", " ").slice(0, 19) + "Z";
+    const date = new Date(ms);
+    const ago = fmtAge(Math.max(0, Math.floor((Date.now() - ms) / 1000)));
+    return `${date.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })} (${ago})`;
   } catch {
     return "—";
   }
@@ -20,9 +22,54 @@ function fmtAge(seconds: number | null): string {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
-/** Generic key/value dump for whatever a detail endpoint returns — deep technical view, no formatting assumptions. */
+/** Formatted detail view: converts raw timestamps to human dates and renders clean key-value telemetry pairs. */
 function RawDetail({ data }: { data: unknown }) {
   if (data === null || data === undefined) return <p className="admin-muted">Loading…</p>;
+
+  if (typeof data === "object" && data !== null && !Array.isArray(data)) {
+    const entries = Object.entries(data as Record<string, unknown>);
+    return (
+      <div className="admin-formatted-detail">
+        <ul className="admin-kv">
+          {entries.map(([key, val]) => {
+            let rendered: React.ReactNode;
+            if (val === null || val === undefined) rendered = <span className="admin-muted">null</span>;
+            else if (typeof val === "boolean") rendered = <b>{val ? "TRUE" : "FALSE"}</b>;
+            else if (typeof val === "number") {
+              if (val > 1_500_000_000_000) rendered = <b>{fmtTime(val)}</b>;
+              else if (val === 0 && (key.toLowerCase().includes("at") || key.toLowerCase().includes("time"))) rendered = <span className="admin-muted">Never / No tasks yet</span>;
+              else rendered = <b>{val.toLocaleString()}</b>;
+            } else if (typeof val === "object" && val !== null) {
+              rendered = (
+                <div className="admin-nested-kv" style={{ marginTop: "4px" }}>
+                  <ul className="admin-kv">
+                    {Object.entries(val as Record<string, unknown>).map(([nk, nv]) => (
+                      <li key={nk}>
+                        <span>{nk}</span>
+                        {typeof nv === "number" && nv > 1_500_000_000_000 ? <b>{fmtTime(nv)}</b>
+                          : typeof nv === "number" && nv === 0 && (nk.toLowerCase().includes("at") || nk.toLowerCase().includes("time")) ? <span className="admin-muted">Never / No tasks yet</span>
+                          : typeof nv === "boolean" ? <b>{nv ? "TRUE" : "FALSE"}</b>
+                          : nv === null ? <span className="admin-muted">none</span>
+                          : <b>{String(nv)}</b>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            } else rendered = <b>{String(val)}</b>;
+
+            return (
+              <li key={key}>
+                <span>{key}</span>
+                {rendered}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
+  }
+
   return <pre className="admin-raw">{JSON.stringify(data, null, 2)}</pre>;
 }
 
