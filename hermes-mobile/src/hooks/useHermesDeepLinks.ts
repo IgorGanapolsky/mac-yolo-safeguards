@@ -130,9 +130,10 @@ export function useHermesDeepLinks(
       const e2eDemoRebootstrap =
         setup?.demoMode && isDemoModeAllowed() && Boolean(forceE2eDemoMode);
 
-      // Maestro ship-guard opens hermes://setup?demo=1 twice; dedupe would skip the heal recovery.
-      if (!navigationOnly && !e2eDemoRebootstrap && handledUrls.has(url)) return;
-      if (!navigationOnly && !e2eDemoRebootstrap) handledUrls.add(url);
+      const isPairingSetupLink = Boolean(setup || relayOnly);
+      // Navigation/action links are deduped; setup/relay pairing links must always execute on open.
+      if (!navigationOnly && !isPairingSetupLink && handledUrls.has(url)) return;
+      if (!navigationOnly && !isPairingSetupLink) handledUrls.add(url);
 
       if (isDevLeashUnlockDeepLink(url) && activateDeveloperLeashUnlock) {
         await activateDeveloperLeashUnlock();

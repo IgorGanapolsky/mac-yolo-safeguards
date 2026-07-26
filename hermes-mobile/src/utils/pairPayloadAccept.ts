@@ -108,12 +108,24 @@ export function acceptPairSetupPayload(
       };
     }
     if (hostLooksLoopback(gatewayUrl) && !allowLoopback) {
-      return {
-        ok: false,
-        reason: 'loopback_primary',
-        message:
-          'This QR targets USB loopback (127.0.0.1), which phones cannot reach off-cable. Use Tailscale or the same Wi‑Fi pair page.',
-      };
+      const nonLoopbackExtra = params.extraComputers?.find(
+        (extra) => extra.gatewayUrl && !hostLooksLoopback(extra.gatewayUrl),
+      );
+      if (nonLoopbackExtra?.gatewayUrl) {
+        params = {
+          ...params,
+          gatewayUrl: nonLoopbackExtra.gatewayUrl,
+          apiKey: nonLoopbackExtra.apiKey ?? params.apiKey,
+          macName: nonLoopbackExtra.macName ?? params.macName,
+        };
+      } else {
+        return {
+          ok: false,
+          reason: 'loopback_primary',
+          message:
+            'This QR targets USB loopback (127.0.0.1), which phones cannot reach off-cable. Use Tailscale or the same Wi‑Fi pair page.',
+        };
+      }
     }
     if (!hostLooksLoopback(gatewayUrl) && !isValidGatewayUrl(gatewayUrl) && !isSupportedHttpPairOrGatewayUrl(gatewayUrl)) {
       return {
