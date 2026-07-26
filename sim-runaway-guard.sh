@@ -146,8 +146,17 @@ notify() {
 }
 
 # --- Auto-configure adb reverse port forwarding for Hermes Mobile ---
+# OPT-IN since 2026-07-25. This block re-created tcp:8642/8765 on every guard tick, so the
+# phone kept finding a USB loopback route and the app kept offering "USB cable connected"
+# even after the transport was deliberately re-paired onto Tailscale — and a live USB reverse
+# masks the real tailnet state (a cabled phone shows a false-fresh screen). Tailscale is the
+# supported transport for phone+iPad; export HERMES_ALLOW_USB_REVERSE=1 to restore the old
+# auto-forwarding for local device debugging.
 ADB_BIN=${YOLO_ADB_BIN:-adb}
-if command -v "$ADB_BIN" >/dev/null 2>&1; then
+if [ "${HERMES_ALLOW_USB_REVERSE:-0}" != "1" ]; then
+  ADB_BIN=""   # falls through the command -v guard below: no auto-forward, no cleanup churn
+fi
+if [ -n "$ADB_BIN" ] && command -v "$ADB_BIN" >/dev/null 2>&1; then
   "$ADB_BIN" devices 2>/dev/null | /usr/bin/awk 'NR > 1 && $2 == "device" {print $1}' | while read -r serial; do
     if [ -n "$serial" ]; then
       case "$serial" in

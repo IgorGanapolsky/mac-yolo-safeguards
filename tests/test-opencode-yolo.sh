@@ -96,5 +96,45 @@ for name in ("glm-coding", "glm-turbo", "opencode-go-glm", "kimi-code", "glm-vis
 assert not models["hermes-local"].get("attachment"), "hermes-local must stay text-only"
 PY
 
+# 8. LSP is on by default. opencode ships 25+ servers but defaults them OFF — the TUI logged
+#    "all LSPs are disabled" on 2026-07-25, i.e. the agent edited this TypeScript/React Native
+#    app with no type diagnostics coming back. Measured cost of enabling: ~7s per run.
+base_env
+"$WRAPPER" run "hi" >/dev/null 2>&1 || true
+python3 -c "
+import json,sys
+assert json.load(open('$ROOT/oc-home/opencode.json'))['lsp'] is True
+" && ok "lsp enabled by default" || no "lsp enabled by default"
+
+OPENCODE_YOLO_NO_LSP=1 "$WRAPPER" run "hi" >/dev/null 2>&1 || true
+python3 -c "
+import json,sys
+assert json.load(open('$ROOT/oc-home/opencode.json'))['lsp'] is False
+" && ok "OPENCODE_YOLO_NO_LSP=1 escape hatch" || no "OPENCODE_YOLO_NO_LSP=1 escape hatch"
+
+# 9. Expo/EAS MCP is wired, and stays opt-out-able: it is a REMOTE server behind an OAuth
+#    browser flow, so headless/cron runs must be able to drop it (it logs needs_auth until a
+#    human authorizes an Expo account).
+OPENCODE_YOLO_NO_EXPO_MCP=1 "$WRAPPER" run "hi" >/dev/null 2>&1 || true
+python3 -c "
+import json
+assert 'expo' not in json.load(open('$ROOT/oc-home/opencode.json'))['mcp']
+" && ok "OPENCODE_YOLO_NO_EXPO_MCP=1 drops the remote server" || no "OPENCODE_YOLO_NO_EXPO_MCP=1 drops the remote server"
+
+base_env
+"$WRAPPER" run "hi" >/dev/null 2>&1 || true
+python3 -c "
+import json
+e=json.load(open('$ROOT/oc-home/opencode.json'))['mcp']['expo']
+assert e['type']=='remote' and e['url']=='https://mcp.expo.dev/mcp' and e['enabled'] is True
+" && ok "expo MCP wired by default" || no "expo MCP wired by default"
+
+# 10. USB auto-forwarding is opt-in. sim-runaway-guard.sh used to re-create adb reverse
+#     tcp:8642/8765 on every tick, so the phone kept seeing a USB loopback route (and a live
+#     reverse masks real tailnet state) even after the transport was moved to Tailscale.
+grep -q 'HERMES_ALLOW_USB_REVERSE' "$HERE/../sim-runaway-guard.sh" &&
+  grep -q 'ADB_BIN=""' "$HERE/../sim-runaway-guard.sh" &&
+  ok "guard USB auto-forward is opt-in" || no "guard USB auto-forward is opt-in"
+
 echo "opencode-yolo tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
