@@ -29,10 +29,16 @@ export function __setSentryConfigForTesting(cfg: {
 }
 
 const APP_VERSION = appConfig.expo.version;
-const BUILD_NUMBER =
+// `Constants.nativeBuildVersion` is the REAL native build (CFBundleVersion / versionCode).
+// `expoConfig` only mirrors app.json, which is STALE for iOS: EAS auto-increments the build
+// remotely, so on 2026-07-26 app.json said 17 while the App Store served build 24 (v1.3) with
+// 28 (v1.4) in review. Reporting the stale number makes Sentry's `dist` unable to identify
+// which shipped binary a crash came from — release health per build is then meaningless.
+const EXPO_CONFIG_BUILD =
   Platform.OS === 'android'
     ? String(Constants.expoConfig?.android?.versionCode ?? '')
     : String(Constants.expoConfig?.ios?.buildNumber ?? '');
+const BUILD_NUMBER = String(Constants.nativeBuildVersion ?? '') || EXPO_CONFIG_BUILD;
 
 /** Whether Sentry has been initialized (i.e. a DSN was present). */
 export function isCrashReportingEnabled(): boolean {
