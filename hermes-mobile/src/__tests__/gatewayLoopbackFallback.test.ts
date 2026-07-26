@@ -14,12 +14,13 @@ describe('gatewayLoopbackFallback', () => {
     expect(shouldSkipLanGatewayProbe(USB_LOOPBACK_GATEWAY_URL, false)).toBe(false);
   });
 
-  it('offers USB loopback fallback for LAN URLs on native', () => {
+  it('offers USB loopback fallback for LAN URLs on Android only', () => {
     const fallbacks = usbLoopbackFallbackUrls('http://10.2.29.103:8642');
-    if (Platform.OS === 'web') {
-      expect(fallbacks).toEqual([]);
-    } else {
+    if (Platform.OS === 'android') {
       expect(fallbacks).toEqual([USB_LOOPBACK_GATEWAY_URL]);
+    } else {
+      // iOS/web: no adb reverse — never probe 127.0.0.1 as a heal candidate.
+      expect(fallbacks).toEqual([]);
     }
   });
 
