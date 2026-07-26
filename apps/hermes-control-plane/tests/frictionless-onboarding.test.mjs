@@ -239,7 +239,7 @@ test("lets users choose Mac vs Continuity VPS on every task not only offline fai
   assert.match(dashboard, /My Mac/);
   assert.match(dashboard, /Where should this run\?/);
   assert.match(dashboard, /composer-route-explain/);
-  assert.match(dashboard, /Auto — Mac first/);
+  assert.match(dashboard, /Auto — \$\{selectedDeviceLabel\} first|Auto — Mac first/);
   assert.match(dashboard, /My Mac only/);
   assert.match(dashboard, /Continuity \(cloud VPS\)/);
   assert.match(dashboard, /aria-labelledby="composer-where-label"/);
@@ -250,21 +250,21 @@ test("lets users choose Mac vs Continuity VPS on every task not only offline fai
   assert.match(taskRouting, /preference === "local"/);
 });
 
-test("lets users pick which paired Mac a task runs on when more than one is paired", () => {
+test("always shows which paired Mac will run a task and pins deviceId", () => {
   const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
-  // The composer previously never sent deviceId at all -- the API silently fell back to
-  // "most recently seen device", with zero UI to choose or even see which Mac would run it.
+  // #1046 added multi-Mac pick with a "Most recently active" empty default; users still
+  // could not *see* the target Mac with one device, and empty default re-introduced silent
+  // last_seen assignment. Always show the select and always POST deviceId.
   assert.match(dashboard, /selectedDeviceId/);
   assert.match(dashboard, /composer-device-picker/);
-  assert.match(dashboard, /Which Mac/);
-  assert.match(dashboard, /Most recently active/);
-  // Only shown when it's actually a meaningful choice.
-  assert.match(dashboard, /devices\.length > 1 && routePreference !== "cloud"/);
-  // The payload only includes deviceId when the user actually picked one, so single-device
-  // orgs (the common case) keep sending the exact same request shape as before.
-  assert.match(dashboard, /\.\.\.\(selectedDeviceId \? \{ deviceId: selectedDeviceId \} : \{\}\)/);
-  // Server-side support already existed (payload.deviceId is read and validated); this proves
-  // the composer is the only thing that was missing.
+  assert.match(dashboard, /Which Mac\?/);
+  assert.match(dashboard, /devices\.length > 0/);
+  assert.match(dashboard, /deviceId: selectedDeviceId/);
+  assert.match(dashboard, /pickDefaultDeviceId/);
+  assert.match(dashboard, /preferredDevicePreferenceKey|thumbgate\.preferredDeviceId/);
+  assert.doesNotMatch(dashboard, /Most recently active/);
+  assert.doesNotMatch(dashboard, /devices\.length > 1 && routePreference !== "cloud"/);
+  assert.match(globals, /\.composer-device-hint\{/);
   assert.match(tasksRoute, /payload\?\.deviceId/);
 });
 
