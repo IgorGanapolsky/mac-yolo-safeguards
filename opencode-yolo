@@ -175,6 +175,14 @@ OPENCODE_YOLO_ALL_SKILLS="${OPENCODE_YOLO_ALL_SKILLS:-0}" node -e '
   if (process.env.GREPAI_MCP_ENABLED === "true") {
     mcp.grepai={ type:"local", command:["grepai","mcp-serve"], cwd:process.cwd(), enabled:true };
   }
+  // Expo/EAS: the official hosted MCP (https://docs.expo.dev/mcp/) — EAS build_run/build_logs,
+  // testflight_crashes, playstore_reviews, expo_router_sitemap, automation_take_screenshot.
+  // Remote + OAuth: the FIRST run opens a browser to authorize an Expo account, so it is opt-OUT
+  // (OPENCODE_YOLO_NO_EXPO_MCP=1) rather than silently added to headless/cron runs that cannot
+  // complete a browser flow.
+  if (process.env.OPENCODE_YOLO_NO_EXPO_MCP !== "1") {
+    mcp.expo={ type:"remote", url:"https://mcp.expo.dev/mcp", enabled:true };
+  }
 
   const cfg={
     $schema:"https://opencode.ai/config.json",
@@ -195,6 +203,13 @@ OPENCODE_YOLO_ALL_SKILLS="${OPENCODE_YOLO_ALL_SKILLS:-0}" node -e '
       }
     }},
     compaction:{ auto:true, prune:true, reserved:10000 },
+    // opencode ships 25+ LSP servers but defaults them OFF — the TUI logged "all LSPs are
+    // disabled" on 2026-07-25, meaning the agent edited this TypeScript/React Native app with
+    // zero type diagnostics coming back. `true` enables the built-ins, and each one only starts
+    // when its file extension is actually present, so a JS/TS repo starts a TS server and
+    // nothing else. Opt out with OPENCODE_YOLO_NO_LSP=1 if a server ever wedges (upstream warns
+    // they can desync or eat memory on big repos).
+    lsp: process.env.OPENCODE_YOLO_NO_LSP === "1" ? false : true,
     mcp,
     permission:"allow"
   };
