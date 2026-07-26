@@ -219,7 +219,9 @@ test("dashboard uses shell-first SWR navigation cache (Issues-style instant nav)
 
 test("lessons workspace activity stats and lesson cards deep-link into Hermes", () => {
   assert.match(lessonsClient, /href="\/dashboard"/);
+  assert.match(lessonsClient, /href="\/dashboard#chats"/);
   assert.match(lessonsClient, /href="\/dashboard#task-activity"/);
+  assert.match(lessonsClient, /Open chat list/);
   assert.match(lessonsClient, /Open in Hermes/);
   assert.match(lessonsClient, /hermesTaskHref|params\.set\("task"/);
   assert.match(lessonsRoute, /k\.thread_id AS threadId/);
