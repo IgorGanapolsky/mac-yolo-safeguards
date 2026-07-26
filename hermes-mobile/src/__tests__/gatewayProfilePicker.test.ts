@@ -20,6 +20,13 @@ import {
   isCablePluggedInForProfile,
 } from '../utils/gatewayProfilePicker';
 
+// Tailscale-only is the PRODUCT DEFAULT since 2026-07-26 (CEO: "my app should not know about
+// USB, it should only know about tailscale"), so the picker drops loopback rows unless the
+// debugging escape hatch is on. The USB cases below still guard a real code path — they are
+// scoped to that hatch rather than deleted, so their regression value is preserved without
+// re-enabling USB for users. See src/__tests__/tailscaleOnlyTransport.test.ts for the default.
+process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT = '1';
+
 describe('gatewayProfilePicker', () => {
   it('splits hostname and IP for picker rows', () => {
     const lines = profilePickerLines({
