@@ -25,7 +25,7 @@ export type PairingDecision =
       reused: false;
     };
 
-export function isFailoverMode(value: string): value is FailoverMode {
+function isFailoverMode(value: string): value is FailoverMode {
   return value === "disabled" || value === "manual" || value === "auto";
 }
 

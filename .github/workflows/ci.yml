@@ -193,6 +193,12 @@ jobs:
       - name: Store link freshness check
         run: node tools/check-store-links.js
 
+      - name: Social publish hard gates (unit)
+        run: node tests/test-social-publish-gate.js
+
+      - name: Social campaign data science (unit)
+        run: node tests/test-social-campaign-ds.js
+
       - name: Publication readiness
         run: node tools/publication-readiness.js
 

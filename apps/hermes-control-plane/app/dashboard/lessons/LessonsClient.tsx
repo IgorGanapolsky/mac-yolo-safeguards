@@ -94,19 +94,19 @@ export default function LessonsClient() {
     <header className="lessons-header">
       <div>
         <p className="eyebrow">THUMBGATE</p>
-        <h1>Your Hermes lessons</h1>
+        <h1>ThumbGate lessons</h1>
         <p>
           Lessons are <strong>thumbs you leave on completed answers</strong> — not every chat or prompt.
           👍 = keep doing this. 👎 = fix this next time.
         </p>
       </div>
-      <a className="button button-secondary button-small" href="/dashboard">← Back to Hermes</a>
+      <a className="button button-secondary button-small" href="/dashboard">← Back to dashboard</a>
     </header>
 
     <section className="lesson-activity" aria-label="Workspace activity (not lessons)">
       <p className="eyebrow">WORKSPACE ACTIVITY</p>
       <ul>
-        <li><a href="/dashboard" aria-label={`View ${activity.threads} synced chats in Hermes`}><strong>{activity.threads}</strong><span>chats synced</span></a></li>
+        <li><a href="/dashboard#chats" aria-label={`Open chat list — ${activity.threads} synced chats`}><strong>{activity.threads}</strong><span>chats synced</span></a></li>
         <li><a href="/dashboard#task-activity" aria-label={`View ${activity.completedResponses} completed web answers`}><strong>{activity.completedResponses}</strong><span>completed web answers</span></a></li>
         <li><a href="/dashboard#task-activity" aria-label={`View ${activity.unratedCompleted} completed answers waiting for a thumbs rating`}><strong>{activity.unratedCompleted}</strong><span>still unrated</span></a></li>
       </ul>

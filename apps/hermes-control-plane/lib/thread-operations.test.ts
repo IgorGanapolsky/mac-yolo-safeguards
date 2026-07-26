@@ -41,7 +41,11 @@ vi.mock("./runtime", () => ({
   }),
 }));
 vi.mock("./audit", () => ({ audit: vi.fn().mockResolvedValue(undefined) }));
-vi.mock("./security", () => ({ randomToken: () => "lease-token", sha256: async (value: string) => `hash:${value}` }));
+vi.mock("./security", () => ({
+  randomToken: () => "lease-token",
+  sha256: async (value: string) => `hash:${value}`,
+  sanitizeText: (value: string, maxLen: number) => value.replaceAll("\u0000", "").replace(/\s+/g, " ").trim().slice(0, maxLen),
+}));
 
 import {
   claimThreadOperation,

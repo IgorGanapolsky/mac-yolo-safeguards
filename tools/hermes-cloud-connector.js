@@ -24,6 +24,10 @@ const TASK_TIMEOUT_MS = 150_000;
 const LEASE_RENEW_MS = 30_000;
 const MAX_CONTEXT_MESSAGES = 60;
 const MAX_CONTEXT_CHARS = 48_000;
+// Scheduled cron-automation runs create real Hermes gateway sessions with this id shape, but
+// they're ephemeral and never meant to be resumed as a chat -- don't even sync them up as a
+// ThumbGate thread (the control plane also filters this server-side as defense-in-depth).
+const CRON_SESSION_ID_RE = /^cron_[a-f0-9]{8,}_\d{8}_\d{6}$/;
 
 function positiveMilliseconds(value, fallback) {
   const parsed = Number(value);
@@ -344,7 +348,8 @@ function selectContextSessionIds(sessions, afterSessionId = '', limit = CONTEXT_
 
 async function collectGatewaySessions(config) {
   const payload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions?limit=${SESSION_LIMIT}`, { gatewayEnvPath: config.gatewayEnvPath });
-  const sessions = Array.isArray(payload.data) ? payload.data : [];
+  const sessions = (Array.isArray(payload.data) ? payload.data : [])
+    .filter((session) => !CRON_SESSION_ID_RE.test(String(session?.id || '')));
   const contextWindow = selectContextSessionIds(sessions, config.sessionContextCursorId);
   const collected = await Promise.all(sessions.map(async (session) => {
     let messages = [];
@@ -375,9 +380,22 @@ async function syncGatewaySessions(config, options = {}) {
   return result;
 }
 
+/**
+ * Sessions ThumbGate is allowed to silently recreate if the gateway reports them missing:
+ * web-created sessions (no prior Hermes session existed) and cron-sourced sessions (already
+ * synced into a thread before the sync-side filter shipped, or synced by an older connector --
+ * cron sessions are ephemeral by design, so "missing" is the expected steady state, not a bug).
+ * A genuine live Hermes Mobile/desktop session id is NOT in this set: if the gateway reports
+ * that one is missing, something is actually wrong (revoked pairing, data loss) and silently
+ * faking a fresh session would hide the real problem and orphan the user's actual chat history.
+ */
+function isRecoverableSessionId(sessionId) {
+  return sessionId.startsWith('thumbgate_') || CRON_SESSION_ID_RE.test(sessionId);
+}
+
 async function executeLocal(config, task) {
   if (!task.sourceSessionId) throw new Error('ThumbGate task is missing its Hermes session binding');
-  const webCreatedSession = task.sourceSessionId.startsWith('thumbgate_');
+  const webCreatedSession = isRecoverableSessionId(task.sourceSessionId);
   if (webCreatedSession) await ensureWebHermesSession(config, task);
   const handoff = Array.isArray(task.handoffMessages) && task.handoffMessages.length
     ? `Cloud/web continuation since this Mac last synced:\n${task.handoffMessages.map((message) => `${message.role}: ${message.content}`).join('\n\n').slice(-24_000)}`
