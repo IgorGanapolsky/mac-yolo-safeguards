@@ -11,13 +11,14 @@ import {
 type ThumbGatePromoCardProps = {
   surface: ThumbGatePromoSurface;
   style?: object;
+  testID?: string;
 };
 
 const OPEN_FAIL_TITLE = 'Could not open ThumbGate';
 const OPEN_FAIL_MESSAGE =
   'Open https://thumbgate.app in your browser to continue.';
 
-export default function ThumbGatePromoCard({ surface, style }: ThumbGatePromoCardProps) {
+export default function ThumbGatePromoCard({ surface, style, testID }: ThumbGatePromoCardProps) {
   const copy = thumbGatePromoCopy(surface);
 
   useEffect(() => {
@@ -35,7 +36,7 @@ export default function ThumbGatePromoCard({ surface, style }: ThumbGatePromoCar
   };
 
   return (
-    <GlassCard style={[styles.card, style]} testID={`thumbgate-promo-${surface}`}>
+    <GlassCard style={[styles.card, style]} testID={testID ?? `thumbgate-promo-${surface}`}>
       <Text style={styles.headline}>{copy.headline}</Text>
       <Text style={styles.body}>{copy.body}</Text>
       <TouchableOpacity

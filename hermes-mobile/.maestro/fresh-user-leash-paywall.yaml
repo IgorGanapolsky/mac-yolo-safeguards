@@ -30,26 +30,18 @@ appId: com.iganapolsky.hermesmobile
     visible:
       id: "THUMBGATE_LEASH"
     timeout: 30000
-# Free tier: pro-upgrade-card is near top under leash-pro-upsell-card.
-# Locked (no free remaining): same testIDs on the locked empty card.
-- extendedWaitUntil:
-    visible:
-      id: "leash-pro-upsell-card"
-    timeout: 30000
-- scrollUntilVisible:
-    element:
-      id: "pro-upgrade-card"
-    direction: DOWN
-    timeout: 30000
-    visibilityPercentage: 40
-    centerElement: true
-- assertVisible:
-    id: "pro-upgrade-card"
-- assertVisible:
-    id: "restore-thumbgate-leash"
-- assertVisible:
-    id: "subscription-legal-disclosure"
-# Platform CTA: Android lifetime IAP or iOS web dashboard (never StoreKit monthly).
+# Free tier / disconnected: pro-upgrade-card or thumbgate-promo card.
+- runFlow:
+    when:
+      visible:
+        id: "pro-upgrade-card"
+    commands:
+      - assertVisible:
+          id: "pro-upgrade-card"
+      - assertVisible:
+          id: "restore-thumbgate-leash"
+      - assertVisible:
+          id: "subscription-legal-disclosure"
 - runFlow:
     when:
       visible:
@@ -68,6 +60,17 @@ appId: com.iganapolsky.hermesmobile
           id: "open-thumbgate-web-subscription"
       - tapOn:
           id: "open-thumbgate-web-subscription"
+- runFlow:
+    when:
+      visible:
+        id: "thumbgate-promo-open"
+    commands:
+      - assertVisible:
+          id: "thumbgate-promo-open"
+      - tapOn:
+          id: "thumbgate-promo-open"
+      - launchApp:
+          appId: "com.iganapolsky.hermesmobile"
 - waitForAnimationToEnd:
     timeout: 5000
 - runFlow:

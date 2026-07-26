@@ -334,7 +334,11 @@ export default function ApprovalsScreen() {
           Locked path embeds the card in the empty state below instead (same testIDs).
         */}
         {cannotReachComputer ? (
-          <ThumbGatePromoCard surface="leash_disconnected" style={styles.emptyCard} />
+          <ThumbGatePromoCard
+            surface="leash_disconnected"
+            style={styles.emptyCard}
+            testID="leash-pro-upsell-card"
+          />
         ) : null}
         {!cannotReachComputer && !hasThumbgateLeashPro(settings) && leashUnlocked ? (
           <GlassCard style={styles.emptyCard} testID="leash-pro-upsell-card">
