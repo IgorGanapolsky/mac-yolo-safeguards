@@ -209,11 +209,12 @@ function exchangePairingCode(code) {
   return result;
 }
 
-function buildSecretlessDeepLink(code, pairServerUrl, hostname) {
+function buildSecretlessDeepLink(code, pairServerUrl, hostname, gatewayUrl) {
   const params = new URLSearchParams();
   // Mobile parser expects `pairCode` (not relay `code`) — see setupDeepLink.ts T-330.
   params.set('pairCode', code);
   params.set('pairServer', pairServerUrl);
+  if (gatewayUrl) params.set('url', gatewayUrl);
   const displayName = (hostname || '').replace(/\.local$/i, '').trim();
   if (displayName) params.set('name', displayName);
   return `hermes://setup?${params.toString()}`;
@@ -1409,7 +1410,7 @@ function runPairMain(args) {
     ? (() => {
         minted = mintPairingCode(pairSeed, { ttlMs: PAIRING_CODE_DISPLAY_TTL_MS });
         // adb open uses loopback when reverse is live; HTTP page remints use phonePairServer.
-        return buildSecretlessDeepLink(minted.code, adbPairExchangeBase, hostname);
+        return buildSecretlessDeepLink(minted.code, adbPairExchangeBase, hostname, gatewayUrl);
       })()
     : buildDeepLink(gatewayUrl, apiKey, hostname, relayCode, tailnetProbeHosts, extraComputers, thumbgateApiKey);
   // P0 2026-07-20: `--no-serve --mini-tailscale` used to always skip adb/pair.json, even with
