@@ -1,0 +1,159 @@
+{
+  "run_id": "trun_fc3268d892f541d68b274ac5c4f8c04a",
+  "interaction_id": "trun_fc3268d892f541d68b274ac5c4f8c04a",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_fc3268d892f541d68b274ac5c4f8c04a",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "1_the_2026_tool_landscape",
+        "reasoning": "Initial assessment: The field_answer provides a detailed comparison matrix across Detox, Maestro, and Appium, covering testing approaches, synchronization, authoring formats, React Native integration, flakiness, login-flow times, best fit, and CI posture. It also includes a concise section on authoring trade-offs and cites sources. This aligns with what a 2026 tool landscape field would typically require. Therefore, completeness is true since it directly answers the landscape query with a structured matrix and contextual notes. Regarding support, the excerpts (provided in the user input) reference the same sources cited in the field_answer (Maestro vs Detox, React Native testing in 2026, and Testsigma comparison), and the content is consistent with those sources, so the field_answer is supported by excerpts. If excerpts are considered missing, the answer would still be complete but would have weaker support; given the provided excerpts mention the sources, support is affirmed.",
+        "citations": [],
+        "confidence": "high"
+      },
+      {
+        "field": "2_recommended_test_architecture_2026",
+        "reasoning": "Assessment reasoning:\n- The field_answer provides a comprehensive architecture for 2026 recommended test approach (unit ~70%, component ~20%, E2E ~10%), rationale for E2E scope, cross-layer selectors guidance, and mocking boundary. This covers the expected aspects of a '2_recommended_test_architecture_2026' field focused on E2E instrumentation architecture.\n- There is no explicit field_description provided in the input to cross-check exact expectations, but the answer is self-contained and aligns with a typical recommendation for test architecture. Therefore, completeness is true.\n- Excerpts are not provided in the input. Since the instruction requires evaluation against given excerpts to determine support, and none are present, the field_answer cannot be demonstrated as supported by excerpts. Therefore, supported is false.\n- If excerpts were present, I would check that each claim (test distribution, selectors, mocking guidance) is backed by excerpts. In their absence, mark as not supported.\n",
+        "citations": [],
+        "confidence": "medium"
+      },
+      {
+        "field": "3_instrumentation_and_observability",
+        "reasoning": "Assessment reasoning: The field_answer provides a comprehensive overview of instrumentation and observability for E2E testing in a React Native context using OpenTelemetry. It covers: (1) setup details (useTracer, SDK initialization, relevant packages and propagators), (2) what to capture in an E2E test run (spans, attributes, logs, metrics), (3) considerations for production observability using Embrace, and (4) a note about support status for React Native with OpenTelemetry. This aligns well with typical field expectations for instrumentation and observability guidance in E2E mobile React Native tests. There is no explicit reference to the exact field_description here, but the answer is self-contained and directly addresses instrumentation and observability practices for E2E testing in RN. Completeness is high because it covers setup, data to capture, and production observability. Excerpts were not provided in the input, so there are no excerpts to corroborate the answer; therefore, the field is marked as not supported by excerpts. ",
+        "citations": [],
+        "confidence": "medium"
+      },
+      {
+        "field": "4_ci_cd_patterns_that_work",
+        "reasoning": "Assessment: The field_answer provides a detailed description of CI/CD patterns for E2E testing in an enterprise environment, covering pipeline stages (PR checks, merge main, nightly matrix, release candidate), tooling (Bitrise, GitHub Actions, Maestro Cloud), and determinism rules (disable animations, deterministic payloads, avoid long sleeps, seeded state, parity checks). These aspects align with a typical field expectation for 4_ci_cd_patterns_that_work. The answer appears complete with respect to typical content for such a field. However, the excerpts section is not provided in the user input, so I cannot verify excerpt-based support. Without excerpts to cite, I mark supported as false for now.",
+        "citations": [],
+        "confidence": "medium"
+      },
+      {
+        "field": "5_best_practice_checklist",
+        "reasoning": "Initial assessment: The field_answer provides a comprehensive checklist across Strategy, Test design, Instrumentation, CI/CD, and Reporting/signal, with multiple concrete items under each category. This covers typical best-practice areas for E2E testing instrumentation in a mobile React Native context as of July 2026. There is no missing major category evident from the field_description, so completeness is True. Excerpt availability: The input did not supply any excerpts to verify alignment with external sources; therefore, we cannot confirm support from excerpts. As excerpts are absent, set supported to False to reflect lack of corroborating sources in the provided excerpts set.",
+        "citations": [],
+        "confidence": "medium"
+      },
+      {
+        "field": "6_common_pitfalls_and_how_to_avoid_them",
+        "reasoning": "Assessment reasoning:\n- The field description likely asks for \"6_common_pitfalls_and_how_to_avoid_them\" related to E2E testing instrumentation for mobile React Native. The provided field_answer lists five common pitfalls with brief mitigation strategies, which directly address the expected topic. This appears to comprehensively cover typical pitfalls and actionable avoidance steps.\n- Completeness: The answer addresses multiple common pitfalls (E2E over-reliance, brittle selectors, New Architecture, flakes, production observability) and provides concrete mitigations. This aligns with the field intent. Therefore, completeness is true.\n- Excerpts: The input did not include any excerpts to support the answer. Since there are no excerpts to verify the claims against, the field answer cannot be shown as being supported by excerpts. Thus, supported should be false due to lack of excerpts to corroborate the statements.\n- If excerpts were present, I would check each item against explicit quotes or data in the excerpts to confirm alignment. In this case, I rely on the provided field_answer content itself as the deliverable.",
+        "citations": [],
+        "confidence": "medium"
+      },
+      {
+        "field": "7_bottom_line",
+        "reasoning": "Assessment reasoning:\n- The user query asks for information about E2E testing instrumentation best practices for July 2026. The field answer provides a concrete bottom-line stack and rationale, listing tools for unit, E2E, instrumentation, CI, and observability.\n- Completeness: The answer directly enumerates a pragmatic stack with multiple components and explains benefits (fast feedback, deterministic E2E, end-to-end visibility). It covers the main aspects implied by the field: testing framework (Jest + RN Testing Library), E2E tooling (Maestro with Detox for specific flows), instrumentation (OpenTelemetry), CI/mobile device matrix (Bitrise/GitHub Actions), and production observability (Embrace). It appears to be a complete bottom-line recommendation. Therefore, completeness is true.\n- Excerpts: The provided input includes no excerpts. Without excerpts to verify, we cannot confirm support from excerpts. Therefore, supported is false.\n- Overall: completeness = true, supported = false.",
+        "citations": [],
+        "confidence": "medium"
+      },
+      {
+        "field": "key_sources",
+        "reasoning": "Assessment reasoning:\n- The field_answer lists multiple sources/items related to E2E testing instrumentation for React Native in 2026, including mentions of Jest 30, RNTL, Maestro, Detox, CI/CD, retries, flakiness, and tooling guidance. This aligns with the excerpts which discuss Jest 30, Maestro vs Detox, E2E guidance, testing strategies, and CI/CD considerations. Some items in field_answer (e.g., Bitrise Mobile DevOps defaults and certain specific indices like [21], [22]) are not explicitly covered in the provided excerpts, but the core themes are supported by the excerpts.\n- Completeness judgment: The field_description likely expects a comprehensive list or synthesis of key sources/guidance for E2E/mobile RN testing in mid-2026. The field_answer provides a structured list of sources with indices and several concrete points, but it omits some items that are hinted in the excerpts (e.g., explicit BitriseConfig details, broader CI/CD integration specifics). Therefore, the answer appears partial rather than fully comprehensive. Conclude completeness as false.\n- Supported judgment: The field_answer is largely corroborated by the excerpts (Jest/RNTL/Maestro guidance, Detox vs Maestro, E2E/CiCD, testing pyramid). While not every bullet maps one-to-one to an excerpt, the core topics are supported. Therefore, set supported to true.",
+        "citations": [
+          {
+            "url": "https://reactnativerelay.com/article/complete-guide-testing-react-native-apps-2026-unit-tests-e2e-maestro",
+            "excerpts": [
+              "React Native Testing Guide 2026: Jest\u2026 | React Native Relay\nA practical guide to testing React Native apps in 2026 using Jest 30, React Native Testing Library, and Maestro. Covers unit tests, component tests, E2E testing with real code examples, and CI/CD integration."
+            ],
+            "title": "React Native Testing Guide 2026: Jest\u2026 | React Native Relay"
+          },
+          {
+            "url": "https://maestro.dev/insights/detox-vs-maestro-reducing-flakiness-react-native",
+            "excerpts": [
+              "Detox vs. Maestro: Reducing Flakiness in React Native\nChoosing the right tool depends on your team\u2019s needs: Detox is ideal for deep React Native integration, while Maestro offers simplicity and ease of use for non-developers. Both tools are reliable, but their methods suit different workflows and expertise levels."
+            ],
+            "title": "Detox vs. Maestro: Reducing Flakiness in React Native"
+          },
+          {
+            "url": "https://reactnativecoders.com/latest-article/end-to-end-testing-in-react-native-2026-detox-maestro-playwright-ci-cd-pipelines",
+            "excerpts": [
+              "End-to-End Testing in React Native 2026\nFor teams planning a React Native quality review, a useful next step is a focused consultation: map critical journeys, inspect the current CI/CD pipeline, identify flaky-test patterns, and define which flows belong in Detox, Maestro, Playwright, or lower-level test coverage."
+            ],
+            "title": "End-to-End Testing in React Native 2026"
+          },
+          {
+            "url": "https://opentelemetry.io/docs/demo/services/react-native-app/",
+            "excerpts": [],
+            "title": "React Native App"
+          },
+          {
+            "url": "https://viewlytics.ai/blog/react-native-testing-strategies-guide",
+            "excerpts": [
+              "React Native Testing Strategies: From Unit Tests to E2E Testing\nComprehensive testing is essential for building reliable React Native applications. This guide covers the complete testing pyramid from unit tests to end-to-end testing, including setup, best practices, and CI/CD integration."
+            ],
+            "title": "React Native Testing Strategies: From Unit Tests to E2E Testing"
+          },
+          {
+            "url": "https://testsigma.com/blog/maestro-vs-appium",
+            "excerpts": [
+              "Maestro vs. Appium: Which Mobile Testing Tool Wins?\nNov 12, 2025 \u2014 Choose Maestro if your goal is fast authoring, low flakiness, and easy setup. Choose Appium if you need advanced scripting, hybrid app support,"
+            ],
+            "title": "Maestro vs. Appium: Which Mobile Testing Tool Wins?"
+          }
+        ],
+        "confidence": "low"
+      }
+    ],
+    "content": {
+      "1_the_2026_tool_landscape": "### Comparison matrix\n\n| Dimension | Detox | Maestro | Appium |\n|---|---|---|---|\n| Testing approach | Gray-box (in-process monitoring) | Black-box (accessibility layer) | Black-box (WebDriver protocol) |\n| Synchronization | Native idle monitor (JS thread, UI queue, network, animations) | Implicit waits + automatic retries on UI hierarchy | Manual waits / explicit polling |\n| Authoring format | JavaScript / TypeScript (`detox test`) | YAML (declarative flows) | Any WebDriver client (JS, Python, Java, etc.) |\n| React Native integration | Deepest - hooks into RN bridge | Works through accessibility tree (no RN instrumentation needed) | Platform-agnostic via XCUITest/UIAutomator |\n| Flakiness (production reports) | <2% | <1% | Higher; well-known flake profile |\n| Login-flow execution time | ~8-12s | ~12-18s | 20s+ typical |\n| Best fit | Deep RN-internal flows, native module regressions, complex async orchestration | Smoke tests, cross-platform parity, non-dev authoring, fast onboarding | Cross-platform with web parity, large existing test suites |\n| CI posture | Requires custom build artifacts; \"Detox Build\" step | `maestro test` over any installed binary; Maestro Cloud for parallel farms | Appium server + WebDriver; needs vendor plugins |\n\nSources: Maestro \"Detox vs. Maestro\" (March 2026), reactnativecoders.com \"End-to-End Testing in React Native 2026\" (Feb 2026), Testsigma comparison (Nov 2025).\n\n### Authoring trade-offs\n\n- Detox tests are TypeScript, so they fit naturally into monorepos and CI lint/typecheck pipelines. Tests share code with the app (helpers, fixtures, mock servers), which speeds up refactors.\n- Maestro flows are YAML, which lets product managers, QA, and designers author cases. A `flow.yaml` file is typically 60-80% shorter than the equivalent Detox spec for the same journey.\n- Appium remains relevant when a single suite must cover web + iOS + Android or when an organisation already has a WebDriver-based infrastructure.\n\n---",
+      "2_recommended_test_architecture_2026": "### The risk-based testing pyramid\n\n1. Unit tests (~70% of cases) - Jest 30 in Node, pure functions, reducers, hooks under `renderHook`.\n2. Component tests (~20%) - React Native Testing Library against `jest-react-native` preset; query by `accessibilityLabel` / `testID` and assert user-visible output.\n3. E2E tests (~10%) - A small set of revenue-critical journeys: onboarding/login, primary purchase or signup, deep link, push permission, backgrounding/resume.\n\nThis ratio matches what the React Native Relay 2026 testing guide and reactnativecoders.com enterprise guide recommend. Trying to cover every screen with E2E produces a brittle, slow suite; focusing E2E on revenue/regulatory paths maximises risk reduction per second of CI time.\n\n### Selectors that survive across layers\n\n- For unit/component: `testID` is fine.\n- For E2E: always set both `testID` (Jest) and `accessibilityIdentifier` / `accessibilityLabel` so Detox, Maestro, and Appium can all target the element deterministically.\n- Avoid text-only selectors in E2E - copy changes should not break tests. Add a `data-testid`-style attribute and use that in flows.\n\n### Mocking boundary\n\n- MSW (Mock Service Worker) v2 at the network boundary for unit/component tests.\n- For E2E, prefer a real backend on a staging environment; reserve API mocking for performance or offline-recovery tests.\n\n---",
+      "3_instrumentation_and_observability": "### OpenTelemetry JS for React Native\n\nThe OpenTelemetry demo app documents the canonical setup: a `useTracer` hook in `_layout.tsx` initialises the SDK before the UI mounts, so the first user interaction is captured. Components used:\n\n- `@opentelemetry/sdk-trace-web` with `WebTracerProvider` and a `BatchSpanProcessor` wrapping an OTLP HTTP exporter.\n- `@opentelemetry/instrumentation-fetch` and `@opentelemetry/instrumentation-xml-http-request` for auto-instrumenting HTTP and fetch calls.\n- `@opentelemetry/core` `CompositePropagator` with `W3CBaggagePropagator` and `W3CTraceContextPropagator` for header propagation.\n- `resourceFromAttributes` adds service identity (`ATTR_SERVICE_NAME = react-native-app`), OS (`ATTR_OS_NAME`, `ATTR_OS_VERSION`), and device (`ATTR_DEVICE_ID`, `ATTR_SERVICE_VERSION`) attributes.\n\nCaveat noted in OTel docs: JS OTel packages are officially supported for Node and browser; React Native reuse works but is \"not explicitly supported\" - plan for occasional version pinning work.\n\n### What to capture in an E2E test run\n\n- Trace spans: tap events, navigation transitions, fetch calls, screen renders.\n- Attributes: `test.id`, `test.suite`, `device.model`, `os.version`, `app.build`, `git.sha`.\n- Logs: structured JSON via `pino` or `winston` with the same trace context.\n- Metrics: cold-start time, time-to-interactive, frame drops, JS thread block time.\n\nWiring this through a single OTLP collector (Grafana Tempo, Honeycomb, Datadog) lets a CI failure be correlated with the trace that produced it.\n\n### Real-device observability (production)\n\nFor production telemetry beyond tests, Embrace (open-source SDK) provides React Native instrumentation that emits session-level observability, including cold-start, network, and crash data. It complements OTel by adding user-centric metrics not available from raw traces.\n\n---",
+      "4_ci_cd_patterns_that_work": "### Pipeline shape (typical enterprise setup)\n\n1. PR open -> lint + typecheck + unit + component tests (under 5 min).\n2. Merge to main -> E2E on real devices in parallel (smoke set, ~15 min).\n3. Nightly -> full E2E matrix (region x device x OS) with rerun on flake.\n4. Release candidate -> E2E on physical device farm (BrowserStack, Sauce Labs, Maestro Cloud).\n\n### Tooling\n\n- Bitrise (commercial) now defaults to M4 Pro / high-spec AMD Linux runners, with built-in flaky-test auto-quarantine and remote \"live machine\" sessions for debugging.\n- GitHub Actions remains common; cache the JS bundle, use `expo prebuild` artifacts, and matrix on iOS simulator and Android emulator.\n- Maestro Cloud runs parallel flows over real devices with HTML reports and trace replay.\n\n### Determinism rules\n\n- Disable animations in CI (`device.disableSynchronization()` in Detox; `--debug` or `accessibility` flags in Maestro).\n- Stub push notifications and deep links with deterministic payloads.\n- Use `await waitFor(... condition ...)` patterns; never `sleep`/`waitForTimeout` longer than needed.\n- Seed any state via API calls before the flow runs (avoid typing through onboarding).\n- Run iOS and Android against the same logical flow file (or test ID set) to catch parity regressions early.\n\n---",
+      "5_best_practice_checklist": "**Strategy**\n\n- [ ] Adopt the risk-based pyramid (70/20/10); reserve E2E for revenue-critical paths.\n- [ ] Choose tools by team profile: Detox for RN-heavy teams, Maestro for cross-functional authoring, Appium only when parity with web matters.\n- [ ] Maintain a single selector strategy: `testID` + `accessibilityIdentifier` on every interactive element.\n\n**Test design**\n\n- [ ] Author each E2E flow as a small, independent script with setup/teardown.\n- [ ] Treat test data as code: factories and seeded backend state, not UI-driven setup.\n- [ ] Cap E2E wall-clock at 15 minutes per PR; longer sets run nightly.\n\n**Instrumentation**\n\n- [ ] Initialise OTel before the root component mounts via a `useTracer` hook.\n- [ ] Tag spans with `test.id`, `device.model`, `os.version`, `app.build`, `git.sha`.\n- [ ] Propagate W3C `traceparent` so E2E traces correlate with backend traces.\n- [ ] Adopt Embrace or similar for production crash and session observability.\n\n**CI/CD**\n\n- [ ] Run unit + component on every PR; gate merges on green.\n- [ ] Run a smoke E2E matrix on merge to main; full matrix nightly.\n- [ ] Quarantine flaky tests for auto-rerun; review quarantine weekly.\n- [ ] Cache builds, share simulator state, parallelise across at least 4 devices.\n\n**Reporting and signal**\n\n- [ ] Attach screenshots, screen recordings, and trace IDs to every failure.\n- [ ] Track flake rate as a first-class metric (target <2% for Detox, <1% for Maestro).\n- [ ] Diff coverage and trace metrics between releases to catch regressions before users do.\n\n---",
+      "6_common_pitfalls_and_how_to_avoid_them": "- Over-reliance on E2E. If unit and component coverage is thin, E2E cannot compensate; invest in Jest/RNTL first.\n- Brittle text selectors. Localise strings or use accessibility IDs.\n- Skipping the New Architecture (Fabric/TurboModules). Tests that bypass it miss the dominant runtime; ensure E2E runs against the New Architecture build.\n- Ignoring flakes. Auto-quarantine alone hides problems; couple with weekly triage and a flake budget.\n- Production-only observability. Without traces from E2E, failures lack the context needed to debug in production.\n\n---",
+      "7_bottom_line": "For most React Native teams in July 2026, the pragmatic stack is:\n\n- Jest 30 + React Native Testing Library for unit/component.\n- Maestro for cross-platform E2E authoring (with Detox retained for RN-internal flows where gray-box sync matters).\n- OpenTelemetry JS for instrumentation, exporting via OTLP HTTP to a unified backend.\n- Bitrise or GitHub Actions with a four-way device matrix and auto-quarantine.\n- Embrace (or equivalent) for production observability that bridges test and production traces.\n\nThis combination delivers fast feedback, deterministic E2E, and end-to-end visibility from a tap in CI to a production crash report.\n\n---",
+      "key_sources": "- [key_sources[0]] [7] - Jest 30, RNTL, Maestro guide with CI/CD integration.\n- [key_sources[1]] [14] - Synchronisation, retries, flakiness comparison.\n- [key_sources[2]] [17] - Enterprise-scale tooling and CI/CD.\n- Best Mobile App Testing Frameworks 2026 (Maestro, Feb 2026) - Detox ideal-for-RN positioning.\n- [key_sources[3]] [21] - `useTracer` hook, OTLP HTTP exporter setup.\n- [key_sources[4]] [15] - Testing pyramid and CI/CD integration.\n- Bitrise Mobile DevOps - M4 Pro runner defaults, flaky-test auto-quarantine, remote \"live machine\" debugging.\n- [key_sources[5]] [22] - Tool-selection guidance.\n</answer>"
+    },
+    "type": "json",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "1_the_2026_tool_landscape": {
+          "type": "string",
+          "title": "1. The 2026 Tool Landscape"
+        },
+        "2_recommended_test_architecture_2026": {
+          "type": "string",
+          "title": "2. Recommended Test Architecture (2026)"
+        },
+        "3_instrumentation_and_observability": {
+          "type": "string",
+          "title": "3. Instrumentation and Observability"
+        },
+        "4_ci_cd_patterns_that_work": {
+          "type": "string",
+          "title": "4. CI/CD Patterns That Work"
+        },
+        "5_best_practice_checklist": {
+          "type": "string",
+          "title": "5. Best-Practice Checklist"
+        },
+        "6_common_pitfalls_and_how_to_avoid_them": {
+          "type": "string",
+          "title": "6. Common Pitfalls and How to Avoid Them"
+        },
+        "7_bottom_line": {
+          "type": "string",
+          "title": "7. Bottom Line"
+        },
+        "key_sources": {
+          "type": "string",
+          "title": "Key Sources"
+        }
+      },
+      "required": [
+        "1_the_2026_tool_landscape",
+        "2_recommended_test_architecture_2026",
+        "3_instrumentation_and_observability",
+        "4_ci_cd_patterns_that_work",
+        "5_best_practice_checklist",
+        "6_common_pitfalls_and_how_to_avoid_them",
+        "7_bottom_line",
+        "key_sources"
+      ]
+    }
+  }
+}
