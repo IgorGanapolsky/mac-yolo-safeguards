@@ -29,6 +29,20 @@ test("direct Cloudflare config is safe for local builds by default", () => {
   assert.equal(JSON.stringify(config).includes("appgprj_"), false);
 });
 
+test("observability sets explicit logs sampling and leaves beta traces off", () => {
+  const config = createDirectCloudflareConfig({});
+
+  assert.deepEqual(config.observability, {
+    enabled: true,
+    logs: { head_sampling_rate: 1 },
+  });
+  // Explicit intent: never miss an error (matches head_sampling_rate default,
+  // but written down rather than implicit). Traces stays unset — it is a
+  // separate, real wrangler key (verified against the installed 4.112.0
+  // config schema) that is billable and must be opted into deliberately.
+  assert.equal(config.observability.traces, undefined);
+});
+
 test("production gate requires the owned domain and a real D1 UUID", () => {
   assert.throws(
     () => assertProductionCloudflareEnvironment({}),

@@ -55,7 +55,43 @@ export function createDirectCloudflareConfig(environment = process.env) {
         migrations_dir: "drizzle",
       },
     ],
-    observability: { enabled: true },
+    // Workers Logs/Traces sampling — verified against the installed wrangler
+    // 4.112.0 config schema (node_modules/wrangler/config-schema.json,
+    // `Observability` definition) and Cloudflare's current (2026) docs:
+    //   https://developers.cloudflare.com/workers/observability/logs/workers-logs/
+    //   https://developers.cloudflare.com/workers/observability/traces/
+    // `observability.logs.head_sampling_rate` IS a real key in this wrangler
+    // version; unspecified it already defaults to 1 (100%), so setting it
+    // explicitly below changes nothing at runtime — it just makes the intent
+    // (never miss an error) visible instead of relying on an implicit default.
+    observability: {
+      enabled: true,
+      logs: {
+        // 1 = log every request. Cloudflare's own guidance is to keep this at
+        // 1 unless/until volume-driven cost becomes a real problem, then dial
+        // it down (their docs show 0.01 as a high-traffic example) — never
+        // drop it silently, since a lower rate can hide the one request that
+        // actually errored.
+        head_sampling_rate: 1,
+      },
+      // Workers Traces IS a distinct, real key in this schema
+      // (`observability.traces.{enabled,head_sampling_rate}`) — this is not
+      // invented config. It is intentionally left disabled here:
+      //   - It is still in early beta and, per Cloudflare's docs, setting
+      //     `observability.enabled = true` does NOT turn tracing on by
+      //     itself; `traces.enabled` must be set explicitly (it is not here).
+      //   - Cloudflare's docs state traces became billable (shared quota with
+      //     Workers Logs) starting March 1, 2026 — already in effect as of
+      //     this change — so flipping it on is a real cost decision, not a
+      //     free toggle, and is out of scope for this narrow sampling-config
+      //     pass (see the task that added this comment: no OTel/tracing
+      //     migration here).
+      //   - If/when traces are enabled, Cloudflare's own example config uses
+      //     `head_sampling_rate: 0.05` (5%) for high-traffic workloads —
+      //     full-rate (1) tracing is expensive and rarely necessary. Mirror
+      //     that shape:
+      //       traces: { enabled: true, head_sampling_rate: 0.05 }
+    },
   };
 }
 
