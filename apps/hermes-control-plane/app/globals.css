@@ -682,7 +682,24 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .sidebar-bottom .sign-out-button{background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--text)}
 .header-actions .sign-out-button{white-space:nowrap}
 
-/* === Genspark-ROI mobile hard overrides (must stay last so base rules cannot re-show panels) === */
+/* Code block & transcript word-wrapping — prevents horizontal clipping on mobile */
+.conversation-message pre,
+.conversation-message code,
+.thread-console pre,
+.thread-console code,
+.hermes-scroll-pane pre,
+.hermes-scroll-pane code {
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  max-width: 100% !important;
+}
+.conversation-message,
+.thread-console-message {
+  max-width: 96% !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+}
 @media(max-width:700px){
   .composer-route-explain{display:none !important;height:0 !important;margin:0 !important;padding:0 !important;overflow:hidden !important;border:0 !important}
   .dashboard-header{display:grid !important;grid-template-columns:1fr !important;align-items:stretch !important}

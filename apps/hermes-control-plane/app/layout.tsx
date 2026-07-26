@@ -9,6 +9,8 @@ import "./globals.css";
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
   viewportFit: "cover",
   themeColor: "#0B0F19",
   colorScheme: "dark",
@@ -85,7 +87,7 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(function(){var nodes=document.querySelectorAll('meta[name=viewport]');if(!nodes.length){var m=document.createElement('meta');m.setAttribute('name','viewport');m.setAttribute('content','width=device-width, initial-scale=1, viewport-fit=cover');document.head.appendChild(m);return;}var content='width=device-width, initial-scale=1, viewport-fit=cover';nodes[0].setAttribute('content',content);for(var i=1;i<nodes.length;i++){nodes[i].parentNode&&nodes[i].parentNode.removeChild(nodes[i]);}})();",
+              "(function(){var nodes=document.querySelectorAll('meta[name=viewport]');if(!nodes.length){var m=document.createElement('meta');m.setAttribute('name','viewport');m.setAttribute('content','width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover');document.head.appendChild(m);return;}var content='width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover';nodes[0].setAttribute('content',content);for(var i=1;i<nodes.length;i++){nodes[i].parentNode&&nodes[i].parentNode.removeChild(nodes[i]);}})();",
           }}
         />
       </head>
