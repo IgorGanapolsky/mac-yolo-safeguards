@@ -17,14 +17,12 @@ describe('store listing metadata contract (stellar live)', () => {
     expect(playTitle.length).toBeLessThanOrEqual(30);
     expect(paidTitle.length).toBeLessThanOrEqual(30);
     expect(iosName.length).toBeLessThanOrEqual(30);
-    // Canonical name pinned to the live, ASC-locked iOS trackName (id 6786778037) so
-    // free+paid Play and iOS never drift apart again. iOS App Info "Name" cannot be
-    // patched on a READY_FOR_SALE version without a new build (confirmed 409 lock,
-    // 2026-07-23 `cursor-asc-rename-ship`); "Hermes Mobile: AI Agent" stays staged in
-    // ASC 1.4 for the next native build, at which point re-align all three together.
-    expect(playTitle).toBe('Hermes AI Agent Leash');
-    expect(paidTitle).toBe('Hermes AI Agent Leash');
-    expect(iosName).toBe('Hermes AI Agent Leash');
+    // Preserve both exact product-name intents in the indexed title. The live iOS
+    // App Info name is locked until the next approved version; this combined name
+    // is staged for 1.4 and must remain aligned with the paid Play listing.
+    expect(playTitle).toBe('Hermes Mobile: AI Agent Leash');
+    expect(paidTitle).toBe('Hermes Mobile: AI Agent Leash');
+    expect(iosName).toBe('Hermes Mobile: AI Agent Leash');
     expect(playTitle).toBe(paidTitle);
     expect(playTitle).toBe(iosName);
     expect(playTitle).not.toMatch(/ThumbGate/i);
@@ -92,6 +90,9 @@ describe('store listing metadata contract (stellar live)', () => {
     expect(subtitle).toMatch(/Mac/i);
     expect(promo).toMatch(/not a phone chatbot|not phone/i);
     expect(promo).toMatch(/pay once|once/i);
+    expect(keywords).toMatch(/remote,coding,assistant,desktop,control/i);
+    expect(keywords).toMatch(/linux,windows,selfhosted,local,computer/i);
+    expect(keywords).not.toMatch(/\s/);
   });
 
   it('iOS promo and Play copy use paid-upfront pricing', () => {
