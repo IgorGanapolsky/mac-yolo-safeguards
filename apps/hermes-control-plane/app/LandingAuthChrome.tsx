@@ -94,7 +94,7 @@ export function LandingAuthHero() {
       </a>
       {isPaid ? (
         <a href="/api/billing/portal" className="button button-secondary" data-funnel-event="manage_billing_click">
-          Manage Pro Subscription ($10/mo)
+          You&apos;re on Pro · Manage billing
         </a>
       ) : isSession ? (
         <a href="/api/billing/checkout" className="button button-secondary" data-funnel-event="upgrade_pro_click">
