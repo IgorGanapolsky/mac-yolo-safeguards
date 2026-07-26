@@ -40,6 +40,7 @@ const connectorInstallCommand = "curl -fsSL https://raw.githubusercontent.com/Ig
 const chatRailPreferenceKey = "thumbgate.chatRailExpanded";
 const sidebarWidthPreferenceKey = "thumbgate.sidebarWidth";
 const threadSortPreferenceKey = "thumbgate.threadSortOrder";
+const preferredDevicePreferenceKey = "thumbgate.preferredDeviceId";
 const DEFAULT_SIDEBAR_WIDTH = 240;
 const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 480;
@@ -98,6 +99,19 @@ function orderThreadsForDisplay(nextThreads: Thread[], order: ThreadSortOrder) {
   return nextThreads;
 }
 
+/** Prefer online machines, then most recently seen — only when the user has no saved pick. */
+function pickDefaultDeviceId(nextDevices: Device[], preferredId: string | null | undefined): string | null {
+  if (!nextDevices.length) return null;
+  if (preferredId && nextDevices.some((device) => device.id === preferredId)) return preferredId;
+  const sorted = [...nextDevices].sort((left, right) => {
+    const leftOnline = left.online || left.presence === "online" ? 1 : 0;
+    const rightOnline = right.online || right.presence === "online" ? 1 : 0;
+    if (rightOnline !== leftOnline) return rightOnline - leftOnline;
+    return (right.lastSeenAt ?? 0) - (left.lastSeenAt ?? 0) || left.name.localeCompare(right.name);
+  });
+  return sorted[0]?.id ?? null;
+}
+
 function clampSidebarWidth(width: number) {
   return Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, width));
 }
@@ -127,11 +141,16 @@ export default function DashboardClient() {
   const [prompt, setPrompt] = useState("");
   /** Where this task should run: Mac, Continuity VPS, or auto offline failover. */
   const [routePreference, setRoutePreference] = useState<"local" | "cloud" | "auto">("auto");
+  /** Explicit paired machine for this task (API accepts deviceId; UI used to omit it → silent last_seen pick). */
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   /** True once first network load finishes (or fails auth). */
   const [workspaceHydrated, setWorkspaceHydrated] = useState(false);
   /** In-memory thread detail cache for instant switch + hover preheat. */
   const threadCacheRef = useRef<Map<string, ThreadDetails>>(new Map());
   const preheatInflightRef = useRef<Set<string>>(new Set());
+
+  const selectedDevice = devices.find((device) => device.id === selectedDeviceId) ?? null;
+  const selectedDeviceLabel = selectedDevice?.name ?? "your Mac";
 
   /** Plain-English copy for the Mac / Continuity / Auto control (always show, never jargon-only). */
   const routeExplain =
@@ -142,19 +161,19 @@ export default function DashboardClient() {
         }
       : routePreference === "local"
         ? {
-            title: "My Mac only",
-            body: "Runs on your paired computer. If the Mac is asleep or offline, this task waits — Continuity will not start.",
+            title: `My Mac only · ${selectedDeviceLabel}`,
+            body: `Runs on ${selectedDeviceLabel}. If that Mac is asleep or offline, this task waits — Continuity will not start.`,
           }
         : routePreference === "cloud"
           ? {
               title: "Continuity (cloud VPS)",
               body: organization?.cloudAccess
-                ? "Always runs on ThumbGate’s cloud runner, even if your Mac is online. Uses a Continuity run from your plan."
+                ? `Always runs on ThumbGate’s cloud runner (workspace Mac: ${selectedDeviceLabel}). Uses a Continuity run from your plan.`
                 : "Needs a Continuity trial or Pro plan. Start Continuity to use the cloud runner.",
             }
           : {
-              title: "Auto — Mac first",
-              body: "Uses your Mac while it’s online. If the Mac goes offline, Continuity can continue based on that Mac’s “If Mac goes offline” setting in Settings.",
+              title: `Auto — ${selectedDeviceLabel} first`,
+              body: `Uses ${selectedDeviceLabel} while online. If that Mac goes offline, Continuity can continue based on its “If Mac goes offline” setting in Settings.`,
             };
   const [pairCode, setPairCode] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
@@ -505,6 +524,24 @@ export default function DashboardClient() {
   const activeTasks = useMemo(() => tasks.filter((task) => !terminal.has(task.status)), [tasks]);
   const visibleTasks = selectedThread ? tasks.filter((task) => task.threadId === selectedThread) : tasks;
   const onlineDevices = devices.filter((device) => device.online);
+
+  useEffect(() => {
+    if (!devices.length) {
+      setSelectedDeviceId(null);
+      return;
+    }
+    setSelectedDeviceId((current) => {
+      if (current && devices.some((device) => device.id === current)) return current;
+      let stored: string | null = null;
+      try {
+        stored = window.localStorage.getItem(preferredDevicePreferenceKey);
+      } catch {
+        stored = null;
+      }
+      return pickDefaultDeviceId(devices, stored);
+    });
+  }, [devices]);
+
   const p95CompletionLatency = useMemo(() => {
     const durations = tasks
       .filter((task) => task.status === "completed" && task.completedAt)
@@ -524,6 +561,15 @@ export default function DashboardClient() {
     setBusy(false);
   }
 
+  function chooseDevice(deviceId: string) {
+    setSelectedDeviceId(deviceId);
+    try {
+      window.localStorage.setItem(preferredDevicePreferenceKey, deviceId);
+    } catch {
+      /* private mode */
+    }
+  }
+
   async function createTask(event: FormEvent) {
     event.preventDefault();
     const text = prompt.trim();
@@ -535,6 +581,10 @@ export default function DashboardClient() {
       setNotice("Pair a Mac first (open Settings → run the installer).");
       return;
     }
+    if (!selectedDeviceId) {
+      setNotice("Select which Mac should run this task.");
+      return;
+    }
     setBusy(true);
     setNotice(null);
     try {
@@ -544,11 +594,12 @@ export default function DashboardClient() {
         body: JSON.stringify({
           prompt: text,
           threadId: selectedThread,
+          deviceId: selectedDeviceId,
           idempotencyKey: crypto.randomUUID(),
           routePreference,
         }),
       });
-      let body: { task?: { route: string; threadId: string; preference?: string }; error?: string } = {};
+      let body: { task?: { route: string; threadId: string; preference?: string; deviceId?: string }; error?: string } = {};
       try {
         body = await response.json() as typeof body;
       } catch {
@@ -556,13 +607,22 @@ export default function DashboardClient() {
         return;
       }
       if (response.ok && body.task) {
+        const macName =
+          devices.find((device) => device.id === (body.task?.deviceId ?? selectedDeviceId))?.name
+          ?? selectedDeviceLabel;
         const where =
           body.task.route === "cloud"
             ? "Continuity VPS"
             : body.task.route === "local"
-              ? "your Mac"
+              ? macName
               : "awaiting route";
-        setNotice(`Sent — running on ${where}.`);
+        setNotice(
+          body.task.route === "local"
+            ? `Sent — running on ${where}.`
+            : body.task.route === "cloud"
+              ? `Sent — Continuity VPS (workspace: ${macName}).`
+              : `Sent — ${where}.`
+        );
         setPrompt("");
         setSelectedThread(body.task.threadId);
         await loadWorkspace();
@@ -913,6 +973,37 @@ export default function DashboardClient() {
                 disabled={busy}
               />
               <div className="composer-where">
+                {devices.length > 0 ? (
+                  <div className="composer-device">
+                    <label className="composer-where-label" htmlFor="composer-device-select" id="composer-device-label">
+                      Which Mac?
+                    </label>
+                    <select
+                      id="composer-device-select"
+                      className="composer-device-select"
+                      value={selectedDeviceId ?? ""}
+                      onChange={(event) => chooseDevice(event.target.value)}
+                      disabled={busy || !devices.length}
+                      aria-labelledby="composer-device-label"
+                      data-testid="composer-device-select"
+                    >
+                      {devices.map((device) => (
+                        <option key={device.id} value={device.id}>
+                          {device.name} · {deviceStatusLabel(device)}
+                        </option>
+                      ))}
+                    </select>
+                    {devices.length === 1 ? (
+                      <p className="composer-device-hint">Only this machine is paired. Add another Mac in Settings to choose between them.</p>
+                    ) : (
+                      <p className="composer-device-hint">
+                        {onlineDevices.length
+                          ? `${onlineDevices.length} online · task is pinned to the Mac you select`
+                          : "No Mac online right now — pick one and Auto/Continuity will use offline policy"}
+                      </p>
+                    )}
+                  </div>
+                ) : null}
                 <p className="composer-where-label" id="composer-where-label">Where should this run?</p>
                 <div className="composer-route" role="radiogroup" aria-labelledby="composer-where-label">
                   <label className={routePreference === "local" ? "is-selected" : ""}>
@@ -969,7 +1060,7 @@ export default function DashboardClient() {
           <aside className="right-rail">
             <section className="panel connection-panel" id="leash-control">
               <div className="panel-heading"><div><p className="eyebrow">CONNECTION</p><h2>{onlineDevices.length ? "Connector online" : devices.length ? "Connector reconnecting" : "Pair your first machine"}</h2></div><span>{onlineDevices.length ? "LIVE" : devices.length ? "RETRYING" : "STEP 1 OF 3"}</span></div>
-              <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "Connector reconnecting automatically" : "One-time setup on your Mac"}</strong><p>{devices.length ? "Paired Macs stay connected via an always-on service on the computer — you don’t reinstall for normal use. Choose My Mac / Continuity / Auto when you run a task." : "macOS will not let a website install software on your Mac. Once you run the one-line installer in Terminal, the connector runs forever and re-pairs itself after sleep or reboot."}</p></div></div>
+              <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "Connector reconnecting automatically" : "One-time setup on your Mac"}</strong><p>{devices.length ? "Paired Macs stay connected via an always-on service on the computer — you don’t reinstall for normal use. Pick which Mac and My Mac / Continuity / Auto when you run a task." : "macOS will not let a website install software on your Mac. Once you run the one-line installer in Terminal, the connector runs forever and re-pairs itself after sleep or reboot."}</p></div></div>
               {!devices.length && (
                 <div className="installer-command">
                   <p className="installer-why">Why a Terminal command? Apple blocks remote silent install of background services. This is a <strong>one-time</strong> step on that Mac — not every session.</p>

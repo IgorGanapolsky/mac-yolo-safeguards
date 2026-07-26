@@ -239,7 +239,7 @@ test("lets users choose Mac vs Continuity VPS on every task not only offline fai
   assert.match(dashboard, /My Mac/);
   assert.match(dashboard, /Where should this run\?/);
   assert.match(dashboard, /composer-route-explain/);
-  assert.match(dashboard, /Auto — Mac first/);
+  assert.match(dashboard, /Auto — \$\{selectedDeviceLabel\} first|Auto — Mac first/);
   assert.match(dashboard, /My Mac only/);
   assert.match(dashboard, /Continuity \(cloud VPS\)/);
   assert.match(dashboard, /aria-labelledby="composer-where-label"/);
@@ -248,6 +248,19 @@ test("lets users choose Mac vs Continuity VPS on every task not only offline fai
   assert.match(tasksRoute, /decideTaskRoute/);
   assert.match(taskRouting, /preference === "cloud"/);
   assert.match(taskRouting, /preference === "local"/);
+});
+
+test("lets users see and select which paired Mac runs each task", () => {
+  const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
+  assert.match(dashboard, /Which Mac\?/);
+  assert.match(dashboard, /data-testid="composer-device-select"/);
+  assert.match(dashboard, /deviceId: selectedDeviceId/);
+  assert.match(dashboard, /preferredDevicePreferenceKey|thumbgate\.preferredDeviceId/);
+  assert.match(dashboard, /chooseDevice/);
+  assert.match(dashboard, /pickDefaultDeviceId/);
+  assert.match(globals, /\.composer-device-select\{/);
+  assert.match(tasksRoute, /payload\?\.deviceId/);
+  assert.match(tasksRoute, /ORDER BY last_seen_at DESC/);
 });
 
 test("explains fenced execution through a visible interactive safety panel", () => {

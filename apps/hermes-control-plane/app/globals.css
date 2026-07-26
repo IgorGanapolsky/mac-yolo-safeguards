@@ -85,6 +85,25 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .composer textarea:focus{border-color:rgba(34,211,238,.55);box-shadow:0 0 0 3px rgba(34,211,238,.08);outline:none}
 .composer-where{margin:10px 0 4px;display:grid;gap:8px}
 .composer-where-label{margin:0;font:700 11px/1.2 Inter,ui-sans-serif,system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;color:#38BDF8}
+.composer-device{display:grid;gap:6px}
+.composer-device-select{
+  width:100%;
+  min-height:44px;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:rgba(15,23,42,.95);
+  color:#F8FAFC;
+  font:600 13px/1.3 Inter,ui-sans-serif,system-ui,sans-serif;
+  cursor:pointer;
+}
+.composer-device-select:focus{
+  border-color:rgba(34,211,238,.55);
+  box-shadow:0 0 0 3px rgba(34,211,238,.08);
+  outline:none;
+}
+.composer-device-select:disabled{opacity:.55;cursor:not-allowed}
+.composer-device-hint{margin:0;color:#94A3B8;font:450 12px/1.4 Inter,ui-sans-serif,system-ui,sans-serif}
 .composer-route{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .composer-route label{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:999px;font-size:12px;color:#CBD5E1;cursor:pointer;background:rgba(255,255,255,.03)}
 .composer-route label.is-selected{border-color:#22D3EE;color:#FFFFFF;background:rgba(34,211,238,.2);font-weight:600}
