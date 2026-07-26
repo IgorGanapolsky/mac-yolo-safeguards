@@ -416,11 +416,18 @@ function pairServerSweepHosts(
     'mac.local',
   ];
   const preferSubnet = preferLanIp ? buildHostOrder(preferLanIp, preferLanIp) : [];
+  const fallbackSubnets = [
+    ...buildHostOrder('10.2.29.1', preferLanIp),
+    ...buildHostOrder('192.168.1.1', preferLanIp),
+    ...buildHostOrder('192.168.0.1', preferLanIp),
+    ...buildHostOrder('192.168.68.1', preferLanIp),
+    ...buildHostOrder('10.0.0.1', preferLanIp),
+  ];
   const subnetHosts = phoneIp
     ? buildHostOrder(phoneIp, preferLanIp)
     : preferSubnet.length > 0
       ? preferSubnet
-      : [];
+      : fallbackSubnets;
   const tailnetHosts = mergeTailnetProbeHosts(tailnetPairServerHosts ?? []);
   return Array.from(new Set([...baseHosts, ...subnetHosts, ...tailnetHosts]));
 }
