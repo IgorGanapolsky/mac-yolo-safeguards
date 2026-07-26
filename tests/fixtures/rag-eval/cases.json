@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "description": "Fixed retrieval cases for hermes-retrieval-harness + path presence checks. Used by tools/rag-retrieval-eval.js.",
+  "cases": [
+    {
+      "id": "swarm-harness",
+      "query": "agent swarm harness planner worker thrash megafile",
+      "mustIncludePathSubstrings": [
+        "tools/agent-swarm-harness.js",
+        "docs/AGENT-SWARM-HARNESS.md"
+      ],
+      "k": 8
+    },
+    {
+      "id": "observability-gate",
+      "query": "hermes observability gate continuous e2e ship claim",
+      "mustIncludePathSubstrings": [
+        "tools/hermes-observability-gate.js"
+      ],
+      "k": 8
+    },
+    {
+      "id": "cloud-failover",
+      "query": "Hermes cloud failover Continuity lease connector",
+      "mustIncludePathSubstrings": [
+        "docs/HERMES-CLOUD-FAILOVER.md",
+        "tools/hermes-cloud-connector.js"
+      ],
+      "k": 10
+    },
+    {
+      "id": "lessons-feedback",
+      "query": "ThumbGate lessons response feedback thumbs",
+      "mustIncludePathSubstrings": [
+        "apps/hermes-control-plane/app/dashboard/lessons",
+        "apps/hermes-control-plane/app/api/lessons"
+      ],
+      "k": 10
+    },
+    {
+      "id": "billing-portal",
+      "query": "Stripe billing portal subscription manage plan",
+      "mustIncludePathSubstrings": [
+        "apps/hermes-control-plane/app/api/billing/portal"
+      ],
+      "k": 8
+    }
+  ]
+}
