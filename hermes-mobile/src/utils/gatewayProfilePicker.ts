@@ -57,6 +57,10 @@ export function profilePickerLines(
   options: { cablePluggedIn?: boolean } = {},
 ): ProfilePickerLines {
   const title = fleetComputerDisplayName(profileDisplayName(profile));
+  // Tailscale-only: the cable is not a transport the user picks, so it never appears in copy.
+  if (!isUsbTransportAllowed()) {
+    options = { ...options, cablePluggedIn: false };
+  }
   // Cable presence is secondary. Label the row's actual route first so Home Wi‑Fi
   // never reads as "Using USB" when the active path is a LAN URL.
   if (options.cablePluggedIn && isLoopbackGatewayUrl(profile.gatewayUrl)) {
@@ -107,6 +111,10 @@ export function profileConnectionRouteDisplayLabel(
   wifiConnected: boolean,
   options: { cablePluggedIn?: boolean } = {},
 ): string {
+  // Tailscale-only: a cable is never presented as the active route.
+  if (!isUsbTransportAllowed()) {
+    options = { ...options, cablePluggedIn: false };
+  }
   // Only the USB/loopback row may claim the cable as the active route.
   // LAN/Tailscale rows keep their route label even when a cable is plugged in.
   if (options.cablePluggedIn && isLoopbackGatewayUrl(profile.gatewayUrl)) {
@@ -427,10 +435,30 @@ export function pickerRowKey(profile: GatewayProfile): string {
  * Drop exact duplicate picker rows (same id + same gateway URL) so React keys stay
  * unique. Distinct Macs that incorrectly share a profile id must both remain visible.
  */
+/**
+ * Tailscale-only transport (CEO directive, 2026-07-26): "my app should not know about USB,
+ * it should only know about tailscale."
+ *
+ * USB was never a user-facing transport — it was a debugging convenience that leaked into the
+ * product. A live `adb reverse` makes the phone reach the Mac over loopback, which MASKS the
+ * real tailnet state, so the picker offered "USB cable connected" as a peer of Tailscale and
+ * the app could silently prefer a route that only exists while a cable is attached.
+ *
+ * Escape hatch for on-device debugging: EXPO_PUBLIC_ALLOW_USB_TRANSPORT=1.
+ */
+export function isUsbTransportAllowed(): boolean {
+  return process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT === '1';
+}
+
 export function dedupePickerProfilesById(profiles: GatewayProfile[]): GatewayProfile[] {
   const seen = new Set<string>();
   const out: GatewayProfile[] = [];
+  const allowUsb = isUsbTransportAllowed();
   for (const profile of profiles) {
+    // Loopback == USB reverse. Drop it so the picker cannot present a cable as a computer.
+    if (!allowUsb && isLoopbackGatewayUrl(profile.gatewayUrl)) {
+      continue;
+    }
     const key = pickerRowKey(profile);
     if (seen.has(key)) {
       continue;
