@@ -270,7 +270,7 @@ test("makes ThumbGate real with private thumbs feedback and a lessons dashboard"
   assert.match(lessonsRoute, /ORDER BY f\.updated_at DESC/);
   assert.match(lessonsRoute, /unratedCompleted/);
   assert.match(lessonsRoute, /completedResponses/);
-  assert.match(lessonsClient, /Your Hermes lessons/);
+  assert.match(lessonsClient, /ThumbGate lessons/);
   assert.match(lessonsClient, /thumbs you leave on completed answers/);
   assert.match(lessonsClient, /WORKSPACE ACTIVITY/);
   assert.match(lessonsClient, /0 ratings yet/);
