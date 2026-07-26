@@ -73,12 +73,13 @@ elif [ "$PLATFORM" = "ios" ]; then
 fi
 
 if [ "$PLATFORM" = "android" ] && [ ! -z "$SERIAL" ]; then
-    echo "🧹 Resetting application state on Android device..."
-    adb -s "$SERIAL" shell pm clear com.iganapolsky.hermesmobile || true
+    PACKAGE="com.iganapolsky.hermesmobile.paid"
+    echo "🧹 Resetting application state on Android device ($PACKAGE)..."
+    adb -s "$SERIAL" shell pm clear "$PACKAGE" || true
     echo "🔑 Auto-granting notification permissions..."
-    adb -s "$SERIAL" shell pm grant com.iganapolsky.hermesmobile android.permission.POST_NOTIFICATIONS || true
+    adb -s "$SERIAL" shell pm grant "$PACKAGE" android.permission.POST_NOTIFICATIONS || true
     echo "🚀 Pre-launching application to prevent secure app conflicts..."
-    adb -s "$SERIAL" shell am start -n com.iganapolsky.hermesmobile/.MainActivity || true
+    adb -s "$SERIAL" shell am start -n "$PACKAGE/.MainActivity" || true
     sleep 3
 fi
 
