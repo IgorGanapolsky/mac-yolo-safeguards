@@ -204,6 +204,9 @@ jobs:
       - name: Social campaign data science (unit)
         run: node tests/test-social-campaign-ds.js
 
+      - name: System maturity (RAG eval, MCP health, scorecard)
+        run: node tests/test-system-maturity.js
+
       - name: Publication readiness
         run: node tools/publication-readiness.js
 
