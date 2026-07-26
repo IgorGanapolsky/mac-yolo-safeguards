@@ -509,6 +509,16 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     font-size:15px;
     font-weight:700;
   }
+  /* On mobile: hide sidebar drawer when viewing Hermes chat tab so the chat window has 100% visibility */
+  .dashboard-shell[data-mobile-tab="hermes"] .sidebar {
+    display: none !important;
+  }
+  .dashboard-shell[data-mobile-tab="hermes"] .dashboard-header {
+    padding: 8px 12px;
+  }
+  .dashboard-shell[data-mobile-tab="hermes"] .header-actions {
+    display: none !important;
+  }
   /* Tab bar is shell chrome (flex child), not a floating layer over content */
   .mobile-web-tabs{
     position:relative !important;
