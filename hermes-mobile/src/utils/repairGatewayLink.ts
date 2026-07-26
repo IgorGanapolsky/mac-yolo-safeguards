@@ -8,6 +8,7 @@ import {
   pairServerHostFromGatewayUrl,
   resolvePairServerSetupParams,
 } from '../services/gatewayDiscovery';
+import { exchangePairingCode } from '../services/pairingCodeExchange';
 import type { GatewayHealthSnapshot } from '../types/gateway';
 import { parseSetupDeepLink } from './setupDeepLink';
 import { isGatewayHealthOk } from './gatewayConnection';
@@ -83,7 +84,29 @@ export async function resolvePairSetupForRepair(
     }
     const body = (await res.json()) as { deepLink?: string; gatewayUrl?: string };
     if (body.deepLink?.trim()) {
-      return parseSetupDeepLink(body.deepLink);
+      const setup = parseSetupDeepLink(body.deepLink);
+      if (!setup) {
+        return null;
+      }
+      if (setup.pairingCode?.trim() && setup.pairServerUrl?.trim()) {
+        const exchanged = await exchangePairingCode(
+          setup.pairServerUrl,
+          setup.pairingCode,
+          async (url) => {
+            const exchangeResponse = await fetch(url, { signal: controller.signal });
+            return {
+              ok: exchangeResponse.ok,
+              status: exchangeResponse.status,
+              json: () => exchangeResponse.json(),
+            };
+          },
+        );
+        return {
+          apiKey: exchanged?.apiKey ?? setup.apiKey,
+          gatewayUrl: exchanged?.gatewayUrl ?? setup.gatewayUrl,
+        };
+      }
+      return setup;
     }
     if (body.gatewayUrl?.trim()) {
       return { gatewayUrl: body.gatewayUrl.trim() };

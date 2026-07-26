@@ -37,6 +37,40 @@ describe('repairGatewayLink', () => {
     );
   });
 
+  it('exchanges the current secretless pairCode before returning repair credentials', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          deepLink:
+            'hermes://setup?pairCode=LIVE1234&pairServer=http%3A%2F%2F100.87.85.85%3A8765&name=Igors-MacBook-Pro',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          gatewayUrl: 'http://100.87.85.85:8642',
+          apiKey: 'fresh-secretless-key',
+        }),
+      });
+    (global as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
+
+    const setup = await resolvePairSetupForRepair('100.87.85.85');
+
+    expect(setup).toEqual({
+      gatewayUrl: 'http://100.87.85.85:8642',
+      apiKey: 'fresh-secretless-key',
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://100.87.85.85:8765/pair-exchange?code=LIVE1234',
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+
   it('auth failure copy names the Mac and Re-pair CTA — never Hermes account relay', () => {
     expect(repairAuthFailedMessage('Hermes account relay')).toContain('your computer');
     expect(repairAuthFailedMessage('Hermes account relay')).not.toContain('Hermes account relay');

@@ -265,6 +265,10 @@ async function renderAuthMismatchChat() {
 }
 
 describe('ChatScreen authMismatch header', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('shows wrong-key repair header instead of Connected when health is green but auth mismatches', async () => {
     const { getByTestId } = await renderAuthMismatchChat();
     const link = getByTestId('chat-context-link').props.children;
@@ -287,7 +291,21 @@ describe('ChatScreen authMismatch header', () => {
     expect(queryByTestId('mac-connection-retry-banner')).toBeNull();
     fireEvent.press(getByTestId('composer-error-banner-action-area'));
     await waitFor(() => {
-      expect(mockGatewayState.selectGatewayProfile).toHaveBeenCalled();
+      expect(mockGatewayState.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gatewayUrl: 'http://100.94.135.78:8642',
+          connectionMode: 'gateway',
+        }),
+        'fresh-mini-key',
+      );
     });
+    const { fetchGatewayHealth } = jest.requireMock('../services/gatewayClient') as {
+      fetchGatewayHealth: jest.Mock;
+    };
+    expect(fetchGatewayHealth).toHaveBeenCalledWith(
+      'http://100.94.135.78:8642',
+      'fresh-mini-key',
+    );
+    expect(mockGatewayState.scanForGatewayProfiles).not.toHaveBeenCalled();
   });
 });

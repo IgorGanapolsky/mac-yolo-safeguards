@@ -3932,13 +3932,13 @@ export default function ChatScreen() {
         await saveSettings(nextSettings, fresh.apiKey);
       }
 
-      await scanForGatewayProfiles();
       await autoConnectGateway();
       await retryGatewayBootstrap();
       await refreshHealth();
       connectEvents();
 
-      const profileKey = await secureCredentials.resolveApiKeyForProfile(activeProfileId);
+      const profileKey =
+        fresh?.apiKey ?? (await secureCredentials.resolveApiKeyForProfile(activeProfileId));
       const probeUrl = nextSettings.gatewayUrl || fresh?.gatewayUrl || probeBase;
       const postRetryHealth = await fetchGatewayHealth(probeUrl, profileKey);
       if (postRetryHealth.authMismatch) {
@@ -3983,7 +3983,6 @@ export default function ChatScreen() {
     saveSettings,
     activeGatewayProfile?.id,
     selectGatewayProfile,
-    scanForGatewayProfiles,
     autoConnectGateway,
     retryGatewayBootstrap,
     refreshHealth,
