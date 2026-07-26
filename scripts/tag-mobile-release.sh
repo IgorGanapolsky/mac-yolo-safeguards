@@ -19,11 +19,20 @@ APP_JSON="$REPO_ROOT/hermes-mobile/app.json"
 PLATFORM="${1:-}"
 COMMIT="${2:-HEAD}"
 DRY_RUN=0
-for arg in "$@"; do [[ "$arg" == "--dry-run" ]] && DRY_RUN=1; done
+BUILD_OVERRIDE=""
+args=("$@")
+for i in "${!args[@]}"; do
+  [[ "${args[$i]}" == "--dry-run" ]] && DRY_RUN=1
+  [[ "${args[$i]}" == "--build" ]] && BUILD_OVERRIDE="${args[$((i + 1))]:-}"
+done
 
-usage() { echo "usage: tag-mobile-release.sh <android|ios> [commit] [--dry-run]" >&2; exit 2; }
+usage() {
+  echo "usage: tag-mobile-release.sh <android|ios> [commit] [--build N] [--dry-run]" >&2
+  echo "  ios REQUIRES --build N (from App Store Connect or \`eas build:list\`)" >&2
+  exit 2
+}
 [[ "$PLATFORM" == "android" || "$PLATFORM" == "ios" ]] || usage
-[[ "$COMMIT" == "--dry-run" ]] && COMMIT="HEAD"
+[[ "$COMMIT" == "--dry-run" || "$COMMIT" == "--build" ]] && COMMIT="HEAD"
 
 # Read app.json AT THE TARGET COMMIT, never from the working tree. Backfilling the first
 # tag from a dirty checkout produced `mobile/android/v1.5+19` for a build that actually
@@ -32,6 +41,18 @@ usage() { echo "usage: tag-mobile-release.sh <android|ios> [commit] [--dry-run]"
 #
 # Here-string, not process substitution: the node payload writes no trailing newline, so a
 # `read < <(...)` hits EOF, returns non-zero, and `set -e` kills the script with no output.
+# iOS build numbers are NOT in this repo. EAS auto-increments CFBundleVersion remotely, so
+# app.json's ios.buildNumber is stale fiction: it said 17 on 2026-07-26 while the App Store
+# actually served build 24 (v1.3) with build 28 in review. Tagging iOS from app.json would
+# mint `mobile/ios/v1.3+17` — a tag naming a build that never existed. Require the real
+# number from App Store Connect or `eas build:list --platform ios`.
+if [[ "$PLATFORM" == "ios" && -z "$BUILD_OVERRIDE" ]]; then
+  echo "refusing to guess an iOS build number: app.json's ios.buildNumber is stale (EAS auto-increments)." >&2
+  echo "Get the real one:  npx eas-cli build:list --platform ios --limit 40 --json --non-interactive" >&2
+  echo "Then:              $0 ios <commit> --build <n>" >&2
+  exit 1
+fi
+
 read -r VERSION BUILD <<<"$(git -C "$REPO_ROOT" show "${COMMIT}:hermes-mobile/app.json" | node -e '
   let raw = "";
   process.stdin.on("data", (d) => (raw += d)).on("end", () => {
@@ -43,6 +64,7 @@ read -r VERSION BUILD <<<"$(git -C "$REPO_ROOT" show "${COMMIT}:hermes-mobile/ap
   });
 ' "$PLATFORM")"
 
+[[ -n "$BUILD_OVERRIDE" ]] && BUILD="$BUILD_OVERRIDE"
 TAG="mobile/${PLATFORM}/v${VERSION}+${BUILD}"
 SHA="$(git -C "$REPO_ROOT" rev-parse --short "$COMMIT")"
 
