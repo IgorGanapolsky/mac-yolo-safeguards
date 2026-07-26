@@ -146,6 +146,8 @@ export default function DashboardClient() {
   const [mobileTab, setMobileTab] = useState<"hermes" | "leash" | "lessons" | "settings">("hermes");
   /** Phone shell: hide route-explain blurb so it cannot cover the textarea (Genspark-style compact chrome). */
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
+  /** Collapsible run options section so chat has maximum vertical visibility on mobile. */
+  const [showComposerOptions, setShowComposerOptions] = useState(false);
   const autoSelectedThread = useRef(false);
   /** One-shot deep link from lessons page: /dashboard?task=…&thread=…#task-activity */
   const focusedTaskFromUrl = useRef(false);
@@ -711,36 +713,55 @@ export default function DashboardClient() {
                 disabled={busy}
               />
               <div className="composer-where">
-                <p className="composer-where-label" id="composer-where-label">Where should this run?</p>
-                <div className="composer-route" role="radiogroup" aria-labelledby="composer-where-label">
-                  <label className={routePreference === "local" ? "is-selected" : ""}>
-                    <input type="radio" name="routePreference" value="local" checked={routePreference === "local"} onChange={() => setRoutePreference("local")} />
-                    <span className="route-label-full">My Mac</span>
-                    <span className="route-label-short">Mac</span>
-                  </label>
-                  <label
-                    className={routePreference === "cloud" ? "is-selected" : ""}
-                    title={organization?.cloudAccess ? "Cloud VPS even if your Mac is online" : "Requires Continuity trial or Pro"}
-                  >
-                    <input type="radio" name="routePreference" value="cloud" checked={routePreference === "cloud"} onChange={() => setRoutePreference("cloud")} disabled={!organization?.cloudAccess} />
-                    <span className="route-label-full">Continuity</span>
-                    <span className="route-label-short">Cloud</span>
-                  </label>
-                  <label className={routePreference === "auto" ? "is-selected" : ""}>
-                    <input type="radio" name="routePreference" value="auto" checked={routePreference === "auto"} onChange={() => setRoutePreference("auto")} />
-                    <span className="route-label-full">Auto</span>
-                    <span className="route-label-short">Auto</span>
-                  </label>
-                </div>
-                {!isNarrowViewport ? (
-                  <div className="composer-route-explain" role="status" aria-live="polite">
-                    <strong>{routeExplain.title}</strong>
-                    <p>{routeExplain.body}</p>
+                <button
+                  type="button"
+                  className="composer-where-toggle"
+                  onClick={() => setShowComposerOptions((prev) => !prev)}
+                  aria-expanded={showComposerOptions}
+                  aria-label="Toggle execution target options"
+                >
+                  <span>
+                    ⌘ Target: <strong>{routePreference === "local" ? "My Mac" : routePreference === "cloud" ? "Continuity" : "Auto"}</strong>
+                  </span>
+                  <span className="composer-where-toggle-badge">
+                    {showComposerOptions ? "▲ Hide options" : "▼ Options"}
+                  </span>
+                </button>
+
+                {showComposerOptions && (
+                  <div className="composer-where-body">
+                    <p className="composer-where-label" id="composer-where-label">Where should this run?</p>
+                    <div className="composer-route" role="radiogroup" aria-labelledby="composer-where-label">
+                      <label className={routePreference === "local" ? "is-selected" : ""}>
+                        <input type="radio" name="routePreference" value="local" checked={routePreference === "local"} onChange={() => setRoutePreference("local")} />
+                        <span className="route-label-full">My Mac</span>
+                        <span className="route-label-short">Mac</span>
+                      </label>
+                      <label
+                        className={routePreference === "cloud" ? "is-selected" : ""}
+                        title={organization?.cloudAccess ? "Cloud VPS even if your Mac is online" : "Requires Continuity trial or Pro"}
+                      >
+                        <input type="radio" name="routePreference" value="cloud" checked={routePreference === "cloud"} onChange={() => setRoutePreference("cloud")} disabled={!organization?.cloudAccess} />
+                        <span className="route-label-full">Continuity</span>
+                        <span className="route-label-short">Cloud</span>
+                      </label>
+                      <label className={routePreference === "auto" ? "is-selected" : ""}>
+                        <input type="radio" name="routePreference" value="auto" checked={routePreference === "auto"} onChange={() => setRoutePreference("auto")} />
+                        <span className="route-label-full">Auto</span>
+                        <span className="route-label-short">Auto</span>
+                      </label>
+                    </div>
+                    {!isNarrowViewport ? (
+                      <div className="composer-route-explain" role="status" aria-live="polite">
+                        <strong>{routeExplain.title}</strong>
+                        <p>{routeExplain.body}</p>
+                      </div>
+                    ) : (
+                      <p className="composer-where-label" style={{ margin: 0, textTransform: "none", letterSpacing: 0, fontWeight: 500, color: "#94A3B8" }}>
+                        {routeExplain.title}
+                      </p>
+                    )}
                   </div>
-                ) : (
-                  <p className="composer-where-label" style={{ margin: 0, textTransform: "none", letterSpacing: 0, fontWeight: 500, color: "#94A3B8" }}>
-                    {routeExplain.title}
-                  </p>
                 )}
               </div>
               <div className="composer-actions">
