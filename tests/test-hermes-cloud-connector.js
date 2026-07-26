@@ -355,7 +355,7 @@ test('does NOT silently recreate a missing genuine Hermes Mobile session (surfac
 test('renews a local task lease throughout long-running Hermes work', async () => {
   let renewals = 0;
   const result = await withLeaseRenewal(
-    () => new Promise((resolve) => setTimeout(() => resolve('complete'), 28)),
+    () => new Promise((resolve) => setTimeout(() => resolve('complete'), 60)),
     async () => { renewals += 1; },
     5,
   );
