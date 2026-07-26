@@ -84,6 +84,60 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .composer textarea{min-height:98px;width:100%;resize:vertical;background:var(--composer);border:1px solid var(--line);border-radius:20px;padding:16px;color:var(--ink);font:14px/1.55 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 .composer textarea:focus{border-color:rgba(34,211,238,.55);box-shadow:0 0 0 3px rgba(34,211,238,.08);outline:none}
 .composer-where{margin:10px 0 4px;display:grid;gap:8px}
+.composer-where-toggle{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  width:100%;
+  min-height:44px;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:rgba(255,255,255,.04);
+  color:var(--text-secondary);
+  cursor:pointer;
+  text-align:left;
+  transition:background .15s ease,border-color .15s ease;
+}
+.composer-where-toggle:hover,.composer-where-toggle:focus-visible{
+  background:rgba(255,255,255,.08);
+  border-color:rgba(34,211,238,.35);
+  outline:none;
+}
+.composer-where-toggle-summary{display:grid;gap:2px;min-width:0}
+.composer-where-toggle-kicker{
+  font:700 10px/1.2 Inter,ui-sans-serif,system-ui,sans-serif;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:#38BDF8;
+}
+.composer-where-toggle-summary strong{
+  font:650 13px/1.3 Inter,ui-sans-serif,system-ui,sans-serif;
+  color:#F8FAFC;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.composer-where-toggle-badge{
+  flex:0 0 auto;
+  color:#38BDF8;
+  font:700 12px/1 Inter,ui-sans-serif,system-ui,sans-serif;
+}
+.composer-where-body{
+  display:grid;
+  gap:10px;
+  margin-top:4px;
+  padding:12px;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;
+  background:rgba(15,23,42,.55);
+}
+.composer-where-summary{
+  margin:0;
+  color:#94A3B8;
+  font:500 12px/1.4 Inter,ui-sans-serif,system-ui,sans-serif;
+}
 .composer-where-label{margin:0;font:700 11px/1.2 Inter,ui-sans-serif,system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;color:#38BDF8}
 .composer-route{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .composer-route label{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:999px;font-size:12px;color:#CBD5E1;cursor:pointer;background:rgba(255,255,255,.03)}
@@ -363,7 +417,7 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   }
   /* Hermès tab: reserve measured composer height so messages never sit under the dock */
   .dashboard-shell[data-mobile-tab="hermes"] .hermes-scroll-pane{
-    padding-bottom:max(16px, var(--composer-dock-space, 220px));
+    padding-bottom:max(16px, var(--composer-dock-space, 160px));
   }
   .conversation-history{
     max-height:none;
@@ -391,13 +445,20 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     box-shadow:0 -12px 32px rgba(0,0,0,.45);
   }
   .composer textarea{
-    min-height:64px;
-    max-height:120px;
+    min-height:52px;
+    max-height:96px;
     border-radius:16px;
     padding:12px 14px;
     font-size:16px; /* iOS: avoid focus zoom */
   }
-  .composer-where{margin:8px 0 0;gap:8px}
+  .composer.composer-options-collapsed textarea{
+    min-height:48px;
+    max-height:72px;
+  }
+  .composer-where{margin:8px 0 0;gap:6px}
+  .composer-where-toggle{padding:8px 12px;border-radius:12px;min-height:44px}
+  .composer-where-toggle-summary strong{font-size:13px}
+  .composer-where-body{padding:10px;gap:8px}
   .composer-where-label{font-size:11px;letter-spacing:.05em;color:#38BDF8;font-weight:700}
   .composer-route{
     display:grid;

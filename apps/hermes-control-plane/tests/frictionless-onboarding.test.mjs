@@ -244,6 +244,13 @@ test("lets users choose local machine vs Continuity VPS on every task not only o
   assert.match(dashboard, /\$\{selectedDeviceLabel\} only/);
   assert.match(dashboard, /Continuity \(cloud VPS\)/);
   assert.match(dashboard, /aria-labelledby="composer-where-label"/);
+  // Collapsed by default so mobile chat is not buried under machine/route chrome.
+  assert.match(dashboard, /showComposerOptions/);
+  assert.match(dashboard, /composer-where-toggle/);
+  assert.match(dashboard, /data-testid="composer-options-toggle"/);
+  assert.match(dashboard, /composer-options-collapsed/);
+  assert.match(globals, /\.composer-where-toggle\{/);
+  assert.match(globals, /\.composer-where-body\{/);
   assert.doesNotMatch(dashboard, /composer-route-label/);
   assert.doesNotMatch(dashboard, /My Mac only|Which Mac\?|>My Mac</);
   assert.match(tasksRoute, /routePreference/);
