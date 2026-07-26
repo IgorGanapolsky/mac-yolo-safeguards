@@ -339,12 +339,17 @@ try {
     }
   }
 
+  // Prefer browser layer whenever playwright is available. Hard-fail missing
+  // chromium only in CI (where the workflow installs browsers first).
   if (wantBrowser || process.env.PLAYWRIGHT_E2E !== "0") {
     try {
       browserRan = await tryPlaywright();
     } catch (error) {
-      if (wantBrowser) throw error;
-      console.warn("Playwright browser layer skipped:", error instanceof Error ? error.message : error);
+      const msg = error instanceof Error ? error.message : String(error);
+      const missingBrowser = /Executable doesn't exist|playwright install|browserType\.launch/i.test(msg);
+      if (process.env.CI === "true") throw error;
+      if (wantBrowser && !missingBrowser) throw error;
+      console.warn("Playwright browser layer skipped:", msg.split("\n")[0]);
     }
   }
 
