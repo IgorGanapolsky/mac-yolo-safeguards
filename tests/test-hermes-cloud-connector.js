@@ -280,6 +280,78 @@ test('fails closed instead of sending an unbound task to a bare model completion
   );
 });
 
+test('never syncs scheduled cron-automation sessions as a ThumbGate thread', async () => {
+  await withServer((request, response) => {
+    response.setHeader('content-type', 'application/json');
+    if (request.url.startsWith('/api/sessions?')) {
+      response.end(JSON.stringify({
+        data: [
+          { id: 'mobile_1', title: 'Real chat', source: 'api_server', message_count: 1, last_active: 1_700_000_000 },
+          { id: 'cron_0eb498680d96_20260725_230637', title: 'reddit-inbox-conversion-monitor', source: 'cron', message_count: 1, last_active: 1_700_000_001 },
+          { id: 'cron_f4d1cc61eba9_20260726_091534', title: 'another cron run', source: 'cron', message_count: 1, last_active: 1_700_000_002 },
+        ],
+      }));
+      return;
+    }
+    response.end(JSON.stringify({ data: [] }));
+  }, async (sessionGatewayUrl) => {
+    const { sessions } = await collectGatewaySessions({ sessionGatewayUrl });
+    assert.deepEqual(sessions.map((session) => session.id), ['mobile_1']);
+  });
+});
+
+test('self-heals a cron-sourced thread whose ephemeral gateway session already expired', async () => {
+  const requests = [];
+  await withServer((request, response) => {
+    let body = '';
+    request.on('data', (chunk) => { body += chunk; });
+    request.on('end', () => {
+      const parsed = body ? JSON.parse(body) : null;
+      requests.push({ method: request.method, url: request.url, body: parsed });
+      response.setHeader('content-type', 'application/json');
+      if (request.method === 'GET' && request.url === '/api/sessions/cron_0eb498680d96_20260725_230637') {
+        response.statusCode = 404;
+        response.end(JSON.stringify({ error: { code: 'session_not_found', message: 'Session not found' } }));
+        return;
+      }
+      if (request.method === 'POST' && request.url === '/api/sessions') {
+        response.statusCode = 201;
+        response.end(JSON.stringify({ session: { id: parsed.id } }));
+        return;
+      }
+      if (request.method === 'POST' && request.url === '/api/sessions/cron_0eb498680d96_20260725_230637/chat') {
+        response.end(JSON.stringify({ message: { role: 'assistant', content: 'picking up where the automation left off' } }));
+        return;
+      }
+      response.statusCode = 404;
+      response.end(JSON.stringify({ error: 'unexpected request' }));
+    });
+  }, async (sessionGatewayUrl) => {
+    const result = await executeLocal(
+      { sessionGatewayUrl },
+      { sourceSessionId: 'cron_0eb498680d96_20260725_230637', threadTitle: 'reddit-inbox-conversion-monitor', prompt: 'Why we didn\'t make money', handoffMessages: [] },
+    );
+    assert.equal(result, 'picking up where the automation left off');
+  });
+  assert.deepEqual(requests.map((request) => `${request.method} ${request.url}`), [
+    'GET /api/sessions/cron_0eb498680d96_20260725_230637',
+    'POST /api/sessions',
+    'POST /api/sessions/cron_0eb498680d96_20260725_230637/chat',
+  ]);
+});
+
+test('does NOT silently recreate a missing genuine Hermes Mobile session (surfaces the real error instead)', async () => {
+  await withServer((request, response) => {
+    response.setHeader('content-type', 'application/json');
+    response.statusCode = 404;
+    response.end(JSON.stringify({ error: { code: 'session_not_found', message: 'Session not found' } }));
+  }, async (sessionGatewayUrl) => {
+    await assert.rejects(
+      executeLocal({ sessionGatewayUrl }, { sourceSessionId: 'mobile_1', prompt: 'continue', handoffMessages: [] }),
+    );
+  });
+});
+
 test('renews a local task lease throughout long-running Hermes work', async () => {
   let renewals = 0;
   const result = await withLeaseRenewal(
