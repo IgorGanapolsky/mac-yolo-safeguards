@@ -166,6 +166,42 @@ describe("fenced task leases", () => {
     ]);
   });
 
+  it("lets another Mac adopt stale local_pending tasks (multi-device fleet)", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(200_000);
+    mocks.state.firsts = [{
+      id: "task-stale",
+      organizationId: "org-1",
+      threadId: "thread-1",
+      threadTitle: "stuck",
+      prompt: "why no money",
+      currentRoute: "local",
+      leaseGeneration: 0,
+      sourceSessionId: "cron_dead",
+      contextSnapshot: null,
+      syncedAt: null,
+      createdAt: 100_000,
+      plan: "pro",
+      trialEndsAt: null,
+      cloudTasks: 0,
+    }];
+    // prior completed tasks for handoff + binding selects after claim path
+    mocks.state.firsts.push(null); // thread binding path may query
+    const claimed = await claimTask({ route: "local", owner: "device:macbook", deviceId: "macbook" });
+    expect(claimed?.task.id).toBe("task-stale");
+    const select = mocks.state.selects.find((row) => row.sql.includes("FROM tasks k"));
+    expect(select?.sql).toContain("k.created_at < ?");
+    expect(select?.sql).toContain("k.device_id = ?");
+    // cloudTasks window, device id, stale threshold (now-90s), lease expiry now
+    expect(select?.args).toEqual([
+      200_000 - 30 * 24 * 60 * 60 * 1000,
+      "macbook",
+      200_000 - 90_000,
+      200_000,
+    ]);
+    const update = mocks.state.runs.find((run) => run.sql.includes("status = 'running'"));
+    expect(update?.sql).toMatch(/device_id = CASE WHEN/);
+  });
+
   it("renews only the current unexpired owner and records content-free metadata", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_000);
     mocks.state.existing = { organizationId: "org-1", route: "local", leaseGeneration: 7 };

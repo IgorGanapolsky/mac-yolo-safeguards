@@ -377,17 +377,36 @@ async function syncGatewaySessions(config, options = {}) {
 
 async function executeLocal(config, task) {
   if (!task.sourceSessionId) throw new Error('ThumbGate task is missing its Hermes session binding');
+  // Web-created sessions always get ensure; cron sessions may have been deleted —
+  // recreate on 404 so ThumbGate web prompts do not die with "Session not found".
   const webCreatedSession = task.sourceSessionId.startsWith('thumbgate_');
-  if (webCreatedSession) await ensureWebHermesSession(config, task);
+  const looksLikeEphemeralCron = /^cron_/i.test(task.sourceSessionId);
+  if (webCreatedSession || looksLikeEphemeralCron) await ensureWebHermesSession(config, task);
   const handoff = Array.isArray(task.handoffMessages) && task.handoffMessages.length
     ? `Cloud/web continuation since this Mac last synced:\n${task.handoffMessages.map((message) => `${message.role}: ${message.content}`).join('\n\n').slice(-24_000)}`
     : undefined;
-  const systemMessage = [webCreatedSession ? buildWebSessionSystemPrompt(config, task) : '', handoff || ''].filter(Boolean).join('\n\n');
-  const payload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(task.sourceSessionId)}/chat`, {
-    method: 'POST', gatewayEnvPath: config.gatewayEnvPath,
-    body: JSON.stringify({ message: task.prompt, ...(systemMessage ? { system_message: systemMessage } : {}) }),
-  });
-  return contentText(payload.message?.content || payload.output || payload.content || payload.response) || JSON.stringify(payload);
+  const systemMessage = [webCreatedSession || looksLikeEphemeralCron ? buildWebSessionSystemPrompt(config, task) : '', handoff || ''].filter(Boolean).join('\n\n');
+  const chatPath = `/api/sessions/${encodeURIComponent(task.sourceSessionId)}/chat`;
+  const body = JSON.stringify({ message: task.prompt, ...(systemMessage ? { system_message: systemMessage } : {}) });
+  try {
+    const payload = await gatewayJson(config.sessionGatewayUrl, chatPath, {
+      method: 'POST', gatewayEnvPath: config.gatewayEnvPath, body,
+    });
+    return contentText(payload.message?.content || payload.output || payload.content || payload.response) || JSON.stringify(payload);
+  } catch (error) {
+    const missing = error?.status === 404
+      || /session not found/i.test(String(error?.message || error || ''));
+    if (!missing) throw error;
+    await ensureWebHermesSession(config, task);
+    const payload = await gatewayJson(config.sessionGatewayUrl, chatPath, {
+      method: 'POST', gatewayEnvPath: config.gatewayEnvPath,
+      body: JSON.stringify({
+        message: task.prompt,
+        system_message: [buildWebSessionSystemPrompt(config, task), handoff || ''].filter(Boolean).join('\n\n') || undefined,
+      }),
+    });
+    return contentText(payload.message?.content || payload.output || payload.content || payload.response) || JSON.stringify(payload);
+  }
 }
 
 async function withLeaseRenewal(work, renew, intervalMs = LEASE_RENEW_MS) {

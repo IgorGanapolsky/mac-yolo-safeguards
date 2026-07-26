@@ -99,9 +99,16 @@ export async function claimTask(input: {
   leaseExpiresAt: number;
 } } | null> {
   const now = Date.now();
+  // If a task sits local_pending on device A while only device B is actually polling
+  // (multi-Mac fleet), B may claim after this grace so web prompts do not stick forever.
+  const STALE_LOCAL_PENDING_MS = 90_000;
   if (input.route === "cloud") await reclassifyStaleLocalTasks(now);
   const routeClause = input.route === "local"
-    ? "k.route = 'local' AND k.device_id = ? AND k.status IN ('local_pending', 'cloud_pending', 'running')"
+    ? `k.route = 'local' AND k.status IN ('local_pending', 'cloud_pending', 'running')
+        AND (
+          k.device_id = ?
+          OR (k.status = 'local_pending' AND k.created_at < ?)
+        )`
     : `((k.route = 'cloud' AND k.status IN ('cloud_pending', 'running'))
         OR (k.route = 'local' AND k.status = 'local_pending' AND d.failover_mode = 'auto'
             AND (d.last_seen_at IS NULL OR d.last_seen_at < ?))
@@ -113,7 +120,10 @@ export async function claimTask(input: {
   // can't reach this case; both branches require the task's own lease to already be expired
   // (enforced by the trailing lease_expires_at check below), so the fencing-token CAS in the
   // UPDATE still owns correctness.
-  const params = input.route === "local" ? [input.deviceId!, now] : [now - 60_000, now - 60_000, now];
+  // Local: own device always; any device may adopt local_pending older than STALE_LOCAL_PENDING_MS.
+  const params = input.route === "local"
+    ? [input.deviceId!, now - STALE_LOCAL_PENDING_MS, now]
+    : [now - 60_000, now - 60_000, now];
   const candidate = await db().prepare(
     `SELECT k.id, k.organization_id AS organizationId, k.thread_id AS threadId, t.title AS threadTitle, k.prompt,
             k.route AS currentRoute, k.lease_generation AS leaseGeneration, k.created_at AS createdAt,
@@ -213,15 +223,29 @@ export async function claimTask(input: {
   const leaseExpiresAt = now + TASK_LEASE_MS;
   const update = await db().prepare(
     `UPDATE tasks SET status = 'running', route = ?, lease_owner = ?, lease_token_hash = ?,
-            lease_generation = lease_generation + 1, lease_expires_at = ?, updated_at = ?
+            lease_generation = lease_generation + 1, lease_expires_at = ?, updated_at = ?,
+            device_id = CASE WHEN ? IS NOT NULL THEN ? ELSE device_id END
       WHERE id = ? AND lease_generation = ? AND (lease_expires_at IS NULL OR lease_expires_at <= ?)
         AND (? <> 'cloud' OR route = 'cloud' OR
           (SELECT COUNT(*) FROM tasks AS cloud_budget
             WHERE cloud_budget.organization_id = ? AND cloud_budget.route = 'cloud'
               AND cloud_budget.created_at >= ?) < ?)`
-  ).bind(input.route, input.owner, await sha256(leaseToken), leaseExpiresAt, now,
-    candidate.id, candidate.leaseGeneration, now, input.route, candidate.organizationId,
-    now - 30 * 24 * 60 * 60 * 1000, cloudDecision?.limit ?? 0).run();
+  ).bind(
+    input.route,
+    input.owner,
+    await sha256(leaseToken),
+    leaseExpiresAt,
+    now,
+    input.route === "local" ? input.deviceId ?? null : null,
+    input.route === "local" ? input.deviceId ?? null : null,
+    candidate.id,
+    candidate.leaseGeneration,
+    now,
+    input.route,
+    candidate.organizationId,
+    now - 30 * 24 * 60 * 60 * 1000,
+    cloudDecision?.limit ?? 0,
+  ).run();
   if (update.meta.changes !== 1) return null;
   await audit({
     organizationId: candidate.organizationId,
