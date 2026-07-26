@@ -101,6 +101,58 @@ describe('ChatConnectionPanel', () => {
     expect(getByTestId('select-gateway-profile-p1')).toBeTruthy();
   });
 
+  it('shows named selectable rows immediately after Find computers succeeds', () => {
+    const { getByTestId, getByText, queryByTestId } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        macLabel="Igors-MacBook-Pro"
+        connectionHealAttempt={6}
+        scanResult={{
+          completedAtMs: Date.now(),
+          foundCount: 1,
+          tailscaleCount: 1,
+        }}
+        profiles={[
+          {
+            id: 'macbook',
+            label: 'Igors-MacBook-Pro',
+            gatewayUrl: 'http://100.87.85.85:8642',
+            addedAt: '2026-07-26T21:47:00Z',
+          },
+        ]}
+        activeProfileId="macbook"
+        onSelectProfile={jest.fn()}
+        onSearchMac={jest.fn()}
+      />,
+    );
+
+    expect(getByText('Found 1 on Tailscale')).toBeTruthy();
+    expect(getByTestId('chat-connection-found-computers')).toBeTruthy();
+    expect(getByTestId('select-gateway-profile-macbook').props.accessibilityLabel).toContain(
+      'Igors-MacBook-Pro',
+    );
+    expect(queryByTestId('fresh-user-onboarding-card')).toBeNull();
+  });
+
+  it('never shows a count-only success before a named row exists', () => {
+    const { queryByText, queryByTestId } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        scanResult={{
+          completedAtMs: Date.now(),
+          foundCount: 1,
+          tailscaleCount: 1,
+        }}
+        profiles={[]}
+        onSearchMac={jest.fn()}
+      />,
+    );
+
+    expect(queryByText(/Found 1/)).toBeNull();
+    expect(queryByTestId('chat-connection-scan-progress-result')).toBeNull();
+    expect(queryByTestId('chat-connection-found-computers')).toBeNull();
+  });
+
   it('does not call an unreachable active computer active now', () => {
     const { getByText, queryByText } = render(
       <ChatConnectionPanel
