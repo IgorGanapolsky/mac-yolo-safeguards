@@ -1,0 +1,198 @@
+{
+  "run_id": "trun_fc3268d892f541d6b292a2447e8bff43",
+  "interaction_id": "trun_fc3268d892f541d6b292a2447e8bff43",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_fc3268d892f541d6b292a2447e8bff43",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "executive_summary",
+        "reasoning": "Assessment reasoning:\n- The field_name is executive_summary with a detailed field_answer that covers current state of AI coding agents, product landscape, autonomy maturity, best practices, guardrails, failure modes, and ethics as of July 2026. It appears to fully address what an executive summary should contain for this topic. Therefore completeness is true.\n- Excerpts were not provided in the input. Without excerpts to verify alignment, we cannot confirm explicit support from the sources. Therefore supported is false (due to lack of excerpts to corroborate the answer).",
+        "citations": [],
+        "confidence": "medium"
+      },
+      {
+        "field": "1_state_of_the_art_what_autonomous_coding_agent_actually_means_in_mid_2026",
+        "reasoning": "Reasoning: The field_answer provides a structured overview of the state of autonomous coding agents in mid-2026, including a taxonomy of agent types and autonomy levels, benchmark landscape, and concrete interpretations of terms like 'long-running' and 'self-directed'. This directly addresses the likely intent of the field_name (state of the art what autonomous coding agent actually means in mid-2026). The excerpts touch on similar topics (Cursor vs Windsurf, SWE-bench scores, Databricks benchmark, productivity estimates, and Anthropic trends), which supports that the answer is aligned with the provided sources. Given the query about what autonomous coding agents actually mean mid-2026, the answer appears complete and coherent, not omitting core aspects such as autonomy levels, practical use cases, and benchmarking context.",
+        "citations": [
+          {
+            "url": "https://crevio.co/blog/cursor-vs-windsurf",
+            "excerpts": [
+              "Cursor vs Windsurf (Devin Desktop): 2026 Comparison\nCursor vs Windsurf (now Devin Desktop) compared for 2026: control vs autonomy, IDE support, speed, pricing, and which AI editor fits how you work."
+            ],
+            "title": "Cursor vs Windsurf (Devin Desktop): 2026 Comparison"
+          },
+          {
+            "url": "https://www.codeant.ai/blogs/swe-bench-scores",
+            "excerpts": [
+              "SWE-bench Leaderboard 2026: All Model Scores ... - CodeAnt AI\nRank\nModel\nSWE-bench Verified\n1\nClaude Mythos Preview\n93.9%\n2\nGPT-5.3 Codex\n85.0%\n3\nClaude Opus 4.6\n80.9%\n4\nClaude Opus 4.5\n80.9%"
+            ],
+            "title": "SWE-bench Leaderboard 2026: All Model Scores ... - CodeAnt AI"
+          },
+          {
+            "url": "https://www.databricks.com/blog/benchmarking-coding-agents-databricks-multi-million-line-codebase",
+            "excerpts": [
+              "Benchmarking Coding Agents on Databricks' Multi-Million Line ...\nWhy build your own benchmark? How we built the benchmark; What's next? Announcements. July 8, 2026. Benchmarking Coding Agents on Databricks' Multi-Million Line"
+            ],
+            "title": "Benchmarking Coding Agents on Databricks' Multi-Million Line ..."
+          },
+          {
+            "url": "https://cognition.ai/blog/ai-productivity",
+            "excerpts": [
+              "Estimating the Productivity of an Autonomous AI Software ...\nApr 6, 2026 \u2014 So we focused on a key sub-task: estimating how many productive engineering hours each Devin session is worth. LLMs are notoriously bad at time"
+            ],
+            "title": "Estimating the Productivity of an Autonomous AI Software ..."
+          },
+          {
+            "url": "https://resources.anthropic.com/2026-agentic-coding-trends-report",
+            "excerpts": [
+              "2026 Agentic Coding Trends Report - resources.anthropic.com\nHow coding agents are transforming software development - and what it means for engineering teams in 2026. Insights on multi-agent systems, human-AI collaboration, and scaling agentic coding across organizations. Includes case studies from Rakuten, TELUS, Zapier, and more."
+            ],
+            "title": "2026 Agentic Coding Trends Report - resources.anthropic.com"
+          }
+        ],
+        "confidence": "high"
+      },
+      {
+        "field": "2_autonomy_levels_a_maturity_model_l0_l5",
+        "reasoning": "Reasoning: The field answer provides a detailed ladder (L0-L5) with names, human roles, and examples, plus empirical anchor and recommended action. The provided excerpts include only a generic description of the 2026 Agentic Coding Trends Report and its topics; they do not supply the specific ladder, level names, or the exact mappings used in the field answer. Therefore, while the field answer is internally coherent and appears to synthesize sources, it is not directly supported by the given excerpts. The completeness assessment focuses on whether the answer fully addresses the expected description in the field (which it does) but the excerpt support is lacking for specific ladder details. I will mark completeness as true (the field answer covers the expected content) and supported as false (excerpts do not substantiate the ladder details).\n",
+        "citations": [
+          {
+            "url": "https://resources.anthropic.com/2026-agentic-coding-trends-report",
+            "excerpts": [
+              "2026 Agentic Coding Trends Report - resources.anthropic.com\nHow coding agents are transforming software development - and what it means for engineering teams in 2026. Insights on multi-agent systems, human-AI collaboration, and scaling agentic coding across organizations. Includes case studies from Rakuten, TELUS, Zapier, and more."
+            ],
+            "title": "2026 Agentic Coding Trends Report - resources.anthropic.com"
+          }
+        ],
+        "confidence": "medium"
+      },
+      {
+        "field": "3_best_practices_for_self_directed_execution_minimal_human_intervention_workflows",
+        "reasoning": "Step 1 reasoning (completeness): The field answer presents a structured, multi-section playbook (3.1 through 3.7) outlining best practices for self-directed execution with minimal human intervention. It covers prompt contracts, aggressive decomposition, deterministic verification, in-loop guardrails, multi-agent orchestration, risk-based autonomy, and outcome measurement. This aligns with what a comprehensive set of best practices would require from the field description. Therefore, completeness = true.\n\nStep 2 reasoning (excerpts support): The excerpts provided include references to Cognition productivity work and Anthropic/agentic coding trends (e.g., excerpts mentioning productivity estimates and agentic coding trends). The field answer cites these sources and mirrors the themes found in those excerpts. While the field answer references additional sources (e.g., Van Eyck guardrails, Databricks benchmarks) not present in the provided excerpts, the included excerpts do support key components of the field answer (structure, emphasis on tooling, guardrails, and evaluation). Therefore, the field answer is supported by the excerpts (supported = true).",
+        "citations": [
+          {
+            "url": "https://cognition.ai/blog/ai-productivity",
+            "excerpts": [
+              "Estimating the Productivity of an Autonomous AI Software ...\nApr 6, 2026 \u2014 So we focused on a key sub-task: estimating how many productive engineering hours each Devin session is worth. LLMs are notoriously bad at time"
+            ],
+            "title": "Estimating the Productivity of an Autonomous AI Software ..."
+          },
+          {
+            "url": "https://jvaneyck.wordpress.com/2026/02/22/guardrails-for-agentic-coding-how-to-move-up-the-ladder-without-lowering-your-bar/",
+            "excerpts": [],
+            "title": "Guardrails for Agentic Coding: How to Move Up the Ladder Without Lowering your Bar | jvaneyck"
+          },
+          {
+            "url": "https://resources.anthropic.com/2026-agentic-coding-trends-report",
+            "excerpts": [
+              "2026 Agentic Coding Trends Report - resources.anthropic.com\nHow coding agents are transforming software development - and what it means for engineering teams in 2026. Insights on multi-agent systems, human-AI collaboration, and scaling agentic coding across organizations. Includes case studies from Rakuten, TELUS, Zapier, and more."
+            ],
+            "title": "2026 Agentic Coding Trends Report - resources.anthropic.com"
+          }
+        ],
+        "confidence": "high"
+      },
+      {
+        "field": "4_the_failure_modes_what_breaks_when_you_remove_the_human",
+        "reasoning": "Assessment reasoning:\n- Field description implies enumerating failure modes when human oversight is removed, with potential mitigations and references.\n- Field answer provides four explicit failure-mode families (Durability, Security, Cost, Observability) and brief mitigations per item, plus a concluding note. This aligns with the expected structure (enumeration of failure modes and mitigation cues).\n- Therefore, completeness: true (it addresses all four named failure modes and provides some mitigations).\n- Excerpts provided contain only a single item about benchmarking coding agents and do not substantively support the specific failure-mode content listed in the field answer. As such, the field answer is not supported by the excerpts.\n- Conclusion: completeness = true; supported = false.",
+        "citations": [
+          {
+            "url": "https://www.databricks.com/blog/benchmarking-coding-agents-databricks-multi-million-line-codebase",
+            "excerpts": [
+              "Benchmarking Coding Agents on Databricks' Multi-Million Line ...\nWhy build your own benchmark? How we built the benchmark; What's next? Announcements. July 8, 2026. Benchmarking Coding Agents on Databricks' Multi-Million Line"
+            ],
+            "title": "Benchmarking Coding Agents on Databricks' Multi-Million Line ..."
+          }
+        ],
+        "confidence": "medium"
+      },
+      {
+        "field": "5_risks_ethics_and_the_cognitive_debt_problem",
+        "reasoning": "Reasoning: The user field_description implies evaluation of risks, ethics, and cognitive debt with autonomous coding. The field_answer presents a cohesive summary: cognitive debt concept, three ethics vectors (accountability, skill atrophy, security disclosure), and references to a 2026 trends/report from Anthropc. The provided excerpt shows a related Anthropc resource about the 2026 Agentic Coding Trends Report, which aligns with the field_answer\u2019s framing. Completeness: The field_answer appears to address the core topics (cognitive debt, accountability, skill atrophy, security disclosure) and provides a quoted line from the referenced report, which seems to meet the expected content for this field. There is no missing major component evident from the field_description provided. Therefore, completeness is true. Supported: The excerpts include a similar report from Anthropc about coding agents in 2026 and mention multi-agent systems and organization-level implications, which are aligned with the field_answer. While the exact quotes in field_answer aren\u2019t verbatim in the excerpt, the excerpt supports the existence of the report and its relevance, making the answer reasonably supported. If stricter word-for-word verification were required, one could say partially supported, but given the information, it is supported enough to be true.\n",
+        "citations": [
+          {
+            "url": "https://resources.anthropic.com/2026-agentic-coding-trends-report",
+            "excerpts": [
+              "2026 Agentic Coding Trends Report - resources.anthropic.com\nHow coding agents are transforming software development - and what it means for engineering teams in 2026. Insights on multi-agent systems, human-AI collaboration, and scaling agentic coding across organizations. Includes case studies from Rakuten, TELUS, Zapier, and more."
+            ],
+            "title": "2026 Agentic Coding Trends Report - resources.anthropic.com"
+          }
+        ],
+        "confidence": "high"
+      },
+      {
+        "field": "6_putting_it_all_together_a_practical_rollout",
+        "reasoning": "Reasoning about completeness: The field_answer provides an 8-step rollout plan with concrete actions (pick low-risk surfaces, establish guardrails in a specific sequence, define an autonomy envelope with explicit allow-list, wrap the agent in an orchestrator, instrument everything, start with read-only/PR-only authority, track cognitive debt, re-baseline against Pro/benchmark). It covers key implementation steps, sequencing, and governance concepts necessary for a practical rollout from L2 to L3-L4. However, it omits explicit timelines, success metrics, rollback procedures, stakeholder RACI, and deeper risk assessment anchors, which could be relevant for a full rollout dossier. Overall, it satisfactorily addresses the expected field description (a practical rollout plan) and is thus considered complete for the asked content. Since there were no excerpts provided to verify alignment with sources, I cannot confirm support from excerpts and therefore mark supported as false.\n",
+        "citations": [],
+        "confidence": "medium"
+      },
+      {
+        "field": "7_the_one_sentence_takeaway",
+        "reasoning": "Assessment notes:\n- The field_description is not provided, but the field_name suggests a concise one-sentence takeaway. The field_answer delivers a single, long sentence that communicates a takeaway about zero-human-intervention coding as of July 2026 and emphasizes guardrails and risk-aligned autonomy. This satisfies the likely expectation of a one-sentence takeaway, so completeness is true.\n- There are no excerpts supplied to verify sourcing or alignment with external texts, so we cannot confirm support from excerpts. Therefore, supported should be false.\n- Minor formatting artifacts in the field_answer (e.g., closing tag </answer>) do not affect the substantive content of the takeaway.\n",
+        "citations": [],
+        "confidence": "medium"
+      }
+    ],
+    "content": {
+      "executive_summary": "The \"AI coding agent\" of mid-2026 is no longer a code-completer or pair-programmer \u2014 it is an **orchestrated, asynchronous, self-directed system** that plans, edits, tests, and ships. The state of the art now sits at three named products (Cursor = controlled editing, Windsurf/Devin Desktop = goal-driven autonomy, Devin = full ticket-to-PR autonomy) and three named benchmarks (SWE-bench Verified 93.9 %, SWE-bench Pro 45.9 %, the Databricks multi-million-line internal benchmark). The single biggest finding from 18 months of production data is that **autonomy is not a single switch but a maturity ladder**, and **moving up the ladder without proportional guardrails does not give you speed \u2014 it gives you deferred technical debt and amplified security incidents**.\n\nThis report covers:\n\n1. The current landscape of autonomous coding agents (products, benchmarks, what they actually do).\n2. A taxonomy of autonomy levels (L0 \u2192 L5) and where each mainstream tool sits.\n3. Best practices for **zero-touch / minimal-human-intervention** workflows in July 2026.\n4. Concrete guardrails, ranked by leverage.\n5. Failure modes observed in production and how to defend against them.\n6. Risks, ethics, and what \"responsible autonomy\" looks like at the end of 2026.\n\n---",
+      "1_state_of_the_art_what_autonomous_coding_agent_actually_means_in_mid_2026": "### 1.1 Product taxonomy\n\nThree archetypes have crystallised since the original Devin launch:\n\n| Tool | Autonomy profile | Primary use | Notable 2026 shift |\n|---|---|---|---|\n| **Cursor** | Controlled \u2014 agent suggests, human reviews every diff | Day-to-day pair-programming inside the IDE | Added Background Agents for async tasks in late 2025 |\n| **Windsurf (rebranded Devin Desktop, June 2026)** | Goal-driven \u2014 describe an outcome, the agent plans and edits across multiple files | Long-running feature work | Cognition acquired Windsurf and folded it into Devin Desktop; the agent is now the default surface |\n| **Devin** | Full ticket-to-PR autonomy \u2014 open a Jira ticket, the agent plans, browses docs, opens a PR | Async backlog burn-down | First agent with a published production productivity estimator |\n| **Claude Code** | CLI-driven, long-running, with scheduled-task primitives | Headless batch work, scheduled refactors, CI-driven code changes | Anthropic's `/loop` and cron tools make it the default \"set-and-forget\" agent for engineers |\n| **GitHub Copilot Workspace** | Repo-scoped planning agent | Triage, draft-PR, and review pipelines | Now supports multi-agent review orchestration |\n\nWindsurf's June-2026 repositioning under Cognition explicitly framed this split: **Cursor keeps the human in the driver's seat (you review every change), Windsurf hands the wheel to the agent (you state a goal and review the diff at the end)**. Picking between them is no longer about capability \u2014 both run the same frontier models \u2014 but about how much autonomy your workflow can absorb. ([1_state_of_the_art_what_autonomous_coding_agent_actually_means_in_mid_2026[0]] [11])\n\n### 1.2 Benchmark landscape (SWE-bench family)\n\nThe leaderboard tells a sober story:\n\n- **SWE-bench Verified (500 issues, Python)**: Claude Mythos Preview 93.9 %, GPT-5.3 Codex 85.0 %, Claude Opus 4.6 80.9 %. 83 models evaluated; the average is 63.4 %. ([1_state_of_the_art_what_autonomous_coding_agent_actually_means_in_mid_2026[1]] [15])\n- **SWE-bench Pro (private repos, contamination-resistant)**: Claude Mythos Preview drops to 45.9 %, GPT-5 High to 23.3 %. The Verified-to-Pro gap (Claude: ~48 points) is the single most important signal in the benchmark literature. ([1_state_of_the_art_what_autonomous_coding_agent_actually_means_in_mid_2026[1]] [15])\n- **OpenAI's internal audit** found that frontier models can reproduce the gold patches verbatim for a subset of Verified tasks \u2014 Verified is partially contaminated; Pro is not. ([1_state_of_the_art_what_autonomous_coding_agent_actually_means_in_mid_2026[1]] [15])\n- **Databricks multi-million-LOC benchmark**: Tasks were sampled from real engineer tickets against the live Databricks codebase. The Pareto frontier mixes proprietary models (Claude, GPT) with open-source (GLM 5.2 led the OSS frontier). Performance vs. cost was the deciding axis, not raw benchmark score. ([1_state_of_the_art_what_autonomous_coding_agent_actually_means_in_mid_2026[2]] [5])\n\n**Reading the numbers**: an agent that scores 80\u201394 % on Verified will, in a real production repo, succeed on something closer to half its tickets. The other half is where guardrails matter.\n\n### 1.3 What \"long-running\" and \"self-directed\" mean now\n\n- **Single-session autonomous loops** (Devin, Claude Code `--dangerously-auto`, Codex CLI) now routinely run 30 minutes to several hours end-to-end on a single ticket. Cognition's average productive Devin session is multi-hour. ([1_state_of_the_art_what_autonomous_coding_agent_actually_means_in_mid_2026[3]] [22])\n- **Multi-day, multi-agent pipelines** are emerging. Anthropic's 2026 trends report flags single agents becoming \"coordinated teams\" and tasks that took hours now being unattended for **days**. ([1_state_of_the_art_what_autonomous_coding_agent_actually_means_in_mid_2026[4]] [18])\n- **Scheduled / cron-driven agents** (Claude Code `/loop`, GitHub Actions orchestrators) are the new normal for backlog burn-down, dependency upgrades, and migration sprints.\n\n---",
+      "2_autonomy_levels_a_maturity_model_l0_l5": "Jo Van Eyck's *Guardrails for Agentic Coding* (Feb 2026) and the *2026 Agentic Coding Trends Report* converge on the same ladder. The labels below synthesise both:\n\n| Level | Name | Human role | Examples (2026) |\n|---|---|---|---|\n| **L0** | Tab-complete | Accept/reject one line | Copilot classic, inline assist |\n| **L1** | Chat pair-programmer | Accept/reject a diff in chat | Cursor chat, Claude in IDE |\n| **L2** | Inline agent | Approve a multi-file diff | Cursor Agent mode, Copilot Workspace |\n| **L3** | Long-running single agent | Approve a PR opened by the agent | Devin, Claude Code async, Codex CLI |\n| **L4** | Multi-agent pipeline | Approve the orchestration policy, not each task | Anthropic's \"agent teams,\" Copilot Workspace review, internal GitHub Actions pipelines |\n| **L5** | Continuous autonomous engineering | Define outcomes and risk budgets | Rakuten's reported autonomous codegen for migrations; \"Dark mode\" dev teams where the agent owns the queue |\n\n**Empirical anchor:** Anthropic's 2026 report shows ~60 % of developer work now involves AI in some form, but only **0\u201320 % of tasks are reported as fully delegable** \u2014 i.e., humans say they can hand them off end-to-end. The other 80\u2013100 % is where partial autonomy + guardrails lives. ([2_autonomy_levels_a_maturity_model_l0_l5[0]] [18])\n\n**Action**: Audit every workflow against this ladder before you deploy. Most teams can productively operate L2/L3 with current guardrails; L4 requires process maturity; L5 requires culture and budget for failure.\n\n---",
+      "3_best_practices_for_self_directed_execution_minimal_human_intervention_workflows": "The following is the consolidated playbook that emerges from Anthropic's 2026 trends report, Jo Van Eyck's guardrails list, Cognition's productivity paper, and the Databricks multi-million-LOC benchmark. They are ordered by leverage.\n\n### 3.1 Define the prompt as a contract, not a wish\n\n- Specify **scope, non-goals, interfaces, invariants, acceptance criteria, and a definition of done** in the prompt. The Cognition paper shows the agent is far more effective when given explicit, falsifiable requirements than vague narratives. ([3_best_practices_for_self_directed_execution_minimal_human_intervention_workflows[0]] [22])\n- Encode the contract in repo-level files (`AGENTS.md`, `CONTRIBUTING.md` for agents, `CLAUDE.md`) \u2014 modern coding agents (Claude Code, Codex, Devin) honor these at startup. Treat them as machine-readable style guides.\n- Use **structured outputs**: JSON-schema task specs with explicit \"files-to-touch\" hints reduce drift when the agent reasons for hours.\n\n### 3.2 Decompose aggressively \u2014 small, mergeable slices\n\n- The single biggest predictor of autonomy success in 2026 is **task size**. Cognition's data and Van Eyck's CI guardrail converge on the same rule: **branches measured in hours, not days**. ([3_best_practices_for_self_directed_execution_minimal_human_intervention_workflows[1]] [26])\n- Trunk-based development + git worktrees is the dominant pattern. Anthropic's trends report calls out \"feature flags, parallel change, and integrate-first\" as the enablers of agent parallelism.\n- Tools: Claude Code worktrees, Aider `--worktree`, Cursor Background Agents, GitHub's worktree-aware Actions.\n\n### 3.3 Make verification deterministic and fast\n\nThe agent is only as autonomous as its feedback loop:\n\n1. **Compile/type-check first.** Static types are the cheapest and most reliable signal. Use languages with strong type systems; introduce domain-typed wrappers (`DocumentName`, `Money`, `OrderId`) so argument swaps become compile errors. ([3_best_practices_for_self_directed_execution_minimal_human_intervention_workflows[1]] [26])\n2. **Run scoped tests + linters on changed files only.** Don't dump the whole test suite into the context window. Wrap tools so passing tests output \"OK\" and failing tests emit only the failure summary + stack trace. ([3_best_practices_for_self_directed_execution_minimal_human_intervention_workflows[1]] [26])\n3. **Diff-aware analyzers** (CodeQL, Semgrep, dependency-vulnerability scanners) on staged changes, not the whole repo.\n4. **Sub-second feedback budgets.** If your CI loop is >5 min, the agent will skip it and you'll lose autonomy. Cache, shard, and prioritize.\n\n### 3.4 Put guardrails inside the loop, not after the PR\n\nVan Eyck enumerates a stack of guardrails that scale with autonomy:\n\n1. **Real continuous integration** (trunk-based, hours-not-days branches).\n2. **Strong static typing + domain types** to make argument swaps, ID confusion, and stringly-typed mistakes into compile errors.\n3. **Fast, scoped feedback loops** (linters, formatters, type-checks, analyzers) running on changed files inside the agent's loop.\n4. **Architectural unit tests** \u2014 executable rules like \"the UI module must not import from the data layer,\" encoded as import tests, run on every change.\n5. **Dependency and supply-chain checks** (Dependabot, Renovate, `pip-audit`, `npm audit`) blocking known-vulnerable packages.\n6. **Vulnerability scanning + secret detection** (Snyk, CodeQL, gitleaks) at commit time.\n7. **Code-quality gates** (complexity, duplication, ownership) enforced as merge-blocking.\n\nThese aren't aspirational; they are the **prerequisite for moving from L2 to L4**. The \"agent produced code fast\" \u2192 \"agent produced unmaintainable code and broke prod\" arc is what happens when these are absent.\n\n### 3.5 Use multi-agent orchestration for review, not just generation\n\nAnthropic's trend #2 \u2014 *Single agents evolve into coordinated teams* \u2014 describes a 2026 pattern: **planner \u2192 coder \u2192 reviewer \u2192 verifier** loops. In practice this means:\n\n- **Generator** produces the diff.\n- **Critic/reviewer** (often a different model or fine-tune) scores the diff against the contract.\n- **Verifier** runs the deterministic checks (build, tests, linters).\n- **Escalation policy**: only re-prompt or page a human when the verifier fails repeatedly or when the change touches a flagged area (auth, billing, infra).\n\nThe \"agent as verifier\" pattern is the most underrated 2026 idea: it lets a weaker/faster model check a stronger/slower model and is how most production systems get to high autonomy without sacrificing safety.\n\n### 3.6 Match autonomy to risk, not to ambition\n\nProduction systems in 2026 segment autonomy by **risk class**, not by team seniority:\n\n- **Low-risk (full autonomy, L3-L4)**: tests, docs, migrations of dead code, dependency upgrades, lint fixes.\n- **Medium-risk (autonomy with reviewer checkpoint)**: feature flags behind `OFF`, internal APIs, observability.\n- **High-risk (human approval required, L2 max)**: auth, billing, schema migrations on hot tables, anything touching PII or money.\n\nAnthropic reports Rakuten running \"autonomous, long-running coding agents on complex production codebases\" precisely because they pair high autonomy on safe surfaces with human gates on risky ones. ([3_best_practices_for_self_directed_execution_minimal_human_intervention_workflows[2]] [18])\n\n### 3.7 Measure outcomes, not activity\n\nCognition's productivity estimator marks the shift in 2026 away from \"lines/PR/tokens\" toward **productive engineering hours per session**, validated against human-engineer self-reports. The metric is now used internally to track whether autonomy actually freed time. ([3_best_practices_for_self_directed_execution_minimal_human_intervention_workflows[0]] [22])\n\nRecommended KPIs for autonomous-coding programs:\n\n| KPI | What it tells you |\n|---|---|\n| Productive hours per agent session | Real value created vs. raw activity |\n| PRs merged per week without human edit | True \"hands-off\" rate |\n| Time-to-first-feedback (CI loop) | Bottleneck on autonomy |\n| Defect escape rate to prod | Quality of agent output |\n| Escalation rate (human pages) | Reliability of the autonomy envelope |\n| Test coverage delta per PR | Whether the agent is preserving test hygiene |\n\n---",
+      "4_the_failure_modes_what_breaks_when_you_remove_the_human": "Diagrid's \"Why AI Agents Fail in Production\" and Cognition's productivity paper converge on four failure-mode families:\n\n### 4.1 Durability\nAgents crash mid-task; sessions lose state; long-running jobs exceed context windows. Mitigation: checkpointed, idempotent agents (Claude Code's `/loop` + worktrees, Devin's session resume). Anthropic's trend #3 calls this out as a 2026 priority.\n\n### 4.2 Security\nAgents with shell access and broad repo permissions will, eventually, do unsafe things (exfiltrate secrets, push to main, run untrusted code). Telus, CRED, and Zapier all cited this as the #1 reason their agent rollouts are gated by humans. Mitigation: scoped credentials, network egress allowlists, ephemeral VMs, mandatory human approval for any change touching secrets or auth code.\n\n### 4.3 Cost\nLong-horizon agents can burn thousands of dollars in tokens before producing a useful diff. The Databricks benchmark showed the cost-vs-quality frontier is *steep*: the cheapest competitive model is roughly 10\u00d7 cheaper than the most expensive, with only a few percentage points of quality lost. ([4_the_failure_modes_what_breaks_when_you_remove_the_human[0]] [5])\n\n### 4.4 Observability\nWithout per-step traces, you can't tell whether the agent is genuinely solving or thrashing. Production systems in 2026 ship **agent-specific telemetry**: tool-call traces, verifier-pass rates, escalation counts, and a \"thinking budget\" tracker. Treat the agent like a microservice with SLOs.\n\n---",
+      "5_risks_ethics_and_the_cognitive_debt_problem": "Anthropic's 2026 trends report flags a tension that goes beyond engineering: as agents take on more coding, **engineers lose the deep familiarity that comes from writing the code themselves**. This is the *cognitive debt* problem, parallel to technical debt but in human understanding. The report warns:\n\n> \"When AI handles large portions of the codebase, engineers risk losing the intimate understanding needed to debug, maintain, and evolve the system \u2014 especially during incidents.\" ([5_risks_ethics_and_the_cognitive_debt_problem[0]] [18])\n\nThree ethics vectors matter for organizations deploying autonomous coding at scale:\n\n1. **Accountability.** Who is on the hook when an autonomous PR causes a production incident? Most 2026 deployments answer: a named human owner; the agent never owns the change alone.\n2. **Skill atrophy.** Newer engineers risk never learning the fundamentals if the agent always does the typing. Several 2026 engineering leaders reported introducing \"manual weeks\" \u2014 periods where junior engineers code by hand to maintain fluency.\n3. **Security disclosure.** When agents discover vulnerabilities autonomously, the same responsible-disclosure norms apply \u2014 but with the twist that the agent may try to \"fix\" them, creating a race condition with patching. CodeQL + manual review remains the consensus approach.\n\n---",
+      "6_putting_it_all_together_a_practical_rollout": "For a team moving from L2 (inline assist) to L3-L4 (autonomous, minimal human intervention) in mid-2026, the rollout that consensus sources point to is:\n\n1. **Pick a low-risk, high-volume surface.** Backlog tickets, dependency upgrades, doc generation, test scaffolding, accessibility audits. These are deterministic enough for current agents and catastrophic-failure-tolerant.\n2. **Set up the guardrails first, in this order:** real CI + trunk-based dev \u2192 static types (or runtime contracts) \u2192 scoped test/lint loop \u2192 architectural unit tests \u2192 vulnerability scanning \u2192 dependency policies. This is the same order Van Eyck recommends.\n3. **Define an autonomy envelope.** Which file paths, repos, and risk classes are L3/L4-eligible? Everything else is L2. Make this an explicit allow-list, not a deny-list.\n4. **Wrap the agent in an orchestrator.** Planner \u2192 coder \u2192 reviewer \u2192 verifier \u2192 human-on-call. The orchestrator owns the retry/escalation policy.\n5. **Instrument everything.** Treat agent runs as production telemetry: traces, verifier scores, escalation rates, cost. Alert on regressions like any service.\n6. **Start with read-only or PR-only authority.** Even after the agent has PR-opening rights, keep direct-main authority (push to main, deploy to prod) behind a human or a policy gate until SLOs are stable.\n7. **Track the cognitive-debt signal.** Rotate engineers through manual deep-dives on what the agent produced. Treat \"agent output the team can't explain\" as a P1.\n8. **Re-baseline against SWE-bench Pro, not Verified.** Use Verified only as a directional signal; Pro or your own private benchmark as the source of truth for production-readiness.\n\n---",
+      "7_the_one_sentence_takeaway": "In July 2026, **\"zero-human-intervention coding\" is technically real but operationally dangerous** \u2014 the frontier is at ~94 % on Verified, ~46 % on Pro, and roughly half of all real production tickets in the wild; the responsible best practice is not to maximize autonomy but to **match autonomy to risk class, wrap every agent in guardrails (real CI, strong typing, scoped feedback loops, architectural tests, security scanning, dependency policies), and instrument the agent loop with the same rigor you'd apply to any production service.**\n</answer>"
+    },
+    "type": "json",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "executive_summary": {
+          "type": "string",
+          "title": "Executive Summary"
+        },
+        "1_state_of_the_art_what_autonomous_coding_agent_actually_means_in_mid_2026": {
+          "type": "string",
+          "title": "1. State of the Art \u2014 What \"Autonomous Coding Agent\" Actually Means in Mid-2026"
+        },
+        "2_autonomy_levels_a_maturity_model_l0_l5": {
+          "type": "string",
+          "title": "2. Autonomy Levels \u2014 A Maturity Model (L0 \u2192 L5)"
+        },
+        "3_best_practices_for_self_directed_execution_minimal_human_intervention_workflows": {
+          "type": "string",
+          "title": "3. Best Practices for Self-Directed Execution (Minimal-Human-Intervention Workflows)"
+        },
+        "4_the_failure_modes_what_breaks_when_you_remove_the_human": {
+          "type": "string",
+          "title": "4. The Failure Modes \u2014 What Breaks When You Remove the Human"
+        },
+        "5_risks_ethics_and_the_cognitive_debt_problem": {
+          "type": "string",
+          "title": "5. Risks, Ethics, and the \"Cognitive Debt\" Problem"
+        },
+        "6_putting_it_all_together_a_practical_rollout": {
+          "type": "string",
+          "title": "6. Putting It All Together \u2014 A Practical Rollout"
+        },
+        "7_the_one_sentence_takeaway": {
+          "type": "string",
+          "title": "7. The One-Sentence Takeaway"
+        }
+      },
+      "required": [
+        "executive_summary",
+        "1_state_of_the_art_what_autonomous_coding_agent_actually_means_in_mid_2026",
+        "2_autonomy_levels_a_maturity_model_l0_l5",
+        "3_best_practices_for_self_directed_execution_minimal_human_intervention_workflows",
+        "4_the_failure_modes_what_breaks_when_you_remove_the_human",
+        "5_risks_ethics_and_the_cognitive_debt_problem",
+        "6_putting_it_all_together_a_practical_rollout",
+        "7_the_one_sentence_takeaway"
+      ]
+    }
+  }
+}
