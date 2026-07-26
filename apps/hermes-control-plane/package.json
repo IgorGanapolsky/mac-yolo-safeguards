@@ -23,6 +23,10 @@
     "db:generate": "drizzle-kit generate",
     "cloudflare:validate-production": "node -e \"import('./build/cloudflare-target.mjs').then(({ assertProductionCloudflareEnvironment }) => assertProductionCloudflareEnvironment())\"",
     "deploy:cloudflare": "npm run cloudflare:validate-production && npm run build:cloudflare && wrangler d1 migrations apply DB --remote --config dist/server/wrangler.json && wrangler deploy --config dist/server/wrangler.json",
+    "rollback:status": "node ../../tools/hermes-control-plane-rollback.js status",
+    "rollback:list": "node ../../tools/hermes-control-plane-rollback.js list",
+    "rollback:prev": "node ../../tools/hermes-control-plane-rollback.js prev",
+    "rollback:prev:go": "node ../../tools/hermes-control-plane-rollback.js prev --execute -y",
     "test:unit": "vitest run --coverage"
   },
   "dependencies": {
