@@ -38,6 +38,39 @@ monitoring; and an ongoing response loop. That is the governing model here,
 not a one-time launch checklist.
 [NIST AI RMF Core](https://airc.nist.gov/airmf-resources/airmf/5-sec-core/)
 
+## Code-graph RAG receipt
+
+Graphify is part of the architecture decision stack, but it is an architecture
+navigator rather than release proof. The isolated worktree intentionally has no
+generated graph; the main checkout's read-only
+`graphify-out/graph.json` was 115,584,456 bytes and last updated
+2026-07-26 15:09:41 local time.
+
+The July 26 queries established:
+
+- `localRetrieval()` and `recommendNextAction()` have a two-hop path through
+  `tools/agent-decision-stack.js`.
+- Source readback shows `buildBrief()` combines ThumbGate lessons, Graphify,
+  bounded local retrieval, GitHub-run telemetry, and
+  `readContinuousDeviceVerified()`.
+- `recommendNextAction()` explicitly refuses a “device verified” claim when
+  continuous E2E is not a device-verified pass.
+- `resolveComputerPickerStatus()` is imported by both
+  `ComputerPickerStatusRegion.tsx` and its focused test, and calls the transport
+  and scan-result formatters. That is the graph shape wanted for regression
+  prevention: production consumer, decision function, dependencies, and tests
+  are connected.
+
+The graph also indexed generated iOS Pods and returned irrelevant nodes for
+broad terms such as “cleanup” and “production.” Therefore:
+
+1. use narrow Graphify query/path/explain calls before architecture changes;
+2. exclude generated dependencies from architectural conclusions;
+3. confirm graph hits with source readback and executable tests;
+4. never treat graph presence, staleness, or connectivity as runtime proof;
+5. refresh the graph after the branch is integrated, not by committing generated
+   graph state from an isolated worker.
+
 ## One evidence receipt
 
 Every evaluation, deployment, and live trace must carry or resolve to:
