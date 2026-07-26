@@ -35,6 +35,10 @@ if [[ "$url" == *":8765/pair.json"* ]]; then
   fi
   exit 0
 fi
+if [[ "$url" == *ntfy.sh* ]]; then
+  printf '%s\n' "$*" >> "${NTFY_LOG:?}"
+  exit 0
+fi
 exit 1
 EOF
 
@@ -64,8 +68,11 @@ run_watchdog() {
   HERMES_NODE_BIN="$(command -v node)" \
   HERMES_PAIR_SCRIPT="$TMP/fake-pair.js" \
   HERMES_TAILSCALE_WATCHDOG_LOG="$TMP/watchdog.log" \
+  HERMES_TAILSCALE_WATCHDOG_ALERT_STATE="$TMP/alert-state" \
+  HERMES_TAILSCALE_WATCHDOG_NTFY_TOPIC="test-topic" \
   LAUNCHCTL_LOG="$TMP/launchctl.log" \
   OPEN_LOG="$TMP/open.log" \
+  NTFY_LOG="$TMP/ntfy.log" \
   REPAIR_MARKER="$TMP/repaired" \
   "$WATCHDOG"
 }
@@ -104,6 +111,72 @@ if ! TAILSCALE_MODE=online GATEWAY_MODE=down PAIR_MODE=healthy run_watchdog \
   ok 'gateway failure kicks its dedicated watchdog and fails the health tick honestly'
 else
   bad 'gateway failure kicks its dedicated watchdog and fails the health tick honestly'
+fi
+
+echo ""
+echo "=== self-heal-failure alerting (this watchdog previously had NO alerting at all) ==="
+
+# A same-tick self-heal SUCCESS (stale pair regenerated and rechecked within one
+# invocation) must stay completely silent -- this is exactly the routine case
+# nobody should be paged for.
+rm -f "$TMP/launchctl.log" "$TMP/open.log" "$TMP/repaired" "$TMP/ntfy.log" "$TMP/alert-state"
+if TAILSCALE_MODE=online GATEWAY_MODE=healthy PAIR_MODE=stale run_watchdog \
+  && [[ ! -s "$TMP/ntfy.log" ]]; then
+  ok 'A: same-tick self-heal success (pair regen) fires no alert'
+else
+  bad 'A: same-tick self-heal success (pair regen) fires no alert'
+fi
+
+# B: first tick with Tailscale offline (async heal: app-open, no in-tick
+# recheck) -> healing, not yet alerted.
+rm -f "$TMP/launchctl.log" "$TMP/open.log" "$TMP/repaired" "$TMP/ntfy.log"
+if ! TAILSCALE_MODE=offline GATEWAY_MODE=healthy PAIR_MODE=healthy run_watchdog \
+  && [[ ! -s "$TMP/ntfy.log" ]] && [[ "$(cat "$TMP/alert-state")" == healing ]]; then
+  ok 'B: first offline tick -> healing (routine self-heal in flight), no alert'
+else
+  bad 'B: first offline tick -> healing (routine self-heal in flight), no alert'
+fi
+
+# C: STILL offline on the following tick despite the app-open already
+# requested -> self-heal failed to resolve it -> real ntfy alert fires.
+rm -f "$TMP/ntfy.log"
+if ! TAILSCALE_MODE=offline GATEWAY_MODE=healthy PAIR_MODE=healthy run_watchdog \
+  && grep -q 'Title: Hermes tailscale watchdog self-heal failed' "$TMP/ntfy.log" \
+  && [[ "$(cat "$TMP/alert-state")" == degraded ]]; then
+  ok 'C: still offline after app-open attempt -> real ntfy self-heal-failed alert fires'
+else
+  cat "$TMP/ntfy.log" 2>/dev/null
+  bad 'C: still offline after app-open attempt -> real ntfy self-heal-failed alert fires'
+fi
+
+# D: still offline on a THIRD tick -> no duplicate alert (edge-triggered).
+rm -f "$TMP/ntfy.log"
+TAILSCALE_MODE=offline GATEWAY_MODE=healthy PAIR_MODE=healthy run_watchdog >/dev/null 2>&1 || true
+if [[ ! -s "$TMP/ntfy.log" ]]; then
+  ok 'D: still degraded on a third tick -> no duplicate ntfy alert'
+else
+  bad 'D: still degraded on a third tick -> no duplicate ntfy alert'
+fi
+
+# E: Tailscale comes back online -> ntfy recovery alert fires exactly once,
+# state resets to ok.
+rm -f "$TMP/ntfy.log"
+if TAILSCALE_MODE=online GATEWAY_MODE=healthy PAIR_MODE=healthy run_watchdog \
+  && grep -q 'Title: Hermes tailscale watchdog recovered' "$TMP/ntfy.log" \
+  && [[ "$(cat "$TMP/alert-state")" == ok ]]; then
+  ok 'E: recovery fires an ntfy recovery alert and resets state'
+else
+  cat "$TMP/ntfy.log" 2>/dev/null
+  bad 'E: recovery fires an ntfy recovery alert and resets state'
+fi
+
+# F: subsequent healthy ticks after recovery stay silent (no repeat alert).
+rm -f "$TMP/ntfy.log"
+TAILSCALE_MODE=online GATEWAY_MODE=healthy PAIR_MODE=healthy run_watchdog >/dev/null 2>&1 || true
+if [[ ! -s "$TMP/ntfy.log" ]]; then
+  ok 'F: repeated healthy ticks after recovery stay silent'
+else
+  bad 'F: repeated healthy ticks after recovery stay silent'
 fi
 
 for plist in \
