@@ -127,6 +127,7 @@ export function useHermesDeepLinks(
         isDevLeashUnlockDeepLink(url);
 
       const setup = parseSetupDeepLink(url);
+      const relayOnly = parseRelayDeepLink(url);
       const e2eDemoRebootstrap =
         setup?.demoMode && isDemoModeAllowed() && Boolean(forceE2eDemoMode);
 
@@ -141,7 +142,6 @@ export function useHermesDeepLinks(
         return;
       }
 
-      const relayOnly = parseRelayDeepLink(url);
       if (relayOnly && applySetupDeepLink) {
         await applySetupDeepLink(relayOnly);
         navigationRef.current?.navigate('Chat');
