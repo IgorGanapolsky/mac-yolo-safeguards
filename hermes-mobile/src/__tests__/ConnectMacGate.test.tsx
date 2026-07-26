@@ -330,7 +330,7 @@ describe('ConnectMacGate', () => {
 
     const view = render(<ConnectMacGate />);
 
-    expect(view.getByText(/Paste your Mac’s Tailscale IP — works on cellular/)).toBeTruthy();
+    expect(view.getByText(/Paste your computer’s Tailscale IP — works on cellular/)).toBeTruthy();
     expect(view.queryByText('Same home Wi‑Fi')).toBeNull();
     expect(view.queryByText('Use Tailscale from cellular')).toBeNull();
   });
