@@ -38,6 +38,30 @@ function formatDateTime(timestamp: number) {
   }).format(new Date(timestamp));
 }
 
+function escapeRegExp(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function HighlightText({ text, query }: { text: string; query: string }) {
+  if (!query || !query.trim() || !text) return <>{text}</>;
+  const trimmed = query.trim();
+  const pattern = new RegExp(`(${escapeRegExp(trimmed)})`, "gi");
+  const parts = text.split(pattern);
+  return (
+    <>
+      {parts.map((part, index) =>
+        part.toLowerCase() === trimmed.toLowerCase() ? (
+          <mark key={index} className="search-highlight">
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+}
+
 export default function LessonsClient() {
   const [user, setUser] = useState<User | null>(null);
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -85,10 +109,23 @@ export default function LessonsClient() {
     setAppliedQuery(query.trim());
   }
 
+  function handleSignalClick(targetSignal: "all" | "up" | "down") {
+    setSignal(targetSignal);
+    window.setTimeout(() => {
+      document.querySelector(".lesson-list")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  }
+
   if (!user) return <main className="loading-screen"><p>Opening your ThumbGate lessons…</p></main>;
 
   const emptyBecauseNoRatings = !loading && lessons.length === 0 && !appliedQuery && signal === "all" && counts.total === 0;
   const emptyBecauseFilter = !loading && lessons.length === 0 && !emptyBecauseNoRatings;
+
+  const resultsCountText = appliedQuery
+    ? `${lessons.length} result${lessons.length === 1 ? "" : "s"} for "${appliedQuery}"`
+    : signal === "all"
+    ? `${lessons.length} rated lesson${lessons.length === 1 ? "" : "s"}`
+    : `${lessons.length} ${signal === "up" ? "Helpful" : "Improve"} rating${lessons.length === 1 ? "" : "s"}`;
 
   return <main className="lessons-shell">
     <header className="lessons-header">
@@ -116,13 +153,13 @@ export default function LessonsClient() {
     </section>
 
     <section className="lesson-metrics" aria-label="Rated lesson totals">
-      <button type="button" className={signal === "all" ? "is-active" : ""} onClick={() => setSignal("all")}>
+      <button type="button" className={signal === "all" ? "is-active" : ""} onClick={() => handleSignalClick("all")}>
         <span>All ratings</span><strong>{counts.total}</strong>
       </button>
-      <button type="button" className={signal === "up" ? "is-active" : ""} onClick={() => setSignal("up")}>
+      <button type="button" className={signal === "up" ? "is-active" : ""} onClick={() => handleSignalClick("up")}>
         <span>👍 Helpful</span><strong>{counts.up}</strong>
       </button>
-      <button type="button" className={signal === "down" ? "is-active" : ""} onClick={() => setSignal("down")}>
+      <button type="button" className={signal === "down" ? "is-active" : ""} onClick={() => handleSignalClick("down")}>
         <span>👎 Improve</span><strong>{counts.down}</strong>
       </button>
     </section>
@@ -170,34 +207,43 @@ export default function LessonsClient() {
           </button>
         </div>
       ) : (
-        lessons.map((lesson) => (
-          <article className="lesson-card" key={lesson.id}>
-            <div className="lesson-card-top">
-              <span className={`lesson-signal signal-${lesson.signal}`}>
-                {lesson.signal === "up" ? "👍 Helpful" : "👎 Improve"}
-              </span>
-              <time dateTime={new Date(lesson.updatedAt).toISOString()}>{formatDateTime(lesson.updatedAt)}</time>
-            </div>
-            <p className="eyebrow">{lesson.threadTitle} · {lesson.route}</p>
-            <h2>
-              <a className="lesson-card-title-link" href={hermesTaskHref(lesson)}>
-                {lesson.prompt}
-              </a>
-            </h2>
-            <pre>{lesson.result}</pre>
-            {lesson.note && (
-              <div className="lesson-note">
-                <strong>Improvement note</strong>
-                <p>{lesson.note}</p>
+        <>
+          <div className="lesson-results-count">
+            Showing <strong>{resultsCountText}</strong>
+          </div>
+          {lessons.map((lesson) => (
+            <article className="lesson-card" key={lesson.id}>
+              <div className="lesson-card-top">
+                <span className={`lesson-signal signal-${lesson.signal}`}>
+                  {lesson.signal === "up" ? "👍 Helpful" : "👎 Improve"}
+                </span>
+                <time dateTime={new Date(lesson.updatedAt).toISOString()}>{formatDateTime(lesson.updatedAt)}</time>
               </div>
-            )}
-            <div className="lesson-card-actions">
-              <a className="button button-secondary button-small" href={hermesTaskHref(lesson)}>
-                Open in Hermes →
-              </a>
-            </div>
-          </article>
-        ))
+              <p className="eyebrow">{lesson.threadTitle} · {lesson.route}</p>
+              <h2>
+                <a className="lesson-card-title-link" href={hermesTaskHref(lesson)}>
+                  <HighlightText text={lesson.prompt} query={appliedQuery} />
+                </a>
+              </h2>
+              <pre>
+                <HighlightText text={lesson.result} query={appliedQuery} />
+              </pre>
+              {lesson.note && (
+                <div className="lesson-note">
+                  <strong>Improvement note</strong>
+                  <p>
+                    <HighlightText text={lesson.note} query={appliedQuery} />
+                  </p>
+                </div>
+              )}
+              <div className="lesson-card-actions">
+                <a className="button button-secondary button-small" href={hermesTaskHref(lesson)}>
+                  Open in Hermes →
+                </a>
+              </div>
+            </article>
+          ))}
+        </>
       )}
     </section>
     <footer className="lessons-footer">
