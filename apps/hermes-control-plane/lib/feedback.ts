@@ -1,3 +1,5 @@
+import { sanitizeText } from "./security";
+
 export type FeedbackSignal = "up" | "down";
 
 export function cleanFeedbackSignal(value: unknown): FeedbackSignal | null {
@@ -6,7 +8,7 @@ export function cleanFeedbackSignal(value: unknown): FeedbackSignal | null {
 
 export function cleanFeedbackNote(value: unknown): string | null {
   if (typeof value !== "string") return null;
-  const note = value.replaceAll("\u0000", "").replace(/\s+/g, " ").trim().slice(0, 1_000);
+  const note = sanitizeText(value, 1_000);
   return note || null;
 }
 

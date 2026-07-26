@@ -43,3 +43,16 @@ export function displayFingerprint(fingerprint: string): string {
 export function jsonError(message: string, status = 400): Response {
   return Response.json({ error: message }, { status });
 }
+
+/** Constant-time string comparison (length mismatch short-circuits, which is safe to leak). */
+export function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let out = 0;
+  for (let i = 0; i < a.length; i += 1) out |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return out === 0;
+}
+
+/** Strip null bytes, collapse whitespace, trim, and cap length for user-supplied free text. */
+export function sanitizeText(value: string, maxLen: number): string {
+  return value.replaceAll("\u0000", "").replace(/\s+/g, " ").trim().slice(0, maxLen);
+}

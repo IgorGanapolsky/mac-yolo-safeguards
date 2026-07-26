@@ -1,4 +1,4 @@
-import { base64Url, fromBase64Url, randomToken } from "./security";
+import { base64Url, fromBase64Url, randomToken, timingSafeEqual } from "./security";
 
 const encoder = new TextEncoder();
 const STATE_TTL_MS = 10 * 60 * 1000;
@@ -53,12 +53,7 @@ export async function verifySignedAuthState(
   const [payloadB64, signature] = parts;
   if (!payloadB64 || !signature) return null;
   const expected = await sign(payloadB64, secret);
-  if (expected.length !== signature.length) return null;
-  let ok = 0;
-  for (let i = 0; i < expected.length; i += 1) {
-    ok |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
-  }
-  if (ok !== 0) return null;
+  if (!timingSafeEqual(expected, signature)) return null;
   try {
     const json = new TextDecoder().decode(fromBase64Url(payloadB64));
     const payload = JSON.parse(json) as AuthStatePayload;
