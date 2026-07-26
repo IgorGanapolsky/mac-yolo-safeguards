@@ -116,6 +116,8 @@ export default function DashboardClient() {
   const [threads, setThreads] = useState<Thread[]>(() => readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? []);
   const [tasks, setTasks] = useState<Task[]>(() => readJsonSessionStorage<Task[]>(DASHBOARD_CACHE_KEYS.tasks) ?? []);
   const [selectedThread, setSelectedThread] = useState<string | null>(() => {
+    // Lessons "chats synced" deep-link: open the list, not a sticky single thread.
+    if (typeof window !== "undefined" && window.location.hash === "#chats") return null;
     const stored = readJsonSessionStorage<string>(DASHBOARD_CACHE_KEYS.selectedThread);
     if (stored) return stored;
     const cachedThreads = readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? [];
@@ -176,10 +178,15 @@ export default function DashboardClient() {
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
   /** Desktop: route explain is secondary chrome — collapsed by default (Genspark-style). */
   const [routeExplainExpanded, setRouteExplainExpanded] = useState(false);
-  const autoSelectedThread = useRef(Boolean(selectedThread));
+  const chatsListDeepLink =
+    typeof window !== "undefined" && window.location.hash === "#chats";
+  // True when we must not auto-pick nextThreads[0] (user already chose, or #chats list view).
+  const autoSelectedThread = useRef(chatsListDeepLink || Boolean(selectedThread));
   const selectedThreadRef = useRef(selectedThread);
   /** One-shot deep link from lessons page: /dashboard?task=…&thread=…#task-activity */
   const focusedTaskFromUrl = useRef(false);
+  /** One-shot: /dashboard#chats expands the rail and shows the thread list. */
+  const openedChatsListFromUrl = useRef(false);
   const composerObserverRef = useRef<ResizeObserver | null>(null);
   /**
    * Mobile composer is position:absolute docked to the bottom of `.task-panel`.
@@ -266,6 +273,22 @@ export default function DashboardClient() {
   }, []);
 
   useEffect(() => {
+    function openChatsListFromHash() {
+      if (window.location.hash !== "#chats") return;
+      if (openedChatsListFromUrl.current) return;
+      openedChatsListFromUrl.current = true;
+      autoSelectedThread.current = true;
+      setSelectedThread(null);
+      setThreadDetails(null);
+      writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, null);
+      setChatRailExpanded(true);
+      window.localStorage.setItem(chatRailPreferenceKey, "true");
+      setMobileTab("hermes");
+      setNotice("Pick a chat from the list.");
+      window.requestAnimationFrame(() => {
+        document.getElementById("hermes-thread-list")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
     function syncMobileTab() {
       const path = window.location.pathname;
       const hash = window.location.hash;
@@ -281,6 +304,13 @@ export default function DashboardClient() {
         setMobileTab("settings");
         return;
       }
+      if (hash === "#chats") {
+        setMobileTab("hermes");
+        // Allow re-opening the list if the user navigates away and back via hash.
+        openedChatsListFromUrl.current = false;
+        openChatsListFromHash();
+        return;
+      }
       setMobileTab("hermes");
     }
     syncMobileTab();
@@ -294,9 +324,12 @@ export default function DashboardClient() {
 
   useEffect(() => {
     const storedPreference = window.localStorage.getItem(chatRailPreferenceKey);
-    const shouldExpand = storedPreference === null
-      ? !window.matchMedia("(max-width: 700px)").matches
-      : storedPreference === "true";
+    // #chats always expands the rail so the thread list is visible on mobile.
+    const shouldExpand = window.location.hash === "#chats"
+      ? true
+      : storedPreference === null
+        ? !window.matchMedia("(max-width: 700px)").matches
+        : storedPreference === "true";
     const storedWidth = Number(window.localStorage.getItem(sidebarWidthPreferenceKey));
     const storedSort = window.localStorage.getItem(threadSortPreferenceKey) as ThreadSortOrder | null;
     const timer = window.setTimeout(() => {
@@ -372,7 +405,18 @@ export default function DashboardClient() {
       const nextThreads = sortThreadsNewestFirst((await threadResponse.json() as { threads: Thread[] }).threads);
       setThreads(nextThreads);
       writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.threads, nextThreads);
-      if (!autoSelectedThread.current && !activeSelected && nextThreads.length) {
+      const preferChatsList =
+        typeof window !== "undefined" && window.location.hash === "#chats";
+      if (preferChatsList) {
+        // Stay on the chat list (no auto-open of newest / sticky cron thread).
+        autoSelectedThread.current = true;
+        if (activeSelected) {
+          activeSelected = null;
+          setSelectedThread(null);
+          setThreadDetails(null);
+          writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, null);
+        }
+      } else if (!autoSelectedThread.current && !activeSelected && nextThreads.length) {
         autoSelectedThread.current = true;
         activeSelected = nextThreads[0].id;
         setSelectedThread(nextThreads[0].id);
@@ -726,6 +770,13 @@ export default function DashboardClient() {
     setThreadMenu(null);
     setSelectedThread(threadId);
     setRouteExplainExpanded(false);
+    // Leaving the #chats list view for a concrete thread (or workspace home).
+    if (typeof window !== "undefined" && window.location.hash === "#chats") {
+      const url = new URL(window.location.href);
+      url.hash = "";
+      window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+      openedChatsListFromUrl.current = false;
+    }
     if (threadId) {
       const cached = readCachedThreadDetails(threadId);
       if (cached) setThreadDetails(cached);
@@ -733,10 +784,17 @@ export default function DashboardClient() {
       writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, threadId);
     } else {
       setThreadDetails(null);
+      writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, null);
     }
     if (window.matchMedia("(max-width: 700px)").matches) {
-      setChatRailExpanded(false);
-      window.localStorage.setItem(chatRailPreferenceKey, "false");
+      // Keep the rail open only when browsing the full chat list (#chats).
+      if (threadId) {
+        setChatRailExpanded(false);
+        window.localStorage.setItem(chatRailPreferenceKey, "false");
+      } else {
+        setChatRailExpanded(true);
+        window.localStorage.setItem(chatRailPreferenceKey, "true");
+      }
       setMobileTab("hermes");
     }
   }
@@ -769,7 +827,7 @@ export default function DashboardClient() {
               {threads.length > 0 && <button type="button" className="clear-all-chats" onClick={() => { setThreadMenu(null); setChatDialog({ kind: "clear" }); }}>Clear all</button>}
             </div>
           </div>
-          <nav className="thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.map((thread) => (
+          <nav className="thread-list" id="hermes-thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.map((thread) => (
             <div key={thread.id} className="thread-row">
               <button title={`${thread.title} — ${formatDateTime(thread.updatedAt)}`} aria-current={selectedThread === thread.id ? "page" : undefined} className={selectedThread === thread.id ? "side-item thread-item active" : "side-item thread-item"} onClick={() => openThread(thread.id)} onPointerEnter={() => void prefetchThreadDetails(thread.id)} onFocus={() => void prefetchThreadDetails(thread.id)}><span className="thread-icon">{thread.sourceSessionId ? "⌘" : "›_"}</span><span className="thread-copy"><strong>{thread.title}</strong><time dateTime={new Date(thread.updatedAt).toISOString()}>{formatDateTime(thread.updatedAt)}</time></span><em>{thread.messageCount || thread.taskCount}</em></button>
               <button type="button" className="thread-menu-trigger" aria-label={`Actions for ${thread.title}`} aria-haspopup="menu" aria-expanded={threadMenu === thread.id} onClick={() => setThreadMenu((current) => current === thread.id ? null : thread.id)}>•••</button>
