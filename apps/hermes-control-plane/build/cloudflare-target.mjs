@@ -40,6 +40,18 @@ export function createDirectCloudflareConfig(environment = process.env) {
         binding: "DB",
         database_name: "hermes-control-plane",
         database_id: databaseId,
+        // Resolved by @cloudflare/vite-plugin RELATIVE TO THE EMITTED
+        // wrangler.json (dist/server/wrangler.json), not this source file
+        // or the process cwd — it rewrites this to "../../drizzle" at
+        // build time, which correctly lands on apps/hermes-control-plane/
+        // drizzle/ (the real drizzle-kit migrations, see drizzle.config.ts
+        // `out: "./drizzle"`). Verified 2026-07-26 with
+        // `wrangler d1 migrations list DB --local --config
+        // dist/server/wrangler.json`, which found all 6 real migrations.
+        // Do not "fix" this path without re-running that check — a
+        // literal apps/hermes-control-plane/migrations/ directory does
+        // not exist and was never populated; drizzle/ is the one true
+        // source of migrations for this app.
         migrations_dir: "drizzle",
       },
     ],
