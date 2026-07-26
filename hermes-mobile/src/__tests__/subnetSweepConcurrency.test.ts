@@ -1,27 +1,49 @@
 import fs from 'fs';
 import path from 'path';
+import { discoverGatewayOnPhoneSubnet } from '../services/gatewayDiscovery';
 
-// Regression guard for Sentry APPS-3S (fatal, release 1.5): the LAN pair.json sweep ran 48
-// concurrent probes and iOS killed the app — `WatchdogTermination: the OS watchdog terminated
-// your app, possibly because it overused RAM` on an iPad 6th gen (1.9 GiB RAM), with 96+
-// `GET http://192.168.68.x:8765/pair.json` breadcrumbs right before the kill. It was the sole
-// cause of 1.5's 50% crash-free rate.
-const SRC = fs.readFileSync(
-  path.join(__dirname, '..', 'services', 'gatewayDiscovery.ts'),
-  'utf8',
-);
-
+// Regression guard for Sentry APPS-3S (FATAL, release 1.5): the LAN pair.json sweep ran 48
+// concurrent probes and iOS killed the app — "WatchdogTermination: the OS watchdog terminated
+// your app, possibly because it overused RAM" on an iPad 6th gen (1.9 GiB RAM), with 96+
+// `GET http://192.168.68.x:8765/pair.json` breadcrumbs right before the kill. Sole cause of
+// release 1.5's 50% crash-free rate.
+//
+// This measures ACTUAL in-flight concurrency by instrumenting fetch — asserting on the
+// constant alone would pass even if the batching loop were removed.
 describe('subnet sweep concurrency (iPad watchdog regression)', () => {
-  it('caps concurrent subnet probes low enough for a low-RAM device', () => {
-    const m = SRC.match(/const SUBNET_BATCH_SIZE\s*=\s*(\d+)/);
-    expect(m).not.toBeNull();
-    const size = Number(m![1]);
-    expect(size).toBeGreaterThan(0);
-    // 48 was fatal on a 1.9 GiB iPad; keep a wide margin below it.
-    expect(size).toBeLessThanOrEqual(8);
+  const realFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = realFetch;
   });
 
-  it('still sweeps in batches rather than firing the whole subnet at once', () => {
-    expect(SRC).toMatch(/hosts\.slice\(start, start \+ SUBNET_BATCH_SIZE\)/);
+  it('never exceeds 8 simultaneous in-flight probes across a full /24 sweep', async () => {
+    let inFlight = 0;
+    let peak = 0;
+    let calls = 0;
+
+    global.fetch = jest.fn(async () => {
+      calls += 1;
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((r) => setTimeout(r, 1));
+      inFlight -= 1;
+      throw new Error('connection refused'); // realistic: most subnet hosts have no pair server
+    }) as unknown as typeof fetch;
+
+    await discoverGatewayOnPhoneSubnet('192.168.68.42').catch(() => undefined);
+
+    expect(calls).toBeGreaterThan(8); // it really did sweep, not short-circuit
+    expect(peak).toBeGreaterThan(0);
+    expect(peak).toBeLessThanOrEqual(8); // 48 was fatal on a 1.9 GiB device
+  }, 30000);
+
+  it('keeps the batching loop (not one giant Promise.all over the subnet)', () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, '..', 'services', 'gatewayDiscovery.ts'),
+      'utf8',
+    );
+    expect(src).toMatch(/hosts\.slice\(start, start \+ SUBNET_BATCH_SIZE\)/);
+    const m = src.match(/const SUBNET_BATCH_SIZE\s*=\s*(\d+)/);
+    expect(Number(m![1])).toBeLessThanOrEqual(8);
   });
 });
