@@ -31,6 +31,26 @@ Cap concurrency at **2–3 agents** on this tightly-coupled mobile codebase. If 
 
 Note: AGENTS.md is read natively by Cursor, gemini/Gemini, Copilot, Aider, Windsurf, Zed, Claude Code. Antigravity may need to be pointed at this file explicitly.
 
+## Delegating to sub-agents (explicit boundaries, not implied caution)
+
+When an agent spawns its own sub-agents/sub-tasks (not the top-level multi-agent-on-this-repo
+case above — this is one agent fanning out its own work), state the operational boundary in
+the delegating prompt itself. Don't rely on the sub-agent inferring caution from context.
+
+- **State the stop condition literally:** "open a PR, do NOT merge it yourself" / "draft it,
+  do NOT send it" / "verify with --help output, do NOT run this against production." A
+  sub-agent given "add rollback support" will happily also merge the PR and deploy it unless
+  told not to — it isn't being reckless, it's completing the task as scoped.
+- **Require proof, not a completion claim:** "prove it with a real before/after" (break the
+  thing on purpose, show it detected, restore it, show it's healthy again) beats "add tests"
+  — a sub-agent told to "add tests" will write tests that trivially pass regardless of
+  whether the fix does anything; a sub-agent told to prove a specific before/after transition
+  has to demonstrate the fix actually causes the observed difference.
+- **This works — evidence, not theory:** every sub-agent dispatched this way in the
+  2026-07-26 session stayed inside its stated boundary (opened PRs without merging, verified
+  CLI flags via `--help` without running them against real infra, proved detection logic by
+  genuinely breaking and restoring state) because the boundary was in the prompt, not implied.
+
 ---
 
 ## Planner / worker swarm economics (2026-07-22)

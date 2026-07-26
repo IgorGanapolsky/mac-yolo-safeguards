@@ -142,12 +142,23 @@ export default function DashboardClient() {
   const [threads, setThreads] = useState<Thread[]>(() => readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? []);
   const [tasks, setTasks] = useState<Task[]>(() => readJsonSessionStorage<Task[]>(DASHBOARD_CACHE_KEYS.tasks) ?? []);
   const [selectedThread, setSelectedThread] = useState<string | null>(() => {
-    // Lessons "chats synced" deep-link: open the list, not a sticky single thread.
-    if (typeof window !== "undefined" && window.location.hash === "#chats") return null;
+    // Lessons deep-links: list/filter modes must not auto-open a sticky thread.
+    if (typeof window !== "undefined") {
+      if (window.location.hash === "#chats") return null;
+      const filter = new URLSearchParams(window.location.search).get("filter");
+      if (filter === "completed" || filter === "unrated") return null;
+    }
     const stored = readJsonSessionStorage<string>(DASHBOARD_CACHE_KEYS.selectedThread);
     if (stored) return stored;
     const cachedThreads = readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? [];
     return cachedThreads[0]?.id ?? null;
+  });
+  /** Lessons → Hermes deep-link: ?filter=completed|unrated shows task receipts across chats. */
+  const [taskFilter, setTaskFilter] = useState<"all" | "completed" | "unrated">(() => {
+    if (typeof window === "undefined") return "all";
+    const filter = new URLSearchParams(window.location.search).get("filter");
+    if (filter === "completed" || filter === "unrated") return filter;
+    return "all";
   });
   const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
   const [prompt, setPrompt] = useState("");
@@ -270,6 +281,24 @@ export default function DashboardClient() {
   }, [selectedThread]);
 
   function chooseDevice(deviceId: string) {
+    if (deviceId === "pair") {
+      setMobileTab("settings");
+      window.history.replaceState(null, "", "#web-settings");
+      window.setTimeout(() => {
+        document.getElementById("web-settings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
+      setNotice("Pair another computer: run the one-line installer there, then approve the code under Settings.");
+      return;
+    }
+    if (deviceId === "manage") {
+      setMobileTab("settings");
+      window.history.replaceState(null, "", "#web-settings");
+      window.setTimeout(() => {
+        document.getElementById("web-settings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
+      setNotice("Manage machines: remove or add connectors under Settings.");
+      return;
+    }
     setDeviceOverrideId(deviceId);
     try {
       window.localStorage.setItem(preferredDevicePreferenceKey, deviceId);
@@ -562,7 +591,17 @@ export default function DashboardClient() {
   }, [pairCode, user]);
   const visibleThreads = useMemo(() => orderThreadsForDisplay(threads, threadSortOrder), [threads, threadSortOrder]);
   const activeTasks = useMemo(() => tasks.filter((task) => !terminal.has(task.status)), [tasks]);
-  const visibleTasks = selectedThread ? tasks.filter((task) => task.threadId === selectedThread) : tasks;
+  const visibleTasks = useMemo(() => {
+    if (taskFilter === "completed") {
+      return tasks.filter((task) => task.status === "completed" && Boolean(task.result));
+    }
+    if (taskFilter === "unrated") {
+      return tasks.filter(
+        (task) => task.status === "completed" && Boolean(task.result) && !feedback[task.id],
+      );
+    }
+    return selectedThread ? tasks.filter((task) => task.threadId === selectedThread) : tasks;
+  }, [tasks, selectedThread, taskFilter, feedback]);
   const onlineDevices = devices.filter((device) => device.online);
   const p95CompletionLatency = useMemo(() => {
     const durations = tasks
@@ -609,10 +648,11 @@ export default function DashboardClient() {
           threadId: selectedThread,
           deviceId: selectedDeviceId,
           idempotencyKey: crypto.randomUUID(),
+          traceId: crypto.randomUUID(),
           routePreference,
         }),
       });
-      let body: { task?: { route: string; threadId: string; preference?: string; deviceId?: string }; error?: string } = {};
+      let body: { task?: { route: string; threadId: string; preference?: string; deviceId?: string; traceId?: string }; error?: string; traceId?: string } = {};
       try {
         body = await response.json() as typeof body;
       } catch {
@@ -959,7 +999,66 @@ export default function DashboardClient() {
                   : null,
               ])}
             </div>}
-            <div className="task-list" id="task-activity">{visibleTasks.length === 0 ? <div className="empty-state"><Mark /><h3>No tasks yet</h3><p>Pair a machine, then continue a Hermes thread from anywhere.</p></div> : visibleTasks.map((task) => <article key={task.id} id={`task-${task.id}`} className="dashboard-task"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time></div><h3>{task.threadTitle}</h3><p>{task.prompt}</p><div className="task-foot"><span>{task.route === "cloud" ? "☁ Cloud runner" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>{["needs_failover", "offline_blocked"].includes(task.status) && <button onClick={() => void failover(task.id)}>Continue in cloud →</button>}</div>{task.result && <><pre>{task.result}</pre>{feedbackControls(task.id)}</>}{task.error && <div className="task-error">{task.error}</div>}</article>)}</div>
+            <div className="task-list" id="task-activity">
+              {taskFilter !== "all" ? (
+                <div className="task-filter-banner" role="status">
+                  Showing{" "}
+                  <strong>
+                    {taskFilter === "completed" ? "completed web answers" : "answers ready to rate (no 👍/👎 yet)"}
+                  </strong>
+                  {" · "}
+                  <button
+                    type="button"
+                    className="task-filter-clear"
+                    onClick={() => {
+                      setTaskFilter("all");
+                      const url = new URL(window.location.href);
+                      url.searchParams.delete("filter");
+                      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+                    }}
+                  >
+                    Clear filter
+                  </button>
+                </div>
+              ) : null}
+              {visibleTasks.length === 0 ? (
+                <div className="empty-state">
+                  <Mark />
+                  <h3>{taskFilter === "unrated" ? "No unrated answers" : taskFilter === "completed" ? "No completed answers" : "No tasks yet"}</h3>
+                  <p>
+                    {taskFilter === "unrated"
+                      ? "Every completed web answer already has a thumbs rating, or none have finished yet."
+                      : taskFilter === "completed"
+                        ? "No completed web answers in this workspace yet. Run a task until it finishes."
+                        : "Pair a machine, then continue a Hermes thread from anywhere."}
+                  </p>
+                </div>
+              ) : (
+                visibleTasks.map((task) => (
+                  <article key={task.id} id={`task-${task.id}`} className="dashboard-task">
+                    <div className="task-top">
+                      <span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span>
+                      <time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time>
+                    </div>
+                    <h3>{task.threadTitle}</h3>
+                    <p>{task.prompt}</p>
+                    <div className="task-foot">
+                      <span>{task.route === "cloud" ? "☁ Cloud runner" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>
+                      {["needs_failover", "offline_blocked"].includes(task.status) && (
+                        <button onClick={() => void failover(task.id)}>Continue in cloud →</button>
+                      )}
+                    </div>
+                    {task.result && (
+                      <>
+                        <pre>{task.result}</pre>
+                        {feedbackControls(task.id)}
+                      </>
+                    )}
+                    {task.error && <div className="task-error">{task.error}</div>}
+                  </article>
+                ))
+              )}
+            </div>
             </div>
             <form className="composer" ref={setComposerNode} onSubmit={(event) => void createTask(event)}>
               <textarea
@@ -1019,11 +1118,15 @@ export default function DashboardClient() {
                           {machineDisplayName(device)} · {deviceStatusLabel(device)}
                         </option>
                       ))}
+                      <optgroup label="Actions">
+                        <option value="pair">+ Pair another computer…</option>
+                        <option value="manage">⚙ Manage / remove machines…</option>
+                      </optgroup>
                     </select>
                     <p className="composer-device-hint">
                       {devices.length === 1
-                        ? `Pinned to ${selectedDeviceLabel}. Add another computer in Settings to switch between them.`
-                        : "Task is pinned to the machine you select (hostname as reported by the connector)."}
+                        ? `Pinned to ${selectedDeviceLabel}. Use Actions below to pair another computer or remove machines in Settings.`
+                        : "Task is pinned to the machine you select. Pair or remove machines via Actions → Settings."}
                     </p>
                   </div>
                 ) : null}
