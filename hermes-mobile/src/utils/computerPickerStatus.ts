@@ -5,6 +5,10 @@ import {
   formatLanScanResultDetail,
   formatLanScanResultLabel,
 } from './lanScanLabels';
+import {
+  TAILSCALE_PASTE_IP_TITLE,
+  PICKER_HELP_MISSING_DETAIL,
+} from './tailscalePasteIpCopy';
 
 /** Fixed status band so discovery ticks cannot reflow the profile list. */
 export const COMPUTER_PICKER_STATUS_MIN_HEIGHT = 88;
@@ -180,9 +184,8 @@ export function resolveComputerPickerStatus(
 
   return {
     kind: 'help',
-    title: 'Paste your Mac’s Tailscale IP',
-    detail:
-      'On the Mac: Tailscale → copy 100.x → paste → Connect. Hermes must be open on that Mac.',
+    title: TAILSCALE_PASTE_IP_TITLE,
+    detail: PICKER_HELP_MISSING_DETAIL,
     discoveries: [],
   };
 }

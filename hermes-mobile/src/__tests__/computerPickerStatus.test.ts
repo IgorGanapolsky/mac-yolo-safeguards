@@ -179,7 +179,7 @@ describe('computerPickerStatus', () => {
       tailscaleDiscoveries: [],
     });
     expect(status.kind).toBe('help');
-    expect(status.title).toBe('Paste your Mac’s Tailscale IP');
+    expect(status.title).toBe('Paste your computer’s Tailscale IP');
   });
 
   it('hides idle help when saved profiles exist unless expanded', () => {

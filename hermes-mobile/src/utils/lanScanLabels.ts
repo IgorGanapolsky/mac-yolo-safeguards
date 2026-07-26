@@ -95,9 +95,11 @@ export function formatLanScanResultLabel(input: number | LanScanReachCounts): st
   return `Found ${foundCount} Hermes ${nounComputer(foundCount)}`;
 }
 
+import { SCAN_NONE_FOUND_DETAIL } from './tailscalePasteIpCopy';
+
 export function formatLanScanResultDetail(result: LanScanResult): string {
   if (result.foundCount === 0) {
-    return 'Paste your Mac’s Tailscale IP below. Hermes must be open on that Mac.';
+    return SCAN_NONE_FOUND_DETAIL;
   }
 
   const lan = result.lanCount ?? 0;
