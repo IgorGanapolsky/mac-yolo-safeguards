@@ -159,6 +159,16 @@ jobs:
           tests/test-adb-reverse-device-filter.sh
           tests/test-secondary-browser-reclaim.sh
 
+      # Blocks the "shipped but untagged" regression: v1.4/versionCode 19 reached Google Play
+      # untagged, so reverting to it or branching a hotfix from it was impossible until the
+      # commit was reconstructed by hand. Enforced forward from the first verified store
+      # release; older bumps warn only (most were never store builds).
+      - name: Release tags cover shipped versionCodes
+        run: |
+          set -eu
+          git fetch --tags --quiet || true
+          bash scripts/verify-release-tagged.sh
+
       - name: Public secret smoke scan
         run: |
           set -eu
