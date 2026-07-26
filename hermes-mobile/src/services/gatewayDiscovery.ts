@@ -407,8 +407,20 @@ function pairServerSweepHosts(
   preferLanIp?: string | null,
   tailnetPairServerHosts?: string[],
 ): string[] {
-  const baseHosts = ['127.0.0.1', 'localhost'];
-  const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
+  const baseHosts = [
+    '127.0.0.1',
+    'localhost',
+    'macbook-pro.local',
+    'mac-mini.local',
+    'macpro.local',
+    'mac.local',
+  ];
+  const preferSubnet = preferLanIp ? buildHostOrder(preferLanIp, preferLanIp) : [];
+  const subnetHosts = phoneIp
+    ? buildHostOrder(phoneIp, preferLanIp)
+    : preferSubnet.length > 0
+      ? preferSubnet
+      : [];
   const tailnetHosts = mergeTailnetProbeHosts(tailnetPairServerHosts ?? []);
   return Array.from(new Set([...baseHosts, ...subnetHosts, ...tailnetHosts]));
 }
