@@ -52,3 +52,22 @@ describe('tailscale-only transport', () => {
     expect(isUsbTransportAllowed()).toBe(false);
   });
 });
+
+// --- Sentry release attribution -------------------------------------------------------
+// Verified 2026-07-26 against App Store Connect + `eas build:list`: app.json said
+// ios.buildNumber 17 while the App Store actually served build 24 (v1.3) and had 28 (v1.4)
+// in review. Sentry `dist` read app.json, so a crash could not be attributed to the shipped
+// binary. It must prefer the NATIVE build number.
+describe('sentry release attribution', () => {
+  it('prefers the native build number over the stale app.json value', () => {
+    const src = require('fs').readFileSync(
+      require('path').join(__dirname, '..', 'services', 'telemetry.ts'),
+      'utf8',
+    );
+    // native value first, app.json only as fallback
+    expect(src).toMatch(/Constants\.nativeBuildVersion/);
+    expect(src).toMatch(/BUILD_NUMBER\s*=\s*String\(Constants\.nativeBuildVersion[^)]*\)\s*\|\|/);
+    // and it is still what Sentry reports as dist
+    expect(src).toMatch(/dist:\s*BUILD_NUMBER/);
+  });
+});
