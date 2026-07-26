@@ -36,6 +36,7 @@ chmod +x "$FAKE_ADB"
 mkdir -p "$TMP/e2e-lease-dir"
 E2E_LEASE_FILE="$TMP/yolo-guard-e2e.pid"
 
+run_guard() {
 ADB_CALLS="$CALLS" \
 YOLO_ADB_BIN="$FAKE_ADB" \
 YOLO_LOG="$TMP/guard.log" \
@@ -66,6 +67,25 @@ YOLO_RECLAIM_STALE_CDP=0 \
 YOLO_RECLAIM_SECONDARY_BROWSERS=0 \
 YOLO_BYPASS_E2E_LEASE=1 \
 /bin/sh "$GUARD" >/dev/null 2>&1
+}
+
+# USB auto-forward became OPT-IN on 2026-07-25: the guard re-created adb reverse
+# tcp:8642/8765 on every tick, so the phone kept finding a USB loopback route and the app
+# kept offering "USB cable connected" after the transport was deliberately moved to
+# Tailscale (a live reverse also masks real tailnet state). Assert BOTH directions.
+
+# --- Pass 1: default (no opt-in) must NOT forward anything ---
+: > "$CALLS"
+run_guard
+if /usr/bin/grep -Fq -- "reverse tcp:" "$CALLS" 2>/dev/null; then
+  echo "guard created USB reverse forwarding without HERMES_ALLOW_USB_REVERSE=1" >&2
+  cat "$CALLS" >&2
+  exit 1
+fi
+
+# --- Pass 2: explicit opt-in restores the old behaviour ---
+: > "$CALLS"
+HERMES_ALLOW_USB_REVERSE=1 run_guard
 
 assert_call() {
   expected="$1"
@@ -99,4 +119,4 @@ if [ "$cleanup_count" -ne 2 ]; then
   exit 1
 fi
 
-echo "adb reverse device filter: 7 assertions passed"
+echo "adb reverse device filter: 9 assertions passed (opt-in USB policy)"
