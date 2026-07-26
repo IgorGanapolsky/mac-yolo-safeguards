@@ -106,6 +106,9 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .composer-device-picker select:focus-visible{outline:2px solid #22D3EE;outline-offset:1px}
 .composer-device-picker select:disabled{opacity:.55;cursor:not-allowed}
 .composer-device-hint{margin:0;color:#94A3B8;font:450 12px/1.4 Inter,ui-sans-serif,system-ui,sans-serif}
+.task-filter-banner{margin:0 0 12px;padding:10px 12px;border:1px solid rgba(99,102,241,.35);border-radius:12px;background:rgba(99,102,241,.1);color:var(--text-secondary);font-size:13px;font-weight:600}
+.task-filter-banner strong{color:#C7D2FE}
+.task-filter-clear{border:0;background:transparent;color:var(--accent);font:inherit;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:0;min-height:44px}
 .composer-route-explain{
   margin:0;
   padding:10px 12px;

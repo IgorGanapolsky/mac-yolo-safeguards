@@ -219,8 +219,10 @@ test("dashboard uses shell-first SWR navigation cache (Issues-style instant nav)
 
 test("lessons workspace activity stats and lesson cards deep-link into Hermes", () => {
   assert.match(lessonsClient, /href="\/dashboard"/);
-  assert.match(lessonsClient, /href="\/dashboard#chats"/);
-  assert.match(lessonsClient, /href="\/dashboard#task-activity"/);
+  assert.match(lessonsClient, /href="\/dashboard\?view=chats#chats"/);
+  assert.match(lessonsClient, /href="\/dashboard\?filter=completed#task-activity"/);
+  assert.match(lessonsClient, /href="\/dashboard\?filter=unrated#task-activity"/);
+  assert.match(lessonsClient, /ready to rate/);
   assert.match(lessonsClient, /Open chat list/);
   assert.match(lessonsClient, /Open in Hermes/);
   assert.match(lessonsClient, /hermesTaskHref|params\.set\("task"/);
@@ -228,8 +230,13 @@ test("lessons workspace activity stats and lesson cards deep-link into Hermes", 
   assert.match(dashboard, /focusedTaskFromUrl/);
   assert.match(dashboard, /URLSearchParams\(window\.location\.search\)\.get\("task"\)/);
   assert.match(dashboard, /id=\{`task-\$\{task\.id\}`\}/);
+  assert.match(dashboard, /taskFilter/);
+  assert.match(dashboard, /filter === "unrated"/);
+  assert.match(dashboard, /Pair another computer/);
+  assert.match(dashboard, /Manage \/ remove machines/);
   assert.match(globals, /\.lesson-activity li a\{/);
   assert.match(globals, /\.lesson-card-actions\{/);
+  assert.match(globals, /\.task-filter-banner\{/);
 });
 
 test("Improve/Helpful metric clicks navigate to Hermes when count is 1, else filter with URL + scroll", () => {

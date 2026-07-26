@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import {
@@ -175,6 +176,10 @@ export function shouldPreferUsbProbeFirst(input: {
    */
   liveUsbSameMachine?: boolean;
 }): boolean {
+  // iOS/web: no adb reverse — never prioritize 127.0.0.1 (iPad stuck USB 2026-07-25).
+  if (Platform.OS !== 'android') {
+    return false;
+  }
   if (input.liveUsbSameMachine) {
     return true;
   }
@@ -201,6 +206,10 @@ export function shouldKeepUsbOverStickyRemote(input: {
   stickyProfileUrl?: string | null;
   liveUsbSameMachine: boolean;
 }): boolean {
+  // iOS has no adb reverse — never pin the session on 127.0.0.1 over a real Mac URL.
+  if (Platform.OS !== 'android') {
+    return false;
+  }
   const effective = input.effectiveGatewayUrl?.trim() ?? '';
   const sticky = input.stickyProfileUrl?.trim() ?? '';
   if (!input.liveUsbSameMachine || !isLoopbackGatewayUrl(effective)) {

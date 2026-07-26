@@ -191,12 +191,13 @@ export default function LessonsClient() {
     <section className="lesson-activity" aria-label="Workspace activity (not lessons)">
       <p className="eyebrow">WORKSPACE ACTIVITY</p>
       <ul>
-        <li><a href="/dashboard#chats" aria-label={`Open chat list — ${activity.threads} synced chats`}><strong>{activity.threads}</strong><span>chats synced</span></a></li>
-        <li><a href="/dashboard#task-activity" aria-label={`View ${activity.completedResponses} completed web answers`}><strong>{activity.completedResponses}</strong><span>completed web answers</span></a></li>
-        <li><a href="/dashboard#task-activity" aria-label={`View ${activity.unratedCompleted} completed answers waiting for a thumbs rating`}><strong>{activity.unratedCompleted}</strong><span>still unrated</span></a></li>
+        <li><a href="/dashboard?view=chats#chats" aria-label={`Open chat list — ${activity.threads} synced chats`}><strong>{activity.threads}</strong><span>chats synced</span></a></li>
+        <li><a href="/dashboard?filter=completed#task-activity" aria-label={`View ${activity.completedResponses} completed web answers`}><strong>{activity.completedResponses}</strong><span>completed web answers</span></a></li>
+        <li><a href="/dashboard?filter=unrated#task-activity" aria-label={`View ${activity.unratedCompleted} completed answers ready for a thumbs rating`}><strong>{activity.unratedCompleted}</strong><span>ready to rate (👍/👎)</span></a></li>
       </ul>
       <p className="helper-copy">
         Chats and prompts live under Hermes. This page only lists answers you explicitly rate.
+        “Ready to rate” means a finished answer with no 👍/👎 yet — optional, not an error.
       </p>
     </section>
 
@@ -270,7 +271,7 @@ export default function LessonsClient() {
           ) : (
             <p>Run a task until it completes with a result, then rate it from the Hermes tab.</p>
           )}
-          <a className="button button-primary button-small" href="/dashboard#task-activity">Rate a completed answer →</a>
+          <a className="button button-primary button-small" href="/dashboard?filter=unrated#task-activity">Rate a completed answer →</a>
         </div>
       ) : emptyBecauseFilter ? (
         <div className="lesson-empty">
