@@ -1,0 +1,613 @@
+{
+  "run_id": "trun_063533a97b5041f3ad84f6312e12e171",
+  "interaction_id": "trun_063533a97b5041f3ad84f6312e12e171",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_063533a97b5041f3ad84f6312e12e171",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Assessment reasoning:\n- Completeness: The field description asks for an actionable July 2026 report with recommended architecture, tools, CI wiring, anti-patterns, and a concrete E2E matrix for authenticated Cloudflare Worker Next dashboards with D1 seeding and multi-device UI assertions. The provided field_answer covers architecture, tooling, seeding options (WorkOS Test SSO and D1 + signed JWT), multi-device UI assertions (hostname-based), CI wiring (GitHub Actions with sharding), post-deploy smoke patterns (Checkly and cron), anti-patterns, and a concrete E2E matrix for a ThumbGate-style control plane (Flows A-D and cross-cut tests). It appears to address all major aspects requested. Therefore, completeness is true.\n- Excerpts support: The excerpts include sources on Vitest integration for Cloudflare Workers, storageState/auth, Playwright best practices, sharding and CI workflows, and general authentication patterns. These excerpts underpin several claims in the field_answer (e.g., using Vitest pool, storageState/auth, Playwright sharding, and CI practices). While not every specific line in the field_answer is directly quoted in excerpts, the overall guidance is aligned with and supported by the cited excerpts. Therefore, excerpts support the answer (supported = true).",
+        "citations": [
+          {
+            "url": "https://developers.cloudflare.com/workers/testing/vitest-integration",
+            "excerpts": [
+              "Vitest integration \u00b7 Cloudflare Workers docs\nRun unit and integration tests for Cloudflare Workers inside the Workers runtime using the Vitest integration."
+            ],
+            "title": "Vitest integration \u00b7 Cloudflare Workers docs"
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/testing",
+            "excerpts": [
+              "Testing \u00b7 Cloudflare Workers docs\nCompare testing options for Cloudflare Workers, including Vitest integration, Miniflare, and unstable_startWorker."
+            ],
+            "title": "Testing \u00b7 Cloudflare Workers docs"
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/testing/vitest-integration/configuration",
+            "excerpts": [
+              "Configuration \u00b7 Cloudflare Workers docs\nA Vite plugin that configures Vitest to use the Workers integration with the correct module resolution settings, and provides type checking for CloudflareTestOptions. Add this to the plugins array in your Vitest config alongside defineConfig() \u2197 from Vitest. It also accepts an optionally- async function returning options."
+            ],
+            "title": "Configuration \u00b7 Cloudflare Workers docs"
+          },
+          {
+            "url": "https://www.npmjs.com/package/%40cloudflare/vitest-pool-workers",
+            "excerpts": [
+              "@cloudflare/vitest-pool-workers - npm\nThe Workers Vitest integration allows you to write Vitest tests that run inside the Workers runtime. Refer to the documentation and examples for more information. Supports both unit tests and integration tests \ud83d\udcda Provides direct access to Workers runtime APIs and bindings \ud83d\udce6 Implements isolated per-test storage \ud83d\udd25 Runs tests fully-locally using Miniflare \u26a1\ufe0f Leverages Vitest's hot"
+            ],
+            "title": "@cloudflare/vitest-pool-workers - npm"
+          },
+          {
+            "url": "http://explainx.ai/skills/antfu/skills/vitest",
+            "excerpts": [
+              "Vitest is a next-generation testing framework powered by Vite. It provides a Jest-compatible API with native ESM, TypeScript, and JSX support"
+            ],
+            "title": "vitest \u2014 AI agent skill - explainx.ai"
+          },
+          {
+            "url": "http://playwright.dev/docs/auth",
+            "excerpts": [
+              "This project will always run and authenticate before all the tests. All testing projects should use the authenticated state as storageState . playwright .config.\nThis project will always run and authenticate before all the tests.\nAuthentication Basic: shared account in all tests  This is the **recommended** approach for tests **without server-side state** . Authenticate once in the **setup project** , save the authentication state, and then reuse it to bootstrap each test already authenticated. **When to use** When you can imagine all your tests running at the same time with the same account, without affecting each other. **When not to use** Your tests modify server-side state. For example, one test checks the rendering of the settings page, while the other test is changing the setting, and you run tests in parallel. In this case, tests must use different accounts. Your authentication is browser-specific. **Details** Create `tests/auth.setup.ts` that will prepare authenticated browser state for all other tests. tests/auth.setup.ts ... Create a new `setup` project in the config and declare it as a dependency for all your testing projects. This project will always run and authenticate before all the tests. All testing projects should use the authenticated state as `storageState` . playwright.config.ts ``` import { defineConfig , devices } from '@playwright/test' ; export default defineConfig ( { projects : [ // Setup project { name : 'setup' , testMatch : / . * \\. setup \\. ts / } , { name : 'chromium' , use : { ... devices [ 'Desktop Chrome' ] , // Use prepared auth state. storageState : 'playwright/.auth/user.json' , } , dependencies : [ 'setup' ] , } , { name : 'firefox' , use : { ... devices [ 'Desktop Firefox' ] , // Use prepared auth state. storageState : 'playwright/.auth/user.json' , } , dependencies : [ 'setup' ] , } , ] , } ) ; ``` Tests start already authenticated because we specified `storageState` in the config."
+            ],
+            "title": "Authentication"
+          },
+          {
+            "url": "https://getautonoma.com/blog/playwright-best-practices-2026",
+            "excerpts": [
+              "Playwright Best Practices: 8 Patterns for Stable E2E (2026 ...\n8 Playwright best practices for 2026: selectors, retries, parallelism, fixtures, trace viewer, CI flakiness, auth state, and POM. Runnable code included."
+            ],
+            "title": "Playwright Best Practices: 8 Patterns for Stable E2E (2026 ..."
+          },
+          {
+            "url": "https://playwright.dev/docs/test-fixtures",
+            "excerpts": [
+              "Fixtures\nPlaywright Test uses worker processes to run test files. Similar to how test fixtures are set up for individual test runs, worker fixtures are set up for each"
+            ],
+            "title": "Fixtures"
+          },
+          {
+            "url": "http://playwright.dev/docs/api-testing",
+            "excerpts": [
+              "Playwright provides apiRequestContext.storageState() method that can be used to retrieve storage state from an authenticated context and then create new"
+            ],
+            "title": "API testing | Playwright"
+          },
+          {
+            "url": "http://bondaracademy.com/blog/playwright-storage-state-authentication",
+            "excerpts": [
+              "Jun 15, 2026 \u2014 Playwright's storageState() method saves cookies, local storage, and origin information from the browser context into a JSON file."
+            ],
+            "title": "Playwright Storage State Authentication Setup"
+          },
+          {
+            "url": "https://github.com/opennextjs/opennextjs-cloudflare",
+            "excerpts": [
+              "opennextjs/opennextjs-cloudflare: Open Next.js adapter for ...\nOpenNext for Cloudflare is an adapter that enables the deployment of Next.js applications to Cloudflare's developer platform."
+            ],
+            "title": "opennextjs/opennextjs-cloudflare: Open Next.js adapter for ..."
+          },
+          {
+            "url": "https://www.npmjs.com/package/%40opennextjs/cloudflare",
+            "excerpts": [
+              "opennextjs/cloudflare\nMay 19, 2026 \u2014 OpenNext for Cloudflare is a Cloudflare specific adapter that enables deployment of Next.js applications to Cloudflare."
+            ],
+            "title": "opennextjs/cloudflare"
+          },
+          {
+            "url": "https://github.com/cloudflare/vinext",
+            "excerpts": [
+              "cloudflare/vinext: Vite plugin that reimplements the Next.js ...\n8 hours ago \u2014 Run Next.js applications on Vite, with Cloudflare Workers as the primary deployment target. Read the announcement: How we rebuilt Next.js with AI in one week."
+            ],
+            "title": "cloudflare/vinext: Vite plugin that reimplements the Next.js ..."
+          },
+          {
+            "url": "https://opennext.js.org/cloudflare",
+            "excerpts": [
+              "Cloudflare\nMay 20, 2026 \u2014 The OpenNext Cloudflare adapter works by taking the Next.js build output and transforming it , so that it can run in Cloudflare Workers."
+            ],
+            "title": "Cloudflare"
+          },
+          {
+            "url": "http://docs.netlify.com/build/frameworks/framework-setup-guides/nextjs/overview",
+            "excerpts": [
+              "Feb 4, 2026 \u2014 Netlify supports all major Next.js features with zero configuration, via our open-source OpenNext adapter. This adapter is thoroughly tested"
+            ],
+            "title": "Next.js on Netlify"
+          },
+          {
+            "url": "http://playwright.dev/docs/test-sharding",
+            "excerpts": [
+              ".github/workflows/playwright.yml ``` name : Playwright Tests on : push : branches : [ main , master ] pull_request : branches : [ main , master ] jobs : playwright-tests : timeout-minutes : 60 runs-on : ubuntu - latest strategy : fail-fast : false matrix : shardIndex : [ 1 , 2 , 3 , 4 ] shardTotal : [ 4 ] steps : - uses : actions/checkout@v5 - uses : actions/setup - node@v5 with : node-version : lts/* - name : Install dependencies run : npm ci - name : Install Playwright browsers run : npx playwright install - - with - deps - name : Run Playwright tests run : npx playwright test - - shard=$ { { matrix.shardIndex } } /$ { { matrix.shardTotal } } - name : Upload blob report to GitHub Actions Artifacts if : $ { { !cancelled() } } uses : actions/upload - artifact@v4 with : name : blob - report - $ { { matrix.shardIndex } } path : blob - report retention-days : 1 ```\nThe following example shows you how to configure a job to run your tests on four machines in parallel and then merge the reports into a single report. Don't forget to add `reporter: process.env.CI ? 'blob' : 'html',` to your `playwright.config.ts` file as in the example above. First we add a `matrix` option to our job configuration with the `shardTotal: [4]` option containing the total number of shards we want to create and `shardIndex: [1, 2, 3, 4]` with an array of the shard numbers. Then we run our Playwright tests with the `--shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}` option. This will run our test command for each shard. Finally we upload our blob report to the GitHub Actions Artifacts. This will make the blob report available to other jobs in the workflow\nTo merge reports from multiple shards, put the blob report files into a single directory, for example `all-blob-reports` . Blob report names contain shard number, so they will not clash. Afterwards, run `npx playwright merge-reports` command: ``` npx playwright merge-reports --reporter html ./all-blob-reports ``` This will produce a standard HTML report into `playwright-report` directory. GitHub Actions example  GitHub Actions supports [sharding tests between multiple jobs](https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs) using the [`jobs.<job_id>.strategy.matrix`](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions) option. The `matrix` option will run a separate job for every possible combination of the provided options."
+            ],
+            "title": "Sharding | Playwright"
+          },
+          {
+            "url": "https://qaskills.sh/blog/github-actions-playwright-matrix-guide-2026",
+            "excerpts": [
+              "GitHub Actions Playwright Matrix & Sharding Guide (2026)\nRun Playwright in CI with GitHub Actions: a complete matrix workflow with browser and shard parallelism, caching, blob report merge, and HTML artifacts."
+            ],
+            "title": "GitHub Actions Playwright Matrix & Sharding Guide (2026)"
+          },
+          {
+            "url": "https://github.com/botre/parallel-playwright",
+            "excerpts": [
+              "GitHub - botre/parallel-playwright\nProof-of-concept demonstrating Playwright test sharding and parallelization across GitHub Actions runners with per-shard PostgreSQL databases. A Next.js app (\"Ye Olde Cursed Shoppe\") backed by Drizzle ORM and PostgreSQL, tested by ~30 Playwright E2E tests distributed across 4 shards."
+            ],
+            "title": "GitHub - botre/parallel-playwright"
+          },
+          {
+            "url": "https://docs.currents.dev/guides/parallelization-guide/playwright-sharding",
+            "excerpts": [
+              "Reporting in CI - Currents Documentation\nMar 10, 2026 \u2014 Running Playwright tests with sharding enabled on localhost requires running two or more playwright commands with the --shard flag and the same"
+            ],
+            "title": "Reporting in CI - Currents Documentation"
+          },
+          {
+            "url": "https://testdino.com/blog/flaky-test-github-actions",
+            "excerpts": [
+              "Flaky Test GitHub Actions: Detect, Quarantine & Fix (2026)\nLearn how to detect flaky tests in GitHub Actions, quarantine unstable tests without blocking CI, and fix root causes with real YAML workflows and Playwright examples."
+            ],
+            "title": "Flaky Test GitHub Actions: Detect, Quarantine & Fix (2026)"
+          },
+          {
+            "url": "https://github.com/StevenG0211/database-testing-demo",
+            "excerpts": [
+              "GitHub - StevenG0211/database-testing-demo: Playwright E2E ...\nPlaywright PostgreSQL Database Testing Demo A minimal, copy-paste-friendly reference for database-backed E2E tests with Playwright. Tests seed PostgreSQL directly, drive the app through UI or API, assert persistence in the database, and clean up safely while running in parallel."
+            ],
+            "title": "GitHub - StevenG0211/database-testing-demo: Playwright E2E ..."
+          },
+          {
+            "url": "http://currents.dev/posts/testing-authentication-with-playwright-the-complete-guide",
+            "excerpts": [
+              "Use `page.route()` to intercept the redirect to the OAuth provider and send the browser straight back to your callback URL with a mock authorization code: test ( \"dashboard loads after OAuth login\" , async ({ page }) => { await page. route ( \"https://accounts.google.com/**\" , async ( route ) => { const url = new URL (route. request (). url ()); const state = url.searchParams. get ( \"state\" ); const redirectUri = url.searchParams. get ( \"redirect_uri\" ); await route. fulfill ({ status: 302 , headers: { Location: `${ redirectUri }?code=mock-auth-code&state=${ state }` , }, }); }); await page. goto ( \"/login\" ); await page. getByRole ( \"button\" , { name: \"Continue with Google\" }). click (); await expect (page). toHaveURL ( \"/dashboard\" ); }); Copy Copied! This intercepts the browser-side redirect. Your backend still needs to handle the mock authorization code. The simplest approach is a test-mode bypass in your token exchange endpoint that accepts any code and returns a valid session. If you don't want to modify your backend, the [oauth2-mock-server](https://www.npmjs.com/package/oauth2-mock-server) npm package runs a local OAuth server with configurable token responses. Point your app's OAuth config at it during tests. The `state` parameter matters. OAuth uses it to prevent CSRF. Your mock must echo back the exact `state` value from the original redirect, or the app will reject the callback. ... Mocking PKCE Flows If your app uses PKCE (required for public clients like SPAs), the mock needs to handle the `code_verifier` / `code_challenge` exchange. During the authorization redirect, the app sends a `code_challenge` derived from a random `code_verifier` . When exchanging the authorization code for a token, the app sends the original `code_verifier` , and the server verifies it matches the challenge. Your `page.route()` mock doesn't need to validate PKCE itself because it's bypassing the provider entirely. But your backend's token exchange endpoint does. If your backend validates the `code_verifier` against the `code_challenge` , the test-mode bypass needs to skip that check too, or the token exchange will fail even though the browser-side mock worked. When using [oauth2-mock-server](https://www.npmjs.com/package/oauth2-mock-server) , PKCE is handled automatically: it supports the Authorization Code grant with PKCE out of the box. Point your app's OAuth config at it and the full `code_challenge` / `code_verifier` cycle runs against a real (local) server. The important thing: your scheduled real-provider tests (not the mocked ones) are what catch broken PKCE implementations. A wrong hash algorithm, a missing `code_challenge_method=S256` parameter, or a `code_verifier` that doesn't meet the [43-128 character requirement](https://datatracker.ietf.org/doc/html/rfc7636.1) all pass in mocked environments and fail in production. ... When OAuth Mocking Breaks Finally, check your backend logs for the token exchange step."
+            ],
+            "title": "Testing Authentication with Playwright: The Complete Guide<!-- --> | <!-- -->Apr 2026<!-- --> | Currents.dev Blog"
+          },
+          {
+            "url": "https://developers.cloudflare.com/d1/worker-api/d1-database",
+            "excerpts": [
+              "D1 Database - Cloudflare Docs\nDirects the first query in the Session (whether read or write) to any database instance. Use this option if you do not need to start the Session with the most up-to-date data, and wish to prioritize minimizing query latency from the very start of the Session."
+            ],
+            "title": "D1 Database - Cloudflare Docs"
+          },
+          {
+            "url": "https://www.cloudflare.com/products/d1",
+            "excerpts": [
+              "Cloudflare D1 - Serverless SQL Database\nThe easiest way to add SQL to your application. Serverless SQLite database with global read replication, native Worker integration, and time travel backups."
+            ],
+            "title": "Cloudflare D1 - Serverless SQL Database"
+          },
+          {
+            "url": "https://github.com/lazors/playwright-seed-project",
+            "excerpts": [
+              "GitHub - lazors/playwright-seed-project\nA comprehensive Playwright test automation seed project with TypeScript, ESLint 9+, Prettier, and Cucumber BDD support. \u251c\u2500\u2500 tests/ # Playwright tests \u2502 \u251c\u2500\u2500 pages/ # Page Object Model classes \u2502 \u251c\u2500\u2500 example.test.ts # Example Playwright tests \u2502 \u2514\u2500\u2500 page-object.test.ts"
+            ],
+            "title": "GitHub - lazors/playwright-seed-project"
+          },
+          {
+            "url": "https://qaskills.sh/blog/playwright-mobile-emulation",
+            "excerpts": [
+              "Playwright Mobile Emulation: Devices, Viewport & iPhone Guide\nPlaywright bundles a registry of ready-made device descriptors, so emulating an \"iPhone 15\" is a one-line configuration change rather than a manual assembly of a dozen properties. This reference covers every part of that system, with runnable TypeScript for each scenario."
+            ],
+            "title": "Playwright Mobile Emulation: Devices, Viewport & iPhone Guide"
+          },
+          {
+            "url": "http://qaskills.sh/blog/playwright-mobile-emulation-guide",
+            "excerpts": [
+              "Playwright mobile emulation is purely software-based \u2014 it resizes the viewport, swaps the user agent, scales pixels, and enables touch\nThe descriptor sets five core context options at once: viewport , userAgent , deviceScaleFactor , isMobile , and hasTouch ."
+            ],
+            "title": "Playwright Mobile Emulation: Devices, Viewport & Config ..."
+          },
+          {
+            "url": "https://testdino.com/blog/playwright-mobile-testing",
+            "excerpts": [
+              "Playwright Mobile Testing: Real Devices vs Emulators [2026]\nDefinition: Playwright mobile testing is the practice of using Playwright to validate web applications on mobile viewports. It works through built-in device emulation (spoofing viewport, user agent, and touch support) or by connecting to real physical devices via cloud providers."
+            ],
+            "title": "Playwright Mobile Testing: Real Devices vs Emulators [2026]"
+          },
+          {
+            "url": "https://github.com/playwright-php/devices",
+            "excerpts": [
+              "Playwright device descriptors catalog (mobile/destkop ...\nThis package provides the official device descriptors from Microsoft Playwright for use with Playwright PHP. Screen Scale Viewport Landscape Mobile"
+            ],
+            "title": "Playwright device descriptors catalog (mobile/destkop ..."
+          },
+          {
+            "url": "http://qaskills.sh/blog/playwright-mobile-emulation-device-guide",
+            "excerpts": [
+              "Jun 23, 2026 \u2014 isMobile \u2014 a Chromium-only flag that enables the mobile viewport meta-tag behavior and the mobile event model."
+            ],
+            "title": "Playwright Mobile Emulation: Devices & Viewport Reference"
+          },
+          {
+            "url": "https://bugbug.io/blog/testing-frameworks/playwright-locators",
+            "excerpts": [
+              "Playwright Locators - Comprehensive Guide for 2026 - BugBug.io\nBest Practices for Using Playwright Selectors\n___Prefer User-Facing Locators. Use getByRole , getByText , or getByLabel instead of CSS/XPath whenever possible.\n___Use data-testid for Stability. ...\n___Avoid Brittle Selectors. ...\n___Keep Locators Readable. ...\n___Leverage Auto-Waiting. ...\n___Combine Locators When Needed. ...\n___Prefer Semantic Over Structural."
+            ],
+            "title": "Playwright Locators - Comprehensive Guide for 2026 - BugBug.io"
+          },
+          {
+            "url": "https://mergify.com/learn/flaky-tests/playwright",
+            "excerpts": [
+              "Flaky tests in Playwright: every pattern that breaks CI, and ...\nTL;DR The eight patterns behind nearly every flaky Playwright suite: auto-wait racing element re-renders, route handlers registered after goto, networkidle that never settles in SPAs, waitForResponse subscribed too late, locator strict-mode violations, storageState leakage, test.use () scope confusion, and headed vs headless drift. Each one has a minimal reproducer, a fix in stock Playwright"
+            ],
+            "title": "Flaky tests in Playwright: every pattern that breaks CI, and ..."
+          },
+          {
+            "url": "https://playwright.dev/docs/locators",
+            "excerpts": [
+              "Locators\nLocate by test id\u200b. Testing by test ids is the most resilient way of testing as even if your text or role of the attribute changes, the test will still pass"
+            ],
+            "title": "Locators"
+          },
+          {
+            "url": "https://deflaky.com/blog/playwright-flaky-tests",
+            "excerpts": [
+              "Fixing Flaky Tests in Playwright: A Step-by-Step Guide with ...\nThis guide walks you through the most common causes of flaky Playwright tests, shows you exactly how to fix each one, and provides production-ready patterns that you can adopt immediately."
+            ],
+            "title": "Fixing Flaky Tests in Playwright: A Step-by-Step Guide with ..."
+          },
+          {
+            "url": "https://momentic.ai/blog/playwright-locators-guide",
+            "excerpts": [
+              "Playwright Locators Guide: getByRole, getByText, ...\nOct 22, 2025 \u2014 Learn how Playwright locators like getByRole and getByText can eliminate flaky tests and make automation more reliable."
+            ],
+            "title": "Playwright Locators Guide: getByRole, getByText, ..."
+          },
+          {
+            "url": "http://checklyhq.com/docs/guides/playwright-testing-to-monitoring",
+            "excerpts": [
+              "Deploy to Production: Use Checkly's CLI to deploy your Playwright tests and start monitoring your production environment. With Checkly running your"
+            ],
+            "title": "Go From Playwright Testing to Playwright Monitoring with ..."
+          },
+          {
+            "url": "https://makerkit.dev/blog/tutorials/smoke-testing-saas-playwright",
+            "excerpts": [
+              "Smoke Testing Your SaaS: A Practical Guide for Founders - MakerKit\n21 de dez. de 2024 \u00b7 This guide covers essential test scenarios, implementation strategies, and best practices to quickly verify core functionality. playwright."
+            ],
+            "title": "Smoke Testing Your SaaS: A Practical Guide for Founders - MakerKit"
+          },
+          {
+            "url": "http://youtube.com/watch?v=emUaq9FPIcc",
+            "excerpts": [
+              "Pair Playwright with LLMs to plan, generate, refactor, and monitor end-to-end tests, without shipping hallucinations.\nPlaywright MCP: scan app \u2192 generate test plan \u2192 create test\nRefactor to Page Object Models (+ quick best-practice pass)\nThis webinar showcases practical workflow: ground models with fresh docs, driving the browser via Playwright MCP, auto-fixing failing tests, refactoring to POMs, add API checks, and reusing the same suite for synthetic monitoring in Checkly."
+            ],
+            "title": "Modern E2E Testing with Playwright and AI - YouTube"
+          },
+          {
+            "url": "http://artillery.io/docs",
+            "excerpts": [
+              "Artillery is a platform for Playwright E2E testing , scalable load testing, and synthetic monitoring with Playwright."
+            ],
+            "title": "Artillery Documentation"
+          },
+          {
+            "url": "http://checklyhq.com/product/start-monitoring-with-playwright",
+            "excerpts": [
+              "Checkly enables you to schedule your Playwright tests. Test your apps every minute, hour, or day and access detailed test statistics and aggregated results"
+            ],
+            "title": "Start Monitoring with Playwright Test"
+          },
+          {
+            "url": "https://developers.cloudflare.com/d1/wrangler-commands",
+            "excerpts": [
+              "Wrangler commands - D1\nApr 21, 2026 \u2014 Check migrations against a remote DB for use with wrangler dev --remote. --preview boolean default: false. Check migrations against a preview D1"
+            ],
+            "title": "Wrangler commands - D1"
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/wrangler/commands/d1",
+            "excerpts": [
+              "D1 \u00b7 Cloudflare Workers docs\nApr 23, 2026 \u00b7 Apply any unapplied D1 migrations This command will prompt you to confirm the migrations you are about to apply. Confirm that you would like to"
+            ],
+            "title": "D1 \u00b7 Cloudflare Workers docs"
+          },
+          {
+            "url": "https://northflank.com/blog/ephemeral-testing-environments",
+            "excerpts": [
+              "Ephemeral testing environments | Blog\nMay 25, 2026 \u2014 Test data and databases need to be handled explicitly in an ephemeral model. Each environment can start with a fresh schema, a seeded dataset,"
+            ],
+            "title": "Ephemeral testing environments | Blog"
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/wrangler",
+            "excerpts": [
+              "Wrangler \u00b7 Cloudflare Workers docs\nInstall/Update Wrangler : Get started by installing Wrangler, and update to newer versions by following this guide. Migrations : Review migration guides for specific versions of Wrangler. System environment variables : Local environment variables that can change Wrangler's behavior."
+            ],
+            "title": "Wrangler \u00b7 Cloudflare Workers docs"
+          },
+          {
+            "url": "http://orm.drizzle.team/docs/get-started/d1-new",
+            "excerpts": [
+              "Cloudflare D1 - Serverless SQL database to query from your Workers and Pages projects - read here; wrangler - Cloudflare Developer Platform command-line"
+            ],
+            "title": "Get Started with Drizzle and D1 - Drizzle ORM"
+          },
+          {
+            "url": "http://playwright.dev/docs/test-global-setup-teardown",
+            "excerpts": [
+              "Here is a global setup example that authenticates once and reuses authentication state in tests.\nIt uses the `baseURL` and `storageState` options from the configuration file. global-setup.ts ``` import { chromium , type FullConfig } from '@playwright/test' ; async function globalSetup ( config : FullConfig ) { const { baseURL , storageState } = config . projects [ 0 ] . use ; const browser = await chromium . launch ( ) ; const page = await browser . newPage ( ) ; await page . goto ( baseURL ! ) ; await page . getByLabel ( 'User Name' ) . fill ( 'user' ) ; await page . getByLabel ( 'Password' ) . fill ( 'password' ) ; await page . getByText ( 'Sign in' ) . click ( ) ; await page . context ( ) . storageState ( { path : storageState as string } ) ; await browser . close ( ) ; } export default globalSetup ; ``` Specify `globalSetup` , `baseURL` and `storageState` in the configuration file. playwright.config.ts ``` import { defineConfig } from '@playwright/test' ; export default defineConfig ( { globalSetup : require . resolve ( './global-setup' ) , use : { baseURL : 'http://localhost:3000/' , storageState : 'state.json' , } , } ) ; ``` Tests start already authenticated because we specify `storageState` that was populated by global setup. ``` import { test } from '@playwright/test' ; test ( 'test' , async ( { page } ) => { await page . goto ( '/' ) ; // You are signed in! } ) ; ``` You can make arbitrary data available in your tests from your global setup file by setting them as environment variables via `process.env` . global-setup.ts ``` import type { FullConfig } from '@playwright/test' ; async function globalSetup ( config : FullConfig ) { process . env .\nThe global setup file must export a single function that takes a config object."
+            ],
+            "title": "Global setup and teardown - Playwright"
+          },
+          {
+            "url": "https://www.browserstack.com/guide/playwright-storage-state",
+            "excerpts": [
+              "Using Playwright\u2019s storageState - BrowserStack\nUsing Playwright\u2019s storageState Playwright\u2019s storageState feature simplifies managing authentication and session data during test automation. By capturing and reusing browser storage such as cookies, localStorage, and IndexedDB, it enables tests to bypass repetitive login steps and execute more efficiently."
+            ],
+            "title": "Using Playwright\u2019s storageState - BrowserStack"
+          },
+          {
+            "url": "https://www.neovasolutions.com/2024/11/14/handling-authentication-for-multiple-user-logins-in-playwright",
+            "excerpts": [
+              "Handling Authentication for Multiple User Logins in Playwright\nIn this blog, we'll explore how to handle multiple user logins effectively in Playwright, ensuring your tests remain scalable, maintainable, and efficient."
+            ],
+            "title": "Handling Authentication for Multiple User Logins in Playwright"
+          },
+          {
+            "url": "http://workos.com/docs/authkit/sessions",
+            "excerpts": [
+              "The JWT includes the following claims: sub : the WorkOS user id sid : the session\nThe signing JWKS can be found at http://api.workos.com/sso/jwks/<clientId> .\nThe access token is a JSON Web Token (JWT), which should be validated on each request using a library like jose. The signing JWKS can be found at http://api."
+            ],
+            "title": "Sessions \u2013 AuthKit \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://workos.com/changelog/test-sso",
+            "excerpts": [
+              "Test SSO - WorkOS\nWith Test SSO, developers can perform rigorous end-to-end testing for the SSO integration without having to sign up with an identity provider."
+            ],
+            "title": "Test SSO - WorkOS"
+          },
+          {
+            "url": "http://github.com/workos/authkit-tanstack-start/issues/45",
+            "excerpts": [
+              "I decoded the JWT token issued by WorkOS AuthKit v0.4.1 and found: ```json { \"iss\": \"https://api.workos.com\", \"sub\": \"user_XXXX\", \"sid\": \"session_XXXX\", \"jti\": \"XXXX\", \"exp\": 1768067540, \"iat\": 1768067240 } ``` **Key observations:** The `iss` claim is `https://api.workos.com` (NO trailing slash) There is NO `aud` claim in the token"
+            ],
+            "title": "JWT issuer/audience mismatch with @workos/authkit-tanstack-react-start v0.4.x and convex auth \u00b7 Issue #45 \u00b7 workos/authkit-tanstack-start \u00b7 GitHub"
+          },
+          {
+            "url": "https://beeceptor.com/docs/tutorials/oauth-2-0-mock-usage",
+            "excerpts": [
+              "Test OAuth 2.0 with a Mock Server | Beeceptor\nInstantly test OAuth logins like Google & GitHub using Beeceptor\u2019s mock server in NextJs application. Save development & setup time. Great for integration tests & CI. Learn from the flow diagram."
+            ],
+            "title": "Test OAuth 2.0 with a Mock Server | Beeceptor"
+          },
+          {
+            "url": "http://workos.com/blog/jwt-best-practices",
+            "excerpts": [
+              "WorkOS AuthKit issues access tokens as JWTs signed with asymmetric keys, published at a JWKS endpoint your backend fetches and caches."
+            ],
+            "title": "JWT best practices: A guide to secure authentication"
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/framework-guides/web-apps/nextjs",
+            "excerpts": [
+              "Next.js \u00b7 Cloudflare Workers docs\nNext.js supports Server-side and Client-side rendering, as well as Partial Prerendering which lets you combine static and dynamic components in the same route. You can deploy your Next.js app to Cloudflare Workers using the OpenNext adapter."
+            ],
+            "title": "Next.js \u00b7 Cloudflare Workers docs"
+          },
+          {
+            "url": "https://github.com/opennextjs/opennextjs-cloudflare/issues/517",
+            "excerpts": [
+              "Properly handle RSC components and text/x-component mime ...\nI'll provide comparative screenshots showing the performance difference between Vercel and OpenNextjs on Cloudflare Workers to help diagnose the problem. I also noticed that when disabling the browser cache, the RSC requests perform much better - taking around 300 milliseconds instead of 8-9 seconds."
+            ],
+            "title": "Properly handle RSC components and text/x-component mime ..."
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/vite-plugin/reference/cloudflare-environments",
+            "excerpts": [
+              "Cloudflare Environments \u00b7 Cloudflare Workers docs\nApr 23, 2026 \u2014 With the Cloudflare Vite plugin, you select a Cloudflare environment at dev or build time by providing the CLOUDFLARE_ENV environment variable."
+            ],
+            "title": "Cloudflare Environments \u00b7 Cloudflare Workers docs"
+          },
+          {
+            "url": "https://blog.cloudflare.com/introducing-the-cloudflare-vite-plugin",
+            "excerpts": [
+              "\"Just use Vite\u201d\u2026 with the Workers runtime\nApr 8, 2025 \u2014 With Vite and the Cloudflare plugin, you can iterate on the client and server parts of your app together, without losing UI state between edits."
+            ],
+            "title": "\"Just use Vite\u201d\u2026 with the Workers runtime"
+          },
+          {
+            "url": "https://community.cloudflare.com/t/workers-waf-waf-and-framework-adapter-mitigations-for-react-and-next-js-vulnerabilities/925938",
+            "excerpts": [
+              "Workers, WAF - WAF and framework adapter mitigations for ...\nMultiple security vulnerabilities were disclosed by the React team and Vercel affecting React Server Components and Next.js. These include denial of service, middleware and proxy bypass, server-side request forgery, cross-site scripting, and cache poisoning issues across a range of severity levels."
+            ],
+            "title": "Workers, WAF - WAF and framework adapter mitigations for ..."
+          },
+          {
+            "url": "https://playwright.dev/docs/auth",
+            "excerpts": [],
+            "title": "Authentication | Playwright"
+          },
+          {
+            "url": "https://playwright.dev/docs/best-practices",
+            "excerpts": [],
+            "title": "Best Practices | Playwright"
+          },
+          {
+            "url": "https://testingjavascript.com/",
+            "excerpts": [],
+            "title": "Testing JavaScript | Testing JavaScript"
+          },
+          {
+            "url": "https://kentcdodds.com/blog/the-testing-trophy-and-testing-classifications",
+            "excerpts": [],
+            "title": "The Testing Trophy and Testing Classifications"
+          },
+          {
+            "url": "https://playwright.dev/docs/test-webserver",
+            "excerpts": [],
+            "title": "Web server | Playwright"
+          },
+          {
+            "url": "https://playwright.dev/docs/test-projects",
+            "excerpts": [],
+            "title": "Projects | Playwright"
+          },
+          {
+            "url": "https://blog.cloudflare.com/vinext",
+            "excerpts": [],
+            "title": "description: One engineer used AI to rebuild Next.js on Vite in a week. vinext builds up to 4x faster, produces 57% smaller bundles, and deploys to Cloudflare Workers with a single command. title: How we rebuilt Next.js with AI in one week image: https://blog.cloudflare.com/_emdash/api/media/file/01KW48J6EQB93CWFATMKFPPG1K.png"
+          },
+          {
+            "url": "https://www.upguard.com/security-report/workos",
+            "excerpts": [
+              "WorkOS Security Rating, Vendor Risk Report ...\nMay 15, 2026 \u2014 Compare WorkOS's security performance with other companies. Learn about data breaches, cyber attacks, and security incidents involving WorkOS."
+            ],
+            "title": "WorkOS Security Rating, Vendor Risk Report ..."
+          },
+          {
+            "url": "https://workos.com/",
+            "excerpts": [
+              "WorkOS \u2014 Your app, Enterprise Ready.\nWorkOS is a set of building blocks for quickly adding enterprise features to your app. You'll be shipping quickly with a market-proven solution for your"
+            ],
+            "title": "WorkOS \u2014 Your app, Enterprise Ready."
+          },
+          {
+            "url": "https://workos.com/changelog/free-custom-branding-of-admin-portal-in-sandbox-environments",
+            "excerpts": [
+              "Free custom branding of Admin Portal in Sandbox\nJan 6, 2023 \u2014 You can now add custom branding to your Admin Portal sessions in a sandbox environment for free. WorkOS builds developer tools for quickly"
+            ],
+            "title": "Free custom branding of Admin Portal in Sandbox"
+          },
+          {
+            "url": "https://workos.com/blog/the-developers-guide-to-authentication-security",
+            "excerpts": [
+              "The developer's guide to authentication security\nMar 24, 2026 \u2014 Common threats from sign-up to sign-in: what can go wrong, how attackers exploit it, and how to stop them."
+            ],
+            "title": "The developer's guide to authentication security"
+          },
+          {
+            "url": "https://github.com/workos/authkit-react",
+            "excerpts": [
+              "workos/authkit-react - GitHub\n<AuthKitProvider /> ; devMode, boolean, No ; onRedirectCallback, (params) => void, No ; onRefresh, (response) => void, No ; onRefreshFailure, ({ signIn }) => void"
+            ],
+            "title": "workos/authkit-react - GitHub"
+          },
+          {
+            "url": "https://abigailarmijo.substack.com/p/github-actions-part-3-shard-your",
+            "excerpts": [
+              "GitHub Actions: Part 3 - Shard your playwright tests for blazing ...\nIn this article, I will explain how you can shard your tests to execute your test parallel on different machines."
+            ],
+            "title": "GitHub Actions: Part 3 - Shard your playwright tests for blazing ..."
+          },
+          {
+            "url": "https://www.chromatic.com/docs/playwright/sharding",
+            "excerpts": [
+              "Sharded Playwright Runs\nIf you're working with GitHub Actions, you can configure a job matrix to run Playwright tests in parallel across multiple instances. Enabling this option will"
+            ],
+            "title": "Sharded Playwright Runs"
+          },
+          {
+            "url": "http://qaskills.sh/blog/playwright-blob-reporter-guide",
+            "excerpts": [
+              "A blob report is a .zip file (named something like report-1.zip for shard 1) that contains a JSON-Lines event stream plus a resources/ directory"
+            ],
+            "title": "Playwright Blob Reporter: Merge Sharded Reports 2026"
+          },
+          {
+            "url": "https://github.com/marketplace/actions/playwright-pr-smoke-runner",
+            "excerpts": [
+              "Playwright PR Smoke Runner - GitHub Marketplace\nSmoke Runner is a lightweight GitHub Action designed to execute a critical subset of your Playwright tests (\"smoke tests\") on every Pull Request."
+            ],
+            "title": "Playwright PR Smoke Runner - GitHub Marketplace"
+          },
+          {
+            "url": "https://www.checklyhq.com/product/synthetic-monitoring",
+            "excerpts": [
+              "Synthetic Monitoring for Apps & APIs | Checkly\nPlaywright-powered Browser Checks and API Checks run side by side. Monitor the UI flow and the API it depends on with a single deployment. No separate tools, no duplicated configuration. Run checks as often as every minute from 22+ global locations."
+            ],
+            "title": "Synthetic Monitoring for Apps & APIs | Checkly"
+          },
+          {
+            "url": "https://ray.run/questions/how-do-i-set-up-scheduled-tests-with-playwright-using-external-tools",
+            "excerpts": [
+              "How do I set up scheduled tests with Playwright using ...\nLearn how to schedule Playwright tests using external tools like cron jobs, Task Scheduler, and CI/CD pipelines, and utilize the HTML test reporter for detailed test reports."
+            ],
+            "title": "How do I set up scheduled tests with Playwright using ..."
+          },
+          {
+            "url": "http://github.com/AsiaOstrich/playwright-scheduled-filler",
+            "excerpts": [
+              "A generic web form automation framework with scheduling, a web dashboard, and Docker support. Automate repetitive form submissions on any website with cron scheduling, real-time monitoring, and multi-job management.\nGeneric web form scheduling automation framework built on Playwright\nPlaywright Scheduled Filler"
+            ],
+            "title": "GitHub - AsiaOstrich/playwright-scheduled-filler: Generic web form scheduling automation framework built on Playwright \u00b7 GitHub"
+          },
+          {
+            "url": "http://marcveens.nl/posts/scheduled-web-scraping-made-easy-using-playwright-with-github-actions",
+            "excerpts": [
+              "In this blog post I'll explain how you can automate and schedule web scraping tasks using Playwright and GitHub Actions. This means scraping web pages for free!\nScheduled web scraping made easy: using Playwright with GitHub"
+            ],
+            "title": "Scheduled web scraping made easy: using Playwright with GitHub Actions - Dev stuff by Marc Veens"
+          },
+          {
+            "url": "https://checklyhq.com/docs/learn/playwright/assertions",
+            "excerpts": [
+              "Playwright Assertions - Types & Best Practices\nTo make an automation into a test, we have assertions. When a hard assertion fails, the execution of a Playwright test stops, and following steps are not run."
+            ],
+            "title": "Playwright Assertions - Types & Best Practices"
+          },
+          {
+            "url": "https://playwright.dev/docs/test-assertions",
+            "excerpts": [
+              "Assertions | Playwright\nConsider the following example: Playwright Test will be re-testing the node with the selector .status until fetched Node has the \"Submitted\" text. It will be re-fetching the node and checking it over and over, until the condition is met or until the timeout is reached. You can either pass this timeout or configure it once via the testConfig.expectv"
+            ],
+            "title": "Assertions | Playwright"
+          },
+          {
+            "url": "https://testdino.com/blog/playwright-assertions",
+            "excerpts": [
+              "Playwright Assertions: A Guide to expect() and Test ...\nJun 8, 2026 \u2014 Playwright assertions use expect() to verify app behavior, with auto-retries that keep tests reliable even when the UI updates asynchronously."
+            ],
+            "title": "Playwright Assertions: A Guide to expect() and Test ..."
+          },
+          {
+            "url": "http://gist.github.com/fuweichin/18522d21d3cd947026c2819bda25e0a6",
+            "excerpts": [
+              "navigator.userAgentData.getHighEntropyValues(keys).then((result) => { ... architecture = 'x86';. bitness = '64';"
+            ],
+            "title": "User Agent Client Hints API (navigator.userAgentData) ..."
+          },
+          {
+            "url": "https://runebook.dev/en/docs/playwright/api/class-locatorassertions/locator-assertions-to-have-css",
+            "excerpts": [
+              "Playwright: Advanced CSS Assertion Techniques - Runebook.dev\nIf you suspect an animation or transition is causing the issue, you can introduce a wait before the assertion. However, this is generally not recommended as it can make your tests flaky."
+            ],
+            "title": "Playwright: Advanced CSS Assertion Techniques - Runebook.dev"
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/wrangler/environments/",
+            "excerpts": [],
+            "title": "description: Use environments to create different configurations for the same Worker application. title: Environments image: https://developers.cloudflare.com/og-docs.png"
+          },
+          {
+            "url": "https://developers.cloudflare.com/d1/wrangler-commands/",
+            "excerpts": [],
+            "title": "description: Use Wrangler CLI commands to create, manage, and query D1 databases. title: Wrangler commands image: https://developers.cloudflare.com/og-docs.png"
+          },
+          {
+            "url": "https://workos.com/docs/sso/test-sso",
+            "excerpts": [],
+            "title": "Test SSO"
+          },
+          {
+            "url": "https://playwright.dev/docs/test-sharding",
+            "excerpts": [],
+            "title": "Sharding | Playwright"
+          },
+          {
+            "url": "https://testing.googleblog.com/",
+            "excerpts": [],
+            "title": "\nGoogle Testing Blog\n"
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "dashboard-e2e-july-2026.md"
+  }
+}

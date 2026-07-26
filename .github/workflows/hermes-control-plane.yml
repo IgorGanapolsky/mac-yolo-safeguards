@@ -73,8 +73,15 @@ jobs:
       - name: Verify bounded ThumbGate AI/search visibility monitor
         run: node tests/test-thumbgate-aeo-monitor.js
       - name: Run local Cloudflare Worker session-lifecycle E2E
-        run: npm run test:e2e
+        run: npm run test:cloudflare-worker
         working-directory: apps/hermes-control-plane
+      - name: Multi-device machine routing E2E (API + client bundle)
+        run: npm run test:e2e:machine
+        working-directory: apps/hermes-control-plane
+      - name: Production dashboard copy smoke (public assets)
+        run: npm run test:e2e:prod-copy
+        working-directory: apps/hermes-control-plane
+        continue-on-error: true
       - run: bash tests/test-saas-watchdog.sh
       - run: node --test tests/test-hermes-cloud-connector.js
       - run: node --test tests/test-hermes-business-e2e.js
