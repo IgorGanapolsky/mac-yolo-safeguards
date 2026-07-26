@@ -1042,8 +1042,13 @@ export function shouldAcceptHealthIdentityForProfile(
 ): boolean {
   const priorKey = profileMachineKey(profile);
   const incomingKey = normalizeMachineKey(health.hostname);
-  if (priorKey && incomingKey && priorKey !== incomingKey) {
-    return false;
+  if (priorKey && incomingKey) {
+    if (priorKey.includes(incomingKey) || incomingKey.includes(priorKey)) {
+      return true;
+    }
+    if (priorKey !== incomingKey) {
+      return false;
+    }
   }
   return true;
 }
