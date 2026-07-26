@@ -361,7 +361,12 @@ gate_install_proofs() {
     echo "=== WARNING: skipping unit/release-safety gate (HERMES_INSTALL_SKIP_TESTS=1) ===" >&2
   else
     echo "=== Gate: unit + release-safety before phone install ==="
-    (cd "$HERMES_DIR" && npm test -- --no-coverage --watchman=false) || {
+    # The canonical Jest config excludes nested repo-local worktrees so a main
+    # checkout cannot rediscover every agent's tests. This installer also runs
+    # from those mandated worktrees, so override only that path exclusion while
+    # retaining node_modules. Zero discovered tests must remain a hard failure.
+    (cd "$HERMES_DIR" && npm test -- --no-coverage --watchman=false \
+      --testPathIgnorePatterns='/node_modules/') || {
       echo "Error: unit tests failed — refusing phone install." >&2
       echo "       Override only with HERMES_INSTALL_SKIP_TESTS=1 (not for real-user builds)." >&2
       exit 1
