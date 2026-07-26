@@ -5,6 +5,8 @@
  * - cloud: always Continuity VPS runner when entitled (even if Mac is online)
  * - auto:  legacy offline-failover behavior (online→local, offline→device policy)
  */
+import { isDeviceOnline } from "./device-pairing";
+
 export type RoutePreference = "local" | "cloud" | "auto";
 
 export type DeviceRouteInput = {
@@ -18,15 +20,9 @@ export type TaskRouteDecision = {
   preference: RoutePreference;
 };
 
-const ONLINE_MS = 60_000;
-
 export function parseRoutePreference(value: unknown): RoutePreference {
   if (value === "local" || value === "cloud" || value === "auto") return value;
   return "auto";
-}
-
-export function isDeviceOnline(lastSeenAt: number | null, now = Date.now()): boolean {
-  return Boolean(lastSeenAt && now - lastSeenAt < ONLINE_MS);
 }
 
 /**

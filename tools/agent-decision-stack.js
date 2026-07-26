@@ -26,6 +26,8 @@ Options:
   --skip-graphify      Skip graphify query.
   --skip-local-retrieval
                        Skip local repo retrieval harness query.
+  --with-arc           Run ARC-AGI-inspired skill-acquisition probe (tools/arc-skill-efficiency.js).
+  --skip-arc           Skip ARC probe (default: run when task mentions model/eval/promote/intelligence).
   --json               Print structured brief only.`;
 
 function parseArgs(argv) {
@@ -36,6 +38,8 @@ function parseArgs(argv) {
     skipThumbgate: false,
     skipGraphify: false,
     skipLocalRetrieval: false,
+    withArc: false,
+    skipArc: false,
     json: false,
     help: false,
   };
@@ -47,11 +51,43 @@ function parseArgs(argv) {
     else if (arg === '--skip-thumbgate') args.skipThumbgate = true;
     else if (arg === '--skip-graphify') args.skipGraphify = true;
     else if (arg === '--skip-local-retrieval') args.skipLocalRetrieval = true;
+    else if (arg === '--with-arc') args.withArc = true;
+    else if (arg === '--skip-arc') args.skipArc = true;
     else if (arg === '--json') args.json = true;
     else if (arg === '--help' || arg === '-h') args.help = true;
     else throw new Error(`Unknown argument: ${arg}`);
   }
   return args;
+}
+
+function shouldRunArcProbe(args) {
+  if (args.skipArc) return false;
+  if (args.withArc) return true;
+  const t = String(args.task || '').toLowerCase();
+  return /\b(arc|agi|model\s*promot|benchmark|intelligence|skill.?acquisition|generaliz|fleet\s*model|reasoning\s*eval)\b/.test(
+    t,
+  );
+}
+
+function runArcSkillProbe() {
+  const probePath = path.join(REPO, 'tools', 'arc-skill-efficiency.js');
+  if (!fs.existsSync(probePath)) {
+    return { skipped: true, reason: 'tools/arc-skill-efficiency.js missing' };
+  }
+  try {
+    const { runProbe } = require(probePath);
+    const report = runProbe({ minHoldout: 0.8 });
+    return {
+      schema: report.schema,
+      overallStatus: report.overallStatus,
+      metrics: report.metrics,
+      gates: report.gates,
+      recommendation: report.recommendation,
+      source: report.source?.philosophy,
+    };
+  } catch (error) {
+    return { error: error.message || String(error) };
+  }
 }
 
 function run(cmd, cmdArgs, options = {}) {
@@ -251,6 +287,14 @@ function recommendNextAction(brief) {
       'flows before any public "device verified" claim; run npm run e2e:continuous:once.'
     );
   }
+  const arc = brief.telemetry?.arcSkillEfficiency;
+  if (arc && !arc.skipped && !arc.error && arc.overallStatus === 'fail') {
+    return (
+      'ARC skill-acquisition probe FAIL (holdout induction weak). Do not promote models or claim ' +
+      '"smarter agent" from crystallized benchmarks alone; fix few-shot generalization first ' +
+      '(node tools/arc-skill-efficiency.js --verbose).'
+    );
+  }
   const gh = brief.telemetry?.githubRun;
   if (gh?.status === 'in_progress') {
     return `Poll ${gh.url || 'CI run'}; do not claim Firebase ship until conclusion=success.`;
@@ -260,6 +304,12 @@ function recommendNextAction(brief) {
   }
   if (brief.rag?.thumbgate?.antiPatterns?.length) {
     return `Apply RAG anti-patterns: avoid ${brief.rag.thumbgate.antiPatterns[0].slice(0, 80)}…`;
+  }
+  if (arc && arc.overallStatus === 'pass') {
+    return (
+      'ARC probe green (skill-acquisition holdout pass). Proceed with change protocol; still verify ' +
+      'device/CI gates before ship claims.'
+    );
   }
   return 'Proceed with change protocol; capture lesson after verification.';
 }
@@ -287,6 +337,14 @@ function buildBrief(args) {
   }
   brief.telemetry.githubRun = extractGhRunFeatures(args.ghRun);
   brief.telemetry.continuousE2e = readContinuousDeviceVerified();
+  if (shouldRunArcProbe(args)) {
+    brief.telemetry.arcSkillEfficiency = runArcSkillProbe();
+  } else {
+    brief.telemetry.arcSkillEfficiency = {
+      skipped: true,
+      reason: 'not requested (use --with-arc or task keywords: model promote, AGI, benchmark, reasoning eval)',
+    };
+  }
   brief.recommendation = recommendNextAction(brief);
   return brief;
 }
@@ -340,6 +398,19 @@ function main() {
     }
     console.log('');
   }
+  if (brief.telemetry.arcSkillEfficiency && !brief.telemetry.arcSkillEfficiency.skipped) {
+    const arc = brief.telemetry.arcSkillEfficiency;
+    console.log('## ARC skill-acquisition probe (fluid intelligence gate)');
+    if (arc.error) {
+      console.log(`error=${arc.error}`);
+    } else {
+      console.log(
+        `status=${arc.overallStatus} train=${arc.metrics?.trainAccuracy} holdout=${arc.metrics?.holdoutAccuracy}`,
+      );
+      console.log(arc.recommendation || '');
+    }
+    console.log('');
+  }
   console.log(`## Recommendation\n${brief.recommendation}`);
 }
 
@@ -351,6 +422,8 @@ module.exports = {
   parseArgs,
   readContinuousDeviceVerified,
   recommendNextAction,
+  runArcSkillProbe,
+  shouldRunArcProbe,
   thumbgateLessons,
 };
 

@@ -13,7 +13,11 @@
     "test": "npm run build && node --experimental-strip-types --test tests/*.test.mjs",
     "test:cloudflare-config": "node --test ../../tests/test-hermes-cloudflare-deploy-config.js",
     "test:cloudflare-worker": "npm run build:cloudflare && node tests/cloudflare-worker-smoke.mjs",
-    "test:e2e": "npm run test:cloudflare-worker",
+    "test:e2e:machine": "npm run build:cloudflare && node tests/dashboard-machine-routing-e2e.mjs",
+    "test:e2e:machine:nobuild": "node tests/dashboard-machine-routing-e2e.mjs",
+    "test:e2e:prod-copy": "node tests/prod-dashboard-copy-smoke.mjs",
+    "test:e2e:browser": "npm run build:cloudflare && playwright test",
+    "test:e2e": "npm run build:cloudflare && node tests/cloudflare-worker-smoke.mjs && PLAYWRIGHT_E2E=${PLAYWRIGHT_E2E:-0} node tests/dashboard-machine-routing-e2e.mjs",
     "test:security": "npm audit --audit-level=high",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
@@ -25,12 +29,13 @@
     "drizzle-orm": "0.45.2",
     "next": "16.2.11",
     "postcss": "8.5.22",
-    "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.45.1",
     "@cloudflare/workers-types": "5.20260719.1",
+    "@playwright/test": "^1.62.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
@@ -41,7 +46,8 @@
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
-    "react-server-dom-webpack": "19.2.6",
+    "playwright": "^1.55.1",
+    "react-server-dom-webpack": "19.2.8",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
     "vinext": "0.0.50",
@@ -54,7 +60,12 @@
       "esbuild": "0.25.12"
     },
     "postcss": "8.5.22",
-    "sharp": "0.35.3"
+    "sharp": "0.35.3",
+    "brace-expansion": "5.0.8",
+    "minimatch": "10.2.5",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-server-dom-webpack": "19.2.8"
   },
   "type": "module"
 }

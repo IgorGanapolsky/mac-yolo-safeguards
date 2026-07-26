@@ -91,6 +91,21 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .composer-route label:has(input:disabled){opacity:.45;cursor:not-allowed}
 .composer-route input{accent-color:var(--accent)}
 .route-label-short{display:none}
+.composer-device-picker{display:grid;gap:6px}
+.composer-device-picker select{
+  width:100%;
+  min-height:44px;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:rgba(15,23,42,.95);
+  color:#F8FAFC;
+  font:600 13px/1.3 Inter,ui-sans-serif,system-ui,sans-serif;
+  cursor:pointer;
+}
+.composer-device-picker select:focus-visible{outline:2px solid #22D3EE;outline-offset:1px}
+.composer-device-picker select:disabled{opacity:.55;cursor:not-allowed}
+.composer-device-hint{margin:0;color:#94A3B8;font:450 12px/1.4 Inter,ui-sans-serif,system-ui,sans-serif}
 .composer-route-explain{
   margin:0;
   padding:10px 12px;
@@ -261,8 +276,38 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     flex-direction:column;
     padding:10px 12px 0;
   }
-  .dashboard-header{flex:0 0 auto;padding-bottom:12px;margin:0}
-  .dashboard-header h1{font-size:20px;line-height:1.2}
+  /* Phone: never put long thread title beside Manage plan / Sign out (CEO 2026-07-25 overlap) */
+  .dashboard-header{
+    flex:0 0 auto;
+    display:grid;
+    grid-template-columns:1fr;
+    gap:10px;
+    align-items:stretch;
+    padding-bottom:10px;
+    margin:0;
+  }
+  .dashboard-header-title{min-width:0}
+  .dashboard-header h1{
+    font-size:16px;
+    line-height:1.25;
+    display:-webkit-box;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+    overflow:hidden;
+    word-break:break-word;
+  }
+  .header-actions{
+    justify-content:flex-start;
+    flex-wrap:wrap;
+    gap:8px;
+    width:100%;
+  }
+  .header-actions .button,
+  .header-actions .sign-out-button{
+    flex:1 1 auto;
+    min-height:40px;
+    justify-content:center;
+  }
   .header-actions .status-chip{display:none}
   .notice.notice-toast{
     position:relative;
@@ -316,25 +361,34 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     -webkit-overflow-scrolling:touch;
     overscroll-behavior:contain;
   }
+  /* Hermès tab: reserve measured composer height so messages never sit under the dock */
+  .dashboard-shell[data-mobile-tab="hermes"] .hermes-scroll-pane{
+    padding-bottom:max(16px, var(--composer-dock-space, 220px));
+  }
   .conversation-history{
     max-height:none;
     border-bottom:1px solid var(--line);
   }
   .conversation-message{max-width:94%}
   .task-list{max-height:none}
-  /* Composer is part of the Hermes column — NOT position:fixed over other sections */
+  /* Fixed dock inside task-panel (above bottom tabs). Height is measured → --composer-dock-space */
+  .dashboard-shell[data-mobile-tab="hermes"] .task-panel{
+    position:relative;
+  }
+  .dashboard-shell[data-mobile-tab="hermes"] .task-panel .composer,
   .task-panel .composer{
-    position:relative !important;
-    z-index:1;
-    left:auto !important;
-    right:auto !important;
-    bottom:auto !important;
+    position:absolute !important;
+    z-index:25;
+    left:0 !important;
+    right:0 !important;
+    bottom:0 !important;
     flex:0 0 auto;
     margin:0;
-    padding:10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    /* safe-area lives on the tab bar, not double-padded here */
+    padding:10px 12px 12px;
     background:#0B0F19;
     border-top:1px solid var(--line);
-    box-shadow:0 -10px 28px rgba(0,0,0,.35);
+    box-shadow:0 -12px 32px rgba(0,0,0,.45);
   }
   .composer textarea{
     min-height:64px;
@@ -385,9 +439,16 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   }
   .route-label-full{display:none}
   .route-label-short{display:inline}
+  /* Hide route blurb on phone — it steals the textarea (cascade-safe !important) */
   .composer-route-explain{
-    display:none;
+    display:none !important;
   }
+  .composer-where-label{
+    font-size:10px;
+    letter-spacing:.06em;
+  }
+  .composer-device-picker{flex-direction:column;align-items:stretch;gap:6px}
+  .composer-device-picker select{min-height:44px;width:100%}
   .composer-actions{
     display:grid;
     grid-template-columns:1fr;
@@ -563,3 +624,34 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .sign-out-button:disabled{opacity:.65;cursor:wait}
 .sidebar-bottom .sign-out-button{background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--text)}
 .header-actions .sign-out-button{white-space:nowrap}
+
+/* === Genspark-ROI mobile hard overrides (must stay last so base rules cannot re-show panels) === */
+@media(max-width:700px){
+
+.composer-route-explain-toggle{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  width:100%;
+  margin:0;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:inherit;
+  font:inherit;
+  text-align:left;
+  cursor:pointer;
+}
+.composer-route-explain-toggle strong{font:650 12px/1.3 system-ui,sans-serif}
+.composer-route-explain-toggle span{color:var(--muted);font-size:11px;flex-shrink:0}
+
+  .composer-route-explain{display:none !important;height:0 !important;margin:0 !important;padding:0 !important;overflow:hidden !important;border:0 !important}
+  .dashboard-header{display:grid !important;grid-template-columns:1fr !important;align-items:stretch !important}
+  .dashboard-header h1{
+    -webkit-line-clamp:2;
+    display:-webkit-box;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
+}
