@@ -86,6 +86,11 @@ jobs:
           set -eu
           bash tests/test-hermes-gateway-watchdog-e2e.sh
 
+      - name: Revenue loop watchdog unit tests
+        run: |
+          set -eu
+          bash tests/test-revenue-loop-watchdog.sh
+
       - name: Node tool unit tests
         run: |
           set -u
