@@ -127,6 +127,8 @@ export default function DashboardClient() {
   const [prompt, setPrompt] = useState("");
   /** Where this task should run: Mac, Continuity VPS, or auto offline failover. */
   const [routePreference, setRoutePreference] = useState<"local" | "cloud" | "auto">("auto");
+  /** Which paired Mac to target; "" = let the server pick the most-recently-seen one. */
+  const [selectedDeviceId, setSelectedDeviceId] = useState("");
   /** True once first network load finishes (or fails auth). */
   const [workspaceHydrated, setWorkspaceHydrated] = useState(false);
   /** In-memory thread detail cache for instant switch + hover preheat. */
@@ -218,6 +220,12 @@ export default function DashboardClient() {
   useEffect(() => {
     selectedThreadRef.current = selectedThread;
   }, [selectedThread]);
+
+  useEffect(() => {
+    if (selectedDeviceId && !devices.some((device) => device.id === selectedDeviceId)) {
+      setSelectedDeviceId("");
+    }
+  }, [devices, selectedDeviceId]);
 
   const persistThreadDetails = useCallback((threadId: string, details: ThreadDetails) => {
     threadCacheRef.current.set(threadId, details);
@@ -546,6 +554,7 @@ export default function DashboardClient() {
           threadId: selectedThread,
           idempotencyKey: crypto.randomUUID(),
           routePreference,
+          ...(selectedDeviceId ? { deviceId: selectedDeviceId } : {}),
         }),
       });
       let body: { task?: { route: string; threadId: string; preference?: string }; error?: string } = {};
@@ -934,6 +943,23 @@ export default function DashboardClient() {
                     <span className="route-label-short">Auto</span>
                   </label>
                 </div>
+                {devices.length > 1 && routePreference !== "cloud" && (
+                  <div className="composer-device-picker">
+                    <label htmlFor="composer-device-select" className="composer-where-label" style={{ margin: 0 }}>Which Mac</label>
+                    <select
+                      id="composer-device-select"
+                      value={selectedDeviceId}
+                      onChange={(event) => setSelectedDeviceId(event.target.value)}
+                    >
+                      <option value="">Most recently active</option>
+                      {devices.map((device) => (
+                        <option key={device.id} value={device.id}>
+                          {device.name}{device.online ? " · online" : device.presence === "stale" ? " · stale" : " · offline"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 {!isNarrowViewport ? (
                   <div className="composer-route-explain" role="status" aria-live="polite">
                     <button

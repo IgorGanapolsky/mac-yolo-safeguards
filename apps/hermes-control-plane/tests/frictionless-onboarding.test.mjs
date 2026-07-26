@@ -250,6 +250,24 @@ test("lets users choose Mac vs Continuity VPS on every task not only offline fai
   assert.match(taskRouting, /preference === "local"/);
 });
 
+test("lets users pick which paired Mac a task runs on when more than one is paired", () => {
+  const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
+  // The composer previously never sent deviceId at all -- the API silently fell back to
+  // "most recently seen device", with zero UI to choose or even see which Mac would run it.
+  assert.match(dashboard, /selectedDeviceId/);
+  assert.match(dashboard, /composer-device-picker/);
+  assert.match(dashboard, /Which Mac/);
+  assert.match(dashboard, /Most recently active/);
+  // Only shown when it's actually a meaningful choice.
+  assert.match(dashboard, /devices\.length > 1 && routePreference !== "cloud"/);
+  // The payload only includes deviceId when the user actually picked one, so single-device
+  // orgs (the common case) keep sending the exact same request shape as before.
+  assert.match(dashboard, /\.\.\.\(selectedDeviceId \? \{ deviceId: selectedDeviceId \} : \{\}\)/);
+  // Server-side support already existed (payload.deviceId is read and validated); this proves
+  // the composer is the only thing that was missing.
+  assert.match(tasksRoute, /payload\?\.deviceId/);
+});
+
 test("explains fenced execution through a visible interactive safety panel", () => {
   assert.match(dashboard, /href="#execution-safety"/);
   assert.match(dashboard, /onClick=\{\(\) => setSafetyExpanded\(true\)\}/);
