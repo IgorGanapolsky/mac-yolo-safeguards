@@ -232,32 +232,34 @@ test("lessons workspace activity stats and lesson cards deep-link into Hermes", 
   assert.match(globals, /\.lesson-card-actions\{/);
 });
 
-test("lets users choose Mac vs Continuity VPS on every task not only offline failover", () => {
+test("lets users choose local machine vs Continuity VPS on every task not only offline failover", () => {
   const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
   const taskRouting = readFileSync(new URL("../lib/task-routing.ts", import.meta.url), "utf8");
   assert.match(dashboard, /routePreference/);
-  assert.match(dashboard, /My Mac/);
+  // Route chip uses real hostname when known — never a generic "My Mac" for multi-platform hosts.
+  assert.match(dashboard, /selectedDevice \? selectedDeviceLabel : "My computer"/);
   assert.match(dashboard, /Where should this run\?/);
   assert.match(dashboard, /composer-route-explain/);
-  assert.match(dashboard, /Auto — \$\{selectedDeviceLabel\} first|Auto — Mac first/);
-  assert.match(dashboard, /My Mac only/);
+  assert.match(dashboard, /Auto — \$\{selectedDeviceLabel\} first/);
+  assert.match(dashboard, /\$\{selectedDeviceLabel\} only/);
   assert.match(dashboard, /Continuity \(cloud VPS\)/);
   assert.match(dashboard, /aria-labelledby="composer-where-label"/);
   assert.doesNotMatch(dashboard, /composer-route-label/);
+  assert.doesNotMatch(dashboard, /My Mac only|Which Mac\?|>My Mac</);
   assert.match(tasksRoute, /routePreference/);
   assert.match(tasksRoute, /decideTaskRoute/);
   assert.match(taskRouting, /preference === "cloud"/);
   assert.match(taskRouting, /preference === "local"/);
 });
 
-test("always shows which paired Mac will run a task and pins deviceId", () => {
+test("always shows which paired machine will run a task and pins deviceId", () => {
   const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
-  // #1046 added multi-Mac pick with a "Most recently active" empty default; users still
-  // could not *see* the target Mac with one device, and empty default re-introduced silent
-  // last_seen assignment. Always show the select and always POST deviceId.
+  // Always show the select, always POST deviceId, and label with the connector hostname
+  // (not a hard-coded "Mac") so multi-platform users see the real machine.
   assert.match(dashboard, /selectedDeviceId/);
   assert.match(dashboard, /composer-device-picker/);
-  assert.match(dashboard, /Which Mac\?/);
+  assert.match(dashboard, /Which machine\?/);
+  assert.match(dashboard, /machineDisplayName/);
   assert.match(dashboard, /devices\.length > 0/);
   assert.match(dashboard, /deviceId: selectedDeviceId/);
   assert.match(dashboard, /pickDefaultDeviceId/);
@@ -320,8 +322,8 @@ test("lists connectors not Tailscale peers and can revoke ghost machines", () =>
   assert.match(dashboard, /Remove machine/);
   assert.match(dashboard, /Remove stale machine/);
   assert.match(dashboard, /deviceStatusLabel/);
-  assert.match(dashboard, /Copy installer for another Mac/);
-  assert.match(dashboard, /Add another Mac \(optional\)/);
+  assert.match(dashboard, /Copy installer for another computer/);
+  assert.match(dashboard, /Add another computer \(optional\)/);
   assert.match(dashboard, /always-on service/);
   assert.match(dashboard, /do <strong>not<\/strong> copy an installer every time/);
   assert.match(dashboard, /one-time/);
