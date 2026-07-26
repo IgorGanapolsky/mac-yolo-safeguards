@@ -142,15 +142,31 @@ export default function DashboardClient() {
   /** Where this task should run: Mac, Continuity VPS, or auto offline failover. */
   const [routePreference, setRoutePreference] = useState<"local" | "cloud" | "auto">("auto");
   /**
-   * Explicit paired machine for this task.
-   * Always pinned client-side (never silent server last_seen) so the user can see and choose which Mac runs work.
+   * Explicit user override for which Mac runs the next task.
+   * Resolved selection is derived (useMemo) so we never setState inside an effect (eslint react-hooks/set-state-in-effect).
    */
-  const [selectedDeviceId, setSelectedDeviceId] = useState("");
+  const [deviceOverrideId, setDeviceOverrideId] = useState<string | null>(null);
   /** True once first network load finishes (or fails auth). */
   const [workspaceHydrated, setWorkspaceHydrated] = useState(false);
   /** In-memory thread detail cache for instant switch + hover preheat. */
   const threadCacheRef = useRef<Map<string, ThreadDetails>>(new Map());
   const preheatInflightRef = useRef<Set<string>>(new Set());
+
+  const selectedDeviceId = useMemo(() => {
+    if (!devices.length) return "";
+    if (deviceOverrideId && devices.some((device) => device.id === deviceOverrideId)) {
+      return deviceOverrideId;
+    }
+    let stored: string | null = null;
+    if (typeof window !== "undefined") {
+      try {
+        stored = window.localStorage.getItem(preferredDevicePreferenceKey);
+      } catch {
+        stored = null;
+      }
+    }
+    return pickDefaultDeviceId(devices, stored);
+  }, [devices, deviceOverrideId]);
 
   const selectedDevice = devices.find((device) => device.id === selectedDeviceId) ?? null;
   const selectedDeviceLabel = selectedDevice?.name ?? "your Mac";
@@ -241,25 +257,8 @@ export default function DashboardClient() {
     selectedThreadRef.current = selectedThread;
   }, [selectedThread]);
 
-  useEffect(() => {
-    if (!devices.length) {
-      setSelectedDeviceId("");
-      return;
-    }
-    setSelectedDeviceId((current) => {
-      if (current && devices.some((device) => device.id === current)) return current;
-      let stored: string | null = null;
-      try {
-        stored = window.localStorage.getItem(preferredDevicePreferenceKey);
-      } catch {
-        stored = null;
-      }
-      return pickDefaultDeviceId(devices, stored);
-    });
-  }, [devices]);
-
   function chooseDevice(deviceId: string) {
-    setSelectedDeviceId(deviceId);
+    setDeviceOverrideId(deviceId);
     try {
       window.localStorage.setItem(preferredDevicePreferenceKey, deviceId);
     } catch {
