@@ -95,6 +95,15 @@ jobs:
         working-directory: apps/hermes-control-plane
         # Network flake must not block merge; agent still runs this post-deploy.
         continue-on-error: true
+      - name: Install Playwright Chromium for full-stack browser E2E
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/hermes-control-plane
+      - name: Full-stack browser E2E (real Worker + real connector process + real Chromium)
+        run: npm run test:e2e:browser
+        working-directory: apps/hermes-control-plane
+        env:
+          CLOUDFLARE_D1_DATABASE_ID: "00000000-0000-4000-8000-000000000000"
+          CLOUDFLARE_CUSTOM_DOMAIN: "thumbgate.app"
       - run: bash tests/test-saas-watchdog.sh
       - run: node --test tests/test-hermes-cloud-connector.js
       - run: node --test tests/test-hermes-business-e2e.js

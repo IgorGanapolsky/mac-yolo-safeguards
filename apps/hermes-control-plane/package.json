@@ -16,6 +16,7 @@
     "test:e2e:machine": "npm run build:cloudflare && node tests/dashboard-machine-routing-e2e.mjs",
     "test:e2e:machine:nobuild": "node tests/dashboard-machine-routing-e2e.mjs",
     "test:e2e:prod-copy": "node tests/prod-dashboard-copy-smoke.mjs",
+    "test:e2e:browser": "npm run build:cloudflare && playwright test",
     "test:e2e": "npm run build:cloudflare && node tests/cloudflare-worker-smoke.mjs && PLAYWRIGHT_E2E=${PLAYWRIGHT_E2E:-0} node tests/dashboard-machine-routing-e2e.mjs",
     "test:security": "npm audit --audit-level=high",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
@@ -34,6 +35,7 @@
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.45.1",
     "@cloudflare/workers-types": "5.20260719.1",
+    "@playwright/test": "^1.62.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
