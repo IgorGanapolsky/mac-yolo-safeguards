@@ -106,6 +106,34 @@ test("production deploy validates, migrates D1, then deploys the Worker", async 
   );
 });
 
+test("predeploy:cloudflare backs up D1 before deploy:cloudflare applies migrations", async () => {
+  const packageJson = JSON.parse(
+    await readFile(
+      new URL("../apps/hermes-control-plane/package.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  // npm auto-runs "pre<script>" before "<script>" for any script name, so
+  // this fires ahead of deploy:cloudflare with no extra wiring required.
+  assert.equal(
+    packageJson.scripts["predeploy:cloudflare"],
+    "npm run cloudflare:validate-production && npm run build:cloudflare && wrangler d1 export DB --remote --output=.wrangler/backups/pre-deploy-$(date -u +%Y%m%dT%H%M%SZ).sql --config dist/server/wrangler.json",
+  );
+});
+
+test("rollback:cloudflare reverts the Worker to a previous published version", async () => {
+  const packageJson = JSON.parse(
+    await readFile(
+      new URL("../apps/hermes-control-plane/package.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  assert.equal(
+    packageJson.scripts["rollback:cloudflare"],
+    "wrangler rollback --config dist/server/wrangler.json",
+  );
+});
+
 test("Worker forces public HTTP traffic onto HTTPS and the app emits HSTS", async () => {
   const [workerSource, nextConfig] = await Promise.all([
     readFile(
