@@ -178,4 +178,38 @@ else
   if ((${#errors[@]})); then echo "errors: ${errors[*]}"; fi
 fi
 
+# Self-heal-failure alerting. This watchdog was found with zero alerting of any
+# kind: its CDP heal (and other invariant checks) run and, until now, silently
+# left `all_ok=0` for a human to eventually notice via `launchctl list` or a
+# stale log. All the heal attempts above (CDP relaunch/reclaim, LaunchAgent
+# install) already happen synchronously within this single invocation and are
+# re-checked before `all_ok` is computed, so a bad `all_ok` here already means
+# "detected a problem AND the self-heal attempt for it did not resolve it" --
+# no multi-tick "healing" grace period is needed the way the async gateway
+# restart in hermes-gateway-watchdog.sh needs one. Edge-triggered ok/degraded
+# state transition, same convention as saas-watchdog.sh and
+# scripts/revenue-loop-watchdog.sh. Only alerts on real periodic runs (HEAL=1,
+# i.e. no --check/--no-heal), so manual inspection runs never page anyone.
+if [[ "$HEAL" -eq 1 ]]; then
+  alert_state="${HERMES_PREVENTION_WATCHDOG_ALERT_STATE:-${state_dir}/hermes-prevention-watchdog-alert.state}"
+  alert_curl_bin="${HERMES_PREVENTION_WATCHDOG_CURL_BIN:-curl}"
+  alert_ntfy_topic="${HERMES_PREVENTION_WATCHDOG_NTFY_TOPIC:-yolo-guard-fdh8ktuw1vtxb5sb}"
+  alert_ntfy_url="${HERMES_PREVENTION_WATCHDOG_NTFY_URL:-https://ntfy.sh/${alert_ntfy_topic}}"
+  prev_alert_state="$(cat "$alert_state" 2>/dev/null || echo ok)"
+  if [[ "$all_ok" -eq 1 ]]; then
+    if [[ "$prev_alert_state" == "degraded" ]]; then
+      "$alert_curl_bin" -sS -m 10 -H "Title: Hermes prevention watchdog recovered" \
+        -d "recovered at $(date '+%Y-%m-%dT%H:%M:%S%z')" "$alert_ntfy_url" >/dev/null 2>&1 || true
+    fi
+    printf 'ok' > "$alert_state" 2>/dev/null || true
+  else
+    if [[ "$prev_alert_state" != "degraded" ]]; then
+      alert_body="$(printf 'Hermes prevention watchdog self-heal failed (%s):\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')"; printf ' - %s\n' "${errors[@]}")"
+      "$alert_curl_bin" -sS -m 10 -H "Title: Hermes prevention watchdog self-heal failed" -H "Priority: high" \
+        -d "$alert_body" "$alert_ntfy_url" >/dev/null 2>&1 || true
+    fi
+    printf 'degraded' > "$alert_state" 2>/dev/null || true
+  fi
+fi
+
 [[ "$all_ok" -eq 1 ]] && exit 0 || exit 1

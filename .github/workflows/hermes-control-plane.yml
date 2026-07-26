@@ -21,6 +21,9 @@ on:
       - "tests/test-saas-watchdog.sh"
       - "saas/saas-watchdog.sh"
       - "com.igor.saas-watchdog.plist"
+      - "tests/test-revenue-anomaly-watchdog.sh"
+      - "saas/revenue-anomaly-watchdog.sh"
+      - ".github/workflows/revenue-anomaly-watch.yml"
       - "docs/HERMES-CLOUDFLARE-MIGRATION.md"
       - ".github/workflows/hermes-control-plane.yml"
   push:
@@ -42,6 +45,9 @@ on:
       - "tests/test-saas-watchdog.sh"
       - "saas/saas-watchdog.sh"
       - "com.igor.saas-watchdog.plist"
+      - "tests/test-revenue-anomaly-watchdog.sh"
+      - "saas/revenue-anomaly-watchdog.sh"
+      - ".github/workflows/revenue-anomaly-watch.yml"
       - "docs/HERMES-CLOUDFLARE-MIGRATION.md"
       - ".github/workflows/hermes-control-plane.yml"
 
@@ -85,6 +91,9 @@ jobs:
       - name: Run local Cloudflare Worker session-lifecycle E2E
         run: node tests/cloudflare-worker-smoke.mjs
         working-directory: apps/hermes-control-plane
+      - name: Revenue anomaly watchdog — real local D1 alert proof
+        run: node tests/revenue-anomaly-watchdog-smoke.mjs
+        working-directory: apps/hermes-control-plane
       - name: Multi-device machine routing E2E (API + bundle + Playwright)
         env:
           PLAYWRIGHT_E2E: "1"
@@ -105,6 +114,7 @@ jobs:
           CLOUDFLARE_D1_DATABASE_ID: "00000000-0000-4000-8000-000000000000"
           CLOUDFLARE_CUSTOM_DOMAIN: "thumbgate.app"
       - run: bash tests/test-saas-watchdog.sh
+      - run: bash tests/test-revenue-anomaly-watchdog.sh
       - run: node --test tests/test-hermes-cloud-connector.js
       - run: node --test tests/test-hermes-business-e2e.js
       - run: npm test
