@@ -53,15 +53,6 @@ export function writeJsonSessionStorage(key: string, value: unknown): void {
   }
 }
 
-export function removeSessionStorageKey(key: string): void {
-  if (typeof sessionStorage === "undefined") return;
-  try {
-    sessionStorage.removeItem(key);
-  } catch {
-    // ignore
-  }
-}
-
 export function clearDashboardNavCache(): void {
   if (typeof sessionStorage === "undefined") return;
   try {

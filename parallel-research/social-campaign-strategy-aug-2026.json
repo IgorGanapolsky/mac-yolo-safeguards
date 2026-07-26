@@ -1,0 +1,822 @@
+{
+  "run_id": "trun_3682596d42784685b3e9e1e836e25b6e",
+  "interaction_id": "trun_3682596d42784685b3e9e1e836e25b6e",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_3682596d42784685b3e9e1e836e25b6e",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Step 1 reasoning: The field_answer is a comprehensive, action-oriented playbook addressing measurement architecture, testing under low-N, channel tactics, attribution for organic-to-install-to-paid, closed learning loops, and an August 2026 playbook with a 30-day plan. It includes recommendations, anti-patterns, and a weekly loop. Given the field_description asks for an actionable strategy report (~2500 words) with prioritized recommendations and a 30-day plan, lead with recommendations, cite sources, and be honest about uncertainty, the answer appears to meet and largely exceed the expected scope. Minor gaps could be more explicit on exact metrics hierarchy (north star vs leading indicators) and a tighter 30-day milestone breakdown, but those are largely present in the weekly loop and kill/kill criteria sections. Overall, the field_answer is complete. Confidence moderate-to-high on completeness. \n\nStep 2 reasoning: Excerpts provided include several sources on multi-touch attribution (MTA), the limitations of platform analytics, the role of first-party data, deferred deep linking, SKAdNetwork, and privacy-preserving analytics options (Plausible, PostHog). These excerpts support core components of the field_answer: first-party vs platform analytics, measurement architecture decisions (first-touch vs multi-touch), testing approaches suitable for low-N (bandits, CUPED), attribution realities (iOS SKAdNetwork limitations), and privacy-friendly tooling. There are no excerpts that directly prove every single provider recommendation or the exact August 2026 framing, but the excerpts do substantiate the central guidance and many specific claims. Therefore, the field_answer is broadly supported by the excerpts.\n\nOverall assessment: Completeness = true, Supported = true",
+        "citations": [
+          {
+            "url": "https://www.whatconverts.com/blog/multi-touch-attribution",
+            "excerpts": [
+              "Multi-Touch Attribution: Models, Benefits & Best Practices\nMay 5, 2025 \u2014 Multi-touch attribution (MTA) is a marketing measurement strategy that assigns proportional credit to multiple touchpoints along a customer's journey."
+            ],
+            "title": "Multi-Touch Attribution: Models, Benefits & Best Practices"
+          },
+          {
+            "url": "https://libril.com/blog/marketing-attribution-evolution",
+            "excerpts": [
+              "Marketing Attribution Evolution: Multi-Touch & Dark Social ...\nNielsen\u2019s research confirms that 50% of companies now use multi-touch attribution, but they\u2019re missing the massive chunk happening through dark social channels that leave zero digital footprints."
+            ],
+            "title": "Marketing Attribution Evolution: Multi-Touch & Dark Social ..."
+          },
+          {
+            "url": "https://www.salesforce.com/marketing/multi-touch-attribution",
+            "excerpts": [
+              "Multi-Touch Attribution: What It Is & Best Practices\nMulti-touch attribution is a data-driven marketing approach that assigns credit to multiple touchpoints along the customer journey."
+            ],
+            "title": "Multi-Touch Attribution: What It Is & Best Practices"
+          },
+          {
+            "url": "https://business.adobe.com/blog/basics/multi-touch-attribution",
+            "excerpts": [
+              "Multi-touch attribution \u2014 what it is, and how to do it well\nAug 10, 2023 \u2014 Multi-touch attribution is a strategy for evaluating the effectiveness of your marketing touchpoints and giving credit to the most valuable in the buyer\u00a0"
+            ],
+            "title": "Multi-touch attribution \u2014 what it is, and how to do it well"
+          },
+          {
+            "url": "http://insighta.io/",
+            "excerpts": [
+              "Insighta pulls in granular data from your entire tech stack, cleaned, transformed, and ready for real performance insight.[Insighta Warehouse](./platform/data-capture) [Platform Integrations](./platform/platform-integrations) Marketing Intelligence Go beyond the last click. Use true marketing intelligence to understand how every touchpoint in the customer journey drives conversions, lifetime value, and incremental growth.[Multi Touch Attribution](./platform/multi-touch-attribution) [Marketing Mix Modeling](./platform/marketing-mix-modeling) [Enhanced Ad Platform Reporting](./platform/ad-platform-metrics) Insights Build growth around future customer value.\nMulti-Touch Attribution (MTA) Clicks, Views, and the Full Customer Journey Insighta brings brands and agencies the most comprehensive multi-touch attribution model, combining click and view-through customer journeys across social, CTV, mailers, and other hard-to-measure offline channels. Our MTA model reveals the full customer journey with precision down to the platform, campaign, and creative level, and it directly integrates predictive lifetime value so every touchpoint is measured by the long-term value it generates, not just the immediate conversion.\nThe World's Best Data Capture & Marketing Analytics Platform Stop guessing. Start growing. Insighta blends marketing attribution with predictive insights to show you what's working and how to scale it. [Experience Effortless Efficiency](./contact-us) The Backbone of Smarter Marketing Insighta is a next generation advanced marketing measurement and data intelligence platform that helps brands understand how advertising investments impact revenue, lead generation, customer growth and the lifetime value of their customer base. Data Capture Great marketing starts with accurate data. Insighta pulls in granular data from your entire tech stack, cleaned, transformed, and ready for real performance insight.[Insighta Warehouse](./platform/data-capture) [Platform Integrations](./platform/platform-integrations) Marketing Intelligence Go beyond the last click. Use true marketing intelligence to understand how every touchpoint in the customer journey drives conversions, lifetime value, and incremental growth.[Multi Touch Attribution](./platform/multi-touch-attribution) [Marketing Mix Modeling](./platform/marketing-mix-modeling) [Enhanced Ad Platform Reporting](./platform/ad-platform-metrics) Insights Build growth around future customer value. Connect marketing performance with product and customer intelligence to see what really drives loyalty and profitability.[Predictive Lifetime Value](./platform/predictive-analytics-customer-lifetime-value) [Customer Analytics](./platform/customer-insights) [Merchandising Analytics](./platform/merchandising-insights) The Insighta Difference Insighta delivers a complete measurement platform that connects data collection, predictive lifetime value, and advanced marketing intelligence. It brings together multi-touch attribution, marketing mix modeling, incrementality testing, and deep customer and merchandising insights into one platform. [Book a Demo](./contact-us#demo) Customer saw a CTV ad, Programatic Ad, DSP, Facebook Ad, Click, Shopify, Order landed, Direct Mail, Postcard mailed Multi-Touch Attribution (MTA) Clicks, Views, and the Full Customer Journey Insighta brings brands and agencies the most comprehensive multi-touch attribution model, combining click and view-through customer journeys across social, CTV, mailers, and other hard-to-measure offline channels. Our MTA model reveals the full customer journey with precision down to the platform, campaign, and creative level, and it directly integrates predictive lifetime value so every touchpoint is measured by the long-term value it generates, not just the immediate conversion."
+            ],
+            "title": "title: Insighta description: \"World's best paid marketing analytics and data capture platform\" published: \"Jun 3, 2026, 8:28 PM UTC\""
+          },
+          {
+            "url": "http://dev.adjust.com/en/sdk/ios/features/deep-links/deferred",
+            "excerpts": [
+              "deferred deep linking - Adjust Developer Hub Deferred deep linking allows users who don't have your app installed to click an Adjust link, install your app from the app store, and then be directed to"
+            ],
+            "title": "Set up deferred deep linking - Adjust Developer Hub"
+          },
+          {
+            "url": "https://adlibrary.com/posts/skadnetwork",
+            "excerpts": [
+              "SKAdNetwork (SKAN) Explained: The 2026 iOS Attribution Reality\nSKAdNetwork is a framework Apple introduced in iOS 14.5 (April 2021) as part of the App Tracking Transparency rollout. When a user does not grant ATT permission \u2014 and roughly 70-75% of iOS users globally have not, per industry consensus \u2014 the IDFA is unavailable."
+            ],
+            "title": "SKAdNetwork (SKAN) Explained: The 2026 iOS Attribution Reality"
+          },
+          {
+            "url": "http://appsflyer.com/glossary/deferred-deep-linking",
+            "excerpts": [
+              "Deferred Deep Linking: how it works - AppsFlyer Deferred deep linking sends users directly to specific in-app content, even if the app is not already installed"
+            ],
+            "title": "Deferred Deep Linking: how it works - AppsFlyer"
+          },
+          {
+            "url": "http://help.branch.io/docs/skadnetwork-index",
+            "excerpts": [
+              "[SKAdNetwork](https://developer.apple.com/documentation/storekit/skadnetwork) (SKAN) is Apple's attribution framework on iOS, providing accurate attribution data to help marketers understand and refine mobile ad campaigns. By concealing details like user-level identifiers that could cause other companies to exploit that data without user consent, SKAdNetwork is the leading attribution framework prioritizing user privacy and security. Ad Network Support ****CLICK HERE TO SEARCH FOR YOUR SKADNETWORK SUPPORTED NETWORKS**** | Ad Partner | SKAdNetwork Status | | ![3.14 Digital](https://cdn.us.document360. ... | Source App ID | \u2718 | \u2718 | \u2714 | \u2714 | \u2714 | | Fidelity Type | \u2718 | \u2714 | \u2714 | \u2714 | \u2714 | | **Ad Partner Data** | | Campaign ID | \u2714 | \u2714 | \u2714 | \u2714 | \u2714 | | Campaign Name | \u2714 | \u2714 | \u2714 | \u2714 | \u2714 | | Ad Set ID | \u2718 | \u2718 | \u2714 | \u2714 | \u2714 | | Ad Set Name | \u2718 | \u2718 | \u2714 | \u2714 | \u2714 | | Ad ID | \u2718 | \u2718 | \u2718 | \u2718 | \u2718 | | Ad Name | \u2718 | \u2718 | \u2718 | \u2718 | \u2718 | | Creative ID | \u2718 | \u2718 | \u2718 | \u2718 | \u2718 | | Creative Name | \u2718 | \u2718 | \u2718 | \u2718 | \u2718 | Benefits of SKAN Developers have several different options for integrating SKAN. You can either integrate SKAN natively or use the Branch SDK to take care of all of the SKAN-related methods for you. Both of which have their own benefits | Benefit | Details | SKAN Native | SKAN via Branch SDK | | User Privacy Protection | By offering aggregate-level data only, SKAN provides accurate, high-level advertising metrics without compromising users' identities. | \u2705 | \u2705 |"
+            ],
+            "title": "title: \"SKAdNetwork Overview\" slug: \"skadnetwork\" updated: 2025-11-14T22:21:02Z published: 2025-11-14T22:21:02Z canonical: \"help.branch.io/skadnetwork\""
+          },
+          {
+            "url": "https://medium.com/%40ipak.tulane/deferred-deep-linking-appsflyer-vs-facebook-a717a53d9238",
+            "excerpts": [
+              "Deferred Deep Linking: AppsFlyer vs. Facebook | by Igor Pak"
+            ],
+            "title": "Deferred Deep Linking: AppsFlyer vs. Facebook | by Igor Pak Medium\u00a0\u00b7\u00a0Igor Pak 1 \u0433\u043e\u0434 \u043d\u0430\u0437\u0430\u0434"
+          },
+          {
+            "url": "https://www.facebook.com/legenddigitech/posts/organic-reach-is-collapsing-in-2026-instagram-facebook-linkedin-even-x-brands-ar/1203892151872381",
+            "excerpts": [
+              "Organic reach is collapsing in 2026 Instagram, Facebook, LinkedIn ...\nOrganic reach is collapsing in 2026 Instagram, Facebook, LinkedIn, even X Brands are reporting a 40-60% drop in visibility Paid clicks are down up to 68%, costing more and converting less. Social platforms now show your posts to fewer people unless you pay. Even followers don't automatically see what you publish."
+            ],
+            "title": "Organic reach is collapsing in 2026 Instagram, Facebook, LinkedIn ..."
+          },
+          {
+            "url": "https://www.reddit.com/r/indiehackers",
+            "excerpts": [
+              "Independent developers building their own way - Reddit\nBindle is a potential new app aimed at helping people strengthen and deepen their personal connections. The idea is to create a digital space where users can curate and nurture their relationships with friends, family, and colleagues in a meaningful way."
+            ],
+            "title": "Independent developers building their own way - Reddit"
+          },
+          {
+            "url": "https://business.daily.dev/resources/hacker-news-marketing-developer-tools-show-hn-launch-day-sustained-coverage",
+            "excerpts": [
+              "Hacker News Marketing for Developer Tools: Show HN, Launch ...\nHacker News Show HN: Key Stats, Timing & Performance Benchmarks. If you're looking to make an impact on Hacker News (HN) in 2026, understanding how its ranking system works is essential. This isn't just about getting upvotes; it's about timing, engagement, and authenticity."
+            ],
+            "title": "Hacker News Marketing for Developer Tools: Show HN, Launch ..."
+          },
+          {
+            "url": "https://dev.to/kanta13jp1/indie-dev-launch-strategy-getting-traction-on-producthunt-hackernews-and-reddit-18g6",
+            "excerpts": [
+              "Indie Dev Launch Strategy \u2014 Getting Traction on ProductHunt ...\nIn this article I'll walk through the pre-launch checklist, ProductHunt mechanics, the HN Show HN format, Reddit community rules, and how to coordinate everything on launch day without burning out."
+            ],
+            "title": "Indie Dev Launch Strategy \u2014 Getting Traction on ProductHunt ..."
+          },
+          {
+            "url": "https://www.linkedin.com/company/algorithm-ads-marketing-agency",
+            "excerpts": [
+              "Algorithm Ads & Marketing Agency\nAlgorithm Ads & Marketing Agency offers expert services in website development , SEO , SMO , Google Ads , and brand shoots ."
+            ],
+            "title": "Algorithm Ads & Marketing Agency"
+          },
+          {
+            "url": "https://screenhance.com/blog/indie-saas-launch-toolkit-2026",
+            "excerpts": [
+              "The Indie SaaS Launch Toolkit: 9 Tools Founders Use in Their ...\n9 tools every indie SaaS founder uses in their first 30 days in 2026: payments (Stripe), email (Resend), analytics (PostHog), planning (Linear), video (Screen Studio), visuals (Screenhance), distribution, community, and calendar."
+            ],
+            "title": "The Indie SaaS Launch Toolkit: 9 Tools Founders Use in Their ..."
+          },
+          {
+            "url": "http://plausible.io/",
+            "excerpts": [
+              "Plausible is a lightweight and open-source Google Analytics alternative. Your website data is 100% yours and the privacy of your visitors is respected."
+            ],
+            "title": "Plausible Analytics | Simple, privacy-friendly Google Analytics ..."
+          },
+          {
+            "url": "http://plausible.io/self-hosted-web-analytics",
+            "excerpts": [
+              "Jun 23, 2026 \u2014 Plausible Analytics is a privacy-friendly and open source Google Analytics alternative that you can install and self-host on your server."
+            ],
+            "title": "Plausible: Self-Hosted Google Analytics alternative"
+          },
+          {
+            "url": "http://bchic.de/plattform/blog",
+            "excerpts": [
+              "Made in Germany DSGVO-Konform Daten verarbeitet: 0 [Systeme online](https://bchic-analytics.instatus.com/) Plattform Metriken Consent Segmentation Change Impact Filter Vergleichen Google Analytics Amplitude Matomo Posthog Plausible Mehr Erfahren\nWerde Teil unserer Mission: Gestalte die Zukunft des Internets mit uns! Leander Jo B\u00e4rwaldt, Founder & CEO. 3.10.2025."
+            ],
+            "title": "Blog"
+          },
+          {
+            "url": "https://www.indiehackers.com/post/saas-market-report-2026-is-here-0aa0de2688",
+            "excerpts": [
+              "SaaS Market Report 2026 is Here\nThe SaaS market growth is expected to be slower than during the 2020\u20132023 period. \u00b7 Data Analytics & Management is a top-performing SaaS product"
+            ],
+            "title": "SaaS Market Report 2026 is Here"
+          },
+          {
+            "url": "https://www.quantics.co.uk/blog/bayesian-sample-size-calculations-for-clinical-trials",
+            "excerpts": [
+              "Bayesian Sample Size Calculations for Clinical Trials\nMar 10, 2026 \u2014 Bayesian Power. The fundamental principle of a sample size calculation using Bayesian methods is similar to that when using frequentist methods."
+            ],
+            "title": "Bayesian Sample Size Calculations for Clinical Trials"
+          },
+          {
+            "url": "https://medium.com/data-science/how-to-do-bayesian-a-b-testing-fast-41ee00d55be8",
+            "excerpts": [
+              "How To Do Bayesian A/B Testing, FAST! | TDS Archive - Medium\nIn this post, we present how practical examples of Bayesian A/B testing calculations, that can be scaled to large datasets."
+            ],
+            "title": "How To Do Bayesian A/B Testing, FAST! | TDS Archive - Medium"
+          },
+          {
+            "url": "http://g2.com/sellers/dalton-ai",
+            "excerpts": [
+              "Unlike traditional A/B testing, Dalton reallocates traffic dynamically (multi-armed bandits), so you get results faster and waste fewer visitors on losing Unlike traditional A/B testing, Dalton reallocates traffic dynamically (multi-armed bandits), so you get results faster and waste fewer visitors on losing"
+            ],
+            "title": "Dalton AI Products | Read 8 Reviews on ..."
+          },
+          {
+            "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8607328",
+            "excerpts": [
+              "Bayesian approach for sample size determination, illustrated with ...\nIn the Bayesian approach the analogue of a confidence interval is a credible interval. A credible interval can be defined in different ways. A highest posterior"
+            ],
+            "title": "Bayesian approach for sample size determination, illustrated with ..."
+          },
+          {
+            "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7614678",
+            "excerpts": [
+              "Bayesian sample size determination using commensurate ...\nby H Zheng \u00b7 2022 \u00b7 Cited by 17 \u2014 This paper develops Bayesian sample size formulae for experiments comparing two groups, where relevant pre-experimental information from multiple sources"
+            ],
+            "title": "Bayesian sample size determination using commensurate ..."
+          },
+          {
+            "url": "http://f6s.com/company/social-growth-engineers",
+            "excerpts": [
+              "Introducing your go-to platform for organic social media marketing insights\u2014built specifically to help growth marketers, AI founders, and indie hackers"
+            ],
+            "title": "Social Growth Engineers"
+          },
+          {
+            "url": "http://eu-startups.com/directory/social-growth-engineers",
+            "excerpts": [
+              "Introducing your go-to platform for organic social media marketing insights\u2014built specifically to help growth marketers, AI founders, and indie hackers scale\nyour go-to platform for organic social media marketing insights\u2014built specifically to help growth marketers, AI founders, and indie hackers scale their apps\nIntroducing your go-to platform for organic social media marketing insights\u2014built specifically to help growth marketers, AI founders, and indie hackers"
+            ],
+            "title": "Social Growth Engineers"
+          },
+          {
+            "url": "https://www.indiehackers.com/post/i-turned-openclaw-into-a-39-mo-social-media-manager-in-2-days-first-product-i-actually-use-myself-4d48e24993",
+            "excerpts": [
+              "I turned OpenClaw into a $39/mo social media manager in ...\nFeb 26, 2026 \u2014 $39/mo social media manager in 2 days. I post content daily across Reddit, X, LinkedIn, Threads. Publishes to 13 platforms: X, LinkedIn,"
+            ],
+            "title": "I turned OpenClaw into a $39/mo social media manager in ..."
+          },
+          {
+            "url": "https://indieis.land/blog/indie-hacker-tools-trends-2026",
+            "excerpts": [
+              "The Indie Hacker Toolkit for 2026 \u2014 AI, Automation, and the ...\nDiscover the AI-powered tools and emerging trends fueling the indie hacker and digital nomad revolution in 2026. From vibe coding to one-person agencies, here's your survival guide."
+            ],
+            "title": "The Indie Hacker Toolkit for 2026 \u2014 AI, Automation, and the ..."
+          },
+          {
+            "url": "http://indiehackers.com/",
+            "excerpts": [
+              "Connect with developers sharing the strategies and revenue numbers behind their companies and side projects. Video Creator & Editor for AI Product Content"
+            ],
+            "title": "Indie Hackers: Work Together to Build Profitable Online ..."
+          },
+          {
+            "url": "http://sierraventures.com/content/sierra-ventures-our-early-stage-investment-in-blazel",
+            "excerpts": [
+              "Feb 11, 2026 \u2014 The Blazel AI platform transforms content creation from a manual, one-off process into a closed-loop platform.\nThe Blazel AI platform transforms content creation from a manual, one-off process into a closed-loop platform"
+            ],
+            "title": "Sierra Ventures: Our Early-Stage Investment in Blazel"
+          },
+          {
+            "url": "https://www.instagram.com/p/Dakg-d4ExXC",
+            "excerpts": [
+              "Adding more AI agents doesn't make your system smarter. ...\nAgentic AI is an infrastructure. Most companies approach B2B email marketing by wrapping a prompt around a Large Language Model. They generate text faster."
+            ],
+            "title": "Adding more AI agents doesn't make your system smarter. ..."
+          },
+          {
+            "url": "http://prweb.com/releases/claritas-and-indg-grip-partner-to-launch-first-ever-ai-powered-closed-loop-optimization-system-302807250.html",
+            "excerpts": [
+              "Automated Content Production: INDG's Grip platform for enterprise manages AI models and agentic execution to generate, adapt and scale visual content across channels and markets. Closed-Loop Optimization System (CLOS): Proprietary data drives AI decisioning, fuels creative intelligence, and powers generative production in a continuous, automated loop\nCINCINNATI , June 23, 2026 /PRNewswire-PRWeb/ -- Claritas, a leader in AI-driven marketing optimization, today announced a strategic partnership with INDG Grip, an enterprise generative orchestration platform\nJun 23, 2026, 09:00 ET\nNew integration unites real-time AI creative production with real-time decisioning, insights and creative production CINCINNATI , June 23, 2026 /PRNewswire-PRWeb/ -- Claritas, a leader in AI-driven marketing optimization, today announced a strategic partnership with INDG Grip"
+            ],
+            "title": "Claritas and INDG Grip Partner to Launch First Ever AI-Powered Closed-Loop Optimization System"
+          },
+          {
+            "url": "http://webflow.com/blog/introducing-webflow-aeo",
+            "excerpts": [
+              "May 20, 2026 \u2014 Webflow AEO is now available: an agentic, closed-loop system for AI discovery \u00b7 AEO analytics: measure what matters for AI visibility \u00b7 AEO agents"
+            ],
+            "title": "Webflow AEO is now available: an agentic, closed-loop ..."
+          },
+          {
+            "url": "https://www.explainx.ai/blog/loop-engineering-mainstream-ai-skill-june-2026",
+            "excerpts": [
+              "Loop Engineering Goes Mainstream: The AI Skill Everyone Is ...\nLoop engineering \u2014 designing AI agent cycles with verification gates \u2014 has become the dominant developer AI topic in June 2026. Here is what it means, why it matters, and what the backlash gets right."
+            ],
+            "title": "Loop Engineering Goes Mainstream: The AI Skill Everyone Is ..."
+          },
+          {
+            "url": "https://www.adjust.com/blog/deferred-deep-linking/",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://www.getxapi.com/twitter-api-pricing",
+            "excerpts": [
+              "Twitter & X API Pricing 2026: Tiers, Free Tier & Costs\nIs there a free X API tier in 2026? Technically yes, but the official free tier is write-focused with negligible read access, so you can't realistically collect tweets on it."
+            ],
+            "title": "Twitter & X API Pricing 2026: Tiers, Free Tier & Costs"
+          },
+          {
+            "url": "https://www.getxapi.com/blogs/is-twitter-api-free",
+            "excerpts": [
+              "Is the Twitter API Free in 2026? Free Tier Explained\nThe official X API has no free read access in 2026, at any tier, for any volume. Every GET request against a search, timeline, user lookup, or follower endpoint requires either pay-per-use credits or a legacy subscription that closed to new signups in February 2026."
+            ],
+            "title": "Is the Twitter API Free in 2026? Free Tier Explained"
+          },
+          {
+            "url": "https://api.sorsa.io/blog/is-twitter-api-free",
+            "excerpts": [
+              "Is the Twitter (X) API Free in 2026? The Honest Answer\nKey takeaway: No. The official X (Twitter) API has no free tier for new developers in 2026. Pay-per-use is the default: you buy credits upfront and pay per resource, with no free read allowance. The only free access left is X's program for verified public-utility accounts posting safety alerts."
+            ],
+            "title": "Is the Twitter (X) API Free in 2026? The Honest Answer"
+          },
+          {
+            "url": "https://www.reddit.com/r/Shark_Park/comments/1twlkd3/reddit_api_changes_subreddit_blackout_and_how_it",
+            "excerpts": [
+              "Reddit API Changes, Subreddit Blackout, and How It ...\nA recent Reddit policy change threatens to kill many beloved third-party mobile apps, making a great many quality-of-life features not seen in"
+            ],
+            "title": "Reddit API Changes, Subreddit Blackout, and How It ..."
+          },
+          {
+            "url": "https://www.reddit.com/r/opensource/comments/1425luc/reddits_thirdparty_app_api_changes_and_ropensource",
+            "excerpts": [
+              "Reddit's Third-Party app API changes and /r/OpenSource\nThe mods of r/opensource strongly object to the changes to the third-party app API. However, we (the moderators) choose not to use the subreddit in"
+            ],
+            "title": "Reddit's Third-Party app API changes and /r/OpenSource"
+          },
+          {
+            "url": "https://vs-site-weld.vercel.app/compare/plausible-vs-posthog",
+            "excerpts": [
+              "Plausible vs PostHog (2026) - Detailed Comparison | VS.dev\nPlausible and PostHog are both open-source, privacy-compliant alternatives to Google Analytics, but they serve fundamentally different purposes. Plausible is a streamlined, hosted service focused on essential website metrics like pageviews and referrers, prioritizing simplicity and low overhead."
+            ],
+            "title": "Plausible vs PostHog (2026) - Detailed Comparison | VS.dev"
+          },
+          {
+            "url": "https://posthog.com/docs/self-host",
+            "excerpts": [
+              "Self-host PostHog - Docs - PostHog\nGood question! We've found that PostHog Cloud is far and away the best experience for the vast majority of our users. However, some people still want to self-host, and we're here for that! Here's a quick flow chart to help you understand if self-hosting PostHog is for you: You can follow the rest of the guide for instructions on how to set up self-"
+            ],
+            "title": "Self-host PostHog - Docs - PostHog"
+          },
+          {
+            "url": "https://www.strideday.com/blog/saas-pricing-strategy",
+            "excerpts": [
+              "SaaS Pricing Strategy for Indie Builders (2026) \u2014 Stride\nA practical SaaS pricing strategy guide for indie builders and solopreneurs. Learn how to price your product, test tiers, and avoid common mistakes."
+            ],
+            "title": "SaaS Pricing Strategy for Indie Builders (2026) \u2014 Stride"
+          },
+          {
+            "url": "https://agentmarketcap.ai/blog/2026/04/14/solo-founder-agent-economy-micro-saas-2026",
+            "excerpts": [
+              "The Solo Founder Agent Economy: How One-Person Teams Are ...\nSolo founders using AI coding agents are reaching $10K\u2013$100K MRR without employees. Here's the data behind the one-person startup revolution."
+            ],
+            "title": "The Solo Founder Agent Economy: How One-Person Teams Are ..."
+          },
+          {
+            "url": "https://use-apify.com/blog/plausible-vs-umami-2026",
+            "excerpts": [
+              "Plausible vs Umami: Which Self-Hosted Analytics Tool Should ...\nPlausible vs Umami \u2014 both are cookie-free, self-hostable analytics tools. This hands-on comparison covers setup complexity, RAM footprint, features, and cost."
+            ],
+            "title": "Plausible vs Umami: Which Self-Hosted Analytics Tool Should ..."
+          },
+          {
+            "url": "http://linktrace.in/",
+            "excerpts": [
+              "LinkTrace is a mobile attribution and deep linking API for app developers and startups.\nPaid Ads Track installs and sign-ups by campaign, platform, or creative to understand what's driving real results. paid tiers from $9.99/month"
+            ],
+            "title": "LinkTrace \u2014 Referral and install attribution for apps"
+          },
+          {
+            "url": "http://medium.com/bumble-tech/universal-links-for-android-and-ios-1ddb1e70cab0",
+            "excerpts": [
+              "If a link has all these features, or at least some of them, it is called a **universal link** . The thorny path of creating and fine-tuning these beasts is what I want to tell you about.\nThis is what it looks like step-by-step. If a link is opened from the desktop, we open the desktop web. If it's opened from a smartphone, we look to see whether the app in question has been installed and, depending on the answer, we either open the link in the app or we direct the user to the app store. If the user is directed to the app store, we'd love to open the originally requested content after the installation.\nWhen the link opens content inside an application, this is traditionally referred to as deep linking, and the link as a deep link. However, this"
+            ],
+            "title": "Universal links for Android and iOS | by Konstantin Yakushev | Bumble Tech | Medium"
+          },
+          {
+            "url": "http://linktrace.in/blog",
+            "excerpts": [
+              "LinkTrace --pricing --docs --blog [get-started](https://linktrace.in/app?mode=signup) $ ls blog/ LinkTrace Blogs Attribution, referral tracking, deferred deeplinking, and mobile growth strategies \u2014 written for app developers and early-stage startups. 14 articles \u00b7 RSS \u00b7 JSON Feed $ featured Nitya Dhadwal \u00b7 Jul 5, 2026 \u00b7 11 min read ### Does Your App Need an MMP Like AppsFlyer? A practical framework for deciding whether your app needs a full Mobile Measurement Partner like AppsFlyer or lightweight attribution instead \u2014 covering what AppsFlyer actually does, its real pricing and minimum commitments, when the economics shift in its favor, and the best AppsFlyer alternatives (Branch, Linkrunner, LinkTrace) for teams migrating off Firebase Dynamic Links. AppsFlyer alternative mobile measurement partner MMP Read article \u2192 Jun 24, 2026 \u00b7 14 min read ### How We Solved Referral Attribution for Knudge.me: Crediting the Right Referrer, Automatically, Even After a Fresh Install How to credit the right referrer when a new user installs your app fresh, using deferred deep linking. A real walkthrough from Knudge.me \u2014 and why we built LinkTrace as a Firebase Dynamic Links alternative. referral attribution referral rewards deferred deep linking Read article \u2192 May 19, 2026 \u00b7 16 min read ### Deferred Deep Links Are Harder Than They Look (And Most Teams Get Them Wrong) A ground-level technical breakdown of deferred deep linking: how fingerprint matching and deterministic attribution differ, where iOS and Android implementations silently break, and what separates production-ready infrastructure from demos that fail at scale \u2014 with a clear guide to build-vs-buy after Firebase Dynamic Links shutdown. deep linking mobile attribution deferred deep links Read article \u2192 Apr 13, 2026 \u00b7 16 min read ### How to Run a Mobile Referral Program (Android, iOS & Web) A complete guide to designing, building, and tracking mobile referral programs across Android, iOS, and web \u2014 covering deferred deep linking, double-sided rewards, fraud prevention, K-factor measurement, and real examples from Dropbox, Lyft, Rappi, and Robinhood. referral programs mobile growth attribution Read article \u2192 Mar 19, 2026 \u00b7 8 min read ### You're Getting Installs from Twitter, Reddit, and LinkedIn \u2014 But You Can't Attribute It Organic social is one of the highest-ROI channels for app growth \u2014 but without the right attribution infrastructure, you'll never know which posts, platforms, or community members drove your installs. This guide breaks down the attribution gap on Twitter, Reddit, and LinkedIn, why existing tools fail, and how Linktrace solves it at the link layer with no SDK required. social attribution organic social twitter attribution Read article \u2192 Mar 16, 2026 \u00b7 8 min read ### How to Track App Installs Without Firebase or AppsFlyer A practical guide for engineering and growth teams on SDK-free app install attribution \u2014 covering server-side fingerprinting, Play Install Referrer, SKAdNetwork, privacy compliance, and owned redirect infrastructure as alternatives to Firebase Dynamic Links and AppsFlyer. install attribution firebase alternatives appsflyer alternatives Read article \u2192 Feb 19, 2026 \u00b7 9 min read ### App Growth & Link Tracking: A Practical Guide for Founders A practical guide for founders on app growth experimentation, link tracking, and attribution clarity to make better distribution and scaling decisions. app growth link tracking attribution Read article \u2192 Jun 15, 2025 \u00b7 5 min read ### Top Alternatives for Firebase Dynamic Links Top alternatives for Firebase Dynamic Links for app install attribution and referral tracking attribution analytics indie-dev Read article \u2192 Jun 25, 2024 \u00b7 10 min read ### Install Attribution for Indie Developers: Track Your App's Growth with Simple APIs Learn how indie developers and startups can implement install attribution to track app downloads and optimize marketing campaigns. Step-by-step guide with API examples using LinkTrace install attribution mobile app attribution indie developer tools Read article \u2192 Aug 9, 2025 \u00b7 12 min read ### Free Alternatives for Firebase Dynamic Links: Best Solutions for Indie Developers in 2025 Discover the best free alternatives for Firebase Dynamic Links, featuring LinkTrace - a cost-effective solution perfect for startups and indie developers. Learn about single API integration, referral tracking, and affordable pricing options. firebase dynamic links free alternatives app attribution Read article \u2192 Aug 10, 2025 \u00b7 18 min read ### How to Implement Referral Tracking in Apps: Complete Guide with 2 Simple APIs Learn how to implement referral tracking in your app using just 2 simple API integrations."
+            ],
+            "title": "LinkTrace - App Install Attribution & Referral Tracking Insights"
+          },
+          {
+            "url": "http://nimblehq.co/blog/guideline-ios-universal-links-android-app-links",
+            "excerpts": [
+              "Mastering iOS Universal Links and Android App Links \u2013 Nimble Learn how iOS Universal Links & Android App Links connect web content to mobile apps. This guide covers deep linking implementation, pitfalls, best practices.\nDeep linking lets users jump straight to specific content or features in a mobile app, rather than just opening the home screen. It links web pages, emails, or other sources to in-app destinations, cutting out manual navigation and delivering a frictionless experience.\nLearn how iOS Universal Links & Android App Links connect web content to mobile apps. This guide covers deep linking implementation, pitfalls, best practices.\nMastering iOS Universal Links and Android App Links\nUniversal Links (iOS) & App Links (Android)** : For a more seamless and secure deep linking experience, Apple introduced Universal Links for iOS, while Google developed App Links for Android. These methods use standard HTTPS URLs (e.g., `https://myapp.com` ) tied to in-app content.\nIf the app is installed, it opens to the linked content; if not, the web version loads instea"
+            ],
+            "title": "Mastering iOS Universal Links and Android App Links \u2013 Nimble"
+          },
+          {
+            "url": "https://support.kochava.com/articles/reference-information/27993-google-utm-parameters-and-install-referrer",
+            "excerpts": [
+              "Google UTM Parameters & Install Referrer for Accurate App Attribution\nLearn how to effectively track app installs with Google UTM parameters and Install Referrer using Kochava. Maximize attribution accuracy and"
+            ],
+            "title": "Google UTM Parameters & Install Referrer for Accurate App Attribution"
+          },
+          {
+            "url": "http://bright-journal.org/Journal/index.php/JADS/article/view/28",
+            "excerpts": [
+              "Comparing Epsilon Greedy and Thompson Sampling ...\nby I Umami \u00b7 2021 \u00b7 Cited by 22 \u2014 This paper presents a thorough empirical study of the most popular multi-strategy algorithms. Three important observations can be made from our results. First,"
+            ],
+            "title": "Comparing Epsilon Greedy and Thompson Sampling ..."
+          },
+          {
+            "url": "https://www.youtube.com/watch?v=HNVlAvwEvPw",
+            "excerpts": [
+              "Epsilon Greedy strategy in Deep Q Learning\nEpsilon greedy means pick the current best option. I mean greedy most of the time but pick a random option with a small probability."
+            ],
+            "title": "Epsilon Greedy strategy in Deep Q Learning"
+          },
+          {
+            "url": "https://arxiv.org/html/2403.00540v3",
+            "excerpts": [
+              "Epsilon-Greedy Thompson Sampling to Bayesian Optimization\nWe introduced \u03b5 -greedy Thompson sampling (TS) to optimizing costly simulation-based objective functions. The method addresses the classic exploitation\u2013exploration dilemma by randomly switching between its two extremes, namely the generic TS and the sample-average TS."
+            ],
+            "title": "Epsilon-Greedy Thompson Sampling to Bayesian Optimization"
+          },
+          {
+            "url": "https://arxiv.org/abs/2403.00540",
+            "excerpts": [
+              "Epsilon-Greedy Thompson Sampling to Bayesian Optimization\nIn this work, we improve the exploitation of TS by incorporating the \u03b5 -greedy policy, a well-established selection strategy in reinforcement learning. We first delineate two extremes of TS, namely the generic TS and the sample-average TS."
+            ],
+            "title": "Epsilon-Greedy Thompson Sampling to Bayesian Optimization"
+          },
+          {
+            "url": "https://www.geeksforgeeks.org/machine-learning/epsilon-greedy-algorithm-in-reinforcement-learning",
+            "excerpts": [
+              "Epsilon-Greedy Algorithm in Reinforcement Learning\nJan 10, 2023 \u2014 Epsilon-Greedy is a simple method to balance exploration and exploitation by choosing between exploration and exploitation randomly."
+            ],
+            "title": "Epsilon-Greedy Algorithm in Reinforcement Learning"
+          },
+          {
+            "url": "https://www.lyzr.ai/blueprints/marketing/ai-content-creation-agent",
+            "excerpts": [
+              "AI agents for content creation"
+            ],
+            "title": "AI agents for content creation"
+          },
+          {
+            "url": "http://huggingface.co/docs/transformers/en/model_doc/rag",
+            "excerpts": [
+              "Retrieval-Augmented Generation (RAG) combines a pretrained language model (parametric memory) with access to an external data source (non-parametric memory) Retrieval-Augmented Generation (RAG) combines a pretrained language model (parametric memory) with access to an external data source (non-parametric memory)"
+            ],
+            "title": "RAG"
+          },
+          {
+            "url": "http://platform.tracxn.com/a/d/company/5969f60ae4b0f51067299188/lyra#a:about",
+            "excerpts": [
+              "Name: Lyra | Short Description: Developer of AI agents for content planning, creation, and orchestration | Detailed Description: Developer of AI agents for content planning, creation, and orchestration. These agents handle the content lifecycle from strategy to distribution. Content is engineered for resonance, using real-time signals for continuous improvement. The agents facilitate content creation from brief to publication. Integrations with CMS, analytics, and distribution channels are supported. Closed-loop analytics provide insights for autonomous refinement."
+            ],
+            "title": "Lyra"
+          },
+          {
+            "url": "http://microsoft.com/en-us/microsoft-cloud/blog/2025/02/13/5-key-features-and-benefits-of-retrieval-augmented-generation-rag",
+            "excerpts": [
+              "Feb 13, 2025 \u2014 RAG allows organizations to use existing data and knowledge bases without extensive retraining of LLMs. This is achieved by augmenting the input"
+            ],
+            "title": "5 key features and benefits of retrieval augmented generation (RAG) | The Microsoft Cloud Blog"
+          },
+          {
+            "url": "http://arxiv.org/abs/2312.10997",
+            "excerpts": [
+              "Dec 18, 2023 \u00b7 This comprehensive review paper offers a detailed examination of the progression of RAG paradigms, encompassing the Naive RAG, the Advanced RAG, and the"
+            ],
+            "title": "[2312.10997] Retrieval-Augmented Generation for Large Language Models: A Survey"
+          },
+          {
+            "url": "https://github.com/bluesky-social/bsky-docs",
+            "excerpts": [
+              "GitHub - bluesky-social/bsky-docs: Bluesky API documentation\nThis site includes tutorials, a blog, guides, and HTTP API reference docs for the Bluesky app. The AT Protocol documentation and specifications are a separate website (atproto.com) maintained at https://github.com/bluesky-social/atproto-website."
+            ],
+            "title": "GitHub - bluesky-social/bsky-docs: Bluesky API documentation"
+          },
+          {
+            "url": "https://www.auditsocials.com/blog/linkedin-algorithm-sponsored-content-policy-changes-april-2026",
+            "excerpts": [
+              "LinkedIn Algorithm April 2026: 3 Reach Changes + Fixes\nLinkedIn's April 2026 algorithm update marks the most significant shift in content distribution since the platform's 2023 overhaul. The changes directly impact how both organic and paid content reaches professional audiences, and understanding them is essential for any B2B marketer or compliance team operating on the platform."
+            ],
+            "title": "LinkedIn Algorithm April 2026: 3 Reach Changes + Fixes"
+          },
+          {
+            "url": "https://digitallybugged.com/linkedin-carousel-strategy-the-ultimate-guide-to-dominating-the-feed-in-2026",
+            "excerpts": [
+              "LinkedIn Carousel Strategy: The 2026 Guide to B2B Engagement\nHow can businesses improve LinkedIn carousel engagement? Focus on a high-impact first slide, use minimal text, ensure the design is mobile-friendly, and always end with a clear, actionable call to action. Respond to comments quickly to boost the initial engagement signals."
+            ],
+            "title": "LinkedIn Carousel Strategy: The 2026 Guide to B2B Engagement"
+          },
+          {
+            "url": "https://docs.bsky.app/docs/advanced-guides/moderation",
+            "excerpts": [
+              "Labels and moderation | Bluesky\nTo include labels from a given labeler, you set the atproto-accept-labelers header on the HTTP request to a comma-separated list of the DIDs of the labelers you want to include."
+            ],
+            "title": "Labels and moderation | Bluesky"
+          },
+          {
+            "url": "http://digitallybugged.com/organic-vs-paid-linkedin-marketing-the-b2b-battle-for-roi-in-2026",
+            "excerpts": [
+              "Text-Heavy Posts: Deep-dive insights that encourage \"dwell time.\" \u00b7 2. Educational Carousels: Visual slides that simplify complex B2B concepts. \u00b7 3. LinkedIn"
+            ],
+            "title": "Organic vs Paid LinkedIn Marketing: 2026 B2B Strategy ..."
+          },
+          {
+            "url": "https://atticusli.com/blog/posts/cuped-variance-reduction-faster-ab-tests",
+            "excerpts": [
+              "CUPED and Variance Reduction: How to Get Faster A/B Test ...\nLearn how CUPED (Controlled Experiment Using Pre-Experiment Data) and other variance reduction techniques can cut your A/B test duration by 20-50% without sacrificing statistical rigor."
+            ],
+            "title": "CUPED and Variance Reduction: How to Get Faster A/B Test ..."
+          },
+          {
+            "url": "https://docs.statsig.com/experiments/statistical-methods/variance-reduction",
+            "excerpts": [
+              "Variance Reduction - Statsig Documentation\nCUPED (short for Controlled-experiment Using Pre-Existing Data) is a technique which leverages user information from before an experiment to reduce the variance, and increase confidence in experimental metrics."
+            ],
+            "title": "Variance Reduction - Statsig Documentation"
+          },
+          {
+            "url": "https://docs.statsig.com/experiments/statistical-methods/methodologies/cuped",
+            "excerpts": [
+              "CUPED | Statsig Docs\nCUPED (short for Controlled-experiment Using Pre-Existing Data) is a technique that uses user information from before an experiment to reduce variance and increase confidence in experimental metrics."
+            ],
+            "title": "CUPED | Statsig Docs"
+          },
+          {
+            "url": "https://www.statsig.com/blog/cuped",
+            "excerpts": [
+              "CUPED Explained\nSep 15, 2024 \u2014 When we apply CUPED, we see a large reduction in variance and p-value, just like in the regression results. Using the pre-experiment data"
+            ],
+            "title": "CUPED Explained"
+          },
+          {
+            "url": "https://posteverywhere.ai/blog/how-the-threads-algorithm-works",
+            "excerpts": [
+              "How the Threads Algorithm Works in 2026 (3x Reach)\nThis guide breaks down exactly how the Threads algorithm works in 2026, the ranking factors confirmed by Adam Mosseri, the content formats that actually perform best (hint: it's not text), and the specific tactics that drive reach and engagement."
+            ],
+            "title": "How the Threads Algorithm Works in 2026 (3x Reach)"
+          },
+          {
+            "url": "https://www.teract.ai/resources/threads-content-strategy-2026",
+            "excerpts": [
+              "Threads Strategy 2026: What Works (10K+ Posts Analyzed)\nThis guide shows you exactly what content performs best on Threads, optimal posting frequency, how to leverage Instagram integration, and the mistakes that kill your reach."
+            ],
+            "title": "Threads Strategy 2026: What Works (10K+ Posts Analyzed)"
+          },
+          {
+            "url": "https://fediview.com/articles/fediverse-in-numbers-mastodon-stats-2026",
+            "excerpts": [
+              "The Fediverse in Numbers: Latest Stats on Mastodon and ...\nMastodon remains the largest single platform in the fediverse, and by early 2026 it had settled into a period of relative stability after the earlier burst of expansion. Thousands of instances are active, but the distribution is heavily skewed."
+            ],
+            "title": "The Fediverse in Numbers: Latest Stats on Mastodon and ..."
+          },
+          {
+            "url": "https://www.mirra.my/en/blog/threads-vs-instagram-efficiency-data-2026",
+            "excerpts": [
+              "Threads vs Instagram Efficiency: 160K+ Posts Data Analysis (2026)\nFeb 8, 2026 \u00b7 Here Threads pulls further ahead. Buffer's analysis of 10.2 million posts put Threads' median engagement rate at 6.25%, ahead of X at 3.6%."
+            ],
+            "title": "Threads vs Instagram Efficiency: 160K+ Posts Data Analysis (2026)"
+          },
+          {
+            "url": "http://platform.tracxn.com/a/d/company/592336aee4b01889882ea894/mastodon#a:about",
+            "excerpts": [
+              "Name: Mastodon | Short Description: Provider of decentralized social networking platform with user-controlled moderation | Detailed Description: Provider of decentralized social networking platform with user-controlled moderation."
+            ],
+            "title": "Mastodon"
+          },
+          {
+            "url": "https://linktrace.in/blog",
+            "excerpts": [],
+            "title": "LinkTrace - App Install Attribution & Referral Tracking Insights"
+          },
+          {
+            "url": "https://xcrop.io/blog/x-api-pricing-comparison-2026",
+            "excerpts": [
+              "X API Pricing in 2026: Free vs Basic vs Pro vs Enterprise\nA detailed breakdown of Twitter/X API pricing tiers, what each includes, hidden limitations, and how to choose the right plan for your project."
+            ],
+            "title": "X API Pricing in 2026: Free vs Basic vs Pro vs Enterprise"
+          },
+          {
+            "url": "https://postproxy.dev/blog/x-api-pricing-2026",
+            "excerpts": [
+              "X (Twitter) API Pricing in 2026: All Tiers - postproxy.dev\nHow much does the X API cost in 2026? Pay-per-use, Basic, Pro, and Enterprise tiers broken down \u2014 post write cost, read cost, rate limits, and Twitter API pricing comparison."
+            ],
+            "title": "X (Twitter) API Pricing in 2026: All Tiers - postproxy.dev"
+          },
+          {
+            "url": "https://www.xpoz.ai/blog/guides/understanding-twitter-api-pricing-tiers-and-alternatives",
+            "excerpts": [
+              "Twitter/X API Pricing 2026: All Tiers ($0 to $42K) Compared\nTwitter API starts at $100/mo after the free tier was gutted. Full breakdown of Basic, Pro ($5K), and Enterprise ($42K+) tiers with rate limits and cheaper alternatives."
+            ],
+            "title": "Twitter/X API Pricing 2026: All Tiers ($0 to $42K) Compared"
+          },
+          {
+            "url": "https://www.bayleafdigital.com/saas-key-performance-indicators-guide",
+            "excerpts": [
+              "SaaS Key Performance Indicators That Predict Growth ...\n7 hours ago \u2014 Which B2B SaaS key performance indicators matter most? We break down the KPIs companies should track across revenue, retention, and efficiency in 2026."
+            ],
+            "title": "SaaS Key Performance Indicators That Predict Growth ..."
+          },
+          {
+            "url": "https://www.tldl.io/resources/indie-hacker-saas-stack-2026",
+            "excerpts": [
+              "Indie Hacker SaaS Stack 2026: Build & Launch for $0 ... - TLDL\nFeb 19, 2026 \u2014 The exact tools indie hackers use to build SaaS products for $0 in 2026. Payments, auth, database, hosting, analytics \u2014 every tool compared"
+            ],
+            "title": "Indie Hacker SaaS Stack 2026: Build & Launch for $0 ... - TLDL"
+          },
+          {
+            "url": "https://sacks.substack.com/p/the-saas-metrics-that-matter",
+            "excerpts": [
+              "The SaaS Metrics That Matter - Bottom Up by David Sacks\nOct 18, 2021 \u00b7 Only a handful of metrics really matter. This post breaks down those key performance indicators (KPIs), and provides the benchmarks that we at"
+            ],
+            "title": "The SaaS Metrics That Matter - Bottom Up by David Sacks"
+          },
+          {
+            "url": "https://www.visdum.com/blog/saas-metrics",
+            "excerpts": [
+              "SaaS Metrics in 2026: Key KPIs andBenchmarks - Visdum\nLearn which SaaS metrics and KPIs truly matter, like CAC, NRR, and the Rule of 40- and how aligning them with automated sales compensation can"
+            ],
+            "title": "SaaS Metrics in 2026: Key KPIs andBenchmarks - Visdum"
+          },
+          {
+            "url": "https://docs.bsky.app/docs/advanced-guides/firehose",
+            "excerpts": [
+              "Firehose | Bluesky - docs.bsky.app\nOne of the core primitives of the AT Protocol that underlies Bluesky is the firehose. It is an authenticated stream of events used to efficiently sync user updates (posts, likes, follows, handle changes, etc)."
+            ],
+            "title": "Firehose | Bluesky - docs.bsky.app"
+          },
+          {
+            "url": "http://bsky.social/",
+            "excerpts": [
+              "Be part of a quickly **growing developer ecosystem.** Use our public APIs to create **bots, clients, custom feeds** , and more. Build in an open ecosystem that will **never lock you out\nBuild for the future Open protocols like HTTP are the bedrock of the internet. We're building open source infrastructure so that social communication can be as open and interoperable as the web itself. [Check out the docs](https://docs.bsky.app) 1 / 4 ... Build a project in a weekend, or the next global-scale social app using our public APIs [Get started with the API](https://docs.bsky.app/docs/get-started) Tap into the public firehose of messages and events [Check out the docs](https://docs.bsky.app/docs/advanced-guides/firehose) Create custom algorithms to power online communities where users are in control [Try our starter kit](https://docs.bsky.app/docs/starter-templates/custom-feeds) Don't start from zero. **Auth with Bluesky** and launch with millions of users.\nTry our starter kit](https://docs.bsky.app/docs/starter-templates/custom-feeds) Don't start from zero. **Auth with Bluesky** and launch with millions of users. Be part of a quickly **growing developer ecosystem.** Use our public APIs to create **bots, clients, custom feeds** , and more\nWe're building open source infrastructure so that social communication can be as open and interoperable as the web itself. [Check out the docs](https://docs.bsky.app) 1 / 4 Participate in discussions with our devs, and help shape the future of social [View GitHub discussions](https://github.com/bluesky-social/atproto/discussions) Build a project in a weekend, or the next global-scale social app using our public APIs [Get started with the API](https://docs.bsky.app/docs/get-started) Tap into the public firehose of messages and events [Check out the docs](https://docs.bsky.app/docs/advanced-guides/firehose) Create custom algorithms to power online communities where users are in control\nnot closed Our goal is to foster a healthy developer ecosystem that improves your experience online. [See all projects](https://docs.bsky.app/showcase) ... Streamplace Stream.place is an open-source video streaming layer for decentralized social networks. See project](https://stream.place/) [Germ's logo and mobile user interface showing three user profiles. #### Germ Germ Network is a privacy-first encrypted messenger with multiple identities and AT-Protocol integration. See project](https://www.germnetwork.com/) Matt Mullenweg CEO @ Automattic Build for the future Open protocols like HTTP are the bedrock of the internet.\nStreamplace Stream.place is an open-source video streaming layer for decentralized social networks. See project](https://stream.place/) [Germ's logo and mobile user interface showing three user profiles. #### Germ Germ Network is a privacy-first encrypted messenger with multiple identities and AT-Protocol integration. See project](https://www.germnetwork.com/) Matt Mullenweg CEO @ Automattic ... Participate in discussions with our devs, and help shape the future of social [View GitHub discussions](https://github.com/bluesky-social/atproto/discussions) Build a project in a weekend, or the next global-scale social app using our public APIs [Get started with the API](https://docs.bsky.app/docs/get-started) ... Create custom algorithms to power online communities where users are in control [Try our starter kit](https://docs.bsky.app/docs/starter-templates/custom-feeds) Don't start from zero. **Auth with Bluesky** and launch with millions of users. Be part of a quickly **growing developer ecosystem.** Use our public APIs to create **bots, clients, custom feeds** , and more. Build in an open ecosystem that will **never lock you out** . Don't start from zero. **Auth with Bluesky** and launch with millions of users. Be part of a quickly **growing developer ecosystem.** Use our public APIs to create **bots, clients, custom feeds** , and more. Build in an open ecosystem that will **never lock you out** .\nbackground Welcome to the _social internet._ Bluesky is **social media as it should be.** Find your community among millions of users, unleash your creativity, and **have some fun again.** [Apple App Store Button](https://apps.apple.com/us/app/bluesky-social/id6444370199) [Google Play Store Button](https://play.google.com/store/apps/details?id=xyz.blueskyweb.app&hl=en_US&gl=US) or or in your browser Or find us on the [App Store](https://apps.apple.com/us/app/bluesky-social/id6444370199) and [Google Play Store](https://play.google.com/store/apps/details?id=xyz.blueskyweb.app&hl=en_US&gl=US) Social media is too important to be controlled by a few corporations. We're _building an open foundation for the social internet_ so that we can all shape its future. Your timeline, your choice Stay focused on your friend group, keep up-to-date on the latest news, or explore with an algorithm that learns what you like. **On Bluesky, there's a feed for that.** ... Some of the old, all of the new Social media used to be fun. Be your unique self and create with your friends, all while keeping tabs on what's happening at a global scale. Featured In Mashable NY Times The Wall Street Journal The Washington Post TechCrunch Engadget CNBC The Verge Tech Dirt Associated Press Mashable NY Times The Wall Street Journal The Washington Post TechCrunch Engadget CNBC The Verge Tech Dirt Associated Press What's _next_ is being built _today_ We're building a foundation for _connection_ that gives users a choice in their experience, creators independence from platforms, and developers the freedom to build. **The future is bright.** The public deserves a **thriving online commons.** We're committed to building this space and ensuring that your social network can **never be bought** by a single individual or organization. Learn more **Bluesky is an open network.** With one account, you can access both an **easy-to-use** social network and a **shared identity** across the entire social internet. How is Bluesky different? We've teamed up with Bluesky user @davis.social to create a comic explaining what makes Bluesky different. It's a great way to get a quick overview of what we're all about. See the comic Take a deeper dive We worked with [Martin Kleppmann](https://martin.kleppmann.com/) \u2014 researcher, author of _Designing Data-Intensive Applications_ , and technical advisor to Bluesky \u2014 to write a paper that goes into more detail about the technical underpinnings of Bluesky. [Read the paper](https://arxiv.org/pdf/2402.03239.pdf) We're locked open, not closed Our goal is to foster a healthy developer ecosystem that improves your experience online. [See all projects](https://docs.bsky.app/showcase) [The user interface of Graze. A visual canvas based editor for designing and deploying algorithms on Bluesky. #### Graze Graze lets you design and control custom feeds for yourself, your friends, and your passions. See project](https://www.graze.social/) [A repository hosted on Tangled #### Tangled Tangled is a social git platform on atproto where developers own code, communities self-govern, and coding is fun. See project](https://tangled.org/) [The mobile user interface of Skylight. #### Skylight Your content and connections stay with you\u2014switch atproto platforms and keep your audience, content, and followers. See project](https://skylight.social/) [The user interface of Leaflet.pub, showing a document being edited. #### Leaflet.pub Leaflet.pub is a fast, account-free tool for creating and sharing collaborative documents and blogs. See project](https://leaflet.pub/) [The user interface of Streamplace, showing a collection of available streams. Streamplace Stream.place is an open-source video streaming layer for decentralized social networks. See project](https://stream.place/) [Germ's logo and mobile user interface showing three user profiles. #### Germ Germ Network is a privacy-first encrypted messenger with multiple identities and AT-Protocol integration. See project](https://www.germnetwork.com/) Matt Mullenweg CEO @ Automattic ... Participate in discussions with our devs, and help shape the future of social [View GitHub discussions](https://github.com/bluesky-social/atproto/discussions) Build a project in a weekend, or the next global-scale social app using our public APIs [Get started with the API](https://docs.bsky.app/docs/get-started) ... Create custom algorithms to power online communities where users are in control [Try our starter kit](https://docs.bsky.app/docs/starter-templates/custom-feeds) Don't start from zero. **Auth with Bluesky** and launch with millions of users. Be part of a quickly **growing developer ecosystem.** Use our public APIs to create **bots, clients, custom feeds** , and more. Build in an open ecosystem that will **never lock you out** . Don't start from zero. **Auth with Bluesky** and launch with millions of users. Be part of a quickly **growing developer ecosystem.** Use our public APIs to create **bots, clients, custom feeds** , and more. Build in an open ecosystem that will **never lock you out** .\n[Get started with the API](https://docs.bsky.app/docs/get-started) Tap into the public firehose of messages and events [Check out the docs](https://docs.bsky.app/docs/advanced-guides/firehose) Create custom algorithms to power online communities where users are in control [Try our starter kit](https://docs.bsky.app/docs/starter-templates/custom-feeds) Don't start from zero. **Auth with Bluesky** and launch with millions of users."
+            ],
+            "title": "Bluesky"
+          },
+          {
+            "url": "https://getskyscraper.com/blog/bluesky-firehose-streaming-guide",
+            "excerpts": [
+              "Bluesky Firehose Explained: Real-Time Data Streaming with ...\nComplete guide to the Bluesky Firehose and Jetstream API for real-time data streaming. Learn how to consume the ATProtocol event stream, filter by collection types, and build applications with live Bluesky data."
+            ],
+            "title": "Bluesky Firehose Explained: Real-Time Data Streaming with ..."
+          },
+          {
+            "url": "https://deepwiki.com/bluesky-social/bsky-docs/2.1-feed-and-post-apis",
+            "excerpts": [
+              "Feed and Post APIs | bluesky-social/bsky-docs | DeepWiki\nThese APIs enable applications to publish posts, fetch user feeds, and interact with custom feed generators. This document details the endpoints, data structures, and usage patterns for working with feeds and posts in Bluesky applications."
+            ],
+            "title": "Feed and Post APIs | bluesky-social/bsky-docs | DeepWiki"
+          },
+          {
+            "url": "http://docs.bsky.app/",
+            "excerpts": [
+              "Bluesky Developer APIs Explore Bluesky's open social network. Get Started Bots Build a bot with custom behaviors. Starter Template Custom Feeds Build an algorithm to drive users' feeds. Starter Template Client Apps Build a client for the Bluesky app. Starter Template Choose your language [Typescript Official SDK maintained by Bluesky PBC](https://github.com/bluesky-social/atproto/tree/main/packages/api) [Python Community SDK maintained by @marshal.dev](https://atproto.blue/) [Dart Community SDK maintained by @shinyakato.dev](https://atprotodart.com/) [Go SDK maintained by Bluesky PBC](https://github.com/bluesky-social/indigo/tree/main) Read the docs [API Reference View the complete HTTP API reference.](https://endpoints.bsky.app/) Tutorials View tutorials for handling the Bluesky API.\nBluesky Developer APIs Explore Bluesky's open social network. Get Started Bots Build a bot with custom behaviors. Starter Template Custom Feeds Build an algorithm to drive users' feeds. Starter Template Client Apps Build a client for the Bluesky app. Starter Template Choose your language [Typescript Official SDK maintained by Bluesky PBC](https://github.com/bluesky-social/atproto/tree/main/packages/api) [Python Community SDK maintained by @marshal.dev](https://atproto.blue/) [Dart Community SDK maintained by @shinyakato.dev](https://atprotodart.com/) [Go SDK maintained by Bluesky PBC](https://github.com/bluesky-social/indigo/tree/main) Read the docs [API Reference View the complete HTTP API reference.](https://endpoints.bsky.app/) Tutorials View tutorials for handling the Bluesky API\nBluesky Logo Bluesky Logo **Bluesky** Docs Blog [Directory](https://blueskydirectory.com/) [GitHub](https://github.com/bluesky-social) Search ... Bluesky Developer APIs Choose your language [Typescript Official SDK maintained by Bluesky PBC](https://github.com/bluesky-social/atproto/tree/main/packages/api) [Python Community SDK maintained by @marshal.dev](https://atproto.blue/) [Dart Community SDK maintained by @shinyakato.dev](https://atprotodart.com/) [Go SDK maintained by Bluesky PBC](https://github.com/bluesky-social/indigo/tree/main) Read the docs [API Reference View the complete HTTP API reference.](https://endpoints.bsky.app/) Tutorials View tutorials for handling the Bluesky API. Starter Templates View starter code for bots, custom feeds, and clients."
+            ],
+            "title": "Bluesky Documentation | Bluesky"
+          },
+          {
+            "url": "https://dev.to/",
+            "excerpts": [
+              "DEV Community\nDEV Community is a community of 3,929,295 amazing developers. We're a place where coders share, stay up-to-date and grow their careers."
+            ],
+            "title": "DEV Community"
+          },
+          {
+            "url": "https://dev.to/snake_sun/i-researched-10-ios-distribution-channels-for-2026-here-is-what-indie-devs-should-skip-58gj",
+            "excerpts": [
+              "I Researched 10 iOS Distribution Channels for 2026. Here is ...\nTL;DR: Most \"iOS launch\" advice for 2026 still recommends channels that don't work for $0-budget indies. After 60 days of running an indie iOS portfolio with one AI agent, here's what the research shows: ASO + 1 thoughtful Product Hunt + dev.to writeups beats spread-thin multi-channel attempts."
+            ],
+            "title": "I Researched 10 iOS Distribution Channels for 2026. Here is ..."
+          },
+          {
+            "url": "https://applaunchpartners.com/indie-devs-your-2026-press-release-strategy-to-cut-through",
+            "excerpts": [
+              "Indie Devs: Your 2026 Press Release Strategy to Cut Through\nDistribute your press release through at least two targeted industry newswires like GamesPress for indie games or PR Newswire for broader tech, ensuring you hit relevant journalists."
+            ],
+            "title": "Indie Devs: Your 2026 Press Release Strategy to Cut Through"
+          },
+          {
+            "url": "https://indieradar.app/blog/open-source-marketing-playbook-indie-hackers",
+            "excerpts": [
+              "Open Source Marketing Playbook for Indie Hackers [2026 Guide]\nIn 2026, anyone can build almost anything. AI writes code. No-code tools ship MVPs in hours. The barrier to building is gone. So what's left? Distribution. Open source is quietly becoming the best free marketing channel for bootstrapped founders. Not because developers will pay you \u2014 they won't."
+            ],
+            "title": "Open Source Marketing Playbook for Indie Hackers [2026 Guide]"
+          },
+          {
+            "url": "https://americas.hammondpowersolutions.com/products/medium-voltage-distribution",
+            "excerpts": [
+              "Medium Voltage Distribution"
+            ],
+            "title": "Medium Voltage Distribution Hammond Power Solutions Americas https://americas.hammondpowersolutions.com \u203a products"
+          },
+          {
+            "url": "https://www.pocketgamer.biz/glitch-launches-ai-marketing-agent-for-solo-developers-and-indie-game-teams",
+            "excerpts": [
+              "Glitch launches AI marketing agent for solo developers and ...\nGlitch has revealed its AI marketing agents designed to help developers and indie teams manage marketing activities across multiple channels while retaining human oversight."
+            ],
+            "title": "Glitch launches AI marketing agent for solo developers and ..."
+          },
+          {
+            "url": "https://www.techment.com/blogs/rag-in-2026",
+            "excerpts": [
+              "RAG in 2026: How Retrieval-Augmented Generation Works for ...\nRAG in 2026 in Enterprise AI scenario has shifted from experimentation to a production-critical architecture, redefining how organizations deploy retrieval augmented generation in 2026 to ensure accuracy, compliance, and real-time intelligence. Enterprise AI leaders \u2014 CTOs, data architects, and data executives \u2014 face mounting pressure to deliver AI systems that are not only powerful but"
+            ],
+            "title": "RAG in 2026: How Retrieval-Augmented Generation Works for ..."
+          },
+          {
+            "url": "http://medium.com/%40taoist_hawk2000/ai-agents-the-person-author-business-in-2026-badca60e0445",
+            "excerpts": [
+              "AI Agents & The Personal Author Business in 2026 By G.S. Hoppmann In 2026, that model is being replaced by something fundamentally different: **AI agents that act on your behalf** , monitor results, adjust strategy, and loop through multiple platforms without you manually stitching everything together. Hoppmann In 2026, that model is being replaced by something fundamentally different: **AI agents that act on your behalf** , monitor results, adjust strategy, and loop through multiple platforms without you manually stitching everything together. In 2026, that model is being replaced by something fundamentally different: **AI agents that act on your behalf** , monitor results, adjust strategy, and loop through multiple platforms without you manually stitching everything together. The most articulate description of what indie authors actually want comes from Joanna Penn ( _The Creative Penn_ ), who spelled out the vision in early 2026: she wants to upload a book, specify a budget, say _\"Go market this,\"_ and have an AI agent action the marketing itself \u2014 presenting plans for approval, By G.S. What's Actually Happening \u2014 and What's Coming Fast By G.S. In 2026, the most forward-thinking author-entrepreneurs are shifting to **multi-agent systems** \u2014 not one AI tool, but a coordinated set of specialized agents each responsible for one clear task. Think of it as building a virtual staff: **The Research Agent** \u2014 Continuously monitors genre trends, reader conversations on Reddit, Goodreads, and TikTok, and competitor title performance. Surfaces weekly digests of what themes are gaining traction in your genres. **The Content Agent** \u2014 Trained on your author voice and brand, generates newsletter drafts, In 2026, that model is being replaced by something fundamentally different: **AI agents that act on your behalf** , monitor results, adjust strategy, and loop through multiple platforms without you manually stitching everything together. The most articulate description of what indie authors actually want comes from Joanna Penn ( _The Creative Penn_ ), who spelled out the vision in early 2026: she wants to upload a book, specify a budget, say _\"Go market this,\"_ and have an AI agent action the marketing itself \u2014 presenting plans for approval, then executing across multiple platforms and optimizing in real time. In 2026, that model is being replaced by something fundamentally different: **AI agents that act on your behalf** , monitor results, adjust strategy, and loop through multiple platforms without you manually stitching everything together. ... Combined with Amazon's Creative Agent for asset creation, this creates a nearly autonomous ad management loop. **The Analytics Agent** \u2014 Interprets advertising and sales data and translates it into plain-language recommendations.\nHoppmann In 2026, that model is being replaced by something fundamentally different: **AI agents that act on your behalf** , monitor results, adjust strategy, and loop through multiple platforms without you manually stitching everything together. Hoppmann In 2026, that model is being replaced by something fundamentally different: **AI agents that act on your behalf** , monitor results, adjust strategy, and loop through multiple platforms without you manually stitching everything together. In 2026, that model is being replaced by something fundamentally different: **AI agents that act on your behalf** , monitor results, adjust strategy, and loop through multiple platforms without you manually stitching everything together. The most articulate description of what indie authors actually want comes from Joanna Penn ( _The Creative Penn_ ), who spelled out the vision in early 2026: she wants to upload a book, specify a budget, say _\"Go market this,\"_ and have an AI agent action the marketing itself \u2014 presenting plans for approval, By G.S. What's Actually Happening \u2014 and What's Coming Fast By G.S. In 2026, the most forward-thinking author-entrepreneurs are shifting to **multi-agent systems** \u2014 not one AI tool, but a coordinated set of specialized agents each responsible for one clear task. Think of it as building a virtual staff: **The Research Agent** \u2014 Continuously monitors genre trends, reader conversations on Reddit, Goodreads, and TikTok, and competitor title performance. Surfaces weekly digests of what themes are gaining traction in your genres. **The Content Agent** \u2014 Trained on your author voice and brand, generates newsletter drafts, In 2026, that model is being replaced by something fundamentally different: **AI agents that act on your behalf** , monitor results, adjust strategy, and loop through multiple platforms without you manually stitching everything together. The most articulate description of what indie authors actually want comes from Joanna Penn ( _The Creative Penn_ ), who spelled out the vision in early 2026: she wants to upload a book, specify a budget, say _\"Go market this,\"_ and have an AI agent action the marketing itself \u2014 presenting plans for approval, then executing across multiple platforms and optimizing in real time.\nMar 5, 2026 \u00b7 Writing Dense: How Flash Fiction Techniques Transform Longer Narratives. By G.S. Hoppmann Copyright 2026 by Tobi Publishing.\nBy G.S.\nIn 2026, that model is being replaced by something fundamentally different: **AI agents that act on your behalf** , monitor results, adjust strategy, and loop through multiple platforms without you manually stitching everything together. The most articulate description of what indie authors actually want comes from Joanna Penn ( _The Creative Penn_ ), who spelled out the vision in early 2026: she wants to upload a book, specify a budget, say _\"Go market this,\"_ and have an AI agent action the marketing itself \u2014 presenting plans for approval,\nIn 2026, the most forward-thinking author-entrepreneurs are shifting to **multi-agent systems** \u2014 not one AI tool, but a coordinated set of specialized agents each responsible for one clear task. Think of it as building a virtual staff: **The Research Agent** \u2014 Continuously monitors genre trends, reader conversations on Reddit, Goodreads, and TikTok, and competitor title performance. Surfaces weekly digests of what themes are gaining traction in your genres. **The Content Agent** \u2014 Trained on your author voice and brand, generates newsletter drafts,\nMar 6, 2026\nWhat's Actually Happening \u2014 and What's Coming Fast By G.S."
+            ],
+            "title": null
+          },
+          {
+            "url": "http://deepak-worklab.medium.com/i-built-an-ai-agent-that-runs-my-twitter-growth-automatically-heres-exactly-how-it-works-8bd7128d1e16",
+            "excerpts": [
+              "* SaaS founders\n* agency owners\n* consultants\n* creators\n* indie hackers\n* solopreneurs\nAutopilot** runs a continuous loop that does more than just publish content. It\nIt pulls from:\nThat includes:\nX Autopilot is for people building something online who know Twitter matters, but do not want Twitter to become a second job.\nYour content pillars\nYour niche\nYour personality\nYour product\nYour proof bank"
+            ],
+            "title": "I Built an AI Agent That Runs My Twitter Growth Automatically. Here's Exactly How It Works | by Deepak Yadav | Medium"
+          },
+          {
+            "url": "https://supermemory.ai/docs/concepts/memory-vs-rag",
+            "excerpts": [
+              "Memory vs RAG: Understanding the Difference - supermemory\nMost developers confuse RAG (Retrieval-Augmented Generation) with agent memory. They're not the same thing, and using RAG for memory is why your agents keep"
+            ],
+            "title": "Memory vs RAG: Understanding the Difference - supermemory"
+          },
+          {
+            "url": "https://marketing.dynamicyield.com/bayesian-calculator",
+            "excerpts": [
+              "Bayesian A/B Testing Calculator - by Dynamic Yield - DY Labs\nUse this free bayesian a/b testing calculator to find out if your test results are statistically significant. input the total sample size,"
+            ],
+            "title": "Bayesian A/B Testing Calculator - by Dynamic Yield - DY Labs"
+          },
+          {
+            "url": "https://www.sciencedirect.com/science/article/pii/S0378375806000991",
+            "excerpts": [
+              "Bayesian population estimation for small sample capture ...\nby X Wang \u00b7 2007 \u00b7 Cited by 49 \u2014 In this paper, as the first step, we consider the problem of estimating the population size for M t model using noninformative priors. The M"
+            ],
+            "title": "Bayesian population estimation for small sample capture ..."
+          },
+          {
+            "url": "https://onlinelibrary.wiley.com/doi/10.1002/sim.70389",
+            "excerpts": [
+              "Bayesian Sample Size Calculations for External Validation ...\nby M Sadatsafavi \u00b7 2026 \u00b7 Cited by 5 \u2014 In this section, we review the context, the common metrics of the model performance, Riley's sample size formulas for external validation"
+            ],
+            "title": "Bayesian Sample Size Calculations for External Validation ..."
+          },
+          {
+            "url": "https://news.ycombinator.com/item?id=35510413",
+            "excerpts": [
+              "Hacker News Ranking Algorithm | Hacker News\nI'd like to point out my data-driven reverse-engineering of the HN ranking algorithm from 2013. The basic ranking formula uses votes and age with various exponents."
+            ],
+            "title": "Hacker News Ranking Algorithm | Hacker News"
+          },
+          {
+            "url": "http://news.ycombinator.com/",
+            "excerpts": [
+              "Show HN: One More Letter. Show HN: Firefox in WebAssembly \u2026 2026 batch! Applications are open till July 27."
+            ],
+            "title": "Hacker News"
+          },
+          {
+            "url": "https://medium.com/%40xiaotingkuangcu/ranking-algorithms-for-contents-and-search-queries-feddd5681a5f",
+            "excerpts": [
+              "Ranking Algorithms for Contents and Search Queries\nMany social news and content aggregation sites use time-based ranking algorithms to ensure fresh content rises to the top. Hacker News, a social news website focused on computer science"
+            ],
+            "title": "Ranking Algorithms for Contents and Search Queries"
+          },
+          {
+            "url": "https://thehackernews.com/2026",
+            "excerpts": [
+              "News Archive \u2014 2026 - The Hacker News\nExplore the latest news, real-world incidents, expert analysis, and trends in 2026 \u2014 only on The Hacker News, the leading cybersecurity and IT news platform."
+            ],
+            "title": "News Archive \u2014 2026 - The Hacker News"
+          },
+          {
+            "url": "http://news.ycombinator.com/show",
+            "excerpts": [
+              "Please read the Show HN rules and tips before posting. You can browse the newest Show HNs here. HN: A cross-platform app for meeting notes and items that don't\nYou can browse the newest Show HNs here. 1. Show HN: misa77 - a codec that decodes 2x faster than LZ4 (\nConsider applying for YC's Fall 2026 batch! Applications are open till July 27. Guidelines | FAQ | Lists | API | Security | Legal | Apply to YC\nPlease read the Show HN rules and tips before posting. You can browse the newest Show HNs here. -hook for coding agents. Python SDK for Programmable Multi-"
+            ],
+            "title": "Show | Hacker News"
+          },
+          {
+            "url": "http://reddit.com/r/reddit/comments/145bram/addressing_the_community_about_changes_to_our_api",
+            "excerpts": [
+              "Addressing the community about changes to our API\nEffective July 1, 2023, the rate limits to use the Data API free of charge are:\nEffective July 5, 2023, we will limit access to mature content via our Data API as part of an ongoing effort to provide guardrails to how explicit content and communities on Reddit are discovered and viewed.\nEffective June 19, 2023, our updated [Data API Terms](https://www.redditinc.com/policies/data-api-terms) , together with our [Developer Terms](https://www.redditinc.com/policies/developer-terms) , replaced the existing Data API terms.\nI want to talk with you today about what's happening within the community and frustration stemming from changes we are making to access our API.\nOn 4/18, we [shared](https://www.reddit.com/r/reddit/comments/12qwagm/an_update_regarding_reddits_api/) that we would update access to the API, including premium access for third parties who require additional capabilities and higher usage limits.\nReddit needs to be a self-sustaining business, and to do that, we can no longer subsidize commercial entities that require large-scale data use.\nWe need more efficient moderation tools, especially on mobile.\nWe want everyone to be able to use Reddit. As a result, non-commercial, accessibility-focused apps and tools will continue to have free access."
+            ],
+            "title": "Addressing the community about changes to our API - Reddit"
+          },
+          {
+            "url": "https://painonsocial.com/blog/reddit-api-rate-limits-guide",
+            "excerpts": [
+              "Reddit API Rate Limits 2026: Complete Guide for Developers\nComprehensive guide to Reddit API rate limits in 2026. Learn request quotas, OAuth requirements, best practices, and strategies to avoid hitting limits."
+            ],
+            "title": "Reddit API Rate Limits 2026: Complete Guide for Developers"
+          },
+          {
+            "url": "https://www.reddit.com/r/apolloapp/comments/12ram0f/had_a_few_calls_with_reddit_today_about_the",
+            "excerpts": [
+              "r/apolloapp\nI absolutely think these changes are going to start to kill third party apps off. Free usage of the API for apps like Apollo is not"
+            ],
+            "title": "r/apolloapp"
+          },
+          {
+            "url": "https://medium.com/%40alex_79882/reddits-api-is-officially-dead-in-2026-here-s-what-i-use-instead-f88ee5b809c8",
+            "excerpts": [
+              "Reddit's API Is Officially Dead in 2026. Here's What I Use ...\nThird-party apps (Apollo, RIF, Sync) killed. -2025, OAuth tokens limited to one per account. November 2025, Self-service API access closed."
+            ],
+            "title": "Reddit's API Is Officially Dead in 2026. Here's What I Use ..."
+          },
+          {
+            "url": "https://www.indierights.com/distribution",
+            "excerpts": [
+              "Distribution"
+            ],
+            "title": "Distribution Indie Rights https://www.indierights.com \u203a distribution"
+          },
+          {
+            "url": "https://www.indierights.com/post/why-this-is-the-best-deal-in-indie-film-distribution",
+            "excerpts": [
+              "Why This Is The BEST Deal In"
+            ],
+            "title": "Why This Is The BEST Deal In ..."
+          },
+          {
+            "url": "https://worldmetrics.org/medium-statistics/",
+            "excerpts": [
+              "Our in-depth market data report on medium. Explore verified statistics and the latest research."
+            ],
+            "title": "Medium Statistics | Verified 2026 Data - Worldmetrics.org"
+          },
+          {
+            "url": "https://expandedramblings.com/index.php/medium-facts-statistics/",
+            "excerpts": [
+              "2026 update: Medium stats on monthly readers, business model basics, and key facts\u2014plus a metrics table, FAQs, and sources from Medium itself."
+            ],
+            "title": "Medium Statistics (2026): Monthly Readers, Membership Model ..."
+          },
+          {
+            "url": "https://medium.com/write-your-world/understanding-medium-readers-in-2026-d0ab39ea4af1",
+            "excerpts": [
+              "Curious who reads Medium in 2026? Dive into the latest Medium reader demographics, age, gender, location stats for USA & Canada."
+            ],
+            "title": "Understanding Medium Readers in 2026"
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "social-campaign-strategy-aug-2026.md"
+  }
+}

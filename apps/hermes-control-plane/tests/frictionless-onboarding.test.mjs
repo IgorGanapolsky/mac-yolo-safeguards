@@ -219,7 +219,9 @@ test("dashboard uses shell-first SWR navigation cache (Issues-style instant nav)
 
 test("lessons workspace activity stats and lesson cards deep-link into Hermes", () => {
   assert.match(lessonsClient, /href="\/dashboard"/);
+  assert.match(lessonsClient, /href="\/dashboard#chats"/);
   assert.match(lessonsClient, /href="\/dashboard#task-activity"/);
+  assert.match(lessonsClient, /Open chat list/);
   assert.match(lessonsClient, /Open in Hermes/);
   assert.match(lessonsClient, /hermesTaskHref|params\.set\("task"/);
   assert.match(lessonsRoute, /k\.thread_id AS threadId/);
@@ -230,22 +232,42 @@ test("lessons workspace activity stats and lesson cards deep-link into Hermes", 
   assert.match(globals, /\.lesson-card-actions\{/);
 });
 
-test("lets users choose Mac vs Continuity VPS on every task not only offline failover", () => {
+test("lets users choose local machine vs Continuity VPS on every task not only offline failover", () => {
   const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
   const taskRouting = readFileSync(new URL("../lib/task-routing.ts", import.meta.url), "utf8");
   assert.match(dashboard, /routePreference/);
-  assert.match(dashboard, /My Mac/);
+  // Route chip uses real hostname when known — never a generic "My Mac" for multi-platform hosts.
+  assert.match(dashboard, /selectedDevice \? selectedDeviceLabel : "My computer"/);
   assert.match(dashboard, /Where should this run\?/);
   assert.match(dashboard, /composer-route-explain/);
-  assert.match(dashboard, /Auto — Mac first/);
-  assert.match(dashboard, /My Mac only/);
+  assert.match(dashboard, /Auto — \$\{selectedDeviceLabel\} first/);
+  assert.match(dashboard, /\$\{selectedDeviceLabel\} only/);
   assert.match(dashboard, /Continuity \(cloud VPS\)/);
   assert.match(dashboard, /aria-labelledby="composer-where-label"/);
   assert.doesNotMatch(dashboard, /composer-route-label/);
+  assert.doesNotMatch(dashboard, /My Mac only|Which Mac\?|>My Mac</);
   assert.match(tasksRoute, /routePreference/);
   assert.match(tasksRoute, /decideTaskRoute/);
   assert.match(taskRouting, /preference === "cloud"/);
   assert.match(taskRouting, /preference === "local"/);
+});
+
+test("always shows which paired machine will run a task and pins deviceId", () => {
+  const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
+  // Always show the select, always POST deviceId, and label with the connector hostname
+  // (not a hard-coded "Mac") so multi-platform users see the real machine.
+  assert.match(dashboard, /selectedDeviceId/);
+  assert.match(dashboard, /composer-device-picker/);
+  assert.match(dashboard, /Which machine\?/);
+  assert.match(dashboard, /machineDisplayName/);
+  assert.match(dashboard, /devices\.length > 0/);
+  assert.match(dashboard, /deviceId: selectedDeviceId/);
+  assert.match(dashboard, /pickDefaultDeviceId/);
+  assert.match(dashboard, /preferredDevicePreferenceKey|thumbgate\.preferredDeviceId/);
+  assert.doesNotMatch(dashboard, /Most recently active/);
+  assert.doesNotMatch(dashboard, /devices\.length > 1 && routePreference !== "cloud"/);
+  assert.match(globals, /\.composer-device-hint\{/);
+  assert.match(tasksRoute, /payload\?\.deviceId/);
 });
 
 test("explains fenced execution through a visible interactive safety panel", () => {
@@ -270,11 +292,12 @@ test("makes ThumbGate real with private thumbs feedback and a lessons dashboard"
   assert.match(lessonsRoute, /ORDER BY f\.updated_at DESC/);
   assert.match(lessonsRoute, /unratedCompleted/);
   assert.match(lessonsRoute, /completedResponses/);
-  assert.match(lessonsClient, /Your Hermes lessons/);
+  assert.match(lessonsClient, /<h1>ThumbGate lessons<\/h1>/);
   assert.match(lessonsClient, /thumbs you leave on completed answers/);
   assert.match(lessonsClient, /WORKSPACE ACTIVITY/);
   assert.match(lessonsClient, /0 ratings yet/);
   assert.match(lessonsClient, /Ratings are private to this ThumbGate workspace/);
+  assert.match(lessonsClient, /← Back to dashboard/);
   assert.match(schema, /responseFeedback = sqliteTable\("response_feedback"/);
 });
 
@@ -299,8 +322,8 @@ test("lists connectors not Tailscale peers and can revoke ghost machines", () =>
   assert.match(dashboard, /Remove machine/);
   assert.match(dashboard, /Remove stale machine/);
   assert.match(dashboard, /deviceStatusLabel/);
-  assert.match(dashboard, /Copy installer for another Mac/);
-  assert.match(dashboard, /Add another Mac \(optional\)/);
+  assert.match(dashboard, /Copy installer for another computer/);
+  assert.match(dashboard, /Add another computer \(optional\)/);
   assert.match(dashboard, /always-on service/);
   assert.match(dashboard, /do <strong>not<\/strong> copy an installer every time/);
   assert.match(dashboard, /one-time/);

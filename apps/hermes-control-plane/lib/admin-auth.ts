@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { runtimeEnv } from "./runtime";
-import { randomToken, sha256 } from "./security";
+import { randomToken, sha256, timingSafeEqual } from "./security";
 
 const ADMIN_COOKIE = "tg_admin_session";
 const ADMIN_TTL_MS = 12 * 60 * 60 * 1000; // 12h
@@ -20,13 +20,6 @@ export function adminConfigured(): boolean {
 interface RuntimeEnvWithAdmin {
   THUMBGATE_ADMIN_EMAIL?: string;
   THUMBGATE_ADMIN_PASSWORD_HASH?: string;
-}
-
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let out = 0;
-  for (let i = 0; i < a.length; i += 1) out |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return out === 0;
 }
 
 async function scryptHash(password: string, saltHex: string): Promise<string> {

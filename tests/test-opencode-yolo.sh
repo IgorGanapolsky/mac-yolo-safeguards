@@ -80,5 +80,61 @@ export OPENCODE_BIN="$ROOT/does-not-exist"
 set +e; "$WRAPPER" --doctor >/dev/null 2>&1; code=$?; set -e
 [ "$code" -eq 127 ] && ok "missing-binary doctor (127)" || no "missing-binary doctor (got $code)"
 
+# 7. cloud models declare image input. Without attachment+modalities opencode's own Read
+#    tool silently swaps the image for the text "ERROR: ... does not support image input",
+#    so the model answers "I can't see images" and nothing surfaces as an error. The local
+#    model stays text-only: a deliberately local run must not be upgraded to the cloud.
+base_env
+"$WRAPPER" run "hi" >/dev/null 2>&1 || true
+python3 - "$ROOT/oc-home/opencode.json" <<'PY' && ok "cloud models accept image attachments" || no "cloud models accept image attachments"
+import json, sys
+models = json.load(open(sys.argv[1]))["provider"]["hermes"]["models"]
+for name in ("glm-coding", "glm-turbo", "opencode-go-glm", "kimi-code", "glm-vision"):
+    m = models[name]
+    assert m.get("attachment") is True, f"{name} missing attachment:true"
+    assert "image" in m["modalities"]["input"], f"{name} missing image modality"
+assert not models["hermes-local"].get("attachment"), "hermes-local must stay text-only"
+PY
+
+# 8. LSP is on by default. opencode ships 25+ servers but defaults them OFF — the TUI logged
+#    "all LSPs are disabled" on 2026-07-25, i.e. the agent edited this TypeScript/React Native
+#    app with no type diagnostics coming back. Measured cost of enabling: ~7s per run.
+base_env
+"$WRAPPER" run "hi" >/dev/null 2>&1 || true
+python3 -c "
+import json,sys
+assert json.load(open('$ROOT/oc-home/opencode.json'))['lsp'] is True
+" && ok "lsp enabled by default" || no "lsp enabled by default"
+
+OPENCODE_YOLO_NO_LSP=1 "$WRAPPER" run "hi" >/dev/null 2>&1 || true
+python3 -c "
+import json,sys
+assert json.load(open('$ROOT/oc-home/opencode.json'))['lsp'] is False
+" && ok "OPENCODE_YOLO_NO_LSP=1 escape hatch" || no "OPENCODE_YOLO_NO_LSP=1 escape hatch"
+
+# 9. Expo/EAS MCP is wired, and stays opt-out-able: it is a REMOTE server behind an OAuth
+#    browser flow, so headless/cron runs must be able to drop it (it logs needs_auth until a
+#    human authorizes an Expo account).
+OPENCODE_YOLO_NO_EXPO_MCP=1 "$WRAPPER" run "hi" >/dev/null 2>&1 || true
+python3 -c "
+import json
+assert 'expo' not in json.load(open('$ROOT/oc-home/opencode.json'))['mcp']
+" && ok "OPENCODE_YOLO_NO_EXPO_MCP=1 drops the remote server" || no "OPENCODE_YOLO_NO_EXPO_MCP=1 drops the remote server"
+
+base_env
+"$WRAPPER" run "hi" >/dev/null 2>&1 || true
+python3 -c "
+import json
+e=json.load(open('$ROOT/oc-home/opencode.json'))['mcp']['expo']
+assert e['type']=='remote' and e['url']=='https://mcp.expo.dev/mcp' and e['enabled'] is True
+" && ok "expo MCP wired by default" || no "expo MCP wired by default"
+
+# 10. USB auto-forwarding is opt-in. sim-runaway-guard.sh used to re-create adb reverse
+#     tcp:8642/8765 on every tick, so the phone kept seeing a USB loopback route (and a live
+#     reverse masks real tailnet state) even after the transport was moved to Tailscale.
+grep -q 'HERMES_ALLOW_USB_REVERSE' "$HERE/../sim-runaway-guard.sh" &&
+  grep -q 'ADB_BIN=""' "$HERE/../sim-runaway-guard.sh" &&
+  ok "guard USB auto-forward is opt-in" || no "guard USB auto-forward is opt-in"
+
 echo "opencode-yolo tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

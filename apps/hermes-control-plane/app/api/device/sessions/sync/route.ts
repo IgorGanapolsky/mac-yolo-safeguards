@@ -8,6 +8,15 @@ const MAX_CONTEXT_MESSAGES = 60;
 const MAX_CONTEXT_CHARS = 48_000;
 const MAX_BODY_BYTES = 1_000_000;
 
+/**
+ * Scheduled cron-automation runs (e.g. reddit-inbox-conversion-monitor) create real Hermes
+ * gateway sessions with this id shape, but they're ephemeral and never meant to be resumed --
+ * syncing them as a ThumbGate thread lets a user reply into a session that no longer exists,
+ * which the connector cannot recover from (session_not_found -> task FAILED). Never persist
+ * them as a thread the user can see or reply to.
+ */
+const CRON_SESSION_ID_RE = /^cron_[a-f0-9]{8,}_\d{8}_\d{6}$/;
+
 interface SessionInput {
   id?: string;
   title?: string;
@@ -65,6 +74,7 @@ export async function POST(request: Request) {
     const sourceSessionId = cleanText(item.id, 160);
     const title = cleanText(item.title, 120);
     if (!sourceSessionId || !title) continue;
+    if (CRON_SESSION_ID_RE.test(sourceSessionId)) continue;
     const source = cleanText(item.source, 40) || "hermes";
     const model = cleanText(item.model, 120) || null;
     const preview = cleanText(item.preview, 500) || null;

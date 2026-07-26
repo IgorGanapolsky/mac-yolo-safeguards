@@ -1,6 +1,6 @@
 import { audit } from "./audit";
 import { db } from "./runtime";
-import { randomToken, sha256 } from "./security";
+import { randomToken, sanitizeText, sha256 } from "./security";
 
 const LEASE_MS = 90_000;
 const MAX_ATTEMPTS = 3;
@@ -33,7 +33,7 @@ export class ThreadOperationError extends Error {
 
 export function cleanThreadTitle(value: unknown): string {
   if (typeof value !== "string") return "";
-  return value.replaceAll("\u0000", "").replace(/\s+/g, " ").trim().slice(0, 120);
+  return sanitizeText(value, 120);
 }
 
 async function getThread(organizationId: string, threadId: string): Promise<ThreadRow> {
