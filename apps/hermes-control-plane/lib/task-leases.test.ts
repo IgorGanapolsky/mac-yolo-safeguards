@@ -186,14 +186,21 @@ describe("fenced task leases", () => {
     }];
     // prior completed tasks for handoff + binding selects after claim path
     mocks.state.firsts.push(null); // thread binding path may query
-    const claimed = await claimTask({ route: "local", owner: "device:macbook", deviceId: "macbook" });
+    const claimed = await claimTask({
+      route: "local",
+      owner: "device:macbook",
+      deviceId: "macbook",
+      organizationId: "org-1",
+    });
     expect(claimed?.task.id).toBe("task-stale");
     const select = mocks.state.selects.find((row) => row.sql.includes("FROM tasks k"));
     expect(select?.sql).toContain("k.created_at < ?");
     expect(select?.sql).toContain("k.device_id = ?");
-    // cloudTasks window, device id, stale threshold (now-90s), lease expiry now
+    expect(select?.sql).toContain("k.organization_id = ?");
+    // cloudTasks window, org, device id, stale threshold (now-90s), lease expiry now
     expect(select?.args).toEqual([
       200_000 - 30 * 24 * 60 * 60 * 1000,
+      "org-1",
       "macbook",
       200_000 - 90_000,
       200_000,

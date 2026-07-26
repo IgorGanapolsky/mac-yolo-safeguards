@@ -85,6 +85,8 @@ export async function claimTask(input: {
   route: "local" | "cloud";
   owner: string;
   deviceId?: string;
+  /** Required for local multi-Mac steal so we never adopt another org's pending work. */
+  organizationId?: string;
 }): Promise<{ task: {
   id: string;
   organizationId: string;
@@ -104,7 +106,9 @@ export async function claimTask(input: {
   const STALE_LOCAL_PENDING_MS = 90_000;
   if (input.route === "cloud") await reclassifyStaleLocalTasks(now);
   const routeClause = input.route === "local"
-    ? `k.route = 'local' AND k.status IN ('local_pending', 'cloud_pending', 'running')
+    ? `k.organization_id = ?
+        AND k.route = 'local'
+        AND k.status IN ('local_pending', 'cloud_pending', 'running')
         AND (
           k.device_id = ?
           OR (k.status = 'local_pending' AND k.created_at < ?)
@@ -120,9 +124,12 @@ export async function claimTask(input: {
   // can't reach this case; both branches require the task's own lease to already be expired
   // (enforced by the trailing lease_expires_at check below), so the fencing-token CAS in the
   // UPDATE still owns correctness.
-  // Local: own device always; any device may adopt local_pending older than STALE_LOCAL_PENDING_MS.
+  // Local: same-org only; own device always; same-org devices may adopt local_pending older than 90s.
+  if (input.route === "local" && !input.organizationId) {
+    throw new Error("organizationId is required for local task claims");
+  }
   const params = input.route === "local"
-    ? [input.deviceId!, now - STALE_LOCAL_PENDING_MS, now]
+    ? [input.organizationId!, input.deviceId!, now - STALE_LOCAL_PENDING_MS, now]
     : [now - 60_000, now - 60_000, now];
   const candidate = await db().prepare(
     `SELECT k.id, k.organization_id AS organizationId, k.thread_id AS threadId, t.title AS threadTitle, k.prompt,
