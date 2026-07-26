@@ -1071,7 +1071,10 @@ describe('GatewayProvider', () => {
     });
   });
 
-  it('skips chat output feedback capture when Leash is locked', async () => {
+  // Paid download = full features (CEO, 2026-07-26). Spending the free weekly allowance no
+  // longer "locks" Leash, so thumbs feedback keeps flowing for a customer who already paid.
+  // Locking a paid customer out of the feedback loop was the old free-tier behaviour.
+  it('still captures chat output feedback after the free allowance is spent (paid download)', async () => {
     (captureThumbgateFeedback as jest.Mock).mockClear();
     __resetFreeLeashAllowanceForTests();
     await refreshFreeLeashWeeklyState();
@@ -1134,6 +1137,6 @@ describe('GatewayProvider', () => {
       fireEvent.press(getByTestId('submit-chat-output-up'));
     });
 
-    expect(captureThumbgateFeedback).not.toHaveBeenCalled();
+    expect(captureThumbgateFeedback).toHaveBeenCalled();
   });
 });

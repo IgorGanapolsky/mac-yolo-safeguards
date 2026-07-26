@@ -90,7 +90,10 @@ describe('ApprovalsScreen', () => {
     expect(queryByText(/Not paired/i)).toBeNull();
   });
 
-  it('shows paywall when ThumbGate Leash is not unlocked', async () => {
+  // BUSINESS MODEL (CEO, 2026-07-26): the app is a $4.99 PAID DOWNLOAD on both stores with
+  // full features — "no in-app purchases nor asking people to unlock anything". A paid install
+  // is entitled, so exhausting the free weekly allowance must NOT reveal a paywall.
+  it('shows NO paywall after the free allowance is spent — paid download is entitled', async () => {
     await refreshFreeLeashWeeklyState();
     for (let i = 0; i < FREE_LEASH_APPROVALS_PER_WEEK; i += 1) {
       await consumeFreeLeashApproval();
@@ -100,8 +103,8 @@ describe('ApprovalsScreen', () => {
         settings: { ...mockGatewaySettings, thumbgateProActive: false },
       }),
     );
-    const { getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
-    expect(getByText('ThumbGate Leash is a Pro feature')).toBeTruthy();
+    const { queryByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    expect(queryByText('ThumbGate Leash is a Pro feature')).toBeNull();
   });
 
   it('shows empty state when no pending approvals', () => {
@@ -144,7 +147,9 @@ describe('ApprovalsScreen', () => {
     expect(queryByText(/Tap Refresh above/i)).toBeNull();
   });
 
-  it('shows Pro upsell when free weekly allowance remains but not Pro', async () => {
+  // Paid download = full features. No upsell card, no IAP CTA, no web-subscription CTA —
+  // asking a customer who already paid $4.99 to buy again is the defect, not the feature.
+  it('shows NO Pro upsell or purchase CTA for a paid download', async () => {
     await refreshFreeLeashWeeklyState();
     useGateway.mockReturnValue(
       mockUseGateway({
@@ -155,26 +160,12 @@ describe('ApprovalsScreen', () => {
         },
       }),
     );
-    const { getByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    const { getByText, queryByTestId } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByText('No pending approvals')).toBeTruthy();
-    expect(getByTestId('leash-pro-upsell-card')).toBeTruthy();
-    expect(getByTestId('pro-upgrade-card')).toBeTruthy();
-    // Android: lifetime IAP CTA. iOS: web subscription CTA (no StoreKit subs).
-    const iapCta = (() => {
-      try {
-        return getByTestId('subscribe-thumbgate-leash-iap');
-      } catch {
-        return null;
-      }
-    })();
-    const webCta = (() => {
-      try {
-        return getByTestId('open-thumbgate-web-subscription');
-      } catch {
-        return null;
-      }
-    })();
-    expect(iapCta || webCta).toBeTruthy();
+    expect(queryByTestId('leash-pro-upsell-card')).toBeNull();
+    expect(queryByTestId('pro-upgrade-card')).toBeNull();
+    expect(queryByTestId('subscribe-thumbgate-leash-iap')).toBeNull();
+    expect(queryByTestId('open-thumbgate-web-subscription')).toBeNull();
   });
 
   it('renders approval card and resolves via thumbs up', () => {
