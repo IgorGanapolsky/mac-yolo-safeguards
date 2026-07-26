@@ -14,6 +14,7 @@
     "test:cloudflare-config": "node --test ../../tests/test-hermes-cloudflare-deploy-config.js",
     "test:cloudflare-worker": "npm run build:cloudflare && node tests/cloudflare-worker-smoke.mjs",
     "test:e2e": "npm run test:cloudflare-worker",
+    "test:e2e:browser": "npm run build:cloudflare && playwright test",
     "test:security": "npm audit --audit-level=high",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
@@ -31,6 +32,7 @@
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.45.1",
     "@cloudflare/workers-types": "5.20260719.1",
+    "@playwright/test": "^1.62.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
