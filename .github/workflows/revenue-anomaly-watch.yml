@@ -1,0 +1,47 @@
+name: revenue-anomaly-watch
+
+# Production-only cron: reads the PUBLIC, unauthenticated thumbgate.app
+# /api/health endpoint (same source saas/saas-watchdog.sh and the admin
+# revenue panel already read) and alerts via ntfy.sh when billing activity
+# goes silent or a paid organization churns. Never touches D1 directly.
+#
+# GitHub Actions runners are stateless per run, so cross-run "was this
+# already true last check" state (needed for both anomaly conditions) is
+# kept in actions/cache using the documented always-overwrite pattern: save
+# under a unique run-scoped key, restore from the most recent key with that
+# prefix. See saas/revenue-anomaly-watchdog.sh for the actual detection
+# logic and tests/test-revenue-anomaly-watchdog.sh /
+# apps/hermes-control-plane/tests/revenue-anomaly-watchdog-smoke.mjs for
+# proof it fires (and stays silent) correctly.
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore previous check's state
+        uses: actions/cache/restore@v4
+        with:
+          path: .revenue-anomaly-state
+          key: revenue-anomaly-state-${{ github.run_id }}
+          restore-keys: |
+            revenue-anomaly-state-
+      - name: Run revenue anomaly check against thumbgate.app
+        env:
+          HERMES_APP_URL: https://thumbgate.app
+          REVENUE_ANOMALY_STATE_FILE: ${{ github.workspace }}/.revenue-anomaly-state/state.env
+        run: bash saas/revenue-anomaly-watchdog.sh
+      - name: Save this check's state for the next run
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .revenue-anomaly-state
+          key: revenue-anomaly-state-${{ github.run_id }}
