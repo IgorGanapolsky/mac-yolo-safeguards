@@ -143,12 +143,12 @@ export default function LessonsClient() {
     <section className="lesson-activity" aria-label="Workspace activity (not lessons)">
       <p className="eyebrow">WORKSPACE ACTIVITY</p>
       <ul>
-        <li><a href="/dashboard" aria-label={`View ${activity.threads} synced chats in Hermes`}><strong>{activity.threads}</strong><span>chats synced</span></a></li>
-        <li><a href="/dashboard#task-activity" aria-label={`View ${activity.completedResponses} completed web answers`}><strong>{activity.completedResponses}</strong><span>completed web answers</span></a></li>
-        <li><a href="/dashboard#task-activity" aria-label={`View ${activity.unratedCompleted} completed answers waiting for a thumbs rating`}><strong>{activity.unratedCompleted}</strong><span>still unrated</span></a></li>
+        <li><a href="/dashboard?view=chats#chats-rail" aria-label={`View ${activity.threads} synced chats in Hermes`}><strong>{activity.threads}</strong><span>chats synced</span></a></li>
+        <li><a href="/dashboard?filter=completed#task-activity" aria-label={`View ${activity.completedResponses} completed web answers`}><strong>{activity.completedResponses}</strong><span>completed web answers</span></a></li>
+        <li><a href="/dashboard?filter=unrated#task-activity" aria-label={`View ${activity.unratedCompleted} completed answers waiting for a thumbs rating`}><strong>{activity.unratedCompleted}</strong><span>ready to rate (👍/👎)</span></a></li>
       </ul>
       <p className="helper-copy">
-        Chats and prompts live under Hermes. This page only lists answers you explicitly rate.
+        Chats and prompts live under Hermes. Tap 👍 or 👎 on any completed answer to save it here as a lesson.
       </p>
     </section>
 

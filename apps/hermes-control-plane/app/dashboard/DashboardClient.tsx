@@ -148,6 +148,8 @@ export default function DashboardClient() {
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
   /** Collapsible run options section so chat has maximum vertical visibility on mobile. */
   const [showComposerOptions, setShowComposerOptions] = useState(false);
+  const [targetDeviceId, setTargetDeviceId] = useState<string>("auto");
+  const [taskFilter, setTaskFilter] = useState<"all" | "completed" | "unrated">("all");
   const autoSelectedThread = useRef(false);
   /** One-shot deep link from lessons page: /dashboard?task=…&thread=…#task-activity */
   const focusedTaskFromUrl = useRef(false);
@@ -337,7 +339,15 @@ export default function DashboardClient() {
   }, [pairCode, user]);
   const visibleThreads = useMemo(() => orderThreadsForDisplay(threads, threadSortOrder), [threads, threadSortOrder]);
   const activeTasks = useMemo(() => tasks.filter((task) => !terminal.has(task.status)), [tasks]);
-  const visibleTasks = selectedThread ? tasks.filter((task) => task.threadId === selectedThread) : tasks;
+  const visibleTasks = useMemo(() => {
+    let list = selectedThread ? tasks.filter((task) => task.threadId === selectedThread) : tasks;
+    if (taskFilter === "completed") {
+      list = list.filter((task) => task.status === "completed" && task.result);
+    } else if (taskFilter === "unrated") {
+      list = list.filter((task) => task.status === "completed" && task.result && !feedback[task.id]);
+    }
+    return list;
+  }, [selectedThread, tasks, taskFilter, feedback]);
   const onlineDevices = devices.filter((device) => device.online);
   const p95CompletionLatency = useMemo(() => {
     const durations = tasks
@@ -722,6 +732,9 @@ export default function DashboardClient() {
                 >
                   <span>
                     ⌘ Target: <strong>{routePreference === "local" ? "My Mac" : routePreference === "cloud" ? "Continuity" : "Auto"}</strong>
+                    {targetDeviceId !== "auto" && (
+                      <span> ({devices.find((d) => d.id === targetDeviceId)?.name ?? "Selected machine"})</span>
+                    )}
                   </span>
                   <span className="composer-where-toggle-badge">
                     {showComposerOptions ? "▲ Hide options" : "▼ Options"}
@@ -750,6 +763,39 @@ export default function DashboardClient() {
                         <span className="route-label-full">Auto</span>
                         <span className="route-label-short">Auto</span>
                       </label>
+                    </div>
+                    <div className="composer-machine-select-group">
+                      <p className="composer-where-label" id="composer-machine-label">Which machine?</p>
+                      <select
+                        id="composer-machine-select"
+                        className="composer-machine-select"
+                        value={targetDeviceId}
+                        aria-labelledby="composer-machine-label"
+                        onChange={(event) => {
+                          const val = event.target.value;
+                          if (val === "pair") {
+                            document.getElementById("leash-control")?.scrollIntoView({ behavior: "smooth" });
+                            setNotice("Paste the Terminal command below on your new Mac to pair it.");
+                            return;
+                          }
+                          if (val === "manage") {
+                            document.getElementById("web-settings")?.scrollIntoView({ behavior: "smooth" });
+                            return;
+                          }
+                          setTargetDeviceId(val);
+                        }}
+                      >
+                        <option value="auto">Auto (first available machine)</option>
+                        {devices.map((device) => (
+                          <option key={device.id} value={device.id}>
+                            {device.name} ({device.online ? "Online" : "Offline"})
+                          </option>
+                        ))}
+                        <optgroup label="Actions">
+                          <option value="pair">+ Pair new machine…</option>
+                          <option value="manage">⚙ Manage / Delete machines…</option>
+                        </optgroup>
+                      </select>
                     </div>
                     {!isNarrowViewport ? (
                       <div className="composer-route-explain" role="status" aria-live="polite">
