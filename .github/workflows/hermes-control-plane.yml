@@ -1,6 +1,7 @@
 name: Hermes control plane
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - "apps/hermes-control-plane/**"
@@ -16,6 +17,7 @@ on:
       - "scripts/install-thumbgate-aeo-monitor.sh"
       - "docs/THUMBGATE-AEO-MONITORING.md"
       - "docs/RESEARCH-THUMBGATE-AEO-JULY-2026.md"
+      - "docs/RESEARCH-DASHBOARD-E2E-JULY-2026.md"
       - "tests/test-saas-watchdog.sh"
       - "saas/saas-watchdog.sh"
       - "com.igor.saas-watchdog.plist"
@@ -36,11 +38,12 @@ on:
       - "com.igor.thumbgate-aeo-monitor.plist"
       - "scripts/install-thumbgate-aeo-monitor.sh"
       - "docs/THUMBGATE-AEO-MONITORING.md"
-      - "docs/RESEARCH-THUMBGATE-AEO-JULY-2026.md"
+      - "docs/RESEARCH-DASHBOARD-E2E-JULY-2026.md"
       - "tests/test-saas-watchdog.sh"
       - "saas/saas-watchdog.sh"
       - "com.igor.saas-watchdog.plist"
       - "docs/HERMES-CLOUDFLARE-MIGRATION.md"
+      - ".github/workflows/hermes-control-plane.yml"
 
 permissions:
   contents: read
@@ -48,7 +51,8 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Worker build + dual local E2E + Playwright chromium needs more than 15m.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -72,9 +76,34 @@ jobs:
         working-directory: apps/hermes-control-plane
       - name: Verify bounded ThumbGate AI/search visibility monitor
         run: node tests/test-thumbgate-aeo-monitor.js
-      - name: Run local Cloudflare Worker session-lifecycle E2E
-        run: npm run test:e2e
+      - name: Install Playwright Chromium (machine-routing browser layer)
+        run: npx playwright install --with-deps chromium
         working-directory: apps/hermes-control-plane
+      - name: Build Cloudflare Worker once (shared by session + machine E2E)
+        run: npm run build:cloudflare
+        working-directory: apps/hermes-control-plane
+      - name: Run local Cloudflare Worker session-lifecycle E2E
+        run: node tests/cloudflare-worker-smoke.mjs
+        working-directory: apps/hermes-control-plane
+      - name: Multi-device machine routing E2E (API + bundle + Playwright)
+        env:
+          PLAYWRIGHT_E2E: "1"
+        run: node tests/dashboard-machine-routing-e2e.mjs
+        working-directory: apps/hermes-control-plane
+      - name: Production dashboard copy smoke (public assets)
+        run: npm run test:e2e:prod-copy
+        working-directory: apps/hermes-control-plane
+        # Network flake must not block merge; agent still runs this post-deploy.
+        continue-on-error: true
+      - name: Install Playwright Chromium for full-stack browser E2E
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/hermes-control-plane
+      - name: Full-stack browser E2E (real Worker + real connector process + real Chromium)
+        run: npm run test:e2e:browser
+        working-directory: apps/hermes-control-plane
+        env:
+          CLOUDFLARE_D1_DATABASE_ID: "00000000-0000-4000-8000-000000000000"
+          CLOUDFLARE_CUSTOM_DOMAIN: "thumbgate.app"
       - run: bash tests/test-saas-watchdog.sh
       - run: node --test tests/test-hermes-cloud-connector.js
       - run: node --test tests/test-hermes-business-e2e.js
