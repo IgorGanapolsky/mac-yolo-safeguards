@@ -241,21 +241,26 @@ export default function DashboardClient() {
     selectedThreadRef.current = selectedThread;
   }, [selectedThread]);
 
+  // Deferred via setTimeout — never setState synchronously at effect body start
+  // (eslint react-hooks/set-state-in-effect); matches the loadWorkspace() poll pattern above.
   useEffect(() => {
-    if (!devices.length) {
-      setSelectedDeviceId("");
-      return;
-    }
-    setSelectedDeviceId((current) => {
-      if (current && devices.some((device) => device.id === current)) return current;
-      let stored: string | null = null;
-      try {
-        stored = window.localStorage.getItem(preferredDevicePreferenceKey);
-      } catch {
-        stored = null;
+    const timer = window.setTimeout(() => {
+      if (!devices.length) {
+        setSelectedDeviceId("");
+        return;
       }
-      return pickDefaultDeviceId(devices, stored);
-    });
+      setSelectedDeviceId((current) => {
+        if (current && devices.some((device) => device.id === current)) return current;
+        let stored: string | null = null;
+        try {
+          stored = window.localStorage.getItem(preferredDevicePreferenceKey);
+        } catch {
+          stored = null;
+        }
+        return pickDefaultDeviceId(devices, stored);
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [devices]);
 
   function chooseDevice(deviceId: string) {
