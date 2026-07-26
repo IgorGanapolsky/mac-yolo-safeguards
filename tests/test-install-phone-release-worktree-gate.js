@@ -33,8 +33,13 @@ assert.match(
 );
 assert.match(
   installer,
+  /npm run test:release-safety[\s\S]*--testPathIgnorePatterns=['"]\/node_modules\/['"]/,
+  'release-safety suites must run from the current .worktrees checkout',
+);
+assert.match(
+  installer,
   /Error: unit tests failed — refusing phone install/,
   'worktree repair must preserve fail-closed installer behavior',
 );
 
-console.log('phone release installer worktree test gate: 5/5 passed');
+console.log('phone release installer worktree test gate: 6/6 passed');

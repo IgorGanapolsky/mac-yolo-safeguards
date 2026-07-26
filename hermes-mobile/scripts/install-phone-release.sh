@@ -371,7 +371,8 @@ gate_install_proofs() {
       echo "       Override only with HERMES_INSTALL_SKIP_TESTS=1 (not for real-user builds)." >&2
       exit 1
     }
-    (cd "$HERMES_DIR" && npm run test:release-safety) || {
+    (cd "$HERMES_DIR" && npm run test:release-safety -- \
+      --testPathIgnorePatterns='/node_modules/') || {
       echo "Error: release-safety contract failed — refusing phone install." >&2
       exit 1
     }
