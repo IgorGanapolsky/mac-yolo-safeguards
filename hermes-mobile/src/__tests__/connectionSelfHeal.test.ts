@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import {
   buildSelfHealProbeUrls,
@@ -214,13 +215,16 @@ describe('connectionSelfHeal', () => {
 });
 
 describe('USB primary on cellular', () => {
-  it('prefers USB probe only on Wi‑Fi with loopback active', () => {
-    expect(
-      shouldPreferUsbProbeFirst({
-        activeGatewayUrl: 'http://127.0.0.1:8642',
-        wifiConnected: true,
-      }),
-    ).toBe(true);
+  it('prefers USB probe only on Android Wi‑Fi with loopback active', () => {
+    const onUsbWifi = shouldPreferUsbProbeFirst({
+      activeGatewayUrl: 'http://127.0.0.1:8642',
+      wifiConnected: true,
+    });
+    if (Platform.OS === 'android') {
+      expect(onUsbWifi).toBe(true);
+    } else {
+      expect(onUsbWifi).toBe(false);
+    }
     expect(
       shouldPreferUsbProbeFirst({
         activeGatewayUrl: 'http://127.0.0.1:8642',
@@ -235,27 +239,35 @@ describe('USB primary on cellular', () => {
     ).toBe(false);
   });
 
-  it('prefers USB when effective URL is loopback even if sticky profile is Tailscale', () => {
+  it('prefers USB when effective URL is loopback even if sticky profile is Tailscale (Android)', () => {
     // Same-Mac USB↔Tailscale handoff: activeProfileId stays on the Tailscale row but the
     // live session is already on the cable — must not demote USB in the probe order.
-    expect(
-      shouldPreferUsbProbeFirst({
-        activeGatewayUrl: 'http://100.87.85.85:8642',
-        effectiveGatewayUrl: 'http://127.0.0.1:8642',
-        wifiConnected: true,
-      }),
-    ).toBe(true);
+    // Jest default platform is ios — force-android behavior is covered by Platform mock sites;
+    // on iOS this must stay false (no adb reverse).
+    const prefer = shouldPreferUsbProbeFirst({
+      activeGatewayUrl: 'http://100.87.85.85:8642',
+      effectiveGatewayUrl: 'http://127.0.0.1:8642',
+      wifiConnected: true,
+    });
+    if (Platform.OS === 'android') {
+      expect(prefer).toBe(true);
+    } else {
+      expect(prefer).toBe(false);
+    }
   });
 
-  it('prefers USB on cellular when live reverse matches the sticky Mac', () => {
-    expect(
-      shouldPreferUsbProbeFirst({
-        activeGatewayUrl: 'http://100.87.85.85:8642',
-        effectiveGatewayUrl: 'http://100.87.85.85:8642',
-        wifiConnected: false,
-        liveUsbSameMachine: true,
-      }),
-    ).toBe(true);
+  it('prefers USB on cellular when live reverse matches the sticky Mac (Android only)', () => {
+    const prefer = shouldPreferUsbProbeFirst({
+      activeGatewayUrl: 'http://100.87.85.85:8642',
+      effectiveGatewayUrl: 'http://100.87.85.85:8642',
+      wifiConnected: false,
+      liveUsbSameMachine: true,
+    });
+    if (Platform.OS === 'android') {
+      expect(prefer).toBe(true);
+    } else {
+      expect(prefer).toBe(false);
+    }
   });
 
   it('does not prefer USB for a sticky foreign Tailscale Mac (mini vs Pro cable)', () => {
@@ -269,16 +281,20 @@ describe('USB primary on cellular', () => {
     ).toBe(false);
   });
 
-  it('keeps USB over a sticky same-Mac Tailscale URL when the cable is live', () => {
+  it('keeps USB over a sticky same-Mac Tailscale URL when the cable is live (Android)', () => {
     // The exact P0 2026-07-23 race: autoDiscover step 2 re-probes loadLastSelectedProfileId's
     // sticky Tailscale URL every tick and must not steal the header away from a healthy cable.
-    expect(
-      shouldKeepUsbOverStickyRemote({
-        effectiveGatewayUrl: 'http://127.0.0.1:8642',
-        stickyProfileUrl: 'http://100.87.85.85:8642',
-        liveUsbSameMachine: true,
-      }),
-    ).toBe(true);
+    // iOS never keeps USB (no adb reverse).
+    const keep = shouldKeepUsbOverStickyRemote({
+      effectiveGatewayUrl: 'http://127.0.0.1:8642',
+      stickyProfileUrl: 'http://100.87.85.85:8642',
+      liveUsbSameMachine: true,
+    });
+    if (Platform.OS === 'android') {
+      expect(keep).toBe(true);
+    } else {
+      expect(keep).toBe(false);
+    }
   });
 
   it('does not keep USB over a foreign sticky Mac (mini) even if cabled to a different Mac', () => {
