@@ -7,6 +7,17 @@ import { buildTailscaleGatewayUrl, isTailscaleGatewayUrl } from './tailscaleHost
 
 export const USB_LOOPBACK_GATEWAY_URL = 'http://127.0.0.1:8642';
 
+/** Localhost candidates are valid for web and Android adb/emulator transports, never iOS. */
+export function localGatewayProbeCandidates(platformOS: string): string[] {
+  if (platformOS === 'web') {
+    return [USB_LOOPBACK_GATEWAY_URL];
+  }
+  if (platformOS === 'android') {
+    return [USB_LOOPBACK_GATEWAY_URL, 'http://10.0.2.2:8642'];
+  }
+  return [];
+}
+
 /** Skip probing a LAN URL when the phone is off Wi‑Fi — try USB loopback instead. */
 export function shouldSkipLanGatewayProbe(gatewayUrl: string, wifiConnected: boolean): boolean {
   if (wifiConnected || Platform.OS === 'web') {

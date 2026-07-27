@@ -107,6 +107,9 @@ describe('ChatScreenHeader', () => {
     expect(getByTestId('chat-header-weak-model-warning').props.children).toMatch(/local worker/i);
     expect(getByTestId('chat-header-hermes-status')).toBeTruthy();
     expect(queryByTestId('chat-header-project-picker')).toBeNull();
+    expect(getByTestId('chat-context-mac-button').props.accessibilityLabel).toBe(
+      'Igors-Mac-mini. Connected. Tailscale. Choose your computer.',
+    );
 
     fireEvent.press(getByTestId('chat-context-mac-button'));
     expect(onPressMachine).toHaveBeenCalledTimes(1);

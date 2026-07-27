@@ -22,9 +22,30 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true,
-          "NSAllowsLocalNetworking": true
-        }
+          "NSAllowsLocalNetworking": true,
+          "NSExceptionDomains": {
+            "10.0.0.0/8": {
+              "NSExceptionAllowsInsecureHTTPLoads": true
+            },
+            "100.64.0.0/10": {
+              "NSExceptionAllowsInsecureHTTPLoads": true
+            },
+            "172.16.0.0/12": {
+              "NSExceptionAllowsInsecureHTTPLoads": true
+            },
+            "192.168.0.0/16": {
+              "NSExceptionAllowsInsecureHTTPLoads": true
+            },
+            "fd7a:115c:a1e0::/48": {
+              "NSExceptionAllowsInsecureHTTPLoads": true
+            },
+            "ts.net": {
+              "NSExceptionAllowsInsecureHTTPLoads": true,
+              "NSIncludesSubdomains": true
+            }
+          }
+        },
+        "NSLocalNetworkUsageDescription": "Hermes Mobile finds your computer on Wi‑Fi and Tailscale so chat can connect."
       },
       "privacyManifests": {
         "NSPrivacyTracking": false,
@@ -117,6 +138,7 @@
     "plugins": [
       "./plugins/withEmbeddedJsBundle.js",
       "./plugins/withNetworkSecurityConfig.js",
+      "./plugins/withIosAtsTailscale.js",
       "expo-updates",
       "./plugins/withHermesAiGlasses.js",
       "./plugins/withHermesAppleIntelligence.js",

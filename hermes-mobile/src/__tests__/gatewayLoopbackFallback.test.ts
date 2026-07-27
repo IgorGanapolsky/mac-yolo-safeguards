@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import {
   cellularTailscaleFallbackUrls,
+  localGatewayProbeCandidates,
   shouldSkipLanGatewayProbe,
   usbLoopbackFallbackUrls,
   USB_LOOPBACK_GATEWAY_URL,
@@ -8,6 +9,14 @@ import {
 } from '../utils/gatewayLoopbackFallback';
 
 describe('gatewayLoopbackFallback', () => {
+  it('never offers Android localhost transports to an iPad', () => {
+    expect(localGatewayProbeCandidates('ios')).toEqual([]);
+    expect(localGatewayProbeCandidates('android')).toEqual([
+      USB_LOOPBACK_GATEWAY_URL,
+      'http://10.0.2.2:8642',
+    ]);
+  });
+
   it('skips LAN probe off Wi-Fi but not for loopback URLs', () => {
     expect(shouldSkipLanGatewayProbe('http://10.2.29.103:8642', false)).toBe(true);
     expect(shouldSkipLanGatewayProbe('http://10.2.29.103:8642', true)).toBe(false);

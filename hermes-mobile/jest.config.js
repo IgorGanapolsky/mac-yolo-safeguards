@@ -61,8 +61,8 @@ module.exports = {
   watchman: false,
   testPathIgnorePatterns: [
     '/node_modules/',
-    '/\\.worktrees/',
-    '/\\.wt-[^/]+/',
+    '<rootDir>/\\.worktrees/',
+    '<rootDir>/\\.wt-[^/]+/',
   ],
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*)',

@@ -30,6 +30,7 @@ import {
   isDemoModeAllowed,
 } from '../utils/demoModePolicy';
 import { shouldShowConnectMacGate } from '../utils/freshUserOnboarding';
+import { hasCommittedComputerSelection } from '../utils/discoveredPairingSelection';
 import {
   CONNECT_MAC_GATE_BODY_CELLULAR,
   CONNECT_MAC_GATE_BODY_WIFI,
@@ -112,8 +113,12 @@ export default function ConnectMacGate() {
   };
 
   const handleManualProfileAdded = useCallback(
-    async (label: string, gatewayUrl: string) => {
-      await addGatewayProfile(label, gatewayUrl);
+    async (
+      label: string,
+      gatewayUrl: string,
+      verifiedApiKey: string | null,
+    ) => {
+      await addGatewayProfile(label, gatewayUrl, verifiedApiKey);
       await retryGatewayBootstrap();
     },
     [addGatewayProfile, retryGatewayBootstrap],
@@ -156,15 +161,23 @@ export default function ConnectMacGate() {
     e2eAutomation: isE2eAutomationBuild(),
     storeReviewDemo: isStoreReviewDemoBuild(),
   });
+  const hasCommittedSelection = hasCommittedComputerSelection({
+    activeProfileId: activeGatewayProfile?.id,
+    settingsGatewayUrl: settings.gatewayUrl,
+  });
+  const hasUnselectedScanResults =
+    pickerProfiles.length > 0 && !hasCommittedSelection;
   const keepFreshGateOpenDuringScanRef = useRef(false);
   if (showFreshGate) {
     keepFreshGateOpenDuringScanRef.current = true;
-  } else if (!searching) {
+  } else if (!searching && hasCommittedSelection) {
     keepFreshGateOpenDuringScanRef.current = false;
   }
   const showGate =
     showFreshGate ||
-    (!settings.connectMacGateDismissed && searching && keepFreshGateOpenDuringScanRef.current);
+    (!settings.connectMacGateDismissed &&
+      keepFreshGateOpenDuringScanRef.current &&
+      (searching || hasUnselectedScanResults));
 
   const onCellular = !wifiConnected;
   const contextBody = onCellular ? CONNECT_MAC_GATE_BODY_CELLULAR : CONNECT_MAC_GATE_BODY_WIFI;

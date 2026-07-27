@@ -37,6 +37,23 @@ describe('pairingCodeExchange', () => {
     expect(payload).toBeNull();
   });
 
+  it('bounds a pair exchange whose network adapter never settles', async () => {
+    const fetchJson = jest.fn(
+      () => new Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>(() => {}),
+    );
+    const startedAt = Date.now();
+
+    const payload = await exchangePairingCode(
+      'http://100.87.85.85:8765',
+      'STALL000',
+      fetchJson,
+      10,
+    );
+
+    expect(payload).toBeNull();
+    expect(Date.now() - startedAt).toBeLessThan(250);
+  });
+
   it('returns null for missing server/code without calling fetch', async () => {
     const fetchJson = jest.fn();
     expect(await exchangePairingCode('', 'AB23CD45', fetchJson)).toBeNull();

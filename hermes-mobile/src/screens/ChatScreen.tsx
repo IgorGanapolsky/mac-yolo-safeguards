@@ -563,6 +563,7 @@ export function shouldIgnoreKeyboardHide(
 
 /** How long the "Reply ready" / "Hermes finished — tap to read" banner stays before auto-dismiss. */
 const RUN_COMPLETED_BANNER_DISMISS_MS = 2500;
+const MAC_PICKER_SELECTION_ARM_DELAY_MS = 400;
 
 /** How long the per-message "Saved to ThumbGate" confirmation stays visible. */
 const FEEDBACK_NOTE_TTL_MS = 4000;
@@ -661,9 +662,11 @@ export default function ChatScreen() {
   const [toolsModalVisible, setToolsModalVisible] = useState(false);
   const [attachPickerVisible, setAttachPickerVisible] = useState(false);
   const [macPickerVisible, setMacPickerVisible] = useState(false);
+  const [macPickerSelectionArmed, setMacPickerSelectionArmed] = useState(false);
   const [macPickerHelpExpanded, setMacPickerHelpExpanded] = useState(false);
 
   const closeMacPicker = useCallback(() => {
+    setMacPickerSelectionArmed(false);
     setMacPickerVisible(false);
     setMacPickerHelpExpanded(false);
   }, []);
@@ -1585,6 +1588,19 @@ export default function ChatScreen() {
     }
     void probeTailscaleComputers({ showUi: true, force: true });
   }, [macPickerVisible, isDemo, probeTailscaleComputers]);
+
+  useEffect(() => {
+    if (!macPickerVisible) {
+      setMacPickerSelectionArmed(false);
+      return;
+    }
+    setMacPickerSelectionArmed(false);
+    const armTimer = setTimeout(
+      () => setMacPickerSelectionArmed(true),
+      MAC_PICKER_SELECTION_ARM_DELAY_MS,
+    );
+    return () => clearTimeout(armTimer);
+  }, [macPickerVisible]);
 
   useEffect(() => {
     if (Platform.OS !== 'android' || isDemo) {
@@ -7857,7 +7873,7 @@ export default function ChatScreen() {
                 activeReachable={macHttpOk}
                 authNeedsRepair={effectiveAuthMismatch}
                 activeConnecting={headerConnectionState === 'connecting'}
-                selectionDisabled={profileSwitchBusy}
+                selectionDisabled={profileSwitchBusy || !macPickerSelectionArmed}
                 scanning={profileScanning || isScanningMacs}
                 scanProgress={profileScanProgress}
                 scanResult={profileScanResult}
@@ -7930,8 +7946,8 @@ export default function ChatScreen() {
                 pickerMode
                 compactMode={switchComputerProfiles.length > 0}
                 testIDPrefix="mac-picker-manual"
-                onAddProfile={async (label, gatewayUrl) => {
-                  await addGatewayProfile(label, gatewayUrl);
+                onAddProfile={async (label, gatewayUrl, verifiedApiKey) => {
+                  await addGatewayProfile(label, gatewayUrl, verifiedApiKey);
                   closeMacPicker();
                 }}
               />
