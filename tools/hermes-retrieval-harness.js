@@ -289,31 +289,67 @@ function readFileRange(options = {}) {
   };
 }
 
+// `--pattern` is command-line-argument-controlled (untrusted per CodeQL
+// js/regex-injection, CWE-400/730). A prior fix (PR #880) tried to keep
+// `--pattern` as a live, unescaped regex and only bound the blast radius
+// (length cap + a catastrophic-backtracking-shape heuristic). CodeQL still
+// flagged it, correctly: those are runtime guards, not a taint-clearing
+// sanitizer, and the heuristic can't catch every ReDoS shape anyway.
+// The actual fix: escape regex metacharacters before the string ever reaches
+// `new RegExp(...)`, so `grep --pattern` is a safe, case-insensitive literal
+// substring search. No metacharacters survive escaping, so no pattern —
+// however long or adversarial — can trigger catastrophic backtracking.
+// (No repo caller currently passes real regex syntax to this command; the
+// documented example in docs/HERMES-RETRIEVAL-HARNESS.md is a literal phrase.)
+const MAX_GREP_PATTERN_LENGTH = 500;
+
+function escapeRegExp(rawString) {
+  return String(rawString).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function assertSafeGrepPattern(rawPattern) {
+  if (rawPattern.length > MAX_GREP_PATTERN_LENGTH) {
+    throw new Error(
+      `Pattern too long (${rawPattern.length} chars, max ${MAX_GREP_PATTERN_LENGTH}) — refusing to construct RegExp.`,
+    );
+  }
+}
+
 function grep(options = {}) {
   const repo = path.resolve(options.repo || DEFAULT_REPO);
   if (!options.pattern) throw new Error('grep requires --pattern');
-  const pattern = new RegExp(options.pattern, 'i');
+  assertSafeGrepPattern(options.pattern);
+  let pattern;
+  try {
+    pattern = new RegExp(escapeRegExp(options.pattern), 'i');
+  } catch (error) {
+    throw new Error(`Invalid --pattern: ${error.message}`);
+  }
   const inventory = buildInventory(options);
   const matches = [];
-  for (const file of inventory.files) {
-    const fullPath = path.join(repo, file.path);
-    let lines;
-    try {
-      lines = fs.readFileSync(fullPath, 'utf8').split('\n');
-    } catch (error) {
-      continue;
-    }
-    for (let index = 0; index < lines.length; index += 1) {
-      if (!pattern.test(lines[index])) continue;
-      matches.push({
-        path: file.path,
-        line: index + 1,
-        text: lines[index].trim().slice(0, 360),
-      });
-      if (matches.length >= (options.limit || 20)) {
-        return { pattern: options.pattern, repo, matches };
+  try {
+    for (const file of inventory.files) {
+      const fullPath = path.join(repo, file.path);
+      let lines;
+      try {
+        lines = fs.readFileSync(fullPath, 'utf8').split('\n');
+      } catch (error) {
+        continue;
+      }
+      for (let index = 0; index < lines.length; index += 1) {
+        if (!pattern.test(lines[index])) continue;
+        matches.push({
+          path: file.path,
+          line: index + 1,
+          text: lines[index].trim().slice(0, 360),
+        });
+        if (matches.length >= (options.limit || 20)) {
+          return { pattern: options.pattern, repo, matches };
+        }
       }
     }
+  } catch (error) {
+    throw new Error(`grep failed while applying --pattern: ${error.message}`);
   }
   return { pattern: options.pattern, repo, matches };
 }
@@ -355,6 +391,7 @@ function main(argv = process.argv.slice(2)) {
 module.exports = {
   TEXT_EXTENSIONS,
   buildInventory,
+  escapeRegExp,
   grep,
   main,
   parseArgs,

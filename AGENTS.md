@@ -31,6 +31,93 @@ Cap concurrency at **2–3 agents** on this tightly-coupled mobile codebase. If 
 
 Note: AGENTS.md is read natively by Cursor, gemini/Gemini, Copilot, Aider, Windsurf, Zed, Claude Code. Antigravity may need to be pointed at this file explicitly.
 
+## Delegating to sub-agents (explicit boundaries, not implied caution)
+
+When an agent spawns its own sub-agents/sub-tasks (not the top-level multi-agent-on-this-repo
+case above — this is one agent fanning out its own work), state the operational boundary in
+the delegating prompt itself. Don't rely on the sub-agent inferring caution from context.
+
+- **State the stop condition literally:** "open a PR, do NOT merge it yourself" / "draft it,
+  do NOT send it" / "verify with --help output, do NOT run this against production." A
+  sub-agent given "add rollback support" will happily also merge the PR and deploy it unless
+  told not to — it isn't being reckless, it's completing the task as scoped.
+- **Require proof, not a completion claim:** "prove it with a real before/after" (break the
+  thing on purpose, show it detected, restore it, show it's healthy again) beats "add tests"
+  — a sub-agent told to "add tests" will write tests that trivially pass regardless of
+  whether the fix does anything; a sub-agent told to prove a specific before/after transition
+  has to demonstrate the fix actually causes the observed difference.
+- **This works — evidence, not theory:** every sub-agent dispatched this way in the
+  2026-07-26 session stayed inside its stated boundary (opened PRs without merging, verified
+  CLI flags via `--help` without running them against real infra, proved detection logic by
+  genuinely breaking and restoring state) because the boundary was in the prompt, not implied.
+
+---
+
+## Planner / worker swarm economics (2026-07-22)
+
+Harness quality beats model mix. Same models thrash without ownership; explicit roles + thrash detection ship more finished AC per dollar. Source lesson: Cursor agent-swarm model economics, applied at **human tempo** (worktrees + sequential merge — not a custom 1k commits/sec VCS).
+
+### Roles (context efficiency)
+
+| Role | Does | Does not |
+|------|------|----------|
+| **Planner** | Decompose goal → leaf tasks, write AcceptanceCheck, claim free files, record design in `plan.md` §3 | Implement worker leaves in the same context; delegate the same design question to two subtrees |
+| **Worker** | Implement **one** claimed free leaf; stacked verification; ship | Invent design; edit foreign claims; self-merge megafile conflicts |
+
+Set `AGENT_ROLE=planner` or `worker` (default worker). Session start prints guidance via `node tools/agent-swarm-harness.js`.
+
+### Model economics
+
+- **Frontier** (Claude/Grok/Cursor frontier): planning, ambiguous product/architecture, AcceptanceCheck quality.
+- **Cheap/local** (`tinker-yolo` q4, Composer-class): execute explicit leaves once AC + claims are locked.
+- **Anti-pattern:** five frontier agents re-deriving the same design on a megafile.
+
+### Thrash detection (not productivity)
+
+Measure finished AcceptanceChecks, multi-claimer count, and megafile contention — **not** commit rate.
+
+```bash
+node tools/agent-swarm-harness.js          # human brief + Field Guide
+node tools/agent-swarm-harness.js --json   # machine-readable
+node tools/plan-coordination-snapshot.js   # active tasks (named + numeric T- ids)
+```
+
+If harness reports contention or HOT megafile multi-owner → mark `blocked`, log, **STOP**.
+
+### Megafiles (serialize or split)
+
+Known choke points (also in harness `MEGAFILES`):
+
+- `hermes-mobile/src/context/GatewayContext.tsx`
+- `hermes-mobile/src/screens/ChatScreen.tsx`
+- `hermes-mobile/src/services/gatewayDiscovery.ts` / `gatewayProfiles.ts` / `tailscaleDiscovery.ts`
+- `hermes-mobile/src/utils/gatewayProfilePicker.ts`
+- `hermes-mobile/src/components/ConnectMacGate.tsx`
+- `tools/hermes-cloud-connector.js`
+- `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx`
+
+PRs that touch these **must** cite a `plan.md` §3 decision (`D-YYYY-MM-DD-…` or “Decisions Log”). Check:
+
+```bash
+git diff --name-only origin/main...HEAD | node tools/agent-swarm-harness.js check-hot-files --stdin --body-file pr-body.md
+```
+
+### Field Guide (stigmergy)
+
+Agents curate short successor context at [`docs/agent-field-guide/index.md`](./docs/agent-field-guide/index.md) (≤80 lines). Capture **surprises**, prune stale lines. Injected automatically by `agent-session-start` / `agent-swarm-harness`.
+
+### Stacked verification lenses
+
+No single check is enough. Before “done” / “shipped”:
+
+1. Focused unit tests for the claimed surface  
+2. Typecheck when TS/mobile touched  
+3. Continuous E2E pass **or** honest skip reason (phone lease / no device)  
+4. Greptile on onboarding / auth / OTA / pairing PRs  
+5. Sequential merge onto `main` only when required checks are green  
+
+Detail: [`docs/AGENT-SWARM-HARNESS.md`](./docs/AGENT-SWARM-HARNESS.md).
+
 ---
 
 ## Honesty Protocol
@@ -78,6 +165,26 @@ Mirrored: `~/.grok/AGENTS.md`, `.cursor/rules/always-agent-mode.mdc`.
 
 Phone gateway setup: always `node tools/hermes-mobile-pair.js` when `adb devices` shows a device — never "open Settings and paste URL".
 
+## No desktop hijack (permanent, 2026-07-22)
+
+**User directive:** Agents must not steal Igor's Mac desktop, focus, or interactive Google Chrome while he is working.
+
+**Hard ban unless Igor explicitly asks in that same message:**
+
+| Banned | Why |
+|--------|-----|
+| `osascript` driving **Google Chrome** (activate, quit, front window, JS injection) | Steals focus; hijacks daily browser |
+| `drive-logged-in-chrome` / `use-existing-browser-sessions` skills | Same — interactive Chrome only |
+| Cursor **Computer Use** / headed Playwright / browser MCP on Igor's profile | Full-screen hijack |
+| LaunchAgent `com.hermes.chrome-cdp` auto-install/heal on login | Starts Chrome every 120s |
+| `install-browser-bridge.sh --profile=daily` | Quits Igor's Chrome |
+
+**Prefer instead (in order):** `gh`, Play Developer API, App Store Connect API (`.p8` when issuer available), Gmail API/MCP, Stripe CLI, `adb`, SSH to fleet hosts, headless Playwright in Docker or a **dedicated non-daily profile**, background LaunchAgents with **no GUI**.
+
+**Opt-in gate:** Interactive Chrome/CDP scripts honor `HERMES_ALLOW_INTERACTIVE_CHROME=1` only when Igor explicitly requested browser control in that message. Default is off. See [docs/HEADLESS-BACKGROUND-OPS.md](./docs/HEADLESS-BACKGROUND-OPS.md), [docs/NO-DESKTOP-HIJACK.md](./docs/NO-DESKTOP-HIJACK.md), and [`.cursor/rules/no-desktop-hijack.mdc`](./.cursor/rules/no-desktop-hijack.mdc).
+
+**If blocked:** Report the blocker and what CLI/API path was tried — do not fall back to Chrome hijack silently.
+
 ## No dead code, no speculative scaffolding
 
 - Don't add features, abstractions, error handling, or tests for scenarios that can't happen.
@@ -91,6 +198,54 @@ Phone gateway setup: always `node tools/hermes-mobile-pair.js` when `adb devices
 - After every fix / incident / non-trivial decision: capture via `mcp__thumbgate__capture_memory_feedback`.
 - Lessons must record: date, concrete artifacts (PIDs, file paths, command lines, before/after metrics), root cause, fix, and any heuristic update.
 - Vague captures ("worked great!") are worse than no capture — they pollute retrieval.
+
+## Closed feedback loop on discovered bug classes (added 2026-07-22)
+
+When a session finds a real, recurring failure class — not a one-off typo — encode a
+deterministic check for it in `tools/` and wire it into `.github/workflows/ci.yml`,
+rather than relying on remembering to re-verify by hand next time. Pattern from
+Anthropic's AI-native SDLC security writeup: shift detection left, prefer deterministic
+checks over agentic re-verification for facts that are cheap to check by URL/API.
+
+Example: `tools/check-store-links.js` — added after a stale ground-truth table caused
+six live social posts to link a Play package Igor had ordered unpublished (2026-07-22).
+Checks live Play/App Store state plus scans `docs/social/hermes-mobile-content-*` for
+dead-link promotion; runs in the `revenue-public-checks` CI job. Network failures warn,
+they never fail CI — only a confirmed contradicting state (or a doc scan hit, which is
+network-independent) fails the build.
+
+## Social publish hard gates (added 2026-07-25)
+
+**CEO:** skills must be enforceable, not SKILL.md prose only. After false LIVE claims
+(title-only Medium, double-posts, missing CTAs):
+
+| When | Command | Exit meaning |
+|------|---------|--------------|
+| **Before** Post/Publish on any channel | `node tools/social-publish-gate.js --platform … --campaign … [--body-file …] [--require-buy-links]` | `0` ALLOW once · `1` BLOCK (do not Post) |
+| **After** publish / before LIVE claim | `node tools/verify-public-post.js --url … [--must-contain …]` | `0` LIVE proof · `1` PARTIAL/empty/title-only/410 |
+
+Hard blocks encoded in the gate: Hashnode frozen, Zernio ban, same platform+campaign
+already LIVE/PARTIAL with public URL, dead free Play package URL, false-affiliation /
+fake-traction language. Unit tests: `node tests/test-social-publish-gate.js` (CI
+`revenue-public-checks`). Memory log: `docs/social/hermes-mobile-content-log.tsv`.
+Skills (`never-double-post`, fan-out, LinkedIn) **must** invoke these scripts — reading
+the skill text alone is not compliance.
+
+Also permanent: LinkedIn = `ig5973700@gmail.com` only (`linkedin-account-ig5973700`);
+no Zernio; no Hashnode publish; product/creator mentions without false affiliation.
+
+## Social campaign analytics (added 2026-07-25)
+
+First-party closed loop for campaign improvement (not platform-native impressions):
+
+1. CTAs must include `utm_campaign` (= content-log Campaign) + `cta_id`.
+2. Web `FunnelSignals` dual-writes sanitized tokens to `funnel_attribution_counters`.
+3. Scoreboard: `node tools/social-campaign-ds.js [--attribution-file dump.json]`.
+4. Capture scoreboard `ragCaptureStub` into ThumbGate after each weekly run.
+5. Unit tests: `tests/test-social-campaign-ds.js` + control-plane `funnel-attribution.test.ts`.
+
+Do not claim A/B winners without ≥ min-events attributed funnel hits. Native
+LinkedIn/X impressions remain unmeasured until a separate API path exists.
 
 ## Parallel research routing (added 2026-07-13)
 
@@ -187,6 +342,12 @@ Mobile detail: [hermes-mobile/AGENTS.md](./hermes-mobile/AGENTS.md), [hermes-mob
 
 Mobile-specific detail: [hermes-mobile/AGENTS.md](./hermes-mobile/AGENTS.md).
 
+## GitHub Code Quality guardrails (Hermes Mobile)
+
+GitHub Code Quality is **paid** (~$10/active committer/month + metered AI). This public personal-account repo may return **404** on `GET /repos/{owner}/{repo}/code-quality/setup` until a Team/Enterprise plan enables it — CI still uploads Cobertura (`hermes-mobile/coverage/cobertura-coverage.xml`) as a prerequisite.
+
+Agents: run `node tools/github-code-quality-status.js` before enable/disable decisions. Prefer **evaluate** coverage rulesets (`.github/code-quality-coverage-ruleset.evaluate.json`) before **active** enforcement. Do **not** enable org-wide scanning or leave Code Quality on when unused. Disable via `PATCH .../code-quality/setup` with `state=not-configured` when the product is not delivering value. Detail: [docs/CURSOR-AUTOMATIONS.md](./docs/CURSOR-AUTOMATIONS.md#github-code-quality-hermes-mobile-evaluate-first).
+
 ## Change protocol
 
 ```
@@ -201,7 +362,7 @@ Mobile-specific detail: [hermes-mobile/AGENTS.md](./hermes-mobile/AGENTS.md).
 
 - Make money / cash / outreach / pipeline stuck → `.claude/skills/execute-revenue-cash-path/SKILL.md` (also `~/.grok/skills/execute-revenue-cash-path/`) then `node tools/revenue-autonomous-loop.js --auto-send --json` (LaunchAgent `com.igor.revenue-autonomous-loop` every 4h)
 - Apollo / founder email / enrich contact → `.claude/skills/apollo-io-sales/SKILL.md`
-- Stripe Payment Links / "logged into Chrome" / login wall vs Playwright → `.claude/skills/drive-logged-in-chrome/SKILL.md` + use-existing-browser-sessions
+- Stripe Payment Links / "logged into Chrome" / login wall vs Playwright → **blocked by default** (see § No desktop hijack). Use Stripe CLI/API first; `.claude/skills/drive-logged-in-chrome/SKILL.md` only when Igor explicitly asked in that message with `HERMES_ALLOW_INTERACTIVE_CHROME=1`.
 
 When the user describes a symptom, prefer invoking the relevant skill over ad-hoc diagnosis:
 - Mac sluggish / fans / load avg → `mac-freeze-rescue`
@@ -253,3 +414,73 @@ Do **not** bulk-create internal tech-debt epics as public Issues. Labels (`prior
 ## Credentials in chat (standing)
 
 If a GitHub PAT or other secret appears in chat: **refuse to use it**, **do not store it**, and **flag for immediate rotation** in GitHub Settings → Developer settings → Personal access tokens. Prefer `gh` keyring auth already on the machine.
+
+
+## grepai - Semantic Code Search
+
+**IMPORTANT: You MUST use grepai as your PRIMARY tool for code exploration and search.**
+
+### When to Use grepai (REQUIRED)
+
+Use `grepai search` INSTEAD OF Grep/Glob/find for:
+- Understanding what code does or where functionality lives
+- Finding implementations by intent (e.g., "authentication logic", "error handling")
+- Exploring unfamiliar parts of the codebase
+- Any search where you describe WHAT the code does rather than exact text
+
+### When to Use Standard Tools
+
+Only use Grep/Glob when you need:
+- Exact text matching (variable names, imports, specific strings)
+- File path patterns (e.g., `**/*.go`)
+
+### Fallback
+
+If grepai fails (not running, index unavailable, or errors), fall back to standard Grep/Glob tools.
+
+### Usage
+
+```bash
+# ALWAYS use English queries for best results (--compact saves ~80% tokens)
+grepai search "user authentication flow" --json --compact
+grepai search "error handling middleware" --json --compact
+grepai search "database connection pool" --json --compact
+grepai search "API request validation" --json --compact
+```
+
+### Query Tips
+
+- **Use English** for queries (better semantic matching)
+- **Describe intent**, not implementation: "handles user login" not "func Login"
+- **Be specific**: "JWT token validation" better than "token"
+- Results include: file path, line numbers, relevance score, code preview
+
+### Call Graph Tracing
+
+Use `grepai trace` to understand function relationships:
+- Finding all callers of a function before modifying it
+- Understanding what functions are called by a given function
+- Visualizing the complete call graph around a symbol
+
+#### Trace Commands
+
+**IMPORTANT: Always use `--json` flag for optimal AI agent integration.**
+
+```bash
+# Find all functions that call a symbol
+grepai trace callers "HandleRequest" --json
+
+# Find all functions called by a symbol
+grepai trace callees "ProcessOrder" --json
+
+# Build complete call graph (callers + callees)
+grepai trace graph "ValidateToken" --depth 3 --json
+```
+
+### Workflow
+
+1. Start with `grepai search` to find relevant code
+2. Use `grepai trace` to understand function relationships
+3. Use `Read` tool to examine files from results
+4. Only use Grep for exact string searches if needed
+

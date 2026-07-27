@@ -124,6 +124,61 @@ set +e; "$TINKER" proof >/dev/null 2>&1; c=$?; set -e
 "$TINKER" recommend --json | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['host']['memoryGB']==24; assert not d['candidate']['localInferenceFeasible']; assert not d['gates']['baselineReplacementAllowed']" \
   && ok "tinker-yolo recommends remote candidate on 24GB M5" || no "tinker-yolo recommendation"
 
+cat > "$ROOT/pathbin/ollama" <<'EOF'
+#!/bin/sh
+case "$1" in
+  list)
+    printf '%s\n' 'NAME ID SIZE MODIFIED' \
+      'qwen3-hermes-tinker:q4 fixture 5.0GB now' \
+      'custom:tag fixture 5.0GB now' \
+      'explicit:tag fixture 5.0GB now'
+    ;;
+  *) exit 2 ;;
+esac
+EOF
+chmod +x "$ROOT/pathbin/ollama"
+
+AGENT_ARGS="$ROOT/tinker-agent-args"
+export AGENT_ARGS
+cat > "$ROOT/agent-python" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$@" > "$AGENT_ARGS"
+EOF
+chmod +x "$ROOT/agent-python"
+export TINKER_AGENT_PYTHON="$ROOT/agent-python"
+
+rm -f "$AGENT_ARGS"; "$TINKER" >/dev/null 2>&1
+{ grep -qx -- '--model' "$AGENT_ARGS" && grep -qx 'qwen3-hermes-tinker:q4' "$AGENT_ARGS" && grep -qx '.*/tools/tinker-yolo-agent.py' "$AGENT_ARGS"; } \
+  && ok "tinker-yolo bare invocation starts q4 tool agent" || no "tinker-yolo bare q4 agent"
+
+rm -f "$AGENT_ARGS"; TINKER_CHAT_MODEL=custom:tag "$TINKER" >/dev/null 2>&1
+grep -qx 'custom:tag' "$AGENT_ARGS" \
+  && ok "tinker-yolo bare agent honors env override" || no "tinker-yolo bare env override"
+
+rm -f "$AGENT_ARGS"; "$TINKER" chat "inspect files" --model explicit:tag --max-turns 7 >/dev/null 2>&1
+{ grep -qx 'explicit:tag' "$AGENT_ARGS" && grep -qx 'inspect files' "$AGENT_ARGS" && grep -qx '7' "$AGENT_ARGS"; } \
+  && ok "tinker-yolo chat forwards task and agent options" || no "tinker-yolo chat agent options"
+
+rm -f "$AGENT_ARGS"; "$TINKER" agent --workspace "$ROOT" --json "prove tools" >/dev/null 2>&1
+{ grep -qx -- '--workspace' "$AGENT_ARGS" && grep -qx "$ROOT" "$AGENT_ARGS" && grep -qx -- '--json' "$AGENT_ARGS"; } \
+  && ok "tinker-yolo explicit agent forwards workspace/json" || no "tinker-yolo explicit agent options"
+
+ln -s "$TINKER" "$ROOT/tinker-yolo-link"
+rm -f "$AGENT_ARGS"; "$ROOT/tinker-yolo-link" agent "symlink proof" >/dev/null 2>&1
+grep -qx '.*/tools/tinker-yolo-agent.py' "$AGENT_ARGS" \
+  && ok "tinker-yolo resolves companion agent through install symlink" || no "tinker-yolo symlink agent resolution"
+
+"$TINKER" --help | grep -q 'default qwen3-hermes-tinker:q4' \
+  && ok "tinker-yolo help names q4 default" || no "tinker-yolo help q4 default"
+
+help_output="$("$TINKER" --help)"
+status_output="$("$TINKER" status)"
+{ grep -q 'guarded macOS computer use' <<<"$help_output" \
+    && grep -q -- '--request-timeout 10..600' <<<"$help_output" \
+    && grep -q 'tools=filesystem,shell,internet,computer' <<<"$status_output" \
+    && grep -q 'vision_model=qwen3-vl:4b-instruct' <<<"$status_output"; } \
+  && ok "tinker-yolo advertises bounded computer-use runtime" || no "tinker-yolo computer-use contract"
+
 printf '%s\n' '{"messages":[{"role":"user","content":"safe fixture"},{"role":"assistant","content":"safe answer"}]}' > "$TINKER_DATASET"
 chmod 644 "$TINKER_DATASET"
 set +e; "$TINKER" proof --approve-paid --approve-data-upload --max-cost-usd 1 >/dev/null 2>&1; c=$?; set -e

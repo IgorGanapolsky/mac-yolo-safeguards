@@ -15,6 +15,8 @@ for arg in "$@"; do
 done
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+source "${repo_root}/scripts/hermes-interactive-chrome-gate.sh"
 home="${HOME}"
 soul="${HERMES_SOUL_PATH:-${home}/.hermes/SOUL.md}"
 config="${HERMES_CONFIG_PATH:-${home}/.hermes/config.yaml}"
@@ -33,32 +35,53 @@ ok_cdp_agent=0
 actions=()
 errors=()
 
-cdp_probe() {
-  curl -sf --max-time 2 "http://127.0.0.1:${cdp_port}/json/version" >/dev/null 2>&1
+interactive_chrome=0
+if hermes_interactive_chrome_allowed; then
+  interactive_chrome=1
+fi
+
+# Prefer IPv4 (hermes-agent default). Fall back to IPv6 so we do not false-alarm
+# when Chrome bound [::1] only — then heal toward IPv4 via hermes-chrome-cdp.sh.
+cdp_probe_ipv4() {
+  curl -sf --max-time 2 "http://127.0.0.1:${cdp_port}/json/version" 2>/dev/null | grep -q webSocketDebuggerUrl
 }
 
-if cdp_probe; then
+cdp_probe_any() {
+  cdp_probe_ipv4 && return 0
+  curl -sgf --max-time 2 "http://[::1]:${cdp_port}/json/version" 2>/dev/null | grep -q webSocketDebuggerUrl
+}
+
+if cdp_probe_ipv4; then
+  ok_cdp=1
+elif [[ "$interactive_chrome" -eq 0 ]]; then
   ok_cdp=1
 else
-  errors+=("cdp_down")
+  if cdp_probe_any; then
+    errors+=("cdp_ipv4_down")
+  else
+    errors+=("cdp_down")
+  fi
   if [[ "$HEAL" -eq 1 ]]; then
-    if launchctl print "${gui_domain}/com.hermes.chrome-cdp" >/dev/null 2>&1; then
-      launchctl kickstart -k "${gui_domain}/com.hermes.chrome-cdp" 2>/dev/null || true
-      actions+=("kickstart_com.hermes.chrome-cdp")
-    elif [[ -x "${repo_root}/scripts/hermes-chrome-cdp.sh" ]]; then
+    # Prefer the heal script (reclaims non-CDP IPv4 squats) over bare kickstart.
+    if [[ -x "${repo_root}/scripts/hermes-chrome-cdp.sh" ]]; then
       if bash "${repo_root}/scripts/hermes-chrome-cdp.sh"; then
         actions+=("ran_hermes-chrome-cdp.sh")
       fi
+    elif launchctl print "${gui_domain}/com.hermes.chrome-cdp" >/dev/null 2>&1; then
+      launchctl kickstart -k "${gui_domain}/com.hermes.chrome-cdp" 2>/dev/null || true
+      actions+=("kickstart_com.hermes.chrome-cdp")
     fi
     sleep 1
-    if cdp_probe; then
+    if cdp_probe_ipv4; then
       ok_cdp=1
       actions+=("cdp_healed")
     fi
   fi
 fi
 
-if launchctl print "${gui_domain}/com.hermes.chrome-cdp" >/dev/null 2>&1; then
+if [[ "$interactive_chrome" -eq 0 ]]; then
+  ok_cdp_agent=1
+elif launchctl print "${gui_domain}/com.hermes.chrome-cdp" >/dev/null 2>&1; then
   ok_cdp_agent=1
 else
   errors+=("cdp_launchagent_missing")
@@ -153,6 +176,40 @@ else
   echo "cdp=${ok_cdp} cdpLaunchAgent=${ok_cdp_agent} soul=${ok_soul} toolsets=${ok_toolsets} tokenCeiling=${ok_token_ceiling}"
   if ((${#actions[@]})); then echo "actions: ${actions[*]}"; fi
   if ((${#errors[@]})); then echo "errors: ${errors[*]}"; fi
+fi
+
+# Self-heal-failure alerting. This watchdog was found with zero alerting of any
+# kind: its CDP heal (and other invariant checks) run and, until now, silently
+# left `all_ok=0` for a human to eventually notice via `launchctl list` or a
+# stale log. All the heal attempts above (CDP relaunch/reclaim, LaunchAgent
+# install) already happen synchronously within this single invocation and are
+# re-checked before `all_ok` is computed, so a bad `all_ok` here already means
+# "detected a problem AND the self-heal attempt for it did not resolve it" --
+# no multi-tick "healing" grace period is needed the way the async gateway
+# restart in hermes-gateway-watchdog.sh needs one. Edge-triggered ok/degraded
+# state transition, same convention as saas-watchdog.sh and
+# scripts/revenue-loop-watchdog.sh. Only alerts on real periodic runs (HEAL=1,
+# i.e. no --check/--no-heal), so manual inspection runs never page anyone.
+if [[ "$HEAL" -eq 1 ]]; then
+  alert_state="${HERMES_PREVENTION_WATCHDOG_ALERT_STATE:-${state_dir}/hermes-prevention-watchdog-alert.state}"
+  alert_curl_bin="${HERMES_PREVENTION_WATCHDOG_CURL_BIN:-curl}"
+  alert_ntfy_topic="${HERMES_PREVENTION_WATCHDOG_NTFY_TOPIC:-yolo-guard-fdh8ktuw1vtxb5sb}"
+  alert_ntfy_url="${HERMES_PREVENTION_WATCHDOG_NTFY_URL:-https://ntfy.sh/${alert_ntfy_topic}}"
+  prev_alert_state="$(cat "$alert_state" 2>/dev/null || echo ok)"
+  if [[ "$all_ok" -eq 1 ]]; then
+    if [[ "$prev_alert_state" == "degraded" ]]; then
+      "$alert_curl_bin" -sS -m 10 -H "Title: Hermes prevention watchdog recovered" \
+        -d "recovered at $(date '+%Y-%m-%dT%H:%M:%S%z')" "$alert_ntfy_url" >/dev/null 2>&1 || true
+    fi
+    printf 'ok' > "$alert_state" 2>/dev/null || true
+  else
+    if [[ "$prev_alert_state" != "degraded" ]]; then
+      alert_body="$(printf 'Hermes prevention watchdog self-heal failed (%s):\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')"; printf ' - %s\n' "${errors[@]}")"
+      "$alert_curl_bin" -sS -m 10 -H "Title: Hermes prevention watchdog self-heal failed" -H "Priority: high" \
+        -d "$alert_body" "$alert_ntfy_url" >/dev/null 2>&1 || true
+    fi
+    printf 'degraded' > "$alert_state" 2>/dev/null || true
+  fi
 fi
 
 [[ "$all_ok" -eq 1 ]] && exit 0 || exit 1

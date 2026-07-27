@@ -14,8 +14,12 @@ export function resolveChatMachineLabel(
   profile: GatewayProfile | null | undefined,
   allProfiles?: GatewayProfile[],
 ): string {
-  const matched =
-    profile ?? (gatewayUrl.trim() ? findProfileForGatewayUrl(allProfiles ?? [], gatewayUrl) : null);
+  const urlMatched = gatewayUrl.trim()
+    ? findProfileForGatewayUrl(allProfiles ?? [], gatewayUrl)
+    : null;
+  // Prefer the profile that owns the live URL over a sticky active profile.
+  // Sticky activeProfile + healed URL was the Reach-out-goal wrong-Mac label.
+  const matched = urlMatched ?? profile;
   if (matched) {
     return formatProfileLabel(matched);
   }

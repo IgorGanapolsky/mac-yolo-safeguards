@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import {
   buildSelfHealProbeUrls,
@@ -6,6 +7,7 @@ import {
   savedProfileFallbackUrls,
   shouldClearUsbPrimaryOnCellular,
   shouldDeferLoopbackSuccessOnCellular,
+  shouldKeepUsbOverStickyRemote,
   shouldPreferUsbProbeFirst,
 } from '../utils/connectionSelfHeal';
 
@@ -213,13 +215,16 @@ describe('connectionSelfHeal', () => {
 });
 
 describe('USB primary on cellular', () => {
-  it('prefers USB probe only on Wi‑Fi with loopback active', () => {
-    expect(
-      shouldPreferUsbProbeFirst({
-        activeGatewayUrl: 'http://127.0.0.1:8642',
-        wifiConnected: true,
-      }),
-    ).toBe(true);
+  it('prefers USB probe only on Android Wi‑Fi with loopback active', () => {
+    const onUsbWifi = shouldPreferUsbProbeFirst({
+      activeGatewayUrl: 'http://127.0.0.1:8642',
+      wifiConnected: true,
+    });
+    if (Platform.OS === 'android') {
+      expect(onUsbWifi).toBe(true);
+    } else {
+      expect(onUsbWifi).toBe(false);
+    }
     expect(
       shouldPreferUsbProbeFirst({
         activeGatewayUrl: 'http://127.0.0.1:8642',
@@ -230,6 +235,84 @@ describe('USB primary on cellular', () => {
       shouldPreferUsbProbeFirst({
         activeGatewayUrl: 'http://100.87.85.85:8642',
         wifiConnected: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('prefers USB when effective URL is loopback even if sticky profile is Tailscale (Android)', () => {
+    // Same-Mac USB↔Tailscale handoff: activeProfileId stays on the Tailscale row but the
+    // live session is already on the cable — must not demote USB in the probe order.
+    // Jest default platform is ios — force-android behavior is covered by Platform mock sites;
+    // on iOS this must stay false (no adb reverse).
+    const prefer = shouldPreferUsbProbeFirst({
+      activeGatewayUrl: 'http://100.87.85.85:8642',
+      effectiveGatewayUrl: 'http://127.0.0.1:8642',
+      wifiConnected: true,
+    });
+    if (Platform.OS === 'android') {
+      expect(prefer).toBe(true);
+    } else {
+      expect(prefer).toBe(false);
+    }
+  });
+
+  it('prefers USB on cellular when live reverse matches the sticky Mac (Android only)', () => {
+    const prefer = shouldPreferUsbProbeFirst({
+      activeGatewayUrl: 'http://100.87.85.85:8642',
+      effectiveGatewayUrl: 'http://100.87.85.85:8642',
+      wifiConnected: false,
+      liveUsbSameMachine: true,
+    });
+    if (Platform.OS === 'android') {
+      expect(prefer).toBe(true);
+    } else {
+      expect(prefer).toBe(false);
+    }
+  });
+
+  it('does not prefer USB for a sticky foreign Tailscale Mac (mini vs Pro cable)', () => {
+    expect(
+      shouldPreferUsbProbeFirst({
+        activeGatewayUrl: 'http://100.94.135.78:8642',
+        effectiveGatewayUrl: 'http://100.94.135.78:8642',
+        wifiConnected: true,
+        liveUsbSameMachine: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps USB over a sticky same-Mac Tailscale URL when the cable is live (Android)', () => {
+    // The exact P0 2026-07-23 race: autoDiscover step 2 re-probes loadLastSelectedProfileId's
+    // sticky Tailscale URL every tick and must not steal the header away from a healthy cable.
+    // iOS never keeps USB (no adb reverse).
+    const keep = shouldKeepUsbOverStickyRemote({
+      effectiveGatewayUrl: 'http://127.0.0.1:8642',
+      stickyProfileUrl: 'http://100.87.85.85:8642',
+      liveUsbSameMachine: true,
+    });
+    if (Platform.OS === 'android') {
+      expect(keep).toBe(true);
+    } else {
+      expect(keep).toBe(false);
+    }
+  });
+
+  it('does not keep USB over a foreign sticky Mac (mini) even if cabled to a different Mac', () => {
+    expect(
+      shouldKeepUsbOverStickyRemote({
+        effectiveGatewayUrl: 'http://127.0.0.1:8642',
+        stickyProfileUrl: 'http://100.94.135.78:8642',
+        liveUsbSameMachine: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not keep USB when the effective URL is not actually loopback', () => {
+    expect(
+      shouldKeepUsbOverStickyRemote({
+        effectiveGatewayUrl: 'http://100.87.85.85:8642',
+        stickyProfileUrl: 'http://100.87.85.85:8642',
+        liveUsbSameMachine: true,
       }),
     ).toBe(false);
   });
@@ -273,6 +356,25 @@ describe('USB primary on cellular', () => {
         failoverUrl: 'http://100.87.85.85:8642',
       }),
     ).toBe(false);
+    expect(
+      shouldClearUsbPrimaryOnCellular({
+        primaryUrl: 'http://127.0.0.1:8642',
+        wifiConnected: false,
+        failoverUrl: 'http://100.87.85.85:8642',
+        liveUsbConfirmed: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not defer live USB loopback success on cellular', () => {
+    expect(
+      shouldDeferLoopbackSuccessOnCellular({
+        primaryUrl: 'http://127.0.0.1:8642',
+        wifiConnected: false,
+        hasTailscaleAlternate: true,
+        liveUsbConfirmed: true,
+      }),
+    ).toBe(false);
   });
 
   it('resolves Tailscale failover for USB primary without fresh discoveries', () => {
@@ -299,6 +401,59 @@ describe('USB primary on cellular', () => {
         discoveries: [],
       }),
     ).toBe('http://100.87.85.85:8642');
+  });
+
+  it('falls through to another Tailscale computer only for anonymous USB', () => {
+    const usbAnonymous: GatewayProfile = {
+      id: 'usb',
+      label: 'Computer via USB',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      localIp: '127.0.0.1',
+      addedAt: '2026-07-21T00:00:00Z',
+    };
+    const miniTs: GatewayProfile = {
+      id: 'mini',
+      label: 'Igors-Mac-mini',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      hostname: 'Igors-Mac-mini',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-21T00:00:01Z',
+    };
+    expect(
+      resolveCellularTailscaleFailoverUrl({
+        primaryUrl: 'http://127.0.0.1:8642',
+        profiles: [usbAnonymous, miniTs],
+        activeProfile: usbAnonymous,
+        discoveries: [],
+      }),
+    ).toBe('http://100.94.135.78:8642');
+  });
+
+  it('does not silently jump named USB MacBook to Mac mini Tailscale', () => {
+    const usbMacBook: GatewayProfile = {
+      id: 'usb',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      hostname: 'Igors-MacBook-Pro',
+      localIp: '127.0.0.1',
+      addedAt: '2026-07-21T00:00:00Z',
+    };
+    const miniTs: GatewayProfile = {
+      id: 'mini',
+      label: 'Igors-Mac-mini',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      hostname: 'Igors-Mac-mini',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-21T00:00:01Z',
+    };
+    expect(
+      resolveCellularTailscaleFailoverUrl({
+        primaryUrl: 'http://127.0.0.1:8642',
+        profiles: [usbMacBook, miniTs],
+        activeProfile: usbMacBook,
+        discoveries: [],
+      }),
+    ).toBeNull();
   });
 });
 

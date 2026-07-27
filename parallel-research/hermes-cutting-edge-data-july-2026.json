@@ -1,0 +1,1113 @@
+{
+  "run_id": "trun_d3be5e813aa949708f60154d99f96555",
+  "interaction_id": "trun_d3be5e813aa949708f60154d99f96555",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_d3be5e813aa949708f60154d99f96555",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Assessment reasoning: The provided field_answer is a comprehensive, multi-source dossier that aligns with the user query. It covers a wide range of data sources (GH Archive, Common Crawl, Stack Exchange data dumps, Hugging Face datasets, SWE-bench variants, Terminal-Bench, MCP-Atlas, arXiv/OpenAlex/Semantic Scholar, vendor docs, Reddit API/Arctic Shift, tool-calling corpora, and code corpora), details pricing (as of July 2026), licensing/commercial-use notes, freshness cadence, access methods, privacy risks, signal quality, and suitability for RAG/eval/fine-tuning. It also includes a ranked recommendations section, a Bronze/Silver/Gold ingestion plan within the $10 budget, and explicit \u201cdon\u2019t do\u201d guidance. The excerpts provided (GH Archive, Stack Exchange license notes, common crawl, etc.) corroborate several of the key claims (public datasets, licenses, cadence, and access methods). While the field_answer makes many specific claims about licenses, cadences, and capabilities for numerous sources, not every claim is directly verifiable from the excerpts alone; however, the overall content is consistent with the excerpts and the user\u2019s target of July 2026 availability. Therefore, completeness is True and the field is Supported by excerpts: True.",
+        "citations": [
+          {
+            "url": "https://github.com/igrigorik/gharchive.org/blob/master/bigquery/README.md",
+            "excerpts": [
+              "gharchive.org/bigquery/README.md at master \u00b7 igrigorik ...\nThe entire GH Archive is available as a public dataset on Google BigQuery: the dataset is automatically updated every hour and enables you to run arbitrary SQL-"
+            ],
+            "title": "gharchive.org/bigquery/README.md at master \u00b7 igrigorik ..."
+          },
+          {
+            "url": "https://github.com/igrigorik/gharchive.org",
+            "excerpts": [
+              "GitHub - igrigorik/gharchive.org: GH Archive is a project to ...\nContent based on www.gharchive.org used under the CC-BY-4.0 license. Note this repository does not contain the GH Archive dataset (event archives/data). The dataset includes material that may be subject to third party rights."
+            ],
+            "title": "GitHub - igrigorik/gharchive.org: GH Archive is a project to ..."
+          },
+          {
+            "url": "https://davelester.github.io/gharchive-bigquery-examples",
+            "excerpts": [
+              "Analyzing GitHub Data with BigQuery Using GH Archive\nYou can easily analyze GH Archive data by using the Google Cloud Console to query the dataset. This repository shares examples for how you can use BigQuery and the GH Archive dataset to analyze public GitHub activity for your next project."
+            ],
+            "title": "Analyzing GitHub Data with BigQuery Using GH Archive"
+          },
+          {
+            "url": "https://www.gharchive.org/",
+            "excerpts": [
+              "GH Archive\nThe entire GH Archive is also available as a public dataset on Google BigQuery: the dataset is automatically updated every hour and enables you to run arbitrary SQL-like queries over the entire dataset in seconds."
+            ],
+            "title": "GH Archive"
+          },
+          {
+            "url": "https://deepwiki.com/igrigorik/gharchive.org/3.1-bigquery-integration",
+            "excerpts": [
+              "BigQuery Integration | igrigorik/gharchive.org | DeepWiki\nThe GH Archive project makes all GitHub event data available as a public dataset on Google BigQuery. This integration enables users to perform complex SQL-like queries over the entire historical GitHub event data without needing to download or process any files locally."
+            ],
+            "title": "BigQuery Integration | igrigorik/gharchive.org | DeepWiki"
+          },
+          {
+            "url": "https://dev.to/devactivity/mastering-github-models-api-rate-limits-quotas-and-software-engineering-quality-4fk1",
+            "excerpts": [
+              "Mastering GitHub Models API: Rate Limits, Quotas, and ...\nA recent GitHub Community discussion highlighted this exact scenario: a developer encountered a rate limit on the GitHub Models API (specifically openai/gpt-5) after just a handful of requests, despite having a paid Copilot tier and budget for premium SKUs."
+            ],
+            "title": "Mastering GitHub Models API: Rate Limits, Quotas, and ..."
+          },
+          {
+            "url": "http://github.com/octokit/octokit.net/issues/1711",
+            "excerpts": [
+              "Github's search API has a custom limit of 30 requests per minute"
+            ],
+            "title": "Throttle Search calls to bypass 30 requests / min github limit"
+          },
+          {
+            "url": "https://yangmao.ai/en/providers/github-models/free-tier",
+            "excerpts": [
+              "GitHub Models Free Tier, Signup Credits, and Limits \u2014 yangmao.ai\nCurrent record: Free playground and limited API requests are available for signed-in GitHub users; model-specific quota and rate limits can change. Always confirm on the official site before relying on it."
+            ],
+            "title": "GitHub Models Free Tier, Signup Credits, and Limits \u2014 yangmao.ai"
+          },
+          {
+            "url": "https://github.com/mnfst/awesome-free-llm-apis",
+            "excerpts": [
+              "mnfst/awesome-free-llm-apis\nGroq rate limits were reduced in 2026 . Most models now get 1,000 RPD on the free tier (down from 14,400). Llama 4 Maverick has been deprecated. See rate limits ."
+            ],
+            "title": "mnfst/awesome-free-llm-apis"
+          },
+          {
+            "url": "https://github.com/orgs/community/discussions/149698",
+            "excerpts": [
+              "Rate Limits and File Uploads in GitHub Models #149698\nJan 24, 2025 \u2014 According to GitHub's rate limits documentation, it states that the tokens per request are 8000 in and 4000 out. However, 4o-mini clearly has a larger context"
+            ],
+            "title": "Rate Limits and File Uploads in GitHub Models #149698"
+          },
+          {
+            "url": "https://stackoverflow.com/legal/terms-of-service",
+            "excerpts": [
+              "Public Network Terms of Service - Stack Overflow\nThe Creative Commons Data Dump is licensed under the CC BY-SA license. By downloading the Creative Commons Data Dump, you agree to be bound by the terms of that license."
+            ],
+            "title": "Public Network Terms of Service - Stack Overflow"
+          },
+          {
+            "url": "https://www.devclass.com/development/2024/07/30/stack-exchange-restricts-access-to-dump-of-user-contributed-data-critics-complain-this-contradicts-license/1625192",
+            "excerpts": [
+              "Stack Exchange restricts access to dump of user-contributed ...\nThe data is free to download, and accompanying text notes that \u201call user content contributed to the Stack Exchange network is CC-by-SA 4.0 licensed, intended to be shared and remixed.\u201d The text does note the requirement for attribution, including the author and a link back to the original question."
+            ],
+            "title": "Stack Exchange restricts access to dump of user-contributed ..."
+          },
+          {
+            "url": "https://meta.stackexchange.com/questions/401324/announcing-a-change-to-the-data-dump-process",
+            "excerpts": [
+              "Announcing a change to the data-dump process\nJul 12, 2024 \u00b7 The Creative Commons Data Dump is licensed under the CC BY-SA license. By downloading the Creative Commons Data Dump, you agree to be bound by\u00a0... Where are the Stack Exchange data dumps? [duplicate] June 2023 Data Dump is missing - Meta Stack Exchange More results from meta.stackexchange.com"
+            ],
+            "title": "Announcing a change to the data-dump process"
+          },
+          {
+            "url": "https://stackoverflow.blog/2014/01/23/stack-exchange-cc-data-now-hosted-by-the-internet-archive",
+            "excerpts": [
+              "Stack Exchange Creative Commons data now hosted by the Internet ...\n23 de jan. de 2014 \u00b7 Wait, what's this data dump? All community-contributed content on Stack Exchange is licensed under the Creative Commons BY-SA 3.0 license. As"
+            ],
+            "title": "Stack Exchange Creative Commons data now hosted by the Internet ..."
+          },
+          {
+            "url": "https://www.sciencedirect.com/science/article/pii/S2590005626001165",
+            "excerpts": [
+              "Scalable conversion of Stack Exchange network-based question ...\nThe data of each site (since its inception till date) is available under the CC-by-SA license and can be accessed either as quarterly updated data dump ("
+            ],
+            "title": "Scalable conversion of Stack Exchange network-based question ..."
+          },
+          {
+            "url": "https://github.com/toimik/CommonCrawl/blob/main/LICENSE",
+            "excerpts": [
+              "CommonCrawl/LICENSE at main \u00b7 toimik/CommonCrawl \u00b7 GitHub\nA permissive license whose main conditions require preservation of copyright and license notices. Contributors provide an express grant of patent rights. Licensed works, modifications, and larger works may be distributed under different terms and without source code."
+            ],
+            "title": "CommonCrawl/LICENSE at main \u00b7 toimik/CommonCrawl \u00b7 GitHub"
+          },
+          {
+            "url": "https://deepwiki.com/commoncrawl/warc/4.3-warc-api",
+            "excerpts": [
+              "WARC API | commoncrawl/warc | DeepWiki\nThis document provides detailed documentation of the WARC API in the Common Crawl WARC library. The WARC API offers functionality for reading, writing, and manipulating WARC (Web ARChive) files according to the WARC/1.0 specification. For information about the older ARC format, see ARC API."
+            ],
+            "title": "WARC API | commoncrawl/warc | DeepWiki"
+          },
+          {
+            "url": "https://github.com/BramVanroy/CommonCrawl-CreativeCommons",
+            "excerpts": [
+              "Software to create C5, Common Crawl ...\nSoftware to create C5, Common Crawl crawls, annotated with potential Creative Commons license information - BramVanroy/ CommonCrawl -CreativeCommons."
+            ],
+            "title": "Software to create C5, Common Crawl ..."
+          },
+          {
+            "url": "http://commoncrawl.org/blog/a-sampling-of-2025-research-referencing-common-crawl",
+            "excerpts": [
+              "Using a dataset from Common Crawl [it identifies] over 90 million Wikipedia links spanning 1.68% of Web domains"
+            ],
+            "title": "A Sampling of 2025 Research Referencing Common Crawl"
+          },
+          {
+            "url": "http://commoncrawl.org/blog",
+            "excerpts": [
+              "Common Crawl builds and maintains an open repository of web crawl data that can be accessed and analyzed by anyone."
+            ],
+            "title": "Blog - Common Crawl"
+          },
+          {
+            "url": "https://www.modern-datatools.com/tools/hugging-face/pricing",
+            "excerpts": [
+              "Hugging Face Pricing (2026): Free, Pro, and Plans | Modern ...\nHugging Face pricing breakdown for 2026: free tier limits, Pro and Enterprise plan details, compute costs to watch for, and who each tier fits."
+            ],
+            "title": "Hugging Face Pricing (2026): Free, Pro, and Plans | Modern ..."
+          },
+          {
+            "url": "https://comparedge.com/tools/hugging-face/pricing",
+            "excerpts": [
+              "Hugging Face Pricing 2026: Free, PRO & Team Plans from $9/mo\nHugging Face starts free and charges $9 to $20 a month for its paid plans as of July 9, 2026, with a custom Enterprise tier above them. The free plan covers 2M-plus public models and datasets, 100GB of private storage, and a small ZeroGPU quota."
+            ],
+            "title": "Hugging Face Pricing 2026: Free, PRO & Team Plans from $9/mo"
+          },
+          {
+            "url": "https://www.saaspricepulse.com/tools/huggingface",
+            "excerpts": [
+              "Hugging Face Pricing 2026: Plans, Limits & Changes\nWe've tracked Hugging Face pricing for over 1 year, collecting 65+ price snapshots. View the pricing history chart above to see all changes, plan updates, and feature modifications."
+            ],
+            "title": "Hugging Face Pricing 2026: Plans, Limits & Changes"
+          },
+          {
+            "url": "https://klymentiev.com/blog/huggingface-inference-api",
+            "excerpts": [
+              "Hugging Face Inference API Free Tier Limits & Pricing 2026\nWhat are the Hugging Face Inference API free tier limits in 2026? The Serverless Inference API has a free tier with rate limits: a few hundred requests per hour, limited to models under ~10B parameters, with cold starts on less popular models."
+            ],
+            "title": "Hugging Face Inference API Free Tier Limits & Pricing 2026"
+          },
+          {
+            "url": "https://www.eesel.ai/blog/hugging-face-pricing",
+            "excerpts": [
+              "Hugging Face pricing explained: what you actually pay in 2026\nHugging Face pricing covers four account plans plus separate charges for compute, inference, and storage. Here's the full breakdown of what you actually pay in 2026."
+            ],
+            "title": "Hugging Face pricing explained: what you actually pay in 2026"
+          },
+          {
+            "url": "https://github.com/swe-bench/SWE-bench",
+            "excerpts": [
+              "SWE-bench: Can Language Models Resolve Real-world ... - GitHub\n13, 2025]: We've integrated SWE-bench Multimodal (paper, dataset) into this repository! ... MIT license. Check LICENSE.md . If you find our work helpful"
+            ],
+            "title": "SWE-bench: Can Language Models Resolve Real-world ... - GitHub"
+          },
+          {
+            "url": "https://labs.scale.com/leaderboard/swe_bench_pro_private",
+            "excerpts": [
+              "SWE-Bench Pro (Private Dataset) - Scale Labs\nTo reduce contamination risk, the public and held-out OSS subsets use strong copyleft licenses (e.g., GPL). The private subset consists of private"
+            ],
+            "title": "SWE-Bench Pro (Private Dataset) - Scale Labs"
+          },
+          {
+            "url": "https://unidata.pro/datasets/swe-bench-coding-tasks",
+            "excerpts": [
+              "SWE-Bench Coding Tasks Dataset | 8712 Files \u2014 Unidata\nUnidata datasets follow a dual-licensing model. Free samples are available for testing and trial use, while full datasets are provided exclusively through"
+            ],
+            "title": "SWE-Bench Coding Tasks Dataset | 8712 Files \u2014 Unidata"
+          },
+          {
+            "url": "https://news.ycombinator.com/item?id=45335452",
+            "excerpts": [
+              "SWE-Bench Pro - Hacker News\nSlightly tangent question - they said that they have protected the public test set with a strong copyleft license to prevent training private models on them."
+            ],
+            "title": "SWE-Bench Pro - Hacker News"
+          },
+          {
+            "url": "https://huggingface.co/SWE-bench/datasets",
+            "excerpts": [
+              "SWE-bench (SWE-bench) - Hugging Face\nOrg profile for SWE-bench on Hugging Face, the AI community building the future."
+            ],
+            "title": "SWE-bench (SWE-bench) - Hugging Face"
+          },
+          {
+            "url": "https://www.tbench.ai/",
+            "excerpts": [
+              "Terminal-Bench\n89 high-quality tasks across software engineering, machine learning, security, data science, and more. The original Terminal-Bench benchmark. 80 tasks testing agents' abilities to complete tasks using a terminal. The next frontier benchmark for terminal agents."
+            ],
+            "title": "Terminal-Bench"
+          },
+          {
+            "url": "https://github.com/harbor-framework/terminal-bench",
+            "excerpts": [
+              "harbor-framework/terminal-bench: A benchmark for LLMs on ... - GitHub\nTerminal-Bench is the benchmark for testing AI agents in real terminal environments. From compiling code to training models and setting up servers,"
+            ],
+            "title": "harbor-framework/terminal-bench: A benchmark for LLMs on ... - GitHub"
+          },
+          {
+            "url": "https://docs.factory.ai/benchmarks/terminal-bench",
+            "excerpts": [
+              "Terminal Bench - Factory Documentation\nTasks are scored on correctness, efficiency, and code quality. Terminal Bench Leaderboard. View live rankings and submit your agent."
+            ],
+            "title": "Terminal Bench - Factory Documentation"
+          },
+          {
+            "url": "https://qaskills.sh/blog/terminal-bench-agent-benchmark-guide-2026",
+            "excerpts": [
+              "Terminal-Bench Guide: Benchmarking AI Agents (2026)\nTerminal-Bench guide for 2026: how the benchmark scores AI agents on real terminal tasks via Docker sandboxes, end-state verification tests, and adapters."
+            ],
+            "title": "Terminal-Bench Guide: Benchmarking AI Agents (2026)"
+          },
+          {
+            "url": "https://benchlm.ai/blog/posts/terminal-bench-2-agentic-benchmark",
+            "excerpts": [
+              "Terminal-Bench 2.0 Explained: How We Measure Agentic Coding\nTerminal-Bench 2.0 tests multi-step terminal workflows with error recovery and state management. It reveals which models can actually operate as coding agents in a real environment."
+            ],
+            "title": "Terminal-Bench 2.0 Explained: How We Measure Agentic Coding"
+          },
+          {
+            "url": "http://scholar.google.com/citations?hl=en&user=5kYYJKQAAAAJ",
+            "excerpts": [
+              "MCP-Atlas: A Large-Scale Benchmark for Tool-Use Competency with Real MCP Servers."
+            ],
+            "title": "Chaithanya Bandi"
+          },
+          {
+            "url": "https://arxiv.org/abs/2602.00933",
+            "excerpts": [
+              "MCP-Atlas: A Large-Scale Benchmark for Tool-Use ...\nby C Bandi \u00b7 2026 \u00b7 Cited by 16 \u2014 We introduce MCP-Atlas, a benchmark for measuring tool-use competency against production MCP servers. MCP-Atlas contains 1,000 natural-language"
+            ],
+            "title": "MCP-Atlas: A Large-Scale Benchmark for Tool-Use ..."
+          },
+          {
+            "url": "http://huggingface.co/datasets/ScaleAI/MCP-Atlas",
+            "excerpts": [
+              "MCP Atlas is a large-scale benchmark for evaluating tool-use competency, comprising 36 real MCP servers and 220 tools."
+            ],
+            "title": "ScaleAI/MCP-Atlas \u00b7 Datasets at Hugging Face"
+          },
+          {
+            "url": "https://huggingface.co/papers/2602.00933",
+            "excerpts": [
+              "MCP-Atlas: A Large-Scale Benchmark for Tool-Use ...\nJan 31, 2026 \u2014 MCP-Atlas is a large-scale benchmark for evaluating tool-use competency in LLMs, featuring 36 real servers and 220 tools across 1,000 realistic"
+            ],
+            "title": "MCP-Atlas: A Large-Scale Benchmark for Tool-Use ..."
+          },
+          {
+            "url": "https://x.com/scale_AI/status/2002099826163601655",
+            "excerpts": [
+              "We recently introduced MCP-Atlas, a benchmark ...\nWe recently introduced MCP-Atlas , a benchmark for evaluating how well LLMs handle tool use via the Model Context Protocol."
+            ],
+            "title": "We recently introduced MCP-Atlas, a benchmark ..."
+          },
+          {
+            "url": "https://groups.google.com/g/arxiv-api/c/ys2ypF0uifA",
+            "excerpts": [
+              "API Rate Limit\nOct 9, 2023 \u2014 I've been using the arXiv API in a data engineering project for some time now and have recently encountered an issue."
+            ],
+            "title": "API Rate Limit"
+          },
+          {
+            "url": "https://best-ai.org/tool/semantic-scholar",
+            "excerpts": [
+              "Semantic Scholar \u2013 Scientific Research | Review 2026 | Best ...\nCompletely free to use with no subscriptions, fees, or paid tiers. Core search, reading features, Libraries, Research Feeds, and personalized alerts are included at no cost. Usage Model: API Calls, Pay-as-You-Go \u2014 ensuring you only pay for what you actually use."
+            ],
+            "title": "Semantic Scholar \u2013 Scientific Research | Review 2026 | Best ..."
+          },
+          {
+            "url": "https://apify.com/gentle_cloud/arxiv-paper-search",
+            "excerpts": [
+              "ArXiv Paper Search\nRate limiting: The ArXiv API recommends no more than 1 request per 3 seconds. \u00b7 Result limit: ArXiv API returns up to 100 results per request. \u00b7 No API key"
+            ],
+            "title": "ArXiv Paper Search"
+          },
+          {
+            "url": "https://propicked.com/ai-tools/semantic-scholar/pricing",
+            "excerpts": [
+              "Semantic Scholar Pricing (Free Plan + Paid Tiers): All 2 ...\nYes, Semantic Scholar offers a free plan that you can use without any payment. This makes it easy to test the platform before upgrading to a paid tier. The most affordable Semantic Scholar plan is the Free plan at $0/month. It includes Full search access, TLDR summaries, Research feeds."
+            ],
+            "title": "Semantic Scholar Pricing (Free Plan + Paid Tiers): All 2 ..."
+          },
+          {
+            "url": "https://costbench.com/software/ai-research-tools/semantic-scholar/free-plan",
+            "excerpts": [
+              "Semantic Scholar Free Plan (2026): What You Get & Limits\nSemantic Scholar offers 3 pricing tiers: Free (Web Interface), Free API (Public), API with Higher Rate Limits. The Free API (Public) plan is developers and researchers building academic research tools and needing api access for non-commercial projects."
+            ],
+            "title": "Semantic Scholar Free Plan (2026): What You Get & Limits"
+          },
+          {
+            "url": "http://redditcommentscraper.com/article-reddit-api-pricing-alternative.html",
+            "excerpts": [
+              "Reddit API pricing starts at $0.24 per 1000 calls for enterprise tiers"
+            ],
+            "title": "Reddit API Pricing 2026: Full Breakdown + Free Alternative"
+          },
+          {
+            "url": "https://octolens.com/blog/reddit-api-pricing",
+            "excerpts": [
+              "Reddit API Pricing in 2026: Complete Breakdown\nMar 10, 2026 \u2014 Access Cost: ~$0.24 per 1,000 API calls. The actual cost depends on: Data volume (requests per month) Reddit API: $0.24 per 1,000 requests. All"
+            ],
+            "title": "Reddit API Pricing in 2026: Complete Breakdown"
+          },
+          {
+            "url": "https://rankvise.com/blog/reddit-api-cost-guide",
+            "excerpts": [
+              "Reddit API Cost 2026: Hidden Pricing, Fees & Budgeting Strategies\nDiscover the true cost of Reddit API access. Learn about pricing structures, hidden fees, cost breakdowns, and smart strategies to reduce your Reddit API expenses."
+            ],
+            "title": "Reddit API Cost 2026: Hidden Pricing, Fees & Budgeting Strategies"
+          },
+          {
+            "url": "http://apidog.com/blog/reddit-api-guide",
+            "excerpts": [
+              "Pricing Reddit offers both free and paid access to its Data API. The free tier is available for non-commercial uses, such as personal projects and academic"
+            ],
+            "title": "Reddit API: Features, Pricing & Set-ups"
+          },
+          {
+            "url": "https://www.reddit.com/r/research/comments/1ghaxbe/reddit_data_for_academic_use",
+            "excerpts": [
+              "Reddit Data for academic use : r/research"
+            ],
+            "title": "Reddit Data for academic use : r/research Reddit\u00a0\u00b7\u00a0r/research 5 comments \u00b7 1 year ago"
+          },
+          {
+            "url": "https://static.scale.com/uploads/654197dc94d34f66c0f5184e/SWEAP_Eval_Scale%20%289%29.pdf",
+            "excerpts": [
+              "SWE-Bench Pro - static.scale.com\nThe benchmark is partitioned into a public set with open access to problems sourced from 11 repositories, a held-out set of 12 repositories and a commercial set of 18 proprietary repositories where we have formal partnership agreements with early-stage startups."
+            ],
+            "title": "SWE-Bench Pro - static.scale.com"
+          },
+          {
+            "url": "http://labs.scale.com/leaderboard/swe_bench_pro_public",
+            "excerpts": [
+              "SWE-Bench Pro is a large-scale benchmark containing 1865 total tasks across 41 professional repositories"
+            ],
+            "title": "SWE-Bench Pro (Public Dataset) - Scale Labs"
+          },
+          {
+            "url": "https://hub.harborframework.com/datasets/scale-ai/swe-bench-pro",
+            "excerpts": [
+              "scale-ai / swe-bench-pro\nSWE-Bench Pro addresses these gaps by sourcing tasks from diverse and complex codebases, including consumer applications, B2B services, and developer tools. To reduce contamination risk, the public and held-out OSS subsets use strong copyleft licenses (e.g., GPL). The private subset consists of proprietary codebases from startup partners."
+            ],
+            "title": "scale-ai / swe-bench-pro"
+          },
+          {
+            "url": "https://labs.scale.com/papers/swe_bench_pro",
+            "excerpts": [
+              "SWE-Bench Pro: AI on Software Engineering Tasks | Scale Labs\nThe benchmark is partitioned into a public set with open access to problems sourced from 11 repositories, a held-out set of 12 repositories and a commercial set of 18 proprietary repositories where we have formal partnership agreements with early-stage startups."
+            ],
+            "title": "SWE-Bench Pro: AI on Software Engineering Tasks | Scale Labs"
+          },
+          {
+            "url": "http://swebench.com/SWE-bench",
+            "excerpts": [
+              "SWE-bench is a benchmark for evaluating large language models on real world software issues collected from GitHub"
+            ],
+            "title": null
+          },
+          {
+            "url": "https://www.reddit.com/r/AskAcademia/comments/1b32i9q/accessing_reddit_data_for_academic_purposes",
+            "excerpts": [
+              "Accessing Reddit Data for Academic Purposes : r/AskAcademia\nI've tried to get access to the API directly, stating my usage purpose for academic research, and I've been told only subreddit moderators can use the pushshift API, hence my access request was denied."
+            ],
+            "title": "Accessing Reddit Data for Academic Purposes : r/AskAcademia"
+          },
+          {
+            "url": "https://apidog.com/blog/reddit-api-guide",
+            "excerpts": [
+              "Reddit API: Features, Pricing & Set-ups\nReddit offers both free and paid access to its Data API. The free tier is available for non-commercial uses, such as personal projects and academic research."
+            ],
+            "title": "Reddit API: Features, Pricing & Set-ups"
+          },
+          {
+            "url": "https://www.reddit.com/r/redditdev/comments/1qq614s/reddit_api_access_request_for_academic_researchers",
+            "excerpts": [
+              "Reddit API access request for academic researchers"
+            ],
+            "title": "Reddit API access request for academic researchers Reddit\u00a0\u00b7\u00a0r/redditdev 8 comments \u00b7 4 months ago"
+          },
+          {
+            "url": "http://github.com/pushshift/api",
+            "excerpts": [
+              "This RESTful API gives full functionality for searching Reddit data and also includes the capability of creating powerful data aggregations."
+            ],
+            "title": "Pushshift API"
+          },
+          {
+            "url": "https://aiwiki.ai/wiki/the_stack",
+            "excerpts": [
+              "The Stack (BigCode dataset) - AI Wiki\nThe Stack is a family of permissively-licensed source-code datasets assembled by the BigCode project, an open scientific collaboration jointly led by ServiceNow Research and Hugging Face."
+            ],
+            "title": "The Stack (BigCode dataset) - AI Wiki"
+          },
+          {
+            "url": "http://thealliance.ai/affiliated-projects/bigcode",
+            "excerpts": [
+              "BigCode is an open scientific collaboration working on the responsible development and use of large language models for code (Code LLMs), empowering the machine learning and open source communities through open governance.\nHighlights of BigCode's contributions back to the community include The Stack dataset (6.\n4TB of source code in 358 programming languages from permissive licenses), the StarCoder LLMs, along with supporting papers, code, tools, demos, and project governance card"
+            ],
+            "title": "BigCode - AI Alliance"
+          },
+          {
+            "url": "https://huggingface.co/datasets/bigcode/admin/resolve/main/The_Stack.pdf",
+            "excerpts": [
+              "The Stack: 3 TB of permissively licensed source code\nInthispaper,wetakeasteptowardsopenandresponsibleresearchoncodeLLMsby releasing TheStack,alargedatasetofpermissivelylicensedsourcecode.Wedescribe howwecollectedandprocessedcoderepositoriesfromGitHubandshowpromisingresults forsmallerscalecodeLLMs.Specifically,wemakethefollowingcontributions: \u2022Wepresent TheStack,alargedatasetwith3"
+            ],
+            "title": "The Stack: 3 TB of permissively licensed source code"
+          },
+          {
+            "url": "https://aiany.app/item/bigcode-the-stack-v2",
+            "excerpts": [
+              "AIAny - bigcode/the-stack-v2\nTraining-optimized format and streaming \u2014 Packaged in Parquet with dataset-card metadata and designed to work with Hugging Face Datasets streaming, it supports efficient distributed I/O and large-batch training without requiring a full local copy."
+            ],
+            "title": "AIAny - bigcode/the-stack-v2"
+          },
+          {
+            "url": "http://huggingface.co/datasets/bigcode/the-stack-v2",
+            "excerpts": [
+              "Additional repository-level metadata was collected from [GitHub Archive](https://www.gharchive.org/) data up to 2023-09-14. The total uncompressed size of all files is 67.53TB\nDatasets: bigcode / the-stack-v2 like 592 Follow BigCode 2.08k Tasks: Text Generation Modalities: Tabular Text Formats: parquet Languages: code Size: 1B - 10B ArXiv: arxiv: 2402.19173 arxiv: 2107.03374 arxiv: 2207.14157 Libraries: Datasets Dask Croissant 1 License: other Dataset card Data Studio Files Files and versions xet [Community 36](https://huggingface.co/datasets/bigcode/the-stack-v2/discussions) ... Terms of Use for The Stack v2 Downloading the dataset in bulk requires a an agreement with SoftwareHeritage and INRIA. Contact datasets@softwareheritage.org for more information. If you are using the dataset to train models you must adhere to the SoftwareHeritage [principles for language model training](https://www.softwareheritage.org/2023/10/19/swh-statement-on-llm-for-code/) . The Stack v2 is a collection of source code from repositories with various licenses. Any use of all or part of the code gathered in The Stack v2 must abide by the terms of the original licenses, including attribution clauses when relevant. We facilitate this by providing provenance information for each data point. The Stack v2 is regularly updated to enact validated data removal requests. By clicking on \"Access repository\", you agree to update your own version of The Stack v2 to the most recent usable version. ... The Stack v2 **These datasets only contain the SWHIDs to download the code files and not the content of the files itself. See examples below to see how to download content. We are working on making the training datasets available in the coming weeks.** The Stack v2 is significantly larger than v1: |  | The Stack v1 | The Stack v2 | | full | 6.4TB | 67.5TB | | dedup | 2.9TB | 32.1TB | | train (full) | ~200B tokens | ~900B tokens | ... Changelog Dataset Summary The Stack v2 contains over 3B files in 600+ programming and markup languages. The dataset was created as part of the [BigCode Project](https://www.bigcode-project.org/) , an open scientific collaboration working on the responsible development of Large Language Models for Code (Code LLMs). The Stack serves as a pre-training dataset for Code LLMs, i.e., code-generating AI systems which enable the synthesis of programs from natural language descriptions as well as other from code snippets. ... How to use it ``` from datasets import load_dataset full dataset (file IDs only) ds = load_dataset( \"bigcode/the-stack-v2\" , split= \"train\" ) specific language (e.g. Dockerfiles) ds = load_dataset( \"bigcode/the-stack-v2\" , \"Dockerfile\" , split= \"train\" ) dataset streaming (will only download the data as needed) ds = load_dataset( \"bigcode/the-stack-v2\" , streaming= True , split= \"train\" ) for sample in iter (ds): print (sample) ``` Downloading the file contents The file contents are stored in the Software Heritage S3 bucket to ensure data compliance. Downloading data in bulk requires an agreement with SoftwareHeritage and INRIA as stated in the dataset agreement. Make sure to configure your environment with your [AWS credentials](https://awscli.amazonaws.com/v2/documentation/api/latest/reference/configure/index.html) . ``` pip install smart_open[s3] ``` ``` import os import boto3 from smart_open import open from datasets import load_dataset session = boto3.Session( aws_access_key_id=os.environ[ \"AWS_ACCESS_KEY_ID\" ], aws_secret_access_key=os.environ[ \"AWS_SECRET_ACCESS_KEY\" ]) s3 = session.client( \"s3\" ) def download_contents ( blob_id, src_encoding ): s3_url = f\"s3://softwareheritage/content/ {blob_id} \" with open (s3_url, \"rb\" , compression= \".gz\" , transport_params={ \"client\" : s3}) as fin: content = fin.read().decode(src_encoding) return { \"content\" : content} ds = load_dataset( \"bigcode/the-stack-v2\" , split= \"train\" , streaming= True ) ds = ds. map ( lambda row: download_contents(row[ \"blob_id\" ], row[ \"src_encoding\" ])) for row in ds: print (row[ \"content\" ]) break ``` Dataset Structure Data Fields `blob_id` ( `string` ): Software Heritage (SWH) ID of the file on AWS S3. `directory_id` ( `string` ): SWH ID of the root directory of the repository. `path` ( `string` ): The file path within the repository. `content_id` ( `string` ): SWH content ID. `detected_licenses` ( `string[]` ): List of licenses (SPDX) detected by ScanCode.\nLicensing Information The Stack v2 is a collection of source code from repositories with various licenses. Any use of all or part of the code gathered in The Stack v2 must abide by the terms of the original licenses, including attribution clauses when relevant. We facilitate this by providing provenance information for each data point. The list of [SPDX license identifiers](https://spdx.org/licenses/) included in the dataset can be found [here](https://huggingface.co/datasets/bigcode/the-stack-v2/blob/main/license_stats.csv) . ... Citation Information\nWe are working on making the training datasets available in the coming weeks.** The Stack v2 is significantly larger than v1: |  | The Stack v1 | The Stack v2 | | full | 6.4TB | 67.5TB | | dedup | 2.9TB | 32.1TB | | train (full) | ~200B tokens | ~900B tokens | ... Changelog Dataset Summary The Stack v2 contains over 3B files in 600+ programming and markup languages. The dataset was created as part of the [BigCode Project](https://www.bigcode-project.org/) , an open scientific collaboration working on the responsible development of Large Language Models for Code (Code LLMs). The Stack serves as a pre-training dataset for Code LLMs, i.e., code-generating AI systems which enable the synthesis of programs from natural language descriptions as well as other from code snippets. ... How to use it ``` from datasets import load_dataset full dataset (file IDs only) ds = load_dataset( \"bigcode/the-stack-v2\" , split= \"train\" ) specific language (e.g. Dockerfiles) ds = load_dataset( \"bigcode/the-stack-v2\" , \"Dockerfile\" , split= \"train\" ) dataset streaming (will only download the data as needed) ds = load_dataset( \"bigcode/the-stack-v2\" , streaming= True , split= \"train\" ) for sample in iter (ds): print (sample) ``` Downloading the file contents The file contents are stored in the Software Heritage S3 bucket to ensure data compliance. Downloading data in bulk requires an agreement with SoftwareHeritage and INRIA as stated in the dataset agreement. Make sure to configure your environment with your [AWS credentials](https://awscli.amazonaws.com/v2/documentation/api/latest/reference/configure/index.html) . ``` pip install smart_open[s3] ``` ``` import os import boto3 from smart_open import open from datasets import load_dataset session = boto3.Session( aws_access_key_id=os.environ[ \"AWS_ACCESS_KEY_ID\" ], aws_secret_access_key=os.environ[ \"AWS_SECRET_ACCESS_KEY\" ]) s3 = session.client( \"s3\" ) def download_contents ( blob_id, src_encoding ): s3_url = f\"s3://softwareheritage/content/ {blob_id} \" with open (s3_url, \"rb\" , compression= \".gz\" , transport_params={ \"client\" : s3}) as fin: content = fin.read().decode(src_encoding) return { \"content\" : content} ds = load_dataset( \"bigcode/the-stack-v2\" , split= \"train\" , streaming= True ) ds = ds. map ( lambda row: download_contents(row[ \"blob_id\" ], row[ \"src_encoding\" ])) for row in ds: print (row[ \"content\" ]) break ``` Dataset Structure Data Fields `blob_id` ( `string` ): Software Heritage (SWH) ID of the file on AWS S3. `directory_id` ( `string` ): SWH ID of the root directory of the repository. `path` ( `string` ): The file path within the repository. `content_id` ( `string` ): SWH content ID.\n``` from datasets import load_dataset full dataset (file IDs only) ds = load_dataset( \"bigcode/the-stack-v2\" , split= \"train\" ) specific language (e.g. Dockerfiles) ds = load_dataset( \"bigcode/the-stack-v2\" , \"Dockerfile\" , split= \"train\" ) dataset streaming (will only download the data as needed) ds = load_dataset( \"bigcode/the-stack-v2\" , streaming= True , split= \"train\" ) for sample in iter (ds): print (sample) ```"
+            ],
+            "title": "bigcode/the-stack-v2 \u00b7 Datasets at Hugging Face"
+          },
+          {
+            "url": "https://releases.sh/openai/releases",
+            "excerpts": [
+              "OpenAI Release Notes & Changelog \u00b7 June 2026 \u2014 releases.sh\nEvery OpenAI release note, changelog, and product update across all tracked sources \u2014 version history refreshed June 2026."
+            ],
+            "title": "OpenAI Release Notes & Changelog \u00b7 June 2026 \u2014 releases.sh"
+          },
+          {
+            "url": "https://developers.openai.com/api/docs/changelog",
+            "excerpts": [
+              "Changelog | OpenAI API\nSee all of the latest features and updates to the OpenAI API. Released the GPT-5.6 model family, Released a redesigned navigation for the OpenAI API platform,"
+            ],
+            "title": "Changelog | OpenAI API"
+          },
+          {
+            "url": "https://docs.langchain.com/oss/python/releases/changelog",
+            "excerpts": [
+              "Changelog - Docs by LangChain\nProvider-specific configuration such as Anthropic\u2019s programmatic tool calling and tool search. Built-in tools that are executed client-side, as supported by Anthropic, OpenAI, and other providers."
+            ],
+            "title": "Changelog - Docs by LangChain"
+          },
+          {
+            "url": "https://releasebot.io/updates/anthropic",
+            "excerpts": [
+              "Anthropic Release Notes - June 2026 Latest Updates - Releasebot\nComplete list of Anthropic latest updates for June 2026: get every product news, release note, and changelog from Anthropic summarized in one timeline."
+            ],
+            "title": "Anthropic Release Notes - June 2026 Latest Updates - Releasebot"
+          },
+          {
+            "url": "https://releases.sh/anthropic/sources",
+            "excerpts": [
+              "Anthropic Sources \u2014 releases.sh\nEvery changelog source tracked for Anthropic \u2014 GitHub repos, marketing posts, RSS feeds, and more."
+            ],
+            "title": "Anthropic Sources \u2014 releases.sh"
+          },
+          {
+            "url": "https://huggingface.co/datasets/nvidia/SWE-Zero-openhands-trajectories",
+            "excerpts": [
+              "nvidia/SWE-Zero-openhands-trajectories \u00b7 Datasets at ...\nApr 2, 2026 \u2014 This dataset comprises 318k agent trajectories collected using the OpenHands framework. The trajectories were synthesized using Qwen3-Coder"
+            ],
+            "title": "nvidia/SWE-Zero-openhands-trajectories \u00b7 Datasets at ..."
+          },
+          {
+            "url": "https://huggingface.co/datasets/nebius/SWE-rebench-openhands-trajectories",
+            "excerpts": [
+              "nebius/SWE-rebench-openhands-trajectories \u00b7 Datasets at ...\nDec 23, 2025 \u2014 SWE-rebench-OpenHands-Trajectories is a dataset of multi-turn agent trajectories for software engineering tasks, collected using Qwen/Qwen3-"
+            ],
+            "title": "nebius/SWE-rebench-openhands-trajectories \u00b7 Datasets at ..."
+          },
+          {
+            "url": "https://github.com/SWE-Gym/SWE-Gym/blob/main/docs/OpenHands.md",
+            "excerpts": [
+              "SWE-Gym/docs/OpenHands.md at main - GitHub\nDownload OpenHands SFT trajectory dataset from huggingface, format it into JSONL format, then upload to dataset: modal volume put dataset openhands-sft-trajectories.jsonl my_datasets"
+            ],
+            "title": "SWE-Gym/docs/OpenHands.md at main - GitHub"
+          },
+          {
+            "url": "https://huggingface.co/datasets/nebius/SWE-agent-trajectories",
+            "excerpts": [
+              "nebius/SWE-agent-trajectories \u00b7 Datasets at Hugging Face\nThis dataset contains 80,036 trajectories generated by a software engineering agent based on the SWE-agent framework, using various models as action generators. In these trajectories, the agent attempts to solve GitHub issues from the nebius/SWE-bench-extra and the dev split of princeton-nlp/SWE-bench."
+            ],
+            "title": "nebius/SWE-agent-trajectories \u00b7 Datasets at Hugging Face"
+          },
+          {
+            "url": "https://agent-trace.dev/",
+            "excerpts": [
+              "Agent Trace\nAgent Trace is an open specification for tracking AI-generated code. It provides a vendor-neutral format for recording AI contributions alongside human authorship in version-controlled codebases."
+            ],
+            "title": "Agent Trace"
+          },
+          {
+            "url": "https://ukgovernmentbeis.github.io/inspect_evals/evals/coding/bigcodebench",
+            "excerpts": [
+              "BigCodeBench: Benchmarking Code Generation with ...\nBigCodeBench is a coding benchmark with a special focus on models' use of Python libraries. Arxiv paper \u00b7 GitHub repo \u00b7 Website \u00b7 Official leaderboard."
+            ],
+            "title": "BigCodeBench: Benchmarking Code Generation with ..."
+          },
+          {
+            "url": "https://github.com/bigcode-project/bigcodebench",
+            "excerpts": [
+              "[ICLR'25] BigCodeBench: Benchmarking Code Generation ... - GitHub\nBigCodeBench is an easy-to-use benchmark for solving practical and challenging tasks via code. It aims to evaluate the true programming capabilities of large"
+            ],
+            "title": "[ICLR'25] BigCodeBench: Benchmarking Code Generation ... - GitHub"
+          },
+          {
+            "url": "https://huggingface.co/collections/bigcode/bigcodebench",
+            "excerpts": [
+              "\ud83c\udf38BigCodeBench - a bigcode Collection\nJun 22, 2024 \u2014 Explore code-generation model leaderboards and task details BigCodeBench: Benchmarking Code Generation with Diverse Function Calls and Complex"
+            ],
+            "title": "\ud83c\udf38BigCodeBench - a bigcode Collection"
+          },
+          {
+            "url": "https://arxiv.org/html/2406.15877v2",
+            "excerpts": [
+              "BigCodeBench: Benchmarking Code Generation with ...\nJun 26, 2024 \u2014 The first part of Table 1 presents an overview comparison between BigCodeBench and other mainstream function-level Python programming benchmarks"
+            ],
+            "title": "BigCodeBench: Benchmarking Code Generation with ..."
+          },
+          {
+            "url": "https://openreview.net/forum?id=YrycTjllL0",
+            "excerpts": [
+              "BigCodeBench: Benchmarking Code Generation with ...\nby TY Zhuo \u00b7 Cited by 481 \u2014 This paper introduces BigCodeBench, a novel code generation benchmark that improves existing ones like HumanEval by incorporating more diverse function calls"
+            ],
+            "title": "BigCodeBench: Benchmarking Code Generation with ..."
+          },
+          {
+            "url": "https://github.com/Aider-AI/polyglot-benchmark",
+            "excerpts": [
+              "Coding problems used in aider's polyglot benchmark - GitHub\nThese exercises are used in accordance with Exercism's open source licenses. Please visit Exercism or the repos above to see licensing of these coding exercises."
+            ],
+            "title": "Coding problems used in aider's polyglot benchmark - GitHub"
+          },
+          {
+            "url": "https://llmdb.com/benchmarks/aider-polyglot",
+            "excerpts": [
+              "Aider Polyglot - LLM Benchmark\nReplaces the original Python-only benchmark that was saturating at 80%+ scores, providing better differentiation between frontier models through increased difficulty and language diversity. Aider Polyglot evaluates model performance using a standardized scoring methodology."
+            ],
+            "title": "Aider Polyglot - LLM Benchmark"
+          },
+          {
+            "url": "https://llm-stats.com/benchmarks/aider-polyglot",
+            "excerpts": [
+              "Aider-Polyglot Leaderboard\nLast updated June 24, 2026. About this benchmark. What is Aider-Polyglot? A coding benchmark that evaluates LLMs on 225 challenging Exercism programming"
+            ],
+            "title": "Aider-Polyglot Leaderboard"
+          },
+          {
+            "url": "https://epoch.ai/benchmarks/aider-polyglot",
+            "excerpts": [
+              "Aider Polyglot - epoch.ai\nFor detailed methodology information as well as the evaluation code, please refer to the Aider polyglot benchmark GitHub repo. A benchmark that evaluates models\u2019 performance on a set of challenging programming problems from Exercism, an online programming education platform."
+            ],
+            "title": "Aider Polyglot - epoch.ai"
+          },
+          {
+            "url": "https://aiwiki.ai/wiki/aider_polyglot",
+            "excerpts": [
+              "Aider Polyglot - AI Wiki\nAider Polyglot is a coding benchmark that evaluates large language models on their ability to write and edit code across six programming languages: C++, Go, Java, JavaScript, Python, and Rust."
+            ],
+            "title": "Aider Polyglot - AI Wiki"
+          },
+          {
+            "url": "http://registry.modelcontextprotocol.io/",
+            "excerpts": [
+              "Discover Model Context Protocol servers\nLive context MCP server: resolves git, services, and tests into agent context. Local-first, MIT. Updated 6/28/2026\nOfficial MCP Registry Discover Model Context Protocol servers [GitHub](https://github.com/modelcontextprotocol/registry) [Docs](https://github.com/modelcontextprotocol/registry/tree/main/docs) API Reference\n# Official MCP Registry"
+            ],
+            "title": "Official MCP Registry"
+          },
+          {
+            "url": "http://modelcontextprotocol.info/tools/registry",
+            "excerpts": [
+              "The MCP registry provides MCP clients with a list of MCP servers, like an app store for MCP servers. It serves as the **authoritative repository** for publicly-available MCP serv\nThe official MCP Registry launched in preview on September 8, 2025."
+            ],
+            "title": "MCP Registry - Model Context Protocol (MCP)"
+          },
+          {
+            "url": "https://github.com/modelcontextprotocol/servers",
+            "excerpts": [
+              "GitHub - modelcontextprotocol/servers: Model Context Protocol ...\nIf you are looking for a list of MCP servers, you can browse published servers on the MCP Registry. The repository served by this README is dedicated to housing just the small number of reference servers maintained by the MCP steering group."
+            ],
+            "title": "GitHub - modelcontextprotocol/servers: Model Context Protocol ..."
+          },
+          {
+            "url": "http://modelcontextprotocol.io/registry/about",
+            "excerpts": [
+              "A REST API for MCP clients and aggregators to discover available servers\nA single place for server creators to publish metadata about their servers\nNamespace management through DNS verification\nStandardized installation and configuration information\nThe MCP Registry is the official centralized metadata repository for publicly accessible MCP servers, backed by major trusted contributors to the MCP ecosystem such as Anthropic, GitHub, PulseMCP, and Microsoft.\nThe MCP Registry provides:"
+            ],
+            "title": "The MCP Registry"
+          },
+          {
+            "url": "http://prod.registry.modelcontextprotocol.io/",
+            "excerpts": [
+              "Discover Model Context Protocol servers"
+            ],
+            "title": "Official MCP Registry"
+          },
+          {
+            "url": "https://getfreeai.net/en/services/api/hugging-face",
+            "excerpts": [
+              "Hugging Face Inference API - Free Testing of Thousands of ...\nHugging Face Inference API provides free API service supporting thousands of open-source models. Free tier offers hundreds of requests per hour, PRO account at $9/month for higher quotas. Supports text generation, image generation, speech recognition and more, easy to use."
+            ],
+            "title": "Hugging Face Inference API - Free Testing of Thousands of ..."
+          },
+          {
+            "url": "https://free-llm.com/provider/huggingface-inference",
+            "excerpts": [
+              "Hugging Face Inference Free API (2026) | Models & Limits\nGet free API access to Hugging Face Inference. Full guide on limits, Python/JS examples, and how to get a free API key."
+            ],
+            "title": "Hugging Face Inference Free API (2026) | Models & Limits"
+          },
+          {
+            "url": "https://techjacksolutions.com/ai-tools/hugging-face/hugging-face-inference-api",
+            "excerpts": [
+              "Hugging Face Inference API: Serverless & Endpoints Guide (2026)\nRate limits on the free tier are not published as fixed numbers. Hugging Face describes them as \"rate-limited\" without specifying exact thresholds, and the limits vary by model popularity and current load."
+            ],
+            "title": "Hugging Face Inference API: Serverless & Endpoints Guide (2026)"
+          },
+          {
+            "url": "https://discuss.huggingface.co/t/api-limits-on-free-inference-api/57711",
+            "excerpts": [
+              "API Limits on Free Inference API - Beginners - Hugging Face ...\nThe documentation is rather vague on the limits of the Free Inference API and similarly vague what subscribing to a \u2018Pro\u2019 account would change in the limits. Could somebody comment in their experience what the limits of the Inference API are? In particular Does moving to Pro change the limit for the model size which can be used? (Free has a limit of 10GB) Are there any hourly / monthly"
+            ],
+            "title": "API Limits on Free Inference API - Beginners - Hugging Face ..."
+          },
+          {
+            "url": "https://www.reddit.com/r/DataHoarder/comments/14vm3b7/pushshift_alternative",
+            "excerpts": [
+              "Pushshift alternative : r/DataHoarder - Reddit\nIs there something like Pushshift that is continuing to archive Reddit data? I know there is Archiveteam, but that only consists of wayback machine archives, which are way too bulky to use for automated processing."
+            ],
+            "title": "Pushshift alternative : r/DataHoarder - Reddit"
+          },
+          {
+            "url": "https://bestreddit.tools/tool/arctic-shift",
+            "excerpts": [
+              "Arctic Shift: Reddit Historical Data Archive (Pushshift ...\nFor anyone who misses Pushshift, Arctic Shift is the closest free replacement: a community-run archive of historical Reddit posts and comments with a search UI, a download tool, and an API."
+            ],
+            "title": "Arctic Shift: Reddit Historical Data Archive (Pushshift ..."
+          },
+          {
+            "url": "https://ojs.aaai.org/index.php/ICWSM/article/download/7347/7201/10577",
+            "excerpts": [
+              "The Pushshift Reddit Dataset\nby J Baumgartner \u00b7 2020 \u00b7 Cited by 1592 \u2014 Figure 1: Pushshift's Reddit data collection platform . \u2022 An API to allow researchers dynamic access to collected data and aggregation functionality. Ingest"
+            ],
+            "title": "The Pushshift Reddit Dataset"
+          },
+          {
+            "url": "https://fetchlayer.dev/blog/pushshift-alternative",
+            "excerpts": [
+              "Pushshift Alternative in 2026: What to Use Now That It's Gone\nPushshift is dead for most practical purposes. Here are the best alternatives for getting Reddit data in 2026 \u2014 from API services to historical archives."
+            ],
+            "title": "Pushshift Alternative in 2026: What to Use Now That It's Gone"
+          },
+          {
+            "url": "https://painonsocial.com/blog/reddit-api-alternative",
+            "excerpts": [
+              "Reddit API Alternative: 5 Best Options for Data Collection in ...\n1. Pushshift API (Academic Research Focus) \u00b7 2. PRAW (Python Reddit API Wrapper) \u00b7 3. SocialData API \u00b7 4. Apify Reddit Scraper \u00b7 5. Custom Web Scraping Solutions."
+            ],
+            "title": "Reddit API Alternative: 5 Best Options for Data Collection in ..."
+          },
+          {
+            "url": "https://deepwiki.com/SWE-bench/SWE-bench/11-api-reference",
+            "excerpts": [
+              "API Reference | SWE-bench/SWE-bench | DeepWiki\nThis page provides a comprehensive programmatic reference for the SWE-bench package. It documents all public functions, classes, and constants available for import, organized by functional area."
+            ],
+            "title": "API Reference | SWE-bench/SWE-bench | DeepWiki"
+          },
+          {
+            "url": "https://scaleapi.github.io/SWE-bench_Pro-os",
+            "excerpts": [
+              "SWE-Bench Pro\nWe introduce SWE-Bench Pro, a substantially more challenging benchmark that builds upon the best practices of SWE-BENCH, but is explicitly designed to capture realistic, complex, enterprise-level problems beyond the scope of SWE-BENCH."
+            ],
+            "title": "SWE-Bench Pro"
+          },
+          {
+            "url": "https://shiporskip.io/news/minimax-m2-5-swe-bench-80-percent-api-open-frontier-2026",
+            "excerpts": [
+              "MiniMax's M2.5 Hits 80% on SWE-Bench Verified \u2014 The Most ...\nChinese AI lab MiniMax quietly shipped M2.5 with 80.2% on SWE-Bench Verified \u2014 matching Claude 3.7 Sonnet \u2014 while keeping full API access open globally. The lab also released an official CLI today, positioning M2.5 as a serious alternative for agentic coding pipelines."
+            ],
+            "title": "MiniMax's M2.5 Hits 80% on SWE-Bench Verified \u2014 The Most ..."
+          },
+          {
+            "url": "https://www.youtube.com/watch?v=NUd8fZvGC7A",
+            "excerpts": [
+              "Chain of Thought | Introducing SWE-Bench Pro - YouTube\nNov 12, 2025 \u00b7 To reduce contamination risk, the public and held-out OSS subsets use strong copyleft licenses (e.g., GPL). The commercial subset consists"
+            ],
+            "title": "Chain of Thought | Introducing SWE-Bench Pro - YouTube"
+          },
+          {
+            "url": "https://www.emergentmind.com/topics/swe-bench-pro-ecd5fbe8-1171-4842-b741-58d3df0ec409",
+            "excerpts": [
+              "SWE-Bench-Pro Benchmark Suite - Emergent Mind\nDec 14, 2025 \u00b7 SWE-Bench-Pro's design enforces contamination resistance by utilizing GPL/copyleft repositories (legal exclusion from commercial pre-train"
+            ],
+            "title": "SWE-Bench-Pro Benchmark Suite - Emergent Mind"
+          },
+          {
+            "url": "https://www.citybiz.co/article/868288/reddit-api-pricing-in-2026-what-youll-actually-pay-at-every-tier",
+            "excerpts": [
+              "Reddit API Pricing in 2026: What You'll Actually Pay at ...\n2 days ago \u2014 Here's the part of Reddit API pricing that catches developers off guard: there is no tier between \u201c100 QPM is not enough\u201d and \u201c$12,000 a month.\u201d"
+            ],
+            "title": "Reddit API Pricing in 2026: What You'll Actually Pay at ..."
+          },
+          {
+            "url": "http://apis.io/plans/reddit/reddit-plans-pricing",
+            "excerpts": [
+              "Reddit Data API \u2014 Free (non-commercial) freemium Free OAuth-authenticated tier for non-commercial integrations. Specific QPM / QPS allowances and qualified-researcher carve-outs are documented in Reddit's developer policies. Free non-commercial access (month \u00b7 month) 0.00 USD OAuth-authenticated access Non-commercial use only Reddit Data API \u2014 Commercial enterprise Commercial / enterprise access to the Reddit Data API is sold via Reddit's sales team; rates and call ceilings are quoted per contract. Custom contract (contract \u00b7 year) contact sales USD Commercial-use entitlement Negotiated call volume Direct support relationship\nReddit Plans Pricing The Reddit Data API has a free OAuth-authenticated tier intended for non-commercial use and a commercial enterprise tier sold through contact-sales. Reddit's public developer pages are protected against automated fetch, so concrete commercial rates could not be reconciled from the live source. Reddit Plans Pricing is the machine-readable pricing-plan profile for [Reddit](https://apis.io/providers/reddit/) on the [APIs.io](https://apis.io/) network, conforming to the [API Commons Plans](https://apicommons.org/) specification. It defines 2 plans, covering freemium and enterprise tiers, with named plans including _Reddit Data API \u2014 Free (non-commercial)_ , _Reddit Data API \u2014 Commercial_ . Tagged areas include Social Media, Content, and Community. **2** Plans API Commons Plans [View Source](https://www.reddit.com/wiki/api) Social Media Content Community Plans Reddit Data API \u2014 Free (non-commercial) freemium Free OAuth-authenticated tier for non-commercial integrations. Specific QPM / QPS allowances and qualified-researcher carve-outs are documented in Reddit's developer policies. Free non-commercial access (month \u00b7 month) 0.00 USD OAuth-authenticated access Non-commercial use only Reddit Data API \u2014 Commercial enterprise Commercial / enterprise access to the Reddit Data API is sold via Reddit's sales team; rates and call ceilings are quoted per contract. Custom contract (contract \u00b7 year) contact sales USD Commercial-use entitlement Negotiated call volume Direct support relationship"
+            ],
+            "title": "Reddit Plans Pricing \u2014 API Pricing Plans | APIs.io Plans"
+          },
+          {
+            "url": "https://www.redditcommentscraper.com/article-reddit-api-pricing-alternative.html",
+            "excerpts": [
+              "Reddit API Pricing 2026: Full Breakdown + Free Alternative\nReddit API pricing starts at $0.24 per 1000 calls for enterprise tiers. high-volume users. Expect $2,000-5,000/month. Best for: Enterprises with budget for"
+            ],
+            "title": "Reddit API Pricing 2026: Full Breakdown + Free Alternative"
+          },
+          {
+            "url": "https://data365.co/blog/reddit-api-pricing",
+            "excerpts": [
+              "Reddit API Pricing: What It Costs and Better Alternative\nMay 11, 2026 \u2014 API prices for high-volume projects now come with enterprise-level price tags. Reddit limits pagination depth and historical data access, making"
+            ],
+            "title": "Reddit API Pricing: What It Costs and Better Alternative"
+          },
+          {
+            "url": "https://www.techloy.com/reddit-api-pricing-in-2026-complete-guide-for-developers-and-businesses",
+            "excerpts": [
+              "Reddit API Pricing in 2026: Complete Guide for Developers and ...\nThis guide breaks down what Reddit's official API actually costs, what you get at each tier, and when using a third-party provider like Data365 makes more financial sense than paying Reddit's direct rates for your specific use case."
+            ],
+            "title": "Reddit API Pricing in 2026: Complete Guide for Developers and ..."
+          },
+          {
+            "url": "http://github.com/laude-institute/terminal-bench/blob/main/CLAUDE.md",
+            "excerpts": [
+              "CLAUDE.md - harbor-framework/terminal-bench Terminal-Bench (T-Bench) is a benchmark for testing AI agents in real terminal environments. It consists of a dataset of tasks and an execution harness that CLAUDE.md - harbor-framework/terminal-bench Terminal-Bench (T-Bench) is a benchmark for testing AI agents in real terminal environments. It consists of a dataset of tasks and an execution harness that"
+            ],
+            "title": "CLAUDE.md - harbor-framework/terminal-bench"
+          },
+          {
+            "url": "http://github.com/harbor-framework/terminal-bench",
+            "excerpts": [
+              "##################################################################### ``` [Discord](https://discord.gg/6xWPKhGDbA) [Github](https://github.com/laude-institute/terminal-bench) [Docs](https://www.tbench.ai/docs) > **\ud83d\udce2 Announcement** : New users should check out [**harbor**](https://github.com/laude-institute/harbor) , our new framework that can be used to run Terminal-Bench 2.0! Terminal-Bench is\nWhether you're building LLM agents, benchmarking frameworks, or stress-testing system-level reasoning, Terminal-Bench gives you a reproducible task suite and execution harness designed for practical, real-world evaluation. Terminal-Bench consists of two parts: a **dataset of tasks** , and an **execution harness** that connects a language model to our terminal sandbox. Terminal-Bench is currently in **beta** with ~100 tasks. Over the coming months, we are going to expand Terminal-Bench into comprehensive testbed for AI agents in text-based environments. Any contributions are welcome, especially new and challenging tasks! ... Core Components Dataset of Tasks Each task in Terminal-Bench includes an instruction in English, a test script to verify if the language model / agent completed the task successfully, a reference (\"oracle\") solution that solves the task. Tasks are located in the [`tasks`](https://github.com/harbor-framework/terminal-bench/blob/main/tasks) folder of the repository, and the aforementioned list of current tasks gives an overview that is easy to browse. ... Submit to Our Leaderboard Terminal-Bench-Core v0.1.1 is the set of tasks for Terminal-Bench's beta release and corresponds to the current leaderboard. To evaluate on it pass `--dataset-name terminal-bench-core` and `--dataset-version 0.1.1` to the harness. For example: ```shell tb run \\ --agent terminus \\ --model anthropic/claude-3-7-latest \\ --dataset-name terminal-bench-core --dataset-version 0.1.1 --n-concurrent 8 ``` For more detailed instructions on submitting to the leaderboard, view our [leaderboard submission guide](https://www.tbench.ai/docs/submitting-to-leaderboard) . For more information on Terminal-Bench datasets and versioning view our [registry overview](https://www.tbench.ai/docs/registry) . Contribution Creating New Tasks View our [task contribution quickstart](https://harborframework.com/docs/task-format) to create a new task. Creating New Adapters View [How to create a new adapter for a new benchmark](https://harborframework.com/docs/adapters) to contribute a new adapter. Citing Us\na test script to verify if the language model / agent completed the task successfully, a reference (\"oracle\") solution that solves the task. Tasks are located in the [`tasks`](https://github.com/harbor-framework/terminal-bench/blob/main/tasks) folder of the repository, and the aforementioned list of current tasks gives an overview that is easy to browse. ... Submit to Our Leaderboard Terminal-Bench-Core v0.1.1 is the set of tasks for Terminal-Bench's beta release and corresponds to the current leaderboard. To evaluate on it pass `--dataset-name terminal-bench-core` and `--dataset-version 0.1.1` to the harness.\nharbor-framework/terminal-bench Page: GitHub repository URL: https://github.com/harbor-framework/terminal-bench Description: A benchmark for LLMs on complicated tasks in the terminal - harbor-framework/terminal-bench Stars: 2,456 Forks: 557 License: Apache-2.0 license Default branch: main Created: 2025-01-17T22:34:26.000Z Commits: 904 Top-level files"
+            ],
+            "title": "GitHub - harbor-framework/terminal-bench: A benchmark for LLMs on complicated tasks in the terminal \u00b7 GitHub"
+          },
+          {
+            "url": "https://huggingface.co/datasets/harborframework/terminal-bench-2.0/tree/main/extract-elf",
+            "excerpts": [
+              "harborframework/terminal-bench-2.0 at main - Hugging Face\nWe\u2019re on a journey to advance and democratize artificial intelligence through open source and open science."
+            ],
+            "title": "harborframework/terminal-bench-2.0 at main - Hugging Face"
+          },
+          {
+            "url": "http://arxiv.org/html/2601.11868v1",
+            "excerpts": [
+              "Harbor is a framework we released for building and running agent evaluations at scale. Terminal-Bench tasks are implemented in the Harbor task format and executed using the Harbor harness. Terminal-Bench 2.0 is distributed via the Harbor registry and can be run with harbor run -d terminal-bench@2.0 . Harbor comes pre-integrated with multiple container sandbox providers. For our experiments, we use Daytona and run between 32 and 100 containers in parallel. The Harbor configuration files we use in the experiments are available at [github.com/laude-institute/terminal-bench-experiments](https://github.com/laude-institute/terminal-bench-experiments/tree/main/configs/tb2) .\nJ. Yang, K. Lieret, C. E. Jimenez, A. Wettig, K. Khandpur, Y. Zhang, B. Hui, O. Press, L. Schmidt, and D. Yang (2025c) SWE-smith: scaling data for software engineering agents . In Proceedings of the 39th Annual Conference on Neural Information Processing Systems (NeurIPS 2025 D&B Spotlight) , Note: arXiv:2504.21798, accepted at NeurIPS 2025 (Spotlight) External Links: 2504.21798 , [Link](https://arxiv.org/abs/2504.21798) Cited by: Table 5 , \u00a74.4 . S. Yao, N. Shinn, P. Razavi, and K. R. Narasimhan (2025) {$\\tau$}-bench: a benchmark for \\underline{t}ool-\\underline{a}gent-\\underline{u}ser interaction in real-world domains . ... Appendix B Quality Control B.2 Check Tools\nTo facilitate automated quality control, we leveraged GitHub Actions as the Continuous Integration tool to automatically reject tasks that demonstrate common problems, provided that they can be verified deterministically. Specifically, we have: ... B.5 Assessment of Terminal-Bench on the Agentic Benchmark Checklist (ABC). Overall. Overall, Terminal-Bench scores 0.857 on Outcome Validity, 1.000 on Task Validity, and 0.830 on Benchmark Reporting, averaging to 0.896 . This places it near the top of the ABC leaderboard, ranking second among existing benchmarks, and reflects the substantial care and rigor invested by its developers. Authors of ABC have been closely involved with the development process, and many issues were surfaced and resolved through the public GitHub repository.\n| Repo-level Software Engineering | SWE-Bench Verified (Jimenez et al. , [2024](https://arxiv.org/html/.bib10 \"SWE-bench: can language models resolve real-world github issues?\") ) | Human-validated subset of real GitHub issues from SWE-Bench; success = a patch that makes the issue's tests pass under full repo context. | |  | SWE-Bench Live (Zhang et al. , 2025b ) | Continuously updated, per-issue tasks for real-world bug fixing; evaluates robustness and contamination resilience. | |  | ReplicationBench (Ye et al. , [2025](https://arxiv.org/html/.bib50 \"ReplicationBench: can ai agents replicate astrophysics research papers?\") ) | End-to-end replication of peer-reviewed astrophysics papers via author-collaborated task decomposition. | | Agentic / Interactive | AppWorld (Trivedi et al. , 2024 ) | Multi-app, stateful tasks assessing autonomous tool use, interactive coding, and safe execution. | ... | Category | Benchmark"
+            ],
+            "title": "Terminal-Bench: Benchmarking Agents on Hard, Realistic Tasks in Command Line Interfaces"
+          },
+          {
+            "url": "https://github.com/harbor-framework/harbor",
+            "excerpts": [
+              "Harbor is a framework for running agent evaluations and ... - GitHub\nHarbor is a framework from the creators of Terminal-Bench for evaluating and optimizing agents and language models. You can use Harbor to:."
+            ],
+            "title": "Harbor is a framework for running agent evaluations and ... - GitHub"
+          },
+          {
+            "url": "https://openreview.net/forum?id=8EB8k6DdCU",
+            "excerpts": [
+              "ToolACE: Winning the Points of LLM Function Calling\nIn this paper, we present ToolACE, an automatic agentic pipeline designed to generate accurate, complex, and diverse tool-learning data, specifically tailored to the capabilities of LLMs."
+            ],
+            "title": "ToolACE: Winning the Points of LLM Function Calling"
+          },
+          {
+            "url": "https://mlanthology.org/iclr/2025/liu2025iclr-toolace",
+            "excerpts": [
+              "ToolACE: Winning the Points of LLM Function Calling\nIn this paper, we present ToolACE, an automatic agentic pipeline designed to generate accurate, complex, and diverse tool-learning data, specifically tailored to the capabilities of LLMs."
+            ],
+            "title": "ToolACE: Winning the Points of LLM Function Calling"
+          },
+          {
+            "url": "https://www.reddit.com/r/LocalLLaMA/comments/1dz8g10/salesforce_tiny_giant_xlam1b_model_surpasses_gpt",
+            "excerpts": [
+              "Salesforce \"tiny giant\" xLAM-1b model surpasses GPT 3.5 in function calling\nJul 9, 2024 \u00b7 If it is indeed 1b function calling giant, then I'd say we'll see much more Rabbit R1 clones in the nearest future."
+            ],
+            "title": "Salesforce \"tiny giant\" xLAM-1b model surpasses GPT 3.5 in function calling"
+          },
+          {
+            "url": "https://www.emergentmind.com/topics/salesforce-xlam-function-calling-dataset",
+            "excerpts": [
+              "Salesforce XLAM Function Calling Dataset - Emergent Mind\nA rigorously verified dataset with 60K function-calling examples generated via APIGen for training and benchmarking LLMs across 21 domains."
+            ],
+            "title": "Salesforce XLAM Function Calling Dataset - Emergent Mind"
+          },
+          {
+            "url": "https://www.salesforce.com/blog/xlam-large-action-models",
+            "excerpts": [
+              "Introducing xLAM, Salesforce's family of Large Action Models\nSep 6, 2024 \u2014 We've introduced xLAM, our family of in-house Large Action Models, designed for function calling, reasoning, and planning."
+            ],
+            "title": "Introducing xLAM, Salesforce's family of Large Action Models"
+          },
+          {
+            "url": "https://www.semanticscholar.org/product/api",
+            "excerpts": [
+              "Semantic Scholar Academic Graph API | Semantic Scholar\nMost Semantic Scholar endpoints are available to the public without authentication, but they are rate-limited to 1000 requests per second shared among all unauthenticated users. Requests may also be further throttled during periods of heavy use."
+            ],
+            "title": "Semantic Scholar Academic Graph API | Semantic Scholar"
+          },
+          {
+            "url": "https://kth-library.github.io/semanticscholar",
+            "excerpts": [
+              "Data From Semantic Scholar Leightweight API \u2022 semanticscholar\nBy default the rate limit allows 100 request per 5 minute period. This allows for making new requests every 3-4 seconds. By requesting an API key from Semantic Scholar, this rate can be faster, such as 100 requests per second."
+            ],
+            "title": "Data From Semantic Scholar Leightweight API \u2022 semanticscholar"
+          },
+          {
+            "url": "https://libguides.ucalgary.ca/c.php?g=732144&p=5260798",
+            "excerpts": [
+              "APIs for Scholarly Resources: Semantic Scholar\nRequirements No API key is required. The API allows up to 100 requests per 5 minutes. Updated: May 12, 2026. Hours 403.220.8895"
+            ],
+            "title": "APIs for Scholarly Resources: Semantic Scholar"
+          },
+          {
+            "url": "https://api.semanticscholar.org/api-docs",
+            "excerpts": [
+              "Semantic Scholar - Academic Graph API\nIf you are using an API key, it must be set in the header x-api-key (case-sensitive). We have two different IDs for a single paper: paperId - string"
+            ],
+            "title": "Semantic Scholar - Academic Graph API"
+          },
+          {
+            "url": "https://github.com/Agents365-ai/semanticscholar-skill/blob/main/docs/limitations.md",
+            "excerpts": [
+              "semanticscholar-skill/docs/limitations.md at main \u00b7 Agents365 ...\nKnown Limitations Semantic Scholar rate limits \u2014 anonymous calls share a global 1000 req/s pool and may be \"further throttled during periods of heavy use\" per S2 docs (the skill defaults to a 5 s gap to ride that out); an API key gives you a dedicated 1 req/s introductory quota across all endpoints, raisable on request"
+            ],
+            "title": "semanticscholar-skill/docs/limitations.md at main \u00b7 Agents365 ..."
+          },
+          {
+            "url": "http://github.com/openai/evals",
+            "excerpts": [
+              "Stars **18.6k** stars Exploring an example of implementing custom eval logic: `custom-eval.md` Walking through the process for building an eval: `build-eval.md` Writing your own completion functions: `completion-fns.md` **Minimum Required Version: Python 3.9** By contributing to evals, you are agreeing to make your evaluation logic and data under the same MIT license as this repository. Evals provide a framework for evaluating large language models (LLMs) or systems built using LLMs. We offer an existing registry of evals to test different dimensions of OpenAI models and the ability to write your own custom evals for use cases you care about. If you don't want to contribute new evals, but simply want to run them locally, you can install the evals package via pip: To run evals, you will need to set up and specify your [OpenAI API key](https://platform.openai.com/account/api-keys) . After you obtain an API key, specify it using the [`OPENAI_API_KEY` environment variable](https://platform.openai.com/docs/quickstart/step-2-setup-your-api-key) . Please be aware of the [costs](https://openai.com/pricing) associated with using the API when running evals. pip install evals ### Stars **18.6k** stars Exploring an example of implementing custom eval logic: `custom-eval.md` Walking through the process for building an eval: `build-eval.md` Writing your own completion functions: `completion-fns.md` **Minimum Required Version: Python 3.9** By contributing to evals, you are agreeing to make your evaluation logic and data under the same MIT license as this repository. Evals provide a framework for evaluating large language models (LLMs) or systems built using LLMs. We offer an existing registry of evals to test different dimensions of OpenAI models and the ability to write your own custom evals for use cases you care about. If you don't want to contribute new evals, but simply want to run them locally, you can install the evals package via pip: To run evals, you will need to set up and specify your [OpenAI API key](https://platform.openai.com/account/api-keys) ."
+            ],
+            "title": "openai/evals: Evals is a framework for evaluating LLMs and ... - GitHub"
+          },
+          {
+            "url": "https://github.com/centerforaisafety/simple-evals",
+            "excerpts": [
+              "Simple evaluation scripts for AI benchmarks with minimal ...\nSimple evaluation scripts for AI benchmarks with minimal dependencies. LLM agent interface (OpenAI SDK compatible) py module provides a unified interface that"
+            ],
+            "title": "Simple evaluation scripts for AI benchmarks with minimal ..."
+          },
+          {
+            "url": "https://github.com/openai/simple-evals",
+            "excerpts": [
+              "openai/simple-evals\nThis repository contains a lightweight library for evaluating language models . We are open sourcing it so we can be transparent about the accuracy numbers."
+            ],
+            "title": "openai/simple-evals"
+          },
+          {
+            "url": "https://developers.openai.com/cookbook/examples/evaluation/getting_started_with_openai_evals",
+            "excerpts": [
+              "Getting Started with OpenAI Evals\nMar 21, 2024 \u2014 First, go to github.com/openai/evals, clone the repository with git clone git@github.com:openai/evals.git and go through the setup instructions."
+            ],
+            "title": "Getting Started with OpenAI Evals"
+          },
+          {
+            "url": "https://github.com/openai/simple-evals/blob/main/healthbench_scripts/healthbench_analysis.ipynb",
+            "excerpts": [
+              "simple-evals/healthbench_scripts/healthbench_analysis. ...\nThis notebook contains scripts to analyze results from the HealthBench eval . Running the HealthBench eval in simple-evals yields files with names like"
+            ],
+            "title": "simple-evals/healthbench_scripts/healthbench_analysis. ..."
+          },
+          {
+            "url": "https://claudefa.st/blog/guide/changelog",
+            "excerpts": [
+              "Claude Code Changelog: All Release Notes (2026)\nOn this page v2.1.47. Claude Code Changelog: Complete Version History. Every ... This changelog documents Claude Code's version history through May 2026."
+            ],
+            "title": "Claude Code Changelog: All Release Notes (2026)"
+          },
+          {
+            "url": "https://platform.claude.com/docs/en/release-notes/overview",
+            "excerpts": [
+              "Claude Platform Docs\nFor updates to Claude Code, see the complete CHANGELOG.md in the claude-code repository. ... We've launched v2 of the Code Execution Tool in public beta"
+            ],
+            "title": "Claude Platform Docs"
+          },
+          {
+            "url": "https://alirezarezvani.medium.com/claude-code-the-changelog-nobody-read-is-the-most-important-one-be56bddbf6f1",
+            "excerpts": [
+              "Claude Code: The Changelog Nobody Read Is the Most ...\nClaude Code's late April releases reveal an OS-like evolution: custom themes, plugin management, effort-aware skills, and CI tooling."
+            ],
+            "title": "Claude Code: The Changelog Nobody Read Is the Most ..."
+          },
+          {
+            "url": "http://beeps.dev/changelog",
+            "excerpts": [
+              "beeps changelog April 28, 2026 Claude integration Claude is the latest addition to the agent integrations lineup. It hooks in through a workflow file you keep in your repo: when an alert routes to a Claude relay rule, beeps triggers `anthropics/claude-code-action` , Claude opens a PR, and beeps follows the run until it lands. **Powered by `anthropics/claude-code-action`** \u2014 runs Claude Code inside your CI **Per-repo metadata** \u2014 owner, repo, workflow file name, and branch prefix live on the integration **Auth** \u2014 fine-grained GitHub PAT with `actions: write` , `actions: read` , and `pull-requests: read` **Relay rule** \u2014 `agentType: \"claude\"` plus the integration ID Workflow template's in the docs."
+            ],
+            "title": "changelog \u00b7 beeps"
+          },
+          {
+            "url": "https://developers.openalex.org/guides/deprecations",
+            "excerpts": [
+              "The OpenAlex \u201cpolite pool\u201d is"
+            ],
+            "title": "The OpenAlex \u201cpolite pool\u201d is"
+          },
+          {
+            "url": "https://developers.openalex.org/",
+            "excerpts": [
+              "API\nHere, you can learn how to set up your code to access OpenAlex's"
+            ],
+            "title": "API"
+          },
+          {
+            "url": "http://linkedin.com/company/openalex",
+            "excerpts": [
+              "Building a universal, open library of scholarly information, inspired by the Library of Alexandria.\nCompany size: 2-10 employees\nIndustry: Research Services\nType: Nonprofit\nWebsite: openalex.org.\nOpenAlex Industry Research Services Company size 2-10 employees\nView all 5 employees About us. OpenAlex"
+            ],
+            "title": "OpenAlex"
+          },
+          {
+            "url": "http://en.wikipedia.org/wiki/OpenAlex",
+            "excerpts": [
+              "OpenAlex is a bibliographic catalogue of scientific papers, authors and institutions accessible in open access mode, named after the Library of Alexandria. | OpenAlex logo since 2025 | |Producer |OurResearch | |History |2022 ; 4 years ago | |Coverage | |Disciplines |Science, social science, arts, humanities (supports 256 disciplines) | |Record depth |Citation indexing, author, topic title, subject keywords, abstract, periodical title, author's address, publication year | |Format coverage |Articles, reviews, editorials, chronologies, abstracts, proceedings (journals and book-based), technical papers | |Links | |Website |[openalex.org](https://openalex.org/) | **OpenAlex** is a bibliographic catalogue of scientific papers , authors and institutions accessible in open access mode, named after the Library of Alexandria .\n|Website |[openalex.org](https://openalex.org/) |\nOpenAlex is a bibliographic catalogue of scientific papers, authors and institutions accessible in open access mode, named after the Library of Alexandria.\n\"Funding: OurResearch Receives $7.5 Million Grant From Arcadia To Establish OpenAlex, a Milestone Development For Open Science\""
+            ],
+            "title": "OpenAlex - Wikipedia"
+          },
+          {
+            "url": "https://library.maastrichtuniversity.nl/database/openalex",
+            "excerpts": [
+              "OpenAlex - Maastricht University Library\nOpenAlex indexes over 480+ million scholarly works from all around the world and multiple languages. Here you can find literature for your research and explore"
+            ],
+            "title": "OpenAlex - Maastricht University Library"
+          },
+          {
+            "url": "https://index.commoncrawl.org/",
+            "excerpts": [
+              "Common Crawl Index Server\nCommand-line tools Tools for working with the CDX server and downloading from Common Crawl can be found on our Examples page. About the data Common Crawl data is stored on Amazon Web Services' Public Data Sets. All data and index files are free to download. Feel free to run your own index server, or analyze the index offline."
+            ],
+            "title": "Common Crawl Index Server"
+          },
+          {
+            "url": "https://hexdocs.pm/common_crawl/api-reference.html",
+            "excerpts": [
+              "API Reference \u2014 CommonCrawl v0.3.4\nCommonCrawl library helps to interact with Common Crawl data. CommonCrawl.Helpers CommonCrawl.Index"
+            ],
+            "title": "API Reference \u2014 CommonCrawl v0.3.4"
+          },
+          {
+            "url": "https://www.jcchouinard.com/python-commoncrawl-extraction",
+            "excerpts": [
+              "CommonCrawl with Python \u2013 Get All Pages from a Domain\nIn this tutorial, you will learn how to extract all pages from a specific website from Commoncrawl with Python. You will find the full code on my Github account."
+            ],
+            "title": "CommonCrawl with Python \u2013 Get All Pages from a Domain"
+          },
+          {
+            "url": "https://common-crawl.hexdocs.pm/CommonCrawl.IndexAPI.html",
+            "excerpts": [
+              "CommonCrawl.IndexAPI \u2014 CommonCrawl v0.3.4\nSearches the Common Crawl CDX API for entries matching the given query parameters. The cdx_api_url can be found in CommonCrawl.collinfo(). The \"url\" parameter is required in the query map. Parameters cdx_api_url - The CDX API endpoint URL for a specific crawl query - Map of query parameters (url is required) opts - Request options passed to Req"
+            ],
+            "title": "CommonCrawl.IndexAPI \u2014 CommonCrawl v0.3.4"
+          },
+          {
+            "url": "https://github.com/commoncrawl/whirlwind-python",
+            "excerpts": [
+              "GitHub - commoncrawl/whirlwind-python: A whirlwind tour of ...\nThe Common Crawl corpus contains petabytes of crawl data, including raw web page data, metadata, and parsed text. Common Crawl's data storage is a little complicated, as you might expect for such a large and rich dataset. We make our crawl data available in a variety of formats (WARC, WET, WAT) and we also have two index files of the crawled webpages: CDXJ and columnar."
+            ],
+            "title": "GitHub - commoncrawl/whirlwind-python: A whirlwind tour of ..."
+          },
+          {
+            "url": "https://www.modelscope.cn/datasets/open-index/arctic",
+            "excerpts": [
+              "Arctic Shift Reddit Archive - ModelScope\nThe full Reddit archive from Arctic Shift, converted to Parquet and hosted here for easy access. Covers every public subreddit from 2005-12"
+            ],
+            "title": "Arctic Shift Reddit Archive - ModelScope"
+          },
+          {
+            "url": "https://mythos.one/me/brianswichkow/d2e269",
+            "excerpts": [
+              "Arctic Shift \u2014 Open-Source Reddit Data Archive - MythOS\nArctic Shift is an open-source archive of Reddit data \u2014 bulk dumps, API access, and a web interface for researchers, moderators, and developers."
+            ],
+            "title": "Arctic Shift \u2014 Open-Source Reddit Data Archive - MythOS"
+          },
+          {
+            "url": "https://arctic-shift.photon-reddit.com/",
+            "excerpts": [
+              "Arctic Shift\nDocumentation and tools for the Arctic Shift project. Search or download archived reddit data."
+            ],
+            "title": "Arctic Shift"
+          },
+          {
+            "url": "https://ihsoyct.github.io/index.html?backend=artic_shift",
+            "excerpts": [
+              "Reddit Archive - ihsoyct.github.io\n10/08/2025: While viewing comments of a post, it will now query the reddit api to highlight deleted comments in red. For performance reasons, this is currently only done for threads with less than 2000 comments. In addition it now supports reddit style links."
+            ],
+            "title": "Reddit Archive - ihsoyct.github.io"
+          },
+          {
+            "url": "https://api.stackexchange.com/docs",
+            "excerpts": [
+              "Stack Exchange API\nApplications must be registered on Stack Apps to get a request key or enable OAuth for authentication. Request keys and access tokens can be used on any method to grant applications an increased throttle quota."
+            ],
+            "title": "Stack Exchange API"
+          },
+          {
+            "url": "https://api.stackexchange.com/",
+            "excerpts": [
+              "Stack Exchange API\nDocumentation. All Documentation \u00b7 Write Access \u00b7 Authentication \u00b7 Throttles \u00b7 Register For An App Key \u00b7 View Your Apps \u00b7 List An Application"
+            ],
+            "title": "Stack Exchange API"
+          },
+          {
+            "url": "https://www.apitracker.io/a/stackexchange",
+            "excerpts": [
+              "Stack Exchange API - Docs, SDKs & Integration\nWe make Stack Overflow and 170+ other community-powered Q&A sites. We don't have videos for this API yet. Get in touch to suggest profile updates. We don't have tips for this API yet. Get in touch if you want to submit a tip. Complete Stack Exchange API documentation and developer resources."
+            ],
+            "title": "Stack Exchange API - Docs, SDKs & Integration"
+          },
+          {
+            "url": "https://openapi.city/providers/stack-exchange",
+            "excerpts": [
+              "Stack Exchange API Reference \u2014 124 Endpoints | openapi.city\nStack Exchange API reference with 124 endpoints. Q&A community platform API."
+            ],
+            "title": "Stack Exchange API Reference \u2014 124 Endpoints | openapi.city"
+          },
+          {
+            "url": "https://api.stackexchange.com/docs/users",
+            "excerpts": [
+              "Usage of /users [GET] - Stack Exchange API\nThe inname parameter lets consumers filter the results down to just those users with a certain substring in their display name. For example, inname=kevin will return all users with both users named simply \"Kevin\" or those with Kevin as one of (or part of) their names; such as \"Kevin Montrose\"."
+            ],
+            "title": "Usage of /users [GET] - Stack Exchange API"
+          },
+          {
+            "url": "https://github.com/huggingface/datasets/blob/main/LICENSE",
+            "excerpts": [
+              "license - huggingface/datasets - GitHub\nA permissive license whose main conditions require preservation of copyright and license notices. Contributors provide an express grant of patent rights."
+            ],
+            "title": "license - huggingface/datasets - GitHub"
+          },
+          {
+            "url": "https://huggingface.co/datasets/DataProvenanceInitiative/Commercially-Verified-Licenses",
+            "excerpts": [
+              "Datasets at Hugging Face\n25 oct 2023 \u00b7 Dataset Card for Data Provenance Initiative - Commercial-Licenses. Legal Disclaimer / Notice. Collected License Information is NOT Legal Advice."
+            ],
+            "title": "Datasets at Hugging Face"
+          },
+          {
+            "url": "http://huggingface.co/collections/mindchain/open-source-ai-fully-open-weights-and-training-data",
+            "excerpts": [
+              "16 ene 2026 \u00b7 Fully open-source AI models with permissive licenses for commercial use and research. ... LeRobot Pi0 - HuggingFace Robotics Foundation Model."
+            ],
+            "title": "Open Source AI - Fully Open Weights & Training Data - Hugging Face"
+          },
+          {
+            "url": "https://www.bluebash.co/blog/understanding-hugging-face-ai-model-licensing-commercial-use",
+            "excerpts": [
+              "Understanding Hugging Face: AI Model Licensing Guide - Bluebash\nThis file contains a metadata section where the license is specified, guiding users on how to legally employ the code or data. Whether you"
+            ],
+            "title": "Understanding Hugging Face: AI Model Licensing Guide - Bluebash"
+          },
+          {
+            "url": "http://arxiv.org/html/2401.13822v1",
+            "excerpts": [
+              "Dataset cards on the Hugging Face platform are Markdown files that serve as the README for a dataset repository"
+            ],
+            "title": "A Large-Scale Analysis of Dataset Cards on Hugging Face"
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "hermes-cutting-edge-data-july-2026.md"
+  }
+}

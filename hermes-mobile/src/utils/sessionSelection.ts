@@ -2,7 +2,11 @@ import type { HermesSession } from '../types/chat';
 import type { ChatProjectState } from '../types/chatProject';
 import { buildTelegramInboxSession, TELEGRAM_INBOX_SESSION_ID } from '../services/telegramInbox';
 import { isAutomationProbeText, isGatewaySmokeTestMessage } from './gatewaySmokeMessages';
-import { parseGatewayTimestamp, sessionLastActiveValue } from './sessionDisplay';
+import {
+  isAutomatedCronSession,
+  parseGatewayTimestamp,
+  sessionLastActiveValue,
+} from './sessionDisplay';
 
 export type SessionPickerSection = {
   key: string;
@@ -206,7 +210,8 @@ export function pickDefaultSession(
     (s) =>
       !isTelegramSession(s) &&
       s.id !== TELEGRAM_INBOX_SESSION_ID &&
-      !isSmokeProbeSession(s),
+      !isSmokeProbeSession(s) &&
+      !isAutomatedCronSession(s),
   );
   const mobileSessions = nonTelegram.filter(isMobileChatSession);
   if (mobileSessions.length > 0) {
@@ -221,7 +226,9 @@ export function pickDefaultSession(
     return primaryTelegram;
   }
 
-  const nonSmoke = sessions.filter(isUserFacingSession);
+  const nonSmoke = sessions.filter(
+    (s) => isUserFacingSession(s) && !isAutomatedCronSession(s),
+  );
   return nonSmoke.length > 0 ? sortSessionsByRecency(nonSmoke)[0] : null;
 }
 

@@ -39,14 +39,44 @@ describe('buildConnectionStatusChips', () => {
 });
 
 describe('ChatConnectionPanel', () => {
-  it('shows fresh-user onboarding card when no profiles are saved', () => {
-    const { getByTestId, getAllByText } = render(
+  it('keeps fresh-user steps behind Other ways to connect', () => {
+    const { getByTestId, queryByTestId, getAllByText } = render(
       <ChatConnectionPanel connectionState="disconnected" onSearchMac={jest.fn()} profiles={[]} />,
     );
 
+    expect(queryByTestId('fresh-user-onboarding-card')).toBeNull();
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
     expect(getByTestId('fresh-user-onboarding-card')).toBeTruthy();
     expect(getAllByText('Connect your computer').length).toBeGreaterThan(0);
     expect(getByTestId('chat-connection-search')).toBeTruthy();
+  });
+
+  it('shows ThumbGate promo when no computers are saved', () => {
+    const { getByTestId } = render(
+      <ChatConnectionPanel connectionState="disconnected" onSearchMac={jest.fn()} profiles={[]} />,
+    );
+
+    expect(getByTestId('thumbgate-promo-connection_unreachable')).toBeTruthy();
+  });
+
+  it('hides ThumbGate promo when connected', () => {
+    const { queryByTestId } = render(
+      <ChatConnectionPanel
+        connectionState="connected"
+        onSearchMac={jest.fn()}
+        profiles={[
+          {
+            id: 'p1',
+            label: 'Mac mini',
+            gatewayUrl: 'http://192.168.1.50:8642',
+            addedAt: '2026-06-23T12:00:00Z',
+          },
+        ]}
+        activeProfileReachable
+      />,
+    );
+
+    expect(queryByTestId('thumbgate-promo-connection_unreachable')).toBeNull();
   });
 
   it('shows saved computers when profiles are provided', () => {
@@ -65,6 +95,7 @@ describe('ChatConnectionPanel', () => {
       />,
     );
 
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
     expect(getByText(/Your computers/)).toBeTruthy();
     expect(getByTestId('gateway-profile-list')).toBeTruthy();
     expect(getByTestId('select-gateway-profile-p1')).toBeTruthy();
@@ -94,8 +125,8 @@ describe('ChatConnectionPanel', () => {
       />,
     );
 
-    expect(getByText(/Cannot reach this computer/)).toBeTruthy();
-    expect(queryByText(/· Now/)).toBeTruthy();
+    expect(getByText(/is saved but not reachable right now/)).toBeTruthy();
+    expect(queryByText(/· Now/)).toBeNull();
   });
 
   it('shows relay workers that are not already saved locally', () => {
@@ -127,6 +158,7 @@ describe('ChatConnectionPanel', () => {
       />,
     );
 
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
     expect(getByTestId('relay-worker-row-mac-mini')).toBeTruthy();
   });
 
@@ -287,11 +319,12 @@ describe('ChatConnectionPanel', () => {
         tailnetProbeHostCount={2}
       />,
     );
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
     expect(getByTestId('tailscale-discovery-probing')).toBeTruthy();
   });
 
-  it('shows Tailscale discovery banner for reachable tailnet Macs', () => {
-    const onAdd = jest.fn();
+  it('shows Tailscale discovery banner for reachable tailnet Macs', async () => {
+    const onAdd = jest.fn().mockResolvedValue(undefined);
     const { getByTestId } = render(
       <ChatConnectionPanel
         connectionState="disconnected"
@@ -307,12 +340,44 @@ describe('ChatConnectionPanel', () => {
         onAddTailscaleComputer={onAdd}
       />,
     );
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
     expect(getByTestId('tailscale-discovery-banner')).toBeTruthy();
     fireEvent.press(getByTestId('tailscale-add-igors-mac-mini'));
-    expect(onAdd).toHaveBeenCalledWith(
-      expect.objectContaining({ gatewayUrl: 'http://100.94.135.78:8642' }),
-    );
+    await waitFor(() => {
+      expect(onAdd).toHaveBeenCalledWith(
+        expect.objectContaining({ gatewayUrl: 'http://100.94.135.78:8642' }),
+      );
+    });
   });
+
+  it('does not blank every Tailscale chip when global probing is true', () => {
+    const { getByTestId, getByText, queryAllByText } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        onSearchMac={jest.fn()}
+        tailscaleDiscoveryProbing
+        tailscaleDiscoveries={[
+          {
+            gatewayUrl: 'http://100.94.135.78:8642',
+            hostname: 'Igors-Mac-mini.local',
+            label: 'Igors-Mac-mini',
+          },
+          {
+            gatewayUrl: 'http://100.87.85.85:8642',
+            hostname: 'Igors-MacBook-Pro.local',
+            label: 'Igors-MacBook-Pro',
+          },
+        ]}
+        onAddTailscaleComputer={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
+    expect(getByText('Add Igors-Mac-mini')).toBeTruthy();
+    expect(getByText('Add Igors-MacBook-Pro')).toBeTruthy();
+    expect(queryAllByText('Adding…')).toHaveLength(0);
+  });
+
 
   it('hides status pills during silent heal for returning users', () => {
     const { queryByTestId } = render(
@@ -335,7 +400,7 @@ describe('ChatConnectionPanel', () => {
   });
 
   it('shows Tailscale onboarding steps for unreachable saved mini on Tailscale', () => {
-    const { getByText, queryByText } = render(
+    const { getByTestId, getByText, queryByText } = render(
       <ChatConnectionPanel
         connectionState="disconnected"
         connectionHealAttempt={6}
@@ -351,6 +416,7 @@ describe('ChatConnectionPanel', () => {
         onSearchMac={jest.fn()}
       />,
     );
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
     expect(getByText('Tailscale connected')).toBeTruthy();
     expect(queryByText('Same home Wi‑Fi')).toBeNull();
   });
@@ -370,6 +436,7 @@ describe('ChatConnectionPanel', () => {
       />,
     );
 
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
     expect(getByTestId('chat-manual-input')).toBeTruthy();
     expect(getByTestId('chat-manual-submit')).toBeTruthy();
 
@@ -397,6 +464,7 @@ describe('ChatConnectionPanel', () => {
       />,
     );
 
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
     // Test invalid input handling
     fireEvent.changeText(getByTestId('chat-manual-input'), '   ');
     fireEvent.press(getByTestId('chat-manual-submit'));

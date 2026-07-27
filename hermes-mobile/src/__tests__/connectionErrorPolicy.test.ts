@@ -126,6 +126,19 @@ describe('connectionErrorPolicy', () => {
     ).toBe(true);
   });
 
+  it('shows pair CTA after heal when gateway URL is Tailscale (tailnet ≠ paired)', () => {
+    expect(
+      shouldShowPairRelayRouteStatus({
+        isPaired: false,
+        wifiConnected: false,
+        gatewayUrl: 'http://100.87.85.85:8642',
+        hasAlternateRoutes: false,
+        heal: connectionHealSnapshot(CONNECTION_HEAL_EXHAUSTED_AFTER, false),
+        macHttpOk: false,
+      }),
+    ).toBe(true);
+  });
+
   it('debounces duplicate connection error surfaces', () => {
     const now = 1_000_000;
     expect(shouldDebounceConnectionError(now - 5_000, now)).toBe(true);

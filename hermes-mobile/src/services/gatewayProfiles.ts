@@ -48,7 +48,8 @@ function isBareIp(value: string | undefined): boolean {
   if (!trimmed) {
     return false;
   }
-  return /^\d{1,3}(\.\d{1,3}){3}$/.test(trimmed);
+  // Bare IPv4 or IPv4:port (gateway endpoint pasted as profile label).
+  return /^\d{1,3}(\.\d{1,3}){3}(:\d+)?$/.test(trimmed);
 }
 
 const GENERIC_PROFILE_LABELS = new Set([
@@ -270,7 +271,12 @@ function resolveStoredProfileLabel(input: {
     return bonjourHostname(hostname) ?? GENERIC_USB_PROFILE_LABEL;
   }
   if (isTailscaleGatewayUrl(gatewayUrl)) {
-    return magicDnsDeviceName(gatewayUrl) ?? GENERIC_TAILSCALE_PROFILE_LABEL;
+    // Prefer /health Bonjour hostname over MagicDNS / generic Tailscale label.
+    return (
+      bonjourHostname(hostname) ??
+      magicDnsDeviceName(gatewayUrl) ??
+      GENERIC_TAILSCALE_PROFILE_LABEL
+    );
   }
   const ip = input.localIp?.trim() || extractLanIpFromGatewayUrl(gatewayUrl);
   if (ip) {
@@ -457,11 +463,40 @@ export function profilesForActiveMachine(
 export function shouldProbeGatewayUrlForActiveProfile(
   state: GatewayProfileState,
   gatewayUrl: string,
+  options?: { liveUsbHostname?: string | null },
 ): boolean {
   if (!state.activeProfileId) {
     return true;
   }
-  return isDiscoveredUrlAllowedForActiveProfile(state, gatewayUrl);
+  return isDiscoveredUrlAllowedForActiveProfile(state, gatewayUrl, options);
+}
+
+/**
+ * USB loopback may adopt a Tailscale URL only when it does not steal another Mac.
+ * - Anonymous USB (no machine key) → any Tailscale (escape "Computer via USB" theater).
+ * - Named USB (e.g. MacBook Pro) → same-machine Tailscale only.
+ * Never silently activate Mac mini while USB identity is MacBook (or vice versa).
+ */
+export function canUsbLoopbackEscapeToUrl(
+  state: GatewayProfileState,
+  successfulUrl: string,
+): boolean {
+  const active = activeProfile(state);
+  if (!active || !isLoopbackGatewayUrl(active.gatewayUrl)) {
+    return false;
+  }
+  if (!isTailscaleGatewayUrl(successfulUrl)) {
+    return false;
+  }
+  const activeKey = profileMachineKey(active);
+  if (!activeKey) {
+    return true;
+  }
+  const matched = findProfileForGatewayUrl(state.profiles, successfulUrl);
+  if (!matched) {
+    return false;
+  }
+  return profilesShareMachine(active, matched);
 }
 
 /** Heal must not repoint settings/active profile at another saved Mac. */
@@ -469,14 +504,16 @@ export function resolveHealPersistDecision(
   state: GatewayProfileState,
   successfulUrl: string,
   requestedActivation: boolean,
+  options?: { liveUsbHostname?: string | null },
 ): {
   catalogOnly: boolean;
   returnUrl: string;
   requestedActivation: boolean;
 } {
   const active = activeProfile(state);
-  const allowed = isDiscoveredUrlAllowedForActiveProfile(state, successfulUrl);
-  if (state.activeProfileId && !allowed) {
+  const allowed = isDiscoveredUrlAllowedForActiveProfile(state, successfulUrl, options);
+  const usbLoopbackEscape = canUsbLoopbackEscapeToUrl(state, successfulUrl);
+  if (state.activeProfileId && !allowed && !usbLoopbackEscape) {
     return {
       catalogOnly: true,
       returnUrl: active?.gatewayUrl?.trim() || successfulUrl,
@@ -486,7 +523,7 @@ export function resolveHealPersistDecision(
   return {
     catalogOnly: false,
     returnUrl: successfulUrl,
-    requestedActivation,
+    requestedActivation: usbLoopbackEscape ? true : requestedActivation,
   };
 }
 
@@ -495,12 +532,15 @@ export function resolveHealPersistDecision(
  *
  * Unmatched USB/loopback is NOT a free pass: a cable to MacBook Pro answers on
  * 127.0.0.1 even when the user selected Mac mini over Tailscale. Only allow
- * loopback when the active computer is already USB, or a saved loopback row
- * shares the active machine identity.
+ * loopback when:
+ * - the active computer is already USB, or
+ * - a saved loopback row shares the active machine identity, or
+ * - liveUsbHostname matches the sticky Mac (same-machine USB prefer; product 2026-07-23).
  */
 export function isDiscoveredUrlAllowedForActiveProfile(
   state: GatewayProfileState,
   successfulUrl: string,
+  options?: { liveUsbHostname?: string | null },
 ): boolean {
   if (!state.activeProfileId) {
     return true;
@@ -511,9 +551,15 @@ export function isDiscoveredUrlAllowedForActiveProfile(
   }
   const matched = findProfileForGatewayUrl(state.profiles, successfulUrl);
   if (!matched) {
-    // Never let anonymous 127.0.0.1 steal a Tailscale/LAN selection.
+    // Never let anonymous 127.0.0.1 steal a Tailscale/LAN selection — unless the
+    // live cable hostname proves it is the same sticky Mac (USB prefer-when-cabled).
     if (isLoopbackGatewayUrl(successfulUrl)) {
-      return isLoopbackGatewayUrl(active.gatewayUrl);
+      if (isLoopbackGatewayUrl(active.gatewayUrl)) {
+        return true;
+      }
+      const liveKey = normalizeMachineKey(options?.liveUsbHostname ?? undefined);
+      const activeKey = profileMachineKey(active);
+      return Boolean(liveKey && activeKey && liveKey === activeKey);
     }
     return false;
   }
@@ -799,6 +845,17 @@ export function shouldActivateDiscoveredUrl(
   return matched.id === state.activeProfileId;
 }
 
+/**
+ * True when Choose computer would show "Tailscale 100.x" / generic Tailscale label
+ * because hostname was never persisted from /health or MagicDNS.
+ */
+export function profileNeedsMachineNameEnrichment(profile: GatewayProfile): boolean {
+  if (!isTailscaleGatewayUrl(profile.gatewayUrl)) {
+    return false;
+  }
+  return isGenericMachineLabel(profileDisplayName(profile));
+}
+
 /** Persist every healthy Tailscale /health discovery as a saved computer profile. */
 export function applyTailscaleDiscoveriesToProfileState(
   state: GatewayProfileState,
@@ -820,8 +877,13 @@ export function upsertDiscoveredProfile(
   const gatewayUrl = normalizeGatewayUrlBase(discovered.gatewayUrl);
   const hostname = discovered.hostname?.trim();
   const id = profileIdFromGatewayUrl(gatewayUrl, hostname);
+  const urlIp = extractLanIpFromGatewayUrl(gatewayUrl);
+  // Never let /health LAN local_ip replace a Tailscale CGNAT URL identity.
   const localIp =
-    discovered.localIp?.trim() || extractLanIpFromGatewayUrl(gatewayUrl) || undefined;
+    (urlIp && isTailscaleIpv4(urlIp) ? urlIp : undefined) ||
+    discovered.localIp?.trim() ||
+    urlIp ||
+    undefined;
   const label = resolveStoredProfileLabel({
     gatewayUrl,
     hostname,
@@ -862,7 +924,22 @@ export function upsertDiscoveredProfile(
       }
       return true;
     }
-    if (hostname && p.hostname && hostname.toLowerCase() === p.hostname.toLowerCase() && hostname.toLowerCase() !== 'localhost') {
+    if (
+      hostname &&
+      p.hostname &&
+      hostname.toLowerCase() === p.hostname.toLowerCase() &&
+      hostname.toLowerCase() !== 'localhost'
+    ) {
+      // Hostname-only match must not retarget another Mac's URL onto this row
+      // (Pro identity + mini Tailscale URL used to steal the mini entry).
+      const urlOwnedByOther = state.profiles.some(
+        (other) =>
+          other.id !== p.id &&
+          normalizeGatewayUrlBase(other.gatewayUrl) === gatewayUrl,
+      );
+      if (urlOwnedByOther) {
+        return false;
+      }
       return true;
     }
     if (
@@ -882,15 +959,23 @@ export function upsertDiscoveredProfile(
       if (p.id !== existing.id) {
         return p;
       }
+      // Never stamp a foreign /health hostname onto the matched row (e.g. Pro identity
+      // onto mini Tailscale URL during saveSettings→applyHeal). That flips machine key
+      // and dedupe silently merges mini→Pro (2026-07-22 force-switch rage).
+      const acceptIncomingIdentity = shouldAcceptHealthIdentityForProfile(p, {
+        hostname,
+        localIp,
+      });
+      const nextHostname = acceptIncomingIdentity ? hostname || p.hostname : p.hostname;
       const keepExistingLabel =
         p.label &&
         !isGenericProfileLabel(p.label) &&
-        (!discovered.label?.trim() || isGenericProfileLabel(label));
+        (!discovered.label?.trim() || isGenericProfileLabel(label) || !acceptIncomingIdentity);
       const finalLabel = keepExistingLabel
         ? p.label
         : resolveStoredProfileLabel({
             gatewayUrl,
-            hostname: hostname || p.hostname,
+            hostname: nextHostname,
             label: discovered.label || label || p.label,
             localIp: localIp || p.localIp,
           });
@@ -899,7 +984,7 @@ export function upsertDiscoveredProfile(
         ...p,
         gatewayUrl,
         label: finalLabel,
-        hostname: hostname || p.hostname,
+        hostname: nextHostname,
         localIp: localIp || p.localIp,
         lastConnectedAt: now,
       };
@@ -947,28 +1032,59 @@ export function removeProfile(state: GatewayProfileState, profileId: string): Ga
   return dedupeGatewayProfiles({ profiles, activeProfileId });
 }
 
+/**
+ * Refuse foreign /health identity. Overwriting mini's hostname with MacBook Pro
+ * (USB cable answering while Tailscale mini is active) then running dedupe merges
+ * the two computers and silently steals the user's selection (2026-07-21 rage).
+ */
+export function shouldAcceptHealthIdentityForProfile(
+  profile: GatewayProfile,
+  health: { hostname?: string; localIp?: string },
+): boolean {
+  const priorKey = profileMachineKey(profile);
+  const incomingKey = normalizeMachineKey(health.hostname);
+  if (priorKey && incomingKey && priorKey !== incomingKey) {
+    return false;
+  }
+  return true;
+}
+
 export function touchProfileHealth(
   state: GatewayProfileState,
   profileId: string,
   health: { hostname?: string; localIp?: string },
 ): GatewayProfileState {
+  const target = state.profiles.find((p) => p.id === profileId);
+  if (!target) {
+    return state;
+  }
+  if (!shouldAcceptHealthIdentityForProfile(target, health)) {
+    return state;
+  }
   const profiles = state.profiles.map((p) => {
     if (p.id !== profileId) {
       return p;
     }
     const hostname = health.hostname?.trim() || p.hostname;
+    // Never let /health LAN local_ip replace a Tailscale CGNAT URL identity
+    // (SUCCESS 2026-07-23: LAN poison turned mini Tailscale into a Home Wi‑Fi twin).
+    const urlIp = extractLanIpFromGatewayUrl(p.gatewayUrl);
     const localIp =
+      (urlIp && isTailscaleIpv4(urlIp) ? urlIp : undefined) ||
       resolveDisplayLanIp(health.localIp, p.gatewayUrl) ||
       resolveDisplayLanIp(p.localIp, p.gatewayUrl);
-    const label =
-      isIpOnlyProfileLabel(p) || isTailnetRouteLabel(p.label)
-        ? resolveStoredProfileLabel({
-            gatewayUrl: p.gatewayUrl,
-            hostname,
-            label: p.label,
-            localIp,
-          })
-        : p.label;
+    const shouldRelabel =
+      isIpOnlyProfileLabel(p) ||
+      isTailnetRouteLabel(p.label) ||
+      profileNeedsMachineNameEnrichment(p);
+    const label = shouldRelabel
+      ? resolveStoredProfileLabel({
+          gatewayUrl: p.gatewayUrl,
+          hostname,
+          label: p.label,
+          localIp,
+        })
+      : p.label;
     return {
       ...p,
       hostname,

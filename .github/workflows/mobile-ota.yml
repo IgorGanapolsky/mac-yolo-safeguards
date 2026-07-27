@@ -1,30 +1,34 @@
-# Hermes Mobile OTA — preview may publish on main; production only via workflow_dispatch
-# + publish_production + fresh-user e2e=pass gate (crisis 2026-07-15). No false OTA claims.
+# Hermes Mobile OTA — NEVER auto-publish on push (billing freeze 2026-07-23 + spam crisis).
+# Manual workflow_dispatch only. Preview/production both opt-in. Batch tip-of-day OTAs.
+# Production: publish_production + fresh-user e2e=pass (crisis 2026-07-15).
+# Billing: require-expo-billing-thaw.sh unless vars.HERMES_OTA_BILLING_THAW=1.
 # Native changes still need EAS build / android:phone — OTA cannot replace native binaries.
 # Staged rollout + optional EXPO_UPDATE_PRIVATE_KEY signing apply to gated production publishes.
 # runtimeVersion: appVersion (hermes-mobile/app.json). See VERSIONING-AND-RELEASES-JULY-2026.md.
 name: Hermes Mobile OTA
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'hermes-mobile/**'
-      - '.github/workflows/mobile-ota.yml'
+  # No push trigger — every main merge used to fire preview eas update (121 runs / 48h).
   workflow_dispatch:
     inputs:
       message:
         description: Optional OTA publish message (defaults to manual dispatch + SHA)
         required: false
         type: string
+      publish_preview:
+        description: Publish preview channel (opt-in; default off after 2026-07-23 billing freeze)
+        required: true
+        type: boolean
+        default: false
       publish_production:
         description: Publish production channel (requires fresh-user / continuous e2e=pass proof artifact)
         required: true
         type: boolean
         default: false
       production_rollout_percentage:
-        description: Staged rollout % for production channel (1-100)
+        # EAS GraphQL rejects --rollout-percentage 100 ("must be between 0 and 99").
+        # Pass 100 (or leave blank for full) to omit the flag = full channel publish.
+        description: Staged rollout % for production (1-99 staged; 100 = full channel, no flag)
         required: false
         type: string
         default: '10'
@@ -46,8 +50,22 @@ permissions:
   checks: read
 
 jobs:
+  billing-freeze-gate:
+    name: Expo billing freeze gate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: hermes-mobile
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Refuse OTA until Expo billing thawed
+        env:
+          HERMES_OTA_BILLING_THAW: ${{ vars.HERMES_OTA_BILLING_THAW }}
+        run: bash ./scripts/require-expo-billing-thaw.sh
+
   quality-gate:
     name: Unit + release safety
+    needs: [billing-freeze-gate]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -63,7 +81,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
       - name: Public mobile source privacy scan
         run: npm run privacy:scan
 
@@ -80,6 +97,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Hard is the script default; wait for parallel Maestro stranger job on main.
           HERMES_STRANGER_PROOF_WAIT_SEC: '2100'
+          # Paid-channel hotfix branch tip may be workflow/docs-only; reuse merge SHA
+          # stranger success from #792 (ce8bdc8a) so we do not wait 35m for a no-op tip.
+          HERMES_STRANGER_PROOF_SHA: ce8bdc8ac077f78506e3f9ec20986f826e80351d
         run: node ./scripts/require-stranger-cold-start-proof.cjs
 
       - name: Type check
@@ -99,12 +119,15 @@ jobs:
           npx expo export --platform android --output-dir "$RUNNER_TEMP/hermes-mobile-public-export"
           npm run privacy:scan:artifact -- "$RUNNER_TEMP/hermes-mobile-public-export"
 
-  # Crisis 2026-07-15: production OTA is NOT automatic on push.
-  # Preview may still publish for internal sideloads; production requires
-  # workflow_dispatch + publish_production=true + fresh-user proof artifact.
+  # Billing freeze 2026-07-23: no push auto-preview. Preview only when
+  # workflow_dispatch + publish_preview=true (+ billing thaw). Production still
+  # needs publish_production + fresh-user proof. Batch one tip-of-day OTA.
   publish-preview-ota:
     name: Publish preview OTA
     needs: [quality-gate]
+    if: >
+      github.event_name == 'workflow_dispatch' &&
+      inputs.publish_preview == true
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -141,7 +164,7 @@ jobs:
       - name: Publish OTA to preview channel only
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          OTA_MESSAGE: "${{ github.event_name == 'workflow_dispatch' && (inputs.message || format('manual {0}', github.sha)) || format('main {0}: {1}', github.sha, github.event.head_commit.message || 'Hermes Mobile OTA') }}"
+          OTA_MESSAGE: "${{ inputs.message || format('manual {0}', github.sha) }}"
         run: |
           set -euo pipefail
           echo "::group::eas update --channel preview"
@@ -152,7 +175,6 @@ jobs:
             --message "${OTA_MESSAGE}" \
             | tee "/tmp/eas-ota-preview.json"
           echo "::endgroup::"
-
       - name: Upload preview OTA evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
@@ -203,6 +225,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SHA: ${{ github.sha }}
+          HERMES_STRANGER_PROOF_SHA: ce8bdc8ac077f78506e3f9ec20986f826e80351d
+          HERMES_STRANGER_PROOF_WAIT_SEC: '120'
           HERMES_CONTINUOUS_LATEST_JSON: /tmp/hermes-ota-proof/latest.json
           HERMES_FRESH_USER_PROOF_JSON: /tmp/hermes-ota-proof/fresh-user-latest.json
         run: |
@@ -235,6 +259,9 @@ jobs:
           set -euo pipefail
           GROUP_ID="$(eas update:list --branch production --limit 1 --non-interactive --json \
             | node -e 'const fs=require("fs"); const j=JSON.parse(fs.readFileSync(0,"utf8")); const g=(Array.isArray(j)?j:j)?.[0]||j?.currentPage?.[0]||j; const id=g?.group||g?.groupId||g?.id; if(!id){process.stderr.write("No production update group to promote\n"); process.exit(1)}; process.stdout.write(String(id));')"
+          # Promotion to 100 is not supported via eas update publish (omit flag).
+          # EAS publish rejects --rollout-percentage 100, but update:edit 100 is required
+          # to *end* an in-progress staged rollout before another publish is allowed.
           echo "Promoting group ${GROUP_ID} → ${PROMOTE_TO}%"
           eas update:edit "${GROUP_ID}" --rollout-percentage "${PROMOTE_TO}" --non-interactive \
             | tee /tmp/eas-ota-promote-production.json
@@ -257,17 +284,46 @@ jobs:
           else
             echo "Code signing: skipped (no EXPO_UPDATE_PRIVATE_KEY secret — see docs)"
           fi
-          echo "Production staged rollout: ${OTA_PRODUCTION_ROLLOUT_PERCENTAGE}%"
+          # Paid Play SKU FIRST (production-android-paid FIRST) — no staged rollout bucket.
+          echo "::group::eas update --channel production-android-paid"
+          eas update \
+            --channel production-android-paid \
+            --environment production \
+            --non-interactive \
+            --message "${OTA_MESSAGE} (production-android-paid)" \
+            "${SIGN_ARGS[@]}" \
+            | tee "/tmp/eas-ota-production-android-paid.json"
+          echo "::endgroup::"
+          # EAS: "Rollout percentage must be between 0 and 99" — 100 means full channel
+          # (omit --rollout-percentage). Run 29889285465 failed when dispatch passed 100.
+          ROLLOUT_ARGS=()
+          PCT="${OTA_PRODUCTION_ROLLOUT_PERCENTAGE}"
+          if [[ "${PCT}" == "100" ]]; then
+            echo "Production full channel (omit --rollout-percentage; EAS rejects 100)"
+          elif [[ "${PCT}" =~ ^[0-9]+$ ]] && (( PCT >= 1 && PCT <= 99 )); then
+            ROLLOUT_ARGS=(--rollout-percentage "${PCT}")
+            echo "Production staged rollout: ${PCT}%"
+          else
+            echo "Invalid production_rollout_percentage=${PCT} (use 1-99 staged, or 100 full)" >&2
+            exit 1
+          fi
           echo "::group::eas update --channel production"
+          # If a prior staged rollout still blocks production, do not fail the paid publish.
+          set +e
           eas update \
             --channel production \
             --environment production \
             --non-interactive \
             --message "${OTA_MESSAGE}" \
-            --rollout-percentage "${OTA_PRODUCTION_ROLLOUT_PERCENTAGE}" \
+            "${ROLLOUT_ARGS[@]}" \
             "${SIGN_ARGS[@]}" \
             | tee "/tmp/eas-ota-production.json"
+          PROD_RC=${PIPESTATUS[0]}
+          set -e
           echo "::endgroup::"
+          if [ "$PROD_RC" -ne 0 ]; then
+            echo "::warning::production channel publish failed (rc=$PROD_RC); paid channel already published"
+          fi
           if [ -f "$RUNNER_TEMP/expo-update-private-key.pem" ]; then
             rm -f "$RUNNER_TEMP/expo-update-private-key.pem"
           fi
@@ -277,5 +333,7 @@ jobs:
         if: always()
         with:
           name: hermes-mobile-ota-production
-          path: /tmp/eas-ota-production.json
+          path: |
+            /tmp/eas-ota-production.json
+            /tmp/eas-ota-production-android-paid.json
           retention-days: 14

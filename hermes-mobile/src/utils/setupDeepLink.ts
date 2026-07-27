@@ -117,7 +117,14 @@ export function buildRelayDeepLink(relayCode: string, cloudUrl?: string): string
 
 export function parseRelayDeepLink(url: string): Pick<SetupDeepLinkParams, 'relayCode'> | null {
   const lower = url.toLowerCase();
-  if (!lower.startsWith('hermes://') || !lower.includes('relay')) {
+  if (!lower.startsWith('hermes://')) {
+    return null;
+  }
+  const route = lower
+    .slice('hermes://'.length)
+    .split('?')[0]
+    .replace(/^\/+|\/+$/g, '');
+  if (route !== 'relay') {
     return null;
   }
   const queryStart = url.indexOf('?');

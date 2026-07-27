@@ -65,16 +65,54 @@ function findSubstantiveAssistantReplyAfter(
   return undefined;
 }
 
+function findSubstantiveAssistantReplyByTimestamp(
+  messages: readonly HermesMessage[],
+  userSinceMs: number,
+): HermesMessage | undefined {
+  let earliestReply: HermesMessage | undefined;
+  let earliestReplyMs = Number.POSITIVE_INFINITY;
+  for (const message of messages) {
+    if (isNonSubstantiveAssistantReply(message)) {
+      continue;
+    }
+    const replyMs = messageSentAtMs(message);
+    if (replyMs != null && replyMs >= userSinceMs && replyMs < earliestReplyMs) {
+      earliestReply = message;
+      earliestReplyMs = replyMs;
+    }
+  }
+  return earliestReply;
+}
+
 export type PromptReplyElapsedState =
   | { mode: 'live'; sinceMs: number }
   | { mode: 'frozen'; durationSec: number }
   | { mode: 'hidden' };
 
+/** Absolute live-wait fail — Connected+Waiting must not tick for hours. */
+export const PROMPT_REPLY_HARD_TIMEOUT_MS = 2 * 60_000;
+
+export function shouldHardTimeoutLivePromptWait(
+  sinceMs: number,
+  nowMs = Date.now(),
+): boolean {
+  return nowMs - sinceMs >= PROMPT_REPLY_HARD_TIMEOUT_MS;
+}
+
+export function msUntilLivePromptHardTimeout(
+  sinceMs: number,
+  nowMs = Date.now(),
+): number {
+  return Math.max(0, PROMPT_REPLY_HARD_TIMEOUT_MS - (nowMs - sinceMs));
+}
+
 export function resolvePromptReplyElapsedState(input: {
   messages: readonly HermesMessage[];
   userIndex: number;
+  /** Injected for tests; defaults to Date.now(). */
+  nowMs?: number;
 }): PromptReplyElapsedState {
-  const { messages, userIndex } = input;
+  const { messages, userIndex, nowMs = Date.now() } = input;
   const userMessage = messages[userIndex];
   if (!userMessage || userMessage.role?.toLowerCase() !== 'user') {
     return { mode: 'hidden' };
@@ -84,8 +122,13 @@ export function resolvePromptReplyElapsedState(input: {
   if (sinceMs == null) {
     return { mode: 'hidden' };
   }
+  if (userMessage.outboundStatus === 'failed') {
+    return { mode: 'hidden' };
+  }
 
-  const reply = findSubstantiveAssistantReplyAfter(messages, userIndex);
+  const reply =
+    findSubstantiveAssistantReplyAfter(messages, userIndex) ??
+    findSubstantiveAssistantReplyByTimestamp(messages, sinceMs);
   if (reply) {
     const replyMs = messageSentAtMs(reply);
     if (replyMs != null && replyMs >= sinceMs) {
@@ -98,6 +141,12 @@ export function resolvePromptReplyElapsedState(input: {
   }
 
   if (userIndex !== indexOfLastUserMessage(messages)) {
+    return { mode: 'hidden' };
+  }
+
+  // Sent bubbles past the hard timeout must not keep ticking "Waiting 10h…".
+  // failPendingOutboundBubbles only mutates pending; display must clear anyway.
+  if (shouldHardTimeoutLivePromptWait(sinceMs, nowMs)) {
     return { mode: 'hidden' };
   }
 

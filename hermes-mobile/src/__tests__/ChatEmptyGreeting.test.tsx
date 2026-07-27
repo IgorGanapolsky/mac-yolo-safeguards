@@ -3,6 +3,7 @@ import { render } from '@testing-library/react-native';
 import ChatEmptyGreeting, {
   greetingForTime,
   greetingSubtitle,
+  resolveGreetingTransportLabel,
 } from '../components/ChatEmptyGreeting';
 
 describe('ChatEmptyGreeting', () => {
@@ -23,22 +24,22 @@ describe('ChatEmptyGreeting', () => {
 
     expect(getByTestId('chat-empty-greeting-title').props.children).toBeTruthy();
     expect(getByTestId('chat-empty-greeting-subtitle').props.children).toBe(
-      'Ask anything. Plug in USB or pick a computer above to connect.',
+      'Ask anything. Find computers or pick one above to connect — USB is optional.',
     );
   });
 
   it('prefers route labels for account-relay copy', () => {
-    const { getByTestId } = render(<ChatEmptyGreeting routeLabel="Hermes account relay" />);
+    const { getByTestId } = render(<ChatEmptyGreeting routeLabel="Your computer" />);
 
     expect(getByTestId('chat-empty-greeting-subtitle').props.children).toBe(
-      'Ask anything — pair Hermes relay for Wi‑Fi, cellular, or USB when you are away from your computer.',
+      'Ask anything — use Tailscale when you are away, or home Wi‑Fi when you are local.',
     );
   });
 
   it('does not claim connected for generic routes when disconnected', () => {
     const { getByTestId } = render(<ChatEmptyGreeting routeLabel="Computer via USB" />);
     expect(getByTestId('chat-empty-greeting-subtitle').props.children).toBe(
-      'Ask anything. Plug in USB or pick a computer above to connect.',
+      'Ask anything. Find computers or pick one above to connect — USB is optional.',
     );
   });
 
@@ -50,6 +51,27 @@ describe('ChatEmptyGreeting', () => {
     expect(getByTestId('chat-empty-greeting-subtitle').props.children).toBe(
       'Ask anything — connected via Igors-MacBook-Pro.',
     );
+  });
+
+  it('echoes header transport in connected greeting', () => {
+    expect(resolveGreetingTransportLabel('Tailscale · worker')).toBe('Tailscale');
+    expect(resolveGreetingTransportLabel('USB')).toBe('USB');
+    expect(resolveGreetingTransportLabel('Home Wi‑Fi')).toBe('Home Wi‑Fi');
+    expect(resolveGreetingTransportLabel('192.168.1.10:8642')).toBeUndefined();
+
+    const { getByTestId } = render(
+      <ChatEmptyGreeting
+        routeLabel="Igors-MacBook-Pro"
+        transportLabel="Tailscale"
+        isConnected
+      />,
+    );
+    expect(getByTestId('chat-empty-greeting-subtitle').props.children).toBe(
+      'Ask anything — connected via Igors-MacBook-Pro · Tailscale.',
+    );
+    expect(
+      greetingSubtitle('Igors-MacBook-Pro', true, false, 'USB'),
+    ).toBe('Ask anything — connected via Igors-MacBook-Pro · USB.');
   });
 
   it('shows unreachable copy when disconnected with a machine label', () => {

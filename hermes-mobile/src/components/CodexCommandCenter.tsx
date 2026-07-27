@@ -71,7 +71,7 @@ function connectionCopy(
     };
   }
   if (state === 'connected') {
-    return { label: 'Relay only', detail: 'Chat needs direct link', color: colors.warning };
+    return { label: 'Needs computer link', detail: 'Use Tailscale or home Wi‑Fi', color: colors.warning };
   }
   if (state === 'connecting') {
     return { label: 'Connecting', detail: `Checking ${machineName}`, color: colors.warning };

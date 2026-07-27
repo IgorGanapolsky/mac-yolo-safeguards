@@ -11,6 +11,9 @@ on:
       - "hermes-mobile/package.json"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: mobile-perf-${{ github.ref }}
   cancel-in-progress: true

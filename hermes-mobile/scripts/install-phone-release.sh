@@ -414,13 +414,29 @@ echo "=== Done: Hermes Mobile installed (release, bundle embedded) ==="
 
 # Fresh install has no saved Mac/key. Auto-pair with auth-verified deep link so the
 # first launch is not "Wrong key / Not connected" (2026-07-14 real-user incident).
+#
+# 2026-07-24 multi-agent hijack fix: this used to always call the pair script with no
+# gateway flags, so it silently re-added `adb reverse tcp:8642` to THIS Mac and stole the
+# phone away from an operator-established mini-primary session (e.g. an SSH tunnel like
+# `127.0.0.1:18642` fronting a Mac mini) mid-race between agents. Callers that have already
+# pointed pairing at a specific gateway set `HERMES_PAIR_GATEWAY_URL` (and optionally
+# `HERMES_FORCE_MINI_USB_PRIMARY=1`) so auto-pair preserves that intent instead of
+# clobbering it with the plain USB-loopback default.
 if [[ "${HERMES_SKIP_AUTO_PAIR:-}" != "1" ]] && command -v adb >/dev/null 2>&1; then
   if adb devices 2>/dev/null | grep -qE '[[:space:]]device$'; then
     echo "=== Auto-pair (verified API key → phone) ==="
     PAIR_JS="$(cd "$HERMES_DIR/.." && pwd)/tools/hermes-mobile-pair.js"
     if [[ -f "$PAIR_JS" ]]; then
-      # Prefer USB loopback pair; fail soft so install still succeeds
-      node "$PAIR_JS" --no-serve 2>&1 || \
+      PAIR_ARGS=(--no-serve)
+      if [[ -n "${HERMES_PAIR_GATEWAY_URL:-}" ]]; then
+        PAIR_ARGS+=(--gateway-url="${HERMES_PAIR_GATEWAY_URL}")
+      fi
+      if [[ "${HERMES_FORCE_MINI_USB_PRIMARY:-}" == "1" ]]; then
+        PAIR_ARGS+=(--force-mini-usb-primary)
+      fi
+      # Prefer USB loopback pair (or the caller's explicit gateway); fail soft so install
+      # still succeeds.
+      node "$PAIR_JS" "${PAIR_ARGS[@]}" 2>&1 || \
         echo "Warning: auto-pair failed — run: node tools/hermes-mobile-pair.js" >&2
     fi
   fi

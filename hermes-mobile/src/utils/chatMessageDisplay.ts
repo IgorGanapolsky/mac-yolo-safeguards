@@ -15,7 +15,10 @@ import {
   shouldHideToolDumpFromTimeline,
 } from './chatToolDump';
 import { stripClarificationMarkup, parseClarificationFromContent } from './chatClarification';
-import { isTransientWorkingStatusPlaceholder } from './streamAssistantText';
+import {
+  isSilentAssistantCompletion,
+  isTransientWorkingStatusPlaceholder,
+} from './streamAssistantText';
 
 export { isToolDumpDisplayContent, shouldHideToolDumpFromTimeline } from './chatToolDump';
 export {
@@ -341,6 +344,10 @@ export function prepareMessagesForDisplay(
       }
       const raw =
         typeof message.content === 'string' ? message.content : String(message.content ?? '');
+      // Cron/gateway nothing-to-report sentinel — never hydrate into transcript state.
+      if (isSilentAssistantCompletion(raw)) {
+        return false;
+      }
       // Footer RunProgressBanner owns in-flight working copy — keep it out of transcript.
       if (isTransientWorkingStatusPlaceholder(raw)) {
         return false;

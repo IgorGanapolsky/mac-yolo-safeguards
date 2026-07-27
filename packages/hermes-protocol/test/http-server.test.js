@@ -29,6 +29,17 @@ async function start(t, options = {}) {
   return { ...relay, baseUrl };
 }
 
+function grant(overrides = {}) {
+  return {
+    account_id: "acct_1",
+    actor_type: "agent",
+    actor_id: "agent_1",
+    scopes: ["threads:read", "threads:write", "threads:delete"],
+    expires_at: "2026-08-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
 async function request(baseUrl, path, { token = TOKEN, body, ...options } = {}) {
   const headers = { ...(options.headers ?? {}) };
   if (token !== null) headers.authorization = `Bearer ${token}`;
@@ -41,7 +52,8 @@ async function request(baseUrl, path, { token = TOKEN, body, ...options } = {}) 
 }
 
 test("requires a valid bearer token before routing", async (t) => {
-  const { baseUrl } = await start(t);
+  const relay = await start(t);
+  const { baseUrl } = relay;
   const missing = await request(baseUrl, "/v1/threads/thread_1", { token: null });
   const invalid = await request(baseUrl, "/v1/threads/thread_1", { token: "wrong" });
 
@@ -49,6 +61,103 @@ test("requires a valid bearer token before routing", async (t) => {
   assert.deepEqual(await missing.json(), { error: "missing bearer token" });
   assert.equal(invalid.status, 401);
   assert.deepEqual(await invalid.json(), { error: "invalid bearer token" });
+  assert.deepEqual(
+    relay.getAuthorizationDecisions().map(({ outcome, reason, account_id }) => ({ outcome, reason, account_id })),
+    [
+      { outcome: "deny", reason: "missing_bearer", account_id: null },
+      { outcome: "deny", reason: "invalid_bearer", account_id: null },
+    ],
+  );
+});
+
+test("structured grants enforce actor scopes without exposing bearer tokens", async (t) => {
+  const decisions = [];
+  const relay = await start(t, {
+    tokens: new Map([[TOKEN, grant({ scopes: ["threads:read"] })]]),
+    authorizationClock: () => "2026-07-20T12:00:00.000Z",
+    onAuthorizationDecision: (decision) => decisions.push(decision),
+  });
+
+  const read = await request(relay.baseUrl, "/v1/threads");
+  const write = await request(relay.baseUrl, "/v1/threads/thread_1/events", {
+    method: "POST",
+    body: message(),
+  });
+
+  assert.equal(read.status, 200);
+  assert.equal(write.status, 403);
+  assert.deepEqual(await write.json(), { error: "missing required scope: threads:write" });
+  assert.deepEqual(
+    decisions.map(({ outcome, required_scope, actor_type, actor_id }) => ({
+      outcome,
+      required_scope,
+      actor_type,
+      actor_id,
+    })),
+    [
+      { outcome: "allow", required_scope: "threads:read", actor_type: "agent", actor_id: "agent_1" },
+      { outcome: "deny", required_scope: "threads:write", actor_type: "agent", actor_id: "agent_1" },
+    ],
+  );
+  assert.doesNotMatch(JSON.stringify(decisions), new RegExp(TOKEN));
+});
+
+test("delete tombstones require the separate delete scope", async (t) => {
+  const { baseUrl } = await start(t, {
+    tokens: new Map([[TOKEN, grant({ scopes: ["threads:write"] })]]),
+    authorizationClock: () => "2026-07-20T12:00:00.000Z",
+  });
+  const ordinary = await request(baseUrl, "/v1/threads/thread_1/events", {
+    method: "POST",
+    body: message(),
+  });
+  const deletion = await request(baseUrl, "/v1/threads/thread_1/events", {
+    method: "POST",
+    body: message({ mutation_id: "mut_delete", kind: "thread_deleted", payload: {} }),
+  });
+  assert.equal(ordinary.status, 201);
+  assert.equal(deletion.status, 403);
+  assert.deepEqual(await deletion.json(), { error: "missing required scope: threads:delete" });
+});
+
+test("expired and malformed structured grants fail closed", async (t) => {
+  const expired = await start(t, {
+    tokens: new Map([[TOKEN, grant({ expires_at: "2026-07-19T00:00:00.000Z" })]]),
+    authorizationClock: () => "2026-07-20T12:00:00.000Z",
+  });
+  assert.equal((await request(expired.baseUrl, "/v1/threads")).status, 401);
+  assert.equal(expired.getAuthorizationDecisions()[0].reason, "grant_expired");
+
+  const malformed = await start(t, {
+    tokens: new Map([[TOKEN, grant({ actor_type: "robot" })]]),
+  });
+  assert.equal((await request(malformed.baseUrl, "/v1/threads")).status, 401);
+  assert.equal(malformed.getAuthorizationDecisions()[0].reason, "invalid_bearer");
+});
+
+test("authorization receipts are bounded copies and telemetry failures are isolated", async (t) => {
+  const relay = await start(t, {
+    authorizationDecisionLimit: 2,
+    onAuthorizationDecision() {
+      throw new Error("telemetry unavailable");
+    },
+  });
+  assert.equal((await request(relay.baseUrl, "/v1/threads")).status, 200);
+  assert.equal((await request(relay.baseUrl, "/v1/threads/thread_1")).status, 200);
+  assert.equal((await request(relay.baseUrl, "/v1/threads/thread_2")).status, 200);
+  const decisions = relay.getAuthorizationDecisions();
+  assert.equal(decisions.length, 2);
+  decisions[0].actor_id = "tampered";
+  assert.equal(relay.getAuthorizationDecisions()[0].actor_id, "legacy_bearer");
+});
+
+test("authorization decision limits reject unsafe configuration", () => {
+  for (const authorizationDecisionLimit of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.throws(
+      () => createRelayHttpServer({ authorizationDecisionLimit }),
+      /positive safe integer/,
+    );
+  }
 });
 
 test("reports unknown routes and unsupported methods", async (t) => {

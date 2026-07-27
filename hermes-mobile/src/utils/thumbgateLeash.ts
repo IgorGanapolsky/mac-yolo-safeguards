@@ -1,6 +1,7 @@
 import type { GatewaySettings } from '../types/gateway';
 import { FREE_LEASH_WEEKLY_LIMIT, getFreeLeashWeeklyStateSync } from './freeLeashAllowance';
 import { isDeveloperLeashBackdoorActive } from './developerLeashUnlock';
+import { isStorePaidDownloadEntitled } from './playPaidEntitlement';
 
 export { FREE_LEASH_WEEKLY_LIMIT as LEASH_FREE_APPROVALS_PER_WEEK };
 
@@ -16,6 +17,9 @@ export function isProEntitledFromSnapshot(): boolean {
 }
 
 export function hasThumbgateLeashPro(settings: GatewaySettings): boolean {
+  if (isStorePaidDownloadEntitled()) {
+    return true;
+  }
   if (settings.thumbgateProActive === true) {
     return true;
   }

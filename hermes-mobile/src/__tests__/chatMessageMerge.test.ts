@@ -6,6 +6,7 @@ import {
   hasUnsyncedLocalMessages,
   isMessageBodyEmpty,
   isMessageDisplayEmpty,
+  localAssistantRicherThanServer,
   mergeServerMessagesWithPending,
   transcriptDigest,
 } from '../utils/chatMessageMerge';
@@ -54,6 +55,16 @@ describe('mergeServerMessagesWithPending', () => {
     const merged = mergeServerMessagesWithPending(server, local);
     expect(merged.length).toBe(2);
     expect(merged[1]?.id).toBe('asst-1');
+  });
+
+  it('does not resurrect an internal silent completion from a refreshed transcript', () => {
+    const server: HermesMessage[] = [
+      { role: 'user', content: 'make money today' },
+      { role: 'assistant', content: '[SILENT]' },
+      { role: 'user', content: '[SILENT]' },
+    ];
+    const merged = mergeServerMessagesWithPending(server, []);
+    expect(merged.map((message) => message.content)).toEqual(['make money today']);
   });
 
   it('does not duplicate messages already on server', () => {
@@ -131,6 +142,25 @@ describe('mergeServerMessagesWithPending', () => {
     const merged = mergeServerMessagesWithPending(server, local);
     expect(merged).toHaveLength(1);
     expect(merged[0]?.outboundStatus).toBe('pending');
+  });
+
+  it('transfers failed stall status onto server user line when optimistic duplicate is dropped', () => {
+    const prompt = 'Make money faster';
+    const server: HermesMessage[] = [{ id: 'gw-u', role: 'user', content: prompt }];
+    const local: HermesMessage[] = [
+      {
+        id: 'user-1',
+        role: 'user',
+        content: prompt,
+        outboundStatus: 'failed',
+        outboundFailureReason: 'Run stalled on your Mac — recovering automatically…',
+      },
+    ];
+    const merged = mergeServerMessagesWithPending(server, local);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.id).toBe('gw-u');
+    expect(merged[0]?.outboundStatus).toBe('failed');
+    expect(merged[0]?.outboundFailureReason).toContain('Run stalled');
   });
 
   it('drops an optimistic prompt when the gateway appends a separate context block', () => {
@@ -306,5 +336,57 @@ describe('mergeServerMessagesWithPending', () => {
       },
     ];
     expect(collapseNearDuplicateAssistantTurns(messages)).toHaveLength(3);
+  });
+
+  it('never wipes longer phone-streamed assistant when reconnect returns a truncated paraphrase', () => {
+    const longStream =
+      `${REVENUE_ACK_A} Reddit cold replies will not produce today revenue. ` +
+      'I can fire direct outreach to warm contacts if that is what you want.';
+    const server: HermesMessage[] = [
+      { id: 'gw-u', role: 'user', content: 'Make money today' },
+      { id: 'gw-a', role: 'assistant', content: REVENUE_ACK_A },
+    ];
+    const local: HermesMessage[] = [
+      { id: 'gw-u', role: 'user', content: 'Make money today' },
+      { id: 'asst-stream', role: 'assistant', content: longStream },
+    ];
+    expect(localAssistantRicherThanServer(server, longStream)).toBe(true);
+    const merged = mergeServerMessagesWithPending(server, local);
+    const assistants = merged.filter((m) => m.role === 'assistant');
+    expect(assistants.some((m) => m.content === longStream)).toBe(true);
+  });
+
+  it('keeps local streamed assistant when mega-context refresh omits the latest turn', () => {
+    const longStream =
+      'Stripe next dollar depends on warm outreach landing today — not Reddit cold replies.';
+    const server: HermesMessage[] = [
+      { id: 'gw-old-u', role: 'user', content: 'older goal' },
+      { id: 'gw-old-a', role: 'assistant', content: 'Older completed reply about Reddit.' },
+    ];
+    const local: HermesMessage[] = [
+      ...server,
+      {
+        id: 'user-pending',
+        role: 'user',
+        content: 'What time today will I see our next dollar in stripe and PayPal',
+        outboundStatus: 'pending',
+      },
+      { id: 'asst-stream', role: 'assistant', content: longStream },
+    ];
+    const merged = mergeServerMessagesWithPending(server, local);
+    expect(merged.some((m) => m.content === longStream)).toBe(true);
+    expect(merged.some((m) => m.id === 'user-pending')).toBe(true);
+  });
+
+  it('collapse prefers longer near-duplicate over a shorter later bubble', () => {
+    const longBody = `${REVENUE_ACK_B} Extra evidence and next steps stay visible.`;
+    const messages: HermesMessage[] = [
+      { id: 'u1', role: 'user', content: 'Make money today' },
+      { id: 'a1', role: 'assistant', content: longBody },
+      { id: 'a2', role: 'assistant', content: REVENUE_ACK_A },
+    ];
+    const collapsed = collapseNearDuplicateAssistantTurns(messages);
+    expect(collapsed).toHaveLength(2);
+    expect(collapsed[1]?.content).toBe(longBody);
   });
 });

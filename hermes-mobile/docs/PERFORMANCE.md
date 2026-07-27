@@ -9,7 +9,7 @@ Callstack 2026 RN optimization alignment for chat list rendering, context subscr
 | Chat list | `@shopify/flash-list` v2 + `maintainVisibleContentPosition` (replaces inverted FlatList) |
 | List cells | `ChatMessageListItem` memo + stable callbacks from `ChatScreen` |
 | Gateway context | `use-context-selector` + `useGatewayConnection` / `Relay` / `Approvals` / `ChatSync` |
-| Tab startup | `React.lazy` + `Suspense` for Chat, Leash, Settings in `App.tsx` |
+| Tab startup | Static imports for Chat, Leash, Settings in `App.tsx` (no `React.lazy` Suspense hang) |
 | React Compiler | `babel-plugin-react-compiler` target 19 in `babel.config.js` |
 | Bundle audit | `npm run analyze:bundle` → `scripts/analyze-bundle.sh` |
 

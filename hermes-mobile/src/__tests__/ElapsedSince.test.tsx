@@ -1,13 +1,16 @@
 import React from 'react';
+import { Vibration } from 'react-native';
 import { act, render } from '@testing-library/react-native';
 import ElapsedSince from '../components/ElapsedSince';
 
 describe('ElapsedSince', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    jest.spyOn(Vibration, 'vibrate').mockImplementation(() => true);
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.useRealTimers();
   });
 
@@ -28,5 +31,19 @@ describe('ElapsedSince', () => {
     act(() => {
       jest.advanceTimersByTime(5000);
     });
+  });
+
+  it('Waiting elapsed ticks never invoke haptics / Vibration', () => {
+    const sinceMs = Date.now() - 5_000;
+    const { unmount } = render(
+      <ElapsedSince sinceMs={sinceMs} prefix="Waiting" testID="elapsed-waiting" />,
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(10_000);
+    });
+
+    expect(Vibration.vibrate).not.toHaveBeenCalled();
+    unmount();
   });
 });

@@ -22,11 +22,13 @@
 #   instead: Gradle daemons and headless agent CLIs.
 # - OLLAMA: a per-request keep_alive from any client OVERRIDES server env, so a
 #   model can be silently pinned; trust /api/ps, not the config. Evict actively
-#   at WARN through Ollama's HTTP API. Never kill the runner: doing so corrupts
-#   an in-flight Hermes turn.
+#   at WARN through Ollama's HTTP API. Never kill the runner. If concurrent
+#   Hermes traffic keeps the worker resident during the recovery window, boot
+#   out only the exact gateway supervisor; the watchdog restores it on expiry.
 # - ACTION LADDER: WARN(2) -> evict Ollama models (cheap, reversible: reload on
-#   next request). CRITICAL(4) -> also SIGTERM->SIGKILL the single
-#   largest-RSS leaf agent workload. Never Electron helpers, never the IDE/UI.
+#   next request), then open the exact-gateway circuit only if a worker remains.
+#   CRITICAL(4) -> also SIGTERM->SIGKILL the single largest-RSS leaf agent
+#   workload. Never Electron helpers, never the IDE/UI.
 #
 # Install (per Mac): copy to ~/.local/bin/, LaunchAgent
 # com.igor.memory-pressure-guardian.plist, StartInterval=60 + RunAtLoad.
@@ -41,6 +43,7 @@ STREAK_FILE="${MEMORY_GUARD_STREAK_FILE:-/tmp/memory-pressure-guardian.streak}"
 WARN_COOLDOWN_FILE="${MEMORY_GUARD_WARN_FILE:-/tmp/memory-pressure-guardian.lastwarn}"
 CRIT_COOLDOWN_FILE="${MEMORY_GUARD_CRIT_FILE:-/tmp/memory-pressure-guardian.lastcrit}"
 RECOVERY_FILE="${YOLO_MEMORY_RECOVERY_FILE:-/tmp/yolo-memory-recovery-until}"
+HERMES_CIRCUIT_FILE="${YOLO_HERMES_GATEWAY_CIRCUIT_FILE:-/tmp/yolo-hermes-gateway-circuit-open}"
 WARN_COOLDOWN="${MEMORY_GUARD_WARN_COOLDOWN:-600}"
 CRIT_COOLDOWN="${MEMORY_GUARD_CRIT_COOLDOWN:-300}"
 RECOVERY_COOLDOWN="${YOLO_MEMORY_RECOVERY_SEC:-600}"
@@ -50,6 +53,11 @@ CURL_BIN="${MEMORY_GUARD_CURL_BIN:-curl}"
 SYSCTL_BIN="${MEMORY_GUARD_SYSCTL_BIN:-sysctl}"
 DATE_BIN="${MEMORY_GUARD_DATE_BIN:-date}"
 SLEEP_BIN="${MEMORY_GUARD_SLEEP_BIN:-sleep}"
+LAUNCHCTL_BIN="${MEMORY_GUARD_LAUNCHCTL_BIN:-launchctl}"
+ID_BIN="${MEMORY_GUARD_ID_BIN:-id}"
+SHED_HERMES_GATEWAY="${MEMORY_GUARD_SHED_HERMES_GATEWAY:-0}"
+HERMES_GATEWAY_LABEL="${MEMORY_GUARD_HERMES_GATEWAY_LABEL:-ai.hermes.gateway}"
+GUI_DOMAIN="${MEMORY_GUARD_GUI_DOMAIN:-gui/$($ID_BIN -u)}"
 DRY_RUN="${1:-}"
 
 # leaf agent workloads we may reap under REAL critical pressure — full-command-line
@@ -140,6 +148,43 @@ if (( now - last > WARN_COOLDOWN )); then
   else
     log "WARN: pressure=$pressure but no ollama models resident"
     [[ "$DRY_RUN" == "--dry-run" ]] || echo "$now" > "$WARN_COOLDOWN_FILE"
+  fi
+fi
+
+# An unload request cannot cancel other in-flight Ollama requests. If a client
+# keeps the model resident during the bounded recovery window, shed the exact
+# launchd-owned Hermes gateway supervisor. This is a circuit breaker, not a
+# generic process killer: normal pressure, an empty Ollama worker set, an
+# unconfigured install, and every unrelated UI/app path are all no-ops. The
+# coordinated watchdog leaves the gateway down only until the recovery deadline.
+recovery_until=$(cat "$RECOVERY_FILE" 2>/dev/null || echo 0)
+case "$recovery_until" in ''|*[!0-9]*) recovery_until=0 ;; esac
+if (( warn )) && [[ "$SHED_HERMES_GATEWAY" == "1" ]] && (( now < recovery_until )); then
+  resident_ps=$("$CURL_BIN" -sm 3 "$OLLAMA_API/api/ps" 2>/dev/null)
+  resident_models=$(echo "$resident_ps" | python3 -c "import sys,json; print(' '.join(m['name'] for m in json.load(sys.stdin).get('models',[])))" 2>/dev/null)
+  if [[ -n "${resident_models:-}" ]]; then
+    if [[ "$DRY_RUN" == "--dry-run" ]]; then
+      log "DRY-RUN: recovery circuit would shed $HERMES_GATEWAY_LABEL; models still resident: $resident_models"
+    elif "$LAUNCHCTL_BIN" disable "$GUI_DOMAIN/$HERMES_GATEWAY_LABEL" >/dev/null 2>&1; then
+      # Disable first so KeepAlive or another bootstrap path cannot reopen the
+      # gateway between bootout and the next watchdog tick. The watchdog owns
+      # the matching enable/bootstrap after pressure and cooldown both clear.
+      "$LAUNCHCTL_BIN" bootout "$GUI_DOMAIN/$HERMES_GATEWAY_LABEL" >/dev/null 2>&1 || true
+      echo "$recovery_until" > "$HERMES_CIRCUIT_FILE"
+      # The gateway socket is gone, so a second keep_alive=0 request can reclaim
+      # the worker immediately instead of waiting for its normal idle timeout.
+      shed_unloaded=""; shed_failed=""
+      for m in $resident_models; do
+        code=$("$CURL_BIN" -s -m 30 -o /dev/null -w "%{http_code}" \
+          -H "Content-Type: application/json" \
+          -d "{\"model\":\"$m\",\"keep_alive\":0}" "$OLLAMA_API/api/generate" 2>/dev/null || echo 000)
+        if [[ "$code" == "200" ]]; then shed_unloaded="$shed_unloaded $m"; else shed_failed="$shed_failed $m($code)"; fi
+      done
+      log "RECOVERY circuit: disabled and shed $HERMES_GATEWAY_LABEL until $recovery_until; unloaded:${shed_unloaded:- none}${shed_failed:+; unload failed:$shed_failed}"
+      notify "Memory recovery circuit opened — paused the local Hermes gateway until $recovery_until because active inference kept Ollama resident. It will restart after cooldown."
+    else
+      log "RECOVERY circuit: failed to disable $HERMES_GATEWAY_LABEL in $GUI_DOMAIN while models remained resident"
+    fi
   fi
 fi
 

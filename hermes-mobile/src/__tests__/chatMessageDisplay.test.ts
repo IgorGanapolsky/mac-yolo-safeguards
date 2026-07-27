@@ -45,6 +45,15 @@ describe('chatMessageDisplay', () => {
     expect(visible.map((m) => m.content)).toEqual(['Make money today', 'Real reply text.']);
   });
 
+  it('never hydrates bare cron [SILENT] into transcript state', () => {
+    const visible = prepareMessagesForDisplay([
+      { role: 'user', content: 'Make money faster' },
+      { role: 'assistant', content: '[SILENT]' },
+      { role: 'assistant', content: 'Here are three leads.' },
+    ]);
+    expect(visible.map((m) => m.content)).toEqual(['Make money faster', 'Here are three leads.']);
+  });
+
   it('collapses near-duplicate assistant acks from a double gateway completion', () => {
     const visible = prepareMessagesForDisplay([
       { id: 'u1', role: 'user', content: 'Make money today' },

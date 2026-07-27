@@ -12,6 +12,20 @@ describe('VaultProjectPickerChip', () => {
     );
   });
 
+  it('keeps a composer gap so the chip does not crowd the send control', () => {
+    const { getByTestId } = render(<VaultProjectPickerChip onPress={jest.fn()} />);
+    const chip = getByTestId('vault-project-picker-chip');
+    const style = Array.isArray(chip.props.style)
+      ? Object.assign({}, ...chip.props.style.filter(Boolean))
+      : chip.props.style;
+    // Pressable may pass a style function
+    const resolved =
+      typeof chip.props.style === 'function'
+        ? Object.assign({}, ...[].concat(chip.props.style({ pressed: false })).filter(Boolean))
+        : style;
+    expect(resolved.marginBottom).toBeGreaterThanOrEqual(10);
+  });
+
   it('shows the active project name and handoff when selected', () => {
     const { getByTestId, queryByTestId } = render(
       <VaultProjectPickerChip

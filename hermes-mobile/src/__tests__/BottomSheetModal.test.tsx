@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, Platform } from 'react-native';
-import { fireEvent } from '@testing-library/react-native';
+import { act, fireEvent } from '@testing-library/react-native';
 import { render } from '@testing-library/react-native';
 import BottomSheetModal from '../components/BottomSheetModal';
 import { COMPOSER_KEYBOARD_GAP } from '../utils/composerKeyboard';
@@ -10,9 +10,22 @@ jest.mock('../hooks/useKeyboardInset');
 
 const mockUseKeyboardInset = useKeyboardInset as jest.MockedFunction<typeof useKeyboardInset>;
 
+function contentMarginBottom(content: { props: Record<string, unknown> }): number | undefined {
+  const liftedStyle = content.props.style;
+  if (Array.isArray(liftedStyle)) {
+    return liftedStyle.find((s: { marginBottom?: number }) => s?.marginBottom != null)?.marginBottom;
+  }
+  return (liftedStyle as { marginBottom?: number } | undefined)?.marginBottom;
+}
+
 describe('BottomSheetModal', () => {
   beforeEach(() => {
+    jest.useFakeTimers();
     mockUseKeyboardInset.mockReturnValue({ inset: 0, windowShrunk: false });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   it('closes when backdrop is pressed', () => {
@@ -39,7 +52,7 @@ describe('BottomSheetModal', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('lifts sheet content above the software keyboard on Android', () => {
+  it('debounces keyboard lift so Android IME metric polls do not jump the sheet', () => {
     const platform = Platform as { OS: string };
     const prevOs = platform.OS;
     platform.OS = 'android';
@@ -51,12 +64,13 @@ describe('BottomSheetModal', () => {
         </BottomSheetModal>,
       );
 
-      const content = getByTestId('sheet-content');
-      const liftedStyle = content.props.style;
-      const marginBottom = Array.isArray(liftedStyle)
-        ? liftedStyle.find((s: { marginBottom?: number }) => s?.marginBottom != null)?.marginBottom
-        : liftedStyle?.marginBottom;
-      expect(marginBottom).toBe(280 + COMPOSER_KEYBOARD_GAP);
+      expect(contentMarginBottom(getByTestId('sheet-content'))).toBeUndefined();
+
+      act(() => {
+        jest.advanceTimersByTime(160);
+      });
+
+      expect(contentMarginBottom(getByTestId('sheet-content'))).toBe(280 + COMPOSER_KEYBOARD_GAP);
     } finally {
       platform.OS = prevOs;
     }

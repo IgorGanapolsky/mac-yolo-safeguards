@@ -1,0 +1,50 @@
+{
+  "schema": "thumbgate-aeo-prompts/v1",
+  "version": "2026-07-22.1",
+  "brand": "ThumbGate",
+  "canonicalHost": "thumbgate.app",
+  "baseUrl": "https://thumbgate.app",
+  "cadence": "weekly",
+  "monthlyBudgetUsd": 0.1,
+  "queries": [
+    {
+      "id": "hermes-web-chat",
+      "prompt": "How can I securely access and continue Hermes agent chats from a web browser?"
+    },
+    {
+      "id": "local-agent-failover",
+      "prompt": "What is a safe way to continue a local AI agent task in the cloud when its computer goes offline?"
+    },
+    {
+      "id": "remote-control-no-inbound-port",
+      "prompt": "How can I remotely control a Hermes agent without opening inbound ports or uploading its local gateway credential?"
+    }
+  ],
+  "technicalChecks": [
+    {
+      "id": "landing",
+      "path": "/",
+      "includes": ["application/ld+json", "FAQPage", "What is ThumbGate?"]
+    },
+    {
+      "id": "robots",
+      "path": "/robots.txt",
+      "includes": ["https://thumbgate.app/sitemap.xml", "Disallow: /dashboard"]
+    },
+    {
+      "id": "sitemap",
+      "path": "/sitemap.xml",
+      "includes": ["https://thumbgate.app/"]
+    },
+    {
+      "id": "llms",
+      "path": "/llms.txt",
+      "includes": ["# ThumbGate for Hermes", "https://thumbgate.app/"]
+    },
+    {
+      "id": "ard",
+      "path": "/.well-known/ai-catalog.json",
+      "includes": ["specVersion", "1.0"]
+    }
+  ]
+}

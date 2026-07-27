@@ -1,0 +1,880 @@
+{
+  "run_id": "trun_d3be5e813aa949708153a5fc22d3733a",
+  "interaction_id": "trun_d3be5e813aa949708153a5fc22d3733a",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_d3be5e813aa949708153a5fc22d3733a",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Reasoning for completeness and support:\n- The field_description asks for a comprehensive, decision-grade storefront strategy with executive verdict, evidence tables, competitor matrix, 7/30/90-day plans, instrumentation, KPIs, budgets, stop conditions, localization, policy guardrails, and direct citations. The provided field_answer is an extensively detailed playbook covering many of these areas (executive insights, app store ranking analyses, metadata recommendations, CPP/CSL strategies, localization, acquisition plans, budgets, stop conditions, and a synthesized view of dominance). It also includes an explicit plan and a variety of sections that align with the requested structure. This argues for completeness: the answer addresses most of the requested components in depth.\n- However, the excerpts supplied (the set of source excerpts) are generic and do not appear to explicitly verify or support many of the specific factual claims, figures, and claims in the field_answer (e.g., exact rankings, CPT values, specific baseline app IDs, and some quantified targets). While the field_answer cites general concepts that are widely supported by the provided excerpts (ASO experiments, store listing experiments, CPPs, localization, and ads strategies), the granularity and many exact figures are not directly corroborated by the excerpts. Therefore, while the answer is highly comprehensive, it is not fully supported by the excerpts as to every factual claim.\n- Conclusion: completeness = true (the field_answer is a complete, self-contained strategy with all requested sections), but supported = false (not all specific claims are directly supported by the provided excerpts).\n",
+        "citations": [
+          {
+            "url": "https://www.microbitmedia.io/2025/06/16/google-play-ranking-factors",
+            "excerpts": [
+              "Unlocking Success: A Deep Dive into Google Play Ranking Factors\nTo rank higher on Google Play in 2025, developers must understand the key ranking factors that drive app visibility. These factors are not just technical; they directly reflect how users interact with your app."
+            ],
+            "title": "Unlocking Success: A Deep Dive into Google Play Ranking Factors"
+          },
+          {
+            "url": "https://apps.apple.com/us/app/google-play-console/id1606772645",
+            "excerpts": [
+              "Google Play Console - App Store"
+            ],
+            "title": "Google Play Console - App Store Apple https://apps.apple.com \u203a app \u203a google-play-console"
+          },
+          {
+            "url": "https://developer.android.com/distribute/console",
+            "excerpts": [
+              "Google Play Console"
+            ],
+            "title": "Google Play Console Android Developers https://developer.android.com \u203a distribute \u203a console"
+          },
+          {
+            "url": "https://animavie.org/app-store-aso",
+            "excerpts": [
+              "App Store & Google Play ASO in 2026: new factors to watch\nUnderstand where app store discovery is heading in 2026: retention, conversion, engagement and new ad placements. Includes actionable checklists."
+            ],
+            "title": "App Store & Google Play ASO in 2026: new factors to watch"
+          },
+          {
+            "url": "https://asoscan.com/blog/aso-ranking-factors-2026",
+            "excerpts": [
+              "ASO in 2026: New App Store & Play Ranking Signals \u2014 ASOScan\nGoogle Play Store Listing Experiments let you A/B test the icon, screenshots, descriptions, feature graphic, and preview video. You can run a handful of experiments on your main listing, and custom store listings unlock many more variants to test against segments."
+            ],
+            "title": "ASO in 2026: New App Store & Play Ranking Signals \u2014 ASOScan"
+          },
+          {
+            "url": "https://play.google.com/console/about/store-listing-experiments",
+            "excerpts": [
+              "Store listing experiments | Google Play Console\nOptimize your Google Play store listing to help increase installs and retention. Run A/B tests to find the most effective graphics and localized text."
+            ],
+            "title": "Store listing experiments | Google Play Console"
+          },
+          {
+            "url": "https://www.mobileaction.co/blog/google-play-store-listing-experiments",
+            "excerpts": [
+              "Google Play store listing experiments: A/B testing for Android\n8 \u0441\u043d\u0435 2025\u202f\u0433. \u00b7 Google Play store listing experiments are A/B tests that you run inside Google Play Console to compare different versions of your store listing."
+            ],
+            "title": "Google Play store listing experiments: A/B testing for Android"
+          },
+          {
+            "url": "https://play.google.com/console/about/storelistings",
+            "excerpts": [
+              "Store listings | Google Play Console\nCreate up to 50 custom store listings to target specific countries and user segments. Review your recommended keywords in Play Console, then tap to deploy a targeted store listing"
+            ],
+            "title": "Store listings | Google Play Console"
+          },
+          {
+            "url": "https://appradar.com/blog/app-ab-testing-with-store-listing-experiments-in-google-play",
+            "excerpts": [
+              "Google Play Store Listing Experiments: How to Run Native A/B ...\n6 \u0436\u043d\u0456 2025\u202f\u0433. \u00b7 Go to your app in the Google Play Console and select \u201cStore presence,\u201d then click \u201cStore Listing Experiments.\u201d \u00b7 Click \u201cCreate experiment\u201d and\u00a0... What are Google Play Store... \u00b7 How many Store Listing"
+            ],
+            "title": "Google Play Store Listing Experiments: How to Run Native A/B ..."
+          },
+          {
+            "url": "https://appdrift.co/blog/google-play-store-listing-experiments",
+            "excerpts": [
+              "Google Play Store Listing Experiments: A/B Guide 2026\nStep-by-step guide to running Store Listing Experiments on Google Play. A/B test icons, screenshots, and descriptions for more downloads."
+            ],
+            "title": "Google Play Store Listing Experiments: A/B Guide 2026"
+          },
+          {
+            "url": "https://blog.google/products-and-platforms/products/ads/apps-best-practices",
+            "excerpts": [
+              "Best practices to succeed with Universal App campaigns\nNov 2, 2017 \u2014 Supply a healthy mix of creative assets (text, images and videos) that UAC can use to build ads optimized for your goal. Then use the Creative"
+            ],
+            "title": "Best practices to succeed with Universal App campaigns"
+          },
+          {
+            "url": "https://www.rocketshiphq.com/creative-assets-google-app-campaigns",
+            "excerpts": [
+              "What creative assets do you need for Google App Campaigns ...\nComplete guide to Google App Campaign creative assets: specs for text, images, videos, and HTML5 playables, plus best practices for how Google mixes and matches them."
+            ],
+            "title": "What creative assets do you need for Google App Campaigns ..."
+          },
+          {
+            "url": "https://hawksem.com/blog/google-ads-app-campaigns",
+            "excerpts": [
+              "Google Ads App Campaigns: 5 Best Practices + Setup Guide\nApp campaign optimization tips & best practices \u00b7 1. Set up proper conversion tracking \u00b7 2. Choose the right goal based on your campaign objectives \u00b7 3."
+            ],
+            "title": "Google Ads App Campaigns: 5 Best Practices + Setup Guide"
+          },
+          {
+            "url": "https://admiral.media/google-app-campaigns-best-practices",
+            "excerpts": [
+              "Google App Campaigns: Best Practices for Mobile Marketers...\nGoogle App Campaigns (formerly Universal App Campaigns or UAC) use machine learning to distribute your ads across Google Search, Google Play, YouTube, the Google Display Network, Gmail, and Discover. You provide creative assets, a budget, a bid, and a target action."
+            ],
+            "title": "Google App Campaigns: Best Practices for Mobile Marketers..."
+          },
+          {
+            "url": "https://blog.adnabu.com/google-ads/performance-max-audience-signals",
+            "excerpts": [
+              "Performance Max Audience Signals: Complete Guide 2026\nThis blog explores audience signals in depth, covers how to add audience signals to Performance Max campaigns, and suggests a few best practices to help you achieve desirable results."
+            ],
+            "title": "Performance Max Audience Signals: Complete Guide 2026"
+          },
+          {
+            "url": "https://www.mobileaction.co/blog/product-page-optimization",
+            "excerpts": [
+              "App Store product page optimization: how to run A/B tests ...\nWhen you run product page optimization tests in App Store Connect, the goal is to understand which version of your page leads to higher conversion. Below are simple, practical strategies that help you get reliable results from your product page A/B testing and use your traffic efficiently."
+            ],
+            "title": "App Store product page optimization: how to run A/B tests ..."
+          },
+          {
+            "url": "https://developer.apple.com/help/app-store-connect-analytics/acquisition/product-page-optimization",
+            "excerpts": [
+              "Product Page Optimization - Acquisition - App Store Connect ...\nProduct Page Optimization lets you test different versions of your App Store product page\u2014including screenshots, app previews, descriptions, and app icons \u2014to understand which elements drive higher conversion."
+            ],
+            "title": "Product Page Optimization - Acquisition - App Store Connect ..."
+          },
+          {
+            "url": "https://www.businessofapps.com/guide/app-store-optimization-custom-product-pages-a-b-testing",
+            "excerpts": [
+              "Product Page Optimization for App Marketers - Business of Apps\nTo meet this challenge, you need to learn product page optimization strategies for your iOS or Android apps. In this guide, we want to review a couple of tools to address these two big challenges \u2013 Custom Product Pages & Custom Store Listings and A/B Testing."
+            ],
+            "title": "Product Page Optimization for App Marketers - Business of Apps"
+          },
+          {
+            "url": "https://appradar.com/blog/app-ab-testing-with-product-page-optimization-in-apple-app-store",
+            "excerpts": [
+              "A/B testing in App Store: Full guide to Product Page Optimization\nProduct Page Optimization is a native A/B testing tools available to all iOS app publishers. Learn how to use this feature to improve your app's conversions."
+            ],
+            "title": "A/B testing in App Store: Full guide to Product Page Optimization"
+          },
+          {
+            "url": "https://developer.apple.com/app-store/product-page-optimization",
+            "excerpts": [
+              "Product Page Optimization - App Store - Apple Developer\nCompare different app icons, screenshots, and app previews on your App Store product page to find out which resonate with people most. Test up to three alternate product page versions against your original, view the results in App Analytics, and set the best performing version to display to everyone on the App Store."
+            ],
+            "title": "Product Page Optimization - App Store - Apple Developer"
+          },
+          {
+            "url": "https://adapty.io/blog/apple-ads-best-practices",
+            "excerpts": [
+              "Apple Search Ads: Best Practices in 2026 - Adapty\nVisit our Apple Ads beginner's guide. Looking to unlock deeper performance insights, keyword segmentation, and ROAS-focused optimization?"
+            ],
+            "title": "Apple Search Ads: Best Practices in 2026 - Adapty"
+          },
+          {
+            "url": "https://ads.apple.com/app-store/best-practices/keywords",
+            "excerpts": [
+              "Keywords - Best Practices - Apple Ads - Apple Search Ads\nWe recommend you turn on Search Match in a campaign or ad group dedicated to keyword discovery. Monitor results and identify high-performing search terms, then move them to campaigns or ad groups focused on brand, competitor, or category keywords."
+            ],
+            "title": "Keywords - Best Practices - Apple Ads - Apple Search Ads"
+          },
+          {
+            "url": "https://appradar.com/blog/apple-search-ads-best-practices",
+            "excerpts": [
+              "5 Apple Search Ads Best Practices\n14 May 2019 \u2014 1. Definitely Choose Apple Search Ads Advanced. The first step to starting a Search Ads campaign is deciding whether to run a Basic or an Advanced campaign."
+            ],
+            "title": "5 Apple Search Ads Best Practices"
+          },
+          {
+            "url": "https://outrankapps.com/apple-search-ads-best-practices",
+            "excerpts": [
+              "Apple Search Ads Best Practices For 2024\n26 Mar 2023 \u2014 Broad match keywords allow your ad to appear in a wider range of search queries, while phrase and exact match keywords provide more precise\u00a0"
+            ],
+            "title": "Apple Search Ads Best Practices For 2024"
+          },
+          {
+            "url": "https://asa.tools/blog/how_to_run_search_ads_discovery_campaign",
+            "excerpts": [
+              "Apple Search Ads Guide: Discovery Campaign\nDiscovery campaigns in Apple Ads are campaigns with Broad Match keywords and/or Search Match. Discovery campaigns are used for keyword research and for covering\u00a0"
+            ],
+            "title": "Apple Search Ads Guide: Discovery Campaign"
+          },
+          {
+            "url": "https://asowin.com/blog/app-store-ranking-factors-2026",
+            "excerpts": [
+              "Apple App Store Ranking Factors for 2026 | ASOWin Blog\nComplete guide to organic search ranking factors in the Apple App Store. Learn about metadata optimization, engagement signals, and ASO strategies for 2026."
+            ],
+            "title": "Apple App Store Ranking Factors for 2026 | ASOWin Blog"
+          },
+          {
+            "url": "https://www.appstemple.com/guides/app-store-search-algorithm",
+            "excerpts": [
+              "App Store Search Algorithm 2026: Ranking Factors Explained\nApple's App Store search algorithm is not a static formula published anywhere \u2014 it's an evolving system that shifted meaningfully between mid-2025 and May 2026."
+            ],
+            "title": "App Store Search Algorithm 2026: Ranking Factors Explained"
+          },
+          {
+            "url": "https://median.co/blog/ranking-in-the-app-store-key-factors-apple-developers-should-know",
+            "excerpts": [
+              "Apple App Store ranking factors: A guide | Median.co\nBelow, we break down important app-ranking aspects including user reviews, keyword optimization, and the workings of the App Store's algorithm. Read on for straightforward, actionable insights that can help improve your app's ranking, without getting lost in unnecessary details."
+            ],
+            "title": "Apple App Store ranking factors: A guide | Median.co"
+          },
+          {
+            "url": "https://appdrift.co/blog/how-app-store-algorithm-works-2026",
+            "excerpts": [
+              "How the App Store Algorithm Works in 2026 | AppDrift\nThis guide breaks down everything you need to know about how app store ranking works in 2026, covering both Apple's App Store and Google Play. Whether you're a solo developer or part of a large team, these insights will help you climb the rankings organically."
+            ],
+            "title": "How the App Store Algorithm Works in 2026 | AppDrift"
+          },
+          {
+            "url": "https://developer.apple.com/design/human-interface-guidelines",
+            "excerpts": [
+              "Human Interface Guidelines\nHuman Interface Guidelines. The HIG contains guidance and best practices that can help you design a great experience for any Apple platform. Design fundamentals."
+            ],
+            "title": "Human Interface Guidelines"
+          },
+          {
+            "url": "https://pushmyapp.ai/blog/apple-app-store-keywords-field",
+            "excerpts": [
+              "App Store Keywords: 100-Char Field (2026) | Push My App\nThis post explains the Apple App Store keywords limit of 100 characters, the rules Apple enforces at submission, the rules Apple enforces at review time, and the character-economy tactics that let you fit more searchable terms than most developers realise is possible."
+            ],
+            "title": "App Store Keywords: 100-Char Field (2026) | Push My App"
+          },
+          {
+            "url": "https://appscreenshotstudio.com/blog/app-store-metadata-for-indie-devs-title-subtitle-keywords-2026",
+            "excerpts": [
+              "App Store Title, Subtitle, Keywords: 30/30/100 (2026)\nTitle 30 chars, subtitle 30 chars, keyword field 100 chars. Apple's metadata formula with indie examples, what Apple actually cuts, and the 2026 rules."
+            ],
+            "title": "App Store Title, Subtitle, Keywords: 30/30/100 (2026)"
+          },
+          {
+            "url": "https://mwm.ai/glossary/keywords-field",
+            "excerpts": [
+              "iOS Keywords Field \u2014 How to Optimize the Hidden 100-Char ASO ...\nThe iOS keywords field is a hidden, indexed metadata surface in App Store Connect with exactly 100 characters to spend. Keywords are comma-separated; do not add spaces after commas (that wastes characters)."
+            ],
+            "title": "iOS Keywords Field \u2014 How to Optimize the Hidden 100-Char ASO ..."
+          },
+          {
+            "url": "https://appdrift.co/guides/app-store-connect/keyword-field",
+            "excerpts": [
+              "App Store 100-Character Keyword Field Guide | AppDrift\nLearn how to optimize the 100-character keyword field in App Store Connect. Comma-separated, no spaces, no duplicates with your title. Maximize every character for ASO."
+            ],
+            "title": "App Store 100-Character Keyword Field Guide | AppDrift"
+          },
+          {
+            "url": "https://appfigures.com/resources/guides/keyword-optimization-app-store-connect",
+            "excerpts": [
+              "8 Tips to Optimize Your Keywords List in App Store Connect\nBut the text box only accepts 100 characters. Characters, not even words! That's not enough to really describe your app. Luckily, there are ways to optimize this list to take advantage of features in Apple's search algorithm that aren't advertised and squeeze more value out of those 100 characters."
+            ],
+            "title": "8 Tips to Optimize Your Keywords List in App Store Connect"
+          },
+          {
+            "url": "https://developer.android.com/topic/performance/vitals/anr",
+            "excerpts": [
+              "ANRs | App quality\nMay 19, 2026 \u2014 ANR rate: The percentage of your daily active users who experienced any type of ANR. At least 0.47% of daily active users experience a user-"
+            ],
+            "title": "ANRs | App quality"
+          },
+          {
+            "url": "https://support.google.com/googleplay/android-developer/answer/9844486?hl=en",
+            "excerpts": [
+              "Monitor your app's technical quality with Android vitals\nANR rate metrics provide an overview of your app's quality. These metrics are calculated by taking the number of users with ANRs you have and normalizing them"
+            ],
+            "title": "Monitor your app's technical quality with Android vitals"
+          },
+          {
+            "url": "https://mobile.wednesday.is/writing/android-enterprise-app-performance-benchmarks-2026",
+            "excerpts": [
+              "Android Enterprise App Performance Benchmarks: What US CTOs ...\nGoogle considers apps with crash rates above 1.09% or ANR rates above 0.47% as bad behavior and may reduce their Play Store visibility. These are the public benchmarks Google uses to evaluate app quality. Your vendor should be able to show you their numbers against both thresholds."
+            ],
+            "title": "Android Enterprise App Performance Benchmarks: What US CTOs ..."
+          },
+          {
+            "url": "https://developer.android.com/topic/performance/vitals",
+            "excerpts": [
+              "Android vitals | App quality | Android Developers\nCore vitals are the most important metrics in Android vitals, and affect the visibility of your app on Google Play. The core vitals are user-perceived crash rate, user-perceived ANR rate, and excessive partial wake locks for all apps, and excessive battery usage for watch face apps."
+            ],
+            "title": "Android vitals | App quality | Android Developers"
+          },
+          {
+            "url": "https://developer.android.com/topic/performance/vitals/crash",
+            "excerpts": [
+              "Crashes | App quality\nWhen an app crashes, Android terminates the app's process and displays a dialog to let the user know that the app has stopped, as shown in figure 1. An app"
+            ],
+            "title": "Crashes | App quality"
+          },
+          {
+            "url": "https://support.google.com/googleplay/android-developer/answer/9844486",
+            "excerpts": [],
+            "title": "Monitor your app's technical quality with Android vitals - Play Console Help"
+          },
+          {
+            "url": "https://apps.apple.com/bz/iphone/story/id1806667385",
+            "excerpts": [
+              "Claude by Anthropic - App Store - Apple\nRating 5.0 (5) \u00b7 Free \u00b7 Business/Productivity Claude by Anthropic is a privacy-first AI chatbot you can feed requests to via voice and text, and by uploading images and documents."
+            ],
+            "title": "Claude by Anthropic - App Store - Apple"
+          },
+          {
+            "url": "https://apps.apple.com/in/app/claude-by-anthropic/id6473753684?l=hi",
+            "excerpts": [
+              "Claude by Anthropic \u0910\u092a - App Store - Apple\nRating 4.6 (11,315) \u00b7 Free \u00b7 iOS AI CODING AND PROGRAMMING HELP Claude is your AI coding assistant. Review code, debug issues, and explore new programming languages with confidence. Claude"
+            ],
+            "title": "Claude by Anthropic \u0910\u092a - App Store - Apple"
+          },
+          {
+            "url": "https://kite.kagi.com/tech/2026030214/anthropics-claude-tops-us-app-store-rankings",
+            "excerpts": [
+              "Anthropic\u2019s Claude tops US App Store rankings\nClaude by Anthropic in the top spot for free apps in the App Store. Anthropic\u2019s AI chatbot Claude jumped to No. 1 on Apple\u2019s US App Store Top Free Apps chart after a burst of downloads, overtaking OpenAI\u2019s ChatGPT and landing ahead of Google\u2019s Gemini."
+            ],
+            "title": "Anthropic\u2019s Claude tops US App Store rankings"
+          },
+          {
+            "url": "https://bitrise.io/resources/tools/app-navigator/apps/android/com.anthropic.claude",
+            "excerpts": [
+              "Claude by Anthropic Productivity App Benchmark - Bitrise\nRating 4.5 (430,801) \u00b7 Free \u00b7 Android Claude by Anthropic scores P76 in Productivity. 4.54\u2606 from 430.8K reviews. Updates every 6 days. Compare free on Bitrise."
+            ],
+            "title": "Claude by Anthropic Productivity App Benchmark - Bitrise"
+          },
+          {
+            "url": "https://apps.apple.com/in/app/claude-by-anthropic/id6473753684?l=bn",
+            "excerpts": [
+              "Claude by Anthropic \u0985\u09cd\u09af\u09be\u09aa - App Store - Apple\nRating 4.6 (11,494) \u00b7 Free \u00b7 iOS 7 days ago \u00b7 App Store-\u098f Anthropic PBC-\u098f\u09b0 Claude by Anthropic \u09a1\u09be\u0989\u09a8\u09b2\u09cb\u09a1 \u0995\u09b0\u09c1\u09a8\u0964 \u09b8\u09cd\u0995\u09cd\u09b0\u09bf\u09a8\u09b6\u099f, \u09b0\u09c7\u099f\u09bf\u0982 \u098f\u09ac\u0982 \u09b0\u09bf\u09ad\u09bf\u0989, \u0987\u0989\u099c\u09be\u09b0 \u099f\u09bf\u09aa\u09b8 \u098f\u09ac\u0982 Claude by Anthropic-\u098f\u09b0 \u09ae\u09a4\u09cb \u0986\u09b0\u0993 \u0997\u09c7\u09ae \u09a6\u09c7\u0996\u09c1\u09a8\u0964"
+            ],
+            "title": "Claude by Anthropic \u0985\u09cd\u09af\u09be\u09aa - App Store - Apple"
+          },
+          {
+            "url": "https://thenextweb.com/news/cursor-mobile-app-coding-agents-phone",
+            "excerpts": [
+              "Cursor launches iOS app so developers can spin up coding agents ...\n4 days ago \u00b7 Cursor's new iOS app lets developers launch and manage AI coding agents from their phone, continuing the shift from desktop-only to mobile"
+            ],
+            "title": "Cursor launches iOS app so developers can spin up coding agents ..."
+          },
+          {
+            "url": "https://www.oflight.co.jp/en/columns/cursor-ios-mobile-coding-agent-2026-06",
+            "excerpts": [
+              "What Is Cursor for iOS? Control Coding Agents from iPhone and ...\nControl Coding Agents from iPhone and iPad (Composer 2.5, iOS 26+, Public Beta from June 29, 2026) Cursor (by Anysphere) released its official iOS public beta on June 29, 2026 (official blog / Changelog / App Store / TechCrunch / 9to5Mac). You can now drive Cursor's coding agents directly from iPhone and iPad (iOS 26.0+ required)."
+            ],
+            "title": "What Is Cursor for iOS? Control Coding Agents from iPhone and ..."
+          },
+          {
+            "url": "https://onepilotapp.com/blog",
+            "excerpts": [
+              "Mobile SSH & AI agent guides\nAn AI agent on iPhone lets you deploy autonomous coding assistants to remote servers from iOS. What they are, how they work, and why iPhone developers are using them in 2026."
+            ],
+            "title": "Mobile SSH & AI agent guides"
+          },
+          {
+            "url": "https://webdeveloper.com/news/cursor-mobile-ios-agent-remote-control",
+            "excerpts": [
+              "Cursor Ships Mobile App for Steering Coding Agents From iOS\nOn June 29, 2026, Cursor launched an iOS app to prompt coding agents and steer in-progress sessions from your phone. Remote control for desktop and cloud agents, not a mobile code editor."
+            ],
+            "title": "Cursor Ships Mobile App for Steering Coding Agents From iOS"
+          },
+          {
+            "url": "https://tech.yahoo.com/ai/copilot/articles/cursor-now-mobile-app-guiding-170350485.html",
+            "excerpts": [
+              "Cursor now has a mobile app for guiding your coding agent on ...\nOn Monday, the company announced a new app called Cursor Mobile, designed for users who want to prompt coding agents directly from their phone. The app ties into the Cursor 2.0 changes"
+            ],
+            "title": "Cursor now has a mobile app for guiding your coding agent on ..."
+          },
+          {
+            "url": "http://replit.com/mobile",
+            "excerpts": [
+              "Replit Mobile App \u2013 Join 50+ million creators Download the Replit mobile app to vibe code websites and web apps from your phone. Available on iOS and Android"
+            ],
+            "title": "Replit Mobile App \u2013 Join 50+ million creators"
+          },
+          {
+            "url": "https://replit.com/mobile-apps",
+            "excerpts": [
+              "Idea to Mobile App in Minutes\nVibe code from anywhere. Use the Replit iOS or Android app to vibe code websites and web apps with Agent on the go. To build a native iOS or Android app"
+            ],
+            "title": "Idea to Mobile App in Minutes"
+          },
+          {
+            "url": "https://www.coursera.org/learn/mobile-app-development-ai",
+            "excerpts": [
+              "2026 Mobile App Development With Replit AI - Vibe Coding\nWith modern AI tools like Replit, you can build real, functional mobile apps by collaborating intelligently with AI: a workflow known as vibe coding. But"
+            ],
+            "title": "2026 Mobile App Development With Replit AI - Vibe Coding"
+          },
+          {
+            "url": "http://thenextweb.com/news/cursor-mobile-app-coding-agents-phone",
+            "excerpts": [
+              "Cursor launches iOS app so developers can spin up coding ... The AI coding tool's mobile app lets users spin up and manage independent agents on the go"
+            ],
+            "title": "Cursor launches iOS app so developers can spin up coding ..."
+          },
+          {
+            "url": "http://repl.it/",
+            "excerpts": [
+              "Create mobile and web apps, landing pages, and videos in one project with shared design.\nProducts Agent Design Database Publish Integrations Mobile Resources\nThe Agent writes production-ready code, evolves it, and stays out of your way.\nTurn ideas into apps in minutes \u2014 no coding needed You can always make changes later.\n[Get started free](https://replit.com/signup)"
+            ],
+            "title": "Replit \u2013 Build apps and sites with AI - Replit"
+          },
+          {
+            "url": "https://apps.apple.com/us/app/chatgpt/id6448311069",
+            "excerpts": [
+              "ChatGPT - App Store - Apple\nThis official app is free, syncs your history across devices, and brings you the latest from OpenAI, including the new image generator. ChatGPT Plus $19.99"
+            ],
+            "title": "ChatGPT - App Store - Apple"
+          },
+          {
+            "url": "https://www.ai-toolbox.co/chatgpt-management-and-productivity/chatgpt-mobile-app-guide-2026",
+            "excerpts": [
+              "ChatGPT Mobile App: Complete Guide for iOS & Android (2026)\nRating 4.5 (20,000) Feb 15, 2026 \u00b7 Complete ChatGPT mobile app guide. Features, voice mode, camera, desktop vs mobile comparison. Tips for iOS and Android productivity."
+            ],
+            "title": "ChatGPT Mobile App: Complete Guide for iOS & Android (2026)"
+          },
+          {
+            "url": "https://www.androidcentral.com/apps-software/chatgpt-android-app-launch",
+            "excerpts": [
+              "OpenAI's official ChatGPT app for Android arrives on the Play Store\nOpenAI's ChatGPT app has arrived on Android via the Google Play Store in the U.S., India, Bangladesh, and Brazil."
+            ],
+            "title": "OpenAI's official ChatGPT app for Android arrives on the Play Store"
+          },
+          {
+            "url": "https://www.facebook.com/technologychannel.org/posts/official-chatgpt-app-is-now-available-on-the-google-play-store-you-can-join-the-/839695991099669",
+            "excerpts": [
+              "Official ChatGPT App is now available on the Google Play Store ...\nJul 22, 2023 \u00b7 Official ChatGPT App is now available on the Google Play Store. You can join the waiting list. Link: https://play.google. com/store/apps/details"
+            ],
+            "title": "Official ChatGPT App is now available on the Google Play Store ..."
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?hl=en_US&id=com.openai.chatgpt",
+            "excerpts": [
+              "ChatGPT - Apps on Google Play\nIntroducing ChatGPT for Android: OpenAI's latest advancements at your fingertips. This official app is free, syncs your history across devices,\u00a0... OpenAI ChatGPT \u2013 Applications sur"
+            ],
+            "title": "ChatGPT - Apps on Google Play"
+          },
+          {
+            "url": "https://transparency.google/intl/en_US/our-policies/product-terms/google-play",
+            "excerpts": [
+              "Google Play Policies and Guidelines - Transparency Center\nExplore how Google Play\u2019s Developer Program Policies, guidelines, and terms help ensure apps and games are delivered safely to billions of people worldwide."
+            ],
+            "title": "Google Play Policies and Guidelines - Transparency Center"
+          },
+          {
+            "url": "https://www.apptester.co/blog/google-play-policy-updates-2025",
+            "excerpts": [
+              "Google Play Policy Updates 2026: What Every Developer Must ...\nGoogle updated its Data Safety, permissions, and content policies. Here's a complete breakdown with a compliance checklist for Android developers in 2026."
+            ],
+            "title": "Google Play Policy Updates 2026: What Every Developer Must ..."
+          },
+          {
+            "url": "https://stackoverflow.com/questions/78516018/google-play-console-app-suspended-due-to-deceptive-behavior-policy-violation-on",
+            "excerpts": [
+              "Google Play Console: App Suspended Due to Deceptive Behavior ...\nAbout the Deceptive Behavior policy: We don't allow apps that attempt to deceive users or enable dishonest behavior including but not limited to apps which are determined to be functionally impossible."
+            ],
+            "title": "Google Play Console: App Suspended Due to Deceptive Behavior ..."
+          },
+          {
+            "url": "https://play.google/intl/en-US/developer-content-policy",
+            "excerpts": [
+              "Developer Policy Center - play.google\nBefore submitting an app to Google Play, ensure it complies with these content policies and with local laws. When developers impersonate others or their apps, it misleads users and hurts the developer community. We prohibit apps that mislead users by impersonating someone else."
+            ],
+            "title": "Developer Policy Center - play.google"
+          },
+          {
+            "url": "https://www.apptester.co/blog/google-play-policies",
+            "excerpts": [
+              "Google Play Developer Policies: Complete Reference 2026\nEvery Google Play developer policy that matters for Android developers: with enforcement realities, real examples of removed apps, and step-by-step compliance fixes for 2026."
+            ],
+            "title": "Google Play Developer Policies: Complete Reference 2026"
+          },
+          {
+            "url": "https://www.apple.com/app-store",
+            "excerpts": [
+              "App Store - Apple\nUpdated daily. Original stories by our editorial team bring you everything from exclusive world premieres to behind-the-scenes interviews. Tap the Today tab and"
+            ],
+            "title": "App Store - Apple"
+          },
+          {
+            "url": "https://www.apptweak.com/en/aso-blog/how-to-get-your-app-featured-on-the-app-store",
+            "excerpts": [
+              "Discover how to get featured on the App Store & Google ...\nJan 25, 2026 \u2014 On the App Store, Today stories and curated modules are created by Apple's editorial team. These editors research developers, test apps"
+            ],
+            "title": "Discover how to get featured on the App Store & Google ..."
+          },
+          {
+            "url": "https://techcrunch.com/2024/06/13/apple-gives-developers-a-way-to-nominate-their-apps-for-editorial-consideration-on-the-app-store",
+            "excerpts": [
+              "Apple gives developers a way to nominate their apps for ...\nJun 13, 2024 \u2014 Today, the App Store's Editorial team creates stories about apps and their developers and rounds up apps of interest into collections that are"
+            ],
+            "title": "Apple gives developers a way to nominate their apps for ..."
+          },
+          {
+            "url": "https://www.mobileaction.co/guide/in-app-events-promotional-content-guide",
+            "excerpts": [
+              "In-App Events and promotional content: a complete guide (2026)\nUse Google Play promotional content when you need to promote a discount, a major update, or a targeted campaign, especially for existing users."
+            ],
+            "title": "In-App Events and promotional content: a complete guide (2026)"
+          },
+          {
+            "url": "https://developer.apple.com/app-store/articles",
+            "excerpts": [
+              "Articles - App Store\nSet your app up for success on the App Store. By learning about business models, monetization opportunities, engaging users, and reaching a wide audience."
+            ],
+            "title": "Articles - App Store"
+          },
+          {
+            "url": "https://asonomica.com/blog/apple-keyword-field",
+            "excerpts": [
+              "Getting every character out of the Apple keyword field\nThe Apple App Store keyword field is 100 characters. How to use them: no spaces, singular forms, no words already in your title or subtitle, and skip the terms Apple indexes for free."
+            ],
+            "title": "Getting every character out of the Apple keyword field"
+          },
+          {
+            "url": "https://github.com/appalize/aso-blog/blob/main/keyword-research/ios-keyword-field-rules-character-limits-optimization.md",
+            "excerpts": [
+              "aso-blog/keyword-research/ios-keyword-field-rules-character ...\nMaster the rules first: no duplicates, no spaces after commas, singular forms, fill all 100 characters. Then layer in advanced strategies: cross-locale indexing for bonus keyword space, word combination leveraging, and systematic iteration based on ranking data."
+            ],
+            "title": "aso-blog/keyword-research/ios-keyword-field-rules-character ..."
+          },
+          {
+            "url": "https://www.marteso.com/blog/app-store-keyword-field-100-characters-guide",
+            "excerpts": [
+              "App Store Connect Keyword Field: The 100-Character Guide (2026)\nEverything you need to know about the 100-character keyword field in App Store Connect: comma separation, no spaces, character counting rules, what to never put in it, and how to get maximum keyword coverage from your budget."
+            ],
+            "title": "App Store Connect Keyword Field: The 100-Character Guide (2026)"
+          },
+          {
+            "url": "https://9to5mac.com/2026/03/31/app-store-connect-adds-11-new-languages-for-localized-app-metadata",
+            "excerpts": [
+              "App Store Connect adds 11 new languages for localized app ...\nApple has expanded App Store Connect\u2019s localization support, allowing developers to localize their app metadata in a total of 50 languages. Here are the details."
+            ],
+            "title": "App Store Connect adds 11 new languages for localized app ..."
+          },
+          {
+            "url": "https://asoworld.com/blog/app-store-now-supports-11-new-languages-aso-localization-guide",
+            "excerpts": [
+              "App Store Supports 11 New Languages: ASO Localization Guide ...\nOn March 31, 2026, Apple announced that App Store Connect now supports localized metadata for 11 new languages, expanding the total number of supported localizations from 39 to 50. This is one of the most significant localization expansions in App Store history."
+            ],
+            "title": "App Store Supports 11 New Languages: ASO Localization Guide ..."
+          },
+          {
+            "url": "https://www.digit.in/news/general/apple-app-store-now-supports-11-new-languages-check-full-list-here.html",
+            "excerpts": [
+              "Apple App Store now supports 11 new languages: Check full ...\nIn the blog post, Apple announced, \u201cTo help your apps and games reach more people worldwide \u2014 especially in India \u2014 App Store Connect now supports localized metadata for 11 new languages,"
+            ],
+            "title": "Apple App Store now supports 11 new languages: Check full ..."
+          },
+          {
+            "url": "https://www.live-feeds.com/2026/03/31/app-store-connect-new-languages-for-app-metadata-what-to-localize-first",
+            "excerpts": [
+              "App Store Connect New Languages for App Metadata: What to ...\nApple has expanded its App Store Connect localization support beyond the 39 languages documented as of July 2024, adding new entries to the locale shortcode reference for app metadata."
+            ],
+            "title": "App Store Connect New Languages for App Metadata: What to ..."
+          },
+          {
+            "url": "https://mustscope.com/app-localization",
+            "excerpts": [
+              "App Localization - Translate Your App to 22+ Languages\nTranslate your App Store listing to 22+ languages with AI. Reach millions of new users by localizing your app description, privacy policy, and terms of use in one click."
+            ],
+            "title": "App Localization - Translate Your App to 22+ Languages"
+          },
+          {
+            "url": "https://f-droid.org/packages/com.nousresearch.hermesagent",
+            "excerpts": [
+              "Hermes Agent | F-Droid - Free and Open Source Android App ...\nAdds F-Droid listing assets, keeps the Termux Android release fixes, restores the Unsloth Qwen3.5 tiny GGUF preset, and improves Termux update/browser fallback handling."
+            ],
+            "title": "Hermes Agent | F-Droid - Free and Open Source Android App ..."
+          },
+          {
+            "url": "https://www.appbrain.com/app/hermes-agent-android/com.hermesagent.android",
+            "excerpts": [
+              "Hermes Agent - Android - Free APK Download for Android - AppBrain\nHermes Agent - Android is a free tools app developed by Hen Works that has 500+ downloads."
+            ],
+            "title": "Hermes Agent - Android - Free APK Download for Android - AppBrain"
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?hl=en-US&id=com.hermesagent.android",
+            "excerpts": [
+              "Hermes Agent - Android - Apps on Google Play\nHermes Agent brings a powerful AI assistant directly to your Android device. Run AI agents locally with a built-in terminal, supporting multiple AI providers and advanced features \u2014 all from"
+            ],
+            "title": "Hermes Agent - Android - Apps on Google Play"
+          },
+          {
+            "url": "https://apkamp.com/com.hermesagent.android",
+            "excerpts": [
+              "Download Hermes Agent - Android APK latest version App by Hen ...\nHermes Agent brings a powerful AI assistant directly to your Android device. Run AI agents locally with a built-in terminal, supporting multiple AI providers and advanced features \u2014 all from your pocket."
+            ],
+            "title": "Download Hermes Agent - Android APK latest version App by Hen ..."
+          },
+          {
+            "url": "https://f-droid.org/en/packages/com.mobilefork.hermesagent",
+            "excerpts": [
+              "Hermes Agent Fork | F-Droid - Free and Open Source Android ...\nUse the app to chat with local Gemma LiteRT-LM or Qwen GGUF models, attach files, dictate by voice, and keep model downloads resumable through Android DownloadManager."
+            ],
+            "title": "Hermes Agent Fork | F-Droid - Free and Open Source Android ..."
+          },
+          {
+            "url": "https://dribbble.com/tags/apple-product",
+            "excerpts": [
+              "Apple Product designs, themes, templates and ...\nApple Product Inspirational designs, illustrations, and graphic elements from the world's best designers. Want more inspiration? Browse our search results."
+            ],
+            "title": "Apple Product designs, themes, templates and ..."
+          },
+          {
+            "url": "https://education.apple.com/resource/250012940",
+            "excerpts": [
+              "7 Customizable Timeline Templates in Pages: Download"
+            ],
+            "title": "7 Customizable Timeline Templates in Pages: Download ... Apple Education Community https://education.apple.com \u203a resource"
+          },
+          {
+            "url": "https://ads.apple.com/apple-news/publishers/help/campaign-management/0022-set-up-targeting",
+            "excerpts": [
+              "Set up targeting - Help - Ads on Apple News\nSearching the following keywords will list out all possible state and DMA values for selection. US, CA, UK, AU. All States. state. states. state."
+            ],
+            "title": "Set up targeting - Help - Ads on Apple News"
+          },
+          {
+            "url": "https://www.apptweak.com/en/aso-blog/guide-to-apple-search-ads",
+            "excerpts": [
+              "The ultimate guide to Apple Ads for 2026\nDec 23, 2025 \u2014 Apple Ads defaults to Search Match, which automatically matches your ads to relevant searches based on your app's metadata. This is useful for"
+            ],
+            "title": "The ultimate guide to Apple Ads for 2026"
+          },
+          {
+            "url": "https://www.reddit.com/r/iOSProgramming/comments/1pi9rma/i_talked_to_apple_about_why_my_search_ads_were",
+            "excerpts": [
+              "I talked to Apple about why my Search Ads were burning ...\n1. Don't mix multiple countries in one campaign, pick ONE. \u00b7 2. Focus on EXACT match keywords \u00b7 3. Disable Search Match (it's on by default)."
+            ],
+            "title": "I talked to Apple about why my Search Ads were burning ..."
+          },
+          {
+            "url": "https://apps.apple.com/in/app/prompt-saver/id6740009425",
+            "excerpts": [
+              "Prompt Saver - App Store\nDownload Prompt Saver by Michael Colon on the App Store. See screenshots, ratings and reviews, user tips and more games like Prompt Saver."
+            ],
+            "title": "Prompt Saver - App Store"
+          },
+          {
+            "url": "https://ldas.jp/en/posts/appstore-connect-api-guide",
+            "excerpts": [
+              "Submitting an iOS App for Review Using Only the App Store ...\nA step-by-step guide to completing nearly all tasks required for App Store review submission\u2014metadata, screenshots, age ratings, build association, encryption compliance, pricing, and more\u2014from the command line using the App Store Connect REST API."
+            ],
+            "title": "Submitting an iOS App for Review Using Only the App Store ..."
+          },
+          {
+            "url": "https://emndeniz.medium.com/downloading-app-store-reviews-a248759a5e0f",
+            "excerpts": [
+              "Downloading App Store Reviews Using App Store Connect API\nDownloading App Store reviews using the App Store Connect API simplifies the process of managing user feedback. By automating review retrieval,"
+            ],
+            "title": "Downloading App Store Reviews Using App Store Connect API"
+          },
+          {
+            "url": "https://apps.apple.com/us/app/prompt-krafter/id6446342150",
+            "excerpts": [
+              "Prompt Krafter - App Store - Apple\nThe Prompt Krafter app lets you spin up worlds with words, capture conversations with crystal clarity, and ... Ratings & Reviews. 5.0. out of 5. 4 Ratings"
+            ],
+            "title": "Prompt Krafter - App Store - Apple"
+          },
+          {
+            "url": "https://appbot.co/blog/prompting-for-app-reviews-ratings-ios-android-ultimate-guide",
+            "excerpts": [
+              "Prompting for app reviews and ratings on iOS and Android"
+            ],
+            "title": "Prompting for app reviews and ratings on iOS and Android Appbot https://appbot.co \u203a blog \u203a prompting-for-app-reviews-r..."
+          },
+          {
+            "url": "https://apps.apple.com/us/app/hermes-agent-mobile/id6767006319",
+            "excerpts": [
+              "Hermes Agent Mobile - App Store\nHermes Agent Mobile is a native iPhone client for your self-hosted Hermes Web UI developer-agent server. It is designed for people who already run a reachable Hermes Web UI server and want a focused mobile way to keep up with agent work from iPhone."
+            ],
+            "title": "Hermes Agent Mobile - App Store"
+          },
+          {
+            "url": "https://t.co/v6GtYIm0zw",
+            "excerpts": [
+              "\u200eHermes Agent Mobile App - App Store - t.co\nHermes Agent Mobile is a native iPhone client for your self-hosted Hermes Web UI developer-agent server. It is designed for people who already run a reachable Hermes Web UI server and want a focused mobile way to keep up with agent work from iPhone."
+            ],
+            "title": "\u200eHermes Agent Mobile App - App Store - t.co"
+          },
+          {
+            "url": "https://www.appbrain.com/appstore/hermes-agent-mobile/ios-6767006319",
+            "excerpts": [
+              "Hermes Agent Mobile for iPhone - Free App Download\nApp Information Hermes Agent Mobile is FREE to download. The APK download size is 12.27 MB. The latest version available is 1.0. The last update was on June 2, 2026."
+            ],
+            "title": "Hermes Agent Mobile for iPhone - Free App Download"
+          },
+          {
+            "url": "https://hermes-tutorials.dev/blog/2026-06-13-hermes-community-momentum-june-2026",
+            "excerpts": [
+              "Hermes Agent Crosses 192K Stars, Mobile App Hits Play Store ...\nA community-built Hermes Agent Mobile app hit the Play Store (5K+ downloads, 4.3\u2605 rating). Tutorial content, Reddit discussions, and community tools are growing fast \u2014 the ecosystem is maturing."
+            ],
+            "title": "Hermes Agent Crosses 192K Stars, Mobile App Hits Play Store ..."
+          },
+          {
+            "url": "https://mwm.ai/apps/hermes-agent-mobile/6767006319",
+            "excerpts": [
+              "Hermes Agent Mobile - Developer Tools App | MWM\nHermes Agent Mobile is a native iPhone client for your self-hosted Hermes Web UI developer-agent server. It is designed for people who already run a reachable Hermes Web UI server and want a focused mobile way to keep up with agent work from iPhone."
+            ],
+            "title": "Hermes Agent Mobile - Developer Tools App | MWM"
+          },
+          {
+            "url": "https://developer.apple.com/app-store/custom-product-pages",
+            "excerpts": [
+              "Custom Product Pages - App Store - Apple Developer\nFind out how these developers have used custom product pages with Apple Ads to get higher tap-through and conversion rates, lower cost-per-install, and other performance improvements:"
+            ],
+            "title": "Custom Product Pages - App Store - Apple Developer"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/apple_ads/custom-product-pages",
+            "excerpts": [
+              "Custom Product Pages | Apple Developer Documentation\nUse Get Ad-Level Reports to track the performance of ads in your campaigns. These details help you optimize your Apple Search Ads campaigns to deliver a contextualized customer experience."
+            ],
+            "title": "Custom Product Pages | Apple Developer Documentation"
+          },
+          {
+            "url": "https://www.mobileaction.co/blog/apple-doubles-the-custom-product-page-limit",
+            "excerpts": [
+              "Apple doubles the custom product page limit, here\u2019s what it ...\nAs of October 29, 2025, developers can now create and publish up to 70 custom product pages, doubling the previous limit of 35. This update offers greater flexibility to highlight different features, tailor user experiences, and better align ad and store strategies."
+            ],
+            "title": "Apple doubles the custom product page limit, here\u2019s what it ..."
+          },
+          {
+            "url": "https://www.gummicube.com/blog/apples-custom-product-pages",
+            "excerpts": [
+              "Apple Custom Product Pages"
+            ],
+            "title": "Apple Custom Product Pages Gummicube https://www.gummicube.com \u203a ap..."
+          },
+          {
+            "url": "https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-a-custom-product-page",
+            "excerpts": [
+              "Submit a custom product page - Manage submissions to ...\nSubmit a custom product page. Custom product pages, and their associated metadata like deep links, must be reviewed before they're visible to users on the App"
+            ],
+            "title": "Submit a custom product page - Manage submissions to ..."
+          },
+          {
+            "url": "https://developer.apple.com/help/app-store-connect/manage-featuring-nominations/nominate-your-app-for-featuring",
+            "excerpts": [
+              "Nominate your app for featuring - Apple Developer\nTo nominate your app to be featured, whether it's a new launch or an exciting update, submit your plans through App Store Connect. Our editorial team will consider these plans for potential featuring opportunities."
+            ],
+            "title": "Nominate your app for featuring - Apple Developer"
+          },
+          {
+            "url": "https://apps.apple.com/bb/app/editorial/id673907758",
+            "excerpts": [
+              "Editorial - App Store - Apple\nEditorial is a plain text editor for iOS with powerful automation tools and a beautiful inline preview for Markdown, TaskPaper, and Fountain documents."
+            ],
+            "title": "Editorial - App Store - Apple"
+          },
+          {
+            "url": "https://apps.apple.com/us/app/editorial/id673907758",
+            "excerpts": [
+              "Editorial - App Store - Apple\nEditorial is a plain text editor for iOS with powerful automation tools and a beautiful inline preview for Markdown, TaskPaper, and Fountain documents."
+            ],
+            "title": "Editorial - App Store - Apple"
+          },
+          {
+            "url": "https://appleinsider.com/articles/24/06/13/developers-can-now-nominate-apps-and-updates-for-app-store-promotions",
+            "excerpts": [
+              "Developers can now nominate apps for App Store promotions\nDevelopers can submit a Featuring Nomination via App Store Connect. App Store Connect will notify the developer via a push notification if an app is chosen for an editorial"
+            ],
+            "title": "Developers can now nominate apps for App Store promotions"
+          },
+          {
+            "url": "https://peakasa.com/blog/apple-search-ads-benchmarks-2026",
+            "excerpts": [
+              "Apple Search Ads Benchmarks: CPT, CPA, Conversion Rates ...\n2026 benchmark data for Apple Search Ads including CPT, CPA, conversion rates, and ROAS targets broken down by app category and region."
+            ],
+            "title": "Apple Search Ads Benchmarks: CPT, CPA, Conversion Rates ..."
+          },
+          {
+            "url": "https://admiral.media/apple-search-ads-benchmarks",
+            "excerpts": [
+              "Apple Search Ads Benchmarks: CPT, CPI, TTR & ROAS by App\nThis guide covers the Apple Search Ads metrics that matter, average benchmarks by category based on Admiral Media\u2019s managed campaigns, and how to interpret your own performance against them."
+            ],
+            "title": "Apple Search Ads Benchmarks: CPT, CPI, TTR & ROAS by App"
+          },
+          {
+            "url": "https://sparrowapps.io/articles/apple-ads-benchmarks",
+            "excerpts": [
+              "Apple Search Ads Benchmarks 2026: TTR, CR, CPT, and CPI by ...\nIn this guide, I have compiled the latest Apple Search Ads benchmarks across TTR, CR, CPT, and CPI - broken down by quarter and by App Store category. These numbers come from aggregated campaign data across thousands of apps and millions in ad spend."
+            ],
+            "title": "Apple Search Ads Benchmarks 2026: TTR, CR, CPT, and CPI by ..."
+          },
+          {
+            "url": "https://www.apptweak.com/en/aso-blog/apple-ads-benchmarks",
+            "excerpts": [
+              "Apple Ads benchmarks 2026: CPT, CPI, CR & ROAS by category\nApple Ads cost-per-tap (CPT) benchmarks The median CPT for search results campaign across countries and categories is $0.92. Since taps are the first step toward conversion, CPT is an essential metric to measure ad relevance, competitiveness, and overall campaign efficiency. Below, we focus on CPT benchmarks for search results campaigns. Apple Ads cost-per-tap by country Median CPT by region"
+            ],
+            "title": "Apple Ads benchmarks 2026: CPT, CPI, CR & ROAS by category"
+          },
+          {
+            "url": "https://www.businessofapps.com/marketplace/apple-search-ads/research/apple-search-ads-costs",
+            "excerpts": [
+              "Apple Search Ads Costs (2026) - Business of Apps\nWith lots to consider, we\u2019ve laid out some key metrics and the average Apple Search Ads cost in this research paper. We\u2019ve also included details on App Store fees and outlined averages for Cost Per Tap, Cost Per Acquisition, and some Cost Per Install benchmarks."
+            ],
+            "title": "Apple Search Ads Costs (2026) - Business of Apps"
+          },
+          {
+            "url": "https://www.jordandigitalmarketing.com/blog/apple-search-ads-101",
+            "excerpts": [
+              "Apple Search Ads 101 - Campaign Setup\nSearch Match campaigns essentially function as Apple's version of Dynamic Search Ads. Apple's algorithm uses multiple resources to match your ad"
+            ],
+            "title": "Apple Search Ads 101 - Campaign Setup"
+          },
+          {
+            "url": "https://www.reddit.com/r/AppStoreOptimization/comments/1qxhiqj/apple_search_ads_3_lessons_i_learned_before",
+            "excerpts": [
+              "Apple Search Ads: 3 Lessons I Learned Before Burning My ...\nTwo important things when starting out with small budgets are 1) don't enable search match or max conversions or broad, just use exact core"
+            ],
+            "title": "Apple Search Ads: 3 Lessons I Learned Before Burning My ..."
+          },
+          {
+            "url": "https://www.revenuecat.com/blog/growth/apple-search-ads-guide",
+            "excerpts": [
+              "Apple Search Ads Best Practices: The Ultimate Guide\nApple offers three ways to bid on keywords: Exact Match, Broad Match, and Search Match. ... In Exact Match, Apple will match your input"
+            ],
+            "title": "Apple Search Ads Best Practices: The Ultimate Guide"
+          },
+          {
+            "url": "https://splitmetrics.com/blog/apple-search-ads",
+            "excerpts": [
+              "Apple Ads Guide: From Beginner to Expert (2025)\nSearch Match algorithm shows ads automatically for relevant search terms. Brand, Competitor, and Generic campaigns are optimized for user"
+            ],
+            "title": "Apple Ads Guide: From Beginner to Expert (2025)"
+          },
+          {
+            "url": "https://appradar.com/academy/apple-search-ads/ads-campaign-and-keywords-types",
+            "excerpts": [
+              "Apple Search Ads Keywords: What are They and How do ...\nCompetitor keywords are brand keywords that do not belong to our app but to our competitors. They can be a valuable user acquisition source,"
+            ],
+            "title": "Apple Search Ads Keywords: What are They and How do ..."
+          },
+          {
+            "url": "https://developer.apple.com/app-store/guidelines",
+            "excerpts": [
+              "Guidelines - App Store - Apple Developer\nGet details on design, app review, and marketing criteria, with best practices, case studies, and more. Make sure your app aligns with the technical, content, and design criteria that we use to review all apps, and learn about common issues that cause apps to get rejected. Learn more."
+            ],
+            "title": "Guidelines - App Store - Apple Developer"
+          },
+          {
+            "url": "https://www.openspaceservices.com/blog/mobile-app-development/apple-app-store-rejection-guide-2026-the-15-most-common-reasons-and-how-to-fix-each",
+            "excerpts": [
+              "Apple App Store Rejection Guide 2026: The 15 Most Common ...\nHere, we\u2019ll walk you through a guide that covers every major app store rejection category tell you exactly why it happens, and give you the specific fix for each one."
+            ],
+            "title": "Apple App Store Rejection Guide 2026: The 15 Most Common ..."
+          },
+          {
+            "url": "https://developer.apple.com/app-store/review/guidelines",
+            "excerpts": [
+              "App Review Guidelines - Apple Developer\nIf your app has been rejected, and qualifies for this process, please use App Store Connect to communicate directly with the App Review team indicating that you would like to take advantage of this process and plan to address the issue in your next submission."
+            ],
+            "title": "App Review Guidelines - Apple Developer"
+          },
+          {
+            "url": "https://www.apptester.co/blog/app-store-guidelines",
+            "excerpts": [
+              "Apple App Store Review Guidelines: Developer Reference 2026\nApple App Store Review Guidelines: Developer Reference 2026 The 10 most enforced guidelines, with real rejection examples, exact fixes, and insider tips from developers who went through the review process."
+            ],
+            "title": "Apple App Store Review Guidelines: Developer Reference 2026"
+          },
+          {
+            "url": "https://www.openspaceservices.com/blog/general/apple-app-store-rejection-guide-2026-the-15-most-common-reasons-and-how-to-fix-each",
+            "excerpts": [
+              "Apple App Store Rejection Guide 2026: The 15 Most Common ...\nApple App Store Rejection Guide 2026: The 15 Most Common Reasons and How to Fix Each Picture this: six months of development, a launch date locked in, the marketing campaign queued up. You hit Submit on App Store Connect. Forty-eight hours later, your inbox has a rejection notice instead of an approval."
+            ],
+            "title": "Apple App Store Rejection Guide 2026: The 15 Most Common ..."
+          }
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "hermes-store-discoverability-dominance-july-2026.md"
+  }
+}

@@ -7,6 +7,7 @@ const path = require('path');
 
 const {
   buildInventory,
+  escapeRegExp,
   grep,
   parseArgs,
   readFileRange,
@@ -61,6 +62,20 @@ assert.throws(() => readFileRange({ repo: tmp, path: '../secret.txt' }), /escape
 const grepResult = grep({ repo: tmp, pattern: 'governance', limit: 5 });
 assert.strictEqual(grepResult.matches.length, 1);
 assert.strictEqual(grepResult.matches[0].path, 'tools/agent.js');
+
+// js/regex-injection (CWE-400/730): --pattern is command-line-argument
+// controlled, so grep() must treat metacharacters as literal text, never as
+// a live regex — otherwise a malicious/mistyped pattern (e.g. nested
+// quantifiers) could hang the process with catastrophic backtracking.
+assert.strictEqual(escapeRegExp('a.b*c(d|e)'), 'a\\.b\\*c\\(d\\|e\\)');
+fs.writeFileSync(path.join(tmp, 'tools', 'literal.js'), 'contains a.b*c literally, not a wildcard\n');
+const literalGrep = grep({ repo: tmp, pattern: 'a.b*c', limit: 5 });
+assert.strictEqual(literalGrep.matches.length, 1, 'pattern with regex metacharacters should match only the literal text');
+assert.strictEqual(literalGrep.matches[0].path, 'tools/literal.js');
+// A classic catastrophic-backtracking shape must be treated as literal text
+// (and simply find nothing) instead of hanging or throwing.
+const redosShapeGrep = grep({ repo: tmp, pattern: '(a+)+$', limit: 5 });
+assert.strictEqual(redosShapeGrep.matches.length, 0);
 
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log('Hermes retrieval harness tests: PASS');

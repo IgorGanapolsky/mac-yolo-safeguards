@@ -23,6 +23,10 @@
         <string>{{HOME}}</string>
         <key>HERMES_CDP_PORT</key>
         <string>9222</string>
+        <key>HERMES_CDP_BIND</key>
+        <string>127.0.0.1</string>
+        <key>HERMES_CDP_RECLAIM_SQUAT</key>
+        <string>1</string>
     </dict>
     <key>StandardOutPath</key>
     <string>{{HOME}}/Library/Logs/hermes-chrome-cdp.log</string>

@@ -38,23 +38,26 @@ describe('leashUx', () => {
     ).toBe('Chat');
   });
 
-  it('explains chat-first empty Leash when approval-first mode is off', () => {
+  it('keeps empty Leash copy short and free of config jargon', () => {
     const text = buildLeashEmptyExplanation(DEFAULT_GATEWAY_SETTINGS);
-    expect(text).toContain('Chat tab');
-    expect(text).toContain('approvals.mode');
+    expect(text).toContain('your Mac');
+    expect(text.split('\n')).toHaveLength(1);
+    expect(text.length).toBeLessThan(120);
+    expect(text).not.toMatch(/config\.yaml|approvals\.mode|gateway|LAN/i);
   });
 
   it('explains approval-first empty state without claiming Leash opens first', () => {
     const text = buildLeashEmptyExplanation({ ...DEFAULT_GATEWAY_SETTINGS, safetyMode: true });
-    expect(text).toContain('Approval-first mode is on');
-    expect(text).toContain('Hermes still opens on launch');
+    expect(text).toContain('Approval-first is on');
+    expect(text).toContain('your Mac');
     expect(text).not.toContain('Leash opens first');
+    expect(text).not.toMatch(/config\.yaml|approvals\.mode/i);
   });
 
   it('does not claim Leash opens first when only glance mode is on', () => {
     const text = buildLeashEmptyExplanation({ ...DEFAULT_GATEWAY_SETTINGS, glanceMode: true });
     expect(text).not.toContain('Leash opens first');
-    expect(text).toContain('Chat tab');
+    expect(text).toContain('your Mac');
   });
 
   describe('resolveTabOrder', () => {

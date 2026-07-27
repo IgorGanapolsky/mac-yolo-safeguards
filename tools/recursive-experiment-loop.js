@@ -8,10 +8,12 @@
  * propose -> implement -> experiment -> validate -> learn -> choose next.
  *
  * This tool does not run external mutations. It ranks bounded experiments and
- * rejects loops that lack metrics, provenance, reward-hack checks, or variance
- * checks.
+ * rejects loops that lack metrics, immutable provenance, holdout proof, sample
+ * review, reward-hack checks, or variance checks.
  */
 
+const crypto = require('crypto');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -197,13 +199,14 @@ function usage() {
   return `Usage:
   node tools/recursive-experiment-loop.js plan [--json] [--task TEXT] [--repo PATH]
   node tools/recursive-experiment-loop.js validate [--json] [--file experiments.json]
-  node tools/recursive-experiment-loop.js record --experiment ID --before N --after N --evaluator pass --reward-hack pass --variance pass [--ledger PATH] [--json]
+  node tools/recursive-experiment-loop.js record --experiment ID --before N --after N --evaluator pass --reward-hack pass --variance pass --holdout pass --sample-review pass --evidence-file PATH [--evidence-file PATH] [--ledger PATH] [--json]
   node tools/recursive-experiment-loop.js ledger [--ledger PATH] [--json]
   node tools/recursive-experiment-loop.js efficiency --before N --after N --output-tokens N [--input-tokens N] [--tool-hallucinations N] [--bash-recovery-failures N] [--evaluator pass] [--json]
 
 Ranks Hermes improvements using public Recursive-style automated research gates:
 clear objective, tight evaluator, retained context, branch combination,
-reward-hack checks, and variance checks.`;
+reward-hack checks, variance checks, holdout proof, sample review, and immutable
+code/config/evidence provenance.`;
 }
 
 function parseArgs(argv) {
@@ -224,7 +227,10 @@ function parseArgs(argv) {
     evaluator: null,
     rewardHack: null,
     variance: null,
+    holdout: null,
+    sampleReview: null,
     evidence: '',
+    evidenceFiles: [],
     inputTokens: 0,
     outputTokens: 0,
     toolHallucinations: 0,
@@ -247,7 +253,10 @@ function parseArgs(argv) {
     else if (arg === '--evaluator') args.evaluator = requireValue(argv, ++i, arg);
     else if (arg === '--reward-hack') args.rewardHack = requireValue(argv, ++i, arg);
     else if (arg === '--variance') args.variance = requireValue(argv, ++i, arg);
+    else if (arg === '--holdout') args.holdout = requireValue(argv, ++i, arg);
+    else if (arg === '--sample-review') args.sampleReview = requireValue(argv, ++i, arg);
     else if (arg === '--evidence') args.evidence = requireValue(argv, ++i, arg);
+    else if (arg === '--evidence-file') args.evidenceFiles.push(requireValue(argv, ++i, arg));
     else if (arg === '--input-tokens') args.inputTokens = Number(requireValue(argv, ++i, arg));
     else if (arg === '--output-tokens') args.outputTokens = Number(requireValue(argv, ++i, arg));
     else if (arg === '--tool-hallucinations') args.toolHallucinations = Number(requireValue(argv, ++i, arg));
@@ -366,6 +375,7 @@ function planExperiments(options = {}) {
       'No self-improvement becomes default without evaluator evidence.',
       'No noisy metric is accepted without variance checks.',
       'No score-only win is accepted without reward-hack checks.',
+      'No experiment is adopted without holdout proof, sample review, and immutable code/config/evidence provenance.',
       'No external sends, payments, process kills, merges, or deploys without the existing approval boundary.',
     ],
   };
@@ -394,6 +404,111 @@ function statusPass(value) {
   return null;
 }
 
+function sha256(value) {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function stableValue(value) {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, nested]) => [key, stableValue(nested)]),
+    );
+  }
+  return value;
+}
+
+function stableStringify(value) {
+  return JSON.stringify(stableValue(value));
+}
+
+function resolveGitState(repo) {
+  try {
+    const revision = execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    const status = execFileSync('git', ['-C', repo, 'status', '--porcelain', '--untracked-files=normal'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    return { revision, clean: status === '' };
+  } catch {
+    return { revision: '', clean: false };
+  }
+}
+
+function buildProvenanceManifest(options = {}, experiment = {}) {
+  const repo = path.resolve(options.repo || DEFAULT_REPO);
+  const rawEvidenceFiles = options.evidenceFiles ?? options.evidenceFile ?? [];
+  const evidenceFiles = [...new Set(
+    (Array.isArray(rawEvidenceFiles) ? rawEvidenceFiles : [rawEvidenceFiles])
+      .map((file) => String(file).trim())
+      .filter(Boolean),
+  )];
+  const errors = [];
+  const evidenceArtifacts = [];
+
+  for (const file of evidenceFiles) {
+    const absolutePath = path.isAbsolute(file) ? file : path.resolve(repo, file);
+    try {
+      const stat = fs.statSync(absolutePath);
+      if (!stat.isFile()) {
+        errors.push(`evidence is not a file: ${file}`);
+        continue;
+      }
+      const bytes = fs.readFileSync(absolutePath);
+      evidenceArtifacts.push({
+        path: path.relative(repo, absolutePath) || path.basename(absolutePath),
+        sha256: sha256(bytes),
+        sizeBytes: bytes.byteLength,
+      });
+    } catch {
+      errors.push(`evidence file unavailable: ${file}`);
+    }
+  }
+
+  evidenceArtifacts.sort((left, right) => left.path.localeCompare(right.path));
+  const gitState = options.codeRevision
+    ? { revision: String(options.codeRevision).trim(), clean: options.codeStateClean !== false }
+    : resolveGitState(repo);
+  const codeRevision = gitState.revision;
+  if (!codeRevision) errors.push('git code revision unavailable');
+  if (!gitState.clean) errors.push('git worktree is dirty; commit the candidate before adoption');
+  if (evidenceArtifacts.length === 0) errors.push('hashed evidence artifact missing');
+
+  const experimentConfig = {
+    id: experiment.id || '',
+    objective: experiment.objective || '',
+    targetMetric: experiment.targetMetric || '',
+    implementation: experiment.implementation || '',
+    evaluator: experiment.evaluator || '',
+    rewardHackChecks: experiment.rewardHackChecks || [],
+    varianceChecks: experiment.varianceChecks || [],
+    retainedContext: experiment.retainedContext || '',
+    branchCombinePlan: experiment.branchCombinePlan || '',
+  };
+  const experimentConfigHash = sha256(stableStringify(experimentConfig));
+  const evidenceTextHash = options.evidence ? sha256(String(options.evidence)) : null;
+  const manifestCore = {
+    codeRevision,
+    worktreeClean: gitState.clean,
+    experimentConfigHash,
+    evidenceArtifacts,
+    evidenceTextHash,
+  };
+
+  return {
+    schema: 'hermes-experiment-provenance/v1',
+    complete: errors.length === 0,
+    ...manifestCore,
+    manifestHash: sha256(stableStringify(manifestCore)),
+    errors,
+  };
+}
+
 function metricDelta(before, after, direction = 'higher') {
   if (!Number.isFinite(Number(before)) || !Number.isFinite(Number(after))) {
     return { ok: false, delta: null, improved: false, reason: 'before and after must be finite numbers' };
@@ -414,6 +529,9 @@ function evaluateOutcome(outcome = {}) {
   const evaluatorPassed = statusPass(outcome.evaluator ?? outcome.evaluatorStatus);
   const rewardHackPassed = statusPass(outcome.rewardHack ?? outcome.rewardHackStatus);
   const variancePassed = statusPass(outcome.variance ?? outcome.varianceStatus);
+  const holdoutPassed = statusPass(outcome.holdout ?? outcome.holdoutStatus);
+  const sampleReviewPassed = statusPass(outcome.sampleReview ?? outcome.sampleReviewStatus);
+  const provenancePassed = statusPass(outcome.provenance ?? outcome.provenanceStatus ?? outcome.provenanceComplete);
   const metric = metricDelta(outcome.before, outcome.after, outcome.direction);
   const minDelta = Number(outcome.minDelta ?? outcome.minimumDelta ?? 0);
   const issues = [];
@@ -422,6 +540,9 @@ function evaluateOutcome(outcome = {}) {
   if (evaluatorPassed !== true) issues.push(evaluatorPassed === false ? 'evaluator failed' : 'evaluator evidence missing');
   if (rewardHackPassed !== true) issues.push(rewardHackPassed === false ? 'reward-hack check failed' : 'reward-hack check missing');
   if (variancePassed !== true) issues.push(variancePassed === false ? 'variance check failed' : 'variance check missing');
+  if (holdoutPassed !== true) issues.push(holdoutPassed === false ? 'holdout failed' : 'holdout evidence missing');
+  if (sampleReviewPassed !== true) issues.push(sampleReviewPassed === false ? 'sample review failed' : 'sample review evidence missing');
+  if (provenancePassed !== true) issues.push(provenancePassed === false ? 'provenance check failed' : 'provenance evidence missing');
   if (metric.ok && metric.delta <= minDelta) {
     issues.push(`metric did not improve by more than ${minDelta}`);
   }
@@ -449,6 +570,9 @@ function evaluateOutcome(outcome = {}) {
       evaluatorPassed,
       rewardHackPassed,
       variancePassed,
+      holdoutPassed,
+      sampleReviewPassed,
+      provenancePassed,
     },
   };
 }
@@ -516,6 +640,7 @@ function recordOutcome(options = {}) {
   const experimentId = options.experiment || options.experimentId || options.experiment_id;
   const experiment = experiments.find((candidate) => candidate.id === experimentId);
   if (!experiment) throw new Error(`Unknown experiment: ${experimentId || '(missing)'}`);
+  const provenance = buildProvenanceManifest(options, experiment);
   const outcome = {
     experimentId,
     before: options.before,
@@ -525,11 +650,14 @@ function recordOutcome(options = {}) {
     evaluator: options.evaluator,
     rewardHack: options.rewardHack,
     variance: options.variance,
+    holdout: options.holdout,
+    sampleReview: options.sampleReview,
+    provenance: provenance.complete ? 'pass' : null,
     evidence: options.evidence || '',
   };
   const evaluation = evaluateOutcome(outcome);
   const record = {
-    schema: 'hermes-recursive-experiment-outcome/v1',
+    schema: 'hermes-recursive-experiment-outcome/v2',
     recordedAt: new Date().toISOString(),
     experimentId,
     title: experiment.title,
@@ -538,6 +666,7 @@ function recordOutcome(options = {}) {
     evaluator: experiment.evaluator,
     retainedContext: experiment.retainedContext,
     outcome,
+    provenance,
     evaluation,
   };
   const ledgerPath = path.resolve(options.ledger || DEFAULT_LEDGER);
@@ -679,6 +808,7 @@ module.exports = {
   DEFAULT_LEDGER,
   RECURSIVE_PUBLIC_PATTERNS,
   artifactCoverage,
+  buildProvenanceManifest,
   evaluateOutcome,
   metricDelta,
   parseArgs,

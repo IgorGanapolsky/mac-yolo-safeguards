@@ -1,7 +1,15 @@
 /** Canonical Hermes Mobile app identifiers — single source of truth. */
 import firebaseProject from '../../firebase-project.json';
 
+/** Free Play listing (cannot convert Free→Paid). Money path: hermes_pro_lifetime IAP. */
 export const HERMES_MOBILE_ANDROID_PACKAGE = 'com.iganapolsky.hermesmobile';
+/**
+ * Paid Play download SKU — created 2026-07-20 under IgorGanapolsky
+ * (Play app id 4972002147362988720). Google blocks Free→Paid on the free package.
+ */
+export const HERMES_MOBILE_ANDROID_PAID_PACKAGE = 'com.iganapolsky.hermesmobile.paid';
+export const HERMES_PLAY_PAID_APP_ID = '4972002147362988720';
+export const HERMES_PLAY_PAID_PRICE_USD = '4.99';
 export const HERMES_MOBILE_IOS_BUNDLE_ID = 'com.iganapolsky.hermesmobile';
 
 /** Android Firebase App Distribution + GCP (iganapolsky@gmail.com). */

@@ -1,16 +1,15 @@
 ---
 name: drive-logged-in-chrome
 description: >
-  Drive Igor's already-authenticated Google Chrome via AppleScript for login-walled
-  dashboards (Stripe Payment Links, Apollo web, Play Console, LinkedIn, ASC). NEVER use
-  Playwright MCP as the source of truth for "am I logged in?" — Playwright is a separate
-  browser profile without Chrome cookies. Trigger when: Stripe, payment links, buy.stripe.com,
-  dashboard.stripe.com, "logged into Chrome", login wall, Playwright got login page but user
-  says they're signed in, Apollo web UI, or any task needs the real Chrome session.
-  Slash: /drive-logged-in-chrome. Cross-ref: use-existing-browser-sessions.
+  ONLY when Igor explicitly asks for Chrome UI in that same message (see AGENTS.md § No desktop hijack).
+  Otherwise use Stripe CLI, Play API, ASC API, gh. Legacy AppleScript path for login-walled dashboards
+  when CLI/API cannot work AND HERMES_ALLOW_INTERACTIVE_CHROME=1. NEVER use Playwright MCP as login truth.
+  Slash: /drive-logged-in-chrome. Cross-ref: use-existing-browser-sessions (same explicit-ask gate).
 ---
 
 # Drive logged-in Google Chrome (not Playwright)
+
+> **BANNED BY DEFAULT (2026-07-22):** Do not use this skill unless Igor explicitly asked to drive his interactive Chrome in **that same message** and you set `HERMES_ALLOW_INTERACTIVE_CHROME=1`. Prefer CLI/API — see [AGENTS.md](../../../AGENTS.md) § No desktop hijack and [docs/NO-DESKTOP-HIJACK.md](../../../docs/NO-DESKTOP-HIJACK.md).
 
 **Hard lesson (2026-07-14):** Playwright MCP navigated to Stripe and saw **login**. Igor's Chrome was already open on **Payment Links – ThumbGate** (`acct_1RNcJ1GGBpd520QY`). Agents who trust Playwright alone invent "blocked / need login" theater.
 
@@ -22,8 +21,9 @@ Need auth-walled site?
   2. If tab exists → activate that tab (inherits session)
   3. If not → open URL in existing Chrome window (same profile, inherits cookies)
   4. Drive via: AppleScript `execute active tab javascript "..."`  OR Chrome CDP if 9222 up
-  5. ONLY if Chrome has no session (screenshot/login form on REAL Chrome) → report session missing
-     — still do NOT ask for password; invoke use-existing-browser-sessions
+  5. ONLY if Chrome has no session (screenshot/login form on REAL Chrome) → for ASC, run
+     `bash .cursor/skills/ingest-chat-credentials/scripts/ensure-asc-session.sh` (session → `.p8` API →
+     Keychain/`asc-apple-id-password.sh` piped into System Events). Never ask Igor for the password.
 ```
 
 **Playwright is OK for:** public pages, form scrapes that don't need Igor's cookies.  

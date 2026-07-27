@@ -7,6 +7,11 @@ import {
   resolveEffectiveMacHttpOk,
 } from '../utils/gatewayConnection';
 import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
+import { friendlyMacUnreachableMessage } from '../utils/chatErrors';
+import {
+  OUTBOUND_RECONNECTED_RETRY_HINT,
+  resolveOutboundFailureLabel,
+} from '../utils/outboundDeliveryStatus';
 import {
   assertUsbHeaderIdentityLaw,
   resolveChatMachineHeaderDisplay,
@@ -21,6 +26,13 @@ import {
 } from '../utils/gatewayProfilePicker';
 import { evaluatePairDeepLinkApply } from '../utils/pairDeepLinkApply';
 import { isComposerSendDisabled, shouldSurfaceDeadRunEnded } from '../utils/deadRunDetection';
+
+// Tailscale-only is the PRODUCT DEFAULT since 2026-07-26 (CEO: "my app should not know about
+// USB, it should only know about tailscale"), so the picker drops loopback rows unless the
+// debugging escape hatch is on. The USB cases below still guard a real code path — they are
+// scoped to that hatch rather than deleted, so their regression value is preserved without
+// re-enabling USB for users. See src/__tests__/tailscaleOnlyTransport.test.ts for the default.
+process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT = '1';
 
 const root = path.resolve(__dirname, '../../..');
 const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8');
@@ -74,6 +86,21 @@ describe('prevent recurrence contract (July 2026 CI gates)', () => {
         authMismatch: true,
       }),
     ).toBe(false);
+  });
+
+  it('S50: Connected header never coexists with a stale "not connected yet" failed bubble (2026-07-24 USB reconnect)', () => {
+    // Reproduces the exact screenshot: Igors-MacBook-Pro over USB reconnects (macHttpOk flips
+    // true again) while an older send is still marked failed with the connectivity reason that
+    // was true only at the moment it failed. Header must say Connected (optionally "chat
+    // stalled"), and the bubble must never repeat the raw "not connected yet" copy beside it.
+    const link = resolveChatLinkDisplay({ connectionState: 'connected', macHttpOk: true });
+    expect(link.label.startsWith('Connected')).toBe(true);
+
+    const staleReason = friendlyMacUnreachableMessage();
+    const bubbleLabel = resolveOutboundFailureLabel(staleReason, true);
+    expect(bubbleLabel).toBe(`⚠ ${OUTBOUND_RECONNECTED_RETRY_HINT}`);
+    expect(bubbleLabel.toLowerCase()).not.toContain('not connected yet');
+    expect(bubbleLabel.toLowerCase()).not.toContain('use tailscale');
   });
 
   it('wires preventRecurrenceContract into test:release-safety', () => {
@@ -234,11 +261,23 @@ describe('prevent recurrence contract (July 2026 CI gates)', () => {
     expect(pairLib).toContain('USB_ADB_REVERSE_PORTS');
     expect(pairLib).toContain('setupUsbAdbReverses');
     expect(pairLib).toContain('assertUsbAdbReverses');
-    expect(pairJs).toContain('setupUsbAdbReverses(serial)');
-    expect(pairJs).toContain('assertUsbAdbReverses(serial)');
+    expect(pairJs).toContain('setupUsbAdbReverses(serial, { ports: usbReversePorts })');
+    expect(pairJs).toContain('assertUsbAdbReverses(serial, { requiredPorts: usbReversePorts })');
     expect(pairJs).toContain('tcp:8765 missing');
     expect(pairJs).toContain('pair.json sweep');
     expect(pairJs).not.toContain('Only reverse pair page port when we will serve it');
+  });
+
+  it('S-8642-HIJACK: auto-pair never re-adds tcp:8642 when a mini-primary/explicit gateway is set (2026-07-24)', () => {
+    const pairJs = read('tools/hermes-mobile-pair.js');
+    const pairLib = read('tools/hermes-mobile-pair-lib.js');
+    const installSh = read('hermes-mobile/scripts/install-phone-release.sh');
+    expect(pairLib).toContain('function resolveUsbReversePorts');
+    expect(pairLib).toContain('function removeUsbAdbReverse');
+    expect(pairJs).toContain('resolveUsbReversePorts');
+    expect(pairJs).toContain('removeUsbAdbReverse(serial, 8642)');
+    expect(installSh).toContain('HERMES_PAIR_GATEWAY_URL');
+    expect(installSh).toContain('HERMES_FORCE_MINI_USB_PRIMARY');
   });
 
   it('Maestro chat composer inputText uses canonical device message only', () => {
@@ -322,6 +361,44 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(ctxSrc).toContain('Catalog-only (e.g. Pro USB while mini is active)');
   });
 
+  it('S29: autoDiscover must never yank a live same-Mac USB session back to a sticky Tailscale/LAN URL (P0 2026-07-23)', () => {
+    // Duplicate-"active"-picker-row + Connecting/Not-connected header-banner race: autoDiscover
+    // step 2 unconditionally re-probed+reactivated loadLastSelectedProfileId's sticky URL every
+    // tick even while the cable was already live for the identical Mac.
+    const healSrc = read('hermes-mobile/src/utils/connectionSelfHeal.ts');
+    const ctxSrc = read('hermes-mobile/src/context/GatewayContext.tsx');
+    expect(healSrc).toContain('shouldKeepUsbOverStickyRemote');
+    expect(ctxSrc).toContain('liveUsbSameMachine');
+    expect(ctxSrc).toContain('shouldKeepUsbOverStickyRemote');
+  });
+
+  it('S27: bidirectional USB↔Tailscale handoff same Mac without clearing session (#product-lock)', () => {
+    const handoffSrc = read('hermes-mobile/src/utils/usbTransportHandoff.ts');
+    const ctxSrc = read('hermes-mobile/src/context/GatewayContext.tsx');
+    expect(handoffSrc).toContain('resolveUsbTransportHandoff');
+    expect(handoffSrc).toContain('resolveUsbToRemoteHandoff');
+    expect(handoffSrc).toContain('foreign_usb_host');
+    expect(handoffSrc).toContain('usbHandoffPreservesConversation');
+    expect(handoffSrc).not.toContain("reason: 'cellular'");
+    expect(ctxSrc).toContain('maybeHandoffTailscaleToUsb');
+    expect(ctxSrc).toContain('maybeHandoffUsbToRemote');
+    expect(ctxSrc).toContain('runBidirectionalUsbHandoff');
+    expect(ctxSrc).toContain('keep Tailscale/LAN identity');
+    expect(ctxSrc).toContain('liveUsbConfirmed');
+    // Handoff must mutate effective URL in place — picker select clears session/messages.
+    const handoffFn = ctxSrc.slice(
+      ctxSrc.indexOf('const maybeHandoffTailscaleToUsb = useCallback'),
+      ctxSrc.indexOf('const connectGatewayWebSocket = useCallback'),
+    );
+    expect(handoffFn).toContain('setEffectiveGatewayUrl(confirmed.usbGatewayUrl)');
+    expect(handoffFn).toContain('setEffectiveGatewayUrl(decision.remoteGatewayUrl)');
+    expect(handoffFn).not.toContain('selectGatewayProfile(');
+    // Must not require Wi‑Fi for plug→USB (5G + cable is the failing screenshot case).
+    expect(handoffFn).not.toMatch(
+      /isUsbHandoffSourceUrl\(currentUrl\)\s*\|\|\s*!wifiConnectedRef\.current/,
+    );
+  });
+
   it('S18: Choose your computer picker renders every discovered machine, even before hostname resolves (#389)', () => {
     // Reproduces the exact P0 shape: "Find computers" reports foundCount=2, but the second
     // machine has no resolved hostname yet, is not the active profile, and was never
@@ -363,7 +440,7 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     );
   });
 
-  it('S25: Mac Pro USB and Tailscale aliases render as one physical-machine row', () => {
+  it('S25: live USB stays selectable beside Mac Pro Tailscale (never cable-only collapse)', () => {
     const macBookUsb = {
       id: 'mac_book_usb',
       label: 'Igors-MacBook-Pro',
@@ -391,13 +468,14 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
       activeProfileId: 'mac_book_ts',
       liveUsb: { reachable: true, hostname: 'Igors-MacBook-Pro.local' },
     });
-    expect(rows.map((r) => r.id)).toEqual(['mac_book_ts', 'mac_mini_ts']);
-    expect(profileConnectionRouteLabel(rows[0], true)).toBe('Tailscale');
+    expect(rows.map((r) => r.id)).toEqual(['mac_book_usb', 'mac_book_ts', 'mac_mini_ts']);
+    expect(profileConnectionRouteLabel(rows[0], true)).toBe('USB');
+    expect(profileConnectionRouteLabel(rows[1], true)).toBe('Tailscale');
     expect(profilePickerLines(rows[0], { cablePluggedIn: true }).title).toBe(
       'Igors-MacBook-Pro (Mac Pro)',
     );
-    expect(profilePickerLines(rows[0], { cablePluggedIn: true }).detail).toMatch(/cable/i);
-    expect(profilePickerLines(rows[1]).title).toBe('Igors-Mac-mini');
+    expect(profilePickerLines(rows[0], { cablePluggedIn: true }).detail).toMatch(/USB cable connected/i);
+    expect(profilePickerLines(rows[2]).title).toBe('Igors-Mac-mini');
   });
 
   it('S19: Repair link is bounded (30s Tailscale headroom) and never leaves an infinite spinner', () => {
@@ -543,12 +621,21 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     const workflow = read('.github/workflows/mobile-ota.yml');
     expect(workflow).toContain('require-stranger-cold-start-proof.cjs');
     expect(workflow).toContain('HERMES_STRANGER_PROOF_WAIT_SEC');
-    // Crisis law: preview-on-push; production only via publish_production + staged rollout.
+    // Billing freeze 2026-07-23: no push auto-preview; opt-in publish_preview + thaw.
     expect(workflow).toContain('publish-preview-ota');
+    expect(workflow).toContain('publish_preview');
     expect(workflow).toContain('publish_production');
+    expect(workflow).toContain('require-expo-billing-thaw.sh');
+    expect(workflow).not.toMatch(/on:\s*\n\s*push:/);
     expect(workflow).toContain('--rollout-percentage');
     expect(workflow).not.toContain('for CH in preview production');
     expect(workflow).toMatch(/checks:\s*read/);
+    const thaw = read('hermes-mobile/scripts/require-expo-billing-thaw.sh');
+    expect(thaw).toContain('HERMES_OTA_BILLING_THAW');
+    expect(thaw).toContain('Expo billing freeze');
+    expect(thaw).toMatch(/exit 1/);
+    const gated = read('hermes-mobile/scripts/ota-publish-gated.sh');
+    expect(gated).toContain('require-expo-billing-thaw.sh');
     const stranger = read('hermes-mobile/scripts/require-stranger-cold-start-proof.cjs');
     expect(stranger).toContain('checkGithubStrangerProof');
     const pairJs = read('tools/hermes-mobile-pair.js');
@@ -581,5 +668,99 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     );
     const app = JSON.parse(read('hermes-mobile/app.json'));
     expect(app.expo.android.allowBackup).toBe(false);
+  });
+
+  it('S28: unpaired relay never claims Tailscale/Connecting as the live path (2026-07-20 misdiagnosis)', () => {
+    const header = read('hermes-mobile/src/utils/chatMachineHeader.ts');
+    expect(header).toContain('export function shouldClaimHeaderTransport');
+    expect(header).toMatch(/connectionMode === 'relay' && !input\.isPaired/);
+    const link = read('hermes-mobile/src/utils/gatewayConnection.ts');
+    expect(link).toContain('needsPair');
+    expect(link).toContain('NEEDS_PAIR_STATUS_LABEL');
+    const pairPolicy = read('hermes-mobile/src/utils/connectionErrorPolicy.ts');
+    expect(pairPolicy).toContain('tailnet presence ≠ app paired');
+    const chatHeader = read('hermes-mobile/src/components/ChatScreenHeader.tsx');
+    expect(chatHeader).toContain('needsPair');
+    const chatScreen = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chatScreen).toMatch(/needsPair=\{/);
+    expect(chatScreen).toMatch(/connectionMode === 'relay'/);
+  });
+
+  it('S29: never paint Continuing-from-last-session over empty New chat', () => {
+    const chip = read('hermes-mobile/src/components/ContinuingFromSessionChip.tsx');
+    expect(chip).toMatch(/return null/);
+    expect(chip).not.toContain('continuing-from-session-chip');
+    const handoff = read('hermes-mobile/src/utils/sessionContinuityHandoff.ts');
+    expect(handoff).toMatch(
+      /export function shouldShowContinuityChip[\s\S]*?\{\s*return false;\s*\}/,
+    );
+    const chatScreen = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chatScreen).not.toContain('ContinuingFromSessionChip');
+    expect(chatScreen).toContain('resolveContinuitySessionResumeId');
+    const resume = read('hermes-mobile/src/utils/continuitySessionResume.ts');
+    expect(resume).toContain('export function resolveContinuitySessionResumeId');
+  });
+
+  it('S48: Mac switch clears sticky session ref and opens that Mac last session', () => {
+    const restore = read('hermes-mobile/src/utils/profileSwitchSessionRestore.ts');
+    expect(restore).toContain('clearStickySessionRef');
+    expect(restore).toContain('sessionIdForPostSwitchListLoad');
+    expect(restore).toContain('resolvePostSwitchSession');
+    const chatScreen = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chatScreen).toContain('currentSessionRef.current = null');
+    expect(chatScreen).toContain('intentionalProfileSwitch: true');
+    expect(chatScreen).toContain('resolvePostSwitchSession');
+    expect(chatScreen).toContain('sessionIdForPostSwitchListLoad');
+  });
+
+  it('S49: live USB dual-transport row stays selectable while sticky Tailscale remains (2026-07-23)', () => {
+    const picker = read('hermes-mobile/src/utils/gatewayProfilePicker.ts');
+    expect(picker).toContain('liveUsbRows');
+    expect(picker).toContain('collapsedRemote');
+    expect(picker).toMatch(/Keep live USB as its own selectable transport/);
+    const chat = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chat).toContain('setInterval');
+    expect(chat).toContain('probeLiveUsbGateway');
+    expect(chat).toMatch(/2500/);
+  });
+
+  it('S51: Connected Tailscale never titles address-shaped labels (IP / IP:port) over /health.hostname (2026-07-25)', () => {
+    // Screenshot class: green Connected · Tailscale but left slot was the gateway
+    // endpoint (CGNAT host:port) instead of Igors-Mac-mini. Pure-function lock —
+    // Maestro ship-guard does not seed multi-Mac Tailscale identity.
+    const headerSrc = read('hermes-mobile/src/utils/chatMachineHeader.ts');
+    expect(headerSrc).toContain('isAddressShapedMachineName');
+    expect(headerSrc).toMatch(/IPv4:port/);
+    expect(headerSrc).toMatch(/Live green\|amber \/health\.hostname always beats IP-shaped/);
+
+    const profilesSrc = read('hermes-mobile/src/services/gatewayProfiles.ts');
+    // isBareIp must reject endpoint-shaped labels so they never stick as "names".
+    expect(profilesSrc).toMatch(/IPv4:port|gateway endpoint pasted as profile label/);
+
+    const endpointLabel = '100.94.135.78:8642';
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_cgnat',
+        label: endpointLabel,
+        gatewayUrl: `http://${endpointLabel}`,
+        localIp: '100.94.135.78',
+        addedAt: '2026-07-25T00:00:00.000Z',
+      },
+      gatewayUrl: `http://${endpointLabel}`,
+      health: {
+        level: 'green',
+        checkedAt: '2026-07-25T14:00:00.000Z',
+        hostname: 'Igors-Mac-mini.local',
+        directGatewayReachable: true,
+      },
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 1,
+      wifiConnected: true,
+    });
+    expect(display.machineLabel).toBe('Igors-Mac-mini');
+    expect(display.machineLabel).not.toMatch(/100\.94\.135\.78/);
+    expect(display.machineEndpoint).toBe('Tailscale');
   });
 });

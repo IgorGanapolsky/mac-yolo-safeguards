@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# poolside-yolo - run the official Poolside `pool` coding-agent CLI fully autonomous,
+# routed through the Hermes LiteLLM gateway (:4010) via Poolside's documented
+# "custom OpenAI-compatible endpoint" env vars (POOLSIDE_STANDALONE_BASE_URL /
+# POOLSIDE_STANDALONE_MODEL / POOLSIDE_API_KEY), so it inherits the fleet's resilient
+# fallback chain (glm-coding -> opencode-go-glm -> nemotron3-free -> laguna-free ->
+# opencode-free -> local) instead of Poolside's own cloud/OpenRouter billing.
+# Mirrors the repo's other vendor -yolo wrappers (opencode-yolo, kimi-yolo): it
+# wraps the OFFICIAL pool binary, never bundles or forks it.
+#
+#   poolside-yolo "build me X"      autonomous one-shot task (pool exec, auto-allow)
+#   poolside-yolo                   autonomous interactive TUI (--mode allow-all)
+#   poolside-yolo login             passthrough to real Poolside/OpenRouter login
+#                                    (gateway env vars withheld so auth isn't shadowed)
+#   poolside-yolo --doctor[/--json] health (binary, version, gateway, model, zero-spend)
+#
+# Safety:
+#   * Honors the fleet zero-spend gate: if ~/.hermes/NO_PAID_SPEND exists, exit 73.
+#   * Install: curl -fsSL https://downloads.poolside.ai/pool/install.sh | sh
+set -euo pipefail
+
+GATEWAY_URL="${POOLSIDE_YOLO_GATEWAY_URL:-http://127.0.0.1:4010/v1}"
+DEFAULT_MODEL="${POOLSIDE_YOLO_MODEL:-glm-coding}"
+MARKER="${HERMES_ZERO_SPEND_MARKER:-$HOME/.hermes/NO_PAID_SPEND}"
+
+resolve_pool() {
+  local candidate=""
+  if [[ -n "${POOL_BIN:-}" ]]; then
+    [[ -x "$POOL_BIN" ]] && { printf '%s\n' "$POOL_BIN"; return 0; }
+    return 1
+  fi
+  for candidate in "$HOME/.local/bin/pool" "$(command -v pool 2>/dev/null || true)"; do
+    [[ -n "$candidate" && -x "$candidate" ]] && { printf '%s\n' "$candidate"; return 0; }
+  done
+  return 1
+}
+
+emit_missing() {
+  if [[ "${1:-}" == json ]]; then
+    printf '%s\n' '{"schema":"poolside-yolo/doctor-v1","ok":false,"error":"official pool binary not found"}'
+  else
+    echo "poolside-yolo: official 'pool' binary not found (install: curl -fsSL https://downloads.poolside.ai/pool/install.sh | sh)" >&2
+  fi
+}
+
+gateway_up() { curl -fsS -m 4 "${GATEWAY_URL%/v1}/health/liveliness" >/dev/null 2>&1; }
+
+doctor() {
+  local format="${1:-text}" bin="" version="" up="false"
+  if ! bin="$(resolve_pool)"; then emit_missing "$format"; return 127; fi
+  version="$("$bin" --version 2>/dev/null | head -n1 || true)"
+  gateway_up && up="true"
+  if [[ "$format" == json ]]; then
+    PYB="$bin" PYV="$version" PYG="$GATEWAY_URL" PYM="$DEFAULT_MODEL" PYUP="$up" \
+    PYZ="$([[ -e "$MARKER" ]] && echo true || echo false)" node -e '
+      process.stdout.write(JSON.stringify({
+        schema:"poolside-yolo/doctor-v1", ok:true, provider:"Poolside pool CLI (official)",
+        binary:process.env.PYB, version:process.env.PYV,
+        gateway:process.env.PYG, gatewayUp:process.env.PYUP==="true",
+        defaultModel:process.env.PYM, zeroSpendActive:process.env.PYZ==="true",
+        autonomous:true
+      })+"\n");' 2>/dev/null || python3 -c '
+import json, os
+print(json.dumps({
+  "schema": "poolside-yolo/doctor-v1", "ok": True, "provider": "Poolside pool CLI (official)",
+  "binary": os.environ["PYB"], "version": os.environ["PYV"],
+  "gateway": os.environ["PYG"], "gatewayUp": os.environ["PYUP"] == "true",
+  "defaultModel": os.environ["PYM"], "zeroSpendActive": os.environ["PYZ"] == "true",
+  "autonomous": True,
+}))'
+  else
+    printf 'POOLSIDE_YOLO_OK binary=%s version=%s gateway=%s up=%s model=%s zero_spend=%s\n' \
+      "$bin" "$version" "$GATEWAY_URL" "$up" "$DEFAULT_MODEL" "$([[ -e "$MARKER" ]] && echo true || echo false)"
+  fi
+}
+
+if [[ "${1:-}" == "--doctor" ]]; then
+  shift
+  case "${1:-}" in
+    "") doctor text ;;
+    --json) shift; [[ $# -eq 0 ]] || { echo "poolside-yolo: --doctor --json takes no more args" >&2; exit 2; }; doctor json ;;
+    *) echo "poolside-yolo: --doctor accepts only optional --json" >&2; exit 2 ;;
+  esac
+  exit $?
+fi
+
+if ! PBIN="$(resolve_pool)"; then emit_missing text; exit 127; fi
+
+# `login`/`update`/version/help are vendor-account or metadata operations — never
+# withhold real auth behind our gateway shim, and don't gate them on the fleet's
+# zero-spend marker (they make no model calls of their own).
+case "${1:-}" in
+  login|update|--version|-v|--help|-h)
+    exec "$PBIN" "$@" ;;
+esac
+
+if [[ -e "$MARKER" ]]; then
+  echo "poolside-yolo: blocked — fleet zero-spend is active ($MARKER); the paid gateway is down by policy" >&2
+  exit 73
+fi
+
+if ! gateway_up; then
+  echo "poolside-yolo: Hermes gateway not reachable at ${GATEWAY_URL%/v1} — start com.igor.hermes-litellm first" >&2
+  exit 69
+fi
+
+# Route pool's "custom OpenAI-compatible endpoint" support at the Hermes gateway
+# instead of Poolside's own cloud/OpenRouter billing.
+export POOLSIDE_STANDALONE_BASE_URL="$GATEWAY_URL"
+export POOLSIDE_API_KEY="${POOLSIDE_API_KEY:-hermes-local-gateway}"
+export POOLSIDE_STANDALONE_MODEL="$DEFAULT_MODEL"
+
+if [[ $# -eq 0 ]]; then
+  exec "$PBIN" --mode allow-all
+fi
+
+case "$1" in
+  exec)
+    shift
+    has_allow=0; has_out=0
+    for a in "$@"; do case "$a" in --unsafe-auto-allow) has_allow=1;; -o|-o=*) has_out=1;; esac; done
+    extra=()
+    ((has_allow)) || extra+=(--unsafe-auto-allow)
+    ((has_out)) || extra+=(-o json)
+    exec "$PBIN" exec "${extra[@]}" "$@" ;;
+  -*)
+    has_mode=0
+    for a in "$@"; do case "$a" in --mode|--mode=*) has_mode=1;; esac; done
+    if ((has_mode)); then
+      exec "$PBIN" "$@"
+    else
+      exec "$PBIN" --mode allow-all "$@"
+    fi ;;
+  *)
+    # Bare task string -> autonomous one-shot, mirroring kimi-yolo's routing.
+    exec "$PBIN" exec -p "$*" --unsafe-auto-allow -o json ;;
+esac

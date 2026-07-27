@@ -9,6 +9,7 @@ import {
   dedupeGatewayProfiles,
   formatProfileLabel,
   profileDisplayName,
+  profileNeedsMachineNameEnrichment,
   stripTransportSuffixFromComputerName,
   isInvalidGatewayProfile,
   sanitizeGatewayProfileState,
@@ -22,6 +23,7 @@ import {
   shouldProbeGatewayUrlForActiveProfile,
   resolveHealPersistDecision,
   isDiscoveredUrlAllowedForActiveProfile,
+  touchProfileHealth,
 } from '../services/gatewayProfiles';
 import { EMPTY_GATEWAY_PROFILE_STATE } from '../types/gatewayProfile';
 
@@ -676,6 +678,43 @@ describe('gatewayProfiles', () => {
     expect(next.activeProfileId).not.toBe('mac_book_tail');
   });
 
+  it('upsert refuses foreign Pro hostname on mini Tailscale URL (force-switch root cause)', () => {
+    let state = upsertDiscoveredProfile(
+      EMPTY_GATEWAY_PROFILE_STATE,
+      {
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-Mac-mini',
+      },
+      true,
+    );
+    state = upsertDiscoveredProfile(
+      state,
+      {
+        gatewayUrl: 'http://100.87.85.85:8642',
+        hostname: 'Igors-MacBook-Pro',
+      },
+      false,
+    );
+    expect(state.profiles).toHaveLength(2);
+    expect(profileMachineKey(activeProfile(state)!)).toBe('igors-mac-mini');
+
+    // saveSettings→applyHeal used to stamp stale Pro /health onto the mini URL.
+    const poisoned = upsertDiscoveredProfile(
+      state,
+      {
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-MacBook-Pro',
+      },
+      false,
+    );
+    const mini = poisoned.profiles.find((p) => p.gatewayUrl.includes('100.94.135.78'));
+    expect(mini).toBeTruthy();
+    expect(profileMachineKey(mini!)).toBe('igors-mac-mini');
+    expect(mini?.hostname?.toLowerCase()).toContain('mini');
+    expect(poisoned.activeProfileId).toBe(state.activeProfileId);
+    expect(poisoned.profiles).toHaveLength(2);
+  });
+
   it('applyHealDiscoveredUrl updates active profile URL for same-machine Tailscale heal', () => {
     const state = dedupeGatewayProfiles({
       profiles: [
@@ -730,6 +769,94 @@ describe('gatewayProfiles', () => {
       },
     ];
     expect(profilesForActiveMachine(profiles, 'mini').map((p) => p.id)).toEqual(['mini']);
+  });
+
+  it('resolveHealPersistDecision allows anonymous USB to activate Tailscale computer', () => {
+    const state = {
+      profiles: [
+        {
+          id: 'usb',
+          label: 'Computer via USB',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          localIp: '127.0.0.1',
+          addedAt: '2026-07-21T00:00:00Z',
+        },
+        {
+          id: 'mini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini',
+          localIp: '100.94.135.78',
+          addedAt: '2026-07-21T00:00:01Z',
+        },
+      ],
+      activeProfileId: 'usb',
+    };
+    const decision = resolveHealPersistDecision(state, 'http://100.94.135.78:8642', false);
+    expect(decision.catalogOnly).toBe(false);
+    expect(decision.requestedActivation).toBe(true);
+    expect(decision.returnUrl).toBe('http://100.94.135.78:8642');
+  });
+
+  it('resolveHealPersistDecision does not let named USB MacBook escape to mini Tailscale', () => {
+    const state = {
+      profiles: [
+        {
+          id: 'usb',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          hostname: 'Igors-MacBook-Pro',
+          localIp: '127.0.0.1',
+          addedAt: '2026-07-21T00:00:00Z',
+        },
+        {
+          id: 'mini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini',
+          localIp: '100.94.135.78',
+          addedAt: '2026-07-21T00:00:01Z',
+        },
+      ],
+      activeProfileId: 'usb',
+    };
+    const decision = resolveHealPersistDecision(state, 'http://100.94.135.78:8642', true);
+    expect(decision.catalogOnly).toBe(true);
+    expect(decision.requestedActivation).toBe(false);
+    expect(decision.returnUrl).toBe('http://127.0.0.1:8642');
+  });
+
+  it('touchProfileHealth refuses foreign MacBook hostname on active Mac mini', () => {
+    const state = dedupeGatewayProfiles({
+      profiles: [
+        {
+          id: 'mini',
+          label: 'Igors-Mac-mini',
+          hostname: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          addedAt: '2026-07-21T00:00:00Z',
+        },
+        {
+          id: 'book',
+          label: 'Igors-MacBook-Pro',
+          hostname: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          addedAt: '2026-07-21T00:00:01Z',
+        },
+      ],
+      activeProfileId: 'mini',
+    });
+    const miniId = state.activeProfileId!;
+    expect(profileMachineKey(activeProfile(state)!)).toBe('igors-mac-mini');
+    const next = touchProfileHealth(state, miniId, {
+      hostname: 'Igors-MacBook-Pro.local',
+      localIp: '127.0.0.1',
+    });
+    expect(next.activeProfileId).toBe(miniId);
+    const mini = activeProfile(next)!;
+    expect(profileMachineKey(mini)).toBe('igors-mac-mini');
+    expect(mini.hostname).toMatch(/mini/i);
+    expect(next.profiles).toHaveLength(2);
   });
 
   it('resolveHealPersistDecision blocks cross-machine gateway repointing', () => {
@@ -790,6 +917,44 @@ describe('gatewayProfiles', () => {
     expect(profileMachineKey(healed)).toBe('igors-mac-mini');
     expect(healed.gatewayUrl).toBe('http://100.94.135.78:8642');
     expect(healed.gatewayUrl).not.toContain('127.0.0.1');
+    // Foreign Pro cable hostname must still be rejected while mini is sticky.
+    expect(
+      isDiscoveredUrlAllowedForActiveProfile(state, 'http://127.0.0.1:8642', {
+        liveUsbHostname: 'Igors-MacBook-Pro.local',
+      }),
+    ).toBe(false);
+  });
+
+  it('allows same-Mac USB when the live cable hostname matches the sticky Tailscale Mac', () => {
+    // P0 2026-07-23: after a same-Mac USB↔Tailscale handoff, the sticky profile stays the
+    // Tailscale row while the cable is live for the identical Mac — the live cable hostname
+    // must unlock loopback for THIS Mac only, not any anonymous 127.0.0.1.
+    const state = dedupeGatewayProfiles({
+      profiles: [
+        {
+          id: 'book_ts',
+          label: 'Igors-MacBook-Pro',
+          hostname: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          addedAt: '2026-06-28T00:00:00Z',
+        },
+      ],
+      activeProfileId: 'book_ts',
+    });
+    expect(isDiscoveredUrlAllowedForActiveProfile(state, 'http://127.0.0.1:8642')).toBe(false);
+    expect(
+      isDiscoveredUrlAllowedForActiveProfile(state, 'http://127.0.0.1:8642', {
+        liveUsbHostname: 'Igors-MacBook-Pro.local',
+      }),
+    ).toBe(true);
+    const decision = resolveHealPersistDecision(
+      state,
+      'http://127.0.0.1:8642',
+      true,
+      { liveUsbHostname: 'Igors-MacBook-Pro.local' },
+    );
+    expect(decision.catalogOnly).toBe(false);
+    expect(decision.returnUrl).toBe('http://127.0.0.1:8642');
   });
 
   it('blocks Pro USB profile from rewriting mini Tailscale on heal', () => {
@@ -916,5 +1081,168 @@ describe('gatewayProfiles', () => {
     expect(legacyState.profiles.length).toBe(1);
     expect(legacyState.profiles[0].id).toBe('mac_igors_mac_mini');
     expect(legacyState.activeProfileId).toBe('mac_igors_mac_mini');
+  });
+
+  it('enriches nameless Tailscale CGNAT profile to /health hostname (Choose computer title)', () => {
+    const nameless = {
+      id: 'mac_100_94_135_78',
+      label: 'Tailscale 100.94.135.78',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-23T12:00:00.000Z',
+    };
+    expect(profileDisplayName(nameless)).toBe('Tailscale 100.94.135.78');
+    expect(profileNeedsMachineNameEnrichment(nameless)).toBe(true);
+
+    const next = applyTailscaleDiscoveriesToProfileState(
+      { profiles: [nameless], activeProfileId: nameless.id },
+      [
+        {
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini.local',
+          // Poisoned LAN local_ip must not block URL match / enrich.
+          localIp: '192.168.68.60',
+          label: 'Igors-Mac-mini',
+        },
+      ],
+    );
+    const mini = next.profiles.find((p) => p.gatewayUrl.includes('100.94.135.78'))!;
+    expect(profileDisplayName(mini)).toBe('Igors-Mac-mini');
+    expect(mini.hostname).toMatch(/Igors-Mac-mini/i);
+    expect(mini.localIp).toBe('100.94.135.78');
+    expect(profileNeedsMachineNameEnrichment(mini)).toBe(false);
+  });
+
+  it('sanitize relabels Tailscale IP label once hostname is known', () => {
+    const state = sanitizeGatewayProfileState({
+      profiles: [
+        {
+          id: 'mac_100_94_135_78',
+          label: 'Tailscale 100.94.135.78',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini.local',
+          localIp: '100.94.135.78',
+          addedAt: '2026-07-23T12:00:00.000Z',
+        },
+      ],
+      activeProfileId: 'mac_100_94_135_78',
+    });
+    expect(state.profiles[0].label).toBe('Igors-Mac-mini');
+    expect(profileDisplayName(state.profiles[0])).toBe('Igors-Mac-mini');
+  });
+
+  it('P0 2026-07-24: touchProfileHealth keeps CGNAT localIp when /health reports LAN local_ip', () => {
+    const nameless = {
+      id: 'mac_100_94_135_78',
+      label: 'Tailscale 100.94.135.78',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-24T00:00:00.000Z',
+    };
+    const next = touchProfileHealth(
+      { profiles: [nameless], activeProfileId: nameless.id },
+      nameless.id,
+      { hostname: 'Igors-Mac-mini.local', localIp: '192.168.68.54' },
+    );
+    const enriched = next.profiles[0];
+    expect(enriched.hostname).toMatch(/Igors-Mac-mini/i);
+    expect(enriched.label).toBe('Igors-Mac-mini');
+    expect(enriched.localIp).toBe('100.94.135.78');
+    expect(profileDisplayName(enriched)).toBe('Igors-Mac-mini');
+    expect(profileNeedsMachineNameEnrichment(enriched)).toBe(false);
+  });
+
+  describe('P0 2026-07-23: duplicate-"active"-picker-row / Connecting+Not-connected race', () => {
+    // Live bug report: the "Choose your computer" picker rendered THREE rows for what the
+    // user believed was one physical Mac, with TWO of them simultaneously showing a filled
+    // ("selected") radio, while the header showed "Connecting" and a banner below
+    // simultaneously said "Not connected". `GatewayProfilePicker` computes
+    // `isActive = profile.id === activeProfileId` per row from a single `activeProfileId`
+    // prop shared across the whole render pass — two rows can only both paint as selected if
+    // (a) two profile objects in the list literally share the same `.id`, or (b) the
+    // underlying `activeProfileId`/session URL was churning (flapping) across rapid
+    // re-renders while the modal was open. These tests prove which one it actually is.
+
+    it('never produces two saved-profile ids that collide for the same USB+Tailscale MacBook Pro shape', () => {
+      // Exact machine identities from the bug report: USB-cabled MacBook Pro (loopback),
+      // that same Pro reachable over Tailscale, and the unrelated Mac mini over Tailscale.
+      const usbId = profileIdFromGatewayUrl('http://127.0.0.1:8642', 'Igors-MacBook-Pro');
+      const tailscaleProId = profileIdFromGatewayUrl(
+        'http://100.87.85.85:8642',
+        'Igors-MacBook-Pro',
+      );
+      const tailscaleMiniId = profileIdFromGatewayUrl(
+        'http://100.94.135.78:8642',
+        'Igors-Mac-mini',
+      );
+      // Refutes the "duplicate literal id" hypothesis: USB loopback ids are hostname-keyed,
+      // Tailscale/LAN ids are IP-keyed — a route change for the same Mac never collides with
+      // a different Mac's id, and USB vs Tailscale for the SAME Mac never collide either.
+      expect(usbId).not.toBe(tailscaleProId);
+      expect(usbId).not.toBe(tailscaleMiniId);
+      expect(tailscaleProId).not.toBe(tailscaleMiniId);
+      expect(new Set([usbId, tailscaleProId, tailscaleMiniId]).size).toBe(3);
+    });
+
+    it('dedupeGatewayProfiles never leaves two profiles sharing one id after repeated same-Mac discovery', () => {
+      // Simulates the exact flap: USB discovery, then Tailscale re-discovery of the SAME
+      // Mac (sticky-remote reprobe), then USB re-discovery again — as autoDiscover would do
+      // once per tick while racing the sticky-profile reprobe this fix closes.
+      let state = EMPTY_GATEWAY_PROFILE_STATE;
+      state = upsertDiscoveredProfile(
+        state,
+        { gatewayUrl: 'http://127.0.0.1:8642', hostname: 'Igors-MacBook-Pro', localIp: '127.0.0.1' },
+        true,
+      );
+      state = upsertDiscoveredProfile(
+        state,
+        { gatewayUrl: 'http://100.87.85.85:8642', hostname: 'Igors-MacBook-Pro', localIp: '100.87.85.85' },
+        true,
+      );
+      state = upsertDiscoveredProfile(
+        state,
+        { gatewayUrl: 'http://100.94.135.78:8642', hostname: 'Igors-Mac-mini', localIp: '100.94.135.78' },
+        false,
+      );
+      state = upsertDiscoveredProfile(
+        state,
+        { gatewayUrl: 'http://127.0.0.1:8642', hostname: 'Igors-MacBook-Pro', localIp: '127.0.0.1' },
+        true,
+      );
+      const ids = state.profiles.map((p) => p.id);
+      expect(new Set(ids).size).toBe(ids.length);
+      // At most one profile id can ever equal activeProfileId — GatewayProfilePicker's
+      // `isActive = profile.id === activeProfileId` can therefore never mark two rows
+      // active from a single consistent render; any observed "two selected" screenshot is
+      // proof of activeProfileId churning across renders, not a duplicate-id data bug.
+      expect(state.profiles.filter((p) => p.id === state.activeProfileId).length).toBe(1);
+    });
+
+    it('root cause: sticky Tailscale profile stays probe-preferred over a live same-Mac USB cable pre-fix', () => {
+      // Documents the exact pre-fix defect this PR closes: with no effective-URL/live-cable
+      // awareness, shouldProbeGatewayUrlForActiveProfile allowed the sticky Tailscale URL to
+      // be reprobed and reactivated even while the identical Mac already answers on the cable,
+      // which is what repeatedly flips activeProfileId/gatewayUrl and produces the render race.
+      const state = dedupeGatewayProfiles({
+        profiles: [
+          {
+            id: 'book_ts',
+            label: 'Igors-MacBook-Pro',
+            hostname: 'Igors-MacBook-Pro',
+            gatewayUrl: 'http://100.87.85.85:8642',
+            addedAt: '2026-06-28T00:00:00Z',
+          },
+        ],
+        activeProfileId: 'book_ts',
+      });
+      // Without the live cable hostname, loopback stays blocked (correct — must not steal
+      // an anonymous cable). With it, this fix now allows the SAME Mac's cable through.
+      expect(shouldProbeGatewayUrlForActiveProfile(state, 'http://127.0.0.1:8642')).toBe(false);
+      expect(
+        shouldProbeGatewayUrlForActiveProfile(state, 'http://127.0.0.1:8642', {
+          liveUsbHostname: 'Igors-MacBook-Pro.local',
+        }),
+      ).toBe(true);
+    });
   });
 });

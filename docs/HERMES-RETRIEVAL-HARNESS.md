@@ -25,6 +25,11 @@ node tools/hermes-retrieval-harness.js grep --pattern "gap analysis" --json
 - `read` refuses paths outside the repo.
 - Results are citations and snippets, not completion claims.
 - Secret-bearing runtime files are not needed for normal use.
+- `grep --pattern` is a safe, case-insensitive **literal substring** search:
+  regex metacharacters in `--pattern` are escaped before matching, so it can
+  never construct an attacker- or typo-controlled live regex (CodeQL
+  `js/regex-injection`, CWE-400/730). It cannot do multi-token/wildcard
+  regex search — use `retrieve --query` for that.
 
 ## SDD Fit
 

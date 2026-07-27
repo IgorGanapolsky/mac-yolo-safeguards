@@ -1,0 +1,49 @@
+{
+  "schema": "hermes/deep-research-ingest-v1",
+  "generatedAt": "2026-07-21T18:45:11Z",
+  "runId": "trun_8d4d975cbb0e4c1db0f23b5cf8df5831",
+  "processor": "pro-fast",
+  "topic": "Production local tool-using tinker-yolo agent for two 24 GB-class Macs",
+  "verdict": "Use the installed local Qwen/Ollama model with a host-side schema dispatcher; keep Inkling remote and explicitly metered.",
+  "rootCause": "The wrapper execed ollama run, a chat client with no host tool dispatcher or agent loop.",
+  "liveProbe": {
+    "paidProviderCall": false,
+    "model": "qwen3-hermes-tinker:q4",
+    "endpoint": "local Ollama /api/chat",
+    "result": "native get_working_directory tool call returned"
+  },
+  "primarySources": [
+    "https://tinker-docs.thinkingmachines.ai/tinker/quickstart/",
+    "https://github.com/thinking-machines-lab/tinker-cookbook",
+    "https://github.com/thinking-machines-lab/tinker-cookbook/tree/main/tinker_cookbook/tool_use",
+    "https://thinkingmachines.ai/inkling/",
+    "https://docs.ollama.com/capabilities/tool-calling",
+    "https://docs.ollama.com/api/chat",
+    "https://github.com/QwenLM/Qwen3",
+    "https://github.com/openai/codex",
+    "https://docs.anthropic.com/en/docs/claude-code/security"
+  ],
+  "implementation": {
+    "localOnlyDefault": true,
+    "tools": [
+      "get_working_directory",
+      "list_files",
+      "search_files",
+      "read_file",
+      "write_file",
+      "replace_in_file",
+      "run_shell",
+      "web_fetch",
+      "web_search"
+    ],
+    "limits": [
+      "workspace path canonicalization",
+      "turn and tool-call budgets",
+      "third-identical-call breaker",
+      "process-group timeout",
+      "bounded and redacted output",
+      "secret-like child environment removal",
+      "private hash-chained receipts"
+    ]
+  }
+}

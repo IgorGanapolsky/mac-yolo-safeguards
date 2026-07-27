@@ -6,18 +6,19 @@ const path = require('path');
 
 function loadEnv(root) {
   const envPath = path.join(root, '.env');
-  if (!fs.existsSync(envPath)) throw new Error('Missing .env');
-  for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const eq = trimmed.indexOf('=');
-    if (eq <= 0) continue;
-    const key = trimmed.slice(0, eq).trim();
-    let val = trimmed.slice(eq + 1).trim();
-    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-      val = val.slice(1, -1);
+  if (fs.existsSync(envPath)) {
+    for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eq = trimmed.indexOf('=');
+      if (eq <= 0) continue;
+      const key = trimmed.slice(0, eq).trim();
+      let val = trimmed.slice(eq + 1).trim();
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+        val = val.slice(1, -1);
+      }
+      if (val && !process.env[key]?.trim()) process.env[key] = val;
     }
-    if (val) process.env[key] = val;
   }
   const keyPath = process.env.EXPO_ASC_API_KEY_PATH?.trim();
   if (keyPath && fs.existsSync(keyPath) && !process.env.EXPO_ASC_API_KEY_ID?.trim()) {
@@ -49,6 +50,9 @@ function makeJwt() {
     JSON.stringify({ iss: process.env.EXPO_ASC_API_KEY_ISSUER_ID, iat: now, exp: now + 1200, aud: 'appstoreconnect-v1' }),
   ).toString('base64url');
   const data = `${header}.${payload}`;
+  // NOT a password hash: this is an ES256 (ECDSA-SHA256) JWT signature used to
+  // authenticate as an App Store Connect API key, per Apple's required auth
+  // scheme. SHA256 is the mandated digest for ES256 — not user password storage.
   const sign = crypto.createSign('SHA256');
   sign.update(data);
   sign.end();
@@ -109,6 +113,11 @@ async function ascUploadBinaryAsset(filePath, { reservePath, reserveData, assetT
   const fileBytes = fs.readFileSync(filePath);
   const fileName = path.basename(filePath);
   const fileSize = fileBytes.length;
+  // NOT a password hash: Apple's App Store Connect API contract requires the
+  // `sourceFileChecksum` attribute on binary-asset PATCH requests to be an MD5
+  // hex digest of the uploaded bytes (integrity check, not a security boundary).
+  // See https://developer.apple.com/documentation/appstoreconnectapi — changing
+  // this algorithm would produce a checksum Apple's servers reject.
   const sourceFileChecksum = crypto.createHash('md5').update(fileBytes).digest('hex');
 
   const reserved = await ascPost(reservePath, {

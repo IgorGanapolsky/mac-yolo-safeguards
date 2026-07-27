@@ -1,0 +1,1768 @@
+{
+  "run_id": "trun_d3be5e813aa94970bea07ecb5f64cb86",
+  "interaction_id": "trun_d3be5e813aa94970bea07ecb5f64cb86",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_d3be5e813aa94970bea07ecb5f64cb86",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Reasoning for completeness and evidence alignment:\n- The provided field_answer is a comprehensive, multi-section benchmark-style document. It covers executive summary, evidence vs inference, stack rationale, pattern inventory, a detailed 14 focus areas with acceptance criteria, a prioritized P0/P1/P2 checklist, failure cases, risks, recommendations, and references. This aligns with a typical field_description that requests a decision-grade UX/design benchmark, prioritized patterns, measurable acceptance criteria, and stack evaluation.\n- The answer appears to address all major aspects requested (authentication clarity, sign-out controls, progressive disclosure, IA, responsive/mobile navigation, one-command onboarding, trust copy, pricing/trial transparency, accessibility WCAG 2.2 AA, destructive-action safety, empty/loading/error states, analytics/observability, conversion, and stack evaluation). It also includes a formatting of P0/P1/P2 and acceptance criteria, as well as a dedicated section on pairing/onboarding and security copy.\n- However, the excerpts provided do not consistently corroborate every single assertion in the field_answer. While the field_answer cites evidence blocks and references (e.g., WCAG 2.2, Vercel nav changes, Vinext, OAuth device grant, Tailscale, etc.), the supplied excerpts contain a broader mix of unrelated items (e.g., general references to assistants-ui, command palettes, and various app UX patterns) rather than explicit corroboration for ThumbGate-specific claims. Therefore, the field_answer is thorough and seemingly complete, but the excerpts given do not fully support all the enumerated claims with direct excerpts.\n- Based on this, I judge completeness as true (the field_answer fully addresses the expected content), and support status as cautious/partial (supported = false) since not all claims are directly supported by the provided excerpts.\n",
+        "citations": [
+          {
+            "url": "https://openai.com/careers/ios-engineer-chatgpt-mobile-infrastructure-san-francisco",
+            "excerpts": [
+              "iOS Engineer, ChatGPT Mobile Infrastructure - OpenAI\nHave strong communication and collaboration skills\u2014aligning on interfaces, navigating tradeoffs, and driving cross-team execution. Tend to think in systems,"
+            ],
+            "title": "iOS Engineer, ChatGPT Mobile Infrastructure - OpenAI"
+          },
+          {
+            "url": "http://assistant-ui.com/",
+            "excerpts": [
+              "Open-source React toolkit for production AI chat experiences. $ npx assistant-ui init Get Started \u2192 [Contact Sales](https://cal.com/simon-farshid/assistant-ui) Backed by Combinator Shadcn ChatGPT Claude Grok Perplexity Explore More \u2192 assistant-ui New Thread Toggle menu Hide sidebar Share\nThe UX of ChatGPT in your own app Open-source React toolkit for production AI chat experiences. $ npx assistant-ui init Get Started \u2192 [Contact Sales](https://cal.com/simon-farshid/assistant-ui) Backed by Combinator Shadcn ChatGPT Claude Grok Perplexity Explore More \u2192 assistant-ui New Thread Toggle menu Hide sidebar Share"
+            ],
+            "title": "assistant-ui"
+          },
+          {
+            "url": "https://lifestack.ai/blog/ai-apps-for-ios",
+            "excerpts": [
+              "Best AI Apps for iOS in 2026: 6 That Work\nGeneral-purpose assistants like ChatGPT, Claude, and Gemini do similar things well, but they handle memory, documents, and integrations very"
+            ],
+            "title": "Best AI Apps for iOS in 2026: 6 That Work"
+          },
+          {
+            "url": "https://www.tealhq.com/job/android-engineer-chatgpt-mobile-infrastructure_7ea1a96fe8ce5f516f85f1760dc61ae87e80c",
+            "excerpts": [
+              "Android Engineer, ChatGPT Mobile Infrastructure @ OpenAI - Teal\nBring strong expertise in Android development (Kotlin, modern architecture patterns, Jetpack). \u00b7 Gravitate toward platform challenges: frameworks"
+            ],
+            "title": "Android Engineer, ChatGPT Mobile Infrastructure @ OpenAI - Teal"
+          },
+          {
+            "url": "http://github.com/assistant-ui/assistant-ui",
+            "excerpts": [
+              "The UX of ChatGPT in your React app \ud83d\udcac\ud83d\ude80 **assistant-ui** is an open-source TypeScript/React library to build production-grade AI chat experiences fast.\nTypescript/React Library for AI Chat\ud83d\udcac\ud83d\ude80 [www.assistant-ui.com](https://www.assistant-ui.com \"https://www.assistant-ui.com\")"
+            ],
+            "title": "GitHub - assistant-ui/assistant-ui: Typescript/React Library for AI Chat\ud83d\udcac\ud83d\ude80 \u00b7 GitHub"
+          },
+          {
+            "url": "https://shortcut-tools.com/en/shortcuts/linear",
+            "excerpts": [
+              "Linear Keyboard Shortcuts & Commands Cheat Sheet (2026)\nComplete Linear keyboard shortcuts and commands reference \u2014 10 shortcuts across 1 categories. Quick reference cheat sheet for Windows & Mac. Linear is a popular productivity application used by professionals worldwide."
+            ],
+            "title": "Linear Keyboard Shortcuts & Commands Cheat Sheet (2026)"
+          },
+          {
+            "url": "https://keyshortcuts.net/blog/linear-shortcuts",
+            "excerpts": [
+              "Linear Keyboard Shortcuts: Complete Guide (2026) | KeyShortcuts\nKeyShortcuts.net \u2014 Free Keyboard Shortcut Cheat Sheets 2,500+ keyboard shortcuts for every OS and app \u2014 searchable, printable, and downloadable as PDF."
+            ],
+            "title": "Linear Keyboard Shortcuts: Complete Guide (2026) | KeyShortcuts"
+          },
+          {
+            "url": "https://linear.theuxshop.com/keyboard-shortcuts",
+            "excerpts": [
+              "Linear Keyboard Shortcuts | The UX Shop\nMaster Linear with keyboard shortcuts. All shortcuts can be customized in Preferences > Keyboard. Last updated: December 2025"
+            ],
+            "title": "Linear Keyboard Shortcuts | The UX Shop"
+          },
+          {
+            "url": "https://www.shortcutfoo.com/app/dojos/linear-app-mac/cheatsheet",
+            "excerpts": [
+              "Linear App Cheat Sheet | ShortcutFoo\nGeneral I. \u2318K \u00b7 Open command menu ; General II. ESC. Clear selection ; Navigation I. OI. Open issue ; Navigation II. GI. Go to inbox ; Navigation III. GP. Go to"
+            ],
+            "title": "Linear App Cheat Sheet | ShortcutFoo"
+          },
+          {
+            "url": "https://hotkeylookup.com/shortcut/linear/command-menu",
+            "excerpts": [
+              "Command menu \u2014 Linear keyboard shortcut (Mac, Windows, Linux ...\nCommand menu in Linear: Cmd+K on macOS. See the Linear keyboard shortcut on macOS, Windows, and Linux. Open the command palette."
+            ],
+            "title": "Command menu \u2014 Linear keyboard shortcut (Mac, Windows, Linux ..."
+          },
+          {
+            "url": "https://github.com/Innovat1k/command-pal",
+            "excerpts": [
+              "GitHub - Innovat1k/command-pal: A lightweight, accessible ...\nUnlike typical implementations, CmdPal is built with zero external libraries for hotkeys or command handling, making it a strong demonstration of low-level frontend engineering skills."
+            ],
+            "title": "GitHub - Innovat1k/command-pal: A lightweight, accessible ..."
+          },
+          {
+            "url": "https://toolness.github.io/accessible-color-matrix",
+            "excerpts": [
+              "Accessible color palette builder"
+            ],
+            "title": "Accessible color palette builder GitHub https://toolness.github.io \u203a accessib..."
+          },
+          {
+            "url": "https://www.designmd.co/patterns/command-palette",
+            "excerpts": [
+              "Command Palette UI Pattern - DesignMD\nPower users need fast keyboard-driven access to any action, page, or setting without navigating the UI manually \u2014 layout structure, spacing, interaction notes, and variants."
+            ],
+            "title": "Command Palette UI Pattern - DesignMD"
+          },
+          {
+            "url": "https://github.com/gabrielvictorjs/dribble_finances_app",
+            "excerpts": [
+              "GitHub - gabrielvictorjs/dribble_finances_app: A finance ...\nA finance app that was built based on the layout: https://dribbble.com/shots/14210557-Finance-Mobile-Application-UX-UI-DesignLayout. Obs: The loading simulation uses a random Boolean value to show an example of error and success. Uh oh! There was an error while loading. Please reload this page."
+            ],
+            "title": "GitHub - gabrielvictorjs/dribble_finances_app: A finance ..."
+          },
+          {
+            "url": "https://github.com/Godspeare/OPAY_PROJECT",
+            "excerpts": [
+              "GitHub - Godspeare/OPAY_PROJECT\nThis project is a UI recreation inspired by the OPay mobile application, developed using Flutter. Rather than copying functionality, the focus is on visual layout, screen transitions, and adaptive UI behavior across various devices."
+            ],
+            "title": "GitHub - Godspeare/OPAY_PROJECT"
+          },
+          {
+            "url": "https://vercel.com/changelog/new-dashboard-navigation-available",
+            "excerpts": [
+              "New dashboard navigation available - Vercel\nA redesign of the navigation in the dashboard is now available as an opt-in experience. This new navigation maintains full functionality while streamlining access to your most-used features."
+            ],
+            "title": "New dashboard navigation available - Vercel"
+          },
+          {
+            "url": "https://vercel.com/docs/deployments",
+            "excerpts": [
+              "Deploying to Vercel\nFeb 26, 2026 \u2014 When you select a deployment from your Project \u2192 Deployments page, you can Open Resources in the sidebar to view and search : Middleware: Any"
+            ],
+            "title": "Deploying to Vercel"
+          },
+          {
+            "url": "https://vercel.com/docs/plans/pro-plan/billing",
+            "excerpts": [
+              "Billing FAQ for Pro Plan - Vercel\nThis page covers frequently asked questions around payments, invoices, and billing on the Pro plan. update your billing details on the Billing"
+            ],
+            "title": "Billing FAQ for Pro Plan - Vercel"
+          },
+          {
+            "url": "https://www.saasui.design/pattern/settings/vercel",
+            "excerpts": [
+              "Vercel Settings \u2014 SaaS UI UX Interface Design | SaaSUI\nThis is the settings design from Vercel, a developer tools application. Vercel platform for frontend developers, providing the speed and reliability. Settings page UI patterns from real SaaS products. Account preferences, configuration screens, and admin panels."
+            ],
+            "title": "Vercel Settings \u2014 SaaS UI UX Interface Design | SaaSUI"
+          },
+          {
+            "url": "https://vercel.com/docs/deployments/managing-deployments",
+            "excerpts": [
+              "Managing Deployments - Vercel\nFeb 27, 2026 \u00b7 Open Deployments in the sidebar; Use the dropdowns to search by Branch, Date Range, All Environments, or Status."
+            ],
+            "title": "Managing Deployments - Vercel"
+          },
+          {
+            "url": "https://workos.com/user-management",
+            "excerpts": [
+              "User Management - WorkOS\nSet up the authentication strategies that your app supports, then fine tune the hosted AuthKit UI to match your app's branding, colors, messaging, and domain."
+            ],
+            "title": "User Management - WorkOS"
+          },
+          {
+            "url": "https://workos.com/docs/authkit/overview",
+            "excerpts": [
+              "AuthKit \u2013 WorkOS Docs\nWorkOS AuthKit is a user management platform that provides a set of user authentication and organization security features that securely power your"
+            ],
+            "title": "AuthKit \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://github.com/workos/workos-custom-ui-authkit-example",
+            "excerpts": [
+              "Example: custom login UI with WorkOS Node SDK\nA complete example of building a custom authentication UI with WorkOS \u2014 React frontend + Hono backend, fully typed with strict TypeScript."
+            ],
+            "title": "Example: custom login UI with WorkOS Node SDK"
+          },
+          {
+            "url": "https://github.com/workos/authkit",
+            "excerpts": [
+              "workos/authkit: The world's best login box ...\nIt includes a fully themeable hosted UI that handles all of your authentication flows. When you're ready to go to production you can point it to a custom domain"
+            ],
+            "title": "workos/authkit: The world's best login box ..."
+          },
+          {
+            "url": "http://workos.com/compare/clerk",
+            "excerpts": [
+              "AuthKit adds hosted sign-in, social login, MFA, and passkeys. No UI to build. 60+pre-built integrations: Okta, Entra, Google Workspace,"
+            ],
+            "title": "WorkOS vs Clerk"
+          },
+          {
+            "url": "https://www.nocode.mba/articles/replit-pricing",
+            "excerpts": [
+              "Replit Pricing 2026: Plans, Credits & Hidden Costs\nReplit has become one of the most popular vibe coding platforms for building apps with AI, but its pricing can be genuinely confusing. Between subscription tiers, credit systems, pay-as-you-go charges, and a Pro plan launched in February 2026, figuring out what you'll actually pay takes some digging."
+            ],
+            "title": "Replit Pricing 2026: Plans, Credits & Hidden Costs"
+          },
+          {
+            "url": "https://aitoolpick.org/blog/replit-pricing-2026",
+            "excerpts": [
+              "Replit Pricing 2026: Every Plan Explained (Starter, Core, Pro ...\nReplit has grown from a browser-based code editor into a full AI development platform. With Replit Agent handling multi-step builds and deployments, pricing now matters more than ever \u2014 because the AI features that make Replit useful are also what drive up costs. Here\u2019s how each plan works in 2026."
+            ],
+            "title": "Replit Pricing 2026: Every Plan Explained (Starter, Core, Pro ..."
+          },
+          {
+            "url": "https://www.lowcode.agency/blog/replit-pricing-explained",
+            "excerpts": [
+              "Replit Pricing 2026: Plans, Costs & Limits - lowcode.agency\nReplit pricing looks simple on the surface. Three tiers, clear monthly rates, straightforward feature lists. But deployment costs, compute limits, and hidden usage charges can surprise you if you do not understand the full Replit pricing picture before committing. This guide breaks down every Replit pricing tier, explains what you actually get at each level, covers deployment costs most people"
+            ],
+            "title": "Replit Pricing 2026: Plans, Costs & Limits - lowcode.agency"
+          },
+          {
+            "url": "https://costbench.com/software/developer-tools/replit",
+            "excerpts": [
+              "Replit Pricing 2026: Free, Core $25/mo, Pro $100/mo Compared\nReplit pricing starts at free and goes up to $100/month as of April 2026. The Starter plan is free with limited daily Agent credits and lets you publish one app. Core costs $25/month ($20/month billed annually) and includes $25 in monthly credits, 5 collaborators, and unlimited workspaces."
+            ],
+            "title": "Replit Pricing 2026: Free, Core $25/mo, Pro $100/mo Compared"
+          },
+          {
+            "url": "https://pecollective.com/tools/replit-pricing",
+            "excerpts": [
+              "Replit Pricing 2026: Free vs Core ($25) vs Teams ($40/seat)\nReplit charges through subscription tiers, compute credits, and AI usage. Free gets 100 AI completions. Core at $25/month adds Ghostwriter and deployments. This"
+            ],
+            "title": "Replit Pricing 2026: Free vs Core ($25) vs Teams ($40/seat)"
+          },
+          {
+            "url": "https://www.saasui.design/pattern/onboarding/stripe",
+            "excerpts": [
+              "stripe Onboarding \u2014 SaaS UI UX Interface Design | SaaSUI\nExplore stripe's onboarding UI and UX interface design pattern. See how stripe approaches onboarding design in their SaaS application."
+            ],
+            "title": "stripe Onboarding \u2014 SaaS UI UX Interface Design | SaaSUI"
+          },
+          {
+            "url": "https://pageflows.com/post/desktop-web/onboarding/stripe",
+            "excerpts": [
+              "Stripe Onboarding Flow on Web | Page Flows\nWatch a recorded Onboarding flow inside Stripe on desktop web. Every screen and interaction is captured step by step \u2014 see exactly how Stripe designs the Onboarding experience for web users."
+            ],
+            "title": "Stripe Onboarding Flow on Web | Page Flows"
+          },
+          {
+            "url": "https://docs.stripe.com/stripe-apps/patterns/onboarding-experience",
+            "excerpts": [
+              "Onboarding for Stripe Apps | Stripe Documentation\nKeep the onboarding flow brief and include authorization to connect your users\u2019 Stripe accounts to your product. If users must complete setup tasks before using the app, use the OnboardingView component in the onboarding viewport to clearly communicate the required setup tasks."
+            ],
+            "title": "Onboarding for Stripe Apps | Stripe Documentation"
+          },
+          {
+            "url": "https://docs.stripe.com/stripe-apps/onboarding",
+            "excerpts": [
+              "Onboarding | Stripe Documentation\nCreate your onboarding using the OnboardingView and SignInView components, if a sign in flow is needed. Confirm on your page-specific views that the user completed onboarding when the view first loads, and display a button to launch your onboarding appropriately."
+            ],
+            "title": "Onboarding | Stripe Documentation"
+          },
+          {
+            "url": "https://www.feathery.io/templates/signup-onboarding-flow-stripe",
+            "excerpts": [
+              "Signup & Onboarding Flow (Stripe) - Form Template - Feathery\nThe template allows businesses to customize the branding and look and feel of the onboarding flow to match their own brand. This helps to create a cohesive user experience that reinforces the business's brand identity."
+            ],
+            "title": "Signup & Onboarding Flow (Stripe) - Form Template - Feathery"
+          },
+          {
+            "url": "https://login.tailscale.com/admin",
+            "excerpts": [
+              "Tailscale Admin Console"
+            ],
+            "title": "Tailscale Admin Console"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/access-control/user-approval",
+            "excerpts": [
+              "Tailscale Docs - User approval\n25 sept 2025 \u00b7 To enable user approval, open the User management page of the admin console and enable User Approval. Once this setting is enabled, new users"
+            ],
+            "title": "Tailscale Docs - User approval"
+          },
+          {
+            "url": "https://github.com/Chesszyh/tailscale-docs/blob/master/features/tailscale-ssh/tailscale-ssh-console/index.md",
+            "excerpts": [
+              "tailscale-docs/features/tailscale-ssh/tailscale-ssh-console ...\nThe SSH Console badge indicates the node is a browser running Tailscale SSH Console. Because it is an ephemeral node, the node will be automatically removed shortly after the session is terminated."
+            ],
+            "title": "tailscale-docs/features/tailscale-ssh/tailscale-ssh-console ..."
+          },
+          {
+            "url": "https://statusgator.com/services/tailscale/admin-console-logintailscalecom",
+            "excerpts": [
+              "Tailscale Admin console (login.tailscale.com) status\nTailscale Admin console (login.tailscale.com) is up Secure networking with WireGuard\u00ae-based VPN for point-to-point connectivity."
+            ],
+            "title": "Tailscale Admin console (login.tailscale.com) status"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/tailscale-ssh/tailscale-ssh-console",
+            "excerpts": [
+              "Tailscale SSH Console\nTailscale SSH Console lets you establish a Tailscale SSH session in your browser. Use this feature to create a browser-based SSH session from the admin console to a node in your tailnet."
+            ],
+            "title": "Tailscale SSH Console"
+          },
+          {
+            "url": "https://www.raycast.com/store/recent/1",
+            "excerpts": [
+              "Raycast - Store\nControl IBM Bob directly from Raycast - Search and open recent projects, handle extensions and commands. A collection of powerful productivity tools all within an extendable launcher."
+            ],
+            "title": "Raycast - Store"
+          },
+          {
+            "url": "https://www.youtube.com/watch?v=h6Y1fdez3bQ",
+            "excerpts": [
+              "Raycast Not Syncing Settings Fix\nIf your Raycast settings are not syncing across devices, this guide will help you troubleshoot and resolve the issue quickly. Whether you're"
+            ],
+            "title": "Raycast Not Syncing Settings Fix"
+          },
+          {
+            "url": "https://github.com/nurikjohn/raycast-extensions/blob/main/docs/basics/prepare-an-extension-for-store.md",
+            "excerpts": [
+              "raycast-extensions/docs/basics/prepare-an-extension-for-store ...\nHere you will find requirements and guidelines that you'll need to follow in order to get through the review before your extension becomes available in the Store."
+            ],
+            "title": "raycast-extensions/docs/basics/prepare-an-extension-for-store ..."
+          },
+          {
+            "url": "https://apps.apple.com/us/app/raycast-ai-notes-and-more/id6503428327",
+            "excerpts": [
+              "Raycast: AI, Notes and more - App Store - Apple\nEnjoy seamless cloud sync to keep all your content updated across devices. Compatibility Requires iOS 18.0 or later. iPhone iPad Requires iPadOS 18.0 or later."
+            ],
+            "title": "Raycast: AI, Notes and more - App Store - Apple"
+          },
+          {
+            "url": "https://www.raycast.com/changelog/macos/1-26-0",
+            "excerpts": [
+              "Raycast v1.26.0 - Extension Store & API\nThis release of Raycast adds an Extension Store and API, a new onboarding experience, and the ability to export preferences and data with a"
+            ],
+            "title": "Raycast v1.26.0 - Extension Store & API"
+          },
+          {
+            "url": "https://getwcag.com/en/wcag-2-2-guidelines",
+            "excerpts": [
+              "WCAG 2.2 Guidelines (AA Focus), Practical Guide\nWCAG 2.2 guidelines explained with AA focus: what\u2019s new, practical patterns, and testing steps. Covers focus visibility, target size, drag alternatives, and authentication."
+            ],
+            "title": "WCAG 2.2 Guidelines (AA Focus), Practical Guide"
+          },
+          {
+            "url": "https://www.accessitool.com/blog/wcag-2-2-complete-breakdown-new-criteria",
+            "excerpts": [
+              "WCAG 2.2 Complete Breakdown \u2014 All New Success Criteria ...\nThe most impactful new criteria for most websites are 2.5.8 Target Size (24x24px minimum) and 2.4.11 Focus Appearance (visible focus indicator). Start with these, then work through the remaining AA criteria."
+            ],
+            "title": "WCAG 2.2 Complete Breakdown \u2014 All New Success Criteria ..."
+          },
+          {
+            "url": "https://www.w3.org/TR/WCAG22",
+            "excerpts": [
+              "Web Content Accessibility Guidelines (WCAG) 2.2\nDec 12, 2024 \u2014 7 Redundant Entry. Understanding Redundant Entry | How to Meet Redundant Entry. (Level A). New. Information previously entered by or provided to"
+            ],
+            "title": "Web Content Accessibility Guidelines (WCAG) 2.2"
+          },
+          {
+            "url": "https://www.digitalpolicy.gov.hk/en/our_work/digital_government/digital_inclusion/accessibility/promulgating_resources/handbook/wcag2a/8_30_redundant_entry.html",
+            "excerpts": [
+              "8.30 WCAG 2.2 Success Criterion 3.3.7 \u2013 Redundant Entry\nMar 31, 2026 \u2014 A mechanism simply help user reduce the data input redundancy. Same information only asked once during multi-step processes. WCAG 2.2 Reference:."
+            ],
+            "title": "8.30 WCAG 2.2 Success Criterion 3.3.7 \u2013 Redundant Entry"
+          },
+          {
+            "url": "https://www.monotonomo.com/journal/wcag-2-2-brand-sites-2026",
+            "excerpts": [
+              "WCAG 2.2 for Brand Sites: The 2026 Fix List (Focus, Targets ...\nHere is the fix list for the four that matter most: focus appearance, target size, dragging, and authentication. WCAG 2.2 became a W3C Recommendation in late 2023, and by 2026 it is the standard that accessibility audits reference."
+            ],
+            "title": "WCAG 2.2 for Brand Sites: The 2026 Fix List (Focus, Targets ..."
+          },
+          {
+            "url": "https://www.hermes-ai.net/desktop",
+            "excerpts": [
+              "Hermes Desktop App \u2014 The Self-Improving AI Agent for Mac ...\nA beautiful, native GUI client for Hermes \u2014 the self-improving AI agent. The full power of Hermes Agent, MCP integrations, the skills system and 15+ messaging gateways, in a polished desktop app for macOS, Windows and Linux."
+            ],
+            "title": "Hermes Desktop App \u2014 The Self-Improving AI Agent for Mac ..."
+          },
+          {
+            "url": "https://www.reddit.com/r/hermesagent/comments/1s8fvft/a_native_macos_companion_app_for_the_hermes_ai",
+            "excerpts": [
+              "A native macOS companion app for the Hermes AI agent\nI got tired of interacting with Hermes only through the CLI, so I built a native macOS app for it: HAIM (Hermes Agent Instant Messenger)."
+            ],
+            "title": "A native macOS companion app for the Hermes AI agent"
+          },
+          {
+            "url": "https://hermesagents.cc/",
+            "excerpts": [
+              "Hermes Desktop - Your AI Agent, Always Improving\nHermes is a self-improving AI assistant with tool use, multi-platform messaging, and a closed learning loop. Available for macOS, Windows, and Linux."
+            ],
+            "title": "Hermes Desktop - Your AI Agent, Always Improving"
+          },
+          {
+            "url": "https://juejin.cn/post/7626916118331605030",
+            "excerpts": [
+              "Hermes \u63a5\u5165\u98de\u4e66\u4fdd\u59c6\u7ea7\u6559\u7a0b\uff1a\u6253\u9020\u4f60\u7684\u5168\u5929\u5019 AI \u79c1\u4eba\u52a9\u7406\uff01\u60f3\u8981\u5728\u5927\u6a21...\nHermes \u6536\u5230\u8fd9\u4e2a\u547d\u4ee4\u540e\uff0c\u5c31\u4f1a\u81ea\u52a8\u628a\u5f53\u524d\u6240\u5728\u7684\u804a\u5929\u7a97\u53e3\u6807\u8bb0\u4e3a\u5b83\u7684\u201c\u4e3b\u9635\u5730\u201d\uff08Home Chat\uff09\u3002 \u4ee5\u540e\u7684\u5b9a\u65f6\u4efb\u52a1 (Cron) \u548c\u62a5\u8b66\u901a\u77e5 (Notifications) \u5c31\u90fd\u4f1a\u63a8\u9001\u5230\u8fd9\u91cc\u5566\uff01"
+            ],
+            "title": "Hermes \u63a5\u5165\u98de\u4e66\u4fdd\u59c6\u7ea7\u6559\u7a0b\uff1a\u6253\u9020\u4f60\u7684\u5168\u5929\u5019 AI \u79c1\u4eba\u52a9\u7406\uff01\u60f3\u8981\u5728\u5927\u6a21..."
+          },
+          {
+            "url": "https://hermesdesktop.homes/",
+            "excerpts": [
+              "Hermes Desktop \u2014 Desktop Companion for Hermes Agent\nHermes Desktop is a native desktop app for installing, configuring, and chatting with Hermes Agent \u2014 a self-improving AI assistant with tool use, multi-platform messaging, and a closed learning loop."
+            ],
+            "title": "Hermes Desktop \u2014 Desktop Companion for Hermes Agent"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/67123801/how-to-create-reusable-react-%E2%86%94-react-native-components",
+            "excerpts": [
+              "How to create reusable (React \u2194 React Native) components?\nApr 16, 2021 \u00b7 The task is to make a website on React, and then the same mobile application. The mobile application will almost completely repeat the web application."
+            ],
+            "title": "How to create reusable (React \u2194 React Native) components?"
+          },
+          {
+            "url": "https://github.com/founded-labs/react-native-reusables/discussions/124",
+            "excerpts": [
+              "How to publish as reusable component library? #124 - GitHub\nApr 3, 2024 \u00b7 I've been looking to build a new reusable component library for work that will work across web + react native and this library looks like a"
+            ],
+            "title": "How to publish as reusable component library? #124 - GitHub"
+          },
+          {
+            "url": "https://reactnativereusables.com/",
+            "excerpts": [
+              "React Native Reusables\nBringing shadcn/ui to React Native. Beautifully crafted components with Nativewind or Uniwind, open source, and almost as easy to use. Get Started."
+            ],
+            "title": "React Native Reusables"
+          },
+          {
+            "url": "https://dev.to/tailwindadmin/best-saas-dashboard-templates-22m6",
+            "excerpts": [
+              "11+ Best SaaS Dashboard Templates for 2026 - DEV Community\nWhich dashboard stack scales best for SaaS analytics in 2026? Next.js and React-based dashboards scale best for SaaS analytics because they handle large datasets, server rendering, and frequent KPI updates without UI performance issues."
+            ],
+            "title": "11+ Best SaaS Dashboard Templates for 2026 - DEV Community"
+          },
+          {
+            "url": "https://www.callstack.com/blog/reusable-react-native-components",
+            "excerpts": [
+              "Reusable React Native Components - Callstack\nMar 1, 2017 \u00b7 Simple methods to customize components that could be reused within the app. This article will help you create more efficient code with less effort during"
+            ],
+            "title": "Reusable React Native Components - Callstack"
+          },
+          {
+            "url": "https://madewithclaude.com/",
+            "excerpts": [
+              "Claude Artifacts\nDiscover awesome Claude Artifacts examples for sharing, get inspired to create or remix amazing artifacts with Claude AI."
+            ],
+            "title": "Claude Artifacts"
+          },
+          {
+            "url": "https://claude.ai/public/artifacts/74c94656-68e9-4ce3-9ee5-e1aacf1c3c8e",
+            "excerpts": [
+              "Full-Stack AI UI Generator - Coding Test\nBuild AI-powered apps that convert requirements into live UI components. Full-stack coding test with React, Firebase & OpenAI. Created with Claude AI."
+            ],
+            "title": "Full-Stack AI UI Generator - Coding Test"
+          },
+          {
+            "url": "https://suprmind.ai/hub/claude/features",
+            "excerpts": [
+              "Claude Features 2026: Projects, Artifacts, Memory ...\nClaude's feature surface in 2026 spans persistent workspaces ( Projects , Artifacts , Memory, Cowork), agentic capabilities ( Claude Code, Computer Use, Skills),"
+            ],
+            "title": "Claude Features 2026: Projects, Artifacts, Memory ..."
+          },
+          {
+            "url": "https://claude.ai/public/artifacts/4432f491-2079-4ad5-b5a4-78dc05bbab4d",
+            "excerpts": [
+              "HTML UI Elements Demo\nLearn HTML fundamentals with this interactive demo featuring headings, lists, images & navigation. Built with Claude AI for hands-on practice."
+            ],
+            "title": "HTML UI Elements Demo"
+          },
+          {
+            "url": "https://sidsaladi.substack.com/p/claude-projects-and-artifacts-101",
+            "excerpts": [
+              "Claude Projects & Artifacts 101: Build Custom AI Workspaces ...\nHow to set up a Claude Project \u00b7 Step 1 \u2013 Create your project \u00b7 Step 2 \u2013 Add a small personal knowledge base \u00b7 Step 3 \u2013 Set project instructions"
+            ],
+            "title": "Claude Projects & Artifacts 101: Build Custom AI Workspaces ..."
+          },
+          {
+            "url": "http://github.com/IgorGanapolsky/ThumbGate",
+            "excerpts": [
+              "6 days ago \u2014 ThumbGate is the local-first firewall for AI coding agents."
+            ],
+            "title": "IgorGanapolsky/ThumbGate: Agent governance ..."
+          },
+          {
+            "url": "https://menonlab-blog-production.up.railway.app/blog",
+            "excerpts": [
+              "Blog - The Menon Lab - Railway\nStrix runs autonomous agents that dynamically attack your app, validate findings with real proof-of-concepts, and hand you a fix as a ready-to-merge PR \u2014 all"
+            ],
+            "title": "Blog - The Menon Lab - Railway"
+          },
+          {
+            "url": "https://frontendnode-production.up.railway.app/job/security-architect-18",
+            "excerpts": [
+              "Security Architect | frontendnode-production.up.railway.app\nExpertise in AI/ML security architecture, including secure model development and deployment, adversarial threat mitigation, data protection, cloud security, and"
+            ],
+            "title": "Security Architect | frontendnode-production.up.railway.app"
+          },
+          {
+            "url": "https://guni.up.railway.app/",
+            "excerpts": [
+              "Guni \u2014 Security middleware for AI agents\nSecurity infrastructure for browser agents, action-taking copilots, and adversarial web workflows. Start Free Live Demo. Product. Demo Integrate Docs Portal."
+            ],
+            "title": "Guni \u2014 Security middleware for AI agents"
+          },
+          {
+            "url": "https://frontendnode-production.up.railway.app/job/technical-account-manager-unit-42-managed-services",
+            "excerpts": [
+              "Technical Account Manager (Unit 42 Managed Services ...\nIn this role, you will work closely with CISOs, Security Architects, Security Engineers, and Operations teams within mid-to-large enterprises to implement best-"
+            ],
+            "title": "Technical Account Manager (Unit 42 Managed Services ..."
+          },
+          {
+            "url": "https://tailscale.com/docs/install/mac",
+            "excerpts": [
+              "Install Tailscale on macOS\nJan 5, 2026 \u2014 Download and install the Tailscale client using one of the following options: Standalone variant from Tailscale's package server (recommended)."
+            ],
+            "title": "Install Tailscale on macOS"
+          },
+          {
+            "url": "https://tailscale.com/docs/concepts/macos-sysext",
+            "excerpts": [
+              "Authorizing the Tailscale system extension on macOS\nJan 5, 2026 \u2014 Go to System Settings and open the General tab. \u00b7 In the Login Items & Extensions section, scroll down to Network Extensions, and select the"
+            ],
+            "title": "Authorizing the Tailscale system extension on macOS"
+          },
+          {
+            "url": "https://tailscale.com/docs/reference/tailscale-cli",
+            "excerpts": [
+              "Tailscale CLI \u00b7 Tailscale Docs\nJan 26, 2026 \u00b7 The Tailscale client includes a built-in command-line interface (CLI) you can use to manage and troubleshoot your device within your Tailscale\u00a0"
+            ],
+            "title": "Tailscale CLI \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://forum.gl-inet.com/t/start-tailscale-from-cli/33742",
+            "excerpts": [
+              "Start Tailscale from CLI - Router\nSep 29, 2023 \u2014 Try adding your login commands in /etc/init.d/tailscale script, so that they are run on every reboot. You may not have to fix the links in the /"
+            ],
+            "title": "Start Tailscale from CLI - Router"
+          },
+          {
+            "url": "https://login.tailscale.com/login",
+            "excerpts": [
+              "Tailscale\nTailscale Sign in or Sign in with Google Sign in with Microsoft Sign in with GitHub. Learn more at tailscale.com."
+            ],
+            "title": "Tailscale"
+          },
+          {
+            "url": "https://auth0.com/blog/introducing-auth0-organizations",
+            "excerpts": [
+              "Authentication services for SaaS companies\nOnce you've signed up for or logged into your account, you'll land on the dashboard. Within the left navbar, click on Applications and then Applications again."
+            ],
+            "title": "Authentication services for SaaS companies"
+          },
+          {
+            "url": "https://workos.com/blog/saas-authentication",
+            "excerpts": [
+              "SaaS authentication: the best method(s) to use for your app\nMay 14, 2024 \u2014 Learn what SaaS authentication is, explore popular SaaS authentication methods, and find out how to choose and implement the right one."
+            ],
+            "title": "SaaS authentication: the best method(s) to use for your app"
+          },
+          {
+            "url": "https://www.grip.security/blog/blog-what-is-single-sign-on-understanding-sso",
+            "excerpts": [
+              "A Guide to Understand Single Sign On (SSO) for SaaS ...\nNov 22, 2022 \u2014 SSO is an authentication strategy that enables people to log into numerous applications using one set of credentials, typically a username and password."
+            ],
+            "title": "A Guide to Understand Single Sign On (SSO) for SaaS ..."
+          },
+          {
+            "url": "https://blog.bitsrc.io/5-must-have-authentication-methods-for-your-saas-product-in-2023-2797c9f1b736",
+            "excerpts": [
+              "5 Authentication Methods for Your SaaS Product in 2023\nFeb 19, 2023 \u2014 In this article, we discussed various authentication methods such as email/password, social login, single sign-on, password reset, multi-factor authentication,"
+            ],
+            "title": "5 Authentication Methods for Your SaaS Product in 2023"
+          },
+          {
+            "url": "https://www.cyberark.com/resources/blog/rethinking-saas-access-security-after-login",
+            "excerpts": [
+              "Rethinking SaaS access security after login\nMar 4, 2026 \u2014 We invest heavily in single sign-on (SSO), mandate multi-factor authentication (MFA), and lock down who can log in, from where, and under what"
+            ],
+            "title": "Rethinking SaaS access security after login"
+          },
+          {
+            "url": "https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-device-code",
+            "excerpts": [
+              "The Microsoft identity platform supports the device authorization grant, which allows users to sign in to input-constrained devices such as a smart TV, IoT device, or a printer. To enable this flow, the device has the user visit a webpage in a browser on another device to sign in."
+            ],
+            "title": "OAuth 2.0 device authorization grant - Microsoft identity ..."
+          },
+          {
+            "url": "https://auth0.com/docs/quickstart/native/device/interactive",
+            "excerpts": [
+              "This tutorial demonstrates how to call your API from an input-constrained device using the Device Authorization Flow."
+            ],
+            "title": "Device Authorization Flow - Auth0 Docs"
+          },
+          {
+            "url": "https://knowledgelib.io/software/patterns/oauth2-device-flow/2026",
+            "excerpts": [
+              "Bottom line: The Device Authorization Grant (RFC 8628) lets input-constrained devices (smart TVs, CLI tools, IoT) authenticate users by displaying a short code the user enters on a separate browser-capable device."
+            ],
+            "title": "OAuth2 Device Authorization Flow: Complete Reference"
+          },
+          {
+            "url": "https://ashishsrivastav.com/blog/oauth2-device-authorization-grant-iot-cli",
+            "excerpts": [
+              "This article explains the OAuth2 Device Authorization Grant for securing IoT devices and CLI tools using RFC 8628. When you attempt to log into a service like GitHub or AWS from a standard web browser, the flow is seamless because the browser acts as both the client and the user interface."
+            ],
+            "title": "OAuth2 Device Grant: IoT & CLI Auth (RFC 8628)"
+          },
+          {
+            "url": "https://docs.azure.cn/en-us/entra/identity-platform/v2-oauth2-device-code",
+            "excerpts": [
+              "The Microsoft identity platform supports the device authorization grant, which allows users to sign in to input-constrained devices such as a smart TV, IoT device, or a printer. To enable this flow, the device has the user visit a webpage in a browser on another device to sign in."
+            ],
+            "title": "OAuth 2.0 device authorization grant | Azure Docs"
+          },
+          {
+            "url": "https://www.elastic.co/docs/solutions/observability/applications/otel-rum",
+            "excerpts": [
+              "OpenTelemetry for Real User Monitoring (RUM) - Elastic Docs\nYou can instrument your web application with OpenTelemetry browser instrumentation for use with Elastic Observability. The following sections detail the required components and their proper configuration to acquire traces, logs, and metrics from the application to visualize them within Kibana."
+            ],
+            "title": "OpenTelemetry for Real User Monitoring (RUM) - Elastic Docs"
+          },
+          {
+            "url": "https://oneuptime.com/blog/post/2026-01-07-opentelemetry-browser-frontend/view",
+            "excerpts": [
+              "How to Use OpenTelemetry Browser Instrumentation for ...\nJan 7, 2026 \u2014 Learn how to add OpenTelemetry instrumentation to browser applications for end-to-end observability."
+            ],
+            "title": "How to Use OpenTelemetry Browser Instrumentation for ..."
+          },
+          {
+            "url": "http://posthog.com/docs",
+            "excerpts": [
+              "The single platform for engineers to analyze, test, observe, and deploy new features. Product analytics, session replay, feature flags, experiments, CDP,"
+            ],
+            "title": "Documentation - PostHog"
+          },
+          {
+            "url": "http://posthog.com/product-engineers/b2b-saas-product-metrics",
+            "excerpts": [
+              "PostHog is the leading platform for building self-driving products.\nWith a full suite of developer tools \u2013 AI observability , product analytics , session replay , feature flags , experiments , error tracking , logs , and more \u2013 PostHog captures all the context agents need to diagnose problems, uncover opportunities, and ship fixes. A data warehouse and CDP tie it all together, unifying that context into one source agents can read across. You can steer it all from Slack , the web app , the desktop ( PostHog Code ), or your own editor via the MCP .\nPostHog is the leading platform for building self-driving products. PostHog captures all the context agents need to diagnose problems, uncover"
+            ],
+            "title": "The most useful B2B SaaS product metrics - PostHog"
+          },
+          {
+            "url": "http://posthog.com/product-analytics-explorer",
+            "excerpts": [
+              "PostHog is the only developer platform built to natively work with session replays , feature flags , experiments , and surveys ."
+            ],
+            "title": "Product Analytics - PostHog"
+          },
+          {
+            "url": "http://support.stubhub.com/articles/61000276775-buying-ada-or-wheelchair-seats",
+            "excerpts": [
+              "[stubhub](https://www.stubhub.com) Welcome to StubHub Support Support Home / Buying tickets / Buying ADA or wheelchair seats Browse by Category Buying Buying tickets Paying for tickets Getting your tickets Order help Selling Account & Settings Event and Venue About StubHub Buying ADA or wheelchair seats We don't recommend buying ADA or wheelchair-accessible tickets if you don't need the features. **To filter ADA or wheelchair-accessible seating:** **On a computer:** Find your event. Under 'Features,' check 'Wheelchair user only"
+            ],
+            "title": "StubHub Support: Buying ADA or wheelchair seats"
+          },
+          {
+            "url": "http://tomiux.com/stubhub",
+            "excerpts": [
+              "Focus management and heading structure are not afterthoughts \u2014 they are first-class design specifications, on equal footing with layout and color. \u21b3 AA #6 \u00b7 AA #8 \u00b7 AA #10 06 // RECOMMENDATIONS Design-time deliverables that close the gap HIGH PRIORITY Add an a11y annotation layer to the Figma component library Every interactive component in the design system should ship with its accessible name pattern, role, focus order, and decorative-vs-meaningful flag visible in the file. Annotations are not extra work \u2014 they are the spec. If a component cannot be annotated, it cannot ship. HIGH PRIORITY Define an \"accessible name\" requirement on every button and badge token Tokens for buttons, badges, and status indicators must include both the visible label and the accessible name as separate fields. The pattern of \"Continue\", \"From $247\", and \"Hottest event\" repeats across the flow because the design system never separated the two. Make it impossible to forget. MEDIUM PRIORITY Specify focus behavior for every modal and dialog at design time Auto-appearing modals, success states, and error dialogs need a focus-management spec attached to the artboard: where focus lands on open, where it returns on close, what gets the heading role. Developers should not be inferring this from screenshots. MEDIUM PRIORITY Pair every color-coded state with a non-color signal in the spec Disabled states, error states, urgency cues, and status indicators must carry a second channel \u2014 text, icon shape, role, or live region \u2014 defined at design time. WCAG 1.4.1 cannot be remediated in QA.\n\u267f CASE STUDY \u00b7 ACCESSIBILITY StubHub Annotations Accessibility annotations for developer handoff, bridging the gap between design intent and WCAG 2.1 AA conformance in production. Accessibility Developer Handoff Spring 2026 PROJECT SCOPE \u267f A11y ANNOTATION TYPE AA WCAG 2.1 STANDARD UX DESIGNER ROLE Canva PRIMARY TOOL 01 // OVERVIEW Accessibility is a design deliverable , not a developer guess When designers don't specify accessibility intent, developers fill the gap \u2014 and they fill it wrong. StubHub's mobile checkout flow is built. It works for sighted mouse users. But across six screens of the purchase path, screen reader users get partial labels, keyboard users lose focus mid-flow, and color-blind users miss urgency cues entirely. None of these are developer mistakes."
+            ],
+            "title": "StubHub Annotations // TomiUX \u267f"
+          },
+          {
+            "url": "http://stubhub.com/legal",
+            "excerpts": [
+              "Accessibility Statement Global User Agreement Last Update: December 2025 1. please contact us."
+            ],
+            "title": "Global User Agreement"
+          },
+          {
+            "url": "http://webmdhealthservices.com/webmd-one-accessibility-statement",
+            "excerpts": [
+              "Digital Accessibility and Disability Inclusion Policy WebMD Health Services Group, Inc. (\"WHS\") is dedicated to making its digital health and well-being experiences accessible to everyone and to providing support to its clients so that they can serve their populations in accordance with applicable law and the rules implementing the same. To that end, WHS (1) designs its digital offerings with inclusivity as a foundational requirement across all user touchpoints, (2) proactively reviews and refines its platforms to empower all users, including those with disabilities, and (3) partners with third-party experts to provide unbiased audits and advice regarding accessibility standards and implementation. WHS seeks to provide an equivalent, inclusive, and positive experience for individuals who use assistive technologies or adaptive methods to manage their health. ... Accessibility Program & Compliance Process 1. Standards and Methodology WHS designs its digital offerings to meet or exceed the requirements of applicable law, including, but not limited to, the relevant sections of the Rehabilitation Act of 1973 and the Americans with Disabilities Act (ADA) of 1990. In its efforts to provide accessible content, WHS' digital properties\u2014including its web platforms, mobile applications, and all digital content\u2014are currently measured against the Web Content Accessibility Guidelines (WCAG) 2.2, Levels A and AA. While current law such as the Rehabilitation Act and the ADA, as well as the rules implementing the same (including, but not limited to, the Department of Justice's Final Rule regarding \"_Nondiscrimination on the Basis of Disability; Accessibility of Web Information and Services of State and Local Government Entities_\"), only require conformance with WCAG 2.1 Level AA, WHS holds itself to a higher industry standard, the WCAG 2.2 Level A and AA standard. ... 3. Integration into the SDLC Subject Matter Expert Oversight Throughout: WHS' subject matter experts are involved in every stage of the SDLC, from initial design wireframes to final code deployment. Design Stage \u2013 The UX team created a design library based on Material UI. The team then creates designs and prototypes, ensuring WCAG 2.2 AA\u2013compliance for consistent, accessible UI patterns, supported by built-in tools and plugins for accessibility checks. We also annotate designs with accessibility requirements\u2014such as ARIA labels, focus states, hierarchy, interaction behavior, and edge cases\u2014to support accurate implementation. Development Stage \u2013 Write accessible code that uses correct semantic headings, landmarks, semantic lists, and visible and programmatic labels for forms. Teams will use a third-party plug-in and/or the Chrome Lighthouse tool. Quality Assurance \u2013 Use Accessibility Insights as part of the testing process. As needed, we will use NVDA and other needed tools. Final Accessibility Sign-Off: No new code, products, or enhancements are released unless they have been validated as accessible to our end users by WHS Subject Matter Experts. 4. Regular Testing and Remediation WHS is committed to undertaking regular, internal monitoring of its digital offerings: Ongoing Triage: WHS regularly conducts comprehensive accessibility compliant scans and/or manual reviews across all of its solutions to identify and remediate potential barriers in real-time. Testing Toolkit: WHS' toolkit includes keyboard-only navigation and screen readers across various environments (utilizing third-party tools such as Accessibility Insights, Browserstack, ANDI, Lighthouse, and NVDA). 5. Independent Audits and ACRs\nWhile current law such as the Rehabilitation Act and the ADA, as well as the rules implementing the same (including, but not limited to, the Department of Justice's Final Rule regarding \"_Nondiscrimination on the Basis of Disability; Accessibility of Web Information and Services of State and Local Government Entities_\"), only require conformance with WCAG 2.1 Level AA, WHS holds itself to a higher industry standard, the WCAG 2.2 Level A and AA standard. ... 3. Integration into the SDLC Subject Matter Expert Oversight Throughout: WHS' subject matter experts are involved in every stage of the SDLC, from initial design wireframes to final code deployment. Design Stage \u2013 The UX team created a design library based on Material UI. The team then creates designs and prototypes, ensuring WCAG 2.2 AA\u2013compliance for consistent, accessible UI patterns, supported by built-in tools and plugins for accessibility checks. We also annotate designs with accessibility requirements\u2014such as ARIA labels, focus states, hierarchy, interaction behavior, and edge cases\u2014to support accurate implementation. Development Stage \u2013 Write accessible code that uses correct semantic headings, landmarks, semantic lists, and visible and programmatic labels for forms. Teams will use a third-party plug-in and/or the Chrome Lighthouse tool. Quality Assurance \u2013 Use Accessibility Insights as part of the testing process. As needed, we will use NVDA and other needed tools. Final Accessibility Sign-Off: No new code, products, or enhancements are released unless they have been validated as accessible to our end users by WHS Subject Matter Experts. 4. Regular Testing and Remediation WHS is committed to undertaking regular, internal monitoring of its digital offerings: Ongoing Triage: WHS regularly conducts comprehensive accessibility compliant scans and/or manual reviews across all of its solutions to identify and remediate potential barriers in real-time. Testing Toolkit: WHS' toolkit includes keyboard-only navigation and screen readers across various environments (utilizing third-party tools such as Accessibility Insights, Browserstack, ANDI, Lighthouse, and NVDA). 5. Independent Audits and ACRs To ensure transparency and unbiased validation, we partner with an independent third-party accessibility expert to conduct comprehensive audits and produce Voluntary Product Accessibility Templates (VPATs) and Accessibility Conformance Reports (ACRs) based upon the WCAG 2.2 AA guidelines for select solutions. Upon review and consultation with the expert, these ACRs are actioned upon, as appropriate and applicable. ... Platform Login Information Well-Being Program **Program Administrator** If you are a well-being program administrator, login to this Client Dashboard to access the latest in product releases, communication services and product materials. [Client Admin Login](https://www.webmdhealthservices.com/login/) ..."
+            ],
+            "title": "description: Learn more about the efforts we are making to ensure that our WebMD ONE platform is accessible to all individuals, regardless of ability. title: WebMD ONE Member Accessibility Statement - WebMD Health Services image: https://www.webmdhealthservices.com/wp-content/uploads/2017/03/webmd-health-services-blog.jpg"
+          },
+          {
+            "url": "http://clutch.co/resources/accessibility-standard-review",
+            "excerpts": [
+              "Compare our list of [top Web Design companies](https://clutch.co/web-designers) near you ... Scale of Digital Discrimination The websites with room to grow may be surprising. WebMD, a top destination for health information, scored only 67/100 \u2014 putting essential medical content out of reach for users who rely on accessible design. USPS.com also scored 67/100, a concerning result for a government service that is expected to meet Section 508 accessibility standards. Entertainment and sports sites also struggled: ESPN landed at 75/100, Rotten Tomatoes at 68/100, and CBS Sports at 70/100.\nSports sites perform poorly even though Paralympic and adaptive sports are highly visible, while technology companies tend to lead, suggesting accessibility has become part of the technical baseline in that sector. Health content shows the widest spread. Mayo Clinic and the NHS both scored 100, while WebMD came in at 67. ... The Accessibility Advantage Accessibility is often seen as a box to check, but it can be a growth driver. In our audit, 18 sites scored 100/100. They came from different industries, which shows that strong performance is a matter of choice, not technical limits. The companies that treat inclusion as a strategy are already using it to stand out from competitors. Immediate Improvement Priorities Some of the most [common website accessibility issues](https://clutch.co/resources/3-website-accessibility-issues-your-brand-cant-afford) are also the simplest to address. Touch targets were too small or too close together on 64% of websites, while color contrast problems appeared on 54%, and Critical ARIA errors showed up on 22%. Fixing these areas first would raise scores quickly and improve usability for a wide range of users. Business Transition Framework The companies that do this well usually follow a clear progression: Start with compliance, then shift toward seeing accessibility as an advantage Apply universal design so improvements help every user Build loyalty by reducing barriers and making services easier to use Expand reach by opening new market segments through inclusive design Legal Timelines The legal environment is moving quickly. WCAG 2.2 is becoming the reference point for compliance, and recent rulings show that courts are backing plaintiffs more often. Companies that [address accessibility early](https://clutch.co/resources/future-web-accessibility-trends) are able to plan improvements on their own schedule, budget for them, and roll them out in a way that aligns with broader digital roadmaps. In other words, they keep control of how and when fixes are made. Accessibility as Competitive Necessity The findings show how much work is left. Nearly half of the largest sites failed Google's accessibility check, with news outlets averaging just 84% and more than half of e-commerce sites falling short. These results highlight that [accessibility gaps](https://clutch.co/resources/hidden-price-website-accessibility-gaps) aren't about technical limitations, but about organizational commitment. The stakes extend beyond compliance. People with disabilities control $13 trillion in global spending power. Courts are adopting WCAG 2.2 as the standard, and recent cases have favored plaintiffs. Companies that act now gain loyalty and reach. Companies that wait often end up paying more, both in court and in lost trust. Accessibility has shifted from a compliance issue to a competitive advantage. The direction is clear: some organizations will lead, and others will be forced to follow. Methodology This analysis reviewed 95 of the top 100 websites ranked by aHrefs organic traffic. Five sites were excluded because they blocked crawling. Accessibility was measured using Google PageSpeed Insights, which scores sites on a 0\u2013100 scale. Scores of 90 and above were considered \"Good,\" 60\u201389 \"Needs Improvement,\" and below 60 \"Poor.\" No site in the dataset fell below 60. Compliance with WCAG 2.0, 2.1, and 2.2 at the A, AA, and AAA levels was also evaluated. The review covered each site's homepage along with primary user pathways. Industry categories followed standard classifications for sector analysis. There are limits to this type of review. Results reflect a point in time and rely on automated scoring. Major violations were verified manually, but some false positives are possible."
+            ],
+            "title": "Many of the Biggest Websites Fail Accessibility Standards | Clutch.co"
+          },
+          {
+            "url": "https://www.vezadigital.com/post/best-saas-pricing-page-examples",
+            "excerpts": [
+              "The best SaaS pricing pages share common traits: 3-4 clear plans, visual plan comparison, highlighted \"recommended\" tier, transparent pricing, strong CTAs, and trust elements. Great pricing pages make choosing easy - they communicate value clearly, reduce decision anxiety, and guide visitors toward the right plan with strategic design."
+            ],
+            "title": "Best SaaS Pricing Page Examples (2026 Guide)"
+          },
+          {
+            "url": "https://www.saashero.net/strategy/transparent-b2b-saas-pricing-gtm/",
+            "excerpts": [
+              "SaaS companies with ACV under $25,000 should display full pricing on the page, because hiding pricing below this threshold increases friction and signals that the product is expensive. How PLG, Hybrid, and Sales-Led Teams Use Pricing in 2026 The 2026 landscape includes a growing category of AI-native pricing structures."
+            ],
+            "title": "Transparent Pricing Models for B2B SaaS Go-to-Market"
+          },
+          {
+            "url": "https://comparetiers.com/",
+            "excerpts": [
+              "Stop overpaying for SaaS. Compare pricing plans from 500+ tools side-by-side, find the best value, and make confident software buying decisions."
+            ],
+            "title": "CompareTiers - Compare SaaS Pricing in Seconds (2026)"
+          },
+          {
+            "url": "https://genesysgrowth.com/blog/designing-b2b-saas-pricing-pages",
+            "excerpts": [
+              "High-converting B2B SaaS pricing pages in 2026 combine clear, tiered value messaging, transparent pricing, social proof, and interactive tools to guide multi-stakeholder buyers toward confident purchase decisions."
+            ],
+            "title": "Best Practices for Designing B2B SaaS Pricing Pages \u2013 2026"
+          },
+          {
+            "url": "https://www.artisangrowthstrategies.com/blog/saas-conversion-rate-benchmarks-2026-data-1200-companies",
+            "excerpts": [
+              "Headline numbers (2026) How to Improve your Conversion Rate \\ [+ Top 4 B2B SaaS Benchmarks\\] 2026 SaaS Funnel Conversion Rates: The Numbers Conversion Rates by Funnel Stage Average vs. Top 10% Performance Conversion Benchmarks by Industry CRM, Cybersecurity, and HR Tech/Edtech Conversion Rates Industry Comparison Table Conversion Rates by Marketing Channel and Growth Model SEO, PPC, and"
+            ],
+            "title": "SaaS Conversion Rate Benchmarks 2026: 1,200+ Companies by ..."
+          },
+          {
+            "url": "https://alexweblab.com/articles/optimistic-ui-rollback-strategy",
+            "excerpts": [
+              "Optimistic UI Rollback: How to Update Instantly and Handle ...\nOptimistic UI dramatically improves perceived performance by applying state changes before the server confirms them. But this requires a robust rollback strategy for when the server rejects the change \u2014 and getting rollbacks right is where most implementations fall short."
+            ],
+            "title": "Optimistic UI Rollback: How to Update Instantly and Handle ..."
+          },
+          {
+            "url": "https://www.72technologies.com/blog/react-19-useoptimistic-network-failures",
+            "excerpts": [
+              "React 19 useOptimistic: Patterns That Survive Failures\nA production-tested guide to React 19's useOptimistic hook: rollback, error UI, queueing, and the gotchas that bite when networks fail."
+            ],
+            "title": "React 19 useOptimistic: Patterns That Survive Failures"
+          },
+          {
+            "url": "https://www.sitepoint.com/react-useoptimistic-production-patterns-for-instant-ui-updates",
+            "excerpts": [
+              "React useOptimistic: Production Patterns for Instant UI Updates\nReact useOptimistic addresses this directly by giving developers a first-party hook for optimistic UI updates, replacing the most common boilerplate pattern, though full server-state"
+            ],
+            "title": "React useOptimistic: Production Patterns for Instant UI Updates"
+          },
+          {
+            "url": "https://backbonetutorials.com/interactive-web/optimistic-ui-updates",
+            "excerpts": [
+              "Optimistic UI Updates \u2014 instant feedback, safe rollback\nUndo the visual change, show a brief error message explaining why it failed, and offer to retry. An animation that reverses the original transition helps users understand what happened without feeling like a crash."
+            ],
+            "title": "Optimistic UI Updates \u2014 instant feedback, safe rollback"
+          },
+          {
+            "url": "https://ys1113457623.medium.com/stop-using-react-19s-useoptimistic-without-an-error-rollback-ux-strategy-c50e5f966e7c",
+            "excerpts": [
+              "Stop Using React 19\u2019s useOptimistic Without an Error Rollback ...\nTo fix this, we need to orchestrate our React 19 Server Action, useActionState, and useOptimistic in a way that captures the execution lifecycle failure without breaking the declarative"
+            ],
+            "title": "Stop Using React 19\u2019s useOptimistic Without an Error Rollback ..."
+          },
+          {
+            "url": "https://viprasol.com/blog/saas-audit-logging",
+            "excerpts": [
+              "SaaS Audit Logging: Immutable Audit Trails, Event Sourcing\nA compliant audit trail requires tamper evidence, retention policies, and structured querying. This post covers the full implementation: schema design, HMAC-based tamper detection, application-layer event capture, SOC2/GDPR compliance mapping, and alerting on anomalous activity."
+            ],
+            "title": "SaaS Audit Logging: Immutable Audit Trails, Event Sourcing"
+          },
+          {
+            "url": "https://learn.microsoft.com/en-us/azure/architecture/patterns/event-sourcing",
+            "excerpts": [
+              "Event Sourcing Pattern - Azure Architecture Center ...\nThe Event Sourcing pattern defines an approach to handling operations on data that's driven by a sequence of events, each of which is recorded in an append-only store. Application code sends a series of events that imperatively describe each action that has occurred on the data to the event store, where they're persisted. Each event represents a set of changes to the data (such as AddedItemToOrder)."
+            ],
+            "title": "Event Sourcing Pattern - Azure Architecture Center ..."
+          },
+          {
+            "url": "https://codelit.io/blog/soft-delete-vs-hard-delete",
+            "excerpts": [
+              "Soft Delete vs Hard Delete: Patterns, Trade-offs, and GDPR ...\nCompare soft delete and hard delete strategies \u2014 deleted_at columns, archive tables, event sourcing, cascading deletes, GDPR right to erasure, query performance, and cleanup strategies."
+            ],
+            "title": "Soft Delete vs Hard Delete: Patterns, Trade-offs, and GDPR ..."
+          },
+          {
+            "url": "https://docs.eventsourcingdb.io/blog/2026/02/09/soft-delete-is-a-workaround",
+            "excerpts": [
+              "Soft Delete Is a Workaround - EventSourcingDB\nThe first approach, Application-Level Archiving, moves deleted records to a separate archive such as S3, a different table, or a message queue. The main table stays clean, but you now have two systems to query when you need historical data."
+            ],
+            "title": "Soft Delete Is a Workaround - EventSourcingDB"
+          },
+          {
+            "url": "https://zylos.ai/research/2026-02-17-event-sourcing-architecture-pattern",
+            "excerpts": [
+              "Event Sourcing: Architecture Pattern for Auditability and ...\nEvent sourcing is an architectural pattern that fundamentally changes how we think about data persistence. Instead of storing only the current state of entities (as traditional CRUD systems do), event sourcing persists all state changes as a sequence of immutable events."
+            ],
+            "title": "Event Sourcing: Architecture Pattern for Auditability and ..."
+          },
+          {
+            "url": "http://toptal.com/developers/resume/luis-rodolfo-carlos-nunez",
+            "excerpts": [
+              "Luis Rodolfo Carlos Nu\u00f1ez, Developer in Hermosillo, Mexico Luis iscurrently unavailable Luis Rodolfo Carlos Nu\u00f1ez **Verified Expert** in Engineering Front-end Developer Hermosillo, Mexico Toptal member since October 10, 2022 Expertise [Software Development](https://www.toptal.com/developers/software) [Front End](https://www.toptal.com/developers/front-end) [Full-stack](https://www.toptal.com/developers/full-stack) [Web Development](https://www.toptal.com/developers/web) [Code Review](https://www.toptal.com/developers/code-review) [MERN Stack](https://www.toptal.com/developers/mern-stack) [JavaScript](https://www.toptal.com/developers/javascript) [CSS](https://www.toptal.com/developers/css) [API](https://www.toptal.com/developers/api-developers) [Database](https://www.toptal.com/developers/database) [SQL](https://www.toptal.com/developers/sql) [React.js](https://www.toptal.com/developers/react) Bio Luis is a software engineer with over 10 years of experience developing web applications. An expert in front-end development and the latest technologies, he always aims to deliver top-notch, friendly, and innovative experiences to users. Luis is a team player who enjoys helping reach company and personal goals. He mentors junior colleagues daily and reviews code. Luis has been working in remote and agile environments for US clients since 2020. Portfolio MongoDB Inc. - Main React, TypeScript, JavaScript, Next.js, Tailwind CSS, Radix UI, Code Review... Arteria AI JavaScript, Docker, CSS, HTML, Redux, REST APIs, PostgreSQL... Luxoft JavaScript, Node.js, Express.js, Redux, Sass, CSS, Git, Bitbucket, Postman... Experience JavaScript - 10 years Front-end - 10 years Software Development - 10 years SQL - 7 years React - 6 years Redux - 5 years TypeScript - 3 years Next.js - 3 years Preferred Environment MacOS, Windows, JavaScript, React The most amazing... ...thing I've led is the migration of a widely used ERP application to the latest front-end technologies at the time. Work Experience Senior Front-end Developer 2023 - PRESENT MongoDB Inc. - Main Developed a React component library using Tailwind CSS. The components receive data from Contentstack CMS and are used in the marketing vertical. Conducted technical discovery on stakeholders' requirements to determine feasibility and technical limitations, creating work items that are straightforward for the developers to work on. Participated in code reviews and team discussions to improve the development workflows. Technologies: React, TypeScript, JavaScript, Next.js, Tailwind CSS, Radix UI, Code Review, UI Libraries, UI Frameworks, Responsiveness, Responsive Web Apps, Architecture, Responsive Web Design (RWD), DOM, Headless CMS, Contentstack, Stripe Checkout, Responsive Design, Usability, React Router, Content Management Systems (CMS), Search Engine Optimization (SEO), Artificial Intelligence (AI), Tailwind UI, Visual Studio Code (VS Code) React Developer 2022 - PRESENT Arteria AI Monitored and improved the front-end performance of many modules. Developed and implemented a highly responsive user interface. Troubleshot software interface and debugged application codes. Technologies: JavaScript, Docker, CSS, HTML, Redux, REST APIs, PostgreSQL, Relational Databases, Figma, Front-end Development, Responsive UI, TypeScript, Software Development, React, Redux Thunk, Create React App, UI Development, React Redux, CSS5, CSS3, Jira, Test-driven Development (TDD), Slack, Data Visualization, Vanilla JS, Testing, Code Review, UI Libraries, UI Frameworks, Responsiveness, Responsive Web Apps, SCSS, Architecture, Responsive Web Design (RWD), DOM, Responsive Design, Usability, React Router, Visual Studio Code (VS Code) Senior Full-stack Developer 2021 - PRESENT Luxoft Helped team members get to the next level in front-end development. Standardized coding practices and implemented unit testing standards using Jest and React Testing Library. Used microservices with Node.js, Express.js, PostgreSQL, and SQL while helping the back-end staff. Technologies: JavaScript, Node.js, Express.js, Redux, Sass, CSS, Git, Bitbucket, Postman, PostgreSQL, HTML, Next.js, REST APIs, Relational Databases, Figma, Front-end Development, Responsive UI, TypeScript, Software Development, React, Redux Thunk, Full-stack, Create React App, Jest, SQL, Databases, UI Development, Back-end Development, APIs, React Redux, CSS5, CSS3, Jira, Test-driven Development (TDD), Middleware, Slack, Vanilla JS, Testing, Code Review, Database Design, UI Libraries, UI Frameworks, React Query, Responsiveness, Responsive Web Apps, SCSS, Architecture, DOM, Responsive Design, Usability, React Router, Visual Studio Code (VS Code) 2023 - 2024 BeautiMaps Technologies LLC Developed a platform that allows beauty service providers to reach more people and manage their bookings using JavaScript, TypeScript, Tailwind CSS, GraphQL, MongoDB, and Firebase. Held direct meetings with the client to understand business needs and determine work items to reach the desired functionality. Enhanced the performance of the UI and database queries. Technologies: GraphQL, MongoDB, JavaScript, Node.js, React, Amazon Web Services (AWS), Tailwind CSS, Code Review, UI Libraries, UI Frameworks, React Query, Responsiveness, Responsive Web Apps, SCSS, Architecture, Stripe Connect, Responsive Web Design (RWD), DOM, Responsive Design, React Router, Recharts, Shadcn, Supabase, Supabase Auth, Visual Studio Code (VS Code) Full-stack Developer 2022 - 2023 Vitale Industrial Solutions LLC Developed a React Native application to meet the client's requirements. Helped the development team to meet many project deadlines. Developed and launched a brand new client's site with React, Next.js, and React Query. Helped a client to transition to a serverless back end using AWS (AWS AppSync, AWS Amplify, Amazon Cognito, GraphQL, JavaScript, and Node.js). Technologies: Node.js, PostgreSQL, Amazon Web Services (AWS), React Native, GraphQL, SQL, JavaScript, Back-end, Front-end, Full-stack, AWS Amplify, AWS AppSync, APIs, Next.js, Amazon Cognito, Software Development, React, Create React App, Express.js, Databases, UI Development, Back-end Development, React Redux, CSS5, CSS3, Jira, Middleware, Slack, Testing, Stripe, Stripe API, Code Review, Mobile, UI Libraries, UI Frameworks, Mobile Apps, Mobile Development, Expo, React Query, Responsiveness, Responsive Web Apps, SCSS, Architecture, Responsive Design, Visual Studio Code (VS Code) Senior React Developer 2020 - 2021 Apex Systems Developed a Swagger-like application to be used by Expedia's engineering teams. Served as a senior developer on developing an internal application for a US-based client, Expedia Group, to allow users to get metrics and reports of flight services usage and filter these by gender and age. Helped develop Apex's internal office workspace management system. Technologies: JavaScript, JavaScript Testing, Jest, React, React Native, Sass, CSS, Docker, HTML, Docker Compose, Material UI, Redux, React Apollo, REST APIs, Relational Databases, MySQL, Front-end Development, Responsive UI, TypeScript, Software Development, Redux Thunk, Node.js, Full-stack, Create React App, Express.js, UI Development, React Redux, Charts, CSS5, CSS3, Jira, Slack, Vanilla JS, Testing, Code Review, UI Libraries, UI Frameworks, React Query, Responsiveness, Responsive Web Apps, Architecture, Responsive Web Design (RWD), DOM, Responsive Design, Visual Studio Code (VS Code) Senior Software Engineer 2014 - 2020 Crol Led a team tasked with migrating the UI from jQuery to React. Oversaw the sales module pod of the ERP, in charge of four team members. Trained interns in Microsoft SQL Server, JavaScript, and React. Technologies: .NET, .NET Core, JavaScript, React, Node.js, Express.js, SQL, NoSQL, Responsive UI, Google Cloud Platform (GCP), Azure, Relational Databases, APIs, Databases, UI Development, Back-end Development, React Redux, Charts, CSS3, Jira, Middleware, Vanilla JS, Testing, Code Review, Database Design, UI Frameworks, UI Libraries, Responsiveness, Responsive Web Apps, Architecture, Technical Leadership, DOM, SaaS, B2B Experience El Azar The project involved the development of a web and mobile application for a combination of numbers that can win a certain amount of money depending on the results of the national lottery. I created the app from scratch and provided maintenance services. I used technologies such as JavaScript, React, React Native, Redux, MUI, Firebase, Jest, React Testing Library, Sass, Git, and HTML. Education 2010 - 2014 Bachelor's Degree in Software Engineering"
+            ],
+            "title": "Hire Luis Rodolfo Carlos Nu\u00f1ez - Developer in Hermosillo, Mexico | Toptal\u00ae"
+          },
+          {
+            "url": "http://linkedin.com/in/rodolfonunez",
+            "excerpts": [
+              "Experience \u00b7 Head of Media Operations \u00b7 Global Head of Social Operations \u00b7 Content Marketing Lead LATAM Uber/Uber Eats \u00b7 Director of Social@Ogilvy - Ogilvy Mexico."
+            ],
+            "title": "Rodolfo Nunez - Global Social Media, Content & Digital ..."
+          },
+          {
+            "url": "http://linkedin.com/in/luis-rodolfo-albarran-cardenas-a7194624b",
+            "excerpts": [
+              "Sales Executive skilled in negotiation and customer experience"
+            ],
+            "title": "Luis Rodolfo Albarran Cardenas - Sales Executive skilled ..."
+          },
+          {
+            "url": "http://linkedin.com/in/carlos-nunez-quirarte-39242442",
+            "excerpts": [
+              "Sr. IT Regional Director for Mexico and Central America Region \u00b7 Seasoned Executive with +20 years Senior IT Leadership experience at International"
+            ],
+            "title": "Carlos Nunez Quirarte - Sr. IT Regional Director for Mexico ..."
+          },
+          {
+            "url": "http://linkedin.com/in/luis-rodolfo-rodriguez",
+            "excerpts": [
+              "Connection Count: 500 | Follower Count: 4709 | Slug Status: A | Name: Luis Rodolfo Rodr\u00edguez | Title: Business Development | Country Name: Mexico | Country Iso: MX | Position: Viewnear Business Development Desarrollo iniciativas orientadas a identificar nuevas oportunidades de negocio, fortalecer alianzas clave e integrar soluciones tecnol\u00f3gicas que generen valor para nuestros clientes."
+            ],
+            "title": "Luis Rodolfo Rodr\u00edguez"
+          },
+          {
+            "url": "http://abdi.cc/",
+            "excerpts": [
+              "Abdi Putrana Radian is a developer and creator from Indonesia who builds digital products, explores design, and brings ideas to life through technology. Abdi Putrana Radian | Portfolio Website About Resume Skills Projects Social Contact AVAILABLE FOR FREELANCE ABDI PUTRANA RADIAN Full-Stack Developer & Creative Technologist View Projects Get In Touch About Me Abdi Putrana Radian is a developer and creator from Indonesia with a strong interest in technology and creativity. He primarily works on web applications and digital products, while also exploring design, visual arts, and music production. His approach combines problem-solving, creativity, and continuous learning to build meaningful experiences. Programming Drawing Designing Music Production Resume Universitas Subang S1 Information Systems 2026 - Present Studying core concepts of information systems and IT management. SMKN 1 Subang Computer Network Engineering 2023 - 2026 Studying core concepts of computer engineering, networking, and software development. House of Videographer Video Editor - HOVER Extracurricular 2023 - 2026 Honing creative skills in video production, editing, and storymaking within a collaborative team environment. Tech Stack & Skills React React Next.js Next.js TypeScript TypeScript JavaScript JavaScript Tailwind CSS Tailwind CSS HTML5 HTML5 CSS3 CSS3 Node.js Node.js Python Python PHP PHP npm npm JSON JSON Markdown Markdown PWA PWA Chrome Chrome GSAP GSAP React React Next.js Next.js TypeScript TypeScript JavaScript JavaScript Tailwind CSS Tailwind CSS HTML5 HTML5 CSS3 CSS3 Node.js Node.js Python Python PHP PHP npm npm JSON JSON Markdown Markdown PWA PWA Chrome Chrome GSAP GSAP React React Next.js Next.js TypeScript TypeScript JavaScript JavaScript Tailwind CSS Tailwind CSS HTML5 HTML5 CSS3 CSS3 Node.js Node.js Python Python PHP PHP npm npm JSON JSON Markdown Markdown PWA PWA Chrome Chrome GSAP GSAP Docker Docker Ubuntu Ubuntu Git Git GitHub GitHub Vercel Vercel Supabase Supabase Cloudflare Cloudflare Nginx Nginx Firebase Firebase Google Cloud Google Cloud Figma Figma VS Code VS Code Postman Postman Replit Replit Microsoft Microsoft Docker Docker Ubuntu Ubuntu Git Git GitHub GitHub Vercel Vercel Supabase Supabase Cloudflare Cloudflare Nginx Nginx Firebase Firebase Google Cloud Google Cloud Figma Figma VS Code VS Code Postman Postman Replit Replit Microsoft Microsoft Docker Docker Ubuntu Ubuntu Git Git GitHub GitHub Vercel Vercel Supabase Supabase Cloudflare Cloudflare Nginx Nginx Firebase Firebase Google Cloud Google Cloud Figma Figma VS Code VS Code Postman Postman Replit Replit Microsoft Microsoft Projects SELECTED WORKS Edu Diksi preview 1 Edu Diksi preview 2 Edu Diksi preview 3 Edu Diksi Edu Diksi is a modern UTBK practice platform based on micro-learning with a gamification system. React Vite Tailwind GSAP SQL Read [Visit](https://edu.diksi.org) Dotern preview 1 Dotern preview 2 Dotern preview 3 Dotern A lightweight visual editor for aesthetic layouts, decorative patterns, and modern compositions. React Vite Tailwind GSAP Konva.js Muxer Read [Visit](https://dotern.com) Otak.in preview 1 Otak.in preview 2 Otak.in A modern learning platform for SNBT, UTBK, and Indonesian high school exams with a playful gamified experience. Next.js TypeScript Tailwind PostgreSQL GSAP Read [Visit](https://otak.in) See all projects Contact Me Feel free to reach out. I'm always open to discussing new projects, creative ideas, or opportunities to be part of an amazing team. me@abdi.cc [](https://instagram.com/abdiprr \"Instagram\") [](https://x.com/abdiprr \"X\") [](https://youtube.com/@abdipr \"YouTube\") [](https://tiktok.com/@abdiprr \"TikTok\") [](https://facebook.com/abdiprr \"Facebook\") [](https://github.com/abdipr \"GitHub\") [](https://t.me/abveon \"Telegram\") [](https://dribbble.com/abdipr \"Dribbble\") [](https://www.linkedin.com/in/abdipr \"LinkedIn\") [](https://threads. net/@abdiprr \"Threads\") [](https://quora.com/profile/Abdi-Putrana-Radian \"Quora\") [](https://news.ycombinator.com/user?id=abdipr \"Hacker News\") Curious about something? Ask me something?"
+            ],
+            "title": "Abdi Putrana Radian | Portfolio Website"
+          },
+          {
+            "url": "http://chouteauok.com/leadership",
+            "excerpts": [
+              "Town Council and Chouteau Leadership Chouteau Town Hall.jpg The Chouteau Public Works Authority and Town Council meetings are held the 2nd Monday of each month at 6:00 pm at the Chouteau Town Hall.  Board of Trustees Brenda Cunningham, Mayor Randy Grossman Roger Couch Cecil Lane Angela Dannels  Click here for [Board Member Wards](https://www.chouteauok.com/_files/ugd/da6aca_1e20a5cd187240998e3f5e6453f38f06.pdf)  Town Office Personnel Amber Rice Town Office Clerk  Dawn Posey Town Clerk/Treasurer  Lori McClain Code Enforcement   Dewayne Meeks Building Inspector  Karla Middaugh-Chupp Court Clerk    Public Works Authority Board Brenda Cunningham, Mayor Randy Grossman Roger Couch Cecil Lane Angela Dannels David Morgan Jimmy Trundle  Public Works Authority David Powell PWA Administrator  Dana Corbett Utility Clerk  Juanita Rabbit Utility Clerk  Other Chouteau Leadership James Turner Police Chief  Amber Williams Fire Chief   TOWN HALL 111 S Lewis St PO Box 819 918-476-5902  PWA Utilities 111 S Lewis St PO Box 1089 918-476-8925  Chouteau-Town-Logo-Silver-and-Gold-600x2 Chouteau Police Dept 918-476-5225   Chouteau Fire Dept 918-476-8928 Chouteau Court Clerk 111 S Lewis St PO Box 1270 918-476-5328  WEBSITE DESIGNED BY [THE COMPUTER GUY, INC.](https://comp-guy.net) bottom of page\nTown Office Personnel Amber Rice Town Office Clerk  Dawn Posey Town Clerk/Treasurer  Lori McClain Code Enforcement   Dewayne Meeks Building Inspector  Karla Middaugh-Chupp Court Clerk"
+            ],
+            "title": "Leadership | Town of Chouteau"
+          },
+          {
+            "url": "http://chouteauok.com/meeting-agendas",
+            "excerpts": [
+              "AGENDAS [Jan 12, 2026 - Council Agenda](https://www.chouteauok.com/_files/ugd/8ce8d6_d4035632902b4862b3a1ae15736c8bcc.pdf) Jan 12, 2026 - PWA Agenda  [Feb 9, 2026 - Council Agenda](https://www.chouteauok.com/_files/ugd/8ce8d6_d5745f5b4ab540a091eb5e901dfedd08.pdf) Feb 9, 2026 - PWA Agenda [Mar 9, 2026 - Council Agenda](https://www.chouteauok.com/_files/ugd/8ce8d6_a23697ab740a4dd9b4ae31903120b672.pdf) Mar 9, 2026 - PWA Agenda April 13, 2026 - Public Hearing [Apr 13, 2026 - Council Agenda](https://www.chouteauok.com/_files/ugd/8ce8d6_0da985571f8841deba1c5339be9dd930.pdf) Apr 13, 2026 - PWA Agenda [May 11, 2026 - Council Agenda](https://www.chouteauok.com/_files/ugd/8ce8d6_aa65ccc2f22740039681e983b33596db.pdf) May 11, 2026 - PWA Agenda   [June 8, 2026 Public Hearing](https://www.chouteauok.com/_files/ugd/8ce8d6_1a890eeaa8a945f28bb04b57e6ebc42b.pdf) [Jun 8, 2026 - Council Agenda](https://www.chouteauok.com/_files/ugd/8ce8d6_6260ff1d690b4b38a1ab08c73c62910e.pdf) Jun 8, 2026 - PWA Agenda Jul 13, 2026 - Council Agenda Jul 13, 2026 - PWA Agenda  Aug 10, 2026 - Council Agenda Aug 10, 2026 - PWA Agenda Sep 14, 2026 - Council Agenda Sep 14, 2026 - PWA Agenda Oct 13, 2026 - Council Agenda Oct 13, 2026 - PWA Agenda  Nov 9, 2026 - Council Agenda Nov 9, 2026 - PWA Agenda Dec 15, 2026 - Council Agenda Dec 15, 2026 - PWA Agenda MINUTES [Jan 12, 2026 - Council Minutes](https://www.chouteauok.com/_files/ugd/8ce8d6_cfafa21bd24348d78e9ddcc6160d5395.docx?dn=January%2012%2C%202026%20Town%20Minutes%20(1).docx) Jan 12, 2026 - PWA Minutes [Feb 9, 2026 - Council Minutes](https://www.chouteauok.com/_files/ugd/8ce8d6_a2ec4cd933f6452eb7cb2321fef99dd5.docx?dn=Feburary%209%2C%202026%20%20TOWN%20MINUTES%20(1).docx) Feb 9, 2026- PWA Minutes [Mar 9, 2026 - Council Minutes](https://www.chouteauok.com/_files/ugd/8ce8d6_9152031afbf54250af59bb6d03dfb4bd.docx?dn=March%209%2C%202026%20Town%20Minutes%20(1).docx) Mar 9 2026 - PWA Minutes [Apr 13, 2026 - Council Minutes](https://www.chouteauok.com/_files/ugd/8ce8d6_acf29facb6d143f3a793b6d5f4ce17ce.docx?dn=Town%20Minutes%20April%2013%5EJ%202026.docx) Apr 13, 2026 - PWA Minutes [May 11, 2026 - Council Minutes](https://www.chouteauok.com/_files/ugd/8ce8d6_55c4c2c788194f64815f381c817764ee.docx?dn=MAY%2011%2C%202026%20TOWN%20MINUTES.docx) May 11, 2026 - PWA Minutes  Jun 8, 2026 - Council Minutes Jun 8, 2026 - PWA Minutes Jul 13, 2026 - Council Minutes Jul 13, 2026 - PWA Minutes  Aug 10, 2026 - Council Minutes Aug 10, 2026 - PWA Minutes Sep 14, 2026 - Council Minutes Sep 14, 2026 - PWA Minutes Oct 13, 2026 - Council Minutes Oct 13, 2026 - PWA Minutes  Nov 9, 2026 - Council Minutes Nov 9, 2026 - PWA Minutes Dec 15, 2026 - Council Minutes Dec 15, 2026 - PWA Minutes TOWN HALL 111 S Lewis St PO Box 819 918-476-5902  PWA Utilities 111 S Lewis St PO Box 1089 918-476-8925  Chouteau-Town-Logo-Silver-and-Gold-600x2 Chouteau Police Dept 918-476-5225   Chouteau Fire Dept 918-476-8928 Chouteau Court Clerk 111 S Lewis St PO Box 1270 918-476-5328  WEBSITE DESIGNED BY [THE COMPUTER GUY, INC.](https://comp-guy.net) bottom of page\nAGENDAS [Jan 12, 2026 - Council Agenda](https://www.chouteauok.com/_files/ugd/8ce8d6_d4035632902b4862b3a1ae15736c8bcc.pdf) Jan 12, 2026 - PWA Agenda  [Feb 9, 2026 - Council Agenda](https://www.chouteauok.com/_files/ugd/8ce8d6_d5745f5b4ab540a091eb5e901dfedd08.pdf) Feb 9, 2026 - PWA Agenda [Mar 9, 2026 - Council Agenda](https://www.chouteauok.com/_files/ugd/8ce8d6_a23697ab740a4dd9b4ae31903120b672.pdf) Mar 9, 2026 - PWA Agenda April 13, 2026 - Public Hearing [Apr 13, 2026 - Council Agenda](https://www.chouteauok.com/_files/ugd/8ce8d6_0da985571f8841deba1c5339be9dd930.pdf) Apr 13, 2026 - PWA Agenda [May 11, 2026 - Council Agenda](https://www.chouteauok.com/_files/ugd/8ce8d6_aa65ccc2f22740039681e983b33596db.pdf) May 11, 2026 - PWA Agenda   [June 8, 2026 Public Hearing](https://www.chouteauok.com/_files/ugd/8ce8d6_1a890eeaa8a945f28bb04b57e6ebc42b.pdf) [Jun 8, 2026 - Council Agenda](https://www.chouteauok.com/_files/ugd/8ce8d6_6260ff1d690b4b38a1ab08c73c62910e.pdf) Jun 8, 2026 - PWA Agenda [Jul 13, 2026 - Council Agenda](https://www.chouteauok.com/_files/ugd/8ce8d6_3ff25901e24941faaf429996312d0ea6.pdf) Jul 13, 2026 - PWA Agenda  Aug 10, 2026 - Council Agenda Aug 10, 2026 - PWA Agenda Sep 14, 2026 - Council Agenda Sep 14, 2026 - PWA Agenda Oct 13, 2026 - Council Agenda Oct 13, 2026 - PWA Agenda  Nov 9, 2026 - Council Agenda Nov 9, 2026 - PWA Agenda Dec 15, 2026 - Council Agenda Dec 15, 2026 - PWA Agenda MINUTES [Jan 12, 2026 - Council Minutes](https://www.chouteauok.com/_files/ugd/8ce8d6_cfafa21bd24348d78e9ddcc6160d5395.docx?dn=January%2012%2C%202026%20Town%20Minutes%20(1).docx) Jan 12, 2026 - PWA Minutes [Feb 9, 2026 - Council Minutes](https://www.chouteauok.com/_files/ugd/8ce8d6_a2ec4cd933f6452eb7cb2321fef99dd5.docx?dn=Feburary%209%2C%202026%20%20TOWN%20MINUTES%20(1).docx) Feb 9, 2026- PWA Minutes [Mar 9, 2026 - Council Minutes](https://www.chouteauok.com/_files/ugd/8ce8d6_9152031afbf54250af59bb6d03dfb4bd.docx?dn=March%209%2C%202026%20Town%20Minutes%20(1).docx) Mar 9 2026 - PWA Minutes [Apr 13, 2026 - Council Minutes](https://www.chouteauok.com/_files/ugd/8ce8d6_acf29facb6d143f3a793b6d5f4ce17ce.docx?dn=Town%20Minutes%20April%2013%5EJ%202026.docx) Apr 13, 2026 - PWA Minutes [May 11, 2026 - Council Minutes](https://www.chouteauok.com/_files/ugd/8ce8d6_55c4c2c788194f64815f381c817764ee.docx?dn=MAY%2011%2C%202026%20TOWN%20MINUTES.docx) May 11, 2026 - PWA Minutes  Jun 8, 2026 - Council Minutes Jun 8, 2026 - PWA Minutes Jul 13, 2026 - Council Minutes Jul 13, 2026 - PWA Minutes  Aug 10, 2026 - Council Minutes Aug 10, 2026 - PWA Minutes Sep 14, 2026 - Council Minutes Sep 14, 2026 - PWA Minutes Oct 13, 2026 - Council Minutes Oct 13, 2026 - PWA Minutes  Nov 9, 2026 - Council Minutes Nov 9, 2026 - PWA Minutes Dec 15, 2026 - Council Minutes Dec 15, 2026 - PWA Minutes TOWN HALL 111 S Lewis St PO Box 819 918-476-5902  PWA Utilities 111 S Lewis St PO Box 1089 918-476-8925  Chouteau-Town-Logo-Silver-and-Gold-600x2 Chouteau Police Dept 918-476-5225   Chouteau Fire Dept 918-476-8928 Chouteau Court Clerk 111 S Lewis St PO Box 1270 918-476-5328  WEBSITE DESIGNED BY [THE COMPUTER GUY, INC.](https://comp-guy.net) bottom of page"
+            ],
+            "title": "Council Meeting Agendas | Town of Chouteau"
+          },
+          {
+            "url": "http://chouteauok.com/",
+            "excerpts": [
+              "CHOUTEAU NEWS [## Memorial Day Flowers](https://www.chouteauok.com/post/memorial-day-flowers) Please ensure that flowers placed at the cemeteries are collected by Sunday, June 7th. May 29 1 min read"
+            ],
+            "title": "Home | Town of Chouteau"
+          },
+          {
+            "url": "http://chouteauok.com/maps",
+            "excerpts": [
+              "Click to see a variety of available maps of Chouteau, OK including an interactive Google Map, official Ketchum city limits map, Zipcode map, and School Zone"
+            ],
+            "title": "Maps of Chouteau"
+          },
+          {
+            "url": "https://www.demandbase.com/faq/intent-based-marketing/tools",
+            "excerpts": [
+              "15 Best Intent-Based Marketing Tools & Solutions for 2026\nJan 14, 2026 \u2014 AI identifies high-intent accounts, it automatically. Lead Onion is an AI-powered intent data. Uses AI to analyze user search patterns and"
+            ],
+            "title": "15 Best Intent-Based Marketing Tools & Solutions for 2026"
+          },
+          {
+            "url": "https://www.salesforce.com/artificial-intelligence",
+            "excerpts": [
+              "Artificial Intelligence (AI) at Salesforce\nAI solutions are just the tip of the spear. Get real-time access to your customer data, analytics, and automation across your business to make AI work for"
+            ],
+            "title": "Artificial Intelligence (AI) at Salesforce"
+          },
+          {
+            "url": "https://www.algolia.com/blog/ecommerce/conversational-ai-in-ecommerce",
+            "excerpts": [
+              "Conversational AI in ecommerce: use cases, ROI & ...\nJun 23, 2026 \u2014 This guide covers what conversational AI in ecommerce actually does, where it creates value across the customer journey, what it takes to"
+            ],
+            "title": "Conversational AI in ecommerce: use cases, ROI & ..."
+          },
+          {
+            "url": "https://arxiv.org/html/2606.20585v1",
+            "excerpts": [
+              "A Benchmark and an Interactive User-Assistant Agent\nMay 13, 2026 \u2014 In this paper, we introduce SpecBench, a new benchmark for evaluating an agent's ability to translate user intent into a structured, executable"
+            ],
+            "title": "A Benchmark and an Interactive User-Assistant Agent"
+          },
+          {
+            "url": "https://www.digitalapplied.com/blog/customer-onboarding-time-to-value-2026-saas-metrics-framework",
+            "excerpts": [
+              "Time to Value: The 2026 SaaS Onboarding Metrics Framework\nMay 30, 2026 \u2014 The activation event is a solo action that predicts that user's retention. First value within roughly 24 hours is the high-retention pattern in"
+            ],
+            "title": "Time to Value: The 2026 SaaS Onboarding Metrics Framework"
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/framework-guides/web-apps/react/",
+            "excerpts": [
+              "Start from CLI - scaffold a full-stack app with a React SPA, Cloudflare Workers API, and the Cloudflare Vite plugin for lightning-fast development."
+            ],
+            "title": "React + Vite \u00b7 Cloudflare Workers docs"
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/vite-plugin/",
+            "excerpts": [
+              "The Cloudflare Vite plugin enables a full-featured integration between Vite \u2197 and the Workers runtime. Your Worker code runs inside workerd \u2197, matching the production behavior as closely as possible and providing confidence as you develop and deploy your applications."
+            ],
+            "title": "Vite plugin \u00b7 Cloudflare Workers docs"
+          },
+          {
+            "url": "https://www.npmjs.com/package/@cloudflare/vite-plugin",
+            "excerpts": [
+              "The Cloudflare Vite plugin enables a full-featured integration between Vite and the Workers runtime. Your Worker code runs inside workerd, matching the production behavior as closely as possible and providing confidence as you develop and deploy your applications."
+            ],
+            "title": "@cloudflare/vite-plugin - npm"
+          },
+          {
+            "url": "https://github.com/cloudflare/workers-sdk/tree/main/packages/vite-plugin-cloudflare",
+            "excerpts": [
+              "The Cloudflare Vite plugin enables a full-featured integration between Vite and the Workers runtime. Your Worker code runs inside workerd, matching the production behavior as closely as possible and providing confidence as you develop and deploy your applications."
+            ],
+            "title": "workers-sdk/packages/vite-plugin-cloudflare at main ... - GitHub"
+          },
+          {
+            "url": "https://github.com/cloudflare/templates/tree/main/vite-react-template",
+            "excerpts": [
+              "This template provides a minimal setup for building a React application with TypeScript and Vite, designed to run on Cloudflare Workers. It features hot module replacement, ESLint integration, and the flexibility of Workers deployments."
+            ],
+            "title": "templates/vite-react-template at main \u00b7 cloudflare/templates"
+          },
+          {
+            "url": "https://posthog.com/product-engineers/b2b-saas-product-metrics",
+            "excerpts": [],
+            "title": "The most useful B2B SaaS product metrics - PostHog"
+          },
+          {
+            "url": "https://genesysgrowth.com/blog/designing-b2b-saas-pricing-pages/",
+            "excerpts": [],
+            "title": "title: Best Practices for Designing B2B SaaS Pricing Pages \u2013 2026 description: High-converting B2B SaaS pricing pages in 2026 combine clear, tiered value messaging, transparent pricing, social proof, and interactive tools to guide multi-stakeholder buyers toward confident purchase decisions. published: \"Jul 17, 2026, 6:46 PM UTC\""
+          },
+          {
+            "url": "https://www.w3.org/TR/WCAG22/",
+            "excerpts": [],
+            "title": "Web Content Accessibility Guidelines (WCAG) 2.2"
+          },
+          {
+            "url": "https://www.sitepoint.com/react-useoptimistic-production-patterns-for-instant-ui-updates/",
+            "excerpts": [],
+            "title": "React useOptimistic: Production Patterns for Instant UI Updates"
+          },
+          {
+            "url": "https://www.uxpin.com/studio/blog/react-native-vs-react/",
+            "excerpts": [],
+            "title": "React Native vs. Reactjs - Understand the Difference | UXPin"
+          },
+          {
+            "url": "https://docs.passkeybridge.io/guides/passkey-ux-patterns",
+            "excerpts": [
+              "Passkey UX Patterns | PasskeyBridge\nCross-device QR flow is only needed when the passkey is not synced to the authenticating device. UX recommendation: On the login page, include a \"Use a passkey from another device\" link below the primary login button."
+            ],
+            "title": "Passkey UX Patterns | PasskeyBridge"
+          },
+          {
+            "url": "https://www.authsignal.com/blog/articles/the-passkey-ux-patterns-that-drive-adoption-in-2026",
+            "excerpts": [
+              "The passkey UX patterns that drive adoption in 2026\nPasskey adoption stalls in the moments around the WebAuthn ceremony. Four configurations that decide whether users actually keep using passkeys in 2026."
+            ],
+            "title": "The passkey UX patterns that drive adoption in 2026"
+          },
+          {
+            "url": "https://securityboulevard.com/2026/04/10-ux-patterns-that-drive-80-passkey-adoption-with-real-examples",
+            "excerpts": [
+              "10 UX Patterns That Drive 80%+ Passkey Adoption (With Real ...\nAs of 2026, passkey support is effectively universal across major platforms: iOS 16+, Android 9+, Windows Hello, macOS Touch ID, and all major browsers. Device readiness in modern consumer markets exceeds 95% according to State of Passkeys data."
+            ],
+            "title": "10 UX Patterns That Drive 80%+ Passkey Adoption (With Real ..."
+          },
+          {
+            "url": "https://www.authsignal.com/blog/articles/ux-best-practices-for-passkeys-understanding-device-initiated-authentication",
+            "excerpts": [
+              "UX Best Practices for Passkeys: Understanding Device ...\nPasskeys differ from traditional username-based methods for passwordless sign-in and MFA. This article will guide you on how to create the most effective passkey experience for your users, focusing on web browsers as the platform."
+            ],
+            "title": "UX Best Practices for Passkeys: Understanding Device ..."
+          },
+          {
+            "url": "https://developers.google.com/identity/passkeys/ux/user-journeys",
+            "excerpts": [
+              "Passkeys user journeys | Google for Developers\nBest practices for passkeys are evolving and following the guidance for common user journeys will speed up your development process and ensure your users are successful in using passkeys."
+            ],
+            "title": "Passkeys user journeys | Google for Developers"
+          },
+          {
+            "url": "http://chromewebstore.google.com/detail/ai-sidebar-%E2%80%94-chatgpt-clau/bfabadmipmkngbdagbjkpjflihlclckc?hl=en",
+            "excerpts": [
+              "Apr 22, 2026 \u2014 AI Sidebar is the all-in-one AI assistant for Chrome that puts ChatGPT, Claude, and Google Gemini right inside your browser's side panel"
+            ],
+            "title": "AI Sidebar \u2014 ChatGPT, Claude, Gemini \u2014 FREE & Unlimited"
+          },
+          {
+            "url": "https://bertomill.medium.com/claude-desktop-now-has-project-folders-and-it-makes-managing-files-so-much-easier-b2bfcc3f6aee",
+            "excerpts": [
+              "Claude Desktop Now Has Project Folders, and It Makes ...\nYou'll find a project sidebar on the left side of the desktop app. Click \u201cNew Project ,\u201d and you've got three options: start from scratch, import"
+            ],
+            "title": "Claude Desktop Now Has Project Folders, and It Makes ..."
+          },
+          {
+            "url": "https://productimpactpod.com/news/ux-researcher-guide-claude-tools",
+            "excerpts": [
+              "The UX Researcher's Guide to Claude, Claude Cowork, and ...\nApr 27, 2026 \u2014 A practical guide for UX researchers: which Anthropic tool fits which workflow stage, how to set each up, and the data privacy risks vendors"
+            ],
+            "title": "The UX Researcher's Guide to Claude, Claude Cowork, and ..."
+          },
+          {
+            "url": "https://www.popularai.org/p/chatgpt-sidebar-pinned-chats-gpts-projects-missing",
+            "excerpts": [
+              "The ChatGPT sidebar sucks now. Here\u2019s how to fix it.\nIf your ChatGPT pinned chats, GPTs, or Projects disappeared, do not panic. Here is what changed and how to get them back."
+            ],
+            "title": "The ChatGPT sidebar sucks now. Here\u2019s how to fix it."
+          },
+          {
+            "url": "https://ruben.substack.com/p/claude-cowork-project",
+            "excerpts": [
+              "Claude Cowork + Project. - by Ruben Hassid - How to AI\nThe old Claude had two separate things: Claude Projects (on claude.ai) = a folder of chats in your browser. Upload files and write instructions."
+            ],
+            "title": "Claude Cowork + Project. - by Ruben Hassid - How to AI"
+          },
+          {
+            "url": "https://www.saasui.design/pattern/empty-state",
+            "excerpts": [
+              "Empty State UI UX Interface Design Patterns | SaaSUI\nEmpty state designs from real SaaS apps. Zero-data screens, first-use prompts, and placeholder illustrations. empty state screenshots from 94 SaaS products."
+            ],
+            "title": "Empty State UI UX Interface Design Patterns | SaaSUI"
+          },
+          {
+            "url": "https://studiomaydit.com/blog/saas-empty-state-design",
+            "excerpts": [
+              "SaaS Empty State Design: Turning Blank Screens Into Conversion ...\nJun 10, 2026 \u00b7 How to design SaaS empty states that activate users instead of confusing them. Why blank screens kill activation and what to show instead."
+            ],
+            "title": "SaaS Empty State Design: Turning Blank Screens Into Conversion ..."
+          },
+          {
+            "url": "https://pixxen.com/blog/saas-empty-state-design",
+            "excerpts": [
+              "SaaS Empty State Design: 9 UX Patterns | Pixxen\nMay 5, 2026 \u00b7 Most SaaS products lose users at empty states. Learn 9 design patterns that turn blank screens into activation moments that keep users"
+            ],
+            "title": "SaaS Empty State Design: 9 UX Patterns | Pixxen"
+          },
+          {
+            "url": "https://www.mazenzoor.com/articles/designing-for-empty-states",
+            "excerpts": [
+              "Designing for Empty States in Complex SaaS Dashboards: How to ...\nThis article breaks down how to design empty states for analytics, admin panels, and enterprise workflows so users understand what is missing, what to do next, and why the system still feels reliable."
+            ],
+            "title": "Designing for Empty States in Complex SaaS Dashboards: How to ..."
+          },
+          {
+            "url": "https://inity.agency/blog/how-to-design-empty-states-in-saas-products",
+            "excerpts": [
+              "How to Design Empty States in SaaS Products? - inity.agency\nThere are five types of empty state in SaaS products: first-use (new user, no data), user-cleared (user deleted all data), no results (search or filter returned nothing), error (data failed to load), and congratulatory (task completed) - each needs a distinct design approach"
+            ],
+            "title": "How to Design Empty States in SaaS Products? - inity.agency"
+          },
+          {
+            "url": "https://frankrausch.com/ios-navigation",
+            "excerpts": [
+              "Modern iOS Navigation Patterns\nThis page collects all the familiar navigation patterns for structuring iOS apps, like drill-downs, modals, pyramids, sequences, and more!"
+            ],
+            "title": "Modern iOS Navigation Patterns"
+          },
+          {
+            "url": "https://toolstackpm.com/tools/linear/features/mobile-app",
+            "excerpts": [
+              "Linear Mobile App: Full Guide & Honest Review (2026) | ToolStack\nYes \u2014 Linear has native apps for iOS and Android (ios and android). You can create and update tasks, leave comments, manage notifications, and view boards and timelines from your phone."
+            ],
+            "title": "Linear Mobile App: Full Guide & Honest Review (2026) | ToolStack"
+          },
+          {
+            "url": "https://linear.app/mobile",
+            "excerpts": [
+              "Linear Mobile \u2013 Available for iOS and Android\nLinear Mobile is purpose-designed for on-demand workflows that complement the desktop experience. A powerful sidekick, always available in your pocket. Ultraportable. A from-the-ground-up redesigned user interface makes Linear Mobile both light in weight and strong in performance. Fully native."
+            ],
+            "title": "Linear Mobile \u2013 Available for iOS and Android"
+          },
+          {
+            "url": "https://www.youtube.com/watch?v=OHfChQ6dVw8",
+            "excerpts": [
+              "How to Use Linear Mobile | Full Beginner's Guide (iOS ...\nIn this quick tutorial, I'll show you step-by-step how to use Linear Mobile on both iOS and Android\u2014covering setup, navigation, and key features"
+            ],
+            "title": "How to Use Linear Mobile | Full Beginner's Guide (iOS ..."
+          },
+          {
+            "url": "http://youtube.com/watch?v=tPI-jc3RYQo",
+            "excerpts": [
+              "Gavin Nelson (https://nelson.co/) is currently designing the Linear mobile app in addition to the best [app icons](https://nelson.co/icon."
+            ],
+            "title": "Gavin Nelson (https://nelson.co/) is currently designing the Linear mobile app in addition to the best [app icons](https://nelson.co/icon."
+          },
+          {
+            "url": "https://uxpatterns.dev/patterns/advanced/command-palette",
+            "excerpts": [
+              "Command Palette Pattern | UX Patterns for Developers\nLearn how to implement command palettes. Discover best practices for keyboard shortcuts, fuzzy search, and command discovery."
+            ],
+            "title": "Command Palette Pattern | UX Patterns for Developers"
+          },
+          {
+            "url": "https://www.saasframe.io/saas/raycast",
+            "excerpts": [
+              "Raycast UX/UI Design and Copywrinting Examples - SaaSFrame\nBrowse Raycast UX / UI design and copywrinting. Our collection includes 13 screens, ranging from marketing pages, emails flows and product interfaces on SaaSFrame."
+            ],
+            "title": "Raycast UX/UI Design and Copywrinting Examples - SaaSFrame"
+          },
+          {
+            "url": "https://developers.raycast.com/api-reference/user-interface",
+            "excerpts": [
+              "User Interface - Raycast API\nRaycast uses React for its user interface declaration and renders the supported elements to our native UI. The API comes with a set of UI components that you can use to build your extensions."
+            ],
+            "title": "User Interface - Raycast API"
+          },
+          {
+            "url": "https://designmd.ai/brunopetrovic/raycast",
+            "excerpts": [
+              "Raycast by @brunopetrovic | DESIGN.md\n\u2022 Command-palette mockups scale fluidly with the container; the in-product UI itself is responsive and re-renders for each breakpoint. \u2022 App-icon tiles stay at 48\u201364px fixed size at every breakpoint; they tile in flexible rows that wrap at narrower widths."
+            ],
+            "title": "Raycast by @brunopetrovic | DESIGN.md"
+          },
+          {
+            "url": "https://github.com/Laith0003/ux-skill/blob/main/references/brands/raycast.md",
+            "excerpts": [
+              "ux-skill/references/brands/raycast.md at main \u00b7 Laith0003/ux ...\nux-skill: 18 slash commands, 5 sub-agents, deterministic linter, 72 brand DESIGN.md specs (Apple, Stripe, Linear, Figma, Tesla) for Claude Code. Audit, generate, polish UI; design systems; accessibility; SEO; microcopy; motion."
+            ],
+            "title": "ux-skill/references/brands/raycast.md at main \u00b7 Laith0003/ux ..."
+          },
+          {
+            "url": "http://growthspreeofficial.com/blogs/b2b-saas-trial-to-paid-conversion-rate-benchmarks-2026-by-trial-type-acv-length-credit-card",
+            "excerpts": [
+              "B2B SaaS Trial-to-Paid Conversion Rate Benchmarks 2026: By ...\nOpt-in free trials (no credit card) deliver lower conversion (8\u201322%) but capture more top-of-funnel volume. Freemium (permanent free tier) delivers the lowest free-to-paid conversion (2\u20138%) but the highest absolute pipeline because the free tier scales without acquisition cost."
+            ],
+            "title": "B2B SaaS Trial-to-Paid Conversion Rate Benchmarks 2026: By ..."
+          },
+          {
+            "url": "https://www.shno.co/marketing-statistics/free-trial-conversion-statistics",
+            "excerpts": [
+              "Free Trial Conversion Statistics for 2026: Opt-In vs. Opt-Out ...\nOpt-out trials requiring a credit card upfront convert at 48.8% from trial to paid, while opt-in trials with no credit card required convert at 18.2%, based on First Page Sage\u2019s benchmark report drawn from 86 SaaS companies across Q1 2022 to Q3 2025."
+            ],
+            "title": "Free Trial Conversion Statistics for 2026: Opt-In vs. Opt-Out ..."
+          },
+          {
+            "url": "https://ideaproof.io/questions/good-trial-conversion",
+            "excerpts": [
+              "Good Trial Conversion Rate: SaaS Benchmarks 2026 | IdeaProof\nNov 30, 2024 \u00b7 Good free trial to paid conversion rates: opt-in trial (no card) 15-25%, opt-out trial (card required) 50-60%, freemium to paid 2-5%."
+            ],
+            "title": "Good Trial Conversion Rate: SaaS Benchmarks 2026 | IdeaProof"
+          },
+          {
+            "url": "https://userpilot.com/blog/saas-average-conversion-rate",
+            "excerpts": [
+              "SaaS Average Free Trial Conversion Rate: Benchmarks - Userpilot\nJun 10, 2026 \u00b7 What the SaaS conversion rate data actually says ; Free trial (no credit card), 4-6%, 10-15% ; Reverse trial, 4-6%, 8-12% ; Free trial (credit card"
+            ],
+            "title": "SaaS Average Free Trial Conversion Rate: Benchmarks - Userpilot"
+          },
+          {
+            "url": "https://growthengineer.ai/blog/plg-benchmarks-2026",
+            "excerpts": [
+              "PLG Benchmarks 2026: The Side-by-Side Report (Conversion ...\nA good PLG conversion rate in 2026 is 5% for freemium, 17% for free trials without a credit card, and 25-35% for free trials with a credit card. Top-quartile performers hit 38.2% trial-to-paid, with elite PLG companies reaching 56%."
+            ],
+            "title": "PLG Benchmarks 2026: The Side-by-Side Report (Conversion ..."
+          },
+          {
+            "url": "https://blog.logrocket.com/complete-guide-react-native-web",
+            "excerpts": [
+              "The complete guide to React Native for Web\nJul 21, 2023 \u2014 Limitations when using React Native for Web \u00b7 Not all React Native APIs, components, and component features are implemented for the web platform,"
+            ],
+            "title": "The complete guide to React Native for Web"
+          },
+          {
+            "url": "https://medium.com/react-native-journal/react-native-for-web-in-2025-one-codebase-all-platforms-b985d8f7db28",
+            "excerpts": [
+              "React Native for Web in 2025: One Codebase, All Platforms\n1. Performance Limitations. While React Native for Web performs well for many apps, large and complex web pages can suffer from heavier"
+            ],
+            "title": "React Native for Web in 2025: One Codebase, All Platforms"
+          },
+          {
+            "url": "https://apiko.com/blog/react-native-limitations",
+            "excerpts": [
+              "React Native Limitations: An Expert View in 2025 - Apiko\nDiscover key React Native limitations in 2025 \u2014 backed by real developer experience, practical examples, and best practices to build stable cross-platform apps."
+            ],
+            "title": "React Native Limitations: An Expert View in 2025 - Apiko"
+          },
+          {
+            "url": "https://apiko.com/blog/react-native-for-web",
+            "excerpts": [
+              "React Native for Web: Advantages, Disadvantages, and Use ...\nApr 4, 2025 \u2014 React Native for Web lets you build iOS, Android, and web apps using one stack. Learn about its advantages, limitations, and real-world use."
+            ],
+            "title": "React Native for Web: Advantages, Disadvantages, and Use ..."
+          },
+          {
+            "url": "https://medium.com/%40_benmoses/react-native-web-for-production-556feccfd0cb",
+            "excerpts": [
+              "React Native Web for Production\nThe initial investigation into React Native Web seemed all positive, writing less code and delivering to more platforms."
+            ],
+            "title": "React Native Web for Production"
+          },
+          {
+            "url": "https://designlab.com/blog/the-brief-08-15-25",
+            "excerpts": [
+              "The UX of ChatGPT's new agent\nAug 15, 2025 \u2014 Senior UX Specialist Evan Sunwall does a dive into ChatGPT's new agent mode, finding that while the AI can complete autonomous tasks,"
+            ],
+            "title": "The UX of ChatGPT's new agent"
+          },
+          {
+            "url": "https://dev.classmethod.jp/articles/chatgptuxbasicex",
+            "excerpts": [
+              "ChatGPT\u3092\u6d3b\u7528\u3057\u3066\u5408\u683c\uff01UX\u691c\u5b9a\u57fa\u790e\u8a66\u9a13\u306e\u653b\u7565\u6cd5\n2024/01/22 \u2014 UX\u691c\u5b9a\u57fa\u790e\u8a66\u9a13\u3092\u53d7\u9a13\u3059\u308b\u969b\u3001\u7acb\u3061\u306f\u3060\u304b\u308b\u8ab2\u984c\u306f\u300c\u904e\u53bb\u554f\u984c\u96c6\u304c\u5b58\u5728\u3057\u306a\u3044\u3053\u3068\u300d\u3067\u3059\u3002 \u3053\u308c\u307e\u3067\u3001\u81ea\u5206\u304c\u884c\u3063\u3066\u304d\u305f\u8cc7\u683c\u8a66\u9a13\u306e\u52c9\u5f37\u65b9\u6cd5\u306f. \u2460\u904e\u53bb\u554f\u306b\u6311\u3080."
+            ],
+            "title": "ChatGPT\u3092\u6d3b\u7528\u3057\u3066\u5408\u683c\uff01UX\u691c\u5b9a\u57fa\u790e\u8a66\u9a13\u306e\u653b\u7565\u6cd5"
+          },
+          {
+            "url": "https://community.openai.com/t/how-to-sign-out-of-all-sessions-in-chatgpt-anywhere/56684",
+            "excerpts": [
+              "How to sign out of all sessions in chatGPT anywhere\n\u201clog out of all sessions because of account compromise\u201d is something you can contact staff to do at help.openai.com (until they build a web interface)"
+            ],
+            "title": "How to sign out of all sessions in chatGPT anywhere"
+          },
+          {
+            "url": "https://www.youtube.com/watch?v=kV4_vKb0MCU",
+            "excerpts": [
+              "How to Sign Out of ChatGPT (How to Log Out from Chat GPT)\nStep by step instructions of how to logout of a chatgpt account. You can change chat gpt account on your windows computer or macbook laptop with"
+            ],
+            "title": "How to Sign Out of ChatGPT (How to Log Out from Chat GPT)"
+          },
+          {
+            "url": "https://chatgpt.com/g/g-B0jQ26xpb-ux-ui-design-user-feedback",
+            "excerpts": [
+              "UX/UI Design User Feedback\nAnalista UX/ UI que ofrece feedback constructivo sobre dise\u00f1os."
+            ],
+            "title": "UX/UI Design User Feedback"
+          },
+          {
+            "url": "https://www.aiuxplayground.com/teardowns/claude/artifacts",
+            "excerpts": [
+              "Claude artifacts UX: split pane & preview design\nClaude Artifacts UX walkthrough: artifact cards, split-pane preview, code view, and publish. How Anthropic ships work product without leaving the chat."
+            ],
+            "title": "Claude artifacts UX: split pane & preview design"
+          },
+          {
+            "url": "https://www.guideflow.com/tutorial/how-to-preview-a-code-artifact-in-claudeai",
+            "excerpts": [
+              "How to preview a code Artifact in Claude.ai\nMar 4, 2026 \u2014 Learn to preview a code Artifact in Claude.ai: Click \"Artifacts\" in sidebar, select \"Your artifacts\", choose code, toggle preview,"
+            ],
+            "title": "How to preview a code Artifact in Claude.ai"
+          },
+          {
+            "url": "https://sunstech.com.tr/en/blog/uiux-design-production-with-claude-artifact-and-react-components",
+            "excerpts": [
+              "UI/UX Design with Claude: Artifact and React Component Generation\nHow to create UI/UX design artifacts and code React components using Claude AI? Discover the advantages and best practices of AI-powered design."
+            ],
+            "title": "UI/UX Design with Claude: Artifact and React Component Generation"
+          },
+          {
+            "url": "https://www.aiforanything.io/blog/claude-for-ux-designers-2026",
+            "excerpts": [
+              "Claude for UX Designers: The Complete 2026 Guide to AI ...\nLearn how UX designers use Claude AI to cut research time by 85% and build interactive prototypes. Complete 2026 guide to Artifacts, code generation, and accessibility."
+            ],
+            "title": "Claude for UX Designers: The Complete 2026 Guide to AI ..."
+          },
+          {
+            "url": "https://claudeaihub.com/claude-artifacts",
+            "excerpts": [
+              "Claude Artifacts Guide: Uses and Examples\nFor official Artifacts documentation, visit support.claude.com. What Are Claude Artifacts? Artifacts are self-contained outputs that Claude renders in a separate panel within the Claude interface. Instead of showing a code block or long document inline in the chat, Claude opens a split view \u2014 the conversation on the left, the Artifact on the"
+            ],
+            "title": "Claude Artifacts Guide: Uses and Examples"
+          },
+          {
+            "url": "https://releasebot.io/updates/vercel/next-js",
+            "excerpts": [
+              "Next.js Updates & Release Notes\nJul 2, 2026 \u2014 Next.js ships a 16.2 backport release focused on bug fixes and stability, with documentation updates, hydration and router fixes, cache tag"
+            ],
+            "title": "Next.js Updates & Release Notes"
+          },
+          {
+            "url": "https://medium.com/%40reactjsbd/next-js-16-the-definitive-guide-to-cache-components-proxy-ts-and-turbopack-94bb7a897a1a",
+            "excerpts": [
+              "Next.js 16: The Definitive Guide to Cache Components, Proxy ...\nNext.js 16 introduces a \"use cache\" directive (conceptually similar to \"use client\" or \"use server\"), giving you explicit control over what gets cached and for how long. This is built on"
+            ],
+            "title": "Next.js 16: The Definitive Guide to Cache Components, Proxy ..."
+          },
+          {
+            "url": "https://makerkit.dev/blog/tutorials/nextjs-16",
+            "excerpts": [
+              "Next.js 16: what's new?\nOct 22, 2025 \u2014 Next.js 16 is the October 2025 major release of the React framework . It makes Turbopack the default bundler (2-5x faster builds), introduces"
+            ],
+            "title": "Next.js 16: what's new?"
+          },
+          {
+            "url": "https://medium.com/%40sureshdotariya/next-js-16-deep-dive-cache-components-turbopack-modern-web-development-b261e3bff8d1",
+            "excerpts": [
+              "Next.js 16 Deep Dive: Cache Components, Turbopack & Modern ...\nFilesystem caching for Turbopack \u2014 stores compiler artefacts on disk between runs for faster restarts. Simplified create-next-app \u2013 the starter"
+            ],
+            "title": "Next.js 16 Deep Dive: Cache Components, Turbopack & Modern ..."
+          },
+          {
+            "url": "https://www.cosmicjs.com/blog/nextjs-15-vs-16-building-modern-blogs-in-the-turbopack-era",
+            "excerpts": [
+              "Next.js 15 vs 16: Building Modern Blogs in the Turbopack Era\nTurbopack stability - No longer experimental, with clear performance wins; Enhanced caching control - More sophisticated performance"
+            ],
+            "title": "Next.js 15 vs 16: Building Modern Blogs in the Turbopack Era"
+          },
+          {
+            "url": "https://www.reddit.com/r/reactnative/comments/1qh2xn4/react_native_vs_flutter_for_b2b_saas_app",
+            "excerpts": [
+              "React Native vs Flutter for B2B SaaS App : r/reactnative - Reddit\nJan 19, 2026 \u00b7 Its based on personal preference. If you are good with javascript then go for React native. Or if you want learn Dart then go for flutter. SaaS with web and mobile apps - build it all in Reactnative ... Are there businesses that actually use the same code base ... More results from www.reddit.com"
+            ],
+            "title": "React Native vs Flutter for B2B SaaS App : r/reactnative - Reddit"
+          },
+          {
+            "url": "https://www.appdesignglory.com/blogs/flutter-vs-react-native-2026",
+            "excerpts": [
+              "Flutter App Development vs React Native in 2026\n1 day ago \u00b7 This guide explains the real differences between Flutter and React Native from a business, engineering, and product strategy perspective. By the"
+            ],
+            "title": "Flutter App Development vs React Native in 2026"
+          },
+          {
+            "url": "https://www.virtuenetz.com/flutter-vs-react-native",
+            "excerpts": [
+              "Flutter vs React Native in 2026: Which Framework Wins?\nApr 20, 2026 \u00b7 Choosing between Flutter and React Native in 2026? This in-depth comparison covers performance, cost, scalability, and real-world use cases"
+            ],
+            "title": "Flutter vs React Native in 2026: Which Framework Wins?"
+          },
+          {
+            "url": "https://www.techaheadcorp.com/blog/flutter-vs-react-native-in-2026-the-ultimate-showdown-for-app-development-dominance",
+            "excerpts": [
+              "Flutter vs React Native in 2026: An In-Depth Guide - TechAhead\nMay 8, 2026 \u00b7 Confused between Flutter and React Native? This guide compares pros, cons, performance, and developer experience to help you choose the"
+            ],
+            "title": "Flutter vs React Native in 2026: An In-Depth Guide - TechAhead"
+          },
+          {
+            "url": "http://expo.io/",
+            "excerpts": [
+              "(last verified: 2026-07-13) (last verified: 2026-07-13) Expo Expo is the official React Native framework, recommended by the React Native team at Meta for building production apps on Android, iOS, and the web. It is to React Native what Next.js is to React: the standard way to build, not an optional add-on. Over 80% of React Native developers use Expo. The framework has 48,000+ GitHub stars, 4+ million npm downloads per week, and powers apps serving hundreds of millions of end users. Get started for free: https://expo.dev/signup"
+            ],
+            "title": null
+          },
+          {
+            "url": "https://react.dev/blog/2024/12/05/react-19",
+            "excerpts": [
+              "React v19 \u2013 React\nNote React 19 is now stable! Additions since this post was originally shared with the React 19 RC in April: Pre-warming for suspended trees: see Improvements to Suspense. React DOM static APIs: see New React DOM Static APIs. The date for this post has been updated to reflect the stable release date."
+            ],
+            "title": "React v19 \u2013 React"
+          },
+          {
+            "url": "https://react.dev/reference/react/useOptimistic",
+            "excerpts": [
+              "useOptimistic\nuseActionState \u00b7 useCallback \u00b7 useContext ... Each optimistic item includes a pending: true flag so you can show loading state for individual items."
+            ],
+            "title": "useOptimistic"
+          },
+          {
+            "url": "https://www.grapestechsolutions.com/blog/reactjs-latest-version-19-updates",
+            "excerpts": [
+              "ReactJS Latest Version 19 \u2013 New Features and Developer ...\nBy mid-2025, React 19 has become the latest stable React version widely adopted across projects. This release brings a host of improvements over previous versions, focusing on performance, developer productivity, and compatibility with existing projects."
+            ],
+            "title": "ReactJS Latest Version 19 \u2013 New Features and Developer ..."
+          },
+          {
+            "url": "https://zh-hant.react.dev/reference/react/useOptimistic",
+            "excerpts": [
+              "useOptimistic\nuseOptimistic is a React Hook that lets you show a different state while an async action is underway . It accepts some state as an argument and returns a copy of"
+            ],
+            "title": "useOptimistic"
+          },
+          {
+            "url": "https://www.luckymedia.dev/blog/react-19-an-early-look-and-release-date",
+            "excerpts": [
+              "React 19: New Features, Breaking Changes, and Code Examples\nJul 15, 2024 \u00b7 Yes. React 19 reached stable release on December 5, 2024. It is production-ready and safe to use in new and existing projects."
+            ],
+            "title": "React 19: New Features, Breaking Changes, and Code Examples"
+          },
+          {
+            "url": "https://github.com/cloudflare/vinext",
+            "excerpts": [
+              "cloudflare/vinext: Vite plugin that reimplements the Next.js ...\n12 hours ago \u2014 For Cloudflare Workers, the native integration ( vinext deploy ) gives you the smoothest experience. Native adapters for more platforms are planned. What"
+            ],
+            "title": "cloudflare/vinext: Vite plugin that reimplements the Next.js ..."
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/framework-guides/web-apps/nextjs",
+            "excerpts": [
+              "Next.js \u00b7 Cloudflare Workers docs"
+            ],
+            "title": "Next.js \u00b7 Cloudflare Workers docs Cloudflare Developer Docs https://developers.cloudflare.com \u203a ... \u203a Web applications"
+          },
+          {
+            "url": "https://blog.logrocket.com/vinext-cloudflares-vite-based-next-js-replacement",
+            "excerpts": [
+              "vinext explained: Cloudflare's Vite-based Next.js replacement\nMar 31, 2026 \u2014 Projects like OpenNext have made that much more workable, But vinext takes a more radical approach. Vite is faster. vinext replaces next with"
+            ],
+            "title": "vinext explained: Cloudflare's Vite-based Next.js replacement"
+          },
+          {
+            "url": "https://cloudflare-vinext.mintlify.app/introduction",
+            "excerpts": [
+              "vinext - vinext\nWorth knowing about: OpenNext \u2014 adapts next build output for AWS, Cloudflare, and other platforms. More mature and battle-tested than vinext."
+            ],
+            "title": "vinext - vinext"
+          },
+          {
+            "url": "https://yceffort.kr/en/2026/03/why-cloudflare-rebuilt-nextjs",
+            "excerpts": [
+              "Why Cloudflare Rebuilt Next.js\nMar 17, 2026 \u2014 This post examines the structural background behind vinext's emergence, how it differs from the existing approach (OpenNext), what \"built with"
+            ],
+            "title": "Why Cloudflare Rebuilt Next.js"
+          },
+          {
+            "url": "https://medium.com/%40idogolan15/create-a-browser-sdk-using-opentelemetry-distribution-c269f943cfac",
+            "excerpts": [
+              "Frontend Tracing Using OpenTelemetry Distribution | by Ido Golan\nAug 20, 2023 \u00b7 In this post, we're going to delve into crafting a JavaScript browser SDK that incorporates all the essential plugins for setting up instrumentation."
+            ],
+            "title": "Frontend Tracing Using OpenTelemetry Distribution | by Ido Golan"
+          },
+          {
+            "url": "https://oneuptime.com/blog/post/2026-02-06-track-browser-javascript-errors-opentelemetry/view",
+            "excerpts": [
+              "How to Track Browser JavaScript Errors with OpenTelemetry\n6 de fev. de 2026 \u00b7 Setting Up the OpenTelemetry Browser SDK. Start by initializing the Web Tracer Provider with the necessary configuration for error tracking."
+            ],
+            "title": "How to Track Browser JavaScript Errors with OpenTelemetry"
+          },
+          {
+            "url": "https://opentelemetry.io/docs/languages/js/getting-started/browser",
+            "excerpts": [
+              "Browser | OpenTelemetry\nTo create traces in the browser, you will need @opentelemetry/sdk-trace-web, and the instrumentation @opentelemetry/instrumentation-document-load."
+            ],
+            "title": "Browser | OpenTelemetry"
+          },
+          {
+            "url": "https://www.npmjs.com/package/%40opentelemetry/sdk-trace-web?activeTab=dependents",
+            "excerpts": [
+              "@opentelemetry/sdk-trace-web - npm\n11 de jun. de 2026 \u00b7 This package exposes a class WebTracerProvider that will be able to automatically trace things in Browser only."
+            ],
+            "title": "@opentelemetry/sdk-trace-web - npm"
+          },
+          {
+            "url": "https://needlecode.com/blog/mern/micro-frontend-architecture-react-module-federation.html",
+            "excerpts": [
+              "Micro-frontend Architecture with React and Module Federation\nScale your frontend like your backend. Learn how to implement Micro-frontends using React and Webpack Module Federation in 2026."
+            ],
+            "title": "Micro-frontend Architecture with React and Module Federation"
+          },
+          {
+            "url": "https://techoral.com/react/react-micro-frontends.html",
+            "excerpts": [
+              "React Micro-Frontends: Module Federation Guide (2026)\nWebpack 5's Module Federation is the most adopted approach \u2014 it enables runtime composition of separately built and deployed JavaScript modules. This guide covers host/remote setup, shared dependencies, cross-app routing, and when to use micro-frontends."
+            ],
+            "title": "React Micro-Frontends: Module Federation Guide (2026)"
+          },
+          {
+            "url": "https://blog.logrocket.com/build-micro-frontend-application-react",
+            "excerpts": [
+              "Build a micro-frontend application with React\nNov 4, 2024 \u2014 In this article, we'll cover the basics of what a micro-frontend is and learn how to implement one using React. We'll also discuss the advantages of using\u00a0"
+            ],
+            "title": "Build a micro-frontend application with React"
+          },
+          {
+            "url": "https://medium.com/%40isuruariyarathna2k00/a-deep-dive-into-micro-frontend-architecture-with-react-js-264ca6edca6b",
+            "excerpts": [
+              "A Deep Dive into Micro Frontend Architecture with React.js\nMicro frontend architecture stands as a beacon of innovation, offering a modular, scalable, and collaborative approach to building modern web applications."
+            ],
+            "title": "A Deep Dive into Micro Frontend Architecture with React.js"
+          },
+          {
+            "url": "https://dev.to/mahdi_benrhouma_fe1c6005/micro-frontends-the-complete-architecture-guide-for-2026-41kf",
+            "excerpts": [
+              "Micro-Frontends: The Complete Architecture Guide for 2026\nMaster micro-frontend architecture with Module Federation, single-spa, and modern deployment strategies. Real-world examples and best practices included. Tagged with architecture, microfrontends, javascript, react."
+            ],
+            "title": "Micro-Frontends: The Complete Architecture Guide for 2026"
+          },
+          {
+            "url": "https://www.youtube.com/watch?v=AC6C1jFksAQ",
+            "excerpts": [
+              "Undo Action Toasts | Soft Deletes Made Simple\n00:00 Demo: Showcasing Undo Action Toast 00:31 Designing the Database Schema. Demonstrating Soft Deletion in the Database. Up Automated Soft"
+            ],
+            "title": "Undo Action Toasts | Soft Deletes Made Simple"
+          },
+          {
+            "url": "https://slackmojis.com/emojis/42157-undo",
+            "excerpts": [
+              "Undo Emoji \u2014 Copy and Paste or Download for Slack"
+            ],
+            "title": "Undo Emoji \u2014 Copy and Paste or Download for Slack Slack emojis https://slackmojis.com \u203a 42157-undo"
+          },
+          {
+            "url": "https://ux.stackexchange.com/questions/116634/how-long-should-a-toast-message-with-undo-appear",
+            "excerpts": [
+              "How long should a toast message with 'undo' appear?\nIn our application, the user can make small changes, such as deleting a chart from a report. When they delete an item, a toast notification appears"
+            ],
+            "title": "How long should a toast message with 'undo' appear?"
+          },
+          {
+            "url": "http://slack.com/help/articles/203457187-Customize-data-retention-in-Slack",
+            "excerpts": [
+              "Slack will keep all messages for one year, but will not track message edits or deletions. After one year, messages will be permanently deleted"
+            ],
+            "title": "Customize data retention in Slack"
+          },
+          {
+            "url": "https://github.com/mui/base-ui/issues/4253",
+            "excerpts": [
+              "[toast] accessibility: Undo action can't be reached in time ...\nThe \"Undo action\" Toast example triggers an important Toast with an \"undo\" button inside it. Keyboard and screen reader users can't undo the"
+            ],
+            "title": "[toast] accessibility: Undo action can't be reached in time ..."
+          },
+          {
+            "url": "https://workos.com/blog/workos-vs-betterauth-vs-clerk",
+            "excerpts": [
+              "WorkOS vs. BetterAuth vs. Clerk: Which should you choose?\nFeb 13, 2026 \u00b7 WorkOS is designed to make your application enterprise-ready with minimal effort. Better Auth is an open-source TypeScript framework that puts you in complete"
+            ],
+            "title": "WorkOS vs. BetterAuth vs. Clerk: Which should you choose?"
+          },
+          {
+            "url": "https://workos.com/blog/workos-vs-auth0-vs-clerk-the-best-auth-platform-for-b2b-saas-in-2026",
+            "excerpts": [
+              "WorkOS vs. Auth0 vs. Clerk: The best auth platform for B2B SaaS in ...\nMay 26, 2026 \u00b7 WorkOS vs. Auth0 vs. Clerk: The best auth platform for B2B SaaS in 2026 \u00b7 The quick verdict \u00b7 WorkOS: Built for selling to enterprise \u00b7 Auth0: The category\u00a0... Workos: Built For Selling To... \u00b7 Auth0: The Category... \u00b7 Clerk: Developer Experience"
+            ],
+            "title": "WorkOS vs. Auth0 vs. Clerk: The best auth platform for B2B SaaS in ..."
+          },
+          {
+            "url": "http://workos.com/",
+            "excerpts": [
+              "AuthKit. Flexible authentication UI powered by WorkOS and Radix.\nA unified platform with modern APIs. WorkOS provides a single, elegant interface that abstracts dozens of enterprise integrations. Read the docs."
+            ],
+            "title": "WorkOS \u2014 Your app, Enterprise Ready."
+          },
+          {
+            "url": "https://tailscale.com/docs/features/access-control/device-management/device-approval",
+            "excerpts": [
+              "Device approval \u00b7 Tailscale Docs\nJan 5, 2026 \u2014 A device awaiting approval cannot send or receive traffic on your Tailscale network until it is approved. A notification informs the user that"
+            ],
+            "title": "Device approval \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/tailscale-services",
+            "excerpts": [
+              "Tailscale Services\nFeb 2, 2026 \u2014 Pending approval: The Service has one or more hosts that have been advertised but are awaiting approval from an Admin, Network admin, or Owner."
+            ],
+            "title": "Tailscale Services"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/access-control/device-management",
+            "excerpts": [
+              "Manage devices \u00b7 Tailscale Docs\nSee how to review and approve devices, rename a machine, and filter devices in the admin console."
+            ],
+            "title": "Manage devices \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/access-control/device-management/how-to/set-up",
+            "excerpts": [
+              "Add a device - Tailscale Docs\nIf device approval is enabled, the device will display in the Machines page of the admin console with a status of Needs approval. If you are adding a server to a tailnet, it is recommended that you use an tag as the identity of the server, and provision the server using an auth key."
+            ],
+            "title": "Add a device - Tailscale Docs"
+          },
+          {
+            "url": "https://www.saasframe.io/patterns/modal",
+            "excerpts": [
+              "428 SaaS Modal UI Design Examples\nExplore the best SaaS Modal UI designs example in 2026, and find inspiration for your next design project."
+            ],
+            "title": "428 SaaS Modal UI Design Examples"
+          },
+          {
+            "url": "https://www.saasui.design/blog/saas-modal-dialog-ux-patterns",
+            "excerpts": [
+              "SaaS Modal & Dialog UX Patterns: When to Use Modals, Drawers ...\nA practical guide to modal and dialog UX in SaaS \u2014 when a modal is the right tool, when a side drawer or inline edit beats it, accessibility must-haves, and real product screenshots showing each pattern in shipped apps."
+            ],
+            "title": "SaaS Modal & Dialog UX Patterns: When to Use Modals, Drawers ..."
+          },
+          {
+            "url": "https://userpilot.com/blog/modal-ux-design",
+            "excerpts": [
+              "Modal UX Design for SaaS in 2026 - Best Practices & Examples\nHaving gone through what makes a modal and how to use them, let\u2019s apply our new knowledge to several modals currently being used by SaaS companies and see how good they are."
+            ],
+            "title": "Modal UX Design for SaaS in 2026 - Best Practices & Examples"
+          },
+          {
+            "url": "https://viprasol.com/blog/saas-email-verification",
+            "excerpts": [
+              "SaaS Email Verification\nOur team builds complete verification systems with React Email templates, immediate old-token expiry on resend, and pending_email UX so users can see changes"
+            ],
+            "title": "SaaS Email Verification"
+          },
+          {
+            "url": "https://www.saasframe.io/categories/user-onboarding",
+            "excerpts": [
+              "351 SaaS User Onboarding UI Design Examples in 2026\nOptimize your first-run experience with comprehensive SaaS User Onboarding flows. This collection covers everything from welcome modals to interactive setup wizards that guide users to success in their first session. Browse real SaaS User Onboarding with modern UI patterns and conversion strategies. Biggest SaaS library."
+            ],
+            "title": "351 SaaS User Onboarding UI Design Examples in 2026"
+          },
+          {
+            "url": "https://www.netguru.com/blog/react-native-apps",
+            "excerpts": [
+              "React Native Apps: 12 Production Examples That Prove the ...\nReact Native is Meta's framework for building genuinely native mobile apps using React and JavaScript, where the UI renders through actual native components rather than a WebView."
+            ],
+            "title": "React Native Apps: 12 Production Examples That Prove the ..."
+          },
+          {
+            "url": "https://dev.to/himanshuaggar/make-your-react-native-app-production-ready-3bap",
+            "excerpts": [
+              "Make your React Native App Production Ready! - DEV Community\nA production-grade app requires robust infrastructure: monitoring, analytics, crash reporting, performance tracking, CI/CD, and user engagement. The following are 10 foundational integrations that all production-grade React Native apps require."
+            ],
+            "title": "Make your React Native App Production Ready! - DEV Community"
+          },
+          {
+            "url": "https://github.com/necolas/react-native-web/discussions/2646",
+            "excerpts": [
+              "What is the plan for React Native Web given RSD? #2646\nApr 1, 2024 \u2014 I've seen discussion on Using RSD for web-only apps, but I'm unsure of how far from production ready the native part is, and it's worth having"
+            ],
+            "title": "What is the plan for React Native Web given RSD? #2646"
+          },
+          {
+            "url": "https://onmymenubar.app/mac-pet",
+            "excerpts": [
+              "Mac Pet \u2014 Productivity Menu Bar App for macOS\nMac Pet places an animated pixelated companion in the menu bar, combining virtual pet aesthetics with Pomodoro timer functionality. The app offers cat and dog companions in various colors, with pets walking during work periods and sleeping during breaks, providing visual feedback on work rhythm."
+            ],
+            "title": "Mac Pet \u2014 Productivity Menu Bar App for macOS"
+          },
+          {
+            "url": "https://roadmap.sunsama.com/improvements/p/menu-bar-app",
+            "excerpts": [
+              "Menu Bar app | Voters\nThe Mac OS X Menu Bar is live in the Desktop App! https://download.sunsama.com. The ability to show the menu options with a keyboard shortcut."
+            ],
+            "title": "Menu Bar app | Voters"
+          },
+          {
+            "url": "https://www.funblocks.net/aitools/reviews/mac-pet-3",
+            "excerpts": [
+              "Mac Pet: A Delightful Productivity Companion for Your Menu Bar\nThe core value proposition of Mac Pet lies in the intersection of digital companionship and productivity. It isn\u2019t just a static aesthetic accessory; it acts as an accountability partner. By integrating a built-in Pomodoro timer and focus tracking, the app gamifies your workday."
+            ],
+            "title": "Mac Pet: A Delightful Productivity Companion for Your Menu Bar"
+          },
+          {
+            "url": "https://ux.stackexchange.com/questions/10251/menu-bar-for-different-major-windows",
+            "excerpts": [
+              "mac os x - Menu bar for different major windows - UX Stack Exchange\nAug 19, 2011 \u00b7 According to the Apple Human Interface Guidelines, most applications should have the following menus if applicable: <App>, File, Edit, View, <"
+            ],
+            "title": "mac os x - Menu bar for different major windows - UX Stack Exchange"
+          },
+          {
+            "url": "http://mac-pet.com/",
+            "excerpts": [
+              "01 Adorable pixel art animations 02 Pomodoro timer to boost productivity 03 Activity tracking with streak stats 04 Menu bar & MacBook notch modes Work Better with a Friend Studies show that having a companion, even a digital one, can boost mood and productivity. Mac Pet brings that comfort to your workspace! Pomodoro timer for focused work sessions Activity tracking to build productive habits Menu bar & MacBook notch modes Customizes to your macOS accent color ... Retro Charm Meets Modern Mac Remember the joy of 90s virtual pets? We've brought that magic to your modern macOS workspace \u2014 in your menu bar or MacBook notch \u2014 minus the anxiety of keeping it alive! Classic pixel art style Nostalgic animations Menu bar & notch modes Seamless macOS integration MacBook Notch Mode\nA blazing-fast, habit-forming writing app\u2014minimal editor, streaks, reminders, and optional AI tab-complete. [Visit Hearth](https://hearth.sh) Latest from Our Blog Discover tips, stories, and updates about your menu bar companions. From productivity hacks to pixel art appreciation, our blog keeps you connected with the Mac Pet community. Visit Our Blog ... FAQ How does the MacBook notch mode work? + On MacBooks with a notch, Mac Pet can display your pet right beside the notch area. The black background blends seamlessly with the notch, making it look like a natural extension. You can switch between notch and menu bar mode anytime in settings \u2014 notch mode is only available on MacBooks that have a notch. Free online timers Quick Pomodoro and focus timers in the browser\u2014no install, no account.\nA pixel pet in your macOS menu bar or notch: Pomodoro timer, activity streaks, and Tamagotchi-style company while you work\u2014always one glance away, never buried in the dock. [Buy Now - $9.99](https://mac-pet.lemonsqueezy.com/buy/7c5fbf38-6ac2-4182-999c-89ea615d0bcc) Menu Bar Choose Your Perfect Companion\nCreated by Toby Miller [@TheTobyMiller\nFrom sleepy cats to energetic dogs, pick a pixel pet that matches your personality. Each with unique animations and behaviors that bring life to your menu bar. Choose Your Perfect Companion ... Activity Tracking & Streaks Monitor your productivity habits with beautiful activity visualizations. Track your daily usage, build streaks, and see your 5-week activity history displayed like a contribution graph\nOn newer MacBooks, your pet lives right beside the notch \u2014 the black background blends seamlessly so it looks like the notch extends to house your companion. Switch between notch and menu bar anytime. Menu Bar Menu Bar Notch Notch Switch between menu bar and notch Why Choose Mac Pet? Built-in Pomodoro Timer Stay focused with our integrated pomodoro timer! Set custom focus and break durations to match your workflow. Let your pet guide you through productive work sessions. Activity Tracking & Streaks Monitor your productivity habits with beautiful activity visualizations. Track your daily usage, build streaks, and see your 5-week activity history displayed like a contribution graph. Choose Your Perfect Companion"
+            ],
+            "title": "Mac Pet \u2014 Menu Bar & Notch Pet with Pomodoro Timer for Mac"
+          },
+          {
+            "url": "https://github.com/ChibaYuki347/copilot-harness-workshop/tree/main/examples/hooks/deny-dangerous-commands",
+            "excerpts": [
+              "copilot-harness-workshop/examples/hooks/deny-dangerous ...\nBlock (or force re-confirm) high-impact shell commands before Copilot is allowed to execute them. Implements the \" don't blindly approve \" pattern called out in Governance \u2192 Approval cheat sheet."
+            ],
+            "title": "copilot-harness-workshop/examples/hooks/deny-dangerous ..."
+          },
+          {
+            "url": "https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/fix-reported-vulnerabilities/deleting-a-repository-security-advisory",
+            "excerpts": [
+              "Deleting a repository security advisory\nRepository owners, organization owners, security managers, and users with the admin role can contact GitHub Support to delete a published security advisory."
+            ],
+            "title": "Deleting a repository security advisory"
+          },
+          {
+            "url": "https://docs.github.com/en/repositories/working-with-files/managing-files/deleting-files-in-a-repository",
+            "excerpts": [
+              "Deleting files in a repository\nBrowse to the file in your repository that you want to delete. \u00b7 In the top-right corner, select the dropdown menu, then click Delete file. \u00b7 In the \"Commit"
+            ],
+            "title": "Deleting files in a repository"
+          },
+          {
+            "url": "https://www.sysdig.com/blog/insecure-github-actions-found-in-mitre-splunk-and-other-open-source-repositories",
+            "excerpts": [
+              "Dangerous by default: Insecure GitHub Actions found in ...\nJun 17, 2025 \u2014 These workflows often contain secrets, such as API keys or credentials, which can be used to escalate privileges or move laterally within the repository, or"
+            ],
+            "title": "Dangerous by default: Insecure GitHub Actions found in ..."
+          },
+          {
+            "url": "https://github.com/anomalyco/opencode/issues/29905",
+            "excerpts": [
+              "[FEATURE]: Command to delete the current workspace ... - GitHub\nAdd a workspace.delete command (with an optional default keybind, user-editable) that targets the current workspace and opens the existing confirmation dialog. That lets me initiate deletion from the active session without going to the sidebar menu."
+            ],
+            "title": "[FEATURE]: Command to delete the current workspace ... - GitHub"
+          },
+          {
+            "url": "https://docs.trysidebar.ai/manual/chat",
+            "excerpts": [
+              "Chat - sideBar\nStarting and Managing Conversations Your conversations are listed with auto-generated titles and a message count so you can tell them apart at a glance. They\u2019re organised by date and you can tap any conversation to open it. Swipe right on any conversation to rename it, or swipe left to delete it."
+            ],
+            "title": "Chat - sideBar"
+          },
+          {
+            "url": "https://forum.cursor.com/t/chat-history-folder/7653",
+            "excerpts": [
+              "Chat history folder - Help\nAug 16, 2024 \u2014 Go to workspaceStorage. (On Windows, cd %APPDATA%\\Cursor\\User\\workspaceStorage) You will see a list of folders whose names are md5 hashes. Open each of them."
+            ],
+            "title": "Chat history folder - Help"
+          },
+          {
+            "url": "http://chromewebstore.google.com/detail/chatgpt-claude-gemini-%E2%80%94-f/dccngnillnacgafjhlnlopfjedkonehg",
+            "excerpts": [
+              "AI Chat Organizer adds a powerful sidebar to ChatGPT, Claude, and Gemini \u2014 so you can finally organize, search, and keep all your AI conversations."
+            ],
+            "title": "ChatGPT, Claude & Gemini \u2014 Folders, Search & Prompts"
+          },
+          {
+            "url": "http://easyfolders.io/",
+            "excerpts": [
+              "A browser extension to boost productivity in ChatGPT & Claude. Declutter your chat history with folders. Easily find chats with history search."
+            ],
+            "title": "Sortbase - Organize Your AI Chats"
+          },
+          {
+            "url": "https://www.jenova.ai/en/resources/ai-with-persistent-chat-history",
+            "excerpts": [
+              "AI with Persistent Chat History: The Memory Revolution ...\nJan 12, 2026 \u2014 AI with persistent chat history refers to artificial intelligence systems that retain conversation context, user preferences, and accumulated"
+            ],
+            "title": "AI with Persistent Chat History: The Memory Revolution ..."
+          },
+          {
+            "url": "https://www.f22labs.com/blogs/saas-free-trial-best-practices-pitfalls",
+            "excerpts": [
+              "SaaS Free Trial Best Practices and Pitfalls (2026 Guide)\nOpt-out trial (credit card required): Users enter payment details upfront and are automatically charged at the end of the trial unless they cancel. More friction at signup, but higher conversion rates, users who give a credit card are more invested in evaluating the product seriously."
+            ],
+            "title": "SaaS Free Trial Best Practices and Pitfalls (2026 Guide)"
+          },
+          {
+            "url": "https://docs.stripe.com/billing/subscriptions/trials/manage-trial-compliance",
+            "excerpts": [
+              "Manage compliance requirements for trials and promotions\nYou must comply with card network requirements when you use trial offers. This includes scenarios such as free trials and temporarily discounted rates that convert to a normal rate."
+            ],
+            "title": "Manage compliance requirements for trials and promotions"
+          },
+          {
+            "url": "https://leadsync.me/blog/ditching-credit-card-requirements-for-free-trials",
+            "excerpts": [
+              "Why SaaS Companies Are Ditching Credit Cards for Free Trials\nFor years, SaaS founders have wrestled with a seemingly simple question: should you require a credit card to start a free trial? The conventional wisdom suggested that requiring payment details upfront would filter out tire-kickers and attract only serious buyers."
+            ],
+            "title": "Why SaaS Companies Are Ditching Credit Cards for Free Trials"
+          },
+          {
+            "url": "https://bigid.com/fr/blog/opt-in-vs-opt-out-consent",
+            "excerpts": [
+              "Opt-in vs Opt-out Consent: Key Differences & Examples\n30 avr. 2026 \u2014 La principale diff\u00e9rence r\u00e9side dans le contr\u00f4le. L'opt-in exige une autorisation explicite avant la collecte des donn\u00e9es, tandis que l'opt-out\u00a0"
+            ],
+            "title": "Opt-in vs Opt-out Consent: Key Differences & Examples"
+          },
+          {
+            "url": "https://www.saasui.design/pattern/signup/stripe",
+            "excerpts": [
+              "stripe Signup \u2014 SaaS UI UX Interface Design | SaaSUI\nExplore stripe's signup UI and UX interface design pattern. See how stripe approaches signup design in their SaaS application."
+            ],
+            "title": "stripe Signup \u2014 SaaS UI UX Interface Design | SaaSUI"
+          },
+          {
+            "url": "https://www.tryuxaudit.com/pages/blog/stripe-ux-teardown.html",
+            "excerpts": [
+              "Stripe UX Teardown: 3 World-Class Patterns (and 3 Conversion ...\nA 94 overall UX score \u2014 but even world-class interfaces have friction hiding in plain sight. Here are the 3 smartest patterns Stripe uses \u2014 and 3 high-impact issues quietly suppressing conversion performance."
+            ],
+            "title": "Stripe UX Teardown: 3 World-Class Patterns (and 3 Conversion ..."
+          },
+          {
+            "url": "https://nicelydone.club/apps/stripe",
+            "excerpts": [
+              "Stripe web app UI screen examples - Nicelydone\nDive deep into Stripe's 124 UI components and explore the detailed User flows, including onboarding, password reset, and more advanced flows. Trusted by the best design teams."
+            ],
+            "title": "Stripe web app UI screen examples - Nicelydone"
+          }
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "thumbgate-saas-ux-july-2026.md"
+  }
+}

@@ -28,6 +28,12 @@ interface ExecutionContext {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    const isLocalDevelopment = url.hostname === "127.0.0.1" || url.hostname === "localhost";
+
+    if (!isLocalDevelopment && url.protocol === "http:") {
+      url.protocol = "https:";
+      return Response.redirect(url, 308);
+    }
 
     if (url.pathname === "/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
@@ -40,7 +46,39 @@ const worker = {
       }, allowedWidths);
     }
 
-    return handler.fetch(request, env, ctx);
+    const response = await handler.fetch(request, env, ctx);
+
+    // HTML cache policy (July 2026 blazing-fast research):
+    // - Anonymous marketing GET / can be edge-cached briefly (static shell; auth via /api/me).
+    // - Dashboard + anything with a session cookie stays no-store.
+    // - Keep s-maxage short so deploys that change hashed /assets/* recover quickly
+    //   (stale HTML still self-heals via vite:preloadError reload in layout).
+    const contentType = response.headers.get("content-type") ?? "";
+    if (contentType.includes("text/html")) {
+      const headers = new Headers(response.headers);
+      const path = url.pathname;
+      const cookie = request.headers.get("cookie") ?? "";
+      const hasSession = /(?:^|;\s*)hermes_session=/.test(cookie);
+      // Include HEAD so probes/CDNs see the same cache policy as GET.
+      const isPublicMarketing =
+        (request.method === "GET" || request.method === "HEAD") &&
+        !hasSession &&
+        (path === "/" || path === "");
+      if (isPublicMarketing) {
+        headers.set(
+          "cache-control",
+          "public, max-age=0, s-maxage=60, stale-while-revalidate=600",
+        );
+      } else {
+        headers.set("cache-control", "no-store");
+      }
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+      });
+    }
+    return response;
   },
 };
 

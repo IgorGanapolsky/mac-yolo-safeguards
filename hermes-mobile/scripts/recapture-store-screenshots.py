@@ -102,15 +102,26 @@ def swipe_down(times: int = 1) -> None:
 def capture(name: str, wait_s: float = 3.0) -> Path:
     time.sleep(wait_s)
     wait_device()
-    remote = f"/sdcard/hermes-store-{name}.png"
-    adb("shell", "screencap", "-p", remote)
     OUT_ANDROID.mkdir(parents=True, exist_ok=True)
     OUT_IOS.mkdir(parents=True, exist_ok=True)
     PROOF.mkdir(parents=True, exist_ok=True)
     dest = OUT_ANDROID / f"{name}.png"
-    adb("pull", remote, str(dest))
-    (OUT_IOS / f"{name}.png").write_bytes(dest.read_bytes())
-    (PROOF / f"{name}.png").write_bytes(dest.read_bytes())
+    temporary = dest.with_suffix(".png.tmp")
+
+    # Stream directly over adb so no predictable screenshot file exists on
+    # shared device storage for another Android app to race or replace.
+    proc = subprocess.run(
+        ["adb", "-s", DEVICE, "exec-out", "screencap", "-p"],
+        capture_output=True,
+        check=True,
+    )
+    payload = proc.stdout
+    if not payload.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise RuntimeError("adb screencap returned an invalid PNG stream")
+    temporary.write_bytes(payload)
+    temporary.replace(dest)
+    (OUT_IOS / f"{name}.png").write_bytes(payload)
+    (PROOF / f"{name}.png").write_bytes(payload)
     print(f"captured {name} -> {dest}")
     return dest
 

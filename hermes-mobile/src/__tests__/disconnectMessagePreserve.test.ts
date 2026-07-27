@@ -75,6 +75,25 @@ describe('shouldPreserveTranscriptOnSessionChange', () => {
       }),
     ).toBe(false);
   });
+
+  it('never preserves across intentional Choose-computer profile switch', () => {
+    expect(
+      shouldPreserveTranscriptOnSessionChange({
+        messages: [
+          {
+            id: 'user-1',
+            role: 'user',
+            content: 'make money today',
+            outboundStatus: 'pending',
+          },
+        ],
+        pendingOutboundSends: 1,
+        isSending: true,
+        hasActiveRun: true,
+        intentionalProfileSwitch: true,
+      }),
+    ).toBe(false);
+  });
 });
 
 describe('composerTextAfterRejectedSend', () => {

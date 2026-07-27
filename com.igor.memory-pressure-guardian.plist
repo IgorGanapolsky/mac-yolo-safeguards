@@ -18,6 +18,10 @@
         <string>{{HOME}}</string>
         <key>PATH</key>
         <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>MEMORY_GUARD_SHED_HERMES_GATEWAY</key>
+        <string>1</string>
+        <key>MEMORY_GUARD_HERMES_GATEWAY_LABEL</key>
+        <string>ai.hermes.gateway</string>
     </dict>
     <key>StandardOutPath</key>
     <string>{{HOME}}/Library/Logs/memory-pressure-guardian.launchd.log</string>

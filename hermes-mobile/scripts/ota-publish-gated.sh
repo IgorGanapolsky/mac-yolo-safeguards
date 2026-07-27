@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Production (or preview) EAS update — only after fresh-user / continuous E2E gate.
+# Production (or preview) EAS update — only after billing thaw + fresh-user gate.
 set -euo pipefail
 
 CHANNEL="${1:-production}"
@@ -7,7 +7,9 @@ ENVIRONMENT="${2:-$CHANNEL}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT/hermes-mobile"
 
-if [[ "$CHANNEL" == "production" ]]; then
+bash ./scripts/require-expo-billing-thaw.sh
+
+if [[ "$CHANNEL" == "production" || "$CHANNEL" == "production-android-paid" ]]; then
   bash ./scripts/require-fresh-user-ota-gate.sh
 fi
 

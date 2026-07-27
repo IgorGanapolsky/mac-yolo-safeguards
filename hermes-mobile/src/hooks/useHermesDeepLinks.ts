@@ -4,6 +4,7 @@ import type { NavigationContainerRef } from '@react-navigation/native';
 import type { HermesAgentToolName } from '../services/hermesAgentTools';
 import { parseSetupDeepLink, parseRelayDeepLink, type SetupDeepLinkParams } from '../utils/setupDeepLink';
 import { resolveSetupDeepLinkCredentials } from '../services/pairingCodeExchange';
+import { acceptPairSetupPayload } from '../utils/pairPayloadAccept';
 import { syncExtraProfileApiKeys } from '../utils/gatewayProfileCredentialSync';
 import { isDevLeashUnlockDeepLink } from '../utils/developerLeashUnlock';
 import { isDemoModeAllowed } from '../utils/demoModePolicy';
@@ -153,10 +154,16 @@ export function useHermesDeepLinks(
         return;
       }
       if (setup && applySetupDeepLink) {
+        // QR/Camera acceptance: reject file:// and USB loopback primaries before profiles mutate.
+        // USB adb secretless (pairServer loopback + code) still allowed via deeplink rules.
+        const accepted = acceptPairSetupPayload(setup, { source: 'deeplink' });
+        if (!accepted.ok) {
+          return;
+        }
         // Secretless pairing (T-330 priority 3): when the deep link carries a one-time
         // code instead of a raw key, exchange it before applying. Legacy deep links
         // (no code) pass through unchanged — see pairingCodeExchange.ts.
-        const resolvedSetup = await resolveSetupDeepLinkCredentials(setup);
+        const resolvedSetup = await resolveSetupDeepLinkCredentials(accepted.params);
         await applySetupDeepLink(resolvedSetup);
         await syncExtraProfileApiKeys(resolvedSetup.extraComputers);
         navigationRef.current?.navigate('Chat');

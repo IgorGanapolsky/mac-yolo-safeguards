@@ -55,7 +55,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginHorizontal: 12,
-    marginBottom: 6,
+    // Keep a clear gap above the composer send target (avoid cramped taps).
+    marginBottom: 10,
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 12,

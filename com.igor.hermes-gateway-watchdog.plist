@@ -18,8 +18,7 @@
         <string>{{HOME}}</string>
         <key>PATH</key>
         <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
-        <key>HERMES_PIN_MODEL</key>
-        <string>0</string>
+        <key>HERMES_PIN_MODEL</key><string>{{HERMES_PIN_MODEL}}</string>
         <key>HERMES_WARMUP_COUNT</key>
         <string>0</string>
     </dict>

@@ -37,6 +37,9 @@ node --check tools/cash-discipline-board.js
 node --check tools/graphify-readiness.js
 node --check tools/openmono-roi-audit.js
 node --check tools/kimi-model-upgrade-audit.js
+node --check tools/plan-coordination-snapshot.js
+node --check tools/agent-swarm-harness.js
+node --check tools/workos-production-guard.js
 node --check tests/test-openrouter-graphify-tools.js
 node --check tests/test-glm52-hermes-config.js
 node --check tests/test-hermes-self-harness.js
@@ -47,6 +50,8 @@ node --check tests/test-cash-discipline-board.js
 node --check tests/test-openmono-roi-audit.js
 node --check tests/test-kimi-model-upgrade-audit.js
 node --check tests/test-mac-text-hotkeys-config.js
+node --check tests/test-plan-coordination-snapshot.js
+node --check tests/test-agent-swarm-harness.js
 
 echo "=== Shell syntax ==="
 git ls-files '*.sh' | while IFS= read -r file; do
@@ -79,6 +84,9 @@ node tests/test-hermes-self-harness.js
 node tests/test-merge-gateway-readiness.js
 node tests/test-tencentdb-memory-readiness.js
 node tests/test-athena-agent-revenue-gap.js
+node tests/test-governed-agent-sales-copy.js
+node tests/test-chrome-gmail-sent-verify.js
+node tests/test-gmail-outreach-reply-scan.js
 node tests/test-revenue-autonomous-loop.js
 node tests/test-ralph-gsd-loop.js
 node tests/test-smart-ops-controller.js
@@ -86,6 +94,9 @@ node tests/test-hermes-hosting-market-signal.js
 node tests/test-cash-discipline-board.js
 node tests/test-openmono-roi-audit.js
 node tests/test-kimi-model-upgrade-audit.js
+node tests/test-plan-coordination-snapshot.js
+node tests/test-agent-swarm-harness.js
+node tests/test-workos-production-guard.js
 tests/test-secondary-browser-reclaim.sh
 tests/test-adb-reverse-device-filter.sh
 tests/test-global-phone-pipeline-lock.sh

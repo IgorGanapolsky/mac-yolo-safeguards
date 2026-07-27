@@ -2,19 +2,117 @@
 'use strict';
 
 const crypto = require('crypto');
+const childProcess = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
 const DEFAULT_CONFIG = path.join(os.homedir(), '.hermes', 'cloud-connector.json');
-const DEFAULT_CONTROL_PLANE = 'https://hermes-agent-control.iganapolsky.chatgpt.site';
-const DEFAULT_GATEWAY = 'http://127.0.0.1:4010';
-const POLL_MS = 3_000;
-const HEARTBEAT_MS = 15_000;
+const DEFAULT_GATEWAY_ENV = path.join(os.homedir(), '.hermes', '.env');
+const DEFAULT_HERMES_CONFIG = path.join(os.homedir(), '.hermes', 'config.yaml');
+const DEFAULT_CONTROL_PLANE = 'https://thumbgate.app';
+const DEFAULT_SESSION_GATEWAY = 'http://127.0.0.1:8642';
+const SESSION_LIMIT = 60;
+// Sessions beyond this limit sync title-only and render "0 synced messages" in
+// the web dashboard. 40 covers a typical active week; per-session content stays
+// bounded by MAX_CONTEXT_MESSAGES/MAX_CONTEXT_CHARS so sync cost grows linearly.
+const CONTEXT_SESSION_LIMIT = 40;
+const REQUEST_TIMEOUT_MS = 15_000;
+// 150s covers a cold local-model load (~44s measured for qwen3:8b-64k with a
+// 65536-token context) plus generation time; 75s was tripping on cold starts.
+const TASK_TIMEOUT_MS = 150_000;
+const LEASE_RENEW_MS = 30_000;
+const MAX_CONTEXT_MESSAGES = 60;
+const MAX_CONTEXT_CHARS = 48_000;
+// Scheduled cron-automation runs create real Hermes gateway sessions with this id shape, but
+// they're ephemeral and never meant to be resumed as a chat -- don't even sync them up as a
+// ThumbGate thread (the control plane also filters this server-side as defense-in-depth).
+const CRON_SESSION_ID_RE = /^cron_[a-f0-9]{8,}_\d{8}_\d{6}$/;
+
+function positiveMilliseconds(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function connectorPollingSchedule(env = process.env) {
+  const activePollMs = positiveMilliseconds(env.HERMES_CONNECTOR_ACTIVE_POLL_MS, 1_000);
+  const idlePollMs = Math.max(
+    activePollMs,
+    positiveMilliseconds(env.HERMES_CONNECTOR_IDLE_POLL_MS, 15_000),
+  );
+  return {
+    activePollMs,
+    idlePollMs,
+    heartbeatMs: positiveMilliseconds(env.HERMES_CONNECTOR_HEARTBEAT_MS, 30_000),
+    sessionSyncMs: positiveMilliseconds(env.HERMES_CONNECTOR_SESSION_SYNC_MS, 60_000),
+  };
+}
+
+function nextConnectorPollDelay(didWork, schedule = connectorPollingSchedule()) {
+  return didWork ? schedule.activePollMs : schedule.idlePollMs;
+}
 
 function base64Url(value) { return Buffer.from(value).toString('base64url'); }
 function sha256(value) { return base64Url(crypto.createHash('sha256').update(value).digest()); }
-function normalizeBaseUrl(value) { return String(value).trim().replace(/\/+$/, ''); }
+function normalizeBaseUrl(value) {
+  let normalized = String(value).trim();
+  while (normalized.endsWith('/')) normalized = normalized.slice(0, -1);
+  return normalized;
+}
+
+function parseDotEnvValue(source, key) {
+  for (const line of String(source).split(/\r?\n/)) {
+    const match = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
+    if (!match || match[1] !== key) continue;
+    const raw = match[2];
+    if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
+      return raw.slice(1, -1);
+    }
+    return raw.replace(/\s+#.*$/, '').trim();
+  }
+  return '';
+}
+
+function resolveGatewayApiKey(options = {}) {
+  const environment = options.env || process.env;
+  const direct = environment.HERMES_GATEWAY_API_KEY || environment.API_SERVER_KEY;
+  if (typeof direct === 'string' && direct.trim()) return direct.trim();
+  const envPath = options.envPath || environment.HERMES_GATEWAY_ENV_PATH || DEFAULT_GATEWAY_ENV;
+  try { return parseDotEnvValue(fs.readFileSync(envPath, 'utf8'), 'API_SERVER_KEY'); }
+  catch (error) {
+    if (error?.code === 'ENOENT') return '';
+    throw error;
+  }
+}
+
+function pairingDashboardUrl(controlPlaneUrl, userCode) {
+  const target = new URL('/dashboard', `${normalizeBaseUrl(controlPlaneUrl)}/`);
+  target.searchParams.set('pair', userCode);
+  return target.toString();
+}
+
+function pairingMatchesControlPlane(config, controlPlaneUrl) {
+  if (!config?.deviceId || !config?.controlPlaneUrl) return false;
+  try {
+    return new URL(config.controlPlaneUrl).origin === new URL(controlPlaneUrl).origin;
+  } catch {
+    return false;
+  }
+}
+
+function openPairingDashboard(controlPlaneUrl, userCode) {
+  if (process.platform !== 'darwin' || process.env.HERMES_CONNECTOR_NO_BROWSER === '1') return false;
+  try {
+    const opener = childProcess.spawn('/usr/bin/open', [pairingDashboardUrl(controlPlaneUrl, userCode)], {
+      detached: true,
+      stdio: 'ignore',
+    });
+    opener.unref();
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function createIdentity(name = os.hostname()) {
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
@@ -55,7 +153,7 @@ function signedHeaders(config, method, pathname, bodyText, now = Date.now(), non
 }
 
 async function jsonRequest(url, options = {}) {
-  const response = await fetch(url, options);
+  const response = await fetch(url, { ...options, signal: options.signal || AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   const text = await response.text();
   const body = text ? JSON.parse(text) : null;
   if (!response.ok) throw new Error(body?.error || `HTTP ${response.status}`);
@@ -69,10 +167,11 @@ async function startPairing(config, configPath) {
   });
   config.deviceCode = result.body.deviceCode;
   saveConfig(configPath, config);
-  process.stdout.write(`\nPair this Hermes machine at ${config.controlPlaneUrl}/dashboard\nCode: ${result.body.userCode}\nFingerprint: ${result.body.fingerprint}\n\n`);
+  const opened = openPairingDashboard(config.controlPlaneUrl, result.body.userCode);
+  process.stdout.write(`\n${opened ? 'Opened the ThumbGate approval page in your browser.' : `Pair this Hermes machine at ${config.controlPlaneUrl}/dashboard`}\nCode: ${result.body.userCode}\nFingerprint: ${result.body.fingerprint}\n\n`);
   const deadline = Date.now() + result.body.expiresIn * 1000;
   while (Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+    await new Promise((resolve) => setTimeout(resolve, 3_000));
     const response = await fetch(`${config.controlPlaneUrl}/api/pairing/status`, {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ deviceCode: config.deviceCode }),
     });
@@ -95,28 +194,332 @@ async function signedPost(config, pathname, payload = {}) {
   });
 }
 
-async function executeLocal(config, task) {
-  const response = await fetch(`${config.gatewayUrl}/v1/chat/completions`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...(process.env.HERMES_GATEWAY_API_KEY ? { authorization: `Bearer ${process.env.HERMES_GATEWAY_API_KEY}` } : {}) },
-    body: JSON.stringify({ model: process.env.HERMES_LOCAL_MODEL || 'hermes', messages: [{ role: 'user', content: task.prompt }], stream: false }),
-  });
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload.error?.message || payload.error || `Hermes gateway HTTP ${response.status}`);
-  return payload.choices?.[0]?.message?.content ?? JSON.stringify(payload);
+function gatewayHeaders(options = {}) {
+  const apiKey = resolveGatewayApiKey(options);
+  return { 'content-type': 'application/json', ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}) };
 }
 
-async function cycle(config) {
-  await signedPost(config, '/api/device/heartbeat');
+function contentText(content) {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return content == null ? '' : JSON.stringify(content);
+  return content.map((part) => typeof part === 'string' ? part : part?.text || '').filter(Boolean).join('\n');
+}
+
+function timestampMillis(value, fallback = Date.now()) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value < 10_000_000_000 ? Math.floor(value * 1000) : Math.floor(value);
+  const parsed = typeof value === 'string' ? Date.parse(value) : Number.NaN;
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+async function gatewayJson(baseUrl, pathname, options = {}) {
+  const timeout = options.method === 'POST' ? TASK_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
+  const { gatewayEnvPath, ...requestOptions } = options;
+  const response = await fetch(`${baseUrl}${pathname}`, {
+    ...requestOptions, signal: options.signal || AbortSignal.timeout(timeout),
+    headers: { ...gatewayHeaders({ envPath: gatewayEnvPath }), ...(options.headers || {}) },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(payload.error?.message || payload.error || `Hermes session gateway HTTP ${response.status}`);
+    error.status = response.status;
+    error.code = payload.error?.code;
+    throw error;
+  }
+  return payload;
+}
+
+function unquoteYamlScalar(value) {
+  const raw = String(value).replace(/\s+#.*$/, '').trim();
+  if (raw.startsWith('"') && raw.endsWith('"')) {
+    try { return JSON.parse(raw); } catch { return raw.slice(1, -1); }
+  }
+  if (raw.startsWith("'") && raw.endsWith("'")) return raw.slice(1, -1).replaceAll("''", "'");
+  return raw;
+}
+
+function parseTerminalCwd(source) {
+  let terminalIndent = -1;
+  for (const line of String(source).split(/\r?\n/)) {
+    if (!line.trim() || /^\s*#/.test(line)) continue;
+    const indent = line.match(/^\s*/)[0].length;
+    if (/^\s*terminal\s*:\s*(?:#.*)?$/.test(line)) {
+      terminalIndent = indent;
+      continue;
+    }
+    if (terminalIndent < 0) continue;
+    if (indent <= terminalIndent) {
+      terminalIndent = -1;
+      continue;
+    }
+    const cwd = line.match(/^\s*cwd\s*:\s*(.*?)\s*$/);
+    if (cwd) return unquoteYamlScalar(cwd[1]);
+  }
+  return '';
+}
+
+function resolveWorkspacePath(config, options = {}) {
+  const environment = options.env || process.env;
+  const direct = environment.HERMES_WORKSPACE_PATH || environment.HERMES_PROJECT_ROOT;
+  if (typeof direct === 'string' && direct.trim()) return direct.trim();
+  const configPath = options.configPath || config.hermesConfigPath || environment.HERMES_CONFIG_PATH || DEFAULT_HERMES_CONFIG;
+  try { return parseTerminalCwd(fs.readFileSync(configPath, 'utf8'));
+  } catch (error) {
+    if (error?.code === 'ENOENT') return '';
+    throw error;
+  }
+}
+
+function buildWebSessionSystemPrompt(config, task) {
+  const workspacePath = resolveWorkspacePath(config);
+  return [
+    'Hermes Web project context (HARD CONSTRAINT — do not ignore):',
+    '- You are Hermes running on the paired machine through ThumbGate. Do not identify yourself as only the underlying model vendor.',
+    workspacePath
+      ? `- Active workspace / cwd: ${workspacePath}`
+      : '- No active workspace is configured in Hermes terminal.cwd. State that clearly if asked; never invent a project.',
+    workspacePath
+      ? '- If asked which project is active, answer with this exact workspace path.'
+      : '- Ask for a workspace only when the task actually requires project files.',
+    workspacePath ? '- Run terminal, file, code, and search tools from this directory only.' : '',
+    task.threadTitle ? `- ThumbGate thread: ${task.threadTitle}` : '',
+  ].filter(Boolean).join('\n');
+}
+
+async function ensureWebHermesSession(config, task) {
+  const encodedSessionId = encodeURIComponent(task.sourceSessionId);
+  try {
+    await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodedSessionId}`, { gatewayEnvPath: config.gatewayEnvPath });
+    return;
+  } catch (error) {
+    if (error?.status !== 404) throw error;
+  }
+
+  const title = String(task.threadTitle || task.prompt || 'ThumbGate web chat').trim().slice(0, 120);
+  const payload = {
+    id: task.sourceSessionId,
+    title,
+    system_prompt: buildWebSessionSystemPrompt(config, task),
+  };
+  try {
+    await gatewayJson(config.sessionGatewayUrl, '/api/sessions', {
+      method: 'POST', gatewayEnvPath: config.gatewayEnvPath, body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    if (error?.status === 409) return;
+    if (error?.status !== 400 || error?.code !== 'invalid_title') throw error;
+    await gatewayJson(config.sessionGatewayUrl, '/api/sessions', {
+      method: 'POST', gatewayEnvPath: config.gatewayEnvPath,
+      body: JSON.stringify({ ...payload, title: `${title.slice(0, 108)} · ${task.sourceSessionId.slice(-8)}` }),
+    });
+  }
+}
+
+function boundContextMessages(messages) {
+  let chars = 0;
+  const bounded = [];
+  for (const message of messages.slice(-MAX_CONTEXT_MESSAGES).reverse()) {
+    const content = contentText(message.content).trim().slice(0, 8_000);
+    const role = ['user', 'assistant', 'system'].includes(message.role) ? message.role : '';
+    if (!role || !content || chars + content.length > MAX_CONTEXT_CHARS) continue;
+    bounded.unshift({ role, content });
+    chars += content.length;
+  }
+  return bounded;
+}
+
+function selectContextSessionIds(sessions, afterSessionId = '', limit = CONTEXT_SESSION_LIMIT) {
+  if (!Array.isArray(sessions) || sessions.length === 0 || limit <= 0) {
+    return { ids: new Set(), nextCursorId: '' };
+  }
+  const cursorIndex = afterSessionId
+    ? sessions.findIndex((session) => String(session?.id || '') === String(afterSessionId))
+    : -1;
+  const start = cursorIndex >= 0 ? (cursorIndex + 1) % sessions.length : 0;
+  const ids = new Set();
+  let nextCursorId = '';
+  for (let offset = 0; offset < Math.min(limit, sessions.length); offset += 1) {
+    const session = sessions[(start + offset) % sessions.length];
+    if (!session?.id) continue;
+    nextCursorId = String(session.id);
+    ids.add(nextCursorId);
+  }
+  return { ids, nextCursorId };
+}
+
+async function collectGatewaySessions(config) {
+  const payload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions?limit=${SESSION_LIMIT}`, { gatewayEnvPath: config.gatewayEnvPath });
+  const sessions = (Array.isArray(payload.data) ? payload.data : [])
+    .filter((session) => !CRON_SESSION_ID_RE.test(String(session?.id || '')));
+  const contextWindow = selectContextSessionIds(sessions, config.sessionContextCursorId);
+  const collected = await Promise.all(sessions.map(async (session) => {
+    let messages = [];
+    if (session.id && contextWindow.ids.has(String(session.id))) {
+      try {
+        const messagePayload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(session.id)}/messages`, { gatewayEnvPath: config.gatewayEnvPath });
+        messages = boundContextMessages(Array.isArray(messagePayload.data) ? messagePayload.data : []);
+      } catch (error) {
+        console.error(`[hermes-cloud-connector] context sync skipped for ${session.id}: ${error instanceof Error ? error.message : error}`);
+      }
+    }
+    const preview = String(session.preview || messages.at(-1)?.content || '').slice(0, 500);
+    return {
+      id: String(session.id), title: String(session.title || preview || 'Hermes session').slice(0, 120),
+      source: String(session.source || 'hermes-mobile').slice(0, 40), model: session.model ? String(session.model).slice(0, 120) : undefined,
+      preview, messageCount: Number(session.message_count || messages.length || 0),
+      updatedAt: timestampMillis(session.last_active_at ?? session.last_active ?? session.started_at), messages,
+    };
+  }));
+  return { sessions: collected, nextContextCursorId: contextWindow.nextCursorId };
+}
+
+async function syncGatewaySessions(config, options = {}) {
+  const { sessions, nextContextCursorId } = await collectGatewaySessions(config);
+  const result = await signedPost(config, '/api/device/sessions/sync', { sessions });
+  config.sessionContextCursorId = nextContextCursorId;
+  if (options.configPath) saveConfig(options.configPath, config);
+  return result;
+}
+
+/**
+ * Sessions ThumbGate is allowed to silently recreate if the gateway reports them missing:
+ * web-created sessions (no prior Hermes session existed) and cron-sourced sessions (already
+ * synced into a thread before the sync-side filter shipped, or synced by an older connector --
+ * cron sessions are ephemeral by design, so "missing" is the expected steady state, not a bug).
+ * A genuine live Hermes Mobile/desktop session id is NOT in this set: if the gateway reports
+ * that one is missing, something is actually wrong (revoked pairing, data loss) and silently
+ * faking a fresh session would hide the real problem and orphan the user's actual chat history.
+ */
+function isRecoverableSessionId(sessionId) {
+  return sessionId.startsWith('thumbgate_') || CRON_SESSION_ID_RE.test(sessionId);
+}
+
+async function executeLocal(config, task) {
+  if (!task.sourceSessionId) throw new Error('ThumbGate task is missing its Hermes session binding');
+  const webCreatedSession = isRecoverableSessionId(task.sourceSessionId);
+  if (webCreatedSession) await ensureWebHermesSession(config, task);
+  const handoff = Array.isArray(task.handoffMessages) && task.handoffMessages.length
+    ? `Cloud/web continuation since this Mac last synced:\n${task.handoffMessages.map((message) => `${message.role}: ${message.content}`).join('\n\n').slice(-24_000)}`
+    : undefined;
+  const systemMessage = [webCreatedSession ? buildWebSessionSystemPrompt(config, task) : '', handoff || ''].filter(Boolean).join('\n\n');
+  const payload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(task.sourceSessionId)}/chat`, {
+    method: 'POST', gatewayEnvPath: config.gatewayEnvPath,
+    body: JSON.stringify({ message: task.prompt, ...(systemMessage ? { system_message: systemMessage } : {}) }),
+  });
+  return contentText(payload.message?.content || payload.output || payload.content || payload.response) || JSON.stringify(payload);
+}
+
+async function withLeaseRenewal(work, renew, intervalMs = LEASE_RENEW_MS) {
+  let stopped = false;
+  let renewal = Promise.resolve();
+  const timer = setInterval(() => {
+    renewal = renewal.then(async () => {
+      if (!stopped) await renew();
+    }).catch((error) => {
+      console.error(`[hermes-cloud-connector] lease renewal failed: ${error instanceof Error ? error.message : String(error)}`);
+    });
+  }, intervalMs);
+  timer.unref?.();
+  try { return await work(); }
+  finally {
+    stopped = true;
+    clearInterval(timer);
+    await renewal;
+  }
+}
+
+async function executeThreadOperation(config, operation) {
+  if (operation.operation === 'clear_all') {
+    try {
+      await gatewayJson(config.sessionGatewayUrl, '/api/sessions', {
+        method: 'DELETE', gatewayEnvPath: config.gatewayEnvPath,
+      });
+    } catch (error) {
+      if (error?.status !== 405) throw error;
+      const sessions = await gatewayJson(config.sessionGatewayUrl, `/api/sessions?limit=${SESSION_LIMIT}`, {
+        gatewayEnvPath: config.gatewayEnvPath,
+      });
+      for (const session of Array.isArray(sessions.data) ? sessions.data : []) {
+        if (!session?.id || session.id === '__telegram_inbox__') continue;
+        try {
+          await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(session.id)}`, {
+            method: 'DELETE', gatewayEnvPath: config.gatewayEnvPath,
+          });
+        } catch (deleteError) {
+          if (deleteError?.status !== 404) throw deleteError;
+        }
+      }
+    }
+    return;
+  }
+  if (!operation.sourceSessionId) throw new Error('chat operation is missing its Hermes session id');
+  const pathname = `/api/sessions/${encodeURIComponent(operation.sourceSessionId)}`;
+  if (operation.operation === 'rename') {
+    if (!operation.title) throw new Error('rename operation is missing its title');
+    await gatewayJson(config.sessionGatewayUrl, pathname, {
+      method: 'PATCH', gatewayEnvPath: config.gatewayEnvPath,
+      body: JSON.stringify({ title: operation.title }),
+    });
+    return;
+  }
+  if (operation.operation === 'delete') {
+    try {
+      await gatewayJson(config.sessionGatewayUrl, pathname, {
+        method: 'DELETE', gatewayEnvPath: config.gatewayEnvPath,
+      });
+    } catch (error) {
+      if (error?.status !== 404) throw error;
+    }
+    return;
+  }
+  throw new Error(`unsupported chat operation: ${operation.operation}`);
+}
+
+async function claimAndExecuteThreadOperation(config) {
+  const claimPath = '/api/device/thread-operations/claim';
+  const bodyText = '{}';
+  const response = await fetch(`${config.controlPlaneUrl}${claimPath}`, {
+    method: 'POST', headers: signedHeaders(config, 'POST', claimPath, bodyText), body: bodyText,
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  if (response.status === 204) return false;
+  const claim = await response.json();
+  if (!response.ok) throw new Error(claim.error || `Chat operation claim failed (${response.status})`);
+  try {
+    await executeThreadOperation(config, claim.operation);
+    await signedPost(config, '/api/device/thread-operations/complete', {
+      operationId: claim.operation.id,
+      leaseToken: claim.operation.leaseToken,
+    });
+  } catch (error) {
+    await signedPost(config, '/api/device/thread-operations/complete', {
+      operationId: claim.operation.id,
+      leaseToken: claim.operation.leaseToken,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+  return true;
+}
+
+async function cycle(config, options = {}) {
+  if (options.heartbeat !== false) await signedPost(config, '/api/device/heartbeat');
+  if (options.syncSessions) {
+    try { await syncGatewaySessions(config, { configPath: options.configPath }); }
+    catch (error) { console.error(`[hermes-cloud-connector] session sync unavailable: ${error instanceof Error ? error.message : error}`); }
+  }
+  if (await claimAndExecuteThreadOperation(config)) return true;
   const bodyText = '{}';
   const response = await fetch(`${config.controlPlaneUrl}/api/device/tasks/claim`, {
     method: 'POST', headers: signedHeaders(config, 'POST', '/api/device/tasks/claim', bodyText), body: bodyText,
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (response.status === 204) return false;
   const claim = await response.json();
   if (!response.ok) throw new Error(claim.error || `Claim failed (${response.status})`);
   try {
-    const result = await executeLocal(config, claim.task);
+    const result = await withLeaseRenewal(
+      () => executeLocal(config, claim.task),
+      () => signedPost(config, '/api/device/tasks/renew', { taskId: claim.task.id, leaseToken: claim.task.leaseToken }),
+    );
     await signedPost(config, '/api/device/tasks/complete', { taskId: claim.task.id, leaseToken: claim.task.leaseToken, result });
   } catch (error) {
     await signedPost(config, '/api/device/tasks/complete', { taskId: claim.task.id, leaseToken: claim.task.leaseToken, error: error instanceof Error ? error.message : String(error) });
@@ -128,25 +531,38 @@ async function main() {
   const configPath = process.env.HERMES_CONNECTOR_CONFIG || DEFAULT_CONFIG;
   let config = loadConfig(configPath);
   if (!config) {
-    config = { ...createIdentity(process.env.HERMES_DEVICE_NAME || os.hostname()), controlPlaneUrl: normalizeBaseUrl(process.env.HERMES_CONTROL_PLANE_URL || DEFAULT_CONTROL_PLANE), gatewayUrl: normalizeBaseUrl(process.env.HERMES_GATEWAY_URL || DEFAULT_GATEWAY) };
+    config = {
+      ...createIdentity(process.env.HERMES_DEVICE_NAME || os.hostname()),
+      controlPlaneUrl: normalizeBaseUrl(process.env.HERMES_CONTROL_PLANE_URL || DEFAULT_CONTROL_PLANE),
+      sessionGatewayUrl: normalizeBaseUrl(process.env.HERMES_SESSION_GATEWAY_URL || DEFAULT_SESSION_GATEWAY),
+    };
     saveConfig(configPath, config);
   }
   config.controlPlaneUrl = normalizeBaseUrl(process.env.HERMES_CONTROL_PLANE_URL || config.controlPlaneUrl || DEFAULT_CONTROL_PLANE);
-  config.gatewayUrl = normalizeBaseUrl(process.env.HERMES_GATEWAY_URL || config.gatewayUrl || DEFAULT_GATEWAY);
+  config.sessionGatewayUrl = normalizeBaseUrl(process.env.HERMES_SESSION_GATEWAY_URL || config.sessionGatewayUrl || DEFAULT_SESSION_GATEWAY);
+  config.gatewayEnvPath = process.env.HERMES_GATEWAY_ENV_PATH || config.gatewayEnvPath || DEFAULT_GATEWAY_ENV;
+  config.hermesConfigPath = process.env.HERMES_CONFIG_PATH || config.hermesConfigPath || DEFAULT_HERMES_CONFIG;
   saveConfig(configPath, config);
   if (!config.deviceId || process.argv.includes('--pair')) await startPairing(config, configPath);
   if (process.argv.includes('--pair-only')) return;
-  if (process.argv.includes('--once')) { await cycle(config); return; }
+  if (process.argv.includes('--sync-only')) { await syncGatewaySessions(config, { configPath }); return; }
+  if (process.argv.includes('--once')) { await cycle(config, { heartbeat: true, syncSessions: true, configPath }); return; }
+  const schedule = connectorPollingSchedule();
   let lastHeartbeat = 0;
+  let lastSessionSync = 0;
   while (true) {
+    let didWork = false;
     try {
       const now = Date.now();
-      if (now - lastHeartbeat >= HEARTBEAT_MS) lastHeartbeat = now;
-      await cycle(config);
+      const heartbeat = now - lastHeartbeat >= schedule.heartbeatMs;
+      if (heartbeat) lastHeartbeat = now;
+      const syncSessions = now - lastSessionSync >= schedule.sessionSyncMs;
+      if (syncSessions) lastSessionSync = now;
+      didWork = await cycle(config, { heartbeat, syncSessions, configPath });
     } catch (error) { console.error(`[hermes-cloud-connector] ${error instanceof Error ? error.message : error}`); }
-    await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+    await new Promise((resolve) => setTimeout(resolve, nextConnectorPollDelay(didWork, schedule)));
   }
 }
 
-module.exports = { canonicalRequest, createIdentity, loadConfig, saveConfig, signedHeaders, sha256 };
+module.exports = { boundContextMessages, buildWebSessionSystemPrompt, canonicalRequest, claimAndExecuteThreadOperation, collectGatewaySessions, connectorPollingSchedule, contentText, createIdentity, executeLocal, executeThreadOperation, gatewayHeaders, loadConfig, nextConnectorPollDelay, pairingDashboardUrl, pairingMatchesControlPlane, parseDotEnvValue, parseTerminalCwd, resolveGatewayApiKey, resolveWorkspacePath, saveConfig, selectContextSessionIds, signedHeaders, sha256, syncGatewaySessions, timestampMillis, withLeaseRenewal };
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });

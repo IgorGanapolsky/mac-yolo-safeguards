@@ -52,4 +52,25 @@ describe('discoveryPersistPolicy', () => {
     expect(toPersist).toEqual([miniDiscovery]);
     expect(ephemeral).toEqual([proDiscovery]);
   });
+
+  it('route-heals a nameless Tailscale IP row even when /health reports LAN local_ip', () => {
+    const namelessMini: GatewayProfile = {
+      id: 'mac_100_94_135_78',
+      label: 'Tailscale 100.94.135.78',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-23T12:00:00.000Z',
+    };
+    const discoveryWithLanIp: DiscoveredGateway = {
+      gatewayUrl: 'http://100.94.135.78:8642',
+      hostname: 'Igors-Mac-mini.local',
+      label: 'Igors-Mac-mini',
+      localIp: '192.168.68.60',
+    };
+    const { toPersist, ephemeral } = partitionSilentDiscoveries([namelessMini], [
+      discoveryWithLanIp,
+    ]);
+    expect(toPersist).toEqual([discoveryWithLanIp]);
+    expect(ephemeral).toEqual([]);
+  });
 });

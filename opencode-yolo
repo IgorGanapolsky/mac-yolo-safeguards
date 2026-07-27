@@ -3,6 +3,11 @@
 # Hermes LiteLLM gateway (:4010) so it inherits the fleet's resilient fallback chain
 # (glm-coding -> opencode-go-glm -> nemotron3-free -> opencode-free -> local) and the
 # stale-tool-output pruning. Default model rides that chain; override with -m/--model.
+# Also wires: the real .claude/skills library, a computer-use MCP tool (screenshot via
+# screencapture + click/type/key via cliclick), and glm-vision (GLM-4.6V) for image input
+# -- attaching an image with -f/--file auto-selects it unless -m is passed explicitly.
+# Images also work on every cloud route (incl. mid-session in the TUI, where there is no
+# -f to swap the model): the gateway reroutes any image-bearing request to glm-vision.
 #
 # Safety:
 #   * Honors the fleet zero-spend gate: if ~/.hermes/NO_PAID_SPEND exists, exit 73
@@ -14,6 +19,20 @@ set -euo pipefail
 GATEWAY_URL="${OPENCODE_YOLO_GATEWAY_URL:-http://127.0.0.1:4010/v1}"
 DEFAULT_MODEL="${OPENCODE_YOLO_MODEL:-hermes/glm-coding}"
 MARKER="${HERMES_ZERO_SPEND_MARKER:-$HOME/.hermes/NO_PAID_SPEND}"
+
+resolve_script_dir() {
+  # Resolve through the ~/.local/bin symlink to this script's real (repo) directory,
+  # so the sibling computer-use MCP server can be found regardless of invocation path.
+  local src="${BASH_SOURCE[0]}"
+  while [[ -L "$src" ]]; do
+    local dir; dir="$(cd -P "$(dirname "$src")" && pwd)"
+    src="$(readlink "$src")"
+    [[ "$src" != /* ]] && src="$dir/$src"
+  done
+  cd -P "$(dirname "$src")" && pwd
+}
+SCRIPT_DIR="$(resolve_script_dir)"
+COMPUTER_USE_MCP="$SCRIPT_DIR/opencode-yolo-computer-use-mcp.js"
 
 resolve_opencode() {
   # Never resolve to the zero-spend shim (which points back at this fleet's gate);
@@ -102,15 +121,69 @@ if ! gateway_up; then
   exit 69
 fi
 
-# Autonomous config: route through the Hermes gateway, allow edit/bash/web without prompts.
+# Autonomous config: route through the Hermes gateway, full yolo permissions, the real
+# .claude skills library, and a computer-use MCP tool (screenshot/click/type/key).
 CONFIG_DIR="${OPENCODE_YOLO_HOME:-$HOME/.hermes/opencode-yolo}"
 mkdir -p "$CONFIG_DIR"
 CONFIG_PATH="$CONFIG_DIR/opencode.json"
-OPENCODE_YOLO_GATEWAY_URL="$GATEWAY_URL" DEFAULT_MODEL="$DEFAULT_MODEL" node -e '
+GREPAI_MCP_ENABLED=false
+command -v grepai >/dev/null 2>&1 && GREPAI_MCP_ENABLED=true
+# The full ~/.claude/skills library is ~230KB (~58K tokens) of SKILL.md bodies —
+# opencode inlines the full skill body into every system prompt (no progressive
+# disclosure), which alone blew past glm-vision's 65536-token context on a live test
+# (2026-07-25: request failed prompt_tokens=0 before any completion). Default to the
+# small repo-local .claude/skills (a few KB) and only pull in the full personal
+# library when explicitly requested via OPENCODE_YOLO_ALL_SKILLS=1.
+OPENCODE_YOLO_GATEWAY_URL="$GATEWAY_URL" DEFAULT_MODEL="$DEFAULT_MODEL" \
+COMPUTER_USE_MCP="$COMPUTER_USE_MCP" GREPAI_MCP_ENABLED="$GREPAI_MCP_ENABLED" \
+OPENCODE_YOLO_ALL_SKILLS="${OPENCODE_YOLO_ALL_SKILLS:-0}" node -e '
   const fs=require("fs");
+  const path=require("path");
+  const os=require("os");
   const base=process.env.OPENCODE_YOLO_GATEWAY_URL;
   const model=process.env.DEFAULT_MODEL;
   const mk=(id,ctx,out)=>({name:id,limit:{context:ctx,output:out}});
+  // attachment+modalities are what make opencode actually SEND image bytes. Without them
+  // its own Read tool substitutes the literal string "ERROR: Cannot read <f> (this model
+  // does not support image input)" into the prompt as text, so the model answers "I can\x27t
+  // see images" and nothing surfaces as an error (2026-07-25). The fleet gateway routes any
+  // image-bearing request to glm-vision regardless of the group addressed, so every cloud
+  // route below can honestly accept attachments -- including mid-session in the TUI, where
+  // there is no -f flag to trigger the wrapper\x27s model swap. hermes-local stays text-only:
+  // a deliberately local run must not be silently upgraded to a cloud model.
+  const mkVision=(id,ctx,out)=>({
+    name:id,limit:{context:ctx,output:out},
+    attachment:true,
+    modalities:{input:["text","image"],output:["text"]}
+  });
+
+  const skillPaths=[];
+  const cwdSkills=path.join(process.cwd(),".claude","skills");
+  if (fs.existsSync(cwdSkills)) skillPaths.push(cwdSkills);
+  if (process.env.OPENCODE_YOLO_ALL_SKILLS === "1") {
+    const globalSkills=path.join(os.homedir(),".claude","skills");
+    if (fs.existsSync(globalSkills) && !skillPaths.includes(globalSkills)) skillPaths.push(globalSkills);
+  }
+
+  const mcp={
+    computer_use:{
+      type:"local",
+      command:["node", process.env.COMPUTER_USE_MCP],
+      enabled:true
+    }
+  };
+  if (process.env.GREPAI_MCP_ENABLED === "true") {
+    mcp.grepai={ type:"local", command:["grepai","mcp-serve"], cwd:process.cwd(), enabled:true };
+  }
+  // Expo/EAS: the official hosted MCP (https://docs.expo.dev/mcp/) — EAS build_run/build_logs,
+  // testflight_crashes, playstore_reviews, expo_router_sitemap, automation_take_screenshot.
+  // Remote + OAuth: the FIRST run opens a browser to authorize an Expo account, so it is opt-OUT
+  // (OPENCODE_YOLO_NO_EXPO_MCP=1) rather than silently added to headless/cron runs that cannot
+  // complete a browser flow.
+  if (process.env.OPENCODE_YOLO_NO_EXPO_MCP !== "1") {
+    mcp.expo={ type:"remote", url:"https://mcp.expo.dev/mcp", enabled:true };
+  }
+
   const cfg={
     $schema:"https://opencode.ai/config.json",
     model, small_model:"hermes/glm-turbo",
@@ -121,16 +194,26 @@ OPENCODE_YOLO_GATEWAY_URL="$GATEWAY_URL" DEFAULT_MODEL="$DEFAULT_MODEL" node -e 
       name:"Hermes Fleet Gateway",
       options:{ baseURL:base, apiKey:"hermes-local-gateway" },
       models:{
-        "glm-coding":mk("GLM-5.2 (fleet, resilient)",200000,128000),
-        "glm-turbo":mk("GLM-5-Turbo (fleet)",200000,128000),
-        "opencode-go-glm":mk("GLM-5.2 via OpenCode Go",200000,128000),
-        "kimi-code":mk("Kimi K2.7 Code (flat)",262144,16384),
-        "hermes-local":mk("qwen3:8b local",65536,8192)
+        "glm-coding":mkVision("GLM-5.2 (fleet, resilient, sees images)",200000,128000),
+        "glm-turbo":mkVision("GLM-5-Turbo (fleet, sees images)",200000,128000),
+        "opencode-go-glm":mkVision("GLM-5.2 via OpenCode Go (sees images)",200000,128000),
+        "kimi-code":mkVision("Kimi K2.7 Code (flat, sees images)",262144,16384),
+        "hermes-local":mk("qwen3:8b local (text only)",65536,8192),
+        "glm-vision":mkVision("GLM-4.6V Vision (fleet, image input + computer-use)",65536,8192)
       }
     }},
     compaction:{ auto:true, prune:true, reserved:10000 },
-    permission:{ edit:"allow", bash:"allow", webfetch:"allow" }
+    // opencode ships 25+ LSP servers but defaults them OFF — the TUI logged "all LSPs are
+    // disabled" on 2026-07-25, meaning the agent edited this TypeScript/React Native app with
+    // zero type diagnostics coming back. `true` enables the built-ins, and each one only starts
+    // when its file extension is actually present, so a JS/TS repo starts a TS server and
+    // nothing else. Opt out with OPENCODE_YOLO_NO_LSP=1 if a server ever wedges (upstream warns
+    // they can desync or eat memory on big repos).
+    lsp: process.env.OPENCODE_YOLO_NO_LSP === "1" ? false : true,
+    mcp,
+    permission:"allow"
   };
+  if (skillPaths.length) cfg.skills = { paths: skillPaths };
   fs.writeFileSync(process.argv[1], JSON.stringify(cfg,null,2));
 ' "$CONFIG_PATH"
 
@@ -138,10 +221,29 @@ export OPENCODE_CONFIG="$CONFIG_PATH"
 export OPENCODE_DISABLE_AUTOUPDATE=1
 export OPENCODE_AUTO_SHARE=false
 
-# Default model unless the caller passed -m/--model explicitly.
+# Default model unless the caller passed -m/--model explicitly. Attaching an image via
+# -f/--file auto-selects the vision model so opencode-yolo can actually see it.
 has_model=0
 for a in "$@"; do case "$a" in -m|--model|--model=*) has_model=1;; esac; done
+effective_model="$DEFAULT_MODEL"
+if ((! has_model)); then
+  prev=""
+  for a in "$@"; do
+    if [[ "$prev" == "-f" || "$prev" == "--file" ]]; then
+      lower_a="$(printf '%s' "$a" | tr '[:upper:]' '[:lower:]')"
+      case "$lower_a" in
+        *.png|*.jpg|*.jpeg|*.gif|*.webp|*.bmp|*.tiff) effective_model="hermes/glm-vision" ;;
+      esac
+    fi
+    prev="$a"
+  done
+fi
+
+# Note: --auto is deliberately NOT added here — it's a run-subcommand-only flag and
+# breaks yargs parsing when placed before other subcommands (e.g. `models`, `session`).
+# permission:"allow" in the generated config already grants full yolo across every tool
+# category (bash/edit/webfetch/skill/mcp/...), independent of which subcommand runs.
 if ((has_model)); then
   exec "$OPENCODE_BIN_RESOLVED" "$@"
 fi
-exec "$OPENCODE_BIN_RESOLVED" --model "$DEFAULT_MODEL" "$@"
+exec "$OPENCODE_BIN_RESOLVED" --model "$effective_model" "$@"

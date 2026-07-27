@@ -1,6 +1,7 @@
 import {
   buildMobileChatSystemPrompt,
   buildWorkspaceSystemPrompt,
+  resolveEffectiveWorkspacePath,
   workspaceDisplayName,
 } from '../utils/workspacePrompt';
 
@@ -46,6 +47,29 @@ describe('workspacePrompt — governed context injection', () => {
   it('workspaceDisplayName returns the last path segment', () => {
     expect(workspaceDisplayName('/Users/example/workspace/ThumbGate/')).toBe('ThumbGate');
     expect(workspaceDisplayName('')).toBe('Workspace');
+  });
+
+  it('pins handoff workspace on empty transcript when project lane is unset', () => {
+    expect(
+      resolveEffectiveWorkspacePath(null, '/Users/example/skool_top1percent', {
+        transcriptEmpty: true,
+      }),
+    ).toBe('/Users/example/skool_top1percent');
+    const prompt = buildMobileChatSystemPrompt(undefined, {
+      transcriptEmpty: true,
+      continuityHandoff: {
+        version: 1,
+        writtenAt: '2026-07-20T22:00:00.000Z',
+        lastGoal: 'Reach out goal',
+        workspacePath: '/Users/example/skool_top1percent',
+        vaultSlug: 'Restaurant-AI',
+        openTodos: [],
+        lastAssistantSummary: 'Prior outreach plan.',
+        vaultRelativePath: 'Handoffs/hermes-mobile-last.md',
+      },
+    });
+    expect(prompt).toContain('Active workspace / cwd: /Users/example/skool_top1percent');
+    expect(prompt).toContain('Obsidian vault project lane: Restaurant-AI');
   });
 
   it('injects Continue from handoff on empty transcript when continuityHandoff is present', () => {

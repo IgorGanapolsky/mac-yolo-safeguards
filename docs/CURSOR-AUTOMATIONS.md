@@ -70,6 +70,20 @@ detect + ntfy alert; uses mirror when TCC blocks `~/Documents`.
 | `.github/workflows/pr-hygiene.yml` | every 6h | auto-merge green PRs; stale PR close |
 | `.github/workflows/mobile-continuous.yml` | every 6h | Hermes Mobile unit + contract in cloud |
 
+### GitHub Code Quality (Hermes Mobile, evaluate-first)
+
+Paid product (~$10/active committer/month + metered AI credits; bots are not committers). **Do not enable org-wide blindly.** Prefer **evaluate** rulesets before **active** enforcement.
+
+| Step | Agent runs |
+|------|------------|
+| Status probe | `node tools/github-code-quality-status.js` (`--json` for automation) |
+| Enable product (repo owner, Team/Enterprise plan) | `gh api --method PATCH repos/IgorGanapolsky/mac-yolo-safeguards/code-quality/setup -f state=configured` |
+| Disable product (stop billing) | `gh api --method PATCH repos/IgorGanapolsky/mac-yolo-safeguards/code-quality/setup -f state=not-configured` |
+| Import evaluate coverage gate | Settings → Rules → Rulesets → Import `.github/code-quality-coverage-ruleset.evaluate.json` (64% min / 2pt max drop — matches Jest global lines threshold) |
+| Apply evaluate ruleset via API | `gh api --method POST repos/IgorGanapolsky/mac-yolo-safeguards/rulesets --input .github/code-quality-coverage-ruleset.evaluate.json` |
+
+CI already uploads `hermes-mobile/coverage/cobertura-coverage.xml` via `actions/upload-code-coverage` on `mobile-checks` (`fail-on-error: false` until Code Quality is enabled on the repo). After enablement, flip that flag to `true` and promote the ruleset from **evaluate** → **active** only when coverage is stable.
+
 Logs: `~/Library/Logs/mac-yolo/` (most agents) or `~/Library/Logs/<label>.log`.
 
 ### Status probe (session start)

@@ -11,19 +11,37 @@ interface ErrorBoundaryProps {
 interface ErrorBoundaryState {
   hasError: boolean;
   message: string;
+  /** First frames of React componentStack for dogfood triage. */
+  stackHint: string;
+}
+
+function stackHintFromComponentStack(componentStack?: string | null): string {
+  if (!componentStack?.trim()) {
+    return '';
+  }
+  return componentStack
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 4)
+    .join(' ← ');
 }
 
 export default class ErrorBoundary extends React.Component<
   ErrorBoundaryProps,
   ErrorBoundaryState
 > {
-  state: ErrorBoundaryState = { hasError: false, message: '' };
+  state: ErrorBoundaryState = { hasError: false, message: '', stackHint: '' };
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     return { hasError: true, message: error.message };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    const stackHint = stackHintFromComponentStack(errorInfo.componentStack);
+    if (stackHint) {
+      this.setState({ stackHint });
+    }
     console.error('[hermes-mobile] Uncaught UI error:', error, errorInfo);
     // Persist to the crash queue (survives process death). trackProductEvent is
     // fire-and-forget and cannot complete when the app is dying — captureCrash
@@ -39,7 +57,7 @@ export default class ErrorBoundary extends React.Component<
     });
   }
 
-  private reset = () => this.setState({ hasError: false, message: '' });
+  private reset = () => this.setState({ hasError: false, message: '', stackHint: '' });
 
   render() {
     if (!this.state.hasError) {
@@ -51,7 +69,16 @@ export default class ErrorBoundary extends React.Component<
         <Text style={styles.emoji}>⚡</Text>
         <Text style={styles.title}>Something went wrong</Text>
         <Text style={styles.message}>The UI hit an unexpected error. Gateway state is unchanged.</Text>
-        {this.state.message ? <Text style={styles.detail}>{this.state.message}</Text> : null}
+        {this.state.message ? (
+          <Text style={styles.detail} testID="error-boundary-message">
+            {this.state.message}
+          </Text>
+        ) : null}
+        {this.state.stackHint ? (
+          <Text style={styles.stackHint} testID="error-boundary-stack-hint">
+            {this.state.stackHint}
+          </Text>
+        ) : null}
         <TouchableOpacity style={styles.button} onPress={this.reset} activeOpacity={0.85}>
           <Text style={styles.buttonText}>TRY AGAIN</Text>
         </TouchableOpacity>
@@ -90,7 +117,15 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
     fontStyle: 'italic',
+    marginBottom: 8,
+  },
+  stackHint: {
+    fontSize: 10,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 14,
     marginBottom: 24,
+    paddingHorizontal: 8,
   },
   button: {
     backgroundColor: colors.primary,

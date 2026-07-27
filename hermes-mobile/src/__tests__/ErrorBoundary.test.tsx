@@ -37,4 +37,23 @@ describe('ErrorBoundary', () => {
     fireEvent.press(getByText('TRY AGAIN'));
     expect(queryByText('Recovered')).toBeTruthy();
   });
+
+  it('clears stack hint on retry', () => {
+    let shouldThrow = true;
+    function MaybeBoom() {
+      if (shouldThrow) throw new Error('undefined is not a function');
+      return <Text>Recovered</Text>;
+    }
+
+    const { getByText, queryByTestId } = render(
+      <ErrorBoundary>
+        <MaybeBoom />
+      </ErrorBoundary>,
+    );
+
+    expect(getByText('undefined is not a function')).toBeTruthy();
+    shouldThrow = false;
+    fireEvent.press(getByText('TRY AGAIN'));
+    expect(queryByTestId('error-boundary-stack-hint')).toBeNull();
+  });
 });

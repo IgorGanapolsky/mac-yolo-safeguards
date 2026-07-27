@@ -1,9 +1,12 @@
 import type { HermesMessage } from '../types/chat';
 import { EMPTY_STREAM_TIMEOUT_PLACEHOLDER } from '../utils/streamAssistantText';
+import { OUTBOUND_HARD_TIMEOUT_MS } from '../utils/outboundSendRecovery';
 import {
+  PROMPT_REPLY_HARD_TIMEOUT_MS,
   messageSentAtMs,
   resolveLastUserPromptSentAtMs,
   resolvePromptReplyElapsedState,
+  shouldHardTimeoutLivePromptWait,
 } from '../utils/promptReplyElapsed';
 
 describe('promptReplyElapsed', () => {
@@ -17,7 +20,13 @@ describe('promptReplyElapsed', () => {
     const messages: HermesMessage[] = [
       { id: 'user-1', role: 'user', content: 'make money today', created_at: sentAt },
     ];
-    expect(resolvePromptReplyElapsedState({ messages, userIndex: 0 })).toEqual({
+    expect(
+      resolvePromptReplyElapsedState({
+        messages,
+        userIndex: 0,
+        nowMs: Date.parse(sentAt) + 30_000,
+      }),
+    ).toEqual({
       mode: 'live',
       sinceMs: Date.parse(sentAt),
     });
@@ -36,6 +45,52 @@ describe('promptReplyElapsed', () => {
     });
   });
 
+  it('freezes elapsed for a newest-first assistant reply with a later timestamp', () => {
+    const sentAt = '2026-07-22T08:00:00.000Z';
+    const replyAt = '2026-07-22T08:01:04.000Z';
+    const messages: HermesMessage[] = [
+      { id: 'asst-1', role: 'assistant', content: 'Here is the correction.', created_at: replyAt },
+      { id: 'user-1', role: 'user', content: 'make money today', created_at: sentAt },
+    ];
+    expect(resolvePromptReplyElapsedState({ messages, userIndex: 1 })).toEqual({
+      mode: 'frozen',
+      durationSec: 64,
+    });
+  });
+
+  it('hides Waiting after the hard-timeout marks the user turn failed', () => {
+    const messages: HermesMessage[] = [
+      {
+        id: 'user-1',
+        role: 'user',
+        content: 'make money today',
+        created_at: '2026-07-22T08:00:00.000Z',
+        outboundStatus: 'failed',
+      },
+    ];
+    expect(resolvePromptReplyElapsedState({ messages, userIndex: 0 })).toEqual({ mode: 'hidden' });
+  });
+
+  it('hides Waiting for already-sent bubbles past the hard timeout', () => {
+    const sentAt = '2026-07-21T21:44:00.000Z';
+    const messages: HermesMessage[] = [
+      {
+        id: 'user-1',
+        role: 'user',
+        content: 'Are you burning through my firecrawl credits????',
+        created_at: sentAt,
+        outboundStatus: 'sent',
+      },
+    ];
+    expect(
+      resolvePromptReplyElapsedState({
+        messages,
+        userIndex: 0,
+        nowMs: Date.parse(sentAt) + PROMPT_REPLY_HARD_TIMEOUT_MS,
+      }),
+    ).toEqual({ mode: 'hidden' });
+  });
+
   it('keeps waiting live through empty-stream timeout placeholders', () => {
     const sentAt = '2026-07-14T22:00:00.000Z';
     const messages: HermesMessage[] = [
@@ -47,7 +102,13 @@ describe('promptReplyElapsed', () => {
         created_at: '2026-07-14T22:02:00.000Z',
       },
     ];
-    expect(resolvePromptReplyElapsedState({ messages, userIndex: 0 })).toEqual({
+    expect(
+      resolvePromptReplyElapsedState({
+        messages,
+        userIndex: 0,
+        nowMs: Date.parse(sentAt) + 30_000,
+      }),
+    ).toEqual({
       mode: 'live',
       sinceMs: Date.parse(sentAt),
     });
@@ -59,5 +120,18 @@ describe('promptReplyElapsed', () => {
       { id: 'user-2', role: 'user', content: 'make money today', created_at: '2026-07-14T22:00:00.000Z' },
     ];
     expect(resolveLastUserPromptSentAtMs(messages)).toBe(Date.parse('2026-07-14T22:00:00.000Z'));
+  });
+
+  it('hard-times out live waits at 2 minutes', () => {
+    const sinceMs = Date.parse('2026-07-14T22:00:00.000Z');
+    expect(shouldHardTimeoutLivePromptWait(sinceMs, sinceMs + PROMPT_REPLY_HARD_TIMEOUT_MS - 1)).toBe(
+      false,
+    );
+    expect(shouldHardTimeoutLivePromptWait(sinceMs, sinceMs + PROMPT_REPLY_HARD_TIMEOUT_MS)).toBe(true);
+  });
+
+  it('keeps prompt-wait and outbound hard timeouts aligned at exactly 2 minutes', () => {
+    expect(PROMPT_REPLY_HARD_TIMEOUT_MS).toBe(2 * 60_000);
+    expect(OUTBOUND_HARD_TIMEOUT_MS).toBe(PROMPT_REPLY_HARD_TIMEOUT_MS);
   });
 });

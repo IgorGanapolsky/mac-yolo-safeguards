@@ -7,7 +7,8 @@ description: >
   revenue, sell, close, outreach, pipeline stuck, $0 revenue, Partner Pilot,
   diagnostic $499, hardening $1500, or when tempted to build another sales tool
   instead of sending. Slash: /execute-revenue-cash-path. Do NOT invoke for pure
-  product engineering without a revenue ask.
+  product engineering without a revenue ask. Do NOT drive Igor's Chrome unless he explicitly
+  asked for Chrome UI in that message — use Stripe CLI/API and Gmail API first (AGENTS.md § No desktop hijack).
 ---
 
 # Execute the revenue cash path (do, don't scaffold)
@@ -48,7 +49,7 @@ Then invoke sibling skills:
 
 1. **diagnose-revenue-funnel** — name bottleneck stage  
 2. **apollo-io-sales** — enrich missing emails  
-3. **drive-logged-in-chrome** — recover live buy.stripe.com URLs if map has 403s  
+3. **drive-logged-in-chrome** — recover live buy.stripe.com URLs if map has 403s (**only if Igor explicitly asked for Chrome UI**)
 4. Gmail MCP — send  
 5. `pipeline-update.js` — record reality  
 

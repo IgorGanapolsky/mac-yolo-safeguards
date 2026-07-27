@@ -17,7 +17,7 @@ describe('ChatScreenHeader', () => {
       />,
     );
     expect(getByTestId('chat-header-model-strip').props.children).toContain('Qwen3.5 9B Hermes');
-    expect(getByTestId('chat-header-model-strip').props.children).toContain('1,240 tokens');
+    expect(getByTestId('chat-header-model-strip').props.children).toContain('1,240 session');
     expect(queryByTestId('chat-header-details-toggle')).toBeNull();
     expect(queryByTestId('chat-header-details-chevron')).toBeNull();
   });
@@ -95,10 +95,8 @@ describe('ChatScreenHeader', () => {
         macHttpReachable
         gatewayModel="qwen3.5:9b-hermes-64k"
         activeAgents={[{ name: 'Hermes', status: 'active' }]}
-        canSwitchWorkspace
         onOpenThreads={jest.fn()}
         onPressMachine={onPressMachine}
-        onPressWorkspace={jest.fn()}
       />,
     );
 
@@ -108,7 +106,7 @@ describe('ChatScreenHeader', () => {
     expect(getByTestId('chat-context-mac-endpoint').props.children).toBe('Tailscale');
     expect(getByTestId('chat-header-weak-model-warning').props.children).toMatch(/local worker/i);
     expect(getByTestId('chat-header-hermes-status')).toBeTruthy();
-    expect(getByTestId('chat-header-project-picker')).toBeTruthy();
+    expect(queryByTestId('chat-header-project-picker')).toBeNull();
 
     fireEvent.press(getByTestId('chat-context-mac-button'));
     expect(onPressMachine).toHaveBeenCalledTimes(1);
@@ -186,7 +184,7 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
-    expect(getByTestId('chat-context-link').props.children).toContain('Relay only');
+    expect(getByTestId('chat-context-link').props.children).toContain('Needs computer link');
   });
 
   it('shows endpoint while connected when multi-Mac detail is enabled', () => {
@@ -227,9 +225,9 @@ describe('ChatScreenHeader', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
         threadTitle="New chat"
-        machineLabel="Hermes account relay"
+        machineLabel="Your computer"
         machineEndpoint="pair once"
-        routeStatusLabel="Pair relay in Settings for Wi‑Fi, cellular, or USB"
+        routeStatusLabel="Use Tailscale for cellular, or home Wi‑Fi when local"
         connectionState="disconnected"
         onOpenThreads={jest.fn()}
         onPressMachine={jest.fn()}
@@ -237,8 +235,29 @@ describe('ChatScreenHeader', () => {
     );
 
     expect(getByTestId('chat-context-link').props.children).toContain(
-      'Pair relay in Settings for Wi‑Fi, cellular, or USB',
+      'Use Tailscale for cellular, or home Wi‑Fi when local',
     );
+  });
+
+  it('needsPair overrides Connecting so Tailscale URL is not a false live path', () => {
+    const { getByTestId, queryByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="New chat"
+        machineLabel="Igors-MacBook-Pro"
+        machineEndpoint={undefined}
+        routeStatusLabel="Use Tailscale for cellular, or home Wi‑Fi when local"
+        connectionState="connecting"
+        needsPair
+        onOpenThreads={jest.fn()}
+        onPressMachine={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('chat-context-link').props.children).toContain(
+      'Use Tailscale for cellular, or home Wi‑Fi when local',
+    );
+    expect(String(getByTestId('chat-context-link').props.children)).not.toContain('Connecting');
+    expect(queryByTestId('chat-context-mac-endpoint')).toBeNull();
   });
 
   it('SHIP BLOCK: never green Connected when wrong-key banner is active (even if macHttpReachable)', () => {
@@ -345,22 +364,21 @@ describe('ChatScreenHeader', () => {
     expect(onThreads).toHaveBeenCalled();
   });
 
-  it('shows optional project lane label when workspace picker is enabled without a selection', () => {
-    const { getByTestId } = render(
+  it('never renders a header Project lane control (composer chip owns that)', () => {
+    const { queryByTestId, queryByText } = render(
       <ChatScreenHeader
         threadTitle="New chat"
         machineLabel="Igors-Mac-mini"
         connectionState="connected"
         macHttpReachable
-        canSwitchWorkspace
         onOpenThreads={jest.fn()}
         onPressMachine={jest.fn()}
-        onPressWorkspace={jest.fn()}
       />,
     );
 
-    expect(getByTestId('chat-header-project-picker')).toBeTruthy();
-    expect(getByTestId('chat-context-project').props.children).toContain('Project lane (optional)');
+    expect(queryByTestId('chat-header-project-picker')).toBeNull();
+    expect(queryByTestId('chat-context-project')).toBeNull();
+    expect(queryByText(/Project lane/)).toBeNull();
   });
 
   it('renames from pencil without double-firing title press', () => {
@@ -484,7 +502,7 @@ describe('ChatScreenHeader', () => {
     const label = getByTestId('chat-header-hermes-status').props.children;
     expect(label).toContain('qwen3:8b-64k');
     expect(label).not.toContain('hermes-agent');
-    expect(label).toBe('Hermes (active) · qwen3:8b-64k · 1,000 tokens');
+    expect(label).toBe('Hermes (active) · qwen3:8b-64k · 1,000 session');
   });
 
   it('shows live in/out tokens from run progress while a turn is active', () => {
@@ -524,7 +542,7 @@ describe('buildHermesStatusLabel', () => {
         { model: 'qwen3:8b-64k', input_tokens: 500, output_tokens: 20 },
         'google/gemini-2.5-flash',
       ),
-    ).toBe('Hermes (active) · qwen3:8b-64k · 520 tokens');
+    ).toBe('Hermes (active) · qwen3:8b-64k · 520 session');
   });
 
   it('hides gateway platform labels and falls back to the next source', () => {

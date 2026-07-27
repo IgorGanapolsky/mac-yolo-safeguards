@@ -11,6 +11,28 @@ not publish an app, create an EAS build, or expose a Mac/Tailscale credential to
 - Projection is deterministic under reordered delivery and duplicate events.
 - Thread deletion is an event tombstone and survives relay export/import.
 - Bearer authentication scopes every HTTP read/write to one account.
+- Structured grants identify a `human`, `service`, `pipeline`, or `agent`, enforce least-privilege
+  `threads:read`, `threads:write`, and `threads:delete` scopes, and may expire.
+- Authorization decisions are bounded, secret-free receipts that can be exported to telemetry without
+  leaking bearer tokens. A failing telemetry callback cannot change an authorization outcome.
+
+Legacy `Map<bearerToken, accountId>` configuration remains supported and receives all three scopes.
+New integrations should use a structured grant:
+
+```js
+const tokens = new Map([
+  [process.env.HERMES_RELAY_TOKEN, {
+    account_id: "acct_1",
+    actor_type: "agent",
+    actor_id: "research_agent",
+    scopes: ["threads:read", "threads:write"],
+    expires_at: "2026-08-01T00:00:00.000Z",
+  }],
+]);
+
+const relay = createRelayHttpServer({ tokens });
+relay.getAuthorizationDecisions(); // sanitized copies; never includes the bearer token
+```
 
 ## Verification
 

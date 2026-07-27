@@ -38,9 +38,11 @@ const SAMPLE = `# plan.md
 
 | ID  | Task | Status | Owner | Files (claim) | AcceptanceCheck |
 |-----|------|--------|-------|---------------|-----------------|
-| T-1 | Active work | in_progress | gemini | foo.ts | tests pass |
-| T-2 | Blocked item | blocked | cursor | bar.ts | unblocked |
-| T-3 | Finished | done | antigravity | baz.ts | shipped |
+| T-1 | Active work | in_progress | gemini | \`foo.ts\` | tests pass |
+| T-2 | Blocked item | blocked | cursor | \`bar.ts\` | unblocked |
+| T-3 | Finished | done | antigravity | \`baz.ts\` | shipped |
+| T-LEASH-LAZY-SPINNER | Named active | in_progress | cursor-leash | \`ConnectMacGate.tsx\`, \`plan.md\` | OTA |
+| T-TINKER-DONE-20260721 | Named finished | done | codex | \`tinker-yolo\` | shipped |
 
 ## 2. File Ownership Map
 
@@ -59,9 +61,17 @@ test('parseMeta extracts coordination header fields', () => {
 
 test('parseActiveTasks keeps in_progress and blocked only', () => {
   const tasks = parseActiveTasks(SAMPLE);
-  assert.strictEqual(tasks.length, 2);
+  assert.strictEqual(tasks.length, 3);
   assert.strictEqual(tasks[0].id, 'T-1');
   assert.strictEqual(tasks[1].status, 'blocked');
+  assert.strictEqual(tasks[2].id, 'T-LEASH-LAZY-SPINNER');
+  assert.deepStrictEqual(tasks[2].claimedFiles, ['ConnectMacGate.tsx', 'plan.md']);
+});
+
+test('parseActiveTasks accepts named T- ids (not only T-digits)', () => {
+  const tasks = parseActiveTasks(SAMPLE);
+  assert.ok(tasks.some((t) => t.id === 'T-LEASH-LAZY-SPINNER'));
+  assert.ok(!tasks.some((t) => t.id === 'T-TINKER-DONE-20260721'));
 });
 
 test('parseFileLocks skips released and free rows', () => {

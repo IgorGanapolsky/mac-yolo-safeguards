@@ -43,6 +43,12 @@ PIN_KEEP_ALIVE="${HERMES_PIN_KEEP_ALIVE:-2m}"
 # tick so the badge tracks real gateway liveness. Set HERMES_PRESENCE_FILE="" to skip.
 PRESENCE_FILE="${HERMES_PRESENCE_FILE:-/Users/igorganapolsky/Documents/AI-Agent-Sync/Agent-State/Hermes.md}"
 TOUCH_BIN="${HERMES_TOUCH_BIN:-touch}"
+LAUNCHCTL_BIN="${HERMES_LAUNCHCTL_BIN:-launchctl}"
+ID_BIN="${HERMES_ID_BIN:-id}"
+GATEWAY_LABEL="${HERMES_GATEWAY_LABEL:-ai.hermes.gateway}"
+GATEWAY_PLIST="${HERMES_GATEWAY_PLIST:-$HOME/Library/LaunchAgents/$GATEWAY_LABEL.plist}"
+GUI_DOMAIN="${HERMES_GUI_DOMAIN:-gui/$($ID_BIN -u)}"
+HERMES_CIRCUIT_FILE="${YOLO_HERMES_GATEWAY_CIRCUIT_FILE:-/tmp/yolo-hermes-gateway-circuit-open}"
 
 ts()  { date "+%Y-%m-%dT%H:%M:%S%z"; }
 logline() { printf '%s %s\n' "$(ts)" "$1" >> "$LOG" 2>/dev/null || true; }
@@ -65,15 +71,90 @@ if [ "$pressure" -ge 2 ] || [ "$now" -lt "$recovery_until" ]; then
   logline "memory recovery active (pressure=$pressure cooldown_until=$recovery_until) -> skip pin/warmup"
 fi
 
-# 1) Restart the gateway only if it is truly gone.
+# The memory guardian writes this marker only after an evicted Ollama model
+# remains resident and it disables the exact launchd gateway label. Enforce that
+# disabled state throughout pressure/cooldown, even if another self-heal path
+# tries to bootstrap the KeepAlive job. Once both gates clear, restore launchd
+# ownership before normal health recovery resumes.
+restored_launchd=0
+if [ -f "$HERMES_CIRCUIT_FILE" ]; then
+  circuit_until="$(cat "$HERMES_CIRCUIT_FILE" 2>/dev/null || echo 0)"
+  case "$circuit_until" in ''|*[!0-9]*) circuit_until=0 ;; esac
+  if [ "$memory_block" = "1" ] || [ "$now" -lt "$circuit_until" ]; then
+    "$LAUNCHCTL_BIN" disable "$GUI_DOMAIN/$GATEWAY_LABEL" >/dev/null 2>&1 || true
+    "$LAUNCHCTL_BIN" bootout "$GUI_DOMAIN/$GATEWAY_LABEL" >/dev/null 2>&1 || true
+    logline "gateway recovery circuit enforced (pressure=$pressure until=$circuit_until) -> disabled and stopped $GATEWAY_LABEL"
+    exit 0
+  fi
+
+  "$LAUNCHCTL_BIN" enable "$GUI_DOMAIN/$GATEWAY_LABEL" >/dev/null 2>&1 || true
+  if [ -f "$GATEWAY_PLIST" ] && ! "$LAUNCHCTL_BIN" print "$GUI_DOMAIN/$GATEWAY_LABEL" >/dev/null 2>&1; then
+    "$LAUNCHCTL_BIN" bootstrap "$GUI_DOMAIN" "$GATEWAY_PLIST" >/dev/null 2>&1 || true
+  fi
+  "$LAUNCHCTL_BIN" kickstart -k "$GUI_DOMAIN/$GATEWAY_LABEL" >/dev/null 2>&1 || true
+  rm -f "$HERMES_CIRCUIT_FILE"
+  restored_launchd=1
+  logline "gateway recovery circuit closed -> enabled and restored $GATEWAY_LABEL"
+fi
+
+# 1) Restart the gateway only if it is truly gone and memory recovery is not
+# active. The guardian may deliberately boot out this supervisor when an active
+# inference client defeats Ollama unload; restarting it during the shared
+# cooldown would reopen the exact reload loop the circuit is meant to break.
 code="$(gateway_health)"
 if [ "$code" != "200" ]; then
-  if [ -z "$(gateway_pid)" ]; then
+  if [ "$memory_block" = "1" ]; then
+    logline "gateway down (health=$code) during memory recovery -> leave stopped"
+  elif [ "$restored_launchd" = "1" ]; then
+    logline "gateway health=$code after launchd restore -> wait for $GATEWAY_LABEL"
+  elif [ -z "$(gateway_pid)" ]; then
     logline "gateway down (health=$code, no proc) -> starting"
     nohup "$PYBIN" -m hermes_cli.main gateway run >> "$AGENT_LOG" 2>&1 &
   else
     logline "gateway health=$code but proc alive (booting) -- no action"
   fi
+fi
+
+# 1b) Self-heal-failure alerting. This does NOT change any restart/heal logic
+# above -- it only tracks, across ticks (this watchdog is silent otherwise: it
+# was found with zero alerting of any kind, so an unhealed gateway was only
+# ever discovered by a human noticing later), whether the gateway is still
+# down after a restart already had a full ~60s tick to land. A single down
+# tick where a restart was JUST kicked off is "healing" (routine, expected,
+# NOT alerted); the SAME gateway still down on the following tick means the
+# self-heal attempt failed to resolve it, which nobody currently hears about.
+# Edge-triggered: fires once on healing->degraded, once again on ->ok
+# recovery, and stays silent on every repeat tick in between (matches the
+# ok/degraded state-transition convention in saas-watchdog.sh and
+# scripts/revenue-loop-watchdog.sh). A deliberate memory-pressure pause
+# (memory_block=1) is intentional throttling by the memory guardian, not a
+# failed self-heal, so it neither advances nor resets this state machine.
+ALERT_STATE="${HERMES_WATCHDOG_ALERT_STATE:-/Users/igorganapolsky/.hermes/.gateway-watchdog-alert-state}"
+ALERT_NTFY_TOPIC="${HERMES_WATCHDOG_NTFY_TOPIC:-yolo-guard-fdh8ktuw1vtxb5sb}"
+ALERT_NTFY_URL="${HERMES_WATCHDOG_NTFY_URL:-https://ntfy.sh/$ALERT_NTFY_TOPIC}"
+if [ "$code" = "200" ]; then
+  prev_alert_state="$(cat "$ALERT_STATE" 2>/dev/null || echo ok)"
+  if [ "$prev_alert_state" = "degraded" ]; then
+    "$CURL_BIN" -sS -m 10 -H "Title: Hermes gateway watchdog recovered" \
+      -d "gateway healthy again at $(ts)" "$ALERT_NTFY_URL" >/dev/null 2>&1 || true
+  fi
+  printf 'ok' > "$ALERT_STATE" 2>/dev/null || true
+elif [ "$memory_block" != "1" ]; then
+  prev_alert_state="$(cat "$ALERT_STATE" 2>/dev/null || echo ok)"
+  case "$prev_alert_state" in
+    healing)
+      alert_body="Hermes gateway still unhealthy (http=$code) after a restart attempt on the prior tick, at $(ts)."
+      "$CURL_BIN" -sS -m 10 -H "Title: Hermes gateway self-heal failed" -H "Priority: high" \
+        -d "$alert_body" "$ALERT_NTFY_URL" >/dev/null 2>&1 || true
+      printf 'degraded' > "$ALERT_STATE" 2>/dev/null || true
+      ;;
+    degraded)
+      : # already alerted this outage; stay silent until recovery (edge-triggered)
+      ;;
+    *)
+      printf 'healing' > "$ALERT_STATE" 2>/dev/null || true
+      ;;
+  esac
 fi
 
 # 2) Optional bounded model residency. Default is on-demand loading.

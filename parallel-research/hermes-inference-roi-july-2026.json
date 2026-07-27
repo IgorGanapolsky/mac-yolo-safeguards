@@ -1,0 +1,299 @@
+{
+  "run_id": "trun_4f230ab7c8f043bc924830a82ef48623",
+  "interaction_id": "trun_4f230ab7c8f043bc924830a82ef48623",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_4f230ab7c8f043bc924830a82ef48623",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "AssessmentReasoning:\n- The field_answer provides a comprehensive verdict, ROI ranking, mechanism details, and implementation criteria in line with the user query. It also attempts to separate verified facts, vendor claims, and inferences.\n- However, many of the field_answer's key assertions (e.g., exact competitive relationships, direct/adjacent/supplier/channel classifications, and ROI rankings tied to zero-revenue monetization) rely on interpretations rather than explicit primary-source citations. The excerpts provided include primary-source-like items (Cursor/Together AI case reads, Decagon latency claims, Hedra cost/speed moves, Cloudflare control-plane patterns, Stripe entitlements), but they do not explicitly confirm every load-bearing claim in the field_answer (e.g., that Cursor/Decagon/Hedra are not direct competitors, or that the closest analog is Cloudflare Durable Objects, or the specific ROI ranks).\n- The Excerpts list does include: Decagon <400ms latency with Together AI, Cursor partnership, Hedra cost/speed improvements, Cloudflare Durable Objects reference pattern, Fly.io, WorkOS, Stripe references. These can support portions of the narrative, particularly around latency claims and architectural analogies, but they do not on their own certify all field_answer assertions.\n- Therefore: Completeness should be true (the answer addresses the requested elements: verdict, ROI ranking, vendor/competitor analysis, acceptance criteria, what not to build, and citations structure) even if some parts would benefit from more explicit, line-item primary citations. Supported should be false (or at least not confidently true) because the field_answer\u2019s specific load-bearing conclusions aren\u2019t fully backed by the excerpts alone.\n- Recommendation: To improve support, map each load-bearing conclusion to a specific excerpt with a direct citation, and clearly label inference vs. verified fact where primary sources are ambiguous.\n",
+        "citations": [
+          {
+            "url": "https://www.together.ai/pricing",
+            "excerpts": [
+              "Pricing | Together AI\nTransparent, flexible pricing across serverless inference, dedicated endpoints, fine-tuning, and GPU clusters. Start for free, scale on demand."
+            ],
+            "title": "Pricing | Together AI"
+          },
+          {
+            "url": "http://together.ai/",
+            "excerpts": [
+              "Build what's next on the AI Native Cloud. Full-stack AI platform for inference, fine-tuning, and GPU clusters \u2014 powered by cutting-edge research.\nFull-stack AI platform for inference, fine-tuning, and GPU clusters \u2014 powered by cutting-edge research. building the next generation of AI products. 2026"
+            ],
+            "title": "Together AI | The AI Native Cloud"
+          },
+          {
+            "url": "https://theaiinsider.tech/2026/07/02/together-ai-raises-800m-at-8-3b-valuation-to-make-frontier-ai-accessible-to-all",
+            "excerpts": [
+              "Together AI Raises $800M at $8.3B Valuation to Make Frontier AI ...\n14 hours ago \u00b7 Together AI will use the new funding to expand its products and features as it becomes a leading provider of inference, and to dramatically scale its"
+            ],
+            "title": "Together AI Raises $800M at $8.3B Valuation to Make Frontier AI ..."
+          },
+          {
+            "url": "https://uoj.unicaf.org/plugins/generic/pdfJsViewer/pdf.js/web/viewer.html?file=%2Findex.php%2Findex%2Flogin%2FsignOut%3Fsource=.pravita.xyz%2Fart%2F%3Fart=1&grav=47179912",
+            "excerpts": [
+              "Best NSFW AI Platforms in 2026 Ranked for Interaction Features ...\n50 minutes ago \u00b7 NSFW AI platforms in 2026 are no longer simple generators or basic chat tools. The category has evolved into a full ecosystem of interactive systems combining"
+            ],
+            "title": "Best NSFW AI Platforms in 2026 Ranked for Interaction Features ..."
+          },
+          {
+            "url": "https://www.buildfastwithai.com/blogs/ai-news-today-july-20-2026-16-biggest-stories",
+            "excerpts": [
+              "AI News Today July 20 2026: 16 Biggest Stories - Build Fast with AI\n21 hours ago \u00b7 July 20, 2026. Search data sharing begins in January 2027, with Android interoperability due by July 2027. This is the most consequential regulatory action in"
+            ],
+            "title": "AI News Today July 20 2026: 16 Biggest Stories - Build Fast with AI"
+          },
+          {
+            "url": "https://www.together.ai/customers/decagon",
+            "excerpts": [
+              "How Decagon Engineered Sub-Second Voice AI with Together AI\nDecagon partnered with Together AI to deliver sub-second voice AI with NVIDIA Blackwell GPUs, achieving <400ms latency, 6\u00d7 cost reduction,"
+            ],
+            "title": "How Decagon Engineered Sub-Second Voice AI with Together AI"
+          },
+          {
+            "url": "https://decagon.ai/blog/decagon-voice",
+            "excerpts": [
+              "Announcing Decagon Voice\nDecagon AI Voice Agents seamlessly integrate with call center infrastructure, intelligently hand off complex inquiries, and deliver a consistent, multi-channel"
+            ],
+            "title": "Announcing Decagon Voice"
+          },
+          {
+            "url": "https://www.voiceaispace.com/tool/decagon",
+            "excerpts": [
+              "Decagon \u2014 Voice AI Solution\nDecagon is a conversational AI platform purpose-built to transform customer experience by automating support interactions across chat, email, and phone calls."
+            ],
+            "title": "Decagon \u2014 Voice AI Solution"
+          },
+          {
+            "url": "https://decagon.ai/product/voice",
+            "excerpts": [
+              "Voice AI for Customer Service\nUnlock intelligent conversations with human-like quality, low latency, and smooth dialogue flow. Customize agents to your unique brand voice. Adapt your agent's"
+            ],
+            "title": "Voice AI for Customer Service"
+          },
+          {
+            "url": "http://nextneurons.com/",
+            "excerpts": [
+              "Latency Sub-800ms Natural, real-time response\nTrusted By [TravelSpoken"
+            ],
+            "title": "Next Neurons - Next-Gen AI Voice Agents"
+          },
+          {
+            "url": "https://www.together.ai/blog/learn-how-cursor-partnered-with-together-ai-to-deliver-real-time-low-latency-inference-at-scale",
+            "excerpts": [
+              "Learn how Cursor partnered with Together AI to deliver ...\nJan 13, 2026 \u2014 Together AI teamed with Cursor to build the real-time inference stack that keeps in-editor agents fast and reliable."
+            ],
+            "title": "Learn how Cursor partnered with Together AI to deliver ..."
+          },
+          {
+            "url": "https://www.together.ai/customers/cursor",
+            "excerpts": [
+              "Learn how Cursor partnered with Together AI to deliver ...\nCursor partnered with Together AI, the AI Native Cloud, to build infrastructure for this loop \u2014 using the NVIDIA Blackwell architecture and tuning the inference"
+            ],
+            "title": "Learn how Cursor partnered with Together AI to deliver ..."
+          },
+          {
+            "url": "https://x.com/togethercompute/status/2077792878609547375",
+            "excerpts": [
+              "Proud to power inference for @cursor_ai in production. ...\nWe've partnered with SpaceXAI to train Grok 4.5. It's our most powerful model yet and the first we've built for more than software engineering."
+            ],
+            "title": "Proud to power inference for @cursor_ai in production. ..."
+          },
+          {
+            "url": "https://x.com/ZainHasan6/status/2077805443561541675",
+            "excerpts": [
+              "Cursor \ud83e\udd1d Together AI\nCursor Together AI. Consistently impressed by the horsepower of @togethercompute and the people behind it! Thank you for your partnership!"
+            ],
+            "title": "Cursor \ud83e\udd1d Together AI"
+          },
+          {
+            "url": "http://together.ai/customers/hedra",
+            "excerpts": [
+              "Learn how Hedra moved its viral AI video models to Together AI, cutting infrastructure costs by 60%, tripling inference speed, and scaling 300x.\nAbout Hedra\nFounded by PhD researcher Michael Lingelbach, the company created Character-1, a video generation model that powers viral content across TikTok and Instagram while serving enterprise customers incorporating AI-generated media into content strategies.\nHedra builds AI that creates video content from simple prompts.\nHedra, the AI startup behind [viral baby podcasts](https://www.instagram.com/reel/DKKijabAz2L/), needed infrastructure that could scale instantly to handle viral AI-video demand without ballooning costs or tying up engineers.\nOperating as both a product company and applied AI research laboratory, Hedra serves millions of videos monthly through their web platform and API access.\nSince seed stage, the company's compute needs have grown 300x while maintaining consistent performance and cost efficiency at massive scale.\nHedra Scales Viral AI Video Generation with 60% Cost Savings\nHedra's models require specialized deployment infrastructure unavailable from traditional cloud providers.\nPartnering with Together AI, the team shifted video inference to optimized H100/H200 clusters with kernel optimizations and flexible autoscaling.\nThe migration cut cloud costs by 60%, tripled inference speed, supported 300\u00d7 growth in compute demand, and removed the need for extra platform engineers, preserving healthy margins as usage soared.\nHedra"
+            ],
+            "title": "How Hedra Scales Viral AI Video Generation with 60% ..."
+          },
+          {
+            "url": "https://www.hedra.com/blog",
+            "excerpts": [
+              "Blog - Hedra\nExplore the latest news, insights, and updates from Hedra on AI-driven video creation and multimodal AI technology."
+            ],
+            "title": "Blog - Hedra"
+          },
+          {
+            "url": "https://www.hedra.com/",
+            "excerpts": [
+              "Hedra\nHedra Agent learns you and how you work. Infinite Canvas. Generate your video using Hedra's proprietary Character-3 model or other leading genAI models. All the"
+            ],
+            "title": "Hedra"
+          },
+          {
+            "url": "https://max-productive.ai/ai-tools/hedra",
+            "excerpts": [
+              "Hedra AI Review 2026: Features, Pricing & Is It Worth It?"
+            ],
+            "title": "Hedra AI Review 2026: Features, Pricing & Is It Worth It? Max Productive AI https://max-productive.ai \u203a AI Tools \u203a Video Generators"
+          },
+          {
+            "url": "https://www.hedra.com/blog/image-to-video-ai-guide",
+            "excerpts": [
+              "The Complete Guide to Image-to-Video AI in 2026 | Hedra Blog\nThe AI video generator market was valued at approximately $788 million in 2025 and is projected to grow at over 20% annually through 2033"
+            ],
+            "title": "The Complete Guide to Image-to-Video AI in 2026 | Hedra Blog"
+          },
+          {
+            "url": "https://www.together.ai/customers/hedra",
+            "excerpts": [],
+            "title": "description: Learn how Hedra moved its viral AI video models to Together AI, cutting infrastructure costs by 60%, tripling inference speed, and scaling 300x. title: How Hedra Scales Viral AI Video Generation with 60% Cost Savings image: https://cdn.prod.website-files.com/69654e88dce9154b5f12070c/69654e88dce9154b5f12134e_og-hedra-case-study-2.png"
+          },
+          {
+            "url": "https://developers.cloudflare.com/reference-architecture/diagrams/storage/durable-object-control-data-plane-pattern",
+            "excerpts": [
+              "Control and data plane architectural pattern for Durable Objects\nThis document describes a useful architectural pattern to separate the control plane from the data plane of your application to achieve great performance and reliability without compromising on functionality. The control plane provides the administrative APIs used to manage resource metadata."
+            ],
+            "title": "Control and data plane architectural pattern for Durable Objects"
+          },
+          {
+            "url": "http://developers.cloudflare.com/workers/runtime-apis/context",
+            "excerpts": [
+              "(last verified: 2026-07-10) `ctx.waitUntil()` extends the lifetime of your Worker, allowing you to perform work without blocking returning a response, and that may continue after a response is returned. It accepts a `Promise`, which the Workers runtime will continue executing, even after a response has been returned by the Worker's [handler](https://developers.cloudflare.com/workers/runtime-apis/handlers/).\nDo not use `waitUntil()` to keep a Durable Object alive during normal request or RPC handling. Durable Objects remain active while they are handling requests, RPC calls, response streams, WebSockets, or pending I/O. [DurableObjectState.waitUntil()](https://developers.cloudflare.com/durable-objects/api/state/#waituntil) exists for API compatibility and is not needed for this behavior.\nDurableObjectState.waitUntil() exists for API compatibility and is not needed for this behavior."
+            ],
+            "title": null
+          },
+          {
+            "url": "https://developers.cloudflare.com/durable-objects",
+            "excerpts": [
+              "Overview \u00b7 Cloudflare Durable Objects docs\nA Durable Object is a special kind of Cloudflare Worker which uniquely combines compute with storage. Like a Worker, a Durable Object is automatically provisioned geographically close to where it is first requested, starts up quickly when needed, and shuts down when idle."
+            ],
+            "title": "Overview \u00b7 Cloudflare Durable Objects docs"
+          },
+          {
+            "url": "https://www.cloudflare.com/products/durable-objects",
+            "excerpts": [
+              "Cloudflare Durable Objects - Stateful Serverless Functions\nDurable Objects are stateful serverless functions: they run for as long as you need them, can compute in the background, and handle multiple requests"
+            ],
+            "title": "Cloudflare Durable Objects - Stateful Serverless Functions"
+          },
+          {
+            "url": "https://oneuptime.com/blog/post/2026-01-27-cloudflare-durable-objects/view",
+            "excerpts": [
+              "How to Implement Cloudflare Durable Objects - oneuptime.com\nLearn how to implement Cloudflare Durable Objects for stateful serverless applications at the edge, including storage APIs, alarms, WebSocket support, and coordination patterns."
+            ],
+            "title": "How to Implement Cloudflare Durable Objects - oneuptime.com"
+          },
+          {
+            "url": "https://docs.stripe.com/billing/entitlements?dashboard-or-api=api",
+            "excerpts": [
+              "Entitlements | Stripe Documentation\nGet customers\u2019 active entitlements: When customers subscribe to your products, Stripe Billing entitles the customer to the product\u2019s features. Listen to the Active Entitlement Summary webhook and use the List Active Entitlements API for a given customer to execute your feature provisioning process."
+            ],
+            "title": "Entitlements | Stripe Documentation"
+          },
+          {
+            "url": "https://docs.stripe.com/billing/entitlements",
+            "excerpts": [
+              "Entitlements\nEntitlements enable you to map the features of your internal service to Stripe products. After you map your features, Stripe notifies you about when to"
+            ],
+            "title": "Entitlements"
+          },
+          {
+            "url": "https://echobind.com/post/leveraging-stripe-to-manage-your-saa-s-entitlements",
+            "excerpts": [
+              "Leveraging Stripe To Manage Your SaaS Entitlements - Echobind\nStripe maintains a list of active entitlements for a customer when they subscribe to a plan and also keeps them up to date throughout the different events that may occur in the subscription lifecycle. Your app can be notified of changes to a customer\u2019s entitlements by using Stripe Webhooks."
+            ],
+            "title": "Leveraging Stripe To Manage Your SaaS Entitlements - Echobind"
+          },
+          {
+            "url": "https://github.com/QiMana/stripe-developer-docs/blob/main/docs/billing/entitlements.md",
+            "excerpts": [
+              "stripe-developer-docs/docs/billing/entitlements.md at main ...\nGet customers\u2019 active entitlements: When customers subscribe to your products, Stripe Billing entitles the customer to the product\u2019s features. Listen to the Active Entitlement Summary webhook and use the List Active Entitlements API for a given customer to execute your feature provisioning process."
+            ],
+            "title": "stripe-developer-docs/docs/billing/entitlements.md at main ..."
+          },
+          {
+            "url": "https://blog.planship.io/articles/entitlements-metering-pricing-optimization-for-stripe",
+            "excerpts": [
+              "Entitlements, metering, and pricing optimization for Stripe\nPlanship makes it simple to keep your billing and entitlement systems separate, while also avoiding the development effort and ongoing support of building an entitlement system and integrating it with your billing system yourself."
+            ],
+            "title": "Entitlements, metering, and pricing optimization for Stripe"
+          },
+          {
+            "url": "https://workos.com/audit-logs",
+            "excerpts": [
+              "Audit Logs\nView and export logs. Audit Logs are available to you in the WorkOS Dashboard and to your customers through a private URL."
+            ],
+            "title": "Audit Logs"
+          },
+          {
+            "url": "http://linkedin.com/company/workos-inc",
+            "excerpts": [
+              "(last verified: 2026-07-06) (last verified: 2026-06-24) Name: WorkOS\nWorkOS Industry Software Development Company size 51-200 employees Headquarters San Francisco, California Type Privately\nWorkOS is an API platform that simplifies implementing crucial enterprise features like User Management, Single Sign-On (SSO), Directory Sync (SCIM), Audit Logs, and more.\nWorkOS is an API platform that simplifies implementing crucial enterprise features like User Management, Single Sign-On (SSO), Directory Sync (SCIM), Audit"
+            ],
+            "title": null
+          },
+          {
+            "url": "http://intel.aikido.dev/cve/AIKIDO-2026-309251",
+            "excerpts": [
+              "5 days ago \u2014 @workos-inc/authkit-"
+            ],
+            "title": "@workos-inc/authkit-nextjs - AIKIDO-2026-309251"
+          },
+          {
+            "url": "https://workos.com/blog/identity-sso-compliance-b2b",
+            "excerpts": [
+              "Identity & SSO compliance: Why it matters and how to get it right\nAudit logs and reporting. SSO systems keep detailed logs: Who signed in. When. From where. What apps they accessed. This is gold during audits"
+            ],
+            "title": "Identity & SSO compliance: Why it matters and how to get it right"
+          },
+          {
+            "url": "https://clerk.com/articles/auth-platforms-with-sso-and-scim-in-the-base-tier",
+            "excerpts": [
+              "Auth Platforms With SSO and SCIM in the Base Tier\nJun 5, 2026 \u00b7 Compliance or procurement-driven: prioritize SCIM deprovisioning and audit logs; Clerk or WorkOS. Remember SSO and SOC 2 are among the most"
+            ],
+            "title": "Auth Platforms With SSO and SCIM in the Base Tier"
+          },
+          {
+            "url": "https://www.saaspricepulse.com/tools/flyio",
+            "excerpts": [
+              "Fly.io Free Tier 2026: What's Left After the Cuts?\nCurrent pricing is fully pay-as-you-go with optional support tiers ($29/$99 per month). Who Should Use It. Apps that benefit from multi-region latency"
+            ],
+            "title": "Fly.io Free Tier 2026: What's Left After the Cuts?"
+          },
+          {
+            "url": "https://getdeploying.com/flyio",
+            "excerpts": [
+              "Fly.io | Review, Pricing & Alternatives\nFeb 12, 2026 \u2014 Fly.io pricing examples \u00b7 Hobby: $5/mo \u00b7 Launch: $29/mo \u00b7 Scale: $199/mo \u00b7 Enterprise: Custom."
+            ],
+            "title": "Fly.io | Review, Pricing & Alternatives"
+          },
+          {
+            "url": "https://fly.io/docs/about/pricing",
+            "excerpts": [
+              "Fly.io Resource Pricing\nYou can get access to a support plan by purchasing a Standard ($29/month), Premium ($199/month), or Enterprise (starting at $2500/month) package in the Support"
+            ],
+            "title": "Fly.io Resource Pricing"
+          },
+          {
+            "url": "https://fly.io/pricing",
+            "excerpts": [
+              "Pricing \u00b7 Fly\nWant to know how much Fly.io will cost for your application? Try our new pricing calculator. Enter your expected usage and we'll give you a personalized estimate. Need to run larger workloads with custom resource configurations, SLA requirements, or emergency support? We\u2019ve got you covered."
+            ],
+            "title": "Pricing \u00b7 Fly"
+          },
+          {
+            "url": "https://fly.io/docs/machines",
+            "excerpts": [
+              "Fly Machines \u00b7 Fly Docs\nFly Machines are fast-launching VMs; We give you control of your Machine count and each Machine's region placement with a simple REST API or flyctl commands."
+            ],
+            "title": "Fly Machines \u00b7 Fly Docs"
+          }
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "hermes-inference-roi-july-2026.md"
+  }
+}

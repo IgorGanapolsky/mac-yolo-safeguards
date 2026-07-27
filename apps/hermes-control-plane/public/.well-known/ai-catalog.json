@@ -1,0 +1,39 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "ThumbGate",
+    "documentationUrl": "https://thumbgate.app/llms.txt"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:thumbgate.app:service:hermes-web",
+      "displayName": "Hermes Web by ThumbGate",
+      "type": "text/plain",
+      "url": "https://thumbgate.app/llms.txt",
+      "description": "Authenticated, local-first Hermes chat continuity with signed machine pairing, fenced execution, optional paid cloud failover, private response feedback, and a lessons dashboard.",
+      "tags": [
+        "hermes",
+        "agent-runtime",
+        "local-first",
+        "fenced-execution",
+        "cloud-continuity"
+      ],
+      "capabilities": [
+        "HermesChatContinuity",
+        "SignedMachinePairing",
+        "FencedTaskExecution",
+        "PrivateResponseFeedback"
+      ],
+      "representativeQueries": [
+        "Continue my Hermes chats securely from the web",
+        "Run a Hermes task locally and fail over to cloud when my machine is offline",
+        "Review private thumbs feedback and lessons from Hermes responses"
+      ],
+      "version": "1.0.0",
+      "metadata": {
+        "authentication": "required",
+        "pricingDiscovery": "https://thumbgate.app/api/billing/plan"
+      }
+    }
+  ]
+}

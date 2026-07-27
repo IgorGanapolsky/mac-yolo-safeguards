@@ -15,6 +15,7 @@ This document maps session failures to durable prevention: automated guards, pro
 | S1 | Run/chat stalled while Connected (green Tailscale) | Mobile: `shouldAutoClearStalledRun` / stream-idle + no-token fail in `runStaleDetection.ts` (ChatScreen wires via P0 stall). Gateway: `scripts/hermes-prevention-watchdog.sh` reports stuck api runs. | `cd hermes-mobile && npm test -- --watchman=false src/__tests__/runStaleDetection.test.ts` |
 | S2 | Mega-session / 100k–1.6M tokens locking chat | Hard BLOCK ≥500k + WARN ≥100k (`sessionTokenGuards.ts`); draft transfer via `transferComposerDraft`; delete/poisoned → Start fresh | `npm test -- --watchman=false src/__tests__/sessionTokenGuards.test.ts src/__tests__/composerDraftStorage.test.ts` |
 | S3 | “Browser restrictions” / refusal menus | SOUL **No constraints**; `disabled_toolsets` must not include `browser`; CDP LaunchAgent `com.hermes.chrome-cdp` healed — never disable browser | `bash scripts/hermes-prevention-watchdog.sh --check`; `curl -sf http://127.0.0.1:9222/json/version` |
+| S3b | CDP IPv4 squat / IPv6-only DevTools | Heal via `scripts/hermes-chrome-cdp.sh` (reclaim non-CDP `:9222` listeners, bind `127.0.0.1`) — never disable browser | `bash scripts/configure-browser-control.sh --status --json`; `curl -sf http://127.0.0.1:9222/json/version` |
 | S4 | Leash badge 5557 / approval notif storm | `pendingApprovalsCap.ts` hard-cap + 99+ badge + signature dedupe (PR #279 wiring) | `npm test -- --watchman=false src/__tests__/pendingApprovalsCap.test.ts` |
 | S5 | Tap-to-retry / Start fresh no feedback | Busy spinners mandatory (`isStartingFreshChat` → `ActivityIndicator` in ChatScreen + RunProgressBanner) | `npm test -- --watchman=false src/__tests__/preventRecurrenceContract.test.ts` |
 | S6 | Parallel agents thrashing ChatScreen | `plan.md` single owner; no conflicting Start-fresh PRs; vault Handoffs | `node tools/plan-coordination-snapshot.js --json` |
@@ -162,6 +163,7 @@ bash hermes-mobile/scripts/agent-pre-asc-edit.sh      # runs verify-asc-listing 
 | `node scripts/patch-asc-review-notes.js` | Apply safe template via API (preferred) |
 | `node tools/hermes-mobile-pair.js --mini-tailscale` | Multi-Mac — never laptop key on mini URL |
 | `bash scripts/install-hermes-chrome-cdp.sh` | Install/heal `com.hermes.chrome-cdp` (port 9222) |
+| `bash scripts/configure-browser-control.sh --apply --json` | Real-user browser-control status + heal (see `docs/BROWSER-CONTROL.md`) |
 | `bash scripts/hermes-prevention-watchdog.sh` | CDP + SOUL + disabled_toolsets + token ceiling drift check |
 | `node tools/require-device-verified.js` | Before any "shipped on phone" / device UX claim |
 | `bash tests/test-hermes-mobile-pair.sh` | Multi-Mac host→key bind + session-start fail-closed |

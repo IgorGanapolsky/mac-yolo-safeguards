@@ -176,12 +176,16 @@ describe('release safety contract', () => {
     expect(app.expo.plugins).toContain('expo-updates');
   });
 
-  it('app.config.js disables OTA for E2E automation and pins production channel otherwise', () => {
+  it('app.config.js disables OTA for E2E automation, billing freeze, and pins production channel otherwise', () => {
     const appConfig = read('hermes-mobile/app.config.js');
     expect(appConfig).toContain('EXPO_PUBLIC_E2E_AUTOMATION');
     expect(appConfig).toContain('expo-channel-name');
-    expect(appConfig).toContain("checkAutomatically: e2eAutomation ? 'NEVER' :");
-    expect(appConfig).toContain('e2eAutomation ? false : baseUpdates.enabled !== false');
+    expect(appConfig).toContain('billingFreezeActive');
+    expect(appConfig).toContain('otaControllerOff');
+    expect(appConfig).toContain("checkAutomatically: otaControllerOff");
+    expect(appConfig).toContain('enabled: otaControllerOff ? false');
+    expect(appConfig).toContain('HERMES_OTA_BILLING_THAW');
+    expect(appConfig).toContain('2026-08-15');
   });
 
   it('syncs expo_runtime_version before phone release builds (appVersion policy)', () => {
@@ -207,21 +211,28 @@ describe('release safety contract', () => {
     expect(eas.build['e2e-test'].channel).toBe('e2e-test');
   });
 
-  it('mobile-ota workflow: preview on push; production gated + staged rollout', () => {
+  it('mobile-ota workflow: no push auto-publish; opt-in preview/production + billing freeze', () => {
     const workflow = read('.github/workflows/mobile-ota.yml');
-    expect(workflow).toContain('branches:');
-    expect(workflow).toContain('- main');
-    expect(workflow).toContain('hermes-mobile/**');
     expect(workflow).toContain('workflow_dispatch');
     expect(workflow).toContain('runtimeVersion');
     expect(workflow).toContain('eas update');
-    // Crisis law: preview may publish on push; production needs publish_production + proof.
+    // Billing freeze 2026-07-23: never auto-publish on push (spam burned Expo).
+    expect(workflow).not.toMatch(/on:\s*\n\s*push:/);
+    expect(workflow).toContain('publish_preview');
+    expect(workflow).toContain('require-expo-billing-thaw.sh');
+    expect(workflow).toContain('billing-freeze-gate');
+    // Crisis law: production needs publish_production + proof; preview is opt-in.
     expect(workflow).toContain('publish-preview-ota');
     expect(workflow).toContain('publish-production-ota');
     expect(workflow).toContain('publish_production');
     expect(workflow).toContain('--rollout-percentage');
     expect(workflow).toContain('production_rollout_percentage');
     expect(workflow).toContain('promote_production_rollout');
+    // EAS GraphQL rejects --rollout-percentage 100 (run 29889285465).
+    expect(workflow).toContain('EAS rejects 100');
+    expect(workflow).toContain('omit --rollout-percentage');
+    expect(workflow).toContain('Promotion to 100 is not supported');
+    expect(workflow).not.toContain('PROMOTE_TO=99');
     expect(workflow).toContain('require-stranger-cold-start-proof.cjs');
     expect(workflow).toContain('HERMES_STRANGER_PROOF_WAIT_SEC');
     expect(workflow).toMatch(/checks:\s*read/);
@@ -429,12 +440,14 @@ describe('release safety contract', () => {
     expect(env).toContain('wait_for_adb_device "$device_id" "$MAESTRO_ANDROID_ADB_WAIT_ATTEMPTS"');
   });
 
-  it('e2e-bootstrap waits for lazy Leash tab load', () => {
+  it('e2e-bootstrap waits for Leash tab content (not endless loading fallback)', () => {
     const bootstrap = read('hermes-mobile/.maestro/e2e-bootstrap.yaml');
     expect(bootstrap).toContain('hermes://setup?demo=1');
     expect(bootstrap).toContain('hermes://leash');
     expect(bootstrap).toContain('THUMBGATE_LEASH');
     expect(bootstrap).toContain('id: "tab-leash"');
+    expect(bootstrap).toContain('assertNotVisible:');
+    expect(bootstrap).toContain('id: "tab-screen-loading"');
     expect(bootstrap).toContain('hermes://chat');
     expect(bootstrap).toContain('chat-screen-header');
     expect(bootstrap).toContain('chat-input');

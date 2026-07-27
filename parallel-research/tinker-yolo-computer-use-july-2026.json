@@ -1,0 +1,9 @@
+{
+  "schema": "parallel-research/provenance-v1",
+  "status": "completed",
+  "runId": "trun_0648dea93dab4095906bc07907c81987",
+  "interactionId": "trun_0648dea93dab4095906bc07907c81987",
+  "resultUrl": "https://platform.parallel.ai/play/deep-research/trun_0648dea93dab4095906bc07907c81987",
+  "completedDate": "2026-07-21",
+  "ingest": "docs/RESEARCH-TINKER-YOLO-COMPUTER-USE-JULY-2026.md"
+}

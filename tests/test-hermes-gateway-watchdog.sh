@@ -23,14 +23,17 @@ BIN="$TMP/bin"; mkdir -p "$BIN"
 
 cat > "$BIN/curl" <<'MOCK'
 #!/usr/bin/env bash
-# Routes by the http URL in argv. Health/ps replay files; generate/chat are recorded.
+# Routes by the http(s) URL in argv. Health/ps replay files; generate/chat/ntfy
+# calls are recorded (ntfy captured with its full argv, including -H "Title: ...",
+# so tests can assert on which alert fired).
 url=""
-for a in "$@"; do case "$a" in http://*) url="$a" ;; esac; done
+for a in "$@"; do case "$a" in http://*|https://*) url="$a" ;; esac; done
 case "$url" in
   */health)               cat "$MOCK_HEALTH" 2>/dev/null || echo 000 ;;
   */api/ps)               cat "$MOCK_PS" 2>/dev/null || echo '{"models":[]}' ;;
   */api/generate)         echo "PIN $*" >> "$MOCK_CALLS" ;;
   */v1/chat/completions)  echo "WARMUP" >> "$MOCK_CALLS" ;;
+  *ntfy.sh*)               echo "NTFY $*" >> "$MOCK_CALLS" ;;
 esac
 exit 0
 MOCK
@@ -47,7 +50,14 @@ echo "STARTED $*" >> "$MOCK_START"
 exit 0
 MOCK
 
-chmod +x "$BIN/curl" "$BIN/pgrep" "$BIN/pybin"
+cat > "$BIN/launchctl" <<'MOCK'
+#!/usr/bin/env bash
+if [ "${1:-}" = "print" ]; then exit "${MOCK_LAUNCHCTL_PRINT_EXIT:-1}"; fi
+echo "LAUNCHCTL $*" >> "$MOCK_CALLS"
+exit 0
+MOCK
+
+chmod +x "$BIN/curl" "$BIN/pgrep" "$BIN/pybin" "$BIN/launchctl"
 
 # Run the watchdog with a fresh isolated state for one scenario. Args: KEY=VAL env.
 run_wd() {
@@ -56,14 +66,21 @@ run_wd() {
     HERMES_CURL_BIN="$BIN/curl" \
     HERMES_PGREP_BIN="$BIN/pgrep" \
     HERMES_PYBIN="$BIN/pybin" \
+    HERMES_LAUNCHCTL_BIN="$BIN/launchctl" \
+    HERMES_GUI_DOMAIN="gui/501" \
+    HERMES_GATEWAY_LABEL="ai.hermes.gateway" \
+    HERMES_GATEWAY_PLIST="$TMP/ai.hermes.gateway.plist" \
     HERMES_ENV_FILE="$TMP/env" \
     HERMES_WATCHDOG_LOG="$TMP/wd.log" \
     HERMES_WATCHDOG_STATE="$TMP/state" \
+    HERMES_WATCHDOG_ALERT_STATE="$TMP/alert-state" \
+    HERMES_WATCHDOG_NTFY_TOPIC="test-topic" \
     HERMES_AGENT_LOG="$TMP/agent.log" \
     HERMES_WARMUP_COUNT="2" \
     HERMES_MEMORY_PRESSURE_LEVEL="1" \
     HERMES_NOW_EPOCH="1000" \
     YOLO_MEMORY_RECOVERY_FILE="$TMP/recovery-until" \
+    YOLO_HERMES_GATEWAY_CIRCUIT_FILE="$TMP/circuit-open" \
     MOCK_HEALTH="$TMP/health" \
     MOCK_PS="$TMP/ps" \
     MOCK_CALLS="$TMP/calls" \
@@ -71,10 +88,23 @@ run_wd() {
     MOCK_GATEWAY_PID="$TMP/gwpid" \
     "$@" \
     bash "$WD"
-  # The gateway start remains asynchronous; pin/warmup are deliberately synchronous.
-  for _ in $(seq 1 30); do
-    grep -q "STARTED\|PIN\|WARMUP" "$TMP/start" "$TMP/calls" 2>/dev/null && break
-    sleep 0.1
+  # Start is asynchronous (nohup). Never treat PIN/WARMUP as proof the start
+  # landed — on busy CI runners PIN is recorded first and a late STARTED then
+  # leaks into the next scenario (false T1 miss + false T2 double-start).
+  if grep -q "no proc.*starting" "$TMP/wd.log" 2>/dev/null; then
+    for _ in $(seq 1 40); do
+      grep -q "STARTED" "$TMP/start" 2>/dev/null && break
+      sleep 0.05
+    done
+  else
+    for _ in $(seq 1 10); do
+      grep -q "PIN\|WARMUP" "$TMP/calls" 2>/dev/null && break
+      sleep 0.05
+    done
+  fi
+  for _ in $(seq 1 40); do
+    pgrep -f "$BIN/pybin" >/dev/null 2>&1 || break
+    sleep 0.05
   done
 }
 
@@ -86,6 +116,8 @@ echo "=== hermes-gateway-watchdog unit tests ==="
 if bash -n "$WD"; then ok "watchdog passes 'bash -n' syntax check"; else bad "watchdog FAILS syntax check"; fi
 
 printf 'API_SERVER_KEY=testkey123\n' > "$TMP/env"
+printf '<plist/>\n' > "$TMP/ai.hermes.gateway.plist"
+rm -f "$TMP/circuit-open"
 
 # T1: gateway down + no proc -> starts gateway.
 echo 000 > "$TMP/health"; echo '{"models":["qwen3:8b-64k"]}' > "$TMP/ps"; : > "$TMP/gwpid"
@@ -158,6 +190,46 @@ else
 fi
 : > "$TMP/recovery-until"
 
+# T5e: a down/absent gateway stays down while the guardian's recovery circuit
+# is open, then becomes restart-eligible immediately after expiry.
+echo 000 > "$TMP/health"; echo '{"models":[]}' > "$TMP/ps"; : > "$TMP/gwpid"
+echo 1600 > "$TMP/recovery-until"
+run_wd HERMES_MEMORY_PRESSURE_LEVEL="1" HERMES_NOW_EPOCH="1000"
+if ! grep -q "STARTED" "$TMP/start" \
+  && grep -q 'gateway down.*during memory recovery.*leave stopped' "$TMP/wd.log"; then
+  ok "T5e: recovery circuit keeps a down gateway stopped"
+else
+  bad "T5e: watchdog restarted a gateway during recovery"
+fi
+run_wd HERMES_MEMORY_PRESSURE_LEVEL="1" HERMES_NOW_EPOCH="1601"
+grep -q "STARTED" "$TMP/start" \
+  && ok "T5e: gateway restart resumes after recovery expiry" \
+  || bad "T5e: gateway did not restart after recovery expiry"
+: > "$TMP/recovery-until"
+
+# T5f: an opened guardian circuit survives KeepAlive/self-heal attempts, then
+# restores launchd ownership exactly once after pressure and cooldown clear.
+echo 000 > "$TMP/health"; echo '{"models":[]}' > "$TMP/ps"; : > "$TMP/gwpid"
+echo 1600 > "$TMP/recovery-until"; echo 1600 > "$TMP/circuit-open"
+run_wd HERMES_MEMORY_PRESSURE_LEVEL="1" HERMES_NOW_EPOCH="1000"
+if grep -q '^LAUNCHCTL disable gui/501/ai.hermes.gateway$' "$TMP/calls" \
+  && grep -q '^LAUNCHCTL bootout gui/501/ai.hermes.gateway$' "$TMP/calls" \
+  && [ -f "$TMP/circuit-open" ] && ! grep -q 'STARTED' "$TMP/start"; then
+  ok "T5f: open circuit enforces launchd disable/bootout"
+else
+  bad "T5f: open circuit did not enforce launchd disable/bootout"
+fi
+: > "$TMP/recovery-until"
+run_wd HERMES_MEMORY_PRESSURE_LEVEL="1" HERMES_NOW_EPOCH="1601"
+if grep -q '^LAUNCHCTL enable gui/501/ai.hermes.gateway$' "$TMP/calls" \
+  && grep -q "^LAUNCHCTL bootstrap gui/501 $TMP/ai.hermes.gateway.plist$" "$TMP/calls" \
+  && grep -q '^LAUNCHCTL kickstart -k gui/501/ai.hermes.gateway$' "$TMP/calls" \
+  && [ ! -e "$TMP/circuit-open" ] && ! grep -q 'STARTED' "$TMP/start"; then
+  ok "T5f: expired circuit restores launchd ownership without a duplicate manual start"
+else
+  bad "T5f: expired circuit did not restore launchd ownership safely"
+fi
+
 # T6: pid changed vs state -> pre-warm WARMUP_COUNT times, then records new pid.
 echo 200 > "$TMP/health"; echo '{"models":["qwen3:8b-64k"]}' > "$TMP/ps"; echo 5555 > "$TMP/gwpid"; echo 4242 > "$TMP/state"
 run_wd
@@ -212,6 +284,62 @@ run_wd HERMES_PRESENCE_FILE="$TMP/presence.md"
 [ ! -f "$TMP/presence.md" ] \
   && ok "T11: missing presence file -> not created, no crash" \
   || bad "T11: created a presence file that did not exist"
+
+echo ""
+echo "=== self-heal-failure alerting (this watchdog previously had NO alerting at all) ==="
+rm -f "$TMP/alert-state"
+
+# T12: healthy from a clean start -> alert state settles to ok, no ntfy call at all.
+echo 200 > "$TMP/health"; echo '{"models":["qwen3:8b-64k"]}' > "$TMP/ps"; echo 4242 > "$TMP/gwpid"; echo 4242 > "$TMP/state"
+run_wd
+[ "$(calls NTFY)" -eq 0 ] && [ "$(cat "$TMP/alert-state" 2>/dev/null)" = "ok" ] \
+  && ok "T12: healthy from a clean start -> no ntfy alert" \
+  || bad "T12: unexpected alert on a healthy start"
+
+# T13: first down tick (restart just kicked off) -> healing, NOT alerted yet. A
+# single-tick blip that a routine restart clears before the next check must never page anyone.
+echo 000 > "$TMP/health"; echo '{"models":[]}' > "$TMP/ps"; : > "$TMP/gwpid"
+run_wd
+[ "$(calls NTFY)" -eq 0 ] && [ "$(cat "$TMP/alert-state")" = "healing" ] \
+  && ok "T13: first down tick -> healing (routine self-heal in flight), no alert" \
+  || bad "T13: unexpected alert on the very first down tick"
+
+# T14: STILL down on the following tick despite the restart already attempted ->
+# the self-heal attempt failed to resolve it -> real ntfy alert fires exactly once.
+echo 000 > "$TMP/health"; echo '{"models":[]}' > "$TMP/ps"; : > "$TMP/gwpid"
+run_wd
+if [ "$(calls NTFY)" -eq 1 ] && grep -q 'Title: Hermes gateway self-heal failed' "$TMP/calls" \
+  && [ "$(cat "$TMP/alert-state")" = "degraded" ]; then
+  ok "T14: still down after restart attempt -> real ntfy self-heal-failed alert fires"
+else
+  cat "$TMP/calls"
+  bad "T14: expected exactly one self-heal-failed ntfy alert"
+fi
+
+# T15: still down on a THIRD tick -> no duplicate alert (edge-triggered, not every interval).
+echo 000 > "$TMP/health"; echo '{"models":[]}' > "$TMP/ps"; : > "$TMP/gwpid"
+run_wd
+[ "$(calls NTFY)" -eq 0 ] \
+  && ok "T15: still degraded on a third tick -> no duplicate ntfy alert" \
+  || bad "T15: unexpected repeat alert while still degraded"
+
+# T16: gateway recovers -> ntfy recovery alert fires exactly once, state resets to ok.
+echo 200 > "$TMP/health"; echo '{"models":["qwen3:8b-64k"]}' > "$TMP/ps"; echo 9999 > "$TMP/gwpid"; echo 4242 > "$TMP/state"
+run_wd
+if [ "$(calls NTFY)" -eq 1 ] && grep -q 'Title: Hermes gateway watchdog recovered' "$TMP/calls" \
+  && [ "$(cat "$TMP/alert-state")" = "ok" ]; then
+  ok "T16: recovery fires an ntfy recovery alert and resets state"
+else
+  cat "$TMP/calls"
+  bad "T16: expected exactly one recovery ntfy alert"
+fi
+
+# T17: subsequent healthy ticks stay silent (no repeat recovery alert).
+echo 200 > "$TMP/health"; echo '{"models":["qwen3:8b-64k"]}' > "$TMP/ps"; echo 9999 > "$TMP/gwpid"; echo 9999 > "$TMP/state"
+run_wd
+[ "$(calls NTFY)" -eq 0 ] \
+  && ok "T17: repeated healthy ticks after recovery stay silent" \
+  || bad "T17: unexpected repeat alert after recovery"
 
 echo ""
 echo "=== $pass passed, $fail failed ==="

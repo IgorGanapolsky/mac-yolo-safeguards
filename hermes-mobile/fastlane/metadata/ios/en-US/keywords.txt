@@ -1,1 +1,1 @@
-remote,mac,approve,agent,coding,tailscale,operator,safety,pair,gateway,devtools,leash,chat
+remote,coding,assistant,desktop,control,linux,windows,selfhosted,local,computer,developer

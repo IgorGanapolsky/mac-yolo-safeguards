@@ -143,7 +143,7 @@ describe('sessionContinuityHandoff', () => {
     ).toBe(true);
   });
 
-  it('hides continuity chip when viewing an existing transcript', () => {
+  it('never shows continuity chip — resume is seamless (no Dismiss UI)', () => {
     const handoff = buildSessionContinuityHandoff({
       messages: [
         { role: 'user', content: 'Ship continuity' },
@@ -156,7 +156,7 @@ describe('sessionContinuityHandoff', () => {
         chipDismissed: false,
         transcriptEmpty: true,
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldShowContinuityChip({
         handoff,

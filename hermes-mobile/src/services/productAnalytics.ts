@@ -86,10 +86,15 @@ function updatesChannelName(): string {
     return fromEnv;
   }
   try {
-    return String(Updates.channel ?? '').trim();
+    // Prefer runtime channel from expo-updates (store / OTA production).
+    const runtimeChannel = String(Updates.channel ?? '').trim();
+    if (runtimeChannel) {
+      return runtimeChannel;
+    }
   } catch {
-    return '';
+    /* Updates unavailable in some test hosts */
   }
+  return '';
 }
 
 function isInternalDogfoodBuild(): boolean {
@@ -114,26 +119,39 @@ export function isProductionPostHogBuild(): boolean {
 }
 
 /**
+ * Why capture is blocked (null = allowed). Useful for proofs / support.
+ * Does not include API key presence (see shouldReportToPostHog).
+ */
+export function getPostHogEnvironmentBlockReason(): string | null {
+  if (reportingOverrideForTesting !== null) {
+    return reportingOverrideForTesting ? null : 'test_override_false';
+  }
+  if (__DEV__) {
+    return '__DEV__';
+  }
+  if (!isProductionPostHogBuild()) {
+    const profile = easBuildProfile() || '(empty)';
+    const channel = updatesChannelName() || '(empty)';
+    return `non_production_channel profile=${profile} channel=${channel}`;
+  }
+  if (isInternalDogfoodBuild()) {
+    return 'EXPO_PUBLIC_POSTHOG_INTERNAL';
+  }
+  if (developerLeashUnlockActive) {
+    return 'developerLeashUnlock';
+  }
+  if (storeLeashPreviewActive) {
+    return 'storeLeashPreview';
+  }
+  return null;
+}
+
+/**
  * Environment / dogfood gates shared by product events and crash flush.
  * Does not check API key or Settings opt-out (those are path-specific).
  */
 export function isPostHogCaptureEnvironmentAllowed(): boolean {
-  if (reportingOverrideForTesting !== null) {
-    return reportingOverrideForTesting;
-  }
-  if (__DEV__) {
-    return false;
-  }
-  if (!isProductionPostHogBuild()) {
-    return false;
-  }
-  if (isInternalDogfoodBuild()) {
-    return false;
-  }
-  if (developerLeashUnlockActive || storeLeashPreviewActive) {
-    return false;
-  }
-  return true;
+  return getPostHogEnvironmentBlockReason() === null;
 }
 
 /**
@@ -157,7 +175,12 @@ export async function trackProductEvent(
 ): Promise<void> {
   if (!shouldReportToPostHog()) {
     if (__DEV__) {
-      console.debug('[analytics]', event, properties);
+      console.debug(
+        '[analytics]',
+        event,
+        properties,
+        getPostHogEnvironmentBlockReason() ?? (optOut ? 'opt_out' : 'no_key'),
+      );
     }
     return;
   }
@@ -165,18 +188,20 @@ export async function trackProductEvent(
   try {
     const distinctId = await getDistinctId();
     const attribution = await getMarketingAttributionProperties();
-    await fetch(`${POSTHOG_HOST.replace(/\/+$/, '')}/capture/`, {
+    await fetch(`${POSTHOG_HOST.replace(/\/+$/, '')}/i/v0/e/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         api_key: posthogKey(),
         event,
+        distinct_id: distinctId,
         properties: {
           distinct_id: distinctId,
           app: 'hermes-mobile',
           platform: Platform.OS,
           app_version: APP_VERSION,
           build_number: BUILD_NUMBER,
+          $lib: 'hermes-mobile-fetch',
           ...attribution,
           ...properties,
         },

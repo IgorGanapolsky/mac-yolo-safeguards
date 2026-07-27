@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.igor.fleet-repo-intelligence</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>__REPO__/tools/install-fleet-repo-intelligence.sh</string>
+	</array>
+	<key>StartInterval</key>
+	<integer>86400</integer>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardOutPath</key>
+	<string>__HOME__/Library/Logs/fleet-repo-intelligence.log</string>
+	<key>StandardErrorPath</key>
+	<string>__HOME__/Library/Logs/fleet-repo-intelligence.err.log</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:__HOME__/.local/bin:__HOME__/.npm-global/bin</string>
+		<key>HOME</key>
+		<string>__HOME__</string>
+	</dict>
+</dict>
+</plist>

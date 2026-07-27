@@ -20,14 +20,23 @@ import {
 } from '../services/appOtaUpdate';
 
 describe('appOtaUpdate', () => {
+  const prevThaw = process.env.EXPO_PUBLIC_OTA_BILLING_THAW;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    // Default tests assume billing thawed so Check-for-update still works.
+    process.env.EXPO_PUBLIC_OTA_BILLING_THAW = '1';
     (Updates as { isEnabled: boolean }).isEnabled = true;
     (Updates as { channel: string }).channel = 'production';
     (Updates as { runtimeVersion: string }).runtimeVersion = '1.2';
     (Updates as { updateId: string }).updateId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
     (Updates as { isEmbeddedLaunch: boolean }).isEmbeddedLaunch = true;
     (Updates as { isEmergencyLaunch: boolean }).isEmergencyLaunch = false;
+  });
+
+  afterEach(() => {
+    if (prevThaw === undefined) delete process.env.EXPO_PUBLIC_OTA_BILLING_THAW;
+    else process.env.EXPO_PUBLIC_OTA_BILLING_THAW = prevThaw;
   });
 
   it('treats channel+runtime as enabled when Updates.isEnabled is falsely false', () => {
@@ -129,5 +138,23 @@ describe('appOtaUpdate', () => {
       manifestId: '019f7091-33a8-7493-b7f9-003e72d9a87a',
       diagnostics: expect.objectContaining({ isEnabledFlag: false, channel: 'production' }),
     });
+  });
+
+  it('refuses check/apply during Expo billing freeze (no reloadAsync)', async () => {
+    delete process.env.EXPO_PUBLIC_OTA_BILLING_THAW;
+    delete process.env.HERMES_OTA_BILLING_THAW;
+    delete process.env.EXPO_PUBLIC_OTA_CLIENT_PROMPTS;
+
+    await expect(checkForAppUpdate()).resolves.toEqual({
+      status: 'disabled',
+      message: expect.stringContaining('billing freeze'),
+      diagnostics: expect.any(Object),
+    });
+    await expect(fetchAndApplyAppUpdate()).resolves.toEqual({
+      status: 'noop',
+      message: expect.stringContaining('frozen'),
+    });
+    expect(Updates.checkForUpdateAsync).not.toHaveBeenCalled();
+    expect(Updates.reloadAsync).not.toHaveBeenCalled();
   });
 });

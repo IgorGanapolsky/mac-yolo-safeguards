@@ -53,6 +53,15 @@ describe('shouldShowChatOutputFeedback', () => {
     ).toBe(false);
   });
 
+  it('hides feedback for cron [SILENT] protocol acks', () => {
+    expect(
+      shouldShowChatOutputFeedback(
+        { role: 'assistant', content: '[SILENT]' },
+        { leashUnlocked: true, isStreamingAssistant: false },
+      ),
+    ).toBe(false);
+  });
+
   it('hides feedback for deferred working/timeout status placeholders', () => {
     expect(
       shouldShowChatOutputFeedback(

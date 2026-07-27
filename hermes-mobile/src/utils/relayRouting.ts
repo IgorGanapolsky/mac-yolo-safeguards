@@ -85,14 +85,14 @@ export function resolveRelayRouteDisplay(input: {
       gatewayUrl === 'http://127.0.0.1:8642' ||
       gatewayUrl === 'http://localhost:8642';
     return {
-      machineLabel: 'Hermes account relay',
+      machineLabel: 'Cloud approvals',
       routeStatus: showPairNudge
-        ? 'Pair relay in Settings for Wi‑Fi, cellular, or USB'
+        ? 'Pair to receive approval requests anywhere'
         : heal.inFlight
           ? neverConnected
-            ? 'Looking for your Mac…'
+            ? 'Waiting for approval pairing…'
             : 'Reconnecting…'
-          : 'Direct link',
+          : 'Cloud approvals are not paired',
     };
   }
 
@@ -101,17 +101,17 @@ export function resolveRelayRouteDisplay(input: {
     const workerName = relayWorkerDisplayName(worker);
     return {
       machineLabel: workerName,
-      endpointLabel: 'via Hermes relay',
-      routeStatus: `Routed by Hermes account${worker.status ? ` · ${worker.status}` : ''}`,
+      endpointLabel: 'cloud approvals',
+      routeStatus: `Approval requests anywhere${worker.status ? ` · ${worker.status}` : ''}`,
     };
   }
 
   return {
-    machineLabel: 'Hermes account relay',
-    endpointLabel: 'via Hermes relay',
+    machineLabel: 'Cloud approvals',
+    endpointLabel: undefined,
     routeStatus:
       input.connectionState === 'connected'
-        ? 'Waiting for active workers on Wi‑Fi, cellular, or USB'
-        : 'Connects when a Hermes worker checks in',
+        ? 'Paired for approval requests anywhere'
+        : 'Connects when approval requests are available',
   };
 }

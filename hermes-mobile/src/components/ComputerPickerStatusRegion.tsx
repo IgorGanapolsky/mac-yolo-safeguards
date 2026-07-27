@@ -11,10 +11,13 @@ import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 import { tailscaleDiscoveryLabel } from '../services/tailscaleDiscovery';
 import { colors } from '../theme/colors';
 import {
+  COMPUTER_PICKER_STATUS_COLLAPSED_MIN_HEIGHT,
+  COMPUTER_PICKER_STATUS_COMPACT_MIN_HEIGHT,
   COMPUTER_PICKER_STATUS_DEBOUNCE_MS,
   COMPUTER_PICKER_STATUS_MIN_HEIGHT,
   computerPickerStatusSignature,
   resolveComputerPickerStatus,
+  shouldCollapsePickerStatusBand,
   shouldCommitComputerPickerStatus,
   type ComputerPickerStatusSnapshot,
 } from '../utils/computerPickerStatus';
@@ -28,8 +31,16 @@ type ComputerPickerStatusRegionProps = {
   tailscaleProbing: boolean;
   tailscaleVpnActive: boolean;
   tailscaleDiscoveries: DiscoveredGateway[];
+  activeGatewayUrl?: string | null;
+  wifiConnected?: boolean;
+  activeReachable?: boolean;
   addingTailscale?: boolean;
   onAddTailscale?: (discovery: DiscoveredGateway) => void;
+  /** Saved profile count — idle help collapses when > 0 unless expanded. */
+  savedProfileCount?: number;
+  helpExpanded?: boolean;
+  onExpandHelp?: () => void;
+  compact?: boolean;
   testID?: string;
 };
 
@@ -40,8 +51,15 @@ export default function ComputerPickerStatusRegion({
   tailscaleProbing,
   tailscaleVpnActive,
   tailscaleDiscoveries,
+  activeGatewayUrl = null,
+  wifiConnected = true,
+  activeReachable = false,
   addingTailscale = false,
   onAddTailscale,
+  savedProfileCount = 0,
+  helpExpanded = false,
+  onExpandHelp,
+  compact = false,
   testID = 'mac-picker-status-region',
 }: ComputerPickerStatusRegionProps) {
   const [resultExpired, setResultExpired] = useState(false);
@@ -54,6 +72,9 @@ export default function ComputerPickerStatusRegion({
       tailscaleProbing,
       tailscaleVpnActive,
       tailscaleDiscoveries,
+      activeGatewayUrl,
+      wifiConnected,
+      activeReachable,
     }),
   );
   const commitMetaRef = useRef<{
@@ -87,6 +108,9 @@ export default function ComputerPickerStatusRegion({
       tailscaleProbing,
       tailscaleVpnActive,
       tailscaleDiscoveries,
+      activeGatewayUrl,
+      wifiConnected,
+      activeReachable,
     });
     const nextSignature = computerPickerStatusSignature(next);
     const nowMs = Date.now();
@@ -155,10 +179,36 @@ export default function ComputerPickerStatusRegion({
     tailscaleProbing,
     tailscaleVpnActive,
     tailscaleDiscoveries,
+    activeGatewayUrl,
+    wifiConnected,
+    activeReachable,
   ]);
 
+  const collapsed = shouldCollapsePickerStatusBand(status, savedProfileCount, helpExpanded);
+
+  if (collapsed) {
+    return (
+      <View
+        style={[styles.collapsedSlot, { minHeight: COMPUTER_PICKER_STATUS_COLLAPSED_MIN_HEIGHT }]}
+        testID={`${testID}-slot`}
+      >
+        {onExpandHelp ? (
+          <TouchableOpacity
+            style={styles.helpLinkRow}
+            onPress={onExpandHelp}
+            testID={`${testID}-help-link`}
+          >
+            <Text style={styles.helpLinkText}>Missing another computer?</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+    );
+  }
+
+  const minHeight = compact ? COMPUTER_PICKER_STATUS_COMPACT_MIN_HEIGHT : COMPUTER_PICKER_STATUS_MIN_HEIGHT;
+
   const borderTint =
-    status.kind === 'result'
+    status.kind === 'result' || status.kind === 'active'
       ? status.success
         ? styles.cardSuccess
         : styles.cardWarn
@@ -169,7 +219,15 @@ export default function ComputerPickerStatusRegion({
           : styles.cardHelp;
 
   return (
-    <View style={[styles.region, borderTint]} testID={testID}>
+    <View
+      style={[
+        styles.region,
+        compact ? styles.regionCompact : null,
+        { minHeight },
+        borderTint,
+      ]}
+      testID={testID}
+    >
       <View style={styles.row}>
         {status.kind === 'searching' ? (
           <ActivityIndicator color={colors.accent} size="small" />
@@ -177,15 +235,18 @@ export default function ComputerPickerStatusRegion({
         <Text
           style={[
             styles.title,
-            status.kind === 'result' && status.success ? styles.titleSuccess : null,
+            compact ? styles.titleCompact : null,
+            (status.kind === 'result' || status.kind === 'active') && status.success
+              ? styles.titleSuccess
+              : null,
             status.kind === 'result' && !status.success ? styles.titleWarn : null,
           ]}
-          numberOfLines={2}
+          numberOfLines={compact ? 1 : 2}
         >
           {status.title}
         </Text>
       </View>
-      <Text style={styles.detail} numberOfLines={3}>
+      <Text style={[styles.detail, compact ? styles.detailCompact : null]} numberOfLines={compact ? 2 : 3}>
         {status.detail}
       </Text>
       {status.kind === 'tailscale_found' && status.discoveries.length > 0 ? (
@@ -213,34 +274,44 @@ export default function ComputerPickerStatusRegion({
 }
 
 const styles = StyleSheet.create({
+  collapsedSlot: {
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
   region: {
-    minHeight: COMPUTER_PICKER_STATUS_MIN_HEIGHT,
     marginBottom: 12,
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     gap: 6,
     justifyContent: 'center',
   },
+  regionCompact: {
+    marginBottom: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 4,
+  },
   cardHelp: {
-    borderColor: 'rgba(34, 211, 238, 0.28)',
-    backgroundColor: 'rgba(34, 211, 238, 0.08)',
+    borderColor: 'rgba(34, 211, 238, 0.18)',
+    backgroundColor: 'rgba(34, 211, 238, 0.05)',
   },
   cardSearching: {
-    borderColor: 'rgba(99, 102, 241, 0.35)',
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    borderColor: 'rgba(99, 102, 241, 0.22)',
+    backgroundColor: 'rgba(99, 102, 241, 0.07)',
   },
   cardAccent: {
-    borderColor: colors.accent,
-    backgroundColor: 'rgba(34, 211, 238, 0.1)',
+    borderColor: 'rgba(34, 211, 238, 0.35)',
+    backgroundColor: 'rgba(34, 211, 238, 0.08)',
   },
   cardSuccess: {
-    borderColor: 'rgba(16, 185, 129, 0.35)',
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderColor: 'rgba(16, 185, 129, 0.28)',
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
   },
   cardWarn: {
-    borderColor: 'rgba(245, 158, 11, 0.35)',
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderColor: 'rgba(245, 158, 11, 0.28)',
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
   },
   row: {
     flexDirection: 'row',
@@ -254,6 +325,10 @@ const styles = StyleSheet.create({
     color: colors.text,
     lineHeight: 19,
   },
+  titleCompact: {
+    fontSize: 13,
+    lineHeight: 17,
+  },
   titleSuccess: {
     color: colors.success,
   },
@@ -265,23 +340,36 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     color: colors.textSecondary,
   },
+  detailCompact: {
+    fontSize: 11,
+    lineHeight: 15,
+  },
   chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 4,
+    marginTop: 2,
   },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 999,
     backgroundColor: 'rgba(34, 211, 238, 0.12)',
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.accent,
   },
   chipText: {
     color: colors.accent,
     fontWeight: '800',
-    fontSize: 13,
+    fontSize: 12,
+  },
+  helpLinkRow: {
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+  },
+  helpLinkText: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

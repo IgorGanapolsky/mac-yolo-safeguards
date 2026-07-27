@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import type { GatewayProfile } from '../types/gatewayProfile';
-import { profilesForActiveMachine } from '../services/gatewayProfiles';
+import { profileMachineKey, profilesForActiveMachine } from '../services/gatewayProfiles';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
 import { buildGatewayUrlFromLanIp, isLoopbackGatewayUrl } from './gatewayUrlPolicy';
 import { buildTailscaleGatewayUrl, isTailscaleGatewayUrl } from './tailscaleHosts';
@@ -15,9 +15,13 @@ export function shouldSkipLanGatewayProbe(gatewayUrl: string, wifiConnected: boo
   return isPrivateLanGatewayUrl(gatewayUrl) && !isLoopbackGatewayUrl(gatewayUrl);
 }
 
-/** Ordered fallback URLs after the active URL fails (native USB adb reverse). */
+/**
+ * Ordered fallback URLs after the active URL fails (Android USB adb reverse only).
+ * iPad/iPhone never get adb reverse — probing 127.0.0.1 leaves them stuck on
+ * "unreachable · USB" forever (2026-07-25 iPad dogfood).
+ */
 export function usbLoopbackFallbackUrls(primaryUrl: string): string[] {
-  if (Platform.OS === 'web' || isLoopbackGatewayUrl(primaryUrl)) {
+  if (Platform.OS !== 'android' || isLoopbackGatewayUrl(primaryUrl)) {
     return [];
   }
   return [USB_LOOPBACK_GATEWAY_URL];
@@ -71,8 +75,19 @@ export function cellularTailscaleFallbackUrls(input: {
   if (Platform.OS === 'web') {
     return [];
   }
+  // Off-Wi‑Fi anonymous USB only: unscope so heal can catalog Tailscale peers.
+  // Named USB (MacBook Pro) stays scoped — never probe/activate mini behind the user's back.
+  const active =
+    input.profiles?.find((profile) => profile.id === input.activeProfileId) ?? null;
+  const anonymousUsbStuckOffWifi =
+    !input.wifiConnected &&
+    isLoopbackGatewayUrl(input.primaryUrl) &&
+    active != null &&
+    !profileMachineKey(active);
   const scopedProfiles = input.profiles?.length
-    ? profilesForActiveMachine(input.profiles, input.activeProfileId)
+    ? anonymousUsbStuckOffWifi
+      ? input.profiles
+      : profilesForActiveMachine(input.profiles, input.activeProfileId)
     : undefined;
   const profileUrls =
     scopedProfiles?.map((profile) => profile.gatewayUrl) ?? input.profileUrls ?? [];

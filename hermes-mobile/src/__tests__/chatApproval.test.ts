@@ -12,38 +12,41 @@ import {
 } from '../utils/chatApproval';
 
 describe('chatApproval', () => {
-  it('parses Hermes approval nudge text and flexible formats', () => {
+  it('parses only explicit Hermes approval nudges', () => {
     const raw =
       '[Hermes Approval Nudge]\nNext-dollar score: 87\nReply exactly: APPROVE DEPLOY TRIAGE FIT\nTarget: Production triage';
     const parsed = parseApprovalNudgeFromContent(raw);
     expect(parsed?.approveText).toBe('APPROVE DEPLOY TRIAGE FIT');
     expect(parsed?.title).toBe('Production triage');
 
-    expect(parseApprovalNudgeFromContent('Reply with exactly: APPROVE DEPLOY TRIAGE FIT')?.approveText).toBe('APPROVE DEPLOY TRIAGE FIT');
-    expect(parseApprovalNudgeFromContent('please reply with exactly "APPROVE DEPLOY TRIAGE"') ?.approveText).toBe('APPROVE DEPLOY TRIAGE');
-    expect(parseApprovalNudgeFromContent('Reply exactly APPROVE DEPLOY TRIAGE')?.approveText).toBe('APPROVE DEPLOY TRIAGE');
-    expect(parseApprovalNudgeFromContent('Reply with exactly: APPROVE DEPLOY TRIAGE FIT.')?.approveText).toBe('APPROVE DEPLOY TRIAGE FIT');
+    expect(
+      parseApprovalNudgeFromContent(
+        '[Hermes Approval Nudge]\nReply with exactly: APPROVE DEPLOY TRIAGE FIT',
+      )?.approveText,
+    ).toBe('APPROVE DEPLOY TRIAGE FIT');
   });
 
-  it('turns natural confirm/proceed prompts into one-tap approvals', () => {
-    const parsed = parseApprovalNudgeFromContent(
+  it('rejects generic confirm/proceed text that could be model-injected', () => {
+    expect(parseApprovalNudgeFromContent(
       'I will now run those operations. Please confirm you want to proceed with removing all old entries. If not, please provide additional context.',
-    );
-    expect(parsed?.approveText).toBe('Proceed');
-    expect(parsed?.title).toBe('Proceed with removing all old entries');
+    )).toBeNull();
+    expect(parseApprovalNudgeFromContent('Reply exactly: APPROVE DEPLOY TRIAGE FIT')).toBeNull();
+    expect(
+      parseApprovalNudgeFromContent('[Hermes Approval Nudge]\nPlease confirm you want to proceed.'),
+    ).toBeNull();
   });
 
   it('builds stable Leash pending approvals from chat text approvals', () => {
     const parsed = parseApprovalNudgeFromContent(
-      'Please confirm you want to proceed with removing all old entries.',
+      '[Hermes Approval Nudge]\nReply exactly: APPROVE REMOVE OLD ENTRIES\nTarget: remove old entries',
     );
     expect(parsed).toBeTruthy();
     const pending = pendingApprovalFromChatTextApproval(
       { ...parsed!, sourceMessageIndex: 4 },
-      { id: 'msg_confirm_1', role: 'assistant', content: 'Please confirm you want to proceed.' },
+      { id: 'msg_confirm_1', role: 'assistant', content: 'Reply exactly: APPROVE REMOVE OLD ENTRIES' },
       'sess_123',
     );
-    expect(pending.actionId).toBe('text-nudge:sess_123:msg_confirm_1:proceed');
+    expect(pending.actionId).toBe('text-nudge:sess_123:msg_confirm_1:approve-remove-old-entries');
     expect(pending.source).toBe('text_nudge');
     expect(pending.toolName).toBe('chat_confirmation');
     expect(pending.riskTier).toBe('medium');
@@ -58,14 +61,14 @@ describe('chatApproval', () => {
 
   it('finds pending text approval when user has not replied', () => {
     const pending = findPendingTextApproval([
-      { role: 'assistant', content: 'Reply exactly: APPROVE DEPLOY TRIAGE FIT' },
+      { role: 'assistant', content: '[Hermes Approval Nudge]\nReply exactly: APPROVE DEPLOY TRIAGE FIT' },
     ]);
     expect(pending?.approveText).toBe('APPROVE DEPLOY TRIAGE FIT');
   });
 
   it('keeps pending after user typed approval text — tap Approve on the bubble', () => {
     const pending = findPendingTextApproval([
-      { role: 'assistant', content: 'Reply exactly: APPROVE DEPLOY TRIAGE FIT' },
+      { role: 'assistant', content: '[Hermes Approval Nudge]\nReply exactly: APPROVE DEPLOY TRIAGE FIT' },
       { role: 'user', content: 'APPROVE DEPLOY TRIAGE FIT' },
     ]);
     expect(pending?.approveText).toBe('APPROVE DEPLOY TRIAGE FIT');
@@ -74,7 +77,7 @@ describe('chatApproval', () => {
   it('listInlineTextApprovals maps nudge messages by index', () => {
     const map = listInlineTextApprovals([
       { role: 'user', content: 'go' },
-      { role: 'assistant', content: 'Reply exactly: APPROVE SOFA OAUTH' },
+      { role: 'assistant', content: '[Hermes Approval Nudge]\nReply exactly: APPROVE SOFA OAUTH' },
     ]);
     expect(map.get(1)?.approveText).toBe('APPROVE SOFA OAUTH');
   });
@@ -125,7 +128,7 @@ describe('chatApproval', () => {
   it('resolved keys hide inline nudges by phrase', () => {
     const resolved = new Set(['phrase:APPROVE DEPLOY TRIAGE FIT']);
     const pending = findPendingTextApproval(
-      [{ role: 'assistant', content: 'Reply exactly: APPROVE DEPLOY TRIAGE FIT' }],
+      [{ role: 'assistant', content: '[Hermes Approval Nudge]\nReply exactly: APPROVE DEPLOY TRIAGE FIT' }],
       resolved,
     );
     expect(pending).toBeNull();

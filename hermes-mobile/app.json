@@ -6,7 +6,7 @@
     "experiments": {
       "reactCompiler": true
     },
-    "version": "1.2",
+    "version": "1.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -20,7 +20,11 @@
       "bundleIdentifier": "com.iganapolsky.hermesmobile",
       "userInterfaceStyle": "dark",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSAllowsLocalNetworking": true
+        }
       },
       "privacyManifests": {
         "NSPrivacyTracking": false,
@@ -83,7 +87,7 @@
         "backgroundColor": "#4F46E5"
       },
       "package": "com.iganapolsky.hermesmobile",
-      "versionCode": 14,
+      "versionCode": 20,
       "userInterfaceStyle": "dark",
       "allowBackup": false,
       "softwareKeyboardLayoutMode": "resize",

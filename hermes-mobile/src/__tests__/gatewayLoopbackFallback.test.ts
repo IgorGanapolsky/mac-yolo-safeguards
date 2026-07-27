@@ -14,12 +14,13 @@ describe('gatewayLoopbackFallback', () => {
     expect(shouldSkipLanGatewayProbe(USB_LOOPBACK_GATEWAY_URL, false)).toBe(false);
   });
 
-  it('offers USB loopback fallback for LAN URLs on native', () => {
+  it('offers USB loopback fallback for LAN URLs on Android only', () => {
     const fallbacks = usbLoopbackFallbackUrls('http://10.2.29.103:8642');
-    if (Platform.OS === 'web') {
-      expect(fallbacks).toEqual([]);
-    } else {
+    if (Platform.OS === 'android') {
       expect(fallbacks).toEqual([USB_LOOPBACK_GATEWAY_URL]);
+    } else {
+      // iOS/web: no adb reverse — never probe 127.0.0.1 as a heal candidate.
+      expect(fallbacks).toEqual([]);
     }
   });
 
@@ -109,5 +110,60 @@ describe('gatewayLoopbackFallback', () => {
         tailnetProbeHosts: ['igors-macbook.tail12aa33.ts.net'],
       }),
     ).toEqual(['http://igors-macbook.tail12aa33.ts.net:8642']);
+  });
+
+  it('unsopes Tailscale fallback off-Wi‑Fi only for anonymous USB', () => {
+    const profiles = [
+      {
+        id: 'usb',
+        label: 'Computer via USB',
+        gatewayUrl: 'http://127.0.0.1:8642',
+        addedAt: '2026-07-21T00:00:00Z',
+      },
+      {
+        id: 'mini',
+        label: 'Igors-Mac-mini',
+        hostname: 'Igors-Mac-mini',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        addedAt: '2026-07-21T00:00:01Z',
+      },
+    ];
+    expect(
+      cellularTailscaleFallbackUrls({
+        primaryUrl: 'http://127.0.0.1:8642',
+        wifiConnected: false,
+        profiles,
+        activeProfileId: 'usb',
+        tailnetProbeHosts: [],
+      }),
+    ).toEqual(['http://100.94.135.78:8642']);
+  });
+
+  it('keeps named USB MacBook scoped off-Wi‑Fi (no silent mini probe)', () => {
+    const profiles = [
+      {
+        id: 'usb',
+        label: 'Igors-MacBook-Pro',
+        hostname: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://127.0.0.1:8642',
+        addedAt: '2026-07-21T00:00:00Z',
+      },
+      {
+        id: 'mini',
+        label: 'Igors-Mac-mini',
+        hostname: 'Igors-Mac-mini',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        addedAt: '2026-07-21T00:00:01Z',
+      },
+    ];
+    expect(
+      cellularTailscaleFallbackUrls({
+        primaryUrl: 'http://127.0.0.1:8642',
+        wifiConnected: false,
+        profiles,
+        activeProfileId: 'usb',
+        tailnetProbeHosts: [],
+      }),
+    ).toEqual([]);
   });
 });

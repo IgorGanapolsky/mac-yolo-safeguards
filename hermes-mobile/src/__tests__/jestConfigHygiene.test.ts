@@ -18,4 +18,9 @@ describe('Jest worktree hygiene', () => {
       isIgnoredTestPath('/repo/hermes-mobile/src/__tests__/ChatScreen.test.tsx'),
     ).toBe(false);
   });
+
+  it('emits Cobertura XML for GitHub Code Quality uploads', () => {
+    expect(jestConfig.coverageReporters).toContain('cobertura');
+    expect(jestConfig.coverageDirectory).toBe('coverage');
+  });
 });

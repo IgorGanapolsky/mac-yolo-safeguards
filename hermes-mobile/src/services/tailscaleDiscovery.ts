@@ -45,10 +45,17 @@ export function discoveredGatewayFromHealth(
         : undefined;
   const hostname = typeof body.hostname === 'string' ? body.hostname : undefined;
   const label = hostname?.replace(/\.local$/i, '').trim();
+  // Prefer the probed Tailscale CGNAT/MagicDNS host IP — /health often reports LAN
+  // local_ip, which poisoned matching against nameless "Tailscale 100.x" saved rows.
+  const urlIp = extractLanIpFromGatewayUrl(httpBase);
+  const localIp =
+    urlIp && isTailscaleIpv4(urlIp)
+      ? urlIp
+      : resolveDisplayLanIp(reportedIp, httpBase) ?? undefined;
   return {
     gatewayUrl: httpBase,
     hostname,
-    localIp: resolveDisplayLanIp(reportedIp, httpBase) ?? undefined,
+    localIp,
     label: label || undefined,
   };
 }

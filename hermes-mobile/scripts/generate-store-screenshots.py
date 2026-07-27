@@ -34,12 +34,13 @@ COLORS = {
 }
 
 FRAMES = [
-    ("01_approve.png", "Approve AI agents from phone", "Deny risky commands in one tap"),
-    ("02_block.png", "Block destructive commands remotely", "Stop rm, force-push, prod writes"),
-    ("03_standing.png", "Standing gate rules synced", "Persistent allow and block policies"),
-    ("04_pair.png", "Pair your Mac in one scan", "QR pairing, no cloud account"),
-    ("05_thumbgate.png", "ThumbGate memory on replies", "Capture operator feedback per reply"),
-    ("06_works.png", "Settings for your Mac link", "Machines, notifications, and keys"),
+    # Front-load conversion: Apple/Play install sheet shows ~first 3 frames.
+    ("01_approve.png", "Approve AI agents from phone", "Chat with Hermes on your Mac"),
+    ("02_block.png", "Block destructive commands", "Deny force-push and runaway tools"),
+    ("03_standing.png", "Standing safety rules synced", "Allow and block policies stick"),
+    ("04_pair.png", "Pair your Mac in one scan", "QR pairing — no cloud account"),
+    ("05_thumbgate.png", "ThumbGate memory on replies", "Feedback that sticks across runs"),
+    ("06_works.png", "Works on cellular + tunnel", "Honest connection state always"),
 ]
 
 MAX_PAIR_SIMILARITY = 90.0
@@ -70,7 +71,11 @@ def fit_text(draw: ImageDraw.ImageDraw, text: str, max_width: int, start_size: i
 
 
 def resolve_raw(name: str) -> Path:
-    for base in (RAW_ANDROID, RAW_IOS, PROOFS):
+    for base in (
+        ROOT / "fastlane/store-capture/raw-sanitized",
+        RAW_ANDROID,
+        RAW_IOS,
+    ):
         candidate = base / name
         if candidate.is_file():
             return candidate

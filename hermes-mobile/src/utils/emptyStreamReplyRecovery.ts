@@ -1,7 +1,7 @@
 import type { HermesMessage } from '../types/chat';
 import { isSummarizationStub } from './chatCompactionHandoff';
 import { isMessageBodyEmpty } from './chatMessageMerge';
-import { isDeferredStreamPlaceholder } from './streamAssistantText';
+import { isDeferredStreamPlaceholder, isSilentAssistantCompletion } from './streamAssistantText';
 
 /** Poll gateway transcript after empty stream / dropped SSE until reply lands. */
 export const DEFERRED_REPLY_POLL_MS = 4_000;
@@ -11,12 +11,25 @@ export const DEFERRED_REPLY_POLL_MAX_MS = 60_000;
 export const DEFERRED_REPLY_POLL_MAX_WITH_TOOLS_MS = 180_000;
 /** After this, status copy switches to "Checking your Mac… (Ns)" while auto-poll continues. */
 export const EMPTY_STREAM_SELF_HEAL_AFTER_MS = 30_000;
+/**
+ * Absolute ceiling for "Checking your Mac…" / deferred poll.
+ * Soft timeout (60–180s) already surfaces failure; this hard-stop ends auto-poll
+ * so Connected never sits on a 57-minute spinner without an actionable CTA.
+ * Must be >= DEFERRED_REPLY_POLL_MAX_WITH_TOOLS_MS.
+ */
+export const EMPTY_STREAM_HARD_STOP_MS = 4 * 60_000;
 
 export const EMPTY_REPLY_FAILURE_REASON =
-  'Still no reply text — your Mac may be stuck in tools. Hermes keeps checking automatically; Stop if a run is active, or start a fresh chat.';
+  'Still no reply text — your Mac may be stuck or waiting for a Leash approval. Stop the run, open Leash to approve/deny/warn, or start a fresh chat.';
+
+export const EMPTY_STREAM_HARD_STOP_STATUS =
+  'Stopped waiting on your Mac. Open Leash if a tool needs approve/deny/warn, Stop an active run, or start a fresh chat.';
 
 /** User-facing status while auto-polling after send with no reply yet. */
 export function emptyStreamCheckingStatus(elapsedMs: number): string {
+  if (shouldHardStopEmptyStreamWait(elapsedMs)) {
+    return EMPTY_STREAM_HARD_STOP_STATUS;
+  }
   const elapsedSec = Math.max(1, Math.floor(elapsedMs / 1000));
   if (elapsedMs < EMPTY_STREAM_SELF_HEAL_AFTER_MS) {
     return 'Working on your computer… Hermes may be using tools. The reply will show here when ready.';
@@ -24,11 +37,26 @@ export function emptyStreamCheckingStatus(elapsedMs: number): string {
   return `Checking your Mac… (${elapsedSec}s)`;
 }
 
-/** Keep HTTP polling alive while a user turn is still waiting for assistant text. */
+export function shouldHardStopEmptyStreamWait(elapsedMs: number): boolean {
+  return elapsedMs >= EMPTY_STREAM_HARD_STOP_MS;
+}
+
+/**
+ * Keep HTTP polling alive while a user turn is still waiting for assistant text —
+ * but never past the hard stop (product law: chat must not block forever).
+ */
 export function shouldKeepAutoPollingForReply(input: {
   awaitingGatewayReply: boolean;
   hasEmptyStreamTimeout: boolean;
+  /** Wall-clock since send / wait start; when past hard stop, always false. */
+  waitElapsedMs?: number;
 }): boolean {
+  if (
+    typeof input.waitElapsedMs === 'number' &&
+    shouldHardStopEmptyStreamWait(input.waitElapsedMs)
+  ) {
+    return false;
+  }
   return input.awaitingGatewayReply || input.hasEmptyStreamTimeout;
 }
 
@@ -42,6 +70,9 @@ export function shouldAwaitGatewayReplyAfterSend(options: {
   }
   // Compaction / "Earlier conversation summarized…" stubs are not real replies.
   if (isSummarizationStub(options.assistantText)) {
+    return true;
+  }
+  if (isSilentAssistantCompletion(options.assistantText)) {
     return true;
   }
   if (options.assistantText.trim()) {

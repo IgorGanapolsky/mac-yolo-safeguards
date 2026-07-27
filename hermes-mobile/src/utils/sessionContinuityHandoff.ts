@@ -6,6 +6,8 @@
 
 export const CONTINUITY_VAULT_REL_PATH = 'Handoffs/hermes-mobile-last.md';
 export const CONTINUITY_CHIP_LABEL = 'Continuing from last session';
+/** Max time the continuity chip may stay visible — never sticky until Dismiss. */
+export const CONTINUITY_CHIP_AUTO_DISMISS_MS = 2500;
 export const CONTINUITY_HANDOFF_VERSION = 1 as const;
 
 const ASSISTANT_CLIP_MAX = 480;
@@ -286,12 +288,27 @@ export function shouldInjectContinuityHandoff(opts: {
   return opts.transcriptEmpty === true;
 }
 
-/** Chip is only meaningful on an empty / compose-first surface — not mid-thread. */
-export function shouldShowContinuityChip(opts: {
+/**
+ * Continuity resume is seamless — never surface a banner/Dismiss chip.
+ * Handoff still injects via shouldInjectContinuityHandoff / system_prompt.
+ * (#654 silent path; #833 briefly reintroduced ephemeral UI — permanently killed.)
+ */
+export function shouldShowContinuityChip(_opts: {
   handoff: SessionContinuityHandoff | null | undefined;
   chipDismissed: boolean;
   transcriptEmpty: boolean;
 }): boolean {
-  if (!opts.handoff || opts.chipDismissed) return false;
-  return opts.transcriptEmpty;
+  return false;
+}
+
+/** True when a shown-at timestamp has exceeded the ephemeral banner window. */
+export function shouldAutoDismissContinuityChip(
+  shownAtMs: number | null | undefined,
+  nowMs: number,
+  autoDismissMs: number = CONTINUITY_CHIP_AUTO_DISMISS_MS,
+): boolean {
+  if (shownAtMs == null || !Number.isFinite(shownAtMs)) {
+    return false;
+  }
+  return nowMs - shownAtMs >= autoDismissMs;
 }

@@ -145,11 +145,19 @@ const localProbe = (binary, args) => {
   if (args[0] === 'list') {
     return { status: 0, stdout: 'NAME ID SIZE MODIFIED\nqwen3.5:9b-hermes-64k abc 7GB now\n', stderr: '' };
   }
+  if (args[0] === 'models') {
+    return {
+      status: 0,
+      stdout: 'You are logged in with grok.com.\nDefault model: ollama-hermes-zero-spend\nAvailable models:\n * ollama-hermes-zero-spend (default)\n',
+      stderr: '',
+    };
+  }
   return { status: 2, stdout: '', stderr: 'unexpected probe' };
 };
+const localTmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'grok-yolo-test-home-'));
 const localReady = localDoctor({
   binary: '/fake/grok',
-  env: { OLLAMA_BIN: '/fake/ollama' },
+  env: { OLLAMA_BIN: '/fake/ollama', GROK_YOLO_LOCAL_HOME: localTmpHome },
   model: 'qwen3.5:9b-hermes-64k',
   probe: localProbe,
 });
@@ -159,16 +167,44 @@ assert.strictEqual(localReady.model, LOCAL_MODEL_ALIAS);
 assert.strictEqual(localReady.underlyingModel, 'qwen3.5:9b-hermes-64k');
 assert.strictEqual(localReady.endpoint, LOCAL_BASE_URL);
 assert.strictEqual(localReady.endpointScope, 'loopback');
+assert.strictEqual(localReady.authenticated, true);
 assert.strictEqual(localReady.authMode, 'none_local');
 assert.strictEqual(localReady.providerCostUsd, 0);
 assert.strictEqual(localReady.ollamaBinary, '/fake/ollama');
 assert.strictEqual(localReady.externalOtel.contentFree, true);
 assert.strictEqual(localDoctor({
   binary: '/fake/grok',
-  env: { OLLAMA_BIN: '/fake/ollama' },
+  env: { OLLAMA_BIN: '/fake/ollama', GROK_YOLO_LOCAL_HOME: localTmpHome },
   model: 'missing-model',
   probe: localProbe,
 }).blocker, 'local_ollama_model_unavailable');
+
+const localUnauthProbe = (binary, args) => {
+  if (args[0] === 'version') return { status: 0, stdout: 'grok 0.2.101 (test)', stderr: '' };
+  if (args[0] === 'list') {
+    return { status: 0, stdout: 'NAME ID SIZE MODIFIED\nqwen3.5:9b-hermes-64k abc 7GB now\n', stderr: '' };
+  }
+  if (args[0] === 'models') {
+    return {
+      status: 0,
+      stdout: 'You are not authenticated.\n\nDefault model: ollama-hermes-zero-spend\n\nAvailable models:\n  * ollama-hermes-zero-spend (default)\n',
+      stderr: '',
+    };
+  }
+  return { status: 2, stdout: '', stderr: 'unexpected probe' };
+};
+const localUnauth = localDoctor({
+  binary: '/fake/grok',
+  env: { OLLAMA_BIN: '/fake/ollama', GROK_YOLO_LOCAL_HOME: localTmpHome },
+  model: 'qwen3.5:9b-hermes-64k',
+  probe: localUnauthProbe,
+});
+assert.strictEqual(localUnauth.ready, false);
+assert.strictEqual(localUnauth.authenticated, false);
+assert.strictEqual(localUnauth.authMode, 'none');
+assert.strictEqual(localUnauth.billingMode, 'blocked_unauthenticated_local');
+assert.strictEqual(localUnauth.blocker, 'grok_cli_requires_signin_for_local_model');
+fs.rmSync(localTmpHome, { recursive: true, force: true });
 assert.strictEqual(findOllamaBinary({ OLLAMA_BIN: '/fake/ollama' }), '/fake/ollama');
 assert.throws(() => validateLocalModel('bad model\nbase_url="https://example.com"'), /local model/);
 

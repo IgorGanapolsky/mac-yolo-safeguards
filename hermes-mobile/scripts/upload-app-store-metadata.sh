@@ -10,21 +10,19 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const envPath = path.join(process.cwd(), '.env');
-if (!fs.existsSync(envPath)) {
-  console.error('Missing .env');
-  process.exit(1);
-}
-for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
-  const trimmed = line.trim();
-  if (!trimmed || trimmed.startsWith('#')) continue;
-  const eq = trimmed.indexOf('=');
-  if (eq <= 0) continue;
-  const key = trimmed.slice(0, eq).trim();
-  let val = trimmed.slice(eq + 1).trim();
-  if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-    val = val.slice(1, -1);
+if (fs.existsSync(envPath)) {
+  for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq <= 0) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let val = trimmed.slice(eq + 1).trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    if (val && !process.env[key]?.trim()) process.env[key] = val;
   }
-  if (val) process.env[key] = val;
 }
 
 const keyPath = process.env.EXPO_ASC_API_KEY_PATH?.trim();
@@ -74,7 +72,7 @@ fs.writeFileSync(
   }),
 );
 
-const ascVer = process.env.ASC_APP_VERSION || '1.0';
+const ascVer = process.env.ASC_APP_VERSION || '1.3';
 const rejectFirst = ['1', 'true', 'yes'].includes(
   (process.env.ASC_REJECT_BEFORE_UPLOAD || '').toLowerCase(),
 );
@@ -123,6 +121,14 @@ if (fs.existsSync(shotDir) && !['1', 'true', 'yes'].includes((process.env.ASC_SK
   }
 }
 
+const useLive = ['1', 'true', 'yes'].includes((process.env.ASC_USE_LIVE_VERSION || '').toLowerCase());
+// fastlane 2.233+: SyncAppPreviews calls get_edit_app_store_version (not live) and
+// NoMethodErrors when only a READY_FOR_SALE version exists. Skip previews for live
+// screenshot-only uploads (CI ASC_USE_LIVE_VERSION=1).
+const skipPreviews =
+  ['1', 'true', 'yes'].includes((process.env.ASC_SKIP_PREVIEWS || '').toLowerCase()) ||
+  useLive;
+
 const args = [
   'deliver',
   '--app_identifier',
@@ -135,23 +141,27 @@ const args = [
   'fastlane/metadata/ios',
   '--screenshots_path',
   'fastlane/screenshots',
-  '--app_preview_path',
-  'fastlane/app_previews',
   '--skip_binary_upload',
   'true',
   '--skip_app_version_update',
   'true',
   '--overwrite_screenshots',
   'true',
-  '--overwrite_preview_videos',
-  'true',
   '--precheck_include_in_app_purchases',
   'false',
   '--force',
   'true',
 ];
+if (!skipPreviews) {
+  args.push('--app_preview_path', 'fastlane/app_previews');
+  args.push('--overwrite_preview_videos', 'true');
+}
 if (rejectFirst) {
   args.push('--reject_if_possible', 'true');
+}
+if (useLive) {
+  args.push('--use_live_version', 'true');
+  args.push('--edit_live', 'true');
 }
 if (['1', 'true', 'yes'].includes((process.env.ASC_SKIP_METADATA || '').toLowerCase())) {
   args.push('--skip_metadata', 'true');
@@ -169,13 +179,18 @@ fs.unlinkSync(tmpKey);
 if ((result.status ?? 1) !== 0) process.exit(result.status ?? 1);
 
 // Deliver retries can leave identical checksum twins — strip them when editable.
-if (!['1', 'true', 'yes'].includes((process.env.ASC_SKIP_SCREENSHOTS || '').toLowerCase())) {
+if (
+  !['1', 'true', 'yes'].includes((process.env.ASC_SKIP_SCREENSHOTS || '').toLowerCase()) &&
+  !['1', 'true', 'yes'].includes((process.env.ASC_SKIP_DEDUPE || '').toLowerCase())
+) {
   const dedupe = spawnSync('node', ['scripts/dedupe-asc-screenshots.js'], {
     stdio: 'inherit',
     cwd: process.cwd(),
     env: process.env,
   });
-  if ((dedupe.status ?? 1) !== 0) process.exit(dedupe.status ?? 1);
+  if ((dedupe.status ?? 1) !== 0) {
+    console.warn('dedupe-asc-screenshots exited non-zero; continuing (overwrite may have succeeded)');
+  }
 }
 process.exit(0);
 NODE

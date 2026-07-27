@@ -1,0 +1,16 @@
+---
+description: Never hijack Igor's interactive Chrome or macOS focus; prefer CLI/API and headless background automation.
+alwaysApply: true
+---
+
+# Prefer headless / background ops (no desktop hijack)
+
+Read [AGENTS.md](../../AGENTS.md) § **No desktop hijack** and [docs/NO-DESKTOP-HIJACK.md](../../docs/NO-DESKTOP-HIJACK.md).
+
+**Default OFF:** Do not drive Igor's interactive Google Chrome, steal macOS focus, use Computer Use, headed Playwright, or `osascript` Chrome unless Igor **explicitly asked in that same message**.
+
+**Prefer:** `gh`, Play Developer API, ASC API (`.p8`), Stripe CLI, Gmail API/MCP, `adb`, SSH, headless Playwright in Docker/dedicated profile, GUI-less LaunchAgents.
+
+**Opt-in only:** `HERMES_ALLOW_INTERACTIVE_CHROME=1` for gated scripts (`hermes-chrome-cdp.sh`, `install-hermes-chrome-cdp.sh`, `install-browser-bridge.sh`).
+
+Skill: [`.claude/skills/prefer-headless-background-ops/SKILL.md`](../../.claude/skills/prefer-headless-background-ops/SKILL.md).

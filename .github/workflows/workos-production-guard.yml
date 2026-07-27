@@ -1,0 +1,36 @@
+name: WorkOS production guard
+
+# Scheduled, not PR-blocking: this probes the LIVE thumbgate.app production
+# auth flow (real WorkOS + Google OAuth redirect chain). Wiring it to every
+# PR would couple unrelated contributors' CI status to a live external
+# service and risks flakiness on a public repo's shared runner IPs. A
+# schedule catches regressions (staging cutback, a sign-in method silently
+# disappearing) within hours instead of relying on someone noticing the UI.
+#
+# Root cause this guards against (2026-07-22): the redirect-chain check alone
+# never caught that Google SSO silently vanished after a staging->production
+# cutover — Igor had to notice by eye. See tools/workos-production-guard.js
+# and docs/WORKOS-PRODUCTION-SPEND-CAP.md.
+
+on:
+  schedule:
+    - cron: '11 */6 * * *' # every 6h, off the hour
+  workflow_dispatch: {}
+
+concurrency:
+  group: workos-production-guard
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    name: Verify production auth (client, chain, sign-in methods)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: WorkOS production guard
+        run: node tools/workos-production-guard.js

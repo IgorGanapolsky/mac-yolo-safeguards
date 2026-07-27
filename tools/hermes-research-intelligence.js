@@ -66,9 +66,9 @@ const DEFAULT_RESEARCH_ITEMS = [
   {
     id: 'specification-driven-design',
     title: 'Specification-Driven Design for governed AI agent work',
-    url: 'operator-pdf-audit',
-    confidence: 'local_pdf_audit',
-    text: 'Specification-Driven Design decomposes work into modular markdown specifications, governance guardrails, requirement traceability, DevOps/testing artifacts, and continuous gap analysis before execution.',
+    url: 'https://www.ozkary.com/2026/07/beyond-the-prompt-building-enterprise-solutions-with-ai-specification-driven-design.html',
+    confidence: 'public_blog_plus_local_harness',
+    text: 'Specification-Driven Design decomposes work into modular markdown specifications, governance guardrails, requirement traceability, DevOps/testing artifacts, and continuous gap analysis before execution. Production map: docs/SDD-SPECIFICATION-DRIVEN-DESIGN.md + agent-swarm-harness.js sdd.',
   },
 ];
 

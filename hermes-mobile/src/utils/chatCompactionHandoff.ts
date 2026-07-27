@@ -11,6 +11,22 @@ const COMPACTION_PREFIXES = [
 ] as const;
 
 /**
+ * Merge-into-tail compaction envelope. When head/tail role alternation would
+ * collide if the summary landed as its own message, `context_compressor.py`
+ * (`_MERGED_PRIOR_CONTEXT_HEADER` / `_MERGED_SUMMARY_DELIMITER`) instead
+ * prepends this header + the compaction summary directly onto the first
+ * preserved tail message — the REAL turn (often the user's actual next
+ * message) is wrapped BEFORE the delimiter, with the summary scaffold after
+ * it. Content therefore starts with this header instead of one of the
+ * `COMPACTION_PREFIXES` above, so it must be detected separately or the raw
+ * scaffold (and the buried real turn) renders unfiltered — the exact
+ * "erased/unanswered chat" bug reported 2026-07-22 (thread "Why we made zero
+ * dollars? #7"). Keep literal strings in sync with context_compressor.py.
+ */
+const MERGED_PRIOR_CONTEXT_HEADER = '[PRIOR CONTEXT — for reference only; not a new message]';
+const MERGED_SUMMARY_DELIMITER = '[END OF PRIOR CONTEXT — COMPACTION SUMMARY BELOW]';
+
+/**
  * User-visible / model-emitted summarization stubs that are NOT a real reply.
  * Includes Hermes CONTEXT COMPACTION blobs and short Cursor-style notices
  * like "Earlier conversation summarized to save context."
@@ -45,6 +61,9 @@ export function isContextCompactionHandoff(content: string | undefined): boolean
     return false;
   }
   const head = content.trimStart();
+  if (head.startsWith(MERGED_PRIOR_CONTEXT_HEADER)) {
+    return true;
+  }
   return COMPACTION_PREFIXES.some((prefix) => head.startsWith(prefix));
 }
 
@@ -72,6 +91,25 @@ export function isSummarizationStub(content: string | undefined): boolean {
 /** Split merged compaction+reply content; null when not a compaction handoff. */
 export function splitCompactionHandoff(content: string): CompactionSplit | null {
   const head = content.trimStart();
+  if (head.startsWith(MERGED_PRIOR_CONTEXT_HEADER)) {
+    // Merge-into-tail: the REAL preserved turn is wrapped between the header
+    // and the delimiter, with the compaction summary scaffold after it — the
+    // inverse layout of the standalone-prefix case below. Extract the real
+    // turn as `remainder` (what the user actually sees) and hide everything
+    // from the delimiter onward as `summary`.
+    const headerIdx = content.indexOf(MERGED_PRIOR_CONTEXT_HEADER);
+    const delimiterIdx = content.indexOf(MERGED_SUMMARY_DELIMITER);
+    if (delimiterIdx < 0) {
+      // Malformed/truncated wrapper — hide the raw scaffold rather than
+      // risk showing an unbounded scary wall with no real content extracted.
+      return { summary: content, remainder: '' };
+    }
+    const realTurn = content.slice(headerIdx + MERGED_PRIOR_CONTEXT_HEADER.length, delimiterIdx).trim();
+    return {
+      summary: content.slice(delimiterIdx),
+      remainder: realTurn,
+    };
+  }
   if (!COMPACTION_PREFIXES.some((prefix) => head.startsWith(prefix))) {
     return null;
   }

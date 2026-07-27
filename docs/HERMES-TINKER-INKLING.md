@@ -63,6 +63,57 @@ gate. The expected profiles are:
 
 ## Hardened `tinker-yolo` contract
 
+### Local tool-using agent
+
+Bare `tinker-yolo`, `tinker-yolo agent`, and `tinker-yolo chat` now start the
+same local agent loop instead of delegating to the chat-only `ollama run` UI.
+The agent declares JSON-schema tools to Ollama, executes returned calls, appends
+the results, and continues until Qwen returns a final answer.
+
+The local catalogue is:
+
+- workspace working-directory discovery, file listing, reading, and ripgrep;
+- atomic file writes and exact replacements;
+- bounded shell execution with network access and a secret-sanitized child env;
+- HTTP fetch and public web search.
+
+The macOS catalogue additionally exposes live Accessibility state, a private
+screenshot with local OCR and optional compact Qwen3-VL vision, application activation, click,
+type, key, and scroll. The computer actuator is a fixed Hammerspoon module; the
+model cannot supply Lua or arbitrary actuator commands. Every action returns
+fresh UI state. Routine actions are automatic, while submit/send/publish,
+delete, payment, credential, and destructive key actions require one-time host
+confirmation.
+
+Direct file operations remain inside the starting workspace. Shell commands
+have ordinary local-account authority, matching the explicit yolo contract, but
+use workspace-validated cwd, a bounded process group, output caps, and a
+ten-minute absolute timeout. Every call writes a content-free, mode-0600,
+hash-chained receipt under `~/.hermes/tinker/receipts/`.
+
+Useful forms:
+
+```text
+tinker-yolo
+tinker-yolo agent "inspect this repo and run its focused tests"
+tinker-yolo chat --workspace /path/to/repo --model qwen3-hermes-tinker:q4
+tinker-yolo agent "inspect the current screen and summarize the active app"
+```
+
+This path uses local Ollama only. It neither reads the Tinker API key nor makes
+a provider call. See
+[the July 2026 research ingest](./RESEARCH-TINKER-YOLO-FULL-TOOLS-JULY-2026.md)
+for the official tool-use evidence and threat model.
+
+The computer-use implementation, macOS permission boundary, local vision
+selection, and stall recovery are documented in
+[the July 2026 computer-use research ingest](./RESEARCH-TINKER-YOLO-COMPUTER-USE-JULY-2026.md).
+Planner calls now default to a bounded 120-second wait with visible heartbeats;
+Ctrl-C and request failures return to the interactive prompt. The planner uses
+an auto-started loopback-only Ollama daemon on port 11436 so shared Hermes/Grok
+clients cannot pin a different model in front of it. Screenshot vision stays on
+the same isolated endpoint and switches sequentially only when explicitly used.
+
 Read-only and local commands do not activate training:
 
 ```text

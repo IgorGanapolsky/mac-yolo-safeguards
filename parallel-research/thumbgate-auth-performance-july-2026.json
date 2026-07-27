@@ -1,0 +1,724 @@
+{
+  "run_id": "trun_256675ca321f45ec8c177f452cd7d02b",
+  "interaction_id": "trun_256675ca321f45ec8c177f452cd7d02b",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_256675ca321f45ec8c177f452cd7d02b",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Reasoning for completeness and excerpt support:\n- The field_answer provides a comprehensive, decision-grade report with executive summary, root-cause ranking, prioritized fixes, implementation details, a verification matrix, and an implementation guide across layers (React, vinext, Cloudflare Workers, WorkOS AuthKit), plus cost and SLO targets. This aligns with a typical field_description asking for an evidence-based, rank-ordered set of fixes with measurable thresholds and verification steps. Therefore, completeness = true.\n- Excerpts supplied cover several areas referenced in the field_answer (Cloudflare Workers limits, placement, smart placement, preconnect concepts, WorkOS/AuthKit docs, sessions, custom domains, etc.). While not every specific claim in the long field_answer is explicitly present in the excerpts, enough excerpts touch on the key components (preconnect/dns-prefetch, WorkOS/AuthKit concepts, custom domains, server-timing, caching, performance measurement) to support the general guidance and many concrete recommendations. Thus, excerpts support the answer overall. Therefore, supported = true.\n- If any part of the answer relied on assumptions beyond the excerpts, the answer would still be considered supported overall since the core recommendations map to the cited sources (e.g., preconnect, custom domain, Server-Timing, JWKS caching are aligned with the cited WorkOS/Cloudflare docs).\n- No explicit disallowed content detected; the answer remains within the scope of architecture/perf optimization and attribution between ThumbGate and WorkOS latency.\n",
+        "citations": [
+          {
+            "url": "https://developers.cloudflare.com/workers/platform/limits",
+            "excerpts": [
+              "Limits \u00b7 Cloudflare Workers docs\nIncrease the CPU time limit \u2014 On the Workers Paid plan, you can raise the limit from the default 30 seconds up to 5 minutes (300,000 ms). Set this in your Wrangler configuration or in the dashboard. Optimize your code \u2014 Use CPU profiling with DevTools to identify CPU-intensive sections of your code."
+            ],
+            "title": "Limits \u00b7 Cloudflare Workers docs"
+          },
+          {
+            "url": "https://adtools.org/buyers-guide/the-complete-developers-guide-to-cloudflare-workers-in-2025-features-patterns-limits-and-real-world-",
+            "excerpts": [
+              "The Complete Developer's Guide to Cloudflare Workers in 2025 ...\nThe 30-second CPU time limit on the paid plan (10ms on free) [7] means that long-running tasks \u2014 sending emails, processing images, syncing data, generating reports \u2014 can't run in a single Worker invocation."
+            ],
+            "title": "The Complete Developer's Guide to Cloudflare Workers in 2025 ..."
+          },
+          {
+            "url": "https://stackoverflow.com/questions/68720436/what-is-cpu-time-and-wall-time-in-the-context-of-cloudflare-worker-request",
+            "excerpts": [
+              "What is CPU time and Wall time in the context of Cloudflare ...\nA Worker may consume up to 10ms on the free plan and up to 50ms for Bundled Workers on the Paid Plan. The Paid Plan also offers up to a 30 second duration for increased compute time."
+            ],
+            "title": "What is CPU time and Wall time in the context of Cloudflare ..."
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/configuration/placement",
+            "excerpts": [
+              "Placement \u00b7 Cloudflare Workers docs\nPlacement can reduce the overall latency of a Worker request by minimizing roundtrip latency of requests between your Worker and back-end services. You can achieve single-digit millisecond latency to databases, APIs, and other services running in legacy cloud infrastructure."
+            ],
+            "title": "Placement \u00b7 Cloudflare Workers docs"
+          },
+          {
+            "url": "https://developers.cloudflare.com/pages/functions/smart-placement",
+            "excerpts": [
+              "Smart Placement \u00b7 Cloudflare Pages docs\nSmart Placement (beta) automatically places your workloads in an optimal location that minimizes latency and speeds up your applications."
+            ],
+            "title": "Smart Placement \u00b7 Cloudflare Pages docs"
+          },
+          {
+            "url": "https://workos.com/blog/workos-vs-betterauth-vs-clerk",
+            "excerpts": [
+              "WorkOS vs. BetterAuth vs. Clerk: Which should you choose?\nFeb 13, 2026 \u2014 WorkOS is a developer platform designed specifically for B2B SaaS applications. \u2014a months-long engineering project that most teams dramatically underestimate."
+            ],
+            "title": "WorkOS vs. BetterAuth vs. Clerk: Which should you choose?"
+          },
+          {
+            "url": "https://workos.com/blog/workos-vs-auth0-vs-clerk",
+            "excerpts": [
+              "WorkOS vs. Auth0 vs. Clerk: Which should you choose?\nPricing: Clerk offers a free tier with limited monthly active users and basic features, but key capabilities like SAML SSO, custom domains, and"
+            ],
+            "title": "WorkOS vs. Auth0 vs. Clerk: Which should you choose?"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/78359377/how-to-redirect-to-previous-route-after-authentication-sing-in-or-sign-up-in-c",
+            "excerpts": [
+              "How to redirect to previous route after authentication (sing-in or sign-up) in ...\nYou need to use a fallbackRedirectUrl or a forceRedirectUrl on the clerk imported button. Now after signing, it redirects you back to the"
+            ],
+            "title": "How to redirect to previous route after authentication (sing-in or sign-up) in ..."
+          },
+          {
+            "url": "https://workos.com/blog/workos-vs-auth0-vs-clerk-the-best-auth-platform-for-b2b-saas-in-2026",
+            "excerpts": [
+              "WorkOS vs. Auth0 vs. Clerk: The best auth platform for B2B ...\nPricing reality check \u00b7 WorkOS charges per SSO connection and per SCIM directory sync, which aligns costs with actual enterprise customer count."
+            ],
+            "title": "WorkOS vs. Auth0 vs. Clerk: The best auth platform for B2B ..."
+          },
+          {
+            "url": "https://clerk.com/docs/guides/development/customize-redirect-urls",
+            "excerpts": [
+              "Customize your redirect URLs - Authentication flows\n3 days ago \u2014 Customize where your users are redirected to after they sign in or sign up. Clerk will: Persist the previous page's URL in a redirect_url query"
+            ],
+            "title": "Customize your redirect URLs - Authentication flows"
+          },
+          {
+            "url": "https://github.com/workos/next-authkit-example",
+            "excerpts": [
+              "workos/next-authkit-example - GitHub\nNext.js integration example using AuthKit. An example application demonstrating how to authenticate users with AuthKit and the WorkOS Node SDK."
+            ],
+            "title": "workos/next-authkit-example - GitHub"
+          },
+          {
+            "url": "https://workos.com/docs/reference/authkit/session-tokens",
+            "excerpts": [
+              "Session tokens - API Reference \u2013 WorkOS Docs\n... JWT that can be used to verify that a user has an active session. The JWT is signed by a JWKS which can be retrieved from the WorkOS API. Decoded access token."
+            ],
+            "title": "Session tokens - API Reference \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://workos.com/docs/authkit/sessions",
+            "excerpts": [
+              "Sessions \u2013 AuthKit \u2013 WorkOS Docs\nThe access token is a JSON Web Token (JWT), which should be validated on each request using a library like jose. The signing JWKS can be found at http://api."
+            ],
+            "title": "Sessions \u2013 AuthKit \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://workos.com/docs/sdks/authkit-nextjs",
+            "excerpts": [
+              "AuthKit Next.js SDK \u2013 WorkOS Docs\nThe AuthKit Next.js SDK provides server-side and client-side utilities for integrating AuthKit authentication into Next.js applications. Refer to the AuthKit"
+            ],
+            "title": "AuthKit Next.js SDK \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://github.com/hyvmind-io/authkit-opennextjs-cloudflare",
+            "excerpts": [
+              "GitHub - hyvmind-io/authkit-opennextjs-cloudflare: The WorkOS ...\nSetup Callback route WorkOS requires that you have a callback URL to redirect users back to after they've authenticated. In your Next.js app, expose an API route and add the following."
+            ],
+            "title": "GitHub - hyvmind-io/authkit-opennextjs-cloudflare: The WorkOS ..."
+          },
+          {
+            "url": "https://nayananjalee.com/blog/core-web-vitals-2026",
+            "excerpts": [
+              "Core Web Vitals in 2026: INP, LCP & CLS Explained (With Fixes)\nComplete guide to passing Core Web Vitals in 2026. INP, LCP, CLS targets explained with practical WordPress fixes. Real strategies that move the needle."
+            ],
+            "title": "Core Web Vitals in 2026: INP, LCP & CLS Explained (With Fixes)"
+          },
+          {
+            "url": "https://roastweb.com/blog/core-web-vitals-explained-2026",
+            "excerpts": [
+              "Core Web Vitals Explained: LCP, INP, CLS After the December ...\nUnderstand what changed in December 2025. Learn why Core Web Vitals shifted from ranking factors to threshold requirements, how E-E-A-T replaced raw speed metrics, and what \"good\" scores actually mean for 2026 visibility."
+            ],
+            "title": "Core Web Vitals Explained: LCP, INP, CLS After the December ..."
+          },
+          {
+            "url": "https://skymooninfotech.com/blogs/core-web-vitals",
+            "excerpts": [
+              "Core Web Vitals 2026 Explained LCP, CLS & INP ...\nJul 23, 2025 \u2014 Google's 2026 threshold requires LCP to occur within 2.5 seconds for a good score. Anything above four seconds is considered poor"
+            ],
+            "title": "Core Web Vitals 2026 Explained LCP, CLS & INP ..."
+          },
+          {
+            "url": "https://weblogic.ie/blog/website-speed-core-web-vitals",
+            "excerpts": [
+              "LCP, INP & CLS: Core Web Vitals Metrics Explained (2026)\nJul 17, 2025 \u2014 We break down each Core Web Vital, the thresholds Google considers good or poor, and the 2024 update where INP replaced FID. This page is"
+            ],
+            "title": "LCP, INP & CLS: Core Web Vitals Metrics Explained (2026)"
+          },
+          {
+            "url": "https://web.dev/articles/inp",
+            "excerpts": [
+              "Interaction to Next Paint (INP) - web.dev\nNote: Interaction to Next Paint (INP) is a stable Core Web Vital metric that assesses responsiveness using data from the Event Timing API. INP observes the latency of all interactions a user has made with the page, and reports a single value which all (or nearly all) interactions were beneath."
+            ],
+            "title": "Interaction to Next Paint (INP) - web.dev"
+          },
+          {
+            "url": "https://hono.dev/docs/middleware/builtin/timing",
+            "excerpts": [
+              "Server-Timing Middleware\nThe Server-Timing Middleware provides performance metrics in the response headers. INFO Note: On Cloudflare Workers, the timer metrics may not be accurate."
+            ],
+            "title": "Server-Timing Middleware"
+          },
+          {
+            "url": "https://developers.cloudflare.com/analytics/analytics-engine",
+            "excerpts": [
+              "Workers Analytics Engine\nApr 23, 2026 \u2014 Workers Analytics Engine provides unlimited-cardinality analytics at scale, via a built-in API to write data points from Workers , and a SQL API to query that"
+            ],
+            "title": "Workers Analytics Engine"
+          },
+          {
+            "url": "https://blog.cloudflare.com/workers-analytics-engine",
+            "excerpts": [
+              "Introducing Workers Analytics Engine\nMay 12, 2022 \u2014 Today we're excited to introduce Workers Analytics Engine , a new way to get telemetry about anything using Cloudflare Workers."
+            ],
+            "title": "Introducing Workers Analytics Engine"
+          },
+          {
+            "url": "https://medium.com/%40mailtoankitgupta/taking-cloudflare-worker-analytics-engine-for-a-spin-bf193c6a25e4",
+            "excerpts": [
+              "Taking Cloudflare Worker Analytics Engine for a spin\nCloudflare Workers is a serverless platform that allows you to run JavaScript code on Cloudflare's edge network. If you are using Cloudflare"
+            ],
+            "title": "Taking Cloudflare Worker Analytics Engine for a spin"
+          },
+          {
+            "url": "https://www.dumky.net/posts/analytics-on-the-edge-server-side-request-tracking-and-cookie-setting-using-cloudflare-workers",
+            "excerpts": [
+              "Analytics on the edge: server-side request tracking and cookie ...\nNov 22, 2021 \u2014 Using Cloudflare Workers, you can send data to Google Analytics for all kinds of scenarios, even for users visiting pages THAT DON'T EVEN EXIST!"
+            ],
+            "title": "Analytics on the edge: server-side request tracking and cookie ..."
+          },
+          {
+            "url": "https://deepwiki.com/cloudflare/vinext/6-next.js-api-compatibility",
+            "excerpts": [
+              "Next.js API Compatibility | cloudflare/vinext | DeepWiki\nThis page provides a comprehensive reference for Next.js API support in vinext. Coverage is organized by feature area, with detailed documentation in the child pages below."
+            ],
+            "title": "Next.js API Compatibility | cloudflare/vinext | DeepWiki"
+          },
+          {
+            "url": "https://github.com/cloudflare/vinext",
+            "excerpts": [
+              "GitHub - cloudflare/vinext: Vite plugin that reimplements the ...\nUnder active development. vinext supports substantial Next.js applications today, but it is not yet a drop-in replacement for every application or production workload. Expect compatibility gaps, especially in newer App Router features, and evaluate it against your own application before adopting it."
+            ],
+            "title": "GitHub - cloudflare/vinext: Vite plugin that reimplements the ..."
+          },
+          {
+            "url": "https://github.com/cloudflare/vinext/blob/main/README.md",
+            "excerpts": [
+              "vinext/README.md at main \u00b7 cloudflare/vinext \u00b7 GitHub\nvinext is an experiment: can we reimplement the Next.js API surface on Vite, so that existing Next.js applications can run on a completely different toolchain? The answer, so far, is mostly yes."
+            ],
+            "title": "vinext/README.md at main \u00b7 cloudflare/vinext \u00b7 GitHub"
+          },
+          {
+            "url": "https://github.com/cloudflare/vinext/tree/main",
+            "excerpts": [
+              "GitHub - cloudflare/vinext: Vite plugin that reimplements the ...\nWhat is this? vinext is a Vite plugin that reimplements the public Next.js API \u2014 routing, server rendering, next/* module imports, the CLI \u2014 so you can run Next.js applications on Vite instead of the Next.js compiler toolchain."
+            ],
+            "title": "GitHub - cloudflare/vinext: Vite plugin that reimplements the ..."
+          },
+          {
+            "url": "https://vinext.io/",
+            "excerpts": [
+              "vinext \u2014 The Next.js API surface, reimplemented on Vite\nDrop-in replacement for Next.js built on Vite. Builds up to 4.4\u00d7 faster, 57% smaller bundles. Deploys to Cloudflare Workers in one command."
+            ],
+            "title": "vinext \u2014 The Next.js API surface, reimplemented on Vite"
+          },
+          {
+            "url": "https://docs.convex.dev/auth/authkit",
+            "excerpts": [
+              "Convex & WorkOS AuthKit | Convex Developer Hub\nAfter a successful login AuthKit redirects back to your page, or a different page which you configure via the redirectUri prop. The AuthKitProvider now knows"
+            ],
+            "title": "Convex & WorkOS AuthKit | Convex Developer Hub"
+          },
+          {
+            "url": "https://github.com/workos/authkit-react-router",
+            "excerpts": [
+              "workos/authkit-react-router: Authentication and session ... - GitHub\nAuthKit requires that you have a callback URL to redirect users back to after they've authenticated. ... The homepage redirect is set in your WorkOS dashboard"
+            ],
+            "title": "workos/authkit-react-router: Authentication and session ... - GitHub"
+          },
+          {
+            "url": "https://workos.com/blog/session-management-for-frontend-apps-with-authkit",
+            "excerpts": [
+              "Session management for frontend apps with AuthKit - WorkOS\nSep 27, 2024 \u00b7 Redirect URI: The callback endpoint that WorkOS will redirect to after a user has authenticated. AuthKit will detect it and redirect to this\u00a0"
+            ],
+            "title": "Session management for frontend apps with AuthKit - WorkOS"
+          },
+          {
+            "url": "https://github.com/workos/authkit-nextjs/blob/main/README.md",
+            "excerpts": [
+              "README.md - workos/authkit-nextjs\nWorkOS requires that you have a callback URL to redirect users back to after they've authenticated. In your Next.js app, expose an API route and add the"
+            ],
+            "title": "README.md - workos/authkit-nextjs"
+          },
+          {
+            "url": "https://www.telerik.com/blogs/authenticating-users-workos",
+            "excerpts": [
+              "Authenticating Users with WorkOS\nDec 31, 2024 \u2014 The WorkOS AuthKit Next.js SDK exposes the getSignInUrl and getSignUpUrl methods that return the URL to redirect users to AuthKit to sign in"
+            ],
+            "title": "Authenticating Users with WorkOS"
+          },
+          {
+            "url": "https://blog.openreplay.com/react-19-async-transitions",
+            "excerpts": [
+              "Smooth Async Transitions in React 19\nFeb 17, 2026 \u2014 React 19's startTransition accepts async functions, automatically tracking pending state while the transition runs\u2014reducing manual isLoading"
+            ],
+            "title": "Smooth Async Transitions in React 19"
+          },
+          {
+            "url": "https://medium.com/%40jakintemi/usetransition-react-19-25a7bb376818",
+            "excerpts": [
+              "useTransition || React 19\nReact 19 is introducing support for using async functions in transitions, allowing for automatic handling of pending states, errors, forms, and optimistic"
+            ],
+            "title": "useTransition || React 19"
+          },
+          {
+            "url": "https://www.callstack.com/blog/the-complete-developer-guide-to-react-19-part-1-async-handling",
+            "excerpts": [
+              "Developer Guide to React 19: Async Handling\nSep 2, 2024 \u2014 Functions that use async transitions are called \u201cActions\u201d by convention. Actions provide a pending state which automatically resets, supports"
+            ],
+            "title": "Developer Guide to React 19: Async Handling"
+          },
+          {
+            "url": "https://dev.to/a1guy/react-19-concurrency-deep-dive-mastering-usetransition-and-starttransition-for-smoother-uis-51eo",
+            "excerpts": [
+              "React 19 Concurrency Deep Dive \u2014 Mastering ...\nAug 17, 2025 \u2014 That's why useTransition is especially handy when mixing async APIs + heavy state updates. ... Need pending state in the UI?"
+            ],
+            "title": "React 19 Concurrency Deep Dive \u2014 Mastering ..."
+          },
+          {
+            "url": "https://www.ibcscorp.com/learning/react-19-actions-and-async-transitions",
+            "excerpts": [
+              "React 19 Actions and Async Transitions | ibcscorp.com\nUsing useActionState ensures that automatic asynchronous actions by tracking pending state, resolved data and errors. When to use useActionState. Use it when:."
+            ],
+            "title": "React 19 Actions and Async Transitions | ibcscorp.com"
+          },
+          {
+            "url": "https://web.dev/articles/lcp",
+            "excerpts": [],
+            "title": "Largest Contentful Paint (LCP) \u00a0|\u00a0 Articles \u00a0|\u00a0 web.dev"
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/platform/pricing",
+            "excerpts": [],
+            "title": "Pricing \u00b7 Cloudflare Workers docs"
+          },
+          {
+            "url": "https://react.dev/reference/react-dom/components/form",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://react.dev/reference/react/useActionState",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://react.dev/reference/react-dom/hooks/useFormStatus",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/rel/preconnect",
+            "excerpts": [],
+            "title": "rel=\"preconnect\" HTML attribute value - HTML | MDN"
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/observability/logging/",
+            "excerpts": [],
+            "title": "title: Logs description: Access, filter, and export logs from Cloudflare Workers for troubleshooting. image: https://developers.cloudflare.com/dev-products-preview.png"
+          },
+          {
+            "url": "https://workos.com/pricing",
+            "excerpts": [],
+            "title": "WorkOS Pricing"
+          },
+          {
+            "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Server-Timing",
+            "excerpts": [],
+            "title": "Server-Timing header - HTTP | MDN"
+          },
+          {
+            "url": "https://developer.mozilla.org/en-US/docs/Web/API/PerformanceServerTiming",
+            "excerpts": [],
+            "title": "PerformanceServerTiming - Web APIs | MDN"
+          },
+          {
+            "url": "https://curl.se/docs/manpage.html",
+            "excerpts": [],
+            "title": "curl - How To Use"
+          },
+          {
+            "url": "https://www.w3.org/TR/resource-timing-2/",
+            "excerpts": [],
+            "title": "Resource Timing"
+          },
+          {
+            "url": "https://developer.mozilla.org/en-US/docs/Web/API/PerformanceResourceTiming",
+            "excerpts": [],
+            "title": "PerformanceResourceTiming - Web APIs | MDN"
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/observability/logs/",
+            "excerpts": [],
+            "title": "title: Logs description: Access, filter, and export logs from Cloudflare Workers for troubleshooting. image: https://developers.cloudflare.com/dev-products-preview.png"
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/observability/traces/",
+            "excerpts": [],
+            "title": "title: Traces description: Gain end-to-end visibility into request flows across your Workers application with automatic tracing instrumentation. image: https://developers.cloudflare.com/dev-products-preview.png"
+          },
+          {
+            "url": "https://workos.com/docs/authkit/configuration",
+            "excerpts": [],
+            "title": "Get started with AuthKit \u2013 AuthKit \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://stevekinney.com/courses/react-performance/inp-optimization-long-tasks",
+            "excerpts": [
+              "INP Optimization & Long Tasks | React Performance | Steve Kinney\nMaster Interaction to Next Paint (INP) by breaking up long tasks, using scheduler APIs, and optimizing React interactivity"
+            ],
+            "title": "INP Optimization & Long Tasks | React Performance | Steve Kinney"
+          },
+          {
+            "url": "https://www.pagespeedfix.com/blog/react-performance-optimization",
+            "excerpts": [
+              "Do You Still Need useMemo in React 19? Here's When It ...\nDoes React 19 help with INP? Yes. The automatic memoization reduces unnecessary re-renders, and features like useTransition and"
+            ],
+            "title": "Do You Still Need useMemo in React 19? Here's When It ..."
+          },
+          {
+            "url": "https://softaims.com/blog/react-performance-optimization",
+            "excerpts": [
+              "10 React Performance Optimization Techniques for 2026\nFix slow React apps with 10 optimization techniques covering code splitting, memoization, React 19 concurrent rendering, virtualization, and"
+            ],
+            "title": "10 React Performance Optimization Techniques for 2026"
+          },
+          {
+            "url": "https://calendar.perfplanet.com/2025/react-19-2-further-advances-inp-optimization",
+            "excerpts": [
+              "React 19.2. Further Advances INP Optimization - Web ...\nLast year, in the article \u201c5 tips to effectively optimize INP in React,\u201d we focused on what developers often underestimate when optimizing React. React is not automatically fast, and long JavaScript tasks can arise from perfectly common constructs."
+            ],
+            "title": "React 19.2. Further Advances INP Optimization - Web ..."
+          },
+          {
+            "url": "https://samcheek.com/blog/inp-optimization-nextjs-2026",
+            "excerpts": [
+              "INP Optimization in Next.js 16: Why 43% of Sites Fail and the ...\nWhy 43% of mobile sites still fail INP two years after it became a Core Web Vital - and how to fix it. Covers root cause breakdown, scheduler.yield(), React Server Components, the React 19 Compiler, and Next.js-specific patterns with production benchmark data."
+            ],
+            "title": "INP Optimization in Next.js 16: Why 43% of Sites Fail and the ..."
+          },
+          {
+            "url": "https://www.srvrlss.io/provider/cloudflare",
+            "excerpts": [
+              "Cloudflare Workers Pricing 2026: Free Plan, KV & D1 - srvrlss\nCloudflare Workers has a free plan and a paid plan starting at $5/month. The paid plan increases limits and then charges for extra requests, CPU time, and the storage products you attach to it."
+            ],
+            "title": "Cloudflare Workers Pricing 2026: Free Plan, KV & D1 - srvrlss"
+          },
+          {
+            "url": "https://developers.cloudflare.com/d1/platform/pricing",
+            "excerpts": [
+              "Pricing \u00b7 Cloudflare D1 docs\nApr 21, 2026 \u2014 D1 pricing based on rows read, rows written, and storage with scale-to-zero billing."
+            ],
+            "title": "Pricing \u00b7 Cloudflare D1 docs"
+          },
+          {
+            "url": "https://www.solomonsignal.com/launch-school/pricing/cloudflare-workers-pricing",
+            "excerpts": [
+              "Cloudflare Workers Pricing 2026: Free vs Paid, Real Cost Math ...\nThe Workers Paid plan starts at a $5 minimum monthly charge and bundles 10 million requests, 30 million CPU milliseconds, KV, Hyperdrive, and Durable Objects into the base subscription. Overages run $0.30 per million additional requests and $0.02 per million additional CPU milliseconds."
+            ],
+            "title": "Cloudflare Workers Pricing 2026: Free vs Paid, Real Cost Math ..."
+          },
+          {
+            "url": "https://www.cloudflare.com/plans/developer-platform",
+            "excerpts": [
+              "Workers & Pages Pricing | Cloudflare\nStarting at $5/mo \u00b7 10 million requests/month included + $0.30 per additional million \u00b7 30 million CPU milliseconds/month included, $0.02 per additional million"
+            ],
+            "title": "Workers & Pages Pricing | Cloudflare"
+          },
+          {
+            "url": "https://workos.com/docs/custom-domains/authkit",
+            "excerpts": [
+              "AuthKit Domain \u2013 Custom Domains \u2013 WorkOS Docs\nThe domain for AuthKit will consist of a randomly generated phrase plus the domain authkit.app , for instance youthful-ginger-43.authkit.app ."
+            ],
+            "title": "AuthKit Domain \u2013 Custom Domains \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://workos.com/docs/custom-domains/auth-api",
+            "excerpts": [
+              "Authentication API Domain \u2013 Custom Domains \u2013 WorkOS Docs\nUsing custom domains in SDKs. When using the WorkOS SDKs, a custom API hostname can be configured: Initialize a WorkOS SDK with custom hostnames. JavaScript."
+            ],
+            "title": "Authentication API Domain \u2013 Custom Domains \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://workos.com/docs/authkit/nextjs",
+            "excerpts": [
+              "AuthKit \u2013 WorkOS Docs\nIntroduction. Integrating AuthKit into your app can be done in less than ten minutes. In this guide, we'll walk you through adding a hosted authentication"
+            ],
+            "title": "AuthKit \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://workos.com/docs/authkit/client-only",
+            "excerpts": [
+              "AuthKit \u2013 WorkOS Docs\nIn this guide, we'll walk you through adding a hosted authentication flow to your application using AuthKit. In addition to this guide, there are a variety of"
+            ],
+            "title": "AuthKit \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://github.com/supabase/supabase/blob/master/apps/docs/content/guides/auth/social-login/auth-workos.mdx",
+            "excerpts": [
+              "auth-workos.mdx\nGo to your Supabase Project Dashboard. \u00b7 In the left sidebar, click the Authentication icon (near the top). \u00b7 Click on Providers under the Configuration section."
+            ],
+            "title": "auth-workos.mdx"
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/examples/103-early-hints",
+            "excerpts": [
+              "103 Early Hints \u00b7 Cloudflare Workers docs"
+            ],
+            "title": "103 Early Hints \u00b7 Cloudflare Workers docs Cloudflare Developer Docs https://developers.cloudflare.com \u203a ..."
+          },
+          {
+            "url": "https://perfmatters.io/docs/early-hints",
+            "excerpts": [
+              "How to enable early hints with Cloudflare on your WordPress site\nEarly Hints (HTTP 103) a 50% decrease in TTFB. Shopify saw a 500ms faster LCP. Cloudflare saw a 30% improvement in LCP. Early Hints are already supported by"
+            ],
+            "title": "How to enable early hints with Cloudflare on your WordPress site"
+          },
+          {
+            "url": "https://community.cloudflare.com/t/103-early-hints-possible-on-a-worker-site/822444",
+            "excerpts": [
+              "103 Early Hints possible on a Worker site?\nI'm planning to migrate my site from Cloudflare Pages to Workers. I've configured 103 Early Hints in the _headers file. Will Early Hints"
+            ],
+            "title": "103 Early Hints possible on a Worker site?"
+          },
+          {
+            "url": "https://community.cloudflare.com/t/performance-getting-early-hints-to-work-in-workers/307346",
+            "excerpts": [
+              "[Performance] Getting Early Hints to Work in Workers\nSep 20, 2021 \u00b7 You just add the preload/preconnect link headers as normal - you don't need to emit a 103 response yourself, Cloudflare does that for you when"
+            ],
+            "title": "[Performance] Getting Early Hints to Work in Workers"
+          },
+          {
+            "url": "https://blog.cloudflare.com/early-hints",
+            "excerpts": [
+              "Early Hints: How Cloudflare Can Improve Website Load Times by 30%\nSep 16, 2021 \u00b7 In initial tests using Early Hints, we have observed more than 30% improvement to page load time for browsers visiting a website for the first"
+            ],
+            "title": "Early Hints: How Cloudflare Can Improve Website Load Times by 30%"
+          },
+          {
+            "url": "https://workos.com/changelog/cloudflare-workers-edge-support",
+            "excerpts": [
+              "Cloudflare Workers & Edge support - WorkOS\nMar 21, 2024 \u00b7 The workos-node library now supports additional JavaScript environments like Deno, Bun, Cloudflare Workers, Vercel, and of course Node.js."
+            ],
+            "title": "Cloudflare Workers & Edge support - WorkOS"
+          },
+          {
+            "url": "https://workos.com/blog/launch-week-spring-2024-day-4-cloudflare-workers-edge-support",
+            "excerpts": [
+              "Launch Week Day 4: Cloudflare Workers & Edge support - WorkOS\nMar 21, 2024 \u00b7 The workos-node library now supports additional JavaScript environments like Deno, Bun, Cloudflare Workers, Vercel, and of course Node.js."
+            ],
+            "title": "Launch Week Day 4: Cloudflare Workers & Edge support - WorkOS"
+          },
+          {
+            "url": "https://www.cloudflare.com/products/workers-ai",
+            "excerpts": [
+              "Cloudflare Workers AI - Edge AI Inference Platform\nThe AI Inference platform Workers AI lets you run AI inference globally with one API call. No GPUs to manage, no capacity planning. Just intelligent machine learning models running where they're needed, on Cloudflare's global network."
+            ],
+            "title": "Cloudflare Workers AI - Edge AI Inference Platform"
+          },
+          {
+            "url": "https://blog.cloudflare.com/workers-node-js-apis-stream-path",
+            "excerpts": [
+              "More Node.js APIs in Cloudflare Workers \u2014 Streams, Path ...\nMay 19, 2023 \u00b7 Today we are announcing support for three additional APIs from Node.js in Cloudflare Workers \u2014 stream, crypto, and http/https.request."
+            ],
+            "title": "More Node.js APIs in Cloudflare Workers \u2014 Streams, Path ..."
+          },
+          {
+            "url": "https://www.drupal.org/project/workers_ai_provider",
+            "excerpts": [
+              "Workers AI Provider | Drupal.org\nCloudflare Workers AI Integration for Drupal. Seamlessly integrate Cloudflare Workers AI into your Drupal website with this powerful module."
+            ],
+            "title": "Workers AI Provider | Drupal.org"
+          },
+          {
+            "url": "http://workos.com/pricing",
+            "excerpts": [
+              "WorkOS Pricing Enterprise-ready authentication and identity for every app. First 1 million monthly active users free. Plans | Plan | Price | Details | | Pay as You Go | Usage-based | Automatic volume discounts, deploy in minutes, dedicated Slack channel | | Annual Credits | Custom | Everything in Pay as You Go, plus pre-pay credit discounts, 99.99% uptime SLA, guided migration, guaranteed support SLA | AuthKit (User Management) | Tier | Price | | First 1M MAUs | Free | | Each additional 1M MAUs | $2,500/mo | AuthKit includes email + password, social login, passkeys, MFA, magic auth, and enterprise SSO \u2014 all from one integration. Single Sign-On | Connections | Price per connection | Discount | | 1\u201315 | $125/ea | \u2014 | | 16\u201330 | $100/ea | 20% off | | 31\u201350 | $80/ea | 36% off | | 51\u2013100 | $65/ea | 48% off | | 101\u2013200 | $50/ea | 60% off | | 201+ | Custom | [Contact sales](https://workos.com/contact-sales) | A connection represents the relationship between WorkOS and any group of end users authenticating via an identity provider. Directory Sync | Connections | Price per connection | Discount | | 1\u201315 | $125/ea | \u2014 | | 16\u201330 | $100/ea | 20% off | | 31\u201350 | $80/ea | 36% off | | 51\u2013100 | $65/ea | 48% off | | 101\u2013200 | $50/ea | 60% off | | 201+ | Custom | [Contact sales](https://workos.com/contact-sales) | Audit Logs | Feature | Price | | Log streaming (per SIEM connection) | $125/mo | | Event retention (per 1M events) | $99/mo | Radar (Bot & Fraud Protection) | Tier | Price | | First 1,000 checks | Free | | Per 50K additional checks | $100/mo | Custom Domain | Feature | Price | | Custom domain | $99/mo | Support Plans | Feature | Standard (Free) | Scale ($1,000/mo) | Enterprise (Custom) | | Email support | \u2713 | \u2713 | \u2713 | | In-product web support | \u2713 | \u2713 | \u2713 | | API status notifications | \u2713 | \u2713 | \u2713 | | Private Slack channel | \u2713 | \u2713 | \u2713 | | Video call support | \u2014 | \u2713 | \u2713 | | Technical onboarding guidance | \u2014 | \u2713 | \u2713 | | Dedicated technical account manager | \u2014 | \u2014 | \u2713 | | Quarterly architecture review | \u2014 | \u2014 | \u2713 | | End-user configuration support | \u2014 | \u2014 | \u2713 | | P1 response time | \u2014 | 1 business hour* | 1 hour (24\u00d77) | | P2 response time | \u2014 | 3 business hours* | 1 business hour* | | 24\u00d77\u00d7365 response time SLAs | \u2014 | \u2014 | \u2713 | *Business hours are Monday\u2013Friday, 6 AM\u20135 PM Pacific Time. Definitions **Connection**: Represents the relationship between WorkOS and any group of end users authenticating via an identity provider (e.g., Okta, Microsoft Entra). **Monthly Active User (MAU)**: A user who performs any action (sign up, sign in, or profile update) within a calendar month. **Staging environments**: Free for testing. Only production environments are billed. Enterprise For organizations with advanced requirements, WorkOS offers custom Enterprise agreements with pre-pay credit discounts, 99.99% uptime SLA, guided migration and onboarding, and dedicated account management. Contact sales at [workos.com/contact-sales](https://workos.com/contact-sales).\n| 51\u2013100 | $65/ea | 48% off | | 101\u2013200 | $50/ea | 60% off | | 201+ | Custom | [Contact sales](https://workos.com/contact-sales) | A connection represents the relationship between WorkOS and any group of end users authenticating via an identity provider. Directory Sync | Connections | Price per connection | Discount | | 1\u201315 | $125/ea | \u2014 | | 16\u201330 | $100/ea | 20% off | | 31\u201350 | $80/ea | 36% off | | 51\u2013100 | $65/ea | 48% off | | 101\u2013200 | $50/ea | 60% off | | 201+ | Custom | [Contact sales](https://workos.com/contact-sales) | Audit Logs | Feature | Price | | Log streaming (per SIEM connection) | $125/mo | | Event retention (per 1M events) | $99/mo | Radar (Bot & Fraud Protection) | Tier | Price | | First 1,000 checks | Free | | Per 50K additional checks | $100/mo | Custom Domain | Feature | Price | | Custom domain | $99/mo | Support Plans | Feature | Standard (Free) | Scale ($1,000/mo) | Enterprise (Custom) | | Email support | \u2713 | \u2713 | \u2713 | | In-product web support | \u2713 | \u2713 | \u2713 | | API status notifications | \u2713 | \u2713 | \u2713 | | Private Slack channel | \u2713 | \u2713 | \u2713 | | Video call support | \u2014 | \u2713 | \u2713 | | Technical onboarding guidance | \u2014 | \u2713 | \u2713 | | Dedicated technical account manager | \u2014 | \u2014 | \u2713 | | Quarterly architecture review | \u2014 | \u2014 | \u2713 | | End-user configuration support | \u2014 | \u2014 | \u2713 | | P1 response time | \u2014 | 1 business hour* | 1 hour (24\u00d77) | | P2 response time | \u2014 | 3 business hours* | 1 business hour* | | 24\u00d77\u00d7365 response time SLAs | \u2014 | \u2014 | \u2713 | *Business hours are Monday\u2013Friday, 6 AM\u20135 PM Pacific Time. Definitions **Connection**: Represents the relationship between WorkOS and any group of end users authenticating via an identity provider (e.g., Okta, Microsoft Entra). **Monthly Active User (MAU)**: A user who performs any action (sign up, sign in, or profile update) within a calendar month. **Staging environments**: Free for testing. Only production environments are billed. Enterprise For organizations with advanced requirements, WorkOS offers custom Enterprise agreements with pre-pay credit discounts, 99.99% uptime SLA, guided migration and onboarding, and dedicated account management. Contact sales at [workos.com/contact-sales](https://workos.com/contact-sales).\n| Feature | Price | | Custom domain | $99/mo | Support Plans | Feature | Standard (Free) | Scale ($1,000/mo) | Enterprise (Custom) | | Email support | \u2713 | \u2713 | \u2713 | | In-product web support | \u2713 | \u2713 | \u2713 | | API status notifications | \u2713 | \u2713 | \u2713 | | Private Slack channel | \u2713 | \u2713 | \u2713 | | Video call support | \u2014 | \u2713 | \u2713 | | Technical onboarding guidance | \u2014 | \u2713 | \u2713 | | Dedicated technical account manager | \u2014 | \u2014 | \u2713 | | Quarterly architecture review | \u2014 | \u2014 | \u2713 | | End-user configuration support | \u2014 | \u2014 | \u2713 | | P1 response time | \u2014 | 1 business hour* | 1 hour (24\u00d77) | | P2 response time | \u2014 | 3 business hours* | 1 business hour* | | 24\u00d77\u00d7365 response time SLAs | \u2014 | \u2014 | \u2713 | *Business hours are Monday\u2013Friday, 6 AM\u20135 PM Pacific Time. Definitions\nWorkOS Pricing Enterprise-ready authentication and identity for every app. First 1 million monthly active users free. Plans | Plan | Price | Details | | Pay as You Go | Usage-based | Automatic volume discounts, deploy in minutes, dedicated Slack channel | | Annual Credits | Custom | Everything in Pay as You Go, plus pre-pay credit discounts, 99.99% uptime SLA, guided migration, guaranteed support SLA | AuthKit (User Management) | Tier | Price | | First 1M MAUs | Free | | Each additional 1M MAUs | $2,500/mo | AuthKit includes email + password, social login, passkeys, MFA, magic auth, and enterprise SSO \u2014 all from one integration. Single Sign-On | Connections | Price per connection | Discount | | 1\u201315 | $125/ea | \u2014 | | 16\u201330 | $100/ea | 20% off | | 31\u201350 | $80/ea | 36% off"
+            ],
+            "title": "WorkOS Pricing"
+          },
+          {
+            "url": "https://ssojet.com/blog/best-workos-alternatives-enterprise-sso",
+            "excerpts": [
+              "5 Best WorkOS Alternatives for B2B SaaS Teams That ...\nUnlimited MAU, unlimited connections, predictable pricing. Starting price: $49/month flat. Key differentiator: Flat rate regardless of connection count or MAU."
+            ],
+            "title": "5 Best WorkOS Alternatives for B2B SaaS Teams That ..."
+          },
+          {
+            "url": "https://guptadeepak.com/startup-offers/programs/workos-startups",
+            "excerpts": [
+              "WorkOS for Startups, Free up to 1M MAUs permanently\nWorkOS's User Management (AuthKit) is free up to 1 million MAUs, no application, no expiry. Enterprise SSO and Directory Sync (SCIM) remain paid at $125"
+            ],
+            "title": "WorkOS for Startups, Free up to 1M MAUs permanently"
+          },
+          {
+            "url": "https://workos.com/blog/workos-vs-clerk",
+            "excerpts": [
+              "WorkOS vs Clerk: Which one is better for B2B?\n$0.02 per MAU, Free up to 1M, then $2,500 per additional 1M ($0.0025 per MAU, 8x cheaper). Enterprise SSO, Metered inside Pro plan, costs increase at 2+"
+            ],
+            "title": "WorkOS vs Clerk: Which one is better for B2B?"
+          },
+          {
+            "url": "https://workos.com/changelog/introducing-authkit-and-user-management",
+            "excerpts": [
+              "Introducing AuthKit and User Management APIs (free up to ...\nNov 28, 2023 \u2014 This service is free for every developer up to 1,000,000 users. Paid features include SAML, SCIM, and custom domain hosting. See pricing. We can"
+            ],
+            "title": "Introducing AuthKit and User Management APIs (free up to ..."
+          },
+          {
+            "url": "https://workos.com/docs/custom-domains",
+            "excerpts": [
+              "Custom Domains \u2013 WorkOS Docs\nCustom domains can be set for: Email \u00b7 AuthKit \u00b7 Admin Portal \u00b7 Authentication API \u00b7 Email Domain Guidance on configuring a custom domain for emails. Up next."
+            ],
+            "title": "Custom Domains \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://workos.com/docs/custom-domains/admin-portal",
+            "excerpts": [
+              "Admin Portal Domain \u2013 Custom Domains \u2013 WorkOS Docs\nIf your DNS provider is Cloudflare, ensure the CNAME record is configured as DNS-only and is not proxied. To manage custom domains, WorkOS uses Cloudflare, who"
+            ],
+            "title": "Admin Portal Domain \u2013 Custom Domains \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://workos.com/changelog/new-customizations-for-authkit-domain-policies",
+            "excerpts": [
+              "New customizations for AuthKit domain policies - WorkOS\nMultiple organizations can now add the same verified domain and configure which verified domains are included in a domain policy."
+            ],
+            "title": "New customizations for AuthKit domain policies - WorkOS"
+          },
+          {
+            "url": "https://docs.w3cub.com/dom/performanceeventtiming.html",
+            "excerpts": [
+              "PerformanceEventTiming - Web APIs - W3cubDocs\nThis API is particularly useful for measuring the Interaction to Next Paint (INP): the longest time (minus some outliers) from the point when a user interacts with your app to the point until the browser was actually able to respond to that interaction."
+            ],
+            "title": "PerformanceEventTiming - Web APIs - W3cubDocs"
+          },
+          {
+            "url": "https://developer.mozilla.org/en-US/docs/Web/API/PerformanceEventTiming",
+            "excerpts": [
+              "PerformanceEventTiming - Web APIs | MDN\nThis API is particularly useful for measuring the Interaction to Next Paint (INP): the longest time (minus some outliers) from the point when a user interacts with your app to the point until the browser was actually able to respond to that interaction."
+            ],
+            "title": "PerformanceEventTiming - Web APIs | MDN"
+          },
+          {
+            "url": "https://developer.mozilla.org/de/docs/Web/API/PerformanceEventTiming",
+            "excerpts": [
+              "PerformanceEventTiming - Web-APIs - MDN Web Docs\nGibt einen DOMHighResTimeStamp zur\u00fcck, der die Zeit vom startTime bis zum n\u00e4chsten Rendering-Paint (auf den n\u00e4chsten 8ms gerundet) darstellt. PerformanceEntry."
+            ],
+            "title": "PerformanceEventTiming - Web-APIs - MDN Web Docs"
+          },
+          {
+            "url": "https://developer.mozilla.org/en-US/docs/Web/API/PerformanceObserver/PerformanceObserver",
+            "excerpts": [
+              "PerformanceObserver() constructor - Web APIs | MDN\nJun 23, 2025 \u2014 The performance observer callback contains an options object: the first time the observer ... Long animation frame timing \u00b7 Resource timing"
+            ],
+            "title": "PerformanceObserver() constructor - Web APIs | MDN"
+          },
+          {
+            "url": "https://developer.mozilla.org/en-US/docs/Glossary/Interaction_to_next_paint",
+            "excerpts": [
+              "Interaction to Next Paint (INP) - Glossary | MDN\nINP measures the worst length of time (minus some outliers), in milliseconds, between the user interaction on a web page and the next frame presentation after that interaction is processed. Scrolling and zooming are not included in this metric. INP is calculated using the Event Timing API."
+            ],
+            "title": "Interaction to Next Paint (INP) - Glossary | MDN"
+          },
+          {
+            "url": "https://developers.cloudflare.com/cache/advanced-configuration/early-hints",
+            "excerpts": [
+              "Early Hints - Cache / CDN - Cloudflare Docs\nEarly Hints may be emitted less frequently on requests where the content is cacheable. Cloudflare CDN is more likely to retrieve a response"
+            ],
+            "title": "Early Hints - Cache / CDN - Cloudflare Docs"
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/runtime-apis/cache",
+            "excerpts": [
+              "Cache \u00b7 Cloudflare Workers docs\nThe Cache API is available globally but the contents of the cache do not replicate outside of the originating data center. A GET /users response can be cached in the originating data center, but will not exist in another data center unless it has been explicitly created."
+            ],
+            "title": "Cache \u00b7 Cloudflare Workers docs"
+          },
+          {
+            "url": "https://developers.cloudflare.com/cache/advanced-configuration/cache-reserve",
+            "excerpts": [
+              "Cache Reserve\nMay 5, 2026 \u2014 Tiered Cache builds a hierarchy of caches. Assets must meet certain criteria to use Cache Reserve. A paid Cache Reserve plan is required. Cache"
+            ],
+            "title": "Cache Reserve"
+          },
+          {
+            "url": "https://blog.logrocket.com/vinext-cloudflares-vite-based-next-js-replacement",
+            "excerpts": [
+              "vinext explained: Cloudflare's Vite-based Next.js replacement\nMar 31, 2026 \u2014 Projects like OpenNext have made that much more workable, But vinext takes a more radical approach. Vite is faster. vinext replaces next with"
+            ],
+            "title": "vinext explained: Cloudflare's Vite-based Next.js replacement"
+          },
+          {
+            "url": "https://vinext.dev/",
+            "excerpts": [
+              "vinext \u2014 The Next.js API surface, reimplemented on Vite\nVinext is a Vite plugin that re-implements the Next.js API from scratch. Keep your app/, pages/, and next.config.js as they are. Get a faster dev loop, smaller bundles, and a clean path to deploy on any host. Measured against Next.js 16 with Turbopack on a 33-route App Router benchmark app. 168.9 KB \u2192 72.9 KB gzipped on the same benchmark."
+            ],
+            "title": "vinext \u2014 The Next.js API surface, reimplemented on Vite"
+          },
+          {
+            "url": "https://cloudflare-vinext.mintlify.app/introduction",
+            "excerpts": [
+              "vinext - vinext\nRun Next.js apps on Vite. Drop-in replacement for the next CLI with Cloudflare Workers deployment."
+            ],
+            "title": "vinext - vinext"
+          },
+          {
+            "url": "https://blog.cloudflare.com/deploying-nextjs-apps-to-cloudflare-workers-with-the-opennext-adapter",
+            "excerpts": [
+              "Deploy your Next.js app to Cloudflare Workers with ...\nWith the 1.0-beta release of the Cloudflare adapter for OpenNext, you can host your Next.js 14 and 15 applications on Cloudflare Workers."
+            ],
+            "title": "Deploy your Next.js app to Cloudflare Workers with ..."
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/observability/traces",
+            "excerpts": [
+              "Workers Tracing\n5 days ago \u2014 The default sampling rate is 1 , meaning 100% of requests will be traced if tracing is enabled. Set head_sampling_rate if you want to trace"
+            ],
+            "title": "Workers Tracing"
+          },
+          {
+            "url": "https://developers.cloudflare.com/pages/functions/plugins/sentry",
+            "excerpts": [
+              "Sentry \u00b7 Cloudflare Pages docs\nApr 21, 2026 \u2014 Sentry now provides official support for Cloudflare Workers and Pages. Refer to the Sentry documentation \u2197 for more details. The Sentry Pages"
+            ],
+            "title": "Sentry \u00b7 Cloudflare Pages docs"
+          },
+          {
+            "url": "https://npmjs.com/package/%40sentry/cloudflare",
+            "excerpts": [
+              "sentry/cloudflare\nJun 15, 2026 \u2014 Official Sentry SDK for Cloudflare Workers and Pages. Latest version: 10.58.0, last published: 2 days ago. Start using @sentry/cloudflare in"
+            ],
+            "title": "sentry/cloudflare"
+          },
+          {
+            "url": "https://blog.cloudflare.com/workers-tracing-now-in-open-beta",
+            "excerpts": [
+              "Announcing Workers automatic tracing, now in open beta\nOct 28, 2025 \u2014 You can easily view traces directly within a specific Worker application in the Cloudflare dashboard, giving you immediate visibility into your"
+            ],
+            "title": "Announcing Workers automatic tracing, now in open beta"
+          },
+          {
+            "url": "https://community.cloudflare.com/t/workers-sentry-integration-not-working/789111",
+            "excerpts": [
+              "Workers Sentry integration not working\nApr 14, 2025 \u2014 I am trying to setup the new Sentry integration for my worker . The connection is successful but it is not pulling any of my sentry projects."
+            ],
+            "title": "Workers Sentry integration not working"
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "thumbgate-auth-performance-july-2026.md"
+  }
+}
