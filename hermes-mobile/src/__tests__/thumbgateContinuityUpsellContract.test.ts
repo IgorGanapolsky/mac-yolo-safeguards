@@ -1,36 +1,34 @@
-import { thumbGatePromoCopy } from '../utils/thumbgatePromoCopy';
+import {
+  THUMBGATE_WEB_URL,
+  thumbGatePromoCopy,
+} from '../utils/thumbgatePromoCopy';
 
 // CEO, 2026-07-26: the promo must sell ThumbGate.app as an ADDITION to the mobile app and
 // drive paid signups — not present it as a fallback for a broken connection.
 //
-// Researched 2026-07-26 (thumbgate.app + apps/hermes-control-plane/lib/entitlements.ts and
-// agent-governance.ts): the web dashboard is FREE for any active plan; the paid `pro`/`team`
-// tiers buy CLOUD CONTINUITY (402 `cloud_entitlement_required` without trial/subscription).
-// So "when your phone cannot reach your computer" was factually wrong — ThumbGate does not
-// fix phone-to-Mac connectivity — and it sold a paid product as a consolation prize.
 const SURFACES = ['leash_disconnected', 'leash_empty', 'connection_unreachable'] as const;
 
 describe('ThumbGate promo is a continuity upsell, not a failure fallback', () => {
-  it('never claims ThumbGate fixes phone-to-Mac connectivity', () => {
+  it('positions the plans as an additive paid companion on every surface', () => {
     for (const s of SURFACES) {
-      const { headline, body } = thumbGatePromoCopy(s);
-      const text = `${headline} ${body}`.toLowerCase();
-      expect(text).not.toMatch(/cannot reach|can't reach|unable to reach/);
+      const promo = thumbGatePromoCopy(s);
+      expect(promo.headline).toBe('Upgrade Hermes with ThumbGate');
+      expect(promo.body).toMatch(/Add a web dashboard and paid Continuity to Hermes Mobile/);
+      expect(promo.body).toMatch(/Leash controls/);
+      expect(promo.body).toMatch(/eligible work moving when your Mac is offline/);
+      expect(promo.buttonLabel).toBe('See ThumbGate plans');
+      expect(promo.body).not.toMatch(
+        /phone cannot reach|can't reach|unable to reach|pair a Mac and continue|replacement|instead/i,
+      );
     }
   });
 
-  it('leads with the paid value: work continues when the Mac is offline', () => {
+  it('attributes mobile conversions and opens the pricing section', () => {
+    expect(THUMBGATE_WEB_URL).toContain('utm_source=hermes-mobile');
+    expect(THUMBGATE_WEB_URL).toContain('utm_campaign=paid_companion');
+    expect(THUMBGATE_WEB_URL.endsWith('#pricing')).toBe(true);
     for (const s of SURFACES) {
-      const { headline, body } = thumbGatePromoCopy(s);
-      const text = `${headline} ${body}`.toLowerCase();
-      expect(text).toMatch(/continuity|cloud/);
-      expect(text).toMatch(/offline|asleep|sleeps/);
-    }
-  });
-
-  it('still points at the real product URL', () => {
-    for (const s of SURFACES) {
-      expect(thumbGatePromoCopy(s).url).toMatch(/^https:\/\/thumbgate\.app/);
+      expect(thumbGatePromoCopy(s).url).toBe(THUMBGATE_WEB_URL);
     }
   });
 });

@@ -8,24 +8,9 @@ import {
 describe('thumbgatePromoCopy', () => {
   it('uses thumbgate.app as the canonical web URL', () => {
     expect(THUMBGATE_WEB_URL).toMatch(/^https:\/\/thumbgate\.app\//);
+    expect(THUMBGATE_WEB_URL).toContain('utm_campaign=paid_companion');
+    expect(THUMBGATE_WEB_URL.endsWith('#pricing')).toBe(true);
     expect(thumbGatePromoCopy('leash_empty').url).toBe(THUMBGATE_WEB_URL);
-  });
-
-  it('returns honest copy per surface without implying a live Mac connection', () => {
-    const disconnected = thumbGatePromoCopy('leash_disconnected');
-    // Continuity upsell, not a failure fallback (CEO 2026-07-26).
-    expect(disconnected.headline).toBe('Keep working when your Mac sleeps');
-    expect(disconnected.body).toMatch(/Your Mac still runs the work locally/);
-    expect(disconnected.body).toMatch(/lesson-backed gates/);
-
-    const unreachable = thumbGatePromoCopy('connection_unreachable');
-    expect(unreachable.headline).toBe('Add cloud Continuity');
-    expect(unreachable.body).toMatch(/ThumbGate\.app/);
-    // WAS: /cannot reach your computer/ — that pinned a FALSE claim. ThumbGate does not fix
-    // phone-to-Mac connectivity; it sells cloud Continuity (CEO 2026-07-26).
-    expect(unreachable.body).toMatch(/continuity/i);
-    expect(unreachable.body).toMatch(/asleep|offline/i);
-    expect(unreachable.body).not.toMatch(/connected/i);
   });
 
   it('shows Leash promo when disconnected or when connected with no pending approvals', () => {
