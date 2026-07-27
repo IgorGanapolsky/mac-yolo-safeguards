@@ -3942,13 +3942,11 @@ export default function ChatScreen() {
       const probeUrl = nextSettings.gatewayUrl || fresh?.gatewayUrl || probeBase;
       const postRetryHealth = await fetchGatewayHealth(probeUrl, profileKey);
       if (postRetryHealth.authMismatch) {
-        setMacPickerVisible(true);
         setErrorMessage(gatewayAuthRepairBanner(repairComputerLabel));
         haptics.warning();
         return;
       }
       if (!postRetryHealth.directGatewayReachable && postRetryHealth.level === 'red') {
-        setMacPickerVisible(true);
         setErrorMessage(
           `Still can't reach ${repairComputerLabel}. Keep Tailscale on, or tap Find computers.`,
         );
@@ -3963,7 +3961,6 @@ export default function ChatScreen() {
       }
     } catch (err) {
       console.warn('[handleMacRetry] failed:', err);
-      setMacPickerVisible(true);
       setErrorMessage(
         health?.authMismatch
           ? gatewayAuthRepairBanner(repairComputerLabel)

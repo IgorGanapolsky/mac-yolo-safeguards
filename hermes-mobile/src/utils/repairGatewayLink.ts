@@ -71,7 +71,18 @@ export async function resolvePairSetupForRepair(
     return null;
   }
   if (!isTailscaleGatewayHost(trimmed)) {
-    return resolvePairServerSetupParams(trimmed);
+    const setup = await resolvePairServerSetupParams(trimmed);
+    if (setup?.pairingCode?.trim() && setup.pairServerUrl?.trim()) {
+      const exchanged = await exchangePairingCode(
+        setup.pairServerUrl,
+        setup.pairingCode,
+      );
+      return {
+        apiKey: exchanged?.apiKey ?? setup.apiKey,
+        gatewayUrl: exchanged?.gatewayUrl ?? setup.gatewayUrl,
+      };
+    }
+    return setup;
   }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);

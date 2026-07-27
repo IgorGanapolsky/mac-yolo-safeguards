@@ -308,4 +308,31 @@ describe('ChatScreen authMismatch header', () => {
     );
     expect(mockGatewayState.scanForGatewayProfiles).not.toHaveBeenCalled();
   });
+
+  it('keeps failed re-pair in context instead of opening the generic computer picker', async () => {
+    const { fireEvent } = require('@testing-library/react-native');
+    const { refreshCredentialsFromPairServer } = jest.requireMock('../utils/repairGatewayLink') as {
+      refreshCredentialsFromPairServer: jest.Mock;
+    };
+    const { fetchGatewayHealth } = jest.requireMock('../services/gatewayClient') as {
+      fetchGatewayHealth: jest.Mock;
+    };
+    refreshCredentialsFromPairServer.mockResolvedValueOnce(null);
+    fetchGatewayHealth.mockResolvedValueOnce({
+      level: 'red',
+      checkedAt: '2026-07-17T00:00:00Z',
+      directGatewayReachable: false,
+      authMismatch: true,
+      errorMessage: 'Outdated connection',
+    });
+    const { getByTestId, queryByText } = await renderAuthMismatchChat();
+
+    fireEvent.press(getByTestId('composer-error-banner-action-area'));
+
+    await waitFor(() => {
+      expect(fetchGatewayHealth).toHaveBeenCalled();
+    });
+    expect(queryByText('Choose your computer')).toBeNull();
+    expect(mockGatewayState.scanForGatewayProfiles).not.toHaveBeenCalled();
+  });
 });

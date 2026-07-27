@@ -71,6 +71,40 @@ describe('repairGatewayLink', () => {
     );
   });
 
+  it('exchanges a secretless pairCode on USB loopback repair too', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          gatewayUrl: 'http://127.0.0.1:8642',
+          deepLink:
+            'hermes://setup?pairCode=USB12345&pairServer=http%3A%2F%2F127.0.0.1%3A8765&name=Igors-MacBook-Pro',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          gatewayUrl: 'http://127.0.0.1:8642',
+          apiKey: 'fresh-usb-key',
+        }),
+      });
+    (global as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
+
+    const setup = await resolvePairSetupForRepair('127.0.0.1');
+
+    expect(setup).toEqual({
+      gatewayUrl: 'http://127.0.0.1:8642',
+      apiKey: 'fresh-usb-key',
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://127.0.0.1:8765/pair-exchange?code=USB12345',
+    );
+  });
+
   it('auth failure copy names the Mac and Re-pair CTA — never Hermes account relay', () => {
     expect(repairAuthFailedMessage('Hermes account relay')).toContain('your computer');
     expect(repairAuthFailedMessage('Hermes account relay')).not.toContain('Hermes account relay');
