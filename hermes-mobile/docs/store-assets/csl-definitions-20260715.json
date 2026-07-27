@@ -1,44 +1,57 @@
 {
   "created": "2026-07-15",
-  "package": "com.iganapolsky.hermesmobile",
-  "note": "Play Console Custom Store Listings \u2014 create in UI (API has no CSL methods). Keyword-targeted, category language, no brand trademarks in titles.",
+  "updated": "2026-07-26",
+  "package": "com.iganapolsky.hermesmobile.paid",
+  "defaultLanguage": "en-US",
+  "note": "Play Console Custom Store Listings for the live paid package. Google exposes search-keyword targeting in Play Console but not in the Android Publisher API, so these definitions are the reviewed source of truth for Console entry.",
   "listings": [
     {
-      "id": "csl-ai-agent-control",
-      "targetKeywords": [
-        "AI agent control",
-        "approve AI tools phone",
-        "Mac agent phone"
-      ],
-      "title": "Hermes Mobile \u2014 AI Control",
-      "shortDescription": "Approve AI agent tools from your phone. Stop runaway scripts on your Mac.",
-      "fullDescriptionSource": "variants/full_description_A_safety.txt",
-      "theme": "safety circuit breaker"
+      "id": "remote-ai-control",
+      "targeting": {
+        "type": "searchKeywords",
+        "keywords": [
+          "remote AI agent",
+          "desktop AI agent",
+          "AI agent control",
+          "control AI agent"
+        ]
+      },
+      "appName": "Hermes Mobile: Remote AI",
+      "shortDescription": "Approve desktop AI agent tools and chat from your phone.",
+      "fullDescriptionSource": "../../fastlane/metadata/android/en-US/paid_full_description.txt",
+      "firstScreenshot": "Approve before your AI agent acts"
     },
     {
-      "id": "csl-devtool-operator",
-      "targetKeywords": [
-        "mobile devtool",
-        "remote Mac coding agent",
-        "gateway phone control"
-      ],
-      "title": "Hermes \u2014 Remote AI Operator",
-      "shortDescription": "Control Cursor & Claude Code from your phone. Pair Mac, chat, approve tools.",
-      "fullDescriptionSource": "variants/full_description_B_operator.txt",
-      "theme": "remote operator",
-      "warning": "Strip Cursor/Claude brand tokens before Console paste if trademark-sensitive"
+      "id": "ai-coding-operator",
+      "targeting": {
+        "type": "searchKeywords",
+        "keywords": [
+          "remote coding agent",
+          "AI coding assistant",
+          "approve AI tools"
+        ]
+      },
+      "appName": "Hermes Mobile: AI Coding",
+      "shortDescription": "Review coding-agent tool requests and chat from your phone.",
+      "fullDescriptionSource": "../../fastlane/metadata/android/en-US/paid_full_description.txt",
+      "firstScreenshot": "Review and approve coding tools"
     },
     {
-      "id": "csl-wallet-credits",
-      "targetKeywords": [
-        "own Mac not cloud credits",
-        "Leash Pro",
-        "AI agent leash"
-      ],
-      "title": "Hermes Mobile \u2014 Agent Leash",
-      "shortDescription": "Your Mac, not cloud credits. Leash Pro $19.99 \u2014 approve AI from phone.",
-      "fullDescriptionSource": "variants/full_description_C_wallet_guard.txt",
-      "theme": "wallet + own-Mac wedge (default hybrid C)"
+      "id": "local-multiplatform-agent",
+      "targeting": {
+        "type": "searchKeywords",
+        "keywords": [
+          "local AI agent",
+          "self hosted AI assistant",
+          "Mac AI agent",
+          "Windows AI agent",
+          "Linux AI agent"
+        ]
+      },
+      "appName": "Hermes Mobile: Local Agent",
+      "shortDescription": "Control Hermes on your own Mac, Windows, or Linux computer.",
+      "fullDescriptionSource": "../../fastlane/metadata/android/en-US/paid_full_description.txt",
+      "firstScreenshot": "Control Mac, Windows, or Linux"
     }
   ]
 }

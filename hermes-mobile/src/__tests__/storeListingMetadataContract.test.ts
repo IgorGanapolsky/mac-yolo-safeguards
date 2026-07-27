@@ -17,34 +17,34 @@ describe('store listing metadata contract (stellar live)', () => {
     expect(playTitle.length).toBeLessThanOrEqual(30);
     expect(paidTitle.length).toBeLessThanOrEqual(30);
     expect(iosName.length).toBeLessThanOrEqual(30);
-    // Canonical name pinned to the live, ASC-locked iOS trackName (id 6786778037) so
-    // free+paid Play and iOS never drift apart again. iOS App Info "Name" cannot be
-    // patched on a READY_FOR_SALE version without a new build (confirmed 409 lock,
-    // 2026-07-23 `cursor-asc-rename-ship`); "Hermes Mobile: AI Agent" stays staged in
-    // ASC 1.4 for the next native build, at which point re-align all three together.
-    expect(playTitle).toBe('Hermes AI Agent Leash');
-    expect(paidTitle).toBe('Hermes AI Agent Leash');
-    expect(iosName).toBe('Hermes AI Agent Leash');
+    // Preserve both exact product-name intents in the indexed title. The live iOS
+    // App Info name is locked until the next approved version; this combined name
+    // is staged for 1.4 and must remain aligned with the paid Play listing.
+    expect(playTitle).toBe('Hermes Mobile: AI Agent Leash');
+    expect(paidTitle).toBe('Hermes Mobile: AI Agent Leash');
+    expect(iosName).toBe('Hermes Mobile: AI Agent Leash');
     expect(playTitle).toBe(paidTitle);
     expect(playTitle).toBe(iosName);
     expect(playTitle).not.toMatch(/ThumbGate/i);
     expect(paidTitle).not.toMatch(/ThumbGate/i);
   });
 
-  it('Play short description is Mac-remote wedge within 80 chars', () => {
+  it('Play descriptions stay within limits and the paid listing targets Hermes AI intent', () => {
     const short = read(path.join(ANDROID, 'short_description.txt'));
     const paidShort = read(path.join(ANDROID, 'paid_short_description.txt'));
     expect(short.length).toBeLessThanOrEqual(80);
     expect(paidShort.length).toBeLessThanOrEqual(80);
-    // Title already carries "Hermes Mobile"; short spends chars on job + price + anti-confusion.
+    // The unpublished legacy package remains source-compatible while the live paid
+    // package follows current Play guidance: communicate the job, not price promotion.
     expect(short).toMatch(/Mac/i);
     expect(short).toMatch(/4\.99/);
     expect(short).not.toMatch(/19\.99/);
     expect(short).toMatch(/once/i);
     expect(short).toMatch(/not phone AI/i);
-    expect(paidShort).toMatch(/4\.99/);
-    expect(paidShort).toMatch(/not phone AI/i);
-    expect(paidShort).toMatch(/Pay once|paid/i);
+    expect(paidShort).toMatch(/Hermes AI/i);
+    expect(paidShort).toMatch(/from your phone/i);
+    expect(paidShort).toMatch(/approve tools/i);
+    expect(paidShort).not.toMatch(/\$|free|no ads/i);
   });
 
   it('Play full description does not claim iOS is still in review', () => {
@@ -57,8 +57,12 @@ describe('store listing metadata contract (stellar live)', () => {
     expect(full).toMatch(/Looking for .Hermes Agent/i);
     expect(full).toMatch(/Tailscale/i);
     expect(full).toMatch(/Hen Works/i);
-    expect(paidFull).toMatch(/PAID DOWNLOAD/i);
-    expect(paidFull).toMatch(/Hen Works/i);
+    expect(paidFull).toMatch(/PAID-UPFRONT APP/i);
+    expect(paidFull).toMatch(/desktop AI agent/i);
+    expect(paidFull).toMatch(/remote AI agent/i);
+    expect(paidFull).toMatch(/Mac, Windows, (and )?Linux/i);
+    expect(paidFull).not.toMatch(/free package .*remains available/i);
+    expect(paidFull).not.toMatch(/#1|best app|top-ranked/i);
   });
 
   it('Play phone screenshots are present and distinct filenames', () => {
@@ -86,6 +90,9 @@ describe('store listing metadata contract (stellar live)', () => {
     expect(subtitle).toMatch(/Mac/i);
     expect(promo).toMatch(/not a phone chatbot|not phone/i);
     expect(promo).toMatch(/pay once|once/i);
+    expect(keywords).toMatch(/remote,coding,assistant,desktop,control/i);
+    expect(keywords).toMatch(/linux,windows,selfhosted,local,computer/i);
+    expect(keywords).not.toMatch(/\s/);
   });
 
   it('iOS promo and Play copy use paid-upfront pricing', () => {
