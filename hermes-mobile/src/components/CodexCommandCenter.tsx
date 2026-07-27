@@ -5,6 +5,10 @@ import type { RunProgressState } from '../types/chatDisplay';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
 import { displayableLlmModel, humanizeRunProgressDetail } from '../utils/runProgressDisplay';
 import { savedMacUnreachableStatus } from '../utils/macUnreachableCopy';
+import {
+  MAC_CONNECTION_GUIDANCE,
+  MAC_NOT_CONNECTED_LABEL,
+} from '../utils/gatewayConnection';
 
 type CodexCommandCenterProps = {
   connectionState: LeashConnectionState;
@@ -71,7 +75,11 @@ function connectionCopy(
     };
   }
   if (state === 'connected') {
-    return { label: 'Needs computer link', detail: 'Use Tailscale or home Wi‑Fi', color: colors.warning };
+    return {
+      label: MAC_NOT_CONNECTED_LABEL,
+      detail: MAC_CONNECTION_GUIDANCE,
+      color: colors.warning,
+    };
   }
   if (state === 'connecting') {
     return { label: 'Connecting', detail: `Checking ${machineName}`, color: colors.warning };

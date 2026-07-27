@@ -6,6 +6,7 @@ import {
   resolveChatLinkDisplay,
   resolveEffectiveMacHttpOk,
   isConnectedWrongKeyContradiction,
+  MAC_UNREACHABLE_LABEL,
 } from '../utils/gatewayConnection';
 import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
 
@@ -51,7 +52,7 @@ describe('gatewayConnection', () => {
         connectionState: 'connected',
         macHttpOk: false,
       }),
-    ).toEqual({ label: "Can't reach your Mac", chatReachable: false });
+    ).toEqual({ label: MAC_UNREACHABLE_LABEL, chatReachable: false });
   });
 
   it('needsPair wins over Connecting so unpaired relay never looks Tailscale-healthy', () => {

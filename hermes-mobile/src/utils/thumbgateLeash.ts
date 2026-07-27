@@ -1,9 +1,4 @@
 import type { GatewaySettings } from '../types/gateway';
-import { FREE_LEASH_WEEKLY_LIMIT, getFreeLeashWeeklyStateSync } from './freeLeashAllowance';
-import { isDeveloperLeashBackdoorActive } from './developerLeashUnlock';
-import { isStorePaidDownloadEntitled } from './playPaidEntitlement';
-
-export { FREE_LEASH_WEEKLY_LIMIT as LEASH_FREE_APPROVALS_PER_WEEK };
 
 let proEntitlementSnapshot = false;
 
@@ -16,35 +11,22 @@ export function isProEntitledFromSnapshot(): boolean {
   return proEntitlementSnapshot;
 }
 
-export function hasThumbgateLeashPro(settings: GatewaySettings): boolean {
-  if (isStorePaidDownloadEntitled()) {
-    return true;
-  }
-  if (settings.thumbgateProActive === true) {
-    return true;
-  }
-  return isDeveloperLeashBackdoorActive(settings);
+export function hasThumbgateLeashPro(_settings: GatewaySettings): boolean {
+  return true;
 }
 
-/** Pro IAP, dev backdoor, or free weekly allowance with remaining routed approvals. */
-export function isThumbgateLeashUnlocked(settings: GatewaySettings): boolean {
-  if (hasThumbgateLeashPro(settings)) {
-    return true;
-  }
-  return getFreeLeashWeeklyStateSync().remaining > 0;
+/** Hermes Mobile is a paid download with Leash included. */
+export function isThumbgateLeashUnlocked(_settings: GatewaySettings): boolean {
+  return true;
 }
 
-export function formatLeashFreeAllowanceLabel(settings: GatewaySettings): string {
-  if (hasThumbgateLeashPro(settings)) {
-    return 'Leash Pro — unlimited approvals';
-  }
-  const { remaining, limit } = getFreeLeashWeeklyStateSync();
-  return `${remaining} of ${limit} free approvals left this week`;
+export function formatLeashFreeAllowanceLabel(_settings: GatewaySettings): string {
+  return 'Leash included — unlimited approvals';
 }
 
 /** @deprecated Use formatLeashFreeAllowanceLabel */
 export const formatFreeLeashAllowanceLabel = formatLeashFreeAllowanceLabel;
 
-export function isLeashFreeAllowanceExhausted(settings: GatewaySettings): boolean {
-  return !hasThumbgateLeashPro(settings) && getFreeLeashWeeklyStateSync().remaining <= 0;
+export function isLeashFreeAllowanceExhausted(_settings: GatewaySettings): boolean {
+  return false;
 }
