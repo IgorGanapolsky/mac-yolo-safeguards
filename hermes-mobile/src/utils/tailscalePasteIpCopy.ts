@@ -37,5 +37,3 @@ export const PICKER_HELP_MISSING_TITLE = TAILSCALE_PASTE_IP_TITLE;
 export const PICKER_HELP_MISSING_DETAIL = `${TAILSCALE_PASTE_IP_DETAIL} ${TAILSCALE_PASTE_IP_HERMES_HINT}`;
 
 export const GATE_SEARCHING_STATUS = 'Searching for your Mac…';
-
-export const GATE_SCAN_QR_LINK = 'Scan QR from your Mac';

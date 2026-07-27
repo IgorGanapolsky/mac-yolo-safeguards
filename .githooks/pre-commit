@@ -44,7 +44,11 @@ fi
 # 2) Run only the tests related to the staged files (fast; full suite + coverage run in CI).
 # --runInBand avoids cross-suite pollution (ChatScreen scroll spies + open handles).
 files=$(echo "$staged" | sed 's#^hermes-mobile/##' | tr '\n' ' ')
-if ! npx jest --bail --runInBand --findRelatedTests $files --passWithNoTests --watchman=false; then
+# jest.config.js ignores repo-local `.worktrees` to avoid nested discovery from the
+# primary checkout. This hook runs inside that isolated checkout, so override only
+# the path ignore while retaining node_modules. Zero related tests is a failed gate.
+if ! npx jest --bail --runInBand --findRelatedTests $files --watchman=false \
+      --testPathIgnorePatterns='/node_modules/'; then
   echo "✗ related tests failed — commit blocked (use --no-verify to override)"
   exit 1
 fi

@@ -132,6 +132,7 @@ jest.mock('../services/secureCredentials', () => ({
     loadMobileToken: jest.fn().mockResolvedValue('test-token'),
     saveMobileToken: jest.fn().mockResolvedValue(true),
     clearMobileToken: jest.fn().mockResolvedValue(true),
+    resolveApiKeyForProfile: jest.fn().mockResolvedValue('test-api-key'),
   },
 }));
 
@@ -586,7 +587,7 @@ describe('ChatScreen', () => {
       await drainChatScreenAsync();
     });
 
-    expect(mockGatewayState.scanForGatewayProfiles).toHaveBeenCalled();
+    expect(mockGatewayState.scanForGatewayProfiles).not.toHaveBeenCalled();
     expect(mockGatewayState.autoConnectGateway).toHaveBeenCalled();
     expect(mockGatewayState.retryGatewayBootstrap).toHaveBeenCalled();
     expect(mockGatewayState.refreshHealth).toHaveBeenCalled();

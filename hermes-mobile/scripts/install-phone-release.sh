@@ -34,6 +34,32 @@ if ! HERMES_DIR="$(hermes_resolve_mobile_dir)"; then
   exit 1
 fi
 
+# The paid-download package is the canonical real-user product. The retired free
+# package remains available only for explicit legacy migration testing.
+ANDROID_STORE_SKU="${HERMES_ANDROID_STORE_SKU:-paid}"
+case "$ANDROID_STORE_SKU" in
+  paid)
+    TARGET_ANDROID_PACKAGE="com.iganapolsky.hermesmobile.paid"
+    export EXPO_PUBLIC_ANDROID_PAID_DOWNLOAD=1
+    ;;
+  free)
+    TARGET_ANDROID_PACKAGE="com.iganapolsky.hermesmobile"
+    unset EXPO_PUBLIC_ANDROID_PAID_DOWNLOAD
+    ;;
+  *)
+    echo "Error: HERMES_ANDROID_STORE_SKU must be 'paid' or 'free' (got '$ANDROID_STORE_SKU')." >&2
+    exit 1
+    ;;
+esac
+export HERMES_ANDROID_STORE_SKU="$ANDROID_STORE_SKU"
+# verify-apk-package.cjs already honors this variable; keep the build, verifier,
+# install marker, and launched activity on one package identity.
+export HERMES_MOBILE_ANDROID_PACKAGE="$TARGET_ANDROID_PACKAGE"
+# A phone install is a local artifact, not a publishing job. Sentry source-map
+# upload requires CI credentials and must not make a verified local build fail.
+# An explicit caller value still wins for controlled upload diagnostics.
+export SENTRY_DISABLE_AUTO_UPLOAD="${SENTRY_DISABLE_AUTO_UPLOAD:-true}"
+
 APK_OUT="$HERMES_DIR/android/app/build/outputs/apk/release/app-release.apk"
 PROBLEMS_REPORT="$HERMES_DIR/android/build/reports/problems/problems-report.html"
 # GLOBAL coordination lock (2026-07-14). Per-worktree locks under hermes-mobile/ let
@@ -163,16 +189,33 @@ run_gradle_release() {
   )
 }
 
+native_android_package() {
+  local gradle="$HERMES_DIR/android/app/build.gradle"
+  [[ -f "$gradle" ]] || return 0
+  sed -nE "s/^[[:space:]]*applicationId[[:space:]]+['\"]([^'\"]+)['\"].*/\1/p" "$gradle" \
+    | head -1
+}
+
 ensure_android_native_project() {
   if [[ ! -d android ]]; then
     echo "=== Generating android/ (expo prebuild) ==="
     npx expo prebuild --platform android
-    return
-  fi
-  # Stale android/ from before expo-updates autolinking breaks :expo:compileReleaseKotlin.
-  if [[ ! -f android/settings.gradle ]] || ! grep -q 'expoAutolinking.useExpoModules' android/settings.gradle; then
+  elif [[ ! -f android/settings.gradle ]] || ! grep -q 'expoAutolinking.useExpoModules' android/settings.gradle; then
+    # Stale android/ from before expo-updates autolinking breaks :expo:compileReleaseKotlin.
     echo "=== Regenerating malformed android/ (expo prebuild --clean) ==="
     npx expo prebuild --platform android --clean
+  fi
+
+  local native_package
+  native_package="$(native_android_package)"
+  if [[ "$native_package" != "$TARGET_ANDROID_PACKAGE" ]]; then
+    echo "=== Native package ${native_package:-missing} != $TARGET_ANDROID_PACKAGE — regenerating from app.config.js ==="
+    npx expo prebuild --platform android --clean
+    native_package="$(native_android_package)"
+  fi
+  if [[ "$native_package" != "$TARGET_ANDROID_PACKAGE" ]]; then
+    echo "Error: native Android package '${native_package:-missing}' != '$TARGET_ANDROID_PACKAGE' after prebuild." >&2
+    exit 1
   fi
 }
 
@@ -220,8 +263,8 @@ verify_and_install() {
 cold_start_and_smoke() {
   echo "=== Cold start ==="
   adb -s "$DEVICE" logcat -c >/dev/null 2>&1 || true
-  adb -s "$DEVICE" shell am force-stop com.iganapolsky.hermesmobile
-  adb -s "$DEVICE" shell am start -n com.iganapolsky.hermesmobile/.MainActivity
+  adb -s "$DEVICE" shell am force-stop "$TARGET_ANDROID_PACKAGE"
+  adb -s "$DEVICE" shell am start -n "$TARGET_ANDROID_PACKAGE/.MainActivity"
 
   local deadline=$((SECONDS + 45))
   while (( SECONDS < deadline )); do
@@ -286,17 +329,19 @@ acquire_install_lock() {
 skip_if_already_installed() {
   local target; target="$(git -C "$HERMES_DIR" rev-parse HEAD 2>/dev/null)" || return 0
   [[ -n "$target" && -f "$LAST_INSTALL_MARKER" ]] || return 0
-  local last_sha last_dev; read -r last_sha last_dev <"$LAST_INSTALL_MARKER" 2>/dev/null || return 0
-  if [[ "$last_sha" == "$target" && "$last_dev" == "$DEVICE" ]] \
-     && adb -s "$DEVICE" shell pm list packages 2>/dev/null | grep -q 'com.iganapolsky.hermesmobile'; then
-    echo "=== Single-flight: commit ${target:0:12} already installed on $DEVICE by a prior run — nothing to do ==="
+  local last_sha last_dev last_package
+  read -r last_sha last_dev last_package <"$LAST_INSTALL_MARKER" 2>/dev/null || return 0
+  if [[ "$last_sha" == "$target" && "$last_dev" == "$DEVICE" && "$last_package" == "$TARGET_ANDROID_PACKAGE" ]] \
+     && adb -s "$DEVICE" shell pm list packages 2>/dev/null | grep -q "package:${TARGET_ANDROID_PACKAGE}$"; then
+    echo "=== Single-flight: commit ${target:0:12} ($TARGET_ANDROID_PACKAGE) already installed on $DEVICE — nothing to do ==="
     exit 0
   fi
 }
 
 record_install_marker() {
   local target; target="$(git -C "$HERMES_DIR" rev-parse HEAD 2>/dev/null)" || return 0
-  [[ -n "$target" ]] && printf '%s %s\n' "$target" "$DEVICE" >"$LAST_INSTALL_MARKER" 2>/dev/null || true
+  [[ -n "$target" ]] && printf '%s %s %s\n' \
+    "$target" "$DEVICE" "$TARGET_ANDROID_PACKAGE" >"$LAST_INSTALL_MARKER" 2>/dev/null || true
 }
 
 cleanup_lock() {
@@ -361,12 +406,18 @@ gate_install_proofs() {
     echo "=== WARNING: skipping unit/release-safety gate (HERMES_INSTALL_SKIP_TESTS=1) ===" >&2
   else
     echo "=== Gate: unit + release-safety before phone install ==="
-    (cd "$HERMES_DIR" && npm test -- --no-coverage --watchman=false) || {
+    # The canonical Jest config excludes nested repo-local worktrees so a main
+    # checkout cannot rediscover every agent's tests. This installer also runs
+    # from those mandated worktrees, so override only that path exclusion while
+    # retaining node_modules. Zero discovered tests must remain a hard failure.
+    (cd "$HERMES_DIR" && npm test -- --no-coverage --watchman=false \
+      --testPathIgnorePatterns='/node_modules/') || {
       echo "Error: unit tests failed — refusing phone install." >&2
       echo "       Override only with HERMES_INSTALL_SKIP_TESTS=1 (not for real-user builds)." >&2
       exit 1
     }
-    (cd "$HERMES_DIR" && npm run test:release-safety) || {
+    (cd "$HERMES_DIR" && npm run test:release-safety -- \
+      --testPathIgnorePatterns='/node_modules/') || {
       echo "Error: release-safety contract failed — refusing phone install." >&2
       exit 1
     }
@@ -410,7 +461,7 @@ verify_and_install
 cold_start_and_smoke
 record_install_marker
 
-echo "=== Done: Hermes Mobile installed (release, bundle embedded) ==="
+echo "=== Done: Hermes Mobile installed ($TARGET_ANDROID_PACKAGE, release, bundle embedded) ==="
 
 # Fresh install has no saved Mac/key. Auto-pair with auth-verified deep link so the
 # first launch is not "Wrong key / Not connected" (2026-07-14 real-user incident).

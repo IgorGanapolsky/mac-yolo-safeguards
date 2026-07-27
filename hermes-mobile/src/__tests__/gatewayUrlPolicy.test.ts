@@ -42,7 +42,7 @@ describe('gatewayUrlPolicy', () => {
       'http://127.0.0.1:8642',
     );
     expect(message.toLowerCase()).toContain('usb');
-    expect(message.toLowerCase()).toContain('pair');
+    expect(message.toLowerCase()).toContain('find computers');
   });
 
   it('drops loopback local_ip when gateway URL is LAN', () => {

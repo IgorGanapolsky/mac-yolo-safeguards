@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 import type { GatewayProfile } from '../types/gatewayProfile';
@@ -11,6 +11,7 @@ import {
   hasOnlyLoopbackProfiles,
   profileMatchesDiscoveredGateway,
   profileMatchesHostname,
+  machinePickerGroupKey,
   profilesForSwitchComputerPicker,
   shouldOfferUsbLinkRepair,
   type LiveUsbPickerInput,
@@ -190,7 +191,6 @@ export default function ChatConnectionPanel({
       ? formatUsbHostMismatchMessage(usbHostMismatch)
       : undefined,
   });
-  const showScanCard = searching || scanResult;
   const relayWorkersNotInSaved = relayWorkers.filter(
     (worker) =>
       !profiles.some((profile) =>
@@ -201,6 +201,32 @@ export default function ChatConnectionPanel({
     activeProfileId,
     liveUsb,
   });
+  const namedScanProfiles = useMemo(() => {
+    if (!scanResult?.discoveredProfileIds?.length) {
+      return [];
+    }
+    const discoveredIds = new Set(scanResult.discoveredProfileIds);
+    const discoveredMachineKeys = new Set(
+      profiles
+        .filter((profile) => discoveredIds.has(profile.id))
+        .map(machinePickerGroupKey),
+    );
+    return pickerProfiles.filter(
+      (profile) =>
+        discoveredIds.has(profile.id) ||
+        discoveredMachineKeys.has(machinePickerGroupKey(profile)),
+    );
+  }, [pickerProfiles, profiles, scanResult?.discoveredProfileIds]);
+  const visibleScanResult = useMemo(() => {
+    if (!scanResult || scanResult.foundCount <= 0) {
+      return scanResult;
+    }
+    const namedCount = Math.min(scanResult.foundCount, namedScanProfiles.length);
+    return namedCount > 0 ? { ...scanResult, foundCount: namedCount } : null;
+  }, [namedScanProfiles.length, scanResult]);
+  const showScanCard = searching || visibleScanResult;
+  const showNamedScanResults =
+    !searching && Boolean(visibleScanResult && visibleScanResult.foundCount > 0);
   const primaryActionLabel = freshUserPrimaryActionLabel(showUsbFix);
   const showThumbGatePromo = shouldShowThumbGatePromoOnConnectionPanel({
     connectionState,
@@ -227,9 +253,37 @@ export default function ChatConnectionPanel({
         <MacScanProgressCard
           scanning={searching}
           progress={scanProgress}
-          result={scanResult}
+          result={visibleScanResult}
+          connectableProfileCount={namedScanProfiles.length}
           testID="chat-connection-scan-progress"
         />
+      ) : null}
+
+      {showNamedScanResults ? (
+        <View style={styles.savedBlock} testID="chat-connection-found-computers">
+          <Text style={styles.savedHeading}>Available computers</Text>
+          <Text style={styles.savedHint}>
+            {`Scan found ${visibleScanResult?.foundCount ?? 0} ${
+              visibleScanResult?.foundCount === 1 ? 'computer' : 'computers'
+            }. Saved computers are also shown.`}
+          </Text>
+          <GatewayProfilePicker
+            profiles={namedScanProfiles}
+            activeProfileId={activeProfileId}
+            activeProfile={
+              activeProfileId
+                ? profiles.find((profile) => profile.id === activeProfileId) ?? null
+                : null
+            }
+            activeReachable={activeProfileReachable}
+            activeConnecting={activeProfileConnecting}
+            selectionDisabled={selectionDisabled}
+            onSelect={(profileId, profile) => onSelectProfile?.(profileId, profile)}
+            wifiConnected={wifiConnected}
+            showReachabilityHints={namedScanProfiles.length > 1}
+            liveUsb={liveUsb}
+          />
+        </View>
       ) : null}
 
       {!searching ? (
@@ -300,7 +354,7 @@ export default function ChatConnectionPanel({
             </TouchableOpacity>
           ) : null}
 
-          {pickerProfiles.length > 0 ? (
+          {pickerProfiles.length > 0 && !showNamedScanResults ? (
             <View style={styles.savedBlock}>
               <Text style={styles.savedHeading}>Your computers</Text>
               <Text style={styles.savedHint}>

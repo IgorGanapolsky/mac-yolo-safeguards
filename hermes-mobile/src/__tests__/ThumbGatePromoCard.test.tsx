@@ -23,7 +23,7 @@ describe('ThumbGatePromoCard', () => {
     jest.restoreAllMocks();
   });
 
-  it('renders ThumbGate.app heading and opens URL with analytics', async () => {
+  it('renders the paid companion offer and opens pricing with analytics', async () => {
     const { getByTestId, getByText } = render(
       <ThumbGatePromoCard surface="connection_unreachable" />,
     );
