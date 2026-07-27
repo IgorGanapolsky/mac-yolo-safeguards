@@ -9,6 +9,7 @@ import {
   shouldDeferLoopbackSuccessOnCellular,
   shouldKeepUsbOverStickyRemote,
   shouldPreferUsbProbeFirst,
+  shouldProbePrimaryGatewayBeforeFallbacks,
 } from '../utils/connectionSelfHeal';
 
 const profiles: GatewayProfile[] = [
@@ -394,6 +395,30 @@ describe('USB primary on cellular', () => {
         primaryUrl: 'http://127.0.0.1:8642',
         wifiConnected: true,
         hasTailscaleAlternate: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('skips an off-Wi-Fi LAN primary before probing its Tailscale fallback', () => {
+    expect(
+      shouldProbePrimaryGatewayBeforeFallbacks({
+        skipLan: true,
+        deferLoopbackOnCellular: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps selected-route-first ordering when Wi-Fi or VPN state permits it', () => {
+    expect(
+      shouldProbePrimaryGatewayBeforeFallbacks({
+        skipLan: false,
+        deferLoopbackOnCellular: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldProbePrimaryGatewayBeforeFallbacks({
+        skipLan: false,
+        deferLoopbackOnCellular: true,
       }),
     ).toBe(false);
   });

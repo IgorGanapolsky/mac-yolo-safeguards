@@ -85,6 +85,7 @@
     "expo-splash-screen": "~55.0.23",
     "expo-store-review": "~55.0.16",
     "expo-updates": "~55.0.26",
+    "qrcode": "1.5.4",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-native": "0.83.6",
