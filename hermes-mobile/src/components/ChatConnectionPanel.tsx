@@ -11,6 +11,7 @@ import {
   hasOnlyLoopbackProfiles,
   profileMatchesDiscoveredGateway,
   profileMatchesHostname,
+  machinePickerGroupKey,
   profilesForSwitchComputerPicker,
   shouldOfferUsbLinkRepair,
   type LiveUsbPickerInput,
@@ -200,13 +201,29 @@ export default function ChatConnectionPanel({
     activeProfileId,
     liveUsb,
   });
+  const namedScanProfiles = useMemo(() => {
+    if (!scanResult?.discoveredProfileIds?.length) {
+      return [];
+    }
+    const discoveredIds = new Set(scanResult.discoveredProfileIds);
+    const discoveredMachineKeys = new Set(
+      profiles
+        .filter((profile) => discoveredIds.has(profile.id))
+        .map(machinePickerGroupKey),
+    );
+    return pickerProfiles.filter(
+      (profile) =>
+        discoveredIds.has(profile.id) ||
+        discoveredMachineKeys.has(machinePickerGroupKey(profile)),
+    );
+  }, [pickerProfiles, profiles, scanResult?.discoveredProfileIds]);
   const visibleScanResult = useMemo(() => {
     if (!scanResult || scanResult.foundCount <= 0) {
       return scanResult;
     }
-    const namedCount = Math.min(scanResult.foundCount, pickerProfiles.length);
+    const namedCount = Math.min(scanResult.foundCount, namedScanProfiles.length);
     return namedCount > 0 ? { ...scanResult, foundCount: namedCount } : null;
-  }, [pickerProfiles.length, scanResult]);
+  }, [namedScanProfiles.length, scanResult]);
   const showScanCard = searching || visibleScanResult;
   const showNamedScanResults =
     !searching && Boolean(visibleScanResult && visibleScanResult.foundCount > 0);
@@ -237,7 +254,7 @@ export default function ChatConnectionPanel({
           scanning={searching}
           progress={scanProgress}
           result={visibleScanResult}
-          connectableProfileCount={pickerProfiles.length}
+          connectableProfileCount={namedScanProfiles.length}
           testID="chat-connection-scan-progress"
         />
       ) : null}
@@ -251,7 +268,7 @@ export default function ChatConnectionPanel({
             }. Saved computers are also shown.`}
           </Text>
           <GatewayProfilePicker
-            profiles={pickerProfiles}
+            profiles={namedScanProfiles}
             activeProfileId={activeProfileId}
             activeProfile={
               activeProfileId
@@ -263,7 +280,7 @@ export default function ChatConnectionPanel({
             selectionDisabled={selectionDisabled}
             onSelect={(profileId, profile) => onSelectProfile?.(profileId, profile)}
             wifiConnected={wifiConnected}
-            showReachabilityHints={pickerProfiles.length > 1}
+            showReachabilityHints={namedScanProfiles.length > 1}
             liveUsb={liveUsb}
           />
         </View>

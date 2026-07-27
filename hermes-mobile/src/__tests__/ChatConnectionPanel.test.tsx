@@ -111,6 +111,7 @@ describe('ChatConnectionPanel', () => {
           completedAtMs: Date.now(),
           foundCount: 1,
           tailscaleCount: 1,
+          discoveredProfileIds: ['macbook'],
         }}
         profiles={[
           {
@@ -144,6 +145,7 @@ describe('ChatConnectionPanel', () => {
           completedAtMs: Date.now(),
           foundCount: 1,
           tailscaleCount: 1,
+          discoveredProfileIds: ['missing'],
         }}
         profiles={[]}
         onSearchMac={jest.fn()}
@@ -153,6 +155,40 @@ describe('ChatConnectionPanel', () => {
     expect(queryByText(/Found 1/)).toBeNull();
     expect(queryByTestId('chat-connection-scan-progress-result')).toBeNull();
     expect(queryByTestId('chat-connection-found-computers')).toBeNull();
+  });
+
+  it('never presents an unrelated saved computer as a successful scan result', () => {
+    const { queryByText, queryByTestId } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        scanResult={{
+          completedAtMs: Date.now(),
+          foundCount: 1,
+          usbCount: 1,
+          discoveredProfileIds: ['usb-found'],
+        }}
+        profiles={[
+          {
+            id: 'usb-found',
+            label: 'MacBook Pro',
+            hostname: 'MacBook-Pro.local',
+            gatewayUrl: 'http://127.0.0.1:8642',
+            addedAt: '2026-07-27T03:43:00Z',
+          },
+          {
+            id: 'stale-mini',
+            label: 'Mac mini',
+            gatewayUrl: 'http://100.94.135.78:8642',
+            addedAt: '2026-07-26T12:00:00Z',
+          },
+        ]}
+        onSearchMac={jest.fn()}
+      />,
+    );
+
+    expect(queryByText(/Found 1/)).toBeNull();
+    expect(queryByTestId('chat-connection-found-computers')).toBeNull();
+    expect(queryByTestId('select-gateway-profile-stale-mini')).toBeNull();
   });
 
   it('does not call an unreachable active computer active now', () => {
