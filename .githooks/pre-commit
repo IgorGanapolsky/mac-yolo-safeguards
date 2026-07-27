@@ -56,7 +56,11 @@ if [ -z "$(printf '%s' "$related_tests" | tr -d '[:space:]')" ]; then
   echo "✗ zero tests relate to staged mobile files — commit blocked"
   exit 1
 fi
-if ! npx jest --bail --runInBand --findRelatedTests $files --watchman=false \
+related_test_files=()
+while IFS= read -r test_path; do
+  [ -n "$test_path" ] && related_test_files+=("$test_path")
+done <<< "$related_tests"
+if ! npx jest --bail --runInBand --runTestsByPath "${related_test_files[@]}" --watchman=false \
       --testPathIgnorePatterns='/node_modules/'; then
   echo "✗ related tests failed — commit blocked (use --no-verify to override)"
   exit 1
