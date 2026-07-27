@@ -23,13 +23,14 @@ describe('ThumbGatePromoCard', () => {
     jest.restoreAllMocks();
   });
 
-  it('renders ThumbGate.app heading and opens URL with analytics', async () => {
+  it('renders the paid companion offer and opens pricing with analytics', async () => {
     const { getByTestId, getByText } = render(
       <ThumbGatePromoCard surface="connection_unreachable" />,
     );
 
     expect(getByTestId('thumbgate-promo-connection_unreachable')).toBeTruthy();
-    expect(getByText('Try ThumbGate.app')).toBeTruthy();
+    expect(getByText('Upgrade Hermes with ThumbGate')).toBeTruthy();
+    expect(getByText('See ThumbGate plans')).toBeTruthy();
     expect(trackProductEvent).toHaveBeenCalledWith('thumbgate_promo_view', {
       surface: 'connection_unreachable',
     });

@@ -71,7 +71,15 @@ function connectionCopy(
     };
   }
   if (state === 'connected') {
-    return { label: 'Needs computer link', detail: 'Use Tailscale or home Wi‑Fi', color: colors.warning };
+    const target =
+      !machineName || /^(computer|your computer|computer via usb)$/i.test(machineName.trim())
+        ? 'your computer'
+        : machineName.trim();
+    return {
+      label: "Can't reach computer",
+      detail: `Hermes isn't reachable on ${target}`,
+      color: colors.warning,
+    };
   }
   if (state === 'connecting') {
     return { label: 'Connecting', detail: `Checking ${machineName}`, color: colors.warning };

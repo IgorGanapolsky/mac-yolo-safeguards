@@ -83,7 +83,7 @@ function linkMeta(
   if (link.label === GATEWAY_AUTH_REPAIR_HEADER) {
     return { label: link.label, color: colors.error, connected: false };
   }
-  if (link.label === 'Needs computer link' || link.label === 'Relay only') {
+  if (link.label === "Can't reach computer" || link.label === 'Relay only') {
     return { label: link.label, color: colors.warning, connected: false };
   }
   if (needsPair) {
@@ -231,7 +231,7 @@ export default function ChatScreenHeader({
           </View>
           {threadCreatedLabel ? (
             <Text style={styles.threadCreated} numberOfLines={1} testID="chat-thread-created">
-              {threadCreatedLabel}
+              {`Started ${threadCreatedLabel}`}
             </Text>
           ) : null}
         </View>

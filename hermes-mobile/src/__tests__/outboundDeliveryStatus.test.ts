@@ -122,7 +122,7 @@ describe('outboundDeliveryStatus', () => {
 
     it('still shows the actionable unreachable copy while genuinely disconnected', () => {
       const label = resolveOutboundFailureLabel(staleConnectivityReason, false);
-      expect(label.toLowerCase()).toContain('not connected yet');
+      expect(label.toLowerCase()).toContain("hermes isn't reachable");
     });
 
     it('same contradiction via the home Wi‑Fi private-LAN variant of the message', () => {

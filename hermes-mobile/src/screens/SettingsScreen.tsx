@@ -262,7 +262,7 @@ export default function SettingsScreen() {
           'Connected',
           health?.level === 'green'
             ? `Direct local link healthy at ${url}`
-            : `Using ${url}. If Chat still fails, turn on Tailscale or scan the QR from Hermes on your computer.`,
+            : `Using ${url}. If Chat still fails, make sure Hermes is open on that computer and use Find computers.`,
         );
       }
     } catch (err) {

@@ -149,9 +149,9 @@ describe('CodexCommandCenter', () => {
       />,
     );
 
-    expect(getByTestId('command-center-link-state').props.children).toBe('Needs computer link');
+    expect(getByTestId('command-center-link-state').props.children).toBe("Can't reach computer");
     expect(getByTestId('command-center-mac-detail').props.children).toBe(
-      'Use Tailscale or home Wi‑Fi',
+      "Hermes isn't reachable on your computer",
     );
   });
 

@@ -29,6 +29,9 @@ export function isConnectivityMessage(message: string): boolean {
     normalized.includes("can't reach hermes") ||
     normalized.includes("can't reach your mac") ||
     normalized.includes("can't reach your computer") ||
+    normalized.includes("hermes isn't reachable") ||
+    normalized.includes('hermes is not reachable') ||
+    normalized.includes("hermes service on your computer isn't reachable") ||
     normalized.includes("can't reach that local computer link") ||
     normalized.includes("can't reach direct link") ||
     normalized.includes('hermes relay is not connected yet') ||
@@ -253,7 +256,7 @@ export function friendlyMacUnreachableMessage(gatewayUrl?: string): string {
   if (url && isPrivateLanGatewayUrl(url)) {
     return "Your phone can't reach that home Wi‑Fi address. Join the same Wi‑Fi, use Tailscale, or add a tunnel URL in Settings.";
   }
-  return 'Your computer is not connected yet. Use Tailscale or home Wi‑Fi, or add your computer link in Settings.';
+  return "Hermes isn't reachable on your computer. Make sure Hermes is open, then retry from Tailscale or home Wi‑Fi.";
 }
 
 /** Short copy for banners — full guidance lives in chatSendBlockedMessage. */
@@ -268,10 +271,10 @@ export function chatSendBlockedMessage(input: {
   healthProbePending?: boolean;
 }): string {
   if (input.healthProbePending) {
-    return 'Still checking your computer link. Message kept locally.';
+    return 'Still checking your computer. Message kept locally.';
   }
   if (input.connectionMode === 'relay' && input.connectionState === 'connected') {
-    return 'Chat needs a link to your computer (home Wi‑Fi, Tailscale, or tunnel URL).';
+    return "The Hermes service on your computer isn't reachable yet. Your message is saved.";
   }
   if (input.connectionMode === 'relay') {
     return 'Your computer is not connected yet. Open Settings to add Tailscale or a home Wi‑Fi link for Chat.';
