@@ -48,7 +48,8 @@ function isBareIp(value: string | undefined): boolean {
   if (!trimmed) {
     return false;
   }
-  return /^\d{1,3}(\.\d{1,3}){3}$/.test(trimmed);
+  // Bare IPv4 or IPv4:port (gateway endpoint pasted as profile label).
+  return /^\d{1,3}(\.\d{1,3}){3}(:\d+)?$/.test(trimmed);
 }
 
 const GENERIC_PROFILE_LABELS = new Set([
