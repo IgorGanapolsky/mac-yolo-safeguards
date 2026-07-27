@@ -23,5 +23,10 @@ describe('chat Maestro bootstrap navigation recovery', () => {
     );
     expect(recover).toContain('hermes://setup?demo=1&recover=1');
     expect(recover).toContain('hermes://chat');
+    expect((recover.match(/text: "Open"/g) ?? []).length).toBeGreaterThanOrEqual(5);
+    expect((recover.match(/stopApp: false/g) ?? []).length).toBeGreaterThanOrEqual(5);
+    expect(recover).toMatch(
+      /when:\s*\n\s*notVisible:\s*\n\s*id: "chat-screen-header"\s*\n\s*commands:\s*\n\s*- launchApp\s*\n\s*- extendedWaitUntil:\s*\n\s*notVisible:\s*\n\s*id: "hermes-bootstrap"/,
+    );
   });
 });
