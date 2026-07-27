@@ -1,7 +1,7 @@
 # ThumbGate.app positioning research — July 2026
 
-Status: decision-grade correction  
-Verified: 2026-07-26 EDT  
+Status: decision-grade correction
+Verified: 2026-07-26 EDT
 Parallel research: initial failed run `trun_d3be5e813aa949708dfbfc4702467c9f`; corrective continuation `trun_d3be5e813aa94970beece9fa897b7b22`
 
 ## Verdict
