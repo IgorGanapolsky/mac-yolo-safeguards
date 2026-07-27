@@ -60,7 +60,16 @@ wait_for_maestro_ios_device() {
 install_fresh_ios_release() {
   local udid="$1"
   echo "iOS app:   uninstalling any stale $IOS_BUNDLE_ID simulator build" >&2
-  xcrun simctl uninstall "$udid" "$IOS_BUNDLE_ID" >/dev/null 2>&1 || true
+  if xcrun simctl get_app_container "$udid" "$IOS_BUNDLE_ID" app >/dev/null 2>&1; then
+    if ! xcrun simctl uninstall "$udid" "$IOS_BUNDLE_ID"; then
+      echo "Failed to uninstall stale $IOS_BUNDLE_ID from simulator $udid" >&2
+      return 1
+    fi
+  fi
+  if xcrun simctl get_app_container "$udid" "$IOS_BUNDLE_ID" app >/dev/null 2>&1; then
+    echo "Stale $IOS_BUNDLE_ID container remains after uninstall on simulator $udid" >&2
+    return 1
+  fi
   echo "iOS app:   building and installing exact-head embedded Release build" >&2
   npx expo run:ios --no-bundler --device "$udid" --configuration Release
 

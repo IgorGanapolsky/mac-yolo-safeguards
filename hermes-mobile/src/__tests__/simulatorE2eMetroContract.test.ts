@@ -15,6 +15,9 @@ describe('iOS simulator E2E embedded Release lifecycle', () => {
     const releaseInstallIndex = script.indexOf(
       'npx expo run:ios --no-bundler --device "$udid" --configuration Release',
     );
+    const containerGoneCheckIndex = script.indexOf(
+      'Stale $IOS_BUNDLE_ID container remains after uninstall',
+    );
     const bundleCheckIndex = script.indexOf(
       '[[ ! -s "$app_path/main.jsbundle" ]]',
     );
@@ -31,8 +34,12 @@ describe('iOS simulator E2E embedded Release lifecycle', () => {
     expect(script).not.toContain('ensure_metro_running');
     expect(script).not.toContain('already installed');
     expect(script).not.toContain('open -a Simulator');
+    expect(script).not.toContain(
+      'xcrun simctl uninstall "$udid" "$IOS_BUNDLE_ID" >/dev/null 2>&1 || true',
+    );
     expect(uninstallIndex).toBeGreaterThan(-1);
-    expect(releaseInstallIndex).toBeGreaterThan(uninstallIndex);
+    expect(containerGoneCheckIndex).toBeGreaterThan(uninstallIndex);
+    expect(releaseInstallIndex).toBeGreaterThan(containerGoneCheckIndex);
     expect(bundleCheckIndex).toBeGreaterThan(releaseInstallIndex);
   });
 });
