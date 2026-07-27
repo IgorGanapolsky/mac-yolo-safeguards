@@ -15,9 +15,22 @@ on:
 permissions:
   contents: read
 
+# One global group starved the iOS e2e job: the 6-hourly cron held the lock for hours while
+# PR runs queued behind it, and each new push cancelled the queued predecessor. Evidence
+# 2026-07-27: six consecutive `pull_request` runs `cancelled`, one `pending` behind a
+# 4-hour-old `schedule` run — so "Maestro ship-guard (macOS sim)" never reported on a PR.
+# That is why the fatal iPad WatchdogTermination (Sentry APPS-3S) reached a device.
+#
+# PRs now get their own per-ref group (new push cancels only its own predecessor); the cron
+# keeps a separate serialized group so scheduled verification still never overlaps itself.
 concurrency:
-  group: hermes-mobile-continuous
-  cancel-in-progress: false
+  group: >-
+    hermes-mobile-continuous-${{ github.event_name == 'pull_request'
+      && format('pr-{0}', github.event.pull_request.number)
+      || github.event_name == 'merge_group'
+      && format('mq-{0}', github.ref)
+      || 'scheduled' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   unit-and-contract:
