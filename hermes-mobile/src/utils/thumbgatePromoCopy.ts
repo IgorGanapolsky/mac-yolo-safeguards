@@ -7,7 +7,7 @@
 export const THUMBGATE_WEB_URL =
   'https://thumbgate.app/?utm_source=hermes-mobile&utm_medium=app&utm_campaign=paid_companion#pricing';
 
-export const THUMBGATE_PROMO_BUTTON_LABEL = 'See ThumbGate plans';
+export const THUMBGATE_PROMO_BUTTON_LABEL = 'See ThumbGate.app plans';
 
 export type ThumbGatePromoSurface = 'leash_disconnected' | 'leash_empty' | 'connection_unreachable';
 
@@ -19,8 +19,8 @@ export type ThumbGatePromoCopy = {
 };
 
 const PAID_COMPANION_COPY = {
-  headline: 'Upgrade Hermes with ThumbGate',
-  body: 'Add a web dashboard and paid Continuity to Hermes Mobile. Manage chats and Leash controls from any browser, and keep eligible work moving when your Mac is offline.',
+  headline: 'Upgrade Hermes with ThumbGate.app',
+  body: 'Add a web dashboard and paid Continuity on ThumbGate.app. Manage chats and Leash controls from any browser, and keep eligible work moving when your Mac is offline.',
 } as const;
 
 const SURFACE_COPY: Record<ThumbGatePromoSurface, Omit<ThumbGatePromoCopy, 'url' | 'buttonLabel'>> = {

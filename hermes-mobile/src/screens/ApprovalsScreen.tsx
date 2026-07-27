@@ -456,7 +456,7 @@ export default function ApprovalsScreen() {
             <View style={styles.switchRow}>
               <View style={styles.switchLabelCol}>
                 <Text style={styles.switchLabel}>Thumbs down → remember block</Text>
-                <Text style={styles.switchDesc}>Capture to ThumbGate when you reject a tool</Text>
+                <Text style={styles.switchDesc}>Capture to ThumbGate.app when you reject a tool</Text>
               </View>
               <Switch
                 value={settings.thumbgateCaptureOnDown}
