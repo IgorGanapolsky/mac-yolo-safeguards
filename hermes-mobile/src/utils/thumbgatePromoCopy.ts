@@ -19,17 +19,24 @@ export type ThumbGatePromoCopy = {
 };
 
 const SURFACE_COPY: Record<ThumbGatePromoSurface, Omit<ThumbGatePromoCopy, 'url' | 'buttonLabel'>> = {
+  // ThumbGate.app is an ADD-ON to this app, not a workaround for it. Verified 2026-07-26
+  // against thumbgate.app and apps/hermes-control-plane/lib/entitlements.ts: the web
+  // dashboard is free for any active plan, and the PAID tiers (`pro` / `team`) buy CLOUD
+  // CONTINUITY — agent-governance.ts returns 402 `cloud_entitlement_required` without an
+  // active trial or subscription. The old copy ("When your phone cannot reach your
+  // computer...") was both false — ThumbGate does not fix phone-to-Mac connectivity — and
+  // self-defeating, since it sold a paid product as a consolation prize for a failure.
   leash_disconnected: {
-    headline: 'Self-Improving Firewall on the web',
-    body: 'Sign in at ThumbGate to review Leash decisions, lesson-backed gates, and chat history from any browser. Your Mac still runs the work locally.',
+    headline: 'Keep working when your Mac sleeps',
+    body: 'Your Mac still runs the work locally. ThumbGate Continuity hands the run to a cloud runner when that Mac goes offline, so approvals carry on — plus a free web dashboard for Leash decisions and lesson-backed gates in any browser.',
   },
   leash_empty: {
-    headline: 'Self-Improving Firewall',
-    body: 'Review past approvals and thumbs lessons, manage your account, and open Hermes from a desktop browser.',
+    headline: 'Keep working when your Mac sleeps',
+    body: 'Review approvals and thumbs lessons from any browser — free. Add Continuity to hand active runs to the cloud when your Mac is offline.',
   },
   connection_unreachable: {
-    headline: 'Try ThumbGate.app',
-    body: 'When your phone cannot reach your computer, sign in at ThumbGate.app to pair a Mac and continue in the browser.',
+    headline: 'Add cloud Continuity',
+    body: 'Your Mac runs the work. Continuity on ThumbGate.app picks it up when that Mac is asleep or offline, and gives you the same chat and approvals from any browser.',
   },
 };
 

@@ -13,14 +13,18 @@ describe('thumbgatePromoCopy', () => {
 
   it('returns honest copy per surface without implying a live Mac connection', () => {
     const disconnected = thumbGatePromoCopy('leash_disconnected');
-    expect(disconnected.headline).toBe('Self-Improving Firewall on the web');
+    // Continuity upsell, not a failure fallback (CEO 2026-07-26).
+    expect(disconnected.headline).toBe('Keep working when your Mac sleeps');
     expect(disconnected.body).toMatch(/Your Mac still runs the work locally/);
     expect(disconnected.body).toMatch(/lesson-backed gates/);
 
     const unreachable = thumbGatePromoCopy('connection_unreachable');
-    expect(unreachable.headline).toBe('Try ThumbGate.app');
+    expect(unreachable.headline).toBe('Add cloud Continuity');
     expect(unreachable.body).toMatch(/ThumbGate\.app/);
-    expect(unreachable.body).toMatch(/cannot reach your computer/i);
+    // WAS: /cannot reach your computer/ — that pinned a FALSE claim. ThumbGate does not fix
+    // phone-to-Mac connectivity; it sells cloud Continuity (CEO 2026-07-26).
+    expect(unreachable.body).toMatch(/continuity/i);
+    expect(unreachable.body).toMatch(/asleep|offline/i);
     expect(unreachable.body).not.toMatch(/connected/i);
   });
 
