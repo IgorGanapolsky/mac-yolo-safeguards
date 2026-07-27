@@ -206,11 +206,15 @@ export default function ChatConnectionPanel({
       return [];
     }
     const discoveredIds = new Set(scanResult.discoveredProfileIds);
-    return profilesForSwitchComputerPicker(
-      profiles.filter((profile) => discoveredIds.has(profile.id)),
-      { activeProfileId },
+    const discoveredProfiles = profiles.filter((profile) => discoveredIds.has(profile.id));
+    const discoveredIncludesLiveUsb = discoveredProfiles.some((profile) =>
+      isLoopbackGatewayUrl(profile.gatewayUrl),
     );
-  }, [activeProfileId, profiles, scanResult?.discoveredProfileIds]);
+    return profilesForSwitchComputerPicker(discoveredProfiles, {
+      activeProfileId,
+      liveUsb: discoveredIncludesLiveUsb ? liveUsb : null,
+    });
+  }, [activeProfileId, liveUsb, profiles, scanResult?.discoveredProfileIds]);
   const remainingPickerProfiles = useMemo(() => {
     if (!scanResult?.discoveredProfileIds?.length) {
       return pickerProfiles;

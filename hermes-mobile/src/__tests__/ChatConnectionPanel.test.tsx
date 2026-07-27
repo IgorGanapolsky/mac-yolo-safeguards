@@ -270,6 +270,85 @@ describe('ChatConnectionPanel', () => {
     expect(queryByTestId('select-gateway-profile-stale-mini')).toBeNull();
   });
 
+  it('keeps a discovered reachable USB computer in the immediate result section', () => {
+    const previousUsbTransport = process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT;
+    process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT = '1';
+    try {
+      const { getByTestId, getByText } = render(
+        <ChatConnectionPanel
+          connectionState="disconnected"
+          scanResult={{
+            completedAtMs: Date.now(),
+            foundCount: 1,
+            usbCount: 1,
+            discoveredProfileIds: ['usb-found'],
+          }}
+          profiles={[
+            {
+              id: 'usb-found',
+              label: 'Igors-MacBook-Pro',
+              hostname: 'Igors-MacBook-Pro.local',
+              gatewayUrl: 'http://127.0.0.1:8642',
+              addedAt: '2026-07-27T06:06:00Z',
+            },
+          ]}
+          liveUsb={{ reachable: true, hostname: 'Igors-MacBook-Pro.local' }}
+          onSelectProfile={jest.fn()}
+          onSearchMac={jest.fn()}
+        />,
+      );
+
+      expect(getByText('Found 1 over USB')).toBeTruthy();
+      expect(getByTestId('chat-connection-found-computers')).toBeTruthy();
+      expect(getByTestId('select-gateway-profile-usb-found')).toBeTruthy();
+    } finally {
+      if (previousUsbTransport === undefined) {
+        delete process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT;
+      } else {
+        process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT = previousUsbTransport;
+      }
+    }
+  });
+
+  it('does not synthesize unrelated live USB into a remote-only scan result', () => {
+    const previousUsbTransport = process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT;
+    process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT = '1';
+    try {
+      const { getByTestId, queryByText } = render(
+        <ChatConnectionPanel
+          connectionState="disconnected"
+          scanResult={{
+            completedAtMs: Date.now(),
+            foundCount: 1,
+            tailscaleCount: 1,
+            discoveredProfileIds: ['mini-tailscale'],
+          }}
+          profiles={[
+            {
+              id: 'mini-tailscale',
+              label: 'Igors-Mac-mini',
+              hostname: 'Igors-Mac-mini.local',
+              gatewayUrl: 'http://100.94.135.78:8642',
+              addedAt: '2026-07-27T06:07:00Z',
+            },
+          ]}
+          liveUsb={{ reachable: true, hostname: 'Igors-MacBook-Pro.local' }}
+          onSelectProfile={jest.fn()}
+          onSearchMac={jest.fn()}
+        />,
+      );
+
+      expect(getByTestId('select-gateway-profile-mini-tailscale')).toBeTruthy();
+      expect(queryByText('Igors-MacBook-Pro')).toBeNull();
+    } finally {
+      if (previousUsbTransport === undefined) {
+        delete process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT;
+      } else {
+        process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT = previousUsbTransport;
+      }
+    }
+  });
+
   it('does not call an unreachable active computer active now', () => {
     const { getByText, queryByText } = render(
       <ChatConnectionPanel
