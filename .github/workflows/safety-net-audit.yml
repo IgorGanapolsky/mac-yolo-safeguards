@@ -1,0 +1,45 @@
+name: Safety net audit
+
+# A guarantee you cannot see is not a guarantee. On 2026-07-27 a production release was
+# blocked because "Internal Distribution" had been disabled_manually — the only path to the
+# internal-signoff/* statuses the release gate requires. No commit did it (UI toggle), so
+# review could not catch it, and nobody knew until the release needed it.
+on:
+  schedule:
+    - cron: '40 */6 * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'tools/assert-critical-workflows-enabled.js'
+      - 'tests/test-critical-workflows-enabled.js'
+      - '.github/workflows/safety-net-audit.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: safety-net-audit-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'scheduled' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  workflows-enabled:
+    name: Safety-critical workflows are active
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+
+      - name: Guard unit tests (pure logic, no network)
+        run: node tests/test-critical-workflows-enabled.js
+
+      # PRs only run the unit tests: a fork PR has no token to list workflows, and a PR must
+      # not fail because of repo-level state it cannot change.
+      - name: Assert no safety-critical workflow is disabled
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node tools/assert-critical-workflows-enabled.js
