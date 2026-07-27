@@ -24,8 +24,10 @@ describe('iOS simulator E2E Metro lifecycle', () => {
     expect(script).toContain("trap 'exit 130' INT");
     expect(script).toContain("trap 'exit 143' TERM");
     expect(script).toContain(
-      'npx expo run:ios --no-bundler --device "$udid" --port "$METRO_PORT"',
+      'npx expo run:ios --no-bundler --device "$udid"',
     );
+    expect(script).not.toMatch(/expo run:ios[^\n]*--no-bundler[^\n]*--port/);
+    expect(script).not.toMatch(/expo run:ios[^\n]*--port[^\n]*--no-bundler/);
     expect(metroGateIndex).toBeGreaterThan(-1);
     expect(installIndex).toBeGreaterThan(metroGateIndex);
     expect(script).not.toContain(
