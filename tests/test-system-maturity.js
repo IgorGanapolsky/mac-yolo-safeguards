@@ -75,12 +75,13 @@ test('production maturity requires current device-verified E2E proof, not just a
   assert.equal(gateTool?.pass, true, 'observability tool must exist');
   assert.ok(deviceProof, 'device proof check must exist');
 
-  const latest = JSON.parse(
-    fs.readFileSync(
-      path.join(REPO, 'hermes-mobile/docs/proofs/continuous/latest.json'),
-      'utf8',
-    ),
+  const latestPath = path.join(
+    REPO,
+    'hermes-mobile/docs/proofs/continuous/latest.json',
   );
+  const latest = fs.existsSync(latestPath)
+    ? JSON.parse(fs.readFileSync(latestPath, 'utf8'))
+    : { e2e: 'missing' };
   if (latest.e2e !== 'pass') {
     assert.equal(deviceProof.pass, false, deviceProof.detail);
     assert.ok(
