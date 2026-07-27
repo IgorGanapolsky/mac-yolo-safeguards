@@ -25,6 +25,7 @@
     "cloudflare:validate-production": "node -e \"import('./build/cloudflare-target.mjs').then(({ assertProductionCloudflareEnvironment }) => assertProductionCloudflareEnvironment())\"",
     "predeploy:cloudflare": "npm run cloudflare:validate-production && npm run build:cloudflare && wrangler d1 export DB --remote --output=.wrangler/backups/pre-deploy-$(date -u +%Y%m%dT%H%M%SZ).sql --config dist/server/wrangler.json",
     "deploy:cloudflare": "npm run cloudflare:validate-production && npm run build:cloudflare && wrangler d1 migrations apply DB --remote --config dist/server/wrangler.json && wrangler deploy --config dist/server/wrangler.json",
+    "deploy:cloudflare:locked": "bash ../../scripts/deploy-cloudflare-with-lock.sh",
     "rollback:status": "node ../../tools/hermes-control-plane-rollback.js status",
     "rollback:list": "node ../../tools/hermes-control-plane-rollback.js list",
     "rollback:prev": "node ../../tools/hermes-control-plane-rollback.js prev",
