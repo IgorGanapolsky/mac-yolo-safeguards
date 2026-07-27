@@ -217,6 +217,12 @@ export default function ChatConnectionPanel({
         discoveredMachineKeys.has(machinePickerGroupKey(profile)),
     );
   }, [pickerProfiles, profiles, scanResult?.discoveredProfileIds]);
+  const remainingPickerProfiles = useMemo(() => {
+    const discoveredMachineKeys = new Set(namedScanProfiles.map(machinePickerGroupKey));
+    return pickerProfiles.filter(
+      (profile) => !discoveredMachineKeys.has(machinePickerGroupKey(profile)),
+    );
+  }, [namedScanProfiles, pickerProfiles]);
   const visibleScanResult = useMemo(() => {
     if (!scanResult || scanResult.foundCount <= 0) {
       return scanResult;
@@ -354,7 +360,7 @@ export default function ChatConnectionPanel({
             </TouchableOpacity>
           ) : null}
 
-          {pickerProfiles.length > 0 && !showNamedScanResults ? (
+          {remainingPickerProfiles.length > 0 ? (
             <View style={styles.savedBlock}>
               <Text style={styles.savedHeading}>Your computers</Text>
               <Text style={styles.savedHint}>
@@ -362,7 +368,7 @@ export default function ChatConnectionPanel({
                 connected.
               </Text>
               <GatewayProfilePicker
-                profiles={pickerProfiles}
+                profiles={remainingPickerProfiles}
                 activeProfileId={activeProfileId}
                 activeProfile={
                   activeProfileId
@@ -374,7 +380,7 @@ export default function ChatConnectionPanel({
                 selectionDisabled={selectionDisabled}
                 onSelect={(profileId, profile) => onSelectProfile?.(profileId, profile)}
                 wifiConnected={wifiConnected}
-                showReachabilityHints={pickerProfiles.length > 1}
+                showReachabilityHints={remainingPickerProfiles.length > 1}
                 liveUsb={liveUsb}
               />
             </View>
