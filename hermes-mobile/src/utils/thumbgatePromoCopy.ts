@@ -18,19 +18,15 @@ export type ThumbGatePromoCopy = {
   url: string;
 };
 
+const PAID_COMPANION_COPY = {
+  headline: 'Upgrade Hermes with ThumbGate',
+  body: 'Add a web dashboard and paid Continuity to Hermes Mobile. Manage chats and Leash controls from any browser, and keep eligible work moving when your Mac is offline.',
+} as const;
+
 const SURFACE_COPY: Record<ThumbGatePromoSurface, Omit<ThumbGatePromoCopy, 'url' | 'buttonLabel'>> = {
-  leash_disconnected: {
-    headline: 'Upgrade Hermes with ThumbGate',
-    body: 'Add a web dashboard and paid Continuity to Hermes Mobile. Manage chats and Leash controls from any browser, and keep eligible work moving when your Mac is offline.',
-  },
-  leash_empty: {
-    headline: 'Upgrade Hermes with ThumbGate',
-    body: 'Add a web dashboard and paid Continuity to Hermes Mobile. Manage chats and Leash controls from any browser, and keep eligible work moving when your Mac is offline.',
-  },
-  connection_unreachable: {
-    headline: 'Upgrade Hermes with ThumbGate',
-    body: 'Add a web dashboard and paid Continuity to Hermes Mobile. Manage chats and Leash controls from any browser, and keep eligible work moving when your Mac is offline.',
-  },
+  leash_disconnected: PAID_COMPANION_COPY,
+  leash_empty: PAID_COMPANION_COPY,
+  connection_unreachable: PAID_COMPANION_COPY,
 };
 
 export function thumbGatePromoCopy(surface: ThumbGatePromoSurface): ThumbGatePromoCopy {
