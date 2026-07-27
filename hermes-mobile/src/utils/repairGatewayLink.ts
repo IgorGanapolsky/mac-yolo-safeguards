@@ -73,14 +73,34 @@ export async function resolvePairSetupForRepair(
   if (!isTailscaleGatewayHost(trimmed)) {
     const setup = await resolvePairServerSetupParams(trimmed);
     if (setup?.pairingCode?.trim() && setup.pairServerUrl?.trim()) {
-      const exchanged = await exchangePairingCode(
-        setup.pairServerUrl,
-        setup.pairingCode,
-      );
-      return {
-        apiKey: exchanged?.apiKey ?? setup.apiKey,
-        gatewayUrl: exchanged?.gatewayUrl ?? setup.gatewayUrl,
-      };
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        // Redeem through the host that successfully served pair.json. In particular,
+        // USB loopback may advertise a LAN/Tailscale URL that the phone cannot reach.
+        const sourcePairServerUrl = `http://${trimmed}:${PAIR_SERVER_PORT}`;
+        const exchanged = await exchangePairingCode(
+          sourcePairServerUrl,
+          setup.pairingCode,
+          async (url) => {
+            const exchangeResponse = await fetch(url, { signal: controller.signal });
+            return {
+              ok: exchangeResponse.ok,
+              status: exchangeResponse.status,
+              json: () => exchangeResponse.json(),
+            };
+          },
+        );
+        if (!exchanged && !setup.apiKey?.trim()) {
+          return null;
+        }
+        return {
+          apiKey: exchanged?.apiKey ?? setup.apiKey,
+          gatewayUrl: exchanged?.gatewayUrl ?? setup.gatewayUrl,
+        };
+      } finally {
+        clearTimeout(timer);
+      }
     }
     return setup;
   }
@@ -112,6 +132,9 @@ export async function resolvePairSetupForRepair(
             };
           },
         );
+        if (!exchanged && !setup.apiKey?.trim()) {
+          return null;
+        }
         return {
           apiKey: exchanged?.apiKey ?? setup.apiKey,
           gatewayUrl: exchanged?.gatewayUrl ?? setup.gatewayUrl,

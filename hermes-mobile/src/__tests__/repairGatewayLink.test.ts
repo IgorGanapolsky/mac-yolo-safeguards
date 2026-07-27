@@ -80,7 +80,7 @@ describe('repairGatewayLink', () => {
         json: async () => ({
           gatewayUrl: 'http://127.0.0.1:8642',
           deepLink:
-            'hermes://setup?pairCode=USB12345&pairServer=http%3A%2F%2F127.0.0.1%3A8765&name=Igors-MacBook-Pro',
+            'hermes://setup?pairCode=USB12345&pairServer=http%3A%2F%2F100.87.85.85%3A8765&name=Igors-MacBook-Pro',
         }),
       })
       .mockResolvedValueOnce({
@@ -102,7 +102,44 @@ describe('repairGatewayLink', () => {
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       'http://127.0.0.1:8765/pair-exchange?code=USB12345',
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
+  });
+
+  it('aborts a stalled LAN or USB pair-code exchange within the repair timeout', async () => {
+    jest.useFakeTimers();
+    try {
+      const fetchMock = jest
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            gatewayUrl: 'http://127.0.0.1:8642',
+            deepLink:
+              'hermes://setup?pairCode=STALL123&pairServer=http%3A%2F%2F100.87.85.85%3A8765',
+          }),
+        })
+        .mockImplementationOnce(
+          (_url: string, options?: RequestInit) =>
+            new Promise((_resolve, reject) => {
+              options?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+            }),
+        );
+      (global as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
+
+      const repair = resolvePairSetupForRepair('127.0.0.1', 25);
+      await jest.advanceTimersByTimeAsync(25);
+
+      await expect(repair).resolves.toBeNull();
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        2,
+        'http://127.0.0.1:8765/pair-exchange?code=STALL123',
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('auth failure copy names the Mac and Re-pair CTA — never Hermes account relay', () => {
