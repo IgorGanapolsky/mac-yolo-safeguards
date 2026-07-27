@@ -307,6 +307,7 @@ describe('GatewayProvider', () => {
       includeToolActivity: true,
     });
     (secureCredentials.loadApiKey as jest.Mock).mockResolvedValue('sk-test');
+    (secureCredentials.loadProfileApiKeys as jest.Mock).mockResolvedValue({});
     (secureCredentials.loadThumbgateApiKey as jest.Mock).mockResolvedValue('');
     (secureCredentials.loadMobileToken as jest.Mock).mockResolvedValue('');
     (storage.saveGatewaySettings as jest.Mock).mockResolvedValue(undefined);
@@ -1006,9 +1007,9 @@ describe('GatewayProvider', () => {
       ],
       activeProfileId: null,
     });
-    (secureCredentials.resolveApiKeyForProfile as jest.Mock).mockResolvedValue(
-      'sk-saved-profile',
-    );
+    (secureCredentials.loadProfileApiKeys as jest.Mock).mockResolvedValue({
+      mac_10_2_29_103: 'sk-saved-profile',
+    });
 
     global.fetch = jest.fn(async (input) => {
       const url = String(input);
@@ -1069,6 +1070,110 @@ describe('GatewayProvider', () => {
     });
     expect(secureCredentials.saveApiKey).toHaveBeenCalledWith('sk-saved-profile');
     expect(getByTestId('last-error').props.children).toBe('');
+  });
+
+  it('rejects an expired pair refresh when only another Mac global key exists', async () => {
+    const gatewayProfilesMock = jest.requireMock('../services/gatewayProfiles');
+    gatewayProfilesMock.gatewayProfiles.load.mockResolvedValue({
+      profiles: [
+        {
+          id: 'discovered-mac-b',
+          label: 'Mac B',
+          gatewayUrl: 'http://10.2.29.104:8642',
+          hostname: 'Mac-B.local',
+          addedAt: '2026-07-26T12:00:00.000Z',
+        },
+      ],
+      activeProfileId: null,
+    });
+    (secureCredentials.loadApiKey as jest.Mock).mockResolvedValue('sk-mac-a-global');
+    (secureCredentials.loadProfileApiKeys as jest.Mock).mockResolvedValue({});
+    (secureCredentials.resolveApiKeyForProfile as jest.Mock).mockResolvedValue(
+      'sk-mac-a-global',
+    );
+
+    global.fetch = jest.fn(async (input) => {
+      const url = String(input);
+      if (url === 'http://10.2.29.104:8765/pair.json') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            gatewayUrl: 'http://10.2.29.104:8642',
+            deepLink:
+              'hermes://setup?pairCode=EXPIRED-MAC-B&pairServer=http%3A%2F%2F10.2.29.104%3A8765',
+          }),
+        } as Response;
+      }
+      if (
+        url ===
+        'http://10.2.29.104:8765/pair-exchange?code=EXPIRED-MAC-B'
+      ) {
+        return {
+          ok: false,
+          status: 410,
+          json: async () => ({}),
+        } as Response;
+      }
+      return {
+        ok: false,
+        status: 503,
+        json: async () => ({ status: 'unreachable' }),
+      } as Response;
+    }) as jest.Mock;
+
+    function SelectMacBProbe() {
+      const gateway = useGateway();
+      return (
+        <>
+          <Text testID="mac-b-error">{gateway.lastEventError ?? ''}</Text>
+          <Text testID="mac-b-active">
+            {gateway.activeGatewayProfile?.id ?? 'none'}
+          </Text>
+          <Text testID="mac-b-profiles">
+            {gateway.gatewayProfiles.map((profile) => profile.gatewayUrl).join(',')}
+          </Text>
+          <Text
+            testID="select-mac-b"
+            onPress={() => {
+              const profile = gateway.gatewayProfiles.find(
+                (item) => item.gatewayUrl === 'http://10.2.29.104:8642',
+              );
+              if (profile) {
+                void gateway.selectGatewayProfile(profile.id);
+              }
+            }}
+          >
+            select
+          </Text>
+        </>
+      );
+    }
+
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <SelectMacBProbe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('mac-b-profiles').props.children).toContain(
+        'http://10.2.29.104:8642',
+      );
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('select-mac-b'));
+    });
+    await waitFor(() => {
+      expect(getByTestId('mac-b-error').props.children).toContain(
+        'pairing expired',
+      );
+    });
+    expect(getByTestId('mac-b-active').props.children).toBe('none');
+    expect(secureCredentials.saveProfileApiKey).not.toHaveBeenCalledWith(
+      expect.any(String),
+      'sk-mac-a-global',
+    );
   });
 
   it('atomically activates a manually verified profile without minting a second pairing code', async () => {
@@ -1191,14 +1296,29 @@ describe('GatewayProvider', () => {
       resolveBootstrapGatewayRoute(
         'http://192.168.68.60:8642',
         'http://100.87.85.85:8642',
+        'mac_igors_macbook_pro',
+        'mac_igors_macbook_pro',
       ),
     ).toBe('http://192.168.68.60:8642');
     expect(
       resolveBootstrapGatewayRoute(
         '',
         'http://100.87.85.85:8642',
+        'mac_igors_macbook_pro',
+        'mac_igors_macbook_pro',
       ),
     ).toBe('http://100.87.85.85:8642');
+  });
+
+  it('rejects a saved route owned by the previously selected Mac during interrupted switch recovery', () => {
+    expect(
+      resolveBootstrapGatewayRoute(
+        'http://192.168.68.60:8642',
+        'http://100.99.88.77:8642',
+        'mac_b',
+        'mac_a',
+      ),
+    ).toBe('http://100.99.88.77:8642');
   });
 
   it('keeps a fresh user unselected when silent auto-discovery finds a reachable computer', async () => {

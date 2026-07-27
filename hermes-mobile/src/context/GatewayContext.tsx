@@ -358,9 +358,13 @@ export const GatewayContext = createContext<GatewayContextValue | null>(null);
 export function resolveBootstrapGatewayRoute(
   savedRoute: string | null | undefined,
   activeProfileRoute: string,
+  activeProfileId: string,
+  lastSelectedProfileId: string | null | undefined,
 ): string {
   const trimmed = savedRoute?.trim();
-  return trimmed && isValidGatewayUrl(trimmed)
+  return trimmed &&
+    isValidGatewayUrl(trimmed) &&
+    lastSelectedProfileId === activeProfileId
     ? trimmed
     : activeProfileRoute;
 }
@@ -689,16 +693,23 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           }
           loadedProfiles = sanitizeGatewayProfileState(loadedProfiles);
         }
+        const lastSelectedProfileId =
+          loadedProfiles.profiles.length > 0
+            ? await storage.loadLastSelectedProfileId()
+            : null;
         if (loadedProfiles.profiles.length > 0) {
           const hasValidActive =
             loadedProfiles.activeProfileId &&
             loadedProfiles.profiles.some((p) => p.id === loadedProfiles.activeProfileId);
           if (!hasValidActive) {
-            const lastSelectedId = await storage.loadLastSelectedProfileId();
             const lastSelectedValid =
-              lastSelectedId &&
-              loadedProfiles.profiles.some((profile) => profile.id === lastSelectedId);
-            const preferredActiveId = lastSelectedValid ? lastSelectedId : null;
+              lastSelectedProfileId &&
+              loadedProfiles.profiles.some(
+                (profile) => profile.id === lastSelectedProfileId,
+              );
+            const preferredActiveId = lastSelectedValid
+              ? lastSelectedProfileId
+              : null;
             if (preferredActiveId) {
               loadedProfiles = { ...loadedProfiles, activeProfileId: preferredActiveId };
             }
@@ -727,6 +738,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             gatewayUrl: resolveBootstrapGatewayRoute(
               savedSettings.gatewayUrl,
               active.gatewayUrl,
+              active.id,
+              lastSelectedProfileId,
             ),
           };
           const profileKey = await secureCredentials.resolveApiKeyForProfile(active.id);
@@ -2758,8 +2771,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
       let discoveredApiKey = options?.verifiedApiKey?.trim() || null;
+      // Only an exact per-profile credential may bypass an expired pair refresh.
+      // resolveApiKeyForProfile deliberately falls back to the global key, which
+      // can belong to a different Mac and must never authorize this selection.
+      const savedProfileApiKeys = await secureCredentials.loadProfileApiKeys();
       const savedProfileApiKey =
-        await secureCredentials.resolveApiKeyForProfile(profile.id);
+        savedProfileApiKeys[profile.id]?.trim() || null;
       if (!hasVerifiedManualCredential) {
         const pairing = await resolveDiscoveredPairingSelection({
           gatewayUrl: profile.gatewayUrl,
