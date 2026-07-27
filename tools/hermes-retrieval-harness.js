@@ -18,6 +18,7 @@ const DEFAULT_IGNORE_DIRS = new Set([
   'coverage',
   'dist',
   'node_modules',
+  'parallel-research',
   'Pods',
   'vendor',
 ]);

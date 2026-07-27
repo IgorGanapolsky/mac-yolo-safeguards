@@ -4,6 +4,22 @@ set -euo pipefail
 
 HERMES_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APK_OUT="$HERMES_DIR/android/app/build/outputs/apk/release/app-release.apk"
+TARGET_ANDROID_PACKAGE="${HERMES_MOBILE_ANDROID_PACKAGE:-com.iganapolsky.hermesmobile.paid}"
+case "$TARGET_ANDROID_PACKAGE" in
+  com.iganapolsky.hermesmobile.paid)
+    export HERMES_ANDROID_STORE_SKU=paid
+    export EXPO_PUBLIC_ANDROID_PAID_DOWNLOAD=1
+    ;;
+  com.iganapolsky.hermesmobile)
+    export HERMES_ANDROID_STORE_SKU=free
+    unset EXPO_PUBLIC_ANDROID_PAID_DOWNLOAD
+    ;;
+  *)
+    echo "Unsupported Hermes Mobile Android package: $TARGET_ANDROID_PACKAGE" >&2
+    exit 2
+    ;;
+esac
+export HERMES_MOBILE_ANDROID_PACKAGE="$TARGET_ANDROID_PACKAGE"
 JAVA_HOME="${JAVA_HOME:-$(brew --prefix openjdk@17 2>/dev/null)/libexec/openjdk.jdk/Contents/Home}"
 export JAVA_HOME
 export PATH="$JAVA_HOME/bin:$PATH"
@@ -28,7 +44,9 @@ fi
 echo "=== Hermes Mobile device E2E (device=$DEVICE) ==="
 
 cd "$HERMES_DIR"
-if [[ ! -d android ]]; then
+if [[ ! -f android/app/build.gradle ]] \
+  || ! grep -q "applicationId '$TARGET_ANDROID_PACKAGE'" android/app/build.gradle; then
+  echo "Regenerating Android project for $TARGET_ANDROID_PACKAGE..."
   npx expo prebuild --platform android --clean
 fi
 
@@ -44,10 +62,12 @@ echo "Building release APK (arm64, embedded JS bundle)..."
 bash "$HERMES_DIR/scripts/verify-apk-package.sh" "$APK_OUT"
 
 echo "Installing on $DEVICE..."
-adb -s "$DEVICE" uninstall com.iganapolsky.hermesmobile 2>/dev/null || true
+adb -s "$DEVICE" uninstall "$TARGET_ANDROID_PACKAGE" 2>/dev/null || true
 adb -s "$DEVICE" install -r "$APK_OUT"
+adb -s "$DEVICE" shell pm path "$TARGET_ANDROID_PACKAGE" >/dev/null
 
-echo "Running Maestro full suite (sequential)..."
-maestro test "$HERMES_DIR/.maestro/full-suite.yaml"
+echo "Running Maestro full suite against $TARGET_ANDROID_PACKAGE (sequential)..."
+bash "$HERMES_DIR/scripts/run-maestro-for-app.sh" ".maestro/full-suite.yaml" \
+  -p android --udid "$DEVICE"
 
 echo "=== Device E2E: PASS ==="

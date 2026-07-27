@@ -21,4 +21,6 @@ export type LanScanProgress = LanScanReachCounts & {
 
 export type LanScanResult = LanScanReachCounts & {
   completedAtMs: number;
+  /** Saved profile rows that came from this scan, not unrelated pre-existing computers. */
+  discoveredProfileIds?: string[];
 };

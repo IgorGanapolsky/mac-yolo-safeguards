@@ -13,7 +13,6 @@ import {
 import { useGateway } from '../context/GatewayContext';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { colors } from '../theme/colors';
-import PairQrScannerModal from './PairQrScannerModal';
 import TailscaleDiscoveryBanner from './TailscaleDiscoveryBanner';
 import MacScanProgressCard from './MacScanProgressCard';
 import GatewayProfilePicker from './GatewayProfilePicker';
@@ -35,7 +34,6 @@ import {
   CONNECT_MAC_GATE_BODY_CELLULAR,
   CONNECT_MAC_GATE_BODY_WIFI,
   CONNECT_MAC_GATE_TITLE,
-  GATE_SCAN_QR_LINK,
   GATE_SEARCHING_STATUS,
 } from '../utils/tailscalePasteIpCopy';
 import { haptics } from '../services/haptics';
@@ -61,7 +59,7 @@ export function connectMacGateCardMaxWidth(windowWidth: number): number {
 
 /**
  * First-run full-screen gate when no Mac is configured yet.
- * Stranger-first: paste Tailscale IP is the hero; Find computers / QR are secondary.
+ * Stranger-first: paste Tailscale IP is the hero; Find computers is secondary.
  */
 export default function ConnectMacGate() {
   const { width: windowWidth } = useWindowDimensions();
@@ -76,7 +74,6 @@ export default function ConnectMacGate() {
     gatewayProfiles,
     activeGatewayProfile,
     effectiveGatewayUrl,
-    applySetupDeepLink,
     retryGatewayBootstrap,
     scanForGatewayProfiles,
     selectGatewayProfile,
@@ -88,8 +85,6 @@ export default function ConnectMacGate() {
     wifiConnected,
   } = useGateway();
 
-  const [qrVisible, setQrVisible] = useState(false);
-  const [invalidQrHint, setInvalidQrHint] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [enablingDemo, setEnablingDemo] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
@@ -176,7 +171,6 @@ export default function ConnectMacGate() {
   const hasTailscaleCandidates = tailscaleDiscoveries.length > 0;
 
   const runWifiSearch = useCallback(async () => {
-    setInvalidQrHint(null);
     setIsSearching(true);
     try {
       // "Find computers" must search everywhere Hermes can reach a Mac, not just
@@ -328,20 +322,8 @@ export default function ConnectMacGate() {
                     testID="connect-search-wifi"
                     style={styles.secondaryButton}
                   />
-                  <TouchableOpacity
-                    onPress={() => {
-                      setInvalidQrHint(null);
-                      setQrVisible(true);
-                    }}
-                    accessibilityRole="button"
-                    testID="connect-scan-qr"
-                  >
-                    <Text style={styles.secondaryLink}>{GATE_SCAN_QR_LINK}</Text>
-                  </TouchableOpacity>
                 </View>
               ) : null}
-
-              {invalidQrHint ? <Text style={styles.hintError}>{invalidQrHint}</Text> : null}
 
               {isDemoModeAllowed() ? (
                 <View style={styles.demoEntry}>
@@ -359,21 +341,6 @@ export default function ConnectMacGate() {
           </ScrollView>
         </KeyboardAvoidingView>
       ) : null}
-
-      <PairQrScannerModal
-        visible={qrVisible}
-        onClose={() => {
-          setQrVisible(false);
-          setInvalidQrHint(null);
-        }}
-        onScanned={async (params) => {
-          await applySetupDeepLink(params);
-          await retryGatewayBootstrap();
-        }}
-        onInvalidScan={() =>
-          setInvalidQrHint('That QR is not a Hermes pairing code. Open Connect phone on your computer.')
-        }
-      />
     </>
   );
 }
@@ -448,16 +415,6 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     width: '100%',
-  },
-  secondaryLink: {
-    color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  hintError: {
-    fontSize: 12,
-    color: colors.error,
   },
   demoEntry: {
     marginTop: 4,

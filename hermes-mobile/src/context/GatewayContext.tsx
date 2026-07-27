@@ -2781,11 +2781,19 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         await persistDiscoveredGatewayUrl(lanMatch.gatewayUrl, false);
       }
       const reach = summarizeDiscoveredReach(discovered);
+      const discoveredProfileIds = Array.from(
+        new Set(
+          discovered
+            .map((item) => findProfileForGatewayUrl(state.profiles, item.gatewayUrl)?.id)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      );
       setProfileScanResult({
         foundCount: reach.foundCount,
         lanCount: reach.lanCount,
         tailscaleCount: reach.tailscaleCount,
         usbCount: reach.usbCount,
+        discoveredProfileIds,
         completedAtMs: Date.now(),
       });
       void trackProductEvent('mac_scan_complete', {

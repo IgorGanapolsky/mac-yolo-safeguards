@@ -410,10 +410,22 @@ else
   bad "extras only when auth verifies; skip foreign keys"
 fi
 # Deep link adb intent must single-quote URI so device shell does not split on &name=
-if [[ "$PAIR_JS" == *"device shell splits"* ]] && [[ "$PAIR_JS" == *"single-quoted"* ]] && [[ "$PAIR_JS" == *"am start -a android.intent.action.VIEW -d"* ]]; then
+if [[ "$PAIR_JS" == *"device shell splits"* ]] && [[ "$PAIR_JS" == *"single-quoted"* ]] && [[ "$PAIR_JS" == *"am start -a android.intent.action.VIEW -p"* ]]; then
   ok "pair adb deep link quotes URI for &name= params"
 else
   bad "pair adb deep link quotes URI for &name= params"
+fi
+
+if [[ "$PAIR_JS" == *"HERMES_MOBILE_ANDROID_PACKAGE"* ]] \
+  && [[ "$PAIR_JS" == *"const PAID_ANDROID_PACKAGE_NAME = 'com.iganapolsky.hermesmobile.paid';"* ]] \
+  && [[ "$PAIR_JS" == *"if (installed.has(PAID_ANDROID_PACKAGE_NAME))"* ]] \
+  && [[ "$PAIR_JS" == *"return PAID_ANDROID_PACKAGE_NAME;"* ]] \
+  && [[ "$PAIR_JS" == *"resolveTargetAndroidPackageName(serial)"* ]] \
+  && [[ "$PAIR_JS" == *"openDeepLinkOnDevice(serial, deepLink, targetAndroidPackageName)"* ]] \
+  && [[ "$PAIR_JS" == *"waitForForegroundAck(serial, targetAndroidPackageName"* ]]; then
+  ok "pair adb prefers the paid installed app and targets setup plus foreground ack consistently"
+else
+  bad "pair adb prefers the paid installed app and targets setup plus foreground ack consistently"
 fi
 
 # Unattended session-start pairing must never expose the credential-bearing LAN server,
