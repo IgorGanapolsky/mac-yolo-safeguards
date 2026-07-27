@@ -11,7 +11,6 @@ import {
   hasOnlyLoopbackProfiles,
   profileMatchesDiscoveredGateway,
   profileMatchesHostname,
-  machinePickerGroupKey,
   profilesForSwitchComputerPicker,
   shouldOfferUsbLinkRepair,
   type LiveUsbPickerInput,
@@ -37,6 +36,7 @@ import LoadingButton from './ui/LoadingButton';
 import ManualComputerAddressForm from './ManualComputerAddressForm';
 import ThumbGatePromoCard from './ThumbGatePromoCard';
 import { shouldShowThumbGatePromoOnConnectionPanel } from '../utils/thumbgatePromoCopy';
+import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 
 type ChatConnectionPanelProps = {
   connectionState: 'disconnected' | 'connecting' | 'connected' | 'demo';
@@ -206,23 +206,34 @@ export default function ChatConnectionPanel({
       return [];
     }
     const discoveredIds = new Set(scanResult.discoveredProfileIds);
-    const discoveredMachineKeys = new Set(
-      profiles
-        .filter((profile) => discoveredIds.has(profile.id))
-        .map(machinePickerGroupKey),
+    return profilesForSwitchComputerPicker(
+      profiles.filter((profile) => discoveredIds.has(profile.id)),
+      { activeProfileId },
     );
-    return pickerProfiles.filter(
-      (profile) =>
-        discoveredIds.has(profile.id) ||
-        discoveredMachineKeys.has(machinePickerGroupKey(profile)),
-    );
-  }, [pickerProfiles, profiles, scanResult?.discoveredProfileIds]);
+  }, [activeProfileId, profiles, scanResult?.discoveredProfileIds]);
   const remainingPickerProfiles = useMemo(() => {
-    const discoveredMachineKeys = new Set(namedScanProfiles.map(machinePickerGroupKey));
-    return pickerProfiles.filter(
-      (profile) => !discoveredMachineKeys.has(machinePickerGroupKey(profile)),
+    if (!scanResult?.discoveredProfileIds?.length) {
+      return pickerProfiles;
+    }
+    const discoveredIds = new Set(scanResult.discoveredProfileIds);
+    const discoveredIncludesLiveUsb = namedScanProfiles.some((profile) =>
+      isLoopbackGatewayUrl(profile.gatewayUrl),
     );
-  }, [namedScanProfiles, pickerProfiles]);
+    return profilesForSwitchComputerPicker(
+      profiles.filter((profile) => !discoveredIds.has(profile.id)),
+      {
+        activeProfileId,
+        liveUsb: discoveredIncludesLiveUsb ? null : liveUsb,
+      },
+    );
+  }, [
+    activeProfileId,
+    liveUsb,
+    namedScanProfiles,
+    pickerProfiles,
+    profiles,
+    scanResult?.discoveredProfileIds,
+  ]);
   const visibleScanResult = useMemo(() => {
     if (!scanResult || scanResult.foundCount <= 0) {
       return scanResult;

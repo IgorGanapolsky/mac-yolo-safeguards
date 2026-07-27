@@ -15,6 +15,11 @@ assert.match(jestConfig, /worktrees/, 'fixture requires the repo-local worktree 
 assert.match(hook, /--findRelatedTests/, 'hook must run tests related to staged mobile files');
 assert.match(
   hook,
+  /--runTestsByPath/,
+  'hook must execute the exact nonempty paths returned by Jest listTests',
+);
+assert.match(
+  hook,
   /--testPathIgnorePatterns=['"]\/node_modules\/['"]/,
   'hook must include tests from the current .worktrees checkout',
 );
@@ -50,8 +55,12 @@ case " $* " in
     printf '%s' '${listTestsOutput}'
     exit 0
     ;;
+  *" --runTestsByPath "*)
+    touch '${marker}'
+    exit 0
+    ;;
 esac
-touch '${marker}'
+printf '%s\\n' 'No tests found, exiting with code 0'
 exit 0
 `,
   );
@@ -76,4 +85,4 @@ const oneTest = runHook('/tmp/fixture/ChatConnectionPanel.test.tsx\n');
 assert.strictEqual(oneTest.status, 0, oneTest.stderr || oneTest.stdout);
 assert.strictEqual(oneTest.ranJest, true, 'hook must execute Jest when a related test exists');
 
-console.log('precommit worktree test gate: 9/9 passed');
+console.log('precommit worktree test gate: 10/10 passed');
