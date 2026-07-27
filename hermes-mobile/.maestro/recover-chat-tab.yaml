@@ -4,6 +4,17 @@ appId: com.iganapolsky.hermesmobile
 - runFlow: hide-keyboard-safe.yaml
 - runFlow: dismiss-mac-picker.yaml
 - openLink: "hermes://chat"
+- runFlow:
+    when:
+      visible:
+        text: "Open"
+    commands:
+      - tapOn:
+          text: "Open"
+# iOS may keep a system link sheet or another app foregrounded after openLink.
+# Preserve Hermes state while bringing the app back before inspecting its tabs.
+- launchApp:
+    stopApp: false
 - runFlow: dismiss-print-interruption.yaml
 - runFlow: dismiss-mac-picker.yaml
 - extendedWaitUntil:
@@ -37,12 +48,52 @@ appId: com.iganapolsky.hermesmobile
     commands:
       - runFlow: dismiss-mac-picker.yaml
       - openLink: "hermes://setup?demo=1&recover=1"
+      - runFlow:
+          when:
+            visible:
+              text: "Open"
+          commands:
+            - tapOn:
+                text: "Open"
+      - launchApp:
+          stopApp: false
       - extendedWaitUntil:
           notVisible:
             id: "hermes-bootstrap"
           timeout: 30000
       - openLink: "hermes://chat"
+      - runFlow:
+          when:
+            visible:
+              text: "Open"
+          commands:
+            - tapOn:
+                text: "Open"
+      - launchApp:
+          stopApp: false
       - runFlow: dismiss-mac-picker.yaml
+# A deep-link event can arrive while React Navigation is remounting and be lost.
+# Cold relaunch is the deterministic final fallback: Hermes defaults to Chat and
+# demo mode has already been persisted by the setup link above.
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen-header"
+    commands:
+      - launchApp
+      - extendedWaitUntil:
+          notVisible:
+            id: "hermes-bootstrap"
+          timeout: 90000
+      - runFlow: dismiss-print-interruption.yaml
+      - runFlow: dismiss-mac-picker.yaml
+      - runFlow:
+          when:
+            visible:
+              id: "tab-hermes"
+          commands:
+            - tapOn:
+                id: "tab-hermes"
 - extendedWaitUntil:
     visible:
       id: "chat-screen-header"
@@ -56,11 +107,29 @@ appId: com.iganapolsky.hermesmobile
         id: "chat-input"
     commands:
       - openLink: "hermes://setup?demo=1&recover=1"
+      - runFlow:
+          when:
+            visible:
+              text: "Open"
+          commands:
+            - tapOn:
+                text: "Open"
+      - launchApp:
+          stopApp: false
       - extendedWaitUntil:
           notVisible:
             id: "hermes-bootstrap"
           timeout: 30000
       - openLink: "hermes://chat"
+      - runFlow:
+          when:
+            visible:
+              text: "Open"
+          commands:
+            - tapOn:
+                text: "Open"
+      - launchApp:
+          stopApp: false
       - runFlow: dismiss-mac-picker.yaml
       - extendedWaitUntil:
           visible:
