@@ -2,7 +2,9 @@
 'use strict';
 
 const assert = require('assert');
+const childProcess = require('child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const repo = path.resolve(__dirname, '..');
@@ -23,4 +25,55 @@ assert.doesNotMatch(
 );
 assert.match(hook, /typecheck/, 'worktree test repair must preserve the typecheck gate');
 
-console.log('precommit worktree test gate: 5/5 passed');
+function writeExecutable(file, source) {
+  fs.writeFileSync(file, source, { mode: 0o755 });
+}
+
+function runHook(listTestsOutput) {
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-precommit-gate-'));
+  const bin = path.join(fixture, 'bin');
+  const mobile = path.join(fixture, 'hermes-mobile');
+  const marker = path.join(fixture, 'jest-ran');
+  fs.mkdirSync(bin);
+  fs.mkdirSync(path.join(mobile, 'src'), { recursive: true });
+  fs.copyFileSync(path.join(repo, '.githooks', 'pre-commit'), path.join(fixture, 'pre-commit'));
+  fs.chmodSync(path.join(fixture, 'pre-commit'), 0o755);
+  fs.writeFileSync(path.join(mobile, 'src', 'example.ts'), 'export const example = true;\n');
+  writeExecutable(path.join(bin, 'gitleaks'), '#!/bin/sh\nexit 0\n');
+  writeExecutable(path.join(bin, 'node'), '#!/bin/sh\nexit 0\n');
+  writeExecutable(path.join(bin, 'npm'), '#!/bin/sh\nexit 0\n');
+  writeExecutable(
+    path.join(bin, 'npx'),
+    `#!/bin/sh
+case " $* " in
+  *" --listTests "*)
+    printf '%s' '${listTestsOutput}'
+    exit 0
+    ;;
+esac
+touch '${marker}'
+exit 0
+`,
+  );
+  childProcess.execFileSync('git', ['init', '-q'], { cwd: fixture });
+  childProcess.execFileSync('git', ['add', 'hermes-mobile/src/example.ts'], { cwd: fixture });
+  const result = childProcess.spawnSync(path.join(fixture, 'pre-commit'), {
+    cwd: fixture,
+    env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
+    encoding: 'utf8',
+  });
+  const ranJest = fs.existsSync(marker);
+  fs.rmSync(fixture, { recursive: true, force: true });
+  return { ...result, ranJest };
+}
+
+const zeroTests = runHook('');
+assert.notStrictEqual(zeroTests.status, 0, 'hook must fail when Jest lists zero related tests');
+assert.match(zeroTests.stdout, /zero tests relate/);
+assert.strictEqual(zeroTests.ranJest, false, 'hook must not run a vacuous Jest pass');
+
+const oneTest = runHook('/tmp/fixture/ChatConnectionPanel.test.tsx\n');
+assert.strictEqual(oneTest.status, 0, oneTest.stderr || oneTest.stdout);
+assert.strictEqual(oneTest.ranJest, true, 'hook must execute Jest when a related test exists');
+
+console.log('precommit worktree test gate: 9/9 passed');
