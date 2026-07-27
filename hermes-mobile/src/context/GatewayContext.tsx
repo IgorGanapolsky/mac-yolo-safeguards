@@ -106,6 +106,7 @@ import {
   shouldDeferLoopbackSuccessOnCellular,
   shouldKeepUsbOverStickyRemote,
   shouldPreferUsbProbeFirst,
+  shouldProbePrimaryGatewayBeforeFallbacks,
 } from '../utils/connectionSelfHeal';
 import {
   shouldRunBackgroundTailscaleProbe,
@@ -1050,10 +1051,15 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         return { snapshot, url: fallbackUrl };
       };
 
-      // NetInfo can report a VPN-backed iPad as non-Wi-Fi even while its selected
-      // LAN gateway is directly reachable. The selected route is authoritative:
-      // probe it before considering Tailscale fallbacks, then fail over normally.
-      if (!deferLoopbackOnCellular) {
+      // NetInfo can be ambiguous with a VPN, so a reachable selected route remains
+      // authoritative. A private-LAN route that is definitively off Wi-Fi must skip
+      // its 15-second health timeout and try the same-Mac Tailscale fallback first.
+      if (
+        shouldProbePrimaryGatewayBeforeFallbacks({
+          skipLan,
+          deferLoopbackOnCellular,
+        })
+      ) {
         try {
           const snapshot = await probeMacGatewayOk(primaryUrl);
           return { snapshot, url: primaryUrl };
