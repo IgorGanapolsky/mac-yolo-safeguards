@@ -149,7 +149,7 @@ describe('CodexCommandCenter', () => {
       />,
     );
 
-    expect(getByTestId('command-center-link-state').props.children).toBe("Can't reach computer");
+    expect(getByTestId('command-center-link-state').props.children).toBe("Can't reach your Mac");
     expect(getByTestId('command-center-mac-detail').props.children).toBe(
       "Hermes isn't reachable on your computer",
     );

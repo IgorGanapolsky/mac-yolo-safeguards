@@ -76,7 +76,7 @@ function connectionCopy(
         ? 'your computer'
         : machineName.trim();
     return {
-      label: "Can't reach computer",
+      label: "Can't reach your Mac",
       detail: `Hermes isn't reachable on ${target}`,
       color: colors.warning,
     };

@@ -83,7 +83,7 @@ function linkMeta(
   if (link.label === GATEWAY_AUTH_REPAIR_HEADER) {
     return { label: link.label, color: colors.error, connected: false };
   }
-  if (link.label === "Can't reach computer" || link.label === 'Relay only') {
+  if (link.label === "Can't reach your Mac" || link.label === 'Relay only') {
     return { label: link.label, color: colors.warning, connected: false };
   }
   if (needsPair) {
