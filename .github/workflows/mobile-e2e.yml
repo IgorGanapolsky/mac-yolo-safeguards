@@ -229,9 +229,7 @@ jobs:
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             adb shell pm path "$HERMES_MOBILE_ANDROID_PACKAGE"
             export PATH="$HOME/.maestro/bin:$PATH"
-            device_id="$(adb devices | awk 'NR > 1 && $2 == "device" { print $1; exit }')"
-            test -n "$device_id"
-            bash scripts/run-maestro-for-app.sh .maestro/ship-guard.yaml -p android --udid "$device_id"
+            bash scripts/run-maestro-for-app.sh .maestro/ship-guard.yaml -p android --udid emulator-5554
 
       - name: Upload Maestro artifacts on failure
         if: failure()
@@ -377,9 +375,7 @@ jobs:
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             adb shell pm path "$HERMES_MOBILE_ANDROID_PACKAGE"
             export PATH="$HOME/.maestro/bin:$PATH"
-            device_id="$(adb devices | awk 'NR > 1 && $2 == "device" { print $1; exit }')"
-            test -n "$device_id"
-            bash scripts/run-maestro-for-app.sh .maestro/stranger-cold-start.yaml -p android --udid "$device_id"
+            bash scripts/run-maestro-for-app.sh .maestro/stranger-cold-start.yaml -p android --udid emulator-5554
 
       - name: Upload stranger Maestro artifacts on failure
         if: failure()

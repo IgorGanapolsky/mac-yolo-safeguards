@@ -53,6 +53,16 @@ assert.equal(
   'both Android required jobs must use the package-aware Maestro runner',
 );
 assert.equal(
+  (androidJobs.match(/run-maestro-for-app\.sh .*--udid emulator-5554/g) || []).length,
+  2,
+  'android-emulator-runner commands must target its stable emulator id directly',
+);
+assert.doesNotMatch(
+  androidJobs,
+  /device_id="\$\(adb devices/,
+  'android-emulator-runner executes script lines in separate shells; transient assignments vanish',
+);
+assert.equal(
   (androidJobs.match(/verify-apk-package\.cjs/g) || []).length,
   2,
   'both Android required jobs must verify the paid package before install',
@@ -110,4 +120,4 @@ fs.writeFileSync(process.env.RECEIPT, JSON.stringify({ args, flow, root }));
   fs.rmSync(sandbox, { recursive: true, force: true });
 }
 
-console.log('paid Android E2E package rail: 18/18 passed');
+console.log('paid Android E2E package rail: 20/20 passed');
