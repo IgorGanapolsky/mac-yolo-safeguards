@@ -112,7 +112,7 @@ jobs:
       - name: Read production release state from Google Play
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-          PLAY_PACKAGE: com.iganapolsky.hermesmobile
+          PLAY_PACKAGE: com.iganapolsky.hermesmobile.paid
         run: |
           node <<'NODE'
           const crypto = require('crypto');
@@ -174,11 +174,16 @@ jobs:
               versionCodes: release.versionCodes || [],
               userFraction: release.userFraction ?? null,
             }));
+            await json(await fetch(`${base}/edits/${edit.id}`, {
+              method: 'DELETE',
+              headers,
+            }), 'Delete read-only edit');
             console.log(`PLAY_TRACK_AUDIT=${JSON.stringify({
               packageName: process.env.PLAY_PACKAGE,
               track: 'production',
               releases,
               editCommitted: false,
+              editDeleted: true,
             })}`);
           }
 
@@ -200,6 +205,8 @@ jobs:
     environment: production-android
     env:
       SENTRY_DISABLE_AUTO_UPLOAD: "true"
+      HERMES_ANDROID_STORE_SKU: paid
+      EXPO_PUBLIC_ANDROID_PAID_DOWNLOAD: "1"
     defaults:
       run:
         working-directory: hermes-mobile
@@ -239,6 +246,22 @@ jobs:
           REQUIRE_ANDROID_SUBMIT_CREDS: ${{ inputs.submit == 'true' && '1' || '0' }}
         run: npm run launch:preflight:android
 
+      - name: Verify paid Android package resolution
+        run: |
+          set -euo pipefail
+          npx expo config --type public --json > /tmp/hermes-paid-expo-config.json
+          node - <<'NODE'
+          const config = require('/tmp/hermes-paid-expo-config.json');
+          const expected = 'com.iganapolsky.hermesmobile.paid';
+          if (config.android?.package !== expected) {
+            throw new Error(`Paid store release resolved ${config.android?.package || 'no package'}; expected ${expected}`);
+          }
+          if (config.extra?.androidStoreSku !== 'paid') {
+            throw new Error(`Paid store release resolved androidStoreSku=${config.extra?.androidStoreSku || 'missing'}`);
+          }
+          console.log(`Paid Android package verified: ${expected}`);
+          NODE
+
       - name: HARD-STOP cloud EAS builds during overage (until 2026-07-22)
         if: inputs.eas_build_id == ''
         run: |
@@ -273,9 +296,9 @@ jobs:
             echo "Missing required secret: EXPO_TOKEN" >&2
             exit 1
           fi
-          node ./scripts/eas-build-guard.cjs --platform android --profile production -- npx eas-cli@latest build \
+          node ./scripts/eas-build-guard.cjs --platform android --profile production-android-paid -- npx eas-cli@latest build \
             --platform android \
-            --profile production \
+            --profile production-android-paid \
             --non-interactive \
             --wait \
             --json \
@@ -337,7 +360,7 @@ jobs:
           npx eas-cli@latest submit \
             --platform android \
             --id "$BUILD_ID" \
-            --profile production \
+            --profile production-android-paid \
             --non-interactive \
             --wait \
             2>&1 | tee /tmp/eas-android-submit.txt
