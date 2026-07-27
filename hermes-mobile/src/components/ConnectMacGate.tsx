@@ -369,6 +369,7 @@ const styles = StyleSheet.create({
   },
   cardScrollContent: {
     flexGrow: 1,
+    alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
   },
