@@ -245,6 +245,21 @@ export function shouldDeferLoopbackSuccessOnCellular(input: {
 }
 
 /**
+ * Probe the selected route first unless network state proves that doing so would
+ * impose a full gateway timeout before a usable remote fallback.
+ *
+ * A VPN can make NetInfo ambiguous, so reachable Wi-Fi routes remain
+ * authoritative. A private-LAN route that is definitively off Wi-Fi must yield
+ * immediately to its same-machine Tailscale alternate.
+ */
+export function shouldProbePrimaryGatewayBeforeFallbacks(input: {
+  skipLan: boolean;
+  deferLoopbackOnCellular: boolean;
+}): boolean {
+  return !input.skipLan && !input.deferLoopbackOnCellular;
+}
+
+/**
  * Clear USB-primary on cellular when a same-machine Tailscale URL is available.
  * Never clear when live USB reverse is confirmed (cable + hostname) — product lock.
  */

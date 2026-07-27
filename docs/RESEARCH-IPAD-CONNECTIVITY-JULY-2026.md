@@ -8,13 +8,23 @@ Raw output: [`../parallel-research/ipad-connectivity-july-2026.md`](../parallel-
 ## Verdict
 
 Hermes Mobile's repeated iPad failure was not one generic "iOS networking" problem.
-Physical-device testing isolated two deterministic application-state bugs:
+Physical-device testing and review isolated interacting transport, server, and
+application-state defects:
 
-1. Selecting a paired computer persisted its URL and key but left
+1. The generated iPad transport-security policy did not authorize the exact private,
+   Tailscale CGNAT, Tailscale IPv6, and MagicDNS destinations used by the product.
+2. The pair server generated its QR synchronously through `npx` on `/pair.json`;
+   that could exceed the watchdog deadline and put its LaunchAgent into a restart loop.
+3. Selecting a paired computer persisted its URL and key but left
    `connectionMode=relay`, so the direct Hermes gateway was not the selected runtime.
-2. A LAN/Tailscale discovery scan could finish after an explicit selection and save
+4. A LAN/Tailscale discovery scan could finish after an explicit selection and save
    its older `activeProfileId=null` snapshot over the user's selection. The immediate
    connection could work, but relaunch lost the Mac identity and selected route.
+5. Same-Mac LAN/Tailscale deduplication, bootstrap, and stale ref publication could
+   replace an explicitly selected route or combine one Mac's route with another Mac's
+   credential.
+6. Off Wi-Fi, a saved LAN route could consume the full health timeout before trying
+   its available same-machine Tailscale fallback.
 
 The July 2026 platform research supports the native network configuration already
 chosen by the fix, while rejecting several over-broad claims in the raw research.
@@ -42,19 +52,16 @@ Sources:
 
 ### App Transport Security
 
-Hermes uses plain HTTP on private LAN and Tailscale IP addresses. Apple's current
-documentation says iOS/iPadOS 17 no longer allows IP-address connections by default
-and can accept individual IP/CIDR entries in `NSExceptionDomains`. Hermes cannot
-enumerate those exceptions at build time because users enter arbitrary LAN and
-Tailscale addresses. Apple also documents that `NSAllowsLocalNetworking` covers
-IPv4/IPv6 addresses and recommends pairing it with the broad key for older-OS
-compatibility. The app's generated and checked-in native iOS settings therefore use:
+Hermes uses plain HTTP on private LAN and Tailscale addresses. The signed application
+verified on iPadOS 17.7.6 uses `NSAllowsLocalNetworking=true` plus explicit transport
+exceptions for RFC1918 LAN ranges, Tailscale's `100.64.0.0/10` CGNAT range,
+Tailscale's `fd7a:115c:a1e0::/48` IPv6 range, and `ts.net` including subdomains.
+It deliberately does **not** enable `NSAllowsArbitraryLoads`.
 
-- `NSAllowsLocalNetworking=true`
-- `NSAllowsArbitraryLoads=true`
-
-On newer OS versions the fine-grained local exception takes precedence over the
-broad key; on older versions the broad key remains the compatibility path.
+The embedded `Info.plist` from physical Run 9 was extracted after signing and matched
+that bounded policy. Numeric Tailscale and LAN pairing endpoints both returned HTTP
+200 before the clean-install test, and the installed app connected through both
+routes. That physical result is the product oracle for this configuration.
 
 Source:
 
@@ -96,20 +103,24 @@ Device:
 - iPadOS 17.7.6
 - CoreDevice ID `05E261A2-8EC4-5A2B-B752-F5632510D5B1`
 
-Observed sequence:
+Final clean-install sequence:
 
-1. Clean Release install displayed both expected iOS permission prompts.
-2. Empty manual address submission produced the exact validation error and remained
+1. Signed Release build `c5558af64a8192ab66a98be16f577889d7e612257c32bc57a628b89f7e1df8ae`
+   was uninstalled, then installed into a new application container.
+2. Clean Release launch displayed both expected iOS permission prompts.
+3. Empty manual address submission produced the exact validation error and remained
    recoverable (`HermesEmptyAddress.xcresult`: 1 test, 0 failures).
-3. Discovery found real Macs and manual numeric Tailscale pairing reached a connected
-   chat state.
-4. On the failing relaunch, the app data container retained both Mac profiles and
-   probe hosts but persisted `"activeProfileId": null`.
-5. The UI consequently showed generic `Your computer. Connected` rather than the
-   selected Mac name and route.
+4. Discovery found real Macs without auto-activating one, and manual numeric Tailscale
+   pairing reached a connected chat state.
+5. A cold relaunch preserved the active Tailscale route.
+6. Explicit switching to the same Mac over LAN connected, and a cold relaunch
+   preserved LAN rather than reverting to the catalog-canonical Tailscale URL.
+7. Switching back to Tailscale remained atomic, and a second cold relaunch preserved
+   both the selected route and its credential.
 
-This proves transport reachability and authorization were available while product
-selection state was being lost.
+`HermesPhysicalFreshInstallRun9.xcresult` passed 1/1 test with 0 failures. Run 6 is
+retained as the negative control: it passed the early journey but failed LAN cold
+relaunch before the route-persistence fix.
 
 ## Implemented reliability rules
 
@@ -124,6 +135,12 @@ selection state was being lost.
   details.
 - Direct pairing exchanges fresh pairing material and does not depend on a stale
   saved credential.
+- Pair-server JSON responses never invoke QR tooling; QR generation is pinned locally
+  and occurs outside the watchdog-sensitive response path.
+- Bootstrap preserves a saved route only when its selected profile identity matches
+  the active profile, and expired-code recovery requires that exact profile's key.
+- On cellular, a private-LAN primary yields immediately to same-machine Tailscale
+  fallback ordering instead of consuming the 15-second direct health timeout.
 
 ## Verification contract
 
@@ -136,8 +153,8 @@ A release claim requires all of these separate surfaces:
 5. fresh-user permission and validation edge cases;
 6. numeric Tailscale connection, process relaunch persistence, LAN route switch, and
    a second relaunch;
-7. simulator Maestro regression;
-8. required GitHub CI and merged-main evidence.
+7. simulator and Android-emulator Maestro regressions;
+8. required GitHub CI, fresh review of the final head, and merged-main evidence.
 
 The raw research artifact is retained for provenance, but claims in it are not treated
 as verified unless reconciled above with a primary source or physical-device result.
