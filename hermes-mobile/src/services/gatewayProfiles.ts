@@ -959,6 +959,10 @@ export function upsertDiscoveredProfile(
       if (p.id !== existing.id) {
         return p;
       }
+      const preserveSelectedRoute =
+        !makeActive &&
+        p.id === state.activeProfileId &&
+        normalizeGatewayUrlBase(p.gatewayUrl) !== gatewayUrl;
       // Never stamp a foreign /health hostname onto the matched row (e.g. Pro identity
       // onto mini Tailscale URL during saveSettings→applyHeal). That flips machine key
       // and dedupe silently merges mini→Pro (2026-07-22 force-switch rage).
@@ -982,10 +986,10 @@ export function upsertDiscoveredProfile(
 
       return {
         ...p,
-        gatewayUrl,
+        gatewayUrl: preserveSelectedRoute ? p.gatewayUrl : gatewayUrl,
         label: finalLabel,
         hostname: nextHostname,
-        localIp: localIp || p.localIp,
+        localIp: preserveSelectedRoute ? p.localIp : localIp || p.localIp,
         lastConnectedAt: now,
       };
     });
@@ -1009,6 +1013,35 @@ export function upsertDiscoveredProfile(
     profiles: [profile, ...state.profiles],
     activeProfileId: makeActive ? id : state.activeProfileId,
   });
+}
+
+/**
+ * Merge an asynchronous discovery result into the latest profile state.
+ *
+ * Discovery is catalog-only: while a scan is awaiting network probes, the user
+ * can explicitly select a computer. Committing the scan's older snapshot used
+ * to replace that selection with activeProfileId=null on the physical iPad.
+ * Starting from the latest state and applying every scanned row as non-active
+ * preserves the user's newest selection while still retaining discoveries.
+ */
+export function mergeGatewayProfileScanResult(
+  latestState: GatewayProfileState,
+  scannedState: GatewayProfileState,
+): GatewayProfileState {
+  let merged = latestState;
+  for (const profile of scannedState.profiles) {
+    merged = upsertDiscoveredProfile(
+      merged,
+      {
+        gatewayUrl: profile.gatewayUrl,
+        hostname: profile.hostname,
+        localIp: profile.localIp,
+        label: profile.label,
+      },
+      false,
+    );
+  }
+  return dedupeGatewayProfiles(merged);
 }
 
 export function selectProfile(state: GatewayProfileState, profileId: string): GatewayProfileState {
@@ -1137,9 +1170,12 @@ export const gatewayProfiles = {
       }
       const parsed = JSON.parse(raw) as Partial<GatewayProfileState>;
       const profiles = Array.isArray(parsed.profiles) ? parsed.profiles : [];
+      const activeProfileId = Object.prototype.hasOwnProperty.call(parsed, 'activeProfileId')
+        ? parsed.activeProfileId ?? null
+        : profiles[0]?.id ?? null;
       const state = sanitizeGatewayProfileState({
         profiles,
-        activeProfileId: parsed.activeProfileId ?? profiles[0]?.id ?? null,
+        activeProfileId,
       });
       cachedProfileState = state;
       return state;

@@ -674,7 +674,7 @@ describe('ChatConnectionPanel', () => {
     const connectSpy = jest
       .spyOn(manualGatewayConnection, 'connectManualGatewayAddress')
       .mockImplementationOnce(async ({ fallbackLabel, gatewayUrl, persistProfile }) => {
-        await persistProfile(fallbackLabel, gatewayUrl);
+        await persistProfile(fallbackLabel, gatewayUrl, 'verified-panel-key');
       });
     const { getByTestId } = render(
       <ChatConnectionPanel
@@ -698,7 +698,11 @@ describe('ChatConnectionPanel', () => {
         gatewayUrl: 'http://100.87.85.85:8642',
         persistProfile: onAddProfile,
       });
-      expect(onAddProfile).toHaveBeenCalledWith('Tailscale computer', 'http://100.87.85.85:8642');
+    expect(onAddProfile).toHaveBeenCalledWith(
+      'Tailscale computer',
+      'http://100.87.85.85:8642',
+      'verified-panel-key',
+    );
     });
     connectSpy.mockRestore();
   });

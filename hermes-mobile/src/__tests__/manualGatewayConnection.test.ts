@@ -150,10 +150,105 @@ describe('connectManualGatewayAddress', () => {
     );
     expect(deps.fetchGatewayHealth).toHaveBeenCalledWith(gatewayUrl, 'fresh-key', 12_000);
     expect(deps.saveApiKey).toHaveBeenCalledWith('fresh-key');
-    expect(persistProfile).toHaveBeenCalledWith('Igors-MacBook-Pro', gatewayUrl);
+    expect(persistProfile).toHaveBeenCalledWith(
+      'Igors-MacBook-Pro',
+      gatewayUrl,
+      'fresh-key',
+    );
   });
 
-  it('keeps the short probe window for a home-network address', async () => {
+  it('fetches fresh pair-server setup immediately before the one-time exchange', async () => {
+    const persistProfile = jest.fn().mockResolvedValue(undefined);
+    const resolvePairServerSetupParams = jest.fn().mockRejectedValue(
+      new Error('unleased resolver must not run'),
+    );
+    const withFreshPairServerSetup = jest.fn(async (_host, consume) =>
+      consume({
+        pairingCode: 'LEASED-CODE',
+        pairServerUrl: 'http://100.70.124.54:8765',
+      }),
+    );
+    const deps = dependencies({
+      resolvePairServerSetupParams,
+      withFreshPairServerSetup,
+      exchangePairingCode: jest.fn().mockResolvedValue({
+        apiKey: 'leased-key',
+        macName: 'Leased-Mac',
+      }),
+    });
+
+    await connectManualGatewayAddress(
+      { gatewayUrl, fallbackLabel: 'Tailscale computer', persistProfile },
+      deps,
+    );
+
+    expect(withFreshPairServerSetup).toHaveBeenCalledTimes(1);
+    expect(resolvePairServerSetupParams).not.toHaveBeenCalled();
+    expect(deps.exchangePairingCode).toHaveBeenCalledWith(
+      'http://100.70.124.54:8765',
+      'LEASED-CODE',
+    );
+    expect(persistProfile).toHaveBeenCalledWith(
+      'Leased-Mac',
+      gatewayUrl,
+      'leased-key',
+    );
+  });
+
+  it('refetches and retries when concurrent discovery invalidates the first one-time code', async () => {
+    const persistProfile = jest.fn().mockResolvedValue(undefined);
+    const resolvePairServerSetupParams = jest
+      .fn()
+      .mockResolvedValueOnce({
+        pairingCode: 'INVALIDATED-BY-DISCOVERY',
+        pairServerUrl: 'http://100.70.124.54:8765',
+      })
+      .mockResolvedValueOnce({
+        pairingCode: 'FRESH-RETRY',
+        pairServerUrl: 'http://100.70.124.54:8765',
+      });
+    const exchangePairingCode = jest
+      .fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        apiKey: 'fresh-retry-key',
+        macName: 'Paired-Mac',
+      });
+    const deps = dependencies({
+      resolvePairServerSetupParams,
+      exchangePairingCode,
+    });
+
+    await connectManualGatewayAddress(
+      { gatewayUrl, fallbackLabel: 'Tailscale computer', persistProfile },
+      deps,
+    );
+
+    expect(resolvePairServerSetupParams).toHaveBeenCalledTimes(2);
+    expect(exchangePairingCode).toHaveBeenNthCalledWith(
+      1,
+      'http://100.70.124.54:8765',
+      'INVALIDATED-BY-DISCOVERY',
+    );
+    expect(exchangePairingCode).toHaveBeenNthCalledWith(
+      2,
+      'http://100.70.124.54:8765',
+      'FRESH-RETRY',
+    );
+    expect(deps.fetchGatewayHealth).toHaveBeenCalledWith(
+      gatewayUrl,
+      'fresh-retry-key',
+      12_000,
+    );
+    expect(deps.saveApiKey).toHaveBeenCalledWith('fresh-retry-key');
+    expect(persistProfile).toHaveBeenCalledWith(
+      'Paired-Mac',
+      gatewayUrl,
+      'fresh-retry-key',
+    );
+  });
+
+  it('allows a home-network auth probe to survive an in-flight subnet scan', async () => {
     const persistProfile = jest.fn().mockResolvedValue(undefined);
     const deps = dependencies();
 
@@ -169,7 +264,12 @@ describe('connectManualGatewayAddress', () => {
     expect(deps.fetchGatewayHealth).toHaveBeenCalledWith(
       'http://192.168.68.60:8642',
       null,
-      5000,
+      12_000,
+    );
+    expect(persistProfile).toHaveBeenCalledWith(
+      'Home network computer',
+      'http://192.168.68.60:8642',
+      null,
     );
   });
 

@@ -1621,6 +1621,63 @@ describe('ChatScreen', () => {
       flexDirection: 'column',
     });
   });
+
+  it('does not select the row beneath the touch that opens the computer picker', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+    const selectGatewayProfile = jest.fn().mockResolvedValue(true);
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      selectGatewayProfile,
+      activeGatewayProfile: {
+        id: 'macbook',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://10.2.29.103:8642',
+        localIp: '10.2.29.103',
+        addedAt: '2026-07-02T00:00:00Z',
+      },
+      gatewayProfiles: [
+        {
+          id: 'macmini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          localIp: '100.87.85.85',
+          addedAt: '2026-07-02T00:00:00Z',
+        },
+        {
+          id: 'macbook',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://10.2.29.103:8642',
+          localIp: '10.2.29.103',
+          addedAt: '2026-07-02T00:00:00Z',
+        },
+      ],
+    });
+
+    try {
+      const { getByTestId } = await renderChatScreen();
+      fireEvent.press(getByTestId('chat-context-mac-button'));
+
+      const macMiniRow = getByTestId('select-gateway-profile-macmini');
+      expect(macMiniRow.props.accessibilityState).toEqual(
+        expect.objectContaining({ disabled: true }),
+      );
+      fireEvent.press(macMiniRow);
+      expect(selectGatewayProfile).not.toHaveBeenCalled();
+
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+      expect(getByTestId('select-gateway-profile-macmini').props.accessibilityState).toEqual(
+        expect.objectContaining({ disabled: false }),
+      );
+      fireEvent.press(getByTestId('select-gateway-profile-macmini'));
+      await act(async () => undefined);
+      expect(selectGatewayProfile).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('keeps one computer-picker status region instead of stacking discovery banners', async () => {
     Object.assign(mockGatewayState, {
       tailscaleDiscoveryProbing: true,
@@ -1665,6 +1722,7 @@ describe('ChatScreen', () => {
       expect(addGatewayProfile).toHaveBeenCalledWith(
         'Tailscale computer',
         'http://100.87.85.85:8642',
+        'test-api-key',
       );
     });
     await waitFor(() => {
@@ -1779,6 +1837,11 @@ describe('ChatScreen', () => {
     autoConnectGateway.mockClear();
 
     fireEvent.press(getByTestId('chat-context-mac-button'));
+    await waitFor(() => {
+      expect(
+        getByTestId('select-gateway-profile-macmini').props.accessibilityState,
+      ).toEqual(expect.objectContaining({ disabled: false }));
+    });
     fireEvent.press(getByTestId('select-gateway-profile-macmini'));
 
     await waitFor(() => {
