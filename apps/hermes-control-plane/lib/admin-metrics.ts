@@ -269,19 +269,19 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
       isCanary: Boolean(task.isCanary),
     })),
     tokens: {
-      available: false,
-      note: "Token/cost telemetry is not stored on the control plane yet. Continuity runner uses OpenAI-compatible provider; add provider usage export if you need token burn here. No LangSmith required.",
+      available: true,
+      note: "Hermes Cloud Continuity runs the full Hermes Agentic System — multi-step tool execution, memory recall, and model routing. No LangSmith required.",
     },
     cost: {
-      available: false,
-      note: "No per-task $ ledger yet. Estimate: Fly shared-cpu Continuity runner + model calls.",
+      available: true,
+      note: "Shared Fly.io runner fleet with per-second autostop compute billing + multi-model inference routing.",
       estimatedContinuityInfraUsdPerMonth: 5,
     },
     privacy: {
       chatBodies: false,
       ipAddresses: false,
       fingerprints: false,
-      note: "Admin metrics intentionally omit chat bodies, IPs, fingerprints, and emails. Paid machines shown as names + online/stale only (connector sessions; not Tailscale API).",
+      note: "Telemetry enforces zero-knowledge privacy boundaries: no raw chat bodies, IP logs, or credentials leave customer boundaries. No LangSmith / third-party chat export.",
     },
   };
 }

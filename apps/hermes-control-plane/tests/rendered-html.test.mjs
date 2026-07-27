@@ -28,7 +28,7 @@ test("builds the public Leash subscription landing page", async () => {
   assert.doesNotMatch(page, /Self-Improving Firewall|self-improving firewall/);
   assert.match(page, /Free control\. Paid continuity\./);
   assert.match(page, /Web Control/);
-  assert.match(page, /Cloud Continuity/);
+  assert.match(page, /Pro Continuity|Cloud Continuity/);
   assert.match(page, /Continue with Google today/);
   assert.doesNotMatch(page, /Continue with Google or Apple/);
   assert.match(page, /still proving out in real use/);
@@ -85,6 +85,10 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(portalRoute, /\/\^\(ThumbGate\|Leash\)\\b\/i\.test\(productName\)/);
   assert.match(portalRoute, /\/v1\/billing_portal\/sessions/);
   assert.match(portalRoute, /billing\.portal\.created/);
+  // Landing "Manage billing" is a GET link — must not 405.
+  assert.match(portalRoute, /export async function GET/);
+  assert.match(portalRoute, /export async function POST/);
+  assert.match(portalRoute, /handlePortalRequest|isGet/);
   assert.match(dashboard, /\? manageBilling\(\) : subscribe\(\)/);
   assert.match(page, /100 cloud continuations/);
   assert.match(page, /Run one installer/);

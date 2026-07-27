@@ -74,6 +74,42 @@ timestamp() {
   date -u +"%Y-%m-%dT%H:%M:%SZ"
 }
 
+# Yellow SLO for continuous E2E: ntfy on transition to skipped/fail (not spam every cycle).
+CONTINUOUS_E2E_SLO_STATE="${HERMES_E2E_SLO_STATE:-$HOME/.hermes/continuous-e2e-slo-state}"
+CONTINUOUS_E2E_NTFY="${HERMES_E2E_NTFY_TOPIC:-yolo-guard-fdh8ktuw1vtxb5sb}"
+
+notify_e2e_slo() {
+  local e2e_status="$1"
+  local detail="$2"
+  local prev level title body
+  prev="$(cat "$CONTINUOUS_E2E_SLO_STATE" 2>/dev/null || echo unknown)"
+  mkdir -p "$(dirname "$CONTINUOUS_E2E_SLO_STATE")"
+  printf '%s\n' "$e2e_status" >"$CONTINUOUS_E2E_SLO_STATE"
+  [[ "$e2e_status" == "$prev" ]] && return 0
+  case "$e2e_status" in
+    pass)
+      title="Hermes continuous E2E green"
+      body="e2e=pass (was ${prev}) at $(timestamp)"
+      level=default
+      ;;
+    fail)
+      title="Hermes continuous E2E RED"
+      body="e2e=fail detail=${detail:0:200} (was ${prev}) at $(timestamp)"
+      level=high
+      ;;
+    skipped)
+      title="Hermes continuous E2E YELLOW"
+      body="e2e=skipped detail=${detail:0:200} (was ${prev}) — yellow SLO, not a silent pass. at $(timestamp)"
+      level=default
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+  curl -sS -m 10 -H "Title: $title" -H "Priority: $level" -H "Tags: mobile,e2e" \
+    -d "$body" "https://ntfy.sh/$CONTINUOUS_E2E_NTFY" >/dev/null 2>&1 || true
+}
+
 write_status() {
   local unit_status="$1"
   local e2e_status="$2"
@@ -86,9 +122,11 @@ write_status() {
   "e2e": "${e2e_status}",
   "detail": $(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$detail"),
   "flows": $(python3 -c 'import json,sys; print(json.dumps(sys.argv[1:]))' "${E2E_FLOWS[@]}"),
-  "logDir": "${LOG_DIR}"
+  "logDir": "${LOG_DIR}",
+  "slo": $(python3 -c 'import json,sys; s=sys.argv[1]; print(json.dumps("red" if s=="fail" else ("yellow" if s=="skipped" else ("green" if s=="pass" else "unknown"))))' "$e2e_status")
 }
 EOF
+  notify_e2e_slo "$e2e_status" "$detail"
 }
 
 first_android_emulator_id() {

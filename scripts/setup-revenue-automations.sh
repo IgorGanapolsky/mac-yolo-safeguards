@@ -1,11 +1,20 @@
 #!/usr/bin/env bash
 # Idempotent install: revenue loop + smart-ops (+ market signals) LaunchAgents.
-# Points agents at main-runtime worktree (or this repo) and shared business_os/revenue.
+# Points agents at a dedicated runtime clone (or this repo) and shared business_os/revenue.
+#
+# The runtime MUST be a separate `git clone`, never a `.worktrees/*` path off the
+# main checkout: worktrees in this repo get pruned/removed by routine fleet cleanup
+# (agents finishing PR branches run `git worktree remove`), which silently deletes
+# the runtime's WorkingDirectory out from under the launchd jobs. That happened for
+# real on 2026-07-26 — .worktrees/main-runtime vanished within an hour of creation,
+# killing com.igor.revenue-autonomous-loop and com.igor.ralph-gsd-loop with launchd's
+# own EX_CONFIG (exit 78, spawn failed before Node ever ran) and no alert. A sibling
+# clone has its own .git and is never touched by worktree pruning in the main repo.
 set -euo pipefail
 
 HOME_DIR="${HOME}"
 MAIN="${REVENUE_MAIN_REPO:-$HOME_DIR/workspace/git/igor/mac-yolo-safeguards}"
-RUNTIME="${REVENUE_RUNTIME:-$MAIN/.worktrees/main-runtime}"
+RUNTIME="${REVENUE_RUNTIME:-${MAIN}-runtime}"
 NODE="$(command -v node)"
 UID_N="$(id -u)"
 LAUNCH="$HOME_DIR/Library/LaunchAgents"
@@ -18,13 +27,13 @@ fi
 
 mkdir -p "$LAUNCH" "$LOGS" "$MAIN/business_os/revenue"
 
-# Ensure main-runtime exists and tracks origin/main
+# Ensure the runtime clone exists and tracks origin/main
 if [[ ! -d "$RUNTIME/.git" ]] && [[ ! -f "$RUNTIME/.git" ]]; then
-  git -C "$MAIN" fetch origin main -q
-  git -C "$MAIN" worktree add -B main-runtime "$RUNTIME" origin/main 2>/dev/null \
-    || git -C "$MAIN" worktree add -f -B main-runtime "$RUNTIME" origin/main
+  git clone --branch main "$MAIN" "$RUNTIME"
+  git -C "$RUNTIME" remote set-url origin "$(git -C "$MAIN" remote get-url origin)"
 fi
 git -C "$RUNTIME" fetch origin main -q
+git -C "$RUNTIME" checkout main -q
 git -C "$RUNTIME" reset --hard origin/main -q
 ln -sfn "$MAIN/business_os" "$RUNTIME/business_os"
 
@@ -67,7 +76,7 @@ export REVENUE_AUTO_SEND=1 REVENUE_AUTO_GH=1 REVENUE_NTFY_QUIET_NOOP=1
 export SMART_OPS_MARKET_SIGNAL=1
 export REVENUE_DIR="${REVENUE_DIR:-$HOME/workspace/git/igor/mac-yolo-safeguards/business_os/revenue}"
 for REPO in \
-  "$HOME/workspace/git/igor/mac-yolo-safeguards/.worktrees/main-runtime" \
+  "$HOME/workspace/git/igor/mac-yolo-safeguards-runtime" \
   "$HOME/workspace/git/igor/mac-yolo-safeguards"
 do
   if [[ -f "$REPO/tools/smart-ops-controller.js" ]]; then
@@ -86,7 +95,7 @@ export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 export REVENUE_AUTO_SEND=1 REVENUE_AUTO_GH=1 REVENUE_NTFY_QUIET_NOOP=1 SMART_OPS_MARKET_SIGNAL=1
 export REVENUE_DIR="${REVENUE_DIR:-$HOME/workspace/git/igor/mac-yolo-safeguards/business_os/revenue}"
 for REPO in \
-  "$HOME/workspace/git/igor/mac-yolo-safeguards/.worktrees/main-runtime" \
+  "$HOME/workspace/git/igor/mac-yolo-safeguards-runtime" \
   "$HOME/workspace/git/igor/mac-yolo-safeguards"
 do
   if [[ -f "$REPO/tools/smart-ops-controller.js" ]]; then
@@ -97,12 +106,15 @@ exit 1
 EOF
 chmod +x "$HOME_DIR/.local/bin/outreach-send-nudge.sh"
 
-# One-shot verify: run smart-ops with market signals
+# One-shot verify: run smart-ops with market signals. Defaults to a dry run —
+# REVENUE_AUTO_SEND/REVENUE_AUTO_GH must be explicitly set to "1" by the caller to
+# make this proof step actually send/act; a setup script should never have a side
+# effect of sending real buyer-facing messages just because someone re-ran it.
 export PATH="$HOME_DIR/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 export REVENUE_DIR="$MAIN/business_os/revenue"
 export SMART_OPS_MARKET_SIGNAL=1
-export REVENUE_AUTO_SEND=1
-export REVENUE_AUTO_GH=1
+export REVENUE_AUTO_SEND="${REVENUE_AUTO_SEND:-0}"
+export REVENUE_AUTO_GH="${REVENUE_AUTO_GH:-0}"
 export REVENUE_NTFY_QUIET_NOOP=1
 cd "$RUNTIME"
 echo "=== smart-ops --force (setup proof) ==="

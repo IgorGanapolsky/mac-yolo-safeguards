@@ -23,14 +23,17 @@ BIN="$TMP/bin"; mkdir -p "$BIN"
 
 cat > "$BIN/curl" <<'MOCK'
 #!/usr/bin/env bash
-# Routes by the http URL in argv. Health/ps replay files; generate/chat are recorded.
+# Routes by the http(s) URL in argv. Health/ps replay files; generate/chat/ntfy
+# calls are recorded (ntfy captured with its full argv, including -H "Title: ...",
+# so tests can assert on which alert fired).
 url=""
-for a in "$@"; do case "$a" in http://*) url="$a" ;; esac; done
+for a in "$@"; do case "$a" in http://*|https://*) url="$a" ;; esac; done
 case "$url" in
   */health)               cat "$MOCK_HEALTH" 2>/dev/null || echo 000 ;;
   */api/ps)               cat "$MOCK_PS" 2>/dev/null || echo '{"models":[]}' ;;
   */api/generate)         echo "PIN $*" >> "$MOCK_CALLS" ;;
   */v1/chat/completions)  echo "WARMUP" >> "$MOCK_CALLS" ;;
+  *ntfy.sh*)               echo "NTFY $*" >> "$MOCK_CALLS" ;;
 esac
 exit 0
 MOCK
@@ -70,6 +73,8 @@ run_wd() {
     HERMES_ENV_FILE="$TMP/env" \
     HERMES_WATCHDOG_LOG="$TMP/wd.log" \
     HERMES_WATCHDOG_STATE="$TMP/state" \
+    HERMES_WATCHDOG_ALERT_STATE="$TMP/alert-state" \
+    HERMES_WATCHDOG_NTFY_TOPIC="test-topic" \
     HERMES_AGENT_LOG="$TMP/agent.log" \
     HERMES_WARMUP_COUNT="2" \
     HERMES_MEMORY_PRESSURE_LEVEL="1" \
@@ -279,6 +284,62 @@ run_wd HERMES_PRESENCE_FILE="$TMP/presence.md"
 [ ! -f "$TMP/presence.md" ] \
   && ok "T11: missing presence file -> not created, no crash" \
   || bad "T11: created a presence file that did not exist"
+
+echo ""
+echo "=== self-heal-failure alerting (this watchdog previously had NO alerting at all) ==="
+rm -f "$TMP/alert-state"
+
+# T12: healthy from a clean start -> alert state settles to ok, no ntfy call at all.
+echo 200 > "$TMP/health"; echo '{"models":["qwen3:8b-64k"]}' > "$TMP/ps"; echo 4242 > "$TMP/gwpid"; echo 4242 > "$TMP/state"
+run_wd
+[ "$(calls NTFY)" -eq 0 ] && [ "$(cat "$TMP/alert-state" 2>/dev/null)" = "ok" ] \
+  && ok "T12: healthy from a clean start -> no ntfy alert" \
+  || bad "T12: unexpected alert on a healthy start"
+
+# T13: first down tick (restart just kicked off) -> healing, NOT alerted yet. A
+# single-tick blip that a routine restart clears before the next check must never page anyone.
+echo 000 > "$TMP/health"; echo '{"models":[]}' > "$TMP/ps"; : > "$TMP/gwpid"
+run_wd
+[ "$(calls NTFY)" -eq 0 ] && [ "$(cat "$TMP/alert-state")" = "healing" ] \
+  && ok "T13: first down tick -> healing (routine self-heal in flight), no alert" \
+  || bad "T13: unexpected alert on the very first down tick"
+
+# T14: STILL down on the following tick despite the restart already attempted ->
+# the self-heal attempt failed to resolve it -> real ntfy alert fires exactly once.
+echo 000 > "$TMP/health"; echo '{"models":[]}' > "$TMP/ps"; : > "$TMP/gwpid"
+run_wd
+if [ "$(calls NTFY)" -eq 1 ] && grep -q 'Title: Hermes gateway self-heal failed' "$TMP/calls" \
+  && [ "$(cat "$TMP/alert-state")" = "degraded" ]; then
+  ok "T14: still down after restart attempt -> real ntfy self-heal-failed alert fires"
+else
+  cat "$TMP/calls"
+  bad "T14: expected exactly one self-heal-failed ntfy alert"
+fi
+
+# T15: still down on a THIRD tick -> no duplicate alert (edge-triggered, not every interval).
+echo 000 > "$TMP/health"; echo '{"models":[]}' > "$TMP/ps"; : > "$TMP/gwpid"
+run_wd
+[ "$(calls NTFY)" -eq 0 ] \
+  && ok "T15: still degraded on a third tick -> no duplicate ntfy alert" \
+  || bad "T15: unexpected repeat alert while still degraded"
+
+# T16: gateway recovers -> ntfy recovery alert fires exactly once, state resets to ok.
+echo 200 > "$TMP/health"; echo '{"models":["qwen3:8b-64k"]}' > "$TMP/ps"; echo 9999 > "$TMP/gwpid"; echo 4242 > "$TMP/state"
+run_wd
+if [ "$(calls NTFY)" -eq 1 ] && grep -q 'Title: Hermes gateway watchdog recovered' "$TMP/calls" \
+  && [ "$(cat "$TMP/alert-state")" = "ok" ]; then
+  ok "T16: recovery fires an ntfy recovery alert and resets state"
+else
+  cat "$TMP/calls"
+  bad "T16: expected exactly one recovery ntfy alert"
+fi
+
+# T17: subsequent healthy ticks stay silent (no repeat recovery alert).
+echo 200 > "$TMP/health"; echo '{"models":["qwen3:8b-64k"]}' > "$TMP/ps"; echo 9999 > "$TMP/gwpid"; echo 9999 > "$TMP/state"
+run_wd
+[ "$(calls NTFY)" -eq 0 ] \
+  && ok "T17: repeated healthy ticks after recovery stay silent" \
+  || bad "T17: unexpected repeat alert after recovery"
 
 echo ""
 echo "=== $pass passed, $fail failed ==="

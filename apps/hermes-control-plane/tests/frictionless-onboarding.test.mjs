@@ -151,6 +151,17 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   assert.match(dashboard, /route-label-short/);
   assert.match(dashboard, /composer-actions/);
   assert.match(dashboard, /composer-run/);
+  assert.match(dashboard, /isNarrowViewport/);
+  assert.match(dashboard, /dashboard-header-title/);
+  assert.match(dashboard, /matchMedia\("\(max-width: 700px\)"\)/);
+  // Phone must not re-show the route explain card after base CSS (CEO overlap 2026-07-25).
+  assert.match(globals, /\.composer-route-explain\{[\s\S]*display:none !important/);
+  assert.match(globals, /\.dashboard-header\{[\s\S]*grid-template-columns:1fr/);
+  // Fixed composer dock + measured reserved scroll space (item 3 of mobile UX checklist).
+  assert.match(dashboard, /--composer-dock-space/);
+  assert.match(globals, /--composer-dock-space/);
+  assert.match(globals, /position:absolute !important/);
+  assert.match(globals, /hermes-scroll-pane\{[\s\S]*padding-bottom:max/);
 });
 
 test("renders the configured Stripe price instead of duplicating marketing price copy", () => {
@@ -201,39 +212,90 @@ test("dashboard uses shell-first SWR navigation cache (Issues-style instant nav)
   assert.match(dashboard, /onPointerEnter/);
   assert.match(dashboard, /readCachedThreadDetails|threadCacheRef/);
   assert.match(dashboard, /selectPreheatThreadIds/);
+  assert.match(dashboard, /composer-route-explain-toggle|routeExplainExpanded/);
   const signOut = readFileSync(new URL("../app/SignOutForm.tsx", import.meta.url), "utf8");
   assert.match(signOut, /clearDashboardNavCache/);
 });
 
 test("lessons workspace activity stats and lesson cards deep-link into Hermes", () => {
   assert.match(lessonsClient, /href="\/dashboard"/);
-  assert.match(lessonsClient, /href="\/dashboard#task-activity"/);
+  assert.match(lessonsClient, /href="\/dashboard\?view=chats#chats"/);
+  assert.match(lessonsClient, /href="\/dashboard\?filter=completed#task-activity"/);
+  assert.match(lessonsClient, /href="\/dashboard\?filter=unrated#task-activity"/);
+  assert.match(lessonsClient, /ready to rate/);
+  assert.match(lessonsClient, /Open chat list/);
   assert.match(lessonsClient, /Open in Hermes/);
   assert.match(lessonsClient, /hermesTaskHref|params\.set\("task"/);
   assert.match(lessonsRoute, /k\.thread_id AS threadId/);
   assert.match(dashboard, /focusedTaskFromUrl/);
   assert.match(dashboard, /URLSearchParams\(window\.location\.search\)\.get\("task"\)/);
   assert.match(dashboard, /id=\{`task-\$\{task\.id\}`\}/);
+  assert.match(dashboard, /taskFilter/);
+  assert.match(dashboard, /filter === "unrated"/);
+  assert.match(dashboard, /Pair another computer/);
+  assert.match(dashboard, /Manage \/ remove machines/);
   assert.match(globals, /\.lesson-activity li a\{/);
   assert.match(globals, /\.lesson-card-actions\{/);
+  assert.match(globals, /\.task-filter-banner\{/);
 });
 
-test("lets users choose Mac vs Continuity VPS on every task not only offline failover", () => {
+test("Improve/Helpful metric clicks navigate to Hermes when count is 1, else filter with URL + scroll", () => {
+  // Navigation decision lives in pure helpers (unit-tested in lessons-ui.test.ts).
+  assert.match(lessonsClient, /resolveSignalClickDestination/);
+  assert.match(lessonsClient, /handleSignalClick/);
+  assert.match(lessonsClient, /Open that answer in Hermes/);
+  assert.match(lessonsClient, /window\.location\.assign/);
+  assert.match(lessonsClient, /lessonsListHref/);
+  assert.match(lessonsClient, /id="lesson-list"/);
+  assert.match(lessonsClient, /pendingScrollRef/);
+  assert.match(lessonsClient, /lesson-card-flash/);
+  assert.match(lessonsClient, /lesson-results-count/);
+  assert.match(lessonsClient, /search-highlight|HighlightText/);
+  assert.match(globals, /lesson-card-flash/);
+  assert.match(globals, /search-highlight/);
+  assert.match(globals, /scroll-margin-top/);
+  const lessonsUi = readFileSync(new URL("../lib/lessons-ui.ts", import.meta.url), "utf8");
+  assert.match(lessonsUi, /kind: "open-hermes"/);
+  assert.match(lessonsUi, /count === 1/);
+  assert.match(lessonsUi, /#lesson-list/);
+});
+
+test("lets users choose local machine vs Continuity VPS on every task not only offline failover", () => {
   const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
   const taskRouting = readFileSync(new URL("../lib/task-routing.ts", import.meta.url), "utf8");
   assert.match(dashboard, /routePreference/);
-  assert.match(dashboard, /My Mac/);
+  // Route chip uses real hostname when known — never a generic "My Mac" for multi-platform hosts.
+  assert.match(dashboard, /selectedDevice \? selectedDeviceLabel : "My computer"/);
   assert.match(dashboard, /Where should this run\?/);
   assert.match(dashboard, /composer-route-explain/);
-  assert.match(dashboard, /Auto — Mac first/);
-  assert.match(dashboard, /My Mac only/);
+  assert.match(dashboard, /Auto — \$\{selectedDeviceLabel\} first/);
+  assert.match(dashboard, /\$\{selectedDeviceLabel\} only/);
   assert.match(dashboard, /Continuity \(cloud VPS\)/);
   assert.match(dashboard, /aria-labelledby="composer-where-label"/);
   assert.doesNotMatch(dashboard, /composer-route-label/);
+  assert.doesNotMatch(dashboard, /My Mac only|Which Mac\?|>My Mac</);
   assert.match(tasksRoute, /routePreference/);
   assert.match(tasksRoute, /decideTaskRoute/);
   assert.match(taskRouting, /preference === "cloud"/);
   assert.match(taskRouting, /preference === "local"/);
+});
+
+test("always shows which paired machine will run a task and pins deviceId", () => {
+  const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
+  // Always show the select, always POST deviceId, and label with the connector hostname
+  // (not a hard-coded "Mac") so multi-platform users see the real machine.
+  assert.match(dashboard, /selectedDeviceId/);
+  assert.match(dashboard, /composer-device-picker/);
+  assert.match(dashboard, /Which machine\?/);
+  assert.match(dashboard, /machineDisplayName/);
+  assert.match(dashboard, /devices\.length > 0/);
+  assert.match(dashboard, /deviceId: selectedDeviceId/);
+  assert.match(dashboard, /pickDefaultDeviceId/);
+  assert.match(dashboard, /preferredDevicePreferenceKey|thumbgate\.preferredDeviceId/);
+  assert.doesNotMatch(dashboard, /Most recently active/);
+  assert.doesNotMatch(dashboard, /devices\.length > 1 && routePreference !== "cloud"/);
+  assert.match(globals, /\.composer-device-hint\{/);
+  assert.match(tasksRoute, /payload\?\.deviceId/);
 });
 
 test("explains fenced execution through a visible interactive safety panel", () => {
@@ -258,11 +320,12 @@ test("makes ThumbGate real with private thumbs feedback and a lessons dashboard"
   assert.match(lessonsRoute, /ORDER BY f\.updated_at DESC/);
   assert.match(lessonsRoute, /unratedCompleted/);
   assert.match(lessonsRoute, /completedResponses/);
-  assert.match(lessonsClient, /Your Hermes lessons/);
+  assert.match(lessonsClient, /<h1>ThumbGate lessons<\/h1>/);
   assert.match(lessonsClient, /thumbs you leave on completed answers/);
   assert.match(lessonsClient, /WORKSPACE ACTIVITY/);
   assert.match(lessonsClient, /0 ratings yet/);
   assert.match(lessonsClient, /Ratings are private to this ThumbGate workspace/);
+  assert.match(lessonsClient, /← Back to dashboard/);
   assert.match(schema, /responseFeedback = sqliteTable\("response_feedback"/);
 });
 
@@ -287,8 +350,8 @@ test("lists connectors not Tailscale peers and can revoke ghost machines", () =>
   assert.match(dashboard, /Remove machine/);
   assert.match(dashboard, /Remove stale machine/);
   assert.match(dashboard, /deviceStatusLabel/);
-  assert.match(dashboard, /Copy installer for another Mac/);
-  assert.match(dashboard, /Add another Mac \(optional\)/);
+  assert.match(dashboard, /Copy installer for another computer/);
+  assert.match(dashboard, /Add another computer \(optional\)/);
   assert.match(dashboard, /always-on service/);
   assert.match(dashboard, /do <strong>not<\/strong> copy an installer every time/);
   assert.match(dashboard, /one-time/);

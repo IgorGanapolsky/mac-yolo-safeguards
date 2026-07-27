@@ -1,194 +1,292 @@
-# Hermes Web App + Mobile — Evidence-to-Installs Content Engine v3.0
+# ThumbGate.app-first Content Engine v4.0
 
-Canonical merge of "Revenue-Focused Daily Content Engine v1" + "Evidence-to-Installs
-Content Engine v1.0" (both re-supplied by Igor 2026-07-22, superseding the 2026-07-20
-drafts), reconciled against live store evidence fetched the same day. v3.0 broadens
-scope from mobile-only to **web app (Thumbgate.app) + Hermes Mobile + GitHub** as
-co-equal targets. This file is the engine; the TSV memory log lives at
-`docs/social/hermes-mobile-content-log.tsv`.
+**Canonical.** Supersedes Hermes Web+Mobile Evidence-to-Installs v3.0 (co-equal heroes).  
+**Product pivot (2026-07-26):** **ThumbGate.app is the main product and primary CTA.**  
+Hermes Mobile and thumbgate.ai are **downstream defaults** from the web funnel.
+
+| Artifact | Path |
+|----------|------|
+| This engine | `docs/social/hermes-mobile-content-engine.md` |
+| Memory log | `docs/social/hermes-mobile-content-log.tsv` |
+| Grok skill (auto-invoke) | `~/.grok/skills/thumbgate-app-first-promo/SKILL.md` (mirrored under `.grok/skills/`) |
+| Fan-out skill | `~/.grok/skills/thumbgate-chrome-promo-fanout/SKILL.md` |
+
+---
 
 ## Purpose
 
-Generate one platform-native piece of content per run that drives, in priority order:
-1. Qualified web app (Thumbgate.app) visits, installs, and retained users
-2. Qualified Google Play / App Store visits → installs → retained installers
-3. Successful fresh-user pairing and first chat (web or mobile)
-4. Leash Pro discovery, trials, and verified purchases
-5. GitHub traffic, contributors, testers, and developer trust (founder's voice)
-6. Honest reviews only after a successful product experience
-7. Newsletter/waitlist signups (owned channel — see Newsletter section)
+Research, create, and when authorized publish platform-native content that drives this **ordered** funnel:
 
-Never optimize for post count, impressions, or generic engagement alone. Never
-auto-publish: output is a draft unless the run input says
-`PublishMode: PUBLISH_APPROVED` for a named, authenticated platform.
+1. **Primary — ThumbGate.app**  
+   Qualified visits → sign-in / pair → retained web sessions → Continuity trial or paid Continuity when proven  
+2. **Default secondary — Hermes Mobile**  
+   Store visits → **paid** installs → retained → pairing → first chat (and first approval when Leash applies)  
+3. **Default secondary — thumbgate.ai**  
+   Gates / Pro / diagnostic **only** when the angle is reliability / token burn (not “remote dashboard”)  
+4. **Supporting**  
+   GitHub traffic, contributors, testers · honest reviews only after success · never vanity metrics alone  
 
-## Product
+```
+post / article
+  → ThumbGate.app (hero + UTM)
+      → pair / dashboard / Continuity
+      → /go/android · /go/ios  (secondary)
+      → thumbgate.ai only when gate/Pro is the pain
+  → retained user → first success → honest review (optional)
+```
 
-Web: Thumbgate.app · Play: `com.iganapolsky.hermesmobile` · GitHub:
-https://github.com/IgorGanapolsky/mac-yolo-safeguards/tree/main/hermes-mobile
+Do **not** make Google Play or App Store the default first link unless  
+`PrimaryProductMode=MOBILE_ONLY` and Research Receipt justifies it.
 
-Positioning (broadened v3.0): Hermes Web App and Mobile is an independent web +
-mobile control plane for AI agents running on a computer the user operates. Chat
-with agents, monitor their real state, and — with an active Leash entitlement —
-approve or deny risky commands remotely. Simple line: **"Control the AI agent on
-your computer from your phone or web."** (Mobile-specific copy may still use the
-narrower "approve or deny before it runs — from your phone" framing when the post
-targets mobile-only readers.)
+Never auto-publish: output is a draft unless `PublishMode: PUBLISH_APPROVED`  
+(or CEO said promote / post everywhere / fill the gaps).
 
-Never imply affiliation with Nous Research, Anthropic, OpenAI, Google, Cursor, or
-other vendors unless current repository evidence proves it.
+---
 
-## Product ground truth (re-verified 2026-07-22 via live Play/iTunes fetch — re-verify every run, never trust this table blindly)
+## Product stack (truth hierarchy)
 
-**STANDING RULE, overrides anything below that implies a free tier: Hermes Mobile
-may NEVER be described as free-to-install, on any store, on any package — Android
-and iOS are both paid-upfront downloads.** Igor stated this directly and emphatically
-2026-07-22 ("we are not allowed to list free apps!!!! our hermes mobile app is
-paid!!!!") and the free Android package was unpublished the same day to enforce it.
-Reason not disclosed — treat as firm regardless.
+### Primary — ThumbGate.app
 
-| Fact | Value | Source checked |
-|---|---|---|
-| Google Play — free package | **UNPUBLISHED 2026-07-22** (`com.iganapolsky.hermesmobile`) — do not link or promote; live fetch now returns HTTP 404 | curl of the public listing URL, 2026-07-22 |
-| Google Play — paid package | **LIVE**, "Hermes Mobile: AI Agent", **$4.99 paid download**, `com.iganapolsky.hermesmobile.paid` — this is the ONLY Android package to ever link | https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile.paid — HTTP 200, `$4.99` present |
-| iOS App Store | **LIVE**, "Hermes AI Agent Leash", v1.3 (released 2026-07-21), **$9.99 paid download**, 0 ratings | iTunes lookup by bundle id `com.iganapolsky.hermesmobile`, 2026-07-22 |
-| In-app subscriptions | **NONE** — no StoreKit/Play Billing subscription SKU ships in the app; any Leash subscription is sold web-only at thumbgate.ai | `src/constants/monetization.ts` (`THUMBGATE_WEB_SUBSCRIPTION_URL`, deprecated `THUMBGATE_PRO_PRICE_LABEL`) |
-| Post-download Leash quota | `FREE_LEASH_APPROVALS_PER_WEEK = 10` routed approvals per ISO week ships in code | `src/constants/monetization.ts` — **do not call this "free tier" in copy** (conflicts with the no-free-anywhere rule); frame it only as "included with your paid download" if mentioned at all, and prefer omitting the exact number unless it's re-verified live in-app |
-| Android Pro unlock price | Code constant says `$4.99 once` (`ANDROID_PRO_UNLOCK_PRICE_LABEL`) — **unresolved**: unclear whether this stacks on top of the $4.99 paid download or is the same $4.99. Do not quote a specific unlock price in copy until this is confirmed against the live in-app purchase flow. | `src/constants/monetization.ts` — flag as open question, don't guess |
-| Traction | ~0 installs, ~0 revenue, 0 ratings on both stores | Play listing, iTunes `userRatingCount: 0` |
+| Field | Value |
+|--------|--------|
+| **URL** | https://thumbgate.app/ |
+| **Live title (re-verify each run)** | ThumbGate — Hermes dashboard & continuity |
+| **What it is** | Independent **web control plane** for Hermes agents on a computer the user operates. Chat, real agent state, pair without inbound ports. Continuity = optional paid VPS when Mac is offline (prove in real use; do not oversell). |
+| **Hero line** | **Control your Hermes agents from any browser — on ThumbGate.app.** |
+| **CTA priority** | (1) Sign in / pair (2) Continuity when offline angle (3) Mobile as “also on phone” |
 
-Pricing rule for copy: state only what's directly verified above. Never say "free"
-in a store/download context on either platform. Say "a paid download — from $4.99"
-(Android) or "a paid download — $9.99" (iOS), and let the store page carry exact
-current pricing. Never mention an iOS subscription price (there isn't one in-app).
+### Secondary — Hermes Mobile
 
-## Mechanism, pains, differentiators
+| Field | Value |
+|--------|--------|
+| **Android (ONLY)** | `com.iganapolsky.hermesmobile.paid` · https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile.paid&hl=en_US |
+| **iOS** | lookup `com.iganapolsky.hermesmobile` · https://apps.apple.com/us/app/hermes-ai-agent-leash/id6786778037 |
+| **Preferred links** | https://thumbgate.app/go/android · https://thumbgate.app/go/ios |
+| **GitHub** | https://github.com/IgorGanapolsky/mac-yolo-safeguards/tree/main/hermes-mobile |
+| **Pricing** | **Paid downloads only.** Re-fetch live price every run. Never “free to install.” |
 
-(Simple line and broadened positioning now live in the Product section above.)
+**Standing (2026-07-22):** free Android package unpublished — never promote unpaid `com.iganapolsky.hermesmobile` if 404.
 
-Mechanism: any agent routed through YOUR Hermes gateway pauses on risky tool calls;
-your phone shows a card with the command + risk context; you tap Approve or Deny
-BEFORE it executes. Thumbs-down (ThumbGate/Leash) persists the block as a durable
-rule. **Never call chat "free" in store-facing copy** — both platforms are paid
-downloads; frame it as "your paid download includes chat, steer, and watch; Leash
-approve/deny cards come with it."
+### Conditional — thumbgate.ai
 
-Pains it stops (all evidenced by public 2026 incidents — cite, don't invent):
-runaway loops / silent token burn, destructive shell (`rm -rf`, force-push, prod
-edits), unsupervised agents while you're away, not knowing what the agent is doing
-or costing, code+keys leaving your machine, single-vendor lock-in.
+| Field | Value |
+|--------|--------|
+| **URL** | https://thumbgate.ai/ |
+| **When** | Token burn, runaway loops, pre-action gates, diagnostic $ / Pro SKU |
+| **When not** | Remote chat, Continuity, pairing, phone remote → **thumbgate.app only** |
 
-Differentiators (each verified before claiming): vendor-neutral ("any agent behind
-your Hermes gateway" — do NOT claim native Cursor/OpenClaw gating until reproduced);
-BYO gateway + $0 local models (Ollama); approve BEFORE execution, not after-the-fact
-diff review; honest self-healing connection status; no ads, no rate-us dark patterns.
+### Monetization (do not collapse)
 
-## Mandatory research (every run — failures cause claim OMISSION, never guessing)
+| Surface | May sell after verification |
+|---------|-----------------------------|
+| thumbgate.app | Continuity (paid VPS) — only claims proven live |
+| Hermes Mobile stores | Paid app download (live store price) |
+| thumbgate.ai | Pro / diagnostic / gates + Stripe HTTP 200 |
+| In-app Leash | Re-verify entitlement code; never invent free unlimited approvals |
 
-1. Play page fetch: version, rating, review count, downloads, IAP range. Recent
-   reviews = validated hooks (praise) or things to address honestly (complaints).
-2. iTunes lookup by bundle id `com.iganapolsky.hermesmobile`: promote iOS ONLY while
-   the lookup returns a public product URL.
-3. Repo: README, recent commits/release notes, `src/constants/monetization.ts`,
-   `docs/proofs/continuous/latest.json` if present. A feature is claimable only if
-   its code path + entitlement ship in the released app; "works on device" only if
-   device E2E is green.
-4. One competitor snapshot (rotate: Claude Code Remote Control [first-party, Claude-
-   only, cloud bridge], Hermes-Relay/Axiom-Labs, Hermes Agent/Hen Works, Cursor
-   mobile). Contrast honestly; never attack; never put competitor trademarks in
-   store keywords.
-5. One "why now" web search: agent runaway-cost/destruction incidents, human-in-the-
-   loop discourse, agents gaining shell permissions.
-6. Use live store pricing on every run — never reuse a remembered price or
-   availability from a prior post or from this doc's ground-truth table below.
-7. Treat any search-rank or category-rank observation as a dated snapshot for that
-   query/region/day, never a universal or permanent ranking claim.
+### Positioning (one sentence)
 
-### Hard truth guards
-- **Never call Hermes Mobile "free" to install/download on either store, ever** — see
-  the standing no-free-anywhere rule in the ground-truth section above.
-- ~0 installs/revenue: NEVER imply traction ("thousands of devs", "developers love").
-- Sentry crash reporting ships: say "crash logs only, never sold" — NEVER "zero
-  telemetry".
-- Remote access needs the user's own network / Tailscale / tunnel / relay — never
-  claim universal connectivity.
-- Never imply affiliation with Nous Research, Anthropic, OpenAI, Google, Cursor, etc.
-- Never claim ranking gains, guaranteed savings, or customer counts.
-- Never claim "free approvals" (Leash approvals are a paid/entitled tier past the
-  free weekly cap) or "keys never leave the device" (remote paths can route through
-  a relay/tunnel) as unconditional facts.
-- Never ask for a positive review; ask for an honest review only after a verified
-  good experience.
-- Search-rank statements are dated snapshots, never permanent claims.
-- Publishing is claimed successful only when the resulting URL opens and shows the
-  intended content; without a verified URL, report Drafted or Blocked, never Posted.
+ThumbGate.app is the web remote for Hermes agents; Hermes Mobile is the paid phone remote for the same computer-side agents; thumbgate.ai is the separate reliability/gates surface. **Independent of Nous Research, Anthropic, OpenAI, Cursor, Fly.io** unless a dated primary source proves otherwise. Never imply affiliation.
 
-## Daily inputs (per run)
+**Do not mention Oak & Sparrow Systems or Gatekeeper** in content from this engine.
 
-1. Date (`YYYY-MM-DD`).
-2. `PublishMode`: `DRAFT_ONLY` or `PUBLISH_APPROVED`.
-3. `AuthenticatedPlatforms`: comma-separated platform names actually logged in this
-   run — never draft for `PUBLISH_APPROVED` on a platform not in this list.
-4. `AvailableAssets`: verified screenshots, demos, videos, or `none`.
-5. Memory log rows (see TSV columns below).
+---
+
+## Product ground truth (re-verify every run — table is not eternal truth)
+
+**Hermes Mobile is never free-to-install** on either store.
+
+| Fact | How to verify |
+|------|----------------|
+| Play paid package LIVE | curl listing for `com.iganapolsky.hermesmobile.paid` |
+| Play free package | Expect unpublished / 404 — do not promote |
+| iOS public | iTunes lookup `com.iganapolsky.hermesmobile` returns product URL |
+| In-app subscriptions | Check `hermes-mobile/src/constants/monetization.ts` — do not invent SKUs |
+| Device claims | `hermes-mobile/docs/proofs/continuous/latest.json` e2e=pass or honest skip |
+| Continuity claims | Match **live** thumbgate.app copy (e.g. “proving out” language) |
+
+Pricing rule: state only what the live store/web page shows today.
+
+---
+
+## Primary CTA rules (hard)
+
+Every public promo that is not Reddit-restricted MUST include:
+
+1. **Hero:** `https://thumbgate.app/?utm_source=CHANNEL&utm_medium=social&utm_campaign=BATCH&cta_id=BATCH_CHANNEL_home`  
+2. **Secondary (default):** store via `/go/*` or paid store URLs when asset shows mobile  
+3. **Tertiary (conditional):** thumbgate.ai diagnostic/Pro with UTMs when angle is gates/reliability  
+
+**Cash path:** Continuity / Pro / Diagnostic only with live checkout (HTTP 200 same day). No placeholder Stripe URLs.
+
+**Hashnode: FROZEN** — never publish/re-try; use Medium + dev.to for longform.  
+**Never double-post** same channel + campaign beat the same day.
+
+At least **4 of 7** rolling days: hero CTA = thumbgate.app.
+
+---
+
+## Daily inputs
+
+1. **Date** — YYYY-MM-DD  
+2. **PublishMode** — `DRAFT_ONLY` \| `PUBLISH_APPROVED`  
+3. **AuthenticatedPlatforms** — logged-in this session only  
+4. **AvailableAssets** — verified media or `none`  
+5. **PrimaryProductMode** — default `THUMBGATE_APP_FIRST`; overrides `MOBILE_ONLY` or `GATES_AI_ONLY` need Research Receipt justification  
+6. **Memory log** — TSV rows (see columns below)
+
+---
 
 ## Memory / dedup
 
-Log: `docs/social/hermes-mobile-content-log.tsv`, columns
-`Date Platform Persona Pain Angle Evidence Hook CTA Campaign Status PostURL Outcome`.
-Within 14 days never repeat: title, hook/opening line, metaphor, CTA phrasing, post
-structure, specific scenario (rm -rf vs runaway loop vs prod edit), or persona.
-Memes: original or rights-safe, not reused within 30 days. Append one row per
-platform per run.
+Log: `docs/social/hermes-mobile-content-log.tsv`  
 
-## Persona rotation (pick ONE not used in 7–14 days)
+Preferred columns:  
+`Date Platform Persona Pain Angle Evidence Hook CTA Campaign Status PostURL Outcome HeroDomain SecondaryLinks`
 
-1 Solo dev using coding agents · 2 Cursor power user · 3 Claude Code user · 4 Codex
-user · 5 Startup CTO · 6 AI automation builder · 7 DevOps/platform eng · 8 Security
-engineer · 9 Eng manager · 10 Founder building with AI agents · 11 Infra eng running
-autonomous workflows
+Within 14 days never repeat: title, hook, metaphor, CTA phrasing, structure, scenario, persona.  
+Memes: no reuse within 30 days. One row per platform per successful attempt.
 
-## Platform rules (rotate; one primary post per run, ≤3 adaptations)
+---
 
-- **LinkedIn**: founder-voice story + insight; link in FIRST COMMENT, never the body.
-- **X / Bluesky / Threads**: one idea, punchy, visual proof if available; thread only
-  if it earns it; no fake threads.
-- **Reddit — HARDEST RULE, account history is burned** (u/eazyigz123: 3 posts removed
-  in 10 days as of 2026-07-14): value/discussion ONLY in technical subs; disclose
-  "I built this"; limitation-first; link only GitHub, never store/pricing/ThumbGate.ai;
-  no vote/review CTA; never cross-post the same promo to multiple subs; check
-  reddit.com/user/eazyigz123/submitted for removals BEFORE any post; r/hermesagent is
-  permanently pricing-free and comments-first (90/10).
-- **Dev.to / Hashnode / Medium**: ONE canonical article, syndicate with canonical URL
-  set; value first, soft mention + link at the end.
-- **Instagram**: only with a real vertical demo/carousel + alt text (approval-card
-  screenshot, "your agent did WHAT at 3am" meme).
+## Mandatory research (omit claims on failure)
 
-## Output per run
+1. Live fetch **thumbgate.app** (title, hero, Continuity wording, store badges).  
+2. Live fetch **thumbgate.ai** only if angle may use it.  
+3. Play paid package + US search snapshot (rank = dated snapshot only).  
+4. iTunes lookup by bundle id — promote iOS only if public URL returns.  
+5. Repo: README, commits/release notes, monetization constants, continuous E2E proof.  
+6. One competitor + one timely community pain.  
+7. Feature claimable only if code path + entitlement ship.  
+8. Live pricing only — never remembered prices.  
+9. No “works on device” unless E2E pass.
 
-1. Research receipt (claim → exact source → timestamp).
-2. Daily decision: persona, pain, angle, evidence, CTA, target metric — and why it's
-   fresh vs the 14-day memory window.
-3. Primary post ready to paste + adaptations.
-4. Asset brief (dimensions, caption, alt text) when a visual is used.
-5. Publish ledger: platform, Drafted/Published/Blocked/Skipped, UTC time, verified
-   post URL (a post is "Published" ONLY when its URL opens and shows the content).
-6. Measurement plan: post click → store visitor → installer → retained → paired →
-   first chat → first approval → purchase.
-7. TSV memory row(s).
+### Hard truth guards
 
-ASO note: Apple's App Store and Google Play use different searchable-field and
-keyword models — see [Apple search guidance](https://developer.apple.com/app-store/search/)
-and [Google's custom store listings](https://support.google.com/googleplay/android-developer/answer/9867158?hl=en).
-Never place competitor trademarks in either store's keyword fields.
+- Never free store install language.  
+- Never invent traction, customer counts, ranking gains, guaranteed savings.  
+- Sentry: “crash logs only, never sold” — not “zero telemetry” unless proven.  
+- Connectivity may need Wi-Fi / Tailscale / tunnel / relay.  
+- Never unconditional “keys never leave the device” / “free unlimited approvals.”  
+- Never ask for a *positive* review; honest review only after success.  
+- Published only when URL opens with intended content — else Drafted/Blocked.
 
-## Newsletter (owned channel — decided 2026-07-20)
+---
 
-Niche/reader: **developers running autonomous coding agents (Claude Code, Cursor,
-Codex, self-hosted) who fear runaway loops, token burn, and destructive commands** —
-the same ICP as the app and the $499/$1,500 reliability offers.
-Core promise: **"One agent-safety play per issue you can ship in under 30 minutes."**
-Every content-engine post's soft CTA may point at the opt-in once it exists; until
-then CTA = store/GitHub only. Cadence weekly; 10 issues before judging growth.
-Referral/paid layers only after open/click proof. See REVENUE-LOOP.md for the
-send-gate rules (human sends; drafts only).
+## Daily strategy
+
+Choose **exactly one** persona, one pain, one proof, one transformation, one CTA.  
+One primary story + ≤3 channel adaptations (not identical clones).
+
+### Personas (rotate; one not used in 7–14 days)
+
+1 Solo agent user · 2 Cursor power user · 3 Claude Code user · 4 Codex user ·  
+5 Startup CTO · 6 Automation builder · 7 DevOps/platform · 8 Security eng ·  
+9 Eng manager · 10 Founder · 11 Infra autonomous workflows ·  
+12 Mac operator away from desk · 13 Team lead (Mac sleep / offline work)
+
+| Persona emphasis | Default hero | Secondary |
+|------------------|--------------|-----------|
+| Away from desk / browser remote | thumbgate.app | Mobile |
+| Mac offline / Continuity | thumbgate.app Continuity | — |
+| Phone-first HITL | Mobile (exception day) | thumbgate.app |
+| Token burn / gates | thumbgate.ai | thumbgate.app |
+
+### Measurement (ordered)
+
+```
+post click
+  → thumbgate.app visitor
+  → sign-in / pair / dashboard
+  → Continuity trial or secondary store click
+  → installer or retained web user
+  → paired computer
+  → first chat
+  → first approval (if Leash)
+  → purchase (Stripe/ledger proof only)
+```
+
+---
+
+## Channel rules
+
+### Reddit
+- Disclose you built it; technical + limitation-first.  
+- Default link: GitHub and/or thumbgate.app.  
+- No store spam, pricing, vote/review CTA.  
+- No multi-sub identical promo. Check recent removals before posting.  
+- thumbgate.ai only if thread is about agent mistakes/gates.  
+- Prefer flair-required subs only when flair can be set.
+
+### LinkedIn
+- Operator story + one proof + one business outcome.  
+- **Hero CTA = thumbgate.app** with UTM (body preferred for cash/hero links).  
+- Account: authorized brand LinkedIn only (`ig5973700` skill).  
+- Name Nous Hermes / @NousResearch, Fly.io / @flydotio when relevant — no affiliation.
+
+### X, Bluesky, Threads
+- Concise hook, one primary link = thumbgate.app.  
+- No fake threads. Secondary store in reply if needed.
+
+### Medium / dev.to
+- One canonical longform; syndicate with canonical URL.  
+- Hero thumbgate.app; stores in “Also available.”  
+- **Hashnode FROZEN — skip entirely.**
+
+### Instagram / memes
+- Real vertical demo or rights-safe meme; hero thumbgate.app.
+
+### GitHub / HN
+- Value-first; product link only when on-topic.  
+- No cold checkout spam. HN may flag Show HN — report dead honestly.
+
+---
+
+## Output (every run)
+
+1. **Research Receipt** — claim → source → UTC; include live thumbgate.app title/description.  
+2. **Daily Decision** — persona, pain, angle, evidence, **hero domain**, secondary links, metric.  
+3. **Primary post** + ≤3 adaptations.  
+4. **Asset brief** when visual.  
+5. **Publish Ledger** — Drafted/Published/Blocked/Skipped/FROZEN + URL or error.  
+6. **Measurement plan** + next-day rule.  
+7. **TSV rows** with HeroDomain + SecondaryLinks.
+
+---
+
+## PublishMode + automation posture
+
+| Mode | Allowed |
+|------|---------|
+| `DRAFT_ONLY` | Research + drafts only |
+| `PUBLISH_APPROVED` | Named platforms after pre-flight; LIVE matrix required |
+
+Fan-out mechanics: `~/.grok/skills/thumbgate-chrome-promo-fanout/SKILL.md`.  
+No Zernio. Prove each LIVE URL. Do not claim “everywhere” without the matrix.
+
+Desktop: do not hijack interactive Chrome unless this turn authorizes promo/publish; prefer dedicated window and URL-substring tab match.
+
+---
+
+## Newsletter (owned channel)
+
+ICP: developers running autonomous coding agents who fear runaway loops / token burn / destructive commands.  
+Promise: one shippable agent-safety play per issue. Soft CTA may point to thumbgate.app / Continuity once list exists. Cadence weekly. Human send-gate for revenue mail.
+
+---
+
+## Diff vs prior engines
+
+| Prior (v3.0) | v4.0 app-first |
+|--------------|----------------|
+| Web + Mobile + GitHub co-equal | **thumbgate.app hero** → mobile → ai |
+| Store-first measurement often | Web pair/session first, then install |
+| Hashnode in longform set | **Hashnode frozen** |
+| Gatekeeper name-drops allowed | **Do not mention** |
+| Link-in-first-comment LinkedIn default | Hero + cash CTAs in body when possible |
+
+---
+
+## One-line operator summary
+
+**Promote ThumbGate.app as the product people land on; let Hermes Mobile and thumbgate.ai ride as defaults from that site; prove every LIVE row; never claim free installs or Hashnode success.**

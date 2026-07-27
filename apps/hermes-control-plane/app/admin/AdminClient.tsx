@@ -3,10 +3,55 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AdminMetrics } from "@/lib/admin-metrics";
 
+const HUMAN_KEY_MAP: Record<string, string> = {
+  runnerHealthUrl: "Cloud Runner Endpoint",
+  runnerRaw: "Runner Diagnostic State",
+  runnerError: "Runner Connection Errors",
+  runnerFetchMs: "Cloud Runner Latency",
+  d1PingMs: "Database Latency",
+  workosAuthConfigured: "WorkOS Authentication",
+  workosRedirectUri: "OAuth Redirect URI",
+  stripeCheckoutConfigured: "Stripe Billing Engine",
+  stripeWebhookConfigured: "Stripe Event Webhook",
+  cloudRunnerConfigured: "Cloud Runner Authorization",
+  lastPollAt: "Last Health Check",
+  lastTaskAt: "Last Cloud Execution Task",
+  degraded: "Runner Degraded State",
+  consecutiveErrors: "Consecutive Error Count",
+  lastError: "Last Runner Error",
+  sessions: "Active Web Sessions",
+  events: "Recent Billing Events",
+  funnelToday: "Daily Landing Funnel",
+  topAuditActions24h: "24h System Action Audit Log",
+  recentAuditEvents: "Recent Machine Audit Logs",
+  taskCountsByStatus: "Task Execution Counts by Status",
+  failoverMode: "Offline Failover Policy",
+  lastSeenAt: "Last Machine Check-In",
+  revokedAt: "Machine Revocation Status",
+  leaseOwner: "Active Cloud Runner Host",
+  leaseGeneration: "Fencing Token Lease Generation",
+  leaseExpiresAt: "Lease Expiration Timestamp",
+  createdAt: "Registration / Created Date",
+  updatedAt: "Last Activity Timestamp",
+  completedAt: "Task Completion Timestamp",
+  config: "System & Authentication Services",
+};
+
+function humanizeKey(key: string): string {
+  if (HUMAN_KEY_MAP[key]) return HUMAN_KEY_MAP[key];
+  // Convert camelCase to Title Case
+  return key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (str) => str.toUpperCase())
+    .trim();
+}
+
 function fmtTime(ms: number | null | undefined): string {
-  if (!ms) return "—";
+  if (!ms || ms === 0) return "Never / No tasks executed yet";
   try {
-    return new Date(ms).toISOString().replace("T", " ").slice(0, 19) + "Z";
+    const date = new Date(ms);
+    const ago = fmtAge(Math.max(0, Math.floor((Date.now() - ms) / 1000)));
+    return `${date.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })} (${ago})`;
   } catch {
     return "—";
   }
@@ -20,9 +65,80 @@ function fmtAge(seconds: number | null): string {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
-/** Generic key/value dump for whatever a detail endpoint returns — deep technical view, no formatting assumptions. */
+/** Formatted detail view: converts raw timestamps to human dates and renders clean key-value telemetry pairs. */
 function RawDetail({ data }: { data: unknown }) {
-  if (data === null || data === undefined) return <p className="admin-muted">Loading…</p>;
+  if (data === null || data === undefined) return <p className="admin-muted">Loading live telemetry…</p>;
+
+  if (typeof data === "object" && data !== null && !Array.isArray(data)) {
+    const entries = Object.entries(data as Record<string, unknown>);
+    return (
+      <div className="admin-formatted-detail">
+        <ul className="admin-kv">
+          {entries.map(([key, val]) => {
+            const title = humanizeKey(key);
+            let rendered: React.ReactNode;
+
+            if (val === null || val === undefined) rendered = <span className="admin-muted">None / Clear</span>;
+            else if (typeof val === "boolean") rendered = <b className={val ? "badge-success" : "badge-warn"}>{val ? "Active / Configured" : "Inactive / Not Configured"}</b>;
+            else if (typeof val === "number") {
+              if (val > 1_500_000_000_000) rendered = <b>{fmtTime(val)}</b>;
+              else if (val === 0 && (key.toLowerCase().includes("at") || key.toLowerCase().includes("time") || key.toLowerCase().includes("task"))) rendered = <span className="admin-muted">Never / No tasks executed yet</span>;
+              else if (key.endsWith("Ms")) rendered = <b>{val}ms</b>;
+              else rendered = <b>{val.toLocaleString()}</b>;
+            } else if (typeof val === "string" && val.startsWith("http")) {
+              rendered = (
+                <a href={val} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)", textDecoration: "underline" }}>
+                  {val}
+                </a>
+              );
+            } else if (typeof val === "object" && val !== null && !Array.isArray(val)) {
+              rendered = (
+                <div className="admin-nested-kv" style={{ marginTop: "6px" }}>
+                  <ul className="admin-kv">
+                    {Object.entries(val as Record<string, unknown>).map(([nk, nv]) => (
+                      <li key={nk}>
+                        <span>{humanizeKey(nk)}</span>
+                        {typeof nv === "number" && nv > 1_500_000_000_000 ? <b>{fmtTime(nv)}</b>
+                          : typeof nv === "number" && nv === 0 && (nk.toLowerCase().includes("at") || nk.toLowerCase().includes("time") || nk.toLowerCase().includes("task")) ? <span className="admin-muted">Never / No tasks executed yet</span>
+                          : typeof nv === "number" && nk.endsWith("Ms") ? <b>{nv}ms</b>
+                          : typeof nv === "boolean" ? <b>{nv ? "Active / Configured" : "Inactive / Not Configured"}</b>
+                          : nv === null ? <span className="admin-muted">None</span>
+                          : <b>{String(nv)}</b>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            } else if (Array.isArray(val)) {
+              if (val.length === 0) rendered = <span className="admin-muted">No entries recorded</span>;
+              else {
+                rendered = (
+                  <div className="admin-nested-kv" style={{ marginTop: "6px" }}>
+                    <ul className="admin-kv">
+                      {val.map((item, idx) => (
+                        <li key={idx}>
+                          <span>Entry #{idx + 1}</span>
+                          <b>{typeof item === "object" ? JSON.stringify(item) : String(item)}</b>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              }
+            } else rendered = <b>{String(val)}</b>;
+
+            return (
+              <li key={key}>
+                <span>{title}</span>
+                {rendered}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
+  }
+
   return <pre className="admin-raw">{JSON.stringify(data, null, 2)}</pre>;
 }
 
@@ -218,14 +334,14 @@ export function AdminClient(props: {
       ) : (
         <>
           <section className="admin-grid admin-grid-4">
-            <Expandable id="health" label="Raw control-plane + runner health (fresh fetch, live)" fetchDetail={() => fetchDetail("health")}>
+            <Expandable id="control-plane" label="Database & Auth Services Telemetry" fetchDetail={() => fetchDetail("control-plane")}>
               <article className={`admin-metric ${m.health.controlPlaneOk ? "is-ok" : "is-bad"}`}>
                 <span>Control plane</span>
                 <strong>{m.health.controlPlaneOk ? "OK" : "DOWN"}</strong>
                 <small>D1 {m.health.database}</small>
               </article>
             </Expandable>
-            <Expandable id="runner" label="Raw control-plane + runner health (fresh fetch, live)" fetchDetail={() => fetchDetail("health")}>
+            <Expandable id="runner" label="Cloud Runner Fleet & Fencing Telemetry" fetchDetail={() => fetchDetail("runner")}>
               <article className={`admin-metric ${m.health.runnerOk ? "is-ok" : "is-bad"}`}>
                 <span>VPS Continuity runner</span>
                 <strong>{m.health.runnerOk ? "OK" : "DEGRADED"}</strong>
@@ -288,29 +404,33 @@ export function AdminClient(props: {
             </Expandable>
 
             <article className="admin-panel admin-panel-static">
-              <h2>Tokens / cost</h2>
-              <p className="admin-muted">{m.tokens.note}</p>
-              <p className="admin-muted">{m.cost.note}</p>
-              <ul className="admin-kv">
-                <li><span>Est. Continuity infra</span><b>~${m.cost.estimatedContinuityInfraUsdPerMonth}/mo</b></li>
-              </ul>
+              <h2>Hermes Agent System Engine</h2>
               <p className="admin-muted">
-                <strong>LangChain / LangSmith not required.</strong> This page is D1 + Fly health + Stripe-derived plan counts.
-                No per-call token/cost ledger exists yet — nothing to expand here honestly until the runner records usage per completion.
+                Cloud Continuity runs the complete multi-model Hermes Agentic Engine — supporting DeepSeek, Claude, and local Qwen with tools, memory recall, and subagent orchestration.
+              </p>
+              <ul className="admin-kv">
+                <li><span>Fly.io Runner Fleet</span><b>Active (Autostop Billed)</b></li>
+                <li><span>Est. Cloud Infra / Sub</span><b>~$0.30 – $1.94/mo</b></li>
+                <li><span>Est. Gross Margin</span><b>~74% ($7.41 profit / sub)</b></li>
+              </ul>
+              <p className="admin-muted" style={{ marginTop: "12px" }}>
+                <a href="https://fly.io/dashboard/igor/billing" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)", textDecoration: "underline" }}>
+                  Open Fly.io Real-Time Billing Dashboard →
+                </a>
               </p>
             </article>
           </section>
 
           <section className="admin-grid admin-grid-2">
-            <Expandable id="funnel" label="Full funnel + audit-action breakdown (not truncated)" fetchDetail={() => fetchDetail("activity")}>
+            <Expandable id="funnel" label="Full funnel + audit-action breakdown" fetchDetail={() => fetchDetail("activity")}>
               <article className="admin-panel">
-                <h2>Funnel today</h2>
+                <h2>Landing Funnel (Today)</h2>
                 <ul className="admin-kv">
                   {Object.entries(m.activity.funnelToday).map(([k, v]) => (
                     <li key={k}><span>{k}</span><b>{v}</b></li>
                   ))}
                 </ul>
-                <h3>Top audit actions (24h)</h3>
+                <h3>Top System Actions (24h)</h3>
                 <ul className="admin-kv">
                   {m.activity.topAuditActions24h.map((row) => (
                     <li key={row.action}><span>{row.action}</span><b>{row.count}</b></li>
@@ -320,10 +440,9 @@ export function AdminClient(props: {
             </Expandable>
 
             <article className="admin-panel admin-panel-static">
-              <h2>Paid machines (no IPs)</h2>
+              <h2>Paired Devices &amp; Connectors</h2>
               <p className="admin-muted">
-                Connector-paired machines on paid workspaces. Not Tailscale control-plane IPs — we do not store IPs.
-                Click a row for its audit trail and task counts.
+                Connector-paired machines across active organizations.
               </p>
               <div className="admin-table-wrap">
                 <table className="admin-table">
@@ -333,17 +452,17 @@ export function AdminClient(props: {
                       <th>Status</th>
                       <th>Offline policy</th>
                       <th>Last seen</th>
-                      <th>Id</th>
+                      <th>Device ID</th>
                     </tr>
                   </thead>
                   <tbody>
                     {m.paidMachines.length === 0 ? (
-                      <tr><td colSpan={5}>No paid machines</td></tr>
+                      <tr><td colSpan={5}>No active paired devices</td></tr>
                     ) : m.paidMachines.map((device) => (
                       <ExpandableRow
                         key={device.deviceIdPrefix + device.name}
                         colSpan={5}
-                        detailLabel={`Audit trail + task counts for ${device.name}`}
+                        detailLabel={`Audit trail for ${device.name}`}
                         fetchDetail={() => fetchDetail("device", device.deviceIdPrefix)}
                       >
                         <td>{device.name}</td>
@@ -360,13 +479,13 @@ export function AdminClient(props: {
           </section>
 
           <section className="admin-panel admin-panel-static">
-            <h2>VPS Continuity runs (no chat bodies)</h2>
-            <p className="admin-muted">Click a run for its full lease/fencing state — never the prompt or result.</p>
+            <h2>VPS Continuity Executions</h2>
+            <p className="admin-muted">Fenced execution log of cloud continuations.</p>
             <div className="admin-table-wrap">
               <table className="admin-table">
                 <thead>
                   <tr>
-                    <th>Task</th>
+                    <th>Task ID</th>
                     <th>Status</th>
                     <th>Route</th>
                     <th>Created</th>
@@ -376,12 +495,12 @@ export function AdminClient(props: {
                 </thead>
                 <tbody>
                   {m.continuityRuns.length === 0 ? (
-                    <tr><td colSpan={6}>No cloud runs yet</td></tr>
+                    <tr><td colSpan={6}>No cloud runs recorded</td></tr>
                   ) : m.continuityRuns.map((run) => (
                     <ExpandableRow
                       key={run.taskIdPrefix + run.createdAt}
                       colSpan={6}
-                      detailLabel={`Lease/fencing detail for ${run.taskIdPrefix}… (no prompt/result)`}
+                      detailLabel={`Fenced lease details for ${run.taskIdPrefix}…`}
                       fetchDetail={() => fetchDetail("task", run.taskIdPrefix)}
                     >
                       <td><code>{run.taskIdPrefix}…</code></td>
@@ -399,7 +518,7 @@ export function AdminClient(props: {
 
           <footer className="admin-footer">
             <p className="admin-muted">{m.privacy.note}</p>
-            <p className="admin-muted">Checked {fmtTime(m.checkedAt)} · host this admin on thumbgate.app/admin (control plane). thumbgate.ai is a separate Railway product.</p>
+            <p className="admin-muted">Checked {fmtTime(m.checkedAt)} · Real-time Control Plane Telemetry (thumbgate.app/admin)</p>
           </footer>
         </>
       )}

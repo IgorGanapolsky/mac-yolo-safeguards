@@ -93,7 +93,11 @@ portal_created_last_24h="$(json_number_or_null "$health_after_body" portalCreate
 portal_failed_last_24h="$(json_number_or_null "$health_after_body" portalFailedLast24h)"
 billing_events_last_24h="$(json_number_or_null "$health_after_body" billingEventsLast24h)"
 paid_organizations_total="$(json_number_or_null "$health_after_body" paidOrganizationsTotal)"
+client_errors_today="$(json_number_or_null "$health_after_body" clientErrorsToday)"
 plan_unit_amount="$(json_number_or_null "$plan_body" unitAmount)"
+
+# Yellow/red for browser error counter (content-free). Default spike: 15/day.
+CLIENT_ERROR_SPIKE="${SAAS_WATCHDOG_CLIENT_ERROR_SPIKE:-15}"
 
 runner_body="$(body "$RUNNER_URL")"
 runner_code="$(code "$RUNNER_URL")"
@@ -152,28 +156,72 @@ case "$analytics_latest_at" in ''|null) concerns+=("analytics readback missing")
 [ "$webhook_code" = 401 ] || concerns+=("webhook signature gate $webhook_code")
 { [ "$runner_code" = 200 ] && [ "$runner_degraded" = false ]; } || concerns+=("runner $runner_code degraded=$runner_degraded")
 
+# Soft yellow: client error spike (does not fail the hard gate alone — separate alert).
+client_error_spike=false
+case "$client_errors_today" in
+  ''|null) : ;;
+  *)
+    if [ "$client_errors_today" -ge "$CLIENT_ERROR_SPIKE" ] 2>/dev/null; then
+      client_error_spike=true
+      concerns+=("client_errors_today $client_errors_today (spike>=$CLIENT_ERROR_SPIKE)")
+    fi
+    ;;
+esac
+
 ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 status=ok
 [ "${#concerns[@]}" -gt 0 ] && status=degraded
+# Hard outages only (exclude pure client_error_spike from fail-closed exit).
+# Guard empty-array expansion under set -u (bash unbound-variable).
+hard_concerns=()
+if [ "${#concerns[@]}" -gt 0 ]; then
+  for c in "${concerns[@]}"; do
+    case "$c" in
+      client_errors_today*) : ;;
+      *) hard_concerns+=("$c") ;;
+    esac
+  done
+fi
+hard_status=ok
+[ "${#hard_concerns[@]}" -gt 0 ] && hard_status=degraded
 /bin/mkdir -p "$(dirname "$LOG")"
-printf '{"ts":"%s","status":"%s","landing":"%s","aliasLanding":"%s","httpRedirect":"%s","hsts":%s,"health":"%s","workersHealth":"%s","signinChain":%s,"aliasSigninChain":%s,"sessionGate":"%s","privateTasksGate":"%s","billingPlan":"%s","billingUnitAmount":"%s","analyticsIngest":"%s","analyticsLatestAt":"%s","auditLatestAt":"%s","deviceHeartbeatLatestAt":"%s","billingEventLatestAt":"%s","realBillingEventLatestAt":"%s","checkoutCreatedLast24h":"%s","checkoutFailedLast24h":"%s","portalCreatedLast24h":"%s","portalFailedLast24h":"%s","billingEventsLast24h":"%s","paidOrganizationsTotal":"%s","webhookGate":"%s","runner":"%s","runnerDegraded":"%s","concerns":%d}\n' \
-  "$ts" "$status" "$landing" "$alias_landing" "$redirect_code" "$hsts" "$health_code" "$workers_health" \
+printf '{"ts":"%s","status":"%s","hardStatus":"%s","landing":"%s","aliasLanding":"%s","httpRedirect":"%s","hsts":%s,"health":"%s","workersHealth":"%s","signinChain":%s,"aliasSigninChain":%s,"sessionGate":"%s","privateTasksGate":"%s","billingPlan":"%s","billingUnitAmount":"%s","analyticsIngest":"%s","analyticsLatestAt":"%s","auditLatestAt":"%s","deviceHeartbeatLatestAt":"%s","billingEventLatestAt":"%s","realBillingEventLatestAt":"%s","checkoutCreatedLast24h":"%s","checkoutFailedLast24h":"%s","portalCreatedLast24h":"%s","portalFailedLast24h":"%s","billingEventsLast24h":"%s","paidOrganizationsTotal":"%s","clientErrorsToday":"%s","clientErrorSpike":%s,"webhookGate":"%s","runner":"%s","runnerDegraded":"%s","concerns":%d}\n' \
+  "$ts" "$status" "$hard_status" "$landing" "$alias_landing" "$redirect_code" "$hsts" "$health_code" "$workers_health" \
   "$signin_ok" "$alias_signin_ok" "$session_code" "$private_tasks_code" "$plan_code" "${plan_unit_amount:-unknown}" "$analytics_code" "${analytics_latest_at:-unknown}" \
   "${audit_latest_at:-unknown}" "${device_heartbeat_latest_at:-unknown}" "${billing_event_latest_at:-unknown}" \
   "${real_billing_event_latest_at:-unknown}" "${checkout_created_last_24h:-unknown}" "${checkout_failed_last_24h:-unknown}" \
   "${portal_created_last_24h:-unknown}" "${portal_failed_last_24h:-unknown}" \
-  "${billing_events_last_24h:-unknown}" "${paid_organizations_total:-unknown}" "$webhook_code" "$runner_code" "$runner_degraded" "${#concerns[@]}" >> "$LOG"
+  "${billing_events_last_24h:-unknown}" "${paid_organizations_total:-unknown}" "${client_errors_today:-unknown}" "$client_error_spike" \
+  "$webhook_code" "$runner_code" "$runner_degraded" "${#concerns[@]}" >> "$LOG"
 
 prev="$(/bin/cat "$STATE" 2>/dev/null || echo unknown)"
-printf '%s\n' "$status" > "$STATE"
-echo "saas-watchdog $ts status=$status landing=$landing alias=$alias_landing health=$health_code analytics=$analytics_code runner=$runner_code degraded=$runner_degraded concerns=${#concerns[@]}"
-if [ "$status" = degraded ] && [ "$prev" != degraded ]; then
-  alert_body="$(printf 'ThumbGate DEGRADED (%s):\n' "$ts"; printf ' - %s\n' "${concerns[@]}")"
+printf '%s\n' "$hard_status" > "$STATE"
+CLIENT_ERR_STATE="${STATE}.client-errors"
+prev_ce="$(/bin/cat "$CLIENT_ERR_STATE" 2>/dev/null || echo unknown)"
+printf '%s\n' "$client_error_spike" > "$CLIENT_ERR_STATE"
+echo "saas-watchdog $ts status=$status hard=$hard_status landing=$landing alias=$alias_landing health=$health_code analytics=$analytics_code runner=$runner_code degraded=$runner_degraded clientErrors=${client_errors_today:-?} spike=$client_error_spike concerns=${#concerns[@]}"
+if [ "$hard_status" = degraded ] && [ "$prev" != degraded ]; then
+  if [ "${#hard_concerns[@]}" -gt 0 ]; then
+    alert_body="$(printf 'ThumbGate DEGRADED (%s):\n' "$ts"; printf ' - %s\n' "${hard_concerns[@]}")"
+  else
+    alert_body="$(printf 'ThumbGate DEGRADED (%s)' "$ts")"
+  fi
   "$CURL" -sS -m 10 -H "Title: ThumbGate degraded" -H "Priority: high" \
     -d "$alert_body" "https://ntfy.sh/$NTFY_TOPIC" >/dev/null 2>&1 || true
-elif [ "$status" = ok ] && [ "$prev" = degraded ]; then
+elif [ "$hard_status" = ok ] && [ "$prev" = degraded ]; then
   "$CURL" -sS -m 10 -H "Title: ThumbGate recovered" \
     -d "recovered at $ts" "https://ntfy.sh/$NTFY_TOPIC" >/dev/null 2>&1 || true
 fi
+# Yellow: browser error spike (transition-only ntfy)
+if [ "$client_error_spike" = true ] && [ "$prev_ce" != true ]; then
+  "$CURL" -sS -m 10 -H "Title: ThumbGate client errors spike" -H "Priority: default" -H "Tags: warning,chart_with_upwards_trend" \
+    -d "clientErrorsToday=${client_errors_today} threshold=${CLIENT_ERROR_SPIKE} at ${ts} (content-free counter; no stacks)" \
+    "https://ntfy.sh/$NTFY_TOPIC" >/dev/null 2>&1 || true
+elif [ "$client_error_spike" = false ] && [ "$prev_ce" = true ]; then
+  "$CURL" -sS -m 10 -H "Title: ThumbGate client errors calm" \
+    -d "clientErrorsToday=${client_errors_today:-0} below ${CLIENT_ERROR_SPIKE} at ${ts}" \
+    "https://ntfy.sh/$NTFY_TOPIC" >/dev/null 2>&1 || true
+fi
 
-[ "$status" = ok ]
+# Exit non-zero only on hard infrastructure degrade (not soft client_error spike alone).
+[ "$hard_status" = ok ]
