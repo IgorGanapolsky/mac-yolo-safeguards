@@ -75,7 +75,9 @@ export function resolveChatLinkDisplay(input: {
     return { label: pairLabel, chatReachable: false };
   }
   if (input.connectionState === 'connected') {
-    return { label: 'Needs computer link', chatReachable: false };
+    // "Needs computer link" was internal jargon — a user cannot act on it. This state means
+    // the relay is up but the Mac's chat endpoint did not answer, so say exactly that.
+    return { label: "Can't reach your Mac", chatReachable: false };
   }
   if (input.connectionState === 'connecting') {
     return { label: 'Connecting', chatReachable: false };

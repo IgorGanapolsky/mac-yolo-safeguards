@@ -184,7 +184,7 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
-    expect(getByTestId('chat-context-link').props.children).toContain('Needs computer link');
+    expect(getByTestId('chat-context-link').props.children).toContain("Can't reach your Mac");
   });
 
   it('shows endpoint while connected when multi-Mac detail is enabled', () => {
