@@ -6,6 +6,10 @@ const childProcess = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const dns = require('dns');
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch {}
 
 const DEFAULT_CONFIG = path.join(os.homedir(), '.hermes', 'cloud-connector.json');
 const DEFAULT_GATEWAY_ENV = path.join(os.homedir(), '.hermes', '.env');
@@ -148,12 +152,66 @@ function signedHeaders(config, method, pathname, bodyText, now = Date.now(), non
   };
 }
 
+const http = require('http');
+const https = require('https');
+
+function safeFetch(urlStr, options = {}) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(urlStr);
+    const transport = u.protocol === 'https:' ? https : http;
+    const isLoopback = u.hostname === '127.0.0.1' || u.hostname === 'localhost';
+    const reqOptions = {
+      protocol: u.protocol,
+      hostname: u.hostname,
+      port: u.port || (u.protocol === 'https:' ? 443 : 80),
+      path: `${u.pathname}${u.search}`,
+      method: options.method || 'GET',
+      headers: options.headers || {},
+      ...(isLoopback ? {} : { family: 4 }),
+      timeout: options.timeout || REQUEST_TIMEOUT_MS,
+    };
+    const req = transport.request(reqOptions, (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => {
+        resolve({
+          ok: res.statusCode >= 200 && res.statusCode < 300,
+          status: res.statusCode,
+          text: async () => data,
+          json: async () => (data ? JSON.parse(data) : null),
+        });
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error(`Timeout connecting to ${u.hostname}`));
+    });
+    if (options.body) {
+      req.write(typeof options.body === 'string' ? options.body : JSON.stringify(options.body));
+    }
+    req.end();
+  });
+}
+
 async function jsonRequest(url, options = {}) {
-  const response = await fetch(url, { ...options, signal: options.signal || AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
-  const text = await response.text();
-  const body = text ? JSON.parse(text) : null;
-  if (!response.ok) throw new Error(body?.error || `HTTP ${response.status}`);
-  return { response, body };
+  let lastErr;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const response = await safeFetch(url, options);
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error || `HTTP ${response.status}`);
+      return { response, body };
+    } catch (err) {
+      lastErr = err;
+      if (attempt < 2 && (err.message?.includes('Timeout') || err.message?.includes('ECONNRESET') || err.message?.includes('fetch failed'))) {
+        await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
 }
 
 async function startPairing(config, configPath) {
@@ -168,12 +226,12 @@ async function startPairing(config, configPath) {
   const deadline = Date.now() + result.body.expiresIn * 1000;
   while (Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, 3_000));
-    const response = await fetch(`${config.controlPlaneUrl}/api/pairing/status`, {
+    const response = await safeFetch(`${config.controlPlaneUrl}/api/pairing/status`, {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ deviceCode: config.deviceCode }),
     });
     if (response.status === 202) continue;
     const body = await response.json();
-    if (!response.ok) throw new Error(body.error || `Pairing failed (${response.status})`);
+    if (!response.ok) throw new Error(body?.error || `Pairing failed (${response.status})`);
     config.deviceId = body.deviceId;
     delete config.deviceCode;
     saveConfig(configPath, config);
@@ -210,15 +268,15 @@ function timestampMillis(value, fallback = Date.now()) {
 async function gatewayJson(baseUrl, pathname, options = {}) {
   const timeout = options.method === 'POST' ? TASK_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
   const { gatewayEnvPath, ...requestOptions } = options;
-  const response = await fetch(`${baseUrl}${pathname}`, {
-    ...requestOptions, signal: options.signal || AbortSignal.timeout(timeout),
+  const response = await safeFetch(`${baseUrl}${pathname}`, {
+    ...requestOptions, timeout,
     headers: { ...gatewayHeaders({ envPath: gatewayEnvPath }), ...(options.headers || {}) },
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(payload.error?.message || payload.error || `Hermes session gateway HTTP ${response.status}`);
+    const error = new Error(payload?.error?.message || payload?.error || `Hermes session gateway HTTP ${response.status}`);
     error.status = response.status;
-    error.code = payload.error?.code;
+    error.code = payload?.error?.code;
     throw error;
   }
   return payload;
