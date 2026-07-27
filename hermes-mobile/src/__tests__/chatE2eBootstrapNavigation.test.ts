@@ -8,6 +8,17 @@ function read(relativePath: string): string {
 }
 
 describe('chat Maestro bootstrap navigation recovery', () => {
+  it('recovers Chat after the shared bootstrap intentionally leaves the app on Leash', () => {
+    const launch = read('hermes-mobile/.maestro/launch.yaml');
+    const bootstrapIndex = launch.indexOf('runFlow: e2e-bootstrap.yaml');
+    const recoveryIndex = launch.indexOf('runFlow: recover-chat-tab.yaml');
+    const chatAssertionIndex = launch.indexOf('id: "HERMES CHAT"');
+
+    expect(bootstrapIndex).toBeGreaterThan(-1);
+    expect(recoveryIndex).toBeGreaterThan(bootstrapIndex);
+    expect(chatAssertionIndex).toBeGreaterThan(recoveryIndex);
+  });
+
   it('foregrounds the already-loaded Expo development client without stopping it', () => {
     const shipGuard = read('hermes-mobile/.maestro/ship-guard.yaml');
     const commands = shipGuard.slice(shipGuard.indexOf('---') + 3).trimStart();
