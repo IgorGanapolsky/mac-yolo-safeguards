@@ -3,6 +3,12 @@
 Living scorecard for the five pillars. **Automated scores:**  
 `node tools/system-maturity-scorecard.js` (also `--json`, `--strict`).
 
+Scores deliberately mix structural capability with current runtime evidence. A
+gate script existing in the repository is not proof that the product passed the
+gate. In particular, Production AI + eval/observability cannot score 5/5 unless
+the current continuous proof is fresh and records `e2e=pass`;
+`e2e=skipped` remains honest but unverified.
+
 | Pillar | How we raise maturity |
 |--------|------------------------|
 | RAG | Fixed retrieval eval (`tools/rag-retrieval-eval.js`) + lessons protocol |
@@ -120,7 +126,9 @@ Auth APIs; private telemetry; billing portal org match.
 `npm run deploy:cloudflare` in control-plane; store/OTA pipelines for mobile.
 
 ### How do you know it works?
-Required CI green + deploy version + scorecard ≥ 3.5 all pillars.
+Required CI green + deploy version + scorecard ≥ 3.5 all pillars. A 5/5
+production-observability score additionally requires
+`observability-device-proof` to report `deviceVerified=true`.
 
 ---
 
