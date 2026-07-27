@@ -30,18 +30,18 @@ function connectionMeta(
     authMismatch,
   });
   if (link.chatReachable) {
-    return { label: 'Linked', color: colors.success };
+    return { label: 'Connected', color: colors.success };
   }
   if (link.label === GATEWAY_AUTH_REPAIR_HEADER) {
     return { label: link.label, color: colors.error };
   }
-  if (link.label === "Can't reach your Mac" || link.label === 'Relay only') {
-    return { label: "Can't reach your Mac", color: colors.warning };
+  if (link.label === 'Relay only') {
+    return { label: 'Not connected', color: colors.warning };
   }
   if (state === 'connecting') {
     return { label: 'Connecting…', color: colors.warning };
   }
-  return { label: 'Not linked', color: colors.error };
+  return { label: 'Not connected', color: colors.error };
 }
 
 export default function ChatContextStrip({

@@ -203,14 +203,13 @@ describe('isConnectivityMessage', () => {
     expect(isConnectivityMessage("Can't reach direct link (10.2.29.103:8642) — tap to retry")).toBe(true);
   });
 
-  it('explains that Hermes is unreachable when account path is up but Mac HTTP is down', () => {
+  it('explains that Chat needs a Mac connection when account path is up but Mac HTTP is down', () => {
     const message = chatSendBlockedMessage({
       connectionMode: 'relay',
       connectionState: 'connected',
       gatewayUrl: 'http://10.2.29.103:8642',
     });
-    expect(message).toContain("Hermes service on your computer isn't reachable");
-    expect(message).toContain('message is saved');
+    expect(message).toContain('Tailscale');
     expect(isConnectivityMessage(message)).toBe(true);
   });
 
@@ -220,6 +219,6 @@ describe('isConnectivityMessage', () => {
       connectionState: 'connecting',
       healthProbePending: true,
     });
-    expect(message).toBe('Still checking your computer. Message kept locally.');
+    expect(message).toBe('Still checking your Mac connection. Message kept locally.');
   });
 });

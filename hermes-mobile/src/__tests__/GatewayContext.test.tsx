@@ -9,12 +9,6 @@ import {
   fetchQueue,
 } from '../services/mobileRelayClient';
 import { captureThumbgateFeedback } from '../services/thumbgateClient';
-import {
-  __resetFreeLeashAllowanceForTests,
-  consumeFreeLeashApproval,
-  refreshFreeLeashWeeklyState,
-} from '../utils/freeLeashAllowance';
-import { FREE_LEASH_APPROVALS_PER_WEEK } from '../constants/monetization';
 
 jest.mock('../services/storage');
 jest.mock('../services/secureCredentials');
@@ -69,11 +63,6 @@ jest.mock('../services/gatewayProfiles', () => {
     dedupeGatewayProfiles: jest.fn((state) => state),
   };
 });
-jest.mock('../services/thumbgateIap', () => ({
-  initializeThumbgateIapListeners: jest.fn(),
-  syncThumbgateLeashEntitlement: jest.fn(() => Promise.resolve(true)),
-}));
-
 jest.mock('../services/mobileRelayClient', () => {
   const actual = jest.requireActual('../services/mobileRelayClient');
   return {
@@ -261,8 +250,6 @@ describe('GatewayProvider', () => {
     MockWebSocket.instances = [];
     (global as unknown as { WebSocket: typeof MockWebSocket }).WebSocket = MockWebSocket;
 
-    const thumbgateIap = jest.requireMock('../services/thumbgateIap');
-    thumbgateIap.syncThumbgateLeashEntitlement.mockResolvedValue(true);
     (captureThumbgateFeedback as jest.Mock).mockResolvedValue({ accepted: true });
 
     (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
@@ -674,8 +661,6 @@ describe('GatewayProvider', () => {
   });
 
   it('uses paired cloud relay without Wi-Fi WebSocket or Pro gating', async () => {
-    const thumbgateIap = jest.requireMock('../services/thumbgateIap');
-    thumbgateIap.syncThumbgateLeashEntitlement.mockResolvedValue(false);
     (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
       connectionMode: 'relay',
       cloudUrl: 'https://hermesmobile-cloud.fly.dev',
@@ -1178,15 +1163,8 @@ describe('GatewayProvider', () => {
     });
   });
 
-  it('skips chat output feedback capture when Leash is locked', async () => {
+  it('captures chat output feedback when old entitlement flags are false', async () => {
     (captureThumbgateFeedback as jest.Mock).mockClear();
-    __resetFreeLeashAllowanceForTests();
-    await refreshFreeLeashWeeklyState();
-    for (let i = 0; i < FREE_LEASH_APPROVALS_PER_WEEK; i += 1) {
-      await consumeFreeLeashApproval();
-    }
-    const thumbgateIap = jest.requireMock('../services/thumbgateIap');
-    thumbgateIap.syncThumbgateLeashEntitlement.mockResolvedValue(false);
     (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
       connectionMode: 'gateway',
       cloudUrl: 'https://hermesmobile-cloud.fly.dev',
@@ -1241,6 +1219,6 @@ describe('GatewayProvider', () => {
       fireEvent.press(getByTestId('submit-chat-output-up'));
     });
 
-    expect(captureThumbgateFeedback).not.toHaveBeenCalled();
+    expect(captureThumbgateFeedback).toHaveBeenCalled();
   });
 });

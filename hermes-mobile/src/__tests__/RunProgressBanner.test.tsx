@@ -260,7 +260,7 @@ describe('RunProgressBanner', () => {
 
   it('splits long connectivity failures so timer does not overlap text', () => {
     const detail =
-      "Your phone can't reach that local computer link. Join the same Wi‑Fi, add a tunnel URL in Settings, or use relay for approvals only.";
+      "Your phone can't reach that Mac connection. Join the same Wi‑Fi, add a tunnel URL in Settings, or use relay for approvals only.";
     const { getByTestId, getByText } = render(
       <RunProgressBanner
         progress={{

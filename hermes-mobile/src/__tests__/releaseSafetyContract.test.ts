@@ -608,7 +608,7 @@ describe('Android security audit (Jul 2026)', () => {
     expect(buildProps?.[1]?.android?.enableMinifyInReleaseBuilds).toBe(true);
     expect(buildProps?.[1]?.android?.enableShrinkResourcesInReleaseBuilds).toBe(true);
     const rules = String(buildProps?.[1]?.android?.extraProguardRules ?? '');
-    expect(rules).toContain('com.android.billingclient.api');
+    expect(rules).not.toContain('com.android.billingclient.api');
     expect(rules).toContain('com.google.mlkit');
     expect(rules).not.toContain('swmansion.reanimated');
     expect(rules).not.toContain('swmansion.gesturehandler');

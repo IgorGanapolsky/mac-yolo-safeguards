@@ -5,6 +5,10 @@ import type { RunProgressState } from '../types/chatDisplay';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
 import { displayableLlmModel, humanizeRunProgressDetail } from '../utils/runProgressDisplay';
 import { savedMacUnreachableStatus } from '../utils/macUnreachableCopy';
+import {
+  MAC_CONNECTION_GUIDANCE,
+  MAC_NOT_CONNECTED_LABEL,
+} from '../utils/gatewayConnection';
 
 type CodexCommandCenterProps = {
   connectionState: LeashConnectionState;
@@ -71,13 +75,9 @@ function connectionCopy(
     };
   }
   if (state === 'connected') {
-    const target =
-      !machineName || /^(computer|your computer|computer via usb)$/i.test(machineName.trim())
-        ? 'your computer'
-        : machineName.trim();
     return {
-      label: "Can't reach your Mac",
-      detail: `Hermes isn't reachable on ${target}`,
+      label: MAC_NOT_CONNECTED_LABEL,
+      detail: MAC_CONNECTION_GUIDANCE,
       color: colors.warning,
     };
   }
