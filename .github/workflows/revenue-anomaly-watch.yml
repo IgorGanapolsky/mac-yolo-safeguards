@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Restore previous check's state
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: .revenue-anomaly-state
           key: revenue-anomaly-state-${{ github.run_id }}
@@ -41,7 +41,7 @@ jobs:
         run: bash saas/revenue-anomaly-watchdog.sh
       - name: Save this check's state for the next run
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: .revenue-anomaly-state
           key: revenue-anomaly-state-${{ github.run_id }}
