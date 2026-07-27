@@ -2228,3 +2228,8 @@ Primary: local grepai isolated clone (not jbcontext). Daily LaunchAgent + sessio
   purely additive section right after "Multi-agent coordination" in AGENTS.md so future
   agents/sessions get this for free instead of each one re-deriving it. Verified additive-only
   (`git diff --stat`: +20/-0), no duplicate headings, code-fence count stays balanced.
+
+### T-IOS-STORE-VERSION-RAIL-20260726 (2026-07-27T03:45:00Z)
+- Owner: `codex-ios-version-rail` status: done
+- Files: `.github/workflows/store-release.yml`, `tests/test-ios-store-version-rail.js`, `plan.md`
+- Note: Removed the obsolete fail-open iOS 1.1 marketing-version command, derived release messaging from `hermes-mobile/app.json`, and made EAS read-back fail closed unless it reports the exact source app version. The 2026-07-27 build-only run proved the old command's flags were unsupported and ignored while `|| true` hid the failure; the produced artifact itself correctly reports appVersion 1.4/build 41 and was not submitted. Verification: 4/4 store-rail contract tests pass, workflow YAML parses, and release-safety is 7/7 suites (131 pass, 1 skip).
