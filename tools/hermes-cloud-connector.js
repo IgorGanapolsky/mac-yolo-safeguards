@@ -517,13 +517,13 @@ async function executeThreadOperation(config, operation) {
 async function claimAndExecuteThreadOperation(config) {
   const claimPath = '/api/device/thread-operations/claim';
   const bodyText = '{}';
-  const response = await fetch(`${config.controlPlaneUrl}${claimPath}`, {
+  const response = await safeFetch(`${config.controlPlaneUrl}${claimPath}`, {
     method: 'POST', headers: signedHeaders(config, 'POST', claimPath, bodyText), body: bodyText,
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    timeout: REQUEST_TIMEOUT_MS,
   });
   if (response.status === 204) return false;
   const claim = await response.json();
-  if (!response.ok) throw new Error(claim.error || `Chat operation claim failed (${response.status})`);
+  if (!response.ok) throw new Error(claim?.error || `Chat operation claim failed (${response.status})`);
   try {
     await executeThreadOperation(config, claim.operation);
     await signedPost(config, '/api/device/thread-operations/complete', {
@@ -548,9 +548,9 @@ async function cycle(config, options = {}) {
   }
   if (await claimAndExecuteThreadOperation(config)) return true;
   const bodyText = '{}';
-  const response = await fetch(`${config.controlPlaneUrl}/api/device/tasks/claim`, {
+  const response = await safeFetch(`${config.controlPlaneUrl}/api/device/tasks/claim`, {
     method: 'POST', headers: signedHeaders(config, 'POST', '/api/device/tasks/claim', bodyText), body: bodyText,
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    timeout: REQUEST_TIMEOUT_MS,
   });
   if (response.status === 204) return false;
   const claim = await response.json();
