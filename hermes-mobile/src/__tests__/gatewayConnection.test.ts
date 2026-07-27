@@ -51,7 +51,7 @@ describe('gatewayConnection', () => {
         connectionState: 'connected',
         macHttpOk: false,
       }),
-    ).toEqual({ label: 'Needs computer link', chatReachable: false });
+    ).toEqual({ label: "Can't reach your Mac", chatReachable: false });
   });
 
   it('needsPair wins over Connecting so unpaired relay never looks Tailscale-healthy', () => {
