@@ -1,4 +1,5 @@
 import NetInfo from '@react-native-community/netinfo';
+import { Platform } from 'react-native';
 import { parseSetupDeepLink } from '../utils/setupDeepLink';
 import {
   buildGatewayUrlFromLanIp,
@@ -28,6 +29,11 @@ import type { LanScanProgress, LanScanStage } from '../types/lanScan';
 
 const IPV4_RE = /^\d{1,3}(\.\d{1,3}){3}$/;
 const PROBE_TIMEOUT_MS = 1500;
+// Explicit pairing is a user action, not a background discovery probe. Existing Mac
+// pair servers can spend up to eight seconds refreshing their QR artifact before
+// returning pair.json, so the discovery deadline would otherwise discard a healthy
+// Tailscale/LAN computer before its one-time code arrives.
+export const EXPLICIT_PAIR_SETUP_TIMEOUT_MS = 12_000;
 export const PAIR_SERVER_PORT = 8765;
 // 48 concurrent subnet probes killed a real device. Sentry APPS-3S (release 1.5, iPad 6th
 // gen, iOS 17.7.6, 1.9 GiB RAM / 1.7 usable): `WatchdogTermination — the OS watchdog
@@ -35,9 +41,10 @@ export const PAIR_SERVER_PORT = 8765;
 // `GET http://192.168.68.x:8765/pair.json` breadcrumbs immediately before the kill. That
 // single issue is the whole reason release 1.5 sits at a 50% crash-free rate.
 //
-// Older/low-RAM devices cannot absorb 48 simultaneous sockets. 8 keeps a /24 sweep well
-// inside the watchdog budget; discovery is a few seconds slower and no longer fatal.
-const SUBNET_BATCH_SIZE = 8;
+// A full LAN sweep probes pair.json and /health concurrently for each host.
+// Four hosts therefore means at most eight live sockets.
+export const SUBNET_BATCH_SIZE = 4;
+export const SUBNET_PROBE_TIMEOUT_MS = 400;
 
 export type DiscoverLanOptions = {
   onProgress?: (progress: LanScanProgress) => void;
@@ -90,9 +97,12 @@ async function getPhoneLanIp(): Promise<string | null> {
   return raw.trim();
 }
 
-async function probeGatewayHealth(url: string): Promise<boolean> {
+async function probeGatewayHealth(
+  url: string,
+  timeoutMs = PROBE_TIMEOUT_MS,
+): Promise<boolean> {
   const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+  const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`${url}/health`, { signal: controller.signal });
     if (!res.ok) {
@@ -107,9 +117,12 @@ async function probeGatewayHealth(url: string): Promise<boolean> {
   }
 }
 
-async function fetchPairServerConfig(host: string): Promise<PairServerPayload | null> {
+async function fetchPairServerConfigUnlocked(
+  host: string,
+  timeoutMs = PROBE_TIMEOUT_MS,
+): Promise<PairServerPayload | null> {
   const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+  const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`http://${host}:${PAIR_SERVER_PORT}/pair.json`, {
       signal: controller.signal,
@@ -138,6 +151,13 @@ async function fetchPairServerConfig(host: string): Promise<PairServerPayload | 
   } finally {
     clearTimeout(id);
   }
+}
+
+async function fetchPairServerConfig(
+  host: string,
+  timeoutMs = PROBE_TIMEOUT_MS,
+): Promise<PairServerPayload | null> {
+  return fetchPairServerConfigUnlocked(host, timeoutMs);
 }
 
 export async function resolvePairServerMachineName(host: string): Promise<string | null> {
@@ -186,6 +206,31 @@ export async function resolvePairServerSetupParams(host: string): Promise<SetupD
   return parseSetupDeepLink(payload.deepLink);
 }
 
+/**
+ * Fetch immediately before consuming a setup code. Current pair servers retain
+ * every unexpired, unconsumed code, so an explicit user action must never queue
+ * behind the background subnet sweep. Bounded retries in the caller preserve
+ * compatibility with older single-code servers.
+ */
+export async function withFreshPairServerSetup<T>(
+  host: string,
+  consume: (setup: SetupDeepLinkParams) => Promise<T>,
+): Promise<T | null> {
+  const trimmedHost = host.trim();
+  if (!trimmedHost) {
+    return null;
+  }
+  const payload = await fetchPairServerConfigUnlocked(
+    trimmedHost,
+    EXPLICIT_PAIR_SETUP_TIMEOUT_MS,
+  );
+  if (!payload?.deepLink?.trim()) {
+    return null;
+  }
+  const setup = parseSetupDeepLink(payload.deepLink);
+  return setup ? consume(setup) : null;
+}
+
 function pairPayloadToGatewayUrl(payload: PairServerPayload): string | null {
   if (payload.deepLink) {
     const parsed = parseSetupDeepLink(payload.deepLink);
@@ -194,6 +239,26 @@ function pairPayloadToGatewayUrl(payload: PairServerPayload): string | null {
     }
   }
   return payload.gatewayUrl;
+}
+
+/**
+ * A Mac can advertise its Android-only adb-reverse route in pair.json while
+ * serving that document over LAN/Tailscale. On iOS, use the reachable pair
+ * server host for the gateway instead of persisting an impossible loopback.
+ */
+export function resolvePairServerGatewayUrl(
+  payload: PairServerPayload,
+  pairServerHost: string,
+  platformOS: string = Platform.OS,
+): string | null {
+  const advertised = pairPayloadToGatewayUrl(payload);
+  if (!advertised || platformOS !== 'ios' || !isLoopbackGatewayUrl(advertised)) {
+    return advertised;
+  }
+  if (isLoopbackHost(pairServerHost)) {
+    return null;
+  }
+  return buildGatewayUrlFromLanIp(pairServerHost);
 }
 
 function buildHostOrder(phoneIp: string, preferLanIp?: string | null): string[] {
@@ -224,9 +289,12 @@ function buildHostOrder(phoneIp: string, preferLanIp?: string | null): string[] 
   return hostNumbers.map((host) => `${a}.${b}.${c}.${host}`);
 }
 
-async function probeGatewayDetailed(url: string): Promise<DiscoveredGateway | null> {
+async function probeGatewayDetailed(
+  url: string,
+  timeoutMs = PROBE_TIMEOUT_MS,
+): Promise<DiscoveredGateway | null> {
   const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+  const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`${url}/health`, { signal: controller.signal });
     if (!res.ok) {
@@ -251,11 +319,19 @@ async function probeGatewayDetailed(url: string): Promise<DiscoveredGateway | nu
   }
 }
 
-function pairPayloadToDiscovered(payload: PairServerPayload): DiscoveredGateway | null {
-  const gatewayUrl = pairPayloadToGatewayUrl(payload);
+function pairPayloadToDiscovered(
+  payload: PairServerPayload,
+  pairServerHost?: string,
+): DiscoveredGateway | null {
+  const gatewayUrl = pairServerHost
+    ? resolvePairServerGatewayUrl(payload, pairServerHost)
+    : pairPayloadToGatewayUrl(payload);
   if (!gatewayUrl) {
     return null;
   }
+  const pairingSetup = payload.deepLink
+    ? parseSetupDeepLink(payload.deepLink) ?? undefined
+    : undefined;
   const httpBase = normalizeGatewayUrl(gatewayUrl).httpBase;
   // Pair servers sometimes stamp the *serving* Mac's LAN IP onto another machine's
   // Tailscale pair.json (e.g. mini URL + MacBook LAN IP). That poisoned localIp merges
@@ -269,6 +345,7 @@ function pairPayloadToDiscovered(payload: PairServerPayload): DiscoveredGateway 
     hostname: payload.hostname,
     localIp,
     label: payload.hostname?.replace(/\.local$/i, ''),
+    pairingSetup,
   };
 }
 
@@ -325,6 +402,7 @@ export function dedupeDiscoveredGatewaysByMachine(
       hostname: winner.hostname || loser.hostname,
       localIp: winner.localIp || loser.localIp,
       label: winner.label || loser.label,
+      pairingSetup: winner.pairingSetup || loser.pairingSetup,
     });
   }
   return Array.from(map.values());
@@ -407,6 +485,7 @@ function mergeDiscovered(map: Map<string, DiscoveredGateway>, item: DiscoveredGa
     hostname: item.hostname || existing.hostname,
     localIp: item.localIp || existing.localIp,
     label: item.label || existing.label,
+    pairingSetup: item.pairingSetup || existing.pairingSetup,
   });
 }
 
@@ -415,7 +494,7 @@ function pairServerSweepHosts(
   preferLanIp?: string | null,
   tailnetPairServerHosts?: string[],
 ): string[] {
-  const baseHosts = ['127.0.0.1', 'localhost'];
+  const baseHosts = Platform.OS === 'ios' ? [] : ['127.0.0.1', 'localhost'];
   const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
   const tailnetHosts = mergeTailnetProbeHosts(tailnetPairServerHosts ?? []);
   return Array.from(new Set([...baseHosts, ...subnetHosts, ...tailnetHosts]));
@@ -428,10 +507,15 @@ async function sweepTailnetGatewayHealth(
   if (hosts.length === 0) {
     return [];
   }
-  const probes = await Promise.all(
-    hosts.map(async (host) => probeGatewayDetailed(buildTailscaleGatewayUrl(host))),
-  );
-  return probes.filter((item): item is DiscoveredGateway => item != null);
+  const gateways: DiscoveredGateway[] = [];
+  for (let start = 0; start < hosts.length; start += SUBNET_BATCH_SIZE) {
+    const batch = hosts.slice(start, start + SUBNET_BATCH_SIZE);
+    const probes = await Promise.all(
+      batch.map(async (host) => probeGatewayDetailed(buildTailscaleGatewayUrl(host))),
+    );
+    gateways.push(...probes.filter((item): item is DiscoveredGateway => item != null));
+  }
+  return gateways;
 }
 
 /** USB loopback + optional tailnet :8765 sweep — seeds tailnetProbeHosts on fresh install. */
@@ -452,7 +536,7 @@ export async function bootstrapTailnetProbeHostsFromPairServers(
         payload.tailnetProbeHosts,
       );
     }
-    mergeDiscovered(map, pairPayloadToDiscovered(payload));
+    mergeDiscovered(map, pairPayloadToDiscovered(payload, host));
   }
   const phoneTailscaleIp = await getPhoneTailscaleIpv4();
   tailnetProbeHosts = filterPhoneTailscaleSelfHosts(tailnetProbeHosts, phoneTailscaleIp);
@@ -467,7 +551,12 @@ export async function bootstrapTailnetProbeHostsFromPairServers(
   };
 }
 
-async function sweepAllPairServers(
+/**
+ * Sweep pair.json and /health together. A single host batch bounds both memory
+ * pressure and elapsed time: ceil(256 / 4) * 400 ms is about 26 seconds in the
+ * all-timeout case, instead of two sequential 48-second passes.
+ */
+async function sweepAllPairServersAndGateways(
   phoneIp: string,
   preferLanIp?: string | null,
   options?: DiscoverLanOptions,
@@ -475,32 +564,36 @@ async function sweepAllPairServers(
   const hosts = pairServerSweepHosts(phoneIp, preferLanIp, options?.tailnetPairServerHosts);
   const map = new Map<string, DiscoveredGateway>();
   let tailnetProbeHosts: string[] = [];
-  if (hosts.length === 0) {
-    return { gateways: [], tailnetProbeHosts: [] };
-  }
 
   for (let start = 0; start < hosts.length; start += SUBNET_BATCH_SIZE) {
     const batch = hosts.slice(start, start + SUBNET_BATCH_SIZE);
-    const probes = batch.map(async (host) => {
-      const payload = await fetchPairServerConfig(host);
-      return payload;
-    });
-    const results = await Promise.all(probes);
-    for (const payload of results) {
-      if (!payload) {
-        continue;
-      }
-      if (payload.tailnetProbeHosts?.length) {
+    const results = await Promise.all(
+      batch.map(async (host) => {
+        const [payload, gateway] = await Promise.all([
+          fetchPairServerConfig(host, SUBNET_PROBE_TIMEOUT_MS),
+          probeGatewayDetailed(
+            buildGatewayUrlFromLanIp(host),
+            SUBNET_PROBE_TIMEOUT_MS,
+          ),
+        ]);
+        return { host, payload, gateway };
+      }),
+    );
+
+    for (const { host, payload, gateway } of results) {
+      if (payload?.tailnetProbeHosts?.length) {
         tailnetProbeHosts = mergeTailnetProbeHosts(
           tailnetProbeHosts,
           payload.tailnetProbeHosts,
         );
       }
-      mergeDiscovered(map, pairPayloadToDiscovered(payload));
+      mergeDiscovered(map, payload ? pairPayloadToDiscovered(payload, host) : null);
+      mergeDiscovered(map, gateway);
     }
+
     reportLanScanProgress(
       options?.onProgress,
-      'pair_server',
+      'gateway_health',
       Math.min(start + batch.length, hosts.length),
       hosts.length,
       Array.from(map.values()),
@@ -508,42 +601,6 @@ async function sweepAllPairServers(
   }
 
   return { gateways: Array.from(map.values()), tailnetProbeHosts };
-}
-
-async function sweepAllGateways(
-  phoneIp: string,
-  preferLanIp?: string | null,
-  options?: DiscoverLanOptions,
-  priorGateways: DiscoveredGateway[] = [],
-): Promise<DiscoveredGateway[]> {
-  const baseHosts = ['127.0.0.1', 'localhost'];
-  const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
-  const hosts = [...baseHosts, ...subnetHosts];
-  const map = new Map<string, DiscoveredGateway>();
-  if (hosts.length === 0) {
-    return [];
-  }
-
-  for (let start = 0; start < hosts.length; start += SUBNET_BATCH_SIZE) {
-    const batch = hosts.slice(start, start + SUBNET_BATCH_SIZE);
-    const probes = batch.map(async (host) => {
-      const url = buildGatewayUrlFromLanIp(host);
-      return probeGatewayDetailed(url);
-    });
-    const results = await Promise.all(probes);
-    for (const item of results) {
-      mergeDiscovered(map, item);
-    }
-    reportLanScanProgress(
-      options?.onProgress,
-      'gateway_health',
-      Math.min(start + batch.length, hosts.length),
-      hosts.length,
-      [...priorGateways, ...Array.from(map.values())],
-    );
-  }
-
-  return Array.from(map.values());
 }
 
 /** Find every Hermes Mac on the LAN (pair server + gateway health sweep). */
@@ -559,22 +616,17 @@ export async function discoverAllGatewaysOnLan(
   reportLanScanProgress(options?.onProgress, 'pair_server', 0, hosts.length, []);
 
   const map = new Map<string, DiscoveredGateway>();
-  const fromPair = await sweepAllPairServers(phoneIp ?? '', preferLanIp, options);
-  for (const item of fromPair.gateways) {
-    mergeDiscovered(map, item);
-  }
-  const fromHealth = await sweepAllGateways(
+  const fromSweep = await sweepAllPairServersAndGateways(
     phoneIp ?? '',
     preferLanIp,
     options,
-    Array.from(map.values()),
   );
-  for (const item of fromHealth) {
+  for (const item of fromSweep.gateways) {
     mergeDiscovered(map, item);
   }
 
-  if (fromPair.tailnetProbeHosts.length > 0) {
-    for (const item of await sweepTailnetGatewayHealth(fromPair.tailnetProbeHosts)) {
+  if (fromSweep.tailnetProbeHosts.length > 0) {
+    for (const item of await sweepTailnetGatewayHealth(fromSweep.tailnetProbeHosts)) {
       mergeDiscovered(map, item);
     }
   }
@@ -600,7 +652,7 @@ export async function discoverAllGatewaysOnLan(
   return {
     gateways: list,
     tailnetProbeHosts: filterPhoneTailscaleSelfHosts(
-      fromPair.tailnetProbeHosts,
+      fromSweep.tailnetProbeHosts,
       phoneTailscaleIp,
     ),
   };
@@ -610,7 +662,7 @@ async function sweepSubnetForPairServer(
   phoneIp: string,
   preferLanIp?: string | null,
 ): Promise<string | null> {
-  const baseHosts = ['127.0.0.1', 'localhost'];
+  const baseHosts = Platform.OS === 'ios' ? [] : ['127.0.0.1', 'localhost'];
   const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
   const hosts = [...baseHosts, ...subnetHosts];
   if (hosts.length === 0) {
@@ -621,7 +673,7 @@ async function sweepSubnetForPairServer(
     const batch = hosts.slice(start, start + SUBNET_BATCH_SIZE);
     const probes = batch.map(async (host) => {
       const payload = await fetchPairServerConfig(host);
-      return payload ? pairPayloadToGatewayUrl(payload) : null;
+      return payload ? resolvePairServerGatewayUrl(payload, host) : null;
     });
     const results = await Promise.all(probes);
     const found = results.find((url) => url);
@@ -645,6 +697,9 @@ export async function discoverGatewayViaPairServer(
 
 /** Probe adb-reverse USB loopback — reachable only when phone is cabled to a Mac with reverse active. */
 export async function probeLiveUsbGateway(): Promise<DiscoveredGateway | null> {
+  if (Platform.OS !== 'android') {
+    return null;
+  }
   return probeGatewayDetailed(USB_LOOPBACK_GATEWAY_URL);
 }
 
@@ -655,7 +710,7 @@ export async function discoverGatewayOnPhoneSubnet(
   preferLanIp?: string | null,
 ): Promise<string | null> {
   const phoneIp = await getPhoneLanIp();
-  const baseHosts = ['127.0.0.1', 'localhost'];
+  const baseHosts = Platform.OS === 'ios' ? [] : ['127.0.0.1', 'localhost'];
   const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
   const hosts = [...baseHosts, ...subnetHosts];
   if (hosts.length === 0) {
@@ -666,7 +721,7 @@ export async function discoverGatewayOnPhoneSubnet(
     const batch = hosts.slice(start, start + SUBNET_BATCH_SIZE);
     const probes = batch.map(async (host) => {
       const url = buildGatewayUrlFromLanIp(host);
-      const ok = await probeGatewayHealth(url);
+      const ok = await probeGatewayHealth(url, SUBNET_PROBE_TIMEOUT_MS);
       return ok ? url : null;
     });
     const results = await Promise.all(probes);

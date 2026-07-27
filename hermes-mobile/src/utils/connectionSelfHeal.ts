@@ -51,7 +51,9 @@ export function savedProfileFallbackUrls(input: {
     if (isTailscaleGatewayUrl(url)) {
       tailscale.push(url);
     } else if (isLoopbackGatewayUrl(url)) {
-      loopback.push(url);
+      if (Platform.OS === 'android') {
+        loopback.push(url);
+      }
     } else if (isPrivateLanGatewayUrl(url)) {
       lan.push(url);
     } else {
@@ -355,16 +357,29 @@ export async function resolveApiKeyForGatewayProbe(input: {
   profiles: GatewayProfile[];
   activeProfileId: string | null | undefined;
   fallbackKey: string;
+  preferFallbackForActiveMachine?: boolean;
   resolveProfileKey: (profileId: string) => Promise<string | null>;
 }): Promise<string> {
   const matched = findProfileForGatewayUrl(input.profiles, input.gatewayUrl);
+  const activeId = input.activeProfileId?.trim();
+  const active = activeId
+    ? input.profiles.find((profile) => profile.id === activeId)
+    : undefined;
+  if (
+    input.preferFallbackForActiveMachine &&
+    input.fallbackKey.trim() &&
+    matched &&
+    activeId &&
+    (matched.id === activeId || (active && profilesShareMachine(active, matched)))
+  ) {
+    return input.fallbackKey.trim();
+  }
   if (matched) {
     const matchedKey = await input.resolveProfileKey(matched.id);
     if (matchedKey) {
       return matchedKey;
     }
   }
-  const activeId = input.activeProfileId?.trim();
   if (activeId) {
     const activeKey = await input.resolveProfileKey(activeId);
     if (activeKey) {

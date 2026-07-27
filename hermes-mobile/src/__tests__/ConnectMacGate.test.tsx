@@ -326,6 +326,45 @@ describe('ConnectMacGate', () => {
     expect(retryGatewayBootstrap).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps first-run onboarding open after catalog results arrive until the user selects one', () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    const profile = {
+      id: 'mac-mini',
+      label: 'Mac mini',
+      gatewayUrl: 'http://192.168.1.50:8642',
+      localIp: '192.168.1.50',
+      addedAt: '2026-07-27T00:00:00.000Z',
+    };
+    mockUseGateway.mockReturnValue(
+      gateway({
+        profileScanning: true,
+        gatewayProfiles: [],
+        activeGatewayProfile: null,
+        effectiveGatewayUrl: '',
+      }),
+    );
+    const view = render(<ConnectMacGate />);
+
+    mockUseGateway.mockReturnValue(
+      gateway({
+        profileScanning: false,
+        gatewayProfiles: [profile],
+        activeGatewayProfile: null,
+        effectiveGatewayUrl: '',
+        settings: {
+          ...DEFAULT_GATEWAY_SETTINGS,
+          gatewayUrl: '',
+          demoMode: false,
+        },
+      }),
+    );
+    view.rerender(<ConnectMacGate />);
+
+    expect(view.getByTestId('connect-mac-gate')).toBeTruthy();
+    expect(view.getByTestId('gateway-profile-list')).toBeTruthy();
+    expect(view.getByTestId('select-gateway-profile-mac-mini')).toBeTruthy();
+  });
+
   it('uses cellular one-liner when not on Wi-Fi', () => {
     delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
     mockUseGateway.mockReturnValue(gateway({ wifiConnected: false }));

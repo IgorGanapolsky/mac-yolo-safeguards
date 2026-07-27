@@ -721,5 +721,94 @@ else
   bad "adb/open path mints a fresh display-TTL code each time"
 fi
 
+# Pair discovery/watchdog JSON must not share the QR renderer's process latency.
+# The fake npx reproduces the former 8s event-loop block without using the network.
+cat > "$BIN/npx" <<'MOCK'
+#!/usr/bin/env bash
+touch "$QR_MARKER"
+sleep 6
+exit 1
+MOCK
+chmod +x "$BIN/npx"
+QR_MARKER="$TMP/npx-was-called"
+if HOME="$TMP/home" PATH="$BIN:$PATH" QR_MARKER="$QR_MARKER" \
+  PAIR_SCRIPT="$REPO/tools/hermes-mobile-pair.js" node <<'NODE'
+const fs = require('fs');
+const http = require('http');
+const os = require('os');
+const path = require('path');
+
+const outDir = path.join(
+  os.homedir(),
+  'Library',
+  'Application Support',
+  'mac-yolo-safeguards',
+  'hermes-mobile-pair',
+);
+fs.mkdirSync(outDir, { recursive: true });
+fs.writeFileSync(
+  path.join(outDir, 'pair-seed.json'),
+  JSON.stringify({
+    gatewayUrl: 'http://100.87.85.85:8642',
+    apiKey: 'isolated-test-key',
+    macName: 'Latency-Test-Mac',
+    localIp: '192.168.68.60',
+    pairServer: 'http://100.87.85.85:8765',
+    pageUrl: 'http://100.87.85.85:8765/pair',
+  }),
+);
+
+const { createPairServer } = require(process.env.PAIR_SCRIPT);
+const server = createPairServer('192.168.68.60');
+const fail = (message) => {
+  process.stderr.write(`${message}\n`);
+  server.close(() => process.exit(1));
+};
+const deadline = setTimeout(() => fail('pair.json exceeded 5s watchdog deadline'), 5_000);
+
+server.listen(0, '127.0.0.1', () => {
+  const startedAt = Date.now();
+  const { port } = server.address();
+  http
+    .get(`http://127.0.0.1:${port}/pair.json`, (response) => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk) => {
+        body += chunk;
+      });
+      response.on('end', () => {
+        clearTimeout(deadline);
+        const elapsedMs = Date.now() - startedAt;
+        let payload;
+        try {
+          payload = JSON.parse(body);
+        } catch {
+          fail('pair.json did not return JSON');
+          return;
+        }
+        if (response.statusCode !== 200 || !payload.deepLink?.includes('pairCode=')) {
+          fail(`pair.json response invalid (${response.statusCode})`);
+          return;
+        }
+        if (elapsedMs >= 1_500) {
+          fail(`pair.json took ${elapsedMs}ms`);
+          return;
+        }
+        if (fs.existsSync(process.env.QR_MARKER)) {
+          fail('pair.json invoked npx QR generation');
+          return;
+        }
+        server.close(() => process.exit(0));
+      });
+    })
+    .on('error', (error) => fail(error.message));
+});
+NODE
+then
+  ok "pair.json stays below 1.5s and never invokes QR tooling"
+else
+  bad "pair.json stays below 1.5s and never invokes QR tooling"
+fi
+
 printf "\nResults: %s passed, %s failed\n" "$pass" "$fail"
 [[ "$fail" -eq 0 ]]

@@ -69,7 +69,11 @@ type ChatConnectionPanelProps = {
   tailscaleDiscoveryProbing?: boolean;
   tailnetProbeHostCount?: number;
   onAddTailscaleComputer?: (discovery: DiscoveredGateway) => void;
-  onAddProfile?: (label: string, gatewayUrl: string) => Promise<void>;
+  onAddProfile?: (
+    label: string,
+    gatewayUrl: string,
+    verifiedApiKey: string | null,
+  ) => Promise<void>;
   liveUsb?: LiveUsbPickerInput | null;
   testID?: string;
 };

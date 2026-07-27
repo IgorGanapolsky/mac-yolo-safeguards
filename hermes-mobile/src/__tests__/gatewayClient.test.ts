@@ -162,6 +162,29 @@ describe('fetchGatewayHealth', () => {
     expect(health.errorMessage).toBe(GATEWAY_WRONG_KEY_MESSAGE);
   });
 
+  it('does not mislabel a transient auth-probe timeout as wrong credentials', async () => {
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/api/sessions')) {
+        return Promise.reject(new Error('network timeout'));
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          status: 'ok',
+          gateway_state: 'running',
+          hostname: 'mac',
+        }),
+      });
+    });
+
+    const health = await fetchGatewayHealth('http://192.168.68.60:8642', 'valid-key');
+
+    expect(health.level).toBe('red');
+    expect(health.directGatewayReachable).toBe(false);
+    expect(health.authMismatch).toBeUndefined();
+    expect(health.errorMessage).not.toBe(GATEWAY_WRONG_KEY_MESSAGE);
+  });
+
   it('returns green for hermes-agent /health when auth probe also passes', async () => {
     (global.fetch as jest.Mock).mockImplementation((url: string) => {
       if (url.includes('/api/sessions')) {
@@ -206,6 +229,41 @@ describe('fetchGatewayHealth', () => {
     const health = await fetchGatewayHealth('http://127.0.0.1:8642');
     expect(health.level).toBe('red');
     expect(health.errorMessage).toContain('503');
+  });
+
+  it('uses one wall-clock timeout across detailed and fallback health requests', async () => {
+    jest.useFakeTimers();
+    try {
+      (global.fetch as jest.Mock)
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              setTimeout(() => resolve({ ok: false, status: 404 }), 70);
+            }),
+        )
+        .mockImplementationOnce(
+          (_url: string, options?: { signal?: AbortSignal }) =>
+            new Promise((_resolve, reject) => {
+              options?.signal?.addEventListener('abort', () =>
+                reject(new Error('aborted')),
+              );
+            }),
+        );
+
+      const pending = fetchGatewayHealth(
+        'http://100.87.85.85:8642',
+        'sk-key',
+        100,
+      );
+      await jest.advanceTimersByTimeAsync(101);
+      const health = await pending;
+
+      expect(health.level).toBe('red');
+      expect(health.errorMessage).toMatch(/abort|timed out/i);
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 
