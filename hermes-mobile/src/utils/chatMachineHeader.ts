@@ -120,9 +120,32 @@ export function isActiveProfileSwitchInFlight(
   return profileGatewayUrlKey(activeProfile.gatewayUrl) !== profileGatewayUrlKey(gatewayUrl);
 }
 
+/**
+ * True when a string is an address, not a human computer name.
+ * Covers bare CGNAT/LAN IPv4 and "IPv4:port" titles that discovery sometimes
+ * persisted as the profile label — those must never win over live
+ * /health.hostname (Connected header showed the endpoint instead of the Mac).
+ */
+function isAddressShapedMachineName(name: string): boolean {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return false;
+  }
+  // Bare IPv4 or IPv4:port
+  if (/^\d{1,3}(\.\d{1,3}){3}(:\d+)?$/.test(trimmed)) {
+    return true;
+  }
+  // http(s)://host:port leftovers
+  if (/^https?:\/\//i.test(trimmed)) {
+    return true;
+  }
+  return false;
+}
+
 function isUnresolvedMachineName(name: string): boolean {
   return (
     isGenericMachineLabel(name) ||
+    isAddressShapedMachineName(name) ||
     name === 'computer' ||
     isTailnetRouteLabel(name) ||
     /^(http|https)$/i.test(name)
@@ -240,8 +263,10 @@ export function resolveMachineDisplayName(
     return 'Your computer';
   }
 
-  // PRODUCT LAW (2026-07-24 Connected Tailscale): never show "Tailscale <CGNAT-IP>" when
-  // live green|amber /health.hostname is available (prefer health → persisted hostname).
+  // PRODUCT LAW (2026-07-24 / tightened 2026-07-25 Connected Tailscale):
+  // Live green|amber /health.hostname always beats IP-shaped profile titles
+  // (bare CGNAT/LAN IPv4, IPv4:port, "Tailscale <CGNAT-IP>"). Transport chip
+  // already says Tailscale — the name slot is for the Mac.
   if (
     isTailscaleGatewayUrl(gatewayUrl) &&
     fromHealth &&
@@ -249,7 +274,8 @@ export function resolveMachineDisplayName(
     !health?.authMismatch &&
     (health?.level === 'green' || health?.level === 'amber')
   ) {
-    if (!activeProfile || isUnresolvedMachineName(profileDisplayName(activeProfile))) {
+    const profileName = activeProfile ? profileDisplayName(activeProfile) : '';
+    if (!activeProfile || isUnresolvedMachineName(profileName)) {
       return fromHealth;
     }
   }
@@ -273,14 +299,9 @@ export function resolveMachineDisplayName(
     name = fromHealth;
   }
 
-  // PRODUCT LAW (2026-07-24): never title a Tailscale Mac as "Tailscale <CGNAT-IP>".
-  // Transport badge already says Tailscale; IP is not a machine name. Covers Connected
-  // green|amber /health that omitted hostname (main preferred hostname only when present).
-  if (
-    isTailscaleGatewayUrl(gatewayUrl) &&
-    isGenericMachineLabel(name) &&
-    /^tailscale \d{1,3}(\.\d{1,3}){3}$/i.test(name.trim())
-  ) {
+  // PRODUCT LAW (2026-07-24 / 2026-07-25): never title a Tailscale Mac as an address.
+  // Transport badge already says Tailscale; IP/IP:port is not a machine name.
+  if (isTailscaleGatewayUrl(gatewayUrl) && isUnresolvedMachineName(name)) {
     name = 'Your computer';
   }
 

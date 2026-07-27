@@ -1,42 +1,35 @@
-THIS ANDROID LISTING IS A PAID DOWNLOAD ($4.99 once)
+Hermes AI Agent Leash is the paid Android remote control for a Hermes AI agent running on your own Mac, Windows, or Linux computer. Chat from your phone, see honest connection and run status, and approve or deny risky tools before they execute.
 
-Hermes Mobile: AI Agent is the pay-upfront Android download of the phone control plane for a Hermes AI agent on your own Mac, Linux, or Windows computer — not on-device phone AI. Chat with your agent, see honest connection state, and approve or deny risky commands before they execute.
+This is a desktop AI agent controller, not an on-device phone chatbot. Your agent and API keys stay on the computer you operate.
 
-Package com.iganapolsky.hermesmobile.paid is the paid-upfront listing. The free package com.iganapolsky.hermesmobile remains available with an optional $4.99 once in-app unlock for Leash / Pro features. Same product family, same publisher (Igor Ganapolsky).
-
-WHAT YOU GET WITH THIS PAID DOWNLOAD
-• Live streaming chat with Hermes on your Mac
-• Honest connection and run status (no false green “Connected”)
-• QR and Home Wi‑Fi pairing — no Hermes Mobile cloud account
-• Saved computer profiles for Mac, Linux, and Windows
-• Leash tool approvals, standing safety rules, and ThumbGate feedback unlocked with this paid download
-
-LEASH SAFETY
+CONTROL YOUR HERMES AI AGENT
+• Stream live chat with the agent on your computer
 • Approve or deny blocked tool calls from your phone
 • View and edit standing allow or block safety rules
 • Manage persistent safety policies across sessions
 • Capture ThumbGate feedback for assistant output and command decisions
 
+REMOTE AI AGENT ACCESS
+• Pair your computer with a QR code
+• Connect over Home Wi‑Fi
+• Use Tailscale or your configured tunnel for remote access
+• Save computer profiles for Mac, Windows, and Linux
+• See clear connected, reconnecting, stale, and unavailable states
+
 FOR AI CODING AGENT OPERATORS
-• Cursor, Claude Code, ChatGPT/Codex, Gemini CLI, Copilot, Windsurf, OpenClaw, Replit Agent — supervise Hermes on your machine from your phone
-• Your API keys stay on the computer that runs Hermes
+Hermes Mobile provides a separate phone control surface for developers supervising AI coding assistants and self-hosted AI agents on their own computers. It helps you keep the executing machine visible while you review agent progress and approve AI tools.
 
-BUILT FOR REAL CONNECTIONS
-• Home Wi‑Fi for local access
-• Tailscale or a configured tunnel for remote access
-• Clear reconnecting, stale, and unavailable states
+PAID-UPFRONT APP
+This package is the paid Hermes Mobile download. There is no free Hermes Mobile package currently published on Google Play.
 
-SECURITY
+PRIVACY AND SECURITY
 • Camera access is used only to scan pairing QR codes
 • Optional product analytics can be disabled in Settings
-• No ads and no IDFA tracking
+• Chat and API credentials remain on the computer running Hermes
 
-Requires a computer running a compatible Hermes setup. Remote access requires your own network, Tailscale, tunnel, or relay setup.
-
-Looking for “Hermes Agent”? That is a different app (on-device Android AI by Hen Works). Hermes Mobile controls desktop agents on Mac, Linux, or Windows.
+Requires a computer running a compatible Hermes setup. Remote access requires your own network, Tailscale, tunnel, or relay configuration.
 
 Hermes Mobile is independent and is not affiliated with Nous Research, Anthropic, OpenAI, Google, Replit, GitHub, Cursor, Windsurf, or OpenClaw.
 
-Source: github.com/IgorGanapolsky/mac-yolo-safeguards
+Source and setup: github.com/IgorGanapolsky/mac-yolo-safeguards
 Publisher: Igor Ganapolsky
-iPhone: live on the App Store as “Hermes Mobile: AI Agent”.
