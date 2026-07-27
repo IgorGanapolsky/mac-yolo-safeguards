@@ -1,0 +1,41 @@
+name: Release health
+
+# Sentry APPS-3S — a FATAL WatchdogTermination at a 50% crash-free rate on release 1.5 — sat
+# unnoticed for two days. Sentry had the data; nothing evaluated it and nobody was paged.
+# This job closes that loop.
+on:
+  schedule:
+    - cron: '15 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      min_crash_free:
+        description: 'Minimum crash-free percentage'
+        required: false
+        default: '95'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-health
+  cancel-in-progress: false
+
+jobs:
+  crash-free-rate:
+    name: Crash-free rate per release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+
+      - name: Gate unit tests (pure decision logic)
+        run: node tests/test-release-health-gate.js
+
+      - name: Check crash-free rate for shipped releases
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          MIN_CRASH_FREE: ${{ github.event.inputs.min_crash_free || '95' }}
+        run: node scripts/check-release-health.js
