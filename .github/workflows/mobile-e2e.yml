@@ -93,6 +93,9 @@ jobs:
     timeout-minutes: 45
     env:
       SENTRY_DISABLE_AUTO_UPLOAD: "true"
+      HERMES_ANDROID_STORE_SKU: paid
+      HERMES_MOBILE_ANDROID_PACKAGE: com.iganapolsky.hermesmobile.paid
+      EXPO_PUBLIC_ANDROID_PAID_DOWNLOAD: "1"
     defaults:
       run:
         working-directory: hermes-mobile
@@ -222,9 +225,13 @@ jobs:
           emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none -camera-front none
           script: |
+            node scripts/verify-apk-package.cjs android/app/build/outputs/apk/debug/app-debug.apk
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell pm path "$HERMES_MOBILE_ANDROID_PACKAGE"
             export PATH="$HOME/.maestro/bin:$PATH"
-            maestro test .maestro/ship-guard.yaml
+            device_id="$(adb devices | awk 'NR > 1 && $2 == "device" { print $1; exit }')"
+            test -n "$device_id"
+            bash scripts/run-maestro-for-app.sh .maestro/ship-guard.yaml -p android --udid "$device_id"
 
       - name: Upload Maestro artifacts on failure
         if: failure()
@@ -245,6 +252,9 @@ jobs:
     timeout-minutes: 45
     env:
       SENTRY_DISABLE_AUTO_UPLOAD: "true"
+      HERMES_ANDROID_STORE_SKU: paid
+      HERMES_MOBILE_ANDROID_PACKAGE: com.iganapolsky.hermesmobile.paid
+      EXPO_PUBLIC_ANDROID_PAID_DOWNLOAD: "1"
     defaults:
       run:
         working-directory: hermes-mobile
@@ -363,9 +373,13 @@ jobs:
           emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none -camera-front none
           script: |
+            node scripts/verify-apk-package.cjs android/app/build/outputs/apk/debug/app-debug.apk
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell pm path "$HERMES_MOBILE_ANDROID_PACKAGE"
             export PATH="$HOME/.maestro/bin:$PATH"
-            maestro test .maestro/stranger-cold-start.yaml
+            device_id="$(adb devices | awk 'NR > 1 && $2 == "device" { print $1; exit }')"
+            test -n "$device_id"
+            bash scripts/run-maestro-for-app.sh .maestro/stranger-cold-start.yaml -p android --udid "$device_id"
 
       - name: Upload stranger Maestro artifacts on failure
         if: failure()

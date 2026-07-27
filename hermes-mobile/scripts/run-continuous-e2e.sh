@@ -12,6 +12,10 @@ HERMES_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=maestro-env.sh
 source "$SCRIPT_DIR/maestro-env.sh"
 
+# Real-user Android verification follows the paid Play package. A caller may
+# override this only for an explicit legacy migration run.
+export HERMES_MOBILE_ANDROID_PACKAGE="${HERMES_MOBILE_ANDROID_PACKAGE:-com.iganapolsky.hermesmobile.paid}"
+
 MODE="--once"
 INTERVAL="${HERMES_E2E_INTERVAL_SEC:-900}"
 WATCH_DEBOUNCE="${HERMES_E2E_WATCH_DEBOUNCE_SEC:-45}"
