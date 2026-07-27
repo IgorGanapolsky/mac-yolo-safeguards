@@ -337,6 +337,13 @@ export default function DashboardClient() {
     const timer = window.setTimeout(() => setNotice("Machine found. Verify its name, then approve the prefilled code."), 0);
     return () => window.clearTimeout(timer);
   }, [pairCode, user]);
+  const scrollPaneRef = useRef<HTMLDivElement>(null);
+  const scrollToBottom = useCallback(() => {
+    if (scrollPaneRef.current) {
+      scrollPaneRef.current.scrollTop = scrollPaneRef.current.scrollHeight;
+    }
+  }, []);
+
   const visibleThreads = useMemo(() => orderThreadsForDisplay(threads, threadSortOrder), [threads, threadSortOrder]);
   const activeTasks = useMemo(() => tasks.filter((task) => !terminal.has(task.status)), [tasks]);
   const visibleTasks = useMemo(() => {
@@ -346,8 +353,12 @@ export default function DashboardClient() {
     } else if (taskFilter === "unrated") {
       list = list.filter((task) => task.status === "completed" && task.result && !feedback[task.id]);
     }
-    return list;
+    return [...list].sort((left, right) => left.createdAt - right.createdAt);
   }, [selectedThread, tasks, taskFilter, feedback]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [tasks.length, selectedThread, threadDetails, scrollToBottom]);
   const onlineDevices = devices.filter((device) => device.online);
   const p95CompletionLatency = useMemo(() => {
     const durations = tasks
@@ -691,7 +702,7 @@ export default function DashboardClient() {
         <div className="dashboard-grid">
           <section className="panel task-panel" id="hermes-console">
             <div className="panel-heading"><div><p className="eyebrow">THREAD CONSOLE</p><h2>Continue the work</h2></div><span>{selectedThread ? `${threadDetails?.snapshot.length ?? 0} synced messages` : `${visibleTasks.length} tasks`}</span></div>
-            <div className="hermes-scroll-pane">
+            <div className="hermes-scroll-pane" ref={scrollPaneRef}>
             {selectedThread && <div className="conversation-history">
               {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : <div className="conversation-empty">This thread has no cloud snapshot yet. Keep the paired Hermes connector online to sync it.</div>}
               {threadDetails?.tasks.flatMap((task, index) => [
