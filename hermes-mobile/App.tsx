@@ -67,7 +67,6 @@ import { useKeyboardInset } from './src/hooks/useKeyboardInset';
 import { isDemoModeAllowed } from './src/utils/demoModePolicy';
 import { LEASH_TAB_LABEL } from './src/constants/monetization';
 import { formatPendingApprovalBadge } from './src/utils/pendingApprovalsCap';
-import { refreshFreeLeashWeeklyState } from './src/utils/freeLeashAllowance';
 import { syncLeashEntitlementSnapshot } from './src/utils/thumbgateLeash';
 import { shouldCollapseTabBarForKeyboard } from './src/utils/tabBarKeyboardPolicy';
 import { colors } from './src/theme/colors';
@@ -358,7 +357,6 @@ function HermesAppShell() {
     if (isLoaded) {
       void SplashScreen.hideAsync();
       syncLeashEntitlementSnapshot(settings);
-      void refreshFreeLeashWeeklyState();
     }
   }, [isLoaded, settings]);
 

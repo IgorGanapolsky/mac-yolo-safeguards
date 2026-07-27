@@ -270,7 +270,7 @@ export default function SettingsScreen() {
       if (!demoMode) {
         Alert.alert(
           'Auto-connect failed',
-          err instanceof Error ? err.message : 'Could not reach a direct computer link.',
+          err instanceof Error ? err.message : 'Could not reach your Mac directly.',
         );
       }
     } finally {

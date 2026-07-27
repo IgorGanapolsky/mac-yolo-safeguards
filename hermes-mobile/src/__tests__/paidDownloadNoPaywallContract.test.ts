@@ -8,7 +8,7 @@ import type { GatewaySettings } from '../types/gateway';
 //
 // This is not hypothetical. Both LIVE store builds predate the entitlement logic — the file
 // playPaidEntitlement.ts does not exist at 199e1481 (Android v1.4) or 18c301c5 (iOS v1.3) —
-// so paying customers currently see "Unlock in Google Play" inside an app they already bought.
+// so paying customers could be shown a second-purchase control inside an app they already bought.
 // These assertions exist so that regression cannot reach users a second time.
 const settings = (over: Partial<GatewaySettings> = {}): GatewaySettings =>
   ({ thumbgateProActive: false, developerLeashUnlock: false, ...over } as GatewaySettings);

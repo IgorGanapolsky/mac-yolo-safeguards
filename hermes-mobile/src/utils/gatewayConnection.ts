@@ -34,6 +34,8 @@ export function resolveEffectiveMacHttpOk(input: {
 
 /** Default chip when unpaired relay / missing credentials and Mac HTTP is down. */
 export const NEEDS_PAIR_STATUS_LABEL = 'Pair in Settings';
+export const MAC_NOT_CONNECTED_LABEL = 'Not connected';
+export const MAC_CONNECTION_GUIDANCE = 'Use Tailscale or Home Wi‑Fi';
 
 /** Header / status copy — relay WebSocket alone does not mean Chat can stream. */
 export function resolveChatLinkDisplay(input: {
@@ -75,14 +77,14 @@ export function resolveChatLinkDisplay(input: {
     return { label: pairLabel, chatReachable: false };
   }
   if (input.connectionState === 'connected') {
-    return { label: 'Needs computer link', chatReachable: false };
+    return { label: MAC_NOT_CONNECTED_LABEL, chatReachable: false };
   }
   if (input.connectionState === 'connecting') {
     return { label: 'Connecting', chatReachable: false };
   }
   const fallback = input.disconnectedLabel?.trim();
   return {
-    label: fallback || 'Not connected',
+    label: fallback || MAC_NOT_CONNECTED_LABEL,
     chatReachable: false,
   };
 }

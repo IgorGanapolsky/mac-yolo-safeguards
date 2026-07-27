@@ -39,18 +39,7 @@ export function currentAndroidStorePackage(): string {
   return HERMES_MOBILE_ANDROID_PACKAGE;
 }
 
-/**
- * Paid-download builds already paid at install — treat Pro as unlocked without IAP.
- * Free listing builds still use hermes_pro_lifetime ($4.99 once).
- */
+/** Hermes Mobile is a paid, full-feature app on every supported store/package. */
 export function isStorePaidDownloadEntitled(): boolean {
-  // iOS ships ONLY as a $4.99 paid download — verified 2026-07-26 via the Apple lookup API:
-  // "Hermes AI Agent Leash", $4.99, bundle com.iganapolsky.hermesmobile. There is no free iOS
-  // tier, so every iOS install has already paid and is entitled. Returning
-  // isAndroidPaidDownloadBuild() alone made this false on iOS, which showed a "$4.99 unlock"
-  // paywall to customers who had just paid $4.99 for the app.
-  if (Platform.OS === 'ios') {
-    return true;
-  }
-  return isAndroidPaidDownloadBuild();
+  return true;
 }

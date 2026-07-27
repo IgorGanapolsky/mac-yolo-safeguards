@@ -8,12 +8,6 @@ import {
 } from '../services/leashDecisionHistory';
 import { mockGatewaySettings, mockPendingApproval, mockUseGateway } from '../testUtils/gatewayFixtures';
 import { renderInTabNavigator } from '../testUtils/navigation';
-import {
-  __resetFreeLeashAllowanceForTests,
-  consumeFreeLeashApproval,
-  refreshFreeLeashWeeklyState,
-} from '../utils/freeLeashAllowance';
-import { FREE_LEASH_APPROVALS_PER_WEEK } from '../constants/monetization';
 
 jest.mock('../context/GatewayContext', () => ({
   useGateway: jest.fn(),
@@ -32,7 +26,6 @@ const { useGateway } = jest.requireMock('../context/GatewayContext');
 
 describe('ApprovalsScreen', () => {
   beforeEach(async () => {
-    __resetFreeLeashAllowanceForTests();
     useGateway.mockReturnValue(mockUseGateway());
     await AsyncStorage.clear();
   });
@@ -90,14 +83,7 @@ describe('ApprovalsScreen', () => {
     expect(queryByText(/Not paired/i)).toBeNull();
   });
 
-  // BUSINESS MODEL (CEO, 2026-07-26): the app is a $4.99 PAID DOWNLOAD on both stores with
-  // full features — "no in-app purchases nor asking people to unlock anything". A paid install
-  // is entitled, so exhausting the free weekly allowance must NOT reveal a paywall.
-  it('shows NO paywall after the free allowance is spent — paid download is entitled', async () => {
-    await refreshFreeLeashWeeklyState();
-    for (let i = 0; i < FREE_LEASH_APPROVALS_PER_WEEK; i += 1) {
-      await consumeFreeLeashApproval();
-    }
+  it('shows no paywall when old entitlement flags are false', () => {
     useGateway.mockReturnValue(
       mockUseGateway({
         settings: { ...mockGatewaySettings, thumbgateProActive: false },
@@ -147,10 +133,7 @@ describe('ApprovalsScreen', () => {
     expect(queryByText(/Tap Refresh above/i)).toBeNull();
   });
 
-  // Paid download = full features. No upsell card, no IAP CTA, no web-subscription CTA —
-  // asking a customer who already paid $4.99 to buy again is the defect, not the feature.
-  it('shows NO Pro upsell or purchase CTA for a paid download', async () => {
-    await refreshFreeLeashWeeklyState();
+  it('shows no Pro upsell or purchase CTA for a paid download', () => {
     useGateway.mockReturnValue(
       mockUseGateway({
         settings: {
