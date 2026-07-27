@@ -266,7 +266,7 @@ function timestampMillis(value, fallback = Date.now()) {
 }
 
 async function gatewayJson(baseUrl, pathname, options = {}) {
-  const timeout = options.method === 'POST' ? TASK_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
+  const timeout = options.method === 'POST' ? TASK_TIMEOUT_MS : 4_000;
   const { gatewayEnvPath, ...requestOptions } = options;
   const response = await safeFetch(`${baseUrl}${pathname}`, {
     ...requestOptions, timeout,
