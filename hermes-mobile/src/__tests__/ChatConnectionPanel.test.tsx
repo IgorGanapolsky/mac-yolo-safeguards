@@ -137,6 +137,46 @@ describe('ChatConnectionPanel', () => {
     expect(queryByTestId('fresh-user-onboarding-card')).toBeNull();
   });
 
+  it('keeps unscanned saved computers available under Other ways after a partial scan', () => {
+    const { getAllByTestId, getByTestId, queryByTestId } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        connectionHealAttempt={6}
+        scanResult={{
+          completedAtMs: Date.now(),
+          foundCount: 1,
+          tailscaleCount: 1,
+          discoveredProfileIds: ['macbook'],
+        }}
+        profiles={[
+          {
+            id: 'macbook',
+            label: 'Igors-MacBook-Pro',
+            gatewayUrl: 'http://100.87.85.85:8642',
+            addedAt: '2026-07-26T21:47:00Z',
+          },
+          {
+            id: 'saved-mini',
+            label: 'Igors-Mac-mini',
+            gatewayUrl: 'http://100.94.135.78:8642',
+            addedAt: '2026-07-26T21:48:00Z',
+          },
+        ]}
+        activeProfileId="macbook"
+        onSelectProfile={jest.fn()}
+        onSearchMac={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('select-gateway-profile-macbook')).toBeTruthy();
+    expect(queryByTestId('select-gateway-profile-saved-mini')).toBeNull();
+
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
+
+    expect(getByTestId('select-gateway-profile-saved-mini')).toBeTruthy();
+    expect(getAllByTestId('select-gateway-profile-macbook')).toHaveLength(1);
+  });
+
   it('never shows a count-only success before a named row exists', () => {
     const { queryByText, queryByTestId } = render(
       <ChatConnectionPanel
