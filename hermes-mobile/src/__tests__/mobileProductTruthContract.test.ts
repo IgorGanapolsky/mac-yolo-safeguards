@@ -37,6 +37,11 @@ describe('mobile product truth contract', () => {
       path.join(SRC_ROOT, 'components/ChatScreenHeader.tsx'),
       'utf8',
     );
-    expect(header).toMatch(/`Started \$\{threadCreatedLabel\}`/);
+    const sessionDisplay = fs.readFileSync(
+      path.join(SRC_ROOT, 'utils/sessionDisplay.ts'),
+      'utf8',
+    );
+    expect(sessionDisplay).toMatch(/return `Started \$\{date\.toLocaleString/);
+    expect(header).toMatch(/\{threadCreatedLabel\}/);
   });
 });

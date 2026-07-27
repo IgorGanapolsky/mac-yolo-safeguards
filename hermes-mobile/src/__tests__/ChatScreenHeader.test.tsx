@@ -184,7 +184,7 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
-    expect(getByTestId('chat-context-link').props.children).toBe('Not connected');
+    expect(getByTestId('chat-context-link').props.children).toContain("Can't reach your Mac");
   });
 
   it('shows endpoint while connected when multi-Mac detail is enabled', () => {
@@ -424,7 +424,7 @@ describe('ChatScreenHeader', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
         threadTitle="Print money make money faster"
-        threadCreatedLabel="Jul 2, 2026, 6:53 PM"
+        threadCreatedLabel="Started Jul 2, 2026, 6:53 PM"
         machineLabel="Mac mini"
         connectionState="connected"
         macHttpReachable

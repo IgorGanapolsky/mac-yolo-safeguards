@@ -35,6 +35,7 @@ export function resolveEffectiveMacHttpOk(input: {
 /** Default chip when unpaired relay / missing credentials and Mac HTTP is down. */
 export const NEEDS_PAIR_STATUS_LABEL = 'Pair in Settings';
 export const MAC_NOT_CONNECTED_LABEL = 'Not connected';
+export const MAC_UNREACHABLE_LABEL = "Can't reach your Mac";
 export const MAC_CONNECTION_GUIDANCE = 'Use Tailscale or Home Wi‑Fi';
 
 /** Header / status copy — relay WebSocket alone does not mean Chat can stream. */
@@ -77,7 +78,8 @@ export function resolveChatLinkDisplay(input: {
     return { label: pairLabel, chatReachable: false };
   }
   if (input.connectionState === 'connected') {
-    return { label: MAC_NOT_CONNECTED_LABEL, chatReachable: false };
+    // The relay is up but the Mac's chat endpoint did not answer.
+    return { label: MAC_UNREACHABLE_LABEL, chatReachable: false };
   }
   if (input.connectionState === 'connecting') {
     return { label: 'Connecting', chatReachable: false };
