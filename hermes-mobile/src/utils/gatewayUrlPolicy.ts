@@ -157,12 +157,11 @@ export function describeGatewayFetchError(
   if (baseMessage === 'Network request failed' || baseMessage.includes('Failed to fetch')) {
     if (isLoopbackGatewayUrl(gatewayUrl)) {
       return (
-        'USB link to your computer is down. Plug in via USB and run pairing on your computer ' +
-        '(node tools/hermes-mobile-pair.js), or join the same Wi‑Fi and scan the local QR.'
+        'USB is not reaching Hermes on your computer. Use Find computers to choose a reachable Mac.'
       );
     }
     return (
-      'Cannot reach your computer. Use Tailscale or home Wi‑Fi in Settings, scan the QR from your computer, or tap Refresh on Leash.'
+      'Cannot reach Hermes on your computer. Make sure Hermes is open, then use Find computers.'
     );
   }
 

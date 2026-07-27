@@ -81,6 +81,8 @@ describe('ConnectMacGate', () => {
     expect(view.getByText(TAILSCALE_PASTE_IP_TITLE)).toBeTruthy();
     expect(view.getByTestId('connect-manual-input')).toBeTruthy();
     expect(view.getByTestId('connect-search-wifi')).toBeTruthy();
+    expect(view.queryByTestId('connect-scan-qr')).toBeNull();
+    expect(view.queryByText(/QR/i)).toBeNull();
     expect(view.queryByTestId('fresh-user-step-1')).toBeNull();
   });
 
@@ -335,7 +337,7 @@ describe('ConnectMacGate', () => {
     expect(view.queryByText('Use Tailscale from cellular')).toBeNull();
   });
 
-  it('promotes Tailscale candidates and demotes QR / competing Wi-Fi loaders', () => {
+  it('promotes Tailscale candidates and hides competing Wi-Fi loaders', () => {
     delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
     mockUseGateway.mockReturnValue(
       gateway({

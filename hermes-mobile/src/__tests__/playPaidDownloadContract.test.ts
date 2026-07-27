@@ -41,4 +41,17 @@ describe('Play paid download contract', () => {
     expect(configSrc).toContain('HERMES_ANDROID_STORE_SKU');
     expect(configSrc).toContain('androidStoreSku');
   });
+
+  it('canonical phone installer builds and launches the paid package', () => {
+    const installer = read('hermes-mobile/scripts/install-phone-release.sh');
+
+    expect(installer).toContain('HERMES_ANDROID_STORE_SKU:-paid');
+    expect(installer).toContain('TARGET_ANDROID_PACKAGE="com.iganapolsky.hermesmobile.paid"');
+    expect(installer).toContain('HERMES_MOBILE_ANDROID_PACKAGE="$TARGET_ANDROID_PACKAGE"');
+    expect(installer).toContain('$TARGET_ANDROID_PACKAGE/.MainActivity');
+    expect(installer).toContain('native_android_package');
+    expect(installer).toContain('npx expo prebuild --platform android --clean');
+    expect(installer).toContain('Error: native Android package');
+    expect(installer).toContain('after prebuild.');
+  });
 });
