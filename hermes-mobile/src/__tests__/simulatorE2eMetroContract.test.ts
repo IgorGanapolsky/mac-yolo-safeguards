@@ -37,6 +37,16 @@ describe('iOS simulator E2E embedded Release lifecycle', () => {
     expect(script).not.toContain(
       'xcrun simctl uninstall "$udid" "$IOS_BUNDLE_ID" >/dev/null 2>&1 || true',
     );
+    expect(
+      (
+        script.match(
+          /if ! installed_apps="\$\(xcrun simctl listapps "\$udid"\)"; then/g,
+        ) ?? []
+      ).length,
+    ).toBe(2);
+    expect(script).toContain(
+      'if grep -Fq "\\"$IOS_BUNDLE_ID\\" =" <<<"$installed_apps"; then',
+    );
     expect(uninstallIndex).toBeGreaterThan(-1);
     expect(containerGoneCheckIndex).toBeGreaterThan(uninstallIndex);
     expect(releaseInstallIndex).toBeGreaterThan(containerGoneCheckIndex);

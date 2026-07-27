@@ -59,14 +59,23 @@ wait_for_maestro_ios_device() {
 
 install_fresh_ios_release() {
   local udid="$1"
+  local installed_apps
   echo "iOS app:   uninstalling any stale $IOS_BUNDLE_ID simulator build" >&2
-  if xcrun simctl get_app_container "$udid" "$IOS_BUNDLE_ID" app >/dev/null 2>&1; then
+  if ! installed_apps="$(xcrun simctl listapps "$udid")"; then
+    echo "Failed to query installed apps on simulator $udid" >&2
+    return 1
+  fi
+  if grep -Fq "\"$IOS_BUNDLE_ID\" =" <<<"$installed_apps"; then
     if ! xcrun simctl uninstall "$udid" "$IOS_BUNDLE_ID"; then
       echo "Failed to uninstall stale $IOS_BUNDLE_ID from simulator $udid" >&2
       return 1
     fi
   fi
-  if xcrun simctl get_app_container "$udid" "$IOS_BUNDLE_ID" app >/dev/null 2>&1; then
+  if ! installed_apps="$(xcrun simctl listapps "$udid")"; then
+    echo "Failed to verify clean-install state on simulator $udid" >&2
+    return 1
+  fi
+  if grep -Fq "\"$IOS_BUNDLE_ID\" =" <<<"$installed_apps"; then
     echo "Stale $IOS_BUNDLE_ID container remains after uninstall on simulator $udid" >&2
     return 1
   fi
