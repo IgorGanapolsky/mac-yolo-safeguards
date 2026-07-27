@@ -33,9 +33,16 @@ curl -sS https://thumbgate.app/api/health | jq '.telemetry.clientErrorsToday'
 node tools/verify-thumbgate-web-reliability.js
 ```
 
+## 2026-07-26 monitoring upgrades
+
+1. **`clientErrorsToday` spike → ntfy** — `saas/saas-watchdog.sh` treats spike (≥ `SAAS_WATCHDOG_CLIENT_ERROR_SPIKE`, default 15) as **yellow** (ntfy title `ThumbGate client errors spike`). Soft only: does **not** fail the hard probe alone.
+2. **Redacted web error class** — `ClientErrorBeacon` posts allowlisted `errorClass` (`TypeError`, etc.); analytics dual-writes `client_error_class_*` counters. Still **no** stack, message, or URL query.
+3. **Continuous E2E yellow SLO** — `run-continuous-e2e.sh` writes `slo: green|yellow|red` and ntfys on transition; `tools/continuous-e2e-slo-watch.js` can re-evaluate `latest.json` for LaunchAgent/cron.
+
 ## Gaps still open
 
-- No stack traces for web (counter only — privacy/content-free design).
-- No automatic ntfy when `clientErrorsToday` spikes (counter is queryable; alert rule not wired).
-- Mobile continuous E2E often skips under sim pressure.
+- No full stack traces for web (privacy/content-free design by choice).
+- No multi-region synthetic platform (Checkly-class); GH live-smoke + local watchdog only.
+- No SLO burn-rate auto-rollback of Worker (operator uses `tools/hermes-control-plane-rollback.js` when merged).
+- Mobile continuous E2E still often skips when physical phone is in use (now **yellow**, not silent).
 - Sentry source maps still `SENTRY_DISABLE_AUTO_UPLOAD=true` on production builds.
