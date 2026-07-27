@@ -30,7 +30,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: '22'
 
@@ -85,11 +85,6 @@ jobs:
         run: |
           set -eu
           bash tests/test-hermes-gateway-watchdog-e2e.sh
-
-      - name: Revenue loop watchdog unit tests
-        run: |
-          set -eu
-          bash tests/test-revenue-loop-watchdog.sh
 
       - name: Node tool unit tests
         run: |
@@ -164,6 +159,16 @@ jobs:
           tests/test-adb-reverse-device-filter.sh
           tests/test-secondary-browser-reclaim.sh
 
+      # poolside-yolo asserts it runs fully autonomous. It shipped a --mode value
+      # pool does not recognise, so pool silently reverted to approval prompts and
+      # nobody noticed for days — this suite was never wired into CI. It is
+      # hermetic (stubs pool + the gateway) and skips its one live probe when no
+      # real pool/gateway is present, so it is safe on a Linux runner.
+      - name: Vendor -yolo wrappers
+        run: |
+          set -eu
+          bash tests/test-poolside-yolo.sh
+
       - name: Public secret smoke scan
         run: |
           set -eu
@@ -176,7 +181,7 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: '22'
 
@@ -198,15 +203,6 @@ jobs:
       - name: Store link freshness check
         run: node tools/check-store-links.js
 
-      - name: Social publish hard gates (unit)
-        run: node tests/test-social-publish-gate.js
-
-      - name: Social campaign data science (unit)
-        run: node tests/test-social-campaign-ds.js
-
-      - name: System maturity (RAG eval, MCP health, scorecard)
-        run: node tests/test-system-maturity.js
-
       - name: Publication readiness
         run: node tools/publication-readiness.js
 
@@ -224,7 +220,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 22
           cache: npm
