@@ -358,16 +358,20 @@ export const GatewayContext = createContext<GatewayContextValue | null>(null);
 
 export function resolveBootstrapGatewayRoute(
   savedRoute: string | null | undefined,
-  activeProfileRoute: string,
-  activeProfileId: string,
+  profileState: GatewayProfileState,
   lastSelectedProfileId: string | null | undefined,
 ): string {
+  const active = activeProfile(profileState);
+  if (!active) {
+    return '';
+  }
   const trimmed = savedRoute?.trim();
   return trimmed &&
     isValidGatewayUrl(trimmed) &&
-    lastSelectedProfileId === activeProfileId
+    lastSelectedProfileId === active.id &&
+    isDiscoveredUrlAllowedForActiveProfile(profileState, trimmed)
     ? trimmed
-    : activeProfileRoute;
+    : active.gatewayUrl;
 }
 
 export function GatewayProvider({ children }: { children: React.ReactNode }) {
@@ -738,8 +742,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             ...savedSettings,
             gatewayUrl: resolveBootstrapGatewayRoute(
               savedSettings.gatewayUrl,
-              active.gatewayUrl,
-              active.id,
+              loadedProfiles,
               lastSelectedProfileId,
             ),
           };

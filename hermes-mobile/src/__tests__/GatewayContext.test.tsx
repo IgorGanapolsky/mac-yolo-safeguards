@@ -1292,31 +1292,93 @@ describe('GatewayProvider', () => {
   });
 
   it('restores the last explicit LAN route when the profile catalog canonicalized the same Mac as Tailscale', () => {
+    const profileState = {
+      profiles: [
+        {
+          id: 'mac_igors_macbook_pro',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          hostname: 'Igors-MacBook-Pro',
+          localIp: '192.168.68.60',
+          addedAt: '2026-07-27T00:00:00.000Z',
+        },
+      ],
+      activeProfileId: 'mac_igors_macbook_pro',
+    };
     expect(
       resolveBootstrapGatewayRoute(
         'http://192.168.68.60:8642',
-        'http://100.87.85.85:8642',
-        'mac_igors_macbook_pro',
+        profileState,
         'mac_igors_macbook_pro',
       ),
     ).toBe('http://192.168.68.60:8642');
     expect(
       resolveBootstrapGatewayRoute(
         '',
-        'http://100.87.85.85:8642',
-        'mac_igors_macbook_pro',
+        profileState,
         'mac_igors_macbook_pro',
       ),
     ).toBe('http://100.87.85.85:8642');
   });
 
   it('rejects a saved route owned by the previously selected Mac during interrupted switch recovery', () => {
+    const profileState = {
+      profiles: [
+        {
+          id: 'mac_a',
+          label: 'Mac A',
+          gatewayUrl: 'http://192.168.68.60:8642',
+          hostname: 'mac-a',
+          localIp: '192.168.68.60',
+          addedAt: '2026-07-27T00:00:00.000Z',
+        },
+        {
+          id: 'mac_b',
+          label: 'Mac B',
+          gatewayUrl: 'http://100.99.88.77:8642',
+          hostname: 'mac-b',
+          localIp: '192.168.68.61',
+          addedAt: '2026-07-27T00:00:00.000Z',
+        },
+      ],
+      activeProfileId: 'mac_b',
+    };
     expect(
       resolveBootstrapGatewayRoute(
         'http://192.168.68.60:8642',
-        'http://100.99.88.77:8642',
-        'mac_b',
+        profileState,
         'mac_a',
+      ),
+    ).toBe('http://100.99.88.77:8642');
+  });
+
+  it('rejects a foreign saved route even when the profile selection write completed first', () => {
+    const profileState = {
+      profiles: [
+        {
+          id: 'mac_a',
+          label: 'Mac A',
+          gatewayUrl: 'http://192.168.68.60:8642',
+          hostname: 'mac-a',
+          localIp: '192.168.68.60',
+          addedAt: '2026-07-27T00:00:00.000Z',
+        },
+        {
+          id: 'mac_b',
+          label: 'Mac B',
+          gatewayUrl: 'http://100.99.88.77:8642',
+          hostname: 'mac-b',
+          localIp: '192.168.68.61',
+          addedAt: '2026-07-27T00:00:00.000Z',
+        },
+      ],
+      activeProfileId: 'mac_b',
+    };
+    expect(
+      resolveBootstrapGatewayRoute(
+        'http://192.168.68.60:8642',
+        profileState,
+        'mac_b',
       ),
     ).toBe('http://100.99.88.77:8642');
   });
