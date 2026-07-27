@@ -30,7 +30,7 @@ fi
 echo "[prove-posthog] Device: ${DEVICE:-none}"
 echo "[prove-posthog] Host: $POSTHOG_HOST"
 
-# 1) Launch Leash tab on release build — ProUpgradeCard emits leash_paywall_view when allowance exhausted.
+# 1) Launch Leash tab on release build — paid app exposes full Leash without a paywall.
 if [[ -n "$DEVICE" ]]; then
   cd "$MOBILE"
   adb -s "$DEVICE" shell am start -a android.intent.action.VIEW -d 'hermes://leash' >/dev/null 2>&1 || true

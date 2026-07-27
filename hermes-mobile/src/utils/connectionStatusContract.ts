@@ -3,7 +3,7 @@ import type { ConnectionMode, GatewayHealthLevel, GatewayHealthSnapshot } from '
 /**
  * PRODUCT LAW (2026-07-22 rage): when the phone can reach the Mac over HTTP,
  * never show primary status as "not paired" / "invalid" / "unpaired".
- * Cloud approval (relay) pairing is secondary — not the computer link.
+ * Cloud approval (relay) pairing is secondary — not the Mac connection.
  */
 
 export type CalmConnectionStatus = 'connected' | 'checking' | 'unreachable' | 'needs_attention';

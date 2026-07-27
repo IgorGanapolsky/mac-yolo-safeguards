@@ -424,7 +424,7 @@ describe('ChatScreenHeader', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
         threadTitle="Print money make money faster"
-        threadCreatedLabel="Jul 2, 2026, 6:53 PM"
+        threadCreatedLabel="Started Jul 2, 2026, 6:53 PM"
         machineLabel="Mac mini"
         connectionState="connected"
         macHttpReachable
@@ -433,7 +433,9 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
-    expect(getByTestId('chat-thread-created').props.children).toBe('Jul 2, 2026, 6:53 PM');
+    expect(getByTestId('chat-thread-created').props.children).toBe(
+      'Started Jul 2, 2026, 6:53 PM',
+    );
   });
 
   it('keeps long thread titles to one ellipsized header line when collapsed', () => {

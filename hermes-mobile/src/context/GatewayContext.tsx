@@ -201,10 +201,6 @@ import { tailnetProbeStorage } from '../services/tailnetProbeStorage';
 import { isGatewaySmokeTestMessage } from '../utils/gatewaySmokeMessages';
 import { isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
 import { withDeveloperLeashUnlocked } from '../utils/developerLeashUnlock';
-import {
-  initializeThumbgateIapListeners,
-  syncThumbgateLeashEntitlement,
-} from '../services/thumbgateIap';
 import type { ApprovalChoice } from '../types/approval';
 import type { RelayWorker } from '../types/mobileRelay';
 import { resolveApprovalChoice } from '../services/approvalResolver';
@@ -743,28 +739,6 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(bootstrapTimeout);
     };
   }, []);
-
-  /** Store entitlement sync runs after first paint — never block cold start on billing. */
-  useEffect(() => {
-    if (!isLoaded) {
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      initializeThumbgateIapListeners();
-      const storeEntitled = await syncThumbgateLeashEntitlement();
-      if (cancelled || storeEntitled === settingsRef.current.thumbgateProActive) {
-        return;
-      }
-      const nextSettings = { ...settingsRef.current, thumbgateProActive: storeEntitled };
-      settingsRef.current = nextSettings;
-      setSettings(nextSettings);
-      await storage.saveGatewaySettings(nextSettings);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isLoaded]);
 
   const persistDiscoveredGatewayUrl = useCallback(
     async (
