@@ -449,20 +449,6 @@ jobs:
             exit 1
           fi
 
-      - name: Set remote iOS marketing version to 1.1
-        if: inputs.eas_build_id == ''
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          set -euo pipefail
-          # Live 1.0 keywords/subtitle are locked; ASC 1.1 needs a CFBundleShortVersionString=1.1 binary.
-          npx eas-cli@latest build:version:set \
-            --platform ios \
-            --profile production \
-            --app-version 1.1 \
-            --non-interactive || true
-          npx eas-cli@latest build:version:get --platform ios --profile production --non-interactive --json || true
-
       - name: Build iOS production artifact
         id: build
         if: inputs.eas_build_id == ''
@@ -475,13 +461,15 @@ jobs:
             echo "Missing required secret: EXPO_TOKEN" >&2
             exit 1
           fi
+          APP_VERSION="$(node -p "require('./hermes-mobile/app.json').expo.version")"
+          test -n "$APP_VERSION"
           node ./scripts/eas-build-guard.cjs --platform ios --profile production -- npx eas-cli@latest build \
             --platform ios \
             --profile production \
             --non-interactive \
             --wait \
             --json \
-            --message "Production Hermes Mobile iOS 1.1 from ${GITHUB_SHA}" \
+            --message "Production Hermes Mobile iOS ${APP_VERSION} from ${GITHUB_SHA}" \
             > /tmp/eas-ios-production-build.json
           cat /tmp/eas-ios-production-build.json
           BUILD_ID="$(node -e 'const fs=require("fs"); const raw=fs.readFileSync("/tmp/eas-ios-production-build.json","utf8"); const json=JSON.parse(raw); const build=Array.isArray(json)?json[0]:json; console.log(build.id || "")')"
@@ -511,9 +499,11 @@ jobs:
           node - <<'NODE'
           const fs = require('fs');
           const build = JSON.parse(fs.readFileSync('/tmp/eas-ios-production-build-view.json', 'utf8'));
+          const expectedAppVersion = require('./hermes-mobile/app.json').expo.version;
           if (build.status !== 'FINISHED') throw new Error(`Build status is ${build.status}`);
           if (build.platform !== 'IOS') throw new Error(`Expected IOS, got ${build.platform}`);
           if (build.distribution !== 'STORE') throw new Error(`Expected STORE distribution, got ${build.distribution}`);
+          if (build.appVersion !== expectedAppVersion) throw new Error(`Expected app version ${expectedAppVersion}, got ${build.appVersion}`);
           console.log(`iOS production build verified: ${build.artifacts?.buildUrl || build.id}`);
           NODE
 
