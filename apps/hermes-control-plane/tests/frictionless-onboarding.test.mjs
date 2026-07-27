@@ -239,6 +239,27 @@ test("lessons workspace activity stats and lesson cards deep-link into Hermes", 
   assert.match(globals, /\.task-filter-banner\{/);
 });
 
+test("Improve/Helpful metric clicks navigate to Hermes when count is 1, else filter with URL + scroll", () => {
+  // Navigation decision lives in pure helpers (unit-tested in lessons-ui.test.ts).
+  assert.match(lessonsClient, /resolveSignalClickDestination/);
+  assert.match(lessonsClient, /handleSignalClick/);
+  assert.match(lessonsClient, /Open that answer in Hermes/);
+  assert.match(lessonsClient, /window\.location\.assign/);
+  assert.match(lessonsClient, /lessonsListHref/);
+  assert.match(lessonsClient, /id="lesson-list"/);
+  assert.match(lessonsClient, /pendingScrollRef/);
+  assert.match(lessonsClient, /lesson-card-flash/);
+  assert.match(lessonsClient, /lesson-results-count/);
+  assert.match(lessonsClient, /search-highlight|HighlightText/);
+  assert.match(globals, /lesson-card-flash/);
+  assert.match(globals, /search-highlight/);
+  assert.match(globals, /scroll-margin-top/);
+  const lessonsUi = readFileSync(new URL("../lib/lessons-ui.ts", import.meta.url), "utf8");
+  assert.match(lessonsUi, /kind: "open-hermes"/);
+  assert.match(lessonsUi, /count === 1/);
+  assert.match(lessonsUi, /#lesson-list/);
+});
+
 test("lets users choose local machine vs Continuity VPS on every task not only offline failover", () => {
   const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
   const taskRouting = readFileSync(new URL("../lib/task-routing.ts", import.meta.url), "utf8");

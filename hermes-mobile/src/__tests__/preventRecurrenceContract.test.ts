@@ -723,4 +723,44 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(chat).toContain('probeLiveUsbGateway');
     expect(chat).toMatch(/2500/);
   });
+
+  it('S51: Connected Tailscale never titles address-shaped labels (IP / IP:port) over /health.hostname (2026-07-25)', () => {
+    // Screenshot class: green Connected · Tailscale but left slot was the gateway
+    // endpoint (CGNAT host:port) instead of Igors-Mac-mini. Pure-function lock —
+    // Maestro ship-guard does not seed multi-Mac Tailscale identity.
+    const headerSrc = read('hermes-mobile/src/utils/chatMachineHeader.ts');
+    expect(headerSrc).toContain('isAddressShapedMachineName');
+    expect(headerSrc).toMatch(/IPv4:port/);
+    expect(headerSrc).toMatch(/Live green\|amber \/health\.hostname always beats IP-shaped/);
+
+    const profilesSrc = read('hermes-mobile/src/services/gatewayProfiles.ts');
+    // isBareIp must reject endpoint-shaped labels so they never stick as "names".
+    expect(profilesSrc).toMatch(/IPv4:port|gateway endpoint pasted as profile label/);
+
+    const endpointLabel = '100.94.135.78:8642';
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_cgnat',
+        label: endpointLabel,
+        gatewayUrl: `http://${endpointLabel}`,
+        localIp: '100.94.135.78',
+        addedAt: '2026-07-25T00:00:00.000Z',
+      },
+      gatewayUrl: `http://${endpointLabel}`,
+      health: {
+        level: 'green',
+        checkedAt: '2026-07-25T14:00:00.000Z',
+        hostname: 'Igors-Mac-mini.local',
+        directGatewayReachable: true,
+      },
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 1,
+      wifiConnected: true,
+    });
+    expect(display.machineLabel).toBe('Igors-Mac-mini');
+    expect(display.machineLabel).not.toMatch(/100\.94\.135\.78/);
+    expect(display.machineEndpoint).toBe('Tailscale');
+  });
 });
