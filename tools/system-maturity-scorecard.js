@@ -242,12 +242,38 @@ function buildReport() {
 
   const prod = scorePillar('production_eval', 'Production AI + eval/observability', [
     {
-      id: 'observability-gate',
+      id: 'observability-gate-tool',
       weight: 1,
       check: () => ({
         pass: exists('tools/hermes-observability-gate.js'),
         detail: 'hermes-observability-gate.js',
       }),
+    },
+    {
+      id: 'observability-device-proof',
+      weight: 2,
+      check: () => {
+        const run = runNode('tools/hermes-observability-gate.js', [
+          '--mode',
+          'status',
+          '--json',
+        ]);
+        let result = null;
+        try {
+          result = JSON.parse(run.stdout);
+        } catch {
+          /* reported below */
+        }
+        const e2e = result?.metrics?.e2e || 'unreadable';
+        const ageMin = result?.metrics?.proofAgeMin;
+        return {
+          pass: run.ok && result?.pass === true && result?.deviceVerified === true,
+          detail:
+            `e2e=${e2e}` +
+            (Number.isFinite(ageMin) ? ` ageMin=${ageMin}` : '') +
+            (result?.deviceVerified === true ? ' deviceVerified=true' : ' deviceVerified=false'),
+        };
+      },
     },
     {
       id: 'harness-eval',
