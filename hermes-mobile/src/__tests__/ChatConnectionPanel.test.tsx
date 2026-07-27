@@ -127,6 +127,8 @@ describe('ChatConnectionPanel', () => {
     );
 
     expect(getByText('Found 1 on Tailscale')).toBeTruthy();
+    expect(getByText('Available computers')).toBeTruthy();
+    expect(getByText('Scan found 1 computer. Saved computers are also shown.')).toBeTruthy();
     expect(getByTestId('chat-connection-found-computers')).toBeTruthy();
     expect(getByTestId('select-gateway-profile-macbook').props.accessibilityLabel).toContain(
       'Igors-MacBook-Pro',

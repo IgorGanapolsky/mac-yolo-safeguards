@@ -417,11 +417,15 @@ else
 fi
 
 if [[ "$PAIR_JS" == *"HERMES_MOBILE_ANDROID_PACKAGE"* ]] \
+  && [[ "$PAIR_JS" == *"const PAID_ANDROID_PACKAGE_NAME = 'com.iganapolsky.hermesmobile.paid';"* ]] \
+  && [[ "$PAIR_JS" == *"if (installed.has(PAID_ANDROID_PACKAGE_NAME))"* ]] \
+  && [[ "$PAIR_JS" == *"return PAID_ANDROID_PACKAGE_NAME;"* ]] \
+  && [[ "$PAIR_JS" == *"resolveTargetAndroidPackageName(serial)"* ]] \
   && [[ "$PAIR_JS" == *"openDeepLinkOnDevice(serial, deepLink, targetAndroidPackageName)"* ]] \
   && [[ "$PAIR_JS" == *"waitForForegroundAck(serial, targetAndroidPackageName"* ]]; then
-  ok "pair adb deep link and foreground ack target the selected app package"
+  ok "pair adb prefers the paid installed app and targets setup plus foreground ack consistently"
 else
-  bad "pair adb deep link and foreground ack target the selected app package"
+  bad "pair adb prefers the paid installed app and targets setup plus foreground ack consistently"
 fi
 
 # Unattended session-start pairing must never expose the credential-bearing LAN server,

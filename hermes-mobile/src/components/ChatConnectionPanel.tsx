@@ -244,8 +244,12 @@ export default function ChatConnectionPanel({
 
       {showNamedScanResults ? (
         <View style={styles.savedBlock} testID="chat-connection-found-computers">
-          <Text style={styles.savedHeading}>Computers found</Text>
-          <Text style={styles.savedHint}>Tap the computer you want to use.</Text>
+          <Text style={styles.savedHeading}>Available computers</Text>
+          <Text style={styles.savedHint}>
+            {`Scan found ${visibleScanResult?.foundCount ?? 0} ${
+              visibleScanResult?.foundCount === 1 ? 'computer' : 'computers'
+            }. Saved computers are also shown.`}
+          </Text>
           <GatewayProfilePicker
             profiles={pickerProfiles}
             activeProfileId={activeProfileId}

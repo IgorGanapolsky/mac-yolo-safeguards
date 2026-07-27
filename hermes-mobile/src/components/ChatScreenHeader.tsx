@@ -231,7 +231,7 @@ export default function ChatScreenHeader({
           </View>
           {threadCreatedLabel ? (
             <Text style={styles.threadCreated} numberOfLines={1} testID="chat-thread-created">
-              {`Started ${threadCreatedLabel}`}
+              {threadCreatedLabel}
             </Text>
           ) : null}
         </View>

@@ -424,7 +424,7 @@ describe('ChatScreenHeader', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
         threadTitle="Print money make money faster"
-        threadCreatedLabel="Jul 2, 2026, 6:53 PM"
+        threadCreatedLabel="Started Jul 2, 2026, 6:53 PM"
         machineLabel="Mac mini"
         connectionState="connected"
         macHttpReachable
