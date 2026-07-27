@@ -295,7 +295,7 @@ cat >"$RESULT_JSON" <<EOF
   "ios": { "status": "$ios_status", "pass": $ios_ok },
   "freshUser": true,
   "demoDeepLink": false,
-  "paidUpgradeSurface": "pro-upgrade-card + subscribe-thumbgate-leash-iap"
+  "paidAppSurface": "full Leash access; no in-app purchase or restore controls"
 }
 EOF
 echo "Wrote $RESULT_JSON"

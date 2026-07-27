@@ -8,12 +8,6 @@ import {
 } from '../services/leashDecisionHistory';
 import { mockGatewaySettings, mockPendingApproval, mockUseGateway } from '../testUtils/gatewayFixtures';
 import { renderInTabNavigator } from '../testUtils/navigation';
-import {
-  __resetFreeLeashAllowanceForTests,
-  consumeFreeLeashApproval,
-  refreshFreeLeashWeeklyState,
-} from '../utils/freeLeashAllowance';
-import { FREE_LEASH_APPROVALS_PER_WEEK } from '../constants/monetization';
 
 jest.mock('../context/GatewayContext', () => ({
   useGateway: jest.fn(),
@@ -32,7 +26,6 @@ const { useGateway } = jest.requireMock('../context/GatewayContext');
 
 describe('ApprovalsScreen', () => {
   beforeEach(async () => {
-    __resetFreeLeashAllowanceForTests();
     useGateway.mockReturnValue(mockUseGateway());
     await AsyncStorage.clear();
   });
@@ -90,18 +83,14 @@ describe('ApprovalsScreen', () => {
     expect(queryByText(/Not paired/i)).toBeNull();
   });
 
-  it('shows paywall when ThumbGate Leash is not unlocked', async () => {
-    await refreshFreeLeashWeeklyState();
-    for (let i = 0; i < FREE_LEASH_APPROVALS_PER_WEEK; i += 1) {
-      await consumeFreeLeashApproval();
-    }
+  it('shows no paywall when old entitlement flags are false', () => {
     useGateway.mockReturnValue(
       mockUseGateway({
         settings: { ...mockGatewaySettings, thumbgateProActive: false },
       }),
     );
-    const { getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
-    expect(getByText('ThumbGate Leash is a Pro feature')).toBeTruthy();
+    const { queryByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    expect(queryByText('ThumbGate Leash is a Pro feature')).toBeNull();
   });
 
   it('shows empty state when no pending approvals', () => {
@@ -144,8 +133,7 @@ describe('ApprovalsScreen', () => {
     expect(queryByText(/Tap Refresh above/i)).toBeNull();
   });
 
-  it('shows Pro upsell when free weekly allowance remains but not Pro', async () => {
-    await refreshFreeLeashWeeklyState();
+  it('shows no Pro upsell or purchase CTA for a paid download', () => {
     useGateway.mockReturnValue(
       mockUseGateway({
         settings: {
@@ -155,26 +143,12 @@ describe('ApprovalsScreen', () => {
         },
       }),
     );
-    const { getByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    const { getByText, queryByTestId } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByText('No pending approvals')).toBeTruthy();
-    expect(getByTestId('leash-pro-upsell-card')).toBeTruthy();
-    expect(getByTestId('pro-upgrade-card')).toBeTruthy();
-    // Android: lifetime IAP CTA. iOS: web subscription CTA (no StoreKit subs).
-    const iapCta = (() => {
-      try {
-        return getByTestId('subscribe-thumbgate-leash-iap');
-      } catch {
-        return null;
-      }
-    })();
-    const webCta = (() => {
-      try {
-        return getByTestId('open-thumbgate-web-subscription');
-      } catch {
-        return null;
-      }
-    })();
-    expect(iapCta || webCta).toBeTruthy();
+    expect(queryByTestId('leash-pro-upsell-card')).toBeNull();
+    expect(queryByTestId('pro-upgrade-card')).toBeNull();
+    expect(queryByTestId('subscribe-thumbgate-leash-iap')).toBeNull();
+    expect(queryByTestId('open-thumbgate-web-subscription')).toBeNull();
   });
 
   it('renders approval card and resolves via thumbs up', () => {

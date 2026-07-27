@@ -146,7 +146,7 @@ export function acceptPairSetupPayload(
     return {
       ok: false,
       reason: 'empty',
-      message: 'No computer link found in that QR.',
+      message: 'That QR does not contain a Mac connection.',
     };
   }
 
