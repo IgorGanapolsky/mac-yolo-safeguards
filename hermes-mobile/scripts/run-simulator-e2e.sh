@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Boot iOS simulator (if needed), ensure Metro-friendly dev client, run full Maestro suite.
+# Boot an iOS simulator (if needed), fresh-install an embedded Release build, run Maestro.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,76 +9,15 @@ source "$SCRIPT_DIR/maestro-env.sh"
 
 DEFAULT_SIM_NAME="${HERMES_SIM_NAME:-iPhone 17 Pro}"
 MAESTRO_READY_TIMEOUT_SEC="${MAESTRO_READY_TIMEOUT_SEC:-120}"
-METRO_READY_TIMEOUT_SEC="${METRO_READY_TIMEOUT_SEC:-120}"
-METRO_PORT="${HERMES_METRO_PORT:-8081}"
 IOS_BUNDLE_ID="${HERMES_IOS_BUNDLE_ID:-com.iganapolsky.hermesmobile}"
 FLOW="${1:-.maestro/full-suite.yaml}"
-METRO_PID=""
-METRO_LOG=""
 
 # Simulator E2E relies on hermes://setup?demo=1 and developer unlock links.
 # Export before `expo run:ios` so the native build embeds the automation flag.
 export EXPO_PUBLIC_E2E_AUTOMATION="${EXPO_PUBLIC_E2E_AUTOMATION:-1}"
-
-cleanup_owned_metro() {
-  if [[ -n "$METRO_PID" ]] && kill -0 "$METRO_PID" 2>/dev/null; then
-    kill "$METRO_PID" 2>/dev/null || true
-    local attempt
-    for attempt in {1..10}; do
-      if ! kill -0 "$METRO_PID" 2>/dev/null; then
-        break
-      fi
-      sleep 1
-    done
-    if kill -0 "$METRO_PID" 2>/dev/null; then
-      kill -9 "$METRO_PID" 2>/dev/null || true
-    fi
-    wait "$METRO_PID" 2>/dev/null || true
-  fi
-  if [[ -n "$METRO_LOG" ]] && [[ -f "$METRO_LOG" ]]; then
-    rm -f "$METRO_LOG"
-  fi
-}
-trap cleanup_owned_metro EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
-
-metro_is_ready() {
-  local status
-  status="$(curl -fsS --max-time 2 "http://127.0.0.1:${METRO_PORT}/status" 2>/dev/null || true)"
-  [[ "$status" == *"packager-status:running"* ]]
-}
-
-ensure_metro_running() {
-  if metro_is_ready; then
-    echo "Metro:     already running on :${METRO_PORT}" >&2
-    return 0
-  fi
-
-  METRO_LOG="$(mktemp "${TMPDIR:-/tmp}/hermes-metro.XXXXXX")"
-  echo "Metro:     starting dev-client server on :${METRO_PORT}" >&2
-  CI=1 npx expo start --dev-client --lan --port "$METRO_PORT" >"$METRO_LOG" 2>&1 &
-  METRO_PID=$!
-
-  local elapsed=0
-  while [[ $elapsed -lt $METRO_READY_TIMEOUT_SEC ]]; do
-    if metro_is_ready; then
-      echo "Metro:     ready after ${elapsed}s (pid=${METRO_PID})" >&2
-      return 0
-    fi
-    if ! kill -0 "$METRO_PID" 2>/dev/null; then
-      echo "Metro exited before readiness:" >&2
-      tail -80 "$METRO_LOG" >&2 || true
-      return 1
-    fi
-    sleep 2
-    elapsed=$((elapsed + 2))
-  done
-
-  echo "Metro readiness timed out after ${METRO_READY_TIMEOUT_SEC}s:" >&2
-  tail -80 "$METRO_LOG" >&2 || true
-  return 1
-}
+# This local-only artifact is never distributed; provider source-map upload remains
+# enabled for EAS/store builds and must not make simulator installation credential-bound.
+export SENTRY_DISABLE_AUTO_UPLOAD=true
 
 wait_for_simulator_boot() {
   local udid="$1"
@@ -106,7 +45,7 @@ wait_for_maestro_ios_device() {
   local interval=3
   while [[ $elapsed -lt $MAESTRO_READY_TIMEOUT_SEC ]]; do
     if xcrun simctl list devices booted 2>/dev/null | grep -Fq "$udid"; then
-      if maestro list-devices 2>/dev/null | grep -Fqi 'iPhone'; then
+      if maestro list-devices >/dev/null 2>&1; then
         echo "Maestro sees iOS simulator (${elapsed}s)" >&2
         return 0
       fi
@@ -118,20 +57,25 @@ wait_for_maestro_ios_device() {
   return 1
 }
 
-ensure_ios_app_installed() {
+install_fresh_ios_release() {
   local udid="$1"
-  if xcrun simctl get_app_container "$udid" "$IOS_BUNDLE_ID" app >/dev/null 2>&1; then
-    echo "iOS app:   $IOS_BUNDLE_ID already installed" >&2
-    return 0
-  fi
-
-  echo "iOS app:   $IOS_BUNDLE_ID not installed — building and installing on simulator" >&2
-  npx expo run:ios --no-bundler --device "$udid"
+  echo "iOS app:   uninstalling any stale $IOS_BUNDLE_ID simulator build" >&2
+  xcrun simctl uninstall "$udid" "$IOS_BUNDLE_ID" >/dev/null 2>&1 || true
+  echo "iOS app:   building and installing exact-head embedded Release build" >&2
+  npx expo run:ios --no-bundler --device "$udid" --configuration Release
 
   if ! xcrun simctl get_app_container "$udid" "$IOS_BUNDLE_ID" app >/dev/null 2>&1; then
     echo "Failed to install $IOS_BUNDLE_ID on simulator $udid" >&2
     return 1
   fi
+
+  local app_path
+  app_path="$(xcrun simctl get_app_container "$udid" "$IOS_BUNDLE_ID" app)"
+  if [[ ! -s "$app_path/main.jsbundle" ]]; then
+    echo "Installed Release app is missing a non-empty embedded main.jsbundle: $app_path" >&2
+    return 1
+  fi
+  echo "iOS app:   embedded bundle verified ($(wc -c <"$app_path/main.jsbundle" | tr -d ' ') bytes)" >&2
 }
 
 if ! command -v maestro >/dev/null 2>&1; then
@@ -159,7 +103,6 @@ resolve_sim_udid() {
   fi
   echo "Booting $DEFAULT_SIM_NAME ($udid)..." >&2
   xcrun simctl boot "$udid" || true
-  open -a Simulator || true
   wait_for_simulator_boot "$udid"
   echo "$udid"
 }
@@ -172,10 +115,8 @@ echo "Bundle:    $IOS_BUNDLE_ID"
 echo "Java:      ${JAVA_HOME:-system}"
 echo "Maestro driver timeout: ${MAESTRO_DRIVER_STARTUP_TIMEOUT}ms"
 
-ensure_metro_running
-open -a Simulator >/dev/null 2>&1 || true
 wait_for_maestro_ios_device "$UDID"
-ensure_ios_app_installed "$UDID"
+install_fresh_ios_release "$UDID"
 
 cd "$HERMES_DIR"
 maestro test -p ios --udid "$UDID" "$FLOW"

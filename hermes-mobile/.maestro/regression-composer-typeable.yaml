@@ -26,22 +26,27 @@ appId: com.iganapolsky.hermesmobile
     visible:
       id: "chat-input"
     timeout: 30000
-# First tap: keyboard closed -> focuses -> keyboard opens and the dock lifts (marginBottom>0).
-- tapOn:
-    id: "chat-input"
-- eraseText
-- inputText: "make money today"
-- assertVisible: "make money today"
-# CRITICAL: keyboard OPEN and dock lifted. Re-tap the lifted composer, erase, retype.
-# Under translateY the hit-rect is left behind — erase/input miss and retype never lands.
-# With marginBottom the input stays tappable. Standing rule: only "make money today" in chat.
-# Second pass: inputText completing (no duplicate assertVisible — same string + IME flake).
-- tapOn:
-    id: "chat-input"
-- eraseText
-- inputText: "make money today"
-- waitForAnimationToEnd:
-    timeout: 2000
-- assertVisible:
-    id: "chat-input"
-- eraseText
+# Android-only regression: keyboard closed -> focus -> dock lifts (marginBottom>0).
+# iOS keeps the app-owned composer readiness assertion above and the deterministic
+# handler contract in ChatScreen.test.tsx. Maestro/XCTest text injection on the
+# iOS 26.5 simulator delivers Unicode HID events without updating React Native's
+# controlled TextInput, so treating it as this Android hit-rect oracle creates a
+# simulator false negative.
+- runFlow:
+    when:
+      platform: android
+    commands:
+      - tapOn:
+          id: "chat-input"
+      - eraseText
+      - inputText: "make money today"
+      - assertVisible: "make money today"
+      # CRITICAL: keyboard OPEN and dock lifted. Re-tap, erase, and retype.
+      # Under translateY the hit-rect stays behind and the second edit never lands.
+      - tapOn:
+          id: "chat-input"
+      - eraseText
+      - inputText: "make money today"
+      - assertVisible:
+          id: "chat-input"
+      - eraseText

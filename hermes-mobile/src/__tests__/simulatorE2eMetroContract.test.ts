@@ -3,35 +3,36 @@ import path from 'path';
 
 const repoRoot = path.resolve(__dirname, '../../..');
 
-describe('iOS simulator E2E Metro lifecycle', () => {
-  it('requires a live Metro server before installing the development client', () => {
+describe('iOS simulator E2E embedded Release lifecycle', () => {
+  it('fresh-installs the exact source with an embedded bundle and no host Metro dependency', () => {
     const script = fs.readFileSync(
       path.join(repoRoot, 'hermes-mobile/scripts/run-simulator-e2e.sh'),
       'utf8',
     );
-    const metroGateIndex = script.lastIndexOf('\nensure_metro_running\n');
-    const installIndex = script.lastIndexOf('\nensure_ios_app_installed "$UDID"\n');
+    const uninstallIndex = script.indexOf(
+      'xcrun simctl uninstall "$udid" "$IOS_BUNDLE_ID"',
+    );
+    const releaseInstallIndex = script.indexOf(
+      'npx expo run:ios --no-bundler --device "$udid" --configuration Release',
+    );
+    const bundleCheckIndex = script.indexOf(
+      '[[ ! -s "$app_path/main.jsbundle" ]]',
+    );
 
     expect(script).toContain(
-      'CI=1 npx expo start --dev-client --lan --port "$METRO_PORT"',
+      'export EXPO_PUBLIC_E2E_AUTOMATION="${EXPO_PUBLIC_E2E_AUTOMATION:-1}"',
     );
+    expect(script).toContain('export SENTRY_DISABLE_AUTO_UPLOAD=true');
     expect(script).toContain(
-      'mktemp "${TMPDIR:-/tmp}/hermes-metro.XXXXXX"',
+      'if maestro list-devices >/dev/null 2>&1; then',
     );
-    expect(script).not.toMatch(/mktemp .*XXXXXX\.[A-Za-z0-9_-]+/);
-    expect(script).toContain('"packager-status:running"');
-    expect(script).toContain('trap cleanup_owned_metro EXIT');
-    expect(script).toContain("trap 'exit 130' INT");
-    expect(script).toContain("trap 'exit 143' TERM");
-    expect(script).toContain(
-      'npx expo run:ios --no-bundler --device "$udid"',
-    );
-    expect(script).not.toMatch(/expo run:ios[^\n]*--no-bundler[^\n]*--port/);
-    expect(script).not.toMatch(/expo run:ios[^\n]*--port[^\n]*--no-bundler/);
-    expect(metroGateIndex).toBeGreaterThan(-1);
-    expect(installIndex).toBeGreaterThan(metroGateIndex);
-    expect(script).not.toContain(
-      'Metro:     not detected on :8081 — install may use embedded bundle only',
-    );
+    expect(script).not.toContain("grep -Fqi 'iPhone'");
+    expect(script).not.toContain('expo start --dev-client');
+    expect(script).not.toContain('ensure_metro_running');
+    expect(script).not.toContain('already installed');
+    expect(script).not.toContain('open -a Simulator');
+    expect(uninstallIndex).toBeGreaterThan(-1);
+    expect(releaseInstallIndex).toBeGreaterThan(uninstallIndex);
+    expect(bundleCheckIndex).toBeGreaterThan(releaseInstallIndex);
   });
 });

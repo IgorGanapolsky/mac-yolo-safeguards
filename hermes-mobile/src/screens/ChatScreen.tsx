@@ -4528,6 +4528,7 @@ export default function ChatScreen() {
 
   const handleComposerTextChange = useCallback((text: string) => {
     if (
+      Platform.OS === 'android' &&
       sendClearSuppressRef.current &&
       normalizeMessageText(text) === normalizeMessageText(lastSentComposerTextRef.current)
     ) {
