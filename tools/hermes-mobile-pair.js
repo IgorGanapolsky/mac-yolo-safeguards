@@ -663,11 +663,6 @@ function writePairQrPng(qrPayload) {
  * Persist non-secret-path seed + QR that points at the HTTP pair page (never a stale
  * hermes:// code). Live `/pair` remints from pair-seed.json on every GET.
  */
-
-/**
- * Persist non-secret-path seed + QR that points at the HTTP pair page (never a stale
- * hermes:// code). Live `/pair` remints from pair-seed.json on every GET.
- */
 function writePairAssets({
   gatewayUrl,
   lanIp,
