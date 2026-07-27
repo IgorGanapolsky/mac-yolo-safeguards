@@ -3,44 +3,53 @@ import path from 'path';
 
 const {
   applyIosAtsTailscaleToPlist,
+  PRIVATE_HTTP_EXCEPTIONS,
 } = require('../../plugins/withIosAtsTailscale.js') as {
   applyIosAtsTailscaleToPlist: (
     plist: Record<string, unknown>,
   ) => Record<string, unknown>;
+  PRIVATE_HTTP_EXCEPTIONS: Record<string, Record<string, boolean>>;
 };
 
 /**
- * iPad Cannot reach Tailscale 100.x (2026-07-23): iPadOS 17 requires an
- * explicit local-network ATS exception for IP-address loads. Apple documents
- * combining it with the broad key for older-OS compatibility.
+ * Physical iPad proof on iPadOS 17.7.6 returned NSURLErrorDomain -1022 for
+ * every 100.x URL when both global ATS keys were present. Apple documents that
+ * the local key makes iOS 10+ ignore NSAllowsArbitraryLoads, while iOS 17 needs
+ * explicit IP/CIDR exceptions.
  */
 describe('iOS ATS Tailscale cleartext contract', () => {
   const root = path.join(__dirname, '../..');
 
-  it('app.json ios.infoPlist allows Tailscale CGNAT cleartext HTTP', () => {
+  it('app.json allows only private LAN, Tailscale CGNAT/IPv6, and MagicDNS HTTP', () => {
     const appJson = JSON.parse(
       fs.readFileSync(path.join(root, 'app.json'), 'utf8'),
     );
     const ats = appJson?.expo?.ios?.infoPlist?.NSAppTransportSecurity;
-    expect(ats).toEqual({
-      NSAllowsArbitraryLoads: true,
-      NSAllowsLocalNetworking: true,
-    });
+    expect(ats.NSAllowsArbitraryLoads).toBeUndefined();
+    expect(ats.NSAllowsLocalNetworking).toBe(true);
+    expect(ats.NSExceptionDomains).toEqual(PRIVATE_HTTP_EXCEPTIONS);
     expect(appJson?.expo?.ios?.infoPlist?.NSLocalNetworkUsageDescription).toMatch(
       /Wi|Tailscale/i,
     );
   });
 
-  it('generates both ATS keys without depending on ignored native output', () => {
+  it('deletes the ignored broad key and preserves unrelated native exceptions', () => {
     const generated = applyIosAtsTailscaleToPlist({
-      NSAppTransportSecurity: { NSExceptionDomains: { 'example.test': {} } },
+      NSAppTransportSecurity: {
+        NSAllowsArbitraryLoads: true,
+        NSExceptionDomains: { 'example.test': {} },
+      },
     });
+    const ats = generated.NSAppTransportSecurity as Record<string, unknown>;
+    expect(ats.NSAllowsArbitraryLoads).toBeUndefined();
     expect(generated).toEqual(
       expect.objectContaining({
         NSAppTransportSecurity: {
-          NSExceptionDomains: { 'example.test': {} },
-          NSAllowsArbitraryLoads: true,
           NSAllowsLocalNetworking: true,
+          NSExceptionDomains: {
+            'example.test': {},
+            ...PRIVATE_HTTP_EXCEPTIONS,
+          },
         },
         NSLocalNetworkUsageDescription: expect.stringMatching(/Wi|Tailscale/i),
       }),
@@ -62,6 +71,6 @@ describe('iOS ATS Tailscale cleartext contract', () => {
     );
     expect(pluginSource).toContain('withInfoPlist');
     expect(pluginSource).toContain('applyIosAtsTailscaleToPlist');
-    expect(pluginSource).not.toContain('delete ats.NSAllowsLocalNetworking');
+    expect(pluginSource).toContain('delete ats.NSAllowsArbitraryLoads');
   });
 });

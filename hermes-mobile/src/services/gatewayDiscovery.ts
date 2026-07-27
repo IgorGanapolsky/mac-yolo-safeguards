@@ -29,6 +29,11 @@ import type { LanScanProgress, LanScanStage } from '../types/lanScan';
 
 const IPV4_RE = /^\d{1,3}(\.\d{1,3}){3}$/;
 const PROBE_TIMEOUT_MS = 1500;
+// Explicit pairing is a user action, not a background discovery probe. Existing Mac
+// pair servers can spend up to eight seconds refreshing their QR artifact before
+// returning pair.json, so the discovery deadline would otherwise discard a healthy
+// Tailscale/LAN computer before its one-time code arrives.
+export const EXPLICIT_PAIR_SETUP_TIMEOUT_MS = 12_000;
 export const PAIR_SERVER_PORT = 8765;
 // 48 concurrent subnet probes killed a real device. Sentry APPS-3S (release 1.5, iPad 6th
 // gen, iOS 17.7.6, 1.9 GiB RAM / 1.7 usable): `WatchdogTermination — the OS watchdog
@@ -215,7 +220,10 @@ export async function withFreshPairServerSetup<T>(
   if (!trimmedHost) {
     return null;
   }
-  const payload = await fetchPairServerConfigUnlocked(trimmedHost);
+  const payload = await fetchPairServerConfigUnlocked(
+    trimmedHost,
+    EXPLICIT_PAIR_SETUP_TIMEOUT_MS,
+  );
   if (!payload?.deepLink?.trim()) {
     return null;
   }

@@ -5,6 +5,7 @@ import {
   bootstrapTailnetProbeHostsFromPairServers,
   countUniqueDiscoveredMachines,
   dedupeDiscoveredGatewaysByMachine,
+  EXPLICIT_PAIR_SETUP_TIMEOUT_MS,
   summarizeDiscoveredReach,
   discoverGatewayOnPhoneSubnet,
   discoverGatewayViaPairServer,
@@ -134,6 +135,30 @@ describe('gatewayDiscovery', () => {
       expect.objectContaining({ pairingCode: 'FRESH-LEASED' }),
     );
     expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('gives an explicit pairing request time to outlive a slow Mac pair-server QR refresh', async () => {
+    jest.useFakeTimers();
+    try {
+      let explicitSignal: AbortSignal | undefined;
+      (global.fetch as jest.Mock).mockImplementation(
+        (_url: string, options?: { signal?: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            explicitSignal = options?.signal;
+            explicitSignal?.addEventListener('abort', () => reject(new Error('aborted')));
+          }),
+      );
+
+      const pairing = withFreshPairServerSetup('100.87.85.85', async () => 'unused');
+      await jest.advanceTimersByTimeAsync(1_500);
+      expect(explicitSignal?.aborted).toBe(false);
+
+      await jest.advanceTimersByTimeAsync(EXPLICIT_PAIR_SETUP_TIMEOUT_MS - 1_500);
+      await expect(pairing).resolves.toBeNull();
+      expect(explicitSignal?.aborted).toBe(true);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('preserves secretless pair setup in memory through LAN discovery', async () => {
