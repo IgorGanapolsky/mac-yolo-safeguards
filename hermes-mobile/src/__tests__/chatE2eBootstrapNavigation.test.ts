@@ -19,14 +19,15 @@ describe('chat Maestro bootstrap navigation recovery', () => {
     expect(bootstrap).not.toContain('id: "tab-hermes"');
 
     expect(recover).toMatch(
-      /when:\s*\n\s*visible:\s*\n\s*id: "tab-hermes"[\s\S]*?tapOn:\s*\n\s*id: "tab-hermes"/,
+      /extendedWaitUntil:\s*\n\s*visible:\s*\n\s*id: "tab-hermes"[\s\S]*?tapOn:\s*\n\s*id: "tab-hermes"/,
     );
     expect(recover).toContain('hermes://setup?demo=1&recover=1');
-    expect(recover).toContain('hermes://chat');
-    expect((recover.match(/text: "Open"/g) ?? []).length).toBeGreaterThanOrEqual(5);
-    expect((recover.match(/stopApp: false/g) ?? []).length).toBeGreaterThanOrEqual(5);
-    expect(recover).toMatch(
-      /when:\s*\n\s*notVisible:\s*\n\s*id: "chat-screen-header"\s*\n\s*commands:\s*\n\s*- launchApp\s*\n\s*- extendedWaitUntil:\s*\n\s*notVisible:\s*\n\s*id: "hermes-bootstrap"/,
+    expect(recover).not.toContain('hermes://chat');
+    expect((recover.match(/text: "Open"/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    expect((recover.match(/stopApp: false/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    expect(recover).not.toMatch(/^\s*-\s+launchApp\s*$/m);
+    expect(recover.indexOf('id: "tab-hermes"')).toBeLessThan(
+      recover.indexOf('id: "chat-screen-header"'),
     );
   });
 });
