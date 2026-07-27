@@ -29,7 +29,15 @@ import type { LanScanProgress, LanScanStage } from '../types/lanScan';
 const IPV4_RE = /^\d{1,3}(\.\d{1,3}){3}$/;
 const PROBE_TIMEOUT_MS = 1500;
 export const PAIR_SERVER_PORT = 8765;
-const SUBNET_BATCH_SIZE = 48;
+// 48 concurrent subnet probes killed a real device. Sentry APPS-3S (release 1.5, iPad 6th
+// gen, iOS 17.7.6, 1.9 GiB RAM / 1.7 usable): `WatchdogTermination — the OS watchdog
+// terminated your app, possibly because it overused RAM`, Level Fatal, 4 events, with 96+
+// `GET http://192.168.68.x:8765/pair.json` breadcrumbs immediately before the kill. That
+// single issue is the whole reason release 1.5 sits at a 50% crash-free rate.
+//
+// Older/low-RAM devices cannot absorb 48 simultaneous sockets. 8 keeps a /24 sweep well
+// inside the watchdog budget; discovery is a few seconds slower and no longer fatal.
+const SUBNET_BATCH_SIZE = 8;
 
 export type DiscoverLanOptions = {
   onProgress?: (progress: LanScanProgress) => void;
