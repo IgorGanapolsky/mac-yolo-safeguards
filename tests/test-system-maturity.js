@@ -58,3 +58,34 @@ test('system maturity scorecard overall is at least 3.5 with no pillar under 3.5
     assert.ok(pillar.score >= 3.5, `${pillar.id} score ${pillar.score}`);
   }
 });
+
+test('production maturity requires current device-verified E2E proof, not just a gate file', () => {
+  const result = run('tools/system-maturity-scorecard.js', ['--json']);
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const body = JSON.parse(result.stdout);
+  const production = body.pillars.find((pillar) => pillar.id === 'production_eval');
+  assert.ok(production, 'production_eval pillar');
+
+  const gateTool = production.checks.find(
+    (check) => check.id === 'observability-gate-tool',
+  );
+  const deviceProof = production.checks.find(
+    (check) => check.id === 'observability-device-proof',
+  );
+  assert.equal(gateTool?.pass, true, 'observability tool must exist');
+  assert.ok(deviceProof, 'device proof check must exist');
+
+  const latest = JSON.parse(
+    fs.readFileSync(
+      path.join(REPO, 'hermes-mobile/docs/proofs/continuous/latest.json'),
+      'utf8',
+    ),
+  );
+  if (latest.e2e !== 'pass') {
+    assert.equal(deviceProof.pass, false, deviceProof.detail);
+    assert.ok(
+      production.score < 5,
+      `production score must be below 5 without device proof, got ${production.score}`,
+    );
+  }
+});
