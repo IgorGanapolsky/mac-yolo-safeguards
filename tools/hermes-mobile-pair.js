@@ -617,30 +617,38 @@ function writePairQrPng(qrPayload) {
   } catch {
     // fall through to regenerate
   }
-  const binCandidates = [
-    path.join(REPO, 'node_modules', '.bin', 'qrcode'),
-    path.join(REPO, 'hermes-mobile', 'node_modules', '.bin', 'qrcode'),
+  const generators = [
+    {
+      bin: path.join(REPO, 'node_modules', '.bin', 'qrcode'),
+      args: ['-o', qrPath, qrPayload],
+    },
+    {
+      bin: path.join(REPO, 'hermes-mobile', 'node_modules', '.bin', 'qrcode'),
+      args: ['-o', qrPath, qrPayload],
+    },
+    {
+      bin: '/opt/homebrew/bin/qrencode',
+      args: ['-o', qrPath, qrPayload],
+    },
+    {
+      bin: '/usr/local/bin/qrencode',
+      args: ['-o', qrPath, qrPayload],
+    },
   ];
   let qr = null;
-  for (const bin of binCandidates) {
-    if (fs.existsSync(bin)) {
-      qr = spawnSync(bin, ['-o', qrPath, qrPayload], {
+  for (const generator of generators) {
+    if (fs.existsSync(generator.bin)) {
+      qr = spawnSync(generator.bin, generator.args, {
         encoding: 'utf8',
-        timeout: 5_000,
+        timeout: 2_000,
+        killSignal: 'SIGKILL',
       });
       if (qr.status === 0) break;
     }
   }
-  if (!qr || qr.status !== 0) {
-    qr = spawnSync('npx', ['--yes', 'qrcode', '-o', qrPath, qrPayload], {
-      cwd: REPO,
-      encoding: 'utf8',
-      timeout: 8_000,
-      killSignal: 'SIGKILL',
-    });
-  }
   if (!qr || qr.status !== 0 || !fs.existsSync(qrPath)) {
-    // Still serve pair HTML/JSON without blocking forever.
+    // Pairing remains usable through the button/deep link. Never download tooling
+    // from an HTTP request: npx used to block the event loop beyond the watchdog.
     return { qrPath, imgTag: '' };
   }
   // Data URL so file:// (Mac --open) never depends on Chrome loading a sibling PNG.
@@ -729,7 +737,7 @@ function writePairAssets({
 }
 
 /** Mint a fresh secretless deep link from the on-disk seed (HTTP /pair + /pair-live.json). */
-function mintLivePairSession() {
+function mintLivePairSession({ renderPage = true } = {}) {
   const seed = loadPairSeed();
   if (!seed || !seed.gatewayUrl || !seed.apiKey) {
     return { ok: false, reason: 'no_seed' };
@@ -751,19 +759,22 @@ function mintLivePairSession() {
   const deepLink = buildSecretlessDeepLink(minted.code, pairServer, seed.macName || seed.hostname);
   const lanIp = seed.localIp || detectLocalLanIp() || '127.0.0.1';
   const cameraPageUrl = seed.pageUrl || resolveCameraPageUrl(lanIp);
-  const { imgTag } = writePairQrPng(cameraPageUrl);
-  const html = buildLivePairHtml({
-    gatewayUrl: seed.gatewayUrl,
-    deepLink,
-    pageUrl: cameraPageUrl,
-    hostname: seed.macName || seed.hostname || 'Mac',
-    imgTag,
-    expiresAt: minted.expiresAt,
-    remainingMs: minted.remainingMs,
-    refreshMs: PAIRING_CODE_REFRESH_MS,
-  });
-  // Keep on-disk index.html aligned with the live mint for --open / file viewers.
-  fs.writeFileSync(path.join(OUT_DIR, 'index.html'), html);
+  let html = '';
+  if (renderPage) {
+    const { imgTag } = writePairQrPng(cameraPageUrl);
+    html = buildLivePairHtml({
+      gatewayUrl: seed.gatewayUrl,
+      deepLink,
+      pageUrl: cameraPageUrl,
+      hostname: seed.macName || seed.hostname || 'Mac',
+      imgTag,
+      expiresAt: minted.expiresAt,
+      remainingMs: minted.remainingMs,
+      refreshMs: PAIRING_CODE_REFRESH_MS,
+    });
+    // Keep on-disk index.html aligned with the live mint for --open / file viewers.
+    fs.writeFileSync(path.join(OUT_DIR, 'index.html'), html);
+  }
   // P0 2026-07-24: Play Store installs paste Tailscale IP → phone GETs /pair.json then
   // /pair-exchange. Static pair.json on disk kept advertising expired codes while /pair
   // reminted live — "Hermes is reachable, but this phone still needs to pair." Always
@@ -988,7 +999,8 @@ function createPairServer(lanIp) {
     const method = (req.method || 'GET').toUpperCase();
     if (url === '/pair.json') {
       // Live remint — never serve a disk snapshot whose pairCode is already dead in memory.
-      const live = mintLivePairSession();
+      // JSON is a watchdog/discovery fast path and must never render or generate a QR.
+      const live = mintLivePairSession({ renderPage: false });
       if (live.ok && live.pairJson) {
         res.writeHead(200, {
           'Content-Type': 'application/json',
@@ -1077,7 +1089,7 @@ function createPairServer(lanIp) {
       return;
     }
     if (url === '/pair-live.json') {
-      const live = mintLivePairSession();
+      const live = mintLivePairSession({ renderPage: false });
       if (!live.ok) {
         res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
         res.end(JSON.stringify({ error: live.reason || 'unavailable' }));
@@ -1546,9 +1558,17 @@ function runPairMain(args) {
   }
 }
 
-try {
-  main();
-} catch (err) {
-  console.error(`[hermes-mobile-pair] ${err instanceof Error ? err.message : err}`);
-  process.exit(1);
+module.exports = {
+  createPairServer,
+  mintLivePairSession,
+  writePairQrPng,
+};
+
+if (require.main === module) {
+  try {
+    main();
+  } catch (err) {
+    console.error(`[hermes-mobile-pair] ${err instanceof Error ? err.message : err}`);
+    process.exit(1);
+  }
 }
