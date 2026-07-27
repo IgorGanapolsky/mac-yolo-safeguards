@@ -33,10 +33,22 @@ secret store, never in tracked files.
 ## Deploy / Rollback (read this before touching production)
 
 ```bash
-npm run deploy:cloudflare     # backs up D1, applies migrations, deploys to 100% of traffic
-npm run rollback:cloudflare   # ⬅ THE command if something just broke prod
+npm run deploy:cloudflare          # backs up D1, applies migrations, deploys to 100% of traffic
+npm run deploy:cloudflare:locked   # same, but refuses to race a concurrent deploy — see below
+npm run rollback:cloudflare        # ⬅ THE command if something just broke prod
 ```
 
+- **This repo is worked by many independent agents concurrently, each with their own
+  locally-authenticated `wrangler` session.** There is no CI-based deploy pipeline (no
+  Cloudflare secrets exist in GitHub Actions), so nothing stops two agents from running
+  `deploy:cloudflare` at the same moment — a real, observed cause of inconsistent live
+  behavior (a browser holding a JS bundle from one deploy while the server reflects a
+  later one). **Prefer `deploy:cloudflare:locked`**, which wraps the same steps in a lock
+  built on GitHub's own Deployments API (`scripts/deploy-cloudflare-with-lock.sh` +
+  `scripts/deploy-lock-check.mjs`): it refuses to proceed if another deploy is already
+  `in_progress` for the `hermes-control-plane-production` environment, and treats a lock
+  older than 20 minutes as abandoned (a crashed process can't permanently block deploys).
+  Check current lock state any time with `bash scripts/deploy-cloudflare-with-lock.sh --status`.
 - **`deploy:cloudflare`** validates the production env, builds, then runs
   `predeploy:cloudflare` first (npm auto-runs any `pre<script>` before the
   named script) which exports a full D1 backup to
