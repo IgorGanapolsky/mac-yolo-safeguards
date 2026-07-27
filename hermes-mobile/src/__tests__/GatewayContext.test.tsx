@@ -1,7 +1,11 @@
 import React from 'react';
 import { Text } from 'react-native';
 import { render, act, fireEvent, waitFor } from '@testing-library/react-native';
-import { GatewayProvider, useGateway } from '../context/GatewayContext';
+import {
+  GatewayProvider,
+  resolveBootstrapGatewayRoute,
+  useGateway,
+} from '../context/GatewayContext';
 import { storage } from '../services/storage';
 import { secureCredentials } from '../services/secureCredentials';
 import {
@@ -902,6 +906,13 @@ describe('GatewayProvider', () => {
     const gatewayAuthHeaders: Array<string | undefined> = [];
     global.fetch = jest.fn(async (input, init) => {
       const url = String(input);
+      if (url.startsWith('http://127.0.0.1:8642/')) {
+        return {
+          ok: false,
+          status: 503,
+          json: async () => ({ status: 'unreachable' }),
+        } as Response;
+      }
       if (url === 'http://10.2.29.103:8765/pair.json') {
         return {
           ok: true,
@@ -981,6 +992,85 @@ describe('GatewayProvider', () => {
     expect(gatewayAuthHeaders.at(-1)).toBe('Bearer sk-fresh-pair-exchange');
   });
 
+  it('selects an existing profile with its saved key when pair refresh is expired', async () => {
+    const gatewayProfilesMock = jest.requireMock('../services/gatewayProfiles');
+    gatewayProfilesMock.gatewayProfiles.load.mockResolvedValue({
+      profiles: [
+        {
+          id: 'discovered-mac',
+          label: 'Discovered Mac',
+          gatewayUrl: 'http://10.2.29.103:8642',
+          hostname: 'Discovered-Mac.local',
+          addedAt: '2026-07-26T12:00:00.000Z',
+        },
+      ],
+      activeProfileId: null,
+    });
+    (secureCredentials.resolveApiKeyForProfile as jest.Mock).mockResolvedValue(
+      'sk-saved-profile',
+    );
+
+    global.fetch = jest.fn(async (input) => {
+      const url = String(input);
+      if (url === 'http://10.2.29.103:8765/pair.json') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            gatewayUrl: 'http://10.2.29.103:8642',
+            deepLink:
+              'hermes://setup?pairCode=EXPIRED-REFRESH&pairServer=http%3A%2F%2F10.2.29.103%3A8765',
+          }),
+        } as Response;
+      }
+      if (
+        url ===
+        'http://10.2.29.103:8765/pair-exchange?code=EXPIRED-REFRESH'
+      ) {
+        return {
+          ok: false,
+          status: 410,
+          json: async () => ({}),
+        } as Response;
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: 'ok',
+          gateway_state: 'running',
+          hostname: 'Discovered-Mac.local',
+          local_ip: '10.2.29.103',
+        }),
+      } as Response;
+    }) as jest.Mock;
+
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <Probe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('profiles-ids').props.children).toContain('mac_10_2_29_103');
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('select-profile'));
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('gateway-api-key').props.children).toBe(
+        'sk-saved-profile',
+      );
+      expect(getByTestId('active-profile-id').props.children).toBe(
+        'mac_10_2_29_103',
+      );
+    });
+    expect(secureCredentials.saveApiKey).toHaveBeenCalledWith('sk-saved-profile');
+    expect(getByTestId('last-error').props.children).toBe('');
+  });
+
   it('atomically activates a manually verified profile without minting a second pairing code', async () => {
     const gatewayProfilesMock = jest.requireMock('../services/gatewayProfiles');
     gatewayProfilesMock.gatewayProfiles.load.mockResolvedValue({
@@ -1056,7 +1146,7 @@ describe('GatewayProvider', () => {
       includeToolActivity: true,
     });
 
-    const { getByTestId } = render(
+    const { getByTestId, unmount } = render(
       <GatewayProvider>
         <Probe />
       </GatewayProvider>,
@@ -1081,6 +1171,34 @@ describe('GatewayProvider', () => {
       expect.any(String),
       'verified-manual-key',
     );
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://192.168.68.60:8642/api/sessions?limit=1',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer verified-manual-key',
+          }),
+        }),
+      );
+    });
+    await act(async () => {
+      unmount();
+    });
+  });
+
+  it('restores the last explicit LAN route when the profile catalog canonicalized the same Mac as Tailscale', () => {
+    expect(
+      resolveBootstrapGatewayRoute(
+        'http://192.168.68.60:8642',
+        'http://100.87.85.85:8642',
+      ),
+    ).toBe('http://192.168.68.60:8642');
+    expect(
+      resolveBootstrapGatewayRoute(
+        '',
+        'http://100.87.85.85:8642',
+      ),
+    ).toBe('http://100.87.85.85:8642');
   });
 
   it('keeps a fresh user unselected when silent auto-discovery finds a reachable computer', async () => {

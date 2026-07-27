@@ -36,6 +36,7 @@ export async function resolveDiscoveredPairingSelection(
   input: {
     gatewayUrl: string;
     setup?: SetupDeepLinkParams;
+    hasSavedCredential?: boolean;
   },
 ): Promise<DiscoveredPairingResolution> {
   const pairHost = pairServerHostFromGatewayUrl(input.gatewayUrl);
@@ -70,9 +71,10 @@ export async function resolveDiscoveredPairingSelection(
     }
   }
 
-  // A previously paired Mac can remain usable while its pair server is down.
-  // The caller may continue with the saved per-profile credential.
-  if (!sawPairingSetup) {
+  // A previously paired Mac can remain usable while its pair server is down or
+  // advertises an expired/consumed one-time code. First-time discoveries still
+  // fail closed because they have no authenticated credential to fall back to.
+  if (!sawPairingSetup || input.hasSavedCredential) {
     return { ok: true, apiKey: null, setup: null };
   }
   return {

@@ -810,5 +810,42 @@ else
   bad "pair.json stays below 1.5s and never invokes QR tooling"
 fi
 
+# A clean npm install must include a bounded local QR generator. This proves the
+# human-facing /pair page still works without Homebrew qrencode or HTTP-time npx.
+if HOME="$TMP/home" PATH="$BIN:$PATH" REPO="$REPO" node <<'NODE'
+const fs = require('fs');
+const path = require('path');
+
+const repo = process.env.REPO;
+const manifest = require(path.join(repo, 'hermes-mobile', 'package.json'));
+if (manifest.dependencies?.qrcode !== '1.5.4') {
+  throw new Error('qrcode must be pinned as a clean-install runtime dependency');
+}
+const localGenerator = path.join(
+  repo,
+  'hermes-mobile',
+  'node_modules',
+  '.bin',
+  'qrcode',
+);
+if (!fs.existsSync(localGenerator)) {
+  throw new Error('clean-install qrcode executable is unavailable');
+}
+const { writePairQrPng } = require(path.join(repo, 'tools', 'hermes-mobile-pair.js'));
+const result = writePairQrPng('http://100.87.85.85:8765/pair');
+if (!result.imgTag.startsWith('<img src="data:image/png;base64,')) {
+  throw new Error('/pair QR was not embedded as a PNG data URL');
+}
+const png = fs.readFileSync(result.qrPath);
+if (png.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') {
+  throw new Error('generated QR is not a PNG');
+}
+NODE
+then
+  ok "clean npm install renders /pair QR without npx or Homebrew"
+else
+  bad "clean npm install renders /pair QR without npx or Homebrew"
+fi
+
 printf "\nResults: %s passed, %s failed\n" "$pass" "$fail"
 [[ "$fail" -eq 0 ]]

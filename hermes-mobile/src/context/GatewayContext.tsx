@@ -355,6 +355,16 @@ export type GatewayContextValue = {
 
 export const GatewayContext = createContext<GatewayContextValue | null>(null);
 
+export function resolveBootstrapGatewayRoute(
+  savedRoute: string | null | undefined,
+  activeProfileRoute: string,
+): string {
+  const trimmed = savedRoute?.trim();
+  return trimmed && isValidGatewayUrl(trimmed)
+    ? trimmed
+    : activeProfileRoute;
+}
+
 export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<GatewaySettings>(DEFAULT_GATEWAY_SETTINGS);
   const [apiKey, setApiKey] = useState('');
@@ -587,13 +597,22 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     settingsRef.current = settings;
-    apiKeyRef.current = apiKey;
-    effectiveGatewayUrlRef.current = effectiveGatewayUrl;
     setProductAnalyticsOptOut(Boolean(settings.analyticsOptOut));
     setPostHogDogfoodExclusions({
       developerLeashUnlock: Boolean(settings.developerLeashUnlock),
     });
-  }, [settings, apiKey, effectiveGatewayUrl]);
+  }, [settings]);
+
+  // Keep independently updated values in independent effects. A combined effect
+  // can run after only one state setter commits and overwrite the other refs with
+  // stale render values (fresh credential + old route was the physical repro).
+  useEffect(() => {
+    apiKeyRef.current = apiKey;
+  }, [apiKey]);
+
+  useEffect(() => {
+    effectiveGatewayUrlRef.current = effectiveGatewayUrl;
+  }, [effectiveGatewayUrl]);
 
   useEffect(() => {
     let mounted = true;
@@ -698,7 +717,18 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           await storage.saveGatewaySettings(resolvedSettings);
         }
         if (active) {
-          resolvedSettings = { ...savedSettings, gatewayUrl: active.gatewayUrl };
+          // The profile catalog owns machine identity, while saved settings owns the
+          // user's last explicitly selected route. Same-Mac discovery intentionally
+          // collapses LAN + Tailscale rows into one catalog entry and may prefer the
+          // Tailscale URL there. Replacing a valid saved LAN URL with that catalog URL
+          // on bootstrap made a cold relaunch silently switch routes.
+          resolvedSettings = {
+            ...savedSettings,
+            gatewayUrl: resolveBootstrapGatewayRoute(
+              savedSettings.gatewayUrl,
+              active.gatewayUrl,
+            ),
+          };
           const profileKey = await secureCredentials.resolveApiKeyForProfile(active.id);
           if (profileKey) {
             resolvedKey = profileKey;
@@ -919,15 +949,33 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     const gatewayProbeUrl = effectiveGatewayUrlRef.current || currentSettings.gatewayUrl;
 
     const probeMacGateway = async (url: string) => {
-      const probeKey = await resolveApiKeyForGatewayProbe({
+      const fallbackKeyAtStart = apiKeyRef.current;
+      let probeKey = await resolveApiKeyForGatewayProbe({
         gatewayUrl: url,
         profiles: profileStateRef.current.profiles,
         activeProfileId: profileStateRef.current.activeProfileId,
-        fallbackKey: apiKeyRef.current,
+        fallbackKey: fallbackKeyAtStart,
         preferFallbackForActiveMachine: true,
         resolveProfileKey: (profileId) => secureCredentials.resolveApiKeyForProfile(profileId),
       });
-      if (probeKey !== apiKeyRef.current) {
+      // A profile-key read can begin before an explicit pairing selection and finish
+      // afterward. Re-resolve against the latest refs so that an older secure-store
+      // value cannot overwrite the freshly exchanged in-memory credential.
+      if (apiKeyRef.current !== fallbackKeyAtStart) {
+        probeKey = await resolveApiKeyForGatewayProbe({
+          gatewayUrl: url,
+          profiles: profileStateRef.current.profiles,
+          activeProfileId: profileStateRef.current.activeProfileId,
+          fallbackKey: apiKeyRef.current,
+          preferFallbackForActiveMachine: true,
+          resolveProfileKey: (profileId) =>
+            secureCredentials.resolveApiKeyForProfile(profileId),
+        });
+      }
+      const probeMayUpdateActiveCredential =
+        !profileStateRef.current.activeProfileId ||
+        isDiscoveredUrlAllowedForActiveProfile(profileStateRef.current, url);
+      if (probeKey !== apiKeyRef.current && probeMayUpdateActiveCredential) {
         setApiKey(probeKey);
         apiKeyRef.current = probeKey;
       }
@@ -989,6 +1037,18 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         return { snapshot, url: fallbackUrl };
       };
 
+      // NetInfo can report a VPN-backed iPad as non-Wi-Fi even while its selected
+      // LAN gateway is directly reachable. The selected route is authoritative:
+      // probe it before considering Tailscale fallbacks, then fail over normally.
+      if (!deferLoopbackOnCellular) {
+        try {
+          const snapshot = await probeMacGatewayOk(primaryUrl);
+          return { snapshot, url: primaryUrl };
+        } catch {
+          // fall through to saved profile / tailnet alternatives
+        }
+      }
+
       if (skipLan) {
         for (const fallbackUrl of savedProfileFallbackUrls({
           primaryUrl,
@@ -1005,15 +1065,6 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           } catch {
             // try next saved profile / tailnet URL
           }
-        }
-      }
-      // On cellular with a Tailscale alternate, never keep ghost USB loopback as the route.
-      if (!skipLan && !deferLoopbackOnCellular) {
-        try {
-          const snapshot = await probeMacGatewayOk(primaryUrl);
-          return { snapshot, url: primaryUrl };
-        } catch {
-          // fall through to Tailscale / USB loopback / Wi‑Fi LAN
         }
       }
 
@@ -1635,14 +1686,29 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // 2. Remember and prefer the last explicitly user-selected computer — but never
+    // 2. Keep the healthy route the user explicitly selected. The profile catalog
+    // collapses same-Mac LAN + Tailscale discoveries and may canonicalize that row to
+    // Tailscale, so probing the catalog first silently changed LAN to Tailscale after
+    // every cold relaunch. Probe the committed route directly even when iPadOS reports
+    // the VPN as a non-Wi-Fi interface; the 1.5s deadline bounds a stale LAN route.
+    const hasCommittedSelection = hasCommittedComputerSelection({
+      activeProfileId: profileStateRef.current.activeProfileId,
+      settingsGatewayUrl: currentUrl,
+    });
+    if (currentUrl && hasCommittedSelection) {
+      try {
+        return await probe(currentUrl);
+      } catch (_) {
+        // fall through to the saved machine's alternate routes
+      }
+    }
+
+    // 3. Remember and prefer the last explicitly user-selected computer — but never
     // yank a healthy same-Mac USB session back to that Mac's Tailscale/LAN URL.
     const lastSelectedId = await storage.loadLastSelectedProfileId();
-    let lastSelectedUrl: string | undefined;
     if (lastSelectedId) {
       const preferredProfile = profileStateRef.current.profiles.find((p) => p.id === lastSelectedId);
       if (preferredProfile && preferredProfile.gatewayUrl) {
-        lastSelectedUrl = preferredProfile.gatewayUrl;
         const keepUsb = shouldKeepUsbOverStickyRemote({
           effectiveGatewayUrl: effectiveUrl,
           stickyProfileUrl: preferredProfile.gatewayUrl,
@@ -1674,20 +1740,6 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         } catch (_) {
           // fall through
         }
-      }
-    }
-
-    const skipCurrentLan =
-      currentUrl &&
-      !isLoopbackGatewayUrl(currentUrl) &&
-      shouldSkipLanGatewayProbe(currentUrl, wifiConnectedRef.current);
-
-    // 3. Fallback to current settings URL (if not already tried above)
-    if (currentUrl && !skipCurrentLan && currentUrl !== lastSelectedUrl) {
-      try {
-        return await commitDiscoveredUrl(await probe(currentUrl));
-      } catch (_) {
-        // fall through
       }
     }
 
@@ -2706,10 +2758,13 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
       let discoveredApiKey = options?.verifiedApiKey?.trim() || null;
+      const savedProfileApiKey =
+        await secureCredentials.resolveApiKeyForProfile(profile.id);
       if (!hasVerifiedManualCredential) {
         const pairing = await resolveDiscoveredPairingSelection({
           gatewayUrl: profile.gatewayUrl,
           setup: discoveredPairingSetupRef.current.get(profile.id),
+          hasSavedCredential: Boolean(savedProfileApiKey?.trim()),
         });
         if (!pairing.ok) {
           setLastEventError(pairing.error);
@@ -2766,6 +2821,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
       const profileKey =
         discoveredApiKey ||
+        savedProfileApiKey ||
         (await secureCredentials.resolveApiKeyForProfile(selectedId));
       await saveSettings(nextSettings, profileKey || apiKeyRef.current);
       haptics.success();

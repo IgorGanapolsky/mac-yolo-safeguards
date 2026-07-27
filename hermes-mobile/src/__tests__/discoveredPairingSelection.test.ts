@@ -274,4 +274,40 @@ describe('discovered iPad pairing selection', () => {
     ).resolves.toEqual({ ok: true, apiKey: null, setup: null });
     fetchSpy.mockRestore();
   });
+
+  it('keeps a saved profile usable when pair refresh returns an expired code', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      if (url === 'http://100.87.85.85:8765/pair.json') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            gatewayUrl: 'http://100.87.85.85:8642',
+            deepLink:
+              'hermes://setup?pairCode=EXPIRED-REFRESH&pairServer=http%3A%2F%2F100.87.85.85%3A8765',
+          }),
+        } as Response;
+      }
+      if (
+        url ===
+        'http://100.87.85.85:8765/pair-exchange?code=EXPIRED-REFRESH'
+      ) {
+        return {
+          ok: false,
+          status: 410,
+          json: async () => ({}),
+        } as Response;
+      }
+      throw new Error(`Unexpected URL ${String(url)}`);
+    });
+
+    await expect(
+      resolveDiscoveredPairingSelection({
+        gatewayUrl: 'http://100.87.85.85:8642',
+        hasSavedCredential: true,
+      }),
+    ).resolves.toEqual({ ok: true, apiKey: null, setup: null });
+    expect(fetchSpy).toHaveBeenCalledTimes(6);
+    fetchSpy.mockRestore();
+  });
 });
