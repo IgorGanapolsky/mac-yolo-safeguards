@@ -54,6 +54,18 @@ DJSON="$("$WRAPPER" --doctor --json)"
 echo "$DJSON" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['schema']=='poolside-yolo/doctor-v1'; assert d['ok'] is True; assert d['autonomous'] is True; assert d['gatewayUp'] is True; assert d['zeroSpendActive'] is False; assert d['binary'].endswith('pool'); assert d['defaultModel']=='glm-coding'" \
   && ok "doctor --json shape" || no "doctor --json shape"
 
+# 1b. doctor's live model probe costs a real completion, so it must never fire while
+#     the fleet zero-spend gate is on. Unknown must surface as null, never as "fine".
+: > "$ROOT/NO_PAID_SPEND"
+"$WRAPPER" --doctor --json | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+assert d['zeroSpendActive'] is True
+assert d['modelServing'] is None, 'made a model call under zero-spend: %r' % d['modelServing']
+assert d['modelFellBack'] is None
+" && ok "zero-spend suppresses doctor model probe" || no "zero-spend suppresses doctor model probe"
+rm -f "$ROOT/NO_PAID_SPEND"
+
 # 2. zero-spend marker => exit 73, pool never runs
 : > "$ROOT/NO_PAID_SPEND"
 rm -f "$ARGS_OUT"

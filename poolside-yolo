@@ -137,14 +137,34 @@ model_served() {
   printf '%s' "$list" | grep -q "\"id\"[[:space:]]*:[[:space:]]*\"$DEFAULT_MODEL\""
 }
 
+# Which model does the gateway ACTUALLY answer with? `model_served` only proves the
+# ID is listed — the gateway's fallback chain (glm-coding -> opencode-go-glm ->
+# nemotron3-free -> ...) can quietly serve something else entirely when the primary
+# route is out of quota, and the agent just gets dumber with no error anywhere.
+# Costs one 1-token completion, so it is doctor-only, and never runs under the
+# zero-spend gate (that marker means "make no paid model calls").
+model_serving() {
+  [[ -e "$MARKER" ]] && return 1
+  [[ -n "${POOLSIDE_YOLO_DOCTOR_NO_PROBE:-}" ]] && return 1
+  curl -fsS -m 20 "${GATEWAY_URL%/}/chat/completions" \
+    -H "Authorization: Bearer ${POOLSIDE_API_KEY:-hermes-local-gateway}" \
+    -H "Content-Type: application/json" \
+    -d "{\"model\":\"$DEFAULT_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":1}" \
+    2>/dev/null | sed -n 's/.*"model"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1
+}
+
 doctor() {
   local format="${1:-text}" bin="" version="" up="false"
-  local modes="" mode_valid="unknown" model_ok="unknown"
+  local modes="" mode_valid="unknown" model_ok="unknown" serving="" fellback="unknown"
   if ! bin="$(resolve_pool)"; then emit_missing "$format"; return 127; fi
   version="$("$bin" --version 2>/dev/null | head -n1 || true)"
   gateway_up && up="true"
   if [[ "$up" == "true" ]]; then
     model_served && model_ok="true" || model_ok="false"
+    serving="$(model_serving || true)"
+    if [[ -n "$serving" ]]; then
+      [[ "$serving" == "$DEFAULT_MODEL" ]] && fellback="false" || fellback="true"
+    fi
     if modes="$(probe_modes "$bin")" && [[ -n "$modes" ]]; then
       mode_valid="false"
       for m in $modes; do [[ "$m" == "$YOLO_MODE" ]] && mode_valid="true"; done
@@ -153,6 +173,7 @@ doctor() {
   if [[ "$format" == json ]]; then
     PYB="$bin" PYV="$version" PYG="$GATEWAY_URL" PYM="$DEFAULT_MODEL" PYUP="$up" \
     PYMODE="$YOLO_MODE" PYMODES="$modes" PYMV="$mode_valid" PYMOK="$model_ok" \
+    PYSERV="$serving" PYFB="$fellback" \
     PYZ="$([[ -e "$MARKER" ]] && echo true || echo false)" node -e '
       const tri = v => v === "true" ? true : v === "false" ? false : null;
       process.stdout.write(JSON.stringify({
@@ -160,6 +181,7 @@ doctor() {
         binary:process.env.PYB, version:process.env.PYV,
         gateway:process.env.PYG, gatewayUp:process.env.PYUP==="true",
         defaultModel:process.env.PYM, modelServed:tri(process.env.PYMOK),
+        modelServing:process.env.PYSERV || null, modelFellBack:tri(process.env.PYFB),
         mode:process.env.PYMODE, modeValid:tri(process.env.PYMV),
         availableModes:process.env.PYMODES ? process.env.PYMODES.split(" ") : [],
         zeroSpendActive:process.env.PYZ==="true",
@@ -173,17 +195,20 @@ print(json.dumps({
   "binary": os.environ["PYB"], "version": os.environ["PYV"],
   "gateway": os.environ["PYG"], "gatewayUp": os.environ["PYUP"] == "true",
   "defaultModel": os.environ["PYM"], "modelServed": tri(os.environ["PYMOK"]),
+  "modelServing": os.environ["PYSERV"] or None, "modelFellBack": tri(os.environ["PYFB"]),
   "mode": os.environ["PYMODE"], "modeValid": tri(os.environ["PYMV"]),
   "availableModes": os.environ["PYMODES"].split() if os.environ["PYMODES"] else [],
   "zeroSpendActive": os.environ["PYZ"] == "true",
   "autonomous": True,
 }))'
   else
-    printf 'POOLSIDE_YOLO_OK binary=%s version=%s gateway=%s up=%s model=%s model_served=%s mode=%s mode_valid=%s zero_spend=%s\n' \
-      "$bin" "$version" "$GATEWAY_URL" "$up" "$DEFAULT_MODEL" "$model_ok" "$YOLO_MODE" "$mode_valid" \
+    printf 'POOLSIDE_YOLO_OK binary=%s version=%s gateway=%s up=%s model=%s model_served=%s serving=%s mode=%s mode_valid=%s zero_spend=%s\n' \
+      "$bin" "$version" "$GATEWAY_URL" "$up" "$DEFAULT_MODEL" "$model_ok" "${serving:-unknown}" "$YOLO_MODE" "$mode_valid" \
       "$([[ -e "$MARKER" ]] && echo true || echo false)"
     [[ "$mode_valid" == "false" ]] && \
       echo "poolside-yolo: WARNING mode '$YOLO_MODE' is not advertised by this pool build (available: $modes) — it would silently fall back to approval prompts" >&2
+    [[ "$fellback" == "true" ]] && \
+      echo "poolside-yolo: WARNING gateway answers '$DEFAULT_MODEL' with '$serving' — the primary route is down and you are talking to a fallback model" >&2
   fi
 }
 
