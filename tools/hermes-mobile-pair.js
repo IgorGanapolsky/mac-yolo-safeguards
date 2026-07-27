@@ -322,10 +322,18 @@ function adbDevice() {
   return selectPhysicalAdbSerial(result.stdout);
 }
 
-function openDeepLinkOnDevice(serial, link) {
+function resolveTargetAndroidPackageName() {
+  const requested = String(process.env.HERMES_MOBILE_ANDROID_PACKAGE || '').trim();
+  if (/^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$/.test(requested)) {
+    return requested;
+  }
+  return ANDROID_PACKAGE_NAME;
+}
+
+function openDeepLinkOnDevice(serial, link, packageName = resolveTargetAndroidPackageName()) {
   // Android device shell splits on '&' unless the URI is single-quoted (breaks &name=… params).
   const quoted = `'${String(link).replace(/'/g, `'\\''`)}'`;
-  const shellCmd = `am start -a android.intent.action.VIEW -d ${quoted}`;
+  const shellCmd = `am start -a android.intent.action.VIEW -p ${packageName} -d ${quoted}`;
   const args = serial ? ['-s', serial, 'shell', shellCmd] : ['shell', shellCmd];
   const result = spawnSync('adb', args, {
     encoding: 'utf8',
@@ -1473,7 +1481,8 @@ function runPairMain(args) {
       // intent. Previously these fired consecutively with zero delay, which could race a
       // cold-starting app and drop it back to the launcher or apply the unlock before the
       // setup profile existed.
-      const ok = openDeepLinkOnDevice(serial, deepLink);
+      const targetAndroidPackageName = resolveTargetAndroidPackageName();
+      const ok = openDeepLinkOnDevice(serial, deepLink, targetAndroidPackageName);
       console.log(ok ? `  adb: opened on ${serial}` : '  adb: intent failed — scan QR on pair page');
       if (!ok) {
         console.log('  adb: secondary intent skipped — primary setup intent failed');
@@ -1485,7 +1494,7 @@ function runPairMain(args) {
           console.log('  adb: dismissed runtime permission dialog (notif) so setup can finish');
         }
         const ackWaitMs = Number(process.env.HERMES_PAIR_ACK_WAIT_MS || 8000);
-        const ack = waitForForegroundAck(serial, ANDROID_PACKAGE_NAME, { timeoutMs: ackWaitMs });
+        const ack = waitForForegroundAck(serial, targetAndroidPackageName, { timeoutMs: ackWaitMs });
         if (!ack.ok && dismissAndroidRuntimePermissionDialogs(serial)) {
           console.log('  adb: dismissed runtime permission dialog after ack timeout');
         }
@@ -1495,7 +1504,7 @@ function runPairMain(args) {
             : `  adb: setup ack timed out after ${ack.waitedMs}ms — sending secondary intent anyway (best-effort)`,
         );
         try {
-          openDeepLinkOnDevice(serial, 'hermes://dev/leash-unlock');
+          openDeepLinkOnDevice(serial, 'hermes://dev/leash-unlock', targetAndroidPackageName);
           console.log('  adb: developer Leash unlock intent sent (does not change tab)');
         } catch {
           // App may still be cold-starting after install.

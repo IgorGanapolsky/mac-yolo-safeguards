@@ -410,10 +410,18 @@ else
   bad "extras only when auth verifies; skip foreign keys"
 fi
 # Deep link adb intent must single-quote URI so device shell does not split on &name=
-if [[ "$PAIR_JS" == *"device shell splits"* ]] && [[ "$PAIR_JS" == *"single-quoted"* ]] && [[ "$PAIR_JS" == *"am start -a android.intent.action.VIEW -d"* ]]; then
+if [[ "$PAIR_JS" == *"device shell splits"* ]] && [[ "$PAIR_JS" == *"single-quoted"* ]] && [[ "$PAIR_JS" == *"am start -a android.intent.action.VIEW -p"* ]]; then
   ok "pair adb deep link quotes URI for &name= params"
 else
   bad "pair adb deep link quotes URI for &name= params"
+fi
+
+if [[ "$PAIR_JS" == *"HERMES_MOBILE_ANDROID_PACKAGE"* ]] \
+  && [[ "$PAIR_JS" == *"openDeepLinkOnDevice(serial, deepLink, targetAndroidPackageName)"* ]] \
+  && [[ "$PAIR_JS" == *"waitForForegroundAck(serial, targetAndroidPackageName"* ]]; then
+  ok "pair adb deep link and foreground ack target the selected app package"
+else
+  bad "pair adb deep link and foreground ack target the selected app package"
 fi
 
 # Unattended session-start pairing must never expose the credential-bearing LAN server,
