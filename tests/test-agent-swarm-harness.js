@@ -24,9 +24,15 @@ const {
   classifyTaskStateDesign,
   detectFleetHostRole,
   whereIsStateCheck,
+  toolboxPolicy,
+  classifyTaskToolbox,
+  resolveToolboxAccess,
+  workerToolboxPrompt,
+  whereIsAuthCheck,
   MEGAFILES,
   FIELD_GUIDE_LINE_BUDGET,
   STATE_LAYER_SOURCE,
+  TOOLBOX_SOURCE,
 } = require('../tools/agent-swarm-harness');
 const { parseActiveTasks } = require('../tools/plan-coordination-snapshot');
 
@@ -134,6 +140,9 @@ test('buildHarnessReport works on temp plan with field guide present', () => {
   assert.ok(report.stateLayers && report.stateLayers.layers.length >= 5);
   assert.ok(report.whereIsState && Array.isArray(report.whereIsState.questions));
   assert.strictEqual(report.whereIsState.questions.length, 3);
+  assert.ok(report.toolboxes && report.toolboxes.packs.length >= 5);
+  assert.ok(report.whereIsAuth && report.whereIsAuth.classified);
+  assert.ok(report.workerToolbox && typeof report.workerToolbox.prompt === 'string');
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -143,8 +152,10 @@ test('sessionContract states boundaries once with keep/drop lists', () => {
   assert.strictEqual(worker.effort, 'medium');
   assert.ok(worker.keep.some((k) => /verification|exit code/i.test(k)));
   assert.ok(worker.keep.some((k) => /state-layer/i.test(k)));
+  assert.ok(worker.keep.some((k) => /toolbox/i.test(k)));
   assert.ok(worker.drop.some((d) => /brief/i.test(d) || /AGENTS/i.test(d)));
   assert.ok(worker.drop.some((d) => /chat transcript|Ollama process/i.test(d)));
+  assert.ok(worker.drop.some((d) => /token exchange|skill catalog/i.test(d)));
   const planner = sessionContract('planner', { HERMES_REASONING_EFFORT: 'low' });
   assert.strictEqual(planner.effort, 'low');
   assert.ok(/AC|claim/i.test(planner.stopWhen));
@@ -174,6 +185,7 @@ test('frontierModelPlaybook maps video patterns onto harness artifacts', () => {
   assert.ok(ids.includes('effort_step_down'));
   assert.ok(ids.includes('hard_bar_loops'));
   assert.ok(ids.includes('state_layer_split'));
+  assert.ok(ids.includes('toolbox_auth_boundary'));
 });
 
 test('stateLayerPolicy encodes Pro+mini hybrid (stateless inference, shared board)', () => {
@@ -267,6 +279,92 @@ test('whereIsStateCheck returns three questions with machine-readable evidence',
   assert.strictEqual(clean.host.role, 'mac_pro');
 
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('toolboxPolicy encodes domain packs with auth and host allowlists', () => {
+  const policy = toolboxPolicy();
+  assert.strictEqual(policy.source.url, TOOLBOX_SOURCE.url);
+  assert.ok(policy.source.url.includes('devblogs.microsoft.com/foundry'));
+  const byId = Object.fromEntries(policy.packs.map((p) => [p.id, p]));
+  assert.ok(byId.fleet_inference.hosts.includes('mac_mini'));
+  assert.ok(byId.repo_coord.hosts.includes('mac_pro'));
+  assert.deepStrictEqual(byId.social_promo.hosts, ['mac_pro']);
+  assert.deepStrictEqual(byId.revenue_cash.hosts, ['mac_pro']);
+  assert.strictEqual(byId.social_promo.auth, 'user_delegation');
+  assert.ok(byId.social_promo.gates.includes('PUBLISH_APPROVED'));
+  assert.ok(policy.antiPatterns.some((a) => /skill catalog|OAuth|mini/i.test(a)));
+});
+
+test('classifyTaskToolbox routes surfaces to packs', () => {
+  assert.strictEqual(classifyTaskToolbox('post everywhere LinkedIn promo').toolboxId, 'social_promo');
+  assert.strictEqual(classifyTaskToolbox('Stripe cash pipeline Apollo').toolboxId, 'revenue_cash');
+  assert.strictEqual(classifyTaskToolbox('Maestro e2e pair phone').toolboxId, 'device_mobile');
+  assert.strictEqual(classifyTaskToolbox('LiteLLM model route hermes-local').toolboxId, 'fleet_inference');
+  assert.strictEqual(classifyTaskToolbox('thumbgate recall field guide').toolboxId, 'memory_rag');
+  assert.strictEqual(classifyTaskToolbox('plan.md claim harness PR').toolboxId, 'repo_coord');
+});
+
+test('resolveToolboxAccess blocks social_promo on mini and publish without gate', () => {
+  const mini = resolveToolboxAccess('social_promo', { role: 'mac_mini' }, {});
+  assert.strictEqual(mini.ok, false);
+  assert.strictEqual(mini.status, 'host_blocked');
+
+  const proNoPub = resolveToolboxAccess(
+    'social_promo',
+    { role: 'mac_pro' },
+    { HERMES_SESSION_PUBLISH: 'DRAFT_ONLY' },
+  );
+  assert.strictEqual(proNoPub.ok, false);
+  assert.strictEqual(proNoPub.status, 'gate_blocked');
+
+  const proOk = resolveToolboxAccess(
+    'social_promo',
+    { role: 'mac_pro' },
+    { HERMES_SESSION_PUBLISH: 'PUBLISH_APPROVED', HERMES_ALLOW_INTERACTIVE_CHROME: '1' },
+  );
+  assert.strictEqual(proOk.ok, true);
+  assert.strictEqual(proOk.status, 'allowed');
+
+  const miniRepo = resolveToolboxAccess('repo_coord', { role: 'mac_mini' }, {});
+  assert.strictEqual(miniRepo.ok, true);
+});
+
+test('workerToolboxPrompt is thin and blocks wrong host', () => {
+  const blocked = workerToolboxPrompt('post everywhere LinkedIn promo', {
+    env: { HERMES_FLEET_HOST_ROLE: 'mac_mini' },
+  });
+  assert.strictEqual(blocked.toolboxId, 'social_promo');
+  assert.strictEqual(blocked.ok, false);
+  assert.ok(/BLOCKED/i.test(blocked.prompt));
+  assert.ok(blocked.entrypoints.length >= 1);
+  assert.ok(blocked.maxEntrypoints <= 10);
+
+  const leaf = workerToolboxPrompt('implement AcceptanceCheck leaf unit test plan.md claim', {
+    env: { HERMES_FLEET_HOST_ROLE: 'mac_mini' },
+  });
+  assert.strictEqual(leaf.toolboxId, 'repo_coord');
+  assert.strictEqual(leaf.ok, true);
+  assert.ok(/entrypoints/i.test(leaf.prompt));
+  assert.ok(!/full AGENTS|Never-list/i.test(leaf.prompt));
+});
+
+test('whereIsAuthCheck returns three questions and host guidance', () => {
+  const blocked = whereIsAuthCheck({
+    taskText: 'promote everywhere LinkedIn',
+    env: { HERMES_FLEET_HOST_ROLE: 'mac_mini' },
+  });
+  assert.strictEqual(blocked.ok, false);
+  assert.strictEqual(blocked.questions.length, 3);
+  assert.ok(blocked.questions.every((q) => q.id && q.evidence));
+  assert.ok(/mini/i.test(blocked.hostGuidance));
+  assert.ok(blocked.workerPrompt && blocked.workerPrompt.toolboxId === 'social_promo');
+
+  const ok = whereIsAuthCheck({
+    taskText: 'plan.md swarm harness claim',
+    env: { HERMES_FLEET_HOST_ROLE: 'mac_pro' },
+  });
+  assert.strictEqual(ok.ok, true);
+  assert.strictEqual(ok.classified.toolboxId, 'repo_coord');
 });
 
 test('specificationDrivenDesign maps Ozkary loop onto repo artifacts', () => {
