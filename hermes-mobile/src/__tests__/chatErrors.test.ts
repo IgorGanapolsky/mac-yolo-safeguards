@@ -203,7 +203,7 @@ describe('isConnectivityMessage', () => {
     expect(isConnectivityMessage("Can't reach direct link (10.2.29.103:8642) — tap to retry")).toBe(true);
   });
 
-  it('explains chat needs a computer link when account path is up but Mac HTTP is down', () => {
+  it('explains that Chat needs a Mac connection when account path is up but Mac HTTP is down', () => {
     const message = chatSendBlockedMessage({
       connectionMode: 'relay',
       connectionState: 'connected',
@@ -219,6 +219,6 @@ describe('isConnectivityMessage', () => {
       connectionState: 'connecting',
       healthProbePending: true,
     });
-    expect(message).toBe('Still checking your computer link. Message kept locally.');
+    expect(message).toBe('Still checking your Mac connection. Message kept locally.');
   });
 });

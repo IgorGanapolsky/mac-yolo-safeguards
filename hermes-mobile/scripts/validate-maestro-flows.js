@@ -34,7 +34,7 @@ const REQUIRED_FLOWS = [
   'fresh-user-suite',
   'fresh-user-cold-start',
   'fresh-user-tabs',
-  'fresh-user-leash-paywall',
+  'fresh-user-paid-full-access',
   'wrong-key-repair',
   'tailscale-profile-disconnected-copy',
   'picker-two-machines',

@@ -7,6 +7,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const DEFAULT_OUT_DIR = path.join(os.homedir(), 'Library', 'Application Support', 'mac-yolo-safeguards');
+const MIN_GRAPHIFY_VERSION = '0.9.26';
 
 const usage = `Usage:
   node tools/graphify-readiness.js [--repo path] [--json] [--out file] [--probe-local-llm]
@@ -62,6 +63,27 @@ function graphifyPathForRepo(repo) {
   return commandPath('graphify');
 }
 
+function graphifyVersion(graphifyPath) {
+  if (!graphifyPath) return '';
+  const result = run(graphifyPath, ['--version']);
+  if (result.status !== 0) return '';
+  return (result.stdout.match(/\bgraphify\s+(\d+\.\d+\.\d+)\b/i) || [])[1] || '';
+}
+
+function versionAtLeast(actual, minimum) {
+  const parts = (value) => String(value)
+    .split('.')
+    .map((part) => Number.parseInt(part, 10) || 0);
+  const left = parts(actual);
+  const right = parts(minimum);
+  const width = Math.max(left.length, right.length);
+  for (let index = 0; index < width; index += 1) {
+    const delta = (left[index] || 0) - (right[index] || 0);
+    if (delta !== 0) return delta > 0;
+  }
+  return true;
+}
+
 function pythonModulePresent(moduleName) {
   const result = run('python3', ['-c', `import ${moduleName}; print("ok")`]);
   return result.status === 0;
@@ -73,11 +95,10 @@ function pythonPackagePresent(pythonBin, moduleName) {
   return result.status === 0;
 }
 
-function countCandidateFiles(repo) {
-  const exts = new Set(['.js', '.ts', '.tsx', '.jsx', '.py', '.sh', '.md', '.json', '.yml', '.yaml', '.pdf', '.png', '.jpg', '.jpeg']);
-  let count = 0;
+function walkCandidateFiles(repo) {
+  const files = [];
   const stack = [repo];
-  while (stack.length > 0 && count <= 20000) {
+  while (stack.length > 0 && files.length <= 20000) {
     const current = stack.pop();
     let entries = [];
     try {
@@ -89,10 +110,33 @@ function countCandidateFiles(repo) {
       if (entry.name === '.git' || entry.name === 'node_modules' || entry.name === '.build' || entry.name === '.graphify-venv' || entry.name === 'coverage') continue;
       const full = path.join(current, entry.name);
       if (entry.isDirectory()) stack.push(full);
-      else if (exts.has(path.extname(entry.name).toLowerCase())) count += 1;
+      else files.push(path.relative(repo, full));
     }
   }
-  return count;
+  return files;
+}
+
+function candidateRelativeFiles(repo) {
+  const result = run('git', [
+    '-C',
+    repo,
+    'ls-files',
+    '--cached',
+    '--others',
+    '--exclude-standard',
+    '-z',
+  ]);
+  if (result.status === 0) {
+    return result.stdout.split('\0').filter(Boolean);
+  }
+  return walkCandidateFiles(repo);
+}
+
+function countCandidateFiles(repo) {
+  const exts = new Set(['.js', '.ts', '.tsx', '.jsx', '.py', '.sh', '.md', '.json', '.yml', '.yaml', '.pdf', '.png', '.jpg', '.jpeg']);
+  return candidateRelativeFiles(repo)
+    .filter((relativePath) => exts.has(path.extname(relativePath).toLowerCase()))
+    .length;
 }
 
 function summarizeCandidateFiles(repo) {
@@ -106,35 +150,19 @@ function summarizeCandidateFiles(repo) {
   const codeExts = new Set(['.js', '.ts', '.tsx', '.jsx', '.py', '.sh']);
   const docExts = new Set(['.md', '.json', '.yml', '.yaml', '.pdf']);
   const imageExts = new Set(['.png', '.jpg', '.jpeg']);
-  const stack = [repo];
-  while (stack.length > 0 && summary.total <= 20000) {
-    const current = stack.pop();
-    let entries = [];
-    try {
-      entries = fs.readdirSync(current, { withFileTypes: true });
-    } catch (_) {
-      continue;
-    }
-    for (const entry of entries) {
-      if (entry.name === '.git' || entry.name === 'node_modules' || entry.name === '.build' || entry.name === '.graphify-venv' || entry.name === 'coverage' || entry.name === 'graphify-out') continue;
-      const full = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(full);
-        continue;
-      }
-      const ext = path.extname(entry.name).toLowerCase();
-      if (codeExts.has(ext)) {
-        summary.total += 1;
-        summary.code += 1;
-      } else if (docExts.has(ext)) {
-        summary.total += 1;
-        summary.docs += 1;
-        summary.semantic += 1;
-      } else if (imageExts.has(ext)) {
-        summary.total += 1;
-        summary.images += 1;
-        summary.semantic += 1;
-      }
+  for (const relativePath of candidateRelativeFiles(repo)) {
+    const ext = path.extname(relativePath).toLowerCase();
+    if (codeExts.has(ext)) {
+      summary.total += 1;
+      summary.code += 1;
+    } else if (docExts.has(ext)) {
+      summary.total += 1;
+      summary.docs += 1;
+      summary.semantic += 1;
+    } else if (imageExts.has(ext)) {
+      summary.total += 1;
+      summary.images += 1;
+      summary.semantic += 1;
     }
   }
   return summary;
@@ -216,8 +244,8 @@ function buildCommands(repo, options = {}) {
   const graphifyBin = path.join(venv, 'bin', 'graphify');
   const ollamaModel = options.ollamaModel || '<installed-ollama-model>';
   return {
-    install: `python3 -m venv ${shellQuote(venv)} && ${shellQuote(path.join(venv, 'bin', 'python'))} -m pip install graphifyy openai && ${shellQuote(graphifyBin)} install`,
-    build: `${shellQuote(graphifyBin)} ${shellQuote(repo)}`,
+    install: `python3 -m venv ${shellQuote(venv)} && ${shellQuote(path.join(venv, 'bin', 'python'))} -m pip install graphifyy==${MIN_GRAPHIFY_VERSION} openai && ${shellQuote(graphifyBin)} install`,
+    build: `${shellQuote(graphifyBin)} extract ${shellQuote(repo)} --code-only --no-cluster --out ${shellQuote(repo)}`,
     buildWithLocalOllama: `${shellQuote(graphifyBin)} extract ${shellQuote(repo)} --backend ollama --model ${shellQuote(ollamaModel)} --max-concurrency 1 --out ${shellQuote(repo)}`,
     query: `${shellQuote(graphifyBin)} query "Which files explain Hermes Telegram reliability and media ingestion?"`,
     path: `${shellQuote(graphifyBin)} path "tools/media-content-ingest.js" "hermes-skills/mac-yolo-safeguards/SKILL.md"`,
@@ -236,6 +264,10 @@ function shellQuote(value) {
 function collect(options = {}) {
   const repo = path.resolve(options.repo || process.cwd());
   const graphifyPath = graphifyPathForRepo(repo);
+  const installedVersion = graphifyVersion(graphifyPath);
+  const versionSupported = Boolean(
+    installedVersion && versionAtLeast(installedVersion, MIN_GRAPHIFY_VERSION),
+  );
   const modulePresent = pythonModulePresent('graphify');
   const candidateSummary = fs.existsSync(repo) ? summarizeCandidateFiles(repo) : { total: 0, code: 0, docs: 0, images: 0, semantic: 0 };
   const llmEnvKeys = presentEnvKeys();
@@ -263,14 +295,24 @@ function collect(options = {}) {
       recommendation: `${commands.install} (repo-local virtualenv; avoids Homebrew Python PEP 668 breakage)`,
     });
   }
+  if (graphifyPath && !versionSupported) {
+    findings.push({
+      severity: 'high',
+      title: 'Graphify version is too old for clean architecture graphs',
+      evidence: `Installed=${installedVersion || 'unreadable'}; required>=${MIN_GRAPHIFY_VERSION}.`,
+      recommendation: `${shellQuote(path.join(repo, '.graphify-venv', 'bin', 'python'))} -m pip install --upgrade graphifyy==${MIN_GRAPHIFY_VERSION}`,
+    });
+  }
   if (candidateSummary.semantic > 0 && llmEnvKeys.length === 0) {
     findings.push({
-      severity: localOllamaModels.length > 0 ? 'medium' : 'high',
-      title: 'Default Graphify build needs a semantic backend',
+      severity: 'low',
+      title: 'Full-corpus Graphify build needs a semantic backend',
       evidence: `${candidateSummary.semantic} doc/image file(s) need semantic extraction and no cloud LLM API key is present.`,
-      recommendation: localOllamaModels.length > 0 && (!localLlmProbe.checked || localLlmProbe.openAiCompatibleOk)
-        ? `Use local Ollama explicitly: ${commands.buildWithLocalOllama}`
-        : 'Set a Graphify-supported API key, repair Ollama OpenAI-compatible /v1 responses, or reduce the corpus to code-only files before full extraction.',
+      recommendation: `Use the zero-cost code architecture build: ${commands.build}. For docs/images, ${
+        localOllamaModels.length > 0 && (!localLlmProbe.checked || localLlmProbe.openAiCompatibleOk)
+          ? `use local Ollama explicitly: ${commands.buildWithLocalOllama}`
+          : 'configure a Graphify-supported semantic backend first'
+      }.`,
     });
   }
   if (candidateSummary.semantic > 0 && localLlmProbe.checked && !localLlmProbe.openAiCompatibleOk) {
@@ -310,6 +352,9 @@ function collect(options = {}) {
     repo,
     graphify: {
       cliPath: graphifyPath,
+      version: installedVersion,
+      minimumVersion: MIN_GRAPHIFY_VERSION,
+      versionSupported,
       pythonModulePresent: modulePresent,
       installed: Boolean(graphifyPath || modulePresent),
       graphJson,
@@ -326,7 +371,7 @@ function collect(options = {}) {
     },
     commands,
     hermesPolicy: {
-      rule: 'Use Graphify before broad repo questions, cross-file debugging, architecture summaries, or PDF/diagram-heavy research.',
+      rule: 'Use the code-only Graphify graph for structural architecture, dependency, and cross-file causality questions. Use a semantic backend only for docs/images.',
       fallback: 'If Graphify is not installed, use ripgrep and targeted file reads; do not pretend a graph was built.',
     },
     findings,
@@ -347,6 +392,8 @@ function render(report) {
     `Repo: ${report.repo}`,
     `Installed: ${report.graphify.installed ? 'yes' : 'no'}`,
     `CLI: ${report.graphify.cliPath || '<missing>'}`,
+    `Version: ${report.graphify.version || '<unreadable>'} (minimum ${report.graphify.minimumVersion})`,
+    `Version supported: ${report.graphify.versionSupported ? 'yes' : 'no'}`,
     `Graph built: ${report.graphify.graphBuilt ? 'yes' : 'no'}`,
     `Candidate files: ${report.candidateFiles}`,
     `Semantic files: ${report.candidateSummary.semantic}`,
@@ -405,8 +452,12 @@ module.exports = {
   buildCommands,
   collect,
   countCandidateFiles,
+  candidateRelativeFiles,
   summarizeCandidateFiles,
   graphifyPathForRepo,
+  graphifyVersion,
+  versionAtLeast,
+  MIN_GRAPHIFY_VERSION,
   chooseOllamaModel,
   pythonPackagePresent,
   probeOllama,

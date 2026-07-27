@@ -29,13 +29,14 @@ export function isConnectivityMessage(message: string): boolean {
     normalized.includes("can't reach hermes") ||
     normalized.includes("can't reach your mac") ||
     normalized.includes("can't reach your computer") ||
-    normalized.includes("can't reach that local computer link") ||
+    /can't reach that local computer (?:link|connection)/.test(normalized) ||
     normalized.includes("can't reach direct link") ||
     normalized.includes('hermes relay is not connected yet') ||
     normalized.includes('hermes relay is not paired yet') ||
     normalized.includes('your computer is not connected yet') ||
     normalized.includes("can't reach that home wi-fi address") ||
     normalized.includes('chat needs a link to your computer') ||
+    normalized.includes('chat needs a connection to your mac') ||
     normalized.includes('use tailscale') ||
     normalized.includes('failed to connect to your computer') ||
     normalized.includes('failed to connect to your mac') ||
@@ -253,7 +254,7 @@ export function friendlyMacUnreachableMessage(gatewayUrl?: string): string {
   if (url && isPrivateLanGatewayUrl(url)) {
     return "Your phone can't reach that home Wi‑Fi address. Join the same Wi‑Fi, use Tailscale, or add a tunnel URL in Settings.";
   }
-  return 'Your computer is not connected yet. Use Tailscale or home Wi‑Fi, or add your computer link in Settings.';
+  return 'Your Mac is not connected yet. Use Tailscale or Home Wi‑Fi, or choose your Mac in Settings.';
 }
 
 /** Short copy for banners — full guidance lives in chatSendBlockedMessage. */
@@ -268,13 +269,13 @@ export function chatSendBlockedMessage(input: {
   healthProbePending?: boolean;
 }): string {
   if (input.healthProbePending) {
-    return 'Still checking your computer link. Message kept locally.';
+    return 'Still checking your Mac connection. Message kept locally.';
   }
   if (input.connectionMode === 'relay' && input.connectionState === 'connected') {
-    return 'Chat needs a link to your computer (home Wi‑Fi, Tailscale, or tunnel URL).';
+    return 'Chat needs a connection to your Mac (Home Wi‑Fi or Tailscale).';
   }
   if (input.connectionMode === 'relay') {
-    return 'Your computer is not connected yet. Open Settings to add Tailscale or a home Wi‑Fi link for Chat.';
+    return 'Your Mac is not connected yet. Open Settings to choose a Tailscale or Home Wi‑Fi connection.';
   }
   return friendlyMacUnreachableMessage(input.gatewayUrl);
 }
