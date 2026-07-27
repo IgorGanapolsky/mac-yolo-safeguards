@@ -50,5 +50,10 @@ assert.match(
   /native_package" != "\$TARGET_ANDROID_PACKAGE"[\s\S]*expo prebuild --platform android --clean/,
   'package mismatch must regenerate native Android from paid app.config.js',
 );
+assert.match(
+  installer,
+  /export SENTRY_DISABLE_AUTO_UPLOAD="\$\{SENTRY_DISABLE_AUTO_UPLOAD:-true\}"/,
+  'local phone builds must not require CI-only Sentry upload credentials',
+);
 
-console.log('phone release paid-package default: 8/8 passed');
+console.log('phone release paid-package default: 9/9 passed');

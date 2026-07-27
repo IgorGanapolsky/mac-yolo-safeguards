@@ -55,6 +55,10 @@ export HERMES_ANDROID_STORE_SKU="$ANDROID_STORE_SKU"
 # verify-apk-package.cjs already honors this variable; keep the build, verifier,
 # install marker, and launched activity on one package identity.
 export HERMES_MOBILE_ANDROID_PACKAGE="$TARGET_ANDROID_PACKAGE"
+# A phone install is a local artifact, not a publishing job. Sentry source-map
+# upload requires CI credentials and must not make a verified local build fail.
+# An explicit caller value still wins for controlled upload diagnostics.
+export SENTRY_DISABLE_AUTO_UPLOAD="${SENTRY_DISABLE_AUTO_UPLOAD:-true}"
 
 APK_OUT="$HERMES_DIR/android/app/build/outputs/apk/release/app-release.apk"
 PROBLEMS_REPORT="$HERMES_DIR/android/build/reports/problems/problems-report.html"
