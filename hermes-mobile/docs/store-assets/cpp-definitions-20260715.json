@@ -1,31 +1,81 @@
 {
   "created": "2026-07-15",
+  "updated": "2026-07-26",
   "ascAppId": "6786778037",
-  "note": "App Store Custom Product Pages \u2014 ASC UI (70 CPP cap). Organic keyword-targeted CPPs since Jul 2025. No brand trademarks in subtitle.",
+  "templateVersion": "1.4",
+  "locale": "en-US",
+  "note": "App Store Custom Product Pages. Apple validates CPP relationships against the current live version's keyword IDs even when a waiting-for-review version is used as the page template. keywordIds are the live 1.3 assignments; nextKeywordIds are the non-overlapping migration targets after 1.4 becomes live.",
+  "liveKeywordIds": [
+    "remote",
+    "approve",
+    "coding",
+    "devtools",
+    "gateway",
+    "operator",
+    "safety",
+    "pair",
+    "tailscale",
+    "desktop",
+    "usb",
+    "wifi",
+    "phone",
+    "mobile"
+  ],
   "pages": [
     {
-      "id": "cpp-ai-agent-control",
-      "name": "AI agent control",
-      "subtitle": "Approve AI tools from phone",
-      "keywords": "AI agent,cursor,claude code,developer tools,approve,mac gateway,hermes,openclaw,automation,safety",
-      "promotionalTextHint": "Approve risky agent tools from your phone on YOUR Mac.",
-      "screenshotSet": "en-US APP_IPHONE_67 (reuse 6-frame stellar set)"
+      "id": "remote-ai-control",
+      "name": "Remote AI agent control",
+      "promotionalText": "Approve or deny Hermes AI agent tools from your phone while your computer keeps the work visible.",
+      "keywordIds": [
+        "remote",
+        "desktop",
+        "tailscale",
+        "wifi"
+      ],
+      "nextKeywordIds": [
+        "remote",
+        "desktop",
+        "control",
+        "computer"
+      ],
+      "firstScreenshot": "Approve before your AI agent acts"
     },
     {
-      "id": "cpp-mobile-devtool",
-      "name": "Mobile devtool",
-      "subtitle": "Remote AI agent control",
-      "keywords": "remote coding,AI agent,cursor,claude code,approve,terminal,gateway,developer tools,ssh,automation",
-      "promotionalTextHint": "Pair Mac, chat with Hermes gateway, see honest connection state.",
-      "screenshotSet": "en-US APP_IPHONE_67"
+      "id": "ai-coding-operator",
+      "name": "AI coding operator",
+      "promotionalText": "Chat with Hermes and review coding-agent tool requests from your phone while your computer does the work.",
+      "keywordIds": [
+        "coding",
+        "devtools",
+        "operator",
+        "approve"
+      ],
+      "nextKeywordIds": [
+        "coding",
+        "assistant",
+        "developer"
+      ],
+      "firstScreenshot": "Review and approve coding tools"
     },
     {
-      "id": "cpp-own-mac-credits",
-      "name": "Own Mac vs cloud credits",
-      "subtitle": "Own Mac. No cloud credit burn",
-      "keywords": "runaway agent,token burn,cursor,claude code,approve,mac gateway,hermes,developer tools,safety,automation",
-      "promotionalTextHint": "Leash Pro $19.99/mo \u2014 approve tools before they run.",
-      "screenshotSet": "en-US APP_IPHONE_67"
+      "id": "local-multiplatform-agent",
+      "name": "Local multi-platform agents",
+      "promotionalText": "Control Hermes on your own Mac, Windows, or Linux computer through your network or Tailscale.",
+      "keywordIds": [
+        "gateway",
+        "safety",
+        "pair",
+        "usb",
+        "phone",
+        "mobile"
+      ],
+      "nextKeywordIds": [
+        "local",
+        "selfhosted",
+        "linux",
+        "windows"
+      ],
+      "firstScreenshot": "Control Mac, Windows, or Linux"
     }
   ]
 }
