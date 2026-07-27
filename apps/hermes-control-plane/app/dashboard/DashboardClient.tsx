@@ -170,7 +170,12 @@ export default function DashboardClient() {
    */
   const [deviceOverrideId, setDeviceOverrideId] = useState<string | null>(null);
   /** True once first network load finishes (or fails auth). */
-  const [workspaceHydrated, setWorkspaceHydrated] = useState(false);
+  // "loading" until a workspace fetch actually completes. Empty states in this view assert a
+  // FACT about the user's setup ("no tasks — pair a machine"); rendering them from an
+  // unloaded [] turns "we don't know yet" into "your setup is broken". Absence of data is not
+  // evidence of absence, so the empty state waits for "loaded" and failures show "error".
+  const [loadState, setLoadState] = useState<"loading" | "loaded" | "error">("loading");
+  const workspaceHydrated = loadState === "loaded";
   /** In-memory thread detail cache for instant switch + hover preheat. */
   const threadCacheRef = useRef<Map<string, ThreadDetails>>(new Map());
   const preheatInflightRef = useRef<Set<string>>(new Set());
@@ -341,7 +346,11 @@ export default function DashboardClient() {
         `/api/thread-messages?thread_id=${encodeURIComponent(threadId)}`,
         { cache: "no-store" },
       );
-      if (!detailResponse.ok) return;
+      if (!detailResponse.ok) {
+        // Not "this thread has no snapshot" — we simply failed to find out.
+        setLoadState("error");
+        return;
+      }
       const details = await detailResponse.json() as ThreadDetails;
       persistThreadDetails(threadId, details);
     } catch {
@@ -548,7 +557,7 @@ export default function DashboardClient() {
         }
       } else setFeedback({});
     }
-    setWorkspaceHydrated(true);
+    setLoadState("loaded");
   }, [prefetchThreadDetails, readCachedThreadDetails]);
 
   // Async SWR only — no synchronous setState (eslint react-hooks/set-state-in-effect).
@@ -560,8 +569,11 @@ export default function DashboardClient() {
 
 
   useEffect(() => {
-    const initial = window.setTimeout(() => void loadWorkspace(), 0);
-    const timer = window.setInterval(() => void loadWorkspace(), 5000);
+    // `void loadWorkspace()` swallowed rejections: a network failure left loadState at
+    // "loading" forever with no error shown and no retry signal.
+    const run = () => { void loadWorkspace().catch(() => setLoadState("error")); };
+    const initial = window.setTimeout(run, 0);
+    const timer = window.setInterval(run, 5000);
     return () => { window.clearTimeout(initial); window.clearInterval(timer); };
     // Intentionally not re-binding when selectedThread flips — list poll stays stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- shell-first: one poller, not one-per-thread
@@ -990,7 +1002,7 @@ export default function DashboardClient() {
             <div className="panel-heading"><div><p className="eyebrow">THREAD CONSOLE</p><h2>Continue the work</h2></div><span>{selectedThread ? `${threadDetails?.snapshot.length ?? 0} synced messages` : `${visibleTasks.length} tasks`}</span></div>
             <div className="hermes-scroll-pane">
             {selectedThread && <div className="conversation-history">
-              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : <div className="conversation-empty">This thread has no cloud snapshot yet. Keep the paired Hermes connector online to sync it.</div>}
+              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : loadState === "loading" ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" ? <div className="conversation-empty" data-state="error">Could not load this conversation. Retrying automatically.</div> : <div className="conversation-empty">This thread has no cloud snapshot yet. Keep the paired Hermes connector online to sync it.</div>}
               {threadDetails?.tasks.flatMap((task, index) => [
                 <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
                 task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{task.route}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
@@ -1021,7 +1033,19 @@ export default function DashboardClient() {
                   </button>
                 </div>
               ) : null}
-              {visibleTasks.length === 0 ? (
+              {visibleTasks.length === 0 && loadState === "loading" ? (
+                <div className="empty-state" data-state="loading">
+                  <Mark />
+                  <h3>Loading your workspace…</h3>
+                  <p>Fetching threads and tasks. This usually takes a moment.</p>
+                </div>
+              ) : visibleTasks.length === 0 && loadState === "error" ? (
+                <div className="empty-state" data-state="error">
+                  <Mark />
+                  <h3>Could not load your workspace</h3>
+                  <p>The last refresh failed, so this list may be incomplete. Retrying automatically.</p>
+                </div>
+              ) : visibleTasks.length === 0 && loadState === "loaded" ? (
                 <div className="empty-state">
                   <Mark />
                   <h3>{taskFilter === "unrated" ? "No unrated answers" : taskFilter === "completed" ? "No completed answers" : "No tasks yet"}</h3>
