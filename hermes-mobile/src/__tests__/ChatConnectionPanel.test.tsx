@@ -177,6 +177,45 @@ describe('ChatConnectionPanel', () => {
     expect(getAllByTestId('select-gateway-profile-macbook')).toHaveLength(1);
   });
 
+  it('does not merge distinct same-name Macs across scan and saved sections', () => {
+    // Display names are presentation, not the scanner's discovery provenance.
+    const { getByTestId, queryByTestId } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        connectionHealAttempt={6}
+        scanResult={{
+          completedAtMs: Date.now(),
+          foundCount: 1,
+          tailscaleCount: 1,
+          discoveredProfileIds: ['found-mini'],
+        }}
+        profiles={[
+          {
+            id: 'found-mini',
+            label: 'Mac mini',
+            gatewayUrl: 'http://100.94.135.78:8642',
+            addedAt: '2026-07-27T05:10:00Z',
+          },
+          {
+            id: 'saved-mini',
+            label: 'Mac mini',
+            gatewayUrl: 'http://100.87.85.85:8642',
+            addedAt: '2026-07-27T05:11:00Z',
+          },
+        ]}
+        onSelectProfile={jest.fn()}
+        onSearchMac={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('select-gateway-profile-found-mini')).toBeTruthy();
+    expect(queryByTestId('select-gateway-profile-saved-mini')).toBeNull();
+
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
+
+    expect(getByTestId('select-gateway-profile-saved-mini')).toBeTruthy();
+  });
+
   it('never shows a count-only success before a named row exists', () => {
     const { queryByText, queryByTestId } = render(
       <ChatConnectionPanel
