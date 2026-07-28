@@ -302,8 +302,32 @@ export default function DashboardClient() {
   const [feedbackBusyTask, setFeedbackBusyTask] = useState<string | null>(null);
   /** Bottom-tab highlight on phone: path + hash, not always-Hermes. */
   const [mobileTab, setMobileTab] = useState<"hermes" | "leash" | "lessons" | "settings">("hermes");
+  /**
+   * Leash and Settings are two panes rendered inside ONE scrolling element
+   * (.right-rail). Switching tabs only swaps which children are visible, so the
+   * scroll offset carried over: scroll down in Settings, tap Leash, and Leash
+   * opened partway down with its heading — and the machine picker — above the
+   * fold, which reads as "there is no machine picker".
+   */
+  const rightRailRef = useRef<HTMLElement | null>(null);
   /** Phone shell: hide route-explain blurb so it cannot cover the textarea (Genspark-style compact chrome). */
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
+
+  // Send the shared scrollport back to the top whenever the pane inside it
+  // changes, so a tab always opens at its own heading rather than wherever the
+  // previous tab happened to be scrolled to. Only Leash and Settings share this
+  // element; the other tabs render elsewhere and must not be disturbed.
+  useEffect(() => {
+    if (mobileTab !== "leash" && mobileTab !== "settings") return;
+    const rail = rightRailRef.current;
+    if (!rail) return;
+    // The pane swap is a CSS/display change; wait a frame so the new content is
+    // laid out before resetting, otherwise the browser can restore the offset.
+    const raf = window.requestAnimationFrame(() => {
+      rail.scrollTop = 0;
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [mobileTab]);
   /** Desktop: route explain is secondary chrome — collapsed by default (Genspark-style). */
   const [routeExplainExpanded, setRouteExplainExpanded] = useState(false);
   const chatsListDeepLink =
@@ -371,6 +395,10 @@ export default function DashboardClient() {
       window.localStorage.setItem(preferredDevicePreferenceKey, deviceId);
     } catch {
       /* private mode */
+    }
+    const picked = devices.find((device) => device.id === deviceId);
+    if (picked) {
+      setNotice(`Tasks will run on ${machineDisplayName(picked)}.`);
     }
   }
 
@@ -1268,10 +1296,35 @@ export default function DashboardClient() {
             </form>
           </section>
 
-          <aside className="right-rail">
+          <aside className="right-rail" ref={rightRailRef}>
             <section className="panel connection-panel" id="leash-control">
               <div className="panel-heading"><div><p className="eyebrow">CONNECTION</p><h2>{onlineDevices.length ? "Connector online" : devices.length ? "Connector reconnecting" : "Pair your first machine"}</h2></div><span>{onlineDevices.length ? "LIVE" : devices.length ? "RETRYING" : "STEP 1 OF 3"}</span></div>
-              <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "Connector reconnecting automatically" : "One-time setup on your computer"}</strong><p>{devices.length ? "Paired machines stay connected via an always-on service — you don’t reinstall for normal use. Pick the real machine name, then Continuity / Auto when you run a task." : "Browsers cannot install a background connector. Run the one-line installer once on the computer that hosts Hermes; it reconnects after sleep or reboot."}</p></div></div>
+              <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "Connector reconnecting automatically" : "One-time setup on your computer"}</strong><p>{devices.length ? "Paired machines stay connected via an always-on service — you don’t reinstall for normal use. Choose which machine runs tasks below (same pin as Hermes)." : "Browsers cannot install a background connector. Run the one-line installer once on the computer that hosts Hermes; it reconnects after sleep or reboot."}</p></div></div>
+              {devices.length > 0 ? (
+                <div className="leash-device-picker" data-testid="leash-device-picker">
+                  <label htmlFor="leash-device-select" className="composer-where-label" style={{ margin: 0 }}>
+                    Run tasks on
+                  </label>
+                  <select
+                    id="leash-device-select"
+                    data-testid="leash-device-select"
+                    value={selectedDeviceId}
+                    onChange={(event) => chooseDevice(event.target.value)}
+                    disabled={busy}
+                    aria-label="Which machine should run tasks"
+                  >
+                    {devices.map((device) => (
+                      <option key={device.id} value={device.id}>
+                        {machineDisplayName(device)} · {deviceStatusLabel(device)}
+                      </option>
+                    ))}
+                    <optgroup label="Actions">
+                      <option value="pair">+ Pair another computer…</option>
+                      <option value="manage">⚙ Manage / remove machines…</option>
+                    </optgroup>
+                  </select>
+                </div>
+              ) : null}
               {!devices.length && (
                 <div className="installer-command">
                   <p className="installer-why">Why a Terminal command? Apple blocks remote silent install of background services. This is a <strong>one-time</strong> step on that computer — not every session.</p>
@@ -1302,13 +1355,23 @@ export default function DashboardClient() {
                   A browser cannot install a background service on the host OS. On macOS you run one Terminal command once on that computer; then pairing and reconnects are automatic.
                 </p>
               )}
-              {devices.map((device) => (
-                <article key={device.id} className={`device-card${device.stale || device.presence === "stale" ? " is-stale" : ""}`}>
+              {devices.map((device) => {
+                const isPreferred = device.id === selectedDeviceId;
+                return (
+                <article
+                  key={device.id}
+                  className={`device-card${device.stale || device.presence === "stale" ? " is-stale" : ""}${isPreferred ? " is-preferred" : ""}`}
+                  data-testid={`device-card-${device.id.slice(0, 8)}`}
+                  data-preferred={isPreferred ? "1" : "0"}
+                >
                   <div>
                     <span className={`device-light ${device.online ? "is-online" : device.stale || device.presence === "stale" ? "is-stale" : ""}`} />
                     <div>
                       <strong>{device.name}</strong>
-                      <small>{deviceStatusLabel(device)} · id {device.id.slice(0, 8)}</small>
+                      <small>
+                        {deviceStatusLabel(device)} · id {device.id.slice(0, 8)}
+                        {isPreferred ? " · preferred for tasks" : ""}
+                      </small>
                     </div>
                   </div>
                   <code>{device.fingerprint}</code>
@@ -1319,16 +1382,28 @@ export default function DashboardClient() {
                       <option value="disabled">Pause and wait for {machineDisplayName(device)}</option>
                     </select>
                   </label>
-                  <button
-                    type="button"
-                    className="button button-secondary button-small device-remove"
-                    disabled={busy}
-                    onClick={() => void revokeDevice(device)}
-                  >
-                    {(device.stale || device.presence === "stale") ? "Remove stale machine" : "Remove machine"}
-                  </button>
+                  <div className="device-card-actions">
+                    <button
+                      type="button"
+                      className="button button-primary button-small device-use-for-tasks"
+                      data-testid={`device-use-for-tasks-${device.id.slice(0, 8)}`}
+                      disabled={busy || isPreferred}
+                      onClick={() => chooseDevice(device.id)}
+                    >
+                      {isPreferred ? "Preferred for tasks" : "Use for tasks"}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-secondary button-small device-remove"
+                      disabled={busy}
+                      onClick={() => void revokeDevice(device)}
+                    >
+                      {(device.stale || device.presence === "stale") ? "Remove stale machine" : "Remove machine"}
+                    </button>
+                  </div>
                 </article>
-              ))}
+                );
+              })}
               {devices.length > 0 && (
                 <details className="add-mac-details">
                   <summary>Add another computer (optional)</summary>
