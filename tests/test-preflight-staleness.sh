@@ -60,6 +60,28 @@ launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null
 launchctl bootstrap "gui/$(id -u)" "$PLIST" 2>/dev/null; sleep 1
 [ "$(rc_of launchd "$LABEL")" = "0" ] && ok "after reload -> 0 (fresh)" || no "after reload -> 0"
 
+# MUTATION (reviewer-found): an ENV-only plist edit must be detected. Comparing only
+# ProgramArguments missed exactly the OLLAMA_MAX_QUEUE case that motivated this tool.
+write_plist_env() { # $1 = env value
+  cat > "$PLIST" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>$LABEL</string>
+  <key>ProgramArguments</key><array><string>/bin/echo</string><string>same</string></array>
+  <key>EnvironmentVariables</key><dict><key>PREFLIGHT_TEST_VAR</key><string>$1</string></dict>
+  <key>RunAtLoad</key><false/>
+</dict></plist>
+EOF
+}
+launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null
+write_plist_env original
+launchctl bootstrap "gui/$(id -u)" "$PLIST" 2>/dev/null; sleep 1
+[ "$(rc_of launchd "$LABEL")" = "0" ] && ok "env matching -> 0 (fresh)" || no "env matching -> 0"
+write_plist_env mutated   # env changed, ARGS identical, no reload
+[ "$(rc_of launchd "$LABEL")" = "1" ] && ok "MUTATION env-only plist edit -> 1 (stale)" || no "env-only edit not detected"
+launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null
+
 # ---- git checks, in a throwaway repo so nothing real is touched
 GR="$ROOT/repo"; mkdir -p "$GR"
 ( cd "$GR" && git init -q && git config user.email t@t && git config user.name t \
@@ -87,6 +109,29 @@ echo '{"name":"dep","version":"2.0.0"}' > "$ND/node_modules/dep/package.json"
 echo '{"name":"dep","version":"1.9.9"}' > "$ND/node_modules/dep/package.json"
 [ "$(rc_of node "$ND")" = "1" ] && ok "MUTATION node_modules drifted from lockfile -> 1 (stale)" || no "drifted node_modules not detected"
 
+# MUTATION (reviewer-found): a lockfile package ABSENT from node_modules is a partial
+# install and must be STALE, not silently skipped while another package matches.
+PD="$ROOT/partial"; mkdir -p "$PD/node_modules/present"
+echo '{"name":"z","version":"1.0.0"}' > "$PD/package.json"
+cat > "$PD/package-lock.json" <<'EOF'
+{"name":"z","lockfileVersion":3,"packages":{"node_modules/present":{"version":"1.0.0"},"node_modules/absent":{"version":"3.0.0"}}}
+EOF
+echo '{"name":"present","version":"1.0.0"}' > "$PD/node_modules/present/package.json"
+[ "$(rc_of node "$PD")" = "1" ] && ok "MUTATION locked package absent from node_modules -> 1 (stale)" || no "partial install not detected"
+
+# reviewer-found: a RELATIVE dir must resolve the lockfile correctly, not return UNKNOWN
+RELRC=$( cd "$ROOT" && set +e; "$TOOL" node "partial" >/dev/null 2>&1; echo $?; set -e )
+[ "$RELRC" = "1" ] && ok "relative --dir resolves lockfile (1, not vacuous 2)" || no "relative dir -> got $RELRC"
+
+# reviewer-found: an unreachable remote must be UNKNOWN, never FRESH off a cached ref
+BR="$ROOT/badremote"; mkdir -p "$BR"
+( cd "$BR" && git init -q && git config user.email t@t && git config user.name t \
+  && echo a > f && git add f && git commit -qm base \
+  && git remote add origin "$ROOT/does-not-exist.git" \
+  && git update-ref refs/remotes/origin/main HEAD ) >/dev/null 2>&1
+BRC=$( cd "$BR" && set +e; "$TOOL" git origin/main >/dev/null 2>&1; echo $?; set -e )
+[ "$BRC" = "2" ] && ok "unreachable remote -> 2 (unknown), never 0" || no "unreachable remote -> got $BRC"
+
 # vacuity: nothing comparable must be UNKNOWN, never FRESH
 VD="$ROOT/vac"; mkdir -p "$VD/node_modules"
 echo '{"name":"y","version":"1.0.0"}' > "$VD/package.json"
@@ -94,5 +139,5 @@ echo '{"name":"y","lockfileVersion":3,"packages":{}}' > "$VD/package-lock.json"
 [ "$(rc_of node "$VD")" = "2" ] && ok "0 packages comparable -> 2 (unknown), never 0" || no "vacuous node check -> 2"
 
 echo "preflight-staleness tests: $pass passed, $fail failed"
-[ "$pass" -ge 10 ] || { echo "VACUOUS: expected >=10 assertions, ran $pass" >&2; exit 2; }
+[ "$pass" -ge 15 ] || { echo "VACUOUS: expected >=10 assertions, ran $pass" >&2; exit 2; }
 [ "$fail" -eq 0 ]

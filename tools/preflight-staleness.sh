@@ -38,16 +38,38 @@ check_launchd() {
   launchctl print "gui/$(id -u)/$label" >/dev/null 2>&1 \
     || { stale "$label: plist exists but the job is NOT loaded -- editing it changes nothing"; return 1; }
 
-  # Compare the arguments launchd is actually holding against the file on disk.
-  local loaded ondisk
+  # Compare BOTH the arguments and the environment launchd is holding. Comparing only
+  # ProgramArguments misses the case that motivated this tool: OLLAMA_MAX_QUEUE lives in
+  # EnvironmentVariables, so an env-only plist edit would have reported FRESH.
+  local loaded ondisk loaded_env ondisk_env
   loaded="$(launchctl print "gui/$(id -u)/$label" 2>/dev/null \
             | awk '/arguments = \{/{f=1;next} f&&/\}/{f=0} f{gsub(/^[ \t]+|[ \t]+$/,"");print}')"
+  # ^[[:space:]]*environment, NOT plain /environment/: launchctl prints an "inherited
+  # environment" block FIRST (the whole session env). Matching that compared the session
+  # against the plist and reported every job stale. The job's own block uses " => ".
+  loaded_env="$(launchctl print "gui/$(id -u)/$label" 2>/dev/null \
+            | awk '/^[[:space:]]*environment = \{/{f=1;next} f&&/^[[:space:]]*\}/{f=0} f{gsub(/^[ \t]+|[ \t]+$/,"");print}' \
+            | sed 's/ *=> */=/' | sort)"
+  ondisk_env="$(/usr/libexec/PlistBuddy -c 'Print :EnvironmentVariables' "$plist" 2>/dev/null \
+            | sed -n 's/^ *\(.*\)$/\1/p' | grep -vE '^(Dict[[:space:]]*\{|\{|\})$' | grep -v '^$' \
+            | sed 's/ = /=/' | sort)"
   # PlistBuddy wraps the list in "Array {" ... "}". Strip the wrapper, not just bare
   # braces -- missing "Array {" made this report every healthy job as STALE.
   ondisk="$(/usr/libexec/PlistBuddy -c 'Print :ProgramArguments' "$plist" 2>/dev/null \
             | sed -n 's/^ *\(.*\)$/\1/p' | grep -vE '^(Array[[:space:]]*\{|\{|\})$' | grep -v '^$')"
   if [[ -z "$loaded" ]]; then dunno "$label: could not read loaded arguments"; return 2; fi
-  if [[ "$(printf '%s' "$loaded" | tr -d '[:space:]')" == "$(printf '%s' "$ondisk" | tr -d '[:space:]')" ]]; then
+  # Env comparison is a SUBSET check, not equality: launchd injects its own keys
+  # (XPC_SERVICE_NAME, OSLogRateLimit) that never appear in the plist. The question is
+  # "does launchd hold what the plist specifies", so every on-disk pair must be present
+  # loaded; extra injected keys are irrelevant.
+  local env_ok=1 pair
+  while IFS= read -r pair; do
+    [[ -z "$pair" ]] && continue
+    printf '%s\n' "$loaded_env" | grep -qxF "$pair" || env_ok=0
+  done <<< "$ondisk_env"
+
+  if [[ "$(printf '%s' "$loaded" | tr -d '[:space:]')" == "$(printf '%s' "$ondisk" | tr -d '[:space:]')" \
+     && "$env_ok" == "1" ]]; then
     # A current definition does NOT mean this job is the one doing the work. On the
     # mini com.igor.ollama-serve reports FRESH while Ollama.app actually serves :11434 --
     # editing that plist changed nothing. Ownership is a separate question.
@@ -79,8 +101,15 @@ check_port() {
 check_git() {
   local base="${1:-origin/main}"
   git rev-parse --git-dir >/dev/null 2>&1 || { dunno "not a git repo"; return 2; }
-  # Refresh first: the classic error is reading a stale remote ref and concluding "0 behind".
-  git fetch -q "${base%%/*}" "${base#*/}" 2>/dev/null || git fetch -q 2>/dev/null || true
+  # Refresh first: the classic error is reading a stale remote ref and concluding
+  # "0 behind". If the refresh FAILS for a remote-qualified base, the cached ref may be
+  # arbitrarily old, so return UNKNOWN -- trusting it recreates the very bug this checks.
+  if [[ "$base" == */* ]]; then
+    if ! git fetch -q "${base%%/*}" "${base#*/}" 2>/dev/null && ! git fetch -q 2>/dev/null; then
+      dunno "could not refresh $base -- cached ref may be stale; refusing to report fresh"
+      return 2
+    fi
+  fi
   git rev-parse --verify "$base" >/dev/null 2>&1 || { dunno "base ref $base not found"; return 2; }
   local behind
   behind="$(git rev-list --count HEAD.."$base" 2>/dev/null)"
@@ -101,6 +130,9 @@ check_node() {
   # Spot-check installed versions against the lockfile. A mismatch means local runs
   # are NOT reproducing what `npm ci` builds in CI.
   local out
+  # Absolute-ise the lockfile BEFORE the cd, or a relative --dir makes python open
+  # "<dir>/<dir>/package-lock.json", whose suppressed error looked like a healthy UNKNOWN.
+  lock="$(cd "$(dirname "$lock")" && pwd)/$(basename "$lock")"
   out="$(cd "$dir" && python3 - "$lock" <<'PY' 2>/dev/null
 import json, os, sys
 lock = json.load(open(sys.argv[1]))
@@ -113,13 +145,20 @@ for path, meta in pkgs.items():
     if not want:
         continue
     pj = os.path.join(path, "package.json")
+    checked += 1
     if not os.path.isfile(pj):
+        # Locked but not installed: a partial install must never validate as fresh.
+        bad += 1
+        if bad <= 5:
+            print(f"MISSING {path}: lockfile={want} installed=<absent>")
         continue
     try:
         have = json.load(open(pj)).get("version")
     except Exception:
+        bad += 1
+        if bad <= 5:
+            print(f"UNREADABLE {path}")
         continue
-    checked += 1
     if have and have != want:
         bad += 1
         if bad <= 5:
@@ -130,7 +169,7 @@ PY
   local checked mism
   checked="$(printf '%s\n' "$out" | awk '/^CHECKED/{print $2}')"
   mism="$(printf '%s\n' "$out" | awk '/^CHECKED/{print $4}')"
-  printf '%s\n' "$out" | grep '^MISMATCH' | sed 's/^/    /'
+  printf '%s\n' "$out" | grep -E '^(MISMATCH|MISSING|UNREADABLE)' | sed 's/^/    /'
   [[ "${checked:-0}" -gt 0 ]] || { dunno "$dir: compared 0 packages -- this check measured nothing"; return 2; }
   if [[ "${mism:-0}" -eq 0 ]]; then
     fresh "$dir: node_modules matches lockfile across $checked packages"; return 0
