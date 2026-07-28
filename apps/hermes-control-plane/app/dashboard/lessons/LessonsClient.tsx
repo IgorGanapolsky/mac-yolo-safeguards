@@ -345,5 +345,12 @@ export default function LessonsClient() {
     <footer className="lessons-footer">
       Signed in as {user.email}. Ratings are private to this ThumbGate workspace.
     </footer>
+    <nav className="mobile-web-tabs" aria-label="Hermes workspace">
+      <a href="/dashboard#hermes-console"><b aria-hidden="true">H</b><span>Hermes</span></a>
+      <a href="/dashboard#chats"><b aria-hidden="true">💬</b><span>Chats</span></a>
+      <a href="/dashboard#leash-control"><b aria-hidden="true">✓</b><span>Leash</span></a>
+      <a href="/dashboard/lessons" className="is-active" aria-current="page"><b aria-hidden="true">👍</b><span>Lessons</span></a>
+      <a href="/dashboard#web-settings"><b aria-hidden="true">≡</b><span>Settings</span></a>
+    </nav>
   </main>;
 }

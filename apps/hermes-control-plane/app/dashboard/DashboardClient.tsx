@@ -944,10 +944,18 @@ export default function DashboardClient() {
         <div className="sidebar-content" id="hermes-chat-rail">
           <div className="workspace-label">NAVIGATION</div>
           <button className={!selectedThread ? "side-item active" : "side-item"} onClick={() => openThread(null)}><span>H</span><span className="side-item-label">Hermes</span><em>{activeTasks.length}</em></button>
-          <a className="side-item" href="/dashboard/lessons"><span>👍</span><span className="side-item-label">ThumbGate lessons</span><em>{Object.keys(feedback).length}</em></a>
+          <a className="side-item" href="/dashboard/lessons"><span>👍</span><span className="side-item-label">ThumbGate lessons</span><em>{Object.keys(feedback).length}</em></a >
           <div className="workspace-label chats-label-row">
             <span>CHATS</span>
             <div className="chats-label-actions">
+              <button
+                type="button"
+                className="button button-small button-primary new-chat-button"
+                onClick={() => openThread(null)}
+                data-testid="new-chat-button"
+              >
+                + New Chat
+              </button>
               <select className="thread-sort-select" aria-label="Sort chats" value={threadSortOrder} onChange={(event) => changeThreadSort(event.target.value as ThreadSortOrder)}>
                 <option value="newest">Newest first</option>
                 <option value="oldest">Oldest first</option>
@@ -956,16 +964,31 @@ export default function DashboardClient() {
               {threads.length > 0 && <button type="button" className="clear-all-chats" onClick={() => { setThreadMenu(null); setChatDialog({ kind: "clear" }); }}>Clear all</button>}
             </div>
           </div>
-          <nav className="thread-list" id="hermes-thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.map((thread) => (
-            <div key={thread.id} className="thread-row">
-              <button title={`${thread.title} — ${formatDateTime(thread.updatedAt)}`} aria-current={selectedThread === thread.id ? "page" : undefined} className={selectedThread === thread.id ? "side-item thread-item active" : "side-item thread-item"} onClick={() => openThread(thread.id)} onPointerEnter={() => void prefetchThreadDetails(thread.id)} onFocus={() => void prefetchThreadDetails(thread.id)}><span className="thread-icon">{thread.sourceSessionId ? "⌘" : "›_"}</span><span className="thread-copy"><strong>{thread.title}</strong><time dateTime={new Date(thread.updatedAt).toISOString()}>{formatDateTime(thread.updatedAt)}</time></span><em>{thread.messageCount || thread.taskCount}</em></button>
-              <button type="button" className="thread-menu-trigger" aria-label={`Actions for ${thread.title}`} aria-haspopup="menu" aria-expanded={threadMenu === thread.id} onClick={() => setThreadMenu((current) => current === thread.id ? null : thread.id)}>•••</button>
-              {threadMenu === thread.id && <div className="thread-actions" role="menu" aria-label={`Actions for ${thread.title}`}>
-                <button type="button" className="thread-action" role="menuitem" onClick={() => openRenameDialog(thread)}><span aria-hidden="true">✎</span> Rename</button>
-                <button type="button" className="thread-action thread-action-danger" role="menuitem" onClick={() => openDeleteDialog(thread)}><span aria-hidden="true">⌫</span> Delete</button>
-              </div>}
-            </div>
-          ))}</nav>
+          <nav className="thread-list" id="hermes-thread-list" aria-label={`Chats, ${threadSortOrder} order`}>
+            {visibleThreads.length === 0 ? (
+              <div className="empty-thread-list" style={{ padding: "16px 12px", textAlign: "center", color: "var(--muted)" }}>
+                <p style={{ margin: "0 0 10px 0", fontSize: "13px" }}>No active chats yet.</p>
+                <button
+                  type="button"
+                  className="button button-small button-primary"
+                  onClick={() => openThread(null)}
+                >
+                  + Start a new chat
+                </button>
+              </div>
+            ) : (
+              visibleThreads.map((thread) => (
+                <div key={thread.id} className="thread-row">
+                  <button title={`${thread.title} — ${formatDateTime(thread.updatedAt)}`} aria-current={selectedThread === thread.id ? "page" : undefined} className={selectedThread === thread.id ? "side-item thread-item active" : "side-item thread-item"} onClick={() => openThread(thread.id)} onPointerEnter={() => void prefetchThreadDetails(thread.id)} onFocus={() => void prefetchThreadDetails(thread.id)}><span className="thread-icon">{thread.sourceSessionId ? "⌘" : "›_"}</span><span className="thread-copy"><strong>{thread.title}</strong><time dateTime={new Date(thread.updatedAt).toISOString()}>{formatDateTime(thread.updatedAt)}</time></span><em>{thread.messageCount || thread.taskCount}</em></button>
+                  <button type="button" className="thread-menu-trigger" aria-label={`Actions for ${thread.title}`} aria-haspopup="menu" aria-expanded={threadMenu === thread.id} onClick={() => setThreadMenu((current) => current === thread.id ? null : thread.id)}>•••</button>
+                  {threadMenu === thread.id && <div className="thread-actions" role="menu" aria-label={`Actions for ${thread.title}`}>
+                    <button type="button" className="thread-action" role="menuitem" onClick={() => openRenameDialog(thread)}><span aria-hidden="true">✎</span> Rename</button>
+                    <button type="button" className="thread-action thread-action-danger" role="menuitem" onClick={() => openDeleteDialog(thread)}><span aria-hidden="true">⌫</span> Delete</button>
+                  </div>}
+                </div>
+              ))
+            )}
+          </nav>
           <div className="sidebar-bottom"><div className="avatar">{user.name.slice(0, 1).toUpperCase()}</div><div><strong>{user.name}</strong><small>{accountPlan} plan</small></div><SignOutForm buttonClassName="sign-out-button" data-testid="dashboard-sign-out" /></div>
         </div>
         {chatRailExpanded && <div
