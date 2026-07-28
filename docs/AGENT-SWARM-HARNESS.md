@@ -24,6 +24,12 @@ Implements the durable parts of [Cursor’s agent-swarm model economics](https:/
 | `node tools/agent-swarm-harness.js eval-check` | Catalog integrity + failure→ability routing smoke |
 | `node tools/agent-swarm-harness.js sre-autonomy` | SRE subsystems: detect → act → verify |
 | `node tools/agent-swarm-harness.js sre-act --subsystem ID` | Health-freshness gate before remediate |
+| `node tools/agent-swarm-harness.js profiles` | Named harness profiles (frontier/local/nemotron/device/revenue/social/eval-research) |
+| `node tools/agent-swarm-harness.js resolve-profile --task "…"` | Resolve profile + skill packs for task/host |
+| `node tools/agent-swarm-harness.js skill-packs` | Verified skill packs bound to toolboxes |
+| `node tools/agent-swarm-harness.js claim-hygiene` | Compress multi-owner thrash → path+owner sets |
+| `node tools/agent-swarm-harness.js eval-research [--write]` | Overnight mine→eval stubs under evals/ + artifacts/eval-research/ |
+| `tools/agent-harness-roi.js` | Pure ROI policy module (profiles, packs, hygiene, research loop) |
 | `node tools/revenue-local-draft.js` | Open-weights follow-up draft (template fallback; no send) |
 | `node tools/agent-swarm-harness.js check-hot-files --stdin --body-file pr.md` | Megafile + decision-ref gate |
 | `node tools/agent-swarm-harness.js field-guide` | Print `docs/agent-field-guide/index.md` |
@@ -116,3 +122,28 @@ node tests/test-agent-swarm-harness.js
 - [plan.md](../plan.md) — live claims
 - [docs/agent-field-guide/index.md](./agent-field-guide/index.md) — curated surprises
 - [docs/SDD-SPECIFICATION-DRIVEN-DESIGN.md](./SDD-SPECIFICATION-DRIVEN-DESIGN.md) — full SDD mapping
+
+
+## Harness profiles, skill packs, claim hygiene, eval research (2026-07-28)
+
+NVIDIA open-stack signal: **accuracy and cost improve via harness profiles + verified skill packs**, not fine-tuning first.
+
+| Surface | What it does | Hosts |
+|---------|--------------|-------|
+| **Harness profiles** | Named packs: model class, effort, max turns/tools, toolbox allowlist, skill packs, eval bar, write allow | Both (social/revenue Pro-only) |
+| **Skill packs** | Portable entrypoints + gates bound to a toolbox; no full skill-catalog dump | Both (pack-gated) |
+| **Claim hygiene** | Compress 100s of pairwise contention hits into unique paths + owner sets + HOT megafiles | Both |
+| **Eval research loop** | `eval-mine` → propose stubs; write only `evals/` + `artifacts/eval-research/` | Both |
+
+```bash
+node tools/agent-swarm-harness.js profiles --json
+node tools/agent-swarm-harness.js resolve-profile --task "Maestro e2e pair" --json
+HERMES_FLEET_HOST_ROLE=mac_mini node tools/agent-swarm-harness.js resolve-profile --task "post LinkedIn"
+node tools/agent-swarm-harness.js skill-packs --json
+node tools/agent-swarm-harness.js claim-hygiene --json
+node tools/agent-swarm-harness.js eval-research --write --json
+bash scripts/install-eval-research-loop.sh   # LaunchAgent every 6h on this Mac
+```
+
+**Anti-patterns:** fine-tune before profile+eval bar are green; social profile on mini; eval-research editing megafiles; treating pairwise contention dump as actionable without `claim-hygiene`.
+

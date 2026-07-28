@@ -48,3 +48,4 @@ no Igor-only USB path. Production OTA needs E2E pass or fresh-user proof.
 - 2026-07-27: toolboxes — auth on pack not agent. `where-is-auth` / `worker-toolbox`; social/revenue=Pro only; never invent OAuth or dump skill catalog.
 - 2026-07-28: doctor/eval/sre — `agent-swarm-harness.js doctor|propose-eval|sre-act`; `revenue-local-draft.js --template` offline; act only with fresh health + verify.
 - 2026-07-28: eval-mine/eval-check — mine continuous E2E+trace+contention → ability stubs; routing smoke for empty-stream/pair/social.
+- 2026-07-28: harness profiles/skill-packs/claim-hygiene/eval-research — `agent-swarm-harness.js profiles|resolve-profile|claim-hygiene|eval-research`; accuracy without fine-tune; social/revenue Pro-only.

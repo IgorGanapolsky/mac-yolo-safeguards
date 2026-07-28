@@ -18,6 +18,7 @@
  *   - context diet / harness doctor (Claude 5 progressive disclosure, 2026-07)
  *   - eval ability policy + fail→eval stubs (LangChain eval engineering, 2026-07)
  *   - SRE autonomy act→verify gates (Dynatrace-style AI ops, 2026-07)
+ *   - harness profiles + skill packs + claim hygiene + eval research (NVIDIA open-stack ROI, 2026-07-28)
  *
  * Usage:
  *   node tools/agent-swarm-harness.js [--json] [--plan path] [--role planner|worker]
@@ -38,7 +39,13 @@
  *   node tools/agent-swarm-harness.js eval-check [--json]
  *   node tools/agent-swarm-harness.js sre-autonomy [--json]
  *   node tools/agent-swarm-harness.js sre-act --subsystem ID [--json]
+ *   node tools/agent-swarm-harness.js profiles [--json]
+ *   node tools/agent-swarm-harness.js resolve-profile [--task "..."] [--role planner|worker] [--json]
+ *   node tools/agent-swarm-harness.js skill-packs [--toolbox ID] [--json]
+ *   node tools/agent-swarm-harness.js claim-hygiene [--json] [--plan path]
+ *   node tools/agent-swarm-harness.js eval-research [--write] [--json]
  */
+
 
 const fs = require('fs');
 const path = require('path');
@@ -51,6 +58,22 @@ const {
 } = require('./plan-coordination-snapshot');
 
 const { routeAllowed, riskValue, RISK_LEVELS, ROUTES, taskSignals } = require('./hermes-economic-router');
+
+const {
+  HARNESS_ROI_SOURCE,
+  HARNESS_PROFILES,
+  SKILL_PACKS,
+  harnessProfilePolicy,
+  skillPackPolicy,
+  classifyHarnessProfile,
+  resolveHarnessProfile,
+  resolveSkillPackAccess,
+  listSkillPacks,
+  claimHygieneReport,
+  runEvalResearchLoop,
+  formatClaimHygieneHuman,
+  formatProfileHuman,
+} = require('./agent-harness-roi');
 
 const REPO = path.resolve(__dirname, '..');
 const DEFAULT_PLAN = path.join(REPO, 'plan.md');
@@ -798,15 +821,38 @@ function workerToolboxPrompt(taskText, { env = process.env, host = null, role = 
       if (/chrome|PUBLISH/i.test(r)) lines.push(`Note: ${r}`);
     }
   }
+  // Attach named harness profile + skill packs (thin; no full skill catalog).
+  const profileResolved = resolveHarnessProfile(taskText, {
+    role,
+    host: resolvedHost,
+    env,
+  });
+  const packLines = [];
+  if (profileResolved.skillPacks && profileResolved.skillPacks.length) {
+    packLines.push(`harness_profile: ${profileResolved.profileId}`);
+    packLines.push('skill_packs (verified entrypoints):');
+    for (const pack of profileResolved.skillPacks.slice(0, 4)) {
+      packLines.push(`  - ${pack.id} [${pack.toolbox}]`);
+      for (const ep of (pack.entrypoints || []).slice(0, 2)) {
+        packLines.push(`      ${ep}`);
+      }
+    }
+  }
+  const fullPrompt = packLines.length
+    ? `${lines.join('\n')}\n${packLines.join('\n')}`
+    : lines.join('\n');
+
   return {
-    ok: access.ok,
+    ok: access.ok && (profileResolved.ok || profileResolved.status === 'chrome_gated'),
     toolboxId: classified.toolboxId,
     auth: classified.auth,
     reason: classified.reason,
     host: resolvedHost,
     access,
     entrypoints: access.entrypoints || [],
-    prompt: lines.join('\n'),
+    harnessProfile: profileResolved,
+    skillPacks: profileResolved.skillPacks || [],
+    prompt: fullPrompt,
     maxEntrypoints: (access.entrypoints || []).length,
   };
 }
@@ -1884,6 +1930,8 @@ function parseArgs(argv) {
     force: false,
     healthAgeMs: null,
     runCommands: false,
+    toolbox: null,
+    max: 0,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -1906,7 +1954,13 @@ function parseArgs(argv) {
       arg === 'eval-mine' ||
       arg === 'eval-check' ||
       arg === 'sre-autonomy' ||
-      arg === 'sre-act'
+      arg === 'sre-act' ||
+      arg === 'profiles' ||
+      arg === 'resolve-profile' ||
+      arg === 'skill-packs' ||
+      arg === 'claim-hygiene' ||
+      arg === 'eval-research' ||
+      arg === 'gateway'
     ) {
       args.command = arg;
     } else if (arg === '--json') {
@@ -1939,6 +1993,10 @@ function parseArgs(argv) {
       args.trace = false;
     } else if (arg === '--limit') {
       args.limit = parseInt(argv[++i] || '0', 10);
+    } else if (arg === '--toolbox') {
+      args.toolbox = String(argv[++i] || '').trim() || null;
+    } else if (arg === '--max') {
+      args.max = parseInt(argv[++i] || '0', 10);
     } else {
       throw new Error(`Unknown argument: ${arg}`);
     }
@@ -2194,6 +2252,16 @@ function buildActions(report) {
       `Eval abilities: ${report.evalAbilities.abilities.length} catalogued — mine fails via eval-mine / propose-eval; integrity via eval-check`,
     );
   }
+  if (report.claimHygiene && !report.claimHygiene.ok) {
+    for (const a of report.claimHygiene.actions.slice(0, 3)) {
+      actions.push(a);
+    }
+  }
+  if (report.harnessProfile) {
+    actions.push(
+      `Harness profile ${report.harnessProfile.profileId}: use resolve-profile / skill-packs; overnight eval-research on either Mac`,
+    );
+  }
   if (report.sreAutonomy?.subsystems?.length) {
     actions.push(
       `SRE: ${report.sreAutonomy.subsystems.length} subsystems; act only with fresh health + post-verify`,
@@ -2291,6 +2359,15 @@ function buildHarnessReport({ planPath = DEFAULT_PLAN, role = null, trace = fals
   const contextDiet = contextDietReport({ repo: stateRepo, role: resolvedRole });
   const evalAbilities = evalAbilityPolicy();
   const sreAutonomy = sreAutonomyPolicy();
+  const harnessProfiles = harnessProfilePolicy();
+  const skillPacks = skillPackPolicy();
+  const claimHygiene = claimHygieneReport({
+    activeTasks,
+    contention,
+    megafileHits,
+    concurrencyCap: CONCURRENCY_CAP,
+  });
+  const harnessProfile = resolveHarnessProfile(taskHint, { role: resolvedRole });
   const report = {
     ok: true,
     planPath,
@@ -2309,6 +2386,10 @@ function buildHarnessReport({ planPath = DEFAULT_PLAN, role = null, trace = fals
     contextDiet,
     evalAbilities,
     sreAutonomy,
+    harnessProfiles,
+    skillPacks,
+    claimHygiene,
+    harnessProfile,
     activeTasks,
     activeTaskCount: activeTasks.length,
     concurrency: {
@@ -2335,6 +2416,7 @@ function buildHarnessReport({ planPath = DEFAULT_PLAN, role = null, trace = fals
       'AGENTS.md (planner/worker + multi-agent Never list)',
       'docs/agent-field-guide/index.md',
       'docs/AGENT-SWARM-HARNESS.md',
+      'tools/agent-harness-roi.js',
       'docs/SDD-SPECIFICATION-DRIVEN-DESIGN.md',
       'docs/FRONTIER-MODEL-HARNESS.md',
       'plan.md',
@@ -2361,7 +2443,20 @@ function formatHuman(report) {
   if (report.concurrency.overCap) {
     lines.push('WARN: concurrency over cap — serialize before claiming more work.');
   }
-  if (report.contention.length === 0) {
+  if (report.claimHygiene) {
+    const ch = report.claimHygiene;
+    lines.push(
+      `Claim hygiene: ${ch.ok ? 'ok' : 'WARN'} | pairs=${ch.pairHitCount} → paths=${ch.uniquePathCount} | owners=${ch.concurrency.activeOwners}/${ch.concurrency.cap}`,
+    );
+    for (const p of (ch.pathSummaries || []).slice(0, 8)) {
+      lines.push(
+        `  ${p.megafile ? 'HOT' : 'path'} ${p.path}: owners=${p.owners.join(',')} pairs=${p.pairCount}`,
+      );
+    }
+    if ((ch.pathSummaries || []).length > 8) {
+      lines.push(`  … +${ch.pathSummaries.length - 8} more paths (use claim-hygiene --json)`);
+    }
+  } else if (report.contention.length === 0) {
     lines.push('Contention: none detected across distinct owners');
   } else {
     lines.push(`Contention (${report.contention.length}):`);
@@ -2386,6 +2481,12 @@ function formatHuman(report) {
     }
   }
   lines.push('Model economics: frontier plans; cheap/local executes explicit leaves.');
+  if (report.harnessProfile) {
+    const hp = report.harnessProfile;
+    lines.push(
+      `Harness profile: ${hp.profileId} (${hp.status}) model=${hp.profile.modelClass} effort=${hp.profile.effort} packs=${(hp.skillPacks || []).map((p) => p.id).join(',') || 'none'}`,
+    );
+  }
   if (report.sessionContract) {
     const sc = report.sessionContract;
     lines.push('SessionContract (state once — tenacious frontier models):');
@@ -2557,8 +2658,132 @@ function main() {
   node tools/agent-swarm-harness.js eval-mine [--write] [--json]
   node tools/agent-swarm-harness.js eval-check [--run-commands] [--json]
   node tools/agent-swarm-harness.js sre-autonomy [--json]
-  node tools/agent-swarm-harness.js sre-act --subsystem ID [--health-age-ms N|--force] [--json]`);
+  node tools/agent-swarm-harness.js sre-act --subsystem ID [--health-age-ms N|--force] [--json]
+  node tools/agent-swarm-harness.js profiles [--json]
+  node tools/agent-swarm-harness.js resolve-profile [--task "..."] [--role planner|worker] [--json]
+  node tools/agent-swarm-harness.js skill-packs [--toolbox ID] [--json]
+  node tools/agent-swarm-harness.js claim-hygiene [--json] [--plan path]
+  node tools/agent-swarm-harness.js eval-research [--write] [--json] [--max N]`);
     process.exit(0);
+  }
+
+
+  if (args.command === 'profiles') {
+    const policy = harnessProfilePolicy();
+    if (args.json) {
+      console.log(JSON.stringify(policy, null, 2));
+    } else {
+      console.log('=== Harness profiles (accuracy without fine-tune) ===');
+      console.log(policy.principle);
+      console.log(`Source: ${policy.source.label}`);
+      for (const prof of policy.profiles) {
+        console.log(
+          `  ${prof.id.padEnd(22)} class=${prof.modelClass} effort=${prof.effort} hosts=${prof.hosts.join(',')}`,
+        );
+        console.log(`                         route=${prof.routeHint}`);
+        console.log(`                         packs=${prof.skillPacks.join(',')}`);
+      }
+      console.log('Anti-patterns:');
+      for (const ap of policy.antiPatterns) console.log(`  - ${ap}`);
+    }
+    process.exit(0);
+  }
+
+  if (args.command === 'resolve-profile') {
+    const task = args.task || process.env.HERMES_TASK_TEXT || '';
+    const resolved = resolveHarnessProfile(task, { role: args.role || 'worker' });
+    if (args.json) {
+      console.log(JSON.stringify(resolved, null, 2));
+    } else {
+      console.log(formatProfileHuman(resolved));
+    }
+    process.exit(resolved.ok ? 0 : 2);
+  }
+
+  if (args.command === 'skill-packs') {
+    const host = detectFleetHostRole();
+    const listed = listSkillPacks({
+      toolboxId: args.toolbox || null,
+      hostRole: host.role === 'unknown' ? null : host.role,
+    });
+    if (args.json) {
+      console.log(JSON.stringify({ ...listed, host }, null, 2));
+    } else {
+      console.log('=== Skill packs (verified portable capabilities) ===');
+      console.log(listed.principle);
+      console.log(`host: ${host.role}`);
+      for (const pack of listed.packs) {
+        console.log(
+          `  ${pack.id.padEnd(16)} toolbox=${pack.toolbox} hosts=${pack.hosts.join(',')}`,
+        );
+        console.log(`                   ${pack.description}`);
+        for (const ep of pack.entrypoints.slice(0, 3)) {
+          console.log(`                   - ${ep}`);
+        }
+      }
+    }
+    process.exit(0);
+  }
+
+  if (args.command === 'claim-hygiene') {
+    const planPath = args.planPath || DEFAULT_PLAN;
+    if (!fs.existsSync(planPath)) {
+      console.error(`plan not found: ${planPath}`);
+      process.exit(1);
+    }
+    const planText = fs.readFileSync(planPath, 'utf8');
+    const activeTasks = parseActiveTasks(planText);
+    const contention = findFileContention(activeTasks);
+    const megafileHits = findMegafileHits(activeTasks);
+    const report = claimHygieneReport({
+      activeTasks,
+      contention,
+      megafileHits,
+      concurrencyCap: CONCURRENCY_CAP,
+    });
+    if (args.json) {
+      console.log(JSON.stringify(report, null, 2));
+    } else {
+      console.log(formatClaimHygieneHuman(report));
+    }
+    process.exit(report.ok ? 0 : 2);
+  }
+
+  if (args.command === 'eval-research') {
+    const host = detectFleetHostRole();
+    const maxProposals = args.max > 0 ? args.max : 5;
+    const result = runEvalResearchLoop({
+      mineFn: mineEvalFailures,
+      write: Boolean(args.write),
+      maxProposals,
+      planPath: args.planPath || DEFAULT_PLAN,
+      hostRole: host.role,
+    });
+    if (args.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log('=== Eval research loop ===');
+      console.log(HARNESS_ROI_SOURCE.principle);
+      console.log(`host: ${host.role} | profile: ${result.profile.profileId}`);
+      console.log(
+        `dryRun: ${result.dryRun} | signals: ${result.receipt.signalCount} | proposals: ${result.receipt.proposalCount}`,
+      );
+      for (const p of result.receipt.proposals || []) {
+        console.log(
+          `  - ${p.abilityId} (${p.source}/${p.severity}) ${p.writtenPath || p.id || ''}`,
+        );
+      }
+      if (result.written && result.written.length) {
+        console.log('Written:');
+        for (const w of result.written) console.log(`  ${w}`);
+      }
+      if (!result.dryRun) {
+        console.log('Write scope: evals/ + artifacts/eval-research/ only (no megafiles)');
+      } else {
+        console.log('Dry run — pass --write to materialize stubs + receipt');
+      }
+    }
+    process.exit(result.ok ? 0 : 1);
   }
 
   if (args.command === 'sdd') {
@@ -3015,6 +3240,19 @@ module.exports = {
   emitTrace,
   checkModelRiskGate,
   TRACE_FILE,
+  HARNESS_ROI_SOURCE,
+  HARNESS_PROFILES,
+  SKILL_PACKS,
+  harnessProfilePolicy,
+  skillPackPolicy,
+  classifyHarnessProfile,
+  resolveHarnessProfile,
+  resolveSkillPackAccess,
+  listSkillPacks,
+  claimHygieneReport,
+  runEvalResearchLoop,
+  formatClaimHygieneHuman,
+  formatProfileHuman,
 };
 
 if (require.main === module) {

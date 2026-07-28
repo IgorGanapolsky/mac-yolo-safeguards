@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Overnight / periodic eval research loop: mine failures → eval stubs under evals/ + artifacts/eval-research only.
+     Install: bash scripts/install-eval-research-loop.sh
+     Placeholders __REPO__ __NODE__ __HOME__ are substituted by the installer. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.igor.harness-eval-research</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__NODE__</string>
+    <string>__REPO__/tools/agent-swarm-harness.js</string>
+    <string>eval-research</string>
+    <string>--write</string>
+    <string>--max</string>
+    <string>5</string>
+    <string>--json</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>__REPO__</string>
+  <key>StartInterval</key>
+  <integer>21600</integer>
+  <!-- every 6 hours -->
+  <key>RunAtLoad</key>
+  <false/>
+  <key>StandardOutPath</key>
+  <string>__HOME__/Library/Logs/hermes/harness-eval-research.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/Library/Logs/hermes/harness-eval-research.err.log</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>HERMES_SESSION_PUBLISH</key>
+    <string>DRAFT_ONLY</string>
+  </dict>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>Nice</key>
+  <integer>10</integer>
+</dict>
+</plist>
