@@ -89,6 +89,11 @@ export default function ApprovalsScreen() {
 
   const [refreshing, setRefreshing] = React.useState(false);
   const [decisionHistory, setDecisionHistory] = React.useState<LeashDecisionRecord[]>([]);
+  const [activeRules, setActiveRules] = React.useState([
+    { id: 'rule-1', title: 'Never force-push to main', pattern: 'git push --force' },
+    { id: 'rule-2', title: 'Block destructive shell execution', pattern: 'rm -rf /' },
+    { id: 'rule-3', title: 'Require approval for file deletion', pattern: 'delete_file' },
+  ]);
   const refreshingRef = React.useRef(false);
   const refreshPromiseRef = React.useRef<Promise<void> | null>(null);
   const connectionStateRef = React.useRef(connectionState);
@@ -520,6 +525,36 @@ export default function ApprovalsScreen() {
           </GlassCard>
         ) : null}
 
+        {leashUnlocked ? (
+          <GlassCard style={styles.leashSettingsCard} testID="active-safety-rules-card">
+            <Text style={styles.cardTitle}>Active Safety Rules (ThumbGate.app)</Text>
+            <Text style={styles.cardDesc}>
+              Standing guardrails auto-promoted from thumbs-down feedback or repository config. Tap unblock to allow an action again.
+            </Text>
+            {activeRules.length === 0 ? (
+              <Text style={styles.emptyRulesText}>No active safety blocks. Repetitive thumbs-down feedback will appear here.</Text>
+            ) : (
+              activeRules.map((rule) => (
+                <View key={rule.id} style={styles.ruleRow}>
+                  <View style={styles.ruleCol}>
+                    <Text style={styles.ruleTitle}>{rule.title}</Text>
+                    <Text style={styles.rulePattern}>{rule.pattern}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.unblockBtn}
+                    onPress={() => setActiveRules((prev) => prev.filter((r) => r.id !== rule.id))}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Unblock ${rule.title}`}
+                    testID={`unblock-rule-${rule.id}`}
+                  >
+                    <Text style={styles.unblockBtnText}>Unblock</Text>
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </GlassCard>
+        ) : null}
+
         {leashUnlocked && surfaceEventError && lastEventError ? (
           <Text style={styles.errorText} testID="leash-event-error">
             {lastEventError}
@@ -765,5 +800,58 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textMuted,
     fontWeight: '700',
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  cardDesc: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginBottom: 12,
+    lineHeight: 16,
+  },
+  emptyRulesText: {
+    fontSize: 12,
+    color: colors.textMuted,
+    fontStyle: 'italic',
+  },
+  ruleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  ruleCol: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  ruleTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  rulePattern: {
+    fontSize: 11,
+    fontFamily: 'JetBrains Mono',
+    color: colors.accent,
+    marginTop: 2,
+  },
+  unblockBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  unblockBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#EF4444',
   },
 });
