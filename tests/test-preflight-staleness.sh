@@ -18,7 +18,10 @@ ROOT="$(mktemp -d)"
 pass=0; fail=0
 ok() { echo "  [PASS] $1"; pass=$((pass+1)); }
 no() { echo "  [FAIL] $1"; fail=$((fail+1)); }
-cleanup() { launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null; rm -f "$PLIST"; rm -rf "$ROOT"; }
+# Must end in `true`: launchctl bootout returns 3 when the job is already gone, and that
+# status leaked out as the SCRIPT's exit code -- 15/15 assertions passing while the suite
+# reported failure. run-suite correctly refused to call that a pass.
+cleanup() { launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null; rm -f "$PLIST"; rm -rf "$ROOT"; true; }
 trap cleanup EXIT
 
 write_plist() { # $1 = final argument
@@ -90,10 +93,10 @@ GR="$ROOT/repo"; mkdir -p "$GR"
   echo b > f && git commit -qam ahead ) >/dev/null 2>&1
 BASE="$(cd "$GR" && git rev-parse --abbrev-ref HEAD)"
 ( cd "$GR" && git checkout -q feature ) >/dev/null 2>&1
-set +e; (cd "$GR" && "$TOOL" git "$BASE" >/dev/null 2>&1); grc=$?; set -e
+(cd "$GR" && "$TOOL" git "$BASE" >/dev/null 2>&1); grc=$?   # no set -e toggle: this suite runs without -e
 [ "$grc" = "1" ] && ok "branch behind base -> 1 (stale)" || no "branch behind base -> 1 (got $grc)"
 ( cd "$GR" && git merge -q "$BASE" ) >/dev/null 2>&1
-set +e; (cd "$GR" && "$TOOL" git "$BASE" >/dev/null 2>&1); grc2=$?; set -e
+(cd "$GR" && "$TOOL" git "$BASE" >/dev/null 2>&1); grc2=$?
 [ "$grc2" = "0" ] && ok "branch up to date -> 0 (fresh)" || no "up-to-date branch -> 0 (got $grc2)"
 
 # ---- node checks
@@ -139,5 +142,11 @@ echo '{"name":"y","lockfileVersion":3,"packages":{}}' > "$VD/package-lock.json"
 [ "$(rc_of node "$VD")" = "2" ] && ok "0 packages comparable -> 2 (unknown), never 0" || no "vacuous node check -> 2"
 
 echo "preflight-staleness tests: $pass passed, $fail failed"
-[ "$pass" -ge 15 ] || { echo "VACUOUS: expected >=10 assertions, ran $pass" >&2; exit 2; }
-[ "$fail" -eq 0 ]
+[ "$pass" -ge 15 ] || { echo "VACUOUS: expected >=15 assertions, ran $pass" >&2; exit 2; }
+
+# Clean up EXPLICITLY and disarm the trap before exiting. Relying on the EXIT trap let
+# `launchctl bootout`'s status (3, "no such process", because the job was already gone)
+# become the SUITE's exit code -- 15/15 assertions passing while CI saw a failure.
+cleanup
+trap - EXIT
+if [ "$fail" -eq 0 ]; then exit 0; else exit 1; fi
