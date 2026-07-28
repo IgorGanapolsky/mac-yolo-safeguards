@@ -176,6 +176,10 @@ jobs:
           # Mutation control: proves the suites above actually go RED against the
           # real historical bugs, instead of passing while measuring nothing.
           bash tests/run-suite.sh tests/test-harness-verifier-integrity.sh 6
+          # Staleness pre-flight: negative controls proving it detects an edited-but-
+          # not-reloaded launchd job, a branch behind base, and node_modules drifted
+          # from the lockfile -- the three ways a stale view got mistaken for evidence.
+          bash tests/run-suite.sh tests/test-preflight-staleness.sh 10
 
       - name: Public secret smoke scan
         run: |
