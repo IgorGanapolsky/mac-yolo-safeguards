@@ -29,10 +29,20 @@ const {
   resolveToolboxAccess,
   workerToolboxPrompt,
   whereIsAuthCheck,
+  contextDietReport,
+  evalAbilityPolicy,
+  proposeEvalFromFailure,
+  sreAutonomyPolicy,
+  resolveSreAction,
+  estimateTokens,
   MEGAFILES,
   FIELD_GUIDE_LINE_BUDGET,
   STATE_LAYER_SOURCE,
   TOOLBOX_SOURCE,
+  CONTEXT_DIET_SOURCE,
+  EVAL_ABILITY_SOURCE,
+  SRE_AUTONOMY_SOURCE,
+  HEALTH_MAX_AGE_MS,
 } = require('../tools/agent-swarm-harness');
 const { parseActiveTasks } = require('../tools/plan-coordination-snapshot');
 
@@ -143,6 +153,9 @@ test('buildHarnessReport works on temp plan with field guide present', () => {
   assert.ok(report.toolboxes && report.toolboxes.packs.length >= 5);
   assert.ok(report.whereIsAuth && report.whereIsAuth.classified);
   assert.ok(report.workerToolbox && typeof report.workerToolbox.prompt === 'string');
+  assert.ok(report.contextDiet && typeof report.contextDiet.alwaysOn?.tokensEst === 'number');
+  assert.ok(report.evalAbilities && report.evalAbilities.abilities.length >= 4);
+  assert.ok(report.sreAutonomy && report.sreAutonomy.subsystems.length >= 3);
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -365,6 +378,96 @@ test('whereIsAuthCheck returns three questions and host guidance', () => {
   });
   assert.strictEqual(ok.ok, true);
   assert.strictEqual(ok.classified.toolboxId, 'repo_coord');
+});
+
+test('contextDietReport estimates tokens and lists findings', () => {
+  const diet = contextDietReport({ role: 'worker' });
+  assert.ok(diet.source.url.includes('claude.com/blog'));
+  assert.strictEqual(diet.source.url, CONTEXT_DIET_SOURCE.url);
+  assert.ok(typeof diet.alwaysOn.tokensEst === 'number');
+  assert.ok(diet.thinWorkerInject.tokensEst > 0);
+  assert.ok(Array.isArray(diet.findings));
+  assert.ok(estimateTokens('abcd') === 1);
+  assert.ok(diet.recommendations.length >= 2);
+});
+
+test('evalAbilityPolicy catalogues abilities with verifier triples', () => {
+  const policy = evalAbilityPolicy();
+  assert.strictEqual(policy.source.url, EVAL_ABILITY_SOURCE.url);
+  assert.ok(policy.abilities.length >= 5);
+  assert.ok(policy.abilities.every((a) => a.instruction && a.env && a.verifier));
+});
+
+test('proposeEvalFromFailure builds stub without write', () => {
+  const result = proposeEvalFromFailure({
+    failureText: 'empty stream left Checking forever on chat',
+    write: false,
+  });
+  assert.strictEqual(result.ok, true);
+  assert.ok(result.stub.id.startsWith('ability-'));
+  assert.ok(result.stub.instruction);
+  assert.strictEqual(result.writtenPath, null);
+});
+
+test('proposeEvalFromFailure can write stub under temp evals', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'eval-propose-'));
+  const result = proposeEvalFromFailure({
+    failureText: 'Tailscale pair failed for fresh user',
+    write: true,
+    repo: dir,
+  });
+  assert.ok(result.writtenPath);
+  assert.ok(fs.existsSync(result.writtenPath));
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('sreAutonomyPolicy lists subsystems with act and verify', () => {
+  const policy = sreAutonomyPolicy();
+  assert.strictEqual(policy.source.url, SRE_AUTONOMY_SOURCE.url);
+  assert.ok(policy.healthMaxAgeMs === HEALTH_MAX_AGE_MS);
+  assert.ok(policy.subsystems.some((s) => s.id === 'litellm'));
+  assert.ok(policy.subsystems.every((s) => s.act && s.verify));
+});
+
+test('resolveSreAction requires fresh health unless force', () => {
+  const blocked = resolveSreAction({
+    subsystemId: 'litellm',
+    env: { HERMES_FLEET_HOST_ROLE: 'mac_pro' },
+  });
+  assert.strictEqual(blocked.ok, false);
+  assert.strictEqual(blocked.status, 'health_required');
+
+  const now = Date.now();
+  const stale = resolveSreAction({
+    subsystemId: 'gateway',
+    healthCheckedAtMs: now - HEALTH_MAX_AGE_MS - 1000,
+    nowMs: now,
+    env: { HERMES_FLEET_HOST_ROLE: 'mac_pro' },
+  });
+  assert.strictEqual(stale.ok, false);
+  assert.strictEqual(stale.status, 'health_stale');
+
+  const ok = resolveSreAction({
+    subsystemId: 'ollama_pressure',
+    healthCheckedAtMs: now - 1000,
+    nowMs: now,
+    env: { HERMES_FLEET_HOST_ROLE: 'mac_mini' },
+  });
+  assert.strictEqual(ok.ok, true);
+  assert.strictEqual(ok.status, 'allowed');
+  assert.ok(ok.verify);
+
+  const forced = resolveSreAction({
+    subsystemId: 'litellm',
+    force: true,
+    env: { HERMES_FLEET_HOST_ROLE: 'mac_pro' },
+  });
+  assert.strictEqual(forced.ok, true);
+  assert.strictEqual(forced.status, 'forced');
+
+  const unknown = resolveSreAction({ subsystemId: 'nope' });
+  assert.strictEqual(unknown.ok, false);
+  assert.strictEqual(unknown.status, 'unknown_subsystem');
 });
 
 test('specificationDrivenDesign maps Ozkary loop onto repo artifacts', () => {
