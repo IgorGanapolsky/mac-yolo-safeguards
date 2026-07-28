@@ -2,6 +2,7 @@ import React from 'react';
 import { Alert, BackHandler, Platform } from 'react-native';
 import { fireEvent, act, waitFor, cleanup, within } from '@testing-library/react-native';
 import ChatScreen, {
+  iosComposerDockKeyboardFocusStyle,
   resolveEffectiveKeyboardInset,
   shouldIgnoreKeyboardHide,
   shouldClearKeyboardScreenVisible,
@@ -3313,5 +3314,19 @@ describe('shouldIgnoreKeyboardHide', () => {
 
   it('never ignores iOS hide events', () => {
     expect(shouldIgnoreKeyboardHide('ios', 260, true)).toBe(false);
+  });
+});
+
+describe('iosComposerDockKeyboardFocusStyle', () => {
+  it('never mutates shadow or elevation while the Fabric TextInput is focused', () => {
+    const style = iosComposerDockKeyboardFocusStyle();
+
+    expect(style.paddingTop).toBe(8);
+    expect(style.borderTopColor).toBeTruthy();
+    expect(style.shadowColor).toBeUndefined();
+    expect(style.shadowOpacity).toBeUndefined();
+    expect(style.shadowRadius).toBeUndefined();
+    expect(style.shadowOffset).toBeUndefined();
+    expect(style.elevation).toBeUndefined();
   });
 });

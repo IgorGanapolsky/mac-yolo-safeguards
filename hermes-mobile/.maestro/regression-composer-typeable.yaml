@@ -26,27 +26,26 @@ appId: com.iganapolsky.hermesmobile
     visible:
       id: "chat-input"
     timeout: 30000
-# Android-only regression: keyboard closed -> focus -> dock lifts (marginBottom>0).
-# iOS keeps the app-owned composer readiness assertion above and the deterministic
-# handler contract in ChatScreen.test.tsx. Maestro/XCTest text injection on the
-# iOS 26.5 simulator delivers Unicode HID events without updating React Native's
-# controlled TextInput, so treating it as this Android hit-rect oracle creates a
-# simulator false negative.
-- runFlow:
-    when:
-      platform: android
-    commands:
-      - tapOn:
-          id: "chat-input"
-      - eraseText
-      - inputText: "make money today"
-      - assertVisible: "make money today"
-      # CRITICAL: keyboard OPEN and dock lifted. Re-tap, erase, and retype.
-      # Under translateY the hit-rect stays behind and the second edit never lands.
-      - tapOn:
-          id: "chat-input"
-      - eraseText
-      - inputText: "make money today"
-      - assertVisible:
-          id: "chat-input"
-      - eraseText
+# First pass proves the native text-entry path updates the controlled TextInput on
+# both Android and iOS. The exact prompt matters: repeating a just-sent value is the
+# iOS regression guarded by ChatScreen's platform-specific IME suppression.
+- tapOn:
+    id: "chat-input"
+- eraseText
+- tapOn:
+    id: "chat-input"
+- inputText: "make money today"
+- assertVisible: "make money today"
+# CRITICAL: keyboard OPEN and dock lifted. Re-tap, erase, and enter the exact same
+# value again. Android proves the lifted hit-rect remains tappable; iOS proves the
+# controlled TextInput accepts the previous value rather than suppressing it.
+- tapOn:
+    id: "chat-input"
+- eraseText
+- tapOn:
+    id: "chat-input"
+- inputText: "make money today"
+- waitForAnimationToEnd:
+    timeout: 2000
+- assertVisible: "make money today"
+- eraseText

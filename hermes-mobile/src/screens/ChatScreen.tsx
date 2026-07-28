@@ -21,6 +21,7 @@ import {
   type FlatList as FlatListType,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
+  type ViewStyle,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -545,6 +546,17 @@ export function composerDockContainerStyle(
   return {
     paddingBottom: spacing.paddingBottom,
     marginBottom: spacing.marginBottom,
+  };
+}
+
+/**
+ * Focus-triggered shadows on a TextInput parent immediately blur Fabric inputs
+ * on iOS (React Native #45798). Keep keyboard-open emphasis layout-only.
+ */
+export function iosComposerDockKeyboardFocusStyle(): ViewStyle {
+  return {
+    paddingTop: 8,
+    borderTopColor: 'rgba(148, 163, 184, 0.35)',
   };
 }
 
@@ -8639,13 +8651,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(9, 11, 20, 0.96)',
   },
   composerDockKeyboardOpen: {
-    paddingTop: 8,
-    borderTopColor: 'rgba(148, 163, 184, 0.35)',
-    shadowColor: '#000',
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 12,
+    ...iosComposerDockKeyboardFocusStyle(),
   },
   inputBar: {
     flexDirection: 'row',
