@@ -167,6 +167,23 @@ const ROUTES = [
     candidateOnly: true,
   },
   {
+    id: 'kimi_k3_agentic_specialist',
+    label: 'Kimi K3 long-context agentic specialist',
+    agent: 'long-context-agentic-reasoner',
+    provider: 'openrouter',
+    model: 'moonshotai/kimi-k3',
+    costUsd: 0.08,
+    latencyMs: 35000,
+    reliability: 0.78,
+    riskCeiling: 'high',
+    strengths: ['kimi', 'k3', 'moonshot', 'long-context', 'agentic-workflow', 'large-repo', 'tool-use', 'debugging', 'multi-step', 'agentic'],
+    commandEnv: {
+      HERMES_OPENROUTER_MODEL: 'moonshotai/kimi-k3',
+    },
+    proofGates: ['explicit-approval', 'cost-cap', 'long-context-justified', 'receipt-written'],
+    requiresApproval: true,
+  },
+  {
     id: 'openrouter_fusion',
     label: 'OpenRouter Fusion grounded panel',
     agent: 'research-panel',
@@ -237,6 +254,7 @@ const OPENROUTER_JUNE_MODELS = [
   { slug: 'anthropic/claude-sonnet-5', inputPerM: 2.00, outputPerM: 10.00, context: '1M', use: 'frontier coding, agents, professional work' },
   { slug: 'z-ai/glm-5.2', inputPerM: 0.93, outputPerM: 3.00, context: '1M', use: 'high-risk reasoning and architecture review' },
   { slug: 'moonshotai/kimi-k2.7-code', inputPerM: 0.74, outputPerM: 3.50, context: '262K', use: 'code specialist candidate' },
+  { slug: 'moonshotai/kimi-k3', inputPerM: 3.00, outputPerM: 15.00, context: '1M', use: 'long-context agentic workflow specialist, large-repo understanding, debugging, tool-use' },
   { slug: 'qwen/qwen3.7-plus', inputPerM: 0.32, outputPerM: 1.28, context: '1M', use: 'cheap broad reasoning candidate' },
   { slug: 'cohere/north-mini-code:free', inputPerM: 0, outputPerM: 0, context: '256K', use: 'free code worker candidate' },
   { slug: 'nex-agi/nex-n2-pro', inputPerM: 0.25, outputPerM: 1.00, context: '262K', use: 'low-cost agentic candidate' },
@@ -390,6 +408,7 @@ function taskSignals(task) {
     paidOrExternal: /payment|wallet|stablecoin|on[- ]chain|post|send|publish|charge|stripe/.test(text) || externalDelivery,
     externalDelivery,
     routine: /smoke|small|quick|lint|unit test|local/.test(text),
+    longContextOrAgentic: /long[- ]?context|large[- ]?repo|whole[- ]?repo|multi[- ]?step\s+agent|agentic.*workflow|repository.*understand|tool[- ]?use.*debug|debug.*iterate|codebase.*analysis|full.repo|million[\s-]token/.test(text),
   };
 }
 
@@ -463,6 +482,12 @@ function scoreRoute(route, args, signals) {
   if (route.id === 'mobile_e2e_gate') {
     if (signals.mobile) score += 55;
     if (!signals.mobile) score -= 30;
+  }
+  if (route.id === 'kimi_k3_agentic_specialist') {
+    if (signals.longContextOrAgentic) score += 85;
+    if (signals.architecture || signals.highVarianceReasoning) score += 18;
+    if (signals.asksForSubagent) score += 25;
+    if (!signals.longContextOrAgentic && !signals.architecture) score -= 10;
   }
   return Number(score.toFixed(2));
 }
@@ -617,7 +642,7 @@ function openRouterServerToolPlan(kind) {
           analysis_models: [
             'z-ai/glm-5.2',
             'qwen/qwen3.7-plus',
-            'moonshotai/kimi-k2.7-code',
+            'moonshotai/kimi-k3',
           ],
           model: 'z-ai/glm-5.2',
           max_tool_calls: 4,
@@ -651,6 +676,7 @@ function buildMicroAgentRecipe(selected, args, signals, evaluated) {
   const openrouterFusion = allowedRoute(evaluated, 'openrouter_fusion');
   const openrouterAdvisor = allowedRoute(evaluated, 'openrouter_advisor');
   const openrouterSubagent = allowedRoute(evaluated, 'openrouter_subagent');
+  const kimiK3 = allowedRoute(evaluated, 'kimi_k3_agentic_specialist');
   const primaryReasoner = firstAllowed(evaluated, ['glm52_reasoning', 'local_fast']) || selected;
 
   const base = {
@@ -970,6 +996,27 @@ function buildMicroAgentRecipe(selected, args, signals, evaluated) {
     };
   }
 
+  if ((signals.longContextOrAgentic || signals.architecture) && kimiK3) {
+    return {
+      ...base,
+      id: 'kimi_k3_long_context_agentic',
+      pattern: 'fusion',
+      reason: 'Kimi K3 (2.8T, 1M ctx) excels at long-context agentic workflows, large-repo understanding, and multi-step tool use — use it when the task exceeds local capacity for repo-wide or multi-agent analysis.',
+      hardCaps: {
+        ...base.hardCaps,
+        maxConcurrent: 2,
+        maxSteps: 4,
+      },
+      panel: [
+        compactRoute(localFast, 'local-baseline'),
+        compactRoute(kimiK3, 'long-context-agentic-specialist'),
+      ],
+      judge: compactRoute(kimiK3, 'agentic-judge'),
+      finalizer: compactRoute(localFast, 'contract-finalizer'),
+      disagreementPolicy: 'Prefer the specialist model for long-context or codebase-wide evidence; surface contradictions.',
+    };
+  }
+
   return {
     ...base,
     id: 'local_confidence_escalation',
@@ -1049,6 +1096,7 @@ function decision(args) {
       grokRule: 'The user-facing hermes-yolo prompt route defaults to Grok 4.5; inside multi-agent recipes, Grok remains an explicit independent verifier with doctor, auth, billing, and comparison receipts.',
       retrievalRule: 'Trace query construction and retrieval separately from generation; use explicit Parallel Turbo for approved fast grounding, and escalate to basic or advanced only when measured retrieval quality requires it.',
       memoryRule: 'Compress durable harness knowledge into an inspectable wiki generated from prompt-free traces; do not treat raw chat logs as memory by default.',
+      kimiK3Rule: 'Kimi K3 earns its $3/$15 per 1M tokens via 2.8T parameter MoE quality and 1M context for long-context agentic workflows. It replaces K2.7-code in fusion panels and routes to long-context/repo-wide/agentic tasks. Use evaluateCanary() to compare K3 against GLM-5.2 before changing default reasoning route.',
     },
   };
   return receipt;
@@ -1308,6 +1356,177 @@ function main() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Feedback loop: incorporate observed inference data into route scoring
+// (TensorZero-inspired: close the loop between routing decisions and outcomes)
+// ---------------------------------------------------------------------------
+
+/**
+ * Update a route's reliability estimate based on observed success rate.
+ * Weighted update: observed data carries more weight as sample size grows.
+ *
+ * @param {object} route - Route definition
+ * @param {{ calls: number, successCount: number }} observed
+ * @returns {number} Updated reliability estimate (0-1)
+ */
+function updateRouteReliability(route, observed) {
+  if (!observed || observed.calls < 1) return route.reliability;
+  const observedRate = observed.successCount / observed.calls;
+  // Bayesian-ish: start with prior (route.reliability), blend with observed
+  // Prior weight = 3 observations; observed weight = actual sample
+  const priorWeight = 3;
+  const totalWeight = priorWeight + observed.calls;
+  const updated = (route.reliability * priorWeight + observedRate * observed.calls) / totalWeight;
+  return Number(Math.min(1, Math.max(0, updated)).toFixed(4));
+}
+
+/**
+ * Compute adjusted score incorporating observed reliability and cost data.
+ *
+ * @param {object} route - Route definition
+ * @param {object} args - Routing args (risk, latency, cost caps)
+ * @param {object} signals - Task signals
+ * @param {{ calls: number, successCount: number, totalCostUsd: number, avgLatencyMs: number }|null} observed
+ * @returns {number} Adjusted score
+ */
+function computeAdjustedRouteScore(route, args, signals, observed = null) {
+  let score = scoreRoute(route, args, signals);
+
+  if (observed && observed.calls >= 3) {
+    const obsRate = observed.successCount / observed.calls;
+    // Boost routes that overperform their stated reliability
+    if (obsRate > route.reliability + 0.05) {
+      score += Math.min(20, (obsRate - route.reliability) * 100);
+    }
+    // Penalize routes that underperform
+    if (obsRate < route.reliability - 0.05) {
+      score -= Math.min(30, (route.reliability - obsRate) * 100);
+    }
+    // Cost efficiency bonus: if observed cost is lower than estimated
+    const routeCostPerCall = route.costUsd || 0;
+    const obsCostPerCall = observed.totalCostUsd / observed.calls;
+    if (routeCostPerCall > 0 && obsCostPerCall < routeCostPerCall * 0.7) {
+      score += 10; // signficantly cheaper than estimated
+    }
+    if (routeCostPerCall > 0 && obsCostPerCall > routeCostPerCall * 1.3) {
+      score -= 15; // significantly more expensive than estimated
+    }
+  }
+
+  return Number(score.toFixed(2));
+}
+
+// ---------------------------------------------------------------------------
+// Canary route evaluation (A/B: candidate vs default)
+// ---------------------------------------------------------------------------
+
+const DEFAULT_CANARY_CONFIG = Object.freeze({
+  minCallsToEvaluate: 5,
+  minSuccessRateDelta: 0.05, // 5% better to prefer candidate
+  maxLatencyMultiplier: 1.5, // candidate can be at most 1.5x slower
+  maxCostMultiplier: 1.3,    // candidate can be at most 1.3x more expensive
+  minDaysToPromote: 1,       // at least 1 day of data needed
+});
+
+/**
+ * Evaluate whether a canary candidate route should be promoted.
+ *
+ * @param {object} candidate - Route definition for the candidate
+ * @param {object} default_ - Route definition for the current default
+ * @param {{ calls: number, successCount: number, totalCostUsd: number, avgLatencyMs: number }} candidateObserved
+ * @param {{ calls: number, successCount: number, totalCostUsd: number, avgLatencyMs: number }} defaultObserved
+ * @param {object} [config] - Threshold configuration
+ * @returns {{ ok: boolean, vote: string, reasons: string[], scores: object }}
+ */
+function evaluateCanary(candidate, default_, candidateObserved, defaultObserved, config = {}) {
+  const cfg = { ...DEFAULT_CANARY_CONFIG, ...config };
+  const reasons = [];
+  let vote = 'hold';
+
+  // Insufficient data check
+  if (candidateObserved.calls < cfg.minCallsToEvaluate) {
+    reasons.push(`Candidate only ${candidateObserved.calls} calls, need ${cfg.minCallsToEvaluate}`);
+    return { ok: false, vote: 'insufficient_data', reasons, scores: null };
+  }
+  if (defaultObserved.calls < cfg.minCallsToEvaluate) {
+    reasons.push(`Default only ${defaultObserved.calls} calls, need ${cfg.minCallsToEvaluate}`);
+    return { ok: false, vote: 'insufficient_data', reasons, scores: null };
+  }
+
+  const candidateSuccessRate = candidateObserved.calls > 0
+    ? candidateObserved.successCount / candidateObserved.calls
+    : 0;
+  const defaultSuccessRate = defaultObserved.calls > 0
+    ? defaultObserved.successCount / defaultObserved.calls
+    : 0;
+  const candidateAvgLatency = candidateObserved.calls > 0
+    ? candidateObserved.avgLatencyMs
+    : Infinity;
+  const defaultAvgLatency = defaultObserved.calls > 0
+    ? defaultObserved.avgLatencyMs
+    : Infinity;
+  const candidateCostPerCall = candidateObserved.calls > 0
+    ? candidateObserved.totalCostUsd / candidateObserved.calls
+    : Infinity;
+  const defaultCostPerCall = defaultObserved.calls > 0
+    ? defaultObserved.totalCostUsd / defaultObserved.calls
+    : Infinity;
+
+  const scores = {
+    candidate: {
+      successRate: Number((candidateSuccessRate * 100).toFixed(1)),
+      avgLatencyMs: Math.round(candidateAvgLatency),
+      costPerCallUsd: Number(candidateCostPerCall.toFixed(6)),
+    },
+    default: {
+      successRate: Number((defaultSuccessRate * 100).toFixed(1)),
+      avgLatencyMs: Math.round(defaultAvgLatency),
+      costPerCallUsd: Number(defaultCostPerCall.toFixed(6)),
+    },
+  };
+
+  // Success rate check
+  if (candidateSuccessRate < defaultSuccessRate - cfg.minSuccessRateDelta) {
+    reasons.push(`Candidate success rate ${scores.candidate.successRate}% < default ${scores.default.successRate}%`);
+    vote = 'reject';
+  }
+
+  // Latency check
+  if (candidateAvgLatency > defaultAvgLatency * cfg.maxLatencyMultiplier && Number.isFinite(defaultAvgLatency)) {
+    reasons.push(`Candidate latency ${candidateAvgLatency}ms > ${cfg.maxLatencyMultiplier}x default ${defaultAvgLatency}ms`);
+    if (vote !== 'reject') vote = 'hold';
+  }
+
+  // Cost check
+  if (candidateCostPerCall > defaultCostPerCall * cfg.maxCostMultiplier && Number.isFinite(defaultCostPerCall)) {
+    reasons.push(`Candidate cost $${candidateCostPerCall.toFixed(4)} > ${cfg.maxCostMultiplier}x default $${defaultCostPerCall.toFixed(4)}`);
+    if (vote !== 'reject') vote = 'hold';
+  }
+
+  // Promote if candidate beats or matches default on all metrics
+  if (vote === 'hold') {
+    const improves = candidateSuccessRate >= defaultSuccessRate - cfg.minSuccessRateDelta;
+    const notSlower = !Number.isFinite(defaultAvgLatency) || candidateAvgLatency <= defaultAvgLatency * cfg.maxLatencyMultiplier;
+    const notCostlier = !Number.isFinite(defaultCostPerCall) || candidateCostPerCall <= defaultCostPerCall * cfg.maxCostMultiplier;
+    if (improves && notSlower && notCostlier) {
+      vote = 'promote';
+      reasons.push('Candidate meets or beats default on all metrics');
+    } else {
+      reasons.push('Candidate comparable — hold for more data');
+    }
+  }
+
+  return {
+    ok: vote === 'promote',
+    vote,
+    reasons,
+    scores,
+    candidateRoute: candidate.id,
+    defaultRoute: default_.id,
+    evaluatedAt: new Date().toISOString(),
+  };
+}
+
 module.exports = {
   RECEIPT_PATH,
   ROUTES,
@@ -1323,6 +1542,11 @@ module.exports = {
   scoreRoute,
   taskSignals,
   writeReceipt,
+  // Feedback loop exports (TensorZero-inspired)
+  updateRouteReliability,
+  computeAdjustedRouteScore,
+  evaluateCanary,
+  DEFAULT_CANARY_CONFIG,
 };
 
 if (require.main === module) {
