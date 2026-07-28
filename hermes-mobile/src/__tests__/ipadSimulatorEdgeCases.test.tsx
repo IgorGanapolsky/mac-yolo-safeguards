@@ -89,7 +89,26 @@ describe('iPad simulator fresh-user edge-case flow', () => {
     expect(flow).toContain('assertVisible: "make money today!"');
     expect(flow).toContain('inputText: "?"');
     expect(flow).toContain('assertVisible: "make money today!?"');
+    expect(flow).toContain('inputText: "#"');
+    expect(flow).toContain('assertVisible: "make money today!?#"');
+    expect(flow).toContain('inputText: "."');
+    expect(flow).toContain('assertVisible: "make money today!?#."');
     expect(flow.match(/- setOrientation: PORTRAIT/g)).toHaveLength(2);
+    expect(flow.match(/- setOrientation: UPSIDE_DOWN/g)).toHaveLength(1);
+    expect(flow.match(/- setOrientation: LANDSCAPE_RIGHT/g)).toHaveLength(2);
+  });
+
+  it('backgrounds and resumes the focused draft without restarting the app', () => {
+    const backgroundIndex = flow.indexOf('- pressKey: Home');
+    const resumeIndex = flow.indexOf('stopApp: false', backgroundIndex);
+    const resumeSlice = flow.slice(backgroundIndex);
+
+    expect(backgroundIndex).toBeGreaterThan(-1);
+    expect(resumeIndex).toBeGreaterThan(backgroundIndex);
+    expect(resumeSlice).toContain('assertVisible: "make money today!?#."');
+    expect(resumeSlice).toContain('point: "95%,50%"');
+    expect(resumeSlice).toContain('inputText: "+"');
+    expect(resumeSlice).toContain('assertVisible: "make money today!?#.+"');
   });
 
   it('proves every bottom tab stays reachable after hiding the keyboard', () => {

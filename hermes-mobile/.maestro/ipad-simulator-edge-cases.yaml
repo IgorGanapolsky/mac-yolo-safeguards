@@ -165,13 +165,44 @@ appId: com.iganapolsky.hermesmobile
 - inputText: "!"
 - assertVisible: "make money today!"
 - takeScreenshot: build/ipad-simulator-edge-cases/composer-landscape-keyboard
-- setOrientation: PORTRAIT
+- setOrientation: LANDSCAPE_RIGHT
 - waitForAnimationToEnd:
     timeout: 3000
 - assertVisible:
     id: "chat-input"
 - inputText: "?"
 - assertVisible: "make money today!?"
+- setOrientation: UPSIDE_DOWN
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "chat-input"
+- inputText: "#"
+- assertVisible: "make money today!?#"
+- setOrientation: PORTRAIT
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "chat-input"
+- inputText: "."
+- assertVisible: "make money today!?#."
+
+# A focused draft must survive a real iPad background/foreground transition.
+# Returning with stopApp:false resumes the same process instead of masking state
+# loss with a relaunch; re-tapping proves the input remains usable after resume.
+- pressKey: Home
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 30000
+- assertVisible: "make money today!?#."
+- tapOn:
+    id: "chat-input"
+    point: "95%,50%"
+- inputText: "+"
+- assertVisible: "make money today!?#.+"
 - eraseText: 100
 - hideKeyboard
 - assertVisible:

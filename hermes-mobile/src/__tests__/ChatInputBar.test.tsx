@@ -180,12 +180,14 @@ describe('ChatInputBar', () => {
       fireEvent(getByTestId('chat-input'), 'blur');
       act(() => {
         onDimensionsChange?.();
+        onDimensionsChange?.();
       });
 
       expect(onDimensionsChange).toBeDefined();
-      // The blur-grace timer is cancelled and replaced by exactly one delayed
-      // native refocus. React Test Renderer does not attach host TextInput refs,
-      // so the exact focus outcome is proved by the iPad Maestro flow.
+      // The blur-grace timer is cancelled and duplicate native resize events
+      // are debounced into exactly one delayed refocus. React Test Renderer does
+      // not attach host TextInput refs, so the exact focus outcome is proved by
+      // the iPad Maestro flow.
       expect(jest.getTimerCount()).toBe(1);
       act(() => {
         jest.runOnlyPendingTimers();
