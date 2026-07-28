@@ -1681,6 +1681,9 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 ## 3. Decisions Log
 
+### D-2026-07-28-buzz-competitor-p0-shared-room
+**Buzz (Block / Jack Dorsey, 2026-07-21):** open Apache-2.0 Nostr workspace for humans+agents (Slack+GitHub rival). **Not our twin** — team OS vs phone↔Mac execution. **Partner:** optional later `buzz-cli` bridge only, not BD fantasy. **Steal P0 shipped:** honest empty-state (`taskListEmptyCopy` never blames pairing when `deviceCount>0`); compact strip when chat has synced messages; task receipts show `⌘ machine · fenced · 90s lease`. Files: `DashboardClient.tsx`, `globals.css`, `dashboard-load-state.test.mjs`. Evidence: load-state + frictionless tests green.
+
 ### D-2026-07-28-harness-remaining-roi
 Implemented remaining high-ROI: contextDietReport/doctor, evalAbilityPolicy+proposeEvalFromFailure, sreAutonomyPolicy+resolveSreAction, revenue-local-draft.js. Evidence: node tests/test-agent-swarm-harness.js + test-revenue-local-draft.js green.
 
