@@ -33,6 +33,15 @@
           }
         },
         {
+          "id": "contradictory-disconnected-copy",
+          "expectedDecision": "reject",
+          "input": {
+            "connectionState": "connected",
+            "authenticatedHealth": true,
+            "visibleText": "Disconnected · Connected"
+          }
+        },
+        {
           "id": "authenticated-connected",
           "expectedDecision": "accept",
           "input": {
@@ -101,6 +110,16 @@
           "input": {
             "runsOn": [
               "macos-26"
+            ],
+            "trustedSource": true
+          }
+        },
+        {
+          "id": "hosted-macos-latest-alias",
+          "expectedDecision": "reject",
+          "input": {
+            "runsOn": [
+              "macos-latest"
             ],
             "trustedSource": true
           }

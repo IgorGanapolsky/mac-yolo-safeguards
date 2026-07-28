@@ -37,10 +37,10 @@ under `~/.hermes/receipts/incident-evals/`; default execution is read-only.
 
 ## Mutation proof
 
-`tests/test-incident-eval-runner.js` deliberately replaces each verifier with an
-`accept everything` mutant. All three mutants must make the suite fail. This
-prevents a tautological test from certifying the exact permissive behavior the
-eval exists to stop.
+`tests/test-incident-eval-runner.js` deliberately replaces each verifier with
+both `accept everything` and `reject everything` mutants. All six mutants must
+make the suite fail. This prevents a tautological test from certifying either
+permissive false greens or blanket false negatives.
 
 The root CI job already executes every `tests/test-*.js` file on Ubuntu, so this
 test is automatically enforced without adding another workflow, provider, or

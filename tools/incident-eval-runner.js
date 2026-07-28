@@ -129,6 +129,7 @@ function connectionProof(input) {
   if (input.authenticatedHealth !== true) evidenceCodes.push('authenticated_health_missing');
   if (!/(^|[.·]\s*)connected(?:[.\s·]|$)/i.test(text)) evidenceCodes.push('positive_connected_copy_missing');
   if (/\bnot\s+connected\b/i.test(text)) evidenceCodes.push('negative_connected_copy_present');
+  if (/\bdisconnected\b/i.test(text)) evidenceCodes.push('disconnected_copy_present');
   return {
     decision: evidenceCodes.length === 0 ? 'accept' : 'reject',
     evidenceCodes,
@@ -152,7 +153,9 @@ function ipadRunnerCostProof(input) {
   const normalized = labels.map((label) => label.toLowerCase());
   if (!normalized.includes('self-hosted')) evidenceCodes.push('self_hosted_label_missing');
   if (!normalized.includes('ipad-simulator')) evidenceCodes.push('ipad_capability_label_missing');
-  if (normalized.some((label) => /^macos-\d/.test(label))) evidenceCodes.push('github_hosted_macos_requested');
+  if (normalized.some((label) => /^macos-(?:latest|\d)/.test(label))) {
+    evidenceCodes.push('github_hosted_macos_requested');
+  }
   if (input.trustedSource !== true) evidenceCodes.push('untrusted_code_on_self_hosted');
   return {
     decision: evidenceCodes.length === 0 ? 'accept' : 'reject',
@@ -251,9 +254,8 @@ function runIncidentEvals(manifest, options = {}) {
 }
 
 function ensurePrivateDirectory(directory) {
-  const existed = fs.existsSync(directory);
   fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
-  if (!existed) fs.chmodSync(directory, 0o700);
+  fs.chmodSync(directory, 0o700);
 }
 
 function writeReport(report, out = DEFAULT_OUT) {

@@ -31,11 +31,11 @@ const report = runIncidentEvals(manifest, {
 assert.strictEqual(report.overallStatus, 'pass');
 assert.deepStrictEqual(report.metrics, {
   tasks: 3,
-  cases: 9,
-  passed: 9,
+  cases: 11,
+  passed: 11,
   failed: 0,
   accepted: 3,
-  rejected: 6,
+  rejected: 8,
 });
 assert(report.results.every((result) => result.executionTrajectory.inputDigest.length === 64));
 assert(report.results.every((result) => result.verifierTrajectory.matched));
@@ -53,6 +53,11 @@ assert.strictEqual(connectionProof({
   authenticatedHealth: true,
   visibleText: 'Connected',
 }).decision, 'accept');
+assert.strictEqual(connectionProof({
+  connectionState: 'connected',
+  authenticatedHealth: true,
+  visibleText: 'Disconnected · Connected',
+}).decision, 'reject');
 
 // Historical E2E false green: missing/status-less proof defaulted to pass.
 assert.strictEqual(continuousE2eProof({
@@ -71,6 +76,14 @@ assert.strictEqual(ipadRunnerCostProof({
   trustedSource: true,
 }).decision, 'reject');
 assert.strictEqual(ipadRunnerCostProof({
+  runsOn: ['macos-latest'],
+  trustedSource: true,
+}).decision, 'reject');
+assert.strictEqual(ipadRunnerCostProof({
+  runsOn: ['self-hosted', 'macos-arm64', 'ipad-simulator'],
+  trustedSource: true,
+}).decision, 'accept');
+assert.strictEqual(ipadRunnerCostProof({
   runsOn: ['self-hosted', 'ipad-simulator'],
   trustedSource: true,
 }).decision, 'accept');
@@ -78,15 +91,24 @@ assert.strictEqual(ipadRunnerCostProof({
 // Mutation controls: deliberately reintroducing any historical permissive
 // verifier must make the suite fail. A test that stays green is not evidence.
 for (const verifierId of Object.keys(VERIFIERS)) {
-  const mutated = runIncidentEvals(manifest, {
-    tier: 'pr',
-    nowMs: Date.parse('2026-07-28T18:31:00.000Z'),
-    verifiers: {
-      [verifierId]: () => ({ decision: 'accept', evidenceCodes: ['mutant_accepts_everything'] }),
-    },
-  });
-  assert.strictEqual(mutated.overallStatus, 'fail', `${verifierId} permissive mutant must be caught`);
-  assert(mutated.metrics.failed >= 1);
+  for (const decision of ['accept', 'reject']) {
+    const mutated = runIncidentEvals(manifest, {
+      tier: 'pr',
+      nowMs: Date.parse('2026-07-28T18:31:00.000Z'),
+      verifiers: {
+        [verifierId]: () => ({
+          decision,
+          evidenceCodes: [`mutant_${decision}s_everything`],
+        }),
+      },
+    });
+    assert.strictEqual(
+      mutated.overallStatus,
+      'fail',
+      `${verifierId} ${decision}-everything mutant must be caught`,
+    );
+    assert(mutated.metrics.failed >= 1);
+  }
 }
 
 // Reports retain field names and hashes, not potentially sensitive raw values.
@@ -132,6 +154,9 @@ assert.strictEqual(writeReport(report, out), out);
 assert.strictEqual(JSON.parse(fs.readFileSync(out, 'utf8')).overallStatus, 'pass');
 assert.strictEqual(fs.statSync(out).mode & 0o777, 0o600);
 assert.strictEqual(fs.statSync(path.dirname(out)).mode & 0o777, 0o700);
+fs.chmodSync(path.dirname(out), 0o755);
+assert.strictEqual(writeReport(report, out), out);
+assert.strictEqual(fs.statSync(path.dirname(out)).mode & 0o777, 0o700);
 
 const cli = spawnSync(process.execPath, [
   path.join(__dirname, '..', 'tools', 'incident-eval-runner.js'),
@@ -143,4 +168,4 @@ assert.strictEqual(cli.status, 0, cli.stderr);
 assert.strictEqual(JSON.parse(cli.stdout).overallStatus, 'pass');
 fs.rmSync(temp, { recursive: true, force: true });
 
-console.log('Hermes incident eval runner tests: PASS (3 mutation controls caught)');
+console.log('Hermes incident eval runner tests: PASS (6 mutation controls caught)');
