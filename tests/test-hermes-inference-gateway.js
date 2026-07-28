@@ -332,6 +332,21 @@ describe('unknown model returns null', () => {
   assert.strictEqual(cost, null, 'unknown model returns null');
 });
 
+describe('kimi-k3 cost estimation ($3/$15 per 1M)', () => {
+  const cost = gw.estimateCost('kimi-k3', 'openrouter', 4000, 1000);
+  assert.strictEqual(cost, 0.027, '4000*3.00/1e6 + 1000*15.00/1e6 = 0.012 + 0.015 = 0.027');
+});
+
+describe('kimi-k3 zero tokens returns 0', () => {
+  const cost = gw.estimateCost('kimi-k3', 'openrouter', 0, 0);
+  assert.strictEqual(cost, 0, 'zero tokens cost zero');
+});
+
+describe('kimi-k3 with provider rate fallback', () => {
+  const cost = gw.estimateCost('kimi-k3', 'custom:openrouter-kimi-k3', 2000, 500);
+  assert.strictEqual(cost, 0.0135, '2000*3.00/1e6 + 500*15.00/1e6 = 0.006 + 0.0075 = 0.0135');
+});
+
 describe('null input/output returns null', () => {
   const cost = gw.estimateCost('glm-5.2', 'openrouter', null, null);
   assert.strictEqual(cost, 0, 'null tokens treated as 0');
@@ -458,6 +473,10 @@ describe('claude detection', () => {
   assert.strictEqual(gw.classifyTask('', 'claude-sonnet-5', 'openrouter'), 'frontier');
 });
 
+describe('kimi-k3 detection as frontier', () => {
+  assert.strictEqual(gw.classifyTask('', 'kimi-k3', 'openrouter'), 'frontier');
+});
+
 // --- 5. record + read back ---
 console.log('\n5. Record and query');
 describe('record writes and returns correct data', async () => {
@@ -496,6 +515,26 @@ describe('record with failure writes correctly', async () => {
   const traces = testGw.query({ success: false });
   const found = traces.find((t) => t.label === 'fail test');
   assert.ok(found, 'failed trace read back');
+});
+
+describe('record kimi-k3 traces and query back', async () => {
+  const r1 = await testGw.record({
+    model: 'kimi-k3',
+    provider: 'openrouter',
+    route: 'kimi_k3_agentic_specialist',
+    taskClass: 'frontier',
+    inputTokens: 12000,
+    outputTokens: 3000,
+    latencyMs: 28000,
+    hostRole: 'mac_pro',
+    label: 'k3 large repo',
+  });
+  assert.strictEqual(r1.model, 'kimi-k3');
+  assert.strictEqual(r1.cost_usd, 0.081, '12000*3/1e6 + 3000*15/1e6 = 0.036 + 0.045 = 0.081');
+  const traces = testGw.query({ model: 'kimi-k3' });
+  assert.ok(traces.length >= 1, 'kimi-k3 traces queryable');
+  const found = traces.find((t) => t.label === 'k3 large repo');
+  assert.ok(found, 'kimi-k3 trace read back with label');
 });
 
 describe('record without writeImmediate', async () => {

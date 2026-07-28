@@ -167,6 +167,23 @@ const ROUTES = [
     candidateOnly: true,
   },
   {
+    id: 'kimi_k3_agentic_specialist',
+    label: 'Kimi K3 long-context agentic specialist',
+    agent: 'long-context-agentic-reasoner',
+    provider: 'openrouter',
+    model: 'moonshotai/kimi-k3',
+    costUsd: 0.08,
+    latencyMs: 35000,
+    reliability: 0.78,
+    riskCeiling: 'high',
+    strengths: ['kimi', 'k3', 'moonshot', 'long-context', 'agentic-workflow', 'large-repo', 'tool-use', 'debugging', 'multi-step', 'agentic'],
+    commandEnv: {
+      HERMES_OPENROUTER_MODEL: 'moonshotai/kimi-k3',
+    },
+    proofGates: ['explicit-approval', 'cost-cap', 'long-context-justified', 'receipt-written'],
+    requiresApproval: true,
+  },
+  {
     id: 'openrouter_fusion',
     label: 'OpenRouter Fusion grounded panel',
     agent: 'research-panel',
@@ -237,6 +254,7 @@ const OPENROUTER_JUNE_MODELS = [
   { slug: 'anthropic/claude-sonnet-5', inputPerM: 2.00, outputPerM: 10.00, context: '1M', use: 'frontier coding, agents, professional work' },
   { slug: 'z-ai/glm-5.2', inputPerM: 0.93, outputPerM: 3.00, context: '1M', use: 'high-risk reasoning and architecture review' },
   { slug: 'moonshotai/kimi-k2.7-code', inputPerM: 0.74, outputPerM: 3.50, context: '262K', use: 'code specialist candidate' },
+  { slug: 'moonshotai/kimi-k3', inputPerM: 3.00, outputPerM: 15.00, context: '1M', use: 'long-context agentic workflow specialist, large-repo understanding, debugging, tool-use' },
   { slug: 'qwen/qwen3.7-plus', inputPerM: 0.32, outputPerM: 1.28, context: '1M', use: 'cheap broad reasoning candidate' },
   { slug: 'cohere/north-mini-code:free', inputPerM: 0, outputPerM: 0, context: '256K', use: 'free code worker candidate' },
   { slug: 'nex-agi/nex-n2-pro', inputPerM: 0.25, outputPerM: 1.00, context: '262K', use: 'low-cost agentic candidate' },
@@ -390,6 +408,7 @@ function taskSignals(task) {
     paidOrExternal: /payment|wallet|stablecoin|on[- ]chain|post|send|publish|charge|stripe/.test(text) || externalDelivery,
     externalDelivery,
     routine: /smoke|small|quick|lint|unit test|local/.test(text),
+    longContextOrAgentic: /long[- ]?context|large[- ]?repo|whole[- ]?repo|multi[- ]?step\s+agent|agentic.*workflow|repository.*understand|tool[- ]?use.*debug|debug.*iterate|codebase.*analysis|full.repo|million[\s-]token/.test(text),
   };
 }
 
@@ -463,6 +482,12 @@ function scoreRoute(route, args, signals) {
   if (route.id === 'mobile_e2e_gate') {
     if (signals.mobile) score += 55;
     if (!signals.mobile) score -= 30;
+  }
+  if (route.id === 'kimi_k3_agentic_specialist') {
+    if (signals.longContextOrAgentic) score += 85;
+    if (signals.architecture || signals.highVarianceReasoning) score += 18;
+    if (signals.asksForSubagent) score += 25;
+    if (!signals.longContextOrAgentic && !signals.architecture) score -= 10;
   }
   return Number(score.toFixed(2));
 }
@@ -617,7 +642,7 @@ function openRouterServerToolPlan(kind) {
           analysis_models: [
             'z-ai/glm-5.2',
             'qwen/qwen3.7-plus',
-            'moonshotai/kimi-k2.7-code',
+            'moonshotai/kimi-k3',
           ],
           model: 'z-ai/glm-5.2',
           max_tool_calls: 4,
@@ -651,6 +676,7 @@ function buildMicroAgentRecipe(selected, args, signals, evaluated) {
   const openrouterFusion = allowedRoute(evaluated, 'openrouter_fusion');
   const openrouterAdvisor = allowedRoute(evaluated, 'openrouter_advisor');
   const openrouterSubagent = allowedRoute(evaluated, 'openrouter_subagent');
+  const kimiK3 = allowedRoute(evaluated, 'kimi_k3_agentic_specialist');
   const primaryReasoner = firstAllowed(evaluated, ['glm52_reasoning', 'local_fast']) || selected;
 
   const base = {
@@ -970,6 +996,27 @@ function buildMicroAgentRecipe(selected, args, signals, evaluated) {
     };
   }
 
+  if ((signals.longContextOrAgentic || signals.architecture) && kimiK3) {
+    return {
+      ...base,
+      id: 'kimi_k3_long_context_agentic',
+      pattern: 'fusion',
+      reason: 'Kimi K3 (2.8T, 1M ctx) excels at long-context agentic workflows, large-repo understanding, and multi-step tool use — use it when the task exceeds local capacity for repo-wide or multi-agent analysis.',
+      hardCaps: {
+        ...base.hardCaps,
+        maxConcurrent: 2,
+        maxSteps: 4,
+      },
+      panel: [
+        compactRoute(localFast, 'local-baseline'),
+        compactRoute(kimiK3, 'long-context-agentic-specialist'),
+      ],
+      judge: compactRoute(kimiK3, 'agentic-judge'),
+      finalizer: compactRoute(localFast, 'contract-finalizer'),
+      disagreementPolicy: 'Prefer the specialist model for long-context or codebase-wide evidence; surface contradictions.',
+    };
+  }
+
   return {
     ...base,
     id: 'local_confidence_escalation',
@@ -1049,6 +1096,7 @@ function decision(args) {
       grokRule: 'The user-facing hermes-yolo prompt route defaults to Grok 4.5; inside multi-agent recipes, Grok remains an explicit independent verifier with doctor, auth, billing, and comparison receipts.',
       retrievalRule: 'Trace query construction and retrieval separately from generation; use explicit Parallel Turbo for approved fast grounding, and escalate to basic or advanced only when measured retrieval quality requires it.',
       memoryRule: 'Compress durable harness knowledge into an inspectable wiki generated from prompt-free traces; do not treat raw chat logs as memory by default.',
+      kimiK3Rule: 'Kimi K3 earns its $3/$15 per 1M tokens via 2.8T parameter MoE quality and 1M context for long-context agentic workflows. It replaces K2.7-code in fusion panels and routes to long-context/repo-wide/agentic tasks. Use evaluateCanary() to compare K3 against GLM-5.2 before changing default reasoning route.',
     },
   };
   return receipt;

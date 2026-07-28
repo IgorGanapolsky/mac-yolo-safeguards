@@ -52,6 +52,7 @@ const COST_PER_1M = Object.freeze({
   'claude-sonnet-5':          { input: 2.00,  output: 10.00 },
   'qwen3.7-plus':             { input: 0.32,  output: 1.28 },
   'kimi-k2.7-code':           { input: 0.74,  output: 3.50 },
+  'kimi-k3':                  { input: 3.00,  output: 15.00 },
   'north-mini-code:free':     { input: 0,     output: 0 },
   'nex-n2-pro':               { input: 0.25,  output: 1.00 },
   'fugu-ultra':               { input: 5.00,  output: 30.00 },
@@ -72,6 +73,7 @@ const COST_BY_PROVIDER = Object.freeze({
   'custom:ollama-local-64k': { input: 0, output: 0 },
   'custom:zai-coding-glm':   { input: 0.93, output: 3.00 },
   'custom:openrouter-glm52': { input: 0.93, output: 3.00 },
+  'custom:openrouter-kimi-k3': { input: 3.00, output: 15.00 },
   'openrouter':              { input: null, output: null }, // dynamic from model
   'grok-build-cli':          { input: 2.00, cached: 0.50, output: 6.00 },
   'parallel-search':         { input: null, output: null }, // per-request fees
@@ -147,7 +149,7 @@ function classifyTask(taskClass, model, provider) {
   if (/grok/.test(provider || model)) return 'verification';
   if (/parallel|search/.test(provider || '')) return 'search';
   if (/nemotron|fugu|fusion|advisor|subagent/.test(model)) return 'escalation';
-  if (/claude|sonnet/.test(model)) return 'frontier';
+  if (/claude|sonnet|kimi-k3/.test(model)) return 'frontier';
   return 'general';
 }
 
