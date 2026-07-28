@@ -1,0 +1,168 @@
+# iPad simulator edge matrix for the real fresh-user Release build.
+#
+# Run through scripts/run-simulator-e2e.sh with EXPO_PUBLIC_E2E_AUTOMATION=0.
+# This flow intentionally avoids demo/setup deep links: the normal simulator
+# suite embeds the automation flag, which hides the ConnectMacGate and cannot
+# prove the App Store user's first launch.
+appId: com.iganapolsky.hermesmobile
+---
+- stopApp
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 120000
+
+# The full iPad onboarding card must be reachable and internally complete.
+# At maximum Dynamic Type the card intentionally grows beyond one viewport, so
+# prove each required control is reachable by scrolling instead of assuming all
+# controls remain simultaneously visible.
+- extendedWaitUntil:
+    visible:
+      id: "connect-mac-gate"
+    timeout: 60000
+- assertVisible:
+    id: "connect-mac-onboarding-card"
+- assertVisible:
+    id: "connect-mac-gate-dismiss"
+- assertNotVisible: "Reconnecting"
+- assertNotVisible: "Reconnecting…"
+- takeScreenshot: build/ipad-simulator-edge-cases/fresh-user-connect-gate
+- scrollUntilVisible:
+    element:
+      id: "connect-manual-input"
+    direction: DOWN
+    timeout: 30000
+    speed: 40
+- assertVisible:
+    id: "connect-manual-input"
+- scrollUntilVisible:
+    element:
+      id: "connect-manual-submit"
+    direction: DOWN
+    timeout: 30000
+    speed: 40
+- assertVisible:
+    id: "connect-manual-submit"
+- scrollUntilVisible:
+    element:
+      id: "connect-search-wifi"
+    direction: DOWN
+    timeout: 30000
+    speed: 40
+- assertVisible:
+    id: "connect-search-wifi"
+- scrollUntilVisible:
+    element:
+      id: "connect-mac-gate-dismiss"
+    direction: UP
+    timeout: 30000
+    speed: 40
+
+# Dismissal exposes all three bottom tabs. Keeping every tab visible after the
+# keyboard is hidden is the executable safe-area contract for an iPad viewport.
+- tapOn:
+    id: "connect-mac-gate-dismiss"
+- extendedWaitUntil:
+    notVisible:
+      id: "connect-mac-gate"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "tab-hermes"
+    timeout: 60000
+- assertVisible:
+    id: "tab-leash"
+- assertVisible:
+    id: "tab-settings"
+- takeScreenshot: build/ipad-simulator-edge-cases/tabs-safe-area
+
+# Exercise both non-chat tabs, then return to the composer without demo state.
+- tapOn:
+    id: "tab-leash"
+- extendedWaitUntil:
+    notVisible:
+      id: "tab-screen-loading"
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      id: "THUMBGATE_LEASH"
+    timeout: 60000
+- tapOn:
+    id: "tab-settings"
+- extendedWaitUntil:
+    notVisible:
+      id: "tab-screen-loading"
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      id: "SETTINGS"
+    timeout: 60000
+- tapOn:
+    id: "tab-hermes"
+- extendedWaitUntil:
+    notVisible:
+      id: "tab-screen-loading"
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 60000
+
+# iOS Fabric regression: focus, enter a value, erase it, and enter the exact
+# same value again while the native keyboard remains active.
+- tapOn:
+    id: "chat-input"
+    point: "95%,50%"
+- eraseText: 100
+- inputText: "make money today"
+- assertVisible: "make money today"
+- tapOn:
+    id: "chat-input"
+    point: "95%,50%"
+- eraseText: 100
+- inputText: "make money today"
+- waitForAnimationToEnd:
+    timeout: 2000
+- assertVisible: "make money today"
+- eraseText: 100
+- hideKeyboard
+- assertVisible:
+    id: "tab-hermes"
+- assertVisible:
+    id: "tab-leash"
+- assertVisible:
+    id: "tab-settings"
+- takeScreenshot: build/ipad-simulator-edge-cases/composer-and-tabs
+
+# A cold relaunch must retain the user's dismissal, land on the Hermes tab, and
+# leave the native composer focusable rather than reopening onboarding.
+- stopApp
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 120000
+- extendedWaitUntil:
+    visible:
+      id: "tab-hermes"
+    timeout: 60000
+- assertNotVisible:
+    id: "connect-mac-gate"
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 60000
+- tapOn:
+    id: "chat-input"
+- inputText: "relaunch focus works"
+- assertVisible: "relaunch focus works"
+- eraseText: 100
+- hideKeyboard
+- assertVisible:
+    id: "tab-leash"
+- assertVisible:
+    id: "tab-settings"
+- takeScreenshot: build/ipad-simulator-edge-cases/relaunch-safe-area
