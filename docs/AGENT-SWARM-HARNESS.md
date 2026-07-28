@@ -17,6 +17,12 @@ Implements the durable parts of [Cursor’s agent-swarm model economics](https:/
 | `node tools/agent-swarm-harness.js toolboxes` | Domain packs × auth type × host allowlist (Foundry-style) |
 | `node tools/agent-swarm-harness.js where-is-auth --task "..."` | Toolbox + identity + host/gates for this task |
 | `node tools/agent-swarm-harness.js worker-toolbox --task "..."` | Thin worker prompt: entrypoints only (no skill soup) |
+| `node tools/agent-swarm-harness.js doctor` | Context diet / harness doctor (always-on token est + redundant findings) |
+| `node tools/agent-swarm-harness.js eval-abilities` | Ability catalog (instruction / env / verifier) |
+| `node tools/agent-swarm-harness.js propose-eval --task "..."` | Fail → durable eval stub (`--write` under `evals/`) |
+| `node tools/agent-swarm-harness.js sre-autonomy` | SRE subsystems: detect → act → verify |
+| `node tools/agent-swarm-harness.js sre-act --subsystem ID` | Health-freshness gate before remediate |
+| `node tools/revenue-local-draft.js` | Open-weights follow-up draft (template fallback; no send) |
 | `node tools/agent-swarm-harness.js check-hot-files --stdin --body-file pr.md` | Megafile + decision-ref gate |
 | `node tools/agent-swarm-harness.js field-guide` | Print `docs/agent-field-guide/index.md` |
 | `node tools/plan-coordination-snapshot.js` | Active tasks + §2 locks (named + numeric task ids) |
@@ -34,6 +40,10 @@ Implements the durable parts of [Cursor’s agent-swarm model economics](https:/
 8. **Frontier SessionContract + effort step-down** — boundaries once, keep/drop (not blanket brevity), objective done bar; see [FRONTIER-MODEL-HARNESS.md](./FRONTIER-MODEL-HARNESS.md) (Fable 5 / GPT 5.6 Sol patterns).
 9. **State-layer policy (Pro + mini)** — inference **stateless**; product chat **session_id**; multi-agent work **plan.md / loop-state / Field Guide**. Session-start `where-is-state` answers three questions so agents do not treat chat windows or Ollama RAM as fleet memory (localized amnesia). Source framing: [stateful vs stateless agent design](https://machinelearningmastery.com/stateful-vs-stateless-agent-design-tradeoffs-for-scalable-agentic-systems/).
 10. **Toolbox policy (auth on pack)** — domain packs (`fleet_inference`, `repo_coord`, `device_mobile`, `revenue_cash`, `social_promo`, `memory_rag`) bind **auth type + host + gates** at the boundary (Foundry toolbox pattern). Workers get **entrypoints only** via `worker-toolbox`; session-start `where-is-auth` answers toolbox / identity / host. Source: [Foundry Toolboxes](https://devblogs.microsoft.com/foundry/building-agents-that-act-on-your-behalf-with-toolboxes-in-foundry/).
+11. **Context diet / doctor** — thin always-on context for Claude 5-class models; progressive disclosure; blast-radius as gates not prose novels. Source: [Anthropic context engineering](https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models).
+12. **Eval abilities** — fixed instruction/env/verifier catalog; `propose-eval` mines failures into stubs. Source: [LangChain eval engineering](https://www.langchain.com/blog/towards-automating-eval-engineering/).
+13. **SRE act→verify** — subsystem remediations require fresh health (15m) then mandatory verify command. Source: [Dynatrace / AI ops framing](https://thenewstack.io/dynatrace-autonomous-sre-agents/).
+14. **Revenue local draft** — open-weights follow-up JSON for cash path (`revenue-local-draft.js`); never auto-send / never invent paid.
 
 ## State layers (high-ROI)
 

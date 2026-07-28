@@ -56,6 +56,16 @@ node tools/agent-swarm-harness.js worker-toolbox --task "implement leaf plan.md 
 
 Gates: `HERMES_SESSION_PUBLISH=PUBLISH_APPROVED`, `HERMES_ALLOW_INTERACTIVE_CHROME=1` (interactive Chrome only with explicit user ask). Optional task text: `HERMES_TASK_TEXT` or `--task`.
 
+## Doctor / eval / SRE (remaining high-ROI)
+
+```bash
+node tools/agent-swarm-harness.js doctor --json
+node tools/agent-swarm-harness.js eval-abilities
+node tools/agent-swarm-harness.js propose-eval --task "empty stream stuck Checking"
+node tools/agent-swarm-harness.js sre-act --subsystem litellm --health-age-ms 5000
+node tools/revenue-local-draft.js --label acme --offer diagnostic --template --json
+```
+
 ## SessionContract (env overrides)
 
 | Env | Meaning |
