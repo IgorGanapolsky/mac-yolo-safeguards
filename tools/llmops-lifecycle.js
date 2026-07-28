@@ -263,8 +263,9 @@ function doctorLocal(args) {
   };
 
   const gatewayBase = String(args.gatewayUrl || DEFAULT_GATEWAY).replace(/\/+$/, '');
-  const health = fetchSync(`${gatewayBase}/health`, 3000);
-  const models = fetchSync(`${gatewayBase}/v1/models`, 4000);
+  // mini under load can miss a 3s /health; models is the hard signal
+  const health = fetchSync(`${gatewayBase}/health`, 5000);
+  const models = fetchSync(`${gatewayBase}/v1/models`, 8000);
   const modelIds =
     models.ok && models.body && Array.isArray(models.body.data)
       ? models.body.data.map((m) => m.id).filter(Boolean)
