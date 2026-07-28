@@ -710,3 +710,17 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     overflow:hidden;
   }
 }
+
+/* Compact strip when chat already has synced messages but no web tasks (Buzz shared-room honesty) */
+.empty-state-compact{
+  min-height:0;
+  padding:14px 16px;
+  place-content:start;
+  justify-items:start;
+  text-align:left;
+  border-top:1px solid var(--line);
+  background:rgba(34,211,238,.04);
+}
+.empty-state-compact h3{margin:0 0 4px;font-size:13px}
+.empty-state-compact p{margin:0;max-width:none;color:var(--muted);font-size:12px;line-height:1.45}
+

@@ -74,6 +74,68 @@ function shortMachineLabel(name: string, max = 12): string {
   return `${trimmed.slice(0, Math.max(1, max - 1))}…`;
 }
 
+/**
+ * Empty-task copy must not blame pairing when machines exist (Buzz lesson 2026-07-28:
+ * shared-room honesty — chats/synced messages ≠ unpaired).
+ */
+function taskListEmptyCopy(input: {
+  taskFilter: "all" | "completed" | "unrated";
+  deviceCount: number;
+  machineLabel: string;
+  hasSelectedThread: boolean;
+  syncedMessageCount: number;
+}): { title: string; body: string; compact: boolean } {
+  if (input.taskFilter === "unrated") {
+    return {
+      title: "No unrated answers",
+      body: "Every completed web answer already has a thumbs rating, or none have finished yet.",
+      compact: false,
+    };
+  }
+  if (input.taskFilter === "completed") {
+    return {
+      title: "No completed answers",
+      body: "No completed web answers in this workspace yet. Run a task until it finishes.",
+      compact: false,
+    };
+  }
+  if (input.deviceCount === 0) {
+    return {
+      title: "No tasks yet",
+      body: "Pair a machine, then continue a Hermes thread from anywhere.",
+      compact: false,
+    };
+  }
+  if (input.hasSelectedThread && input.syncedMessageCount > 0) {
+    return {
+      title: "No web tasks in this chat yet",
+      body: `Conversation is synced above. Type below to run the next step on ${input.machineLabel} (fenced runner, 90s lease).`,
+      compact: true,
+    };
+  }
+  if (input.hasSelectedThread) {
+    return {
+      title: "No web tasks in this chat yet",
+      body: `Type below to run work on ${input.machineLabel}. Synced Hermes messages appear here when the connector is online.`,
+      compact: false,
+    };
+  }
+  return {
+    title: "No web tasks yet",
+    body: `Machines are paired. Type below to run on ${input.machineLabel}, or open a chat from the list.`,
+    compact: false,
+  };
+}
+
+function taskReceiptLabel(task: { route: string; deviceName: string | null; status: string }): string {
+  if (task.route === "cloud") return "☁ Continuity · fenced · 90s lease";
+  if (task.route === "local") {
+    const host = task.deviceName?.trim() || "Hermes machine";
+    return `⌘ ${host} · fenced · 90s lease`;
+  }
+  return "Ⅱ Awaiting route · fenced when claimed";
+}
+
 /** Prefer online machines, then most recently seen — only when the user has no saved pick. */
 function pickDefaultDeviceId(nextDevices: Device[], preferredId: string | null | undefined): string {
   if (!nextDevices.length) return "";
@@ -1044,9 +1106,9 @@ export default function DashboardClient() {
               {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : loadState === "loading" ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" ? <div className="conversation-empty" data-state="error">Could not load this conversation. Retrying automatically.</div> : <div className="conversation-empty">This thread has no cloud snapshot yet. Keep the paired Hermes connector online to sync it.</div>}
               {threadDetails?.tasks.flatMap((task, index) => [
                 <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
-                task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{task.route}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
+                task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
                   : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>failed</span><FormattedMessage text={task.error} /></article>
-                  : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{task.route === "cloud" ? "cloud runner" : "your machine"}</span><p>Waiting for {task.route === "cloud" ? "the fenced cloud runner" : "your paired machine"} to pick this up…</p></article>
+                  : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><p>Waiting for {task.route === "cloud" ? "the fenced Continuity runner" : "your paired machine"} to pick this up…</p></article>
                   : null,
               ])}
             </div>}
@@ -1085,17 +1147,26 @@ export default function DashboardClient() {
                   <p>The last refresh failed, so this list may be incomplete. Retrying automatically.</p>
                 </div>
               ) : visibleTasks.length === 0 && loadState === "loaded" ? (
-                <div className="empty-state">
-                  <Mark />
-                  <h3>{taskFilter === "unrated" ? "No unrated answers" : taskFilter === "completed" ? "No completed answers" : "No tasks yet"}</h3>
-                  <p>
-                    {taskFilter === "unrated"
-                      ? "Every completed web answer already has a thumbs rating, or none have finished yet."
-                      : taskFilter === "completed"
-                        ? "No completed web answers in this workspace yet. Run a task until it finishes."
-                        : "Pair a machine, then continue a Hermes thread from anywhere."}
-                  </p>
-                </div>
+                (() => {
+                  const empty = taskListEmptyCopy({
+                    taskFilter,
+                    deviceCount: devices.length,
+                    machineLabel: selectedDeviceLabel,
+                    hasSelectedThread: Boolean(selectedThread),
+                    syncedMessageCount: threadDetails?.snapshot.length ?? 0,
+                  });
+                  return (
+                    <div
+                      className={empty.compact ? "empty-state empty-state-compact" : "empty-state"}
+                      data-testid="task-list-empty"
+                      data-pair-blame={devices.length === 0 && taskFilter === "all" ? "1" : "0"}
+                    >
+                      {empty.compact ? null : <Mark />}
+                      <h3>{empty.title}</h3>
+                      <p>{empty.body}</p>
+                    </div>
+                  );
+                })()
               ) : (
                 visibleTasks.map((task) => (
                   <article key={task.id} id={`task-${task.id}`} className="dashboard-task">
@@ -1106,7 +1177,7 @@ export default function DashboardClient() {
                     <h3>{task.threadTitle}</h3>
                     <p>{task.prompt}</p>
                     <div className="task-foot">
-                      <span>{task.route === "cloud" ? "☁ Cloud runner" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>
+                      <span data-testid="task-receipt">{taskReceiptLabel(task)}</span>
                       {["needs_failover", "offline_blocked"].includes(task.status) && (
                         <button onClick={() => void failover(task.id)}>Continue in cloud →</button>
                       )}
