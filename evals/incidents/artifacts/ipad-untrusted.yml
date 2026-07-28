@@ -1,0 +1,7 @@
+name: Unsafe untrusted-fork fixture
+jobs:
+  ipad-simulator:
+    if: needs.detect-changes.outputs.run-ipad == 'true'
+    runs-on: ${{ fromJSON('["self-hosted", "ipad-simulator"]') }}
+    steps:
+      - run: echo "missing trusted-source gate"

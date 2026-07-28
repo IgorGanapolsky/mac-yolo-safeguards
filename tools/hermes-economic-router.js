@@ -254,7 +254,7 @@ const OPENROUTER_JUNE_MODELS = [
   { slug: 'anthropic/claude-sonnet-5', inputPerM: 2.00, outputPerM: 10.00, context: '1M', use: 'frontier coding, agents, professional work' },
   { slug: 'z-ai/glm-5.2', inputPerM: 0.93, outputPerM: 3.00, context: '1M', use: 'high-risk reasoning and architecture review' },
   { slug: 'moonshotai/kimi-k2.7-code', inputPerM: 0.74, outputPerM: 3.50, context: '262K', use: 'code specialist candidate' },
-  { slug: 'moonshotai/kimi-k3', inputPerM: 3.00, outputPerM: 15.00, context: '1M', use: 'long-context agentic workflow specialist, large-repo understanding, debugging, tool-use' },
+  { slug: 'moonshotai/kimi-k3', inputPerM: 3.00, outputPerM: 15.00, context: '1M', use: 'frontier long-horizon agent/coding OPT-IN only (2.8T open-weight MoE) — large-repo, debugging, tool-use; never local on laptop' },
   { slug: 'qwen/qwen3.7-plus', inputPerM: 0.32, outputPerM: 1.28, context: '1M', use: 'cheap broad reasoning candidate' },
   { slug: 'cohere/north-mini-code:free', inputPerM: 0, outputPerM: 0, context: '256K', use: 'free code worker candidate' },
   { slug: 'nex-agi/nex-n2-pro', inputPerM: 0.25, outputPerM: 1.00, context: '262K', use: 'low-cost agentic candidate' },
