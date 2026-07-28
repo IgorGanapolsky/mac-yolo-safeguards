@@ -86,6 +86,18 @@ node tools/ml-gate.js
 - Never declare A/B winners under min-n or without |z|≥1.96.
 - Never invent AUC when `insufficient_labels`.
 - External cash only from Stripe receipt `external_net_cents`.
+- Perfect holdout AUC with n&lt;8 is **toy evidence only** — `ml-registry promote` blocks unless `--allow-toy`.
+- `node tools/ml-integrity.js audit --strict` fails on corrupt trained artifacts / orphan production pointers.
+
+## Integrity maniac toolkit
+
+```bash
+node tools/ml-integrity.js audit --json --strict
+node tools/ml-integrity.js validate-model --model ~/.hermes/ml/propensity-model.json
+node tools/ml-integrity.js can-promote --model ~/.hermes/ml/propensity-model.json
+node tools/ml-integrity.js scan-claim --text "draft marketing copy here"
+node tests/test-ml-integrity.js
+```
 
 ## Proof
 

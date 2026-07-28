@@ -117,9 +117,22 @@ function run(script, args) {
   const list = JSON.parse(regList.stdout);
   assert.ok(list.models.length >= 1);
   const id = list.models[0].id;
-  const promote = spawnSync(
+  // Fixture models have tiny holdout — production promote requires --allow-toy
+  const blocked = spawnSync(
     process.execPath,
     [path.join(REPO, 'tools/ml-registry.js'), 'promote', '--id', id, '--json'],
+    { cwd: REPO, encoding: 'utf8', env: { ...process.env, HOME: home } },
+  );
+  const blockedBody = JSON.parse(blocked.stdout);
+  assert.strictEqual(blockedBody.ok, false, 'fixture promote must be blocked without --allow-toy');
+  assert.ok(
+    (blockedBody.blockers || []).includes('perfect_auc_tiny_holdout_use_allow_toy') ||
+      (blockedBody.blockers || []).includes('below_production_label_floor'),
+  );
+
+  const promote = spawnSync(
+    process.execPath,
+    [path.join(REPO, 'tools/ml-registry.js'), 'promote', '--id', id, '--allow-toy', '--json'],
     { cwd: REPO, encoding: 'utf8', env: { ...process.env, HOME: home } },
   );
   assert.strictEqual(promote.status, 0, promote.stderr || promote.stdout);

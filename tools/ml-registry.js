@@ -32,6 +32,8 @@ function parseArgs(argv) {
     model: '',
     name: 'propensity',
     id: '',
+    allowToy: false,
+    force: false,
   };
   const rest = [...argv];
   if (rest[0] && !rest[0].startsWith('--')) args.command = rest.shift();
@@ -42,6 +44,8 @@ function parseArgs(argv) {
     else if (a === '--model') args.model = path.resolve(rest[++i] || '');
     else if (a === '--name') args.name = rest[++i] || 'propensity';
     else if (a === '--id') args.id = rest[++i] || '';
+    else if (a === '--allow-toy') args.allowToy = true;
+    else if (a === '--force') args.force = true;
     else throw new Error(`Unknown argument: ${a}`);
   }
   return args;
@@ -87,6 +91,22 @@ function register(args) {
       status: body.status || 'untrained',
     };
   }
+  // Integrity: reject corrupt trained artifacts at register time
+  try {
+    const integrity = require('./ml-integrity');
+    const v = integrity.validateModel(body, { allowToy: true, path: args.model });
+    const errors = v.findings.filter((f) => f.severity === 'error');
+    if (errors.length) {
+      return {
+        ok: false,
+        error: 'integrity_failed',
+        blockers: errors.map((e) => e.code),
+        findings: errors,
+      };
+    }
+  } catch {
+    /* integrity module optional during partial checkouts */
+  }
   const digest = sha256File(args.model).slice(0, 12);
   const id = `${args.name}-${body.generated_at?.replace(/[:.]/g, '-') || Date.now()}-${digest}`;
   fs.mkdirSync(MODELS_DIR, { recursive: true });
@@ -119,16 +139,58 @@ function promote(args) {
   const index = loadIndex();
   const entry = index.models.find((m) => m.id === args.id);
   if (!entry) throw new Error(`unknown model id: ${args.id}`);
+  // Maniac integrity: refuse production promote for toy/corrupt models
+  // unless --allow-toy (fixtures) or --force (break-glass).
+  let body = null;
+  try {
+    body = JSON.parse(fs.readFileSync(entry.path, 'utf8'));
+  } catch (error) {
+    return { ok: false, error: 'cannot_read_model', detail: error.message };
+  }
+  try {
+    const integrity = require('./ml-integrity');
+    const gate = integrity.canPromote(body, {
+      allowToy: Boolean(args.allowToy),
+      force: Boolean(args.force),
+    });
+    if (!gate.ok) {
+      return {
+        ok: false,
+        error: 'promote_blocked_by_integrity',
+        blockers: gate.blockers,
+        findings: gate.findings.filter((f) => f.severity !== 'info'),
+        hint: 'Use --allow-toy only for fixtures; --force is break-glass and is logged',
+      };
+    }
+  } catch {
+    if (!body.trained) {
+      return { ok: false, error: 'refusing_untrained_promote' };
+    }
+  }
   index.models.forEach((m) => {
     m.production = m.id === args.id;
   });
   index.production = args.id;
+  if (args.force || args.allowToy) {
+    index.last_promote_flags = {
+      force: Boolean(args.force),
+      allowToy: Boolean(args.allowToy),
+      at: new Date().toISOString(),
+      id: args.id,
+    };
+  }
   saveIndex(index);
   // also point default propensity-model.json at production for serve/score
   const defaultPath = path.join(ML_DIR, 'propensity-model.json');
   fs.copyFileSync(entry.path, defaultPath);
   fs.chmodSync(defaultPath, 0o600);
-  return { ok: true, production: args.id, default_model: defaultPath };
+  return {
+    ok: true,
+    production: args.id,
+    default_model: defaultPath,
+    integrity: 'passed',
+    flags: { force: Boolean(args.force), allowToy: Boolean(args.allowToy) },
+  };
 }
 
 function production() {
@@ -148,7 +210,7 @@ function main() {
     console.log(`Usage:
   node tools/ml-registry.js list [--json]
   node tools/ml-registry.js register --model PATH [--name propensity] [--json]
-  node tools/ml-registry.js promote --id MODEL_ID [--json]
+  node tools/ml-registry.js promote --id MODEL_ID [--allow-toy] [--force] [--json]
   node tools/ml-registry.js production [--json]`);
     process.exit(0);
   }
@@ -158,8 +220,9 @@ function main() {
   else if (args.command === 'promote') result = promote(args);
   else if (args.command === 'production') result = production();
   else throw new Error(`Unknown command: ${args.command}`);
-  if (args.json) console.log(JSON.stringify(result, null, 2));
-  else if (args.command === 'list') {
+  if (args.json) {
+    console.log(JSON.stringify(result, null, 2));
+  } else if (args.command === 'list') {
     console.log(`ml-registry: ${result.models.length} models; production=${result.production || 'none'}`);
     for (const m of result.models.slice(0, 10)) {
       console.log(
@@ -169,14 +232,24 @@ function main() {
   } else if (args.command === 'register') {
     if (!result.ok) {
       console.log(`ml-registry register: ${result.error}`);
-      process.exitCode = 2;
     } else console.log(`ml-registry: registered ${result.entry.id}`);
   } else if (args.command === 'promote') {
-    console.log(`ml-registry: production → ${result.production}`);
+    if (!result.ok) {
+      console.log(
+        `ml-registry promote BLOCKED: ${result.error} ${result.blockers ? result.blockers.join(',') : ''}`,
+      );
+    } else {
+      console.log(`ml-registry: production → ${result.production} (integrity=${result.integrity})`);
+    }
   } else {
     console.log(
       `ml-registry production: ${result.production || 'none'}${result.entry ? ` auc=${result.entry.holdout_auc}` : ''}`,
     );
+  }
+
+  // Fail-closed exit codes even under --json (integrity maniac contract).
+  if ((args.command === 'register' || args.command === 'promote') && result && result.ok === false) {
+    process.exitCode = 2;
   }
 }
 

@@ -198,6 +198,40 @@ function buildReport() {
     ),
   );
 
+  // Integrity auditor present + claim scanner refuses production theater
+  checks.push(
+    check(
+      'integrity_module',
+      'ML integrity auditor',
+      exists('tools/ml-integrity.js'),
+      'tools/ml-integrity.js',
+      'platform',
+    ),
+  );
+  if (exists('tools/ml-integrity.js')) {
+    const claim = runNode('tools/ml-integrity.js', [
+      'scan-claim',
+      '--text',
+      'we have best-in-class production ML model with 100% auc',
+      '--json',
+    ]);
+    let claimBody = null;
+    try {
+      claimBody = JSON.parse(claim.stdout);
+    } catch {
+      /* ignore */
+    }
+    checks.push(
+      check(
+        'claim_scanner_blocks_theater',
+        'Claim scanner blocks production theater',
+        Boolean(claimBody && claimBody.ok === false && claimBody.hits?.length > 0),
+        claimBody ? `hits=${claimBody.hits?.length}` : 'scan failed',
+        'platform',
+      ),
+    );
+  }
+
   // --- Production ML (real labels + promoted model) ---
   const model = loadJson(path.join(ML_DIR, 'propensity-model.json'));
   const summary = loadJson(path.join(ML_DIR, 'labels-summary.json'));
