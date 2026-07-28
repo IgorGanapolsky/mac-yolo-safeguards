@@ -2401,3 +2401,6 @@ Signed Release Run 7 was uninstalled and clean-installed on attached iPad 6th ge
 
 ### D-2026-07-27-ipad-connect-gate-centering
 The completed tablet-width task widened the Connect-your-Mac card but tested only the max-width calculation. The card lives in a `ScrollView` whose content container vertically centers children yet leaves the cross axis at its default start alignment, so a width-bounded tablet card is pinned to the left padding. Keep the existing responsive width function and all onboarding behavior unchanged; add only `alignItems: "center"` to the content container and assert both horizontal and vertical centering from the rendered ScrollView before physical/simulator visual proof.
+
+### D-2026-07-27-production-ai-architecture-deep-research
+CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, tool-using agents, multi-agent workflow, MCP enterprise integration, and production evaluation/observability. Parallel pro-fast run `trun_e4e7f286ce584678a3faa63597e91707` is bounded to current primary standards and concrete mobile regression gates. Poll and ingest the cited result in this session; score repo claims only where live code, CI, device, or telemetry evidence agrees.
