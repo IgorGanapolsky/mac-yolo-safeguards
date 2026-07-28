@@ -1,0 +1,133 @@
+{
+  "schema": "hermes/incident-eval-manifest/v1",
+  "version": "2026-07-28",
+  "tasks": [
+    {
+      "id": "connection-proof",
+      "ability": "distinguish authenticated connection state from UI substring matches",
+      "tier": "pr",
+      "instruction": "Accept a connection claim only when structured state, authenticated health, and non-contradictory UI evidence agree.",
+      "environment": {
+        "kind": "fixture",
+        "network": "denied",
+        "productionWrites": "denied"
+      },
+      "verifier": "connection-proof-v1",
+      "cases": [
+        {
+          "id": "historical-not-connected-substring",
+          "expectedDecision": "reject",
+          "input": {
+            "connectionState": "disconnected",
+            "authenticatedHealth": false,
+            "visibleText": "Not connected"
+          }
+        },
+        {
+          "id": "wrong-key-green-health",
+          "expectedDecision": "reject",
+          "input": {
+            "connectionState": "connected",
+            "authenticatedHealth": false,
+            "visibleText": "Connected"
+          }
+        },
+        {
+          "id": "authenticated-connected",
+          "expectedDecision": "accept",
+          "input": {
+            "connectionState": "connected",
+            "authenticatedHealth": true,
+            "visibleText": "Connected"
+          }
+        }
+      ]
+    },
+    {
+      "id": "continuous-e2e-proof",
+      "ability": "distinguish a real E2E pass from skipped or unproven evidence",
+      "tier": "pr",
+      "instruction": "Accept mobile E2E proof only when the run passed and binds both the tested revision and immutable artifact.",
+      "environment": {
+        "kind": "fixture",
+        "network": "denied",
+        "productionWrites": "denied"
+      },
+      "verifier": "continuous-e2e-proof-v1",
+      "cases": [
+        {
+          "id": "historical-skipped-run",
+          "expectedDecision": "reject",
+          "input": {
+            "e2e": "skipped",
+            "gitSha": null,
+            "artifactSha256": null
+          }
+        },
+        {
+          "id": "statusless-proof",
+          "expectedDecision": "reject",
+          "input": {
+            "gitSha": "00fa769da32340675769419b47b647c16cde5b19",
+            "artifactSha256": "b65d7f55ef8a9e2215f36f1c4b257703b1f9f0b2beccf8203eeeb4f7fa92f27d"
+          }
+        },
+        {
+          "id": "revision-bound-pass",
+          "expectedDecision": "accept",
+          "input": {
+            "e2e": "pass",
+            "gitSha": "00fa769da32340675769419b47b647c16cde5b19",
+            "artifactSha256": "b65d7f55ef8a9e2215f36f1c4b257703b1f9f0b2beccf8203eeeb4f7fa92f27d"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ipad-runner-cost-proof",
+      "ability": "route trusted iPad E2E to a reserved self-hosted capability runner",
+      "tier": "pr",
+      "instruction": "Accept iPad CI routing only for trusted code on the reserved self-hosted iPad simulator runner.",
+      "environment": {
+        "kind": "fixture",
+        "network": "denied",
+        "productionWrites": "denied"
+      },
+      "verifier": "ipad-runner-cost-proof-v1",
+      "cases": [
+        {
+          "id": "historical-hosted-macos-26",
+          "expectedDecision": "reject",
+          "input": {
+            "runsOn": [
+              "macos-26"
+            ],
+            "trustedSource": true
+          }
+        },
+        {
+          "id": "untrusted-fork-on-self-hosted",
+          "expectedDecision": "reject",
+          "input": {
+            "runsOn": [
+              "self-hosted",
+              "ipad-simulator"
+            ],
+            "trustedSource": false
+          }
+        },
+        {
+          "id": "reserved-self-hosted-ipad",
+          "expectedDecision": "accept",
+          "input": {
+            "runsOn": [
+              "self-hosted",
+              "ipad-simulator"
+            ],
+            "trustedSource": true
+          }
+        }
+      ]
+    }
+  ]
+}
