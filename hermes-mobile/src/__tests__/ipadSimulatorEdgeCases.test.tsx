@@ -74,7 +74,10 @@ describe('iPad simulator fresh-user edge-case flow', () => {
       'inputText: "make money today"',
       firstComposerText + 1,
     );
-    const composerRotation = flow.lastIndexOf('- setOrientation: LANDSCAPE_LEFT');
+    const composerRotation = flow.indexOf(
+      '- setOrientation: LANDSCAPE_LEFT',
+      secondComposerText,
+    );
     const composerLandscapeScreenshot = flow.indexOf('composer-landscape-keyboard');
 
     expect(leftRotation).toBeGreaterThan(onboardingScreenshot);
@@ -93,7 +96,7 @@ describe('iPad simulator fresh-user edge-case flow', () => {
     expect(flow).toContain('assertVisible: "make money today!?#"');
     expect(flow).toContain('inputText: "."');
     expect(flow).toContain('assertVisible: "make money today!?#."');
-    expect(flow.match(/- setOrientation: PORTRAIT/g)).toHaveLength(2);
+    expect(flow.match(/- setOrientation: PORTRAIT/g)).toHaveLength(3);
     expect(flow.match(/- setOrientation: UPSIDE_DOWN/g)).toHaveLength(1);
     expect(flow.match(/- setOrientation: LANDSCAPE_RIGHT/g)).toHaveLength(2);
   });
@@ -111,6 +114,22 @@ describe('iPad simulator fresh-user edge-case flow', () => {
     expect(resumeSlice).toContain('assertVisible: "make money today!?#.+"');
   });
 
+  it('does not steal focus after an intentional keyboard dismissal and rotation', () => {
+    const resumedDraft = flow.indexOf('assertVisible: "make money today!?#.+"');
+    const hideKeyboard = flow.indexOf('- hideKeyboard', resumedDraft);
+    const rotation = flow.indexOf('- setOrientation: LANDSCAPE_LEFT', hideKeyboard);
+    const unrequestedInput = flow.indexOf('inputText: "x"', rotation);
+    const unchangedDraft = flow.indexOf(
+      'assertVisible: "make money today!?#.+"',
+      unrequestedInput,
+    );
+
+    expect(hideKeyboard).toBeGreaterThan(resumedDraft);
+    expect(rotation).toBeGreaterThan(hideKeyboard);
+    expect(unrequestedInput).toBeGreaterThan(rotation);
+    expect(unchangedDraft).toBeGreaterThan(unrequestedInput);
+  });
+
   it('proves every bottom tab stays reachable after hiding the keyboard', () => {
     for (const tab of ['tab-hermes', 'tab-leash', 'tab-settings']) {
       expect(flow).toContain(`id: "${tab}"`);
@@ -119,7 +138,7 @@ describe('iPad simulator fresh-user edge-case flow', () => {
     expect(flow).toContain('id: "SETTINGS"');
     expect(flow).not.toContain('runFlow: fresh-user-tabs.yaml');
     expect(flow).not.toContain('runFlow: hide-keyboard-safe.yaml');
-    expect(flow.match(/- hideKeyboard/g)).toHaveLength(2);
+    expect(flow.match(/- hideKeyboard/g)).toHaveLength(3);
     expect(flow).toContain('tabs-safe-area');
     expect(flow).toContain('composer-and-tabs');
   });

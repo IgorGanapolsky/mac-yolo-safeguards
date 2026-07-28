@@ -1,5 +1,11 @@
 import React from 'react';
-import { Dimensions, Platform, StyleSheet } from 'react-native';
+import {
+  Dimensions,
+  Keyboard,
+  Platform,
+  StyleSheet,
+  type KeyboardEvent,
+} from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import ChatInputBar from '../components/ChatInputBar';
 import { colors } from '../theme/colors';
@@ -152,7 +158,9 @@ describe('ChatInputBar', () => {
     Object.defineProperty(Platform, 'OS', { configurable: true, value: 'ios' });
     const focus = jest.fn();
     const remove = jest.fn();
+    const removeKeyboardListener = jest.fn();
     let onDimensionsChange: (() => void) | undefined;
+    let onKeyboardDidHide: ((event: KeyboardEvent) => void) | undefined;
     const dimensionsSpy = jest
       .spyOn(Dimensions, 'addEventListener')
       .mockImplementation((event, handler) => {
@@ -163,6 +171,16 @@ describe('ChatInputBar', () => {
           });
         }
         return { remove } as unknown as ReturnType<typeof Dimensions.addEventListener>;
+      });
+    const keyboardSpy = jest
+      .spyOn(Keyboard, 'addListener')
+      .mockImplementation((event, handler) => {
+        if (event === 'keyboardDidHide') {
+          onKeyboardDidHide = handler;
+        }
+        return {
+          remove: removeKeyboardListener,
+        } as unknown as ReturnType<typeof Keyboard.addListener>;
       });
 
     try {
@@ -201,10 +219,24 @@ describe('ChatInputBar', () => {
         onDimensionsChange?.();
       });
       expect(jest.getTimerCount()).toBe(0);
+
+      // An explicit keyboard dismissal is user intent even when rotation starts
+      // inside the blur grace window. It must cancel the pending refocus.
+      fireEvent(getByTestId('chat-input'), 'focus');
+      fireEvent(getByTestId('chat-input'), 'blur');
+      act(() => {
+        onKeyboardDidHide?.({} as KeyboardEvent);
+        onDimensionsChange?.();
+      });
+      expect(onKeyboardDidHide).toBeDefined();
+      expect(jest.getTimerCount()).toBe(0);
+
       unmount();
       expect(remove).toHaveBeenCalledTimes(1);
+      expect(removeKeyboardListener).toHaveBeenCalledTimes(1);
     } finally {
       dimensionsSpy.mockRestore();
+      keyboardSpy.mockRestore();
       Object.defineProperty(Platform, 'OS', {
         configurable: true,
         value: originalPlatform,

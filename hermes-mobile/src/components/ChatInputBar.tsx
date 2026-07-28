@@ -2,6 +2,7 @@ import React, { memo, useEffect, useRef } from 'react';
 import {
   Dimensions,
   Image,
+  Keyboard,
   Platform,
   ScrollView,
   StyleSheet,
@@ -120,9 +121,24 @@ function ChatInputBar({
         inputRef.current?.focus();
       }, IOS_ROTATION_REFOCUS_DELAY_MS);
     });
+    const keyboardHideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+      // A real keyboard dismissal is explicit user intent, even when a device
+      // rotation follows before the blur grace period expires. Cancel any
+      // pending rotation repair so the composer cannot steal focus back.
+      focusIntentRef.current = false;
+      if (blurIntentTimerRef.current) {
+        clearTimeout(blurIntentTimerRef.current);
+        blurIntentTimerRef.current = null;
+      }
+      if (refocusTimerRef.current) {
+        clearTimeout(refocusTimerRef.current);
+        refocusTimerRef.current = null;
+      }
+    });
 
     return () => {
       subscription.remove();
+      keyboardHideSubscription.remove();
       if (refocusTimerRef.current) {
         clearTimeout(refocusTimerRef.current);
       }

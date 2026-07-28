@@ -203,6 +203,22 @@ appId: com.iganapolsky.hermesmobile
     point: "95%,50%"
 - inputText: "+"
 - assertVisible: "make money today!?#.+"
+
+# An intentional keyboard dismissal must win over the rotation refocus repair.
+# Rotating immediately after hideKeyboard used to look identical to the native
+# blur-before-Dimensions event ordering. Input without a new tap must be ignored.
+- hideKeyboard
+- setOrientation: LANDSCAPE_LEFT
+- waitForAnimationToEnd:
+    timeout: 3000
+- inputText: "x"
+- assertVisible: "make money today!?#.+"
+- setOrientation: PORTRAIT
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "chat-input"
+    point: "95%,50%"
 - eraseText: 100
 - hideKeyboard
 - assertVisible:
