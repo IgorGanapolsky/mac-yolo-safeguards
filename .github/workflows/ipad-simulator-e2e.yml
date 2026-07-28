@@ -75,7 +75,10 @@ jobs:
     if: >-
       needs.detect-changes.outputs.run-ipad == 'true' &&
       needs.detect-changes.outputs.trusted-source == 'true'
-    runs-on: ${{ fromJSON('["self-hosted", "macos-arm64", "hermes-e2e", "ipad-simulator"]') }}
+    # `ipad-simulator` is deliberately a reserved capability label. The MacBook
+    # carrying it does not carry the generic `hermes-e2e` label, so ordinary Mac
+    # CI cannot starve this required device gate.
+    runs-on: ${{ fromJSON('["self-hosted", "ipad-simulator"]') }}
     timeout-minutes: 60
     defaults:
       run:

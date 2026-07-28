@@ -183,7 +183,10 @@ describe('iPad simulator fresh-user edge-case flow', () => {
     expect(ipadWorkflow).toContain('name: Real-user iPad simulator E2E');
     expect(ipadWorkflow).toContain('name: Hermes Mobile iPad simulator gate');
     expect(ipadWorkflow).toContain(
-      'runs-on: ${{ fromJSON(\'["self-hosted", "macos-arm64", "hermes-e2e", "ipad-simulator"]\') }}',
+      'runs-on: ${{ fromJSON(\'["self-hosted", "ipad-simulator"]\') }}',
+    );
+    expect(ipadWorkflow).toContain(
+      'does not carry the generic `hermes-e2e` label',
     );
     expect(ipadWorkflow).not.toContain('runs-on: macos-26');
     expect(ipadWorkflow).toContain('github.event.pull_request.draft');
