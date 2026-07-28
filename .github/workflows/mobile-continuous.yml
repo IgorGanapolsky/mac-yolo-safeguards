@@ -128,7 +128,7 @@ jobs:
     # and which unit tests + a build job cannot detect. Make this a required check
     # in branch protection to block merges on E2E failure.
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' || github.event_name == 'merge_group'
-    timeout-minutes: 75
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: hermes-mobile
@@ -162,13 +162,3 @@ jobs:
         run: |
           export PATH="$JAVA_HOME/bin:$HOME/.maestro/bin:$PATH"
           bash ./scripts/run-simulator-e2e.sh .maestro/ship-guard.yaml
-
-      - name: Maestro real-user edge cases on a strict iPad simulator
-        env:
-          MAESTRO_DRIVER_STARTUP_TIMEOUT: '180000'
-          JAVA_HOME: /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
-          SENTRY_DISABLE_AUTO_UPLOAD: 'true'
-          SENTRY_ALLOW_FAILURE: 'true'
-        run: |
-          export PATH="$JAVA_HOME/bin:$HOME/.maestro/bin:$PATH"
-          bash ./scripts/run-ipad-simulator-e2e.sh .maestro/ipad-simulator-edge-cases.yaml

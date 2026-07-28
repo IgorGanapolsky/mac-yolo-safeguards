@@ -10,6 +10,10 @@ const ipadRunner = fs.readFileSync(
   path.join(mobileRoot, 'scripts/run-ipad-simulator-e2e.sh'),
   'utf8',
 );
+const ipadWorkflow = fs.readFileSync(
+  path.join(mobileRoot, '../.github/workflows/ipad-simulator-e2e.yml'),
+  'utf8',
+);
 const continuousWorkflow = fs.readFileSync(
   path.join(mobileRoot, '../.github/workflows/mobile-continuous.yml'),
   'utf8',
@@ -107,15 +111,19 @@ describe('iPad simulator fresh-user edge-case flow', () => {
     expect(ipadRunner).toContain('bash "$SIMULATOR_RUNNER" "$FLOW"');
   });
 
-  it('runs the strict real-user iPad matrix inside the required macOS E2E job', () => {
-    const macosJob = continuousWorkflow.slice(
-      continuousWorkflow.indexOf('macos-maestro-smoke:'),
-    );
-
-    expect(macosJob).toContain('name: Maestro ship-guard (macOS sim)');
-    expect(macosJob).toContain('timeout-minutes: 75');
-    expect(macosJob).toContain(
+  it('gates mobile changes on strict iPad E2E without charging unrelated PRs', () => {
+    expect(ipadWorkflow).toContain('name: Hermes Mobile iPad Simulator E2E');
+    expect(ipadWorkflow).toContain('name: Real-user iPad simulator E2E');
+    expect(ipadWorkflow).toContain('name: Hermes Mobile iPad simulator gate');
+    expect(ipadWorkflow).toContain("if: needs.detect-changes.outputs.run-ipad == 'true'");
+    expect(ipadWorkflow).toContain('if: always()');
+    expect(ipadWorkflow).toContain('hermes-mobile/');
+    expect(ipadWorkflow).toContain(
       'bash ./scripts/run-ipad-simulator-e2e.sh .maestro/ipad-simulator-edge-cases.yaml',
     );
+    expect(ipadWorkflow).toContain(
+      'No iPad-relevant files changed; gate passes without simulator spend.',
+    );
+    expect(continuousWorkflow).not.toContain('run-ipad-simulator-e2e.sh');
   });
 });
