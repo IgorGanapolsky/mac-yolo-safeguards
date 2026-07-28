@@ -24,15 +24,23 @@ echo STUB-RAN
 EOF
 chmod +x "$STUB"
 
-# Stub gateway: a tiny HTTP server answering /health/liveliness on a free port.
-PORT=4998
+# Stub gateway: tiny HTTP server on an ephemeral free port (4998 collides on busy
+# Macs / CI; hosted runners also need a readiness wait, not a fixed sleep).
+PORT="$(python3 - <<'PY'
+import socket
+s = socket.socket()
+s.bind(("127.0.0.1", 0))
+print(s.getsockname()[1])
+s.close()
+PY
+)"
 python3 - "$PORT" <<'PY' &
 import http.server, sys
 class H(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.endswith('/health/liveliness'):
             self.send_response(200); self.end_headers(); self.wfile.write(b'"alive"')
-        elif self.path.endswith('/models'):
+        elif self.path.endswith('/models') or self.path.endswith('/v1/models'):
             # doubles as the stub LOCAL (Ollama-style) endpoint for zero-spend tests
             self.send_response(200); self.end_headers()
             self.wfile.write(b'{"data":[{"id":"glm-coding"},{"id":"qwen3.5:9b-hermes-64k"}]}')
@@ -43,7 +51,19 @@ http.server.HTTPServer(('127.0.0.1',int(sys.argv[1])),H).serve_forever()
 PY
 GW_PID=$!
 trap 'rm -rf "$ROOT"; kill $GW_PID 2>/dev/null' EXIT
-sleep 1
+# Wait until liveliness is actually up (max ~5s) so CI hosted runners don't flake.
+ready=0
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  if curl -fsS -m 1 "http://127.0.0.1:${PORT}/health/liveliness" >/dev/null 2>&1; then
+    ready=1
+    break
+  fi
+  sleep 0.5
+done
+if [ "$ready" -ne 1 ]; then
+  echo "test-poolside-yolo: stub gateway failed to start on port $PORT" >&2
+  exit 2
+fi
 
 base_env() {
   export POOL_BIN="$STUB"
