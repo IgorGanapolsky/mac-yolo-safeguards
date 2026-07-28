@@ -275,11 +275,12 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .chat-dialog-backdrop{padding:14px}
   .chat-dialog{padding:22px}
   .panel{border-radius:16px}
-  /* Main stage fills remaining viewport; never document-scrolls under chrome */
+  /* Main stage allows scrolling on mobile */
   .dashboard-main{
     flex:1 1 auto;
     min-height:0;
-    overflow:hidden;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
     display:flex;
     flex-direction:column;
     padding:10px 12px 0;
@@ -334,38 +335,66 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     min-height:0;
     display:flex;
     flex-direction:column;
-    overflow:hidden;
+    overflow:visible;
     grid-template-columns:1fr;
     gap:0;
   }
+  /* Mobile tab panes: strictly show ONE view at a time (no vertical DOM stacking) */
   .dashboard-shell[data-mobile-tab="chats"] .sidebar{
-    display:block !important;
-  }
-  .dashboard-shell[data-mobile-tab="chats"] .task-panel,
-  .dashboard-shell[data-mobile-tab="chats"] .right-rail{
-    display:none !important;
-  }
-  .dashboard-shell[data-mobile-tab="hermes"] .task-panel{
-    display:flex;
+    display:flex !important;
     flex-direction:column;
     flex:1 1 auto;
     min-height:0;
-    overflow:hidden;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    padding:16px;
+    background:#0B0F19;
+  }
+  .dashboard-shell[data-mobile-tab="chats"] .sidebar .workspace-label,
+  .dashboard-shell[data-mobile-tab="chats"] .sidebar .thread-list,
+  .dashboard-shell[data-mobile-tab="chats"] .sidebar .sidebar-bottom{
+    display:block !important;
+  }
+  .dashboard-shell[data-mobile-tab="chats"] .sidebar .thread-list{
+    display:flex !important;
+    max-height:none;
+  }
+  .dashboard-shell[data-mobile-tab="chats"] .dashboard-main{
+    display:none !important;
+  }
+
+  .dashboard-shell:not([data-mobile-tab="chats"]) .sidebar{
+    display:none !important;
+  }
+
+  .dashboard-shell[data-mobile-tab="hermes"] .task-panel{
+    display:flex !important;
+    flex-direction:column;
+    flex:1 1 auto;
+    min-height:0;
     border:1px solid var(--line);
     background:#0B0F19;
   }
+  .dashboard-shell[data-mobile-tab="hermes"] .right-rail{
+    display:none !important;
+  }
+
+  .dashboard-shell[data-mobile-tab="leash"] .task-panel,
+  .dashboard-shell[data-mobile-tab="settings"] .task-panel{
+    display:none !important;
+  }
   .dashboard-shell[data-mobile-tab="leash"] .right-rail,
   .dashboard-shell[data-mobile-tab="settings"] .right-rail{
-    display:block;
+    display:block !important;
     flex:1 1 auto;
     min-height:0;
     overflow-y:auto;
     -webkit-overflow-scrolling:touch;
     overscroll-behavior:contain;
   }
-  .dashboard-shell[data-mobile-tab="leash"] #web-settings{display:none}
+  .dashboard-shell[data-mobile-tab="leash"] #web-settings{display:none !important}
   .dashboard-shell[data-mobile-tab="settings"] .connection-panel,
-  .dashboard-shell[data-mobile-tab="settings"] .safety-panel{display:none}
+  .dashboard-shell[data-mobile-tab="settings"] .safety-panel{display:none !important}
   .task-panel .panel-heading{flex:0 0 auto;padding:12px 14px;border-bottom:1px solid var(--line)}
   .hermes-scroll-pane{
     flex:1 1 auto;

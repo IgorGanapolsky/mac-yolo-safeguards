@@ -239,7 +239,15 @@ export default function DashboardClient() {
   const [feedbackDialog, setFeedbackDialog] = useState<{ taskId: string; note: string } | null>(null);
   const [feedbackBusyTask, setFeedbackBusyTask] = useState<string | null>(null);
   /** Bottom-tab highlight on phone: path + hash, not always-Hermes. */
-  const [mobileTab, setMobileTab] = useState<"hermes" | "leash" | "lessons" | "settings">("hermes");
+  const [mobileTab, setMobileTab] = useState<"chats" | "hermes" | "leash" | "lessons" | "settings">(
+    typeof window !== "undefined" && window.location.hash === "#chats"
+      ? "chats"
+      : typeof window !== "undefined" && window.location.hash === "#leash-control"
+        ? "leash"
+        : typeof window !== "undefined" && window.location.hash === "#web-settings"
+          ? "settings"
+          : "hermes"
+  );
   /** Phone shell: hide route-explain blurb so it cannot cover the textarea (Genspark-style compact chrome). */
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
   /** Desktop: route explain is secondary chrome — collapsed by default (Genspark-style). */
@@ -970,18 +978,7 @@ export default function DashboardClient() {
       <section className="dashboard-main">
         <header className="dashboard-header">
           <div className="dashboard-header-title">
-            <div className="mobile-header-row">
-              <button
-                type="button"
-                className="mobile-chats-toggle button button-small button-secondary"
-                onClick={toggleChatRail}
-                aria-label="Toggle chat threads menu"
-                data-testid="mobile-chats-toggle"
-              >
-                💬 {chatRailExpanded ? "Hide Chats" : "Chats"}
-              </button>
-              <p className="eyebrow">HERMES WEB</p>
-            </div>
+            <p className="eyebrow">HERMES WEB</p>
             <h1 title={selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title ?? "Your Hermes workspace" : "Your Hermes workspace"}>
               {selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title : "Your Hermes workspace"}
             </h1>
