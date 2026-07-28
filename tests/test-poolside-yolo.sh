@@ -24,44 +24,45 @@ echo STUB-RAN
 EOF
 chmod +x "$STUB"
 
-# Stub gateway: tiny HTTP server on an ephemeral free port (4998 collides on busy
-# Macs / CI; hosted runners also need a readiness wait, not a fixed sleep).
-PORT="$(python3 - <<'PY'
-import socket
-s = socket.socket()
-s.bind(("127.0.0.1", 0))
-print(s.getsockname()[1])
-s.close()
-PY
-)"
-python3 - "$PORT" <<'PY' &
-import http.server, sys
+# Stub gateway: bind port 0 inside the server process (avoids TOCTOU free-port race
+# that broke GitHub-hosted macOS after the mini-queue unblock). Write the chosen
+# port to $ROOT/gw-port once listening.
+PORT_FILE="$ROOT/gw-port"
+python3 - "$PORT_FILE" <<'PY' &
+import http.server, pathlib, sys
+port_file = pathlib.Path(sys.argv[1])
 class H(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.endswith('/health/liveliness'):
             self.send_response(200); self.end_headers(); self.wfile.write(b'"alive"')
         elif self.path.endswith('/models') or self.path.endswith('/v1/models'):
-            # doubles as the stub LOCAL (Ollama-style) endpoint for zero-spend tests
             self.send_response(200); self.end_headers()
             self.wfile.write(b'{"data":[{"id":"glm-coding"},{"id":"qwen3.5:9b-hermes-64k"}]}')
         else:
             self.send_response(404); self.end_headers()
     def log_message(self,*a): pass
-http.server.HTTPServer(('127.0.0.1',int(sys.argv[1])),H).serve_forever()
+httpd = http.server.HTTPServer(('127.0.0.1', 0), H)
+port_file.write_text(str(httpd.server_address[1]))
+httpd.serve_forever()
 PY
 GW_PID=$!
 trap 'rm -rf "$ROOT"; kill $GW_PID 2>/dev/null' EXIT
-# Wait until liveliness is actually up (max ~5s) so CI hosted runners don't flake.
+# Wait for port file + liveliness (max ~8s).
+PORT=""
 ready=0
-for _ in 1 2 3 4 5 6 7 8 9 10; do
-  if curl -fsS -m 1 "http://127.0.0.1:${PORT}/health/liveliness" >/dev/null 2>&1; then
-    ready=1
-    break
+for _ in $(seq 1 40); do
+  if [ -f "$PORT_FILE" ]; then
+    PORT="$(cat "$PORT_FILE")"
+    if [ -n "$PORT" ] && curl -fsS -m 1 "http://127.0.0.1:${PORT}/health/liveliness" >/dev/null 2>&1; then
+      ready=1
+      break
+    fi
   fi
-  sleep 0.5
+  sleep 0.2
 done
-if [ "$ready" -ne 1 ]; then
-  echo "test-poolside-yolo: stub gateway failed to start on port $PORT" >&2
+if [ "$ready" -ne 1 ] || [ -z "$PORT" ]; then
+  echo "test-poolside-yolo: stub gateway failed to start (port=${PORT:-none})" >&2
+  kill $GW_PID 2>/dev/null || true
   exit 2
 fi
 
