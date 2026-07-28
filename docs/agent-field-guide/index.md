@@ -43,3 +43,6 @@ merge only when required checks green. Never “unit green = shipped.”
 Every Hermes Mobile test is a stranger: no assumed adb reverse, no demo=1 false greens,
 no Igor-only USB path. Production OTA needs E2E pass or fresh-user proof.
 - ARC skill probe: `node tools/arc-skill-efficiency.js --gate` before model-promote claims (fluid holdout, not memorized skill).
+- 2026-07-26: frontier SessionContract + effort step-down in agent-swarm-harness (session-contract / effort-policy); default HERMES_REASONING_EFFORT=medium — see docs/FRONTIER-MODEL-HARNESS.md
+- 2026-07-27: state layers — inference stateless; chat=session_id; multi-agent=plan.md/loop-state. `node tools/agent-swarm-harness.js where-is-state` on Pro+mini (never Ollama RAM as truth).
+- 2026-07-27: toolboxes — auth on pack not agent. `where-is-auth` / `worker-toolbox`; social/revenue=Pro only; never invent OAuth or dump skill catalog.

@@ -461,7 +461,7 @@ jobs:
             echo "Missing required secret: EXPO_TOKEN" >&2
             exit 1
           fi
-          APP_VERSION="$(node -p "require('./hermes-mobile/app.json').expo.version")"
+          APP_VERSION="$(node -p "require('./app.json').expo.version")"
           test -n "$APP_VERSION"
           node ./scripts/eas-build-guard.cjs --platform ios --profile production -- npx eas-cli@latest build \
             --platform ios \
@@ -499,7 +499,7 @@ jobs:
           node - <<'NODE'
           const fs = require('fs');
           const build = JSON.parse(fs.readFileSync('/tmp/eas-ios-production-build-view.json', 'utf8'));
-          const expectedAppVersion = require('./hermes-mobile/app.json').expo.version;
+          const expectedAppVersion = JSON.parse(fs.readFileSync('app.json', 'utf8')).expo.version;
           if (build.status !== 'FINISHED') throw new Error(`Build status is ${build.status}`);
           if (build.platform !== 'IOS') throw new Error(`Expected IOS, got ${build.platform}`);
           if (build.distribution !== 'STORE') throw new Error(`Expected STORE distribution, got ${build.distribution}`);
@@ -525,7 +525,7 @@ jobs:
           EXPO_APPLE_TEAM_ID: ${{ secrets.EXPO_APPLE_TEAM_ID }}
           EXPO_ASC_API_KEY_ID: ${{ secrets.EXPO_ASC_API_KEY_ID }}
           EXPO_ASC_API_KEY_ISSUER_ID: ${{ secrets.EXPO_ASC_API_KEY_ISSUER_ID }}
-          BUILD_ID: ${{ steps.build.outputs.build_id }}
+          BUILD_ID: ${{ steps.build.outputs.build_id || steps.adopt_ios_build.outputs.build_id }}
         run: |
           set -euo pipefail
           npx eas-cli@latest submit \
