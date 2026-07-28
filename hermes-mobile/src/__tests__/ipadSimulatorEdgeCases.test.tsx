@@ -182,14 +182,23 @@ describe('iPad simulator fresh-user edge-case flow', () => {
     expect(ipadWorkflow).toContain('name: Hermes Mobile iPad Simulator E2E');
     expect(ipadWorkflow).toContain('name: Real-user iPad simulator E2E');
     expect(ipadWorkflow).toContain('name: Hermes Mobile iPad simulator gate');
-    expect(ipadWorkflow).toContain("if: needs.detect-changes.outputs.run-ipad == 'true'");
+    expect(ipadWorkflow).toContain(
+      'runs-on: ${{ fromJSON(\'["self-hosted", "macos-arm64", "hermes-e2e", "ipad-simulator"]\') }}',
+    );
+    expect(ipadWorkflow).not.toContain('runs-on: macos-26');
+    expect(ipadWorkflow).toContain('github.event.pull_request.draft');
+    expect(ipadWorkflow).not.toContain('brew install openjdk@17');
+    expect(ipadWorkflow).not.toContain('https://get.maestro.mobile.dev');
+    expect(ipadWorkflow).toContain(
+      "needs.detect-changes.outputs.run-ipad == 'true'",
+    );
     expect(ipadWorkflow).toContain('if: always()');
     expect(ipadWorkflow).toContain('hermes-mobile/');
     expect(ipadWorkflow).toContain(
       'bash ./scripts/run-ipad-simulator-e2e.sh .maestro/ipad-simulator-edge-cases.yaml',
     );
     expect(ipadWorkflow).toContain(
-      'No iPad-relevant files changed; gate passes without simulator spend.',
+      'Heavy iPad E2E not required for this draft or unrelated change.',
     );
     expect(continuousWorkflow).not.toContain('run-ipad-simulator-e2e.sh');
   });
