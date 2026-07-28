@@ -27,6 +27,15 @@ describe('chat Maestro bootstrap navigation recovery', () => {
     expect(commands).not.toMatch(/^- launchApp\s*$/m);
   });
 
+  it('clears the composer from the end before each repeated prompt entry', () => {
+    const composer = read('hermes-mobile/.maestro/regression-composer-typeable.yaml');
+
+    expect((composer.match(/point: "95%,50%"/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    expect((composer.match(/eraseText: 100/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    expect((composer.match(/inputText: "make money today"/g) ?? []).length).toBe(2);
+    expect((composer.match(/assertVisible: "make money today"/g) ?? []).length).toBe(2);
+  });
+
   it('delegates a missing Chat screen to the guarded recovery flow', () => {
     const bootstrap = read('hermes-mobile/.maestro/chat-e2e-bootstrap.yaml');
     const recover = read('hermes-mobile/.maestro/recover-chat-tab.yaml');

@@ -31,7 +31,8 @@ appId: com.iganapolsky.hermesmobile
 # iOS regression guarded by ChatScreen's platform-specific IME suppression.
 - tapOn:
     id: "chat-input"
-- eraseText
+    point: "95%,50%"
+- eraseText: 100
 - tapOn:
     id: "chat-input"
 - inputText: "make money today"
@@ -41,7 +42,10 @@ appId: com.iganapolsky.hermesmobile
 # controlled TextInput accepts the previous value rather than suppressing it.
 - tapOn:
     id: "chat-input"
-- eraseText
+    # A center tap can put the Android caret before the final character, leaving
+    # a suffix behind after eraseText (observed as "ymake money today" in CI).
+    point: "95%,50%"
+- eraseText: 100
 - tapOn:
     id: "chat-input"
 - inputText: "make money today"
