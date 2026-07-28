@@ -24,26 +24,50 @@ echo STUB-RAN
 EOF
 chmod +x "$STUB"
 
-# Stub gateway: a tiny HTTP server answering /health/liveliness on a free port.
-PORT=4998
-python3 - "$PORT" <<'PY' &
-import http.server, sys
-class H(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        if self.path.endswith('/health/liveliness'):
-            self.send_response(200); self.end_headers(); self.wfile.write(b'"alive"')
-        elif self.path.endswith('/models'):
-            # doubles as the stub LOCAL (Ollama-style) endpoint for zero-spend tests
-            self.send_response(200); self.end_headers()
-            self.wfile.write(b'{"data":[{"id":"glm-coding"},{"id":"qwen3.5:9b-hermes-64k"}]}')
-        else:
-            self.send_response(404); self.end_headers()
-    def log_message(self,*a): pass
-http.server.HTTPServer(('127.0.0.1',int(sys.argv[1])),H).serve_forever()
-PY
+# Stub gateway via Node (always present in CI after setup-node; more reliable than
+# python HTTPServer on GitHub-hosted macOS where bind+heredoc races showed port=none).
+PORT_FILE="$ROOT/gw-port"
+node - "$PORT_FILE" <<'JS' &
+const http = require('http');
+const fs = require('fs');
+const portFile = process.argv[2];
+const server = http.createServer((req, res) => {
+  const url = req.url || '';
+  if (url.endsWith('/health/liveliness')) {
+    res.writeHead(200); res.end('"alive"');
+    return;
+  }
+  if (url.endsWith('/models') || url.endsWith('/v1/models')) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ data: [{ id: 'glm-coding' }, { id: 'qwen3.5:9b-hermes-64k' }] }));
+    return;
+  }
+  res.writeHead(404); res.end();
+});
+server.listen(0, '127.0.0.1', () => {
+  const port = server.address().port;
+  fs.writeFileSync(portFile, String(port));
+});
+JS
 GW_PID=$!
 trap 'rm -rf "$ROOT"; kill $GW_PID 2>/dev/null' EXIT
-sleep 1
+PORT=""
+ready=0
+for _ in $(seq 1 50); do
+  if [ -f "$PORT_FILE" ]; then
+    PORT="$(cat "$PORT_FILE" 2>/dev/null || true)"
+    if [ -n "$PORT" ] && curl -fsS -m 1 "http://127.0.0.1:${PORT}/health/liveliness" >/dev/null 2>&1; then
+      ready=1
+      break
+    fi
+  fi
+  sleep 0.2
+done
+if [ "$ready" -ne 1 ] || [ -z "$PORT" ]; then
+  echo "test-poolside-yolo: stub gateway failed to start (port=${PORT:-none} pid=$GW_PID)" >&2
+  kill $GW_PID 2>/dev/null || true
+  exit 2
+fi
 
 base_env() {
   export POOL_BIN="$STUB"
