@@ -329,7 +329,86 @@ function buildReport() {
     },
   ]);
 
-  const pillars = [rag, agentTools, multiAgent, mcp, prod];
+  const mlStack = scorePillar('ml_stack', 'ML / labels / propensity (fail-closed)', [
+    {
+      id: 'label-store',
+      weight: 1,
+      check: () => ({
+        pass: exists('tools/ml-label-store.js'),
+        detail: 'tools/ml-label-store.js',
+      }),
+    },
+    {
+      id: 'propensity-train',
+      weight: 2,
+      check: () => {
+        const run = runNode('tools/ml-propensity-train.js', [
+          'train',
+          '--labels',
+          'tests/fixtures/ml/synthetic-labels.jsonl',
+          '--out',
+          path.join(require('os').tmpdir(), `ml-propensity-scorecard-${process.pid}.json`),
+          '--json',
+        ]);
+        let body = null;
+        try {
+          body = JSON.parse(run.stdout);
+        } catch {
+          /* below */
+        }
+        return {
+          pass: Boolean(body && body.trained === true && body.ok === true),
+          detail: body
+            ? `trained holdout_auc=${body.holdout_metrics?.auc}`
+            : (run.stderr || run.stdout).slice(0, 180),
+        };
+      },
+    },
+    {
+      id: 'insufficient-labels-fail-closed',
+      weight: 2,
+      check: () => {
+        const empty = path.join(require('os').tmpdir(), `ml-empty-labels-${process.pid}.jsonl`);
+        fs.writeFileSync(empty, '');
+        const run = runNode('tools/ml-propensity-train.js', [
+          'train',
+          '--labels',
+          empty,
+          '--out',
+          path.join(require('os').tmpdir(), `ml-propensity-empty-${process.pid}.json`),
+          '--json',
+        ]);
+        let body = null;
+        try {
+          body = JSON.parse(run.stdout);
+        } catch {
+          /* below */
+        }
+        return {
+          pass: Boolean(body && body.trained === false && body.status === 'insufficient_labels'),
+          detail: body ? body.status : (run.stderr || run.stdout).slice(0, 180),
+        };
+      },
+    },
+    {
+      id: 'system-scores',
+      weight: 1,
+      check: () => ({
+        pass: exists('tools/ml-system-scores.js'),
+        detail: 'tools/ml-system-scores.js',
+      }),
+    },
+    {
+      id: 'ml-docs',
+      weight: 0.5,
+      check: () => ({
+        pass: exists('docs/ML-STACK-JULY-2026.md'),
+        detail: 'docs/ML-STACK-JULY-2026.md',
+      }),
+    },
+  ]);
+
+  const pillars = [rag, agentTools, multiAgent, mcp, prod, mlStack];
   const overall = Number(
     (pillars.reduce((s, p) => s + p.score, 0) / pillars.length).toFixed(2),
   );
