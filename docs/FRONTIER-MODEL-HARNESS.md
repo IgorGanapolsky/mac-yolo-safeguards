@@ -27,6 +27,7 @@ Default reasoning effort (when `HERMES_REASONING_EFFORT` unset): **medium** (ste
 | Blind-spot / unknowns | Planner role: 3 unknowns before locking AC |
 | Hard bar + loops | `hardBarForDone()` + stacked verification + thrash STOP |
 | Where memory lives (stateless vs stateful) | `stateLayerPolicy()` + `whereIsStateCheck()` — chat→session store; ownership→plan.md; resume→loop/E2E/Field Guide |
+| Auth on toolbox not agent (Foundry) | `toolboxPolicy()` + `whereIsAuthCheck()` + `workerToolboxPrompt()` — packs × auth × host × gates |
 
 ## State layers (Pro + mini)
 
@@ -42,6 +43,18 @@ node tools/agent-swarm-harness.js where-is-state --json
 ```
 
 Env: `HERMES_FLEET_HOST_ROLE=mac_pro|mac_mini` when hostname detection is wrong.
+
+## Toolboxes (auth boundary)
+
+Bind identity to the pack; inject **entrypoints only** into workers:
+
+```bash
+node tools/agent-swarm-harness.js toolboxes
+node tools/agent-swarm-harness.js where-is-auth --task "Stripe cash close"
+node tools/agent-swarm-harness.js worker-toolbox --task "implement leaf plan.md claim"
+```
+
+Gates: `HERMES_SESSION_PUBLISH=PUBLISH_APPROVED`, `HERMES_ALLOW_INTERACTIVE_CHROME=1` (interactive Chrome only with explicit user ask). Optional task text: `HERMES_TASK_TEXT` or `--task`.
 
 ## SessionContract (env overrides)
 
