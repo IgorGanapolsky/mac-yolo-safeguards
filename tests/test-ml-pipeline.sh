@@ -103,14 +103,13 @@ assert int(sys.argv[2]) != 0, "shuffled-label run must not exit 0"
 assert r["gate"]["ships"] is False, "shuffled labels must never ship"
 PY
 
-# 6. MUTATION: re-introduce the historical `context` leak -> AUC must spike to ~1.0.
-#    This proves the leak DETECTION is real: if a reinstated leak does not show up as
-#    a near-perfect score, the pipeline can no longer tell leaking from learning.
-python3 - "$ROOT" "$ML" <<'PY' && ok "MUTATION reinstated context leak -> AUC spikes (detector works)" || no "MUTATION leak not detectable"
-import json, sys, importlib.util
-root, ml = sys.argv[1], sys.argv[2]
-spec = importlib.util.spec_from_file_location("te", f"{ml}/train_eval.py")
-te = importlib.util.module_from_spec(spec); spec.loader.exec_module(te)
+# 6. MUTATION (reviewer-found): a dataset still carrying `context` must be REFUSED
+#    outright (exit 2), not merely scored. featurise() used to still read context, so a
+#    poisoned dataset produced AUC 1.0 with ships=true -- the leakage detector approving
+#    the very model it exists to block.
+python3 - "$ROOT" <<'PYEOF'
+import json, sys
+root = sys.argv[1]
 ds = json.load(open(f"{root}/ds.json"))
 def poison(rows):
     out = []
@@ -118,11 +117,51 @@ def poison(rows):
         f = dict(e["features"]); f["context"] = "thumbs down" if e["label"] else "thumbs up"
         out.append(dict(e, features=f))
     return out
-tr, tehold = poison(ds["train"]), poison(ds["test"])
-m = te.LogisticRegression(te.vocabulary(tr)).fit(tr)
-a = te.auc([e["label"] for e in tehold], m.predict_proba(tehold))
-assert a is not None and a > 0.95, f"reinstated leak only reached AUC {a}; detector is blind"
-PY
+json.dump({"train": poison(ds["train"]), "test": poison(ds["test"])},
+          open(f"{root}/poisoned.json", "w"))
+PYEOF
+python3 "$ML/train_eval.py" --dataset "$ROOT/poisoned.json" --report "$ROOT/prep.json" >/dev/null 2>&1
+prc=$?
+if [ "$prc" = "2" ]; then ok "MUTATION poisoned dataset (context) -> 2 (refused), never shipped"; else no "poisoned dataset not refused (exit $prc)"; fi
+
+# 6b. MUTATION (reviewer-found): mixed UTC offsets must split by INSTANT, not ISO string.
+#     "00:30+02:00" is EARLIER than "00:00+00:00"; string sorting reverses them and
+#     silently breaks the temporal holdout.
+python3 - "$ROOT" "$ML" <<'PYEOF'
+import json, subprocess, sys, os, datetime as dt
+root, ml = sys.argv[1], sys.argv[2]
+tg = f"{root}/tzskew"; os.makedirs(tg, exist_ok=True)
+rows = [
+    {"id":"late-local","timestamp":"2026-03-01T00:30:00+02:00","signal":"negative",
+     "actionType":"no-action","tags":["a"],"actionReason":"r"},
+    {"id":"early-local","timestamp":"2026-03-01T00:00:00+00:00","signal":"positive",
+     "actionType":"no-action","tags":["b"],"actionReason":"r"},
+]
+with open(f"{tg}/feedback-log.jsonl","w") as fh:
+    for r in rows: fh.write(json.dumps(r)+"\n")
+subprocess.run([sys.executable, f"{ml}/build_dataset.py", "--thumbgate-dir", tg,
+                "--out", f"{root}/tz.json", "--manifest", f"{root}/tzman.json",
+                "--holdout-fraction", "0.5"], capture_output=True)
+ds = json.load(open(f"{root}/tz.json"))
+tr = dt.datetime.fromisoformat(ds["train"][-1]["ts"]).astimezone(dt.timezone.utc)
+te = dt.datetime.fromisoformat(ds["test"][0]["ts"]).astimezone(dt.timezone.utc)
+assert tr <= te, f"temporal order violated across UTC offsets: {tr} > {te}"
+assert ds["train"][0]["id"] == "late-local", "earlier INSTANT must sort first"
+PYEOF
+if [ $? -eq 0 ]; then ok "mixed UTC offsets split by instant, not ISO string"; else no "UTC-offset ordering wrong"; fi
+
+# 6c. the tag_prior baseline must actually vary -- the old actionType baseline silently
+#     collapsed to a constant because the builder never emits that field.
+python3 "$ML/train_eval.py" --dataset "$DS" --report "$ROOT/base.json" >/dev/null 2>&1
+python3 - "$ROOT/base.json" <<'PYEOF'
+import json, sys
+r = json.load(open(sys.argv[1]))
+assert "tag_prior" in r["baselines"], "tag_prior baseline missing"
+tp, const = r["baselines"]["tag_prior"], r["baselines"]["train_prior_constant"]
+assert tp["auc"] is not None, "tag_prior AUC undefined"
+assert tp["auc"] != const["auc"], "tag_prior collapsed to the constant baseline"
+PYEOF
+if [ $? -eq 0 ]; then ok "tag_prior is a live heuristic, not a disguised constant"; else no "tag_prior is dead"; fi
 
 # 7. determinism: identical inputs must give byte-identical reports
 python3 "$ML/train_eval.py" --dataset "$DS" --report "$ROOT/r1.json" >/dev/null 2>&1
@@ -151,5 +190,5 @@ ds = json.load(open(p)); assert ds["test"], "emitted an empty test split"
 PY
 
 echo "ml pipeline tests: $pass passed, $fail failed"
-[ "$pass" -ge 9 ] || { echo "VACUOUS: expected >=9 assertions, ran $pass" >&2; exit 2; }
+[ "$pass" -ge 11 ] || { echo "VACUOUS: expected >=9 assertions, ran $pass" >&2; exit 2; }
 [ "$fail" -eq 0 ]

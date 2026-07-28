@@ -51,14 +51,11 @@ def featurise(event):
     # Presence of a reason is itself observable at action time.
     feats["has_reason"] = 1.0 if f.get("actionReason") else 0.0
 
-    ctx = f.get("context")
-    if isinstance(ctx, (dict, list)):
-        ctx = json.dumps(ctx, sort_keys=True)
-    if isinstance(ctx, str) and ctx:
-        toks = [t for t in "".join(c.lower() if c.isalnum() else " " for c in ctx).split() if len(t) > 2]
-        for t in set(toks[:400]):
-            feats[f"ctx={t}"] = 1.0
-        feats["ctx_len"] = min(len(ctx) / 1000.0, 5.0)
+    # Deliberately NO `context` path. context is the verdict verbatim ("thumbs down" /
+    # "thumbs up"); featurising it scored AUC 1.0 and the gate SHIPPED the worthless
+    # model. Consuming an excluded field here would make this a leak amplifier rather
+    # than a leak detector, so it is never read -- and main() refuses any dataset that
+    # still carries it.
     return feats
 
 
@@ -207,17 +204,23 @@ def baselines(train, test):
     out["train_prior_constant"] = classification_metrics(yte, [prior] * len(yte))
     # 3. Stratified random draw at the train prior.
     out["stratified_random"] = classification_metrics(yte, [rng.random() for _ in yte])
-    # 4. Per-actionType historical negative rate -- a real, non-trivial heuristic.
+    # 4. Per-TAG historical negative rate -- a real heuristic over a field the builder
+    #    actually emits. The previous version keyed on actionType, which build_dataset
+    #    excludes as leakage, so every lookup missed and this silently collapsed into
+    #    the train-prior constant: the gate compared the model against three constants
+    #    and a coin flip while claiming a non-trivial heuristic.
     rates, counts = {}, {}
     for e in train:
-        a = (e.get("features", {}).get("actionType") or "?").strip().lower()
-        rates[a] = rates.get(a, 0) + e["label"]
-        counts[a] = counts.get(a, 0) + 1
+        for tag in (e.get("features", {}).get("tags") or ["<none>"]):
+            k = str(tag).strip().lower()
+            rates[k] = rates.get(k, 0) + e["label"]
+            counts[k] = counts.get(k, 0) + 1
     preds = []
     for e in test:
-        a = (e.get("features", {}).get("actionType") or "?").strip().lower()
-        preds.append(rates[a] / counts[a] if counts.get(a) else prior)
-    out["action_type_prior"] = classification_metrics(yte, preds)
+        ks = [str(t).strip().lower() for t in (e.get("features", {}).get("tags") or ["<none>"])]
+        vals = [rates[k] / counts[k] for k in ks if counts.get(k)]
+        preds.append(sum(vals) / len(vals) if vals else prior)
+    out["tag_prior"] = classification_metrics(yte, preds)
     return out
 
 
@@ -237,6 +240,18 @@ def main():
 
     data = json.load(open(args.dataset))
     train, test = data["train"], data["test"]
+
+    # A dataset carrying an excluded outcome field is poisoned. Refuse it (exit 2 =
+    # could not evaluate) rather than quietly scoring a leak as a triumph.
+    FORBIDDEN = {"context", "actionType", "whatWentWrong", "whatWorked", "diagnosis",
+                 "rubric", "distillation", "failureType", "lesson"}
+    offenders = set()
+    for row in (train + test):
+        offenders |= FORBIDDEN & set(row.get("features", {}))
+    if offenders:
+        print(f"train_eval: REFUSING dataset -- features contain excluded outcome "
+              f"field(s): {sorted(offenders)}. Rebuild with build_dataset.py.", file=sys.stderr)
+        return 2
 
     if not train or not test:
         print("train_eval: VACUOUS -- empty split", file=sys.stderr)

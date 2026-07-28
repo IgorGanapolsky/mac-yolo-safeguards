@@ -128,7 +128,11 @@ def load_events(thumbgate_dir):
                 "features": {k: raw.get(k) for k in SAFE_FIELDS},
             })
 
-    events.sort(key=lambda e: (e["ts"], e["id"]))
+    # Sort by the NORMALIZED INSTANT. Sorting ISO strings orders local clock readings,
+    # so 2026-01-01T00:30:00+02:00 (= 22:30 UTC the previous day) sorts AFTER
+    # 2026-01-01T00:00:00+00:00 and would land in test while the later event went to
+    # train -- silently violating the temporal holdout this file exists to guarantee.
+    events.sort(key=lambda e: (dt.datetime.fromisoformat(e["ts"]).astimezone(dt.timezone.utc), e["id"]))
     return events, rejected
 
 
@@ -141,7 +145,8 @@ def temporal_split(events, holdout_fraction):
     train, test = events[:cut], events[cut:]
     # Guard the invariant here too, not only in the tests: a silent leak is worse
     # than a crash.
-    if train and test and max(e["ts"] for e in train) > min(e["ts"] for e in test):
+    _utc = lambda e: dt.datetime.fromisoformat(e["ts"]).astimezone(dt.timezone.utc)
+    if train and test and max(_utc(e) for e in train) > min(_utc(e) for e in test):
         raise SystemExit("build_dataset: temporal split violated -- refusing to emit")
     return train, test
 

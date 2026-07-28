@@ -57,11 +57,19 @@ After exclusions: **616 train / 265 test**, split temporally at 2026-07-17.
 - **`actionReason` is present on all 881 rows** — constant, zero signal.
 - The only discriminative tag covers **17 rows**.
 
-Result: **AUC 0.5476, 95% CI [0.5206, 0.5785], ECE 0.1917.** The lift is barely
-distinguishable from chance and the probabilities are badly miscalibrated, so the gate
-refuses on the calibration condition. This is the honest outcome: *you cannot predict
-what was never recorded.* The corpus captures outcomes richly and pre-action state
-almost not at all.
+Result: **AUC 0.5476, ECE 0.1917 — exactly equal to the `tag_prior` baseline (0.5476).**
+The learned model adds *literally nothing* over a one-line historical tag rate, and its
+probabilities are badly miscalibrated. The gate fails all three conditions.
+
+That equality only became visible after review: the original fourth baseline keyed on
+`actionType`, which the builder excludes as leakage, so every lookup missed and the
+"non-trivial heuristic" silently collapsed into the train-prior constant. The gate was
+comparing the model against three constants and a coin flip while claiming otherwise.
+Fixing the baseline to use `tags` — a field the builder actually emits — turned "barely
+above chance" into the sharper and more useful "identical to a trivial heuristic".
+
+This is the honest outcome: *you cannot predict what was never recorded.* The corpus
+captures outcomes richly and pre-action state almost not at all.
 
 ## The gate
 
@@ -75,7 +83,7 @@ Exit codes are three-valued because *could not evaluate* is not *clean*:
 `0` ship · `1` do not ship · `2` could not evaluate.
 
 Baselines are real, not strawmen: train-majority constant, train-prior constant,
-stratified random, and a per-`actionType` historical-rate heuristic.
+stratified random, and a per-`tag` historical-rate heuristic (`tag_prior`).
 
 ## To make a model possible, instrument these at action time
 
