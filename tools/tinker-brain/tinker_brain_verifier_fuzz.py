@@ -39,7 +39,9 @@ def mutations(phrase: str) -> dict[str, str]:
     }
 
 
-def main() -> int:
+def run_fuzz() -> dict:
+    """Return {checked, escapes} for every banned phrase x mutation. Pure; no I/O
+    beyond reading the pinned fixture card, so the scorecard can call it inline."""
     card_text = _FIXTURE_CARD.read_text(encoding="utf-8")
     banned = (
         [(p, "continuity_rescue_language") for p in THUMBGATE_RESCUE_PHRASES]
@@ -56,9 +58,13 @@ def main() -> int:
             if expected not in violations:
                 escapes.append({"phrase": phrase, "mutation": name, "text": mutated,
                                 "got": ",".join(violations) or "(none)"})
-    report = {"checked": checked, "escapes": escapes}
+    return {"checked": checked, "escapes": escapes}
+
+
+def main() -> int:
+    report = run_fuzz()
     print(json.dumps(report, indent=2, sort_keys=True))
-    return 1 if escapes else 0
+    return 1 if report["escapes"] else 0
 
 
 if __name__ == "__main__":

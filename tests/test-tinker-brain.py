@@ -146,7 +146,19 @@ class ExporterTest(unittest.TestCase):
             card = (out.parent / "ANSWER_CARD.txt").read_text(encoding="utf-8")
             self.assertIn("THUMBGATE_LIVE_PRICE=live /api/billing/plan readback OK", card)
             self.assertIn("Pro Continuity $10.00/mo", card)
-            self.assertIn("SYSTEM_SCORES=not_scored", card)
+            # Scores are computed from receipts on every snapshot (never the
+            # retired static skool numbers); MONETIZATION stays fail-closed at
+            # 0 without a verified revenue receipt.
+            self.assertIn("SYSTEM_SCORES=", card)
+            score_line = next(
+                line for line in card.splitlines() if line.startswith("SYSTEM_SCORES=")
+            )
+            self.assertTrue(
+                "MONETIZATION 0/100" in score_line or "not_scored" in score_line,
+                score_line,
+            )
+            if "not_scored" not in score_line:
+                self.assertIn("computed", card.split("SCORE_SCOPE=")[1].split("\n")[0])
             # The exported card must itself produce contract-clean answers.
             result = answer(card, "How do we sell ThumbGate.app?", expert_text=EXPERT_TEXT)
             self.assertTrue(result["ok"], result["violations"])
@@ -266,6 +278,72 @@ class EvalMinerTest(unittest.TestCase):
         # Pinned questions must never be re-proposed as new cases.
         proposed_questions = {c["question"] for c in report["proposed_cases"]}
         self.assertNotIn("How do we sell ThumbGate.app?", proposed_questions)
+
+
+class ScorecardTest(unittest.TestCase):
+    def _inputs(self, **overrides):
+        base = {
+            "eval_passed": 42, "eval_failed": 0, "eval_fresh": True,
+            "fuzz_checked": 126, "fuzz_escapes": 0,
+            "traces_fresh": True, "fingerprints_fresh": True, "miner_receipt": True,
+            "index_files": 1731, "watcher_running": True, "probe_hit": True,
+            "external_cents": 0, "paid_label_count": 0, "failpass_pairs": 0,
+        }
+        base.update(overrides)
+        return base
+
+    def test_healthy_pipeline_scores_and_fail_closed_zeroes(self):
+        sys.path.insert(0, str(BRAIN))
+        import tinker_brain_scorecard as sc
+
+        report = sc.compute_scores(self._inputs())
+        dims = report["dimensions"]
+        self.assertEqual(dims["EVAL"]["score"], 100)
+        self.assertEqual(dims["DS"]["score"], 100)
+        self.assertEqual(dims["RAG"]["score"], 100)
+        self.assertEqual(dims["ML"]["score"], 0)
+        self.assertEqual(dims["MONETIZATION"]["score"], 0)
+        self.assertIn("MONETIZATION 0/100", report["system_scores_line"])
+
+    def test_fuzzer_escapes_cap_eval_and_labels_lift_ml(self):
+        sys.path.insert(0, str(BRAIN))
+        import tinker_brain_scorecard as sc
+
+        capped = sc.compute_scores(self._inputs(fuzz_escapes=3))
+        self.assertEqual(capped["dimensions"]["EVAL"]["score"], 50)
+        unverified = sc.compute_scores(self._inputs(fuzz_escapes=-1))
+        self.assertEqual(unverified["dimensions"]["EVAL"]["score"], 50)
+        pairs_only = sc.compute_scores(self._inputs(failpass_pairs=133))
+        self.assertEqual(pairs_only["dimensions"]["ML"]["score"], 20)
+        labeled = sc.compute_scores(self._inputs(paid_label_count=10))
+        self.assertEqual(labeled["dimensions"]["ML"]["score"], 50)
+        self.assertEqual(sc.grade(100), "A+")
+        self.assertEqual(sc.grade(59), "F")
+
+    def test_stale_eval_receipt_scores_zero(self):
+        sys.path.insert(0, str(BRAIN))
+        import tinker_brain_scorecard as sc
+
+        report = sc.compute_scores(self._inputs(eval_fresh=False))
+        self.assertEqual(report["dimensions"]["EVAL"]["score"], 0)
+
+
+class FailPassDumpTest(unittest.TestCase):
+    def test_pairs_are_deduped_fail_verified_and_pass_clean(self):
+        sys.path.insert(0, str(BRAIN))
+        import tinker_brain_failpass_dump as fp
+        from tinker_response_contract import validate_response
+
+        card_text = FIXTURE_CARD
+        pairs = fp.build_pairs(card_text, expert_text=EXPERT_TEXT)
+        self.assertGreaterEqual(len(pairs), 100)
+        keys = {(p["question_digest"], p["fail_digest"]) for p in pairs}
+        self.assertEqual(len(keys), len(pairs))
+        for p in pairs[:10] + pairs[-10:]:
+            self.assertTrue(p["fail_violations"])
+            self.assertEqual(
+                validate_response(p["pass_text"], card_text, p["question"]), []
+            )
 
 
 if __name__ == "__main__":
