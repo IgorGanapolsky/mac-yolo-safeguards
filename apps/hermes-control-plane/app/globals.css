@@ -338,8 +338,13 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     grid-template-columns:1fr;
     gap:0;
   }
-  /* Tab panes: only one section visible */
-  .task-panel,.right-rail{display:none;min-height:0}
+  .dashboard-shell[data-mobile-tab="chats"] .sidebar{
+    display:block !important;
+  }
+  .dashboard-shell[data-mobile-tab="chats"] .task-panel,
+  .dashboard-shell[data-mobile-tab="chats"] .right-rail{
+    display:none !important;
+  }
   .dashboard-shell[data-mobile-tab="hermes"] .task-panel{
     display:flex;
     flex-direction:column;
@@ -527,7 +532,7 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     min-height:56px;
     padding:6px 0 calc(6px + env(safe-area-inset-bottom,0px));
     display:grid !important;
-    grid-template-columns:repeat(4,1fr);
+    grid-template-columns:repeat(5,1fr);
     background:#0B0F19;
     border-top:1px solid var(--brand-line);
     box-shadow:none;
