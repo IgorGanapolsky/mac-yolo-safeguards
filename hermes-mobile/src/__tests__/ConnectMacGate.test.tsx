@@ -1,5 +1,6 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import ConnectMacGate, { connectMacGateCardMaxWidth } from '../components/ConnectMacGate';
 import { DEFAULT_GATEWAY_SETTINGS } from '../types/gateway';
 import { CONNECT_MAC_GATE_TITLE, TAILSCALE_PASTE_IP_TITLE } from '../utils/tailscalePasteIpCopy';
@@ -418,6 +419,22 @@ describe('ConnectMacGate', () => {
     expect(connectMacGateCardMaxWidth(834)).toBe(459);
     // iPad Pro landscape (~1366pt): capped, never edge to edge.
     expect(connectMacGateCardMaxWidth(1366)).toBe(640);
+  });
+
+  it('centers the width-bounded card on both axes of an iPad canvas', () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    mockUseGateway.mockReturnValue(gateway());
+
+    const view = render(<ConnectMacGate />);
+    const scroll = view.UNSAFE_getByType(ScrollView);
+    const contentStyle = StyleSheet.flatten(scroll.props.contentContainerStyle);
+
+    expect(contentStyle).toEqual(
+      expect.objectContaining({
+        alignItems: 'center',
+        justifyContent: 'center',
+      }),
+    );
   });
 
   it('Find computers triggers a forced Tailscale probe, not just the LAN sweep (away-from-home gap)', async () => {
