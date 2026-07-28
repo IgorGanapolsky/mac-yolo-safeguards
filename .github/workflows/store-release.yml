@@ -40,6 +40,15 @@ on:
         description: "Reuse finished production build UUID (submit-only — skips eas build --wait)"
         required: false
         type: string
+      audit_asc:
+        description: "Read App Store Connect version/build state only (no build, submit, or edit)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
       audit_play_track:
         description: "Read Google Play production version/status only (no build, submit, or edit commit)"
         required: true
@@ -60,7 +69,13 @@ permissions:
 jobs:
   internal-proof-gate:
     name: Require Internal Proof
-    if: inputs.skip_internal_proof != 'true'
+    # Read-only audits never run this gate. They only READ store state - no
+    # build, no submit, no edit commit - so requiring a publish signoff to look
+    # at what is already live is pure self-inflicted blocking.
+    if: >-
+      inputs.skip_internal_proof != 'true' &&
+      inputs.audit_play_track != 'true' &&
+      inputs.audit_asc != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Require exact-SHA internal signoff statuses
@@ -97,6 +112,31 @@ jobs:
               exit 1
               ;;
           esac
+
+  asc-audit:
+    name: App Store Connect Audit
+    needs: [internal-proof-gate]
+    if: |
+      always() &&
+      inputs.audit_asc == 'true' &&
+      (needs.internal-proof-gate.result == 'success' || needs.internal-proof-gate.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment: production-ios
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        with:
+          node-version: 22
+
+      - name: Read App Store Connect version and build state
+        env:
+          ASC_KEY_BASE64: ${{ secrets.EXPO_ASC_API_KEY_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.EXPO_ASC_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.EXPO_ASC_API_KEY_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.EXPO_ASC_APP_ID }}
+        run: node ./scripts/asc-audit.cjs
 
   android-production-track-audit:
     name: Android Production Track Audit
@@ -382,6 +422,7 @@ jobs:
     if: |
       always() &&
       (needs.internal-proof-gate.result == 'success' || needs.internal-proof-gate.result == 'skipped') &&
+      inputs.audit_asc != 'true' &&
       (inputs.platform == 'ios' || inputs.platform == 'both')
     runs-on: ubuntu-latest
     environment: production-ios
