@@ -279,6 +279,32 @@ function readContinuousDeviceVerified() {
   };
 }
 
+function mlSystemScoresBrief() {
+  const script = path.join(REPO, 'tools', 'ml-system-scores.js');
+  if (!fs.existsSync(script)) {
+    return { skipped: true, reason: 'tools/ml-system-scores.js missing' };
+  }
+  const result = run(process.execPath, [script, '--json', '--write'], { timeout: 120_000 });
+  try {
+    const body = JSON.parse(result.stdout || '{}');
+    return {
+      system_scores_line: body.system_scores_line || null,
+      overall: body.parts?.overall || null,
+      ml: body.parts?.ml || null,
+      monetization: body.parts?.monetization || null,
+      rag: body.parts?.rag || null,
+      model_status: body.evidence?.model_status || null,
+      status: result.status,
+    };
+  } catch (error) {
+    return {
+      error: error.message || String(error),
+      stdout: (result.stdout || '').slice(0, 400),
+      status: result.status,
+    };
+  }
+}
+
 function recommendNextAction(brief) {
   const continuous = brief.telemetry?.continuousE2e;
   if (continuous && continuous.deviceVerified === false && !continuous.skipped && !continuous.error) {
@@ -345,6 +371,8 @@ function buildBrief(args) {
       reason: 'not requested (use --with-arc or task keywords: model promote, AGI, benchmark, reasoning eval)',
     };
   }
+  // Always attach evidence-backed DS/ML/RAG scores (fail-closed, never invented).
+  brief.telemetry.mlSystemScores = mlSystemScoresBrief();
   brief.recommendation = recommendNextAction(brief);
   return brief;
 }
@@ -408,6 +436,17 @@ function main() {
         `status=${arc.overallStatus} train=${arc.metrics?.trainAccuracy} holdout=${arc.metrics?.holdoutAccuracy}`,
       );
       console.log(arc.recommendation || '');
+    }
+    console.log('');
+  }
+  if (brief.telemetry.mlSystemScores && !brief.telemetry.mlSystemScores.skipped) {
+    const ml = brief.telemetry.mlSystemScores;
+    console.log('## ML system scores (fail-closed evidence)');
+    if (ml.error) {
+      console.log(`error=${ml.error}`);
+    } else {
+      console.log(ml.system_scores_line || '(no line)');
+      if (ml.model_status) console.log(`propensity_model=${ml.model_status}`);
     }
     console.log('');
   }
