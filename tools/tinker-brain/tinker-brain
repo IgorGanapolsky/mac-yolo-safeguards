@@ -9,16 +9,43 @@
 set -euo pipefail
 
 # Home since 2026-07-28: mac-yolo-safeguards (skool_top1percent retired).
-REPO="${TINKER_BRAIN_ROOT:-/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards}"
-BRAIN="$REPO/tools/tinker-brain"
-# Mac Pro: tools/tinker-brain lives on epic/tinker-brain-thumbgate, which is not the
-# branch this checkout sits on. Fall back to the worktree pinned at that branch so the
-# brain works here without disturbing whatever the main checkout is mid-way through.
-if [[ ! -d "$BRAIN" ]]; then
-  for _cand in "$REPO/.worktrees/tinker-brain"; do
-    if [[ -d "$_cand/tools/tinker-brain" ]]; then REPO="$_cand"; BRAIN="$REPO/tools/tinker-brain"; break; fi
+# Prefer (1) TINKER_BRAIN_ROOT, (2) any worktree that has the newest brain modules,
+# (3) the default checkout. Main is often mid-rebase / behind an open PR, so a
+# bare `~/.local/bin/tinker-brain` must not silently run stale router code.
+_DEFAULT_REPO="/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards"
+_pick_repo() {
+  local cand brain
+  # Explicit override always wins.
+  if [[ -n "${TINKER_BRAIN_ROOT:-}" && -f "${TINKER_BRAIN_ROOT}/tools/tinker-brain/tinker_brain_router.py" ]]; then
+    printf '%s\n' "$TINKER_BRAIN_ROOT"
+    return 0
+  fi
+  # Prefer checkouts that include the Stripe reconcile module (cash-diagnosis era).
+  for cand in \
+    "$_DEFAULT_REPO" \
+    "$_DEFAULT_REPO/.worktrees/tinker-brain-improvements-20260728" \
+    "$_DEFAULT_REPO/.worktrees/tinker-brain" \
+    ; do
+    brain="$cand/tools/tinker-brain"
+    if [[ -f "$brain/reconcile_stripe_revenue_receipt.py" && -f "$brain/tinker_brain_router.py" ]]; then
+      printf '%s\n' "$cand"
+      return 0
+    fi
   done
-fi
+  # Fall back to any checkout that at least has the router.
+  for cand in \
+    "$_DEFAULT_REPO" \
+    "$_DEFAULT_REPO/.worktrees/tinker-brain" \
+    ; do
+    if [[ -f "$cand/tools/tinker-brain/tinker_brain_router.py" ]]; then
+      printf '%s\n' "$cand"
+      return 0
+    fi
+  done
+  printf '%s\n' "$_DEFAULT_REPO"
+}
+REPO="$(_pick_repo)"
+BRAIN="$REPO/tools/tinker-brain"
 EXPORT="$BRAIN/export_tinker_brain_snapshot.py"
 CONTRACT="$BRAIN/tinker_response_contract.py"
 ANSWER="$BRAIN/tinker_brain_answer.py"
