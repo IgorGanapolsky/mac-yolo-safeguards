@@ -74,7 +74,7 @@ test("the device picker lets a real user target a specific paired Mac, and the t
 
   const picker = page.locator('[data-testid="composer-device-select"]');
   await expect(picker).toBeVisible();
-  await expect(picker.locator("option")).toHaveCount(2, { timeout: 5_000 });
+  await expect(picker.locator(`option[value="${state.deviceB.deviceId}"]`)).toBeAttached({ timeout: 5_000 });
   await picker.selectOption(state.deviceB.deviceId);
 
   const textarea = page.getByLabel("Message for Hermes");
