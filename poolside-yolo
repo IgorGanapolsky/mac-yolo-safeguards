@@ -30,7 +30,13 @@
 #   `--doctor` probes the live ACP server to catch a future rename.
 #
 # Safety:
-#   * Honors the fleet zero-spend gate: if ~/.hermes/NO_PAID_SPEND exists, exit 73.
+#   * Honors the fleet zero-spend gate (~/.hermes/NO_PAID_SPEND). That marker's policy
+#     is "no-paid-provider-or-metered-token-execution", so instead of refusing to run
+#     at all we route to LOCAL Ollama (>=8B, tool-capable) — free and unmetered — and
+#     say so on stderr. Only if no usable local model exists do we exit 73. Set
+#     POOLSIDE_YOLO_ZERO_SPEND_STRICT=1 to restore the old refuse-outright behaviour.
+#     This is what makes poolside-yolo usable on the mini, where the gate unloads the
+#     litellm gateway entirely.
 #   * Install: curl -fsSL https://downloads.poolside.ai/pool/install.sh | sh
 set -euo pipefail
 
@@ -43,6 +49,17 @@ MARKER="${HERMES_ZERO_SPEND_MARKER:-$HOME/.hermes/NO_PAID_SPEND}"
 YOLO_MODE="${POOLSIDE_YOLO_MODE:-always-allow}"
 # Modes shipped by pool v1.0.14 (docs.poolside.ai/cli/interactive-mode + live probe).
 KNOWN_MODES="default accept-edits plan always-allow"
+
+# Zero-spend local route. The fleet marker's own policy string is
+# "no-paid-provider-or-metered-token-execution" — local Ollama is neither paid nor
+# metered, and the T-320 gate that writes the marker already pins the fleet to local
+# qwen. So under zero-spend we run LOCALLY instead of refusing to run at all; that is
+# what makes this usable on the mini, whose litellm gateway the gate unloads.
+LOCAL_URL="${POOLSIDE_YOLO_LOCAL_URL:-http://127.0.0.1:11434/v1}"
+# Ordered preference, all >= 8B — never silently drop to a 3B that cannot tool-call.
+# qwen3.5:9b-hermes-64k is first because it is the one verified end-to-end driving
+# pool's tools (wrote a file via tool call on the mini, 2026-07-27).
+LOCAL_MODEL_PREFS="qwen3.5:9b-hermes-64k qwen3:8b-agent-64k qwen3:8b-hermes-20k qwen3.5:9b qwen3:8b-64k qwen3:8b"
 
 # Accept the names people (and our own older docs) reach for, map them to the real
 # IDs. `allow-all` is the exact string this wrapper used to pass, so it must keep
@@ -83,6 +100,20 @@ emit_missing() {
 }
 
 gateway_up() { curl -fsS -m 4 "${GATEWAY_URL%/v1}/health/liveliness" >/dev/null 2>&1; }
+
+local_up() { curl -fsS -m 4 "${LOCAL_URL%/}/models" >/dev/null 2>&1; }
+
+# First preferred local model the local endpoint actually serves. Prints nothing when
+# none of them are present — the caller must then refuse rather than guess.
+pick_local_model() {
+  local list cand
+  if [[ -n "${POOLSIDE_YOLO_LOCAL_MODEL:-}" ]]; then printf '%s\n' "$POOLSIDE_YOLO_LOCAL_MODEL"; return 0; fi
+  list="$(curl -fsS -m 4 "${LOCAL_URL%/}/models" 2>/dev/null)" || return 1
+  for cand in $LOCAL_MODEL_PREFS; do
+    printf '%s' "$list" | grep -q "\"id\"[[:space:]]*:[[:space:]]*\"$cand\"" && { printf '%s\n' "$cand"; return 0; }
+  done
+  return 1
+}
 
 # Ask the installed pool ACP server which session modes it actually advertises
 # (ACP: initialize -> session/new -> result.modes.availableModes). Prints the IDs
@@ -156,9 +187,12 @@ model_serving() {
 doctor() {
   local format="${1:-text}" bin="" version="" up="false"
   local modes="" mode_valid="unknown" model_ok="unknown" serving="" fellback="unknown"
+  local local_ok="false" local_model=""
   if ! bin="$(resolve_pool)"; then emit_missing "$format"; return 127; fi
   version="$("$bin" --version 2>/dev/null | head -n1 || true)"
   gateway_up && up="true"
+  # Under zero-spend this is the route that actually runs, so report it.
+  if local_up; then local_ok="true"; local_model="$(pick_local_model || true)"; fi
   if [[ "$up" == "true" ]]; then
     model_served && model_ok="true" || model_ok="false"
     serving="$(model_serving || true)"
@@ -173,7 +207,7 @@ doctor() {
   if [[ "$format" == json ]]; then
     PYB="$bin" PYV="$version" PYG="$GATEWAY_URL" PYM="$DEFAULT_MODEL" PYUP="$up" \
     PYMODE="$YOLO_MODE" PYMODES="$modes" PYMV="$mode_valid" PYMOK="$model_ok" \
-    PYSERV="$serving" PYFB="$fellback" \
+    PYSERV="$serving" PYFB="$fellback" PYLOK="$local_ok" PYLM="$local_model" \
     PYZ="$([[ -e "$MARKER" ]] && echo true || echo false)" node -e '
       const tri = v => v === "true" ? true : v === "false" ? false : null;
       process.stdout.write(JSON.stringify({
@@ -182,6 +216,7 @@ doctor() {
         gateway:process.env.PYG, gatewayUp:process.env.PYUP==="true",
         defaultModel:process.env.PYM, modelServed:tri(process.env.PYMOK),
         modelServing:process.env.PYSERV || null, modelFellBack:tri(process.env.PYFB),
+        localUp:process.env.PYLOK==="true", localModel:process.env.PYLM || null,
         mode:process.env.PYMODE, modeValid:tri(process.env.PYMV),
         availableModes:process.env.PYMODES ? process.env.PYMODES.split(" ") : [],
         zeroSpendActive:process.env.PYZ==="true",
@@ -196,14 +231,15 @@ print(json.dumps({
   "gateway": os.environ["PYG"], "gatewayUp": os.environ["PYUP"] == "true",
   "defaultModel": os.environ["PYM"], "modelServed": tri(os.environ["PYMOK"]),
   "modelServing": os.environ["PYSERV"] or None, "modelFellBack": tri(os.environ["PYFB"]),
+  "localUp": os.environ["PYLOK"] == "true", "localModel": os.environ["PYLM"] or None,
   "mode": os.environ["PYMODE"], "modeValid": tri(os.environ["PYMV"]),
   "availableModes": os.environ["PYMODES"].split() if os.environ["PYMODES"] else [],
   "zeroSpendActive": os.environ["PYZ"] == "true",
   "autonomous": True,
 }))'
   else
-    printf 'POOLSIDE_YOLO_OK binary=%s version=%s gateway=%s up=%s model=%s model_served=%s serving=%s mode=%s mode_valid=%s zero_spend=%s\n' \
-      "$bin" "$version" "$GATEWAY_URL" "$up" "$DEFAULT_MODEL" "$model_ok" "${serving:-unknown}" "$YOLO_MODE" "$mode_valid" \
+    printf 'POOLSIDE_YOLO_OK binary=%s version=%s gateway=%s up=%s model=%s model_served=%s serving=%s local=%s mode=%s mode_valid=%s zero_spend=%s\n' \
+      "$bin" "$version" "$GATEWAY_URL" "$up" "$DEFAULT_MODEL" "$model_ok" "${serving:-unknown}" "${local_model:-none}" "$YOLO_MODE" "$mode_valid" \
       "$([[ -e "$MARKER" ]] && echo true || echo false)"
     [[ "$mode_valid" == "false" ]] && \
       echo "poolside-yolo: WARNING mode '$YOLO_MODE' is not advertised by this pool build (available: $modes) — it would silently fall back to approval prompts" >&2
@@ -233,20 +269,36 @@ case "${1:-}" in
 esac
 
 if [[ -e "$MARKER" ]]; then
-  echo "poolside-yolo: blocked — fleet zero-spend is active ($MARKER); the paid gateway is down by policy" >&2
-  exit 73
+  # Strict mode keeps the old refuse-outright behaviour for anyone who wants it.
+  if [[ -n "${POOLSIDE_YOLO_ZERO_SPEND_STRICT:-}" ]]; then
+    echo "poolside-yolo: blocked — fleet zero-spend is active ($MARKER) and POOLSIDE_YOLO_ZERO_SPEND_STRICT is set" >&2
+    exit 73
+  fi
+  if ! local_up; then
+    echo "poolside-yolo: blocked — fleet zero-spend is active ($MARKER) and no local model endpoint at ${LOCAL_URL%/v1}" >&2
+    echo "poolside-yolo: start Ollama (or set POOLSIDE_YOLO_LOCAL_URL) to run locally at zero cost" >&2
+    exit 73
+  fi
+  if ! LOCAL_MODEL="$(pick_local_model)"; then
+    echo "poolside-yolo: blocked — zero-spend is active and ${LOCAL_URL%/} serves none of: $LOCAL_MODEL_PREFS" >&2
+    echo "poolside-yolo: pull one (e.g. ollama pull qwen3.5:9b) or set POOLSIDE_YOLO_LOCAL_MODEL" >&2
+    exit 73
+  fi
+  echo "poolside-yolo: fleet zero-spend is active — running LOCALLY on $LOCAL_MODEL via ${LOCAL_URL%/} (no paid or metered tokens)" >&2
+  export POOLSIDE_STANDALONE_BASE_URL="$LOCAL_URL"
+  export POOLSIDE_API_KEY="${POOLSIDE_API_KEY:-ollama}"
+  export POOLSIDE_STANDALONE_MODEL="$LOCAL_MODEL"
+else
+  if ! gateway_up; then
+    echo "poolside-yolo: Hermes gateway not reachable at ${GATEWAY_URL%/v1} — start com.igor.hermes-litellm first" >&2
+    exit 69
+  fi
+  # Route pool's "custom OpenAI-compatible endpoint" support at the Hermes gateway
+  # instead of Poolside's own cloud/OpenRouter billing.
+  export POOLSIDE_STANDALONE_BASE_URL="$GATEWAY_URL"
+  export POOLSIDE_API_KEY="${POOLSIDE_API_KEY:-hermes-local-gateway}"
+  export POOLSIDE_STANDALONE_MODEL="$DEFAULT_MODEL"
 fi
-
-if ! gateway_up; then
-  echo "poolside-yolo: Hermes gateway not reachable at ${GATEWAY_URL%/v1} — start com.igor.hermes-litellm first" >&2
-  exit 69
-fi
-
-# Route pool's "custom OpenAI-compatible endpoint" support at the Hermes gateway
-# instead of Poolside's own cloud/OpenRouter billing.
-export POOLSIDE_STANDALONE_BASE_URL="$GATEWAY_URL"
-export POOLSIDE_API_KEY="${POOLSIDE_API_KEY:-hermes-local-gateway}"
-export POOLSIDE_STANDALONE_MODEL="$DEFAULT_MODEL"
 
 YOLO_MODE="$(normalize_mode "$YOLO_MODE")"
 if ! mode_known "$YOLO_MODE"; then
