@@ -34,18 +34,64 @@ export type HermesApprovalRequest = {
 
 export const DEFAULT_APPROVAL_CHOICES: ApprovalChoice[] = ['once', 'session', 'always', 'deny'];
 
+/** Human labels for the approval buttons — shared by the cards and the Settings preview. */
+export const APPROVAL_CHOICE_LABELS: Record<ApprovalChoice, string> = {
+  once: 'Once',
+  session: 'This session',
+  always: 'Always allow',
+  deny: 'Deny',
+};
+
+/**
+ * Which buttons an approval card offers, given the operator's policy.
+ *
+ * The tiers are a MONOTONIC ladder — strict ⊂ balanced ⊂ autonomous — so raising the policy can
+ * only ever add choices. Before 2026-07-28 `autonomous` returned ['once','deny'] for low-risk
+ * requests, making it *stricter* than balanced and identical to strict, which is the opposite of
+ * what the label promises. That branch had zero test coverage and arrived inside an unrelated
+ * grab-bag commit (3fdf156a4 "analytics, monetization UX, and launch plumbing"), so it reads as a
+ * slip rather than a decision. Igor hit the symptom on a physical device: toggling the three chips
+ * changed nothing he could observe.
+ *
+ * `always` writes a PERMANENT standing rule, so it is now the thing the most permissive tier
+ * unlocks rather than a default-tier button.
+ */
 export function choicesForRequest(
   request: HermesApprovalRequest,
   policy: ApprovalPolicy = 'balanced',
 ): ApprovalChoice[] {
+  // A text nudge is answered by sending one phrase back to the agent — there is no gateway-side
+  // rule to persist, so only this single reply is meaningful regardless of policy.
   if (request.source === 'text_nudge') {
     return ['once', 'deny'];
   }
-  if (!request.allowPermanent || policy === 'strict') {
+  if (policy === 'strict') {
     return ['once', 'deny'];
   }
-  if (policy === 'autonomous' && request.riskTier === 'low') {
+  // The GATEWAY decides whether a lasting rule is possible at all; policy can never override it.
+  if (!request.allowPermanent) {
     return ['once', 'deny'];
   }
-  return DEFAULT_APPROVAL_CHOICES;
+  if (policy === 'autonomous') {
+    return DEFAULT_APPROVAL_CHOICES;
+  }
+  return ['once', 'session', 'deny'];
+}
+
+/**
+ * The choices a typical gateway approval will offer under `policy` — what Settings previews so the
+ * operator can see the effect of the toggle immediately, instead of having to wait for a real
+ * approval to arrive and compare from memory.
+ */
+export function policyChoicePreview(policy: ApprovalPolicy): ApprovalChoice[] {
+  return choicesForRequest(
+    {
+      id: 'preview',
+      source: 'gateway_guard',
+      title: 'preview',
+      allowPermanent: true,
+      riskTier: 'low',
+    },
+    policy,
+  );
 }

@@ -35,6 +35,7 @@ import { formatGatewayHostLabel, isPrivateLanGatewayUrl } from '../utils/gateway
 import { resolveRelayRouteDisplay, relayWorkerDisplayName } from '../utils/relayRouting';
 import { isMacGatewayHttpOk } from '../utils/gatewayConnection';
 import type { ApprovalPolicy } from '../types/gateway';
+import { APPROVAL_CHOICE_LABELS, policyChoicePreview } from '../types/approval';
 import GatewayOpsSection from '../components/GatewayOpsSection';
 import { secureCredentials } from '../services/secureCredentials';
 import { requestHermesNotificationPermission } from '../services/approvalNotifications';
@@ -854,8 +855,15 @@ export default function SettingsScreen() {
         <Text style={styles.sectionTitle}>🛡 Safeguard Rules</Text>
         <GlassCard>
           <Text style={styles.switchLabel}>Approval policy</Text>
+          {/*
+            Copy describes what this control ACTUALLY does. It used to promise "gates prod deploy"
+            and "defers to computer standing approvals" — neither existed anywhere in the app; the
+            policy has only ever chosen which buttons an approval card shows. Promising absent
+            safety behaviour on a safeguard screen is worse than promising nothing.
+          */}
           <Text style={styles.switchDesc}>
-            Strict hides “always allow” and gates prod deploy. Autonomous defers to computer standing approvals.
+            Sets which buttons an approval shows. “Always allow” writes a permanent rule, so only
+            Autonomous offers it.
           </Text>
           <View style={styles.policyRow}>
             {(['strict', 'balanced', 'autonomous'] as ApprovalPolicy[]).map((policy) => (
@@ -882,6 +890,17 @@ export default function SettingsScreen() {
               </TouchableOpacity>
             ))}
           </View>
+          {/*
+            Immediate feedback. The policy's only effect lands on an approval card, so with no
+            approval pending the chips looked inert — Igor reported "nothing changes" when toggling
+            on a physical device (2026-07-28), which was an accurate read of the UI. Showing the
+            resulting buttons makes the effect visible at the moment of the tap.
+          */}
+          <Text style={styles.policyPreview} testID="approval-policy-preview">
+            {`Approvals will show: ${policyChoicePreview(approvalPolicy)
+              .map((choice) => APPROVAL_CHOICE_LABELS[choice])
+              .join(' · ')}`}
+          </Text>
 
           <View style={styles.divider} />
 
@@ -1149,6 +1168,11 @@ const styles = StyleSheet.create({
   },
   policyChipTextActive: {
     color: colors.text,
+  },
+  policyPreview: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 8,
   },
   divider: {
     height: 1,
