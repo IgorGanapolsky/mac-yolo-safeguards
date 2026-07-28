@@ -50,3 +50,15 @@ test('iOS job never reaches outside its working directory for app.json', () => {
   // and every iOS submit dies with "Cannot find module".
   assert.doesNotMatch(iosJob, /hermes-mobile\/app\.json/);
 });
+
+test('every iOS BUILD_ID reference honours the reuse path', () => {
+  // The submit step read only steps.build.outputs.build_id, so dispatching with
+  // eas_build_id (submit-only, no new build credits) left BUILD_ID empty and
+  // eas submit died with "You need to specify the archive source".
+  const refs = iosJob.match(/BUILD_ID: \$\{\{[^}]*\}\}/g) || [];
+  assert.ok(refs.length > 0, 'expected iOS job to reference BUILD_ID');
+  for (const ref of refs) {
+    assert.match(ref, /steps\.adopt_ios_build\.outputs\.build_id/, `missing reuse fallback: ${ref}`);
+  }
+});
+
