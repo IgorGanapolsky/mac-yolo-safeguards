@@ -10,15 +10,19 @@ Home is `tools/tinker-brain/` in this repo (migrated from skool_top1percent on
 
 1. **Export** — every question first refreshes an atomic snapshot
    (`export_tinker_brain_snapshot.py`): live `https://thumbgate.app/api/health`
-   and `/api/billing/plan` readbacks (the live price outranks any cached copy),
-   optional local receipts (`~/.hermes/receipts/tinker-brain/revenue-receipt.json`
-   for Stripe reconciliation, `~/.hermes/receipts/thumbgate-aeo/latest.json` for
-   the AEO monitor), rendered into `~/.hermes/business-brain/data-snapshot/ANSWER_CARD.txt`.
-   No revenue receipt ⇒ external cash is $0 — never invented.
-2. **Route** — `tinker_brain_router.py`, rules only (no LLM). GTM questions
-   (sell/market/promote/price/position or any ThumbGate mention) get the
-   `thumbgate_gtm` intent; cash truth, next-money, scores, and off-scope refusal
-   survive from the original design.
+   and `/api/billing/plan` readbacks (8s probe timeout; live price outranks any
+   cached copy), best-effort Stripe reconcile via
+   `reconcile_stripe_revenue_receipt.py` →
+   `~/.hermes/receipts/tinker-brain/revenue-receipt.json` (when
+   `STRIPE_SECRET_KEY` is available), plus AEO receipt
+   `~/.hermes/receipts/thumbgate-aeo/latest.json`, rendered into
+   `~/.hermes/business-brain/data-snapshot/ANSWER_CARD.txt`. The expert card copy
+   is export-stamped (`AS_OF_RESEARCH` + first KNOWN_GAPS cash line) so dates do
+   not rot. No verified receipt ⇒ external cash is $0 — never invented.
+2. **Route** — `tinker_brain_router.py`, rules only (no LLM). **Cash diagnosis
+   wins** over GTM when the question is “why no money / why not making money”
+   (even if ThumbGate is named). Pure GTM questions (sell/market/promote/price/
+   position) still get `thumbgate_gtm`.
 3. **Answer** — `tinker_brain_answer.py` serves the matching sections of
    `config/THUMBGATE_EXPERT_CARD.txt` (the distilled July 2026 GTM research)
    plus grounded cash/receipt lines. Deterministic by default; the optional
@@ -60,8 +64,36 @@ positioning/pricing/channels shift: edit the card, re-run the eval suite, and
 add an eval case for whatever changed. Prices are never trusted from the card —
 answers always cite the live `/api/billing/plan` readback.
 
+## Stripe cash receipt
+
+```bash
+# Writes ~/.hermes/receipts/tinker-brain/revenue-receipt.json when a key is present
+export STRIPE_SECRET_KEY=sk_live_...   # or sk_test_...
+python3 tools/tinker-brain/reconcile_stripe_revenue_receipt.py --json
+
+# Export auto-calls reconcile (skip with --skip-stripe-reconcile or TINKER_SKIP_STRIPE_RECONCILE=1)
+python3 tools/tinker-brain/export_tinker_brain_snapshot.py
+```
+
+Key resolution order: `STRIPE_SECRET_KEY` / `STRIPE_API_KEY` env →
+`TINKER_STRIPE_KEY_FILE` → `~/.hermes/secrets/stripe_secret_key` →
+`apps/hermes-control-plane/.dev.vars` / `.env.local`. Owner emails
+(default `iganapolsky@gmail.com`, `ig5973700@gmail.com`, …) never count as
+external revenue. Extend with `TINKER_OWNER_EMAILS=a@b.com,c@d.com`.
+
+## CLI wrapper
+
+Repo source of truth: `tools/tinker-brain/tinker-brain`. Install / refresh:
+
+```bash
+install -m 755 tools/tinker-brain/tinker-brain ~/.local/bin/tinker-brain
+```
+
+Chat mode uses a bash-3.2-safe stdin drain (no fractional `read -t`).
+
 ## Tests
 
 ```bash
 python3 tests/test-tinker-brain.py
+python3 tools/tinker-brain/tinker_brain_eval.py
 ```

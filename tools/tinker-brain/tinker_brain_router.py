@@ -112,7 +112,8 @@ MAKE_MONEY_ACTION_PATTERNS = (
     r"\bact autonomously\b",
 )
 
-# Pure diagnosis — stay on cash_truth even if "money" appears.
+# Pure diagnosis — stay on cash_truth even if "money" / product names appear.
+# Includes CEO phrasing ("why we are not making money from thumbgate.app?").
 CASH_DIAGNOSIS_PATTERNS = (
     r"\bwhy\b.{0,40}\bzero\b",
     r"\bmade zero\b",
@@ -121,6 +122,13 @@ CASH_DIAGNOSIS_PATTERNS = (
     r"\bcash truth\b",
     r"\breassess\b",
     r"\bre-assess\b",
+    # why (are we|we are|aren't we|…) not making money / no revenue / no cash
+    r"\bwhy\b.{0,80}\b(?:not|no|zero|aren'?t|are not|isn'?t|is not)\b.{0,40}\b(?:making money|money|revenue|cash|sales)\b",
+    r"\bwhy\b.{0,40}\b(?:making money|no revenue|no cash|no sales)\b",
+    r"\bnot making money\b",
+    r"\baren'?t making money\b",
+    r"\bno (?:external )?(?:revenue|cash|sales)\b",
+    r"\bwhy (?:is|are) (?:there )?no (?:external )?(?:revenue|cash|sales)\b",
 )
 
 NEXT_MONEY_PATTERNS = (
@@ -217,6 +225,9 @@ def route(question: str) -> dict[str, Any]:
     # "make money" is next-money unless the user is clearly diagnosing zero cash.
     if flags["wants_make_money_action"] and not flags["cash_diagnosis"]:
         flags["wants_next_money"] = True
+    # Diagnosis always wins over next-money leakage from "making money" tokens.
+    if flags["cash_diagnosis"]:
+        flags["wants_next_money"] = False
     gtm_hit = (
         flags["wants_gtm_positioning"]
         or flags["wants_gtm_pricing"]
@@ -229,7 +240,11 @@ def route(question: str) -> dict[str, Any]:
     # not when asking about the ban as policy.
     if flags["off_scope_hit"] and flags["wants_improve"] and not flags["wants_thumbgate_gtm"]:
         primary = INTENT_OFF_SCOPE
-    elif flags["wants_thumbgate_gtm"] and not flags["cash_diagnosis"]:
+    elif flags["cash_diagnosis"]:
+        # CEO "why aren't we making money from thumbgate?" is cash_truth, not a
+        # full GTM encyclopedia dump. Product mention alone must not steal this.
+        primary = INTENT_CASH
+    elif flags["wants_thumbgate_gtm"]:
         # Primary product first: any ThumbGate.app mention or monetize/market/
         # promote/sell/position question gets the expert GTM answer family.
         primary = INTENT_THUMBGATE_GTM
@@ -239,9 +254,6 @@ def route(question: str) -> dict[str, Any]:
         primary = INTENT_ECONOMICS
     elif flags["wants_scores"] and not flags["wants_next_money"]:
         primary = INTENT_SYSTEM_SCORES
-    elif flags["cash_diagnosis"] and not flags["wants_next_money"]:
-        # Pure "why zero / reassess" before generic money tokens steal next_money.
-        primary = INTENT_CASH
     elif flags["wants_next_money"] or flags["wants_improve"]:
         # Improve/continue always maps to money-path action, not vault rebuild.
         primary = INTENT_NEXT_MONEY if flags["wants_next_money"] else INTENT_IMPROVE

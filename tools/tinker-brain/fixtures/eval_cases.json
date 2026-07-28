@@ -66,6 +66,13 @@
       "must_not_contain": ["[CHANNELS]"]
     },
     {
+      "id": "why_not_making_money_thumbgate",
+      "question": "why we are not making money from thumbgate.app?",
+      "expect_route": "cash_truth",
+      "must_contain": ["external $0.00", "Why external cash is zero"],
+      "must_not_contain": ["[SALES_MOTION]", "[POSITIONING]", "[CHANNELS]"]
+    },
+    {
       "id": "next_money_action",
       "question": "What is the next money action?",
       "expect_route": "next_money",

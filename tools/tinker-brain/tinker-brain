@@ -1,0 +1,296 @@
+#!/usr/bin/env bash
+# tinker-brain: local Ollama agent scoped to ~/.hermes/business-brain.
+# Always refreshes snapshot, then answers from ANSWER_CARD with almost no tools
+# (prevents list_files thrash + invented DS/ML scores).
+#
+# Default answer path is deterministic (router + card). Local model is optional
+# and only used when TINKER_BRAIN_USE_OLLAMA=1 — money questions never wait 35s
+# on a timed-out Qwen call.
+set -euo pipefail
+
+# Home since 2026-07-28: mac-yolo-safeguards (skool_top1percent retired).
+REPO="${TINKER_BRAIN_ROOT:-/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards}"
+BRAIN="$REPO/tools/tinker-brain"
+# Mac Pro: tools/tinker-brain lives on epic/tinker-brain-thumbgate, which is not the
+# branch this checkout sits on. Fall back to the worktree pinned at that branch so the
+# brain works here without disturbing whatever the main checkout is mid-way through.
+if [[ ! -d "$BRAIN" ]]; then
+  for _cand in "$REPO/.worktrees/tinker-brain"; do
+    if [[ -d "$_cand/tools/tinker-brain" ]]; then REPO="$_cand"; BRAIN="$REPO/tools/tinker-brain"; break; fi
+  done
+fi
+EXPORT="$BRAIN/export_tinker_brain_snapshot.py"
+CONTRACT="$BRAIN/tinker_response_contract.py"
+ANSWER="$BRAIN/tinker_brain_answer.py"
+ROUTER="$BRAIN/tinker_brain_router.py"
+BACKEND_ROUTER="$BRAIN/agent_backend_router.py"
+ECONOMICS="$BRAIN/tinker_brain_economics.py"
+FINGERPRINT="$BRAIN/tinker_brain_fingerprint.py"
+ECON_OUT="$HOME/.hermes/receipts/tinker-brain/economics.json"
+SNAP_DIR="$HOME/.hermes/business-brain/data-snapshot"
+SNAP="$SNAP_DIR/business_snapshot.json"
+CARD="$SNAP_DIR/ANSWER_CARD.txt"
+
+if [[ -x /opt/homebrew/bin/python3 ]]; then
+  PY=/opt/homebrew/bin/python3
+elif [[ -x /usr/bin/python3 ]]; then
+  PY=/usr/bin/python3
+else
+  PY=python3
+fi
+
+LOG="$(mktemp "${TMPDIR:-/tmp}/tinker-brain-snapshot.XXXXXX")"
+chmod 600 "$LOG"
+SNAPSHOT_READY=0
+
+if [[ -f "$EXPORT" ]]; then
+  export PYTHONPATH="${BRAIN}:${PYTHONPATH:-}"
+  if "$PY" "$EXPORT" --out "$SNAP" >"$LOG" 2>&1 \
+    && "$PY" "$EXPORT" --check "$SNAP" >>"$LOG" 2>&1; then
+    SNAPSHOT_READY=1
+  elif [[ -f "$SNAP" ]] && "$PY" "$EXPORT" --check "$SNAP" >>"$LOG" 2>&1; then
+    SNAPSHOT_READY=1
+    echo "tinker-brain: live refresh failed; using last schema-valid snapshot" >&2
+  fi
+fi
+
+if [[ "$SNAPSHOT_READY" -ne 1 || ! -f "$CARD" ]]; then
+  rm -f "$LOG"
+  echo "tinker-brain: no validated ANSWER_CARD; refusing to invent business truth" >&2
+  exit 2
+fi
+rm -f "$LOG"
+
+record_economics() {
+  local mode="$1" model="$2" wall_ms="$3" contract_path="${4:-}"
+  # Normalize chat-mode alias before economics CLI validation.
+  if [[ "$mode" == "local_model_structured" ]]; then
+    mode="local_model"
+  fi
+  local econ_args=(--out "$ECON_OUT" --mode "$mode" --wall-ms "$wall_ms")
+  if [[ -n "$model" ]]; then
+    econ_args+=(--model "$model")
+  fi
+  if [[ -n "$contract_path" && -f "$contract_path" ]]; then
+    econ_args+=(--contract "$contract_path")
+  fi
+  if [[ -f "$ECONOMICS" ]]; then
+    if ! "$PY" "$ECONOMICS" "${econ_args[@]}" >/dev/null 2>&1; then
+      echo "tinker-brain: economics receipt logging failed (non-fatal, answer above is unaffected)" >&2
+    fi
+  fi
+  # Regression-triage observability: fingerprint model/prompts/docs/code per
+  # answer (backgrounded, best-effort — never delays or breaks the answer).
+  if [[ -f "$FINGERPRINT" ]]; then
+    ("$PY" "$FINGERPRINT" capture --question "${USER_Q:-}" >/dev/null 2>&1 &) || true
+  fi
+}
+
+# Safe interactive mode. Each question re-enters the one-shot path, refreshing
+# the snapshot and applying the response contract before anything is printed.
+# Bare invocation (no args) drops into chat, matching claude/codex/grok-yolo
+# CLI UX; pass a question string for the scriptable one-shot path instead.
+if [[ "${1:-}" == "--chat" || $# -eq 0 ]]; then
+  [[ "${1:-}" == "--chat" ]] && shift
+  echo "tinker-brain validated chat: ThumbGate.app revenue scope (Skool/Reddit acquisition); deterministic card default; /exit to quit" >&2
+  if [[ "${TINKER_BRAIN_USE_OLLAMA:-0}" == "1" ]]; then
+    echo "tinker-brain: Ollama paraphrase ON (TINKER_BRAIN_USE_OLLAMA=1); can take ~35s before card fallback" >&2
+  fi
+  while IFS= read -r -p "tinker> " QUESTION; do
+    case "$QUESTION" in
+      /exit|/quit) exit 0 ;;
+      /clear) continue ;;
+      "") continue ;;
+      *)
+        TINKER_BRAIN_CHAT_MODE=1 "$0" "$QUESTION"
+        # Drain input buffered while the answer was generating (e.g. from
+        # impatient Enter presses during the silent wait) so the next
+        # prompt doesn't print a pile of empty "tinker>" lines.
+        #
+        # Portability:
+        # - macOS /usr/bin/env bash is often 3.2 → `read -t 0.05` errors with
+        #   "invalid timeout specification" (fractional timeouts need bash 4+).
+        # - bash 3.2 `read -t 0` never fires as non-blocking either.
+        # So: fractional drain only on bash 4+; otherwise a one-shot Python
+        # select() drain (0.05s) that never calls bash `read -t`.
+        if [ "${BASH_VERSINFO[0]:-0}" -ge 4 ]; then
+          while IFS= read -r -t 0.05 _DRAIN; do :; done
+        else
+          "$PY" - <<'PY' 2>/dev/null || true
+import select, sys
+while True:
+    r, _, _ = select.select([sys.stdin], [], [], 0.05)
+    if not r:
+        break
+    if not sys.stdin.readline():
+        break
+PY
+        fi
+        ;;
+    esac
+  done
+  exit 0
+fi
+
+# Card-first path: tiny models answer without list_files loops.
+CARD_TEXT="$(cat "$CARD")"
+USER_Q="${*:-Re-assess: cash, SYSTEM_SCORES, top decisions, next money action.}"
+
+# Fast path (default for scripted one-shot calls): pure print of card + forced
+# template. No Ollama wait. Set TINKER_BRAIN_USE_OLLAMA=1 to force the old
+# tinker-yolo-agent path for a one-shot call, or TINKER_BRAIN_CHAT_MODE=1 with
+# TINKER_BRAIN_USE_OLLAMA=1 to use the structured local-model path.
+render_deterministic() {
+  echo "### TINKER-BRAIN (validated deterministic answer · router + card)"
+  echo
+  if [[ -f "$ANSWER" ]]; then
+    "$PY" "$ANSWER" --card "$CARD" --question "$USER_Q"
+  else
+    "$PY" "$CONTRACT" --card "$CARD" --question "$USER_Q" --render
+  fi
+}
+
+# Intent-aware + benchmark-driven: never pay 35s timeout tax on known-hung models.
+# Shared selector: scripts/revenue_ops/agent_backend_router.py
+should_skip_ollama() {
+  if [[ "${TINKER_BRAIN_USE_OLLAMA:-0}" != "1" ]]; then
+    return 0
+  fi
+  # Standing benchmarks: skip Ollama before hanging when model is timeout_prone.
+  if [[ -f "$BACKEND_ROUTER" ]]; then
+    local sel try_ollama
+    sel="$("$PY" "$BACKEND_ROUTER" select --force-ollama --model "${TINKER_BRAIN_MODEL:-qwen3-hermes-tinker-toolfix:q4}" 2>/dev/null || true)"
+    try_ollama="$(printf '%s' "$sel" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); print("1" if d.get("try_ollama") else "0")' 2>/dev/null || echo 1)"
+    if [[ "$try_ollama" != "1" ]]; then
+      echo "tinker-brain: backend_router skipped Ollama ($(printf '%s' "$sel" | "$PY" -c 'import json,sys; print(json.load(sys.stdin).get("reason",""))' 2>/dev/null))" >&2
+      return 0
+    fi
+  fi
+  if [[ ! -f "$ROUTER" ]]; then
+    return 1
+  fi
+  local primary
+  primary="$("$PY" "$ROUTER" "$USER_Q" 2>/dev/null || echo general_card)"
+  case "$primary" in
+    cash_truth|next_money|improve_now|system_scores|thumbgate_gtm|off_scope_refuse|general_card)
+      # Still prefer card for grounded business truth even if Ollama requested.
+      # ThumbGate GTM answers come from the expert card deterministically.
+      # Only methods/economics benefit from freeform paraphrase.
+      return 0
+      ;;
+    model_economics|ml_methods)
+      return 1
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
+if [[ "${TINKER_BRAIN_CHAT_MODE:-0}" == "1" ]]; then
+  START_NS="$("$PY" -c 'import time; print(time.monotonic_ns())')"
+
+  if should_skip_ollama; then
+    END_NS="$("$PY" -c 'import time; print(time.monotonic_ns())')"
+    WALL_MS="$("$PY" -c 'import sys; print(round(max(0, int(sys.argv[2]) - int(sys.argv[1])) / 1_000_000, 3))' "$START_NS" "$END_NS")"
+    render_deterministic
+    record_economics deterministic "" "$WALL_MS"
+    exit 0
+  fi
+
+  MODEL="${TINKER_BRAIN_MODEL:-qwen3-hermes-tinker-toolfix:q4}"
+  STRUCTURED_ANSWER="$HOME/.hermes/business-brain/tinker_brain_structured_answer.py"
+  LLM_RESULT="$(mktemp "${TMPDIR:-/tmp}/tinker-brain-llm.XXXXXX")"
+  chmod 600 "$LLM_RESULT"
+  trap 'rm -f "$LLM_RESULT"' EXIT
+
+  echo "tinker-brain: thinking... (optional local model; up to ~35s before card fallback)" >&2
+  MODEL_OK=0
+  if [[ -f "$STRUCTURED_ANSWER" ]] \
+    && "$PY" "$STRUCTURED_ANSWER" --card "$CARD" --question "$USER_Q" --model "$MODEL" --json >"$LLM_RESULT" 2>/dev/null \
+    && "$PY" -c "import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get('ok') else 1)" "$LLM_RESULT"; then
+    MODEL_OK=1
+  fi
+  END_NS="$("$PY" -c 'import time; print(time.monotonic_ns())')"
+  WALL_MS="$("$PY" -c 'import sys; print(round(max(0, int(sys.argv[2]) - int(sys.argv[1])) / 1_000_000, 3))' "$START_NS" "$END_NS")"
+  record_economics local_model "$MODEL" "$WALL_MS"
+
+  if [[ "$MODEL_OK" -eq 1 ]]; then
+    if [[ -f "$BACKEND_ROUTER" ]]; then
+      "$PY" "$BACKEND_ROUTER" record-ok --model "$MODEL" --latency-ms "$WALL_MS" >/dev/null 2>&1 || true
+    fi
+    "$PY" -c "import json; print(json.load(open('$LLM_RESULT'))['answer']['answer'])"
+    exit 0
+  fi
+
+  REASON="$("$PY" -c "import json; print(json.load(open('$LLM_RESULT')).get('reason', 'no_response'))" 2>/dev/null || echo "no_response")"
+  # Standing benchmark: if we timed out, skip this model for ~45m next time.
+  if [[ -f "$BACKEND_ROUTER" ]] && printf '%s' "$REASON" | grep -qiE 'timed? ?out|timeout|unavailable|degraded'; then
+    "$PY" "$BACKEND_ROUTER" record-timeout --model "$MODEL" --minutes 45 --reason "$REASON" >/dev/null 2>&1 || true
+  fi
+  echo "tinker-brain: local model unavailable right now (${REASON}); showing deterministic card" >&2
+  render_deterministic
+  exit 0
+fi
+
+if [[ "${TINKER_BRAIN_USE_OLLAMA:-0}" != "1" ]]; then
+  record_economics deterministic "" 0
+  render_deterministic
+  exit 0
+fi
+
+MODEL="${TINKER_BRAIN_MODEL:-qwen3-hermes-tinker-toolfix:q4}"
+PROMPT="$(cat <<EOF
+You are tinker-brain, the ThumbGate.app revenue brain. ZERO tools preferred.
+The live ANSWER_CARD is pasted below.
+Primary product: ThumbGate.app (free Hermes web control plane + paid Continuity
+add-on). Answer monetize/market/promote/sell questions from the THUMBGATE_*
+card fields. Acquisition channels stay Skool and Reddit.
+Copy AS_OF, EXTERNAL_USD, OWNER_TEST_USD, SYSTEM_SCORES exactly.
+Never invent DS/ML scores (e.g. 88/100). Never sum owner_test into external cash.
+Never pitch Continuity as a rescue/fallback for Hermes Mobile; never conflate
+ThumbGate.app with the separate \$19 firewall product.
+Never authorize private conversion without explicit buyer interest.
+Answer the user question in the required format.
+
+=== ANSWER_CARD ===
+${CARD_TEXT}
+=== END CARD ===
+
+User: ${USER_Q}
+EOF
+)"
+
+RESPONSE="$(mktemp "${TMPDIR:-/tmp}/tinker-brain-response.XXXXXX")"
+CONTRACT_LOG="$(mktemp "${TMPDIR:-/tmp}/tinker-brain-contract.XXXXXX")"
+chmod 600 "$RESPONSE" "$CONTRACT_LOG"
+trap 'rm -f "$RESPONSE" "$CONTRACT_LOG"' EXIT
+
+START_NS="$("$PY" -c 'import time; print(time.monotonic_ns())')"
+MODEL_OK=0
+if TINKER_BRAIN_WRAPPER_INTERNAL=1 tinker-yolo-safe agent \
+  --model "$MODEL" \
+  --workspace "$HOME/.hermes/business-brain" \
+  --max-turns "${TINKER_BRAIN_MAX_TURNS:-3}" \
+  --max-tool-calls "${TINKER_BRAIN_MAX_TOOL_CALLS:-2}" \
+  --request-timeout "${TINKER_BRAIN_TIMEOUT:-90}" \
+  --no-computer-use \
+  "$PROMPT" >"$RESPONSE"; then
+  MODEL_OK=1
+fi
+END_NS="$("$PY" -c 'import time; print(time.monotonic_ns())')"
+WALL_MS="$("$PY" -c 'import sys; print(round(max(0, int(sys.argv[2]) - int(sys.argv[1])) / 1_000_000, 3))' "$START_NS" "$END_NS")"
+
+CONTRACT_OK=0
+if [[ "$MODEL_OK" -eq 1 && -f "$CONTRACT" ]] && "$PY" "$CONTRACT" \
+    --card "$CARD" --question "$USER_Q" --response "$RESPONSE" >"$CONTRACT_LOG"; then
+  CONTRACT_OK=1
+fi
+record_economics local_model "$MODEL" "$WALL_MS" "$CONTRACT_LOG"
+if [[ "$CONTRACT_OK" -eq 1 ]]; then
+  cat "$RESPONSE"
+  exit 0
+fi
+
+echo "tinker-brain: model answer failed the evidence contract; returning deterministic card" >&2
+render_deterministic

@@ -57,7 +57,7 @@ Paid users default failover_mode=auto so Continuity actually fires; denied claim
 GTM checklist: 3 design partners dogfooding offline Continuity; public canary/status page; hero stack = free dashboard -> paid Continuity -> store badges -> pairing diagram.
 
 [KNOWN_GAPS]
-External revenue $0 as of 2026-07-20; only 1 paid org (own workspace); no external paid customer receipt.
+External revenue $0 as of 2026-07-28 (fail-closed; Stripe receipt missing or unverified until reconcile_stripe_revenue_receipt.py runs with STRIPE_SECRET_KEY); only 1 paid org (own workspace); no external paid customer receipt.
 55% activation / 18% trial-conversion figures are secondary-source hypotheses, not measured truth; funnel has ~2 internal accounts.
 Same-day canaries pass but no 30-day SLO; ~10 completed / 5 failed tasks all-time; 150s local-timeout class open; Mac-only tool gap on cloud runner is top churn risk.
 Play installs "0+", iOS 0 ratings (2026-07-25); channel reach unproven; AEO monitor is a citation proxy, not real AI Overview telemetry.

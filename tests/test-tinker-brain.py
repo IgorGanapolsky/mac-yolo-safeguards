@@ -17,6 +17,7 @@ BRAIN = REPO / "tools" / "tinker-brain"
 sys.path.insert(0, str(BRAIN))
 
 import export_tinker_brain_snapshot as exporter  # noqa: E402
+import reconcile_stripe_revenue_receipt as stripe_reconcile  # noqa: E402
 import tinker_brain_economics as economics  # noqa: E402
 import tinker_brain_fingerprint as fingerprint  # noqa: E402
 from tinker_brain_answer import answer, load_expert_card  # noqa: E402
@@ -52,6 +53,18 @@ class RouterTest(unittest.TestCase):
             route("Improve Obsidian vault sync with Dropbox and TensorFlow")["primary"],
             INTENT_OFF_SCOPE,
         )
+
+    def test_why_not_making_money_is_cash_truth_not_gtm_dump(self):
+        for question in (
+            "why we are not making money from thumbgate.app?",
+            "Why aren't we making money from ThumbGate?",
+            "why is there no revenue from thumbgate.app",
+            "why no external cash",
+        ):
+            r = route(question)
+            self.assertEqual(r["primary"], "cash_truth", question)
+            self.assertTrue(r["flags"]["cash_diagnosis"], question)
+            self.assertFalse(r["flags"]["wants_next_money"], question)
 
 
 class AnswerTest(unittest.TestCase):
@@ -117,12 +130,81 @@ class ContractTest(unittest.TestCase):
         )
 
 
+class StripeReconcileTest(unittest.TestCase):
+    def test_resolve_key_from_env(self):
+        key, source = stripe_reconcile.resolve_stripe_key(
+            env={"STRIPE_SECRET_KEY": "sk_test_abc"}, repo=REPO
+        )
+        self.assertEqual(key, "sk_test_abc")
+        self.assertEqual(source, "env:STRIPE_SECRET_KEY")
+
+    def test_resolve_key_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            key, source = stripe_reconcile.resolve_stripe_key(env={}, repo=pathlib.Path(tmp))
+        self.assertIsNone(key)
+        self.assertEqual(source, "none")
+
+    def test_reconcile_classifies_owner_vs_external(self):
+        class FakeResp:
+            def __init__(self, payload):
+                self._payload = payload
+
+            def read(self):
+                return json.dumps(self._payload).encode("utf-8")
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+        def fake_open(req, timeout=20.0):  # noqa: ARG001
+            return FakeResp(
+                {
+                    "data": [
+                        {
+                            "id": "in_owner",
+                            "amount_paid": 1000,
+                            "customer": {"email": "iganapolsky@gmail.com"},
+                        },
+                        {
+                            "id": "in_buyer",
+                            "amount_paid": 4900,
+                            "customer": {"email": "buyer@acme.dev"},
+                        },
+                        {
+                            "id": "in_unknown",
+                            "amount_paid": 500,
+                            "customer": {"id": "cus_x"},
+                        },
+                    ],
+                    "has_more": False,
+                }
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = pathlib.Path(tmp) / "revenue-receipt.json"
+            result = stripe_reconcile.reconcile(
+                out=out,
+                env={"STRIPE_SECRET_KEY": "sk_test_fake"},
+                opener=fake_open,
+            )
+            self.assertTrue(result["ok"], result)
+            self.assertEqual(result["external_net_cents"], 4900)
+            self.assertEqual(result["owner_test_net_cents"], 1500)  # owner + unknown fail-closed
+            receipt = json.loads(out.read_text(encoding="utf-8"))
+            self.assertTrue(receipt["verified"])
+            self.assertEqual(receipt["source"], "stripe_reconciliation")
+            self.assertEqual(receipt["external_customer_domains_sample"], ["acme.dev"])
+
+
 class ExporterTest(unittest.TestCase):
     STUBS = dict(
         health={"ok": True, "status": "ok", "error": None, "url": "stub"},
         billing={"ok": True, "price_cents": 1000, "price_usd": 10.0, "error": None, "url": "stub"},
         revenue={
             "has_receipt": False,
+            "verified": False,
             "external_net_cents": 0,
             "owner_test_net_cents": 0,
             "reconciled_at": None,
@@ -157,6 +239,7 @@ class ExporterTest(unittest.TestCase):
         stubs = dict(self.STUBS)
         stubs["revenue"] = {
             "has_receipt": True,
+            "verified": True,
             "external_net_cents": 4900,
             "owner_test_net_cents": 0,
             "reconciled_at": "2026-07-28T00:00:00Z",
@@ -167,6 +250,44 @@ class ExporterTest(unittest.TestCase):
         self.assertEqual(snap["cash"]["external_net_usd"], 49.0)
         self.assertIn("verified at $49.00", snap["cash"]["why_external_zero_if_zero"])
 
+    def test_stripe_reconciled_zero_is_not_file_missing(self):
+        stubs = dict(self.STUBS)
+        stubs["revenue"] = {
+            "has_receipt": True,
+            "verified": True,
+            "external_net_cents": 0,
+            "owner_test_net_cents": 1000,
+            "reconciled_at": "2026-07-28T00:00:00Z",
+            "source": "stripe_reconciliation",
+            "path": "stub",
+            "external_invoice_count": 0,
+            "owner_invoice_count": 1,
+        }
+        snap = exporter.build_snapshot(**stubs)
+        why = snap["cash"]["why_external_zero_if_zero"]
+        self.assertIn("Stripe-reconciled", why)
+        self.assertNotIn("no revenue receipt exists", why)
+        self.assertIn("owner_test_invoices=1", why)
+
+    def test_refresh_expert_card_stamps_as_of_and_cash_gap(self):
+        src = (
+            "THUMBGATE_EXPERT_CARD v1\n"
+            "AS_OF_RESEARCH: 2026-07-20\n"
+            "[KNOWN_GAPS]\n"
+            "External revenue $0 as of 2026-07-20; only 1 paid org.\n"
+            "Other gap line stays.\n"
+        )
+        out = exporter.refresh_expert_card_text(
+            src,
+            as_of="2026-07-28T13:00:00Z",
+            external_usd=0.0,
+            revenue_verified=True,
+        )
+        self.assertIn("AS_OF_RESEARCH: 2026-07-28", out)
+        self.assertIn("Stripe-reconciled receipt", out)
+        self.assertIn("Other gap line stays.", out)
+        self.assertNotIn("as of 2026-07-20", out)
+
     def test_unreachable_probes_fail_soft(self):
         stubs = dict(self.STUBS)
         stubs["health"] = {"ok": False, "status": "unreachable", "error": "URLError", "url": "stub"}
@@ -174,6 +295,9 @@ class ExporterTest(unittest.TestCase):
         snap = exporter.build_snapshot(**stubs)
         self.assertIn("unreachable", snap["live"]["live_price_line"])
         self.assertIn("never hard-code", snap["live"]["live_price_line"])
+
+    def test_probe_timeout_is_not_two_seconds(self):
+        self.assertGreaterEqual(exporter.PROBE_TIMEOUT_S, 5.0)
 
 
 class FingerprintTest(unittest.TestCase):

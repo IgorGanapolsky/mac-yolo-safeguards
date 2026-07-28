@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import tempfile
 import urllib.error
@@ -36,7 +37,9 @@ DEFAULT_OUT = (
 )
 HEALTH_URL = "https://thumbgate.app/api/health"
 BILLING_URL = "https://thumbgate.app/api/billing/plan"
-PROBE_TIMEOUT_S = 2.0
+# 2s was timing out under load and left THUMBGATE_LIVE_PRICE=TimeoutError while
+# a normal curl still succeeded — prefer a slower but honest live readback.
+PROBE_TIMEOUT_S = 8.0
 
 
 def utc_now() -> str:
@@ -114,19 +117,39 @@ def probe_billing() -> dict[str, Any]:
     }
 
 
+def maybe_reconcile_stripe(skip: bool = False) -> dict[str, Any] | None:
+    """Best-effort Stripe → revenue-receipt.json. Never raises; never logs secrets."""
+    if skip or os.environ.get("TINKER_SKIP_STRIPE_RECONCILE", "").strip() in {"1", "true", "yes"}:
+        return None
+    try:
+        from reconcile_stripe_revenue_receipt import reconcile  # noqa: WPS433 — same package dir
+    except ImportError:
+        return None
+    try:
+        return reconcile(out=REVENUE_RECEIPT)
+    except Exception:  # noqa: BLE001 — export must not die on reconcile bugs
+        return {"ok": False, "error": "reconcile_exception"}
+
+
 def load_revenue_receipt() -> dict[str, Any]:
     """Verified cash truth. Absent receipt = $0 external, honestly."""
     receipt = load_json(REVENUE_RECEIPT)
     external_cents = receipt.get("external_net_cents")
     owner_cents = receipt.get("owner_test_net_cents")
     has_receipt = isinstance(external_cents, int)
+    verified = bool(receipt.get("verified")) or (
+        str(receipt.get("source") or "").startswith("stripe_reconciliation")
+    )
     return {
         "has_receipt": has_receipt,
+        "verified": verified and has_receipt,
         "external_net_cents": int(external_cents) if has_receipt else 0,
         "owner_test_net_cents": int(owner_cents) if isinstance(owner_cents, int) else 0,
         "reconciled_at": receipt.get("reconciled_at"),
         "source": receipt.get("source") or ("receipt_missing" if not has_receipt else "unknown"),
         "path": str(REVENUE_RECEIPT),
+        "external_invoice_count": receipt.get("external_invoice_count"),
+        "owner_invoice_count": receipt.get("owner_invoice_count"),
     }
 
 
@@ -162,20 +185,39 @@ def build_snapshot(
             f"(source={revenue.get('source')}; reconciled_at={revenue.get('reconciled_at')}). "
             "Grow it: ship the campaign beat, convert design partners, keep Continuity honest."
         )
-    elif revenue.get("has_receipt"):
+    elif revenue.get("verified") or (
+        revenue.get("has_receipt")
+        and str(revenue.get("source") or "").startswith("stripe_reconciliation")
+    ):
+        inv_ext = revenue.get("external_invoice_count")
+        inv_own = revenue.get("owner_invoice_count")
+        inv_bit = ""
+        if isinstance(inv_ext, int) or isinstance(inv_own, int):
+            inv_bit = (
+                f" Stripe paid-invoice scan: external_invoices={inv_ext or 0}, "
+                f"owner_test_invoices={inv_own or 0}."
+            )
         why_zero = (
             "No non-owner buyer completed a ThumbGate.app subscription payment "
-            f"(verified by receipt source={revenue.get('source')}, "
-            f"reconciled_at={revenue.get('reconciled_at')}). Funnel reach is unproven "
-            "(store installs ~0, ~2 internal accounts); the lever is distribution + "
-            "design partners, not new SKUs."
+            f"(Stripe-reconciled source={revenue.get('source')}, "
+            f"reconciled_at={revenue.get('reconciled_at')}).{inv_bit} Funnel reach is "
+            "unproven (~2 internal accounts); the lever is the daily campaign beat + "
+            "3 Continuity design partners, not new SKUs."
+        )
+    elif revenue.get("has_receipt"):
+        why_zero = (
+            "No non-owner buyer payment is recorded in the local revenue receipt "
+            f"(source={revenue.get('source')}, reconciled_at={revenue.get('reconciled_at')}). "
+            "Funnel reach is unproven; the lever is distribution + design partners."
         )
     else:
         why_zero = (
-            "No non-owner buyer payment is verifiable: no revenue receipt exists at "
-            "~/.hermes/receipts/tinker-brain/revenue-receipt.json, so external cash is "
-            "$0 by fail-closed rule (never invent cash). Funnel reach is unproven; the "
-            "lever is the daily campaign beat + 3 Continuity design partners."
+            "No non-owner buyer payment is verifiable: no Stripe-reconciled revenue receipt "
+            "at ~/.hermes/receipts/tinker-brain/revenue-receipt.json, so external cash is "
+            "$0 by fail-closed rule (never invent cash). Run "
+            "`python3 tools/tinker-brain/reconcile_stripe_revenue_receipt.py` with "
+            "STRIPE_SECRET_KEY so $0 means Stripe-empty, not file-missing. Funnel reach is "
+            "unproven; the lever is the daily campaign beat + 3 Continuity design partners."
         )
 
     if billing.get("ok") and billing.get("price_usd") is not None:
@@ -366,10 +408,64 @@ def write_snapshot(out: Path, payload: dict[str, Any]) -> None:
     if EXPERT_SRC.is_file():
         expert_dst = out.parent / "THUMBGATE_EXPERT_CARD.txt"
         try:
-            shutil.copyfile(EXPERT_SRC, expert_dst)
+            refreshed = refresh_expert_card_text(
+                EXPERT_SRC.read_text(encoding="utf-8"),
+                as_of=str(payload.get("exported_at") or utc_now()),
+                external_usd=float(cash.get("external_net_usd") or 0.0),
+                revenue_verified=bool((cash.get("receipt") or {}).get("verified")),
+            )
+            expert_dst.write_text(refreshed, encoding="utf-8")
             expert_dst.chmod(0o600)
         except OSError:
-            pass  # answer path falls back to the repo copy
+            try:
+                shutil.copyfile(EXPERT_SRC, expert_dst)
+                expert_dst.chmod(0o600)
+            except OSError:
+                pass  # answer path falls back to the repo copy
+
+
+def refresh_expert_card_text(
+    text: str,
+    *,
+    as_of: str,
+    external_usd: float,
+    revenue_verified: bool,
+) -> str:
+    """Stamp export-time AS_OF and cash KNOWN_GAPS so the card does not drift days behind."""
+    day = (as_of or utc_now())[:10]
+    out = text
+    if re.search(r"^AS_OF_RESEARCH:\s*.+$", out, flags=re.M):
+        out = re.sub(
+            r"^AS_OF_RESEARCH:\s*.+$",
+            f"AS_OF_RESEARCH: {day} (export-stamped; research corpus July 2026)",
+            out,
+            count=1,
+            flags=re.M,
+        )
+    else:
+        out = f"AS_OF_RESEARCH: {day}\n" + out
+
+    cash_line = (
+        f"External revenue ${external_usd:.2f} as of {day}"
+        + (
+            " (Stripe-reconciled receipt)"
+            if revenue_verified
+            else " (fail-closed; Stripe receipt missing or unverified)"
+        )
+        + "; only non-owner Stripe paid counts; no invented cash."
+    )
+    # Replace the first KNOWN_GAPS external-revenue bullet if present; else insert after header.
+    known_pat = re.compile(
+        r"(^\[KNOWN_GAPS\]\s*\n)([^\n]*External revenue[^\n]*\n)?",
+        flags=re.M,
+    )
+
+    def _sub_known(match: re.Match[str]) -> str:
+        return f"{match.group(1)}{cash_line}\n"
+
+    if known_pat.search(out):
+        out = known_pat.sub(_sub_known, out, count=1)
+    return out
 
 
 def validate_snapshot(path: Path) -> list[str]:
@@ -406,12 +502,18 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, default=None)
     parser.add_argument("--check", type=Path, default=None)
+    parser.add_argument(
+        "--skip-stripe-reconcile",
+        action="store_true",
+        help="Do not attempt Stripe reconcile before loading the revenue receipt",
+    )
     args = parser.parse_args()
     if args.check is not None:
         errors = validate_snapshot(args.check)
         print(json.dumps({"ok": not errors, "errors": errors, "path": str(args.check)}, indent=2))
         return 0 if not errors else 2
     out = args.out or DEFAULT_OUT
+    reconcile_result = maybe_reconcile_stripe(skip=args.skip_stripe_reconcile)
     payload = build_snapshot()
     write_snapshot(out, payload)
     print(
@@ -424,6 +526,8 @@ def main() -> int:
                 "health_ok": bool(payload["live"]["health"].get("ok")),
                 "billing_ok": bool(payload["live"]["billing"].get("ok")),
                 "revenue_receipt": payload["cash"]["receipt"].get("has_receipt"),
+                "revenue_verified": payload["cash"]["receipt"].get("verified"),
+                "stripe_reconcile": reconcile_result,
             },
             indent=2,
         )
