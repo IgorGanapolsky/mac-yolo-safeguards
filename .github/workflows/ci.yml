@@ -218,6 +218,17 @@ jobs:
       - name: Publication readiness
         run: node tools/publication-readiness.js
 
+      # ML integrity (fail-closed) — offline platform bar; does not require Stripe/labels.
+      - name: ML integrity + platform gate
+        run: |
+          set -eu
+          node tests/test-ml-stack.js
+          node tests/test-ml-best-in-class.js
+          node tests/test-ml-integrity.js
+          ML_GATE_SKIP_UNIT=1 node tools/ml-gate.js --strict-platform
+          node tools/ml-integrity.js scan-claim --text "platform ready; production_ml_ready=false"
+          ! node tools/ml-integrity.js scan-claim --text "best-in-class production ML model with 100% auc"
+
   mobile-checks:
     name: Hermes Mobile typecheck and tests
     runs-on: ubuntu-latest
