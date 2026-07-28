@@ -85,7 +85,7 @@ export function PromptFeedbackModal({
               overflowY: 'auto',
             }}
           >
-            "{messageSnippet}"
+            &quot;{messageSnippet}&quot;
           </div>
         )}
 

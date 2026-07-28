@@ -82,6 +82,7 @@ export function ThreadSidebar({
         }}
       >
         <div style={{ fontWeight: 700, fontSize: '15px', display: 'flex', alignItems: 'center', gap: '10px', letterSpacing: '-0.02em' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/thumbgate-mark-inline-v3.svg" alt="ThumbGate" style={{ width: '22px', height: '22px' }} />
           <span>Chat Threads</span>
         </div>
