@@ -18,8 +18,10 @@ Implements the durable parts of [Cursor’s agent-swarm model economics](https:/
 | `node tools/agent-swarm-harness.js where-is-auth --task "..."` | Toolbox + identity + host/gates for this task |
 | `node tools/agent-swarm-harness.js worker-toolbox --task "..."` | Thin worker prompt: entrypoints only (no skill soup) |
 | `node tools/agent-swarm-harness.js doctor` | Context diet / harness doctor (always-on token est + redundant findings) |
-| `node tools/agent-swarm-harness.js eval-abilities` | Ability catalog (instruction / env / verifier) |
+| `node tools/agent-swarm-harness.js eval-abilities` | Ability catalog (instruction / env / verifier / match) |
 | `node tools/agent-swarm-harness.js propose-eval --task "..."` | Fail → durable eval stub (`--write` under `evals/`) |
+| `node tools/agent-swarm-harness.js eval-mine` | Mine continuous E2E + harness trace + plan thrash → proposals |
+| `node tools/agent-swarm-harness.js eval-check` | Catalog integrity + failure→ability routing smoke |
 | `node tools/agent-swarm-harness.js sre-autonomy` | SRE subsystems: detect → act → verify |
 | `node tools/agent-swarm-harness.js sre-act --subsystem ID` | Health-freshness gate before remediate |
 | `node tools/revenue-local-draft.js` | Open-weights follow-up draft (template fallback; no send) |
