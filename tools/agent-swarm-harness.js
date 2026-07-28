@@ -15,6 +15,9 @@
  *   - frontier-model session contract + effort step-down (Fable/GPT-5.6 Sol patterns, 2026-07)
  *   - state-layer policy + where-is-state checks (stateless vs shared-stateful vs session-stateful, 2026-07)
  *   - toolbox policy + where-is-auth (auth on pack not agent; Foundry toolbox pattern, 2026-07)
+ *   - context diet / harness doctor (Claude 5 progressive disclosure, 2026-07)
+ *   - eval ability policy + fail→eval stubs (LangChain eval engineering, 2026-07)
+ *   - SRE autonomy act→verify gates (Dynatrace-style AI ops, 2026-07)
  *
  * Usage:
  *   node tools/agent-swarm-harness.js [--json] [--plan path] [--role planner|worker]
@@ -28,6 +31,11 @@
  *   node tools/agent-swarm-harness.js toolboxes [--json]
  *   node tools/agent-swarm-harness.js where-is-auth [--json] [--task "..."]
  *   node tools/agent-swarm-harness.js worker-toolbox [--json] [--task "..."]
+ *   node tools/agent-swarm-harness.js doctor [--json]
+ *   node tools/agent-swarm-harness.js eval-abilities [--json]
+ *   node tools/agent-swarm-harness.js propose-eval --task "..." [--json]
+ *   node tools/agent-swarm-harness.js sre-autonomy [--json]
+ *   node tools/agent-swarm-harness.js sre-act --subsystem ID [--json]
  */
 
 const fs = require('fs');
@@ -60,6 +68,20 @@ const TOOLBOX_SOURCE = Object.freeze({
   label: 'Toolboxes in Microsoft Foundry (auth on toolbox, not agent, 2026-07)',
   url: 'https://devblogs.microsoft.com/foundry/building-agents-that-act-on-your-behalf-with-toolboxes-in-foundry/',
 });
+const CONTEXT_DIET_SOURCE = Object.freeze({
+  label: 'Context engineering for Claude 5 generation (Anthropic, 2026-07)',
+  url: 'https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models',
+});
+const EVAL_ABILITY_SOURCE = Object.freeze({
+  label: 'Towards Automating Eval Engineering (LangChain, 2026-07)',
+  url: 'https://www.langchain.com/blog/towards-automating-eval-engineering/',
+});
+const SRE_AUTONOMY_SOURCE = Object.freeze({
+  label: 'Autonomous SRE agents / AI ops hardest part (TNS + Dynatrace framing, 2026-07)',
+  url: 'https://thenewstack.io/dynatrace-autonomous-sre-agents/',
+});
+const HEALTH_MAX_AGE_MS = 15 * 60 * 1000;
+const EVALS_DIR = path.join(REPO, 'evals');
 
 /** Trace file for execution tracing (MonitoredAgent pattern). */
 const TRACE_FILE = path.join(REPO, '.harness-trace.jsonl');
@@ -873,6 +895,420 @@ function buildWhereIsAuthActions(access, host, classified) {
 }
 
 /**
+ * Approximate token estimate (~4 chars/token) for always-on context budget.
+ * @param {string} text
+ */
+function estimateTokens(text) {
+  const s = String(text || '');
+  if (!s) return 0;
+  return Math.ceil(s.length / 4);
+}
+
+/**
+ * Patterns that should live once in SessionContract / gates — not restated in AGENTS/skills.
+ */
+function contextDietRedundantPatterns() {
+  return [
+    { id: 'agent_mode_lecture', re: /I am in agent mode|always agent mode|never ask mode/i, drop: true },
+    { id: 'keep_it_brief', re: /keep it brief|be concise|be brief(?!.*keep)/i, drop: true },
+    { id: 'adjective_done', re: /high quality|looks good|ship when ready/i, drop: true },
+    { id: 'full_never_list_dump', re: /Never-list|restate full AGENTS/i, drop: true },
+    { id: 'chat_as_coord', re: /chat (transcript|window) as.*(coord|source of truth)|coordination bus/i, drop: true },
+  ];
+}
+
+/**
+ * Context diet / harness doctor (Claude 5 progressive disclosure).
+ * Flags always-on bloat and lines that restate SessionContract drops.
+ *
+ * @param {{ repo?: string, role?: string }} [opts]
+ */
+function contextDietReport({ repo = REPO, role = 'worker' } = {}) {
+  const contract = sessionContract(role);
+  const files = [
+    { id: 'AGENTS.md', path: path.join(repo, 'AGENTS.md'), alwaysOn: true },
+    { id: 'field-guide', path: path.join(repo, 'docs/agent-field-guide/index.md'), alwaysOn: true },
+    { id: 'CLAUDE.md', path: path.join(repo, 'CLAUDE.md'), alwaysOn: false },
+  ];
+  const findings = [];
+  let alwaysOnChars = 0;
+  let alwaysOnTokens = 0;
+  const patterns = contextDietRedundantPatterns();
+
+  for (const file of files) {
+    if (!fs.existsSync(file.path)) {
+      findings.push({
+        severity: 'info',
+        file: file.id,
+        message: 'missing (ok if intentional)',
+      });
+      continue;
+    }
+    const body = fs.readFileSync(file.path, 'utf8');
+    const tokens = estimateTokens(body);
+    const lines = body.split('\n');
+    if (file.alwaysOn) {
+      alwaysOnChars += body.length;
+      alwaysOnTokens += tokens;
+    }
+    if (file.id === 'field-guide' && lines.length > FIELD_GUIDE_LINE_BUDGET) {
+      findings.push({
+        severity: 'warn',
+        file: file.id,
+        message: `Field Guide ${lines.length} lines > budget ${FIELD_GUIDE_LINE_BUDGET}`,
+      });
+    }
+    for (const pat of patterns) {
+      const hitLines = [];
+      lines.forEach((line, idx) => {
+        if (pat.re.test(line)) hitLines.push(idx + 1);
+      });
+      if (hitLines.length > 0) {
+        findings.push({
+          severity: file.alwaysOn ? 'warn' : 'info',
+          file: file.id,
+          pattern: pat.id,
+          lines: hitLines.slice(0, 8),
+          message: `Restates SessionContract-style ${pat.id} — prefer progressive disclosure / drop list`,
+        });
+      }
+    }
+  }
+
+  // Prefer worker inject size: contract + toolbox sample + field guide budget
+  const thinWorker = [
+    JSON.stringify(contract.keep),
+    JSON.stringify(contract.drop),
+    workerToolboxPrompt('plan.md claim harness leaf', { role }).prompt,
+  ].join('\n');
+  const thinTokens = estimateTokens(thinWorker);
+  const ok = alwaysOnTokens < 12000 && !findings.some((f) => f.severity === 'error');
+
+  return {
+    ok,
+    principle:
+      'Unhobble frontier models: thin always-on context, progressive skills, blast-radius as gates not prose novels.',
+    source: CONTEXT_DIET_SOURCE,
+    alwaysOn: {
+      chars: alwaysOnChars,
+      tokensEst: alwaysOnTokens,
+      budgetTokens: 12000,
+      overBudget: alwaysOnTokens > 12000,
+    },
+    thinWorkerInject: {
+      tokensEst: thinTokens,
+      description: 'SessionContract keep/drop + toolbox entrypoints only',
+    },
+    findings,
+    recommendations: [
+      'Worker default: session-contract + worker-toolbox + Field Guide ≤80 — not full AGENTS paste',
+      'Keep Never-list items that encode multi-agent/secrets/hijack as machine gates',
+      'Split long skills; encode opinions not repeated global rules',
+      `doctor CLI: node tools/agent-swarm-harness.js doctor`,
+    ],
+    checkedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Product ability eval catalog (Harbor-shaped triples without requiring Harbor).
+ */
+function evalAbilityPolicy() {
+  return {
+    principle:
+      'Mine failures into durable ability evals: instruction + env + independent verifier. Evals train the harness, not vibes.',
+    source: EVAL_ABILITY_SOURCE,
+    abilities: [
+      {
+        id: 'fresh_user_tailscale_pair',
+        instruction: 'Stranger phone pairs to Mac over Tailscale without adb reverse assumptions',
+        env: 'release install + cellular or TS path; no demo=1',
+        verifier: 'continuous E2E latest.json e2e=pass OR Maestro stranger flow',
+        liveTools: 'sim or device; never require Chrome',
+      },
+      {
+        id: 'empty_stream_hard_stop',
+        instruction: 'Empty stream never leaves Checking forever; Leash CTA available',
+        env: 'unit + focused UI tests',
+        verifier: 'Jest empty-stream suites exit 0',
+        liveTools: 'none',
+      },
+      {
+        id: 'megafile_claim_discipline',
+        instruction: 'No multi-owner megafile design thrash without decision ref',
+        env: 'plan.md claims',
+        verifier: 'check-hot-files + harness contention',
+        liveTools: 'none',
+      },
+      {
+        id: 'ship_claim_honesty',
+        instruction: 'Ship claims require machine evidence not adjectives',
+        env: 'CI + continuous proof',
+        verifier: 'hardBarForDone + outcome-gate evidence IDs',
+        liveTools: 'none',
+      },
+      {
+        id: 'social_live_matrix',
+        instruction: 'Social LIVE only with permalink + CTA; no double-post',
+        env: 'Pro + PUBLISH_APPROVED',
+        verifier: 'content log LIVE matrix scan',
+        liveTools: 'simulate publish in CI; real Chrome only on Pro with gates',
+      },
+      {
+        id: 'revenue_followup_draft',
+        instruction: 'Pipeline row → follow-up JSON with live Stripe URL field',
+        env: 'business_os private pipeline (gitignored)',
+        verifier: 'schema + payment-readiness ready links; paid only with charge',
+        liveTools: 'local Ollama draft; no auto-send without gates',
+      },
+    ],
+    antiPatterns: [
+      'Unit-green = ability pass',
+      'Verifier is the same agent self-report',
+      'Prod write tools in every eval run',
+      'Synthetic 100% thumbs-up placeholders',
+    ],
+  };
+}
+
+/**
+ * Propose a durable eval stub from a failure description (trace → eval).
+ * @param {{ failureText?: string, write?: boolean, repo?: string }} [opts]
+ */
+function proposeEvalFromFailure({ failureText = '', write = false, repo = REPO } = {}) {
+  const text = String(failureText || 'unspecified failure').trim();
+  const slug = text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 48) || 'unspecified';
+  const id = `ability-${slug}-${new Date().toISOString().slice(0, 10)}`;
+  const classified = classifyTaskToolbox(text);
+  const ability = evalAbilityPolicy().abilities.find((a) => {
+    if (classified.toolboxId === 'device_mobile') return a.id.includes('pair') || a.id.includes('stream');
+    if (classified.toolboxId === 'social_promo') return a.id.includes('social');
+    if (classified.toolboxId === 'revenue_cash') return a.id.includes('revenue');
+    return a.id === 'ship_claim_honesty' || a.id === 'megafile_claim_discipline';
+  }) || evalAbilityPolicy().abilities.find((a) => a.id === 'ship_claim_honesty');
+
+  const stub = {
+    id,
+    sourceFailure: text.slice(0, 500),
+    toolboxHint: classified.toolboxId,
+    instruction: ability.instruction,
+    env: ability.env,
+    verifier: ability.verifier,
+    status: 'proposed',
+    next: 'Human approve → implement verifier test or Maestro flow → re-run until green',
+  };
+
+  let writtenPath = null;
+  if (write) {
+    const dir = path.join(repo, 'evals', id);
+    fs.mkdirSync(dir, { recursive: true });
+    const md = [
+      `# Eval: ${id}`,
+      '',
+      `## Instruction`,
+      stub.instruction,
+      '',
+      `## Environment`,
+      stub.env,
+      '',
+      `## Verifier`,
+      stub.verifier,
+      '',
+      `## Source failure`,
+      stub.sourceFailure,
+      '',
+      `## Status`,
+      stub.status,
+      '',
+    ].join('\n');
+    writtenPath = path.join(dir, 'instruction.md');
+    fs.writeFileSync(writtenPath, md);
+    fs.writeFileSync(
+      path.join(dir, 'task.toml'),
+      `id = "${id}"\nstatus = "proposed"\ntoolbox = "${classified.toolboxId}"\n`,
+    );
+  }
+
+  return {
+    ok: true,
+    principle: evalAbilityPolicy().principle,
+    source: EVAL_ABILITY_SOURCE,
+    stub,
+    writtenPath,
+    checkedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * SRE autonomy bands: detect → diagnose → act → verify with health freshness.
+ */
+function sreAutonomyPolicy() {
+  return {
+    principle:
+      'Hardest part of AI ops is guarded act + re-measure + receipt — not more models. Never remediate blind.',
+    source: SRE_AUTONOMY_SOURCE,
+    healthMaxAgeMs: HEALTH_MAX_AGE_MS,
+    subsystems: [
+      {
+        id: 'litellm',
+        detect: 'curl :4010/health or traffic.jsonl stall',
+        diagnose: 'launchctl list com.igor.hermes-litellm; tail traffic',
+        act: 'launchctl kickstart -k gui/$UID/com.igor.hermes-litellm',
+        verify: 'curl -sf http://127.0.0.1:4010/health && tail -1 ~/.hermes/litellm-logs/traffic.jsonl',
+        hosts: ['mac_pro'],
+        band: 'service_repair',
+      },
+      {
+        id: 'gateway',
+        detect: 'gateway :8642/health fail; continuous E2E pair fail',
+        diagnose: 'hermes-gateway-watchdog logs; adb/pair status',
+        act: 'restart gateway launchd only if health stale and one owner',
+        verify: 'curl -sf http://127.0.0.1:8642/health',
+        hosts: ['mac_pro', 'mac_mini'],
+        band: 'service_repair',
+      },
+      {
+        id: 'ollama_pressure',
+        detect: 'memory pressure / ollama wedged Stopping',
+        diagnose: 'ollama ps; sysctl memory pressure',
+        act: 'ollama stop / keep_alive 0; never kill Electron',
+        verify: 'ollama ps empty or single model; pressure level 1',
+        hosts: ['mac_mini', 'mac_pro'],
+        band: 'local_hygiene',
+      },
+      {
+        id: 'continuous_e2e',
+        detect: 'latest.json e2e!=pass or stale',
+        diagnose: 'read latest.json; Maestro debug dirs',
+        act: 'kickstart continuous e2e once — do not invent green',
+        verify: 'latest.json e2e=pass or honest skip',
+        hosts: ['mac_pro', 'mac_mini'],
+        band: 'local_hygiene',
+      },
+      {
+        id: 'fleet_ingest',
+        detect: 'GATEWAY_HEALTH empty; TRAFFIC span stalled',
+        diagnose: 'cortex ingest scripts; Snowflake row counts',
+        act: 're-run derive/ingest job only',
+        verify: 'morning brief non-empty GATEWAY_HEALTH or documented skip',
+        hosts: ['mac_pro'],
+        band: 'service_repair',
+      },
+    ],
+    bands: {
+      report_only: 'morning brief, ntfy, doctor',
+      local_hygiene: 'evict models, kick e2e, sim guard',
+      service_repair: 'restart named launchd with post-verify',
+      external_act: 'blocked unless SessionContract + toolbox gates',
+    },
+    antiPatterns: [
+      'Restart random processes without subsystem id',
+      'Act when health probe older than healthMaxAgeMs without re-probe',
+      'Duplicate LaunchAgents for same job',
+      'Telegram/social autonomy when control plane fatal',
+    ],
+  };
+}
+
+/**
+ * Gate an SRE act: require subsystem policy + fresh health (or explicit force).
+ * @param {{ subsystemId: string, healthCheckedAtMs?: number, nowMs?: number, force?: boolean, env?: NodeJS.ProcessEnv }} opts
+ */
+function resolveSreAction({
+  subsystemId,
+  healthCheckedAtMs = null,
+  nowMs = Date.now(),
+  force = false,
+  env = process.env,
+} = {}) {
+  const policy = sreAutonomyPolicy();
+  const sub = policy.subsystems.find((s) => s.id === subsystemId);
+  if (!sub) {
+    return {
+      ok: false,
+      status: 'unknown_subsystem',
+      reasons: [`Unknown subsystem: ${subsystemId}`],
+      subsystem: null,
+    };
+  }
+  const host = detectFleetHostRole(env);
+  const reasons = [];
+  if (host.role !== 'unknown' && !sub.hosts.includes(host.role)) {
+    return {
+      ok: false,
+      status: 'host_blocked',
+      reasons: [`Subsystem ${subsystemId} not allowed on ${host.role}`],
+      subsystem: sub,
+      host,
+    };
+  }
+  let healthAgeMs = null;
+  let healthFresh = false;
+  if (healthCheckedAtMs != null && Number.isFinite(healthCheckedAtMs)) {
+    healthAgeMs = nowMs - healthCheckedAtMs;
+    healthFresh = healthAgeMs >= 0 && healthAgeMs <= policy.healthMaxAgeMs;
+  }
+  if (force) {
+    reasons.push('force=true — operator override; still run verify after act');
+    return {
+      ok: true,
+      status: 'forced',
+      reasons,
+      subsystem: sub,
+      host,
+      healthAgeMs,
+      healthFresh,
+      act: sub.act,
+      verify: sub.verify,
+    };
+  }
+  if (healthCheckedAtMs == null) {
+    return {
+      ok: false,
+      status: 'health_required',
+      reasons: [
+        `Re-probe health before act (max age ${policy.healthMaxAgeMs}ms). Pass healthCheckedAtMs or --force.`,
+      ],
+      subsystem: sub,
+      host,
+      healthAgeMs,
+      healthFresh: false,
+      act: sub.act,
+      verify: sub.verify,
+    };
+  }
+  if (!healthFresh) {
+    return {
+      ok: false,
+      status: 'health_stale',
+      reasons: [`Health age ${healthAgeMs}ms > ${policy.healthMaxAgeMs}ms — re-probe before act`],
+      subsystem: sub,
+      host,
+      healthAgeMs,
+      healthFresh: false,
+      act: sub.act,
+      verify: sub.verify,
+    };
+  }
+  reasons.push(`Health fresh (${healthAgeMs}ms); act allowed then MUST run verify`);
+  return {
+    ok: true,
+    status: 'allowed',
+    reasons,
+    subsystem: sub,
+    host,
+    healthAgeMs,
+    healthFresh: true,
+    act: sub.act,
+    verify: sub.verify,
+  };
+}
+
+/**
  * Effort step-down policy: start lower; reserve max for high-stakes only.
  * Aligns with openrouter-reasoning-plan.js dial + hermes-economic-router routes.
  */
@@ -1006,6 +1442,21 @@ function frontierModelPlaybook() {
         video: 'Auth lives on the toolbox; agent stays auth-free; govern tool I/O at boundary',
         ours: 'toolboxPolicy() + whereIsAuthCheck() + workerToolboxPrompt() — packs × auth × host × gates',
       },
+      {
+        id: 'context_diet',
+        video: 'Remove overconstraint; progressive disclosure for Claude 5-class models',
+        ours: 'contextDietReport() / doctor — thin worker inject; blast-radius as gates',
+      },
+      {
+        id: 'eval_abilities',
+        video: 'Mine traces into fixed evals with independent verifiers',
+        ours: 'evalAbilityPolicy() + proposeEvalFromFailure()',
+      },
+      {
+        id: 'sre_act_verify',
+        video: 'Autonomous SRE hardest part is guarded act + re-measure',
+        ours: 'sreAutonomyPolicy() + resolveSreAction() health freshness gate',
+      },
     ],
   };
 }
@@ -1077,6 +1528,10 @@ function parseArgs(argv) {
     trace: process.env.HARNESS_TRACE !== '0',
     limit: 0,
     task: process.env.HERMES_TASK_TEXT || '',
+    subsystem: process.env.HERMES_SRE_SUBSYSTEM || '',
+    write: false,
+    force: false,
+    healthAgeMs: null,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -1092,7 +1547,12 @@ function parseArgs(argv) {
       arg === 'where-is-state' ||
       arg === 'toolboxes' ||
       arg === 'where-is-auth' ||
-      arg === 'worker-toolbox'
+      arg === 'worker-toolbox' ||
+      arg === 'doctor' ||
+      arg === 'eval-abilities' ||
+      arg === 'propose-eval' ||
+      arg === 'sre-autonomy' ||
+      arg === 'sre-act'
     ) {
       args.command = arg;
     } else if (arg === '--json') {
@@ -1107,6 +1567,14 @@ function parseArgs(argv) {
       args.bodyFile = path.resolve(argv[++i] || '');
     } else if (arg === '--task') {
       args.task = String(argv[++i] || '');
+    } else if (arg === '--subsystem') {
+      args.subsystem = String(argv[++i] || '');
+    } else if (arg === '--write') {
+      args.write = true;
+    } else if (arg === '--force') {
+      args.force = true;
+    } else if (arg === '--health-age-ms') {
+      args.healthAgeMs = parseInt(argv[++i] || '0', 10);
     } else if (arg === '--help' || arg === '-h') {
       args.help = true;
     } else if (arg === '--trace') {
@@ -1360,6 +1828,21 @@ function buildActions(report) {
       `Worker toolbox: ${report.workerToolbox.toolboxId} (${report.workerToolbox.entrypoints?.length || 0} entrypoints) — inject entrypoints only, not skill soup`,
     );
   }
+  if (report.contextDiet) {
+    actions.push(
+      `Context diet: always-on ~${report.contextDiet.alwaysOn?.tokensEst || '?'} tok; thin worker ~${report.contextDiet.thinWorkerInject?.tokensEst || '?'} tok; findings=${report.contextDiet.findings?.length || 0}`,
+    );
+  }
+  if (report.evalAbilities?.abilities?.length) {
+    actions.push(
+      `Eval abilities: ${report.evalAbilities.abilities.length} catalogued — mine fails via propose-eval`,
+    );
+  }
+  if (report.sreAutonomy?.subsystems?.length) {
+    actions.push(
+      `SRE: ${report.sreAutonomy.subsystems.length} subsystems; act only with fresh health + post-verify`,
+    );
+  }
   return actions;
 }
 
@@ -1449,6 +1932,9 @@ function buildHarnessReport({ planPath = DEFAULT_PLAN, role = null, trace = fals
   const toolboxes = toolboxPolicy();
   const whereIsAuth = whereIsAuthCheck({ taskText: taskHint });
   const workerToolbox = workerToolboxPrompt(taskHint, { role: resolvedRole });
+  const contextDiet = contextDietReport({ repo: stateRepo, role: resolvedRole });
+  const evalAbilities = evalAbilityPolicy();
+  const sreAutonomy = sreAutonomyPolicy();
   const report = {
     ok: true,
     planPath,
@@ -1464,6 +1950,9 @@ function buildHarnessReport({ planPath = DEFAULT_PLAN, role = null, trace = fals
     toolboxes,
     whereIsAuth,
     workerToolbox,
+    contextDiet,
+    evalAbilities,
+    sreAutonomy,
     activeTasks,
     activeTaskCount: activeTasks.length,
     concurrency: {
@@ -1600,6 +2089,22 @@ function formatHuman(report) {
       lines.push(`  ${line}`);
     }
   }
+  if (report.contextDiet) {
+    const cd = report.contextDiet;
+    lines.push(
+      `Context diet (${cd.ok ? 'ok' : 'WARN'}): always-on ~${cd.alwaysOn?.tokensEst} tok; thin worker ~${cd.thinWorkerInject?.tokensEst} tok; findings=${cd.findings?.length || 0}`,
+    );
+  }
+  if (report.evalAbilities?.abilities) {
+    lines.push(
+      `Eval abilities: ${report.evalAbilities.abilities.map((a) => a.id).join(', ')}`,
+    );
+  }
+  if (report.sreAutonomy?.subsystems) {
+    lines.push(
+      `SRE autonomy: ${report.sreAutonomy.subsystems.map((s) => s.id).join(', ')} (healthMaxAgeMs=${report.sreAutonomy.healthMaxAgeMs})`,
+    );
+  }
   if (report.modelRiskGate && report.modelRiskGate.length > 0) {
     const blocked = report.modelRiskGate.filter((r) => !r.routeAllowed);
     if (blocked.length > 0) {
@@ -1689,7 +2194,12 @@ function main() {
   node tools/agent-swarm-harness.js where-is-state [--json] [--plan path]
   node tools/agent-swarm-harness.js toolboxes [--json]
   node tools/agent-swarm-harness.js where-is-auth [--json] [--task "..."]
-  node tools/agent-swarm-harness.js worker-toolbox [--json] [--task "..."]`);
+  node tools/agent-swarm-harness.js worker-toolbox [--json] [--task "..."]
+  node tools/agent-swarm-harness.js doctor [--json]
+  node tools/agent-swarm-harness.js eval-abilities [--json]
+  node tools/agent-swarm-harness.js propose-eval --task "..." [--write] [--json]
+  node tools/agent-swarm-harness.js sre-autonomy [--json]
+  node tools/agent-swarm-harness.js sre-act --subsystem ID [--health-age-ms N|--force] [--json]`);
     process.exit(0);
   }
 
@@ -1874,6 +2384,104 @@ function main() {
     process.exit(bundle.ok ? 0 : 2);
   }
 
+  if (args.command === 'doctor') {
+    const diet = contextDietReport({ role: args.role || 'worker' });
+    if (args.json) {
+      console.log(JSON.stringify(diet, null, 2));
+    } else {
+      console.log('=== Harness doctor / context diet ===');
+      console.log(diet.principle);
+      console.log(
+        `always-on: ~${diet.alwaysOn.tokensEst} tok (budget ${diet.alwaysOn.budgetTokens}) ${diet.alwaysOn.overBudget ? 'OVER' : 'ok'}`,
+      );
+      console.log(`thin worker inject: ~${diet.thinWorkerInject.tokensEst} tok`);
+      console.log(`findings: ${diet.findings.length}`);
+      for (const f of diet.findings.slice(0, 20)) {
+        console.log(`  [${f.severity}] ${f.file}: ${f.message}${f.lines ? ` @L${f.lines.join(',')}` : ''}`);
+      }
+      console.log('Recommendations:');
+      for (const r of diet.recommendations) console.log(`  → ${r}`);
+    }
+    process.exit(diet.ok ? 0 : 2);
+  }
+
+  if (args.command === 'eval-abilities') {
+    const policy = evalAbilityPolicy();
+    if (args.json) {
+      console.log(JSON.stringify(policy, null, 2));
+    } else {
+      console.log('=== Eval ability catalog ===');
+      console.log(policy.principle);
+      for (const a of policy.abilities) {
+        console.log(`  ${a.id}`);
+        console.log(`    instruction: ${a.instruction}`);
+        console.log(`    verifier: ${a.verifier}`);
+      }
+    }
+    process.exit(0);
+  }
+
+  if (args.command === 'propose-eval') {
+    const result = proposeEvalFromFailure({
+      failureText: args.task,
+      write: args.write,
+    });
+    if (args.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log('=== Propose eval from failure ===');
+      console.log(JSON.stringify(result.stub, null, 2));
+      if (result.writtenPath) console.log(`wrote: ${result.writtenPath}`);
+    }
+    process.exit(0);
+  }
+
+  if (args.command === 'sre-autonomy') {
+    const policy = sreAutonomyPolicy();
+    if (args.json) {
+      console.log(JSON.stringify(policy, null, 2));
+    } else {
+      console.log('=== SRE autonomy (act → verify) ===');
+      console.log(policy.principle);
+      console.log(`healthMaxAgeMs: ${policy.healthMaxAgeMs}`);
+      for (const s of policy.subsystems) {
+        console.log(`  ${s.id.padEnd(18)} band=${s.band} hosts=${s.hosts.join(',')}`);
+        console.log(`    act: ${s.act}`);
+        console.log(`    verify: ${s.verify}`);
+      }
+    }
+    process.exit(0);
+  }
+
+  if (args.command === 'sre-act') {
+    const subsystemId = args.subsystem || args.task;
+    if (!subsystemId) {
+      console.error('sre-act requires --subsystem <id>');
+      process.exit(1);
+    }
+    const nowMs = Date.now();
+    let healthCheckedAtMs = null;
+    if (args.healthAgeMs != null && Number.isFinite(args.healthAgeMs)) {
+      healthCheckedAtMs = nowMs - args.healthAgeMs;
+    }
+    const result = resolveSreAction({
+      subsystemId,
+      healthCheckedAtMs,
+      nowMs,
+      force: args.force,
+    });
+    if (args.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log('=== SRE act gate ===');
+      console.log(`subsystem: ${subsystemId} status=${result.status} ok=${result.ok}`);
+      for (const r of result.reasons || []) console.log(`  - ${r}`);
+      if (result.act) console.log(`act: ${result.act}`);
+      if (result.verify) console.log(`verify (required after act): ${result.verify}`);
+    }
+    process.exit(result.ok ? 0 : 2);
+  }
+
   if (args.command === 'field-guide') {
     const guide = loadFieldGuide();
     if (!guide.ok) {
@@ -1961,6 +2569,10 @@ module.exports = {
   CONTINUOUS_E2E_LATEST,
   STATE_LAYER_SOURCE,
   TOOLBOX_SOURCE,
+  CONTEXT_DIET_SOURCE,
+  EVAL_ABILITY_SOURCE,
+  SRE_AUTONOMY_SOURCE,
+  HEALTH_MAX_AGE_MS,
   normalizeClaim,
   claimsOverlap,
   findFileContention,
@@ -1986,6 +2598,12 @@ module.exports = {
   resolveToolboxAccess,
   workerToolboxPrompt,
   whereIsAuthCheck,
+  estimateTokens,
+  contextDietReport,
+  evalAbilityPolicy,
+  proposeEvalFromFailure,
+  sreAutonomyPolicy,
+  resolveSreAction,
   parseArgs,
   emitTrace,
   checkModelRiskGate,
