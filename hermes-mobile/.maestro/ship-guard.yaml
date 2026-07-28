@@ -1,7 +1,8 @@
 # Ship guard — blocks Metro crash APKs and legacy native shell UI
 appId: com.iganapolsky.hermesmobile
 ---
-- launchApp
+- launchApp:
+    stopApp: false
 - extendedWaitUntil:
     notVisible:
       id: "hermes-bootstrap"

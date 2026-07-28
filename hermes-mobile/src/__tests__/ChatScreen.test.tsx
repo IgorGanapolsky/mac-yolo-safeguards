@@ -2,6 +2,7 @@ import React from 'react';
 import { Alert, BackHandler, Platform } from 'react-native';
 import { fireEvent, act, waitFor, cleanup, within } from '@testing-library/react-native';
 import ChatScreen, {
+  iosComposerDockKeyboardFocusStyle,
   resolveEffectiveKeyboardInset,
   shouldIgnoreKeyboardHide,
   shouldClearKeyboardScreenVisible,
@@ -1452,16 +1453,41 @@ describe('ChatScreen', () => {
   });
 
   it('clears composer after send and ignores Android IME echo onChangeText', async () => {
-    const { getByTestId } = await renderChatScreen();
-    const input = getByTestId('chat-input');
-    const sendButton = getByTestId('chat-send-button');
+    const originalOs = Platform.OS;
+    Platform.OS = 'android';
+    try {
+      const { getByTestId } = await renderChatScreen();
+      const input = getByTestId('chat-input');
+      const sendButton = getByTestId('chat-send-button');
 
-    fireEvent.changeText(input, 'Hello Hermes');
-    fireEvent.press(sendButton);
-    expect(input.props.value).toBe('');
+      fireEvent.changeText(input, 'Hello Hermes');
+      fireEvent.press(sendButton);
+      expect(input.props.value).toBe('');
 
-    fireEvent.changeText(input, 'Hello Hermes');
-    expect(input.props.value).toBe('');
+      fireEvent.changeText(input, 'Hello Hermes');
+      expect(input.props.value).toBe('');
+    } finally {
+      Platform.OS = originalOs;
+    }
+  });
+
+  it('accepts the exact previous prompt on iOS after send clears the composer', async () => {
+    const originalOs = Platform.OS;
+    Platform.OS = 'ios';
+    try {
+      const { getByTestId } = await renderChatScreen();
+      const input = getByTestId('chat-input');
+      const sendButton = getByTestId('chat-send-button');
+
+      fireEvent.changeText(input, 'Hello Hermes');
+      fireEvent.press(sendButton);
+      expect(input.props.value).toBe('');
+
+      fireEvent.changeText(input, 'Hello Hermes');
+      expect(input.props.value).toBe('Hello Hermes');
+    } finally {
+      Platform.OS = originalOs;
+    }
   });
 
   it('keeps optimistic user bubble as failed when send hits a false disconnect', async () => {
@@ -3288,5 +3314,19 @@ describe('shouldIgnoreKeyboardHide', () => {
 
   it('never ignores iOS hide events', () => {
     expect(shouldIgnoreKeyboardHide('ios', 260, true)).toBe(false);
+  });
+});
+
+describe('iosComposerDockKeyboardFocusStyle', () => {
+  it('never mutates shadow or elevation while the Fabric TextInput is focused', () => {
+    const style = iosComposerDockKeyboardFocusStyle();
+
+    expect(style.paddingTop).toBe(8);
+    expect(style.borderTopColor).toBeTruthy();
+    expect(style.shadowColor).toBeUndefined();
+    expect(style.shadowOpacity).toBeUndefined();
+    expect(style.shadowRadius).toBeUndefined();
+    expect(style.shadowOffset).toBeUndefined();
+    expect(style.elevation).toBeUndefined();
   });
 });
