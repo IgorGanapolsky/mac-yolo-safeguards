@@ -25,8 +25,10 @@ EOF
 chmod +x "$STUB"
 
 # Stub gateway: a tiny HTTP server answering /health/liveliness on a free port.
+# stdout/stderr detached: a backgrounded helper must never hold the suite's output
+# pipe open past suite exit (that is what wedged run-suite for 5h on 2026-07-28).
 PORT=4998
-python3 - "$PORT" <<'PY' &
+python3 - "$PORT" >/dev/null 2>&1 <<'PY' &
 import http.server, sys
 class H(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
@@ -36,6 +38,14 @@ class H(http.server.BaseHTTPRequestHandler):
             # doubles as the stub LOCAL (Ollama-style) endpoint for zero-spend tests
             self.send_response(200); self.end_headers()
             self.wfile.write(b'{"data":[{"id":"glm-coding"},{"id":"qwen3.5:9b-hermes-64k"}]}')
+        else:
+            self.send_response(404); self.end_headers()
+    def do_POST(self):
+        # healthy local endpoint: answers the wrapper's 1-token liveness probe
+        if self.path.endswith('/chat/completions'):
+            self.rfile.read(int(self.headers.get('Content-Length') or 0))
+            self.send_response(200); self.end_headers()
+            self.wfile.write(b'{"choices":[{"message":{"role":"assistant","content":"OK"}}],"model":"stub"}')
         else:
             self.send_response(404); self.end_headers()
     def log_message(self,*a): pass
@@ -99,6 +109,32 @@ set +e; POOLSIDE_YOLO_LOCAL_URL="http://127.0.0.1:4996/v1" "$WRAPPER" "hi" >/dev
 rm -f "$ARGS_OUT"
 set +e; POOLSIDE_YOLO_LOCAL_MODEL="" POOLSIDE_YOLO_LOCAL_URL="http://127.0.0.1:$PORT/v1" "$WRAPPER" "hi" >/dev/null 2>&1; set -e
 grep -q "MODEL=qwen2.5:3b" "$ENV_OUT" 2>/dev/null && no "zero-spend picked a sub-8B model" || ok "zero-spend never picks a sub-8B model"
+
+# 2e. a local endpoint that LISTS a preferred model but cannot ANSWER a completion
+#     (runner wedged in "Stopping...", or its only slot pinned by another agent's
+#     giant prompt — the 2026-07-28 "Post .../chat/completions: EOF" incident) must
+#     block loudly (73, no spawn) instead of handing pool an endpoint that only hangs.
+PORT2=4995
+python3 - "$PORT2" >/dev/null 2>&1 <<'PY' &
+import http.server, sys
+class H(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path.endswith('/models'):
+            self.send_response(200); self.end_headers()
+            self.wfile.write(b'{"data":[{"id":"qwen3.5:9b-hermes-64k"}]}')
+        else:
+            self.send_response(404); self.end_headers()
+    # no do_POST on purpose: /chat/completions never answers, like a wedged Ollama
+    def log_message(self,*a): pass
+http.server.HTTPServer(('127.0.0.1',int(sys.argv[1])),H).serve_forever()
+PY
+WEDGE_PID=$!
+sleep 1
+rm -f "$ARGS_OUT"
+set +e; POOLSIDE_YOLO_LOCAL_URL="http://127.0.0.1:$PORT2/v1" POOLSIDE_YOLO_PROBE_TIMEOUT=5 "$WRAPPER" "hi" >/dev/null 2>&1; code=$?; set -e
+{ [ "$code" -eq 73 ] && [ ! -f "$ARGS_OUT" ]; } \
+  && ok "listed-but-unresponsive local model blocks (73, no spawn)" || no "listed-but-unresponsive local model blocks (got $code)"
+kill $WEDGE_PID 2>/dev/null || true
 rm -f "$ROOT/NO_PAID_SPEND"
 
 # 3. bare task string routed through `exec -p ... --unsafe-auto-allow -o json`

@@ -34,7 +34,14 @@ if [[ ! -f "$SUITE" ]]; then
   exit 2
 fi
 
-out="$(bash "$SUITE" 2>&1)"; rc=$?
+# Capture via a temp FILE, not $(command substitution): a suite that backgrounds a
+# helper (stub HTTP server, probe child) and fails to reap it leaves the substitution
+# pipe open after the suite itself exits — run-suite then waits for EOF forever with
+# zero children (the 5-hour CI runner wedge, 2026-07-28). A file needs no EOF: we
+# proceed the moment the suite process exits, and orphans die on their own.
+out_file="$(mktemp)"
+bash "$SUITE" >"$out_file" 2>&1; rc=$?
+out="$(cat "$out_file")"; rm -f "$out_file"
 printf '%s\n' "$out"
 
 count="$(printf '%s\n' "$out" | grep -cE "$MARKER" || true)"
