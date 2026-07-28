@@ -169,6 +169,7 @@ jobs:
         run: |
           set -eu
           bash tests/test-poolside-yolo.sh
+          bash tests/test-hermes-primary-route-recovery.sh
 
       - name: Public secret smoke scan
         run: |
