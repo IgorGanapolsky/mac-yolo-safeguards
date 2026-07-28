@@ -795,7 +795,8 @@ export default function SettingsScreen() {
             <View style={styles.switchLabelCol}>
               <Text style={styles.switchLabel}>Approval heads-up</Text>
               <Text style={styles.switchDesc}>
-                Only high-value lock-screen alerts with Approve and Deny. Off = no pop.
+                Approve or Deny right from the alert. Reaches you wherever you are —
+                locked, backgrounded, or with Hermes open. Off = no alerts.
               </Text>
             </View>
             <Switch
