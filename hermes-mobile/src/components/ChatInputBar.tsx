@@ -1,6 +1,8 @@
 import React, { memo, useEffect, useRef } from 'react';
 import {
+  Dimensions,
   Image,
+  Keyboard,
   Platform,
   ScrollView,
   StyleSheet,
@@ -23,6 +25,11 @@ const androidComposerInputStyle = Platform.select({
   },
   default: {},
 });
+
+// iPadOS drops first-responder status while rotating a multiline Fabric input.
+// Wait for the native rotation animation, then restore the user's active draft.
+const IOS_ROTATION_REFOCUS_DELAY_MS = 350;
+const IOS_BLUR_INTENT_GRACE_MS = 1000;
 
 type ChatInputBarProps = {
   value: string;
@@ -67,6 +74,9 @@ function ChatInputBar({
 }: ChatInputBarProps) {
   const inputRef = useRef<TextInput>(null);
   const latestTextRef = useRef(value);
+  const focusIntentRef = useRef(false);
+  const refocusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blurIntentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stopMode = showStop && !composerHasSendableContent(value, attachments);
   const canSend = composerHasSendableContent(value, attachments)
     || composerHasSendableContent(latestTextRef.current, attachments);
@@ -86,6 +96,57 @@ function ChatInputBar({
     }, 50);
     return () => clearTimeout(timer);
   }, [focusNonce]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') {
+      return;
+    }
+
+    const subscription = Dimensions.addEventListener('change', () => {
+      // onBlur can arrive just before Dimensions.change during rotation. Keep a
+      // short focus-intent grace window so that native event ordering does not
+      // turn an active draft into an unfocused field.
+      if (!focusIntentRef.current) {
+        return;
+      }
+      if (blurIntentTimerRef.current) {
+        clearTimeout(blurIntentTimerRef.current);
+        blurIntentTimerRef.current = null;
+      }
+      if (refocusTimerRef.current) {
+        clearTimeout(refocusTimerRef.current);
+      }
+      refocusTimerRef.current = setTimeout(() => {
+        refocusTimerRef.current = null;
+        inputRef.current?.focus();
+      }, IOS_ROTATION_REFOCUS_DELAY_MS);
+    });
+    const keyboardHideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+      // A real keyboard dismissal is explicit user intent, even when a device
+      // rotation follows before the blur grace period expires. Cancel any
+      // pending rotation repair so the composer cannot steal focus back.
+      focusIntentRef.current = false;
+      if (blurIntentTimerRef.current) {
+        clearTimeout(blurIntentTimerRef.current);
+        blurIntentTimerRef.current = null;
+      }
+      if (refocusTimerRef.current) {
+        clearTimeout(refocusTimerRef.current);
+        refocusTimerRef.current = null;
+      }
+    });
+
+    return () => {
+      subscription.remove();
+      keyboardHideSubscription.remove();
+      if (refocusTimerRef.current) {
+        clearTimeout(refocusTimerRef.current);
+      }
+      if (blurIntentTimerRef.current) {
+        clearTimeout(blurIntentTimerRef.current);
+      }
+    };
+  }, []);
 
   return (
     <View style={styles.shell}>
@@ -167,9 +228,27 @@ function ChatInputBar({
           importantForAutofill="no"
           returnKeyType="send"
           blurOnSubmit={false}
-          onFocus={onFocus}
+          onFocus={() => {
+            if (blurIntentTimerRef.current) {
+              clearTimeout(blurIntentTimerRef.current);
+              blurIntentTimerRef.current = null;
+            }
+            focusIntentRef.current = true;
+            onFocus();
+          }}
           onBlur={() => {
             onBlur();
+            if (Platform.OS !== 'ios') {
+              focusIntentRef.current = false;
+              return;
+            }
+            if (blurIntentTimerRef.current) {
+              clearTimeout(blurIntentTimerRef.current);
+            }
+            blurIntentTimerRef.current = setTimeout(() => {
+              blurIntentTimerRef.current = null;
+              focusIntentRef.current = false;
+            }, IOS_BLUR_INTENT_GRACE_MS);
           }}
           onEndEditing={(event) => {
             const endedText = event.nativeEvent.text;
