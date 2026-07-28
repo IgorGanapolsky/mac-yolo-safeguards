@@ -383,18 +383,22 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .dashboard-shell[data-mobile-tab="settings"] .task-panel{
     display:none !important;
   }
-  .dashboard-shell[data-mobile-tab="leash"] .right-rail,
-  .dashboard-shell[data-mobile-tab="settings"] .right-rail{
+  .dashboard-shell[data-mobile-tab="leash"] .dashboard-sub-panels,
+  .dashboard-shell[data-mobile-tab="settings"] .dashboard-sub-panels{
     display:block !important;
     flex:1 1 auto;
     min-height:0;
-    overflow-y:auto;
+    overflow-y:auto !important;
     -webkit-overflow-scrolling:touch;
     overscroll-behavior:contain;
+    padding-bottom:80px !important;
   }
   .dashboard-shell[data-mobile-tab="leash"] #web-settings{display:none !important}
-  .dashboard-shell[data-mobile-tab="settings"] .connection-panel,
-  .dashboard-shell[data-mobile-tab="settings"] .safety-panel{display:none !important}
+  .dashboard-shell[data-mobile-tab="settings"] #leash-control{display:none !important}
+  .dashboard-shell[data-mobile-tab="settings"] .panel,
+  .dashboard-shell[data-mobile-tab="leash"] .panel{
+    margin-bottom:24px;
+  }
   .task-panel .panel-heading{flex:0 0 auto;padding:12px 14px;border-bottom:1px solid var(--line)}
   .hermes-scroll-pane{
     flex:1 1 auto;

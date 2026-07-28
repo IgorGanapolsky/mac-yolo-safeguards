@@ -1146,16 +1146,40 @@ export default function DashboardClient() {
                 aria-label="Message for Hermes"
                 disabled={busy}
               />
-              <div className="composer-options-header">
+              <div className="composer-options-header" style={{ display: "flex", gap: "8px", alignItems: "center", justifyContent: "space-between", marginTop: "6px" }}>
+                {devices.length > 0 ? (
+                  <div className="composer-device-picker-always-visible" style={{ flex: 1, minWidth: 0 }}>
+                    <select
+                      id="composer-device-select"
+                      data-testid="composer-device-select"
+                      value={selectedDeviceId}
+                      onChange={(event) => chooseDevice(event.target.value)}
+                      disabled={busy}
+                      aria-label="Which machine should run this task"
+                      style={{ width: "100%", padding: "6px 10px", borderRadius: "8px", background: "#0F172A", color: "#F8FAFC", border: "1px solid rgba(56,189,248,.3)", fontSize: "13px", fontWeight: 600 }}
+                    >
+                      {devices.map((device) => (
+                        <option key={device.id} value={device.id}>
+                          ⌘ {machineDisplayName(device)} ({deviceStatusLabel(device)})
+                        </option>
+                      ))}
+                      <optgroup label="Actions">
+                        <option value="pair">+ Pair another computer…</option>
+                        <option value="manage">⚙ Manage / remove machines…</option>
+                      </optgroup>
+                    </select>
+                  </div>
+                ) : null}
                 <button
                   type="button"
                   className="button button-secondary button-small composer-options-toggle"
                   onClick={() => setOptionsExpanded((v) => !v)}
                   aria-expanded={optionsExpanded}
                   data-testid="composer-options-toggle"
+                  style={{ whiteSpace: "nowrap" }}
                 >
-                  <span>⚙️ {shortMachineLabel(selectedDeviceLabel, 14)} ({routePreference})</span>
-                  <span aria-hidden="true">{optionsExpanded ? " ▲ Hide options" : " ▼ Machine options"}</span>
+                  <span>⚙️ Policy: {routePreference}</span>
+                  <span aria-hidden="true">{optionsExpanded ? " ▲" : " ▼"}</span>
                 </button>
               </div>
               {optionsExpanded && (
@@ -1181,31 +1205,6 @@ export default function DashboardClient() {
                       <span className="route-label-short">Auto</span>
                     </label>
                   </div>
-                  {devices.length > 0 ? (
-                    <div className="composer-device-picker" data-testid="composer-device-picker">
-                      <label htmlFor="composer-device-select" className="composer-where-label" style={{ margin: 0 }}>
-                        Which machine?
-                      </label>
-                      <select
-                        id="composer-device-select"
-                        data-testid="composer-device-select"
-                        value={selectedDeviceId}
-                        onChange={(event) => chooseDevice(event.target.value)}
-                        disabled={busy}
-                        aria-label="Which machine should run this task"
-                      >
-                        {devices.map((device) => (
-                          <option key={device.id} value={device.id}>
-                            {machineDisplayName(device)} · {deviceStatusLabel(device)}
-                          </option>
-                        ))}
-                        <optgroup label="Actions">
-                          <option value="pair">+ Pair another computer…</option>
-                          <option value="manage">⚙ Manage / remove machines…</option>
-                        </optgroup>
-                      </select>
-                    </div>
-                  ) : null}
                   {!isNarrowViewport ? (
                     <div className="composer-route-explain" role="status" aria-live="polite">
                       <button
