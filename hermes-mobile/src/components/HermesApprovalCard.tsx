@@ -228,7 +228,15 @@ export default function HermesApprovalCard({
       </View>
     )}
 
-    {tierChoices.length > 0 && !glance && !showThumbs ? (
+    {/*
+      The scope row (This session / Always allow) renders on the LEASH card too, alongside the
+      thumbs. It used to be suppressed by `!showThumbs`, which meant the approval policy had no
+      observable effect on the Leash screen — the one surface where approvals are actually
+      answered. Thumbs stay exactly as they were (they drive the ThumbGate capture and mean
+      approve-once / deny); the scope row only ADDS the lasting choices the current policy and
+      transport actually permit, so strict still shows none and relay still shows none.
+    */}
+    {tierChoices.length > 0 && !glance ? (
       <View style={styles.tierRow}>
         {tierChoices.map((choice) => (
           <TouchableOpacity
