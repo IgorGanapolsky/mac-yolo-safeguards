@@ -43,8 +43,37 @@ function resolveStatePath() {
   );
 }
 
-const OUTREACH_SUBJECT_RE =
-  /Quick close-loop|Governed agents|Reliability Diagnostic|Hardening Sprint|Partner Pilot|runaway-loop|agent reliability/i;
+// Single source of truth for our outreach subject family. Both the local row
+// filter and the Gmail search query are derived from this list. When the two
+// drift apart the scan goes blind: on 2026-07-28 "ThumbGate Continuity" was
+// added to the regex but not to the hardcoded query, so 6 of that day's sends
+// were unwatchable.
+const OUTREACH_SUBJECT_TERMS = [
+  'Quick close-loop',
+  'Quick check',
+  'Governed agents',
+  'Reliability Diagnostic',
+  'agent reliability diagnostic',
+  'Hardening Sprint',
+  'Partner Pilot',
+  'runaway-loop',
+  'agent reliability',
+  'ThumbGate Continuity',
+  'design partner',
+];
+
+const OUTREACH_SUBJECT_RE = new RegExp(
+  OUTREACH_SUBJECT_TERMS.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
+  'i',
+);
+
+// in:anywhere, not in:inbox — the only real buyer reply this funnel has ever
+// received (madhu@dhisana.ai, 2026-07-22) was sitting in TRASH, where an
+// in:inbox scan could never have found it.
+function outreachSearchQuery(days = 14) {
+  const subjects = OUTREACH_SUBJECT_TERMS.map((t) => `subject:"${t}"`).join(' OR ');
+  return `in:anywhere newer_than:${days}d -from:me (${subjects})`;
+}
 
 function parseArgs(argv) {
   const out = {
@@ -160,10 +189,7 @@ function rowId(rowText) {
 
 function chromeCollectInboxRows() {
   const url =
-    'https://mail.google.com/mail/u/0/#search/' +
-    encodeURIComponent(
-      'in:inbox (subject:(Quick close-loop) OR subject:(Governed agents) OR subject:(Reliability Diagnostic) OR "runaway-loop") newer_than:14d',
-    );
+    'https://mail.google.com/mail/u/0/#search/' + encodeURIComponent(outreachSearchQuery());
   const script = `
 set targetURL to ${JSON.stringify(url)}
 tell application "Google Chrome"
@@ -246,12 +272,23 @@ function writeBoard(revenueDir, summary) {
     `Generated: ${summary.checkedAt}`,
     `chrome_ok: ${summary.chromeOk}`,
     `rows_scanned: ${summary.rowsScanned}`,
+    `reply_status: ${summary.replyStatus || 'scanned'}`,
     `hot: ${summary.hot.length}`,
     '',
     '## Hot leads (act with buyer-reply-packet)',
     '',
   ];
-  if (!summary.hot.length) lines.push('_No new outreach replies matched._', '');
+  if (summary.scanBlind) {
+    lines.push(
+      '> **REPLY STATE UNKNOWN — do not read this as "0 replies".**',
+      '> The scrape succeeded but returned zero rows, which also happens when the',
+      '> Gmail tab is signed out, still loading, or its row selector changed.',
+      '> Verify by hand before reporting a reply count.',
+      '',
+    );
+  } else if (!summary.hot.length) {
+    lines.push('_No new outreach replies matched._', '');
+  }
   for (const h of summary.hot) {
     lines.push(
       `### ${h.prospect || h.email || h.from.label || h.id}`,
@@ -325,11 +362,19 @@ function run(args) {
   state.lastRun = new Date().toISOString();
   saveState(state);
 
+  // A successful scrape that returns zero rows is NOT evidence of zero replies.
+  // It is equally consistent with a changed Gmail selector, a tab that never
+  // finished loading, or a signed-out session — and it read as "no replies" for
+  // three consecutive days (2026-07-26..28) while a real reply sat unhandled.
+  const scanBlind = chromeOk && !args.dryRows && rows.length === 0;
+
   const summary = {
     checkedAt: new Date().toISOString(),
     chromeOk,
     chromeError,
     rowsScanned: rows.length,
+    scanBlind,
+    replyStatus: scanBlind ? 'unknown_scan_returned_nothing' : 'scanned',
     hot,
     boardPath: null,
     baseline: args.baseline,
@@ -341,6 +386,15 @@ function run(args) {
     ntfyPush(
       'Gmail outreach REPLY',
       hot.map((h) => `${h.kind} ${h.email || h.prospect || h.id}: ${h.snippet.slice(0, 80)}`).join('\n'),
+    );
+  }
+
+  // Page on blindness too. A silently blind monitor is worse than no monitor:
+  // it manufactures a "0 replies" fact that downstream reports then repeat.
+  if (!args.baseline && scanBlind && args.ntfy) {
+    ntfyPush(
+      'Gmail reply scan BLIND',
+      `Scrape succeeded but returned 0 rows for query:\n${outreachSearchQuery()}\nReply state is UNKNOWN, not zero. Check the Gmail tab/session.`,
     );
   }
   return summary;
@@ -358,8 +412,13 @@ function main() {
   if (args.json) process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
   else {
     process.stdout.write(
-      `gmail-reply-scan chrome=${summary.chromeOk} rows=${summary.rowsScanned} hot=${summary.hot.length} board=${summary.boardPath}\n`,
+      `gmail-reply-scan chrome=${summary.chromeOk} rows=${summary.rowsScanned} status=${summary.replyStatus} hot=${summary.hot.length} board=${summary.boardPath}\n`,
     );
+    if (summary.scanBlind) {
+      process.stdout.write(
+        '  WARNING: scrape returned 0 rows — reply state is UNKNOWN, not zero.\n',
+      );
+    }
     for (const h of summary.hot) {
       process.stdout.write(`  HOT kind=${h.kind} email=${h.email || '-'} prospect=${h.prospect || '-'}\n`);
     }
@@ -376,7 +435,9 @@ module.exports = {
   processRows,
   rowId,
   run,
+  outreachSearchQuery,
   OUTREACH_SUBJECT_RE,
+  OUTREACH_SUBJECT_TERMS,
 };
 
 if (require.main === module) main();

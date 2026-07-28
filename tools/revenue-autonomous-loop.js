@@ -1072,6 +1072,7 @@ async function run(args) {
 
   // High-ROI: surface inbound replies so agents act with buyer-reply-packet (skip in --fast).
   let hotReplies = [];
+  let replyScanBlind = false;
   if (!args.fast && process.env.REVENUE_REPLY_SCAN !== '0') {
     try {
       const { run: runReplyScan } = require('./gmail-outreach-reply-scan');
@@ -1083,9 +1084,18 @@ async function run(args) {
         help: false,
       });
       hotReplies = (scan && scan.hot) || [];
+      // hot=0 from a blind scan is not the same fact as hot=0 from a real scan,
+      // and the difference decides whether we keep cold-mailing. Carry the
+      // distinction into the log and the summary instead of flattening both to
+      // zero — that flattening is why a 2026-07-22 reply went unnoticed and the
+      // same address got another cold follow-up six days later.
+      replyScanBlind = Boolean(scan && scan.scanBlind);
       actions.push(
-        `gmail_reply_scan hot=${hotReplies.length} chrome=${scan && scan.chromeOk} board=${scan && scan.boardPath}`,
+        `gmail_reply_scan hot=${hotReplies.length} status=${(scan && scan.replyStatus) || 'unknown'} chrome=${scan && scan.chromeOk} board=${scan && scan.boardPath}`,
       );
+      if (replyScanBlind) {
+        actions.push('gmail_reply_scan_BLIND=reply_state_unknown_do_not_read_as_zero');
+      }
     } catch (err) {
       actions.push(`gmail_reply_scan_error:${(err.message || '').slice(0, 80)}`);
     }
@@ -1109,6 +1119,7 @@ async function run(args) {
       hours_since: d.hours_since,
     })),
     hotReplies,
+    replyScanBlind,
     actions,
     sentCount,
     pendingMcp: pendingSends.length,
