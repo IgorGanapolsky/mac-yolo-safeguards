@@ -157,8 +157,8 @@ appId: com.iganapolsky.hermesmobile
     timeout: 60000
 - tapOn:
     id: "chat-input"
-- inputText: "relaunch focus works"
-- assertVisible: "relaunch focus works"
+- inputText: "make money today"
+- assertVisible: "make money today"
 - eraseText: 100
 - hideKeyboard
 - assertVisible:
