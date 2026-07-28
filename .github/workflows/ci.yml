@@ -19,12 +19,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # mac-mini-hermes (self-hosted, macos-arm64, hermes-e2e) is the default to cut
-  # GitHub-hosted macOS queue wait. Fork PRs stay on macos-latest (arbitrary code).
-  # If the mini is offline, temporarily switch runs-on below to macos-latest.
+  # Runs on ubuntu. This job is a REQUIRED check, and it previously ran on the
+  # two self-hosted Macs (macbook-stable-1, mac-mini-hermes) - the same pool the
+  # iPad simulator gate and the macOS Maestro smoke need. With several agents
+  # opening PRs at once, both runners sit busy=true and every PR queues behind
+  # every other PR: #1106 waited 40+ minutes with its six other required checks
+  # already green, purely for a runner.
+  #
+  # Nothing in this job needs macOS. Its steps are JavaScript syntax, shell
+  # syntax, Python static checks and node unit tests - grepping the whole job
+  # for xcrun / simctl / codesign / xcodebuild / sw_vers / osascript / launchctl
+  # / brew / /Applications / pmset / diskutil returns zero hits.
+  #
+  # The name is kept so branch protection keeps matching it.
   macos-guard:
     name: macOS guard kit
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'macos-latest' || fromJSON('["self-hosted", "macos-arm64", "hermes-e2e"]') }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
