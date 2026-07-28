@@ -69,13 +69,19 @@ _NEGATION_MARKERS = (
 
 
 def _assertive_text(lowered_response: str) -> str:
-    """Drop lines that quote banned phrases as guidance rather than claims."""
+    """Drop lines that quote banned phrases as guidance rather than claims.
+
+    Whitespace runs (spaces, tabs, line wraps) are collapsed AFTER the
+    line-scoped negation exemption, so a banned phrase can't slip past the
+    substring match via "seamless  failover" or a mid-phrase newline
+    (verifier-fuzz finding, 2026-07-28).
+    """
     kept = [
         line
         for line in lowered_response.splitlines()
         if not any(marker in line for marker in _NEGATION_MARKERS)
     ]
-    return "\n".join(kept)
+    return re.sub(r"\s+", " ", "\n".join(kept))
 
 
 def parse_card(card_text: str) -> dict[str, str]:
@@ -166,9 +172,12 @@ def validate_response(response: str, card_text: str, user_question: str) -> list
         violations.append("continuity_rescue_language")
     if any(phrase in assertive for phrase in THUMBGATE_OVERCLAIM_PHRASES):
         violations.append("thumbgate_overclaim")
-    if "thumbgate" in lowered and any(
+    if ("thumbgate" in lowered or "thumbgate" in user_question.lower()) and any(
         phrase in assertive for phrase in THUMBGATE_CONFLATION_PHRASES
     ):
+        # Fires even when the answer omits the product name: pitching the
+        # "self-improving firewall" to a ThumbGate question IS the conflation
+        # (verifier-fuzz finding, 2026-07-28).
         violations.append("thumbgate_ai_conflation")
 
     question_lower = user_question.lower()

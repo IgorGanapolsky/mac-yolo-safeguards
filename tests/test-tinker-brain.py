@@ -221,5 +221,52 @@ class EvalHarnessTest(unittest.TestCase):
         self.assertEqual([r for r in contract_results if not r["ok"]], [])
 
 
+class VerifierFuzzTest(unittest.TestCase):
+    def test_no_banned_phrase_mutation_escapes_contract(self):
+        sys.path.insert(0, str(BRAIN))
+        import tinker_brain_verifier_fuzz as fuzz
+
+        card_text = FIXTURE_CARD
+        escapes = []
+        banned = (
+            [(p, "continuity_rescue_language") for p in fuzz.THUMBGATE_RESCUE_PHRASES]
+            + [(p, "thumbgate_overclaim") for p in fuzz.THUMBGATE_OVERCLAIM_PHRASES]
+            + [(p, "thumbgate_ai_conflation") for p in fuzz.THUMBGATE_CONFLATION_PHRASES]
+        )
+        for phrase, expected in banned:
+            for name, mutated in fuzz.mutations(phrase).items():
+                response = f"AS_OF=2026-07-22T18:07:42Z\n{mutated}\n"
+                got = fuzz.validate_response(
+                    response, card_text, "How do we sell ThumbGate.app?"
+                )
+                if expected not in got:
+                    escapes.append((phrase, name))
+        self.assertEqual(escapes, [])
+
+
+class EvalMinerTest(unittest.TestCase):
+    def test_miner_replays_traces_and_flags_uncovered_routes(self):
+        sys.path.insert(0, str(BRAIN))
+        import tinker_brain_eval_miner as miner
+
+        with tempfile.TemporaryDirectory() as tmp:
+            trace_dir = pathlib.Path(tmp)
+            (trace_dir / "questions.jsonl").write_text(
+                json.dumps({"question": "How do we sell ThumbGate.app?", "ts": "t"})
+                + "\n"
+                + json.dumps({"question": "What tensorflow cluster should we buy?", "ts": "t"})
+                + "\n",
+                encoding="utf-8",
+            )
+            report = miner.mine(
+                BRAIN / "fixtures" / "answer_card.txt", trace_dir, BRAIN / "fixtures"
+            )
+        self.assertEqual(report["replayed"], 2)
+        self.assertIn("thumbgate_gtm", report["intent_traffic"])
+        # Pinned questions must never be re-proposed as new cases.
+        proposed_questions = {c["question"] for c in report["proposed_cases"]}
+        self.assertNotIn("How do we sell ThumbGate.app?", proposed_questions)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

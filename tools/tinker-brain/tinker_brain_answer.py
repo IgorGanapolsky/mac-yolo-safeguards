@@ -312,6 +312,33 @@ def answer(
     }
 
 
+def write_trace(trace_dir: Path, question: str, result: dict[str, Any]) -> None:
+    """Append one production trace (question + answer + verdict) for eval mining.
+
+    Best-effort by contract: a trace-write failure must never break the answer.
+    Eval/CI runs do not pass --trace, so fixture replays stay out of this log.
+    """
+    import datetime
+    import hashlib
+
+    try:
+        trace_dir.mkdir(parents=True, exist_ok=True)
+        record = {
+            "ts": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "question": question,
+            "route": result.get("routing", {}).get("primary"),
+            "ok": result.get("ok"),
+            "violations": result.get("violations", []),
+            "answer_sha256": hashlib.sha256(result.get("text", "").encode("utf-8")).hexdigest(),
+            "answer_text": result.get("text", ""),
+            "schema_version": "tinker-brain-trace/1",
+        }
+        with (trace_dir / "traces.jsonl").open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record, sort_keys=True) + "\n")
+    except OSError:
+        pass
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--card", type=Path, required=True)
@@ -319,6 +346,16 @@ def main() -> int:
     parser.add_argument("--expert-card", type=Path, default=None)
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--no-enforce", action="store_true")
+    parser.add_argument(
+        "--trace",
+        action="store_true",
+        help="append question+answer+verdict to traces.jsonl for eval mining",
+    )
+    parser.add_argument(
+        "--trace-dir",
+        type=Path,
+        default=Path.home() / ".hermes" / "receipts" / "tinker-brain",
+    )
     args = parser.parse_args()
     card_text = args.card.read_text(encoding="utf-8")
     expert_text = load_expert_card(args.expert_card)
@@ -328,6 +365,8 @@ def main() -> int:
         enforce_contract=not args.no_enforce,
         expert_text=expert_text,
     )
+    if args.trace:
+        write_trace(args.trace_dir, args.question, result)
     if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
     else:
