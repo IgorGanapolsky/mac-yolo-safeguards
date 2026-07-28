@@ -309,6 +309,7 @@ OpenMono `/ship-claim` is the local verifier gate; ThumbGate is the cross-sessio
 - **Squash merges do not make branch tips ancestors of main.** Delete leftover remote branches via merged-PR heads (`gh pr list --state merged`), not `git merge-base --is-ancestor`.
 - **Do not bulk-delete multi-agent worktrees** (~100+ under `/private/tmp/codex-*`, `.worktrees/`). Only prune branches of *merged* PRs and clearly agent-owned disposable trees you created.
 - **CI queue storm:** when macOS/Maestro jobs pile up, cancel in-progress/queued runs on already **MERGED/CLOSED** PR heads to free runners — never cancel another agent's open-PR CI.
+- **GitHub Actions minute conservation (2026-07-28):** GitHub-hosted macOS runners (`macos-15`, `macos-26`) charge a **10x multiplier** (1 real minute = 10 included minutes). (1) Prefer `["self-hosted", "macos-arm64"]` for Mac/iOS builds to consume 0 GitHub minutes. (2) Use `paths-ignore` (`'**.md'`, `'**.tsv'`, `'plan.md'`, `'docs/**'`) on all workflows so doc/plan commits do not trigger CI. (3) Skip heavy jobs on draft PRs. (4) Use `ubuntu-latest` (1x) for all pure Node.js / web control plane / CLI test jobs.
 
 ## Protected components (verify after each change)
 
