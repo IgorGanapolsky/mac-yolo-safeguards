@@ -95,6 +95,7 @@ function scoreCandidate(provider) {
   else if (/kimi-k2\.6/.test(model)) score += 10;
   // K3 is frontier long-horizon — score high for context but do not outrank K2.7 Code for daily coding ROI
   else if (model === FRONTIER_K3_MODEL || model === 'k3' || model === 'kimi-code-k3') score += 35;
+  else if (/k3-256k|kimi-code-k3-256k/i.test(model)) score += 30;
   if (Number(provider.context_length || 0) >= FRONTIER_K3_CONTEXT) score += 30;
   else if (Number(provider.context_length || 0) >= MIN_CONTEXT) score += 25;
   if (!provider.base_url) score += 5;
@@ -124,9 +125,19 @@ function frontierK3OptIn() {
 
 function probeGatewayModels(gatewayUrl) {
   const base = String(gatewayUrl || DEFAULT_GATEWAY).replace(/\/+$/, '');
+  // Write HTTP status to stderr line so we can reject 401/5xx even when body is JSON.
   const result = run(
     'curl',
-    ['-sS', '--max-time', '4', '-H', 'Accept: application/json', `${base}/v1/models`],
+    [
+      '-sS',
+      '--max-time',
+      '4',
+      '-H',
+      'Accept: application/json',
+      '-w',
+      '\n%{http_code}',
+      `${base}/v1/models`,
+    ],
     { timeout: 6000 },
   );
   if (result.status !== 0) {
@@ -136,8 +147,26 @@ function probeGatewayModels(gatewayUrl) {
       modelIds: [],
     };
   }
+  const raw = String(result.stdout || '');
+  const nl = raw.lastIndexOf('\n');
+  const bodyText = nl >= 0 ? raw.slice(0, nl) : raw;
+  const httpCode = Number(nl >= 0 ? raw.slice(nl + 1).trim() : 0);
+  if (!httpCode || httpCode < 200 || httpCode >= 300) {
+    return {
+      ok: false,
+      error: `HTTP ${httpCode || 'unknown'}: ${bodyText.slice(0, 120)}`,
+      modelIds: [],
+    };
+  }
   try {
-    const body = JSON.parse(result.stdout || '{}');
+    const body = JSON.parse(bodyText || '{}');
+    if (body.error || (body.message && !body.data)) {
+      return {
+        ok: false,
+        error: String(body.error?.message || body.message || 'gateway error').slice(0, 160),
+        modelIds: [],
+      };
+    }
     const modelIds = Array.isArray(body.data)
       ? body.data.map((m) => m.id).filter(Boolean)
       : [];
@@ -168,6 +197,7 @@ function collect(options = {}) {
       provider.provider === RECOMMENDED_PROVIDER && provider.model === RECOMMENDED_MODEL,
     legacy: LEGACY_KIMI_MODELS.has(provider.model),
     frontierK3: /k3/i.test(String(provider.model || '')),
+    k3Sku256k: /k3-256k|kimi-code-k3-256k/i.test(String(provider.model || '')),
   }));
   const best = candidates.slice().sort((a, b) => b.score - a.score)[0] || null;
 
@@ -207,13 +237,23 @@ function collect(options = {}) {
         `Keep only as a rollback after ${RECOMMENDED_MODEL} passes repo-local benchmarks.`,
       );
     }
-    if (candidate.frontierK3 && candidate.contextLength < FRONTIER_K3_CONTEXT) {
+    if (candidate.k3Sku256k) {
+      if (candidate.contextLength > 0 && candidate.contextLength < MIN_CONTEXT) {
+        addFinding(
+          findings,
+          'low',
+          'Kimi K3 256K SKU context under-declared',
+          `${candidate.provider}/${candidate.model} context_length=${candidate.contextLength}`,
+          `Set context_length >= ${MIN_CONTEXT} for the k3-256k membership SKU (do not force 1M).`,
+        );
+      }
+    } else if (candidate.frontierK3 && candidate.contextLength < FRONTIER_K3_CONTEXT) {
       addFinding(
         findings,
         'low',
         'Kimi K3 fallback context under-declared vs 1M window',
         `${candidate.provider}/${candidate.model} context_length=${candidate.contextLength || '<missing>'}`,
-        `Set context_length >= ${FRONTIER_K3_CONTEXT} for K3 long-horizon sessions (still opt-in only).`,
+        `Set context_length >= ${FRONTIER_K3_CONTEXT} for full K3 long-horizon sessions (still opt-in only).`,
       );
     } else if (!candidate.frontierK3 && candidate.contextLength < MIN_CONTEXT) {
       addFinding(
