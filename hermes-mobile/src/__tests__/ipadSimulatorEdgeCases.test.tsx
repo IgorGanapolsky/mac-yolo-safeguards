@@ -188,6 +188,8 @@ describe('iPad simulator fresh-user edge-case flow', () => {
     expect(ipadWorkflow).toContain(
       'does not carry the generic `hermes-e2e` label',
     );
+    expect(ipadWorkflow).not.toContain('cache: npm');
+    expect(ipadWorkflow).not.toContain('cache-dependency-path:');
     expect(ipadWorkflow).not.toContain('runs-on: macos-26');
     expect(ipadWorkflow).toContain('github.event.pull_request.draft');
     expect(ipadWorkflow).not.toContain('brew install openjdk@17');

@@ -91,8 +91,9 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: hermes-mobile/package-lock.json
+          # This persistent runner already retains npm's download cache. The
+          # setup-node post action tried to upload the full 25 GB local cache
+          # after E2E passed, blocking job completion for minutes.
 
       - name: Install dependencies
         run: npm ci
