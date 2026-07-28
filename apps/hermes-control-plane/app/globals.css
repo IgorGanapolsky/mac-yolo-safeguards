@@ -432,12 +432,19 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     border-top:1px solid var(--line);
     box-shadow:0 -12px 32px rgba(0,0,0,.45);
   }
-  .composer textarea{
-    min-height:64px;
-    max-height:120px;
-    border-radius:16px;
-    padding:12px 14px;
-    font-size:16px; /* iOS: avoid focus zoom */
+  .composer-options-header{
+    display:flex;
+    justify-content:flex-end;
+    margin-top:6px;
+  }
+  .composer-options-toggle{
+    background:rgba(56,189,248,.12);
+    border:1px solid rgba(56,189,248,.3);
+    color:#38BDF8;
+    font-size:11px;
+    padding:4px 10px;
+    border-radius:8px;
+    cursor:pointer;
   }
   .composer-where{margin:8px 0 0;gap:8px}
   .composer-where-label{font-size:11px;letter-spacing:.05em;color:#38BDF8;font-weight:700}

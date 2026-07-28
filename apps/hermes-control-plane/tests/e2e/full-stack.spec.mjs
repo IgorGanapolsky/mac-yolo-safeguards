@@ -135,6 +135,11 @@ test("mobile viewport bottom tabs cleanly isolate Chats, Hermes, Leash, and Sett
   await expect(page.locator(".sidebar")).toBeHidden();
   await expect(page.locator(".right-rail")).toBeHidden();
 
+  // Machine options collapsed by default to save vertical height
+  await expect(page.locator(".composer-where")).toBeHidden();
+  await page.locator('[data-testid="composer-options-toggle"]').click();
+  await expect(page.locator(".composer-where")).toBeVisible();
+
   // Tap 'Settings' tab: right-rail settings panel shows, task-panel hidden
   await mobileNav.locator('a[href="#web-settings"]').click();
   await expect(page.locator(".right-rail")).toBeVisible();
