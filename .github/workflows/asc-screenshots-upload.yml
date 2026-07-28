@@ -24,7 +24,7 @@ jobs:
   upload:
     name: Upload iOS screenshots to ASC
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 35
     env:
       # Public Hermes Mobile ASC app id — do not rely on EXPO_ASC_APP_ID secret (was LipoShield id).
       EXPO_ASC_APP_ID: "6786778037"

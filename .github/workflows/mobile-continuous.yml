@@ -2,8 +2,13 @@ name: Hermes Mobile Continuous
 
 on:
   schedule:
-    # Every 6 hours — autonomous cloud verification when Mac is offline
-    - cron: '20 */6 * * *'
+    # Once daily. This workflow carries a macos-26 job, and macOS bills at 10x,
+    # which made it by far the largest consumer of the account's 3,000 included
+    # Actions minutes: ~1,397 billed minutes across its last 10 runs alone,
+    # against 54 for mobile-e2e and 7 for pr-hygiene. Four scheduled runs a day
+    # was the single biggest recurring cost. PR and merge_group coverage is
+    # unchanged, so nothing reaches a device with less verification.
+    - cron: '20 6 * * *'
   pull_request:
     paths:
       - 'hermes-mobile/**'
@@ -36,6 +41,7 @@ jobs:
   unit-and-contract:
     name: Unit + release safety
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: hermes-mobile
@@ -63,6 +69,7 @@ jobs:
   release-apk-guard:
     name: Release APK + embedded bundle
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: unit-and-contract
     defaults:
       run:
@@ -128,7 +135,7 @@ jobs:
     # and which unit tests + a build job cannot detect. Make this a required check
     # in branch protection to block merges on E2E failure.
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' || github.event_name == 'merge_group'
-    timeout-minutes: 45
+    timeout-minutes: 35
     defaults:
       run:
         working-directory: hermes-mobile

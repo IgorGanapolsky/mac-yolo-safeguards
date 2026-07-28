@@ -70,6 +70,7 @@ jobs:
   billing-freeze-gate:
     name: Expo billing freeze gate
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: hermes-mobile
@@ -84,6 +85,7 @@ jobs:
     name: Roll back OTA channel
     needs: [billing-freeze-gate]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: hermes-mobile

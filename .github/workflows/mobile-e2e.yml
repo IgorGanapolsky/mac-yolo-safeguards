@@ -63,6 +63,7 @@ jobs:
   changes:
     name: Detect hermes-mobile changes
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     outputs:
       mobile: ${{ steps.filter.outputs.mobile }}
     steps:

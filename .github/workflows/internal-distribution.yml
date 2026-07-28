@@ -56,6 +56,7 @@ jobs:
   gate:
     name: Gate Internal Distribution
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     outputs:
       should_run: ${{ steps.decide.outputs.should_run }}
       ref: ${{ steps.decide.outputs.ref }}
@@ -158,6 +159,7 @@ jobs:
     needs: [gate]
     if: needs.gate.outputs.should_run == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: hermes-mobile
@@ -200,6 +202,7 @@ jobs:
     needs: [gate, quality-gate]
     if: needs.gate.outputs.should_run == 'true' && needs.gate.outputs.run_android == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     environment: internal-android
     defaults:
       run:
@@ -483,6 +486,7 @@ jobs:
     needs: [gate, quality-gate]
     if: needs.gate.outputs.should_run == 'true' && needs.gate.outputs.run_ios == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     environment: internal-ios
     defaults:
       run:

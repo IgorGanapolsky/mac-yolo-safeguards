@@ -16,6 +16,7 @@ permissions:
 jobs:
   route:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Route handoff by label
         uses: actions/github-script@v9

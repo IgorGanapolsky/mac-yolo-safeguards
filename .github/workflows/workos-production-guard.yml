@@ -25,6 +25,7 @@ jobs:
   guard:
     name: Verify production auth (client, chain, sign-in methods)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
