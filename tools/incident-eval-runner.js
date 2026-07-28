@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const DEFAULT_MANIFEST = path.join(ROOT, 'evals', 'incidents', 'v1.json');
@@ -13,6 +14,7 @@ const MANIFEST_SCHEMA = 'hermes/incident-eval-manifest/v1';
 const REPORT_SCHEMA = 'hermes/incident-eval-report/v1';
 const DECISIONS = new Set(['accept', 'reject']);
 const TIERS = new Set(['pr', 'nightly']);
+const MAX_ARTIFACT_BYTES = 1024 * 1024;
 
 function usage() {
   return `Usage:
@@ -63,8 +65,93 @@ function digest(value) {
   return crypto.createHash('sha256').update(JSON.stringify(stableValue(value))).digest('hex');
 }
 
+function digestBytes(value) {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
 function isLabel(value) {
   return typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(value);
+}
+
+function isSafeRelativePath(value) {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 240) return false;
+  if (!/^[A-Za-z0-9.][A-Za-z0-9._/-]*$/.test(value)) return false;
+  if (path.isAbsolute(value) || value.includes('\0')) return false;
+  const normalized = path.normalize(value);
+  return normalized !== '..' && !normalized.startsWith(`..${path.sep}`);
+}
+
+function readArtifact(relativePath, context = {}) {
+  if (!isSafeRelativePath(relativePath)) throw new Error('artifact path must stay inside the repository');
+  const repoRoot = path.resolve(context.repoRoot || ROOT);
+  const fullPath = path.resolve(repoRoot, relativePath);
+  if (fullPath !== repoRoot && !fullPath.startsWith(`${repoRoot}${path.sep}`)) {
+    throw new Error('artifact path escaped the repository');
+  }
+
+  const overrides = context.artifactOverrides || {};
+  let bytes;
+  if (Object.prototype.hasOwnProperty.call(overrides, relativePath)) {
+    const override = overrides[relativePath];
+    bytes = Buffer.isBuffer(override) ? override : Buffer.from(String(override));
+  } else {
+    const realRoot = fs.realpathSync(repoRoot);
+    const realPath = fs.realpathSync(fullPath);
+    if (realPath !== realRoot && !realPath.startsWith(`${realRoot}${path.sep}`)) {
+      throw new Error('artifact symlink escaped the repository');
+    }
+    const stat = fs.statSync(realPath);
+    if (!stat.isFile()) throw new Error('artifact must be a regular file');
+    if (stat.size > MAX_ARTIFACT_BYTES) throw new Error('artifact exceeds the 1 MiB eval limit');
+    bytes = fs.readFileSync(realPath);
+  }
+  if (bytes.length > MAX_ARTIFACT_BYTES) throw new Error('artifact exceeds the 1 MiB eval limit');
+  return {
+    relativePath: relativePath.split(path.sep).join('/'),
+    fullPath,
+    bytes,
+    sha256: digestBytes(bytes),
+  };
+}
+
+function runTypeScriptExport(artifact, exportName, input) {
+  if (!isLabel(exportName)) throw new Error('TypeScript export must be an opaque label');
+  const source = `
+    import { pathToFileURL } from 'node:url';
+    const [modulePath, exportName, payload] = process.argv.slice(1);
+    const loaded = await import(pathToFileURL(modulePath).href);
+    if (typeof loaded[exportName] !== 'function') throw new Error('export is not callable');
+    process.stdout.write(JSON.stringify(loaded[exportName](JSON.parse(payload))));
+  `;
+  const child = spawnSync(process.execPath, [
+    '--no-warnings',
+    '--experimental-strip-types',
+    '--input-type=module',
+    '-e',
+    source,
+    artifact.fullPath,
+    exportName,
+    JSON.stringify(input),
+  ], {
+    encoding: 'utf8',
+    timeout: 5000,
+    maxBuffer: 256 * 1024,
+  });
+  if (child.error) throw new Error(`production predicate failed: ${child.error.message}`);
+  if (child.status !== 0) throw new Error('production predicate exited non-zero');
+  try {
+    return JSON.parse(child.stdout);
+  } catch {
+    throw new Error('production predicate returned invalid JSON');
+  }
+}
+
+function taskArtifact(context, kind) {
+  const artifact = context.task?.artifact;
+  if (!artifact || artifact.kind !== kind) {
+    throw new Error(`${context.task?.id || 'task'} requires a ${kind} artifact`);
+  }
+  return artifact;
 }
 
 function validateManifest(manifest) {
@@ -98,6 +185,26 @@ function validateManifest(manifest) {
     if (!Object.prototype.hasOwnProperty.call(VERIFIERS, task.verifier)) {
       throw new Error(`${task.id}: unknown verifier ${task.verifier}`);
     }
+    if (task.artifact !== undefined) {
+      if (!task.artifact || typeof task.artifact !== 'object' || Array.isArray(task.artifact)) {
+        throw new Error(`${task.id}: artifact must be an object`);
+      }
+      if (!['typescript-export', 'json-binding'].includes(task.artifact.kind)) {
+        throw new Error(`${task.id}: unsupported artifact kind`);
+      }
+      if (!isSafeRelativePath(task.artifact.path)) {
+        throw new Error(`${task.id}: artifact path must stay inside the repository`);
+      }
+      if (task.artifact.kind === 'typescript-export' && !isLabel(task.artifact.export)) {
+        throw new Error(`${task.id}: artifact export must be an opaque label`);
+      }
+      if (
+        task.artifact.kind === 'json-binding'
+        && !/^[a-f0-9]{64}$/i.test(String(task.artifact.sha256 || ''))
+      ) {
+        throw new Error(`${task.id}: JSON artifact requires a SHA-256 binding`);
+      }
+    }
     if (!Array.isArray(task.cases) || task.cases.length < 2) {
       throw new Error(`${task.id}: at least one positive and one adversarial case are required`);
     }
@@ -114,6 +221,12 @@ function validateManifest(manifest) {
       if (!evalCase.input || typeof evalCase.input !== 'object' || Array.isArray(evalCase.input)) {
         throw new Error(`${task.id}/${evalCase.id}: input must be an object`);
       }
+      if (
+        Object.prototype.hasOwnProperty.call(evalCase.input, 'artifactPath')
+        && !isSafeRelativePath(evalCase.input.artifactPath)
+      ) {
+        throw new Error(`${task.id}/${evalCase.id}: artifact path must stay inside the repository`);
+      }
     }
     if (!decisions.has('accept') || !decisions.has('reject')) {
       throw new Error(`${task.id}: cases must exercise both accept and reject decisions`);
@@ -122,44 +235,91 @@ function validateManifest(manifest) {
   return manifest;
 }
 
-function connectionProof(input) {
+function connectionProof(input, context = {}) {
+  const definition = taskArtifact(context, 'typescript-export');
+  const artifact = readArtifact(definition.path, context);
+  const production = runTypeScriptExport(artifact, definition.export, input);
   const evidenceCodes = [];
-  const text = typeof input.visibleText === 'string' ? input.visibleText.trim() : '';
-  if (input.connectionState !== 'connected') evidenceCodes.push('structured_state_not_connected');
-  if (input.authenticatedHealth !== true) evidenceCodes.push('authenticated_health_missing');
-  if (!/(^|[.·]\s*)connected(?:[.\s·]|$)/i.test(text)) evidenceCodes.push('positive_connected_copy_missing');
-  if (/\bnot\s+connected\b/i.test(text)) evidenceCodes.push('negative_connected_copy_present');
-  if (/\bdisconnected\b/i.test(text)) evidenceCodes.push('disconnected_copy_present');
+  if (production?.status !== 'connected') evidenceCodes.push('production_status_not_connected');
+  if (production?.label !== 'Connected') evidenceCodes.push('production_label_not_exact_connected');
   return {
     decision: evidenceCodes.length === 0 ? 'accept' : 'reject',
     evidenceCodes,
+    artifactEvidence: [{ path: artifact.relativePath, sha256: artifact.sha256 }],
   };
 }
 
-function continuousE2eProof(input) {
+function continuousE2eProof(input, context = {}) {
+  const definition = taskArtifact(context, 'json-binding');
+  const artifact = readArtifact(definition.path, context);
   const evidenceCodes = [];
   if (input.e2e !== 'pass') evidenceCodes.push(input.e2e === 'skipped' ? 'e2e_skipped' : 'e2e_not_passed');
-  if (!/^[a-f0-9]{7,64}$/i.test(String(input.gitSha || ''))) evidenceCodes.push('git_revision_missing');
+  if (!/^[a-f0-9]{40}$/i.test(String(input.gitSha || ''))) evidenceCodes.push('git_revision_missing');
   if (!/^[a-f0-9]{64}$/i.test(String(input.artifactSha256 || ''))) evidenceCodes.push('artifact_digest_missing');
+  if (artifact.sha256 !== definition.sha256) evidenceCodes.push('manifest_artifact_digest_mismatch');
+  if (artifact.sha256 !== input.artifactSha256) evidenceCodes.push('reported_artifact_digest_mismatch');
+
+  let metadata = null;
+  try {
+    metadata = JSON.parse(artifact.bytes.toString('utf8'));
+  } catch {
+    evidenceCodes.push('artifact_metadata_invalid');
+  }
+  if (metadata) {
+    if (metadata.schema !== 'hermes/continuous-e2e-artifact/v1') {
+      evidenceCodes.push('artifact_schema_invalid');
+    }
+    if (metadata.e2e !== 'pass') evidenceCodes.push('artifact_e2e_not_passed');
+    if (metadata.gitSha !== input.gitSha) evidenceCodes.push('artifact_revision_mismatch');
+  }
   return {
     decision: evidenceCodes.length === 0 ? 'accept' : 'reject',
     evidenceCodes,
+    artifactEvidence: [{ path: artifact.relativePath, sha256: artifact.sha256 }],
   };
 }
 
-function ipadRunnerCostProof(input) {
+function ipadRunnerCostProof(input, context = {}) {
+  const artifact = readArtifact(input.artifactPath, context);
+  const workflow = artifact.bytes.toString('utf8').replace(/^\s*#.*$/gm, '');
   const evidenceCodes = [];
-  const labels = Array.isArray(input.runsOn) ? input.runsOn.map(String) : [];
-  const normalized = labels.map((label) => label.toLowerCase());
-  if (!normalized.includes('self-hosted')) evidenceCodes.push('self_hosted_label_missing');
-  if (!normalized.includes('ipad-simulator')) evidenceCodes.push('ipad_capability_label_missing');
-  if (normalized.some((label) => /^macos-(?:latest|\d)/.test(label))) {
-    evidenceCodes.push('github_hosted_macos_requested');
+  const detectStart = workflow.indexOf('\n  detect-changes:');
+  const ipadStart = workflow.indexOf('\n  ipad-simulator:');
+  const gateStart = workflow.indexOf('\n  required-gate:');
+  const detection = detectStart >= 0 && ipadStart > detectStart
+    ? workflow.slice(detectStart, ipadStart)
+    : '';
+  const ipadJob = ipadStart >= 0 && gateStart > ipadStart
+    ? workflow.slice(ipadStart, gateStart)
+    : '';
+  const requiredGate = gateStart >= 0 ? workflow.slice(gateStart) : '';
+  const reservedRunner = 'runs-on: ${{ fromJSON(\'["self-hosted", "ipad-simulator"]\') }}';
+  if (!ipadJob.includes(reservedRunner)) evidenceCodes.push('reserved_ipad_runner_missing');
+  if (/runs-on:\s*macos-(?:latest|\d)/i.test(ipadJob)) evidenceCodes.push('github_hosted_macos_requested');
+  const forkComparison = /\[\s*"\$PR_HEAD_REPO"\s*!=\s*"\${{\s*github\.repository\s*}}"\s*\]/;
+  if (
+    !detection.includes('PR_HEAD_REPO')
+    || !detection.includes('github.repository')
+    || !forkComparison.test(detection)
+  ) {
+    evidenceCodes.push('fork_identity_check_missing');
   }
-  if (input.trustedSource !== true) evidenceCodes.push('untrusted_code_on_self_hosted');
+  if (
+    !detection.includes('trusted_source=false')
+    || !detection.includes('echo "trusted-source=$trusted_source"')
+  ) {
+    evidenceCodes.push('fork_deny_assignment_missing');
+  }
+  if (!ipadJob.includes("needs.detect-changes.outputs.trusted-source == 'true'")) {
+    evidenceCodes.push('trusted_source_job_gate_missing');
+  }
+  if (!requiredGate.includes('Mobile changes from fork PRs cannot execute on the self-hosted iPad runner.')) {
+    evidenceCodes.push('required_gate_fork_denial_missing');
+  }
   return {
     decision: evidenceCodes.length === 0 ? 'accept' : 'reject',
     evidenceCodes,
+    artifactEvidence: [{ path: artifact.relativePath, sha256: artifact.sha256 }],
   };
 }
 
@@ -179,6 +339,10 @@ function runIncidentEvals(manifest, options = {}) {
   const tier = options.tier || 'pr';
   if (!TIERS.has(tier)) throw new Error(`unsupported tier: ${tier}`);
   const verifiers = { ...VERIFIERS, ...(options.verifiers || {}) };
+  const verifierContext = {
+    repoRoot: path.resolve(options.repoRoot || ROOT),
+    artifactOverrides: options.artifactOverrides || {},
+  };
   const generatedAt = new Date(options.nowMs ?? Date.now()).toISOString();
   const selected = manifest.tasks.filter((task) => task.tier === tier || tier === 'nightly');
   if (selected.length === 0) throw new Error(`manifest has no tasks for tier ${tier}`);
@@ -192,13 +356,28 @@ function runIncidentEvals(manifest, options = {}) {
       const observed = stableValue(evalCase.input);
       const executionDurationNs = Number(process.hrtime.bigint() - started);
       const verifierStarted = process.hrtime.bigint();
-      const verdict = verifier(observed);
+      const verdict = verifier(observed, {
+        ...verifierContext,
+        task,
+        evalCase,
+      });
       const verifierDurationNs = Number(process.hrtime.bigint() - verifierStarted);
       if (!verdict || !DECISIONS.has(verdict.decision) || !Array.isArray(verdict.evidenceCodes)) {
         throw new Error(`${task.id}/${evalCase.id}: verifier returned an invalid verdict`);
       }
       if (!verdict.evidenceCodes.every(isLabel)) {
         throw new Error(`${task.id}/${evalCase.id}: verifier evidence codes must be opaque labels`);
+      }
+      const artifactEvidence = verdict.artifactEvidence || [];
+      if (
+        !Array.isArray(artifactEvidence)
+        || !artifactEvidence.every((item) => (
+          item
+          && isSafeRelativePath(item.path)
+          && /^[a-f0-9]{64}$/i.test(String(item.sha256 || ''))
+        ))
+      ) {
+        throw new Error(`${task.id}/${evalCase.id}: verifier artifact evidence is invalid`);
       }
       const matched = verdict.decision === evalCase.expectedDecision;
       results.push({
@@ -214,6 +393,10 @@ function runIncidentEvals(manifest, options = {}) {
           },
           inputDigest: digest(observed),
           observedFields: Object.keys(observed).sort(),
+          artifacts: artifactEvidence.map((item) => ({
+            path: item.path,
+            sha256: item.sha256,
+          })),
           durationNs: executionDurationNs,
         },
         verifierTrajectory: {
@@ -311,12 +494,16 @@ module.exports = {
   connectionProof,
   continuousE2eProof,
   digest,
+  digestBytes,
   ipadRunnerCostProof,
+  isSafeRelativePath,
   loadManifest,
   main,
   parseArgs,
   render,
+  readArtifact,
   runIncidentEvals,
+  runTypeScriptExport,
   validateManifest,
   writeReport,
 };

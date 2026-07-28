@@ -12,42 +12,59 @@
         "network": "denied",
         "productionWrites": "denied"
       },
+      "artifact": {
+        "kind": "typescript-export",
+        "path": "hermes-mobile/src/utils/connectionStatusContract.ts",
+        "export": "resolveCalmConnectionStatus"
+      },
       "verifier": "connection-proof-v1",
       "cases": [
         {
-          "id": "historical-not-connected-substring",
+          "id": "production-unreachable-label",
           "expectedDecision": "reject",
           "input": {
-            "connectionState": "disconnected",
-            "authenticatedHealth": false,
-            "visibleText": "Not connected"
+            "health": {
+              "authMismatch": false,
+              "directGatewayReachable": false,
+              "checkedAt": 1700000000000,
+              "level": "red"
+            }
           }
         },
         {
-          "id": "wrong-key-green-health",
+          "id": "production-auth-mismatch",
           "expectedDecision": "reject",
           "input": {
-            "connectionState": "connected",
-            "authenticatedHealth": false,
-            "visibleText": "Connected"
+            "health": {
+              "authMismatch": true,
+              "directGatewayReachable": true,
+              "checkedAt": 1700000000000,
+              "level": "green"
+            }
           }
         },
         {
-          "id": "contradictory-disconnected-copy",
+          "id": "production-relay-green-mac-down",
           "expectedDecision": "reject",
           "input": {
-            "connectionState": "connected",
-            "authenticatedHealth": true,
-            "visibleText": "Disconnected · Connected"
+            "health": {
+              "authMismatch": false,
+              "directGatewayReachable": false,
+              "checkedAt": 1700000000000,
+              "level": "green"
+            }
           }
         },
         {
-          "id": "authenticated-connected",
+          "id": "production-direct-connected",
           "expectedDecision": "accept",
           "input": {
-            "connectionState": "connected",
-            "authenticatedHealth": true,
-            "visibleText": "Connected"
+            "health": {
+              "authMismatch": false,
+              "directGatewayReachable": true,
+              "checkedAt": 1700000000000,
+              "level": "green"
+            }
           }
         }
       ]
@@ -62,23 +79,37 @@
         "network": "denied",
         "productionWrites": "denied"
       },
+      "artifact": {
+        "kind": "json-binding",
+        "path": "evals/incidents/artifacts/continuous-e2e-bound.json",
+        "sha256": "14e9f54c5d709df450d98201b6a4b7fd26068f961dc3fa2e19db12fffdf0fd2e"
+      },
       "verifier": "continuous-e2e-proof-v1",
       "cases": [
         {
-          "id": "historical-skipped-run",
+          "id": "reported-skipped-run",
           "expectedDecision": "reject",
           "input": {
             "e2e": "skipped",
-            "gitSha": null,
-            "artifactSha256": null
+            "gitSha": "1111111111111111111111111111111111111111",
+            "artifactSha256": "14e9f54c5d709df450d98201b6a4b7fd26068f961dc3fa2e19db12fffdf0fd2e"
           }
         },
         {
           "id": "statusless-proof",
           "expectedDecision": "reject",
           "input": {
-            "gitSha": "00fa769da32340675769419b47b647c16cde5b19",
-            "artifactSha256": "b65d7f55ef8a9e2215f36f1c4b257703b1f9f0b2beccf8203eeeb4f7fa92f27d"
+            "gitSha": "1111111111111111111111111111111111111111",
+            "artifactSha256": "14e9f54c5d709df450d98201b6a4b7fd26068f961dc3fa2e19db12fffdf0fd2e"
+          }
+        },
+        {
+          "id": "stale-artifact-revision",
+          "expectedDecision": "reject",
+          "input": {
+            "e2e": "pass",
+            "gitSha": "2222222222222222222222222222222222222222",
+            "artifactSha256": "14e9f54c5d709df450d98201b6a4b7fd26068f961dc3fa2e19db12fffdf0fd2e"
           }
         },
         {
@@ -86,8 +117,8 @@
           "expectedDecision": "accept",
           "input": {
             "e2e": "pass",
-            "gitSha": "00fa769da32340675769419b47b647c16cde5b19",
-            "artifactSha256": "b65d7f55ef8a9e2215f36f1c4b257703b1f9f0b2beccf8203eeeb4f7fa92f27d"
+            "gitSha": "1111111111111111111111111111111111111111",
+            "artifactSha256": "14e9f54c5d709df450d98201b6a4b7fd26068f961dc3fa2e19db12fffdf0fd2e"
           }
         }
       ]
@@ -105,45 +136,24 @@
       "verifier": "ipad-runner-cost-proof-v1",
       "cases": [
         {
-          "id": "historical-hosted-macos-26",
+          "id": "hosted-macos-fixture",
           "expectedDecision": "reject",
           "input": {
-            "runsOn": [
-              "macos-26"
-            ],
-            "trustedSource": true
+            "artifactPath": "evals/incidents/artifacts/ipad-hosted.yml"
           }
         },
         {
-          "id": "hosted-macos-latest-alias",
+          "id": "untrusted-fork-fixture",
           "expectedDecision": "reject",
           "input": {
-            "runsOn": [
-              "macos-latest"
-            ],
-            "trustedSource": true
+            "artifactPath": "evals/incidents/artifacts/ipad-untrusted.yml"
           }
         },
         {
-          "id": "untrusted-fork-on-self-hosted",
-          "expectedDecision": "reject",
-          "input": {
-            "runsOn": [
-              "self-hosted",
-              "ipad-simulator"
-            ],
-            "trustedSource": false
-          }
-        },
-        {
-          "id": "reserved-self-hosted-ipad",
+          "id": "production-workflow-safe",
           "expectedDecision": "accept",
           "input": {
-            "runsOn": [
-              "self-hosted",
-              "ipad-simulator"
-            ],
-            "trustedSource": true
+            "artifactPath": ".github/workflows/ipad-simulator-e2e.yml"
           }
         }
       ]
