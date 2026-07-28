@@ -20,6 +20,18 @@ GATEWAY_URL="${OPENCODE_YOLO_GATEWAY_URL:-http://127.0.0.1:4010/v1}"
 DEFAULT_MODEL="${OPENCODE_YOLO_MODEL:-hermes/glm-coding}"
 MARKER="${HERMES_ZERO_SPEND_MARKER:-$HOME/.hermes/NO_PAID_SPEND}"
 
+# The gateway is a launchd service (KeepAlive=true) that is SLOW to accept
+# connections. Measured 2026-07-28 on the Pro: the litellm process exec'd at
+# 09:09:12 and uvicorn logged "Application startup complete" only at 09:10:36 —
+# 84 seconds with the port closed, because uvicorn's `startup()` awaits
+# `lifespan.startup()` (litellm's config/router load) BEFORE `loop.create_server()`
+# binds the socket. launchd's 10s throttle sits on top. So after any restart there
+# is a ~90s window where a single liveness probe says "down" and the agent dies on
+#   dial tcp 127.0.0.1:4010: connect: connection refused
+# Wait for READINESS instead of sampling liveness once. (Same fix as poolside-yolo.)
+GATEWAY_LABEL="${OPENCODE_YOLO_GATEWAY_LABEL:-com.igor.hermes-litellm}"
+GATEWAY_WAIT="${OPENCODE_YOLO_GATEWAY_WAIT:-150}"
+
 resolve_script_dir() {
   # Resolve through the ~/.local/bin symlink to this script's real (repo) directory,
   # so the sibling computer-use MCP server can be found regardless of invocation path.
@@ -77,6 +89,47 @@ emit_missing() {
 
 gateway_up() { curl -fsS -m 4 "${GATEWAY_URL%/v1}/health/liveliness" >/dev/null 2>&1; }
 
+# Is the launchd job alive? A running-but-not-yet-listening gateway must be WAITED on,
+# never kickstarted — restarting a booting proxy just buys another 84s of downtime.
+gateway_job_running() { launchctl list "$GATEWAY_LABEL" 2>/dev/null | grep -q '"PID"'; }
+
+# Nudge launchd only. Never pkill/nohup a fleet service: a hand-started proxy escapes
+# KeepAlive and dies for good at the next sleep (standing fleet rule).
+gateway_autostart() {
+  [[ -n "${OPENCODE_YOLO_NO_AUTOSTART:-}" ]] && return 1
+  # Only ever touch launchd for the local fleet gateway — never for a URL someone
+  # pointed at a remote box or a test stub.
+  case "$GATEWAY_URL" in
+    http://127.0.0.1:4010/*|http://localhost:4010/*) ;;
+    *) return 1 ;;
+  esac
+  launchctl list "$GATEWAY_LABEL" >/dev/null 2>&1 || return 1
+  gateway_job_running && return 1
+  launchctl kickstart "gui/$(id -u)/$GATEWAY_LABEL" >/dev/null 2>&1 || return 1
+  return 0
+}
+
+# Gateway readiness with a bounded wait, replacing the old single 4s liveness check.
+# Returns 0 as soon as the proxy answers, 1 when it never does within GATEWAY_WAIT.
+ensure_gateway() {
+  gateway_up && return 0
+  if gateway_autostart; then
+    echo "opencode-yolo: gateway was not running — asked launchd to start $GATEWAY_LABEL" >&2
+  fi
+  [[ "$GATEWAY_WAIT" -le 0 ]] && return 1
+  echo "opencode-yolo: waiting up to ${GATEWAY_WAIT}s for the gateway at ${GATEWAY_URL%/v1} (cold start takes ~85s)..." >&2
+  local waited=0
+  while [[ "$waited" -lt "$GATEWAY_WAIT" ]]; do
+    sleep 3
+    waited=$((waited + 3))
+    if gateway_up; then
+      echo "opencode-yolo: gateway ready after ${waited}s" >&2
+      return 0
+    fi
+  done
+  return 1
+}
+
 doctor() {
   local format="${1:-text}" bin="" version="" up="false"
   if ! bin="$(resolve_opencode)"; then emit_missing "$format"; return 127; fi
@@ -116,8 +169,11 @@ fi
 
 if ! OPENCODE_BIN_RESOLVED="$(resolve_opencode)"; then emit_missing text; exit 127; fi
 
-if ! gateway_up; then
-  echo "opencode-yolo: Hermes gateway not reachable at ${GATEWAY_URL%/v1} — start com.igor.hermes-litellm first" >&2
+if ! ensure_gateway; then
+  echo "opencode-yolo: Hermes gateway still not reachable at ${GATEWAY_URL%/v1} after ${GATEWAY_WAIT}s" >&2
+  echo "opencode-yolo: inspect it with:" >&2
+  echo "  launchctl kickstart -k gui/$(id -u)/$GATEWAY_LABEL" >&2
+  echo "  tail -f ~/.hermes/litellm-logs/proxy.err.log" >&2
   exit 69
 fi
 
