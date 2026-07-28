@@ -103,19 +103,19 @@ test('classifyHarnessProfile routes task classes', () => {
   );
 });
 
-test('resolveHarnessProfile blocks social/revenue on mac_mini', () => {
+test('resolveHarnessProfile never hard-blocks on host (advisory host_note only)', () => {
   const miniSocial = resolveHarnessProfile('post everywhere LinkedIn', {
     role: 'worker',
     host: { role: 'mac_mini' },
   });
   assert.strictEqual(miniSocial.profileId, 'social_promo_pro');
-  assert.strictEqual(miniSocial.ok, false);
-  assert.strictEqual(miniSocial.status, 'host_blocked');
+  assert.strictEqual(miniSocial.ok, true);
+  assert.strictEqual(miniSocial.status, 'host_note');
 
   const miniRevenue = resolveHarnessProfile('Stripe cash outreach', {
     host: { role: 'mac_mini' },
   });
-  assert.strictEqual(miniRevenue.ok, false);
+  assert.strictEqual(miniRevenue.ok, true);
 
   const miniWorker = resolveHarnessProfile('implement AcceptanceCheck leaf', {
     host: { role: 'mac_mini' },
@@ -130,7 +130,6 @@ test('resolveHarnessProfile blocks social/revenue on mac_mini', () => {
     env: { HERMES_SESSION_PUBLISH: 'PUBLISH_APPROVED' },
   });
   assert.strictEqual(proSocial.ok, true);
-  // social_live pack may still be chrome_gated without chrome env — pack list can be partial
   assert.ok(proSocial.profile.hosts.includes('mac_pro'));
 });
 
@@ -441,44 +440,48 @@ test('proposeClaimRelease dry-run and apply are status-only', () => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-test('claimNewGate blocks over cap and allows force', () => {
+test('claimNewGate is advisory-only and never blocks', () => {
   const hygiene = {
     concurrency: { activeOwners: 10, cap: 3, overCap: true },
     hotMegafiles: [{ path: 'ChatScreen.tsx' }],
   };
-  const blocked = claimNewGate({ hygiene, force: false });
-  assert.strictEqual(blocked.ok, false);
-  assert.strictEqual(blocked.status, 'blocked');
-  const forced = claimNewGate({ hygiene, force: true });
-  assert.strictEqual(forced.ok, true);
-  assert.strictEqual(forced.status, 'forced');
+  const gate = claimNewGate({ hygiene, force: false });
+  assert.strictEqual(gate.ok, true);
+  assert.strictEqual(gate.status, 'advisory');
+  assert.strictEqual(gate.blocked, false);
+  assert.ok(gate.reasons.some((r) => /not a block|over_cap/i.test(r)));
 });
 
-test('runClaimHygiene apply refuses without HERMES_CLAIM_HYGIENE_APPLY', () => {
+test('runClaimHygiene apply works without env gate and always ok', () => {
   const plan = `# plan.md
 ## 1. Task Board
 | ID | Task | Status | Owner | Files | AC |
 | T-OLD-20260720 | old | in_progress | a | \`x.js\` | t |
 `;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'claim-apply-'));
+  const planPath = path.join(dir, 'plan.md');
+  fs.writeFileSync(planPath, plan);
   const tasks = parseActiveTasks(plan);
-  const prev = process.env.HERMES_CLAIM_HYGIENE_APPLY;
-  delete process.env.HERMES_CLAIM_HYGIENE_APPLY;
   const result = runClaimHygiene({
     activeTasks: tasks,
     contention: [],
     megafileHits: [],
     planText: plan,
+    planPath,
+    repo: dir,
     includeStale: true,
     applyRelease: true,
     proposeRelease: true,
     now: new Date(Date.UTC(2026, 6, 28)),
     staleDays: 2,
   });
+  assert.strictEqual(result.ok, true);
+  assert.strictEqual(result.advisoryOnly, true);
   assert.ok(result.release);
-  assert.ok(result.release.error || result.release.dryRun);
-  assert.ok(/HERMES_CLAIM_HYGIENE_APPLY/.test(result.release.error || ''));
-  if (prev === undefined) delete process.env.HERMES_CLAIM_HYGIENE_APPLY;
-  else process.env.HERMES_CLAIM_HYGIENE_APPLY = prev;
+  assert.strictEqual(result.release.dryRun, false);
+  assert.ok((result.release.appliedCount || 0) >= 1);
+  assert.strictEqual(result.gate.ok, true);
+  fs.rmSync(dir, { recursive: true, force: true });
 });
 
 if (process.exitCode) {

@@ -30,8 +30,8 @@ Implements the durable parts of [Cursor’s agent-swarm model economics](https:/
 | `node tools/agent-swarm-harness.js claim-hygiene` | Compress multi-owner thrash → path+owner sets |
 | `node tools/agent-swarm-harness.js claim-hygiene --stale` | Detect age / owner-overload / zombie-megafile candidates |
 | `node tools/agent-swarm-harness.js claim-hygiene --propose-release` | Dry-run status-only patches → `stale` |
-| `HERMES_CLAIM_HYGIENE_APPLY=1 … --apply-release` | Apply status-only releases (never delete rows) |
-| `node tools/agent-swarm-harness.js claim-gate` | Hard gate: BLOCK new claims when over-cap or HOT multi-owner |
+| `node tools/agent-swarm-harness.js claim-hygiene --apply-release` | Apply status-only releases (never delete rows); no env gate |
+| `node tools/agent-swarm-harness.js claim-gate` | Advisory only — never blocks (always exit 0) |
 | `node tools/agent-swarm-harness.js eval-research [--write]` | Overnight mine→eval stubs under evals/ + artifacts/eval-research/ |
 | `tools/agent-harness-roi.js` | Pure ROI policy module (profiles, packs, hygiene, research loop) |
 | `node tools/revenue-local-draft.js` | Open-weights follow-up draft (template fallback; no send) |
@@ -153,23 +153,15 @@ bash scripts/install-eval-research-loop.sh   # LaunchAgent every 6h on this Mac
 
 
 
-### Real claim hygiene (stale release + hard gate)
+### Real claim hygiene (stale release — advisory only)
 
-Observability alone is not hygiene. Use:
+Never blocks agents. Thrash/stale are **signals**, not stop conditions.
 
 ```bash
-# Detect zombies (task-id age ≥ 2d, owner load > 3, multi-owner megafile)
 node tools/agent-swarm-harness.js claim-hygiene --stale --json
-
-# Dry-run status-only patches (in_progress|blocked → stale)
 node tools/agent-swarm-harness.js claim-hygiene --propose-release --json
-
-# Apply (explicit env gate — never silent)
-HERMES_CLAIM_HYGIENE_APPLY=1 node tools/agent-swarm-harness.js claim-hygiene --apply-release
-
-# Hard gate before opening a new claim
-node tools/agent-swarm-harness.js claim-gate --agent-id my-agent
-# exit 0 ALLOW · exit 2 BLOCK (unless --force)
+node tools/agent-swarm-harness.js claim-hygiene --apply-release   # status-only → stale
+node tools/agent-swarm-harness.js claim-gate                     # advisory; always exit 0
 ```
 
 `parseActiveTasks` only sees `in_progress`/`blocked`, so `stale` drops claims from the live board without deleting history.

@@ -1672,6 +1672,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `.github/workflows/ipad-simulator-e2e.yml` (self-hosted capability routing, draft/fork gating, and prerequisite verification only), `hermes-mobile/src/__tests__/ipadSimulatorEdgeCases.test.tsx` (cost-regression contract only), `plan.md` → **codex-ipad-simulator-edge** (T-IPAD-SIMULATOR-EDGE-CASES-20260728 cost containment: GitHub billed `macos-26` at 10x while repeated PR pushes launched redundant clean iPad builds; pin internal iPad work to the registered `ipad-simulator` self-hosted MacBook, never execute fork code there, and keep the required aggregate context cheap for drafts/unrelated changes.) (2026-07-28T16:43:00Z)
 
 ## 3.
+- 2026-07-28 `grok-harness-roi`: **D-2026-07-28-no-claim-gates** — CEO: never blocked on claim/concurrency/HOT. claim-gate + claim-hygiene exit 0 always; apply-release has no env gate; thrash is advisory signal only.
+
 - 2026-07-28 `grok-harness-roi`: **D-2026-07-28-claim-hygiene-stale-release** — Implemented findStaleClaims + propose/apply release (status→stale only) + claim-gate hard BLOCK. Applied 67 stale releases on board: active owners 78→38, contention pairs 748→36, HOT megafiles 8→1, stale candidates 67→0. Gate still BLOCK until under cap 3 (remaining live work).
  Decisions Log
 

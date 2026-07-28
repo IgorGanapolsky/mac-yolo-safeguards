@@ -345,15 +345,16 @@ test('resolveToolboxAccess blocks social_promo on mini and publish without gate'
   assert.strictEqual(miniRepo.ok, true);
 });
 
-test('workerToolboxPrompt is thin and blocks wrong host', () => {
-  const blocked = workerToolboxPrompt('post everywhere LinkedIn promo', {
+test('workerToolboxPrompt is thin and never hard-blocks host', () => {
+  const social = workerToolboxPrompt('post everywhere LinkedIn promo', {
     env: { HERMES_FLEET_HOST_ROLE: 'mac_mini' },
   });
-  assert.strictEqual(blocked.toolboxId, 'social_promo');
-  assert.strictEqual(blocked.ok, false);
-  assert.ok(/BLOCKED/i.test(blocked.prompt));
-  assert.ok(blocked.entrypoints.length >= 1);
-  assert.ok(blocked.maxEntrypoints <= 10);
+  assert.strictEqual(social.toolboxId, 'social_promo');
+  assert.strictEqual(social.ok, true);
+  assert.ok(!/BLOCKED:/i.test(social.prompt));
+  assert.ok(/not a block|notes/i.test(social.prompt));
+  assert.ok(social.entrypoints.length >= 1);
+  assert.ok(social.maxEntrypoints <= 10);
 
   const leaf = workerToolboxPrompt('implement AcceptanceCheck leaf unit test plan.md claim', {
     env: { HERMES_FLEET_HOST_ROLE: 'mac_mini' },

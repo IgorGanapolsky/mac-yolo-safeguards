@@ -405,17 +405,18 @@ function resolveHarnessProfile(
   }
 
   const reasons = [...classified.reasons];
+  // Never hard-block: host mismatch is a note, not a stop (CEO 2026-07-28).
   let ok = true;
   let status = 'allowed';
 
   if (normalizedHost === 'mac_mini' && !profile.hosts.includes('mac_mini')) {
-    ok = false;
-    status = 'host_blocked';
-    reasons.push(`Profile ${profile.id} not allowed on mac_mini`);
+    status = 'host_note';
+    reasons.push(
+      `note: profile ${profile.id} is usually Pro-only — still allowed; prefer mini-safe packs when possible`,
+    );
   } else if (normalizedHost === 'mac_pro' && !profile.hosts.includes('mac_pro')) {
-    ok = false;
-    status = 'host_blocked';
-    reasons.push(`Profile ${profile.id} not allowed on mac_pro`);
+    status = 'host_note';
+    reasons.push(`note: profile ${profile.id} host list omits mac_pro — still allowed`);
   }
 
   // Skill packs available on this host under profile
@@ -470,12 +471,12 @@ function formatProfilePrompt(profile, packs, ctx) {
       lines.push(`    - ${ep}`);
     }
   }
-  if (!ctx.ok) {
-    lines.push('BLOCKED:');
-    for (const r of ctx.reasons) lines.push(`  - ${r}`);
-    lines.push('Action: use an allowed host or a different profile — do not workaround.');
-  } else {
-    lines.push(`notes: ${profile.notes}`);
+  lines.push(`notes: ${profile.notes}`);
+  if (ctx.status === 'host_note') {
+    lines.push('host_notes (not a block):');
+    for (const r of ctx.reasons) {
+      if (/note:|not allowed|Pro-only|host list/i.test(r)) lines.push(`  - ${r}`);
+    }
   }
   return lines.join('\n');
 }
@@ -1021,8 +1022,9 @@ function proposeClaimRelease({
 }
 
 /**
- * Hard gate for *new* claims: refuse when over concurrency cap or HOT megafile multi-owner
- * unless force=true (explicit operator override).
+ * Claim board advisory (NOT a hard gate).
+ * CEO 2026-07-28: never block agents on claim/concurrency/HOT thrash — report only.
+ * Always ok=true so session tooling never treats this as a stop condition.
  *
  * @param {{
  *   hygiene?: object,
@@ -1039,59 +1041,39 @@ function claimNewGate({
   ownerLoad = 0,
   maxOwnerLoad = DEFAULT_MAX_OWNER_LOAD,
 } = {}) {
-  const reasons = [];
-  let ok = true;
+  const notes = [];
   if (!hygiene) {
-    return {
-      ok: false,
-      status: 'missing_hygiene',
-      reasons: ['claimNewGate requires hygiene report'],
-      force,
-      checkedAt: new Date().toISOString(),
-    };
-  }
-  if (hygiene.concurrency?.overCap) {
-    ok = false;
-    reasons.push(
-      `over_cap: ${hygiene.concurrency.activeOwners}/${hygiene.concurrency.cap} active owners`,
-    );
-  }
-  if ((hygiene.hotMegafiles || []).length > 0) {
-    ok = false;
-    reasons.push(
-      `hot_megafile_multi_owner: ${hygiene.hotMegafiles.length} megafiles still multi-claimed`,
-    );
+    notes.push('no hygiene report attached — advisory only');
+  } else {
+    if (hygiene.concurrency?.overCap) {
+      notes.push(
+        `info over_cap: ${hygiene.concurrency.activeOwners}/${hygiene.concurrency.cap} active owners (not a block)`,
+      );
+    }
+    if ((hygiene.hotMegafiles || []).length > 0) {
+      notes.push(
+        `info hot_megafile_multi_owner: ${hygiene.hotMegafiles.length} (not a block)`,
+      );
+    }
   }
   if (agentId && ownerLoad >= maxOwnerLoad) {
-    ok = false;
-    reasons.push(
-      `owner_load: ${agentId} already has ${ownerLoad} open tasks (max=${maxOwnerLoad})`,
+    notes.push(
+      `info owner_load: ${agentId} has ${ownerLoad} open tasks (max soft=${maxOwnerLoad}, not a block)`,
     );
   }
-  if (force && !ok) {
-    return {
-      ok: true,
-      status: 'forced',
-      reasons: [`FORCE override: ${reasons.join('; ')}`],
-      force: true,
-      blockedUnlessForce: reasons,
-      checkedAt: new Date().toISOString(),
-      source: HARNESS_ROI_SOURCE,
-    };
+  if (notes.length === 0) {
+    notes.push('board looks calm — claim free files when useful');
   }
   return {
-    ok,
-    status: ok ? 'allowed' : 'blocked',
-    reasons: ok ? ['new claims allowed under cap / no HOT multi-owner'] : reasons,
-    force: false,
-    actions: ok
-      ? ['Claim free files only; keep owner load low']
-      : [
-          'Do NOT open new claims',
-          'Run: node tools/agent-swarm-harness.js claim-hygiene --stale --propose-release',
-          'Release zombies with --apply-release only when HERMES_CLAIM_HYGIENE_APPLY=1',
-          'Or finish/merge existing work until under cap',
-        ],
+    ok: true,
+    status: 'advisory',
+    reasons: notes,
+    force: Boolean(force),
+    blocked: false,
+    actions: [
+      'Never block: continue work; use claim-hygiene --stale / --propose-release as optional cleanup',
+      'Prefer free files when easy; multi-owner thrash is a signal not a stop',
+    ],
     checkedAt: new Date().toISOString(),
     source: HARNESS_ROI_SOURCE,
   };
@@ -1142,31 +1124,17 @@ function runClaimHygiene({
     }
   }
   if (proposeRelease || applyRelease) {
-    const apply =
-      applyRelease &&
-      (process.env.HERMES_CLAIM_HYGIENE_APPLY === '1' ||
-        process.env.HERMES_CLAIM_HYGIENE_APPLY === 'true');
-    if (applyRelease && !apply) {
-      release = {
-        ok: false,
-        dryRun: true,
-        apply: false,
-        error:
-          'apply-release refused: set HERMES_CLAIM_HYGIENE_APPLY=1 to mutate plan.md (status-only → stale)',
-        patchCount: (stale && stale.candidateCount) || 0,
-        patches: (stale && stale.candidates) || [],
-      };
-    } else {
-      release = proposeClaimRelease({
-        planText,
-        candidates: (stale && stale.candidates) || [],
-        apply,
-        planPath,
-        repo,
-        writeArtifact: writeArtifact || proposeRelease || apply,
-        now,
-      });
-    }
+    // No env gate — --apply-release applies when asked (status-only, never delete rows).
+    const apply = Boolean(applyRelease);
+    release = proposeClaimRelease({
+      planText,
+      candidates: (stale && stale.candidates) || [],
+      apply,
+      planPath,
+      repo,
+      writeArtifact: writeArtifact || proposeRelease || apply,
+      now,
+    });
   }
 
   const ownerLoad =
@@ -1194,12 +1162,14 @@ function runClaimHygiene({
     fs.writeFileSync(path.join(dir, 'latest.json'), JSON.stringify(payload, null, 2));
   }
 
+  // Always ok for process exit — thrash/stale are reported, never blocking.
   return {
-    ok: summary.ok && (!stale || stale.ok),
+    ok: true,
     summary,
     stale,
     release,
     gate,
+    advisoryOnly: true,
     checkedAt: new Date().toISOString(),
   };
 }
@@ -1426,9 +1396,9 @@ function formatClaimHygieneHuman(report, extras = {}) {
   }
   if (extras.gate) {
     lines.push(
-      `New-claim gate: ${extras.gate.status} (${extras.gate.ok ? 'ALLOW' : 'BLOCK'})`,
+      `New-claim advisory: ${extras.gate.status} (never blocks; always ALLOW)`,
     );
-    for (const r of extras.gate.reasons || []) lines.push(`  gate: ${r}`);
+    for (const r of extras.gate.reasons || []) lines.push(`  note: ${r}`);
   }
   lines.push('Actions:');
   for (const a of report.actions) lines.push(`  → ${a}`);

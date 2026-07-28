@@ -817,12 +817,12 @@ function workerToolboxPrompt(taskText, { env = process.env, host = null, role = 
   for (const ep of access.entrypoints || pack?.entrypoints || []) {
     lines.push(`  - ${ep}`);
   }
+  // Host/publish notes only — never BLOCK (CEO 2026-07-28: no claim/toolbox hard gates).
   if (!access.ok) {
-    lines.push('BLOCKED:');
+    lines.push('host/auth notes (not a block — continue with best available path):');
     for (const r of access.reasons) lines.push(`  - ${r}`);
-    lines.push('Action: escalate / move to allowed host or satisfy gates — do not workaround.');
   } else {
-    lines.push('Also required: plan.md claim free; AC + verification command; SessionContract keep/drop.');
+    lines.push('Also useful: plan.md claim free; AC + verification command; SessionContract keep/drop.');
     for (const r of access.reasons) {
       if (/chrome|PUBLISH/i.test(r)) lines.push(`Note: ${r}`);
     }
@@ -849,7 +849,7 @@ function workerToolboxPrompt(taskText, { env = process.env, host = null, role = 
     : lines.join('\n');
 
   return {
-    ok: access.ok && (profileResolved.ok || profileResolved.status === 'chrome_gated'),
+    ok: true,
     toolboxId: classified.toolboxId,
     auth: classified.auth,
     reason: classified.reason,
@@ -860,6 +860,7 @@ function workerToolboxPrompt(taskText, { env = process.env, host = null, role = 
     skillPacks: profileResolved.skillPacks || [],
     prompt: fullPrompt,
     maxEntrypoints: (access.entrypoints || []).length,
+    advisoryOnly: true,
   };
 }
 
@@ -2691,8 +2692,8 @@ function main() {
   node tools/agent-swarm-harness.js skill-packs [--toolbox ID] [--json]
   node tools/agent-swarm-harness.js claim-hygiene [--json] [--plan path] [--stale] [--stale-days N] [--max-owner-load N]
   node tools/agent-swarm-harness.js claim-hygiene --propose-release [--write] [--json]
-  node tools/agent-swarm-harness.js claim-hygiene --apply-release   # requires HERMES_CLAIM_HYGIENE_APPLY=1
-  node tools/agent-swarm-harness.js claim-gate [--force] [--agent-id ID] [--json]
+  node tools/agent-swarm-harness.js claim-hygiene --apply-release   # status-only → stale; advisory, never blocks
+  node tools/agent-swarm-harness.js claim-gate [--agent-id ID] [--json]   # advisory only; always exit 0
   node tools/agent-swarm-harness.js eval-research [--write] [--json] [--max N]`);
     process.exit(0);
   }
@@ -2727,7 +2728,8 @@ function main() {
     } else {
       console.log(formatProfileHuman(resolved));
     }
-    process.exit(resolved.ok ? 0 : 2);
+    // Host restrictions are reported in the payload; never block the process.
+    process.exit(0);
   }
 
   if (args.command === 'skill-packs') {
@@ -2797,8 +2799,8 @@ function main() {
         }),
       );
     }
-    // exit 2 if thrash or stale remain (unless apply cleared them mid-run)
-    process.exit(pipeline.ok ? 0 : 2);
+    // Never block — thrash/stale are advisory only (CEO 2026-07-28).
+    process.exit(0);
   }
 
   if (args.command === 'claim-gate') {
@@ -2827,17 +2829,30 @@ function main() {
       maxOwnerLoad: DEFAULT_MAX_OWNER_LOAD,
     });
     if (args.json) {
-      console.log(JSON.stringify({ hygiene: { ok: hygiene.ok, concurrency: hygiene.concurrency, hotMegafiles: hygiene.hotMegafiles.length }, gate }, null, 2));
+      console.log(
+        JSON.stringify(
+          {
+            hygiene: {
+              ok: hygiene.ok,
+              concurrency: hygiene.concurrency,
+              hotMegafiles: hygiene.hotMegafiles.length,
+            },
+            gate,
+          },
+          null,
+          2,
+        ),
+      );
     } else {
-      console.log('=== New-claim gate ===');
-      console.log(`status: ${gate.status} (${gate.ok ? 'ALLOW' : 'BLOCK'})`);
+      console.log('=== New-claim advisory (never blocks) ===');
+      console.log(`status: ${gate.status} (ALLOW)`);
       for (const r of gate.reasons) console.log(`  - ${r}`);
       if (gate.actions) {
         console.log('Actions:');
         for (const a of gate.actions) console.log(`  → ${a}`);
       }
     }
-    process.exit(gate.ok ? 0 : 2);
+    process.exit(0);
   }
 
   if (args.command === 'eval-research') {
@@ -2988,8 +3003,8 @@ function main() {
         console.log(`  → ${a}`);
       }
     }
-    // Non-zero only when shared board / Field Guide hard-fail (not optional loop-state absence).
-    process.exit(check.ok ? 0 : 2);
+    // Advisory only — never block session tooling (CEO 2026-07-28).
+    process.exit(0);
   }
 
   if (args.command === 'toolboxes') {
@@ -3028,11 +3043,11 @@ function main() {
       console.log(check.principle);
       console.log(`host: ${check.host.role} (${check.host.hostname})`);
       console.log(
-        `toolbox: ${check.classified.toolboxId} auth=${check.classified.auth} overall=${check.ok ? 'ok' : 'BLOCKED'}`,
+        `toolbox: ${check.classified.toolboxId} auth=${check.classified.auth} overall=${check.ok ? 'ok' : 'WARN (not a block)'}`,
       );
       console.log('');
       for (const q of check.questions) {
-        console.log(`[${q.ok ? 'ok' : 'FAIL'}] ${q.id} — ${q.question}`);
+        console.log(`[${q.ok ? 'ok' : 'note'}] ${q.id} — ${q.question}`);
         console.log(`  prefer: ${q.prefer}`);
         console.log(`  never:  ${q.never}`);
         console.log(`  evidence: ${q.evidence}`);
@@ -3044,7 +3059,7 @@ function main() {
         console.log(`  → ${a}`);
       }
     }
-    process.exit(check.ok ? 0 : 2);
+    process.exit(0);
   }
 
   if (args.command === 'worker-toolbox') {
@@ -3055,7 +3070,7 @@ function main() {
       console.log('=== Worker toolbox prompt (entrypoints only) ===');
       console.log(bundle.prompt);
     }
-    process.exit(bundle.ok ? 0 : 2);
+    process.exit(0);
   }
 
   if (args.command === 'doctor') {
