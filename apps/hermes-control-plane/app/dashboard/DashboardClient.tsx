@@ -240,8 +240,32 @@ export default function DashboardClient() {
   const [feedbackBusyTask, setFeedbackBusyTask] = useState<string | null>(null);
   /** Bottom-tab highlight on phone: path + hash, not always-Hermes. */
   const [mobileTab, setMobileTab] = useState<"hermes" | "leash" | "lessons" | "settings">("hermes");
+  /**
+   * Leash and Settings are two panes rendered inside ONE scrolling element
+   * (.right-rail). Switching tabs only swaps which children are visible, so the
+   * scroll offset carried over: scroll down in Settings, tap Leash, and Leash
+   * opened partway down with its heading — and the machine picker — above the
+   * fold, which reads as "there is no machine picker".
+   */
+  const rightRailRef = useRef<HTMLElement | null>(null);
   /** Phone shell: hide route-explain blurb so it cannot cover the textarea (Genspark-style compact chrome). */
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
+
+  // Send the shared scrollport back to the top whenever the pane inside it
+  // changes, so a tab always opens at its own heading rather than wherever the
+  // previous tab happened to be scrolled to. Only Leash and Settings share this
+  // element; the other tabs render elsewhere and must not be disturbed.
+  useEffect(() => {
+    if (mobileTab !== "leash" && mobileTab !== "settings") return;
+    const rail = rightRailRef.current;
+    if (!rail) return;
+    // The pane swap is a CSS/display change; wait a frame so the new content is
+    // laid out before resetting, otherwise the browser can restore the offset.
+    const raf = window.requestAnimationFrame(() => {
+      rail.scrollTop = 0;
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [mobileTab]);
   /** Desktop: route explain is secondary chrome — collapsed by default (Genspark-style). */
   const [routeExplainExpanded, setRouteExplainExpanded] = useState(false);
   const chatsListDeepLink =
@@ -1201,7 +1225,7 @@ export default function DashboardClient() {
             </form>
           </section>
 
-          <aside className="right-rail">
+          <aside className="right-rail" ref={rightRailRef}>
             <section className="panel connection-panel" id="leash-control">
               <div className="panel-heading"><div><p className="eyebrow">CONNECTION</p><h2>{onlineDevices.length ? "Connector online" : devices.length ? "Connector reconnecting" : "Pair your first machine"}</h2></div><span>{onlineDevices.length ? "LIVE" : devices.length ? "RETRYING" : "STEP 1 OF 3"}</span></div>
               <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "Connector reconnecting automatically" : "One-time setup on your computer"}</strong><p>{devices.length ? "Paired machines stay connected via an always-on service — you don’t reinstall for normal use. Choose which machine runs tasks below (same pin as Hermes)." : "Browsers cannot install a background connector. Run the one-line installer once on the computer that hosts Hermes; it reconnects after sleep or reboot."}</p></div></div>
