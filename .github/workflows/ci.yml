@@ -167,11 +167,15 @@ jobs:
       - name: Vendor -yolo wrappers
         run: |
           set -eu
-          bash tests/test-poolside-yolo.sh
-          bash tests/test-hermes-primary-route-recovery.sh
-          # Mutation control: proves the two suites above actually go RED against the
+          # Run through run-suite, not bare bash: a suite that exits 0 having asserted
+          # nothing is VACUOUS, not clean, and must not be reported as a pass. The
+          # trailing number is the min assertion count each suite must actually emit.
+          bash tests/run-suite.sh tests/test-run-suite.sh 7
+          bash tests/run-suite.sh tests/test-poolside-yolo.sh 14
+          bash tests/run-suite.sh tests/test-hermes-primary-route-recovery.sh 6
+          # Mutation control: proves the suites above actually go RED against the
           # real historical bugs, instead of passing while measuring nothing.
-          bash tests/test-harness-verifier-integrity.sh
+          bash tests/run-suite.sh tests/test-harness-verifier-integrity.sh 6
 
       - name: Public secret smoke scan
         run: |
