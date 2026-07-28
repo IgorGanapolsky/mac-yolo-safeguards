@@ -8,13 +8,17 @@ function isBackgrounded(appState: SmartNotificationAppState): boolean {
   return appState === 'background';
 }
 
-/** Notify when app is not in foreground and approval alerts are enabled. */
+/**
+ * Approvals notify whenever the category is enabled — in every app state.
+ * An approval blocks the agent until answered, so it must never be silently
+ * dropped just because the app happens to be open.
+ */
 export function shouldScheduleApprovalNotification(
   pending: PendingApproval,
   appState: SmartNotificationAppState = AppState.currentState,
   categoryEnabled = true,
 ): boolean {
-  return categoryEnabled && isBackgrounded(appState);
+  return categoryEnabled;
 }
 
 export function shouldScheduleRunCompletedNotification(
@@ -32,12 +36,12 @@ export function shouldScheduleRunProgressNotification(
   return categoryEnabled && isBackgrounded(appState);
 }
 
-/** Batch approval summary — background only (same bar as single approvals). */
+/** Batch approval summary — same bar as single approvals: always, in every app state. */
 export function shouldScheduleApprovalsSummaryNotification(
   appState: SmartNotificationAppState = AppState.currentState,
   categoryEnabled = true,
 ): boolean {
-  return categoryEnabled && isBackgrounded(appState);
+  return categoryEnabled;
 }
 
 /**
@@ -55,10 +59,19 @@ export function isSilentStatusNotificationType(type: string | undefined): boolea
   return typeof type === 'string' && SILENT_STATUS_NOTIFICATION_TYPES.has(type);
 }
 
+/** Approval types always interrupt — foreground, background, or lock screen. */
+export const APPROVAL_NOTIFICATION_TYPES = new Set(['approval', 'approval_summary']);
+
+export function isApprovalNotificationType(type: string | undefined): boolean {
+  return typeof type === 'string' && APPROVAL_NOTIFICATION_TYPES.has(type);
+}
+
 /**
  * Whether heads-up banners / sounds may interrupt the user.
- * Never while foregrounded; never for any run-status type (even in background).
- * Approvals may interrupt only when backgrounded.
+ * Run-status types never interrupt, in any app state.
+ * Approvals always interrupt, in any app state — foreground, background, or
+ * lock screen — because the agent is blocked until the user answers.
+ * Everything else keeps the conservative background-only bar.
  */
 export function shouldPresentIntrusiveNotification(
   appState: SmartNotificationAppState = AppState.currentState,
@@ -66,6 +79,9 @@ export function shouldPresentIntrusiveNotification(
 ): boolean {
   if (isSilentStatusNotificationType(notificationType)) {
     return false;
+  }
+  if (isApprovalNotificationType(notificationType)) {
+    return true;
   }
   return appState === 'background';
 }

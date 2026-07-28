@@ -33,7 +33,7 @@ describe('ApprovalsScreen', () => {
   it('renders thumbgate leash header and connection block', () => {
     const { getByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByTestId('THUMBGATE_LEASH')).toBeTruthy();
-    expect(getByText('Approve blocked tools from your phone — tap notifications on lock screen')).toBeTruthy();
+    expect(getByText('Approve blocked tools from your phone — alerts reach you even when the app is open')).toBeTruthy();
   });
 
   it('keeps header refresh vertically centered beside health pill', () => {
@@ -250,7 +250,7 @@ describe('ApprovalsScreen', () => {
     ).toBeTruthy();
   });
 
-  it('mentions lock screen in hero subtitle when quick-approve layout is on', () => {
+  it('mentions alert actions in hero subtitle when quick-approve layout is on', () => {
     useGateway.mockReturnValue(
       mockUseGateway({
         settings: { ...mockGatewaySettings, glanceMode: true },
@@ -258,11 +258,11 @@ describe('ApprovalsScreen', () => {
     );
     const { getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(
-      getByText('Approve blocked agent tools — from lock screen (Approve / Deny) or cards below'),
+      getByText('Approve blocked agent tools — tap the alert (Approve / Deny) or use the cards below'),
     ).toBeTruthy();
   });
 
-  it('mentions lock screen in hero subtitle when approval-first mode is on', () => {
+  it('mentions alert actions in hero subtitle when approval-first mode is on', () => {
     useGateway.mockReturnValue(
       mockUseGateway({
         settings: { ...mockGatewaySettings, safetyMode: true },
@@ -270,7 +270,7 @@ describe('ApprovalsScreen', () => {
     );
     const { getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(
-      getByText('Approve blocked agent tools — from lock screen (Approve / Deny) or cards below'),
+      getByText('Approve blocked agent tools — tap the alert (Approve / Deny) or use the cards below'),
     ).toBeTruthy();
   });
 

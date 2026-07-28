@@ -22,17 +22,21 @@ const basePending = (overrides: Partial<PendingApproval> = {}): PendingApproval 
 });
 
 describe('smartNotificationPolicy', () => {
-  it('schedules approval notifications only when backgrounded', () => {
-    expect(shouldScheduleApprovalNotification(basePending(), 'active')).toBe(false);
-    expect(shouldScheduleApprovalNotification(basePending(), 'inactive')).toBe(false);
+  it('schedules approval notifications in every app state when the category is enabled', () => {
+    // An approval blocks the agent until answered, so it must alert whether the
+    // app is open, transitioning, or backgrounded. Only the user's own opt-out
+    // (categoryEnabled=false) silences it.
+    expect(shouldScheduleApprovalNotification(basePending(), 'active')).toBe(true);
+    expect(shouldScheduleApprovalNotification(basePending(), 'inactive')).toBe(true);
     expect(shouldScheduleApprovalNotification(basePending(), 'background')).toBe(true);
+    expect(shouldScheduleApprovalNotification(basePending(), 'active', false)).toBe(false);
     expect(shouldScheduleApprovalNotification(basePending(), 'background', false)).toBe(false);
     expect(
       shouldScheduleApprovalNotification(basePending({ riskTier: 'high' }), 'active'),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldScheduleApprovalNotification(basePending({ riskTier: 'high' }), 'inactive'),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldScheduleApprovalNotification(basePending({ riskTier: 'high' }), 'background'),
     ).toBe(true);
@@ -85,25 +89,32 @@ describe('smartNotificationPolicy', () => {
     expect(shouldScheduleRunProgressNotification('background', false)).toBe(false);
   });
 
-  it('schedules approvals summary only when backgrounded and category enabled', () => {
-    expect(shouldScheduleApprovalsSummaryNotification('active')).toBe(false);
-    expect(shouldScheduleApprovalsSummaryNotification('inactive')).toBe(false);
+  it('schedules approvals summary in every app state when the category is enabled', () => {
+    expect(shouldScheduleApprovalsSummaryNotification('active')).toBe(true);
+    expect(shouldScheduleApprovalsSummaryNotification('inactive')).toBe(true);
     expect(shouldScheduleApprovalsSummaryNotification('background')).toBe(true);
+    expect(shouldScheduleApprovalsSummaryNotification('active', false)).toBe(false);
     expect(shouldScheduleApprovalsSummaryNotification('background', false)).toBe(false);
   });
 
-  it('never presents intrusive notifications while active or inactive', () => {
+  it('keeps untyped notifications background-only', () => {
     expect(shouldPresentIntrusiveNotification('active')).toBe(false);
     expect(shouldPresentIntrusiveNotification('inactive')).toBe(false);
     expect(shouldPresentIntrusiveNotification('background')).toBe(true);
   });
 
-  it('never heads-up for any run-status type; approvals may when backgrounded', () => {
+  it('never heads-up for any run-status type; approvals heads-up in every app state', () => {
     expect(shouldPresentIntrusiveNotification('background', 'run_progress')).toBe(false);
     expect(shouldPresentIntrusiveNotification('background', 'run_stall')).toBe(false);
     expect(shouldPresentIntrusiveNotification('background', 'run_completed')).toBe(false);
+    expect(shouldPresentIntrusiveNotification('active', 'run_progress')).toBe(false);
+    // Regression guard: approvals were silenced unless backgrounded, so an
+    // approval raised while the user had the app open never alerted at all.
     expect(shouldPresentIntrusiveNotification('background', 'approval')).toBe(true);
-    expect(shouldPresentIntrusiveNotification('inactive', 'approval')).toBe(false);
+    expect(shouldPresentIntrusiveNotification('inactive', 'approval')).toBe(true);
+    expect(shouldPresentIntrusiveNotification('active', 'approval')).toBe(true);
+    expect(shouldPresentIntrusiveNotification('active', 'approval_summary')).toBe(true);
+    expect(shouldPresentIntrusiveNotification('inactive', 'approval_summary')).toBe(true);
   });
 
   it('resolves handler presentation from app state', () => {

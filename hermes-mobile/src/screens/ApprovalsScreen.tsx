@@ -258,8 +258,8 @@ export default function ApprovalsScreen() {
         </View>
         <Text style={styles.subtitle}>
           {settings.safetyMode || settings.glanceMode
-            ? 'Approve blocked agent tools — from lock screen (Approve / Deny) or cards below'
-            : 'Approve blocked tools from your phone — tap notifications on lock screen'}
+            ? 'Approve blocked agent tools — tap the alert (Approve / Deny) or use the cards below'
+            : 'Approve blocked tools from your phone — alerts reach you even when the app is open'}
         </Text>
         {leashUnlocked ? (
           <>
@@ -485,7 +485,8 @@ export default function ApprovalsScreen() {
               <View style={styles.switchLabelCol}>
                 <Text style={styles.switchLabel}>Approval-first mode</Text>
                 <Text style={styles.switchDesc}>
-                  Prioritize lock-screen approval alerts. Hermes tab still opens on launch.
+                  Puts approvals first on the Leash screen. Approval alerts already reach you
+                  everywhere — locked, backgrounded, or in-app. Hermes tab still opens on launch.
                 </Text>
               </View>
               <Switch

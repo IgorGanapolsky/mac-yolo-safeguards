@@ -197,7 +197,7 @@ describe('hermesNotifications', () => {
       expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
     });
 
-    it('does not schedule approvals summary while app is active', async () => {
+    it('still schedules approvals summary while app is active', async () => {
       Object.defineProperty(AppState, 'currentState', {
         value: 'active',
         configurable: true,
@@ -221,7 +221,7 @@ describe('hermesNotifications', () => {
         { badgeCount: 2 },
       );
 
-      expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalled();
     });
   });
 
@@ -366,19 +366,26 @@ describe('hermesNotifications', () => {
       );
     }
 
-    it('suppresses banner and sound for every Hermes type while active', () => {
-      for (const type of [
-        'run_progress',
-        'run_stall',
-        'run_completed',
-        'approval',
-        'approval_summary',
-      ]) {
+    it('suppresses banner and sound for run-status types while active', () => {
+      for (const type of ['run_progress', 'run_stall', 'run_completed']) {
         const result = handlerPresentation('active', type, { riskTier: 'high' });
         expect(result).toEqual({
           shouldShowAlert: false,
           shouldShowBanner: false,
           shouldPlaySound: false,
+          shouldSetBadge: true,
+          shouldShowList: true,
+        });
+      }
+    });
+
+    it('still alerts for approval types while active', () => {
+      for (const type of ['approval', 'approval_summary']) {
+        const result = handlerPresentation('active', type, { riskTier: 'high' });
+        expect(result).toEqual({
+          shouldShowAlert: true,
+          shouldShowBanner: true,
+          shouldPlaySound: true,
           shouldSetBadge: true,
           shouldShowList: true,
         });
@@ -397,15 +404,13 @@ describe('hermesNotifications', () => {
       }
     });
 
-    it('allows approval banners only when backgrounded (not inactive)', () => {
-      const active = handlerPresentation('active', 'approval');
-      expect(active.shouldShowBanner).toBe(false);
-      const inactive = handlerPresentation('inactive', 'approval');
-      expect(inactive.shouldShowBanner).toBe(false);
-
-      const background = handlerPresentation('background', 'approval');
-      expect(background.shouldShowBanner).toBe(true);
-      expect(background.shouldPlaySound).toBe(true);
+    it('allows approval banners in every app state', () => {
+      for (const appState of ['active', 'inactive', 'background'] as const) {
+        const result = handlerPresentation(appState, 'approval');
+        expect(result.shouldShowBanner).toBe(true);
+        expect(result.shouldShowAlert).toBe(true);
+        expect(result.shouldPlaySound).toBe(true);
+      }
     });
   });
 
