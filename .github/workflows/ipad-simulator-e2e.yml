@@ -1,0 +1,126 @@
+name: Hermes Mobile iPad Simulator E2E
+
+on:
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: >-
+    hermes-mobile-ipad-${{ github.event_name == 'pull_request'
+      && format('pr-{0}', github.event.pull_request.number)
+      || github.event_name == 'merge_group'
+      && format('mq-{0}', github.ref)
+      || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  detect-changes:
+    name: Detect iPad-relevant changes
+    runs-on: ubuntu-latest
+    outputs:
+      run-ipad: ${{ steps.diff.outputs.run-ipad }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - id: diff
+        name: Decide whether iPad E2E is required
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -eu
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "run-ipad=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          base_sha="${BASE_SHA:-}"
+          if [ -z "$base_sha" ] || ! git cat-file -e "${base_sha}^{commit}" 2>/dev/null; then
+            base_sha="$(git rev-parse "${HEAD_SHA}^")"
+          fi
+          if git diff --quiet "$base_sha" "$HEAD_SHA" -- \
+            hermes-mobile/ .github/workflows/ipad-simulator-e2e.yml; then
+            echo "run-ipad=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run-ipad=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  ipad-simulator:
+    name: Real-user iPad simulator E2E
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run-ipad == 'true'
+    runs-on: macos-26
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: hermes-mobile
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: hermes-mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Java 17
+        run: brew install openjdk@17
+
+      - name: Install Maestro
+        run: |
+          export PATH="$HOME/.maestro/bin:$PATH"
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Run real-user edge cases on a strict iPad simulator
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: '180000'
+          JAVA_HOME: /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+          SENTRY_DISABLE_AUTO_UPLOAD: 'true'
+          SENTRY_ALLOW_FAILURE: 'true'
+        run: |
+          export PATH="$JAVA_HOME/bin:$HOME/.maestro/bin:$PATH"
+          bash ./scripts/run-ipad-simulator-e2e.sh .maestro/ipad-simulator-edge-cases.yaml
+
+  required-gate:
+    name: Hermes Mobile iPad simulator gate
+    needs:
+      - detect-changes
+      - ipad-simulator
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce the conditional iPad result
+        env:
+          DETECT_RESULT: ${{ needs.detect-changes.result }}
+          RUN_IPAD: ${{ needs.detect-changes.outputs.run-ipad }}
+          IPAD_RESULT: ${{ needs.ipad-simulator.result }}
+        run: |
+          set -eu
+          if [ "$DETECT_RESULT" != "success" ]; then
+            echo "::error::iPad change detection failed: $DETECT_RESULT"
+            exit 1
+          fi
+          if [ "$RUN_IPAD" = "true" ] && [ "$IPAD_RESULT" != "success" ]; then
+            echo "::error::Required real-user iPad E2E did not pass: $IPAD_RESULT"
+            exit 1
+          fi
+          if [ "$RUN_IPAD" = "true" ]; then
+            echo "Required real-user iPad E2E passed."
+          else
+            echo "No iPad-relevant files changed; gate passes without simulator spend."
+          fi
