@@ -1,0 +1,8 @@
+{
+  "schema": "hermes/continuous-e2e-artifact/v1",
+  "artifactId": "fixture-ios-fresh-user-pass",
+  "e2e": "pass",
+  "gitSha": "1111111111111111111111111111111111111111",
+  "suite": "fresh-user",
+  "target": "ios-simulator"
+}
