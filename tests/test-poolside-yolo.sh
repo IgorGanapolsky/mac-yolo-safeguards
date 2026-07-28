@@ -24,35 +24,38 @@ echo STUB-RAN
 EOF
 chmod +x "$STUB"
 
-# Stub gateway: bind port 0 inside the server process (avoids TOCTOU free-port race
-# that broke GitHub-hosted macOS after the mini-queue unblock). Write the chosen
-# port to $ROOT/gw-port once listening.
+# Stub gateway via Node (always present in CI after setup-node; more reliable than
+# python HTTPServer on GitHub-hosted macOS where bind+heredoc races showed port=none).
 PORT_FILE="$ROOT/gw-port"
-python3 - "$PORT_FILE" <<'PY' &
-import http.server, pathlib, sys
-port_file = pathlib.Path(sys.argv[1])
-class H(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        if self.path.endswith('/health/liveliness'):
-            self.send_response(200); self.end_headers(); self.wfile.write(b'"alive"')
-        elif self.path.endswith('/models') or self.path.endswith('/v1/models'):
-            self.send_response(200); self.end_headers()
-            self.wfile.write(b'{"data":[{"id":"glm-coding"},{"id":"qwen3.5:9b-hermes-64k"}]}')
-        else:
-            self.send_response(404); self.end_headers()
-    def log_message(self,*a): pass
-httpd = http.server.HTTPServer(('127.0.0.1', 0), H)
-port_file.write_text(str(httpd.server_address[1]))
-httpd.serve_forever()
-PY
+node - "$PORT_FILE" <<'JS' &
+const http = require('http');
+const fs = require('fs');
+const portFile = process.argv[2];
+const server = http.createServer((req, res) => {
+  const url = req.url || '';
+  if (url.endsWith('/health/liveliness')) {
+    res.writeHead(200); res.end('"alive"');
+    return;
+  }
+  if (url.endsWith('/models') || url.endsWith('/v1/models')) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ data: [{ id: 'glm-coding' }, { id: 'qwen3.5:9b-hermes-64k' }] }));
+    return;
+  }
+  res.writeHead(404); res.end();
+});
+server.listen(0, '127.0.0.1', () => {
+  const port = server.address().port;
+  fs.writeFileSync(portFile, String(port));
+});
+JS
 GW_PID=$!
 trap 'rm -rf "$ROOT"; kill $GW_PID 2>/dev/null' EXIT
-# Wait for port file + liveliness (max ~8s).
 PORT=""
 ready=0
-for _ in $(seq 1 40); do
+for _ in $(seq 1 50); do
   if [ -f "$PORT_FILE" ]; then
-    PORT="$(cat "$PORT_FILE")"
+    PORT="$(cat "$PORT_FILE" 2>/dev/null || true)"
     if [ -n "$PORT" ] && curl -fsS -m 1 "http://127.0.0.1:${PORT}/health/liveliness" >/dev/null 2>&1; then
       ready=1
       break
@@ -61,7 +64,7 @@ for _ in $(seq 1 40); do
   sleep 0.2
 done
 if [ "$ready" -ne 1 ] || [ -z "$PORT" ]; then
-  echo "test-poolside-yolo: stub gateway failed to start (port=${PORT:-none})" >&2
+  echo "test-poolside-yolo: stub gateway failed to start (port=${PORT:-none} pid=$GW_PID)" >&2
   kill $GW_PID 2>/dev/null || true
   exit 2
 fi
