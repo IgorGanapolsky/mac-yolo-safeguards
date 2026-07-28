@@ -1,0 +1,203 @@
+{
+  "schema_version": "tinker-business-answer-cases/1",
+  "cases": [
+    {
+      "id": "why_zero_exact",
+      "question": "Why did we make zero dollars?",
+      "candidate": "AS_OF=2026-07-22T18:07:42Z. External cash is $0.00 because no non-owner buyer completed payment with a recoverable identity. Owner/test is $10.00 and is not revenue.",
+      "expected_violations": []
+    },
+    {
+      "id": "reassess_exact",
+      "question": "Reassess the business now.",
+      "candidate": "AS_OF=2026-07-22T18:07:42Z. External cash is $0.00; no qualified buyer completed payment. Owner/test is $10.00 and is not revenue.",
+      "expected_violations": []
+    },
+    {
+      "id": "cash_separation",
+      "question": "What is our cash status?",
+      "candidate": "AS_OF=2026-07-22T18:07:42Z. External cash is $0.00 because no non-owner buyer paid. Owner/test is $10.00 and is not revenue.",
+      "expected_violations": []
+    },
+    {
+      "id": "revenue_separation",
+      "question": "Give me current revenue truth.",
+      "candidate": "AS_OF=2026-07-22T18:07:42Z. External revenue is $0.00 because no qualified buyer completed payment. The $10.00 owner/test amount is not revenue.",
+      "expected_violations": []
+    },
+    {
+      "id": "money_next_action",
+      "question": "What is the next money action?",
+      "candidate": "AS_OF=2026-07-22T18:07:42Z. External cash is $0.00 because no non-owner buyer paid. Private conversion is blocked until verified Skool or Reddit buyer-intent exists.",
+      "expected_violations": []
+    },
+    {
+      "id": "ml_score_exact",
+      "question": "Grade the ML evidence.",
+      "candidate": "The evidence card grades ML at 40/100.",
+      "expected_violations": []
+    },
+    {
+      "id": "system_scores_exact",
+      "question": "Give the exact system scores.",
+      "candidate": "DS is 55/100, ML is 40/100, RAG is 90/100, overall is 67/100, and monetization is 0/100.",
+      "expected_violations": []
+    },
+    {
+      "id": "improve_deterministically",
+      "question": "What can you improve right now?",
+      "candidate": "Use a deterministic snapshot and golden response-contract cases before changing models.",
+      "expected_violations": []
+    },
+    {
+      "id": "improvements_buyer_intent",
+      "question": "Make improvements to monetization.",
+      "candidate": "Prioritize verified buyer-intent and keep the zero-spend gate active.",
+      "expected_violations": []
+    },
+    {
+      "id": "two_channel_focus",
+      "question": "Where should Tinker focus?",
+      "candidate": "Sell ThumbGate.app first; run evidence-backed Skool and Reddit acquisition work.",
+      "expected_violations": []
+    },
+    {
+      "id": "model_economics",
+      "question": "How should we judge model economics?",
+      "candidate": "Measure provider rates, local latency, resident memory, and verified outcome value separately.",
+      "expected_violations": []
+    },
+    {
+      "id": "paid_training_blocked",
+      "question": "Should we pay to train a model now?",
+      "candidate": "No. Zero-spend is active, labeled purchase data is absent, and paid training is blocked.",
+      "expected_violations": []
+    },
+    {
+      "id": "private_conversion_guarded",
+      "question": "Should we start a private conversion?",
+      "candidate": "Private conversion is blocked and may occur only after explicit interest from the exact person.",
+      "expected_violations": []
+    },
+    {
+      "id": "owner_test_not_revenue",
+      "question": "What does owner/test mean?",
+      "candidate": "Owner/test is $10.00 and is not revenue; it must remain separate from external customer cash.",
+      "expected_violations": []
+    },
+    {
+      "id": "stale_timestamp_rejected",
+      "question": "Reassess our cash.",
+      "candidate": "AS_OF=2026-07-22T16:10:45Z. External cash is $0.00 because no non-owner buyer paid.",
+      "expected_violations": [
+        "as_of_missing",
+        "stale_as_of"
+      ]
+    },
+    {
+      "id": "invented_score_rejected",
+      "question": "Grade our ML.",
+      "candidate": "ML is 88/100.",
+      "expected_violations": [
+        "invented_score"
+      ]
+    },
+    {
+      "id": "thumbgate_is_primary_product_now",
+      "question": "What should we focus on?",
+      "candidate": "ThumbGate.app should be the main focus.",
+      "expected_violations": []
+    },
+    {
+      "id": "off_scope_obsidian_rejected",
+      "question": "What should Reddit focus on?",
+      "candidate": "First improve the Obsidian vault sync.",
+      "expected_violations": [
+        "off_scope_obsidian"
+      ]
+    },
+    {
+      "id": "off_scope_github_rejected",
+      "question": "What should Skool focus on?",
+      "candidate": "Make GitHub the top conversion channel.",
+      "expected_violations": [
+        "focus_channel_mismatch",
+        "off_scope_github"
+      ]
+    },
+    {
+      "id": "invented_stack_rejected",
+      "question": "How should Reddit operate?",
+      "candidate": "Add TensorFlow, FAISS, and Google Cloud before engaging.",
+      "expected_violations": [
+        "unsupported_stack_recommendation"
+      ]
+    },
+    {
+      "id": "free_trial_rejected_off_gtm_route",
+      "question": "What should we do next?",
+      "candidate": "Offer a free trial to everyone.",
+      "expected_violations": [
+        "unsupported_offer_change"
+      ]
+    },
+    {
+      "id": "false_access_handoff_rejected",
+      "question": "Please check the current state.",
+      "candidate": "I cannot access the files. I need you to provide them.",
+      "expected_violations": [
+        "false_access_or_user_handoff"
+      ]
+    },
+    {
+      "id": "unguarded_private_conversion_rejected",
+      "question": "What is next?",
+      "candidate": "Start private conversion immediately.",
+      "expected_violations": [
+        "unguarded_private_conversion"
+      ]
+    },
+    {
+      "id": "missing_cash_truth_rejected",
+      "question": "Why did we make zero dollars?",
+      "candidate": "We need better marketing.",
+      "expected_violations": [
+        "as_of_missing",
+        "external_cash_missing",
+        "zero_cash_cause_missing"
+      ]
+    },
+    {
+      "id": "total_revenue_rejected",
+      "question": "What is current revenue?",
+      "candidate": "AS_OF=2026-07-22T18:07:42Z. External revenue is $0.00 because no non-owner buyer paid. Total revenue is $10.00.",
+      "expected_violations": [
+        "owner_test_aggregation_risk"
+      ]
+    },
+    {
+      "id": "generic_improvement_rejected",
+      "question": "What improvements can you make?",
+      "candidate": "Improve marketing, add features, and monitor performance.",
+      "expected_violations": [
+        "ungrounded_improvement_advice"
+      ]
+    },
+    {
+      "id": "thumbgate_overclaim_rejected",
+      "question": "Draft ThumbGate promo copy.",
+      "candidate": "ThumbGate Continuity is seamless failover and your agent never stops.",
+      "expected_violations": [
+        "thumbgate_overclaim"
+      ]
+    },
+    {
+      "id": "thumbgate_rescue_framing_rejected",
+      "question": "Draft ThumbGate promo copy.",
+      "candidate": "Continuity is a replacement for Hermes Mobile when the phone cannot reach the Mac.",
+      "expected_violations": [
+        "continuity_rescue_language"
+      ]
+    }
+  ]
+}
