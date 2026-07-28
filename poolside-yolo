@@ -37,6 +37,15 @@
 #     POOLSIDE_YOLO_ZERO_SPEND_STRICT=1 to restore the old refuse-outright behaviour.
 #     This is what makes poolside-yolo usable on the mini, where the gate unloads the
 #     litellm gateway entirely.
+#   * Local models are live-probed before use. Ollama listing a model proves nothing
+#     about being able to answer: on 2026-07-28 the runner sat wedged in "Stopping...",
+#     and later a single pool session's ~57K-token prompt pinned the runner's only slot
+#     (-np 1) for hours — either way every request hung until pool's HTTP client gave
+#     up ("Post .../v1/chat/completions: EOF") while /models still listed everything.
+#     So each candidate gets one bounded 1-token completion (POOLSIDE_YOLO_PROBE_TIMEOUT,
+#     default 75s to cover a cold ~8GB load); first to answer wins, and if none answer
+#     we exit 73 with the wedge diagnosis instead of handing pool an endpoint that can
+#     only hang.
 #   * Install: curl -fsSL https://downloads.poolside.ai/pool/install.sh | sh
 set -euo pipefail
 
@@ -115,6 +124,30 @@ pick_local_model() {
   return 1
 }
 
+# Every preferred model the local endpoint lists, in preference order (an explicit
+# POOLSIDE_YOLO_LOCAL_MODEL short-circuits to just itself). Prints nothing when the
+# endpoint is down or lists none of them.
+local_candidates() {
+  local list cand
+  if [[ -n "${POOLSIDE_YOLO_LOCAL_MODEL:-}" ]]; then printf '%s\n' "$POOLSIDE_YOLO_LOCAL_MODEL"; return 0; fi
+  list="$(curl -fsS -m 4 "${LOCAL_URL%/}/models" 2>/dev/null)" || return 1
+  for cand in $LOCAL_MODEL_PREFS; do
+    printf '%s' "$list" | grep -q "\"id\"[[:space:]]*:[[:space:]]*\"$cand\"" && printf '%s\n' "$cand"
+  done
+  return 0
+}
+
+# One bounded 1-token completion against the local endpoint — the only proof a model
+# can actually answer (see the Safety note on the 2026-07-28 wedge: listed models were
+# EOF-ing every request for hours). Default timeout must cover a cold ~8GB load.
+probe_local_model() {
+  local model="$1" timeout="${2:-${POOLSIDE_YOLO_PROBE_TIMEOUT:-75}}"
+  curl -fsS -m "$timeout" "${LOCAL_URL%/}/chat/completions" \
+    -H "Content-Type: application/json" \
+    -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"OK\"}],\"max_tokens\":1}" \
+    >/dev/null 2>&1
+}
+
 # Ask the installed pool ACP server which session modes it actually advertises
 # (ACP: initialize -> session/new -> result.modes.availableModes). Prints the IDs
 # space-separated. Non-zero/empty when it can't be determined; callers must treat
@@ -187,12 +220,19 @@ model_serving() {
 doctor() {
   local format="${1:-text}" bin="" version="" up="false"
   local modes="" mode_valid="unknown" model_ok="unknown" serving="" fellback="unknown"
-  local local_ok="false" local_model=""
+  local local_ok="false" local_model="" local_resp="unknown"
   if ! bin="$(resolve_pool)"; then emit_missing "$format"; return 127; fi
   version="$("$bin" --version 2>/dev/null | head -n1 || true)"
   gateway_up && up="true"
-  # Under zero-spend this is the route that actually runs, so report it.
-  if local_up; then local_ok="true"; local_model="$(pick_local_model || true)"; fi
+  # Under zero-spend this is the route that actually runs, so report it — and probe it:
+  # "listed" and "able to answer" diverge exactly when things break (2026-07-28 wedge).
+  # Short timeout on purpose; false may just mean cold/busy, but that IS "not usable now".
+  if local_up; then
+    local_ok="true"; local_model="$(pick_local_model || true)"
+    if [[ -n "$local_model" && -z "${POOLSIDE_YOLO_DOCTOR_NO_PROBE:-}" ]]; then
+      probe_local_model "$local_model" "${POOLSIDE_YOLO_DOCTOR_LOCAL_PROBE_TIMEOUT:-10}" && local_resp="true" || local_resp="false"
+    fi
+  fi
   if [[ "$up" == "true" ]]; then
     model_served && model_ok="true" || model_ok="false"
     serving="$(model_serving || true)"
@@ -207,7 +247,7 @@ doctor() {
   if [[ "$format" == json ]]; then
     PYB="$bin" PYV="$version" PYG="$GATEWAY_URL" PYM="$DEFAULT_MODEL" PYUP="$up" \
     PYMODE="$YOLO_MODE" PYMODES="$modes" PYMV="$mode_valid" PYMOK="$model_ok" \
-    PYSERV="$serving" PYFB="$fellback" PYLOK="$local_ok" PYLM="$local_model" \
+    PYSERV="$serving" PYFB="$fellback" PYLOK="$local_ok" PYLM="$local_model" PYLR="$local_resp" \
     PYZ="$([[ -e "$MARKER" ]] && echo true || echo false)" node -e '
       const tri = v => v === "true" ? true : v === "false" ? false : null;
       process.stdout.write(JSON.stringify({
@@ -217,6 +257,7 @@ doctor() {
         defaultModel:process.env.PYM, modelServed:tri(process.env.PYMOK),
         modelServing:process.env.PYSERV || null, modelFellBack:tri(process.env.PYFB),
         localUp:process.env.PYLOK==="true", localModel:process.env.PYLM || null,
+        localResponsive:tri(process.env.PYLR),
         mode:process.env.PYMODE, modeValid:tri(process.env.PYMV),
         availableModes:process.env.PYMODES ? process.env.PYMODES.split(" ") : [],
         zeroSpendActive:process.env.PYZ==="true",
@@ -232,19 +273,24 @@ print(json.dumps({
   "defaultModel": os.environ["PYM"], "modelServed": tri(os.environ["PYMOK"]),
   "modelServing": os.environ["PYSERV"] or None, "modelFellBack": tri(os.environ["PYFB"]),
   "localUp": os.environ["PYLOK"] == "true", "localModel": os.environ["PYLM"] or None,
+  "localResponsive": tri(os.environ["PYLR"]),
   "mode": os.environ["PYMODE"], "modeValid": tri(os.environ["PYMV"]),
   "availableModes": os.environ["PYMODES"].split() if os.environ["PYMODES"] else [],
   "zeroSpendActive": os.environ["PYZ"] == "true",
   "autonomous": True,
 }))'
   else
-    printf 'POOLSIDE_YOLO_OK binary=%s version=%s gateway=%s up=%s model=%s model_served=%s serving=%s local=%s mode=%s mode_valid=%s zero_spend=%s\n' \
-      "$bin" "$version" "$GATEWAY_URL" "$up" "$DEFAULT_MODEL" "$model_ok" "${serving:-unknown}" "${local_model:-none}" "$YOLO_MODE" "$mode_valid" \
+    printf 'POOLSIDE_YOLO_OK binary=%s version=%s gateway=%s up=%s model=%s model_served=%s serving=%s local=%s local_responsive=%s mode=%s mode_valid=%s zero_spend=%s\n' \
+      "$bin" "$version" "$GATEWAY_URL" "$up" "$DEFAULT_MODEL" "$model_ok" "${serving:-unknown}" "${local_model:-none}" "$local_resp" "$YOLO_MODE" "$mode_valid" \
       "$([[ -e "$MARKER" ]] && echo true || echo false)"
     [[ "$mode_valid" == "false" ]] && \
       echo "poolside-yolo: WARNING mode '$YOLO_MODE' is not advertised by this pool build (available: $modes) — it would silently fall back to approval prompts" >&2
+    [[ "$local_resp" == "false" ]] && \
+      echo "poolside-yolo: WARNING local model '$local_model' is listed but did not answer a 1-token probe within ${POOLSIDE_YOLO_DOCTOR_LOCAL_PROBE_TIMEOUT:-10}s — wedged runner, cold load, or another agent pinning its slot; the local route would hang" >&2
     [[ "$fellback" == "true" ]] && \
       echo "poolside-yolo: WARNING gateway answers '$DEFAULT_MODEL' with '$serving' — the primary route is down and you are talking to a fallback model" >&2
+    # A skipped warning is not a failure — without this, text mode exits 1 when healthy.
+    return 0
   fi
 }
 
@@ -279,12 +325,25 @@ if [[ -e "$MARKER" ]]; then
     echo "poolside-yolo: start Ollama (or set POOLSIDE_YOLO_LOCAL_URL) to run locally at zero cost" >&2
     exit 73
   fi
-  if ! LOCAL_MODEL="$(pick_local_model)"; then
+  CANDIDATES="$(local_candidates || true)"
+  if [[ -z "$CANDIDATES" ]]; then
     echo "poolside-yolo: blocked — zero-spend is active and ${LOCAL_URL%/} serves none of: $LOCAL_MODEL_PREFS" >&2
     echo "poolside-yolo: pull one (e.g. ollama pull qwen3.5:9b) or set POOLSIDE_YOLO_LOCAL_MODEL" >&2
     exit 73
   fi
+  LOCAL_MODEL=""
+  for cand in $CANDIDATES; do
+    echo "poolside-yolo: probing $cand (up to ${POOLSIDE_YOLO_PROBE_TIMEOUT:-75}s — covers a cold load)..." >&2
+    if probe_local_model "$cand"; then LOCAL_MODEL="$cand"; break; fi
+    echo "poolside-yolo: $cand is listed but did not answer — skipping (runner wedged, or its slot pinned by another agent)" >&2
+  done
+  if [[ -z "$LOCAL_MODEL" ]]; then
+    echo "poolside-yolo: blocked — no local model at ${LOCAL_URL%/} answered a 1-token probe; pool would only see hangs/EOFs" >&2
+    echo "poolside-yolo: check 'ollama ps' — a runner stuck in 'Stopping...', or another agent's giant prompt on the single slot, wedges every request. Restart Ollama or set POOLSIDE_YOLO_LOCAL_MODEL" >&2
+    exit 73
+  fi
   echo "poolside-yolo: fleet zero-spend is active — running LOCALLY on $LOCAL_MODEL via ${LOCAL_URL%/} (no paid or metered tokens)" >&2
+  echo "poolside-yolo: NOTE local prompt processing runs at a few hundred tok/s — a long interactive session can outlive pool's HTTP timeout (EOF); prefer one-shot exec tasks under zero-spend" >&2
   export POOLSIDE_STANDALONE_BASE_URL="$LOCAL_URL"
   export POOLSIDE_API_KEY="${POOLSIDE_API_KEY:-ollama}"
   export POOLSIDE_STANDALONE_MODEL="$LOCAL_MODEL"
