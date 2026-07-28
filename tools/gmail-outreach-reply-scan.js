@@ -44,7 +44,7 @@ function resolveStatePath() {
 }
 
 const OUTREACH_SUBJECT_RE =
-  /Quick close-loop|Governed agents|Reliability Diagnostic|Hardening Sprint|Partner Pilot|runaway-loop|agent reliability/i;
+  /Quick close-loop|Quick check|Governed agents|Reliability Diagnostic|agent reliability diagnostic|Hardening Sprint|Partner Pilot|runaway-loop|agent reliability|ThumbGate Continuity|design partner/i;
 
 function parseArgs(argv) {
   const out = {
