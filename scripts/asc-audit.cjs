@@ -77,7 +77,21 @@ async function main() {
   console.log('App Store version records (newest first):');
   for (const version of versions.data || []) {
     const a = version.attributes || {};
-    console.log(`  ${a.versionString}  state=${a.appStoreState}  release=${a.releaseType}  created=${(a.createdDate || '').slice(0, 10)}`);
+    // Which binary a version carries is the fact that matters. A version in
+    // WAITING_FOR_REVIEW is locked to whatever build was attached when it was
+    // submitted, so newer uploads can sit there VALID and unreviewed forever.
+    let attached = '(none)';
+    try {
+      const build = await ascGet(
+        token,
+        `/v1/appStoreVersions/${version.id}/build?fields[builds]=version,processingState`,
+      );
+      const b = build.data && build.data.attributes;
+      if (b) attached = `build ${b.version} (${b.processingState})`;
+    } catch (error) {
+      attached = `(unreadable: ${error.message.slice(0, 60)})`;
+    }
+    console.log(`  ${a.versionString}  state=${a.appStoreState}  release=${a.releaseType}  created=${(a.createdDate || '').slice(0, 10)}  attached=${attached}`);
   }
   if (!(versions.data || []).length) console.log('  (none)');
 
