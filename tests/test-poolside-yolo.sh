@@ -74,8 +74,13 @@ base_env() {
   export POOLSIDE_YOLO_GATEWAY_URL="http://127.0.0.1:$PORT/v1"
   export POOLSIDE_YOLO_LOCAL_URL="http://127.0.0.1:$PORT/v1"
   export HERMES_ZERO_SPEND_MARKER="$ROOT/NO_PAID_SPEND"
+  # Pin credential discovery at a path that does NOT exist, so the default lane
+  # resolves to `gateway` and the gateway-routing cases below stay meaningful. Without
+  # this the suite would read the developer's REAL ~/.config/poolside/credentials.json
+  # and silently test the native lane instead. Native-lane cases opt in explicitly.
+  export POOLSIDE_YOLO_CREDENTIALS="$ROOT/absent-credentials.json"
   unset POOLSIDE_API_KEY POOLSIDE_STANDALONE_BASE_URL POOLSIDE_STANDALONE_MODEL \
-        POOLSIDE_YOLO_LOCAL_MODEL POOLSIDE_YOLO_ZERO_SPEND_STRICT 2>/dev/null || true
+        POOLSIDE_YOLO_LOCAL_MODEL POOLSIDE_YOLO_ZERO_SPEND_STRICT POOLSIDE_YOLO_LANE 2>/dev/null || true
 }
 base_env
 
@@ -192,6 +197,122 @@ set +e; "$WRAPPER" "hi" >/dev/null 2>&1; code=$?; set -e
 [ "$code" -eq 69 ] && ok "gateway-down guard (69)" || no "gateway-down guard (got $code)"
 base_env
 
+# ---- LANES (2026-07-28) ----------------------------------------------------------
+# The wrapper used to force every run through the gateway, which shares one failure
+# domain with the whole fleet: when z.ai's weekly cap and OpenRouter's daily free cap
+# blew on the same day, every route in the chain was dead and pool either sat for ~40s
+# before answering as local qwen3:8b or died on "No deployments available". Poolside's
+# own inference has an INDEPENDENT quota, so `auto` must prefer it when logged in.
+
+# 10. auto + credentials present => native lane, and the standalone overrides are
+#     WITHHELD so pool uses its own stored auth rather than our gateway shim.
+CREDS="$ROOT/creds.json"
+printf '[{"stub":"token"}]\n' > "$CREDS"
+rm -f "$ARGS_OUT" "$ENV_OUT"
+POOLSIDE_YOLO_CREDENTIALS="$CREDS" "$WRAPPER" "hi" >/dev/null 2>&1 || true
+{ grep -qx "BASE=" "$ENV_OUT" && grep -qx "MODEL=" "$ENV_OUT"; } \
+  && ok "auto + creds -> native lane (no gateway override)" \
+  || no "auto + creds -> native lane ($(tr '\n' ' ' < "$ENV_OUT" 2>/dev/null))"
+
+# 10b. an exported gateway override in the caller's shell must NOT drag a native run
+#      back onto the gateway — the wrapper unsets, it does not merely skip setting.
+rm -f "$ENV_OUT"
+POOLSIDE_YOLO_CREDENTIALS="$CREDS" POOLSIDE_STANDALONE_BASE_URL="http://leaked.invalid/v1" \
+  "$WRAPPER" "hi" >/dev/null 2>&1 || true
+grep -q "leaked.invalid" "$ENV_OUT" 2>/dev/null \
+  && no "native lane leaked an inherited POOLSIDE_STANDALONE_BASE_URL" \
+  || ok "native lane clears an inherited gateway override"
+
+# 10c. auto WITHOUT credentials keeps the old behaviour (gateway), so nobody who never
+#      ran `pool login` loses their working setup.
+rm -f "$ENV_OUT"
+"$WRAPPER" "hi" >/dev/null 2>&1 || true
+grep -q "MODEL=glm-coding" "$ENV_OUT" \
+  && ok "auto without creds -> gateway lane (unchanged)" || no "auto without creds -> gateway ($(tr '\n' ' ' < "$ENV_OUT" 2>/dev/null))"
+
+# 10d. an explicit lane=gateway still reaches the fleet chain even when native is
+#      available — the chain remains one env var away.
+rm -f "$ENV_OUT"
+POOLSIDE_YOLO_CREDENTIALS="$CREDS" POOLSIDE_YOLO_LANE=gateway "$WRAPPER" "hi" >/dev/null 2>&1 || true
+grep -q "MODEL=glm-coding" "$ENV_OUT" \
+  && ok "explicit lane=gateway overrides native" || no "explicit lane=gateway ($(tr '\n' ' ' < "$ENV_OUT" 2>/dev/null))"
+
+# 10e. lane=native without credentials must fail LOUDLY (69, no spawn) rather than
+#      quietly degrading to some other lane.
+rm -f "$ARGS_OUT"
+set +e; POOLSIDE_YOLO_LANE=native "$WRAPPER" "hi" >/dev/null 2>&1; code=$?; set -e
+{ [ "$code" -eq 69 ] && [ ! -f "$ARGS_OUT" ]; } \
+  && ok "lane=native without creds blocks (69, no spawn)" || no "lane=native without creds blocks (got $code)"
+
+# 10f. an unknown lane fails loudly instead of being treated as valid
+rm -f "$ARGS_OUT"
+set +e; POOLSIDE_YOLO_LANE=not-a-lane "$WRAPPER" "hi" >/dev/null 2>&1; code=$?; set -e
+{ [ "$code" -eq 2 ] && [ ! -f "$ARGS_OUT" ]; } \
+  && ok "unknown lane fails loudly (2, no spawn)" || no "unknown lane fails loudly (got $code)"
+
+# 10g. zero-spend OUTRANKS an explicit paid lane. The marker is policy, not a default.
+: > "$ROOT/NO_PAID_SPEND"
+rm -f "$ENV_OUT"
+POOLSIDE_YOLO_CREDENTIALS="$CREDS" POOLSIDE_YOLO_LANE=native "$WRAPPER" "hi" >/dev/null 2>&1 || true
+grep -q "MODEL=qwen3.5:9b-hermes-64k" "$ENV_OUT" 2>/dev/null \
+  && ok "zero-spend overrides explicit lane=native" || no "zero-spend overrides lane=native ($(tr '\n' ' ' < "$ENV_OUT" 2>/dev/null))"
+rm -f "$ROOT/NO_PAID_SPEND"
+
+# 10i. POOLSIDE_API_KEY is native auth. docs.poolside.ai: "For automation environments,
+#      set POOLSIDE_API_KEY instead of using stored credentials. pool checks it before
+#      reading from configuration files." Ignoring it sent `auto` to the gateway AND
+#      re-used the caller's real Poolside key as the gateway bearer token.
+rm -f "$ENV_OUT"
+POOLSIDE_API_KEY="real-poolside-key" "$WRAPPER" "hi" >/dev/null 2>&1 || true
+{ grep -qx "BASE=" "$ENV_OUT" && grep -qx "KEY=real-poolside-key" "$ENV_OUT"; } \
+  && ok "env-only POOLSIDE_API_KEY selects native AND survives" \
+  || no "env-only POOLSIDE_API_KEY ($(tr '\n' ' ' < "$ENV_OUT" 2>/dev/null))"
+
+# 10j. ...and an explicitly requested native lane must not exit 69 when the only
+#      credential is the environment variable.
+rm -f "$ARGS_OUT"
+set +e; POOLSIDE_API_KEY="real-poolside-key" POOLSIDE_YOLO_LANE=native "$WRAPPER" "hi" >/dev/null 2>&1; code=$?; set -e
+{ [ "$code" -eq 0 ] && [ -f "$ARGS_OUT" ]; } \
+  && ok "lane=native accepts env-only credentials" || no "lane=native accepts env-only creds (got $code)"
+
+# 10k. the gateway lane must NOT forward a Poolside platform credential as its bearer
+rm -f "$ENV_OUT"
+POOLSIDE_API_KEY="real-poolside-key" POOLSIDE_YOLO_LANE=gateway "$WRAPPER" "hi" >/dev/null 2>&1 || true
+grep -q "KEY=real-poolside-key" "$ENV_OUT" 2>/dev/null \
+  && no "gateway lane leaked the Poolside platform key as its bearer" \
+  || ok "gateway lane never forwards POOLSIDE_API_KEY"
+
+# 10l. doctor must resolve the lane the SAME way execution does. Under zero-spend an
+#      explicit paid lane is demoted to local at run time, so doctor reporting (and
+#      probing) `native` was misleading exactly when policy was being enforced.
+: > "$ROOT/NO_PAID_SPEND"
+POOLSIDE_YOLO_CREDENTIALS="$CREDS" POOLSIDE_YOLO_LANE=native "$WRAPPER" --doctor --json | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+assert d['zeroSpendActive'] is True
+assert d['lane']=='local', 'doctor says %r but runtime forces local' % d['lane']
+assert d['laneRequested']=='native'
+" && ok "doctor agrees with runtime under zero-spend" || no "doctor agrees with runtime under zero-spend"
+rm -f "$ROOT/NO_PAID_SPEND"
+
+# 10h. doctor reports the lane it would actually take (this is the field that would
+#      have made the 2026-07-28 outage obvious instead of a 40s mystery).
+POOLSIDE_YOLO_CREDENTIALS="$CREDS" "$WRAPPER" --doctor --json | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+assert d['lane']=='native', 'lane is %r' % d['lane']
+assert d['laneRequested']=='auto'
+assert d['nativeAuthed'] is True
+" && ok "doctor reports native lane" || no "doctor reports native lane"
+
+"$WRAPPER" --doctor --json | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+assert d['lane']=='gateway', 'lane is %r' % d['lane']
+assert d['nativeAuthed'] is False
+" && ok "doctor reports gateway lane without creds" || no "doctor reports gateway lane without creds"
+base_env
+
 # 8. missing binary => 127
 export POOL_BIN="$ROOT/does-not-exist"
 set +e; "$WRAPPER" --doctor >/dev/null 2>&1; code=$?; set -e
@@ -202,10 +323,14 @@ base_env
 #    pool advertises. A stub can only prove we pass the string we intended; only the
 #    real binary can prove the string means "never ask for permission". Skipped when
 #    pool or the gateway isn't available (CI, zero-spend boxes).
-unset POOL_BIN POOLSIDE_YOLO_GATEWAY_URL
+#    POOLSIDE_YOLO_CREDENTIALS is unset here on purpose: this case is about the REAL
+#    machine, so it must resolve the real credentials path and report the real lane.
+#    DOCTOR_NO_PROBE keeps it fast — the live model probe can legitimately take ~55s
+#    while walking a dead fallback chain, and this case is about mode validity.
+unset POOL_BIN POOLSIDE_YOLO_GATEWAY_URL POOLSIDE_YOLO_CREDENTIALS
 REAL_POOL="${HOME}/.local/bin/pool"
 if [ -x "$REAL_POOL" ] && curl -fsS -m 4 http://127.0.0.1:4010/health/liveliness >/dev/null 2>&1; then
-  LIVE="$("$WRAPPER" --doctor --json 2>/dev/null)"
+  LIVE="$(POOLSIDE_YOLO_DOCTOR_NO_PROBE=1 "$WRAPPER" --doctor --json 2>/dev/null)"
   echo "$LIVE" | python3 -c "
 import json,sys
 d=json.load(sys.stdin)
@@ -213,6 +338,9 @@ assert d['mode']=='always-allow', 'mode is %r' % d['mode']
 assert d['modeValid'] is True, 'pool does not advertise %r; it advertises %r' % (d['mode'], d['availableModes'])
 assert 'always-allow' in d['availableModes']
 assert d['modelServed'] is True, 'gateway does not serve %r' % d['defaultModel']
+assert d['lane'] in ('native','gateway','local'), 'lane is %r' % d['lane']
+assert d['nativeAuthed'] is (d['lane'] == 'native') or d['laneRequested'] != 'auto', \
+    'auto resolved to %r while nativeAuthed=%r' % (d['lane'], d['nativeAuthed'])
 " && ok "LIVE: pool advertises mode always-allow + gateway serves model" \
     || no "LIVE: mode/model validity ($LIVE)"
 else
