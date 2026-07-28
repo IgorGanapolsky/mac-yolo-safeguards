@@ -1285,6 +1285,7 @@ export default function DashboardClient() {
         </div>
       </section>
       <nav className="mobile-web-tabs" aria-label="Hermes workspace">
+        <a href="#chats" className={mobileTab === "chats" ? "is-active" : undefined} aria-current={mobileTab === "chats" ? "page" : undefined} onClick={(event) => { event.preventDefault(); setMobileTab("chats"); setChatRailExpanded(true); window.history.replaceState(null, "", "#chats"); }}><b aria-hidden="true">💬</b><span>Chats</span></a>
         <a href="#hermes-console" className={mobileTab === "hermes" ? "is-active" : undefined} aria-current={mobileTab === "hermes" ? "page" : undefined} onClick={(event) => { event.preventDefault(); setMobileTab("hermes"); window.history.replaceState(null, "", "#hermes-console"); }}><b aria-hidden="true">H</b><span>Hermes</span></a>
         <a href="#leash-control" className={mobileTab === "leash" ? "is-active" : undefined} aria-current={mobileTab === "leash" ? "page" : undefined} onClick={(event) => { event.preventDefault(); setMobileTab("leash"); window.history.replaceState(null, "", "#leash-control"); }}><b aria-hidden="true">✓</b><span>Leash</span></a>
         <a href="/dashboard/lessons" className={mobileTab === "lessons" ? "is-active" : undefined} aria-current={mobileTab === "lessons" ? "page" : undefined} onClick={() => setMobileTab("lessons")}><b aria-hidden="true">👍</b><span>Lessons</span></a>
