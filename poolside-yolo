@@ -139,11 +139,26 @@ resolve_creds() {
   printf '%s\n' "${XDG_CONFIG_HOME:-$HOME/.config}/poolside/credentials.json"
 }
 
-# Non-empty credentials file == `pool login` has been run. This is a cheap local
-# check on purpose: it says "a native lane is configured", not "the token is still
-# valid". A stale token surfaces as a pool auth error, which is loud and actionable —
-# unlike the gateway's failure mode, which is a silent downgrade to a weaker model.
-native_authed() { [[ -s "$1" ]]; }
+# Is a native lane configured? Two ways, and BOTH count:
+#   1. a non-empty credentials file, written by `pool login`
+#   2. an inherited POOLSIDE_API_KEY — docs.poolside.ai: "For automation environments,
+#      set POOLSIDE_API_KEY instead of using stored credentials. pool checks it before
+#      reading from configuration files." It is Poolside's OWN auth variable and takes
+#      PRECEDENCE over the file, so ignoring it had two bad consequences: `auto` fell
+#      through to the gateway and then re-used the caller's real Poolside key as the
+#      gateway bearer token, and an explicit lane=native exited 69 while perfectly
+#      valid credentials sat in the environment.
+# The placeholder this script itself hands the gateway is not native auth, so it must
+# not count — otherwise a re-entrant call would see its own bearer token as a login.
+#
+# This is a cheap local check on purpose: it says "a native lane is configured", not
+# "the token is still valid". A stale token surfaces as a pool auth error, which is
+# loud and actionable — unlike the gateway's silent downgrade to a weaker model.
+GATEWAY_PLACEHOLDER_KEY="hermes-local-gateway"
+native_authed() {
+  [[ -s "$1" ]] && return 0
+  [[ -n "${POOLSIDE_API_KEY:-}" && "${POOLSIDE_API_KEY:-}" != "$GATEWAY_PLACEHOLDER_KEY" ]]
+}
 
 # Resolve LANE=auto to a concrete lane. Order is deliberate:
 #   1. zero-spend marker wins over everything (unchanged policy: no paid/metered calls)
@@ -155,12 +170,19 @@ native_authed() { [[ -s "$1" ]]; }
 # run to an 8B local model is the same silent-degradation failure this change exists to
 # remove: the user asked for a coding agent and would get a much weaker one with no
 # error anywhere. A down gateway with no native login stays a loud exit 69.
+#
+# The zero-spend marker is applied HERE rather than only on the execution path, so
+# `--doctor` reports the lane a run would really take. When the override lived only in
+# the runtime branch, doctor answered `lane=native` (and probed it) while execution
+# forced `local` — misleading diagnostics precisely during policy enforcement, which is
+# the exact failure class this wrapper exists to eliminate.
 select_lane() {
-  local creds="$1"
-  if [[ "$LANE" != auto ]]; then printf '%s\n' "$LANE"; return 0; fi
-  if [[ -e "$MARKER" ]]; then printf 'local\n'; return 0; fi
-  if native_authed "$creds"; then printf 'native\n'; return 0; fi
-  printf 'gateway\n'
+  local creds="$1" want="$LANE"
+  if [[ "$want" == auto ]]; then
+    if native_authed "$creds"; then want=native; else want=gateway; fi
+  fi
+  if [[ -e "$MARKER" && "$want" != "local" ]]; then printf 'local\n'; return 0; fi
+  printf '%s\n' "$want"
 }
 
 lane_known() {
@@ -376,10 +398,11 @@ CREDS="$(resolve_creds "$PBIN")"
 RESOLVED_LANE="$(select_lane "$CREDS")"
 
 # The zero-spend marker is policy, not a preference: it outranks an explicit lane
-# request for every lane that would make a paid or metered call.
-if [[ -e "$MARKER" && "$RESOLVED_LANE" != "local" ]]; then
-  echo "poolside-yolo: fleet zero-spend is active ($MARKER) — ignoring requested lane '$RESOLVED_LANE' and running locally" >&2
-  RESOLVED_LANE="local"
+# request for every lane that would make a paid or metered call. select_lane already
+# applied it (so --doctor agrees with runtime); this only reports the demotion, which
+# would otherwise be invisible to someone who explicitly asked for a paid lane.
+if [[ -e "$MARKER" && "$LANE" != auto && "$LANE" != local ]]; then
+  echo "poolside-yolo: fleet zero-spend is active ($MARKER) — ignoring requested lane '$LANE' and running locally" >&2
 fi
 
 case "$RESOLVED_LANE" in
@@ -410,11 +433,15 @@ case "$RESOLVED_LANE" in
       echo "poolside-yolo: run 'poolside-yolo login', or use POOLSIDE_YOLO_LANE=gateway" >&2
       exit 69
     fi
-    # Withhold the standalone overrides so pool talks to Poolside's own inference with
-    # the credentials it stored. Unsetting (not just skipping) matters: an exported
-    # POOLSIDE_STANDALONE_BASE_URL left over in the caller's shell would silently drag
-    # this run back onto the gateway.
-    unset POOLSIDE_STANDALONE_BASE_URL POOLSIDE_STANDALONE_MODEL POOLSIDE_API_KEY
+    # Withhold the standalone overrides so pool talks to Poolside's own inference.
+    # Unsetting (not just skipping) matters: an exported POOLSIDE_STANDALONE_BASE_URL
+    # left over in the caller's shell would silently drag this run back onto the gateway.
+    unset POOLSIDE_STANDALONE_BASE_URL POOLSIDE_STANDALONE_MODEL
+    # POOLSIDE_API_KEY is Poolside's OWN auth var and outranks the credentials file, so
+    # a caller-supplied one is native auth and must SURVIVE — clearing it broke the
+    # documented automation flow. Only our own gateway placeholder is cleared, since
+    # that is a bearer token for a different endpoint, not a Poolside credential.
+    [[ "${POOLSIDE_API_KEY:-}" == "$GATEWAY_PLACEHOLDER_KEY" ]] && unset POOLSIDE_API_KEY
     echo "poolside-yolo: lane=native — Poolside inference (own quota, independent of z.ai/OpenRouter)" >&2
     ;;
   gateway)
@@ -424,8 +451,13 @@ case "$RESOLVED_LANE" in
     fi
     # Route pool's "custom OpenAI-compatible endpoint" support at the Hermes gateway
     # instead of Poolside's own cloud/OpenRouter billing.
+    #
+    # The bearer deliberately does NOT fall back to POOLSIDE_API_KEY. That variable is a
+    # Poolside PLATFORM credential; forwarding it to a different endpoint just because
+    # it happens to be exported would hand a real vendor key to the gateway. Use an
+    # explicit POOLSIDE_YOLO_GATEWAY_KEY when the gateway needs a genuine token.
     export POOLSIDE_STANDALONE_BASE_URL="$GATEWAY_URL"
-    export POOLSIDE_API_KEY="${POOLSIDE_API_KEY:-hermes-local-gateway}"
+    export POOLSIDE_API_KEY="${POOLSIDE_YOLO_GATEWAY_KEY:-$GATEWAY_PLACEHOLDER_KEY}"
     export POOLSIDE_STANDALONE_MODEL="$DEFAULT_MODEL"
     ;;
 esac

@@ -234,6 +234,43 @@ grep -q "MODEL=qwen3.5:9b-hermes-64k" "$ENV_OUT" 2>/dev/null \
   && ok "zero-spend overrides explicit lane=native" || no "zero-spend overrides lane=native ($(tr '\n' ' ' < "$ENV_OUT" 2>/dev/null))"
 rm -f "$ROOT/NO_PAID_SPEND"
 
+# 10i. POOLSIDE_API_KEY is native auth. docs.poolside.ai: "For automation environments,
+#      set POOLSIDE_API_KEY instead of using stored credentials. pool checks it before
+#      reading from configuration files." Ignoring it sent `auto` to the gateway AND
+#      re-used the caller's real Poolside key as the gateway bearer token.
+rm -f "$ENV_OUT"
+POOLSIDE_API_KEY="real-poolside-key" "$WRAPPER" "hi" >/dev/null 2>&1 || true
+{ grep -qx "BASE=" "$ENV_OUT" && grep -qx "KEY=real-poolside-key" "$ENV_OUT"; } \
+  && ok "env-only POOLSIDE_API_KEY selects native AND survives" \
+  || no "env-only POOLSIDE_API_KEY ($(tr '\n' ' ' < "$ENV_OUT" 2>/dev/null))"
+
+# 10j. ...and an explicitly requested native lane must not exit 69 when the only
+#      credential is the environment variable.
+rm -f "$ARGS_OUT"
+set +e; POOLSIDE_API_KEY="real-poolside-key" POOLSIDE_YOLO_LANE=native "$WRAPPER" "hi" >/dev/null 2>&1; code=$?; set -e
+{ [ "$code" -eq 0 ] && [ -f "$ARGS_OUT" ]; } \
+  && ok "lane=native accepts env-only credentials" || no "lane=native accepts env-only creds (got $code)"
+
+# 10k. the gateway lane must NOT forward a Poolside platform credential as its bearer
+rm -f "$ENV_OUT"
+POOLSIDE_API_KEY="real-poolside-key" POOLSIDE_YOLO_LANE=gateway "$WRAPPER" "hi" >/dev/null 2>&1 || true
+grep -q "KEY=real-poolside-key" "$ENV_OUT" 2>/dev/null \
+  && no "gateway lane leaked the Poolside platform key as its bearer" \
+  || ok "gateway lane never forwards POOLSIDE_API_KEY"
+
+# 10l. doctor must resolve the lane the SAME way execution does. Under zero-spend an
+#      explicit paid lane is demoted to local at run time, so doctor reporting (and
+#      probing) `native` was misleading exactly when policy was being enforced.
+: > "$ROOT/NO_PAID_SPEND"
+POOLSIDE_YOLO_CREDENTIALS="$CREDS" POOLSIDE_YOLO_LANE=native "$WRAPPER" --doctor --json | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+assert d['zeroSpendActive'] is True
+assert d['lane']=='local', 'doctor says %r but runtime forces local' % d['lane']
+assert d['laneRequested']=='native'
+" && ok "doctor agrees with runtime under zero-spend" || no "doctor agrees with runtime under zero-spend"
+rm -f "$ROOT/NO_PAID_SPEND"
+
 # 10h. doctor reports the lane it would actually take (this is the field that would
 #      have made the 2026-07-28 outage obvious instead of a 40s mystery).
 POOLSIDE_YOLO_CREDENTIALS="$CREDS" "$WRAPPER" --doctor --json | python3 -c "
