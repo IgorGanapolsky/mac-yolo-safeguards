@@ -36,16 +36,19 @@ test('every job caps its runtime', () => {
   assert.deepEqual(uncapped, [], `jobs without timeout-minutes: ${uncapped.join(', ')}`);
 });
 
-test('macOS jobs stay tightly capped because they bill at 10x', () => {
+test('macOS jobs stay capped because they bill at 10x', () => {
+  // Ceiling is 60, not 40: the Maestro macOS job has a *successful* run at
+  // 36.9 min, and a 35-minute cap killed it at 36m8s. A cap must sit above
+  // observed successful duration or it manufactures failures.
   const tooLoose = [];
   for (const file of files) {
     for (const job of jobBlocks(fs.readFileSync(path.join(dir, file), 'utf8'))) {
       if (!/runs-on:\s*macos/i.test(job.body)) continue;
       const m = job.body.match(/timeout-minutes:\s*(\d+)/);
-      if (m && Number(m[1]) > 40) tooLoose.push(`${file}:${job.id}=${m[1]}min`);
+      if (m && Number(m[1]) > 60) tooLoose.push(`${file}:${job.id}=${m[1]}min`);
     }
   }
-  assert.deepEqual(tooLoose, [], `macOS jobs over 40 min (=400 billed): ${tooLoose.join(', ')}`);
+  assert.deepEqual(tooLoose, [], `macOS jobs over 60 min (=600 billed): ${tooLoose.join(', ')}`);
 });
 
 test('the macOS continuous workflow does not run more than daily', () => {
