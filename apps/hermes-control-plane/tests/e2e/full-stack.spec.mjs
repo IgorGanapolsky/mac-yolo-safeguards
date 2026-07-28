@@ -111,3 +111,33 @@ test("the device picker lets a real user target a specific paired Mac, and the t
   await expect(completedCard.locator(".status-completed")).toBeVisible({ timeout: 10_000 });
   await expect(completedCard).toContainText(state.deviceB.deviceName);
 });
+
+test("mobile viewport bottom tabs cleanly isolate Chats, Hermes, Leash, and Settings without DOM stacking", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/dashboard");
+
+  // Bottom navigation tabs must be visible on mobile viewport
+  const mobileNav = page.locator(".mobile-web-tabs");
+  await expect(mobileNav).toBeVisible();
+
+  // Default tab 'hermes' shows task panel and hides right rail
+  await expect(page.locator(".task-panel")).toBeVisible();
+  await expect(page.locator(".right-rail")).toBeHidden();
+
+  // Tap 'Chats' tab: sidebar becomes visible, task-panel becomes hidden
+  await mobileNav.locator('a[href="#chats"]').click();
+  await expect(page.locator(".sidebar")).toBeVisible();
+  await expect(page.locator(".task-panel")).toBeHidden();
+
+  // Tap 'Hermes' tab: task-panel returns, sidebar & right-rail hidden
+  await mobileNav.locator('a[href="#hermes-console"]').click();
+  await expect(page.locator(".task-panel")).toBeVisible();
+  await expect(page.locator(".sidebar")).toBeHidden();
+  await expect(page.locator(".right-rail")).toBeHidden();
+
+  // Tap 'Settings' tab: right-rail settings panel shows, task-panel hidden
+  await mobileNav.locator('a[href="#web-settings"]').click();
+  await expect(page.locator(".right-rail")).toBeVisible();
+  await expect(page.locator(".task-panel")).toBeHidden();
+});
+
