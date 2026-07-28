@@ -31,7 +31,10 @@ const {
   whereIsAuthCheck,
   contextDietReport,
   evalAbilityPolicy,
+  matchAbilityForFailure,
   proposeEvalFromFailure,
+  mineEvalFailures,
+  evalAbilityCheck,
   sreAutonomyPolicy,
   resolveSreAction,
   estimateTokens,
@@ -395,7 +398,34 @@ test('evalAbilityPolicy catalogues abilities with verifier triples', () => {
   const policy = evalAbilityPolicy();
   assert.strictEqual(policy.source.url, EVAL_ABILITY_SOURCE.url);
   assert.ok(policy.abilities.length >= 5);
-  assert.ok(policy.abilities.every((a) => a.instruction && a.env && a.verifier));
+  assert.ok(
+    policy.abilities.every(
+      (a) => a.instruction && a.env && a.verifier && Array.isArray(a.match) && a.match.length > 0,
+    ),
+  );
+});
+
+test('matchAbilityForFailure routes known failure phrases', () => {
+  assert.strictEqual(
+    matchAbilityForFailure('empty stream left Checking forever').ability.id,
+    'empty_stream_hard_stop',
+  );
+  assert.strictEqual(
+    matchAbilityForFailure('fresh user Tailscale pair failed').ability.id,
+    'fresh_user_tailscale_pair',
+  );
+  assert.strictEqual(
+    matchAbilityForFailure('double-post on LinkedIn without permalink').ability.id,
+    'social_live_matrix',
+  );
+  assert.strictEqual(
+    matchAbilityForFailure('Stripe follow-up missing payment link').ability.id,
+    'revenue_followup_draft',
+  );
+  assert.strictEqual(
+    matchAbilityForFailure('GatewayContext multi-owner thrash').ability.id,
+    'megafile_claim_discipline',
+  );
 });
 
 test('proposeEvalFromFailure builds stub without write', () => {
@@ -405,6 +435,8 @@ test('proposeEvalFromFailure builds stub without write', () => {
   });
   assert.strictEqual(result.ok, true);
   assert.ok(result.stub.id.startsWith('ability-'));
+  assert.strictEqual(result.stub.abilityId, 'empty_stream_hard_stop');
+  assert.ok(result.stub.matchedPattern);
   assert.ok(result.stub.instruction);
   assert.strictEqual(result.writtenPath, null);
 });
@@ -418,7 +450,58 @@ test('proposeEvalFromFailure can write stub under temp evals', () => {
   });
   assert.ok(result.writtenPath);
   assert.ok(fs.existsSync(result.writtenPath));
-  fs.rmSync(dir, { recursive: true, force: true });
+  assert.strictEqual(result.stub.abilityId, 'fresh_user_tailscale_pair');
+  fs.unlinkSync(result.writtenPath);
+  fs.unlinkSync(path.join(path.dirname(result.writtenPath), 'task.toml'));
+  fs.rmdirSync(path.dirname(result.writtenPath));
+  fs.rmdirSync(path.join(dir, 'evals'));
+  fs.rmdirSync(dir);
+});
+
+test('mineEvalFailures returns signals and proposals', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'eval-mine-'));
+  fs.mkdirSync(path.join(dir, 'hermes-mobile/docs/proofs/continuous'), { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, 'hermes-mobile/docs/proofs/continuous/latest.json'),
+    JSON.stringify({
+      e2e: 'fail',
+      detail: 'Tailscale pair failed for stranger',
+      updatedAt: new Date().toISOString(),
+    }),
+  );
+  fs.writeFileSync(
+    path.join(dir, 'plan.md'),
+    `# plan
+## 1. Task Board
+| ID | Task | Status | Owner | Files (claim) | AcceptanceCheck |
+| T-1 | a | in_progress | a1 | \`hermes-mobile/src/screens/ChatScreen.tsx\` | x |
+| T-2 | b | in_progress | a2 | \`hermes-mobile/src/screens/ChatScreen.tsx\` | y |
+`,
+  );
+  const mined = mineEvalFailures({
+    repo: dir,
+    planPath: path.join(dir, 'plan.md'),
+    write: false,
+  });
+  assert.ok(mined.signalCount >= 1);
+  assert.ok(mined.proposals.length >= 1);
+  assert.ok(
+    mined.proposals.some((p) => p.proposal.stub.abilityId === 'fresh_user_tailscale_pair'),
+  );
+  fs.unlinkSync(path.join(dir, 'hermes-mobile/docs/proofs/continuous/latest.json'));
+  fs.rmdirSync(path.join(dir, 'hermes-mobile/docs/proofs/continuous'));
+  fs.rmdirSync(path.join(dir, 'hermes-mobile/docs/proofs'));
+  fs.rmdirSync(path.join(dir, 'hermes-mobile/docs'));
+  fs.rmdirSync(path.join(dir, 'hermes-mobile'));
+  fs.unlinkSync(path.join(dir, 'plan.md'));
+  fs.rmdirSync(dir);
+});
+
+test('evalAbilityCheck validates catalog and routing', () => {
+  const check = evalAbilityCheck({ runCommands: false });
+  assert.strictEqual(check.ok, true, JSON.stringify(check.routing.filter((r) => !r.ok)));
+  assert.ok(check.abilities.every((a) => a.catalogOk));
+  assert.ok(check.routing.every((r) => r.ok));
 });
 
 test('sreAutonomyPolicy lists subsystems with act and verify', () => {
