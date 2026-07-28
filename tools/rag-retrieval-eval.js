@@ -14,6 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { ndcgAtK } = require('./ml-core');
 
 const REPO = path.resolve(__dirname, '..');
 const DEFAULT_FIXTURE = path.join(REPO, 'tests/fixtures/rag-eval/cases.json');
@@ -76,11 +77,13 @@ function evaluateCase(testCase) {
   );
   const hit = required.length - missing.length;
   const recallAtK = required.length ? hit / required.length : 1;
+  const ndcg = ndcgAtK(run.paths, required, k);
   return {
     id: testCase.id,
     pass: missing.length === 0,
     k,
     recallAtK,
+    ndcgAtK: ndcg,
     missing,
     paths: run.paths.slice(0, k),
   };
@@ -104,21 +107,30 @@ function main() {
     results.length === 0
       ? 0
       : results.reduce((sum, r) => sum + r.recallAtK, 0) / results.length;
+  const meanNdcg =
+    results.length === 0
+      ? 0
+      : results.reduce((sum, r) => sum + (r.ndcgAtK || 0), 0) / results.length;
   const report = {
     ok: passCount === results.length && results.length > 0,
     fixture: path.relative(REPO, args.fixture),
     caseCount: results.length,
     passCount,
     meanRecallAtK: Number(meanRecall.toFixed(4)),
+    meanNdcgAtK: Number(meanNdcg.toFixed(4)),
     results,
   };
   if (args.json) {
     console.log(JSON.stringify(report, null, 2));
   } else {
-    console.log(`RAG retrieval eval: ${passCount}/${results.length} cases pass · mean recall@k=${report.meanRecallAtK}`);
+    console.log(
+      `RAG retrieval eval: ${passCount}/${results.length} cases pass · mean recall@k=${report.meanRecallAtK} · mean nDCG@k=${report.meanNdcgAtK}`,
+    );
     for (const r of results) {
       const mark = r.pass ? 'PASS' : 'FAIL';
-      console.log(`  [${mark}] ${r.id} recall@${r.k}=${r.recallAtK.toFixed(2)}${r.error ? ` · ${r.error}` : ''}`);
+      console.log(
+        `  [${mark}] ${r.id} recall@${r.k}=${r.recallAtK.toFixed(2)} nDCG=${(r.ndcgAtK || 0).toFixed(2)}${r.error ? ` · ${r.error}` : ''}`,
+      );
       if (r.missing?.length) console.log(`         missing: ${r.missing.join(', ')}`);
     }
   }
@@ -134,4 +146,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { evaluateCase, runRetrieve, parseArgs };
+module.exports = { evaluateCase, runRetrieve, parseArgs, ndcgAtK };
