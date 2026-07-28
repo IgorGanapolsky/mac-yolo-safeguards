@@ -329,13 +329,21 @@ function buildReport() {
     },
   ]);
 
-  const mlStack = scorePillar('ml_stack', 'ML / labels / propensity (fail-closed)', [
+  const mlStack = scorePillar('ml_stack', 'ML platform July 2026 (fail-closed)', [
     {
       id: 'label-store',
       weight: 1,
       check: () => ({
         pass: exists('tools/ml-label-store.js'),
         detail: 'tools/ml-label-store.js',
+      }),
+    },
+    {
+      id: 'ml-core-metrics',
+      weight: 1,
+      check: () => ({
+        pass: exists('tools/ml-core.js'),
+        detail: 'AUC/Brier/CV/calibration/nDCG/A-B tests',
       }),
     },
     {
@@ -357,9 +365,15 @@ function buildReport() {
           /* below */
         }
         return {
-          pass: Boolean(body && body.trained === true && body.ok === true),
+          pass: Boolean(
+            body &&
+              body.trained === true &&
+              body.ok === true &&
+              body.holdout_metrics?.brier != null &&
+              body.cv?.mean_auc != null,
+          ),
           detail: body
-            ? `trained holdout_auc=${body.holdout_metrics?.auc}`
+            ? `auc=${body.holdout_metrics?.auc} brier=${body.holdout_metrics?.brier} cv=${body.cv?.mean_auc}`
             : (run.stderr || run.stdout).slice(0, 180),
         };
       },
@@ -391,6 +405,18 @@ function buildReport() {
       },
     },
     {
+      id: 'registry-serve-experiment-gate',
+      weight: 1.5,
+      check: () => ({
+        pass:
+          exists('tools/ml-registry.js') &&
+          exists('tools/ml-serve.js') &&
+          exists('tools/ml-experiment.js') &&
+          exists('tools/ml-gate.js'),
+        detail: 'registry + serve + experiment + gate',
+      }),
+    },
+    {
       id: 'system-scores',
       weight: 1,
       check: () => ({
@@ -402,8 +428,8 @@ function buildReport() {
       id: 'ml-docs',
       weight: 0.5,
       check: () => ({
-        pass: exists('docs/ML-STACK-JULY-2026.md'),
-        detail: 'docs/ML-STACK-JULY-2026.md',
+        pass: exists('docs/ML-STACK-JULY-2026.md') || exists('docs/ML-BEST-IN-CLASS-JULY-2026.md'),
+        detail: 'ML docs',
       }),
     },
   ]);

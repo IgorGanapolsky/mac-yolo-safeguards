@@ -2,15 +2,20 @@
 'use strict';
 
 /**
- * ml-propensity-train.js — pure-JS logistic regression for paid propensity.
+ * ml-propensity-train.js — pure-JS logistic propensity with July 2026 metrics.
  *
- * No sklearn/torch dependency. Fail-closed when labels are insufficient:
+ * Fail-closed when labels are insufficient:
  *   positives < MIN_POS or total < MIN_TOTAL → insufficient_labels (no fake AUC).
  *
- * Time-based holdout: last 20% of rows by last_touch (or insertion order).
+ * Trained models get:
+ *   - time-based holdout metrics (AUC, Brier, logloss, precision/recall/F1)
+ *   - k-fold CV means
+ *   - Platt calibration on holdout
+ *   - feature importance from |weights|
+ *   - optional auto-register into ml-registry
  *
- *   node tools/ml-propensity-train.js train [--labels PATH] [--json]
- *   node tools/ml-propensity-train.js score --features '{"agent_stack":1,...}' [--json]
+ *   node tools/ml-propensity-train.js train [--labels PATH] [--register] [--json]
+ *   node tools/ml-propensity-train.js score --features '{...}' [--json]
  *   node tools/ml-propensity-train.js status [--json]
  */
 
@@ -22,6 +27,14 @@ const {
   featuresToArray,
   featureVectorFromProspect,
 } = require('./ml-label-store');
+const {
+  predictProba,
+  metrics,
+  trainLogistic,
+  fitPlatt,
+  crossValidate,
+  featureImportance,
+} = require('./ml-core');
 
 const DEFAULT_ML_DIR = path.join(os.homedir(), '.hermes', 'ml');
 const DEFAULT_LABELS = path.join(DEFAULT_ML_DIR, 'labels.jsonl');
@@ -33,6 +46,7 @@ const HOLDOUT_FRAC = 0.2;
 const LR = 0.35;
 const EPOCHS = 400;
 const L2 = 0.02;
+const CV_K = 5;
 
 function parseArgs(argv) {
   const args = {
@@ -43,6 +57,7 @@ function parseArgs(argv) {
     modelOut: DEFAULT_MODEL,
     features: '',
     force: false,
+    register: false,
   };
   const rest = [...argv];
   if (rest[0] && !rest[0].startsWith('--')) args.command = rest.shift();
@@ -54,14 +69,10 @@ function parseArgs(argv) {
     else if (a === '--model-out' || a === '--out') args.modelOut = path.resolve(rest[++i] || '');
     else if (a === '--features') args.features = rest[++i] || '';
     else if (a === '--force') args.force = true;
+    else if (a === '--register') args.register = true;
     else throw new Error(`Unknown argument: ${a}`);
   }
   return args;
-}
-
-function sigmoid(z) {
-  const x = Math.max(-30, Math.min(30, z));
-  return 1 / (1 + Math.exp(-x));
 }
 
 function loadTrainingRows(labelsPath) {
@@ -73,7 +84,6 @@ function loadTrainingRows(labelsPath) {
     if (!line.trim()) continue;
     let row = JSON.parse(line);
     if (row.training_eligible === false) continue;
-    // Accept prospect-shaped fixture rows (normalize features → x).
     if (!Array.isArray(row.x) || row.x.length !== FEATURE_KEYS.length) {
       if (row.agent_stack !== undefined || row.features) {
         const features = row.features || featureVectorFromProspect(row);
@@ -112,79 +122,6 @@ function splitHoldout(rows) {
   return { train: sorted.slice(0, cut), holdout: sorted.slice(cut) };
 }
 
-function trainLogistic(trainRows) {
-  const dim = FEATURE_KEYS.length;
-  const w = new Array(dim).fill(0);
-  let b = 0;
-  for (let epoch = 0; epoch < EPOCHS; epoch += 1) {
-    let gradW = new Array(dim).fill(0);
-    let gradB = 0;
-    for (const row of trainRows) {
-      const z = b + row.x.reduce((s, xi, i) => s + w[i] * xi, 0);
-      const p = sigmoid(z);
-      const err = p - row.label_paid;
-      for (let i = 0; i < dim; i += 1) gradW[i] += err * row.x[i];
-      gradB += err;
-    }
-    const n = trainRows.length || 1;
-    for (let i = 0; i < dim; i += 1) {
-      gradW[i] = gradW[i] / n + L2 * w[i];
-      w[i] -= LR * gradW[i];
-    }
-    b -= LR * (gradB / n);
-  }
-  return { weights: w, bias: b };
-}
-
-function predictProba(model, x) {
-  const z = model.bias + model.weights.reduce((s, wi, i) => s + wi * (x[i] || 0), 0);
-  return sigmoid(z);
-}
-
-function metrics(model, rows) {
-  if (!rows.length) {
-    return { n: 0, accuracy: null, auc: null, logloss: null, pos: 0, neg: 0 };
-  }
-  let correct = 0;
-  let logloss = 0;
-  const scores = [];
-  let pos = 0;
-  let neg = 0;
-  for (const row of rows) {
-    const p = predictProba(model, row.x);
-    const yhat = p >= 0.5 ? 1 : 0;
-    if (yhat === row.label_paid) correct += 1;
-    const pp = Math.min(1 - 1e-9, Math.max(1e-9, p));
-    logloss += -(row.label_paid * Math.log(pp) + (1 - row.label_paid) * Math.log(1 - pp));
-    scores.push({ p, y: row.label_paid });
-    if (row.label_paid === 1) pos += 1;
-    else neg += 1;
-  }
-  return {
-    n: rows.length,
-    pos,
-    neg,
-    accuracy: Number((correct / rows.length).toFixed(4)),
-    logloss: Number((logloss / rows.length).toFixed(4)),
-    auc: aucROC(scores),
-  };
-}
-
-/** Mann-Whitney AUC; null if only one class present. */
-function aucROC(scores) {
-  const pos = scores.filter((s) => s.y === 1);
-  const neg = scores.filter((s) => s.y === 0);
-  if (!pos.length || !neg.length) return null;
-  let rankSum = 0;
-  for (const p of pos) {
-    for (const n of neg) {
-      if (p.p > n.p) rankSum += 1;
-      else if (p.p === n.p) rankSum += 0.5;
-    }
-  }
-  return Number((rankSum / (pos.length * neg.length)).toFixed(4));
-}
-
 function train(args) {
   const rows = loadTrainingRows(args.labels);
   const positives = rows.filter((r) => r.label_paid === 1).length;
@@ -207,13 +144,12 @@ function train(args) {
       model_path: args.modelOut,
       trained: false,
     };
-    // Write explicit insufficient receipt so SYSTEM_SCORES can read it.
     fs.mkdirSync(path.dirname(args.modelOut), { recursive: true });
     fs.writeFileSync(
       args.modelOut,
       JSON.stringify(
         {
-          schema_version: 'ml-propensity-model/1',
+          schema_version: 'ml-propensity-model/2',
           status: 'insufficient_labels',
           trained: false,
           positives,
@@ -222,6 +158,10 @@ function train(args) {
           feature_keys: FEATURE_KEYS,
           generated_at: new Date().toISOString(),
           note: report.message,
+          july_2026: {
+            requires: 'holdout+cv+brier+calibration when trained',
+            production_claim: 'forbidden until trained=true and registry promote',
+          },
         },
         null,
         2,
@@ -232,30 +172,61 @@ function train(args) {
   }
 
   const { train: trainRows, holdout } = splitHoldout(rows);
-  const fit = trainLogistic(trainRows);
-  const trainMetrics = metrics(fit, trainRows);
-  const holdoutMetrics = metrics(fit, holdout);
+  const dim = FEATURE_KEYS.length;
+  const fit = trainLogistic(trainRows, { dim, lr: LR, epochs: EPOCHS, l2: L2 });
+  const calibration = fitPlatt(fit, holdout.length ? holdout : trainRows);
+  const calibrated = { ...fit, calibration };
+  const trainMetrics = metrics(calibrated, trainRows);
+  const holdoutMetrics = metrics(calibrated, holdout.length ? holdout : trainRows);
+  const cv = crossValidate(rows, dim, Math.min(CV_K, Math.floor(rows.length / 4) || 2));
+  const importance = featureImportance(fit.weights, FEATURE_KEYS);
+
   const model = {
-    schema_version: 'ml-propensity-model/1',
+    schema_version: 'ml-propensity-model/2',
     status: 'trained',
     trained: true,
     feature_keys: FEATURE_KEYS,
     weights: fit.weights.map((w) => Number(w.toFixed(6))),
     bias: Number(fit.bias.toFixed(6)),
-    hyperparameters: { lr: LR, epochs: EPOCHS, l2: L2, holdout_frac: HOLDOUT_FRAC },
+    calibration,
+    hyperparameters: {
+      lr: LR,
+      epochs: EPOCHS,
+      l2: L2,
+      holdout_frac: HOLDOUT_FRAC,
+      cv_k: cv.k,
+    },
     train_metrics: trainMetrics,
     holdout_metrics: holdoutMetrics,
+    cv,
+    feature_importance: importance,
     positives,
     negatives,
     total: rows.length,
     generated_at: new Date().toISOString(),
     labels_path: args.labels,
+    july_2026: {
+      metrics: ['auc', 'brier', 'logloss', 'precision', 'recall', 'f1', 'cv_mean_auc'],
+      calibration: calibration.fitted ? 'platt_holdout' : 'none',
+      production_claim: 'allowed after registry promote with holdout_auc reported',
+    },
   };
   fs.mkdirSync(path.dirname(args.modelOut), { recursive: true });
   fs.writeFileSync(args.modelOut, JSON.stringify(model, null, 2) + '\n', {
     encoding: 'utf8',
     mode: 0o600,
   });
+
+  let registry = null;
+  if (args.register) {
+    try {
+      const reg = require('./ml-registry');
+      registry = reg.register({ model: args.modelOut, name: 'propensity', json: true });
+    } catch (error) {
+      registry = { ok: false, error: error.message || String(error) };
+    }
+  }
+
   return {
     ok: true,
     status: 'trained',
@@ -263,9 +234,13 @@ function train(args) {
     model_path: args.modelOut,
     train_metrics: trainMetrics,
     holdout_metrics: holdoutMetrics,
+    cv,
+    feature_importance: importance.slice(0, 5),
+    calibration,
     positives,
     negatives,
     total: rows.length,
+    registry,
   };
 }
 
@@ -293,22 +268,27 @@ function score(args) {
   } else {
     throw new Error('--features JSON required for score');
   }
-  // Accept either full feature map or prospect-shaped row
   const fmap =
     features.agent_stack !== undefined && features.segment_agency === undefined
       ? featureVectorFromProspect(features)
       : features;
   const x = featuresToArray(fmap);
   const p = predictProba(
-    { weights: model.weights, bias: model.bias },
+    {
+      weights: model.weights,
+      bias: model.bias,
+      calibration: model.calibration,
+    },
     x,
   );
   return {
     ok: true,
     probability_paid: Number(p.toFixed(4)),
     decision: p >= 0.5 ? 'high_propensity' : 'low_propensity',
+    calibrated: Boolean(model.calibration?.fitted),
     features: fmap,
     model_generated_at: model.generated_at,
+    holdout_auc: model.holdout_metrics?.auc ?? null,
   };
 }
 
@@ -321,8 +301,12 @@ function status(args) {
     trained: Boolean(model?.trained),
     status: model?.status || 'missing',
     holdout_auc: model?.holdout_metrics?.auc ?? null,
+    holdout_brier: model?.holdout_metrics?.brier ?? null,
+    cv_mean_auc: model?.cv?.mean_auc ?? null,
+    calibrated: Boolean(model?.calibration?.fitted),
     positives: model?.positives ?? null,
     total: model?.total ?? null,
+    schema_version: model?.schema_version ?? null,
   };
 }
 
@@ -330,7 +314,7 @@ function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
     console.log(`Usage:
-  node tools/ml-propensity-train.js train [--labels PATH] [--json]
+  node tools/ml-propensity-train.js train [--labels PATH] [--register] [--json]
   node tools/ml-propensity-train.js score --features '{...}' [--json]
   node tools/ml-propensity-train.js status [--json]`);
     process.exit(0);
@@ -341,30 +325,35 @@ function main() {
   else if (args.command === 'status') result = status(args);
   else throw new Error(`Unknown command: ${args.command}`);
 
-  if (args.json) console.log(JSON.stringify(result, null, 2));
-  else if (args.command === 'train') {
+  if (args.json) {
+    console.log(JSON.stringify(result, null, 2));
+  } else if (args.command === 'train') {
     if (result.trained) {
       console.log(
-        `ml-propensity: trained pos=${result.positives}/${result.total} holdout_auc=${result.holdout_metrics?.auc} → ${result.model_path}`,
+        `ml-propensity: trained pos=${result.positives}/${result.total} ` +
+          `holdout_auc=${result.holdout_metrics?.auc} brier=${result.holdout_metrics?.brier} ` +
+          `cv_auc=${result.cv?.mean_auc} → ${result.model_path}`,
       );
     } else {
       console.log(`ml-propensity: ${result.status} — ${result.message}`);
-      process.exitCode = 2;
     }
   } else if (args.command === 'score') {
     if (!result.ok) {
       console.log(`ml-propensity score: ${result.status}`);
-      process.exitCode = 2;
     } else {
       console.log(
-        `ml-propensity score: p_paid=${result.probability_paid} (${result.decision})`,
+        `ml-propensity score: p_paid=${result.probability_paid} (${result.decision}) calibrated=${result.calibrated}`,
       );
     }
   } else {
     console.log(
-      `ml-propensity status: ${result.status} trained=${result.trained} auc=${result.holdout_auc}`,
+      `ml-propensity status: ${result.status} trained=${result.trained} auc=${result.holdout_auc} cv=${result.cv_mean_auc}`,
     );
   }
+
+  // Fail-closed exit codes even in --json mode (obsessive verification contract).
+  if (args.command === 'train' && !result.trained) process.exitCode = 2;
+  if (args.command === 'score' && result.ok === false) process.exitCode = 2;
 }
 
 if (require.main === module) {
@@ -380,13 +369,14 @@ module.exports = {
   train,
   score,
   status,
-  trainLogistic,
-  metrics,
-  predictProba,
   loadTrainingRows,
   splitHoldout,
-  aucROC,
   MIN_POS,
   MIN_TOTAL,
   FEATURE_KEYS,
+  // re-export for tests that imported from here
+  trainLogistic: (rows) => trainLogistic(rows, { dim: FEATURE_KEYS.length }),
+  metrics: (model, rows) => metrics(model, rows),
+  predictProba,
+  aucROC: require('./ml-core').aucROC,
 };
