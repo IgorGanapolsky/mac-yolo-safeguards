@@ -9,10 +9,25 @@
 # wraps the OFFICIAL pool binary, never bundles or forks it.
 #
 #   poolside-yolo "build me X"      autonomous one-shot task (pool exec, auto-allow)
-#   poolside-yolo                   autonomous interactive TUI (--mode allow-all)
+#   poolside-yolo                   autonomous interactive TUI (--mode always-allow)
 #   poolside-yolo login             passthrough to real Poolside/OpenRouter login
 #                                    (gateway env vars withheld so auth isn't shadowed)
-#   poolside-yolo --doctor[/--json] health (binary, version, gateway, model, zero-spend)
+#   poolside-yolo --doctor[/--json] health (binary, version, gateway, model, mode, zero-spend)
+#
+# Autonomy contract — poolside-yolo must NEVER stop to ask for permission:
+#   * TUI  -> --mode always-allow  ("Allow all": approves every tool call, no prompts)
+#   * exec -> --unsafe-auto-allow  (same, for non-interactive runs)
+#
+# Why the mode ID is verified, not assumed:
+#   pool's --mode flag SILENTLY falls back to the default ("Always ask") mode when
+#   handed an ID the agent server doesn't advertise — it only prints
+#   `Mode "x" was not found, using the default mode.` and then prompts for every
+#   tool. This wrapper shipped `allow-all` (a plausible guess that is NOT a real
+#   mode) and was therefore fully interactive while claiming to be autonomous. The
+#   real IDs, confirmed live from the pool ACP server and docs.poolside.ai, are:
+#     default | accept-edits | plan | always-allow
+#   So: unknown modes fail loudly here (exit 2) instead of silently degrading, and
+#   `--doctor` probes the live ACP server to catch a future rename.
 #
 # Safety:
 #   * Honors the fleet zero-spend gate: if ~/.hermes/NO_PAID_SPEND exists, exit 73.
@@ -22,6 +37,30 @@ set -euo pipefail
 GATEWAY_URL="${POOLSIDE_YOLO_GATEWAY_URL:-http://127.0.0.1:4010/v1}"
 DEFAULT_MODEL="${POOLSIDE_YOLO_MODEL:-glm-coding}"
 MARKER="${HERMES_ZERO_SPEND_MARKER:-$HOME/.hermes/NO_PAID_SPEND}"
+
+# The "never ask me for permission" mode. Overridable, but it must still be a mode
+# the agent server really advertises.
+YOLO_MODE="${POOLSIDE_YOLO_MODE:-always-allow}"
+# Modes shipped by pool v1.0.14 (docs.poolside.ai/cli/interactive-mode + live probe).
+KNOWN_MODES="default accept-edits plan always-allow"
+
+# Accept the names people (and our own older docs) reach for, map them to the real
+# IDs. `allow-all` is the exact string this wrapper used to pass, so it must keep
+# working rather than becoming a hard error for anyone with it in muscle memory.
+normalize_mode() {
+  case "$1" in
+    allow-all|allow_all|allowall|yolo|auto|always_allow) printf 'always-allow\n' ;;
+    accept_edits|edits|accept)                           printf 'accept-edits\n' ;;
+    ask|always-ask|always_ask|prompt)                    printf 'default\n' ;;
+    *)                                                   printf '%s\n' "$1" ;;
+  esac
+}
+
+mode_known() {
+  local m
+  for m in $KNOWN_MODES; do [[ "$m" == "$1" ]] && return 0; done
+  return 1
+}
 
 resolve_pool() {
   local candidate=""
@@ -45,32 +84,131 @@ emit_missing() {
 
 gateway_up() { curl -fsS -m 4 "${GATEWAY_URL%/v1}/health/liveliness" >/dev/null 2>&1; }
 
+# Ask the installed pool ACP server which session modes it actually advertises
+# (ACP: initialize -> session/new -> result.modes.availableModes). Prints the IDs
+# space-separated. Non-zero/empty when it can't be determined; callers must treat
+# "unknown" as unknown, never as "valid".
+probe_modes() {
+  local bin="$1"
+  command -v node >/dev/null 2>&1 || return 1
+  POOL_PROBE_BIN="$bin" \
+  POOL_PROBE_BASE="$GATEWAY_URL" \
+  POOL_PROBE_KEY="${POOLSIDE_API_KEY:-hermes-local-gateway}" \
+  POOL_PROBE_MODEL="$DEFAULT_MODEL" \
+  node -e '
+    const {spawn} = require("child_process");
+    const env = Object.assign({}, process.env, {
+      POOLSIDE_STANDALONE_BASE_URL: process.env.POOL_PROBE_BASE,
+      POOLSIDE_API_KEY: process.env.POOL_PROBE_KEY,
+      POOLSIDE_STANDALONE_MODEL: process.env.POOL_PROBE_MODEL,
+    });
+    const p = spawn(process.env.POOL_PROBE_BIN, ["acp"], {env, stdio:["pipe","pipe","ignore"]});
+    let buf = "", done = false;
+    const bail = c => { if (!done) { done = true; try { p.kill(); } catch (e) {} process.exit(c); } };
+    p.on("error", () => bail(1));
+    p.stdout.on("data", d => {
+      buf += d.toString();
+      let i;
+      while ((i = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, i); buf = buf.slice(i + 1);
+        if (!line.trim()) continue;
+        let msg; try { msg = JSON.parse(line); } catch (e) { continue; }
+        if (msg.id !== 2) continue;
+        const modes = msg.result && msg.result.modes && msg.result.modes.availableModes;
+        if (!Array.isArray(modes) || !modes.length) bail(1);
+        process.stdout.write(modes.map(m => m.id).join(" ") + "\n");
+        bail(0);
+      }
+    });
+    const send = o => p.stdin.write(JSON.stringify(o) + "\n");
+    send({jsonrpc:"2.0", id:1, method:"initialize",
+          params:{protocolVersion:1, clientCapabilities:{fs:{readTextFile:true, writeTextFile:true}}}});
+    setTimeout(() => send({jsonrpc:"2.0", id:2, method:"session/new",
+          params:{cwd:process.cwd(), mcpServers:[]}}), 1200);
+    setTimeout(() => bail(1), 12000);
+  ' 2>/dev/null
+}
+
+# Is DEFAULT_MODEL actually served by the gateway right now? A missing model is the
+# other way this stack degrades quietly (gateway falls back to whatever it has).
+model_served() {
+  local list
+  list="$(curl -fsS -m 4 "${GATEWAY_URL%/}/models" 2>/dev/null)" || return 1
+  printf '%s' "$list" | grep -q "\"id\"[[:space:]]*:[[:space:]]*\"$DEFAULT_MODEL\""
+}
+
+# Which model does the gateway ACTUALLY answer with? `model_served` only proves the
+# ID is listed — the gateway's fallback chain (glm-coding -> opencode-go-glm ->
+# nemotron3-free -> ...) can quietly serve something else entirely when the primary
+# route is out of quota, and the agent just gets dumber with no error anywhere.
+# Costs one 1-token completion, so it is doctor-only, and never runs under the
+# zero-spend gate (that marker means "make no paid model calls").
+model_serving() {
+  [[ -e "$MARKER" ]] && return 1
+  [[ -n "${POOLSIDE_YOLO_DOCTOR_NO_PROBE:-}" ]] && return 1
+  curl -fsS -m 20 "${GATEWAY_URL%/}/chat/completions" \
+    -H "Authorization: Bearer ${POOLSIDE_API_KEY:-hermes-local-gateway}" \
+    -H "Content-Type: application/json" \
+    -d "{\"model\":\"$DEFAULT_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":1}" \
+    2>/dev/null | sed -n 's/.*"model"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1
+}
+
 doctor() {
   local format="${1:-text}" bin="" version="" up="false"
+  local modes="" mode_valid="unknown" model_ok="unknown" serving="" fellback="unknown"
   if ! bin="$(resolve_pool)"; then emit_missing "$format"; return 127; fi
   version="$("$bin" --version 2>/dev/null | head -n1 || true)"
   gateway_up && up="true"
+  if [[ "$up" == "true" ]]; then
+    model_served && model_ok="true" || model_ok="false"
+    serving="$(model_serving || true)"
+    if [[ -n "$serving" ]]; then
+      [[ "$serving" == "$DEFAULT_MODEL" ]] && fellback="false" || fellback="true"
+    fi
+    if modes="$(probe_modes "$bin")" && [[ -n "$modes" ]]; then
+      mode_valid="false"
+      for m in $modes; do [[ "$m" == "$YOLO_MODE" ]] && mode_valid="true"; done
+    fi
+  fi
   if [[ "$format" == json ]]; then
     PYB="$bin" PYV="$version" PYG="$GATEWAY_URL" PYM="$DEFAULT_MODEL" PYUP="$up" \
+    PYMODE="$YOLO_MODE" PYMODES="$modes" PYMV="$mode_valid" PYMOK="$model_ok" \
+    PYSERV="$serving" PYFB="$fellback" \
     PYZ="$([[ -e "$MARKER" ]] && echo true || echo false)" node -e '
+      const tri = v => v === "true" ? true : v === "false" ? false : null;
       process.stdout.write(JSON.stringify({
         schema:"poolside-yolo/doctor-v1", ok:true, provider:"Poolside pool CLI (official)",
         binary:process.env.PYB, version:process.env.PYV,
         gateway:process.env.PYG, gatewayUp:process.env.PYUP==="true",
-        defaultModel:process.env.PYM, zeroSpendActive:process.env.PYZ==="true",
+        defaultModel:process.env.PYM, modelServed:tri(process.env.PYMOK),
+        modelServing:process.env.PYSERV || null, modelFellBack:tri(process.env.PYFB),
+        mode:process.env.PYMODE, modeValid:tri(process.env.PYMV),
+        availableModes:process.env.PYMODES ? process.env.PYMODES.split(" ") : [],
+        zeroSpendActive:process.env.PYZ==="true",
         autonomous:true
       })+"\n");' 2>/dev/null || python3 -c '
 import json, os
+def tri(v):
+    return True if v == "true" else False if v == "false" else None
 print(json.dumps({
   "schema": "poolside-yolo/doctor-v1", "ok": True, "provider": "Poolside pool CLI (official)",
   "binary": os.environ["PYB"], "version": os.environ["PYV"],
   "gateway": os.environ["PYG"], "gatewayUp": os.environ["PYUP"] == "true",
-  "defaultModel": os.environ["PYM"], "zeroSpendActive": os.environ["PYZ"] == "true",
+  "defaultModel": os.environ["PYM"], "modelServed": tri(os.environ["PYMOK"]),
+  "modelServing": os.environ["PYSERV"] or None, "modelFellBack": tri(os.environ["PYFB"]),
+  "mode": os.environ["PYMODE"], "modeValid": tri(os.environ["PYMV"]),
+  "availableModes": os.environ["PYMODES"].split() if os.environ["PYMODES"] else [],
+  "zeroSpendActive": os.environ["PYZ"] == "true",
   "autonomous": True,
 }))'
   else
-    printf 'POOLSIDE_YOLO_OK binary=%s version=%s gateway=%s up=%s model=%s zero_spend=%s\n' \
-      "$bin" "$version" "$GATEWAY_URL" "$up" "$DEFAULT_MODEL" "$([[ -e "$MARKER" ]] && echo true || echo false)"
+    printf 'POOLSIDE_YOLO_OK binary=%s version=%s gateway=%s up=%s model=%s model_served=%s serving=%s mode=%s mode_valid=%s zero_spend=%s\n' \
+      "$bin" "$version" "$GATEWAY_URL" "$up" "$DEFAULT_MODEL" "$model_ok" "${serving:-unknown}" "$YOLO_MODE" "$mode_valid" \
+      "$([[ -e "$MARKER" ]] && echo true || echo false)"
+    [[ "$mode_valid" == "false" ]] && \
+      echo "poolside-yolo: WARNING mode '$YOLO_MODE' is not advertised by this pool build (available: $modes) — it would silently fall back to approval prompts" >&2
+    [[ "$fellback" == "true" ]] && \
+      echo "poolside-yolo: WARNING gateway answers '$DEFAULT_MODEL' with '$serving' — the primary route is down and you are talking to a fallback model" >&2
   fi
 }
 
@@ -110,28 +248,50 @@ export POOLSIDE_STANDALONE_BASE_URL="$GATEWAY_URL"
 export POOLSIDE_API_KEY="${POOLSIDE_API_KEY:-hermes-local-gateway}"
 export POOLSIDE_STANDALONE_MODEL="$DEFAULT_MODEL"
 
+YOLO_MODE="$(normalize_mode "$YOLO_MODE")"
+if ! mode_known "$YOLO_MODE"; then
+  echo "poolside-yolo: refusing to run — mode '$YOLO_MODE' is not a pool session mode ($KNOWN_MODES)." >&2
+  echo "poolside-yolo: pool would silently fall back to approval prompts instead of running autonomously." >&2
+  exit 2
+fi
+
+# Human at a terminal wants readable output; a pipe/cron wants parseable NLJSON.
+oneshot_output() { [[ -t 1 ]] && printf 'markdown\n' || printf 'json\n'; }
+
 if [[ $# -eq 0 ]]; then
-  exec "$PBIN" --mode allow-all
+  exec "$PBIN" --mode "$YOLO_MODE"
 fi
 
 case "$1" in
   exec)
     shift
     has_allow=0; has_out=0
-    for a in "$@"; do case "$a" in --unsafe-auto-allow) has_allow=1;; -o|-o=*) has_out=1;; esac; done
+    for a in "$@"; do case "$a" in --unsafe-auto-allow) has_allow=1;; -o|-o=*|--output|--output=*) has_out=1;; esac; done
     extra=()
     ((has_allow)) || extra+=(--unsafe-auto-allow)
-    ((has_out)) || extra+=(-o json)
+    ((has_out)) || extra+=(-o "$(oneshot_output)")
     exec "$PBIN" exec "${extra[@]}" "$@" ;;
   -*)
-    has_mode=0
-    for a in "$@"; do case "$a" in --mode|--mode=*) has_mode=1;; esac; done
+    # An explicit --mode wins, but normalize/validate it so a typo can't quietly
+    # drop the session back into "Always ask".
+    args=(); has_mode=0; want_mode=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --mode)   has_mode=1; want_mode="$(normalize_mode "${2:-}")"; args+=(--mode "$want_mode"); shift 2 || shift ;;
+        --mode=*) has_mode=1; want_mode="$(normalize_mode "${1#--mode=}")"; args+=(--mode "$want_mode"); shift ;;
+        *)        args+=("$1"); shift ;;
+      esac
+    done
     if ((has_mode)); then
-      exec "$PBIN" "$@"
+      if ! mode_known "$want_mode"; then
+        echo "poolside-yolo: '--mode $want_mode' is not a pool session mode ($KNOWN_MODES); pool would silently fall back to approval prompts" >&2
+        exit 2
+      fi
+      exec "$PBIN" "${args[@]}"
     else
-      exec "$PBIN" --mode allow-all "$@"
+      exec "$PBIN" --mode "$YOLO_MODE" "${args[@]}"
     fi ;;
   *)
     # Bare task string -> autonomous one-shot, mirroring kimi-yolo's routing.
-    exec "$PBIN" exec -p "$*" --unsafe-auto-allow -o json ;;
+    exec "$PBIN" exec -p "$*" --unsafe-auto-allow -o "$(oneshot_output)" ;;
 esac
