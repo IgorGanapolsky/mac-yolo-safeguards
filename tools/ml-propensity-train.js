@@ -325,8 +325,9 @@ function main() {
   else if (args.command === 'status') result = status(args);
   else throw new Error(`Unknown command: ${args.command}`);
 
-  if (args.json) console.log(JSON.stringify(result, null, 2));
-  else if (args.command === 'train') {
+  if (args.json) {
+    console.log(JSON.stringify(result, null, 2));
+  } else if (args.command === 'train') {
     if (result.trained) {
       console.log(
         `ml-propensity: trained pos=${result.positives}/${result.total} ` +
@@ -335,12 +336,10 @@ function main() {
       );
     } else {
       console.log(`ml-propensity: ${result.status} — ${result.message}`);
-      process.exitCode = 2;
     }
   } else if (args.command === 'score') {
     if (!result.ok) {
       console.log(`ml-propensity score: ${result.status}`);
-      process.exitCode = 2;
     } else {
       console.log(
         `ml-propensity score: p_paid=${result.probability_paid} (${result.decision}) calibrated=${result.calibrated}`,
@@ -351,6 +350,10 @@ function main() {
       `ml-propensity status: ${result.status} trained=${result.trained} auc=${result.holdout_auc} cv=${result.cv_mean_auc}`,
     );
   }
+
+  // Fail-closed exit codes even in --json mode (obsessive verification contract).
+  if (args.command === 'train' && !result.trained) process.exitCode = 2;
+  if (args.command === 'score' && result.ok === false) process.exitCode = 2;
 }
 
 if (require.main === module) {
