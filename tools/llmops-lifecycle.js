@@ -143,30 +143,28 @@ function runEvalIntegrity() {
     /Unknown argument:\s*eval-check/i.test(combined) ||
     /Unknown command:\s*eval-check/i.test(combined);
 
-  // Lagging harness: try eval-abilities (older mini main)
-  const abilities = runNode('tools/agent-swarm-harness.js', ['eval-abilities', '--json'], {
-    timeout: 60000,
-  });
-  let abBody = null;
-  try {
-    abBody = JSON.parse(abilities.stdout);
-  } catch {
-    /* ignore */
-  }
-  if (abBody && (Array.isArray(abBody.abilities) || abBody.evalAbilities || abBody.ok !== undefined)) {
-    const list = abBody.abilities || abBody.evalAbilities?.abilities || [];
-    const n = Array.isArray(list) ? list.length : 0;
-    return {
-      pass: true,
-      soft: true,
-      detail: unknown
-        ? `harness_lagging: no eval-check; eval-abilities n=${n} (pull origin/main when clean)`
-        : `eval-check unreadable; eval-abilities n=${n}`,
-      body: abBody,
-    };
-  }
-
+  // Only soft-pass when the harness literally lacks eval-check (lagging clone).
+  // Crashes / timeouts / malformed output with a working eval-check must hard-fail.
   if (unknown) {
+    const abilities = runNode('tools/agent-swarm-harness.js', ['eval-abilities', '--json'], {
+      timeout: 60000,
+    });
+    let abBody = null;
+    try {
+      abBody = JSON.parse(abilities.stdout);
+    } catch {
+      /* ignore */
+    }
+    if (abBody && (Array.isArray(abBody.abilities) || abBody.evalAbilities || abBody.ok !== undefined)) {
+      const list = abBody.abilities || abBody.evalAbilities?.abilities || [];
+      const n = Array.isArray(list) ? list.length : 0;
+      return {
+        pass: true,
+        soft: true,
+        detail: `harness_lagging: no eval-check; eval-abilities n=${n} (pull origin/main when clean)`,
+        body: abBody,
+      };
+    }
     return {
       pass: true,
       soft: true,
@@ -394,7 +392,9 @@ function doctorFleet(args) {
     Boolean(mini && mini.gateway_only && miniModels.length > 0) ||
     miniModels.length > 0;
   const localGateway = local.gateway_ok !== undefined ? local.gateway_ok : local.ok;
-  const fleetOk = Boolean(localGateway) && (args.skipMini || miniGatewayOk);
+  // If --sync-mini was requested, scp failure must fail fleet (do not report green on stale mini tool).
+  const syncOk = !args.syncMini || args.skipMini || Boolean(sync && sync.ok);
+  const fleetOk = Boolean(localGateway) && (args.skipMini || miniGatewayOk) && syncOk;
   return {
     schema_version: 'llmops-fleet/1',
     ok: fleetOk,
@@ -404,7 +404,8 @@ function doctorFleet(args) {
     principle:
       'Pro and mini must share gateway doctor green before multi-host agent work; ' +
       'chat window is not the coordination bus (plan.md + llmops store is). ' +
-      'Harness lag (missing eval-check) is soft — pull origin/main when clone is clean.',
+      'Harness lag (missing eval-check) is soft — pull origin/main when clone is clean. ' +
+      '--sync-mini failures fail fleet so a stale mini tool cannot look green.',
   };
 }
 
@@ -473,13 +474,8 @@ function syncToMini(args) {
     '~/workspace/git/igor/mac-yolo-safeguards';
   const src = path.join(REPO, 'tools/llmops-lifecycle.js');
   const dest = `${args.miniSsh}:${remoteRepo}/tools/llmops-lifecycle.js`;
-  const r = spawnSync(
-    'scp',
-    ['-o', 'ConnectTimeout=12', '-o', 'BatchMode=yes', src, dest],
-    { encoding: 'utf8', timeout: 60000 },
-  );
 
-  // Probe mini git lag without mutating (other agents may own dirty plan.md / harness)
+  // Probe before scp: refuse to overwrite dirty/uncommitted tools/llmops-lifecycle.js on mini.
   const probe = spawnSync(
     'ssh',
     [
@@ -491,14 +487,32 @@ function syncToMini(args) {
       'bash',
       '-lc',
       [
-        'cd ~/workspace/git/igor/mac-yolo-safeguards 2>/dev/null || exit 0',
+        'cd ~/workspace/git/igor/mac-yolo-safeguards 2>/dev/null || { echo "missing_repo=1"; exit 0; }',
         'echo "head=$(git rev-parse --short HEAD 2>/dev/null)"',
         'echo "branch=$(git branch --show-current 2>/dev/null)"',
         'git rev-parse --verify origin/main >/dev/null 2>&1 && echo "origin_main=$(git rev-parse --short origin/main)" || true',
+        'if git status --porcelain -- tools/llmops-lifecycle.js 2>/dev/null | grep -q .; then echo "tool_dirty=1"; else echo "tool_dirty=0"; fi',
         'git status --porcelain 2>/dev/null | head -8 | sed "s/^/dirty:/"',
       ].join('; '),
     ],
     { encoding: 'utf8', timeout: 30000 },
+  );
+  const miniGit = (probe.stdout || '').slice(0, 500);
+  if (/tool_dirty=1/.test(miniGit)) {
+    return {
+      ok: false,
+      status: 1,
+      dest,
+      detail: 'refused: tools/llmops-lifecycle.js has uncommitted WIP on mini — not overwriting',
+      mini_git: miniGit,
+      note: 'probe-before-scp; clean or stash mini tool WIP before --sync-mini',
+    };
+  }
+
+  const r = spawnSync(
+    'scp',
+    ['-o', 'ConnectTimeout=12', '-o', 'BatchMode=yes', src, dest],
+    { encoding: 'utf8', timeout: 60000 },
   );
 
   return {
@@ -506,9 +520,9 @@ function syncToMini(args) {
     status: r.status,
     dest,
     detail: (r.stderr || r.stdout || '').slice(0, 300),
-    mini_git: (probe.stdout || '').slice(0, 500),
+    mini_git: miniGit,
     note:
-      'scp llmops-lifecycle only — never force-pull dirty mini; eval soft-pass when harness lags',
+      'scp llmops-lifecycle only after clean probe — never force-pull dirty mini; eval soft-pass when harness lags',
   };
 }
 
