@@ -10,6 +10,7 @@ const {
   HARNESS_PROFILES,
   SKILL_PACKS,
   HARNESS_ROI_SOURCE,
+  RELEASE_STATUS,
   harnessProfilePolicy,
   skillPackPolicy,
   classifyHarnessProfile,
@@ -17,6 +18,11 @@ const {
   resolveSkillPackAccess,
   listSkillPacks,
   claimHygieneReport,
+  parseTaskIdDate,
+  findStaleClaims,
+  proposeClaimRelease,
+  claimNewGate,
+  runClaimHygiene,
   runEvalResearchLoop,
 } = require('../tools/agent-harness-roi');
 
@@ -298,6 +304,181 @@ test('HARNESS_PROFILES and SKILL_PACKS are frozen catalogs', () => {
   assert.throws(() => {
     HARNESS_PROFILES.push({ id: 'nope' });
   });
+});
+
+test('parseTaskIdDate extracts YYYYMMDD and dashed forms', () => {
+  const a = parseTaskIdDate('T-FOO-20260723');
+  assert.ok(a);
+  assert.strictEqual(a.ymd, '2026-07-23');
+  const b = parseTaskIdDate('T-FOO-2026-07-22');
+  assert.ok(b);
+  assert.strictEqual(b.ymd, '2026-07-22');
+  assert.strictEqual(parseTaskIdDate('T-NO-DATE'), null);
+});
+
+test('findStaleClaims flags age, overload, and zombie megafile', () => {
+  const now = new Date(Date.UTC(2026, 6, 28)); // 2026-07-28
+  const tasks = [
+    {
+      id: 'T-OLD-20260720',
+      status: 'in_progress',
+      owner: 'agent-a',
+      claimedFiles: ['hermes-mobile/src/screens/ChatScreen.tsx'],
+      task: 'old work',
+    },
+    {
+      id: 'T-FRESH-20260728',
+      status: 'in_progress',
+      owner: 'agent-a',
+      claimedFiles: ['tools/foo.js'],
+      task: 'fresh',
+    },
+    {
+      id: 'T-EXTRA1-20260727',
+      status: 'in_progress',
+      owner: 'hog',
+      claimedFiles: ['a.js'],
+      task: '1',
+    },
+    {
+      id: 'T-EXTRA2-20260727',
+      status: 'in_progress',
+      owner: 'hog',
+      claimedFiles: ['b.js'],
+      task: '2',
+    },
+    {
+      id: 'T-EXTRA3-20260727',
+      status: 'in_progress',
+      owner: 'hog',
+      claimedFiles: ['c.js'],
+      task: '3',
+    },
+    {
+      id: 'T-EXTRA4-20260726',
+      status: 'in_progress',
+      owner: 'hog',
+      claimedFiles: ['d.js'],
+      task: '4 overload',
+    },
+  ];
+  const mega = [
+    {
+      path: 'hermes-mobile/src/screens/ChatScreen.tsx',
+      multiOwner: true,
+      claimants: [
+        { id: 'T-OLD-20260720', owner: 'agent-a' },
+        { id: 'T-OTHER', owner: 'agent-b' },
+      ],
+    },
+  ];
+  const stale = findStaleClaims({
+    activeTasks: tasks,
+    megafileHits: mega,
+    now,
+    staleDays: 2,
+    maxOwnerLoad: 3,
+  });
+  assert.ok(stale.candidateCount >= 2);
+  const old = stale.candidates.find((c) => c.id === 'T-OLD-20260720');
+  assert.ok(old);
+  assert.ok(old.reasonCodes.includes('age_days'));
+  assert.ok(old.reasonCodes.includes('zombie_megafile'));
+  const fresh = stale.candidates.find((c) => c.id === 'T-FRESH-20260728');
+  assert.ok(!fresh, 'same-day task should not be age-stale');
+  const overload = stale.candidates.filter((c) => c.owner === 'hog');
+  assert.ok(overload.length >= 1, 'owner hog overload excess should be proposed');
+  assert.ok(overload.every((c) => c.reasonCodes.includes('owner_overload') || c.reasonCodes.includes('age_days')));
+});
+
+test('proposeClaimRelease dry-run and apply are status-only', () => {
+  const plan = `# plan.md
+## 1. Task Board
+| ID | Task | Status | Owner | Files | AC |
+|-----|------|--------|-------|-------|-----|
+| T-OLD-20260720 | old work | in_progress | agent-a | \`x.js\` | t |
+| T-KEEP-20260728 | keep | in_progress | agent-b | \`y.js\` | t |
+
+## 3. Decisions
+`;
+  const candidates = [
+    {
+      id: 'T-OLD-20260720',
+      status: 'in_progress',
+      owner: 'agent-a',
+      reasonCodes: ['age_days'],
+    },
+  ];
+  const dry = proposeClaimRelease({ planText: plan, candidates, apply: false });
+  assert.strictEqual(dry.dryRun, true);
+  assert.strictEqual(dry.appliedCount, 0);
+  assert.strictEqual(dry.patches[0].ok, true);
+  assert.strictEqual(dry.patches[0].toStatus, RELEASE_STATUS);
+  assert.ok(dry.patches[0].after.includes('stale'));
+  assert.ok(!dry.patches[0].after.includes('in_progress'));
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'claim-rel-'));
+  const planPath = path.join(dir, 'plan.md');
+  fs.writeFileSync(planPath, plan);
+  const applied = proposeClaimRelease({
+    planText: plan,
+    candidates,
+    apply: true,
+    planPath,
+    repo: dir,
+    writeArtifact: true,
+  });
+  assert.strictEqual(applied.dryRun, false);
+  assert.strictEqual(applied.appliedCount, 1);
+  const after = fs.readFileSync(planPath, 'utf8');
+  assert.ok(after.includes('| stale |') || after.includes(' stale '));
+  assert.ok(after.includes('T-KEEP-20260728'));
+  assert.ok(after.includes('auto-release'));
+  // parseActiveTasks should no longer see released task
+  const still = parseActiveTasks(after);
+  assert.ok(!still.some((t) => t.id === 'T-OLD-20260720'));
+  assert.ok(still.some((t) => t.id === 'T-KEEP-20260728'));
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('claimNewGate blocks over cap and allows force', () => {
+  const hygiene = {
+    concurrency: { activeOwners: 10, cap: 3, overCap: true },
+    hotMegafiles: [{ path: 'ChatScreen.tsx' }],
+  };
+  const blocked = claimNewGate({ hygiene, force: false });
+  assert.strictEqual(blocked.ok, false);
+  assert.strictEqual(blocked.status, 'blocked');
+  const forced = claimNewGate({ hygiene, force: true });
+  assert.strictEqual(forced.ok, true);
+  assert.strictEqual(forced.status, 'forced');
+});
+
+test('runClaimHygiene apply refuses without HERMES_CLAIM_HYGIENE_APPLY', () => {
+  const plan = `# plan.md
+## 1. Task Board
+| ID | Task | Status | Owner | Files | AC |
+| T-OLD-20260720 | old | in_progress | a | \`x.js\` | t |
+`;
+  const tasks = parseActiveTasks(plan);
+  const prev = process.env.HERMES_CLAIM_HYGIENE_APPLY;
+  delete process.env.HERMES_CLAIM_HYGIENE_APPLY;
+  const result = runClaimHygiene({
+    activeTasks: tasks,
+    contention: [],
+    megafileHits: [],
+    planText: plan,
+    includeStale: true,
+    applyRelease: true,
+    proposeRelease: true,
+    now: new Date(Date.UTC(2026, 6, 28)),
+    staleDays: 2,
+  });
+  assert.ok(result.release);
+  assert.ok(result.release.error || result.release.dryRun);
+  assert.ok(/HERMES_CLAIM_HYGIENE_APPLY/.test(result.release.error || ''));
+  if (prev === undefined) delete process.env.HERMES_CLAIM_HYGIENE_APPLY;
+  else process.env.HERMES_CLAIM_HYGIENE_APPLY = prev;
 });
 
 if (process.exitCode) {

@@ -24,6 +24,15 @@ const REPO = path.resolve(__dirname, '..');
 const DEFAULT_PLAN = path.join(REPO, 'plan.md');
 const EVAL_RESEARCH_DIR = path.join(REPO, 'artifacts/eval-research');
 const EVAL_RESEARCH_LATEST = path.join(EVAL_RESEARCH_DIR, 'latest.json');
+const CLAIM_HYGIENE_DIR = path.join(REPO, 'artifacts/claim-hygiene');
+const CLAIM_HYGIENE_LATEST = path.join(CLAIM_HYGIENE_DIR, 'latest.json');
+
+/** Default TTL: task-id date older than this many days → stale candidate. */
+const DEFAULT_STALE_DAYS = 2;
+/** Soft per-owner open-task load before overload proposals kick in. */
+const DEFAULT_MAX_OWNER_LOAD = 3;
+/** Hard status we set when releasing abandoned claims (drops out of parseActiveTasks). */
+const RELEASE_STATUS = 'stale';
 
 const HARNESS_ROI_SOURCE = Object.freeze({
   label: 'NVIDIA open-stack agents / harness profile over fine-tune (2026-07-28)',
@@ -678,10 +687,10 @@ function claimHygieneReport({
 
   const ok = !overCap && hotMega.length === 0;
 
-  return {
+  const base = {
     ok,
     principle:
-      'Measure finished AcceptanceChecks and multi-owner thrash — not commit rate. Compress pairwise contention into path+owner sets.',
+      'Measure finished AcceptanceChecks and multi-owner thrash — not commit rate. Compress pairwise contention into path+owner sets. Stale claims must be released, not only reported.',
     source: HARNESS_ROI_SOURCE,
     concurrency: {
       activeOwners: owners.size,
@@ -698,6 +707,499 @@ function claimHygieneReport({
       taskIds: (m.claimants || []).map((c) => c.id),
     })),
     actions,
+    checkedAt: new Date().toISOString(),
+  };
+
+  return base;
+}
+
+/**
+ * Parse YYYY-MM-DD from task ids like T-FOO-20260723 or T-FOO-2026-07-23.
+ * @param {string} taskId
+ * @returns {{ date: Date, ymd: string } | null}
+ */
+function parseTaskIdDate(taskId) {
+  const id = String(taskId || '');
+  let m = id.match(/(20\d{2})(\d{2})(\d{2})/);
+  if (m) {
+    const ymd = `${m[1]}-${m[2]}-${m[3]}`;
+    const date = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+    if (!Number.isNaN(date.getTime())) return { date, ymd };
+  }
+  m = id.match(/(20\d{2})-(\d{2})-(\d{2})/);
+  if (m) {
+    const ymd = `${m[1]}-${m[2]}-${m[3]}`;
+    const date = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+    if (!Number.isNaN(date.getTime())) return { date, ymd };
+  }
+  return null;
+}
+
+function daysBetweenUtc(older, newer) {
+  const ms = newer.getTime() - older.getTime();
+  return Math.floor(ms / (24 * 60 * 60 * 1000));
+}
+
+/**
+ * Find stale / abandoned claim candidates.
+ * Reasons: age_days, owner_overload, zombie_megafile, blocked_aged.
+ *
+ * @param {{
+ *   activeTasks?: Array,
+ *   megafileHits?: Array,
+ *   now?: Date,
+ *   staleDays?: number,
+ *   maxOwnerLoad?: number,
+ * }} opts
+ */
+function findStaleClaims({
+  activeTasks = [],
+  megafileHits = [],
+  now = new Date(),
+  staleDays = DEFAULT_STALE_DAYS,
+  maxOwnerLoad = DEFAULT_MAX_OWNER_LOAD,
+} = {}) {
+  const nowUtc = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  const hotPaths = new Set(
+    (megafileHits || []).filter((m) => m.multiOwner).map((m) => m.path),
+  );
+  const taskOnHotMega = new Map(); // taskId → paths[]
+  for (const hit of megafileHits || []) {
+    if (!hit.multiOwner) continue;
+    for (const c of hit.claimants || []) {
+      if (!taskOnHotMega.has(c.id)) taskOnHotMega.set(c.id, []);
+      taskOnHotMega.get(c.id).push(hit.path);
+    }
+  }
+
+  const ownerTasks = {};
+  for (const t of activeTasks) {
+    if (!t.owner) continue;
+    if (!ownerTasks[t.owner]) ownerTasks[t.owner] = [];
+    ownerTasks[t.owner].push(t);
+  }
+
+  const candidates = [];
+  for (const t of activeTasks) {
+    const reasons = [];
+    const parsed = parseTaskIdDate(t.id);
+    let ageDays = null;
+    if (parsed) {
+      ageDays = daysBetweenUtc(parsed.date, nowUtc);
+      if (ageDays >= staleDays) {
+        reasons.push({
+          code: 'age_days',
+          detail: `task id date ${parsed.ymd} is ${ageDays}d old (ttl=${staleDays}d)`,
+        });
+      }
+    }
+    const hotFiles = taskOnHotMega.get(t.id) || [];
+    if (hotFiles.length && ageDays != null && ageDays >= staleDays) {
+      reasons.push({
+        code: 'zombie_megafile',
+        detail: `aged claim on multi-owner megafile: ${hotFiles.slice(0, 3).join(', ')}`,
+      });
+    } else if (hotFiles.length && ageDays == null) {
+      reasons.push({
+        code: 'zombie_megafile',
+        detail: `undated claim on multi-owner megafile: ${hotFiles.slice(0, 3).join(', ')}`,
+      });
+    }
+    if (/blocked/i.test(String(t.status || '')) && ageDays != null && ageDays >= staleDays) {
+      reasons.push({
+        code: 'blocked_aged',
+        detail: `blocked for ${ageDays}d`,
+      });
+    }
+
+    const load = (ownerTasks[t.owner] || []).length;
+    if (load > maxOwnerLoad) {
+      // Prefer releasing oldest among overloaded owner's tasks
+      const sorted = [...(ownerTasks[t.owner] || [])].sort((a, b) => {
+        const da = parseTaskIdDate(a.id);
+        const db = parseTaskIdDate(b.id);
+        if (da && db) return da.date - db.date;
+        if (da) return -1;
+        if (db) return 1;
+        return String(a.id).localeCompare(String(b.id));
+      });
+      const excess = sorted.slice(0, load - maxOwnerLoad).map((x) => x.id);
+      if (excess.includes(t.id)) {
+        reasons.push({
+          code: 'owner_overload',
+          detail: `owner ${t.owner} has ${load} open tasks (max=${maxOwnerLoad}); excess oldest`,
+        });
+      }
+    }
+
+    if (reasons.length === 0) continue;
+    candidates.push({
+      id: t.id,
+      owner: t.owner,
+      status: t.status,
+      task: t.task || t.title || '',
+      claimedFiles: t.claimedFiles || [],
+      ageDays,
+      taskDate: parsed ? parsed.ymd : null,
+      reasons,
+      reasonCodes: reasons.map((r) => r.code),
+      toStatus: RELEASE_STATUS,
+      hotMegafiles: hotFiles,
+    });
+  }
+
+  // Severity: more reasons + older first
+  candidates.sort((a, b) => {
+    const sa = a.reasonCodes.length * 1000 + (a.ageDays || 0);
+    const sb = b.reasonCodes.length * 1000 + (b.ageDays || 0);
+    return sb - sa;
+  });
+
+  return {
+    ok: candidates.length === 0,
+    principle:
+      'Stale in_progress claims are coordination rot. Detect by age (task-id date), owner overload, and zombie megafile multi-claims — then propose release to status=stale.',
+    source: HARNESS_ROI_SOURCE,
+    staleDays,
+    maxOwnerLoad,
+    nowYmd: nowUtc.toISOString().slice(0, 10),
+    candidateCount: candidates.length,
+    candidates,
+    byReason: candidates.reduce((acc, c) => {
+      for (const code of c.reasonCodes) {
+        acc[code] = (acc[code] || 0) + 1;
+      }
+      return acc;
+    }, {}),
+    checkedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Build a dry-run release proposal: status patches for plan.md Task Board rows.
+ * Never deletes rows. Only in_progress|blocked → stale.
+ *
+ * @param {{ planText: string, candidates?: Array, apply?: boolean, planPath?: string, repo?: string, writeArtifact?: boolean }} opts
+ */
+function proposeClaimRelease({
+  planText,
+  candidates = [],
+  apply = false,
+  planPath = DEFAULT_PLAN,
+  repo = REPO,
+  writeArtifact = false,
+  now = new Date(),
+} = {}) {
+  const patches = [];
+  const lines = String(planText || '').split('\n');
+  const nextLines = [...lines];
+  let applied = 0;
+
+  for (const c of candidates) {
+    const id = c.id;
+    let lineIdx = -1;
+    for (let i = 0; i < lines.length; i += 1) {
+      // Task board row: | T-ID | task | status | owner | ...
+      // Prefer the active row (in_progress|blocked). plan.md often keeps older done rows
+      // with the same id in history sections — never flip those.
+      if (!/^\|/.test(lines[i])) continue;
+      if (!lines[i].includes(id)) continue;
+      const parts = lines[i].split('|');
+      if (parts.length < 6) continue;
+      if (parts[1].trim() !== id) continue;
+      const st = parts[3].trim();
+      if (!/^(in_progress|blocked)$/i.test(st)) continue;
+      lineIdx = i;
+      break;
+    }
+    if (lineIdx < 0) {
+      patches.push({
+        id,
+        ok: false,
+        error: 'active task row (in_progress|blocked) not found in plan.md',
+        fromStatus: c.status,
+        toStatus: RELEASE_STATUS,
+        reasons: c.reasonCodes,
+      });
+      continue;
+    }
+    const row = lines[lineIdx];
+    // Keep pipe structure; cells[0] empty prefix, [1]=id, [2]=task, [3]=status, [4]=owner
+    const parts = row.split('|');
+    if (parts.length < 6) {
+      patches.push({
+        id,
+        ok: false,
+        error: 'malformed table row',
+        line: lineIdx + 1,
+        fromStatus: c.status,
+        toStatus: RELEASE_STATUS,
+      });
+      continue;
+    }
+    const fromStatus = parts[3].trim();
+    if (!/^(in_progress|blocked)$/i.test(fromStatus)) {
+      patches.push({
+        id,
+        ok: false,
+        error: `refusing to release status=${fromStatus}`,
+        line: lineIdx + 1,
+        fromStatus,
+        toStatus: RELEASE_STATUS,
+      });
+      continue;
+    }
+    parts[3] = ` ${RELEASE_STATUS} `;
+    const newRow = parts.join('|');
+    patches.push({
+      id,
+      ok: true,
+      line: lineIdx + 1,
+      owner: parts[4].trim(),
+      fromStatus,
+      toStatus: RELEASE_STATUS,
+      reasons: c.reasonCodes || c.reasons,
+      before: row,
+      after: newRow,
+    });
+    if (apply) {
+      nextLines[lineIdx] = newRow;
+      applied += 1;
+    }
+  }
+
+  let newPlanText = planText;
+  let planWritten = null;
+  if (apply && applied > 0) {
+    const stamp = now.toISOString();
+    const decLine =
+      `\n- ${stamp.slice(0, 10)} \`claim-hygiene\`: **auto-release** ${applied} stale claim(s) → status=\`${RELEASE_STATUS}\` ` +
+      `(ids: ${patches
+        .filter((p) => p.ok)
+        .slice(0, 20)
+        .map((p) => p.id)
+        .join(', ')}${applied > 20 ? ', …' : ''}). ` +
+      `Rule: age≥ttl / owner overload / zombie megafile. Never delete rows.\n`;
+    // Append near Decisions if present, else end
+    let body = nextLines.join('\n');
+    if (/## 3\./.test(body)) {
+      body = body.replace(/(## 3\.[^\n]*\n)/, `$1${decLine}`);
+    } else {
+      body = `${body.trimEnd()}\n\n## Claim hygiene releases\n${decLine}`;
+    }
+    newPlanText = body;
+    fs.writeFileSync(planPath, newPlanText);
+    planWritten = planPath;
+  }
+
+  const receipt = {
+    ok: patches.every((p) => p.ok) || patches.some((p) => p.ok),
+    dryRun: !apply,
+    apply,
+    patchCount: patches.length,
+    appliedCount: apply ? applied : 0,
+    releaseStatus: RELEASE_STATUS,
+    patches,
+    planWritten,
+    checkedAt: now.toISOString(),
+    source: HARNESS_ROI_SOURCE,
+    principle:
+      'Propose/apply claim release is status-only (in_progress|blocked → stale). Never delete task rows or rewrite foreign design.',
+  };
+
+  if (writeArtifact || apply) {
+    const dir = path.join(repo, 'artifacts/claim-hygiene');
+    fs.mkdirSync(dir, { recursive: true });
+    const latest = path.join(dir, 'latest.json');
+    fs.writeFileSync(latest, JSON.stringify(receipt, null, 2));
+    receipt.artifactPath = latest;
+  }
+
+  return receipt;
+}
+
+/**
+ * Hard gate for *new* claims: refuse when over concurrency cap or HOT megafile multi-owner
+ * unless force=true (explicit operator override).
+ *
+ * @param {{
+ *   hygiene?: object,
+ *   force?: boolean,
+ *   agentId?: string,
+ *   ownerLoad?: number,
+ *   maxOwnerLoad?: number,
+ * }} opts
+ */
+function claimNewGate({
+  hygiene = null,
+  force = false,
+  agentId = '',
+  ownerLoad = 0,
+  maxOwnerLoad = DEFAULT_MAX_OWNER_LOAD,
+} = {}) {
+  const reasons = [];
+  let ok = true;
+  if (!hygiene) {
+    return {
+      ok: false,
+      status: 'missing_hygiene',
+      reasons: ['claimNewGate requires hygiene report'],
+      force,
+      checkedAt: new Date().toISOString(),
+    };
+  }
+  if (hygiene.concurrency?.overCap) {
+    ok = false;
+    reasons.push(
+      `over_cap: ${hygiene.concurrency.activeOwners}/${hygiene.concurrency.cap} active owners`,
+    );
+  }
+  if ((hygiene.hotMegafiles || []).length > 0) {
+    ok = false;
+    reasons.push(
+      `hot_megafile_multi_owner: ${hygiene.hotMegafiles.length} megafiles still multi-claimed`,
+    );
+  }
+  if (agentId && ownerLoad >= maxOwnerLoad) {
+    ok = false;
+    reasons.push(
+      `owner_load: ${agentId} already has ${ownerLoad} open tasks (max=${maxOwnerLoad})`,
+    );
+  }
+  if (force && !ok) {
+    return {
+      ok: true,
+      status: 'forced',
+      reasons: [`FORCE override: ${reasons.join('; ')}`],
+      force: true,
+      blockedUnlessForce: reasons,
+      checkedAt: new Date().toISOString(),
+      source: HARNESS_ROI_SOURCE,
+    };
+  }
+  return {
+    ok,
+    status: ok ? 'allowed' : 'blocked',
+    reasons: ok ? ['new claims allowed under cap / no HOT multi-owner'] : reasons,
+    force: false,
+    actions: ok
+      ? ['Claim free files only; keep owner load low']
+      : [
+          'Do NOT open new claims',
+          'Run: node tools/agent-swarm-harness.js claim-hygiene --stale --propose-release',
+          'Release zombies with --apply-release only when HERMES_CLAIM_HYGIENE_APPLY=1',
+          'Or finish/merge existing work until under cap',
+        ],
+    checkedAt: new Date().toISOString(),
+    source: HARNESS_ROI_SOURCE,
+  };
+}
+
+/**
+ * Full hygiene pipeline: compress thrash + stale detect + optional propose/apply + gate.
+ */
+function runClaimHygiene({
+  activeTasks = [],
+  contention = [],
+  megafileHits = [],
+  concurrencyCap = 3,
+  planText = '',
+  planPath = DEFAULT_PLAN,
+  repo = REPO,
+  staleDays = DEFAULT_STALE_DAYS,
+  maxOwnerLoad = DEFAULT_MAX_OWNER_LOAD,
+  includeStale = true,
+  proposeRelease = false,
+  applyRelease = false,
+  writeArtifact = false,
+  agentId = '',
+  forceGate = false,
+  now = new Date(),
+} = {}) {
+  const summary = claimHygieneReport({
+    activeTasks,
+    contention,
+    megafileHits,
+    concurrencyCap,
+  });
+  let stale = null;
+  let release = null;
+  if (includeStale || proposeRelease || applyRelease) {
+    stale = findStaleClaims({
+      activeTasks,
+      megafileHits,
+      now,
+      staleDays,
+      maxOwnerLoad,
+    });
+    if (stale.candidateCount > 0) {
+      summary.actions = [
+        ...summary.actions,
+        `Stale candidates: ${stale.candidateCount} — propose-release or apply-release (gated)`,
+      ];
+    }
+  }
+  if (proposeRelease || applyRelease) {
+    const apply =
+      applyRelease &&
+      (process.env.HERMES_CLAIM_HYGIENE_APPLY === '1' ||
+        process.env.HERMES_CLAIM_HYGIENE_APPLY === 'true');
+    if (applyRelease && !apply) {
+      release = {
+        ok: false,
+        dryRun: true,
+        apply: false,
+        error:
+          'apply-release refused: set HERMES_CLAIM_HYGIENE_APPLY=1 to mutate plan.md (status-only → stale)',
+        patchCount: (stale && stale.candidateCount) || 0,
+        patches: (stale && stale.candidates) || [],
+      };
+    } else {
+      release = proposeClaimRelease({
+        planText,
+        candidates: (stale && stale.candidates) || [],
+        apply,
+        planPath,
+        repo,
+        writeArtifact: writeArtifact || proposeRelease || apply,
+        now,
+      });
+    }
+  }
+
+  const ownerLoad =
+    agentId && summary.concurrency?.ownerLoad
+      ? summary.concurrency.ownerLoad[agentId] || 0
+      : 0;
+  const gate = claimNewGate({
+    hygiene: summary,
+    force: forceGate,
+    agentId,
+    ownerLoad,
+    maxOwnerLoad,
+  });
+
+  if (writeArtifact || proposeRelease || applyRelease) {
+    const dir = path.join(repo, 'artifacts/claim-hygiene');
+    fs.mkdirSync(dir, { recursive: true });
+    const payload = {
+      summary,
+      stale,
+      release,
+      gate,
+      checkedAt: new Date().toISOString(),
+    };
+    fs.writeFileSync(path.join(dir, 'latest.json'), JSON.stringify(payload, null, 2));
+  }
+
+  return {
+    ok: summary.ok && (!stale || stale.ok),
+    summary,
+    stale,
+    release,
+    gate,
     checkedAt: new Date().toISOString(),
   };
 }
@@ -875,9 +1377,9 @@ function runEvalResearchLoop({
   };
 }
 
-function formatClaimHygieneHuman(report) {
+function formatClaimHygieneHuman(report, extras = {}) {
   const lines = [
-    '=== Claim hygiene (compressed thrash) ===',
+    '=== Claim hygiene (compressed thrash + stale) ===',
     report.principle,
     `overall: ${report.ok ? 'ok' : 'WARN'}`,
     `concurrency: ${report.concurrency.activeOwners}/${report.concurrency.cap}${report.concurrency.overCap ? ' OVER-CAP' : ''}`,
@@ -897,8 +1399,42 @@ function formatClaimHygieneHuman(report) {
       );
     }
   }
+  if (extras.stale) {
+    lines.push(
+      `Stale candidates: ${extras.stale.candidateCount} (ttl=${extras.stale.staleDays}d, maxOwnerLoad=${extras.stale.maxOwnerLoad})`,
+    );
+    if (extras.stale.byReason && Object.keys(extras.stale.byReason).length) {
+      lines.push(
+        `  byReason: ${Object.entries(extras.stale.byReason)
+          .map(([k, v]) => `${k}=${v}`)
+          .join(' ')}`,
+      );
+    }
+    for (const c of (extras.stale.candidates || []).slice(0, 12)) {
+      lines.push(
+        `  STALE ${c.id} owner=${c.owner} age=${c.ageDays ?? '?'}d reasons=${c.reasonCodes.join(',')}`,
+      );
+    }
+    if ((extras.stale.candidates || []).length > 12) {
+      lines.push(`  … +${extras.stale.candidates.length - 12} more`);
+    }
+  }
+  if (extras.release) {
+    lines.push(
+      `Release: dryRun=${extras.release.dryRun} patches=${extras.release.patchCount} applied=${extras.release.appliedCount || 0}${extras.release.error ? ` ERROR=${extras.release.error}` : ''}`,
+    );
+  }
+  if (extras.gate) {
+    lines.push(
+      `New-claim gate: ${extras.gate.status} (${extras.gate.ok ? 'ALLOW' : 'BLOCK'})`,
+    );
+    for (const r of extras.gate.reasons || []) lines.push(`  gate: ${r}`);
+  }
   lines.push('Actions:');
   for (const a of report.actions) lines.push(`  → ${a}`);
+  if (extras.gate?.actions) {
+    for (const a of extras.gate.actions) lines.push(`  → ${a}`);
+  }
   return lines.join('\n');
 }
 
@@ -934,6 +1470,11 @@ module.exports = {
   SKILL_PACKS,
   EVAL_RESEARCH_DIR,
   EVAL_RESEARCH_LATEST,
+  CLAIM_HYGIENE_DIR,
+  CLAIM_HYGIENE_LATEST,
+  DEFAULT_STALE_DAYS,
+  DEFAULT_MAX_OWNER_LOAD,
+  RELEASE_STATUS,
   harnessProfilePolicy,
   skillPackPolicy,
   classifyHarnessProfile,
@@ -942,6 +1483,11 @@ module.exports = {
   resolveSkillPacksForProfile,
   listSkillPacks,
   claimHygieneReport,
+  parseTaskIdDate,
+  findStaleClaims,
+  proposeClaimRelease,
+  claimNewGate,
+  runClaimHygiene,
   runEvalResearchLoop,
   formatClaimHygieneHuman,
   formatProfileHuman,

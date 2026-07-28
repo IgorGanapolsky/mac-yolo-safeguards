@@ -63,6 +63,8 @@ const {
   HARNESS_ROI_SOURCE,
   HARNESS_PROFILES,
   SKILL_PACKS,
+  DEFAULT_STALE_DAYS,
+  DEFAULT_MAX_OWNER_LOAD,
   harnessProfilePolicy,
   skillPackPolicy,
   classifyHarnessProfile,
@@ -70,6 +72,10 @@ const {
   resolveSkillPackAccess,
   listSkillPacks,
   claimHygieneReport,
+  findStaleClaims,
+  proposeClaimRelease,
+  claimNewGate,
+  runClaimHygiene,
   runEvalResearchLoop,
   formatClaimHygieneHuman,
   formatProfileHuman,
@@ -1932,6 +1938,12 @@ function parseArgs(argv) {
     runCommands: false,
     toolbox: null,
     max: 0,
+    stale: false,
+    proposeRelease: false,
+    applyRelease: false,
+    staleDays: null,
+    maxOwnerLoad: null,
+    agentId: process.env.AGENT_ID || process.env.HERMES_AGENT_ID || '',
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -1959,6 +1971,7 @@ function parseArgs(argv) {
       arg === 'resolve-profile' ||
       arg === 'skill-packs' ||
       arg === 'claim-hygiene' ||
+      arg === 'claim-gate' ||
       arg === 'eval-research' ||
       arg === 'gateway'
     ) {
@@ -1997,6 +2010,20 @@ function parseArgs(argv) {
       args.toolbox = String(argv[++i] || '').trim() || null;
     } else if (arg === '--max') {
       args.max = parseInt(argv[++i] || '0', 10);
+    } else if (arg === '--stale') {
+      args.stale = true;
+    } else if (arg === '--propose-release') {
+      args.proposeRelease = true;
+      args.stale = true;
+    } else if (arg === '--apply-release') {
+      args.applyRelease = true;
+      args.stale = true;
+    } else if (arg === '--stale-days') {
+      args.staleDays = parseInt(argv[++i] || '0', 10);
+    } else if (arg === '--max-owner-load') {
+      args.maxOwnerLoad = parseInt(argv[++i] || '0', 10);
+    } else if (arg === '--agent-id') {
+      args.agentId = String(argv[++i] || '').trim();
     } else {
       throw new Error(`Unknown argument: ${arg}`);
     }
@@ -2662,7 +2689,10 @@ function main() {
   node tools/agent-swarm-harness.js profiles [--json]
   node tools/agent-swarm-harness.js resolve-profile [--task "..."] [--role planner|worker] [--json]
   node tools/agent-swarm-harness.js skill-packs [--toolbox ID] [--json]
-  node tools/agent-swarm-harness.js claim-hygiene [--json] [--plan path]
+  node tools/agent-swarm-harness.js claim-hygiene [--json] [--plan path] [--stale] [--stale-days N] [--max-owner-load N]
+  node tools/agent-swarm-harness.js claim-hygiene --propose-release [--write] [--json]
+  node tools/agent-swarm-harness.js claim-hygiene --apply-release   # requires HERMES_CLAIM_HYGIENE_APPLY=1
+  node tools/agent-swarm-harness.js claim-gate [--force] [--agent-id ID] [--json]
   node tools/agent-swarm-harness.js eval-research [--write] [--json] [--max N]`);
     process.exit(0);
   }
@@ -2735,18 +2765,79 @@ function main() {
     const activeTasks = parseActiveTasks(planText);
     const contention = findFileContention(activeTasks);
     const megafileHits = findMegafileHits(activeTasks);
-    const report = claimHygieneReport({
+    const staleDays = args.staleDays != null && args.staleDays > 0 ? args.staleDays : DEFAULT_STALE_DAYS;
+    const maxOwnerLoad =
+      args.maxOwnerLoad != null && args.maxOwnerLoad > 0
+        ? args.maxOwnerLoad
+        : DEFAULT_MAX_OWNER_LOAD;
+    const pipeline = runClaimHygiene({
+      activeTasks,
+      contention,
+      megafileHits,
+      concurrencyCap: CONCURRENCY_CAP,
+      planText,
+      planPath,
+      includeStale: Boolean(args.stale || args.proposeRelease || args.applyRelease),
+      proposeRelease: Boolean(args.proposeRelease || args.applyRelease),
+      applyRelease: Boolean(args.applyRelease),
+      writeArtifact: Boolean(args.write || args.proposeRelease || args.applyRelease),
+      staleDays,
+      maxOwnerLoad,
+      agentId: args.agentId || '',
+      forceGate: Boolean(args.force),
+    });
+    if (args.json) {
+      console.log(JSON.stringify(pipeline, null, 2));
+    } else {
+      console.log(
+        formatClaimHygieneHuman(pipeline.summary, {
+          stale: pipeline.stale,
+          release: pipeline.release,
+          gate: pipeline.gate,
+        }),
+      );
+    }
+    // exit 2 if thrash or stale remain (unless apply cleared them mid-run)
+    process.exit(pipeline.ok ? 0 : 2);
+  }
+
+  if (args.command === 'claim-gate') {
+    const planPath = args.planPath || DEFAULT_PLAN;
+    if (!fs.existsSync(planPath)) {
+      console.error(`plan not found: ${planPath}`);
+      process.exit(1);
+    }
+    const planText = fs.readFileSync(planPath, 'utf8');
+    const activeTasks = parseActiveTasks(planText);
+    const contention = findFileContention(activeTasks);
+    const megafileHits = findMegafileHits(activeTasks);
+    const hygiene = claimHygieneReport({
       activeTasks,
       contention,
       megafileHits,
       concurrencyCap: CONCURRENCY_CAP,
     });
+    const agentId = args.agentId || '';
+    const ownerLoad = agentId ? hygiene.concurrency.ownerLoad[agentId] || 0 : 0;
+    const gate = claimNewGate({
+      hygiene,
+      force: Boolean(args.force),
+      agentId,
+      ownerLoad,
+      maxOwnerLoad: DEFAULT_MAX_OWNER_LOAD,
+    });
     if (args.json) {
-      console.log(JSON.stringify(report, null, 2));
+      console.log(JSON.stringify({ hygiene: { ok: hygiene.ok, concurrency: hygiene.concurrency, hotMegafiles: hygiene.hotMegafiles.length }, gate }, null, 2));
     } else {
-      console.log(formatClaimHygieneHuman(report));
+      console.log('=== New-claim gate ===');
+      console.log(`status: ${gate.status} (${gate.ok ? 'ALLOW' : 'BLOCK'})`);
+      for (const r of gate.reasons) console.log(`  - ${r}`);
+      if (gate.actions) {
+        console.log('Actions:');
+        for (const a of gate.actions) console.log(`  → ${a}`);
+      }
     }
-    process.exit(report.ok ? 0 : 2);
+    process.exit(gate.ok ? 0 : 2);
   }
 
   if (args.command === 'eval-research') {
@@ -3250,9 +3341,15 @@ module.exports = {
   resolveSkillPackAccess,
   listSkillPacks,
   claimHygieneReport,
+  findStaleClaims,
+  proposeClaimRelease,
+  claimNewGate,
+  runClaimHygiene,
   runEvalResearchLoop,
   formatClaimHygieneHuman,
   formatProfileHuman,
+  DEFAULT_STALE_DAYS,
+  DEFAULT_MAX_OWNER_LOAD,
 };
 
 if (require.main === module) {

@@ -28,6 +28,10 @@ Implements the durable parts of [Cursor’s agent-swarm model economics](https:/
 | `node tools/agent-swarm-harness.js resolve-profile --task "…"` | Resolve profile + skill packs for task/host |
 | `node tools/agent-swarm-harness.js skill-packs` | Verified skill packs bound to toolboxes |
 | `node tools/agent-swarm-harness.js claim-hygiene` | Compress multi-owner thrash → path+owner sets |
+| `node tools/agent-swarm-harness.js claim-hygiene --stale` | Detect age / owner-overload / zombie-megafile candidates |
+| `node tools/agent-swarm-harness.js claim-hygiene --propose-release` | Dry-run status-only patches → `stale` |
+| `HERMES_CLAIM_HYGIENE_APPLY=1 … --apply-release` | Apply status-only releases (never delete rows) |
+| `node tools/agent-swarm-harness.js claim-gate` | Hard gate: BLOCK new claims when over-cap or HOT multi-owner |
 | `node tools/agent-swarm-harness.js eval-research [--write]` | Overnight mine→eval stubs under evals/ + artifacts/eval-research/ |
 | `tools/agent-harness-roi.js` | Pure ROI policy module (profiles, packs, hygiene, research loop) |
 | `node tools/revenue-local-draft.js` | Open-weights follow-up draft (template fallback; no send) |
@@ -146,4 +150,27 @@ bash scripts/install-eval-research-loop.sh   # LaunchAgent every 6h on this Mac
 ```
 
 **Anti-patterns:** fine-tune before profile+eval bar are green; social profile on mini; eval-research editing megafiles; treating pairwise contention dump as actionable without `claim-hygiene`.
+
+
+
+### Real claim hygiene (stale release + hard gate)
+
+Observability alone is not hygiene. Use:
+
+```bash
+# Detect zombies (task-id age ≥ 2d, owner load > 3, multi-owner megafile)
+node tools/agent-swarm-harness.js claim-hygiene --stale --json
+
+# Dry-run status-only patches (in_progress|blocked → stale)
+node tools/agent-swarm-harness.js claim-hygiene --propose-release --json
+
+# Apply (explicit env gate — never silent)
+HERMES_CLAIM_HYGIENE_APPLY=1 node tools/agent-swarm-harness.js claim-hygiene --apply-release
+
+# Hard gate before opening a new claim
+node tools/agent-swarm-harness.js claim-gate --agent-id my-agent
+# exit 0 ALLOW · exit 2 BLOCK (unless --force)
+```
+
+`parseActiveTasks` only sees `in_progress`/`blocked`, so `stale` drops claims from the live board without deleting history.
 
