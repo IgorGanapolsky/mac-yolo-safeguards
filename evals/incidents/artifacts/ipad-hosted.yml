@@ -1,0 +1,7 @@
+name: Unsafe hosted iPad fixture
+jobs:
+  ipad-simulator:
+    if: needs.detect-changes.outputs.run-ipad == 'true'
+    runs-on: macos-latest
+    steps:
+      - run: echo "hosted macOS is the regression"
