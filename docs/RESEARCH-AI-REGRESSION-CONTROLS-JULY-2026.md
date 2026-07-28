@@ -292,7 +292,7 @@ least-privilege scopes. Never put access tokens in query strings and never use
 `Mcp-Session-Id` as authorization. An MCP server calling a downstream API uses a
 separate downstream token. The MCP specification explicitly requires intended-
 audience validation and forbids token passthrough.
-[MCP authorization specification](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization)
+[MCP authorization specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization)
 [MCP security best practices](https://modelcontextprotocol.io/docs/tutorials/security/security_best_practices)
 
 **How do you deploy it?** Publish versioned resource metadata and schemas;
