@@ -980,7 +980,18 @@ export default function DashboardClient() {
       <section className="dashboard-main">
         <header className="dashboard-header">
           <div className="dashboard-header-title">
-            <p className="eyebrow">HERMES WEB</p>
+            <div className="mobile-header-row">
+              <button
+                type="button"
+                className="button button-secondary button-small mobile-chats-toggle"
+                onClick={() => setMobileTab((tab) => (tab === "chats" ? "hermes" : "chats"))}
+                aria-label="Manage chats and threads"
+                data-testid="mobile-chats-drawer-toggle"
+              >
+                <span>☰ Chats ({threads.length})</span>
+              </button>
+              <p className="eyebrow" style={{ margin: 0 }}>HERMES WEB</p>
+            </div>
             <h1 title={selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title ?? "Your Hermes workspace" : "Your Hermes workspace"}>
               {selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title : "Your Hermes workspace"}
             </h1>
