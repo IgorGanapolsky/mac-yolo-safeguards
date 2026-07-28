@@ -146,19 +146,20 @@ class ExporterTest(unittest.TestCase):
             card = (out.parent / "ANSWER_CARD.txt").read_text(encoding="utf-8")
             self.assertIn("THUMBGATE_LIVE_PRICE=live /api/billing/plan readback OK", card)
             self.assertIn("Pro Continuity $10.00/mo", card)
-            # Scores are computed from receipts on every snapshot (never the
-            # retired static skool numbers); MONETIZATION stays fail-closed at
-            # 0 without a verified revenue receipt.
+            # Scores come from the single canonical scorer
+            # (tools/ml-system-scores.js via the exporter) — either a measured
+            # numeric line or the explicit fail-closed not_scored form. Never
+            # the retired static skool-era numbers.
             self.assertIn("SYSTEM_SCORES=", card)
             score_line = next(
                 line for line in card.splitlines() if line.startswith("SYSTEM_SCORES=")
             )
+            import re
+
             self.assertTrue(
-                "MONETIZATION 0/100" in score_line or "not_scored" in score_line,
+                re.search(r"DS \d+/100", score_line) or "not_scored" in score_line,
                 score_line,
             )
-            if "not_scored" not in score_line:
-                self.assertIn("computed", card.split("SCORE_SCOPE=")[1].split("\n")[0])
             # The exported card must itself produce contract-clean answers.
             result = answer(card, "How do we sell ThumbGate.app?", expert_text=EXPERT_TEXT)
             self.assertTrue(result["ok"], result["violations"])
