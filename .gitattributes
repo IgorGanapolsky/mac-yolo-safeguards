@@ -1,0 +1,19 @@
+# plan.md is the multi-agent coordination log: a Task Board table, an append-only File
+# Ownership Map, and an append-only Decisions Log. Every agent appends to it, and main's
+# copy changes every 20-90 minutes — while Hermes Mobile CI takes over an hour. Because the
+# pre-commit ownership gate requires a plan.md claim for any hermes-mobile change, EVERY
+# mobile PR must touch plan.md, so nearly every mobile PR hits a conflict before it can
+# merge. That is arithmetic, not bad luck: three conflicts on two PRs in one afternoon
+# (2026-07-28), each one two independent appends at the tail of the file.
+#
+# `merge=union` is git's built-in driver for exactly this shape: on conflict it keeps BOTH
+# sides instead of raising markers, which is what an append-only log wants.
+#
+# TRADE-OFF, know this before trusting it blindly:
+#   * Union is only correct for APPENDS. If two agents edit the SAME Task Board row
+#     differently (e.g. both flip a status), union keeps both versions and you get a
+#     DUPLICATE row rather than a conflict you'd have noticed. Scan for duplicate task IDs
+#     after a big merge: `grep -oE '^\| T-[A-Z0-9-]+' plan.md | sort | uniq -d`
+#   * It applies to LOCAL merges and rebases — which is where our agents actually hit this.
+#     Do not assume GitHub's own "Update branch" button honours it.
+plan.md merge=union
