@@ -1,10 +1,5 @@
 #!/usr/bin/env bash
-# poolside-yolo - run the official Poolside `pool` coding-agent CLI fully autonomous,
-# routed through the Hermes LiteLLM gateway (:4010) via Poolside's documented
-# "custom OpenAI-compatible endpoint" env vars (POOLSIDE_STANDALONE_BASE_URL /
-# POOLSIDE_STANDALONE_MODEL / POOLSIDE_API_KEY), so it inherits the fleet's resilient
-# fallback chain (glm-coding -> opencode-go-glm -> nemotron3-free -> laguna-free ->
-# opencode-free -> local) instead of Poolside's own cloud/OpenRouter billing.
+# poolside-yolo - run the official Poolside `pool` coding-agent CLI fully autonomous.
 # Mirrors the repo's other vendor -yolo wrappers (opencode-yolo, kimi-yolo): it
 # wraps the OFFICIAL pool binary, never bundles or forks it.
 #
@@ -12,7 +7,32 @@
 #   poolside-yolo                   autonomous interactive TUI (--mode always-allow)
 #   poolside-yolo login             passthrough to real Poolside/OpenRouter login
 #                                    (gateway env vars withheld so auth isn't shadowed)
-#   poolside-yolo --doctor[/--json] health (binary, version, gateway, model, mode, zero-spend)
+#   poolside-yolo --doctor[/--json] health (lane, binary, version, gateway, model, mode)
+#
+# LANES (POOLSIDE_YOLO_LANE=auto|native|gateway|local, default auto)
+#   native   Poolside's OWN inference (inference.poolside.ai) using the credentials
+#            `pool login` stored. Laguna S 2.1, 1M ctx, coding-specialised, and — this
+#            is the point — a SEPARATE quota pool from z.ai and OpenRouter.
+#   gateway  The Hermes LiteLLM gateway (:4010) via Poolside's documented
+#            "custom OpenAI-compatible endpoint" env vars (POOLSIDE_STANDALONE_BASE_URL /
+#            POOLSIDE_STANDALONE_MODEL / POOLSIDE_API_KEY), inheriting the fleet's
+#            fallback chain (glm-coding -> opencode-go-glm -> nemotron3-free ->
+#            laguna-free -> opencode-free -> local).
+#   local    Ollama, >=8B, tool-capable. The zero-spend route.
+#
+# Why `auto` prefers NATIVE over the gateway (changed 2026-07-28):
+#   This wrapper used to force EVERY run through the gateway. That is only a win while
+#   the gateway's chain is healthy — and it shares one failure domain with the whole
+#   fleet. On 2026-07-28 every cloud route in the chain was down at the same time:
+#   z.ai's weekly cap blew (glm-coding/glm-47 both timing out, reset 2026-08-01),
+#   OpenRouter hit free-models-per-day (nemotron3-free 429, laguna-free 408),
+#   opencode-go-glm/opencode-free 429, Moonshot suspended for balance. Asking the
+#   gateway for glm-coding then took ~40s to walk the dead chain and silently answered
+#   with local qwen3:8b — or blew past pool's own ACP deadline first and surfaced as
+#   "429 ... No deployments available for selected model" mid-session. Either way
+#   poolside-yolo looked broken, while Igor's own Poolside subscription sat unused with
+#   its independent quota intact. Native-first removes that shared failure domain;
+#   the gateway chain is still one `POOLSIDE_YOLO_LANE=gateway` away.
 #
 # Autonomy contract — poolside-yolo must NEVER stop to ask for permission:
 #   * TUI  -> --mode always-allow  ("Allow all": approves every tool call, no prompts)
@@ -43,6 +63,10 @@ set -euo pipefail
 GATEWAY_URL="${POOLSIDE_YOLO_GATEWAY_URL:-http://127.0.0.1:4010/v1}"
 DEFAULT_MODEL="${POOLSIDE_YOLO_MODEL:-glm-coding}"
 MARKER="${HERMES_ZERO_SPEND_MARKER:-$HOME/.hermes/NO_PAID_SPEND}"
+
+# Which inference lane to use. `auto` resolves at run time (see select_lane).
+LANE="${POOLSIDE_YOLO_LANE:-auto}"
+KNOWN_LANES="auto native gateway local"
 
 # The "never ask me for permission" mode. Overridable, but it must still be a mode
 # the agent server really advertises.
@@ -103,6 +127,48 @@ gateway_up() { curl -fsS -m 4 "${GATEWAY_URL%/v1}/health/liveliness" >/dev/null 
 
 local_up() { curl -fsS -m 4 "${LOCAL_URL%/}/models" >/dev/null 2>&1; }
 
+# Where `pool login` stores its credentials. `pool config` prints the authoritative
+# path ("credentials file: ..."), so ask the binary rather than hardcoding a layout
+# that a future pool release could move. Env override exists so the hermetic tests
+# (and anyone with a non-standard XDG setup) can point this somewhere deterministic.
+resolve_creds() {
+  local bin="$1" line
+  if [[ -n "${POOLSIDE_YOLO_CREDENTIALS:-}" ]]; then printf '%s\n' "$POOLSIDE_YOLO_CREDENTIALS"; return 0; fi
+  line="$("$bin" config 2>/dev/null | sed -n 's/^[[:space:]]*credentials file:[[:space:]]*//p' | head -n1)"
+  [[ -n "$line" ]] && { printf '%s\n' "$line"; return 0; }
+  printf '%s\n' "${XDG_CONFIG_HOME:-$HOME/.config}/poolside/credentials.json"
+}
+
+# Non-empty credentials file == `pool login` has been run. This is a cheap local
+# check on purpose: it says "a native lane is configured", not "the token is still
+# valid". A stale token surfaces as a pool auth error, which is loud and actionable —
+# unlike the gateway's failure mode, which is a silent downgrade to a weaker model.
+native_authed() { [[ -s "$1" ]]; }
+
+# Resolve LANE=auto to a concrete lane. Order is deliberate:
+#   1. zero-spend marker wins over everything (unchanged policy: no paid/metered calls)
+#   2. native  — free, independent quota, no shared failure domain with the fleet
+#   3. gateway — the fleet chain, when native was never logged in
+#
+# `local` is deliberately NOT an automatic fallback here. It is reachable only via the
+# zero-spend marker or an explicit POOLSIDE_YOLO_LANE=local, because quietly demoting a
+# run to an 8B local model is the same silent-degradation failure this change exists to
+# remove: the user asked for a coding agent and would get a much weaker one with no
+# error anywhere. A down gateway with no native login stays a loud exit 69.
+select_lane() {
+  local creds="$1"
+  if [[ "$LANE" != auto ]]; then printf '%s\n' "$LANE"; return 0; fi
+  if [[ -e "$MARKER" ]]; then printf 'local\n'; return 0; fi
+  if native_authed "$creds"; then printf 'native\n'; return 0; fi
+  printf 'gateway\n'
+}
+
+lane_known() {
+  local l
+  for l in $KNOWN_LANES; do [[ "$l" == "$1" ]] && return 0; done
+  return 1
+}
+
 # First preferred local model the local endpoint actually serves. Prints nothing when
 # none of them are present — the caller must then refuse rather than guess.
 pick_local_model() {
@@ -119,16 +185,25 @@ pick_local_model() {
 # (ACP: initialize -> session/new -> result.modes.availableModes). Prints the IDs
 # space-separated. Non-zero/empty when it can't be determined; callers must treat
 # "unknown" as unknown, never as "valid".
+# $2 is the lane the probe should emulate: on the native lane pool must talk to
+# Poolside's own inference with its stored credentials, so the standalone override
+# vars are withheld rather than pointed at the gateway.
 probe_modes() {
-  local bin="$1"
+  local bin="$1" lane="${2:-gateway}"
   command -v node >/dev/null 2>&1 || return 1
   POOL_PROBE_BIN="$bin" \
+  POOL_PROBE_LANE="$lane" \
   POOL_PROBE_BASE="$GATEWAY_URL" \
   POOL_PROBE_KEY="${POOLSIDE_API_KEY:-hermes-local-gateway}" \
   POOL_PROBE_MODEL="$DEFAULT_MODEL" \
   node -e '
     const {spawn} = require("child_process");
-    const env = Object.assign({}, process.env, {
+    const env = Object.assign({}, process.env);
+    if (process.env.POOL_PROBE_LANE === "native") {
+      delete env.POOLSIDE_STANDALONE_BASE_URL;
+      delete env.POOLSIDE_STANDALONE_MODEL;
+      delete env.POOLSIDE_API_KEY;
+    } else Object.assign(env, {
       POOLSIDE_STANDALONE_BASE_URL: process.env.POOL_PROBE_BASE,
       POOLSIDE_API_KEY: process.env.POOL_PROBE_KEY,
       POOLSIDE_STANDALONE_MODEL: process.env.POOL_PROBE_MODEL,
@@ -174,10 +249,15 @@ model_served() {
 # route is out of quota, and the agent just gets dumber with no error anywhere.
 # Costs one 1-token completion, so it is doctor-only, and never runs under the
 # zero-spend gate (that marker means "make no paid model calls").
+#
+# The timeout must exceed the gateway's own per-route timeout (45s in the fleet
+# config), or this probe times out first and reports "unknown" — which is exactly how
+# a fully-dead chain read as healthy on 2026-07-28: doctor said ok=true, modelServing
+# =null, while a real call took ~40s and came back as local qwen3:8b.
 model_serving() {
   [[ -e "$MARKER" ]] && return 1
   [[ -n "${POOLSIDE_YOLO_DOCTOR_NO_PROBE:-}" ]] && return 1
-  curl -fsS -m 20 "${GATEWAY_URL%/}/chat/completions" \
+  curl -fsS -m "${POOLSIDE_YOLO_PROBE_TIMEOUT:-55}" "${GATEWAY_URL%/}/chat/completions" \
     -H "Authorization: Bearer ${POOLSIDE_API_KEY:-hermes-local-gateway}" \
     -H "Content-Type: application/json" \
     -d "{\"model\":\"$DEFAULT_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":1}" \
@@ -188,18 +268,29 @@ doctor() {
   local format="${1:-text}" bin="" version="" up="false"
   local modes="" mode_valid="unknown" model_ok="unknown" serving="" fellback="unknown"
   local local_ok="false" local_model=""
+  local creds="" native_ok="false" lane=""
   if ! bin="$(resolve_pool)"; then emit_missing "$format"; return 127; fi
   version="$("$bin" --version 2>/dev/null | head -n1 || true)"
   gateway_up && up="true"
+  creds="$(resolve_creds "$bin")"
+  native_authed "$creds" && native_ok="true"
+  lane="$(select_lane "$creds")"
   # Under zero-spend this is the route that actually runs, so report it.
   if local_up; then local_ok="true"; local_model="$(pick_local_model || true)"; fi
-  if [[ "$up" == "true" ]]; then
+  # Only probe the gateway's real behaviour when the gateway is the lane we would
+  # actually take — otherwise the probe spends ~40s (and a model call) proving
+  # something about a route this run will not use.
+  if [[ "$up" == "true" && "$lane" == "gateway" ]]; then
     model_served && model_ok="true" || model_ok="false"
     serving="$(model_serving || true)"
     if [[ -n "$serving" ]]; then
       [[ "$serving" == "$DEFAULT_MODEL" ]] && fellback="false" || fellback="true"
     fi
-    if modes="$(probe_modes "$bin")" && [[ -n "$modes" ]]; then
+  elif [[ "$up" == "true" ]]; then
+    model_served && model_ok="true" || model_ok="false"
+  fi
+  if [[ "$up" == "true" || "$native_ok" == "true" ]]; then
+    if modes="$(probe_modes "$bin" "$lane")" && [[ -n "$modes" ]]; then
       mode_valid="false"
       for m in $modes; do [[ "$m" == "$YOLO_MODE" ]] && mode_valid="true"; done
     fi
@@ -208,11 +299,14 @@ doctor() {
     PYB="$bin" PYV="$version" PYG="$GATEWAY_URL" PYM="$DEFAULT_MODEL" PYUP="$up" \
     PYMODE="$YOLO_MODE" PYMODES="$modes" PYMV="$mode_valid" PYMOK="$model_ok" \
     PYSERV="$serving" PYFB="$fellback" PYLOK="$local_ok" PYLM="$local_model" \
+    PYLANE="$lane" PYLANEREQ="$LANE" PYNAT="$native_ok" PYCRED="$creds" \
     PYZ="$([[ -e "$MARKER" ]] && echo true || echo false)" node -e '
       const tri = v => v === "true" ? true : v === "false" ? false : null;
       process.stdout.write(JSON.stringify({
         schema:"poolside-yolo/doctor-v1", ok:true, provider:"Poolside pool CLI (official)",
         binary:process.env.PYB, version:process.env.PYV,
+        lane:process.env.PYLANE, laneRequested:process.env.PYLANEREQ,
+        nativeAuthed:process.env.PYNAT==="true", credentialsFile:process.env.PYCRED,
         gateway:process.env.PYG, gatewayUp:process.env.PYUP==="true",
         defaultModel:process.env.PYM, modelServed:tri(process.env.PYMOK),
         modelServing:process.env.PYSERV || null, modelFellBack:tri(process.env.PYFB),
@@ -228,6 +322,8 @@ def tri(v):
 print(json.dumps({
   "schema": "poolside-yolo/doctor-v1", "ok": True, "provider": "Poolside pool CLI (official)",
   "binary": os.environ["PYB"], "version": os.environ["PYV"],
+  "lane": os.environ["PYLANE"], "laneRequested": os.environ["PYLANEREQ"],
+  "nativeAuthed": os.environ["PYNAT"] == "true", "credentialsFile": os.environ["PYCRED"],
   "gateway": os.environ["PYG"], "gatewayUp": os.environ["PYUP"] == "true",
   "defaultModel": os.environ["PYM"], "modelServed": tri(os.environ["PYMOK"]),
   "modelServing": os.environ["PYSERV"] or None, "modelFellBack": tri(os.environ["PYFB"]),
@@ -238,14 +334,17 @@ print(json.dumps({
   "autonomous": True,
 }))'
   else
-    printf 'POOLSIDE_YOLO_OK binary=%s version=%s gateway=%s up=%s model=%s model_served=%s serving=%s local=%s mode=%s mode_valid=%s zero_spend=%s\n' \
-      "$bin" "$version" "$GATEWAY_URL" "$up" "$DEFAULT_MODEL" "$model_ok" "${serving:-unknown}" "${local_model:-none}" "$YOLO_MODE" "$mode_valid" \
+    printf 'POOLSIDE_YOLO_OK binary=%s version=%s lane=%s native_authed=%s gateway=%s up=%s model=%s model_served=%s serving=%s local=%s mode=%s mode_valid=%s zero_spend=%s\n' \
+      "$bin" "$version" "$lane" "$native_ok" "$GATEWAY_URL" "$up" "$DEFAULT_MODEL" "$model_ok" "${serving:-unknown}" "${local_model:-none}" "$YOLO_MODE" "$mode_valid" \
       "$([[ -e "$MARKER" ]] && echo true || echo false)"
     [[ "$mode_valid" == "false" ]] && \
       echo "poolside-yolo: WARNING mode '$YOLO_MODE' is not advertised by this pool build (available: $modes) — it would silently fall back to approval prompts" >&2
     [[ "$fellback" == "true" ]] && \
       echo "poolside-yolo: WARNING gateway answers '$DEFAULT_MODEL' with '$serving' — the primary route is down and you are talking to a fallback model" >&2
+    [[ "$lane" == "gateway" && "$native_ok" == "false" ]] && \
+      echo "poolside-yolo: NOTE no Poolside credentials at $creds — run 'poolside-yolo login' to unlock the native lane (separate quota from z.ai/OpenRouter)" >&2
   fi
+  return 0
 }
 
 if [[ "${1:-}" == "--doctor" ]]; then
@@ -268,37 +367,68 @@ case "${1:-}" in
     exec "$PBIN" "$@" ;;
 esac
 
-if [[ -e "$MARKER" ]]; then
-  # Strict mode keeps the old refuse-outright behaviour for anyone who wants it.
-  if [[ -n "${POOLSIDE_YOLO_ZERO_SPEND_STRICT:-}" ]]; then
-    echo "poolside-yolo: blocked — fleet zero-spend is active ($MARKER) and POOLSIDE_YOLO_ZERO_SPEND_STRICT is set" >&2
-    exit 73
-  fi
-  if ! local_up; then
-    echo "poolside-yolo: blocked — fleet zero-spend is active ($MARKER) and no local model endpoint at ${LOCAL_URL%/v1}" >&2
-    echo "poolside-yolo: start Ollama (or set POOLSIDE_YOLO_LOCAL_URL) to run locally at zero cost" >&2
-    exit 73
-  fi
-  if ! LOCAL_MODEL="$(pick_local_model)"; then
-    echo "poolside-yolo: blocked — zero-spend is active and ${LOCAL_URL%/} serves none of: $LOCAL_MODEL_PREFS" >&2
-    echo "poolside-yolo: pull one (e.g. ollama pull qwen3.5:9b) or set POOLSIDE_YOLO_LOCAL_MODEL" >&2
-    exit 73
-  fi
-  echo "poolside-yolo: fleet zero-spend is active — running LOCALLY on $LOCAL_MODEL via ${LOCAL_URL%/} (no paid or metered tokens)" >&2
-  export POOLSIDE_STANDALONE_BASE_URL="$LOCAL_URL"
-  export POOLSIDE_API_KEY="${POOLSIDE_API_KEY:-ollama}"
-  export POOLSIDE_STANDALONE_MODEL="$LOCAL_MODEL"
-else
-  if ! gateway_up; then
-    echo "poolside-yolo: Hermes gateway not reachable at ${GATEWAY_URL%/v1} — start com.igor.hermes-litellm first" >&2
-    exit 69
-  fi
-  # Route pool's "custom OpenAI-compatible endpoint" support at the Hermes gateway
-  # instead of Poolside's own cloud/OpenRouter billing.
-  export POOLSIDE_STANDALONE_BASE_URL="$GATEWAY_URL"
-  export POOLSIDE_API_KEY="${POOLSIDE_API_KEY:-hermes-local-gateway}"
-  export POOLSIDE_STANDALONE_MODEL="$DEFAULT_MODEL"
+if ! lane_known "$LANE"; then
+  echo "poolside-yolo: refusing to run — POOLSIDE_YOLO_LANE='$LANE' is not a lane ($KNOWN_LANES)" >&2
+  exit 2
 fi
+
+CREDS="$(resolve_creds "$PBIN")"
+RESOLVED_LANE="$(select_lane "$CREDS")"
+
+# The zero-spend marker is policy, not a preference: it outranks an explicit lane
+# request for every lane that would make a paid or metered call.
+if [[ -e "$MARKER" && "$RESOLVED_LANE" != "local" ]]; then
+  echo "poolside-yolo: fleet zero-spend is active ($MARKER) — ignoring requested lane '$RESOLVED_LANE' and running locally" >&2
+  RESOLVED_LANE="local"
+fi
+
+case "$RESOLVED_LANE" in
+  local)
+    # Strict mode keeps the old refuse-outright behaviour for anyone who wants it.
+    if [[ -e "$MARKER" && -n "${POOLSIDE_YOLO_ZERO_SPEND_STRICT:-}" ]]; then
+      echo "poolside-yolo: blocked — fleet zero-spend is active ($MARKER) and POOLSIDE_YOLO_ZERO_SPEND_STRICT is set" >&2
+      exit 73
+    fi
+    if ! local_up; then
+      echo "poolside-yolo: blocked — local lane selected and no local model endpoint at ${LOCAL_URL%/v1}" >&2
+      echo "poolside-yolo: start Ollama (or set POOLSIDE_YOLO_LOCAL_URL) to run locally at zero cost" >&2
+      exit 73
+    fi
+    if ! LOCAL_MODEL="$(pick_local_model)"; then
+      echo "poolside-yolo: blocked — local lane selected and ${LOCAL_URL%/} serves none of: $LOCAL_MODEL_PREFS" >&2
+      echo "poolside-yolo: pull one (e.g. ollama pull qwen3.5:9b) or set POOLSIDE_YOLO_LOCAL_MODEL" >&2
+      exit 73
+    fi
+    echo "poolside-yolo: lane=local — running on $LOCAL_MODEL via ${LOCAL_URL%/} (no paid or metered tokens)" >&2
+    export POOLSIDE_STANDALONE_BASE_URL="$LOCAL_URL"
+    export POOLSIDE_API_KEY="${POOLSIDE_API_KEY:-ollama}"
+    export POOLSIDE_STANDALONE_MODEL="$LOCAL_MODEL"
+    ;;
+  native)
+    if ! native_authed "$CREDS"; then
+      echo "poolside-yolo: blocked — lane=native but no Poolside credentials at $CREDS" >&2
+      echo "poolside-yolo: run 'poolside-yolo login', or use POOLSIDE_YOLO_LANE=gateway" >&2
+      exit 69
+    fi
+    # Withhold the standalone overrides so pool talks to Poolside's own inference with
+    # the credentials it stored. Unsetting (not just skipping) matters: an exported
+    # POOLSIDE_STANDALONE_BASE_URL left over in the caller's shell would silently drag
+    # this run back onto the gateway.
+    unset POOLSIDE_STANDALONE_BASE_URL POOLSIDE_STANDALONE_MODEL POOLSIDE_API_KEY
+    echo "poolside-yolo: lane=native — Poolside inference (own quota, independent of z.ai/OpenRouter)" >&2
+    ;;
+  gateway)
+    if ! gateway_up; then
+      echo "poolside-yolo: Hermes gateway not reachable at ${GATEWAY_URL%/v1} — start com.igor.hermes-litellm first" >&2
+      exit 69
+    fi
+    # Route pool's "custom OpenAI-compatible endpoint" support at the Hermes gateway
+    # instead of Poolside's own cloud/OpenRouter billing.
+    export POOLSIDE_STANDALONE_BASE_URL="$GATEWAY_URL"
+    export POOLSIDE_API_KEY="${POOLSIDE_API_KEY:-hermes-local-gateway}"
+    export POOLSIDE_STANDALONE_MODEL="$DEFAULT_MODEL"
+    ;;
+esac
 
 YOLO_MODE="$(normalize_mode "$YOLO_MODE")"
 if ! mode_known "$YOLO_MODE"; then
