@@ -29,6 +29,34 @@ appId: com.iganapolsky.hermesmobile
 - assertNotVisible: "Reconnecting"
 - assertNotVisible: "Reconnecting…"
 - takeScreenshot: build/ipad-simulator-edge-cases/fresh-user-connect-gate
+
+# iPad users rotate at any point. Exercise both landscape directions while the
+# fresh-user gate owns the screen, then restore portrait before continuing.
+- setOrientation: LANDSCAPE_LEFT
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "connect-mac-gate"
+- assertVisible:
+    id: "connect-mac-onboarding-card"
+- assertVisible:
+    id: "connect-mac-gate-dismiss"
+- takeScreenshot: build/ipad-simulator-edge-cases/onboarding-landscape-left
+- setOrientation: LANDSCAPE_RIGHT
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "connect-mac-gate"
+- assertVisible:
+    id: "connect-mac-onboarding-card"
+- assertVisible:
+    id: "connect-mac-gate-dismiss"
+- takeScreenshot: build/ipad-simulator-edge-cases/onboarding-landscape-right
+- setOrientation: PORTRAIT
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "connect-mac-gate"
 - scrollUntilVisible:
     element:
       id: "connect-manual-input"
@@ -126,6 +154,71 @@ appId: com.iganapolsky.hermesmobile
 - waitForAnimationToEnd:
     timeout: 2000
 - assertVisible: "make money today"
+
+# Rotate while the native input is focused. Appending after each rotation is
+# stronger than a screenshot-only assertion: it proves focus/input survived.
+- setOrientation: LANDSCAPE_LEFT
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "chat-input"
+- inputText: "!"
+- assertVisible: "make money today!"
+- takeScreenshot: build/ipad-simulator-edge-cases/composer-landscape-keyboard
+- setOrientation: LANDSCAPE_RIGHT
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "chat-input"
+- inputText: "?"
+- assertVisible: "make money today!?"
+- setOrientation: UPSIDE_DOWN
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "chat-input"
+- inputText: "#"
+- assertVisible: "make money today!?#"
+- setOrientation: PORTRAIT
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "chat-input"
+- inputText: "."
+- assertVisible: "make money today!?#."
+
+# A focused draft must survive a real iPad background/foreground transition.
+# Returning with stopApp:false resumes the same process instead of masking state
+# loss with a relaunch; re-tapping proves the input remains usable after resume.
+- pressKey: Home
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 30000
+- assertVisible: "make money today!?#."
+- tapOn:
+    id: "chat-input"
+    point: "95%,50%"
+- inputText: "+"
+- assertVisible: "make money today!?#.+"
+
+# An intentional keyboard dismissal must win over the rotation refocus repair.
+# Rotating immediately after hideKeyboard used to look identical to the native
+# blur-before-Dimensions event ordering. Input without a new tap must be ignored.
+- hideKeyboard
+- setOrientation: LANDSCAPE_LEFT
+- waitForAnimationToEnd:
+    timeout: 3000
+- inputText: "x"
+- assertVisible: "make money today!?#.+"
+- setOrientation: PORTRAIT
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "chat-input"
+    point: "95%,50%"
 - eraseText: 100
 - hideKeyboard
 - assertVisible:
