@@ -39,40 +39,6 @@ BILLING_URL = "https://thumbgate.app/api/billing/plan"
 PROBE_TIMEOUT_S = 2.0
 
 
-def _system_scores_lines() -> list[str]:
-    """Card lines for SYSTEM_SCORES, computed live from receipts each snapshot.
-
-    Scores come from tinker_brain_scorecard (eval/fuzzer/observability/index/
-    revenue evidence) so they are measured, never invented. Any failure in the
-    scorecard falls closed to the explicit not_scored form rather than stale or
-    fabricated numbers.
-    """
-    try:
-        import sys as _sys
-
-        _sys.path.insert(0, str(Path(__file__).resolve().parent))
-        from tinker_brain_scorecard import compute
-
-        report = compute(write_receipt=True)
-        return [
-            f"SYSTEM_SCORES={report['system_scores_line']}",
-            (
-                "SCORE_SCOPE=copy SYSTEM_SCORES exactly; computed "
-                f"{report['computed_at']} from receipts "
-                "(~/.hermes/receipts/tinker-brain/scorecard-latest.json); "
-                "ML/MONETIZATION stay fail-closed at 0 until external paid evidence exists"
-            ),
-        ]
-    except Exception:
-        return [
-            (
-                "SYSTEM_SCORES=not_scored (scorecard unavailable; "
-                "eval receipts at ~/.hermes/receipts/tinker-brain/ are the quality signal)"
-            ),
-            "SCORE_SCOPE=copy SYSTEM_SCORES exactly; do not translate not_scored into numbers",
-        ]
-
-
 def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -383,7 +349,8 @@ def write_snapshot(out: Path, payload: dict[str, Any]) -> None:
                 ),
                 "BAN_CONVERT_WITHOUT_INTEREST=only after the exact human requests a trial, demo, or intake",
                 "BAN_INVENT_SCORES=never invent DS/ML or GTM scores; only SYSTEM_SCORES line below",
-                *_system_scores_lines(),
+                f"SYSTEM_SCORES={_system_scores_line()}",
+                "SCORE_SCOPE=copy SYSTEM_SCORES exactly; do not invent better grades than the line",
                 f"NEXT_MONEY={payload.get('next_money_action')}",
                 "RULE: zero tools; do not list_files; answer now from this card.",
             ]
@@ -400,6 +367,44 @@ def write_snapshot(out: Path, payload: dict[str, Any]) -> None:
             expert_dst.chmod(0o600)
         except OSError:
             pass  # answer path falls back to the repo copy
+
+
+def _system_scores_line() -> str:
+    """Evidence-backed scores from tools/ml-system-scores.js; never invent."""
+    script = REPO / "tools" / "ml-system-scores.js"
+    if not script.is_file():
+        return (
+            "not_scored (tools/ml-system-scores.js missing; "
+            "eval receipts at ~/.hermes/receipts/tinker-brain/ are the quality signal)"
+        )
+    try:
+        import subprocess
+
+        proc = subprocess.run(
+            ["node", str(script), "--json", "--write"],
+            cwd=str(REPO),
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+        if proc.returncode == 0 and proc.stdout.strip():
+            data = json.loads(proc.stdout)
+            line = data.get("system_scores_line")
+            if isinstance(line, str) and line.strip():
+                return line.strip()
+    except Exception:  # noqa: BLE001 — export must never die on scores
+        pass
+    # Fall back to last written receipt
+    scores_path = Path.home() / ".hermes" / "ml" / "system-scores.json"
+    cached = load_json(scores_path)
+    line = cached.get("system_scores_line") if isinstance(cached, dict) else None
+    if isinstance(line, str) and line.strip():
+        return line.strip() + " (cached)"
+    return (
+        "not_scored (ml-system-scores failed; "
+        "run node tools/ml-system-scores.js --write)"
+    )
 
 
 def validate_snapshot(path: Path) -> list[str]:

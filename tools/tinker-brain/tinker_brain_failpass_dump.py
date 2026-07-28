@@ -14,8 +14,9 @@ The PASS side is free: ``answer(..., enforce_contract=True)`` already replaces
 a violating render with the fail-closed card-faithful correction, so the
 corrected text IS the deterministic gold output for that question.
 
-Output: ~/.hermes/receipts/tinker-brain/failpass-pairs.jsonl (the exact path
-tinker_brain_scorecard reads for the ML dimension) + a summary receipt.
+Output: ~/.hermes/receipts/tinker-brain/failpass-pairs.jsonl (SFT staging for
+the future adapter; scoring reads receipts via tools/ml-system-scores.js) +
+a summary receipt.
 Deduped by (question, fail_text) digest. Privacy: card-derived text only.
 """
 
