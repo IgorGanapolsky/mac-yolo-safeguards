@@ -626,7 +626,9 @@ describe('Android security audit (Jul 2026)', () => {
 
   it('keeps Expo SDK-pinned react-native (audit react-native@0.84.6 is wrong for SDK 55)', () => {
     const pkg = JSON.parse(read('hermes-mobile/package.json'));
-    expect(pkg.dependencies['react-native']).toBe('0.83.6');
+    // Expo SDK 55's expected patch moved 0.83.6 -> 0.83.10 (Expo Doctor, 2026-07-28);
+    // the pin follows the SDK expectation. The 0.84.x audit guard below is unchanged.
+    expect(pkg.dependencies['react-native']).toBe('0.83.10');
     expect(pkg.dependencies.expo).toMatch(/^~55\./);
     const auditDoc = read('hermes-mobile/docs/ANDROID-SECURITY-AUDIT-JULY-2026.md');
     expect(auditDoc).toContain('0.84.6');

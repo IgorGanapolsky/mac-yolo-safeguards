@@ -9,7 +9,7 @@ Evidence-first closure for the external Android audit checklist. Hermes Mobile t
 | 1 | `SYSTEM_ALERT_WINDOW` | **Already compliant** | `app.json` → `android.blockedPermissions` strips overlay permission from release manifest |
 | 2 | Play App Signing | **Documented + enforced** | EAS builds upload key only; Play holds app signing key — see [PLAY_RELEASE.md](./PLAY_RELEASE.md#play-app-signing) |
 | 3 | `privacy:scan` | **PASS** | `npm run privacy:scan` — no owner gateway credentials in production source |
-| 4 | Dependency bumps | **Deferred (correct)** | Audit cited `react-native@0.84.6`; Expo SDK 55 pins `react-native@0.83.6` — standalone bumps violate AGENTS.md |
+| 4 | Dependency bumps | **Deferred (correct)** | Audit cited `react-native@0.84.6`; Expo SDK 55 pins `react-native@0.83.10` (0.83.6 until the SDK expectation moved, 2026-07-28) — standalone bumps violate AGENTS.md |
 | 5 | AAB for Play | **Already compliant** | `eas.json` production `buildType: app-bundle`; `store-release.yml` builds AAB |
 | 6 | Legacy storage permissions | **Not present** | No `READ_/WRITE_EXTERNAL_STORAGE` in `app.json` or plugins |
 | 7 | ProGuard / R8 | **Enabled + cleaned** | `enableMinifyInReleaseBuilds` + `enableShrinkResourcesInReleaseBuilds`; stale reanimated/gesture-handler keeps removed (G-22) |
@@ -66,7 +66,7 @@ The audit report listed `react-native@0.84.6`. That version does **not** match E
 
 | Package | Audit (wrong) | Repo (correct) | Rule |
 |---------|---------------|----------------|------|
-| `react-native` | 0.84.6 | **0.83.6** | Pinned by Expo SDK 55 |
+| `react-native` | 0.84.6 | **0.83.10** | Pinned by Expo SDK 55 (patch expectation moved from 0.83.6 on 2026-07-28) |
 | `expo` | — | `~55.0.27` | Law: move only via deliberate SDK upgrade |
 | `@react-navigation/*` | bump suggested | `^6.x` | Do not standalone-bump alongside RN |
 
