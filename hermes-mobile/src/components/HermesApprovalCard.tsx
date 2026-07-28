@@ -28,6 +28,8 @@ type HermesApprovalCardProps = {
   busy?: boolean;
   undoSecondsLeft?: number;
   approvalPolicy?: ApprovalPolicy;
+  /** false over the cloud relay, which collapses every non-deny choice to a bare `allow`. */
+  canPersistDecision?: boolean;
   thumbgateCaptureOnDown?: boolean;
   thumbgateCaptureOnUp?: boolean;
   onChoice: (choice: ApprovalChoice) => void;
@@ -51,6 +53,7 @@ export default function HermesApprovalCard({
   thumbgateCaptureOnDown = true,
   thumbgateCaptureOnUp = true,
   approvalPolicy = 'balanced',
+  canPersistDecision = true,
   onChoice,
   onEdit,
   onUndo,
@@ -66,7 +69,7 @@ export default function HermesApprovalCard({
     );
   }
 
-  const choices = choicesForRequest(approval, approvalPolicy);
+  const choices = choicesForRequest(approval, approvalPolicy, { canPersistDecision });
   const primaryChoices = choices.filter((c) => c === 'once' || c === 'deny');
   const tierChoices = choices.filter((c) => c === 'session' || c === 'always');
   const isLeash = variant === 'leash';

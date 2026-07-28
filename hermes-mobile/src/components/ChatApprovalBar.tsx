@@ -10,6 +10,8 @@ type ChatApprovalBarProps = {
   busy?: boolean;
   undoSecondsLeft?: number;
   approvalPolicy?: 'strict' | 'balanced' | 'autonomous';
+  /** false over the cloud relay, which cannot carry a lasting decision. */
+  canPersistDecision?: boolean;
   onChoice: (choice: ApprovalChoice, approval: HermesApprovalRequest) => void;
   onEdit?: (approval: HermesApprovalRequest) => void;
   onUndo?: () => void;
@@ -22,6 +24,7 @@ export default function ChatApprovalBar({
   busy = false,
   undoSecondsLeft = 0,
   approvalPolicy = 'balanced',
+  canPersistDecision = true,
   onChoice,
   onEdit,
   onUndo,
@@ -60,6 +63,7 @@ export default function ChatApprovalBar({
           variant="chat"
           busy={busy}
           approvalPolicy={approvalPolicy}
+          canPersistDecision={canPersistDecision}
           onChoice={(choice) => onChoice(choice, item)}
           onEdit={onEdit ? () => onEdit(item) : undefined}
         />

@@ -56,9 +56,24 @@ export const APPROVAL_CHOICE_LABELS: Record<ApprovalChoice, string> = {
  * `always` writes a PERMANENT standing rule, so it is now the thing the most permissive tier
  * unlocks rather than a default-tier button.
  */
+/**
+ * Whether the CURRENT transport can actually carry a lasting decision back to the Mac.
+ *
+ * The cloud relay cannot: `GatewayContext.submitApprovalChoice` collapses every non-deny choice to
+ * a single `allow` verdict (`const verdict = choice === 'deny' ? 'block' : 'allow'`), so over relay
+ * "Always allow" creates no standing rule — it behaves exactly like "Once". Offering it there would
+ * be a button that silently does less than it says, which is the precise failure this whole change
+ * exists to remove. So the transport gets a veto, the same way the gateway's `allowPermanent` does.
+ */
+export type ApprovalTransportCapabilities = {
+  /** false when the decision rides the cloud relay, which cannot express scope. */
+  canPersistDecision?: boolean;
+};
+
 export function choicesForRequest(
   request: HermesApprovalRequest,
   policy: ApprovalPolicy = 'balanced',
+  transport: ApprovalTransportCapabilities = {},
 ): ApprovalChoice[] {
   // A text nudge is answered by sending one phrase back to the agent — there is no gateway-side
   // rule to persist, so only this single reply is meaningful regardless of policy.
@@ -70,6 +85,10 @@ export function choicesForRequest(
   }
   // The GATEWAY decides whether a lasting rule is possible at all; policy can never override it.
   if (!request.allowPermanent) {
+    return ['once', 'deny'];
+  }
+  // ...and neither can policy override the TRANSPORT. Never render a scope the wire drops.
+  if (transport.canPersistDecision === false) {
     return ['once', 'deny'];
   }
   if (policy === 'autonomous') {

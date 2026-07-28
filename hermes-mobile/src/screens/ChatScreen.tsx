@@ -7783,6 +7783,7 @@ export default function ChatScreen() {
               busy={approvalBusy || isSending}
               undoSecondsLeft={undoSecondsLeft}
               approvalPolicy={settings.approvalPolicy}
+              canPersistDecision={settings.connectionMode !== 'relay'}
               onChoice={(choice, approval) => handleApprovalChoice(choice, approval)}
               onEdit={handleApprovalEdit}
               onUndo={undoSecondsLeft > 0 ? handleChatApprovalUndo : undefined}

@@ -329,6 +329,7 @@ export default function ApprovalsScreen() {
               approval={stackApproval}
               glance
               approvalPolicy={settings.approvalPolicy}
+              canPersistDecision={settings.connectionMode !== 'relay'}
               thumbgateCaptureOnDown={settings.thumbgateCaptureOnDown}
               thumbgateCaptureOnUp={settings.thumbgateCaptureOnUp}
               onApprove={() => {
@@ -359,6 +360,7 @@ export default function ApprovalsScreen() {
                 key={approval.actionId}
                 approval={approval}
                 approvalPolicy={settings.approvalPolicy}
+              canPersistDecision={settings.connectionMode !== 'relay'}
                 thumbgateCaptureOnDown={settings.thumbgateCaptureOnDown}
                 thumbgateCaptureOnUp={settings.thumbgateCaptureOnUp}
                 onApprove={() => {

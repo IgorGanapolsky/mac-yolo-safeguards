@@ -12,6 +12,7 @@ interface GateApprovalCardProps {
   onEdit?: () => void;
   glance?: boolean;
   approvalPolicy?: ApprovalPolicy;
+  canPersistDecision?: boolean;
   thumbgateCaptureOnDown?: boolean;
   thumbgateCaptureOnUp?: boolean;
 }
@@ -24,6 +25,7 @@ export default function GateApprovalCard({
   onEdit,
   glance = false,
   approvalPolicy = 'balanced',
+  canPersistDecision = true,
   thumbgateCaptureOnDown = true,
   thumbgateCaptureOnUp = true,
 }: GateApprovalCardProps) {
@@ -49,6 +51,7 @@ export default function GateApprovalCard({
       thumbgateCaptureOnDown={thumbgateCaptureOnDown}
       thumbgateCaptureOnUp={thumbgateCaptureOnUp}
       approvalPolicy={approvalPolicy}
+      canPersistDecision={canPersistDecision}
       onChoice={handleChoice}
       onEdit={onEdit}
     />

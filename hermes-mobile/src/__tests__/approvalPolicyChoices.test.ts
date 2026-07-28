@@ -103,3 +103,34 @@ describe('policyChoicePreview', () => {
     });
   });
 });
+
+/**
+ * Transport veto. GatewayContext.submitApprovalChoice collapses every non-deny choice to a single
+ * `allow` verdict when connectionMode === 'relay' (`choice === 'deny' ? 'block' : 'allow'`), so a
+ * lasting scope cannot survive that wire. Rendering "Always allow" there would be a button that
+ * silently does less than it says — the exact failure this change exists to remove.
+ */
+describe('choicesForRequest transport veto', () => {
+  it('drops session/always when the transport cannot persist a decision', () => {
+    POLICIES.forEach((p) => {
+      const choices = choicesForRequest(gatewayRequest(), p, { canPersistDecision: false });
+      expect(choices).toEqual(['once', 'deny']);
+      expect(choices).not.toContain('always');
+      expect(choices).not.toContain('session');
+    });
+  });
+
+  it('does not let even autonomous override the transport', () => {
+    expect(choicesForRequest(gatewayRequest(), 'autonomous', { canPersistDecision: false })).toEqual(
+      ['once', 'deny'],
+    );
+  });
+
+  it('is unchanged when the transport CAN persist (explicit true or omitted)', () => {
+    POLICIES.forEach((p) => {
+      const explicit = choicesForRequest(gatewayRequest(), p, { canPersistDecision: true });
+      expect(explicit).toEqual(choicesForRequest(gatewayRequest(), p));
+      expect(explicit).toEqual(choicesForRequest(gatewayRequest(), p, {}));
+    });
+  });
+});
