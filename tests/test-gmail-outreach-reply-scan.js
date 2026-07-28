@@ -14,6 +14,7 @@ const {
   rowId,
   run,
   outreachSearchQuery,
+  classifyBlindCause,
   OUTREACH_SUBJECT_RE,
   OUTREACH_SUBJECT_TERMS,
 } = require('../tools/gmail-outreach-reply-scan');
@@ -150,6 +151,47 @@ check('zero scraped rows reports unknown, not zero replies', () => {
   assert.strictEqual(blind.scanBlind, true, 'chrome_ok with 0 rows must be treated as blind');
 
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// "Blind" is only actionable if it names which kind of blind. A dead session
+// needs a human login; a stale selector needs a code change; an empty result
+// set is not blindness at all.
+check('blind cause names the actual failure', () => {
+  assert.strictEqual(classifyBlindCause(null), 'no_page_diagnostics');
+  // Signed-out pages ALSO have 0 rows and a short body — most specific wins.
+  assert.strictEqual(
+    classifyBlindCause({ signedOut: true, trCount: 0, bodyLen: 120, emptyStateVisible: false }),
+    'gmail_signed_out_needs_human_login',
+  );
+  assert.strictEqual(
+    classifyBlindCause({ signedOut: false, emptyStateVisible: true, trCount: 0, bodyLen: 9000 }),
+    'search_genuinely_empty',
+  );
+  assert.strictEqual(
+    classifyBlindCause({ signedOut: false, emptyStateVisible: false, trCount: 42, bodyLen: 9000 }),
+    'row_selector_stale_tr_zA_no_longer_matches',
+  );
+  assert.strictEqual(
+    classifyBlindCause({ signedOut: false, emptyStateVisible: false, trCount: 0, bodyLen: 40 }),
+    'page_not_rendered_in_time',
+  );
+  assert.strictEqual(
+    classifyBlindCause({ signedOut: false, emptyStateVisible: false, trCount: 0, bodyLen: 9000 }),
+    'unknown_page_state',
+  );
+});
+
+// A search Gmail explicitly reports as empty is a real zero. Treating it as
+// blindness would page on every quiet hour and train us to ignore the alert.
+check('genuinely empty search is not reported as blind', () => {
+  const emptyIsReal = classifyBlindCause({
+    signedOut: false, emptyStateVisible: true, trCount: 0, bodyLen: 9000,
+  });
+  assert.strictEqual(emptyIsReal, 'search_genuinely_empty');
+  const stale = classifyBlindCause({
+    signedOut: false, emptyStateVisible: false, trCount: 42, bodyLen: 9000,
+  });
+  assert.notStrictEqual(stale, 'search_genuinely_empty');
 });
 
 console.log(`\nPASS ${n}/${n} gmail-outreach-reply-scan`);

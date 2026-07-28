@@ -187,6 +187,19 @@ function rowId(rowText) {
   return `r_${h.toString(16)}`;
 }
 
+// Turn the page diagnostics into a named cause. Order matters: a signed-out
+// page also has zero rows and a short body, so the most specific explanation
+// has to win. 'search_genuinely_empty' is the one value that means the scan
+// worked and the answer really is zero.
+function classifyBlindCause(diag) {
+  if (!diag) return 'no_page_diagnostics';
+  if (diag.signedOut) return 'gmail_signed_out_needs_human_login';
+  if (diag.emptyStateVisible) return 'search_genuinely_empty';
+  if ((diag.trCount || 0) > 0) return 'row_selector_stale_tr_zA_no_longer_matches';
+  if ((diag.bodyLen || 0) < 500) return 'page_not_rendered_in_time';
+  return 'unknown_page_state';
+}
+
 function chromeCollectInboxRows() {
   const url =
     'https://mail.google.com/mail/u/0/#search/' + encodeURIComponent(outreachSearchQuery());
@@ -204,7 +217,24 @@ tell application "Google Chrome"
         const rows = [...document.querySelectorAll('tr.zA')].slice(0, 30).map(r =>
           (r.innerText || '').replace(/\\\\s+/g, ' ').slice(0, 200)
         );
-        return JSON.stringify({ title: document.title, href: location.href.slice(0,160), rows });
+        // Diagnostics for the zero-rows case. 'No rows' has several very
+        // different causes and they are indistinguishable without these:
+        //   signedOut          -> session expired, needs a human login
+        //   emptyStateVisible  -> the search really did match nothing
+        //   trCount>0 & rows=0 -> Gmail changed its row class, selector is stale
+        //   all zero + short   -> page had not rendered within the delay
+        const txt = (document.body && document.body.innerText) || '';
+        return JSON.stringify({
+          title: document.title,
+          href: location.href.slice(0, 160),
+          rows,
+          diag: {
+            trCount: document.querySelectorAll('tr').length,
+            signedOut: /Sign in|Choose an account|couldn.t sign you in/i.test(txt.slice(0, 3000)),
+            emptyStateVisible: /No messages matched your search|no conversations/i.test(txt),
+            bodyLen: txt.length
+          }
+        });
       })()
     "
   on error errMsg
@@ -219,7 +249,13 @@ end tell
   try {
     const parsed = JSON.parse(raw);
     if (parsed.error) return { ok: false, error: parsed.error, rows: [] };
-    return { ok: true, rows: parsed.rows || [], title: parsed.title, href: parsed.href };
+    return {
+      ok: true,
+      rows: parsed.rows || [],
+      title: parsed.title,
+      href: parsed.href,
+      diag: parsed.diag || null,
+    };
   } catch {
     return { ok: false, error: 'json_parse', rows: [], raw: raw.slice(0, 200) };
   }
@@ -279,11 +315,23 @@ function writeBoard(revenueDir, summary) {
     '',
   ];
   if (summary.scanBlind) {
+    const REMEDY = {
+      gmail_signed_out_needs_human_login:
+        'Gmail is signed out in that Chrome profile. A human has to log in; no code change will fix it.',
+      row_selector_stale_tr_zA_no_longer_matches:
+        'The page has table rows but none match `tr.zA` — Gmail changed its markup. Update the selector.',
+      page_not_rendered_in_time:
+        'The page was still near-empty when read. Raise the delay in chromeCollectInboxRows.',
+      no_page_diagnostics:
+        'Ran before diagnostics existed, or the injected JS returned no diag block.',
+      unknown_page_state: 'Page rendered with no rows and no recognised empty-state text.',
+    };
     lines.push(
       '> **REPLY STATE UNKNOWN — do not read this as "0 replies".**',
-      '> The scrape succeeded but returned zero rows, which also happens when the',
-      '> Gmail tab is signed out, still loading, or its row selector changed.',
-      '> Verify by hand before reporting a reply count.',
+      `> cause: \`${summary.blindCause}\``,
+      `> ${REMEDY[summary.blindCause] || 'Verify by hand before reporting a reply count.'}`,
+      `> page title: ${summary.pageTitle || 'unknown'}`,
+      `> diagnostics: ${JSON.stringify(summary.pageDiag)}`,
       '',
     );
   } else if (!summary.hot.length) {
@@ -342,6 +390,8 @@ function run(args) {
   let rows = [];
   let chromeOk = false;
   let chromeError = null;
+  let pageDiag = null;
+  let pageTitle = null;
 
   if (args.dryRows) {
     rows = JSON.parse(args.dryRows);
@@ -351,6 +401,8 @@ function run(args) {
     chromeOk = col.ok;
     chromeError = col.error || null;
     rows = col.rows || [];
+    pageDiag = col.diag || null;
+    pageTitle = col.title || null;
   }
 
   const { hot, seen } = processRows(rows, {
@@ -368,13 +420,25 @@ function run(args) {
   // three consecutive days (2026-07-26..28) while a real reply sat unhandled.
   const scanBlind = chromeOk && !args.dryRows && rows.length === 0;
 
+  // Name the cause when we can. "Blind" is only actionable if it says which
+  // kind of blind — a dead session needs a human login, a stale selector needs
+  // a code change, and an empty result set is not blind at all.
+  const blindCause = scanBlind ? classifyBlindCause(pageDiag) : null;
+
+  // 'search_genuinely_empty' is a real zero, not blindness — Gmail told us in
+  // words that nothing matched. Everything else stays blind.
+  const reallyBlind = scanBlind && blindCause !== 'search_genuinely_empty';
+
   const summary = {
     checkedAt: new Date().toISOString(),
     chromeOk,
     chromeError,
     rowsScanned: rows.length,
-    scanBlind,
-    replyStatus: scanBlind ? 'unknown_scan_returned_nothing' : 'scanned',
+    scanBlind: reallyBlind,
+    blindCause,
+    pageTitle: scanBlind ? pageTitle : undefined,
+    pageDiag: scanBlind ? pageDiag : undefined,
+    replyStatus: reallyBlind ? 'unknown_scan_returned_nothing' : 'scanned',
     hot,
     boardPath: null,
     baseline: args.baseline,
@@ -391,10 +455,10 @@ function run(args) {
 
   // Page on blindness too. A silently blind monitor is worse than no monitor:
   // it manufactures a "0 replies" fact that downstream reports then repeat.
-  if (!args.baseline && scanBlind && args.ntfy) {
+  if (!args.baseline && reallyBlind && args.ntfy) {
     ntfyPush(
       'Gmail reply scan BLIND',
-      `Scrape succeeded but returned 0 rows for query:\n${outreachSearchQuery()}\nReply state is UNKNOWN, not zero. Check the Gmail tab/session.`,
+      `cause: ${blindCause}\npage: ${pageTitle || 'unknown'}\nquery: ${outreachSearchQuery()}\nReply state is UNKNOWN, not zero.`,
     );
   }
   return summary;
@@ -435,6 +499,7 @@ module.exports = {
   processRows,
   rowId,
   run,
+  classifyBlindCause,
   outreachSearchQuery,
   OUTREACH_SUBJECT_RE,
   OUTREACH_SUBJECT_TERMS,
