@@ -78,6 +78,8 @@ if [[ "${DEPLOY_LOCK_DRY_RUN:-0}" == "1" ]]; then
   bash -c "${DEPLOY_LOCK_DRY_RUN_HOOK:-true}"
 else
   cd "$(dirname "$0")/../apps/hermes-control-plane"
+  # D1 export path requires this dir (wrangler will not create parents)
+  mkdir -p .wrangler/backups
   npm run predeploy:cloudflare
   npm run deploy:cloudflare
 fi
