@@ -32,6 +32,10 @@ class H(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.endswith('/health/liveliness'):
             self.send_response(200); self.end_headers(); self.wfile.write(b'"alive"')
+        elif self.path.endswith('/models'):
+            # doubles as the stub LOCAL (Ollama-style) endpoint for zero-spend tests
+            self.send_response(200); self.end_headers()
+            self.wfile.write(b'{"data":[{"id":"glm-coding"},{"id":"qwen3.5:9b-hermes-64k"}]}')
         else:
             self.send_response(404); self.end_headers()
     def log_message(self,*a): pass
@@ -44,8 +48,10 @@ sleep 1
 base_env() {
   export POOL_BIN="$STUB"
   export POOLSIDE_YOLO_GATEWAY_URL="http://127.0.0.1:$PORT/v1"
+  export POOLSIDE_YOLO_LOCAL_URL="http://127.0.0.1:$PORT/v1"
   export HERMES_ZERO_SPEND_MARKER="$ROOT/NO_PAID_SPEND"
-  unset POOLSIDE_API_KEY POOLSIDE_STANDALONE_BASE_URL POOLSIDE_STANDALONE_MODEL 2>/dev/null || true
+  unset POOLSIDE_API_KEY POOLSIDE_STANDALONE_BASE_URL POOLSIDE_STANDALONE_MODEL \
+        POOLSIDE_YOLO_LOCAL_MODEL POOLSIDE_YOLO_ZERO_SPEND_STRICT 2>/dev/null || true
 }
 base_env
 
@@ -66,11 +72,33 @@ assert d['modelFellBack'] is None
 " && ok "zero-spend suppresses doctor model probe" || no "zero-spend suppresses doctor model probe"
 rm -f "$ROOT/NO_PAID_SPEND"
 
-# 2. zero-spend marker => exit 73, pool never runs
+# 2. zero-spend marker: the marker's policy is "no paid provider or metered token
+#    execution", so we run LOCALLY (free, unmetered) rather than refusing outright —
+#    that is what keeps poolside-yolo usable on the zero-spend mini. It must route at
+#    the LOCAL endpoint with a local model, and must never touch the paid gateway.
 : > "$ROOT/NO_PAID_SPEND"
-rm -f "$ARGS_OUT"
+rm -f "$ARGS_OUT" "$ENV_OUT"
 set +e; "$WRAPPER" "hi" >/dev/null 2>&1; code=$?; set -e
-{ [ "$code" -eq 73 ] && [ ! -f "$ARGS_OUT" ]; } && ok "zero-spend blocks (73, no spawn)" || no "zero-spend blocks (got $code, args=$( [ -f "$ARGS_OUT" ] && echo present || echo absent ))"
+{ [ "$code" -eq 0 ] && grep -q "MODEL=qwen3.5:9b-hermes-64k" "$ENV_OUT" 2>/dev/null; } \
+  && ok "zero-spend runs LOCALLY on a local model" || no "zero-spend runs LOCALLY (code=$code env=$(tr '\n' ' ' < "$ENV_OUT" 2>/dev/null))"
+
+# 2b. strict mode restores the old refuse-outright behaviour
+rm -f "$ARGS_OUT"
+set +e; POOLSIDE_YOLO_ZERO_SPEND_STRICT=1 "$WRAPPER" "hi" >/dev/null 2>&1; code=$?; set -e
+{ [ "$code" -eq 73 ] && [ ! -f "$ARGS_OUT" ]; } \
+  && ok "zero-spend STRICT blocks (73, no spawn)" || no "zero-spend STRICT blocks (got $code)"
+
+# 2c. zero-spend with NO local endpoint must still hard-block — never silently reach
+#     for the paid gateway just because local is missing
+rm -f "$ARGS_OUT"
+set +e; POOLSIDE_YOLO_LOCAL_URL="http://127.0.0.1:4996/v1" "$WRAPPER" "hi" >/dev/null 2>&1; code=$?; set -e
+{ [ "$code" -eq 73 ] && [ ! -f "$ARGS_OUT" ]; } \
+  && ok "zero-spend + no local endpoint blocks (73, no spawn)" || no "zero-spend + no local blocks (got $code)"
+
+# 2d. zero-spend must never fall back to a sub-8B model it cannot tool-call with
+rm -f "$ARGS_OUT"
+set +e; POOLSIDE_YOLO_LOCAL_MODEL="" POOLSIDE_YOLO_LOCAL_URL="http://127.0.0.1:$PORT/v1" "$WRAPPER" "hi" >/dev/null 2>&1; set -e
+grep -q "MODEL=qwen2.5:3b" "$ENV_OUT" 2>/dev/null && no "zero-spend picked a sub-8B model" || ok "zero-spend never picks a sub-8B model"
 rm -f "$ROOT/NO_PAID_SPEND"
 
 # 3. bare task string routed through `exec -p ... --unsafe-auto-allow -o json`
