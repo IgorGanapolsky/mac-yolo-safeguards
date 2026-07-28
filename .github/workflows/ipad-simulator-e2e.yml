@@ -26,6 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       run-ipad: ${{ steps.diff.outputs.run-ipad }}
+      trusted-source: ${{ steps.diff.outputs.trusted-source }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -37,10 +38,24 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PR_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
         run: |
           set -eu
+          trusted_source=true
+          if [ "${{ github.event_name }}" = "pull_request" ] &&
+            [ "$PR_HEAD_REPO" != "${{ github.repository }}" ]; then
+            trusted_source=false
+          fi
+          echo "trusted-source=$trusted_source" >> "$GITHUB_OUTPUT"
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "run-ipad=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "${{ github.event_name }}" = "pull_request" ] &&
+            [ "$PR_DRAFT" = "true" ]; then
+            echo "run-ipad=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           base_sha="${BASE_SHA:-}"
@@ -57,8 +72,13 @@ jobs:
   ipad-simulator:
     name: Real-user iPad simulator E2E
     needs: detect-changes
-    if: needs.detect-changes.outputs.run-ipad == 'true'
-    runs-on: macos-26
+    if: >-
+      needs.detect-changes.outputs.run-ipad == 'true' &&
+      needs.detect-changes.outputs.trusted-source == 'true'
+    # `ipad-simulator` is deliberately a reserved capability label. The MacBook
+    # carrying it does not carry the generic `hermes-e2e` label, so ordinary Mac
+    # CI cannot starve this required device gate.
+    runs-on: ${{ fromJSON('["self-hosted", "ipad-simulator"]') }}
     timeout-minutes: 60
     defaults:
       run:
@@ -71,19 +91,28 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: hermes-mobile/package-lock.json
+          # This persistent runner already retains npm's download cache. The
+          # setup-node post action tried to upload the full 25 GB local cache
+          # after E2E passed, blocking job completion for minutes.
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Java 17
-        run: brew install openjdk@17
-
-      - name: Install Maestro
+      - name: Verify self-hosted iPad runner toolchain
+        env:
+          JAVA_HOME: /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
         run: |
-          export PATH="$HOME/.maestro/bin:$PATH"
-          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          test -x "$JAVA_HOME/bin/java"
+          test -x "$HOME/.maestro/bin/maestro"
+          xcodebuild -version
+          xcrun simctl list devices available -j | node -e '
+            const fs = require("fs");
+            const payload = JSON.parse(fs.readFileSync(0, "utf8"));
+            const hasIpad = Object.values(payload.devices || {})
+              .flat()
+              .some((device) => device.isAvailable !== false && device.name.startsWith("iPad"));
+            if (!hasIpad) process.exit(1);
+          '
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
       - name: Run real-user edge cases on a strict iPad simulator
@@ -108,11 +137,16 @@ jobs:
         env:
           DETECT_RESULT: ${{ needs.detect-changes.result }}
           RUN_IPAD: ${{ needs.detect-changes.outputs.run-ipad }}
+          TRUSTED_SOURCE: ${{ needs.detect-changes.outputs.trusted-source }}
           IPAD_RESULT: ${{ needs.ipad-simulator.result }}
         run: |
           set -eu
           if [ "$DETECT_RESULT" != "success" ]; then
             echo "::error::iPad change detection failed: $DETECT_RESULT"
+            exit 1
+          fi
+          if [ "$RUN_IPAD" = "true" ] && [ "$TRUSTED_SOURCE" != "true" ]; then
+            echo "::error::Mobile changes from fork PRs cannot execute on the self-hosted iPad runner."
             exit 1
           fi
           if [ "$RUN_IPAD" = "true" ] && [ "$IPAD_RESULT" != "success" ]; then
@@ -122,5 +156,5 @@ jobs:
           if [ "$RUN_IPAD" = "true" ]; then
             echo "Required real-user iPad E2E passed."
           else
-            echo "No iPad-relevant files changed; gate passes without simulator spend."
+            echo "Heavy iPad E2E not required for this draft or unrelated change."
           fi
