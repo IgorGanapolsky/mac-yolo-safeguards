@@ -63,6 +63,35 @@ describe('iPad simulator fresh-user edge-case flow', () => {
     );
   });
 
+  it('proves onboarding and the focused composer survive iPad rotation', () => {
+    const onboardingScreenshot = flow.indexOf('fresh-user-connect-gate');
+    const dismissTap = flow.indexOf('- tapOn:\n    id: "connect-mac-gate-dismiss"');
+    const leftRotation = flow.indexOf('- setOrientation: LANDSCAPE_LEFT');
+    const rightRotation = flow.indexOf('- setOrientation: LANDSCAPE_RIGHT');
+    const firstPortraitReset = flow.indexOf('- setOrientation: PORTRAIT');
+    const firstComposerText = flow.indexOf('inputText: "make money today"');
+    const secondComposerText = flow.indexOf(
+      'inputText: "make money today"',
+      firstComposerText + 1,
+    );
+    const composerRotation = flow.lastIndexOf('- setOrientation: LANDSCAPE_LEFT');
+    const composerLandscapeScreenshot = flow.indexOf('composer-landscape-keyboard');
+
+    expect(leftRotation).toBeGreaterThan(onboardingScreenshot);
+    expect(rightRotation).toBeGreaterThan(leftRotation);
+    expect(firstPortraitReset).toBeGreaterThan(rightRotation);
+    expect(dismissTap).toBeGreaterThan(firstPortraitReset);
+    expect(flow).toContain('onboarding-landscape-left');
+    expect(flow).toContain('onboarding-landscape-right');
+    expect(composerRotation).toBeGreaterThan(secondComposerText);
+    expect(composerLandscapeScreenshot).toBeGreaterThan(composerRotation);
+    expect(flow).toContain('inputText: "!"');
+    expect(flow).toContain('assertVisible: "make money today!"');
+    expect(flow).toContain('inputText: "?"');
+    expect(flow).toContain('assertVisible: "make money today!?"');
+    expect(flow.match(/- setOrientation: PORTRAIT/g)).toHaveLength(2);
+  });
+
   it('proves every bottom tab stays reachable after hiding the keyboard', () => {
     for (const tab of ['tab-hermes', 'tab-leash', 'tab-settings']) {
       expect(flow).toContain(`id: "${tab}"`);
