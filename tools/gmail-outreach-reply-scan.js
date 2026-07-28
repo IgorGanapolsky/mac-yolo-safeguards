@@ -325,11 +325,18 @@ function writeBoard(revenueDir, summary) {
       no_page_diagnostics:
         'Ran before diagnostics existed, or the injected JS returned no diag block.',
       unknown_page_state: 'Page rendered with no rows and no recognised empty-state text.',
+      scan_not_attempted_no_chrome:
+        'Run with --no-chrome and no --dry-rows-json, so no mailbox was read at all.',
     };
+    const remedy =
+      REMEDY[summary.blindCause] ||
+      (String(summary.blindCause).startsWith('scrape_failed_')
+        ? 'The Chrome scrape itself errored — see blindCause for the osascript failure.'
+        : 'Verify by hand before reporting a reply count.');
     lines.push(
       '> **REPLY STATE UNKNOWN — do not read this as "0 replies".**',
       `> cause: \`${summary.blindCause}\``,
-      `> ${REMEDY[summary.blindCause] || 'Verify by hand before reporting a reply count.'}`,
+      `> ${remedy}`,
       `> page title: ${summary.pageTitle || 'unknown'}`,
       `> diagnostics: ${JSON.stringify(summary.pageDiag)}`,
       '',
@@ -418,16 +425,23 @@ function run(args) {
   // It is equally consistent with a changed Gmail selector, a tab that never
   // finished loading, or a signed-out session — and it read as "no replies" for
   // three consecutive days (2026-07-26..28) while a real reply sat unhandled.
-  const scanBlind = chromeOk && !args.dryRows && rows.length === 0;
+  // EVERY path that does not end in a trustworthy row set is blind. An earlier
+  // version of this check only covered "scrape succeeded but found nothing", so
+  // a scrape that FAILED — or was never attempted — still reported
+  // reply_status 'scanned' and "_No new outreach replies matched._". That is
+  // the same absence-as-evidence bug this file exists to prevent, one branch
+  // over: a dead Chrome session looked identical to an empty mailbox.
+  const blindCause = (() => {
+    if (args.dryRows) return null; // the operator supplied the rows; trust them
+    if (!args.chrome) return 'scan_not_attempted_no_chrome';
+    if (!chromeOk) return `scrape_failed_${chromeError || 'unknown'}`;
+    if (rows.length === 0) return classifyBlindCause(pageDiag);
+    return null;
+  })();
 
-  // Name the cause when we can. "Blind" is only actionable if it says which
-  // kind of blind — a dead session needs a human login, a stale selector needs
-  // a code change, and an empty result set is not blind at all.
-  const blindCause = scanBlind ? classifyBlindCause(pageDiag) : null;
-
-  // 'search_genuinely_empty' is a real zero, not blindness — Gmail told us in
-  // words that nothing matched. Everything else stays blind.
-  const reallyBlind = scanBlind && blindCause !== 'search_genuinely_empty';
+  // 'search_genuinely_empty' is the one cause meaning the scan worked and the
+  // answer really is zero. Everything else stays blind.
+  const reallyBlind = Boolean(blindCause) && blindCause !== 'search_genuinely_empty';
 
   const summary = {
     checkedAt: new Date().toISOString(),
@@ -436,8 +450,8 @@ function run(args) {
     rowsScanned: rows.length,
     scanBlind: reallyBlind,
     blindCause,
-    pageTitle: scanBlind ? pageTitle : undefined,
-    pageDiag: scanBlind ? pageDiag : undefined,
+    pageTitle: reallyBlind ? pageTitle : undefined,
+    pageDiag: reallyBlind ? pageDiag : undefined,
     replyStatus: reallyBlind ? 'unknown_scan_returned_nothing' : 'scanned',
     hot,
     boardPath: null,

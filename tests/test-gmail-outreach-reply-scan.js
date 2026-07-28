@@ -153,6 +153,32 @@ check('zero scraped rows reports unknown, not zero replies', () => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+// The first version of the blindness check only covered "scrape succeeded but
+// found nothing", so a scrape that FAILED, or was never attempted, still wrote
+// reply_status 'scanned' and "_No new outreach replies matched._" — the exact
+// absence-as-evidence bug, one branch over. Caught in review, not by me.
+check('a failed or skipped scrape is blind, not a clean zero', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'reply-scan-nochrome-'));
+  process.env.REVENUE_DIR = dir;
+  process.env.GMAIL_REPLY_SCAN_STATE = path.join(dir, 'state.json');
+
+  const s = run({ json: true, chrome: false, baseline: false, ntfy: false, dryRows: null, help: false });
+  assert.strictEqual(s.chromeOk, false);
+  assert.strictEqual(s.scanBlind, true, 'no scan attempted must be blind');
+  assert.strictEqual(s.blindCause, 'scan_not_attempted_no_chrome');
+  assert.strictEqual(s.replyStatus, 'unknown_scan_returned_nothing');
+
+  const board = fs.readFileSync(s.boardPath, 'utf8');
+  assert.match(board, /REPLY STATE UNKNOWN/);
+  assert.doesNotMatch(
+    board,
+    /_No new outreach replies matched\._/,
+    'a failed scrape must never render as a clean zero',
+  );
+
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 // "Blind" is only actionable if it names which kind of blind. A dead session
 // needs a human login; a stale selector needs a code change; an empty result
 // set is not blindness at all.
