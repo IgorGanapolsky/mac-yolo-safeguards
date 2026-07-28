@@ -45,7 +45,9 @@ The accept cases are coupled to production artifacts:
 
 Artifact reads are repository-contained, reject escaping symlinks and unsafe
 paths, and are capped at 1 MiB. Raw artifact bodies and predicate results do
-not enter the report.
+not enter the report. Production TypeScript predicates retain a finite 30-second
+subprocess timeout so a loaded self-hosted runner does not create a 5-second
+startup false negative while a genuinely wedged predicate still fails closed.
 
 The report exits `0` only when every positive and adversarial case behaves as
 expected. Invalid manifests exit `2`. `--write` persists a mode-0600 report

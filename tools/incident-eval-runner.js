@@ -15,6 +15,7 @@ const REPORT_SCHEMA = 'hermes/incident-eval-report/v1';
 const DECISIONS = new Set(['accept', 'reject']);
 const TIERS = new Set(['pr', 'nightly']);
 const MAX_ARTIFACT_BYTES = 1024 * 1024;
+const PRODUCTION_PREDICATE_TIMEOUT_MS = 30_000;
 
 function usage() {
   return `Usage:
@@ -134,7 +135,7 @@ function runTypeScriptExport(artifact, exportName, input) {
     JSON.stringify(input),
   ], {
     encoding: 'utf8',
-    timeout: 5000,
+    timeout: PRODUCTION_PREDICATE_TIMEOUT_MS,
     maxBuffer: 256 * 1024,
   });
   if (child.error) throw new Error(`production predicate failed: ${child.error.message}`);
