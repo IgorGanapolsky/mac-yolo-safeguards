@@ -169,6 +169,9 @@ jobs:
           set -eu
           bash tests/test-poolside-yolo.sh
           bash tests/test-hermes-primary-route-recovery.sh
+          # Mutation control: proves the two suites above actually go RED against the
+          # real historical bugs, instead of passing while measuring nothing.
+          bash tests/test-harness-verifier-integrity.sh
 
       - name: Public secret smoke scan
         run: |
