@@ -14,6 +14,7 @@
  *   - Specification-Driven Design loop (modular specs → gap analysis → verify)
  *   - frontier-model session contract + effort step-down (Fable/GPT-5.6 Sol patterns, 2026-07)
  *   - state-layer policy + where-is-state checks (stateless vs shared-stateful vs session-stateful, 2026-07)
+ *   - toolbox policy + where-is-auth (auth on pack not agent; Foundry toolbox pattern, 2026-07)
  *
  * Usage:
  *   node tools/agent-swarm-harness.js [--json] [--plan path] [--role planner|worker]
@@ -24,6 +25,9 @@
  *   node tools/agent-swarm-harness.js effort-policy [--json]
  *   node tools/agent-swarm-harness.js state-layers [--json]
  *   node tools/agent-swarm-harness.js where-is-state [--json] [--plan path]
+ *   node tools/agent-swarm-harness.js toolboxes [--json]
+ *   node tools/agent-swarm-harness.js where-is-auth [--json] [--task "..."]
+ *   node tools/agent-swarm-harness.js worker-toolbox [--json] [--task "..."]
  */
 
 const fs = require('fs');
@@ -51,6 +55,10 @@ const CONTINUOUS_E2E_LATEST = path.join(
 const STATE_LAYER_SOURCE = Object.freeze({
   label: 'Stateful vs Stateless Agent Design (MLM, 2026-07)',
   url: 'https://machinelearningmastery.com/stateful-vs-stateless-agent-design-tradeoffs-for-scalable-agentic-systems/',
+});
+const TOOLBOX_SOURCE = Object.freeze({
+  label: 'Toolboxes in Microsoft Foundry (auth on toolbox, not agent, 2026-07)',
+  url: 'https://devblogs.microsoft.com/foundry/building-agents-that-act-on-your-behalf-with-toolboxes-in-foundry/',
 });
 
 /** Trace file for execution tracing (MonitoredAgent pattern). */
@@ -80,16 +88,18 @@ const ROLE_GUIDANCE = Object.freeze({
     'Cap concurrent active owners at 2–3 on this mobile codebase.',
     'When a gap appears mid-build: update the modular claim/AC (spec) first, then the code.',
     'Answer where-is-state before locking design: chat→session store, ownership→plan.md, resume→loop-state/E2E/Field Guide — never process RAM on either Mac.',
+    'Pick task class → toolbox id (auth lives on the pack); do not hand workers the full skill catalog.',
   ],
   worker: [
     'Implement only claimed free leaves; stop if a file is owned by another agent.',
     'Do not invent design decisions — escalate or append plan.md §3 and re-plan.',
     'Prefer cheap/local models (tinker-yolo / Composer-class) and medium-or-lower effort once AC is explicit.',
-    'Prompt for this leaf = AC + claimed files + verification commands only (no giant rule dump).',
+    'Prompt for this leaf = AC + claimed files + verification commands + allowed toolbox entrypoints only (no giant rule dump).',
     'Never self-merge megafile conflicts; use a neutral rebase onto main + sequential merge.',
     'Ship only after stacked verification (unit + typecheck + E2E or honest skip + Greptile if sensitive).',
     'If requirements are missing, stop and escalate gap analysis — do not vibe-code past the AC.',
     'Worker leaves are stateless payloads; multi-agent truth is plan.md + loop-state, not Ollama/chat on this Mac.',
+    'Act via named toolbox entrypoints; never invent OAuth/token exchange or Chrome on mini.',
   ],
 });
 
@@ -122,6 +132,7 @@ function sessionContract(role = 'worker', env = process.env) {
       'live URL / SHA when claiming shipped',
       'honest skip reason for E2E',
       'state-layer answer (session store vs plan.md vs loop-state)',
+      'toolbox id + allowed entrypoints (auth on pack, not agent)',
     ],
     drop: [
       'restate full AGENTS.md Never-list',
@@ -130,6 +141,8 @@ function sessionContract(role = 'worker', env = process.env) {
       'adjective-only done bars ("high quality")',
       'chat transcript as multi-agent coordination bus',
       'pin multi-agent truth to Ollama process RAM or one Mac chat window',
+      'token exchange / consent / secret materialization in agent code',
+      'full skill catalog dump when one toolbox applies',
     ],
     source: {
       label: 'How to Get the Most Out of Fable 5 and GPT 5.6 Sol (tenacious-model ops)',
@@ -461,6 +474,405 @@ function buildWhereIsStateActions(questions, host) {
 }
 
 /**
+ * Domain toolboxes: auth + policy bind to the pack (Foundry pattern), not agent prompts.
+ * Agent receives toolbox id + entrypoints only; credentials stay in Keychain/Chrome/env at the boundary.
+ *
+ * Source: Microsoft Foundry Toolboxes (2026-07) mapped onto Hermes skills/MCP/CLIs.
+ */
+function toolboxPolicy() {
+  return {
+    principle:
+      'Bind identity and policy to the tool pack. Give the agent one clean action surface. Govern tool calls at the boundary — never invent OAuth or dump the full skill catalog.',
+    source: TOOLBOX_SOURCE,
+    authTypes: [
+      {
+        id: 'agentic_identity',
+        whose: 'agent / machine (gh keyring, local CLI, fleet LaunchAgent)',
+        useFor: 'repo ops, local inference, adb, plan board',
+      },
+      {
+        id: 'user_delegation',
+        whose: 'signed-in end user (Chrome session, Gmail MCP as Igor, LinkedIn account lock)',
+        useFor: 'social publish, some Stripe/Play surfaces when CLI insufficient',
+      },
+      {
+        id: 'project_keys',
+        whose: 'project secret at boundary (Keychain/env); agent never sees the secret',
+        useFor: 'Stripe CLI, EAS, provider API keys via existing tooling',
+      },
+      {
+        id: 'none',
+        whose: 'anonymous / public',
+        useFor: 'public docs MCP, unauthenticated status reads',
+      },
+    ],
+    packs: [
+      {
+        id: 'fleet_inference',
+        auth: 'agentic_identity',
+        hosts: ['mac_pro', 'mac_mini'],
+        entrypoints: [
+          'LiteLLM :4010 (traffic.jsonl proof)',
+          'hermes-local / Ollama (unloadable on mini)',
+          'node tools/openrouter-reasoning-plan.js --effort',
+        ],
+        gates: [],
+        macPro: 'front door + routing proof',
+        macMini: 'Ollama worker only; no sticky multi-agent memory',
+      },
+      {
+        id: 'repo_coord',
+        auth: 'agentic_identity',
+        hosts: ['mac_pro', 'mac_mini'],
+        entrypoints: [
+          'node tools/agent-swarm-harness.js',
+          'node tools/plan-coordination-snapshot.js',
+          'gh (keyring only — never chat PAT)',
+          'git worktree + sequential merge',
+        ],
+        gates: [],
+        macPro: 'claim + ship PRs',
+        macMini: 'same shared board; escalate megafile design off-box under pressure',
+      },
+      {
+        id: 'device_mobile',
+        auth: 'agentic_identity',
+        hosts: ['mac_pro', 'mac_mini'],
+        entrypoints: [
+          'node tools/hermes-mobile-pair.js',
+          'adb + continuous E2E proofs',
+          'npm test / typecheck under hermes-mobile/',
+        ],
+        gates: [],
+        macPro: 'primary USB/pair host when phone present',
+        macMini: 'pair OK; no fake Connected without latest.json / health proof',
+      },
+      {
+        id: 'revenue_cash',
+        auth: 'project_keys',
+        hosts: ['mac_pro'],
+        entrypoints: [
+          'node tools/revenue-autonomous-loop.js',
+          'Apollo CLI / pipeline TSVs (gitignored)',
+          'Stripe CLI/API first (not Chrome by default)',
+        ],
+        gates: ['prefer_cli_over_chrome'],
+        macPro: 'Keychain + optional Chrome only when HERMES_ALLOW_INTERACTIVE_CHROME=1 + explicit ask',
+        macMini: 'BLOCKED — no user-delegation cash close on mini',
+      },
+      {
+        id: 'social_promo',
+        auth: 'user_delegation',
+        hosts: ['mac_pro'],
+        entrypoints: [
+          'Chrome promo fan-out (opt-in interactive only)',
+          'content log + LIVE matrix (never double-post)',
+          'UTM buy links; Hashnode FROZEN',
+        ],
+        gates: ['PUBLISH_APPROVED', 'HERMES_ALLOW_INTERACTIVE_CHROME'],
+        macPro: 'only host with Igor Chrome sessions for publish',
+        macMini: 'BLOCKED — no interactive Chrome / social publish',
+      },
+      {
+        id: 'memory_rag',
+        auth: 'project_keys',
+        hosts: ['mac_pro', 'mac_mini'],
+        entrypoints: [
+          'mcp__thumbgate__recall / capture',
+          'grepai search (local MCP)',
+          'docs/agent-field-guide/index.md',
+        ],
+        gates: [],
+        macPro: 'capture after incidents',
+        macMini: 'recall + Field Guide; same curated memory',
+      },
+    ],
+    antiPatterns: [
+      'Auth / token exchange / consent plumbing inside agent prompts or leaf code',
+      'Dumping the full skill catalog when one toolbox applies',
+      'User-delegation tools (Chrome social/Stripe UI) on Mac mini',
+      'Inventing "missing credentials" when Keychain/Chrome session already holds them',
+      'Social publish without PUBLISH_APPROVED / LIVE matrix proof',
+      'Interactive Chrome without explicit user ask + HERMES_ALLOW_INTERACTIVE_CHROME=1',
+    ],
+    fleetRule:
+      'Pro hosts user-delegation toolboxes; both Macs may run agentic/repo/inference/memory packs. Auth stays on the pack boundary.',
+  };
+}
+
+/**
+ * Classify which domain toolbox a task text should use.
+ * @param {string} taskText
+ * @returns {{ toolboxId: string, auth: string, reason: string }}
+ */
+function classifyTaskToolbox(taskText) {
+  const text = String(taskText || '').toLowerCase();
+  if (
+    /\b(linkedin|medium|bluesky|threads|reddit|dev\.to|hacker news|promo|post everywhere|social|publish)\b/.test(
+      text,
+    )
+  ) {
+    return {
+      toolboxId: 'social_promo',
+      auth: 'user_delegation',
+      reason: 'public social / promo publish surface',
+    };
+  }
+  if (
+    /\b(revenue|stripe|apollo|pipeline|cash|outreach|buyer|diagnostic \$|partner pilot)\b/.test(text)
+  ) {
+    return {
+      toolboxId: 'revenue_cash',
+      auth: 'project_keys',
+      reason: 'cash path / sales tooling',
+    };
+  }
+  if (
+    /\b(adb|maestro|e2e|pair|phone|hermes-mobile|ota|leash|gatewaycontext|chatscreen)\b/.test(text)
+  ) {
+    return {
+      toolboxId: 'device_mobile',
+      auth: 'agentic_identity',
+      reason: 'mobile device / pairing / E2E',
+    };
+  }
+  if (/\b(litellm|ollama|hermes-local|model route|inference|glm-coding)\b/.test(text)) {
+    return {
+      toolboxId: 'fleet_inference',
+      auth: 'agentic_identity',
+      reason: 'fleet model routing / inference',
+    };
+  }
+  if (/\b(thumbgate|recall|field guide|grepai|rag|lesson|capture_memory)\b/.test(text)) {
+    return {
+      toolboxId: 'memory_rag',
+      auth: 'project_keys',
+      reason: 'memory / RAG / Field Guide',
+    };
+  }
+  if (
+    /\b(plan\.md|claim|swarm|harness|worktree|pr |pull request|merge|ci)\b/.test(text) ||
+    !text.trim()
+  ) {
+    return {
+      toolboxId: 'repo_coord',
+      auth: 'agentic_identity',
+      reason: text.trim() ? 'repo coordination / git / CI' : 'default repo toolbox',
+    };
+  }
+  return {
+    toolboxId: 'repo_coord',
+    auth: 'agentic_identity',
+    reason: 'default: repo coordination until surface is classified',
+  };
+}
+
+/**
+ * Resolve whether a toolbox may run on this host with current env gates.
+ * @param {string} toolboxId
+ * @param {{ role?: string }} host
+ * @param {NodeJS.ProcessEnv} [env]
+ */
+function resolveToolboxAccess(toolboxId, host = {}, env = process.env) {
+  const policy = toolboxPolicy();
+  const pack = policy.packs.find((p) => p.id === toolboxId);
+  if (!pack) {
+    return {
+      ok: false,
+      toolboxId,
+      status: 'unknown_toolbox',
+      reasons: [`Unknown toolbox id: ${toolboxId}`],
+      pack: null,
+    };
+  }
+  const hostRole = host.role || 'unknown';
+  const reasons = [];
+  let ok = true;
+  let status = 'allowed';
+
+  if (hostRole === 'mac_mini' && !pack.hosts.includes('mac_mini')) {
+    ok = false;
+    status = 'host_blocked';
+    reasons.push(`Toolbox ${toolboxId} is not allowed on mac_mini (needs ${pack.hosts.join('|')})`);
+  } else if (hostRole === 'mac_pro' && !pack.hosts.includes('mac_pro')) {
+    ok = false;
+    status = 'host_blocked';
+    reasons.push(`Toolbox ${toolboxId} is not allowed on mac_pro`);
+  }
+
+  const publish = String(env.HERMES_SESSION_PUBLISH || '').toUpperCase();
+  const publishApproved =
+    publish === 'PUBLISH_APPROVED' ||
+    publish === '1' ||
+    publish === 'TRUE' ||
+    String(env.PUBLISH_APPROVED || '').toLowerCase() === '1' ||
+    String(env.PUBLISH_APPROVED || '').toLowerCase() === 'true';
+
+  if (pack.gates.includes('PUBLISH_APPROVED') && !publishApproved) {
+    ok = false;
+    status = status === 'host_blocked' ? status : 'gate_blocked';
+    reasons.push('Requires PUBLISH_APPROVED / HERMES_SESSION_PUBLISH=PUBLISH_APPROVED');
+  }
+
+  if (pack.gates.includes('HERMES_ALLOW_INTERACTIVE_CHROME')) {
+    const chromeOk = String(env.HERMES_ALLOW_INTERACTIVE_CHROME || '') === '1';
+    if (!chromeOk) {
+      // Soft block for interactive path: toolbox may still plan drafts without Chrome.
+      reasons.push(
+        'Interactive Chrome path requires HERMES_ALLOW_INTERACTIVE_CHROME=1 + explicit user ask (draft/LIVE matrix still OK without it)',
+      );
+      if (status === 'allowed') status = 'chrome_gated';
+      // Do not hard-fail ok for chrome alone when publish not approved already failed;
+      // chrome is required only when actually driving interactive publish.
+    }
+  }
+
+  if (ok && reasons.length === 0) {
+    reasons.push(`Toolbox ${toolboxId} allowed on ${hostRole} with auth=${pack.auth}`);
+  }
+
+  return {
+    ok,
+    toolboxId,
+    status,
+    reasons,
+    pack,
+    auth: pack.auth,
+    entrypoints: pack.entrypoints,
+    hosts: pack.hosts,
+  };
+}
+
+/**
+ * Thin worker prompt: AC-style task + toolbox entrypoints only (no skill soup).
+ * @param {string} taskText
+ * @param {{ env?: NodeJS.ProcessEnv, host?: { role?: string }, role?: string }} [opts]
+ */
+function workerToolboxPrompt(taskText, { env = process.env, host = null, role = 'worker' } = {}) {
+  const resolvedHost = host || detectFleetHostRole(env);
+  const classified = classifyTaskToolbox(taskText);
+  const access = resolveToolboxAccess(classified.toolboxId, resolvedHost, env);
+  const pack = access.pack;
+  const lines = [
+    `role: ${resolveRole(role)}`,
+    `toolbox: ${classified.toolboxId} (auth=${classified.auth})`,
+    `host: ${resolvedHost.role}`,
+    `access: ${access.status}`,
+    `task: ${String(taskText || '').trim() || '(unspecified — default repo_coord)'}`,
+    'entrypoints (only — do not invent auth):',
+  ];
+  for (const ep of access.entrypoints || pack?.entrypoints || []) {
+    lines.push(`  - ${ep}`);
+  }
+  if (!access.ok) {
+    lines.push('BLOCKED:');
+    for (const r of access.reasons) lines.push(`  - ${r}`);
+    lines.push('Action: escalate / move to allowed host or satisfy gates — do not workaround.');
+  } else {
+    lines.push('Also required: plan.md claim free; AC + verification command; SessionContract keep/drop.');
+    for (const r of access.reasons) {
+      if (/chrome|PUBLISH/i.test(r)) lines.push(`Note: ${r}`);
+    }
+  }
+  return {
+    ok: access.ok,
+    toolboxId: classified.toolboxId,
+    auth: classified.auth,
+    reason: classified.reason,
+    host: resolvedHost,
+    access,
+    entrypoints: access.entrypoints || [],
+    prompt: lines.join('\n'),
+    maxEntrypoints: (access.entrypoints || []).length,
+  };
+}
+
+/**
+ * Where-is-auth session gate: which toolbox, whose identity, which Mac, which gates.
+ * @param {{ taskText?: string, env?: NodeJS.ProcessEnv }} [opts]
+ */
+function whereIsAuthCheck({ taskText = '', env = process.env } = {}) {
+  const host = detectFleetHostRole(env);
+  const classified = classifyTaskToolbox(taskText);
+  const access = resolveToolboxAccess(classified.toolboxId, host, env);
+  const policy = toolboxPolicy();
+  const questions = [
+    {
+      id: 'toolbox',
+      question: 'Which domain toolbox applies?',
+      prefer: 'One named pack (fleet_inference|repo_coord|device_mobile|revenue_cash|social_promo|memory_rag)',
+      never: 'Full skill catalog / invent ad-hoc tools',
+      ok: Boolean(access.pack),
+      status: access.pack ? 'classified' : 'unknown',
+      evidence: `${classified.toolboxId} — ${classified.reason}`,
+    },
+    {
+      id: 'identity',
+      question: 'Whose identity reaches the tools?',
+      prefer: 'Auth type bound on the toolbox (agentic | user_delegation | project_keys | none)',
+      never: 'Agent-held secrets, chat-pasted tokens, wrong-user LinkedIn/Gmail',
+      ok: true,
+      status: classified.auth,
+      evidence: `auth=${classified.auth}; pack.auth=${access.auth || 'n/a'}`,
+    },
+    {
+      id: 'host_gate',
+      question: 'May this host run the toolbox under current gates?',
+      prefer: 'Pro for user_delegation; either Mac for agentic/repo/inference/memory',
+      never: 'Chrome social/cash UI on mini; publish without PUBLISH_APPROVED',
+      ok: access.ok || access.status === 'chrome_gated',
+      status: access.status,
+      evidence: access.reasons.join('; '),
+    },
+  ];
+  // chrome_gated alone is soft OK for drafting; hard fail host_blocked/gate_blocked
+  const hardFail = !access.ok && access.status !== 'chrome_gated';
+  const ok = !hardFail;
+  const hostGuidance =
+    host.role === 'mac_mini'
+      ? 'Mac mini: agentic/repo/inference/memory/device only — no social_promo or revenue Chrome paths.'
+      : host.role === 'mac_pro'
+        ? 'Mac Pro: may host user_delegation packs when gates satisfied; still bind auth on toolbox not agent.'
+        : 'Host unknown: assume mini-safe packs only until HERMES_FLEET_HOST_ROLE is set.';
+
+  return {
+    ok: !hardFail,
+    principle: policy.principle,
+    source: policy.source,
+    host,
+    hostGuidance,
+    classified,
+    access,
+    questions,
+    workerPrompt: workerToolboxPrompt(taskText, { env, host }),
+    actions: buildWhereIsAuthActions(access, host, classified),
+    checkedAt: new Date().toISOString(),
+  };
+}
+
+function buildWhereIsAuthActions(access, host, classified) {
+  const actions = [];
+  if (access.status === 'host_blocked') {
+    actions.push(
+      `Move ${classified.toolboxId} work to allowed host (${(access.hosts || []).join('|')}) — do not improvise on ${host.role}.`,
+    );
+  }
+  if (access.status === 'gate_blocked') {
+    actions.push('Satisfy SessionContract gates (e.g. PUBLISH_APPROVED) before acting — draft only until then.');
+  }
+  if (access.status === 'chrome_gated') {
+    actions.push(
+      'Draft/LIVE matrix OK; interactive Chrome only with HERMES_ALLOW_INTERACTIVE_CHROME=1 + explicit user ask.',
+    );
+  }
+  actions.push(
+    `Worker prompt: node tools/agent-swarm-harness.js worker-toolbox --task "${classified.toolboxId}" (or full task text)`,
+  );
+  actions.push('Auth on toolbox boundary: Keychain/Chrome/env — never materialize secrets in the agent.');
+  return actions;
+}
+
+/**
  * Effort step-down policy: start lower; reserve max for high-stakes only.
  * Aligns with openrouter-reasoning-plan.js dial + hermes-economic-router routes.
  */
@@ -589,6 +1001,11 @@ function frontierModelPlaybook() {
         video: 'Where memory lives shapes scale (stateless vs stateful agents)',
         ours: 'stateLayerPolicy() + whereIsStateCheck() — inference stateless; chat session_id; multi-agent plan.md',
       },
+      {
+        id: 'toolbox_auth_boundary',
+        video: 'Auth lives on the toolbox; agent stays auth-free; govern tool I/O at boundary',
+        ours: 'toolboxPolicy() + whereIsAuthCheck() + workerToolboxPrompt() — packs × auth × host × gates',
+      },
     ],
   };
 }
@@ -659,6 +1076,7 @@ function parseArgs(argv) {
     help: false,
     trace: process.env.HARNESS_TRACE !== '0',
     limit: 0,
+    task: process.env.HERMES_TASK_TEXT || '',
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -671,7 +1089,10 @@ function parseArgs(argv) {
       arg === 'session-contract' ||
       arg === 'effort-policy' ||
       arg === 'state-layers' ||
-      arg === 'where-is-state'
+      arg === 'where-is-state' ||
+      arg === 'toolboxes' ||
+      arg === 'where-is-auth' ||
+      arg === 'worker-toolbox'
     ) {
       args.command = arg;
     } else if (arg === '--json') {
@@ -684,6 +1105,8 @@ function parseArgs(argv) {
       args.role = String(argv[++i] || '').trim() || null;
     } else if (arg === '--body-file') {
       args.bodyFile = path.resolve(argv[++i] || '');
+    } else if (arg === '--task') {
+      args.task = String(argv[++i] || '');
     } else if (arg === '--help' || arg === '-h') {
       args.help = true;
     } else if (arg === '--trace') {
@@ -915,6 +1338,28 @@ function buildActions(report) {
   if (report.stateLayers?.fleetRule) {
     actions.push(`State layers: ${report.stateLayers.fleetRule}`);
   }
+  if (report.toolboxes?.fleetRule) {
+    actions.push(`Toolboxes: ${report.toolboxes.fleetRule}`);
+  }
+  if (report.whereIsAuth) {
+    const wia = report.whereIsAuth;
+    if (!wia.ok) {
+      actions.push(
+        `Where-is-auth BLOCKED: ${wia.classified?.toolboxId || '?'} status=${wia.access?.status} — ${
+          (wia.access?.reasons || []).slice(0, 2).join('; ') || 'see where-is-auth'
+        }`,
+      );
+    } else {
+      actions.push(
+        `Where-is-auth: toolbox=${wia.classified?.toolboxId} auth=${wia.classified?.auth} host=${wia.host?.role} (${wia.access?.status})`,
+      );
+    }
+  }
+  if (report.workerToolbox?.prompt) {
+    actions.push(
+      `Worker toolbox: ${report.workerToolbox.toolboxId} (${report.workerToolbox.entrypoints?.length || 0} entrypoints) — inject entrypoints only, not skill soup`,
+    );
+  }
   return actions;
 }
 
@@ -996,6 +1441,14 @@ function buildHarnessReport({ planPath = DEFAULT_PLAN, role = null, trace = fals
     ? planParent
     : REPO;
   const whereIsState = whereIsStateCheck({ planPath, repo: stateRepo });
+  const taskHint =
+    process.env.HERMES_TASK_TEXT ||
+    activeTasks[0]?.title ||
+    activeTasks[0]?.task ||
+    '';
+  const toolboxes = toolboxPolicy();
+  const whereIsAuth = whereIsAuthCheck({ taskText: taskHint });
+  const workerToolbox = workerToolboxPrompt(taskHint, { role: resolvedRole });
   const report = {
     ok: true,
     planPath,
@@ -1008,6 +1461,9 @@ function buildHarnessReport({ planPath = DEFAULT_PLAN, role = null, trace = fals
     frontierPlaybook: frontierModelPlaybook(),
     stateLayers,
     whereIsState,
+    toolboxes,
+    whereIsAuth,
+    workerToolbox,
     activeTasks,
     activeTaskCount: activeTasks.length,
     concurrency: {
@@ -1125,6 +1581,25 @@ function formatHuman(report) {
     }
     if (wis.hostGuidance) lines.push(`  ${wis.hostGuidance}`);
   }
+  if (report.toolboxes) {
+    lines.push(`Toolboxes: ${report.toolboxes.principle}`);
+    lines.push(
+      `  packs: ${report.toolboxes.packs.map((p) => `${p.id}(${p.auth})`).join('; ')}`,
+    );
+  }
+  if (report.whereIsAuth) {
+    const wia = report.whereIsAuth;
+    lines.push(
+      `Where-is-auth (${wia.ok ? 'ok' : 'BLOCKED'} | host=${wia.host?.role || 'unknown'}): toolbox=${wia.classified?.toolboxId} auth=${wia.classified?.auth} status=${wia.access?.status}`,
+    );
+    if (wia.hostGuidance) lines.push(`  ${wia.hostGuidance}`);
+  }
+  if (report.workerToolbox?.prompt) {
+    lines.push('Worker toolbox prompt (entrypoints only):');
+    for (const line of report.workerToolbox.prompt.split('\n').slice(0, 12)) {
+      lines.push(`  ${line}`);
+    }
+  }
   if (report.modelRiskGate && report.modelRiskGate.length > 0) {
     const blocked = report.modelRiskGate.filter((r) => !r.routeAllowed);
     if (blocked.length > 0) {
@@ -1211,7 +1686,10 @@ function main() {
   node tools/agent-swarm-harness.js session-contract [--role planner|worker] [--json]
   node tools/agent-swarm-harness.js effort-policy [--json]
   node tools/agent-swarm-harness.js state-layers [--json]
-  node tools/agent-swarm-harness.js where-is-state [--json] [--plan path]`);
+  node tools/agent-swarm-harness.js where-is-state [--json] [--plan path]
+  node tools/agent-swarm-harness.js toolboxes [--json]
+  node tools/agent-swarm-harness.js where-is-auth [--json] [--task "..."]
+  node tools/agent-swarm-harness.js worker-toolbox [--json] [--task "..."]`);
     process.exit(0);
   }
 
@@ -1330,6 +1808,72 @@ function main() {
     process.exit(check.ok ? 0 : 2);
   }
 
+  if (args.command === 'toolboxes') {
+    const policy = toolboxPolicy();
+    if (args.json) {
+      console.log(JSON.stringify(policy, null, 2));
+    } else {
+      console.log('=== Hermes toolbox policy (auth on pack, not agent) ===');
+      console.log(policy.principle);
+      console.log(`Source: ${policy.source.url}`);
+      console.log('');
+      for (const pack of policy.packs) {
+        console.log(
+          `  ${pack.id.padEnd(16)} auth=${pack.auth} hosts=${pack.hosts.join(',')}`,
+        );
+        console.log(`                 Pro:  ${pack.macPro}`);
+        console.log(`                 mini: ${pack.macMini}`);
+        if (pack.gates.length) console.log(`                 gates: ${pack.gates.join(', ')}`);
+      }
+      console.log('');
+      console.log(`Fleet rule: ${policy.fleetRule}`);
+      console.log('Anti-patterns:');
+      for (const ap of policy.antiPatterns) {
+        console.log(`  - ${ap}`);
+      }
+    }
+    process.exit(0);
+  }
+
+  if (args.command === 'where-is-auth') {
+    const check = whereIsAuthCheck({ taskText: args.task });
+    if (args.json) {
+      console.log(JSON.stringify(check, null, 2));
+    } else {
+      console.log('=== Where is auth? (toolbox identity gate) ===');
+      console.log(check.principle);
+      console.log(`host: ${check.host.role} (${check.host.hostname})`);
+      console.log(
+        `toolbox: ${check.classified.toolboxId} auth=${check.classified.auth} overall=${check.ok ? 'ok' : 'BLOCKED'}`,
+      );
+      console.log('');
+      for (const q of check.questions) {
+        console.log(`[${q.ok ? 'ok' : 'FAIL'}] ${q.id} — ${q.question}`);
+        console.log(`  prefer: ${q.prefer}`);
+        console.log(`  never:  ${q.never}`);
+        console.log(`  evidence: ${q.evidence}`);
+      }
+      console.log('');
+      console.log(check.hostGuidance);
+      console.log('Actions:');
+      for (const a of check.actions) {
+        console.log(`  → ${a}`);
+      }
+    }
+    process.exit(check.ok ? 0 : 2);
+  }
+
+  if (args.command === 'worker-toolbox') {
+    const bundle = workerToolboxPrompt(args.task, { role: args.role || 'worker' });
+    if (args.json) {
+      console.log(JSON.stringify(bundle, null, 2));
+    } else {
+      console.log('=== Worker toolbox prompt (entrypoints only) ===');
+      console.log(bundle.prompt);
+    }
+    process.exit(bundle.ok ? 0 : 2);
+  }
+
   if (args.command === 'field-guide') {
     const guide = loadFieldGuide();
     if (!guide.ok) {
@@ -1416,6 +1960,7 @@ module.exports = {
   LOOP_STATE_LATEST,
   CONTINUOUS_E2E_LATEST,
   STATE_LAYER_SOURCE,
+  TOOLBOX_SOURCE,
   normalizeClaim,
   claimsOverlap,
   findFileContention,
@@ -1436,6 +1981,11 @@ module.exports = {
   classifyTaskStateDesign,
   detectFleetHostRole,
   whereIsStateCheck,
+  toolboxPolicy,
+  classifyTaskToolbox,
+  resolveToolboxAccess,
+  workerToolboxPrompt,
+  whereIsAuthCheck,
   parseArgs,
   emitTrace,
   checkModelRiskGate,
