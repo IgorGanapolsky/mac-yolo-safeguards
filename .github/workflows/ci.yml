@@ -32,8 +32,27 @@ jobs:
   # / brew / /Applications / pmset / diskutil returns zero hits.
   #
   # The name is kept so branch protection keeps matching it.
+  # Only this script genuinely needs a Mac: it drives launchctl and
+  # /Applications/Google Chrome.app. Kept on the self-hosted pool but scoped to
+  # seconds instead of holding a runner for the whole guard kit.
+  native-guard-e2e:
+    name: Native guard E2E (macOS)
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'macos-latest' || fromJSON('["self-hosted", "macos-arm64", "hermes-e2e"]') }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - name: Secondary browser reclaim (macOS-only)
+        run: |
+          set -eu
+          tests/test-secondary-browser-reclaim.sh
+
   macos-guard:
     name: macOS guard kit
+    # needs: keeps the native suite gating through this required check, so no
+    # branch-protection change is needed to preserve today's coverage.
+    needs: [native-guard-e2e]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -166,8 +185,9 @@ jobs:
       - name: Guard E2E
         run: |
           set -eu
+          # Hermetic: builds its own fake adb stub, no device or macOS needed.
+          # test-secondary-browser-reclaim.sh runs in native-guard-e2e above.
           tests/test-adb-reverse-device-filter.sh
-          tests/test-secondary-browser-reclaim.sh
 
       # poolside-yolo asserts it runs fully autonomous. It shipped a --mode value
       # pool does not recognise, so pool silently reverted to approval prompts and
