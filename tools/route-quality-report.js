@@ -252,7 +252,11 @@ if (require.main === module) {
     }
     console.log('');
   }
-  if (argv.includes('--gate') && res.degraded.length) process.exit(1);
+  // A DEAD route must fail the gate too. Gating only on `degraded` meant a fleet
+  // whose routes had all stopped answering entirely would exit 0 — the exact
+  // absence-is-not-evidence trap this tool exists to close. Observed 2026-07-28:
+  // the Mac Pro had three dead routes and the gate reported OK.
+  if (argv.includes('--gate') && (res.degraded.length || res.dead.length)) process.exit(1);
 }
 
 module.exports = { summarizeRouteQuality, runReport };
