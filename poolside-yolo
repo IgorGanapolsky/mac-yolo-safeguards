@@ -59,6 +59,15 @@ YOLO_MODE="${POOLSIDE_YOLO_MODE:-always-allow}"
 # Modes shipped by pool v1.0.14 (docs.poolside.ai/cli/interactive-mode + live probe).
 KNOWN_MODES="default accept-edits plan always-allow"
 
+# Malloc debug env inherited from a debugging terminal (MallocStackLogging etc.)
+# makes EVERY spawned pool child print "MallocStackLogging: can't turn off malloc
+# stack logging because it was not enabled" to stderr — hundreds of spawns during a
+# swarm session garbled the TUI beyond use (2026-07-28 screenshot incident; verified
+# pool itself sets none of these). pool never needs malloc debugging; strip them so
+# no terminal's leftover debug cruft can poison a session.
+unset MallocStackLogging MallocStackLoggingNoCompact MallocScribble \
+      MallocPreScribble MallocGuardEdges MallocCheckHeapStart MallocErrorAbort 2>/dev/null || true
+
 # Zero-spend local route. The fleet marker's own policy string is
 # "no-paid-provider-or-metered-token-execution" — local Ollama is neither paid nor
 # metered, and the T-320 gate that writes the marker already pins the fleet to local

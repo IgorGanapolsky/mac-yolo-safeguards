@@ -19,7 +19,7 @@ cat >"$STUB" <<EOF
 #!/bin/sh
 if [ "\$1" = "--version" ]; then echo "1.0.14"; exit 0; fi
 printf '%s\n' "\$@" > "$ARGS_OUT"
-printf 'BASE=%s\nMODEL=%s\nKEY=%s\n' "\$POOLSIDE_STANDALONE_BASE_URL" "\$POOLSIDE_STANDALONE_MODEL" "\$POOLSIDE_API_KEY" > "$ENV_OUT"
+printf 'BASE=%s\nMODEL=%s\nKEY=%s\nMALLOC=%s\n' "\$POOLSIDE_STANDALONE_BASE_URL" "\$POOLSIDE_STANDALONE_MODEL" "\$POOLSIDE_API_KEY" "\${MallocStackLogging-unset}" > "$ENV_OUT"
 echo STUB-RAN
 EOF
 chmod +x "$STUB"
@@ -136,6 +136,14 @@ set +e; POOLSIDE_YOLO_LOCAL_URL="http://127.0.0.1:$PORT2/v1" POOLSIDE_YOLO_PROBE
   && ok "listed-but-unresponsive local model blocks (73, no spawn)" || no "listed-but-unresponsive local model blocks (got $code)"
 kill $WEDGE_PID 2>/dev/null || true
 rm -f "$ROOT/NO_PAID_SPEND"
+
+# 2f. malloc debug env from a debugging terminal must be STRIPPED before pool runs —
+#     otherwise every spawned child prints "can't turn off malloc stack logging" and
+#     a swarm session's hundreds of spawns garble the TUI (2026-07-28 incident)
+rm -f "$ENV_OUT"
+MallocStackLogging=0 "$WRAPPER" "hi" >/dev/null 2>&1 || true
+grep -qx "MALLOC=unset" "$ENV_OUT" 2>/dev/null \
+  && ok "malloc debug env stripped before pool spawn" || no "malloc debug env stripped ($(grep MALLOC "$ENV_OUT" 2>/dev/null))"
 
 # 3. bare task string routed through `exec -p ... --unsafe-auto-allow -o json`
 rm -f "$ARGS_OUT" "$ENV_OUT"
