@@ -398,13 +398,15 @@ function compareRoutes(routeA, routeB, { since } = {}) {
   if (aStats && bStats && aStats.calls >= 3 && bStats.calls >= 3) {
     const winRateA = aStats.successRate;
     const winRateB = bStats.successRate;
+    const avgCostA = aStats.calls > 0 ? aStats.totalCostUsd / aStats.calls : 0;
+    const avgCostB = bStats.calls > 0 ? bStats.totalCostUsd / bStats.calls : 0;
     if (winRateB > winRateA + 5 && bStats.avgLatencyMs <= aStats.avgLatencyMs * 1.5) {
       recommendation = 'prefer_route_b';
     } else if (winRateA > winRateB + 5 && aStats.avgLatencyMs <= bStats.avgLatencyMs * 1.5) {
       recommendation = 'prefer_route_a';
-    } else if (winRateB > winRateA && bStats.totalCostUsd < aStats.totalCostUsd * 0.8) {
+    } else if (winRateB >= winRateA && avgCostB < avgCostA * 0.8) {
       recommendation = 'consider_route_b_cost_savings';
-    } else if (winRateA > winRateB && aStats.totalCostUsd < bStats.totalCostUsd * 0.8) {
+    } else if (winRateA >= winRateB && avgCostA < avgCostB * 0.8) {
       recommendation = 'consider_route_a_cost_savings';
     } else {
       recommendation = 'comparable';
