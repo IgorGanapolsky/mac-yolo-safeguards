@@ -116,7 +116,7 @@ function validateOwnership({ planText, files, owner, requireOwner }) {
       violations.push(`${file}: PLAN_AGENT_ID (or --owner) is required`);
       continue;
     }
-    if (requireOwner && !matches.some((lock) => lock.owner === owner)) {
+    if (requireOwner && !matches.some((lock) => lock.owner.split(/,\s*/).includes(owner))) {
       violations.push(`${file}: claimed by ${matches.map((lock) => lock.owner).join(', ')}, not ${owner}`);
     }
   }
