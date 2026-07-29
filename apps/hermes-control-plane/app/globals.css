@@ -431,58 +431,72 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   }
   .conversation-message{max-width:94%}
   .task-list{max-height:none}
-  /* Fixed dock inside task-panel (above bottom tabs). Height is measured → --composer-dock-space */
+  /* Flex task-panel on mobile: scroll pane takes top flex area, composer sits in normal flex flow below it */
   .dashboard-shell[data-mobile-tab="hermes"] .task-panel{
     position:relative;
+    display:flex !important;
+    flex-direction:column !important;
+    flex:1 1 0 !important;
+    min-height:0 !important;
+    max-height:100% !important;
+    overflow:hidden !important;
+  }
+  .dashboard-shell[data-mobile-tab="hermes"] .hermes-scroll-pane{
+    flex:1 1 0 !important;
+    min-height:0 !important;
+    overflow-y:auto !important;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+    padding-bottom:16px !important;
   }
   .dashboard-shell[data-mobile-tab="hermes"] .task-panel .composer,
   .task-panel .composer{
-    position:absolute !important;
+    position:relative !important;
     z-index:25;
-    left:0 !important;
-    right:0 !important;
-    bottom:0 !important;
-    flex:0 0 auto;
+    flex:0 0 auto !important;
     margin:0;
-    /* safe-area lives on the tab bar, not double-padded here */
-    padding:10px 12px 12px;
+    padding:8px 12px 10px;
     background:#0B0F19;
     border-top:1px solid var(--line);
-    box-shadow:0 -12px 32px rgba(0,0,0,.45);
+    box-shadow:0 -8px 24px rgba(0,0,0,.4);
   }
   .composer textarea{
-    min-height:64px;
-    max-height:120px;
-    border-radius:16px;
-    padding:12px 14px;
-    font-size:16px; /* iOS: avoid focus zoom */
+    min-height:48px;
+    max-height:84px;
+    border-radius:12px;
+    padding:10px 12px;
+    font-size:15px; /* iOS: avoid focus zoom */
+    line-height:1.35;
   }
-  .composer-where{margin:8px 0 0;gap:8px}
-  .composer-where-label{font-size:11px;letter-spacing:.05em;color:#38BDF8;font-weight:700}
+  .composer-where{margin:6px 0 0;gap:6px}
+  .composer-where-label{font-size:10px;letter-spacing:.05em;color:#38BDF8;font-weight:700;margin-bottom:2px}
   .composer-route{
     display:grid;
     grid-template-columns:1fr 1fr 1fr;
     gap:0;
     margin:0;
     border:1px solid rgba(56,189,248,.35);
-    border-radius:12px;
+    border-radius:10px;
     overflow:hidden;
     background:#0F172A;
   }
   .composer-route label{
     display:grid;
     place-items:center;
-    min-height:42px;
+    min-height:36px;
     margin:0;
-    padding:0 2px;
+    padding:0 4px;
     border:0;
     border-right:1px solid rgba(56,189,248,.2);
     border-radius:0;
-    font-size:13px;
-    font-weight:650;
+    font-size:12px;
+    font-weight:600;
     text-align:center;
     color:#CBD5E1;
     background:transparent;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
   .composer-route label:last-of-type{border-right:0}
   .composer-route label.is-selected{
@@ -497,29 +511,48 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     width:1px;height:1px;
     pointer-events:none;
   }
-  .route-label-full{display:none}
-  .route-label-short{display:inline}
-  /* Hide route blurb on phone — it steals the textarea (cascade-safe !important) */
-  .composer-route-explain{
+  /* On mobile, always use short labels so Local/Cloud/Auto never overflow */
+  .route-label-full{display:none !important}
+  .route-label-short{display:inline !important}
+  /* Hide verbose route blurb & helper hints on mobile to save vertical space */
+  .composer-route-explain,
+  .composer-device-hint{
     display:none !important;
   }
-  .composer-where-label{
-    font-size:10px;
-    letter-spacing:.06em;
+  .composer-device-picker{
+    display:flex;
+    flex-direction:row;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    margin-top:4px;
   }
-  .composer-device-picker{flex-direction:column;align-items:stretch;gap:6px}
-  .composer-device-picker select{min-height:44px;width:100%}
+  .composer-device-picker .composer-where-label{
+    flex:0 0 auto;
+    white-space:nowrap;
+  }
+  .composer-device-picker select{
+    min-height:36px;
+    height:36px;
+    flex:1 1 auto;
+    border-radius:8px;
+    padding:4px 8px;
+    font-size:12px;
+    background:#0F172A;
+    color:#E2E8F0;
+    border:1px solid rgba(56,189,248,.3);
+  }
   .composer-actions{
     display:grid;
     grid-template-columns:1fr;
-    gap:8px;
-    margin-top:10px;
+    gap:6px;
+    margin-top:8px;
   }
   .composer-run{
     width:100%;
-    min-height:48px;
-    border-radius:14px;
-    font-size:15px;
+    min-height:42px;
+    border-radius:10px;
+    font-size:14px;
     font-weight:700;
   }
   /* Tab bar is shell chrome (flex child), not a floating layer over content */
