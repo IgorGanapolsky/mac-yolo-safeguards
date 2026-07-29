@@ -40,6 +40,8 @@ import { secureCredentials } from '../services/secureCredentials';
 import { requestHermesNotificationPermission } from '../services/approvalNotifications';
 import { deriveNotificationsEnabled } from '../utils/notificationPreferences';
 import { consumeSettingsPairQrOnFocus } from '../utils/storeCaptureDeepLink';
+import CollapsibleSection from '../components/CollapsibleSection';
+import { useSectionExpansion } from '../hooks/useSectionExpansion';
 
 export default function SettingsScreen() {
   const navigation = useNavigation();
@@ -78,7 +80,6 @@ export default function SettingsScreen() {
   const [connectionMode, setConnectionMode] = useState(settings.connectionMode);
   const [pairCode, setPairCode] = useState('');
   const [gatewayUrl, setGatewayUrl] = useState(settings.gatewayUrl);
-  const [usePortal, setUsePortal] = useState(settings.usePortal);
   const [redactPii, setRedactPii] = useState(settings.redactPii);
   const [notificationApprovals, setNotificationApprovals] = useState(settings.notificationApprovals);
   const [notificationLiveRunStatus, setNotificationLiveRunStatus] = useState(
@@ -97,6 +98,9 @@ export default function SettingsScreen() {
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [qrScannerVisible, setQrScannerVisible] = useState(false);
   const [glassesConnected, setGlassesConnected] = useState(false);
+  // Settings is hundreds of rows tall once a real Mac reports its catalogs.
+  // Every card collapses, and the choice survives app restarts.
+  const { isExpanded, toggleSection } = useSectionExpansion();
 
   const leaveSettings = useCallback(() => {
     Keyboard.dismiss();
@@ -229,7 +233,6 @@ export default function SettingsScreen() {
     setCloudUrl(settings.cloudUrl);
     setConnectionMode(settings.connectionMode);
     setGatewayUrl(settings.gatewayUrl);
-    setUsePortal(settings.usePortal);
     setRedactPii(settings.redactPii);
     setNotificationApprovals(settings.notificationApprovals);
     setNotificationLiveRunStatus(settings.notificationLiveRunStatus);
@@ -317,7 +320,6 @@ export default function SettingsScreen() {
           connectionMode,
           cloudUrl,
           gatewayUrl,
-          usePortal,
           redactPii,
           notificationsEnabled,
           notificationApprovals,
@@ -368,7 +370,6 @@ export default function SettingsScreen() {
           connectionMode: 'relay',
           cloudUrl,
           gatewayUrl,
-          usePortal,
           redactPii,
           notificationsEnabled: deriveNotificationsEnabled({
             notificationApprovals,
@@ -477,27 +478,35 @@ export default function SettingsScreen() {
 
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
 
-        <Text style={styles.sectionTitle}>📊 Privacy</Text>
-        <GlassCard>
-          <View style={styles.switchRow}>
-            <View style={styles.switchLabelCol}>
-              <Text style={styles.label}>Product analytics</Text>
-              <Text style={styles.description}>
-                Anonymous usage events (screen views, computer scan results) via PostHog. No chat content.
-              </Text>
+        <CollapsibleSection
+          title="📊 Privacy"
+          expanded={isExpanded('privacy')}
+          onToggle={() => toggleSection('privacy')}
+          testID="settings-section-privacy"
+          titleStyle={styles.sectionTitle}
+        >
+          <GlassCard>
+            <View style={styles.switchRow}>
+              <View style={styles.switchLabelCol}>
+                <Text style={styles.label}>Product analytics</Text>
+                <Text style={styles.description}>
+                  Anonymous usage events (screen views, computer scan results) via PostHog. No chat content.
+                </Text>
+              </View>
+              <Switch
+                value={!analyticsOptOut}
+                onValueChange={(enabled) => {
+                  setAnalyticsOptOut(!enabled);
+                  setProductAnalyticsOptOut(!enabled);
+                }}
+                testID="analytics-opt-in-switch"
+              />
             </View>
-            <Switch
-              value={!analyticsOptOut}
-              onValueChange={(enabled) => {
-                setAnalyticsOptOut(!enabled);
-                setProductAnalyticsOptOut(!enabled);
-              }}
-              testID="analytics-opt-in-switch"
-            />
-          </View>
-        </GlassCard>
+          </GlassCard>
+        </CollapsibleSection>
 
-        <Text style={styles.sectionTitle}>Hermes Machines</Text>
+        {/* Connection warnings stay outside the collapsible body — a hidden
+            "you are on cellular and cannot reach your Mac" banner is a trap. */}
         {cellularBlocksDirect ? (
           <GlassCard style={styles.tunnelWizardCard} testID="settings-cellular-tunnel-banner">
             <Text style={styles.tunnelWizardTitle} testID="settings-tunnel-wizard-title">
@@ -529,21 +538,19 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </GlassCard>
         ) : null}
-        {usbHostMismatch ? (
-          <GlassCard style={styles.usbMismatchCard} testID="settings-usb-host-mismatch">
-            <Text style={styles.tunnelWizardTitle}>Wrong computer on USB</Text>
-            <Text style={styles.description}>
-              USB is connected to {usbHostMismatch.usbHostLabel}, but you selected{' '}
-              {usbHostMismatch.selectedProfileLabel}. Tap the matching computer below.
-            </Text>
-          </GlassCard>
-        ) : null}
         <TailscaleDiscoveryBanner
           discoveries={tailscaleDiscoveries}
           onAdd={(discovery) => {
             void addDiscoveredTailscaleComputer(discovery);
           }}
         />
+        <CollapsibleSection
+          title="Hermes Machines"
+          expanded={isExpanded('machines')}
+          onToggle={() => toggleSection('machines')}
+          testID="settings-section-machines"
+          titleStyle={styles.sectionTitle}
+        >
         <GlassCard>
           <Text style={styles.label}>Your active machines</Text>
           <Text style={styles.description}>
@@ -584,15 +591,8 @@ export default function SettingsScreen() {
             testID="auto-connect-gateway"
           >
             <Text style={styles.primaryButtonText}>
-              {isAutoConnecting ? 'Connecting…' : 'Find computer on USB or Wi‑Fi'}
+              {isAutoConnecting ? 'Connecting…' : 'Reconnect to my computer'}
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.pairButton}
-            onPress={() => setQrScannerVisible(true)}
-            testID="scan-pairing-qr"
-          >
-            <Text style={styles.pairButtonText}>Scan local QR from computer</Text>
           </TouchableOpacity>
           {effectiveGatewayUrl ? (
             <Text style={styles.metaLine}>
@@ -634,19 +634,32 @@ export default function SettingsScreen() {
             Stored in the device keychain. Required for direct Chat tab session APIs.
           </Text>
         </GlassCard>
+        </CollapsibleSection>
 
-        <View testID="GATEWAY_OPS" accessible={true}>
-          <Text style={styles.sectionTitle}>Computer gateway ops</Text>
+        <View testID="GATEWAY_OPS">
+          <CollapsibleSection
+            title="Computer gateway ops"
+            hint="Toolsets, cron jobs, and skills from your computer (Tailscale or home Wi‑Fi). Each catalog names the machine it came from."
+            expanded={isExpanded('gateway-ops')}
+            onToggle={() => toggleSection('gateway-ops')}
+            testID="settings-section-gateway-ops"
+            titleStyle={styles.sectionTitle}
+            hintStyle={styles.description}
+          >
+            <GatewayOpsSection />
+          </CollapsibleSection>
         </View>
-        <Text style={styles.description}>
-          Toolsets, cron jobs, and skills from your computer (Tailscale, home Wi‑Fi, or USB).
-        </Text>
-        <GatewayOpsSection />
 
-        <Text style={styles.sectionTitle}>Computer connection</Text>
+        <CollapsibleSection
+          title="Computer connection"
+          expanded={isExpanded('computer-connection')}
+          onToggle={() => toggleSection('computer-connection')}
+          testID="settings-section-computer-connection"
+          titleStyle={styles.sectionTitle}
+        >
         <GlassCard>
           <Text style={styles.description}>
-            Use Tailscale away from home, or USB/home Wi‑Fi nearby, for Chat, tools, and ops.
+            Use Tailscale away from home, or home Wi‑Fi nearby, for Chat, tools, and ops.
           </Text>
           <View style={styles.relayRouteCard} testID="relay-route-card">
             <Text style={styles.relayRouteEyebrow}>Cloud approvals (optional)</Text>
@@ -781,8 +794,15 @@ export default function SettingsScreen() {
             without a key on LAN.
           </Text>
         </GlassCard>
+        </CollapsibleSection>
 
-        <Text style={styles.sectionTitle}>Notification preferences</Text>
+        <CollapsibleSection
+          title="Notification preferences"
+          expanded={isExpanded('notifications')}
+          onToggle={() => toggleSection('notifications')}
+          testID="settings-section-notifications"
+          titleStyle={styles.sectionTitle}
+        >
         <GlassCard>
           <Text style={styles.switchDesc}>
             Heads-up banners are reserved for approvals only. Live run and completion stay in the
@@ -849,9 +869,16 @@ export default function SettingsScreen() {
             />
           </View>
         </GlassCard>
+        </CollapsibleSection>
 
         {/* Safeguard Options */}
-        <Text style={styles.sectionTitle}>🛡 Safeguard Rules</Text>
+        <CollapsibleSection
+          title="🛡 Safeguard Rules"
+          expanded={isExpanded('safeguards')}
+          onToggle={() => toggleSection('safeguards')}
+          testID="settings-section-safeguards"
+          titleStyle={styles.sectionTitle}
+        >
         <GlassCard>
           <Text style={styles.switchLabel}>Approval policy</Text>
           <Text style={styles.switchDesc}>
@@ -887,25 +914,10 @@ export default function SettingsScreen() {
 
           <View style={styles.switchRow}>
             <View style={styles.switchLabelCol}>
-              <Text style={styles.switchLabel}>Use Portal Tunnel</Text>
-              <Text style={styles.switchDesc}>Route actions through Gateway Portal</Text>
-            </View>
-            <Switch
-              value={usePortal}
-              onValueChange={(val) => {
-                setUsePortal(val);
-              }}
-              trackColor={{ false: '#1F2937', true: colors.primary }}
-              thumbColor={usePortal ? '#ffffff' : '#9CA3AF'}
-            />
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.switchRow}>
-            <View style={styles.switchLabelCol}>
               <Text style={styles.switchLabel}>Redact PII & Secrets</Text>
-              <Text style={styles.switchDesc}>Mask API keys and credentials in diffs</Text>
+              <Text style={styles.switchDesc}>
+                Mask API keys, tokens, and emails in approval diff previews
+              </Text>
             </View>
             <Switch
               value={redactPii}
@@ -937,10 +949,16 @@ export default function SettingsScreen() {
             />
           </View>
         </GlassCard>
+        </CollapsibleSection>
 
         {Platform.OS === 'android' ? (
-          <>
-            <Text style={styles.sectionTitle}>🕶️ AI glasses</Text>
+          <CollapsibleSection
+            title="🕶️ AI glasses"
+            expanded={isExpanded('ai-glasses')}
+            onToggle={() => toggleSection('ai-glasses')}
+            testID="settings-section-ai-glasses"
+            titleStyle={styles.sectionTitle}
+          >
             <GlassCard>
               <Text style={styles.description}>
                 Launch the native projected ThumbGate Leash activity on paired AI glasses. Currently supports
@@ -971,12 +989,17 @@ export default function SettingsScreen() {
                 </Text>
               </TouchableOpacity>
             </GlassCard>
-          </>
+          </CollapsibleSection>
         ) : null}
 
         {isDemoModeAllowed() ? (
-          <>
-            <Text style={styles.sectionTitle}>🧪 Developer Tools</Text>
+          <CollapsibleSection
+            title="🧪 Developer Tools"
+            expanded={isExpanded('developer')}
+            onToggle={() => toggleSection('developer')}
+            testID="settings-section-developer"
+            titleStyle={styles.sectionTitle}
+          >
             <GlassCard>
               <View style={styles.switchRow}>
                 <View style={styles.switchLabelCol}>
@@ -1004,7 +1027,7 @@ export default function SettingsScreen() {
                 </TouchableOpacity>
               ) : null}
             </GlassCard>
-          </>
+          </CollapsibleSection>
         ) : null}
 
         {/* Save Button */}

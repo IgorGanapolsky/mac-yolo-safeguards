@@ -19,11 +19,25 @@ const TODO_LINE_MAX = 120;
 const PICK_UP_PHRASE_RE =
   /\b(?:pick\s+up\s+where\s+(?:you|we|i)\s+left\s+off|continue\s+from\s+(?:the\s+)?(?:last|previous)\s+session|resume\s+(?:from\s+)?(?:handoff|last\s+session)|where\s+we\s+left\s+off)\b/i;
 
+/**
+ * Credential shapes masked everywhere redactSecrets() runs (vault handoff + diff previews).
+ * Order matters: multi-line key blocks first, generic base64 catch-all last.
+ */
 const SECRET_PATTERNS: RegExp[] = [
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
   /\bsk-[a-zA-Z0-9_-]{12,}\b/g,
+  // Stripe (sk_live_/rk_test_…), GitHub (ghp_/gho_…), AWS, Google, Slack.
+  /\b(?:sk|rk|pk|ak|whsec)_(?:live|test)_[A-Za-z0-9]{8,}\b/g,
+  /\bgh[pousr]_[A-Za-z0-9]{16,}\b/g,
+  /\bAKIA[0-9A-Z]{16}\b/g,
+  /\bAIza[0-9A-Za-z_-]{20,}\b/g,
+  /\bxox[abprs]-[A-Za-z0-9-]{10,}\b/g,
+  // JSON Web Tokens (header.payload.signature).
+  /\beyJ[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{4,}\b/g,
   /\bAPI[_-]?KEY\s*[:=]\s*\S+/gi,
+  /\bAuthorization\s*[:=]\s*\S+/gi,
   /\bBearer\s+[A-Za-z0-9._-]{12,}/gi,
-  /\b(?:password|passwd|secret|token)\s*[:=]\s*\S+/gi,
+  /\b(?:password|passwd|secret|token|access[_-]?token|refresh[_-]?token|client[_-]?secret|private[_-]?key)\s*[:=]\s*\S+/gi,
   /hermes:\/\/setup\?[^\s)]+/gi,
   /\b[A-Za-z0-9+/]{40,}={0,2}\b/g,
 ];

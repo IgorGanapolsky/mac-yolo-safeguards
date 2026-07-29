@@ -10,6 +10,11 @@ type ChatApprovalBarProps = {
   busy?: boolean;
   undoSecondsLeft?: number;
   approvalPolicy?: 'strict' | 'balanced' | 'autonomous';
+  /**
+   * Settings → "Redact PII & Secrets". Defaults to masked (fail closed) so the chat
+   * surface never shows a raw credential when the host screen omits the prop.
+   */
+  redactPii?: boolean;
   onChoice: (choice: ApprovalChoice, approval: HermesApprovalRequest) => void;
   onEdit?: (approval: HermesApprovalRequest) => void;
   onUndo?: () => void;
@@ -22,6 +27,7 @@ export default function ChatApprovalBar({
   busy = false,
   undoSecondsLeft = 0,
   approvalPolicy = 'balanced',
+  redactPii = true,
   onChoice,
   onEdit,
   onUndo,
@@ -60,6 +66,7 @@ export default function ChatApprovalBar({
           variant="chat"
           busy={busy}
           approvalPolicy={approvalPolicy}
+          redactPii={redactPii}
           onChoice={(choice) => onChoice(choice, item)}
           onEdit={onEdit ? () => onEdit(item) : undefined}
         />

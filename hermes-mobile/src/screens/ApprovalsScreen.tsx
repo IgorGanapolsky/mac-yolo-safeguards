@@ -331,6 +331,7 @@ export default function ApprovalsScreen() {
               approvalPolicy={settings.approvalPolicy}
               thumbgateCaptureOnDown={settings.thumbgateCaptureOnDown}
               thumbgateCaptureOnUp={settings.thumbgateCaptureOnUp}
+              redactPii={settings.redactPii}
               onApprove={() => {
                 recordScreenDecision(stackApproval, 'approved');
                 resolveApproval(stackApproval.actionId, 'approve', stackApproval);
@@ -361,6 +362,7 @@ export default function ApprovalsScreen() {
                 approvalPolicy={settings.approvalPolicy}
                 thumbgateCaptureOnDown={settings.thumbgateCaptureOnDown}
                 thumbgateCaptureOnUp={settings.thumbgateCaptureOnUp}
+                redactPii={settings.redactPii}
                 onApprove={() => {
                   recordScreenDecision(approval, 'approved');
                   resolveApproval(approval.actionId, 'approve', approval);
