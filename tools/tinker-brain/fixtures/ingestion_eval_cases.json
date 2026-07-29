@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "description": "Deterministic tinker-brain ingestion and hybrid retrieval release fixture.",
+  "k_values": [1, 5],
+  "thresholds": {
+    "min_queries": 8,
+    "min_recall_at_5": 0.9,
+    "min_mrr": 0.8,
+    "min_ndcg_at_5": 0.8,
+    "min_per_query_recall_at_5": 1.0,
+    "min_per_query_mrr": 0.5,
+    "min_per_query_ndcg_at_5": 0.6
+  },
+  "documents": [
+    {
+      "source_uri": "fixture://gtm",
+      "title": "ThumbGate go-to-market",
+      "mime_type": "text/markdown",
+      "content": "# Acquisition\nPromote ThumbGate with one buyer persona, one cited pain, and one campaign beat fanned out to LinkedIn, Bluesky, dev.to, Medium, Hacker News, and YouTube.\n\n# Channel policy\nReddit and Skool are watch-only acquisition channels unless an explicit promotion override exists.",
+      "metadata": {
+        "domain": "thumbgate-gtm",
+        "tags": ["marketing", "acquisition", "reddit", "skool"]
+      }
+    },
+    {
+      "source_uri": "fixture://cash",
+      "title": "External revenue truth",
+      "mime_type": "text/markdown",
+      "content": "# Cash truth\nExternal revenue is zero unless a non-owner paid Stripe receipt is verifiable. Never invent cash from owner accounts, test payments, trials, or funnel events.\n\n# Diagnosis\nIf revenue is zero, separate unverified billing access from a Stripe-empty reconciliation.",
+      "metadata": {
+        "domain": "revenue",
+        "tags": ["stripe", "cash", "revenue"]
+      }
+    },
+    {
+      "source_uri": "fixture://ingestion",
+      "title": "Document ingestion quality",
+      "mime_type": "text/markdown",
+      "content": "# Parsing and OCR\nParse supported MIME types explicitly. Use native PDF extraction first and local OCR only when scanned pages contain insufficient text.\n\n# Data quality\nNormalize Unicode NFC and canonical JSON, sanitize HTML, preserve raw evidence, deduplicate exact content hashes, and retain source aliases.\n\n# Chunks\nUse stable heading and content hash chunk IDs with parent document context.",
+      "metadata": {
+        "domain": "rag-ingestion",
+        "tags": ["parser", "ocr", "dedup", "normalization", "chunking"]
+      }
+    },
+    {
+      "source_uri": "fixture://retrieval",
+      "title": "Hybrid retrieval",
+      "mime_type": "text/markdown",
+      "content": "# Retrieval\nFuse BM25 lexical ranking with local vector similarity using reciprocal rank fusion. Rerank the bounded candidate pool, keep deterministic query expansion, and return parent context.\n\n# Embeddings\nBind every cached vector to the local embedding model version and rebuild when the model changes.",
+      "metadata": {
+        "domain": "rag-retrieval",
+        "tags": ["bm25", "vector", "reranking", "embeddings"]
+      }
+    },
+    {
+      "source_uri": "fixture://reindex",
+      "title": "Atomic index generations",
+      "mime_type": "text/markdown",
+      "content": "# Reindex\nBuild a new versioned index generation in shadow, validate it, then atomically switch the active generation pointer.\n\n# Rollback\nA partial or failed rebuild must leave the previous generation queryable. Keep ready generations for explicit rollback.",
+      "metadata": {
+        "domain": "rag-operations",
+        "tags": ["reindex", "rollback", "generation"]
+      }
+    },
+    {
+      "source_uri": "fixture://security",
+      "title": "Protected Git history",
+      "mime_type": "text/markdown",
+      "content": "# Git safety\nNever force push or overwrite remote main history without explicit authorization, a verified backup, and branch-protection evidence.",
+      "metadata": {
+        "domain": "git-safety",
+        "tags": ["git", "force-push", "approval"]
+      }
+    },
+    {
+      "source_uri": "fixture://mobile",
+      "title": "Hermes Mobile real-user proof",
+      "mime_type": "text/markdown",
+      "content": "# Mobile readiness\nHermes Mobile is for real paid users. Verify a fresh release install without USB assumptions, saved profiles, development backdoors, or simulator-only evidence.",
+      "metadata": {
+        "domain": "hermes-mobile",
+        "tags": ["mobile", "fresh-user", "release"]
+      }
+    },
+    {
+      "source_uri": "fixture://pricing",
+      "title": "Pricing claims",
+      "mime_type": "text/markdown",
+      "content": "# Pricing source of truth\nThe live billing plan endpoint outranks campaign prose. Do not hard-code a dollar amount into promotion copy when the provider price can change.",
+      "metadata": {
+        "domain": "pricing",
+        "tags": ["billing", "price", "claims"]
+      }
+    },
+    {
+      "source_uri": "fixture://noise",
+      "title": "Unrelated interface notes",
+      "mime_type": "text/markdown",
+      "content": "# Interface\nUse balanced spacing, accessible colors, responsive cards, and a concise empty state for the settings screen.",
+      "metadata": {
+        "domain": "ui",
+        "tags": ["design", "settings"]
+      }
+    }
+  ],
+  "queries": [
+    {
+      "id": "gtm-exact",
+      "slice": "exact",
+      "query": "How should we promote ThumbGate on Reddit and Skool?",
+      "qrels": {
+        "fixture://gtm": 2
+      }
+    },
+    {
+      "id": "cash-paraphrase",
+      "slice": "paraphrase",
+      "query": "Why are we not making money and what proves real sales?",
+      "qrels": {
+        "fixture://cash": 2,
+        "fixture://gtm": 1
+      }
+    },
+    {
+      "id": "ingestion-scanned",
+      "slice": "ingestion",
+      "query": "How do we import scanned PDFs, normalize Unicode, and avoid duplicate documents?",
+      "qrels": {
+        "fixture://ingestion": 2
+      }
+    },
+    {
+      "id": "hybrid-paraphrase",
+      "slice": "paraphrase",
+      "query": "Find the same lesson when the wording changes but preserve exact identifier matches.",
+      "qrels": {
+        "fixture://retrieval": 2
+      }
+    },
+    {
+      "id": "atomic-rebuild",
+      "slice": "operations",
+      "query": "Rebuild the search index without replacing the healthy version if the rebuild crashes.",
+      "qrels": {
+        "fixture://reindex": 2
+      }
+    },
+    {
+      "id": "force-push",
+      "slice": "tool-scoped",
+      "query": "Overwrite remote main with a force push.",
+      "qrels": {
+        "fixture://security": 2
+      }
+    },
+    {
+      "id": "fresh-mobile",
+      "slice": "product",
+      "query": "What proves Hermes Mobile works for a brand new paid user?",
+      "qrels": {
+        "fixture://mobile": 2
+      }
+    },
+    {
+      "id": "pricing-source",
+      "slice": "claims",
+      "query": "Where should campaign copy get the current subscription price?",
+      "qrels": {
+        "fixture://pricing": 2
+      }
+    }
+  ]
+}

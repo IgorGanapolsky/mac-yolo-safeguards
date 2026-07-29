@@ -1,0 +1,47 @@
+name: Tinker-brain ingestion quality
+
+on:
+  pull_request:
+    paths:
+      - "tools/tinker-brain/tinker_brain_ingestion.py"
+      - "tools/tinker-brain/fixtures/ingestion_eval_cases.json"
+      - "tests/test-tinker-brain-ingestion.py"
+      - "docs/TINKER-BRAIN-INGESTION.md"
+      - ".github/workflows/tinker-brain-ingestion.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "tools/tinker-brain/tinker_brain_ingestion.py"
+      - "tools/tinker-brain/fixtures/ingestion_eval_cases.json"
+      - "tests/test-tinker-brain-ingestion.py"
+      - ".github/workflows/tinker-brain-ingestion.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tinker-brain-ingestion-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ingestion-quality:
+    name: Ingestion unit and retrieval eval
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile ingestion engine
+        run: python3 -m py_compile tools/tinker-brain/tinker_brain_ingestion.py
+
+      - name: Verify ingestion and retrieval behavior
+        run: python3 tests/test-tinker-brain-ingestion.py
+
+      - name: Enforce Recall MRR and nDCG floors
+        run: python3 tools/tinker-brain/tinker_brain_ingestion.py eval
