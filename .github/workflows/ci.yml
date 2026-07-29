@@ -178,6 +178,10 @@ jobs:
           # Mutation control: proves the suites above actually go RED against the
           # real historical bugs, instead of passing while measuring nothing.
           bash tests/run-suite.sh tests/test-harness-verifier-integrity.sh 6
+          # ML pipeline: mostly negative controls. Two independent label leaks reached
+          # AUC 0.9999 and 1.0000 during development; these assert the pipeline can
+          # still tell leaking from learning.
+          bash tests/run-suite.sh tests/test-ml-pipeline.sh 9
 
       - name: Public secret smoke scan
         run: |
