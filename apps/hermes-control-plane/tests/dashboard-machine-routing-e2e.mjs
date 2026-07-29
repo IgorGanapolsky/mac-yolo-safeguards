@@ -309,17 +309,17 @@ try {
       ]);
       const page = await context.newPage();
       await page.goto(`${base}/dashboard`, { waitUntil: "networkidle", timeout: 60_000 });
-      // Client hydrates devices from /api/devices
-      await page.waitForSelector('[data-testid="composer-device-select"]', { timeout: 30_000 });
-      const select = page.locator('[data-testid="composer-device-select"]');
-      const label = await page.locator("#composer-device-label, label[for='composer-device-select']").first().textContent();
-      assert.match(label || "", /Which machine\??/i);
+      // Unified "Run on" select (dual Where/Which dock removed). Hydrates from /api/devices.
+      await page.waitForSelector('[data-testid="composer-target-select"]', { timeout: 30_000 });
+      const select = page.locator('[data-testid="composer-target-select"]');
+      const label = await page.locator("#composer-where-label, label[for='composer-target-select']").first().textContent();
+      assert.match(label || "", /Run on/i);
       assert.doesNotMatch(label || "", /Which Mac\?/);
       const options = await select.locator("option").allTextContents();
       assert.ok(options.some((t) => t.includes(DEVICE_LINUX.name)), `missing ${DEVICE_LINUX.name} in ${options}`);
       assert.ok(options.some((t) => t.includes(DEVICE_MINI.name)), `missing ${DEVICE_MINI.name} in ${options}`);
-      // Select mini and run a task through the real form
-      await select.selectOption(DEVICE_MINI.id);
+      // Select mini via local:<id> value and run a task through the real form
+      await select.selectOption(`local:${DEVICE_MINI.id}`);
       await page.fill('textarea[aria-label="Message for Hermes"]', "browser e2e on mini");
       await page.click('button.composer-run, button:has-text("Run task")');
       // Notice or task list should name the machine
@@ -328,11 +328,9 @@ try {
       assert.match(bodyText, /Igors-Mac-mini|browser e2e on mini/);
       assert.doesNotMatch(bodyText, /Which Mac\?/);
       assert.doesNotMatch(bodyText, /\bMy Mac\b/);
-      // Prefer chip not saying bare "My Mac" when a device is selected
-      const routeChip = await page.locator(".composer-route label.is-selected .route-label-full, .composer-route .route-label-full").first().textContent().catch(() => "");
-      if (routeChip) {
-        assert.doesNotMatch(routeChip, /^My Mac$/);
-      }
+      // Contract aliases still present for unit tests (sr-only), not as dual visible chips
+      const hiddenDeviceSelect = page.locator('[data-testid="composer-device-select"]');
+      assert.equal(await hiddenDeviceSelect.count(), 1, "legacy device select kept as sr-only contract");
       return true;
     } finally {
       await browser.close();
