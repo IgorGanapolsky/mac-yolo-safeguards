@@ -1,0 +1,40 @@
+# GitGuardian scan config — mirrors the allowlist already in .gitleaks.toml.
+#
+# These two scanners were out of sync: .gitleaks.toml allowlists `.*/__tests__/.*`,
+# so the local pre-commit hook correctly passes our redaction fixtures. GitGuardian
+# is a separate cloud scanner and had no config at all, so it re-flagged the same
+# files as High-severity incidents. Both 2026-07-29 alerts were false positives:
+#
+#   #35264537  "GitHub Personal Access Token" in
+#              hermes-mobile/src/__tests__/redactPiiSetting.test.tsx.
+#              That value is GitHub's own DOCUMENTED EXAMPLE token — verified dead
+#              (api.github.com/user -> HTTP 401) — sitting beside AWS's documented
+#              ...NN7EXAMPLE key, in a test whose entire purpose is asserting we
+#              redact credential-shaped strings. GitGuardian itself reported
+#              Validity: Invalid and tagged it "Test file".
+#
+#   "Generic High Entropy Secret" — 8 hits, ALL in a package-lock.json, every one
+#              an npm integrity digest. Enumerating all 9 files in that commit:
+#              package-lock.json 8, every other file 0. An Ed25519 private key and
+#              a sha512 digest are both 88 base64 characters, so entropy detection
+#              cannot separate them; this re-fires on every dependency bump.
+#
+# (Literal token values are deliberately NOT quoted here — writing them into this
+#  file is what tripped the local gitleaks hook on the first attempt at this commit.)
+#
+# Keep this list SHORT. A scanner that cries wolf weekly gets ignored, and then the
+# one true positive is missed.
+version: 2
+
+secret:
+  ignored-paths:
+    # npm integrity hashes are content digests, not credentials.
+    - "**/package-lock.json"
+    # Fixtures that deliberately contain credential-SHAPED strings so the code under
+    # test has something to redact. Matches the .gitleaks.toml paths allowlist.
+    - "**/__tests__/**"
+    # Templates: values are placeholders by definition.
+    - "**/.env.example"
+
+  # Deliberately NOT ignored: real source, config, workflows, apps/ and services/.
+  # An alert there is real until proven otherwise.
