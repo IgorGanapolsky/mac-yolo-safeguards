@@ -503,6 +503,12 @@ async function failover(){try{const r=await (await fetch('/api/instances')).json
 fleet();load('');live();failover();setInterval(fleet,15000);setInterval(live,8000);setInterval(failover,10000);
 </script></body></html>`;
 
+// Exported so the byte-window parser can be unit-tested. Without this, requiring
+// the module starts a listener, so the boundary logic below had no coverage at all.
+module.exports = { parseSessionMeta, readWindow, META_HEAD_BYTES, META_TAIL_BYTES };
+
+if (require.main !== module) return;
+
 server.listen(PORT, HOST, () => {
   console.log(`hermes-dashboard: http://${HOST === '0.0.0.0' ? os.hostname() + '.local' : HOST}:${PORT}`);
   console.log(`  reading sessions from ${PROJECTS}`);
