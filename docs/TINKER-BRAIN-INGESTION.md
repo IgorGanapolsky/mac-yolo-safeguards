@@ -9,7 +9,9 @@ The release gate is:
 
 ```bash
 python3 tests/test-tinker-brain-ingestion.py
+python3 tests/test-tinker-brain-simulation.py
 python3 tools/tinker-brain/tinker_brain_ingestion.py eval
+python3 tools/tinker-brain/tinker_brain_simulation.py --seeds 12 --steps 24
 ```
 
 The checked-in fixture has eight satisfiable queries across exact, paraphrase,
@@ -109,6 +111,61 @@ FTS5 plus exact vector scoring is simpler, deterministic, private, and fast.
 Object storage would add a cold-cache path and operational dependency without
 reducing the current bottleneck. Revisit ANN/object storage only when measured
 corpus size or p95 latency crosses a documented budget.
+
+## Antithesis ideas: deterministic state exploration
+
+[Antithesis describes deterministic simulation testing](https://antithesis.com/docs/resources/deterministic_simulation_testing/)
+as controlling nondeterministic inputs, exploring many seeded histories,
+injecting faults, and checking invariants so a failure can be replayed.
+[Its fault-injection documentation](https://antithesis.com/docs/concepts/fault_injection/)
+also distinguishes disruption from a recovery/quiet period, when final
+properties should be checked.
+
+`tinker_brain_simulation.py` adopts the part we can own without a custom
+hypervisor:
+
+- a local seeded state machine explores upsert, delete, exact duplicate,
+  successful reindex, search, metadata-filter isolation, and rollback;
+- deterministic faults exercise unsupported parsing, partial reindex,
+  embedding failure, and validator rejection;
+- invariants run after every transition: exactly one active generation, no
+  failed generation has chunks or FTS rows, active source heads point to
+  current non-tombstoned documents, searches stay on one snapshot, and strict
+  metadata filters cannot cross domains or tenants;
+- every seed is run twice and compared by semantic state/trace digest, with
+  wall-clock IDs and latency excluded from equivalence;
+- an invariant failure records the seed, replay command, full trace, and a
+  delta-debugged minimal trace.
+
+This caught a harness bug on its first run: 6 of 12 replays diverged because
+rollback candidates were sorted by second-resolution timestamps plus random
+generation IDs. The runner now preserves successful-build order; the same
+12 seeds and 288 transitions replay with zero mismatches.
+
+We do **not** claim Antithesis-equivalent determinism. SQLite, Python, the OS,
+and Ollama are not running under a deterministic hypervisor, so thread,
+filesystem, clock, network, and GPU schedules remain outside our control. The
+local harness is still valuable because it makes our operation generator,
+fault schedule, expected invariants, and semantic replay deterministic. A
+hosted DST environment becomes worthwhile when multi-process connector,
+control-plane, and mobile workflows can be containerized with explicit
+cross-service invariants.
+
+### Decision KPIs and playbooks
+
+The simulation receipt turns its measurements into actions:
+
+| KPI | Question | Threshold | If red |
+|---|---|---:|---|
+| Invariant failures | Did any history violate a safety or liveness promise? | 0 | Block merge, replay the seed, fix the minimal trace, and retain it as a regression. |
+| Replay mismatches | Does one seed reproduce one semantic history? | 0 | Remove uncontrolled time, randomness, ordering, or external I/O. |
+| State-transition coverage | Did CI execute every supported operation class? | 100% | Add or reweight the missing operation. |
+| Fault coverage | Did CI actually trigger every declared failure class? | 100% | Add a deterministic injection point and preservation invariant. |
+| Runtime | Is this cheap enough for every PR? | <=5 seconds for 12x24 | Keep a small PR seed set and move additional breadth to scheduled CI. |
+
+These are harness-quality KPIs, not product/revenue outcomes. The weekly review
+should add one new seed or invariant for every real incident, and should not
+raise seed count merely to make a dashboard look busier.
 
 ## Operations
 

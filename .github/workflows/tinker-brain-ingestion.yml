@@ -4,8 +4,10 @@ on:
   pull_request:
     paths:
       - "tools/tinker-brain/tinker_brain_ingestion.py"
+      - "tools/tinker-brain/tinker_brain_simulation.py"
       - "tools/tinker-brain/fixtures/ingestion_eval_cases.json"
       - "tests/test-tinker-brain-ingestion.py"
+      - "tests/test-tinker-brain-simulation.py"
       - "docs/TINKER-BRAIN-INGESTION.md"
       - ".github/workflows/tinker-brain-ingestion.yml"
   push:
@@ -13,8 +15,10 @@ on:
       - main
     paths:
       - "tools/tinker-brain/tinker_brain_ingestion.py"
+      - "tools/tinker-brain/tinker_brain_simulation.py"
       - "tools/tinker-brain/fixtures/ingestion_eval_cases.json"
       - "tests/test-tinker-brain-ingestion.py"
+      - "tests/test-tinker-brain-simulation.py"
       - ".github/workflows/tinker-brain-ingestion.yml"
   workflow_dispatch: {}
 
@@ -38,10 +42,26 @@ jobs:
           python-version: "3.11"
 
       - name: Compile ingestion engine
-        run: python3 -m py_compile tools/tinker-brain/tinker_brain_ingestion.py
+        run: >-
+          python3 -m py_compile
+          tools/tinker-brain/tinker_brain_ingestion.py
+          tools/tinker-brain/tinker_brain_simulation.py
+          tests/test-tinker-brain-ingestion.py
+          tests/test-tinker-brain-simulation.py
 
       - name: Verify ingestion and retrieval behavior
         run: python3 tests/test-tinker-brain-ingestion.py
 
+      - name: Verify deterministic simulation contracts
+        run: python3 tests/test-tinker-brain-simulation.py
+
       - name: Enforce Recall MRR and nDCG floors
         run: python3 tools/tinker-brain/tinker_brain_ingestion.py eval
+
+      - name: Explore seeded histories and injected faults
+        run: >-
+          python3 tools/tinker-brain/tinker_brain_simulation.py
+          --seeds 12
+          --steps 24
+          --runtime-budget-ms 5000
+          --out /tmp/tinker-brain-simulation-receipt.json
