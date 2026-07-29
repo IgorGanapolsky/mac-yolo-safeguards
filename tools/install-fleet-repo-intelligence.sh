@@ -57,6 +57,62 @@ if [[ ! -d "$CLONE_PATH/.grepai" ]]; then
   (cd "$CLONE_PATH" && grepai init --provider ollama --backend gob --yes)
 fi
 
+# Retrieval tuning: enable hybrid (BM25 + dense, RRF).
+#
+# `grepai init` writes hybrid.enabled=false, so the BM25+vector RRF fusion this
+# config already describes (k: 60) never actually ran — every query was pure
+# dense retrieval. Dense embeddings cannot match an exact identifier, which is
+# most of what an agent searches for.
+#
+# Measured on this repo, query "deploy cloudflare with lock", target
+# scripts/deploy-cloudflare-with-lock.sh:
+#
+#   hybrid off  target ABSENT from the top 10; 4 of the top 5 hits were
+#               package-lock.json chunks
+#   hybrid on   target holds the top 4; zero lockfile chunks in the top 10
+#
+# A path penalty for *-lock.json was tried as well and turned out to be
+# unnecessary: BM25 already ranks lockfile chunks out of the way, because they
+# do not lexically match code queries. It is deliberately NOT applied here —
+# an unmeasured knob is a liability, not a safeguard.
+#
+# This lives in the installer because .grepai/config.yaml sits OUTSIDE git
+# (~/.hermes/semantic-index/...). Enabling hybrid by hand on one Mac is not
+# reproducible: the next machine, or the next `grepai init`, silently reverts to
+# dense-only, and dense-only fails quietly by returning plausible wrong files
+# rather than an error. Idempotent, so re-running the installer is safe.
+#
+# NOTE: config changes only take effect after the index is rebuilt.
+tune_grepai_config() {
+  local cfg="$CLONE_PATH/.grepai/config.yaml"
+  [[ -f "$cfg" ]] || { printf 'config not found, skipped'; return 0; }
+  python3 - "$cfg" <<'PY'
+import sys
+p = sys.argv[1]
+lines = open(p, encoding='utf-8').read().split('\n')
+out, changed = [], False
+# Edit as TEXT, line by line, matching on the PRECEDING 'hybrid:' line so this
+# cannot hit some other 'enabled: false'.
+#
+# Do NOT "simplify" this into a yaml.safe_load/safe_dump round-trip: that
+# re-serialises the config's timestamp fields into a form grepai's Go time
+# parser rejects ("cannot parse ... as \"T\""), which takes the whole index
+# down with a config-load error. Learned the hard way, 2026-07-29.
+for i, ln in enumerate(lines):
+    if ln.strip() == 'enabled: false' and i and lines[i - 1].strip() == 'hybrid:':
+        out.append(ln.replace('false', 'true'))
+        changed = True
+        continue
+    out.append(ln)
+if changed:
+    open(p, 'w', encoding='utf-8').write('\n'.join(out))
+    print('hybrid enabled (rebuild the index for it to take effect)')
+else:
+    print('already tuned')
+PY
+}
+log "grepai retrieval tuning: $(tune_grepai_config)"
+
 # Ensure watcher for this clone only (isolated .git → no worktree fan-out)
 if ! (cd "$CLONE_PATH" && grepai status 2>/dev/null | grep -qi 'Watcher: running'); then
   log "Starting grepai watch --background on isolated clone…"
