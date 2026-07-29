@@ -84,7 +84,7 @@ if not runs: print("no check-runs found for this commit"); sys.exit(2)
 # known-good blocks the deploy.
 GOOD={"success","skipped","neutral"}
 pend=[c["name"] for c in runs if c["conclusion"] is None]
-bad=[f"{c[\"name\"]}({c[\"conclusion\"]})" for c in runs if c["conclusion"] is not None and c["conclusion"] not in GOOD]
+bad=[c["name"] + "(" + str(c["conclusion"]) + ")" for c in runs if c["conclusion"] is not None and c["conclusion"] not in GOOD]
 if bad: print("NOT GREEN: "+", ".join(bad)); sys.exit(1)
 if pend: print("STILL RUNNING: "+", ".join(pend)); sys.exit(1)
 print("green: %d checks" % len(runs))
