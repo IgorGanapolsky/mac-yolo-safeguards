@@ -151,8 +151,14 @@ local_candidates() {
 # EOF-ing every request for hours). Default timeout must cover a cold ~8GB load.
 probe_local_model() {
   local model="$1" timeout="${2:-${POOLSIDE_YOLO_PROBE_TIMEOUT:-75}}"
+  # Send the same bearer the local lane hands pool (see the POOLSIDE_API_KEY export
+  # on the local route). Without it, an OpenAI-compatible endpoint that requires a
+  # key answers /models but 401s here, so the wrapper would exit 73 with a "wedged
+  # runner" diagnosis for what is really an auth-shaped probe — blocking a request
+  # that would have succeeded. Ollama ignores the header, so this is safe there.
   curl -fsS -m "$timeout" "${LOCAL_URL%/}/chat/completions" \
     -H "Content-Type: application/json" \
+    -H "Authorization: Bearer ${POOLSIDE_API_KEY:-ollama}" \
     -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"OK\"}],\"max_tokens\":1}" \
     >/dev/null 2>&1
 }
@@ -237,9 +243,25 @@ doctor() {
   # "listed" and "able to answer" diverge exactly when things break (2026-07-28 wedge).
   # Short timeout on purpose; false may just mean cold/busy, but that IS "not usable now".
   if local_up; then
-    local_ok="true"; local_model="$(pick_local_model || true)"
-    if [[ -n "$local_model" && -z "${POOLSIDE_YOLO_DOCTOR_NO_PROBE:-}" ]]; then
-      probe_local_model "$local_model" "${POOLSIDE_YOLO_DOCTOR_LOCAL_PROBE_TIMEOUT:-10}" && local_resp="true" || local_resp="false"
+    local_ok="true"
+    # Walk the SAME candidate sequence execution walks. Probing only the top choice
+    # made doctor contradict the route it diagnoses: when the first-preference model
+    # is wedged but a later one answers, a real run succeeds on the later model while
+    # doctor reported localResponsive:false and warned the local route would hang.
+    # Report the model that would actually be selected.
+    if [[ -z "${POOLSIDE_YOLO_DOCTOR_NO_PROBE:-}" ]]; then
+      local cand
+      for cand in $(local_candidates || true); do
+        if probe_local_model "$cand" "${POOLSIDE_YOLO_DOCTOR_LOCAL_PROBE_TIMEOUT:-10}"; then
+          local_model="$cand"; local_resp="true"; break
+        fi
+        local_resp="false"
+      done
+      # None answered (or none listed): still name the model a run would reach for,
+      # so the warning points at something actionable.
+      [[ -z "$local_model" ]] && local_model="$(pick_local_model || true)"
+    else
+      local_model="$(pick_local_model || true)"
     fi
   fi
   if [[ "$up" == "true" ]]; then
