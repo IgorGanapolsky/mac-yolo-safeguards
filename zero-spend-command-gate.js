@@ -54,6 +54,11 @@ const SAFE_MODEL_RECIPES = [
     base: 'qwen3.5:9b',
     contextLength: 65536,
   },
+  {
+    model: 'qwen3:8b-64k',
+    base: 'qwen3:8b',
+    contextLength: 40960,
+  },
 ];
 const LOCAL_MODEL_CANDIDATES = SAFE_MODEL_RECIPES.map((recipe) => recipe.model);
 const QUIESCED_MODEL_LAUNCH_AGENTS = [
@@ -853,12 +858,27 @@ function localOnlyGrokEnv(env, model) {
   const childEnv = { ...env };
   for (const name of PAID_CREDENTIAL_ENV) childEnv[name] = '';
   const loc = locations(env);
+  const grokHome = path.join(loc.stateDir, 'grok-home');
+  fs.mkdirSync(grokHome, { recursive: true, mode: 0o700 });
+
+  // The grok CLI refuses to run any model — even a loopback custom base_url
+  // model — without an x.ai sign-in, so mirror the main auth token into the
+  // sandboxed GROK_HOME. Without this it opens its sign-in TUI and hangs.
+  const mainAuth = path.join(loc.home, '.grok', 'auth.json');
+  const targetAuth = path.join(grokHome, 'auth.json');
+  if (fs.existsSync(mainAuth)) {
+    try {
+      fs.copyFileSync(mainAuth, targetAuth);
+      fs.chmodSync(targetAuth, 0o600);
+    } catch {}
+  }
+
   const directGrok = manifestEntry('grok', env);
   Object.assign(childEnv, {
     HERMES_ZERO_SPEND: '1',
     GROK_YOLO_LOCAL_ONLY: '1',
     GROK_YOLO_LOCAL_MODEL: model,
-    GROK_YOLO_LOCAL_HOME: path.join(loc.stateDir, 'grok-home'),
+    GROK_YOLO_LOCAL_HOME: grokHome,
     GROK_TELEMETRY_ENABLED: '0',
     OTEL_LOG_USER_PROMPTS: '0',
     OTEL_LOG_TOOL_DETAILS: '0',
