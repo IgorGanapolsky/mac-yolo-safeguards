@@ -74,6 +74,68 @@ function shortMachineLabel(name: string, max = 12): string {
   return `${trimmed.slice(0, Math.max(1, max - 1))}…`;
 }
 
+/**
+ * Empty-task copy must not blame pairing when machines exist (Buzz lesson 2026-07-28:
+ * shared-room honesty — chats/synced messages ≠ unpaired).
+ */
+function taskListEmptyCopy(input: {
+  taskFilter: "all" | "completed" | "unrated";
+  deviceCount: number;
+  machineLabel: string;
+  hasSelectedThread: boolean;
+  syncedMessageCount: number;
+}): { title: string; body: string; compact: boolean } {
+  if (input.taskFilter === "unrated") {
+    return {
+      title: "No unrated answers",
+      body: "Every completed web answer already has a thumbs rating, or none have finished yet.",
+      compact: false,
+    };
+  }
+  if (input.taskFilter === "completed") {
+    return {
+      title: "No completed answers",
+      body: "No completed web answers in this workspace yet. Run a task until it finishes.",
+      compact: false,
+    };
+  }
+  if (input.deviceCount === 0) {
+    return {
+      title: "No tasks yet",
+      body: "Pair a machine, then continue a Hermes thread from anywhere.",
+      compact: false,
+    };
+  }
+  if (input.hasSelectedThread && input.syncedMessageCount > 0) {
+    return {
+      title: "No web tasks in this chat yet",
+      body: `Conversation is synced above. Type below to run the next step on ${input.machineLabel} (fenced runner, 90s lease).`,
+      compact: true,
+    };
+  }
+  if (input.hasSelectedThread) {
+    return {
+      title: "No web tasks in this chat yet",
+      body: `Type below to run work on ${input.machineLabel}. Synced Hermes messages appear here when the connector is online.`,
+      compact: false,
+    };
+  }
+  return {
+    title: "No web tasks yet",
+    body: `Machines are paired. Type below to run on ${input.machineLabel}, or open a chat from the list.`,
+    compact: false,
+  };
+}
+
+function taskReceiptLabel(task: { route: string; deviceName: string | null; status: string }): string {
+  if (task.route === "cloud") return "☁ Continuity · fenced · 90s lease";
+  if (task.route === "local") {
+    const host = task.deviceName?.trim() || "Hermes machine";
+    return `⌘ ${host} · fenced · 90s lease`;
+  }
+  return "Ⅱ Awaiting route · fenced when claimed";
+}
+
 /** Prefer online machines, then most recently seen — only when the user has no saved pick. */
 function pickDefaultDeviceId(nextDevices: Device[], preferredId: string | null | undefined): string {
   if (!nextDevices.length) return "";
@@ -240,8 +302,32 @@ export default function DashboardClient() {
   const [feedbackBusyTask, setFeedbackBusyTask] = useState<string | null>(null);
   /** Bottom-tab highlight on phone: path + hash, not always-Hermes. */
   const [mobileTab, setMobileTab] = useState<"hermes" | "leash" | "lessons" | "settings">("hermes");
+  /**
+   * Leash and Settings are two panes rendered inside ONE scrolling element
+   * (.right-rail). Switching tabs only swaps which children are visible, so the
+   * scroll offset carried over: scroll down in Settings, tap Leash, and Leash
+   * opened partway down with its heading — and the machine picker — above the
+   * fold, which reads as "there is no machine picker".
+   */
+  const rightRailRef = useRef<HTMLElement | null>(null);
   /** Phone shell: hide route-explain blurb so it cannot cover the textarea (Genspark-style compact chrome). */
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
+
+  // Send the shared scrollport back to the top whenever the pane inside it
+  // changes, so a tab always opens at its own heading rather than wherever the
+  // previous tab happened to be scrolled to. Only Leash and Settings share this
+  // element; the other tabs render elsewhere and must not be disturbed.
+  useEffect(() => {
+    if (mobileTab !== "leash" && mobileTab !== "settings") return;
+    const rail = rightRailRef.current;
+    if (!rail) return;
+    // The pane swap is a CSS/display change; wait a frame so the new content is
+    // laid out before resetting, otherwise the browser can restore the offset.
+    const raf = window.requestAnimationFrame(() => {
+      rail.scrollTop = 0;
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [mobileTab]);
   /** Desktop: route explain is secondary chrome — collapsed by default (Genspark-style). */
   const [routeExplainExpanded, setRouteExplainExpanded] = useState(false);
   const chatsListDeepLink =
@@ -309,6 +395,10 @@ export default function DashboardClient() {
       window.localStorage.setItem(preferredDevicePreferenceKey, deviceId);
     } catch {
       /* private mode */
+    }
+    const picked = devices.find((device) => device.id === deviceId);
+    if (picked) {
+      setNotice(`Tasks will run on ${machineDisplayName(picked)}.`);
     }
   }
 
@@ -970,7 +1060,18 @@ export default function DashboardClient() {
       <section className="dashboard-main">
         <header className="dashboard-header">
           <div className="dashboard-header-title">
-            <p className="eyebrow">HERMES WEB</p>
+            <div className="mobile-header-row">
+              <button
+                type="button"
+                className="mobile-chats-toggle button button-small button-secondary"
+                onClick={toggleChatRail}
+                aria-label="Toggle chat threads menu"
+                data-testid="mobile-chats-toggle"
+              >
+                💬 {chatRailExpanded ? "Hide Chats" : "Chats"}
+              </button>
+              <p className="eyebrow">HERMES WEB</p>
+            </div>
             <h1 title={selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title ?? "Your Hermes workspace" : "Your Hermes workspace"}>
               {selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title : "Your Hermes workspace"}
             </h1>
@@ -1005,9 +1106,9 @@ export default function DashboardClient() {
               {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : loadState === "loading" ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" ? <div className="conversation-empty" data-state="error">Could not load this conversation. Retrying automatically.</div> : <div className="conversation-empty">This thread has no cloud snapshot yet. Keep the paired Hermes connector online to sync it.</div>}
               {threadDetails?.tasks.flatMap((task, index) => [
                 <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
-                task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{task.route}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
+                task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
                   : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>failed</span><FormattedMessage text={task.error} /></article>
-                  : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{task.route === "cloud" ? "cloud runner" : "your machine"}</span><p>Waiting for {task.route === "cloud" ? "the fenced cloud runner" : "your paired machine"} to pick this up…</p></article>
+                  : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><p>Waiting for {task.route === "cloud" ? "the fenced Continuity runner" : "your paired machine"} to pick this up…</p></article>
                   : null,
               ])}
             </div>}
@@ -1046,17 +1147,26 @@ export default function DashboardClient() {
                   <p>The last refresh failed, so this list may be incomplete. Retrying automatically.</p>
                 </div>
               ) : visibleTasks.length === 0 && loadState === "loaded" ? (
-                <div className="empty-state">
-                  <Mark />
-                  <h3>{taskFilter === "unrated" ? "No unrated answers" : taskFilter === "completed" ? "No completed answers" : "No tasks yet"}</h3>
-                  <p>
-                    {taskFilter === "unrated"
-                      ? "Every completed web answer already has a thumbs rating, or none have finished yet."
-                      : taskFilter === "completed"
-                        ? "No completed web answers in this workspace yet. Run a task until it finishes."
-                        : "Pair a machine, then continue a Hermes thread from anywhere."}
-                  </p>
-                </div>
+                (() => {
+                  const empty = taskListEmptyCopy({
+                    taskFilter,
+                    deviceCount: devices.length,
+                    machineLabel: selectedDeviceLabel,
+                    hasSelectedThread: Boolean(selectedThread),
+                    syncedMessageCount: threadDetails?.snapshot.length ?? 0,
+                  });
+                  return (
+                    <div
+                      className={empty.compact ? "empty-state empty-state-compact" : "empty-state"}
+                      data-testid="task-list-empty"
+                      data-pair-blame={devices.length === 0 && taskFilter === "all" ? "1" : "0"}
+                    >
+                      {empty.compact ? null : <Mark />}
+                      <h3>{empty.title}</h3>
+                      <p>{empty.body}</p>
+                    </div>
+                  );
+                })()
               ) : (
                 visibleTasks.map((task) => (
                   <article key={task.id} id={`task-${task.id}`} className="dashboard-task">
@@ -1067,7 +1177,7 @@ export default function DashboardClient() {
                     <h3>{task.threadTitle}</h3>
                     <p>{task.prompt}</p>
                     <div className="task-foot">
-                      <span>{task.route === "cloud" ? "☁ Cloud runner" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>
+                      <span data-testid="task-receipt">{taskReceiptLabel(task)}</span>
                       {["needs_failover", "offline_blocked"].includes(task.status) && (
                         <button onClick={() => void failover(task.id)}>Continue in cloud →</button>
                       )}
@@ -1186,10 +1296,35 @@ export default function DashboardClient() {
             </form>
           </section>
 
-          <aside className="right-rail">
+          <aside className="right-rail" ref={rightRailRef}>
             <section className="panel connection-panel" id="leash-control">
               <div className="panel-heading"><div><p className="eyebrow">CONNECTION</p><h2>{onlineDevices.length ? "Connector online" : devices.length ? "Connector reconnecting" : "Pair your first machine"}</h2></div><span>{onlineDevices.length ? "LIVE" : devices.length ? "RETRYING" : "STEP 1 OF 3"}</span></div>
-              <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "Connector reconnecting automatically" : "One-time setup on your computer"}</strong><p>{devices.length ? "Paired machines stay connected via an always-on service — you don’t reinstall for normal use. Pick the real machine name, then Continuity / Auto when you run a task." : "Browsers cannot install a background connector. Run the one-line installer once on the computer that hosts Hermes; it reconnects after sleep or reboot."}</p></div></div>
+              <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "Connector reconnecting automatically" : "One-time setup on your computer"}</strong><p>{devices.length ? "Paired machines stay connected via an always-on service — you don’t reinstall for normal use. Choose which machine runs tasks below (same pin as Hermes)." : "Browsers cannot install a background connector. Run the one-line installer once on the computer that hosts Hermes; it reconnects after sleep or reboot."}</p></div></div>
+              {devices.length > 0 ? (
+                <div className="leash-device-picker" data-testid="leash-device-picker">
+                  <label htmlFor="leash-device-select" className="composer-where-label" style={{ margin: 0 }}>
+                    Run tasks on
+                  </label>
+                  <select
+                    id="leash-device-select"
+                    data-testid="leash-device-select"
+                    value={selectedDeviceId}
+                    onChange={(event) => chooseDevice(event.target.value)}
+                    disabled={busy}
+                    aria-label="Which machine should run tasks"
+                  >
+                    {devices.map((device) => (
+                      <option key={device.id} value={device.id}>
+                        {machineDisplayName(device)} · {deviceStatusLabel(device)}
+                      </option>
+                    ))}
+                    <optgroup label="Actions">
+                      <option value="pair">+ Pair another computer…</option>
+                      <option value="manage">⚙ Manage / remove machines…</option>
+                    </optgroup>
+                  </select>
+                </div>
+              ) : null}
               {!devices.length && (
                 <div className="installer-command">
                   <p className="installer-why">Why a Terminal command? Apple blocks remote silent install of background services. This is a <strong>one-time</strong> step on that computer — not every session.</p>
@@ -1220,13 +1355,23 @@ export default function DashboardClient() {
                   A browser cannot install a background service on the host OS. On macOS you run one Terminal command once on that computer; then pairing and reconnects are automatic.
                 </p>
               )}
-              {devices.map((device) => (
-                <article key={device.id} className={`device-card${device.stale || device.presence === "stale" ? " is-stale" : ""}`}>
+              {devices.map((device) => {
+                const isPreferred = device.id === selectedDeviceId;
+                return (
+                <article
+                  key={device.id}
+                  className={`device-card${device.stale || device.presence === "stale" ? " is-stale" : ""}${isPreferred ? " is-preferred" : ""}`}
+                  data-testid={`device-card-${device.id.slice(0, 8)}`}
+                  data-preferred={isPreferred ? "1" : "0"}
+                >
                   <div>
                     <span className={`device-light ${device.online ? "is-online" : device.stale || device.presence === "stale" ? "is-stale" : ""}`} />
                     <div>
                       <strong>{device.name}</strong>
-                      <small>{deviceStatusLabel(device)} · id {device.id.slice(0, 8)}</small>
+                      <small>
+                        {deviceStatusLabel(device)} · id {device.id.slice(0, 8)}
+                        {isPreferred ? " · preferred for tasks" : ""}
+                      </small>
                     </div>
                   </div>
                   <code>{device.fingerprint}</code>
@@ -1237,16 +1382,28 @@ export default function DashboardClient() {
                       <option value="disabled">Pause and wait for {machineDisplayName(device)}</option>
                     </select>
                   </label>
-                  <button
-                    type="button"
-                    className="button button-secondary button-small device-remove"
-                    disabled={busy}
-                    onClick={() => void revokeDevice(device)}
-                  >
-                    {(device.stale || device.presence === "stale") ? "Remove stale machine" : "Remove machine"}
-                  </button>
+                  <div className="device-card-actions">
+                    <button
+                      type="button"
+                      className="button button-primary button-small device-use-for-tasks"
+                      data-testid={`device-use-for-tasks-${device.id.slice(0, 8)}`}
+                      disabled={busy || isPreferred}
+                      onClick={() => chooseDevice(device.id)}
+                    >
+                      {isPreferred ? "Preferred for tasks" : "Use for tasks"}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-secondary button-small device-remove"
+                      disabled={busy}
+                      onClick={() => void revokeDevice(device)}
+                    >
+                      {(device.stale || device.presence === "stale") ? "Remove stale machine" : "Remove machine"}
+                    </button>
+                  </div>
                 </article>
-              ))}
+                );
+              })}
               {devices.length > 0 && (
                 <details className="add-mac-details">
                   <summary>Add another computer (optional)</summary>

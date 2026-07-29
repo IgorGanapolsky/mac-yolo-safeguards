@@ -108,3 +108,53 @@ test('latency percentiles come from real values only', () => {
   assert.equal(r.latencyP50s, 3);
   assert.ok(r.latencyP95s >= 4);
 });
+
+// The traffic log is append-only and never pruned. Without a trailing window a
+// model that accumulated never-answered tool calls stays in `dead` forever, so
+// --gate exits 1 on every future run even after the route is rerouted or
+// retired — the remediation the tool documents could not clear its own gate.
+const DAY = 86400000;
+const logTs = (ms) => new Date(ms).toISOString().replace('T', ' ').replace('Z', '');
+
+test('a retired route stops failing the gate once it leaves the window', () => {
+  const now = Date.UTC(2026, 6, 28, 12, 0, 0);
+  const retired = Array.from({ length: 6 }, () =>
+    row({ model: 'retired', ts_end: logTs(now - 30 * DAY), status: 'failure', has_tool_calls: false }),
+  );
+  const live = Array.from({ length: 6 }, () =>
+    row({ model: 'live', ts_end: logTs(now - DAY) }),
+  );
+  const rows = retired.concat(live);
+
+  const allTime = summarizeRouteQuality(rows, {});
+  assert.deepEqual(allTime.dead.map((d) => d.model), ['retired'],
+    'all-time aggregation must still see the historical dead route');
+
+  const windowed = summarizeRouteQuality(rows, { sinceMs: now - 7 * DAY });
+  assert.deepEqual(windowed.dead, [], 'a route outside the window must not fail the gate');
+  assert.deepEqual(windowed.degraded, []);
+  assert.equal(windowed.window.outsideWindow, 6);
+});
+
+test('a route that is dead INSIDE the window still fails the gate', () => {
+  const now = Date.UTC(2026, 6, 28, 12, 0, 0);
+  const rows = Array.from({ length: 6 }, () =>
+    row({ model: 'broken-now', ts_end: logTs(now - 2 * DAY), status: 'failure', has_tool_calls: false }),
+  );
+  const windowed = summarizeRouteQuality(rows, { sinceMs: now - 7 * DAY });
+  assert.deepEqual(windowed.dead.map((d) => d.model), ['broken-now'],
+    'windowing must not become a way to hide a currently-dead route');
+});
+
+// Records with no usable timestamp are excluded from the window but COUNTED.
+// Dropping them silently is how a gate starts passing for the wrong reason.
+test('undated records are excluded from the window and reported, not hidden', () => {
+  const now = Date.UTC(2026, 6, 28, 12, 0, 0);
+  const rows = Array.from({ length: 6 }, () =>
+    row({ model: 'no-ts', ts_end: undefined, status: 'failure', has_tool_calls: false }),
+  );
+  const windowed = summarizeRouteQuality(rows, { sinceMs: now - 7 * DAY });
+  assert.equal(windowed.window.undated, 6);
+  assert.equal(windowed.window.dated, 0);
+  assert.deepEqual(windowed.dead, []);
+});

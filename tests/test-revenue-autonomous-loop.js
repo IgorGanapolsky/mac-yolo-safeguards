@@ -169,5 +169,51 @@ check('githubUrlFromNotes extracts issue URL', () => {
   assert.ok(u.includes('github.com/foo/bar/issues/12'));
 });
 
+// Ordering invariant, asserted against the source because it is a property of
+// control flow rather than of any single exported helper, and running the whole
+// loop in a test would need Stripe/Apollo/Gmail. The bug it guards is concrete:
+// while the reply scan ran AFTER the send loop, an unattended run could cold-
+// mail a prospect who had already replied and only record the blindness
+// afterwards — which is what happened on 2026-07-28 to someone who replied on
+// 07-22.
+check('reply scan runs before unattended sending, and blindness blocks it', () => {
+  const src = fs.readFileSync(
+    path.join(__dirname, '..', 'tools', 'revenue-autonomous-loop.js'),
+    'utf8',
+  );
+  const scanAt = src.indexOf('runReplyScan(');
+  const gateAt = src.indexOf('const unattendedSendAllowed =');
+  const sendAt = src.indexOf('sentCount += 1');
+  assert.ok(scanAt > 0, 'reply scan call not found');
+  assert.ok(gateAt > 0, 'unattended-send gate not found');
+  assert.ok(sendAt > 0, 'send site not found');
+  assert.ok(scanAt < gateAt, 'reply scan must run BEFORE the unattended-send gate');
+  assert.ok(gateAt < sendAt, 'the gate must precede the send loop');
+
+  // Unknown reply state is a hard stop on cold sending.
+  const gate = src.slice(gateAt, gateAt + 500);
+  assert.match(gate, /!replyScanBlind/, 'gate must block when the reply scan is blind');
+
+  // A skipped or erroring scan is unknown state, not zero.
+  assert.match(src, /replyScanBlind = !args\.fast/, 'skipped scan must mark state unknown');
+  assert.match(src, /replyScanBlind = true;/, 'erroring scan must mark state unknown');
+
+  // Blindness must reach the operator: never silenced as a no-op.
+  assert.match(src, /!replyScanBlind;/, 'noop calculation must account for blindness');
+});
+
+// Someone who replied gets a human answer, never another automated follow-up.
+check('prospects who replied are excluded from unattended sends', () => {
+  const src = fs.readFileSync(
+    path.join(__dirname, '..', 'tools', 'revenue-autonomous-loop.js'),
+    'utf8',
+  );
+  assert.match(src, /repliedEmails/, 'replied-address set must exist');
+  assert.match(src, /already_replied/, 'skipped sends must be recorded with a reason');
+  const filterAt = src.indexOf('repliedEmails.has');
+  const rankAt = src.indexOf('const ranked =');
+  assert.ok(filterAt > 0 && rankAt > 0 && filterAt < rankAt, 'filter must precede ranking');
+});
+
 console.log(`\nPASS ${n}/${n} revenue-autonomous-loop`);
 fs.rmSync(testRevenueDir, { recursive: true, force: true });

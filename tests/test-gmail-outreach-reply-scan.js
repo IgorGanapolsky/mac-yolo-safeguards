@@ -13,6 +13,10 @@ const {
   processRows,
   rowId,
   run,
+  outreachSearchQuery,
+  classifyBlindCause,
+  OUTREACH_SUBJECT_RE,
+  OUTREACH_SUBJECT_TERMS,
 } = require('../tools/gmail-outreach-reply-scan');
 
 let n = 0;
@@ -99,6 +103,121 @@ check('run dry rows writes board', () => {
   assert.strictEqual(summary.hot[0].kind, 'engaged');
   assert.ok(fs.existsSync(summary.boardPath));
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// Regression: on 2026-07-28 the subject regex was widened to cover the
+// "ThumbGate Continuity" campaign but the Gmail search query was a separate
+// hardcoded string that was never updated, so those sends were unwatchable.
+// The query and the filter must stay derived from one list.
+check('search query cannot drift from the subject filter', () => {
+  const q = outreachSearchQuery();
+  for (const term of OUTREACH_SUBJECT_TERMS) {
+    assert.ok(q.includes(term), `query is missing subject term: ${term}`);
+    assert.ok(OUTREACH_SUBJECT_RE.test(term), `regex is missing subject term: ${term}`);
+  }
+  assert.ok(OUTREACH_SUBJECT_RE.test('ThumbGate Continuity — design partner (3 seats)'));
+  assert.ok(OUTREACH_SUBJECT_RE.test('Quick check — agent reliability diagnostic ($499)'));
+});
+
+// Regression: the only real reply this funnel received was sitting in TRASH,
+// where an in:inbox-scoped query could never have found it.
+check('search query looks outside the inbox', () => {
+  const q = outreachSearchQuery();
+  assert.ok(q.includes('in:anywhere'), 'query must search trash/archive, not just the inbox');
+  assert.ok(!q.includes('in:inbox'), 'query must not be inbox-scoped');
+  assert.ok(q.includes('-from:me'), 'query must exclude our own outbound');
+});
+
+// Regression: chrome_ok:true + rows_scanned:0 was reported as "no replies" for
+// three consecutive days. Zero scraped rows is an unknown, not a clean result.
+check('zero scraped rows reports unknown, not zero replies', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'reply-scan-blind-'));
+  process.env.REVENUE_DIR = dir;
+  process.env.GMAIL_REPLY_SCAN_STATE = path.join(dir, 'state.json');
+
+  // dryRows is the operator saying "these are the rows"; an empty set there is
+  // a real zero and must NOT be flagged blind.
+  const explicit = run({
+    json: true, chrome: false, baseline: false, ntfy: false,
+    dryRows: JSON.stringify([]), help: false,
+  });
+  assert.strictEqual(explicit.scanBlind, false);
+  assert.strictEqual(explicit.replyStatus, 'scanned');
+  assert.match(fs.readFileSync(explicit.boardPath, 'utf8'), /_No new outreach replies matched\._/);
+
+  // A scrape that "succeeded" with nothing to show is the blind case.
+  const blind = { checkedAt: new Date().toISOString(), chromeOk: true, rowsScanned: 0 };
+  blind.scanBlind = blind.chromeOk && blind.rowsScanned === 0;
+  assert.strictEqual(blind.scanBlind, true, 'chrome_ok with 0 rows must be treated as blind');
+
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// The first version of the blindness check only covered "scrape succeeded but
+// found nothing", so a scrape that FAILED, or was never attempted, still wrote
+// reply_status 'scanned' and "_No new outreach replies matched._" — the exact
+// absence-as-evidence bug, one branch over. Caught in review, not by me.
+check('a failed or skipped scrape is blind, not a clean zero', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'reply-scan-nochrome-'));
+  process.env.REVENUE_DIR = dir;
+  process.env.GMAIL_REPLY_SCAN_STATE = path.join(dir, 'state.json');
+
+  const s = run({ json: true, chrome: false, baseline: false, ntfy: false, dryRows: null, help: false });
+  assert.strictEqual(s.chromeOk, false);
+  assert.strictEqual(s.scanBlind, true, 'no scan attempted must be blind');
+  assert.strictEqual(s.blindCause, 'scan_not_attempted_no_chrome');
+  assert.strictEqual(s.replyStatus, 'unknown_scan_returned_nothing');
+
+  const board = fs.readFileSync(s.boardPath, 'utf8');
+  assert.match(board, /REPLY STATE UNKNOWN/);
+  assert.doesNotMatch(
+    board,
+    /_No new outreach replies matched\._/,
+    'a failed scrape must never render as a clean zero',
+  );
+
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// "Blind" is only actionable if it names which kind of blind. A dead session
+// needs a human login; a stale selector needs a code change; an empty result
+// set is not blindness at all.
+check('blind cause names the actual failure', () => {
+  assert.strictEqual(classifyBlindCause(null), 'no_page_diagnostics');
+  // Signed-out pages ALSO have 0 rows and a short body — most specific wins.
+  assert.strictEqual(
+    classifyBlindCause({ signedOut: true, trCount: 0, bodyLen: 120, emptyStateVisible: false }),
+    'gmail_signed_out_needs_human_login',
+  );
+  assert.strictEqual(
+    classifyBlindCause({ signedOut: false, emptyStateVisible: true, trCount: 0, bodyLen: 9000 }),
+    'search_genuinely_empty',
+  );
+  assert.strictEqual(
+    classifyBlindCause({ signedOut: false, emptyStateVisible: false, trCount: 42, bodyLen: 9000 }),
+    'row_selector_stale_tr_zA_no_longer_matches',
+  );
+  assert.strictEqual(
+    classifyBlindCause({ signedOut: false, emptyStateVisible: false, trCount: 0, bodyLen: 40 }),
+    'page_not_rendered_in_time',
+  );
+  assert.strictEqual(
+    classifyBlindCause({ signedOut: false, emptyStateVisible: false, trCount: 0, bodyLen: 9000 }),
+    'unknown_page_state',
+  );
+});
+
+// A search Gmail explicitly reports as empty is a real zero. Treating it as
+// blindness would page on every quiet hour and train us to ignore the alert.
+check('genuinely empty search is not reported as blind', () => {
+  const emptyIsReal = classifyBlindCause({
+    signedOut: false, emptyStateVisible: true, trCount: 0, bodyLen: 9000,
+  });
+  assert.strictEqual(emptyIsReal, 'search_genuinely_empty');
+  const stale = classifyBlindCause({
+    signedOut: false, emptyStateVisible: false, trCount: 42, bodyLen: 9000,
+  });
+  assert.notStrictEqual(stale, 'search_genuinely_empty');
 });
 
 console.log(`\nPASS ${n}/${n} gmail-outreach-reply-scan`);

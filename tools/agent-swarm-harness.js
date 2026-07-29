@@ -1906,9 +1906,15 @@ function parseArgs(argv) {
       arg === 'eval-mine' ||
       arg === 'eval-check' ||
       arg === 'sre-autonomy' ||
-      arg === 'sre-act'
+      arg === 'sre-act' ||
+      arg === 'gateway'
     ) {
       args.command = arg;
+      // For gateway, collect remaining args verbatim as pass-through to inference-gateway.js
+      if (arg === 'gateway') {
+        args.gatewayArgs = argv.slice(i + 1);
+        break; // stop parsing — rest is for the subprocess
+      }
     } else if (arg === '--json') {
       args.json = true;
     } else if (arg === '--stdin') {
@@ -2557,7 +2563,8 @@ function main() {
   node tools/agent-swarm-harness.js eval-mine [--write] [--json]
   node tools/agent-swarm-harness.js eval-check [--run-commands] [--json]
   node tools/agent-swarm-harness.js sre-autonomy [--json]
-  node tools/agent-swarm-harness.js sre-act --subsystem ID [--health-age-ms N|--force] [--json]`);
+  node tools/agent-swarm-harness.js sre-act --subsystem ID [--health-age-ms N|--force] [--json]
+  node tools/agent-swarm-harness.js gateway <record|query|summary|cost|compare|health|trace-path> [args...]`);
     process.exit(0);
   }
 
@@ -2884,6 +2891,18 @@ function main() {
       if (result.verify) console.log(`verify (required after act): ${result.verify}`);
     }
     process.exit(result.ok ? 0 : 2);
+  }
+
+  if (args.command === 'gateway') {
+    const gatewayScript = path.join(path.dirname(process.argv[1]), 'hermes-inference-gateway.js');
+    const childArgs = args.gatewayArgs || [];
+    // Pass through all args to inference gateway
+    const result = require('child_process').spawnSync(
+      process.execPath,
+      [gatewayScript, ...childArgs],
+      { stdio: 'inherit', cwd: process.cwd() }
+    );
+    process.exit(result.status);
   }
 
   if (args.command === 'field-guide') {

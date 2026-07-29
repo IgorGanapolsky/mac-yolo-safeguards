@@ -29,6 +29,8 @@ Implements the durable parts of [Cursor’s agent-swarm model economics](https:/
 | `node tools/agent-swarm-harness.js field-guide` | Print `docs/agent-field-guide/index.md` |
 | `node tools/plan-coordination-snapshot.js` | Active tasks + §2 locks (named + numeric task ids) |
 | `node tools/agent-session-start.js` | Injects coordination + swarm harness automatically |
+| `node tools/hermes-inference-gateway.js record \| query \| summary \| cost \| compare \| health \| trace-path` | TensorZero-style inference observability (record LLM call traces; query, summarize; cost tracking; A/B canary compare; health status) |
+| `node tools/agent-swarm-harness.js gateway <subcommand> [args...]` | Same inference observability commands through harness gateway |
 
 ## What improved
 
@@ -103,11 +105,59 @@ HERMES_FLEET_HOST_ROLE=mac_mini node tools/agent-swarm-harness.js worker-toolbox
 - Hundreds of concurrent agents on Hermes Mobile
 - Treating commit count as productivity
 
+## Inference observability (TensorZero-inspired)
+
+The `hermes-inference-gateway.js` tool records every LLM inference call across the Hermes fleet (Mac Pro + Mac Mini) as append-only JSONL traces. This enables:
+
+- **Fleet-wide cost tracking** by model, provider, route, and day
+- **Reliability scoring** from observed success rates (closes the loop between routing decisions and outcomes)
+- **Latency profiling** for route optimization
+- **Canary A/B comparison** between candidate and default routes
+
+Data is stored at `~/.hermes/inference-traces/YYYY-MM-DD.jsonl` — one file per day, no database needed.
+
+### Integration with economic router
+
+The `hermes-economic-router.js` feedback loop (`updateRouteReliability`, `computeAdjustedRouteScore`, `evaluateCanary`) ingests observed trace data to:
+
+1. Adjust route reliability estimates based on actual success rates (Bayesian blend with prior)
+2. Compute adjusted route scores incorporating observed cost and latency
+3. Run canary evaluations with configurable thresholds (min calls, success rate delta, latency/cost multipliers)
+
+### Commands
+
+```bash
+# Record an inference call
+node tools/hermes-inference-gateway.js record --model glm-5.2 --provider openrouter --route glm52_reasoning --latency-ms 14500 --input-tokens 4500 --output-tokens 1200
+
+# Record with custom cost override
+node tools/hermes-inference-gateway.js record --model grok-4.5 --provider grok-build-cli --route grok45_verifier --latency-ms 28000 --cost-usd 0.025
+
+# Query traces with filters
+node tools/hermes-inference-gateway.js query --since 24h --model glm-5.2 --json
+
+# Summary grouped by model, provider, route, or day
+node tools/hermes-inference-gateway.js summary --by model --since 7d --json
+
+# Cost report
+node tools/hermes-inference-gateway.js cost --since 30d --json
+
+# Canary A/B comparison
+node tools/hermes-inference-gateway.js compare --route-a glm52_reasoning --route-b kimi_k27_verifier --json
+
+# Health check
+node tools/hermes-inference-gateway.js health --json
+
+# All commands work through the harness gateway:
+node tools/agent-swarm-harness.js gateway summary --by route --json
+```
+
 ## Tests
 
 ```bash
 node tests/test-plan-coordination-snapshot.js
 node tests/test-agent-swarm-harness.js
+node tests/test-hermes-inference-gateway.js
 ```
 
 ## Related
@@ -116,3 +166,5 @@ node tests/test-agent-swarm-harness.js
 - [plan.md](../plan.md) — live claims
 - [docs/agent-field-guide/index.md](./agent-field-guide/index.md) — curated surprises
 - [docs/SDD-SPECIFICATION-DRIVEN-DESIGN.md](./SDD-SPECIFICATION-DRIVEN-DESIGN.md) — full SDD mapping
+- [tools/hermes-inference-gateway.js](../tools/hermes-inference-gateway.js) — TensorZero-inspired inference observability layer
+- [tests/test-hermes-inference-gateway.js](../tests/test-hermes-inference-gateway.js) — 52 tests covering cost estimation, record/query/summary/cost/compare, canary A/B, health, parseSince
