@@ -4,6 +4,7 @@ import {
   assertNoPullToRefreshCopy,
   EMPTY_STREAM_REFRESH_BANNER_HINT,
   emptyStreamBannerHint,
+  emptyStreamRefreshBannerHint,
   emptyStreamDisplayElapsedMs,
   messageIsEmptyStreamTimeout,
   shouldShowEmptyStreamRefreshCta,
@@ -49,12 +50,39 @@ describe('emptyStreamRefreshCta', () => {
     expect(EMPTY_STREAM_TIMEOUT_PLACEHOLDER.toLowerCase()).toMatch(/check|leash/);
     expect(EMPTY_REPLY_FAILURE_REASON.toLowerCase()).toMatch(/fresh chat|leash/);
     expect(EMPTY_STREAM_REFRESH_BANNER_HINT.toLowerCase()).toContain('checking automatically');
-    expect(EMPTY_STREAM_REFRESH_BANNER_HINT.toLowerCase()).toContain('leash');
     expect(EMPTY_STREAM_REFRESH_BANNER_HINT.toLowerCase()).not.toContain('tap refresh');
     expect(emptyStreamBannerHint(45_000)).toContain('(45s)');
-    expect(emptyStreamBannerHint(45_000).toLowerCase()).toContain('leash');
     expect(emptyStreamBannerHint(45_000).toLowerCase()).not.toContain('tap refresh');
     expect(emptyStreamBannerHint(EMPTY_STREAM_HARD_STOP_MS)).toBe(EMPTY_STREAM_HARD_STOP_STATUS);
     expect(emptyStreamDisplayElapsedMs(3_430_000)).toBe(EMPTY_STREAM_HARD_STOP_MS);
+  });
+
+  /**
+   * DEFECT 2 (2026-07-25): the banner told the user to "open Leash for approve/deny/warn"
+   * with zero approvals waiting, on a dead link. Guidance is now conditional.
+   */
+  it('banner copy names Leash only when approvals are actually waiting', () => {
+    expect(EMPTY_STREAM_REFRESH_BANNER_HINT.toLowerCase()).not.toContain('leash');
+    expect(emptyStreamBannerHint(45_000).toLowerCase()).not.toContain('leash');
+    expect(
+      emptyStreamBannerHint(45_000, { pendingApprovalsCount: 0, macHttpOk: true }).toLowerCase(),
+    ).not.toContain('leash');
+    expect(
+      emptyStreamBannerHint(45_000, { pendingApprovalsCount: 2, macHttpOk: true }).toLowerCase(),
+    ).toContain('leash');
+    expect(
+      emptyStreamRefreshBannerHint({ pendingApprovalsCount: 1, macHttpOk: true }).toLowerCase(),
+    ).toContain('leash');
+  });
+
+  it('banner names the connection fault instead of Leash when the link is dead', () => {
+    const hint = emptyStreamBannerHint(45_000, {
+      pendingApprovalsCount: 0,
+      macHttpOk: false,
+      machineLabel: 'Igors-Mac-mini',
+    });
+    expect(hint.toLowerCase()).not.toContain('leash');
+    expect(hint).toContain('Igors-Mac-mini');
+    expect(hint.toLowerCase()).toContain('reconnect');
   });
 });

@@ -2,6 +2,11 @@ import type { HermesMessage, HermesSession } from '../types/chat';
 import { isSummarizationStub } from './chatCompactionHandoff';
 import { isMessageDisplayEmpty, normalizeMessageText } from './chatMessageMerge';
 import { isTelegramSession } from './sessionSelection';
+import {
+  buildNoReplyGuidance,
+  isNoReplyGuidanceCopy,
+  type NoReplyGuidanceContext,
+} from './noReplyGuidance';
 
 /** Shown when gateway returns an empty stream for a Telegram-bound session (message queued). */
 export const TELEGRAM_QUEUED_REPLY_PLACEHOLDER =
@@ -15,9 +20,17 @@ export const TELEGRAM_QUEUED_REPLY_PLACEHOLDER =
 export const GENERIC_EMPTY_STREAM_PLACEHOLDER =
   'Working on your computer… Hermes may be using tools (browser, search, terminal). The reply will show here when ready.';
 
-/** After soft timeout with no reply text — brief auto-check, then hard-stop + Leash CTA. */
-export const EMPTY_STREAM_TIMEOUT_PLACEHOLDER =
-  'Still no reply text. Hermes checks your Mac briefly, then stops — open Leash for approve/deny/warn, Stop if a run is active, or start a fresh chat.';
+/**
+ * After soft timeout with no reply text. CONDITIONAL (2026-07-25): Leash is named only
+ * when approvals are actually waiting, Stop only when a run is active, and a dead or
+ * unauthenticated link is named as the fault. See src/utils/noReplyGuidance.ts.
+ */
+export function emptyStreamTimeoutPlaceholder(context?: NoReplyGuidanceContext): string {
+  return buildNoReplyGuidance(context);
+}
+
+/** Context-free default (no approvals known, no run known) — never names Leash. */
+export const EMPTY_STREAM_TIMEOUT_PLACEHOLDER = emptyStreamTimeoutPlaceholder();
 
 /**
  * Internal gateway / cron sentinel for a tool-only or "nothing to report" turn.
@@ -48,7 +61,8 @@ export function isDeferredStreamPlaceholder(content: string | undefined): boolea
     // Legacy copy (shipped builds + tests)
     body.startsWith('(Hermes did not return text yet') ||
     body.startsWith('Working on your computer…') ||
-    body.startsWith('Still no reply text.')
+    // Any conditional no-reply variant (see noReplyGuidance.ts) + legacy wording.
+    isNoReplyGuidanceCopy(body)
   );
 }
 
@@ -61,7 +75,7 @@ export function isTransientWorkingStatusPlaceholder(content: string | undefined)
   if (!body) {
     return false;
   }
-  if (body === EMPTY_STREAM_TIMEOUT_PLACEHOLDER || body.startsWith('Still no reply text.')) {
+  if (body === EMPTY_STREAM_TIMEOUT_PLACEHOLDER || isNoReplyGuidanceCopy(body)) {
     return false;
   }
   if (body === TELEGRAM_QUEUED_REPLY_PLACEHOLDER) {

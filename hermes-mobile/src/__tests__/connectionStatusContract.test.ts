@@ -1,5 +1,8 @@
 import {
+  assertOptionalPairingHeadlineLaw,
   isFalseUnpairedStatusCopy,
+  isOptionalPairingStatusCopy,
+  resolveHeadlineConnectionStatusLabel,
   isMacDirectReachable,
   resolveCalmConnectionStatus,
   resolveLeashHealthDetail,
@@ -135,5 +138,71 @@ describe('connectionStatusContract', () => {
     });
     expect(footnote).toMatch(/Optional/i);
     expect(footnote).not.toMatch(/not paired/i);
+  });
+  /**
+   * DEFECT 1 (2026-07-25, real device): chat header read
+   * "Igors-Mac-mini · Cloud approvals are not paired · Tailscale" while the Mac was reachable.
+   * Optional relay/cloud-approvals pairing must never occupy the headline slot.
+   */
+  it('classifies optional cloud/relay pairing copy', () => {
+    expect(isOptionalPairingStatusCopy('Cloud approvals are not paired')).toBe(true);
+    expect(isOptionalPairingStatusCopy('Pair to receive approval requests anywhere')).toBe(true);
+    expect(isOptionalPairingStatusCopy('Waiting for approval pairing…')).toBe(true);
+    expect(isOptionalPairingStatusCopy('Hermes relay is not paired yet')).toBe(true);
+    expect(isOptionalPairingStatusCopy("Can't reach Igors-Mac-mini")).toBe(false);
+    expect(isOptionalPairingStatusCopy('Connected')).toBe(false);
+    expect(isOptionalPairingStatusCopy(undefined)).toBe(false);
+  });
+
+  it('drops optional pairing copy from the headline slot while the Mac is reachable', () => {
+    expect(
+      resolveHeadlineConnectionStatusLabel({
+        candidate: 'Cloud approvals are not paired',
+        macDirectOk: true,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveHeadlineConnectionStatusLabel({
+        candidate: 'Pair to receive approval requests anywhere',
+        macDirectOk: true,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps real Mac faults in the headline slot', () => {
+    expect(
+      resolveHeadlineConnectionStatusLabel({
+        candidate: "Can't reach Igors-Mac-mini",
+        macDirectOk: false,
+      }),
+    ).toBe("Can't reach Igors-Mac-mini");
+    // Mac genuinely down: cloud-approvals pairing is allowed to speak.
+    expect(
+      resolveHeadlineConnectionStatusLabel({
+        candidate: 'Cloud approvals are not paired',
+        macDirectOk: false,
+      }),
+    ).toBe('Cloud approvals are not paired');
+  });
+
+  it('assertOptionalPairingHeadlineLaw flags the 2026-07-25 header regression', () => {
+    expect(
+      assertOptionalPairingHeadlineLaw({
+        headline: 'Cloud approvals are not paired',
+        macDirectOk: true,
+      }),
+    ).toMatch(/Cloud approvals are not paired/);
+    expect(
+      assertOptionalPairingHeadlineLaw({
+        headline: 'Connected',
+        macDirectOk: true,
+      }),
+    ).toBeNull();
+    expect(
+      assertOptionalPairingHeadlineLaw({
+        headline: 'Cloud approvals are not paired',
+        macDirectOk: false,
+      }),
+    ).toBeNull();
   });
 });

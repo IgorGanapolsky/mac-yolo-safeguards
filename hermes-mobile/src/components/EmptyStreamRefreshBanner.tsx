@@ -17,6 +17,14 @@ type EmptyStreamRefreshBannerProps = {
   startingFreshChat?: boolean;
   onOpenLeash?: () => void;
   pendingApprovalCount?: number;
+  /** Direct Mac HTTP proof — `false` makes the dead link the named fault. */
+  macHttpOk?: boolean;
+  /** Gateway rejected this app's key. */
+  authMismatch?: boolean;
+  /** Machine name used in the fault sentence. */
+  machineLabel?: string;
+  /** A run is genuinely in flight, so Stop does something. */
+  runActive?: boolean;
 };
 
 export default function EmptyStreamRefreshBanner({
@@ -28,6 +36,10 @@ export default function EmptyStreamRefreshBanner({
   startingFreshChat = false,
   onOpenLeash,
   pendingApprovalCount = 0,
+  macHttpOk,
+  authMismatch,
+  machineLabel,
+  runActive,
 }: EmptyStreamRefreshBannerProps) {
   const [elapsedMs, setElapsedMs] = useState(0);
 
@@ -44,12 +56,19 @@ export default function EmptyStreamRefreshBanner({
 
   const hardStopped = shouldHardStopEmptyStreamWait(elapsedMs);
   const displayElapsedMs = emptyStreamDisplayElapsedMs(elapsedMs);
-  const hint = emptyStreamBannerHint(elapsedMs);
+  // PRODUCT LAW (2026-07-25): conditional guidance — Leash only when approvals wait,
+  // Stop only when a run is active, dead/unauthenticated link named as the fault.
+  const hint = emptyStreamBannerHint(elapsedMs, {
+    pendingApprovalsCount: pendingApprovalCount,
+    runActive,
+    macHttpOk,
+    authMismatch,
+    machineLabel,
+  });
   const showSpinner = autoChecking && !hardStopped;
-  const leashLabel =
-    pendingApprovalCount > 0
-      ? `Open Leash (${pendingApprovalCount})`
-      : 'Open Leash';
+  // Never offer a chip that lands on an empty Leash screen.
+  const showLeashChip = Boolean(onOpenLeash) && pendingApprovalCount > 0;
+  const leashLabel = `Open Leash (${pendingApprovalCount})`;
 
   return (
     <View style={styles.wrap} testID="empty-stream-refresh-banner">
@@ -69,7 +88,9 @@ export default function EmptyStreamRefreshBanner({
           ) : null}
           {hardStopped ? (
             <Text style={styles.stoppedLabel} testID="empty-stream-hard-stopped">
-              Wait stopped — act on Leash or start fresh
+              {pendingApprovalCount > 0
+                ? 'Wait stopped — act on Leash or start fresh'
+                : 'Wait stopped — start fresh or send again'}
             </Text>
           ) : null}
         </View>
@@ -100,7 +121,7 @@ export default function EmptyStreamRefreshBanner({
             )}
           </Pressable>
         ) : null}
-        {onOpenLeash ? (
+        {showLeashChip ? (
           <Pressable
             onPress={onOpenLeash}
             accessibilityRole="button"

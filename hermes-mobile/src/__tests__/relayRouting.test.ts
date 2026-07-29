@@ -1,8 +1,10 @@
 import {
+  DIRECT_LINK_ROUTE_STATUS,
   relayWorkerDisplayName,
   resolveRelayRouteDisplay,
   selectRelayWorker,
 } from '../utils/relayRouting';
+import { isOptionalPairingStatusCopy } from '../utils/connectionStatusContract';
 import type { RelayWorker } from '../types/mobileRelay';
 
 const workers: RelayWorker[] = [
@@ -119,5 +121,51 @@ describe('relayRouting', () => {
 
     expect(display.machineLabel).toBe('MacBook Pro');
     expect(display.endpointLabel).toBe('10.2.29.103:8642');
+  });
+  /**
+   * PRODUCT LAW (connectionStatusContract, 2026-07-22 rage; re-broken 2026-07-25):
+   * optional cloud-approvals/relay pairing may NEVER be the headline status while the
+   * Mac itself is reachable. Screenshot regression:
+   * "Igors-Mac-mini · Cloud approvals are not paired · Tailscale".
+   */
+  it('never surfaces cloud-approvals pairing as route status while the Mac is reachable', () => {
+    const display = resolveRelayRouteDisplay({
+      connectionMode: 'relay',
+      isPaired: false,
+      connectionState: 'connected',
+      workers,
+      activeWorkerId: 'mac-mini',
+      fallbackMachineLabel: 'Igors-Mac-mini',
+      fallbackEndpoint: 'Tailscale',
+      gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642',
+      heal: { attempt: 3, inFlight: false, exhausted: true },
+      wifiConnected: false,
+      macHttpOk: true,
+    });
+
+    expect(display.routeStatus).toBe(DIRECT_LINK_ROUTE_STATUS);
+    expect(display.routeStatus.toLowerCase()).not.toContain('not paired');
+    expect(display.routeStatus.toLowerCase()).not.toContain('cloud approvals');
+    expect(display.machineLabel).toBe('Igors-Mac-mini');
+    expect(isOptionalPairingStatusCopy(display.routeStatus)).toBe(false);
+    // Pairing stays discoverable, but only as a calm secondary footnote.
+    expect(display.optionalApprovalsNote).toMatch(/Optional/i);
+  });
+
+  it('still nags to pair cloud approvals when the Mac is NOT reachable', () => {
+    const display = resolveRelayRouteDisplay({
+      connectionMode: 'relay',
+      isPaired: false,
+      connectionState: 'disconnected',
+      workers,
+      activeWorkerId: 'mac-mini',
+      fallbackMachineLabel: 'Igors-Mac-mini',
+      gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642',
+      heal: { attempt: 3, inFlight: false, exhausted: true },
+      macHttpOk: false,
+    });
+
+    expect(display.machineLabel).toBe('Cloud approvals');
+    expect(display.routeStatus).toBe('Pair to receive approval requests anywhere');
   });
 });

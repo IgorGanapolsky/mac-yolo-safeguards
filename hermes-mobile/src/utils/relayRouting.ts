@@ -2,11 +2,23 @@ import type { ConnectionMode } from '../types/gateway';
 import type { RelayWorker } from '../types/mobileRelay';
 import type { ConnectionHealSnapshot } from './connectionErrorPolicy';
 import { shouldShowPairRelayRouteStatus } from './connectionErrorPolicy';
+import { resolveOptionalApprovalsFootnote } from './connectionStatusContract';
+
+/**
+ * Sentinel meaning "the Mac link speaks for itself — do not put anything in the
+ * headline status slot". ChatScreen already treats this value as "no route status".
+ */
+export const DIRECT_LINK_ROUTE_STATUS = 'Direct link';
 
 export type RelayRouteDisplay = {
   machineLabel: string;
   endpointLabel?: string;
   routeStatus: string;
+  /**
+   * Calm, secondary line for optional cloud-approvals pairing. NEVER a headline —
+   * see PRODUCT LAW in connectionStatusContract.ts.
+   */
+  optionalApprovalsNote?: string;
 };
 
 function clean(value?: string | null): string | undefined {
@@ -70,6 +82,23 @@ export function resolveRelayRouteDisplay(input: {
   }
 
   if (!input.isPaired) {
+    // PRODUCT LAW (connectionStatusContract, 2026-07-22 rage; re-broken 2026-07-25):
+    // when the phone can reach the Mac over HTTP, optional cloud-approvals pairing is
+    // NOT the connection status. Release the headline slot and demote pairing to a
+    // calm footnote. Regression this closes:
+    // "<mac name> · Cloud approvals are not paired · Tailscale" on a live Tailscale link.
+    if (input.macHttpOk) {
+      return {
+        machineLabel: input.fallbackMachineLabel,
+        endpointLabel: input.fallbackEndpoint,
+        routeStatus: DIRECT_LINK_ROUTE_STATUS,
+        optionalApprovalsNote: resolveOptionalApprovalsFootnote({
+          connectionMode: 'relay',
+          isPaired: false,
+          macDirectOk: true,
+        }),
+      };
+    }
     const heal = input.heal ?? { attempt: 0, inFlight: false, exhausted: true };
     const showPairNudge = shouldShowPairRelayRouteStatus({
       isPaired: false,
@@ -93,6 +122,11 @@ export function resolveRelayRouteDisplay(input: {
             ? 'Waiting for approval pairing…'
             : 'Reconnecting…'
           : 'Cloud approvals are not paired',
+      optionalApprovalsNote: resolveOptionalApprovalsFootnote({
+        connectionMode: 'relay',
+        isPaired: false,
+        macDirectOk: false,
+      }),
     };
   }
 

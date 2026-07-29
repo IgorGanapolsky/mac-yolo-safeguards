@@ -342,7 +342,9 @@ import {
   resolveChatMachineHeaderDisplay,
   isActiveProfileSwitchInFlight,
 } from '../utils/chatMachineHeader';
-import { resolveRelayRouteDisplay } from '../utils/relayRouting';
+import { DIRECT_LINK_ROUTE_STATUS, resolveRelayRouteDisplay } from '../utils/relayRouting';
+import { resolveHeadlineConnectionStatusLabel } from '../utils/connectionStatusContract';
+import type { NoReplyGuidanceContext } from '../utils/noReplyGuidance';
 import {
   connectionHealSnapshot,
   hasAlternateHealRoutes,
@@ -427,7 +429,7 @@ import {
 import {
   extractAssistantFromRunCompletedPayload,
   findNewAssistantReply,
-  EMPTY_STREAM_TIMEOUT_PLACEHOLDER,
+  emptyStreamTimeoutPlaceholder,
   GENERIC_EMPTY_STREAM_PLACEHOLDER,
   isDeferredStreamPlaceholder,
   isSilentAssistantCompletion,
@@ -440,9 +442,10 @@ import {
   deferredReplyPollBudgetMs,
   DEFERRED_REPLY_POLL_MS,
   EMPTY_REPLY_FAILURE_REASON,
-  EMPTY_STREAM_HARD_STOP_STATUS,
   EMPTY_STREAM_SELF_HEAL_AFTER_MS,
+  emptyReplyFailureReason,
   emptyStreamCheckingStatus,
+  emptyStreamHardStopStatus,
   shouldAwaitGatewayReplyAfterSend,
   shouldHardStopEmptyStreamWait,
   shouldKeepAutoPollingForReply,
@@ -1829,14 +1832,35 @@ export default function ChatScreen() {
     });
   }, [health?.authMismatch, repairComputerLabel]);
 
-  const routeStatusLabel =
-    settings.connectionMode === 'relay' &&
-    !isPaired &&
-    relayRouteDisplay.routeStatus !== 'Direct link'
-      ? relayRouteDisplay.routeStatus
-      : !effectiveMacHttpOk && connectionHealExhausted
-        ? savedMacUnreachableStatus(machineShortLabel)
-        : undefined;
+  // PRODUCT LAW (connectionStatusContract.ts): optional cloud-approvals / relay pairing
+  // state may NEVER occupy the headline status slot while the Mac itself is reachable.
+  // Regression closed 2026-07-25: header read
+  // "<mac name> · Cloud approvals are not paired · Tailscale" on a live Tailscale link.
+  const routeStatusLabel = resolveHeadlineConnectionStatusLabel({
+    candidate:
+      settings.connectionMode === 'relay' &&
+      !isPaired &&
+      relayRouteDisplay.routeStatus !== DIRECT_LINK_ROUTE_STATUS
+        ? relayRouteDisplay.routeStatus
+        : !effectiveMacHttpOk && connectionHealExhausted
+          ? savedMacUnreachableStatus(machineShortLabel)
+          : undefined,
+    macDirectOk: effectiveMacHttpOk,
+  });
+
+  /**
+   * PRODUCT LAW (2026-07-25): "no reply" guidance must describe the REAL fault.
+   * Read through a ref so the long-lived deferred-reply poll always sees live state
+   * without re-creating the poll callback. See src/utils/noReplyGuidance.ts.
+   */
+  const noReplyGuidanceRef = useRef<NoReplyGuidanceContext>({});
+  noReplyGuidanceRef.current = {
+    pendingApprovalsCount: pendingApprovals.length,
+    runActive: isActiveChatRun(runProgress),
+    macHttpOk: effectiveMacHttpOk,
+    authMismatch: effectiveAuthMismatch,
+    machineLabel: machineShortLabel,
+  };
 
   const suppressEmptyGreetingUnreachable = shouldSuppressEmptyGreetingUnreachable({
     healthProbePending,
@@ -3328,7 +3352,10 @@ export default function ChatScreen() {
                   },
             );
           } else if (elapsed >= EMPTY_STREAM_SELF_HEAL_AFTER_MS) {
-            const checkingDetail = emptyStreamCheckingStatus(elapsed);
+            const checkingDetail = emptyStreamCheckingStatus(
+              elapsed,
+              noReplyGuidanceRef.current,
+            );
             setToolStatus(checkingDetail);
             setRunProgress((prev) =>
               prev && prev.phase !== 'completed' && prev.phase !== 'failed'
@@ -3346,17 +3373,18 @@ export default function ChatScreen() {
             clearDeferredTelegramPoll();
             awaitingGatewayReplyRef.current = false;
             setAwaitingGatewayReply(false);
-            setToolStatus(EMPTY_STREAM_HARD_STOP_STATUS);
+            const hardStopDetail = emptyStreamHardStopStatus(noReplyGuidanceRef.current);
+            setToolStatus(hardStopDetail);
             commitMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId && isDeferredStreamPlaceholder(m.content)
-                  ? { ...m, content: EMPTY_STREAM_TIMEOUT_PLACEHOLDER }
+                  ? { ...m, content: emptyStreamTimeoutPlaceholder(noReplyGuidanceRef.current) }
                   : m,
               ),
             );
             setRunProgress((prev) =>
               prev && prev.phase !== 'completed'
-                ? { ...prev, phase: 'failed', detail: EMPTY_STREAM_HARD_STOP_STATUS }
+                ? { ...prev, phase: 'failed', detail: hardStopDetail }
                 : prev,
             );
             return;
@@ -3369,17 +3397,21 @@ export default function ChatScreen() {
             clearDeferredTelegramPoll();
             awaitingGatewayReplyRef.current = false;
             setAwaitingGatewayReply(false);
-            setToolStatus(emptyStreamCheckingStatus(elapsed));
+            setToolStatus(emptyStreamCheckingStatus(elapsed, noReplyGuidanceRef.current));
             commitMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId && isDeferredStreamPlaceholder(m.content)
-                  ? { ...m, content: EMPTY_STREAM_TIMEOUT_PLACEHOLDER }
+                  ? { ...m, content: emptyStreamTimeoutPlaceholder(noReplyGuidanceRef.current) }
                   : m,
               ),
             );
             setRunProgress((prev) =>
               prev && prev.phase !== 'completed'
-                ? { ...prev, phase: 'failed', detail: EMPTY_REPLY_FAILURE_REASON }
+                ? {
+                    ...prev,
+                    phase: 'failed',
+                    detail: emptyReplyFailureReason(noReplyGuidanceRef.current),
+                  }
                 : prev,
             );
             options?.onTimeout?.();
@@ -3410,7 +3442,7 @@ export default function ChatScreen() {
     // Re-arming here was the 57-minute "Checking your Mac… (3430s)" class.
     const lastSentAt = resolveLastUserPromptSentAtMs(msgs);
     if (lastSentAt != null && shouldHardStopEmptyStreamWait(Date.now() - lastSentAt)) {
-      setToolStatus(EMPTY_STREAM_HARD_STOP_STATUS);
+      setToolStatus(emptyStreamHardStopStatus(noReplyGuidanceRef.current));
       return;
     }
     return;
@@ -3868,7 +3900,7 @@ export default function ChatScreen() {
         typeof waitElapsedMs === 'number' &&
         shouldHardStopEmptyStreamWait(waitElapsedMs)
       ) {
-        setToolStatus(EMPTY_STREAM_HARD_STOP_STATUS);
+        setToolStatus(emptyStreamHardStopStatus(noReplyGuidanceRef.current));
       }
       return;
     }
@@ -7754,6 +7786,10 @@ export default function ChatScreen() {
             onStartFreshChat={() => void handleStartFreshChat()}
             startingFreshChat={isStartingFreshChat}
             pendingApprovalCount={composerApprovals.length}
+            macHttpOk={effectiveMacHttpOk}
+            authMismatch={effectiveAuthMismatch}
+            machineLabel={machineShortLabel}
+            runActive={isActiveChatRun(progressBanner)}
             onOpenLeash={() => {
               haptics.selection();
               navigation.navigate('Leash' as never);

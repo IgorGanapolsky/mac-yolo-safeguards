@@ -2,23 +2,39 @@ import type { HermesMessage } from '../types/chat';
 import {
   EMPTY_STREAM_HARD_STOP_MS,
   EMPTY_STREAM_HARD_STOP_STATUS,
+  emptyStreamHardStopStatus,
   shouldHardStopEmptyStreamWait,
 } from './emptyStreamReplyRecovery';
 import { EMPTY_STREAM_TIMEOUT_PLACEHOLDER } from './streamAssistantText';
+import {
+  buildNoReplyNextSteps,
+  isNoReplyGuidanceCopy,
+  type NoReplyGuidanceContext,
+} from './noReplyGuidance';
 
-/** Shown above composer while auto-polling for reply text after a soft timeout. */
-export const EMPTY_STREAM_REFRESH_BANNER_HINT =
-  'Still waiting for reply text from your Mac. Hermes is checking automatically — Stop if a run is active, open Leash for approve/deny/warn, or start a fresh chat.';
+/**
+ * Shown above composer while auto-polling for reply text after a soft timeout.
+ * CONDITIONAL (2026-07-25): next steps name Leash only when approvals are waiting and
+ * Stop only when a run is active — see noReplyGuidance.ts.
+ */
+export function emptyStreamRefreshBannerHint(context?: NoReplyGuidanceContext): string {
+  return `Still waiting for reply text from your Mac. Hermes is checking automatically — ${buildNoReplyNextSteps(context)}`;
+}
 
-export function emptyStreamBannerHint(elapsedMs: number): string {
+export const EMPTY_STREAM_REFRESH_BANNER_HINT = emptyStreamRefreshBannerHint();
+
+export function emptyStreamBannerHint(
+  elapsedMs: number,
+  context?: NoReplyGuidanceContext,
+): string {
   if (shouldHardStopEmptyStreamWait(elapsedMs)) {
-    return EMPTY_STREAM_HARD_STOP_STATUS;
+    return context ? emptyStreamHardStopStatus(context) : EMPTY_STREAM_HARD_STOP_STATUS;
   }
   const elapsedSec = Math.max(1, Math.floor(elapsedMs / 1000));
   if (elapsedMs < 30_000) {
-    return EMPTY_STREAM_REFRESH_BANNER_HINT;
+    return emptyStreamRefreshBannerHint(context);
   }
-  return `Checking your Mac for a reply… (${elapsedSec}s). Stop if a run is active, open Leash for approvals, or start a fresh chat.`;
+  return `Checking your Mac for a reply… (${elapsedSec}s). ${buildNoReplyNextSteps(context)}`;
 }
 
 /** Cap live "Waiting Xm" display so a Jul-23 prompt cannot paint "Waiting 57m" forever. */
@@ -31,7 +47,8 @@ export function messageIsEmptyStreamTimeout(content: string | undefined): boolea
   if (body === EMPTY_STREAM_TIMEOUT_PLACEHOLDER) {
     return true;
   }
-  return body.startsWith('Still no reply text.');
+  // Any conditional no-reply variant (see noReplyGuidance.ts) + legacy wording.
+  return isNoReplyGuidanceCopy(body);
 }
 
 /** True when the latest user turn ended with a timed-out empty-stream assistant bubble. */
@@ -61,6 +78,7 @@ export function shouldShowEmptyStreamRefreshCta(messages: readonly HermesMessage
 export const USER_FACING_EMPTY_STREAM_COPY_FILES = [
   'src/utils/streamAssistantText.ts',
   'src/utils/emptyStreamReplyRecovery.ts',
+  'src/utils/noReplyGuidance.ts',
 ] as const;
 
 export function assertNoPullToRefreshCopy(source: string, label: string): void {

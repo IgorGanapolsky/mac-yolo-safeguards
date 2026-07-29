@@ -11,6 +11,65 @@ export type CalmConnectionStatus = 'connected' | 'checking' | 'unreachable' | 'n
 const FALSE_UNPAIRED_COPY_RE =
   /\b(not paired|unpaired|relay not paired|pair relay|invalid(?:\s+pair(?:ing)?)?|pairing expired)\b/i;
 
+/**
+ * Copy that describes the OPTIONAL cloud-approvals / relay pairing capability
+ * rather than the Mac chat link itself. Anything matching this is secondary
+ * by definition and may never occupy the headline connection slot while the
+ * Mac is reachable (see resolveHeadlineConnectionStatusLabel).
+ */
+const OPTIONAL_PAIRING_COPY_RE =
+  /(cloud approvals?|relay|approval pairing|approval request|desktop bridge|pair (?:in settings|to receive|approvals)|pair again)/i;
+
+/** True when the text is about optional cloud-approvals/relay pairing, not the Mac link. */
+export function isOptionalPairingStatusCopy(text?: string | null): boolean {
+  const trimmed = text?.trim();
+  if (!trimmed) {
+    return false;
+  }
+  if (OPTIONAL_PAIRING_COPY_RE.test(trimmed)) {
+    return true;
+  }
+  return isFalseUnpairedStatusCopy(trimmed);
+}
+
+/**
+ * PRODUCT LAW gate for the chat-header headline slot.
+ * DEFECT (2026-07-25, real device): header read
+ * "<mac name> · Cloud approvals are not paired · Tailscale" while the Mac was reachable.
+ * Returns the candidate only when it is allowed to be the primary status.
+ */
+export function resolveHeadlineConnectionStatusLabel(input: {
+  candidate?: string | null;
+  macDirectOk: boolean;
+}): string | undefined {
+  const candidate = input.candidate?.trim();
+  if (!candidate) {
+    return undefined;
+  }
+  if (input.macDirectOk && isOptionalPairingStatusCopy(candidate)) {
+    return undefined;
+  }
+  return candidate;
+}
+
+/**
+ * Invariant for tests/CI. Returns null when the law holds, or a human error string.
+ * Mirrors assertUsbHeaderIdentityLaw in chatMachineHeader.ts.
+ */
+export function assertOptionalPairingHeadlineLaw(input: {
+  headline?: string | null;
+  macDirectOk: boolean;
+}): string | null {
+  const headline = input.headline?.trim();
+  if (!headline || !input.macDirectOk) {
+    return null;
+  }
+  if (isOptionalPairingStatusCopy(headline)) {
+    return `Headline status "${headline}" is optional cloud-approvals/relay pairing state while the Mac is reachable`;
+  }
+  return null;
+}
+
 export function isMacDirectReachable(health?: GatewayHealthSnapshot | null): boolean {
   if (!health || health.authMismatch) {
     return false;

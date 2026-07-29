@@ -2,6 +2,7 @@ import type { HermesMessage } from '../types/chat';
 import { isSummarizationStub } from './chatCompactionHandoff';
 import { isMessageBodyEmpty } from './chatMessageMerge';
 import { isDeferredStreamPlaceholder, isSilentAssistantCompletion } from './streamAssistantText';
+import { buildNoReplyGuidance, type NoReplyGuidanceContext } from './noReplyGuidance';
 
 /** Poll gateway transcript after empty stream / dropped SSE until reply lands. */
 export const DEFERRED_REPLY_POLL_MS = 4_000;
@@ -19,16 +20,31 @@ export const EMPTY_STREAM_SELF_HEAL_AFTER_MS = 30_000;
  */
 export const EMPTY_STREAM_HARD_STOP_MS = 4 * 60_000;
 
-export const EMPTY_REPLY_FAILURE_REASON =
-  'Still no reply text — your Mac may be stuck or waiting for a Leash approval. Stop the run, open Leash to approve/deny/warn, or start a fresh chat.';
+/**
+ * CONDITIONAL no-reply copy (2026-07-25). Leash only when approvals are waiting, Stop
+ * only when a run is active, connection faults named as faults — see noReplyGuidance.ts.
+ * These constants are the context-free defaults; pass a context to the builders below
+ * when the caller knows the real state.
+ */
+export function emptyReplyFailureReason(context?: NoReplyGuidanceContext): string {
+  return buildNoReplyGuidance(context);
+}
 
-export const EMPTY_STREAM_HARD_STOP_STATUS =
-  'Stopped waiting on your Mac. Open Leash if a tool needs approve/deny/warn, Stop an active run, or start a fresh chat.';
+export function emptyStreamHardStopStatus(context?: NoReplyGuidanceContext): string {
+  return buildNoReplyGuidance({ ...context, hardStopped: true });
+}
+
+export const EMPTY_REPLY_FAILURE_REASON = emptyReplyFailureReason();
+
+export const EMPTY_STREAM_HARD_STOP_STATUS = emptyStreamHardStopStatus();
 
 /** User-facing status while auto-polling after send with no reply yet. */
-export function emptyStreamCheckingStatus(elapsedMs: number): string {
+export function emptyStreamCheckingStatus(
+  elapsedMs: number,
+  context?: NoReplyGuidanceContext,
+): string {
   if (shouldHardStopEmptyStreamWait(elapsedMs)) {
-    return EMPTY_STREAM_HARD_STOP_STATUS;
+    return emptyStreamHardStopStatus(context);
   }
   const elapsedSec = Math.max(1, Math.floor(elapsedMs / 1000));
   if (elapsedMs < EMPTY_STREAM_SELF_HEAL_AFTER_MS) {
