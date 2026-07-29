@@ -132,6 +132,6 @@ describe('thumbgatePromoCopy', () => {
         profileCount: 0,
         activeReachable: false,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 });

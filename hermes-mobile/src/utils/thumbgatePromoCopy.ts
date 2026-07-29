@@ -103,9 +103,6 @@ export function shouldShowThumbGatePromoOnComputerPicker(input: {
   scanning?: boolean;
   authNeedsRepair?: boolean;
 }): boolean {
-  if (input.profileCount <= 0) {
-    return false;
-  }
   if (input.scanning || input.activeConnecting) {
     return false;
   }
@@ -113,5 +110,7 @@ export function shouldShowThumbGatePromoOnComputerPicker(input: {
   if (input.authNeedsRepair) {
     return false;
   }
+  // Any time this sheet is open and Chat is not live on a Mac, offer ThumbGate.app
+  // (empty list OR selected Mac unreachable / Cannot reach).
   return !input.activeReachable;
 }
