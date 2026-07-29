@@ -1225,6 +1225,11 @@ export default function ChatScreen() {
         fixture,
       ]);
       lastFailedSendTextRef.current = text;
+      // Ship-guard flows share one app process. A prior composer regression can
+      // intentionally leave draft text behind, which would make ↑ send that
+      // draft instead of exercising the empty-composer retry path.
+      setInputValue('');
+      setComposerAttachments([]);
       setRetryE2eStatus('fixture_ready');
       setRunProgress(null);
     };

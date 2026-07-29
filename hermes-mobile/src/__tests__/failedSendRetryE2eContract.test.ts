@@ -15,7 +15,10 @@ describe('failed attachment retry E2E contract', () => {
     expect(shipGuard).toContain('runFlow: regression-chat-failed-attachment-retry.yaml');
     expect(flow).toContain('hermes://chat?e2eFailedRetry=attachment');
     expect(flow).toContain('id: "chat-send-button"');
+    expect(flow).toContain('text: "Type a message to Hermes"');
     expect(flow).toContain('text: "accepted_1"');
+    expect(chatScreen).toContain("setInputValue('');");
+    expect(chatScreen).toContain('setComposerAttachments([]);');
   });
 
   it('asserts attachment preservation and loud failure states', () => {

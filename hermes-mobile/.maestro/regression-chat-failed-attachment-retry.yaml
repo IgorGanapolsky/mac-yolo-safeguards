@@ -17,6 +17,9 @@ appId: com.iganapolsky.hermesmobile
       text: "fixture_ready"
     timeout: 15000
 - assertVisible:
+    id: "chat-input"
+    text: "Type a message to Hermes"
+- assertVisible:
     id: "chat-message-body"
     text: "(?s)make money today.*retry-proof\\.png"
 - tapOn:
