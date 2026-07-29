@@ -379,6 +379,10 @@ test('self-heals a missing mobile-originated session so web can continue the clo
         threadTitle: 'Continue the work',
         prompt: 'Make money',
         handoffMessages: [{ role: 'user', content: 'Pull the latest code from upstream.' }],
+        contextMessages: [
+          { role: 'user', content: 'original mobile request about agent spend' },
+          { role: 'assistant', content: 'original mobile answer with project binding' },
+        ],
       },
     );
     assert.equal(result, 'recovered mobile session on Mac');
@@ -389,6 +393,37 @@ test('self-heals a missing mobile-originated session so web can continue the clo
     'POST /api/sessions/mobile_1785181168497_de1e2b96/chat',
   ]);
   assert.equal(requests[1].body.id, 'mobile_1785181168497_de1e2b96');
+  // Recreate must not pin connector terminal.cwd over the mobile project binding.
+  assert.equal(requests[1].body.system_prompt, undefined);
+  const chatBody = requests[2].body;
+  assert.match(chatBody.system_message, /original mobile request about agent spend/);
+  assert.match(chatBody.system_message, /Pull the latest code from upstream/);
+  assert.doesNotMatch(chatBody.system_message || '', /Hermes Web project context \(HARD CONSTRAINT/);
+});
+
+test('live mobile sessions keep project binding — no web workspace prompt injection', async () => {
+  let received;
+  await withServer((request, response) => {
+    let body = '';
+    request.on('data', (chunk) => { body += chunk; });
+    request.on('end', () => {
+      response.setHeader('content-type', 'application/json');
+      if (request.method === 'GET' && request.url === '/api/sessions/mobile_live_abc') {
+        response.end(JSON.stringify({ session: { id: 'mobile_live_abc' } }));
+        return;
+      }
+      received = body ? JSON.parse(body) : null;
+      response.end(JSON.stringify({ message: { role: 'assistant', content: 'ok' } }));
+    });
+  }, async (sessionGatewayUrl) => {
+    await executeLocal(
+      { sessionGatewayUrl },
+      { sourceSessionId: 'mobile_live_abc', prompt: 'continue', handoffMessages: [{ role: 'user', content: 'handoff only' }] },
+    );
+  });
+  assert.equal(received.message, 'continue');
+  assert.match(received.system_message, /handoff only/);
+  assert.doesNotMatch(received.system_message || '', /Hermes Web project context \(HARD CONSTRAINT/);
 });
 
 test('renews a local task lease throughout long-running Hermes work', async () => {

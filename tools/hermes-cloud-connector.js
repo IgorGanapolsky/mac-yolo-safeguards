@@ -285,33 +285,41 @@ function buildWebSessionSystemPrompt(config, task) {
   ].filter(Boolean).join('\n');
 }
 
+/**
+ * Ensure a recoverable Hermes session exists. Returns { created } so callers can
+ * distinguish live sessions (keep mobile project binding) from recreated ones.
+ * Only thumbgate_* sessions get the web workspace system_prompt on create —
+ * mobile_* already carry their own project prompt when the phone created them.
+ */
 async function ensureWebHermesSession(config, task) {
   const encodedSessionId = encodeURIComponent(task.sourceSessionId);
   try {
     await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodedSessionId}`, { gatewayEnvPath: config.gatewayEnvPath });
-    return;
+    return { created: false };
   } catch (error) {
     if (error?.status !== 404) throw error;
   }
 
   const title = String(task.threadTitle || task.prompt || 'ThumbGate web chat').trim().slice(0, 120);
+  const isWebThumbgate = String(task.sourceSessionId || '').startsWith('thumbgate_');
   const payload = {
     id: task.sourceSessionId,
     title,
-    system_prompt: buildWebSessionSystemPrompt(config, task),
+    ...(isWebThumbgate ? { system_prompt: buildWebSessionSystemPrompt(config, task) } : {}),
   };
   try {
     await gatewayJson(config.sessionGatewayUrl, '/api/sessions', {
       method: 'POST', gatewayEnvPath: config.gatewayEnvPath, body: JSON.stringify(payload),
     });
   } catch (error) {
-    if (error?.status === 409) return;
+    if (error?.status === 409) return { created: false };
     if (error?.status !== 400 || error?.code !== 'invalid_title') throw error;
     await gatewayJson(config.sessionGatewayUrl, '/api/sessions', {
       method: 'POST', gatewayEnvPath: config.gatewayEnvPath,
       body: JSON.stringify({ ...payload, title: `${title.slice(0, 108)} · ${task.sourceSessionId.slice(-8)}` }),
     });
   }
+  return { created: true };
 }
 
 function boundContextMessages(messages) {
@@ -396,14 +404,35 @@ function isRecoverableSessionId(sessionId) {
   return id.startsWith('thumbgate_') || id.startsWith('mobile_') || CRON_SESSION_ID_RE.test(id);
 }
 
+function formatHandoffBlock(task) {
+  if (!Array.isArray(task.handoffMessages) || !task.handoffMessages.length) return '';
+  return `Cloud/web continuation since this Mac last synced:\n${task.handoffMessages.map((message) => `${message.role}: ${message.content}`).join('\n\n').slice(-24_000)}`;
+}
+
+function formatContextSnapshot(task) {
+  if (!Array.isArray(task.contextMessages) || !task.contextMessages.length) return '';
+  const bounded = boundContextMessages(task.contextMessages);
+  if (!bounded.length) return '';
+  return `Prior conversation snapshot (session recreated after gateway prune):\n${bounded.map((message) => `${message.role}: ${message.content}`).join('\n\n').slice(-24_000)}`;
+}
+
 async function executeLocal(config, task) {
   if (!task.sourceSessionId) throw new Error('ThumbGate task is missing its Hermes session binding');
-  const webCreatedSession = isRecoverableSessionId(task.sourceSessionId);
-  if (webCreatedSession) await ensureWebHermesSession(config, task);
-  const handoff = Array.isArray(task.handoffMessages) && task.handoffMessages.length
-    ? `Cloud/web continuation since this Mac last synced:\n${task.handoffMessages.map((message) => `${message.role}: ${message.content}`).join('\n\n').slice(-24_000)}`
-    : undefined;
-  const systemMessage = [webCreatedSession ? buildWebSessionSystemPrompt(config, task) : '', handoff || ''].filter(Boolean).join('\n\n');
+  const sessionId = String(task.sourceSessionId);
+  const recoverable = isRecoverableSessionId(sessionId);
+  // Web-created thumbgate_* sessions own the workspace pin. Live mobile_* sessions
+  // already have a project-binding prompt on the gateway — do not overwrite it.
+  const injectWebPrompt = sessionId.startsWith('thumbgate_');
+  let recreated = false;
+  if (recoverable) {
+    const ensure = await ensureWebHermesSession(config, task);
+    recreated = Boolean(ensure?.created);
+  }
+  const systemMessage = [
+    injectWebPrompt ? buildWebSessionSystemPrompt(config, task) : '',
+    recreated ? formatContextSnapshot(task) : '',
+    formatHandoffBlock(task),
+  ].filter(Boolean).join('\n\n');
   const payload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(task.sourceSessionId)}/chat`, {
     method: 'POST', gatewayEnvPath: config.gatewayEnvPath,
     body: JSON.stringify({ message: task.prompt, ...(systemMessage ? { system_message: systemMessage } : {}) }),
