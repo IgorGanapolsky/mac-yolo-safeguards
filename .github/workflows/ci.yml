@@ -225,6 +225,14 @@ jobs:
       - name: Publication readiness
         run: node tools/publication-readiness.js
 
+      # GTM stage map (why / risks / measures) + offline unit contract.
+      # Added 2026-07-29 so every funnel stage has a deterministic answer for
+      # "why does it exist / what can go wrong / how do we measure".
+      - name: Funnel stage health (offline definitions)
+        run: |
+          node tests/test-funnel-stage-health.js
+          node tools/funnel-stage-health.js --offline --json
+
       # ML integrity (fail-closed) — offline platform bar; does not require Stripe/labels.
       - name: ML integrity + platform gate
         run: |
