@@ -1,0 +1,10 @@
+{
+  "tap_to_clear_ms": 3348,
+  "timeout": false,
+  "elapsed_poll_ms": 3348,
+  "has_find_button_again": true,
+  "has_finding": false,
+  "has_searching": false,
+  "has_finishing": false,
+  "has_profile_list": true
+}

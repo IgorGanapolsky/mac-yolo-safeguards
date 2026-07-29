@@ -1,0 +1,37 @@
+appId: com.iganapolsky.hermesmobile.paid
+---
+- launchApp:
+    clearState: false
+    stopApp: true
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- runFlow: dismiss-mac-picker.yaml
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-input"
+    commands:
+      - tapOn:
+          id: "tab-hermes"
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen-header"
+    timeout: 45000
+- tapOn:
+    id: "chat-context-mac-button"
+- extendedWaitUntil:
+    visible:
+      id: "mac-picker-modal"
+    timeout: 15000
+- takeScreenshot: /Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/.worktrees/fast-find-computers/hermes-mobile/docs/proofs/fast-find-computers-20260729/01-picker-open
+- tapOn:
+    text: "Find computers"
+- extendedWaitUntil:
+    notVisible:
+      text: "Finding computers…"
+    timeout: 8000
+- takeScreenshot: /Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/.worktrees/fast-find-computers/hermes-mobile/docs/proofs/fast-find-computers-20260729/02-scan-finished
+- assertVisible:
+    id: "gateway-profile-list"

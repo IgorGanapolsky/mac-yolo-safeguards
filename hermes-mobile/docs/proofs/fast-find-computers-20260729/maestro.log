@@ -1,0 +1,18 @@
+Running on R3CY90QPM7E
+ > Flow fast-find-computers-proof
+Launch app "com.iganapolsky.hermesmobile.paid"... COMPLETED
+Assert that id: hermes-bootstrap is not visible... COMPLETED
+Run dismiss-mac-picker.yaml...
+  Run flow when id: mac-picker-modal is visible...
+  Run flow when id: mac-picker-modal is visible... SKIPPED
+Run dismiss-mac-picker.yaml... COMPLETED
+Run flow when id: chat-input is not visible...
+Run flow when id: chat-input is not visible... SKIPPED
+Assert that id: chat-screen-header is visible... COMPLETED
+Tap on id: chat-context-mac-button... COMPLETED
+Assert that id: mac-picker-modal is visible... COMPLETED
+Take screenshot /Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/.worktrees/fast-find-computers/hermes-mobile/docs/proofs/fast-find-computers-20260729/01-picker-open... COMPLETED
+Tap on "Find computers"... COMPLETED
+Assert that "Finding computers…" is not visible... COMPLETED
+Take screenshot /Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/.worktrees/fast-find-computers/hermes-mobile/docs/proofs/fast-find-computers-20260729/02-scan-finished... COMPLETED
+Assert that id: gateway-profile-list is visible... COMPLETED
