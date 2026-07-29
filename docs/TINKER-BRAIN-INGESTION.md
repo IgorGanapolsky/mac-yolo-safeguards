@@ -31,12 +31,12 @@ not a production SLO.
 | Parsing | Convert supported inputs into inspectable text instead of treating arbitrary bytes as text. | Unsupported MIME accepted; invalid UTF-8 silently changed; HTML script/style leakage; empty extraction. | Parse-success, unsupported-MIME, and empty-extract counts. Tests prove fail-closed MIME behavior, JSON/JSONL canonicalization, HTML sanitization, and UTF-8 errors. |
 | OCR | Recover text from a scanned PDF or image only when native extraction is insufficient. | Expensive OCR on text PDFs; missing local binaries; OCR garbage treated as authoritative. | OCR fallback/failure counts, extracted character count, and `ocr_used`/`ocr_engine` metadata. A fake command runner proves native PDF extraction precedes `pdftoppm` + Tesseract. |
 | Normalization | Give semantically identical Unicode and structured data the same content identity while retaining the raw evidence. | Non-idempotent cleanup; NFC variants diverge; raw text overwritten; excessive whitespace rewriting changes meaning. | Raw and normalized SHA-256 hashes plus an idempotence test. NFC, BOM/line-ending cleanup, canonical JSON/JSONL, and conservative whitespace normalization are versioned. |
-| Deduplication | Stop identical evidence from crowding ranking without discarding its source provenance. | Duplicate chunks dominate top-k; distinct revisions collapse; alternate source URIs disappear. | Exact-duplicate count, canonical-document count, and source-alias count. Dedup is exact normalized-hash only; near-duplicate removal is deliberately excluded because false merges are harder to detect than extra evidence. |
+| Deduplication | Stop identical evidence from crowding ranking without discarding its source provenance or filter scope. | Duplicate chunks dominate top-k; two tenants with identical text collapse into one searchable record; alternate same-scope source URIs disappear. | Exact-duplicate count, canonical-document count, source-alias count, and a two-tenant strict-filter regression. Dedup keys exact normalized content plus a hash of filterable user metadata; system provenance fields are excluded. Near-duplicate removal is deliberately excluded because false merges are harder to detect than extra evidence. |
 | Chunking | Rank focused evidence while returning the correct parent context. | Ordinal IDs shift after an insertion; an answer is split across chunks; overlap or repeated JSONL rows consume top-k. | Chunk count, stable-ID tests, unique-parent result count, and parent-context rate. Markdown headings define parents; long sections use bounded overlapping windows; ThumbGate JSONL lessons remain record-atomic and exact duplicate rows are suppressed. IDs bind logical document, heading/record ID, and content—not ordinal position. |
 | Metadata | Preserve provenance and permit scoped retrieval and reproducibility. | Inferred tags are treated as source facts; bad metadata silently removes the correct answer; component versions go missing; a fallback crosses an authorization boundary. | Metadata/version fill rate and filter-fallback rate. Metadata includes source URI, MIME, language, byte/mtime data, raw and normalized hashes, parser/normalizer/chunker/embedding versions, OCR state, offsets, and user fields. Filters are strict and applied before both rankings by default; widening requires explicit `--filter-fallback` and is visible in the response. |
-| Incremental updates | Avoid reprocessing unchanged sources and make deletions explicit. | Every scan re-ingests; changed content is missed; deleted content remains searchable. | Added/changed/unchanged/deleted counters and tombstone state. `sync` compares source heads by normalized content hash, creates immutable document versions, and tombstones deleted heads. |
+| Incremental updates | Avoid reprocessing unchanged sources, retain raw evidence changes, and make deletions explicit. | Every scan re-ingests; raw JSON formatting/key-order changes disappear from provenance; deleted content remains searchable. | Added/changed/raw-only-changed/unchanged/deleted counters and tombstone state. `sync` separates immutable raw source observations from semantic document versions: changed bytes with the same normalized content append an observation and move only the source head; semantic changes create a document version; deletions tombstone the head. |
 | Re-indexing | Rebuild changed chunks or embeddings without replacing a healthy index with a partial one. | Half-built index becomes active; previous generation is deleted too early; stale vectors survive a model change. | Generation status, active pointer, chunk count, and a failed-rebuild invariant. Reindex builds a shadow generation inside a transaction, validates it, and switches one active pointer only on success. The test injects a mid-build failure and proves the prior generation still answers. |
-| Versioning | Reproduce and roll back the exact evidence and retrieval implementation. | Missing lineage; unversioned parser/model change; rollback points at an incomplete generation. | Immutable document-version count, generation lineage, component-version fill, and rollback tests. Ready generations remain available for explicit rollback. |
+| Versioning | Reproduce and roll back the exact evidence and retrieval implementation. | Missing raw observation lineage; unversioned parser/model change; rollback points at an incomplete generation; a rolled-back generation is queried with a different embedding model. | Immutable source-observation and document-version counts, generation lineage, component-version fill, and rollback tests. Search loads the embedding model recorded by the active generation and fails closed if that local model is unavailable; ready generations remain available for explicit rollback. |
 
 The same stage contracts are emitted by `status` as JSON so an operator or
 dashboard does not need to infer purpose, failures, or metrics from prose.
@@ -59,7 +59,10 @@ return.
   `ollama:<model>` fails closed if unavailable. Local vectors avoid sending
   terminal or evidence text to a cloud provider. The hash model is less
   semantic than a neural model, so the model name is stored on every
-  generation and the eval must be rerun before switching.
+  generation and the eval must be rerun before switching. Query vectors always
+  use the model recorded by the active generation—not whichever model the
+  current process happens to default to—so rollback cannot silently compare
+  incompatible vector spaces.
 - **Query rewriting:** expansion is a small deterministic synonym map for
   observed vocabulary gaps. It adds no model latency and is inspectable in
   every search response. It will not generalize like an LLM rewrite, so misses
@@ -164,8 +167,15 @@ The simulation receipt turns its measurements into actions:
 | Runtime | Is this cheap enough for every PR? | <=5 seconds for 12x24 | Keep a small PR seed set and move additional breadth to scheduled CI. |
 
 These are harness-quality KPIs, not product/revenue outcomes. The weekly review
-should add one new seed or invariant for every real incident, and should not
-raise seed count merely to make a dashboard look busier.
+emits `weekly_review` in the simulation JSON. It considers only these five
+primary KPIs, chooses at most five red items, and turns each into a stable
+action record with an owner, `before_next_weekly_review` due policy, observed
+value, threshold, expected impact, and the exact playbook. Additional red KPIs
+are named in `deferred_red_kpis` instead of silently creating an unbounded
+backlog. When all five are green, the explicit decision is
+`hold_green_baseline`: keep the matrix and thresholds, and add a new seed or
+invariant only after a real incident. Seed count remains a guardrail rather
+than a sixth vanity KPI.
 
 ## Operations
 

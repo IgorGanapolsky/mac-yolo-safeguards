@@ -6,6 +6,7 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
+import sqlite3
 import tempfile
 import unittest
 
@@ -90,13 +91,190 @@ class IndexCase(unittest.TestCase):
                 "text/markdown",
             )
             result = index.ingest_records([first, second])
-            self.assertEqual(result, {"added": 2, "changed": 0, "unchanged": 0, "duplicates": 1})
+            self.assertEqual(
+                result,
+                {
+                    "added": 2,
+                    "changed": 0,
+                    "raw_only_changed": 0,
+                    "unchanged": 0,
+                    "duplicates": 1,
+                },
+            )
             generation = index.reindex()
             self.assertTrue(generation["ok"])
             self.assertEqual(generation["documents"], 1)
             output = index.search("promote ThumbGate buyer pain", limit=1)
             self.assertEqual(output["results"][0]["source_uri"], "memory://one")
             self.assertEqual(output["results"][0]["source_aliases"], ["memory://two"])
+
+    def test_dedup_preserves_metadata_scopes(self) -> None:
+        content = "# Isolation\nIdentical evidence must remain searchable inside each tenant scope."
+        with self.index() as index:
+            first = index.parse_inline(
+                "memory://tenant-a",
+                content,
+                "text/markdown",
+                metadata={"tenant": "tenant-a", "domain": "operations"},
+            )
+            second = index.parse_inline(
+                "memory://tenant-b",
+                content,
+                "text/markdown",
+                metadata={"tenant": "tenant-b", "domain": "operations"},
+            )
+            ingested = index.ingest_records([first, second])
+            self.assertEqual(ingested["duplicates"], 0)
+            generation = index.reindex()
+            self.assertEqual(generation["documents"], 2)
+
+            tenant_b = index.search(
+                "identical evidence tenant scope",
+                limit=1,
+                filters={"tenant": "tenant-b"},
+            )
+            self.assertEqual(tenant_b["filtered_candidate_count"], 1)
+            self.assertEqual(tenant_b["results"][0]["source_uri"], "memory://tenant-b")
+            self.assertEqual(tenant_b["results"][0]["source_aliases"], [])
+
+    def test_raw_only_revision_preserves_current_provenance(self) -> None:
+        with self.index() as index:
+            first = index.parse_inline(
+                "memory://canonical-json",
+                '{"a":1,"b":2}',
+                "application/json",
+            )
+            second = index.parse_inline(
+                "memory://canonical-json",
+                '{\n  "b": 2,\n  "a": 1\n}',
+                "application/json",
+            )
+            self.assertEqual(first["content_hash"], second["content_hash"])
+            self.assertNotEqual(first["raw_hash"], second["raw_hash"])
+            index.ingest_records([first])
+            updated = index.ingest_records([second])
+
+            self.assertEqual(updated["raw_only_changed"], 1)
+            self.assertEqual(updated["changed"], 0)
+            status = index.status()
+            self.assertEqual(status["document_versions"], 1)
+            self.assertEqual(status["source_observations"], 2)
+            current = index.connection.execute(
+                """
+                SELECT o.raw_hash, o.raw_text, o.metadata_json
+                FROM source_heads h
+                JOIN source_observations o ON o.observation_id=h.observation_id
+                WHERE h.source_uri=?
+                """,
+                ("memory://canonical-json",),
+            ).fetchone()
+            self.assertEqual(current["raw_hash"], second["raw_hash"])
+            self.assertEqual(current["raw_text"], second["raw_text"])
+            self.assertEqual(
+                json.loads(current["metadata_json"])["source_bytes"],
+                len(second["raw_text"].encode("utf-8")),
+            )
+            index.reindex()
+            retrieved = index.search("canonical json fields a b", limit=1)["results"][0]
+            self.assertEqual(retrieved["metadata"]["raw_hash"], second["raw_hash"])
+            self.assertEqual(
+                retrieved["metadata"]["source_bytes"],
+                len(second["raw_text"].encode("utf-8")),
+            )
+
+    def test_schema_v1_source_heads_migrate_without_losing_searchable_evidence(self) -> None:
+        source_uri = "memory://legacy-v1"
+        text = "# Legacy\nA schema migration must retain searchable evidence and raw provenance."
+        content_hash = ingestion.sha256_text(text)
+        logical_id = ingestion.stable_id("doc", source_uri)
+        version_id = ingestion.stable_id("ver", logical_id, content_hash)
+        metadata = {
+            "source_uri": source_uri,
+            "mime_type": "text/markdown",
+            "language": "en",
+            "raw_hash": content_hash,
+            "normalized_hash": content_hash,
+            "parser_version": ingestion.PARSER_VERSION,
+            "normalizer_version": ingestion.NORMALIZER_VERSION,
+            "chunker_version": ingestion.CHUNKER_VERSION,
+            "embedding_model": ingestion.HASH_EMBEDDING_MODEL,
+        }
+        connection = sqlite3.connect(self.db)
+        connection.executescript(
+            """
+            CREATE TABLE documents (
+              version_id TEXT PRIMARY KEY,
+              logical_id TEXT NOT NULL,
+              source_uri TEXT NOT NULL,
+              content_hash TEXT NOT NULL,
+              raw_hash TEXT NOT NULL,
+              raw_text TEXT NOT NULL,
+              normalized_text TEXT NOT NULL,
+              title TEXT NOT NULL,
+              mime_type TEXT NOT NULL,
+              language TEXT NOT NULL,
+              parser_version TEXT NOT NULL,
+              normalizer_version TEXT NOT NULL,
+              metadata_json TEXT NOT NULL,
+              duplicate_of TEXT,
+              is_current INTEGER NOT NULL DEFAULT 1,
+              tombstoned INTEGER NOT NULL DEFAULT 0,
+              ingested_at TEXT NOT NULL,
+              UNIQUE(source_uri, content_hash)
+            );
+            CREATE TABLE source_heads (
+              source_uri TEXT PRIMARY KEY,
+              logical_id TEXT NOT NULL,
+              version_id TEXT,
+              content_hash TEXT,
+              state TEXT NOT NULL,
+              updated_at TEXT NOT NULL
+            );
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO documents VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,0,?)
+            """,
+            (
+                version_id,
+                logical_id,
+                source_uri,
+                content_hash,
+                content_hash,
+                text,
+                text,
+                "Legacy",
+                "text/markdown",
+                "en",
+                ingestion.PARSER_VERSION,
+                ingestion.NORMALIZER_VERSION,
+                json.dumps(metadata, sort_keys=True),
+                None,
+                "2026-07-29T00:00:00Z",
+            ),
+        )
+        connection.execute(
+            "INSERT INTO source_heads VALUES(?,?,?,?,?,?)",
+            (
+                source_uri,
+                logical_id,
+                version_id,
+                content_hash,
+                "active",
+                "2026-07-29T00:00:00Z",
+            ),
+        )
+        connection.commit()
+        connection.close()
+
+        with self.index() as index:
+            status = index.status()
+            self.assertEqual(status["schema_version"], 2)
+            self.assertEqual(status["source_observations"], 1)
+            index.reindex()
+            result = index.search("schema migration searchable evidence", limit=1)
+            self.assertEqual(result["results"][0]["source_uri"], source_uri)
 
     def test_deleting_original_duplicate_promotes_an_active_alias(self) -> None:
         corpus = self.root / "aliases"
@@ -488,6 +666,29 @@ class IndexCase(unittest.TestCase):
                     "vector_boost",
                 },
             )
+
+    def test_search_uses_active_generation_embedding_model(self) -> None:
+        class WrongCurrentEmbedder:
+            model = "ollama:not-the-generation-model"
+
+            def embed(self, _text):
+                raise AssertionError("search used the process-default embedder")
+
+        with self.index() as index:
+            index.ingest_records(
+                [
+                    index.parse_inline(
+                        "memory://embedding-snapshot",
+                        "# Snapshot\nThe query vector must match the active generation model.",
+                        "text/markdown",
+                    )
+                ]
+            )
+            generation = index.reindex()
+            index.embedder = WrongCurrentEmbedder()
+            result = index.search("query vector active generation model", limit=1)
+            self.assertEqual(result["embedding_model"], generation["embedding_model"])
+            self.assertEqual(result["results"][0]["source_uri"], "memory://embedding-snapshot")
 
     def test_fixture_validation_rejects_unsatisfiable_qrels(self) -> None:
         fixture = json.loads(ingestion.DEFAULT_EVAL.read_text(encoding="utf-8"))

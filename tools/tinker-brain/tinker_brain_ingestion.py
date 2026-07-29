@@ -32,7 +32,7 @@ import urllib.request
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 PARSER_VERSION = "tinker-parser-v1"
 NORMALIZER_VERSION = "tinker-normalizer-v1"
 CHUNKER_VERSION = "tinker-heading-parent-v1"
@@ -40,6 +40,33 @@ HASH_EMBEDDING_MODEL = "hashing-token-bigram-v1-128"
 DEFAULT_OLLAMA_MODEL = "nomic-embed-text"
 DEFAULT_DB = Path.home() / ".hermes" / "tinker-brain" / "ingestion.sqlite3"
 DEFAULT_EVAL = Path(__file__).resolve().parent / "fixtures" / "ingestion_eval_cases.json"
+
+DEDUP_SCOPE_EXCLUDED_FIELDS = {
+    "chunker_version",
+    "content_hash",
+    "dedup_scope_key",
+    "duplicate_of",
+    "embedding_model",
+    "end_char",
+    "heading_path",
+    "language",
+    "logical_id",
+    "mime_type",
+    "normalized_hash",
+    "normalizer_version",
+    "ocr_engine",
+    "ocr_used",
+    "parent_version_id",
+    "parser_version",
+    "raw_hash",
+    "record_hash",
+    "record_number",
+    "source_bytes",
+    "source_mtime_ns",
+    "source_uri",
+    "start_char",
+    "version_id",
+}
 
 SUPPORTED_EXTENSIONS = {
     ".txt": "text/plain",
@@ -176,6 +203,20 @@ def sha256_text(value: str) -> str:
 def stable_id(prefix: str, *parts: str, length: int = 24) -> str:
     payload = "\x1f".join(str(part) for part in parts)
     return f"{prefix}_{sha256_text(payload)[:length]}"
+
+
+def stable_json(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True, default=str)
+
+
+def dedup_scope_key(metadata: Dict[str, Any]) -> str:
+    """Hash metadata that can affect filtering while excluding provenance fields."""
+    searchable_scope = {
+        key: value
+        for key, value in metadata.items()
+        if key not in DEDUP_SCOPE_EXCLUDED_FIELDS
+    }
+    return sha256_text(stable_json(searchable_scope))
 
 
 def tokenize(text: str) -> List[str]:
@@ -424,9 +465,24 @@ class TinkerBrainIndex:
               logical_id TEXT NOT NULL,
               version_id TEXT,
               content_hash TEXT,
+              observation_id TEXT,
               state TEXT NOT NULL,
               updated_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS source_observations (
+              observation_id TEXT PRIMARY KEY,
+              source_uri TEXT NOT NULL,
+              version_id TEXT NOT NULL,
+              content_hash TEXT NOT NULL,
+              raw_hash TEXT NOT NULL,
+              raw_text TEXT NOT NULL,
+              metadata_json TEXT NOT NULL,
+              dedup_scope_key TEXT NOT NULL,
+              observed_at TEXT NOT NULL,
+              FOREIGN KEY(version_id) REFERENCES documents(version_id)
+            );
+            CREATE INDEX IF NOT EXISTS source_observations_source_idx
+              ON source_observations(source_uri, observed_at);
             CREATE TABLE IF NOT EXISTS generations (
               generation_id TEXT PRIMARY KEY,
               status TEXT NOT NULL,
@@ -468,6 +524,54 @@ class TinkerBrainIndex:
             );
             """
         )
+        source_head_columns = {
+            str(row["name"])
+            for row in self.connection.execute("PRAGMA table_info(source_heads)").fetchall()
+        }
+        if "observation_id" not in source_head_columns:
+            self.connection.execute("ALTER TABLE source_heads ADD COLUMN observation_id TEXT")
+        legacy_heads = self.connection.execute(
+            """
+            SELECT h.source_uri, h.version_id, d.content_hash, d.raw_hash,
+                   d.raw_text, d.metadata_json, d.ingested_at
+            FROM source_heads h
+            JOIN documents d ON d.version_id=h.version_id
+            WHERE h.observation_id IS NULL
+            """
+        ).fetchall()
+        for head in legacy_heads:
+            metadata = json.loads(head["metadata_json"])
+            scope_key = dedup_scope_key(metadata)
+            metadata["dedup_scope_key"] = scope_key
+            observation_id = stable_id(
+                "obs",
+                str(head["source_uri"]),
+                str(head["raw_hash"]),
+                stable_json(metadata),
+            )
+            self.connection.execute(
+                """
+                INSERT OR IGNORE INTO source_observations(
+                  observation_id, source_uri, version_id, content_hash, raw_hash,
+                  raw_text, metadata_json, dedup_scope_key, observed_at
+                ) VALUES(?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    observation_id,
+                    head["source_uri"],
+                    head["version_id"],
+                    head["content_hash"],
+                    head["raw_hash"],
+                    head["raw_text"],
+                    stable_json(metadata),
+                    scope_key,
+                    head["ingested_at"],
+                ),
+            )
+            self.connection.execute(
+                "UPDATE source_heads SET observation_id=? WHERE source_uri=?",
+                (observation_id, head["source_uri"]),
+            )
         self.connection.execute(
             "INSERT OR REPLACE INTO settings(key, value) VALUES('schema_version', ?)",
             (str(SCHEMA_VERSION),),
@@ -634,30 +738,138 @@ class TinkerBrainIndex:
             raise ValueError("ocr_empty_extract")
         return text
 
+    def _current_scope_key(self, head: Optional[sqlite3.Row]) -> Optional[str]:
+        if not head or not head["observation_id"]:
+            return None
+        row = self.connection.execute(
+            "SELECT dedup_scope_key FROM source_observations WHERE observation_id=?",
+            (head["observation_id"],),
+        ).fetchone()
+        return str(row["dedup_scope_key"]) if row else None
+
+    def _duplicate_logical_id(
+        self,
+        content_hash: str,
+        logical_id: str,
+        scope_key: str,
+    ) -> Optional[str]:
+        candidates = self.connection.execute(
+            """
+            SELECT d.logical_id, d.metadata_json, o.dedup_scope_key
+            FROM documents d
+            JOIN source_heads h ON h.version_id=d.version_id
+            LEFT JOIN source_observations o ON o.observation_id=h.observation_id
+            WHERE d.content_hash=? AND d.is_current=1 AND d.tombstoned=0
+              AND d.logical_id<>? AND h.state='active'
+            ORDER BY d.ingested_at, d.logical_id
+            """,
+            (content_hash, logical_id),
+        ).fetchall()
+        for candidate in candidates:
+            candidate_scope = candidate["dedup_scope_key"]
+            if not candidate_scope:
+                candidate_scope = dedup_scope_key(json.loads(candidate["metadata_json"]))
+            if str(candidate_scope) == scope_key:
+                return str(candidate["logical_id"])
+        return None
+
+    def _record_observation(
+        self,
+        record: Dict[str, Any],
+        logical_id: str,
+        version_id: str,
+        duplicate_of: Optional[str],
+        scope_key: str,
+    ) -> str:
+        metadata = dict(record.get("metadata") or {})
+        metadata.update(
+            {
+                "logical_id": logical_id,
+                "version_id": version_id,
+                "content_hash": str(record["content_hash"]),
+                "duplicate_of": duplicate_of,
+                "dedup_scope_key": scope_key,
+            }
+        )
+        metadata_json = stable_json(metadata)
+        observation_id = stable_id(
+            "obs",
+            str(record["source_uri"]),
+            str(record["raw_hash"]),
+            metadata_json,
+        )
+        self.connection.execute(
+            """
+            INSERT OR IGNORE INTO source_observations(
+              observation_id, source_uri, version_id, content_hash, raw_hash,
+              raw_text, metadata_json, dedup_scope_key, observed_at
+            ) VALUES(?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                observation_id,
+                record["source_uri"],
+                version_id,
+                record["content_hash"],
+                record["raw_hash"],
+                record["raw_text"],
+                metadata_json,
+                scope_key,
+                utc_now(),
+            ),
+        )
+        return observation_id
+
     def ingest_records(self, records: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
-        counters = {"added": 0, "changed": 0, "unchanged": 0, "duplicates": 0}
+        counters = {
+            "added": 0,
+            "changed": 0,
+            "raw_only_changed": 0,
+            "unchanged": 0,
+            "duplicates": 0,
+        }
         for record in records:
             source_uri = str(record["source_uri"])
             content_hash = str(record["content_hash"])
+            record_metadata = dict(record.get("metadata") or {})
+            scope_key = dedup_scope_key(record_metadata)
             head = self.connection.execute(
                 "SELECT * FROM source_heads WHERE source_uri=?",
                 (source_uri,),
             ).fetchone()
-            if head and head["state"] == "active" and head["content_hash"] == content_hash:
-                counters["unchanged"] += 1
-                continue
 
             logical_id = head["logical_id"] if head else stable_id("doc", source_uri)
             version_id = stable_id("ver", logical_id, content_hash)
-            duplicate = self.connection.execute(
-                """
-                SELECT logical_id FROM documents
-                WHERE content_hash=? AND is_current=1 AND tombstoned=0 AND logical_id<>?
-                ORDER BY ingested_at, logical_id LIMIT 1
-                """,
-                (content_hash, logical_id),
-            ).fetchone()
-            duplicate_of = duplicate["logical_id"] if duplicate else None
+            if (
+                head
+                and head["state"] == "active"
+                and head["content_hash"] == content_hash
+                and self._current_scope_key(head) == scope_key
+            ):
+                document = self.connection.execute(
+                    "SELECT duplicate_of FROM documents WHERE version_id=?",
+                    (head["version_id"],),
+                ).fetchone()
+                observation_id = self._record_observation(
+                    record,
+                    logical_id,
+                    str(head["version_id"]),
+                    str(document["duplicate_of"]) if document and document["duplicate_of"] else None,
+                    scope_key,
+                )
+                if head["observation_id"] == observation_id:
+                    counters["unchanged"] += 1
+                else:
+                    self.connection.execute(
+                        """
+                        UPDATE source_heads SET observation_id=?, updated_at=?
+                        WHERE source_uri=?
+                        """,
+                        (observation_id, utc_now(), source_uri),
+                    )
+                    counters["raw_only_changed"] += 1
+                continue
+
+            duplicate_of = self._duplicate_logical_id(content_hash, logical_id, scope_key)
 
             if head and head["version_id"]:
                 self.connection.execute(
@@ -670,13 +882,14 @@ class TinkerBrainIndex:
             if duplicate_of:
                 counters["duplicates"] += 1
 
-            metadata = dict(record.get("metadata") or {})
+            metadata = record_metadata
             metadata.update(
                 {
                     "logical_id": logical_id,
                     "version_id": version_id,
                     "content_hash": content_hash,
                     "duplicate_of": duplicate_of,
+                    "dedup_scope_key": scope_key,
                 }
             )
             self.connection.execute(
@@ -704,20 +917,30 @@ class TinkerBrainIndex:
                     metadata.get("language", "und"),
                     PARSER_VERSION,
                     NORMALIZER_VERSION,
-                    json.dumps(metadata, sort_keys=True),
+                    stable_json(metadata),
                     duplicate_of,
                     utc_now(),
                 ),
             )
+            observation_id = self._record_observation(
+                record,
+                logical_id,
+                version_id,
+                duplicate_of,
+                scope_key,
+            )
             self.connection.execute(
                 """
-                INSERT INTO source_heads(source_uri, logical_id, version_id, content_hash, state, updated_at)
-                VALUES(?,?,?,?, 'active', ?)
+                INSERT INTO source_heads(
+                  source_uri, logical_id, version_id, content_hash, observation_id, state, updated_at
+                )
+                VALUES(?,?,?,?,?, 'active', ?)
                 ON CONFLICT(source_uri) DO UPDATE SET
                   logical_id=excluded.logical_id, version_id=excluded.version_id,
-                  content_hash=excluded.content_hash, state='active', updated_at=excluded.updated_at
+                  content_hash=excluded.content_hash, observation_id=excluded.observation_id,
+                  state='active', updated_at=excluded.updated_at
                 """,
-                (source_uri, logical_id, version_id, content_hash, utc_now()),
+                (source_uri, logical_id, version_id, content_hash, observation_id, utc_now()),
             )
         self.connection.commit()
         return counters
@@ -801,7 +1024,7 @@ class TinkerBrainIndex:
             start = next_start
         return rows
 
-    def _jsonl_chunks_for_document(self, document: sqlite3.Row) -> List[Dict[str, Any]]:
+    def _jsonl_chunks_for_document(self, document: Any) -> List[Dict[str, Any]]:
         rows: List[Dict[str, Any]] = []
         seen_hashes = set()
         offset = 0
@@ -887,7 +1110,7 @@ class TinkerBrainIndex:
             )
         return rows
 
-    def chunks_for_document(self, document: sqlite3.Row) -> List[Dict[str, Any]]:
+    def chunks_for_document(self, document: Any) -> List[Dict[str, Any]]:
         if document["mime_type"] == "application/x-ndjson":
             return self._jsonl_chunks_for_document(document)
         text = str(document["normalized_text"])
@@ -933,6 +1156,22 @@ class TinkerBrainIndex:
         ).fetchone()
         return str(row["value"]) if row else None
 
+    def _embedder_for_generation(self, generation_id: str) -> LocalEmbedder:
+        row = self.connection.execute(
+            "SELECT embedding_model FROM generations WHERE generation_id=?",
+            (generation_id,),
+        ).fetchone()
+        if not row:
+            raise RuntimeError("active_generation_metadata_missing")
+        model = str(row["embedding_model"])
+        if self.embedder.model == model:
+            return self.embedder
+        return LocalEmbedder(
+            model,
+            ollama_url=getattr(self.embedder, "ollama_url", "http://127.0.0.1:11434"),
+            ollama_timeout=getattr(self.embedder, "ollama_timeout", 60.0),
+        )
+
     def reindex(
         self,
         fail_after_chunks: Optional[int] = None,
@@ -962,19 +1201,42 @@ class TinkerBrainIndex:
         try:
             active_documents = self.connection.execute(
                 """
-                SELECT d.* FROM documents d
+                SELECT d.*, o.raw_hash AS observation_raw_hash,
+                       o.raw_text AS observation_raw_text,
+                       o.metadata_json AS observation_metadata_json,
+                       o.dedup_scope_key AS observation_scope_key
+                FROM documents d
                 JOIN source_heads h ON h.version_id=d.version_id
+                LEFT JOIN source_observations o ON o.observation_id=h.observation_id
                 WHERE d.is_current=1 AND d.tombstoned=0
                   AND h.state='active'
                 ORDER BY d.source_uri
                 """
             ).fetchall()
+            current_documents: List[Dict[str, Any]] = []
+            for row in active_documents:
+                document = dict(row)
+                if document["observation_metadata_json"]:
+                    document["metadata_json"] = document["observation_metadata_json"]
+                    document["raw_hash"] = document["observation_raw_hash"]
+                    document["raw_text"] = document["observation_raw_text"]
+                metadata = json.loads(document["metadata_json"])
+                document["dedup_scope_key"] = (
+                    document["observation_scope_key"] or dedup_scope_key(metadata)
+                )
+                current_documents.append(document)
             # Canonicalize per generation, not only at first ingestion. If the
             # original source is deleted, an active identical alias becomes the
             # canonical indexed source instead of making the evidence vanish.
-            documents_by_hash: Dict[str, sqlite3.Row] = {}
-            for document in active_documents:
-                documents_by_hash.setdefault(str(document["content_hash"]), document)
+            documents_by_hash: Dict[Tuple[str, str], Dict[str, Any]] = {}
+            for document in current_documents:
+                documents_by_hash.setdefault(
+                    (
+                        str(document["content_hash"]),
+                        str(document["dedup_scope_key"]),
+                    ),
+                    document,
+                )
             documents = list(documents_by_hash.values())
             with self.connection:
                 for document in documents:
@@ -1153,6 +1415,7 @@ class TinkerBrainIndex:
             }
         rewritten = self.rewrite_query(query)
         fts_query = self._fts_query(rewritten)
+        generation_embedder = self._embedder_for_generation(generation_id)
 
         filter_started = time.perf_counter()
         all_rows = self._candidate_rows(generation_id)
@@ -1188,7 +1451,7 @@ class TinkerBrainIndex:
                 "rewritten_query": rewritten,
                 "generation_id": generation_id,
                 "consistency": "strong_generation_snapshot",
-                "embedding_model": self.embedder.model,
+                "embedding_model": generation_embedder.model,
                 "filters": filters,
                 "filter_fallback": False,
                 "filter_fallback_reason": None,
@@ -1230,7 +1493,7 @@ class TinkerBrainIndex:
         lexical_ms = (time.perf_counter() - lexical_started) * 1000
 
         vector_started = time.perf_counter()
-        query_embedding = self.embedder.embed(rewritten)
+        query_embedding = generation_embedder.embed(rewritten)
         vector_ranked = sorted(
             filtered_rows,
             key=lambda row: cosine_similarity(query_embedding, unpack_vector(row["embedding"])),
@@ -1313,19 +1576,28 @@ class TinkerBrainIndex:
                 "SELECT normalized_text, duplicate_of FROM documents WHERE version_id=?",
                 (row["version_id"],),
             ).fetchone()
-            aliases = [
-                alias["source_uri"]
-                for alias in self.connection.execute(
-                    """
-                    SELECT d.source_uri FROM documents d
-                    JOIN source_heads h ON h.version_id=d.version_id
-                    WHERE d.content_hash=? AND d.logical_id<>?
-                      AND d.is_current=1 AND d.tombstoned=0 AND h.state='active'
-                    ORDER BY d.source_uri
-                    """,
-                    (metadata["normalized_hash"], row["logical_id"]),
-                ).fetchall()
-            ]
+            alias_candidates = self.connection.execute(
+                """
+                SELECT d.source_uri, d.metadata_json, o.dedup_scope_key
+                FROM documents d
+                JOIN source_heads h ON h.version_id=d.version_id
+                LEFT JOIN source_observations o ON o.observation_id=h.observation_id
+                WHERE d.content_hash=? AND d.logical_id<>?
+                  AND d.is_current=1 AND d.tombstoned=0 AND h.state='active'
+                ORDER BY d.source_uri
+                """,
+                (metadata["normalized_hash"], row["logical_id"]),
+            ).fetchall()
+            result_scope_key = str(
+                metadata.get("dedup_scope_key") or dedup_scope_key(metadata)
+            )
+            aliases = []
+            for alias in alias_candidates:
+                alias_scope_key = alias["dedup_scope_key"]
+                if not alias_scope_key:
+                    alias_scope_key = dedup_scope_key(json.loads(alias["metadata_json"]))
+                if str(alias_scope_key) == result_scope_key:
+                    aliases.append(alias["source_uri"])
             results.append(
                 {
                     "chunk_id": row["chunk_id"],
@@ -1356,7 +1628,7 @@ class TinkerBrainIndex:
             "rewritten_query": rewritten,
             "generation_id": generation_id,
             "consistency": "strong_generation_snapshot",
-            "embedding_model": self.embedder.model,
+            "embedding_model": generation_embedder.model,
             "filters": filters or {},
             "filter_fallback": False,
             "unfiltered_candidate_count": len(all_rows),
@@ -1375,7 +1647,10 @@ class TinkerBrainIndex:
 
     def status(self) -> Dict[str, Any]:
         active = self.active_generation()
-        scalar = lambda sql, args=(): self.connection.execute(sql, args).fetchone()[0]
+
+        def scalar(sql: str, args: Sequence[Any] = ()) -> Any:
+            return self.connection.execute(sql, args).fetchone()[0]
+
         generations = [
             dict(row)
             for row in self.connection.execute(
@@ -1388,6 +1663,7 @@ class TinkerBrainIndex:
             "active_generation": active,
             "sources_active": scalar("SELECT COUNT(*) FROM source_heads WHERE state='active'"),
             "sources_deleted": scalar("SELECT COUNT(*) FROM source_heads WHERE state='deleted'"),
+            "source_observations": scalar("SELECT COUNT(*) FROM source_observations"),
             "document_versions": scalar("SELECT COUNT(*) FROM documents"),
             "current_documents": scalar("SELECT COUNT(*) FROM documents WHERE is_current=1 AND tombstoned=0"),
             "exact_duplicates": scalar(
@@ -1525,7 +1801,9 @@ def evaluate_fixture(
                         "latency_ms": output["latency_ms"]["total"],
                     }
                 )
-            mean = lambda key: sum(row[key] for row in per_query) / len(per_query)
+            def mean(key: str) -> float:
+                return sum(row[key] for row in per_query) / len(per_query)
+
             latencies = [row["latency_ms"] for row in per_query]
             summary = {
                 "queries": len(per_query),

@@ -118,6 +118,30 @@ class SimulationCase(unittest.TestCase):
             },
         )
         self.assertTrue(all(row["question"] and row["playbook"] for row in report["decision_kpis"]))
+        self.assertEqual(report["weekly_review"]["decision"], "hold_green_baseline")
+        self.assertEqual(report["weekly_review"]["actions"], [])
+
+    def test_weekly_review_turns_red_kpis_into_bounded_owned_actions(self) -> None:
+        kpis = simulation.decision_kpis(
+            seeds=0,
+            invariant_failures=2,
+            replay_mismatches=1,
+            operation_coverage=0.5,
+            fault_coverage=0.25,
+            runtime_ms=8_000,
+            runtime_budget_ms=5_000,
+        )
+        review = simulation.weekly_decision_review(kpis, max_actions=3)
+        self.assertEqual(review["decision"], "intervene")
+        self.assertEqual(review["red_primary_kpis"], 5)
+        self.assertEqual(len(review["actions"]), 3)
+        self.assertTrue(review["deferred_red_kpis"])
+        for action in review["actions"]:
+            self.assertEqual(action["owner"], "tinker-brain-maintainer")
+            self.assertEqual(action["due"], "before_next_weekly_review")
+            self.assertTrue(action["expected_impact"])
+            self.assertTrue(action["playbook"])
+            self.assertEqual(action["status"], "scheduled")
 
 
 if __name__ == "__main__":

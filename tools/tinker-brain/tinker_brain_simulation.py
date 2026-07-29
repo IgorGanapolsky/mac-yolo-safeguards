@@ -44,6 +44,22 @@ REQUIRED_FAULTS = {
     "partial_reindex_failure",
     "validator_failure",
 }
+
+PRIMARY_DECISION_KPIS = (
+    "invariant_failures",
+    "replay_mismatches",
+    "state_transition_coverage",
+    "fault_coverage",
+    "runtime_budget_ms",
+)
+
+KPI_EXPECTED_IMPACTS = {
+    "invariant_failures": "Restore invariant_failures to 0 and retain each causal seed as a regression.",
+    "replay_mismatches": "Restore replay_mismatches to 0 for identical seeds and command traces.",
+    "state_transition_coverage": "Restore required state-transition coverage to 100%.",
+    "fault_coverage": "Restore declared fault-injection coverage to 100%.",
+    "runtime_budget_ms": "Bring the PR simulation matrix back within its configured runtime budget.",
+}
 MANDATORY_SEQUENCE = (
     "upsert",
     "reindex",
@@ -627,6 +643,62 @@ def decision_kpis(
     return rows
 
 
+def weekly_decision_review(
+    kpis: Sequence[Dict[str, Any]],
+    *,
+    max_actions: int = 5,
+    owner: str = "tinker-brain-maintainer",
+) -> Dict[str, Any]:
+    """Turn red primary KPIs into a bounded, schedulable action receipt."""
+    bounded_limit = max(1, min(5, int(max_actions)))
+    primary_by_name = {
+        str(row["name"]): row
+        for row in kpis
+        if str(row["name"]) in PRIMARY_DECISION_KPIS
+    }
+    primary = [
+        primary_by_name[name]
+        for name in PRIMARY_DECISION_KPIS
+        if name in primary_by_name
+    ]
+    red = [row for row in primary if not bool(row["ok"])]
+    scheduled = red[:bounded_limit]
+    actions = [
+        {
+            "action_id": ingestion.stable_id(
+                "act",
+                str(row["name"]),
+                ingestion.stable_json(row["value"]),
+                ingestion.stable_json(row["threshold"]),
+            ),
+            "kpi": row["name"],
+            "question": row["question"],
+            "observed": row["value"],
+            "threshold": row["threshold"],
+            "owner": owner,
+            "due": "before_next_weekly_review",
+            "expected_impact": KPI_EXPECTED_IMPACTS[str(row["name"])],
+            "playbook": row["playbook"],
+            "status": "scheduled",
+        }
+        for row in scheduled
+    ]
+    return {
+        "cadence": "weekly",
+        "decision": "intervene" if red else "hold_green_baseline",
+        "primary_kpis": [row["name"] for row in primary],
+        "red_primary_kpis": len(red),
+        "max_actions": bounded_limit,
+        "actions": actions,
+        "deferred_red_kpis": [row["name"] for row in red[bounded_limit:]],
+        "green_decision": (
+            "Keep the current seed matrix and thresholds; add a regression only after a real incident."
+            if not red
+            else None
+        ),
+    }
+
+
 def simulate(
     seeds: int = 12,
     steps: int = 24,
@@ -726,6 +798,7 @@ def simulate(
             "required_faults": sorted(REQUIRED_FAULTS),
         },
         "decision_kpis": kpis,
+        "weekly_review": weekly_decision_review(kpis),
         "receipts": receipts,
         "failures": failures,
     }
