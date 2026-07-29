@@ -22,6 +22,11 @@ templates=(
   com.igor.hermes-mobile-pair-server.plist
   com.igor.hermes-tailscale-health-watchdog.plist
 )
+# Fleet cross-host probe: only on non-mini observers (MBP). Mini already runs
+# local gateway + tailscale health watchdogs; probing itself via SSH is redundant.
+if [[ "$host_short" != *mini* ]]; then
+  templates+=(com.igor.hermes-fleet-gateway-probe.plist)
+fi
 
 stop_legacy_pair_server() {
   local pid command_line
@@ -65,4 +70,5 @@ for template in "${templates[@]}"; do
   label="${template%.plist}"
   launchctl print "${gui_domain}/${label}" >/dev/null
 done
-printf 'Installed 3 Hermes durability services (HERMES_PIN_MODEL=%s).\n' "$hermes_pin_model"
+printf 'Installed %s Hermes durability services (HERMES_PIN_MODEL=%s host=%s).\n' \
+  "${#templates[@]}" "$hermes_pin_model" "$host_short"

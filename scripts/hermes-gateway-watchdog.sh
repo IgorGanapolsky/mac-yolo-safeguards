@@ -49,6 +49,11 @@ GATEWAY_LABEL="${HERMES_GATEWAY_LABEL:-ai.hermes.gateway}"
 GATEWAY_PLIST="${HERMES_GATEWAY_PLIST:-$HOME/Library/LaunchAgents/$GATEWAY_LABEL.plist}"
 GUI_DOMAIN="${HERMES_GUI_DOMAIN:-gui/$($ID_BIN -u)}"
 HERMES_CIRCUIT_FILE="${YOLO_HERMES_GATEWAY_CIRCUIT_FILE:-/tmp/yolo-hermes-gateway-circuit-open}"
+# If a circuit "until" timestamp is more than this many seconds in the future, treat
+# it as stuck/corrupt and force-expire (prevents multi-hour permanent gateway death).
+CIRCUIT_MAX_REMAINING_SEC="${HERMES_CIRCUIT_MAX_REMAINING_SEC:-1800}"
+# Prefer `gateway run --replace` so a half-dead listener is replaced cleanly.
+GATEWAY_RUN_ARGS="${HERMES_GATEWAY_RUN_ARGS:--m hermes_cli.main gateway run --replace}"
 
 ts()  { date "+%Y-%m-%dT%H:%M:%S%z"; }
 logline() { printf '%s %s\n' "$(ts)" "$1" >> "$LOG" 2>/dev/null || true; }
@@ -58,6 +63,29 @@ gateway_health() {
 }
 gateway_pid() {
   "$PGREP_BIN" -f "$GATEWAY_MATCH" 2>/dev/null | head -1
+}
+
+# Bootstrap KeepAlive label; fall back to legacy `load -w` when modern bootstrap
+# returns I/O error (common after bootout left launchd in a half-state on mini).
+ensure_gateway_launchd() {
+  "$LAUNCHCTL_BIN" enable "$GUI_DOMAIN/$GATEWAY_LABEL" >/dev/null 2>&1 || true
+  if [ ! -f "$GATEWAY_PLIST" ]; then
+    logline "gateway plist missing at $GATEWAY_PLIST -> skip launchd ensure"
+    return 1
+  fi
+  if ! "$LAUNCHCTL_BIN" print "$GUI_DOMAIN/$GATEWAY_LABEL" >/dev/null 2>&1; then
+    if ! "$LAUNCHCTL_BIN" bootstrap "$GUI_DOMAIN" "$GATEWAY_PLIST" >/dev/null 2>&1; then
+      logline "gateway launchd bootstrap failed -> trying load -w"
+      "$LAUNCHCTL_BIN" load -w "$GATEWAY_PLIST" >/dev/null 2>&1 || true
+    fi
+  fi
+  "$LAUNCHCTL_BIN" kickstart -k "$GUI_DOMAIN/$GATEWAY_LABEL" >/dev/null 2>&1 || true
+  return 0
+}
+
+start_gateway_process() {
+  # shellcheck disable=SC2086
+  nohup "$PYBIN" $GATEWAY_RUN_ARGS >> "$AGENT_LOG" 2>&1 &
 }
 
 now="${HERMES_NOW_EPOCH:-$(date +%s)}"
@@ -80,6 +108,12 @@ restored_launchd=0
 if [ -f "$HERMES_CIRCUIT_FILE" ]; then
   circuit_until="$(cat "$HERMES_CIRCUIT_FILE" 2>/dev/null || echo 0)"
   case "$circuit_until" in ''|*[!0-9]*) circuit_until=0 ;; esac
+  # Clamp absurd future circuit deadlines (stuck/corrupt guardian writes).
+  remaining=$((circuit_until - now))
+  if [ "$remaining" -gt "$CIRCUIT_MAX_REMAINING_SEC" ]; then
+    logline "gateway circuit until=$circuit_until is >${CIRCUIT_MAX_REMAINING_SEC}s ahead -> force-expire stuck circuit"
+    circuit_until=0
+  fi
   if [ "$memory_block" = "1" ] || [ "$now" -lt "$circuit_until" ]; then
     "$LAUNCHCTL_BIN" disable "$GUI_DOMAIN/$GATEWAY_LABEL" >/dev/null 2>&1 || true
     "$LAUNCHCTL_BIN" bootout "$GUI_DOMAIN/$GATEWAY_LABEL" >/dev/null 2>&1 || true
@@ -87,11 +121,7 @@ if [ -f "$HERMES_CIRCUIT_FILE" ]; then
     exit 0
   fi
 
-  "$LAUNCHCTL_BIN" enable "$GUI_DOMAIN/$GATEWAY_LABEL" >/dev/null 2>&1 || true
-  if [ -f "$GATEWAY_PLIST" ] && ! "$LAUNCHCTL_BIN" print "$GUI_DOMAIN/$GATEWAY_LABEL" >/dev/null 2>&1; then
-    "$LAUNCHCTL_BIN" bootstrap "$GUI_DOMAIN" "$GATEWAY_PLIST" >/dev/null 2>&1 || true
-  fi
-  "$LAUNCHCTL_BIN" kickstart -k "$GUI_DOMAIN/$GATEWAY_LABEL" >/dev/null 2>&1 || true
+  ensure_gateway_launchd || true
   rm -f "$HERMES_CIRCUIT_FILE"
   restored_launchd=1
   logline "gateway recovery circuit closed -> enabled and restored $GATEWAY_LABEL"
@@ -105,11 +135,17 @@ code="$(gateway_health)"
 if [ "$code" != "200" ]; then
   if [ "$memory_block" = "1" ]; then
     logline "gateway down (health=$code) during memory recovery -> leave stopped"
-  elif [ "$restored_launchd" = "1" ]; then
-    logline "gateway health=$code after launchd restore -> wait for $GATEWAY_LABEL"
   elif [ -z "$(gateway_pid)" ]; then
-    logline "gateway down (health=$code, no proc) -> starting"
-    nohup "$PYBIN" -m hermes_cli.main gateway run >> "$AGENT_LOG" 2>&1 &
+    # Prefer launchd KeepAlive when possible; always fall through to nohup if
+    # launchd cannot (re)attach the label (bootstrap I/O error class on mini).
+    if [ "$restored_launchd" = "1" ]; then
+      logline "gateway health=$code after launchd restore, no proc -> ensure launchd + start"
+      ensure_gateway_launchd || true
+    fi
+    if [ -z "$(gateway_pid)" ] && [ "$(gateway_health)" != "200" ]; then
+      logline "gateway down (health=$code, no proc) -> starting"
+      start_gateway_process
+    fi
   else
     logline "gateway health=$code but proc alive (booting) -- no action"
   fi

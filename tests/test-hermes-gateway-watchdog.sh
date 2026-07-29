@@ -52,8 +52,15 @@ MOCK
 
 cat > "$BIN/launchctl" <<'MOCK'
 #!/usr/bin/env bash
-if [ "${1:-}" = "print" ]; then exit "${MOCK_LAUNCHCTL_PRINT_EXIT:-1}"; fi
+# Record every invocation; optional failures for bootstrap/load paths.
 echo "LAUNCHCTL $*" >> "$MOCK_CALLS"
+if [ "${1:-}" = "print" ]; then exit "${MOCK_LAUNCHCTL_PRINT_EXIT:-1}"; fi
+if [ "${1:-}" = "bootstrap" ] && [ "${MOCK_LAUNCHCTL_BOOTSTRAP_EXIT:-0}" != "0" ]; then
+  exit "${MOCK_LAUNCHCTL_BOOTSTRAP_EXIT}"
+fi
+if [ "${1:-}" = "load" ] && [ "${MOCK_LAUNCHCTL_LOAD_EXIT:-0}" != "0" ]; then
+  exit "${MOCK_LAUNCHCTL_LOAD_EXIT}"
+fi
 exit 0
 MOCK
 
@@ -224,10 +231,39 @@ run_wd HERMES_MEMORY_PRESSURE_LEVEL="1" HERMES_NOW_EPOCH="1601"
 if grep -q '^LAUNCHCTL enable gui/501/ai.hermes.gateway$' "$TMP/calls" \
   && grep -q "^LAUNCHCTL bootstrap gui/501 $TMP/ai.hermes.gateway.plist$" "$TMP/calls" \
   && grep -q '^LAUNCHCTL kickstart -k gui/501/ai.hermes.gateway$' "$TMP/calls" \
-  && [ ! -e "$TMP/circuit-open" ] && ! grep -q 'STARTED' "$TMP/start"; then
-  ok "T5f: expired circuit restores launchd ownership without a duplicate manual start"
+  && [ ! -e "$TMP/circuit-open" ] \
+  && grep -q "STARTED" "$TMP/start"; then
+  ok "T5f: expired circuit restores launchd and starts gateway if still down"
 else
-  bad "T5f: expired circuit did not restore launchd ownership safely"
+  bad "T5f: expired circuit did not restore launchd + start safely"
+fi
+
+# T5g: absurd future circuit deadline is force-expired and gateway restarts.
+echo 000 > "$TMP/health"; echo '{"models":[]}' > "$TMP/ps"; : > "$TMP/gwpid"
+: > "$TMP/recovery-until"
+# now=1000, until 1000+7200s — beyond default 1800s max remaining
+echo 8200 > "$TMP/circuit-open"
+run_wd HERMES_MEMORY_PRESSURE_LEVEL="1" HERMES_NOW_EPOCH="1000" HERMES_CIRCUIT_MAX_REMAINING_SEC="1800"
+if grep -q 'force-expire stuck circuit' "$TMP/wd.log" \
+  && grep -q 'STARTED' "$TMP/start" \
+  && [ ! -e "$TMP/circuit-open" ]; then
+  ok "T5g: stuck far-future circuit is force-expired and gateway starts"
+else
+  bad "T5g: stuck circuit was not force-expired"
+fi
+
+# T5h: bootstrap I/O failure falls back to load -w then process start.
+echo 000 > "$TMP/health"; echo '{"models":[]}' > "$TMP/ps"; : > "$TMP/gwpid"
+: > "$TMP/recovery-until"
+echo 900 > "$TMP/circuit-open"
+run_wd HERMES_MEMORY_PRESSURE_LEVEL="1" HERMES_NOW_EPOCH="1000" MOCK_LAUNCHCTL_BOOTSTRAP_EXIT="5"
+if grep -q 'bootstrap failed -> trying load -w' "$TMP/wd.log" \
+  && grep -q "^LAUNCHCTL load -w $TMP/ai.hermes.gateway.plist$" "$TMP/calls" \
+  && grep -q 'STARTED' "$TMP/start"; then
+  ok "T5h: bootstrap failure uses load -w fallback and starts process"
+else
+  cat "$TMP/calls"; cat "$TMP/wd.log"
+  bad "T5h: missing load -w fallback after bootstrap failure"
 fi
 
 # T6: pid changed vs state -> pre-warm WARMUP_COUNT times, then records new pid.
