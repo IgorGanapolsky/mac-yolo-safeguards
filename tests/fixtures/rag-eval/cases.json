@@ -46,10 +46,12 @@
       "k": 8
     },
     {
-      "id": "empty-stream-hard-stop",
-      "query": "empty stream checking forever hard stop leash CTA recovery",
+      "id": "hardware-leash",
+      "_note": "Replaced unsatisfiable 'empty-stream-hard-stop' case 2026-07-29: no file path in the corpus contains 'emptyStream' (the feature was planned in agent-swarm-harness.js but never implemented), so the case measured fixture staleness, not retrieval quality.",
+      "query": "hardware leash USB watchdog kill switch reverse tether",
       "mustIncludePathSubstrings": [
-        "emptyStream"
+        "tools/hermes-hardware-leash.js",
+        "docs/HERMES-HARDWARE-LEASH.md"
       ],
       "k": 12
     },
