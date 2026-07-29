@@ -384,6 +384,21 @@ if (!json) {
 }
 
 // Local JetBrains Context equivalent (grepai + hermes-context) — every agent sees health.
+// Keep multi-worktree checkout pointed at the isolated index (empty 384-byte shells kill search).
+try {
+  const ensure = path.join(__dirname, 'ensure-grepai-index.js');
+  if (fs.existsSync(ensure)) {
+    const r = spawnSync(process.execPath, [ensure, '--json'], { encoding: 'utf8', timeout: 45000 });
+    let body = null;
+    try { body = JSON.parse(r.stdout || '{}'); } catch { body = { ok: r.status === 0 }; }
+    if (typeof report === 'object' && report) {
+      report.grepaiEnsure = { ok: Boolean(body.ok), isolatedBytes: body.isolatedBytes, searchFromRepo: body.searchFromRepo };
+    }
+  }
+} catch (e) {
+  /* non-fatal */
+}
+
 if (!json) {
   printFleetRepoIntelligence();
 }

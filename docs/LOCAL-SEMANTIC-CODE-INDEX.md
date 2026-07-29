@@ -154,3 +154,18 @@ embedding-based retrieval is not garbage.
 4. **Indexes `main`, not your current branch/worktree.** For a question about code that only
    exists on someone's in-flight WIP branch, this index will not see it — fall back to grep in
    that case.
+
+## Ensure agents use the healthy index (multi-worktree)
+
+The isolated clone can be healthy while the live multi-worktree checkout still has a
+384-byte empty `.grepai/index.gob`. Agents that `cd` the live checkout then get zero
+search hits.
+
+```bash
+# Link REPO .grepai gobs → isolated clone; prove search from REPO cwd
+node tools/ensure-grepai-index.js --canary
+# Also start watch on the isolated clone if it is not running:
+node tools/ensure-grepai-index.js --start-watch --canary
+```
+
+Canary must report HEALTHY with `results > 0` before claiming grepae works for agents.
