@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, TouchableOpacity, Pressable } from 'react-nativ
 import type { GatewayProfile } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 import MacScanProgressCard from './MacScanProgressCard';
+import ThumbGatePromoCard from './ThumbGatePromoCard';
 import {
   dedupePickerProfilesById,
   isCablePluggedInForProfile,
@@ -16,6 +17,7 @@ import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { colors } from '../theme/colors';
 import { GATEWAY_AUTH_REPAIR_SETTINGS_STATUS } from '../services/gatewayClient';
 import { COMPUTER_PICKER_LIST_MIN_HEIGHT } from '../utils/computerPickerStatus';
+import { shouldShowThumbGatePromoOnComputerPicker } from '../utils/thumbgatePromoCopy';
 
 type GatewayProfilePickerProps = {
   profiles: GatewayProfile[];
@@ -72,6 +74,13 @@ export default function GatewayProfilePicker({
   const multiMac = pickerProfiles.length > 1;
   const showRouteHints = showReachabilityHints || multiMac;
   const selectedCount = pickerProfiles.filter((p) => pickerRowKey(p) === selectedRowKey).length;
+  const showThumbGatePromo = shouldShowThumbGatePromoOnComputerPicker({
+    profileCount: pickerProfiles.length,
+    activeReachable,
+    activeConnecting,
+    scanning,
+    authNeedsRepair,
+  });
 
   return (
     <View>
@@ -209,11 +218,25 @@ export default function GatewayProfilePicker({
       })}
         </View>
       ) : null}
+      {showThumbGatePromo ? (
+        <ThumbGatePromoCard
+          surface="computer_picker_unreachable"
+          style={dense ? styles.thumbgatePromoDense : styles.thumbgatePromo}
+        />
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  thumbgatePromo: {
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  thumbgatePromoDense: {
+    marginTop: 10,
+    marginBottom: 2,
+  },
   list: {
     gap: 12,
     marginTop: 12,

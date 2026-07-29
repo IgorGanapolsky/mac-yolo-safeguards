@@ -1,6 +1,9 @@
 import {
+  THUMBGATE_APP_BUTTON_LABEL,
+  THUMBGATE_PICKER_WEB_URL,
   THUMBGATE_WEB_URL,
   resolveLeashThumbGatePromoSurface,
+  shouldShowThumbGatePromoOnComputerPicker,
   shouldShowThumbGatePromoOnConnectionPanel,
   thumbGatePromoCopy,
 } from '../utils/thumbgatePromoCopy';
@@ -11,6 +14,17 @@ describe('thumbgatePromoCopy', () => {
     expect(THUMBGATE_WEB_URL).toContain('utm_campaign=paid_companion');
     expect(THUMBGATE_WEB_URL.endsWith('#pricing')).toBe(true);
     expect(thumbGatePromoCopy('leash_empty').url).toBe(THUMBGATE_WEB_URL);
+  });
+
+  it('names ThumbGate.app on the computer-picker unreachable surface', () => {
+    const promo = thumbGatePromoCopy('computer_picker_unreachable');
+    expect(promo.headline).toMatch(/ThumbGate\.app/);
+    expect(promo.body).toMatch(/ThumbGate\.app/);
+    expect(promo.body).toMatch(/Continuity/i);
+    expect(promo.buttonLabel).toBe(THUMBGATE_APP_BUTTON_LABEL);
+    expect(promo.url).toBe(THUMBGATE_PICKER_WEB_URL);
+    expect(promo.url).toContain('utm_campaign=computer_picker_unreachable');
+    expect(promo.url).toMatch(/^https:\/\/thumbgate\.app\//);
   });
 
   it('shows Leash promo when disconnected or when connected with no pending approvals', () => {
@@ -70,6 +84,53 @@ describe('thumbgatePromoCopy', () => {
         profileCount: 2,
         healExhausted: false,
         activeProfileReachable: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('shows Choose-computer promo when selected Mac is unreachable (not while scanning)', () => {
+    expect(
+      shouldShowThumbGatePromoOnComputerPicker({
+        profileCount: 2,
+        activeReachable: false,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldShowThumbGatePromoOnComputerPicker({
+        profileCount: 2,
+        activeReachable: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldShowThumbGatePromoOnComputerPicker({
+        profileCount: 2,
+        activeReachable: false,
+        scanning: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldShowThumbGatePromoOnComputerPicker({
+        profileCount: 2,
+        activeReachable: false,
+        activeConnecting: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldShowThumbGatePromoOnComputerPicker({
+        profileCount: 2,
+        activeReachable: false,
+        authNeedsRepair: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldShowThumbGatePromoOnComputerPicker({
+        profileCount: 0,
+        activeReachable: false,
       }),
     ).toBe(false);
   });

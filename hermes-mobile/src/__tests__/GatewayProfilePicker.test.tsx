@@ -41,11 +41,41 @@ describe('GatewayProfilePicker', () => {
         profiles={profiles}
         activeProfileId="mac_192_168_12_208"
         onSelect={onSelect}
+        activeReachable
       />,
     );
     expect(getByTestId('gateway-profile-list')).toBeTruthy();
     expect(getByText(/Mac Pro/)).toBeTruthy();
     expect(getByText(/Mac Mini/)).toBeTruthy();
+  });
+
+  it('offers ThumbGate.app when the selected computer is unreachable', () => {
+    const { getByTestId, getByText, queryByTestId } = render(
+      <GatewayProfilePicker
+        profiles={profiles}
+        activeProfileId="mac_192_168_12_50"
+        onSelect={jest.fn()}
+        activeReachable={false}
+        dense
+      />,
+    );
+    expect(getByTestId('thumbgate-promo-computer_picker_unreachable')).toBeTruthy();
+    expect(getByText('Open ThumbGate.app')).toBeTruthy();
+    expect(getByText(/Keep working with ThumbGate\.app/)).toBeTruthy();
+    expect(getByTestId('thumbgate-promo-open')).toBeTruthy();
+    expect(queryByTestId('thumbgate-promo-connection_unreachable')).toBeNull();
+  });
+
+  it('hides ThumbGate promo while the selected computer is connected', () => {
+    const { queryByTestId } = render(
+      <GatewayProfilePicker
+        profiles={profiles}
+        activeProfileId="mac_192_168_12_50"
+        onSelect={jest.fn()}
+        activeReachable
+      />,
+    );
+    expect(queryByTestId('thumbgate-promo-computer_picker_unreachable')).toBeNull();
   });
 
   it('hides MacScanProgressCard when hideScanCard is set (unified picker status)', () => {
