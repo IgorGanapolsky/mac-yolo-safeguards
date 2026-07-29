@@ -50,12 +50,47 @@ if lock="$(find_active_lock)"; then
   exit 1
 fi
 
-DEPLOYMENT_ID="$(gh api -X POST "repos/${REPO}/deployments" \
-  -f "ref=${REF}" \
-  -f "environment=${ENVIRONMENT}" \
-  -F "auto_merge=false" \
-  -f "description=hermes-control-plane deploy lock, held by $(whoami)@$(hostname -s)" \
-  --jq '.id')"
+# Refuse to deploy a broken ref. This has to read CHECK-RUNS, not commit
+# statuses: this repo's CI is GitHub Actions, which writes check-runs and never
+# writes legacy commit statuses, so `commits/$SHA/status` is permanently
+# {state: "pending", statuses: []} no matter how green the build is.
+assert_ref_is_green() {
+  local sha; sha="$(gh api "repos/${REPO}/commits/${REF}" --jq '.sha' 2>/dev/null)" || return 1
+  gh api "repos/${REPO}/commits/${sha}/check-runs?per_page=100" 2>/dev/null | python3 -c '
+import json,sys
+runs=json.load(sys.stdin).get("check_runs",[])
+if not runs: print("no check-runs found for ref"); sys.exit(2)
+bad=[c["name"] for c in runs if c["conclusion"] in ("failure","timed_out","cancelled")]
+pend=[c["name"] for c in runs if c["conclusion"] is None]
+if bad: print("FAILING: "+", ".join(bad)); sys.exit(1)
+if pend: print("STILL RUNNING: "+", ".join(pend)); sys.exit(1)
+print("green: %d checks" % len(runs))
+'
+}
+
+if ! GREEN="$(assert_ref_is_green)"; then
+  echo "Refusing to deploy ${REF}: ${GREEN:-check-runs unreadable}" >&2
+  exit 1
+fi
+echo "Ref ${REF} is ${GREEN}."
+
+# required_contexts MUST be an explicit empty array. Omitting it makes GitHub
+# gate the deployment on the combined COMMIT STATUS, which for an Actions-only
+# repo is always "pending" with zero statuses — so every locked deploy failed
+# with `409 Commit status checks failed for main` and the lock could never be
+# acquired. That is why every deploy in practice bypassed this script entirely,
+# which is the exact concurrency hazard it exists to prevent. Greenness is
+# enforced above against check-runs instead.
+LOCK_DESC="hermes-control-plane deploy lock, held by $(whoami)@$(hostname -s)"
+DEPLOYMENT_ID="$(REF="$REF" ENVIRONMENT="$ENVIRONMENT" LOCK_DESC="$LOCK_DESC" python3 -c '
+import json,os
+print(json.dumps({
+  "ref": os.environ["REF"],
+  "environment": os.environ["ENVIRONMENT"],
+  "auto_merge": False,
+  "required_contexts": [],
+  "description": os.environ["LOCK_DESC"],
+}))' | gh api -X POST "repos/${REPO}/deployments" --input - --jq '.id')"
 
 echo "Acquired deploy lock (deployment id ${DEPLOYMENT_ID})."
 
