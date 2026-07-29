@@ -4,7 +4,7 @@ import path from 'path';
 const repoRoot = path.resolve(__dirname, '../../..');
 
 describe('iOS simulator E2E embedded Release lifecycle', () => {
-  it('fresh-installs the exact source with an embedded bundle and no host Metro dependency', () => {
+  it('fresh-installs a clean exact-source build with an embedded bundle and no host Metro dependency', () => {
     const script = fs.readFileSync(
       path.join(repoRoot, 'hermes-mobile/scripts/run-simulator-e2e.sh'),
       'utf8',
@@ -13,8 +13,12 @@ describe('iOS simulator E2E embedded Release lifecycle', () => {
       'xcrun simctl uninstall "$udid" "$IOS_BUNDLE_ID"',
     );
     const releaseInstallIndex = script.indexOf(
-      'npx expo run:ios --no-bundler --device "$udid" --configuration Release',
+      'npx expo run:ios --no-bundler --device "$udid" --configuration Release --no-build-cache',
     );
+    const executableExpoRunIosLines = script
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => /^npx expo run:ios(?:\s|$)/.test(line));
     const containerGoneCheckIndex = script.indexOf(
       'Stale $IOS_BUNDLE_ID container remains after uninstall',
     );
@@ -34,9 +38,15 @@ describe('iOS simulator E2E embedded Release lifecycle', () => {
     expect(script).not.toContain('ensure_metro_running');
     expect(script).not.toContain('already installed');
     expect(script).not.toContain('open -a Simulator');
+    expect(script).not.toMatch(
+      /\brm\b[^\n]*(?:DerivedData|SDKStatCaches)/,
+    );
     expect(script).not.toContain(
       'xcrun simctl uninstall "$udid" "$IOS_BUNDLE_ID" >/dev/null 2>&1 || true',
     );
+    expect(executableExpoRunIosLines).toEqual([
+      'npx expo run:ios --no-bundler --device "$udid" --configuration Release --no-build-cache',
+    ]);
     expect(
       (
         script.match(
