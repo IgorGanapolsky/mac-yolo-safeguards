@@ -10,15 +10,25 @@ const MODEL = 'grok-4.5';
 const LOCAL_MODEL_ALIAS = 'ollama-hermes-zero-spend';
 const LOCAL_BASE_URL = 'http://127.0.0.1:11434/v1';
 const LOCAL_CONTEXT_TOKENS = 65536;
-// Advertised context_window must never exceed what the underlying model can
-// actually hold, or Ollama silently truncates long sessions from the top —
-// dropping system/tool context first. Mirrors zero-spend-command-gate.js
-// SAFE_MODEL_RECIPES; unknown models get the conservative qwen3 floor.
+// Advertised context_window must never exceed what the model actually loads
+// with — min(architecture cap, Modelfile num_ctx) — or Ollama silently
+// truncates long sessions from the top, dropping system/tool context first.
+// Values measured via `ollama show <model>` 2026-07-29. Models without a
+// num_ctx parameter load at the Ollama server default (~4k), hence the low
+// floor for unknowns: add a measured entry here before promoting a new model.
 const LOCAL_MODEL_CONTEXT_TOKENS = Object.freeze({
   'qwen3.5:9b-hermes-64k': 65536,
+  'deepseek-r1:14b-64k': 65536,
   'qwen3:8b-64k': 40960,
+  'qwen3:14b-64k': 40960,
+  'qwen3:8b-agent-64k': 40960,
+  'qwen3:8b-agent-32k': 32768,
+  'qwen2.5:3b-hermes-64k': 32768,
+  'qwen2.5-coder:14b-64k': 32768,
+  'qwen2.5-coder:14b-32k': 32768,
+  'qwen3:8b-hermes-20k': 20480,
 });
-const LOCAL_FALLBACK_CONTEXT_TOKENS = 40960;
+const LOCAL_FALLBACK_CONTEXT_TOKENS = 8192;
 const LOCAL_MAX_COMPLETION_TOKENS = 8192;
 const MIN_GROK_VERSION = '0.2.99';
 const XAI_PRICING = Object.freeze({
