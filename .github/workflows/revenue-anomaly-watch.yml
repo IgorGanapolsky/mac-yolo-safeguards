@@ -15,7 +15,9 @@ name: revenue-anomaly-watch
 # proof it fires (and stays silent) correctly.
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    # ECONOMY 2026-07-28: was */30 (48/day). 6h matches other ops crons; still
+    # catches silent billing. Use workflow_dispatch for ad-hoc checks.
+    - cron: "37 */6 * * *"
   workflow_dispatch:
 
 permissions:
