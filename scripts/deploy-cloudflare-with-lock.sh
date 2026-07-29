@@ -50,29 +50,55 @@ if lock="$(find_active_lock)"; then
   exit 1
 fi
 
-# Refuse to deploy a broken ref. This has to read CHECK-RUNS, not commit
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Gate the EXACT commit that will be deployed. `npm run build:cloudflare` builds
+# the local checkout, so checking a remote ref proves nothing about the artifact:
+# an agent running this from a feature-branch worktree would get "main is green"
+# and then ship its own unreviewed code to production.
+DEPLOY_SHA="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)" || {
+  echo "Refusing to deploy: cannot resolve local HEAD." >&2; exit 1; }
+
+# A dirty tree means the artifact is not any reviewed commit at all. Scope the
+# check to what actually gets built plus this script, so unrelated scratch files
+# elsewhere in the repo do not block a legitimate deploy.
+DIRTY="$(git -C "$REPO_ROOT" status --porcelain -- apps/hermes-control-plane scripts 2>/dev/null)"
+if [[ -n "$DIRTY" ]]; then
+  echo "Refusing to deploy: working tree is dirty under apps/hermes-control-plane or scripts." >&2
+  printf '%s\n' "$DIRTY" | head -20 >&2
+  echo "Deploy from a clean detached checkout of the merged SHA instead." >&2
+  exit 1
+fi
+
+# Refuse to deploy a broken commit. This has to read CHECK-RUNS, not commit
 # statuses: this repo's CI is GitHub Actions, which writes check-runs and never
 # writes legacy commit statuses, so `commits/$SHA/status` is permanently
 # {state: "pending", statuses: []} no matter how green the build is.
-assert_ref_is_green() {
-  local sha; sha="$(gh api "repos/${REPO}/commits/${REF}" --jq '.sha' 2>/dev/null)" || return 1
-  gh api "repos/${REPO}/commits/${sha}/check-runs?per_page=100" 2>/dev/null | python3 -c '
+assert_sha_is_green() {
+  gh api "repos/${REPO}/commits/$1/check-runs?per_page=100" 2>/dev/null | python3 -c '
 import json,sys
 runs=json.load(sys.stdin).get("check_runs",[])
-if not runs: print("no check-runs found for ref"); sys.exit(2)
-bad=[c["name"] for c in runs if c["conclusion"] in ("failure","timed_out","cancelled")]
+if not runs: print("no check-runs found for this commit"); sys.exit(2)
+# Allowlist, not blocklist: GitHub also emits action_required, stale, and
+# startup_failure, none of which mean "safe to ship". Anything not explicitly
+# known-good blocks the deploy.
+GOOD={"success","skipped","neutral"}
 pend=[c["name"] for c in runs if c["conclusion"] is None]
-if bad: print("FAILING: "+", ".join(bad)); sys.exit(1)
+bad=[f"{c[\"name\"]}({c[\"conclusion\"]})" for c in runs if c["conclusion"] is not None and c["conclusion"] not in GOOD]
+if bad: print("NOT GREEN: "+", ".join(bad)); sys.exit(1)
 if pend: print("STILL RUNNING: "+", ".join(pend)); sys.exit(1)
 print("green: %d checks" % len(runs))
 '
 }
 
-if ! GREEN="$(assert_ref_is_green)"; then
-  echo "Refusing to deploy ${REF}: ${GREEN:-check-runs unreadable}" >&2
+if ! GREEN="$(assert_sha_is_green "$DEPLOY_SHA")"; then
+  echo "Refusing to deploy ${DEPLOY_SHA:0:9}: ${GREEN:-check-runs unreadable}" >&2
   exit 1
 fi
-echo "Ref ${REF} is ${GREEN}."
+echo "Local checkout ${DEPLOY_SHA:0:9} is ${GREEN}."
+
+# The lock records the commit actually being shipped, not a moving branch name.
+REF="$DEPLOY_SHA"
 
 # required_contexts MUST be an explicit empty array. Omitting it makes GitHub
 # gate the deployment on the combined COMMIT STATUS, which for an Actions-only
