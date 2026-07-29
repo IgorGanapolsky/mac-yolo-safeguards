@@ -111,13 +111,18 @@ test("builds the public Leash subscription landing page", async () => {
   const diagram = await readFile(new URL("../app/RemoteControlDiagram.tsx", import.meta.url), "utf8");
   assert.match(diagram, /Your phone/);
   assert.match(diagram, /Encrypted pairing/);
-  // Landing no longer ships a FAQ block; keep mobile + pricing anchors instead.
+  // AEO contract (config/thumbgate-aeo-prompts.json): landing must ship a
+  // visible FAQ + FAQPage JSON-LD so answer engines can cite it.
+  assert.match(page, /FAQPage/);
+  assert.match(page, /id="faq"/);
+  assert.match(page, /What is ThumbGate\?/);
   assert.match(page, /id="mobile"/);
   assert.match(page, /id="pricing"/);
   assert.match(robots, /disallow: \["\/dashboard", "\/admin", "\/api\/"\]/);
   assert.match(robots, /https:\/\/thumbgate\.app\/sitemap\.xml/);
   assert.match(sitemap, /https:\/\/thumbgate\.app\//);
   assert.match(sitemap, /2026-07-22/);
+  assert.match(llms, /# ThumbGate for Hermes/);
   assert.match(llms, /Aggregate, content-free product analytics/);
   assert.match(llms, /## Direct answers/);
   assert.match(llms, /web dashboard for Hermes remote control/);
