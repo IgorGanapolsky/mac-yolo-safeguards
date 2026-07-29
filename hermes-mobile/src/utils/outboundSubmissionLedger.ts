@@ -23,6 +23,10 @@ export const OUTBOUND_LEDGER_MAX_RECORDS = 24;
 
 export type OutboundSubmissionRecord = {
   outboundId: string;
+  /** Session that owns this submission; null only before a first session exists. */
+  sessionId: string | null;
+  /** Optimistic user bubble that owns this submission. */
+  messageId: string | null;
   /** normalizeMessageText() of the display body this submission carried. */
   body: string;
   submittedAtMs: number;
@@ -52,7 +56,13 @@ export function clearOutboundSubmissions(ledger: OutboundSubmissionLedger): void
  */
 export function recordOutboundSubmission(
   ledger: OutboundSubmissionLedger,
-  input: { outboundId: string; body: string; nowMs: number },
+  input: {
+    outboundId: string;
+    sessionId?: string | null;
+    messageId?: string | null;
+    body: string;
+    nowMs: number;
+  },
 ): void {
   const body = normalizeMessageText(input.body);
   if (!input.outboundId.trim() || !body) {
@@ -64,12 +74,34 @@ export function recordOutboundSubmission(
   }
   ledger.records.push({
     outboundId: input.outboundId,
+    sessionId: input.sessionId?.trim() || null,
+    messageId: input.messageId?.trim() || null,
     body,
     submittedAtMs: input.nowMs,
   });
   if (ledger.records.length > OUTBOUND_LEDGER_MAX_RECORDS) {
     ledger.records = ledger.records.slice(-OUTBOUND_LEDGER_MAX_RECORDS);
   }
+}
+
+/**
+ * Keep only records belonging to the selected session.
+ *
+ * This replaces blanket clearing on every currentSession id change. A first
+ * message creates its session asynchronously; React may run the id-change
+ * effect after that message has already been accepted. Filtering by ownership
+ * preserves that record while still preventing cross-thread body matches.
+ */
+export function scopeOutboundSubmissionsToSession(
+  ledger: OutboundSubmissionLedger,
+  sessionId: string | null | undefined,
+): void {
+  const target = sessionId?.trim() || null;
+  if (!target) {
+    ledger.records = [];
+    return;
+  }
+  ledger.records = ledger.records.filter((record) => record.sessionId === target);
 }
 
 /** The gateway accepted this submission — the prompt is on the Mac. */
@@ -88,6 +120,8 @@ export function markOutboundSubmissionAccepted(
 export function findOutboundSubmissionForBody(
   ledger: OutboundSubmissionLedger,
   body: string,
+  sessionId?: string | null,
+  messageId?: string | null,
 ): OutboundSubmissionRecord | undefined {
   const normalized = normalizeMessageText(body ?? '');
   if (!normalized) {
@@ -95,7 +129,14 @@ export function findOutboundSubmissionForBody(
   }
   for (let index = ledger.records.length - 1; index >= 0; index -= 1) {
     const record = ledger.records[index];
-    if (record && record.body === normalized) {
+    const targetSessionId = sessionId?.trim() || null;
+    const targetMessageId = messageId?.trim() || null;
+    if (
+      record &&
+      record.body === normalized &&
+      (sessionId === undefined || record.sessionId === targetSessionId) &&
+      (messageId === undefined || record.messageId === targetMessageId)
+    ) {
       return record;
     }
   }
@@ -105,8 +146,10 @@ export function findOutboundSubmissionForBody(
 export function hasAcceptedSubmissionForBody(
   ledger: OutboundSubmissionLedger,
   body: string,
+  sessionId?: string | null,
+  messageId?: string | null,
 ): boolean {
-  return findOutboundSubmissionForBody(ledger, body)?.acceptedAtMs != null;
+  return findOutboundSubmissionForBody(ledger, body, sessionId, messageId)?.acceptedAtMs != null;
 }
 
 export type StallRecoveryPlan =
@@ -125,13 +168,20 @@ export type StallRecoveryPlan =
  */
 export function resolveStallRecoveryPlan(input: {
   failedText?: string | null;
+  sessionId?: string | null;
+  messageId?: string | null;
   ledger: OutboundSubmissionLedger;
 }): StallRecoveryPlan {
   const text = input.failedText?.trim();
   if (!text) {
     return { kind: 'none' };
   }
-  const record = findOutboundSubmissionForBody(input.ledger, text);
+  const record = findOutboundSubmissionForBody(
+    input.ledger,
+    text,
+    input.sessionId,
+    input.messageId,
+  );
   if (record?.acceptedAtMs != null) {
     return { kind: 'resume', outboundId: record.outboundId };
   }

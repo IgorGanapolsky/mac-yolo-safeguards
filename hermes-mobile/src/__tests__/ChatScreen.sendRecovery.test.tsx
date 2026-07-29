@@ -3,6 +3,30 @@ import { act, cleanup, fireEvent, waitFor } from '@testing-library/react-native'
 import ChatScreen from '../screens/ChatScreen';
 import { renderInTabNavigator } from '../testUtils/navigation';
 
+jest.mock('expo-image-picker', () => ({
+  requestMediaLibraryPermissionsAsync: jest.fn().mockResolvedValue({ granted: true }),
+  launchImageLibraryAsync: jest.fn().mockResolvedValue({
+    canceled: false,
+    assets: [
+      {
+        uri: 'file:///cache/retry-proof.png',
+        fileName: 'retry-proof.png',
+        mimeType: 'image/png',
+        fileSize: 68,
+      },
+    ],
+  }),
+}));
+
+jest.mock('expo-file-system/legacy', () => ({
+  readAsStringAsync: jest.fn().mockResolvedValue('aW1hZ2UtYnl0ZXM='),
+  EncodingType: { Base64: 'base64' },
+}));
+
+jest.mock('../services/productAnalytics', () => ({
+  trackProductEvent: jest.fn().mockResolvedValue(undefined),
+}));
+
 /**
  * Regression harness for the two device-reported chat send defects (2026-07-25):
  *
@@ -307,6 +331,23 @@ async function advance(ms: number, slices = 8) {
 describe('ChatScreen outbound send recovery', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    const { streamSessionChat } = gatewayMocks();
+    streamSessionChat.mockReset();
+    const chatClient = jest.requireMock('../services/hermesChatClient') as {
+      listSessions: jest.Mock;
+      createSessionWithUniqueTitle: jest.Mock;
+      listMessages: jest.Mock;
+      sendChatMessage: jest.Mock;
+    };
+    chatClient.listSessions.mockResolvedValue([
+      { id: 'session-1', title: 'Test Session', last_active_at: '2026-07-25T00:00:00Z' },
+    ]);
+    chatClient.createSessionWithUniqueTitle.mockResolvedValue({
+      id: 'session-1',
+      title: 'New chat',
+    });
+    chatClient.listMessages.mockResolvedValue([]);
+    chatClient.sendChatMessage.mockResolvedValue({ assistantText: 'ok', raw: {} });
     mockGatewayState.runProgress = null;
     mockGatewayState.setRunProgress = jest.fn((value: unknown) => {
       mockGatewayState.runProgress =
@@ -364,6 +405,52 @@ describe('ChatScreen outbound send recovery', () => {
     expect(bodies).toEqual([PROMPT]);
   });
 
+  it('keeps the accepted ledger record when the first send creates its session', async () => {
+    jest.useFakeTimers();
+    const { streamSessionChat } = gatewayMocks();
+    const chatClient = jest.requireMock('../services/hermesChatClient') as {
+      listSessions: jest.Mock;
+      createSessionWithUniqueTitle: jest.Mock;
+    };
+    chatClient.listSessions.mockResolvedValue([]);
+    chatClient.createSessionWithUniqueTitle.mockResolvedValue({
+      id: 'created-session',
+      title: 'Do it now',
+    });
+    streamSessionChat.mockImplementation(
+      (
+        _url: string,
+        sessionId: string,
+        _message: unknown,
+        _apiKey: string,
+        _onEvent: unknown,
+        _systemMessage: unknown,
+        onStreamAccepted?: () => void,
+      ) => {
+        expect(sessionId).toBe('created-session');
+        onStreamAccepted?.();
+        return new Promise<string>(() => {});
+      },
+    );
+
+    const { getByTestId } = await renderChat();
+    await waitFor(() => {
+      expect(getByTestId('chat-input')).toBeTruthy();
+    });
+    await act(async () => {
+      fireEvent.changeText(getByTestId('chat-input'), PROMPT);
+      fireEvent.press(getByTestId('chat-send-button'));
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(streamSessionChat).toHaveBeenCalledTimes(1);
+    });
+
+    await advance(150_000, 30);
+
+    expect(streamSessionChat).toHaveBeenCalledTimes(1);
+  });
+
   it('re-submits when the user taps ↑ on a failed send with an empty composer', async () => {
     const { streamSessionChat } = gatewayMocks();
     // First submission never reaches the Mac — the bubble fails and offers ↑.
@@ -409,6 +496,81 @@ describe('ChatScreen outbound send recovery', () => {
       expect(streamSessionChat.mock.calls.length).toBeGreaterThanOrEqual(2);
     });
     expect(streamSessionChat.mock.calls[1]?.[2]).toBe(PROMPT);
+  });
+
+  it('retries the exact image payload once and emits content-free outcome telemetry', async () => {
+    const { streamSessionChat } = gatewayMocks();
+    streamSessionChat
+      .mockRejectedValueOnce(new Error('Network request failed'))
+      .mockResolvedValueOnce('recovered reply');
+    const { sendChatMessage } = jest.requireMock('../services/hermesChatClient') as {
+      sendChatMessage: jest.Mock;
+    };
+    sendChatMessage.mockRejectedValueOnce(new Error('Network request failed'));
+    const { trackProductEvent } = jest.requireMock('../services/productAnalytics') as {
+      trackProductEvent: jest.Mock;
+    };
+
+    const { getByTestId } = await renderChat();
+    await waitFor(() => {
+      expect(getByTestId('chat-input')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('chat-attach-button'));
+    await waitFor(() => {
+      expect(getByTestId('attach-picker-photos')).toBeTruthy();
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('attach-picker-photos'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(getByTestId('chat-attachment-chips')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.changeText(getByTestId('chat-input'), PROMPT);
+      fireEvent.press(getByTestId('chat-send-button'));
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(streamSessionChat).toHaveBeenCalledTimes(1);
+    });
+    const originalPayload = streamSessionChat.mock.calls[0]?.[2];
+    expect(originalPayload).toEqual([
+      { type: 'text', text: PROMPT },
+      {
+        type: 'image_url',
+        image_url: { url: 'data:image/png;base64,aW1hZ2UtYnl0ZXM=' },
+      },
+    ]);
+    await waitFor(() => {
+      expect(getByTestId('chat-input').props.value).toBe('');
+    });
+
+    await act(async () => {
+      fireEvent.changeText(getByTestId('chat-input'), '');
+      fireEvent.press(getByTestId('chat-send-button'));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(streamSessionChat).toHaveBeenCalledTimes(2);
+    });
+    expect(streamSessionChat.mock.calls[1]?.[2]).toEqual(originalPayload);
+    expect(streamSessionChat).toHaveBeenCalledTimes(2);
+    await waitFor(() => {
+      expect(trackProductEvent).toHaveBeenCalledWith('chat_failed_send_retry', {
+        outcome: 'accepted',
+        attachment_count: 1,
+        payload_source: 'envelope',
+        requires_reattach: false,
+      });
+    });
+    expect(JSON.stringify(trackProductEvent.mock.calls)).not.toMatch(
+      /Do it now|retry-proof\.png|file:|image\/png/i,
+    );
   });
 
   it('keeps ↑ a genuine no-op when there is nothing typed and nothing to retry', async () => {
