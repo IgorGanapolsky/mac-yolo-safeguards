@@ -120,7 +120,7 @@ describe('SettingsScreen', () => {
     const { getAllByText, getByTestId, getByText } = render(<SettingsScreen />);
     expect(getByText('Computer connection')).toBeTruthy();
     expect(
-      getByText('Use Tailscale away from home, or USB/home Wi‑Fi nearby, for Chat, tools, and ops.'),
+      getByText('Use Tailscale away from home, or home Wi‑Fi nearby, for Chat, tools, and ops.'),
     ).toBeTruthy();
     expect(getAllByText('Cloud approvals (optional)').length).toBeGreaterThan(0);
     expect(
@@ -262,7 +262,7 @@ describe('SettingsScreen', () => {
     expect(getByTestId('settings-tunnel-field-link')).toBeTruthy();
   });
 
-  it('shows USB host mismatch banner in settings', () => {
+  it('never surfaces a USB concept in settings', () => {
     useGateway.mockReturnValue(
       mockUseGateway({
         effectiveGatewayUrl: 'http://127.0.0.1:8642',
@@ -303,8 +303,8 @@ describe('SettingsScreen', () => {
       }),
     );
 
-    const { getByTestId } = render(<SettingsScreen />);
-    expect(getByTestId('settings-usb-host-mismatch')).toBeTruthy();
+    const { queryByTestId } = render(<SettingsScreen />);
+    expect(queryByTestId('settings-usb-host-mismatch')).toBeNull();
   });
 
   it('shows Tailscale discovery banner when another Mac is reachable', () => {
