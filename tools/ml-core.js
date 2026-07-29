@@ -212,6 +212,18 @@ function featureImportance(weights, featureKeys) {
   }));
 }
 
+/** MRR@k (Mean Reciprocal Rank): 1 / (rank of first relevant item, 1-indexed). */
+function mrrAtK(rankedPaths, relevantSubstrings, k) {
+  const top = rankedPaths.slice(0, k);
+  for (let i = 0; i < top.length; i += 1) {
+    const p = top[i];
+    if (relevantSubstrings.some((sub) => p.includes(sub) || p.replace(/\\/g, '/').includes(sub))) {
+      return Number((1 / (i + 1)).toFixed(4));
+    }
+  }
+  return 0;
+}
+
 /** nDCG@k for ranked retrieval with binary per-path relevance (capped ≤ 1). */
 function ndcgAtK(rankedPaths, relevantSubstrings, k) {
   const rel = (path) =>
@@ -221,9 +233,9 @@ function ndcgAtK(rankedPaths, relevantSubstrings, k) {
   const top = rankedPaths.slice(0, k);
   const pathRel = top.map(rel);
   const dcg = pathRel.reduce((s, r, i) => s + r / Math.log2(i + 2), 0);
-  // Ideal: all relevant docs first. Count = min(k, relevant hits in top-k list)
-  // so multiple matches for one substring don't invent nDCG > 1.
-  const idealCount = Math.min(k, pathRel.reduce((s, r) => s + r, 0) || relevantSubstrings.length);
+  // Ideal ranking is over the docs we KNOW are relevant (fixture substrings), not
+  // only the ones retrieved — otherwise missing a required doc cannot lower nDCG.
+  const idealCount = Math.min(k, relevantSubstrings.length);
   let idcg = 0;
   for (let i = 0; i < idealCount; i += 1) idcg += 1 / Math.log2(i + 2);
   if (idcg === 0) return pathRel.some(Boolean) ? 1 : 0;
@@ -281,6 +293,7 @@ module.exports = {
   fitPlatt,
   crossValidate,
   featureImportance,
+  mrrAtK,
   ndcgAtK,
   twoProportionTest,
   normalCdf,
