@@ -158,6 +158,86 @@ class IndexCase(unittest.TestCase):
             self.assertEqual(first["B"], second["B"])
             self.assertIn("NEW", second)
 
+    def test_jsonl_lessons_are_atomic_stable_and_exactly_deduplicated(self) -> None:
+        lesson_a = {
+            "id": "lesson-a",
+            "feedbackId": "fb-a",
+            "lesson": "Verify the provider receipt before claiming external revenue.",
+            "triggerMessage": "Are we making money?",
+            "priorSummary": "A local funnel event was mistaken for cash.",
+            "signal": "down",
+            "confidence": 93,
+            "tags": ["revenue", "verification"],
+            "metadata": {"domain": "cash-truth"},
+            "createdAt": "2026-07-29T00:00:00Z",
+            "link": "memory://lesson-a",
+        }
+        lesson_b = {
+            "id": "lesson-b",
+            "feedbackId": "fb-b",
+            "lesson": "Keep the previous generation active after a failed reindex.",
+            "triggerMessage": "The rebuild crashed.",
+            "priorSummary": "A partial generation must never become queryable.",
+            "signal": "down",
+            "confidence": 97,
+            "tags": ["retrieval", "rollback"],
+            "metadata": {"domain": "rag-operations"},
+            "createdAt": "2026-07-29T00:01:00Z",
+            "link": "memory://lesson-b",
+        }
+        initial = "\n".join(json.dumps(row) for row in (lesson_a, lesson_b, lesson_b))
+        prepended = "\n".join(
+            [
+                json.dumps(
+                    {
+                        "id": "lesson-new",
+                        "lesson": "A new independent lesson.",
+                        "signal": "up",
+                        "tags": ["new"],
+                    }
+                ),
+                json.dumps(lesson_a),
+                json.dumps(lesson_b),
+            ]
+        )
+        with self.index() as index:
+            index.ingest_records(
+                [index.parse_inline("memory://lessons", initial, "application/x-ndjson")]
+            )
+            first_generation = index.reindex()
+            first_chunks = {
+                row["heading_path"]: row["chunk_id"]
+                for row in index.connection.execute(
+                    "SELECT heading_path, chunk_id FROM chunks WHERE generation_id=?",
+                    (first_generation["generation_id"],),
+                )
+            }
+            self.assertEqual(len(first_chunks), 2)
+            result = index.search("provider receipt external revenue", limit=1)
+            self.assertEqual(result["results"][0]["metadata"]["record_id"], "lesson-a")
+            self.assertEqual(result["results"][0]["metadata"]["confidence"], 93)
+            self.assertNotIn("failed reindex", result["results"][0]["parent_text"])
+            multi = index.search("lesson revenue reindex", limit=2)
+            self.assertEqual(
+                {row["metadata"]["record_id"] for row in multi["results"]},
+                {"lesson-a", "lesson-b"},
+            )
+
+            index.ingest_records(
+                [index.parse_inline("memory://lessons", prepended, "application/x-ndjson")]
+            )
+            second_generation = index.reindex()
+            second_chunks = {
+                row["heading_path"]: row["chunk_id"]
+                for row in index.connection.execute(
+                    "SELECT heading_path, chunk_id FROM chunks WHERE generation_id=?",
+                    (second_generation["generation_id"],),
+                )
+            }
+            self.assertEqual(first_chunks["record/lesson-a"], second_chunks["record/lesson-a"])
+            self.assertEqual(first_chunks["record/lesson-b"], second_chunks["record/lesson-b"])
+            self.assertIn("record/lesson-new", second_chunks)
+
     def test_incremental_sync_tracks_add_change_unchanged_delete_and_tombstone(self) -> None:
         corpus = self.root / "corpus"
         corpus.mkdir()

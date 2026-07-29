@@ -801,7 +801,95 @@ class TinkerBrainIndex:
             start = next_start
         return rows
 
+    def _jsonl_chunks_for_document(self, document: sqlite3.Row) -> List[Dict[str, Any]]:
+        rows: List[Dict[str, Any]] = []
+        seen_hashes = set()
+        offset = 0
+        for row_number, line in enumerate(str(document["normalized_text"]).splitlines(), start=1):
+            if not line.strip():
+                continue
+            start_char = str(document["normalized_text"]).find(line, offset)
+            end_char = start_char + len(line)
+            offset = end_char
+            record = json.loads(line)
+            row_hash = sha256_text(line)
+            if row_hash in seen_hashes:
+                continue
+            seen_hashes.add(row_hash)
+
+            if isinstance(record, dict):
+                row_id = str(
+                    record.get("id")
+                    or record.get("lessonId")
+                    or record.get("feedbackId")
+                    or row_hash[:16]
+                )
+                content_lines = []
+                for key, label in (
+                    ("id", "id"),
+                    ("feedbackId", "feedback id"),
+                    ("lesson", "lesson"),
+                    ("triggerMessage", "trigger"),
+                    ("priorSummary", "prior summary"),
+                    ("signal", "signal"),
+                    ("tags", "tags"),
+                ):
+                    value = record.get(key)
+                    if value in (None, "", []):
+                        continue
+                    rendered = ", ".join(str(item) for item in value) if isinstance(value, list) else str(value)
+                    content_lines.append(f"{label}: {rendered}")
+                content = normalize_text("\n".join(content_lines)) or line
+            else:
+                row_id = row_hash[:16]
+                content = line
+
+            metadata = json.loads(document["metadata_json"])
+            metadata.update(
+                {
+                    "heading_path": f"record/{row_id}",
+                    "parent_version_id": document["version_id"],
+                    "start_char": start_char,
+                    "end_char": end_char,
+                    "chunker_version": CHUNKER_VERSION,
+                    "embedding_model": self.embedder.model,
+                    "record_type": "jsonl_record",
+                    "record_id": row_id,
+                    "record_number": row_number,
+                    "record_hash": row_hash,
+                }
+            )
+            if isinstance(record, dict):
+                for key in ("signal", "confidence", "tags", "createdAt", "link"):
+                    if key in record:
+                        metadata[key] = record[key]
+                if isinstance(record.get("metadata"), dict):
+                    metadata["record_metadata"] = record["metadata"]
+
+            rows.append(
+                {
+                    "chunk_id": stable_id(
+                        "chk",
+                        document["logical_id"],
+                        f"jsonl/{row_id}",
+                        row_hash,
+                    ),
+                    "version_id": document["version_id"],
+                    "logical_id": document["logical_id"],
+                    "source_uri": document["source_uri"],
+                    "title": document["title"],
+                    "heading_path": f"record/{row_id}",
+                    "content": content,
+                    "start_char": start_char,
+                    "end_char": end_char,
+                    "metadata": metadata,
+                }
+            )
+        return rows
+
     def chunks_for_document(self, document: sqlite3.Row) -> List[Dict[str, Any]]:
+        if document["mime_type"] == "application/x-ndjson":
+            return self._jsonl_chunks_for_document(document)
         text = str(document["normalized_text"])
         rows: List[Dict[str, Any]] = []
         for heading_path, section, section_start, _section_end in self._section_rows(text, document["title"]):
@@ -1211,9 +1299,16 @@ class TinkerBrainIndex:
             # Parent-child retrieval ranks chunks but returns diverse parents.
             # Otherwise two high-scoring sections from one document can crowd a
             # relevant second document out of top-k and make Recall@k lie.
-            if row["logical_id"] in seen_documents:
+            # JSONL records are themselves atomic parents, so multiple lessons
+            # from one store file may legitimately occupy separate result slots.
+            diversity_key = (
+                f"{row['logical_id']}:{metadata.get('record_id')}"
+                if metadata.get("record_type") == "jsonl_record"
+                else row["logical_id"]
+            )
+            if diversity_key in seen_documents:
                 continue
-            seen_documents.add(row["logical_id"])
+            seen_documents.add(diversity_key)
             document = self.connection.execute(
                 "SELECT normalized_text, duplicate_of FROM documents WHERE version_id=?",
                 (row["version_id"],),
@@ -1241,7 +1336,11 @@ class TinkerBrainIndex:
                     "title": row["title"],
                     "heading_path": row["heading_path"],
                     "content": row["content"],
-                    "parent_text": document["normalized_text"],
+                    "parent_text": (
+                        row["content"]
+                        if metadata.get("record_type") == "jsonl_record"
+                        else document["normalized_text"]
+                    ),
                     "metadata": metadata,
                     "score": round(score, 8),
                     "score_explanation": {
