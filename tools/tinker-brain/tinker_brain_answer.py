@@ -235,8 +235,9 @@ def render_from_route(
         lines.append(
             "Honesty: grepae can be healthy on the isolated clone "
             "(~/.hermes/semantic-index/mac-yolo-safeguards) while REPO .grepai is an empty shell — "
-            "ensure-grepai-index links them. Lessons ledger vs sqlite drift and hashed-TF embeddings "
-            "are real gaps; do not claim neural semantic FTS until doctor ok=true."
+            "ensure-grepai-index links them. Lessons ledger vs sqlite FTS drift and LanceDB gaps "
+            "are real; copy LESSONS_DOCTOR embeddings status exactly (do not invent neural FTS "
+            "or claim doctor ok=true without the card line)."
         )
 
     if primary == INTENT_NEXT_MONEY or primary == INTENT_IMPROVE:
