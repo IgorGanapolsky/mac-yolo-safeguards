@@ -820,6 +820,7 @@ class TinkerBrainIndex:
                         "start_char": section_start + local_start,
                         "end_char": section_start + local_end,
                         "chunker_version": CHUNKER_VERSION,
+                        "embedding_model": self.embedder.model,
                     }
                 )
                 rows.append(
@@ -1049,68 +1050,34 @@ class TinkerBrainIndex:
         limit: int = 5,
         filters: Optional[Dict[str, Any]] = None,
         candidate_pool: int = 50,
-        filter_fallback: bool = True,
+        filter_fallback: bool = False,
     ) -> Dict[str, Any]:
+        search_started = time.perf_counter()
         generation_id = self.active_generation()
         if not generation_id:
-            return {"query": query, "generation_id": None, "results": [], "error": "no_active_generation"}
+            return {
+                "query": query,
+                "generation_id": None,
+                "consistency": "no_snapshot",
+                "results": [],
+                "error": "no_active_generation",
+                "latency_ms": {"total": round((time.perf_counter() - search_started) * 1000, 3)},
+            }
         rewritten = self.rewrite_query(query)
         fts_query = self._fts_query(rewritten)
-        lexical_ids: List[str] = []
-        if fts_query:
-            lexical_ids = [
-                row["chunk_id"]
-                for row in self.connection.execute(
-                    """
-                    SELECT chunk_id, bm25(chunks_fts, 0.0, 0.0, 2.0, 1.5, 1.0) AS score
-                    FROM chunks_fts
-                    WHERE chunks_fts MATCH ? AND generation_id=?
-                    ORDER BY score LIMIT ?
-                    """,
-                    (fts_query, generation_id, candidate_pool),
-                ).fetchall()
-            ]
 
+        filter_started = time.perf_counter()
         all_rows = self._candidate_rows(generation_id)
-        row_by_id = {row["chunk_id"]: row for row in all_rows}
-        query_embedding = self.embedder.embed(rewritten)
-        vector_ranked = sorted(
-            all_rows,
-            key=lambda row: cosine_similarity(query_embedding, unpack_vector(row["embedding"])),
-            reverse=True,
-        )[:candidate_pool]
-        vector_ids = [row["chunk_id"] for row in vector_ranked]
-        vector_scores = {
-            row["chunk_id"]: cosine_similarity(query_embedding, unpack_vector(row["embedding"]))
-            for row in vector_ranked
-        }
+        filtered_rows = all_rows
+        if filters:
+            filtered_rows = [
+                row
+                for row in all_rows
+                if self._metadata_matches(json.loads(row["metadata_json"]), filters)
+            ]
+        filter_ms = (time.perf_counter() - filter_started) * 1000
 
-        fused: Dict[str, float] = {}
-        # Exact terms are strong evidence in operational corpora; dense matches
-        # help with paraphrases but must not drown identifiers or provider names.
-        for ranking, weight in ((lexical_ids, 2.0), (vector_ids, 1.0)):
-            for rank, chunk_id in enumerate(ranking, start=1):
-                fused[chunk_id] = fused.get(chunk_id, 0.0) + weight / (60.0 + rank)
-
-        query_terms = set(significant_tokens(rewritten))
-        candidates = []
-        for chunk_id, rrf_score in fused.items():
-            row = row_by_id.get(chunk_id)
-            if not row:
-                continue
-            metadata = json.loads(row["metadata_json"])
-            if filters and not self._metadata_matches(metadata, filters):
-                continue
-            content_terms = set(significant_tokens(f"{row['title']} {row['heading_path']} {row['content']}"))
-            overlap = len(query_terms.intersection(content_terms)) / max(1, len(query_terms))
-            exact_phrase = 1.0 if normalize_text(query).lower() in row["content"].lower() else 0.0
-            reranked = rrf_score + (0.08 * overlap) + (0.03 * exact_phrase) + (0.02 * vector_scores.get(chunk_id, 0.0))
-            candidates.append((reranked, row, metadata))
-        candidates.sort(key=lambda item: (-item[0], item[1]["chunk_id"]))
-
-        used_filter_fallback = False
-        if filters and not candidates and filter_fallback:
-            used_filter_fallback = True
+        if filters and not filtered_rows and filter_fallback:
             fallback = self.search(
                 query,
                 limit=limit,
@@ -1120,11 +1087,127 @@ class TinkerBrainIndex:
             )
             fallback["filters"] = filters
             fallback["filter_fallback"] = True
+            fallback["filter_fallback_reason"] = "no_metadata_match"
+            fallback["unfiltered_candidate_count"] = len(all_rows)
+            fallback["filtered_candidate_count"] = 0
+            fallback["latency_ms"]["filter"] = round(filter_ms, 3)
+            fallback["latency_ms"]["total"] = round((time.perf_counter() - search_started) * 1000, 3)
             return fallback
 
+        if filters and not filtered_rows:
+            return {
+                "query": query,
+                "rewritten_query": rewritten,
+                "generation_id": generation_id,
+                "consistency": "strong_generation_snapshot",
+                "embedding_model": self.embedder.model,
+                "filters": filters,
+                "filter_fallback": False,
+                "filter_fallback_reason": None,
+                "unfiltered_candidate_count": len(all_rows),
+                "filtered_candidate_count": 0,
+                "candidate_count": 0,
+                "latency_ms": {
+                    "filter": round(filter_ms, 3),
+                    "lexical": 0.0,
+                    "vector": 0.0,
+                    "fusion_rerank": 0.0,
+                    "hydrate": 0.0,
+                    "total": round((time.perf_counter() - search_started) * 1000, 3),
+                },
+                "results": [],
+            }
+
+        allowed_ids = {row["chunk_id"] for row in filtered_rows}
+        row_by_id = {row["chunk_id"]: row for row in filtered_rows}
+
+        lexical_started = time.perf_counter()
+        lexical_ids: List[str] = []
+        if fts_query:
+            lexical_limit = len(all_rows) if filters else candidate_pool
+            lexical_ids = [
+                row["chunk_id"]
+                for row in self.connection.execute(
+                    """
+                    SELECT chunk_id, bm25(chunks_fts, 0.0, 0.0, 2.0, 1.5, 1.0) AS score
+                    FROM chunks_fts
+                    WHERE chunks_fts MATCH ? AND generation_id=?
+                    ORDER BY score LIMIT ?
+                    """,
+                    (fts_query, generation_id, max(1, lexical_limit)),
+                ).fetchall()
+                if row["chunk_id"] in allowed_ids
+            ]
+            lexical_ids = lexical_ids[:candidate_pool]
+        lexical_ms = (time.perf_counter() - lexical_started) * 1000
+
+        vector_started = time.perf_counter()
+        query_embedding = self.embedder.embed(rewritten)
+        vector_ranked = sorted(
+            filtered_rows,
+            key=lambda row: cosine_similarity(query_embedding, unpack_vector(row["embedding"])),
+            reverse=True,
+        )[:candidate_pool]
+        vector_ids = [row["chunk_id"] for row in vector_ranked]
+        vector_scores = {
+            row["chunk_id"]: cosine_similarity(query_embedding, unpack_vector(row["embedding"]))
+            for row in vector_ranked
+        }
+        vector_ms = (time.perf_counter() - vector_started) * 1000
+
+        fusion_started = time.perf_counter()
+        fused: Dict[str, float] = {}
+        lexical_rrf: Dict[str, float] = {}
+        vector_rrf: Dict[str, float] = {}
+        # Exact terms are strong evidence in operational corpora; dense matches
+        # help with paraphrases but must not drown identifiers or provider names.
+        for ranking, weight, component in (
+            (lexical_ids, 2.0, lexical_rrf),
+            (vector_ids, 1.0, vector_rrf),
+        ):
+            for rank, chunk_id in enumerate(ranking, start=1):
+                contribution = weight / (60.0 + rank)
+                component[chunk_id] = contribution
+                fused[chunk_id] = fused.get(chunk_id, 0.0) + contribution
+
+        query_terms = set(significant_tokens(rewritten))
+        candidates = []
+        for chunk_id, rrf_score in fused.items():
+            row = row_by_id.get(chunk_id)
+            if not row:
+                continue
+            metadata = json.loads(row["metadata_json"])
+            content_terms = set(significant_tokens(f"{row['title']} {row['heading_path']} {row['content']}"))
+            overlap = len(query_terms.intersection(content_terms)) / max(1, len(query_terms))
+            exact_phrase = 1.0 if normalize_text(query).lower() in row["content"].lower() else 0.0
+            overlap_boost = 0.08 * overlap
+            phrase_boost = 0.03 * exact_phrase
+            vector_boost = 0.02 * vector_scores.get(chunk_id, 0.0)
+            reranked = rrf_score + overlap_boost + phrase_boost + vector_boost
+            candidates.append(
+                (
+                    reranked,
+                    row,
+                    metadata,
+                    {
+                        "lexical_rrf": lexical_rrf.get(chunk_id, 0.0),
+                        "vector_rrf": vector_rrf.get(chunk_id, 0.0),
+                        "vector_similarity": vector_scores.get(chunk_id, 0.0),
+                        "term_overlap": overlap,
+                        "exact_phrase": exact_phrase,
+                        "overlap_boost": overlap_boost,
+                        "phrase_boost": phrase_boost,
+                        "vector_boost": vector_boost,
+                    },
+                )
+            )
+        candidates.sort(key=lambda item: (-item[0], item[1]["chunk_id"]))
+        fusion_ms = (time.perf_counter() - fusion_started) * 1000
+
+        hydrate_started = time.perf_counter()
         results = []
         seen_documents = set()
-        for score, row, metadata in candidates:
+        for score, row, metadata, explanation in candidates:
             # Parent-child retrieval ranks chunks but returns diverse parents.
             # Otherwise two high-scoring sections from one document can crowd a
             # relevant second document out of top-k and make Recall@k lie.
@@ -1161,18 +1244,33 @@ class TinkerBrainIndex:
                     "parent_text": document["normalized_text"],
                     "metadata": metadata,
                     "score": round(score, 8),
+                    "score_explanation": {
+                        key: round(value, 8) for key, value in explanation.items()
+                    },
                 }
             )
             if len(results) >= max(1, limit):
                 break
+        hydrate_ms = (time.perf_counter() - hydrate_started) * 1000
         return {
             "query": query,
             "rewritten_query": rewritten,
             "generation_id": generation_id,
+            "consistency": "strong_generation_snapshot",
             "embedding_model": self.embedder.model,
             "filters": filters or {},
-            "filter_fallback": used_filter_fallback,
+            "filter_fallback": False,
+            "unfiltered_candidate_count": len(all_rows),
+            "filtered_candidate_count": len(filtered_rows),
             "candidate_count": len(candidates),
+            "latency_ms": {
+                "filter": round(filter_ms, 3),
+                "lexical": round(lexical_ms, 3),
+                "vector": round(vector_ms, 3),
+                "fusion_rerank": round(fusion_ms, 3),
+                "hydrate": round(hydrate_ms, 3),
+                "total": round((time.perf_counter() - search_started) * 1000, 3),
+            },
             "results": results,
         }
 
@@ -1232,6 +1330,19 @@ def ndcg_at_k(ranked: Sequence[str], qrels: Dict[str, int], k: int) -> float:
     ideal = sorted((int(grade) for grade in qrels.values() if int(grade) > 0), reverse=True)[:k]
     ideal_score = dcg(ideal)
     return dcg(actual) / ideal_score if ideal_score else 0.0
+
+
+def percentile(values: Sequence[float], quantile: float) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(float(value) for value in values)
+    position = max(0.0, min(1.0, quantile)) * (len(ordered) - 1)
+    lower = int(math.floor(position))
+    upper = int(math.ceil(position))
+    if lower == upper:
+        return ordered[lower]
+    fraction = position - lower
+    return ordered[lower] + (ordered[upper] - ordered[lower]) * fraction
 
 
 def validate_fixture(fixture: Dict[str, Any]) -> None:
@@ -1312,14 +1423,22 @@ def evaluate_fixture(
                         "recall_at_5": recall_at_k(ranked, qrels, 5),
                         "mrr": reciprocal_rank(ranked, qrels),
                         "ndcg_at_5": ndcg_at_k(ranked, qrels, 5),
+                        "latency_ms": output["latency_ms"]["total"],
                     }
                 )
             mean = lambda key: sum(row[key] for row in per_query) / len(per_query)
+            latencies = [row["latency_ms"] for row in per_query]
             summary = {
                 "queries": len(per_query),
                 "recall_at_5": mean("recall_at_5"),
                 "mrr": mean("mrr"),
                 "ndcg_at_5": mean("ndcg_at_5"),
+                "latency_ms": {
+                    "p50": percentile(latencies, 0.50),
+                    "p95": percentile(latencies, 0.95),
+                    "p99": percentile(latencies, 0.99),
+                    "max": max(latencies),
+                },
             }
             slice_names = sorted({row["slice"] for row in per_query})
             slices = {}
@@ -1330,6 +1449,7 @@ def evaluate_fixture(
                     "recall_at_5": sum(row["recall_at_5"] for row in rows) / len(rows),
                     "mrr": sum(row["mrr"] for row in rows) / len(rows),
                     "ndcg_at_5": sum(row["ndcg_at_5"] for row in rows) / len(rows),
+                    "latency_ms_p95": percentile([row["latency_ms"] for row in rows], 0.95),
                 }
             thresholds = fixture["thresholds"]
             failures = []
@@ -1345,6 +1465,12 @@ def evaluate_fixture(
                         for row in per_query
                         if row[metric] < float(per_query_floor)
                     )
+            max_p95_latency_ms = thresholds.get("max_p95_latency_ms")
+            if (
+                max_p95_latency_ms is not None
+                and summary["latency_ms"]["p95"] > float(max_p95_latency_ms)
+            ):
+                failures.append("latency_ms:p95")
             return {
                 "ok": not failures,
                 "fixture": str(fixture_path),
@@ -1385,6 +1511,11 @@ def build_parser() -> argparse.ArgumentParser:
     search_parser.add_argument("query")
     search_parser.add_argument("--limit", type=int, default=5)
     search_parser.add_argument("--filter", action="append", default=[])
+    search_parser.add_argument(
+        "--filter-fallback",
+        action="store_true",
+        help="Explicitly widen to unfiltered search when no metadata matches; strict by default.",
+    )
 
     rollback_parser = subparsers.add_parser("rollback")
     rollback_parser.add_argument("generation_id")
@@ -1417,7 +1548,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     raise ValueError(f"invalid filter, expected key=value: {item}")
                 key, value = item.split("=", 1)
                 filters[key] = value
-            result = index.search(args.query, limit=args.limit, filters=filters or None)
+            result = index.search(
+                args.query,
+                limit=args.limit,
+                filters=filters or None,
+                filter_fallback=args.filter_fallback,
+            )
         elif args.command == "rollback":
             result = index.rollback(args.generation_id)
         elif args.command == "status":

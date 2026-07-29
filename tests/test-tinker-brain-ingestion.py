@@ -262,10 +262,49 @@ class IndexCase(unittest.TestCase):
             index.ingest_records([record])
             index.reindex()
             strict = index.search("force push protected branch", filters={"domain": "wrong"})
-            self.assertTrue(strict["filter_fallback"])
-            self.assertEqual(strict["results"][0]["source_uri"], "memory://filters")
+            self.assertFalse(strict["filter_fallback"])
+            self.assertEqual(strict["filtered_candidate_count"], 0)
+            self.assertEqual(strict["results"], [])
+            widened = index.search(
+                "force push protected branch",
+                filters={"domain": "wrong"},
+                filter_fallback=True,
+            )
+            self.assertTrue(widened["filter_fallback"])
+            self.assertEqual(widened["filter_fallback_reason"], "no_metadata_match")
+            self.assertEqual(widened["results"][0]["source_uri"], "memory://filters")
             matched = index.search("force push protected branch", filters={"domain": "git-safety"})
             self.assertFalse(matched["filter_fallback"])
+
+    def test_metadata_filter_is_applied_before_bounded_hybrid_ranking(self) -> None:
+        with self.index() as index:
+            records = [
+                index.parse_inline(
+                    f"memory://noise-{number}",
+                    f"# Noise {number}\nExact rare target phrase mixed with unrelated interface notes.",
+                    "text/markdown",
+                    metadata={"domain": "noise"},
+                )
+                for number in range(60)
+            ]
+            records.append(
+                index.parse_inline(
+                    "memory://scoped-target",
+                    "# Scoped\nExact rare target phrase with the authorized operational answer.",
+                    "text/markdown",
+                    metadata={"domain": "authorized"},
+                )
+            )
+            index.ingest_records(records)
+            index.reindex()
+            result = index.search(
+                "exact rare target phrase",
+                limit=1,
+                candidate_pool=5,
+                filters={"domain": "authorized"},
+            )
+            self.assertEqual(result["filtered_candidate_count"], 1)
+            self.assertEqual(result["results"][0]["source_uri"], "memory://scoped-target")
 
     def test_component_versions_and_metadata_are_complete(self) -> None:
         with self.index() as index:
@@ -325,6 +364,8 @@ class IndexCase(unittest.TestCase):
             ingestion.ndcg_at_k(["a", "b"], qrels, 2),
             ingestion.ndcg_at_k(["b", "a"], qrels, 2),
         )
+        self.assertEqual(ingestion.percentile([1, 2, 3, 4, 5], 0.5), 3)
+        self.assertAlmostEqual(ingestion.percentile([1, 2], 0.95), 1.95)
 
     def test_fixture_eval_passes_recall_mrr_ndcg_release_floors(self) -> None:
         result = ingestion.evaluate_fixture()
@@ -333,8 +374,40 @@ class IndexCase(unittest.TestCase):
         self.assertGreaterEqual(result["summary"]["recall_at_5"], 0.9)
         self.assertGreaterEqual(result["summary"]["mrr"], 0.8)
         self.assertGreaterEqual(result["summary"]["ndcg_at_5"], 0.8)
+        self.assertLessEqual(result["summary"]["latency_ms"]["p95"], 500.0)
         self.assertTrue(result["slices"])
         self.assertTrue(all(row["recall_at_5"] == 1.0 for row in result["per_query"]))
+
+    def test_search_exposes_snapshot_latency_and_score_components(self) -> None:
+        with self.index() as index:
+            index.ingest_records(
+                [
+                    index.parse_inline(
+                        "memory://explain",
+                        "# Explain\nHybrid BM25 and vector ranking must expose score contributions.",
+                        "text/markdown",
+                    )
+                ]
+            )
+            generation = index.reindex()
+            result = index.search("hybrid BM25 vector ranking", limit=1)
+            self.assertEqual(result["generation_id"], generation["generation_id"])
+            self.assertEqual(result["consistency"], "strong_generation_snapshot")
+            self.assertGreaterEqual(result["latency_ms"]["total"], 0)
+            explanation = result["results"][0]["score_explanation"]
+            self.assertEqual(
+                set(explanation),
+                {
+                    "lexical_rrf",
+                    "vector_rrf",
+                    "vector_similarity",
+                    "term_overlap",
+                    "exact_phrase",
+                    "overlap_boost",
+                    "phrase_boost",
+                    "vector_boost",
+                },
+            )
 
     def test_fixture_validation_rejects_unsatisfiable_qrels(self) -> None:
         fixture = json.loads(ingestion.DEFAULT_EVAL.read_text(encoding="utf-8"))

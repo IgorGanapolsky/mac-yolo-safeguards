@@ -9,7 +9,8 @@
     "min_ndcg_at_5": 0.8,
     "min_per_query_recall_at_5": 1.0,
     "min_per_query_mrr": 0.5,
-    "min_per_query_ndcg_at_5": 0.6
+    "min_per_query_ndcg_at_5": 0.6,
+    "max_p95_latency_ms": 500.0
   },
   "documents": [
     {
