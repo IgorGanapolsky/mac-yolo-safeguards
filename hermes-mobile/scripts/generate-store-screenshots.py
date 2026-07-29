@@ -1,233 +1,680 @@
 #!/usr/bin/env python3
-"""Generate July 2026 ASO captioned store screenshots (6 frames) for Play + App Store.
+"""Generate six deterministic, privacy-safe Hermes Mobile store screenshots."""
 
-Hard rules:
-- Raw frames must already be distinct product moments (Chat / Leash approve / Settings
-  safeguard rules / QR pair / ThumbGate options / Settings).
-- Do NOT blank the phone UI into a spinner placeholder — that caused ASC duplicates.
-- Emit ONE iPhone size for deliver (6.7"/APP_IPHONE_67). Shipping both _65 and _67 into
-  the same Fastlane screenshots folder made ASC upload each frame twice into APP_IPHONE_67.
-"""
 from __future__ import annotations
 
+import argparse
+import hashlib
 import json
-import sys
-from itertools import combinations
 from pathlib import Path
+from typing import Any
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
+
 
 ROOT = Path(__file__).resolve().parents[1]
-RAW_ANDROID = ROOT / "fastlane/store-capture/raw"
-RAW_IOS = ROOT / "fastlane/metadata/ios/en-US/screenshots"
-PROOFS = ROOT / "docs/proofs/device-test-2026-06-25"
-
-OUT_PLAY = ROOT / "fastlane/metadata/android/en-US/images/phoneScreenshots"
-OUT_IOS = ROOT / "fastlane/screenshots/en-US"
+SCENE_VERSION = "deterministic-product-render-v2"
 
 COLORS = {
-    "bg": (11, 15, 25),
-    "band": (17, 24, 39),
-    "text": (243, 244, 246),
-    "muted": (156, 163, 175),
-    "cyan": (34, 211, 238),
+    "page_top": (8, 13, 28),
+    "page_bottom": (22, 20, 57),
+    "screen": (9, 14, 29),
+    "surface": (20, 27, 48),
+    "surface_alt": (26, 35, 61),
+    "line": (62, 74, 108),
+    "white": (247, 249, 255),
+    "muted": (164, 174, 199),
+    "cyan": (38, 216, 238),
+    "purple": (107, 92, 255),
+    "green": (54, 211, 153),
+    "amber": (251, 191, 36),
+    "red": (248, 113, 113),
 }
 
-FRAMES = [
-    # Front-load conversion: Apple/Play install sheet shows ~first 3 frames.
-    ("01_approve.png", "Approve AI agents from phone", "Chat with Hermes on your Mac"),
-    ("02_block.png", "Block destructive commands", "Deny force-push and runaway tools"),
-    ("03_standing.png", "Standing safety rules synced", "Allow and block policies stick"),
-    ("04_pair.png", "Pair your Mac in one scan", "QR pairing — no cloud account"),
-    ("05_thumbgate.png", "ThumbGate memory on replies", "Feedback that sticks across runs"),
-    ("06_works.png", "Works on cellular + tunnel", "Honest connection state always"),
-]
+SCENES: tuple[dict[str, str], ...] = (
+    {
+        "id": "connect",
+        "stem": "01_approve",
+        "headline": "Connect your computer",
+        "subtitle": "Home Wi-Fi, Tailscale, or USB",
+        "accent": "cyan",
+    },
+    {
+        "id": "run",
+        "stem": "02_block",
+        "headline": "Run your AI from anywhere",
+        "subtitle": "Send work, files, and follow-ups",
+        "accent": "purple",
+    },
+    {
+        "id": "approve",
+        "stem": "03_standing",
+        "headline": "Approve risky actions",
+        "subtitle": "Block or allow once in one tap",
+        "accent": "amber",
+    },
+    {
+        "id": "rules",
+        "stem": "04_pair",
+        "headline": "Set safety rules once",
+        "subtitle": "Stop destructive commands automatically",
+        "accent": "red",
+    },
+    {
+        "id": "learn",
+        "stem": "05_thumbgate",
+        "headline": "Teach Hermes what works",
+        "subtitle": "Feedback improves future runs",
+        "accent": "green",
+    },
+    {
+        "id": "switch",
+        "stem": "06_works",
+        "headline": "One phone. Every computer.",
+        "subtitle": "Switch machines without losing context",
+        "accent": "cyan",
+    },
+)
 
-MAX_PAIR_SIMILARITY = 90.0
+OUTPUTS = (
+    {
+        "deviceClass": "play",
+        "directory": "fastlane/metadata/android/en-US/images/phoneScreenshots",
+        "size": (1080, 1920),
+        "suffix": ".png",
+        "tablet": False,
+    },
+    {
+        "deviceClass": "iphone",
+        "directory": "fastlane/screenshots/en-US",
+        "size": (1290, 2796),
+        "suffix": "_67.png",
+        "tablet": False,
+    },
+    {
+        "deviceClass": "ipad",
+        "directory": "fastlane/screenshots/en-US",
+        "size": (2048, 2732),
+        "suffix": "_ipad129.png",
+        "tablet": True,
+    },
+)
 
 
 def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
-    paths = [
-        "/System/Library/Fonts/Supplemental/Arial Bold.ttf" if bold else "/System/Library/Fonts/Supplemental/Arial.ttf",
+    candidates = (
+        "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
+        if bold
+        else "/System/Library/Fonts/Supplemental/Arial.ttf",
         "/System/Library/Fonts/SFNS.ttf",
         "/System/Library/Fonts/HelveticaNeue.ttc",
-    ]
-    for path in paths:
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+        if bold
+        else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    )
+    for candidate in candidates:
         try:
-            return ImageFont.truetype(path, size=size)
+            return ImageFont.truetype(candidate, size=size)
         except OSError:
             continue
     return ImageFont.load_default()
 
 
-def fit_text(draw: ImageDraw.ImageDraw, text: str, max_width: int, start_size: int, bold: bool = True) -> ImageFont.FreeTypeFont:
-    size = start_size
-    while size >= 22:
-        f = font(size, bold=bold)
-        if draw.textbbox((0, 0), text, font=f)[2] <= max_width:
-            return f
-        size -= 2
-    return font(22, bold=bold)
-
-
-def resolve_raw(name: str) -> Path:
-    for base in (
-        ROOT / "fastlane/store-capture/raw-sanitized",
-        RAW_ANDROID,
-        RAW_IOS,
-    ):
-        candidate = base / name
-        if candidate.is_file():
+def fit_font(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    max_width: int,
+    start_size: int,
+    minimum: int,
+    bold: bool = True,
+) -> ImageFont.FreeTypeFont:
+    for size in range(start_size, minimum - 1, -2):
+        candidate = font(size, bold=bold)
+        if draw.textbbox((0, 0), text, font=candidate)[2] <= max_width:
             return candidate
-    raise FileNotFoundError(
-        f"Missing raw screenshot for {name}. Capture distinct frames into {RAW_ANDROID} "
-        "(do not fall back to shared proof stubs — that creates ASC duplicates)."
+    return font(minimum, bold=bold)
+
+
+def sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def gradient(size: tuple[int, int]) -> Image.Image:
+    width, height = size
+    image = Image.new("RGB", size, COLORS["page_top"])
+    draw = ImageDraw.Draw(image)
+    top = COLORS["page_top"]
+    bottom = COLORS["page_bottom"]
+    for y in range(height):
+        ratio = y / max(1, height - 1)
+        color = tuple(round(a + (b - a) * ratio) for a, b in zip(top, bottom))
+        draw.line((0, y, width, y), fill=color)
+    return image
+
+
+def rounded_panel(
+    draw: ImageDraw.ImageDraw,
+    box: tuple[int, int, int, int],
+    fill: tuple[int, int, int],
+    *,
+    outline: tuple[int, int, int] | None = None,
+    radius: int = 26,
+    width: int = 2,
+) -> None:
+    draw.rounded_rectangle(box, radius=radius, fill=fill, outline=outline, width=width)
+
+
+def draw_text(
+    draw: ImageDraw.ImageDraw,
+    xy: tuple[int, int],
+    value: str,
+    size: int,
+    *,
+    color: tuple[int, int, int] | None = None,
+    bold: bool = False,
+) -> None:
+    draw.text(xy, value, font=font(size, bold=bold), fill=color or COLORS["white"])
+
+
+def draw_pill(
+    draw: ImageDraw.ImageDraw,
+    box: tuple[int, int, int, int],
+    label: str,
+    *,
+    fill: tuple[int, int, int],
+    color: tuple[int, int, int] | None = None,
+    outline: tuple[int, int, int] | None = None,
+    size: int = 25,
+) -> None:
+    rounded_panel(draw, box, fill, outline=outline, radius=(box[3] - box[1]) // 2, width=2)
+    label_font = font(size, bold=True)
+    bounds = draw.textbbox((0, 0), label, font=label_font)
+    x = box[0] + (box[2] - box[0] - (bounds[2] - bounds[0])) // 2
+    y = box[1] + (box[3] - box[1] - (bounds[3] - bounds[1])) // 2 - bounds[1]
+    draw.text((x, y), label, font=label_font, fill=color or COLORS["white"])
+
+
+def draw_header(draw: ImageDraw.ImageDraw, width: int, title: str, detail: str) -> None:
+    draw_text(draw, (58, 66), title, 44, bold=True)
+    draw_pill(
+        draw,
+        (width - 288, 60, width - 58, 116),
+        detail,
+        fill=(20, 56, 52),
+        color=COLORS["green"],
+        outline=(44, 111, 93),
+        size=22,
+    )
+    draw.line((58, 150, width - 58, 150), fill=COLORS["line"], width=2)
+
+
+def draw_bottom_navigation(
+    draw: ImageDraw.ImageDraw,
+    width: int,
+    height: int,
+    active: str,
+) -> None:
+    top = height - 132
+    draw.rectangle((0, top, width, height), fill=(11, 17, 34))
+    draw.line((0, top, width, top), fill=COLORS["line"], width=2)
+    tabs = (("Hermes", "hermes"), ("Leash", "leash"), ("Settings", "settings"))
+    segment = width // len(tabs)
+    for index, (label, key) in enumerate(tabs):
+        center = segment * index + segment // 2
+        selected = key == active
+        color = COLORS["purple"] if selected else COLORS["muted"]
+        draw.ellipse((center - 13, top + 22, center + 13, top + 48), fill=color)
+        text_font = font(23, bold=selected)
+        bounds = draw.textbbox((0, 0), label, font=text_font)
+        draw.text(
+            (center - (bounds[2] - bounds[0]) // 2, top + 66),
+            label,
+            font=text_font,
+            fill=color,
+        )
+
+
+def draw_machine_row(
+    draw: ImageDraw.ImageDraw,
+    box: tuple[int, int, int, int],
+    name: str,
+    route: str,
+    state: str,
+    state_color: tuple[int, int, int],
+) -> None:
+    rounded_panel(draw, box, COLORS["surface"], outline=COLORS["line"], radius=24)
+    x1, y1, x2, y2 = box
+    draw.ellipse((x1 + 28, y1 + 35, x1 + 64, y1 + 71), fill=state_color)
+    draw_text(draw, (x1 + 86, y1 + 25), name, 31, bold=True)
+    draw_text(draw, (x1 + 86, y1 + 70), route, 23, color=COLORS["muted"])
+    pill_width = 160
+    draw_pill(
+        draw,
+        (x2 - pill_width - 28, y1 + 43, x2 - 28, y1 + 91),
+        state,
+        fill=(21, 31, 55),
+        color=state_color,
+        outline=state_color,
+        size=20,
     )
 
 
-def prepare_phone(img: Image.Image) -> Image.Image:
-    """Keep real UI. Only normalize mode — privacy scrub belongs in raw capture sanitize."""
-    return img.convert("RGB")
+def draw_connect(draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
+    draw_header(draw, width, "Choose your computer", "Searching")
+    draw_text(draw, (70, 205), "Nearby and saved computers", 28, color=COLORS["muted"])
+    row_width = width - 140
+    draw_machine_row(
+        draw,
+        (70, 260, 70 + row_width, 410),
+        "Studio",
+        "Tailscale",
+        "Connected",
+        COLORS["green"],
+    )
+    draw_machine_row(
+        draw,
+        (70, 440, 70 + row_width, 590),
+        "Laptop",
+        "Home Wi-Fi",
+        "Available",
+        COLORS["cyan"],
+    )
+    draw_machine_row(
+        draw,
+        (70, 620, 70 + row_width, 770),
+        "Build server",
+        "USB",
+        "Available",
+        COLORS["purple"],
+    )
+    rounded_panel(draw, (70, 830, width - 70, 1050), COLORS["surface_alt"], radius=28)
+    draw_text(draw, (105, 875), "Connect another computer", 34, bold=True)
+    draw_text(draw, (105, 930), "Scan a pairing code or enter a secure address.", 24, color=COLORS["muted"])
+    draw_pill(
+        draw,
+        (105, 990, width - 105, 1055),
+        "Scan pairing code",
+        fill=COLORS["purple"],
+        size=25,
+    )
 
 
-def paste_phone(base: Image.Image, phone: Image.Image, box: tuple[int, int, int, int], radius: int = 24) -> None:
-    x1, y1, x2, y2 = box
-    target_w = x2 - x1 - 16
-    target_h = y2 - y1 - 16
-    scale = min(target_w / phone.width, target_h / phone.height)
-    nw = max(1, int(phone.width * scale))
-    nh = max(1, int(phone.height * scale))
-    resized = phone.resize((nw, nh), Image.Resampling.LANCZOS)
-    px = x1 + (x2 - x1 - nw) // 2
-    py = y1 + (y2 - y1 - nh) // 2
-    frame = Image.new("RGBA", (x2 - x1, y2 - y1), (0, 0, 0, 0))
-    fd = ImageDraw.Draw(frame)
-    fd.rounded_rectangle((0, 0, x2 - x1 - 1, y2 - y1 - 1), radius=radius, outline=(55, 65, 81), width=8)
-    mask = Image.new("L", (nw, nh), 0)
-    ImageDraw.Draw(mask).rounded_rectangle((0, 0, nw, nh), radius=radius - 4, fill=255)
-    frame.paste(resized, (px - x1, py - y1), mask)
-    base.paste(frame, (x1, y1), frame)
+def draw_run(draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
+    draw_header(draw, width, "Chat with your computer", "Connected")
+    draw_text(draw, (70, 205), "Release workspace", 26, color=COLORS["cyan"], bold=True)
+    rounded_panel(draw, (250, 275, width - 70, 430), COLORS["purple"], radius=28)
+    draw_text(draw, (285, 315), "Prepare a safe release plan.", 30, bold=True)
+    rounded_panel(draw, (70, 480, width - 210, 735), COLORS["surface"], outline=COLORS["line"], radius=28)
+    draw_text(draw, (105, 520), "Release plan ready", 33, bold=True)
+    checklist = (
+        ("✓", "Tests passed"),
+        ("✓", "No secrets detected"),
+        ("✓", "Rollback prepared"),
+    )
+    for index, (mark, label) in enumerate(checklist):
+        y = 585 + index * 50
+        draw_text(draw, (110, y), mark, 27, color=COLORS["green"], bold=True)
+        draw_text(draw, (150, y), label, 25, color=COLORS["muted"])
+    rounded_panel(draw, (70, 790, width - 70, 875), COLORS["surface_alt"], radius=22)
+    draw_text(draw, (105, 817), "release-plan.md", 25, color=COLORS["cyan"], bold=True)
+    rounded_panel(draw, (70, 1040, width - 70, 1135), COLORS["surface"], outline=COLORS["line"], radius=30)
+    draw_text(draw, (110, 1071), "Ask Hermes to work on your computer", 24, color=COLORS["muted"])
+    draw.ellipse((width - 150, 1060, width - 90, 1120), fill=COLORS["purple"])
 
 
-def make_frame(
-    raw_name: str,
-    headline: str,
-    subtitle: str,
-    canvas: tuple[int, int],
-    band_h: int,
-    outfile: Path,
+def draw_approve(draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
+    draw_header(draw, width, "Leash approval", "Action paused")
+    rounded_panel(draw, (70, 225, width - 70, 940), COLORS["surface"], outline=(112, 87, 47), radius=32)
+    draw_pill(
+        draw,
+        (110, 275, 350, 335),
+        "APPROVAL REQUIRED",
+        fill=(76, 53, 27),
+        color=COLORS["amber"],
+        outline=(128, 90, 36),
+        size=20,
+    )
+    draw_text(draw, (110, 385), "Publish changes", 40, bold=True)
+    draw_text(draw, (110, 445), "This action affects the production branch.", 25, color=COLORS["muted"])
+    rounded_panel(draw, (110, 515, width - 110, 665), (11, 18, 34), radius=20)
+    draw_text(draw, (145, 555), "git push origin main", 29, color=COLORS["white"], bold=True)
+    draw_text(draw, (145, 610), "Risk: production write", 23, color=COLORS["amber"])
+    draw_text(draw, (110, 715), "Hermes is waiting for your decision.", 25, color=COLORS["muted"])
+    draw_pill(
+        draw,
+        (110, 790, (width // 2) - 16, 870),
+        "Block",
+        fill=(72, 34, 48),
+        color=COLORS["red"],
+        outline=COLORS["red"],
+        size=27,
+    )
+    draw_pill(
+        draw,
+        ((width // 2) + 16, 790, width - 110, 870),
+        "Allow once",
+        fill=COLORS["purple"],
+        size=27,
+    )
+
+
+def draw_rule_row(
+    draw: ImageDraw.ImageDraw,
+    box: tuple[int, int, int, int],
+    title: str,
+    detail: str,
+    color: tuple[int, int, int],
 ) -> None:
-    w, h = canvas
-    im = Image.new("RGBA", (w, h), COLORS["bg"])
-    d = ImageDraw.Draw(im)
-
-    left = int(w * 0.06)
-    max_text_w = int(w * 0.88)
-    margin = max(24, int(w * 0.028))
-    gap = max(12, int(w * 0.014))
-
-    brand_font = font(max(24, w // 34), True)
-    title_font = fit_text(d, headline, max_text_w, max(40, w // 18), bold=True)
-    sub_font = font(max(20, w // 40), False)
-
-    def measure(f: ImageFont.FreeTypeFont, s: str) -> tuple[int, int]:
-        box = d.textbbox((0, 0), s, font=f)
-        return box[3] - box[1], box[1]
-
-    brand_h, brand_off = measure(brand_font, "Hermes Mobile")
-    title_h, title_off = measure(title_font, headline)
-    sub_h, sub_off = measure(sub_font, subtitle)
-
-    needed = margin + brand_h + gap + title_h + gap + sub_h + margin
-    band = max(band_h, needed)
-
-    d.rectangle((0, 0, w, band), fill=COLORS["band"])
-    y = margin
-    d.text((left, y - brand_off), "Hermes Mobile", font=brand_font, fill=COLORS["cyan"])
-    y += brand_h + gap
-    d.text((left, y - title_off), headline, font=title_font, fill=COLORS["text"])
-    y += title_h + gap
-    d.text((left, y - sub_off), subtitle, font=sub_font, fill=COLORS["muted"])
-
-    raw = prepare_phone(Image.open(resolve_raw(raw_name)))
-    paste_phone(im, raw, (int(w * 0.04), band + 20, w - int(w * 0.04), h - 20), radius=max(20, w // 50))
-    outfile.parent.mkdir(parents=True, exist_ok=True)
-    im.convert("RGB").save(outfile, quality=95)
+    rounded_panel(draw, box, COLORS["surface"], outline=COLORS["line"], radius=24)
+    x1, y1, x2, _ = box
+    draw.ellipse((x1 + 30, y1 + 37, x1 + 66, y1 + 73), fill=color)
+    draw_text(draw, (x1 + 88, y1 + 25), title, 29, bold=True)
+    draw_text(draw, (x1 + 88, y1 + 72), detail, 22, color=COLORS["muted"])
+    draw_pill(
+        draw,
+        (x2 - 126, y1 + 45, x2 - 28, y1 + 93),
+        "ON",
+        fill=(25, 61, 51),
+        color=COLORS["green"],
+        outline=COLORS["green"],
+        size=21,
+    )
 
 
-def pixel_similarity(a: Path, b: Path) -> float:
-    i1 = Image.open(a).convert("RGB").resize((270, 480))
-    i2 = Image.open(b).convert("RGB").resize((270, 480))
-    pa, pb = i1.tobytes(), i2.tobytes()
-    return 100.0 * sum(1 for x, y in zip(pa, pb) if x == y) / len(pa)
+def draw_rules(draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
+    draw_header(draw, width, "Safety rules", "Synced")
+    draw_text(draw, (70, 205), "Active on every connected computer", 27, color=COLORS["muted"])
+    draw_rule_row(
+        draw,
+        (70, 270, width - 70, 430),
+        "Block force push",
+        "Protect shared branches",
+        COLORS["red"],
+    )
+    draw_rule_row(
+        draw,
+        (70, 460, width - 70, 620),
+        "Ask before production writes",
+        "Require phone approval",
+        COLORS["amber"],
+    )
+    draw_rule_row(
+        draw,
+        (70, 650, width - 70, 810),
+        "Block secret sharing",
+        "Keep credentials private",
+        COLORS["purple"],
+    )
+    rounded_panel(draw, (70, 865, width - 70, 1030), COLORS["surface_alt"], radius=24)
+    draw_text(draw, (105, 905), "Rules follow your workspace", 30, bold=True)
+    draw_text(draw, (105, 955), "Change them once. Hermes applies them everywhere.", 23, color=COLORS["muted"])
 
 
-def assert_raw_distinct() -> dict[str, float]:
-    raws = [resolve_raw(name) for name, _, _ in FRAMES]
-    report: dict[str, float] = {}
-    bad: list[str] = []
-    for a, b in combinations(raws, 2):
-        score = pixel_similarity(a, b)
-        key = f"{a.stem}_vs_{b.stem}"
-        report[key] = round(score, 2)
-        if score >= MAX_PAIR_SIMILARITY:
-            bad.append(f"{key}={score:.1f}%")
-    if bad:
-        raise SystemExit(
-            "Raw store frames are not distinct enough (would ship ASC duplicates): "
-            + "; ".join(bad)
-        )
-    return report
+def draw_learn(draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
+    draw_header(draw, width, "Reply feedback", "Saved")
+    rounded_panel(draw, (70, 235, width - 70, 515), COLORS["surface"], outline=COLORS["line"], radius=28)
+    draw_text(draw, (110, 280), "Release notes drafted", 34, bold=True)
+    draw_text(draw, (110, 345), "Clear summary, risk notes, and rollback steps", 24, color=COLORS["muted"])
+    draw.line((110, 405, width - 110, 405), fill=COLORS["line"], width=2)
+    draw_text(draw, (110, 445), "Was this useful?", 25, color=COLORS["muted"])
+    draw_pill(
+        draw,
+        (width - 400, 430, width - 240, 490),
+        "Helpful",
+        fill=(22, 66, 56),
+        color=COLORS["green"],
+        outline=COLORS["green"],
+        size=22,
+    )
+    draw_pill(
+        draw,
+        (width - 220, 430, width - 90, 490),
+        "Improve",
+        fill=COLORS["surface_alt"],
+        color=COLORS["muted"],
+        outline=COLORS["line"],
+        size=22,
+    )
+    rounded_panel(draw, (70, 580, width - 70, 820), (16, 48, 46), outline=(44, 118, 99), radius=28)
+    draw.ellipse((110, 625, 160, 675), fill=COLORS["green"])
+    draw_text(draw, (190, 615), "Preference remembered", 34, bold=True)
+    draw_text(draw, (190, 675), "Future replies will keep the concise release format.", 24, color=COLORS["muted"])
+    draw_text(draw, (70, 900), "You stay in control", 31, bold=True)
+    draw_text(draw, (70, 955), "Review or remove saved preferences at any time.", 24, color=COLORS["muted"])
+
+
+def draw_switch(draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
+    draw_header(draw, width, "Your computers", "3 ready")
+    draw_text(draw, (70, 205), "Continue the same work on another machine", 27, color=COLORS["muted"])
+    draw_machine_row(
+        draw,
+        (70, 270, width - 70, 430),
+        "Studio",
+        "Current session · Tailscale",
+        "Active",
+        COLORS["green"],
+    )
+    draw_machine_row(
+        draw,
+        (70, 460, width - 70, 620),
+        "Laptop",
+        "Home Wi-Fi",
+        "Ready",
+        COLORS["cyan"],
+    )
+    draw_machine_row(
+        draw,
+        (70, 650, width - 70, 810),
+        "Build server",
+        "Secure tunnel",
+        "Ready",
+        COLORS["purple"],
+    )
+    rounded_panel(draw, (70, 870, width - 70, 1040), COLORS["surface_alt"], radius=26)
+    draw_text(draw, (105, 910), "Your conversation moves with you", 31, bold=True)
+    draw_text(draw, (105, 965), "Switch computers without starting over.", 24, color=COLORS["muted"])
+
+
+SCENE_DRAWERS = {
+    "connect": (draw_connect, "settings"),
+    "run": (draw_run, "hermes"),
+    "approve": (draw_approve, "leash"),
+    "rules": (draw_rules, "settings"),
+    "learn": (draw_learn, "leash"),
+    "switch": (draw_switch, "settings"),
+}
+
+
+def render_product_screen(scene: dict[str, str], tablet: bool) -> Image.Image:
+    logical_size = (1400, 1500) if tablet else (1000, 1600)
+    screen = Image.new("RGB", logical_size, COLORS["screen"])
+    draw = ImageDraw.Draw(screen)
+    scene_drawer, active_tab = SCENE_DRAWERS[scene["id"]]
+
+    if tablet:
+        working = Image.new("RGB", (1000, 1600), COLORS["screen"])
+        working_draw = ImageDraw.Draw(working)
+        scene_drawer(working_draw, 1000, 1600)
+        draw_bottom_navigation(working_draw, 1000, 1600, active_tab)
+        working = working.resize((938, 1500), Image.Resampling.LANCZOS)
+        screen.paste(working, ((1400 - 938) // 2, 0))
+        draw.line((215, 0, 215, 1500), fill=(32, 42, 72), width=2)
+        draw.line((1185, 0, 1185, 1500), fill=(32, 42, 72), width=2)
+    else:
+        scene_drawer(draw, 1000, 1600)
+        draw_bottom_navigation(draw, 1000, 1600, active_tab)
+
+    return screen
+
+
+def render_frame(
+    scene: dict[str, str],
+    size: tuple[int, int],
+    tablet: bool,
+) -> Image.Image:
+    width, height = size
+    image = gradient(size)
+    draw = ImageDraw.Draw(image)
+    accent = COLORS[scene["accent"]]
+
+    orb = Image.new("RGBA", size, (0, 0, 0, 0))
+    orb_draw = ImageDraw.Draw(orb)
+    orb_size = int(width * 0.72)
+    orb_draw.ellipse(
+        (width - orb_size // 2, -orb_size // 2, width + orb_size // 2, orb_size // 2),
+        fill=(*accent, 48),
+    )
+    orb = orb.filter(ImageFilter.GaussianBlur(radius=max(28, width // 28)))
+    image = Image.alpha_composite(image.convert("RGBA"), orb).convert("RGB")
+    draw = ImageDraw.Draw(image)
+
+    left = int(width * 0.07)
+    draw_pill(
+        draw,
+        (left, int(height * 0.035), left + int(width * 0.29), int(height * 0.075)),
+        "HERMES MOBILE",
+        fill=(15, 48, 62),
+        color=COLORS["cyan"],
+        outline=(31, 104, 120),
+        size=max(22, width // 39),
+    )
+
+    headline_y = int(height * 0.095)
+    headline_font = fit_font(
+        draw,
+        scene["headline"],
+        int(width * 0.86),
+        max(58, width // 13),
+        max(42, width // 22),
+        bold=True,
+    )
+    draw.text((left, headline_y), scene["headline"], font=headline_font, fill=COLORS["white"])
+    headline_bounds = draw.textbbox((left, headline_y), scene["headline"], font=headline_font)
+    subtitle_y = headline_bounds[3] + int(height * 0.015)
+    subtitle_font = fit_font(
+        draw,
+        scene["subtitle"],
+        int(width * 0.86),
+        max(31, width // 31),
+        max(24, width // 45),
+        bold=False,
+    )
+    draw.text((left, subtitle_y), scene["subtitle"], font=subtitle_font, fill=COLORS["muted"])
+
+    product = render_product_screen(scene, tablet)
+    available = (
+        int(width * 0.07),
+        int(height * 0.275),
+        int(width * 0.93),
+        int(height * 0.965),
+    )
+    available_width = available[2] - available[0]
+    available_height = available[3] - available[1]
+    scale = min(available_width / product.width, available_height / product.height)
+    product = product.resize(
+        (round(product.width * scale), round(product.height * scale)),
+        Image.Resampling.LANCZOS,
+    )
+    x = (width - product.width) // 2
+    y = available[1] + (available_height - product.height) // 2
+
+    shadow = Image.new("RGBA", size, (0, 0, 0, 0))
+    shadow_draw = ImageDraw.Draw(shadow)
+    shadow_draw.rounded_rectangle(
+        (x - 15, y + 25, x + product.width + 15, y + product.height + 45),
+        radius=max(34, width // 27),
+        fill=(0, 0, 0, 145),
+    )
+    shadow = shadow.filter(ImageFilter.GaussianBlur(radius=max(18, width // 60)))
+    image = Image.alpha_composite(image.convert("RGBA"), shadow)
+
+    mask = Image.new("L", product.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle(
+        (0, 0, product.width - 1, product.height - 1),
+        radius=max(28, width // 32),
+        fill=255,
+    )
+    image.paste(product, (x, y), mask)
+    frame_draw = ImageDraw.Draw(image)
+    frame_draw.rounded_rectangle(
+        (x, y, x + product.width - 1, y + product.height - 1),
+        radius=max(28, width // 32),
+        outline=(90, 102, 146, 255),
+        width=max(3, width // 260),
+    )
+    return image.convert("RGB")
+
+
+def clean_output_directories(output_root: Path) -> None:
+    for output in OUTPUTS:
+        directory = output_root / output["directory"]
+        directory.mkdir(parents=True, exist_ok=True)
+        for stale in directory.glob("*.png"):
+            stale.unlink()
+
+
+def generate_assets(output_root: Path = ROOT) -> dict[str, Any]:
+    clean_output_directories(output_root)
+    assets: dict[str, dict[str, Any]] = {}
+
+    for output in OUTPUTS:
+        directory = output_root / output["directory"]
+        for scene in SCENES:
+            relative = Path(output["directory"]) / f'{scene["stem"]}{output["suffix"]}'
+            destination = output_root / relative
+            image = render_frame(scene, output["size"], output["tablet"])
+            image.save(destination, format="PNG", optimize=True, compress_level=9)
+            assets[relative.as_posix()] = {
+                "deviceClass": output["deviceClass"],
+                "scene": scene["id"],
+                "width": image.width,
+                "height": image.height,
+                "sha256": sha256(destination),
+            }
+
+    manifest: dict[str, Any] = {
+        "schemaVersion": 2,
+        "source": SCENE_VERSION,
+        "frames": len(SCENES),
+        "scenes": [
+            {
+                "id": scene["id"],
+                "headline": scene["headline"],
+                "subtitle": scene["subtitle"],
+            }
+            for scene in SCENES
+        ],
+        "assets": dict(sorted(assets.items())),
+    }
+    manifest_path = output_root / "docs/store-assets/generated-manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    return manifest
 
 
 def main() -> int:
-    similarity = assert_raw_distinct()
-
-    for out_dir in (OUT_PLAY, OUT_IOS):
-        out_dir.mkdir(parents=True, exist_ok=True)
-        for stale in out_dir.glob("*.png"):
-            stale.unlink(missing_ok=True)
-
-    for idx, (raw, headline, subtitle) in enumerate(FRAMES, start=1):
-        # Stable stems (not headline-derived) so deliver ordering stays 01..06.
-        stem = Path(raw).stem  # 01_approve … 06_works
-        make_frame(raw, headline, subtitle, (1080, 1920), 120, OUT_PLAY / f"{stem}.png")
-        # Single iPhone size for ASC APP_IPHONE_67 — do NOT also emit _65 here.
-        make_frame(raw, headline, subtitle, (1290, 2796), 520, OUT_IOS / f"{stem}_67.png")
-        make_frame(raw, headline, subtitle, (2048, 2732), 560, OUT_IOS / f"{stem}_ipad129.png")
-        print(f"frame {idx}/6: {headline}")
-
-    framed = sorted(OUT_PLAY.glob("*.png"))
-    framed_sim: dict[str, float] = {}
-    for a, b in combinations(framed, 2):
-        framed_sim[f"{a.stem}_vs_{b.stem}"] = round(pixel_similarity(a, b), 2)
-    bad_framed = {k: v for k, v in framed_sim.items() if v >= MAX_PAIR_SIMILARITY}
-    if bad_framed:
-        raise SystemExit(f"Framed screenshots still too similar: {bad_framed}")
-
-    report = {}
-    for path in sorted(OUT_PLAY.glob("*.png")) + sorted(OUT_IOS.glob("*.png")):
-        with Image.open(path) as img:
-            report[str(path.relative_to(ROOT))] = {"width": img.width, "height": img.height}
-
-    manifest = ROOT / "docs/store-assets/generated-manifest.json"
-    manifest.parent.mkdir(parents=True, exist_ok=True)
-    manifest.write_text(
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--output-root",
+        type=Path,
+        default=ROOT,
+        help="repository-shaped output root; defaults to hermes-mobile",
+    )
+    args = parser.parse_args()
+    manifest = generate_assets(args.output_root.resolve())
+    print(
         json.dumps(
             {
-                "frames": len(FRAMES),
-                "assets": report,
-                "rawSimilarity": similarity,
-                "framedSimilarity": framed_sim,
-                "ascNote": "Only _67 + ipad129 emitted to avoid APP_IPHONE_67 double-upload",
+                "ok": True,
+                "source": manifest["source"],
+                "frames": manifest["frames"],
+                "assets": len(manifest["assets"]),
             },
             indent=2,
         )
-        + "\n"
     )
-    print(json.dumps({"ok": True, "frames": len(FRAMES), "count": len(report), "maxRawSim": max(similarity.values())}, indent=2))
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
