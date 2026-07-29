@@ -10,6 +10,7 @@ import {
   markOutboundSubmissionAccepted,
   recordOutboundSubmission,
   resolveStallRecoveryPlan,
+  scopeOutboundSubmissionsToSession,
 } from '../utils/outboundSubmissionLedger';
 import { resolveComposerSendText } from '../utils/failedSendRetry';
 
@@ -58,6 +59,93 @@ describe('outbound submission ledger', () => {
     recordOutboundSubmission(ledger, { outboundId: 'ob-1', body: 'Do it now', nowMs: 1 });
     clearOutboundSubmissions(ledger);
     expect(ledger.records).toHaveLength(0);
+  });
+
+  it('preserves an accepted first-message record when null becomes its created session', () => {
+    const ledger = createOutboundSubmissionLedger();
+    recordOutboundSubmission(ledger, {
+      outboundId: 'ob-first',
+      sessionId: 'created-session',
+      messageId: 'user-first',
+      body: 'Do it now',
+      nowMs: 1,
+    });
+    markOutboundSubmissionAccepted(ledger, 'ob-first', 2);
+
+    scopeOutboundSubmissionsToSession(ledger, 'created-session');
+
+    expect(ledger.records).toEqual([
+      expect.objectContaining({
+        outboundId: 'ob-first',
+        sessionId: 'created-session',
+        acceptedAtMs: 2,
+      }),
+    ]);
+    expect(
+      resolveStallRecoveryPlan({
+        failedText: 'Do it now',
+        sessionId: 'created-session',
+        messageId: 'user-first',
+        ledger,
+      }),
+    ).toEqual({ kind: 'resume', outboundId: 'ob-first' });
+  });
+
+  it('drops records from another session and never body-matches across threads', () => {
+    const ledger = createOutboundSubmissionLedger();
+    recordOutboundSubmission(ledger, {
+      outboundId: 'ob-a',
+      sessionId: 'session-a',
+      body: 'same prompt',
+      nowMs: 1,
+    });
+    markOutboundSubmissionAccepted(ledger, 'ob-a', 2);
+    expect(
+      resolveStallRecoveryPlan({
+        failedText: 'same prompt',
+        sessionId: 'session-b',
+        ledger,
+      }),
+    ).toEqual({ kind: 'resend' });
+
+    scopeOutboundSubmissionsToSession(ledger, 'session-b');
+    expect(ledger.records).toEqual([]);
+  });
+
+  it('does not confuse repeated text in one session with an older accepted message', () => {
+    const ledger = createOutboundSubmissionLedger();
+    recordOutboundSubmission(ledger, {
+      outboundId: 'ob-old',
+      sessionId: 'session-a',
+      messageId: 'user-old',
+      body: 'same prompt',
+      nowMs: 1,
+    });
+    markOutboundSubmissionAccepted(ledger, 'ob-old', 2);
+    recordOutboundSubmission(ledger, {
+      outboundId: 'ob-new',
+      sessionId: 'session-a',
+      messageId: 'user-new',
+      body: 'same prompt',
+      nowMs: 3,
+    });
+
+    expect(
+      resolveStallRecoveryPlan({
+        failedText: 'same prompt',
+        sessionId: 'session-a',
+        messageId: 'user-new',
+        ledger,
+      }),
+    ).toEqual({ kind: 'resend' });
+    expect(
+      resolveStallRecoveryPlan({
+        failedText: 'same prompt',
+        sessionId: 'session-a',
+        messageId: 'user-old',
+        ledger,
+      }),
+    ).toEqual({ kind: 'resume', outboundId: 'ob-old' });
   });
 });
 
