@@ -45,10 +45,6 @@ function createRng(seed) {
   };
 }
 
-function hashSeed(parts) {
-  const h = crypto.createHash('sha256').update(String(parts.join('|'))).digest();
-  return h.readUInt32BE(0);
-}
 
 /**
  * Virtual clock — all "time" in a scenario comes from here (never Date.now).
@@ -233,7 +229,6 @@ Antithesis ideas implemented here (open-source subset):
 module.exports = {
   createRng,
   createClock,
-  hashSeed,
   runScenario,
   assertDeterministic,
 };
