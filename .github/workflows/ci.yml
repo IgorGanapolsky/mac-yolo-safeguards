@@ -179,6 +179,9 @@ jobs:
           # trailing number is the min assertion count each suite must actually emit.
           bash tests/run-suite.sh tests/test-run-suite.sh 7
           bash tests/run-suite.sh tests/test-poolside-yolo.sh 14
+          # Production deploy gate. Shipped in #1166 with no coverage at all;
+          # a silent regression here is invisible until something wrong is live.
+          bash tests/run-suite.sh tests/test-deploy-cloudflare-lock.sh 13
           bash tests/run-suite.sh tests/test-hermes-primary-route-recovery.sh 6
           # Mutation control: proves the suites above actually go RED against the
           # real historical bugs, instead of passing while measuring nothing.
