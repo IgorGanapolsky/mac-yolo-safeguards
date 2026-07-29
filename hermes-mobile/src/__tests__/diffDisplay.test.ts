@@ -17,3 +17,5 @@ describe('diffDisplay', () => {
     expect(stats).toEqual({ additions: 1, deletions: 1 });
   });
 });
+
+// composer-dock CI path trigger 2026-07-29
