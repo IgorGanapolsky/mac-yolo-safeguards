@@ -1,0 +1,363 @@
+{
+  "schema": "hermes/mobile-reliability-traceability/v1",
+  "version": "2026-07-29",
+  "researchRunId": "trun_468ec6a2702a4592865d87f871c6a704",
+  "incidents": [
+    {
+      "id": "play-search-hermes-ai",
+      "title": "Published paid app is absent from the first Hermes AI search results",
+      "surface": "store-discovery",
+      "owner": "feat/aso-hermes-agent-title-20260728",
+      "state": "open-pr",
+      "productBlocking": false,
+      "claimBlocking": true,
+      "requiredEvidence": [
+        "store-search"
+      ],
+      "pullRequest": {
+        "number": 1128,
+        "url": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1128",
+        "headSha": "32da6eed65e32627bf8fef908db11664790c468f",
+        "mergeState": "BEHIND"
+      },
+      "evidence": [
+        {
+          "kind": "store-publication",
+          "state": "pass",
+          "source": "external:https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile.paid"
+        },
+        {
+          "kind": "store-search",
+          "state": "fail",
+          "source": "external:user-observation-2026-07-29"
+        },
+        {
+          "kind": "hosted-ci",
+          "state": "fail",
+          "source": "github:https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1128"
+        }
+      ],
+      "plannedProofPaths": [
+        "hermes-mobile/src/__tests__/storeListingMetadataContract.test.ts"
+      ]
+    },
+    {
+      "id": "play-search-hermes-mobile-top-five",
+      "title": "Published paid app ranks below the first five Hermes Mobile results",
+      "surface": "store-discovery",
+      "owner": "feat/aso-hermes-agent-title-20260728",
+      "state": "open-pr",
+      "productBlocking": false,
+      "claimBlocking": true,
+      "requiredEvidence": [
+        "store-search"
+      ],
+      "pullRequest": {
+        "number": 1128,
+        "url": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1128",
+        "headSha": "32da6eed65e32627bf8fef908db11664790c468f",
+        "mergeState": "BEHIND"
+      },
+      "evidence": [
+        {
+          "kind": "store-publication",
+          "state": "pass",
+          "source": "external:https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile.paid"
+        },
+        {
+          "kind": "store-search",
+          "state": "fail",
+          "source": "external:user-observation-2026-07-29"
+        },
+        {
+          "kind": "hosted-ci",
+          "state": "fail",
+          "source": "github:https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1128"
+        }
+      ],
+      "plannedProofPaths": [
+        "hermes-mobile/src/__tests__/storeListingMetadataContract.test.ts"
+      ]
+    },
+    {
+      "id": "open-leash-without-approval",
+      "title": "No-reply guidance opens Leash when no approval is pending",
+      "surface": "status-semantics",
+      "owner": "fix/status-headline-and-noreply-copy",
+      "state": "open-pr",
+      "productBlocking": true,
+      "claimBlocking": true,
+      "requiredEvidence": [
+        "unit",
+        "e2e",
+        "physical-device"
+      ],
+      "pullRequest": {
+        "number": 1176,
+        "url": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1176",
+        "headSha": "1703b5259936ed5a3e3406d2194609359e753d80",
+        "mergeState": "BLOCKED"
+      },
+      "evidence": [
+        {
+          "kind": "unit",
+          "state": "pending",
+          "source": "github:https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1176"
+        },
+        {
+          "kind": "e2e",
+          "state": "pending",
+          "source": "github:https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1176"
+        },
+        {
+          "kind": "physical-device",
+          "state": "blocked",
+          "source": "external:continuous-device-proof-yellow-2026-07-29"
+        }
+      ],
+      "plannedProofPaths": [
+        "hermes-mobile/src/__tests__/noReplyGuidance.test.ts",
+        "hermes-mobile/src/__tests__/emptyStreamRefreshCta.test.ts"
+      ]
+    },
+    {
+      "id": "computer-discovery-empty",
+      "title": "Find computers returns no candidates for an away-from-home user",
+      "surface": "computer-discovery",
+      "owner": "codex-device-proof",
+      "state": "device-unverified",
+      "productBlocking": true,
+      "claimBlocking": true,
+      "requiredEvidence": [
+        "unit",
+        "physical-device"
+      ],
+      "evidence": [
+        {
+          "kind": "unit",
+          "state": "pass",
+          "source": "repo:hermes-mobile/src/__tests__/ConnectMacGate.test.tsx"
+        },
+        {
+          "kind": "integration",
+          "state": "pass",
+          "source": "repo:hermes-mobile/src/__tests__/manualGatewayConnection.test.ts"
+        },
+        {
+          "kind": "physical-device",
+          "state": "blocked",
+          "source": "external:continuous-device-proof-yellow-2026-07-29"
+        }
+      ],
+      "plannedProofPaths": [
+        "hermes-mobile/.maestro/stranger-cold-start.yaml"
+      ]
+    },
+    {
+      "id": "manual-tailscale-derp-timeout",
+      "title": "Explicit Tailscale address times out on a DERP-relayed Mac",
+      "surface": "network-reachability",
+      "owner": "fix/derp-explicit-connect-timeout",
+      "state": "open-pr",
+      "productBlocking": true,
+      "claimBlocking": true,
+      "requiredEvidence": [
+        "unit",
+        "e2e",
+        "physical-device"
+      ],
+      "pullRequest": {
+        "number": 1171,
+        "url": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1171",
+        "headSha": "eb055d0de58e0714e1b4b376ccbfde300a8190e9",
+        "mergeState": "BLOCKED"
+      },
+      "evidence": [
+        {
+          "kind": "unit",
+          "state": "pending",
+          "source": "github:https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1171"
+        },
+        {
+          "kind": "e2e",
+          "state": "pending",
+          "source": "github:https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1171"
+        },
+        {
+          "kind": "physical-device",
+          "state": "blocked",
+          "source": "external:continuous-device-proof-yellow-2026-07-29"
+        }
+      ],
+      "plannedProofPaths": [
+        "hermes-mobile/src/__tests__/tailscaleDerpExplicitConnect.test.ts",
+        "hermes-mobile/src/__tests__/manualGatewayConnection.test.ts"
+      ]
+    },
+    {
+      "id": "duplicate-message-echo",
+      "title": "One user submission renders twice during stall recovery",
+      "surface": "idempotent-send",
+      "owner": "fix/chat-send-duplicate-and-retry",
+      "state": "open-pr",
+      "productBlocking": true,
+      "claimBlocking": true,
+      "requiredEvidence": [
+        "unit",
+        "e2e",
+        "physical-device"
+      ],
+      "pullRequest": {
+        "number": 1174,
+        "url": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1174",
+        "headSha": "2281ef455e18453996f58a6dcad91fa78a01c548",
+        "mergeState": "BEHIND"
+      },
+      "evidence": [
+        {
+          "kind": "unit",
+          "state": "pending",
+          "source": "github:https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1174"
+        },
+        {
+          "kind": "e2e",
+          "state": "pending",
+          "source": "github:https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1174"
+        },
+        {
+          "kind": "physical-device",
+          "state": "blocked",
+          "source": "external:continuous-device-proof-yellow-2026-07-29"
+        }
+      ],
+      "plannedProofPaths": [
+        "hermes-mobile/src/__tests__/ChatScreen.sendRecovery.test.tsx",
+        "hermes-mobile/src/__tests__/outboundSubmissionLedger.test.ts"
+      ]
+    },
+    {
+      "id": "computer-no-reply",
+      "title": "Connected chat stalls and reports that the computer did not answer",
+      "surface": "stream-lifecycle",
+      "owner": "fix/status-headline-and-noreply-copy",
+      "state": "open-pr",
+      "productBlocking": true,
+      "claimBlocking": true,
+      "requiredEvidence": [
+        "unit",
+        "e2e",
+        "physical-device"
+      ],
+      "pullRequest": {
+        "number": 1176,
+        "url": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1176",
+        "headSha": "1703b5259936ed5a3e3406d2194609359e753d80",
+        "mergeState": "BLOCKED"
+      },
+      "evidence": [
+        {
+          "kind": "unit",
+          "state": "pending",
+          "source": "github:https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1176"
+        },
+        {
+          "kind": "e2e",
+          "state": "pending",
+          "source": "github:https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1176"
+        },
+        {
+          "kind": "physical-device",
+          "state": "blocked",
+          "source": "external:continuous-device-proof-yellow-2026-07-29"
+        }
+      ],
+      "plannedProofPaths": [
+        "hermes-mobile/src/__tests__/emptyStreamReplyRecovery.test.ts",
+        "hermes-mobile/src/__tests__/noReplyGuidance.test.ts"
+      ]
+    },
+    {
+      "id": "retry-arrow-noop",
+      "title": "Retry arrow does not resend a failed prompt",
+      "surface": "idempotent-send",
+      "owner": "fix/chat-send-duplicate-and-retry",
+      "state": "open-pr",
+      "productBlocking": true,
+      "claimBlocking": true,
+      "requiredEvidence": [
+        "unit",
+        "e2e",
+        "physical-device"
+      ],
+      "pullRequest": {
+        "number": 1174,
+        "url": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1174",
+        "headSha": "2281ef455e18453996f58a6dcad91fa78a01c548",
+        "mergeState": "BEHIND"
+      },
+      "evidence": [
+        {
+          "kind": "unit",
+          "state": "pending",
+          "source": "github:https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1174"
+        },
+        {
+          "kind": "e2e",
+          "state": "pending",
+          "source": "github:https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1174"
+        },
+        {
+          "kind": "physical-device",
+          "state": "blocked",
+          "source": "external:continuous-device-proof-yellow-2026-07-29"
+        }
+      ],
+      "plannedProofPaths": [
+        "hermes-mobile/src/__tests__/ChatScreen.sendRecovery.test.tsx",
+        "hermes-mobile/src/__tests__/outboundSubmissionLedger.test.ts"
+      ]
+    },
+    {
+      "id": "failed-attachment-retry-loss",
+      "title": "Failed attachment retry loses the original file payload",
+      "surface": "multimodal-retry",
+      "owner": "codex/chat-retry-attachments-1174",
+      "state": "draft-pr",
+      "productBlocking": true,
+      "claimBlocking": true,
+      "requiredEvidence": [
+        "unit",
+        "e2e",
+        "physical-device"
+      ],
+      "pullRequest": {
+        "number": 1180,
+        "url": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1180",
+        "headSha": "0c09757c412c1de54cb4f84432753a1cba8de97f",
+        "mergeState": "CLEAN"
+      },
+      "evidence": [
+        {
+          "kind": "unit",
+          "state": "pass",
+          "source": "github:https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1180"
+        },
+        {
+          "kind": "e2e",
+          "state": "pass",
+          "source": "github:https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1180"
+        },
+        {
+          "kind": "physical-device",
+          "state": "blocked",
+          "source": "external:continuous-device-proof-yellow-2026-07-29"
+        }
+      ],
+      "plannedProofPaths": [
+        "hermes-mobile/.maestro/regression-chat-failed-attachment-retry.yaml",
+        "hermes-mobile/src/__tests__/failedSendRetryE2eContract.test.ts",
+        "hermes-mobile/src/__tests__/pendingOutboundStorage.test.ts"
+      ]
+    }
+  ]
+}
