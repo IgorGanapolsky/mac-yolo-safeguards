@@ -63,6 +63,73 @@ describe('iPad simulator fresh-user edge-case flow', () => {
     );
   });
 
+  it('proves onboarding and the focused composer survive iPad rotation', () => {
+    const onboardingScreenshot = flow.indexOf('fresh-user-connect-gate');
+    const dismissTap = flow.indexOf('- tapOn:\n    id: "connect-mac-gate-dismiss"');
+    const leftRotation = flow.indexOf('- setOrientation: LANDSCAPE_LEFT');
+    const rightRotation = flow.indexOf('- setOrientation: LANDSCAPE_RIGHT');
+    const firstPortraitReset = flow.indexOf('- setOrientation: PORTRAIT');
+    const firstComposerText = flow.indexOf('inputText: "make money today"');
+    const secondComposerText = flow.indexOf(
+      'inputText: "make money today"',
+      firstComposerText + 1,
+    );
+    const composerRotation = flow.indexOf(
+      '- setOrientation: LANDSCAPE_LEFT',
+      secondComposerText,
+    );
+    const composerLandscapeScreenshot = flow.indexOf('composer-landscape-keyboard');
+
+    expect(leftRotation).toBeGreaterThan(onboardingScreenshot);
+    expect(rightRotation).toBeGreaterThan(leftRotation);
+    expect(firstPortraitReset).toBeGreaterThan(rightRotation);
+    expect(dismissTap).toBeGreaterThan(firstPortraitReset);
+    expect(flow).toContain('onboarding-landscape-left');
+    expect(flow).toContain('onboarding-landscape-right');
+    expect(composerRotation).toBeGreaterThan(secondComposerText);
+    expect(composerLandscapeScreenshot).toBeGreaterThan(composerRotation);
+    expect(flow).toContain('inputText: "!"');
+    expect(flow).toContain('assertVisible: "make money today!"');
+    expect(flow).toContain('inputText: "?"');
+    expect(flow).toContain('assertVisible: "make money today!?"');
+    expect(flow).toContain('inputText: "#"');
+    expect(flow).toContain('assertVisible: "make money today!?#"');
+    expect(flow).toContain('inputText: "."');
+    expect(flow).toContain('assertVisible: "make money today!?#."');
+    expect(flow.match(/- setOrientation: PORTRAIT/g)).toHaveLength(3);
+    expect(flow.match(/- setOrientation: UPSIDE_DOWN/g)).toHaveLength(1);
+    expect(flow.match(/- setOrientation: LANDSCAPE_RIGHT/g)).toHaveLength(2);
+  });
+
+  it('backgrounds and resumes the focused draft without restarting the app', () => {
+    const backgroundIndex = flow.indexOf('- pressKey: Home');
+    const resumeIndex = flow.indexOf('stopApp: false', backgroundIndex);
+    const resumeSlice = flow.slice(backgroundIndex);
+
+    expect(backgroundIndex).toBeGreaterThan(-1);
+    expect(resumeIndex).toBeGreaterThan(backgroundIndex);
+    expect(resumeSlice).toContain('assertVisible: "make money today!?#."');
+    expect(resumeSlice).toContain('point: "95%,50%"');
+    expect(resumeSlice).toContain('inputText: "+"');
+    expect(resumeSlice).toContain('assertVisible: "make money today!?#.+"');
+  });
+
+  it('does not steal focus after an intentional keyboard dismissal and rotation', () => {
+    const resumedDraft = flow.indexOf('assertVisible: "make money today!?#.+"');
+    const hideKeyboard = flow.indexOf('- hideKeyboard', resumedDraft);
+    const rotation = flow.indexOf('- setOrientation: LANDSCAPE_LEFT', hideKeyboard);
+    const unrequestedInput = flow.indexOf('inputText: "x"', rotation);
+    const unchangedDraft = flow.indexOf(
+      'assertVisible: "make money today!?#.+"',
+      unrequestedInput,
+    );
+
+    expect(hideKeyboard).toBeGreaterThan(resumedDraft);
+    expect(rotation).toBeGreaterThan(hideKeyboard);
+    expect(unrequestedInput).toBeGreaterThan(rotation);
+    expect(unchangedDraft).toBeGreaterThan(unrequestedInput);
+  });
+
   it('proves every bottom tab stays reachable after hiding the keyboard', () => {
     for (const tab of ['tab-hermes', 'tab-leash', 'tab-settings']) {
       expect(flow).toContain(`id: "${tab}"`);
@@ -71,7 +138,7 @@ describe('iPad simulator fresh-user edge-case flow', () => {
     expect(flow).toContain('id: "SETTINGS"');
     expect(flow).not.toContain('runFlow: fresh-user-tabs.yaml');
     expect(flow).not.toContain('runFlow: hide-keyboard-safe.yaml');
-    expect(flow.match(/- hideKeyboard/g)).toHaveLength(2);
+    expect(flow.match(/- hideKeyboard/g)).toHaveLength(3);
     expect(flow).toContain('tabs-safe-area');
     expect(flow).toContain('composer-and-tabs');
   });
@@ -115,14 +182,28 @@ describe('iPad simulator fresh-user edge-case flow', () => {
     expect(ipadWorkflow).toContain('name: Hermes Mobile iPad Simulator E2E');
     expect(ipadWorkflow).toContain('name: Real-user iPad simulator E2E');
     expect(ipadWorkflow).toContain('name: Hermes Mobile iPad simulator gate');
-    expect(ipadWorkflow).toContain("if: needs.detect-changes.outputs.run-ipad == 'true'");
+    expect(ipadWorkflow).toContain(
+      'runs-on: ${{ fromJSON(\'["self-hosted", "ipad-simulator"]\') }}',
+    );
+    expect(ipadWorkflow).toContain(
+      'does not carry the generic `hermes-e2e` label',
+    );
+    expect(ipadWorkflow).not.toContain('cache: npm');
+    expect(ipadWorkflow).not.toContain('cache-dependency-path:');
+    expect(ipadWorkflow).not.toContain('runs-on: macos-26');
+    expect(ipadWorkflow).toContain('github.event.pull_request.draft');
+    expect(ipadWorkflow).not.toContain('brew install openjdk@17');
+    expect(ipadWorkflow).not.toContain('https://get.maestro.mobile.dev');
+    expect(ipadWorkflow).toContain(
+      "needs.detect-changes.outputs.run-ipad == 'true'",
+    );
     expect(ipadWorkflow).toContain('if: always()');
     expect(ipadWorkflow).toContain('hermes-mobile/');
     expect(ipadWorkflow).toContain(
       'bash ./scripts/run-ipad-simulator-e2e.sh .maestro/ipad-simulator-edge-cases.yaml',
     );
     expect(ipadWorkflow).toContain(
-      'No iPad-relevant files changed; gate passes without simulator spend.',
+      'Heavy iPad E2E not required for this draft or unrelated change.',
     );
     expect(continuousWorkflow).not.toContain('run-ipad-simulator-e2e.sh');
   });

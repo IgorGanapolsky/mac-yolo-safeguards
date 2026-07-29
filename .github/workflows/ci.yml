@@ -24,7 +24,9 @@ jobs:
   # If the mini is offline, temporarily switch runs-on below to macos-latest.
   macos-guard:
     name: macOS guard kit
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'macos-latest' || fromJSON('["self-hosted", "macos-arm64", "hermes-e2e"]') }}
+    # PRs on GitHub-hosted macOS (free for public repo) so guard-kit is not stuck
+    # behind the single mini self-hosted hermes-e2e runner (see PR #1151).
+    runs-on: ${{ github.event_name == 'pull_request' && 'macos-latest' || fromJSON('["self-hosted", "macos-arm64", "hermes-e2e"]') }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -176,6 +178,10 @@ jobs:
           # Mutation control: proves the suites above actually go RED against the
           # real historical bugs, instead of passing while measuring nothing.
           bash tests/run-suite.sh tests/test-harness-verifier-integrity.sh 6
+          # ML pipeline: mostly negative controls. Two independent label leaks reached
+          # AUC 0.9999 and 1.0000 during development; these assert the pipeline can
+          # still tell leaking from learning.
+          bash tests/run-suite.sh tests/test-ml-pipeline.sh 9
 
       - name: Public secret smoke scan
         run: |

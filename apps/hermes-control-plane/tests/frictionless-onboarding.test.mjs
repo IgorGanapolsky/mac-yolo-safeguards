@@ -195,6 +195,19 @@ test("preserves web accessibility contracts while adopting the mobile feel", () 
   assert.match(dashboard, /aria-label="Hermes workspace"/);
 });
 
+test("mobile Settings/Leash scroll on .right-rail and machine pick from both tabs", () => {
+  // Scrollport must be the real DOM node — never a missing wrapper class.
+  assert.equal(/\.dashboard-sub-panels\s*\{/.test(globals), false);
+  assert.match(globals, /data-mobile-tab="settings"\] \.right-rail/);
+  assert.match(globals, /overflow-y:\s*scroll\s*!important/);
+  assert.match(globals, /flex:\s*1 1 0\s*!important/);
+  // Machine pin: Leash select + Settings "Use for tasks"
+  assert.match(dashboard, /data-testid="leash-device-select"/);
+  assert.match(dashboard, /device-use-for-tasks/);
+  assert.match(dashboard, /is-preferred/);
+  assert.match(dashboard, /className="right-rail"/);
+});
+
 test("makes every dashboard metric a labeled shortcut instead of an inert card", () => {
   assert.match(dashboard, /<nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">/);
   assert.match(dashboard, /className="metric-card" href="#web-settings"/);
