@@ -7,8 +7,12 @@
 set -e
 
 # Setup directories
-WORKSPACE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROOFS_DIR="$WORKSPACE_DIR/docs/proofs/agent-device"
+
+# The Android free listing is unpublished; the shipped product is the .paid package.
+ANDROID_APP_ID="${HERMES_MOBILE_ANDROID_PACKAGE:-com.iganapolsky.hermesmobile.paid}"
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
 REPORT_PATH="$PROOFS_DIR/$TIMESTAMP"
 
@@ -44,6 +48,18 @@ echo "📂 Replay artifacts and JUnit reports will be saved to:"
 echo "   docs/proofs/agent-device/$TIMESTAMP/"
 echo "=========================================================="
 
+# The committed flows declare the iOS bundle id, which is also the retired Android
+# free package. Android replays run against a rewritten temporary copy so they
+# exercise the package customers actually install; iOS uses the source tree as-is.
+FLOW_ROOT="$WORKSPACE_DIR/.maestro"
+if [ "$PLATFORM" = "android" ]; then
+    FLOW_TREE_TMP="$(mktemp -d "${TMPDIR:-/tmp}/hermes-agent-device-flows.XXXXXX")"
+    trap 'rm -rf "$FLOW_TREE_TMP"' EXIT
+    FLOW_ROOT="$(node "$SCRIPT_DIR/maestro-flow-tree-for-app.cjs" \
+        "$WORKSPACE_DIR/.maestro" "$FLOW_TREE_TMP/.maestro" "$ANDROID_APP_ID")"
+    echo "📦 Android application id: $ANDROID_APP_ID"
+fi
+
 # List of Maestro flows in sequential priority (matches ship-critical subset of full-suite)
 FLOWS=(
     "e2e-prep"
@@ -58,7 +74,7 @@ FLOWS=(
 # Build the command arguments
 FLOW_PATHS=""
 for FLOW in "${FLOWS[@]}"; do
-    FILE_PATH="$WORKSPACE_DIR/.maestro/$FLOW.yaml"
+    FILE_PATH="$FLOW_ROOT/$FLOW.yaml"
     if [ -f "$FILE_PATH" ]; then
         FLOW_PATHS="$FLOW_PATHS $FILE_PATH"
     fi
@@ -74,11 +90,11 @@ fi
 
 if [ "$PLATFORM" = "android" ] && [ ! -z "$SERIAL" ]; then
     echo "🧹 Resetting application state on Android device..."
-    adb -s "$SERIAL" shell pm clear com.iganapolsky.hermesmobile || true
+    adb -s "$SERIAL" shell pm clear "$ANDROID_APP_ID" || true
     echo "🔑 Auto-granting notification permissions..."
-    adb -s "$SERIAL" shell pm grant com.iganapolsky.hermesmobile android.permission.POST_NOTIFICATIONS || true
+    adb -s "$SERIAL" shell pm grant "$ANDROID_APP_ID" android.permission.POST_NOTIFICATIONS || true
     echo "🚀 Pre-launching application to prevent secure app conflicts..."
-    adb -s "$SERIAL" shell am start -n com.iganapolsky.hermesmobile/.MainActivity || true
+    adb -s "$SERIAL" shell am start -n "$ANDROID_APP_ID/.MainActivity" || true
     sleep 3
 fi
 
@@ -88,7 +104,7 @@ echo "=========================================================="
 set +e
 EXIT_CODE=0
 for FLOW in "${FLOWS[@]}"; do
-  FILE_PATH="$WORKSPACE_DIR/.maestro/$FLOW.yaml"
+  FILE_PATH="$FLOW_ROOT/$FLOW.yaml"
   if [ ! -f "$FILE_PATH" ]; then
     echo "⚠️  Skipping missing flow: $FLOW.yaml"
     continue

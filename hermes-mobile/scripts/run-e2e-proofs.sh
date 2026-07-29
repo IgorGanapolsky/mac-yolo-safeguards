@@ -10,7 +10,10 @@ set -e
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/maestro-env.sh"
 
 # Setup directories
-WORKSPACE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+# Android e2e must exercise the SHIPPED paid package, not the retired free listing.
+export HERMES_MOBILE_ANDROID_PACKAGE="${HERMES_MOBILE_ANDROID_PACKAGE:-com.iganapolsky.hermesmobile.paid}"
 PROOFS_DIR="$WORKSPACE_DIR/docs/proofs"
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
 
@@ -111,7 +114,15 @@ for FLOW in "${FLOWS[@]}"; do
             MAESTRO_ARGS=(-p android --udid "$DEVICE_ID")
         fi
 
-        if maestro test "${MAESTRO_ARGS[@]}" "$FLOW_PATH" > "$LOG_FILE" 2>&1; then
+        # Android ships com.iganapolsky.hermesmobile.paid while the shared flow tree
+        # carries the iOS bundle id, so Android runs go through the package-aware
+        # wrapper (it rewrites a temporary copy). iOS runs the source tree directly.
+        RUN_CMD=(maestro test "${MAESTRO_ARGS[@]}" "$FLOW_PATH")
+        if [ "$PLATFORM" = "android" ]; then
+            RUN_CMD=(bash "$SCRIPT_DIR/run-maestro-for-app.sh" "$FLOW_PATH" "${MAESTRO_ARGS[@]}")
+        fi
+
+        if "${RUN_CMD[@]}" > "$LOG_FILE" 2>&1; then
             echo "✅ PASS"
             SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
         else

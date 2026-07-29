@@ -44,7 +44,14 @@ export MAESTRO_DRIVER_STARTUP_TIMEOUT="${MAESTRO_DRIVER_STARTUP_TIMEOUT:-120000}
 
 cd "$HERMES_DIR"
 
-PKG="${HERMES_ANDROID_PACKAGE:-com.iganapolsky.hermesmobile}"
+# Android: the FREE listing (com.iganapolsky.hermesmobile) is unpublished — the shipped
+# product is the .paid package. A fresh-user run against the free id proves nothing about
+# what customers install, so default to paid and force the prebuild to emit it.
+PKG="${HERMES_ANDROID_PACKAGE:-${HERMES_MOBILE_ANDROID_PACKAGE:-com.iganapolsky.hermesmobile.paid}}"
+export HERMES_MOBILE_ANDROID_PACKAGE="$PKG"
+export HERMES_ANDROID_STORE_SKU="${HERMES_ANDROID_STORE_SKU:-paid}"
+export EXPO_PUBLIC_ANDROID_PAID_DOWNLOAD="${EXPO_PUBLIC_ANDROID_PAID_DOWNLOAD:-1}"
+# iOS ships a single bundle id, which is exactly what the source flow tree declares.
 IOS_BUNDLE="${HERMES_IOS_BUNDLE_ID:-com.iganapolsky.hermesmobile}"
 FLOW="${HERMES_FRESH_USER_FLOW:-.maestro/fresh-user-suite.yaml}"
 PROOF_DIR="${HERMES_FRESH_USER_PROOF_DIR:-docs/proofs/fresh-user-e2e-$(date -u +%Y%m%dT%H%M%SZ)}"
@@ -206,7 +213,10 @@ run_android() {
   adb -s "$device" shell am force-stop "$PKG" || true
   sleep 1
 
-  if maestro --device "$device" test "$FLOW" 2>&1 | tee "$PROOF_DIR/android-maestro.log"; then
+  # Package-aware wrapper: rewrites a temporary flow-tree copy to $PKG so Android
+  # never launches the retired free package. The source tree stays on the iOS bundle id.
+  if bash "$SCRIPT_DIR/run-maestro-for-app.sh" "$FLOW" -p android --udid "$device" 2>&1 \
+    | tee "$PROOF_DIR/android-maestro.log"; then
     android_ok=1
     android_status="pass"
     echo "Android fresh-user: PASS"

@@ -37,7 +37,9 @@
       "env": {
         "EXPO_PUBLIC_E2E_AUTOMATION": "1",
         "EXPO_PUBLIC_HERMES_DEV_UNLOCK": "1",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "HERMES_ANDROID_STORE_SKU": "paid",
+        "EXPO_PUBLIC_ANDROID_PAID_DOWNLOAD": "1"
       },
       "ios": {
         "simulator": true

@@ -71,6 +71,14 @@ jobs:
     if: >-
       github.event_name != 'pull_request'
       || contains(join(github.event.pull_request.labels.*.name, ','), 'apk-guard')
+    # The Android FREE listing (com.iganapolsky.hermesmobile) is unpublished; the
+    # shipped product is com.iganapolsky.hermesmobile.paid. Without these three,
+    # app.config.js selects the free package and this guard green-lights a release
+    # APK nobody can buy. See hermes-mobile/app.config.js androidStoreSku.
+    env:
+      HERMES_ANDROID_STORE_SKU: paid
+      EXPO_PUBLIC_ANDROID_PAID_DOWNLOAD: "1"
+      HERMES_MOBILE_ANDROID_PACKAGE: com.iganapolsky.hermesmobile.paid
     defaults:
       run:
         working-directory: hermes-mobile
