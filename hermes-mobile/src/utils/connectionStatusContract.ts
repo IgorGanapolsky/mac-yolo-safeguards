@@ -115,5 +115,5 @@ export function resolveOptionalApprovalsFootnote(input: {
   if (input.macDirectOk) {
     return 'Optional: pair approvals in Settings for lock-screen cards away from this link';
   }
-  return 'Pair in Settings for approval cards on Wi‑Fi, cellular, or USB';
+  return 'Pair in Settings for approval cards on Wi‑Fi or cellular';
 }
