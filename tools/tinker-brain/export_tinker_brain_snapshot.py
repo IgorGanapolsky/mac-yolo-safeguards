@@ -349,11 +349,8 @@ def write_snapshot(out: Path, payload: dict[str, Any]) -> None:
                 ),
                 "BAN_CONVERT_WITHOUT_INTEREST=only after the exact human requests a trial, demo, or intake",
                 "BAN_INVENT_SCORES=never invent DS/ML or GTM scores; only SYSTEM_SCORES line below",
-                (
-                    "SYSTEM_SCORES=not_scored (no ThumbGate GTM scorecard source yet; "
-                    "eval receipts at ~/.hermes/receipts/tinker-brain/ are the quality signal)"
-                ),
-                "SCORE_SCOPE=copy SYSTEM_SCORES exactly; do not translate not_scored into numbers",
+                f"SYSTEM_SCORES={_system_scores_line()}",
+                "SCORE_SCOPE=copy SYSTEM_SCORES exactly; do not invent better grades than the line",
                 f"NEXT_MONEY={payload.get('next_money_action')}",
                 "RULE: zero tools; do not list_files; answer now from this card.",
             ]
@@ -370,6 +367,44 @@ def write_snapshot(out: Path, payload: dict[str, Any]) -> None:
             expert_dst.chmod(0o600)
         except OSError:
             pass  # answer path falls back to the repo copy
+
+
+def _system_scores_line() -> str:
+    """Evidence-backed scores from tools/ml-system-scores.js; never invent."""
+    script = REPO / "tools" / "ml-system-scores.js"
+    if not script.is_file():
+        return (
+            "not_scored (tools/ml-system-scores.js missing; "
+            "eval receipts at ~/.hermes/receipts/tinker-brain/ are the quality signal)"
+        )
+    try:
+        import subprocess
+
+        proc = subprocess.run(
+            ["node", str(script), "--json", "--write"],
+            cwd=str(REPO),
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+        if proc.returncode == 0 and proc.stdout.strip():
+            data = json.loads(proc.stdout)
+            line = data.get("system_scores_line")
+            if isinstance(line, str) and line.strip():
+                return line.strip()
+    except Exception:  # noqa: BLE001 — export must never die on scores
+        pass
+    # Fall back to last written receipt
+    scores_path = Path.home() / ".hermes" / "ml" / "system-scores.json"
+    cached = load_json(scores_path)
+    line = cached.get("system_scores_line") if isinstance(cached, dict) else None
+    if isinstance(line, str) and line.strip():
+        return line.strip() + " (cached)"
+    return (
+        "not_scored (ml-system-scores failed; "
+        "run node tools/ml-system-scores.js --write)"
+    )
 
 
 def validate_snapshot(path: Path) -> list[str]:

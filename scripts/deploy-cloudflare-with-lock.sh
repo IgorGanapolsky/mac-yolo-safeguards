@@ -50,12 +50,73 @@ if lock="$(find_active_lock)"; then
   exit 1
 fi
 
-DEPLOYMENT_ID="$(gh api -X POST "repos/${REPO}/deployments" \
-  -f "ref=${REF}" \
-  -f "environment=${ENVIRONMENT}" \
-  -F "auto_merge=false" \
-  -f "description=hermes-control-plane deploy lock, held by $(whoami)@$(hostname -s)" \
-  --jq '.id')"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Gate the EXACT commit that will be deployed. `npm run build:cloudflare` builds
+# the local checkout, so checking a remote ref proves nothing about the artifact:
+# an agent running this from a feature-branch worktree would get "main is green"
+# and then ship its own unreviewed code to production.
+DEPLOY_SHA="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)" || {
+  echo "Refusing to deploy: cannot resolve local HEAD." >&2; exit 1; }
+
+# A dirty tree means the artifact is not any reviewed commit at all. Scope the
+# check to what actually gets built plus this script, so unrelated scratch files
+# elsewhere in the repo do not block a legitimate deploy.
+DIRTY="$(git -C "$REPO_ROOT" status --porcelain -- apps/hermes-control-plane scripts 2>/dev/null)"
+if [[ -n "$DIRTY" ]]; then
+  echo "Refusing to deploy: working tree is dirty under apps/hermes-control-plane or scripts." >&2
+  printf '%s\n' "$DIRTY" | head -20 >&2
+  echo "Deploy from a clean detached checkout of the merged SHA instead." >&2
+  exit 1
+fi
+
+# Refuse to deploy a broken commit. This has to read CHECK-RUNS, not commit
+# statuses: this repo's CI is GitHub Actions, which writes check-runs and never
+# writes legacy commit statuses, so `commits/$SHA/status` is permanently
+# {state: "pending", statuses: []} no matter how green the build is.
+assert_sha_is_green() {
+  gh api "repos/${REPO}/commits/$1/check-runs?per_page=100" 2>/dev/null | python3 -c '
+import json,sys
+runs=json.load(sys.stdin).get("check_runs",[])
+if not runs: print("no check-runs found for this commit"); sys.exit(2)
+# Allowlist, not blocklist: GitHub also emits action_required, stale, and
+# startup_failure, none of which mean "safe to ship". Anything not explicitly
+# known-good blocks the deploy.
+GOOD={"success","skipped","neutral"}
+pend=[c["name"] for c in runs if c["conclusion"] is None]
+bad=[c["name"] + "(" + str(c["conclusion"]) + ")" for c in runs if c["conclusion"] is not None and c["conclusion"] not in GOOD]
+if bad: print("NOT GREEN: "+", ".join(bad)); sys.exit(1)
+if pend: print("STILL RUNNING: "+", ".join(pend)); sys.exit(1)
+print("green: %d checks" % len(runs))
+'
+}
+
+if ! GREEN="$(assert_sha_is_green "$DEPLOY_SHA")"; then
+  echo "Refusing to deploy ${DEPLOY_SHA:0:9}: ${GREEN:-check-runs unreadable}" >&2
+  exit 1
+fi
+echo "Local checkout ${DEPLOY_SHA:0:9} is ${GREEN}."
+
+# The lock records the commit actually being shipped, not a moving branch name.
+REF="$DEPLOY_SHA"
+
+# required_contexts MUST be an explicit empty array. Omitting it makes GitHub
+# gate the deployment on the combined COMMIT STATUS, which for an Actions-only
+# repo is always "pending" with zero statuses — so every locked deploy failed
+# with `409 Commit status checks failed for main` and the lock could never be
+# acquired. That is why every deploy in practice bypassed this script entirely,
+# which is the exact concurrency hazard it exists to prevent. Greenness is
+# enforced above against check-runs instead.
+LOCK_DESC="hermes-control-plane deploy lock, held by $(whoami)@$(hostname -s)"
+DEPLOYMENT_ID="$(REF="$REF" ENVIRONMENT="$ENVIRONMENT" LOCK_DESC="$LOCK_DESC" python3 -c '
+import json,os
+print(json.dumps({
+  "ref": os.environ["REF"],
+  "environment": os.environ["ENVIRONMENT"],
+  "auto_merge": False,
+  "required_contexts": [],
+  "description": os.environ["LOCK_DESC"],
+}))' | gh api -X POST "repos/${REPO}/deployments" --input - --jq '.id')"
 
 echo "Acquired deploy lock (deployment id ${DEPLOYMENT_ID})."
 
@@ -78,6 +139,8 @@ if [[ "${DEPLOY_LOCK_DRY_RUN:-0}" == "1" ]]; then
   bash -c "${DEPLOY_LOCK_DRY_RUN_HOOK:-true}"
 else
   cd "$(dirname "$0")/../apps/hermes-control-plane"
+  # D1 export path requires this dir (wrangler will not create parents)
+  mkdir -p .wrangler/backups
   npm run predeploy:cloudflare
   npm run deploy:cloudflare
 fi

@@ -1065,7 +1065,8 @@ function evalAbilityPolicy() {
         instruction: 'No multi-owner megafile design thrash without decision ref',
         env: 'plan.md claims',
         verifier: 'check-hot-files + harness contention',
-        verifyCommand: null,
+        verifyCommand:
+          'node -e "const h=require(\'./tools/agent-swarm-harness.js\'); if(!h.MEGAFILES||!h.MEGAFILES.length) process.exit(1); const r=h.buildHarnessReport&&h.buildHarnessReport(); if(r&&r.contention&&r.contention.hot&&!Array.isArray(h.MEGAFILES)) process.exit(1);"',
         match: [
           'megafile',
           'multi.?owner',
@@ -1082,7 +1083,8 @@ function evalAbilityPolicy() {
         instruction: 'Ship claims require machine evidence not adjectives',
         env: 'CI + continuous proof',
         verifier: 'hardBarForDone + outcome-gate evidence IDs',
-        verifyCommand: null,
+        verifyCommand:
+          'node -e "const h=require(\'./tools/agent-swarm-harness.js\'); const b=h.hardBarForDone(); if(!b||!b.principle||!b.loop||!Array.isArray(b.examples)||!b.examples.length) process.exit(1);"',
         match: [
           'ship(ped)?\\s+without',
           'false\\s+green',
@@ -1099,7 +1101,7 @@ function evalAbilityPolicy() {
         instruction: 'Social LIVE only with permalink + CTA; no double-post',
         env: 'Pro + PUBLISH_APPROVED',
         verifier: 'content log LIVE matrix scan',
-        verifyCommand: null,
+        verifyCommand: 'node tests/test-social-publish-gate.js',
         match: [
           'double.?post',
           'permalink',
@@ -1127,6 +1129,23 @@ function evalAbilityPolicy() {
           'diagnostic',
         ],
         liveTools: 'local Ollama draft; no auto-send without gates',
+      },
+      {
+        id: 'ml_labels_fail_closed',
+        instruction: 'Propensity ML refuses fake AUC when paid labels are insufficient',
+        env: 'offline unit + ~/.hermes/ml receipts',
+        verifier: 'ml-propensity-train exits insufficient_labels without inventing model weights',
+        verifyCommand:
+          'node tools/ml-propensity-train.js train --labels /dev/null --out /tmp/ml-propensity-empty-model.json --json | node -e "let s=\'\';process.stdin.on(\'data\',d=>s+=d);process.stdin.on(\'end\',()=>{const j=JSON.parse(s); if(j.trained||j.status!==\'insufficient_labels\') process.exit(1);})"',
+        match: [
+          'insufficient.?labels',
+          'propensity',
+          'fake.?auc',
+          'invent.*score',
+          'ml.?train',
+          'system_scores',
+        ],
+        liveTools: 'none',
       },
     ],
     antiPatterns: [
@@ -1887,9 +1906,15 @@ function parseArgs(argv) {
       arg === 'eval-mine' ||
       arg === 'eval-check' ||
       arg === 'sre-autonomy' ||
-      arg === 'sre-act'
+      arg === 'sre-act' ||
+      arg === 'gateway'
     ) {
       args.command = arg;
+      // For gateway, collect remaining args verbatim as pass-through to inference-gateway.js
+      if (arg === 'gateway') {
+        args.gatewayArgs = argv.slice(i + 1);
+        break; // stop parsing — rest is for the subprocess
+      }
     } else if (arg === '--json') {
       args.json = true;
     } else if (arg === '--stdin') {
@@ -2538,7 +2563,8 @@ function main() {
   node tools/agent-swarm-harness.js eval-mine [--write] [--json]
   node tools/agent-swarm-harness.js eval-check [--run-commands] [--json]
   node tools/agent-swarm-harness.js sre-autonomy [--json]
-  node tools/agent-swarm-harness.js sre-act --subsystem ID [--health-age-ms N|--force] [--json]`);
+  node tools/agent-swarm-harness.js sre-act --subsystem ID [--health-age-ms N|--force] [--json]
+  node tools/agent-swarm-harness.js gateway <record|query|summary|cost|compare|health|trace-path> [args...]`);
     process.exit(0);
   }
 
@@ -2865,6 +2891,18 @@ function main() {
       if (result.verify) console.log(`verify (required after act): ${result.verify}`);
     }
     process.exit(result.ok ? 0 : 2);
+  }
+
+  if (args.command === 'gateway') {
+    const gatewayScript = path.join(path.dirname(process.argv[1]), 'hermes-inference-gateway.js');
+    const childArgs = args.gatewayArgs || [];
+    // Pass through all args to inference gateway
+    const result = require('child_process').spawnSync(
+      process.execPath,
+      [gatewayScript, ...childArgs],
+      { stdio: 'inherit', cwd: process.cwd() }
+    );
+    process.exit(result.status);
   }
 
   if (args.command === 'field-guide') {
