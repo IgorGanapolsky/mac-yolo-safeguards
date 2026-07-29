@@ -30,6 +30,8 @@ type HermesApprovalCardProps = {
   approvalPolicy?: ApprovalPolicy;
   thumbgateCaptureOnDown?: boolean;
   thumbgateCaptureOnUp?: boolean;
+  /** Settings → "Redact PII & Secrets". Defaults to masked (fail closed). */
+  redactPii?: boolean;
   onChoice: (choice: ApprovalChoice) => void;
   onEdit?: () => void;
   onUndo?: () => void;
@@ -51,6 +53,7 @@ export default function HermesApprovalCard({
   thumbgateCaptureOnDown = true,
   thumbgateCaptureOnUp = true,
   approvalPolicy = 'balanced',
+  redactPii = true,
   onChoice,
   onEdit,
   onUndo,
@@ -150,7 +153,7 @@ export default function HermesApprovalCard({
     ) : null}
 
     {hasDiffContent(approval.diff) && !glance ? (
-      <DiffPreviewBox diff={approval.diff!} />
+      <DiffPreviewBox diff={approval.diff!} redactPii={redactPii} />
     ) : null}
 
     {!glance && approval.workspacePath ? (

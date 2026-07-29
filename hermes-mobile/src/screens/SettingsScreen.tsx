@@ -78,7 +78,6 @@ export default function SettingsScreen() {
   const [connectionMode, setConnectionMode] = useState(settings.connectionMode);
   const [pairCode, setPairCode] = useState('');
   const [gatewayUrl, setGatewayUrl] = useState(settings.gatewayUrl);
-  const [usePortal, setUsePortal] = useState(settings.usePortal);
   const [redactPii, setRedactPii] = useState(settings.redactPii);
   const [notificationApprovals, setNotificationApprovals] = useState(settings.notificationApprovals);
   const [notificationLiveRunStatus, setNotificationLiveRunStatus] = useState(
@@ -229,7 +228,6 @@ export default function SettingsScreen() {
     setCloudUrl(settings.cloudUrl);
     setConnectionMode(settings.connectionMode);
     setGatewayUrl(settings.gatewayUrl);
-    setUsePortal(settings.usePortal);
     setRedactPii(settings.redactPii);
     setNotificationApprovals(settings.notificationApprovals);
     setNotificationLiveRunStatus(settings.notificationLiveRunStatus);
@@ -317,7 +315,6 @@ export default function SettingsScreen() {
           connectionMode,
           cloudUrl,
           gatewayUrl,
-          usePortal,
           redactPii,
           notificationsEnabled,
           notificationApprovals,
@@ -368,7 +365,6 @@ export default function SettingsScreen() {
           connectionMode: 'relay',
           cloudUrl,
           gatewayUrl,
-          usePortal,
           redactPii,
           notificationsEnabled: deriveNotificationsEnabled({
             notificationApprovals,
@@ -887,25 +883,10 @@ export default function SettingsScreen() {
 
           <View style={styles.switchRow}>
             <View style={styles.switchLabelCol}>
-              <Text style={styles.switchLabel}>Use Portal Tunnel</Text>
-              <Text style={styles.switchDesc}>Route actions through Gateway Portal</Text>
-            </View>
-            <Switch
-              value={usePortal}
-              onValueChange={(val) => {
-                setUsePortal(val);
-              }}
-              trackColor={{ false: '#1F2937', true: colors.primary }}
-              thumbColor={usePortal ? '#ffffff' : '#9CA3AF'}
-            />
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.switchRow}>
-            <View style={styles.switchLabelCol}>
               <Text style={styles.switchLabel}>Redact PII & Secrets</Text>
-              <Text style={styles.switchDesc}>Mask API keys and credentials in diffs</Text>
+              <Text style={styles.switchDesc}>
+                Mask API keys, tokens, and emails in approval diff previews
+              </Text>
             </View>
             <Switch
               value={redactPii}

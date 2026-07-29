@@ -14,6 +14,8 @@ interface GateApprovalCardProps {
   approvalPolicy?: ApprovalPolicy;
   thumbgateCaptureOnDown?: boolean;
   thumbgateCaptureOnUp?: boolean;
+  /** Settings → "Redact PII & Secrets". Defaults to masked (fail closed). */
+  redactPii?: boolean;
 }
 
 export default function GateApprovalCard({
@@ -26,6 +28,7 @@ export default function GateApprovalCard({
   approvalPolicy = 'balanced',
   thumbgateCaptureOnDown = true,
   thumbgateCaptureOnUp = true,
+  redactPii = true,
 }: GateApprovalCardProps) {
   const request = fromPendingApproval(approval, approvalPolicy);
 
@@ -49,6 +52,7 @@ export default function GateApprovalCard({
       thumbgateCaptureOnDown={thumbgateCaptureOnDown}
       thumbgateCaptureOnUp={thumbgateCaptureOnUp}
       approvalPolicy={approvalPolicy}
+      redactPii={redactPii}
       onChoice={handleChoice}
       onEdit={onEdit}
     />

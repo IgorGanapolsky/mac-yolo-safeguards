@@ -75,7 +75,7 @@ export interface GatewaySettings {
   connectionMode: ConnectionMode;
   cloudUrl: string;
   gatewayUrl: string;
-  usePortal: boolean;
+  /** Mask secrets + PII in approval diff previews (Settings → Redact PII & Secrets). */
   redactPii: boolean;
   /** Master flag — true when any per-purpose notification toggle is on (derived on save). */
   notificationsEnabled: boolean;
@@ -116,7 +116,6 @@ export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
   connectionMode: 'relay',
   cloudUrl: HERMES_MOBILE_CLOUD_URL,
   gatewayUrl: '',
-  usePortal: false,
   redactPii: true,
   notificationsEnabled: true,
   notificationApprovals: true,

@@ -25,6 +25,22 @@ const KEYS = {
   STORE_REVIEW_REQUESTED: 'hermes-mobile:store_review_requested',
 };
 
+/**
+ * Settings keys that were removed from GatewaySettings. Old installs still have them in
+ * AsyncStorage; drop them on load so a stale payload can never resurrect a dead toggle.
+ * `usePortal` (removed 2026-07): shipped a "Use Portal Tunnel" switch that no runtime
+ * code ever read.
+ */
+const REMOVED_SETTINGS_KEYS = ['usePortal'] as const;
+
+function dropRemovedSettings<T extends Record<string, unknown>>(parsed: T): T {
+  const next = { ...parsed };
+  for (const key of REMOVED_SETTINGS_KEYS) {
+    delete next[key];
+  }
+  return next;
+}
+
 type DismissedSessionMap = Record<string, string[]>;
 type HideCronSessionMap = Record<string, boolean>;
 type LastSessionByComputerMap = Record<string, string>;
@@ -152,7 +168,12 @@ export const storage = {
       if (!raw) {
         return { ...DEFAULT_GATEWAY_SETTINGS };
       }
-      const parsed = JSON.parse(raw) as Partial<GatewaySettings> & { connectionMode?: string };
+      const parsedRaw = JSON.parse(raw) as Partial<GatewaySettings> & {
+        connectionMode?: string;
+        /** Removed setting — never had a runtime consumer. Dropped on load. */
+        usePortal?: boolean;
+      };
+      const parsed = dropRemovedSettings(parsedRaw);
       const rawMode = parsed.connectionMode as string | undefined;
       const connectionMode =
         rawMode === 'gateway'

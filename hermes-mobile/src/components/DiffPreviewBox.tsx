@@ -1,16 +1,23 @@
 import React, { memo } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
-import { diffStats, formatDiffPreview } from '../utils/diffDisplay';
+import { diffStats, formatDiffPreview, prepareDiffForDisplay } from '../utils/diffDisplay';
 
 type DiffPreviewBoxProps = {
   diff: string;
+  /** Settings → "Redact PII & Secrets". Defaults to masked so no surface leaks by omission. */
+  redactPii?: boolean;
   testID?: string;
 };
 
-function DiffPreviewBox({ diff, testID = 'diff-preview-box' }: DiffPreviewBoxProps) {
-  const preview = formatDiffPreview(diff);
-  const stats = diffStats(diff);
+function DiffPreviewBox({
+  diff,
+  redactPii = true,
+  testID = 'diff-preview-box',
+}: DiffPreviewBoxProps) {
+  const source = prepareDiffForDisplay(diff, redactPii);
+  const preview = formatDiffPreview(source);
+  const stats = diffStats(source);
 
   return (
     <View style={styles.wrap} testID={testID}>
