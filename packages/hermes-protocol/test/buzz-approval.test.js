@@ -69,6 +69,14 @@ function parseFixture(value, options = {}) {
   return parseBuzzApprovalRequest(value.event, {
     approverPubkey: value.approverPubkey,
     nowSeconds: NOW,
+    replayGuard: new BuzzApprovalReplayGuard(),
+    ...options,
+  });
+}
+
+function buildDecision(request, options) {
+  return buildBuzzApprovalDecision(request, {
+    decisionGuard: new BuzzApprovalDecisionGuard(),
     ...options,
   });
 }
@@ -105,6 +113,7 @@ test("rejects unsigned, tampered, and wrong-kind requests", async (t) => {
         parseBuzzApprovalRequest(unsigned, {
           approverPubkey: value.approverPubkey,
           nowSeconds: NOW,
+          replayGuard: new BuzzApprovalReplayGuard(),
         }),
       expectProtocolError("invalid_event"),
     );
@@ -118,6 +127,7 @@ test("rejects unsigned, tampered, and wrong-kind requests", async (t) => {
           {
             approverPubkey: value.approverPubkey,
             nowSeconds: NOW,
+            replayGuard: new BuzzApprovalReplayGuard(),
           },
         ),
       expectProtocolError("invalid_signature"),
@@ -211,6 +221,7 @@ test("rejects wrong approver, expiry failures, future events, and missing contex
         parseBuzzApprovalRequest(value.event, {
           approverPubkey: getPublicKey(generateSecretKey()),
           nowSeconds: NOW,
+          replayGuard: new BuzzApprovalReplayGuard(),
         }),
       expectProtocolError("wrong_approver"),
     );
@@ -287,6 +298,53 @@ test("replay guard rejects duplicates, fails closed at capacity, and prunes expi
   assert.equal(guard.size, 1);
 });
 
+test("requires guards and bounds requester-controlled approval lifetime", () => {
+  const value = fixture();
+  assert.throws(
+    () =>
+      parseBuzzApprovalRequest(value.event, {
+        approverPubkey: value.approverPubkey,
+        nowSeconds: NOW,
+      }),
+    expectProtocolError("invalid_replay_guard"),
+  );
+
+  const request = parseFixture(value);
+  assert.throws(
+    () =>
+      buildBuzzApprovalDecision(request, {
+        decision: "approve",
+        secretKey: value.approverSecret,
+        nowSeconds: NOW,
+      }),
+    expectProtocolError("invalid_decision_guard"),
+  );
+
+  const guard = new BuzzApprovalReplayGuard({ maxEntries: 1 });
+  const unbounded = fixture({ expiresAt: NOW + 901 });
+  assert.throws(
+    () => parseFixture(unbounded, { replayGuard: guard }),
+    expectProtocolError("approval_lifetime_exceeded"),
+  );
+  assert.equal(guard.size, 0);
+
+  parseFixture(value, { replayGuard: guard });
+  assert.equal(guard.size, 1);
+
+  const boundaryGuard = new BuzzApprovalReplayGuard();
+  const boundary = fixture({
+    createdAt: NOW - 10,
+    expiresAt: NOW + 890,
+  });
+  parseFixture(boundary, { replayGuard: boundaryGuard });
+  assert.equal(boundaryGuard.size, 1);
+
+  assert.throws(
+    () => parseFixture(value, { maxApprovalLifetimeSeconds: 0 }),
+    expectProtocolError("invalid_approval_lifetime"),
+  );
+});
+
 test("builds relay-compatible signed grant and deny without exposing the raw token", async (t) => {
   for (const [decision, expectedKind] of [
     ["approve", BUZZ_APPROVAL_GRANT_KIND],
@@ -295,7 +353,7 @@ test("builds relay-compatible signed grant and deny without exposing the raw tok
     await t.test(decision, () => {
       const value = fixture();
       const request = parseFixture(value);
-      const event = buildBuzzApprovalDecision(request, {
+      const event = buildDecision(request, {
         decision,
         secretKey: value.approverSecret,
         note: decision === "approve" ? "Reviewed on Hermes Mobile" : "",
@@ -364,7 +422,7 @@ test("decision creation rejects wrong keys, choices, expiry, and duplicates", as
   ]) {
     await t.test(name, () => {
       assert.throws(
-        () => buildBuzzApprovalDecision(request, options),
+        () => buildDecision(request, options),
         expectProtocolError(code),
       );
     });
@@ -403,12 +461,54 @@ test("decision creation rejects wrong keys, choices, expiry, and duplicates", as
       expectProtocolError("duplicate_decision"),
     );
   });
+
+  await t.test("capacity and expiry pruning", () => {
+    const guard = new BuzzApprovalDecisionGuard({ maxEntries: 1 });
+    buildBuzzApprovalDecision(request, {
+      decision: "approve",
+      secretKey: value.approverSecret,
+      nowSeconds: NOW,
+      decisionGuard: guard,
+    });
+
+    const blocked = fixture({
+      approverSecret: value.approverSecret,
+      tokenHash: "b".repeat(64),
+    });
+    const blockedRequest = parseFixture(blocked);
+    assert.throws(
+      () =>
+        buildBuzzApprovalDecision(blockedRequest, {
+          decision: "approve",
+          secretKey: value.approverSecret,
+          nowSeconds: NOW,
+          decisionGuard: guard,
+        }),
+      expectProtocolError("decision_guard_capacity"),
+    );
+
+    const later = NOW + 301;
+    const next = fixture({
+      approverSecret: value.approverSecret,
+      createdAt: later - 10,
+      expiresAt: later + 300,
+      tokenHash: "c".repeat(64),
+    });
+    const nextRequest = parseFixture(next, { nowSeconds: later });
+    buildBuzzApprovalDecision(nextRequest, {
+      decision: "approve",
+      secretKey: value.approverSecret,
+      nowSeconds: later,
+      decisionGuard: guard,
+    });
+    assert.equal(guard.size, 1);
+  });
 });
 
 test("decision verification rejects tampering, wrong kinds, signers, and references", async (t) => {
   const value = fixture();
   const request = parseFixture(value);
-  const event = buildBuzzApprovalDecision(request, {
+  const event = buildDecision(request, {
     decision: "approve",
     secretKey: value.approverSecret,
     nowSeconds: NOW,

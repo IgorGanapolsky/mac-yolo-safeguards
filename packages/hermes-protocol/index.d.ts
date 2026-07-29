@@ -193,7 +193,8 @@ export function parseBuzzApprovalRequest(
     approverPubkey: string;
     nowSeconds?: number;
     maxFutureSkewSeconds?: number;
-    replayGuard?: BuzzApprovalReplayGuard;
+    maxApprovalLifetimeSeconds?: number;
+    replayGuard: BuzzApprovalReplayGuard;
   },
 ): BuzzApprovalRequest;
 
@@ -204,7 +205,7 @@ export function buildBuzzApprovalDecision(
     secretKey: Uint8Array;
     note?: string;
     nowSeconds?: number;
-    decisionGuard?: BuzzApprovalDecisionGuard;
+    decisionGuard: BuzzApprovalDecisionGuard;
   },
 ): NostrEvent;
 

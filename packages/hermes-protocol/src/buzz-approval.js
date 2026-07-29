@@ -14,6 +14,7 @@ export const BUZZ_APPROVAL_DENY_KIND = 46031;
 const HEX_64 = /^[0-9a-f]{64}$/;
 const HEX_128 = /^[0-9a-f]{128}$/;
 const DEFAULT_MAX_FUTURE_SKEW_SECONDS = 60;
+const DEFAULT_MAX_APPROVAL_LIFETIME_SECONDS = 15 * 60;
 const MAX_REQUEST_CONTENT_LENGTH = 4_096;
 const MAX_DECISION_NOTE_LENGTH = 1_024;
 
@@ -241,6 +242,7 @@ export function parseBuzzApprovalRequest(
     approverPubkey,
     nowSeconds,
     maxFutureSkewSeconds = DEFAULT_MAX_FUTURE_SKEW_SECONDS,
+    maxApprovalLifetimeSeconds = DEFAULT_MAX_APPROVAL_LIFETIME_SECONDS,
     replayGuard,
   } = {},
 ) {
@@ -251,6 +253,18 @@ export function parseBuzzApprovalRequest(
     maxFutureSkewSeconds < 0
   ) {
     fail("invalid_clock_skew", "maxFutureSkewSeconds must be a non-negative integer");
+  }
+  if (
+    !Number.isSafeInteger(maxApprovalLifetimeSeconds) ||
+    maxApprovalLifetimeSeconds < 1
+  ) {
+    fail(
+      "invalid_approval_lifetime",
+      "maxApprovalLifetimeSeconds must be a positive integer",
+    );
+  }
+  if (!(replayGuard instanceof BuzzApprovalReplayGuard)) {
+    fail("invalid_replay_guard", "replayGuard must be a BuzzApprovalReplayGuard");
   }
 
   const signedEvent = assertSignedEvent(event);
@@ -287,6 +301,15 @@ export function parseBuzzApprovalRequest(
   if (expiresAtSeconds <= now) {
     fail("expired_request", "Buzz approval request has expired");
   }
+  if (
+    expiresAtSeconds - signedEvent.created_at >
+    maxApprovalLifetimeSeconds
+  ) {
+    fail(
+      "approval_lifetime_exceeded",
+      `Buzz approval lifetime exceeds ${maxApprovalLifetimeSeconds} seconds`,
+    );
+  }
 
   const title = normalizedText(
     signedEvent.content,
@@ -308,12 +331,7 @@ export function parseBuzzApprovalRequest(
     receivedAt: new Date(signedEvent.created_at * 1_000).toISOString(),
   });
 
-  if (replayGuard !== undefined) {
-    if (!(replayGuard instanceof BuzzApprovalReplayGuard)) {
-      fail("invalid_replay_guard", "replayGuard must be a BuzzApprovalReplayGuard");
-    }
-    replayGuard.consume(request.eventId, request.expiresAtSeconds, now);
-  }
+  replayGuard.consume(request.eventId, request.expiresAtSeconds, now);
 
   return request;
 }
@@ -344,15 +362,13 @@ export function buildBuzzApprovalDecision(
     "note",
     MAX_DECISION_NOTE_LENGTH,
   );
-  if (decisionGuard !== undefined) {
-    if (!(decisionGuard instanceof BuzzApprovalDecisionGuard)) {
-      fail(
-        "invalid_decision_guard",
-        "decisionGuard must be a BuzzApprovalDecisionGuard",
-      );
-    }
-    decisionGuard.assertAvailable(verifiedRequest.tokenHash, now);
+  if (!(decisionGuard instanceof BuzzApprovalDecisionGuard)) {
+    fail(
+      "invalid_decision_guard",
+      "decisionGuard must be a BuzzApprovalDecisionGuard",
+    );
   }
+  decisionGuard.assertAvailable(verifiedRequest.tokenHash, now);
 
   const signerPubkey = getPublicKey(secretKey);
   if (signerPubkey !== verifiedRequest.approverPubkey) {
@@ -382,7 +398,7 @@ export function buildBuzzApprovalDecision(
     fail("signing_failed", "Generated Buzz approval decision did not verify");
   }
 
-  decisionGuard?.record(
+  decisionGuard.record(
     verifiedRequest.tokenHash,
     verifiedRequest.expiresAtSeconds,
   );
