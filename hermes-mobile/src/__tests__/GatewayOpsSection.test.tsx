@@ -1,4 +1,5 @@
 import React from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, render, fireEvent, waitFor } from '@testing-library/react-native';
 import GatewayOpsSection from '../components/GatewayOpsSection';
 import { mockUseGateway } from '../testUtils/gatewayFixtures';
@@ -65,9 +66,23 @@ jest.mock('expo-constants', () => ({
 const { useGateway } = jest.requireMock('../context/GatewayContext');
 const gatewayClient = jest.requireMock('../services/hermesGatewayClient');
 
+/**
+ * Cron jobs / Skills / Gateway features are long machine-scoped catalogs and
+ * now start COLLAPSED (Settings was hundreds of rows tall). Tests that assert
+ * on rows inside them open the section first, exactly as the operator does.
+ */
+async function expandSection(getByTestId: (id: string) => unknown, testID: string) {
+  await waitFor(() => {
+    expect(getByTestId(testID)).toBeTruthy();
+  });
+  fireEvent.press(getByTestId(testID) as Parameters<typeof fireEvent.press>[0]);
+}
+
 describe('GatewayOpsSection', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    // Collapse state is persisted, so each test starts from the shipped defaults.
+    await AsyncStorage.clear();
     useGateway.mockReturnValue(mockUseGateway());
     gatewayClient.getCapabilities.mockResolvedValue({
       features: { toolsets_write: true },
@@ -129,6 +144,8 @@ describe('GatewayOpsSection', () => {
     gatewayClient.listToolsets.mockRejectedValue(new Error('Network request failed'));
 
     const { getByText, getByTestId, queryByText } = render(<GatewayOpsSection />);
+
+    await expandSection(getByTestId, 'ops-section-skills');
 
     await waitFor(() => {
       expect(getByText('mac-freeze-rescue')).toBeTruthy();
@@ -211,7 +228,7 @@ describe('GatewayOpsSection', () => {
     });
   });
 
-  it('keeps hobby integrations out of primary Essentials and collapses On your Mac', async () => {
+  it('keeps hobby integrations out of primary Essentials and collapses the extra-tools catalog', async () => {
     gatewayClient.listToolsets.mockResolvedValue([
       {
         name: 'session_search',
@@ -246,7 +263,7 @@ describe('GatewayOpsSection', () => {
       },
     ]);
 
-    const { getByTestId, queryByTestId, getByText } = render(<GatewayOpsSection />);
+    const { getByTestId, queryByTestId } = render(<GatewayOpsSection />);
 
     await waitFor(() => {
       expect(getByTestId('toolsets-essentials-title')).toBeTruthy();
@@ -257,7 +274,10 @@ describe('GatewayOpsSection', () => {
     expect(queryByTestId('toolset-add-key-homeassistant')).toBeNull();
     expect(queryByTestId('toolset-switch-spotify')).toBeNull();
     expect(queryByTestId('toolsets-advanced-list')).toBeNull();
-    expect(getByText(/On your Mac \(2\)/)).toBeTruthy();
+    // Header must carry the count AND the machine the catalog came from.
+    expect(getByTestId('toolsets-advanced-toggle').props.accessibilityLabel).toMatch(
+      /^Expand Extra tools on .+ \(2\)$/,
+    );
 
     fireEvent.press(getByTestId('toolsets-advanced-toggle'));
 
@@ -359,7 +379,7 @@ describe('GatewayOpsSection', () => {
     });
   });
 
-  it('opens Add key sheet from On your Mac for non-hobby tools that need credentials', async () => {
+  it('opens Add key sheet from the extra-tools catalog for non-hobby tools that need credentials', async () => {
     gatewayClient.listToolsets.mockResolvedValue([
       {
         name: 'web',
@@ -408,6 +428,8 @@ describe('GatewayOpsSection', () => {
 
     const { getByTestId } = render(<GatewayOpsSection />);
 
+    await expandSection(getByTestId, 'ops-section-jobs');
+
     await waitFor(() => {
       expect(getByTestId('job-delete-cron-long-name')).toBeTruthy();
     });
@@ -424,6 +446,8 @@ describe('GatewayOpsSection', () => {
     });
 
     const { getByTestId, getByText, queryByTestId } = render(<GatewayOpsSection />);
+
+    await expandSection(getByTestId, 'ops-section-features');
 
     await waitFor(() => {
       expect(getByTestId('feature-expand-chat_completions')).toBeTruthy();
@@ -457,6 +481,8 @@ describe('GatewayOpsSection', () => {
     ]);
 
     const { getByTestId, getByText, queryByTestId } = render(<GatewayOpsSection />);
+
+    await expandSection(getByTestId, 'ops-section-jobs');
 
     await waitFor(() => {
       expect(getByTestId('job-expand-job-detail-1')).toBeTruthy();
@@ -492,6 +518,8 @@ describe('GatewayOpsSection', () => {
     ]);
 
     const { getByTestId, queryByTestId } = render(<GatewayOpsSection />);
+
+    await expandSection(getByTestId, 'ops-section-jobs');
 
     await waitFor(() => {
       expect(getByTestId('job-resume-job-disabled-1')).toBeTruthy();

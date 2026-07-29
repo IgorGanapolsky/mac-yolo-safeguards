@@ -1,5 +1,6 @@
 import React from 'react';
 import { Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import SettingsScreen from '../screens/SettingsScreen';
 import { mockGatewaySettings, mockUseGateway } from '../testUtils/gatewayFixtures';
@@ -66,11 +67,21 @@ jest.mock('../utils/demoModePolicy', () => ({
 
 const { isDemoModeAllowed } = jest.requireMock('../utils/demoModePolicy');
 
+/**
+ * Settings cards collapse now (the screen was hundreds of rows tall). Cards
+ * that ship collapsed are opened here first, exactly as the operator does.
+ */
+function openSection(getByTestId: (id: string) => never, testID: string) {
+  fireEvent.press(getByTestId(testID));
+}
+
 describe('SettingsScreen', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     isDemoModeAllowed.mockReturnValue(false);
     useGateway.mockReturnValue(mockUseGateway());
     mockNavigate.mockClear();
+    // Collapse state is persisted — start every test from the shipped defaults.
+    await AsyncStorage.clear();
   });
 
   it('renders settings header and gateway inputs', async () => {
@@ -119,6 +130,7 @@ describe('SettingsScreen', () => {
 
     const { getAllByText, getByTestId, getByText } = render(<SettingsScreen />);
     expect(getByText('Computer connection')).toBeTruthy();
+    openSection(getByTestId as never, 'settings-section-computer-connection');
     expect(
       getByText('Use Tailscale away from home, or home Wi‑Fi nearby, for Chat, tools, and ops.'),
     ).toBeTruthy();
@@ -155,6 +167,7 @@ describe('SettingsScreen', () => {
     );
 
     const { getByTestId, getByText } = render(<SettingsScreen />);
+    openSection(getByTestId as never, 'settings-section-computer-connection');
     expect(getByTestId('relay-route-title').props.children).toBe(
       'Igors-Mac-mini · skool_top1percent',
     );
@@ -186,7 +199,8 @@ describe('SettingsScreen', () => {
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     useGateway.mockReturnValue(mockUseGateway({ saveSettings, completePair }));
 
-    const { getByPlaceholderText, getByText } = render(<SettingsScreen />);
+    const { getByPlaceholderText, getByTestId, getByText } = render(<SettingsScreen />);
+    openSection(getByTestId as never, 'settings-section-computer-connection');
     fireEvent.changeText(getByPlaceholderText('MOON-DUST'), 'MOON-DUST');
     fireEvent.press(getByText('PAIR WITH COMPUTER'));
 
@@ -207,7 +221,8 @@ describe('SettingsScreen', () => {
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     useGateway.mockReturnValue(mockUseGateway({ saveSettings, completePair }));
 
-    const { getByPlaceholderText, getByText } = render(<SettingsScreen />);
+    const { getByPlaceholderText, getByTestId, getByText } = render(<SettingsScreen />);
+    openSection(getByTestId as never, 'settings-section-computer-connection');
     fireEvent.changeText(getByPlaceholderText('MOON-DUST'), 'MOON-DUST');
     fireEvent.press(getByText('PAIR WITH COMPUTER'));
 
@@ -235,6 +250,7 @@ describe('SettingsScreen', () => {
     isDemoModeAllowed.mockReturnValue(true);
 
     const { getByTestId, getByText, queryByTestId } = render(<SettingsScreen />);
+    openSection(getByTestId as never, 'settings-section-developer');
     expect(getByText('Demo mode')).toBeTruthy();
     expect(getByTestId('demo-mode-switch')).toBeTruthy();
     expect(queryByTestId('inject-mock-approval')).toBeNull();
@@ -327,8 +343,9 @@ describe('SettingsScreen', () => {
   });
 
   it('clarifies notification preferences do not change Leash layout', () => {
-    const { getByText } = render(<SettingsScreen />);
+    const { getByTestId, getByText } = render(<SettingsScreen />);
     expect(getByText('Notification preferences')).toBeTruthy();
+    openSection(getByTestId as never, 'settings-section-notifications');
     expect(
       getByText(
         /Heads-up banners are reserved for approvals only/,
@@ -338,6 +355,7 @@ describe('SettingsScreen', () => {
 
   it('renders per-category notification toggles', () => {
     const { getByTestId, getByText } = render(<SettingsScreen />);
+    openSection(getByTestId as never, 'settings-section-notifications');
     expect(getByText('Approval heads-up')).toBeTruthy();
     expect(getByText('Live run status (quiet)')).toBeTruthy();
     expect(getByText('Completion / failure (quiet)')).toBeTruthy();
@@ -351,6 +369,7 @@ describe('SettingsScreen', () => {
     useGateway.mockReturnValue(mockUseGateway({ saveSettings }));
 
     const { getByTestId } = render(<SettingsScreen />);
+    openSection(getByTestId as never, 'settings-section-notifications');
     // Defaults: approvals on, live off, completion on. Disable the two that are on.
     fireEvent(getByTestId('notification-approvals-switch'), 'valueChange', false);
     fireEvent(getByTestId('notification-completion-switch'), 'valueChange', false);
