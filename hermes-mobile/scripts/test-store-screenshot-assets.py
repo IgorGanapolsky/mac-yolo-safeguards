@@ -22,6 +22,7 @@ GENERATOR = ROOT / "scripts/generate-store-screenshots.py"
 IOS_DIR = ROOT / "fastlane/screenshots/en-US"
 PLAY_DIR = ROOT / "fastlane/metadata/android/en-US/images/phoneScreenshots"
 MANIFEST = ROOT / "docs/store-assets/generated-manifest.json"
+APPROVALS_SCREEN = ROOT / "src/screens/ApprovalsScreen.tsx"
 
 EXPECTED_SCENE_IDS = (
     "connect",
@@ -40,6 +41,11 @@ FORBIDDEN_COPY = re.compile(
     r"759k|very large session|typeable|probe|smoke test|127\.0\.0\.1|"
     r"\b100\.\d+\.\d+\.\d+\b|/Users/|igorganapolsky|force-leak|"
     r"YOLO_MEM|not paired|gateway healthy|railway\.app",
+    re.IGNORECASE,
+)
+INVENTED_CONTROL_COPY = re.compile(
+    r"Set safety rules once|Stop destructive commands automatically|"
+    r"Block force push|Ask before production writes|Block secret sharing",
     re.IGNORECASE,
 )
 
@@ -86,6 +92,9 @@ class StoreScreenshotAssetTests(unittest.TestCase):
     def test_02_two_runs_are_byte_deterministic(self) -> None:
         self.require_v2()
         generator = load_generator()
+        self.assertEqual(generator.PILLOW_VERSION, generator.REQUIRED_PILLOW_VERSION)
+        self.assertNotIn("/System/Library/Fonts", self.source)
+        self.assertNotIn("/usr/share/fonts", self.source)
         with tempfile.TemporaryDirectory() as first_tmp, tempfile.TemporaryDirectory() as second_tmp:
             first_root = Path(first_tmp)
             second_root = Path(second_tmp)
@@ -144,6 +153,15 @@ class StoreScreenshotAssetTests(unittest.TestCase):
             if isinstance(value, str)
         )
         self.assertIsNone(FORBIDDEN_COPY.search(visible_copy))
+        self.assertIsNone(INVENTED_CONTROL_COPY.search(self.source))
+        approvals_source = APPROVALS_SCREEN.read_text(encoding="utf-8")
+        for shipped_control in (
+            "Approval-first mode",
+            "Quick-approve layout",
+            "Thumbs down → remember block",
+        ):
+            self.assertIn(shipped_control, self.source)
+            self.assertIn(shipped_control, approvals_source)
 
     def test_06_local_ocr_finds_no_forbidden_copy(self) -> None:
         self.require_v2()

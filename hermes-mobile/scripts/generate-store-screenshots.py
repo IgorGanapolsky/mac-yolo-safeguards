@@ -9,11 +9,12 @@ import json
 from pathlib import Path
 from typing import Any
 
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, __version__ as PILLOW_VERSION
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SCENE_VERSION = "deterministic-product-render-v2"
+REQUIRED_PILLOW_VERSION = "11.3.0"
 
 COLORS = {
     "page_top": (8, 13, 28),
@@ -56,8 +57,8 @@ SCENES: tuple[dict[str, str], ...] = (
     {
         "id": "rules",
         "stem": "04_pair",
-        "headline": "Set safety rules once",
-        "subtitle": "Stop destructive commands automatically",
+        "headline": "Stay on top of approvals",
+        "subtitle": "Prioritize alerts. Decide one at a time",
         "accent": "red",
     },
     {
@@ -102,22 +103,13 @@ OUTPUTS = (
 
 
 def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
-    candidates = (
-        "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
-        if bold
-        else "/System/Library/Fonts/Supplemental/Arial.ttf",
-        "/System/Library/Fonts/SFNS.ttf",
-        "/System/Library/Fonts/HelveticaNeue.ttc",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-        if bold
-        else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-    )
-    for candidate in candidates:
-        try:
-            return ImageFont.truetype(candidate, size=size)
-        except OSError:
-            continue
-    return ImageFont.load_default()
+    del bold
+    if PILLOW_VERSION != REQUIRED_PILLOW_VERSION:
+        raise RuntimeError(
+            f"Pillow {REQUIRED_PILLOW_VERSION} is required for byte-identical store assets; "
+            f"found {PILLOW_VERSION}"
+        )
+    return ImageFont.load_default(size=size)
 
 
 def fit_font(
@@ -382,32 +374,32 @@ def draw_rule_row(
 
 
 def draw_rules(draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
-    draw_header(draw, width, "Safety rules", "Synced")
-    draw_text(draw, (70, 205), "Active on every connected computer", 27, color=COLORS["muted"])
+    draw_header(draw, width, "Approval settings", "Ready")
+    draw_text(draw, (70, 205), "Choose how pending decisions reach you", 27, color=COLORS["muted"])
     draw_rule_row(
         draw,
         (70, 270, width - 70, 430),
-        "Block force push",
-        "Protect shared branches",
+        "Approval-first mode",
+        "Prioritize lock-screen approval alerts",
         COLORS["red"],
     )
     draw_rule_row(
         draw,
         (70, 460, width - 70, 620),
-        "Ask before production writes",
-        "Require phone approval",
+        "Quick-approve layout",
+        "One approval at a time with bigger buttons",
         COLORS["amber"],
     )
     draw_rule_row(
         draw,
         (70, 650, width - 70, 810),
-        "Block secret sharing",
-        "Keep credentials private",
+        "Thumbs down → remember block",
+        "Capture rejected tools to ThumbGate",
         COLORS["purple"],
     )
     rounded_panel(draw, (70, 865, width - 70, 1030), COLORS["surface_alt"], radius=24)
-    draw_text(draw, (105, 905), "Rules follow your workspace", 30, bold=True)
-    draw_text(draw, (105, 955), "Change them once. Hermes applies them everywhere.", 23, color=COLORS["muted"])
+    draw_text(draw, (105, 905), "Decide without opening your computer", 30, bold=True)
+    draw_text(draw, (105, 955), "Hermes keeps pending approvals in one place.", 23, color=COLORS["muted"])
 
 
 def draw_learn(draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
@@ -634,6 +626,10 @@ def generate_assets(output_root: Path = ROOT) -> dict[str, Any]:
     manifest: dict[str, Any] = {
         "schemaVersion": 2,
         "source": SCENE_VERSION,
+        "renderer": {
+            "pillow": REQUIRED_PILLOW_VERSION,
+            "font": "Pillow embedded default",
+        },
         "frames": len(SCENES),
         "scenes": [
             {

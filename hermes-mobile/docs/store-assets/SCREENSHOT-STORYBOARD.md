@@ -25,7 +25,7 @@ and every depicted control maps to an existing Hermes surface.
 | 1 | **Connect your computer** | Home Wi-Fi, Tailscale, or USB | Computer picker with three supported transport choices |
 | 2 | **Run your AI from anywhere** | Send work, files, and follow-ups | Connected chat, release-plan result, attachment, and composer |
 | 3 | **Approve risky actions** | Block or allow once in one tap | Leash approval with command, reason, Block, and Allow once |
-| 4 | **Set safety rules once** | Stop destructive commands automatically | Active command, production, and credential protections |
+| 4 | **Stay on top of approvals** | Prioritize alerts. Decide one at a time | Shipped Approval-first mode, Quick-approve layout, and ThumbGate rejection capture |
 | 5 | **Teach Hermes what works** | Feedback improves future runs | Helpful/Improve feedback and remembered preference |
 | 6 | **One phone. Every computer.** | Switch machines without losing context | Multiple computers with Tailscale and home Wi-Fi routes |
 
