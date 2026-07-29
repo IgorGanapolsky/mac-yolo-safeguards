@@ -618,7 +618,6 @@ def generate_assets(output_root: Path = ROOT) -> dict[str, Any]:
     assets: dict[str, dict[str, Any]] = {}
 
     for output in OUTPUTS:
-        directory = output_root / output["directory"]
         for scene in SCENES:
             relative = Path(output["directory"]) / f'{scene["stem"]}{output["suffix"]}'
             destination = output_root / relative
