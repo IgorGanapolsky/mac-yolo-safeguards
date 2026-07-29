@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import {
   classifyDiscoveredReach,
   bootstrapTailnetProbeHostsFromPairServers,
+  buildKnownDiscoveryHosts,
   countUniqueDiscoveredMachines,
   dedupeDiscoveredGatewaysByMachine,
   EXPLICIT_PAIR_SETUP_TIMEOUT_MS,
@@ -12,6 +13,7 @@ import {
   discoverAllGatewaysOnLan,
   pairServerHostFromGatewayUrl,
   resolvePairServerGatewayUrl,
+  resolvePhonePrivateLanIp,
   probeLiveUsbGateway,
   resolvePairServerSetupParams,
   withFreshPairServerSetup,
@@ -418,6 +420,10 @@ describe('gatewayDiscovery', () => {
   });
 
   it('excludes the phone Tailscale IP from picker output and future probe hosts', async () => {
+    // Phone on Tailscale-only (CGNAT IP from NetInfo) — never a private /24.
+    // USB loopback pair server (Android) seeds tailnet peers; phone self is filtered.
+    const originalPlatform = Platform.OS;
+    Platform.OS = 'android';
     (NetInfo.fetch as jest.Mock).mockResolvedValue({
       details: { ipAddress: '100.70.124.54' },
     });
@@ -446,12 +452,16 @@ describe('gatewayDiscovery', () => {
       return Promise.resolve({ ok: false });
     });
 
-    const { gateways, tailnetProbeHosts } = await discoverAllGatewaysOnLan();
+    try {
+      const { gateways, tailnetProbeHosts } = await discoverAllGatewaysOnLan();
 
-    expect(gateways).toEqual([
-      expect.objectContaining({ gatewayUrl: 'http://100.94.135.78:8642' }),
-    ]);
-    expect(tailnetProbeHosts).toEqual(['100.94.135.78']);
+      expect(gateways).toEqual([
+        expect.objectContaining({ gatewayUrl: 'http://100.94.135.78:8642' }),
+      ]);
+      expect(tailnetProbeHosts).toEqual(['100.94.135.78']);
+    } finally {
+      Platform.OS = originalPlatform;
+    }
   });
 
   it('never returns the phone Tailscale self-peer from bootstrap probe storage', async () => {
@@ -566,5 +576,134 @@ describe('gatewayDiscovery', () => {
     } finally {
       Platform.OS = originalPlatform;
     }
+  });
+
+  it('never treats Tailscale CGNAT or public IPs as private LAN for /24 sweeps', () => {
+    expect(resolvePhonePrivateLanIp('100.70.124.54')).toBeNull();
+    expect(resolvePhonePrivateLanIp('8.8.8.8')).toBeNull();
+    expect(resolvePhonePrivateLanIp('192.168.68.42')).toBe('192.168.68.42');
+    expect(resolvePhonePrivateLanIp('10.0.0.5')).toBe('10.0.0.5');
+  });
+
+  it('builds known discovery hosts before any subnet (USB + prefer + tailnet)', () => {
+    const originalPlatform = Platform.OS;
+    Platform.OS = 'android';
+    try {
+      expect(
+        buildKnownDiscoveryHosts('192.168.68.70', [
+          '100.94.135.78',
+          'igors-mac-mini.tail12aa33.ts.net',
+        ]),
+      ).toEqual(
+        expect.arrayContaining([
+          '127.0.0.1',
+          'localhost',
+          '192.168.68.70',
+          '100.94.135.78',
+          'igors-mac-mini.tail12aa33.ts.net',
+        ]),
+      );
+    } finally {
+      Platform.OS = originalPlatform;
+    }
+  });
+
+  it('skips full /24 when a known Tailscale host already answers', async () => {
+    (NetInfo.fetch as jest.Mock).mockResolvedValue({
+      details: { ipAddress: '192.168.68.42' },
+    });
+    const probedHosts = new Set<string>();
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      const host = url.replace(/^https?:\/\//, '').split('/')[0]?.split(':')[0] ?? '';
+      if (host) {
+        probedHosts.add(host);
+      }
+      if (url === 'http://100.94.135.78:8642/health') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            status: 'ok',
+            hostname: 'Igors-Mac-mini.local',
+            local_ip: '192.168.68.70',
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+
+    const { gateways } = await discoverAllGatewaysOnLan(null, {
+      tailnetPairServerHosts: ['100.94.135.78'],
+    });
+
+    expect(gateways).toEqual([
+      expect.objectContaining({
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-Mac-mini.local',
+      }),
+    ]);
+    // Full /24 would probe ~250 private hosts; known-path only probes a handful.
+    const privateLanProbes = [...probedHosts].filter((h) =>
+      /^192\.168\.68\.\d+$/.test(h),
+    );
+    expect(privateLanProbes.length).toBeLessThan(20);
+    expect(probedHosts.has('100.94.135.78')).toBe(true);
+    expect(probedHosts.size).toBeLessThan(30);
+  });
+
+  it('still sweeps private /24 when known path finds nothing', async () => {
+    (NetInfo.fetch as jest.Mock).mockResolvedValue({
+      details: { ipAddress: '192.168.12.100' },
+    });
+    let pairHealthCalls = 0;
+    (global.fetch as jest.Mock).mockImplementation(() => {
+      pairHealthCalls += 1;
+      return Promise.resolve({ ok: false });
+    });
+
+    const { gateways } = await discoverAllGatewaysOnLan();
+    expect(gateways).toEqual([]);
+    // Known (loopback) + full /24 still means hundreds of pair+health probes.
+    expect(pairHealthCalls).toBeGreaterThan(400);
+  }, 30_000);
+
+  it('does not expand phone Tailscale IP into a CGNAT /24 sweep', async () => {
+    (NetInfo.fetch as jest.Mock).mockResolvedValue({
+      details: { ipAddress: '100.70.124.54' },
+    });
+    const probedHosts = new Set<string>();
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      const host = url.replace(/^https?:\/\//, '').split('/')[0]?.split(':')[0] ?? '';
+      if (host) {
+        probedHosts.add(host);
+      }
+      if (url.includes('100.94.135.78:8642/health')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ status: 'ok', hostname: 'Igors-Mac-mini' }),
+        });
+      }
+      if (url.includes(':8765/pair.json')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            gatewayUrl: 'http://100.94.135.78:8642',
+            deepLink: 'hermes://setup?url=http%3A%2F%2F100.94.135.78%3A8642',
+            tailnetProbeHosts: ['100.94.135.78'],
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+
+    await discoverAllGatewaysOnLan(null, {
+      tailnetPairServerHosts: ['100.94.135.78'],
+    });
+
+    const cgnatNeighbors = [...probedHosts].filter((h) =>
+      /^100\.70\.124\.\d+$/.test(h),
+    );
+    // Phone self may appear once via NetInfo identity filtering paths, but we must
+    // never fan out 100.70.124.1–254 as a fake LAN.
+    expect(cgnatNeighbors.length).toBeLessThan(3);
   });
 });

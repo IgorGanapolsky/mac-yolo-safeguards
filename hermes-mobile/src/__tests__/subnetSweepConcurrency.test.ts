@@ -47,4 +47,28 @@ describe('iPad subnet sweep reliability', () => {
     const batches = Math.ceil(hostsInSlash24 / SUBNET_BATCH_SIZE);
     expect(batches * SUBNET_PROBE_TIMEOUT_MS).toBeLessThan(30_000);
   });
+
+  it('known Tailscale hit finishes far under a full /24 budget', async () => {
+    let calls = 0;
+    global.fetch = jest.fn(async (url: string) => {
+      calls += 1;
+      if (String(url).includes('100.94.135.78:8642/health')) {
+        return {
+          ok: true,
+          json: async () => ({ status: 'ok', hostname: 'Igors-Mac-mini.local' }),
+        } as Response;
+      }
+      throw new Error('connection refused');
+    }) as unknown as typeof fetch;
+
+    const started = Date.now();
+    const { gateways } = await discoverAllGatewaysOnLan(null, {
+      tailnetPairServerHosts: ['100.94.135.78'],
+    });
+    const elapsed = Date.now() - started;
+
+    expect(gateways.length).toBeGreaterThanOrEqual(1);
+    expect(calls).toBeLessThan(40);
+    expect(elapsed).toBeLessThan(5_000);
+  }, 15_000);
 });

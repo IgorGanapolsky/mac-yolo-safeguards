@@ -180,7 +180,7 @@ describe('ComputerPickerStatusRegion', () => {
     expect(queryByText(/Connected ·/)).toBeNull();
   });
 
-  it('keeps a stable reserved slot while progress ticks do not change searching signature', () => {
+  it('keeps a stable reserved slot while empty searching progress ticks do not thrash', () => {
     const { getByTestId, getByText, rerender } = render(
       <ComputerPickerStatusRegion
         scanning
@@ -206,7 +206,7 @@ describe('ComputerPickerStatusRegion', () => {
           stage: 'gateway_health',
           completedHosts: 7,
           totalHosts: 8,
-          foundCount: 2,
+          foundCount: 0,
         }}
         scanResult={null}
         tailscaleProbing={false}
@@ -215,5 +215,44 @@ describe('ComputerPickerStatusRegion', () => {
       />,
     );
     expect(getByText('Searching for your computer…')).toBeTruthy();
+  });
+
+  it('promotes mid-scan found status after debounce so users can tap early', () => {
+    const { getByText, rerender } = render(
+      <ComputerPickerStatusRegion
+        scanning
+        scanProgress={{
+          stage: 'gateway_health',
+          completedHosts: 1,
+          totalHosts: 8,
+          foundCount: 0,
+        }}
+        scanResult={null}
+        tailscaleProbing={false}
+        tailscaleVpnActive
+        tailscaleDiscoveries={[]}
+      />,
+    );
+    expect(getByText('Searching for your computer…')).toBeTruthy();
+
+    rerender(
+      <ComputerPickerStatusRegion
+        scanning
+        scanProgress={{
+          stage: 'gateway_health',
+          completedHosts: 4,
+          totalHosts: 8,
+          foundCount: 1,
+        }}
+        scanResult={null}
+        tailscaleProbing={false}
+        tailscaleVpnActive
+        tailscaleDiscoveries={[discovery]}
+      />,
+    );
+    act(() => {
+      jest.advanceTimersByTime(COMPUTER_PICKER_STATUS_DEBOUNCE_MS + 20);
+    });
+    expect(getByText(/Computer found — finishing check/i)).toBeTruthy();
   });
 });

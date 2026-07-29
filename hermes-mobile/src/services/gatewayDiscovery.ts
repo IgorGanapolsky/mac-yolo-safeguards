@@ -50,6 +50,12 @@ export type DiscoverLanOptions = {
   onProgress?: (progress: LanScanProgress) => void;
   /** Known Tailscale hosts (100.x / MagicDNS) — sweep :8765/pair.json on each. */
   tailnetPairServerHosts?: string[];
+  /**
+   * When true (default), after known hosts (USB / preferLan / tailnet) yield ≥1
+   * unique computer, skip the full private /24 sweep. Full sweep still runs when
+   * the known path finds nothing (true cold-start on home Wi‑Fi).
+   */
+  skipFullSubnetWhenKnownFound?: boolean;
 };
 
 function reportLanScanProgress(
@@ -95,6 +101,60 @@ async function getPhoneLanIp(): Promise<string | null> {
     return null;
   }
   return raw.trim();
+}
+
+/**
+ * Only RFC1918 addresses may drive a /24 sweep. Tailscale CGNAT 100.x and
+ * carrier/public IPs must never expand into 254 host probes (false LAN).
+ */
+export function resolvePhonePrivateLanIp(raw: string | null | undefined): string | null {
+  const trimmed = raw?.trim() ?? '';
+  if (!trimmed || !IPV4_RE.test(trimmed)) {
+    return null;
+  }
+  if (!isPrivateLanIpv4(trimmed)) {
+    return null;
+  }
+  return trimmed;
+}
+
+/** Prefer / known hosts probed before any full subnet sweep. */
+export function buildKnownDiscoveryHosts(
+  preferLanIp?: string | null,
+  tailnetPairServerHosts?: string[],
+): string[] {
+  const baseHosts = Platform.OS === 'ios' ? [] : ['127.0.0.1', 'localhost'];
+  const prefer: string[] = [];
+  const preferTrim = preferLanIp?.trim() ?? '';
+  if (preferTrim) {
+    const hostOnly = preferTrim
+      .replace(/^https?:\/\//i, '')
+      .split('/')[0]
+      ?.split(':')[0]
+      ?.trim();
+    if (hostOnly) {
+      prefer.push(hostOnly);
+    }
+  }
+  const tailnetHosts = mergeTailnetProbeHosts(tailnetPairServerHosts ?? []);
+  return Array.from(new Set([...baseHosts, ...prefer, ...tailnetHosts]));
+}
+
+function gatewayProbeUrlForHost(host: string): string {
+  const normalized = host.trim();
+  if (isTailscaleIpv4(normalized) || normalized.endsWith('.ts.net')) {
+    return buildTailscaleGatewayUrl(normalized);
+  }
+  return buildGatewayUrlFromLanIp(normalized);
+}
+
+function probeTimeoutForHost(host: string): number {
+  const h = host.trim();
+  if (isTailscaleIpv4(h) || h.endsWith('.ts.net')) {
+    // Known Tailscale paths need more headroom than a /24 blast.
+    return PROBE_TIMEOUT_MS;
+  }
+  return SUBNET_PROBE_TIMEOUT_MS;
 }
 
 async function probeGatewayHealth(
@@ -494,10 +554,10 @@ function pairServerSweepHosts(
   preferLanIp?: string | null,
   tailnetPairServerHosts?: string[],
 ): string[] {
-  const baseHosts = Platform.OS === 'ios' ? [] : ['127.0.0.1', 'localhost'];
-  const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
-  const tailnetHosts = mergeTailnetProbeHosts(tailnetPairServerHosts ?? []);
-  return Array.from(new Set([...baseHosts, ...subnetHosts, ...tailnetHosts]));
+  const known = buildKnownDiscoveryHosts(preferLanIp, tailnetPairServerHosts);
+  const privateLan = resolvePhonePrivateLanIp(phoneIp);
+  const subnetHosts = privateLan ? buildHostOrder(privateLan, preferLanIp) : [];
+  return Array.from(new Set([...known, ...subnetHosts]));
 }
 
 async function sweepTailnetGatewayHealth(
@@ -552,29 +612,27 @@ export async function bootstrapTailnetProbeHostsFromPairServers(
 }
 
 /**
- * Sweep pair.json and /health together. A single host batch bounds both memory
- * pressure and elapsed time: ceil(256 / 4) * 400 ms is about 26 seconds in the
- * all-timeout case, instead of two sequential 48-second passes.
+ * Sweep pair.json and /health together for an explicit host list.
+ * Batch size bounds both memory pressure and peak sockets (≤8 live).
  */
-async function sweepAllPairServersAndGateways(
-  phoneIp: string,
-  preferLanIp?: string | null,
+async function sweepHostsPairAndHealth(
+  hosts: string[],
   options?: DiscoverLanOptions,
+  progress?: { completedOffset: number; totalHosts: number },
 ): Promise<{ gateways: DiscoveredGateway[]; tailnetProbeHosts: string[] }> {
-  const hosts = pairServerSweepHosts(phoneIp, preferLanIp, options?.tailnetPairServerHosts);
   const map = new Map<string, DiscoveredGateway>();
   let tailnetProbeHosts: string[] = [];
+  const totalHosts = progress?.totalHosts ?? hosts.length;
+  const completedOffset = progress?.completedOffset ?? 0;
 
   for (let start = 0; start < hosts.length; start += SUBNET_BATCH_SIZE) {
     const batch = hosts.slice(start, start + SUBNET_BATCH_SIZE);
     const results = await Promise.all(
       batch.map(async (host) => {
+        const timeoutMs = probeTimeoutForHost(host);
         const [payload, gateway] = await Promise.all([
-          fetchPairServerConfig(host, SUBNET_PROBE_TIMEOUT_MS),
-          probeGatewayDetailed(
-            buildGatewayUrlFromLanIp(host),
-            SUBNET_PROBE_TIMEOUT_MS,
-          ),
+          fetchPairServerConfig(host, timeoutMs),
+          probeGatewayDetailed(gatewayProbeUrlForHost(host), timeoutMs),
         ]);
         return { host, payload, gateway };
       }),
@@ -594,13 +652,94 @@ async function sweepAllPairServersAndGateways(
     reportLanScanProgress(
       options?.onProgress,
       'gateway_health',
-      Math.min(start + batch.length, hosts.length),
-      hosts.length,
+      Math.min(completedOffset + start + batch.length, totalHosts),
+      totalHosts,
       Array.from(map.values()),
     );
   }
 
   return { gateways: Array.from(map.values()), tailnetProbeHosts };
+}
+
+/**
+ * Sweep pair.json and /health together. Known hosts first; full private /24 only
+ * when needed. ceil(256 / 4) * 400 ms remains the cold-start upper bound.
+ */
+async function sweepAllPairServersAndGateways(
+  phoneIp: string,
+  preferLanIp?: string | null,
+  options?: DiscoverLanOptions,
+): Promise<{ gateways: DiscoveredGateway[]; tailnetProbeHosts: string[]; skippedFullSubnet: boolean }> {
+  const skipFullWhenKnown =
+    options?.skipFullSubnetWhenKnownFound !== false;
+  const knownHosts = buildKnownDiscoveryHosts(
+    preferLanIp,
+    options?.tailnetPairServerHosts,
+  );
+  const privateLan = resolvePhonePrivateLanIp(phoneIp);
+  const subnetHosts = privateLan
+    ? buildHostOrder(privateLan, preferLanIp).filter((h) => !knownHosts.includes(h))
+    : [];
+  const totalHosts = knownHosts.length + subnetHosts.length;
+
+  const map = new Map<string, DiscoveredGateway>();
+  let tailnetProbeHosts: string[] = [];
+
+  const knownSweep = await sweepHostsPairAndHealth(knownHosts, options, {
+    completedOffset: 0,
+    totalHosts: Math.max(totalHosts, knownHosts.length),
+  });
+  for (const item of knownSweep.gateways) {
+    mergeDiscovered(map, item);
+  }
+  tailnetProbeHosts = mergeTailnetProbeHosts(
+    tailnetProbeHosts,
+    knownSweep.tailnetProbeHosts,
+  );
+
+  // Newly learned tailnet peers from pair.json — probe them before deciding on /24.
+  const learnedTailnet = mergeTailnetProbeHosts(tailnetProbeHosts).filter(
+    (h) => !knownHosts.includes(h),
+  );
+  if (learnedTailnet.length > 0) {
+    const learnedSweep = await sweepHostsPairAndHealth(learnedTailnet, options, {
+      completedOffset: knownHosts.length,
+      totalHosts: Math.max(totalHosts, knownHosts.length + learnedTailnet.length),
+    });
+    for (const item of learnedSweep.gateways) {
+      mergeDiscovered(map, item);
+    }
+    tailnetProbeHosts = mergeTailnetProbeHosts(
+      tailnetProbeHosts,
+      learnedSweep.tailnetProbeHosts,
+    );
+  }
+
+  const knownFound = countUniqueDiscoveredMachines(Array.from(map.values()));
+  let skippedFullSubnet = false;
+  if (subnetHosts.length > 0) {
+    if (skipFullWhenKnown && knownFound >= 1) {
+      skippedFullSubnet = true;
+    } else {
+      const subnetSweep = await sweepHostsPairAndHealth(subnetHosts, options, {
+        completedOffset: knownHosts.length,
+        totalHosts: knownHosts.length + subnetHosts.length,
+      });
+      for (const item of subnetSweep.gateways) {
+        mergeDiscovered(map, item);
+      }
+      tailnetProbeHosts = mergeTailnetProbeHosts(
+        tailnetProbeHosts,
+        subnetSweep.tailnetProbeHosts,
+      );
+    }
+  }
+
+  return {
+    gateways: Array.from(map.values()),
+    tailnetProbeHosts,
+    skippedFullSubnet,
+  };
 }
 
 /** Find every Hermes Mac on the LAN (pair server + gateway health sweep). */
@@ -609,11 +748,17 @@ export async function discoverAllGatewaysOnLan(
   options?: DiscoverLanOptions,
 ): Promise<DiscoverAllGatewaysOnLanResult> {
   const phoneIp = await getPhoneLanIp();
-  const baseHosts = ['127.0.0.1', 'localhost'];
-  const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
-  const hosts = [...baseHosts, ...subnetHosts];
+  const privateLan = resolvePhonePrivateLanIp(phoneIp);
+  const knownHosts = buildKnownDiscoveryHosts(
+    preferLanIp,
+    options?.tailnetPairServerHosts,
+  );
+  const subnetHostCount = privateLan
+    ? buildHostOrder(privateLan, preferLanIp).filter((h) => !knownHosts.includes(h)).length
+    : 0;
+  const estimatedTotal = knownHosts.length + subnetHostCount;
 
-  reportLanScanProgress(options?.onProgress, 'pair_server', 0, hosts.length, []);
+  reportLanScanProgress(options?.onProgress, 'pair_server', 0, estimatedTotal, []);
 
   const map = new Map<string, DiscoveredGateway>();
   const fromSweep = await sweepAllPairServersAndGateways(
@@ -637,7 +782,13 @@ export async function discoverAllGatewaysOnLan(
   const list = dedupeDiscoveredGatewaysByMachine(
     filterPhoneTailscaleSelfPeers(Array.from(map.values()), phoneTailscaleIp),
   );
-  reportLanScanProgress(options?.onProgress, 'complete', hosts.length, hosts.length, list);
+  reportLanScanProgress(
+    options?.onProgress,
+    'complete',
+    estimatedTotal,
+    estimatedTotal,
+    list,
+  );
   if (preferLanIp && IPV4_RE.test(preferLanIp.trim())) {
     const preferUrl = buildGatewayUrlFromLanIp(preferLanIp.trim());
     const preferKey = normalizeGatewayUrl(preferUrl).httpBase;
@@ -663,7 +814,8 @@ async function sweepSubnetForPairServer(
   preferLanIp?: string | null,
 ): Promise<string | null> {
   const baseHosts = Platform.OS === 'ios' ? [] : ['127.0.0.1', 'localhost'];
-  const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
+  const privateLan = resolvePhonePrivateLanIp(phoneIp);
+  const subnetHosts = privateLan ? buildHostOrder(privateLan, preferLanIp) : [];
   const hosts = [...baseHosts, ...subnetHosts];
   if (hosts.length === 0) {
     return null;
@@ -711,7 +863,8 @@ export async function discoverGatewayOnPhoneSubnet(
 ): Promise<string | null> {
   const phoneIp = await getPhoneLanIp();
   const baseHosts = Platform.OS === 'ios' ? [] : ['127.0.0.1', 'localhost'];
-  const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
+  const privateLan = resolvePhonePrivateLanIp(phoneIp);
+  const subnetHosts = privateLan ? buildHostOrder(privateLan, preferLanIp) : [];
   const hosts = [...baseHosts, ...subnetHosts];
   if (hosts.length === 0) {
     return null;

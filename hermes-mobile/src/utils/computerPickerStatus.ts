@@ -71,6 +71,24 @@ export function resolveComputerPickerStatus(
   if (input.scanning) {
     // Stable copy only — mid-scan host % / stage labels reflow the sheet (jitter).
     // Detailed progress stays on MacScanProgressCard when that surface is shown.
+    // When something is already found, say so and keep Add chips — users must not
+    // wait for a leftover /24 drain when a Tailscale Mac is already listed.
+    const foundSoFar = Math.max(
+      input.scanProgress?.foundCount ?? 0,
+      discoveries.length,
+    );
+    if (foundSoFar > 0) {
+      return {
+        kind: 'searching',
+        title:
+          foundSoFar === 1
+            ? 'Computer found — finishing check…'
+            : `${foundSoFar} computers found — finishing check…`,
+        detail: 'Tap a computer below anytime. We only look briefly for others.',
+        discoveries,
+        success: true,
+      };
+    }
     return {
       kind: 'searching',
       title: 'Searching for your computer…',

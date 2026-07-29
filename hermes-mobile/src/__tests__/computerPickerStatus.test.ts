@@ -40,22 +40,39 @@ describe('computerPickerStatus', () => {
   it('collapses searching + Tailscale probe + result into one searching mode while scanning', () => {
     const status = resolveComputerPickerStatus({
       scanning: true,
-      scanProgress: scanningProgress,
+      scanProgress: { ...scanningProgress, foundCount: 0 },
       scanResult,
       showScanResult: true,
       tailscaleProbing: true,
       tailscaleVpnActive: true,
-      tailscaleDiscoveries: [discovery],
+      tailscaleDiscoveries: [],
     });
     expect(status.kind).toBe('searching');
     expect(status.title).toBe('Searching for your computer…');
     expect(status.discoveries).toEqual([]);
   });
 
-  it('keeps searching title stable across progress ticks (no % thrash)', () => {
-    const a = resolveComputerPickerStatus({
+  it('surfaces found mid-scan so users can tap without waiting for /24 drain', () => {
+    const status = resolveComputerPickerStatus({
       scanning: true,
       scanProgress: scanningProgress,
+      scanResult: null,
+      showScanResult: false,
+      tailscaleProbing: true,
+      tailscaleVpnActive: true,
+      tailscaleDiscoveries: [discovery],
+    });
+    expect(status.kind).toBe('searching');
+    expect(status.title).toMatch(/found/i);
+    expect(status.title).not.toBe('Searching for your computer…');
+    expect(status.discoveries).toEqual([discovery]);
+    expect(status.detail).toMatch(/tap/i);
+  });
+
+  it('keeps empty searching title stable across progress ticks (no % thrash)', () => {
+    const a = resolveComputerPickerStatus({
+      scanning: true,
+      scanProgress: { ...scanningProgress, foundCount: 0 },
       scanResult: null,
       showScanResult: false,
       tailscaleProbing: false,
@@ -64,7 +81,7 @@ describe('computerPickerStatus', () => {
     });
     const b = resolveComputerPickerStatus({
       scanning: true,
-      scanProgress: { ...scanningProgress, completedHosts: 9, foundCount: 2 },
+      scanProgress: { ...scanningProgress, completedHosts: 9, foundCount: 0 },
       scanResult: null,
       showScanResult: false,
       tailscaleProbing: false,
@@ -73,6 +90,7 @@ describe('computerPickerStatus', () => {
     });
     expect(computerPickerStatusSignature(a)).toBe(computerPickerStatusSignature(b));
     expect(a.title).toBe(b.title);
+    expect(a.title).toBe('Searching for your computer…');
   });
 
   it('shows a single Tailscale searching line when probing with no discoveries', () => {
