@@ -40,7 +40,7 @@
 
 ### LinkedIn connection (no note) then DM after accept
 
-> Saw you’re deep in agent tooling at [Company]. I’m co-building ThumbGate Continuity (Mac stays primary; paid VPS only when the lid closes). Looking for 5 design partners for a 30–60 day co-build — free Continuity during design, 50% off for a year after. 45 min every other week. Interested?
+> Saw you’re deep in agent tooling at [Company]. I’m co-building ThumbGate Continuity (Mac stays primary; Continuity VPS is optional offline failover when the Mac is unreachable, or you can pin tasks to Continuity). Looking for 5 design partners for a 30–60 day co-build — free Continuity during design, 50% off for a year after. 45 min every other week. Interested?
 
 ### Email DP ask (igor@igorganapolsky.com)
 

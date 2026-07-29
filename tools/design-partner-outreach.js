@@ -55,7 +55,7 @@ ${CONT}
 function linkedInDm({ name, company }) {
   const n = name ? name.split(/\s+/)[0] : '';
   const co = company ? ` (${company})` : '';
-  return `${n ? `${n} — ` : ''}co-building ThumbGate Continuity${co}: Mac primary, paid VPS only when the lid closes. Looking for 5 design partners — free during co-build, 50% off for a year after, 45 min biweekly. If runaway agents or offline Mac death is real for you, want in? ${CONT}`;
+  return `${n ? `${n} — ` : ''}co-building ThumbGate Continuity${co}: Mac primary; Continuity VPS is optional offline failover (or pin tasks there). Looking for 5 design partners — free during co-build, 50% off for a year after, 45 min biweekly. If runaway agents or offline Mac death is real for you, want in? ${CONT}`;
 }
 
 function main() {
