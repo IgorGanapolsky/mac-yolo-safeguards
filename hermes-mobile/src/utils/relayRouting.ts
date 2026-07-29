@@ -92,7 +92,15 @@ export function resolveRelayRouteDisplay(input: {
           ? neverConnected
             ? 'Waiting for approval pairing…'
             : 'Reconnecting…'
-          : 'Cloud approvals are not paired',
+          : // PRODUCT LAW (connectionStatusContract.ts, "2026-07-22 rage"): when the phone can
+            // reach the computer over HTTP, never surface "not paired" as primary status — cloud
+            // approval pairing is SECONDARY and is not the computer connection. This line was
+            // still rendering "Cloud approvals are not paired" directly beside the machine name
+            // while the computer was reachable, which is exactly what the law forbids and what
+            // was reported as "Chat approvals are not paired???? What the actual fuck".
+            input.macHttpOk
+            ? 'Approvals on this computer only'
+            : 'Cloud approvals are not paired',
     };
   }
 

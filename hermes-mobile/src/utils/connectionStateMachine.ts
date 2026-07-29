@@ -81,7 +81,10 @@ export function isForwardProgress(previous: ConnectionStage, next: ConnectionSta
 const REASON_COPY: Record<ConnectionReasonCode, string> = {
   usb_missing: 'No cable detected — plug in USB or connect over Wi‑Fi.',
   port_closed: 'Computer is on the network but the Hermes gateway port is not responding.',
-  auth_failed: 'Outdated connection — tap Re-pair this Mac to reconnect.',
+  // "Outdated connection" named nothing real and pointed at no action — reported as
+  // "what the fuck is outdated connection????". auth_failed means the computer answered
+  // and REJECTED this phone's key, so say that and name the fix.
+  auth_failed: 'Your computer rejected this phone\u2019s key — tap Re-pair this Mac.',
   event_socket_optional: 'Connected. Live updates are reconnecting in the background.',
 };
 
