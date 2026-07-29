@@ -69,6 +69,38 @@ test('isLiveStatus recognizes Published/Posted', () => {
   assert.ok(isLiveStatus('posted'));
   assert.ok(!isLiveStatus('Drafted'));
   assert.ok(!isLiveStatus('Blocked'));
+  assert.ok(!isLiveStatus('Superseded'));
+});
+
+test('superseded campaign blocks re-post on same platform+campaign', () => {
+  const log = writeTempLog([
+    [
+      '2026-07-29',
+      'LinkedIn',
+      'p',
+      'pain',
+      'a',
+      'e',
+      'Your agent does not stop needing a machine',
+      'cta',
+      'thumbgate_continuity_lid_20260729',
+      'Superseded',
+      '—',
+      'Superseded same-day by engine-2026-07',
+    ].join('\t'),
+  ]);
+  const r = evaluate({
+    platform: 'linkedin',
+    campaign: 'thumbgate_continuity_lid_20260729',
+    hook: 'Your agent does not stop needing a machine when your laptop does.',
+    lookbackDays: 14,
+    log,
+    requireBuyLinks: false,
+    requireMentions: false,
+    allowPartial: false,
+  });
+  assert.strictEqual(r.decision, 'BLOCK');
+  assert.ok(r.blocks.some((b) => /Retired campaign/i.test(b)));
 });
 
 test('hasDeadFreePlay blocks free package not paid', () => {

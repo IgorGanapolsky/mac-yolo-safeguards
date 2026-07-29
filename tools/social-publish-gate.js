@@ -35,6 +35,8 @@ const DEFAULT_LOG = path.join(ROOT, 'docs/social/hermes-mobile-content-log.tsv')
 const LOOKBACK_DAYS = 14;
 
 const LIVE_STATUSES = new Set(['published', 'posted', 'live']);
+/** Campaign rows retired on purpose — must not ALLOW a re-post of the same platform+campaign. */
+const RETIRED_STATUSES = new Set(['superseded', 'cancelled', 'canceled', 'retired', 'killed']);
 const FROZEN_PLATFORMS = new Set(['hashnode']);
 const BANNED_PLATFORMS = new Set(['zernio', 'creator-platform-promo', 'creator_platform_promo']);
 
@@ -144,6 +146,10 @@ function normalizeStatus(s) {
 
 function isLiveStatus(status) {
   return LIVE_STATUSES.has(normalizeStatus(status));
+}
+
+function isRetiredStatus(status) {
+  return RETIRED_STATUSES.has(normalizeStatus(status));
 }
 
 function parseDate(s) {
@@ -322,6 +328,21 @@ function evaluate(args) {
       );
     }
 
+    const sameCampaignRetired = log.rows.filter((r) => {
+      if (r.platform !== platform) return false;
+      if (r.campaign !== campaign) return false;
+      return isRetiredStatus(r.status);
+    });
+    if (sameCampaignRetired.length > 0) {
+      const sample = sameCampaignRetired
+        .slice(0, 3)
+        .map((r) => `L${r.line} ${r.status}`)
+        .join('; ');
+      blocks.push(
+        `Retired campaign blocked: ${platform} + campaign "${campaign}" is ${sameCampaignRetired[0].status} (${sameCampaignRetired.length}). ${sample}. Do not Post — pick a new campaign id.`,
+      );
+    }
+
     if (hook) {
       const fp = hookFingerprint(hook);
       if (fp.length >= 20) {
@@ -471,6 +492,7 @@ module.exports = {
   parseContentLog,
   normalizePlatform,
   isLiveStatus,
+  isRetiredStatus,
   hasDeadFreePlay,
   hasBuyLink,
   checkMentions,
