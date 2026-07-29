@@ -1,3 +1,4 @@
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @import "tailwindcss";
 
 :root { --ink:#F9FAFB;--text-secondary:#D1D5DB;--muted:#9CA3AF;--line:rgba(255,255,255,.08);--brand-line:rgba(79,70,229,.2);--panel:rgba(255,255,255,.04);--panel-solid:#111827;--primary:#4F46E5;--secondary:#6366F1;--accent:#22D3EE;--accent-dim:rgba(34,211,238,.12);--green:#22D3EE;--green-strong:#67E8F9;--green-dim:rgba(34,211,238,.12);--success:#10B981;--orange:#F59E0B;--danger:#EF4444;--bg:#0B0F19;--bg-end:#111827;--user-bubble:#3D3834;--user-bubble-text:#F4F1EC;--composer:#1A1D24; }
@@ -762,3 +763,26 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .empty-state-compact h3{margin:0 0 4px;font-size:13px}
 .empty-state-compact p{margin:0;max-width:none;color:var(--muted);font-size:12px;line-height:1.45}
 
+
+/* Unified Run-on control (replaces dual Where/Which on mobile) */
+.composer-unified-target{
+  display:grid;
+  grid-template-columns:auto 1fr;
+  align-items:center;
+  gap:10px;
+  margin:8px 0 4px;
+  padding:8px 12px;
+  border:1px solid rgba(56,189,248,.35);
+  border-radius:12px;
+  background:rgba(15,23,42,.95);
+}
+.composer-unified-target label{margin:0;color:#38BDF8;font-size:12px;font-weight:700;white-space:nowrap}
+.composer-unified-target select{
+  width:100%;min-height:40px;padding:6px 10px;border:1px solid rgba(56,189,248,.25);
+  border-radius:8px;background:#0B0F19;color:#F8FAFC;
+  font:600 13px/1.3 Inter,ui-sans-serif,system-ui,sans-serif;
+}
+@media(max-width:700px){
+  .task-panel .composer{max-height:min(32dvh,260px)!important}
+  .composer textarea{min-height:40px!important;max-height:64px!important;}
+}
