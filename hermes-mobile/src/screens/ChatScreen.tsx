@@ -387,10 +387,20 @@ import {
 import {
   findLastFailedOutboundText,
   resolveComposerSendAction,
+  resolveComposerSendText,
   shouldHideMacTileForSilentHeal,
   isEmptyReplyFailureMessage,
   shouldShowFailedSendRetry,
 } from '../utils/failedSendRetry';
+import {
+  clearOutboundSubmissions,
+  createOutboundId,
+  createOutboundSubmissionLedger,
+  markOutboundBubbleDelivered,
+  markOutboundSubmissionAccepted,
+  recordOutboundSubmission,
+  resolveStallRecoveryPlan,
+} from '../utils/outboundSubmissionLedger';
 import {
   listAllPendingTextApprovals,
   listInlineTextApprovals,
@@ -855,6 +865,12 @@ export default function ChatScreen() {
     async () => false,
   );
   const lastFailedSendTextRef = useRef<string | null>(null);
+  /** One user message = one gateway submission. Stall recovery reads this to
+   *  decide resume-vs-resend instead of blindly re-POSTing (duplicate-run P0). */
+  const outboundLedgerRef = useRef(createOutboundSubmissionLedger());
+  const outboundSubmissionSeqRef = useRef(0);
+  /** Assigned below once startDeferredReplyPoll exists — resume, never re-POST. */
+  const resumeStalledOutboundRef = useRef<(body: string) => void>(() => {});
   const stalledRecoveriesUsedRef = useRef(0);
   const stalledRecoverInFlightRef = useRef(false);
   const activeChatStreamRef = useRef(false);
@@ -1277,6 +1293,13 @@ export default function ChatScreen() {
     () => findLastFailedOutboundText(messages),
     [messages],
   );
+  // Read by the stable-identity ↑ handler — keeps ChatInputBar's memo intact.
+  const lastFailedOutboundTextRef = useRef<string | null>(null);
+  lastFailedOutboundTextRef.current = lastFailedOutboundText;
+  const isDemoRef = useRef(isDemo);
+  isDemoRef.current = isDemo;
+  const macChatLiveRef = useRef(macChatLive);
+  macChatLiveRef.current = macChatLive;
   const connectivityRunFailure = useMemo(
     () =>
       shouldShowFailedSendRetry({
@@ -1330,6 +1353,7 @@ export default function ChatScreen() {
   useEffect(() => {
     stalledRecoveriesUsedRef.current = 0;
     stalledRecoverInFlightRef.current = false;
+    clearOutboundSubmissions(outboundLedgerRef.current);
   }, [currentSession?.id]);
 
   useEffect(() => {
@@ -1367,6 +1391,16 @@ export default function ChatScreen() {
       if (!retryText) {
         return;
       }
+      // P0 duplicate-run guard: the Mac may already hold this exact prompt.
+      // Re-POSTing it runs the user's instruction twice and appends a second
+      // identical user row to the server transcript (the two-bubble report).
+      const plan = resolveStallRecoveryPlan({
+        failedText: retryText,
+        ledger: outboundLedgerRef.current,
+      });
+      if (plan.kind === 'none') {
+        return;
+      }
       stalledRecoverInFlightRef.current = true;
       stalledRecoveriesUsedRef.current += 1;
       lastFailedSendTextRef.current = retryText;
@@ -1379,6 +1413,17 @@ export default function ChatScreen() {
               detail: STALLED_SEND_RECOVERING_HINT,
             },
       );
+      if (plan.kind === 'resume') {
+        // Gateway already accepted this outbound — resume (poll for the reply)
+        // instead of submitting again. Never release the operator slot here:
+        // that would kill the very run we are waiting on.
+        try {
+          resumeStalledOutboundRef.current(retryText);
+        } finally {
+          stalledRecoverInFlightRef.current = false;
+        }
+        return;
+      }
       void (async () => {
         try {
           const runIds = [
@@ -3397,6 +3442,43 @@ export default function ChatScreen() {
     [startDeferredReplyPoll],
   );
 
+  /**
+   * Stall recovery for an outbound the gateway ALREADY accepted: resume the
+   * existing run (re-mark delivered + poll the transcript) instead of issuing a
+   * second submission. One user message must produce exactly one submission.
+   */
+  const resumeStalledOutboundDelivery = useCallback(
+    (body: string) => {
+      const text = body.trim();
+      if (!text) {
+        return;
+      }
+      isSendingRef.current = false;
+      setIsSending(false);
+      setErrorMessage(null);
+      commitMessages((prev) => markOutboundBubbleDelivered(prev, text));
+      pinnedOutboundStatusRef.current = 'sent';
+      setPinnedOutboundStatus('sent');
+      setRunProgress((prev) =>
+        prev
+          ? { ...prev, phase: 'working', detail: STALLED_SEND_RECOVERING_HINT }
+          : {
+              phase: 'working',
+              startedAtMs: Date.now(),
+              detail: STALLED_SEND_RECOVERING_HINT,
+              sessionId: currentSessionRef.current?.id,
+            },
+      );
+      startDeferredReplyPoll(
+        `asst-resume-${Date.now()}`,
+        snapshotAssistantBodies(messagesRef.current),
+        { recoveryMode: true },
+      );
+    },
+    [commitMessages, setRunProgress, startDeferredReplyPoll],
+  );
+  resumeStalledOutboundRef.current = resumeStalledOutboundDelivery;
+
   const resumeEmptyStreamRecoveryPoll = useCallback(() => {
     if (isDemo || !macChatLive || deferredTelegramPollRef.current) {
       return;
@@ -4873,14 +4955,38 @@ export default function ChatScreen() {
 
   const handleSend = useCallback(
     (latestText?: string) => {
-      const composerText = latestText ?? inputValueRef.current;
+      const composerText = resolveComposerSendText({
+        latestText,
+        composerValue: inputValueRef.current,
+        lastSentComposerText: lastSentComposerTextRef.current,
+      });
       if (!composerHasSendableContent(composerText, composerAttachmentsRef.current)) {
+        /**
+         * P0 (2026-07-25): the failed bubble tells the user "tap ↑ to send
+         * again", and this early return was swallowing that tap — the retry
+         * branch lives in handleSendMessage (resolveComposerSendAction), which
+         * was never reached with an empty composer. Route the tap through it.
+         *
+         * Gate strictly on a failed bubble that is ACTUALLY in the transcript —
+         * never on lastFailedSendTextRef, which outlives a recovered send and
+         * would turn a stray ↑ into a resurrected old prompt.
+         */
+        const retryAction = resolveComposerSendAction({
+          composerText: '',
+          lastFailedText: lastFailedOutboundTextRef.current,
+          isDemo: isDemoRef.current,
+          macChatLive: macChatLiveRef.current,
+        });
+        if (retryAction.kind === 'none') {
+          return;
+        }
+        void handleSendMessageRef.current('');
         return;
       }
       if (shouldBlockComposerSend(composerText)) {
         return;
       }
-      void handleSendMessageRef.current(latestText);
+      void handleSendMessageRef.current(composerText);
     },
     [shouldBlockDuplicateOutboundSend],
   );
@@ -6025,6 +6131,32 @@ export default function ChatScreen() {
     let sendSucceeded = false;
     let sendFailureDetail: string | null = null;
 
+    // Idempotency record for THIS outbound intent. Stall recovery consults the
+    // ledger before it ever considers re-submitting (duplicate-run P0).
+    outboundSubmissionSeqRef.current += 1;
+    const outboundSubmissionId = createOutboundId(
+      Date.now(),
+      outboundSubmissionSeqRef.current,
+    );
+    recordOutboundSubmission(outboundLedgerRef.current, {
+      outboundId: outboundSubmissionId,
+      body: normalizedDisplay,
+      nowMs: Date.now(),
+    });
+    /**
+     * Deliberately NOT routed through markMessageDeliveredToMac(): that helper is
+     * gated on isGatewayLiveForDelivery(), so a red health probe at accept time
+     * leaves a delivered bubble on `pending`. That exact gap is what let stall
+     * recovery re-POST a prompt the Mac was already running.
+     */
+    const markOutboundAcceptedByGateway = () => {
+      markOutboundSubmissionAccepted(
+        outboundLedgerRef.current,
+        outboundSubmissionId,
+        Date.now(),
+      );
+    };
+
     try {
       activeChatStreamRef.current = true;
       setIsChatStreamActive(true);
@@ -6258,6 +6390,7 @@ export default function ChatScreen() {
           mobileChatSystemPrompt,
           () => {
             streamAccepted = true;
+            markOutboundAcceptedByGateway();
             markMessageDeliveredToMac();
             releaseOutboundSendLock();
             setRunProgress((prev) =>
@@ -6406,6 +6539,7 @@ export default function ChatScreen() {
               ),
             notifyWaitingForMacSlot,
           );
+          markOutboundAcceptedByGateway();
           assistantText = response.assistantText;
           updateAssistant(assistantText);
           setToolStatus('Sent without live stream (connection fallback)');
@@ -6421,6 +6555,7 @@ export default function ChatScreen() {
         return false;
       }
 
+      markOutboundAcceptedByGateway();
       markMessageDeliveredToMac();
 
       const telegramDeferred = isTelegramDeferredEmptyStream(activeSess, assistantText);
@@ -7833,7 +7968,10 @@ export default function ChatScreen() {
           }
           sendMuted={
             megaSessionSendHardBlocked ||
-            !composerHasSendableContent(inputValue, composerAttachments)
+            // Empty composer + a retryable failed send IS actionable — the bubble
+            // says "tap ↑ to send again", so the arrow must not read as dead.
+            (!composerHasSendableContent(inputValue, composerAttachments) &&
+              !hasRetryableFailedSend)
           }
           sendDisabled={isComposerSendDisabled({
             isSending,
