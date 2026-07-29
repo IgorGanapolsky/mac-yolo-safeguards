@@ -1,6 +1,7 @@
 import type { GatewayHealthSnapshot } from '../types/gateway';
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
 import {
+  EXPLICIT_PAIR_SETUP_TIMEOUT_MS,
   pairServerHostFromGatewayUrl,
   resolvePairServerSetupParams,
   withFreshPairServerSetup,
@@ -60,15 +61,49 @@ const defaultDependencies: ManualGatewayConnectionDependencies = {
   clearApiKey: () => secureCredentials.clearApiKey(),
   resolvePairServerSetupParams,
   withFreshPairServerSetup,
-  exchangePairingCode,
+  // The one-time code exchange is part of the same explicit connect. Its 5s default
+  // is a LAN budget: it cannot survive a single ~3.4s DERP round trip plus the pair
+  // server's code lookup. Deep-link and background callers keep the short default.
+  exchangePairingCode: (pairServerUrl, code) =>
+    exchangePairingCode(pairServerUrl, code, undefined, EXPLICIT_PAIR_SETUP_TIMEOUT_MS),
   fetchGatewayHealth,
   rememberTailnetProbeHost,
 };
 
-// A user can submit while the bounded LAN sweep is still draining. Give both LAN and
-// Tailscale enough time for health plus the authenticated sessions probe under contention.
-const MANUAL_PROBE_TIMEOUT_MS = 12_000;
-const TAILSCALE_MANUAL_PROBE_TIMEOUT_MS = 12_000;
+// A user can submit while the bounded LAN sweep is still draining. Give LAN enough
+// time for health plus the authenticated sessions probe under contention.
+export const MANUAL_PROBE_TIMEOUT_MS = EXPLICIT_PAIR_SETUP_TIMEOUT_MS;
+
+/**
+ * Cellular Tailscale is a DERP-relayed link, not a direct one. Measured against the
+ * phone's own tailnet peer:
+ *
+ *   $ tailscale ping <mac-tailnet-ip>
+ *   pong from <mac> via DERP(iad) in 3.416s
+ *   direct connection not established
+ *
+ * One relayed round trip is ~3.4s, and the first request on a fresh relayed socket
+ * also pays the TCP handshake, so it costs about two round trips before the first
+ * byte. `fetchGatewayHealth` spends ONE wall-clock budget across up to three
+ * sequential requests (/health/detailed → /health → /api/sessions), i.e. roughly
+ * four relay round trips ≈ 14s of pure transit. A 12s budget therefore aborted a
+ * healthy Mac mid-verification and reported "Couldn't reach Hermes at this Tailscale
+ * address." while curl on the Mac itself returned 200.
+ *
+ * This budget is for the EXPLICIT connect only — the user typed an address and is
+ * watching a spinner. Background discovery keeps its short probes
+ * (SUBNET_PROBE_TIMEOUT_MS = 400ms, PROBE_TIMEOUT_MS = 1.5s) so the LAN sweep and
+ * health polling stay fast. The ceiling stays under the 30s explicit repair budget
+ * (REPAIR_CONNECTION_TIMEOUT_MS) so Connect can never hang indefinitely.
+ */
+export const TAILSCALE_RELAY_ROUND_TRIP_MS = 3_500;
+const TAILSCALE_HEALTH_RELAY_ROUND_TRIPS = 4;
+/** DERP relay latency is not stable; leave headroom for a slow relay hop. */
+const TAILSCALE_RELAY_JITTER_FACTOR = 1.5;
+export const TAILSCALE_MANUAL_PROBE_TIMEOUT_MS =
+  TAILSCALE_RELAY_ROUND_TRIP_MS *
+  TAILSCALE_HEALTH_RELAY_ROUND_TRIPS *
+  TAILSCALE_RELAY_JITTER_FACTOR;
 const PAIRING_CODE_MAX_ATTEMPTS = 3;
 
 function displayComputerName(value?: string | null): string | null {

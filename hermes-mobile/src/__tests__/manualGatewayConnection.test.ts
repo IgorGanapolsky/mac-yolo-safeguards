@@ -1,6 +1,8 @@
 import type { GatewayHealthSnapshot } from '../types/gateway';
 import {
   connectManualGatewayAddress,
+  MANUAL_PROBE_TIMEOUT_MS,
+  TAILSCALE_MANUAL_PROBE_TIMEOUT_MS,
   type ManualGatewayConnectionDependencies,
 } from '../services/manualGatewayConnection';
 
@@ -47,7 +49,11 @@ describe('connectManualGatewayAddress', () => {
     ).rejects.toThrow('Couldn’t reach Hermes at this Tailscale address.');
     expect(persistProfile).not.toHaveBeenCalled();
     expect(deps.saveApiKey).not.toHaveBeenCalled();
-    expect(deps.fetchGatewayHealth).toHaveBeenCalledWith(gatewayUrl, null, 12_000);
+    expect(deps.fetchGatewayHealth).toHaveBeenCalledWith(
+      gatewayUrl,
+      null,
+      TAILSCALE_MANUAL_PROBE_TIMEOUT_MS,
+    );
   });
 
   it('does not persist a reachable address that is not paired', async () => {
@@ -148,7 +154,11 @@ describe('connectManualGatewayAddress', () => {
       'http://100.70.124.54:8765',
       'AB23CD45',
     );
-    expect(deps.fetchGatewayHealth).toHaveBeenCalledWith(gatewayUrl, 'fresh-key', 12_000);
+    expect(deps.fetchGatewayHealth).toHaveBeenCalledWith(
+      gatewayUrl,
+      'fresh-key',
+      TAILSCALE_MANUAL_PROBE_TIMEOUT_MS,
+    );
     expect(deps.saveApiKey).toHaveBeenCalledWith('fresh-key');
     expect(persistProfile).toHaveBeenCalledWith(
       'Igors-MacBook-Pro',
@@ -238,7 +248,7 @@ describe('connectManualGatewayAddress', () => {
     expect(deps.fetchGatewayHealth).toHaveBeenCalledWith(
       gatewayUrl,
       'fresh-retry-key',
-      12_000,
+      TAILSCALE_MANUAL_PROBE_TIMEOUT_MS,
     );
     expect(deps.saveApiKey).toHaveBeenCalledWith('fresh-retry-key');
     expect(persistProfile).toHaveBeenCalledWith(
@@ -264,7 +274,7 @@ describe('connectManualGatewayAddress', () => {
     expect(deps.fetchGatewayHealth).toHaveBeenCalledWith(
       'http://192.168.68.60:8642',
       null,
-      12_000,
+      MANUAL_PROBE_TIMEOUT_MS,
     );
     expect(persistProfile).toHaveBeenCalledWith(
       'Home network computer',
