@@ -1,5 +1,6 @@
 import React from 'react';
 import { act, cleanup, fireEvent, waitFor } from '@testing-library/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ChatScreen from '../screens/ChatScreen';
 import { renderInTabNavigator } from '../testUtils/navigation';
 
@@ -333,6 +334,10 @@ describe('ChatScreen outbound send recovery', () => {
     jest.clearAllMocks();
     const { streamSessionChat } = gatewayMocks();
     streamSessionChat.mockReset();
+    const fileSystem = jest.requireMock('expo-file-system/legacy') as {
+      readAsStringAsync: jest.Mock;
+    };
+    fileSystem.readAsStringAsync.mockResolvedValue('aW1hZ2UtYnl0ZXM=');
     const chatClient = jest.requireMock('../services/hermesChatClient') as {
       listSessions: jest.Mock;
       createSessionWithUniqueTitle: jest.Mock;
@@ -586,5 +591,93 @@ describe('ChatScreen outbound send recovery', () => {
     });
 
     expect(streamSessionChat).not.toHaveBeenCalled();
+  });
+
+  it('fails closed instead of text-only retrying a legacy attachment bubble', async () => {
+    await AsyncStorage.clear();
+    const { streamSessionChat } = gatewayMocks();
+    const chatClient = jest.requireMock('../services/hermesChatClient') as {
+      listMessages: jest.Mock;
+    };
+    chatClient.listMessages.mockResolvedValue([
+      {
+        id: 'legacy-failed-image',
+        role: 'user',
+        content: `${PROMPT}\n\n📎 missing-proof.png`,
+        outboundStatus: 'failed',
+      },
+    ]);
+
+    const { getAllByTestId, getByTestId } = await renderChat();
+    await waitFor(() => {
+      expect(
+        getAllByTestId('chat-message-body').some((node) =>
+          String(node.props.children).includes('missing-proof.png'),
+        ),
+      ).toBe(true);
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('chat-send-button'));
+      await Promise.resolve();
+    });
+
+    expect(streamSessionChat).not.toHaveBeenCalled();
+    expect(getByTestId('chat-input').props.value).toBe(PROMPT);
+    expect(getByTestId('composer-error-banner-text').props.children).toContain(
+      'attachment that is no longer available',
+    );
+  });
+
+  it('restores text and attachment chips when a remounted attachment URI expired', async () => {
+    await AsyncStorage.clear();
+    const { streamSessionChat } = gatewayMocks();
+    const chatClient = jest.requireMock('../services/hermesChatClient') as {
+      listMessages: jest.Mock;
+    };
+    chatClient.listMessages.mockResolvedValue([
+      {
+        id: 'persisted-failed-image',
+        role: 'user',
+        content: `${PROMPT}\n\n📎 retry-proof.png`,
+        outboundStatus: 'failed',
+        outboundRetryEnvelope: {
+          version: 1,
+          text: PROMPT,
+          displayText: `${PROMPT}\n\n📎 retry-proof.png`,
+          attachments: [
+            {
+              id: 'persisted-retry-proof',
+              name: 'retry-proof.png',
+              mimeType: 'image/png',
+              uri: 'file:///cache/expired-retry-proof.png',
+              kind: 'image',
+              sizeBytes: 68,
+            },
+          ],
+        },
+      },
+    ]);
+    const fileSystem = jest.requireMock('expo-file-system/legacy') as {
+      readAsStringAsync: jest.Mock;
+    };
+    fileSystem.readAsStringAsync.mockRejectedValueOnce(new Error('File not found'));
+
+    const { getByTestId } = await renderChat();
+    await waitFor(() => {
+      expect(getByTestId('chat-message-body').props.children).toContain('retry-proof.png');
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('chat-send-button'));
+      await Promise.resolve();
+    });
+
+    expect(streamSessionChat).not.toHaveBeenCalled();
+    expect(getByTestId('chat-input').props.value).toBe(PROMPT);
+    expect(getByTestId('chat-attachment-chips')).toBeTruthy();
+    expect(getByTestId('composer-error-banner-text').props.children).toContain(
+      'The message was not resent',
+    );
   });
 });
