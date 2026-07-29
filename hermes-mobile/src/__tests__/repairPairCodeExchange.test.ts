@@ -160,6 +160,111 @@ describe('re-pair performs the pair-code exchange', () => {
   });
 });
 
+describe('single-use codes: the Mac rotates instantly (200 then 404 on replay)', () => {
+  /**
+   * Reproduced against the live pair server: the first `/pair-exchange?code=X` returns 200,
+   * and the very next call with that same X returns 404. Any implementation that caches a
+   * code across attempts is therefore permanently broken from the second tap onward.
+   */
+  function rotatingPairServer(codes: string[]) {
+    const consumed = new Set<string>();
+    let served = 0;
+    const fetchMock = jest.fn(async (url: string) => {
+      if (url.endsWith('/pair.json')) {
+        const code = codes[Math.min(served, codes.length - 1)];
+        served += 1;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            ...SECRETLESS_PAIR_JSON,
+            deepLink: `hermes://setup?pairCode=${code}&pairServer=http%3A%2F%2F${PAIR_HOST}%3A8765&name=${MAC}`,
+          }),
+        };
+      }
+      const code = new URL(url).searchParams.get('code') ?? '';
+      if (consumed.has(code)) {
+        // Single-use: the server deletes the entry, so a replay reads as not_found.
+        return { ok: false, status: 404, json: async () => ({ error: 'not_found' }) };
+      }
+      consumed.add(code);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ gatewayUrl: GATEWAY_URL, apiKey: `key-for-${code}` }),
+      };
+    });
+    (global as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
+    return fetchMock;
+  }
+
+  it('gets a FRESH code for every attempt instead of replaying a dead one', async () => {
+    const fetchMock = rotatingPairServer(['CODE1111', 'CODE2222']);
+
+    const first = await refreshMacPairCredentials({
+      gatewayUrl: GATEWAY_URL,
+      machineLabel: MAC,
+      probeHealth: greenHealth,
+    });
+    const second = await refreshMacPairCredentials({
+      gatewayUrl: GATEWAY_URL,
+      machineLabel: MAC,
+      probeHealth: greenHealth,
+    });
+
+    expect(first).toMatchObject({ status: 'refreshed', apiKey: 'key-for-CODE1111' });
+    // The second tap must NOT replay CODE1111 (that now 404s) — it re-reads pair.json first.
+    expect(second).toMatchObject({ status: 'refreshed', apiKey: 'key-for-CODE2222' });
+    const exchangeUrls = fetchMock.mock.calls
+      .map(([url]) => String(url))
+      .filter((url) => url.includes('/pair-exchange'));
+    expect(exchangeUrls).toEqual([
+      `http://${PAIR_HOST}:8765/pair-exchange?code=CODE1111`,
+      `http://${PAIR_HOST}:8765/pair-exchange?code=CODE2222`,
+    ]);
+    // Every attempt re-reads pair.json before redeeming — never a cached code.
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/pair.json'))).toHaveLength(
+      2,
+    );
+  });
+
+  it('surfaces "already used" — not a no-op — when the served code is already rotated', async () => {
+    // pair.json keeps advertising a code the server has already consumed (stale disk
+    // snapshot / a code redeemed a moment ago), so the exchange 404s.
+    rotatingPairServer(['STALE111']);
+    await refreshMacPairCredentials({
+      gatewayUrl: GATEWAY_URL,
+      machineLabel: MAC,
+      probeHealth: greenHealth,
+    });
+
+    const retry = await refreshMacPairCredentials({
+      gatewayUrl: GATEWAY_URL,
+      machineLabel: MAC,
+      probeHealth: greenHealth,
+    });
+
+    expect(retry).toMatchObject({ status: 'failed', reason: 'code_already_used' });
+    if (retry.status !== 'failed') return;
+    expect(retry.message).toMatch(/already used/i);
+    expect(retry.message).toContain('pairing page');
+    expect(retry.message).toContain(WRONG_KEY_PRIMARY_CTA);
+    // Actionable, and distinct from the banner the user tapped.
+    expect(retry.message).not.toMatch(/no longer recognizes your phone/);
+  });
+
+  it('gives the redemption its own DERP-generous budget, not the 5s default', async () => {
+    // One DERP-relayed round trip is ~3.4s; pair.json + exchange must not share one budget.
+    const source = require('fs').readFileSync(
+      require('path').join(__dirname, '../utils/repairGatewayLink.ts'),
+      'utf8',
+    ) as string;
+    expect(source).toContain('PAIR_SERVER_REPAIR_TIMEOUT_MS = 12_000');
+    // The exchange is passed an explicit timeout instead of inheriting the 5s default.
+    expect(source).toMatch(/exchangePairingCodeDetailed\([\s\S]{0,600}?\n\s*timeoutMs,\n\s*\)/);
+  });
+});
+
 describe('a dead or missing pairing code never no-ops', () => {
   it('maps the pair server 410 expired to a specific, actionable message', async () => {
     mockFetchSequence([
@@ -183,7 +288,7 @@ describe('a dead or missing pairing code never no-ops', () => {
     expect(result.message).toContain(WRONG_KEY_PRIMARY_CTA);
   });
 
-  it('treats already_consumed and not_found as dead codes too', async () => {
+  it('separates "already used" (404 / already_consumed) from "expired" (410)', async () => {
     for (const [status, error] of [
       [410, 'already_consumed'],
       [404, 'not_found'],
@@ -193,7 +298,7 @@ describe('a dead or missing pairing code never no-ops', () => {
         { ok: false, status, body: { error } },
       ]);
       const resolution = await resolvePairSetupForRepairDetailed(PAIR_HOST);
-      expect(resolution).toEqual({ ok: false, reason: 'code_expired' });
+      expect(resolution).toEqual({ ok: false, reason: 'code_already_used' });
     }
     expect(isDeadPairCodeReason('expired')).toBe(true);
     expect(isDeadPairCodeReason('already_consumed')).toBe(true);
@@ -259,6 +364,7 @@ describe('a dead or missing pairing code never no-ops', () => {
       'pair_server_unreachable',
       'pair_payload_unusable',
       'code_expired',
+      'code_already_used',
       'exchange_unreachable',
       'exchange_failed',
       'no_credential',
@@ -275,9 +381,11 @@ describe('a dead or missing pairing code never no-ops', () => {
   });
 
   it('never leaks a raw pair-server reason code into user copy', () => {
-    expect(pairRepairFailureMessage('code_expired', MAC)).not.toMatch(
-      /already_consumed|not_found|pair-exchange|8765/,
-    );
+    for (const reason of ['code_expired', 'code_already_used'] as const) {
+      expect(pairRepairFailureMessage(reason, MAC)).not.toMatch(
+        /already_consumed|not_found|pair-exchange|8765|404|410/,
+      );
+    }
   });
 });
 

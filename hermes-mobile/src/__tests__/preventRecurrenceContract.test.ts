@@ -504,8 +504,16 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(exchange).toContain('/pair-exchange?code=');
     expect(repairUtil).toContain('exchangePairingCodeDetailed');
     expect(repairUtil).toContain('resolvePairSetupForRepairDetailed');
+    // Codes are single-use and the Mac rotates instantly (live: 200 then 404 on replay),
+    // so a code is never cached — pair.json is re-read before every redemption.
+    expect(repairUtil).toMatch(/pair\.json[\s\S]{0,400}?exchangePairingCodeDetailed/);
     // Every failure path must carry a reason the UI can turn into a next step.
-    for (const reason of ['code_expired', 'pair_server_unreachable', 'key_rejected']) {
+    for (const reason of [
+      'code_expired',
+      'code_already_used',
+      'pair_server_unreachable',
+      'key_rejected',
+    ]) {
       expect(repairUtil).toContain(reason);
     }
     expect(repairUtil).toContain('pairRepairFailureMessage');

@@ -63,7 +63,10 @@ export type PairRepairFailureReason =
   | 'no_pair_host'
   | 'pair_server_unreachable'
   | 'pair_payload_unusable'
+  /** 410 expired — the code aged out before it was redeemed. */
   | 'code_expired'
+  /** 404 / already_consumed — codes are single-use and the Mac rotates instantly. */
+  | 'code_already_used'
   | 'exchange_unreachable'
   | 'exchange_failed'
   | 'no_credential'
@@ -99,6 +102,11 @@ export function pairRepairFailureMessage(
       return (
         `That pairing code expired. Open the Hermes pairing page on your computer to show a fresh one, ` +
         `then tap ${WRONG_KEY_PRIMARY_CTA}.`
+      );
+    case 'code_already_used':
+      return (
+        `That pairing code was already used — each one works once. Open the Hermes pairing page on ` +
+        `your computer to show a new one, then tap ${WRONG_KEY_PRIMARY_CTA}.`
       );
     case 'exchange_unreachable':
       return (
@@ -140,9 +148,16 @@ export function pairRefreshUnverifiedMessage(machineLabel?: string | null): stri
  * side of `GET /pair-exchange?code=…` (tools/hermes-mobile-pair.js). Reading pair.json and
  * hoping for an `apiKey` is what made "Re-pair this Mac" a permanent no-op.
  *
+ * Codes are SINGLE-USE and the Mac rotates instantly: reproduced against the live pair
+ * server, the first exchange returns 200 and the very next call with the same code returns
+ * 404. So a code is NEVER cached or reused across attempts — every call re-reads pair.json
+ * (which remints) and redeems the code it just received, in that order.
+ *
  * Uses a Tailscale-friendly timeout (discovery's 1.5s sweep probe is far too short) for
  * every host class — LAN, Tailscale and USB loopback share this one path so all three
- * report the same honest failure reasons.
+ * report the same honest failure reasons. The fetch and the redemption get SEPARATE
+ * budgets: on a DERP-relayed tailnet one round trip alone is ~3.4s, and a shared budget
+ * would make a healthy-but-slow Mac look like a failure.
  */
 export async function resolvePairSetupForRepairDetailed(
   host: string,
@@ -152,73 +167,86 @@ export async function resolvePairSetupForRepairDetailed(
   if (!trimmed) {
     return { ok: false, reason: 'no_pair_host' };
   }
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  // Step 1 — always re-read pair.json. This remints on the Mac, so the code below is fresh.
+  const pairJsonController = new AbortController();
+  const pairJsonTimer = setTimeout(() => pairJsonController.abort(), timeoutMs);
+  let body: { deepLink?: string; gatewayUrl?: string };
   try {
-    let body: { deepLink?: string; gatewayUrl?: string };
-    try {
-      const res = await fetch(`http://${trimmed}:${PAIR_SERVER_PORT}/pair.json`, {
-        signal: controller.signal,
-      });
-      if (!res.ok) {
-        return { ok: false, reason: 'pair_server_unreachable' };
-      }
-      body = (await res.json()) as { deepLink?: string; gatewayUrl?: string };
-    } catch {
+    const res = await fetch(`http://${trimmed}:${PAIR_SERVER_PORT}/pair.json`, {
+      signal: pairJsonController.signal,
+    });
+    if (!res.ok) {
       return { ok: false, reason: 'pair_server_unreachable' };
     }
+    body = (await res.json()) as { deepLink?: string; gatewayUrl?: string };
+  } catch {
+    return { ok: false, reason: 'pair_server_unreachable' };
+  } finally {
+    clearTimeout(pairJsonTimer);
+  }
 
-    const deepLink = body?.deepLink?.trim();
-    const setup = deepLink ? parseSetupDeepLink(deepLink) : null;
-    const embeddedKey = setup?.apiKey?.trim() || '';
-    const fallbackGatewayUrl = setup?.gatewayUrl?.trim() || body?.gatewayUrl?.trim() || undefined;
+  const deepLink = body?.deepLink?.trim();
+  const setup = deepLink ? parseSetupDeepLink(deepLink) : null;
+  const embeddedKey = setup?.apiKey?.trim() || '';
+  const fallbackGatewayUrl = setup?.gatewayUrl?.trim() || body?.gatewayUrl?.trim() || undefined;
+  const freshCode = setup?.pairingCode?.trim();
 
-    if (setup?.pairingCode?.trim()) {
-      // Redeem through the host that just served pair.json. In particular, USB loopback may
-      // advertise a LAN/Tailscale pairServer URL that this phone cannot reach.
-      const sourcePairServerUrl = `http://${trimmed}:${PAIR_SERVER_PORT}`;
-      const outcome = await exchangePairingCodeDetailed(
-        sourcePairServerUrl,
-        setup.pairingCode,
-        async (url) => {
-          const exchangeResponse = await fetch(url, { signal: controller.signal });
-          return {
-            ok: exchangeResponse.ok,
-            status: exchangeResponse.status,
-            json: () => exchangeResponse.json(),
-          };
-        },
-      );
-      if (outcome.ok) {
-        const apiKey = outcome.payload.apiKey?.trim() || embeddedKey;
-        if (!apiKey) {
-          return { ok: false, reason: 'no_credential' };
-        }
-        return {
-          ok: true,
-          apiKey,
-          gatewayUrl: outcome.payload.gatewayUrl?.trim() || fallbackGatewayUrl,
-        };
-      }
-      // Legacy pair servers embed the key alongside the code — still usable.
-      if (embeddedKey) {
-        return { ok: true, apiKey: embeddedKey, gatewayUrl: fallbackGatewayUrl };
-      }
-      if (isDeadPairCodeReason(outcome.reason)) {
-        return { ok: false, reason: 'code_expired' };
-      }
-      if (outcome.reason === 'timeout' || outcome.reason === 'unreachable') {
-        return { ok: false, reason: 'exchange_unreachable' };
-      }
-      return { ok: false, reason: 'exchange_failed' };
-    }
-
+  if (!freshCode) {
     if (embeddedKey || fallbackGatewayUrl) {
       return { ok: true, apiKey: embeddedKey || undefined, gatewayUrl: fallbackGatewayUrl };
     }
     return { ok: false, reason: 'pair_payload_unusable' };
+  }
+
+  // Step 2 — redeem the code we JUST received, on its own budget.
+  const exchangeController = new AbortController();
+  const exchangeTimer = setTimeout(() => exchangeController.abort(), timeoutMs);
+  try {
+    // Redeem through the host that just served pair.json. In particular, USB loopback may
+    // advertise a LAN/Tailscale pairServer URL that this phone cannot reach.
+    const sourcePairServerUrl = `http://${trimmed}:${PAIR_SERVER_PORT}`;
+    const outcome = await exchangePairingCodeDetailed(
+      sourcePairServerUrl,
+      freshCode,
+      async (url) => {
+        const exchangeResponse = await fetch(url, { signal: exchangeController.signal });
+        return {
+          ok: exchangeResponse.ok,
+          status: exchangeResponse.status,
+          json: () => exchangeResponse.json(),
+        };
+      },
+      timeoutMs,
+    );
+    if (outcome.ok) {
+      const apiKey = outcome.payload.apiKey?.trim() || embeddedKey;
+      if (!apiKey) {
+        return { ok: false, reason: 'no_credential' };
+      }
+      return {
+        ok: true,
+        apiKey,
+        gatewayUrl: outcome.payload.gatewayUrl?.trim() || fallbackGatewayUrl,
+      };
+    }
+    // Legacy pair servers embed the key alongside the code — still usable.
+    if (embeddedKey) {
+      return { ok: true, apiKey: embeddedKey, gatewayUrl: fallbackGatewayUrl };
+    }
+    if (isDeadPairCodeReason(outcome.reason)) {
+      // 404 not_found is the ROTATED/already-redeemed case, not an aged-out one.
+      return {
+        ok: false,
+        reason: outcome.reason === 'expired' ? 'code_expired' : 'code_already_used',
+      };
+    }
+    if (outcome.reason === 'timeout' || outcome.reason === 'unreachable') {
+      return { ok: false, reason: 'exchange_unreachable' };
+    }
+    return { ok: false, reason: 'exchange_failed' };
   } finally {
-    clearTimeout(timer);
+    clearTimeout(exchangeTimer);
   }
 }
 
