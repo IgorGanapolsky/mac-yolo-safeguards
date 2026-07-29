@@ -16,5 +16,12 @@ BAN_CONVERT_WITHOUT_INTEREST=only after the exact human requests a trial, demo, 
 BAN_INVENT_SCORES=never invent DS/ML or GTM scores; only SYSTEM_SCORES line below
 SYSTEM_SCORES=DS 55/100 (F); ML 40/100 (F); RAG 90/100 (A-); OVERALL 67/100 (D+); MONETIZATION 0/100
 SCORE_SCOPE=copy SYSTEM_SCORES exactly
+GREPAI_STATUS=ok=true; bytes=64974190; linked=true; search_hits=10; problems=none
+RETRIEVAL_EVAL=ok=true; pass=5/5; mean_recall@k=1.0; mean_mrr@k=0.85; mean_ndcg@k=0.9
+INGESTION_GRADE=overall=B-; ok=true; critical_fails=0; offline=true
+FUNNEL_HEALTH=ok=true; critical_fails=0; stages=[campaign_beat=ok]
+LESSONS_DOCTOR=ok=false; sqlite_coverage=0.7% (3/459); embeddings=hashed-term-frequency (NOT neural); lancedb=initialized-but-EMPTY; problems=store drift: lessons.sqlite holds 3/459 ledger lessons
+RETRIEVAL_SUMMARY=retrieval stack attention: lessons_fts — see GREPAI_STATUS / RETRIEVAL_EVAL / INGESTION_GRADE / LESSONS_DOCTOR; fix with node tools/ensure-grepai-index.js --canary and node tools/rag-retrieval-eval.js --json
+RETRIEVAL_SCOPE=copy GREPAI_STATUS/RETRIEVAL_EVAL/INGESTION_GRADE/FUNNEL_HEALTH/LESSONS_DOCTOR/RETRIEVAL_SUMMARY exactly; re-export to refresh; never invent recall@k / nDCG / grepae health
 NEXT_MONEY=Ship today's ThumbGate.app campaign beat (persona+pain+cited evidence+hook) across the fan-out matrix; recruit toward 3 Continuity design partners; Reddit draft-only under burn rule. Cash counts only on a non-owner Stripe subscription payment.
 ZERO_SPEND=true

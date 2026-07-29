@@ -23,6 +23,7 @@ from tinker_brain_answer import answer, load_expert_card  # noqa: E402
 from tinker_brain_router import (  # noqa: E402
     INTENT_NEXT_MONEY,
     INTENT_OFF_SCOPE,
+    INTENT_RETRIEVAL_HEALTH,
     INTENT_SYSTEM_SCORES,
     INTENT_THUMBGATE_GTM,
     route,
@@ -53,6 +54,22 @@ class RouterTest(unittest.TestCase):
             INTENT_OFF_SCOPE,
         )
 
+    def test_retrieval_health_routes(self):
+        for question in (
+            "Is grepae retrieval healthy?",
+            "What is our mean nDCG and document ingestion grade?",
+            "How healthy is lessons FTS store drift?",
+            "grepai index health",
+            "run funnel stage health",
+        ):
+            self.assertEqual(
+                route(question)["primary"],
+                INTENT_RETRIEVAL_HEALTH,
+                question,
+            )
+        # Bare system scores still prefer SYSTEM_SCORES over retrieval.
+        self.assertEqual(route("Give the exact system scores.")["primary"], INTENT_SYSTEM_SCORES)
+
 
 class AnswerTest(unittest.TestCase):
     def test_gtm_answer_serves_expert_sections_and_passes_contract(self):
@@ -73,6 +90,18 @@ class AnswerTest(unittest.TestCase):
         self.assertTrue(result["ok"], result["violations"])
         self.assertIn("external $0.00", result["text"])
         self.assertIn("non-owner", result["text"])
+
+    def test_retrieval_health_renders_probe_lines(self):
+        result = answer(
+            FIXTURE_CARD, "Is grepae retrieval healthy?", expert_text=EXPERT_TEXT
+        )
+        self.assertTrue(result["ok"], result["violations"])
+        self.assertEqual(result["routing"]["primary"], INTENT_RETRIEVAL_HEALTH)
+        self.assertIn("Grepae/index:", result["text"])
+        self.assertIn("ok=true", result["text"])
+        self.assertIn("mean_ndcg", result["text"])
+        self.assertIn("Lessons store/FTS:", result["text"])
+        self.assertIn("ensure-grepai-index", result["text"])
 
 
 class ContractTest(unittest.TestCase):
@@ -130,6 +159,18 @@ class ExporterTest(unittest.TestCase):
             "path": "stub",
         },
         aeo={"present": False},
+        retrieval={
+            "probed_at": "2026-07-29T00:00:00Z",
+            "offline": True,
+            "card_lines": {
+                "GREPAI_STATUS": "ok=true; bytes=1; linked=true; search_hits=1; problems=none",
+                "RETRIEVAL_EVAL": "ok=true; pass=1/1; mean_recall@k=1.0; mean_mrr@k=1.0; mean_ndcg@k=1.0",
+                "INGESTION_GRADE": "overall=B-; ok=true; critical_fails=0; offline=true",
+                "FUNNEL_HEALTH": "ok=true; critical_fails=0; stages=[campaign_beat=ok]",
+                "LESSONS_DOCTOR": "ok=false; sqlite_coverage=0.7% (3/459); embeddings=hashed-TF; lancedb=empty; problems=store drift",
+                "RETRIEVAL_SUMMARY": "retrieval stack attention: lessons_fts",
+            },
+        },
     )
 
     def test_snapshot_builds_offline_and_validates(self):
@@ -139,6 +180,7 @@ class ExporterTest(unittest.TestCase):
         self.assertTrue(snap["products"]["thumbgate_app"]["primary"])
         self.assertEqual(snap["cash"]["external_net_usd"], 0.0)
         self.assertIn("non-owner", snap["cash"]["why_external_zero_if_zero"])
+        self.assertIn("card_lines", snap["retrieval"])
         with tempfile.TemporaryDirectory() as tmp:
             out = pathlib.Path(tmp) / "snap.json"
             exporter.write_snapshot(out, snap)
@@ -146,12 +188,19 @@ class ExporterTest(unittest.TestCase):
             card = (out.parent / "ANSWER_CARD.txt").read_text(encoding="utf-8")
             self.assertIn("THUMBGATE_LIVE_PRICE=live /api/billing/plan readback OK", card)
             self.assertIn("Pro Continuity $10.00/mo", card)
-            self.assertIn("SYSTEM_SCORES=not_scored", card)
+            self.assertIn("SYSTEM_SCORES=", card)
+            self.assertIn("GREPAI_STATUS=ok=true", card)
+            self.assertIn("RETRIEVAL_EVAL=ok=true", card)
+            self.assertIn("INGESTION_GRADE=overall=B-", card)
+            self.assertIn("LESSONS_DOCTOR=ok=false", card)
             # The exported card must itself produce contract-clean answers.
             result = answer(card, "How do we sell ThumbGate.app?", expert_text=EXPERT_TEXT)
             self.assertTrue(result["ok"], result["violations"])
             result = answer(card, "Why did we make zero dollars?", expert_text=EXPERT_TEXT)
             self.assertTrue(result["ok"], result["violations"])
+            result = answer(card, "Is grepae retrieval healthy?", expert_text=EXPERT_TEXT)
+            self.assertTrue(result["ok"], result["violations"])
+            self.assertIn("Grepae/index:", result["text"])
 
     def test_verified_revenue_receipt_changes_cash_truth(self):
         stubs = dict(self.STUBS)
@@ -174,6 +223,23 @@ class ExporterTest(unittest.TestCase):
         snap = exporter.build_snapshot(**stubs)
         self.assertIn("unreachable", snap["live"]["live_price_line"])
         self.assertIn("never hard-code", snap["live"]["live_price_line"])
+
+    def test_retrieval_stack_line_helpers_fail_soft(self):
+        skipped = {"ok": False, "skipped": True, "error": "script_missing", "script": "x"}
+        self.assertIn("skipped", exporter._line_grepae(skipped, skipped))
+        self.assertIn("skipped", exporter._line_retrieval_eval(skipped))
+        self.assertIn("skipped", exporter._line_ingestion(skipped))
+        self.assertIn("skipped", exporter._line_funnel(skipped))
+        self.assertIn("skipped", exporter._line_lessons(skipped))
+        summary = exporter._retrieval_summary_line(
+            {
+                "GREPAI_STATUS": "ok=true; problems=none",
+                "RETRIEVAL_EVAL": "ok=true; pass=1/1",
+                "INGESTION_GRADE": "overall=B; ok=true; critical_fails=0",
+                "LESSONS_DOCTOR": "ok=true; problems=none",
+            }
+        )
+        self.assertIn("green", summary)
 
 
 class FingerprintTest(unittest.TestCase):

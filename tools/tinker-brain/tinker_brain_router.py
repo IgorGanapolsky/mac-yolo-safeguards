@@ -16,6 +16,7 @@ from typing import Any
 INTENT_CASH = "cash_truth"
 INTENT_NEXT_MONEY = "next_money"
 INTENT_SYSTEM_SCORES = "system_scores"
+INTENT_RETRIEVAL_HEALTH = "retrieval_health"
 INTENT_IMPROVE = "improve_now"
 INTENT_ECONOMICS = "model_economics"
 INTENT_METHODS = "ml_methods"
@@ -155,6 +156,35 @@ SCORE_PATTERNS = (
     r"\badequate\b",
 )
 
+# Grepae / harness / lessons FTS / document-ingestion / funnel stage health.
+# More specific than bare "rag" / "grade" so these win over system_scores.
+RETRIEVAL_HEALTH_PATTERNS = (
+    r"\bgrepai\b",
+    r"\bgrepae\b",  # common misspelling used in ops chat
+    r"\bsemantic.?index\b",
+    r"\bcode index\b",
+    r"\bretrieval.?health\b",
+    r"\bretrieval.?eval\b",
+    r"\brag.?retrieval\b",
+    r"\bmean.?recall\b",
+    r"\brecall@k\b",
+    r"\bmrr@k\b",
+    r"\bndcg\b",
+    r"\bnDCG\b",
+    r"\bdocument.?ingestion\b",
+    r"\bingestion.?grade\b",
+    r"\bingestion.?health\b",
+    r"\bfunnel.?stage\b",
+    r"\bfunnel.?health\b",
+    r"\blessons?.?doctor\b",
+    r"\blessons?.?fts\b",
+    r"\bfts.?search\b",
+    r"\bstore.?drift\b",
+    r"\bis (?:the )?(?:index|retrieval|grepai|rag) healthy\b",
+    r"\bis retrieval healthy\b",
+    r"\bhow healthy is (?:our |the )?(?:retrieval|grepai|rag|index)\b",
+)
+
 IMPROVE_PATTERNS = (
     r"\bimprov\w*",  # improve / improvements / improving
     r"\bmake better\b",
@@ -204,6 +234,7 @@ def route(question: str) -> dict[str, Any]:
         "wants_make_money_action": _match_any(lowered, MAKE_MONEY_ACTION_PATTERNS),
         "cash_diagnosis": _match_any(lowered, CASH_DIAGNOSIS_PATTERNS),
         "wants_scores": _match_any(lowered, SCORE_PATTERNS),
+        "wants_retrieval_health": _match_any(lowered, RETRIEVAL_HEALTH_PATTERNS),
         "wants_improve": _match_any(lowered, IMPROVE_PATTERNS),
         "wants_economics": _match_any(lowered, ECON_PATTERNS),
         "wants_methods": _match_any(lowered, METHODS_PATTERNS),
@@ -233,6 +264,9 @@ def route(question: str) -> dict[str, Any]:
         # Primary product first: any ThumbGate.app mention or monetize/market/
         # promote/sell/position question gets the expert GTM answer family.
         primary = INTENT_THUMBGATE_GTM
+    elif flags["wants_retrieval_health"] and not flags["cash_diagnosis"]:
+        # Grepae / nDCG / ingestion / lessons FTS before bare "rag"→system_scores.
+        primary = INTENT_RETRIEVAL_HEALTH
     elif flags["wants_methods"] and not flags["wants_cash"]:
         primary = INTENT_METHODS
     elif flags["wants_economics"] and not flags["wants_cash"]:

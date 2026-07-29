@@ -22,6 +22,7 @@ from tinker_brain_router import (  # noqa: E402
     INTENT_METHODS,
     INTENT_NEXT_MONEY,
     INTENT_OFF_SCOPE,
+    INTENT_RETRIEVAL_HEALTH,
     INTENT_SYSTEM_SCORES,
     INTENT_THUMBGATE_GTM,
     route,
@@ -194,7 +195,9 @@ def render_from_route(
         if fields.get("PROVIDER_EVIDENCE"):
             lines.append(f"Provider evidence: {fields['PROVIDER_EVIDENCE']}")
 
-    if primary == INTENT_SYSTEM_SCORES or flags.get("wants_scores"):
+    if primary == INTENT_SYSTEM_SCORES or (
+        flags.get("wants_scores") and primary != INTENT_RETRIEVAL_HEALTH
+    ):
         if fields.get("SYSTEM_SCORES"):
             lines.append(f"Evidence scores: {fields['SYSTEM_SCORES']}")
         if fields.get("SCORE_SCOPE"):
@@ -202,6 +205,38 @@ def render_from_route(
         lines.append(
             "These scores measure revenue-intelligence evidence readiness, not local Ollama quality. "
             "ML F with insufficient_labels is correct fail-closed, not a bug to fix with a new stack."
+        )
+
+    if primary == INTENT_RETRIEVAL_HEALTH or flags.get("wants_retrieval_health"):
+        lines.append("Retrieval stack (probe-backed; re-export snapshot to refresh):")
+        if fields.get("RETRIEVAL_SUMMARY"):
+            lines.append(f"Summary: {fields['RETRIEVAL_SUMMARY']}")
+        if fields.get("GREPAI_STATUS"):
+            lines.append(f"Grepae/index: {fields['GREPAI_STATUS']}")
+        if fields.get("RETRIEVAL_EVAL"):
+            lines.append(f"Harness eval (recall@k / MRR / nDCG): {fields['RETRIEVAL_EVAL']}")
+        if fields.get("INGESTION_GRADE"):
+            lines.append(f"Document ingestion: {fields['INGESTION_GRADE']}")
+        if fields.get("FUNNEL_HEALTH"):
+            lines.append(f"Funnel stages: {fields['FUNNEL_HEALTH']}")
+        if fields.get("LESSONS_DOCTOR"):
+            lines.append(f"Lessons store/FTS: {fields['LESSONS_DOCTOR']}")
+        if fields.get("RETRIEVAL_SCOPE"):
+            lines.append(f"Scope: {fields['RETRIEVAL_SCOPE']}")
+        lines.append(
+            "Commands: node tools/ensure-grepai-index.js --canary · "
+            "node tools/grepai-index-canary.js --json · "
+            "node tools/rag-retrieval-eval.js --json · "
+            "node tools/document-ingestion-health.js --json · "
+            "node tools/funnel-stage-health.js --json · "
+            "node tools/thumbgate-lessons-doctor.js --json · "
+            "python3 tools/tinker-brain/export_tinker_brain_snapshot.py"
+        )
+        lines.append(
+            "Honesty: grepae can be healthy on the isolated clone "
+            "(~/.hermes/semantic-index/mac-yolo-safeguards) while REPO .grepai is an empty shell — "
+            "ensure-grepai-index links them. Lessons ledger vs sqlite drift and hashed-TF embeddings "
+            "are real gaps; do not claim neural semantic FTS until doctor ok=true."
         )
 
     if primary == INTENT_NEXT_MONEY or primary == INTENT_IMPROVE:

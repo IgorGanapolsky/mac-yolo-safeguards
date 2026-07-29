@@ -19,6 +19,7 @@ import argparse
 import json
 import os
 import shutil
+import subprocess
 import tempfile
 import urllib.error
 import urllib.request
@@ -31,12 +32,16 @@ EXPERT_SRC = REPO / "config" / "THUMBGATE_EXPERT_CARD.txt"
 RECEIPTS_DIR = Path.home() / ".hermes" / "receipts" / "tinker-brain"
 REVENUE_RECEIPT = RECEIPTS_DIR / "revenue-receipt.json"
 AEO_LATEST = Path.home() / ".hermes" / "receipts" / "thumbgate-aeo" / "latest.json"
+RETRIEVAL_RECEIPT = RECEIPTS_DIR / "retrieval-stack-latest.json"
 DEFAULT_OUT = (
     Path.home() / ".hermes" / "business-brain" / "data-snapshot" / "business_snapshot.json"
 )
 HEALTH_URL = "https://thumbgate.app/api/health"
 BILLING_URL = "https://thumbgate.app/api/billing/plan"
 PROBE_TIMEOUT_S = 2.0
+# Local Node probes must stay fail-soft and bounded so export never hangs agents.
+NODE_PROBE_TIMEOUT_S = float(os.environ.get("TINKER_NODE_PROBE_TIMEOUT_S") or "25")
+RAG_EVAL_TIMEOUT_S = float(os.environ.get("TINKER_RAG_EVAL_TIMEOUT_S") or "45")
 
 
 def utc_now() -> str:
@@ -142,17 +147,381 @@ def aeo_summary() -> dict[str, Any]:
     }
 
 
+def _run_node_json(
+    script_rel: str,
+    args: list[str],
+    *,
+    timeout_s: float = NODE_PROBE_TIMEOUT_S,
+) -> dict[str, Any]:
+    """Run a repo Node probe with --json. Fail-soft: never raise to the exporter.
+
+    Writes stdout to a tempfile (not a pipe) so large reports (e.g. lessons
+    doctor ~100KB with synthesized-rule excerpts) are not truncated at the
+    OS pipe buffer (~64KB) when the parent is not draining concurrently.
+    """
+    script = REPO / script_rel
+    if not script.is_file():
+        return {
+            "ok": False,
+            "error": "script_missing",
+            "script": script_rel,
+            "skipped": True,
+        }
+    out_path: Path | None = None
+    err_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            prefix=".tinker-probe-", suffix=".json", delete=False, mode="wb"
+        ) as out_handle:
+            out_path = Path(out_handle.name)
+        with tempfile.NamedTemporaryFile(
+            prefix=".tinker-probe-", suffix=".err", delete=False, mode="wb"
+        ) as err_handle:
+            err_path = Path(err_handle.name)
+        with open(out_path, "wb") as out_f, open(err_path, "wb") as err_f:
+            proc = subprocess.run(
+                ["node", str(script), *args],
+                cwd=str(REPO),
+                stdout=out_f,
+                stderr=err_f,
+                timeout=timeout_s,
+                check=False,
+            )
+        raw = out_path.read_text(encoding="utf-8", errors="replace").strip()
+        err_raw = err_path.read_text(encoding="utf-8", errors="replace").strip()
+    except subprocess.TimeoutExpired:
+        return {
+            "ok": False,
+            "error": f"timeout_{int(timeout_s)}s",
+            "script": script_rel,
+            "skipped": True,
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "ok": False,
+            "error": type(exc).__name__,
+            "script": script_rel,
+            "skipped": True,
+        }
+    finally:
+        for path in (out_path, err_path):
+            if path is None:
+                continue
+            try:
+                path.unlink()
+            except OSError:
+                pass
+    if not raw:
+        return {
+            "ok": False,
+            "error": (err_raw[:200] if err_raw else f"empty_stdout_exit_{proc.returncode}"),
+            "script": script_rel,
+            "exit_code": proc.returncode,
+            "skipped": True,
+        }
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        # Some tools print human lines before JSON; take last JSON object.
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start >= 0 and end > start:
+            try:
+                data = json.loads(raw[start : end + 1])
+            except json.JSONDecodeError:
+                return {
+                    "ok": False,
+                    "error": "invalid_json",
+                    "script": script_rel,
+                    "exit_code": proc.returncode,
+                    "skipped": True,
+                }
+        else:
+            return {
+                "ok": False,
+                "error": "invalid_json",
+                "script": script_rel,
+                "exit_code": proc.returncode,
+                "skipped": True,
+            }
+    if not isinstance(data, dict):
+        return {
+            "ok": False,
+            "error": "non_object_json",
+            "script": script_rel,
+            "exit_code": proc.returncode,
+            "skipped": True,
+        }
+    data.setdefault("exit_code", proc.returncode)
+    data.setdefault("script", script_rel)
+    return data
+
+
+def _compact_problems(problems: Any, *, limit: int = 2) -> str:
+    if not isinstance(problems, list) or not problems:
+        return "none"
+    parts: list[str] = []
+    for item in problems[:limit]:
+        text = str(item).replace("\n", " ").strip()
+        if len(text) > 120:
+            text = text[:117] + "..."
+        parts.append(text)
+    extra = len(problems) - limit
+    if extra > 0:
+        parts.append(f"+{extra} more")
+    return "; ".join(parts) if parts else "none"
+
+
+def _line_grepae(canary: dict[str, Any], ensure: dict[str, Any]) -> str:
+    if canary.get("skipped") and ensure.get("skipped"):
+        return (
+            f"skipped canary={canary.get('error')}; ensure={ensure.get('error')} "
+            "(install tools/grepai-index-canary.js + tools/ensure-grepai-index.js)"
+        )
+    ok = bool(canary.get("ok")) if not canary.get("skipped") else bool(ensure.get("ok"))
+    bytes_n = canary.get("indexBytes") or ensure.get("repoIndexBytes") or ensure.get("isolatedBytes")
+    problems = canary.get("problems") if isinstance(canary.get("problems"), list) else []
+    linked = ensure.get("linked")
+    search_n = ensure.get("searchFromRepo")
+    return (
+        f"ok={str(ok).lower()}; "
+        f"bytes={bytes_n if bytes_n is not None else 'unknown'}; "
+        f"linked={str(bool(linked)).lower() if linked is not None else 'unknown'}; "
+        f"search_hits={search_n if search_n is not None else 'n/a'}; "
+        f"problems={_compact_problems(problems)}"
+    )
+
+
+def _line_retrieval_eval(eval_report: dict[str, Any]) -> str:
+    if eval_report.get("skipped"):
+        return (
+            f"skipped ({eval_report.get('error')}); "
+            "run: node tools/rag-retrieval-eval.js --json"
+        )
+    return (
+        f"ok={str(bool(eval_report.get('ok'))).lower()}; "
+        f"pass={eval_report.get('passCount', 0)}/{eval_report.get('caseCount', 0)}; "
+        f"mean_recall@k={eval_report.get('meanRecallAtK', 'n/a')}; "
+        f"mean_mrr@k={eval_report.get('meanMrrAtK', 'n/a')}; "
+        f"mean_ndcg@k={eval_report.get('meanNdcgAtK', 'n/a')}"
+    )
+
+
+def _line_ingestion(report: dict[str, Any]) -> str:
+    if report.get("skipped"):
+        return f"skipped ({report.get('error')}); run: node tools/document-ingestion-health.js --json"
+    fails = report.get("criticalFails") or []
+    n_fails = len(fails) if isinstance(fails, list) else fails
+    return (
+        f"overall={report.get('overallGrade', 'unknown')}; "
+        f"ok={str(bool(report.get('ok'))).lower()}; "
+        f"critical_fails={n_fails}; "
+        f"offline={str(bool(report.get('offline'))).lower()}"
+    )
+
+
+def _line_funnel(report: dict[str, Any]) -> str:
+    if report.get("skipped"):
+        return f"skipped ({report.get('error')}); run: node tools/funnel-stage-health.js --json"
+    fails = report.get("criticalFails") or []
+    n_fails = len(fails) if isinstance(fails, list) else fails
+    stages = report.get("stages") if isinstance(report.get("stages"), list) else []
+    status_bits: list[str] = []
+    for stage in stages:
+        if not isinstance(stage, dict):
+            continue
+        sid = stage.get("id") or "?"
+        probe = stage.get("probe") if isinstance(stage.get("probe"), dict) else {}
+        st = probe.get("status") or "unknown"
+        if st in {"fail", "warn", "ok"}:
+            status_bits.append(f"{sid}={st}")
+    sample = ", ".join(status_bits[:6]) if status_bits else "no_local_probes"
+    return (
+        f"ok={str(bool(report.get('ok'))).lower()}; "
+        f"critical_fails={n_fails}; "
+        f"stages=[{sample}]"
+    )
+
+
+def _line_lessons(report: dict[str, Any]) -> str:
+    if report.get("skipped"):
+        return f"skipped ({report.get('error')}); run: node tools/thumbgate-lessons-doctor.js --json"
+    note = report.get("note")
+    if isinstance(note, str) and note.strip() and "storeDrift" not in report:
+        return f"ok=false; note={note.strip()[:160]}"
+    drift = report.get("storeDrift") if isinstance(report.get("storeDrift"), dict) else {}
+    emb = report.get("embeddings") if isinstance(report.get("embeddings"), dict) else {}
+    lance = report.get("lancedb") if isinstance(report.get("lancedb"), dict) else {}
+    coverage = drift.get("coverage")
+    cov_pct = f"{float(coverage) * 100:.1f}%" if isinstance(coverage, (int, float)) else "unknown"
+    problems = report.get("problems") if isinstance(report.get("problems"), list) else []
+    return (
+        f"ok={str(bool(report.get('ok'))).lower()}; "
+        f"sqlite_coverage={cov_pct} "
+        f"({drift.get('sqliteCount', '?')}/{drift.get('ledgerCount', '?')}); "
+        f"embeddings={emb.get('status', 'unknown')}; "
+        f"lancedb={lance.get('status', 'unknown')}; "
+        f"problems={_compact_problems(problems)}"
+    )
+
+
+def _retrieval_summary_line(card_fields: dict[str, str]) -> str:
+    """One-line operator summary; never invent health beyond probe lines."""
+    grepae = card_fields.get("GREPAI_STATUS", "unknown")
+    retr = card_fields.get("RETRIEVAL_EVAL", "unknown")
+    ingest = card_fields.get("INGESTION_GRADE", "unknown")
+    lessons = card_fields.get("LESSONS_DOCTOR", "unknown")
+    grepae_ok = grepae.startswith("ok=true")
+    retr_ok = retr.startswith("ok=true")
+    ingest_ok = "ok=true" in ingest
+    lessons_ok = lessons.startswith("ok=true")
+    flags = []
+    if not grepae_ok:
+        flags.append("grepae")
+    if not retr_ok:
+        flags.append("retrieval_eval")
+    if not ingest_ok:
+        flags.append("ingestion")
+    if not lessons_ok:
+        flags.append("lessons_fts")
+    if not flags:
+        return "retrieval stack: grepae + eval + ingestion + lessons probes green (re-export to refresh)"
+    return (
+        "retrieval stack attention: "
+        + ", ".join(flags)
+        + " — see GREPAI_STATUS / RETRIEVAL_EVAL / INGESTION_GRADE / LESSONS_DOCTOR; "
+        "fix with node tools/ensure-grepai-index.js --canary and node tools/rag-retrieval-eval.js --json"
+    )
+
+
+def probe_retrieval_stack(
+    *,
+    offline: bool | None = None,
+    skip_rag_eval: bool | None = None,
+) -> dict[str, Any]:
+    """Probe grepae / retrieval eval / ingestion / funnel / lessons. Fail-soft always.
+
+    Env:
+      TINKER_RETRIEVAL_OFFLINE=1 — force --offline on funnel + ingestion (CI-safe)
+      TINKER_SKIP_RAG_EVAL=1 — skip slow rag-retrieval-eval.js (use receipt cache only)
+    """
+    if offline is None:
+        offline = os.environ.get("TINKER_RETRIEVAL_OFFLINE", "").strip() in {
+            "1",
+            "true",
+            "yes",
+        }
+    if skip_rag_eval is None:
+        skip_rag_eval = os.environ.get("TINKER_SKIP_RAG_EVAL", "").strip() in {
+            "1",
+            "true",
+            "yes",
+        }
+
+    canary = _run_node_json("tools/grepai-index-canary.js", ["--json"])
+    # ensure without --canary (canary already ran); avoid rebuild side effects.
+    ensure = _run_node_json("tools/ensure-grepai-index.js", ["--json"])
+    ingest_args = ["--json"]
+    if offline:
+        ingest_args.append("--offline")
+    ingestion = _run_node_json("tools/document-ingestion-health.js", ingest_args)
+    funnel_args = ["--json"]
+    if offline:
+        funnel_args.append("--offline")
+    funnel = _run_node_json("tools/funnel-stage-health.js", funnel_args)
+    # Prefer home ~/.thumbgate (live MCP store) when REPO worktree has no .thumbgate.
+    lessons_dir = REPO / ".thumbgate"
+    home_thumbgate = Path.home() / ".thumbgate"
+    lessons_args = ["--json"]
+    if not lessons_dir.is_dir() and home_thumbgate.is_dir():
+        lessons_args.extend(["--dir", str(home_thumbgate)])
+    # Home lessons stores can be large (JSONL + embeddings); allow up to 60s.
+    lessons = _run_node_json(
+        "tools/thumbgate-lessons-doctor.js",
+        lessons_args,
+        timeout_s=max(NODE_PROBE_TIMEOUT_S, 60.0),
+    )
+
+    if skip_rag_eval:
+        retrieval_eval: dict[str, Any] = {
+            "ok": False,
+            "skipped": True,
+            "error": "TINKER_SKIP_RAG_EVAL",
+            "script": "tools/rag-retrieval-eval.js",
+        }
+    else:
+        retrieval_eval = _run_node_json(
+            "tools/rag-retrieval-eval.js",
+            ["--json"],
+            timeout_s=RAG_EVAL_TIMEOUT_S,
+        )
+        # Prefer last good receipt if live eval timed out / skipped.
+        if retrieval_eval.get("skipped"):
+            cached = load_json(RETRIEVAL_RECEIPT)
+            cached_eval = cached.get("retrieval_eval") if isinstance(cached, dict) else None
+            if isinstance(cached_eval, dict) and "meanRecallAtK" in cached_eval:
+                retrieval_eval = {
+                    **cached_eval,
+                    "from_cache": True,
+                    "cache_error": retrieval_eval.get("error"),
+                }
+
+    card_fields = {
+        "GREPAI_STATUS": _line_grepae(canary, ensure),
+        "RETRIEVAL_EVAL": _line_retrieval_eval(retrieval_eval),
+        "INGESTION_GRADE": _line_ingestion(ingestion),
+        "FUNNEL_HEALTH": _line_funnel(funnel),
+        "LESSONS_DOCTOR": _line_lessons(lessons),
+    }
+    card_fields["RETRIEVAL_SUMMARY"] = _retrieval_summary_line(card_fields)
+
+    return {
+        "probed_at": utc_now(),
+        "offline": offline,
+        "grepae_canary": canary,
+        "grepae_ensure": ensure,
+        "retrieval_eval": retrieval_eval,
+        "ingestion": {
+            "ok": ingestion.get("ok"),
+            "overallGrade": ingestion.get("overallGrade"),
+            "criticalFails": ingestion.get("criticalFails"),
+            "offline": ingestion.get("offline"),
+            "skipped": ingestion.get("skipped"),
+            "error": ingestion.get("error"),
+        },
+        "funnel": {
+            "ok": funnel.get("ok"),
+            "criticalFails": funnel.get("criticalFails"),
+            "offline": funnel.get("offline"),
+            "skipped": funnel.get("skipped"),
+            "error": funnel.get("error"),
+        },
+        "lessons_doctor": {
+            "ok": lessons.get("ok"),
+            "problems": lessons.get("problems"),
+            "storeDrift": lessons.get("storeDrift"),
+            "embeddings": lessons.get("embeddings"),
+            "lancedb": lessons.get("lancedb"),
+            "skipped": lessons.get("skipped"),
+            "error": lessons.get("error"),
+        },
+        "card_lines": card_fields,
+    }
+
+
 def build_snapshot(
     *,
     health: dict[str, Any] | None = None,
     billing: dict[str, Any] | None = None,
     revenue: dict[str, Any] | None = None,
     aeo: dict[str, Any] | None = None,
+    retrieval: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     health = health if health is not None else probe_health()
     billing = billing if billing is not None else probe_billing()
     revenue = revenue if revenue is not None else load_revenue_receipt()
     aeo = aeo if aeo is not None else aeo_summary()
+    retrieval = retrieval if retrieval is not None else probe_retrieval_stack()
 
     external_cents = int(revenue.get("external_net_cents") or 0)
     owner_cents = int(revenue.get("owner_test_net_cents") or 0)
@@ -252,11 +621,13 @@ def build_snapshot(
         },
         "live": {"health": health, "billing": billing, "live_price_line": live_price},
         "aeo_monitor": aeo,
+        "retrieval": retrieval,
         "next_money_action": next_money,
         "visibility_limits": [
             "This snapshot is not live after export; check exported_at / SNAPSHOT_TIME.",
             "Cash truth is only as fresh as the local revenue receipt; Stripe is canonical.",
             "AEO receipt is a citation proxy, not real AI Overview telemetry.",
+            "Retrieval lines are probe snapshots (grepae/eval/ingestion/funnel/lessons); re-export to refresh.",
         ],
     }
 
@@ -290,10 +661,22 @@ def write_snapshot(out: Path, payload: dict[str, Any]) -> None:
     live = payload.get("live") or {}
     health = live.get("health") or {}
     aeo = payload.get("aeo_monitor") or {}
+    retrieval = payload.get("retrieval") if isinstance(payload.get("retrieval"), dict) else {}
+    card_lines = (
+        retrieval.get("card_lines") if isinstance(retrieval.get("card_lines"), dict) else {}
+    )
     aeo_line = (
         f"present=true; checked_at={aeo.get('checked_at')}"
         if aeo.get("present")
         else "present=false; run tools/thumbgate-aeo-monitor.js weekly"
+    )
+    grepae_line = card_lines.get("GREPAI_STATUS") or "not_probed"
+    retr_line = card_lines.get("RETRIEVAL_EVAL") or "not_probed"
+    ingest_line = card_lines.get("INGESTION_GRADE") or "not_probed"
+    funnel_line = card_lines.get("FUNNEL_HEALTH") or "not_probed"
+    lessons_line = card_lines.get("LESSONS_DOCTOR") or "not_probed"
+    retr_summary = card_lines.get("RETRIEVAL_SUMMARY") or (
+        "retrieval stack not probed this export"
     )
     card = out.parent / "ANSWER_CARD.txt"
     card.write_text(
@@ -351,6 +734,18 @@ def write_snapshot(out: Path, payload: dict[str, Any]) -> None:
                 "BAN_INVENT_SCORES=never invent DS/ML or GTM scores; only SYSTEM_SCORES line below",
                 f"SYSTEM_SCORES={_system_scores_line()}",
                 "SCORE_SCOPE=copy SYSTEM_SCORES exactly; do not invent better grades than the line",
+                # Retrieval / grepae / ingestion / funnel / lessons — probe-backed, never invented.
+                f"GREPAI_STATUS={grepae_line}",
+                f"RETRIEVAL_EVAL={retr_line}",
+                f"INGESTION_GRADE={ingest_line}",
+                f"FUNNEL_HEALTH={funnel_line}",
+                f"LESSONS_DOCTOR={lessons_line}",
+                f"RETRIEVAL_SUMMARY={retr_summary}",
+                (
+                    "RETRIEVAL_SCOPE=copy GREPAI_STATUS/RETRIEVAL_EVAL/INGESTION_GRADE/"
+                    "FUNNEL_HEALTH/LESSONS_DOCTOR/RETRIEVAL_SUMMARY exactly; re-export to refresh; "
+                    "never invent recall@k / nDCG / grepae health"
+                ),
                 f"NEXT_MONEY={payload.get('next_money_action')}",
                 "RULE: zero tools; do not list_files; answer now from this card.",
             ]
@@ -359,6 +754,21 @@ def write_snapshot(out: Path, payload: dict[str, Any]) -> None:
         encoding="utf-8",
     )
     card.chmod(0o600)
+
+    # Persist compact retrieval receipt for next export if rag-eval times out.
+    try:
+        RECEIPTS_DIR.mkdir(parents=True, exist_ok=True)
+        compact = {
+            "probed_at": retrieval.get("probed_at"),
+            "retrieval_eval": retrieval.get("retrieval_eval"),
+            "card_lines": card_lines,
+        }
+        RETRIEVAL_RECEIPT.write_text(
+            json.dumps(compact, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        RETRIEVAL_RECEIPT.chmod(0o600)
+    except OSError:
+        pass
 
     if EXPERT_SRC.is_file():
         expert_dst = out.parent / "THUMBGATE_EXPERT_CARD.txt"
@@ -378,8 +788,6 @@ def _system_scores_line() -> str:
             "eval receipts at ~/.hermes/receipts/tinker-brain/ are the quality signal)"
         )
     try:
-        import subprocess
-
         proc = subprocess.run(
             ["node", str(script), "--json", "--write"],
             cwd=str(REPO),
@@ -449,6 +857,10 @@ def main() -> int:
     out = args.out or DEFAULT_OUT
     payload = build_snapshot()
     write_snapshot(out, payload)
+    retrieval = payload.get("retrieval") if isinstance(payload.get("retrieval"), dict) else {}
+    card_lines = (
+        retrieval.get("card_lines") if isinstance(retrieval.get("card_lines"), dict) else {}
+    )
     print(
         json.dumps(
             {
@@ -459,6 +871,8 @@ def main() -> int:
                 "health_ok": bool(payload["live"]["health"].get("ok")),
                 "billing_ok": bool(payload["live"]["billing"].get("ok")),
                 "revenue_receipt": payload["cash"]["receipt"].get("has_receipt"),
+                "retrieval_summary": card_lines.get("RETRIEVAL_SUMMARY"),
+                "grepae_status": card_lines.get("GREPAI_STATUS"),
             },
             indent=2,
         )

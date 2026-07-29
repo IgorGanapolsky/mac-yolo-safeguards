@@ -87,6 +87,27 @@
       "must_not_contain": []
     },
     {
+      "id": "retrieval_health_grepai",
+      "question": "Is grepae retrieval healthy?",
+      "expect_route": "retrieval_health",
+      "must_contain": ["Grepae/index", "Harness eval", "mean_ndcg", "ensure-grepai-index"],
+      "must_not_contain": ["endpoint security"]
+    },
+    {
+      "id": "retrieval_health_ndcg",
+      "question": "What is our mean nDCG and document ingestion grade?",
+      "expect_route": "retrieval_health",
+      "must_contain": ["mean_ndcg", "Document ingestion", "overall=B-"],
+      "must_not_contain": []
+    },
+    {
+      "id": "retrieval_health_lessons_fts",
+      "question": "How healthy is lessons FTS store drift?",
+      "expect_route": "retrieval_health",
+      "must_contain": ["Lessons store/FTS", "sqlite_coverage", "ensure-grepai-index"],
+      "must_not_contain": []
+    },
+    {
       "id": "off_scope_vault_refused",
       "question": "Improve things by rebuilding the Obsidian vault sync.",
       "expect_route": "off_scope_refuse",
