@@ -1,0 +1,170 @@
+{
+  "schema_version": "kpi-weekly-loop/1",
+  "product": "thumbgate_app_continuity",
+  "decision_question": "What single change this week most increases non-owner Continuity cash?",
+  "max_actions_per_week": 5,
+  "review_cadence": "weekly",
+  "notes": "Primary funnel is ThumbGate.app Continuity SaaS — not affiliate EPC. Cash is fail-closed $0 without non-owner Stripe receipt.",
+  "kpis": [
+    {
+      "id": "external_cash",
+      "name": "External Continuity cash (non-owner Stripe)",
+      "question": "Did any non-owner buyer complete a Continuity subscription payment?",
+      "unit": "usd",
+      "thresholds": {
+        "green_min": 10,
+        "yellow_min": 0.01,
+        "red_when": "value < yellow_min"
+      },
+      "probe": "revenue_receipt",
+      "playbook": [
+        {
+          "id": "dp_recruit",
+          "title": "Recruit ≤3 Continuity design partners with offline-lid pain",
+          "expected_impact": "First paid path: trial → feedback → non-owner Stripe",
+          "command_hint": "node tools/revenue-autonomous-loop.js --auto-send --json"
+        },
+        {
+          "id": "reconcile_stripe",
+          "title": "Reconcile Stripe → revenue-receipt.json (fail-closed honesty)",
+          "expected_impact": "Cash truth current; stop inventing $0 vs unknown",
+          "command_hint": "python3 tools/tinker-brain/reconcile_stripe_revenue_receipt.py 2>/dev/null || true"
+        },
+        {
+          "id": "campaign_beat_cash",
+          "title": "Ship one persona+pain+evidence campaign beat with buy UTMs",
+          "expected_impact": "Top-of-funnel for Continuity trial CTAs",
+          "command_hint": "node tools/social-publish-gate.js --help"
+        }
+      ]
+    },
+    {
+      "id": "campaign_beat",
+      "name": "Campaign beat (LIVE posts last 14d)",
+      "question": "Are we distributing free value with recoverable CTAs this fortnight?",
+      "unit": "count",
+      "thresholds": {
+        "green_min": 5,
+        "yellow_min": 3,
+        "red_when": "value < yellow_min"
+      },
+      "probe": "content_log_live_14d",
+      "playbook": [
+        {
+          "id": "one_beat",
+          "title": "One persona + pain + cited evidence + hook; fan-out LinkedIn/X/dev.to (Hashnode frozen)",
+          "expected_impact": "+LIVE permalinks; UTM campaign attribution",
+          "command_hint": "node tools/social-publish-gate.js --platform linkedin --campaign weekly-kpi --require-buy-links"
+        },
+        {
+          "id": "verify_live",
+          "title": "Verify last claim with verify-public-post.js (no title-only LIVE)",
+          "expected_impact": "Honest LIVE matrix; no double-post",
+          "command_hint": "node tools/verify-public-post.js --help"
+        },
+        {
+          "id": "reddit_draft_only",
+          "title": "Reddit stays draft-only under burn rule — do not force LIVE",
+          "expected_impact": "Protect account; still prepare value posts",
+          "command_hint": "node tools/social-publish-gate.js --platform reddit --campaign weekly-kpi"
+        }
+      ]
+    },
+    {
+      "id": "billing_rails",
+      "name": "Billing rails (live /api/billing/plan)",
+      "question": "Can a buyer actually start Continuity at the live price without hard-coded $?",
+      "unit": "boolean_score",
+      "thresholds": {
+        "green_min": 1,
+        "yellow_min": 1,
+        "red_when": "value < 1"
+      },
+      "probe": "billing_plan",
+      "playbook": [
+        {
+          "id": "probe_plan",
+          "title": "GET https://thumbgate.app/api/billing/plan — fix if inactive/misconfigured",
+          "expected_impact": "Checkout path unblocked",
+          "command_hint": "curl -sS https://thumbgate.app/api/billing/plan | head -c 400"
+        },
+        {
+          "id": "landing_dual_cta",
+          "title": "Confirm landing dual CTA: free control plane + Continuity trial",
+          "expected_impact": "No free-only or paid-only dead ends",
+          "command_hint": "node tools/funnel-stage-health.js --stage product_landing --json"
+        },
+        {
+          "id": "store_lint",
+          "title": "Run store-link / promo buy-link checks for dead packages",
+          "expected_impact": "No social posts to unpublished Play package",
+          "command_hint": "node tools/check-store-links.js 2>/dev/null || true"
+        }
+      ]
+    },
+    {
+      "id": "funnel_critical",
+      "name": "Funnel critical stages (landing/billing/campaign/outbound)",
+      "question": "Is any critical GTM stage actively failing?",
+      "unit": "fail_count",
+      "thresholds": {
+        "green_max": 0,
+        "yellow_max": 1,
+        "red_when": "value > yellow_max"
+      },
+      "probe": "funnel_critical_fails",
+      "playbook": [
+        {
+          "id": "stage_health",
+          "title": "Run funnel-stage-health and fix the top critical fail first",
+          "expected_impact": "Unblock the single highest-leverage stage",
+          "command_hint": "node tools/funnel-stage-health.js --json"
+        },
+        {
+          "id": "outbound_domain",
+          "title": "Prove igor@igorganapolsky.com send path (no Apple Mail silent drop)",
+          "expected_impact": "DP asks can deliver",
+          "command_hint": "node tools/funnel-stage-health.js --stage outbound_domain --json"
+        },
+        {
+          "id": "aeo_weekly",
+          "title": "Weekly AEO citation monitor if discovery stage warn/fail",
+          "expected_impact": "Answer-engine surface freshness",
+          "command_hint": "node tools/thumbgate-aeo-monitor.js --help 2>/dev/null || true"
+        }
+      ]
+    },
+    {
+      "id": "retrieval_ops",
+      "name": "Agent retrieval ops (grepae + lessons FTS coverage)",
+      "question": "Can agents find code/lessons reliably enough to ship without thrash?",
+      "unit": "health_score",
+      "thresholds": {
+        "green_min": 0.7,
+        "yellow_min": 0.4,
+        "red_when": "value < yellow_min"
+      },
+      "probe": "retrieval_stack",
+      "playbook": [
+        {
+          "id": "ensure_grepae",
+          "title": "node tools/ensure-grepai-index.js --canary (link REPO → isolated index)",
+          "expected_impact": "Semantic code search works from multi-worktree checkouts",
+          "command_hint": "node tools/ensure-grepai-index.js --canary --json 2>/dev/null || node tools/grepai-index-canary.js --json"
+        },
+        {
+          "id": "rag_eval",
+          "title": "Run rag-retrieval-eval floors (recall≥0.9)",
+          "expected_impact": "Harness regressions fail CI instead of silent",
+          "command_hint": "node tools/rag-retrieval-eval.js --json 2>/dev/null || true"
+        },
+        {
+          "id": "lessons_doctor",
+          "title": "thumbgate-lessons-doctor — file package-side FTS drift upstream",
+          "expected_impact": "Stop promoting vague captures; raise sqlite coverage",
+          "command_hint": "node tools/thumbgate-lessons-doctor.js --json 2>/dev/null || true"
+        }
+      ]
+    }
+  ]
+}
