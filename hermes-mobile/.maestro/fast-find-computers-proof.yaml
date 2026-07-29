@@ -1,4 +1,5 @@
-appId: com.iganapolsky.hermesmobile.paid
+# Device/CI: appId must match app.json package (paid install rewrites in run-maestro-for-app).
+appId: com.iganapolsky.hermesmobile
 ---
 - launchApp:
     clearState: false
@@ -25,13 +26,18 @@ appId: com.iganapolsky.hermesmobile.paid
     visible:
       id: "mac-picker-modal"
     timeout: 15000
-- takeScreenshot: /Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/.worktrees/fast-find-computers/hermes-mobile/docs/proofs/fast-find-computers-20260729/01-picker-open
 - tapOn:
     text: "Find computers"
 - extendedWaitUntil:
     notVisible:
       text: "Finding computers…"
     timeout: 8000
-- takeScreenshot: /Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/.worktrees/fast-find-computers/hermes-mobile/docs/proofs/fast-find-computers-20260729/02-scan-finished
 - assertVisible:
     id: "gateway-profile-list"
+# When selected Mac is offline, ThumbGate.app Continuity path must be offered.
+- extendedWaitUntil:
+    visible:
+      id: "thumbgate-promo-computer_picker_unreachable"
+    timeout: 10000
+- assertVisible:
+    text: "Open ThumbGate.app"

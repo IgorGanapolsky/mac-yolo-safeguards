@@ -1703,6 +1703,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 - `hermes-mobile/src/utils/thumbgatePromoCopy.ts` (computer_picker_unreachable surface + show gate), `hermes-mobile/src/components/GatewayProfilePicker.tsx` (promo slot only), `hermes-mobile/src/__tests__/thumbgatePromoCopy.test.ts`, `hermes-mobile/src/__tests__/GatewayProfilePicker.test.tsx` (unreachable promo cases), `hermes-mobile/src/__tests__/ThumbGatePromoCard.test.tsx` (surface if needed), `plan.md` → **grok-fast-find-computers** (T-PICKER-THUMBGATE-PROMO-20260729: CEO screenshot — Choose computer shows Cannot reach mini with zero ThumbGate.app path; promo only existed on ChatConnectionPanel.) (2026-07-29T19:00:00Z)
 
+- `hermes-mobile/.maestro/fast-find-computers-proof.yaml` (appId free package + ThumbGate promo assert), `hermes-mobile/docs/proofs/fast-find-computers-20260729/maestro.log`, `hermes-mobile/docs/proofs/fast-find-computers-20260729/timed-scan.json`, `plan.md` → **grok-fast-find-computers** (ownership gate for T-FAST-FIND / T-PICKER-THUMBGATE; 2026-07-29T19:57:00Z)
+
 ## 3. Decisions Log
 
 ### D-2026-07-28-buzz-competitor-p0-shared-room
