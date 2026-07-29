@@ -1,0 +1,681 @@
+{
+  "run_id": "trun_33f2b0228da74b9bb7cf5ae11b867fbd",
+  "interaction_id": "trun_33f2b0228da74b9bb7cf5ae11b867fbd",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_33f2b0228da74b9bb7cf5ae11b867fbd",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Assessment reasoning: The field_answer provides a comprehensive, actionable report aimed at a solo founder with zero external funding, covering ranked recommendations, channel strategy, design partner program, trial-to-paid dynamics, ICP/messaging, Continuity-style opportunity, high-ticket diagnostics, tooling thrash avoidance, weekly cadence, and a 7-day action checklist. It aligns with the user query and the field_description\u2019s emphasis on actionable content, not pure theory, and ends with a concrete 7-day plan. Excerpts supplied include sources on design partner programs, outbound strategies (LinkedIn vs cold email), and high-ticket playbooks, which plausibly support the types of guidance (e.g., design partner structure, paywall-first landing, diagnostic offers, and ICP/messaging). While exact numeric citations in the field_answer (e.g., specific percentages) may not be traceable to every excerpt, the broad themes and recommended moves are reflected across the excerpts. Therefore, the answer appears complete and the content is supported by the provided excerpts to a reasonable degree.",
+        "citations": [
+          {
+            "url": "https://www.koji.so/docs/design-partner-program",
+            "excerpts": [
+              "Design Partner Program: Complete Guide to B2B Co-Development ...\nA complete 2026 playbook for running a design partner program \u2014 what design partners are, how to recruit them, how to structure the commercial relationship, and how to run continuous AI-powered interviews so you ship a product they actually want to buy."
+            ],
+            "title": "Design Partner Program: Complete Guide to B2B Co-Development ..."
+          },
+          {
+            "url": "http://platform.tracxn.com/a/d/company/5975f17ae4b0600c8de0cb8d/playbook%20ai#a:about",
+            "excerpts": [
+              "(last verified: 2026-07-09) Name: Playbook AI | Email: support@playbook.ai | All Locations: United States | Special Flags: Tech YES Enterprise YES SaaS YES Software YES | Achievements: Trending Theme Market {themes=[{id=5ca35e5a8787071bd85a3639}, {id=5ca35e5a8787071bd85a3639}]} | Incubators: 10000 startups A&I Program Unknown | Founders: Soumitra Paul Co-Founder | Website Url: https://playbook.ai | Founded Year: 2016 |"
+            ],
+            "title": null
+          },
+          {
+            "url": "https://saasplaybook.com/",
+            "excerpts": [
+              "The SaaS Playbook\nWhether you\u2019re a software developer, a no-code aficionado, or you\u2019ve never written code in your life, this book will walk you through the most actionable tactics to launch and grow a SaaS business. If you\u2019ve been waiting for someone to hand you buckets of money to build your company, stop."
+            ],
+            "title": "The SaaS Playbook"
+          },
+          {
+            "url": "https://playbook.in/",
+            "excerpts": [
+              "Playbook Partners\nOur deep, localized understanding\u2014as operators, investors and advisors\u2014across a spectrum of sectors, from retail and fintech, to media and SaaS, enables us to"
+            ],
+            "title": "Playbook Partners"
+          },
+          {
+            "url": "https://careers.redpoint.com/companies/cockroach-labs/jobs/87303025-member-of-technical-staff",
+            "excerpts": [
+              "Member of Technical Staff @ Cockroach Labs - Redpoint\n4 hours ago \u2014 Design, build, and operate AI-powered developer tools on top of roachdev - including automated code review, CI failure triage, and agentic PR automation."
+            ],
+            "title": "Member of Technical Staff @ Cockroach Labs - Redpoint"
+          },
+          {
+            "url": "https://www.mindstudio.ai/blog/build-saas-with-ai-agents-1m-arr-case-study",
+            "excerpts": [
+              "How to Build a SaaS Product with AI Agents: Lessons from a ...\nA real founder used Claude Code and AI agents to build a $1M ARR SaaS. Here's the exact process: problem selection, ideation, simulation, and pricing."
+            ],
+            "title": "How to Build a SaaS Product with AI Agents: Lessons from a ..."
+          },
+          {
+            "url": "http://indiehackers.com/post/im-a-solo-founder-it-took-me-9-months-and-at-least-3-stack-rewrites-to-ship-my-saas-a66b5fbe33",
+            "excerpts": [
+              "I am a solo founder. Nine months ago I started building an SEO tool. Two weeks ago I got my first Stripe payment. In between, I rewrote the stack maybe three times and built things I had never touched before: a backend, a database, webhooks. All of it for the first time, with AI as my teacher.\nI am not a developer and I am not a CSS person. I came in with 15 years of SEO experience, some project management, and a digital illustration hobby. Everything technical I figured out as I went.\nNew monthly cost: ~$40/month.\nThe product is IvaBot - an SEO tool with three modules (technical audit, content coverage, content generation). Checks how ready a site is to be cited by AI engines like ChatGPT and Perplexity. Pay-as-you-go from $5, no subscription. <https://ivabot.xyz>\nThree modules, $5 starting price, pay-as-you-go. Built for solo founders and small businesses because every other tool in this space starts at $50-300/month, and I know the pain."
+            ],
+            "title": "I'm a solo founder. It took me 9 months and at least 3 stack rewrites to ship my SaaS. - Indie Hackers"
+          },
+          {
+            "url": "https://agentmarketcap.ai/blog/2026/04/14/solo-founder-agent-economy-micro-saas-2026",
+            "excerpts": [
+              "The Solo Founder Agent Economy: How One-Person Teams Are ...\nSolo founders using AI coding agents are reaching $10K\u2013$100K MRR without employees. Here's the data behind the one-person startup revolution."
+            ],
+            "title": "The Solo Founder Agent Economy: How One-Person Teams Are ..."
+          },
+          {
+            "url": "https://www.teract.ai/resources/twitter-strategy-indie-hackers-2026",
+            "excerpts": [
+              "Indie Hacker X Strategy 2026: Success Stories, Top Accounts ...\nThis guide shares the complete build-in-public strategy: what to share daily, how to grow your audience, when to start monetizing, and how to convert followers into paying customers."
+            ],
+            "title": "Indie Hacker X Strategy 2026: Success Stories, Top Accounts ..."
+          },
+          {
+            "url": "http://github.com/alirezarezvani/claude-skills/blob/main/agents/personas/solo-founder.md",
+            "excerpts": [
+              "You are SoloFounder, the thinking partner for one-person startups and indie hackers. You operate in the pre-revenue to early revenue territory where time is the"
+            ],
+            "title": "claude-skills/agents/personas/solo-founder.md at main \u00b7 alirezarezvani/claude-skills \u00b7 GitHub"
+          },
+          {
+            "url": "https://www.thebusinessadvisory.com/high-ticket-closing-guide",
+            "excerpts": [
+              "Closing High Ticket Sales: The Complete Guide for 2025\nHigh ticket closers should aim for a 50% close rate, meaning of every 2 people who book a consultation, one of them will close."
+            ],
+            "title": "Closing High Ticket Sales: The Complete Guide for 2025"
+          },
+          {
+            "url": "http://coachingsales.com/blog",
+            "excerpts": [
+              "Coaching Sales Playbook: How The Perfect Sales Team Unlocks Hyper-Growth \u00b7 The Ultimate Guide On Group Sales Calls For Coaches & Consultants \u00b7 LinkedIn Sales"
+            ],
+            "title": "Sales Consultancy for High-Ticket Products & Services"
+          },
+          {
+            "url": "http://serialagency.co/",
+            "excerpts": [
+              "We build and run your entire revenue machine. NexGrowth partners with high-ticket founders to install the sales, marketing, and operations infrastructure behind consistent $1M+ months \u2014 so you can focus on vision, not firefighting. [Apply to Partner](https://g2jm5qrfmp2.typeform.com/to/VmKSntM8?utm_campaign=Home-Page&utm_medium=Website&utm_source=Organic) See Our Results Growth Partners NexGrowth partners with high-ticket founders to install the sales, marketing, and operations infrastructure behind consistent $1M+ months \u2014 so you can focus on vision, not firefighting. [Apply to Partner](https://g2jm5qrfmp2.typeform.com/to/VmKSntM8?utm_campaign=Home-Page&utm_medium=Website&utm_source=Organic) [Join as Closer / Setter](https://links.nexgrowth.ai/widget/form/nAWmP17fRoQOqUK5J4PE) Month-to-month after build \u00b7 No lock-in \u00b7 Free strategy call 47+ partners scaled $100M+ cash collected 30%+ avg close rate 60 days avg time to $1M/mo 47+ partners scaled $100M+ cash collected 30%+ avg close rate 60 days avg time to $1M/mo 47+ partners scaled $100M+ cash collected 30%+ avg close rate 60 days avg time to $1M/mo Official Agency Partner Whop **We don't consult. We partner, build, and operate.** NexGrowth embeds directly into your business \u2014 rebuilding the sales process, placing closers, installing CRM and reporting infrastructure, and managing your revenue team daily so you never have to babysit it again."
+            ],
+            "title": "NexGrowth | Sales Infrastructure For High-Ticket Teams"
+          },
+          {
+            "url": "https://www.youtube.com/playlist?list=PLMYbkqnaJDnqBjDJxmShpyFTov8n99sfu",
+            "excerpts": [
+              "The High Ticket Business Playbook\nThe High Ticket Business Playbook - YouTube. Learn more The High Ticket Business Playbook. Playlist\u202226 videos\u2022445 views Play all. Chase's New Business Card."
+            ],
+            "title": "The High Ticket Business Playbook"
+          },
+          {
+            "url": "https://high-ticketclosingacademy.com/",
+            "excerpts": [
+              "High-Ticket Closing Academy\nChris Bull, founder of High-Ticket Closing Academy Meet Your Mentor Chris Bull Founder, HTCA & PrimeClosers I started in sales at sixteen. Free work experience"
+            ],
+            "title": "High-Ticket Closing Academy"
+          },
+          {
+            "url": "https://www.getcleed.com/blog/cold-email-vs-linkedin-outbound-2026",
+            "excerpts": [
+              "Cold Email Is Losing to LinkedIn: What the 2026 Benchmark ...\nCold email reply rates hit 1-5% while LinkedIn gets 10-25%. See the 2026 benchmark data and learn which outbound channel wins for B2B sales."
+            ],
+            "title": "Cold Email Is Losing to LinkedIn: What the 2026 Benchmark ..."
+          },
+          {
+            "url": "http://blog.sendspark.com/b2b-sales-outreach-strategies",
+            "excerpts": [
+              "High-performing cold email in 2026 has four characteristics: a hyper-relevant subject line, a single-sentence value prop tied to a specific pain, a clear ask (15-minute call, not a demo), and genuine personalization. Infrastructure matters too. Domain health, warm-up periods, sending volume limits \u2014 these technical elements determine whether your emails land in inboxes or spam folders. For a complete setup, see our [complete guide to cold email campaigns](https://blog.sendspark.com/complete-guide-cold-email-campaigns) . Best for: High-volume prospecting, especially combined with video as the pattern interrupt. ### 4\\. Phone + Voicemail Phone has lower connection rates than ever (sub-5% for most B2B SDRs), but voicemail plays a different role: it's a touchpoint in a sequence, not a conversion mechanism. A 20-second voicemail referencing your email creates a \"multi-channel halo effect\" \u2014 it makes your follow-up email feel warmer. The script that works: \"Hey [Name], I sent you an email earlier about [specific value prop]. Wanted to put a face to the name \u2014 I actually made you a short video too. Check it out in your inbox. [Name], [company].\" That's it. Best for: Enterprise prospects, financial services, healthcare \u2014 industries where phone still gets attention. ### 5\\. Multi-Touch Sequences The channel debate misses the point: no single channel wins deals alone. Multi-touch sequences that combine email, video, LinkedIn, and phone outperform any single-channel approach by a significant margin.\nThe highest-performing B2B outreach channels in 2026 are personalized video email (200-300% higher reply rates vs. text-only), LinkedIn direct outreach (10-30% reply rates for well-targeted messages), and multi-touch sequences that combine all channels. Single-channel outreach significantly underperforms multi-channel approaches. ### How many touchpoints does it take to book a B2B sales meeting? Research consistently shows it takes 8-12 touchpoints to book a meeting with a cold B2B prospect. Most SDRs give up after 2-3 attempts, which means the majority of meetings go to the teams with the most persistent, value-adding follow-up sequences."
+            ],
+            "title": "B2B Sales Outreach Strategies for 2025 | Sendspark"
+          },
+          {
+            "url": "http://builtforb2b.com/blog/cold-email-vs-linkedin-outreach-for-b2b-which-works-better",
+            "excerpts": [
+              "We compare response rates, costs, and scalability. Plus why the best B2B outbound programmes use both. published: \"Jul 16, 2026, 10:40 AM UTC\" > Why the Best Campaigns Use Both The debate misses the point. Cold email and LinkedIn are not competitors. They are complements. Here is what a combined sequence looks like: **Day 1:** LinkedIn connection request with a short, personalised note. **Day 3:** First cold email. Problem-focused, referencing something specific about their business. **Day 5:** LinkedIn profile view (creates visibility without being pushy). **Day 7:** Email follow-up. Different angle, same core message. **Day 10:** LinkedIn message to those who accepted the connection. More conversational. **Day 14:** Final email. Direct ask with social proof\ntitle: \"Cold Email vs LinkedIn Outreach for B2B: Which Actually Works Better - Built For B2B\" description: Cold email or LinkedIn outreach? We compare response rates, costs, and scalability. Plus why the best B2B outbound programmes use both. published: \"Jul 16, 2026, 10:40 AM UTC\" > Cold Email: The Numbers [Cold email](../cold-email-agency) is the workhorse of B2B outbound. Here is what performance looks like on a well-run campaign: **Positive reply rates:** 3-8% (this is the metric that matters, not open rates) **Volume capacity:** 200-500+ personalised emails per day per campaign **Cost per touchpoint:** Low (pennies per email once infrastructure is built) **Time to launch:** 3-4 weeks (including domain warming)"
+            ],
+            "title": "title: \"Cold Email vs LinkedIn Outreach for B2B: Which Actually Works Better - Built For B2B\" description: Cold email or LinkedIn outreach? We compare response rates, costs, and scalability. Plus why the best B2B outbound programmes use both. published: \"Jul 16, 2026, 10:40 AM UTC\""
+          },
+          {
+            "url": "https://b2bdataindex.com/research/cold-email-benchmarks-2026",
+            "excerpts": [
+              "Cold Email Benchmarks 2026: Open Rates, Reply Rates, and ...\nCitable cold email benchmark data for 2026: open rates, reply rates, bounce rates, and meeting conversion rates across 14 industries and 20 countries, derived from 4.2M+ campaign sends."
+            ],
+            "title": "Cold Email Benchmarks 2026: Open Rates, Reply Rates, and ..."
+          },
+          {
+            "url": "https://snov.io/blog/cold-email-statistics",
+            "excerpts": [
+              "Cold Email Statistics for 2026: Benchmarks & Snov.io Insights\n16 de jun. de 2026 \u00b7 The average conversion rate for cold emails is 0.2153%. This conversion rate means that one deal is secured for every 464 emails sent."
+            ],
+            "title": "Cold Email Statistics for 2026: Benchmarks & Snov.io Insights"
+          },
+          {
+            "url": "https://www.speakeasy.com/product/ai-control-plane",
+            "excerpts": [
+              "The AI control plane to secure every agent ... - Speakeasy\nGive AI tools controlled access to your internal systems by connecting APIs in minutes. Control access by team and role. Define which tools each team can use."
+            ],
+            "title": "The AI control plane to secure every agent ... - Speakeasy"
+          },
+          {
+            "url": "https://www.informatica.com/resources/articles/enterprise-ai-agent-engineering.html",
+            "excerpts": [
+              "Enterprise AI Agent Engineering & Data Infrastructure\nLearn why 80% of AI agents fail. This guide covers data infrastructure, real-time pipelines, and governance frameworks for production-grade AI agent engineering."
+            ],
+            "title": "Enterprise AI Agent Engineering & Data Infrastructure"
+          },
+          {
+            "url": "https://machinelearningmastery.com/deploying-ai-agents-to-production-architecture-infrastructure-and-implementation-roadmap",
+            "excerpts": [
+              "Deploying AI Agents to Production: Architecture ...\nIn this article, you will learn how to move an AI agent from a promising prototype to a reliable, scalable production system by selecting the right architecture, building the proper infrastructure, and executing a pragmatic rollout plan."
+            ],
+            "title": "Deploying AI Agents to Production: Architecture ..."
+          },
+          {
+            "url": "https://docs.aws.amazon.com/whitepapers/latest/saas-architecture-fundamentals/control-plane-vs.-application-plane.html",
+            "excerpts": [
+              "Control plane vs. application plane - SaaS Architecture ...\nThis control plane is foundational to any multi-tenant SaaS model. Every SaaS solution\u2014regardless of application deployment and isolation scheme\u2014must"
+            ],
+            "title": "Control plane vs. application plane - SaaS Architecture ..."
+          },
+          {
+            "url": "https://harness-engineering.ai/blog/ai-agent-governance-best-practices-for-production-environments",
+            "excerpts": [
+              "AI Agent Governance: Best Practices for Production Environments\nIf you are working through the production readiness checklist for your agent deployment, our production deployment guide covers the full operational stack \u2014 governance, reliability, observability, and cost controls \u2014 in a single architecture reference."
+            ],
+            "title": "AI Agent Governance: Best Practices for Production Environments"
+          },
+          {
+            "url": "https://cobusgreyling.medium.com/developer-pain-points-in-building-ai-agents-af54b5e7d8f2",
+            "excerpts": [
+              "Developer Pain Points In Building AI Agents | by Cobus Greyling - Medium\n7 de nov. de 2025 \u00b7 Developers face persistent & often under-explored challenges when building, deploying & maintaining with emerging systems. Two things are really"
+            ],
+            "title": "Developer Pain Points In Building AI Agents | by Cobus Greyling - Medium"
+          },
+          {
+            "url": "https://bitrise.io/platform/remote-dev-environments",
+            "excerpts": [
+              "Remote Dev Environments (RDE)\n7 days ago \u2014 Cloud dev environments for developers and AI agents, on the or Build Hub. minutes Watch demo Code, build, and run agents on Bitrise"
+            ],
+            "title": "Remote Dev Environments (RDE)"
+          },
+          {
+            "url": "https://www.kognita.co/blog/ai-agent-runaway-cost-no-kill-switch",
+            "excerpts": [
+              "A Runaway AI Agent Ran for 11 Days and Cost $47,000. Here's ...\nA documented incident from 2025: a multi-agent LangChain system entered a retry loop, ran undetected for eleven days, and accumulated $47,000 in API charges before anyone noticed \u2014 because the billing statement is how they found out. There was no spend limit per agent, no timeout, no alert."
+            ],
+            "title": "A Runaway AI Agent Ran for 11 Days and Cost $47,000. Here's ..."
+          },
+          {
+            "url": "https://echosift.io/blog/developer-pain-points-2026",
+            "excerpts": [
+              "Developer Pain Points in 2026: What the Complaint Data ...\nA data-led look at where developers actually hurt in 2026, drawn from EchoSift's live signal feed across GitHub, Stack Overflow, Hacker News, and Bluesky, plus a method to turn that pain into a wedge."
+            ],
+            "title": "Developer Pain Points in 2026: What the Complaint Data ..."
+          },
+          {
+            "url": "https://www.reddit.com/r/AI_Agents/comments/1n1upkn/whats_the_biggest_pain_point_you_have_while",
+            "excerpts": [
+              "What's the biggest pain point you have while building AI agents? - Reddit\nAug 27, 2025 \u00b7 A common pain point in building AI agents is indeed the evaluation process. Many developers find it challenging to define what success looks\u00a0... Need opinions from devs about AI coding. I have stakeholders all in on ... As a builder, what are some of the most common hurdles and pain ... More results from www.reddit.com"
+            ],
+            "title": "What's the biggest pain point you have while building AI agents? - Reddit"
+          },
+          {
+            "url": "https://x.com/Techstars/status/2075281910952263980",
+            "excerpts": [
+              "1. Create a weekly customer-learning cadence. A solo ...\nCreate a weekly customer-learning cadence. A solo founder can move quickly, but speed without feedback can become self-reinforcing."
+            ],
+            "title": "1. Create a weekly customer-learning cadence. A solo ..."
+          },
+          {
+            "url": "http://github.com/thedaviddias/indie-dev-toolkit",
+            "excerpts": [
+              "A curated list of essential tools and resources for indie hackers, solo founders, and bootstrapped startups building both web and mobile apps.\nindie hackers"
+            ],
+            "title": "indie-dev-toolkit"
+          },
+          {
+            "url": "https://www.reddit.com/r/Solopreneur/comments/1s61ng2/solo_founder_here_tested_my_entire_gtm_strategy",
+            "excerpts": [
+              "Solo founder here. Tested my entire GTM strategy in 90 minutes instead ...\nMar 28, 2026 \u00b7 I built a tool that simulates buyer reactions to your pricing, messaging, positioning, audience, cold email, channels, and ads. Before using it\u00a0... how do you actually structure your GTM when you're a team of one? Solo founders. How do y'all balance marketing and product work? - Reddit More results from www.reddit.com"
+            ],
+            "title": "Solo founder here. Tested my entire GTM strategy in 90 minutes instead ..."
+          },
+          {
+            "url": "https://www.indiehackers.com/",
+            "excerpts": [
+              "Indie Hackers: Work Together to Build Profitable Online ...\nMarket insights that help you start and grow your business. founders building profitable online businesses, and to connect with others in the Indie Hackers"
+            ],
+            "title": "Indie Hackers: Work Together to Build Profitable Online ..."
+          },
+          {
+            "url": "https://leanonmarketing.com/blog/trial-to-paid-conversion-saas-2026",
+            "excerpts": [
+              "Trial-to-Paid Conversion: The 2026 SaaS Playbook (Benchmarks ...\nA complete trial-to-paid conversion playbook for B2B SaaS \u2014 benchmarks, onboarding friction analysis, activation metrics, expansion logic, AI-assisted personalization, and a bottleneck framework with KPI tables."
+            ],
+            "title": "Trial-to-Paid Conversion: The 2026 SaaS Playbook (Benchmarks ..."
+          },
+          {
+            "url": "https://demandmaven.io/ep56-the-busy-founders-guide-to-activation",
+            "excerpts": [
+              "The busy SaaS founder's guide to onboarding & activation\nFeb 24, 2026 \u2014 Every SaaS founder I talk to thinks they've handled activation . They've got an onboarding checklist. Maybe a welcome email sequence."
+            ],
+            "title": "The busy SaaS founder's guide to onboarding & activation"
+          },
+          {
+            "url": "https://thegrowthterminal.com/blog/freemium-to-paid-the-7-step-conversion-framework",
+            "excerpts": [
+              "Freemium to Paid: The 7-Step Conversion Framework\nConvert more freemium users to paid customers. Learn the psychology, pricing triggers, and feature gates that drive 3-5x conversion lifts."
+            ],
+            "title": "Freemium to Paid: The 7-Step Conversion Framework"
+          },
+          {
+            "url": "https://waveup.com/blog/how-to-raise-money-for-ai-startup",
+            "excerpts": [
+              "How to Raise Money for an AI Startup in 2026 (Playbook)\nThe real 2026 AI funding picture. 90% of software-side VCs only take AI meetings. 50% of VC funding went to AI in 2025. 41% of that went to the top 5 AI"
+            ],
+            "title": "How to Raise Money for an AI Startup in 2026 (Playbook)"
+          },
+          {
+            "url": "https://www.pulseahead.com/blog/trial-to-paid-conversion-benchmarks-in-saas",
+            "excerpts": [
+              "Trial-to-Paid Conversion Benchmarks in SaaS | Pulseahead\n28 de mai. de 2026 \u00b7 Free trial to paid conversion benchmarks broken down by trial type, vertical, and stage. See what you can do to consistently hit 25%+."
+            ],
+            "title": "Trial-to-Paid Conversion Benchmarks in SaaS | Pulseahead"
+          },
+          {
+            "url": "https://indiehackers.com/post/im-a-solo-founder-it-took-me-9-months-and-at-least-3-stack-rewrites-to-ship-my-saas-a66b5fbe33",
+            "excerpts": [],
+            "title": "I'm a solo founder. It took me 9 months and at least 3 stack rewrites to ship my SaaS. - Indie Hackers"
+          },
+          {
+            "url": "http://zackderis.com/stats",
+            "excerpts": [
+              "Zack Deris is an AI sales systems consultant helping B2B founders and operators close more deals with AI-powered outbound, sales playbooks,"
+            ],
+            "title": "Stats & Proof"
+          },
+          {
+            "url": "https://elliottrebuck.com/blog/conversion-rate-optimization-consultant-benefits",
+            "excerpts": [
+              "A Conversion Rate Optimization (CRO) consultant"
+            ],
+            "title": "A Conversion Rate Optimization (CRO) consultant"
+          },
+          {
+            "url": "https://www.linkedin.com/company/playbookai",
+            "excerpts": [
+              "Playbook AI\nWebsite: https://playbook.ai. External link for Playbook AI ; Industry: Software Development ; Company size: 11-50 employees ; Headquarters: WALNUT"
+            ],
+            "title": "Playbook AI"
+          },
+          {
+            "url": "https://www.consultingsuccess.com/consultants-guide-to-productization",
+            "excerpts": [
+              "To productize your corporate expertise into a high-ticket offer,"
+            ],
+            "title": "To productize your corporate expertise into a high-ticket offer,"
+          },
+          {
+            "url": "https://www.diagnosticconsultants.com/",
+            "excerpts": [
+              "Diagnostic Testing Consultants: HOME\nWe are a boutique testing practice committed to providing high quality services . We take strides to make both parents and students feel comfortable."
+            ],
+            "title": "Diagnostic Testing Consultants: HOME"
+          },
+          {
+            "url": "https://www.morphllm.com/ai-agent-evaluation",
+            "excerpts": [
+              "AI Agent Evaluation (2026): Metrics, Frameworks, and ...\nAI Agent Evaluation (2026): The Metrics, the Frameworks, and Why Offline Evals Miss Production Failures Most agent evaluation stops at a held-out benchmark and a final-answer pass/fail. That misses trajectory quality, tool-call correctness, looping, and recovery. The metrics that matter, the frameworks compared (LangSmith, Braintrust, OpenAI Evals, Phoenix, DeepEval, Ragas, plus tau-bench and"
+            ],
+            "title": "AI Agent Evaluation (2026): Metrics, Frameworks, and ..."
+          },
+          {
+            "url": "https://www.pcworld.com/article/2872670/no-wi-fi-no-problem-local-ai-laptops-keep-you-working-anywhere.html",
+            "excerpts": [
+              "No Wi-Fi? No problem. Local AI laptops keep you working ...\nAug 20, 2025 \u2014 AI tools offer real added value for many users . With the right hardware, the tools can also be used offline without any problems."
+            ],
+            "title": "No Wi-Fi? No problem. Local AI laptops keep you working ..."
+          },
+          {
+            "url": "http://github.com/sunilgentyala/LaptopAI-Agent/blob/master/main.py",
+            "excerpts": [
+              "Fully local, privacy-first autonomous AI agent for laptop management \u2014 LangGraph reasoning loop, Ollama local LLM, ChromaDB RAG, MCP server, SHA-256 chained"
+            ],
+            "title": "main.py - sunilgentyala/LaptopAI-Agent"
+          },
+          {
+            "url": "https://dev.to/anita_ihuman/best-offline-ai-coding-assistant-how-to-run-llms-locally-without-internet-2bah",
+            "excerpts": [
+              "Best Offline AI Coding Assistant: How to Run LLMs Locally ...\nThe future of offline coding assistance is here. It continues to evolve, with tools like Continue and Ollama that let developers run large language models locally in their environments without relying on the internet."
+            ],
+            "title": "Best Offline AI Coding Assistant: How to Run LLMs Locally ..."
+          },
+          {
+            "url": "https://zylos.ai/research/2026-02-20-graceful-degradation-ai-agent-systems",
+            "excerpts": [
+              "Graceful Degradation Patterns in AI Agent Systems | Zylos Research\nThe discipline of graceful degradation addresses how agents detect, contain, and recover from these partial failures while continuing to deliver"
+            ],
+            "title": "Graceful Degradation Patterns in AI Agent Systems | Zylos Research"
+          },
+          {
+            "url": "https://bitrise.io/",
+            "excerpts": [
+              "Bitrise: Mobile DevOps Platform for iOS & Android\nRemote Dev Environments Code, build, and run AI agents in the cloud. Ops platform built for the speed of by 8,500+ mobile teams worldwide. live remote session"
+            ],
+            "title": "Bitrise: Mobile DevOps Platform for iOS & Android"
+          },
+          {
+            "url": "https://news.ycombinator.com/item?id=31839260",
+            "excerpts": [
+              "Infrastructure SaaS \u2013 a control plane first architecture\nJun 22, 2022 \u2014 Managing the data plane is the more complex part of it as you would expect. I do tend to model the business processes at a high level using"
+            ],
+            "title": "Infrastructure SaaS \u2013 a control plane first architecture"
+          },
+          {
+            "url": "https://bitrise.io/blog/post/the-delivery-pipeline-is-the-new-bottleneck",
+            "excerpts": [
+              "With AI coding, the delivery pipeline is the new bottleneck\nMar 4, 2026 \u2014 Remote Dev Environments give humans interactive cloud VMs. The same environments serve AI agents: land in a pre-warmed VM, write code, run"
+            ],
+            "title": "With AI coding, the delivery pipeline is the new bottleneck"
+          },
+          {
+            "url": "https://www.ycombinator.com/companies/credal-ai",
+            "excerpts": [
+              "Credal.ai: The Control Plane for Enterprise Agents\nThe Control Plane for Enterprise Agents. Build, govern, and deploy enterprise AI agents and MCP servers Powered by your data, subject to enterprise controls."
+            ],
+            "title": "Credal.ai: The Control Plane for Enterprise Agents"
+          },
+          {
+            "url": "https://www.betterlaunch.co/blog/indie-hacker",
+            "excerpts": [
+              "Indie Hacker in 2026: What It Means + Real Playbook\nIn 2026, it is a full-blown movement: tens of thousands of founders building SaaS, AI tools, micro-products, and content businesses without VC, without teams of 30, often without employees at all. \"Indie hacker\" used to be a niche label for developers quietly building profitable side projects."
+            ],
+            "title": "Indie Hacker in 2026: What It Means + Real Playbook"
+          },
+          {
+            "url": "https://indieradar.app/blog",
+            "excerpts": [
+              "Indie Hacker Playbooks: X Growth, SaaS Tactics & Revenue ...\nProven playbooks for indie hackers: Twitter/X growth strategies (reply guy method, build in public), SaaS revenue tactics, and tools that work. No fluff."
+            ],
+            "title": "Indie Hacker Playbooks: X Growth, SaaS Tactics & Revenue ..."
+          },
+          {
+            "url": "http://hackernoon.com/8-web-directories-that-saas-builders-and-indie-hackers-need-to-check-out",
+            "excerpts": [
+              "Indie Hacker Stacks This tool provides real-world examples of tech stacks used by successful indie hackers.\nThis tool streamlines the development process, enabling indie hackers to quickly set up their applications and reduce initial coding and"
+            ],
+            "title": "8 Web Directories That SaaS Builders and Indie Hackers Need To ..."
+          },
+          {
+            "url": "https://www.reddit.com/r/SaaS/comments/1roxx70/solo_founder_how_do_you_actually_handle_churn",
+            "excerpts": [
+              "Solo Founder how do you actually handle churn? : r/SaaS"
+            ],
+            "title": "Solo Founder how do you actually handle churn? : r/SaaS Reddit\u00a0\u00b7\u00a0r/SaaS 5 comments \u00b7 2 months ago"
+          },
+          {
+            "url": "https://indieis.land/blog/indie-hacker-tools-trends-2026",
+            "excerpts": [
+              "The Indie Hacker Toolkit for 2026 \u2014 AI, Automation, and the ...\nDiscover the AI-powered tools and emerging trends fueling the indie hacker and digital nomad revolution in 2026. From vibe coding to one-person agencies, here's your survival guide."
+            ],
+            "title": "The Indie Hacker Toolkit for 2026 \u2014 AI, Automation, and the ..."
+          },
+          {
+            "url": "https://solofoundr.co/cold-outreach-strategy-for-solo-founders",
+            "excerpts": [
+              "Cold Outreach Strategy for Solo Founders - SoloFoundR\nFollowing Up Without Being Annoying Most cold outreach deals are closed on follow-up 2, 3, or even 5. The challenge for solo founders is that manual follow-up is time-consuming and easy to forget. The solution is a structured, short sequence rather than sporadic one-off nudges. A reliable follow-up cadence for solo founders: Day 1: Send initial"
+            ],
+            "title": "Cold Outreach Strategy for Solo Founders - SoloFoundR"
+          },
+          {
+            "url": "https://www.foundra.ai/key-reads/the-solo-founder-agent-stack-what-s-actually-working-in-2026",
+            "excerpts": [
+              "The Solo Founder Agent Stack: What's Actually Working in 2026\nA solo founder running a tight stack of AI agents is now doing what used to take a five-person team. Sales outreach, customer support, content marketing, ops dashboards, even basic engineering."
+            ],
+            "title": "The Solo Founder Agent Stack: What's Actually Working in 2026"
+          },
+          {
+            "url": "https://www.reddit.com/r/SaaS/comments/1rbzr6s/solo_founder_with_0_customers_what_actually",
+            "excerpts": [
+              "Solo founder with 0 customers \u2014 what actually worked for ...\nI'm building a Shopify app that automates same-day delivery for local stores (florists, bakeries, etc). Product is live, I've sent 100+ cold emails"
+            ],
+            "title": "Solo founder with 0 customers \u2014 what actually worked for ..."
+          },
+          {
+            "url": "http://coldiq.com/tools/outreachly",
+            "excerpts": [
+              "Outreachly helps consultants, solopreneurs, sales reps, sales managers, recruiters, automating and personalizing multi-channel outreach campaigns. From$95.00/mo"
+            ],
+            "title": "Outreachly Review: Features, Pricing & Alternatives (2026)"
+          },
+          {
+            "url": "http://zoominfo.com/c/outreach-corp/358352948",
+            "excerpts": [
+              "Operating with a substantial workforce of 500 - 1,000 employees across 4 locations, Outreach's revenue is $142.8 Million."
+            ],
+            "title": "Outreach - Overview, News & Similar companies"
+          },
+          {
+            "url": "https://lishchuk.com/blog/solo-founder-marketing-playbook-2026.html",
+            "excerpts": [
+              "Solo Founder Marketing 2026 \u2014 From Zero to First Customers\nHow solo founders win their first paying customers in 2026 \u2014 channels that survived AI Overviews, real CAC math, and a timeline that actually works."
+            ],
+            "title": "Solo Founder Marketing 2026 \u2014 From Zero to First Customers"
+          },
+          {
+            "url": "https://www.indiehackers.com/post/how-we-increased-conversion-from-free-to-paid-by-7-6x-e067256502",
+            "excerpts": [
+              "How we increased conversion from free to paid by 7.6x - Indie ...\nOver the past eight months we\u2019ve increased our conversion from app download \u2192 paying user by 7.6x. We\u2019ve run (many) tests, and here are the three things that drastically improved our conversion at Alpe Audio:"
+            ],
+            "title": "How we increased conversion from free to paid by 7.6x - Indie ..."
+          },
+          {
+            "url": "https://www.autotweet.io/case-studies/indie-hacker-monetization",
+            "excerpts": [
+              "Indie Hacker Case Study: $400 to $8,500 MRR via X in 11 ...\nRealistic case study of an indie hacker scaling from $400/mo to $8,500/mo MRR via X (Twitter). Build-in-public, customer discovery, paid tier launches."
+            ],
+            "title": "Indie Hacker Case Study: $400 to $8,500 MRR via X in 11 ..."
+          },
+          {
+            "url": "http://indiehackers.com/",
+            "excerpts": [
+              "Stay informed as an indie hacker. Market insights that help you start and grow your business. Subscribe Indie Hackers logo glyph Indie Hackers logotype Follow [@IndieHackers](https://twitter.com/IndieHackers) on X for stories and insights about founders building profitable online businesses, and to connect with others in the Indie Hackers community."
+            ],
+            "title": "Indie Hackers: Work Together to Build Profitable Online Businesses"
+          },
+          {
+            "url": "https://www.fiddler.ai/control-plane",
+            "excerpts": [
+              "The Control Plane for AI Agents - Fiddler AI\nAn AI Control Plane is the system of record for AI agents, providing standardized telemetry, reliable evaluation, continuous monitoring, enforceable policy, and"
+            ],
+            "title": "The Control Plane for AI Agents - Fiddler AI"
+          },
+          {
+            "url": "https://www.microsoft.com/en-us/security/security-insider/emerging-trends/agent-control-plane",
+            "excerpts": [
+              "A Control Plane for AI Governance Video | Security Insider\nLearn how an AI agent control plane improves visibility, governance, and security across agent ecosystems. Reduce risk and manage agent sprawl at scale."
+            ],
+            "title": "A Control Plane for AI Governance Video | Security Insider"
+          },
+          {
+            "url": "https://labs.cloudsecurityalliance.org/agentic",
+            "excerpts": [
+              "Securing the Agentic Control Plane \u2013 Lab Space\nThe Cloud Security Alliance AI (CSAI) Foundation\u2019s 2026 mission addresses the security, governance, and assurance infrastructure required for autonomous AI agent ecosystems. This section contains all research papers, frameworks, specifications, and tools organized by the six CSAI strategic programs."
+            ],
+            "title": "Securing the Agentic Control Plane \u2013 Lab Space"
+          },
+          {
+            "url": "http://github.com/Nasiko-Labs/nasiko",
+            "excerpts": [
+              "(last verified: 2026-06-12) Nasiko **AI Agent Developer Control Plane** [License: Apache 2.0](https://opensource.org/licenses/Apache-2.0) [Python 3.12+](https://www.python.org/downloads/) [FastAPI](https://fastapi.tiangolo.com/) [Docker](https://docker.com/) **Centralized management, intelligent routing, and observability for AI agents"
+            ],
+            "title": null
+          },
+          {
+            "url": "https://docs.omnistrate.com/what-is-omnistrate",
+            "excerpts": [
+              "What is Omnistrate\nOmnistrate is an Agentic Control Plane as-a-Service platform that enables software vendors to rapidly transform their software into multi-cloud SaaS products."
+            ],
+            "title": "What is Omnistrate"
+          },
+          {
+            "url": "https://chameleoncollective.com/skill/ecommerce-conversion-rate-optimization-consultant",
+            "excerpts": [
+              "eCommerce Conversion Rate Optimization Consultant | DTC\nAn eCommerce conversion rate optimization consultant runs a two-week diagnostic across PDP, cart, checkout, post-purchase, and returning-visitor experience."
+            ],
+            "title": "eCommerce Conversion Rate Optimization Consultant | DTC"
+          },
+          {
+            "url": "http://clientacquisition.io/",
+            "excerpts": [
+              "Content, sales agents, ads, analytics \u2014 one AI system that handles it all\nFOUNDER'S COHORT: LIVE | Limited spots available [Gain Access \u2192](https://webby.trycook.ai/opt) Cook.ai Cook.ai Cook.ai Features Agents Top Niches More NOW Partnering With 6-7 Figure Agencies The AI System That Builds Your High-Ticket Offer In 60 Minutes We replaced a $3M/year fulfillment team with AI agents. What took 5\u20138 weeks now takes 90 minutes. You get access to that same infrastructure. Book a Call 20+ clients/month Price competition Leads ghost Hours for dollars The Low-Ticket Trap Coaches and consultants stuck selling $500 offers, needing 20+ clients just to hit $10K. Chasing leads who ghost, competing on price, and burning out. $3K-$10K offers The High-Ticket System One AI system that handles everything \u2014 content, sales agents, data analysis, ads, and CRM.\nWe set up your skills, install teammates into your agency & streamline ops Everything in Full Access 1-on-1 skill productization Custom agent architecture Slack & Discord bot deployment Full fulfillment automation build-out Ongoing optimization & improvement Private leadership channel Minimum 12-month contract & spend Book a Call FAQ Answers for coaches, consultants & agencies Still have questions? Book a call and we'll walk you through everything. What if I don't have a high-ticket offer yet? How fast can I see results? Do I need a big audience to sell high-ticket? What if I've never sold high-ticket before? Can I white-label this for my own clients? Ready to Automate Your High-Ticket Offer? Book a demo call and we'll show you how to launch your high-ticket offer in 1 hour. Yes, 1 hour."
+            ],
+            "title": "Cook.ai - The High-Ticket OS"
+          },
+          {
+            "url": "https://highticketos.com/",
+            "excerpts": [
+              "High Ticket Os\nLearn how to design, position, and promote your high-ticket offer with confidence \u2014 using a proven, step-by-step launch framework. Use our tools, templates, and AI helpers to make real progress \u2014 and explore the full High Ticket OS when you're ready to go further. Build a business that works for you, not the other way around."
+            ],
+            "title": "High Ticket Os"
+          },
+          {
+            "url": "http://trycook.ai/",
+            "excerpts": [
+              "The AI system that builds your high-ticket offer in 60 minutes. AI-powered sites, funnels, CRM, and lead capture for coaches, Cook.ai $8,400. Book a call and"
+            ],
+            "title": "Cook.ai - The High-Ticket OS"
+          },
+          {
+            "url": "https://www.facebook.com/groups/crojunkies/posts/4882273815175379",
+            "excerpts": [
+              "How much does conversion rate optimization consultants ...\nCost: $175 - approximately 75 minutes of concentrated conversion \u30fb starting at $1,500 per page \u30fb you can go from charging $1k - $2k per"
+            ],
+            "title": "How much does conversion rate optimization consultants ..."
+          },
+          {
+            "url": "https://agentmarketcap.ai/blog/2026/04/11/agent-leveraged-solo-founder-micro-saas-2026",
+            "excerpts": [
+              "The Agent-Leveraged Solo Founder: How Indie Builders Are ...\nConsider the economics of a single case study published in early 2026: a founder building a social media API product called Late hit $40K MRR in seven months. The entire stack was built by one person using AI-assisted development tools."
+            ],
+            "title": "The Agent-Leveraged Solo Founder: How Indie Builders Are ..."
+          },
+          {
+            "url": "https://estha.ai/blog/case-study-how-a-solo-founder-scaled-from-0-to-50k-mrr-with-a-niche-ai-calculator",
+            "excerpts": [
+              "Case Study: How a Solo Founder Scaled from $0 to $50k MRR ...\nIn this detailed case study, we\u2019ll break down exactly how she did it\u2014from initial validation to her first paying customer, from launch tactics to the specific growth channels that drove revenue from $0 to $50k MRR."
+            ],
+            "title": "Case Study: How a Solo Founder Scaled from $0 to $50k MRR ..."
+          },
+          {
+            "url": "http://github.com/topics/solo-founder",
+            "excerpts": [
+              "Curated AI tools, Claude skills, MCP servers & growth playbooks for solopreneurs, indie hackers and solo founders \u2014 the one-person-company AI stack you feed to Claude Code.\nCurated OSS stack for solo founders to build, launch, sell, support, and grow polished products\nDay-zero operating system for AI-assisted SaaS development: Claude Code rules, agents, skills, Project Genesis Wizard, sprint docs, changelog, session logs, security gates, and prototype lab.\nFull-stack SaaS monorepo for Cloudflare Workers. ORM, auth, RBAC, multi-tenancy, queues, realtime, blog. Edge-native, all included, for Solo Founders\nopen-source marketing mcp mvp gtm saas developer-tools awesome-list ai-agents startup-tools source-available indie-hackers product-growth solo-founder\noperating system for AI-assisted SaaS development: Claude Code rules, agents, skills, Project Genesis Wizard, sprint docs, changelog, session logs, security gates, and prototype"
+            ],
+            "title": "solo-founder \u00b7 GitHub Topics \u00b7 GitHub"
+          },
+          {
+            "url": "https://medium.com/startup-insider-edge/the-solo-founders-1m-revenue-blueprint-no-co-founder-needed-c79c2dcf1deb",
+            "excerpts": [
+              "The Solo Founder's $1M Revenue Blueprint (No Co- ...\nCase Study: Sarah Kim \u2014 $2.1M Course and Community Business. Sarah was a successful freelance UX designer charging $150/hour. Despite high"
+            ],
+            "title": "The Solo Founder's $1M Revenue Blueprint (No Co- ..."
+          },
+          {
+            "url": "https://www.taskade.com/blog/one-person-companies",
+            "excerpts": [
+              "One-Person Company Software: The Solo AI Tool Stack (2026)\nThe software stack a one-person company actually runs on - one AI workspace replaces 8 subscriptions: CRM, dashboards, AI agents, and automations. Plus the solo-founder economics that make it work."
+            ],
+            "title": "One-Person Company Software: The Solo AI Tool Stack (2026)"
+          },
+          {
+            "url": "https://www.reddit.com/r/SaaS/comments/1rn54e7/solo_founder_504_mrr_4_customers_in_1_month_what",
+            "excerpts": [
+              "Solo founder, $504 MRR, 4 customers in 1 month. What I' ...\nSolo founder, $504 MRR , 4 customers in 1 month. What I've learned so far about selling an AI SEO/AEO tool."
+            ],
+            "title": "Solo founder, $504 MRR, 4 customers in 1 month. What I' ..."
+          },
+          {
+            "url": "http://indiehackers.com/post/ditching-saas-how-i-went-from-zero-to-15k-mrr-1f9aaed5ef",
+            "excerpts": [
+              "I've tried to build a marketplace (basically an OfferUp clone), a machine learning stock trading tool, an AI dev tool, a sentiment analysis software, etc.\nI used Canva to build the entire website, including buying the domain from Canva. I found their website builder was the simplest and most intuitive out of all of them. Admittedly, it is a little more limited than other tools like Webflow or Wix, but it definitely gets the job done for a simple site.\nPriorities for launching a SaaS solo, I built a tool directory that doesn't pretend every founder has the same needs"
+            ],
+            "title": "Ditching SaaS: How I Went From Zero To $15k MRR - Indie Hackers"
+          },
+          {
+            "url": "http://lancey.ai/",
+            "excerpts": [
+              "We're working on something new, follow along at [useclearline.com](https://useclearline.com) . Lancey Toggle theme Backed by Y Combinator Every AI coding tool writes code. Lancey helps you decide what to write. The first multiplayer coding agent that listens to your customers, understands your codebase, and ships production-ready PRs in the background. Connect your customer signals to your codebase Ship customer-requested fixes in hours, not days. Lancey links your customer feedback channels to your codebase and delivers ready-to-merge pull requests. ... Work on tasks in the background Lancey understands your code and automatically turns feedback into prioritized, actionable tasks. ... Ship more of what matters. Built around customer context"
+            ],
+            "title": "Lancey - Every AI coding tool writes code. Lancey helps you decide what to write."
+          },
+          {
+            "url": "https://www.builtthisweek.com/blog/building-products-solo",
+            "excerpts": [
+              "Building Products Solo: How Indie Founders Ship Fast and Smart\nDiscover how solo founders build and ship products faster using AI tools and rapid workflows. Real tips from builders who ship weekly."
+            ],
+            "title": "Building Products Solo: How Indie Founders Ship Fast and Smart"
+          },
+          {
+            "url": "https://www.siwan.io/blog/indie-hacker-guide-shipping-ai-products",
+            "excerpts": [
+              "Indie Hacker AI Products: How to Build and Ship in 2026\nHow to build an AI product as a solo indie hacker in 2026 \u2014 a complete guide to stack, pricing, distribution, and real lessons from building DocAPI."
+            ],
+            "title": "Indie Hacker AI Products: How to Build and Ship in 2026"
+          },
+          {
+            "url": "https://agentiqa.com/en/blog/indie-hacker-tips",
+            "excerpts": [
+              "Indie Hacker Tips for 2026: A Ship-Without-Breakage Playbook\nThis playbook is written for that reality. Twelve tips, each tied to a specific failure mode indie hackers in 2026 actually hit."
+            ],
+            "title": "Indie Hacker Tips for 2026: A Ship-Without-Breakage Playbook"
+          },
+          {
+            "url": "https://www.mindstudio.ai/blog/indie-hackers-guide-shipping-full-stack-apps-ai",
+            "excerpts": [
+              "The Indie Hacker's Guide to Shipping Full-Stack Apps With AI\nApr 15, 2026 \u2014 A practical guide for indie hackers who want to ship production apps faster using AI tools \u2014 covering what actually works and what wastes"
+            ],
+            "title": "The Indie Hacker's Guide to Shipping Full-Stack Apps With AI"
+          },
+          {
+            "url": "https://medium.com/%40e2larsen/the-weekly-shipping-cadence-the-permanent-operating-system-for-solo-saas-c47320d77269",
+            "excerpts": [
+              "The Weekly Shipping Cadence: The Permanent Operating ... - Medium\nA simple weekly shipping cadence for solo SaaS builders so you plan, build, ship, and learn every week without burnout or scope creep."
+            ],
+            "title": "The Weekly Shipping Cadence: The Permanent Operating ... - Medium"
+          },
+          {
+            "url": "https://www.reddit.com/r/SaaS/comments/1rbzr6s/solo_founder_with_0_customers_what_actually/",
+            "excerpts": [],
+            "title": "Reddit - The heart of the internet"
+          },
+          {
+            "url": "https://lancey.ai/",
+            "excerpts": [],
+            "title": "Lancey - Every AI coding tool writes code. Lancey helps you decide what to write."
+          },
+          {
+            "url": "https://builtforb2b.com/blog/cold-email-vs-linkedin-outreach-for-b2b-which-works-better",
+            "excerpts": [],
+            "title": "title: \"Cold Email vs LinkedIn Outreach: Which Works Better for B2B\" description: Cold email or LinkedIn outreach? We compare response rates, costs, and scalability. Plus why the best B2B outbound programmes use both. published: \"Jul 28, 2026, 10:51 AM UTC\""
+          },
+          {
+            "url": "https://www.reddit.com/r/SaaS/comments/1rbqve4/solo_founder_504_mrr_4_customers_in_1_month_what/",
+            "excerpts": [],
+            "title": "Reddit - Prove your humanity"
+          },
+          {
+            "url": "https://www.getcleed.com/blog/cold-email-is-losing-to-linkedin-what-the-2026-benchmark-data-means-for-outbound",
+            "excerpts": [],
+            "title": "Fetched web page"
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "july-2026-agent-saas-first-revenue.md"
+  }
+}
