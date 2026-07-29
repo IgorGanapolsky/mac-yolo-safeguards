@@ -1,6 +1,12 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
-import { fireEvent, render } from '@testing-library/react-native';
+import {
+  Dimensions,
+  Keyboard,
+  Platform,
+  StyleSheet,
+  type KeyboardEvent,
+} from 'react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import ChatInputBar from '../components/ChatInputBar';
 import { colors } from '../theme/colors';
 
@@ -144,6 +150,99 @@ describe('ChatInputBar', () => {
       <ChatInputBar {...baseProps} sendDisabled showStop={true} onStop={jest.fn()} />,
     );
     expect(getByTestId('chat-input').props.editable).toBe(true);
+  });
+
+  it('restores native iOS composer focus after an iPad orientation change', () => {
+    jest.useFakeTimers();
+    const originalPlatform = Platform.OS;
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'ios' });
+    const focus = jest.fn();
+    const remove = jest.fn();
+    const removeKeyboardListener = jest.fn();
+    let onDimensionsChange: (() => void) | undefined;
+    let onKeyboardDidHide: ((event: KeyboardEvent) => void) | undefined;
+    const dimensionsSpy = jest
+      .spyOn(Dimensions, 'addEventListener')
+      .mockImplementation((event, handler) => {
+        if (event === 'change') {
+          onDimensionsChange = () => handler({
+            window: { width: 1180, height: 820, scale: 2, fontScale: 1 },
+            screen: { width: 1180, height: 820, scale: 2, fontScale: 1 },
+          });
+        }
+        return { remove } as unknown as ReturnType<typeof Dimensions.addEventListener>;
+      });
+    const keyboardSpy = jest
+      .spyOn(Keyboard, 'addListener')
+      .mockImplementation((event, handler) => {
+        if (event === 'keyboardDidHide') {
+          onKeyboardDidHide = handler;
+        }
+        return {
+          remove: removeKeyboardListener,
+        } as unknown as ReturnType<typeof Keyboard.addListener>;
+      });
+
+    try {
+      const { getByTestId, unmount } = render(
+        <ChatInputBar {...baseProps} value="make money today" />,
+        {
+          concurrentRoot: false,
+          createNodeMock: () => ({ focus }),
+        },
+      );
+
+      fireEvent(getByTestId('chat-input'), 'focus');
+      // Reproduce the native ordering from the iPad failure artifact: the
+      // TextInput blurs before JavaScript receives the dimension change.
+      fireEvent(getByTestId('chat-input'), 'blur');
+      act(() => {
+        onDimensionsChange?.();
+        onDimensionsChange?.();
+      });
+
+      expect(onDimensionsChange).toBeDefined();
+      // The blur-grace timer is cancelled and duplicate native resize events
+      // are debounced into exactly one delayed refocus. React Test Renderer does
+      // not attach host TextInput refs, so the exact focus outcome is proved by
+      // the iPad Maestro flow.
+      expect(jest.getTimerCount()).toBe(1);
+      act(() => {
+        jest.runOnlyPendingTimers();
+      });
+
+      // A real user blur that has settled must not make a later resize steal
+      // focus back into the composer.
+      fireEvent(getByTestId('chat-input'), 'blur');
+      act(() => {
+        jest.advanceTimersByTime(1000);
+        onDimensionsChange?.();
+      });
+      expect(jest.getTimerCount()).toBe(0);
+
+      // An explicit keyboard dismissal is user intent even when rotation starts
+      // inside the blur grace window. It must cancel the pending refocus.
+      fireEvent(getByTestId('chat-input'), 'focus');
+      fireEvent(getByTestId('chat-input'), 'blur');
+      act(() => {
+        onKeyboardDidHide?.({} as KeyboardEvent);
+        onDimensionsChange?.();
+      });
+      expect(onKeyboardDidHide).toBeDefined();
+      expect(jest.getTimerCount()).toBe(0);
+
+      unmount();
+      expect(remove).toHaveBeenCalledTimes(1);
+      expect(removeKeyboardListener).toHaveBeenCalledTimes(1);
+    } finally {
+      dimensionsSpy.mockRestore();
+      keyboardSpy.mockRestore();
+      Object.defineProperty(Platform, 'OS', {
+        configurable: true,
+        value: originalPlatform,
+      });
+      jest.useRealTimers();
+    }
   });
 
   it('never disables typing while sendMuted (empty composer during an active run)', () => {

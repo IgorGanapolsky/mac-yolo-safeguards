@@ -43,8 +43,37 @@ function resolveStatePath() {
   );
 }
 
-const OUTREACH_SUBJECT_RE =
-  /Quick close-loop|Governed agents|Reliability Diagnostic|Hardening Sprint|Partner Pilot|runaway-loop|agent reliability/i;
+// Single source of truth for our outreach subject family. Both the local row
+// filter and the Gmail search query are derived from this list. When the two
+// drift apart the scan goes blind: on 2026-07-28 "ThumbGate Continuity" was
+// added to the regex but not to the hardcoded query, so 6 of that day's sends
+// were unwatchable.
+const OUTREACH_SUBJECT_TERMS = [
+  'Quick close-loop',
+  'Quick check',
+  'Governed agents',
+  'Reliability Diagnostic',
+  'agent reliability diagnostic',
+  'Hardening Sprint',
+  'Partner Pilot',
+  'runaway-loop',
+  'agent reliability',
+  'ThumbGate Continuity',
+  'design partner',
+];
+
+const OUTREACH_SUBJECT_RE = new RegExp(
+  OUTREACH_SUBJECT_TERMS.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
+  'i',
+);
+
+// in:anywhere, not in:inbox — the only real buyer reply this funnel has ever
+// received (madhu@dhisana.ai, 2026-07-22) was sitting in TRASH, where an
+// in:inbox scan could never have found it.
+function outreachSearchQuery(days = 14) {
+  const subjects = OUTREACH_SUBJECT_TERMS.map((t) => `subject:"${t}"`).join(' OR ');
+  return `in:anywhere newer_than:${days}d -from:me (${subjects})`;
+}
 
 function parseArgs(argv) {
   const out = {
@@ -158,12 +187,22 @@ function rowId(rowText) {
   return `r_${h.toString(16)}`;
 }
 
+// Turn the page diagnostics into a named cause. Order matters: a signed-out
+// page also has zero rows and a short body, so the most specific explanation
+// has to win. 'search_genuinely_empty' is the one value that means the scan
+// worked and the answer really is zero.
+function classifyBlindCause(diag) {
+  if (!diag) return 'no_page_diagnostics';
+  if (diag.signedOut) return 'gmail_signed_out_needs_human_login';
+  if (diag.emptyStateVisible) return 'search_genuinely_empty';
+  if ((diag.trCount || 0) > 0) return 'row_selector_stale_tr_zA_no_longer_matches';
+  if ((diag.bodyLen || 0) < 500) return 'page_not_rendered_in_time';
+  return 'unknown_page_state';
+}
+
 function chromeCollectInboxRows() {
   const url =
-    'https://mail.google.com/mail/u/0/#search/' +
-    encodeURIComponent(
-      'in:inbox (subject:(Quick close-loop) OR subject:(Governed agents) OR subject:(Reliability Diagnostic) OR "runaway-loop") newer_than:14d',
-    );
+    'https://mail.google.com/mail/u/0/#search/' + encodeURIComponent(outreachSearchQuery());
   const script = `
 set targetURL to ${JSON.stringify(url)}
 tell application "Google Chrome"
@@ -178,7 +217,24 @@ tell application "Google Chrome"
         const rows = [...document.querySelectorAll('tr.zA')].slice(0, 30).map(r =>
           (r.innerText || '').replace(/\\\\s+/g, ' ').slice(0, 200)
         );
-        return JSON.stringify({ title: document.title, href: location.href.slice(0,160), rows });
+        // Diagnostics for the zero-rows case. 'No rows' has several very
+        // different causes and they are indistinguishable without these:
+        //   signedOut          -> session expired, needs a human login
+        //   emptyStateVisible  -> the search really did match nothing
+        //   trCount>0 & rows=0 -> Gmail changed its row class, selector is stale
+        //   all zero + short   -> page had not rendered within the delay
+        const txt = (document.body && document.body.innerText) || '';
+        return JSON.stringify({
+          title: document.title,
+          href: location.href.slice(0, 160),
+          rows,
+          diag: {
+            trCount: document.querySelectorAll('tr').length,
+            signedOut: /Sign in|Choose an account|couldn.t sign you in/i.test(txt.slice(0, 3000)),
+            emptyStateVisible: /No messages matched your search|no conversations/i.test(txt),
+            bodyLen: txt.length
+          }
+        });
       })()
     "
   on error errMsg
@@ -193,7 +249,13 @@ end tell
   try {
     const parsed = JSON.parse(raw);
     if (parsed.error) return { ok: false, error: parsed.error, rows: [] };
-    return { ok: true, rows: parsed.rows || [], title: parsed.title, href: parsed.href };
+    return {
+      ok: true,
+      rows: parsed.rows || [],
+      title: parsed.title,
+      href: parsed.href,
+      diag: parsed.diag || null,
+    };
   } catch {
     return { ok: false, error: 'json_parse', rows: [], raw: raw.slice(0, 200) };
   }
@@ -246,12 +308,42 @@ function writeBoard(revenueDir, summary) {
     `Generated: ${summary.checkedAt}`,
     `chrome_ok: ${summary.chromeOk}`,
     `rows_scanned: ${summary.rowsScanned}`,
+    `reply_status: ${summary.replyStatus || 'scanned'}`,
     `hot: ${summary.hot.length}`,
     '',
     '## Hot leads (act with buyer-reply-packet)',
     '',
   ];
-  if (!summary.hot.length) lines.push('_No new outreach replies matched._', '');
+  if (summary.scanBlind) {
+    const REMEDY = {
+      gmail_signed_out_needs_human_login:
+        'Gmail is signed out in that Chrome profile. A human has to log in; no code change will fix it.',
+      row_selector_stale_tr_zA_no_longer_matches:
+        'The page has table rows but none match `tr.zA` — Gmail changed its markup. Update the selector.',
+      page_not_rendered_in_time:
+        'The page was still near-empty when read. Raise the delay in chromeCollectInboxRows.',
+      no_page_diagnostics:
+        'Ran before diagnostics existed, or the injected JS returned no diag block.',
+      unknown_page_state: 'Page rendered with no rows and no recognised empty-state text.',
+      scan_not_attempted_no_chrome:
+        'Run with --no-chrome and no --dry-rows-json, so no mailbox was read at all.',
+    };
+    const remedy =
+      REMEDY[summary.blindCause] ||
+      (String(summary.blindCause).startsWith('scrape_failed_')
+        ? 'The Chrome scrape itself errored — see blindCause for the osascript failure.'
+        : 'Verify by hand before reporting a reply count.');
+    lines.push(
+      '> **REPLY STATE UNKNOWN — do not read this as "0 replies".**',
+      `> cause: \`${summary.blindCause}\``,
+      `> ${remedy}`,
+      `> page title: ${summary.pageTitle || 'unknown'}`,
+      `> diagnostics: ${JSON.stringify(summary.pageDiag)}`,
+      '',
+    );
+  } else if (!summary.hot.length) {
+    lines.push('_No new outreach replies matched._', '');
+  }
   for (const h of summary.hot) {
     lines.push(
       `### ${h.prospect || h.email || h.from.label || h.id}`,
@@ -305,6 +397,8 @@ function run(args) {
   let rows = [];
   let chromeOk = false;
   let chromeError = null;
+  let pageDiag = null;
+  let pageTitle = null;
 
   if (args.dryRows) {
     rows = JSON.parse(args.dryRows);
@@ -314,6 +408,8 @@ function run(args) {
     chromeOk = col.ok;
     chromeError = col.error || null;
     rows = col.rows || [];
+    pageDiag = col.diag || null;
+    pageTitle = col.title || null;
   }
 
   const { hot, seen } = processRows(rows, {
@@ -325,11 +421,38 @@ function run(args) {
   state.lastRun = new Date().toISOString();
   saveState(state);
 
+  // A successful scrape that returns zero rows is NOT evidence of zero replies.
+  // It is equally consistent with a changed Gmail selector, a tab that never
+  // finished loading, or a signed-out session — and it read as "no replies" for
+  // three consecutive days (2026-07-26..28) while a real reply sat unhandled.
+  // EVERY path that does not end in a trustworthy row set is blind. An earlier
+  // version of this check only covered "scrape succeeded but found nothing", so
+  // a scrape that FAILED — or was never attempted — still reported
+  // reply_status 'scanned' and "_No new outreach replies matched._". That is
+  // the same absence-as-evidence bug this file exists to prevent, one branch
+  // over: a dead Chrome session looked identical to an empty mailbox.
+  const blindCause = (() => {
+    if (args.dryRows) return null; // the operator supplied the rows; trust them
+    if (!args.chrome) return 'scan_not_attempted_no_chrome';
+    if (!chromeOk) return `scrape_failed_${chromeError || 'unknown'}`;
+    if (rows.length === 0) return classifyBlindCause(pageDiag);
+    return null;
+  })();
+
+  // 'search_genuinely_empty' is the one cause meaning the scan worked and the
+  // answer really is zero. Everything else stays blind.
+  const reallyBlind = Boolean(blindCause) && blindCause !== 'search_genuinely_empty';
+
   const summary = {
     checkedAt: new Date().toISOString(),
     chromeOk,
     chromeError,
     rowsScanned: rows.length,
+    scanBlind: reallyBlind,
+    blindCause,
+    pageTitle: reallyBlind ? pageTitle : undefined,
+    pageDiag: reallyBlind ? pageDiag : undefined,
+    replyStatus: reallyBlind ? 'unknown_scan_returned_nothing' : 'scanned',
     hot,
     boardPath: null,
     baseline: args.baseline,
@@ -341,6 +464,15 @@ function run(args) {
     ntfyPush(
       'Gmail outreach REPLY',
       hot.map((h) => `${h.kind} ${h.email || h.prospect || h.id}: ${h.snippet.slice(0, 80)}`).join('\n'),
+    );
+  }
+
+  // Page on blindness too. A silently blind monitor is worse than no monitor:
+  // it manufactures a "0 replies" fact that downstream reports then repeat.
+  if (!args.baseline && reallyBlind && args.ntfy) {
+    ntfyPush(
+      'Gmail reply scan BLIND',
+      `cause: ${blindCause}\npage: ${pageTitle || 'unknown'}\nquery: ${outreachSearchQuery()}\nReply state is UNKNOWN, not zero.`,
     );
   }
   return summary;
@@ -358,8 +490,13 @@ function main() {
   if (args.json) process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
   else {
     process.stdout.write(
-      `gmail-reply-scan chrome=${summary.chromeOk} rows=${summary.rowsScanned} hot=${summary.hot.length} board=${summary.boardPath}\n`,
+      `gmail-reply-scan chrome=${summary.chromeOk} rows=${summary.rowsScanned} status=${summary.replyStatus} hot=${summary.hot.length} board=${summary.boardPath}\n`,
     );
+    if (summary.scanBlind) {
+      process.stdout.write(
+        '  WARNING: scrape returned 0 rows — reply state is UNKNOWN, not zero.\n',
+      );
+    }
     for (const h of summary.hot) {
       process.stdout.write(`  HOT kind=${h.kind} email=${h.email || '-'} prospect=${h.prospect || '-'}\n`);
     }
@@ -376,7 +513,10 @@ module.exports = {
   processRows,
   rowId,
   run,
+  classifyBlindCause,
+  outreachSearchQuery,
   OUTREACH_SUBJECT_RE,
+  OUTREACH_SUBJECT_TERMS,
 };
 
 if (require.main === module) main();

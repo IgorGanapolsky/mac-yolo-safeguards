@@ -35,7 +35,8 @@
 .task-list{max-height:720px;overflow-y:auto}.dashboard-task{padding:17px 18px;border-bottom:1px solid var(--line)}.dashboard-task:last-child{border-bottom:0}.task-top{display:flex;justify-content:space-between;align-items:center}.task-top time{font:9px ui-monospace,monospace;color:#606a65}.task-status{color:#9fa8a3;background:rgba(255,255,255,.055);font:650 8px ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;padding:4px 6px;border-radius:3px}.status-completed{color:var(--green);background:var(--green-dim)}.status-running,.status-cloud_pending{color:#8ed0ff;background:rgba(96,179,237,.1)}.status-failed,.status-offline_blocked{color:var(--danger);background:rgba(255,130,124,.1)}.status-needs_failover{color:var(--orange);background:rgba(255,184,107,.1)}.dashboard-task h3{font-size:11px;color:#838e88;margin:13px 0 6px;font-weight:500}.dashboard-task>p{margin:0;font:12px/1.55 ui-monospace,monospace;color:#ced4d1}.task-foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:#77827c;font-size:9px}.task-foot button{border:0;background:none;color:var(--green);cursor:pointer;font-size:10px}.dashboard-task pre{white-space:pre-wrap;background:#090d0c;border-left:2px solid var(--green);padding:11px;color:#abb5b0;font:10px/1.5 ui-monospace,monospace;max-height:220px;overflow:auto}.task-error{color:var(--danger);margin-top:11px;font:10px ui-monospace,monospace}.empty-state{min-height:270px;display:grid;place-content:center;justify-items:center;text-align:center}.empty-state .brand-mark{opacity:.38}.empty-state h3{font-size:13px;margin:17px 0 5px}.empty-state p{color:var(--muted);font-size:11px;max-width:280px;line-height:1.5}.right-rail{min-width:0}.device-card{padding:14px;border-bottom:1px solid var(--line)}.device-card>div{display:flex;align-items:center;gap:9px}.device-light{width:7px;height:7px;border-radius:50%;background:#69736e}.device-light.is-online{background:var(--green);box-shadow:0 0 7px var(--green)}.device-card>div>div{display:grid;gap:3px}.device-card strong{font-size:11px}.device-card small{color:var(--muted);font-size:9px}.device-card code{display:block;color:#65706a;font-size:8px;padding:12px 0;overflow:hidden;white-space:nowrap}.device-card label,.pair-form label{display:grid;gap:5px;color:#748079;font:9px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.07em}.device-card select,.pair-form input{width:100%;color:#c1c9c5;background:#0b100e;border:1px solid var(--line);border-radius:4px;padding:8px;font-size:10px;outline:none}.pair-form{padding:14px;display:grid;gap:9px}.helper-copy{margin:0;padding:0 14px 16px;color:#616c66;font-size:9px;line-height:1.5}.loading-screen{min-height:100vh;display:grid;place-content:center;justify-items:center;gap:17px;color:var(--muted);font-size:12px}.loading-screen .brand-mark{transform:scale(1.3)}
 .conversation-history{max-height:460px;overflow-y:auto;padding:16px;background:#090d0c;border-bottom:1px solid var(--line);display:grid;gap:10px}.conversation-message{max-width:86%;padding:10px 12px;border:1px solid var(--line);border-radius:7px;background:#111714}.conversation-message.role-user{justify-self:end;background:rgba(147,245,138,.07);border-color:rgba(147,245,138,.18)}.conversation-message span{display:block;margin-bottom:6px;color:#718079;font:8px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.1em}.conversation-message p{margin:0;white-space:pre-wrap;color:#cbd3cf;font:11px/1.55 ui-monospace,monospace}.conversation-empty{padding:24px;color:var(--muted);font-size:11px;text-align:center}
 @media(max-width:980px){.hero{grid-template-columns:1fr;gap:55px;padding-top:70px}.hero-copy{max-width:720px}.hero-console{max-width:650px}.setup-steps{grid-template-columns:1fr}.setup-steps li{border-right:0;border-bottom:1px solid var(--line)}.price-grid{grid-template-columns:1fr}.dashboard-grid{grid-template-columns:1fr}.right-rail{grid-template-columns:1fr}.dashboard-shell{grid-template-columns:200px 1fr}.metric-grid-four{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:700px){.topbar{width:calc(100% - 28px)}.nav-link{display:none}.hero{width:calc(100% - 28px);padding:60px 0 80px}.hero h1{font-size:46px}.hero-lede{font-size:16px}.hero-actions{display:grid}.trust-row{flex-direction:column;gap:9px}.proof-strip{width:calc(100% - 28px);grid-template-columns:repeat(2,1fr)}.proof-strip div:nth-child(2){border-right:0}.proof-strip div:nth-child(-n+2){border-bottom:1px solid var(--line)}.setup-section{width:calc(100% - 28px);padding-top:80px}.section-block{width:calc(100% - 28px);padding:90px 0}.steps-grid{grid-template-columns:1fr}.pricing-section{width:calc(100% - 28px);padding:30px}footer{width:calc(100% - 28px)}.dashboard-shell{display:block}.sidebar{height:auto;position:static;border-right:0;border-bottom:1px solid var(--line);padding-bottom:12px}.workspace-label,.thread-list,.sidebar-bottom{display:none}.sidebar .brand{padding-bottom:0}.dashboard-main{padding:22px 14px 50px}.dashboard-header{align-items:flex-start}.dashboard-header h1{font-size:22px}.header-actions .status-chip{display:none}.metric-grid,.metric-grid-four{grid-template-columns:1fr}.metric-grid .metric-card{border-right:0;border-bottom:1px solid var(--line);min-height:132px}.metric-grid .metric-card:last-child{border-bottom:0}.composer>div{align-items:flex-end;gap:10px}.composer small{max-width:55%}}
+.mobile-chats-toggle{display:none}
+@media(max-width:700px){.mobile-header-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}.mobile-header-row .eyebrow{margin-bottom:0}.mobile-chats-toggle{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;font-size:11px;min-height:32px}.topbar{width:calc(100% - 28px)}.nav-link{display:none}.hero{width:calc(100% - 28px);padding:60px 0 80px}.hero h1{font-size:46px}.hero-lede{font-size:16px}.hero-actions{display:grid}.trust-row{flex-direction:column;gap:9px}.proof-strip{width:calc(100% - 28px);grid-template-columns:repeat(2,1fr)}.proof-strip div:nth-child(2){border-right:0}.proof-strip div:nth-child(-n+2){border-bottom:1px solid var(--line)}.setup-section{width:calc(100% - 28px);padding-top:80px}.section-block{width:calc(100% - 28px);padding:90px 0}.steps-grid{grid-template-columns:1fr}.pricing-section{width:calc(100% - 28px);padding:30px}footer{width:calc(100% - 28px)}.dashboard-shell{display:block}.sidebar{height:auto;position:static;border-right:0;border-bottom:1px solid var(--line);padding-bottom:12px}.sidebar.is-collapsed .workspace-label,.sidebar.is-collapsed .thread-list,.sidebar.is-collapsed .sidebar-bottom{display:none}.sidebar:not(.is-collapsed) .workspace-label,.sidebar:not(.is-collapsed) .sidebar-bottom{display:block}.sidebar:not(.is-collapsed) .thread-list{display:flex;max-height:360px}.sidebar .brand{padding-bottom:0}.dashboard-main{padding:22px 14px 50px}.dashboard-header{align-items:flex-start}.dashboard-header h1{font-size:22px}.header-actions .status-chip{display:none}.metric-grid,.metric-grid-four{grid-template-columns:1fr}.metric-grid .metric-card{border-right:0;border-bottom:1px solid var(--line);min-height:132px}.metric-grid .metric-card:last-child{border-bottom:0}.composer>div{align-items:flex-end;gap:10px}.composer small{max-width:55%}}
 
 /* Hermes Mobile is the visual source of truth; the web keeps semantic DOM and web-native flows. */
 html{color-scheme:dark}
@@ -348,18 +349,65 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     border:1px solid var(--line);
     background:#0B0F19;
   }
+  /*
+   * Leash/Settings scrollport = .right-rail (the real DOM node).
+   * Do not invent a second wrapper class that is not in the React tree —
+   * Settings was clipped with zero scroll when CSS targeted a missing node
+   * (2026-07-28). flex:1 1 0 + overflow-y:scroll = bounded iOS scrollport.
+   */
   .dashboard-shell[data-mobile-tab="leash"] .right-rail,
   .dashboard-shell[data-mobile-tab="settings"] .right-rail{
-    display:block;
-    flex:1 1 auto;
-    min-height:0;
-    overflow-y:auto;
+    display:flex !important;
+    flex-direction:column;
+    flex:1 1 0 !important;
+    min-height:0 !important;
+    max-height:100%;
+    overflow-x:hidden;
+    overflow-y:scroll !important;
     -webkit-overflow-scrolling:touch;
     overscroll-behavior:contain;
+    touch-action:pan-y;
+    gap:16px;
+    padding-bottom:max(20px, env(safe-area-inset-bottom, 0px));
   }
   .dashboard-shell[data-mobile-tab="leash"] #web-settings{display:none}
   .dashboard-shell[data-mobile-tab="settings"] .connection-panel,
   .dashboard-shell[data-mobile-tab="settings"] .safety-panel{display:none}
+  /* Panel overflow:hidden was clipping long device lists inside the scrollport */
+  .dashboard-shell[data-mobile-tab="settings"] #web-settings,
+  .dashboard-shell[data-mobile-tab="leash"] .connection-panel{
+    overflow:visible;
+    flex:0 0 auto;
+  }
+  .device-card.is-preferred{
+    border-color:rgba(34,211,238,.45);
+    background:rgba(34,211,238,.06);
+  }
+  .device-card-actions{
+    display:grid;
+    gap:8px;
+    margin-top:8px;
+  }
+  .device-use-for-tasks{
+    width:100%;
+    min-height:44px;
+  }
+  .leash-device-picker{
+    padding:0 14px 14px;
+    display:grid;
+    gap:8px;
+  }
+  .leash-device-picker select{
+    width:100%;
+    min-height:44px;
+    border-radius:12px;
+    background:var(--composer);
+    color:var(--text-secondary);
+    border:1px solid var(--line);
+    padding:8px 12px;
+    font-size:14px;
+    font-weight:600;
+  }
   .task-panel .panel-heading{flex:0 0 auto;padding:12px 14px;border-bottom:1px solid var(--line)}
   .hermes-scroll-pane{
     flex:1 1 auto;
@@ -662,3 +710,17 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     overflow:hidden;
   }
 }
+
+/* Compact strip when chat already has synced messages but no web tasks (Buzz shared-room honesty) */
+.empty-state-compact{
+  min-height:0;
+  padding:14px 16px;
+  place-content:start;
+  justify-items:start;
+  text-align:left;
+  border-top:1px solid var(--line);
+  background:rgba(34,211,238,.04);
+}
+.empty-state-compact h3{margin:0 0 4px;font-size:13px}
+.empty-state-compact p{margin:0;max-width:none;color:var(--muted);font-size:12px;line-height:1.45}
+
