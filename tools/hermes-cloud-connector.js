@@ -382,15 +382,18 @@ async function syncGatewaySessions(config, options = {}) {
 
 /**
  * Sessions ThumbGate is allowed to silently recreate if the gateway reports them missing:
- * web-created sessions (no prior Hermes session existed) and cron-sourced sessions (already
- * synced into a thread before the sync-side filter shipped, or synced by an older connector --
- * cron sessions are ephemeral by design, so "missing" is the expected steady state, not a bug).
- * A genuine live Hermes Mobile/desktop session id is NOT in this set: if the gateway reports
- * that one is missing, something is actually wrong (revoked pairing, data loss) and silently
- * faking a fresh session would hide the real problem and orphan the user's actual chat history.
+ * - web-created sessions (`thumbgate_*`) — no prior Hermes session existed
+ * - cron-sourced sessions — ephemeral by design; missing is expected steady state
+ * - mobile-originated ids (`mobile_*`) — phone may create the session; gateway prune,
+ *   Mac restart, or multi-Mac switch leaves the cloud thread bound to a dead id.
+ *   Cloud/web snapshot + handoffMessages are the SSOT for web continue; recreating the
+ *   same id lets "Run task" work instead of failing Session not found (CEO 2026-07-29).
+ *
+ * We still fail closed when sourceSessionId is missing entirely.
  */
 function isRecoverableSessionId(sessionId) {
-  return sessionId.startsWith('thumbgate_') || CRON_SESSION_ID_RE.test(sessionId);
+  const id = String(sessionId || '');
+  return id.startsWith('thumbgate_') || id.startsWith('mobile_') || CRON_SESSION_ID_RE.test(id);
 }
 
 async function executeLocal(config, task) {
