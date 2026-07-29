@@ -47,13 +47,38 @@ function discoverFiles(pattern) {
   return discoverPattern(pattern);
 }
 
+function deriveOpenUrl(action) {
+  if (action.action_value) return action.action_value;
+  if (action.contact_source_url) return action.contact_source_url;
+  if (action.contact_value) {
+    if ((action.contact_type || '').toLowerCase() === 'email') {
+      const subject = encodeURIComponent(action.subject || '').replace(/%20/g, ' ');
+      const body = encodeURIComponent(action.draft_body || '').replace(/%20/g, ' ');
+      return `mailto:${action.contact_value}?subject=${subject}&body=${body}`;
+    }
+    return action.contact_value;
+  }
+  return '';
+}
+
+function normalizeAction(raw) {
+  const action = { ...raw };
+  if (!action.action_type) {
+    action.action_type = action.route ? `${action.route} (send-queue)` : 'send-queue';
+  }
+  if (!action.action_value) {
+    action.action_value = deriveOpenUrl(action);
+  }
+  return action;
+}
+
 function findActionValue(prospectLabel, actionFiles) {
   for (const filePath of actionFiles) {
     if (!fs.existsSync(filePath)) continue;
     const actions = parseTsv(filePath);
     const found = actions.find(a => a.prospect_label === prospectLabel);
     if (found) {
-      return found;
+      return normalizeAction(found);
     }
   }
   return null;
@@ -65,7 +90,10 @@ function main() {
   const markSent = args.includes('--mark-sent');
 
   const pipelineFiles = discoverFiles(/^pipeline-status(?!\.example).*\.tsv$/);
-  const actionFiles = discoverFiles(/^outreach-actions.*\.tsv$/);
+  const actionFiles = [
+    ...discoverFiles(/^outreach-actions.*\.tsv$/),
+    ...discoverFiles(/^send-queue.*\.tsv$/),
+  ];
 
   let readyProspects = [];
 
@@ -112,9 +140,9 @@ function main() {
 
     console.log('\n==================================================');
     console.log(`PROSPECT:  ${label}`);
-    console.log(`ROUTE:     ${action.route}`);
-    console.log(`METHOD:    ${action.contact_type.toUpperCase()} (${action.action_type})`);
-    console.log(`SUBJECT:   ${action.subject}`);
+    console.log(`ROUTE:     ${action.route || row.route || 'N/A'}`);
+    console.log(`METHOD:    ${(action.contact_type || 'unknown').toUpperCase()} (${action.action_type || 'send'})`);
+    console.log(`SUBJECT:   ${action.subject || action.draft_body?.split('\\n')[0]?.replace('Subject: ', '') || 'N/A'}`);
     console.log('==================================================');
     console.log('\nDRAFT BODY:');
     console.log('--------------------------------------------------');
