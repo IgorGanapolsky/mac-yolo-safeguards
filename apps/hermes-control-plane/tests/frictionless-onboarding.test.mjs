@@ -157,11 +157,71 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   // Phone must not re-show the route explain card after base CSS (CEO overlap 2026-07-25).
   assert.match(globals, /\.composer-route-explain\{[\s\S]*display:none !important/);
   assert.match(globals, /\.dashboard-header\{[\s\S]*grid-template-columns:1fr/);
-  // Fixed composer dock + measured reserved scroll space (item 3 of mobile UX checklist).
+  // Composer must SHARE the phone viewport with the chat, not sit on top of it.
+  //
+  // This previously asserted `position:absolute !important`, pinning the old
+  // "fixed dock" design in which .task-panel .composer was absolutely
+  // positioned inside the panel. That is precisely what made the composer own a
+  // fixed slab of a phone screen while the chat output was squeezed into a
+  // couple of lines — reported from a real device 2026-07-29 ("the chat prompt
+  // takes up half the screen and I can't even see the output").
+  //
+  // Asserting the implementation string made the defect unfixable by
+  // construction: any layout that stopped overlaying the chat necessarily
+  // failed this guard. So the assertions below pin the INTENT instead —
+  // the composer participates in normal flex flow beneath a flexible scroll
+  // pane — which is what actually must not regress.
   assert.match(dashboard, /--composer-dock-space/);
   assert.match(globals, /--composer-dock-space/);
-  assert.match(globals, /position:absolute !important/);
-  assert.match(globals, /hermes-scroll-pane\{[\s\S]*padding-bottom:max/);
+
+  // THE property: no rule may take the composer out of normal flow.
+  //
+  // Two traps were hit writing this, both of which produced a guard that passed
+  // no matter what the CSS said:
+  //
+  //   1. The selector is GROUPED —
+  //        .dashboard-shell[data-mobile-tab="hermes"] .task-panel .composer,
+  //        .task-panel .composer{
+  //      so a regex demanding `.composer{` immediately after the long selector
+  //      matched nothing. Wrapped in `if (rule)`, that silently skipped the
+  //      assertion — an assertion that opts itself out of running.
+  //   2. `.task-panel` rules appear MORE THAN ONCE, so a non-global match reads
+  //      the first rule while a regression may live in a later one.
+  //
+  // So: collect EVERY rule whose selector list mentions `.task-panel .composer`,
+  // require at least one to exist (absence is a failure, never a pass), and
+  // require all of them to keep the composer in flow.
+  const composerRules = globals.match(/[^{}]*\.task-panel \.composer[^{]*\{[^}]*\}/g) || [];
+  assert.ok(
+    composerRules.length > 0,
+    'no `.task-panel .composer` rule found — cannot determine, which is a failure',
+  );
+  for (const rule of composerRules) {
+    assert.doesNotMatch(
+      rule,
+      /position:\s*(absolute|fixed)/,
+      'composer must stay in normal flow — absolute/fixed is exactly what covered the chat output',
+    );
+  }
+
+  // The phone panel must be a flex column somewhere, so the scroll pane gets the
+  // flexible area. Checked across ALL matching rules for the reason in trap 2.
+  const panelRules = globals.match(
+    /\.dashboard-shell\[data-mobile-tab="hermes"\] \.task-panel\{[^}]*\}/g,
+  ) || [];
+  assert.ok(panelRules.length > 0, 'mobile task-panel rule must exist');
+  assert.ok(
+    panelRules.every((r) => /display:flex/.test(r) && /flex-direction:column/.test(r)),
+    'every mobile task-panel rule must lay out as a flex column',
+  );
+  // min-height:0 is load-bearing: without it a flex child refuses to shrink
+  // below its content, so the scroll pane can never yield room to the chat.
+  assert.ok(
+    panelRules.every((r) => /min-height:0/.test(r)),
+    'every mobile task-panel rule needs min-height:0 or the chat cannot shrink',
+  );
+
+  assert.match(globals, /hermes-scroll-pane/);
 });
 
 test("renders the configured Stripe price instead of duplicating marketing price copy", () => {
