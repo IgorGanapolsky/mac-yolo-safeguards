@@ -107,45 +107,75 @@ export async function resolvePairSetupForRepair(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(`http://${trimmed}:${PAIR_SERVER_PORT}/pair.json`, {
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      return null;
-    }
-    const body = (await res.json()) as { deepLink?: string; gatewayUrl?: string };
-    if (body.deepLink?.trim()) {
-      const setup = parseSetupDeepLink(body.deepLink);
-      if (!setup) {
-        return null;
+    /**
+     * One attempt: read pair.json, then redeem the pairCode it advertises.
+     *
+     * Pairing codes are SINGLE-USE and the pair server rotates immediately on redemption —
+     * verified live against the Mac mini 2026-07-28: redeeming a code returned 200 + apiKey,
+     * redeeming the SAME code again returned 404, and pair.json instantly advertised a new one.
+     * So a code that was already spent (a previous tap, a racing probe, any retry) makes the
+     * exchange 404 -> null -> repair reports the same auth_failed banner and the button looks
+     * completely dead. That was permanent: the phone can never obtain a fresh key without a
+     * successful exchange, so "Re-pair this Mac" never worked again. Reported as
+     * "Re-pair this Mac never works, doesn't do anything".
+     */
+    const attempt = async (): Promise<{
+      result: { apiKey?: string | null; gatewayUrl?: string | null } | null;
+      staleCode: boolean;
+    }> => {
+      const res = await fetch(`http://${trimmed}:${PAIR_SERVER_PORT}/pair.json`, {
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        return { result: null, staleCode: false };
       }
-      if (setup.pairingCode?.trim() && setup.pairServerUrl?.trim()) {
-        const exchanged = await exchangePairingCode(
-          setup.pairServerUrl,
-          setup.pairingCode,
-          async (url) => {
-            const exchangeResponse = await fetch(url, { signal: controller.signal });
-            return {
-              ok: exchangeResponse.ok,
-              status: exchangeResponse.status,
-              json: () => exchangeResponse.json(),
-            };
-          },
-        );
-        if (!exchanged && !setup.apiKey?.trim()) {
-          return null;
+      const body = (await res.json()) as { deepLink?: string; gatewayUrl?: string };
+      if (body.deepLink?.trim()) {
+        const setup = parseSetupDeepLink(body.deepLink);
+        if (!setup) {
+          return { result: null, staleCode: false };
         }
-        return {
-          apiKey: exchanged?.apiKey ?? setup.apiKey,
-          gatewayUrl: exchanged?.gatewayUrl ?? setup.gatewayUrl,
-        };
+        if (setup.pairingCode?.trim() && setup.pairServerUrl?.trim()) {
+          const exchanged = await exchangePairingCode(
+            setup.pairServerUrl,
+            setup.pairingCode,
+            async (url) => {
+              const exchangeResponse = await fetch(url, { signal: controller.signal });
+              return {
+                ok: exchangeResponse.ok,
+                status: exchangeResponse.status,
+                json: () => exchangeResponse.json(),
+              };
+            },
+          );
+          if (!exchanged && !setup.apiKey?.trim()) {
+            // Could not redeem. The server has already rotated the code, so ONE more attempt
+            // with a freshly fetched code converts this permanent dead end into self-healing.
+            return { result: null, staleCode: true };
+          }
+          return {
+            result: {
+              apiKey: exchanged?.apiKey ?? setup.apiKey,
+              gatewayUrl: exchanged?.gatewayUrl ?? setup.gatewayUrl,
+            },
+            staleCode: false,
+          };
+        }
+        return { result: setup, staleCode: false };
       }
-      return setup;
+      if (body.gatewayUrl?.trim()) {
+        return { result: { gatewayUrl: body.gatewayUrl.trim() }, staleCode: false };
+      }
+      return { result: null, staleCode: false };
+    };
+
+    const first = await attempt();
+    if (first.result || !first.staleCode) {
+      return first.result;
     }
-    if (body.gatewayUrl?.trim()) {
-      return { gatewayUrl: body.gatewayUrl.trim() };
-    }
-    return null;
+    // Exactly one retry — the rotated code is already waiting. Bounded so a genuinely broken
+    // pair server cannot spin.
+    return (await attempt()).result;
   } catch {
     return null;
   } finally {
