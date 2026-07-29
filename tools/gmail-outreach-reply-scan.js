@@ -82,6 +82,7 @@ function parseArgs(argv) {
     baseline: false,
     help: false,
     dryRows: null,
+    transport: 'auto', // auto | api | chrome
     ntfy: process.env.GMAIL_REPLY_SCAN_NTFY !== '0',
   };
   for (let i = 0; i < argv.length; i += 1) {
@@ -92,6 +93,7 @@ function parseArgs(argv) {
     else if (a === '--baseline') out.baseline = true;
     else if (a === '--no-ntfy') out.ntfy = false;
     else if (a === '--dry-rows-json') out.dryRows = argv[++i] || null;
+    else if (a.startsWith('--transport=')) out.transport = a.split('=')[1];
   }
   return out;
 }
@@ -200,6 +202,49 @@ function classifyBlindCause(diag) {
   return 'unknown_page_state';
 }
 
+// Headless Gmail via the google-workspace helper. This is the preferred transport:
+// the Chrome scrape needs a signed-in GUI session, steals focus, breaks whenever
+// Gmail changes its row markup, and on 2026-07-26..28 returned zero rows on every
+// hourly run while a real buyer reply sat in Trash. The API path found that reply
+// immediately. Chrome remains only as a fallback for machines without the token.
+const GOOGLE_API_PY = path.join(
+  os.homedir(),
+  '.hermes/skills/productivity/google-workspace/scripts/google_api.py',
+);
+
+function gmailApiAvailable() {
+  return fs.existsSync(GOOGLE_API_PY) && fs.existsSync(path.join(os.homedir(), '.hermes/google_token.json'));
+}
+
+function gmailApiCollectRows(days = 14) {
+  if (!gmailApiAvailable()) return { ok: false, error: 'google_api_or_token_missing', rows: [] };
+  const r = spawnSync(
+    'python3',
+    [GOOGLE_API_PY, 'gmail', 'search', outreachSearchQuery(days), '--max', '40'],
+    { encoding: 'utf8', timeout: 60000 },
+  );
+  if (r.status !== 0) {
+    // 403 insufficient scopes, expired refresh token, network — all are "unknown",
+    // never "no replies". Carry the reason so the board can name it.
+    const why = `${r.stderr || ''}`.trim().split('\n').pop() || `exit_${r.status}`;
+    return { ok: false, error: `api_${why}`.slice(0, 120), rows: [] };
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(r.stdout || '[]');
+  } catch {
+    return { ok: false, error: 'api_json_parse', rows: [] };
+  }
+  if (!Array.isArray(parsed)) return { ok: false, error: 'api_unexpected_shape', rows: [] };
+  // Render each message into the same one-line shape the Chrome scrape produced, so
+  // the existing (tested) row filter, classifier and prospect matcher work unchanged.
+  const rows = parsed.map((m) => {
+    const unread = Array.isArray(m.labels) && m.labels.includes('UNREAD') ? 'unread ' : '';
+    return `${unread}${m.from || ''} ${m.subject || ''} - ${m.snippet || ''}`.replace(/\s+/g, ' ').trim();
+  });
+  return { ok: true, rows, count: rows.length };
+}
+
 function chromeCollectInboxRows() {
   const url =
     'https://mail.google.com/mail/u/0/#search/' + encodeURIComponent(outreachSearchQuery());
@@ -306,6 +351,7 @@ function writeBoard(revenueDir, summary) {
     `# Gmail outreach replies — ${day}`,
     '',
     `Generated: ${summary.checkedAt}`,
+    `transport: ${summary.transport}`,
     `chrome_ok: ${summary.chromeOk}`,
     `rows_scanned: ${summary.rowsScanned}`,
     `reply_status: ${summary.replyStatus || 'scanned'}`,
@@ -400,16 +446,40 @@ function run(args) {
   let pageDiag = null;
   let pageTitle = null;
 
+  // Transport preference: operator-supplied rows > headless Gmail API > Chrome.
+  // The API path is preferred because it needs no GUI session, cannot be broken by
+  // a Gmail markup change, and searches in:anywhere reliably — the Chrome scrape
+  // returned zero rows on every hourly run for three days while a real reply sat
+  // in Trash.
+  let transport = 'none';
+  let apiError = null;
+
   if (args.dryRows) {
     rows = JSON.parse(args.dryRows);
     chromeOk = true;
-  } else if (args.chrome) {
-    const col = chromeCollectInboxRows();
-    chromeOk = col.ok;
-    chromeError = col.error || null;
-    rows = col.rows || [];
-    pageDiag = col.diag || null;
-    pageTitle = col.title || null;
+    transport = 'dry-rows';
+  } else {
+    if (args.transport !== 'chrome') {
+      const api = gmailApiCollectRows();
+      if (api.ok) {
+        rows = api.rows;
+        transport = 'gmail-api';
+      } else {
+        apiError = api.error;
+      }
+    }
+    // Fall back to Chrome only when the API could not be used at all. A failed API
+    // call is NOT treated as "no replies" — if Chrome is also unavailable the run
+    // is blind, and blindCause carries the API error.
+    if (transport === 'none' && args.transport !== 'api' && args.chrome) {
+      const col = chromeCollectInboxRows();
+      chromeOk = col.ok;
+      chromeError = col.error || null;
+      rows = col.rows || [];
+      pageDiag = col.diag || null;
+      pageTitle = col.title || null;
+      transport = 'chrome';
+    }
   }
 
   const { hot, seen } = processRows(rows, {
@@ -433,7 +503,16 @@ function run(args) {
   // over: a dead Chrome session looked identical to an empty mailbox.
   const blindCause = (() => {
     if (args.dryRows) return null; // the operator supplied the rows; trust them
-    if (!args.chrome) return 'scan_not_attempted_no_chrome';
+    if (transport === 'gmail-api') {
+      // The API answered. Zero results here IS a real zero: the query is exact,
+      // ran server-side over in:anywhere, and cannot be defeated by page markup.
+      return null;
+    }
+    if (transport === 'none') {
+      // Neither transport produced anything — the API failed (or was absent) and
+      // Chrome was unavailable or disabled. Reply state is unknown, not zero.
+      return apiError ? `no_transport_${apiError}` : 'scan_not_attempted_no_transport';
+    }
     if (!chromeOk) return `scrape_failed_${chromeError || 'unknown'}`;
     if (rows.length === 0) return classifyBlindCause(pageDiag);
     return null;
@@ -445,6 +524,8 @@ function run(args) {
 
   const summary = {
     checkedAt: new Date().toISOString(),
+    transport,
+    apiError,
     chromeOk,
     chromeError,
     rowsScanned: rows.length,
@@ -456,7 +537,7 @@ function run(args) {
     hot,
     boardPath: null,
     baseline: args.baseline,
-    ok: chromeOk || Boolean(args.dryRows),
+    ok: transport === 'gmail-api' || chromeOk || Boolean(args.dryRows),
   };
   summary.boardPath = writeBoard(revenueDir, summary);
 
@@ -490,7 +571,7 @@ function main() {
   if (args.json) process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
   else {
     process.stdout.write(
-      `gmail-reply-scan chrome=${summary.chromeOk} rows=${summary.rowsScanned} status=${summary.replyStatus} hot=${summary.hot.length} board=${summary.boardPath}\n`,
+      `gmail-reply-scan transport=${summary.transport} rows=${summary.rowsScanned} status=${summary.replyStatus} hot=${summary.hot.length} board=${summary.boardPath}\n`,
     );
     if (summary.scanBlind) {
       process.stdout.write(

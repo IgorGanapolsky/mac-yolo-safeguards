@@ -162,10 +162,14 @@ check('a failed or skipped scrape is blind, not a clean zero', () => {
   process.env.REVENUE_DIR = dir;
   process.env.GMAIL_REPLY_SCAN_STATE = path.join(dir, 'state.json');
 
-  const s = run({ json: true, chrome: false, baseline: false, ntfy: false, dryRows: null, help: false });
-  assert.strictEqual(s.chromeOk, false);
-  assert.strictEqual(s.scanBlind, true, 'no scan attempted must be blind');
-  assert.strictEqual(s.blindCause, 'scan_not_attempted_no_chrome');
+  // transport:'chrome' skips the Gmail API path; chrome:false then leaves NO
+  // transport at all. That is the scenario this case exists for — the previous
+  // `--no-chrome` shorthand stopped meaning "no transport" once the headless
+  // Gmail API became the preferred one.
+  const s = run({ json: true, chrome: false, baseline: false, ntfy: false, dryRows: null, help: false, transport: 'chrome' });
+  assert.strictEqual(s.transport, 'none');
+  assert.strictEqual(s.scanBlind, true, 'no usable transport must be blind');
+  assert.match(String(s.blindCause), /^scan_not_attempted_no_transport$|^no_transport_/);
   assert.strictEqual(s.replyStatus, 'unknown_scan_returned_nothing');
 
   const board = fs.readFileSync(s.boardPath, 'utf8');
@@ -221,3 +225,21 @@ check('genuinely empty search is not reported as blind', () => {
 });
 
 console.log(`\nPASS ${n}/${n} gmail-outreach-reply-scan`);
+
+// The headless Gmail API is the preferred transport. The Chrome scrape needs a
+// signed-in GUI session and returned zero rows on every hourly run for three days
+// while a real buyer reply sat in Trash; the API found it immediately.
+check('gmail-api transport is preferred over chrome when available', () => {
+  const src = fs.readFileSync(
+    path.join(__dirname, '..', 'tools', 'gmail-outreach-reply-scan.js'),
+    'utf8',
+  );
+  const apiAt = src.indexOf('gmailApiCollectRows(');
+  const chromeAt = src.indexOf('chromeCollectInboxRows()', src.indexOf('let transport'));
+  assert.ok(apiAt > 0, 'API collector must exist');
+  assert.ok(apiAt < chromeAt, 'the API must be attempted before the Chrome scrape');
+  // A failed API call must fall through to Chrome, never be treated as zero replies.
+  assert.match(src, /transport === 'none' && args\.transport !== 'api' && args\.chrome/);
+  // And an API-sourced result is a REAL zero when empty — the query is server-side.
+  assert.match(src, /if \(transport === 'gmail-api'\)/);
+});
