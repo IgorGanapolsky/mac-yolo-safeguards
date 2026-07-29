@@ -134,9 +134,13 @@ function stripHtml(html) {
     // character count checked against defaultMinBody() and can satisfy a
     // --must-contain needle from code rather than from the visible post, so an
     // unpublished page verifies as live. \s* is the fix.
-    .replace(/<script\b[\s\S]*?<\/script\s*>/gi, ' ')
-    .replace(/<style\b[\s\S]*?<\/style\s*>/gi, ' ')
-    .replace(/<noscript\b[\s\S]*?<\/noscript\s*>/gi, ' ')
+    // HTML allows arbitrary attributes in closing tags: `</script data-foo>` and
+    // `</script\t\n bar>` are both valid. Without [^>]* the tag is not removed,
+    // leaving script source to inflate body text and potentially satisfy --must-contain
+    // — making an unpublished page verify as live.
+    .replace(/<script\b[\s\S]*?<\/script\s*[^>]*>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style\s*[^>]*>/gi, ' ')
+    .replace(/<noscript\b[\s\S]*?<\/noscript\s*[^>]*>/gi, ' ')
     .replace(/<!--[\s\S]*?-->/g, ' ')
     .replace(/<[^>]+>/g, ' ')
     // &amp; is decoded LAST. Decoding it first re-creates entities out of text
