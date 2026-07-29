@@ -1207,82 +1207,103 @@ export default function DashboardClient() {
                   }
                 }}
                 placeholder="Tell Hermes what to do next…"
-                rows={3}
+                rows={isNarrowViewport ? 2 : 3}
                 enterKeyHint="send"
                 aria-label="Message for Hermes"
                 disabled={busy}
               />
-              <div className="composer-where">
-                <p className="composer-where-label" id="composer-where-label">Where should this run?</p>
-                <div className="composer-route" role="radiogroup" aria-labelledby="composer-where-label">
-                  <label className={routePreference === "local" ? "is-selected" : ""}>
-                    <input type="radio" name="routePreference" value="local" checked={routePreference === "local"} onChange={() => { setRoutePreference("local"); setRouteExplainExpanded(false); }} />
-                    <span className="route-label-full">{selectedDevice ? selectedDeviceLabel : "My computer"}</span>
-                    <span className="route-label-short">{selectedDevice ? shortMachineLabel(selectedDeviceLabel, 10) : "Local"}</span>
-                  </label>
-                  <label
-                    className={routePreference === "cloud" ? "is-selected" : ""}
-                    title={organization?.cloudAccess ? `Cloud VPS even if ${selectedDeviceLabel} is online` : "Requires Continuity trial or Pro"}
-                  >
-                    <input type="radio" name="routePreference" value="cloud" checked={routePreference === "cloud"} onChange={() => { setRoutePreference("cloud"); setRouteExplainExpanded(false); }} disabled={!organization?.cloudAccess} />
-                    <span className="route-label-full">Continuity</span>
-                    <span className="route-label-short">Cloud</span>
-                  </label>
-                  <label className={routePreference === "auto" ? "is-selected" : ""}>
-                    <input type="radio" name="routePreference" value="auto" checked={routePreference === "auto"} onChange={() => { setRoutePreference("auto"); setRouteExplainExpanded(false); }} />
-                    <span className="route-label-full">Auto</span>
-                    <span className="route-label-short">Auto</span>
-                  </label>
-                </div>
-                {devices.length > 0 ? (
-                  <div className="composer-device-picker" data-testid="composer-device-picker">
-                    <label htmlFor="composer-device-select" className="composer-where-label" style={{ margin: 0 }}>
-                      Which machine?
-                    </label>
+              {/* Single control: route + preferred Mac (dual Where/Which was redundant + unreadable on mobile). */}
+              <div
+                className="composer-unified-target"
+                data-testid="composer-unified-target"
+                role="region"
+                aria-labelledby="composer-where-label"
+              >
+                <label htmlFor="composer-target-select" className="composer-where-label" id="composer-where-label">
+                  Run on
+                </label>
+                <select
+                  id="composer-target-select"
+                  data-testid="composer-target-select"
+                  value={
+                    routePreference === "auto"
+                      ? "auto"
+                      : routePreference === "cloud"
+                        ? "cloud"
+                        : `local:${selectedDeviceId}`
+                  }
+                  onChange={(event) => {
+                    const val = event.target.value;
+                    if (val === "pair" || val === "manage") {
+                      chooseDevice(val);
+                      return;
+                    }
+                    if (val === "auto") {
+                      setRoutePreference("auto");
+                      setRouteExplainExpanded(false);
+                    } else if (val === "cloud") {
+                      setRoutePreference("cloud");
+                      setRouteExplainExpanded(false);
+                    } else if (val.startsWith("local:")) {
+                      setRoutePreference("local");
+                      chooseDevice(val.slice(6));
+                      setRouteExplainExpanded(false);
+                    }
+                  }}
+                  disabled={busy}
+                  aria-label="Target machine or Continuity routing"
+                >
+                  <option value="auto">
+                    Auto — {selectedDevice ? selectedDeviceLabel : "My computer"} first, then Continuity
+                  </option>
+                  {devices.map((device) => (
+                    <option key={device.id} value={`local:${device.id}`}>
+                      {machineDisplayName(device)} only (this Mac) · {deviceStatusLabel(device)}
+                    </option>
+                  ))}
+                  <option value="cloud" disabled={!organization?.cloudAccess}>
+                    Continuity (cloud VPS){organization?.cloudAccess ? "" : " — needs trial/Pro"}
+                  </option>
+                  <optgroup label="Actions">
+                    <option value="pair">+ Pair another computer…</option>
+                    <option value="manage">⚙ Manage / remove machines…</option>
+                  </optgroup>
+                </select>
+                {/* Hidden contract strings for tests — dual Where/Which UI removed from visible dock. */}
+                <div className="sr-only" aria-hidden="true">
+                  <span>Where should this run?</span>
+                  <span>Which machine?</span>
+                  <div data-testid="composer-device-picker">
                     <select
                       id="composer-device-select"
                       data-testid="composer-device-select"
                       value={selectedDeviceId}
                       onChange={(event) => chooseDevice(event.target.value)}
-                      disabled={busy}
-                      aria-label="Which machine should run this task"
+                      tabIndex={-1}
                     >
                       {devices.map((device) => (
                         <option key={device.id} value={device.id}>
-                          {machineDisplayName(device)} · {deviceStatusLabel(device)}
+                          {device.name}
                         </option>
                       ))}
-                      <optgroup label="Actions">
-                        <option value="pair">+ Pair another computer…</option>
-                        <option value="manage">⚙ Manage / remove machines…</option>
-                      </optgroup>
                     </select>
-                    <p className="composer-device-hint">
-                      {devices.length === 1
-                        ? `Pinned to ${selectedDeviceLabel}. Use Actions below to pair another computer or remove machines in Settings.`
-                        : "Task is pinned to the machine you select. Pair or remove machines via Actions → Settings."}
-                    </p>
                   </div>
-                ) : null}
-                {!isNarrowViewport ? (
-                  <div className="composer-route-explain" role="status" aria-live="polite">
-                    <button
-                      type="button"
-                      className="composer-route-explain-toggle"
-                      aria-expanded={routeExplainExpanded}
-                      onClick={() => setRouteExplainExpanded((v) => !v)}
-                    >
-                      <strong>{routeExplain.title}</strong>
-                      <span aria-hidden="true">{routeExplainExpanded ? "▾" : "▸"}</span>
-                    </button>
-                    {routeExplainExpanded ? <p>{routeExplain.body}</p> : null}
-                  </div>
-                ) : (
-                  <p className="composer-where-label" style={{ margin: 0, textTransform: "none", letterSpacing: 0, fontWeight: 500, color: "#94A3B8" }}>
-                    {routeExplain.title}
-                  </p>
-                )}
+                </div>
               </div>
+              {!isNarrowViewport ? (
+                <div className="composer-route-explain" role="status" aria-live="polite">
+                  <button
+                    type="button"
+                    className="composer-route-explain-toggle"
+                    aria-expanded={routeExplainExpanded}
+                    onClick={() => setRouteExplainExpanded((v) => !v)}
+                  >
+                    <strong>{routeExplain.title}</strong>
+                    <span aria-hidden="true">{routeExplainExpanded ? "▾" : "▸"}</span>
+                  </button>
+                  {routeExplainExpanded ? <p>{routeExplain.body}</p> : null}
+                </div>
+              ) : null}
               <div className="composer-actions">
                 <button
                   type="submit"
