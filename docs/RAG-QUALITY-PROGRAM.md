@@ -4,14 +4,16 @@ Established 2026-07-29 after a full-stack retrieval audit. This doc is the
 operating contract for retrieval quality across the repo's four retrieval
 systems, the measured baselines, and the operator runbook.
 
-## Systems and their status (2026-07-29)
+## Systems and their status (re-measured 2026-07-29T18:00Z UTC on Mac)
 
 | System | Store | Retrieval | Status |
 |---|---|---|---|
-| hermes-retrieval-harness | none (live walk) | sparse token scoring | **working, eval-gated in CI** |
-| grepai semantic index | local gob | dense (hybrid now enabled) | **DEAD index — canary added; needs Mac-side rebuild** |
-| ThumbGate lessons (`.thumbgate/`) | SQLite FTS5 + JSONL | BM25 + hashed-TF cosine | **degraded — doctor added; package-side fixes filed upstream** |
+| hermes-retrieval-harness | none (live walk) | sparse token scoring | **working, eval-gated in CI** — live **8/8 · recall 1.000 · MRR 0.938 · nDCG 0.964** |
+| grepai semantic index | isolated gob + REPO symlink | dense (hybrid enabled) | **HEALTHY canary** — `index.gob` ~64MB, `grepai-index-canary --json` ok=true; REPO `.grepai` links to `~/.hermes/semantic-index/mac-yolo-safeguards` (do not re-claim DEAD without re-running canary) |
+| ThumbGate lessons (`~/.thumbgate/`) | SQLite FTS5 + JSONL | BM25 + embeddings | **degraded** — doctor 2026-07-29: ledger 1069 vs sqlite 412 (**38.5% FTS coverage**), embeddings **plausibly neural** (382 distinct magnitudes / 384 dims), LanceDB **absent**, **316/473** suspect synthesized rules |
 | Graphify code graph | graph.json | lexical + IDF + BFS | working (stale cluster labels) |
+
+**Honesty note:** Early 2026-07-29 audit rows (456-vs-3 FTS, hashed-TF 30 magnitudes, empty index 384B) are **historical**. Re-measure before citing. Grepae dual-path still matters: isolated clone can be healthy while a worktree `.grepai` is a 384B shell until `node tools/ensure-grepai-index.js`.
 
 ## Measured baseline (fixture: tests/fixtures/rag-eval/cases.json)
 
@@ -20,6 +22,7 @@ systems, the measured baselines, and the operator runbook.
 | 2026-07-29 (pre) | 7/8 | 0.875 | 0.875 | 0.844 | `empty-stream-hard-stop` case unsatisfiable (no such path in corpus) |
 | 2026-07-29 (post) | **8/8** | **1.000** | **0.893** | **0.890** | doc-side dual tokenization + fixture repair |
 | 2026-07-29 (path rank) | **8/8** | **1.000** | **0.938** | **0.964** | test-path penalties + query bigram compounds in path (`hardware-leash`, `cloud-failover`); fixed `lessons-feedback` buried under PromoCard/tests |
+| 2026-07-29T18:00Z (re-run) | **8/8** | **1.000** | **0.9375** | **0.9637** | live Mac re-measure; `lessons-feedback` still MRR=0.50 (rank 2) — grow fixtures on real misses |
 
 Changes that produced the delta:
 1. **Doc-side dual tokenization** (`tools/hermes-retrieval-harness.js`):
@@ -68,15 +71,25 @@ Claude Code sessions, run once on the Mac in this repo:
 
     npx thumbgate@latest init && npx thumbgate doctor
 
-## Operator runbook — repair the grepai index (Mac-side, ~10 min)
+## Operator runbook — repair the grepai index (Mac-side)
+
+**Prefer ensure over blind rebuild** when the isolated clone is already large:
+
+```bash
+node tools/ensure-grepai-index.js --canary --json   # link REPO .grepai → isolated gob
+node tools/grepai-index-canary.js --json            # expect ok=true, indexBytes ≫ 10KB
+```
+
+Full rebuild only if canary fails and isolated index is empty/corrupt:
 
 1. `ollama ps` — confirm `nomic-embed-text` is servable.
-2. In the indexed checkout (`~/.hermes/semantic-index/mac-yolo-safeguards`
-   per docs/LOCAL-SEMANTIC-CODE-INDEX.md): `grepai index --rebuild`.
-3. `grepai search "retrieval harness" --json | head` — expect > 0 results.
+2. In `~/.hermes/semantic-index/mac-yolo-safeguards`: `grepai index --rebuild`.
+3. `grepai search "retrieval harness" --json --compact | head` — expect > 0 results.
 4. `node tools/grepai-index-canary.js --live` — expect HEALTHY.
-5. Hybrid (BM25+dense RRF) was enabled in `.grepai/config.yaml` on
-   2026-07-29 and takes effect with this reindex.
+5. Hybrid (BM25+dense RRF) was enabled in config on 2026-07-29; takes effect after reindex.
+
+**Cold search latency:** first `grepai search` after idle can take >30s; ensure's
+search probe uses a 90s timeout so it does not false-fail as `searchFromRepo=0`.
 
 ## Package-side fixes (belong in github.com/IgorGanapolsky/ThumbGate)
 

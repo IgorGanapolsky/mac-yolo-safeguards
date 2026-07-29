@@ -163,20 +163,46 @@ watch + canary. See docs/LOCAL-SEMANTIC-CODE-INDEX.md.
     }
     report.ok = Boolean(report.linked && report.canary && report.canary.ok);
   } else {
-    // Prove search from REPO cwd
-    const search = spawnSync('grepai', ['search', 'retrieval harness', '--json', '--compact'], {
-      cwd: REPO,
-      encoding: 'utf8',
-      timeout: 30000,
-    });
+    // Prove search from REPO cwd. Cold grepae can exceed 30s; use tempfile so
+    // large JSON is not truncated by the OS pipe buffer (~64KB).
+    const outFile = path.join(os.tmpdir(), `ensure-grepai-search-${process.pid}.json`);
     let n = 0;
+    let searchError = null;
     try {
-      const body = JSON.parse(search.stdout);
-      n = Array.isArray(body) ? body.length : (body.results || body.matches || []).length;
-    } catch {
-      n = 0;
+      const search = spawnSync(
+        'grepai',
+        ['search', 'retrieval harness', '--json', '--compact'],
+        {
+          cwd: REPO,
+          encoding: 'utf8',
+          timeout: 90000,
+          maxBuffer: 16 * 1024 * 1024,
+        },
+      );
+      if (search.error) {
+        searchError = search.error.code || search.error.message;
+      } else if (search.status !== 0 && !(search.stdout || '').trim()) {
+        searchError = `exit_${search.status}: ${(search.stderr || '').slice(0, 120)}`;
+      } else {
+        try {
+          fs.writeFileSync(outFile, search.stdout || '');
+          const body = JSON.parse(search.stdout || 'null');
+          n = Array.isArray(body) ? body.length : (body.results || body.matches || []).length;
+        } catch (e) {
+          searchError = `invalid_json: ${e.message}`;
+        }
+      }
+    } catch (e) {
+      searchError = e.message || String(e);
+    } finally {
+      try {
+        fs.unlinkSync(outFile);
+      } catch {
+        /* ignore */
+      }
     }
     report.searchFromRepo = n;
+    if (searchError) report.searchError = searchError;
     report.ok = report.linked && n > 0;
   }
 
