@@ -10,6 +10,25 @@ const MODEL = 'grok-4.5';
 const LOCAL_MODEL_ALIAS = 'ollama-hermes-zero-spend';
 const LOCAL_BASE_URL = 'http://127.0.0.1:11434/v1';
 const LOCAL_CONTEXT_TOKENS = 65536;
+// Advertised context_window must never exceed what the model actually loads
+// with — min(architecture cap, Modelfile num_ctx) — or Ollama silently
+// truncates long sessions from the top, dropping system/tool context first.
+// Values measured via `ollama show <model>` 2026-07-29. Models without a
+// num_ctx parameter load at the Ollama server default (~4k), hence the low
+// floor for unknowns: add a measured entry here before promoting a new model.
+const LOCAL_MODEL_CONTEXT_TOKENS = Object.freeze({
+  'qwen3.5:9b-hermes-64k': 65536,
+  'deepseek-r1:14b-64k': 65536,
+  'qwen3:8b-64k': 40960,
+  'qwen3:14b-64k': 40960,
+  'qwen3:8b-agent-64k': 40960,
+  'qwen3:8b-agent-32k': 32768,
+  'qwen2.5:3b-hermes-64k': 32768,
+  'qwen2.5-coder:14b-64k': 32768,
+  'qwen2.5-coder:14b-32k': 32768,
+  'qwen3:8b-hermes-20k': 20480,
+});
+const LOCAL_FALLBACK_CONTEXT_TOKENS = 8192;
 const LOCAL_MAX_COMPLETION_TOKENS = 8192;
 const MIN_GROK_VERSION = '0.2.99';
 const XAI_PRICING = Object.freeze({
@@ -198,6 +217,10 @@ function tomlString(value) {
   return JSON.stringify(String(value));
 }
 
+function localContextTokens(model) {
+  return LOCAL_MODEL_CONTEXT_TOKENS[model] || LOCAL_FALLBACK_CONTEXT_TOKENS;
+}
+
 function localConfig(model) {
   const verifiedModel = validateLocalModel(model);
   return [
@@ -210,7 +233,7 @@ function localConfig(model) {
     `base_url = ${tomlString(LOCAL_BASE_URL)}`,
     'name = "Hermes local Ollama (zero provider spend)"',
     'api_backend = "chat_completions"',
-    `context_window = ${LOCAL_CONTEXT_TOKENS}`,
+    `context_window = ${localContextTokens(verifiedModel)}`,
     `max_completion_tokens = ${LOCAL_MAX_COMPLETION_TOKENS}`,
     'temperature = 0.3',
     '',
@@ -610,6 +633,8 @@ module.exports = {
   HERMES_VERIFIER_PROFILE,
   LOCAL_BASE_URL,
   LOCAL_CONTEXT_TOKENS,
+  LOCAL_FALLBACK_CONTEXT_TOKENS,
+  LOCAL_MODEL_CONTEXT_TOKENS,
   LOCAL_HERMES_PROFILE,
   LOCAL_HERMES_RULES,
   LOCAL_MAX_COMPLETION_TOKENS,
@@ -630,6 +655,7 @@ module.exports = {
   grokDoctor,
   installedOllamaModels,
   localConfig,
+  localContextTokens,
   localDoctor,
   localGrokHome,
   parseModelsOutput,
