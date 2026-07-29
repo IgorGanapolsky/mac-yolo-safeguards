@@ -341,10 +341,9 @@ export default function DashboardClient() {
   const openedChatsListFromUrl = useRef(false);
   const composerObserverRef = useRef<ResizeObserver | null>(null);
   /**
-   * Mobile composer is position:absolute docked to the bottom of `.task-panel`.
-   * `--composer-dock-space` (globals.css) pads `.hermes-scroll-pane` by the *measured*
-   * composer height so messages/run controls never cover the textarea. Re-measure on
-   * resize (textarea grow, route chips wrap, keyboard chrome).
+   * Mobile: composer sits in normal flex flow under `.hermes-scroll-pane` (not absolute).
+   * `--composer-dock-space` remains a fallback pad for older CSS; keep it tight so a
+   * tall dock never starves the message list (2026-07-29 mobile layout fix).
    */
   const setComposerNode = useCallback((node: HTMLFormElement | null) => {
     composerObserverRef.current?.disconnect();
@@ -357,7 +356,9 @@ export default function DashboardClient() {
     }
     if (typeof ResizeObserver === "undefined") return;
     const applyDockSpace = () => {
-      const px = Math.max(160, Math.ceil(node.getBoundingClientRect().height) + 20);
+      // Cap: messages must keep most of the viewport; dock scrolls internally if needed.
+      const measured = Math.ceil(node.getBoundingClientRect().height) + 12;
+      const px = Math.min(280, Math.max(120, measured));
       document.documentElement.style.setProperty("--composer-dock-space", `${px}px`);
     };
     applyDockSpace();
@@ -1207,7 +1208,7 @@ export default function DashboardClient() {
                   }
                 }}
                 placeholder="Tell Hermes what to do next…"
-                rows={3}
+                rows={2}
                 enterKeyHint="send"
                 aria-label="Message for Hermes"
                 disabled={busy}
@@ -1218,7 +1219,8 @@ export default function DashboardClient() {
                   <label className={routePreference === "local" ? "is-selected" : ""}>
                     <input type="radio" name="routePreference" value="local" checked={routePreference === "local"} onChange={() => { setRoutePreference("local"); setRouteExplainExpanded(false); }} />
                     <span className="route-label-full">{selectedDevice ? selectedDeviceLabel : "My computer"}</span>
-                    <span className="route-label-short">{selectedDevice ? shortMachineLabel(selectedDeviceLabel, 10) : "Local"}</span>
+                    {/* Short label stays "Local" — machine name belongs in Which machine?, not the route chip (mobile squash 2026-07-29). */}
+                    <span className="route-label-short">Local</span>
                   </label>
                   <label
                     className={routePreference === "cloud" ? "is-selected" : ""}
