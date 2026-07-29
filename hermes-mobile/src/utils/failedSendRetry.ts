@@ -2,6 +2,7 @@ import type { HermesMessage } from '../types/chat';
 import { EMPTY_REPLY_FAILURE_REASON } from './emptyStreamReplyRecovery';
 import { OUTBOUND_STUCK_FAILURE_REASON } from './outboundSendRecovery';
 import { isConnectivityMessage } from './chatErrors';
+import { normalizeMessageText } from './chatMessageMerge';
 import { isWrongKeyFailure } from './wrongKeyRecovery';
 
 export type ComposerSendAction =
@@ -23,6 +24,42 @@ export function findLastFailedOutboundText(messages: readonly HermesMessage[]): 
     }
   }
   return null;
+}
+
+/**
+ * ChatInputBar keeps its own `latestTextRef` so a blocked/duplicate send never
+ * loses the draft — and that ref is deliberately NOT cleared when the controlled
+ * value goes empty after a real send. Two consequences the ↑ handler must not
+ * inherit:
+ *
+ *  1. An empty composer can still hand ↑ the text that was already delivered.
+ *     Sending it again is a silent duplicate.
+ *  2. On Android the controlled value can lag the native field, so a genuinely
+ *     typed body must still win over an empty `inputValue`.
+ *
+ * Resolve both: prefer the live composer value; fall back to the input bar's
+ * ref only when it is NOT an echo of the body we just committed.
+ */
+export function resolveComposerSendText(input: {
+  latestText?: string | null;
+  composerValue: string;
+  lastSentComposerText?: string | null;
+}): string {
+  const composer = input.composerValue?.trim() ?? '';
+  const latest = input.latestText?.trim() ?? '';
+  if (composer) {
+    return latest || composer;
+  }
+  if (!latest) {
+    return '';
+  }
+  const lastSent = normalizeMessageText(input.lastSentComposerText ?? '');
+  if (lastSent && normalizeMessageText(latest) === lastSent) {
+    // Stale echo of the message already on its way — treat the composer as empty
+    // so ↑ resolves to the retry affordance instead of re-sending.
+    return '';
+  }
+  return latest;
 }
 
 export function resolveComposerSendAction(input: {
