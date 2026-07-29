@@ -58,7 +58,7 @@ describe('outboundDeliveryStatus', () => {
         macHttpOk: false,
         failureReason: 'Outdated connection',
       }),
-    ).toBe('⚠ Outdated connection — tap Re-pair this Mac');
+    ).toBe('⚠ This Mac no longer recognizes your phone — tap Re-pair this Mac');
   });
 
   it('shows reachability hint when send failed and Mac health is down', () => {
@@ -104,7 +104,7 @@ describe('outboundDeliveryStatus', () => {
         macHttpOk: true,
         failureReason: GATEWAY_WRONG_KEY_MESSAGE,
       }),
-    ).toBe('⚠ Outdated connection — tap Re-pair this Mac');
+    ).toBe('⚠ This Mac no longer recognizes your phone — tap Re-pair this Mac');
   });
 
   it('treats demo as live for delivery', () => {

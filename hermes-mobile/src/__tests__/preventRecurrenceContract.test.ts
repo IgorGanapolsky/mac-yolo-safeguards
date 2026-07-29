@@ -495,6 +495,26 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(hub).toMatch(/finally\s*\{\s*\n?\s*setRepairBusy\(false\);/);
   });
 
+  it('S19b: Re-pair redeems a one-time pair code — pair.json never carries a credential', () => {
+    const repairUtil = read('hermes-mobile/src/utils/repairGatewayLink.ts');
+    const exchange = read('hermes-mobile/src/services/pairingCodeExchange.ts');
+    const chat = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    // The Mac's pair server only hands out credentials through /pair-exchange?code=…
+    // Reading pair.json and hoping for an apiKey made "Re-pair this Mac" a forever no-op.
+    expect(exchange).toContain('/pair-exchange?code=');
+    expect(repairUtil).toContain('exchangePairingCodeDetailed');
+    expect(repairUtil).toContain('resolvePairSetupForRepairDetailed');
+    // Every failure path must carry a reason the UI can turn into a next step.
+    for (const reason of ['code_expired', 'pair_server_unreachable', 'key_rejected']) {
+      expect(repairUtil).toContain(reason);
+    }
+    expect(repairUtil).toContain('pairRepairFailureMessage');
+    // The re-pair CTA shows that specific reason instead of re-printing the tapped banner.
+    expect(chat).toContain('refreshMacPairCredentials');
+    expect(chat).toContain('repairFailureMessage');
+    expect(chat).toMatch(/repairFailureMessage \?\?[\s\S]{0,80}gatewayAuthRepairBanner/);
+  });
+
   it('S20: dead-run send unlock clears every outbound gate, not just isSending (#384)', () => {
     // #375 cleared isSending and marked the run failed but left pinnedOutboundStatus
     // 'pending', so Send stayed grayed forever on a Scheduled job thread after OTA.

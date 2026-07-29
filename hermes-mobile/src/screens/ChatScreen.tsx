@@ -84,7 +84,7 @@ import {
 import { fetchGatewayHealth, gatewayAuthRepairBanner } from '../services/gatewayClient';
 import { secureCredentials } from '../services/secureCredentials';
 import { WRONG_KEY_PRIMARY_CTA } from '../utils/wrongKeyRecovery';
-import { refreshCredentialsFromPairServer } from '../utils/repairGatewayLink';
+import { refreshMacPairCredentials } from '../utils/repairGatewayLink';
 import type { HermesSession, HermesMessage } from '../types/chat';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import type { ChatProject, ChatProjectState } from '../types/chatProject';
@@ -3937,6 +3937,8 @@ export default function ChatScreen() {
 
     const activeProfileId = activeGatewayProfile?.id ?? null;
     const probeBase = effectiveGatewayUrl || settings.gatewayUrl;
+    /** Specific, actionable copy from the pair-code exchange — never leave the tap silent. */
+    let repairFailureMessage: string | null = null;
 
     try {
       if (activeProfileId) {
@@ -3949,8 +3951,16 @@ export default function ChatScreen() {
         await saveSettings(nextSettings, apiKey);
       }
 
-      // Always try pair-server credential refresh on reconnect/re-pair taps.
-      const fresh = await refreshCredentialsFromPairServer({ gatewayUrl: probeBase });
+      // Always try pair-server credential refresh on reconnect/re-pair taps. This redeems a
+      // one-time pairing code from the Mac (:8765 /pair-exchange) — pair.json alone never
+      // carries a credential. Failure carries a specific reason so the tap is never silent.
+      const refreshed = await refreshMacPairCredentials({
+        gatewayUrl: probeBase,
+        machineLabel: repairComputerLabel,
+      });
+      const fresh = refreshed.status === 'refreshed' ? refreshed : null;
+      // Shown only if this tap still ends unconnected — success stays quiet.
+      repairFailureMessage = refreshed.message ?? null;
       if (fresh) {
         nextSettings = {
           ...nextSettings,
@@ -3970,13 +3980,15 @@ export default function ChatScreen() {
       const probeUrl = nextSettings.gatewayUrl || fresh?.gatewayUrl || probeBase;
       const postRetryHealth = await fetchGatewayHealth(probeUrl, profileKey);
       if (postRetryHealth.authMismatch) {
-        setErrorMessage(gatewayAuthRepairBanner(repairComputerLabel));
+        // Never re-print the banner the user just tapped — say what actually blocked it.
+        setErrorMessage(repairFailureMessage ?? gatewayAuthRepairBanner(repairComputerLabel));
         haptics.warning();
         return;
       }
       if (!postRetryHealth.directGatewayReachable && postRetryHealth.level === 'red') {
         setErrorMessage(
-          `Still can't reach ${repairComputerLabel}. Keep Tailscale on, or tap Find computers.`,
+          repairFailureMessage ??
+            `Still can't reach ${repairComputerLabel}. Keep Tailscale on, or tap Find computers.`,
         );
         haptics.warning();
         return;
@@ -3990,9 +4002,10 @@ export default function ChatScreen() {
     } catch (err) {
       console.warn('[handleMacRetry] failed:', err);
       setErrorMessage(
-        health?.authMismatch
-          ? gatewayAuthRepairBanner(repairComputerLabel)
-          : `Still can't reach ${repairComputerLabel}. Keep Tailscale on, or tap Find computers.`,
+        repairFailureMessage ??
+          (health?.authMismatch
+            ? gatewayAuthRepairBanner(repairComputerLabel)
+            : `Still can't reach ${repairComputerLabel}. Keep Tailscale on, or tap Find computers.`),
       );
       haptics.warning();
     } finally {

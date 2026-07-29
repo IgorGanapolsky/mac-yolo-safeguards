@@ -59,7 +59,9 @@ function isWrongKeyFailureReason(reason: string): boolean {
     reason === GATEWAY_WRONG_KEY_MESSAGE ||
     reason.includes(GATEWAY_AUTH_REPAIR_HEADER) ||
     lower.includes('wrong key') ||
+    // Legacy copy — still arrives from older gateways and persisted failure reasons.
     lower.includes('outdated connection') ||
+    lower.includes('no longer recognizes your phone') ||
     lower.includes('invalid_api_key')
   );
 }
@@ -116,7 +118,7 @@ export function resolveOutboundFailureLabel(
   const reason = failureReason?.trim();
   if (reason) {
     if (isWrongKeyFailureReason(reason)) {
-      return '⚠ Outdated connection — tap Re-pair this Mac';
+      return '⚠ This Mac no longer recognizes your phone — tap Re-pair this Mac';
     }
     if (isSessionBusyFailureReason(reason)) {
       return `⚠ ${OUTBOUND_SESSION_BUSY_HINT}`;

@@ -21,7 +21,8 @@ describe('wrongKeyRecovery', () => {
     expect(plan.primaryCta).toBe(WRONG_KEY_PRIMARY_CTA);
     expect(plan.primaryCta).toBe('Re-pair this Mac');
     expect(plan.banner).toBe(WRONG_KEY_REPAIR_HINT);
-    expect(plan.banner.toLowerCase()).toContain('outdated connection');
+    expect(plan.banner.toLowerCase()).toContain('no longer recognizes your phone');
+    expect(plan.banner.toLowerCase()).not.toContain('outdated connection');
     expect(plan.banner.toLowerCase()).not.toContain('api key');
     expect(plan.banner.toLowerCase()).not.toContain('settings');
   });

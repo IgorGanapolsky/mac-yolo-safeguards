@@ -38,31 +38,75 @@ const defaultFetchJson: FetchJsonImpl = async (url: string, options?: RequestIni
 
 export const PAIR_EXCHANGE_TIMEOUT_MS = 5_000;
 
+/**
+ * Why an exchange failed. The pair server (tools/hermes-mobile-pair.js) answers
+ * `GET /pair-exchange?code=…` with 200 + credentials, 404 `{error:'not_found'}`, or
+ * 410 `{error:'expired'|'already_consumed'}` — codes are single-use and TTL-bound.
+ * Collapsing all of that into `null` is what made "Re-pair this Mac" look like a no-op:
+ * the caller had nothing specific to tell the user. Never widen this back to a bare null.
+ */
+export type PairExchangeFailureReason =
+  | 'invalid_request'
+  | 'not_found'
+  | 'expired'
+  | 'already_consumed'
+  | 'server_error'
+  | 'timeout'
+  | 'unreachable'
+  | 'malformed';
+
+export type PairExchangeOutcome =
+  | { ok: true; payload: PairExchangePayload }
+  | { ok: false; reason: PairExchangeFailureReason; status?: number };
+
+/** Reasons that mean "this specific code is dead — the Mac must issue a new one". */
+export function isDeadPairCodeReason(reason: PairExchangeFailureReason): boolean {
+  return reason === 'expired' || reason === 'already_consumed' || reason === 'not_found';
+}
+
 function isPairExchangePayload(value: unknown): value is PairExchangePayload {
   return typeof value === 'object' && value !== null;
 }
 
+async function readErrorReason(
+  response: { status: number; json: () => Promise<unknown> },
+): Promise<PairExchangeFailureReason> {
+  let serverError = '';
+  try {
+    const body = (await response.json()) as { error?: unknown } | null;
+    serverError = typeof body?.error === 'string' ? body.error.trim() : '';
+  } catch {
+    serverError = '';
+  }
+  if (serverError === 'expired') return 'expired';
+  if (serverError === 'already_consumed') return 'already_consumed';
+  if (serverError === 'not_found') return 'not_found';
+  if (response.status === 404) return 'not_found';
+  // 410 Gone is the pair server's dead-code status (expired or already redeemed).
+  if (response.status === 410) return 'expired';
+  return 'server_error';
+}
+
 /**
- * Exchange a one-time pairing code for real credentials. Returns null (never throws) when
- * the exchange fails — callers should fall back to asking the user to re-scan/re-pair
- * rather than crash the deep-link handler.
+ * Exchange a one-time pairing code for real credentials, reporting *why* it failed.
+ * Never throws — the deep-link handler and the re-pair CTA both depend on that.
  */
-export async function exchangePairingCode(
+export async function exchangePairingCodeDetailed(
   pairServerUrl: string,
   code: string,
   fetchJsonImpl: FetchJsonImpl = defaultFetchJson,
   timeoutMs = PAIR_EXCHANGE_TIMEOUT_MS,
-): Promise<PairExchangePayload | null> {
+): Promise<PairExchangeOutcome> {
   const base = pairServerUrl.trim().replace(/\/$/, '');
   const trimmedCode = code.trim();
   if (!base || !trimmedCode) {
-    return null;
+    return { ok: false, reason: 'invalid_request' };
   }
   const controller = new AbortController();
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   try {
     const url = `${base}/pair-exchange?code=${encodeURIComponent(trimmedCode)}`;
-    const exchange = async (): Promise<PairExchangePayload | null> => {
+    const exchange = async (): Promise<PairExchangeOutcome> => {
       // Keep one-argument test/adapter implementations backward-compatible while
       // giving the production fetch a real abort signal.
       const response =
@@ -70,25 +114,45 @@ export async function exchangePairingCode(
           ? await fetchJsonImpl(url, { signal: controller.signal })
           : await fetchJsonImpl(url);
       if (!response.ok) {
-        return null;
+        return { ok: false, reason: await readErrorReason(response), status: response.status };
       }
       const payload = await response.json();
-      return isPairExchangePayload(payload) ? payload : null;
+      if (!isPairExchangePayload(payload)) {
+        return { ok: false, reason: 'malformed', status: response.status };
+      }
+      return { ok: true, payload };
     };
-    const timeout = new Promise<null>((resolve) => {
+    const timeout = new Promise<PairExchangeOutcome>((resolve) => {
       timeoutId = setTimeout(() => {
         controller.abort();
-        resolve(null);
+        resolve({ ok: false, reason: 'timeout' });
       }, Math.max(1, timeoutMs));
     });
     return await Promise.race([exchange(), timeout]);
   } catch {
-    return null;
+    // Network error, DNS failure, or an aborted request from an outer controller.
+    return { ok: false, reason: 'unreachable' };
   } finally {
     if (timeoutId) {
       clearTimeout(timeoutId);
     }
   }
+}
+
+/**
+ * Exchange a one-time pairing code for real credentials. Returns null (never throws) when
+ * the exchange fails — callers should fall back to asking the user to re-scan/re-pair
+ * rather than crash the deep-link handler. Prefer `exchangePairingCodeDetailed` when the
+ * caller can show the user a reason.
+ */
+export async function exchangePairingCode(
+  pairServerUrl: string,
+  code: string,
+  fetchJsonImpl: FetchJsonImpl = defaultFetchJson,
+  timeoutMs = PAIR_EXCHANGE_TIMEOUT_MS,
+): Promise<PairExchangePayload | null> {
+  const outcome = await exchangePairingCodeDetailed(pairServerUrl, code, fetchJsonImpl, timeoutMs);
+  return outcome.ok ? outcome.payload : null;
 }
 
 /**

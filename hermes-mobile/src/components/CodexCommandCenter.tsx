@@ -1,5 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
 import { colors } from '../theme/colors';
 import type { RunProgressState } from '../types/chatDisplay';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
@@ -44,7 +45,7 @@ function connectionCopy(
   if (authMismatch) {
     return {
       label: 'Not connected',
-      detail: 'Outdated connection — tap to reconnect',
+      detail: GATEWAY_AUTH_REPAIR_HEADER,
       color: colors.error,
     };
   }

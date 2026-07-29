@@ -140,9 +140,12 @@ jest.mock('../utils/repairGatewayLink', () => {
   const actual = jest.requireActual('../utils/repairGatewayLink');
   return {
     ...actual,
-    refreshCredentialsFromPairServer: jest.fn().mockResolvedValue({
+    // Re-pair redeems a one-time pairing code and reports why it failed — never a bare null.
+    refreshMacPairCredentials: jest.fn().mockResolvedValue({
+      status: 'refreshed',
       gatewayUrl: 'http://100.94.135.78:8642',
       apiKey: 'fresh-mini-key',
+      verified: true,
     }),
   };
 });
@@ -311,19 +314,23 @@ describe('ChatScreen authMismatch header', () => {
 
   it('keeps failed re-pair in context instead of opening the generic computer picker', async () => {
     const { fireEvent } = require('@testing-library/react-native');
-    const { refreshCredentialsFromPairServer } = jest.requireMock('../utils/repairGatewayLink') as {
-      refreshCredentialsFromPairServer: jest.Mock;
+    const { refreshMacPairCredentials } = jest.requireMock('../utils/repairGatewayLink') as {
+      refreshMacPairCredentials: jest.Mock;
     };
     const { fetchGatewayHealth } = jest.requireMock('../services/gatewayClient') as {
       fetchGatewayHealth: jest.Mock;
     };
-    refreshCredentialsFromPairServer.mockResolvedValueOnce(null);
+    refreshMacPairCredentials.mockResolvedValueOnce({
+      status: 'failed',
+      reason: 'pair_server_unreachable',
+      message: "Can't reach Igors-Mac-mini to pair again.",
+    });
     fetchGatewayHealth.mockResolvedValueOnce({
       level: 'red',
       checkedAt: '2026-07-17T00:00:00Z',
       directGatewayReachable: false,
       authMismatch: true,
-      errorMessage: 'Outdated connection',
+      errorMessage: 'This Mac no longer recognizes your phone',
     });
     const { getByTestId, queryByText } = await renderAuthMismatchChat();
 
@@ -334,5 +341,34 @@ describe('ChatScreen authMismatch header', () => {
     });
     expect(queryByText('Choose your computer')).toBeNull();
     expect(mockGatewayState.scanForGatewayProfiles).not.toHaveBeenCalled();
+  });
+
+  it('surfaces the specific pair-code failure instead of re-printing the same banner', async () => {
+    const { fireEvent } = require('@testing-library/react-native');
+    const { refreshMacPairCredentials } = jest.requireMock('../utils/repairGatewayLink') as {
+      refreshMacPairCredentials: jest.Mock;
+    };
+    const { fetchGatewayHealth } = jest.requireMock('../services/gatewayClient') as {
+      fetchGatewayHealth: jest.Mock;
+    };
+    const expiredMessage =
+      'That pairing code expired. Open the Hermes pairing page on your computer to show a fresh one, then tap Re-pair this Mac.';
+    refreshMacPairCredentials.mockResolvedValueOnce({
+      status: 'failed',
+      reason: 'code_expired',
+      message: expiredMessage,
+    });
+    fetchGatewayHealth.mockResolvedValueOnce({
+      level: 'red',
+      checkedAt: '2026-07-29T00:00:00Z',
+      directGatewayReachable: false,
+      authMismatch: true,
+    });
+    const { getByTestId, findByText } = await renderAuthMismatchChat();
+
+    fireEvent.press(getByTestId('composer-error-banner-action-area'));
+
+    // The tap must end in a NEW, specific instruction — never the banner the user just tapped.
+    expect(await findByText(expiredMessage)).toBeTruthy();
   });
 });

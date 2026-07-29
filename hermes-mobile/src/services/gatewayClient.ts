@@ -23,9 +23,16 @@ export function buildAuthHeaders(apiKey?: string | null): Record<string, string>
   return headers;
 }
 
-/** Consumer-facing auth-mismatch label — never say "API key". */
-export const GATEWAY_WRONG_KEY_MESSAGE = 'Outdated connection';
-export const GATEWAY_AUTH_REPAIR_HEADER = 'Outdated connection — tap to reconnect';
+/**
+ * Consumer-facing auth-mismatch label — never say "API key", and never say "Outdated
+ * connection" (meaningless to a normal person; it reads like a network problem when the
+ * real state is "your Mac rejected this phone's pairing").
+ */
+export const GATEWAY_WRONG_KEY_MESSAGE = 'This Mac no longer recognizes your phone';
+export const GATEWAY_AUTH_REPAIR_HEADER =
+  'This Mac no longer recognizes your phone — tap to reconnect';
+/** Legacy copy still living in persisted banners/failure reasons — match it, never print it. */
+export const GATEWAY_WRONG_KEY_LEGACY_MESSAGE = 'Outdated connection';
 export const GATEWAY_AUTH_REPAIR_SETTINGS_STATUS = 'Needs re-pair';
 
 /** Labels that are relay/chrome — never use them as the re-pair Mac target. */
@@ -44,7 +51,8 @@ export function authRepairTargetLabel(machineLabel?: string | null): string {
 /** Primary CTA is Re-pair this Mac — never Settings paste as the lead path. */
 export function gatewayAuthRepairBanner(machineLabel?: string | null): string {
   const target = authRepairTargetLabel(machineLabel);
-  return `Outdated connection for ${target}. Tap Re-pair this Mac to reconnect.`;
+  const subject = target === 'your computer' ? 'Your computer' : target;
+  return `${subject} no longer recognizes your phone. Tap Re-pair this Mac to reconnect.`;
 }
 
 export type GatewayAuthProbeResult = {

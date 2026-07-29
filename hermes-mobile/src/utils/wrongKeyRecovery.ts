@@ -3,8 +3,11 @@ import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
 /** Fresh-user primary CTA when auth mismatches — not Settings paste. */
 export const WRONG_KEY_PRIMARY_CTA = 'Re-pair this Mac';
 
-/** Consumer-facing banner — never say "API key". */
-export const WRONG_KEY_REPAIR_HINT = 'Outdated connection — tap to reconnect';
+/**
+ * Consumer-facing banner — never say "API key", and never "Outdated connection" (a normal
+ * person reads that as a network glitch, not "your Mac rejected this phone's pairing").
+ */
+export const WRONG_KEY_REPAIR_HINT = 'This Mac no longer recognizes your phone — tap to reconnect';
 
 export type WrongKeyRecoveryPlan = {
   clearStaleProfileKey: boolean;
@@ -31,6 +34,8 @@ function messageLooksLikeWrongKey(detail?: string | null): boolean {
     lower.includes('invalid_api_key') ||
     lower.includes('invalid api key') ||
     lower.includes('wrong key') ||
+    lower.includes('no longer recognizes your phone') ||
+    // Legacy copy — persisted banners and older gateways still say this.
     lower.includes('outdated connection')
   );
 }

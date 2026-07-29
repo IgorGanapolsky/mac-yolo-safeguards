@@ -3,16 +3,12 @@ import {
   fetchGatewayHealth,
   gatewayAuthRepairBanner,
 } from '../services/gatewayClient';
-import {
-  PAIR_SERVER_PORT,
-  pairServerHostFromGatewayUrl,
-  resolvePairServerSetupParams,
-} from '../services/gatewayDiscovery';
-import { exchangePairingCode } from '../services/pairingCodeExchange';
+import { PAIR_SERVER_PORT, pairServerHostFromGatewayUrl } from '../services/gatewayDiscovery';
+import { exchangePairingCodeDetailed, isDeadPairCodeReason } from '../services/pairingCodeExchange';
 import type { GatewayHealthSnapshot } from '../types/gateway';
 import { parseSetupDeepLink } from './setupDeepLink';
 import { isGatewayHealthOk } from './gatewayConnection';
-import { isTailscaleGatewayHost, isTailscaleGatewayUrl } from './tailscaleHosts';
+import { isTailscaleGatewayUrl } from './tailscaleHosts';
 import { WRONG_KEY_PRIMARY_CTA } from './wrongKeyRecovery';
 
 /** Tailscale + pair-server refresh needs headroom; keep bounded (no infinite spinner). */
@@ -59,103 +55,253 @@ export function repairUnreachableMessage(machineLabel?: string | null): string {
 }
 
 /**
- * Fetch pair.json with a Tailscale-friendly timeout (discovery's 1.5s probe is too short).
- * Falls back to resolvePairServerSetupParams for non-Tailscale hosts.
+ * Why a pair-server credential refresh could not produce a working credential.
+ * Every value maps to a specific, actionable user message — a re-pair tap must never
+ * end in silence (see `pairRepairFailureMessage`).
  */
-export async function resolvePairSetupForRepair(
+export type PairRepairFailureReason =
+  | 'no_pair_host'
+  | 'pair_server_unreachable'
+  | 'pair_payload_unusable'
+  | 'code_expired'
+  | 'exchange_unreachable'
+  | 'exchange_failed'
+  | 'no_credential'
+  | 'key_rejected';
+
+export type PairSetupResolution =
+  | { ok: true; apiKey?: string | null; gatewayUrl?: string | null }
+  | { ok: false; reason: PairRepairFailureReason };
+
+/**
+ * Human copy for a failed re-pair. Consumer vocabulary only — no "API key", no Terminal.
+ * Each message names the machine and the exact next step the user can take.
+ */
+export function pairRepairFailureMessage(
+  reason: PairRepairFailureReason,
+  machineLabel?: string | null,
+): string {
+  const target = authRepairTargetLabel(machineLabel);
+  switch (reason) {
+    case 'no_pair_host':
+      return `Couldn't work out ${target}'s address. Tap Find computers to pick your computer again.`;
+    case 'pair_server_unreachable':
+      return (
+        `Can't reach ${target} to pair again. Open Hermes on your computer and leave it running — ` +
+        `keep Tailscale on if you're on cellular, or plug in USB — then tap ${WRONG_KEY_PRIMARY_CTA}.`
+      );
+    case 'pair_payload_unusable':
+      return (
+        `${target} answered but isn't offering a pairing code right now. ` +
+        `Open the Hermes pairing page on your computer, then tap ${WRONG_KEY_PRIMARY_CTA}.`
+      );
+    case 'code_expired':
+      return (
+        `That pairing code expired. Open the Hermes pairing page on your computer to show a fresh one, ` +
+        `then tap ${WRONG_KEY_PRIMARY_CTA}.`
+      );
+    case 'exchange_unreachable':
+      return (
+        `Reached ${target} but pairing didn't finish. Keep Tailscale on (or plug in USB) and ` +
+        `tap ${WRONG_KEY_PRIMARY_CTA} again.`
+      );
+    case 'exchange_failed':
+      return (
+        `${target} turned down the pairing request. Open the Hermes pairing page on your computer ` +
+        `to show a fresh code, then tap ${WRONG_KEY_PRIMARY_CTA}.`
+      );
+    case 'no_credential':
+      return (
+        `${target} paired but sent nothing to connect with. Open the Hermes pairing page on your ` +
+        `computer, then tap ${WRONG_KEY_PRIMARY_CTA}.`
+      );
+    case 'key_rejected':
+      return (
+        `${target} paired again but still won't let this phone in. Open the Hermes pairing page on ` +
+        `your computer to show a fresh code, then tap ${WRONG_KEY_PRIMARY_CTA}.`
+      );
+    default:
+      return repairUnreachableMessage(machineLabel);
+  }
+}
+
+/** Paired successfully, but the gateway hasn't answered yet — honest, not a failure. */
+export function pairRefreshUnverifiedMessage(machineLabel?: string | null): string {
+  const target = authRepairTargetLabel(machineLabel);
+  return `Paired with ${target} again, but it hasn't answered yet. Keep Tailscale on (cellular) or plug in USB.`;
+}
+
+/**
+ * Fetch pair.json from the Mac's :8765 pair server and REDEEM the one-time pairing code it
+ * advertises.
+ *
+ * pair.json never carries a credential — it carries a `deepLink` holding a single-use
+ * `pairCode` plus the pair server base URL, and the credential only exists on the other
+ * side of `GET /pair-exchange?code=…` (tools/hermes-mobile-pair.js). Reading pair.json and
+ * hoping for an `apiKey` is what made "Re-pair this Mac" a permanent no-op.
+ *
+ * Uses a Tailscale-friendly timeout (discovery's 1.5s sweep probe is far too short) for
+ * every host class — LAN, Tailscale and USB loopback share this one path so all three
+ * report the same honest failure reasons.
+ */
+export async function resolvePairSetupForRepairDetailed(
   host: string,
   timeoutMs = PAIR_SERVER_REPAIR_TIMEOUT_MS,
-): Promise<{ apiKey?: string | null; gatewayUrl?: string | null } | null> {
+): Promise<PairSetupResolution> {
   const trimmed = host.trim();
   if (!trimmed) {
-    return null;
-  }
-  if (!isTailscaleGatewayHost(trimmed)) {
-    const setup = await resolvePairServerSetupParams(trimmed);
-    if (setup?.pairingCode?.trim() && setup.pairServerUrl?.trim()) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
-      try {
-        // Redeem through the host that successfully served pair.json. In particular,
-        // USB loopback may advertise a LAN/Tailscale URL that the phone cannot reach.
-        const sourcePairServerUrl = `http://${trimmed}:${PAIR_SERVER_PORT}`;
-        const exchanged = await exchangePairingCode(
-          sourcePairServerUrl,
-          setup.pairingCode,
-          async (url) => {
-            const exchangeResponse = await fetch(url, { signal: controller.signal });
-            return {
-              ok: exchangeResponse.ok,
-              status: exchangeResponse.status,
-              json: () => exchangeResponse.json(),
-            };
-          },
-        );
-        if (!exchanged && !setup.apiKey?.trim()) {
-          return null;
-        }
-        return {
-          apiKey: exchanged?.apiKey ?? setup.apiKey,
-          gatewayUrl: exchanged?.gatewayUrl ?? setup.gatewayUrl,
-        };
-      } finally {
-        clearTimeout(timer);
-      }
-    }
-    return setup;
+    return { ok: false, reason: 'no_pair_host' };
   }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(`http://${trimmed}:${PAIR_SERVER_PORT}/pair.json`, {
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      return null;
-    }
-    const body = (await res.json()) as { deepLink?: string; gatewayUrl?: string };
-    if (body.deepLink?.trim()) {
-      const setup = parseSetupDeepLink(body.deepLink);
-      if (!setup) {
-        return null;
+    let body: { deepLink?: string; gatewayUrl?: string };
+    try {
+      const res = await fetch(`http://${trimmed}:${PAIR_SERVER_PORT}/pair.json`, {
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        return { ok: false, reason: 'pair_server_unreachable' };
       }
-      if (setup.pairingCode?.trim() && setup.pairServerUrl?.trim()) {
-        const exchanged = await exchangePairingCode(
-          setup.pairServerUrl,
-          setup.pairingCode,
-          async (url) => {
-            const exchangeResponse = await fetch(url, { signal: controller.signal });
-            return {
-              ok: exchangeResponse.ok,
-              status: exchangeResponse.status,
-              json: () => exchangeResponse.json(),
-            };
-          },
-        );
-        if (!exchanged && !setup.apiKey?.trim()) {
-          return null;
+      body = (await res.json()) as { deepLink?: string; gatewayUrl?: string };
+    } catch {
+      return { ok: false, reason: 'pair_server_unreachable' };
+    }
+
+    const deepLink = body?.deepLink?.trim();
+    const setup = deepLink ? parseSetupDeepLink(deepLink) : null;
+    const embeddedKey = setup?.apiKey?.trim() || '';
+    const fallbackGatewayUrl = setup?.gatewayUrl?.trim() || body?.gatewayUrl?.trim() || undefined;
+
+    if (setup?.pairingCode?.trim()) {
+      // Redeem through the host that just served pair.json. In particular, USB loopback may
+      // advertise a LAN/Tailscale pairServer URL that this phone cannot reach.
+      const sourcePairServerUrl = `http://${trimmed}:${PAIR_SERVER_PORT}`;
+      const outcome = await exchangePairingCodeDetailed(
+        sourcePairServerUrl,
+        setup.pairingCode,
+        async (url) => {
+          const exchangeResponse = await fetch(url, { signal: controller.signal });
+          return {
+            ok: exchangeResponse.ok,
+            status: exchangeResponse.status,
+            json: () => exchangeResponse.json(),
+          };
+        },
+      );
+      if (outcome.ok) {
+        const apiKey = outcome.payload.apiKey?.trim() || embeddedKey;
+        if (!apiKey) {
+          return { ok: false, reason: 'no_credential' };
         }
         return {
-          apiKey: exchanged?.apiKey ?? setup.apiKey,
-          gatewayUrl: exchanged?.gatewayUrl ?? setup.gatewayUrl,
+          ok: true,
+          apiKey,
+          gatewayUrl: outcome.payload.gatewayUrl?.trim() || fallbackGatewayUrl,
         };
       }
-      return setup;
+      // Legacy pair servers embed the key alongside the code — still usable.
+      if (embeddedKey) {
+        return { ok: true, apiKey: embeddedKey, gatewayUrl: fallbackGatewayUrl };
+      }
+      if (isDeadPairCodeReason(outcome.reason)) {
+        return { ok: false, reason: 'code_expired' };
+      }
+      if (outcome.reason === 'timeout' || outcome.reason === 'unreachable') {
+        return { ok: false, reason: 'exchange_unreachable' };
+      }
+      return { ok: false, reason: 'exchange_failed' };
     }
-    if (body.gatewayUrl?.trim()) {
-      return { gatewayUrl: body.gatewayUrl.trim() };
+
+    if (embeddedKey || fallbackGatewayUrl) {
+      return { ok: true, apiKey: embeddedKey || undefined, gatewayUrl: fallbackGatewayUrl };
     }
-    return null;
-  } catch {
-    return null;
+    return { ok: false, reason: 'pair_payload_unusable' };
   } finally {
     clearTimeout(timer);
   }
 }
 
+/** @deprecated Prefer `resolvePairSetupForRepairDetailed` — null hides why re-pair failed. */
+export async function resolvePairSetupForRepair(
+  host: string,
+  timeoutMs = PAIR_SERVER_REPAIR_TIMEOUT_MS,
+): Promise<{ apiKey?: string | null; gatewayUrl?: string | null } | null> {
+  const resolution = await resolvePairSetupForRepairDetailed(host, timeoutMs);
+  return resolution.ok ? { apiKey: resolution.apiKey, gatewayUrl: resolution.gatewayUrl } : null;
+}
+
+export type PairCredentialRefreshResult =
+  | {
+      status: 'refreshed';
+      gatewayUrl: string;
+      apiKey: string;
+      /** Gateway answered with the fresh credential. False = paired, but not yet proven live. */
+      verified: boolean;
+      message?: string;
+    }
+  | { status: 'failed'; reason: PairRepairFailureReason; message: string };
+
+/**
+ * Re-pair against the Mac's :8765 pair server: redeem a fresh one-time pairing code and
+ * verify it. ALWAYS resolves to either a credential or a specific, actionable reason —
+ * this is the contract that keeps "Re-pair this Mac" from being a silent no-op.
+ */
+export async function refreshMacPairCredentials(input: {
+  gatewayUrl: string;
+  machineLabel?: string | null;
+  resolvePairSetup?: (host: string) => Promise<PairSetupResolution>;
+  probeHealth?: (
+    gatewayUrl: string,
+    apiKey: string,
+    timeoutMs?: number,
+  ) => Promise<GatewayHealthSnapshot>;
+}): Promise<PairCredentialRefreshResult> {
+  const resolvePairSetup = input.resolvePairSetup ?? resolvePairSetupForRepairDetailed;
+  const probeHealth = input.probeHealth ?? fetchGatewayHealth;
+  const label = input.machineLabel;
+  const fail = (reason: PairRepairFailureReason): PairCredentialRefreshResult => ({
+    status: 'failed',
+    reason,
+    message: pairRepairFailureMessage(reason, label),
+  });
+
+  const pairHost = pairServerHostFromGatewayUrl(input.gatewayUrl);
+  if (!pairHost) {
+    return fail('no_pair_host');
+  }
+  const resolution = await resolvePairSetup(pairHost);
+  if (!resolution.ok) {
+    return fail(resolution.reason);
+  }
+  const freshKey = resolution.apiKey?.trim();
+  if (!freshKey) {
+    return fail('no_credential');
+  }
+  const nextUrl = resolution.gatewayUrl?.trim() || input.gatewayUrl;
+  const healthTimeoutMs = isTailscaleGatewayUrl(nextUrl) ? 12_000 : 5_000;
+  const health = await probeHealth(nextUrl, freshKey, healthTimeoutMs);
+  if (health.authMismatch) {
+    return fail('key_rejected');
+  }
+  // A credential redeemed from the Mac's own pair server is strictly fresher than the one
+  // that is already 401ing, so keep it even when the health probe is inconclusive (asleep
+  // Wi‑Fi, Tailscale still waking). Report that honestly instead of discarding it silently.
+  const verified = isGatewayHealthOk(health) || health.directGatewayReachable === true;
+  return {
+    status: 'refreshed',
+    gatewayUrl: nextUrl,
+    apiKey: freshKey,
+    verified,
+    message: verified ? undefined : pairRefreshUnverifiedMessage(label),
+  };
+}
+
 /**
  * Fetch a fresh API key from the Mac :8765 pair server and verify chat auth.
  * Returns null when pair server is down / returns stale credentials.
+ *
+ * @deprecated Prefer `refreshMacPairCredentials` — a bare null gives the UI nothing to say.
  */
 export async function refreshCredentialsFromPairServer(input: {
   gatewayUrl: string;
@@ -169,27 +315,22 @@ export async function refreshCredentialsFromPairServer(input: {
     timeoutMs?: number,
   ) => Promise<GatewayHealthSnapshot>;
 }): Promise<{ gatewayUrl: string; apiKey: string } | null> {
-  const resolvePairSetup = input.resolvePairSetup ?? resolvePairSetupForRepair;
-  const probeHealth = input.probeHealth ?? fetchGatewayHealth;
-  const pairHost = pairServerHostFromGatewayUrl(input.gatewayUrl);
-  if (!pairHost) {
-    return null;
-  }
-  const setup = await resolvePairSetup(pairHost);
-  const freshKey = setup?.apiKey?.trim();
-  if (!freshKey) {
-    return null;
-  }
-  const nextUrl = setup?.gatewayUrl?.trim() || input.gatewayUrl;
-  const healthTimeoutMs = isTailscaleGatewayUrl(nextUrl) ? 12_000 : 5_000;
-  const health = await probeHealth(nextUrl, freshKey, healthTimeoutMs);
-  if (health.authMismatch) {
-    return null;
-  }
-  if (!isGatewayHealthOk(health) && health.directGatewayReachable !== true) {
-    return null;
-  }
-  return { gatewayUrl: nextUrl, apiKey: freshKey };
+  const legacyResolve = input.resolvePairSetup;
+  const result = await refreshMacPairCredentials({
+    gatewayUrl: input.gatewayUrl,
+    probeHealth: input.probeHealth,
+    resolvePairSetup: legacyResolve
+      ? async (host) => {
+          const setup = await legacyResolve(host);
+          return setup
+            ? { ok: true, apiKey: setup.apiKey, gatewayUrl: setup.gatewayUrl }
+            : { ok: false, reason: 'pair_server_unreachable' };
+        }
+      : undefined,
+  });
+  return result.status === 'refreshed' && result.verified
+    ? { gatewayUrl: result.gatewayUrl, apiKey: result.apiKey }
+    : null;
 }
 
 export type RepairGatewayLinkDeps = {

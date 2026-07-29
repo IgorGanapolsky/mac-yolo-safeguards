@@ -143,7 +143,7 @@ describe('repairGatewayLink', () => {
   });
 
   it('auth failure copy names the Mac and Re-pair CTA — never Hermes account relay', () => {
-    expect(repairAuthFailedMessage('Hermes account relay')).toContain('your computer');
+    expect(repairAuthFailedMessage('Hermes account relay')).toMatch(/your computer/i);
     expect(repairAuthFailedMessage('Hermes account relay')).not.toContain('Hermes account relay');
     expect(repairAuthFailedMessage('Igors-Mac-mini')).toContain('Igors-Mac-mini');
     expect(repairAuthFailedMessage('Igors-Mac-mini')).toContain(WRONG_KEY_PRIMARY_CTA);

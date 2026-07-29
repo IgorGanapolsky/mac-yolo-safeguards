@@ -51,6 +51,8 @@ export function isAuthRepairMessage(message: string): boolean {
   const normalized = message.toLowerCase();
   return (
     normalized.includes(GATEWAY_WRONG_KEY_MESSAGE.toLowerCase()) ||
+    // Legacy copy — a banner persisted before the rename must still clear.
+    normalized.includes('outdated connection') ||
     normalized.includes('wrong key') ||
     normalized.includes('re-pair') ||
     normalized.includes('needs re-pair')
