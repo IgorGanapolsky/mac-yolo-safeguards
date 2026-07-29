@@ -29,4 +29,6 @@ appId: com.iganapolsky.hermesmobile
     visible:
       id: "gateway-profile-list"
     timeout: 20000
-- takeScreenshot: ../docs/proofs/usb-picker-live-row-20260714/mac-picker-computers-listed
+# Relative ../docs/proofs paths fail under Maestro's ~/.maestro/tests/.../takeScreenshot/
+# working directory (FileNotFoundException on device). Use build/ like iPad flows.
+- takeScreenshot: build/usb-picker-live-row/mac-picker-computers-listed

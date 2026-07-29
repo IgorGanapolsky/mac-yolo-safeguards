@@ -1,17 +1,18 @@
-# Tailscale-route onboarding copy (Igor P0 2026-07-14): a fresh user whose only reachable
-# route is Tailscale must not be told "Step 1: Same home Wi-Fi" — that copy is actively wrong
-# when no home network match exists yet. This flow locks in the structural onboarding
-# contract (numbered steps + Tailscale add-computer path) that ships today; the exact step-1
-# wording swap lands with the in-flight Tailscale-first onboarding fix (see
-# freshUserOnboarding.test.ts / ChatConnectionPanel.test.tsx for the unit-level assertion).
+# Fresh-user ConnectMacGate (Igor P0): cold install must show the gate with the Tailscale-
+# first hero (manual 100.x paste) — not chat, not "Reconnecting". Numbered fresh-user steps
+# live on ChatConnectionPanel after a saved Mac disconnects; ConnectMacGate intentionally
+# dropped them (ConnectMacGate.test.tsx). Unit copy: freshUserOnboarding.test.ts.
 appId: com.iganapolsky.hermesmobile
 ---
+# clearState required: with saved profiles the gate is suppressed (correct product behavior).
 - stopApp
-- launchApp
+- launchApp:
+    clearState: true
 - extendedWaitUntil:
     notVisible:
       id: "hermes-bootstrap"
     timeout: 90000
+- runFlow: dismiss-notification-permission.yaml
 - runFlow: dismiss-print-interruption.yaml
 - extendedWaitUntil:
     visible:
@@ -19,8 +20,13 @@ appId: com.iganapolsky.hermesmobile
     timeout: 60000
 - assertVisible:
     id: "connect-mac-onboarding-card"
+# Hero is ManualComputerAddressForm (Tailscale paste), not numbered steps.
 - assertVisible:
-    id: "fresh-user-step-1"
+    id: "connect-manual-form"
 - assertVisible:
-    id: "fresh-user-step-4"
-- takeScreenshot: ../docs/proofs/tailscale-onboarding-copy-20260714/connect-mac-gate-steps
+    id: "connect-mac-gate-dismiss"
+# Fresh install must never flash reconnecting copy on first paint.
+- assertNotVisible: "Reconnecting"
+- assertNotVisible: "Reconnecting…"
+# Relative ../docs/proofs paths fail under Maestro's takeScreenshot cwd (FileNotFound).
+- takeScreenshot: build/tailscale-onboarding-copy/connect-mac-gate-steps

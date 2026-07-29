@@ -1,10 +1,13 @@
 # Wrong-key repair path: computer picker is reachable for re-pair (release-blocking XOR class).
+# Android flattens nested Text testIDs inside the compact connection line, so chat-context-link
+# is not a separate resource-id on device even when "Connected" is visible. Use the pressable
+# chat-context-mac-button (always exposed) — same entry as ship-guard / picker flows.
 appId: com.iganapolsky.hermesmobile
 ---
 - runFlow: chat-e2e-bootstrap.yaml
 - extendedWaitUntil:
     visible:
-      id: "chat-context-link"
+      id: "chat-context-mac-button"
     timeout: 30000
 - tapOn:
     id: "chat-context-mac-button"
