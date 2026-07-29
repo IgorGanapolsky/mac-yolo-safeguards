@@ -29,9 +29,16 @@ appId: com.iganapolsky.hermesmobile
 - tapOn:
     id: "chat-input"
 - eraseText
+# Wait for the clear to round-trip, then for the typed value to actually be in the
+# controlled TextInput, before Send is tapped. A bare `waitForAnimationToEnd` only
+# waits for the UI to stop moving — it does not prove the value landed.
+- extendedWaitUntil:
+    notVisible: "make money today"
+    timeout: 15000
 - inputText: "make money today"
-- waitForAnimationToEnd:
-    timeout: 2000
+- extendedWaitUntil:
+    visible: "make money today"
+    timeout: 15000
 - runFlow: hide-keyboard-safe.yaml
 # Emulator/phone dogfood often resumes a 100k+ token thread; banner blocks Send.
 - runFlow: dismiss-mega-session-warn.yaml
@@ -50,9 +57,13 @@ appId: com.iganapolsky.hermesmobile
       - tapOn:
           id: "chat-input"
       - eraseText
+      - extendedWaitUntil:
+          notVisible: "make money today"
+          timeout: 15000
       - inputText: "make money today"
-      - waitForAnimationToEnd:
-          timeout: 2000
+      - extendedWaitUntil:
+          visible: "make money today"
+          timeout: 15000
       - runFlow: hide-keyboard-safe.yaml
       - tapOn:
           id: "chat-send-button"

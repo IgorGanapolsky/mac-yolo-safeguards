@@ -140,30 +140,54 @@ appId: com.iganapolsky.hermesmobile
 
 # iOS Fabric regression: focus, enter a value, erase it, and enter the exact
 # same value again while the native keyboard remains active.
+#
+# FLAKE FIX 2026-07-29 (observed: run passed 4x then failed on identical app code
+# with `Assertion is false: "make money today" is visible` on the RETYPE).
+# `eraseText` and `inputText` are asynchronous with respect to the controlled RN
+# TextInput: eraseText returns when the keystrokes are dispatched, not when the
+# empty value has round-tripped through React state. Typing immediately after can
+# interleave with the in-flight clear, leaving a partial value that the following
+# assert never sees. Maestro's implicit smart wait on a bare `assertVisible` is
+# too short to cover a slow CI simulator, so every mutation boundary below is an
+# EXPLICIT wait: prove the field is empty before retyping, then wait for the
+# retyped value with a real timeout instead of relying on the implicit one.
 - tapOn:
     id: "chat-input"
     point: "95%,50%"
 - eraseText: 100
+- extendedWaitUntil:
+    notVisible: "make money today"
+    timeout: 15000
 - inputText: "make money today"
-- assertVisible: "make money today"
+- extendedWaitUntil:
+    visible: "make money today"
+    timeout: 15000
 - tapOn:
     id: "chat-input"
     point: "95%,50%"
 - eraseText: 100
+- extendedWaitUntil:
+    notVisible: "make money today"
+    timeout: 15000
 - inputText: "make money today"
-- waitForAnimationToEnd:
-    timeout: 2000
-- assertVisible: "make money today"
+- extendedWaitUntil:
+    visible: "make money today"
+    timeout: 15000
 
 # Rotate while the native input is focused. Appending after each rotation is
 # stronger than a screenshot-only assertion: it proves focus/input survived.
+# Each append is awaited explicitly — a rotation re-layout plus a controlled
+# TextInput update is exactly the "heavy animation" case where Maestro's implicit
+# smart wait degrades on a loaded CI simulator.
 - setOrientation: LANDSCAPE_LEFT
 - waitForAnimationToEnd:
     timeout: 3000
 - assertVisible:
     id: "chat-input"
 - inputText: "!"
-- assertVisible: "make money today!"
+- extendedWaitUntil:
+    visible: "make money today!"
+    timeout: 15000
 - takeScreenshot: build/ipad-simulator-edge-cases/composer-landscape-keyboard
 - setOrientation: LANDSCAPE_RIGHT
 - waitForAnimationToEnd:
@@ -171,21 +195,27 @@ appId: com.iganapolsky.hermesmobile
 - assertVisible:
     id: "chat-input"
 - inputText: "?"
-- assertVisible: "make money today!?"
+- extendedWaitUntil:
+    visible: "make money today!?"
+    timeout: 15000
 - setOrientation: UPSIDE_DOWN
 - waitForAnimationToEnd:
     timeout: 3000
 - assertVisible:
     id: "chat-input"
 - inputText: "#"
-- assertVisible: "make money today!?#"
+- extendedWaitUntil:
+    visible: "make money today!?#"
+    timeout: 15000
 - setOrientation: PORTRAIT
 - waitForAnimationToEnd:
     timeout: 3000
 - assertVisible:
     id: "chat-input"
 - inputText: "."
-- assertVisible: "make money today!?#."
+- extendedWaitUntil:
+    visible: "make money today!?#."
+    timeout: 15000
 
 # A focused draft must survive a real iPad background/foreground transition.
 # Returning with stopApp:false resumes the same process instead of masking state
@@ -197,21 +227,37 @@ appId: com.iganapolsky.hermesmobile
     visible:
       id: "chat-input"
     timeout: 30000
-- assertVisible: "make money today!?#."
+# The composer re-mounting after a foreground transition is asynchronous, so the
+# restored draft needs an explicit wait too — not a bare assert.
+- extendedWaitUntil:
+    visible: "make money today!?#."
+    timeout: 30000
 - tapOn:
     id: "chat-input"
     point: "95%,50%"
 - inputText: "+"
-- assertVisible: "make money today!?#.+"
+- extendedWaitUntil:
+    visible: "make money today!?#.+"
+    timeout: 15000
 
 # An intentional keyboard dismissal must win over the rotation refocus repair.
 # Rotating immediately after hideKeyboard used to look identical to the native
 # blur-before-Dimensions event ordering. Input without a new tap must be ignored.
+#
+# This is the one place a fixed settle is CORRECT rather than a papered-over race:
+# the contract is that something must NOT happen, and you cannot wait for the
+# absence of an event. Give the app a real window to (wrongly) apply the input,
+# then assert both that the stray character was dropped and that the draft is
+# byte-identical. Without the settle the negative assert could pass vacuously
+# simply because the input had not rendered yet.
 - hideKeyboard
 - setOrientation: LANDSCAPE_LEFT
 - waitForAnimationToEnd:
     timeout: 3000
 - inputText: "x"
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertNotVisible: "make money today!?#.+x"
 - assertVisible: "make money today!?#.+"
 - setOrientation: PORTRAIT
 - waitForAnimationToEnd:
@@ -220,6 +266,9 @@ appId: com.iganapolsky.hermesmobile
     id: "chat-input"
     point: "95%,50%"
 - eraseText: 100
+- extendedWaitUntil:
+    notVisible: "make money today!?#.+"
+    timeout: 15000
 - hideKeyboard
 - assertVisible:
     id: "tab-hermes"
@@ -251,8 +300,13 @@ appId: com.iganapolsky.hermesmobile
 - tapOn:
     id: "chat-input"
 - inputText: "make money today"
-- assertVisible: "make money today"
+- extendedWaitUntil:
+    visible: "make money today"
+    timeout: 15000
 - eraseText: 100
+- extendedWaitUntil:
+    notVisible: "make money today"
+    timeout: 15000
 - hideKeyboard
 - assertVisible:
     id: "tab-leash"

@@ -33,10 +33,17 @@ appId: com.iganapolsky.hermesmobile
     id: "chat-input"
     point: "95%,50%"
 - eraseText: 100
+# Prove the clear actually round-tripped through React state before retyping.
+# A tapOn between eraseText and inputText is NOT a wait — it only re-focuses.
+- extendedWaitUntil:
+    notVisible: "make money today"
+    timeout: 15000
 - tapOn:
     id: "chat-input"
 - inputText: "make money today"
-- assertVisible: "make money today"
+- extendedWaitUntil:
+    visible: "make money today"
+    timeout: 15000
 # CRITICAL: keyboard OPEN and dock lifted. Re-tap, erase, and enter the exact same
 # value again. Android proves the lifted hit-rect remains tappable; iOS proves the
 # controlled TextInput accepts the previous value rather than suppressing it.
@@ -46,10 +53,16 @@ appId: com.iganapolsky.hermesmobile
     # a suffix behind after eraseText (observed as "ymake money today" in CI).
     point: "95%,50%"
 - eraseText: 100
+- extendedWaitUntil:
+    notVisible: "make money today"
+    timeout: 15000
 - tapOn:
     id: "chat-input"
 - inputText: "make money today"
-- waitForAnimationToEnd:
-    timeout: 2000
-- assertVisible: "make money today"
+- extendedWaitUntil:
+    visible: "make money today"
+    timeout: 15000
 - eraseText
+- extendedWaitUntil:
+    notVisible: "make money today"
+    timeout: 15000

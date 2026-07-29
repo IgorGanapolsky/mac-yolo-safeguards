@@ -1,14 +1,48 @@
 import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { act, fireEvent, waitFor } from '@testing-library/react-native';
+import { act, fireEvent } from '@testing-library/react-native';
 import { render } from '@testing-library/react-native';
 import RunProgressBanner from '../components/RunProgressBanner';
 import { EMPTY_REPLY_FAILURE_REASON } from '../utils/emptyStreamReplyRecovery';
 import { RUN_PROGRESS_DETAILS_EXPANDED_KEY } from '../utils/runProgressDetailsPreference';
 
+/**
+ * FLAKE FIX 2026-07-29 — "restores persisted collapsed preference on mount" failed in a
+ * full jest run and passed on the next with the SAME commit (observed 3x in one day), while
+ * passing 32/32 in isolation. It was an AsyncStorage hydration race, not a product bug:
+ *
+ *  - RunProgressBanner hydrates the preference with a fire-and-forget promise
+ *    (`void loadRunProgressDetailsExpanded().then(setUserExpandedOverride)`) and persists
+ *    with `void saveRunProgressDetailsExpanded(...)`. Neither is awaitable by the caller.
+ *  - The test observed hydration through `waitFor`, whose default budget is ~1000ms of REAL
+ *    wall-clock. Under parallel workers on a contended box that budget can expire before the
+ *    hydration state update lands — the assertion was timing-dependent by construction.
+ *  - Synchronous tests that press the toggle end while their write is still in flight, so a
+ *    stale value can settle into the shared mock after the next test has seeded its own.
+ *
+ * The AsyncStorage jest mock resolves purely on the microtask queue (no timers), so draining
+ * that queue inside `act` settles hydration AND any pending write deterministically. Every
+ * assertion below is therefore synchronous — there is no wall-clock budget left to lose.
+ */
+const flushStorageEffects = async () => {
+  await act(async () => {
+    for (let tick = 0; tick < 5; tick += 1) {
+      await Promise.resolve();
+    }
+  });
+};
+
 describe('RunProgressBanner', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
+    // Drain anything a previous test left in flight so it cannot land on top of the
+    // value this test seeds.
+    await flushStorageEffects();
+  });
+
+  afterEach(async () => {
+    // Settle this test's own fire-and-forget writes inside its own boundary.
+    await flushStorageEffects();
   });
 
   it('shows delivering copy before a run id exists', () => {
@@ -480,9 +514,9 @@ describe('RunProgressBanner', () => {
     expect(queryByTestId('operator-terminal-preview')).toBeNull();
     expect(getByTestId('run-progress-detail').props.children).toBe('Delivering your message…');
     expect(getByTestId('run-progress-stop')).toBeTruthy();
-    await waitFor(async () => {
-      expect(await AsyncStorage.getItem(RUN_PROGRESS_DETAILS_EXPANDED_KEY)).toBe('0');
-    });
+    // Deterministic: drain the fire-and-forget write instead of polling for it.
+    await flushStorageEffects();
+    expect(await AsyncStorage.getItem(RUN_PROGRESS_DETAILS_EXPANDED_KEY)).toBe('0');
 
     rerender(
       <RunProgressBanner
@@ -565,6 +599,11 @@ describe('RunProgressBanner', () => {
 
   it('restores persisted collapsed preference on mount', async () => {
     await AsyncStorage.setItem(RUN_PROGRESS_DETAILS_EXPANDED_KEY, '0');
+    // Prove the premise before rendering. If a leaked write from an earlier test had
+    // clobbered this to '1', the assertions below would fail for a reason that has
+    // nothing to do with hydration — which is exactly how this flake read.
+    expect(await AsyncStorage.getItem(RUN_PROGRESS_DETAILS_EXPANDED_KEY)).toBe('0');
+
     const { queryByTestId, getByTestId } = render(
       <RunProgressBanner
         progress={{
@@ -578,9 +617,10 @@ describe('RunProgressBanner', () => {
       />,
     );
 
-    await waitFor(() => {
-      expect(queryByTestId('run-progress-stats')).toBeNull();
-    });
+    // Await hydration EXPLICITLY rather than polling on a wall-clock timeout.
+    await flushStorageEffects();
+
+    expect(queryByTestId('run-progress-stats')).toBeNull();
     expect(getByTestId('run-progress-detail').props.children).toBe('Delivering your message…');
     expect(getByTestId('run-progress-stop')).toBeTruthy();
   });

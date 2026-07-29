@@ -41,6 +41,30 @@ const REQUIRED_FLOWS = [
   'pairCode-deep-link',
 ];
 
+// Maestro's automatic smart wait degrades on slow CI, under heavy animations, and around
+// third-party SDKs; the documented remedy is EXPLICIT waits with real timeouts. `inputText`
+// and `eraseText` return when keystrokes are dispatched, NOT when the value has round-tripped
+// through a controlled React Native TextInput — so an assertion placed directly after one of
+// them is a race. Evidence 2026-07-29: the iPad edge-case retype step passed four consecutive
+// runs and then failed with `Assertion is false: "make money today" is visible` on identical
+// app code. Fail closed here so the pattern can never be reintroduced in any flow.
+const MUTATOR_STEP = /^-\s*(inputText|eraseText)\b/;
+const ASSERT_STEP = /^-\s*(assertVisible|assertNotVisible|assertTrue)\b/;
+
+function unguardedInputAssertions(text) {
+  // Only top-level steps ("- " at column 0) are compared; nested runFlow command lists are
+  // indented and are checked by their own flow file.
+  const steps = text.split(/\r?\n/).filter((line) => /^-\s/.test(line));
+  const offenders = [];
+  for (let i = 0; i < steps.length - 1; i += 1) {
+    if (!MUTATOR_STEP.test(steps[i])) continue;
+    if (ASSERT_STEP.test(steps[i + 1])) {
+      offenders.push(`${steps[i].trim()}  ->  ${steps[i + 1].trim()}`);
+    }
+  }
+  return offenders;
+}
+
 function bundleIdFromAppJson() {
   const app = JSON.parse(fs.readFileSync(path.join(APP_DIR, 'app.json'), 'utf8'));
   const android = app.expo?.android?.package;
@@ -82,6 +106,13 @@ function main() {
     // A flow with only an appId and no steps is a no-op that passes vacuously on device.
     if (!/^---/m.test(text) || text.split(/^---/m)[1]?.trim().length === 0) {
       errors.push(`${file}: has appId but no flow steps after the '---' separator`);
+    }
+    for (const offender of unguardedInputAssertions(text)) {
+      errors.push(
+        `${file}: assertion directly after text mutation relies on Maestro's implicit ` +
+          `smart wait — use extendedWaitUntil (or waitForAnimationToEnd for a negative ` +
+          `contract) with an explicit timeout: ${offender}`,
+      );
     }
   }
 

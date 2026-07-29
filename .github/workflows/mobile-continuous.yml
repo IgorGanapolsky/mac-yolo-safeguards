@@ -129,18 +129,40 @@ jobs:
     # Expo SDK 55's iOS native modules require Xcode 26; pin the runner so
     # the simulator smoke does not drift onto older Xcode 15/16 images.
     #
-    # ECONOMY (2026-07-28): GitHub-hosted macos-26 is ~10× Linux minutes and was
-    # burning free-plan Actions quota under multi-agent PR thrash (90% of 3k min).
-    # Android Maestro + Ubuntu unit/APK remain the default PR gates. Hosted macOS
-    # sim is opt-in only:
-    #   - workflow_dispatch, or
-    #   - PR label `macos-e2e`
+    # TRIGGER SCOPE — measured 2026-07-29, not assumed.
+    #
+    # Why it must NOT run on every PR (35 executed job instances before the gate landed):
+    #   2 success / 20 failure / 13 cancelled  →  5.7% success rate
+    #   Duration 8–35 min, `timeout-minutes: 45`.
+    # The failures were NOT infra flake: job 90138078085 shows a real, repeatable
+    # `Assertion is false: id: chat-screen-header is visible` inside recover-chat-tab.yaml
+    # after ~90 s of retries on the hosted iOS simulator. A non-required check that is
+    # legitimately red on ~everything, for 35 min, on every PR, is pure noise — it trains
+    # reviewers to ignore check status and it delays the checks that DO gate merge.
+    #
+    # Correcting two claims that were previously used to justify this gate:
+    #   - This repo is PUBLIC, so GitHub-hosted runner minutes are FREE. The earlier
+    #     "burning 90% of 3k free minutes" rationale did not apply to this job.
+    #   - This job is `runs-on: macos-26` (GitHub-hosted). It has never consumed Igor's
+    #     self-hosted Macs, so it cannot have starved the required `macOS guard kit`
+    #     (which uses `macos-latest` on pull_request) or the reserved `ipad-simulator`
+    #     runner. The real cost is reviewer attention and wall-clock, not minutes.
+    #
+    # Why it MUST still run somewhere: gating it to `workflow_dispatch` + PR label alone
+    # silently deleted ALL automated iOS-simulator ship-guard coverage — `schedule` was
+    # excluded too, so nothing was left to catch the recover-chat-tab regression above.
+    # It is therefore restored on the 6-hourly cron: free on a public repo, blocks no PR,
+    # and fails loudly where a human is not waiting on it.
+    #
+    # Deliberately NOT added to `merge_group`: this job is currently red for a real
+    # product reason, and adding it there would block every merge on a non-required check.
+    # Required branch check remains "Maestro ship-guard (Android emulator)", not this job.
     # Local continuous E2E LaunchAgent remains the day-to-day dogfood path.
-    # Required branch check is "Maestro ship-guard (Android emulator)", not this job.
     runs-on: macos-26
     needs: unit-and-contract
     if: >-
       github.event_name == 'workflow_dispatch'
+      || github.event_name == 'schedule'
       || (github.event_name == 'pull_request'
           && contains(join(github.event.pull_request.labels.*.name, ','), 'macos-e2e'))
     timeout-minutes: 45

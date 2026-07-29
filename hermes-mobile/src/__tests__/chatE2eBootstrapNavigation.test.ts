@@ -33,7 +33,21 @@ describe('chat Maestro bootstrap navigation recovery', () => {
     expect((composer.match(/point: "95%,50%"/g) ?? []).length).toBeGreaterThanOrEqual(2);
     expect((composer.match(/eraseText: 100/g) ?? []).length).toBeGreaterThanOrEqual(2);
     expect((composer.match(/inputText: "make money today"/g) ?? []).length).toBe(2);
-    expect((composer.match(/assertVisible: "make money today"/g) ?? []).length).toBe(2);
+
+    // Both the clear and the retype are awaited EXPLICITLY. `eraseText`/`inputText`
+    // return when keystrokes are dispatched, not when the controlled TextInput has
+    // committed the value, so a bare `assertVisible` here races the render and is
+    // only covered by Maestro's short implicit smart wait. A tapOn between erase and
+    // input re-focuses but does not wait, which is why each side needs its own wait.
+    expect((composer.match(/assertVisible: "make money today"/g) ?? []).length).toBe(0);
+    expect(
+      (composer.match(/extendedWaitUntil:\s*\n\s*visible: "make money today"\s*\n\s*timeout: \d+/g) ?? [])
+        .length,
+    ).toBe(2);
+    expect(
+      (composer.match(/extendedWaitUntil:\s*\n\s*notVisible: "make money today"\s*\n\s*timeout: \d+/g) ?? [])
+        .length,
+    ).toBe(3);
   });
 
   it('delegates a missing Chat screen to the guarded recovery flow', () => {

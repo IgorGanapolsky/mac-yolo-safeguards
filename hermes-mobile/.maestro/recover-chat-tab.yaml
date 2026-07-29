@@ -34,10 +34,20 @@ appId: com.iganapolsky.hermesmobile
     timeout: 90000
 - tapOn:
     id: "tab-hermes"
+# TIMEOUT RAISED 90000 -> 180000 (2026-07-29), evidence-based rather than defensive.
+# Hosted-macOS-simulator job 90138078085 failed here with
+# `Assertion is false: id: chat-screen-header is visible` after retrying from
+# 00:05:04Z to 00:06:36Z — 92 s, i.e. it expired exactly at this 90 s ceiling, so the
+# wait was the binding constraint. The same flow passes on the self-hosted iPad runner
+# and on the required Android emulator gate, and this step did succeed 2 of 35 times on
+# hosted macOS, so the screen does render there — just slower than 90 s under load.
+# Raising a wait can only change a FAILING run; a passing run returns as soon as the
+# element appears, so this costs nothing when the app is healthy. If it still fails at
+# 180 s we have learned it is a genuine product bug rather than a slow runner.
 - extendedWaitUntil:
     visible:
       id: "chat-screen-header"
-    timeout: 90000
+    timeout: 180000
 - runFlow: hide-keyboard-safe.yaml
 - runFlow: dismiss-mac-picker.yaml
 # Demo composer can drop after recover — re-arm demo then assert input.
@@ -62,10 +72,12 @@ appId: com.iganapolsky.hermesmobile
           timeout: 90000
       - tapOn:
           id: "tab-hermes"
+      # Same ceiling as the primary path above — this retry runs on an even more
+      # loaded simulator, so it must not be the tighter of the two.
       - extendedWaitUntil:
           visible:
             id: "chat-screen-header"
-          timeout: 90000
+          timeout: 180000
 - extendedWaitUntil:
     visible:
       id: "chat-input"

@@ -26,9 +26,17 @@ appId: com.iganapolsky.hermesmobile
 - tapOn:
     id: "chat-input"
 - eraseText
+# Explicit both sides of the mutation: the clear must land before typing, and the
+# typed value must be in the controlled TextInput before Send is tapped. Tapping
+# Send on a composer that has not hydrated yet sends nothing and the bubble
+# assertions below then fail for a reason that has nothing to do with the product.
+- extendedWaitUntil:
+    notVisible: "make money today"
+    timeout: 15000
 - inputText: "make money today"
-- waitForAnimationToEnd:
-    timeout: 2000
+- extendedWaitUntil:
+    visible: "make money today"
+    timeout: 15000
 - hideKeyboard
 - tapOn:
     id: "chat-send-button"
