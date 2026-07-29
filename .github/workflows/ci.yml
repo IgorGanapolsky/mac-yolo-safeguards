@@ -225,6 +225,11 @@ jobs:
       - name: Publication readiness
         run: node tools/publication-readiness.js
 
+      - name: Document ingestion health (offline)
+        run: |
+          node tests/test-document-ingestion-health.js
+          node tools/document-ingestion-health.js --offline --json
+
       # ML integrity (fail-closed) — offline platform bar; does not require Stripe/labels.
       - name: ML integrity + platform gate
         run: |

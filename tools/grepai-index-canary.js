@@ -45,8 +45,28 @@ const REPO = path.resolve(__dirname, '..');
 const MIN_INDEX_BYTES = 10 * 1024; // an empty gob shell is ~384 bytes
 const LIVE_QUERY = 'retrieval harness';
 
+function defaultIndexDir() {
+  // Prefer the isolated semantic-index clone when the multi-worktree checkout
+  // still has an empty shell (384-byte gob) — agents often run canaries from REPO.
+  const local = path.join(REPO, '.grepai');
+  const isolated = path.join(
+    process.env.HOME || '',
+    '.hermes/semantic-index/mac-yolo-safeguards/.grepai',
+  );
+  const localGob = path.join(local, 'index.gob');
+  const isolGob = path.join(isolated, 'index.gob');
+  try {
+    const localBytes = fs.existsSync(localGob) ? fs.statSync(localGob).size : 0;
+    const isolBytes = fs.existsSync(isolGob) ? fs.statSync(isolGob).size : 0;
+    if (isolBytes >= MIN_INDEX_BYTES && localBytes < MIN_INDEX_BYTES) return isolated;
+  } catch {
+    /* fall through */
+  }
+  return local;
+}
+
 function parseArgs(argv) {
-  const args = { dir: path.join(REPO, '.grepai'), tail: 15, live: false, warnOnly: false, json: false };
+  const args = { dir: null, tail: 15, live: false, warnOnly: false, json: false };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '--dir') args.dir = path.resolve(argv[++i] || '');
@@ -56,6 +76,7 @@ function parseArgs(argv) {
     else if (a === '--json') args.json = true;
     else throw new Error(`Unknown argument: ${a}`);
   }
+  if (!args.dir) args.dir = defaultIndexDir();
   return args;
 }
 
@@ -120,8 +141,13 @@ function main() {
   }
 
   if (args.live) {
+    // grepai search uses cwd's .grepai/ — not --dir. Probe from the index's
+    // parent project so a canary on the isolated semantic-index clone is honest.
+    // Measured 2026-07-29: probing from REPO while --dir pointed at a 64MB healthy
+    // clone still reported 0 results (REPO's own index.gob was a 384-byte shell).
+    const projectRoot = path.dirname(args.dir);
     const probe = spawnSync('grepai', ['search', LIVE_QUERY, '--json', '--compact'], {
-      cwd: REPO,
+      cwd: projectRoot,
       encoding: 'utf8',
       timeout: 30000,
     });
@@ -133,12 +159,17 @@ function main() {
       let count = 0;
       try {
         const body = JSON.parse(probe.stdout);
-        count = (body.results || body.matches || body).length || 0;
+        const hits = body.results || body.matches || body;
+        count = Array.isArray(hits) ? hits.length : 0;
       } catch {
-        count = probe.stdout.trim() ? probe.stdout.trim().split('\n').length : 0;
+        count = probe.stdout.trim() ? probe.stdout.trim().split('\n').filter(Boolean).length : 0;
       }
-      info.live = { query: LIVE_QUERY, results: count };
-      if (count === 0) problems.push(`live canary query "${LIVE_QUERY}" returned 0 results — must be >0 in this repo`);
+      info.live = { query: LIVE_QUERY, results: count, cwd: projectRoot };
+      if (count === 0) {
+        problems.push(
+          `live canary query "${LIVE_QUERY}" returned 0 results in ${projectRoot} — must be >0`,
+        );
+      }
     }
   }
 
