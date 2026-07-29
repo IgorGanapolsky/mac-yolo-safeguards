@@ -1,112 +1,169 @@
 {
+  "schemaVersion": 2,
+  "source": "deterministic-product-render-v2",
+  "renderer": {
+    "pillow": "11.3.0",
+    "font": "Pillow embedded default"
+  },
   "frames": 6,
+  "scenes": [
+    {
+      "id": "connect",
+      "headline": "Connect your computer",
+      "subtitle": "Home Wi-Fi, Tailscale, or USB"
+    },
+    {
+      "id": "run",
+      "headline": "Run your AI from anywhere",
+      "subtitle": "Send work, files, and follow-ups"
+    },
+    {
+      "id": "approve",
+      "headline": "Approve risky actions",
+      "subtitle": "Block or allow once in one tap"
+    },
+    {
+      "id": "rules",
+      "headline": "Stay on top of approvals",
+      "subtitle": "Prioritize alerts. Decide one at a time"
+    },
+    {
+      "id": "learn",
+      "headline": "Teach Hermes what works",
+      "subtitle": "Feedback improves future runs"
+    },
+    {
+      "id": "switch",
+      "headline": "One phone. Every computer.",
+      "subtitle": "Switch machines without losing context"
+    }
+  ],
   "assets": {
     "fastlane/metadata/android/en-US/images/phoneScreenshots/01_approve.png": {
+      "deviceClass": "play",
+      "scene": "connect",
       "width": 1080,
-      "height": 1920
+      "height": 1920,
+      "sha256": "8cd87f4e10250aa6854daf23c28ce7d52c215a1e0bb53032182bc86367cf0169"
     },
     "fastlane/metadata/android/en-US/images/phoneScreenshots/02_block.png": {
+      "deviceClass": "play",
+      "scene": "run",
       "width": 1080,
-      "height": 1920
+      "height": 1920,
+      "sha256": "2ce4b99d320e1753b47cb16f5ec1970afdf3af7cfad4cf7370b6976f3d1931cb"
     },
     "fastlane/metadata/android/en-US/images/phoneScreenshots/03_standing.png": {
+      "deviceClass": "play",
+      "scene": "approve",
       "width": 1080,
-      "height": 1920
+      "height": 1920,
+      "sha256": "94ef9e52e406460256e7a109ae6ef2816b44269d564d2000dfbc41d51a2c7bca"
     },
     "fastlane/metadata/android/en-US/images/phoneScreenshots/04_pair.png": {
+      "deviceClass": "play",
+      "scene": "rules",
       "width": 1080,
-      "height": 1920
+      "height": 1920,
+      "sha256": "0eebf635e9d46058cf1bafe4c254c361e564d4cc22f8c11126b859f42c6889e4"
     },
     "fastlane/metadata/android/en-US/images/phoneScreenshots/05_thumbgate.png": {
+      "deviceClass": "play",
+      "scene": "learn",
       "width": 1080,
-      "height": 1920
+      "height": 1920,
+      "sha256": "6105f2b6b8eb0ec3b5e3a0161317775cdde58698ebcb52829ab606beeb0847aa"
     },
     "fastlane/metadata/android/en-US/images/phoneScreenshots/06_works.png": {
+      "deviceClass": "play",
+      "scene": "switch",
       "width": 1080,
-      "height": 1920
+      "height": 1920,
+      "sha256": "4cf7f659863dd2831dc2b1bce95fb2b9a7a7be48da5b95a0c67d84f327806227"
     },
     "fastlane/screenshots/en-US/01_approve_67.png": {
+      "deviceClass": "iphone",
+      "scene": "connect",
       "width": 1290,
-      "height": 2796
+      "height": 2796,
+      "sha256": "f071e04f48f5b2e43266e1ff5dfb5f6ea371bd0abc01d73cfee09b1091765da8"
     },
     "fastlane/screenshots/en-US/01_approve_ipad129.png": {
+      "deviceClass": "ipad",
+      "scene": "connect",
       "width": 2048,
-      "height": 2732
+      "height": 2732,
+      "sha256": "5f8375e6d6beb355494c10caf68ead41a12fefe706b05012b4760685fdfdf514"
     },
     "fastlane/screenshots/en-US/02_block_67.png": {
+      "deviceClass": "iphone",
+      "scene": "run",
       "width": 1290,
-      "height": 2796
+      "height": 2796,
+      "sha256": "f61134364765ef7df229055688cdc52584f3622d23a79c181575af63f3085e7b"
     },
     "fastlane/screenshots/en-US/02_block_ipad129.png": {
+      "deviceClass": "ipad",
+      "scene": "run",
       "width": 2048,
-      "height": 2732
+      "height": 2732,
+      "sha256": "8bf947fc8d2c9a7e48ea92250bc152fbf411d9140ae9cab2b34d4016420685b2"
     },
     "fastlane/screenshots/en-US/03_standing_67.png": {
+      "deviceClass": "iphone",
+      "scene": "approve",
       "width": 1290,
-      "height": 2796
+      "height": 2796,
+      "sha256": "b8e6c28d116310fa101299057edf79014c17c74c792bfae87615e24ab35ac35e"
     },
     "fastlane/screenshots/en-US/03_standing_ipad129.png": {
+      "deviceClass": "ipad",
+      "scene": "approve",
       "width": 2048,
-      "height": 2732
+      "height": 2732,
+      "sha256": "82ee560f281d7cbbfddb577883d3be5b6350516d441bb79a5bb03eb19357a360"
     },
     "fastlane/screenshots/en-US/04_pair_67.png": {
+      "deviceClass": "iphone",
+      "scene": "rules",
       "width": 1290,
-      "height": 2796
+      "height": 2796,
+      "sha256": "d83532983dc65d0b9d1a0dc4c2a81f4aac21e94352d869114bf8600d706cb642"
     },
     "fastlane/screenshots/en-US/04_pair_ipad129.png": {
+      "deviceClass": "ipad",
+      "scene": "rules",
       "width": 2048,
-      "height": 2732
+      "height": 2732,
+      "sha256": "e46d3ad421b3614ecc8463c4a9b812631d8ac85fb920071d5be8ab69be0b7d45"
     },
     "fastlane/screenshots/en-US/05_thumbgate_67.png": {
+      "deviceClass": "iphone",
+      "scene": "learn",
       "width": 1290,
-      "height": 2796
+      "height": 2796,
+      "sha256": "3455167a6e262c032621625dae18ecb12b463067135bdb27670f99e6c0fadb1b"
     },
     "fastlane/screenshots/en-US/05_thumbgate_ipad129.png": {
+      "deviceClass": "ipad",
+      "scene": "learn",
       "width": 2048,
-      "height": 2732
+      "height": 2732,
+      "sha256": "19e63671295586314f5d2e570b96993427d54352c91ea1e5608e6d64d59f1f4a"
     },
     "fastlane/screenshots/en-US/06_works_67.png": {
+      "deviceClass": "iphone",
+      "scene": "switch",
       "width": 1290,
-      "height": 2796
+      "height": 2796,
+      "sha256": "655818aaf26ec33298bfb9ef09ae864e031db86f880d051c970e998a28868657"
     },
     "fastlane/screenshots/en-US/06_works_ipad129.png": {
+      "deviceClass": "ipad",
+      "scene": "switch",
       "width": 2048,
-      "height": 2732
+      "height": 2732,
+      "sha256": "e8dd128ffbe2c73c6c75b51138febd7fa86a0a2331c09fb8b8cb8c4e0e9fa830"
     }
-  },
-  "rawSimilarity": {
-    "01_approve_vs_02_block": 18.31,
-    "01_approve_vs_03_standing": 12.98,
-    "01_approve_vs_04_pair": 12.15,
-    "01_approve_vs_05_thumbgate": 17.8,
-    "01_approve_vs_06_works": 20.72,
-    "02_block_vs_03_standing": 26.53,
-    "02_block_vs_04_pair": 22.61,
-    "02_block_vs_05_thumbgate": 38.3,
-    "02_block_vs_06_works": 22.7,
-    "03_standing_vs_04_pair": 12.51,
-    "03_standing_vs_05_thumbgate": 31.53,
-    "03_standing_vs_06_works": 28.06,
-    "04_pair_vs_05_thumbgate": 16.14,
-    "04_pair_vs_06_works": 12.13,
-    "05_thumbgate_vs_06_works": 33.08
-  },
-  "framedSimilarity": {
-    "01_approve_vs_02_block": 43.11,
-    "01_approve_vs_03_standing": 43.13,
-    "01_approve_vs_04_pair": 41.16,
-    "01_approve_vs_05_thumbgate": 43.7,
-    "01_approve_vs_06_works": 43.95,
-    "02_block_vs_03_standing": 46.15,
-    "02_block_vs_04_pair": 44.91,
-    "02_block_vs_05_thumbgate": 52.62,
-    "02_block_vs_06_works": 48.51,
-    "03_standing_vs_04_pair": 41.79,
-    "03_standing_vs_05_thumbgate": 50.75,
-    "03_standing_vs_06_works": 45.8,
-    "04_pair_vs_05_thumbgate": 42.52,
-    "04_pair_vs_06_works": 39.09,
-    "05_thumbgate_vs_06_works": 49.88
-  },
-  "ascNote": "Only _67 + ipad129 emitted to avoid APP_IPHONE_67 double-upload"
+  }
 }
