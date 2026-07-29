@@ -11,6 +11,14 @@ export const STALLED_SEND_AUTO_RECOVER_MAX = 2;
 
 export const STALLED_SEND_RECOVERING_HINT = 'Recovering on your Mac…';
 
+/**
+ * Shown instead of auto-resending when the stalled run could NOT be proven stopped.
+ * Re-sending in that state risks the computer executing the same instruction twice, which for an
+ * instruction like "Do it now" is a duplicate ACTION, not just a duplicate chat bubble.
+ */
+export const STALLED_SEND_STILL_RUNNING_HINT =
+  'That instruction may still be running on your computer, so it was not sent again. Open Leash to Stop it, then retry.';
+
 const STALL_REASON_MARKERS = [
   OUTBOUND_STUCK_FAILURE_REASON,
   RUN_NO_TOKEN_FAIL_DETAIL,

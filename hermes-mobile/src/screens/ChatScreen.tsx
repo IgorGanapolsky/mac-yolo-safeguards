@@ -180,6 +180,7 @@ import {
   findLastStalledFailedOutboundText,
   isStalledOutboundFailureReason,
   shouldAutoRecoverStalledSend,
+  STALLED_SEND_STILL_RUNNING_HINT,
 } from '../utils/stalledChatRecovery';
 import {
   PENDING_NEW_SESSION_KEY,
@@ -1386,6 +1387,23 @@ export default function ChatScreen() {
             sendProgressSnapshotRef.current?.runId,
           ].filter((id): id is string => Boolean(id?.trim()));
           await releaseMacOperatorSlot(gatewayUrl, apiKey, runIds).catch(() => {});
+          // PROVE the stalled run is gone before re-sending. releaseMacOperatorSlot swallows each
+          // per-run stopRun failure internally and only reports how many runs it *attempted*, so a
+          // failed stop used to fall straight through to the resend below — and the Mac could then
+          // execute the same instruction TWICE. For an instruction like "Do it now" that is a
+          // duplicate action, not just a duplicate bubble. Re-check liveness and bail out if any
+          // run survived; on a probe error assume the worst (treat as still live) rather than risk
+          // the double execution.
+          if (runIds.length > 0) {
+            const stillLive = await filterLiveGatewayRunIds(gatewayUrl, apiKey, runIds).catch(
+              () => runIds,
+            );
+            if (stillLive.length > 0) {
+              setErrorMessage(STALLED_SEND_STILL_RUNNING_HINT);
+              setRunProgress(null);
+              return;
+            }
+          }
           isSendingRef.current = false;
           setIsSending(false);
           setErrorMessage(null);
