@@ -1,8 +1,11 @@
 # Hermes Mobile Reliability — July 2026 Research and Current-State Audit
 
-Date: 2026-07-29  
-Deep-research run: `trun_468ec6a2702a4592865d87f871c6a704`  
-Raw report: `parallel-research/hermes-mobile-reliability-july-2026.md`  
+Date: 2026-07-29
+
+Deep-research run: `trun_468ec6a2702a4592865d87f871c6a704`
+
+Raw report: `parallel-research/hermes-mobile-reliability-july-2026.md`
+
 Run receipt: <https://platform.parallel.ai/play/deep-research/trun_468ec6a2702a4592865d87f871c6a704>
 
 ## Decision
