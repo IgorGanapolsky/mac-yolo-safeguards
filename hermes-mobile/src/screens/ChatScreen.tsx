@@ -4772,6 +4772,20 @@ export default function ChatScreen() {
     if (action.kind === 'retry_reconnect') {
       haptics.selection();
       await handleMacRetry();
+      // The affordance the user tapped is labelled "Your computer didn't answer — tap ↑ to send
+      // again". It must therefore SEND. This branch used to reconnect and return, so on a stalled
+      // chat (macChatLive false) tapping ↑ reconnected silently and the message was never re-sent
+      // — reported from a physical device 2026-07-28 as "tap to send again doesn't do shit".
+      // Reconnect first, then send: sendUserText returns false if the link is still down, so a
+      // failed reconnect leaves the message in its failed state rather than pretending to send.
+      setErrorMessage(null);
+      if (runProgressRef.current?.phase === 'failed') {
+        setRunProgress(null);
+      }
+      const accepted = await sendUserText(action.text, true);
+      if (accepted) {
+        haptics.light();
+      }
       return;
     }
 
