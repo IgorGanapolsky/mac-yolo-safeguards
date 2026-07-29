@@ -17,9 +17,12 @@ export async function GET(request: Request) {
   let snapshot: SnapshotMessage[] = [];
   try { snapshot = thread.contextSnapshot ? JSON.parse(thread.contextSnapshot) as SnapshotMessage[] : []; } catch { snapshot = []; }
   const tasks = await db().prepare(
-    `SELECT id, prompt, result, error, route, status, created_at AS createdAt, completed_at AS completedAt
-       FROM tasks WHERE thread_id = ? AND organization_id = ? AND (? IS NULL OR created_at > ?)
-       ORDER BY created_at ASC LIMIT 100`
+    `SELECT k.id, k.prompt, k.result, k.error, k.route, k.status, k.created_at AS createdAt, k.completed_at AS completedAt,
+            d.name AS deviceName
+       FROM tasks k
+       LEFT JOIN devices d ON d.id = k.device_id
+      WHERE k.thread_id = ? AND k.organization_id = ? AND (? IS NULL OR k.created_at > ?)
+      ORDER BY k.created_at ASC LIMIT 100`
   ).bind(threadId, session.organizationId, thread.syncedAt, thread.syncedAt).all();
   return Response.json({ thread: { id: thread.id, title: thread.title, source: thread.source, syncedAt: thread.syncedAt }, snapshot, tasks: tasks.results });
 }

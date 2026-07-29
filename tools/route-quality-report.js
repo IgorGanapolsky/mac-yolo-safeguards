@@ -37,6 +37,22 @@ const DEFAULT_LOG = path.join(os.homedir(), '.hermes', 'litellm-logs', 'traffic.
 const MIN_TOOL_OFFERED = 5;
 const COMPLIANCE_FLOOR = 0.5;
 
+// The traffic log is append-only and never pruned, so an all-time aggregate can
+// never recover from a bad route: once a model has accumulated MIN_TOOL_OFFERED
+// never-answered calls, it stays in `dead` forever and --gate exits 1 on every
+// future run even after the model is rerouted or retired. The documented
+// remediation would require deleting history. Analyse a trailing window instead,
+// so a fixed fleet actually clears the gate.
+const DEFAULT_WINDOW_DAYS = 7;
+
+// Log timestamps look like '2026-07-28 03:35:41.400510' — space-separated and
+// without a zone. Treat them as UTC rather than local so the window does not
+// silently shift with the machine's timezone.
+function parseLogTs(value) {
+  if (typeof value !== 'string') return NaN;
+  return Date.parse(`${value.trim().replace(' ', 'T')}Z`);
+}
+
 function pct(n, d) {
   if (!d) return null;
   return Math.round((n / d) * 1000) / 10;
@@ -48,11 +64,34 @@ function percentile(sorted, p) {
   return Math.round(sorted[i] * 1000) / 1000;
 }
 
-function summarizeRouteQuality(records) {
+function summarizeRouteQuality(records, options = {}) {
   const byModel = new Map();
   let malformed = 0;
 
+  // Trailing-window filter. Counted, never silent: a record with no usable
+  // timestamp is excluded from the window but reported, because dropping data
+  // quietly is how a gate starts passing for the wrong reason.
+  const sinceMs = Number.isFinite(options.sinceMs) ? options.sinceMs : null;
+  let dated = 0;
+  let undated = 0;
+  let outsideWindow = 0;
+  const considered = [];
   for (const rec of records) {
+    if (sinceMs === null) {
+      considered.push(rec);
+      continue;
+    }
+    const ts = parseLogTs(rec && rec.ts_end);
+    if (!Number.isFinite(ts)) {
+      undated += 1;
+      continue;
+    }
+    dated += 1;
+    if (ts >= sinceMs) considered.push(rec);
+    else outsideWindow += 1;
+  }
+
+  for (const rec of considered) {
     if (!rec || typeof rec !== 'object' || !rec.model) {
       malformed += 1;
       continue;
@@ -136,7 +175,18 @@ function summarizeRouteQuality(records) {
   const dead = routes.filter((r) => r.deadRoute);
 
   return {
-    totalRecords: records.length,
+    totalRecords: considered.length,
+    recordsInLog: records.length,
+    window:
+      sinceMs === null
+        ? { applied: false }
+        : {
+            applied: true,
+            sinceIso: new Date(sinceMs).toISOString(),
+            dated,
+            undated,
+            outsideWindow,
+          },
     malformed,
     routes,
     degraded,
@@ -151,6 +201,9 @@ function summarizeRouteQuality(records) {
 function project(d) {
   return {
     model: d.model,
+    // Kept solely so the trailing window can be applied — without it every
+    // analysis is all-time and the gate can never clear after a reroute.
+    ts_end: d.ts_end,
     status: d.status,
     empty_kind: d.empty_kind,
     tools_offered: d.tools_offered,
@@ -207,14 +260,45 @@ function runReport(options = {}) {
   const logPath = options.logPath || DEFAULT_LOG;
   const read = readLog(logPath);
   if (!read.ok) return { ok: false, error: read.error, logPath };
-  const summary = summarizeRouteQuality(read.records);
+
+  const windowDays = options.windowDays === null ? null : (options.windowDays ?? DEFAULT_WINDOW_DAYS);
+  const nowMs = Number.isFinite(options.nowMs) ? options.nowMs : Date.now();
+  const sinceMs = windowDays === null ? null : nowMs - windowDays * 86400000;
+
+  const summary = summarizeRouteQuality(read.records, { sinceMs });
   summary.malformed += read.malformed;
-  return { ok: true, logPath, host: os.hostname(), ...summary };
+
+  // A window that matched no dated record at all must NOT read as "everything is
+  // healthy". That is the same absence-is-not-evidence failure this tool exists
+  // to close: an old log with no ts_end, or a clock skew, would otherwise empty
+  // `dead`/`degraded` and hand back a clean gate.
+  if (sinceMs !== null && read.records.length > 0 && summary.window.dated === 0) {
+    return {
+      ok: false,
+      logPath,
+      error:
+        `no record in ${logPath} has a parseable ts_end, so a ${windowDays}-day window ` +
+        `cannot be applied; refusing to report a route verdict from an unwindowable log ` +
+        `(re-run with --all-time to aggregate the full history deliberately)`,
+    };
+  }
+
+  return { ok: true, logPath, host: os.hostname(), windowDays, ...summary };
 }
 
 if (require.main === module) {
   const argv = process.argv.slice(2);
-  const res = runReport({});
+  const sinceArg = argv.find((a) => a.startsWith('--since-days='));
+  const windowDays = argv.includes('--all-time')
+    ? null
+    : sinceArg
+      ? Number(sinceArg.split('=')[1])
+      : DEFAULT_WINDOW_DAYS;
+  if (windowDays !== null && !(Number.isFinite(windowDays) && windowDays > 0)) {
+    console.error('route-quality-report: --since-days must be a positive number of days');
+    process.exit(2);
+  }
+  const res = runReport({ windowDays });
   if (!res.ok) {
     console.error(`route-quality-report: ${res.error}`);
     process.exit(2);
@@ -223,7 +307,13 @@ if (require.main === module) {
     console.log(JSON.stringify(res, null, 2));
   } else {
     console.log(`\n=== ROUTE QUALITY (${res.host}) ===`);
-    console.log(`log: ${res.logPath}  records: ${res.totalRecords}\n`);
+    console.log(
+      res.window.applied
+        ? `log: ${res.logPath}\nwindow: last ${res.windowDays}d since ${res.window.sinceIso}  ` +
+            `records in window: ${res.totalRecords} of ${res.recordsInLog} ` +
+            `(older: ${res.window.outsideWindow}, undated: ${res.window.undated})\n`
+        : `log: ${res.logPath}  records: ${res.totalRecords} (ALL TIME — a retired route can never clear the gate)\n`,
+    );
     const pad = (s, n) => String(s).padEnd(n);
     console.log(
       `${pad('served model', 42)}${pad('reqs', 7)}${pad('answer%', 9)}${pad('empty%', 8)}${pad('tool-use of answered', 22)}${pad('p50s', 8)}p95s`,
@@ -252,7 +342,11 @@ if (require.main === module) {
     }
     console.log('');
   }
-  if (argv.includes('--gate') && res.degraded.length) process.exit(1);
+  // A DEAD route must fail the gate too. Gating only on `degraded` meant a fleet
+  // whose routes had all stopped answering entirely would exit 0 — the exact
+  // absence-is-not-evidence trap this tool exists to close. Observed 2026-07-28:
+  // the Mac Pro had three dead routes and the gate reported OK.
+  if (argv.includes('--gate') && (res.degraded.length || res.dead.length)) process.exit(1);
 }
 
 module.exports = { summarizeRouteQuality, runReport };
