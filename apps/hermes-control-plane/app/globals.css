@@ -342,46 +342,60 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     grid-template-columns:1fr;
     gap:0;
   }
+  /* Mobile Tab Pane Isolation (Hermes, Chats, Leash, Settings) */
+  /* 1. CHATS TAB: Only show sidebar thread list */
   .dashboard-shell[data-mobile-tab="chats"] .sidebar{
-    display:block !important;
+    display:flex !important;
+    flex-direction:column !important;
+    flex:1 1 0 !important;
+    min-height:0 !important;
+    overflow-y:auto !important;
   }
   .dashboard-shell[data-mobile-tab="chats"] .task-panel,
   .dashboard-shell[data-mobile-tab="chats"] .right-rail{
     display:none !important;
   }
+
+  /* 2. HERMES TAB: Only show task-panel (chat output + composer) */
   .dashboard-shell[data-mobile-tab="hermes"] .task-panel{
-    display:flex;
-    flex-direction:column;
-    flex:1 1 auto;
-    min-height:0;
-    overflow:hidden;
+    display:flex !important;
+    flex-direction:column !important;
+    flex:1 1 0 !important;
+    min-height:0 !important;
+    overflow:hidden !important;
     border:1px solid var(--line);
     background:#0B0F19;
   }
-  /*
-   * Leash/Settings scrollport = .right-rail (the real DOM node).
-   * Do not invent a second wrapper class that is not in the React tree —
-   * Settings was clipped with zero scroll when CSS targeted a missing node
-   * (2026-07-28). flex:1 1 0 + overflow-y:scroll = bounded iOS scrollport.
-   */
+  .dashboard-shell[data-mobile-tab="hermes"] .sidebar,
+  .dashboard-shell[data-mobile-tab="hermes"] .right-rail{
+    display:none !important;
+  }
+
+  /* 3. LEASH & SETTINGS TABS: Only show right-rail (connection/settings panel) */
+  .dashboard-shell[data-mobile-tab="leash"] .task-panel,
+  .dashboard-shell[data-mobile-tab="settings"] .task-panel,
+  .dashboard-shell[data-mobile-tab="leash"] .sidebar,
+  .dashboard-shell[data-mobile-tab="settings"] .sidebar{
+    display:none !important;
+  }
   .dashboard-shell[data-mobile-tab="leash"] .right-rail,
   .dashboard-shell[data-mobile-tab="settings"] .right-rail{
     display:flex !important;
-    flex-direction:column;
+    flex-direction:column !important;
     flex:1 1 0 !important;
     min-height:0 !important;
-    max-height:100%;
-    overflow-x:hidden;
-    overflow-y:scroll !important;
+    max-height:100% !important;
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
     -webkit-overflow-scrolling:touch;
     overscroll-behavior:contain;
     touch-action:pan-y;
     gap:16px;
-    padding-bottom:max(20px, env(safe-area-inset-bottom, 0px));
+    padding-bottom:calc(76px + env(safe-area-inset-bottom, 0px)) !important;
   }
-  .dashboard-shell[data-mobile-tab="leash"] #web-settings{display:none}
+  .dashboard-shell[data-mobile-tab="leash"] #web-settings{display:none !important}
   .dashboard-shell[data-mobile-tab="settings"] .connection-panel,
-  .dashboard-shell[data-mobile-tab="settings"] .safety-panel{display:none}
+  .dashboard-shell[data-mobile-tab="settings"] .safety-panel{display:none !important}
   /* Panel overflow:hidden was clipping long device lists inside the scrollport */
   .dashboard-shell[data-mobile-tab="settings"] #web-settings,
   .dashboard-shell[data-mobile-tab="leash"] .connection-panel{
