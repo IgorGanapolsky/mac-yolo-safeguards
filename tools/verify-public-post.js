@@ -105,6 +105,29 @@ function inferPlatform(url, explicit) {
   return 'generic';
 }
 
+// Returns a human-readable "asked -> got" string when the response came from a
+// different party than requested, or '' when the hosts are equivalent.
+//
+// Equivalent means: identical, or one is a subdomain of the other (so
+// www.medium.com <-> medium.com and old.reddit.com <-> reddit.com are fine).
+// Anything else is a different party answering, however healthy its 200 looks.
+// Unparseable input returns '' — fetchUrl already normalises both sides, and a
+// parse failure must not manufacture a redirect that did not happen.
+function describeHostDrift(requestedUrl, finalUrl) {
+  if (!finalUrl) return '';
+  let a;
+  let b;
+  try {
+    a = new URL(String(requestedUrl)).hostname.toLowerCase();
+    b = new URL(String(finalUrl)).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+  if (!a || !b || a === b) return '';
+  if (a.endsWith(`.${b}`) || b.endsWith(`.${a}`)) return '';
+  return `${a} -> ${b}`;
+}
+
 function defaultMinBody(platform) {
   switch (platform) {
     case 'medium':
@@ -276,6 +299,36 @@ async function verify(args) {
     };
   }
 
+  // The 200 must have come from the host we asked for.
+  //
+  // fetch() follows redirects silently, so a login gate, a consent interstitial
+  // or an SSO provider answers 200 with a perfectly rich page — and every
+  // downstream content check then passes against SOMEONE ELSE'S document.
+  // finalUrl was already captured and reported here, but never compared, so a
+  // redirect to accounts.google.com/signin verified as a live Medium post.
+  //
+  // This is the same measurement error that produced a phantom "31/31 assets
+  // 404" outage in this repo on 2026-07-29: /dashboard 307s to WorkOS AuthKit,
+  // and AuthKit's asset paths were scraped and then tested against our own
+  // host. Comparing what you asked for against what actually answered is the
+  // fix in both cases.
+  //
+  // Subdomain drift is tolerated (www.medium.com -> medium.com), since that is
+  // ordinary canonicalisation and not a different party.
+  const hostDrift = describeHostDrift(url, fetched.finalUrl);
+  if (hostDrift) {
+    return {
+      status: 'PARTIAL',
+      live: false,
+      reason: `Redirected off-host: ${hostDrift} — the 200 did not come from the requested host`,
+      url,
+      platform,
+      finalUrl: fetched.finalUrl,
+      httpStatus: fetched.status,
+      exitCode: 1,
+    };
+  }
+
   if (fetched.status >= 400) {
     return {
       status: 'PARTIAL',
@@ -420,6 +473,7 @@ module.exports = {
   parseArgs,
   verify,
   inferPlatform,
+  describeHostDrift,
   stripHtml,
   extractArticleish,
   isMediumTitleOnly,
