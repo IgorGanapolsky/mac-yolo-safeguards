@@ -127,3 +127,92 @@ export function validateMutation(input: unknown): ThreadMutation & { schema_vers
 export function validateEvent(input: unknown): ThreadEvent;
 export function mutationFingerprint(mutation: ThreadMutation): string;
 export function projectThread(events: ThreadEvent[]): ProjectedThread;
+
+export const BUZZ_APPROVAL_REQUEST_KIND: 46010;
+export const BUZZ_APPROVAL_GRANT_KIND: 46030;
+export const BUZZ_APPROVAL_DENY_KIND: 46031;
+
+export type BuzzApprovalDecision = "approve" | "deny";
+
+export interface NostrEvent {
+  id: string;
+  pubkey: string;
+  created_at: number;
+  kind: number;
+  tags: string[][];
+  content: string;
+  sig: string;
+}
+
+export interface BuzzApprovalRequest {
+  eventId: string;
+  source: "relay_hook";
+  tokenHash: string;
+  requesterPubkey: string;
+  approverPubkey: string;
+  title: string;
+  reason: string;
+  allowPermanent: false;
+  createdAtSeconds: number;
+  expiresAtSeconds: number;
+  receivedAt: string;
+}
+
+export interface BuzzApprovalDecisionReceipt {
+  decision: BuzzApprovalDecision;
+  eventId: string;
+  requestEventId: string;
+  tokenHash: string;
+  approverPubkey: string;
+  note: string;
+  createdAtSeconds: number;
+}
+
+export class BuzzApprovalProtocolError extends Error {
+  code: string;
+}
+
+export class BuzzApprovalReplayGuard {
+  constructor(options?: { maxEntries?: number });
+  consume(eventId: string, expiresAtSeconds: number, nowSeconds?: number): void;
+  readonly size: number;
+}
+
+export class BuzzApprovalDecisionGuard {
+  constructor(options?: { maxEntries?: number });
+  assertAvailable(tokenHash: string, nowSeconds?: number): void;
+  record(tokenHash: string, expiresAtSeconds: number): void;
+  readonly size: number;
+}
+
+export function hashBuzzApprovalToken(rawToken: string): string;
+
+export function parseBuzzApprovalRequest(
+  event: NostrEvent,
+  options: {
+    approverPubkey: string;
+    nowSeconds?: number;
+    maxFutureSkewSeconds?: number;
+    replayGuard?: BuzzApprovalReplayGuard;
+  },
+): BuzzApprovalRequest;
+
+export function buildBuzzApprovalDecision(
+  request: BuzzApprovalRequest,
+  options: {
+    decision: BuzzApprovalDecision;
+    secretKey: Uint8Array;
+    note?: string;
+    nowSeconds?: number;
+    decisionGuard?: BuzzApprovalDecisionGuard;
+  },
+): NostrEvent;
+
+export function verifyBuzzApprovalDecision(
+  event: NostrEvent,
+  request: BuzzApprovalRequest,
+  options?: {
+    nowSeconds?: number;
+    maxFutureSkewSeconds?: number;
+  },
+): BuzzApprovalDecisionReceipt;

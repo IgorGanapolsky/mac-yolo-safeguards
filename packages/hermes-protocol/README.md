@@ -34,6 +34,28 @@ const relay = createRelayHttpServer({ tokens });
 relay.getAuthorizationDecisions(); // sanitized copies; never includes the bearer token
 ```
 
+## Buzz workflow approvals
+
+The package includes an experimental, fail-closed adapter for Buzz workflow
+approval events:
+
+- verify kind `46010` requests with real NIP-01/BIP-340 signatures;
+- require one token-hash `d` tag, one designated-approver `p` tag, and one
+  NIP-40 `expiration` tag;
+- expose a Hermes-compatible `source: "relay_hook"` request without permitting
+  permanent approval;
+- sign kind `46030` grants or `46031` denials with
+  `d = SHA-256(raw approval token)`, matching Buzz's SDK and relay;
+- bind every decision to the request event (`e`) and requester (`p`);
+- reject tampering, expiry, replay, wrong signers, and duplicate local decisions.
+
+The adapter never accepts a raw approval token when building a response and
+never logs or returns a secret key. Buzz has not yet emitted kind `46010` from
+its workflow engine, so this is a conformance POC rather than a claim of live
+end-to-end interoperability. The upstream contract and current desktop/relay
+tag mismatch are tracked in
+[block/buzz#3523](https://github.com/block/buzz/issues/3523).
+
 ## Verification
 
 ```sh
