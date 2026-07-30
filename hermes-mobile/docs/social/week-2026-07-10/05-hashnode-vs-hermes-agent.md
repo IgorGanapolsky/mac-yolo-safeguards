@@ -1,13 +1,7 @@
-# Hashnode — Hermes Mobile vs Hermes Agent
+# RETIRED — Hashnode publishing is frozen
 
-Same Play search, opposite architectures:
+**Status: RETIRED — DO NOT PUBLISH OR RETRY**
 
-| | Hermes Agent | Hermes Mobile |
-|-|--------------|---------------|
-| Runs AI on | Android phone | Your Mac/Linux/Windows |
-| Job | Pocket agent | Remote control + Leash approvals |
-| Reviews | 1,200+ | Early stage |
-
-Hermes-Relay = cloud relay. Hermes Mobile = direct gateway + QR + Tailscale.
-
-https://thumbgate.app/go/android?utm_source=hashnode&utm_medium=organic&utm_campaign=week_20260710&cta_id=week_20260710_hashnode_vs_play
+This former campaign intentionally contains no publishable copy or CTA.
+Hashnode is a permanently frozen channel under the repository publishing
+policy. Preserve this tombstone so an old weekly content plan cannot revive it.

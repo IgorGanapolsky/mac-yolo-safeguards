@@ -9,8 +9,6 @@ const EVENTS = new Set([
   "free_control_click",
   "cloud_continuity_click",
   "watchdog_probe",
-  "play_store_click",
-  "app_store_click",
   // Aggregate browser exceptions (ClientErrorBeacon) — counter only, no stack/PII.
   "client_error",
   // Dashboard chrome (existing clients may emit).

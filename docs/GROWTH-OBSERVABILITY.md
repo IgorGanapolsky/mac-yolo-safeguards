@@ -35,7 +35,9 @@ When a visitor lands on the control plane with campaign parameters and then
 uses a bare store badge, the redirect recovers those dimensions only from a
 same-origin `Referer`; cross-origin values are ignored. Store-click events are
 recorded by the redirect route and excluded from the browser beacon to prevent
-double counting. Recognized link-preview crawlers and explicit prefetch
+double counting. The analytics API also rejects legacy store-click beacons, so
+an already-open page from before this rollout cannot write a second event.
+Recognized link-preview crawlers and explicit prefetch
 requests are recorded separately as `play_store_preview` or
 `app_store_preview`, so they do not inflate human click counters.
 The repository's `thumbgate-web-reliability` redirect probes use the same

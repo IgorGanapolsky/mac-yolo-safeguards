@@ -1,25 +1,7 @@
-# Hashnode — phone AI apps vs Mac agent control plane
+# RETIRED — Hashnode publishing is frozen
 
-**Status:** Draft — OAuth required  
-**Suggested title:** Why ChatGPT on your phone isn't the same as controlling Cursor on your Mac
+**Status: RETIRED — DO NOT PUBLISH OR RETRY**
 
----
-
-Every major AI lab shipped a phone app. They're optimized for **conversation**, not **operator control**.
-
-If you run coding agents on your Mac:
-
-| Phone AI app | Hermes Mobile |
-|--------------|---------------|
-| Model runs in the cloud | Agent runs on **your** Mac |
-| No tool approval for desktop | **Leash** approve/deny blocked commands |
-| General chat UX | Operator UI: connection status, runs, gates |
-| Subscription to their model | $4.99 paid-upfront app with chat + Leash gate rules |
-
-Hermes Mobile is the **mobile control plane** — remote-control Cursor, Claude Code, Codex, or Hermes gateway operators from your pocket.
-
-Not an "alternative to ChatGPT." An alternative to **being chained to your desk** when your agent needs a human yes/no.
-
-📱 https://thumbgate.app/go/android?utm_source=hashnode&utm_medium=organic&utm_campaign=week_20260710_ai_agents&cta_id=week_ai_hashnode_play
-
-#AIAgents #HermesMobile #DeveloperExperience
+This former campaign intentionally contains no publishable copy or CTA.
+Hashnode is a permanently frozen channel under the repository publishing
+policy. Preserve this tombstone so an old weekly content plan cannot revive it.

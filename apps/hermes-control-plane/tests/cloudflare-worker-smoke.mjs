@@ -235,6 +235,29 @@ try {
   });
   assert.equal(clientError.status, 204);
 
+  const legacyStoreBeacon = await fetch(
+    `http://127.0.0.1:${port}/api/analytics/event`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: `http://127.0.0.1:${port}`,
+      },
+      body: JSON.stringify({
+        schemaVersion: 1,
+        event: "play_store_click",
+        utmSource: "legacy-tab",
+        utmCampaign: "must_not_count",
+        ctaId: "legacy_store_beacon",
+      }),
+    },
+  );
+  assert.equal(legacyStoreBeacon.status, 400);
+  assert.equal(
+    (await legacyStoreBeacon.json()).error,
+    "unsupported analytics event",
+  );
+
   const androidStore = await fetch(
     `http://127.0.0.1:${port}/go/android?utm_source=e2e&utm_medium=worker&utm_campaign=store_redirect_e2e&cta_id=android_a`,
     { redirect: "manual" },
