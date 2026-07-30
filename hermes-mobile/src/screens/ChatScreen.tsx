@@ -222,6 +222,7 @@ import {
   RUN_NO_TOKEN_FAIL_DETAIL,
   RUN_STREAM_IDLE_FAIL_DETAIL,
   RUN_STALE_TIMEOUT_DETAIL,
+  runHardTimeoutDetail,
   shouldFailRunAwaitingFirstToken,
   shouldFailRunForStreamIdle,
   shouldHardTimeoutRun,
@@ -7202,10 +7203,15 @@ export default function ChatScreen() {
     if (isDemo || !progress || !isActiveChatRun(progress)) {
       return;
     }
-    const noTokenOpts = { streamInFlight: activeChatStreamRef.current };
+    const activeSession = currentSessionRef.current;
+    const noTokenOpts = {
+      streamInFlight: activeChatStreamRef.current,
+      session: activeSession,
+    };
     const failNoToken = (current: NonNullable<typeof progress>) => {
-      const detail = shouldHardTimeoutRun(current, Date.now())
-        ? RUN_HARD_TIMEOUT_DETAIL
+      // Mega/live-prompt thrash → start-fresh copy; not "tap ↑" on a poisoned thread.
+      const detail = shouldHardTimeoutRun(current, Date.now(), activeSession)
+        ? runHardTimeoutDetail(current, activeSession)
         : RUN_NO_TOKEN_FAIL_DETAIL;
       isSendingRef.current = false;
       setIsSending(false);
@@ -7231,11 +7237,15 @@ export default function ChatScreen() {
     }
     const waitMs = Math.min(
       msUntilNoTokenFail(progress, Date.now(), noTokenOpts),
-      msUntilRunHardTimeout(progress, Date.now()),
+      msUntilRunHardTimeout(progress, Date.now(), activeSession),
     );
     const timer = setTimeout(() => {
       const current = runProgressRef.current;
-      const opts = { streamInFlight: activeChatStreamRef.current };
+      const session = currentSessionRef.current;
+      const opts = {
+        streamInFlight: activeChatStreamRef.current,
+        session,
+      };
       if (!current || !shouldFailRunAwaitingFirstToken(current, Date.now(), opts)) {
         return;
       }

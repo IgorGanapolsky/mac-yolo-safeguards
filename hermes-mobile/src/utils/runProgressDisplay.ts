@@ -6,6 +6,10 @@ import {
   shortMacUnreachableTitle,
   USER_RUN_INTERRUPTED_MESSAGE,
 } from './chatErrors';
+import {
+  humanizeModelProviderErrorMessage,
+  isModelProviderErrorMessage,
+} from './modelProviderErrorRecovery';
 
 const GATEWAY_PLATFORM_MODEL_LABELS = new Set(['hermes-agent', 'hermes', 'gateway']);
 export const STALE_RUN_SECONDS = 15 * 60;
@@ -325,6 +329,10 @@ export function humanizeRunProgressDetail(detail: string | undefined, phase?: st
 
   if (isRawAbortMessage(raw)) {
     return USER_RUN_INTERRUPTED_MESSAGE;
+  }
+
+  if (isModelProviderErrorMessage(raw)) {
+    return humanizeModelProviderErrorMessage(raw);
   }
 
   return humanizeIfAbortMessage(raw.replace(/_/g, ' '));
