@@ -153,7 +153,7 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
         otherAttributed: 0,
         attributedTotal: 0,
         ctaIds: new Set(),
-        landingCtaIds: new Set(),
+        landingViewsByCta: new Map(),
         storeClickRows: [],
         utmSources: new Set(),
       });
@@ -231,7 +231,13 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
       case 'landing_view':
         bucket.attributedTotal += count;
         bucket.landingViews += count;
-        if (ctaId) bucket.landingCtaIds.add(normalizeToken(ctaId));
+        if (ctaId) {
+          const normalizedCta = normalizeToken(ctaId);
+          bucket.landingViewsByCta.set(
+            normalizedCta,
+            (bucket.landingViewsByCta.get(normalizedCta) || 0) + count,
+          );
+        }
         break;
       case 'sign_in_click':
         bucket.attributedTotal += count;
@@ -270,11 +276,14 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
   const rows = [...byCampaign.values()].map((b) => {
     const conversionProxy =
       b.signInClicks + b.playStoreClicks + b.appStoreClicks + b.cloudContinuityClicks;
-    const landingStoreClicks = b.storeClickRows
-      .filter(
-        (row) => row.ctaId && b.landingCtaIds.has(row.ctaId),
-      )
-      .reduce((total, row) => total + row.count, 0);
+    const remainingLandingCapacity = new Map(b.landingViewsByCta);
+    const landingStoreClicks = b.storeClickRows.reduce((total, row) => {
+      if (!row.ctaId) return total;
+      const remaining = remainingLandingCapacity.get(row.ctaId) || 0;
+      const attributable = Math.min(row.count, remaining);
+      remainingLandingCapacity.set(row.ctaId, remaining - attributable);
+      return total + attributable;
+    }, 0);
     const directStoreClicks =
       b.playStoreClicks + b.appStoreClicks - landingStoreClicks;
     const journeyType =

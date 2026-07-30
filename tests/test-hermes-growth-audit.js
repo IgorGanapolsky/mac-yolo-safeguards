@@ -261,6 +261,26 @@ test('publishable copy audit requires a campaign-matched hero before non-Reddit 
   });
 });
 
+test('publishable copy audit rejects one CTA ID reused for hero and direct-store journeys', () => {
+  const root = makeTempDirectory();
+  const ready = path.join(root, 'hermes-mobile/docs/social/ready-to-post');
+  fs.mkdirSync(ready, { recursive: true });
+  fs.writeFileSync(
+    path.join(ready, 'linkedin.md'),
+    [
+      '# LinkedIn launch',
+      'https://thumbgate.app/?utm_source=linkedin&utm_medium=social&utm_campaign=launch&cta_id=linkedin_home',
+      'https://thumbgate.app/go/android?utm_source=linkedin&utm_medium=organic&utm_campaign=launch&cta_id=linkedin_home',
+    ].join('\n'),
+  );
+
+  const result = auditPublishableStoreCopy(root);
+  assert.deepEqual(
+    result.findings.map((finding) => finding.rule),
+    ['reused-journey-cta-id'],
+  );
+});
+
 test('store experiment proof requires independent active receipts for both stores', () => {
   const now = Date.parse('2026-07-30T20:00:00Z');
   const root = makeTempDirectory();
@@ -357,22 +377,25 @@ test('content log summary keeps provider-visible and draft states separate', () 
       '2026-07-30\tdev.to\tlaunch\tPublished\t—',
       '2026-07-30\tLinkedIn\tlaunch\tPosted\thttps://example.com/posted',
       '2026-07-30\tThreads\tlaunch\tPosted\t—',
+      '2026-07-30\tMastodon\tlaunch\tLIVE\thttps://example.com/live',
+      '2026-07-30\tBluesky\tlaunch\tLIVE\t—',
     ].join('\n'),
   );
 
   assert.deepEqual(summarizeContentLog(logPath), {
     status: 'fail',
-    totalRows: 6,
+    totalRows: 8,
     statusCounts: {
       blocked: 1,
       drafted: 1,
+      live: 2,
       posted: 2,
       published: 2,
     },
     publishedWithReceipt: 1,
     publishedWithoutReceipt: 1,
-    liveWithReceipt: 2,
-    liveWithoutReceipt: 2,
+    liveWithReceipt: 3,
+    liveWithoutReceipt: 3,
   });
 });
 

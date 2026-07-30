@@ -236,6 +236,47 @@ test('buildScoreboard refuses a campaign with landing and direct-store CTAs', ()
   assert.strictEqual(mixed.directStoreClicks, 5);
 });
 
+test('buildScoreboard treats store clicks above same-CTA landing capacity as mixed', () => {
+  const report = buildScoreboard({
+    contentRows: [
+      {
+        date: '2026-07-30',
+        platform: 'LinkedIn',
+        hook: 'reused CTA',
+        campaign: 'shared-cta',
+        status: 'Published',
+        postUrl: 'https://linkedin.com/shared',
+      },
+    ],
+    attributionRows: [
+      {
+        event: 'landing_view',
+        utmCampaign: 'shared-cta',
+        ctaId: 'shared-cta_home',
+        count: 5,
+      },
+      {
+        event: 'play_store_click',
+        utmCampaign: 'shared-cta',
+        ctaId: 'shared-cta_home',
+        count: 10,
+      },
+    ],
+    lookbackDays: 30,
+    minEvents: 5,
+  });
+
+  assert.strictEqual(report.decision, 'MIXED_JOURNEYS');
+  assert.strictEqual(report.winner, null);
+  const mixed = report.campaigns.find(
+    (campaign) => campaign.campaign === 'shared-cta',
+  );
+  assert.strictEqual(mixed.journeyType, 'mixed');
+  assert.strictEqual(mixed.landingStoreClicks, 5);
+  assert.strictEqual(mixed.directStoreClicks, 5);
+  assert.strictEqual(mixed.ctrProxy, null);
+});
+
 test('buildScoreboard prefers exact campaign IDs over prefix collisions', () => {
   const report = buildScoreboard({
     contentRows: [

@@ -193,7 +193,7 @@ function auditRequiredHeroCtas(file, body, root) {
     const campaignKey = `${source}\u0000${campaign}`;
     if (checkedCampaigns.has(campaignKey)) continue;
     checkedCampaigns.add(campaignKey);
-    const hasHero = heroes.some(
+    const matchingHeroes = heroes.filter(
       (hero) =>
         hero.searchParams.get('utm_source') === source &&
         hero.searchParams.get('utm_medium') === 'social' &&
@@ -202,12 +202,23 @@ function auditRequiredHeroCtas(file, body, root) {
           hero.searchParams.get('cta_id') || '',
         ),
     );
-    if (!hasHero) {
+    if (matchingHeroes.length === 0) {
       findings.push({
         rule: 'missing-required-hero-cta',
         file: path.relative(root, file),
         line: body.slice(0, match.index).split(/\r?\n/).length,
         excerpt: `source=${source} campaign=${campaign}`,
+      });
+    } else if (
+      matchingHeroes.some(
+        (hero) => hero.searchParams.get('cta_id') === ctaId,
+      )
+    ) {
+      findings.push({
+        rule: 'reused-journey-cta-id',
+        file: path.relative(root, file),
+        line: body.slice(0, match.index).split(/\r?\n/).length,
+        excerpt: `cta_id=${ctaId} identifies both hero and direct store routes`,
       });
     }
   }
@@ -345,7 +356,11 @@ function summarizeContentLog(logPath = CONTENT_LOG) {
       if (hasReceipt) publishedWithReceipt += 1;
       else publishedWithoutReceipt += 1;
     }
-    if (status === 'published' || status === 'posted') {
+    if (
+      status === 'published' ||
+      status === 'posted' ||
+      status === 'live'
+    ) {
       if (hasReceipt) liveWithReceipt += 1;
       else liveWithoutReceipt += 1;
     }
