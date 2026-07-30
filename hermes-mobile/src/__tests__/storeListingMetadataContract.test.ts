@@ -32,6 +32,7 @@ describe('store listing metadata contract (stellar live)', () => {
   it('Play descriptions stay within limits and the paid listing targets Hermes AI intent', () => {
     const short = read(path.join(ANDROID, 'short_description.txt'));
     const paidShort = read(path.join(ANDROID, 'paid_short_description.txt'));
+    const paidFull = read(path.join(ANDROID, 'paid_full_description.txt'));
     expect(short.length).toBeLessThanOrEqual(80);
     expect(paidShort.length).toBeLessThanOrEqual(80);
     // The unpublished legacy package remains source-compatible while the live paid
@@ -42,9 +43,11 @@ describe('store listing metadata contract (stellar live)', () => {
     expect(short).toMatch(/once/i);
     expect(short).toMatch(/not phone AI/i);
     expect(paidShort).toMatch(/Hermes AI/i);
-    expect(paidShort).toMatch(/from your phone/i);
-    expect(paidShort).toMatch(/approve tools/i);
+    expect(paidShort).toMatch(/Mac, Windows & Linux/i);
+    expect(paidShort).toMatch(/approve tools remotely/i);
     expect(paidShort).not.toMatch(/\$|free|no ads/i);
+    expect(paidFull).toMatch(/^Keep Hermes moving when you step away from your computer\./);
+    expect(paidFull).toMatch(/Pay once\. No ads\./);
   });
 
   it('Play full description does not claim iOS is still in review', () => {
@@ -81,15 +84,20 @@ describe('store listing metadata contract (stellar live)', () => {
   it('iOS subtitle and promo fit limits and avoid review-stale language', () => {
     const subtitle = read(path.join(IOS, 'subtitle.txt'));
     const promo = read(path.join(IOS, 'promotional_text.txt'));
+    const description = read(path.join(IOS, 'description.txt'));
     const keywords = read(path.join(IOS, 'keywords.txt'));
     expect(subtitle.length).toBeLessThanOrEqual(30);
     expect(promo.length).toBeLessThanOrEqual(170);
     expect(keywords.length).toBeLessThanOrEqual(100);
     expect(promo).not.toMatch(/in App Store review/i);
     expect(subtitle).not.toMatch(/Claude Code|Cursor/i);
-    expect(subtitle).toMatch(/Mac/i);
+    expect(subtitle).toBe('Remote AI agent control');
     expect(promo).toMatch(/not a phone chatbot|not phone/i);
     expect(promo).toMatch(/pay once|once/i);
+    expect(description).toMatch(/^Keep Hermes moving when you step away from your computer\./);
+    expect(description).toMatch(/PAID-UPFRONT APP/);
+    expect(description).toMatch(/No Hermes Mobile subscription\./);
+    expect(description).not.toMatch(/paid unlock|\$19\.99\/mo/i);
     expect(keywords).toMatch(/remote,coding,assistant,desktop,control/i);
     expect(keywords).toMatch(/linux,windows,selfhosted,local,computer/i);
     expect(keywords).not.toMatch(/\s/);
