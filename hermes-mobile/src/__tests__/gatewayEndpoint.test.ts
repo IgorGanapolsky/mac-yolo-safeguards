@@ -31,12 +31,12 @@ describe('formatGatewayHostLabel', () => {
     expect(formatGatewayHostLabel('http://hermes-mac.local:8642', null)).toBe('hermes-mac.local');
   });
 
-  it('labels loopback gateway as machine name plus USB', () => {
+  it('labels a loopback gateway with the machine name and never the cable', () => {
     expect(
       formatGatewayHostLabel('http://127.0.0.1:8642', sampleHealth({
         hostname: 'Igors-MacBook-Pro.local',
       })),
-    ).toBe('Igors-MacBook-Pro · USB');
+    ).toBe('Igors-MacBook-Pro');
   });
 
   it('ignores unknown placeholders from health', () => {
@@ -128,7 +128,7 @@ describe('formatLeashConnectionDisplay', () => {
     expect(display.headline).toContain('computer');
   });
 
-  it('shows USB Connected when relay is unpaired but Mac HTTP is up', () => {
+  it('shows Connected without naming a cable when relay is unpaired but Mac HTTP is up', () => {
     const display = formatLeashConnectionDisplay({
       connectionMode: 'relay',
       connectionState: 'disconnected',
@@ -140,7 +140,8 @@ describe('formatLeashConnectionDisplay', () => {
       }),
       isPaired: false,
     });
-    expect(display.headline).toBe('Connected via USB · Igors-MacBook-Pro');
+    expect(display.headline).toBe('Connected · Igors-MacBook-Pro');
+    expect(display.headline).not.toMatch(/usb/i);
     expect(display.footnote).toMatch(/Optional/i);
     expect(display.headline).not.toMatch(/not paired/i);
     expect(display.footnote).not.toMatch(/not paired/i);
