@@ -219,14 +219,43 @@ function ndcgAtK(rankedPaths, relevantSubstrings, k) {
       ? 1
       : 0;
   const top = rankedPaths.slice(0, k);
-  const pathRel = top.map(rel);
+
+  // Credit each relevant substring AT MOST ONCE. Several retrieved paths can
+  // match the same expectation (e.g. `foo.ts` and `foo.test.ts` both contain
+  // "foo"), and counting each of them as a separate relevant document inflates
+  // DCG above what the ideal ranking could ever achieve.
+  const credited = new Set();
+  const pathRel = top.map((p) => {
+    const norm = p.replace(/\\/g, '/');
+    const sub = relevantSubstrings.find(
+      (s) => !credited.has(s) && (p.includes(s) || norm.includes(s)),
+    );
+    if (!sub) return 0;
+    credited.add(sub);
+    return 1;
+  });
   const dcg = pathRel.reduce((s, r, i) => s + r / Math.log2(i + 2), 0);
-  // Ideal: all relevant docs first. Count = min(k, relevant hits in top-k list)
-  // so multiple matches for one substring don't invent nDCG > 1.
-  const idealCount = Math.min(k, pathRel.reduce((s, r) => s + r, 0) || relevantSubstrings.length);
+
+  // The ideal ranking is over the documents we KNOW are relevant — not the ones
+  // we happened to retrieve.
+  //
+  // This previously read:
+  //     Math.min(k, pathRel.reduce((s, r) => s + r, 0) || relevantSubstrings.length)
+  // i.e. IDCG was derived from the number of relevant docs FOUND. That makes
+  // partial retrieval score perfectly: with 3 relevant docs, finding only 1 and
+  // ranking it first gave nDCG 1.0 — identical to finding all 3 in perfect
+  // order. nDCG could therefore not distinguish good ranking from bad recall,
+  // which is the single thing it exists to measure. Correct value for that case
+  // is 0.4693.
+  //
+  // The `|| relevantSubstrings.length` fallback never rescued it: it only fired
+  // when zero were found, and in that case DCG is 0 so the result is 0 anyway.
+  const idealCount = Math.min(k, relevantSubstrings.length);
   let idcg = 0;
   for (let i = 0; i < idealCount; i += 1) idcg += 1 / Math.log2(i + 2);
-  if (idcg === 0) return pathRel.some(Boolean) ? 1 : 0;
+  // No relevant documents were declared, so there is nothing to rank well or
+  // badly. Returning 1 here would reward a case with empty expectations.
+  if (idcg === 0) return 0;
   return Number(Math.min(1, dcg / idcg).toFixed(4));
 }
 
