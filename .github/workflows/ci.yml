@@ -86,6 +86,11 @@ jobs:
           set -eu
           bash tests/test-hermes-mobile-pair.sh
 
+      - name: Continuous E2E emulator-fallback contract
+        run: |
+          set -eu
+          bash tests/test-continuous-e2e-emulator-fallback.sh
+
       - name: Hermes gateway watchdog e2e orchestration suite
         run: |
           set -eu

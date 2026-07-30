@@ -133,6 +133,11 @@ EOF
   notify_e2e_slo "$e2e_status" "$detail"
 }
 
+# Same default AVD as run-e2e.sh / fresh-user — CI + local dogfood.
+MAESTRO_AVD_NAME="${HERMES_E2E_AVD_NAME:-Maestro_ANDROID_pixel_6_android-33}"
+# Wait budget for cold AVD boot (24 × 5s-style waits in wait helpers ≈ 2m).
+EMULATOR_BOOT_WAIT_LOOPS="${HERMES_E2E_EMULATOR_BOOT_WAIT_LOOPS:-36}"
+
 first_android_emulator_id() {
   adb devices 2>/dev/null | awk 'NR>1 && $2=="device" && $1 ~ /^emulator-/ {print $1; exit}'
 }
@@ -143,12 +148,83 @@ has_android_emulator() {
   [[ -n "$id" ]] && adb -s "$id" shell echo ok >/dev/null 2>&1
 }
 
+resolve_emulator_bin() {
+  if command -v emulator >/dev/null 2>&1; then
+    command -v emulator
+    return 0
+  fi
+  local candidates=(
+    "${ANDROID_HOME:-}/emulator/emulator"
+    "${ANDROID_SDK_ROOT:-}/emulator/emulator"
+    "${HOME}/Library/Android/sdk/emulator/emulator"
+  )
+  local c
+  for c in "${candidates[@]}"; do
+    if [[ -n "$c" && -x "$c" ]]; then
+      printf '%s\n' "$c"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Wait until an emulator serial is `device` and `adb shell echo` works.
+wait_for_running_emulator() {
+  local loops="${1:-$EMULATOR_BOOT_WAIT_LOOPS}"
+  local i=0
+  local id
+  while [[ $i -lt $loops ]]; do
+    id="$(first_android_emulator_id)"
+    if [[ -n "$id" ]] && adb -s "$id" shell echo ok >/dev/null 2>&1; then
+      printf '%s\n' "$id"
+      return 0
+    fi
+    sleep 5
+    i=$((i + 1))
+  done
+  return 1
+}
+
+# Boot the Maestro AVD when none is online (LaunchAgent phone-awake path).
+# Mirrors run-e2e.sh boot_maestro_avd so continuous E2E can write pass|fail
+# instead of perpetual e2e=skipped while Igor holds the USB phone.
+boot_continuous_e2e_avd() {
+  if [[ "${HERMES_E2E_BOOT_AVD:-1}" != "1" ]]; then
+    echo "HERMES_E2E_BOOT_AVD=0 — not booting emulator" >&2
+    return 1
+  fi
+  local emulator_bin
+  emulator_bin="$(resolve_emulator_bin || true)"
+  if [[ -z "$emulator_bin" ]]; then
+    echo "Android emulator binary not found — cannot boot ${MAESTRO_AVD_NAME}" >&2
+    return 1
+  fi
+  if ! "$emulator_bin" -list-avds 2>/dev/null | grep -qx "$MAESTRO_AVD_NAME"; then
+    echo "AVD ${MAESTRO_AVD_NAME} not installed — cannot auto-fallback" >&2
+    return 1
+  fi
+  if has_android_emulator; then
+    first_android_emulator_id
+    return 0
+  fi
+  mkdir -p "$LOG_DIR"
+  echo "Booting Android AVD ${MAESTRO_AVD_NAME} for continuous E2E fallback..."
+  nohup "$emulator_bin" -avd "$MAESTRO_AVD_NAME" -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect \
+    >>"${LOG_DIR}/emulator.log" 2>&1 &
+  wait_for_running_emulator "$EMULATOR_BOOT_WAIT_LOOPS"
+}
+
 # Prefer emulator when the USB phone is human-held / awake so LaunchAgent still
 # can write e2e=pass|fail instead of perpetual e2e=skipped.
+# 2026-07-30: previously only reused an *already running* emulator — if none was
+# online, continuous E2E skipped forever while the phone stayed Awake.
 enable_emulator_fallback() {
   local reason="$1"
   local emu_id
   emu_id="$(first_android_emulator_id)"
+  if [[ -z "$emu_id" ]] || ! adb -s "$emu_id" shell echo ok >/dev/null 2>&1; then
+    emu_id="$(boot_continuous_e2e_avd || true)"
+  fi
   if [[ -z "$emu_id" ]] || ! adb -s "$emu_id" shell echo ok >/dev/null 2>&1; then
     return 1
   fi
@@ -156,6 +232,8 @@ enable_emulator_fallback() {
   export HERMES_E2E_ANDROID_ONLY=1
   export HERMES_E2E_ANDROID_UDID="$emu_id"
   unset HERMES_E2E_IOS_ONLY
+  # Prevent run-e2e.sh from preferring the USB phone over the emulator we just chose.
+  export HERMES_E2E_PREFER_EMULATOR=1
   echo "continuous E2E: ${reason} — using Android emulator ${emu_id}"
   return 0
 }

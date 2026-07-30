@@ -116,6 +116,17 @@ ANDROID_ID=""
 
 if [[ "${HERMES_E2E_IOS_ONLY:-}" == "1" ]]; then
   ANDROID_ID=""
+elif [[ -n "${HERMES_E2E_ANDROID_UDID:-}" ]]; then
+  # Continuous E2E emulator fallback / explicit UDID wins over a human-held USB phone.
+  echo "Using Android device from HERMES_E2E_ANDROID_UDID=${HERMES_E2E_ANDROID_UDID}..."
+  if android_device_responsive "${HERMES_E2E_ANDROID_UDID}"; then
+    ANDROID_ID="${HERMES_E2E_ANDROID_UDID}"
+  else
+    ANDROID_ID="$(wait_for_android_device 12 || true)"
+    if [[ -z "$ANDROID_ID" && android_device_responsive "${HERMES_E2E_ANDROID_UDID}" ]]; then
+      ANDROID_ID="${HERMES_E2E_ANDROID_UDID}"
+    fi
+  fi
 else
   ANDROID_ID="$(first_usb_android_id || true)"
   if [[ -z "$ANDROID_ID" ]]; then
@@ -124,11 +135,6 @@ else
       ANDROID_ID="$candidate"
     fi
   fi
-fi
-
-if [[ -z "$ANDROID_ID" && -n "${HERMES_E2E_ANDROID_UDID:-}" ]]; then
-  echo "Waiting for Android device ${HERMES_E2E_ANDROID_UDID}..."
-  ANDROID_ID="$(wait_for_android_device 12 || true)"
 fi
 
 if [[ -z "$ANDROID_ID" && "${HERMES_E2E_ANDROID_ONLY:-}" != "1" && "${HERMES_E2E_IOS_ONLY:-}" != "1" ]]; then
