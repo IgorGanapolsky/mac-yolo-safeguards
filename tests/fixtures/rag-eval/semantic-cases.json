@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "description": "Semantic retrieval cases for hermes-retrieval-hybrid.js. These queries use natural language that requires conceptual understanding, not just keyword matching. Cases are tagged with requiredBackends to indicate which backend(s) must succeed. CI-safe: keyword-only cases degrade gracefully when grepai is unavailable.",
+  "modes": {
+    "keyword": "hermes-retrieval-hybrid.js --query Q --skip-embedding (pure BM25 + query rewriting + metadata scoring)",
+    "hybrid": "hermes-retrieval-hybrid.js --query Q (keyword + embedding via RRF/blend)"
+  },
+  "cases": [
+    {
+      "id": "social-publish-gate",
+      "description": "Conceptual: 'double posting' → tools/social-publish-gate.js. Keyword-only misses; hybrid ranks #1 via embedding.",
+      "query": "prevents double posting on LinkedIn",
+      "mustIncludePathSubstrings": ["tools/social-publish-gate.js"],
+      "k": 8,
+      "requiredBackends": "hybrid",
+      "keywordOnlyPass": false,
+      "hybridPass": true
+    },
+    {
+      "id": "gateway-discovery",
+      "description": "Conceptual: 'discovers computers on local network' → gatewayDiscovery.ts. Keyword-only ranks #8+; hybrid finds it in top-k.",
+      "query": "mobile app discovers computers on local network",
+      "mustIncludePathSubstrings": ["hermes-mobile/src/services/gatewayDiscovery.ts"],
+      "k": 8,
+      "requiredBackends": "hybrid",
+      "keywordOnlyPass": false,
+      "hybridPass": true
+    },
+    {
+      "id": "agent-coordination",
+      "description": "Regression guard: 'agent coordination rules' → docs/agents/coordination.md. Both backends should find this.",
+      "query": "where are agent coordination rules documented",
+      "mustIncludePathSubstrings": ["docs/agents/coordination.md"],
+      "k": 8,
+      "requiredBackends": "both",
+      "keywordOnlyPass": true,
+      "hybridPass": true
+    },
+    {
+      "id": "resource-lease-singleton",
+      "description": "Conceptual: 'singleton resource leasing chrome' → tools/resource-lease.js. Keyword finds it; hybrid should not regress it beyond top-20. Note: file not yet in grepai index (isolated clone behind), so hybrid preserves keyword ranking at a larger k.",
+      "query": "singleton resource leasing for shared chrome",
+      "mustIncludePathSubstrings": ["tools/resource-lease.js"],
+      "k": 8,
+      "noRegressionK": 20,
+      "requiredBackends": "keyword",
+      "keywordOnlyPass": true,
+      "hybridPass": true
+    },
+    {
+      "id": "hardware-leash-usb",
+      "description": "Conceptual: 'USB watchdog kill switch' → tools/hermes-hardware-leash.js. Both should find via path tokens.",
+      "query": "hardware leash USB watchdog kill switch reverse tether",
+      "mustIncludePathSubstrings": ["tools/hermes-hardware-leash.js", "docs/HERMES-HARDWARE-LEASH.md"],
+      "k": 10,
+      "requiredBackends": "both",
+      "keywordOnlyPass": true,
+      "hybridPass": true
+    },
+    {
+      "id": "social-publish-gate-rrf",
+      "description": "Same as social-publish-gate but using --mode rrf instead of weighted blend.",
+      "query": "prevents double posting on LinkedIn",
+      "mustIncludePathSubstrings": ["tools/social-publish-gate.js"],
+      "k": 8,
+      "requiredBackends": "hybrid",
+      "mode": "rrf",
+      "keywordOnlyPass": false,
+      "hybridPass": true
+    }
+  ]
+}
