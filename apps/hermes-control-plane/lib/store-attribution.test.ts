@@ -3,6 +3,7 @@ import type { FunnelAttribution } from "./funnel-attribution";
 
 type DbCall = { sql: string; bindings: unknown[] };
 const dbCalls: DbCall[] = [];
+let batchCalls = 0;
 
 vi.mock("@/lib/runtime", () => ({
   db: () => ({
@@ -14,6 +15,10 @@ vi.mock("@/lib/runtime", () => ({
         },
       }),
     }),
+    batch: async (statements: Array<{ run: () => Promise<unknown> }>) => {
+      batchCalls += 1;
+      return Promise.all(statements.map((statement) => statement.run()));
+    },
   }),
 }));
 
@@ -34,6 +39,7 @@ const attribution: FunnelAttribution = {
 describe("store attribution", () => {
   beforeEach(() => {
     dbCalls.length = 0;
+    batchCalls = 0;
   });
 
   it("encodes sanitized campaign tokens into the Google Play Install Referrer", () => {
@@ -77,6 +83,12 @@ describe("store attribution", () => {
           },
         }),
       }),
+      batch: async (
+        statements: Array<{ run: () => Promise<unknown> }>,
+      ) => {
+        batchCalls += 1;
+        return Promise.all(statements.map((statement) => statement.run()));
+      },
     } as unknown as D1Database;
 
     await bumpFunnelEvent(
@@ -87,6 +99,7 @@ describe("store attribution", () => {
     );
 
     expect(dbCalls).toHaveLength(2);
+    expect(batchCalls).toBe(1);
     expect(dbCalls[0]?.bindings).toEqual([
       "2026-07-30",
       "play_store_click",

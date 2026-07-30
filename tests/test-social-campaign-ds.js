@@ -236,6 +236,48 @@ test('buildScoreboard refuses a campaign with landing and direct-store CTAs', ()
   assert.strictEqual(mixed.directStoreClicks, 5);
 });
 
+test('buildScoreboard prefers exact campaign IDs over prefix collisions', () => {
+  const report = buildScoreboard({
+    contentRows: [
+      {
+        date: '2026-07-30',
+        platform: 'LinkedIn',
+        hook: 'base',
+        campaign: 'week_20260710',
+        status: 'Published',
+        postUrl: 'https://linkedin.com/base',
+      },
+      {
+        date: '2026-07-30',
+        platform: 'X',
+        hook: 'ai',
+        campaign: 'week_20260710_ai_agents',
+        status: 'Published',
+        postUrl: 'https://x.com/ai',
+      },
+    ],
+    attributionRows: [
+      {
+        event: 'landing_view',
+        utmCampaign: 'week_20260710_ai_agents',
+        ctaId: 'week_20260710_ai_agents_home',
+        count: 7,
+      },
+    ],
+    lookbackDays: 30,
+    minEvents: 5,
+  });
+
+  const base = report.campaigns.find(
+    (campaign) => campaign.campaign === 'week_20260710',
+  );
+  const ai = report.campaigns.find(
+    (campaign) => campaign.campaign === 'week_20260710_ai_agents',
+  );
+  assert.strictEqual(base.attributedTotal, 0);
+  assert.strictEqual(ai.attributedTotal, 7);
+});
+
 test('LIVE posts with zero attribution produce lesson', () => {
   const report = buildScoreboard({
     contentRows: [

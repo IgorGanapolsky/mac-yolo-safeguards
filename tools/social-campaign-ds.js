@@ -181,11 +181,22 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
     const uc = normalizeToken(utmCampaign);
     const cta = normalizeToken(ctaId);
     if (uc) {
-      for (const key of campaignKeys) {
-        if (normalizeToken(key) === uc) return key;
-        // content-log campaign often uses hyphens; allow loose contains both ways
-        if (uc.includes(normalizeToken(key)) || normalizeToken(key).includes(uc)) return key;
-      }
+      const candidates = campaignKeys.map((key) => ({
+        key,
+        normalized: normalizeToken(key),
+      }));
+      const exact = candidates.find((candidate) => candidate.normalized === uc);
+      if (exact) return exact.key;
+      // Prefer the longest substantial loose match so prefix-related campaign
+      // IDs cannot steal an exact-but-later campaign's attribution.
+      const loose = candidates
+        .filter(
+          (candidate) =>
+            uc.includes(candidate.normalized) ||
+            candidate.normalized.includes(uc),
+        )
+        .sort((left, right) => right.normalized.length - left.normalized.length);
+      if (loose[0]) return loose[0].key;
     }
     if (cta) {
       for (const key of campaignKeys) {

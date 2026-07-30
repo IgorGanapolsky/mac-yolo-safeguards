@@ -27,6 +27,9 @@ even when no landing-page JavaScript runs. Each write increments:
 - `funnel_counters`: content-free aggregate by day and event.
 - `funnel_attribution_counters`: campaign dimensions by day and event.
 
+Attributed increments use one D1 transaction, so an aggregate count cannot
+commit without its matching campaign row.
+
 Android also forwards the same tokens in Google Play's `referrer` parameter.
 When a visitor lands on the control plane with campaign parameters and then
 uses a bare store badge, the redirect recovers those dimensions only from a
@@ -42,6 +45,9 @@ separate comparison cohorts. It never substitutes a synthetic 100% click rate
 for a direct-store link or crowns a winner across unlike funnels. A campaign
 that reuses one campaign ID for both hero landing and secondary direct-store
 CTAs is labeled `mixed` and excluded from winner decisions.
+Campaign matching resolves exact IDs before any loose compatibility match, so
+prefix-related batches such as `week_20260710` and
+`week_20260710_ai_agents` cannot steal each other's events.
 The current release does not yet read the Install Referrer inside the mobile
 binary, so this change proves the source of a store click but not the campaign
 that caused a completed install. That mobile consumer belongs with the claimed
