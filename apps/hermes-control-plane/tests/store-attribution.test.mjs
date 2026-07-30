@@ -3,10 +3,11 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("store redirects record server-side attribution and Android forwards Install Referrer", async () => {
-  const [androidRoute, iosRoute, funnelSignals] = await Promise.all([
+  const [androidRoute, iosRoute, funnelSignals, storeBadges] = await Promise.all([
     readFile(new URL("../app/go/android/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/go/ios/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/FunnelSignals.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/StoreBadges.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(androidRoute, /recordStoreRedirect/);
@@ -22,5 +23,13 @@ test("store redirects record server-side attribution and Android forwards Instal
   assert.match(
     funnelSignals,
     /SERVER_RECORDED_EVENTS\.has\(funnelEvent\)/,
+  );
+  assert.doesNotMatch(
+    storeBadges,
+    /href="\/go\/(?:android|ios)"[\s\S]{0,300}?rel="[^"]*\bnoreferrer\b/,
+  );
+  assert.equal(
+    storeBadges.match(/href="\/go\/(?:android|ios)"/g)?.length,
+    2,
   );
 });

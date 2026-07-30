@@ -24,6 +24,29 @@ test.beforeEach(async ({ context }) => {
   }]);
 });
 
+test("a landing campaign survives the real browser store-badge request", async ({ context, page }) => {
+  await context.route("https://play.google.com/**", (route) => route.abort());
+  await page.goto(
+    "/?utm_source=playwright&utm_medium=e2e&utm_campaign=badge_referrer&cta_id=hero_play",
+  );
+
+  const storeRequestPromise = context.waitForEvent(
+    "request",
+    (request) => new URL(request.url()).pathname === "/go/android",
+  );
+  await page.getByLabel("Get Hermes Mobile on Google Play").first().click();
+  const storeRequest = await storeRequestPromise;
+  const referrer = new URL(storeRequest.headers().referer);
+
+  expect(referrer.origin).toBe(new URL(state.baseURL).origin);
+  expect(Object.fromEntries(referrer.searchParams)).toEqual({
+    utm_source: "playwright",
+    utm_medium: "e2e",
+    utm_campaign: "badge_referrer",
+    cta_id: "hero_play",
+  });
+});
+
 test("a scheduled cron-automation session never appears as a thread in the real dashboard", async ({ page }) => {
   // Real connector process, real sync call, against the fake gateway seeded (in
   // global-setup) with a cron-shaped session id -- the exact bug from Igor's live report.

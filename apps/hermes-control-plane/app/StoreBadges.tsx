@@ -36,7 +36,7 @@ export function GooglePlayBadge({ className = "", size = "default" }: StoreBadge
       className={`store-badge store-badge-play ${size === "lg" ? "store-badge-lg" : ""} ${className}`.trim()}
       data-funnel-event="play_store_click"
       target="_blank"
-      rel="noopener noreferrer"
+      rel="noopener"
       aria-label="Get Hermes Mobile on Google Play"
     >
       <GooglePlayMark className="store-badge-mark" />
@@ -55,7 +55,7 @@ export function AppStoreBadge({ className = "", size = "default" }: StoreBadgePr
       className={`store-badge store-badge-ios ${size === "lg" ? "store-badge-lg" : ""} ${className}`.trim()}
       data-funnel-event="app_store_click"
       target="_blank"
-      rel="noopener noreferrer"
+      rel="noopener"
       aria-label="Download Hermes AI Agent Leash on the App Store"
     >
       <AppleMark className="store-badge-mark store-badge-mark-apple" />
