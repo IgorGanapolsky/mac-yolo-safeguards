@@ -1,1 +1,1 @@
-remote,coding,assistant,desktop,control,linux,windows,selfhosted,local,computer,developer
+remote,coding,desktop,gateway,operator,devtools,tailscale,usb,wifi,phone,pair,linux,windows,safety
