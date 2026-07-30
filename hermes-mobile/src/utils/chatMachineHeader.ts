@@ -370,6 +370,57 @@ export function assertUsbHeaderIdentityLaw(input: {
   return null;
 }
 
+/**
+ * Last real machine name we actually know before falling back to the
+ * "Your computer" placeholder.
+ *
+ * DEFECT (2026-07-30, real device): the header read "Your computer · Waiting for
+ * approval pairing…" even though the machine name was knowable. The two
+ * placeholder assignments below fired on `!activeProfile` alone and threw away
+ * names that were already in hand — the relay's own worker list and a single
+ * saved computer. This resolves the name from the sources we have instead of
+ * hard-coding the placeholder; "Your computer" is now only used when nothing
+ * whatsoever identifies the machine.
+ *
+ * Deliberately conservative: with more than one saved computer and no active
+ * selection there is no unambiguous answer, so the placeholder still wins
+ * (never invent which Mac the user meant).
+ */
+function knownMachineNameOrPlaceholder(input: {
+  workers: RelayWorker[];
+  activeWorkerId?: string | null;
+  profiles?: GatewayProfile[];
+  health?: GatewayHealthSnapshot | null;
+}): string {
+  const worker = selectRelayWorker(input.workers, input.activeWorkerId);
+  if (worker) {
+    const workerName = relayWorkerDisplayName(worker).trim();
+    if (workerName && !isUnresolvedMachineName(workerName)) {
+      return stripTransportSuffixFromComputerName(workerName);
+    }
+  }
+
+  const profiles = input.profiles ?? [];
+  if (profiles.length === 1) {
+    const only = profiles[0];
+    const profileName = profileDisplayName(only).trim();
+    if (profileName && !isUnresolvedMachineName(profileName)) {
+      return stripTransportSuffixFromComputerName(profileName);
+    }
+    const profileHost = only.hostname?.replace(/\.local$/i, '').trim();
+    if (profileHost && !isUnresolvedMachineName(profileHost)) {
+      return stripTransportSuffixFromComputerName(profileHost);
+    }
+  }
+
+  const fromHealth = healthHostname(input.health);
+  if (fromHealth && !isUnresolvedMachineName(fromHealth)) {
+    return stripTransportSuffixFromComputerName(fromHealth);
+  }
+
+  return 'Your computer';
+}
+
 export function resolveChatMachineHeaderDisplay(input: {
   activeProfile?: GatewayProfile | null;
   gatewayUrl: string;
@@ -399,7 +450,9 @@ export function resolveChatMachineHeaderDisplay(input: {
 
   if (input.connectionMode === 'relay') {
     if (!input.isPaired && !input.activeProfile) {
-      machineLabel = 'Your computer';
+      // Unpaired relay: still prefer a real name we already know (relay worker /
+      // single saved computer / live health) over the "Your computer" placeholder.
+      machineLabel = knownMachineNameOrPlaceholder(input);
     } else if (input.isPaired) {
       const worker = selectRelayWorker(input.workers, input.activeWorkerId);
       if (worker && !input.activeProfile) {
@@ -407,8 +460,9 @@ export function resolveChatMachineHeaderDisplay(input: {
       }
     }
   } else if (!gatewayUrl && !input.activeProfile && !input.isDemo) {
-    // Fresh gateway-mode install with no URL — never claim "Computer via USB".
-    machineLabel = 'Your computer';
+    // Fresh gateway-mode install with no URL — never claim a transport we cannot
+    // prove, but do use a real machine name when one is already known.
+    machineLabel = knownMachineNameOrPlaceholder(input);
   }
 
   // No URL yet: skip USB/IP endpoint details entirely.

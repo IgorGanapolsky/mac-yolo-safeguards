@@ -60,10 +60,28 @@ export function formatLanScanStageLabel(progress: LanScanProgress): string {
 }
 
 /**
+ * True when every unique computer this scan found was reached over the loopback
+ * cable path and nothing else.
+ *
+ * Structural replacement for the old `/over USB|Using USB/` regex on the banner
+ * title. The title no longer names the cable (2026-07-30 Tailscale-only copy
+ * rule), so callers that need to know "this was a cable-only discovery" must ask
+ * the counts, not the user-facing string.
+ */
+export function isLoopbackOnlyScanReach(input: number | LanScanReachCounts): boolean {
+  const counts = asReachCounts(input);
+  return (
+    (counts.usbCount ?? 0) > 0 &&
+    (counts.lanCount ?? 0) === 0 &&
+    (counts.tailscaleCount ?? 0) === 0
+  );
+}
+
+/**
  * Result banner copy rules:
  * - "local" only when every unique computer's winning URL is true LAN/mDNS (RFC1918 / .local), never Tailscale 100.64/10.
  * - Tailscale-only → "Found N on Tailscale"
- * - USB-only → "Found N over USB" (discovery path — never "Using USB"; that implies the active chat route)
+ * - Loopback-only → neutral count (the cable is never named to the user)
  * - Mixed or unknown reach → neutral "Found N Hermes computers" (never "local")
  */
 export function formatLanScanResultLabel(input: number | LanScanReachCounts): string {
@@ -86,7 +104,8 @@ export function formatLanScanResultLabel(input: number | LanScanReachCounts): st
     return `Found ${foundCount} on Tailscale`;
   }
   if (usb > 0 && lan === 0 && tailscale === 0) {
-    return `Found ${foundCount} over USB`;
+    // Tailscale-only copy: report the count, never the cable.
+    return `Found ${foundCount} Hermes ${nounComputer(foundCount)}`;
   }
   if (lan > 0 && tailscale === 0 && usb === 0) {
     return `Found ${foundCount} local Hermes ${nounComputer(foundCount)}`;
@@ -108,7 +127,7 @@ export function formatLanScanResultDetail(result: LanScanResult): string {
     return 'Tap a computer below to target it, or search again to refresh the Tailscale list.';
   }
   if (usb > 0 && lan === 0 && tailscale === 0) {
-    return 'Tap a computer below to target it. Finding a Mac over USB does not change your current connection.';
+    return 'Tap a computer below to target it. Finding a Mac here does not change your current connection.';
   }
   if (lan > 0 && tailscale === 0 && usb === 0) {
     return 'Tap a computer below to target it, or search again to refresh the local list.';
