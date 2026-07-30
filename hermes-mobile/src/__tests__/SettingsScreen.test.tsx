@@ -129,9 +129,12 @@ describe('SettingsScreen', () => {
       ),
     ).toBeTruthy();
     expect(getByTestId('relay-route-title').props.children).toBe('Cloud approvals');
-    expect(getByTestId('relay-route-status').props.children.join('')).toContain(
-      'Pair to receive approval requests anywhere',
-    );
+    // Saved Mac + healthy HTTP + unpaired cloud: optional approvals status,
+    // not the fresh-install computer CTA and never "Waiting for approval pairing".
+    const relayStatus = getByTestId('relay-route-status').props.children.join('');
+    expect(relayStatus).toMatch(/Cloud approvals are not paired|Pair to receive approval/i);
+    expect(relayStatus).not.toMatch(/Waiting for approval pairing/i);
+    expect(getByTestId('relay-route-title').props.children).not.toBe('Your computer');
   });
 
   it('shows active relay workers when the account relay reports them', () => {

@@ -84,15 +84,21 @@ export function resolveRelayRouteDisplay(input: {
       !gatewayUrl ||
       gatewayUrl === 'http://127.0.0.1:8642' ||
       gatewayUrl === 'http://localhost:8642';
+    // Fresh install / never connected to a Mac: never say "approval pairing" —
+    // that reads as "wait for Mac approval" and is wrong. Cloud approvals are
+    // optional Leash lock-screen cards, not the path to chat with your computer
+    // (Play Store rage 2026-07-30: "Waiting for approval pairing" after reinstall).
     return {
-      machineLabel: 'Cloud approvals',
-      routeStatus: showPairNudge
-        ? 'Pair to receive approval requests anywhere'
-        : heal.inFlight
-          ? neverConnected
-            ? 'Waiting for approval pairing…'
-            : 'Reconnecting…'
-          : 'Cloud approvals are not paired',
+      machineLabel: neverConnected ? 'Your computer' : 'Cloud approvals',
+      routeStatus: neverConnected
+        ? heal.inFlight
+          ? 'Looking for your Mac…'
+          : 'Connect your Mac to chat'
+        : showPairNudge
+          ? 'Pair to receive approval requests anywhere'
+          : heal.inFlight
+            ? 'Reconnecting…'
+            : 'Cloud approvals are not paired',
     };
   }
 

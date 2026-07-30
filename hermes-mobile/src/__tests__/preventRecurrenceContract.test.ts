@@ -769,6 +769,29 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(display.machineEndpoint).toBe('Tailscale');
   });
 
+  it('S54: never show Waiting for approval pairing on fresh install (Play Store rage 2026-07-30)', () => {
+    // Cloud approval pairing ≠ Mac connection. Fresh Play install defaulted to
+    // "Your computer · Waiting for approval pairing…" which users read as "wait
+    // for the Mac to approve" — wrong. Computer-first copy only.
+    const relay = read('hermes-mobile/src/utils/relayRouting.ts')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '');
+    expect(relay).not.toMatch(/Waiting for approval pairing/);
+    const { resolveRelayRouteDisplay } = require('../utils/relayRouting') as typeof import('../utils/relayRouting');
+    const fresh = resolveRelayRouteDisplay({
+      connectionMode: 'relay',
+      isPaired: false,
+      connectionState: 'disconnected',
+      workers: [],
+      fallbackMachineLabel: 'Your computer',
+      gatewayUrl: '',
+      heal: { attempt: 1, inFlight: true, exhausted: false },
+      macHttpOk: false,
+    });
+    expect(fresh.routeStatus).not.toMatch(/approval pairing/i);
+    expect(fresh.routeStatus.toLowerCase()).toMatch(/mac|connect|looking/);
+  });
+
   it('S53: empty greeting never claims Tailscale is only for away / Wi‑Fi only when local (2026-07-30)', () => {
     // Screenshot class: "use Tailscale when you are away, or home Wi‑Fi when you are local"
     // while tun0 was up at home. Tailscale works on any network; home LAN needs same Wi‑Fi.

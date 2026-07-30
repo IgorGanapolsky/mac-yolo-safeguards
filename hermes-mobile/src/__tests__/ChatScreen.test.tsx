@@ -528,8 +528,13 @@ describe('ChatScreen', () => {
     expect(queryByTestId('chat-connection-panel')).toBeNull();
     expect(getByTestId('chat-input')).toBeTruthy();
     expect(getByTestId('chat-context-mac').props.children).toBe('Your computer');
+    // Fresh install: computer-first CTA — never "Waiting for approval pairing"
+    // (that was cloud-relay heal copy; Play users read it as Mac/Play approval).
     expect(getByTestId('chat-context-link').props.children).toContain(
-      'Pair to receive approval requests anywhere',
+      'Connect your Mac to chat',
+    );
+    expect(String(getByTestId('chat-context-link').props.children)).not.toMatch(
+      /Waiting for approval pairing/i,
     );
   });
 

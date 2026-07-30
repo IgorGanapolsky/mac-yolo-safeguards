@@ -31,6 +31,7 @@ describe('relayRouting', () => {
   });
 
   it('labels an unpaired cloud approval queue without implying computer transport', () => {
+    // With a real gateway URL (past first-run), cloud approvals are optional Leash pairing.
     const display = resolveRelayRouteDisplay({
       connectionMode: 'relay',
       isPaired: false,
@@ -38,6 +39,11 @@ describe('relayRouting', () => {
       workers,
       activeWorkerId: 'mac-mini',
       fallbackMachineLabel: '192.168.1.10',
+      gatewayUrl: 'http://192.168.1.10:8642',
+      wifiConnected: false,
+      hasAlternateRoutes: false,
+      heal: { attempt: 0, inFlight: false, exhausted: true },
+      macHttpOk: false,
     });
 
     expect(display.machineLabel).toBe('Cloud approvals');
@@ -74,8 +80,10 @@ describe('relayRouting', () => {
       heal: { attempt: 1, inFlight: true, exhausted: false },
       macHttpOk: false,
     });
-    expect(empty.routeStatus).toBe('Waiting for approval pairing…');
+    expect(empty.routeStatus).toBe('Looking for your Mac…');
+    expect(empty.routeStatus.toLowerCase()).not.toContain('approval');
     expect(empty.routeStatus.toLowerCase()).not.toContain('reconnect');
+    expect(empty.machineLabel).toBe('Your computer');
 
     const usb = resolveRelayRouteDisplay({
       connectionMode: 'relay',
@@ -87,7 +95,38 @@ describe('relayRouting', () => {
       heal: { attempt: 1, inFlight: true, exhausted: false },
       macHttpOk: false,
     });
-    expect(usb.routeStatus).toBe('Waiting for approval pairing…');
+    // Loopback without live Mac still counts as never-connected for copy purposes.
+    expect(usb.routeStatus).toBe('Looking for your Mac…');
+    expect(usb.routeStatus.toLowerCase()).not.toContain('approval');
+  });
+
+  it('never uses Waiting for approval pairing on fresh install', () => {
+    const statuses = [
+      resolveRelayRouteDisplay({
+        connectionMode: 'relay',
+        isPaired: false,
+        connectionState: 'disconnected',
+        workers: [],
+        fallbackMachineLabel: 'Your computer',
+        gatewayUrl: '',
+        heal: { attempt: 0, inFlight: false, exhausted: true },
+        macHttpOk: false,
+      }).routeStatus,
+      resolveRelayRouteDisplay({
+        connectionMode: 'relay',
+        isPaired: false,
+        connectionState: 'connecting',
+        workers: [],
+        fallbackMachineLabel: 'Your computer',
+        gatewayUrl: '',
+        heal: { attempt: 2, inFlight: true, exhausted: false },
+        macHttpOk: false,
+      }).routeStatus,
+    ];
+    for (const s of statuses) {
+      expect(s).not.toMatch(/Waiting for approval pairing/i);
+      expect(s.toLowerCase()).not.toMatch(/approval pairing/);
+    }
   });
 
   it('labels paired relay workers as cloud approvals, not Tailscale transport', () => {

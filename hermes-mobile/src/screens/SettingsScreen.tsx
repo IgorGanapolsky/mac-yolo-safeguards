@@ -145,6 +145,11 @@ export default function SettingsScreen() {
           ? formatGatewayHostLabel(effectiveGatewayUrl, health)
           : 'Direct fallback',
         fallbackEndpoint: effectiveGatewayUrl || undefined,
+        // Must pass gatewayUrl so fresh-install computer-first copy only applies
+        // when there is no real Mac yet — not when Settings has a saved host
+        // but cloud approvals are unpaired (Play reinstall rage 2026-07-30).
+        gatewayUrl: effectiveGatewayUrl || settings.gatewayUrl || '',
+        macHttpOk: isMacGatewayHttpOk(health),
       }),
     [
       activeRelayWorkerId,
@@ -154,6 +159,7 @@ export default function SettingsScreen() {
       health,
       isPaired,
       relayWorkers,
+      settings.gatewayUrl,
     ],
   );
   const macHttpOk = useMemo(() => isMacGatewayHttpOk(health), [health]);
