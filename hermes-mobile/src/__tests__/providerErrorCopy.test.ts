@@ -9,6 +9,7 @@ import {
   formatExpandedMessageContent,
   formatMessageForDisplay,
   prepareMessageForChatDisplay,
+  prepareMessagesForDisplay,
 } from '../utils/chatMessageDisplay';
 import { isFalseUnpairedStatusCopy } from '../utils/connectionStatusContract';
 
@@ -211,6 +212,21 @@ describe('chat bubble rendering pipeline', () => {
     expect(formatMessageForDisplay('Pushed the fix and opened PR #1223.')).toBe(
       'Pushed the fix and opened PR #1223.',
     );
+  });
+
+  // The production path: ChatScreen hydrates gateway history through this.
+  it('humanizes assistant history from the gateway but not the user turn', () => {
+    const [userTurn, assistantTurn] = prepareMessagesForDisplay([
+      { id: 'u1', role: 'user', content: `What does this mean? ${SCREENSHOT_BUBBLE}` },
+      { id: 'a1', role: 'assistant', content: SCREENSHOT_BUBBLE },
+    ] as never);
+
+    expect(userTurn.content).toContain('unexpected EOF');
+    expect(assistantTurn.content).toBe(
+      "Your Mac's AI model stopped responding. Tap ↑ to try again.",
+    );
+    expect(assistantTurn.rawContent).toContain('unexpected EOF');
+    expect(assistantTurn.truncated).toBe(true);
   });
 });
 
