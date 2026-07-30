@@ -110,18 +110,23 @@ export function findLastFailedOutboundText(messages: readonly HermesMessage[]): 
 }
 
 /**
+ * Decide what the ↑ button is actually sending.
+ *
  * ChatInputBar keeps its own `latestTextRef` so a blocked/duplicate send never
- * loses the draft — and that ref is deliberately NOT cleared when the controlled
- * value goes empty after a real send. Two consequences the ↑ handler must not
- * inherit:
+ * loses the draft, and that ref is NOT cleared when the controlled value goes
+ * empty. It can therefore hold residue the user can no longer see — text that
+ * was partly typed and abandoned, or a body already delivered.
  *
- *  1. An empty composer can still hand ↑ the text that was already delivered.
- *     Sending it again is a silent duplicate.
- *  2. On Android the controlled value can lag the native field, so a genuinely
- *     typed body must still win over an empty `inputValue`.
+ * `composerValue` here is `inputValueRef`, which `handleComposerTextChange`
+ * updates synchronously on every keystroke, so it does not lag the native field
+ * the way the controlled `value` prop can. It is the honest answer to "what is
+ * in the composer right now".
  *
- * Resolve both: prefer the live composer value; fall back to the input bar's
- * ref only when it is NOT an echo of the body we just committed.
+ * RULE: an empty composer is EMPTY. Never let the input bar's ref stand in for
+ * typed text, or ↑ sends leftover characters instead of retrying the failed
+ * turn (caught on-device by the ship-guard emulator run for #1241, which sent a
+ * stray "ma" instead of retrying). The ref is only preferred when the composer
+ * genuinely has content, where it is the fresher of the two.
  */
 export function resolveComposerSendText(input: {
   latestText?: string | null;
@@ -129,18 +134,17 @@ export function resolveComposerSendText(input: {
   lastSentComposerText?: string | null;
 }): string {
   const composer = input.composerValue?.trim() ?? '';
-  const latest = input.latestText?.trim() ?? '';
-  if (composer) {
-    return latest || composer;
-  }
-  if (!latest) {
+  if (!composer) {
     return '';
+  }
+  const latest = input.latestText?.trim() ?? '';
+  if (!latest) {
+    return composer;
   }
   const lastSent = normalizeMessageText(input.lastSentComposerText ?? '');
   if (lastSent && normalizeMessageText(latest) === lastSent) {
-    // Stale echo of the message already on its way — treat the composer as empty
-    // so ↑ resolves to the retry affordance instead of re-sending.
-    return '';
+    // Ref still echoes the body already on its way; the composer is the truth.
+    return composer;
   }
   return latest;
 }

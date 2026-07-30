@@ -218,24 +218,40 @@ describe('resolveComposerSendText', () => {
     ).toBe('typed');
   });
 
-  it('keeps a fresh native draft when the controlled value lags (Android)', () => {
-    expect(
-      resolveComposerSendText({
-        latestText: 'brand new prompt',
-        composerValue: '',
-        lastSentComposerText: 'Do it now',
-      }),
-    ).toBe('brand new prompt');
+  /**
+   * On-device regression (#1241 ship-guard): the input bar's ref held abandoned
+   * IME residue while the composer looked empty, and ↑ sent "ma" instead of
+   * retrying the failed turn. An empty composer is empty, whatever the ref says.
+   */
+  it('never lets the input bar ref stand in for text while the composer is empty', () => {
+    for (const stale of ['ma', 'brand new prompt', 'Do it now']) {
+      expect(
+        resolveComposerSendText({
+          latestText: stale,
+          composerValue: '',
+          lastSentComposerText: 'Do it now',
+        }),
+      ).toBe('');
+    }
   });
 
-  it('treats the input bar echo of the already-sent body as an empty composer', () => {
+  it('prefers the fresher input bar ref only when the composer has content', () => {
+    expect(
+      resolveComposerSendText({
+        latestText: 'typed the full thing',
+        composerValue: 'typed',
+      }),
+    ).toBe('typed the full thing');
+  });
+
+  it('falls back to the composer when the ref only echoes the already-sent body', () => {
     expect(
       resolveComposerSendText({
         latestText: 'Do it now',
-        composerValue: '',
+        composerValue: 'a new prompt',
         lastSentComposerText: 'Do it now',
       }),
-    ).toBe('');
+    ).toBe('a new prompt');
   });
 
   it('is empty when nothing is typed', () => {
