@@ -4,6 +4,7 @@ import { colors } from '../theme/colors';
 import { haptics } from '../services/haptics';
 import ChatFormattedText from './ChatFormattedText';
 import { formatExpandedMessageContent, prepareMessageForChatDisplay } from '../utils/chatMessageDisplay';
+import { PROVIDER_ERROR_EXPAND_LABEL, resolveExpandLabel } from '../utils/providerErrorCopy';
 import InlineMessageApproval from './InlineMessageApproval';
 import ClarificationPromptCard from './ClarificationPromptCard';
 import type { ClarificationOption, ParsedClarification } from '../utils/chatClarification';
@@ -98,8 +99,8 @@ function ChatMessageBubble({
       return { content, rawContent, truncated };
     }
     const fallbackRaw = gatewayContent ?? content;
-    return prepareMessageForChatDisplay(fallbackRaw);
-  }, [content, rawContent, gatewayContent, truncated]);
+    return prepareMessageForChatDisplay(fallbackRaw, { isUser });
+  }, [content, rawContent, gatewayContent, truncated, isUser]);
 
   const expandedContent = useMemo(() => {
     if (gatewayContent?.trim()) {
@@ -109,6 +110,12 @@ function ChatMessageBubble({
   }, [gatewayContent, resolved.rawContent, resolved.content]);
 
   const canExpand = resolved.truncated && hasMeaningfulExpansion(resolved.content, expandedContent);
+
+  // Provider diagnostics stay reachable — humanized headline up top, raw payload one tap away.
+  const expandLabel = useMemo(
+    () => (isUser ? 'Show more' : resolveExpandLabel(expandedContent)),
+    [isUser, expandedContent],
+  );
 
   const openDetails = () => {
     if (!canExpand || !onShowDetail) {
@@ -144,12 +151,19 @@ function ChatMessageBubble({
               onPress={openDetails}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               accessibilityRole="button"
-              accessibilityLabel="Show full message detail"
+              accessibilityLabel={
+                expandLabel === PROVIDER_ERROR_EXPAND_LABEL
+                  ? 'Show technical detail for this error'
+                  : 'Show full message detail'
+              }
               testID="chat-message-expand"
               style={({ pressed }) => [styles.expandPressable, pressed && styles.expandPressablePressed]}
             >
-              <Text style={[styles.expandHint, isUser ? styles.expandHintUser : styles.expandHintAssistant]}>
-                Show more
+              <Text
+                testID="chat-message-expand-label"
+                style={[styles.expandHint, isUser ? styles.expandHintUser : styles.expandHintAssistant]}
+              >
+                {expandLabel}
               </Text>
             </Pressable>
           ) : null}

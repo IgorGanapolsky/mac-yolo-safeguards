@@ -1,5 +1,6 @@
 import { GATEWAY_WRONG_KEY_MESSAGE, gatewayAuthRepairBanner } from '../services/gatewayClient';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
+import { humanizeProviderError } from './providerErrorCopy';
 
 const CONNECTIVITY_MARKERS = [
   'failed to fetch',
@@ -195,6 +196,14 @@ export function humanizeChatError(
       message:
         'Your computer is still on the previous chat. Wait a moment, pick another thread, or try again.',
     };
+  }
+
+  // Provider/model payloads ("Error code: 500 - {'error': {…'unexpected EOF'…}}")
+  // must never reach a banner or bubble verbatim. Runs after the session/auth
+  // branches above so their dedicated recovery copy still wins.
+  const providerError = humanizeProviderError(message);
+  if (providerError) {
+    return { kind: 'operational', message: providerError.headline };
   }
 
   if (lower.includes('ollama') || lower.includes('stalled') || lower.includes('stream timed out')) {

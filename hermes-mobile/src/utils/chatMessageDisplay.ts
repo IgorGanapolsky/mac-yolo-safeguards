@@ -19,6 +19,7 @@ import {
   isSilentAssistantCompletion,
   isTransientWorkingStatusPlaceholder,
 } from './streamAssistantText';
+import { humanizeProviderError } from './providerErrorCopy';
 
 export { isToolDumpDisplayContent, shouldHideToolDumpFromTimeline } from './chatToolDump';
 export {
@@ -240,12 +241,30 @@ const FULL_MAX_CHARS = 32000;
 const PREVIEW_UNTRUSTED_MAX_CHARS = 480;
 const PREVIEW_TOOL_JSON_MAX_CHARS = 480;
 
-function formatMessageBody(content: string, mode: 'preview' | 'full'): string {
+export type MessageDisplayOptions = {
+  /** User bubbles echo what the user typed — never rewrite their own text. */
+  isUser?: boolean;
+};
+
+function formatMessageBody(
+  content: string,
+  mode: 'preview' | 'full',
+  options?: MessageDisplayOptions,
+): string {
   if (!content) return '';
 
   const untrustedCap = mode === 'full' ? 12000 : PREVIEW_UNTRUSTED_MAX_CHARS;
   const toolJsonCap = mode === 'full' ? 8000 : PREVIEW_TOOL_JSON_MAX_CHARS;
   const hardCap = mode === 'full' ? FULL_MAX_CHARS : PREVIEW_MAX_CHARS;
+
+  // Preview only: a provider/backend error payload becomes human copy. `full`
+  // keeps the raw diagnostic so "Show technical detail" still reveals it.
+  if (mode === 'preview' && !options?.isUser) {
+    const humanized = humanizeProviderError(unescapeChatText(content));
+    if (humanized) {
+      return humanized.headline;
+    }
+  }
 
   const trimmedInput = content.trim();
   const jsonEarly = tryParseJsonObject(trimmedInput);
@@ -279,8 +298,11 @@ export function formatMessageFull(content: string): string {
   return formatMessageBody(content, 'full');
 }
 
-export function formatMessageForDisplay(content: string): string {
-  return formatMessageBody(content, 'preview');
+export function formatMessageForDisplay(
+  content: string,
+  options?: MessageDisplayOptions,
+): string {
+  return formatMessageBody(content, 'preview', options);
 }
 
 /** Full expandable body — pretty JSON when possible, not the short preview summary. */
@@ -301,12 +323,15 @@ export function formatExpandedMessageContent(raw: string): string {
   return formatMessageBody(raw, 'full');
 }
 
-export function prepareMessageForChatDisplay(raw: string): {
+export function prepareMessageForChatDisplay(
+  raw: string,
+  options?: MessageDisplayOptions,
+): {
   content: string;
   rawContent: string;
   truncated: boolean;
 } {
-  const preview = formatMessageForDisplay(raw);
+  const preview = formatMessageForDisplay(raw, options);
   const full = formatExpandedMessageContent(raw);
   const truncated =
     preview !== full ||
@@ -388,7 +413,9 @@ function finalizeMessagesForDisplay(messages: HermesMessage[], includeTools: boo
           return message;
         }
         const raw = message.gatewayContent ?? message.content;
-        const display = prepareMessageForChatDisplay(raw);
+        const display = prepareMessageForChatDisplay(raw, {
+          isUser: message.role?.toLowerCase() === 'user',
+        });
         return {
           ...message,
           gatewayContent: raw,

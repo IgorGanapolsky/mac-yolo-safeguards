@@ -101,7 +101,7 @@ function ChatMessageListItem({
       return null;
     }
     const raw = item.gatewayContent ?? item.rawContent ?? item.content;
-    const preview = prepareMessageForChatDisplay(raw).content;
+    const preview = prepareMessageForChatDisplay(raw, { isUser }).content;
     if (isToolDumpDisplayContent(preview)) {
       return null;
     }
