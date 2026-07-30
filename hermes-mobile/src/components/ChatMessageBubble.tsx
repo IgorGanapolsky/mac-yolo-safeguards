@@ -55,6 +55,8 @@ type ChatMessageBubbleProps = {
   outboundFailureReason?: string;
   connectionState?: LeashConnectionState;
   macHttpOk?: boolean;
+  /** App will resend this failed turn itself — show progress, not "tap ↑". */
+  autoResendPending?: boolean;
   leashUnlocked?: boolean;
   onFeedback?: (signal: 'up' | 'down') => void;
   promptReplyElapsed?: PromptReplyElapsedState;
@@ -91,6 +93,7 @@ function ChatMessageBubble({
   outboundFailureReason,
   connectionState = 'demo',
   macHttpOk = true,
+  autoResendPending = false,
   promptReplyElapsed,
 }: ChatMessageBubbleProps) {
   const resolved = useMemo(() => {
@@ -251,6 +254,7 @@ function ChatMessageBubble({
                       connectionState,
                       macHttpOk,
                       failureReason: outboundFailureReason,
+                      autoResendPending,
                     }).startsWith('✓') &&
                     styles.deliverySent,
                 ]}
@@ -261,6 +265,7 @@ function ChatMessageBubble({
                   connectionState,
                   macHttpOk,
                   failureReason: outboundFailureReason,
+                  autoResendPending,
                 })}
               </Text>
             ) : null}
