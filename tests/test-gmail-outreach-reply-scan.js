@@ -15,6 +15,10 @@ const {
   run,
   outreachSearchQuery,
   classifyBlindCause,
+  gmailApiCollectRows,
+  resolvePython,
+  GOOGLE_API,
+  parseArgs,
   OUTREACH_SUBJECT_RE,
   OUTREACH_SUBJECT_TERMS,
 } = require('../tools/gmail-outreach-reply-scan');
@@ -218,6 +222,50 @@ check('genuinely empty search is not reported as blind', () => {
     signedOut: false, emptyStateVisible: false, trCount: 42, bodyLen: 9000,
   });
   assert.notStrictEqual(stale, 'search_genuinely_empty');
+});
+
+// --gmail-api must be parsed and must take priority over the chrome gate.
+// When Chrome is disabled but gmailApi is enabled, the scan must NOT report
+// 'scan_not_attempted_no_chrome' — it should either succeed (API returns rows
+// or a genuinely-empty diag) or name an API failure.
+check('parseArgs --gmail-api sets gmailApi and keeps chrome default', () => {
+  const a = parseArgs(['--gmail-api']);
+  assert.strictEqual(a.gmailApi, true);
+  assert.strictEqual(a.chrome, true); // --gmail-api does not auto-disable chrome
+});
+
+check('gmailApiCollectRows is exported', () => {
+  assert.strictEqual(typeof gmailApiCollectRows, 'function');
+});
+
+// The Gmail-API fallback path must produce a trustworthy scan result, never
+// 'scan_not_attempted_no_chrome'. When the API is available this environment
+// has 0 outreach replies, so scanBlind must be false with search_genuinely_empty.
+// If the API is unavailable in CI, blindCause must name an api_failed_* cause.
+check('run with gmailApi:true does not report scan_not_attempted_no_chrome', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'reply-scan-api-'));
+  process.env.REVENUE_DIR = dir;
+  process.env.GMAIL_REPLY_SCAN_STATE = path.join(dir, 'state.json');
+  const summary = run({
+    json: true,
+    chrome: false,
+    gmailApi: true,
+    baseline: false,
+    ntfy: false,
+    help: false,
+  });
+  assert.notStrictEqual(summary.blindCause, 'scan_not_attempted_no_chrome');
+  assert.strictEqual(summary.gmailApi, true);
+  if (summary.ok) {
+    assert.strictEqual(summary.scanBlind, false, 'API scan with real results must not be blind');
+    assert.strictEqual(summary.replyStatus, 'scanned');
+  } else {
+    // API unavailable (e.g. CI without credentials) — must name an API failure
+    assert.ok(/^api_failed_/.test(summary.blindCause || ''),
+      `expected api_failed_* blind cause, got: ${summary.blindCause}`);
+    assert.strictEqual(summary.scanBlind, true);
+  }
+  fs.rmSync(dir, { recursive: true, force: true });
 });
 
 console.log(`\nPASS ${n}/${n} gmail-outreach-reply-scan`);
