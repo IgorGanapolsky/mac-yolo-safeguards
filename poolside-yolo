@@ -134,9 +134,20 @@ ensure_image_guard() {
   "$guard" --install >/dev/null 2>&1
 }
 
+# Deliberately a file read, not `$guard --doctor`: doctor probes the vision gateway,
+# and this runs on EVERY interactive launch. Asking "is it registered?" must not cost a
+# network round trip (or a multi-second stall whenever the gateway happens to be down).
+image_guard_settings() {
+  printf '%s\n' "${POOLSIDE_SETTINGS:-${XDG_CONFIG_HOME:-$HOME/.config}/poolside/settings.yaml}"
+}
+
 image_guard_installed() {
-  local guard="$1"
-  "$guard" --doctor --json 2>/dev/null | grep -q '"installed":true'
+  local guard="$1" settings
+  settings="$(image_guard_settings)"
+  [[ -f "$settings" ]] || return 1
+  # Registered AND pointing at THIS copy — a stale entry left behind by a pruned
+  # worktree names a command that no longer exists, and pool would fail to start.
+  grep -q "^[[:space:]]\+${IMAGE_GUARD_NAME}:" "$settings" && grep -qF "$guard" "$settings"
 }
 
 resolve_pool() {
