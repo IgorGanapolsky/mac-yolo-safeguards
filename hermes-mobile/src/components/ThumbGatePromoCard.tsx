@@ -13,7 +13,9 @@ type ThumbGatePromoCardProps = {
   style?: object;
 };
 
-const OPEN_FAIL_TITLE = 'Could not open ThumbGate';
+// The brand is always "ThumbGate.app" — including on the failure path, which is
+// exactly where the bare name used to survive a branding sweep (PR #1233 review).
+const OPEN_FAIL_TITLE = 'Could not open ThumbGate.app';
 const OPEN_FAIL_MESSAGE =
   'Open https://thumbgate.app in your browser to continue.';
 

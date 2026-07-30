@@ -72,7 +72,21 @@ describe('ThumbGatePromoCard', () => {
     fireEvent.press(getByTestId('thumbgate-promo-open'));
 
     await waitFor(() => {
-      expect(Alert.alert).toHaveBeenCalledWith(OPEN_FAIL_TITLE, OPEN_FAIL_MESSAGE);
+      // Asserted as LITERALS, not via the imported constants. Comparing a constant
+      // to itself passes for any value it could hold — including the bare
+      // "ThumbGate" this branding rule exists to forbid, which is how the failure
+      // path kept the old name through a branding sweep (PR #1233 review).
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Could not open ThumbGate.app',
+        'Open https://thumbgate.app in your browser to continue.',
+      );
     });
+  });
+
+  it('never shows the bare brand on the failure path', () => {
+    // The brand rule is "ThumbGate.app", never bare "ThumbGate".
+    for (const copy of [OPEN_FAIL_TITLE, OPEN_FAIL_MESSAGE]) {
+      expect(copy).not.toMatch(/ThumbGate(?!\.app)/);
+    }
   });
 });
