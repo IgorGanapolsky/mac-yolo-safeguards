@@ -1,1 +1,1 @@
-remote,coding,assistant,desktop,control,linux,windows,selfhosted,local,computer,developer
+hermes,agent,ai,remote,coding,assistant,desktop,control,linux,windows,selfhosted,local,computer,mac

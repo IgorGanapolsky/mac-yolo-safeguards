@@ -64,7 +64,8 @@ Active tasks (84):
   T-SILENT-BUBBLE-HIDE [in_progress] cursor-silent-bubble-hide: P0: never render cron `[SILENT]` completion sentinel as a chat bubble
   T-EAS-GUARD-DATE-ROLL-20260723 [in_progress] cursor-silent-bubble-hide: Remove UTC-midnight flake from EAS hard-stop process contract blocking all mobile PRs
   … +72 more (run node tools/agent-swarm-harness.js --json)
-File locks (349):
+File locks (350):
+- `hermes-mobile/fastlane/metadata/ios/en-US/keywords.txt`, `hermes-mobile/src/__tests__/storeListingMetadataContract.test.ts`, `plan.md` → **antigravity** (T-IOS-ASO-KEYWORDS-OPTIMIZATION-20260730: optimize iOS keywords.txt to include hermes, agent, ai, mac tokens within 99/100 limit) (2026-07-30T17:22:00Z)
 - `hermes-mobile/src/utils/relayRouting.ts`, `hermes-mobile/src/__tests__/relayRouting.test.ts`, `plan.md` → **antigravity** (T-RELAY-ROUTING-FRESH-INSTALL-COPY-20260730: replace confusing Waiting for approval pairing... with Connect a computer in Settings on fresh install) (2026-07-30T17:02:00Z)
 - `hermes-mobile/src/services/gatewayDiscovery.ts`, `hermes-mobile/src/__tests__/gatewayDiscovery.test.ts`, `plan.md` → **antigravity** (T-GATEWAY-DISCOVERY-SUBNET-SWEEP-20260730: fix Find Computers by falling back to preferLanIp and common subnets when NetInfo phone IP is null or self-filtered) (2026-07-30T16:15:00Z)
 - `.github/workflows/ci.yml`, `plan.md` → **antigravity** (T-CI-MACOS-RUNNER-OPTIMIZATION-20260730: switch macos-guard to ubuntu-latest to conserve 10x macOS Actions minute quota) (2026-07-30T15:49:00Z)

@@ -90,8 +90,8 @@ describe('store listing metadata contract (stellar live)', () => {
     expect(subtitle).toMatch(/Mac/i);
     expect(promo).toMatch(/not a phone chatbot|not phone/i);
     expect(promo).toMatch(/pay once|once/i);
-    expect(keywords).toMatch(/remote,coding,assistant,desktop,control/i);
-    expect(keywords).toMatch(/linux,windows,selfhosted,local,computer/i);
+    expect(keywords).toMatch(/hermes,agent,ai,remote,coding,assistant/i);
+    expect(keywords).toMatch(/linux,windows,selfhosted,local,computer,mac/i);
     expect(keywords).not.toMatch(/\s/);
   });
 
