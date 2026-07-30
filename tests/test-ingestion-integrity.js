@@ -152,6 +152,19 @@ test('full coverage passes', () => {
   assert.equal(r.status, 'ok');
 });
 
+test('metadata-only embedding entries do not inflate coverage', () => {
+  const vecs = unitVectors(1);
+  for (let i = 1; i < 100; i += 1) vecs[`meta${i}`] = { hash: 'x', model: 'nomic-embed-text' };
+  const r = checkEmbeddingCoverage({
+    sqlite: missing,
+    jsonl: writeJsonl('meta-only.jsonl', 100),
+    embeddings: writeEmb('meta-only.json', vecs),
+  });
+  assert.equal(r.status, 'fail');
+  assert.equal(r.vectors, 1);
+  assert.ok(Math.abs(r.coverage - 0.01) < 1e-6);
+});
+
 test('a missing embedding store FAILS rather than reading as 0% quietly', () => {
   const r = checkEmbeddingCoverage({ sqlite: missing, jsonl: writeJsonl('d.jsonl', 10), embeddings: missing });
   assert.equal(r.status, 'fail');

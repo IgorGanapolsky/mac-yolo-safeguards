@@ -179,17 +179,35 @@ function namespaceBreakdown(ids) {
   return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}=${v}`).join(', ');
 }
 
+/** Count only entries that hold a usable numeric vector (not metadata placeholders). */
+function countUsableVectors(emb) {
+  const entries = Array.isArray(emb) ? emb : Object.values(emb || {});
+  let n = 0;
+  for (const entry of entries) {
+    const v = vectorOf(entry);
+    if (!Array.isArray(v) || v.length === 0) continue;
+    if (!v.every((x) => typeof x === 'number' && Number.isFinite(x))) continue;
+    n += 1;
+  }
+  return n;
+}
+
 /** 2. What fraction of records can vector search actually reach? */
 function checkEmbeddingCoverage(paths) {
   const emb = loadEmbeddings(paths.embeddings);
   if (emb === null) {
     return bad('embedding-coverage', `no readable embedding store at ${paths.embeddings}`);
   }
-  const nVec = Array.isArray(emb) ? emb.length : Object.keys(emb).length;
+  const nVec = countUsableVectors(emb);
   const total = countSqlite(paths.sqlite) ?? countJsonl(paths.jsonl);
   if (typeof total !== 'number' || total === 0) {
     return bad('embedding-coverage', 'cannot determine corpus size, so coverage is unknown',
       { vectors: nVec });
+  }
+  if (nVec > total) {
+    return bad('embedding-coverage',
+      `${nVec} usable vectors exceed corpus size ${total} — orphan/stale embedding keys inflate coverage`,
+      { vectors: nVec, total, coverage: nVec / total });
   }
   const coverage = nVec / total;
   if (coverage < MIN_EMBEDDING_COVERAGE) {
@@ -215,20 +233,44 @@ function checkEmbeddingSanity(paths, sampleSize = 400) {
   const emb = loadEmbeddings(paths.embeddings);
   if (emb === null) return bad('embedding-sanity', `no readable embedding store at ${paths.embeddings}`);
   const entries = Array.isArray(emb) ? emb : Object.values(emb);
-  const sample = entries.slice(0, sampleSize).map(vectorOf).filter((v) => Array.isArray(v) && v.length);
-  if (sample.length === 0) return bad('embedding-sanity', 'no usable vectors found in the store');
+  // Do not trust Object key insertion order (a single pipeline batch can dominate
+  // the first N entries). Stratified take every k-th usable vector.
+  const usable = [];
+  let nonNumeric = 0;
+  for (const entry of entries) {
+    const v = vectorOf(entry);
+    if (!Array.isArray(v) || v.length === 0) continue;
+    if (!v.every((x) => typeof x === 'number' && Number.isFinite(x))) {
+      nonNumeric += 1;
+      continue;
+    }
+    usable.push(v);
+  }
+  if (usable.length === 0) return bad('embedding-sanity', 'no usable vectors found in the store');
+  if (nonNumeric > 0) {
+    return bad('embedding-sanity',
+      `${nonNumeric} entries have non-numeric vector components — distances are undefined`,
+      { nonNumeric });
+  }
 
-  const dims = new Set(sample.map((v) => v.length));
+  const dims = new Set(usable.map((v) => v.length));
   if (dims.size > 1) {
     return bad('embedding-sanity',
       `mixed dimensions ${[...dims].join('/')} — the store was written by more than one embedder, `
       + 'so distances across it are meaningless', { dims: [...dims] });
   }
-  // Fingerprint the leading components: distinct texts must yield distinct
-  // vectors. Duplicates here mean a constant or placeholder was written.
-  const fp = new Set(sample.map((v) => v.slice(0, 8).map((x) => x.toFixed(6)).join(',')));
+
+  const step = Math.max(1, Math.floor(usable.length / sampleSize));
+  const sample = [];
+  for (let i = 0; i < usable.length && sample.length < sampleSize; i += step) {
+    sample.push(usable[i]);
+  }
+  // Fingerprint a wider prefix — short prefixes collide on real neural embeds.
+  const fp = new Set(sample.map((v) => v.slice(0, 32).map((x) => x.toFixed(5)).join(',')));
   const distinctRatio = fp.size / sample.length;
-  if (distinctRatio < 0.9) {
+  if (distinctRatio < 0.5) {
+    // Loose floor: lesson stores often share near-duplicate text. Below 50%
+    // distinct on a stratified sample is still a strong "placeholder/constant" signal.
     return bad('embedding-sanity',
       `only ${fp.size}/${sample.length} vectors are distinct (${(distinctRatio * 100).toFixed(1)}%) `
       + '— duplicate vectors mean placeholder or constant embeddings, not real ones',
@@ -246,6 +288,22 @@ function checkIndexFreshness(paths) {
   if (!dir || !fs.existsSync(dir)) {
     return bad('index-freshness', `no grepai corpus at ${dir}`);
   }
+  // Git level alone is not enough — a current clone with no index.gob is a dead index.
+  const indexGob = path.join(dir, '.grepai', 'index.gob');
+  const altGob = path.join(dir, 'index.gob');
+  let indexPath = null;
+  if (fs.existsSync(indexGob)) indexPath = indexGob;
+  else if (fs.existsSync(altGob)) indexPath = altGob;
+  if (!indexPath) {
+    return bad('index-freshness',
+      `corpus at ${dir} has no index.gob (.grepai/ or root) — clone may be current but nothing is searchable`);
+  }
+  const indexBytes = fs.statSync(indexPath).size;
+  if (indexBytes < 1024) {
+    return bad('index-freshness',
+      `index.gob is ${indexBytes} bytes — empty shell, not a real searchable index`,
+      { indexBytes, indexPath });
+  }
   let behind;
   try {
     execFileSync('git', ['-C', dir, 'fetch', 'origin', 'main', '--quiet'], { timeout: 60000, stdio: 'ignore' });
@@ -260,9 +318,11 @@ function checkIndexFreshness(paths) {
   if (n > 0) {
     return bad('index-freshness',
       `indexed corpus is ${n} commits behind origin/main — the index mirrors a stale snapshot and `
-      + 'answers confidently from it', { behind: n });
+      + 'answers confidently from it', { behind: n, indexBytes });
   }
-  return ok('index-freshness', 'indexed corpus is level with origin/main', { behind: 0 });
+  return ok('index-freshness',
+    `indexed corpus level with origin/main; index.gob ${indexBytes} bytes`,
+    { behind: 0, indexBytes, indexPath });
 }
 
 function runIngestionIntegrity(opts = {}) {
