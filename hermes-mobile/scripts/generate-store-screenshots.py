@@ -37,7 +37,7 @@ SCENES: tuple[dict[str, str], ...] = (
         "id": "connect",
         "stem": "01_approve",
         "headline": "Connect your computer",
-        "subtitle": "Home Wi-Fi, Tailscale, or USB",
+        "subtitle": "Home Wi-Fi or Tailscale",
         "accent": "cyan",
     },
     {
@@ -259,7 +259,7 @@ def draw_connect(draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
         draw,
         (70, 260, 70 + row_width, 410),
         "Studio",
-        "Tailscale",
+        "Office Wi-Fi",
         "Connected",
         COLORS["green"],
     )
@@ -275,7 +275,7 @@ def draw_connect(draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
         draw,
         (70, 620, 70 + row_width, 770),
         "Build server",
-        "USB",
+        "Tailscale",
         "Available",
         COLORS["purple"],
     )

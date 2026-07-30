@@ -41,7 +41,7 @@ EXPECTED_DIMENSIONS = {
 FORBIDDEN_COPY = re.compile(
     r"759k|very large session|typeable|probe|smoke test|127\.0\.0\.1|"
     r"\b100\.\d+\.\d+\.\d+\b|/Users/|igorganapolsky|force-leak|"
-    r"YOLO_MEM|not paired|gateway healthy|railway\.app",
+    r"YOLO_MEM|not paired|gateway healthy|railway\.app|\bUSB\b",
     re.IGNORECASE,
 )
 INVENTED_CONTROL_COPY = re.compile(

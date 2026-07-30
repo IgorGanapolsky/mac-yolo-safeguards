@@ -10,7 +10,7 @@
     {
       "id": "connect",
       "headline": "Connect your computer",
-      "subtitle": "Home Wi-Fi, Tailscale, or USB"
+      "subtitle": "Home Wi-Fi or Tailscale"
     },
     {
       "id": "run",
@@ -44,7 +44,7 @@
       "scene": "connect",
       "width": 1080,
       "height": 1920,
-      "sha256": "8cd87f4e10250aa6854daf23c28ce7d52c215a1e0bb53032182bc86367cf0169"
+      "sha256": "4e9a493769874af075fade6d05bb6161a2b151fad057a7dcbc58dc2673acd763"
     },
     "fastlane/metadata/android/en-US/images/phoneScreenshots/02_block.png": {
       "deviceClass": "play",
@@ -86,14 +86,14 @@
       "scene": "connect",
       "width": 1290,
       "height": 2796,
-      "sha256": "f071e04f48f5b2e43266e1ff5dfb5f6ea371bd0abc01d73cfee09b1091765da8"
+      "sha256": "e69b30a872f8b3cae7fc21f3fc75e09d0aeb3627e4692d8511357fae621d0c7f"
     },
     "fastlane/screenshots/en-US/01_approve_ipad129.png": {
       "deviceClass": "ipad",
       "scene": "connect",
       "width": 2048,
       "height": 2732,
-      "sha256": "5f8375e6d6beb355494c10caf68ead41a12fefe706b05012b4760685fdfdf514"
+      "sha256": "85c4f91d84c750dfd0008cf228c6b67c699e52dcc8221a2b17406e29c86478a0"
     },
     "fastlane/screenshots/en-US/02_block_67.png": {
       "deviceClass": "iphone",
