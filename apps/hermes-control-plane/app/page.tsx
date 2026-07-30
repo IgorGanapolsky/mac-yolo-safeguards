@@ -156,7 +156,7 @@ export default function Home() {
             <ul>
               <li>Everything in Web Control</li>
               <li>100 cloud continuations / 30 days</li>
-              <li>DeepSeek, Claude, GPT-4o &amp; Auto routing</li>
+              <li>DeepSeek, Claude &amp; Auto routing</li>
               <li>14-day trial with 5 cloud runs</li>
             </ul>
             <LandingPricingCtaPaid />
@@ -166,7 +166,7 @@ export default function Home() {
             <ul>
               <li>Everything in Pro Continuity</li>
               <li>500 cloud continuations / 30 days</li>
-              <li>Priority Claude 3.7 Sonnet &amp; GPT-4o throughput</li>
+              <li>Priority Claude Sonnet 5, Kimi K3 &amp; GLM 5.2 throughput</li>
               <li>Custom BYO API Key support</li>
               <li>Priority Fly.io cloud VPS runner</li>
             </ul>
