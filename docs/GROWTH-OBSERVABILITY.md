@@ -35,9 +35,13 @@ recorded by the redirect route and excluded from the browser beacon to prevent
 double counting. Recognized link-preview crawlers and explicit prefetch
 requests are recorded separately as `play_store_preview` or
 `app_store_preview`, so they do not inflate human click counters.
+The repository's `thumbgate-web-reliability` redirect probes use the same
+preview counters for the same reason.
 The campaign scoreboard also keeps direct-store and landing-page journeys in
 separate comparison cohorts. It never substitutes a synthetic 100% click rate
-for a direct-store link or crowns a winner across unlike funnels.
+for a direct-store link or crowns a winner across unlike funnels. A campaign
+that reuses one campaign ID for both hero landing and secondary direct-store
+CTAs is labeled `mixed` and excluded from winner decisions.
 The current release does not yet read the Install Referrer inside the mobile
 binary, so this change proves the source of a store click but not the campaign
 that caused a completed install. That mobile consumer belongs with the claimed
@@ -63,7 +67,10 @@ provider-visible experiment ID and active-state receipt are captured under
 `hermes-mobile/docs/proofs/store-experiments/`, the experiment surface is
 `unverified`, not passing. The combined audit passes only when it has
 independent active proof for both the paid Google Play package and the App
-Store app; one provider's receipt cannot mask the other provider's gap.
+Store app; one provider's receipt cannot mask the other provider's gap. Each
+receipt must name its exact provider and paid-app identifier and contain a
+provider-console `capturedAt` timestamp no older than 24 hours. Stale or
+provider-mismatched JSON is rejected rather than treated as current proof.
 
 ## Audit
 

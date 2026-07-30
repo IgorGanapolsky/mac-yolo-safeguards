@@ -195,6 +195,19 @@ describe("store attribution", () => {
     expect(dbCalls[0]?.bindings[1]).toBe("app_store_preview");
   });
 
+  it("separates the repository reliability monitor from human click counters", async () => {
+    const receipt = await recordStoreRedirect(
+      new Request("https://thumbgate.app/go/android", {
+        headers: { "user-agent": "thumbgate-web-reliability/1.0" },
+      }),
+      "play_store_click",
+    );
+
+    expect(receipt.event).toBe("play_store_preview");
+    expect(dbCalls).toHaveLength(1);
+    expect(dbCalls[0]?.bindings[1]).toBe("play_store_preview");
+  });
+
   it("returns a non-cacheable privacy-preserving redirect", () => {
     const response = storeRedirectResponse("https://example.com/store");
     expect(response.status).toBe(302);

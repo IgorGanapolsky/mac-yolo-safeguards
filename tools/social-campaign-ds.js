@@ -153,6 +153,8 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
         otherAttributed: 0,
         attributedTotal: 0,
         ctaIds: new Set(),
+        landingCtaIds: new Set(),
+        storeClickRows: [],
         utmSources: new Set(),
       });
     }
@@ -215,6 +217,7 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
       case 'landing_view':
         bucket.attributedTotal += count;
         bucket.landingViews += count;
+        if (ctaId) bucket.landingCtaIds.add(normalizeToken(ctaId));
         break;
       case 'sign_in_click':
         bucket.attributedTotal += count;
@@ -223,10 +226,12 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
       case 'play_store_click':
         bucket.attributedTotal += count;
         bucket.playStoreClicks += count;
+        bucket.storeClickRows.push({ ctaId: normalizeToken(ctaId), count });
         break;
       case 'app_store_click':
         bucket.attributedTotal += count;
         bucket.appStoreClicks += count;
+        bucket.storeClickRows.push({ ctaId: normalizeToken(ctaId), count });
         break;
       case 'play_store_preview':
         bucket.playStorePreviews += count;
@@ -251,8 +256,17 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
   const rows = [...byCampaign.values()].map((b) => {
     const conversionProxy =
       b.signInClicks + b.playStoreClicks + b.appStoreClicks + b.cloudContinuityClicks;
+    const landingStoreClicks = b.storeClickRows
+      .filter(
+        (row) => row.ctaId && b.landingCtaIds.has(row.ctaId),
+      )
+      .reduce((total, row) => total + row.count, 0);
+    const directStoreClicks =
+      b.playStoreClicks + b.appStoreClicks - landingStoreClicks;
     const journeyType =
-      b.landingViews > 0
+      b.landingViews > 0 && directStoreClicks > 0
+        ? 'mixed'
+        : b.landingViews > 0
         ? 'landing'
         : b.playStoreClicks + b.appStoreClicks > 0
           ? 'direct_store'
@@ -275,6 +289,8 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
       signInClicks: b.signInClicks,
       playStoreClicks: b.playStoreClicks,
       appStoreClicks: b.appStoreClicks,
+      landingStoreClicks,
+      directStoreClicks,
       playStorePreviews: b.playStorePreviews,
       appStorePreviews: b.appStorePreviews,
       freeControlClicks: b.freeControlClicks,
@@ -301,8 +317,12 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
   const directMeasurable = rows.filter(
     (r) => r.journeyType === 'direct_store' && r.attributedTotal >= minEvents,
   );
+  const mixedMeasurable = rows.filter(
+    (r) => r.journeyType === 'mixed' && r.attributedTotal >= minEvents,
+  );
   const hasMixedJourneys =
-    landingMeasurable.length > 0 && directMeasurable.length > 0;
+    mixedMeasurable.length > 0 ||
+    (landingMeasurable.length > 0 && directMeasurable.length > 0);
   const measurable = hasMixedJourneys
     ? []
     : landingMeasurable.length > 0
@@ -333,7 +353,7 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
   const lessons = [];
   if (decision === 'MIXED_JOURNEYS') {
     lessons.push(
-      'Direct-store and landing-page journeys are reported separately; collect enough campaigns within one journey cohort before crowning a winner.',
+      'Direct-store and landing-page journeys are reported separately; campaigns that reuse one campaign across both journey types are fail-closed as mixed. Collect enough campaigns within one clean journey cohort before crowning a winner.',
     );
   }
   if (decision === 'INSUFFICIENT_DATA') {
@@ -415,12 +435,12 @@ function renderMarkdown(report) {
     '',
     '## Ranking',
     '',
-    '| Campaign | Journey | Live posts | Attr total | Landing | Sign-in | Play | iOS | Previews | Continuity | CTR proxy |',
-    '|----------|---------|------------|------------|---------|---------|------|-----|----------|------------|-----------|',
+    '| Campaign | Journey | Live posts | Attr total | Landing | Landing store | Direct store | Sign-in | Play | iOS | Previews | Continuity | CTR proxy |',
+    '|----------|---------|------------|------------|---------|---------------|--------------|---------|------|-----|----------|------------|-----------|',
   ];
   for (const c of report.campaigns) {
     lines.push(
-      `| ${c.campaign} | ${c.journeyType} | ${c.postsLive} | ${c.attributedTotal} | ${c.landingViews} | ${c.signInClicks} | ${c.playStoreClicks} | ${c.appStoreClicks} | ${c.playStorePreviews + c.appStorePreviews} | ${c.cloudContinuityClicks} | ${c.ctrProxy ?? 'n/a'} |`,
+      `| ${c.campaign} | ${c.journeyType} | ${c.postsLive} | ${c.attributedTotal} | ${c.landingViews} | ${c.landingStoreClicks} | ${c.directStoreClicks} | ${c.signInClicks} | ${c.playStoreClicks} | ${c.appStoreClicks} | ${c.playStorePreviews + c.appStorePreviews} | ${c.cloudContinuityClicks} | ${c.ctrProxy ?? 'n/a'} |`,
     );
   }
   lines.push('', '## Lessons', '');
@@ -449,6 +469,7 @@ function renderMarkdown(report) {
     '- Web funnel is first-party UTM/cta_id only — privacy-safe tokens, no PII.',
     '- Link-preview crawlers are visible but excluded from attributed totals and winner decisions.',
     '- Direct-store and landing-page journeys are never ranked against each other.',
+    '- A campaign with both landing and direct-store CTAs is marked mixed and excluded from winner decisions.',
     '- Small-n: do not crown a winner below min-events.',
     '',
   );

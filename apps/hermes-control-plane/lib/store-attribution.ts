@@ -21,7 +21,7 @@ const PREVIEW_EVENT: Record<StoreClickEvent, StorePreviewEvent> = {
 };
 
 const PREVIEW_USER_AGENT =
-  /(?:bot\b|crawler\b|spider\b|slurp\b|facebookexternalhit|facebot|linkedinbot|twitterbot|slackbot|discordbot|telegrambot|whatsapp|applebot|googlebot|bingpreview|pinterestbot|embedly|quora link preview)/i;
+  /(?:bot\b|crawler\b|spider\b|slurp\b|facebookexternalhit|facebot|linkedinbot|twitterbot|slackbot|discordbot|telegrambot|whatsapp|applebot|googlebot|bingpreview|pinterestbot|embedly|quora link preview|thumbgate-web-reliability)/i;
 
 export function buildPlayStoreUrl(
   baseUrl: string,

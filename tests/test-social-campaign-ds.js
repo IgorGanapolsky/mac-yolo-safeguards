@@ -63,21 +63,25 @@ test('buildScoreboard ranks winner with enough attribution', () => {
       event: 'landing_view',
       utmCampaign: 'evidence-installs-v1-20260725',
       utmSource: 'linkedin',
+      ctaId: 'evidence-installs-v1-20260725_home',
       count: 12,
     },
     {
       event: 'play_store_click',
       utmCampaign: 'evidence-installs-v1-20260725',
+      ctaId: 'evidence-installs-v1-20260725_home',
       count: 4,
     },
     {
       event: 'landing_view',
       utmCampaign: 'other-campaign',
+      ctaId: 'other-campaign_home',
       count: 6,
     },
     {
       event: 'sign_in_click',
       utmCampaign: 'other-campaign',
+      ctaId: 'other-campaign_home',
       count: 1,
     },
   ];
@@ -135,8 +139,18 @@ test('buildScoreboard never compares direct-store and landing journeys', () => {
       },
     ],
     attributionRows: [
-      { event: 'landing_view', utmCampaign: 'landing-campaign', count: 10 },
-      { event: 'play_store_click', utmCampaign: 'landing-campaign', count: 5 },
+      {
+        event: 'landing_view',
+        utmCampaign: 'landing-campaign',
+        ctaId: 'landing-campaign_home',
+        count: 10,
+      },
+      {
+        event: 'play_store_click',
+        utmCampaign: 'landing-campaign',
+        ctaId: 'landing-campaign_home',
+        count: 5,
+      },
       { event: 'play_store_click', utmCampaign: 'direct-campaign', count: 10 },
       { event: 'play_store_preview', utmCampaign: 'direct-campaign', count: 100 },
     ],
@@ -153,6 +167,73 @@ test('buildScoreboard never compares direct-store and landing journeys', () => {
   assert.strictEqual(direct.ctrProxy, null);
   assert.strictEqual(direct.attributedTotal, 10);
   assert.strictEqual(direct.playStorePreviews, 100);
+});
+
+test('buildScoreboard refuses a campaign with landing and direct-store CTAs', () => {
+  const report = buildScoreboard({
+    contentRows: [
+      {
+        date: '2026-07-30',
+        platform: 'LinkedIn',
+        hook: 'dual CTA',
+        campaign: 'dual-campaign',
+        status: 'Published',
+        postUrl: 'https://linkedin.com/dual',
+      },
+      {
+        date: '2026-07-30',
+        platform: 'X',
+        hook: 'landing only',
+        campaign: 'landing-control',
+        status: 'Published',
+        postUrl: 'https://x.com/control',
+      },
+    ],
+    attributionRows: [
+      {
+        event: 'landing_view',
+        utmCampaign: 'dual-campaign',
+        ctaId: 'dual-campaign_home',
+        count: 10,
+      },
+      {
+        event: 'play_store_click',
+        utmCampaign: 'dual-campaign',
+        ctaId: 'dual-campaign_home',
+        count: 5,
+      },
+      {
+        event: 'play_store_click',
+        utmCampaign: 'dual-campaign',
+        ctaId: 'dual-campaign_play',
+        count: 5,
+      },
+      {
+        event: 'landing_view',
+        utmCampaign: 'landing-control',
+        ctaId: 'landing-control_home',
+        count: 10,
+      },
+      {
+        event: 'play_store_click',
+        utmCampaign: 'landing-control',
+        ctaId: 'landing-control_home',
+        count: 5,
+      },
+    ],
+    lookbackDays: 30,
+    minEvents: 5,
+  });
+
+  assert.strictEqual(report.decision, 'MIXED_JOURNEYS');
+  assert.strictEqual(report.winner, null);
+  const mixed = report.campaigns.find(
+    (campaign) => campaign.campaign === 'dual-campaign',
+  );
+  assert.strictEqual(mixed.journeyType, 'mixed');
+  assert.strictEqual(mixed.ctrProxy, null);
+  assert.strictEqual(mixed.landingStoreClicks, 5);
+  assert.strictEqual(mixed.directStoreClicks, 5);
 });
 
 test('LIVE posts with zero attribution produce lesson', () => {

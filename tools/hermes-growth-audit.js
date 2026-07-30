@@ -273,7 +273,7 @@ function parseD1JsonOutput(stdout) {
   throw new Error('Wrangler output did not contain a JSON result payload');
 }
 
-function auditExperimentProof(root = ROOT) {
+function auditExperimentProof(root = ROOT, now = Date.now()) {
   const proofDirectory = path.join(
     root,
     'hermes-mobile/docs/proofs/store-experiments',
@@ -293,10 +293,14 @@ function auditExperimentProof(root = ROOT) {
         googlePlay: providerResult([]),
         appStore: providerResult([]),
       },
+      rejected: [],
     };
   }
   const googlePlay = [];
   const appStore = [];
+  const rejected = [];
+  const maxAgeMs = 24 * 60 * 60 * 1000;
+  const futureClockSkewMs = 5 * 60 * 1000;
   for (const name of fs.readdirSync(proofDirectory)) {
     if (!name.endsWith('.json')) continue;
     try {
@@ -307,18 +311,48 @@ function auditExperimentProof(root = ROOT) {
         String(proof.status || '').toLowerCase(),
       );
       if (!isActive || !proof.experimentId) continue;
+      const capturedAtMs = Date.parse(String(proof.capturedAt || ''));
+      const isFresh =
+        Number.isFinite(capturedAtMs) &&
+        capturedAtMs >= now - maxAgeMs &&
+        capturedAtMs <= now + futureClockSkewMs;
+      const targets = [];
       if (proof.packageName === 'com.iganapolsky.hermesmobile.paid') {
-        googlePlay.push({
-          file: name,
-          experimentId: proof.experimentId,
-          provider: proof.provider || 'unknown',
+        targets.push({
+          provider: 'google-play',
+          label: 'googlePlay',
+          active: googlePlay,
         });
       }
       if (proof.appleAppId === '6786778037') {
-        appStore.push({
+        targets.push({
+          provider: 'app-store',
+          label: 'appStore',
+          active: appStore,
+        });
+      }
+      for (const target of targets) {
+        if (proof.provider !== target.provider) {
+          rejected.push({
+            file: name,
+            target: target.label,
+            reason: 'provider-mismatch',
+          });
+          continue;
+        }
+        if (!isFresh) {
+          rejected.push({
+            file: name,
+            target: target.label,
+            reason: 'stale-or-invalid-captured-at',
+          });
+          continue;
+        }
+        target.active.push({
           file: name,
           experimentId: proof.experimentId,
-          provider: proof.provider || 'unknown',
+          provider: proof.provider,
+          capturedAt: new Date(capturedAtMs).toISOString(),
         });
       }
     } catch {
@@ -340,6 +374,7 @@ function auditExperimentProof(root = ROOT) {
       googlePlay: providerResult(googlePlay),
       appStore: providerResult(appStore),
     },
+    rejected,
   };
 }
 

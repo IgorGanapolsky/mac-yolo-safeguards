@@ -154,6 +154,7 @@ test('publishable copy audit requires complete and platform-consistent campaign 
 });
 
 test('store experiment proof requires independent active receipts for both stores', () => {
+  const now = Date.parse('2026-07-30T20:00:00Z');
   const root = makeTempDirectory();
   const proofs = path.join(
     root,
@@ -167,10 +168,11 @@ test('store experiment proof requires independent active receipts for both store
       packageName: 'com.iganapolsky.hermesmobile.paid',
       experimentId: 'play-exp-1',
       status: 'active',
+      capturedAt: '2026-07-30T19:00:00Z',
     }),
   );
 
-  const playOnly = auditExperimentProof(root);
+  const playOnly = auditExperimentProof(root, now);
   assert.equal(playOnly.status, 'unverified');
   assert.equal(playOnly.providers.googlePlay.status, 'pass');
   assert.equal(playOnly.providers.appStore.status, 'unverified');
@@ -182,14 +184,56 @@ test('store experiment proof requires independent active receipts for both store
       appleAppId: '6786778037',
       experimentId: 'apple-exp-1',
       status: 'running',
+      capturedAt: '2026-07-30T19:05:00Z',
     }),
   );
 
-  const both = auditExperimentProof(root);
+  const both = auditExperimentProof(root, now);
   assert.equal(both.status, 'pass');
   assert.equal(both.activeExperimentCount, 2);
   assert.equal(both.providers.googlePlay.activeExperimentCount, 1);
   assert.equal(both.providers.appStore.activeExperimentCount, 1);
+});
+
+test('store experiment proof rejects stale and provider-mismatched receipts', () => {
+  const now = Date.parse('2026-07-30T20:00:00Z');
+  const root = makeTempDirectory();
+  const proofs = path.join(
+    root,
+    'hermes-mobile/docs/proofs/store-experiments',
+  );
+  fs.mkdirSync(proofs, { recursive: true });
+  fs.writeFileSync(
+    path.join(proofs, 'stale-play.json'),
+    JSON.stringify({
+      provider: 'google-play',
+      packageName: 'com.iganapolsky.hermesmobile.paid',
+      experimentId: 'stale-play',
+      status: 'active',
+      capturedAt: '2026-07-20T20:00:00Z',
+    }),
+  );
+  fs.writeFileSync(
+    path.join(proofs, 'wrong-provider.json'),
+    JSON.stringify({
+      provider: 'unknown',
+      appleAppId: '6786778037',
+      experimentId: 'unknown-apple',
+      status: 'active',
+      capturedAt: '2026-07-30T19:00:00Z',
+    }),
+  );
+
+  const result = auditExperimentProof(root, now);
+
+  assert.equal(result.status, 'unverified');
+  assert.equal(result.activeExperimentCount, 0);
+  assert.equal(result.providers.googlePlay.status, 'unverified');
+  assert.equal(result.providers.appStore.status, 'unverified');
+  assert.deepEqual(
+    result.rejected.map((receipt) => receipt.reason).sort(),
+    ['provider-mismatch', 'stale-or-invalid-captured-at'],
+  );
 });
 
 test('content log summary keeps provider-visible and draft states separate', () => {
