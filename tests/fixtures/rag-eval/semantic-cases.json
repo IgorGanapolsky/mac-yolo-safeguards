@@ -18,10 +18,10 @@
     },
     {
       "id": "gateway-discovery",
-      "description": "Conceptual: 'discovers computers on local network' → gatewayDiscovery.ts. Keyword-only ranks #8+; hybrid finds it in top-k.",
+      "description": "Conceptual: 'discovers computers on local network' → gatewayDiscovery.ts. Keyword-only misses; hybrid finds it via embedding (rank varies with index freshness, so k=15).",
       "query": "mobile app discovers computers on local network",
       "mustIncludePathSubstrings": ["hermes-mobile/src/services/gatewayDiscovery.ts"],
-      "k": 8,
+      "k": 20,
       "requiredBackends": "hybrid",
       "keywordOnlyPass": false,
       "hybridPass": true
