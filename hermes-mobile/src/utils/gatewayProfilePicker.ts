@@ -624,10 +624,11 @@ export function detectUsbHostMismatch(input: {
 }
 
 export function formatUsbHostMismatchMessage(mismatch: UsbHostMismatch): string {
+  // Tailscale-only copy: name the computers, never the cable.
   if (mismatch.matchingProfileId) {
-    return `USB is connected to ${mismatch.usbHostLabel}, but you selected ${mismatch.selectedProfileLabel}. Tap ${mismatch.usbHostLabel} in Saved computers below.`;
+    return `Your phone is linked to ${mismatch.usbHostLabel}, but you selected ${mismatch.selectedProfileLabel}. Tap ${mismatch.usbHostLabel} in Saved computers below.`;
   }
-  return `USB is connected to ${mismatch.usbHostLabel}, not ${mismatch.selectedProfileLabel}. Switch saved computers or unplug from the other computer.`;
+  return `Your phone is linked to ${mismatch.usbHostLabel}, not ${mismatch.selectedProfileLabel}. Switch saved computers, or reach ${mismatch.selectedProfileLabel} over Tailscale.`;
 }
 
 export type ProfileConnectionRoute = 'USB' | 'Wi-Fi' | 'Tailscale' | 'Tunnel' | 'Needs tunnel';
