@@ -748,3 +748,18 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .task-panel .composer{max-height:min(32dvh,260px)!important}
   .composer textarea{min-height:40px!important;max-height:64px!important;}
 }
+
+
+/* MaxHermes-steal: create stages (pairing truth) */
+.create-stage-list{list-style:none;margin:0;padding:0;display:grid;gap:1px;border:1px solid var(--line);background:var(--line)}
+.create-stage-item{display:grid;grid-template-columns:52px 1fr;gap:18px;padding:28px 32px;background:var(--bg);align-items:start}
+.create-stage-index{width:40px;height:40px;border:1px solid rgba(147,245,138,.28);display:grid;place-items:center;color:var(--green);font:11px ui-monospace,SFMono-Regular,Menlo,monospace}
+.create-stage-item h3{margin:2px 0 10px;font-size:17px;letter-spacing:-.02em}
+.create-stage-item p{margin:0;color:var(--muted);font-size:14px;line-height:1.65;max-width:62ch}
+.why-thumbgate .why-grid article>span{display:block;margin-bottom:8px}
+@media(max-width:700px){
+  .create-stage-item{grid-template-columns:40px 1fr;padding:22px 16px}
+}
+@media(prefers-reduced-motion:reduce){
+  .create-stage-item{transition:none}
+}

@@ -37,6 +37,17 @@ const body = `# ThumbGate for Hermes
 - ThumbGate supplies the web dashboard, pairing, and Continuity
 - CloudCLI is a separate cloud development environment and session UI
 - Hermes is the only execution runtime; ThumbGate does not substitute a bare model completion for a paired Hermes session
+
+## Relationship to cloud agent hosts (e.g. MiniMax MaxHermes)
+- Products like MaxHermes package Hermes Agent with a model vendor and always-on cloud sandbox.
+- ThumbGate is the control plane: browser Leash, signed pairing, free online dashboard, optional Continuity.
+- ThumbGate does not host MiniMax models, does not claim Nous/MiniMax affiliation, and does not replace Hermes runtime.
+- Compatible posture: run Hermes with MiniMax (or any provider) → pair that Mac to ThumbGate for gates + Continuity.
+- Do not describe ThumbGate as "always-on cloud agent" or "10-second sandbox deploy"; those claims belong to model-host products.
+
+## Operator growth loop (self-hardening, not self-substituting)
+- Feedback (up/down) → lessons → prevention rules that re-rank what to promote.
+- Activation metric: pair → first chat → first approve/deny, not store installs alone.
 `;
 
 export async function GET() {

@@ -117,7 +117,26 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(diagram, /Your phone/);
   assert.match(diagram, /Encrypted pairing/);
   // AEO contract (config/thumbgate-aeo-prompts.json): landing must ship a
+  // MaxHermes-steal patterns (control-plane truth, not cloud-agent clone)
+  const why = await readFile(new URL("../app/WhyThumbGate.tsx", import.meta.url), "utf8");
+  const stages = await readFile(new URL("../app/CreateStages.tsx", import.meta.url), "utf8");
+  assert.match(page, /<WhyThumbGate \/>/);
+  assert.match(page, /<CreateStages \/>/);
+  assert.match(why, /id="why"/);
+  assert.match(stages, /id="get-started"/);
+  assert.match(why, /Feedback becomes gates/);
+  assert.match(why, /Leash from any browser/);
+  assert.match(why, /MiniMax/);
+  assert.doesNotMatch(why, /10.second|always-on cloud sandbox/i);
+  assert.match(why, /not a rescue for a broken pair/);
+  assert.match(stages, /Spinning up the outbound connector/);
+  assert.match(stages, /Opening first chat/);
+  assert.match(stages, /First chat is the product/);
+  assert.match(llms, /MaxHermes|cloud agent host/);
+  assert.match(llms, /does not claim Nous\/MiniMax affiliation/);
+  assert.match(page, /Is ThumbGate the same as MiniMax MaxHermes/);
   // visible FAQ + FAQPage JSON-LD so answer engines can cite it.
+
   assert.match(page, /FAQPage/);
   assert.match(page, /id="faq"/);
   assert.match(page, /What is ThumbGate\?/);

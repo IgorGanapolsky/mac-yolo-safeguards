@@ -12,6 +12,8 @@ import {
 } from "./LandingAuthChrome";
 import { BrandMark } from "./BrandMark";
 import { StoreBadgeRow } from "./StoreBadges";
+import { WhyThumbGate } from "./WhyThumbGate";
+import { CreateStages } from "./CreateStages";
 import styles from "./landing.module.css";
 
 /**
@@ -40,6 +42,11 @@ const FAQ_ITEMS = [
       "Free Web Control pauses or asks. Eligible trial or paid Cloud Continuity tasks can continue on a fenced VPS runner so work stays recoverable when the lid closes.",
   },
   {
+    question: "Is ThumbGate the same as MiniMax MaxHermes?",
+    answer:
+      "No. MaxHermes is a cloud agent product that packages Hermes Agent with MiniMax models and always-on sandboxes. ThumbGate is the control plane: browser Leash, signed Mac pairing, free online dashboard, and optional Continuity. Run Hermes with MiniMax (or any provider) on your Mac, then pair that machine to ThumbGate. ThumbGate is not affiliated with Nous or MiniMax.",
+  },
+  {
     question: "How much does ThumbGate cost?",
     answer:
       "The web dashboard (Web Control) is free while your Mac is online. Cloud Continuity is a recurring paid subscription; current pricing is shown live on this page and at https://thumbgate.app/api/billing/plan.",
@@ -56,7 +63,7 @@ export default function Home() {
         url: "https://thumbgate.app/",
         applicationCategory: "DeveloperApplication",
         operatingSystem: "Web, macOS, iOS, Android",
-        description: "Web dashboard for Hermes remote control, with optional VPS continuity when your machine is offline.",
+        description: "Web dashboard and Leash control plane for Hermes agents (including Hermes + MiniMax and other providers), with optional VPS Continuity when your machine is offline. Not a cloud agent host.",
         offers: [
           { "@type": "Offer", name: "Web Control", price: "0", priceCurrency: "USD" },
         ],
@@ -118,6 +125,10 @@ export default function Home() {
           <li><span>03</span><div><h3>Pick offline behavior</h3><p>Pause, ask, or continue on Continuity (VPS).</p></div></li>
         </ol>
       </section>
+
+      <WhyThumbGate />
+
+      <CreateStages />
 
       <section id="how-it-works" className="section-block">
         <div className="section-heading">

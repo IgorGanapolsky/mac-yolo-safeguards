@@ -2600,3 +2600,11 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 
 - 2026-07-30T19:16:45Z `grok-model-eof-stuck`: **T-MODEL-EOF-STUCK-RUN-20260730** also wires ChatScreen hard-timeout detail to `runHardTimeoutDetail` (session + mega-prompt) — free slice only.
 - `hermes-mobile/src/utils/modelProviderErrorRecovery.ts`, `hermes-mobile/src/utils/chatAssistantProse.ts`, `hermes-mobile/src/utils/chatErrors.ts`, `hermes-mobile/src/utils/runProgressDisplay.ts`, `hermes-mobile/src/utils/runStaleDetection.ts`, `hermes-mobile/src/screens/ChatScreen.tsx` (hard-timeout detail + session pass only), `hermes-mobile/src/__tests__/modelProviderErrorRecovery.test.ts`, `hermes-mobile/src/__tests__/chatAssistantProse.test.ts`, `hermes-mobile/src/__tests__/chatErrors.test.ts`, `hermes-mobile/src/__tests__/runStaleDetection.test.ts`, `plan.md` → **grok-model-eof-stuck** (T-MODEL-EOF-STUCK-RUN-20260730: humanize Error code 500/unexpected EOF/turn time limit; fail mega live prompts ≥200k at ≤4m; reclaim stale T-269 cursor-safety-timeout / T-138 locks on these pure-utils — no live worktree for those 2026-07-14 claims) (2026-07-30T19:17:44Z)
+
+
+## Agent log
+- 2026-07-30T23:30:37Z `grok-maxhermes-steal-20260730`: claimed T-MAXHERMES-STEAL-20260730 in worktree feat/maxhermes-steal-patterns-20260730
+
+| T-MAXHERMES-STEAL-20260730 | Steal MaxHermes GTM patterns for ThumbGate: Why 3-benefit cards, create-stages pairing UX, llms competitive positioning vs cloud Hermes hosts | done | grok-maxhermes-steal-20260730 | `apps/hermes-control-plane/app/WhyThumbGate.tsx` (new), `apps/hermes-control-plane/app/CreateStages.tsx` (new), `apps/hermes-control-plane/app/why-create.module.css` (new), `apps/hermes-control-plane/app/page.tsx` (why+stages sections only), `apps/hermes-control-plane/app/llms.txt/route.ts` (competitive relationship bullets), `apps/hermes-control-plane/tests/rendered-html.test.mjs` (new assertions), `plan.md` | Landing ships MaxHermes-style Why cards + create stages without rescue/cloud-agent claims; llms.txt differentiates control-plane vs model host; focused rendered-html tests green |
+
+- 2026-07-30T23:31:57Z `grok-maxhermes-steal-20260730`: WhyThumbGate + CreateStages + MaxHermes FAQ/llms differentiation; rendered-html tests green
