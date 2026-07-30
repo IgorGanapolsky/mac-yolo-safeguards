@@ -80,7 +80,7 @@ install_fresh_ios_release() {
     return 1
   fi
   echo "iOS app:   building and installing exact-head embedded Release build" >&2
-  npx expo run:ios --no-bundler --device "$udid" --configuration Release
+  npx expo run:ios --no-bundler --device "$udid" --configuration Release --no-build-cache
 
   if ! xcrun simctl get_app_container "$udid" "$IOS_BUNDLE_ID" app >/dev/null 2>&1; then
     echo "Failed to install $IOS_BUNDLE_ID on simulator $udid" >&2

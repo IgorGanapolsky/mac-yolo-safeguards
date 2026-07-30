@@ -66,7 +66,7 @@ describe('lanScanLabels', () => {
     expect(computersOnly).not.toMatch(/found so far/);
   });
 
-  it('never calls Tailscale or USB results "local"', () => {
+  it('never calls Tailscale or loopback results "local", and never names the cable', () => {
     expect(formatLanScanResultLabel(0)).toBe('None found yet');
     expect(formatLanScanResultLabel(2)).toBe('Found 2 Hermes computers');
     expect(
@@ -84,7 +84,7 @@ describe('lanScanLabels', () => {
         tailscaleCount: 0,
         usbCount: 1,
       }),
-    ).toBe('Found 1 over USB');
+    ).toBe('Found 1 Hermes computer');
     expect(
       formatLanScanResultLabel({
         foundCount: 2,
@@ -92,7 +92,7 @@ describe('lanScanLabels', () => {
         tailscaleCount: 0,
         usbCount: 2,
       }),
-    ).toBe('Found 2 over USB');
+    ).toBe('Found 2 Hermes computers');
     // Discovery copy must never claim the active chat route ("Using USB").
     expect(
       formatLanScanResultLabel({

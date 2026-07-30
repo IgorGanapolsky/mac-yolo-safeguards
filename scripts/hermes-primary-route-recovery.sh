@@ -57,7 +57,11 @@ reset_epoch() {
   local stamp
   stamp="$(grep -ao 'reset at [0-9-]\{10\} [0-9:]\{8\}' "$ERRLOG" 2>/dev/null | tail -n1 | sed 's/^reset at //')"
   [[ -n "$stamp" ]] || return 1
-  date -j -f '%Y-%m-%d %H:%M:%S' "$stamp" '+%s' 2>/dev/null
+  # BSD date (Darwin) vs GNU date (Linux CI) — never use Darwin-only -j on ubuntu.
+  if date -j -f '%Y-%m-%d %H:%M:%S' "$stamp" '+%s' 2>/dev/null; then
+    return 0
+  fi
+  date -d "$stamp" '+%s' 2>/dev/null || date --date="$stamp" '+%s' 2>/dev/null
 }
 
 serving="$(serving_model || true)"
@@ -78,7 +82,9 @@ fi
 
 now="$(date '+%s')"
 if (( now < reset_at )); then
-  log "FELL BACK: $PRIMARY -> $serving; upstream quota resets $(date -r "$reset_at" '+%Y-%m-%d %H:%M:%S') — waiting"
+  # date -r is Darwin; GNU date uses -d @epoch
+  reset_human="$(date -r "$reset_at" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || date -d "@$reset_at" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$reset_at")"
+  log "FELL BACK: $PRIMARY -> $serving; upstream quota resets ${reset_human} — waiting"
   exit 0
 fi
 

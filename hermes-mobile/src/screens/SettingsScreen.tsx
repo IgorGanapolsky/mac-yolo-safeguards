@@ -547,8 +547,8 @@ export default function SettingsScreen() {
         <GlassCard>
           <Text style={styles.label}>Your active machines</Text>
           <Text style={styles.description}>
-            Away from home, use Tailscale so your phone can reach your computer. On home Wi‑Fi,
-            Find computers works without a tunnel. Saved machines power Chat, tools, and ops.
+            Tailscale reaches your computer anywhere — at home or away. On the same Wi‑Fi, Find
+            computers can also discover it. Saved machines power Chat, tools, and ops.
           </Text>
           <GatewayProfilePicker
             profiles={profilesForSwitchComputerPicker(savedMacProfiles)}

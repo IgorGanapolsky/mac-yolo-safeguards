@@ -41,6 +41,16 @@ export const OUTBOUND_UNREACHABLE_HINT =
 export const OUTBOUND_RECONNECTED_RETRY_HINT =
   'Reconnected — resending automatically…';
 
+/**
+ * Passive status, NOT a call to action.
+ *
+ * 2026-07-29 device verdict: "tap to resend does absolutely nothing!!! Just have
+ * it done automatically on reconnection." A prompt the gateway never accepted is
+ * provably not on the Mac, so reconnection resends it by itself — telling the
+ * user to tap is both wrong and (pre-#1174) a dead button.
+ */
+export const OUTBOUND_RECONNECTED_AUTO_RESEND = 'Reconnected — resending…';
+
 /** Header already says Connected — do not contradict with "Waiting for computer". */
 export const OUTBOUND_CONNECTED_WAITING_REPLY =
   '○ Still waiting for reply…';
@@ -112,8 +122,18 @@ export function isConnectivityFailureReason(reason: string): boolean {
 export function resolveOutboundFailureLabel(
   failureReason: string | undefined,
   macHttpOk: boolean,
+  options?: {
+    /**
+     * The app is about to resend this turn by itself (gateway never accepted it,
+     * link is back). Show progress, never an instruction to tap.
+     */
+    autoResendPending?: boolean;
+  },
 ): string {
   const reason = failureReason?.trim();
+  if (options?.autoResendPending && macHttpOk) {
+    return `○ ${OUTBOUND_RECONNECTED_AUTO_RESEND}`;
+  }
   if (reason) {
     if (isWrongKeyFailureReason(reason)) {
       return '⚠ Outdated connection — tap Re-pair this Mac';
@@ -179,10 +199,13 @@ export function outboundDeliveryLabel(
     connectionState: LeashConnectionState;
     macHttpOk: boolean;
     failureReason?: string;
+    autoResendPending?: boolean;
   },
 ): string {
   if (status === 'failed') {
-    return resolveOutboundFailureLabel(input.failureReason, input.macHttpOk);
+    return resolveOutboundFailureLabel(input.failureReason, input.macHttpOk, {
+      autoResendPending: input.autoResendPending,
+    });
   }
 
   const live = isGatewayLiveForDelivery(input);

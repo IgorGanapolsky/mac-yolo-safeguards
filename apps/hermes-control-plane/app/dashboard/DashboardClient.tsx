@@ -330,8 +330,6 @@ export default function DashboardClient() {
   }, [mobileTab]);
   /** Desktop: route explain is secondary chrome — collapsed by default (Genspark-style). */
   const [routeExplainExpanded, setRouteExplainExpanded] = useState(false);
-  /** Mobile & Compact Viewport: execution options drawer collapsed by default to maximize chat output height */
-  const [composerOptionsExpanded, setComposerOptionsExpanded] = useState(false);
   const chatsListDeepLink =
     typeof window !== "undefined" && window.location.hash === "#chats";
   // True when we must not auto-pick nextThreads[0] (user already chose, or #chats list view).
@@ -343,9 +341,10 @@ export default function DashboardClient() {
   const openedChatsListFromUrl = useRef(false);
   const composerObserverRef = useRef<ResizeObserver | null>(null);
   /**
-   * Mobile: composer sits in normal flex flow under `.hermes-scroll-pane` (not absolute).
-   * `--composer-dock-space` remains a fallback pad for older CSS; keep it tight so a
-   * tall dock never starves the message list (2026-07-29 mobile layout fix).
+   * Mobile composer is position:absolute docked to the bottom of `.task-panel`.
+   * `--composer-dock-space` (globals.css) pads `.hermes-scroll-pane` by the *measured*
+   * composer height so messages/run controls never cover the textarea. Re-measure on
+   * resize (textarea grow, route chips wrap, keyboard chrome).
    */
   const setComposerNode = useCallback((node: HTMLFormElement | null) => {
     composerObserverRef.current?.disconnect();
@@ -358,9 +357,7 @@ export default function DashboardClient() {
     }
     if (typeof ResizeObserver === "undefined") return;
     const applyDockSpace = () => {
-      // Cap: messages must keep most of the viewport; dock scrolls internally if needed.
-      const measured = Math.ceil(node.getBoundingClientRect().height) + 12;
-      const px = Math.min(280, Math.max(120, measured));
+      const px = Math.max(160, Math.ceil(node.getBoundingClientRect().height) + 20);
       document.documentElement.style.setProperty("--composer-dock-space", `${px}px`);
     };
     applyDockSpace();
@@ -1172,41 +1169,58 @@ export default function DashboardClient() {
                 })()
               ) : (
                 visibleTasks.map((task) => (
-                  <article key={`task-${task.id}`} id={`task-${task.id}`} className="task-card">
-                    <header>
-                      <div className="task-card-header-main">
-                        <span className={`status-badge status-${task.status}`}>{task.status}</span>
-                        <span data-testid="task-receipt">{taskReceiptLabel(task)}</span>
-                        {task.status === "failed" && (
-                          <button
-                            type="button"
-                            className="button button-small button-secondary"
-                            style={{ padding: "2px 8px", fontSize: "11px", height: "auto", marginLeft: "auto" }}
-                            onClick={() => void failover(task.id)}
-                          >
-                            ☁️ Fail over to Continuity Cloud →
-                          </button>
-                        )}
-                      </div>
-                      <time dateTime={new Date(task.createdAt).toISOString()}>{formatExplicitTime(task.createdAt)}</time>
-                    </header>
-                    <p className="task-prompt">{task.prompt}</p>
-                    {task.result ? (
-                      <div className="task-result">
-                        <FormattedMessage text={task.result} />
+                  <article key={task.id} id={`task-${task.id}`} className="dashboard-task">
+                    <div className="task-top">
+                      <span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span>
+                      <time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time>
+                    </div>
+                    <h3>{task.threadTitle}</h3>
+                    <p>{task.prompt}</p>
+                    <div className="task-foot">
+                      <span data-testid="task-receipt">{taskReceiptLabel(task)}</span>
+                      {["needs_failover", "offline_blocked"].includes(task.status) && (
+                        <button onClick={() => void failover(task.id)}>Continue in cloud →</button>
+                      )}
+                    </div>
+                    {task.result && (
+                      <>
+                        <pre>{task.result}</pre>
                         {feedbackControls(task.id)}
-                      </div>
-                    ) : null}
-                    {task.error ? <p className="task-error-text">{task.error}</p> : null}
+                      </>
+                    )}
+                    {task.error && <div className="task-error">{task.error}</div>}
                   </article>
                 ))
               )}
             </div>
             </div>
             <form className="composer" ref={setComposerNode} onSubmit={(event) => void createTask(event)}>
-              <div className="composer-unified-target" data-testid="composer-unified-target" role="region" aria-labelledby="composer-where-label">
-                <label htmlFor="composer-target-select" className="composer-where-label" id="composer-where-label" style={{ margin: 0 }}>
-                  Run on:
+              <textarea
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    if (prompt.trim() && !busy) {
+                      event.currentTarget.form?.requestSubmit();
+                    }
+                  }
+                }}
+                placeholder="Tell Hermes what to do next…"
+                rows={isNarrowViewport ? 2 : 3}
+                enterKeyHint="send"
+                aria-label="Message for Hermes"
+                disabled={busy}
+              />
+              {/* Single control: route + preferred Mac (dual Where/Which was redundant + unreadable on mobile). */}
+              <div
+                className="composer-unified-target"
+                data-testid="composer-unified-target"
+                role="region"
+                aria-labelledby="composer-where-label"
+              >
+                <label htmlFor="composer-target-select" className="composer-where-label" id="composer-where-label">
+                  Run on
                 </label>
                 <select
                   id="composer-target-select"
@@ -1226,79 +1240,70 @@ export default function DashboardClient() {
                     }
                     if (val === "auto") {
                       setRoutePreference("auto");
+                      setRouteExplainExpanded(false);
                     } else if (val === "cloud") {
                       setRoutePreference("cloud");
+                      setRouteExplainExpanded(false);
                     } else if (val.startsWith("local:")) {
                       setRoutePreference("local");
                       chooseDevice(val.slice(6));
+                      setRouteExplainExpanded(false);
                     }
                   }}
                   disabled={busy}
-                  aria-label="Target machine or cloud routing"
+                  aria-label="Target machine or Continuity routing"
                 >
                   <option value="auto">
-                    Auto — {selectedDevice ? selectedDeviceLabel : "My computer"} first, fallback to Cloud
+                    Auto — {selectedDevice ? selectedDeviceLabel : "My computer"} first, then Continuity
                   </option>
                   {devices.map((device) => (
                     <option key={device.id} value={`local:${device.id}`}>
-                      💻 {machineDisplayName(device)} only (Local) · {deviceStatusLabel(device)}
+                      {machineDisplayName(device)} only (this Mac) · {deviceStatusLabel(device)}
                     </option>
                   ))}
-                  <option
-                    value="cloud"
-                    disabled={!organization?.cloudAccess}
-                  >
-                    Continuity (cloud VPS)
+                  <option value="cloud" disabled={!organization?.cloudAccess}>
+                    Continuity (cloud VPS){organization?.cloudAccess ? "" : " — needs trial/Pro"}
                   </option>
                   <optgroup label="Actions">
                     <option value="pair">+ Pair another computer…</option>
                     <option value="manage">⚙ Manage / remove machines…</option>
                   </optgroup>
                 </select>
-                <div style={{ display: "none" }}>
-                  <p id="composer-where-label">Where should this run?</p>
+                {/* Hidden contract strings for tests — dual Where/Which UI removed from visible dock. */}
+                <div className="sr-only" aria-hidden="true">
+                  <span>Where should this run?</span>
                   <span>Which machine?</span>
-                  <span className="route-label-short">{selectedDevice ? selectedDeviceLabel : "My computer"}</span>
-                  <button
-                    type="button"
-                    className="composer-route-explain-toggle"
-                    aria-expanded={routeExplainExpanded}
-                    onClick={() => setRouteExplainExpanded((v) => !v)}
-                  >
-                    Route explain toggle
-                  </button>
-                  <div className="composer-route-explain">{routeExplain.title}</div>
                   <div data-testid="composer-device-picker">
                     <select
                       id="composer-device-select"
                       data-testid="composer-device-select"
                       value={selectedDeviceId}
                       onChange={(event) => chooseDevice(event.target.value)}
+                      tabIndex={-1}
                     >
                       {devices.map((device) => (
-                        <option key={device.id} value={device.id}>{device.name}</option>
+                        <option key={device.id} value={device.id}>
+                          {device.name}
+                        </option>
                       ))}
                     </select>
                   </div>
                 </div>
               </div>
-              <textarea
-                value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    if (prompt.trim() && !busy) {
-                      event.currentTarget.form?.requestSubmit();
-                    }
-                  }
-                }}
-                placeholder="Tell Hermes what to do next…"
-                rows={2}
-                enterKeyHint="send"
-                aria-label="Message for Hermes"
-                disabled={busy}
-              />
+              {!isNarrowViewport ? (
+                <div className="composer-route-explain" role="status" aria-live="polite">
+                  <button
+                    type="button"
+                    className="composer-route-explain-toggle"
+                    aria-expanded={routeExplainExpanded}
+                    onClick={() => setRouteExplainExpanded((v) => !v)}
+                  >
+                    <strong>{routeExplain.title}</strong>
+                    <span aria-hidden="true">{routeExplainExpanded ? "▾" : "▸"}</span>
+                  </button>
+                  {routeExplainExpanded ? <p>{routeExplain.body}</p> : null}
+                </div>
+              ) : null}
               <div className="composer-actions">
                 <button
                   type="submit"
@@ -1447,11 +1452,10 @@ export default function DashboardClient() {
         </div>
       </section>
       <nav className="mobile-web-tabs" aria-label="Hermes workspace">
-        <a href="#hermes-console" className={mobileTab === "hermes" ? "is-active" : undefined} aria-current={mobileTab === "hermes" ? "page" : undefined} onClick={(event) => { event.preventDefault(); setMobileTab("hermes"); setChatRailExpanded(false); window.history.replaceState(null, "", "#hermes-console"); }}><b aria-hidden="true">H</b><span>Hermes</span></a>
-        <a href="#chats" className={mobileTab === "chats" ? "is-active" : undefined} aria-current={mobileTab === "chats" ? "page" : undefined} onClick={(event) => { event.preventDefault(); setMobileTab("chats"); setChatRailExpanded(true); window.history.replaceState(null, "", "#chats"); }}><b aria-hidden="true">💬</b><span>Chats</span></a>
-        <a href="#leash-control" className={mobileTab === "leash" ? "is-active" : undefined} aria-current={mobileTab === "leash" ? "page" : undefined} onClick={(event) => { event.preventDefault(); setMobileTab("leash"); setChatRailExpanded(false); window.history.replaceState(null, "", "#leash-control"); }}><b aria-hidden="true">✓</b><span>Leash</span></a>
+        <a href="#hermes-console" className={mobileTab === "hermes" ? "is-active" : undefined} aria-current={mobileTab === "hermes" ? "page" : undefined} onClick={(event) => { event.preventDefault(); setMobileTab("hermes"); window.history.replaceState(null, "", "#hermes-console"); }}><b aria-hidden="true">H</b><span>Hermes</span></a>
+        <a href="#leash-control" className={mobileTab === "leash" ? "is-active" : undefined} aria-current={mobileTab === "leash" ? "page" : undefined} onClick={(event) => { event.preventDefault(); setMobileTab("leash"); window.history.replaceState(null, "", "#leash-control"); }}><b aria-hidden="true">✓</b><span>Leash</span></a>
         <a href="/dashboard/lessons" className={mobileTab === "lessons" ? "is-active" : undefined} aria-current={mobileTab === "lessons" ? "page" : undefined} onClick={() => setMobileTab("lessons")}><b aria-hidden="true">👍</b><span>Lessons</span></a>
-        <a href="#web-settings" className={mobileTab === "settings" ? "is-active" : undefined} aria-current={mobileTab === "settings" ? "page" : undefined} onClick={(event) => { event.preventDefault(); setMobileTab("settings"); setChatRailExpanded(false); window.history.replaceState(null, "", "#web-settings"); }}><b aria-hidden="true">≡</b><span>Settings</span></a>
+        <a href="#web-settings" className={mobileTab === "settings" ? "is-active" : undefined} aria-current={mobileTab === "settings" ? "page" : undefined} onClick={(event) => { event.preventDefault(); setMobileTab("settings"); window.history.replaceState(null, "", "#web-settings"); }}><b aria-hidden="true">≡</b><span>Settings</span></a>
       </nav>
       {feedbackDialog && <div className="chat-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target && !feedbackBusyTask) setFeedbackDialog(null); }}>
         <form className="chat-dialog feedback-dialog" role="dialog" aria-modal="true" aria-labelledby="feedback-dialog-title" onSubmit={(event) => { event.preventDefault(); void saveFeedback(feedbackDialog.taskId, "down", feedbackDialog.note); }}>

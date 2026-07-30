@@ -1,5 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { HermesMessage } from '../types/chat';
+import type {
+  ComposerAttachment,
+  OutboundRetryEnvelope,
+} from '../types/chatAttachment';
 import { isDeferredStreamPlaceholder } from './streamAssistantText';
 import { hasUnsyncedLocalMessages } from './chatMessageMerge';
 
@@ -30,6 +34,67 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function sanitizeRetryAttachment(raw: unknown): ComposerAttachment | null {
+  if (!isRecord(raw)) {
+    return null;
+  }
+  if (
+    typeof raw.id !== 'string' ||
+    typeof raw.name !== 'string' ||
+    typeof raw.mimeType !== 'string' ||
+    typeof raw.uri !== 'string' ||
+    (raw.kind !== 'image' && raw.kind !== 'text') ||
+    typeof raw.sizeBytes !== 'number' ||
+    !Number.isFinite(raw.sizeBytes) ||
+    raw.sizeBytes < 0
+  ) {
+    return null;
+  }
+  const id = raw.id.trim();
+  const name = raw.name.trim();
+  const mimeType = raw.mimeType.trim();
+  const uri = raw.uri.trim();
+  if (!id || !name || !mimeType || !uri) {
+    return null;
+  }
+  return {
+    id,
+    name,
+    mimeType,
+    uri,
+    kind: raw.kind,
+    sizeBytes: raw.sizeBytes,
+  };
+}
+
+function sanitizeRetryEnvelope(raw: unknown): OutboundRetryEnvelope | null {
+  if (!isRecord(raw) || raw.version !== 1 || !Array.isArray(raw.attachments)) {
+    return null;
+  }
+  if (raw.attachments.length > 5) {
+    return null;
+  }
+  const attachments = raw.attachments
+    .map(sanitizeRetryAttachment)
+    .filter((attachment): attachment is ComposerAttachment => Boolean(attachment));
+  // Fail closed on partial attachment recovery. Losing one file and retrying the
+  // rest is still silent payload corruption.
+  if (attachments.length !== raw.attachments.length) {
+    return null;
+  }
+  const text = typeof raw.text === 'string' ? raw.text.trim() : '';
+  const displayText = typeof raw.displayText === 'string' ? raw.displayText.trim() : '';
+  if (!text && !displayText && attachments.length === 0) {
+    return null;
+  }
+  return {
+    version: 1,
+    text,
+    displayText: displayText || text,
+    attachments,
+  };
+}
+
 function sanitizeMessage(raw: unknown): HermesMessage | null {
   if (!isRecord(raw)) {
     return null;
@@ -54,6 +119,10 @@ function sanitizeMessage(raw: unknown): HermesMessage | null {
   }
   if (typeof raw.outboundFailureReason === 'string' && raw.outboundFailureReason.trim()) {
     message.outboundFailureReason = raw.outboundFailureReason.trim();
+  }
+  const retryEnvelope = sanitizeRetryEnvelope(raw.outboundRetryEnvelope);
+  if (retryEnvelope) {
+    message.outboundRetryEnvelope = retryEnvelope;
   }
   return message;
 }

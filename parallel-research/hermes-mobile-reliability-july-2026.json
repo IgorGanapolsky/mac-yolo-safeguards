@@ -1,0 +1,804 @@
+{
+  "run_id": "trun_468ec6a2702a4592865d87f871c6a704",
+  "interaction_id": "trun_468ec6a2702a4592865d87f871c6a704",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_468ec6a2702a4592865d87f871c6a704",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Reasoning for completeness and excerpt support:\n- The field_description asks for a comprehensive, threat-model-driven reliability architecture with multiple components (threat model, gap matrix, deterministic tests, CI design, telemetry, device matrices, rollout gates, anti-flake isolation, and a concrete 30/60/90-day plan) and to distinguish what can be mechanically prevented versus what cannot be guaranteed, with July 2026 platform constraints. \n- The provided field_answer covers all nine deliverables (threat model, gap matrix, unit/integration/E2E/contract tests, CI workflow, telemetry events with SLOs, fresh-user/degraded-network matrix, rollout/rollback gates, anti-flake state isolation, and a concrete 30/60/90 implementation plan) and explicitly discusses prevention vs disclosure and platform constraints. This indicates completeness per the guidance.\n- Excerpts list sources related to Expo SDK 55, RN 0.83, Sentry data scrubbing, MagicDNS/DERP/Tailscale, Maestro, and related CI/testing topics. The field_answer cites or mirrors themes that are supported by the excerpts (SDK changes, privacy/scrubbing guidance, DERP/MagicDNS behavior, Maestro testing considerations, and general CI/test reliability guidance). While not every specific assertion is directly verifiable from the excerpts, the core themes (SDK 55 changes, privacy/scrubbing, DERP/MagicDNS behavior, Maestro as an automation/testing framework) have supporting excerpts.\n- Therefore, the field_answer appears to be complete with respect to the requested scope, and it is supported by the included excerpts to a reasonable degree. Some highly specific claims (e.g., exact SLO values or process gates) are not individually verifiable from the excerpts, but they are consistent with the given excerpt topics and general guidance.\n- Confidence in completeness: high. Confidence in excerpt-based support: moderate-to-high, given the aligned topics in the excerpts.",
+        "citations": [
+          {
+            "url": "http://expo.dev/changelog/sdk-55",
+            "excerpts": [
+              "We are working towards a stable release in mid-2026, and the improvements in SDK 55 represent a huge improvement in its capabilities already."
+            ],
+            "title": "Expo SDK 55 - Expo Changelog"
+          },
+          {
+            "url": "https://expo.dev/changelog",
+            "excerpts": [
+              "Changelog - Expo\nCheck out new updates and improvements to <b>Expo</b>. Changes to project loading behavior in Expo. Expo SDK 55 Alan Hughes by up to 30% on both Android and"
+            ],
+            "title": "Changelog - Expo"
+          },
+          {
+            "url": "https://github.com/expo/expo/discussions/17230",
+            "excerpts": [
+              "OTA update fetched by EAS dev client but not installed on ...\nWhen an update is published the development client successfully recognizes/retrieves the update, the changes have not been installed. resolved the issue."
+            ],
+            "title": "OTA update fetched by EAS dev client but not installed on ..."
+          },
+          {
+            "url": "https://tube.wave.co/whats-new-in-react-native-083-react-192-new-devtools-feature-jDQT2Rw6i6Q",
+            "excerpts": [
+              "What's New in React Native 0.83, React 19.2, New DevTools ...\nDec 13, 2025 \u2014 00:00 Intro \u00b7 02:05 How to test RN 83 \u00b7 03:11 RSC Security Vulnerability Note \u00b7 03:41 New React APIs \u00b7 08:35 New DevTools features \u00b7 13:29 RN"
+            ],
+            "title": "What's New in React Native 0.83, React 19.2, New DevTools ..."
+          },
+          {
+            "url": "https://medium.com/%40onix_react/whats-new-in-expo-sdk-55-6eac1553cee8",
+            "excerpts": [
+              "What's New in Expo SDK 55 - Medium\nJan 23, 2026 \u00b7 The SDK 55 update brings a massive wave of quality-of-life improvements across the ecosystem, focusing on developer tooling, native performance"
+            ],
+            "title": "What's New in Expo SDK 55 - Medium"
+          },
+          {
+            "url": "https://oneuptime.com/blog/post/2025-11-13-keep-pii-out-of-observability-telemetry/view",
+            "excerpts": [
+              "Keep PII Out of Your Telemetry: Sanitizing Logs, Traces, and ...\nThis guide covers how to use OpenTelemetry (OTel) to keep logs, traces, and metrics useful without shipping secrets, personally identifiable information (PII), or regulated payloads to downstream platforms."
+            ],
+            "title": "Keep PII Out of Your Telemetry: Sanitizing Logs, Traces, and ..."
+          },
+          {
+            "url": "https://docs.sentry.io/security-legal-pii/scrubbing",
+            "excerpts": [
+              "Data Scrubbing - Sentry Docs\nLearn about using Advanced Data Scrubbing as an alternative way to redact sensitive information just before it is saved in Sentry. Server-Side Data Scrubbing Advanced Data Scrubbing"
+            ],
+            "title": "Data Scrubbing - Sentry Docs"
+          },
+          {
+            "url": "http://docs.sentry.io/platforms/javascript/data-management/data-collected",
+            "excerpts": [
+              "By default, the Sentry SDK doesn't send cookies. When using `dataCollection`, however, cookies are collected with sensitive values (like `token` or `key`) scrubbed. Opt out by setting `dataCollection: { cookies: false }`. To collect cookies when not using `dataCollection`, set the deprecated `sendDefaultPii: true` in `Sentry.init()`.\nBy default, the Sentry SDK sends HTTP request and response headers.\nBy default, the Sentry SDK sends JS console logs to Sentry as breadcrumbs which may contain PII data.\nBy default, the full request query string of outgoing and incoming HTTP requests is sent to Sentry.\nRegardless of these options, you can always scrub any data before it's sent to Sentry.\nSetting `sendDefaultPii: true` is equivalent to enabling all `dataCollection` categories.\nWhen using `dataCollection`, the SDK sends the user's IP address by default."
+            ],
+            "title": "title: \"Data Collected\" description: \"See what data is collected by the Sentry SDK.\" url: https://docs.sentry.io/platforms/javascript/data-management/data-collected/"
+          },
+          {
+            "url": "https://docs.sentry.io/platforms/native/data-management/sensitive-data",
+            "excerpts": [
+              "Scrubbing Sensitive Data | Sentry for Native\nLearn about filtering or scrubbing sensitive data within the SDK, so that data is not sent with the event. You can also configure server-side scrubbing."
+            ],
+            "title": "Scrubbing Sensitive Data | Sentry for Native"
+          },
+          {
+            "url": "https://docs.sentry.io/platforms/python/data-management/sensitive-data",
+            "excerpts": [
+              "Scrubbing Sensitive Data | Sentry for Python\nYou can use the event_scrubber configuration parameter to simplify removing sensitive data from your event payload."
+            ],
+            "title": "Scrubbing Sensitive Data | Sentry for Python"
+          },
+          {
+            "url": "https://deepwiki.com/tailscale/tailscale/7.1-dns-resolution-and-magicdns",
+            "excerpts": [
+              "DNS Resolution and MagicDNS | tailscale/tailscale | DeepWiki\nThis document covers the DNS resolution system in Tailscale, including the MagicDNS feature that provides automatic hostname resolution for Tailscale nodes. It explains the architecture of the DNS subsystem, query resolution flow, split DNS support, DoH (DNS over HTTPS), and integration with upstream DNS servers."
+            ],
+            "title": "DNS Resolution and MagicDNS | tailscale/tailscale | DeepWiki"
+          },
+          {
+            "url": "https://tailscale.com/docs/reference/tailscale-api",
+            "excerpts": [
+              "Tailscale API\nRequests to the API are authenticated by using an access token (sometimes called an API key), which can be generated from the Keys page of the"
+            ],
+            "title": "Tailscale API"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/magicdns",
+            "excerpts": [
+              "MagicDNS - Tailscale Docs\nFull domain names can be cumbersome to type, so when you enable MagicDNS, Tailscale automatically adds search domains to your network. With these search domains you only need to type the machine name to access a device."
+            ],
+            "title": "MagicDNS - Tailscale Docs"
+          },
+          {
+            "url": "https://tailscale.com/docs/reference/derp-servers",
+            "excerpts": [
+              "DERP servers - Tailscale Docs\nTailscale uses Designated Encrypted Relay for Packets (DERP) servers for secure, low-latency connections in your tailnet. Customization options let you optimize device communication and NAT traversal."
+            ],
+            "title": "DERP servers - Tailscale Docs"
+          },
+          {
+            "url": "https://deepwiki.com/tailscale/tailscale/4.4-derp-relay-system",
+            "excerpts": [
+              "DERP Relay System | tailscale/tailscale | DeepWiki\nDERP is a last-resort relay system that routes encrypted packets between Tailscale nodes using their public keys as addresses. The protocol is frame-based, runs over HTTP/WebSocket connections, and supports both client-to-server and server-to-server (mesh) forwarding."
+            ],
+            "title": "DERP Relay System | tailscale/tailscale | DeepWiki"
+          },
+          {
+            "url": "http://docs.maestro.dev/get-started/what-is-maestro",
+            "excerpts": [
+              "Maestro is an open-source UI automation framework for mobile and web with built-in tolerance, zero-wait intelligence, and declarative YAML"
+            ],
+            "title": "What is Maestro?"
+          },
+          {
+            "url": "https://github.com/mobile-dev-inc/Maestro/issues/1056",
+            "excerpts": [
+              "Maestro tests not finding buttons via strings or ids, with ...\nMay 9, 2023 \u2014 Maestro tests not finding buttons via strings or ids, with flakey behavior. ... assertVisible: text: ${LIST_NAME} - scrollUntilVisible: element:"
+            ],
+            "title": "Maestro tests not finding buttons via strings or ids, with ..."
+          },
+          {
+            "url": "https://docs.maestro.dev/",
+            "excerpts": [
+              "Maestro documentation | Maestro Docs\nMaestro is the simplest and most effective framework for painless mobile and web UI automation using intuitive YAML flows. What is Maestro? Learn what Maestro can do for you when testing applications. QuickStart. Get up and running with Maestro in just a few minutes. Maestro Studio."
+            ],
+            "title": "Maestro documentation | Maestro Docs"
+          },
+          {
+            "url": "http://news.ycombinator.com/item?id=43174453",
+            "excerpts": [
+              "Mar 1, 2025 \u2014 Maestro \u2013 Next generation mobile UI automation. Yep free and open-source to use. Consider applying for YC's Fall 2026 batch!"
+            ],
+            "title": "Maestro \u2013 Next generation mobile UI automation"
+          },
+          {
+            "url": "http://linkedin.com/company/maestro-dev",
+            "excerpts": [
+              "Agent-driven retail QA on the Nike app, running on a physical Android device. The demo is catalog navigation: find a product, open its details, and verify the price and sizing UI. Maestro MCP is the loop that sees the screen and acts.\nDescription: Maestro - E2E testing for Mobile & Web\nLocality: San Francisco, CA\nWebsite: https://maestro.dev/. External link for Maestro ; Industry: Software Development ; Company size: 2-10 employees ; Headquarters: San Francisco, CA\nCompany size: 2-10 employees"
+            ],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "http://docs.expo.dev/build/building-on-ci",
+            "excerpts": [
+              "Jun 11, 2026 \u2014 This document outlines how to trigger builds on EAS for your app from a CI environment such as GitHub Actions, Travis CI, and more."
+            ],
+            "title": "Trigger builds from CI"
+          },
+          {
+            "url": "http://github.com/Apple-Actions",
+            "excerpts": [
+              "Apr 16, 2020 \u2014 Apple Github Actions (iOS & macOS). A collection of GitHub Actions for building CI/CD pipelines for apps on Apple operating systems"
+            ],
+            "title": "Apple Github Actions (iOS & macOS)"
+          },
+          {
+            "url": "https://github.com/orgs/community/discussions/54877",
+            "excerpts": [
+              "Branch protections when actions use paths-ignore #54877 - GitHub\nJul 5, 2023 \u00b7 To achieve what you are describing, you can set up a branch protection rule for the master branch that requires all checks to pass before"
+            ],
+            "title": "Branch protections when actions use paths-ignore #54877 - GitHub"
+          },
+          {
+            "url": "https://github.com/expo/expo-github-action",
+            "excerpts": [
+              "GitHub - expo/expo-github-action: Expo GitHub Action makes it ...\nWith this Expo action, you have full access to Expo CLI and EAS CLI. It lets you automate the eas update or eas build commands, leaving you with more time to work on your project."
+            ],
+            "title": "GitHub - expo/expo-github-action: Expo GitHub Action makes it ..."
+          },
+          {
+            "url": "http://docs.github.com/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches",
+            "excerpts": [
+              "If you use branch protection rules that require specific status checks, make sure that job names are unique across all workflows"
+            ],
+            "title": "About protected branches"
+          },
+          {
+            "url": "https://developer.apple.com/app-store/categories",
+            "excerpts": [
+              "Categories and Discoverability - App Store\nThe categories you assign to your app help users discover it on the App Store. Learn how to choose the most accurate and effective categories for your app."
+            ],
+            "title": "Categories and Discoverability - App Store"
+          },
+          {
+            "url": "https://apps.apple.com/us/app/discover-mobile/id338010821",
+            "excerpts": [
+              "Discover Mobile - App Store\nManage your Discover credit card and bank accounts conveniently and securely from anywhere, using Discover's Mobile App."
+            ],
+            "title": "Discover Mobile - App Store"
+          },
+          {
+            "url": "https://apps.apple.com/cy/app/visible-mobile/id1367950045",
+            "excerpts": [
+              "Visible mobile - App Store - Apple\nWelcome to the future of phone service The Visible app makes managing your service easy - you can make a payment, upgrade your plan and get 24/7 assistance"
+            ],
+            "title": "Visible mobile - App Store - Apple"
+          },
+          {
+            "url": "https://apps.apple.com/us/app/visible-mobile/id1367950045",
+            "excerpts": [
+              "Visible mobile - App Store - Apple\nThe Visible app makes managing your service easy - you can make a payment, upgrade your plan and get 24/7 assistance in just a few taps."
+            ],
+            "title": "Visible mobile - App Store - Apple"
+          },
+          {
+            "url": "https://developer.apple.com/app-store/search",
+            "excerpts": [
+              "App Store search - Apple Developer\nSearch traffic accounts for the majority of downloads from the App Store. Learn more about how you can impact where your app ranks in search results to help"
+            ],
+            "title": "App Store search - Apple Developer"
+          },
+          {
+            "url": "https://docs.sentry.io/platforms/javascript/data-management/data-collected/",
+            "excerpts": [],
+            "title": "title: \"Data Collected\" description: \"See what data is collected by the Sentry SDK.\" url: https://docs.sentry.io/platforms/javascript/data-management/data-collected/"
+          },
+          {
+            "url": "https://docs.expo.dev/build/building-on-ci",
+            "excerpts": [],
+            "title": "modificationDate: June 11, 2026 title: Trigger builds from CI description: Learn how to trigger builds on EAS for your app from a CI environment such as GitHub Actions and more."
+          },
+          {
+            "url": "https://reactnative.dev/docs/debugging",
+            "excerpts": [
+              "Debugging Basics\nApr 8, 2026 \u2014 Select \"Open DevTools\" in the Dev Menu. Press j from the CLI. React Native DevTools opened to the &quot;Welcome&quot; pane. On first launch,"
+            ],
+            "title": "Debugging Basics"
+          },
+          {
+            "url": "https://reactnative.dev/docs/react-native-devtools",
+            "excerpts": [
+              "React Native DevTools\nMay 7, 2026 \u2014 React Native DevTools is designed for debugging React app concerns, and not to replace native tools. If you want to inspect React Native's"
+            ],
+            "title": "React Native DevTools"
+          },
+          {
+            "url": "https://reactnative.dev/blog/2025/12/10/react-native-0.83",
+            "excerpts": [
+              "React Native 0.83 - React 19.2, New DevTools features, no ...\nDec 10, 2025 \u2014 This release includes React 19.2 , significant new features for React Native DevTools, and support for the Web Performance and Intersection"
+            ],
+            "title": "React Native 0.83 - React 19.2, New DevTools features, no ..."
+          },
+          {
+            "url": "https://techifysolutions.com/blog/react-native-new-architecture-fabric-turbomodules",
+            "excerpts": [
+              "React Native New Architecture: Fabric & TurboModules for ...\nEnter the New Architecture powered by Fabric and TurboModules. Together, they redefine how React Native apps are rendered and how JavaScript interacts with native modules, making apps faster, smoother, and more future-proof."
+            ],
+            "title": "React Native New Architecture: Fabric & TurboModules for ..."
+          },
+          {
+            "url": "http://posthog.com/docs/session-replay/privacy",
+            "excerpts": [
+              "As any input element is highly likely to contain sensitive text such as email or password, **we mask these by default** . You can explicitly set this to false to disable the masking.\nPassword inputs are always masked no matter your config.\nTo redact them, provide a `maskCapturedNetworkRequestFn` callback, the same callback used for network capture also runs against the page URL captured in the snapshot, so a single configuration covers both surfaces.\nWe scrub some headers automatically, but if your network requests and responses include sensitive information you can provide a function to scrub them.\nWrap any content you want to mask with the `PostHogMaskView` component: TypeScript PostHog AI ``` `import { PostHogMaskView } from 'posthog-react-native' < PostHogMaskView > < Text > Sensitive content here < / Text > < Text > All children will be masked < / Text > < / PostHogMaskView >` ``` This is the recommended approach"
+            ],
+            "title": "Privacy controls - Docs - PostHog"
+          },
+          {
+            "url": "https://www.psimms.de/posts/gdpr-compliant-posthog-tracking-without-consent",
+            "excerpts": [
+              "GDPR compliant posthog tracking without consent - Patrik Simms\nOct 21, 2025 \u00b7 Opposite to common belief, with a few adjustments it is also possible to use tools like posthog without the asking for the consent of the user!"
+            ],
+            "title": "GDPR compliant posthog tracking without consent - Patrik Simms"
+          },
+          {
+            "url": "https://posthog.com/docs/privacy/data-collection",
+            "excerpts": [
+              "Controlling data collection - Docs\nMasking all inputs and text by default in session replay ensures that data is only captured when explicitly unmasked, putting you in control of what's captured."
+            ],
+            "title": "Controlling data collection - Docs"
+          },
+          {
+            "url": "https://posthog.com/docs/privacy/hipaa-compliance",
+            "excerpts": [
+              "PostHog & HIPAA compliance - Docs\nThe best way to use PostHog in a way which is HIPAA compliant is with a BAA covering a PostHog Cloud instance. This ensures that PostHog remains scalable."
+            ],
+            "title": "PostHog & HIPAA compliance - Docs"
+          },
+          {
+            "url": "https://posthog.com/baa",
+            "excerpts": [
+              "BAA - PostHog\nPostHog will use appropriate safeguards to prevent use or disclosure of the PHI other than as provided for by this BAA and to comply with the HIPAA Security"
+            ],
+            "title": "BAA - PostHog"
+          },
+          {
+            "url": "http://pushmyapp.ai/blog/ios-privacy-manifest-guide",
+            "excerpts": [
+              "iOS Privacy Manifest: The 2026 Developer Guide to xcprivacy ... This post is the 2026 deep dive on the iOS Privacy Manifest: what the PrivacyInfo.xcprivacy file actually contains, the five required-reason API categories you need to declare, why every bundled framework needs its own manifest, the three specific ITMS rejection codes you'll see, and the pre-submission workflow that keeps you out of the 5.1.1"
+            ],
+            "title": "iOS Privacy Manifest: The 2026 Developer Guide to xcprivacy ..."
+          },
+          {
+            "url": "https://developer.apple.com/documentation/bundleresources/privacy-manifest-files",
+            "excerpts": [
+              "Privacy manifest files | Apple Developer Documentation\nThe required reasons APIs your app or third-party SDK uses. You need to provide this information for your app or third-party SDK on iOS, iPadOS, tvOS, visionOS, and watchOS."
+            ],
+            "title": "Privacy manifest files | Apple Developer Documentation"
+          },
+          {
+            "url": "http://developer.adobe.com/client-sdks/resources/privacy-manifest",
+            "excerpts": [
+              "Starting with version 5 of the Mobile SDK for iOS/iPadOS, Adobe will include a Privacy Manifest.\niOS 17 Privacy Manifest Requirements Required Reasons API To address concerns regarding fingerprinting, Apple will require developers to declare the reasons for using specific APIs. One of these APIs is the UserDefaults API, which Adobe currently uses to store user identifiers and lifecycle data. The Adobe Experience Platform Mobile SDK needs to store this data on the device in order to function, however, that data does not need to be stored in UserDefaults. Adobe has started using device storage rather than UserDefaults. In December, we released version 4.2.1 of the iOS Core extension that includes logic to migrate data stored by the Mobile SDK away from UserDefaults to local storage for iOS and iPadOS."
+            ],
+            "title": "iOS 17 Privacy Manifest Requirements"
+          },
+          {
+            "url": "http://apptester.co/blog/ios-privacy-manifest-guide",
+            "excerpts": [
+              "If your SDK uses required reason APIs without a manifest, your app submission will be rejected even if your own manifest is correct. **Popular SDKs and their minimum versions with privacy manifests:** Firebase iOS SDK Requires 10.18.0+ Google Analytics Requires 7.11.0+ Crashlytics Requires 10.18.0+ Amplitude Requires 8.15.0+ Adjust Requires 4.38.1+ AppsFlyerLib Requires 6.13.0+"
+            ],
+            "title": "iOS Privacy Manifest (PrivacyInfo.xcprivacy): Complete Guide 2026 | AppTester.co"
+          },
+          {
+            "url": "https://docs.expo.dev/guides/apple-privacy",
+            "excerpts": [
+              "Privacy manifests - Expo Documentation\nThese APIs currently include accessing UserDefaults, file timestamp, system boot time, disk space, and active keyboard. Apple considers it an open list that can be expanded in the future. You can include an iOS privacy manifest by using the privacyManifests field under expo.ios in your app config."
+            ],
+            "title": "Privacy manifests - Expo Documentation"
+          },
+          {
+            "url": "https://docs.maestro.dev/maestro-flows/flow-control-and-logic/conditions",
+            "excerpts": [
+              "Conditions | Flows | Maestro Docs\nIn Maestro, conditions are primarily handled using the when argument. It can be attached to several commands. If the condition inside the when block evaluates to true, Maestro executes the command; otherwise, Maestro simply skips that command and moves on to the next one. The following table lists the available conditions you can use to define the conditional execution of your Flow."
+            ],
+            "title": "Conditions | Flows | Maestro Docs"
+          },
+          {
+            "url": "https://docs.maestro.dev/reference/commands-available/runflow",
+            "excerpts": [
+              "runFlow | API Reference | Maestro Docs\nThe runFlow command executes a sequence of commands from another Flow file or from an inline definition. This command helps you modularize tests and reuse common sequences, such as a login process. Inline subflows (using the commands parameter) are especially useful for conditional logic or for grouping a few steps under a clear label."
+            ],
+            "title": "runFlow | API Reference | Maestro Docs"
+          },
+          {
+            "url": "https://deepwiki.com/mobile-dev-inc/maestro-docs/6-advanced-flow-features",
+            "excerpts": [
+              "Advanced Flow Features | mobile-dev-inc/maestro-docs | DeepWiki\nMultiple conditions are combined with AND logic - all conditions must be satisfied for the command to execute. All standard Maestro selectors are supported in visible and notVisible conditions, including complex matchers with below, childOf, and index properties."
+            ],
+            "title": "Advanced Flow Features | mobile-dev-inc/maestro-docs | DeepWiki"
+          },
+          {
+            "url": "https://medium.com/%40michaelmavris/how-to-clear-the-state-of-the-app-in-maestro-tests-ios-d27805092d42",
+            "excerpts": [
+              "How to clear the state of the app in Maestro tests (iOS) - Medium\nJul 19, 2024 \u00b7 To address the state management issue in UI testing, we utilize the launchArguments property. This allows us to pass a flag to the app, indicating that it's"
+            ],
+            "title": "How to clear the state of the app in Maestro tests (iOS) - Medium"
+          },
+          {
+            "url": "https://docs.maestro.dev/reference/commands-available/clearkeychain",
+            "excerpts": [
+              "clearKeychain | API Reference | Maestro Docs\nIf you want to clear the Keychain every time the app starts without adding a separate command, you can use the clearKeychain parameter directly within the launchApp command:"
+            ],
+            "title": "clearKeychain | API Reference | Maestro Docs"
+          },
+          {
+            "url": "https://asoscan.com/blog/aso-ranking-factors-2026",
+            "excerpts": [
+              "ASO in 2026: New App Store & Play Ranking Signals \u2014 ASOScan\nGoogle Play Store Listing Experiments let you A/B test the icon, screenshots, descriptions, feature graphic, and preview video. You can run a handful of experiments on your main listing, and custom store listings unlock many more variants to test against segments."
+            ],
+            "title": "ASO in 2026: New App Store & Play Ranking Signals \u2014 ASOScan"
+          },
+          {
+            "url": "https://www.reddit.com/r/GooglePlayDeveloper/comments/1j24i4r/google_play_console_is_a_horrible_experience_app",
+            "excerpts": [
+              "Google Play Console is a horrible experience. App in review for 2.5 ...\nYes they suck. I was waiting 3 months to get rejected and I was getting robotic responses as well. After I got rejected first time they started"
+            ],
+            "title": "Google Play Console is a horrible experience. App in review for 2.5 ..."
+          },
+          {
+            "url": "https://asomobile.net/en/blog/aso-in-2026-the-complete-guide-to-app-optimization",
+            "excerpts": [
+              "ASO in 2026: The Complete Guide to App Optimization\nMar 31, 2026 \u2014 Explore modern ASO: optimization techniques, ranking factors, retention impact, and actionable strategies to grow mobile apps organically."
+            ],
+            "title": "ASO in 2026: The Complete Guide to App Optimization"
+          },
+          {
+            "url": "https://blog.deveshrx.com/app-store-optimisation-on-google-play-store",
+            "excerpts": [
+              "App Store Optimization for Android Apps, A Beginner's Guide"
+            ],
+            "title": "App Store Optimization for Android Apps, A Beginner's Guide deveshrx.com https://blog.deveshrx.com \u203a ..."
+          },
+          {
+            "url": "http://play.google.com/console/about/storelistings",
+            "excerpts": [
+              "Create up to 50 custom store listings tailored by country, user or buyer state, or search keyword. # Main store listing Make a great first impression on potential users with a strong Google Play store listing [Go to Play Console](https://play.google.com/console/developers/) Increase discoverability Review which keywords are used to find your app, then tap to deploy listings created with Gemini, tailored to these specific searches. Attract users with visuals Give users a sense of your unique app or game experience with graphics, screenshots, trailers, and immersive, full-screen vertical videos. Target your listings Drive higher conversion by showing the right message to the right user. Create up to 50 custom store listings tailored by country, user or buyer state, or search keyword. Best practices Create up to 50 [custom store listings](https://support.google.com/googleplay/android-developer/answer/9867158) to target specific countries and user segments. Review your recommended keywords in Play Console, then tap to deploy a targeted store listing tailored by Gemini. Save time with Gemini-powered localization uploads and [translation services](https://play.google.com/console/about/translationservices/) . Use **Explore with AI** to ask questions about your listing's performance and get actionable suggestions to improve it. Show a specific store listing to users who visit via a unique custom store listing URL. This can be an effective way to showcase relevant features about your app depending on where your users visited your store listing from. Build excitement for your app by publishing a store listing before you launch with [pre-registration.](https://support.google.com/googleplay/android-developer/answer/9859047) Add full-screen portrait videos to your store listing to create a more immersive user experience. Manage your store listing assets more efficiently using the Asset Library, with easy editing, tagging, and Google Drive integration. Track user behavior through Store Listing Open Metrics to better understand how visitors move from viewing your listing to installing and opening your app. Find out more [Manage graphics, screenshots, and video Reference our store listing requirements and best practices as you pull together your listing assets. Learn more](https://support.google.com/googleplay/android-developer/answer/9866151) [Improve your app quality and discovery on Google Play Check out our updated guidance for store listing preview assets Learn more](https://android-developers.googleblog.com/2021/04/updated-guidance-to-improve-your-app.html) [Create custom store listings Use custom store listings to present your app's features in ways that are relevant to users in different countries Learn more](https://support.google. com/googleplay/android-developer/answer/9867158) [Manage your store listing Learn how to make the most of your store listing in this free, on-demand course Start training](https://playacademy.exceedlms.com/student/path/4916%22?utm_source=console&utm_medium=banner&utm_campaign=mktpages&use_locale=true%22) SGN games increases conversions using store listing experiments [Watch video](https://www.youtube.com/watch?v=9m6MoBM-sFI&list=PLWz5rJ2EKKc9ofd2f-_-xmUi07wIGZa1c&index=89&t=1s) 1 / More on growing your audience Accelerate your user growth with our reporting and optimization tools, including unique market insights exclusive to Google Play [Learn more](https://play.google.com/console/about/guides/growyouraudience/) Try Store listings Make a great first impression on potential users with a strong Google Play store listing [Go to Play Console](https://admin.google.com/ServiceNotAllowed?service=androiddeveloper&continue=https://play.google. ... [Store listing experiments](https://play.google.com/console/about/store-listing-experiments/) [Translation services](https://play.google.com/console/about/translationservices/) Quality [Android Performance Tuner"
+            ],
+            "title": "Main store listing - Google Play Console"
+          },
+          {
+            "url": "https://dev.to/fazal_mansuri_/idempotency-in-apis-why-your-retry-logic-can-break-everything-and-how-to-fix-it-345k",
+            "excerpts": [
+              "Idempotency in APIs - Why Your Retry Logic Can Break ...\nFeb 22, 2026 \u2014 Best Practices Checklist. Always: Use idempotency keys for POST APIs; Store keys in Redis or database; Store full response; Use expiration"
+            ],
+            "title": "Idempotency in APIs - Why Your Retry Logic Can Break ..."
+          },
+          {
+            "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Idempotency-Key",
+            "excerpts": [
+              "Idempotency-Key header - HTTP | MDN - MDN Web Docs\nThe HTTP Idempotency-Key header allows a client to make POST and PATCH requests idempotent by giving them a unique identifier (a key). The client can then resend the same request multiple times, and the server can know that it should only perform the action once."
+            ],
+            "title": "Idempotency-Key header - HTTP | MDN - MDN Web Docs"
+          },
+          {
+            "url": "https://www.ietf.org/archive/id/draft-ietf-httpapi-idempotency-key-header-01.html",
+            "excerpts": [
+              "The Idempotency-Key HTTP Header Field\nThe HTTP Idempotency-Key request header field can be used to carry idempotency key in order to make non-idempotent HTTP methods such as POST or PATCH fault-tolerant."
+            ],
+            "title": "The Idempotency-Key HTTP Header Field"
+          },
+          {
+            "url": "https://kangclaw.github.io/posts/exponential-backoff-with-jitter",
+            "excerpts": [
+              "Exponential Backoff with Jitter \u2014 The Secret to Smooth Retries\nExponential backoff gives you intelligent spacing, and jitter prevents synchronization \u2014 together, they make your retries resilient instead of reckless. For AI agents hitting APIs all day, this pattern isn\u2019t optional."
+            ],
+            "title": "Exponential Backoff with Jitter \u2014 The Secret to Smooth Retries"
+          },
+          {
+            "url": "https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header-04",
+            "excerpts": [
+              "draft-ietf-httpapi-idempotency-key-header-04\nAn idempotency key is a unique value generated by the client which the resource server uses to recognize subsequent retries of the same request."
+            ],
+            "title": "draft-ietf-httpapi-idempotency-key-header-04"
+          },
+          {
+            "url": "https://play.google.com/console/about/storelistings",
+            "excerpts": [],
+            "title": "Store listings | Google Play Console"
+          },
+          {
+            "url": "https://posthog.com/docs/session-replay/privacy",
+            "excerpts": [],
+            "title": "Privacy controls - Docs - PostHog"
+          },
+          {
+            "url": "https://docs.expo.dev/versions/latest/sdk/updates",
+            "excerpts": [
+              "Updates - Expo Documentation\nThe \"fingerprint\" runtime version policy automatically calculates the runtime version for you, including through changes like SDK upgrades or adding custom"
+            ],
+            "title": "Updates - Expo Documentation"
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/runtime-versions",
+            "excerpts": [
+              "Runtime versions and updates - Expo Documentation\nThe \"appVersion\" policy will increment the runtime version whenever the app version is incremented, but if you forget to bump the app version when changing the native runtime, then you'll have a runtime version mismatch."
+            ],
+            "title": "Runtime versions and updates - Expo Documentation"
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/eas-cli",
+            "excerpts": [
+              "Manage branches and channels with EAS CLI - Expo Documentation\nBranches are an ordered list of updates, similar to a Git branch, which is an ordered list of commits. With EAS Update, we can link any channel to any branch, allowing us to make different updates available to different builds."
+            ],
+            "title": "Manage branches and channels with EAS CLI - Expo Documentation"
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/rollbacks",
+            "excerpts": [
+              "Rollbacks - Expo Documentation\nRollback a branch to a previous update or the embedded update. There are two types of rollbacks supported by EAS Update: Roll back to a previously-published update. Roll back to the update embedded in the build. To start a rollback, run the following command:"
+            ],
+            "title": "Rollbacks - Expo Documentation"
+          },
+          {
+            "url": "https://medium.com/%40_.sirsha/ota-updates-in-a-production-expo-app-signing-fingerprinting-tagging-and-rolling-out-safely-edee6df07f76",
+            "excerpts": [
+              "OTA Updates in a Production Expo App: Signing, Fingerprinting ...\nJun 12, 2026 \u00b7 Expo uses a runtime version to ensure an update is only offered to compatible binaries. OTA updates are only served to binaries running the"
+            ],
+            "title": "OTA Updates in a Production Expo App: Signing, Fingerprinting ..."
+          },
+          {
+            "url": "http://docs.github.com/enterprise-cloud%40latest/actions/using-jobs/using-concurrency",
+            "excerpts": [
+              "This means that when a workflow run or job starts, GitHub will cancel any workflow runs or jobs that are already in progress in the same concurrency group.\nTo use concurrency to cancel any in-progress job or run in GitHub Actions, you can use the concurrency key with the cancel-in-progress option set to true :\nTo conditionally cancel currently running jobs or workflows in the same concurrency group, you can specify cancel-in-progress as an expression.\nTo use concurrency to cancel any in-progress job or run in GitHub Actions, you can use the concurrency key with the cancel-in-progress option set to true\n(last verified: 2026-07-21) This means that when a workflow run or job starts, GitHub will cancel any workflow runs or jobs that are already in progress in the same concurrency group.\nNote that queue: max cannot be combined with cancel-in-progress: true , because the two options describe conflicting behaviors for handling in-progress runs."
+            ],
+            "title": "Control the concurrency of workflows and jobs"
+          },
+          {
+            "url": "http://github.com/orgs/community/discussions/69704",
+            "excerpts": [
+              "But it appears `github.job` always is null, even if a job is actually running, causing the expression to always be true and always cancelling the workflow when a new run for the concurrency group is initiated.\nThe expression can only use [github](https://docs.github.com/en/actions/learn-github-actions/contexts) , [inputs](https://docs.github.com/en/actions/learn-github-actions/contexts) and [vars](https://docs.github.com/en/actions/learn-github-actions/contexts) contexts.\nYes, I use this for pull requests: > ```yaml > concurrency: > group: ${{ github.workflow }}-${{ github.ref }} > cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/')\nconcurrency: group: ${{ github.workflow }}-${{ github.ref }} cancel-in-progress: ${{ github.event_name == 'pull_request' }} ``` GitHub accepts the workflow (no invalid workflow errors) but it keeps cancelling the workflows on `main` when a new commit is pushed."
+            ],
+            "title": "Is it possible to use an expression in concurrency cancel-in-progress \u00b7 community \u00b7 Discussion #69704 \u00b7 GitHub"
+          },
+          {
+            "url": "http://docs.github.com/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs",
+            "excerpts": [
+              "A concurrency group can be any string or expression. Allowed expression contexts: [`github`](/en/actions/learn-github-actions/contexts#github-context), [`inputs`](/en/actions/learn-github-actions/contexts#inputs-context), [`vars`](/en/actions/learn-github-actions/contexts#vars-context), [`needs`](/en/actions/learn-github-actions/contexts#needs-context), [`strategy`](/en/actions/learn-github-actions/contexts#strategy-context), and [`matrix`](/en/actions/learn-github-actions/contexts#matrix-context).\nAlternatively, using a dynamic expression such as `concurrency: ci-${{ github.ref }}` in your workflow means that the workflow or job would be part of a concurrency group named `ci-` followed by the reference of the branch or tag that triggered the workflow. In this example, if a new commit is pushed to the main branch while a previous run is still in progress, the previous run will be cancelled and the new one will start: ```yaml on: push: branches: main concurrency: group: ci-${{ github.ref }} cancel-in-progress: true ```\nThe following concurrency group cancels in-progress jobs or runs on `pull_request` events only; if `github.head_ref` is undefined, the concurrency group will fallback to the run ID, which is guaranteed to be both unique and defined for the run. ```yaml concurrency: group: ${{ github.head_ref || github.run_id }} cancel-in-progress: true ```\nThe default behavior of GitHub Actions is to allow multiple jobs or workflow runs to run concurrently.\nBy default, any existing pending job or workflow in the same concurrency group will be canceled and the new queued job or workflow will take its place.\nTo allow multiple runs to queue instead of being canceled, set queue: max . With queue: max , up to 100 jobs or workflow runs can wait in the concurrency group;\nTo also cancel any currently running job or workflow in the same concurrency group, specify `cancel-in-progress: true`.\nWhen you define a concurrency key, GitHub Actions ensures that only one workflow or job with that key runs at any given time."
+            ],
+            "title": "Control the concurrency of workflows and jobs"
+          },
+          {
+            "url": "http://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks",
+            "excerpts": [
+              "(last verified: 2026-06-27) On the pull request, you would see \"Waiting for status to be reported.\"\nIf a workflow is skipped due to [path filtering](/en/actions/using-workflows/workflow-syntax-for-github-actions#onpushpull_requestpull_request_targetpathspaths-ignore), [branch filtering](/en/actions/using-workflows/workflow-syntax-for-github-actions#onpull_requestpull_request_targetbranchesbranches-ignore) or a [commit message](/en/actions/managing-workflow-runs/skipping-workflow-runs), then checks associated with that workflow will remain in a \"Pending\" state.\nThe merge will fail as the required status check will not be reported."
+            ],
+            "title": null
+          },
+          {
+            "url": "http://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions",
+            "excerpts": [
+              "GitHub Actions will cancel any in-progress run of the job or workflow.\nIf you have multiple workflows in the same repository, concurrency group names must be unique across workflows to avoid canceling in-progress jobs or runs"
+            ],
+            "title": "Workflow syntax for GitHub Actions"
+          },
+          {
+            "url": "http://tailscale.com/docs/features/access-control/device-management/device-approval",
+            "excerpts": [
+              "Generate an auth key which is pre-approved. Then, specify that auth key when authenticating a device. The device is automatically approved."
+            ],
+            "title": "Device approval \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "http://tailscale.com/blog/acl-tags-ga",
+            "excerpts": [
+              "To generate an ACL tag, first define a tag as part of the ACL file in the admin console and specify tagOwners ."
+            ],
+            "title": "How to Use ACL Tags for Device Access in Tailscale"
+          },
+          {
+            "url": "https://github.com/tailscale/tailscale/issues/7070",
+            "excerpts": [
+              "non-ephemeral Key for docker container \u00b7 Issue #7070\n25 ene 2023 \u2014 A reusable authkey allows one to authenticate new nodes. Each new node creates a node key the first time it contacts the coordination server."
+            ],
+            "title": "non-ephemeral Key for docker container \u00b7 Issue #7070"
+          },
+          {
+            "url": "http://registry.terraform.io/providers/tailscale/tailscale/latest/docs/resources/tailnet_key",
+            "excerpts": [
+              "See https://tailscale.com/kb/1085/auth-keys for more information\n`ephemeral` (Boolean) Indicates if the key is ephemeral. Defaults to `false` .\npreauthorized (Boolean) Determines whether or not the machines authenticated by the key will be authorized for the tailnet by default."
+            ],
+            "title": "tailscale_tailnet_key | Resources | tailscale/tailscale | Terraform | Terraform Registry"
+          },
+          {
+            "url": "http://github.com/juanfont/headscale/issues/1550",
+            "excerpts": [
+              "I created a dedicated node and a reusable preauth key for ephemeral nodes: headscale --user ci-node preauthkeys create --ephemeral --reusable --tags tag:ci"
+            ],
+            "title": "How to have a reusable preauth key that does not expire?"
+          },
+          {
+            "url": "https://respectlytics.com/blog/google-play-data-safety-guide",
+            "excerpts": [
+              "Google Play Data Safety Form: 2026 Requirements Guide\nThis guide walks you through every section of the Data Safety form with the 2026 rules, shows you exactly what different analytics SDKs require you to declare, and gives you a fast-track path if you want to keep your declarations minimal."
+            ],
+            "title": "Google Play Data Safety Form: 2026 Requirements Guide"
+          },
+          {
+            "url": "https://www.applander.io/blog/google-play-data-safety-form-complete-guide",
+            "excerpts": [
+              "Google Play Data Safety Form: The Complete Walkthrough for 2026\nA section-by-section walkthrough of the Google Play Data Safety form \u2014 the 14 data categories, collection practices, sharing, security, and how to answer so your form matches your privacy policy."
+            ],
+            "title": "Google Play Data Safety Form: The Complete Walkthrough for 2026"
+          },
+          {
+            "url": "https://developer.android.com/guide/topics/permissions/overview",
+            "excerpts": [
+              "Permissions on Android | Privacy | Android Developers\nThis document provides an overview of how Android app permissions work, describing different permission types, the workflow for using them, and best practices for implementing them to protect user privacy and data."
+            ],
+            "title": "Permissions on Android | Privacy | Android Developers"
+          },
+          {
+            "url": "https://support.google.com/googleplay/android-developer/answer/10787469?hl=en",
+            "excerpts": [
+              "Provide information for Google Play's Data safety section\nGoogle Play's Data safety section provides developers with a transparent way to show users if and how they collect, share, and protect user data,"
+            ],
+            "title": "Provide information for Google Play's Data safety section"
+          },
+          {
+            "url": "http://play.google.com/store/apps/details?id=com.prislay.javine",
+            "excerpts": [
+              "Platos: Real Friend AI [Prislay Intelligence](https://play.google.com/store/apps/developer?id=Prislay+Intelligence) Content rating Rated for 12+ _info_ 10+ Downloads Install Share Add to wishlist Content rating Rated for 12+ Parental Guidance Recommended Users Interact, In-App Purchases [Learn more](https://support.google.com/googleplay?p=appgame_ratings) Screenshot image Screenshot image Screenshot image Screenshot image Screenshot image Screenshot image Screenshot image Screenshot image ## About this app _arrow_forward_ Platos is your private space for AI companions who don't just reply \u2014 they reach out, share their day, and remember yours. Every personality is yours alone, designed to feel expressive, attentive, and genuinely present. Create virtual friends from real connections, chat one-on-one with AI personalities that remember you across sessions, and receive proactive messages, photos, and videos that feel personal and real. Updated on Jul 24, 2026 Social ## Data safety _arrow_forward_ Safety starts with understanding how developers collect and share your data. Data privacy and security practices may vary based on your use, region, and age. The developer provided this information and may update it over time. Icon image No data shared with third parties [Learn more](https://support.google.com/googleplay?p=data-safety&hl=en) about how developers declare sharing Icon image No data collected [Learn more](https://support.google.com/googleplay?p=data-safety&hl=en) about how developers declare collection Icon image Data is encrypted in transit Icon image You can request that data be deleted See details ## What's new Improved story choices and first-message interactions. Kept relationship setup actions easy to reach on smaller screens. Improved subscription return links and fixed several reliability issues. [_flag_ Flag as inappropriate](https://support.google.com/googleplay/?p=report_content) Content rating Rated for 12+ Parental Guidance Recommended Users Interact, In-App Purchases [Learn more](https://support.google.com/googleplay?p=appgame_ratings) App support _expand_more_ [_public_ Website](https://platos.me) _email_ Support email support@platos.me [_shield_ Privacy Policy](https://platos.me/privacy) About the developer PRISLAY INTELLIGENCE PTE. LTD. zz@prislay.com 10 ANSON ROAD #20-01 INTERNATIONAL PLAZA Singapore 079903 +65 9746 0486 [_flag_ Flag as inappropriate](https://support.google.com/googleplay/?p=report_content) Google Play Play Pass Play Points [Gift cards](https://play.google.com/about/giftcards) Redeem [Refund policy](https://support.google.com/googleplay/answer/134336) Kids & family [Parent Guide](https://support.google.com/googleplay?p=pff_parentguide) [Family sharing](https://support.google.com/googleplay/answer/7007852) [Terms of Service](https://play.google.com/intl/en-US_zz/about/play-terms.html) [Privacy](https://policies.google.com/privacy) [About Google Play](https://support.google.com/googleplay/?p=about_play) [Developers](http://developer.android.com/index.html) [Google Store](https://store.google.com/?playredirect=true&utm_source=play&utm_medium=google_oo&utm_campaign=GS106288)"
+            ],
+            "title": "Platos: Real Friend AI - Apps on Google Play"
+          },
+          {
+            "url": "https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/redactionprocessor/README.md",
+            "excerpts": [
+              "Redaction Processor - opentelemetry-collector-contrib - GitHub\nThis processor deletes span, log, and metric datapoint attributes that don't match a list of allowed attributes. It also masks attribute values that match a"
+            ],
+            "title": "Redaction Processor - opentelemetry-collector-contrib - GitHub"
+          },
+          {
+            "url": "https://github.com/open-telemetry/semantic-conventions/blob/main/docs/http/http-metrics.md",
+            "excerpts": [
+              "semantic-conventions/docs/http/http-metrics.md at main\nSeman tic conventions for HTTP metrics Status: By adding HTTP attributes to metric events it allows for finely tuned filtering. This attribute is useful for"
+            ],
+            "title": "semantic-conventions/docs/http/http-metrics.md at main"
+          },
+          {
+            "url": "https://sematext.com/blog/opentelemetry-instrumentation-best-practices-for-microservices-observability",
+            "excerpts": [
+              "OpenTelemetry Instrumentation Best Practices for ...\nFeb 4, 2026 \u2014 This guide covers production-tested OpenTelemetry best practices that help engineering teams achieve reliable distributed tracing, control"
+            ],
+            "title": "OpenTelemetry Instrumentation Best Practices for ..."
+          },
+          {
+            "url": "https://opentelemetry.io/docs/specs/semconv/general/events",
+            "excerpts": [
+              "Semantic conventions for events\nSemantic conventions that define events MUST document the event name and its attributes. General event semantics. An event MUST have an event name that uniquely"
+            ],
+            "title": "Semantic conventions for events"
+          },
+          {
+            "url": "https://www.apica.io/blog/opentelemetry-best-practices-for-improving-your-monitoring-and-observability",
+            "excerpts": [
+              "OpenTelemetry Best Practices 2026: Improve Monitoring & ...\nMay 16, 2026 \u2014 Start with a clear monitoring strategy \u00b7 Use a common data model \u00b7 Instrument your code properly \u00b7 Consider using automatic instrumentation \u00b7 Choose"
+            ],
+            "title": "OpenTelemetry Best Practices 2026: Improve Monitoring & ..."
+          },
+          {
+            "url": "https://tailscale.com/docs/features/tailscale-funnel",
+            "excerpts": [
+              "Tailscale Funnel \u00b7 Tailscale Docs\nTailscale Funnel lets you route traffic from the broader internet to a local service running on a device in your Tailscale network (known as a tailnet). You can use it to share a local service, like a web app, for anyone to access\u2014even if they don't use Tailscale."
+            ],
+            "title": "Tailscale Funnel \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "http://tailscale.com/docs/features/tailscale-serve",
+            "excerpts": [
+              "Tailscale Serve requires that you enable HTTPS in your tailnet to automatically provision TLS certificates for your unique tailnet DNS name.\nTailscale Serve lets you route traffic from other devices on your Tailscale network (known as a tailnet) to a local service running on your device.\nFor example, you can proxy requests to a web server running at `http://127.0.0.1:3000"
+            ],
+            "title": "Tailscale Serve \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "http://mylinux.work/guides/tailscale-funnel-setup",
+            "excerpts": [
+              "302 Found 302 Found nginx\nTailscale Funnel \u2014 Expose Services Without Port Forwarding Tailscale Funnel setup guide \u2014 expose local services to the internet without port forwarding, firewall changes, or public IPs. HTTPS with automatic TLS, access controls, and practical examples for Grafana, webhooks, and dev servers"
+            ],
+            "title": "Tailscale Funnel \u2014 Expose Services Without Port Forwarding"
+          },
+          {
+            "url": "https://github.com/tailscale/tailscale/issues/15946",
+            "excerpts": [
+              "FR: use Tailscale node as a Funnel relay \u00b7 Issue #15946 - GitHub\nMay 12, 2025 \u00b7 What are you trying to do? I want to publicly (and quickly) expose some services in my Tailnet via Funnel, but without using your relays."
+            ],
+            "title": "FR: use Tailscale node as a Funnel relay \u00b7 Issue #15946 - GitHub"
+          },
+          {
+            "url": "http://tailscale.com/docs/reference/tailscale-cli/serve",
+            "excerpts": [
+              "tailscale serve lets you share a local service securely within your Tailscale network (known as a tailnet). tailscale serve [flags] <target>."
+            ],
+            "title": "tailscale serve command"
+          },
+          {
+            "url": "https://archive.reactnative.dev/docs/netinfo",
+            "excerpts": [
+              "NetInfo\naddEventListener() \u00b7 connectionChange : Fires when the network status changes. The argument to the event handler is an object with keys: type : A ConnectionType"
+            ],
+            "title": "NetInfo"
+          },
+          {
+            "url": "https://www.npmjs.com/package/%40react-native-community/netinfo",
+            "excerpts": [
+              "@react-native-community/netinfo - npm\nThe callback is called with a parameter of type NetInfoState whenever the connection state changes. Your listener will be called with the latest information soon after you subscribe and then with any subsequent changes afterwards."
+            ],
+            "title": "@react-native-community/netinfo - npm"
+          },
+          {
+            "url": "https://github.com/react-native-netinfo/react-native-netinfo/issues/572",
+            "excerpts": [
+              "isInternetReachable is returning null on first attempt on ios #572\nFeb 2, 2022 \u00b7 The first call to the listener set with NetInfo.addEventListener returns isInternetReachable = null. However, a second callback is fired right after (~100ms"
+            ],
+            "title": "isInternetReachable is returning null on first attempt on ios #572"
+          },
+          {
+            "url": "https://github.com/react-native-netinfo/react-native-netinfo/issues/573",
+            "excerpts": [
+              "addEventListener not updated when connection change\nFeb 8, 2022 \u2014 I updated the NetInfo library from 6.0.0 to the last one, but addEventListener not working if the status connection change. I think better version 6.0.0 for"
+            ],
+            "title": "addEventListener not updated when connection change"
+          },
+          {
+            "url": "http://developer.mozilla.org/en-US/docs/Web/API/Network_Information_API",
+            "excerpts": [
+              "Apr 13, 2025 \u2014 The Network Information API provides information about the system's connection in terms of general connection type (eg, 'wifi, 'cellular', etc.)."
+            ],
+            "title": "Network Information API - MDN Web Docs - Mozilla"
+          },
+          {
+            "url": "https://developer.android.com/google/play/integrity",
+            "excerpts": [
+              "Play Integrity API | Android Developers\nLearn how to set up your app or game to use the Play Integrity API. See the Play Integrity API reference. Test your integration and learn how to generate responses from any device for debugging and troubleshooting."
+            ],
+            "title": "Play Integrity API | Android Developers"
+          },
+          {
+            "url": "https://developer.android.com/google/play/integrity/overview",
+            "excerpts": [
+              "Overview of the Play Integrity API - Android Developers\nThe Play Integrity API helps verify that user actions and server requests originate from a genuine app installed by Google Play, running on a certified Android device, assisting in the detection and prevention of abuse and fraud."
+            ],
+            "title": "Overview of the Play Integrity API - Android Developers"
+          },
+          {
+            "url": "https://firebase.google.com/docs/app-check/ios/app-attest-provider",
+            "excerpts": [
+              "Get started using App Check with App Attest on Apple platforms\nA guide on how to get started using App Check with the App Attest provider on Apple platforms."
+            ],
+            "title": "Get started using App Check with App Attest on Apple platforms"
+          },
+          {
+            "url": "https://www.bdcgny.org/uploads/forms/attestation_form.pdf",
+            "excerpts": [
+              "[PDF] APPLICATION FOR ATTESTATION / CERTIFICATION\nI declare that information given on this applicaiton is true, correct and complete and documents presented herewith for attestation / certification."
+            ],
+            "title": "[PDF] APPLICATION FOR ATTESTATION / CERTIFICATION"
+          },
+          {
+            "url": "https://jooeungen.tistory.com/entry/iOSWWDC-App-Attest-Device-Check",
+            "excerpts": [
+              "[iOS/WWDC] App Attest & Device Check - \uc900\uc9c4\uc758 \ube14\ub85c\uae45"
+            ],
+            "title": "[iOS/WWDC] App Attest & Device Check - \uc900\uc9c4\uc758 \ube14\ub85c\uae45 \ud2f0\uc2a4\ud1a0\ub9ac https://jooeungen.tistory.com \u203a iO..."
+          },
+          {
+            "url": "https://oneuptime.com/blog/post/2026-01-15-react-native-ssl-pinning/view",
+            "excerpts": [
+              "How to Implement SSL Pinning in React Native - oneuptime.com\nLearn how to implement SSL/TLS certificate pinning in React Native to protect your app from man-in-the-middle attacks."
+            ],
+            "title": "How to Implement SSL Pinning in React Native - oneuptime.com"
+          },
+          {
+            "url": "https://medium.com/%40aligabalh90100/react-naive-ssl-pinning-85ffa6ab687f",
+            "excerpts": [
+              "React Native SSL Pinning. Why you need SSL pinning in your ...\nSSL pinning fixes this by telling your app to only trust the exact certificate (or public key) of your server. If someone tries to use a fake certificate, the app blocks the connection."
+            ],
+            "title": "React Native SSL Pinning. Why you need SSL pinning in your ..."
+          },
+          {
+            "url": "https://www.metatech.dev/blog/2025-07-07-stop-react-native-certificate-pinning-bypass-attacks",
+            "excerpts": [
+              "Stop React Native Certificate Pinning Bypass Attacks\nLearn how to prevent certificate pinning bypass attacks in React Native. Complete security checklist with code examples and attack prevention strategies."
+            ],
+            "title": "Stop React Native Certificate Pinning Bypass Attacks"
+          },
+          {
+            "url": "https://www.npmjs.com/package/expo-secure-store?activeTab=dependents",
+            "excerpts": [
+              "expo-secure-store\nMay 21, 2026 \u2014 Provides a way to encrypt and securely store key-value pairs locally on the device.. Latest version: 56.0.4 , last published: 8 days ago."
+            ],
+            "title": "expo-secure-store"
+          },
+          {
+            "url": "https://ptkd.com/journal/react-native-ssl-pinning-bypass-frida",
+            "excerpts": [
+              "React Native SSL Pinning Bypass (Frida Tutorial) | PTKD Journal\nHow to test React Native SSL pinning on your own app with Frida, where pinning lives in an RN app, why it can be bypassed, and how to harden it responsibly."
+            ],
+            "title": "React Native SSL Pinning Bypass (Frida Tutorial) | PTKD Journal"
+          },
+          {
+            "url": "https://ptkd.com/journal/ios-local-network-privacy-permission",
+            "excerpts": [
+              "iOS local network privacy permission explained | PTKD Journal\nThis exists because local network access can reveal the devices on a user's network, a privacy concern. If a feature needs it, declare the purpose string and the Bonjour services you use; if it does not, an unexpected prompt usually means an SDK is scanning the network, which you should audit."
+            ],
+            "title": "iOS local network privacy permission explained | PTKD Journal"
+          },
+          {
+            "url": "https://developer.apple.com/forums/thread/766133",
+            "excerpts": [
+              "iOS 18 local network permission is\u2026 | Apple Developer Forums\nWe found inconsistencies in iOS 17 and 18 regarding Local Network permissions. In iOS 17, denied permission blocks network calls, and even after allowing, a device restart is needed."
+            ],
+            "title": "iOS 18 local network permission is\u2026 | Apple Developer Forums"
+          },
+          {
+            "url": "https://medium.com/%40markeltree/key-ux-differences-ios-vs-android-in-2025-6475855e2afe",
+            "excerpts": [
+              "Key UX Differences: iOS vs Android in 2025 - Medium\nIn this constantly progressing digital landscape of 2025, the old battle of iPhone users vs Android users continues to mold how mobile experiences are shaped and delivered."
+            ],
+            "title": "Key UX Differences: iOS vs Android in 2025 - Medium"
+          },
+          {
+            "url": "https://developer.apple.com/design/human-interface-guidelines/patterns",
+            "excerpts": [
+              "Patterns | Apple Developer Documentation\nGet design guidance for supporting common user actions, tasks, and experiences."
+            ],
+            "title": "Patterns | Apple Developer Documentation"
+          },
+          {
+            "url": "https://ecto-1a.github.io/AppleJuice",
+            "excerpts": [
+              "Experimenting with Apple Device Proximity Pairing Using ...\nThe scripts in this repo will continually send spoofed pairing messages to trigger the popups on nearby iPhones and iPads. The goal of this project is purely educational - to learn more about Apple\u2019s Continuity protocols and how BLE pairing works under the hood."
+            ],
+            "title": "Experimenting with Apple Device Proximity Pairing Using ..."
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "hermes-mobile-reliability-july-2026.md"
+  }
+}

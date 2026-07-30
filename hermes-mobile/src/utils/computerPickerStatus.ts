@@ -4,6 +4,7 @@ import { resolveHeaderTransportLabel } from './chatMachineHeader';
 import {
   formatLanScanResultDetail,
   formatLanScanResultLabel,
+  isLoopbackOnlyScanReach,
 } from './lanScanLabels';
 
 /** Fixed status band so discovery ticks cannot reflow the profile list. */
@@ -100,19 +101,21 @@ export function resolveComputerPickerStatus(
         })
       : undefined;
     const scanTitle = formatLanScanResultLabel(input.scanResult);
-    // Discovery can find the Mac over USB while chat still uses Home Wi‑Fi / Tailscale.
-    // Never let a USB-only scan banner contradict the header's active-path label.
+    // Discovery can find the Mac over the cable while chat still uses Home Wi‑Fi /
+    // Tailscale. Never let a loopback-only scan banner contradict the header's
+    // active-path label. Asked structurally: the banner title no longer names the
+    // cable (2026-07-30 Tailscale-only copy rule), so a regex on it would silently
+    // stop matching.
     if (
       input.activeReachable &&
       activeTransport &&
       activeTransport !== 'USB' &&
-      /over USB|Using USB/i.test(scanTitle)
+      isLoopbackOnlyScanReach(input.scanResult)
     ) {
       return {
         kind: 'active',
         title: `Connected · ${activeTransport}`,
-        detail:
-          'USB may also be available for this computer — tap a row to switch routes.',
+        detail: 'Another route to this computer is available — tap a row to switch.',
         success: true,
         discoveries: [],
       };
@@ -137,8 +140,8 @@ export function resolveComputerPickerStatus(
         title: `Connected · ${activeTransport}`,
         detail:
           activeTransport === 'USB'
-            ? 'Chat uses this USB cable. Tap another computer below to switch.'
-            : 'Chat uses this path. A USB cable may also be available for the same computer.',
+            ? 'Chat uses this link. Tap another computer below to switch.'
+            : 'Chat uses this path. Another route to the same computer may also be available.',
         success: true,
         discoveries: [],
       };

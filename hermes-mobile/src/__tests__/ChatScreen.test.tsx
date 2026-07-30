@@ -527,7 +527,10 @@ describe('ChatScreen', () => {
 
     expect(queryByTestId('chat-connection-panel')).toBeNull();
     expect(getByTestId('chat-input')).toBeTruthy();
-    expect(getByTestId('chat-context-mac').props.children).toBe('Your computer');
+    // The product law under test is that the PAIRING status stays distinct from the
+    // computer transport — not that the machine name is hidden. One computer is saved,
+    // so the header names it instead of the "Your computer" placeholder (2026-07-30).
+    expect(getByTestId('chat-context-mac').props.children).toBe('Demo computer');
     expect(getByTestId('chat-context-link').props.children).toContain(
       'Pair to receive approval requests anywhere',
     );
