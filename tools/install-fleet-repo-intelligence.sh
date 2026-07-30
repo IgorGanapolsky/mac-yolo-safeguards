@@ -57,7 +57,7 @@ if [[ ! -d "$CLONE_PATH/.grepai" ]]; then
   (cd "$CLONE_PATH" && grepai init --provider ollama --backend gob --yes)
 fi
 
-# Retrieval tuning: enable hybrid (BM25 + dense, RRF).
+# Retrieval tuning: enable hybrid (BM25 + dense, RRF) and the startup index check.
 #
 # `grepai init` writes hybrid.enabled=false, so the BM25+vector RRF fusion this
 # config already describes (k: 60) never actually ran — every query was pure
@@ -103,10 +103,19 @@ for i, ln in enumerate(lines):
         out.append(ln.replace('false', 'true'))
         changed = True
         continue
+    # check_on_startup defaults to FALSE, so launching the watcher does NOT
+    # verify the index against the corpus. That is precisely how the index sat
+    # frozen for days while `grepai status` reported a healthy running watcher:
+    # nothing ever compared what was indexed against what was on disk, and a
+    # stale index answers every query confidently from an old snapshot.
+    if ln.strip() == 'check_on_startup: false':
+        out.append(ln.replace('false', 'true'))
+        changed = True
+        continue
     out.append(ln)
 if changed:
     open(p, 'w', encoding='utf-8').write('\n'.join(out))
-    print('hybrid enabled (rebuild the index for it to take effect)')
+    print('tuned: hybrid + startup index check (rebuild the index for hybrid to take effect)')
 else:
     print('already tuned')
 PY
