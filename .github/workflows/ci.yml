@@ -22,6 +22,10 @@ jobs:
   # Guard kit is pure Node/shell/static analysis — must stay on ubuntu-latest.
   # 2026-07-30: PR runs on macos-latest sat queued forever (GitHub-hosted macOS starvation)
   # and blocked required check "macOS guard kit" → merges stuck. Keep job name for branch protection.
+  # mac-mini-hermes (self-hosted, macos-arm64, hermes-e2e) is the default to cut
+  # GitHub-hosted macOS queue wait. Fork PRs stay on macos-latest (arbitrary code).
+  # If the mini is offline, temporarily switch runs-on below to macos-latest.
+  # 2026-07-30: guard kit is static/Node — ubuntu-latest. macos-latest PRs queued forever.
   macos-guard:
     name: macOS guard kit
     runs-on: ubuntu-latest
