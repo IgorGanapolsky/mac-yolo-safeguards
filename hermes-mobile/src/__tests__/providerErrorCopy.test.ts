@@ -12,6 +12,10 @@ import {
   prepareMessagesForDisplay,
 } from '../utils/chatMessageDisplay';
 import { isFalseUnpairedStatusCopy } from '../utils/connectionStatusContract';
+import { fetchTelegramInboxMessages } from '../services/telegramInbox';
+import * as hermesChatClient from '../services/hermesChatClient';
+
+jest.mock('../services/hermesChatClient');
 
 /**
  * Verbatim text a real user saw in a chat bubble on an Android phone (2026-07-30).
@@ -59,6 +63,25 @@ describe('providerErrorCopy — detection', () => {
     expect(isProviderErrorPayload('{"error": {"code": "session_not_found"}}')).toBe(false);
     expect(isProviderErrorPayload('{"error": {"code": "session_in_use"}}')).toBe(false);
     expect(isProviderErrorPayload('{"error": {"code": "invalid_api_key"}}')).toBe(false);
+  });
+
+  // PR #1250 review: the length cap alone let short prose be swallowed.
+  it('requires payload framing — short prose explaining an error is not replaced', () => {
+    expect(
+      isProviderErrorPayload('Error code: 500 means the server failed; I fixed the retry.'),
+    ).toBe(false);
+    expect(
+      isProviderErrorPayload('A 500 Error code: usually points at the upstream, not your app.'),
+    ).toBe(false);
+    expect(
+      isProviderErrorPayload('I hit an unexpected EOF parsing the log and fixed the reader.'),
+    ).toBe(false);
+    expect(
+      isProviderErrorPayload('The turn time limit is configurable in the harness settings.'),
+    ).toBe(false);
+    expect(
+      isProviderErrorPayload('Retries are capped at 3; the API call failed after 3 retries.'),
+    ).toBe(true);
   });
 
   it('ignores long prose that merely quotes an error code', () => {
@@ -227,6 +250,36 @@ describe('chat bubble rendering pipeline', () => {
     );
     expect(assistantTurn.rawContent).toContain('unexpected EOF');
     expect(assistantTurn.truncated).toBe(true);
+  });
+});
+
+// PR #1250 review: the Telegram inbox prepares content/rawContent/truncated up
+// front and ChatMessageBubble trusts those fields, so the role must be applied here.
+describe('Telegram inbox display prep', () => {
+  it('humanizes the assistant turn and leaves the user turn verbatim', async () => {
+    (hermesChatClient.listMessages as jest.Mock).mockResolvedValueOnce([
+      {
+        role: 'user',
+        content: `Why did this happen? ${SCREENSHOT_BUBBLE}`,
+        created_at: '2026-07-30T10:00:00Z',
+      },
+      { role: 'assistant', content: SCREENSHOT_BUBBLE, created_at: '2026-07-30T10:01:00Z' },
+    ]);
+
+    const result = await fetchTelegramInboxMessages(
+      'http://127.0.0.1:8642',
+      [{ id: 'tg-1', source: 'telegram', last_active: 1785400000 }] as never,
+      'test-key',
+      1,
+    );
+
+    const userTurn = result.messages.find((m) => m.role === 'user');
+    const assistantTurn = result.messages.find((m) => m.role === 'assistant');
+    expect(userTurn?.content).toContain('unexpected EOF');
+    expect(assistantTurn?.content).toBe(
+      "Your Mac's AI model stopped responding. Tap ↑ to try again.",
+    );
+    expect(assistantTurn?.rawContent).toContain('unexpected EOF');
   });
 });
 

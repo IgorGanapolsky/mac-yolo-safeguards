@@ -122,7 +122,9 @@ export async function fetchTelegramInboxMessages(
       if (!shouldIncludeTelegramMessage(role, raw, includeToolActivity, includeHermesStatus)) {
         return;
       }
-      const display = prepareMessageForChatDisplay(raw);
+      // Role matters: these prepared fields are trusted downstream by
+      // ChatMessageBubble, so a user's own pasted diagnostic must stay verbatim.
+      const display = prepareMessageForChatDisplay(raw, { isUser: role === 'user' });
       merged.push({
         message: {
           ...message,

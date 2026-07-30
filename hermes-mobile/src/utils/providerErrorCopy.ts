@@ -48,11 +48,25 @@ export const MESSAGE_EXPAND_LABEL = 'Show more';
  */
 const MAX_PAYLOAD_CHARS = 1200;
 
-const ERROR_CODE_RE = /\berror\s+code:?\s*(\d{3})\b/i;
+/**
+ * Framing matters, not keywords. "Error code: 500 - {…}" is a payload;
+ * "Error code: 500 means the server failed, so I fixed the retry" is an answer.
+ * Every trigger below is a structural shape or a verbatim failure template, so
+ * prose that merely *discusses* an error is never replaced.
+ */
+// "Error code: 500 - …" — the provider template's code + separator, not a mention.
+const ERROR_CODE_TEMPLATE_RE = /\berror\s+code:\s*(\d{3})\s*[-–—]\s/i;
+// Structural key/value from a serialized provider error object.
 const API_ERROR_TYPE_RE = /['"]type['"]\s*:\s*['"]api_error['"]/i;
-const UNEXPECTED_EOF_RE = /\bunexpected\s+eof\b/i;
+// Verbatim upstream template.
+const MODEL_RUN_ERROR_RE = /\ban error was encountered while running the model\b/i;
 const RETRIES_RE = /\bfailed\s+after\s+(\d+)\s+retr(?:y|ies)\b/i;
-const TURN_LIMIT_RE = /\bthe\s+turn\s+time\s+limit\b/i;
+// First-person harness template, not any sentence containing the phrase.
+const TURN_LIMIT_TEMPLATE_RE =
+  /\b(?:reached|hit|exceeded|ran\s+past)\s+the\s+turn\s+time\s+limit\b/i;
+// Corroborating only — never a trigger on its own.
+const ERROR_DICT_RE = /[{[]\s*['"]error['"]\s*:/;
+const UNEXPECTED_EOF_RE = /\bunexpected\s+eof\b/i;
 
 function normalize(text: string): string {
   return text.normalize('NFKC').replace(/\s+/g, ' ').trim();
@@ -61,18 +75,21 @@ function normalize(text: string): string {
 function markers(body: string): {
   code: number | null;
   apiErrorType: boolean;
+  modelRunError: boolean;
+  /** EOF only counts inside a serialized error object — bare prose does not. */
   unexpectedEof: boolean;
   retries: number | null;
   turnLimit: boolean;
 } {
-  const codeMatch = ERROR_CODE_RE.exec(body);
+  const codeMatch = ERROR_CODE_TEMPLATE_RE.exec(body);
   const retriesMatch = RETRIES_RE.exec(body);
   return {
     code: codeMatch ? Number(codeMatch[1]) : null,
     apiErrorType: API_ERROR_TYPE_RE.test(body),
-    unexpectedEof: UNEXPECTED_EOF_RE.test(body),
+    modelRunError: MODEL_RUN_ERROR_RE.test(body),
+    unexpectedEof: UNEXPECTED_EOF_RE.test(body) && ERROR_DICT_RE.test(body),
     retries: retriesMatch ? Number(retriesMatch[1]) : null,
-    turnLimit: TURN_LIMIT_RE.test(body),
+    turnLimit: TURN_LIMIT_TEMPLATE_RE.test(body),
   };
 }
 
@@ -100,22 +117,32 @@ function classify(
   }
   const found = markers(body);
 
+  // Nothing here is a keyword match — each is payload framing or a failure
+  // template. Prose that merely mentions EOF or an error code falls through.
+  const isPayload =
+    found.code != null ||
+    found.apiErrorType ||
+    found.modelRunError ||
+    found.unexpectedEof ||
+    found.retries != null ||
+    found.turnLimit;
+  if (!isPayload) {
+    return null;
+  }
+
   if (found.code === 429) {
     return { kind: 'model_rate_limited', retries: found.retries };
   }
   if (found.retries != null) {
     return { kind: 'retries_exhausted', retries: found.retries };
   }
-  if (found.unexpectedEof || found.apiErrorType) {
+  if (found.unexpectedEof || found.apiErrorType || found.modelRunError) {
     return { kind: 'model_stopped', retries: null };
   }
   if (found.code != null) {
     return { kind: found.code >= 500 ? 'model_stopped' : 'model_error', retries: null };
   }
-  if (found.turnLimit) {
-    return { kind: 'turn_time_limit', retries: null };
-  }
-  return null;
+  return { kind: 'turn_time_limit', retries: null };
 }
 
 function headlineFor(kind: ProviderErrorKind, retries: number | null): string {
