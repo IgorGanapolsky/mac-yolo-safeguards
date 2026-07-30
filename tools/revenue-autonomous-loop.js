@@ -910,8 +910,10 @@ async function run(args) {
   if (!args.fast && process.env.REVENUE_REPLY_SCAN !== '0') {
     try {
       const { run: runReplyScan } = require('./gmail-outreach-reply-scan');
+      const useChrome = args.chrome !== false && process.env.REVENUE_NO_CHROME_GMAIL !== '1';
       const scan = runReplyScan({
-        chrome: args.chrome !== false && process.env.REVENUE_NO_CHROME_GMAIL !== '1',
+        chrome: useChrome,
+        gmailApi: !useChrome && process.env.HERMES_GOOGLE_API !== '0',
         baseline: false,
         ntfy: false,
         json: true,
@@ -922,7 +924,7 @@ async function run(args) {
       // and the difference decides whether we keep cold-mailing.
       replyScanBlind = Boolean(scan && scan.scanBlind);
       actions.push(
-        `gmail_reply_scan hot=${hotReplies.length} status=${(scan && scan.replyStatus) || 'unknown'} chrome=${scan && scan.chromeOk} board=${scan && scan.boardPath}`,
+        `gmail_reply_scan hot=${hotReplies.length} status=${(scan && scan.replyStatus) || 'unknown'} chrome=${scan && scan.chromeOk} gmailApi=${scan && scan.gmailApi} board=${scan && scan.boardPath}`,
       );
       if (replyScanBlind) {
         actions.push('gmail_reply_scan_BLIND=reply_state_unknown_do_not_read_as_zero');
