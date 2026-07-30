@@ -157,7 +157,7 @@ export function describeGatewayFetchError(
   if (baseMessage === 'Network request failed' || baseMessage.includes('Failed to fetch')) {
     if (isLoopbackGatewayUrl(gatewayUrl)) {
       return (
-        'USB is not reaching Hermes on your computer. Use Find computers to choose a reachable Mac.'
+        'That link is not reaching Hermes on your computer. Use Find computers to choose a reachable Mac.'
       );
     }
     return (

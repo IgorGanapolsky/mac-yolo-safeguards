@@ -317,7 +317,7 @@ export default function ChatConnectionPanel({
             {showUsbFix ? (
               <LoadingButton
                 label={primaryActionLabel}
-                loadingLabel="Fixing USB connection…"
+                loadingLabel="Fixing computer link…"
                 loading={usbFixBusy}
                 onPress={() => onFixUsbLink?.()}
                 testID="chat-connection-fix-usb"

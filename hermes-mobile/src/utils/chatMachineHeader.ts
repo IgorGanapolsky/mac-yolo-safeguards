@@ -370,6 +370,72 @@ export function assertUsbHeaderIdentityLaw(input: {
   return null;
 }
 
+/**
+ * Last real machine name we actually know before falling back to the
+ * "Your computer" placeholder.
+ *
+ * DEFECT (2026-07-30, real device): the header read "Your computer · Waiting for
+ * approval pairing…" even though the machine name was knowable. The two
+ * placeholder assignments below fired on `!activeProfile` alone and threw away
+ * names that were already in hand — the relay's own worker list and a single
+ * saved computer. This resolves the name from the sources we have instead of
+ * hard-coding the placeholder; "Your computer" is now only used when nothing
+ * whatsoever identifies the machine.
+ *
+ * Deliberately conservative: with more than one saved computer and no active
+ * selection there is no unambiguous answer, so the placeholder still wins
+ * (never invent which Mac the user meant).
+ *
+ * Precedence obeys this module's USB identity law: a live green|amber /health
+ * hostname is proof of which Mac we are actually talking to, so it outranks an
+ * *unselected* saved profile that may well name a different machine. Getting
+ * this backwards could title the header with the Mac mini while /health proves
+ * the link reaches the MacBook.
+ */
+function knownMachineNameOrPlaceholder(input: {
+  workers: RelayWorker[];
+  activeWorkerId?: string | null;
+  profiles?: GatewayProfile[];
+  health?: GatewayHealthSnapshot | null;
+}): string {
+  const fromHealth = healthHostname(input.health);
+
+  // 1. Live, proven identity wins outright.
+  if (isLiveUsbHealthIdentity(input.health) && fromHealth) {
+    return stripTransportSuffixFromComputerName(fromHealth);
+  }
+
+  // 2. The relay names its own worker.
+  const worker = selectRelayWorker(input.workers, input.activeWorkerId);
+  if (worker) {
+    const workerName = relayWorkerDisplayName(worker).trim();
+    if (workerName && !isUnresolvedMachineName(workerName)) {
+      return stripTransportSuffixFromComputerName(workerName);
+    }
+  }
+
+  // 3. Exactly one saved computer is unambiguous — but never proof.
+  const profiles = input.profiles ?? [];
+  if (profiles.length === 1) {
+    const only = profiles[0];
+    const profileName = profileDisplayName(only).trim();
+    if (profileName && !isUnresolvedMachineName(profileName)) {
+      return stripTransportSuffixFromComputerName(profileName);
+    }
+    const profileHost = only.hostname?.replace(/\.local$/i, '').trim();
+    if (profileHost && !isUnresolvedMachineName(profileHost)) {
+      return stripTransportSuffixFromComputerName(profileHost);
+    }
+  }
+
+  // 4. Any remaining /health hostname beats the placeholder.
+  if (fromHealth && !isUnresolvedMachineName(fromHealth)) {
+    return stripTransportSuffixFromComputerName(fromHealth);
+  }
+
+  return 'Your computer';
+}
+
 export function resolveChatMachineHeaderDisplay(input: {
   activeProfile?: GatewayProfile | null;
   gatewayUrl: string;
@@ -399,7 +465,9 @@ export function resolveChatMachineHeaderDisplay(input: {
 
   if (input.connectionMode === 'relay') {
     if (!input.isPaired && !input.activeProfile) {
-      machineLabel = 'Your computer';
+      // Unpaired relay: still prefer a real name we already know (relay worker /
+      // single saved computer / live health) over the "Your computer" placeholder.
+      machineLabel = knownMachineNameOrPlaceholder(input);
     } else if (input.isPaired) {
       const worker = selectRelayWorker(input.workers, input.activeWorkerId);
       if (worker && !input.activeProfile) {
@@ -407,8 +475,9 @@ export function resolveChatMachineHeaderDisplay(input: {
       }
     }
   } else if (!gatewayUrl && !input.activeProfile && !input.isDemo) {
-    // Fresh gateway-mode install with no URL — never claim "Computer via USB".
-    machineLabel = 'Your computer';
+    // Fresh gateway-mode install with no URL — never claim a transport we cannot
+    // prove, but do use a real machine name when one is already known.
+    machineLabel = knownMachineNameOrPlaceholder(input);
   }
 
   // No URL yet: skip USB/IP endpoint details entirely.
