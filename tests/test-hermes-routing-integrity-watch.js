@@ -15,6 +15,7 @@ const {
   routeIdentity,
   primaryRoute,
   fallbackChain,
+  rawFallbackEntries,
   isLocalRoute,
   parseKeepAliveSeconds,
   runChecks,
@@ -132,7 +133,11 @@ check('empty_chain is flagged when nothing can absorb a primary outage', () => {
   assert.ok(keys(runChecks(cfg, {})).includes('empty_chain'));
 });
 
-check('duplicate chain entries are flagged', () => {
+check('duplicate chain entries are FLAGGED (not merely deduped away)', () => {
+  // This test previously asserted only `fallbackChain(cfg).length === 2` — the
+  // deduplicated length. It could never fail, because runChecks read the already
+  // deduped chain and the finding was unreachable for every possible input
+  // (PR #1248 review). It now asserts the finding itself.
   const cfg = {
     model: { provider: 'custom:litellm-gateway', model: 'glm-coding' },
     fallback_providers: [
@@ -141,9 +146,29 @@ check('duplicate chain entries are flagged', () => {
       { provider: 'p', model: 'a' },
     ],
   };
-  // fallbackChain dedupes on identity the way Hermes does, so the duplicate is
-  // absorbed there rather than reaching the user as a wasted hop.
+  const f = runChecks(cfg, {});
+  assert.ok(keys(f).includes('duplicate_chain_entries'),
+    `expected duplicate_chain_entries, got ${JSON.stringify(keys(f))}`);
+  // Hermes itself still collapses them, which is why the raw config must be read.
   assert.strictEqual(fallbackChain(cfg).length, 2);
+  assert.strictEqual(rawFallbackEntries(cfg).length, 3);
+});
+
+check('a chain with no repeats is not flagged as duplicated', () => {
+  const cfg = {
+    model: { provider: 'custom:litellm-gateway', model: 'glm-coding' },
+    fallback_providers: [{ provider: 'p', model: 'a' }, { provider: 'p', model: 'b' }],
+  };
+  assert.ok(!keys(runChecks(cfg, {})).includes('duplicate_chain_entries'));
+});
+
+check('a stopped/uninstalled gateway is NOT reported as unsupervised', () => {
+  // launchctl failing means the label is absent — which is also true when the
+  // gateway is deliberately stopped or was never installed. Only a RUNNING but
+  // unmanaged gateway is the critical (PR #1248 review). Unobserved => no finding.
+  const f = runChecks(MINI_FIXED, {});
+  assert.ok(!keys(f).includes('gateway_unsupervised'));
+  assert.deepStrictEqual(criticalFindings(f), []);
 });
 
 check('legacy fallback_model is merged into the chain after fallback_providers', () => {

@@ -16,9 +16,13 @@
  * shows `client connection closed before llama-server finished loading, aborting
  * load`. Loading 6.6 GB at n_ctx=65536 outlasted Hermes's ~5 min client timeout,
  * so the client disconnected and killed the very load it was waiting for; each
- * retry restarted and re-killed it. There were ZERO jetsam events. Compounding
- * it, the watchdog "warmed" the model with keep_alive=2m — evicting it every two
- * minutes and manufacturing the cold starts it was meant to prevent.
+ * retry restarted and re-killed it. There were ZERO jetsam events.
+ *
+ * A short "warm" pin is a related hazard: keep_alive=2m is shorter than the gap
+ * between requests, so it guarantees eviction and a cold load on the next real
+ * call. NOT PROVEN to be this incident's cause, though — the only watchdog lines
+ * naming a model say `qwen3:8b-64k`, not the 9B that failed, and they postdate
+ * the config repair. Flagged as a hazard, not asserted as the trigger.
  *
  * Every individual component reported healthy the whole time. The gateway was up,
  * the LiteLLM proxy was up and serving 30 models, Ollama was listening. The defect
@@ -149,6 +153,28 @@ function isLocalRoute(entry) {
 }
 
 /**
+ * Chain entries EXACTLY as configured — no dedupe.
+ *
+ * `fallbackChain()` mirrors Hermes and collapses repeats, which made the
+ * duplicate check unreachable for every possible input (PR #1248 review). The
+ * duplicate scan has to read the raw config, because the whole point is to tell
+ * the operator their file says the same route twice.
+ */
+function rawFallbackEntries(config) {
+  const out = [];
+  for (const key of ['fallback_providers', 'fallback_model']) {
+    const raw = config ? config[key] : null;
+    const entries = Array.isArray(raw)
+      ? raw
+      : (raw && typeof raw === 'object' ? [raw] : []);
+    for (const e of entries) {
+      if (e && typeof e === 'object') out.push(e);
+    }
+  }
+  return out;
+}
+
+/**
  * Core check. `env` carries the observed host facts so the caller decides how to
  * gather them (and the tests can supply them directly):
  *   { gatewaySupervised, gatewayPlistValid, watchdogPinsModel, swapUsedPct }
@@ -188,15 +214,18 @@ function runChecks(config, env = {}) {
     }
   }
 
-  // 3. Duplicates waste hops for the same reason, one step removed.
+  // 3. Duplicates waste hops for the same reason, one step removed. Read from the
+  //    RAW config, not `chain` — the latter is already deduped, which made this
+  //    finding unreachable for every input (PR #1248 review).
   const dupSeen = new Map();
-  for (const [i, entry] of chain.entries()) {
+  for (const [i, entry] of rawFallbackEntries(config).entries()) {
     const id = routeIdentity(entry);
     if (dupSeen.has(id)) {
       findings.push({
         key: 'duplicate_chain_entries',
         severity: SEVERITY.warn,
-        detail: `fallback #${i + 1} duplicates #${dupSeen.get(id) + 1}.`,
+        detail: `fallback #${i + 1} duplicates #${dupSeen.get(id) + 1} — the config lists `
+          + 'the same route twice; the second copy can never add anything.',
         observed: id,
       });
     } else {
@@ -319,6 +348,19 @@ function loadConfig(configPath = CONFIG_PATH) {
   return JSON.parse(out);
 }
 
+/** Is a gateway process actually running right now? */
+function isGatewayProcessRunning() {
+  try {
+    const out = execFileSync('pgrep', ['-f', 'hermes_cli.main gateway run'],
+      { encoding: 'utf8', timeout: 10000, stdio: ['ignore', 'pipe', 'ignore'] });
+    return out.trim().length > 0;
+  } catch (e) {
+    // pgrep exits 1 when nothing matches — that is a real "not running", not an
+    // inability to measure.
+    return false;
+  }
+}
+
 function observeEnv() {
   const env = {};
 
@@ -338,9 +380,17 @@ function observeEnv() {
       { encoding: 'utf8', timeout: 10000, stdio: ['ignore', 'pipe', 'ignore'] });
     env.gatewaySupervised = /state\s*=\s*running/i.test(out) || /pid\s*=\s*\d+/i.test(out);
   } catch (e) {
-    // Not loaded in the launchd domain. If a gateway is nonetheless listening,
-    // it is a detached process — precisely the unsupervised case.
-    env.gatewaySupervised = false;
+    // Not loaded in the launchd domain — which alone does NOT mean "detached
+    // gateway". The label is also absent when the gateway is intentionally
+    // stopped or was never installed, and `launchctl print` can fail or time out
+    // for unrelated reasons. Claiming an unsupervised gateway in those cases is a
+    // false critical (PR #1248 review). Only assert it when a gateway process is
+    // actually running: unsupervised means RUNNING but unmanaged.
+    if (isGatewayProcessRunning()) {
+      env.gatewaySupervised = false;
+    }
+    // Otherwise leave UNOBSERVED — nothing is running, so there is nothing to
+    // supervise, and "cannot evaluate" must never render as a finding.
   }
 
   try {
@@ -393,15 +443,18 @@ function writeState(state, statePath = STATE_PATH) {
 function sendAlert(title, body) {
   try {
     execFileSync('curl', [
-      '-s', '-m', '10',
+      // -f makes curl exit non-zero on an HTTP error response. Without it a 4xx/5xx
+      // from ntfy exits 0 and a dropped page reads as delivered (PR #1248 review).
+      '-fsS', '-m', '10',
       '-H', `Title: ${title}`,
       '-H', 'Priority: high',
       '-H', 'Tags: warning,satellite',
       '-d', body,
       NTFY,
-    ], { encoding: 'utf8', timeout: 15000 });
+    ], { encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'pipe'] });
     return true;
   } catch (e) {
+    // Timeout, DNS failure, HTTP error, or curl missing entirely.
     return false;
   }
 }
@@ -438,9 +491,17 @@ function main(argv) {
     let state = readState();
     const fresh = crits.filter((f) => shouldAlert(state, f.key, host, dayStr));
     if (fresh.length) {
-      sendAlert(`Hermes routing broken on ${host}`, formatAlert(host, fresh));
-      for (const f of fresh) state = recordAlert(state, f.key, host, dayStr);
-      writeState(state);
+      const delivered = sendAlert(`Hermes routing broken on ${host}`, formatAlert(host, fresh));
+      // Only mark these as alerted once delivery actually SUCCEEDED. Recording a
+      // failed page suppressed every retry for the rest of the UTC day, so a
+      // network blip meant the outage went unannounced entirely (PR #1248 review).
+      if (delivered) {
+        for (const f of fresh) state = recordAlert(state, f.key, host, dayStr);
+        writeState(state);
+      } else {
+        console.error(
+          `routing-integrity: ALERT DELIVERY FAILED for ${host} — not recording, will retry next run`);
+      }
     }
   }
 
@@ -451,6 +512,7 @@ module.exports = {
   routeIdentity,
   primaryRoute,
   fallbackChain,
+  rawFallbackEntries,
   isLocalRoute,
   parseKeepAliveSeconds,
   runChecks,
