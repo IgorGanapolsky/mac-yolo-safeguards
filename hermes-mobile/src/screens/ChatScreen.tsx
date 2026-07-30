@@ -400,9 +400,11 @@ import {
   isEmptyReplyFailureMessage,
   shouldShowFailedSendRetry,
 } from '../utils/failedSendRetry';
+import { idHasPrefix } from '../utils/messageIds';
 import {
   RECONNECT_AUTO_RESEND_DEBOUNCE_MS,
   attachOutboundSubmissionSession,
+  markOutboundSubmissionDispatched,
   createOutboundId,
   createOutboundSubmissionLedger,
   markOutboundBubbleDelivered,
@@ -906,6 +908,8 @@ export default function ChatScreen() {
   const resumeStalledOutboundRef = useRef<(body: string) => void>(() => {});
   /** Guards concurrent reconnect auto-resends within one tick (flap bursts). */
   const autoResendInFlightRef = useRef(false);
+  /** True once the chat link has actually gone down — arms the reconnect edge. */
+  const sawLinkDownRef = useRef(false);
   const [autoResendPendingMessageId, setAutoResendPendingMessageId] = useState<string | null>(
     null,
   );
@@ -1580,7 +1584,17 @@ export default function ChatScreen() {
    * per-intent attempt cap — all held in the ledger, which survives re-renders.
    */
   useEffect(() => {
+    // Arm on the DOWN edge; only a real down->up transition may auto-resend.
+    // Without this, any failed bubble appearing on a healthy link would schedule
+    // a resend — including a turn the user just Stopped.
+    if (!macChatLive) {
+      sawLinkDownRef.current = true;
+    }
     if (isDemo || !macChatLive || isSending) {
+      setAutoResendPendingMessageId(null);
+      return;
+    }
+    if (!sawLinkDownRef.current) {
       setAutoResendPendingMessageId(null);
       return;
     }
@@ -1590,11 +1604,19 @@ export default function ChatScreen() {
       return;
     }
     const body = failedRetry.displayText || failedRetry.text;
+    const failureReason = findLastFailedOutboundFailureReason(messages);
+    // A gateway-assigned id means the transcript merge matched this turn to a
+    // server row — the strongest proof of acceptance we have on the client.
+    const serverAcknowledged = Boolean(
+      failedRetry.messageId && !idHasPrefix(failedRetry.messageId, 'user-'),
+    );
     const planFor = (nowMs: number) =>
       resolveReconnectResendPlan({
         failedText: body,
         sessionId: currentSessionRef.current?.id,
         messageId: failedRetry.messageId,
+        failureReason,
+        serverAcknowledged,
         ledger: outboundLedgerRef.current,
         nowMs,
         macChatLive: macChatLiveRef.current,
@@ -1632,6 +1654,8 @@ export default function ChatScreen() {
       // Bump the budget BEFORE awaiting so a burst of reconnect edges landing in
       // the same window sees the cooldown, not a second submission.
       recordAutoResendAttempt(outboundLedgerRef.current, livePlan.intentKey, Date.now());
+      // Consume the reconnect edge — the next auto-resend needs a NEW disconnect.
+      sawLinkDownRef.current = false;
       autoResendInFlightRef.current = true;
       setErrorMessage(null);
       setRunProgress((prev) =>
@@ -6736,6 +6760,13 @@ export default function ChatScreen() {
       };
 
       let removedSessionRecoveryAttempted = false;
+      // Past this line the request is on the wire: if we never see the ack we can
+      // no longer PROVE the Mac does not have it, so auto-resend must stand down.
+      markOutboundSubmissionDispatched(
+        outboundLedgerRef.current,
+        outboundSubmissionId,
+        Date.now(),
+      );
       try {
         assistantText = await streamChatToSession(targetSessionId);
       } catch (streamErr) {

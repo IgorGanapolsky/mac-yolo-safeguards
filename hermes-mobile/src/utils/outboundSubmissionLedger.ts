@@ -1,5 +1,6 @@
 import type { HermesMessage } from '../types/chat';
 import { normalizeMessageText } from './chatMessageMerge';
+import { isConnectivityMessage, isRawAbortMessage, USER_RUN_INTERRUPTED_MESSAGE } from './chatErrors';
 
 /**
  * One user message must produce exactly ONE gateway submission.
@@ -30,6 +31,15 @@ export type OutboundSubmissionRecord = {
   /** normalizeMessageText() of the display body this submission carried. */
   body: string;
   submittedAtMs: number;
+  /**
+   * Set the instant the request is handed to the network.
+   *
+   * Distinct from acceptedAtMs on purpose: if we dispatched but never saw the
+   * acknowledgement, the POST may still have landed and the Mac may be running
+   * it. That state is AMBIGUOUS and must never be auto-resent — an in-memory
+   * client acknowledgement cannot prove non-acceptance.
+   */
+  dispatchedAtMs?: number;
   /** Set once the gateway took the prompt — the Mac has it, never re-POST. */
   acceptedAtMs?: number;
 };
@@ -128,7 +138,13 @@ export function scopeOutboundSubmissionsToSession(
     ledger.autoResend = {};
     return;
   }
-  ledger.records = ledger.records.filter((record) => record.sessionId === target);
+  // Records with a null sessionId are IN FLIGHT: the first turn of a new chat
+  // records its submission before the session exists, and setCurrentSession runs
+  // before attachOutboundSubmissionSession. Dropping them here would lose the
+  // acceptance mark for that turn and let stall recovery repost it.
+  ledger.records = ledger.records.filter(
+    (record) => record.sessionId === target || record.sessionId === null,
+  );
   const surviving = new Set(
     ledger.records.map((record) =>
       outboundIntentKey({ messageId: record.messageId, body: record.body }),
@@ -159,6 +175,19 @@ export function attachOutboundSubmissionSession(
     return;
   }
   record.sessionId = target;
+}
+
+/** Handed to the network — from here on, non-delivery can no longer be proven. */
+export function markOutboundSubmissionDispatched(
+  ledger: OutboundSubmissionLedger,
+  outboundId: string,
+  nowMs: number,
+): void {
+  const record = ledger.records.find((entry) => entry.outboundId === outboundId);
+  if (!record || record.dispatchedAtMs != null) {
+    return;
+  }
+  record.dispatchedAtMs = nowMs;
 }
 
 /** The gateway accepted this submission — the prompt is on the Mac. */
@@ -261,6 +290,40 @@ export function clearAutoResendAttempts(
   delete ledger.autoResend[intentKey];
 }
 
+/**
+ * Only a TRANSPORT failure may be resent without asking.
+ *
+ * Everything else is either something a resend cannot fix (permanent API
+ * rejection, wrong key, mega-context block) or something the user explicitly
+ * chose (Stop). Auto-resending a stopped run silently undoes the Stop, which is
+ * strictly worse than doing nothing.
+ */
+export function isAutoResendableFailureReason(reason: string | null | undefined): boolean {
+  const text = reason?.trim();
+  if (!text) {
+    // No recorded reason: the send never got far enough to produce one.
+    return true;
+  }
+  if (isRawAbortMessage(text) || text === USER_RUN_INTERRUPTED_MESSAGE) {
+    return false;
+  }
+  const lower = text.toLowerCase();
+  if (
+    lower.includes('stopped') ||
+    lower.includes('interrupted') ||
+    lower.includes('outdated connection') ||
+    lower.includes('wrong key') ||
+    lower.includes('session_in_use') ||
+    lower.includes('already in use') ||
+    lower.includes('still on the previous chat') ||
+    lower.includes('chat too large') ||
+    lower.includes('too large')
+  ) {
+    return false;
+  }
+  return isConnectivityMessage(text);
+}
+
 export type ReconnectResendPlan =
   | {
       kind: 'none';
@@ -270,7 +333,11 @@ export type ReconnectResendPlan =
         | 'offline'
         | 'busy'
         | 'cooldown'
-        | 'attempts_exhausted';
+        | 'attempts_exhausted'
+        /** Not a transport failure — resending cannot fix it and may undo Stop. */
+        | 'not_connectivity'
+        /** Dispatched but unacknowledged: the Mac may already hold it. */
+        | 'ambiguous_dispatch';
     }
   /** Gateway ACCEPTED it — the Mac has the prompt. Poll, never resubmit. */
   | { kind: 'resume'; outboundId: string; intentKey: string }
@@ -296,6 +363,14 @@ export function resolveReconnectResendPlan(input: {
   failedText?: string | null;
   sessionId?: string | null;
   messageId?: string | null;
+  /** Why the turn failed — only transport failures may be auto-resent. */
+  failureReason?: string | null;
+  /**
+   * The failed bubble carries a gateway-assigned id (it survived a transcript
+   * merge), i.e. the server stored this turn. Strongest available proof of
+   * acceptance, independent of any client-side acknowledgement.
+   */
+  serverAcknowledged?: boolean;
   ledger: OutboundSubmissionLedger;
   nowMs: number;
   macChatLive: boolean;
@@ -327,6 +402,20 @@ export function resolveReconnectResendPlan(input: {
   const intentKey = outboundIntentKey({ messageId: input.messageId, body: text });
   if (record?.acceptedAtMs != null) {
     return { kind: 'resume', outboundId: record.outboundId, intentKey };
+  }
+  if (input.serverAcknowledged) {
+    // The gateway stored this turn even though we never saw the ack.
+    return { kind: 'resume', outboundId: record?.outboundId ?? '', intentKey };
+  }
+  if (!isAutoResendableFailureReason(input.failureReason)) {
+    // User Stop, wrong key, session busy, or a permanent API rejection.
+    // Resending cannot help and would silently undo an explicit Stop.
+    return { kind: 'none', reason: 'not_connectivity' };
+  }
+  if (record?.dispatchedAtMs != null) {
+    // In flight when the link died: the POST may have landed. Duplicating a live
+    // run is strictly worse than waiting, so leave this to resume/manual retry.
+    return { kind: 'none', reason: 'ambiguous_dispatch' };
   }
 
   const maxAttempts = input.maxAttempts ?? RECONNECT_AUTO_RESEND_MAX_ATTEMPTS;

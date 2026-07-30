@@ -1,8 +1,13 @@
 import React from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, cleanup, fireEvent, waitFor } from '@testing-library/react-native';
 import ChatScreen from '../screens/ChatScreen';
 import { renderInTabNavigator } from '../testUtils/navigation';
 import { RECONNECT_AUTO_RESEND_MAX_ATTEMPTS } from '../utils/outboundSubmissionLedger';
+import {
+  PENDING_OUTBOUND_STORAGE_KEY,
+  savePendingOutbound,
+} from '../utils/pendingOutboundStorage';
 
 jest.mock('expo-image-picker', () => ({
   requestMediaLibraryPermissionsAsync: jest.fn().mockResolvedValue({ granted: true }),
@@ -369,7 +374,7 @@ describe('ChatScreen outbound send recovery', () => {
   // are saturated by the rest of the suite.
   jest.setTimeout(90_000);
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
     const { streamSessionChat } = gatewayMocks();
     streamSessionChat.mockReset();
@@ -388,6 +393,9 @@ describe('ChatScreen outbound send recovery', () => {
     });
     chatClient.listMessages.mockResolvedValue([]);
     chatClient.sendChatMessage.mockResolvedValue({ assistantText: 'ok', raw: {} });
+    // A test that leaves a FAILED bubble persists it; the next render would
+    // hydrate that snapshot and inherit a retryable turn it never created.
+    await AsyncStorage.removeItem(PENDING_OUTBOUND_STORAGE_KEY);
     // setLinkState mutates the shared mock object — restore the suite baseline so
     // link-flap tests cannot leak a red health probe into their neighbours.
     mockGatewayState.connectionState = 'disconnected';
@@ -507,49 +515,55 @@ describe('ChatScreen outbound send recovery', () => {
 
   it('re-submits when the user taps ↑ on a failed send with an empty composer', async () => {
     const { streamSessionChat } = gatewayMocks();
-    // First submission never reaches the Mac — the bubble fails and offers ↑.
-    streamSessionChat.mockRejectedValueOnce(new Error('Network request failed'));
-    const { sendChatMessage } = jest.requireMock('../services/hermesChatClient') as {
-      sendChatMessage: jest.Mock;
-    };
-    sendChatMessage.mockRejectedValueOnce(new Error('Network request failed'));
+    streamSessionChat.mockResolvedValue('recovered reply');
 
-    const { getByTestId } = await renderChat();
-    await waitFor(() => {
-      expect(getByTestId('chat-input')).toBeTruthy();
+    /**
+     * Seed the exact user-visible situation instead of racing a live send to it:
+     * the app opens on a thread whose last turn is a red failed bubble.
+     *
+     * The failure is Stop-shaped on purpose — the one class NO automatic path
+     * touches (not a stall marker, not auto-resendable, and no reconnect edge),
+     * so any submission here is attributable to the ↑ tap alone.
+     */
+    await savePendingOutbound('session-1', {
+      messages: [
+        {
+          id: 'user-seeded-1',
+          role: 'user',
+          content: PROMPT,
+          created_at: '2026-07-29T00:00:00Z',
+          outboundStatus: 'failed',
+          outboundFailureReason: 'Stopped before finishing — tap ↑ to try again',
+        },
+      ],
+      pinnedText: null,
+      pinnedStatus: 'failed',
     });
 
+    setLinkState({ httpOk: true });
+    const view = await renderChat();
+    await waitFor(() => {
+      expect(view.getByTestId('chat-input')).toBeTruthy();
+    });
+    // Hydration restored the failed turn — this is what ↑ acts on.
+    await waitFor(() => {
+      expect(view.getByTestId('chat-outbound-failed')).toBeTruthy();
+    });
+    expect(streamSessionChat).not.toHaveBeenCalled();
+
     await act(async () => {
-      fireEvent.changeText(getByTestId('chat-input'), PROMPT);
-      fireEvent.press(getByTestId('chat-send-button'));
+      fireEvent.changeText(view.getByTestId('chat-input'), '');
+      await Promise.resolve();
+    });
+    await act(async () => {
+      fireEvent.press(view.getByTestId('chat-send-button'));
       await Promise.resolve();
     });
 
     await waitFor(() => {
       expect(streamSessionChat).toHaveBeenCalledTimes(1);
     });
-    // Composer is empty again — exactly the state the user taps ↑ in. The blank
-    // changeText mirrors a genuinely empty field (the input bar keeps its own
-    // draft ref, which must not silently stand in for typed text here).
-    await waitFor(() => {
-      expect(getByTestId('chat-input').props.value).toBe('');
-    });
-    await act(async () => {
-      fireEvent.changeText(getByTestId('chat-input'), '');
-      await Promise.resolve();
-    });
-
-    streamSessionChat.mockResolvedValue('recovered reply');
-    // BUG 2: the ↑ affordance must issue a real resend, not a silent no-op.
-    await act(async () => {
-      fireEvent.press(getByTestId('chat-send-button'));
-      await Promise.resolve();
-    });
-
-    await waitFor(() => {
-      expect(streamSessionChat.mock.calls.length).toBeGreaterThanOrEqual(2);
-    });
-    expect(streamSessionChat.mock.calls[1]?.[2]).toBe(PROMPT);
+    expect(streamSessionChat.mock.calls[0]?.[2]).toBe(PROMPT);
   });
 
   it('retries the exact image payload once and emits content-free outcome telemetry', async () => {
@@ -764,6 +778,38 @@ describe('ChatScreen outbound send recovery', () => {
     // The Mac already had it: every recovery must be a resume, never a resend.
     expect(streamSessionChat).toHaveBeenCalledTimes(1);
     expect(streamSessionChat.mock.calls.map((call) => call[2])).toEqual([PROMPT]);
+  });
+
+  it('never auto-resends a failure that arrives on a link that never went down', async () => {
+    jest.useFakeTimers();
+    const { streamSessionChat } = gatewayMocks();
+    // Link is healthy the whole time; the run is aborted the way Stop aborts it.
+    streamSessionChat.mockRejectedValue(new Error('AbortError'));
+    const { sendChatMessage } = jest.requireMock('../services/hermesChatClient') as {
+      sendChatMessage: jest.Mock;
+    };
+    sendChatMessage.mockRejectedValue(new Error('AbortError'));
+
+    setLinkState({ httpOk: true });
+    const view = await renderChat();
+    await waitFor(() => {
+      expect(view.getByTestId('chat-input')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.changeText(view.getByTestId('chat-input'), PROMPT);
+      fireEvent.press(view.getByTestId('chat-send-button'));
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(streamSessionChat).toHaveBeenCalledTimes(1);
+    });
+
+    // Plenty of time for a debounce + cooldown to elapse. There was no
+    // disconnect, so there is no reconnect to act on — and resending here would
+    // silently undo the user's Stop.
+    await advance(40_000, 10);
+    expect(streamSessionChat).toHaveBeenCalledTimes(1);
   });
 
   it('keeps ↑ a genuine no-op when there is nothing typed and nothing to retry', async () => {

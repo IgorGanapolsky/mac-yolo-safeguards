@@ -9,9 +9,11 @@ import {
   createOutboundId,
   createOutboundSubmissionLedger,
   findOutboundSubmissionForBody,
+  isAutoResendableFailureReason,
   hasAcceptedSubmissionForBody,
   markOutboundBubbleDelivered,
   markOutboundSubmissionAccepted,
+  markOutboundSubmissionDispatched,
   outboundIntentKey,
   recordAutoResendAttempt,
   recordOutboundSubmission,
@@ -392,5 +394,124 @@ describe('resolveReconnectResendPlan', () => {
     });
     attachOutboundSubmissionSession(ledger, 'ob-1', 'session-9');
     expect(findOutboundSubmissionForBody(ledger, 'Do it now', 'session-9', 'user-1')).toBeTruthy();
+  });
+});
+
+/**
+ * PR #1241 review (chatgpt-codex-connector, three P1s). Each of these pins a
+ * way the auto-resend could have reintroduced the duplicate-run bug it exists
+ * to prevent, or silently undone an explicit user action.
+ */
+describe('auto-resend safety gates', () => {
+  const LIVE = { macChatLive: true, isDemo: false, isSending: false };
+  const target = {
+    failedText: 'Do it now',
+    sessionId: 'session-1',
+    messageId: 'user-1',
+    failureReason: "Can't reach your computer",
+  };
+
+  function undispatchedLedger() {
+    const ledger = createOutboundSubmissionLedger();
+    recordOutboundSubmission(ledger, {
+      outboundId: 'ob-1',
+      sessionId: 'session-1',
+      messageId: 'user-1',
+      body: 'Do it now',
+      nowMs: 1_000,
+    });
+    return ledger;
+  }
+
+  it('stands down when the request was DISPATCHED but never acknowledged', () => {
+    const ledger = undispatchedLedger();
+    expect(resolveReconnectResendPlan({ ...target, ledger, nowMs: 9_000, ...LIVE }).kind).toBe(
+      'resend',
+    );
+
+    // Same turn, but it made it onto the wire before the link died: the Mac may
+    // already be running it, so non-delivery can no longer be proven.
+    markOutboundSubmissionDispatched(ledger, 'ob-1', 2_000);
+    expect(resolveReconnectResendPlan({ ...target, ledger, nowMs: 9_000, ...LIVE })).toEqual({
+      kind: 'none',
+      reason: 'ambiguous_dispatch',
+    });
+  });
+
+  it('resumes instead of resending when the server already stored the turn', () => {
+    const ledger = undispatchedLedger();
+    const plan = resolveReconnectResendPlan({
+      ...target,
+      serverAcknowledged: true,
+      ledger,
+      nowMs: 9_000,
+      ...LIVE,
+    });
+    expect(plan.kind).toBe('resume');
+  });
+
+  it('never auto-resends a run the user STOPPED', () => {
+    const ledger = undispatchedLedger();
+    for (const reason of [
+      'Stopped before finishing — tap ↑ to try again',
+      'Aborted',
+      'AbortError',
+    ]) {
+      expect(
+        resolveReconnectResendPlan({ ...target, failureReason: reason, ledger, nowMs: 9_000, ...LIVE }),
+      ).toEqual({ kind: 'none', reason: 'not_connectivity' });
+    }
+  });
+
+  it('never auto-resends a failure a resend cannot fix', () => {
+    const ledger = undispatchedLedger();
+    for (const reason of [
+      'Outdated connection — tap to reconnect',
+      'session_in_use: still on the previous chat',
+      'Chat too large — start a fresh chat',
+    ]) {
+      expect(
+        resolveReconnectResendPlan({ ...target, failureReason: reason, ledger, nowMs: 9_000, ...LIVE }).kind,
+      ).toBe('none');
+    }
+  });
+
+  it('classifies auto-resendable failure reasons', () => {
+    expect(isAutoResendableFailureReason("Can't reach your computer")).toBe(true);
+    expect(isAutoResendableFailureReason('Your computer is not connected yet')).toBe(true);
+    expect(isAutoResendableFailureReason(undefined)).toBe(true);
+    expect(isAutoResendableFailureReason('Stopped before finishing — tap ↑ to try again')).toBe(false);
+    expect(isAutoResendableFailureReason('Aborted')).toBe(false);
+    expect(isAutoResendableFailureReason('Outdated connection')).toBe(false);
+  });
+
+  it('keeps an in-flight unbound record alive while its session is being created', () => {
+    const ledger = createOutboundSubmissionLedger();
+    recordOutboundSubmission(ledger, {
+      outboundId: 'ob-1',
+      sessionId: null,
+      messageId: 'user-1',
+      body: 'Do it now',
+      nowMs: 1_000,
+    });
+
+    // setCurrentSession lands before attachOutboundSubmissionSession — this ran
+    // in between and used to delete the record, losing the acceptance mark.
+    scopeOutboundSubmissionsToSession(ledger, 'session-new');
+    expect(ledger.records).toHaveLength(1);
+
+    attachOutboundSubmissionSession(ledger, 'ob-1', 'session-new');
+    markOutboundSubmissionAccepted(ledger, 'ob-1', 2_000);
+    expect(
+      resolveReconnectResendPlan({
+        failedText: 'Do it now',
+        sessionId: 'session-new',
+        messageId: 'user-1',
+        failureReason: "Can't reach your computer",
+        ledger,
+        nowMs: 9_000,
+        ...LIVE,
+      }).kind,
+    ).toBe('resume');
   });
 });
