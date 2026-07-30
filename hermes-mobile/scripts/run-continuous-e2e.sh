@@ -341,18 +341,32 @@ guard_system_pressure() {
   current_sim_count="$(simruntime_process_count)"
 
   if number_gt "$current_load" "$MAX_LOAD"; then
-    local deadline=$((SECONDS + LOAD_WAIT_SEC))
-    echo "Load ${current_load} exceeds max ${MAX_LOAD} — queueing up to ${LOAD_WAIT_SEC}s (HERMES_E2E_FORCE=1 to bypass)"
-    while number_gt "$(load1)" "$MAX_LOAD"; do
-      if (( SECONDS >= deadline )); then
-        detail="skipped continuous E2E after ${LOAD_WAIT_SEC}s wait: load $(load1) still exceeds max ${MAX_LOAD}; set HERMES_E2E_FORCE=1 to override"
-        echo "$detail"
-        write_status "skipped" "skipped" "$detail"
-        return 1
-      fi
-      sleep 30
-    done
-    echo "Load dropped to $(load1) — proceeding with continuous E2E"
+    if [[ "${HERMES_E2E_FORCE:-}" == "1" ]]; then
+      echo "Load ${current_load} exceeds max ${MAX_LOAD} but HERMES_E2E_FORCE=1 — proceeding"
+    elif has_usb_adb_device || has_android_emulator || [[ "${HERMES_E2E_BOOT_AVD:-1}" == "1" ]]; then
+      # Agents pin load > core count; do not park 900s when Android Maestro is viable.
+      local short_wait="${HERMES_E2E_LOAD_SHORT_WAIT_SEC:-90}"
+      local waited=0
+      echo "Load ${current_load} exceeds max ${MAX_LOAD} — short-wait up to ${short_wait}s then proceed (Android E2E viable)"
+      while number_gt "$(load1)" "$MAX_LOAD" && (( waited < short_wait )); do
+        sleep 15
+        waited=$((waited + 15))
+      done
+      echo "Load now $(load1) — proceeding with continuous E2E after ${waited}s"
+    else
+      local deadline=$((SECONDS + LOAD_WAIT_SEC))
+      echo "Load ${current_load} exceeds max ${MAX_LOAD} — queueing up to ${LOAD_WAIT_SEC}s (HERMES_E2E_FORCE=1 to bypass)"
+      while number_gt "$(load1)" "$MAX_LOAD"; do
+        if (( SECONDS >= deadline )); then
+          detail="skipped continuous E2E after ${LOAD_WAIT_SEC}s wait: load $(load1) still exceeds max ${MAX_LOAD}; set HERMES_E2E_FORCE=1 to override"
+          echo "$detail"
+          write_status "skipped" "skipped" "$detail"
+          return 1
+        fi
+        sleep 30
+      done
+      echo "Load dropped to $(load1) — proceeding with continuous E2E"
+    fi
   fi
 
   # iOS simruntime thrash is irrelevant when we can run Android Maestro (USB or emulator).

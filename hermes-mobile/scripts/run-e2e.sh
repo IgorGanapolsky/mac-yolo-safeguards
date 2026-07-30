@@ -123,8 +123,10 @@ elif [[ -n "${HERMES_E2E_ANDROID_UDID:-}" ]]; then
     ANDROID_ID="${HERMES_E2E_ANDROID_UDID}"
   else
     ANDROID_ID="$(wait_for_android_device 12 || true)"
-    if [[ -z "$ANDROID_ID" && android_device_responsive "${HERMES_E2E_ANDROID_UDID}" ]]; then
-      ANDROID_ID="${HERMES_E2E_ANDROID_UDID}"
+    if [[ -z "$ANDROID_ID" ]]; then
+      if android_device_responsive "${HERMES_E2E_ANDROID_UDID}"; then
+        ANDROID_ID="${HERMES_E2E_ANDROID_UDID}"
+      fi
     fi
   fi
 else
