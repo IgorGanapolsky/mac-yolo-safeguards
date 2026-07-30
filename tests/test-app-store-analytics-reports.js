@@ -166,6 +166,19 @@ test('inventory reports exposes provider instances for decision-grade standard m
         };
       }
       if (apiPath.includes('/downloads/')) {
+        if (apiPath.includes('cursor=next')) {
+          return {
+            data: [
+              {
+                id: 'downloads-2026-07-30',
+                attributes: {
+                  granularity: 'DAILY',
+                  processingDate: '2026-07-31',
+                },
+              },
+            ],
+          };
+        }
         return {
           data: [
             {
@@ -176,6 +189,10 @@ test('inventory reports exposes provider instances for decision-grade standard m
               },
             },
           ],
+          links: {
+            next:
+              'https://api.appstoreconnect.apple.com/v1/analyticsReports/downloads/instances?limit=200&cursor=next',
+          },
         };
       }
       return { data: [] };
@@ -184,14 +201,14 @@ test('inventory reports exposes provider instances for decision-grade standard m
 
   const inventory = await inventoryReports(client, 'request-1');
 
-  assert.equal(inventory.keyReportInstanceCount, 1);
+  assert.equal(inventory.keyReportInstanceCount, 2);
   assert.equal(inventory.dataStatus, 'available');
   assert.deepEqual(inventory.keyReports, [
     {
       id: 'downloads',
       name: 'App Downloads Standard',
-      instanceCount: 1,
-      latestProcessingDate: '2026-07-30',
+      instanceCount: 2,
+      latestProcessingDate: '2026-07-31',
     },
     {
       id: 'discovery',
@@ -209,6 +226,7 @@ test('inventory reports exposes provider instances for decision-grade standard m
   assert.deepEqual(calls, [
     '/v1/analyticsReportRequests/request-1/reports?limit=200',
     '/v1/analyticsReports/downloads/instances?limit=200',
+    '/v1/analyticsReports/downloads/instances?limit=200&cursor=next',
     '/v1/analyticsReports/purchases/instances?limit=200',
     '/v1/analyticsReports/discovery/instances?limit=200',
   ]);

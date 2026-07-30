@@ -24,6 +24,42 @@ const DECISION_GRADE_REPORTS = new Set([
   'App Store Discovery and Engagement Standard',
   'App Store Purchases Standard',
 ]);
+const ASC_ORIGIN = 'https://api.appstoreconnect.apple.com';
+const MAX_PROVIDER_PAGES = 1000;
+
+function nextApiPath(link) {
+  if (!link) return null;
+  const url = new URL(link, ASC_ORIGIN);
+  if (url.origin !== ASC_ORIGIN) {
+    throw new Error(`Unexpected App Store Connect pagination origin: ${url.origin}`);
+  }
+  return `${url.pathname}${url.search}`;
+}
+
+async function getAllPages(client, initialPath) {
+  const data = [];
+  const visited = new Set();
+  let apiPath = initialPath;
+  let pageCount = 0;
+
+  while (apiPath) {
+    if (visited.has(apiPath)) {
+      throw new Error(`App Store Connect pagination loop: ${apiPath}`);
+    }
+    if (pageCount >= MAX_PROVIDER_PAGES) {
+      throw new Error(
+        `App Store Connect pagination exceeded ${MAX_PROVIDER_PAGES} pages`,
+      );
+    }
+    visited.add(apiPath);
+    pageCount += 1;
+    const payload = await client.get(apiPath);
+    if (Array.isArray(payload.data)) data.push(...payload.data);
+    apiPath = nextApiPath(payload?.links?.next);
+  }
+
+  return data;
+}
 
 function parseArgs(argv) {
   const args = { ensure: false, json: false };
@@ -54,10 +90,10 @@ function createOngoingRequestData(appId) {
 }
 
 async function listReportRequests(client, appId) {
-  const payload = await client.get(
+  return getAllPages(
+    client,
     `/v1/apps/${encodeURIComponent(appId)}/analyticsReportRequests?limit=200`,
   );
-  return Array.isArray(payload.data) ? payload.data : [];
 }
 
 function isActiveOngoingRequest(request) {
@@ -93,10 +129,10 @@ async function ensureOngoingRequest(client, appId) {
 }
 
 async function inventoryReports(client, requestId) {
-  const payload = await client.get(
+  const reports = await getAllPages(
+    client,
     `/v1/analyticsReportRequests/${encodeURIComponent(requestId)}/reports?limit=200`,
   );
-  const reports = Array.isArray(payload.data) ? payload.data : [];
   const categories = {};
   const names = [];
   const keyReports = [];
@@ -107,10 +143,10 @@ async function inventoryReports(client, requestId) {
     categories[category] = (categories[category] || 0) + 1;
     if (name) names.push(name);
     if (DECISION_GRADE_REPORTS.has(name)) {
-      const payload = await client.get(
+      const instances = await getAllPages(
+        client,
         `/v1/analyticsReports/${encodeURIComponent(report.id)}/instances?limit=200`,
       );
-      const instances = Array.isArray(payload.data) ? payload.data : [];
       const processingDates = instances
         .map((instance) => instance?.attributes?.processingDate)
         .filter(Boolean)
@@ -239,6 +275,7 @@ module.exports = {
   buildStatus,
   createOngoingRequestData,
   ensureOngoingRequest,
+  getAllPages,
   inventoryReports,
   isActiveOngoingRequest,
   listReportRequests,
