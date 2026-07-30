@@ -44,7 +44,20 @@ export const PAIR_SERVER_PORT = 8765;
 // A full LAN sweep probes pair.json and /health concurrently for each host.
 // Four hosts therefore means at most eight live sockets.
 export const SUBNET_BATCH_SIZE = 4;
-export const SUBNET_PROBE_TIMEOUT_MS = 400;
+/**
+ * Measured on Igor's LAN from the phone (2026-07-30), not guessed:
+ *   192.168.68.60 pair.json = 0.178s
+ *   192.168.68.70 pair.json = 0.383s   <- 17ms of headroom under the old 400ms
+ * The mini answered in 383ms against a 400ms budget, so any jitter or
+ * contention from the other hosts in the same batch aborted a probe against a
+ * Mac that was demonstrably reachable (direct curl from the same phone: 200).
+ * That is why "Find computers" crawled to ~94% and returned nothing while the
+ * Mac was up the whole time.
+ *
+ * Sweep duration is bounded by batch count, not by this per-probe ceiling, so
+ * raising it costs almost nothing in wall clock and stops dropping responders.
+ */
+export const SUBNET_PROBE_TIMEOUT_MS = 450;
 
 export type DiscoverLanOptions = {
   onProgress?: (progress: LanScanProgress) => void;
