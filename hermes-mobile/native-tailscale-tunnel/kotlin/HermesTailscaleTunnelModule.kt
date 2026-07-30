@@ -50,6 +50,7 @@ class HermesTailscaleTunnelModule(
       reactContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
     var hasVpn = false
     var cgnat: String? = null
+    var privateLan: String? = null
 
     if (cm != null) {
       try {
@@ -59,13 +60,16 @@ class HermesTailscaleTunnelModule(
             hasVpn = true
           }
           val lp = cm.getLinkProperties(network)
-          if (lp != null && cgnat == null) {
+          if (lp != null) {
             for (link in lp.linkAddresses) {
               val addr = link.address
               if (addr is Inet4Address) {
                 val host = addr.hostAddress ?: continue
-                if (isTailscaleCgnatIpv4(host)) {
+                if (cgnat == null && isTailscaleCgnatIpv4(host)) {
                   cgnat = host
+                }
+                if (privateLan == null && isPrivateLanIpv4(host) && !isTailscaleCgnatIpv4(host)) {
+                  privateLan = host
                 }
               }
             }
@@ -76,8 +80,12 @@ class HermesTailscaleTunnelModule(
       }
     }
 
-    if (cgnat == null) {
-      cgnat = firstCgnatIpv4FromInterfaces()
+    if (cgnat == null || privateLan == null) {
+      val fromIfaces = ipv4FromInterfaces()
+      if (cgnat == null) cgnat = fromIfaces.firstOrNull { isTailscaleCgnatIpv4(it) }
+      if (privateLan == null) {
+        privateLan = fromIfaces.firstOrNull { isPrivateLanIpv4(it) && !isTailscaleCgnatIpv4(it) }
+      }
     }
 
     map.putBoolean("hasVpnTransport", hasVpn)
@@ -86,12 +94,20 @@ class HermesTailscaleTunnelModule(
     } else {
       map.putNull("cgnatIpv4")
     }
+    // Find computers subnet sweep must use Wi‑Fi/LAN IP, never tun0 CGNAT (100.70.x
+    // is the phone itself — sweeping 100.70.124.0/24 never finds the Mac).
+    if (privateLan != null) {
+      map.putString("privateLanIpv4", privateLan)
+    } else {
+      map.putNull("privateLanIpv4")
+    }
     return map
   }
 
-  private fun firstCgnatIpv4FromInterfaces(): String? {
+  private fun ipv4FromInterfaces(): List<String> {
+    val out = ArrayList<String>()
     return try {
-      val ifaces = NetworkInterface.getNetworkInterfaces() ?: return null
+      val ifaces = NetworkInterface.getNetworkInterfaces() ?: return out
       while (ifaces.hasMoreElements()) {
         val iface = ifaces.nextElement()
         if (!iface.isUp || iface.isLoopback) continue
@@ -100,15 +116,13 @@ class HermesTailscaleTunnelModule(
           val addr = addrs.nextElement()
           if (addr.isLoopbackAddress || addr !is Inet4Address) continue
           val host = addr.hostAddress ?: continue
-          if (isTailscaleCgnatIpv4(host)) {
-            return host
-          }
+          out.add(host)
         }
       }
-      null
+      out
     } catch (e: Exception) {
       Log.w(TAG, "NetworkInterface scan failed", e)
-      null
+      out
     }
   }
 
@@ -127,6 +141,21 @@ class HermesTailscaleTunnelModule(
       if (a != 100 || b !in 64..127) return false
       if (c !in 0..255 || d !in 0..255) return false
       return true
+    }
+
+    /** RFC1918 private LAN (not loopback, not CGNAT). */
+    fun isPrivateLanIpv4(ip: String): Boolean {
+      val parts = ip.trim().split('.')
+      if (parts.size != 4) return false
+      val a = parts[0].toIntOrNull() ?: return false
+      val b = parts[1].toIntOrNull() ?: return false
+      val c = parts[2].toIntOrNull() ?: return false
+      val d = parts[3].toIntOrNull() ?: return false
+      if (c !in 0..255 || d !in 0..255) return false
+      if (a == 10) return true
+      if (a == 172 && b in 16..31) return true
+      if (a == 192 && b == 168) return true
+      return false
     }
   }
 }

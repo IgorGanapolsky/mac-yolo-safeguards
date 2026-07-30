@@ -20,6 +20,7 @@ describe('hermesTailscaleTunnel', () => {
     await expect(getTailscaleTunnelSignals()).resolves.toEqual({
       hasVpnTransport: false,
       cgnatIpv4: null,
+      privateLanIpv4: null,
     });
   });
 
@@ -29,26 +30,30 @@ describe('hermesTailscaleTunnel', () => {
       getTunnelSignals: jest.fn(async () => ({
         hasVpnTransport: true,
         cgnatIpv4: '100.1.2.3',
+        privateLanIpv4: '192.168.1.5',
       })),
     };
     // iOS path ignores NativeModules (Android-only bridge today)
     await expect(getTailscaleTunnelSignals()).resolves.toEqual({
       hasVpnTransport: false,
       cgnatIpv4: null,
+      privateLanIpv4: null,
     });
   });
 
-  it('maps Android native signals including CGNAT', async () => {
+  it('maps Android native signals including CGNAT and private LAN', async () => {
     Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' });
     NativeModules.HermesTailscaleTunnel = {
       getTunnelSignals: jest.fn(async () => ({
         hasVpnTransport: true,
         cgnatIpv4: '100.70.124.54',
+        privateLanIpv4: '192.168.68.54',
       })),
     };
     await expect(getTailscaleTunnelSignals()).resolves.toEqual({
       hasVpnTransport: true,
       cgnatIpv4: '100.70.124.54',
+      privateLanIpv4: '192.168.68.54',
     });
   });
 
@@ -62,6 +67,7 @@ describe('hermesTailscaleTunnel', () => {
     await expect(getTailscaleTunnelSignals()).resolves.toEqual({
       hasVpnTransport: false,
       cgnatIpv4: null,
+      privateLanIpv4: null,
     });
   });
 });

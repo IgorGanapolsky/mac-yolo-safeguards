@@ -24,6 +24,7 @@ import {
 } from '../utils/tailscaleSelfPeer';
 import { normalizeGatewayUrl } from './gatewayClient';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
+import { getTailscaleTunnelSignals } from '../native/hermesTailscaleTunnel';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanStage } from '../types/lanScan';
 
@@ -43,8 +44,10 @@ export const PAIR_SERVER_PORT = 8765;
 //
 // A full LAN sweep probes pair.json and /health concurrently for each host.
 // Four hosts therefore means at most eight live sockets.
+// Batch size 4 → max 8 concurrent sockets (pair + health). Timeout 450ms keeps
+// worst-case /24 under 30s while slightly more tolerant than 400ms.
 export const SUBNET_BATCH_SIZE = 4;
-export const SUBNET_PROBE_TIMEOUT_MS = 400;
+export const SUBNET_PROBE_TIMEOUT_MS = 450;
 
 export type DiscoverLanOptions = {
   onProgress?: (progress: LanScanProgress) => void;
@@ -88,13 +91,31 @@ export type DiscoverAllGatewaysOnLanResult = {
   tailnetProbeHosts: string[];
 };
 
-async function getPhoneLanIp(): Promise<string | null> {
-  const state = await NetInfo.fetch();
-  const raw = (state.details as { ipAddress?: string } | null)?.ipAddress;
-  if (!raw?.trim() || !IPV4_RE.test(raw.trim())) {
-    return null;
+/**
+ * Phone Wi‑Fi / Ethernet IPv4 for subnet Find computers.
+ * Never return Tailscale CGNAT (100.64/10) — sweeping 100.70.x finds the phone,
+ * not the Mac (2026-07-30 dogfood: tun0 up, Find computers empty).
+ */
+export async function getPhoneLanIp(): Promise<string | null> {
+  try {
+    const state = await NetInfo.fetch();
+    const raw = (state.details as { ipAddress?: string } | null)?.ipAddress?.trim();
+    if (raw && IPV4_RE.test(raw) && isPrivateLanIpv4(raw) && !isTailscaleIpv4(raw)) {
+      return raw;
+    }
+  } catch {
+    // fall through to native
   }
-  return raw.trim();
+  try {
+    const native = await getTailscaleTunnelSignals();
+    const lan = native.privateLanIpv4?.trim();
+    if (lan && IPV4_RE.test(lan) && isPrivateLanIpv4(lan) && !isTailscaleIpv4(lan)) {
+      return lan;
+    }
+  } catch {
+    // iOS / no native module
+  }
+  return null;
 }
 
 async function probeGatewayHealth(
@@ -631,9 +652,8 @@ export async function discoverAllGatewaysOnLan(
     }
   }
 
-  const phoneTailscaleIp = phoneIp && isTailscaleIpv4(phoneIp)
-    ? phoneIp
-    : null;
+  // Self-peer filter must use phone CGNAT (tun0), not Wi‑Fi LAN used for subnet sweep.
+  const phoneTailscaleIp = await getPhoneTailscaleIpv4();
   const list = dedupeDiscoveredGatewaysByMachine(
     filterPhoneTailscaleSelfPeers(Array.from(map.values()), phoneTailscaleIp),
   );

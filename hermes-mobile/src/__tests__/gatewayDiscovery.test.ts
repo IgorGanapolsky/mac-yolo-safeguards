@@ -21,10 +21,25 @@ jest.mock('@react-native-community/netinfo', () => ({
   fetch: jest.fn(),
 }));
 
+jest.mock('../native/hermesTailscaleTunnel', () => ({
+  getTailscaleTunnelSignals: jest.fn(async () => ({
+    hasVpnTransport: false,
+    cgnatIpv4: null,
+    privateLanIpv4: null,
+  })),
+}));
+
+import { getTailscaleTunnelSignals } from '../native/hermesTailscaleTunnel';
+
 describe('gatewayDiscovery', () => {
   beforeEach(() => {
     (NetInfo.fetch as jest.Mock).mockResolvedValue({
       details: { ipAddress: '192.168.12.100' },
+    });
+    (getTailscaleTunnelSignals as jest.Mock).mockResolvedValue({
+      hasVpnTransport: false,
+      cgnatIpv4: null,
+      privateLanIpv4: null,
     });
     global.fetch = jest.fn();
   });
@@ -418,8 +433,14 @@ describe('gatewayDiscovery', () => {
   });
 
   it('excludes the phone Tailscale IP from picker output and future probe hosts', async () => {
+    // Phone Wi‑Fi LAN for subnet sweep; CGNAT is the phone self-peer on Tailscale.
     (NetInfo.fetch as jest.Mock).mockResolvedValue({
-      details: { ipAddress: '100.70.124.54' },
+      details: { ipAddress: '192.168.68.54' },
+    });
+    (getTailscaleTunnelSignals as jest.Mock).mockResolvedValue({
+      hasVpnTransport: true,
+      cgnatIpv4: '100.70.124.54',
+      privateLanIpv4: '192.168.68.54',
     });
     (global.fetch as jest.Mock).mockImplementation((url: string) => {
       if (url.includes(':8765/pair.json')) {
