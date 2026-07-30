@@ -68,7 +68,9 @@ describe('connectionStateMachine', () => {
   });
 
   it('describes each reason code with human copy, never raw codes', () => {
-    expect(describeConnectionReason('usb_missing')).toMatch(/cable/i);
+    expect(describeConnectionReason('usb_missing')).toMatch(/no computer link/i);
+    // COPY LAW (CEO 2026-07-22 / 2026-07-30): user copy never names a cable.
+    expect(describeConnectionReason('usb_missing')).not.toMatch(/usb|cable/i);
     expect(describeConnectionReason('port_closed')).toMatch(/port/i);
     expect(describeConnectionReason('auth_failed')).toMatch(/outdated connection|re-pair/i);
     expect(describeConnectionReason('event_socket_optional')).toMatch(/connected/i);
