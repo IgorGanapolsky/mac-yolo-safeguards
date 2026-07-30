@@ -24,22 +24,23 @@ describe('ChatEmptyGreeting', () => {
 
     expect(getByTestId('chat-empty-greeting-title').props.children).toBeTruthy();
     expect(getByTestId('chat-empty-greeting-subtitle').props.children).toBe(
-      'Ask anything. Find computers or pick one above to connect — USB is optional.',
+      'Ask anything. Find computers or pick one above to connect — Tailscale works from anywhere.',
     );
   });
 
   it('prefers route labels for account-relay copy', () => {
     const { getByTestId } = render(<ChatEmptyGreeting routeLabel="Your computer" />);
 
+    // Tailscale is not an away-from-home fallback — it works everywhere.
     expect(getByTestId('chat-empty-greeting-subtitle').props.children).toBe(
-      'Ask anything — connect via Wi‑Fi, Tailscale, USB, or ThumbGate Cloud.',
+      'Ask anything — Tailscale reaches your computer anywhere. Same Wi‑Fi just makes it easier to find.',
     );
   });
 
   it('does not claim connected for generic routes when disconnected', () => {
     const { getByTestId } = render(<ChatEmptyGreeting routeLabel="Computer via USB" />);
     expect(getByTestId('chat-empty-greeting-subtitle').props.children).toBe(
-      'Ask anything. Find computers or pick one above to connect — USB is optional.',
+      'Ask anything. Find computers or pick one above to connect — Tailscale works from anywhere.',
     );
   });
 
@@ -55,7 +56,8 @@ describe('ChatEmptyGreeting', () => {
 
   it('echoes header transport in connected greeting', () => {
     expect(resolveGreetingTransportLabel('Tailscale · worker')).toBe('Tailscale');
-    expect(resolveGreetingTransportLabel('USB')).toBe('USB');
+    // Standing rule: the app never names USB to the user, so a cable chip is dropped.
+    expect(resolveGreetingTransportLabel('USB')).toBeUndefined();
     expect(resolveGreetingTransportLabel('Home Wi‑Fi')).toBe('Home Wi‑Fi');
     expect(resolveGreetingTransportLabel('192.168.1.10:8642')).toBeUndefined();
 
@@ -69,9 +71,10 @@ describe('ChatEmptyGreeting', () => {
     expect(getByTestId('chat-empty-greeting-subtitle').props.children).toBe(
       'Ask anything — connected via Igors-MacBook-Pro · Tailscale.',
     );
+    // A cable chip is dropped, so the greeting names the computer only.
     expect(
       greetingSubtitle('Igors-MacBook-Pro', true, false, 'USB'),
-    ).toBe('Ask anything — connected via Igors-MacBook-Pro · USB.');
+    ).toBe('Ask anything — connected via Igors-MacBook-Pro.');
   });
 
   it('shows unreachable copy when disconnected with a machine label', () => {

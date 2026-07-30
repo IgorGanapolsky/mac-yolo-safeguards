@@ -13,12 +13,16 @@ export function greetingForTime(date = new Date()): string {
   return 'Good evening';
 }
 
-/** Header transport chips worth echoing in the empty greeting. */
+/**
+ * Header transport chips worth echoing in the empty greeting.
+ * CEO directive (2026-07-22, restated 2026-07-30): the app must not name USB to
+ * the user — only Tailscale / Wi‑Fi. A cable chip is dropped, not echoed.
+ */
 export function resolveGreetingTransportLabel(
   machineEndpoint?: string | null,
 ): string | undefined {
   const first = machineEndpoint?.split(' · ')[0]?.trim();
-  if (first === 'USB' || first === 'Tailscale' || first === 'Home Wi‑Fi') {
+  if (first === 'Tailscale' || first === 'Home Wi‑Fi') {
     return first;
   }
   return undefined;
@@ -48,7 +52,9 @@ export function greetingSubtitle(
     : false;
 
   if (route === 'Your computer' || route === 'Hermes account relay') {
-    return 'Ask anything — connect via Wi‑Fi, Tailscale, USB, or ThumbGate Cloud.';
+    // Tailscale is not an away-from-home fallback — it works everywhere, including
+    // on home Wi‑Fi. Same-Wi‑Fi discovery is a convenience, never a requirement.
+    return 'Ask anything — Tailscale reaches your computer anywhere. Same Wi‑Fi just makes it easier to find.';
   }
 
   if (route === 'Computer not configured') {
@@ -78,8 +84,8 @@ export function greetingSubtitle(
     return `Can't reach ${route} yet — tap header to retry.`;
   }
 
-  // Never market USB as the only path — Tailscale / Find computers / picker are primary off-cable.
-  return 'Ask anything. Find computers or pick one above to connect — USB is optional.';
+  // Tailscale-only product surface: never name a cable to the user.
+  return 'Ask anything. Find computers or pick one above to connect — Tailscale works from anywhere.';
 }
 
 export default function ChatEmptyGreeting({
