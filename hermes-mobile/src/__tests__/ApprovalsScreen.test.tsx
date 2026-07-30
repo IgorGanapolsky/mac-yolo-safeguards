@@ -242,11 +242,9 @@ describe('ApprovalsScreen', () => {
   it('shows leash memory and display toggles when unlocked', () => {
     const { getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByText('Thumbs down → remember block')).toBeTruthy();
-    expect(getByText('Quick-approve layout')).toBeTruthy();
+    expect(getByText('One approval at a time')).toBeTruthy();
     expect(
-      getByText(
-        'One approval at a time with bigger buttons. Hides diffs and thumbs. Announces connection status with VoiceOver. This only changes the Leash screen — not push alerts (see Settings → Smart notifications).',
-      ),
+      getByText('Large Approve/Deny buttons for the top request. Notifications are unchanged.'),
     ).toBeTruthy();
   });
 

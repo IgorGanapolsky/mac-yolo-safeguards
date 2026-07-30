@@ -140,7 +140,7 @@ export default function HermesApprovalCard({
       {approval.title}
     </Text>
 
-    {commandPreview && !glance ? (
+    {commandPreview ? (
       <View style={styles.commandBox}>
         <Text style={styles.commandLabel}>
           {isChatApproval ? 'Command on your computer' : 'Command'}
@@ -149,15 +149,15 @@ export default function HermesApprovalCard({
       </View>
     ) : null}
 
-    {hasDiffContent(approval.diff) && !glance ? (
+    {hasDiffContent(approval.diff) ? (
       <DiffPreviewBox diff={approval.diff!} />
     ) : null}
 
-    {!glance && approval.workspacePath ? (
+    {approval.workspacePath ? (
       <Text style={styles.meta}>Workspace: {approval.workspacePath}</Text>
     ) : null}
 
-    {!glance && approval.rollbackHint && riskTier !== 'low' ? (
+    {approval.rollbackHint && riskTier !== 'low' ? (
       <Text style={styles.rollbackHint}>{approval.rollbackHint}</Text>
     ) : null}
 
@@ -241,7 +241,7 @@ export default function HermesApprovalCard({
       </View>
     ) : null}
 
-    {onEdit && !glance ? (
+    {onEdit ? (
       <TouchableOpacity
         style={styles.editBtn}
         onPress={onEdit}

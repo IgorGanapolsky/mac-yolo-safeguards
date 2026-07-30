@@ -236,13 +236,6 @@ export default function ApprovalsScreen() {
   });
 
   const handleApprovalEdit = (approval: typeof pendingApprovals[number]) => {
-    if (settings.glanceMode) {
-      Alert.alert(
-        'Edit in Chat',
-        'Turn off Quick-approve layout on Leash in Settings to edit plans in the Chat tab.',
-      );
-      return;
-    }
     const request = fromPendingApproval(approval, settings.approvalPolicy);
     const seed =
       request.command || request.title || request.approveText || approval.reason || '';
@@ -500,11 +493,9 @@ export default function ApprovalsScreen() {
             </View>
             <View style={styles.switchRow}>
               <View style={styles.switchLabelCol}>
-                <Text style={styles.switchLabel}>Quick-approve layout</Text>
+                <Text style={styles.switchLabel}>One approval at a time</Text>
                 <Text style={styles.switchDesc}>
-                  One approval at a time with bigger buttons. Hides diffs and thumbs. Announces
-                  connection status with VoiceOver. This only changes the Leash screen — not push
-                  alerts (see Settings → Smart notifications).
+                  Large Approve/Deny buttons for the top request. Notifications are unchanged.
                 </Text>
               </View>
               <Switch
