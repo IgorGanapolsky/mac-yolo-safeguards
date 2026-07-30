@@ -2434,6 +2434,7 @@ export default function ChatScreen() {
 
   const selectProject = async (project: ChatProject) => {
     haptics.selection();
+    setToolStatus(null);
     const next = setActiveProjectForComputer(
       projectState,
       activeGatewayProfile?.id ?? null,
