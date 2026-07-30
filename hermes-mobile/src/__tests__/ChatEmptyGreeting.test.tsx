@@ -32,7 +32,7 @@ describe('ChatEmptyGreeting', () => {
     const { getByTestId } = render(<ChatEmptyGreeting routeLabel="Your computer" />);
 
     expect(getByTestId('chat-empty-greeting-subtitle').props.children).toBe(
-      'Ask anything — use Tailscale when you are away, or home Wi‑Fi when you are local.',
+      'Ask anything — connect via Wi‑Fi, Tailscale, USB, or ThumbGate Cloud.',
     );
   });
 

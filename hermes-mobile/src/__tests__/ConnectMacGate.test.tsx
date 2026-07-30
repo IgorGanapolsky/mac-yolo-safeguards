@@ -79,8 +79,7 @@ describe('ConnectMacGate', () => {
     expect(view.getByTestId('connect-mac-gate')).toBeTruthy();
     expect(view.getByTestId('connect-mac-onboarding-card')).toBeTruthy();
     expect(view.getByText(CONNECT_MAC_GATE_TITLE)).toBeTruthy();
-    expect(view.getByText(TAILSCALE_PASTE_IP_TITLE)).toBeTruthy();
-    expect(view.getByTestId('connect-manual-input')).toBeTruthy();
+    expect(view.getByTestId('thumbgate-promo-connection_unreachable')).toBeTruthy();
     expect(view.getByTestId('connect-search-wifi')).toBeTruthy();
     expect(view.queryByTestId('connect-scan-qr')).toBeNull();
     expect(view.queryByText(/QR/i)).toBeNull();

@@ -17,6 +17,7 @@ import TailscaleDiscoveryBanner from './TailscaleDiscoveryBanner';
 import MacScanProgressCard from './MacScanProgressCard';
 import GatewayProfilePicker from './GatewayProfilePicker';
 import ManualComputerAddressForm from './ManualComputerAddressForm';
+import ThumbGatePromoCard from './ThumbGatePromoCard';
 import LoadingButton from './ui/LoadingButton';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import {
@@ -282,6 +283,8 @@ export default function ConnectMacGate() {
                 />
               </View>
 
+              <ThumbGatePromoCard surface="connection_unreachable" style={styles.promoSlot} />
+
               {showCompactScanStatus ? (
                 <Text style={styles.statusText} testID="connect-mac-scan-status">
                   {GATE_SEARCHING_STATUS}
@@ -409,6 +412,9 @@ const styles = StyleSheet.create({
   },
   heroBlock: {
     gap: 0,
+  },
+  promoSlot: {
+    marginVertical: 4,
   },
   foundBlock: {
     gap: 8,

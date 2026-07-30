@@ -48,7 +48,7 @@ export function greetingSubtitle(
     : false;
 
   if (route === 'Your computer' || route === 'Hermes account relay') {
-    return 'Ask anything — use Tailscale when you are away, or home Wi‑Fi when you are local.';
+    return 'Ask anything — connect via Wi‑Fi, Tailscale, USB, or ThumbGate Cloud.';
   }
 
   if (route === 'Computer not configured') {
