@@ -911,7 +911,13 @@ function estimateTokens(text) {
  */
 function contextDietRedundantPatterns() {
   return [
-    { id: 'agent_mode_lecture', re: /I am in agent mode|always agent mode|never ask mode/i, drop: true },
+    // Match lecture-style reminders only — NOT the permanent AGENTS.md section title
+    // "Always agent mode — NEVER ask mode (permanent, …)" (doctor false-positive class).
+    {
+      id: 'agent_mode_lecture',
+      re: /\bI am in agent mode\b|switch to agent mode|remind(ing)? (the user|me) about agent mode/i,
+      drop: true,
+    },
     { id: 'keep_it_brief', re: /keep it brief|be concise|be brief(?!.*keep)/i, drop: true },
     { id: 'adjective_done', re: /high quality|looks good|ship when ready/i, drop: true },
     { id: 'full_never_list_dump', re: /Never-list|restate full AGENTS/i, drop: true },
@@ -972,6 +978,25 @@ function contextDietReport({ repo = REPO, role = 'worker' } = {}) {
           pattern: pat.id,
           lines: hitLines.slice(0, 8),
           message: `Restates SessionContract-style ${pat.id} — prefer progressive disclosure / drop list`,
+        });
+      }
+    }
+    // Critical: unresolved VCS conflict markers poison always-on agent inject.
+    if (file.alwaysOn) {
+      const markerLines = [];
+      lines.forEach((line, idx) => {
+        if (/^(<<<<<<< |>>>>>>> |=======\s*$|\|\|\|\|\|\|\| )/.test(line)) {
+          markerLines.push(idx + 1);
+        }
+      });
+      if (markerLines.length > 0) {
+        findings.push({
+          severity: 'critical',
+          file: file.id,
+          pattern: 'merge_conflict_markers',
+          lines: markerLines.slice(0, 12),
+          message:
+            'Unresolved VCS conflict markers in always-on agent inject — run node tools/check-merge-conflict-markers.js and fix before any agent work',
         });
       }
     }
@@ -1057,6 +1082,29 @@ function evalAbilityPolicy() {
           'stuck.*stream',
           'no.?token',
           'open leash',
+        ],
+        liveTools: 'none',
+      },
+      {
+        id: 'mega_prompt_provider_eof',
+        instruction:
+          'Never dump Error code 500/unexpected EOF; mega live prompts fail ≤4m with Start fresh',
+        env: 'unit + self-harness',
+        verifier:
+          'Jest modelProviderErrorRecovery + runStaleDetection; node tools/hermes-self-harness.js',
+        verifyCommand:
+          'node tools/check-merge-conflict-markers.js && node -e "const h=require(\'./tools/hermes-self-harness.js\'); const w=h.mineWeaknesses({logs:\'unexpected EOF Error code: 500 turn time limit\',logsAndConfig:\'unexpected EOF Error code: 500 turn time limit max_tokens: 2048\',config:\'max_tokens: 2048\',agentLog:\'\',errorsLog:\'unexpected EOF\',yoloWrapper:\'\'}); if(!w.some(x=>x.id===\'model_provider_unexpected_eof\')) process.exit(1);"',
+        match: [
+          'unexpected.?eof',
+          'error code:?\\s*500',
+          'turn time limit',
+          'mega.?prompt',
+          'mega.?session',
+          '3m.?token',
+          'stop stuck run',
+          'hermes is thinking',
+          'api_error',
+          'while running the model',
         ],
         liveTools: 'none',
       },
@@ -1476,6 +1524,10 @@ function evalAbilityCheck({ repo = REPO, runCommands = false } = {}) {
     { text: 'double-post on LinkedIn without permalink', expect: 'social_live_matrix' },
     { text: 'Stripe follow-up missing payment link', expect: 'revenue_followup_draft' },
     { text: 'GatewayContext multi-owner thrash', expect: 'megafile_claim_discipline' },
+    {
+      text: 'Error code 500 unexpected EOF turn time limit Stop stuck run Hermes is thinking',
+      expect: 'mega_prompt_provider_eof',
+    },
   ];
   const routingResults = routing.map((r) => {
     const m = matchAbilityForFailure(r.text);

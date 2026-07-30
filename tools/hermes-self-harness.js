@@ -80,6 +80,25 @@ const PATTERNS = [
       ['fallback max_tokens <= 2048', /max_tokens:\s*(1024|1536|2048)/],
     ],
   },
+  {
+    // Device 2026-07-30: 3M-token mobile thread → Error code 500 unexpected EOF +
+    // turn time limit, then Hermes thinking 6m+ (model thrash on mega prompt).
+    id: 'model_provider_unexpected_eof',
+    severity: 'critical',
+    surface: 'model_runtime_mega_prompt',
+    match: (evidence) =>
+      /unexpected EOF|Error code:\s*500|while running the model|turn time limit|couldn't generate a final report|could not generate a final report/i.test(
+        evidence.logs,
+      ),
+    proposal:
+      'Stop feeding multi-million-token prompts. Force Start fresh chat on mega sessions; compact/restart the Mac agent; keep mobile hard-timeout for live prompts ≥200k at ≤4m (see modelProviderErrorRecovery + runStaleDetection).',
+    gate:
+      'Jest modelProviderErrorRecovery + runStaleDetection mega-prompt hard-timeout green; self-harness no longer sees new unexpected EOF in the smoke window; phone shows start-fresh copy not raw Error code 500.',
+    configChecks: [
+      // Soft: compaction / smaller max_tokens reduce EOF rate when present.
+      ['max_tokens bounded', /max_tokens:\s*(512|1024|1536|2048|4096)/],
+    ],
+  },
 ];
 
 function parseArgs(argv) {
@@ -159,6 +178,12 @@ function extractEvidence(pattern, evidence) {
     placeholder_plan_drift: [/YOUR_RETRIEVAL_ENDPOINT[^\n]*/gi, /tone-police[^\n]*/gi, /never emit fake endpoints[^\n]*/gi],
     stale_yolo_lock_or_prefix_process: [/Another hermes-yolo is already running[^\n]*/gi, /DEFAULT_TOOLSETS[^\n]*/gi],
     gateway_completion_timeout: [/Operation timed out[^\n]*/gi, /idle for \d+s[^\n]*/gi, /waiting for stream response[^\n]*/gi],
+    model_provider_unexpected_eof: [
+      /unexpected EOF[^\n]*/gi,
+      /Error code:\s*500[^\n]*/gi,
+      /turn time limit[^\n]*/gi,
+      /while running the model[^\n]*/gi,
+    ],
   }[pattern.id] || [];
   for (const token of tokens) {
     for (const match of haystack.matchAll(token)) {
