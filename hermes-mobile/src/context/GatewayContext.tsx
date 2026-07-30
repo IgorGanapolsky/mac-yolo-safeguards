@@ -3786,7 +3786,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         return true;
       } catch (error) {
         setLastEventError(
-          error instanceof Error ? error.message : 'ThumbGate capture failed',
+          error instanceof Error ? error.message : 'ThumbGate.app capture failed',
         );
         haptics.warning();
         return false;
@@ -3896,7 +3896,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           captureLeashThumbgate(pending, choice === 'deny' ? 'reject' : 'approve').catch(
             (error) => {
               setLastEventError(
-                error instanceof Error ? error.message : 'ThumbGate capture failed',
+                error instanceof Error ? error.message : 'ThumbGate.app capture failed',
               );
             },
           );
@@ -3929,7 +3929,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         captureLeashThumbgate(pending, choice === 'deny' ? 'reject' : 'approve').catch(
           (error) => {
             setLastEventError(
-              error instanceof Error ? error.message : 'ThumbGate capture failed',
+              error instanceof Error ? error.message : 'ThumbGate.app capture failed',
             );
           },
         );

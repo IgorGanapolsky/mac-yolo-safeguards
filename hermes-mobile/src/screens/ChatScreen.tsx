@@ -577,7 +577,7 @@ export function shouldIgnoreKeyboardHide(
 const RUN_COMPLETED_BANNER_DISMISS_MS = 2500;
 const MAC_PICKER_SELECTION_ARM_DELAY_MS = 400;
 
-/** How long the per-message "Saved to ThumbGate" confirmation stays visible. */
+/** How long the per-message "Saved to ThumbGate.app" confirmation stays visible. */
 const FEEDBACK_NOTE_TTL_MS = 4000;
 
 export default function ChatScreen() {
@@ -5059,7 +5059,7 @@ export default function ChatScreen() {
       // Always record the vote to ThumbGate. The explanation sheet is now
       // opt-in (via the "Add details" link), not auto-opened on every tap.
       void submitChatOutputFeedbackForMessage(message, signal).then((ok) => {
-        setTransientFeedbackNote(key, ok ? 'Saved to ThumbGate' : 'Not recorded', !ok);
+        setTransientFeedbackNote(key, ok ? 'Saved to ThumbGate.app' : 'Not recorded', !ok);
       });
     },
     [submitChatOutputFeedbackForMessage, setTransientFeedbackNote],
