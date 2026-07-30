@@ -69,6 +69,41 @@ test('publishable copy audit accepts attributed store routes and ignores receipt
   });
 });
 
+test('publishable copy audit rejects reusable Show HN reposts and accepts retired tombstones', () => {
+  const root = makeTempDirectory();
+  const ready = path.join(root, 'hermes-mobile/docs/social/ready-to-post');
+  fs.mkdirSync(ready, { recursive: true });
+  fs.writeFileSync(
+    path.join(ready, 'show-hn-live.md'),
+    [
+      '# Show HN — Hermes Mobile',
+      '**Status:** Ready to publish',
+      'Show HN: Hermes Mobile — approve AI agents from your phone',
+    ].join('\n'),
+  );
+  fs.writeFileSync(
+    path.join(ready, 'show-hn-retired.md'),
+    [
+      '# RETIRED — DO NOT PUBLISH',
+      '**Status:** RETIRED after the original Show HN was marked dead.',
+      'Do not submit another Show HN for the same launch.',
+    ].join('\n'),
+  );
+
+  const result = auditPublishableStoreCopy(root);
+
+  assert.equal(result.status, 'fail');
+  assert.equal(result.filesScanned, 2);
+  assert.deepEqual(
+    result.findings.map((finding) => finding.rule),
+    ['prohibited-show-hn-repost'],
+  );
+  assert.equal(
+    result.findings[0]?.file,
+    'hermes-mobile/docs/social/ready-to-post/show-hn-live.md',
+  );
+});
+
 test('publishable copy audit recursively checks reusable weekly draft directories', () => {
   const root = makeTempDirectory();
   const week = path.join(

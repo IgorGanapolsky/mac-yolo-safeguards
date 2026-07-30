@@ -2635,3 +2635,9 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 - `hermes-mobile/src/__tests__/chatAssistantProse.test.ts` (trailing blank-line cleanup only) → **codex-growth-observability** (merge-integration hygiene after already-merged PR #1244; prior source owner is done and released) (2026-07-30T21:16:00Z)
 
 - 2026-07-30T21:20:00Z `codex-growth-observability`: merge-integration hygiene claim released after `git diff --cached --check` passed and the focused `chatAssistantProse` suite passed 7/7.
+
+- `hermes-mobile/docs/social/ready-to-post/01-hn-show-hermes.md`, `hermes-mobile/docs/social/ready-to-post/01-show-hn-hermes-mobile.md`, `tools/hermes-growth-audit.js`, `tests/test-hermes-growth-audit.js`, `plan.md` → **codex-growth-observability** (T-GROWTH-SHOW-HN-REPOST-GATE-20260730: resolve PR #1243 P1 by retiring already-posted/dead Show HN drafts and fail closed on any future publishable Show HN copy; prior growth claims released) (2026-07-30T21:45:00Z)
+
+- 2026-07-30T21:47:00Z `codex-growth-observability` (T-GROWTH-SHOW-HN-REPOST-GATE-20260730): PR #1243 review proved two already-posted/dead Show HN campaigns remained reusable. Both files are now explicit URL-free RETIRED/DO NOT PUBLISH tombstones, and the audit fails any future reusable Show HN copy unless it is a retired tombstone. Verification: growth audit tests 10/10; repository audit 21/21 reusable files with zero findings; diff check clean.
+
+- T-GROWTH-SHOW-HN-REPOST-GATE-20260730 claimed files → **released by codex-growth-observability** after the P1 regression test and repository audit passed. (2026-07-30T21:47:00Z)

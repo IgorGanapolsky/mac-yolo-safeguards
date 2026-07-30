@@ -186,6 +186,20 @@ function auditPublishableStoreCopy(root = ROOT) {
   const findings = [];
   for (const file of files) {
     const body = fs.readFileSync(file, 'utf8');
+    const containsShowHnDraft = /(?:^|\n)\s*(?:#+\s*)?Show HN\b/im.test(body);
+    const isRetiredTombstone =
+      /\*\*Status:\*\*\s*(?:RETIRED|DEAD)\b/i.test(body) &&
+      /\bDO NOT PUBLISH\b/i.test(body);
+    if (containsShowHnDraft && !isRetiredTombstone) {
+      const match = /Show HN\b/i.exec(body);
+      const line = body.slice(0, match?.index ?? 0).split(/\r?\n/).length;
+      findings.push({
+        rule: 'prohibited-show-hn-repost',
+        file: path.relative(root, file),
+        line,
+        excerpt: 'Show HN copy is reusable instead of a retired tombstone',
+      });
+    }
     for (const rule of COPY_RULES) {
       rule.pattern.lastIndex = 0;
       const match = rule.pattern.exec(body);
