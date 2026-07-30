@@ -19,12 +19,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # mac-mini-hermes (self-hosted, macos-arm64, hermes-e2e) is the default to cut
-  # GitHub-hosted macOS queue wait. Fork PRs stay on macos-latest (arbitrary code).
-  # If the mini is offline, temporarily switch runs-on below to macos-latest.
+  # Guard kit is pure Node/shell/static analysis — must stay on ubuntu-latest.
+  # 2026-07-30: PR runs on macos-latest sat queued forever (GitHub-hosted macOS starvation)
+  # and blocked required check "macOS guard kit" → merges stuck. Keep job name for branch protection.
   macos-guard:
     name: macOS guard kit
-    runs-on: ${{ github.event_name == 'pull_request' && 'macos-latest' || fromJSON('["self-hosted", "macos-arm64", "hermes-e2e"]') }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
