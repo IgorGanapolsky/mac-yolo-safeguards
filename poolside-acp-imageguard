@@ -269,12 +269,31 @@ function runProxy(argv) {
 
     const caps = msg?.result?.agentCapabilities?.promptCapabilities;
     if (initializeId !== null && msg.id === initializeId && caps && typeof caps === 'object') {
-      const had = { image: caps.image === true, audio: caps.audio === true };
-      if (had.image || had.audio) {
+      // Layers 1 and 2 pull in opposite directions, and layer 2 is the one that makes
+      // the safety guarantee. If we advertise image:false, a client that honours it
+      // refuses the paste in its UI — which is a NICE failure when we have nothing
+      // better to offer, but a REGRESSION when we do: it would block a screenshot we
+      // are perfectly able to transcribe, and the user loses a working feature to
+      // protect them from a bug we already neutralised.
+      //
+      // So the advertisement follows capability, not fear:
+      //   can transcribe  -> leave pool's value alone; let the paste through and
+      //                      convert it to text on the way in (layer 2).
+      //   cannot          -> say false, so the client declines it up front.
+      // Either way no image ever reaches the model, because layer 2 is unconditional.
+      const canTranscribe = MODE === 'auto' || MODE === 'describe';
+      if (canTranscribe) {
+        log('initialize: leaving promptCapabilities.image as-is — images are accepted ' +
+            'and transcribed to text before they reach the model');
+      } else {
+        const had = caps.image === true || caps.audio === true;
         caps.image = false;
         caps.audio = false;
-        log('corrected initialize: promptCapabilities.image/audio -> false ' +
-            '(pool advertises image support its Laguna models do not have)');
+        if (had) {
+          log(`corrected initialize: promptCapabilities.image/audio -> false ` +
+              `(guard mode=${MODE} cannot transcribe, and pool advertises image ` +
+              `support its Laguna models do not have)`);
+        }
       }
       process.stdout.write(JSON.stringify(msg) + '\n');
       return;

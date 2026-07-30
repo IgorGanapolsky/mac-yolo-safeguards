@@ -102,7 +102,7 @@ drive() {
 INIT='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1}}'
 IMG_PROMPT="{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"session/prompt\",\"params\":{\"sessionId\":\"s1\",\"prompt\":[{\"type\":\"text\",\"text\":\"why broken?\"},{\"type\":\"image\",\"mimeType\":\"image/png\",\"data\":\"$PNG\"}]}}"
 
-# --- 1. the capability lie is corrected -------------------------------------------
+# --- 1. the capability lie is corrected when we CANNOT transcribe ------------------
 OUT="$(drive strip "$INIT")"
 echo "$OUT" | node -e '
 let s=""; process.stdin.on("data",d=>s+=d).on("end",()=>{
@@ -110,8 +110,22 @@ let s=""; process.stdin.on("data",d=>s+=d).on("end",()=>{
   const c = m.result.agentCapabilities.promptCapabilities;
   if (c.image !== false) { console.error("image still "+c.image); process.exit(1); }
   if (m.result.agentCapabilities.loadSession !== true) { console.error("sibling field clobbered"); process.exit(1); }
-});' && ok "initialize: promptCapabilities.image true -> false (sibling fields intact)" \
+});' && ok "strip: promptCapabilities.image true -> false (sibling fields intact)" \
    || no "initialize: capability not corrected"
+
+# --- 1b. ...but ONLY when we cannot transcribe -------------------------------------
+# The two layers pull opposite ways. Advertising image:false makes a well-behaved
+# client refuse the paste — good when we have nothing better, a REGRESSION when we can
+# transcribe, because it would block a screenshot the user is entitled to send. In
+# describe/auto the advertisement must be left alone; layer 2 still guarantees no image
+# reaches the model.
+OUT="$(drive describe "$INIT")"
+echo "$OUT" | node -e '
+let s=""; process.stdin.on("data",d=>s+=d).on("end",()=>{
+  const c = JSON.parse(s.trim().split("\n")[0]).result.agentCapabilities.promptCapabilities;
+  if (c.image !== true) { console.error("image was downgraded to "+c.image+" despite being able to transcribe"); process.exit(1); }
+});' && ok "describe: image capability left TRUE so pastes are accepted and transcribed" \
+   || no "describe: capability downgraded, which would block a transcribable screenshot"
 
 # --- 2. strip mode: no image block survives ---------------------------------------
 : >"$RECV"

@@ -116,13 +116,27 @@ in is a user attachment — which means a fix at the *prompt* boundary is suffic
 A proxy on the ACP stdio channel: `pool` TUI → **guard** → `pool acp`. Two layers,
 deliberately independent.
 
-**Layer 1 — stop lying.** Rewrite the `initialize` result so `promptCapabilities.image`
-and `.audio` are `false`. A well-behaved client then declines the paste in the UI,
-before anything is committed to history. This is the *nice* failure.
+**Layer 2 — enforce it (the guarantee).** Replace any image/audio block that arrives in
+a `session/prompt` before it can reach the model. This is unconditional and is what
+actually makes a poisoned session impossible.
 
-**Layer 2 — enforce it.** Replace any image/audio block that still arrives in a
-`session/prompt` before it can reach the model. Layer 1 is a request to a client we do
-not control; layer 2 is the guarantee.
+**Layer 1 — advertise honestly (conditional).** Rewrite the `initialize` result so
+`promptCapabilities.image`/`.audio` are `false`, so a well-behaved client declines the
+paste in its UI before anything is committed to history.
+
+**The two layers pull in opposite directions, and that is the interesting part.**
+Advertising `image: false` is a *nice* failure only when we have nothing better to
+offer. When we CAN transcribe, it becomes a regression: it blocks a screenshot the user
+is entitled to send, and the transcription path never runs — trading a bricked session
+for a disabled feature. So the advertisement follows capability, not fear:
+
+| Guard mode | `promptCapabilities.image` | Pasting a screenshot |
+|---|---|---|
+| `auto` / `describe` (default) | left as pool set it (`true`) | accepted, transcribed to text |
+| `strip` | forced `false` | client declines it up front |
+| `off` | untouched | unguarded — bug and all |
+
+In every case no image reaches the model, because layer 2 does not depend on layer 1.
 
 The replacement is not a tombstone. By default the image is transcribed by a vision
 model on the Hermes gateway (`glm-vision` → `vision-gemini` → `vision-free` →
