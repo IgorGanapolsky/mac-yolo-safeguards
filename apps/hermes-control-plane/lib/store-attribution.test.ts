@@ -111,7 +111,11 @@ describe("store attribution", () => {
       "play_store_click",
     );
 
-    expect(receipt).toEqual({ attribution, recorded: true });
+    expect(receipt).toEqual({
+      attribution,
+      event: "play_store_click",
+      recorded: true,
+    });
     expect(dbCalls).toHaveLength(2);
   });
 
@@ -126,7 +130,11 @@ describe("store attribution", () => {
       "app_store_click",
     );
 
-    expect(receipt).toEqual({ attribution, recorded: true });
+    expect(receipt).toEqual({
+      attribution,
+      event: "app_store_click",
+      recorded: true,
+    });
     expect(dbCalls).toHaveLength(2);
   });
 
@@ -148,6 +156,43 @@ describe("store attribution", () => {
       ctaId: "",
     });
     expect(dbCalls).toHaveLength(1);
+  });
+
+  it("separates identified preview crawlers from human click counters", async () => {
+    const receipt = await recordStoreRedirect(
+      new Request(
+        "https://thumbgate.app/go/android?utm_source=linkedin&utm_medium=social&utm_campaign=hermes_agent_20260730&cta_id=linkedin_launch_card_a",
+        {
+          headers: {
+            "user-agent":
+              "Mozilla/5.0 (compatible; LinkedInBot/1.0; +https://www.linkedin.com)",
+          },
+        },
+      ),
+      "play_store_click",
+    );
+
+    expect(receipt).toEqual({
+      attribution,
+      event: "play_store_preview",
+      recorded: true,
+    });
+    expect(dbCalls).toHaveLength(2);
+    expect(dbCalls[0]?.bindings[1]).toBe("play_store_preview");
+    expect(dbCalls[1]?.bindings[1]).toBe("play_store_preview");
+  });
+
+  it("separates explicit prefetch requests from human click counters", async () => {
+    const receipt = await recordStoreRedirect(
+      new Request("https://thumbgate.app/go/ios", {
+        headers: { purpose: "prefetch" },
+      }),
+      "app_store_click",
+    );
+
+    expect(receipt.event).toBe("app_store_preview");
+    expect(dbCalls).toHaveLength(1);
+    expect(dbCalls[0]?.bindings[1]).toBe("app_store_preview");
   });
 
   it("returns a non-cacheable privacy-preserving redirect", () => {

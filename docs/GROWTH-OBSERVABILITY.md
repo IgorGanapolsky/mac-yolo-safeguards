@@ -32,7 +32,9 @@ When a visitor lands on the control plane with campaign parameters and then
 uses a bare store badge, the redirect recovers those dimensions only from a
 same-origin `Referer`; cross-origin values are ignored. Store-click events are
 recorded by the redirect route and excluded from the browser beacon to prevent
-double counting.
+double counting. Recognized link-preview crawlers and explicit prefetch
+requests are recorded separately as `play_store_preview` or
+`app_store_preview`, so they do not inflate human click counters.
 The current release does not yet read the Install Referrer inside the mobile
 binary, so this change proves the source of a store click but not the campaign
 that caused a completed install. That mobile consumer belongs with the claimed
@@ -74,7 +76,8 @@ node tools/hermes-growth-audit.js --live --json
 
 Add `--strict` in CI/operations when every proof surface must pass. Strict mode
 fails on dead reusable links, stale offer language, unavailable provider
-readback, or missing active paid-app experiment proof.
+readback, incomplete or platform-inconsistent campaign links, unattributed
+direct-store links, or missing active paid-app experiment proof.
 
 The audit deliberately excludes
 `hermes-mobile/docs/social/ready-to-post/PUBLISHED.md`: it is a historical

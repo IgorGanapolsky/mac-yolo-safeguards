@@ -275,6 +275,18 @@ try {
   assert.equal(appStoreLocation.hostname, "apps.apple.com");
   assert.match(appStoreLocation.pathname, /\/id6786778037$/);
 
+  const crawlerPreview = await fetch(
+    `http://127.0.0.1:${port}/go/android?utm_source=linkedin&utm_medium=preview&utm_campaign=store_redirect_e2e&cta_id=linkedin_unfurl`,
+    {
+      redirect: "manual",
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (compatible; LinkedInBot/1.0; +https://www.linkedin.com)",
+      },
+    },
+  );
+  assert.equal(crawlerPreview.status, 302);
+
   const session = await fetch(`http://127.0.0.1:${port}/api/me`);
   // Landing chrome uses 200 + authenticated:false (not 401) to avoid console noise.
   assert.equal(session.status, 200);
@@ -301,8 +313,8 @@ try {
       "--json",
       "--command",
       [
-        "SELECT event, count FROM funnel_counters WHERE event IN ('play_store_click', 'app_store_click') ORDER BY event",
-        "SELECT event, utm_source, utm_medium, utm_campaign, cta_id, count FROM funnel_attribution_counters WHERE event IN ('play_store_click', 'app_store_click') ORDER BY event",
+        "SELECT event, count FROM funnel_counters WHERE event IN ('play_store_click', 'app_store_click', 'play_store_preview', 'app_store_preview') ORDER BY event",
+        "SELECT event, utm_source, utm_medium, utm_campaign, cta_id, count FROM funnel_attribution_counters WHERE event IN ('play_store_click', 'app_store_click', 'play_store_preview', 'app_store_preview') ORDER BY event",
       ].join("; "),
     ],
     { encoding: "utf8", env: { ...process.env, CI: "1" } },
@@ -316,6 +328,7 @@ try {
   assert.deepEqual(storeCounterPayload[0].results, [
     { event: "app_store_click", count: 1 },
     { event: "play_store_click", count: 1 },
+    { event: "play_store_preview", count: 1 },
   ]);
   assert.deepEqual(storeCounterPayload[1].results, [
     {
@@ -332,6 +345,14 @@ try {
       utm_medium: "worker",
       utm_campaign: "store_redirect_e2e",
       cta_id: "android_a",
+      count: 1,
+    },
+    {
+      event: "play_store_preview",
+      utm_source: "linkedin",
+      utm_medium: "preview",
+      utm_campaign: "store_redirect_e2e",
+      cta_id: "linkedin_unfurl",
       count: 1,
     },
   ]);
@@ -442,7 +463,7 @@ try {
   assert.equal((await postLogoutMe.json()).authenticated, false);
 
   console.log(
-    "Cloudflare Worker E2E: missing schema degrades 503; migrated anonymous redirect/API 401; store redirects persist aggregate+attributed D1 counters and Android Install Referrer; seeded provider-bound opaque session renders private state; logout clears cookie, revokes D1 session, redirects through WorkOS logout, and restores denial",
+    "Cloudflare Worker E2E: missing schema degrades 503; migrated anonymous redirect/API 401; store redirects persist aggregate+attributed D1 counters, separate crawler previews, and forward Android Install Referrer; seeded provider-bound opaque session renders private state; logout clears cookie, revokes D1 session, redirects through WorkOS logout, and restores denial",
   );
 } finally {
   if (worker && worker.exitCode === null) {

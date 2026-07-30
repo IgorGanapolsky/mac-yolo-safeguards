@@ -43,6 +43,113 @@ const COPY_RULES = [
   },
 ];
 
+const ATTRIBUTED_STORE_URL =
+  /https:\/\/thumbgate\.app\/go\/(?:android|ios)(?:\?[^\s<>"')\]]*)?/gi;
+const DIRECT_STORE_URL =
+  /https:\/\/(?:play\.google\.com\/store\/apps\/details|apps\.apple\.com\/[^\s<>"')\]]+)[^\s<>"')\]]*/gi;
+const REQUIRED_CAMPAIGN_PARAMS = [
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'cta_id',
+];
+const PLATFORM_ALIASES = {
+  devto: ['devto', 'dev.to'],
+  hackernews: ['hackernews', 'hn'],
+  hashnode: ['hashnode'],
+  linkedin: ['linkedin'],
+  medium: ['medium'],
+  reddit: ['reddit'],
+  x: ['x', 'twitter'],
+};
+
+function platformFromLabel(label) {
+  const normalized = String(label).toLowerCase();
+  if (/\blinkedin\b/.test(normalized)) return 'linkedin';
+  if (/\breddit\b/.test(normalized)) return 'reddit';
+  if (/(?:^|[^a-z])(?:x|twitter)(?:[^a-z]|$)/.test(normalized)) return 'x';
+  if (/\bmedium\b/.test(normalized)) return 'medium';
+  if (/\bhashnode\b/.test(normalized)) return 'hashnode';
+  if (/\bdev(?:\.?to)?\b/.test(normalized)) return 'devto';
+  if (/\b(?:show[- ]?hn|hacker\s*news)\b/.test(normalized)) {
+    return 'hackernews';
+  }
+  return null;
+}
+
+function expectedPlatform(file, body, matchIndex) {
+  const priorLines = body.slice(0, matchIndex).split(/\r?\n/);
+  for (let index = priorLines.length - 1; index >= 0; index -= 1) {
+    const heading = priorLines[index].match(/^#{1,6}\s+(.+)$/);
+    if (!heading) continue;
+    const platform = platformFromLabel(heading[1]);
+    if (platform) return platform;
+  }
+  return platformFromLabel(path.basename(file, '.md'));
+}
+
+function ctaMatchesPlatform(ctaId, aliases) {
+  const tokens = String(ctaId).toLowerCase().split(/[_-]+/);
+  return aliases.some((alias) => tokens.includes(alias.replace('.', '')));
+}
+
+function ctaNamesAnotherPlatform(ctaId, expected) {
+  return Object.entries(PLATFORM_ALIASES).some(
+    ([platform, aliases]) =>
+      platform !== expected && ctaMatchesPlatform(ctaId, aliases),
+  );
+}
+
+function auditCampaignLinks(file, body, root) {
+  const findings = [];
+  DIRECT_STORE_URL.lastIndex = 0;
+  for (const match of body.matchAll(DIRECT_STORE_URL)) {
+    findings.push({
+      rule: 'unattributed-direct-store-link',
+      file: path.relative(root, file),
+      line: body.slice(0, match.index).split(/\r?\n/).length,
+      excerpt: match[0].slice(0, 120),
+    });
+  }
+
+  ATTRIBUTED_STORE_URL.lastIndex = 0;
+  for (const match of body.matchAll(ATTRIBUTED_STORE_URL)) {
+    const rawUrl = match[0].replace(/[.,;:]+$/, '');
+    const url = new URL(rawUrl);
+    const missing = REQUIRED_CAMPAIGN_PARAMS.filter(
+      (name) => !url.searchParams.get(name)?.trim(),
+    );
+    const line = body.slice(0, match.index).split(/\r?\n/).length;
+    if (missing.length) {
+      findings.push({
+        rule: 'incomplete-campaign-attribution',
+        file: path.relative(root, file),
+        line,
+        excerpt: `${rawUrl.slice(0, 90)} missing=${missing.join(',')}`,
+      });
+      continue;
+    }
+
+    const platform = expectedPlatform(file, body, match.index);
+    if (!platform) continue;
+    const aliases = PLATFORM_ALIASES[platform];
+    const source = url.searchParams.get('utm_source').toLowerCase();
+    const ctaId = url.searchParams.get('cta_id');
+    if (
+      !aliases.includes(source) ||
+      ctaNamesAnotherPlatform(ctaId, platform)
+    ) {
+      findings.push({
+        rule: 'platform-mismatched-attribution',
+        file: path.relative(root, file),
+        line,
+        excerpt: `expected=${platform} source=${source} cta_id=${ctaId}`,
+      });
+    }
+  }
+  return findings;
+}
+
 function listPublishableFiles(root) {
   const social = path.join(root, 'hermes-mobile/docs/social');
   const ready = path.join(social, 'ready-to-post');
@@ -91,6 +198,7 @@ function auditPublishableStoreCopy(root = ROOT) {
         excerpt: match[0].slice(0, 120),
       });
     }
+    findings.push(...auditCampaignLinks(file, body, root));
   }
   return {
     status: findings.length === 0 ? 'pass' : 'fail',

@@ -36,7 +36,12 @@ test('publishable copy audit rejects retired packages and obsolete promises', ()
   assert.equal(result.filesScanned, 1);
   assert.deepEqual(
     result.findings.map((finding) => finding.rule).sort(),
-    ['obsolete-ios-review-state', 'obsolete-subscription-copy', 'retired-play-package'],
+    [
+      'obsolete-ios-review-state',
+      'obsolete-subscription-copy',
+      'retired-play-package',
+      'unattributed-direct-store-link',
+    ],
   );
 });
 
@@ -110,6 +115,40 @@ test('publishable copy audit rejects positive legacy free-tier and pending-iOS s
   assert.deepEqual(
     result.findings.map((finding) => finding.rule).sort(),
     ['obsolete-ios-review-state', 'obsolete-subscription-copy'],
+  );
+});
+
+test('publishable copy audit requires complete and platform-consistent campaign links', () => {
+  const root = makeTempDirectory();
+  const week = path.join(
+    root,
+    'hermes-mobile/docs/social/week-2026-07-10',
+  );
+  fs.mkdirSync(week, { recursive: true });
+  fs.writeFileSync(
+    path.join(week, 'mixed.md'),
+    [
+      '## X (short)',
+      'https://thumbgate.app/go/android?utm_source=medium&utm_medium=organic&utm_campaign=launch&cta_id=x_play',
+      'https://thumbgate.app/go/ios?utm_source=x&utm_medium=organic&utm_campaign=launch&cta_id=medium_play',
+      '## LinkedIn',
+      'https://thumbgate.app/go/ios?utm_source=linkedin&utm_medium=organic&utm_campaign=launch',
+      '## Reddit',
+      'https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile.paid',
+    ].join('\n'),
+  );
+
+  const result = auditPublishableStoreCopy(root);
+
+  assert.equal(result.status, 'fail');
+  assert.deepEqual(
+    result.findings.map((finding) => finding.rule).sort(),
+    [
+      'incomplete-campaign-attribution',
+      'platform-mismatched-attribution',
+      'platform-mismatched-attribution',
+      'unattributed-direct-store-link',
+    ],
   );
 });
 

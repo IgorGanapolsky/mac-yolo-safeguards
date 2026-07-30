@@ -6,11 +6,22 @@ import {
 import { recordFunnelEvent } from "@/lib/funnel-counter";
 
 export type StoreClickEvent = "play_store_click" | "app_store_click";
+export type StorePreviewEvent = "play_store_preview" | "app_store_preview";
+export type StoreRedirectEvent = StoreClickEvent | StorePreviewEvent;
 
 export type StoreRedirectReceipt = {
   attribution: FunnelAttribution;
+  event: StoreRedirectEvent;
   recorded: boolean;
 };
+
+const PREVIEW_EVENT: Record<StoreClickEvent, StorePreviewEvent> = {
+  play_store_click: "play_store_preview",
+  app_store_click: "app_store_preview",
+};
+
+const PREVIEW_USER_AGENT =
+  /(?:bot\b|crawler\b|spider\b|slurp\b|facebookexternalhit|facebot|linkedinbot|twitterbot|slackbot|discordbot|telegrambot|whatsapp|applebot|googlebot|bingpreview|pinterestbot|embedly|quora link preview)/i;
 
 export function buildPlayStoreUrl(
   baseUrl: string,
@@ -61,8 +72,22 @@ export function parseStoreAttribution(request: Request): FunnelAttribution {
   }
 }
 
+export function isAutomatedStorePreview(request: Request): boolean {
+  const purpose = [
+    request.headers.get("purpose"),
+    request.headers.get("sec-purpose"),
+    request.headers.get("x-purpose"),
+  ]
+    .filter(Boolean)
+    .join(" ");
+  if (/\b(?:prefetch|preview)\b/i.test(purpose)) return true;
+  return PREVIEW_USER_AGENT.test(request.headers.get("user-agent") ?? "");
+}
+
 /**
  * Record direct social/email links that enter through /go/*.
+ * Identified crawlers and prefetchers receive a separate preview event so link
+ * unfurls cannot inflate human store-click conversion counts.
  * Analytics failures never strand a buyer on the redirect route.
  */
 export async function recordStoreRedirect(
@@ -70,14 +95,17 @@ export async function recordStoreRedirect(
   event: StoreClickEvent,
 ): Promise<StoreRedirectReceipt> {
   const attribution = parseStoreAttribution(request);
+  const recordedEvent = isAutomatedStorePreview(request)
+    ? PREVIEW_EVENT[event]
+    : event;
   try {
-    await recordFunnelEvent(event, attribution);
-    return { attribution, recorded: true };
+    await recordFunnelEvent(recordedEvent, attribution);
+    return { attribution, event: recordedEvent, recorded: true };
   } catch (error) {
     console.error("store_redirect_analytics_failed", {
-      event,
+      event: recordedEvent,
       error: error instanceof Error ? error.message : "unknown",
     });
-    return { attribution, recorded: false };
+    return { attribution, event: recordedEvent, recorded: false };
   }
 }

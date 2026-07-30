@@ -86,4 +86,4 @@ Approve Cursor tool calls from your phone before they run.
 
 Hermes Mobile — your Mac, not cloud credits.
 
-https://thumbgate.app/go/android?utm_source=medium&utm_medium=organic&utm_campaign=week_20260710_honest&cta_id=week_20260710_honest_medium_play
+https://thumbgate.app/go/android?utm_source=x&utm_medium=organic&utm_campaign=week_20260710_honest&cta_id=week_20260710_honest_x_play
