@@ -19,12 +19,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # mac-mini-hermes (self-hosted, macos-arm64, hermes-e2e) is the default to cut
-  # GitHub-hosted macOS queue wait. Fork PRs stay on macos-latest (arbitrary code).
-  # If the mini is offline, temporarily switch runs-on below to macos-latest.
+  # Guard kit is pure Node/shell/static analysis — must stay on ubuntu-latest.
+  # 2026-07-30: PR runs on macos-latest sat queued forever (GitHub-hosted macOS starvation)
+  # and blocked required check "macOS guard kit" → merges stuck. Keep job name for branch protection.
   macos-guard:
     name: macOS guard kit
-    runs-on: ${{ github.event_name == 'pull_request' && 'macos-latest' || fromJSON('["self-hosted", "macos-arm64", "hermes-e2e"]') }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -159,6 +159,7 @@ jobs:
           cmp -s ./scripts/memory-pressure-guardian.sh "$staged_guard_dir/memory-pressure-guardian.sh"
 
       - name: Guard E2E
+        if: runner.os == 'macOS'
         run: |
           set -eu
           tests/test-adb-reverse-device-filter.sh
@@ -233,6 +234,23 @@ jobs:
           ML_GATE_SKIP_UNIT=1 node tools/ml-gate.js --strict-platform
           node tools/ml-integrity.js scan-claim --text "platform ready; production_ml_ready=false"
           ! node tools/ml-integrity.js scan-claim --text "best-in-class production ML model with 100% auc"
+
+      # tinker-brain answers the revenue questions (cash truth, promo bans, score
+      # honesty) and nothing in CI had ever run it: its contracts and eval cases
+      # were hand-run only, so a regression in the brain could ship green. The
+      # suites are hermetic Python — every probe the exporter reads is injected,
+      # so no ~/.hermes state, no Ollama, no network, no node.
+      - name: Tinker-brain revenue contracts and evals
+        run: |
+          set -eu -o pipefail
+          python3 tests/test-tinker-brain.py 2>&1 | tee "$RUNNER_TEMP/tinker-tests.log"
+          python3 tools/tinker-brain/tinker_brain_eval.py | tee "$RUNNER_TEMP/tinker-eval.log"
+          # Both suites exit non-zero on a failing case, but a suite that exits 0
+          # having asserted nothing is VACUOUS, not clean — pin the floors too.
+          ran="$(sed -n 's/^Ran \([0-9]\{1,\}\) test.*/\1/p' "$RUNNER_TEMP/tinker-tests.log")"
+          passed="$(sed -n 's|^tinker-brain eval: \([0-9]\{1,\}\)/.*|\1|p' "$RUNNER_TEMP/tinker-eval.log")"
+          test "${ran:-0}" -ge 15
+          test "${passed:-0}" -ge 42
 
   mobile-checks:
     name: Hermes Mobile typecheck and tests
