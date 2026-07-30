@@ -385,6 +385,12 @@ export function assertUsbHeaderIdentityLaw(input: {
  * Deliberately conservative: with more than one saved computer and no active
  * selection there is no unambiguous answer, so the placeholder still wins
  * (never invent which Mac the user meant).
+ *
+ * Precedence obeys this module's USB identity law: a live green|amber /health
+ * hostname is proof of which Mac we are actually talking to, so it outranks an
+ * *unselected* saved profile that may well name a different machine. Getting
+ * this backwards could title the header with the Mac mini while /health proves
+ * the link reaches the MacBook.
  */
 function knownMachineNameOrPlaceholder(input: {
   workers: RelayWorker[];
@@ -392,6 +398,14 @@ function knownMachineNameOrPlaceholder(input: {
   profiles?: GatewayProfile[];
   health?: GatewayHealthSnapshot | null;
 }): string {
+  const fromHealth = healthHostname(input.health);
+
+  // 1. Live, proven identity wins outright.
+  if (isLiveUsbHealthIdentity(input.health) && fromHealth) {
+    return stripTransportSuffixFromComputerName(fromHealth);
+  }
+
+  // 2. The relay names its own worker.
   const worker = selectRelayWorker(input.workers, input.activeWorkerId);
   if (worker) {
     const workerName = relayWorkerDisplayName(worker).trim();
@@ -400,6 +414,7 @@ function knownMachineNameOrPlaceholder(input: {
     }
   }
 
+  // 3. Exactly one saved computer is unambiguous — but never proof.
   const profiles = input.profiles ?? [];
   if (profiles.length === 1) {
     const only = profiles[0];
@@ -413,7 +428,7 @@ function knownMachineNameOrPlaceholder(input: {
     }
   }
 
-  const fromHealth = healthHostname(input.health);
+  // 4. Any remaining /health hostname beats the placeholder.
   if (fromHealth && !isUnresolvedMachineName(fromHealth)) {
     return stripTransportSuffixFromComputerName(fromHealth);
   }

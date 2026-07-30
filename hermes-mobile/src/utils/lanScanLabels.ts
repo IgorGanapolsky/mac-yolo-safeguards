@@ -70,8 +70,13 @@ export function formatLanScanStageLabel(progress: LanScanProgress): string {
  */
 export function isLoopbackOnlyScanReach(input: number | LanScanReachCounts): boolean {
   const counts = asReachCounts(input);
+  const usb = counts.usbCount ?? 0;
+  // `foundCount` also covers routes with no dedicated counter (tunnel / "other").
+  // Requiring usb === foundCount keeps a mixed loopback+tunnel scan out of the
+  // "only another route to the same computer" banner.
   return (
-    (counts.usbCount ?? 0) > 0 &&
+    usb > 0 &&
+    usb === counts.foundCount &&
     (counts.lanCount ?? 0) === 0 &&
     (counts.tailscaleCount ?? 0) === 0
   );

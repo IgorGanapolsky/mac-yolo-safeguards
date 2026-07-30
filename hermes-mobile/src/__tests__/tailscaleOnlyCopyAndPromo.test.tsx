@@ -20,7 +20,11 @@ import { resolveChatMachineHeaderDisplay } from '../utils/chatMachineHeader';
 import { formatGatewayHostLabel } from '../utils/gatewayEndpoint';
 import { formatUsbHostMismatchMessage } from '../utils/gatewayProfilePicker';
 import { describeGatewayFetchError } from '../utils/gatewayUrlPolicy';
-import { formatLanScanResultDetail, formatLanScanResultLabel } from '../utils/lanScanLabels';
+import {
+  formatLanScanResultDetail,
+  formatLanScanResultLabel,
+  isLoopbackOnlyScanReach,
+} from '../utils/lanScanLabels';
 import {
   freshUserConnectionBody,
   freshUserConnectionTitle,
@@ -275,5 +279,49 @@ describe('defect 4 — header uses the known machine name, not the placeholder',
       profiles: [profile(), profile({ id: 'p2', label: 'Igors-Mac-mini' })],
     });
     expect(display.machineLabel).toBe('Your computer');
+  });
+
+  // PR #1229 review (P1): live proof outranks an unselected saved profile.
+  it('prefers a live green /health hostname over an unselected saved profile', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      ...base,
+      profiles: [profile({ id: 'mini', label: 'Igors-Mac-mini' })],
+      health: { level: 'green', hostname: 'Igors-MacBook-Pro' } as never,
+    });
+    expect(display.machineLabel).toBe('Igors-MacBook-Pro');
+  });
+
+  it('falls back to the saved profile when health is not live proof', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      ...base,
+      profiles: [profile({ id: 'mini', label: 'Igors-Mac-mini' })],
+      health: { level: 'red', hostname: 'Igors-MacBook-Pro' } as never,
+    });
+    expect(display.machineLabel).toBe('Igors-Mac-mini');
+  });
+});
+
+// PR #1229 review (P2): a mixed scan is not a loopback-only scan.
+describe('isLoopbackOnlyScanReach', () => {
+  it('is true only when every found computer came over loopback', () => {
+    expect(
+      isLoopbackOnlyScanReach({ foundCount: 2, lanCount: 0, tailscaleCount: 0, usbCount: 2 }),
+    ).toBe(true);
+  });
+
+  it('is false when the scan also found a route with no dedicated counter', () => {
+    expect(
+      isLoopbackOnlyScanReach({ foundCount: 2, lanCount: 0, tailscaleCount: 0, usbCount: 1 }),
+    ).toBe(false);
+  });
+
+  it('is false for LAN / Tailscale / empty scans', () => {
+    expect(
+      isLoopbackOnlyScanReach({ foundCount: 1, lanCount: 1, tailscaleCount: 0, usbCount: 1 }),
+    ).toBe(false);
+    expect(
+      isLoopbackOnlyScanReach({ foundCount: 1, lanCount: 0, tailscaleCount: 1, usbCount: 1 }),
+    ).toBe(false);
+    expect(isLoopbackOnlyScanReach({ foundCount: 0, usbCount: 0 })).toBe(false);
   });
 });
