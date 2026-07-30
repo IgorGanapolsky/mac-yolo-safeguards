@@ -92,6 +92,11 @@ jobs:
           set -eu
           bash tests/test-hermes-gateway-watchdog-e2e.sh
 
+      - name: Merge conflict markers (always-on agent docs)
+        run: |
+          set -eu
+          node tools/check-merge-conflict-markers.js
+
       - name: Node tool unit tests
         run: |
           set -u
