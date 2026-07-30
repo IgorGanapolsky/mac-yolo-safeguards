@@ -14,12 +14,12 @@ If you run coding agents on your Mac:
 | Model runs in the cloud | Agent runs on **your** Mac |
 | No tool approval for desktop | **Leash** approve/deny blocked commands |
 | General chat UX | Operator UI: connection status, runs, gates |
-| Subscription to their model | Free chat + optional Leash Pro for gate rules |
+| Subscription to their model | $4.99 paid-upfront app with chat + Leash gate rules |
 
 Hermes Mobile is the **mobile control plane** — remote-control Cursor, Claude Code, Codex, or Hermes gateway operators from your pocket.
 
 Not an "alternative to ChatGPT." An alternative to **being chained to your desk** when your agent needs a human yes/no.
 
-📱 https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+📱 https://thumbgate.app/go/android?utm_source=hashnode&utm_medium=organic&utm_campaign=week_20260710_ai_agents&cta_id=week_ai_hashnode_play
 
 #AIAgents #HermesMobile #DeveloperExperience

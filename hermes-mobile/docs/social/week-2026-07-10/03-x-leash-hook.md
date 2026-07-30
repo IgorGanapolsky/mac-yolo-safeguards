@@ -4,8 +4,8 @@ Your Mac. Not cloud credits.
 
 Approve Cursor / Claude Code tool calls from your phone before they run.
 
-Hermes Mobile — Leash Pro $19.99/mo
+Hermes Mobile — $4.99 paid upfront
 
-https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+https://thumbgate.app/go/android?utm_source=x&utm_medium=organic&utm_campaign=week_20260710&cta_id=week_20260710_x_leash_play
 
 [Screenshot: Leash approve card]

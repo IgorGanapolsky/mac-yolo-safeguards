@@ -15,6 +15,6 @@ If you already run **Cursor, Claude Code, or Codex on your Mac**, you don't need
 
 **Hermes Mobile** is not a Replit clone. It's the mobile operator console for agents already running on your machine.
 
-📱 https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+📱 https://thumbgate.app/go/android?utm_source=linkedin&utm_medium=organic&utm_campaign=week_20260710_ai_agents&cta_id=week_ai_linkedin_play
 
 #AIAgents #DeveloperTools #Mac #Cursor #LocalAI

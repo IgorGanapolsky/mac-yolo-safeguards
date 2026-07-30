@@ -10,6 +10,6 @@ Phone chatbots can't help. Hermes Mobile can — it remote-controls the agent on
 
 Approve / Deny in one tap. Keys stay local.
 
-https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+https://thumbgate.app/go/android?utm_source=x&utm_medium=organic&utm_campaign=week_20260710_ai_agents&cta_id=week_ai_x_play
 
 #Cursor #AIAgents #DevTools

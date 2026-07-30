@@ -28,6 +28,11 @@ even when no landing-page JavaScript runs. Each write increments:
 - `funnel_attribution_counters`: campaign dimensions by day and event.
 
 Android also forwards the same tokens in Google Play's `referrer` parameter.
+When a visitor lands on the control plane with campaign parameters and then
+uses a bare store badge, the redirect recovers those dimensions only from a
+same-origin `Referer`; cross-origin values are ignored. Store-click events are
+recorded by the redirect route and excluded from the browser beacon to prevent
+double counting.
 The current release does not yet read the Install Referrer inside the mobile
 binary, so this change proves the source of a store click but not the campaign
 that caused a completed install. That mobile consumer belongs with the claimed
@@ -74,7 +79,8 @@ readback, or missing active paid-app experiment proof.
 The audit deliberately excludes
 `hermes-mobile/docs/social/ready-to-post/PUBLISHED.md`: it is a historical
 receipt and may contain URLs that were correct when a post was published. It
-does inspect the reusable README and every other `ready-to-post/*.md` file.
+does recursively inspect the reusable README, every other `ready-to-post`
+Markdown file, and every reusable `week-*` campaign draft directory.
 
 ## Simulator and remote-network proof
 

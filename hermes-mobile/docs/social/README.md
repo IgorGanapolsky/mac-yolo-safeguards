@@ -15,5 +15,5 @@ Strategy: [ASO-POSITIONING-SOCIAL-JULY-2026.md](../ASO-POSITIONING-SOCIAL-JULY-2
 
 Canonical: [../CONTENT-ENGINE-REVENUE-V1.md](../CONTENT-ENGINE-REVENUE-V1.md)
 
-- Latest: [revenue-engine-2026-07-13/](./revenue-engine-2026-07-13/) — **Drafted, NOT published**
+- Historical receipt: [revenue-engine-2026-07-13/](./revenue-engine-2026-07-13/) — **published in July 2026; do not reuse as current copy**
 - Memory: [content-engine-memory.tsv](./content-engine-memory.tsv)

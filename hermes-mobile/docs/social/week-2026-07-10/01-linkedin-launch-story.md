@@ -12,8 +12,8 @@ So I built **Hermes Mobile**: remote control for agents on **your** Mac/Linux/Wi
 
 → **Leash** tab: approve/deny blocked commands in one tap
 → QR pair — keys stay on your hardware
-→ Leash Pro $19.99/mo vs Replit-style credit burn
+→ $4.99 paid upfront vs Replit-style credit burn
 
-📱 https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+📱 https://thumbgate.app/go/android?utm_source=linkedin&utm_medium=organic&utm_campaign=week_20260710&cta_id=week_20260710_linkedin_story_play
 
 #AI #DeveloperTools #Cursor #ClaudeCode #AgenticAI

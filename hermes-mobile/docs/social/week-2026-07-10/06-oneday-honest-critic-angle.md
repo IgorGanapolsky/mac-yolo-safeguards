@@ -21,9 +21,9 @@ I built **Hermes Mobile** so your coding agent has an **honest critic**, not a y
 
 Not Hermes Agent (AI on Android). Not a cloud relay. **Your machine, your rules.**
 
-Leash Pro $19.99/mo · free pairing and chat
+$4.99 paid upfront · chat, approvals, and standing gate rules included
 
-📱 https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+📱 https://thumbgate.app/go/android?utm_source=linkedin&utm_medium=organic&utm_campaign=week_20260710_honest&cta_id=week_20260710_honest_linkedin_play
 
 #AI #DeveloperTools #Cursor #ClaudeCode #AgenticAI #IndieDev
 
@@ -45,9 +45,9 @@ So I shipped Hermes Mobile:
 - QR pair to **your** gateway — no cloud relay, no credit burn  
 - Works on home Wi‑Fi or Tailscale when you're on cellular  
 
-Free to pair and chat. Leash Pro is $19.99/mo for unlimited approvals + standing gate rules.
+The $4.99 paid-upfront app includes chat, unlimited approvals, and standing gate rules.
 
-Play: https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+Play: https://thumbgate.app/go/android?utm_source=reddit&utm_medium=organic&utm_campaign=week_20260710_honest&cta_id=week_20260710_honest_reddit_play
 
 Happy to answer setup questions. Not affiliated with Hen Works' Hermes Agent or Axiom's Hermes-Relay — different products.
 
@@ -67,14 +67,14 @@ Happy to answer setup questions. Not affiliated with Hen Works' Hermes Agent or 
 **🎯 WHAT YOU'LL LEARN**
 - Why cloud relays aren't the only path to "agent in your pocket"
 - How Leash gates tool calls before they hit your repo
-- How to stay on free tier vs when Leash Pro ($19.99/mo) pays for itself
+- How to configure Leash approval and standing-gate rules
 
 **👤 HOST**
 Igor Ganapolsky — builder of Hermes gateway + mac-yolo-safeguards; ships with 700+ automated tests and release-only device proofs.
 
-**Format:** 30 min Zoom · Free · Android demo live · iOS when App Store approves
+**Format:** 30 min Zoom · Free · Android and iOS walkthrough
 
-**CTA:** Play Store link + `hermes://setup?demo=1` for reviewers
+**CTA:** Attributed store link; no reviewer-only demo or setup backdoor
 
 ---
 
@@ -86,4 +86,4 @@ Approve Cursor tool calls from your phone before they run.
 
 Hermes Mobile — your Mac, not cloud credits.
 
-https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+https://thumbgate.app/go/android?utm_source=medium&utm_medium=organic&utm_campaign=week_20260710_honest&cta_id=week_20260710_honest_medium_play

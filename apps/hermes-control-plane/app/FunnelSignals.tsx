@@ -9,6 +9,10 @@ import {
 } from "@/lib/funnel-attribution";
 
 const endpoint = "/api/analytics/event";
+const SERVER_RECORDED_EVENTS = new Set([
+  "play_store_click",
+  "app_store_click",
+]);
 
 function signal(event: string, attr: FunnelAttribution) {
   const body: Record<string, string | number> = {
@@ -40,7 +44,9 @@ export function FunnelSignals() {
           ? event.target.closest<HTMLElement>("[data-funnel-event]")
           : null;
       const funnelEvent = target?.dataset.funnelEvent;
-      if (funnelEvent) signal(funnelEvent, attr);
+      if (funnelEvent && !SERVER_RECORDED_EVENTS.has(funnelEvent)) {
+        signal(funnelEvent, attr);
+      }
     };
     document.addEventListener("click", trackClick);
     return () => document.removeEventListener("click", trackClick);

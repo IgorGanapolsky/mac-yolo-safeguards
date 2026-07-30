@@ -260,8 +260,13 @@ try {
   });
 
   const iosStore = await fetch(
-    `http://127.0.0.1:${port}/go/ios?utm_source=e2e&utm_medium=worker&utm_campaign=store_redirect_e2e&cta_id=ios_a`,
-    { redirect: "manual" },
+    `http://127.0.0.1:${port}/go/ios`,
+    {
+      redirect: "manual",
+      headers: {
+        referer: `http://127.0.0.1:${port}/?utm_source=e2e&utm_medium=worker&utm_campaign=store_redirect_e2e&cta_id=ios_a`,
+      },
+    },
   );
   assert.equal(iosStore.status, 302);
   assert.match(iosStore.headers.get("cache-control") || "", /no-store/);

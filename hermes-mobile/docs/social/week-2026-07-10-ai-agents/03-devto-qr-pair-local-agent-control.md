@@ -25,6 +25,6 @@ Your API keys never leave your hardware. Works over Wi‑Fi, USB, Tailscale, or 
 
 ## Try it
 
-Play Store: https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+Play Store: https://thumbgate.app/go/android?utm_source=devto&utm_medium=organic&utm_campaign=week_20260710_ai_agents&cta_id=week_ai_devto_play
 
 Tags: `#ai`, `#devtools`, `#cursor`, `#mac`, `#agents`

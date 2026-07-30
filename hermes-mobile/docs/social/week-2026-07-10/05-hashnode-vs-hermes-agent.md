@@ -10,4 +10,4 @@ Same Play search, opposite architectures:
 
 Hermes-Relay = cloud relay. Hermes Mobile = direct gateway + QR + Tailscale.
 
-https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+https://thumbgate.app/go/android?utm_source=hashnode&utm_medium=organic&utm_campaign=week_20260710&cta_id=week_20260710_hashnode_vs_play

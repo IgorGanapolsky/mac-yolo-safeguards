@@ -63,6 +63,56 @@ test('publishable copy audit accepts attributed store routes and ignores receipt
   });
 });
 
+test('publishable copy audit recursively checks reusable weekly draft directories', () => {
+  const root = makeTempDirectory();
+  const week = path.join(
+    root,
+    'hermes-mobile/docs/social/week-2026-07-10/nested',
+  );
+  fs.mkdirSync(week, { recursive: true });
+  fs.writeFileSync(
+    path.join(week, 'stale.md'),
+    'Play: https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile\n',
+  );
+
+  const result = auditPublishableStoreCopy(root);
+
+  assert.equal(result.status, 'fail');
+  assert.equal(result.filesScanned, 1);
+  assert.equal(result.findings[0]?.rule, 'retired-play-package');
+  assert.equal(
+    result.findings[0]?.file,
+    'hermes-mobile/docs/social/week-2026-07-10/nested/stale.md',
+  );
+});
+
+test('publishable copy audit rejects positive legacy free-tier and pending-iOS slogans', () => {
+  const root = makeTempDirectory();
+  const ready = path.join(root, 'hermes-mobile/docs/social/ready-to-post');
+  fs.mkdirSync(ready, { recursive: true });
+  fs.writeFileSync(
+    path.join(ready, 'legacy-free.md'),
+    'Hermes Mobile has an honest free tier. Free chat and free pairing are included.\n',
+  );
+  fs.writeFileSync(
+    path.join(ready, 'pending-ios.md'),
+    'Android demo live; iOS when App Store approves.\n',
+  );
+  fs.writeFileSync(
+    path.join(ready, 'honesty-check.md'),
+    'Do not claim a free tier, monthly mobile subscription, or pending iOS state.\n',
+  );
+
+  const result = auditPublishableStoreCopy(root);
+
+  assert.equal(result.status, 'fail');
+  assert.equal(result.filesScanned, 3);
+  assert.deepEqual(
+    result.findings.map((finding) => finding.rule).sort(),
+    ['obsolete-ios-review-state', 'obsolete-subscription-copy'],
+  );
+});
+
 test('content log summary keeps provider-visible and draft states separate', () => {
   const root = makeTempDirectory();
   const logPath = path.join(root, 'content.tsv');

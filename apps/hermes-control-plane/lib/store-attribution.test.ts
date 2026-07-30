@@ -115,6 +115,41 @@ describe("store attribution", () => {
     expect(dbCalls).toHaveLength(2);
   });
 
+  it("recovers campaign tokens from a same-origin landing referrer", async () => {
+    const receipt = await recordStoreRedirect(
+      new Request("https://thumbgate.app/go/ios", {
+        headers: {
+          referer:
+            "https://thumbgate.app/?utm_source=linkedin&utm_medium=social&utm_campaign=hermes_agent_20260730&cta_id=linkedin_launch_card_a",
+        },
+      }),
+      "app_store_click",
+    );
+
+    expect(receipt).toEqual({ attribution, recorded: true });
+    expect(dbCalls).toHaveLength(2);
+  });
+
+  it("ignores campaign tokens in a cross-origin referrer", async () => {
+    const receipt = await recordStoreRedirect(
+      new Request("https://thumbgate.app/go/ios", {
+        headers: {
+          referer:
+            "https://untrusted.example/?utm_source=spoof&utm_campaign=fake",
+        },
+      }),
+      "app_store_click",
+    );
+
+    expect(receipt.attribution).toEqual({
+      utmSource: "",
+      utmMedium: "",
+      utmCampaign: "",
+      ctaId: "",
+    });
+    expect(dbCalls).toHaveLength(1);
+  });
+
   it("returns a non-cacheable privacy-preserving redirect", () => {
     const response = storeRedirectResponse("https://example.com/store");
     expect(response.status).toBe(302);

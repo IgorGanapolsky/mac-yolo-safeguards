@@ -30,11 +30,12 @@ const COPY_RULES = [
   {
     name: 'obsolete-subscription-copy',
     pattern:
-      /(?:10[^.\n]{0,40}approvals?\s*\/\s*week|\$19\.99\s*\/\s*(?:mo|month)|free[^.\n]{0,80}10 approvals?)/gi,
+      /(?:10[^.\n]{0,40}approvals?\s*\/\s*week|\$19\.99\s*\/\s*(?:mo|month)|free[^.\n]{0,80}10 approvals?|honest\s+free\s+tier|free\s+tier\s+covers|stay\s+on\s+(?:the\s+)?free\s+tier|free\s+(?:chat|pairing)|free\s+to\s+pair)/gi,
   },
   {
     name: 'obsolete-ios-review-state',
-    pattern: /\biOS\b[^.\n]{0,60}\b(?:in review|not (?:live|available))\b/gi,
+    pattern:
+      /\biOS\b[^.\n]{0,60}\b(?:in review|not (?:live|available)|when (?:the )?app store approves?)\b/gi,
   },
   {
     name: 'obsolete-demo-backdoor',
@@ -46,17 +47,31 @@ function listPublishableFiles(root) {
   const social = path.join(root, 'hermes-mobile/docs/social');
   const ready = path.join(social, 'ready-to-post');
   const files = [];
+  const walkMarkdown = (directory, excludedNames = new Set()) => {
+    if (!fs.existsSync(directory)) return;
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const target = path.join(directory, entry.name);
+      if (entry.isDirectory()) walkMarkdown(target, excludedNames);
+      else if (
+        entry.name.endsWith('.md') &&
+        !excludedNames.has(entry.name)
+      ) {
+        files.push(target);
+      }
+    }
+  };
   const readme = path.join(social, 'README.md');
   if (fs.existsSync(readme)) files.push(readme);
-  if (fs.existsSync(ready)) {
-    for (const name of fs.readdirSync(ready).sort()) {
-      // PUBLISHED.md is an immutable historical receipt, not reusable copy.
-      if (name.endsWith('.md') && name !== 'PUBLISHED.md') {
-        files.push(path.join(ready, name));
+  // PUBLISHED.md is an immutable historical receipt, not reusable copy.
+  walkMarkdown(ready, new Set(['PUBLISHED.md']));
+  if (fs.existsSync(social)) {
+    for (const entry of fs.readdirSync(social, { withFileTypes: true })) {
+      if (entry.isDirectory() && entry.name.startsWith('week-')) {
+        walkMarkdown(path.join(social, entry.name));
       }
     }
   }
-  return files;
+  return [...new Set(files)].sort();
 }
 
 function auditPublishableStoreCopy(root = ROOT) {

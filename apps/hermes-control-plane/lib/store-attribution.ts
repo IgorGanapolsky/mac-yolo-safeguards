@@ -1,4 +1,5 @@
 import {
+  hasAttribution,
   parseAttributionFromSearch,
   type FunnelAttribution,
 } from "@/lib/funnel-attribution";
@@ -43,6 +44,23 @@ export function storeRedirectResponse(targetUrl: string): Response {
   });
 }
 
+export function parseStoreAttribution(request: Request): FunnelAttribution {
+  const target = new URL(request.url);
+  const direct = parseAttributionFromSearch(target.search);
+  if (hasAttribution(direct)) return direct;
+
+  const referrer = request.headers.get("referer");
+  if (!referrer) return direct;
+  try {
+    const source = new URL(referrer);
+    return source.origin === target.origin
+      ? parseAttributionFromSearch(source.search)
+      : direct;
+  } catch {
+    return direct;
+  }
+}
+
 /**
  * Record direct social/email links that enter through /go/*.
  * Analytics failures never strand a buyer on the redirect route.
@@ -51,7 +69,7 @@ export async function recordStoreRedirect(
   request: Request,
   event: StoreClickEvent,
 ): Promise<StoreRedirectReceipt> {
-  const attribution = parseAttributionFromSearch(new URL(request.url).search);
+  const attribution = parseStoreAttribution(request);
   try {
     await recordFunnelEvent(event, attribution);
     return { attribution, recorded: true };

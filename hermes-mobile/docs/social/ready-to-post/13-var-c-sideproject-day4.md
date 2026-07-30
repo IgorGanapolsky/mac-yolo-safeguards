@@ -5,7 +5,7 @@
 
 ## Title
 
-Hermes Mobile — phone remote for AI agents on your own Mac (approve/deny Leash, honest free tier)
+Hermes Mobile — $4.99 phone remote for AI agents on your own Mac (approve/deny Leash)
 
 ## Body
 
