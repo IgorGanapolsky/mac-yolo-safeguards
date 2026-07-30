@@ -25,6 +25,8 @@ Your API keys never leave your hardware. Works over Wi‑Fi, USB, Tailscale, or 
 
 ## Try it
 
+Hermes control plane: https://thumbgate.app/?utm_source=devto&utm_medium=social&utm_campaign=week_20260710_ai_agents&cta_id=week_ai_devto_home
+
 Play Store: https://thumbgate.app/go/android?utm_source=devto&utm_medium=organic&utm_campaign=week_20260710_ai_agents&cta_id=week_ai_devto_play
 
 Tags: `#ai`, `#devtools`, `#cursor`, `#mac`, `#agents`

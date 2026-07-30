@@ -6,4 +6,6 @@ Cloud agents centralize risk: your keys, your spend, your blast radius. Hermes M
 
 Not Hermes Agent (AI on Android). Not Hermes-Relay (cloud middleman). **Your machine, your rules.**
 
+https://thumbgate.app/?utm_source=medium&utm_medium=social&utm_campaign=week_20260710&cta_id=week_20260710_medium_own_machine_home
+
 https://thumbgate.app/go/android?utm_source=medium&utm_medium=organic&utm_campaign=week_20260710&cta_id=week_20260710_medium_own_machine_play

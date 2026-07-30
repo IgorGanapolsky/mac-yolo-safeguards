@@ -45,6 +45,8 @@ const COPY_RULES = [
 
 const ATTRIBUTED_STORE_URL =
   /https:\/\/thumbgate\.app\/go\/(?:android|ios)(?:\?[^\s<>"')\]]*)?/gi;
+const ATTRIBUTED_HERO_URL =
+  /https:\/\/thumbgate\.app\/\?(?:[^\s<>"')\]]*)?/gi;
 const DIRECT_STORE_URL =
   /https:\/\/(?:play\.google\.com\/store\/apps\/details|apps\.apple\.com\/[^\s<>"')\]]+)[^\s<>"')\]]*/gi;
 const REQUIRED_CAMPAIGN_PARAMS = [
@@ -66,7 +68,7 @@ const PLATFORM_ALIASES = {
 function platformFromLabel(label) {
   const normalized = String(label).toLowerCase();
   if (/\blinkedin\b/.test(normalized)) return 'linkedin';
-  if (/\breddit\b/.test(normalized)) return 'reddit';
+  if (/\breddit\b|\br\/[a-z0-9_]+\b/.test(normalized)) return 'reddit';
   if (/(?:^|[^a-z])(?:x|twitter)(?:[^a-z]|$)/.test(normalized)) return 'x';
   if (/\bmedium\b/.test(normalized)) return 'medium';
   if (/\bhashnode\b/.test(normalized)) return 'hashnode';
@@ -150,6 +152,64 @@ function auditCampaignLinks(file, body, root) {
   return findings;
 }
 
+function auditRequiredHeroCtas(file, body, root) {
+  const findings = [];
+  const heroes = [...body.matchAll(ATTRIBUTED_HERO_URL)].map((match) => {
+    const rawUrl = match[0].replace(/[.,;:]+$/, '');
+    return new URL(rawUrl);
+  });
+  const checkedCampaigns = new Set();
+
+  for (const match of body.matchAll(ATTRIBUTED_STORE_URL)) {
+    const rawUrl = match[0].replace(/[.,;:]+$/, '');
+    const storeUrl = new URL(rawUrl);
+    if (
+      REQUIRED_CAMPAIGN_PARAMS.some(
+        (name) => !storeUrl.searchParams.get(name)?.trim(),
+      )
+    ) {
+      continue;
+    }
+
+    const expected = expectedPlatform(file, body, match.index);
+    const source = storeUrl.searchParams.get('utm_source').toLowerCase();
+    const campaign = storeUrl.searchParams.get('utm_campaign');
+    const ctaId = storeUrl.searchParams.get('cta_id');
+    if (expected) {
+      const aliases = PLATFORM_ALIASES[expected];
+      if (
+        !aliases.includes(source) ||
+        ctaNamesAnotherPlatform(ctaId, expected)
+      ) {
+        continue;
+      }
+    }
+    if (expected === 'reddit' || source === 'reddit') continue;
+
+    const campaignKey = `${source}\u0000${campaign}`;
+    if (checkedCampaigns.has(campaignKey)) continue;
+    checkedCampaigns.add(campaignKey);
+    const hasHero = heroes.some(
+      (hero) =>
+        hero.searchParams.get('utm_source') === source &&
+        hero.searchParams.get('utm_medium') === 'social' &&
+        hero.searchParams.get('utm_campaign') === campaign &&
+        /(?:^|[_-])home(?:$|[_-])/i.test(
+          hero.searchParams.get('cta_id') || '',
+        ),
+    );
+    if (!hasHero) {
+      findings.push({
+        rule: 'missing-required-hero-cta',
+        file: path.relative(root, file),
+        line: body.slice(0, match.index).split(/\r?\n/).length,
+        excerpt: `source=${source} campaign=${campaign}`,
+      });
+    }
+  }
+  return findings;
+}
+
 function listPublishableFiles(root) {
   const social = path.join(root, 'hermes-mobile/docs/social');
   const ready = path.join(social, 'ready-to-post');
@@ -213,6 +273,7 @@ function auditPublishableStoreCopy(root = ROOT) {
       });
     }
     findings.push(...auditCampaignLinks(file, body, root));
+    findings.push(...auditRequiredHeroCtas(file, body, root));
   }
   return {
     status: findings.length === 0 ? 'pass' : 'fail',
@@ -224,10 +285,13 @@ function auditPublishableStoreCopy(root = ROOT) {
 function summarizeContentLog(logPath = CONTENT_LOG) {
   if (!fs.existsSync(logPath)) {
     return {
+      status: 'unverified',
       totalRows: 0,
       statusCounts: {},
       publishedWithReceipt: 0,
       publishedWithoutReceipt: 0,
+      liveWithReceipt: 0,
+      liveWithoutReceipt: 0,
     };
   }
   const lines = fs
@@ -236,10 +300,13 @@ function summarizeContentLog(logPath = CONTENT_LOG) {
     .filter((line) => line.trim());
   if (lines.length < 2) {
     return {
+      status: 'pass',
       totalRows: 0,
       statusCounts: {},
       publishedWithReceipt: 0,
       publishedWithoutReceipt: 0,
+      liveWithReceipt: 0,
+      liveWithoutReceipt: 0,
     };
   }
   const header = lines[0].split('\t');
@@ -248,19 +315,27 @@ function summarizeContentLog(logPath = CONTENT_LOG) {
   const statusCounts = {};
   let publishedWithReceipt = 0;
   let publishedWithoutReceipt = 0;
+  let liveWithReceipt = 0;
+  let liveWithoutReceipt = 0;
 
   for (const line of lines.slice(1)) {
     const columns = line.split('\t');
     const status = String(columns[statusIndex] || 'unknown').trim().toLowerCase();
     const postUrl = String(columns[urlIndex] || '').trim();
     statusCounts[status] = (statusCounts[status] || 0) + 1;
+    const hasReceipt = /^https?:\/\//i.test(postUrl);
     if (status === 'published') {
-      if (/^https?:\/\//i.test(postUrl)) publishedWithReceipt += 1;
+      if (hasReceipt) publishedWithReceipt += 1;
       else publishedWithoutReceipt += 1;
+    }
+    if (status === 'published' || status === 'posted') {
+      if (hasReceipt) liveWithReceipt += 1;
+      else liveWithoutReceipt += 1;
     }
   }
 
   return {
+    status: liveWithoutReceipt === 0 ? 'pass' : 'fail',
     totalRows: lines.length - 1,
     statusCounts: Object.fromEntries(
       Object.entries(statusCounts).sort(([left], [right]) =>
@@ -269,6 +344,8 @@ function summarizeContentLog(logPath = CONTENT_LOG) {
     ),
     publishedWithReceipt,
     publishedWithoutReceipt,
+    liveWithReceipt,
+    liveWithoutReceipt,
   };
 }
 
@@ -560,6 +637,7 @@ async function buildAudit({ live = false } = {}) {
 function failedChecks(report) {
   const checks = [
     ['publishableStoreCopy', report.publishableStoreCopy?.status],
+    ['contentLog', report.contentLog?.status],
     ['storeExperiments', report.storeExperiments?.status],
   ];
   if (report.publicStores) {

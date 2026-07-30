@@ -14,6 +14,8 @@ So I built **Hermes Mobile**: remote control for agents on **your** Mac/Linux/Wi
 → QR pair — keys stay on your hardware
 → $4.99 paid upfront vs Replit-style credit burn
 
+🌐 https://thumbgate.app/?utm_source=linkedin&utm_medium=social&utm_campaign=week_20260710&cta_id=week_20260710_linkedin_story_home
+
 📱 https://thumbgate.app/go/android?utm_source=linkedin&utm_medium=organic&utm_campaign=week_20260710&cta_id=week_20260710_linkedin_story_play
 
 #AI #DeveloperTools #Cursor #ClaudeCode #AgenticAI

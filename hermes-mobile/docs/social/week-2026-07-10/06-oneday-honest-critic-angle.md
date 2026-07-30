@@ -23,6 +23,8 @@ Not Hermes Agent (AI on Android). Not a cloud relay. **Your machine, your rules.
 
 $4.99 paid upfront · chat, approvals, and standing gate rules included
 
+🌐 https://thumbgate.app/?utm_source=linkedin&utm_medium=social&utm_campaign=week_20260710_honest&cta_id=week_20260710_honest_linkedin_home
+
 📱 https://thumbgate.app/go/android?utm_source=linkedin&utm_medium=organic&utm_campaign=week_20260710_honest&cta_id=week_20260710_honest_linkedin_play
 
 #AI #DeveloperTools #Cursor #ClaudeCode #AgenticAI #IndieDev
@@ -85,5 +87,7 @@ Your agent is a hype man. Leash is the honest critic.
 Approve Cursor tool calls from your phone before they run.
 
 Hermes Mobile — your Mac, not cloud credits.
+
+https://thumbgate.app/?utm_source=x&utm_medium=social&utm_campaign=week_20260710_honest&cta_id=week_20260710_honest_x_home
 
 https://thumbgate.app/go/android?utm_source=x&utm_medium=organic&utm_campaign=week_20260710_honest&cta_id=week_20260710_honest_x_play

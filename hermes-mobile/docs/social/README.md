@@ -1,5 +1,7 @@
 # Social drafts — Hermes Mobile
 
+Hermes control plane: https://thumbgate.app/?utm_source=github&utm_medium=social&utm_campaign=evergreen_store&cta_id=social_readme_home
+
 Play: https://thumbgate.app/go/android?utm_source=github&utm_medium=social_library&utm_campaign=evergreen_store&utm_content=social_readme&cta_id=social_readme
 
 App Store: https://thumbgate.app/go/ios?utm_source=github&utm_medium=social_library&utm_campaign=evergreen_store&utm_content=social_readme&cta_id=social_readme_ios

@@ -10,6 +10,7 @@ const test = require('node:test');
 const {
   auditExperimentProof,
   auditPublishableStoreCopy,
+  failedChecks,
   parseD1JsonOutput,
   summarizeContentLog,
 } = require('../tools/hermes-growth-audit');
@@ -53,7 +54,10 @@ test('publishable copy audit accepts attributed store routes and ignores receipt
   fs.mkdirSync(ready, { recursive: true });
   fs.writeFileSync(
     path.join(ready, 'good.md'),
-    'Install for $4.99: https://thumbgate.app/go/android?utm_source=x&utm_medium=social&utm_campaign=launch&cta_id=x_a\n',
+    [
+      'Hero: https://thumbgate.app/?utm_source=x&utm_medium=social&utm_campaign=launch&cta_id=x_home',
+      'Install for $4.99: https://thumbgate.app/go/android?utm_source=x&utm_medium=social&utm_campaign=launch&cta_id=x_a',
+    ].join('\n'),
   );
   fs.writeFileSync(
     path.join(social, 'PUBLISHED.md'),
@@ -188,6 +192,50 @@ test('publishable copy audit requires complete and platform-consistent campaign 
   );
 });
 
+test('publishable copy audit requires a campaign-matched hero before non-Reddit store CTAs', () => {
+  const root = makeTempDirectory();
+  const week = path.join(
+    root,
+    'hermes-mobile/docs/social/week-2026-07-10',
+  );
+  fs.mkdirSync(week, { recursive: true });
+  fs.writeFileSync(
+    path.join(week, 'linkedin.md'),
+    [
+      '# LinkedIn launch',
+      'https://thumbgate.app/go/android?utm_source=linkedin&utm_medium=organic&utm_campaign=launch&utm_content=body&cta_id=linkedin_play',
+    ].join('\n'),
+  );
+  fs.writeFileSync(
+    path.join(week, 'reddit.md'),
+    [
+      '# Reddit r/selfhosted',
+      'https://thumbgate.app/go/android?utm_source=reddit&utm_medium=organic&utm_campaign=launch&cta_id=reddit_play',
+    ].join('\n'),
+  );
+
+  const missingHero = auditPublishableStoreCopy(root);
+  assert.deepEqual(
+    missingHero.findings.map((finding) => finding.rule),
+    ['missing-required-hero-cta'],
+  );
+
+  fs.writeFileSync(
+    path.join(week, 'linkedin.md'),
+    [
+      '# LinkedIn launch',
+      'https://thumbgate.app/?utm_source=linkedin&utm_medium=social&utm_campaign=launch&cta_id=linkedin_home',
+      'https://thumbgate.app/go/android?utm_source=linkedin&utm_medium=organic&utm_campaign=launch&utm_content=body&cta_id=linkedin_play',
+    ].join('\n'),
+  );
+
+  assert.deepEqual(auditPublishableStoreCopy(root), {
+    status: 'pass',
+    filesScanned: 2,
+    findings: [],
+  });
+});
+
 test('store experiment proof requires independent active receipts for both stores', () => {
   const now = Date.parse('2026-07-30T20:00:00Z');
   const root = makeTempDirectory();
@@ -282,19 +330,36 @@ test('content log summary keeps provider-visible and draft states separate', () 
       '2026-07-30\tX\tlaunch\tDrafted\t—',
       '2026-07-30\tReddit\tlaunch\tBlocked\t—',
       '2026-07-30\tdev.to\tlaunch\tPublished\t—',
+      '2026-07-30\tLinkedIn\tlaunch\tPosted\thttps://example.com/posted',
+      '2026-07-30\tThreads\tlaunch\tPosted\t—',
     ].join('\n'),
   );
 
   assert.deepEqual(summarizeContentLog(logPath), {
-    totalRows: 4,
+    status: 'fail',
+    totalRows: 6,
     statusCounts: {
       blocked: 1,
       drafted: 1,
+      posted: 2,
       published: 2,
     },
     publishedWithReceipt: 1,
     publishedWithoutReceipt: 1,
+    liveWithReceipt: 2,
+    liveWithoutReceipt: 2,
   });
+});
+
+test('strict failure list includes live content claims without provider receipts', () => {
+  assert.deepEqual(
+    failedChecks({
+      publishableStoreCopy: { status: 'pass' },
+      contentLog: { status: 'fail', liveWithoutReceipt: 1 },
+      storeExperiments: { status: 'pass' },
+    }),
+    [{ name: 'contentLog', status: 'fail' }],
+  );
 });
 
 test('D1 output parser extracts the final Wrangler JSON payload', () => {

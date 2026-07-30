@@ -2,6 +2,8 @@
 
 **Status:** Ready — post with screenshot `docs/social/captures/2026-07-13/store_01_approve.png` or live chat capture  
 **UTM Play link:**  
+https://thumbgate.app/?utm_source=x&utm_medium=social&utm_campaign=day0-leash-thread&cta_id=x_thread_home
+
 https://thumbgate.app/go/android?utm_source=x&utm_medium=organic&utm_campaign=day0-leash-thread&cta_id=x_thread_post_4
 
 ---
