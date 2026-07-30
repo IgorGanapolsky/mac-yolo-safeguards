@@ -24,7 +24,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const {
   checkStoreReconciliation, checkEmbeddingCoverage, checkEmbeddingSanity,
-  runIngestionIntegrity, render,
+  runIngestionIntegrity, render, namespaceBreakdown,
 } = require(path.join(ROOT, 'tools', 'ingestion-integrity.js'));
 
 let pass = 0;
@@ -62,16 +62,72 @@ const writeEmb = (name, obj) => {
 
 // --- store reconciliation -----------------------------------------------------
 
-test('stores that disagree badly are FAILED with both counts named', () => {
-  const r = checkStoreReconciliation({ sqlite: missing, jsonl: writeJsonl('a.jsonl', 1069) });
-  // sqlite is unreadable here, so this must be "cannot determine" -> failure.
+// The reconciliation check is deliberately NOT a count comparison. Comparing
+// sqlite=1846 against jsonl=1069 and calling it "42.1% drift" was the first
+// version, and it produced the WRONG DIAGNOSIS — it reads as "a writer is
+// falling behind" and sends someone hunting a lagging export job. The real
+// structure is one canonical store and two DISJOINT partial projections written
+// by two pipelines. These tests pin the distinction.
+
+function writeSqlite(name, ids) {
+  const p = path.join(dir, name);
+  const { execFileSync } = require('child_process');
+  execFileSync('sqlite3', [p, 'create table lessons (id TEXT PRIMARY KEY);'], { stdio: 'ignore' });
+  if (ids.length) {
+    const vals = ids.map((i) => `('${i}')`).join(',');
+    execFileSync('sqlite3', [p, `insert into lessons (id) values ${vals};`], { stdio: 'ignore' });
+  }
+  return p;
+}
+function writeJsonlIds(name, ids) {
+  const p = path.join(dir, name);
+  fs.writeFileSync(p, ids.map((i) => JSON.stringify({ id: i })).join('\n'));
+  return p;
+}
+
+test('a projection missing records FAILS and names the namespaces', () => {
+  const all = [...Array(10).keys()].map((i) => `lesson_${i}`)
+    .concat([...Array(5).keys()].map((i) => `mem_${i}`));
+  const r = checkStoreReconciliation({
+    sqlite: writeSqlite('r1.sqlite', all),
+    jsonl: writeJsonlIds('r1.jsonl', all.slice(0, 10)),
+  });
   assert.equal(r.status, 'fail');
-  assert.match(r.detail, /cannot compare|unknown/i);
+  assert.match(r.detail, /10\/15/);
+  // The namespace split is what makes this actionable rather than a bare delta.
+  assert.match(r.detail, /lesson_=10/);
+  assert.match(r.detail, /mem_=5/);
+  assert.match(r.detail, /not a lagging writer/);
+});
+
+test('a COMPLETE projection passes even across two namespaces', () => {
+  const all = ['lesson_a', 'lesson_b', 'mem_a'];
+  const r = checkStoreReconciliation({
+    sqlite: writeSqlite('r2.sqlite', all),
+    jsonl: writeJsonlIds('r2.jsonl', all),
+  });
+  assert.equal(r.status, 'ok', `complete coverage must pass, got: ${r.detail}`);
+});
+
+test('an ORPHAN id in the projection is caught — stores disagree on what exists', () => {
+  const r = checkStoreReconciliation({
+    sqlite: writeSqlite('r3.sqlite', ['lesson_a', 'lesson_b']),
+    jsonl: writeJsonlIds('r3.jsonl', ['lesson_a', 'lesson_GHOST']),
+  });
+  assert.equal(r.status, 'fail');
+  assert.match(r.detail, /NOT in the canonical store/);
+  assert.match(r.detail, /lesson_GHOST/);
 });
 
 test('cannot-determine is a FAILURE, never a silent pass', () => {
   const r = checkStoreReconciliation({ sqlite: missing, jsonl: missing });
-  assert.equal(r.status, 'fail', 'two unreadable stores must not report healthy');
+  assert.equal(r.status, 'fail', 'unreadable stores must not report healthy');
+});
+
+test('namespaceBreakdown surfaces a two-pipeline corpus', () => {
+  const out = namespaceBreakdown(new Set(['lesson_1', 'lesson_2', 'mem_1']));
+  assert.match(out, /lesson_=2/);
+  assert.match(out, /mem_=1/);
 });
 
 // --- embedding coverage -------------------------------------------------------

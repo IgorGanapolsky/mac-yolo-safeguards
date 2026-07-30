@@ -5,25 +5,29 @@
  * ingestion-integrity.js — prove the retrieval stores AGREE with each other.
  *
  * WHY THIS EXISTS
- *   Audited 2026-07-30. The lesson corpus lives in three places and all three
- *   disagreed, with nothing reconciling them:
+ *   Audited 2026-07-30. One canonical store, two partial projections built by
+ *   two different pipelines, and nothing reconciling any of them:
  *
- *       lessons.sqlite          1846 rows
- *       lessons-index.jsonl     1069 rows
- *       lesson-embeddings.json   383 vectors   (20.7% of sqlite)
+ *       lessons.sqlite   1846  =  lesson_* x1069  +  mem_* x777
+ *         lesson_* (1069) -> exported to lessons-index.jsonl, ZERO embedded
+ *         mem_*    (777)  -> 383 embedded (49%), 394 not
+ *         jsonl INTERSECT embeddings = 0                      (disjoint)
  *
- *   1463 lessons had no vector at all, so semantic search silently covered a
- *   fifth of the corpus. Keyword (FTS) covered all of it, which is exactly why
- *   nobody noticed: some queries worked, so the store looked healthy.
+ *   1463 records have no vector, so semantic search reaches a fifth of the
+ *   corpus. Keyword search (sqlite FTS) reaches all of it, which is exactly why
+ *   nobody noticed: some queries work, so the store looks healthy.
  *
  *   Every ingestion failure in this repo has that shape — the pipeline keeps
- *   answering while quietly covering less and less. A frozen grepai index
- *   returned confident wrong files for days while its watcher reported
- *   "steady". None of it surfaced as an error, because a retriever that covers
- *   20% of a corpus still returns ten results for every query.
+ *   answering while quietly covering less. A frozen grepai index returned
+ *   confident wrong files for days while its watcher reported "steady". None of
+ *   it surfaced as an error, because a retriever covering 20% of a corpus still
+ *   returns ten results for every query.
  *
  * WHAT IT CHECKS
- *   1. store reconciliation — do the counts agree?
+ *   1. store reconciliation — is every canonical record reachable in the
+ *                             projections, and do the stores agree on what
+ *                             EXISTS? (deliberately not a count comparison —
+ *                             see the note above checkStoreReconciliation)
  *   2. embedding coverage  — what fraction of records are vector-searchable?
  *   3. embedding sanity    — are the vectors real and distinct?
  *   4. index freshness     — is the search index built from current content?
@@ -84,30 +88,95 @@ function vectorOf(entry) {
   return null;
 }
 
-/** 1. Do the stores agree on how many records exist? */
+/**
+ * 1. Is every record in the canonical store reachable by the projections built
+ *    from it?
+ *
+ * NOT a count comparison. Comparing `sqlite=1846` against `jsonl=1069` and
+ * calling it "42.1% drift" was the first version of this check, and it produced
+ * the WRONG DIAGNOSIS — it reads as "one writer is falling behind", which sends
+ * someone looking for a lagging export job.
+ *
+ * The actual structure, measured 2026-07-30:
+ *
+ *     sqlite 1846 = lesson_* x1069  +  mem_* x777
+ *       lesson_* (1069)  -> exactly the jsonl export, ZERO embedded
+ *       mem_*    (777)   -> 383 embedded (49%), 394 not
+ *       jsonl INTERSECT embeddings = 0        (disjoint)
+ *
+ * Both projections are strict SUBSETS of sqlite, so nothing is "behind". Two
+ * pipelines wrote two id namespaces, and neither embedded the other's records.
+ * Coverage per namespace is the question that has an actionable answer; a raw
+ * count delta is not.
+ */
 function checkStoreReconciliation(paths) {
-  const sqlite = countSqlite(paths.sqlite);
-  const jsonl = countJsonl(paths.jsonl);
-  const counts = { sqlite, jsonl };
-  const known = Object.entries(counts).filter(([, v]) => typeof v === 'number');
-  if (known.length < 2) {
+  const total = countSqlite(paths.sqlite);
+  const jsonlIds = readJsonlIds(paths.jsonl);
+  const sqliteIds = readSqliteIds(paths.sqlite);
+  if (total === null || sqliteIds === null) {
     return bad('store-reconciliation',
-      `cannot compare stores (sqlite=${sqlite}, jsonl=${jsonl}) — unknown is a failure, not a pass`,
-      { counts });
+      `cannot read the canonical store at ${paths.sqlite} — unknown is a failure, not a pass`);
   }
-  const vals = known.map(([, v]) => v);
-  const max = Math.max(...vals);
-  const min = Math.min(...vals);
-  const drift = max === 0 ? 0 : (max - min) / max;
-  if (drift > MAX_STORE_DRIFT) {
+  if (jsonlIds === null) {
+    return bad('store-reconciliation', `cannot read the jsonl projection at ${paths.jsonl}`);
+  }
+  // Orphans are the real defect: a projection holding ids the canonical store
+  // does not, which means the two disagree about what exists rather than merely
+  // how much has been processed.
+  const orphans = [...jsonlIds].filter((id) => !sqliteIds.has(id));
+  if (orphans.length) {
     return bad('store-reconciliation',
-      `stores disagree by ${(drift * 100).toFixed(1)}% (${known.map(([k, v]) => `${k}=${v}`).join(', ')}) `
-      + `— one writer is not keeping up, and the smaller store is what search sees`,
-      { counts, drift });
+      `${orphans.length} ids exist in the jsonl projection but NOT in the canonical store `
+      + `(e.g. ${orphans.slice(0, 2).join(', ')}) — the stores disagree about what exists`,
+      { orphans: orphans.length, total });
   }
-  return ok('store-reconciliation',
-    `${known.map(([k, v]) => `${k}=${v}`).join(', ')} within ${(MAX_STORE_DRIFT * 100).toFixed(0)}%`,
-    { counts, drift });
+  const covered = jsonlIds.size;
+  const pct = total ? (covered / total) * 100 : 0;
+  const byNamespace = namespaceBreakdown(sqliteIds);
+  if (covered < total) {
+    return bad('store-reconciliation',
+      `jsonl projects ${covered}/${total} (${pct.toFixed(1)}%) of the canonical store — `
+      + `${total - covered} records are not exported. Namespaces: ${byNamespace}. `
+      + 'Every projection is a strict subset, so this is incomplete export, not a lagging writer',
+      { covered, total, byNamespace });
+  }
+  return ok('store-reconciliation', `jsonl projects all ${total} records. Namespaces: ${byNamespace}`,
+    { covered, total, byNamespace });
+}
+
+function readJsonlIds(p) {
+  if (!fs.existsSync(p)) return null;
+  const ids = new Set();
+  for (const line of fs.readFileSync(p, 'utf8').split('\n')) {
+    if (!line.trim()) continue;
+    try {
+      const id = JSON.parse(line).id;
+      if (id) ids.add(id);
+    } catch { /* a malformed line is not an id; counted by absence */ }
+  }
+  return ids;
+}
+
+function readSqliteIds(p, table = 'lessons') {
+  if (!fs.existsSync(p)) return null;
+  try {
+    const out = execFileSync('sqlite3', [p, `select id from ${table};`], {
+      encoding: 'utf8', timeout: 30000, stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024,
+    });
+    return new Set(String(out).split('\n').map((s) => s.trim()).filter(Boolean));
+  } catch {
+    return null;
+  }
+}
+
+/** "lesson_=1069, mem_=777" — makes a two-pipeline corpus visible at a glance. */
+function namespaceBreakdown(ids) {
+  const counts = {};
+  for (const id of ids) {
+    const ns = String(id).includes('_') ? `${String(id).split('_')[0]}_` : '(none)';
+    counts[ns] = (counts[ns] || 0) + 1;
+  }
+  return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}=${v}`).join(', ');
 }
 
 /** 2. What fraction of records can vector search actually reach? */
@@ -228,6 +297,8 @@ function render(res) {
 
 module.exports = {
   runIngestionIntegrity,
+  namespaceBreakdown,
+  readJsonlIds,
   render,
   checkStoreReconciliation,
   checkEmbeddingCoverage,
