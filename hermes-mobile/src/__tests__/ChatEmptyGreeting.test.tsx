@@ -28,12 +28,17 @@ describe('ChatEmptyGreeting', () => {
     );
   });
 
-  it('prefers route labels for account-relay copy', () => {
+  it('prefers route labels for account-relay copy (honest Tailscale + home Wi‑Fi)', () => {
     const { getByTestId } = render(<ChatEmptyGreeting routeLabel="Your computer" />);
 
-    expect(getByTestId('chat-empty-greeting-subtitle').props.children).toBe(
-      'Ask anything — use Tailscale when you are away, or home Wi‑Fi when you are local.',
+    const subtitle = getByTestId('chat-empty-greeting-subtitle').props.children as string;
+    expect(subtitle).toBe(
+      'Ask anything — Tailscale works anywhere it is on; home Wi‑Fi works on the same network as your Mac.',
     );
+    // Never reintroduce exclusive away/local framing (false: Tailscale works at home).
+    expect(subtitle).not.toMatch(/when you are away/i);
+    expect(subtitle).not.toMatch(/when you are local/i);
+    expect(greetingSubtitle('Hermes account relay')).toBe(subtitle);
   });
 
   it('does not claim connected for generic routes when disconnected', () => {

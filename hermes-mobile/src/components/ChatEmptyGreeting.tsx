@@ -48,7 +48,10 @@ export function greetingSubtitle(
     : false;
 
   if (route === 'Your computer' || route === 'Hermes account relay') {
-    return 'Ask anything — use Tailscale when you are away, or home Wi‑Fi when you are local.';
+    // Honest paths (2026-07-30): Tailscale works at home too — never imply
+    // "Tailscale only when away / Wi‑Fi only when local." Away needs Tailscale
+    // (or USB/tunnel); home LAN needs same Wi‑Fi; both can use Tailscale.
+    return 'Ask anything — Tailscale works anywhere it is on; home Wi‑Fi works on the same network as your Mac.';
   }
 
   if (route === 'Computer not configured') {

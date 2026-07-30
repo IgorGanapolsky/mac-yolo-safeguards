@@ -769,6 +769,20 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(display.machineEndpoint).toBe('Tailscale');
   });
 
+  it('S53: empty greeting never claims Tailscale is only for away / Wi‑Fi only when local (2026-07-30)', () => {
+    // Screenshot class: "use Tailscale when you are away, or home Wi‑Fi when you are local"
+    // while tun0 was up at home. Tailscale works on any network; home LAN needs same Wi‑Fi.
+    const greeting = read('hermes-mobile/src/components/ChatEmptyGreeting.tsx');
+    expect(greeting).not.toMatch(/use Tailscale when you are away/i);
+    expect(greeting).not.toMatch(/when you are local/i);
+    expect(greeting).toMatch(/Tailscale works anywhere/i);
+    const { greetingSubtitle } = require('../components/ChatEmptyGreeting') as typeof import('../components/ChatEmptyGreeting');
+    const line = greetingSubtitle('Your computer');
+    expect(line).not.toMatch(/when you are away/i);
+    expect(line).not.toMatch(/when you are local/i);
+    expect(line.toLowerCase()).toContain('tailscale');
+  });
+
   it('S52: Samsung WiFi-primary never paints absolute "Tailscale is off" (2026-07-30 dogfood)', () => {
     // Live evidence R3CY90QPM7E: tun0 100.70.124.54 + VPN:com.tailscale.ipn while NetInfo
     // stayed type=wifi / 192.168.x. Absolute "is off" copy is a false negative and is banned
