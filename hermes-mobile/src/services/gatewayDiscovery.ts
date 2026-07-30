@@ -275,15 +275,16 @@ function buildHostOrder(phoneIp: string, preferLanIp?: string | null): string[] 
       preferParts.length === 4 &&
       preferParts[0] === a &&
       preferParts[1] === b &&
-      preferParts[2] === c &&
-      preferParts[3] !== self
+      preferParts[2] === c
     ) {
       hostNumbers.push(preferParts[3]);
     }
   }
   for (let host = 1; host <= 254; host += 1) {
-    if (host !== self && !hostNumbers.includes(host)) {
-      hostNumbers.push(host);
+    if (!hostNumbers.includes(host)) {
+      if (phoneIp === preferLanIp || host !== self) {
+        hostNumbers.push(host);
+      }
     }
   }
   return hostNumbers.map((host) => `${a}.${b}.${c}.${host}`);
@@ -495,9 +496,14 @@ function pairServerSweepHosts(
   tailnetPairServerHosts?: string[],
 ): string[] {
   const baseHosts = Platform.OS === 'ios' ? [] : ['127.0.0.1', 'localhost'];
-  const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
+  const effectiveIp =
+    phoneIp || (preferLanIp && IPV4_RE.test(preferLanIp.trim()) ? preferLanIp.trim() : '');
+  const subnetHosts = effectiveIp ? buildHostOrder(effectiveIp, preferLanIp) : [];
+  const fallbackSubnetHosts = !effectiveIp
+    ? ['192.168.1.1', '192.168.0.1', '10.0.0.1', '192.168.68.1']
+    : [];
   const tailnetHosts = mergeTailnetProbeHosts(tailnetPairServerHosts ?? []);
-  return Array.from(new Set([...baseHosts, ...subnetHosts, ...tailnetHosts]));
+  return Array.from(new Set([...baseHosts, ...subnetHosts, ...fallbackSubnetHosts, ...tailnetHosts]));
 }
 
 async function sweepTailnetGatewayHealth(
@@ -609,15 +615,20 @@ export async function discoverAllGatewaysOnLan(
   options?: DiscoverLanOptions,
 ): Promise<DiscoverAllGatewaysOnLanResult> {
   const phoneIp = await getPhoneLanIp();
-  const baseHosts = ['127.0.0.1', 'localhost'];
-  const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
-  const hosts = [...baseHosts, ...subnetHosts];
+  const effectiveIp =
+    phoneIp || (preferLanIp && IPV4_RE.test(preferLanIp.trim()) ? preferLanIp.trim() : '');
+  const baseHosts = Platform.OS === 'ios' ? [] : ['127.0.0.1', 'localhost'];
+  const subnetHosts = effectiveIp ? buildHostOrder(effectiveIp, preferLanIp) : [];
+  const fallbackSubnetHosts = !effectiveIp
+    ? ['192.168.1.1', '192.168.0.1', '10.0.0.1', '192.168.68.1']
+    : [];
+  const hosts = Array.from(new Set([...baseHosts, ...subnetHosts, ...fallbackSubnetHosts]));
 
   reportLanScanProgress(options?.onProgress, 'pair_server', 0, hosts.length, []);
 
   const map = new Map<string, DiscoveredGateway>();
   const fromSweep = await sweepAllPairServersAndGateways(
-    phoneIp ?? '',
+    effectiveIp,
     preferLanIp,
     options,
   );

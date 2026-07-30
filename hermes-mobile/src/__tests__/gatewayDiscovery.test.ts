@@ -567,4 +567,25 @@ describe('gatewayDiscovery', () => {
       Platform.OS = originalPlatform;
     }
   });
+
+  it('sweeps preferLanIp subnet even when NetInfo phone IP is null', async () => {
+    (NetInfo.fetch as jest.Mock).mockResolvedValue({ details: {} });
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('192.168.1.50:8642/health')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            status: 'ok',
+            hostname: 'Igors-MacBook-Pro.local',
+            local_ip: '192.168.1.50',
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+
+    const { gateways } = await discoverAllGatewaysOnLan('192.168.1.50');
+    expect(gateways.length).toBeGreaterThanOrEqual(1);
+    expect(gateways[0].gatewayUrl).toBe('http://192.168.1.50:8642');
+  });
 });
