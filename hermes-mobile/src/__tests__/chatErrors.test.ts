@@ -63,6 +63,19 @@ describe('isAuthApiError', () => {
     expect(message).not.toContain('Settings → Your active machines');
     expect(message.toLowerCase()).not.toContain('settings →');
   });
+
+  it('humanizes unexpected EOF / Error code 500 model crashes', () => {
+    const { kind, message } = humanizeChatError(
+      new Error(
+        "Error code: 500 - {'error': {'message': 'an error was encountered while running the model: unexpected EOF', 'type': 'api_error'}}",
+      ),
+      'fallback',
+    );
+    expect(kind).toBe('operational');
+    expect(message.toLowerCase()).not.toContain('unexpected eof');
+    expect(message.toLowerCase()).not.toContain('error code');
+    expect(message.toLowerCase()).toContain('fresh chat');
+  });
 });
 
 describe('isSessionInUseError', () => {

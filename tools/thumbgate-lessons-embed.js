@@ -182,9 +182,12 @@ async function main() {
     ok: false,
   };
   if (!lessons.length) {
+    // Dry-run with empty store is success (CI runners have no ~/.thumbgate lessons).
+    // --apply with nothing to write is still a hard failure.
     report.error = 'no lessons to embed';
+    report.ok = !args.apply;
     console.log(args.json ? JSON.stringify(report, null, 2) : report.error);
-    process.exit(1);
+    process.exit(args.apply ? 1 : 0);
   }
   if (!args.apply) {
     report.note = 'dry-run; pass --apply to write lesson-embeddings.json';
