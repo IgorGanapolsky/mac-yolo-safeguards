@@ -298,7 +298,9 @@ describe('ChatConnectionPanel', () => {
         />,
       );
 
-      expect(getByText('Found 1 over USB')).toBeTruthy();
+      // Standing rule: discovery copy never names the cable, even with the
+      // EXPO_PUBLIC_ALLOW_USB_TRANSPORT debug hatch on.
+      expect(getByText('Found 1 Hermes computer')).toBeTruthy();
       expect(getByTestId('chat-connection-found-computers')).toBeTruthy();
       expect(getByTestId('select-gateway-profile-usb-found')).toBeTruthy();
     } finally {
@@ -410,7 +412,7 @@ describe('ChatConnectionPanel', () => {
     expect(getByTestId('relay-worker-row-mac-mini')).toBeTruthy();
   });
 
-  it('shows Fix USB connection CTA for loopback failures off Wi‑Fi', () => {
+  it('shows the Fix computer link CTA for loopback failures off Wi‑Fi', () => {
     const onFixUsbLink = jest.fn();
     const { getByTestId, getByText } = render(
       <ChatConnectionPanel
@@ -427,10 +429,10 @@ describe('ChatConnectionPanel', () => {
       />,
     );
 
-    expect(getByText('USB connection needs setup')).toBeTruthy();
-    expect(getByText(/USB link is not ready yet/)).toBeTruthy();
+    expect(getByText('Computer link needs setup')).toBeTruthy();
+    expect(getByText(/that link is not ready yet/)).toBeTruthy();
     expect(getByTestId('chat-connection-fix-usb')).toBeTruthy();
-    expect(getByText('Fix USB connection')).toBeTruthy();
+    expect(getByText('Fix computer link')).toBeTruthy();
 
     fireEvent.press(getByTestId('chat-connection-fix-usb'));
     expect(onFixUsbLink).toHaveBeenCalled();
@@ -506,8 +508,8 @@ describe('ChatConnectionPanel', () => {
         onSearchMac={jest.fn()}
       />,
     );
-    expect(getByText('Wrong computer plugged in')).toBeTruthy();
-    expect(getByText(/USB is connected to Igors-MacBook-Pro/)).toBeTruthy();
+    expect(getByText('Wrong computer connected')).toBeTruthy();
+    expect(getByText(/Your phone is linked to Igors-MacBook-Pro/)).toBeTruthy();
   });
 
   it('explains cellular blocks direct home Wi‑Fi URLs', () => {
