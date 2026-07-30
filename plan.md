@@ -64,7 +64,8 @@ Active tasks (84):
   T-SILENT-BUBBLE-HIDE [in_progress] cursor-silent-bubble-hide: P0: never render cron `[SILENT]` completion sentinel as a chat bubble
   T-EAS-GUARD-DATE-ROLL-20260723 [in_progress] cursor-silent-bubble-hide: Remove UTC-midnight flake from EAS hard-stop process contract blocking all mobile PRs
   … +72 more (run node tools/agent-swarm-harness.js --json)
-File locks (351):
+File locks (352):
+- `hermes-mobile/src/screens/SettingsScreen.tsx`, `hermes-mobile/src/__tests__/SettingsScreen.test.tsx`, `plan.md` → **antigravity** (T-SETTINGS-REMOVE-USB-COPY-20260730: remove USB mentions from user-facing SettingsScreen copy in favor of Wi-Fi and Tailscale) (2026-07-30T17:49:00Z)
 - `hermes-mobile/fastlane/metadata/android/en-US/title.txt`, `hermes-mobile/fastlane/metadata/android/en-US/paid_title.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/name.txt`, `hermes-mobile/src/__tests__/storeListingMetadataContract.test.ts`, `plan.md` → **antigravity** (T-STORE-HERMES-AGENT-TITLE-20260730: update store titles to Hermes Agent: Mobile AI Leash to match search query intent) (2026-07-30T17:35:00Z)
 - `hermes-mobile/fastlane/metadata/ios/en-US/keywords.txt`, `hermes-mobile/src/__tests__/storeListingMetadataContract.test.ts`, `plan.md` → **antigravity** (T-IOS-ASO-KEYWORDS-OPTIMIZATION-20260730: optimize iOS keywords.txt to include hermes, agent, ai, mac tokens within 99/100 limit) (2026-07-30T17:22:00Z)
 - `hermes-mobile/src/utils/relayRouting.ts`, `hermes-mobile/src/__tests__/relayRouting.test.ts`, `plan.md` → **antigravity** (T-RELAY-ROUTING-FRESH-INSTALL-COPY-20260730: replace confusing Waiting for approval pairing... with Connect a computer in Settings on fresh install) (2026-07-30T17:02:00Z)

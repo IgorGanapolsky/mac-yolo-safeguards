@@ -120,7 +120,7 @@ describe('SettingsScreen', () => {
     const { getAllByText, getByTestId, getByText } = render(<SettingsScreen />);
     expect(getByText('Computer connection')).toBeTruthy();
     expect(
-      getByText('Use Tailscale away from home, or USB/home Wi‑Fi nearby, for Chat, tools, and ops.'),
+      getByText('Use Tailscale away from home, or home Wi‑Fi nearby, for Chat, tools, and ops.'),
     ).toBeTruthy();
     expect(getAllByText('Cloud approvals (optional)').length).toBeGreaterThan(0);
     expect(
@@ -222,7 +222,7 @@ describe('SettingsScreen', () => {
     });
     expect(alertSpy).toHaveBeenCalledWith(
       'Cloud approvals paired',
-      'Approval requests can arrive anywhere. This does not provide live Chat or computer tools; connect to your computer with Tailscale, USB, or home Wi‑Fi.',
+      'Approval requests can arrive anywhere. This does not provide live Chat or computer tools; connect to your computer with Tailscale or home Wi‑Fi.',
     );
   });
 
