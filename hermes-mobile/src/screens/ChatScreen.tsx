@@ -5142,6 +5142,18 @@ export default function ChatScreen() {
           outputFeedback={outputFeedback}
           onShowDetail={handleShowMessageDetail}
           onInlineTextApproval={handleInlineTextApproval}
+          onResendFailed={() => {
+            // Prefer failed bubble body; refs avoid TDZ (this callback is defined above handleRetryFailedSend).
+            const retryText =
+              (typeof message.content === 'string' ? message.content.trim() : '') ||
+              lastFailedSendTextRef.current?.trim() ||
+              '';
+            if (!retryText) {
+              return;
+            }
+            lastFailedSendTextRef.current = retryText;
+            void sendUserTextRef.current(retryText, true);
+          }}
         />
       );
     },

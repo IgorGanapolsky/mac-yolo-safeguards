@@ -57,6 +57,8 @@ type ChatMessageBubbleProps = {
   macHttpOk?: boolean;
   leashUnlocked?: boolean;
   onFeedback?: (signal: 'up' | 'down') => void;
+  /** Failed outbound — tap red status (or whole failed mark) to resend now. */
+  onResendFailed?: () => void;
   promptReplyElapsed?: PromptReplyElapsedState;
 };
 
@@ -91,6 +93,7 @@ function ChatMessageBubble({
   outboundFailureReason,
   connectionState = 'demo',
   macHttpOk = true,
+  onResendFailed,
   promptReplyElapsed,
 }: ChatMessageBubbleProps) {
   const resolved = useMemo(() => {
@@ -242,27 +245,52 @@ function ChatMessageBubble({
             ]}
           >
             {isUser && outboundStatus ? (
-              <Text
-                style={[
-                  styles.deliveryMark,
-                  outboundStatus === 'failed' && styles.deliveryFailed,
-                  outboundStatus === 'sent' &&
-                    outboundDeliveryLabel(outboundStatus, {
+              outboundStatus === 'failed' && onResendFailed ? (
+                <Pressable
+                  onPress={() => {
+                    haptics.selection();
+                    onResendFailed();
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Resend failed message"
+                  testID="chat-outbound-failed-resend"
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text
+                    style={[styles.deliveryMark, styles.deliveryFailed]}
+                    numberOfLines={3}
+                    testID="chat-outbound-failed"
+                  >
+                    {outboundDeliveryLabel(outboundStatus, {
                       connectionState,
                       macHttpOk,
                       failureReason: outboundFailureReason,
-                    }).startsWith('✓') &&
-                    styles.deliverySent,
-                ]}
-                numberOfLines={outboundStatus === 'failed' ? 3 : 1}
-                testID={`chat-outbound-${outboundStatus}`}
-              >
-                {outboundDeliveryLabel(outboundStatus, {
-                  connectionState,
-                  macHttpOk,
-                  failureReason: outboundFailureReason,
-                })}
-              </Text>
+                    })}
+                  </Text>
+                </Pressable>
+              ) : (
+                <Text
+                  style={[
+                    styles.deliveryMark,
+                    outboundStatus === 'failed' && styles.deliveryFailed,
+                    outboundStatus === 'sent' &&
+                      outboundDeliveryLabel(outboundStatus, {
+                        connectionState,
+                        macHttpOk,
+                        failureReason: outboundFailureReason,
+                      }).startsWith('✓') &&
+                      styles.deliverySent,
+                  ]}
+                  numberOfLines={outboundStatus === 'failed' ? 3 : 1}
+                  testID={`chat-outbound-${outboundStatus}`}
+                >
+                  {outboundDeliveryLabel(outboundStatus, {
+                    connectionState,
+                    macHttpOk,
+                    failureReason: outboundFailureReason,
+                  })}
+                </Text>
+              )
             ) : null}
             <Text
               style={[

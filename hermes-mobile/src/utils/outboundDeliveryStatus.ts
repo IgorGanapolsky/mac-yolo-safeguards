@@ -38,8 +38,9 @@ export const OUTBOUND_UNREACHABLE_HINT =
  * bubble first failed (2026-07-24 USB reconnect contradiction: header Connected, bubble red
  * "not connected yet" for the same message).
  */
+/** Shown while auto-resend fires after Mac HTTP returns (no manual ↑ babysitting). */
 export const OUTBOUND_RECONNECTED_RETRY_HINT =
-  'Your computer reconnected — tap ↑ to send again';
+  'Reconnected — resending automatically…';
 
 /** Header already says Connected — do not contradict with "Waiting for computer". */
 export const OUTBOUND_CONNECTED_WAITING_REPLY =

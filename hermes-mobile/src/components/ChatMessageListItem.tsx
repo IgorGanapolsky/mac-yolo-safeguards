@@ -46,6 +46,7 @@ export type ChatMessageListItemProps = {
   onShowDetail: (body: string, isUser: boolean) => void;
   onInlineTextApproval: (textApproval: ChatTextApproval, choice: ApprovalChoice) => void;
   onClarificationOption?: (option: ClarificationOption) => void;
+  onResendFailed?: () => void;
   promptReplyElapsed?: PromptReplyElapsedState;
 };
 
@@ -67,6 +68,7 @@ function ChatMessageListItem({
   onShowDetail,
   onInlineTextApproval,
   onClarificationOption,
+  onResendFailed,
   promptReplyElapsed,
 }: ChatMessageListItemProps) {
   const isUser = item.role === 'user';
@@ -170,6 +172,9 @@ function ChatMessageListItem({
       outboundFailureReason={isUser ? item.outboundFailureReason : undefined}
       connectionState={connectionState}
       macHttpOk={macHttpOk}
+      onResendFailed={
+        isUser && item.outboundStatus === 'failed' ? onResendFailed : undefined
+      }
       onShowDetail={(body) => onShowDetail(body, isUser)}
       inlineApproval={inlineApproval}
       clarification={clarification}
