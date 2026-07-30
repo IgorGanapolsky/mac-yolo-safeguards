@@ -74,7 +74,13 @@ describe('isAuthApiError', () => {
     expect(kind).toBe('operational');
     expect(message.toLowerCase()).not.toContain('unexpected eof');
     expect(message.toLowerCase()).not.toContain('error code');
-    expect(message.toLowerCase()).toContain('fresh chat');
+    // Pinned to the intent — the raw payload is replaced by something a user can
+    // act on. Previously this required the literal "fresh chat", which locked in a
+    // remedy that does NOT fix this failure class: the 2026-07-30 payload came from
+    // a cold-load timeout (the model was never resident), and this same branch also
+    // catches 'connection reset by peer' and 'incomplete chunked read'. Discarding
+    // the conversation helps none of them. Retrying re-drives the request.
+    expect(message.toLowerCase()).toMatch(/try again/);
   });
 });
 

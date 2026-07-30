@@ -4,11 +4,31 @@
  * mega chat on mini, turn time limit + unexpected EOF, then 6m+ stuck thinking).
  */
 
+// Describe what happened; never narrate a cause the app cannot see.
+//
+// The original wording ("large threads often crash the model" / "this thread is
+// likely too large") was written from a theory that the 2026-07-30 incident later
+// disproved. Ollama's server.log for that exact failure shows the model was never
+// loaded at all:
+//   "client connection closed before llama-server finished loading, aborting load"
+//   error="timed out waiting for llama-server to start: context canceled"
+// A 6.6 GB cold load at n_ctx=65536 outlasted the ~5 min client timeout, so the
+// client hung up and aborted the load it was waiting on. There were ZERO jetsam
+// events. The user's thread size did not cause it — an unconfigured primary route
+// on the Mac did, and discarding the conversation would not have helped.
+//
+// This detector also fires on 'connection reset by peer', 'incomplete chunked
+// read' and 'model stream closed', none of which a fresh chat fixes either. So the
+// copy states the observable fact and offers the action that genuinely re-drives
+// the failed request.
 export const MODEL_PROVIDER_ERROR_HUMAN_MESSAGE =
-  'The model on your computer hit a limit mid-reply. Start a fresh chat and try again — large threads often crash the model.';
+  'The AI model on your computer stopped responding mid-reply. Tap ↑ to try again.';
 
+// A turn CAN run long because of a big thread, so the hint stays — but as a
+// possibility, not the verdict it used to be stated as.
 export const MODEL_TURN_LIMIT_HUMAN_MESSAGE =
-  'This turn ran out of time before a final reply. Start a fresh chat (this thread is likely too large) and try a shorter ask.';
+  'This turn ran out of time before a final reply. Tap ↑ to try again, or start a '
+  + 'fresh chat if this one has grown long.';
 
 /** Markers that mean the Mac model/API died mid-generation — not a normal assistant answer. */
 const PROVIDER_CRASH_MARKERS = [
