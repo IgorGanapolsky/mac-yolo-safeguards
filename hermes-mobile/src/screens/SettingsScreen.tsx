@@ -394,7 +394,7 @@ export default function SettingsScreen() {
       setPairCode('');
       Alert.alert(
         'Cloud approvals paired',
-        'Approval requests can arrive anywhere. This does not provide live Chat or computer tools; connect to your computer with Tailscale, USB, or home Wi‑Fi.',
+        'Approval requests can arrive anywhere. This does not provide live Chat or computer tools; connect to your computer with Tailscale or home Wi‑Fi.',
       );
     } catch (err) {
       Alert.alert('Pairing failed', err instanceof Error ? err.message : 'Could not complete pairing');
@@ -531,9 +531,9 @@ export default function SettingsScreen() {
         ) : null}
         {usbHostMismatch ? (
           <GlassCard style={styles.usbMismatchCard} testID="settings-usb-host-mismatch">
-            <Text style={styles.tunnelWizardTitle}>Wrong computer on USB</Text>
+            <Text style={styles.tunnelWizardTitle}>Wrong computer linked</Text>
             <Text style={styles.description}>
-              USB is connected to {usbHostMismatch.usbHostLabel}, but you selected{' '}
+              Your phone is linked to {usbHostMismatch.usbHostLabel}, but you selected{' '}
               {usbHostMismatch.selectedProfileLabel}. Tap the matching computer below.
             </Text>
           </GlassCard>
@@ -584,7 +584,7 @@ export default function SettingsScreen() {
             testID="auto-connect-gateway"
           >
             <Text style={styles.primaryButtonText}>
-              {isAutoConnecting ? 'Connecting…' : 'Find computer on USB or Wi‑Fi'}
+              {isAutoConnecting ? 'Connecting…' : 'Find computer on Wi‑Fi or Tailscale'}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -639,14 +639,14 @@ export default function SettingsScreen() {
           <Text style={styles.sectionTitle}>Computer gateway ops</Text>
         </View>
         <Text style={styles.description}>
-          Toolsets, cron jobs, and skills from your computer (Tailscale, home Wi‑Fi, or USB).
+          Toolsets, cron jobs, and skills from your computer (Tailscale or home Wi‑Fi).
         </Text>
         <GatewayOpsSection />
 
         <Text style={styles.sectionTitle}>Computer connection</Text>
         <GlassCard>
           <Text style={styles.description}>
-            Use Tailscale away from home, or USB/home Wi‑Fi nearby, for Chat, tools, and ops.
+            Use Tailscale away from home, or home Wi‑Fi nearby, for Chat, tools, and ops.
           </Text>
           <View style={styles.relayRouteCard} testID="relay-route-card">
             <Text style={styles.relayRouteEyebrow}>Cloud approvals (optional)</Text>

@@ -104,8 +104,8 @@ describe('macUnreachableCopy', () => {
     expect(
       formatSavedMacUnreachableBanner({
         macLabel: 'Igors-Mac-mini',
-        machineEndpoint: 'USB',
+        machineEndpoint: 'Direct link',
       }),
-    ).toBe("Can't reach Igors-Mac-mini (USB) — switch computer above");
+    ).toBe("Can't reach Igors-Mac-mini (Direct link) — switch computer above");
   });
 });
