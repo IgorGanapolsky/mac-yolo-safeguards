@@ -7,13 +7,18 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const {
+  atomicWriteFile,
+  boundedErrorMessage,
   buildArxivUrl,
   buildHuggingFaceUrl,
   buildReceipt,
+  discover,
+  exitCodeForStatus,
   fetchBounded,
   parseArgs,
   parseArxivAtom,
   parseHuggingFaceModels,
+  run,
   scoreItem,
 } = require('../tools/hermes-academic-research-ingest');
 
@@ -23,6 +28,10 @@ assert.throws(() => parseArgs(['--unknown']), /Unknown argument/);
 assert.strictEqual(buildArxivUrl('agent eval', 3).hostname, 'export.arxiv.org');
 assert.strictEqual(buildHuggingFaceUrl('agent eval', 3).hostname, 'huggingface.co');
 assert.strictEqual(buildHuggingFaceUrl('agent eval', 3).searchParams.get('search'), 'agent');
+assert.strictEqual(exitCodeForStatus('complete'), 0);
+assert.strictEqual(exitCodeForStatus('partial'), 2);
+assert.strictEqual(exitCodeForStatus('failed'), 1);
+assert.strictEqual(boundedErrorMessage(new Error('x'.repeat(700))).length, 500);
 
 const atom = `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">
 <entry><id>https://arxiv.org/abs/2607.12345</id><updated>2026-07-21T12:00:00Z</updated>
@@ -112,6 +121,11 @@ const cli = spawnSync(process.execPath, [
 assert.strictEqual(cli.status, 0, cli.stderr);
 const receipt = JSON.parse(cli.stdout);
 assert.strictEqual(receipt.sources[0].requestCount, 0);
+assert.strictEqual(receipt.schemaVersion, 3);
+assert.strictEqual(receipt.status, 'complete');
+assert.strictEqual(receipt.corpus.length, 2);
+assert.match(receipt.generationId, /^academic-/);
+assert.match(receipt.corpusHash, /^[a-f0-9]{64}$/);
 for (const file of ['latest.json', 'corpus.jsonl']) {
   const filePath = path.join(outDir, file);
   assert(fs.existsSync(filePath));
@@ -146,7 +160,148 @@ async function verifyFetchDiagnostics() {
   }
 }
 
-verifyFetchDiagnostics()
+async function verifyPartialFailureAndAtomicity() {
+  const partial = await discover({
+    fixture: null,
+    query: 'agent evaluation',
+    maxResults: 3,
+  }, {
+    fetchImpl: async (url) => {
+      if (url.hostname === 'export.arxiv.org') return { body: atom, contentType: 'application/atom+xml' };
+      throw new Error('simulated Hugging Face reset');
+    },
+    now: '2026-07-30T12:00:00Z',
+  });
+  assert.strictEqual(partial.status, 'partial');
+  assert.deepStrictEqual(partial.items.map((item) => item.id), ['arxiv:2607.12345']);
+  assert.deepStrictEqual(partial.sources.map((source) => source.status), ['complete', 'failed']);
+  assert.match(partial.sources[1].error, /simulated Hugging Face reset/);
+
+  const invalidSchemas = await discover({
+    fixture: null,
+    query: 'agent evaluation',
+    maxResults: 3,
+  }, {
+    fetchImpl: async (url) => ({
+      body: url.hostname === 'export.arxiv.org'
+        ? '<html>upstream proxy error</html>'
+        : '{}',
+      contentType: 'text/html',
+    }),
+    now: '2026-07-30T12:00:00Z',
+  });
+  assert.strictEqual(invalidSchemas.status, 'failed');
+  assert(invalidSchemas.sources.every((source) => source.status === 'failed'));
+  assert(invalidSchemas.sources.every((source) => /schema/i.test(source.error)));
+
+  const partialOut = path.join(tmp, 'partial-output');
+  let discoveryCalls = 0;
+  const partialDiscover = async () => {
+    discoveryCalls += 1;
+    return partial;
+  };
+  const partialArgs = {
+    outDir: partialOut,
+    query: 'agent evaluation',
+    top: 2,
+    maxResults: 3,
+    fixture: null,
+    force: false,
+  };
+  const firstPartial = await run(partialArgs, {
+    now: '2026-07-30T12:00:00Z',
+    discoverImpl: partialDiscover,
+  });
+  const secondPartial = await run(partialArgs, {
+    now: '2026-07-30T12:05:00Z',
+    discoverImpl: partialDiscover,
+  });
+  assert.strictEqual(firstPartial.status, 'partial');
+  assert.strictEqual(secondPartial.status, 'partial');
+  assert.strictEqual(discoveryCalls, 2, 'partial receipt must not suppress same-day retry');
+
+  const outageOut = path.join(tmp, 'outage-output');
+  fs.mkdirSync(outageOut, { recursive: true });
+  const latestPath = path.join(outageOut, 'latest.json');
+  const corpusPath = path.join(outageOut, 'corpus.jsonl');
+  const priorLatest = '{"status":"complete","sentinel":"last-good"}\n';
+  const priorCorpus = '{"id":"sentinel:last-good"}\n';
+  fs.writeFileSync(latestPath, priorLatest);
+  fs.writeFileSync(corpusPath, priorCorpus);
+  await assert.rejects(
+    run({ ...partialArgs, outDir: outageOut, force: true }, {
+      now: '2026-07-30T12:10:00Z',
+      discoverImpl: async () => ({
+        status: 'failed',
+        items: [],
+        sources: [
+          { name: 'arxiv', status: 'failed', requestCount: 1, itemCount: 0, error: 'timeout' },
+          { name: 'huggingface_models', status: 'failed', requestCount: 1, itemCount: 0, error: 'reset' },
+        ],
+      }),
+    }),
+    /all academic metadata sources failed/i,
+  );
+  assert.strictEqual(fs.readFileSync(latestPath, 'utf8'), priorLatest);
+  assert.strictEqual(fs.readFileSync(corpusPath, 'utf8'), priorCorpus);
+  const attempts = fs.readdirSync(path.join(outageOut, 'attempts')).filter((name) => name.endsWith('.json'));
+  assert.strictEqual(attempts.length, 1);
+  const failedAttempt = JSON.parse(fs.readFileSync(path.join(outageOut, 'attempts', attempts[0]), 'utf8'));
+  assert.strictEqual(failedAttempt.status, 'failed');
+
+  const commitOut = path.join(tmp, 'commit-output');
+  fs.mkdirSync(commitOut, { recursive: true });
+  const commitLatest = path.join(commitOut, 'latest.json');
+  const commitCorpus = path.join(commitOut, 'corpus.jsonl');
+  const oldSnapshot = '{"schemaVersion":3,"status":"complete","generatedAt":"2026-07-29T12:00:00.000Z","corpus":[{"id":"sentinel:old"}]}\n';
+  const oldExport = '{"id":"sentinel:old"}\n';
+  fs.writeFileSync(commitLatest, oldSnapshot);
+  fs.writeFileSync(commitCorpus, oldExport);
+  await assert.rejects(
+    run({ ...partialArgs, outDir: commitOut, force: true }, {
+      now: '2026-07-30T12:20:00Z',
+      discoverImpl: partialDiscover,
+      beforeCommit() {
+        throw new Error('simulated authoritative commit failure');
+      },
+    }),
+    /simulated authoritative commit failure/,
+  );
+  assert.strictEqual(fs.readFileSync(commitLatest, 'utf8'), oldSnapshot);
+  assert.strictEqual(fs.readFileSync(commitCorpus, 'utf8'), oldExport);
+
+  const exportOut = path.join(tmp, 'export-output');
+  fs.mkdirSync(path.join(exportOut, '2026-07-30.json'), { recursive: true });
+  const exportWarnings = [];
+  const committedDespiteExportFailure = await run({ ...partialArgs, outDir: exportOut, force: true }, {
+    now: '2026-07-30T12:30:00Z',
+    discoverImpl: partialDiscover,
+    onExportWarning: (warning) => exportWarnings.push(warning),
+  });
+  assert.strictEqual(committedDespiteExportFailure.status, 'partial');
+  assert.strictEqual(exportWarnings.length, 1);
+  assert.match(exportWarnings[0], /compatibility export failed/i);
+  const authoritativeSnapshot = JSON.parse(fs.readFileSync(path.join(exportOut, 'latest.json'), 'utf8'));
+  assert.strictEqual(authoritativeSnapshot.generationId, committedDespiteExportFailure.generationId);
+  assert.deepStrictEqual(authoritativeSnapshot.corpus.map((item) => item.id), ['arxiv:2607.12345']);
+  assert.deepStrictEqual(readJsonl(path.join(exportOut, 'corpus.jsonl')).map((item) => item.id), ['arxiv:2607.12345']);
+
+  const atomicPath = path.join(tmp, 'atomic.json');
+  fs.writeFileSync(atomicPath, 'last-good\n');
+  assert.throws(() => atomicWriteFile(atomicPath, 'new-value\n', {
+    beforeRename() {
+      throw new Error('simulated crash before rename');
+    },
+  }), /simulated crash before rename/);
+  assert.strictEqual(fs.readFileSync(atomicPath, 'utf8'), 'last-good\n');
+  assert.deepStrictEqual(fs.readdirSync(tmp).filter((name) => name.includes('.tmp-')), []);
+}
+
+function readJsonl(filePath) {
+  return fs.readFileSync(filePath, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line));
+}
+
+Promise.all([verifyFetchDiagnostics(), verifyPartialFailureAndAtomicity()])
   .then(() => {
     fs.rmSync(tmp, { recursive: true, force: true });
     console.log('Hermes academic research ingestion tests: PASS');

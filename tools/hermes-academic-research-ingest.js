@@ -226,6 +226,17 @@ function round(value) {
   return Math.round(value * 1000) / 1000;
 }
 
+function boundedErrorMessage(error, maximumLength = 500) {
+  const message = error?.message ? String(error.message) : String(error || 'unknown error');
+  return message.length <= maximumLength ? message : `${message.slice(0, maximumLength - 1)}…`;
+}
+
+function exitCodeForStatus(status) {
+  if (status === 'partial') return 2;
+  if (status === 'failed') return 1;
+  return 0;
+}
+
 function buildArxivUrl(query, maxResults) {
   const terms = queryTerms(query).slice(0, 8);
   const phrase = terms.length ? terms.map((term) => `all:${JSON.stringify(term)}`).join(' OR ') : 'all:"agent"';
@@ -314,7 +325,7 @@ function buildReceipt(items, options = {}) {
   const previousDigest = options.previousDigest || null;
   const unchanged = Boolean(previousDigest && previousDigest === sourceDigest);
   return {
-    schemaVersion: 1,
+    schemaVersion: 3,
     generatedAt: (options.now ? new Date(options.now) : new Date()).toISOString(),
     query: options.query || DEFAULT_QUERY,
     mode: 'metadata_only_proposal_only',
@@ -353,60 +364,198 @@ function ensurePrivateDirectory(directory) {
   fs.chmodSync(directory, 0o700);
 }
 
-function writePrivateJson(filePath, value) {
-  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
-  fs.chmodSync(filePath, 0o600);
+function atomicWriteFile(filePath, value, options = {}) {
+  ensurePrivateDirectory(path.dirname(filePath));
+  const temporaryPath = path.join(
+    path.dirname(filePath),
+    `.${path.basename(filePath)}.tmp-${process.pid}-${crypto.randomBytes(6).toString('hex')}`,
+  );
+  let descriptor = null;
+  try {
+    descriptor = fs.openSync(temporaryPath, 'wx', 0o600);
+    fs.writeFileSync(descriptor, value, 'utf8');
+    fs.fsyncSync(descriptor);
+    fs.closeSync(descriptor);
+    descriptor = null;
+    if (typeof options.beforeRename === 'function') options.beforeRename(temporaryPath, filePath);
+    fs.renameSync(temporaryPath, filePath);
+    fs.chmodSync(filePath, 0o600);
+    const directoryDescriptor = fs.openSync(path.dirname(filePath), 'r');
+    try {
+      fs.fsyncSync(directoryDescriptor);
+    } finally {
+      fs.closeSync(directoryDescriptor);
+    }
+  } catch (error) {
+    if (descriptor !== null) fs.closeSync(descriptor);
+    if (fs.existsSync(temporaryPath)) fs.unlinkSync(temporaryPath);
+    throw error;
+  }
 }
 
-function appendCorpus(filePath, existing, items) {
+function writePrivateJson(filePath, value, options = {}) {
+  atomicWriteFile(filePath, `${JSON.stringify(value, null, 2)}\n`, options);
+}
+
+function mergeCorpus(existing, items) {
   const byId = new Map(existing.map((item) => [item.id, item]));
   items.forEach((item) => byId.set(item.id, item));
-  const payload = [...byId.values()].sort((left, right) => left.id.localeCompare(right.id)).map((item) => JSON.stringify(item)).join('\n');
-  fs.writeFileSync(filePath, payload ? `${payload}\n` : '', { mode: 0o600 });
-  fs.chmodSync(filePath, 0o600);
+  return [...byId.values()].sort((left, right) => left.id.localeCompare(right.id));
 }
 
-async function discover(args) {
+function serializeCorpus(items) {
+  const payload = items.map((item) => JSON.stringify(item)).join('\n');
+  return payload ? `${payload}\n` : '';
+}
+
+async function discover(args, options = {}) {
+  const now = options.now ? new Date(options.now) : new Date();
   if (args.fixture) {
     const fixture = JSON.parse(fs.readFileSync(args.fixture, 'utf8'));
     if (!Array.isArray(fixture)) throw new Error('--fixture must contain a JSON array');
-    return { items: fixture.map(normalizeItem), sources: [{ name: 'fixture', requestCount: 0 }] };
+    return {
+      status: 'complete',
+      items: fixture.map(normalizeItem),
+      sources: [{
+        name: 'fixture',
+        status: 'complete',
+        requestCount: 0,
+        itemCount: fixture.length,
+        attemptedAt: now.toISOString(),
+      }],
+    };
   }
-  const items = [];
-  const sources = [];
-  const arxiv = await fetchBounded(buildArxivUrl(args.query, args.maxResults));
-  const arxivItems = parseArxivAtom(arxiv.body);
-  items.push(...arxivItems);
-  sources.push({ name: 'arxiv', requestCount: 1, itemCount: arxivItems.length, url: buildArxivUrl(args.query, args.maxResults).toString() });
-  const hf = await fetchBounded(buildHuggingFaceUrl(args.query, args.maxResults));
-  const hfItems = parseHuggingFaceModels(JSON.parse(hf.body));
-  items.push(...hfItems);
-  sources.push({ name: 'huggingface_models', requestCount: 1, itemCount: hfItems.length, url: buildHuggingFaceUrl(args.query, args.maxResults).toString() });
+  const fetchImpl = options.fetchImpl || fetchBounded;
+  const sourceSpecs = [
+    {
+      name: 'arxiv',
+      url: buildArxivUrl(args.query, args.maxResults),
+      parse: (response) => {
+        if (!/<feed(?:\s|>)/i.test(response.body)) throw new Error('arXiv response schema is not an Atom feed');
+        return parseArxivAtom(response.body);
+      },
+    },
+    {
+      name: 'huggingface_models',
+      url: buildHuggingFaceUrl(args.query, args.maxResults),
+      parse: (response) => {
+        const payload = JSON.parse(response.body);
+        if (!Array.isArray(payload)) throw new Error('Hugging Face response schema is not a model array');
+        return parseHuggingFaceModels(payload);
+      },
+    },
+  ];
+  const settled = await Promise.all(sourceSpecs.map(async (source) => {
+    try {
+      const response = await fetchImpl(source.url);
+      const sourceItems = source.parse(response);
+      return {
+        items: sourceItems,
+        source: {
+          name: source.name,
+          status: 'complete',
+          requestCount: 1,
+          itemCount: sourceItems.length,
+          url: source.url.toString(),
+          attemptedAt: now.toISOString(),
+          error: null,
+        },
+      };
+    } catch (error) {
+      return {
+        items: [],
+        source: {
+          name: source.name,
+          status: 'failed',
+          requestCount: 1,
+          itemCount: 0,
+          url: source.url.toString(),
+          attemptedAt: now.toISOString(),
+          error: boundedErrorMessage(error),
+        },
+      };
+    }
+  }));
+  const items = settled.flatMap((result) => result.items);
+  const sources = settled.map((result) => result.source);
   const requests = sources.reduce((sum, source) => sum + source.requestCount, 0);
   if (requests > MAX_REQUESTS) throw new Error(`Request cap exceeded: ${requests}/${MAX_REQUESTS}`);
-  return { items, sources };
+  const completed = sources.filter((source) => source.status === 'complete').length;
+  return {
+    status: completed === sources.length ? 'complete' : completed > 0 ? 'partial' : 'failed',
+    items,
+    sources,
+  };
 }
 
-async function run(args) {
+async function run(args, options = {}) {
   ensurePrivateDirectory(args.outDir);
-  const today = new Date().toISOString().slice(0, 10);
+  const now = options.now ? new Date(options.now) : new Date();
+  const today = now.toISOString().slice(0, 10);
   const dailyPath = path.join(args.outDir, `${today}.json`);
   const latestPath = path.join(args.outDir, 'latest.json');
   const corpusPath = path.join(args.outDir, 'corpus.jsonl');
-  if (!args.force && fs.existsSync(dailyPath)) return JSON.parse(fs.readFileSync(dailyPath, 'utf8'));
-  const corpus = readCorpus(corpusPath);
   const previous = fs.existsSync(latestPath) ? JSON.parse(fs.readFileSync(latestPath, 'utf8')) : null;
-  const discovered = await discover(args);
+  if (!args.force && previous?.status === 'complete' && previous.generatedAt?.slice(0, 10) === today) return previous;
+  const corpus = Array.isArray(previous?.corpus) ? previous.corpus : readCorpus(corpusPath);
+  const discoverImpl = options.discoverImpl || discover;
+  const discovered = await discoverImpl(args, { now: now.toISOString() });
+  if (discovered.status === 'failed') {
+    const attempt = {
+      schemaVersion: 3,
+      status: 'failed',
+      generatedAt: now.toISOString(),
+      query: args.query,
+      mode: 'metadata_only_proposal_only',
+      sources: discovered.sources,
+      summary: {
+        discovered: 0,
+        unique: 0,
+        new: 0,
+        unchanged: true,
+        sourceDigest: previous?.summary?.sourceDigest || null,
+      },
+      lastGoodGeneratedAt: previous?.generatedAt || null,
+    };
+    const attemptsDirectory = path.join(args.outDir, 'attempts');
+    ensurePrivateDirectory(attemptsDirectory);
+    const attemptName = `${now.toISOString().replace(/[:.]/g, '-')}-${crypto.randomBytes(4).toString('hex')}.json`;
+    const attemptPath = path.join(attemptsDirectory, attemptName);
+    writePrivateJson(attemptPath, attempt);
+    const failure = new Error(`All academic metadata sources failed; last-good corpus preserved; attempt=${attemptPath}`);
+    failure.attemptPath = attemptPath;
+    throw failure;
+  }
   const receipt = buildReceipt(discovered.items, {
+    now: now.toISOString(),
     query: args.query,
     top: args.top,
     corpus,
     previousDigest: previous && previous.summary ? previous.summary.sourceDigest : null,
   });
+  receipt.status = discovered.status;
   receipt.sources = discovered.sources;
-  writePrivateJson(dailyPath, receipt);
-  writePrivateJson(latestPath, receipt);
-  appendCorpus(corpusPath, corpus, receipt.allItems);
+  receipt.corpus = mergeCorpus(corpus, receipt.allItems);
+  const serializedCorpus = serializeCorpus(receipt.corpus);
+  receipt.corpusHash = sha256(serializedCorpus);
+  receipt.generationId = `academic-${now.toISOString().replace(/[-:.TZ]/g, '')}-${receipt.corpusHash.slice(0, 12)}`;
+
+  // latest.json is the single authoritative snapshot: receipt, source statuses,
+  // and the full corpus commit in one atomic rename. JSONL and daily files are
+  // compatibility exports and cannot make a committed snapshot inconsistent.
+  writePrivateJson(latestPath, receipt, { beforeRename: options.beforeCommit });
+  for (const [exportPath, writer] of [
+    [corpusPath, () => atomicWriteFile(corpusPath, serializedCorpus)],
+    [dailyPath, () => writePrivateJson(dailyPath, receipt)],
+  ]) {
+    try {
+      writer();
+    } catch (error) {
+      const warning = `Academic compatibility export failed (${exportPath}): ${boundedErrorMessage(error)}`;
+      if (typeof options.onExportWarning === 'function') options.onExportWarning(warning);
+      else console.error(warning);
+    }
+  }
   return receipt;
 }
 
@@ -420,6 +569,7 @@ async function main() {
     const receipt = await run(args);
     if (args.json) console.log(JSON.stringify(receipt, null, 2));
     else console.log(`Hermes academic RAG: ${receipt.summary.new} new / ${receipt.summary.unique} unique; proposals=${receipt.proposals.length}; unchanged=${receipt.summary.unchanged}`);
+    process.exitCode = exitCodeForStatus(receipt.status);
   } catch (error) {
     console.error(`Hermes academic RAG failed: ${error.message}`);
     process.exitCode = 1;
@@ -431,6 +581,8 @@ if (require.main === module) main();
 module.exports = {
   ALLOWED_HOSTS,
   MAX_REQUESTS,
+  atomicWriteFile,
+  boundedErrorMessage,
   buildArxivUrl,
   buildHuggingFaceUrl,
   buildReceipt,
@@ -438,6 +590,7 @@ module.exports = {
   discover,
   extractLicense,
   fetchBounded,
+  exitCodeForStatus,
   normalizeItem,
   parseArgs,
   parseArxivAtom,
@@ -445,5 +598,6 @@ module.exports = {
   queryTerms,
   run,
   scoreItem,
+  serializeCorpus,
   sha256,
 };
