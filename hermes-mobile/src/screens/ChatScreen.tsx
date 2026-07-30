@@ -377,7 +377,10 @@ import {
   resolveEffectiveMacHttpOk,
 } from '../utils/gatewayConnection';
 import { probeLiveUsbGateway } from '../services/gatewayDiscovery';
-import { isGatewayLiveForDelivery } from '../utils/outboundDeliveryStatus';
+import {
+  OUTBOUND_RECONNECTED_AUTO_RESEND,
+  isGatewayLiveForDelivery,
+} from '../utils/outboundDeliveryStatus';
 import {
   OUTBOUND_HARD_TIMEOUT_MS,
   OUTBOUND_PENDING_RECOVERY_MS,
@@ -398,11 +401,15 @@ import {
   shouldShowFailedSendRetry,
 } from '../utils/failedSendRetry';
 import {
+  RECONNECT_AUTO_RESEND_DEBOUNCE_MS,
+  attachOutboundSubmissionSession,
   createOutboundId,
   createOutboundSubmissionLedger,
   markOutboundBubbleDelivered,
   markOutboundSubmissionAccepted,
+  recordAutoResendAttempt,
   recordOutboundSubmission,
+  resolveReconnectResendPlan,
   resolveStallRecoveryPlan,
   scopeOutboundSubmissionsToSession,
 } from '../utils/outboundSubmissionLedger';
@@ -897,6 +904,11 @@ export default function ChatScreen() {
   const outboundSubmissionSeqRef = useRef(0);
   /** Assigned below once startDeferredReplyPoll exists — resume, never re-POST. */
   const resumeStalledOutboundRef = useRef<(body: string) => void>(() => {});
+  /** Guards concurrent reconnect auto-resends within one tick (flap bursts). */
+  const autoResendInFlightRef = useRef(false);
+  const [autoResendPendingMessageId, setAutoResendPendingMessageId] = useState<string | null>(
+    null,
+  );
   const stalledRecoveriesUsedRef = useRef(0);
   const stalledRecoverInFlightRef = useRef(false);
   const activeChatStreamRef = useRef(false);
@@ -1550,6 +1562,100 @@ export default function ChatScreen() {
     runProgress?.detail,
     runProgress?.phase,
   ]);
+
+  /**
+   * AUTO-RESEND ON RECONNECTION.
+   *
+   * Device verdict 2026-07-29: "tap to resend does absolutely nothing!!! Just
+   * have it done automatically on reconnection." The safe rule is
+   * accepted-vs-not-accepted, not manual-vs-automatic:
+   *
+   *   accepted     → the Mac has (or had) the prompt. Resume; resubmitting is
+   *                  the duplicate-run P0 this ledger exists to prevent.
+   *   not accepted → nothing on the Mac to duplicate, so resend it without a tap.
+   *
+   * Igor's mini flaps (its watchdog SIGTERMs the gateway roughly every 60s on a
+   * slow start), so reconnect edges arrive in bursts. Three guards keep that
+   * from fanning out copies: a settle debounce, a per-intent cooldown, and a
+   * per-intent attempt cap — all held in the ledger, which survives re-renders.
+   */
+  useEffect(() => {
+    if (isDemo || !macChatLive || isSending) {
+      setAutoResendPendingMessageId(null);
+      return;
+    }
+    const failedRetry = findLastFailedOutboundRetry(messages);
+    if (!failedRetry || failedRetry.requiresReattach) {
+      setAutoResendPendingMessageId(null);
+      return;
+    }
+    const body = failedRetry.displayText || failedRetry.text;
+    const planFor = (nowMs: number) =>
+      resolveReconnectResendPlan({
+        failedText: body,
+        sessionId: currentSessionRef.current?.id,
+        messageId: failedRetry.messageId,
+        ledger: outboundLedgerRef.current,
+        nowMs,
+        macChatLive: macChatLiveRef.current,
+        isDemo: isDemoRef.current,
+        isSending: isSendingRef.current,
+      });
+
+    const plan = planFor(Date.now());
+    if (plan.kind === 'none') {
+      setAutoResendPendingMessageId(null);
+      return;
+    }
+    setAutoResendPendingMessageId(plan.kind === 'resend' ? failedRetry.messageId : null);
+
+    const timer = setTimeout(() => {
+      if (
+        autoResendInFlightRef.current ||
+        stalledRecoverInFlightRef.current ||
+        isSendingRef.current
+      ) {
+        return;
+      }
+      // Re-resolve at fire time: the link may have flapped back down, or another
+      // path may have already consumed this intent's budget.
+      const livePlan = planFor(Date.now());
+      if (livePlan.kind === 'none') {
+        setAutoResendPendingMessageId(null);
+        return;
+      }
+      if (livePlan.kind === 'resume') {
+        setAutoResendPendingMessageId(null);
+        resumeStalledOutboundRef.current(body);
+        return;
+      }
+      // Bump the budget BEFORE awaiting so a burst of reconnect edges landing in
+      // the same window sees the cooldown, not a second submission.
+      recordAutoResendAttempt(outboundLedgerRef.current, livePlan.intentKey, Date.now());
+      autoResendInFlightRef.current = true;
+      setErrorMessage(null);
+      setRunProgress((prev) =>
+        prev
+          ? { ...prev, phase: 'sending', detail: OUTBOUND_RECONNECTED_AUTO_RESEND }
+          : {
+              phase: 'sending',
+              startedAtMs: Date.now(),
+              detail: OUTBOUND_RECONNECTED_AUTO_RESEND,
+              sessionId: currentSessionRef.current?.id,
+            },
+      );
+      void (async () => {
+        try {
+          await retryFailedOutboundRef.current();
+        } finally {
+          autoResendInFlightRef.current = false;
+          setAutoResendPendingMessageId(null);
+        }
+      })();
+    }, RECONNECT_AUTO_RESEND_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [isDemo, isSending, macChatLive, messages, setRunProgress]);
+
   const hideMacTileForSilentHeal = shouldHideMacTileForSilentHeal({
     silentHealInFlight: connectionHealInFlight,
     macRetryBusy,
@@ -5337,6 +5443,10 @@ export default function ChatScreen() {
           isTelegramInbox={isTelegramInbox}
           connectionState={connectionState}
           macHttpOk={effectiveMacHttpOk}
+          autoResendPending={
+            Boolean(autoResendPendingMessageId) &&
+            message.id === autoResendPendingMessageId
+          }
           approvalBusy={approvalBusy}
           isSending={isSending}
           outputFeedback={outputFeedback}
@@ -5352,6 +5462,7 @@ export default function ChatScreen() {
       isTelegramInbox,
       connectionState,
       effectiveMacHttpOk,
+      autoResendPendingMessageId,
       approvalBusy,
       isSending,
       leashUnlocked,
@@ -5790,6 +5901,38 @@ export default function ChatScreen() {
       preparedRetryContentRef.current.set(committedUserMessageId, gatewayMessage);
     }
     outboundUserBubbleCommitted = true;
+
+    /**
+     * Idempotency record for THIS outbound intent, created BEFORE the offline
+     * gate on purpose: a send blocked while the Mac was unreachable must still
+     * leave a record, because "record exists and was never accepted" is what
+     * proves nothing is on the Mac and makes auto-resend-on-reconnect safe.
+     */
+    outboundSubmissionSeqRef.current += 1;
+    const outboundSubmissionId = createOutboundId(
+      Date.now(),
+      outboundSubmissionSeqRef.current,
+    );
+    recordOutboundSubmission(outboundLedgerRef.current, {
+      outboundId: outboundSubmissionId,
+      sessionId: currentSessionRef.current?.id ?? null,
+      messageId: committedUserMessageId,
+      body: normalizedDisplay,
+      nowMs: Date.now(),
+    });
+    /**
+     * Deliberately NOT routed through markMessageDeliveredToMac(): that helper is
+     * gated on isGatewayLiveForDelivery(), so a red health probe at accept time
+     * leaves a delivered bubble on `pending`. That exact gap is what let stall
+     * recovery re-POST a prompt the Mac was already running.
+     */
+    const markOutboundAcceptedByGateway = () => {
+      markOutboundSubmissionAccepted(
+        outboundLedgerRef.current,
+        outboundSubmissionId,
+        Date.now(),
+      );
+    };
 
     // False disconnect / offline send: keep the optimistic bubble as failed+retryable.
     // Never silently drop the typed message (composer already cleared by handleSend).
@@ -6252,33 +6395,13 @@ export default function ChatScreen() {
     let sendSucceeded = false;
     let sendFailureDetail: string | null = null;
 
-    // Idempotency record for THIS outbound intent. Stall recovery consults the
-    // ledger before it ever considers re-submitting (duplicate-run P0).
-    outboundSubmissionSeqRef.current += 1;
-    const outboundSubmissionId = createOutboundId(
-      Date.now(),
-      outboundSubmissionSeqRef.current,
+    // The target session is only known now (it may have been created for this
+    // very turn) — bind the record so cross-thread bodies never match.
+    attachOutboundSubmissionSession(
+      outboundLedgerRef.current,
+      outboundSubmissionId,
+      targetSessionId,
     );
-    recordOutboundSubmission(outboundLedgerRef.current, {
-      outboundId: outboundSubmissionId,
-      sessionId: targetSessionId,
-      messageId: committedUserMessageId,
-      body: normalizedDisplay,
-      nowMs: Date.now(),
-    });
-    /**
-     * Deliberately NOT routed through markMessageDeliveredToMac(): that helper is
-     * gated on isGatewayLiveForDelivery(), so a red health probe at accept time
-     * leaves a delivered bubble on `pending`. That exact gap is what let stall
-     * recovery re-POST a prompt the Mac was already running.
-     */
-    const markOutboundAcceptedByGateway = () => {
-      markOutboundSubmissionAccepted(
-        outboundLedgerRef.current,
-        outboundSubmissionId,
-        Date.now(),
-      );
-    };
 
     try {
       activeChatStreamRef.current = true;

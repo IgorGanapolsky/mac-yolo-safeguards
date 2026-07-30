@@ -2,6 +2,7 @@ import React from 'react';
 import { act, cleanup, fireEvent, waitFor } from '@testing-library/react-native';
 import ChatScreen from '../screens/ChatScreen';
 import { renderInTabNavigator } from '../testUtils/navigation';
+import { RECONNECT_AUTO_RESEND_MAX_ATTEMPTS } from '../utils/outboundSubmissionLedger';
 
 jest.mock('expo-image-picker', () => ({
   requestMediaLibraryPermissionsAsync: jest.fn().mockResolvedValue({ granted: true }),
@@ -328,7 +329,46 @@ async function advance(ms: number, slices = 8) {
   }
 }
 
+/**
+ * Point the mocked gateway at a reachable / unreachable Mac.
+ *
+ * `socket` is separate on purpose: direct HTTP up + relay socket down is the
+ * real shape that leaves a gateway-ACCEPTED prompt sitting on `pending`.
+ */
+function setLinkState(input: { httpOk: boolean; socket?: string }) {
+  mockGatewayState.connectionState =
+    input.socket ?? (input.httpOk ? 'connected' : 'disconnected');
+  mockGatewayState.health = {
+    ok: input.httpOk,
+    level: input.httpOk ? 'green' : 'red',
+    hostname: 'Igors-Mac-mini.local',
+    directGatewayReachable: input.httpOk,
+    checkedAt: '2026-07-29T00:00:00Z',
+    authMismatch: false,
+  };
+  // Keep the silent-heal window open so the composer is not replaced by the
+  // connection-help panel while the link is down.
+  mockGatewayState.connectionHealAttempt = 1;
+  mockGatewayState.connectionHealInFlight = false;
+  mockGatewayState.connectionHealExhausted = false;
+}
+
+/** mockGatewayState is a stable object — nudge React so effects observe the change. */
+async function flushLinkChange(view: { getByTestId: (id: string) => unknown }) {
+  for (const value of [' ', '']) {
+    await act(async () => {
+      fireEvent.changeText(view.getByTestId('chat-input') as never, value);
+      await Promise.resolve();
+    });
+  }
+}
+
 describe('ChatScreen outbound send recovery', () => {
+  // Full ChatScreen renders driven across simulated minutes of fake time; these
+  // are comfortably fast alone but can exceed the 30s default when jest workers
+  // are saturated by the rest of the suite.
+  jest.setTimeout(90_000);
+
   beforeEach(() => {
     jest.clearAllMocks();
     const { streamSessionChat } = gatewayMocks();
@@ -348,6 +388,20 @@ describe('ChatScreen outbound send recovery', () => {
     });
     chatClient.listMessages.mockResolvedValue([]);
     chatClient.sendChatMessage.mockResolvedValue({ assistantText: 'ok', raw: {} });
+    // setLinkState mutates the shared mock object — restore the suite baseline so
+    // link-flap tests cannot leak a red health probe into their neighbours.
+    mockGatewayState.connectionState = 'disconnected';
+    mockGatewayState.health = {
+      ok: true,
+      level: 'green',
+      hostname: 'Igors-Mac-mini.local',
+      directGatewayReachable: true,
+      checkedAt: '2026-07-25T00:00:00Z',
+      authMismatch: false,
+    };
+    mockGatewayState.connectionHealAttempt = 6;
+    mockGatewayState.connectionHealInFlight = false;
+    mockGatewayState.connectionHealExhausted = true;
     mockGatewayState.runProgress = null;
     mockGatewayState.setRunProgress = jest.fn((value: unknown) => {
       mockGatewayState.runProgress =
@@ -571,6 +625,145 @@ describe('ChatScreen outbound send recovery', () => {
     expect(JSON.stringify(trackProductEvent.mock.calls)).not.toMatch(
       /Do it now|retry-proof\.png|file:|image\/png/i,
     );
+  });
+
+  /**
+   * Device verdict 2026-07-29: "tap to resend does absolutely nothing!!! Just
+   * have it done automatically on reconnection."
+   */
+  it('auto-resends a never-accepted prompt on reconnection, exactly once, with no tap', async () => {
+    jest.useFakeTimers();
+    const { streamSessionChat } = gatewayMocks();
+    streamSessionChat.mockResolvedValue('reply after reconnect');
+
+    setLinkState({ httpOk: false });
+    const view = await renderChat();
+    await waitFor(() => {
+      expect(view.getByTestId('chat-input')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.changeText(view.getByTestId('chat-input'), PROMPT);
+      fireEvent.press(view.getByTestId('chat-send-button'));
+      await Promise.resolve();
+    });
+
+    // Mac unreachable: nothing was ever handed to the gateway.
+    expect(streamSessionChat).not.toHaveBeenCalled();
+
+    setLinkState({ httpOk: true });
+    await flushLinkChange(view);
+    await advance(6_000, 12);
+
+    // No tap happened anywhere in this test.
+    expect(streamSessionChat).toHaveBeenCalledTimes(1);
+    expect(streamSessionChat.mock.calls[0]?.[2]).toBe(PROMPT);
+  });
+
+  it('does not fan out copies when the gateway flaps during the reconnect window', async () => {
+    jest.useFakeTimers();
+    const { streamSessionChat } = gatewayMocks();
+    // Every auto-resend attempt fails again — the budget, not luck, must bound it.
+    streamSessionChat.mockRejectedValue(new Error('Network request failed'));
+    const { sendChatMessage } = jest.requireMock('../services/hermesChatClient') as {
+      sendChatMessage: jest.Mock;
+    };
+    sendChatMessage.mockRejectedValue(new Error('Network request failed'));
+
+    setLinkState({ httpOk: false });
+    const view = await renderChat();
+    await waitFor(() => {
+      expect(view.getByTestId('chat-input')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.changeText(view.getByTestId('chat-input'), PROMPT);
+      fireEvent.press(view.getByTestId('chat-send-button'));
+      await Promise.resolve();
+    });
+    expect(streamSessionChat).not.toHaveBeenCalled();
+
+    // Igor's mini: its watchdog SIGTERMs the gateway on a ~60s cadence during a
+    // slow start, so reconnect edges arrive in bursts.
+    const flapOnce = async (upMs: number, downMs: number) => {
+      setLinkState({ httpOk: true });
+      await flushLinkChange(view);
+      await advance(upMs, 3);
+      setLinkState({ httpOk: false });
+      await flushLinkChange(view);
+      await advance(downMs, 1);
+    };
+
+    // Six edges inside a single cooldown window.
+    for (let flap = 0; flap < 6; flap += 1) {
+      await flapOnce(1_300, 200);
+    }
+    expect(streamSessionChat).toHaveBeenCalledTimes(1);
+
+    // Keep flapping well past the cooldown: the attempt cap bounds the episode,
+    // so the count can never track the number of reconnect edges.
+    for (let flap = 0; flap < 6; flap += 1) {
+      await flapOnce(6_000, 1_000);
+    }
+    expect(streamSessionChat.mock.calls.length).toBeLessThanOrEqual(
+      RECONNECT_AUTO_RESEND_MAX_ATTEMPTS,
+    );
+    expect(
+      new Set(streamSessionChat.mock.calls.map((call) => call[2])),
+    ).toEqual(new Set([PROMPT]));
+  });
+
+  it('resumes — never resends — an ACCEPTED stalled prompt across rapid reconnect flaps', async () => {
+    jest.useFakeTimers();
+    const { streamSessionChat } = gatewayMocks();
+    // Gateway takes the prompt (the Mac has it) and the run then goes silent.
+    streamSessionChat.mockImplementation(
+      (
+        _url: string,
+        _sessionId: string,
+        _message: unknown,
+        _apiKey: string,
+        _onEvent: unknown,
+        _systemMessage: unknown,
+        onStreamAccepted?: () => void,
+      ) => {
+        onStreamAccepted?.();
+        return new Promise<string>(() => {});
+      },
+    );
+
+    // Direct HTTP up, relay socket down: delivery status stays `pending` even
+    // though the gateway accepted — the shape that produced the duplicate run.
+    setLinkState({ httpOk: true, socket: 'disconnected' });
+    const view = await renderChat();
+    await waitFor(() => {
+      expect(view.getByTestId('chat-input')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.changeText(view.getByTestId('chat-input'), PROMPT);
+      fireEvent.press(view.getByTestId('chat-send-button'));
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(streamSessionChat).toHaveBeenCalledTimes(1);
+    });
+
+    // Stuck-outbound sweep marks the delivered turn "Sent — no reply from computer".
+    await advance(150_000, 30);
+
+    for (let flap = 0; flap < 4; flap += 1) {
+      setLinkState({ httpOk: false });
+      await flushLinkChange(view);
+      await advance(1_500, 2);
+      setLinkState({ httpOk: true, socket: 'disconnected' });
+      await flushLinkChange(view);
+      await advance(4_000, 4);
+    }
+
+    // The Mac already had it: every recovery must be a resume, never a resend.
+    expect(streamSessionChat).toHaveBeenCalledTimes(1);
+    expect(streamSessionChat.mock.calls.map((call) => call[2])).toEqual([PROMPT]);
   });
 
   it('keeps ↑ a genuine no-op when there is nothing typed and nothing to retry', async () => {

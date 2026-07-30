@@ -34,20 +34,46 @@ export type OutboundSubmissionRecord = {
   acceptedAtMs?: number;
 };
 
+export type OutboundAutoResendState = {
+  count: number;
+  lastAtMs: number;
+};
+
 export type OutboundSubmissionLedger = {
   records: OutboundSubmissionRecord[];
+  /** intent key → automatic resend budget, so a flapping link cannot fan out copies. */
+  autoResend: Record<string, OutboundAutoResendState>;
 };
 
 export function createOutboundSubmissionLedger(): OutboundSubmissionLedger {
-  return { records: [] };
+  return { records: [], autoResend: {} };
 }
 
 export function createOutboundId(nowMs: number, seq: number): string {
   return `ob-${nowMs}-${seq}`;
 }
 
+/**
+ * Stable identity for one user INTENT across submissions.
+ *
+ * The optimistic bubble id is reused by findReusableOptimisticUserBubble on every
+ * retry, so it survives resends; the normalized body is the fallback for turns
+ * that have not been committed to a bubble yet.
+ */
+export function outboundIntentKey(input: {
+  messageId?: string | null;
+  body: string;
+}): string {
+  const messageId = input.messageId?.trim();
+  if (messageId) {
+    return `msg:${messageId}`;
+  }
+  return `body:${normalizeMessageText(input.body ?? '')}`;
+}
+
 export function clearOutboundSubmissions(ledger: OutboundSubmissionLedger): void {
   ledger.records = [];
+  ledger.autoResend = {};
 }
 
 /**
@@ -99,9 +125,40 @@ export function scopeOutboundSubmissionsToSession(
   const target = sessionId?.trim() || null;
   if (!target) {
     ledger.records = [];
+    ledger.autoResend = {};
     return;
   }
   ledger.records = ledger.records.filter((record) => record.sessionId === target);
+  const surviving = new Set(
+    ledger.records.map((record) =>
+      outboundIntentKey({ messageId: record.messageId, body: record.body }),
+    ),
+  );
+  ledger.autoResend = Object.fromEntries(
+    Object.entries(ledger.autoResend ?? {}).filter(([key]) => surviving.has(key)),
+  );
+}
+
+/**
+ * Attach the real target session once sendUserText has resolved/created it.
+ *
+ * The submission is recorded before the offline gate so an undelivered prompt is
+ * provably undelivered; at that point the session may still be null.
+ */
+export function attachOutboundSubmissionSession(
+  ledger: OutboundSubmissionLedger,
+  outboundId: string,
+  sessionId: string | null | undefined,
+): void {
+  const target = sessionId?.trim() || null;
+  if (!target) {
+    return;
+  }
+  const record = ledger.records.find((entry) => entry.outboundId === outboundId);
+  if (!record || record.sessionId === target) {
+    return;
+  }
+  record.sessionId = target;
 }
 
 /** The gateway accepted this submission — the prompt is on the Mac. */
@@ -115,6 +172,11 @@ export function markOutboundSubmissionAccepted(
     return;
   }
   record.acceptedAtMs = nowMs;
+  // Delivered for real — a later, genuinely new failure deserves a full budget.
+  clearAutoResendAttempts(
+    ledger,
+    outboundIntentKey({ messageId: record.messageId, body: record.body }),
+  );
 }
 
 export function findOutboundSubmissionForBody(
@@ -150,6 +212,134 @@ export function hasAcceptedSubmissionForBody(
   messageId?: string | null,
 ): boolean {
   return findOutboundSubmissionForBody(ledger, body, sessionId, messageId)?.acceptedAtMs != null;
+}
+
+/**
+ * Automatic resend budget for a single intent.
+ *
+ * Igor's mini flaps: a watchdog SIGTERMs its gateway roughly every 60s during a
+ * slow start, so reconnect edges arrive in bursts. The cooldown absorbs the
+ * burst (one submission per window) and the cap bounds the whole episode.
+ */
+export const RECONNECT_AUTO_RESEND_MAX_ATTEMPTS = 3;
+export const RECONNECT_AUTO_RESEND_COOLDOWN_MS = 20_000;
+/** Settle time before acting on a reconnect — a 1s green blip is not a reconnect. */
+export const RECONNECT_AUTO_RESEND_DEBOUNCE_MS = 1_200;
+
+export function autoResendAttemptCount(
+  ledger: OutboundSubmissionLedger,
+  intentKey: string,
+): number {
+  return ledger.autoResend?.[intentKey]?.count ?? 0;
+}
+
+export function recordAutoResendAttempt(
+  ledger: OutboundSubmissionLedger,
+  intentKey: string,
+  nowMs: number,
+): void {
+  if (!intentKey.trim()) {
+    return;
+  }
+  if (!ledger.autoResend) {
+    ledger.autoResend = {};
+  }
+  const existing = ledger.autoResend[intentKey];
+  ledger.autoResend[intentKey] = {
+    count: (existing?.count ?? 0) + 1,
+    lastAtMs: nowMs,
+  };
+}
+
+export function clearAutoResendAttempts(
+  ledger: OutboundSubmissionLedger,
+  intentKey: string,
+): void {
+  if (!ledger.autoResend) {
+    return;
+  }
+  delete ledger.autoResend[intentKey];
+}
+
+export type ReconnectResendPlan =
+  | {
+      kind: 'none';
+      reason:
+        | 'nothing_to_send'
+        | 'demo'
+        | 'offline'
+        | 'busy'
+        | 'cooldown'
+        | 'attempts_exhausted';
+    }
+  /** Gateway ACCEPTED it — the Mac has the prompt. Poll, never resubmit. */
+  | { kind: 'resume'; outboundId: string; intentKey: string }
+  /** Provably never reached the Mac — resending duplicates nothing. */
+  | { kind: 'resend'; intentKey: string; attempt: number };
+
+/**
+ * Reconnection policy for a failed outbound.
+ *
+ * The distinction that makes automatic resend SAFE is accepted-vs-not-accepted,
+ * not manual-vs-automatic:
+ *
+ *  - accepted  → the Mac is (or was) running it. Resubmitting duplicates the
+ *    user's instruction and appends a second user row. Resume instead.
+ *  - not accepted → nothing exists on the Mac to duplicate, so resending on
+ *    reconnect is unambiguously correct and needs no tap.
+ *
+ * A missing ledger record is treated as not-accepted: sendUserText records the
+ * submission before the offline gate, so every outbound intent this app created
+ * has a record. Anything without one never went through a send at all.
+ */
+export function resolveReconnectResendPlan(input: {
+  failedText?: string | null;
+  sessionId?: string | null;
+  messageId?: string | null;
+  ledger: OutboundSubmissionLedger;
+  nowMs: number;
+  macChatLive: boolean;
+  isDemo: boolean;
+  isSending: boolean;
+  maxAttempts?: number;
+  cooldownMs?: number;
+}): ReconnectResendPlan {
+  const text = input.failedText?.trim();
+  if (!text) {
+    return { kind: 'none', reason: 'nothing_to_send' };
+  }
+  if (input.isDemo) {
+    return { kind: 'none', reason: 'demo' };
+  }
+  if (!input.macChatLive) {
+    return { kind: 'none', reason: 'offline' };
+  }
+  if (input.isSending) {
+    return { kind: 'none', reason: 'busy' };
+  }
+
+  const record = findOutboundSubmissionForBody(
+    input.ledger,
+    text,
+    input.sessionId,
+    input.messageId,
+  );
+  const intentKey = outboundIntentKey({ messageId: input.messageId, body: text });
+  if (record?.acceptedAtMs != null) {
+    return { kind: 'resume', outboundId: record.outboundId, intentKey };
+  }
+
+  const maxAttempts = input.maxAttempts ?? RECONNECT_AUTO_RESEND_MAX_ATTEMPTS;
+  const cooldownMs = input.cooldownMs ?? RECONNECT_AUTO_RESEND_COOLDOWN_MS;
+  const state = input.ledger.autoResend?.[intentKey];
+  if ((state?.count ?? 0) >= maxAttempts) {
+    return { kind: 'none', reason: 'attempts_exhausted' };
+  }
+  if (state && input.nowMs - state.lastAtMs < cooldownMs) {
+    // Reconnect burst from a flapping gateway — one submission per window.
+    return { kind: 'none', reason: 'cooldown' };
+  }
+  return { kind: 'resend', intentKey, attempt: (state?.count ?? 0) + 1 };
 }
 
 export type StallRecoveryPlan =

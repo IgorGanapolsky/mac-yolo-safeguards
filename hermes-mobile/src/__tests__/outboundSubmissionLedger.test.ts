@@ -1,6 +1,10 @@
 import type { HermesMessage } from '../types/chat';
 import {
   OUTBOUND_LEDGER_MAX_RECORDS,
+  RECONNECT_AUTO_RESEND_COOLDOWN_MS,
+  RECONNECT_AUTO_RESEND_MAX_ATTEMPTS,
+  attachOutboundSubmissionSession,
+  autoResendAttemptCount,
   clearOutboundSubmissions,
   createOutboundId,
   createOutboundSubmissionLedger,
@@ -8,7 +12,10 @@ import {
   hasAcceptedSubmissionForBody,
   markOutboundBubbleDelivered,
   markOutboundSubmissionAccepted,
+  outboundIntentKey,
+  recordAutoResendAttempt,
   recordOutboundSubmission,
+  resolveReconnectResendPlan,
   resolveStallRecoveryPlan,
   scopeOutboundSubmissionsToSession,
 } from '../utils/outboundSubmissionLedger';
@@ -231,5 +238,159 @@ describe('resolveComposerSendText', () => {
 
   it('is empty when nothing is typed', () => {
     expect(resolveComposerSendText({ latestText: '', composerValue: '' })).toBe('');
+  });
+});
+
+describe('resolveReconnectResendPlan', () => {
+  const LIVE = { macChatLive: true, isDemo: false, isSending: false };
+
+  function ledgerWith(options: { accepted: boolean }) {
+    const ledger = createOutboundSubmissionLedger();
+    recordOutboundSubmission(ledger, {
+      outboundId: 'ob-1',
+      sessionId: 'session-1',
+      messageId: 'user-1',
+      body: 'Do it now',
+      nowMs: 1_000,
+    });
+    if (options.accepted) {
+      markOutboundSubmissionAccepted(ledger, 'ob-1', 1_500);
+    }
+    return ledger;
+  }
+
+  const target = {
+    failedText: 'Do it now',
+    sessionId: 'session-1',
+    messageId: 'user-1',
+  };
+
+  it('auto-resends a prompt the gateway never accepted — no tap required', () => {
+    const plan = resolveReconnectResendPlan({
+      ...target,
+      ledger: ledgerWith({ accepted: false }),
+      nowMs: 10_000,
+      ...LIVE,
+    });
+    expect(plan).toEqual({ kind: 'resend', intentKey: 'msg:user-1', attempt: 1 });
+  });
+
+  it('RESUMES an accepted prompt — the Mac already has it, never resubmit', () => {
+    const plan = resolveReconnectResendPlan({
+      ...target,
+      ledger: ledgerWith({ accepted: true }),
+      nowMs: 10_000,
+      ...LIVE,
+    });
+    expect(plan).toEqual({ kind: 'resume', outboundId: 'ob-1', intentKey: 'msg:user-1' });
+  });
+
+  it('still resumes an accepted prompt across a burst of reconnect edges', () => {
+    const ledger = ledgerWith({ accepted: true });
+    const kinds = [0, 3_000, 6_000, 9_000, 12_000].map(
+      (offset) =>
+        resolveReconnectResendPlan({
+          ...target,
+          ledger,
+          nowMs: 10_000 + offset,
+          ...LIVE,
+        }).kind,
+    );
+    expect(kinds).toEqual(['resume', 'resume', 'resume', 'resume', 'resume']);
+    expect(autoResendAttemptCount(ledger, 'msg:user-1')).toBe(0);
+  });
+
+  it('collapses a reconnect burst into one submission per cooldown window', () => {
+    const ledger = ledgerWith({ accepted: false });
+    const intentKey = outboundIntentKey({ messageId: 'user-1', body: 'Do it now' });
+    const first = resolveReconnectResendPlan({ ...target, ledger, nowMs: 10_000, ...LIVE });
+    expect(first.kind).toBe('resend');
+    recordAutoResendAttempt(ledger, intentKey, 10_000);
+
+    // Flapping gateway: four more reconnect edges inside the same window.
+    for (const offset of [200, 1_000, 5_000, RECONNECT_AUTO_RESEND_COOLDOWN_MS - 1]) {
+      const plan = resolveReconnectResendPlan({
+        ...target,
+        ledger,
+        nowMs: 10_000 + offset,
+        ...LIVE,
+      });
+      expect(plan).toEqual({ kind: 'none', reason: 'cooldown' });
+    }
+    expect(autoResendAttemptCount(ledger, intentKey)).toBe(1);
+
+    // Past the window a genuine new reconnect may try again.
+    expect(
+      resolveReconnectResendPlan({
+        ...target,
+        ledger,
+        nowMs: 10_000 + RECONNECT_AUTO_RESEND_COOLDOWN_MS,
+        ...LIVE,
+      }).kind,
+    ).toBe('resend');
+  });
+
+  it('bounds the whole episode with an attempt cap', () => {
+    const ledger = ledgerWith({ accepted: false });
+    const intentKey = outboundIntentKey({ messageId: 'user-1', body: 'Do it now' });
+    let now = 10_000;
+    for (let attempt = 0; attempt < RECONNECT_AUTO_RESEND_MAX_ATTEMPTS; attempt += 1) {
+      expect(
+        resolveReconnectResendPlan({ ...target, ledger, nowMs: now, ...LIVE }).kind,
+      ).toBe('resend');
+      recordAutoResendAttempt(ledger, intentKey, now);
+      now += RECONNECT_AUTO_RESEND_COOLDOWN_MS;
+    }
+    expect(resolveReconnectResendPlan({ ...target, ledger, nowMs: now, ...LIVE })).toEqual({
+      kind: 'none',
+      reason: 'attempts_exhausted',
+    });
+  });
+
+  it('gives a fresh budget once a submission is finally accepted', () => {
+    const ledger = ledgerWith({ accepted: false });
+    const intentKey = outboundIntentKey({ messageId: 'user-1', body: 'Do it now' });
+    recordAutoResendAttempt(ledger, intentKey, 10_000);
+    recordAutoResendAttempt(ledger, intentKey, 40_000);
+    expect(autoResendAttemptCount(ledger, intentKey)).toBe(2);
+
+    recordOutboundSubmission(ledger, {
+      outboundId: 'ob-2',
+      sessionId: 'session-1',
+      messageId: 'user-1',
+      body: 'Do it now',
+      nowMs: 60_000,
+    });
+    markOutboundSubmissionAccepted(ledger, 'ob-2', 60_500);
+    expect(autoResendAttemptCount(ledger, intentKey)).toBe(0);
+  });
+
+  it('never auto-resends while offline, in demo, or mid-send', () => {
+    const ledger = ledgerWith({ accepted: false });
+    expect(
+      resolveReconnectResendPlan({ ...target, ledger, nowMs: 10_000, ...LIVE, macChatLive: false }),
+    ).toEqual({ kind: 'none', reason: 'offline' });
+    expect(
+      resolveReconnectResendPlan({ ...target, ledger, nowMs: 10_000, ...LIVE, isDemo: true }),
+    ).toEqual({ kind: 'none', reason: 'demo' });
+    expect(
+      resolveReconnectResendPlan({ ...target, ledger, nowMs: 10_000, ...LIVE, isSending: true }),
+    ).toEqual({ kind: 'none', reason: 'busy' });
+    expect(
+      resolveReconnectResendPlan({ ...target, failedText: '  ', ledger, nowMs: 10_000, ...LIVE }),
+    ).toEqual({ kind: 'none', reason: 'nothing_to_send' });
+  });
+
+  it('binds a submission recorded before the offline gate to its real session', () => {
+    const ledger = createOutboundSubmissionLedger();
+    recordOutboundSubmission(ledger, {
+      outboundId: 'ob-1',
+      sessionId: null,
+      messageId: 'user-1',
+      body: 'Do it now',
+      nowMs: 1_000,
+    });
+    attachOutboundSubmissionSession(ledger, 'ob-1', 'session-9');
+    expect(findOutboundSubmissionForBody(ledger, 'Do it now', 'session-9', 'user-1')).toBeTruthy();
   });
 });
