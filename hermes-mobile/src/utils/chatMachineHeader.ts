@@ -40,10 +40,26 @@ export function shouldClaimHeaderTransport(input: {
 }
 
 /**
+ * User-facing name for the adb-reverse loopback path.
+ *
+ * CEO directive (2026-07-22, restated 2026-07-30): the app must never name USB to
+ * the user. The transport is real — chat is reaching the Mac over a loopback the
+ * cable provides — but "USB" contradicts a Tailscale-only mental model and markets
+ * a path the user cannot set up. The state is still *identified* internally
+ * (see the multi-Mac identity law below); only the word the user reads changes.
+ *
+ * Kept as a distinct chip rather than dropped so `assertUsbHeaderIdentityLaw`
+ * still has something to gate on: "X · Direct link" remains a claim that machine
+ * X owns this link, and that claim still requires live green|amber /health.
+ */
+export const DIRECT_LINK_TRANSPORT_LABEL = 'Direct link';
+
+/**
  * Header transport chip from the URL that actually succeeded this session.
- * USB: live loopback on Wi‑Fi, or cellular when /health proves a live cable Mac
- * (hostname + green|amber). Ghost 127.0.0.1 on cellular without live health stays silent.
- * Never USB for Tailscale/MagicDNS/100.x (remote mini in another city).
+ * Direct link: live loopback on Wi‑Fi, or cellular when /health proves a live
+ * local-link Mac (hostname + green|amber). Ghost 127.0.0.1 on cellular without
+ * live health stays silent.
+ * Never a direct link for Tailscale/MagicDNS/100.x (remote mini in another city).
  */
 export function resolveHeaderTransportLabel(input: {
   gatewayUrl: string;
@@ -54,13 +70,13 @@ export function resolveHeaderTransportLabel(input: {
   if (!gatewayUrl) {
     return undefined;
   }
-  // Tailscale wins before any loopback/USB check — remote Macs are never USB.
+  // Tailscale wins before any loopback check — a remote Mac is never a direct link.
   if (isTailscaleGatewayUrl(gatewayUrl)) {
     return 'Tailscale';
   }
   if (isLoopbackGatewayUrl(gatewayUrl)) {
-    // Cellular + 127.0.0.1 without live /health is a stale USB primary / wireless-adb ghost.
-    // Live hostname on green|amber proves adb reverse — claim USB even on 5G (product lock).
+    // Cellular + 127.0.0.1 without live /health is a stale loopback primary / wireless-adb ghost.
+    // Live hostname on green|amber proves adb reverse — claim the direct link even on 5G.
     if (input.wifiConnected === false) {
       const host = input.health?.hostname?.trim();
       const live =
@@ -71,7 +87,7 @@ export function resolveHeaderTransportLabel(input: {
         return undefined;
       }
     }
-    return 'USB';
+    return DIRECT_LINK_TRANSPORT_LABEL;
   }
   if (isPrivateLanGatewayUrl(gatewayUrl)) {
     return 'Home Wi‑Fi';
@@ -79,7 +95,11 @@ export function resolveHeaderTransportLabel(input: {
   return formatGatewayEndpointLine(gatewayUrl, input.health)?.trim() || undefined;
 }
 
-/** USB header chip when loopback is the reach URL and Wi‑Fi or live-cable health confirms. */
+/**
+ * Direct-link header chip when loopback is the reach URL and Wi‑Fi or live
+ * local-link health confirms. Internal name keeps `Usb` because the underlying
+ * transport really is an adb reverse — the user never reads that word.
+ */
 export function isUsbHeaderTransportAllowed(input: {
   gatewayUrl: string;
   wifiConnected?: boolean;
@@ -87,13 +107,13 @@ export function isUsbHeaderTransportAllowed(input: {
 }): boolean {
   return (
     isLoopbackGatewayUrl(input.gatewayUrl) &&
-    resolveHeaderTransportLabel(input) === 'USB'
+    resolveHeaderTransportLabel(input) === DIRECT_LINK_TRANSPORT_LABEL
   );
 }
 
 /**
- * Generic label when loopback is selected but live cable identity is unknown.
- * Must not say "Computer via USB" — that markets a dead USB path off-home (2026-07-21).
+ * Generic label when loopback is selected but live local-link identity is unknown.
+ * Must not say "Computer via USB" — that markets a dead cable path off-home (2026-07-21).
  */
 export const USB_UNKNOWN_MACHINE_LABEL = 'Your computer';
 
@@ -165,9 +185,10 @@ export function isLiveUsbHealthIdentity(health?: GatewayHealthSnapshot | null): 
 }
 
 /**
- * PRODUCT LAW (multi-Mac USB):
- * Header may show "X · USB" only when live /health (green|amber) hostname is X.
- * While health is null/red, never claim a saved Mac (e.g. another saved Mac) owns the cable.
+ * PRODUCT LAW (multi-Mac local link):
+ * Header may show "X · Direct link" only when live /health (green|amber) hostname is X.
+ * While health is null/red, never claim a saved Mac (e.g. another saved Mac) owns the link —
+ * an adb reverse answers for whichever Mac is attached, not the one the user selected.
  */
 export function resolveMachineDisplayName(
   activeProfile: GatewayProfile | null | undefined,
@@ -316,7 +337,7 @@ export type ChatMachineHeaderDisplay = {
   showDetailWhenConnected: boolean;
 };
 
-/** Single-line form used in chat header (e.g. "Host · USB"). */
+/** Single-line form used in chat header (e.g. "Host · Direct link"). */
 export function formatChatMachineHeaderLine(display: ChatMachineHeaderDisplay): string {
   if (display.machineEndpoint?.trim()) {
     return `${display.machineLabel} · ${display.machineEndpoint.trim()}`;
@@ -325,11 +346,12 @@ export function formatChatMachineHeaderLine(display: ChatMachineHeaderDisplay): 
 }
 
 /**
- * True when header claims a *named* Mac owns USB (not "Computer via USB · USB").
- * Required gate: never true unless live USB /health hostname matches that name.
+ * True when the header claims a *named* Mac owns the direct link (not
+ * "Your computer · Direct link").
+ * Required gate: never true unless live loopback /health hostname matches that name.
  */
 export function usbHeaderClaimsNamedHost(display: ChatMachineHeaderDisplay): boolean {
-  if (display.machineEndpoint !== 'USB') {
+  if (display.machineEndpoint !== DIRECT_LINK_TRANSPORT_LABEL) {
     return false;
   }
   const label = display.machineLabel.trim();
@@ -340,8 +362,8 @@ export function usbHeaderClaimsNamedHost(display: ChatMachineHeaderDisplay): boo
 }
 
 /**
- * Invariant for tests/CI: named "X · USB" requires live green|amber health hostname matching X.
- * Returns null when OK, or a human error string when the law is broken.
+ * Invariant for tests/CI: named "X · Direct link" requires a live green|amber health
+ * hostname matching X. Returns null when OK, or a human error string when the law is broken.
  */
 export function assertUsbHeaderIdentityLaw(input: {
   display: ChatMachineHeaderDisplay;
@@ -355,17 +377,17 @@ export function assertUsbHeaderIdentityLaw(input: {
     return null;
   }
   if (!isLiveUsbHealthIdentity(input.health)) {
-    return `USB header claims "${input.display.machineLabel}" without live green/amber /health hostname`;
+    return `Direct-link header claims "${input.display.machineLabel}" without live green/amber /health hostname`;
   }
   const live = healthHostname(input.health);
   if (!live) {
-    return `USB header claims "${input.display.machineLabel}" but live host is missing`;
+    return `Direct-link header claims "${input.display.machineLabel}" but live host is missing`;
   }
   // Named claim must match live host (case-insensitive host stem).
   const claimed = input.display.machineLabel.replace(/\.local$/i, '').trim().toLowerCase();
   const liveStem = live.replace(/\.local$/i, '').trim().toLowerCase();
   if (claimed !== liveStem && !liveStem.includes(claimed) && !claimed.includes(liveStem)) {
-    return `USB header claims "${input.display.machineLabel}" but live /health is "${live}"`;
+    return `Direct-link header claims "${input.display.machineLabel}" but live /health is "${live}"`;
   }
   return null;
 }
@@ -386,7 +408,7 @@ export function assertUsbHeaderIdentityLaw(input: {
  * selection there is no unambiguous answer, so the placeholder still wins
  * (never invent which Mac the user meant).
  *
- * Precedence obeys this module's USB identity law: a live green|amber /health
+ * Precedence obeys this module's local-link identity law: a live green|amber /health
  * hostname is proof of which Mac we are actually talking to, so it outranks an
  * *unselected* saved profile that may well name a different machine. Getting
  * this backwards could title the header with the Mac mini while /health proves
@@ -448,7 +470,7 @@ export function resolveChatMachineHeaderDisplay(input: {
   profiles?: GatewayProfile[];
   isDemo?: boolean;
   /**
-   * When false (cellular), only claim USB if live /health proves the cable
+   * When false (cellular), only claim the direct link if live /health proves it
    * (see resolveHeaderTransportLabel). Ghost loopback stays silent.
    */
   wifiConnected?: boolean;
@@ -480,7 +502,24 @@ export function resolveChatMachineHeaderDisplay(input: {
     machineLabel = knownMachineNameOrPlaceholder(input);
   }
 
-  // No URL yet: skip USB/IP endpoint details entirely.
+  // DEFECT (2026-07-30, real device): the header read "Your computer · …" while the
+  // machine name was already knowable (relay worker / the single saved computer).
+  // The placeholder must be the last answer, never the first.
+  //
+  // Exception, deliberately kept: an *unproven* loopback keeps the placeholder. The
+  // adb reverse answers for whichever Mac is attached, so naming a Mac there would
+  // break the identity law above (assertUsbHeaderIdentityLaw) and re-open the
+  // 2026-07-22 "wrong Mac in the header" rage. A live green|amber /health hostname
+  // has already been applied by resolveMachineDisplayName in that case.
+  if (machineLabel === USB_UNKNOWN_MACHINE_LABEL) {
+    const unprovenDirectLink =
+      isLoopbackGatewayUrl(gatewayUrl) && !isLiveUsbHealthIdentity(input.health);
+    if (!unprovenDirectLink) {
+      machineLabel = knownMachineNameOrPlaceholder(input);
+    }
+  }
+
+  // No URL yet: skip transport/IP endpoint details entirely.
   if (!gatewayUrl && !input.activeProfile && !input.isDemo) {
     return {
       machineLabel,
@@ -517,13 +556,13 @@ export function resolveChatMachineHeaderDisplay(input: {
     Boolean(profileIp && machineLabel.includes(profileIp)) ||
     Boolean(
       ipLine &&
-        ipLine !== 'USB' &&
+        ipLine !== DIRECT_LINK_TRANSPORT_LABEL &&
         ipLine !== 'Tailscale' &&
         ipLine !== 'Home Wi‑Fi' &&
         machineLabel.includes(ipLine.split(':')[0]),
     );
 
-  // Show transport when multi-Mac, USB (Wi‑Fi only), Tailscale/Home Wi‑Fi, or IP not in label.
+  // Show transport when multi-Mac, direct link (Wi‑Fi only), Tailscale/Home Wi‑Fi, or IP not in label.
   // Unpaired relay without direct Mac HTTP never claims a transport chip (see shouldClaimHeaderTransport).
   if (
     ipLine &&
@@ -617,7 +656,9 @@ export function formatMacConnectionRetryBanner(input: {
   let routeDetail = input.machineEndpoint?.trim();
   if (!routeDetail || (loopbackUsb && routeDetail.includes('127.0.0.1'))) {
     const endpointLine = formatGatewayEndpointLine(input.gatewayUrl, input.health)?.trim();
-    routeDetail = loopbackUsb ? 'USB' : endpointLine || input.gatewayUrl.trim();
+    routeDetail = loopbackUsb
+      ? DIRECT_LINK_TRANSPORT_LABEL
+      : endpointLine || input.gatewayUrl.trim();
   }
 
   if (routeDetail) {

@@ -79,7 +79,9 @@ export function isForwardProgress(previous: ConnectionStage, next: ConnectionSta
 }
 
 const REASON_COPY: Record<ConnectionReasonCode, string> = {
-  usb_missing: 'No cable detected — plug in USB or connect over Wi‑Fi.',
+  // Copy only (CEO 2026-07-22, restated 2026-07-30): never name a cable to the user.
+  // The `usb_missing` stage id is an internal identifier and is unchanged.
+  usb_missing: 'No computer link detected — connect over Tailscale or Wi‑Fi.',
   port_closed: 'Computer is on the network but the Hermes gateway port is not responding.',
   auth_failed: 'Outdated connection — tap Re-pair this Mac to reconnect.',
   event_socket_optional: 'Connected. Live updates are reconnecting in the background.',
