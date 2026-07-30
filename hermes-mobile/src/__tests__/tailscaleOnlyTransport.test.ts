@@ -8,6 +8,7 @@ import {
   resolveHeaderTransportLabel,
   isUsbHeaderTransportAllowed,
   formatMacConnectionRetryBanner,
+  DIRECT_LINK_TRANSPORT_LABEL,
 } from '../utils/chatMachineHeader';
 import type { GatewayProfile } from '../types/gatewayProfile';
 
@@ -57,6 +58,10 @@ describe('tailscale-only transport', () => {
   });
 
   it('S55: header never labels loopback as USB when hatch is off', () => {
+    // Pinned to the BEHAVIOUR this test is named for ("never says USB"), not to the
+    // implementation detail of returning undefined. `toBeUndefined()` also erased the
+    // connected signal the picker keys off, which PR #1232's review caught as a P2 —
+    // see S56 below. Any non-USB label satisfies the rule this test exists to enforce.
     expect(
       resolveHeaderTransportLabel({
         gatewayUrl: 'http://127.0.0.1:8642',
@@ -67,7 +72,7 @@ describe('tailscale-only transport', () => {
           checkedAt: '2026-07-30T00:00:00.000Z',
         },
       }),
-    ).toBeUndefined();
+    ).not.toMatch(/usb/i);
     expect(
       isUsbHeaderTransportAllowed({
         gatewayUrl: 'http://127.0.0.1:8642',
@@ -114,5 +119,40 @@ describe('sentry release attribution', () => {
     expect(src).toMatch(/BUILD_NUMBER\s*=\s*String\(Constants\.nativeBuildVersion[^)]*\)\s*\|\|/);
     // and it is still what Sentry reports as dist
     expect(src).toMatch(/dist:\s*BUILD_NUMBER/);
+  });
+});
+
+// PR #1232 review P2 (chatgpt-codex-connector): suppressing the USB wording by
+// returning `undefined` ALSO drops the connected signal, so
+// resolveComputerPickerStatus skips its activeReachable branch and falls through to
+// misleading help ("Paste your Mac's Tailscale IP") while the route is actually
+// working — which would violate the PRODUCT LAW in connectionStatusContract.ts.
+// Hide the cable, keep the signal.
+describe('S56: a working loopback route stays "connected" without naming a cable', () => {
+  it('returns a neutral transport label rather than undefined', () => {
+    const label = resolveHeaderTransportLabel({
+      gatewayUrl: 'http://127.0.0.1:8642',
+      wifiConnected: true,
+      health: { level: 'green', hostname: 'Igors-Mac-mini.local' } as never,
+    });
+    expect(label).toBeDefined();
+    expect(label).not.toMatch(/usb/i);
+    expect(label).toBe(DIRECT_LINK_TRANSPORT_LABEL);
+  });
+
+  it('the neutral label never contains the banned word', () => {
+    expect(DIRECT_LINK_TRANSPORT_LABEL).not.toMatch(/usb/i);
+  });
+
+  it('a stale cellular reverse ghost still gets NO label', () => {
+    // A ghost is a ghost regardless of the dogfood hatch: no live /health means the
+    // route is not connected, so it must not receive a connected-looking label.
+    expect(
+      resolveHeaderTransportLabel({
+        gatewayUrl: 'http://127.0.0.1:8642',
+        wifiConnected: false,
+        health: null,
+      }),
+    ).toBeUndefined();
   });
 });

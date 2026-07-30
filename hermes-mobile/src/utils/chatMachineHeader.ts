@@ -40,6 +40,13 @@ export function shouldClaimHeaderTransport(input: {
 }
 
 /**
+ * Neutral chip for a working local route. Names the connection, never the cable —
+ * so the header can stay honest about being CONNECTED without the product ever
+ * saying "USB" to a user.
+ */
+export const DIRECT_LINK_TRANSPORT_LABEL = 'Direct link';
+
+/**
  * Header transport chip from the URL that actually succeeded this session.
  *
  * CEO 2026-07-26 / 2026-07-30: product surface is Tailscale + Home Wi‑Fi only.
@@ -60,11 +67,9 @@ export function resolveHeaderTransportLabel(input: {
     return 'Tailscale';
   }
   if (isLoopbackGatewayUrl(gatewayUrl)) {
-    // Default product: never name the cable. Escape hatch only for dogfood.
-    if (!isUsbTransportAllowed()) {
-      return undefined;
-    }
-    // Cellular + 127.0.0.1 without live /health is a stale reverse ghost.
+    // Cellular + 127.0.0.1 without live /health is a stale reverse ghost. This runs
+    // BEFORE the dogfood hatch: a ghost is a ghost either way, and it must never
+    // receive a connected-looking label.
     if (input.wifiConnected === false) {
       const host = input.health?.hostname?.trim();
       const live =
@@ -74,6 +79,15 @@ export function resolveHeaderTransportLabel(input: {
       if (!live) {
         return undefined;
       }
+    }
+    // Default product: never name the cable — but do NOT return undefined, which
+    // would also erase the CONNECTED signal. resolveComputerPickerStatus keys its
+    // activeReachable branch off this label; dropping it made a working route fall
+    // through to "Paste your Mac's Tailscale IP" (PR #1232 review P2), which is
+    // exactly the false-unpaired copy the PRODUCT LAW in connectionStatusContract.ts
+    // forbids. Escape hatch stays dogfood-only.
+    if (!isUsbTransportAllowed()) {
+      return DIRECT_LINK_TRANSPORT_LABEL;
     }
     return 'USB';
   }
