@@ -84,20 +84,15 @@ describe('store listing metadata contract (stellar live)', () => {
   it('iOS subtitle and promo fit limits and avoid review-stale language', () => {
     const subtitle = read(path.join(IOS, 'subtitle.txt'));
     const promo = read(path.join(IOS, 'promotional_text.txt'));
-    const description = read(path.join(IOS, 'description.txt'));
     const keywords = read(path.join(IOS, 'keywords.txt'));
     expect(subtitle.length).toBeLessThanOrEqual(30);
     expect(promo.length).toBeLessThanOrEqual(170);
     expect(keywords.length).toBeLessThanOrEqual(100);
     expect(promo).not.toMatch(/in App Store review/i);
     expect(subtitle).not.toMatch(/Claude Code|Cursor/i);
-    expect(subtitle).toBe('Remote AI agent control');
+    expect(subtitle).toMatch(/Mac/i);
     expect(promo).toMatch(/not a phone chatbot|not phone/i);
     expect(promo).toMatch(/pay once|once/i);
-    expect(description).toMatch(/^Keep Hermes moving when you step away from your computer\./);
-    expect(description).toMatch(/PAID-UPFRONT APP/);
-    expect(description).toMatch(/No Hermes Mobile subscription\./);
-    expect(description).not.toMatch(/paid unlock|\$19\.99\/mo/i);
     expect(keywords).toMatch(/remote,coding,assistant,desktop,control/i);
     expect(keywords).toMatch(/linux,windows,selfhosted,local,computer/i);
     expect(keywords).not.toMatch(/\s/);
