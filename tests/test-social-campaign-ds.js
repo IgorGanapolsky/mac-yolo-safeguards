@@ -263,6 +263,11 @@ test('buildScoreboard prefers exact campaign IDs over prefix collisions', () => 
         ctaId: 'week_20260710_ai_agents_home',
         count: 7,
       },
+      {
+        event: 'landing_view',
+        ctaId: 'week_20260710_ai_agents_home',
+        count: 3,
+      },
     ],
     lookbackDays: 30,
     minEvents: 5,
@@ -275,7 +280,7 @@ test('buildScoreboard prefers exact campaign IDs over prefix collisions', () => 
     (campaign) => campaign.campaign === 'week_20260710_ai_agents',
   );
   assert.strictEqual(base.attributedTotal, 0);
-  assert.strictEqual(ai.attributedTotal, 7);
+  assert.strictEqual(ai.attributedTotal, 10);
 });
 
 test('LIVE posts with zero attribution produce lesson', () => {

@@ -199,13 +199,16 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
       if (loose[0]) return loose[0].key;
     }
     if (cta) {
-      for (const key of campaignKeys) {
-        const nk = normalizeToken(key);
-        if (cta.startsWith(nk) || nk.startsWith(cta.split('_')[0] || '')) {
-          // Prefer cta prefix match only when substantial
-          if (nk.length >= 8 && cta.includes(nk.slice(0, Math.min(12, nk.length)))) return key;
-        }
-      }
+      const ctaMatches = campaignKeys
+        .map((key) => ({ key, normalized: normalizeToken(key) }))
+        .filter(
+          (candidate) =>
+            candidate.normalized.length >= 8 &&
+            (cta.startsWith(candidate.normalized) ||
+              cta.includes(candidate.normalized)),
+        )
+        .sort((left, right) => right.normalized.length - left.normalized.length);
+      if (ctaMatches[0]) return ctaMatches[0].key;
       // group unmatched but present cta under synthetic campaign
       return `cta:${ctaId}`;
     }
