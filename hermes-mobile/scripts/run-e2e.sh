@@ -63,12 +63,18 @@ android_device_responsive() {
   adb -s "$id" shell echo ok >/dev/null 2>&1
 }
 
+# Wait for any device, or for an explicit serial when $2 is set (emulator fallback).
 wait_for_android_device() {
   local attempts="${1:-12}"
+  local want_id="${2:-}"
   local i=0
+  local id
   while [[ $i -lt $attempts ]]; do
-    local id
-    id="$(first_android_id)"
+    if [[ -n "$want_id" ]]; then
+      id="$want_id"
+    else
+      id="$(first_android_id)"
+    fi
     if [[ -n "$id" ]] && android_device_responsive "$id"; then
       echo "$id"
       return 0
@@ -118,16 +124,12 @@ if [[ "${HERMES_E2E_IOS_ONLY:-}" == "1" ]]; then
   ANDROID_ID=""
 elif [[ -n "${HERMES_E2E_ANDROID_UDID:-}" ]]; then
   # Continuous E2E emulator fallback / explicit UDID wins over a human-held USB phone.
-  echo "Using Android device from HERMES_E2E_ANDROID_UDID=${HERMES_E2E_ANDROID_UDID}..."
+  # Wait ONLY for that serial (Codex P2 2026-07-30: generic wait returned the phone).
+  echo "Using Android device from HERMES_E2E_ANDROID_UDID=${HERMES_E2E_ANDROID_UDID}..." >&2
   if android_device_responsive "${HERMES_E2E_ANDROID_UDID}"; then
     ANDROID_ID="${HERMES_E2E_ANDROID_UDID}"
   else
-    ANDROID_ID="$(wait_for_android_device 12 || true)"
-    if [[ -z "$ANDROID_ID" ]]; then
-      if android_device_responsive "${HERMES_E2E_ANDROID_UDID}"; then
-        ANDROID_ID="${HERMES_E2E_ANDROID_UDID}"
-      fi
-    fi
+    ANDROID_ID="$(wait_for_android_device 12 "${HERMES_E2E_ANDROID_UDID}" || true)"
   fi
 else
   ANDROID_ID="$(first_usb_android_id || true)"

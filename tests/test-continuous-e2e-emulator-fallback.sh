@@ -51,5 +51,24 @@ else
   fi
 fi
 
+# Progress noise must not pollute command substitution of boot_continuous_e2e_avd.
+if grep -A20 '^boot_continuous_e2e_avd()' "$SCRIPT" | grep -E 'echo "Booting' | grep -q '>&2'; then
+  ok "boot progress goes to stderr (safe for emu_id=\$(boot...))"
+else
+  # Also accept if there is no Booting echo at all, or all echo in function use >&2
+  if ! grep -A20 '^boot_continuous_e2e_avd()' "$SCRIPT" | grep -q 'echo "Booting'; then
+    ok "boot progress goes to stderr (safe for emu_id=\$(boot...))"
+  else
+    bad "boot_continuous_e2e_avd still prints progress on stdout"
+  fi
+fi
+
+# wait_for_android_device accepts explicit UDID as \$2
+if grep -A15 '^wait_for_android_device()' "$RUN_E2E" | grep -q 'want_id'; then
+  ok "wait_for_android_device can pin an explicit UDID"
+else
+  bad "wait_for_android_device missing explicit UDID support"
+fi
+
 echo "continuous-e2e-emulator-fallback: $pass passed, $fail failed"
 [[ "$fail" -eq 0 ]]

@@ -204,11 +204,13 @@ boot_continuous_e2e_avd() {
     return 1
   fi
   if has_android_emulator; then
+    # stdout MUST be serial only — callers capture with emu_id="$(boot_continuous_e2e_avd)".
     first_android_emulator_id
     return 0
   fi
   mkdir -p "$LOG_DIR"
-  echo "Booting Android AVD ${MAESTRO_AVD_NAME} for continuous E2E fallback..."
+  # Progress on stderr only (Codex P1 2026-07-30: progress on stdout polluted emu_id).
+  echo "Booting Android AVD ${MAESTRO_AVD_NAME} for continuous E2E fallback..." >&2
   nohup "$emulator_bin" -avd "$MAESTRO_AVD_NAME" -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect \
     >>"${LOG_DIR}/emulator.log" 2>&1 &
   wait_for_running_emulator "$EMULATOR_BOOT_WAIT_LOOPS"

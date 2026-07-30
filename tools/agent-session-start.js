@@ -207,6 +207,16 @@ if (!json) {
   process.stdout.write(`\n${formatSwarmHarness(swarmReport)}\n`);
 }
 
+
+// Continuous E2E evidence (e2e=skipped is NOT pass)
+{
+  const ev = runNode('tools/verify-claim-evidence.js', ['--claim', 'e2e'], 15_000);
+  if (!json) {
+    if (ev.stdout) process.stdout.write(`\n${ev.stdout}`);
+    if (ev.status !== 0 && ev.stderr) process.stderr.write(ev.stderr.slice(0, 800));
+  }
+}
+
 const graphReport = checkGraphStaleness();
 if (!json) {
   process.stdout.write(`\n${formatGraphStaleness(graphReport)}\n`);
