@@ -28,7 +28,12 @@ Layered memory: (1) ThumbGate lessons (operator 👍/👎), (2) local code seman
 Empty capture index; wrong lessons; grepai offline; retrieval misses required paths.
 
 ### How do you measure it?
-- `node tools/rag-retrieval-eval.js` → mean recall@k on `tests/fixtures/rag-eval/cases.json`
+- `node tools/rag-retrieval-eval.js` → mean recall@k, nDCG@k and MRR on `tests/fixtures/rag-eval/cases.json`
+- `node tools/rag-retrieval-eval.js --fixture tests/fixtures/rag-eval/lessons-cases.json` → the same three
+  metrics over the ThumbGate lessons store. The store is gitignored, so off this Mac the run reports
+  `backendState=unavailable`, skips every case and exits 0 rather than scoring nothing as something.
+- `--grepai` adds an advisory comparison leg through the semantic index (20s timeout, reports
+  `unreachable` when grepai is missing). It never changes `ok` and never changes the exit code.
 - Protocol: recall at session start; capture after incidents
 
 ### How do you secure it?

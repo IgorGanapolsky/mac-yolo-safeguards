@@ -212,12 +212,22 @@ function featureImportance(weights, featureKeys) {
   }));
 }
 
+/**
+ * Binary relevance predicate shared by every ranked-retrieval metric here:
+ * a retrieved item counts as relevant when it contains any required substring,
+ * compared both as-is and with Windows separators normalised to `/`.
+ * Keeping one predicate means recall@k, nDCG@k and MRR can never disagree
+ * about which hit was relevant.
+ */
+function matchesAnySubstring(candidate, relevantSubstrings) {
+  const raw = String(candidate == null ? '' : candidate);
+  const normalised = raw.replace(/\\/g, '/');
+  return (relevantSubstrings || []).some((sub) => raw.includes(sub) || normalised.includes(sub));
+}
+
 /** nDCG@k for ranked retrieval with binary per-path relevance (capped ≤ 1). */
 function ndcgAtK(rankedPaths, relevantSubstrings, k) {
-  const rel = (path) =>
-    relevantSubstrings.some((sub) => path.includes(sub) || path.replace(/\\/g, '/').includes(sub))
-      ? 1
-      : 0;
+  const rel = (path) => (matchesAnySubstring(path, relevantSubstrings) ? 1 : 0);
   const top = rankedPaths.slice(0, k);
   const pathRel = top.map(rel);
   const dcg = pathRel.reduce((s, r, i) => s + r / Math.log2(i + 2), 0);
@@ -228,6 +238,23 @@ function ndcgAtK(rankedPaths, relevantSubstrings, k) {
   for (let i = 0; i < idealCount; i += 1) idcg += 1 / Math.log2(i + 2);
   if (idcg === 0) return pathRel.some(Boolean) ? 1 : 0;
   return Number(Math.min(1, dcg / idcg).toFixed(4));
+}
+
+/**
+ * Reciprocal rank of the FIRST relevant hit in a ranked list, truncated at k.
+ * 1.0 when the top result is relevant, 0.5 at rank 2, 0 when nothing relevant
+ * appears in the top-k. Averaged over cases this is MRR — it answers "how far
+ * does a reader have to scroll before the answer shows up", which recall@k
+ * (position-blind) and nDCG@k (whole-ranking) both blur.
+ */
+function reciprocalRankAtK(rankedPaths, relevantSubstrings, k) {
+  const top = rankedPaths.slice(0, k);
+  for (let index = 0; index < top.length; index += 1) {
+    if (matchesAnySubstring(top[index], relevantSubstrings)) {
+      return Number((1 / (index + 1)).toFixed(4));
+    }
+  }
+  return 0;
 }
 
 /**
@@ -281,7 +308,9 @@ module.exports = {
   fitPlatt,
   crossValidate,
   featureImportance,
+  matchesAnySubstring,
   ndcgAtK,
+  reciprocalRankAtK,
   twoProportionTest,
   normalCdf,
 };

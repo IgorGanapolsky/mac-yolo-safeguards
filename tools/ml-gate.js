@@ -104,7 +104,7 @@ function buildReport() {
       'rag_eval',
       'RAG retrieval eval',
       exists('tools/rag-retrieval-eval.js'),
-      'recall@k (+ nDCG when present)',
+      'recall@k (+ nDCG and MRR when present)',
       'platform',
     ),
   );
@@ -161,7 +161,7 @@ function buildReport() {
       'RAG eval green',
       Boolean(rag.ok && ragBody?.ok),
       ragBody
-        ? `meanRecall=${ragBody.meanRecallAtK} meanNdcg=${ragBody.meanNdcgAtK ?? 'n/a'} cases=${ragBody.caseCount}`
+        ? `meanRecall=${ragBody.meanRecallAtK} meanNdcg=${ragBody.meanNdcgAtK ?? 'n/a'} meanMrr=${ragBody.meanReciprocalRank ?? 'n/a'} cases=${ragBody.caseCount}`
         : 'rag eval failed',
       'platform',
     ),

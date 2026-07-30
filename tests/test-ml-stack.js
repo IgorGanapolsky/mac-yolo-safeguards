@@ -157,6 +157,10 @@ function parseJsonStdout(result) {
   const body = JSON.parse(result.stdout);
   assert.ok(body.caseCount >= 8, `expected expanded RAG cases, got ${body.caseCount}`);
   assert.strictEqual(body.ok, true, JSON.stringify(body.results.filter((r) => !r.pass)));
+  // The gated suite must be the always-available harness backend, fully measured.
+  assert.strictEqual(body.backend, 'harness');
+  assert.strictEqual(body.backendState, 'ready');
+  assert.strictEqual(body.skippedCount, 0);
 }
 
 // --- ability catalog includes ml_labels_fail_closed ---

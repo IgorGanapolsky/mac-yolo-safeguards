@@ -23,7 +23,7 @@ node tools/ml-gate.js
 | `ml-experiment.js` | A/B with min-n + significance |
 | `ml-system-scores.js` | Evidence SYSTEM_SCORES line |
 | `ml-gate.js` | Platform vs production checklist |
-| `rag-retrieval-eval.js` | recall@k + nDCG@k |
+| `rag-retrieval-eval.js` | recall@k + nDCG@k + MRR, harness / lessons backends |
 | `pipeline-data-science.js` | Blends trained model when present |
 
 Artifacts: `~/.hermes/ml/` (labels, model, registry, experiments, system-scores).

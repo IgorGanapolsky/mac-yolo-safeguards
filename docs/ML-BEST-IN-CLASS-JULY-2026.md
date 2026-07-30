@@ -54,7 +54,9 @@ node tools/ml-experiment.js record --id campaign-A --arm a --success 1 --n 10
 node tools/ml-experiment.js analyze --id campaign-A --min-n 30 --json
 
 # 6) RAG quality
-node tools/rag-retrieval-eval.js --json   # meanRecallAtK + meanNdcgAtK
+node tools/rag-retrieval-eval.js --json   # meanRecallAtK + meanNdcgAtK + meanReciprocalRank
+node tools/rag-retrieval-eval.js --fixture tests/fixtures/rag-eval/lessons-cases.json   # lessons store (skips when absent)
+node tools/rag-retrieval-eval.js --grepai --json   # + advisory grepai comparison (never gates)
 
 # 7) Scores + gate
 node tools/ml-system-scores.js --write

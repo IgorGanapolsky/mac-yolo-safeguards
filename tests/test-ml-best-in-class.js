@@ -273,6 +273,22 @@ function run(script, args) {
   assert.ok(typeof body.meanNdcgAtK === 'number');
   assert.ok(body.meanNdcgAtK > 0);
   assert.ok(body.results[0].ndcgAtK != null);
+
+  // MRR rides alongside recall@k and nDCG@k on the same measured run.
+  assert.ok(typeof body.meanReciprocalRank === 'number');
+  assert.ok(body.meanReciprocalRank > 0 && body.meanReciprocalRank <= 1);
+  assert.ok(body.results[0].reciprocalRank != null);
+  assert.strictEqual(body.evaluatedCount, body.caseCount, 'harness suite must measure every case');
+}
+
+// --- ml-core ranked-retrieval metrics agree on relevance ---
+{
+  const { matchesAnySubstring, ndcgAtK, reciprocalRankAtK } = require(path.join(REPO, 'tools/ml-core.js'));
+  assert.strictEqual(matchesAnySubstring('x/emptyStreamRefreshCta.ts', ['emptyStream']), true);
+  assert.strictEqual(matchesAnySubstring('x/other.ts', ['emptyStream']), false);
+  assert.strictEqual(reciprocalRankAtK(['a.js', 'b.js'], ['b.js'], 2), 0.5);
+  assert.strictEqual(reciprocalRankAtK(['a.js', 'b.js'], ['zzz'], 2), 0);
+  assert.strictEqual(ndcgAtK(['a.js', 'b.js'], ['a.js'], 2), 1);
 }
 
 // --- ml-gate platform ready (skip nested unit to avoid recursion) ---

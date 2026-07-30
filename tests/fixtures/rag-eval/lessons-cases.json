@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "backend": "lessons",
+  "description": "Retrieval cases for the ThumbGate lessons store (searchLessons over .thumbgate/memory-log.jsonl). Queries and expected ids were derived from real captured lessons, not synthesised. The store is gitignored, so on CI this fixture reports backendState=unavailable, skips every case and still exits 0. Used by tools/rag-retrieval-eval.js --fixture tests/fixtures/rag-eval/lessons-cases.json.",
+  "cases": [
+    {
+      "id": "stale-checkout-regression",
+      "query": "why did copying files between git checkouts silently delete another agent merged work",
+      "mustIncludeLessonIds": [
+        "mem_1785422706205_0fts54"
+      ],
+      "k": 5
+    },
+    {
+      "id": "shim-dropped-tool-calls",
+      "query": "local model proxy silently discarded function calling fields so an agent died mid task",
+      "mustIncludeLessonIds": [
+        "mem_1785344542356_1hngk5"
+      ],
+      "k": 5
+    },
+    {
+      "id": "never-delete-env",
+      "query": "deleted production config by running rm on a dotenv file",
+      "mustIncludeLessonIds": [
+        "mem_1781185737558_rxfqv1"
+      ],
+      "k": 5
+    },
+    {
+      "id": "pr-review-praise",
+      "query": "what did the user praise about a pull request review",
+      "mustIncludeLessonIds": [
+        "mem_1781185684598_fm29l1"
+      ],
+      "k": 5
+    },
+    {
+      "id": "verification-skipped-cluster",
+      "query": "skipped required verification proof",
+      "mustIncludeLessonIds": [
+        "mem_1781185740659_3xzaky",
+        "mem_1781185685909_ladgdr",
+        "mem_1781185684755_h5kwpm"
+      ],
+      "k": 5
+    },
+    {
+      "id": "trading-pipeline-dead",
+      "query": "only one trade in months with no fills and an empty machine learning pipeline",
+      "mustIncludeLessonIds": [
+        "mem_1781185682408_cxhzf7"
+      ],
+      "k": 5
+    },
+    {
+      "id": "feedback-capture-selftest",
+      "query": "prove thumbs feedback capture is actually wired before claiming it works",
+      "mustIncludeLessonIds": [
+        "mem_1781185678591_aqkl30"
+      ],
+      "k": 5
+    },
+    {
+      "id": "evidence-backed-answer",
+      "query": "positive feedback that the evidence backed answer was clear",
+      "mustIncludeLessonIds": [
+        "mem_1781185685684_lx8nmq"
+      ],
+      "k": 5
+    },
+    {
+      "id": "cli-test-verification",
+      "query": "cli test verification success",
+      "mustIncludeLessonIds": [
+        "mem_1781185731346_jj63hb"
+      ],
+      "k": 5
+    },
+    {
+      "id": "test-failure-broke-it",
+      "query": "test failure broke it avoid",
+      "mustIncludeLessonIds": [
+        "mem_1781185734451_at99le"
+      ],
+      "k": 5
+    }
+  ]
+}
