@@ -1,0 +1,580 @@
+{
+  "run_id": "trun_bb95e965e2224148aa12d1e2e6df2ee0",
+  "interaction_id": "trun_bb95e965e2224148aa12d1e2e6df2ee0",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_bb95e965e2224148aa12d1e2e6df2ee0",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Completeness reasoning:\n- The user query asked for July 2026 executive findings, evidence tables, prioritized recommendations with expected impact and confidence, focusing on Apple/Google ranking algorithms mid-2026, competitive landscape, paid discovery economics, zero-review playbook, and a 30/60/90-day plan for Hermes Mobile, with actionable items and citations. The provided field_answer covers executive-style findings, ranking signals, CPP usage, competitive landscape summary, paid discovery economics (Apple/Google benchmarks), zero-review playbook, 30/60/90-day plan, differentiation guardrails, anti-patterns, and a synthesis with actionable recommendations. It includes tables and narrative sections aligned to the stated structure, and references to CPPs, Custom Store Listings, and ranking signals that match the excerpt topics.\n- Some details (e.g., exact numeric benchmarks, specific exemplar citations like AppTweak or App Store guidelines with precise IDs) appear in the field_answer and are broadly consistent with the included excerpts. The excerpts list topics such as Custom Product Pages, Custom Store Listings, WWDC 2025/26 guidance, and general ASO/ranking mechanics, which support the direction and recommendations in the field_answer.\n- The user asked for structures like executive summary; rankings algorithms; competitive SERP landscape; paid discovery economics; zero-review playbook; 30/60/90 plan; anti-patterns; source list. The field_answer provides most of these sections, with a coherent plan and guardrails. Therefore, completeness can be considered true.\n- Confidence in the field answer is moderate-to-high given alignment with the provided excerpts on major topics (CPPs, CSLs, ranking signals, reviews, ads economics). Some numeric specifics may be best validated against live sources, but the overall framework is supported by the excerpts.\n\nOverall assessment:\n- Completeness: true\n- Supported by excerpts: true\n- Reasoning: The answer addresses all requested sections (executive findings, ranking algorithms, competitive landscape, paid discovery economics, zero-review playbook, 30/60/90 plan, anti-patterns) and aligns with the excerpt topics (CPPs, custom store listings, WWDC guidance, ranking signals). It uses invented terms carefully and emphasizes differentiation without trademark misuse.",
+        "citations": [
+          {
+            "url": "https://apsteq.com/blog/aso-best-practices-2026",
+            "excerpts": [
+              "ASO Best Practices 2026 - ApsteQ\nAgainst that backdrop, an app that earns strong organic rankings can acquire users at near-zero marginal cost per install, fundamentally changing its unit economics. The mechanics of ASO split into two distinct pillars. The first is keyword optimization, which governs how often and how prominently your app appears when users search."
+            ],
+            "title": "ASO Best Practices 2026 - ApsteQ"
+          },
+          {
+            "url": "https://developer.apple.com/videos/play/tech-talks/10887",
+            "excerpts": [
+              "Support customers with StoreKit 2 and App Store Server API\n31 may 2025 \u00b7 Discover how you can use StoreKit 2, App Store Server API, and App Store Server Notifications to create great in-app purchase experiences for your customers."
+            ],
+            "title": "Support customers with StoreKit 2 and App Store Server API"
+          },
+          {
+            "url": "https://www.mobileaction.co/blog/aso-for-indie-developers",
+            "excerpts": [
+              "ASO for indie developers: Tactics you should master in 2026\nIn this post, we\u2019ll go through actionable ASO tactics that every indie dev (for Android and iOS) should master in 2025: from smart keyword strategies and A/B testing your store listing, to optimizing visuals, localizing for global reach, and generating more reviews."
+            ],
+            "title": "ASO for indie developers: Tactics you should master in 2026"
+          },
+          {
+            "url": "https://ravi6997.medium.com/in-app-purchase-strategies-advanced-storekit-2-adaptations-for-subscription-management-6f8538e929f6",
+            "excerpts": [
+              "StoreKit 2: Advanced In-App Purchases & Subscriptions - Ravi\n30 nov 2025 \u00b7 Master StoreKit 2 in-app purchases & subscriptions. Learn dynamic pricing, personalized trials, and server-side events to boost iOS app"
+            ],
+            "title": "StoreKit 2: Advanced In-App Purchases & Subscriptions - Ravi"
+          },
+          {
+            "url": "https://techconcepts.org/blog/storekit2-guide",
+            "excerpts": [
+              "StoreKit 2 in 2026: Products, Purchases, and Transaction ...\nThis guide covers the production-ready StoreKit 2 patterns for 2026: loading products, initiating purchases, verifying transactions, handling renewals and billing retry, and the critical rule about finishing transactions that catches almost every first-time SK2 user."
+            ],
+            "title": "StoreKit 2 in 2026: Products, Purchases, and Transaction ..."
+          },
+          {
+            "url": "https://developer.apple.com/app-store/custom-product-pages",
+            "excerpts": [
+              "Custom Product Pages - App Store - Apple Developer\nYou can create your custom product pages in App Store Connect, where you\u2019ll start with either a blank page, or a copy of your default product page. Add your customized screenshots, promotional text, and app previews for any of your page\u2019s localizations."
+            ],
+            "title": "Custom Product Pages - App Store - Apple Developer"
+          },
+          {
+            "url": "https://search.app.goo.gl/?al=googleapp%3A%2F%2Flens%3Flens_data=KAw&amv=301204913&apn=com.google.android.googlequicksearchbox&ct=4815459-oo-lens-isb-bar-lens-cam&ct=4815459-oo-lens-isb-bar-lens-cam&efr=1&ibi=com.google.GoogleMobile&ifl=https%3A%2F%2Fapps.apple.com%2Fus%2Fapp%2Fgoogle%2Fid284815942%3Fppid=1ac8cc35-d99c-4a1d-b909-321c8968cc74&isi=284815942&ius=googleapp&lens_data=KAw&link=https%3A%2F%2Fgoo.gl%2Fiosgoogleapp%2Fdefault%3Furl=googleapp%3A%2F%2Flens%3Fmin-version=180&mt=8&mt=8&ofl=https%3A%2F%2Flens.google&pt=9008&pt=9008",
+            "excerpts": [
+              "app store ranking algorithm"
+            ],
+            "title": "app store ranking algorithm"
+          },
+          {
+            "url": "https://developer.apple.com/help/app-store-connect/create-custom-product-pages/configure-multiple-product-page-versions",
+            "excerpts": [
+              "Configure multiple product page versions - Create custom ...\nCreate up to 70 custom product pages per app on the App Store to highlight features or specific content. Each custom product page can include different screenshots, previews, promotional text, and keywords, and is localizable and shareable through a unique URL."
+            ],
+            "title": "Configure multiple product page versions - Create custom ..."
+          },
+          {
+            "url": "https://developer.apple.com/documentation/updates/wwdc2025",
+            "excerpts": [
+              "WWDC25 | Apple Developer Documentation\nUpdate your app entity types to support Spotlight indexing, and donate entities to make them findable in searches. Enhance the experience in your app by prompting an on-device large language model. Include your app\u2019s content in search results that visual intelligence provides."
+            ],
+            "title": "WWDC25 | Apple Developer Documentation"
+          },
+          {
+            "url": "https://mwm.ai/guides/app-store-ranking-algorithm",
+            "excerpts": [
+              "How the App Store Ranking Algorithm Actually Works\nHere's what millions of data points across 150+ countries tell us about the signals that actually move apps up and down the charts. The App Store and Google Play rank apps using algorithms neither Apple nor Google publishes."
+            ],
+            "title": "How the App Store Ranking Algorithm Actually Works"
+          },
+          {
+            "url": "https://tms-outsource.com/blog/posts/google-play-stores-ranking-algorithm",
+            "excerpts": [
+              "Google Play Store's Ranking Algorithm Explained - TMS Outsource\nThis guide breaks down how the algorithm works across every surface, from keyword relevance and app store optimization signals to user retention, Android vitals, and download velocity."
+            ],
+            "title": "Google Play Store's Ranking Algorithm Explained - TMS Outsource"
+          },
+          {
+            "url": "https://www.apptweak.com/en/aso-blog/custom-store-listings",
+            "excerpts": [
+              "The complete guide to custom store listings on Google Play - AppTweak\nJan 6, 2026 \u00b7 Custom store listings (CSLs) are one of Google Play's most underused features. They let you tailor your store page to different audiences or"
+            ],
+            "title": "The complete guide to custom store listings on Google Play - AppTweak"
+          },
+          {
+            "url": "https://support.google.com/googleplay/android-developer/answer/9867158?hl=en",
+            "excerpts": [
+              "Create custom store listings to target specific user segments - Google Help\nTo create a custom store listing: Open Play Console. Select an app. On the left menu, select Grow users > Store presence > Custom store listings."
+            ],
+            "title": "Create custom store listings to target specific user segments - Google Help"
+          },
+          {
+            "url": "https://appradar.com/blog/what-are-custom-store-listings-in-google-play",
+            "excerpts": [
+              "What are Custom store listings in Google Play and how do they work?\nJan 21, 2025 \u00b7 Custom store listings are personalized Google Play Store pages that target specific user segments with unique content, visuals, and messaging."
+            ],
+            "title": "What are Custom store listings in Google Play and how do they work?"
+          },
+          {
+            "url": "https://play.google.com/console/about/customstorelistings",
+            "excerpts": [
+              "Custom store listings | Google Play Console\nYou can use custom store listings for pre-registration campaigns to show a different store listing to users in countries where your app is in pre-registration. Users in countries/regions where your app has been released to production or open or closed testing will not see this listing."
+            ],
+            "title": "Custom store listings | Google Play Console"
+          },
+          {
+            "url": "https://terrahq.com/en/blog/google-ads-benchmarks-2025",
+            "excerpts": [
+              "Google Ads Benchmarks for 2026: CTR, CPC & More | Terra\nMay 8, 2026 \u00b7 In 2026, the cross-industry average conversion rate for Google Ads Search campaigns is 4.40%\u20137.04%. That's a pretty big boost from prior years,"
+            ],
+            "title": "Google Ads Benchmarks for 2026: CTR, CPC & More | Terra"
+          },
+          {
+            "url": "https://www.businessofapps.com/ads/cpi/research/cost-per-install",
+            "excerpts": [
+              "Cost Per Install (CPI) Rates (2025) - Business of Apps\nNow, when we\u2019ve reviewed CPI rates for all major paid ad platforms from the biggest players on a market \u2013 Facebook, TikTok and Google Ads, let\u2019s turn to the Cost Per Install rates for major mobile advertising networks that aren\u2019t affiliated with any social network, video sharing platform or a search engine."
+            ],
+            "title": "Cost Per Install (CPI) Rates (2025) - Business of Apps"
+          },
+          {
+            "url": "https://www.poweredbysearch.com/learn/b2b-saas-google-ads-stats-benchmarks",
+            "excerpts": [
+              "B2B SaaS Google Ads Stats & Benchmarks for 2024\nMar 16, 2026 \u00b7 The average CPM for B2B SaaS is $50.60. in 2023 was over 31,000. The average CPL for Google Ads is now $53.52. The recommended daily budget for"
+            ],
+            "title": "B2B SaaS Google Ads Stats & Benchmarks for 2024"
+          },
+          {
+            "url": "https://adapty.io/blog/google-app-campaigns-playbook-2025",
+            "excerpts": [
+              "Google App Campaigns Playbook 2026: Setup and"
+            ],
+            "title": "Google App Campaigns Playbook 2026: Setup and ... Adapty https://adapty.io \u203a Blog \u203a Tutorial"
+          },
+          {
+            "url": "https://jyll.ca/insidegoogleads/77",
+            "excerpts": [
+              "Google Ads Bid Strategies: Your Ultimate Guide\nJul 17, 2025 \u2014 Like Max Conversions, Target CPA is a Smart Bidding ... Now that we know what a view is, you can choose between Target CPV bidding or Maximum CPV"
+            ],
+            "title": "Google Ads Bid Strategies: Your Ultimate Guide"
+          },
+          {
+            "url": "https://adapty.io/blog/apple-ads-benchmarks-2026",
+            "excerpts": [
+              "Apple Ads benchmarks 2026: CPT, TTR, CPA, and more across 90 countries - Adapty\nJun 10, 2026 \u00b7 Cost per tap varies 14x worldwide. A tap in the US costs $1.58. The median country CPA is $0.51. The blended CPA, weighted by ad spend, is $1.\u00a0"
+            ],
+            "title": "Apple Ads benchmarks 2026: CPT, TTR, CPA, and more across 90 countries - Adapty"
+          },
+          {
+            "url": "https://admiral.media/apple-search-ads-benchmarks",
+            "excerpts": [
+              "Apple Search Ads Benchmarks: CPT, CPI, TTR & ROAS by ...\nFeb 25, 2026 \u2014 Apple Search Ads benchmarks : average CPT, CPI, TTR, and ROAS by app category \u2014 games, subscriptions, utilities, and ecommerce."
+            ],
+            "title": "Apple Search Ads Benchmarks: CPT, CPI, TTR & ROAS by ..."
+          },
+          {
+            "url": "https://www.businessofapps.com/marketplace/apple-search-ads/research/apple-search-ads-costs",
+            "excerpts": [
+              "Apple Search Ads Costs (2026) - Business of Apps\nWith lots to consider, we\u2019ve laid out some key metrics and the average Apple Search Ads cost in this research paper. We\u2019ve also included details on App Store fees and outlined averages for Cost Per Tap, Cost Per Acquisition, and some Cost Per Install benchmarks."
+            ],
+            "title": "Apple Search Ads Costs (2026) - Business of Apps"
+          },
+          {
+            "url": "https://www.apptweak.com/en/aso-blog/apple-ads-benchmarks",
+            "excerpts": [
+              "Apple Ads benchmarks 2026: CPT, CPI, CR & ROAS by category\nApple Ads cost-per-tap (CPT) benchmarks The median CPT for search results campaign across countries and categories is $0.92. Since taps are the first step toward conversion, CPT is an essential metric to measure ad relevance, competitiveness, and overall campaign efficiency. Below, we focus on CPT benchmarks for search results campaigns. Apple Ads cost-per-tap by country Median CPT by region"
+            ],
+            "title": "Apple Ads benchmarks 2026: CPT, CPI, CR & ROAS by category"
+          },
+          {
+            "url": "https://splitmetrics.com/blog/apple-search-ads-cost",
+            "excerpts": [
+              "Apple Ads Cost: How to Evaluate CPT, CPA, CR, TTR - SplitMetrics\n18 Feb 2026 \u00b7 The overall average Cost Per Acquisition (CPA) was $3.76 in 2025, reflecting the high value advertisers place on a qualified install. The most\u00a0... Apple Ads Cost: Key Data for... \u00b7 How does seasonality affect"
+            ],
+            "title": "Apple Ads Cost: How to Evaluate CPT, CPA, CR, TTR - SplitMetrics"
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?hl=en-IN&id=com.axiomlabs.hermesrelay",
+            "excerpts": [
+              "Hermes-Relay - Apps on Google Play\nHermes Relay is a native Android client for the Hermes agent platform. Connect to your self-hosted Hermes AI agent and chat in real time \u2014 directly from your phone."
+            ],
+            "title": "Hermes-Relay - Apps on Google Play"
+          },
+          {
+            "url": "https://f-droid.org/pt/packages/com.nousresearch.hermesagent",
+            "excerpts": [
+              "Hermes Agent | F-Droid - Reposit\u00f3rio de apps Android livres e ...\nHermes Agent is a mobile-first AI agent app from Nous Research for running local models and practical Android workflows on your phone. Use the app to chat with local Gemma LiteRT-LM or Qwen GGUF models, attach files, dictate by voice, and keep model downloads resumable through Android DownloadManager."
+            ],
+            "title": "Hermes Agent | F-Droid - Reposit\u00f3rio de apps Android livres e ..."
+          },
+          {
+            "url": "http://f-droid.org/packages/com.nousresearch.hermesagent",
+            "excerpts": [
+              "Hermes Agent | F-Droid - Free and Open Source Android App ... Hermes Agent is a mobile-first AI agent app from Nous Research for running local models and practical Android workflows on your phone. Use the app to chat with local Gemma LiteRT-LM or Qwen GGUF models, attach files, dictate by voice, and keep model downloads resumable through Android DownloadManager."
+            ],
+            "title": "Hermes Agent | F-Droid - Free and Open Source Android App ..."
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?hl=en-US&id=com.axiomlabs.hermesrelay",
+            "excerpts": [
+              "Hermes-Relay - Apps on Google Play\nHermes-Relay is the native Android client for the Hermes agent platform. Point it at your own Hermes instance and chat with your agent, talk to it hands-free, and manage it \u2014 models, keys,"
+            ],
+            "title": "Hermes-Relay - Apps on Google Play"
+          },
+          {
+            "url": "http://play.google.com/store/apps/details?hl=en-US&id=com.hermesagent.android",
+            "excerpts": [
+              "Hermes Agent - Android - Apps on Google Play Hermes Agent brings a powerful AI assistant directly to your Android device. Run AI agents locally with a built-in terminal, supporting multiple AI providers and advanced features \u2014 all from"
+            ],
+            "title": "Hermes Agent - Android - Apps on Google Play"
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?hl=en-US&id=com.hermesagent.android",
+            "excerpts": [],
+            "title": "Hermes Agent - Android - Apps on Google Play"
+          },
+          {
+            "url": "https://apkpure.com/hermes-mobile-ai-agent-leash/com.iganapolsky.hermesmobile",
+            "excerpts": [
+              "Hermes Mobile: AI Agent Leash APK for Android Download\nLeash Pro $19.99 \u2014 approve AI from phone. Control an AI coding agent from your phone on your own Mac, Linux, or Windows computer. Chat with the Hermes gateway, see honest run state, and use Leash Pro to approve or deny risky commands before they execute. Hermes Mobile is an independent mobile control plane for a Hermes gateway you operate."
+            ],
+            "title": "Hermes Mobile: AI Agent Leash APK for Android Download"
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?hl=en-US&id=com.iganapolsky.agentleash",
+            "excerpts": [
+              "Hermes Mobile Agent - Apps on Google Play\nSecure, autonomous AI agent control. Approve tool calls from your phone."
+            ],
+            "title": "Hermes Mobile Agent - Apps on Google Play"
+          },
+          {
+            "url": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/242",
+            "excerpts": [
+              "Public: Hermes Mobile is live on Google Play (phone remote ...\nHermes Mobile \u2014 live on Android Phone control plane for AI coding agents running on your Mac (Cursor / Claude Code / Hermes gateway) \u2014 not a cloud credit agent."
+            ],
+            "title": "Public: Hermes Mobile is live on Google Play (phone remote ..."
+          },
+          {
+            "url": "https://apps.apple.com/gb/app/hermes-ai-personal-agent/id6759341434",
+            "excerpts": [
+              "Hermes AI: Personal Agent - App Store\nHermes AI \u2014 Control Your AI Agent Anywhere Stay connected to your AI agent from your iPhone. Chat, monitor activity, and approve actions in real time \u2014 all in one place."
+            ],
+            "title": "Hermes AI: Personal Agent - App Store"
+          },
+          {
+            "url": "https://apps.apple.com/us/app/hermes-ai-personal-agent/id6759341434",
+            "excerpts": [
+              "Hermes AI: Personal Agent - App Store - Apple\nControl Your AI Agent Anywhere Stay connected to your AI agent from your iPhone. Chat, monitor activity, and approve actions in real time \u2014 all"
+            ],
+            "title": "Hermes AI: Personal Agent - App Store - Apple"
+          },
+          {
+            "url": "https://appbot.co/blog/apple-wwdc-2026-app-discovery-updates",
+            "excerpts": [
+              "WWDC 2026 App Store Discovery Changes - Appbot\nWWDC 2026 also introduced new creative tools within App Store Connect. Developers can now manage creative assets through a centralized Asset Library and preview how product pages will appear across different App Store surfaces. These changes continue a broader trend toward visual discovery."
+            ],
+            "title": "WWDC 2026 App Store Discovery Changes - Appbot"
+          },
+          {
+            "url": "http://thenextweb.com/news/apple-app-store-wwdc-2026-developer-bundles-screen-time",
+            "excerpts": [
+              "Apple's WWDC 2026 App Store changes let independent ... - TNW 7 days ago \u00b7 Apple announced cross-developer bundles, group subscriptions, volume purchasing, and AI-driven discovery tools for the App Store at WWDC"
+            ],
+            "title": "Apple's WWDC 2026 App Store changes let independent ... - TNW"
+          },
+          {
+            "url": "https://mobilesyrup.com/2026/06/09/app-store-wwdc-2026-updates-subscription-bundles-social-media-integration-disclosure",
+            "excerpts": [
+              "WWDC 2026 App Store updates include subscription bundles ...\nWWDC 2026 App Store updates include subscription bundles, social media integration disclosure Apple has outlined a slew of new features and guidelines for app and game makers at its latest developers conference"
+            ],
+            "title": "WWDC 2026 App Store updates include subscription bundles ..."
+          },
+          {
+            "url": "https://developer.apple.com/wwdc26/guides/app-store",
+            "excerpts": [
+              "WWDC26 App Store guide - Apple Developer\nStarting September 2026, you\u2019ll be required to indicate whether your app or game includes social media capabilities in order to submit new versions or updates to the App Store, or for notarization for distribution on alternative app marketplaces."
+            ],
+            "title": "WWDC26 App Store guide - Apple Developer"
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?hl=en_US&id=tech.butterfly.app",
+            "excerpts": [
+              "Manus AI - Apps on Google Play\n3 days ago \u2014 Manus from Meta is a general AI agent that bridges mind and action: it doesn't just think, it delivers results. Manus excels at various tasks in"
+            ],
+            "title": "Manus AI - Apps on Google Play"
+          },
+          {
+            "url": "https://apps.apple.com/kg/app/manus-ai-agent-automation/id6740909540",
+            "excerpts": [
+              "Manus - AI Agent & Automation - App Store - Apple\nManus from Meta is a general AI agent that bridges mind and action. Create music instantly with AI."
+            ],
+            "title": "Manus - AI Agent & Automation - App Store - Apple"
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?hl=en-US&id=tech.butterfly.app",
+            "excerpts": [
+              "Manus AI - Apps on Google Play\nManus from Meta is a general AI agent that bridges mind and action: it doesn't just think, it delivers results. Manus excels at various tasks in work and life, getting everything done while"
+            ],
+            "title": "Manus AI - Apps on Google Play"
+          },
+          {
+            "url": "http://forum.cursor.com/t/when-can-we-expect-to-have-native-cursor-mobile-app/163824",
+            "excerpts": [
+              "The motivation behind this is that Claude offers native mobiles apps for Android and IOS devices for some time and I couldn't find Cursor equivalent from Play/App Store. I have to use Cursor Web browser instead to run my agentic prompts on the go. I'm eager to hear back from the Cursor team on this. Cursor Android mobile app JeremyTC (Jeremy Smith) June 23, 2026, 6:21am 5 A Cursor IOS app was announced last week at their Compile event, should be out of beta soon deanrie (Dean Rie) June 23, 2026, 6:28am 7 Hey, thanks for the feature request and good news, the native Cursor app for iOS is already out in public beta. I'm not seeing it in a search for cursor deanrie (Dean Rie) June 23, 2026, 3:31pm 10 @Jason_Ritchey @Andy_Wong The iOS app is still in a very early, limited-access beta, so"
+            ],
+            "title": "When can we expect to have native Cursor mobile app? - Feature Requests - Cursor - Community Forum"
+          },
+          {
+            "url": "https://simonwillison.net/2026/Feb/25/claude-code-remote-control",
+            "excerpts": [
+              "Claude Code Remote Control\nFeb 25, 2026 \u2014 If you upgrade the Claude iOS app it then shows up as \" Remote Control Session (Mac)\" in the Code tab. It appears not to support the"
+            ],
+            "title": "Claude Code Remote Control"
+          },
+          {
+            "url": "https://www.seo-day.de/wiki/seo-penaltys/penalty-ursachen/keyword-stuffing?lang=en",
+            "excerpts": [
+              "Keyword Stuffing - Fundamentals and Best Practices 2025"
+            ],
+            "title": "Keyword Stuffing - Fundamentals and Best Practices 2025 SEO-Day https://www.seo-day.de \u203a seo-penaltys \u203a penalty-ursachen"
+          },
+          {
+            "url": "https://www.reddit.com/r/boardgames/comments/1gbfbe4/you_can_now_get_fined_51744_for_writing_a_fake",
+            "excerpts": [
+              "The FTC's ban on writing, buying, or selling fake reviews is officially in effect."
+            ],
+            "title": "The FTC's ban on writing, buying, or selling fake reviews is officially in effect."
+          },
+          {
+            "url": "https://seranking.com/blog/keyword-stuffing",
+            "excerpts": [
+              "Keyword Stuffing and Why It Should Be Avoided - SE Ranking\nStuffing your content with specific keywords with the sole intent of artificially inflating the probability of ranking for particular search terms is in violation of our guidelines. It can lead to demotion or even delisting your website from our search results."
+            ],
+            "title": "Keyword Stuffing and Why It Should Be Avoided - SE Ranking"
+          },
+          {
+            "url": "https://developers.google.com/search/docs/essentials/spam-policies",
+            "excerpts": [
+              "Spam Policies for Google Web Search | Documentation\nKeyword stuffing. Keyword stuffing refers to the practice of filling a web page with keywords or numbers in an attempt to manipulate rankings in Google"
+            ],
+            "title": "Spam Policies for Google Web Search | Documentation"
+          },
+          {
+            "url": "https://www.searchenginejournal.com/ranking-factors/keyword-stuffing",
+            "excerpts": [
+              "Keyword Stuffing As A Google Ranking Factor\nJan 5, 2022 \u2014 \u201c'Keyword stuffing' refers to the practice of loading a webpage with keywords or numbers in an attempt to manipulate a site's ranking in Google\u00a0"
+            ],
+            "title": "Keyword Stuffing As A Google Ranking Factor"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/storekit/skstorereviewcontroller",
+            "excerpts": [
+              "SKStoreReviewController | Apple Developer Documentation\nImplement best practices for prompting users to review your app in the App Store. An instance that tells StoreKit to request an App Store rating or review, if appropriate. An object that controls the process of requesting App Store ratings and reviews from customers."
+            ],
+            "title": "SKStoreReviewController | Apple Developer Documentation"
+          },
+          {
+            "url": "https://www.apptester.co/blog/app-store-guidelines",
+            "excerpts": [
+              "Apple App Store Review Guidelines: Developer Reference 2026\nEvery App Store Review Guideline that matters for iOS developers in 2026: with real-world examples, rejection triggers, and how to avoid each one. Updated for the latest Apple policies."
+            ],
+            "title": "Apple App Store Review Guidelines: Developer Reference 2026"
+          },
+          {
+            "url": "https://developer.apple.com/app-store/review/guidelines",
+            "excerpts": [
+              "App Review Guidelines"
+            ],
+            "title": "App Review Guidelines Apple Developer https://developer.apple.com \u203a app-store \u203a guidelines"
+          },
+          {
+            "url": "https://asomaniac.com/blog/app-store-review-popup",
+            "excerpts": [
+              "App Store Review Popup: The Developer's Guide to Ratings ...\nThis guide covers everything in one place: how to implement review prompts correctly with actual code, when to show them for maximum impact, how long the App Store review process takes, and how to use expedited reviews when things go wrong."
+            ],
+            "title": "App Store Review Popup: The Developer's Guide to Ratings ..."
+          },
+          {
+            "url": "http://developer.apple.com/distribute/app-review",
+            "excerpts": [
+              "We review all apps, app updates, app bundles, in-app purchases, and in-app events submitted to App Store Connect to help provide a safe and trusted experience View in English App Review Open Menu Close Menu Overview App Review Guidelines App Review We review all apps, app updates, app bundles, in-app purchases, and in-app events submitted to App Store Connect to help provide a safe and trusted experience for users and the opportunity for developers to succeed. As you plan and build, use these guidelines and resources to help the review process go as smoothly as possible. Preparing for review Submitting for review Avoiding common issues Contacting us Preparing for review Learn about the guidelines your submission needs to follow and information you'll provide for review. Guidelines Get in-depth details on the technical, content, and design criteria that we use for review, and learn about other key guidelines. App Review Guidelines Human Interface Design Guidelines [Guidelines for Using Apple Trademarks and Copyrights](https://www.apple.com/legal/intellectual-property/guidelinesfor3rdparties.html) Apple Developer Program License Agreement The Apple Developer Program License Agreement details your obligations and responsibilities for the use of Apple software and services. The latest agreement can be found on the Agreements and Guidelines page. Read the latest license agreement Alternative Terms Addendum for Apps in the EU To distribute your app from an alternative app marketplace or use alternative payment options on the App Store in the European Union, you'll need to review and sign an addendum to the Apple Developer Program License Agreement. App review information If your app requires specific settings, user account information, or special instructions, include these details in the App Review Information section of App Store Connect. If you don't include this information, the app review process may be delayed and your app may not pass review. For more details, view App Store Connect Help . Submitting for review When you submit for review in App Store Connect, you can: Manage your submissions and communicate with App Review on the App Review page within Apps. You can visit the App Review page at any time, even if you don't have active submissions or conversations. Submit items such as in-app events, custom product pages, and product page optimization tests without needing a new app version. Include multiple items in one submission. Remove items with issues from your submission and continue with items that were accepted by App Review. View a history of submissions created using the updated experience, including messages from App Review. Decide whether your app is reviewed for the App Store or Notarization only . Review status **On average, 90% of submissions are reviewed in less than 24 hours.** You'll be notified by email of status changes. You can also check the review status of your submission in the [Apps section](https://appstoreconnect.apple. com/apps/) of App Store Connect or on the [App Store Connect app](https://apps.apple.com/us/app/app-store-connect/id1234793120/) for iPhone and iPad. If your submission is incomplete, review times may be delayed or your submission may not pass. For status details, view App Store Connect Help . Avoiding common issues We've highlighted some of the most common issues to help you better prepare before submitting for review. On average, over 40% of unresolved issues are related to guideline 2.1: App Completeness , which covers crashes, placeholder content, incomplete information, and more. Watch \"Tips for preventing common review issues\" Crashes and bugs Submit items for review only when they're complete and ready to be published. Make sure to thoroughly test on devices running the latest software and fix all bugs before submitting. View guideline 2.1. Broken links All links in your app must be functional. ... Here are a few examples: If the app is for kids and contains third-party ads, provide a link to the ad services' publicly documented practices and policies for Kids category apps, including human review of ad creatives for age appropriateness. View guideline 1.3. If the app works with medical hardware, provide a copy of regulatory clearance for the locations where the app is available. View guideline 1.4. If the app features third-party trademarks or copyrighted content or lets users stream or download third-party content, provide the authorization to do so. Examples include video streaming and marketing that uses imagery of celebrities, sports, movies, or music. View guideline 4.1 and guideline 5.2 . If the app facilitates services requiring licensing, such as real money gaming and gambling, lotteries, raffles, and VPN licensing, provide the authorization to do so. Note that licensing requirements may vary depending on region. View guideline 5. Privacy policy issues ... If you need to provide partnership documentation or authorization, attach the files in the Attachment section in App Store Connect and provide any descriptions or links in the Review Notes field. View guideline 3 and guideline 5.1.1 . Technical Support If your app didn't pass review for technical reasons, such as crashes or bugs, view the following documentation: Acquiring Crash Reports and Diagnostic Logs Analyzing a Crash Report Identifying the Cause of Common Crashes You can also visit the Apple Developer Forums or request code-level support . Contacting us App Review submissions You can view your past and current submissions to App Review in App Store Connect. If your submission didn't pass review, details are provided, including any specific App Review Guidelines that your submission didn't follow. You can correspond with App Review to resolve the issues before resubmitting the build"
+            ],
+            "title": "App Review - Distribute - Apple Developer"
+          },
+          {
+            "url": "https://appdrift.co/blog/app-retention-ranking-factor-2026",
+            "excerpts": [
+              "App Retention as a Ranking Factor in 2026 | AppDrift\nDiscover how app retention now directly affects App Store and Google Play rankings in 2026. Learn the metrics that matter and how to optimize."
+            ],
+            "title": "App Retention as a Ranking Factor in 2026 | AppDrift"
+          },
+          {
+            "url": "https://www.mobileaction.co/blog/google-play-store-ranking-factors",
+            "excerpts": [
+              "Google Play Store ranking factors: Ultimate ASO breakdown\nLooking to boost your app's visibility and acquire more users? Our 2025 ASO Report is your ultimate guide to navigating the evolving app store landscape. Packed with data-driven insights, keyword trends, and top-ranking app strategies, this report will equip you with the knowledge to optimize your app's presence and achieve organic growth. Read"
+            ],
+            "title": "Google Play Store ranking factors: Ultimate ASO breakdown"
+          },
+          {
+            "url": "https://appmarketingplus.com/google-play-aso-the-complete-android-app-ranking-guide-for-2026",
+            "excerpts": [
+              "Google Play ASO: Complete Android Ranking Guide 2026\nThis guide from our app store optimization agency covers every Google Play-specific ranking factor, tool, and tactic you need to improve app store ranking on Android in 2026."
+            ],
+            "title": "Google Play ASO: Complete Android Ranking Guide 2026"
+          },
+          {
+            "url": "https://semnexus.com/the-google-play-store-ranking-algorithm-explained-how-to-boost-your-app-in-2025",
+            "excerpts": [
+              "The Google Play Store Ranking Algorithm Explained: How to ...\nThe Google Play Store ranking algorithm decides whether your app thrives or fades away. In 2025, success depends on mastering the factors that Google values most: keywords, app quality, user reviews, retention, and engagement."
+            ],
+            "title": "The Google Play Store Ranking Algorithm Explained: How to ..."
+          },
+          {
+            "url": "https://developer.android.com/topic/performance/vitals",
+            "excerpts": [
+              "Android vitals | App quality | Android Developers\nCore vitals are the most important metrics in Android vitals, and affect the visibility of your app on Google Play. The core vitals are user-perceived crash rate, user-perceived ANR rate, and excessive partial wake locks for all apps, and excessive battery usage for watch face apps."
+            ],
+            "title": "Android vitals | App quality | Android Developers"
+          },
+          {
+            "url": "https://sparrowapps.io/articles/apple-ads-benchmarks",
+            "excerpts": [
+              "Apple Search Ads Benchmarks 2026: TTR, CR, CPT, and CPI by ...\nIn this guide, I have compiled the latest Apple Search Ads benchmarks across TTR, CR, CPT, and CPI - broken down by quarter and by App Store category. These numbers come from aggregated campaign data across thousands of apps and millions in ad spend."
+            ],
+            "title": "Apple Search Ads Benchmarks 2026: TTR, CR, CPT, and CPI by ..."
+          },
+          {
+            "url": "https://splitmetrics.com/blog/apple-search-ads",
+            "excerpts": [
+              "Apple Search Ads Guide: How to Win With Your App in 2026 - SplitMetrics\n3 hours ago \u00b7 4Median cost per tap is $1.79, median cost per acquisition is $2.76 (Apple Ads benchmarks via SplitMetrics, US, April to June 2026). 5Ads at the"
+            ],
+            "title": "Apple Search Ads Guide: How to Win With Your App in 2026 - SplitMetrics"
+          },
+          {
+            "url": "http://linkedin.com/company/nousresearch",
+            "excerpts": [
+              "We are best known for Hermes Agent, our open-source AI agent harness, alongside the Hermes series of general-purpose, human-aligned models"
+            ],
+            "title": null
+          },
+          {
+            "url": "http://kirro.io/app-store-conversion-rate",
+            "excerpts": [
+              "App Store Conversion Rate Benchmarks (2026) - Kirro Mar 14, 2026 \u2014 The average app store conversion rate is about 25% on Apple's App Store and 27.3% on Google Play (AppTweak, H1 2024)."
+            ],
+            "title": "App Store Conversion Rate Benchmarks (2026) - Kirro"
+          },
+          {
+            "url": "https://appfollow.io/benchmark",
+            "excerpts": [
+              "Conversion Rate Benchmark for App Store and Google Play \u2b50\nFind explanation of every term about your app performance on app stores from AppFollow experts. Find expert tips and solutions for utilizing AppFollow to its maximum potential. Explore AppFollow functions to master your business goals with comprehensive ASO and review management tutorials."
+            ],
+            "title": "Conversion Rate Benchmark for App Store and Google Play \u2b50"
+          },
+          {
+            "url": "http://uxcam.com/blog/mobile-app-conversion-rate",
+            "excerpts": [
+              "Mobile App Conversion Rate Benchmarks & Tips for 2026 Jan 7, 2026 \u2014 Most mobile apps see install-to-purchase conversion rates between 1% and 2%, though this varies significant"
+            ],
+            "title": "Mobile App Conversion Rate Benchmarks & Tips for 2026"
+          },
+          {
+            "url": "https://appcub.io/blog/app-store-screenshot-best-practices",
+            "excerpts": [
+              "2025 Complete App Store Screenshot Optimization Guide: 10 ...\nLearn how to create compelling App Store screenshots that attract users, master size specifications, design principles, and ASO optimization strategies to effectively improve app download conversion rates."
+            ],
+            "title": "2025 Complete App Store Screenshot Optimization Guide: 10 ..."
+          },
+          {
+            "url": "https://www.apptweak.com/en/aso-blog/average-app-conversion-rate-per-category",
+            "excerpts": [
+              "Average App Conversion Rate per Category [2025] - AppTweak\nWith AppTweak\u2019s Conversion Rate Benchmark feature, you can easily find out the average conversion rates of apps in any category on the App Store and/or on Google Play."
+            ],
+            "title": "Average App Conversion Rate per Category [2025] - AppTweak"
+          },
+          {
+            "url": "https://www.producthunt.com/products/claude-code-remote-access/alternatives",
+            "excerpts": [
+              "Claude Code Remote Control Competitors & Alternatives (2026 ...\nAI Coding Agents Continue a local Claude Code session from your phone, tablet, or any browser using Remote Control. Works with claude.ai/code and the Claude mobile app."
+            ],
+            "title": "Claude Code Remote Control Competitors & Alternatives (2026 ..."
+          },
+          {
+            "url": "https://byteiota.com/cursor-ios-app-ai-coding-agents-mobile",
+            "excerpts": [
+              "Cursor for iOS: Run AI Coding Agents From Your Phone\n1 day ago \u2014 From the app, you can: Launch agents against any repository; Use voice input to describe tasks (converted to agent instructions); Pick any frontier model"
+            ],
+            "title": "Cursor for iOS: Run AI Coding Agents From Your Phone"
+          },
+          {
+            "url": "https://pasqualepillitteri.it/en/news/7191/cursor-ios-app-coding-agents",
+            "excerpts": [
+              "The iOS App That Drives Coding Agents from Your Phone\n1 day ago \u2014 Cursor already had a web version usable from a phone browser, but a native app changes the experience: push notifications, voice input, integration with iOS"
+            ],
+            "title": "The iOS App That Drives Coding Agents from Your Phone"
+          },
+          {
+            "url": "https://www.reddit.com/r/cursor/comments/1uiyj20/cursor_now_has_an_ios_mobile_app",
+            "excerpts": [
+              "Cursor now has an iOS mobile app\nCursor now has an iOS mobile app Announcement. Download: https://apps.apple.com/us/app/cursor/id6767085653"
+            ],
+            "title": "Cursor now has an iOS mobile app"
+          },
+          {
+            "url": "https://www.producthunt.com/products/grass-claude-code-from-your-phone",
+            "excerpts": [
+              "Grass: Gives your coding agent a dedicated VM that's ...\nGrass is a persistent hosted workspace . Your agents run in a sandbox that stays alive, so you can jump in from your phone anytime (no laptop needed). It's multi"
+            ],
+            "title": "Grass: Gives your coding agent a dedicated VM that's ..."
+          },
+          {
+            "url": "https://support.google.com/googleplay/android-developer/thread/448982784/impersonation-policy-rejection-despite-signed-authorization-from-trademark-owner?hl=en",
+            "excerpts": [
+              "Impersonation policy rejection despite signed authorization ...\nThe mandate also explicitly authorizes the use of the CFL name, trademarks, logos and branding for the application and its Google Play Store"
+            ],
+            "title": "Impersonation policy rejection despite signed authorization ..."
+          },
+          {
+            "url": "https://www.apple.com/legal/intellectual-property/guidelinesfor3rdparties.html",
+            "excerpts": [
+              "Guidelines for Using Apple Trademarks and Copyrights\nThese guidelines are for Apple licensees, authorized resellers, developers, customers , and other parties wishing to use Apple's trademarks, service marks or"
+            ],
+            "title": "Guidelines for Using Apple Trademarks and Copyrights"
+          },
+          {
+            "url": "https://play.google/developer-content-policy#!?modal_active=none",
+            "excerpts": [
+              "Developer Policy Center - Google Play\nImpersonation. When developers impersonate others or their apps, it misleads users and hurts the developer community. We prohibit apps that mislead users by impersonating someone else."
+            ],
+            "title": "Developer Policy Center - Google Play"
+          },
+          {
+            "url": "https://www.apple.com/legal/intellectual-property",
+            "excerpts": [
+              "Intellectual Property - Legal\nIntellectual Property \u00b7 Guidelines for Using Apple Trademarks and Copyrights . Guidelines for parties wishing to use Apple's trademarks, service marks or images."
+            ],
+            "title": "Intellectual Property - Legal"
+          },
+          {
+            "url": "https://support.google.com/googleplay/android-developer/answer/16341334?hl=en",
+            "excerpts": [
+              "Impersonation FAQs - Play Console Help\nThe Impersonation Policy governs how developers display apps on the Play Store and prohibits developers from misleading users about an app\u2019s connection to someone else (for example, another"
+            ],
+            "title": "Impersonation FAQs - Play Console Help"
+          },
+          {
+            "url": "https://apps.apple.com/us/app/id6786778037",
+            "excerpts": [],
+            "title": "\u200eHermes AI Agent Leash App - App Store"
+          },
+          {
+            "url": "https://apps.apple.com/us/app/hermes-mobile-ai-agent-leash/id6786778037",
+            "excerpts": [],
+            "title": "\u200eHermes AI Agent Leash App - App Store"
+          },
+          {
+            "url": "https://apps.apple.com/us/app/cursor/id6767085653",
+            "excerpts": [],
+            "title": "\u200eCursor App - App Store"
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "hermes-aso-july-2026-deep.md"
+  }
+}
