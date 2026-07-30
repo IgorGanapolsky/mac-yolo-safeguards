@@ -221,5 +221,86 @@ class EvalHarnessTest(unittest.TestCase):
         self.assertEqual([r for r in contract_results if not r["ok"]], [])
 
 
+class ReceiptPathTest(unittest.TestCase):
+    """Receipts must cite evidence at a path that survives the writing tree."""
+
+    def test_repo_file_is_recorded_relative_to_the_checkout(self):
+        import tinker_brain_eval as harness
+
+        self.assertEqual(
+            harness.receipt_path(BRAIN / "fixtures" / "answer_card.txt"),
+            "tools/tinker-brain/fixtures/answer_card.txt",
+        )
+
+    def test_path_outside_the_checkout_stays_absolute(self):
+        import tinker_brain_eval as harness
+
+        with tempfile.TemporaryDirectory() as tmp:
+            outside = pathlib.Path(tmp) / "ANSWER_CARD.txt"
+            outside.write_text("AS_OF=2026-07-22T18:07:42Z\n", encoding="utf-8")
+            recorded = harness.receipt_path(outside)
+            self.assertEqual(recorded, str(outside.resolve()))
+            self.assertTrue(pathlib.Path(recorded).is_absolute())
+
+
+class EvidencePackTest(unittest.TestCase):
+    """Fail closed on evidence, not just on cash: never cite what is not there."""
+
+    GAP_MARKER = "Evidence gap (fail-closed):"
+
+    def _gap(self, line: str) -> str:
+        self.assertNotIn("\n", line)  # one line keeps the response contract intact
+        return line.split(self.GAP_MARKER, 1)[1] if self.GAP_MARKER in line else ""
+
+    def test_missing_or_empty_evidence_is_named_then_clears(self):
+        import tinker_brain_answer as brain
+
+        original_pack = brain._EVIDENCE_PACK
+        original_docs = brain._RESEARCH_DOCS
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                root = pathlib.Path(tmp)
+                docs = root / "docs"
+                docs.mkdir()
+                eval_receipt = root / "eval-latest.json"
+                aeo_receipt = root / "aeo-latest.json"
+                brain._EVIDENCE_PACK = (
+                    ("tinker-brain-eval-receipt", eval_receipt),
+                    ("thumbgate-aeo-receipt", aeo_receipt),
+                )
+                brain._RESEARCH_DOCS = docs
+
+                gap = self._gap(brain.evidence_pack_line())
+                self.assertIn("tinker-brain-eval-receipt", gap)
+                self.assertIn("thumbgate-aeo-receipt", gap)
+                self.assertIn("docs/RESEARCH-THUMBGATE-*.md", gap)
+                self.assertIn("regenerate before citing as verified", gap)
+
+                # A zero-byte artifact is a phantom citation too.
+                eval_receipt.write_text('{"passed": 42}\n', encoding="utf-8")
+                aeo_receipt.write_text("", encoding="utf-8")
+                (docs / "RESEARCH-THUMBGATE-AEO-JULY-2026.md").write_text("# aeo\n", encoding="utf-8")
+                gap = self._gap(brain.evidence_pack_line())
+                self.assertEqual(
+                    gap.strip(), "thumbgate-aeo-receipt not on disk — regenerate before citing as verified."
+                )
+
+                # Everything present: the sentence is the plain evidence pack.
+                aeo_receipt.write_text('{"ok": true}\n', encoding="utf-8")
+                line = brain.evidence_pack_line()
+                self.assertEqual(self._gap(line), "")
+                self.assertTrue(line.startswith("Evidence pack: "), line)
+        finally:
+            brain._EVIDENCE_PACK = original_pack
+            brain._RESEARCH_DOCS = original_docs
+
+    def test_next_money_answer_carries_the_line_and_passes_contract(self):
+        import tinker_brain_answer as brain
+
+        result = answer(FIXTURE_CARD, "make money", expert_text=EXPERT_TEXT)
+        self.assertTrue(result["ok"], result["violations"])
+        self.assertIn(brain.evidence_pack_line(), result["text"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

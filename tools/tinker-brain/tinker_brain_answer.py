@@ -37,6 +37,51 @@ _SNAPSHOT_EXPERT_CARD = (
     Path.home() / ".hermes" / "business-brain" / "data-snapshot" / "THUMBGATE_EXPERT_CARD.txt"
 )
 
+# Artifacts the next-money / improve answers cite as proof. Observed 2026-07-29:
+# the card advertised ~/.hermes/receipts/thumbgate-aeo/latest.json for days while
+# that file did not exist — a phantom citation nothing degraded on. The
+# fail-closed rule that stops this brain inventing cash applies to evidence too,
+# so a cited artifact that is absent (or zero-byte) is named, not implied.
+_EVIDENCE_PACK: tuple[tuple[str, Path], ...] = (
+    (
+        "~/.hermes/receipts/tinker-brain/eval-latest.json",
+        Path.home() / ".hermes" / "receipts" / "tinker-brain" / "eval-latest.json",
+    ),
+    (
+        "~/.hermes/receipts/thumbgate-aeo/latest.json",
+        Path.home() / ".hermes" / "receipts" / "thumbgate-aeo" / "latest.json",
+    ),
+)
+_RESEARCH_DOCS = Path(__file__).resolve().parents[2] / "docs"
+_RESEARCH_GLOB = "RESEARCH-THUMBGATE-*.md"
+
+
+def _on_disk(path: Path) -> bool:
+    """A zero-byte artifact is as absent as a missing one for citation purposes."""
+    try:
+        return path.is_file() and path.stat().st_size > 0
+    except OSError:
+        return False
+
+
+def evidence_pack_line() -> str:
+    """The evidence-pack sentence, degraded when a cited artifact is not on disk."""
+    missing = [label for label, path in _EVIDENCE_PACK if not _on_disk(path)]
+    if not any(_on_disk(doc) for doc in _RESEARCH_DOCS.glob(_RESEARCH_GLOB)):
+        missing.append(f"docs/{_RESEARCH_GLOB}")
+    line = (
+        "Evidence pack: ~/.hermes/receipts/tinker-brain/* (eval, fingerprints, questions, "
+        "economics) + ~/.hermes/receipts/thumbgate-aeo/latest.json + "
+        "docs/RESEARCH-THUMBGATE-*.md in mac-yolo-safeguards."
+    )
+    if missing:
+        line += (
+            " Evidence gap (fail-closed): "
+            + ", ".join(missing)
+            + " not on disk — regenerate before citing as verified."
+        )
+    return line
+
 
 def load_expert_card(explicit: Path | None = None) -> str:
     import os
@@ -213,11 +258,7 @@ def render_from_route(
             "campaign beat with provider-verifiable permalinks; never hard-code a price — read "
             "/api/billing/plan; cash counts only after a non-owner Stripe subscription payment."
         )
-        lines.append(
-            "Evidence pack: ~/.hermes/receipts/tinker-brain/* (eval, fingerprints, questions, "
-            "economics) + ~/.hermes/receipts/thumbgate-aeo/latest.json + "
-            "docs/RESEARCH-THUMBGATE-*.md in mac-yolo-safeguards."
-        )
+        lines.append(evidence_pack_line())
 
     if primary == INTENT_ECONOMICS:
         lines.append(

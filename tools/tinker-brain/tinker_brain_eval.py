@@ -43,6 +43,25 @@ def sha256_file(path: Path) -> str:
         return "missing"
 
 
+def receipt_path(path: Path) -> str:
+    """Record checkout-relative paths so a receipt outlives the tree that wrote it.
+
+    Observed 2026-07-29: a run from a scratchpad worktree stamped the absolute
+    ``/private/tmp/claude-501/.../scratchpad/wt-converge/tools/tinker-brain/
+    fixtures/answer_card.txt`` into ~/.hermes/receipts/tinker-brain/eval-latest.json.
+    The scratchpad was later purged, so the receipt cited evidence at a path that
+    no longer existed — a dangling citation. Files under the checkout are recorded
+    relative to REPO (a scratchpad worktree is its own REPO root, so this
+    normalizes automatically); files outside it, such as the live ANSWER_CARD
+    under ~/.hermes, keep their absolute path because that is their real home.
+    """
+    resolved = path.resolve()
+    try:
+        return str(resolved.relative_to(REPO))
+    except ValueError:
+        return str(resolved)
+
+
 def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -120,8 +139,8 @@ def main() -> int:
     receipt = {
         "schema_version": "tinker-brain-eval/1",
         "ran_at": utc_now(),
-        "card": {"path": str(card_path), "sha256": sha256_file(card_path), "live": args.live},
-        "expert_card": {"path": str(expert_path), "sha256": sha256_file(expert_path)},
+        "card": {"path": receipt_path(card_path), "sha256": sha256_file(card_path), "live": args.live},
+        "expert_card": {"path": receipt_path(expert_path), "sha256": sha256_file(expert_path)},
         "cases_sha256": sha256_file(args.cases),
         "contract_cases_sha256": sha256_file(args.contract_cases),
         "code": {
