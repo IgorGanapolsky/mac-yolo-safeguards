@@ -1,3 +1,4 @@
+import { humanizeModelProviderErrorMessage, isModelProviderErrorMessage } from './modelProviderErrorRecovery';
 import { humanizeSafetyTimeoutMessage } from './safetyTimeoutRecovery';
 
 const PRE_TURN_SCORE_RE =
@@ -27,6 +28,11 @@ export function humanizeAssistantProse(text: string): string {
     return 'Stopped before finishing — tap ↑ to try again.';
   }
 
+  // Never show raw Error code: 500 / unexpected EOF dumps in the bubble.
+  if (isModelProviderErrorMessage(trimmedOnly)) {
+    return humanizeModelProviderErrorMessage(trimmedOnly);
+  }
+
   let out = text
     .replace(PRE_TURN_SCORE_RE, '')
     .replace(POST_TURN_SCORE_RE, '')
@@ -44,6 +50,10 @@ export function humanizeAssistantProse(text: string): string {
 
   if (/^aborted\.?$/i.test(out)) {
     return 'Stopped before finishing — tap ↑ to try again.';
+  }
+
+  if (isModelProviderErrorMessage(out)) {
+    return humanizeModelProviderErrorMessage(out);
   }
 
   return humanizeSafetyTimeoutMessage(out);

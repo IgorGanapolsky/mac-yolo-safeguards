@@ -1,3 +1,5 @@
+import type { OutboundRetryEnvelope } from './chatAttachment';
+
 export interface HermesSession {
   id: string;
   title?: string | null;
@@ -42,6 +44,8 @@ export interface HermesMessage {
   outboundStatus?: 'pending' | 'sent' | 'failed';
   /** Short human reason when outboundStatus is failed (API/auth/session, not connectivity). */
   outboundFailureReason?: string;
+  /** Local-only metadata used to retry a failed multimodal send without dropping files. */
+  outboundRetryEnvelope?: OutboundRetryEnvelope;
   isCollapsedToolActivity?: boolean;
   activities?: HermesMessage[];
 }
