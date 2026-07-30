@@ -55,23 +55,23 @@ class HermesTailscaleTunnelModule(
     if (cm != null) {
       try {
         for (network in cm.allNetworks) {
-          val caps = cm.getNetworkCapabilities(network)
-          if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+          val caps = cm.getNetworkCapabilities(network) ?: continue
+          val isVpn = caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+          if (isVpn) {
             hasVpn = true
           }
-          val lp = cm.getLinkProperties(network)
-          if (lp != null) {
-            for (link in lp.linkAddresses) {
-              val addr = link.address
-              if (addr is Inet4Address) {
-                val host = addr.hostAddress ?: continue
-                if (cgnat == null && isTailscaleCgnatIpv4(host)) {
-                  cgnat = host
-                }
-                if (privateLan == null && isPrivateLanIpv4(host) && !isTailscaleCgnatIpv4(host)) {
-                  privateLan = host
-                }
-              }
+          val lp = cm.getLinkProperties(network) ?: continue
+          for (link in lp.linkAddresses) {
+            val addr = link.address
+            if (addr !is Inet4Address) continue
+            val host = addr.hostAddress ?: continue
+            // CGNAT only from VPN networks — carriers can also issue RFC6598 100.64/10
+            // on the cellular interface (Codex review on #1225).
+            if (isVpn && cgnat == null && isTailscaleCgnatIpv4(host)) {
+              cgnat = host
+            }
+            if (!isVpn && privateLan == null && isPrivateLanIpv4(host) && !isTailscaleCgnatIpv4(host)) {
+              privateLan = host
             }
           }
         }
@@ -80,12 +80,31 @@ class HermesTailscaleTunnelModule(
       }
     }
 
+    // Interface fallback: private LAN from non-tun ifaces; CGNAT only from tun* when VPN is up.
     if (cgnat == null || privateLan == null) {
-      val fromIfaces = ipv4FromInterfaces()
-      if (cgnat == null) cgnat = fromIfaces.firstOrNull { isTailscaleCgnatIpv4(it) }
-      if (privateLan == null) {
-        privateLan = fromIfaces.firstOrNull { isPrivateLanIpv4(it) && !isTailscaleCgnatIpv4(it) }
+      for ((ifaceName, host) in ipv4FromInterfacesNamed()) {
+        if (
+          privateLan == null &&
+          isPrivateLanIpv4(host) &&
+          !isTailscaleCgnatIpv4(host) &&
+          !ifaceName.startsWith("tun")
+        ) {
+          privateLan = host
+        }
+        if (
+          hasVpn &&
+          cgnat == null &&
+          isTailscaleCgnatIpv4(host) &&
+          (ifaceName.startsWith("tun") || ifaceName.contains("tailscale", ignoreCase = true))
+        ) {
+          cgnat = host
+        }
       }
+    }
+
+    // Never report CGNAT without a VPN transport — prevents false Tailscale-on on CGNAT cellular.
+    if (!hasVpn) {
+      cgnat = null
     }
 
     map.putBoolean("hasVpnTransport", hasVpn)
@@ -94,8 +113,7 @@ class HermesTailscaleTunnelModule(
     } else {
       map.putNull("cgnatIpv4")
     }
-    // Find computers subnet sweep must use Wi‑Fi/LAN IP, never tun0 CGNAT (100.70.x
-    // is the phone itself — sweeping 100.70.124.0/24 never finds the Mac).
+    // Find computers subnet sweep must use Wi‑Fi/LAN IP, never tun0 CGNAT.
     if (privateLan != null) {
       map.putString("privateLanIpv4", privateLan)
     } else {
@@ -104,19 +122,20 @@ class HermesTailscaleTunnelModule(
     return map
   }
 
-  private fun ipv4FromInterfaces(): List<String> {
-    val out = ArrayList<String>()
+  private fun ipv4FromInterfacesNamed(): List<Pair<String, String>> {
+    val out = ArrayList<Pair<String, String>>()
     return try {
       val ifaces = NetworkInterface.getNetworkInterfaces() ?: return out
       while (ifaces.hasMoreElements()) {
         val iface = ifaces.nextElement()
         if (!iface.isUp || iface.isLoopback) continue
+        val name = iface.name ?: continue
         val addrs = iface.inetAddresses
         while (addrs.hasMoreElements()) {
           val addr = addrs.nextElement()
           if (addr.isLoopbackAddress || addr !is Inet4Address) continue
           val host = addr.hostAddress ?: continue
-          out.add(host)
+          out.add(name to host)
         }
       }
       out
