@@ -64,7 +64,8 @@ Active tasks (84):
   T-SILENT-BUBBLE-HIDE [in_progress] cursor-silent-bubble-hide: P0: never render cron `[SILENT]` completion sentinel as a chat bubble
   T-EAS-GUARD-DATE-ROLL-20260723 [in_progress] cursor-silent-bubble-hide: Remove UTC-midnight flake from EAS hard-stop process contract blocking all mobile PRs
   … +72 more (run node tools/agent-swarm-harness.js --json)
-File locks (353):
+File locks (354):
+- `hermes-mobile/src/utils/stalledChatRecovery.ts`, `hermes-mobile/src/utils/outboundDeliveryStatus.ts`, `hermes-mobile/src/__tests__/stalledChatRecovery.test.ts`, `hermes-mobile/src/__tests__/outboundDeliveryStatus.test.ts`, `plan.md` → **antigravity** (T-AUTO-RESEND-ON-RECONNECT-20260730: automatically resend pending outbound user messages upon Mac reconnection) (2026-07-30T18:16:00Z)
 - `hermes-mobile/src/utils/thumbgatePromoCopy.ts`, `hermes-mobile/src/__tests__/ThumbGatePromoCard.test.tsx`, `hermes-mobile/src/__tests__/thumbgateContinuityUpsellContract.test.ts`, `plan.md` → **antigravity** (T-THUMBGATE-APP-EXPLICIT-PROMO-COPY-20260730: explicitly promote ThumbGate.app instead of plain ThumbGate across promo card title, body, and button) (2026-07-30T17:58:00Z)
 - `hermes-mobile/src/screens/SettingsScreen.tsx`, `hermes-mobile/src/__tests__/SettingsScreen.test.tsx`, `plan.md` → **antigravity** (T-SETTINGS-REMOVE-USB-COPY-20260730: remove USB mentions from user-facing SettingsScreen copy in favor of Wi-Fi and Tailscale) (2026-07-30T17:49:00Z)
 - `hermes-mobile/fastlane/metadata/android/en-US/title.txt`, `hermes-mobile/fastlane/metadata/android/en-US/paid_title.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/name.txt`, `hermes-mobile/src/__tests__/storeListingMetadataContract.test.ts`, `plan.md` → **antigravity** (T-STORE-HERMES-AGENT-TITLE-20260730: update store titles to Hermes Agent: Mobile AI Leash to match search query intent) (2026-07-30T17:35:00Z)

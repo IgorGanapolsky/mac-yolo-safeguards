@@ -39,7 +39,7 @@ export const OUTBOUND_UNREACHABLE_HINT =
  * "not connected yet" for the same message).
  */
 export const OUTBOUND_RECONNECTED_RETRY_HINT =
-  'Your computer reconnected — tap ↑ to send again';
+  'Reconnected — resending automatically…';
 
 /** Header already says Connected — do not contradict with "Waiting for computer". */
 export const OUTBOUND_CONNECTED_WAITING_REPLY =
@@ -104,7 +104,7 @@ function isEmptyReplyFailureReason(reason: string): boolean {
 }
 
 /** Reason recorded while the Mac was genuinely unreachable — stale once macHttpOk flips true. */
-function isConnectivityFailureReason(reason: string): boolean {
+export function isConnectivityFailureReason(reason: string): boolean {
   return isConnectivityMessage(reason);
 }
 

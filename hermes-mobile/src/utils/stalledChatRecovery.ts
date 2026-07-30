@@ -22,6 +22,11 @@ const STALL_REASON_MARKERS = [
   'no reply from computer',
   'no reply yet',
   'still working',
+  'reconnected',
+  'disconnected',
+  'unreachable',
+  'connection',
+  'network',
 ] as const;
 
 function normalizeBody(text: string): string {
