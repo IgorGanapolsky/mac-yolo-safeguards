@@ -14,9 +14,14 @@ Multiple autonomous agents work this repo concurrently. [`plan.md`](./plan.md) i
 - **Never edit a file another agent owns** in `plan.md` §2. Mark your task `blocked`, log it, and **STOP**.
 - **Never delete or overwrite another agent's claim, lock, branch, or uncommitted WIP.**
 - **Never bypass a verification gate** (tests/E2E) or invent a workaround when blocked — escalate via `blocked` + STOP.
+- **Never commit unresolved VCS conflict markers** (`<<<<<<<` / `=======` / `>>>>>>>`) in always-on agent docs — gate: `node tools/check-merge-conflict-markers.js`.
 - Logs in `plan.md` (Decisions, Discovered) are **append-only** — add at the end, never rewrite.
 
 **Sub-agent delegation:** state the stop condition literally in the prompt ("open a PR, do NOT merge") and require proof, not completion claims. Detail: [docs/agents/coordination.md](./docs/agents/coordination.md).
+
+### Self-automated E2E (permanent, 2026-07-29)
+
+Agents MUST run full automated E2E themselves — never ask the user to manually verify UI/API state. Stack: focused unit → typecheck → continuous E2E / honest skip → Greptile on connect/auth/OTA → merge only when required checks green. Receipts (exit codes, screenshots, proof JSON) in the same turn as any ship claim. Detail: [`docs/AGENT-SWARM-HARNESS.md`](./docs/AGENT-SWARM-HARNESS.md).
 
 ## Honesty Protocol
 

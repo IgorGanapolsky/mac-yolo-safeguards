@@ -207,6 +207,20 @@ if (!json) {
   process.stdout.write(`\n${formatSwarmHarness(swarmReport)}\n`);
 }
 
+// Fail-visible: conflict markers in AGENTS.md/plan.md poison every agent prefill.
+{
+  const conflict = runNode('tools/check-merge-conflict-markers.js', [], 10_000);
+  if (!json) {
+    if (conflict.stdout) process.stdout.write(`\n${conflict.stdout}`);
+    if (conflict.status !== 0) {
+      if (conflict.stderr) process.stderr.write(conflict.stderr);
+      process.stderr.write(
+        'BLOCKER: unresolved merge conflict markers in always-on agent docs — fix before coding.\n',
+      );
+    }
+  }
+}
+
 const graphReport = checkGraphStaleness();
 if (!json) {
   process.stdout.write(`\n${formatGraphStaleness(graphReport)}\n`);

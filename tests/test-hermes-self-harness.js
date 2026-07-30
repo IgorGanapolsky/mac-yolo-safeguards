@@ -50,6 +50,23 @@ assert.ok(ids.includes('stale_yolo_lock_or_prefix_process'));
 assert.ok(ids.includes('gateway_completion_timeout'));
 assert.strictEqual(weaknesses.find((item) => item.id === 'provider_credit_or_context_limit').status, 'candidate');
 
+// Device 2026-07-30 mega-prompt crash dump class
+const eofEvidence = {
+  paths: {},
+  config: 'model:\n  max_tokens: 2048\n',
+  agentLog: "I reached the turn time limit and couldn't generate a final report",
+  errorsLog:
+    "Error: Error code: 500 - {'error': {'message': 'an error was encountered while running the model: unexpected EOF', 'type': 'api_error'}}",
+  yoloWrapper: '',
+};
+eofEvidence.logs = `${eofEvidence.agentLog}\n${eofEvidence.errorsLog}`;
+eofEvidence.logsAndConfig = `${eofEvidence.logs}\n${eofEvidence.config}`;
+const eofWeak = mineWeaknesses(eofEvidence);
+assert.ok(
+  eofWeak.some((item) => item.id === 'model_provider_unexpected_eof'),
+  'unexpected EOF + turn time limit must surface model_provider_unexpected_eof',
+);
+
 const configuredEvidence = {
   paths: {},
   config: [
