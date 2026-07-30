@@ -74,7 +74,7 @@ describe('relayRouting', () => {
       heal: { attempt: 1, inFlight: true, exhausted: false },
       macHttpOk: false,
     });
-    expect(empty.routeStatus).toBe('Waiting for approval pairing…');
+    expect(empty.routeStatus).toBe('Connect a computer in Settings');
     expect(empty.routeStatus.toLowerCase()).not.toContain('reconnect');
 
     const usb = resolveRelayRouteDisplay({
@@ -87,7 +87,7 @@ describe('relayRouting', () => {
       heal: { attempt: 1, inFlight: true, exhausted: false },
       macHttpOk: false,
     });
-    expect(usb.routeStatus).toBe('Waiting for approval pairing…');
+    expect(usb.routeStatus).toBe('Connect a computer in Settings');
   });
 
   it('labels paired relay workers as cloud approvals, not Tailscale transport', () => {

@@ -90,7 +90,7 @@ export function resolveRelayRouteDisplay(input: {
         ? 'Pair to receive approval requests anywhere'
         : heal.inFlight
           ? neverConnected
-            ? 'Waiting for approval pairing…'
+            ? 'Connect a computer in Settings'
             : 'Reconnecting…'
           : 'Cloud approvals are not paired',
     };
