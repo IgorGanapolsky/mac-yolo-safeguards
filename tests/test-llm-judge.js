@@ -174,6 +174,83 @@ test('sampling is deterministic for a given seed, and varies by seed', () => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+
+// ---------------------------------------------------------------------------
+// certifyAcrossSeeds — the defect found in this very file on 2026-07-30.
+//
+// calibrate() certified from ONE sample. Five real runs of n~40 against the
+// same corpus gave 0.652 0.682 0.656 0.842 0.386 — one of them BELOW the 0.40
+// floor. "CERTIFIED" therefore flipped depending on which seed was drawn: a
+// coin flip dressed up as a gate. Certification is now a statement about the
+// MEAN's confidence interval, and these tests hold that line.
+// ---------------------------------------------------------------------------
+const { certifyAcrossSeeds: certify } = require(path.join(ROOT, 'tools', 'llm-judge-calibrate.js'));
+
+// Build a hermetic corpus + a transport whose verdict is a pure function of the
+// excerpt, so agreement is fully controlled by the fixture.
+function hermeticEnv(accuracyPattern) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'judge-seeds-'));
+  const p = path.join(dir, 'labels.jsonl');
+  const rows = [];
+  for (let i = 0; i < 200; i += 1) {
+    const label = i % 2 ? 'positive' : 'negative';
+    rows.push(JSON.stringify({ id: `r${i}`, signal: label,
+      lesson: `${label} case number ${i} with enough characters to clear the length filter` }));
+  }
+  fs.writeFileSync(p, rows.join('\n'));
+  const transport = async ({ messages }) => {
+    const text = messages[messages.length - 1].content;
+    const truth = text.includes('negative') ? 'negative' : 'positive';
+    const said = accuracyPattern(text, truth);
+    return { ok: true, content: JSON.stringify({ verdict: said, confidence: 0.9, reason: 'stub' }) };
+  };
+  return { dir, p, transport };
+}
+
+test('a PERFECT judge certifies across seeds', async () => {
+  const env = hermeticEnv((_t, truth) => truth);
+  const prev = process.env.JUDGE_LABELS_PATH;
+  process.env.JUDGE_LABELS_PATH = env.p;
+  delete require.cache[require.resolve(path.join(ROOT, 'tools', 'llm-judge-calibrate.js'))];
+  const fresh = require(path.join(ROOT, 'tools', 'llm-judge-calibrate.js'));
+  const r = await fresh.certifyAcrossSeeds({ n: 20, seeds: [1, 2, 3, 4, 5], judgeOpts: { transport: env.transport } });
+  assert.equal(r.ok, true);
+  assert.equal(r.certified, true, `perfect agreement must certify, got ${JSON.stringify(r.notCertifiedBecause)}`);
+  assert.equal(r.runsBelowFloor, 0);
+  if (prev === undefined) delete process.env.JUDGE_LABELS_PATH; else process.env.JUDGE_LABELS_PATH = prev;
+  delete require.cache[require.resolve(path.join(ROOT, 'tools', 'llm-judge-calibrate.js'))];
+  fs.rmSync(env.dir, { recursive: true, force: true });
+});
+
+test('a COIN-FLIP judge is refused across seeds', async () => {
+  let flip = 0;
+  const env = hermeticEnv(() => (flip++ % 2 ? 'positive' : 'negative'));
+  const prev = process.env.JUDGE_LABELS_PATH;
+  process.env.JUDGE_LABELS_PATH = env.p;
+  delete require.cache[require.resolve(path.join(ROOT, 'tools', 'llm-judge-calibrate.js'))];
+  const fresh = require(path.join(ROOT, 'tools', 'llm-judge-calibrate.js'));
+  const r = await fresh.certifyAcrossSeeds({ n: 20, seeds: [1, 2, 3, 4, 5], judgeOpts: { transport: env.transport } });
+  assert.equal(r.certified, false, 'a judge with no signal must NOT certify');
+  assert.ok(r.notCertifiedBecause.some((x) => /CI lower bound/.test(x)));
+  if (prev === undefined) delete process.env.JUDGE_LABELS_PATH; else process.env.JUDGE_LABELS_PATH = prev;
+  delete require.cache[require.resolve(path.join(ROOT, 'tools', 'llm-judge-calibrate.js'))];
+  fs.rmSync(env.dir, { recursive: true, force: true });
+});
+
+test('too few seeds is refused even when every run looks good', async () => {
+  const env = hermeticEnv((_t, truth) => truth);
+  const prev = process.env.JUDGE_LABELS_PATH;
+  process.env.JUDGE_LABELS_PATH = env.p;
+  delete require.cache[require.resolve(path.join(ROOT, 'tools', 'llm-judge-calibrate.js'))];
+  const fresh = require(path.join(ROOT, 'tools', 'llm-judge-calibrate.js'));
+  const r = await fresh.certifyAcrossSeeds({ n: 20, seeds: [1, 2], judgeOpts: { transport: env.transport } });
+  assert.equal(r.certified, false, 'two perfect seeds is still not a measurement');
+  assert.ok(r.notCertifiedBecause.some((x) => /seeds/.test(x)));
+  if (prev === undefined) delete process.env.JUDGE_LABELS_PATH; else process.env.JUDGE_LABELS_PATH = prev;
+  delete require.cache[require.resolve(path.join(ROOT, 'tools', 'llm-judge-calibrate.js'))];
+  fs.rmSync(env.dir, { recursive: true, force: true });
+});
+
 (async () => {
   for (const [name, fn] of tests) {
     try {

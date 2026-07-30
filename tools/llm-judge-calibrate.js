@@ -165,7 +165,81 @@ async function calibrate(opts = {}) {
   };
 }
 
-module.exports = { calibrate, cohensKappa, loadLabelled, KAPPA_FLOOR, MIN_SAMPLE };
+/**
+ * Certify across SEVERAL seeds, not one.
+ *
+ * WHY THIS EXISTS — a defect found in this very file on 2026-07-30.
+ *   calibrate() certifies from a single sample, and a single sample is not a
+ *   measurement. Five runs of n≈40 against the same corpus gave:
+ *
+ *       0.652  0.682  0.656  0.842  0.386
+ *
+ *   mean 0.644, sd 0.164. One of those five is BELOW the 0.40 floor. So
+ *   "CERTIFIED" flipped depending on which seed happened to be drawn — a
+ *   coin-flip dressed up as a gate, which is the same class of defect as every
+ *   fabricated metric this work replaced.
+ *
+ * THE RULE
+ *   Certify on the LOWER BOUND of the 95% confidence interval of the mean
+ *   kappa, across at least MIN_SEEDS independent samples. That asks the honest
+ *   question — "is the judge's TRUE kappa above the floor?" — instead of "did
+ *   this one draw land above it?".
+ *
+ *   The per-seed spread is always reported, including how many individual runs
+ *   fell below the floor, so a wide spread can never hide behind a passing mean.
+ */
+const MIN_SEEDS = 5;
+
+async function certifyAcrossSeeds(opts = {}) {
+  const seeds = opts.seeds || [7, 11, 23, 37, 51];
+  const runs = [];
+  for (const seed of seeds) {
+    // eslint-disable-next-line no-await-in-loop
+    const r = await calibrate({ ...opts, seed });
+    if (!r.ok) return { ok: false, error: `seed ${seed}: ${r.error}` };
+    runs.push({ seed, kappa: r.kappa, n: r.n, accuracy: r.accuracy, majorityBaseline: r.majorityBaseline });
+    if (opts.onSeedDone) opts.onSeedDone(r, seed);
+  }
+
+  const ks = runs.map((r) => r.kappa);
+  const mean = ks.reduce((a, b) => a + b, 0) / ks.length;
+  const variance = ks.length > 1
+    ? ks.reduce((a, b) => a + (b - mean) ** 2, 0) / (ks.length - 1)
+    : 0;
+  const sd = Math.sqrt(variance);
+  const sem = ks.length ? sd / Math.sqrt(ks.length) : 0;
+  const ciLow = mean - 1.96 * sem;
+  const ciHigh = mean + 1.96 * sem;
+  const belowFloor = ks.filter((k) => k < KAPPA_FLOOR).length;
+
+  const reasons = [];
+  if (runs.length < MIN_SEEDS) reasons.push(`only ${runs.length} seeds, need ${MIN_SEEDS}`);
+  if (ciLow < KAPPA_FLOOR) reasons.push(`95% CI lower bound ${ciLow.toFixed(3)} < floor ${KAPPA_FLOOR}`);
+
+  return {
+    ok: true,
+    certified: reasons.length === 0,
+    notCertifiedBecause: reasons,
+    model: JUDGE_MODEL,
+    promptVersion: JUDGE_PROMPT_VERSION,
+    runs,
+    seeds,
+    totalJudged: runs.reduce((a, r) => a + r.n, 0),
+    kappaMean: mean,
+    kappaSd: sd,
+    kappaMin: Math.min(...ks),
+    kappaMax: Math.max(...ks),
+    kappaCi95: [ciLow, ciHigh],
+    runsBelowFloor: belowFloor,
+    // Certification is a statement about the MEAN. Individual runs varying is
+    // expected; this number is surfaced so nobody reads one run as gospel.
+    singleRunIsUnreliable: belowFloor > 0,
+  };
+}
+
+module.exports = {
+  calibrate, certifyAcrossSeeds, cohensKappa, loadLabelled, KAPPA_FLOOR, MIN_SAMPLE, MIN_SEEDS,
+};
 
 if (require.main === module) {
   const argv = process.argv.slice(2);
@@ -176,6 +250,32 @@ if (require.main === module) {
   const n = Number(arg('--n', 60));
   const seed = Number(arg('--seed', 7));
   const out = arg('--out', '');
+
+  // Multi-seed is the only mode whose CERTIFIED means anything; single-seed
+  // remains available for a quick look but says so in its output.
+  if (argv.includes('--seeds')) {
+    const seeds = String(arg('--seeds', '7,11,23,37,51')).split(',').map(Number).filter(Number.isFinite);
+    certifyAcrossSeeds({
+      n,
+      seeds,
+      onSeedDone: (r, s) => process.stderr.write(`\r\x1b[K  seed ${s}: kappa ${r.kappa.toFixed(3)} (n=${r.n})\n`),
+      onProgress: (d, t) => process.stderr.write(`\r  judging ${d}/${t}…`),
+    }).then((r) => {
+      process.stderr.write('\r\x1b[K');
+      if (!r.ok) { console.error(`CALIBRATION FAILED: ${r.error}`); process.exit(2); }
+      console.log('\n=== LLM JUDGE CALIBRATION (multi-seed) ===');
+      console.log(`  model / prompt     ${r.model} / ${r.promptVersion}`);
+      console.log(`  seeds              ${r.seeds.join(', ')}   (${r.totalJudged} items judged in total)`);
+      console.log(`  per-seed kappa     ${r.runs.map((x) => x.kappa.toFixed(3)).join('  ')}`);
+      console.log(`  kappa mean +- sd   ${r.kappaMean.toFixed(3)} +- ${r.kappaSd.toFixed(3)}   (min ${r.kappaMin.toFixed(3)}, max ${r.kappaMax.toFixed(3)})`);
+      console.log(`  95% CI of mean     [${r.kappaCi95[0].toFixed(3)}, ${r.kappaCi95[1].toFixed(3)}]   floor ${KAPPA_FLOOR}`);
+      console.log(`  runs below floor   ${r.runsBelowFloor}/${r.runs.length}${r.singleRunIsUnreliable ? '   <- a SINGLE run cannot be trusted to certify' : ''}`);
+      console.log(`\n  VERDICT: ${r.certified ? 'CERTIFIED on the CI lower bound (signal only, never a sole gate)' : `NOT CERTIFIED — ${r.notCertifiedBecause.join('; ')}`}\n`);
+      if (out) { fs.writeFileSync(out, JSON.stringify(r, null, 2)); console.log(`  written: ${out}\n`); }
+      process.exit(r.certified ? 0 : 1);
+    });
+    return;
+  }
 
   calibrate({
     n,
