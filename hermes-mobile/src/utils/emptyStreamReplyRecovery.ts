@@ -20,10 +20,10 @@ export const EMPTY_STREAM_SELF_HEAL_AFTER_MS = 30_000;
 export const EMPTY_STREAM_HARD_STOP_MS = 4 * 60_000;
 
 export const EMPTY_REPLY_FAILURE_REASON =
-  'Still no reply text — your Mac may be stuck or waiting for a Leash approval. Stop the run, open Leash to approve/deny/warn, or start a fresh chat.';
+  'Still no reply text — your computer may be stuck or waiting for a Leash approval. Stop the run, open Leash to approve/deny/warn, or start a fresh chat.';
 
 export const EMPTY_STREAM_HARD_STOP_STATUS =
-  'Still working on your Mac — checking progress automatically…';
+  'Still working on your computer — checking progress automatically…';
 
 /** User-facing status while auto-polling after send with no reply yet. */
 export function emptyStreamCheckingStatus(elapsedMs: number): string {
@@ -34,7 +34,7 @@ export function emptyStreamCheckingStatus(elapsedMs: number): string {
   if (elapsedMs < EMPTY_STREAM_SELF_HEAL_AFTER_MS) {
     return 'Working on your computer… Hermes may be using tools. The reply will show here when ready.';
   }
-  return `Checking your Mac… (${elapsedSec}s)`;
+  return `Checking your computer… (${elapsedSec}s)`;
 }
 
 export function shouldHardStopEmptyStreamWait(elapsedMs: number): boolean {

@@ -143,9 +143,9 @@ describe('emptyStreamReplyRecovery', () => {
   it('shows self-heal checking copy after 30s without requiring manual refresh', () => {
     expect(emptyStreamCheckingStatus(5_000)).toMatch(/working on your computer/i);
     expect(emptyStreamCheckingStatus(EMPTY_STREAM_SELF_HEAL_AFTER_MS)).toMatch(
-      /checking your mac/i,
+      /checking your computer/i,
     );
-    expect(emptyStreamCheckingStatus(45_000)).toBe('Checking your Mac… (45s)');
+    expect(emptyStreamCheckingStatus(45_000)).toBe('Checking your computer… (45s)');
   });
 
   it('surfaces tool activity after the last user turn', () => {

@@ -13,21 +13,21 @@ export const OUTBOUND_NO_REPLY_MAC_LIVE =
   "Your computer didn't answer — tap ↑ to send again";
 
 export const OUTBOUND_RUN_STALLED_HINT =
-  'Run stalled on your Mac — recovering automatically…';
+  'Run stalled on your computer — recovering automatically…';
 
 /** Shown only after auto-recover exhausted — still one-tap ↑, not Stop babysitting. */
 export const OUTBOUND_RUN_STALLED_MANUAL_HINT =
-  'Run stalled on your Mac — tap ↑ to resend';
+  'Run stalled on your computer — tap ↑ to resend';
 
 /**
- * Slow / no first token yet — Mac may still be healthy (tools, mega context).
+ * Slow / no first token yet — computer may still be healthy (tools, mega context).
  * Must NOT reuse the scary "Run stalled" copy (false-positive rage class).
  */
 export const OUTBOUND_SLOW_REPLY_HINT =
-  'Still waiting on your Mac — recovering automatically…';
+  'Still waiting on your computer — recovering automatically…';
 
 export const OUTBOUND_SESSION_BUSY_HINT =
-  'Mac busy with another chat — tap ↑ to try again';
+  'Computer busy with another chat — tap ↑ to try again';
 
 export const OUTBOUND_UNREACHABLE_HINT =
   "Couldn't reach your computer — tap Computer above";

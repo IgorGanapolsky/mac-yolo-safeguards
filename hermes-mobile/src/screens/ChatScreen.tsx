@@ -2440,7 +2440,11 @@ export default function ChatScreen() {
       project.id,
     );
     await persistProjectState(next);
-    const boundSessionId = project.activeSessionId ?? project.sessionIds[0];
+    if (currentSession) {
+      setProjectModalVisible(false);
+      return;
+    }
+    const boundSessionId = project.activeSessionId ?? project.sessionIds?.[0];
     if (boundSessionId) {
       const match = sessions.find((s) => s.id === boundSessionId);
       if (match) {
@@ -2449,8 +2453,6 @@ export default function ChatScreen() {
         return;
       }
     }
-    setCurrentSession(null);
-    setMessages([]);
     setProjectModalVisible(false);
   };
 
@@ -6717,7 +6719,7 @@ export default function ChatScreen() {
           ? mergeSessionUsageIntoRunProgress(
               sendProgressSnapshotRef.current,
               currentSession,
-              sendProgressSnapshotRef.current.detail ?? 'Hermes is thinking on your Mac…',
+              sendProgressSnapshotRef.current.detail ?? 'Hermes is thinking on your computer…',
             )
           : sendProgressSnapshotRef.current;
       }
@@ -6729,7 +6731,7 @@ export default function ChatScreen() {
             ? `${queuedOutboundCount} more message(s) queued after this`
             : isSending
               ? 'Delivering your message…'
-              : 'Hermes is thinking on your Mac…',
+              : 'Hermes is thinking on your computer…',
         sessionId: activeId,
       };
       if (currentSession) {
