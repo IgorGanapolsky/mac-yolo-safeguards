@@ -36,6 +36,9 @@ const {
   resolveUsbReversePorts,
   writeUsbReversePrimaryIntent,
   assertUsbAdbReverses,
+  usbReverseAllowed,
+  usbReverseSkipNotice,
+  USB_ADB_REVERSE_PORTS,
   ANDROID_PACKAGE_NAME,
   waitForForegroundAck,
   createPairingCodeStore,
@@ -881,7 +884,11 @@ function refreshPairAssetsFromLocalGateway() {
     }
   }
   const serial = adbDevice();
+  // Same HERMES_ALLOW_USB_REVERSE policy as runPairMain: with the flag off, a tunnel that
+  // somehow survived must never be PROMOTED back to pair.json's primary, or `--server-only`
+  // would quietly reinstate the USB gateway the operator just moved onto Tailscale.
   const usbReverseLive =
+    usbReverseAllowed() &&
     Boolean(serial) &&
     !String(serial).startsWith('emulator-') &&
     !assertUsbAdbReverses(serial).missing.includes(8642);
@@ -1242,7 +1249,28 @@ function runPairMain(args) {
     ]);
 
   const serial = adbDevice();
-  const usbPairing = serial && !serial.startsWith('emulator-') && !args.has('--no-adb');
+  // HERMES_ALLOW_USB_REVERSE opt-in gate (default OFF). A plain `node tools/hermes-mobile-pair.js`
+  // used to unconditionally (re)create `adb reverse tcp:8642` + `tcp:8765`, which is why the
+  // phone's chat header kept truthfully reporting `USB` however many times the tunnels were
+  // cleared by hand. With the flag off this run pairs entirely over Tailscale/LAN: the pair
+  // exchange falls back to `phonePairServer` (Tailscale IP, see `adbPairExchangeBase` below),
+  // the primary gateway stays the tailnet URL instead of being rewritten to 127.0.0.1:8642,
+  // and the `adb am start` deep-link push (gated on `serial` alone, not on `usbPairing`) is
+  // untouched — a cabled phone still gets the setup intent, just without a tunnel.
+  const cabledPhonePresent = Boolean(serial) && !serial.startsWith('emulator-') && !args.has('--no-adb');
+  const usbReverseEnabled = usbReverseAllowed();
+  const usbPairing = cabledPhonePresent && usbReverseEnabled;
+  if (cabledPhonePresent && !usbReverseEnabled) {
+    console.log(usbReverseSkipNotice('adb reverse tcp:8642/tcp:8765'));
+    console.log('  Pairing continues over Tailscale/LAN (no USB tunnel created)');
+    // Leave nothing behind: a tunnel a PREVIOUS opted-in run (or a stale watchdog tick) left
+    // live would still make the phone report `USB`, and this run is the one the operator is
+    // actually watching. Teardown is deliberately ungated, so this converges on Tailscale-only.
+    const stale = USB_ADB_REVERSE_PORTS.filter((port) => removeUsbAdbReverse(serial, port));
+    if (stale.length > 0) {
+      console.log(`  adb reverse: removed stale tunnel(s) tcp:${stale.join(', tcp:')} on ${serial}`);
+    }
+  }
   let reversed8642 = false;
   let reversed8765 = false;
   // 2026-07-24 hijack fix: `install-phone-release.sh`'s plain auto-pair call used to run

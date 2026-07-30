@@ -14,6 +14,12 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+// Creating USB `adb reverse` tunnels became opt-in on 2026-07-30 (HERMES_ALLOW_USB_REVERSE,
+// default OFF — see tools/hermes-mobile-pair-lib.js). Every healing assertion below is about
+// the ENABLED path, so opt in explicitly. The disabled path is asserted separately at the end
+// of this file, and repo-wide by tests/test-usb-reverse-optin-guard.js.
+process.env.HERMES_ALLOW_USB_REVERSE = '1';
+
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'usb-reverse-watchdog-test-'));
 const stateFile = path.join(tmpDir, 'state.json');
 const fakeAdbPath = path.join(tmpDir, 'fake-adb.js');
@@ -97,9 +103,19 @@ function check(name, fn) {
   }
 }
 
+// Test isolation: healSerial falls back to the OPERATOR's real
+// ~/.hermes/usb-reverse-primary-intent.json when no intentStatePath is given. On a Mac where
+// a live mini-primary intent is on record, that leaks in and turns these two checks red for
+// reasons that have nothing to do with the code under test (reproduced on origin/main,
+// 2026-07-30). Point them at a path that deliberately does not exist.
+const NO_INTENT_PATH = path.join(tmpDir, 'absent-intent.json');
+
 check('healSerial re-applies a missing port and leaves an already-live one alone', () => {
   writeState({ reversed: { R3CY90QPM7E: [8642] }, failPorts: [], devices: [['R3CY90QPM7E', 'device']] });
-  const result = watchdog.healSerial('R3CY90QPM7E', { adbCommand: fakeAdbPath });
+  const result = watchdog.healSerial('R3CY90QPM7E', {
+    adbCommand: fakeAdbPath,
+    intentStatePath: NO_INTENT_PATH,
+  });
   assert.deepStrictEqual(result.missing, [8765]);
   assert.deepStrictEqual(result.reapplied, [8765]);
   assert.deepStrictEqual(result.failed, []);
@@ -116,7 +132,10 @@ check('healSerial is a no-op when both ports are already live', () => {
 
 check('healSerial reports a failed re-apply without throwing', () => {
   writeState({ reversed: {}, failPorts: [8765], devices: [['R3CY90QPM7E', 'device']] });
-  const result = watchdog.healSerial('R3CY90QPM7E', { adbCommand: fakeAdbPath });
+  const result = watchdog.healSerial('R3CY90QPM7E', {
+    adbCommand: fakeAdbPath,
+    intentStatePath: NO_INTENT_PATH,
+  });
   assert.deepStrictEqual(result.missing.sort(), [8642, 8765]);
   assert.deepStrictEqual(result.reapplied, [8642]);
   assert.deepStrictEqual(result.failed, [8765]);
@@ -329,6 +348,50 @@ check('runOnce excludes tcp:8642 from "already live" ports display and healing u
   assert.strictEqual(summary.anyFailed, false);
   const state = readState();
   assert.strictEqual(state.reversed.R3CY90QPM7E.includes(8642), false);
+});
+
+check('healSerial creates NOTHING when HERMES_ALLOW_USB_REVERSE is unset (Tailscale-only default)', () => {
+  writeState({ reversed: {}, failPorts: [], devices: [['R3CY90QPM7E', 'device']] });
+  const saved = process.env.HERMES_ALLOW_USB_REVERSE;
+  delete process.env.HERMES_ALLOW_USB_REVERSE;
+  try {
+    const result = watchdog.healSerial('R3CY90QPM7E', {
+      adbCommand: fakeAdbPath,
+      intentStatePath: path.join(tmpDir, 'no-such-intent-optin.json'),
+    });
+    assert.strictEqual(result.skipped, true, 'must report the skip, never silently do nothing');
+    assert.deepStrictEqual(result.reapplied, []);
+    assert.deepStrictEqual(result.failed, [], 'a skip is not a failure — the caller keeps working');
+    const state = readState();
+    assert.strictEqual(
+      state.reversed.R3CY90QPM7E,
+      undefined,
+      'watchdog must not re-create a USB tunnel without the opt-in flag',
+    );
+  } finally {
+    if (saved === undefined) delete process.env.HERMES_ALLOW_USB_REVERSE;
+    else process.env.HERMES_ALLOW_USB_REVERSE = saved;
+  }
+});
+
+check('runOnce heals nothing and reports no failure when the opt-in flag is unset', () => {
+  writeState({ reversed: {}, failPorts: [], devices: [['R3CY90QPM7E', 'device']] });
+  const saved = process.env.HERMES_ALLOW_USB_REVERSE;
+  delete process.env.HERMES_ALLOW_USB_REVERSE;
+  try {
+    const summary = watchdog.runOnce({
+      adbCommand: fakeAdbPath,
+      skipPair: true,
+      appearStatePath: path.join(tmpDir, 'appear-optin-off.json'),
+    });
+    assert.strictEqual(summary.devicesChecked, 1);
+    assert.strictEqual(summary.healed, false);
+    assert.strictEqual(summary.anyFailed, false, 'opt-out must not page the operator as a failure');
+    assert.strictEqual(readState().reversed.R3CY90QPM7E, undefined);
+  } finally {
+    if (saved === undefined) delete process.env.HERMES_ALLOW_USB_REVERSE;
+    else process.env.HERMES_ALLOW_USB_REVERSE = saved;
+  }
 });
 
 fs.rmSync(tmpDir, { recursive: true, force: true });

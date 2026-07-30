@@ -36,6 +36,8 @@ const {
   adbReverseHasPort,
   removeUsbAdbReverse,
   readUsbReversePrimaryIntent,
+  usbReverseAllowed,
+  usbReverseSkipNotice,
 } = require('./hermes-mobile-pair-lib');
 const { pipelineBusyReason } = require('./agent-phone-pipeline-lock');
 
@@ -137,6 +139,15 @@ function currentReverseIntent(options = {}) {
  */
 function healSerial(serial, options = {}) {
   const basePorts = options.ports ?? USB_ADB_REVERSE_PORTS;
+  // HERMES_ALLOW_USB_REVERSE opt-in gate (default OFF). This LaunchAgent's whole job is to
+  // RE-CREATE dropped tunnels every 15s, which makes it the single most effective way to undo
+  // the Tailscale-only policy — it was booted out and its plist renamed `.disabled-20260729`
+  // for exactly that reason. The gate lives in code too so re-enabling the job (or running
+  // this script by hand) cannot silently resurrect `USB` in the phone's chat header.
+  if (!(options.allowUsbReverse ?? usbReverseAllowed())) {
+    console.log(usbReverseSkipNotice(`hermes-usb-reverse-watchdog: heal ${serial}`));
+    return { serial, missing: [], reapplied: [], failed: [], skip8642: false, removed8642: false, skipped: true };
+  }
   const { skip8642 } = currentReverseIntent(options);
   const ports = skip8642 ? basePorts.filter((port) => port !== 8642) : basePorts;
 

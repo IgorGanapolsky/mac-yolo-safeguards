@@ -83,6 +83,35 @@ function selectPhysicalAdbSerial(adbDevicesOutput) {
 /** USB Hermes paths: gateway chat + pair.json sweep (Mac mini discovery). */
 const USB_ADB_REVERSE_PORTS = [8642, 8765];
 
+/**
+ * Opt-in env flag for creating USB `adb reverse` tunnels. DEFAULT OFF.
+ *
+ * CEO directive (standing since 2026-07-22, restated repeatedly): "my app should not know
+ * about USB, it should only know about Tailscale." The app was never lying — it correctly
+ * reported a real live `adb reverse tcp:8642` / `tcp:8765` tunnel. Mac-side tooling kept
+ * RE-CREATING those tunnels (a plain `hermes-mobile-pair.js` run re-established them within
+ * seconds of a manual `adb reverse --remove-all`), so every app-side removal was undone by
+ * the next pairing run and `USB` reappeared in the chat header.
+ *
+ * `sim-runaway-guard.sh` was gated behind this same flag on 2026-07-25; this is the JS half
+ * of that policy. Tailscale is the supported transport for phone + iPad. Export
+ * `HERMES_ALLOW_USB_REVERSE=1` only for deliberate local device debugging.
+ */
+const USB_REVERSE_FLAG = 'HERMES_ALLOW_USB_REVERSE';
+
+/** @returns {boolean} true only when the operator explicitly opted in this process. */
+function usbReverseAllowed(env = process.env) {
+  return String(env?.[USB_REVERSE_FLAG] ?? '') === '1';
+}
+
+/**
+ * One clear line so a skipped tunnel is never a SILENT no-op. Callers must keep working
+ * over Tailscale/LAN after this — skipping is not an error.
+ */
+function usbReverseSkipNotice(context = 'USB reverse') {
+  return `  ${context} skipped (set ${USB_REVERSE_FLAG}=1 to enable; Tailscale is the supported transport)`;
+}
+
 function adbReverseList(serial, options = {}) {
   const adbBin = options.adbCommand ?? 'adb';
   const result = spawnSync(adbBin, ['-s', serial, 'reverse', '--list'], {
@@ -96,9 +125,23 @@ function adbReverseHasPort(serial, port, options = {}) {
   return adbReverseList(serial, options).includes(`tcp:${port}`);
 }
 
+/**
+ * The single place in this repo that CREATES a USB `adb reverse` tunnel from JS.
+ * Gated behind {@link USB_REVERSE_FLAG} (default OFF) — see that constant for why.
+ * Skipping returns `{ ok: false, skipped: true }` and prints one line; it never throws,
+ * so every caller keeps working over Tailscale/LAN.
+ */
 function setupUsbAdbReverses(serial, options = {}) {
   const ports = options.ports ?? USB_ADB_REVERSE_PORTS;
   const adbBin = options.adbCommand ?? 'adb';
+  // HERMES_ALLOW_USB_REVERSE opt-in gate. `options.allowUsbReverse` exists only so a caller
+  // that already resolved the flag (or a test that is deliberately exercising the enabled
+  // path) can pass it through explicitly — it defaults to the env flag, never to true.
+  const allowed = options.allowUsbReverse ?? usbReverseAllowed();
+  if (!allowed) {
+    console.log(usbReverseSkipNotice(`adb reverse tcp:${ports.join('/tcp:')}`));
+    return { ok: false, skipped: true, reason: 'usb_reverse_disabled', failures: [...ports], ports };
+  }
   const failures = [];
   for (const port of ports) {
     const result = spawnSync(adbBin, ['-s', serial, 'reverse', `tcp:${port}`, `tcp:${port}`], {
@@ -109,9 +152,13 @@ function setupUsbAdbReverses(serial, options = {}) {
       failures.push(port);
     }
   }
-  return { ok: failures.length === 0, failures, ports };
+  return { ok: failures.length === 0, skipped: false, failures, ports };
 }
 
+/**
+ * Teardown is intentionally NOT gated: removing a tunnel always moves toward the
+ * Tailscale-only end state, so it must work whether or not the flag is set.
+ */
 function removeUsbAdbReverse(serial, port, options = {}) {
   const adbBin = options.adbCommand ?? 'adb';
   const result = spawnSync(adbBin, ['-s', serial, 'reverse', '--remove', `tcp:${port}`], {
@@ -838,6 +885,9 @@ module.exports = {
   classifyGatewayHost,
   selectPhysicalAdbSerial,
   USB_ADB_REVERSE_PORTS,
+  USB_REVERSE_FLAG,
+  usbReverseAllowed,
+  usbReverseSkipNotice,
   adbReverseList,
   adbReverseHasPort,
   setupUsbAdbReverses,
