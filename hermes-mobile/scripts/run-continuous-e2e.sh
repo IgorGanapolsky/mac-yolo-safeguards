@@ -355,7 +355,21 @@ guard_system_pressure() {
     echo "Load dropped to $(load1) — proceeding with continuous E2E"
   fi
 
-  if [[ "$current_sim_count" =~ ^[0-9]+$ ]] && (( current_sim_count > MAX_SIMRUNTIME_PROCS )); then
+  # iOS simruntime thrash is irrelevant when we can run Android Maestro (USB or emulator).
+  # 2026-07-30: phone-awake continuous E2E was blocked by iOS simruntime>80 even with emulator online.
+  android_e2e_viable=0
+  if [[ "${HERMES_E2E_ANDROID_ONLY:-}" == "1" || "${HERMES_E2E_EMULATOR_FALLBACK:-}" == "1" ]]; then
+    android_e2e_viable=1
+  elif has_usb_adb_device || has_android_emulator; then
+    android_e2e_viable=1
+  elif [[ "${HERMES_E2E_BOOT_AVD:-1}" == "1" ]] && resolve_emulator_bin >/dev/null 2>&1; then
+    android_e2e_viable=1
+  fi
+  if [[ "$android_e2e_viable" -eq 1 ]]; then
+    if [[ "$current_sim_count" =~ ^[0-9]+$ ]] && (( current_sim_count > MAX_SIMRUNTIME_PROCS )); then
+      echo "iOS simruntime count ${current_sim_count} > ${MAX_SIMRUNTIME_PROCS} but Android E2E is viable — continuing"
+    fi
+  elif [[ "$current_sim_count" =~ ^[0-9]+$ ]] && (( current_sim_count > MAX_SIMRUNTIME_PROCS )); then
     detail="skipped continuous E2E: simruntime process count ${current_sim_count} exceeds max ${MAX_SIMRUNTIME_PROCS}"
     echo "$detail"
     write_status "skipped" "skipped" "$detail"
