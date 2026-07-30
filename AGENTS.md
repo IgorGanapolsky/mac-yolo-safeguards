@@ -8,7 +8,7 @@ Repo: `mac-yolo-safeguards` — Mac freeze guard scripts + ThumbGate SaaS funnel
 
 ## Multi-agent coordination (READ FIRST)
 
-Multiple autonomous agents work this repo concurrently. [`plan.md`](./plan.md) is the shared live board; one agent per git worktree + branch; sequential merge onto `main` gated on green checks. Every task: read `plan.md` → claim files before touching → work only your claim → append discovered work → verify AcceptanceCheck → release. Cap 2–3 concurrent agents. Full protocol, planner/worker roles, megafile list, thrash detection: [docs/agents/coordination.md](./docs/agents/coordination.md).
+Multiple autonomous agents work this repo concurrently. [`plan.md`](./plan.md) is the shared live board; one agent per git worktree + branch; sequential merge onto `main` gated on green checks. Every task: **run `node tools/plan-coordination-snapshot.js`** (the board is ~1 MB / 100+ active tasks — reading it whole costs more context than most tasks are worth; the snapshot prints active claims and owners) → claim files before touching → work only your claim → append discovered work → verify AcceptanceCheck → release. Grep `plan.md` directly only for a specific task or file you already know the name of. Cap 2–3 concurrent agents. Full protocol, planner/worker roles, megafile list, thrash detection: [docs/agents/coordination.md](./docs/agents/coordination.md).
 
 **The "Never" list (hard rules — violating these is a directive breach):**
 - **Never edit a file another agent owns** in `plan.md` §2. Mark your task `blocked`, log it, and **STOP**.

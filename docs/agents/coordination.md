@@ -12,7 +12,7 @@ clobber each other:
 2. **Coordination:** [`plan.md`](../../plan.md) is the **shared live board**. It is the single source of truth for who is doing what.
 
 **Protocol (every task):**
-1. **Read `plan.md`.** Pick a `pending` task whose claimed files are `(free)`.
+1. **Run `node tools/plan-coordination-snapshot.js`** and pick a `pending` task whose claimed files are `(free)`. Do not read `plan.md` end-to-end: it is ~1 MB with 100+ active tasks (measured 2026-07-30), so a full read costs more context than most tasks are worth and pushes the rest of the directive out of the window. The snapshot prints the registered agents, active tasks, owners, and claimed files — everything the claim protocol needs. Grep `plan.md` directly when you already know the task id or file name you are looking for.
 2. **Claim before you touch** — set Owner+Status in the Task Board AND add your files to the File Ownership Map (your `agent-id` + UTC date), and commit `plan.md` *first*, before editing code.
 3. Work only on your claimed files, in your worktree.
 4. **Discovered work** → append to plan.md §4; don't silently expand scope.
