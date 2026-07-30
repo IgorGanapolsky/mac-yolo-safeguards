@@ -30,7 +30,11 @@ const COPY_RULES = [
   {
     name: 'obsolete-subscription-copy',
     pattern:
-      /(?:10[^.\n]{0,40}approvals?\s*\/\s*week|\$19\.99\s*\/\s*(?:mo|month)|free[^.\n]{0,80}10 approvals?|honest\s+free\s+tier|free\s+tier\s+covers|stay\s+on\s+(?:the\s+)?free\s+tier|free\s+(?:chat|pairing)|free\s+to\s+pair)/gi,
+      /(?:10[^.\n]{0,40}approvals?\s*\/\s*week|\$19\.99(?:\s*\/\s*(?:mo|month))?|free[^.\n]{0,80}10 approvals?|honest\s+free\s+tier|free\s+tier\s+covers|stay\s+on\s+(?:the\s+)?free\s+tier|free\s+(?:chat|pairing)|free\s+to\s+pair)/gi,
+  },
+  {
+    name: 'obsolete-free-offer-copy',
+    pattern: /\bFREE FOREVER\b/gi,
   },
   {
     name: 'obsolete-ios-review-state',
@@ -235,6 +239,19 @@ function listPublishableFiles(root) {
     for (const entry of fs.readdirSync(social, { withFileTypes: true })) {
       if (entry.isDirectory() && entry.name.startsWith('week-')) {
         walkMarkdown(path.join(social, entry.name));
+      }
+    }
+  }
+  const playVariants = path.join(
+    root,
+    'hermes-mobile/fastlane/metadata/android/en-US/variants',
+  );
+  if (fs.existsSync(playVariants)) {
+    for (const entry of fs.readdirSync(playVariants, {
+      withFileTypes: true,
+    })) {
+      if (entry.isFile() && entry.name.endsWith('.txt')) {
+        files.push(path.join(playVariants, entry.name));
       }
     }
   }

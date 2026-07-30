@@ -131,6 +131,31 @@ test('publishable copy audit recursively checks reusable weekly draft directorie
   );
 });
 
+test('publishable copy audit scans every reusable Play experiment variant', () => {
+  const root = makeTempDirectory();
+  const variants = path.join(
+    root,
+    'hermes-mobile/fastlane/metadata/android/en-US/variants',
+  );
+  fs.mkdirSync(variants, { recursive: true });
+  fs.writeFileSync(
+    path.join(variants, 'full_description_A.txt'),
+    'FREE FOREVER\nLEASH PRO ($19.99/mo)\n',
+  );
+  fs.writeFileSync(
+    path.join(variants, 'short_description_B.txt'),
+    'Approve tools from your phone. One-time $4.99.',
+  );
+
+  const result = auditPublishableStoreCopy(root);
+  assert.equal(result.status, 'fail');
+  assert.equal(result.filesScanned, 2);
+  assert.deepEqual(
+    result.findings.map((finding) => finding.rule).sort(),
+    ['obsolete-free-offer-copy', 'obsolete-subscription-copy'],
+  );
+});
+
 test('publishable copy audit rejects positive legacy free-tier and pending-iOS slogans', () => {
   const root = makeTempDirectory();
   const ready = path.join(root, 'hermes-mobile/docs/social/ready-to-post');
