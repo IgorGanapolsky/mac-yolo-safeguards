@@ -404,7 +404,7 @@ export default function SettingsScreen() {
   const handleTestIntercept = async () => {
     try {
       await requestTestIntercept();
-      Alert.alert('Test sent', 'Check ThumbGate Leash for a fake agent tool approval.');
+      Alert.alert('Test sent', 'Check ThumbGate.app Leash for a fake agent tool approval.');
     } catch (err) {
       Alert.alert('Test failed', err instanceof Error ? err.message : 'Could not inject test event');
     }
@@ -746,7 +746,7 @@ export default function SettingsScreen() {
             <>
               <Text style={styles.pairedText}>Paired — mobile token stored in secure storage.</Text>
               <TouchableOpacity style={styles.secondaryButton} onPress={handleTestIntercept}>
-                <Text style={styles.secondaryButtonText}>⚡ Send test approval to ThumbGate Leash</Text>
+                <Text style={styles.secondaryButtonText}>⚡ Send test approval to ThumbGate.app Leash</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.unlinkButton} onPress={() => disconnectPair()}>
                 <Text style={styles.unlinkButtonText}>Disconnect pairing</Text>

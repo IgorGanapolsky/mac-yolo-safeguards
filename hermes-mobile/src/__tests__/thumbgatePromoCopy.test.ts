@@ -13,6 +13,16 @@ describe('thumbgatePromoCopy', () => {
     expect(thumbGatePromoCopy('leash_empty').url).toBe(THUMBGATE_WEB_URL);
   });
 
+  it('names ThumbGate.app in every promo surface (never bare ThumbGate)', () => {
+    for (const surface of ['leash_empty', 'leash_disconnected', 'connection_unreachable'] as const) {
+      const promo = thumbGatePromoCopy(surface);
+      const blob = `${promo.headline}\n${promo.body}\n${promo.buttonLabel}`;
+      expect(blob).toMatch(/ThumbGate\.app/);
+      // Bare product name without .app is banned in promo strings.
+      expect(blob.replace(/ThumbGate\.app/g, '')).not.toMatch(/ThumbGate/);
+    }
+  });
+
   it('shows Leash promo when disconnected or when connected with no pending approvals', () => {
     expect(
       resolveLeashThumbGatePromoSurface({

@@ -87,10 +87,10 @@ export default function HermesApprovalCard({
 
   const commandPreview = approval.command?.trim().slice(0, 400) ?? '';
   const downHint = thumbgateCaptureOnDown
-    ? 'Block + remember in ThumbGate'
+    ? 'Block + remember in ThumbGate.app'
     : 'Block this command';
   const upHint = thumbgateCaptureOnUp
-    ? 'Allow once + ThumbGate capture'
+    ? 'Allow once + ThumbGate.app capture'
     : 'Allow this command once';
 
   const browserBadge = leashBadgeForTool(approval.toolName);
@@ -109,7 +109,7 @@ export default function HermesApprovalCard({
               ? 'AGENT PROPOSAL'
               : isChatApproval
                 ? 'NEEDS YOUR APPROVAL'
-                : 'THUMBGATE · BLOCKED'}
+                : 'THUMBGATE.APP · BLOCKED'}
         </Text>
       </View>
       <View style={styles.headerBadges}>
@@ -163,7 +163,7 @@ export default function HermesApprovalCard({
 
     {showThumbs ? (
       <Text style={styles.thumbgateHint}>
-        ThumbGate Leash — thumbs down to block, thumbs up to allow once.
+        ThumbGate.app Leash — thumbs down to block, thumbs up to allow once.
       </Text>
     ) : null}
 
