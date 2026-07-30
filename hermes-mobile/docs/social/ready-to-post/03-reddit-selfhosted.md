@@ -2,13 +2,13 @@
 
 **Status:** Ready — Igor posts  
 **Subreddit:** r/selfhosted  
-**Play:** https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+**Play:** https://thumbgate.app/go/android?utm_source=reddit&utm_medium=organic&utm_campaign=selfhosted_launch&cta_id=selfhosted_play
 
 ---
 
 ## Title
 
-Hermes Mobile — self-hosted Mac gateway + phone approve/deny for coding agents (10 free Leash approvals/week)
+Hermes Mobile — self-hosted Mac gateway + phone approve/deny for coding agents
 
 ## Body
 
@@ -17,13 +17,13 @@ If you self-host agents on a Mac (Cursor hooks, Claude Code, custom gateway), yo
 **Hermes Mobile** is an Android/iOS client for your **own** Hermes gateway:
 
 - Pair with QR / Tailscale — no Igor-specific backdoor in store builds  
-- **Chat:** free  
-- **Leash:** approve or deny blocked tool calls from your phone — **10/week free**, **$19.99/mo** for unlimited Leash Pro  
+- **Chat:** remote access to your own gateway
+- **Leash:** approve or deny blocked tool calls from your phone in the **$4.99 paid-upfront app**
 - ThumbGate memory gates on thumbs up/down (Pro)
 
 Open gateway + freeze-guard tooling: https://github.com/IgorGanapolsky/mac-yolo-safeguards
 
-Play: https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+Play: https://thumbgate.app/go/android?utm_source=reddit&utm_medium=organic&utm_campaign=selfhosted_launch&cta_id=selfhosted_play
 
 Looking for self-hosters who want a minimal phone control plane — what setup friction should we kill next?
 

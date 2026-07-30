@@ -235,6 +235,41 @@ try {
   });
   assert.equal(clientError.status, 204);
 
+  const androidStore = await fetch(
+    `http://127.0.0.1:${port}/go/android?utm_source=e2e&utm_medium=worker&utm_campaign=store_redirect_e2e&cta_id=android_a`,
+    { redirect: "manual" },
+  );
+  assert.equal(androidStore.status, 302);
+  assert.match(androidStore.headers.get("cache-control") || "", /no-store/);
+  assert.equal(androidStore.headers.get("referrer-policy"), "no-referrer");
+  const playLocation = new URL(androidStore.headers.get("location"));
+  assert.equal(playLocation.hostname, "play.google.com");
+  assert.equal(
+    playLocation.searchParams.get("id"),
+    "com.iganapolsky.hermesmobile.paid",
+  );
+  const installReferrer = new URLSearchParams(
+    playLocation.searchParams.get("referrer") || "",
+  );
+  assert.deepEqual(Object.fromEntries(installReferrer), {
+    utm_source: "e2e",
+    utm_medium: "worker",
+    utm_campaign: "store_redirect_e2e",
+    utm_content: "android_a",
+    cta_id: "android_a",
+  });
+
+  const iosStore = await fetch(
+    `http://127.0.0.1:${port}/go/ios?utm_source=e2e&utm_medium=worker&utm_campaign=store_redirect_e2e&cta_id=ios_a`,
+    { redirect: "manual" },
+  );
+  assert.equal(iosStore.status, 302);
+  assert.match(iosStore.headers.get("cache-control") || "", /no-store/);
+  assert.equal(iosStore.headers.get("referrer-policy"), "no-referrer");
+  const appStoreLocation = new URL(iosStore.headers.get("location"));
+  assert.equal(appStoreLocation.hostname, "apps.apple.com");
+  assert.match(appStoreLocation.pathname, /\/id6786778037$/);
+
   const session = await fetch(`http://127.0.0.1:${port}/api/me`);
   // Landing chrome uses 200 + authenticated:false (not 401) to avoid console noise.
   assert.equal(session.status, 200);
@@ -246,6 +281,55 @@ try {
   worker.kill("SIGTERM");
   await new Promise((resolve) => worker.once("exit", resolve));
   worker = undefined;
+
+  const storeCounters = spawnSync(
+    wrangler,
+    [
+      "d1",
+      "execute",
+      "DB",
+      "--local",
+      "--config",
+      config,
+      "--persist-to",
+      persistence,
+      "--json",
+      "--command",
+      [
+        "SELECT event, count FROM funnel_counters WHERE event IN ('play_store_click', 'app_store_click') ORDER BY event",
+        "SELECT event, utm_source, utm_medium, utm_campaign, cta_id, count FROM funnel_attribution_counters WHERE event IN ('play_store_click', 'app_store_click') ORDER BY event",
+      ].join("; "),
+    ],
+    { encoding: "utf8", env: { ...process.env, CI: "1" } },
+  );
+  assert.equal(
+    storeCounters.status,
+    0,
+    `D1 store counter read failed:\n${storeCounters.stdout}\n${storeCounters.stderr}`,
+  );
+  const storeCounterPayload = JSON.parse(storeCounters.stdout);
+  assert.deepEqual(storeCounterPayload[0].results, [
+    { event: "app_store_click", count: 1 },
+    { event: "play_store_click", count: 1 },
+  ]);
+  assert.deepEqual(storeCounterPayload[1].results, [
+    {
+      event: "app_store_click",
+      utm_source: "e2e",
+      utm_medium: "worker",
+      utm_campaign: "store_redirect_e2e",
+      cta_id: "ios_a",
+      count: 1,
+    },
+    {
+      event: "play_store_click",
+      utm_source: "e2e",
+      utm_medium: "worker",
+      utm_campaign: "store_redirect_e2e",
+      cta_id: "android_a",
+      count: 1,
+    },
+  ]);
 
   const sessionToken = "thumbgate-local-e2e-session";
   const workosSessionId = "session_01HQAG1HENBZMAZD82YRXDFC0B";
@@ -353,7 +437,7 @@ try {
   assert.equal((await postLogoutMe.json()).authenticated, false);
 
   console.log(
-    "Cloudflare Worker E2E: missing schema degrades 503; migrated anonymous redirect/API 401; seeded provider-bound opaque session renders private state; logout clears cookie, revokes D1 session, redirects through WorkOS logout, and restores denial",
+    "Cloudflare Worker E2E: missing schema degrades 503; migrated anonymous redirect/API 401; store redirects persist aggregate+attributed D1 counters and Android Install Referrer; seeded provider-bound opaque session renders private state; logout clears cookie, revokes D1 session, redirects through WorkOS logout, and restores denial",
   );
 } finally {
   if (worker && worker.exitCode === null) {

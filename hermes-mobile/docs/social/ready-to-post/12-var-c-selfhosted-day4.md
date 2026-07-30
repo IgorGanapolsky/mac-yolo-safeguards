@@ -13,12 +13,12 @@ I run local coding agents on a Mac (Cursor / Claude Code / Hermes gateway) and k
 
 **Hermes Mobile** is a phone control plane for agents on **your machine**, not another cloud credit agent:
 
-- **Chat:** free to your Hermes gateway (Wi‑Fi or Tailscale)
-- **Leash:** approve/deny blocked tool calls from your phone — **10/week free**, then Leash Pro ($19.99/mo) for unlimited
+- **Chat:** remote access to your Hermes gateway (Wi‑Fi or Tailscale)
+- **Leash:** approve/deny blocked tool calls from your phone in the **$4.99 paid-upfront app**
 - Keys stay on your computer; open gateway: https://github.com/IgorGanapolsky/mac-yolo-safeguards
 
-Android (Play): https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile&referrer=utm_source%3Dreddit%26utm_medium%3Dselfhosted%26utm_campaign%3Dday4-var-c
+Android (Play): https://thumbgate.app/go/android?utm_source=reddit&utm_medium=selfhosted&utm_campaign=day4-var-c&cta_id=selfhosted_day4
 
-iOS is still in App Store review — not claiming live.
+iOS is live for $4.99 paid upfront.
 
 I'm the developer. What setup friction should we kill next for self-hosters?

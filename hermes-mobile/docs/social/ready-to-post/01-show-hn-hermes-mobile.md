@@ -1,7 +1,8 @@
 # Show HN — Hermes Mobile (approve AI agents from your phone)
 
 **Status:** Ready to post — Igor account on news.ycombinator.com  
-**Play:** https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+**Play:** https://thumbgate.app/go/android?utm_source=hackernews&utm_medium=organic&utm_campaign=show-hn-hermes-mobile&cta_id=show_hn_play
+**App Store:** https://thumbgate.app/go/ios?utm_source=hackernews&utm_medium=organic&utm_campaign=show-hn-hermes-mobile&cta_id=show_hn_ios
 
 ---
 
@@ -15,20 +16,23 @@ I run local coding agents on a Mac and kept getting burned by runaway tool loops
 
 **Hermes Mobile** is a phone remote for agents already running on **your machine**:
 
-- **Hermes Chat** — free: talk to your gateway from cellular or Wi‑Fi (Tailscale when off-LAN)
-- **Leash** — **10 routed approvals/week free**, then **Leash Pro** ($19.99/mo) for unlimited mobile approval cards + standing gate rules
+- **Hermes Chat** — talk to your gateway from cellular or Wi‑Fi (Tailscale when off-LAN)
+- **Leash** — mobile approval cards and standing gate rules in the **$4.99 paid-upfront app**
 - QR pair; API keys stay on your computer — not another cloud agent inbox
 
 This is not Termux-on-phone and not OpenAI-only Codex mobile. It's the operator UI for Hermes / Cursor / Claude Code style workflows on hardware you control.
 
-Android is live on Play. iOS is in App Store review.
+Android and iOS are live for $4.99 paid upfront.
 
 Happy to answer setup questions. Gateway repo: https://github.com/IgorGanapolsky/mac-yolo-safeguards
 
-Play: https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+Play: https://thumbgate.app/go/android?utm_source=hackernews&utm_medium=organic&utm_campaign=show-hn-hermes-mobile&cta_id=show_hn_play
+
+App Store: https://thumbgate.app/go/ios?utm_source=hackernews&utm_medium=organic&utm_campaign=show-hn-hermes-mobile&cta_id=show_hn_ios
 
 ---
 
 ## First comment (optional, post immediately after)
 
-Demo path for reviewers / curious HNers without a paired Mac: the app supports `hermes://setup?demo=1` for a sandboxed walkthrough. Real use needs your own gateway + Tailscale for off-Wi‑Fi.
+Real use needs your own Hermes gateway. Tailscale is the supported off-Wi‑Fi
+network path; the store app does not rely on a USB or reviewer-only backdoor.

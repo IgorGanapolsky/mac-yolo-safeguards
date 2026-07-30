@@ -1,8 +1,8 @@
 # Show HN — Hermes Mobile (ready to publish)
 
 **Status:** Ready — Igor posts from HN account  
-**UTM deep link:** `hermes://chat?utm_source=hn&utm_medium=launch&utm_campaign=runaway-agent-jul2026`  
-**Play:** https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+**Play:** https://thumbgate.app/go/android?utm_source=hackernews&utm_medium=organic&utm_campaign=runaway-agent-jul2026&cta_id=hn_show_hermes
+**App Store:** https://thumbgate.app/go/ios?utm_source=hackernews&utm_medium=organic&utm_campaign=runaway-agent-jul2026&cta_id=hn_show_hermes_ios
 
 ---
 
@@ -14,8 +14,8 @@ Show HN: Hermes Mobile — approve risky Cursor/Claude Code commands from your p
 
 I run coding agents on my Mac and kept walking away while they asked to run scary shell commands. Hermes Mobile is the phone-side operator console:
 
-- **Hermes Chat** — free. Talk to your agent through your own Mac gateway (Tailscale-friendly).
-- **ThumbGate Leash** — **10 routed approvals/week free**, then **$19.99/mo** for unlimited mobile approval cards + standing gate rules.
+- **Hermes Chat** — talk to your agent through your own Mac gateway (Tailscale-friendly).
+- **ThumbGate Leash** — mobile approval cards and standing gate rules in the **$4.99 paid-upfront app**.
 - **Your machine** — pairs over QR; no agent transcript cloud.
 
 Typical flow: Cursor/Claude Code hits a blocked tool → approval card on your phone → approve once / deny / allow for session.
@@ -24,9 +24,11 @@ Needs a Mac running the Hermes gateway (open source in our repo). Not a hosted S
 
 Would love feedback from anyone running local agents daily. What would make you trust a mobile approve button?
 
-Android: https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile  
+Android: https://thumbgate.app/go/android?utm_source=hackernews&utm_medium=organic&utm_campaign=runaway-agent-jul2026&cta_id=hn_show_hermes
+iOS: https://thumbgate.app/go/ios?utm_source=hackernews&utm_medium=organic&utm_campaign=runaway-agent-jul2026&cta_id=hn_show_hermes_ios
 Gateway: https://github.com/IgorGanapolsky/mac-yolo-safeguards
 
 ---
 
-**Honesty check:** Do NOT claim unlimited free approvals. Chat is free; Leash is 10/week then paid.
+**Honesty check:** Both store downloads are $4.99 paid upfront. Do not claim a
+free tier, monthly mobile subscription, or demo-only store behavior.
