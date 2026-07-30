@@ -19,6 +19,12 @@ const {
   ascPost,
 } = require('../hermes-mobile/scripts/asc-api');
 
+const DECISION_GRADE_REPORTS = new Set([
+  'App Downloads Standard',
+  'App Store Discovery and Engagement Standard',
+  'App Store Purchases Standard',
+]);
+
 function parseArgs(argv) {
   const args = { ensure: false, json: false };
   for (let index = 0; index < argv.length; index += 1) {
@@ -93,13 +99,35 @@ async function inventoryReports(client, requestId) {
   const reports = Array.isArray(payload.data) ? payload.data : [];
   const categories = {};
   const names = [];
+  const keyReports = [];
 
   for (const report of reports) {
     const category = report?.attributes?.category || 'UNKNOWN';
+    const name = report?.attributes?.name || '';
     categories[category] = (categories[category] || 0) + 1;
-    if (report?.attributes?.name) names.push(report.attributes.name);
+    if (name) names.push(name);
+    if (DECISION_GRADE_REPORTS.has(name)) {
+      const payload = await client.get(
+        `/v1/analyticsReports/${encodeURIComponent(report.id)}/instances?limit=200`,
+      );
+      const instances = Array.isArray(payload.data) ? payload.data : [];
+      const processingDates = instances
+        .map((instance) => instance?.attributes?.processingDate)
+        .filter(Boolean)
+        .sort();
+      keyReports.push({
+        id: report.id,
+        name,
+        instanceCount: instances.length,
+        latestProcessingDate: processingDates.at(-1) || null,
+      });
+    }
   }
 
+  const keyReportInstanceCount = keyReports.reduce(
+    (total, report) => total + report.instanceCount,
+    0,
+  );
   return {
     reportCount: reports.length,
     categories: Object.fromEntries(
@@ -108,6 +136,16 @@ async function inventoryReports(client, requestId) {
       ),
     ),
     names: [...new Set(names)].sort(),
+    keyReportInstanceCount,
+    dataStatus:
+      keyReports.length === 0
+        ? 'unavailable'
+        : keyReportInstanceCount > 0
+          ? 'available'
+          : 'pending',
+    keyReports: keyReports.sort((left, right) =>
+      left.name.localeCompare(right.name),
+    ),
   };
 }
 
@@ -150,10 +188,15 @@ function formatStatus(status) {
     (sum, request) => sum + request.reports.reportCount,
     0,
   );
+  const keyReportInstances = status.requests.reduce(
+    (sum, request) => sum + request.reports.keyReportInstanceCount,
+    0,
+  );
   return [
     `App Store Connect analytics: ${action}`,
     `Active ongoing requests: ${status.activeOngoingRequestCount}`,
     `Generated report definitions: ${reports}`,
+    `Decision-grade report instances: ${keyReportInstances}`,
     `Verified: ${status.verifiedAt}`,
   ].join('\n');
 }

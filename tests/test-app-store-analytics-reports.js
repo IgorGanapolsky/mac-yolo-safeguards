@@ -132,3 +132,84 @@ test('inventory reports groups provider output without inventing metrics', async
   ]);
   assert.equal(inventory.reportCount, 3);
 });
+
+test('inventory reports exposes provider instances for decision-grade standard metrics', async () => {
+  const calls = [];
+  const client = {
+    get: async (apiPath) => {
+      calls.push(apiPath);
+      if (apiPath.includes('/reports?')) {
+        return {
+          data: [
+            {
+              id: 'downloads',
+              attributes: {
+                category: 'COMMERCE',
+                name: 'App Downloads Standard',
+              },
+            },
+            {
+              id: 'purchases',
+              attributes: {
+                category: 'COMMERCE',
+                name: 'App Store Purchases Standard',
+              },
+            },
+            {
+              id: 'discovery',
+              attributes: {
+                category: 'APP_STORE_ENGAGEMENT',
+                name: 'App Store Discovery and Engagement Standard',
+              },
+            },
+          ],
+        };
+      }
+      if (apiPath.includes('/downloads/')) {
+        return {
+          data: [
+            {
+              id: 'downloads-2026-07-29',
+              attributes: {
+                granularity: 'DAILY',
+                processingDate: '2026-07-30',
+              },
+            },
+          ],
+        };
+      }
+      return { data: [] };
+    },
+  };
+
+  const inventory = await inventoryReports(client, 'request-1');
+
+  assert.equal(inventory.keyReportInstanceCount, 1);
+  assert.equal(inventory.dataStatus, 'available');
+  assert.deepEqual(inventory.keyReports, [
+    {
+      id: 'downloads',
+      name: 'App Downloads Standard',
+      instanceCount: 1,
+      latestProcessingDate: '2026-07-30',
+    },
+    {
+      id: 'discovery',
+      name: 'App Store Discovery and Engagement Standard',
+      instanceCount: 0,
+      latestProcessingDate: null,
+    },
+    {
+      id: 'purchases',
+      name: 'App Store Purchases Standard',
+      instanceCount: 0,
+      latestProcessingDate: null,
+    },
+  ]);
+  assert.deepEqual(calls, [
+    '/v1/analyticsReportRequests/request-1/reports?limit=200',
+    '/v1/analyticsReports/downloads/instances?limit=200',
+    '/v1/analyticsReports/purchases/instances?limit=200',
+    '/v1/analyticsReports/discovery/instances?limit=200',
+  ]);
+});

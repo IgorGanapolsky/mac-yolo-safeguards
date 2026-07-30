@@ -611,8 +611,12 @@ async function queryAppStoreAnalytics() {
   );
   const categories = {};
   let reportCount = 0;
+  let keyReportInstanceCount = 0;
+  const keyReports = [];
   for (const request of status.requests) {
     reportCount += request.reports.reportCount;
+    keyReportInstanceCount += request.reports.keyReportInstanceCount;
+    keyReports.push(...request.reports.keyReports);
     for (const [category, count] of Object.entries(
       request.reports.categories,
     )) {
@@ -626,6 +630,14 @@ async function queryAppStoreAnalytics() {
     requestIds: status.requests.map((request) => request.id),
     reportCount,
     categories,
+    dataStatus:
+      keyReports.length === 0
+        ? 'unavailable'
+        : keyReportInstanceCount > 0
+          ? 'available'
+          : 'pending',
+    keyReportInstanceCount,
+    keyReports,
     verifiedAt: status.verifiedAt,
   };
 }
