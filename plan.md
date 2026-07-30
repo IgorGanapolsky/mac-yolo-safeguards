@@ -64,7 +64,8 @@ Active tasks (84):
   T-SILENT-BUBBLE-HIDE [in_progress] cursor-silent-bubble-hide: P0: never render cron `[SILENT]` completion sentinel as a chat bubble
   T-EAS-GUARD-DATE-ROLL-20260723 [in_progress] cursor-silent-bubble-hide: Remove UTC-midnight flake from EAS hard-stop process contract blocking all mobile PRs
   … +72 more (run node tools/agent-swarm-harness.js --json)
-File locks (346):
+File locks (347):
+- `.github/workflows/ci.yml`, `plan.md` → **antigravity** (T-CI-MACOS-RUNNER-OPTIMIZATION-20260730: switch macos-guard to ubuntu-latest to conserve 10x macOS Actions minute quota) (2026-07-30T15:49:00Z)
 - `hermes-mobile/src/components/ChatEmptyGreeting.tsx`, `hermes-mobile/src/__tests__/ChatEmptyGreeting.test.tsx`, `plan.md` → **antigravity** (T-CHAT-EMPTY-GREETING-COPY-20260730: update Chat empty greeting subtitle to include Wi-Fi, Tailscale, USB, and ThumbGate Cloud) (2026-07-30T15:31:00Z)
 - `hermes-mobile/src/components/ConnectMacGate.tsx`, `hermes-mobile/src/__tests__/ConnectMacGate.test.tsx`, `plan.md` → **antigravity** (T-CONNECT-MAC-GATE-THUMBGATE-PROMO-20260730: surface ThumbGate.app promo card on ConnectMacGate onboarding screen) (2026-07-30T15:30:00Z)
 - `hermes-mobile/src/screens/ApprovalsScreen.tsx`, `hermes-mobile/src/components/HermesApprovalCard.tsx`, `hermes-mobile/src/__tests__/ApprovalsScreen.test.tsx`, `plan.md` → **antigravity** (T-ISSUE-139-LEASH-GLANCE-FIX: resolve Issue #139 literal copy and risk context preservation) (2026-07-30T15:17:00Z)
