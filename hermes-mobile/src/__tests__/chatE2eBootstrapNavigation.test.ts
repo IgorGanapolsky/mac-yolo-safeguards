@@ -44,9 +44,21 @@ describe('chat Maestro bootstrap navigation recovery', () => {
       (composer.match(/extendedWaitUntil:\s*\n\s*visible: "make money today"\s*\n\s*timeout: \d+/g) ?? [])
         .length,
     ).toBe(2);
+
+    // The empty-composer proof is the PLACEHOLDER, which renders only while the value is
+    // the empty string. The old `notVisible: "make money today"` form is banned: it goes
+    // true after a single character is deleted, so the retype could still interleave with
+    // an in-flight clear, and it is already true over an unrelated leftover draft.
+    // Executable steps only — `#` comment lines legitimately name the banned pattern.
+    const composerSteps = composer
+      .split(/\r?\n/)
+      .filter((line) => !/^\s*#/.test(line))
+      .join('\n');
+    expect(composerSteps).not.toContain('notVisible: "make money today"');
     expect(
-      (composer.match(/extendedWaitUntil:\s*\n\s*notVisible: "make money today"\s*\n\s*timeout: \d+/g) ?? [])
-        .length,
+      (composer.match(
+        /extendedWaitUntil:\s*\n\s*visible: "Type a message to Hermes\|Message your computer…"\s*\n\s*timeout: \d+/g,
+      ) ?? []).length,
     ).toBe(3);
   });
 

@@ -151,12 +151,21 @@ appId: com.iganapolsky.hermesmobile
 # too short to cover a slow CI simulator, so every mutation boundary below is an
 # EXPLICIT wait: prove the field is empty before retyping, then wait for the
 # retyped value with a real timeout instead of relying on the implicit one.
+#
+# The empty proof asserts the composer PLACEHOLDER, which React Native renders only
+# while the TextInput value is the empty string. `notVisible: "make money today"`
+# was deliberately rejected here: it goes true the moment a single character is
+# deleted, and it is already true when the composer holds an unrelated leftover
+# draft — so it would pass mid-clear and let the same partial-value race through.
+# Both idle placeholder variants are matched because this flow runs with no session
+# ("Message your computer…") while the demo-bootstrapped chat flows have one
+# ("Type a message to Hermes"); neither can render unless the field is empty.
 - tapOn:
     id: "chat-input"
     point: "95%,50%"
 - eraseText: 100
 - extendedWaitUntil:
-    notVisible: "make money today"
+    visible: "Type a message to Hermes|Message your computer…"
     timeout: 15000
 - inputText: "make money today"
 - extendedWaitUntil:
@@ -167,7 +176,7 @@ appId: com.iganapolsky.hermesmobile
     point: "95%,50%"
 - eraseText: 100
 - extendedWaitUntil:
-    notVisible: "make money today"
+    visible: "Type a message to Hermes|Message your computer…"
     timeout: 15000
 - inputText: "make money today"
 - extendedWaitUntil:
@@ -267,7 +276,7 @@ appId: com.iganapolsky.hermesmobile
     point: "95%,50%"
 - eraseText: 100
 - extendedWaitUntil:
-    notVisible: "make money today!?#.+"
+    visible: "Type a message to Hermes|Message your computer…"
     timeout: 15000
 - hideKeyboard
 - assertVisible:
@@ -305,7 +314,7 @@ appId: com.iganapolsky.hermesmobile
     timeout: 15000
 - eraseText: 100
 - extendedWaitUntil:
-    notVisible: "make money today"
+    visible: "Type a message to Hermes|Message your computer…"
     timeout: 15000
 - hideKeyboard
 - assertVisible:

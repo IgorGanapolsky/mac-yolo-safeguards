@@ -32,8 +32,12 @@ appId: com.iganapolsky.hermesmobile
 # Wait for the clear to round-trip, then for the typed value to actually be in the
 # controlled TextInput, before Send is tapped. A bare `waitForAnimationToEnd` only
 # waits for the UI to stop moving — it does not prove the value landed.
+# The empty proof is the composer PLACEHOLDER, which renders only while the value is
+# the empty string. `notVisible: "make money today"` would go true after a single
+# character is deleted AND is already true when a reused composer holds some other
+# draft — which in a SEND flow risks appending to that leftover and sending it.
 - extendedWaitUntil:
-    notVisible: "make money today"
+    visible: "Type a message to Hermes|Message your computer…"
     timeout: 15000
 - inputText: "make money today"
 - extendedWaitUntil:
@@ -58,7 +62,7 @@ appId: com.iganapolsky.hermesmobile
           id: "chat-input"
       - eraseText
       - extendedWaitUntil:
-          notVisible: "make money today"
+          visible: "Type a message to Hermes|Message your computer…"
           timeout: 15000
       - inputText: "make money today"
       - extendedWaitUntil:

@@ -35,8 +35,13 @@ appId: com.iganapolsky.hermesmobile
 - eraseText: 100
 # Prove the clear actually round-tripped through React state before retyping.
 # A tapOn between eraseText and inputText is NOT a wait — it only re-focuses.
+# The proof is the composer PLACEHOLDER, which renders only while the value is the
+# empty string. `notVisible: "make money today"` is NOT an empty proof: it goes true
+# as soon as one character is deleted, so the retype could still interleave with an
+# in-flight clear — the exact partial-value race this flow exists to catch. It is
+# also already true whenever the composer holds any other draft.
 - extendedWaitUntil:
-    notVisible: "make money today"
+    visible: "Type a message to Hermes|Message your computer…"
     timeout: 15000
 - tapOn:
     id: "chat-input"
@@ -54,7 +59,7 @@ appId: com.iganapolsky.hermesmobile
     point: "95%,50%"
 - eraseText: 100
 - extendedWaitUntil:
-    notVisible: "make money today"
+    visible: "Type a message to Hermes|Message your computer…"
     timeout: 15000
 - tapOn:
     id: "chat-input"
@@ -64,5 +69,5 @@ appId: com.iganapolsky.hermesmobile
     timeout: 15000
 - eraseText
 - extendedWaitUntil:
-    notVisible: "make money today"
+    visible: "Type a message to Hermes|Message your computer…"
     timeout: 15000

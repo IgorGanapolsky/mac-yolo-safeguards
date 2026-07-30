@@ -32,10 +32,25 @@ const awaitedVisible = (value: string) =>
     `extendedWaitUntil:\\s*\\n\\s+visible: "${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s*\\n\\s+timeout: \\d+`,
   );
 
-const awaitedNotVisible = (value: string) =>
-  new RegExp(
-    `extendedWaitUntil:\\s*\\n\\s+notVisible: "${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s*\\n\\s+timeout: \\d+`,
-  );
+/**
+ * An empty composer is proven by its PLACEHOLDER, which React Native renders only while
+ * the TextInput value is the empty string. `notVisible: "<draft>"` is NOT an empty proof —
+ * it goes true the instant one character is deleted, and it is already true when the
+ * composer holds any unrelated draft, so it would let a retype interleave with an
+ * in-flight clear (the exact race this flow guards).
+ */
+const COMPOSER_EMPTY = 'Type a message to Hermes|Message your computer…';
+
+const awaitedComposerEmpty = new RegExp(
+  `extendedWaitUntil:\\s*\\n\\s+visible: "${COMPOSER_EMPTY.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s*\\n\\s+timeout: \\d+`,
+);
+
+/** Executable steps only — `#` comment lines legitimately name the banned patterns. */
+const stepsOnly = (yaml: string) =>
+  yaml
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*#/.test(line))
+    .join('\n');
 
 describe('iPad simulator fresh-user edge-case flow', () => {
   it('starts from cleared real-user state and never enables demo automation', () => {
@@ -185,28 +200,34 @@ describe('iPad simulator fresh-user edge-case flow', () => {
     expect(flow).toContain('point: "95%,50%"');
 
     // The regression this flow guards is a RACE, so the erase must be proven to
-    // have round-tripped through React state before the same value is retyped.
-    // Retyping while the clear is still in flight is what produced the observed
+    // have fully cleared the composer before the same value is retyped. Retyping
+    // while the clear is still in flight is what produced the observed
     // `Assertion is false` failure on otherwise-passing app code.
-    expect(flow).toMatch(awaitedNotVisible('make money today'));
-    const eraseSettled = flow.indexOf(
-      'notVisible: "make money today"',
-      interveningErase,
-    );
+    expect(flow).toMatch(awaitedComposerEmpty);
+    const eraseSettled = flow.indexOf(`visible: "${COMPOSER_EMPTY}"`, interveningErase);
     expect(eraseSettled).toBeGreaterThan(interveningErase);
     expect(secondPrompt).toBeGreaterThan(eraseSettled);
+
+    // And the weaker substring-absence form must never come back: it is satisfied by a
+    // partial erase and by a leftover unrelated draft.
+    expect(stepsOnly(flow)).not.toContain('notVisible: "make money today"');
   });
 
-  it('never asserts a typed value with only Maestro implicit smart wait', () => {
-    // Guards the whole flow, not just the two known sites: an assertion that
-    // immediately follows inputText/eraseText relies on the implicit wait, which
-    // is the documented Maestro weakness on slow CI and heavy animations.
-    const steps = flow.split(/\r?\n/).filter((line) => /^-\s/.test(line));
+  it('never leaves a text mutation without an explicit wait', () => {
+    // Guards the whole flow, not just the known sites. TWO offending shapes:
+    //   mutation -> assertion  (assertion rides Maestro's implicit smart wait)
+    //   mutation -> mutation   (eraseText -> inputText: THE original regression,
+    //                          which contains no assertion at all)
+    const steps = flow.split(/\r?\n/).filter((line) => /^\s*-\s/.test(line));
     const offenders: string[] = [];
     for (let i = 0; i < steps.length - 1; i += 1) {
-      if (!/^-\s*(inputText|eraseText)\b/.test(steps[i])) continue;
-      if (/^-\s*(assertVisible|assertNotVisible|assertTrue)\b/.test(steps[i + 1])) {
-        offenders.push(`${steps[i].trim()} -> ${steps[i + 1].trim()}`);
+      if (!/^\s*-\s*(inputText|eraseText)\b/.test(steps[i])) continue;
+      const next = steps[i + 1];
+      if (
+        /^\s*-\s*(assertVisible|assertNotVisible|assertTrue)\b/.test(next) ||
+        /^\s*-\s*(inputText|eraseText)\b/.test(next)
+      ) {
+        offenders.push(`${steps[i].trim()} -> ${next.trim()}`);
       }
     }
     expect(offenders).toEqual([]);

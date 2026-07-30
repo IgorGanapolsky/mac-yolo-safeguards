@@ -48,18 +48,36 @@ const REQUIRED_FLOWS = [
 // them is a race. Evidence 2026-07-29: the iPad edge-case retype step passed four consecutive
 // runs and then failed with `Assertion is false: "make money today" is visible` on identical
 // app code. Fail closed here so the pattern can never be reintroduced in any flow.
-const MUTATOR_STEP = /^-\s*(inputText|eraseText)\b/;
-const ASSERT_STEP = /^-\s*(assertVisible|assertNotVisible|assertTrue)\b/;
+const MUTATOR_STEP = /^\s*-\s*(inputText|eraseText)\b/;
+const ASSERT_STEP = /^\s*-\s*(assertVisible|assertNotVisible|assertTrue)\b/;
 
 function unguardedInputAssertions(text) {
-  // Only top-level steps ("- " at column 0) are compared; nested runFlow command lists are
-  // indented and are checked by their own flow file.
-  const steps = text.split(/\r?\n/).filter((line) => /^-\s/.test(line));
+  // Compare consecutive steps at EVERY indent level. Nested `runFlow.commands:` lists are
+  // indented, and the original regression (chat-send-persistence's mega-session retry) lives
+  // inside one — anchoring at column 0 would have skipped it entirely.
+  const steps = text
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*#/.test(line)) // `#` comments legitimately quote these patterns
+    .filter((line) => /^\s*-\s/.test(line));
   const offenders = [];
   for (let i = 0; i < steps.length - 1; i += 1) {
     if (!MUTATOR_STEP.test(steps[i])) continue;
-    if (ASSERT_STEP.test(steps[i + 1])) {
-      offenders.push(`${steps[i].trim()}  ->  ${steps[i + 1].trim()}`);
+    const next = steps[i + 1];
+
+    // mutation -> assertion: the assertion rides Maestro's implicit smart wait.
+    if (ASSERT_STEP.test(next)) {
+      offenders.push(`${steps[i].trim()}  ->  ${next.trim()}`);
+      continue;
+    }
+
+    // mutation -> mutation: THE ORIGINAL REGRESSION. `eraseText` immediately followed by
+    // `inputText` is precisely the sequence that produced
+    // `Assertion is false: "make money today" is visible` — the retype interleaves with the
+    // in-flight clear. There is no assertion in that pair at all, so an assertion-only rule
+    // silently accepts it. Any two adjacent text mutations need an explicit wait between
+    // them proving the first one committed.
+    if (MUTATOR_STEP.test(next)) {
+      offenders.push(`${steps[i].trim()}  ->  ${next.trim()}`);
     }
   }
   return offenders;
@@ -109,9 +127,11 @@ function main() {
     }
     for (const offender of unguardedInputAssertions(text)) {
       errors.push(
-        `${file}: assertion directly after text mutation relies on Maestro's implicit ` +
-          `smart wait — use extendedWaitUntil (or waitForAnimationToEnd for a negative ` +
-          `contract) with an explicit timeout: ${offender}`,
+        `${file}: text mutation is not followed by an explicit wait, so the next step ` +
+          `races the controlled TextInput (or rides Maestro's implicit smart wait). Insert ` +
+          `extendedWaitUntil with a timeout — prove the composer is EMPTY (its placeholder ` +
+          `is visible) after eraseText, or that the typed value is visible after inputText; ` +
+          `use waitForAnimationToEnd only for a negative contract: ${offender}`,
       );
     }
   }

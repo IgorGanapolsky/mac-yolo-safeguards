@@ -30,8 +30,12 @@ appId: com.iganapolsky.hermesmobile
 # typed value must be in the controlled TextInput before Send is tapped. Tapping
 # Send on a composer that has not hydrated yet sends nothing and the bubble
 # assertions below then fail for a reason that has nothing to do with the product.
+# The empty proof is the composer PLACEHOLDER, which renders only while the value is
+# the empty string — unlike `notVisible: "make money today"`, which goes true after
+# one character is deleted and is already true over an unrelated leftover draft that
+# this flow would then append to and send.
 - extendedWaitUntil:
-    notVisible: "make money today"
+    visible: "Type a message to Hermes|Message your computer…"
     timeout: 15000
 - inputText: "make money today"
 - extendedWaitUntil:
