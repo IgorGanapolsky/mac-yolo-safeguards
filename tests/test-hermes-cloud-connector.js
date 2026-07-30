@@ -213,8 +213,13 @@ test('resumes the existing Hermes session and carries cloud handoff context', as
     let body = '';
     request.on('data', (chunk) => { body += chunk; });
     request.on('end', () => {
-      received = JSON.parse(body);
       response.setHeader('content-type', 'application/json');
+      // mobile_* is recoverable: ensure GET first; live session returns 200
+      if (request.method === 'GET' && request.url === '/api/sessions/mobile_1') {
+        response.end(JSON.stringify({ session: { id: 'mobile_1' } }));
+        return;
+      }
+      received = body ? JSON.parse(body) : null;
       response.end(JSON.stringify({ message: { role: 'assistant', content: 'resumed on the Mac' } }));
     });
   }, async (sessionGatewayUrl) => {
@@ -340,16 +345,85 @@ test('self-heals a cron-sourced thread whose ephemeral gateway session already e
   ]);
 });
 
-test('does NOT silently recreate a missing genuine Hermes Mobile session (surfaces the real error instead)', async () => {
+test('self-heals a missing mobile-originated session so web can continue the cloud thread', async () => {
+  const requests = [];
   await withServer((request, response) => {
-    response.setHeader('content-type', 'application/json');
-    response.statusCode = 404;
-    response.end(JSON.stringify({ error: { code: 'session_not_found', message: 'Session not found' } }));
+    let body = '';
+    request.on('data', (chunk) => { body += chunk; });
+    request.on('end', () => {
+      const parsed = body ? JSON.parse(body) : null;
+      requests.push({ method: request.method, url: request.url, body: parsed });
+      response.setHeader('content-type', 'application/json');
+      if (request.method === 'GET' && request.url === '/api/sessions/mobile_1785181168497_de1e2b96') {
+        response.statusCode = 404;
+        response.end(JSON.stringify({ error: { code: 'session_not_found', message: 'Session not found' } }));
+        return;
+      }
+      if (request.method === 'POST' && request.url === '/api/sessions') {
+        response.statusCode = 201;
+        response.end(JSON.stringify({ session: { id: parsed.id } }));
+        return;
+      }
+      if (request.method === 'POST' && request.url === '/api/sessions/mobile_1785181168497_de1e2b96/chat') {
+        response.end(JSON.stringify({ message: { role: 'assistant', content: 'recovered mobile session on Mac' } }));
+        return;
+      }
+      response.statusCode = 404;
+      response.end(JSON.stringify({ error: 'unexpected request' }));
+    });
   }, async (sessionGatewayUrl) => {
-    await assert.rejects(
-      executeLocal({ sessionGatewayUrl }, { sourceSessionId: 'mobile_1', prompt: 'continue', handoffMessages: [] }),
+    const result = await executeLocal(
+      { sessionGatewayUrl },
+      {
+        sourceSessionId: 'mobile_1785181168497_de1e2b96',
+        threadTitle: 'Continue the work',
+        prompt: 'Make money',
+        handoffMessages: [{ role: 'user', content: 'Pull the latest code from upstream.' }],
+        contextMessages: [
+          { role: 'user', content: 'original mobile request about agent spend' },
+          { role: 'assistant', content: 'original mobile answer with project binding' },
+        ],
+      },
+    );
+    assert.equal(result, 'recovered mobile session on Mac');
+  });
+  assert.deepEqual(requests.map((request) => `${request.method} ${request.url}`), [
+    'GET /api/sessions/mobile_1785181168497_de1e2b96',
+    'POST /api/sessions',
+    'POST /api/sessions/mobile_1785181168497_de1e2b96/chat',
+  ]);
+  assert.equal(requests[1].body.id, 'mobile_1785181168497_de1e2b96');
+  // Recreate must not pin connector terminal.cwd over the mobile project binding.
+  assert.equal(requests[1].body.system_prompt, undefined);
+  const chatBody = requests[2].body;
+  assert.match(chatBody.system_message, /original mobile request about agent spend/);
+  assert.match(chatBody.system_message, /Pull the latest code from upstream/);
+  assert.doesNotMatch(chatBody.system_message || '', /Hermes Web project context \(HARD CONSTRAINT/);
+});
+
+test('live mobile sessions keep project binding — no web workspace prompt injection', async () => {
+  let received;
+  await withServer((request, response) => {
+    let body = '';
+    request.on('data', (chunk) => { body += chunk; });
+    request.on('end', () => {
+      response.setHeader('content-type', 'application/json');
+      if (request.method === 'GET' && request.url === '/api/sessions/mobile_live_abc') {
+        response.end(JSON.stringify({ session: { id: 'mobile_live_abc' } }));
+        return;
+      }
+      received = body ? JSON.parse(body) : null;
+      response.end(JSON.stringify({ message: { role: 'assistant', content: 'ok' } }));
+    });
+  }, async (sessionGatewayUrl) => {
+    await executeLocal(
+      { sessionGatewayUrl },
+      { sourceSessionId: 'mobile_live_abc', prompt: 'continue', handoffMessages: [{ role: 'user', content: 'handoff only' }] },
     );
   });
+  assert.equal(received.message, 'continue');
+  assert.match(received.system_message, /handoff only/);
+  assert.doesNotMatch(received.system_message || '', /Hermes Web project context \(HARD CONSTRAINT/);
 });
 
 test('renews a local task lease throughout long-running Hermes work', async () => {
