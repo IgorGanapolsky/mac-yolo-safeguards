@@ -6,6 +6,21 @@ const path = require('path');
 
 const DEFAULT_REPO = path.resolve(__dirname, '..');
 
+// `retrieve` scores and snippets each candidate from a PREFIX of the file, not
+// the whole file. Everything past this cap is invisible to the query: it cannot
+// score, cannot snippet, and — worst case — a file whose only relevant content
+// lives past the cap scores 0 and is dropped from the results entirely, with no
+// way for the caller to tell that from "this file is genuinely irrelevant".
+// That is a silent recall hole. The cap itself is a deliberate cost control and
+// is unchanged; what follows only makes a truncated read VISIBLE (per-match
+// `truncated`/`bytesRead`/`totalBytes`, a `truncation` report on the result, and
+// a stderr warning) so absence of a match is never mistaken for absence of the
+// content.
+const DEFAULT_MAX_BYTES = 240000;
+
+// How many truncated paths to name in the report/warning before summarising.
+const TRUNCATION_REPORT_LIMIT = 20;
+
 const DEFAULT_IGNORE_DIRS = new Set([
   '.git',
   '.expo',
@@ -68,7 +83,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     end: 80,
     limit: 8,
     maxFiles: 12000,
-    maxBytes: 240000,
+    maxBytes: DEFAULT_MAX_BYTES,
     json: false,
     help: false,
     rewrite: false,
@@ -135,14 +150,41 @@ function tokenize(value) {
     .filter((token) => token.length >= 2 && !STOP_WORDS.has(token));
 }
 
-function readTextSlice(filePath, maxBytes) {
+// Same read as before, but reports what it did NOT read. `truncated` is the
+// signal that a score of 0 (or a thin snippet) may be an artefact of the cap
+// rather than a fact about the file.
+function readTextSliceWithMeta(filePath, maxBytes) {
   const stat = fs.statSync(filePath);
   const bytes = Math.min(stat.size, maxBytes);
   const fd = fs.openSync(filePath, 'r');
   const buffer = Buffer.alloc(bytes);
   fs.readSync(fd, buffer, 0, bytes, 0);
   fs.closeSync(fd);
-  return buffer.toString('utf8');
+  return {
+    text: buffer.toString('utf8'),
+    bytesRead: bytes,
+    totalBytes: stat.size,
+    truncated: bytes < stat.size,
+  };
+}
+
+// Back-compatible string-returning wrapper; behaviour is byte-for-byte the same
+// as before this change.
+function readTextSlice(filePath, maxBytes) {
+  return readTextSliceWithMeta(filePath, maxBytes).text;
+}
+
+function formatTruncationWarning(report) {
+  const named = report.files.map((file) => file.path).join(', ');
+  const more = report.truncatedFileCount > report.files.length
+    ? ` (+${report.truncatedFileCount - report.files.length} more)`
+    : '';
+  return [
+    `hermes-retrieval-harness: WARNING: truncated read — ${report.truncatedFileCount} file(s)`,
+    `exceeded the ${report.maxBytes}-byte cap; ${report.bytesSkipped} byte(s) were NOT scanned`,
+    'and cannot match this query. Re-run with a larger --max-bytes for full recall.',
+    `Truncated: ${named}${more}`,
+  ].join(' ');
 }
 
 function walkFiles(repo, options = {}) {
@@ -334,16 +376,35 @@ function retrieve(query, options = {}) {
   }
   const queryTokens = tokenize(effectiveQuery);
   if (queryTokens.length === 0) throw new Error('retrieve requires a non-empty query');
+  const maxBytes = options.maxBytes || DEFAULT_MAX_BYTES;
   const inventory = buildInventory(options);
   const candidates = [];
+  // Truncated files are recorded whether or not they scored. A file whose only
+  // relevant content sits past the cap scores 0 and never reaches `matches` —
+  // that is exactly the case the caller must be told about.
+  const truncatedFiles = [];
+  let truncatedFileCount = 0;
+  let bytesSkipped = 0;
   for (const file of inventory.files) {
     if (!pathFilterOk(file.path, options)) continue;
     const fullPath = path.join(repo, file.path);
-    let text = '';
+    let slice;
     try {
-      text = readTextSlice(fullPath, options.maxBytes || 240000);
+      slice = readTextSliceWithMeta(fullPath, maxBytes);
     } catch (error) {
       continue;
+    }
+    const text = slice.text;
+    if (slice.truncated) {
+      truncatedFileCount += 1;
+      bytesSkipped += slice.totalBytes - slice.bytesRead;
+      if (truncatedFiles.length < TRUNCATION_REPORT_LIMIT) {
+        truncatedFiles.push({
+          path: file.path,
+          bytesRead: slice.bytesRead,
+          totalBytes: slice.totalBytes,
+        });
+      }
     }
     const parentScored = scoreFile(queryTokens, file.path, text);
     const childScored = scoreParentChildWindows(queryTokens, file.path, text);
@@ -367,15 +428,34 @@ function retrieve(query, options = {}) {
         snippet: firstSnippet(text, queryTokens),
       };
     }
-    if (chosen) candidates.push(chosen);
+    if (chosen) {
+      // Applies to both the parent-file and the parent-child-window branch: a
+      // window score is just as blind to bytes past the cap as a whole-file one.
+      chosen.truncated = slice.truncated;
+      chosen.bytesRead = slice.bytesRead;
+      chosen.totalBytes = slice.totalBytes;
+      candidates.push(chosen);
+    }
   }
   candidates.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
+
+  const truncation = {
+    maxBytes,
+    truncatedFileCount,
+    bytesSkipped,
+    files: truncatedFiles,
+  };
+  if (truncation.truncatedFileCount > 0 && options.warn !== false) {
+    console.error(formatTruncationWarning(truncation));
+  }
+
   return {
     query,
     effectiveQuery,
     rewrite: rewriteMeta,
     repo,
     fileCount: inventory.fileCount,
+    truncation,
     matches: candidates.slice(0, options.limit || 8),
   };
 }
@@ -469,8 +549,12 @@ function render(result) {
   if (result.matches) {
     const lines = [`# Hermes Retrieval`, '', `Query: ${result.query || result.pattern || ''}`, `Matches: ${result.matches.length}`, ''];
     for (const match of result.matches) {
-      lines.push(`- ${match.path}${match.line ? `:${match.line}` : ''} score=${match.score || 'match'}`);
+      const partial = match.truncated ? ` [TRUNCATED ${match.bytesRead}/${match.totalBytes} bytes scanned]` : '';
+      lines.push(`- ${match.path}${match.line ? `:${match.line}` : ''} score=${match.score || 'match'}${partial}`);
       if (match.snippet || match.text) lines.push(`  ${match.snippet || match.text}`);
+    }
+    if (result.truncation && result.truncation.truncatedFileCount > 0) {
+      lines.push('', `!! ${formatTruncationWarning(result.truncation)}`);
     }
     return `${lines.join('\n')}\n`;
   }
@@ -500,14 +584,19 @@ function main(argv = process.argv.slice(2)) {
 }
 
 module.exports = {
+  DEFAULT_MAX_BYTES,
   TEXT_EXTENSIONS,
+  TRUNCATION_REPORT_LIMIT,
   buildInventory,
   escapeRegExp,
+  formatTruncationWarning,
   grep,
   main,
   parseArgs,
   pathFilterOk,
   readFileRange,
+  readTextSlice,
+  readTextSliceWithMeta,
   retrieve,
   safeRepoPath,
   scoreParentChildWindows,
