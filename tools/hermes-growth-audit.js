@@ -326,6 +326,37 @@ function summarizeContentLog(logPath = CONTENT_LOG) {
     .readFileSync(logPath, 'utf8')
     .split(/\r?\n/)
     .filter((line) => line.trim());
+  if (lines.length === 0) {
+    return {
+      status: 'fail',
+      error: 'Missing required content log columns: Status, PostURL',
+      missingRequiredColumns: ['Status', 'PostURL'],
+      totalRows: 0,
+      statusCounts: {},
+      publishedWithReceipt: 0,
+      publishedWithoutReceipt: 0,
+      liveWithReceipt: 0,
+      liveWithoutReceipt: 0,
+    };
+  }
+  const header = lines[0].split('\t');
+  const requiredColumns = ['Status', 'PostURL'];
+  const missingRequiredColumns = requiredColumns.filter(
+    (column) => !header.includes(column),
+  );
+  if (missingRequiredColumns.length > 0) {
+    return {
+      status: 'fail',
+      error: `Missing required content log columns: ${missingRequiredColumns.join(', ')}`,
+      missingRequiredColumns,
+      totalRows: Math.max(lines.length - 1, 0),
+      statusCounts: {},
+      publishedWithReceipt: 0,
+      publishedWithoutReceipt: 0,
+      liveWithReceipt: 0,
+      liveWithoutReceipt: 0,
+    };
+  }
   if (lines.length < 2) {
     return {
       status: 'pass',
@@ -337,7 +368,6 @@ function summarizeContentLog(logPath = CONTENT_LOG) {
       liveWithoutReceipt: 0,
     };
   }
-  const header = lines[0].split('\t');
   const statusIndex = header.indexOf('Status');
   const urlIndex = header.indexOf('PostURL');
   const statusCounts = {};
@@ -394,6 +424,31 @@ function parseD1JsonOutput(stdout) {
     }
   }
   throw new Error('Wrangler output did not contain a JSON result payload');
+}
+
+function summarizeFunnelResults(resultSets) {
+  const aggregateRows = resultSets[0]?.results || [];
+  const attributedRows = resultSets[1]?.results || [];
+  const expectedRaw =
+    resultSets[2]?.results?.[0]?.expected_attributed_rows;
+  const expectedAttributedRows = Number(expectedRaw);
+  const hasValidExpectedCount =
+    Number.isInteger(expectedAttributedRows) && expectedAttributedRows >= 0;
+  const attributionComplete =
+    hasValidExpectedCount &&
+    attributedRows.length === expectedAttributedRows;
+  const allSucceeded =
+    resultSets.length >= 3 &&
+    resultSets.every((result) => result.success !== false);
+  return {
+    status: allSucceeded && attributionComplete ? 'pass' : 'fail',
+    aggregateRows,
+    attributedRows,
+    expectedAttributedRows: hasValidExpectedCount
+      ? expectedAttributedRows
+      : null,
+    attributionComplete,
+  };
 }
 
 function auditExperimentProof(root = ROOT, now = Date.now()) {
@@ -562,7 +617,11 @@ function queryRemoteFunnel() {
     'FROM funnel_attribution_counters',
     "WHERE day >= date('now', '-30 days')",
     "AND event IN ('landing_view','sign_in_click','play_store_click','app_store_click')",
-    'ORDER BY day DESC, event LIMIT 500;',
+    'ORDER BY day DESC, event;',
+    'SELECT COUNT(*) AS expected_attributed_rows',
+    'FROM funnel_attribution_counters',
+    "WHERE day >= date('now', '-30 days')",
+    "AND event IN ('landing_view','sign_in_click','play_store_click','app_store_click');",
   ].join(' ');
   const stdout = execFileSync(
     wrangler,
@@ -585,13 +644,7 @@ function queryRemoteFunnel() {
   );
   const payload = parseD1JsonOutput(stdout);
   const resultSets = Array.isArray(payload) ? payload : [];
-  return {
-    status: resultSets.every((result) => result.success !== false)
-      ? 'pass'
-      : 'fail',
-    aggregateRows: resultSets[0]?.results || [],
-    attributedRows: resultSets[1]?.results || [],
-  };
+  return summarizeFunnelResults(resultSets);
 }
 
 async function queryAppStoreAnalytics() {
@@ -749,4 +802,5 @@ module.exports = {
   queryAppStoreAnalytics,
   queryRemoteFunnel,
   summarizeContentLog,
+  summarizeFunnelResults,
 };

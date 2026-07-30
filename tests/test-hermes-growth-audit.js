@@ -12,6 +12,7 @@ const {
   auditPublishableStoreCopy,
   failedChecks,
   parseD1JsonOutput,
+  summarizeFunnelResults,
   summarizeContentLog,
 } = require('../tools/hermes-growth-audit');
 
@@ -408,6 +409,48 @@ test('strict failure list includes live content claims without provider receipts
     }),
     [{ name: 'contentLog', status: 'fail' }],
   );
+});
+
+test('content log summary fails closed when required headers are malformed', () => {
+  const root = makeTempDirectory();
+  const logPath = path.join(root, 'content.tsv');
+  fs.writeFileSync(
+    logPath,
+    [
+      'Date\tPlatform\tCampaign\tState\tURL',
+      '2026-07-30\tX\tlaunch\tLIVE\t—',
+    ].join('\n'),
+  );
+
+  const summary = summarizeContentLog(logPath);
+  assert.equal(summary.status, 'fail');
+  assert.deepEqual(summary.missingRequiredColumns, ['Status', 'PostURL']);
+  assert.match(summary.error, /Status, PostURL/);
+});
+
+test('D1 funnel summary fails when returned attribution rows are incomplete', () => {
+  const resultSets = [
+    { success: true, results: [{ day: '2026-07-30', event: 'landing_view' }] },
+    {
+      success: true,
+      results: [
+        { day: '2026-07-30', event: 'landing_view', cta_id: 'one' },
+      ],
+    },
+    { success: true, results: [{ expected_attributed_rows: 2 }] },
+  ];
+
+  assert.deepEqual(summarizeFunnelResults(resultSets), {
+    status: 'fail',
+    aggregateRows: resultSets[0].results,
+    attributedRows: resultSets[1].results,
+    expectedAttributedRows: 2,
+    attributionComplete: false,
+  });
+
+  resultSets[2].results[0].expected_attributed_rows = 1;
+  assert.equal(summarizeFunnelResults(resultSets).status, 'pass');
+  assert.equal(summarizeFunnelResults(resultSets).attributionComplete, true);
 });
 
 test('D1 output parser extracts the final Wrangler JSON payload', () => {
