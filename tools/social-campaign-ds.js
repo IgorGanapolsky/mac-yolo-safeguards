@@ -146,6 +146,8 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
         signInClicks: 0,
         playStoreClicks: 0,
         appStoreClicks: 0,
+        playStorePreviews: 0,
+        appStorePreviews: 0,
         freeControlClicks: 0,
         cloudContinuityClicks: 0,
         otherAttributed: 0,
@@ -207,29 +209,41 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
     const utmSource = row.utmSource || row.utm_source || '';
     const key = matchCampaign(utmCampaign, ctaId);
     const bucket = ensure(key);
-    bucket.attributedTotal += count;
     if (ctaId) bucket.ctaIds.add(String(ctaId));
     if (utmSource) bucket.utmSources.add(String(utmSource));
     switch (event) {
       case 'landing_view':
+        bucket.attributedTotal += count;
         bucket.landingViews += count;
         break;
       case 'sign_in_click':
+        bucket.attributedTotal += count;
         bucket.signInClicks += count;
         break;
       case 'play_store_click':
+        bucket.attributedTotal += count;
         bucket.playStoreClicks += count;
         break;
       case 'app_store_click':
+        bucket.attributedTotal += count;
         bucket.appStoreClicks += count;
         break;
+      case 'play_store_preview':
+        bucket.playStorePreviews += count;
+        break;
+      case 'app_store_preview':
+        bucket.appStorePreviews += count;
+        break;
       case 'free_control_click':
+        bucket.attributedTotal += count;
         bucket.freeControlClicks += count;
         break;
       case 'cloud_continuity_click':
+        bucket.attributedTotal += count;
         bucket.cloudContinuityClicks += count;
         break;
       default:
+        bucket.attributedTotal += count;
         bucket.otherAttributed += count;
     }
   }
@@ -237,10 +251,19 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
   const rows = [...byCampaign.values()].map((b) => {
     const conversionProxy =
       b.signInClicks + b.playStoreClicks + b.appStoreClicks + b.cloudContinuityClicks;
+    const journeyType =
+      b.landingViews > 0
+        ? 'landing'
+        : b.playStoreClicks + b.appStoreClicks > 0
+          ? 'direct_store'
+          : 'unknown';
     const ctrProxy =
-      b.landingViews > 0 ? conversionProxy / b.landingViews : conversionProxy > 0 ? 1 : 0;
+      journeyType === 'landing'
+        ? Math.round((conversionProxy / b.landingViews) * 1000) / 1000
+        : null;
     return {
       campaign: b.campaign,
+      journeyType,
       postsLive: b.postsLive,
       postsPartial: b.postsPartial,
       postsBlocked: b.postsBlocked,
@@ -252,12 +275,14 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
       signInClicks: b.signInClicks,
       playStoreClicks: b.playStoreClicks,
       appStoreClicks: b.appStoreClicks,
+      playStorePreviews: b.playStorePreviews,
+      appStorePreviews: b.appStorePreviews,
       freeControlClicks: b.freeControlClicks,
       cloudContinuityClicks: b.cloudContinuityClicks,
       otherAttributed: b.otherAttributed,
       attributedTotal: b.attributedTotal,
       conversionProxy,
-      ctrProxy: Math.round(ctrProxy * 1000) / 1000,
+      ctrProxy,
       ctaIds: [...b.ctaIds].slice(0, 10),
       utmSources: [...b.utmSources].slice(0, 10),
     };
@@ -270,11 +295,29 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
     return b.postsLive - a.postsLive;
   });
 
-  const measurable = rows.filter((r) => r.attributedTotal >= minEvents);
+  const landingMeasurable = rows.filter(
+    (r) => r.journeyType === 'landing' && r.attributedTotal >= minEvents,
+  );
+  const directMeasurable = rows.filter(
+    (r) => r.journeyType === 'direct_store' && r.attributedTotal >= minEvents,
+  );
+  const hasMixedJourneys =
+    landingMeasurable.length > 0 && directMeasurable.length > 0;
+  const measurable = hasMixedJourneys
+    ? []
+    : landingMeasurable.length > 0
+      ? landingMeasurable
+      : directMeasurable;
+  const comparisonJourney =
+    hasMixedJourneys || measurable.length === 0
+      ? null
+      : measurable[0].journeyType;
   let winner = null;
   let runnerUp = null;
   let decision = 'INSUFFICIENT_DATA';
-  if (measurable.length >= 2) {
+  if (hasMixedJourneys) {
+    decision = 'MIXED_JOURNEYS';
+  } else if (measurable.length >= 2) {
     winner = measurable[0];
     runnerUp = measurable[1];
     if (winner.attributedTotal > runnerUp.attributedTotal) {
@@ -288,14 +331,19 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
   }
 
   const lessons = [];
+  if (decision === 'MIXED_JOURNEYS') {
+    lessons.push(
+      'Direct-store and landing-page journeys are reported separately; collect enough campaigns within one journey cohort before crowning a winner.',
+    );
+  }
   if (decision === 'INSUFFICIENT_DATA') {
     lessons.push(
-      `Need ≥${minEvents} attributed funnel events per campaign (have ${attributionRows.length} raw rows). Keep UTM+cta_id on every CTA; re-run after traffic.`,
+      `Need ≥${minEvents} attributed funnel events per campaign within the same journey cohort (have ${attributionRows.length} raw rows). Keep UTM+cta_id on every CTA; re-run after traffic.`,
     );
   }
   if (decision === 'WINNER' && winner && runnerUp) {
     lessons.push(
-      `Campaign "${winner.campaign}" leads "${runnerUp.campaign}" on attributed events (${winner.attributedTotal} vs ${runnerUp.attributedTotal}). Double down on winner hook/platform; park or rewrite loser.`,
+      `Campaign "${winner.campaign}" leads "${runnerUp.campaign}" within the ${comparisonJourney} journey on attributed events (${winner.attributedTotal} vs ${runnerUp.attributedTotal}). Double down on winner hook/platform; park or rewrite loser.`,
     );
   }
   const liveNoAttr = rows.filter((r) => r.postsLive > 0 && r.attributedTotal === 0);
@@ -335,6 +383,7 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
     contentRows: recent.length,
     attributionRows: attributionRows.length,
     decision,
+    comparisonJourney,
     winner: winner
       ? { campaign: winner.campaign, attributedTotal: winner.attributedTotal, conversionProxy: winner.conversionProxy }
       : null,
@@ -366,12 +415,12 @@ function renderMarkdown(report) {
     '',
     '## Ranking',
     '',
-    '| Campaign | Live posts | Attr total | Landing | Sign-in | Play | iOS | Continuity | CTR proxy |',
-    '|----------|------------|------------|---------|---------|------|-----|------------|-----------|',
+    '| Campaign | Journey | Live posts | Attr total | Landing | Sign-in | Play | iOS | Previews | Continuity | CTR proxy |',
+    '|----------|---------|------------|------------|---------|---------|------|-----|----------|------------|-----------|',
   ];
   for (const c of report.campaigns) {
     lines.push(
-      `| ${c.campaign} | ${c.postsLive} | ${c.attributedTotal} | ${c.landingViews} | ${c.signInClicks} | ${c.playStoreClicks} | ${c.appStoreClicks} | ${c.cloudContinuityClicks} | ${c.ctrProxy} |`,
+      `| ${c.campaign} | ${c.journeyType} | ${c.postsLive} | ${c.attributedTotal} | ${c.landingViews} | ${c.signInClicks} | ${c.playStoreClicks} | ${c.appStoreClicks} | ${c.playStorePreviews + c.appStorePreviews} | ${c.cloudContinuityClicks} | ${c.ctrProxy ?? 'n/a'} |`,
     );
   }
   lines.push('', '## Lessons', '');
@@ -398,6 +447,8 @@ function renderMarkdown(report) {
     '',
     '- Platform impressions (LinkedIn/X native) are **not** in this report unless you add an API later.',
     '- Web funnel is first-party UTM/cta_id only — privacy-safe tokens, no PII.',
+    '- Link-preview crawlers are visible but excluded from attributed totals and winner decisions.',
+    '- Direct-store and landing-page journeys are never ranked against each other.',
     '- Small-n: do not crown a winner below min-events.',
     '',
   );

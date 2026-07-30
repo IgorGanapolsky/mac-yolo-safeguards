@@ -278,31 +278,44 @@ function auditExperimentProof(root = ROOT) {
     root,
     'hermes-mobile/docs/proofs/store-experiments',
   );
+  const providerResult = (active) => ({
+    status: active.length > 0 ? 'pass' : 'unverified',
+    activeExperimentCount: active.length,
+    active,
+  });
   if (!fs.existsSync(proofDirectory)) {
     return {
       status: 'unverified',
-      reason: 'No paid-store experiment proof directory exists.',
+      reason:
+        'Missing active experiment proof for: Google Play paid package, App Store app.',
       activeExperimentCount: 0,
+      providers: {
+        googlePlay: providerResult([]),
+        appStore: providerResult([]),
+      },
     };
   }
-  const active = [];
+  const googlePlay = [];
+  const appStore = [];
   for (const name of fs.readdirSync(proofDirectory)) {
     if (!name.endsWith('.json')) continue;
     try {
       const proof = JSON.parse(
         fs.readFileSync(path.join(proofDirectory, name), 'utf8'),
       );
-      const packageMatches =
-        proof.packageName === 'com.iganapolsky.hermesmobile.paid' ||
-        proof.appleAppId === '6786778037';
-      if (
-        packageMatches &&
-        ['active', 'running', 'live'].includes(
-          String(proof.status || '').toLowerCase(),
-        ) &&
-        proof.experimentId
-      ) {
-        active.push({
+      const isActive = ['active', 'running', 'live'].includes(
+        String(proof.status || '').toLowerCase(),
+      );
+      if (!isActive || !proof.experimentId) continue;
+      if (proof.packageName === 'com.iganapolsky.hermesmobile.paid') {
+        googlePlay.push({
+          file: name,
+          experimentId: proof.experimentId,
+          provider: proof.provider || 'unknown',
+        });
+      }
+      if (proof.appleAppId === '6786778037') {
+        appStore.push({
           file: name,
           experimentId: proof.experimentId,
           provider: proof.provider || 'unknown',
@@ -312,14 +325,22 @@ function auditExperimentProof(root = ROOT) {
       // Invalid proof cannot count as active provider evidence.
     }
   }
-  return active.length
-    ? { status: 'pass', activeExperimentCount: active.length, active }
-    : {
-        status: 'unverified',
-        reason:
-          'No provider-visible active experiment receipt matches the paid apps.',
-        activeExperimentCount: 0,
-      };
+  const active = [...googlePlay, ...appStore];
+  const missing = [];
+  if (googlePlay.length === 0) missing.push('Google Play paid package');
+  if (appStore.length === 0) missing.push('App Store app');
+  return {
+    status: missing.length === 0 ? 'pass' : 'unverified',
+    ...(missing.length
+      ? { reason: `Missing active experiment proof for: ${missing.join(', ')}.` }
+      : {}),
+    activeExperimentCount: active.length,
+    active,
+    providers: {
+      googlePlay: providerResult(googlePlay),
+      appStore: providerResult(appStore),
+    },
+  };
 }
 
 async function checkPublicStores(fetchImpl = fetch) {

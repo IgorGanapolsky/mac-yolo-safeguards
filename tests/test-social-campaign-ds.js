@@ -114,6 +114,47 @@ test('buildScoreboard INSUFFICIENT_DATA when under min-events', () => {
   assert.ok(report.nextExperiments.length >= 1);
 });
 
+test('buildScoreboard never compares direct-store and landing journeys', () => {
+  const report = buildScoreboard({
+    contentRows: [
+      {
+        date: '2026-07-30',
+        platform: 'LinkedIn',
+        hook: 'landing',
+        campaign: 'landing-campaign',
+        status: 'Published',
+        postUrl: 'https://linkedin.com/landing',
+      },
+      {
+        date: '2026-07-30',
+        platform: 'X',
+        hook: 'direct',
+        campaign: 'direct-campaign',
+        status: 'Published',
+        postUrl: 'https://x.com/direct',
+      },
+    ],
+    attributionRows: [
+      { event: 'landing_view', utmCampaign: 'landing-campaign', count: 10 },
+      { event: 'play_store_click', utmCampaign: 'landing-campaign', count: 5 },
+      { event: 'play_store_click', utmCampaign: 'direct-campaign', count: 10 },
+      { event: 'play_store_preview', utmCampaign: 'direct-campaign', count: 100 },
+    ],
+    lookbackDays: 30,
+    minEvents: 5,
+  });
+
+  assert.strictEqual(report.decision, 'MIXED_JOURNEYS');
+  assert.strictEqual(report.winner, null);
+  const direct = report.campaigns.find(
+    (campaign) => campaign.campaign === 'direct-campaign',
+  );
+  assert.strictEqual(direct.journeyType, 'direct_store');
+  assert.strictEqual(direct.ctrProxy, null);
+  assert.strictEqual(direct.attributedTotal, 10);
+  assert.strictEqual(direct.playStorePreviews, 100);
+});
+
 test('LIVE posts with zero attribution produce lesson', () => {
   const report = buildScoreboard({
     contentRows: [

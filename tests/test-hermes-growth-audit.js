@@ -8,6 +8,7 @@ const path = require('node:path');
 const test = require('node:test');
 
 const {
+  auditExperimentProof,
   auditPublishableStoreCopy,
   parseD1JsonOutput,
   summarizeContentLog,
@@ -150,6 +151,45 @@ test('publishable copy audit requires complete and platform-consistent campaign 
       'unattributed-direct-store-link',
     ],
   );
+});
+
+test('store experiment proof requires independent active receipts for both stores', () => {
+  const root = makeTempDirectory();
+  const proofs = path.join(
+    root,
+    'hermes-mobile/docs/proofs/store-experiments',
+  );
+  fs.mkdirSync(proofs, { recursive: true });
+  fs.writeFileSync(
+    path.join(proofs, 'play.json'),
+    JSON.stringify({
+      provider: 'google-play',
+      packageName: 'com.iganapolsky.hermesmobile.paid',
+      experimentId: 'play-exp-1',
+      status: 'active',
+    }),
+  );
+
+  const playOnly = auditExperimentProof(root);
+  assert.equal(playOnly.status, 'unverified');
+  assert.equal(playOnly.providers.googlePlay.status, 'pass');
+  assert.equal(playOnly.providers.appStore.status, 'unverified');
+
+  fs.writeFileSync(
+    path.join(proofs, 'apple.json'),
+    JSON.stringify({
+      provider: 'app-store',
+      appleAppId: '6786778037',
+      experimentId: 'apple-exp-1',
+      status: 'running',
+    }),
+  );
+
+  const both = auditExperimentProof(root);
+  assert.equal(both.status, 'pass');
+  assert.equal(both.activeExperimentCount, 2);
+  assert.equal(both.providers.googlePlay.activeExperimentCount, 1);
+  assert.equal(both.providers.appStore.activeExperimentCount, 1);
 });
 
 test('content log summary keeps provider-visible and draft states separate', () => {
