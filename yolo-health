@@ -131,8 +131,19 @@ echo "=== Lessons store canaries ==="
 # The lessons store sat silently EMPTY for 3 days after the 2026-07-26
 # migration — nothing alarmed. These canaries make store loss loud.
 # SAFEGUARDS_REPO is overridable so tests can exercise the alarm branches
-# against a scratch store without touching the live one.
-SAFEGUARDS_REPO="${SAFEGUARDS_REPO:-$HOME/workspace/git/igor/mac-yolo-safeguards}"
+# against a scratch store without touching the live one. It resolves from this
+# script's own location (through the ~/.local/bin symlink) rather than guessing
+# $HOME/workspace/... — the guess broke CI, where the repo is checked out
+# somewhere else entirely and the isolated home has no such path.
+_yh_self="$0"
+while [ -L "$_yh_self" ]; do
+  _yh_target=$(readlink "$_yh_self")
+  case "$_yh_target" in
+    /*) _yh_self="$_yh_target" ;;
+    *)  _yh_self="$(dirname "$_yh_self")/$_yh_target" ;;
+  esac
+done
+SAFEGUARDS_REPO="${SAFEGUARDS_REPO:-$(cd "$(dirname "$_yh_self")" && pwd)}"
 RESTORE_TOOL="$SAFEGUARDS_REPO/tools/restore-lessons-memory-log.js"
 LESSONS_STORE_DIR="$SAFEGUARDS_REPO/.thumbgate"
 MEMLOG="$LESSONS_STORE_DIR/memory-log.jsonl"
@@ -141,7 +152,7 @@ SEARCH_CANARY_ID="mem_1781185737558_rxfqv1"
 check "[ -f '$RESTORE_TOOL' ]"        "restore tool present at tools/restore-lessons-memory-log.js"
 check "node --check '$RESTORE_TOOL'"  "restore tool syntactically valid JavaScript"
 # (a) memory-log.jsonl exists with >= 20 records
-MEMLOG_LINES=$(wc -l < "$MEMLOG" 2>/dev/null | tr -d ' ')
+MEMLOG_LINES=$( { wc -l < "$MEMLOG"; } 2>/dev/null | tr -d ' ')
 [ -z "$MEMLOG_LINES" ] && MEMLOG_LINES=0
 if [ -f "$MEMLOG" ] && [ "$MEMLOG_LINES" -ge 20 ]; then
   printf "  [$OK] memory-log.jsonl intact: %s records (>= 20)\n" "$MEMLOG_LINES"; pass=$((pass+1))
