@@ -8,11 +8,17 @@
  * What happened: the Mac mini's `model:` block in ~/.hermes/config.yaml carried
  * only `{api, max_tokens, fallbacks: []}` — no `provider`, no `model`. Hermes
  * therefore silently defaulted to a DISCOVERED local route (qwen3.5:9b-hermes-64k
- * on raw Ollama :11434), and the effective fallback chain contained exactly one
- * entry: that same model. When Ollama's process was OOM-killed mid-generation on
- * a box sitting at 18.6/19.4 GB swap, the harness dutifully "failed over" to the
- * corpse three times at ~5 minutes each, blew the turn wall-clock, and rendered a
- * raw `Error code: 500 ... unexpected EOF` blob in the user's chat.
+ * on raw Ollama :11434), and there was NO fallback chain at all
+ * (`fallback_providers: null`, `fallback_model: null`), so the failing primary
+ * had nowhere to go and was retried in place three times at ~5 minutes each.
+ *
+ * The 500 itself was a COLD-LOAD TIMEOUT RACE, not an OOM — ollama's server.log
+ * shows `client connection closed before llama-server finished loading, aborting
+ * load`. Loading 6.6 GB at n_ctx=65536 outlasted Hermes's ~5 min client timeout,
+ * so the client disconnected and killed the very load it was waiting for; each
+ * retry restarted and re-killed it. There were ZERO jetsam events. Compounding
+ * it, the watchdog "warmed" the model with keep_alive=2m — evicting it every two
+ * minutes and manufacturing the cold starts it was meant to prevent.
  *
  * Every individual component reported healthy the whole time. The gateway was up,
  * the LiteLLM proxy was up and serving 30 models, Ollama was listening. The defect
@@ -22,6 +28,10 @@
  * Checks (see runChecks):
  *   1. primary_unconfigured        — model block has no provider/model (the 07-30 bug)
  *   2. fallback_to_self            — a chain entry routes to the primary (useless hop)
+ *   2b. local_pin_thrashes         — a "warm" pin whose keep_alive is shorter than the
+ *                                    gap between requests evicts the model between every
+ *                                    call, so each real request pays a cold load that can
+ *                                    outlast the client timeout (the actual 07-30 500)
  *   3. duplicate_chain_entries     — same route twice in the chain
  *   4. empty_chain                 — no fallback at all: any primary blip is fatal
  *   5. gateway_unsupervised        — gateway is a detached process, no crash restart
@@ -56,6 +66,10 @@ const GATEWAY_PLIST = path.join(os.homedir(), 'Library', 'LaunchAgents', 'ai.her
 const WATCHDOG_PLIST = path.join(
   os.homedir(), 'Library', 'LaunchAgents', 'com.igor.hermes-gateway-watchdog.plist');
 const SWAP_WARN_PCT = Number(process.env.HERMES_SWAP_WARN_PCT || 85);
+// A pin shorter than this evicts the model between ordinary requests. The mini
+// ran keep_alive=2m (120s) and measured cold loads of 2-6 MINUTES, so every real
+// request raced a load it could not win.
+const PIN_KEEPALIVE_MIN_SEC = Number(process.env.HERMES_PIN_KEEPALIVE_MIN_SEC || 900);
 
 // Routes that live on this machine. A "remote" primary means the box does not
 // need a local model resident, so pinning one is pure memory cost.
@@ -108,6 +122,25 @@ function fallbackChain(config) {
     }
   }
   return out;
+}
+
+/**
+ * Ollama keep_alive durations are written "2m" / "90s" / "600" (bare = seconds).
+ * Returns null for anything unparseable so an unknown value stays UNOBSERVED
+ * rather than being guessed into a finding.
+ */
+function parseKeepAliveSeconds(raw) {
+  const s = String(raw == null ? '' : raw).trim().toLowerCase();
+  const m = s.match(/^(\d+(?:\.\d+)?)\s*(ms|s|m|h)?$/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n)) return null;
+  switch (m[2]) {
+    case 'ms': return n / 1000;
+    case 'm': return n * 60;
+    case 'h': return n * 3600;
+    default: return n;
+  }
 }
 
 function isLocalRoute(entry) {
@@ -212,7 +245,26 @@ function runChecks(config, env = {}) {
     });
   }
 
-  // 8. Swap is the proximate cause of "unexpected EOF" from a local model.
+  // 7b. The trap that actually produced the 2026-07-30 outage. A "warm" pin with
+  //     a short keep_alive evicts the model between requests, so each real call
+  //     pays a full cold load — and if that load outlasts the client timeout, the
+  //     client disconnects and ABORTS the load, returning 500 "unexpected EOF".
+  //     Every retry then restarts and re-kills the same load.
+  if (env.watchdogPinsModel === true
+      && typeof env.watchdogPinKeepAliveSec === 'number'
+      && env.watchdogPinKeepAliveSec < PIN_KEEPALIVE_MIN_SEC) {
+    findings.push({
+      key: 'local_pin_thrashes',
+      severity: SEVERITY.warn,
+      detail: `the model warmer pins with keep_alive=${env.watchdogPinKeepAliveSec}s, below `
+        + `${PIN_KEEPALIVE_MIN_SEC}s — the model is evicted between requests, so calls pay a `
+        + 'cold load that can outlast the client timeout and return 500 "unexpected EOF".',
+      observed: `keep_alive=${env.watchdogPinKeepAliveSec}s`,
+    });
+  }
+
+  // 8. Swap does not by itself prove an OOM (the 07-30 incident logged ZERO
+  //    jetsam events) but it slows cold loads, which is what broke things.
   if (typeof env.swapUsedPct === 'number' && env.swapUsedPct >= SWAP_WARN_PCT) {
     findings.push({
       key: 'swap_exhausted',
@@ -296,6 +348,23 @@ function observeEnv() {
       { encoding: 'utf8', timeout: 10000 });
     const m = out.match(/"HERMES_PIN_MODEL"\s*=>\s*"?([01])"?/);
     if (m) env.watchdogPinsModel = m[1] === '1';
+    const ka = out.match(/"HERMES_PIN_KEEP_ALIVE"\s*=>\s*"?([^"\n]+)"?/);
+    if (ka) {
+      const secs = parseKeepAliveSeconds(ka[1]);
+      if (secs !== null) env.watchdogPinKeepAliveSec = secs;
+    } else {
+      // Not overridden in the plist — read the script's own default so the
+      // effective value is what gets judged, not the absence of an override.
+      try {
+        const script = fs.readFileSync(
+          path.join(HERMES_HOME, 'hermes-gateway-watchdog.sh'), 'utf8');
+        const d = script.match(/PIN_KEEP_ALIVE=.*?:-\s*([^"'}\s]+)/);
+        if (d) {
+          const secs = parseKeepAliveSeconds(d[1]);
+          if (secs !== null) env.watchdogPinKeepAliveSec = secs;
+        }
+      } catch (e2) { /* leave unobserved */ }
+    }
   } catch (e) { /* watchdog not installed on this host — leave unobserved */ }
 
   try {
@@ -383,6 +452,7 @@ module.exports = {
   primaryRoute,
   fallbackChain,
   isLocalRoute,
+  parseKeepAliveSeconds,
   runChecks,
   criticalFindings,
   shouldAlert,
@@ -390,6 +460,7 @@ module.exports = {
   formatAlert,
   SEVERITY,
   SWAP_WARN_PCT,
+  PIN_KEEPALIVE_MIN_SEC,
 };
 
 if (require.main === module) {

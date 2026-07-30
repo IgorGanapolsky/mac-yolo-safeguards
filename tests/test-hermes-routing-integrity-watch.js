@@ -16,6 +16,7 @@ const {
   primaryRoute,
   fallbackChain,
   isLocalRoute,
+  parseKeepAliveSeconds,
   runChecks,
   criticalFindings,
   shouldAlert,
@@ -40,17 +41,16 @@ function check(name, fn) {
 const keys = (findings) => findings.map((f) => f.key).sort();
 
 // --- The incident config, exactly as found on the mini at 15:19 on 2026-07-30 ---
-// `model:` has no provider and no model, and the only fallback is the very
-// route Hermes had silently defaulted to.
+// Read back verbatim from ~/.hermes/config.yaml.bak-20260730-151931:
+//   model:              {"api": "http://127.0.0.1:4010/v1", "max_tokens": 8192, "fallbacks": []}
+//   fallback_providers: null
+//   fallback_model:     null
+// `model:` has no provider and no model, so Hermes silently selected a
+// DISCOVERED local route — and there was no fallback chain to catch it.
 const MINI_20260730 = {
   model: { api: 'http://127.0.0.1:4010/v1', max_tokens: 8192, fallbacks: [] },
-  fallback_providers: [
-    {
-      provider: 'custom:ollama-local-64k',
-      model: 'qwen3.5:9b-hermes-64k',
-      base_url: 'http://127.0.0.1:11434/v1',
-    },
-  ],
+  fallback_providers: null,
+  fallback_model: null,
 };
 
 // --- The repaired config, as applied to the mini at 15:20 ---
@@ -205,20 +205,72 @@ check('swap at or above the threshold is flagged, below it is not', () => {
   assert.ok(!keys(runChecks(MINI_FIXED, { swapUsedPct: 40 })).includes('swap_exhausted'));
 });
 
+check('the incident config has NO fallback chain (not a self-referential one)', () => {
+  // Recorded because the first write-up of this incident got the mechanism
+  // wrong. The mini had fallback_providers: null and fallback_model: null —
+  // an EMPTY chain. `hermes fallback list` on v0.18.2 displayed the resolved
+  // primary as though it were a chain entry, which is what misled the analysis.
+  assert.deepStrictEqual(fallbackChain({
+    model: { api: 'http://127.0.0.1:4010/v1', max_tokens: 8192, fallbacks: [] },
+    fallback_providers: null,
+    fallback_model: null,
+  }), []);
+});
+
+check('the 2m keep_alive that caused the outage is flagged', () => {
+  // The real 500: keep_alive=2m evicted the model between requests, so each
+  // call paid a 2-6 min cold load and the ~5 min client timeout aborted it.
+  const f = runChecks(MINI_FIXED, { watchdogPinsModel: true, watchdogPinKeepAliveSec: 120 });
+  assert.ok(keys(f).includes('local_pin_thrashes'), `got ${JSON.stringify(keys(f))}`);
+});
+
+check('a generous keep_alive is not flagged', () => {
+  const f = runChecks(MINI_FIXED, { watchdogPinsModel: true, watchdogPinKeepAliveSec: 3600 });
+  assert.ok(!keys(f).includes('local_pin_thrashes'));
+});
+
+check('keep_alive is not judged when pinning is off or the value is unknown', () => {
+  assert.ok(!keys(runChecks(MINI_FIXED, {
+    watchdogPinsModel: false, watchdogPinKeepAliveSec: 120,
+  })).includes('local_pin_thrashes'));
+  assert.ok(!keys(runChecks(MINI_FIXED, {
+    watchdogPinsModel: true,
+  })).includes('local_pin_thrashes'));
+});
+
+check('parseKeepAliveSeconds handles ollama duration forms, rejects junk', () => {
+  assert.strictEqual(parseKeepAliveSeconds('2m'), 120);
+  assert.strictEqual(parseKeepAliveSeconds('90s'), 90);
+  assert.strictEqual(parseKeepAliveSeconds('1h'), 3600);
+  assert.strictEqual(parseKeepAliveSeconds('600'), 600);
+  assert.strictEqual(parseKeepAliveSeconds('500ms'), 0.5);
+  assert.strictEqual(parseKeepAliveSeconds('forever'), null);
+  assert.strictEqual(parseKeepAliveSeconds(''), null);
+  assert.strictEqual(parseKeepAliveSeconds(null), null);
+  // -1 means "never unload" in ollama; it is not a short pin, and the regex
+  // must not silently read it as 1 second.
+  assert.strictEqual(parseKeepAliveSeconds('-1'), null);
+});
+
 check('the full incident state yields every expected finding at once', () => {
   // Everything that was actually true on the mini at 15:19.
   const f = runChecks(MINI_20260730, {
     gatewaySupervised: false,
     gatewayPlistValid: false,
     watchdogPinsModel: true,
+    watchdogPinKeepAliveSec: 120,
     swapUsedPct: 95.9,
   });
   const k = keys(f);
   for (const expected of [
-    'primary_unconfigured', 'gateway_unsupervised', 'gateway_plist_invalid', 'swap_exhausted',
+    'primary_unconfigured', 'gateway_unsupervised', 'gateway_plist_invalid',
+    'empty_chain', 'swap_exhausted',
   ]) {
     assert.ok(k.includes(expected), `missing ${expected} in ${JSON.stringify(k)}`);
   }
+  // The mechanism that was originally, wrongly reported. It must NOT appear.
+  assert.ok(!k.includes('fallback_to_self'),
+    'the incident had an EMPTY chain, not a self-referential one');
   assert.ok(criticalFindings(f).length >= 3);
 });
 
