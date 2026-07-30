@@ -39,6 +39,8 @@ const REQUIRED_FLOWS = [
   'tailscale-profile-disconnected-copy',
   'picker-two-machines',
   'pairCode-deep-link',
+  // S52: never claim absolute "Tailscale is off" from weak NetInfo (2026-07-30 Samsung)
+  'tailscale-false-off-ban',
 ];
 
 function bundleIdFromAppJson() {

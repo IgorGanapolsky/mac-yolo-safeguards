@@ -1,0 +1,51 @@
+# S52 (2026-07-30): Samsung NetInfo wifi-primary false negative claimed "Tailscale is off"
+# while tun0 + VPN:com.tailscale.ipn were up. Absolute off copy is banned in the Choose
+# computer sheet for every user — VPN-on or not. Soft/uncertain copy is allowed.
+# Unit lock: preventRecurrenceContract.test.ts S52 + computerPickerStatus.test.ts.
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp:
+    clearState: false
+    stopApp: true
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- runFlow: dismiss-print-interruption.yaml
+- runFlow: dismiss-mac-picker.yaml
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-input"
+    commands:
+      - tapOn:
+          id: "tab-hermes"
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen-header"
+    timeout: 45000
+- tapOn:
+    id: "chat-context-mac-button"
+- extendedWaitUntil:
+    visible:
+      id: "mac-picker-modal"
+    timeout: 15000
+# Absolute false-off copy must never appear (VPN-on or VPN-off).
+- assertNotVisible: "Tailscale is off on this phone"
+- assertNotVisible: "Tailscale looks off on this phone"
+- assertNotVisible: "Looking on Wi‑Fi. Tailscale is off"
+- assertNotVisible: "Looking on Wi-Fi. Tailscale is off"
+# Tap Find computers and re-check mid-scan (the original rage banner).
+- runFlow:
+    when:
+      visible: "Find computers"
+    commands:
+      - tapOn: "Find computers"
+      - extendedWaitUntil:
+          visible: "Searching for your computer"
+          timeout: 15000
+      - assertNotVisible: "Tailscale is off on this phone"
+      - assertNotVisible: "Tailscale looks off on this phone"
+      - assertNotVisible: "Looking on Wi‑Fi. Tailscale is off"
+      - assertNotVisible: "Looking on Wi-Fi. Tailscale is off"
+- takeScreenshot: ../docs/proofs/tailscale-false-off-ban-20260730/mac-picker

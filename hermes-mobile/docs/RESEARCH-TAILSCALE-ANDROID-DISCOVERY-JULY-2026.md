@@ -77,3 +77,4 @@ Source: Parallel deep research `trun_14d4d9dfad7c40989905924ccc707cd0` (full mar
 2. Prove Macs: `tailscale status` + discover script `--json`.
 3. Prefer CGNAT URLs in profiles when MagicDNS renames nodes (`*-1`).
 4. Never ship “fixed” without picker UI proof after OTA/reload.
+5. **2026-07-30 recurrence gate (S52):** never reintroduce user-facing absolute "Tailscale is off on this phone". Detection must include native `TRANSPORT_VPN` + CGNAT (paid **and** free MainApplication). CI: `preventRecurrenceContract` S52 + `.maestro/tailscale-false-off-ban.yaml`.

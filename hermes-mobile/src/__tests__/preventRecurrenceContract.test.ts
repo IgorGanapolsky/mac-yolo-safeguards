@@ -597,7 +597,12 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
 
   it('S24: Maestro tier-0 requires the new tonight-class regression flows', () => {
     const validator = read('hermes-mobile/scripts/validate-maestro-flows.js');
-    for (const flow of ['tailscale-profile-disconnected-copy', 'picker-two-machines', 'pairCode-deep-link']) {
+    for (const flow of [
+      'tailscale-profile-disconnected-copy',
+      'picker-two-machines',
+      'pairCode-deep-link',
+      'tailscale-false-off-ban',
+    ]) {
       expect(validator).toContain(`'${flow}'`);
       const yaml = read(`hermes-mobile/.maestro/${flow}.yaml`);
       expect(yaml).toContain('appId: com.iganapolsky.hermesmobile');
@@ -762,5 +767,128 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(display.machineLabel).toBe('Igors-Mac-mini');
     expect(display.machineLabel).not.toMatch(/100\.94\.135\.78/);
     expect(display.machineEndpoint).toBe('Tailscale');
+  });
+
+  it('S52: Samsung WiFi-primary never paints absolute "Tailscale is off" (2026-07-30 dogfood)', () => {
+    // Live evidence R3CY90QPM7E: tun0 100.70.124.54 + VPN:com.tailscale.ipn while NetInfo
+    // stayed type=wifi / 192.168.x. Absolute "is off" copy is a false negative and is banned
+    // in user-facing strings. Detection must accept native TRANSPORT_VPN + CGNAT.
+    const { isTailscaleVpnActive } = require('../utils/tailscaleVpnDetect') as typeof import('../utils/tailscaleVpnDetect');
+    const { resolveComputerPickerStatus } = require('../utils/computerPickerStatus') as typeof import('../utils/computerPickerStatus');
+
+    // Behavior: wifi primary + native CGNAT / VPN transport ⇒ active.
+    expect(
+      isTailscaleVpnActive({
+        netInfoType: 'wifi',
+        isConnected: true,
+        ipAddress: '192.168.68.54',
+        cgnatInterfaceIp: '100.70.124.54',
+      }),
+    ).toBe(true);
+    expect(
+      isTailscaleVpnActive({
+        netInfoType: 'wifi',
+        isConnected: true,
+        ipAddress: '192.168.68.54',
+        hasVpnTransport: true,
+      }),
+    ).toBe(true);
+    expect(
+      isTailscaleVpnActive({
+        netInfoType: 'wifi',
+        isConnected: true,
+        ipAddress: '192.168.68.54',
+      }),
+    ).toBe(false);
+
+    // User-facing copy: never absolute off while scanning or idle.
+    const scanning = resolveComputerPickerStatus({
+      scanning: true,
+      scanProgress: null,
+      scanResult: null,
+      showScanResult: false,
+      tailscaleProbing: false,
+      tailscaleVpnActive: false,
+      tailscaleDiscoveries: [],
+    });
+    expect(scanning.detail).not.toMatch(/Tailscale is off/i);
+    expect(scanning.detail).not.toMatch(/looks off/i);
+    const idle = resolveComputerPickerStatus({
+      scanning: false,
+      scanProgress: null,
+      scanResult: null,
+      showScanResult: false,
+      tailscaleProbing: false,
+      tailscaleVpnActive: false,
+      tailscaleDiscoveries: [],
+    });
+    expect(idle.title).not.toMatch(/looks off|is off/i);
+    const vpnOn = resolveComputerPickerStatus({
+      scanning: true,
+      scanProgress: null,
+      scanResult: null,
+      showScanResult: false,
+      tailscaleProbing: false,
+      tailscaleVpnActive: true,
+      tailscaleDiscoveries: [],
+    });
+    expect(vpnOn.detail).toMatch(/Wi‑Fi and Tailscale/i);
+
+    // Forbidden literal strings must not reappear as user-facing copy (comments OK).
+    const pickerSrc = read('hermes-mobile/src/utils/computerPickerStatus.ts');
+    const bannedUserCopy = [
+      'Tailscale is off on this phone',
+      'Tailscale looks off on this phone',
+      'Looking on Wi‑Fi. Tailscale is off',
+      'Looking on Wi-Fi. Tailscale is off',
+    ];
+    for (const banned of bannedUserCopy) {
+      // Strip block/line comments so historical comments do not count as UI copy.
+      const noComments = pickerSrc
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+      expect(noComments).not.toContain(banned);
+    }
+
+    // Wiring: native signals + paid MainApplication registration + R8 keep.
+    const detectSrc = read('hermes-mobile/src/utils/tailscaleVpnDetect.ts');
+    expect(detectSrc).toContain('hasVpnTransport');
+    expect(detectSrc).toContain('cgnatInterfaceIp');
+
+    const ctxSrc = read('hermes-mobile/src/context/GatewayContext.tsx');
+    expect(ctxSrc).toContain('getTailscaleTunnelSignals');
+    expect(ctxSrc).toContain('nativeTunnelSignalsRef');
+    expect(ctxSrc).toContain('refreshNativeTunnelSignals');
+
+    const nativeJs = read('hermes-mobile/src/native/hermesTailscaleTunnel.ts');
+    expect(nativeJs).toContain('HermesTailscaleTunnel');
+    expect(nativeJs).toContain('getTunnelSignals');
+
+    const kotlin = read(
+      'hermes-mobile/native-tailscale-tunnel/kotlin/HermesTailscaleTunnelModule.kt',
+    );
+    expect(kotlin).toContain('HermesTailscaleTunnelPackage');
+    expect(kotlin).toContain('TRANSPORT_VPN');
+    expect(kotlin).toContain('isTailscaleCgnatIpv4');
+    expect(kotlin).toContain('@ReactMethod');
+
+    const plugin = read('hermes-mobile/plugins/withHermesTailscaleTunnel.js');
+    expect(plugin).toContain('HermesTailscaleTunnelPackage');
+    expect(plugin).toContain('hermesmobile');
+    expect(plugin).toContain('paid');
+    expect(plugin).toContain('MainApplication.kt');
+    expect(plugin).toContain('hermesmobile.tunnel');
+
+    const appJson = read('hermes-mobile/app.json');
+    expect(appJson).toContain('withHermesTailscaleTunnel.js');
+    expect(appJson).toContain('hermesmobile.tunnel');
+
+    // Maestro structural ban on the false-off string class.
+    const maestro = read('hermes-mobile/.maestro/tailscale-false-off-ban.yaml');
+    expect(maestro).toContain('mac-picker-modal');
+    expect(maestro).toContain('Tailscale is off');
+    expect(maestro).toMatch(/notVisible|assertNotVisible/);
+    const validator = read('hermes-mobile/scripts/validate-maestro-flows.js');
+    expect(validator).toContain("'tailscale-false-off-ban'");
   });
 });
