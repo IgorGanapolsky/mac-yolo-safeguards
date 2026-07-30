@@ -68,6 +68,18 @@ MARKER="${HERMES_ZERO_SPEND_MARKER:-$HOME/.hermes/NO_PAID_SPEND}"
 LANE="${POOLSIDE_YOLO_LANE:-auto}"
 KNOWN_LANES="auto native gateway local"
 
+# Image guard. `pool acp` advertises promptCapabilities.image=true, but the only
+# models it serves (poolside/laguna-s-2.1, poolside/laguna-xs-2.1) are text-only. So
+# the TUI accepts a pasted screenshot, inference returns
+#   400 ... This model does not support multimodal (image/video/audio) inputs
+# and — because pool replays the whole conversation every turn — that image stays in
+# history and kills EVERY later prompt in the session, text-only ones included. A
+# session bricked this way stays bricked (observed: 48 consecutive failures over 18
+# hours). poolside-acp-imageguard proxies the ACP stream to make that impossible.
+# Set POOLSIDE_YOLO_IMAGE_GUARD=off to run unguarded.
+IMAGE_GUARD_NAME="HermesImageGuard"
+IMAGE_GUARD_ENABLED="${POOLSIDE_YOLO_IMAGE_GUARD:-on}"
+
 # The "never ask me for permission" mode. Overridable, but it must still be a mode
 # the agent server really advertises.
 YOLO_MODE="${POOLSIDE_YOLO_MODE:-always-allow}"
@@ -101,6 +113,30 @@ mode_known() {
   local m
   for m in $KNOWN_MODES; do [[ "$m" == "$1" ]] && return 0; done
   return 1
+}
+
+# The guard ships beside this wrapper. Resolve through the symlink so an install at
+# ~/.local/bin/poolside-yolo still finds the copy in the repo it points at.
+resolve_image_guard() {
+  local self
+  self="$( (readlink -f "${BASH_SOURCE[0]}" 2>/dev/null) || (python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "${BASH_SOURCE[0]}" 2>/dev/null) )"
+  [[ -z "$self" ]] && return 1
+  local cand="${self%/*}/poolside-acp-imageguard"
+  [[ -x "$cand" ]] || return 1
+  printf '%s\n' "$cand"
+}
+
+# Idempotent: adds the agent_servers entry only when it is missing, and refreshes the
+# recorded path when the repo has moved. Failure is never fatal — an unguarded run is
+# still better than no run, it just gets a warning.
+ensure_image_guard() {
+  local guard="$1"
+  "$guard" --install >/dev/null 2>&1
+}
+
+image_guard_installed() {
+  local guard="$1"
+  "$guard" --doctor --json 2>/dev/null | grep -q '"installed":true'
 }
 
 resolve_pool() {
@@ -291,6 +327,11 @@ doctor() {
   local modes="" mode_valid="unknown" model_ok="unknown" serving="" fellback="unknown"
   local local_ok="false" local_model=""
   local creds="" native_ok="false" lane=""
+  local guard="" guard_ok="false" guard_wired="false"
+  if guard="$(resolve_image_guard)"; then
+    guard_ok="true"
+    image_guard_installed "$guard" && guard_wired="true"
+  fi
   if ! bin="$(resolve_pool)"; then emit_missing "$format"; return 127; fi
   version="$("$bin" --version 2>/dev/null | head -n1 || true)"
   gateway_up && up="true"
@@ -322,6 +363,7 @@ doctor() {
     PYMODE="$YOLO_MODE" PYMODES="$modes" PYMV="$mode_valid" PYMOK="$model_ok" \
     PYSERV="$serving" PYFB="$fellback" PYLOK="$local_ok" PYLM="$local_model" \
     PYLANE="$lane" PYLANEREQ="$LANE" PYNAT="$native_ok" PYCRED="$creds" \
+    PYIG="$guard" PYIGOK="$guard_ok" PYIGW="$guard_wired" PYIGE="$IMAGE_GUARD_ENABLED" \
     PYZ="$([[ -e "$MARKER" ]] && echo true || echo false)" node -e '
       const tri = v => v === "true" ? true : v === "false" ? false : null;
       process.stdout.write(JSON.stringify({
@@ -336,6 +378,10 @@ doctor() {
         mode:process.env.PYMODE, modeValid:tri(process.env.PYMV),
         availableModes:process.env.PYMODES ? process.env.PYMODES.split(" ") : [],
         zeroSpendActive:process.env.PYZ==="true",
+        imageGuard:process.env.PYIG || null,
+        imageGuardEnabled:process.env.PYIGE !== "off",
+        imageGuardPresent:process.env.PYIGOK==="true",
+        imageGuardWired:process.env.PYIGW==="true",
         autonomous:true
       })+"\n");' 2>/dev/null || python3 -c '
 import json, os
@@ -353,6 +399,10 @@ print(json.dumps({
   "mode": os.environ["PYMODE"], "modeValid": tri(os.environ["PYMV"]),
   "availableModes": os.environ["PYMODES"].split() if os.environ["PYMODES"] else [],
   "zeroSpendActive": os.environ["PYZ"] == "true",
+  "imageGuard": os.environ["PYIG"] or None,
+  "imageGuardEnabled": os.environ["PYIGE"] != "off",
+  "imageGuardPresent": os.environ["PYIGOK"] == "true",
+  "imageGuardWired": os.environ["PYIGW"] == "true",
   "autonomous": True,
 }))'
   else
@@ -472,8 +522,38 @@ fi
 # Human at a terminal wants readable output; a pipe/cron wants parseable NLJSON.
 oneshot_output() { [[ -t 1 ]] && printf 'markdown\n' || printf 'json\n'; }
 
+# Interactive sessions are the only ones that can receive a pasted image (`pool exec`
+# has no --agent-server and no way to attach one), so that is exactly where the guard
+# goes. GUARD_ARGS stays empty when the guard is disabled, missing, or when the caller
+# already chose an agent server — we never override an explicit -s.
+# NOTE: expanded as ${GUARD_ARGS[@]+"${GUARD_ARGS[@]}"} everywhere — bash 3.2 (macOS
+# system bash) treats "${arr[@]}" on an empty array as unbound under `set -u`.
+GUARD_ARGS=()
+guard_args_for_interactive() {
+  GUARD_ARGS=()
+  [[ "$IMAGE_GUARD_ENABLED" == "off" ]] && return 0
+  local a
+  for a in "$@"; do
+    case "$a" in -s|-s=*|--agent-server|--agent-server=*) return 0 ;; esac
+  done
+  local guard
+  if ! guard="$(resolve_image_guard)"; then
+    echo "poolside-yolo: NOTE poolside-acp-imageguard not found beside this wrapper — running UNGUARDED; a pasted screenshot will 400 and permanently brick the session" >&2
+    return 0
+  fi
+  if ! image_guard_installed "$guard"; then
+    if ! ensure_image_guard "$guard"; then
+      echo "poolside-yolo: WARNING could not register the image guard in poolside settings — running UNGUARDED (a pasted screenshot would brick the session)" >&2
+      return 0
+    fi
+    echo "poolside-yolo: registered image guard '$IMAGE_GUARD_NAME' (pasted screenshots are transcribed instead of bricking the session)" >&2
+  fi
+  GUARD_ARGS=(-s "$IMAGE_GUARD_NAME")
+}
+
 if [[ $# -eq 0 ]]; then
-  exec "$PBIN" --mode "$YOLO_MODE"
+  guard_args_for_interactive
+  exec "$PBIN" ${GUARD_ARGS[@]+"${GUARD_ARGS[@]}"} --mode "$YOLO_MODE"
 fi
 
 case "$1" in
@@ -501,9 +581,11 @@ case "$1" in
         echo "poolside-yolo: '--mode $want_mode' is not a pool session mode ($KNOWN_MODES); pool would silently fall back to approval prompts" >&2
         exit 2
       fi
-      exec "$PBIN" "${args[@]}"
+      guard_args_for_interactive "${args[@]}"
+      exec "$PBIN" ${GUARD_ARGS[@]+"${GUARD_ARGS[@]}"} "${args[@]}"
     else
-      exec "$PBIN" --mode "$YOLO_MODE" "${args[@]}"
+      guard_args_for_interactive "${args[@]}"
+      exec "$PBIN" ${GUARD_ARGS[@]+"${GUARD_ARGS[@]}"} --mode "$YOLO_MODE" "${args[@]}"
     fi ;;
   *)
     # Bare task string -> autonomous one-shot, mirroring kimi-yolo's routing.

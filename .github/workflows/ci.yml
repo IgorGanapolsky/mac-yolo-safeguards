@@ -176,7 +176,13 @@ jobs:
           # nothing is VACUOUS, not clean, and must not be reported as a pass. The
           # trailing number is the min assertion count each suite must actually emit.
           bash tests/run-suite.sh tests/test-run-suite.sh 7
-          bash tests/run-suite.sh tests/test-poolside-yolo.sh 14
+          bash tests/run-suite.sh tests/test-poolside-yolo.sh 30
+          # The ACP image guard. Without it a pasted screenshot returns
+          # "400 ... does not support multimodal" and — because pool replays the whole
+          # conversation each turn — poisons the session so every later prompt fails
+          # too, text-only ones included. One of its assertions is a live canary that
+          # goes red if Poolside ever fixes the capability mismatch upstream.
+          bash tests/run-suite.sh tests/test-poolside-acp-imageguard.sh 11
           bash tests/run-suite.sh tests/test-hermes-primary-route-recovery.sh 6
           # Mutation control: proves the suites above actually go RED against the
           # real historical bugs, instead of passing while measuring nothing.

@@ -7,6 +7,15 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 WRAPPER="$HERE/../poolside-yolo"
 ROOT="$(mktemp -d)"
+
+# Interactive invocations register the ACP image guard in poolside's settings.yaml.
+# Point that at a throwaway file: a test suite must never rewrite the developer's real
+# ~/.config/poolside/settings.yaml, and if it did it would record whatever transient
+# path this checkout happens to live at (a worktree that later gets pruned), leaving
+# `pool` pointing at a command that no longer exists.
+export POOLSIDE_SETTINGS="$ROOT/settings.yaml"
+# Keep the guard's reachability probe off the network in a hermetic suite.
+export POOLSIDE_IMAGE_GUARD_URL="http://127.0.0.1:1/v1"
 pass=0; fail=0
 ok() { echo "  [PASS] $1"; pass=$((pass+1)); }
 no() { echo "  [FAIL] $1"; fail=$((fail+1)); }
@@ -160,6 +169,49 @@ rm -f "$ARGS_OUT"
 "$WRAPPER" -C /tmp >/dev/null 2>&1 || true
 grep -q -- "--mode" "$ARGS_OUT" && grep -qx "always-allow" "$ARGS_OUT" && grep -q -- "-C" "$ARGS_OUT" \
   && ok "flag-led invocation forces --mode always-allow" || no "flag-led invocation forces --mode always-allow ($(tr '\n' ' ' < "$ARGS_OUT" 2>/dev/null))"
+
+# 6b-i. Interactive sessions go through the ACP image guard. Without it, a pasted
+#       screenshot returns "400 ... does not support multimodal" AND poisons the
+#       session history, so every later turn — text-only included — fails too.
+rm -f "$ARGS_OUT"
+"$WRAPPER" >/dev/null 2>&1 || true
+grep -qx "HermesImageGuard" "$ARGS_OUT" 2>/dev/null && grep -qx -- "-s" "$ARGS_OUT" \
+  && ok "interactive run is routed through the ACP image guard" \
+  || no "interactive run not guarded ($(tr '\n' ' ' < "$ARGS_OUT" 2>/dev/null))"
+
+# 6b-ii. Opt-out must actually opt out.
+rm -f "$ARGS_OUT"
+POOLSIDE_YOLO_IMAGE_GUARD=off "$WRAPPER" >/dev/null 2>&1 || true
+# Require proof that pool ACTUALLY RAN. "no HermesImageGuard in the args" is also true
+# when the wrapper died before spawning anything — which is exactly what happened on
+# bash 3.2, where an empty "${GUARD_ARGS[@]}" is an unbound variable under `set -u`.
+if [ ! -s "$ARGS_OUT" ]; then
+  no "POOLSIDE_YOLO_IMAGE_GUARD=off never spawned pool (vacuous pass guarded)"
+elif grep -qx "HermesImageGuard" "$ARGS_OUT"; then
+  no "POOLSIDE_YOLO_IMAGE_GUARD=off still injected the guard"
+else
+  ok "POOLSIDE_YOLO_IMAGE_GUARD=off runs unguarded (and pool still ran)"
+fi
+
+# 6b-iii. An explicit -s is the caller's choice; never override it.
+rm -f "$ARGS_OUT"
+"$WRAPPER" -s Poolside >/dev/null 2>&1 || true
+[ "$(grep -c -- "-s" "$ARGS_OUT" 2>/dev/null || echo 0)" -eq 1 ] && grep -qx "Poolside" "$ARGS_OUT" \
+  && ok "explicit -s wins over the image guard (no double agent-server)" \
+  || no "explicit -s was overridden ($(tr '\n' ' ' < "$ARGS_OUT" 2>/dev/null))"
+
+# 6b-iv. `pool exec` has no --agent-server flag, and nothing can paste an image into
+#        it, so the guard must NOT leak onto that path — passing -s there would make
+#        every one-shot run fail on an unknown flag.
+rm -f "$ARGS_OUT"
+"$WRAPPER" exec -p hello >/dev/null 2>&1 || true
+if [ ! -s "$ARGS_OUT" ]; then
+  no "exec path never spawned pool (vacuous pass guarded)"
+elif grep -qx -- "-s" "$ARGS_OUT"; then
+  no "guard leaked onto the exec path (pool exec rejects -s)"
+else
+  ok "exec path stays unguarded (pool exec has no -s flag)"
+fi
 
 # 6c. an explicit --mode is respected (no double --mode)
 rm -f "$ARGS_OUT"
