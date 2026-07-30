@@ -127,6 +127,85 @@ else
 fi
 
 echo ""
+echo "=== Lessons store canaries ==="
+# The lessons store sat silently EMPTY for 3 days after the 2026-07-26
+# migration — nothing alarmed. These canaries make store loss loud.
+# SAFEGUARDS_REPO is overridable so tests can exercise the alarm branches
+# against a scratch store without touching the live one.
+SAFEGUARDS_REPO="${SAFEGUARDS_REPO:-$HOME/workspace/git/igor/mac-yolo-safeguards}"
+RESTORE_TOOL="$SAFEGUARDS_REPO/tools/restore-lessons-memory-log.js"
+LESSONS_STORE_DIR="$SAFEGUARDS_REPO/.thumbgate"
+MEMLOG="$LESSONS_STORE_DIR/memory-log.jsonl"
+CONTEXTFS_MEM_DIR="$LESSONS_STORE_DIR/contextfs/memory"
+SEARCH_CANARY_ID="mem_1781185737558_rxfqv1"
+check "[ -f '$RESTORE_TOOL' ]"        "restore tool present at tools/restore-lessons-memory-log.js"
+check "node --check '$RESTORE_TOOL'"  "restore tool syntactically valid JavaScript"
+# (a) memory-log.jsonl exists with >= 20 records
+MEMLOG_LINES=$(wc -l < "$MEMLOG" 2>/dev/null | tr -d ' ')
+[ -z "$MEMLOG_LINES" ] && MEMLOG_LINES=0
+if [ -f "$MEMLOG" ] && [ "$MEMLOG_LINES" -ge 20 ]; then
+  printf "  [$OK] memory-log.jsonl intact: %s records (>= 20)\n" "$MEMLOG_LINES"; pass=$((pass+1))
+elif [ "$CI_SMOKE" -eq 1 ]; then
+  printf "  [$WARN] memory-log.jsonl canary skipped on CI (host-local store)\n"
+else
+  printf "  [$BAD] lessons store empty/shrunk — see restore tool (records=%s, need >= 20)\n" "$MEMLOG_LINES"; fail=$((fail+1))
+fi
+# (b) contextfs memory items present
+CONTEXTFS_ITEMS=$(find "$CONTEXTFS_MEM_DIR" -type f 2>/dev/null | wc -l | tr -d ' ')
+if [ "$CONTEXTFS_ITEMS" -ge 10 ]; then
+  printf "  [$OK] contextfs memory intact: %s item files (>= 10)\n" "$CONTEXTFS_ITEMS"; pass=$((pass+1))
+elif [ "$CI_SMOKE" -eq 1 ]; then
+  printf "  [$WARN] contextfs canary skipped on CI (host-local store)\n"
+else
+  printf "  [$BAD] contextfs memory empty/thin — see restore tool (item files=%s, need >= 10)\n" "$CONTEXTFS_ITEMS"; fail=$((fail+1))
+fi
+# (c) known-item retrieval: searchLessons must surface the rm-on-.env lesson in top-3
+if [ "$CI_SMOKE" -eq 1 ]; then
+  printf "  [$WARN] searchLessons canary skipped on CI (host-local runtime)\n"
+else
+  SEARCH_STATUS=0
+  SEARCH_RESULT=$(TG_FEEDBACK_DIR="$LESSONS_STORE_DIR" TG_CANARY_ID="$SEARCH_CANARY_ID" \
+    perl -e 'alarm shift @ARGV; exec @ARGV' 15 node - <<'JS' 2>/dev/null
+const path = require('node:path');
+const os = require('node:os');
+const pkgRoot = path.join(os.homedir(), '.thumbgate', 'runtime', 'node_modules', 'thumbgate');
+let searchLessons;
+try {
+  ({ searchLessons } = require(path.join(pkgRoot, 'scripts', 'lesson-search.js')));
+} catch {
+  console.log('RUNTIME_MISSING');
+  process.exit(0);
+}
+const res = searchLessons('never delete .env files', { feedbackDir: process.env.TG_FEEDBACK_DIR, limit: 3 });
+const hit = (res.results || []).some((r) => r.id === process.env.TG_CANARY_ID);
+console.log(hit ? 'HIT' : 'MISS:' + (res.results || []).map((r) => r.id).join(','));
+JS
+  ) || SEARCH_STATUS=$?
+  if [ "$SEARCH_RESULT" = "HIT" ]; then
+    printf "  [$OK] searchLessons canary: rm-on-.env lesson in top-3 for 'never delete .env files'\n"; pass=$((pass+1))
+  elif [ "$SEARCH_RESULT" = "RUNTIME_MISSING" ]; then
+    printf "  [$WARN] searchLessons canary skipped: thumbgate runtime package missing\n"
+  else
+    printf "  [$BAD] searchLessons canary lost the rm-on-.env lesson (%s, status %s) — see restore tool\n" "${SEARCH_RESULT:-no output}" "$SEARCH_STATUS"; fail=$((fail+1))
+  fi
+fi
+# (d) grepai index canary: WARN on timeout/error (embedder may be cold), FAIL on wrong results
+if [ "$CI_SMOKE" -eq 1 ] || ! command -v grepai >/dev/null 2>&1; then
+  printf "  [$WARN] grepai canary skipped (grepai unavailable)\n"
+else
+  GREPAI_STATUS=0
+  GREPAI_OUT=$(cd "$SAFEGUARDS_REPO" && perl -e 'alarm shift @ARGV; exec @ARGV' 20 \
+    grepai search "zero spend command gate" --json --compact 2>/dev/null) || GREPAI_STATUS=$?
+  if [ "$GREPAI_STATUS" -ne 0 ]; then
+    printf "  [$WARN] grepai canary timed out/errored after 20s (embedder may be cold; status %s)\n" "$GREPAI_STATUS"
+  elif printf "%s" "$GREPAI_OUT" | grep -q "zero-spend-command-gate.js"; then
+    printf "  [$OK] grepai canary: 'zero spend command gate' surfaced zero-spend-command-gate.js\n"; pass=$((pass+1))
+  else
+    printf "  [$BAD] grepai canary returned wrong results (zero-spend-command-gate.js absent) — index stale? run: grepai watch --background\n"; fail=$((fail+1))
+  fi
+fi
+
+echo ""
 echo "=== Live Mac state ==="
 uptime | sed 's/^/  /'
 SIM_PROCS=$(ps aux | grep -i simruntime | grep -v grep | wc -l | tr -d ' ')

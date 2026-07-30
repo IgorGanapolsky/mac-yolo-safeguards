@@ -63,6 +63,7 @@ link "$REPO/poolside-yolo"                     "$INSTALL_HOME/.local/bin/poolsid
 link "$REPO/hermes-context"                    "$INSTALL_HOME/.local/bin/hermes-context"
 link "$REPO/scripts/heal-launchd-paths.sh"     "$INSTALL_HOME/.local/bin/heal-launchd-paths.sh"
 link "$REPO/scripts/grok-yolo-leak-reaper.sh"  "$INSTALL_HOME/.local/bin/grok-yolo-leak-reaper.sh"
+link "$REPO/scripts/ollama-embed-pin.sh"       "$INSTALL_HOME/.local/bin/ollama-embed-pin.sh"
 
 # Instead of symlinking the plist, write a copy with {{HOME}} substituted to point to the actual home directory
 PLIST_DEST="$INSTALL_HOME/Library/LaunchAgents/com.igor.shutdown-simulators.plist"
@@ -81,6 +82,12 @@ REAP_PLIST_DEST="$INSTALL_HOME/Library/LaunchAgents/com.igor.grok-yolo-leak-reap
 if [ -f "$REAP_PLIST_DEST" ] || [ -L "$REAP_PLIST_DEST" ]; then rm -f "$REAP_PLIST_DEST"; fi
 sed "s|{{HOME}}|$INSTALL_HOME|g" "$REPO/com.igor.grok-yolo-leak-reaper.plist" > "$REAP_PLIST_DEST"
 echo "  $REAP_PLIST_DEST created with resolved paths"
+
+# 5-minute re-pin of the grepai embed model (keep_alive=-1 dies on Ollama restart/eviction).
+PIN_PLIST_DEST="$INSTALL_HOME/Library/LaunchAgents/com.igor.ollama-embed-pin.plist"
+if [ -f "$PIN_PLIST_DEST" ] || [ -L "$PIN_PLIST_DEST" ]; then rm -f "$PIN_PLIST_DEST"; fi
+sed "s|{{HOME}}|$INSTALL_HOME|g" "$REPO/com.igor.ollama-embed-pin.plist" > "$PIN_PLIST_DEST"
+echo "  $PIN_PLIST_DEST created with resolved paths"
 
 echo ""
 echo "=== Bootstrapping LaunchAgent ==="

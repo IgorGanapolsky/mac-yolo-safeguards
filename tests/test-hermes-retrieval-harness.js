@@ -6,14 +6,22 @@ const os = require('os');
 const path = require('path');
 
 const {
+  buildChunkIndex,
   buildInventory,
+  chunkFile,
+  contentHash,
   escapeRegExp,
   grep,
+  indexCommand,
   parseArgs,
   readFileRange,
+  readIndex,
+  reindexCommand,
   retrieve,
   safeRepoPath,
   tokenize,
+  updateIndex,
+  writeIndex,
 } = require('../tools/hermes-retrieval-harness');
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-retrieval-harness-'));
@@ -27,7 +35,12 @@ fs.writeFileSync(
   [
     '# Specification-Driven Design',
     'Disciplined discovery creates modular markdown specifications.',
+    '',
+    '## Gap Analysis',
     'Continuous gap analysis maps requirements to tests and DevOps gates.',
+    '',
+    '## Tests',
+    'Every specification must have a focused test proving its contract.',
   ].join('\n'),
 );
 fs.writeFileSync(
@@ -35,13 +48,27 @@ fs.writeFileSync(
   [
     "'use strict';",
     'function guardrails() { return "governance"; }',
-    'module.exports = { guardrails };',
+    'function planner() { return "owner"; }',
+    'module.exports = { guardrails, planner };',
   ].join('\n'),
 );
 fs.writeFileSync(path.join(tmp, 'node_modules', 'ignored', 'skip.js'), 'Specification-Driven Design should not be indexed.');
 fs.writeFileSync(
   path.join(tmp, 'parallel-research', 'raw-provider-output.md'),
   'ThumbGate lessons response feedback thumbs repeated provider transcript.',
+);
+// A cloned foreign repository (has its own .git) and a local-only vault dump —
+// both classes of directory exhausted the walkFiles budget in the real repo and
+// silently displaced docs/ and tools/ from retrieval.
+fs.mkdirSync(path.join(tmp, 'cloned-upstream', '.git'), { recursive: true });
+fs.writeFileSync(
+  path.join(tmp, 'cloned-upstream', 'README.md'),
+  'Specification-Driven Design duplicated inside a nested git clone.',
+);
+fs.mkdirSync(path.join(tmp, 'Compiled-Vaults'), { recursive: true });
+fs.writeFileSync(
+  path.join(tmp, 'Compiled-Vaults', 'memory-pack.md'),
+  'Specification-Driven Design duplicated inside an exported memory vault.',
 );
 
 assert.strictEqual(parseArgs(['retrieve', '--query', 'gap analysis', '--json']).json, true);
@@ -56,11 +83,62 @@ assert(
   !inventory.files.some((file) => file.path.includes('parallel-research')),
   'raw deep-research receipts must not displace canonical code or curated docs',
 );
+assert(
+  !inventory.files.some((file) => file.path.includes('cloned-upstream')),
+  'nested git clones are foreign corpora and must not be indexed',
+);
+assert(
+  !inventory.files.some((file) => file.path.includes('Compiled-Vaults')),
+  'exported memory-vault dumps must not displace the repo corpus',
+);
 
-const retrieved = retrieve('modular markdown gap analysis tests', { repo: tmp, limit: 2 });
+// Chunking tests.
+const markdownChunks = chunkFile(fs.readFileSync(path.join(tmp, 'docs/SDD.md'), 'utf8'), 'docs/SDD.md');
+assert(markdownChunks.length >= 3, 'markdown should split into multiple heading chunks');
+assert(markdownChunks.some((chunk) => chunk.header.toLowerCase().includes('gap analysis')));
+assert.strictEqual(markdownChunks[0].chunkType, 'markdown-section');
+
+const codeChunks = chunkFile(fs.readFileSync(path.join(tmp, 'tools', 'agent.js'), 'utf8'), 'tools/agent.js');
+assert(codeChunks.length >= 2, 'code should split into multiple function blocks');
+assert(codeChunks.some((chunk) => chunk.text.includes('guardrails')));
+assert(codeChunks.some((chunk) => chunk.text.includes('planner')));
+
+// Deduplication: identical chunks across vault dumps should be skipped in the index.
+fs.writeFileSync(
+  path.join(tmp, 'Compiled-Vaults', 'duplicate.md'),
+  '# Specification-Driven Design\nDisciplined discovery creates modular markdown specifications.\n',
+);
+const indexWithDedupe = buildChunkIndex(tmp);
+const parentPaths = indexWithDedupe.files.flatMap((entry) => entry.chunks.map((chunk) => chunk.parentPath));
+assert(parentPaths.includes('docs/SDD.md'));
+assert(
+  !parentPaths.some((parentPath) => parentPath.includes('Compiled-Vaults')),
+  'duplicate content from vault dumps must be deduplicated',
+);
+
+// Index persistence and incremental update.
+const indexResult = indexCommand(tmp);
+assert(indexResult.fileCount >= 2);
+assert(indexResult.chunkCount > 0);
+assert(fs.existsSync(path.join(tmp, '.rag-index', 'index.jsonl')));
+const readBack = readIndex(tmp);
+assert(readBack, 'index should be readable from disk');
+assert(readBack.files.some((entry) => entry.path === 'docs/SDD.md'));
+
+const updated = updateIndex(tmp);
+assert(updated.files.some((entry) => entry.path === 'docs/SDD.md'));
+
+// Retrieval still works and now returns chunk-level citations.
+const retrieved = retrieve('modular markdown gap analysis tests', { repo: tmp, limit: 5 });
 assert.strictEqual(retrieved.matches[0].path, 'docs/SDD.md');
 assert(retrieved.matches[0].score > 0);
-assert(retrieved.matches[0].snippet.includes('modular markdown'));
+assert(
+  retrieved.matches[0].snippet.toLowerCase().includes('gap analysis') ||
+    retrieved.matches[0].snippet.toLowerCase().includes('modular markdown'),
+);
+assert(retrieved.matches[0].chunk, 'retrieval should include chunk metadata');
+assert(Number.isInteger(retrieved.matches[0].chunk.startLine));
+assert.strictEqual(retrieved.matches[0].chunk.chunkType, 'markdown-section');
 assert(
   !retrieve('ThumbGate lessons response feedback thumbs', { repo: tmp, limit: 10 }).matches.some(
     (match) => match.path.includes('parallel-research'),
@@ -68,10 +146,14 @@ assert(
   'raw deep-research receipts must stay outside default retrieval',
 );
 
-const read = readFileRange({ repo: tmp, path: 'docs/SDD.md', start: 2, end: 3 });
+// Code retrieval: header boosting should surface the right function.
+const plannerRetrieved = retrieve('planner owner', { repo: tmp, limit: 5 });
+assert(plannerRetrieved.matches.some((match) => match.path === 'tools/agent.js' && match.chunk.header.toLowerCase().includes('planner')));
+
+const read = readFileRange({ repo: tmp, path: 'docs/SDD.md', start: 2, end: 5 });
 assert.strictEqual(read.start, 2);
 assert(read.text.includes('2: Disciplined discovery'));
-assert(read.text.includes('3: Continuous gap analysis'));
+assert(read.text.includes('4: ## Gap Analysis'));
 assert.throws(() => readFileRange({ repo: tmp, path: '../secret.txt' }), /escapes repo/);
 
 const grepResult = grep({ repo: tmp, pattern: 'governance', limit: 5 });

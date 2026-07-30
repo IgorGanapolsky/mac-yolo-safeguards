@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.igor.ollama-embed-pin</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>{{HOME}}/.local/bin/ollama-embed-pin.sh</string>
+  </array>
+  <!-- Re-asserts keep_alive=-1 on nomic-embed-text every 5 minutes so grepai
+       embeddings survive Ollama restarts and memory-pressure evictions. -->
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StartInterval</key>
+  <integer>300</integer>
+  <key>Nice</key>
+  <integer>10</integer>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>{{HOME}}/Library/Logs/mac-yolo/ollama-embed-pin.log</string>
+  <key>StandardErrorPath</key>
+  <string>{{HOME}}/Library/Logs/mac-yolo/ollama-embed-pin.log</string>
+</dict>
+</plist>

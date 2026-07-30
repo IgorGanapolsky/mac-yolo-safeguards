@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "description": "Retrieval cases for the ThumbGate lessons store (production backend). Queries are derived from the 27 lessons restored to .thumbgate/memory-log.jsonl on 2026-07-29 — each targets a distinctive real lesson and 'requiredLessonIds' are the actual memory ids from that log. Evaluated by tools/rag-retrieval-eval.js via the installed thumbgate runtime's searchLessons().",
+  "cases": [
+    {
+      "id": "env-file-deletion",
+      "query": "deleted .env file with rm",
+      "requiredLessonIds": ["mem_1781185737558_rxfqv1"],
+      "k": 5
+    },
+    {
+      "id": "ollama-shim-params",
+      "query": "ollama openai shim dropped request parameters",
+      "requiredLessonIds": ["mem_1785344542356_1hngk5"],
+      "k": 5
+    },
+    {
+      "id": "trading-pipeline-stall",
+      "query": "trading pipeline no fills broken credit estimation",
+      "requiredLessonIds": ["mem_1781185682408_cxhzf7"],
+      "k": 5
+    },
+    {
+      "id": "skipped-verification",
+      "query": "skipped required verification proof",
+      "requiredLessonIds": [
+        "mem_1781185740659_3xzaky",
+        "mem_1781185685909_ladgdr",
+        "mem_1781185684755_h5kwpm"
+      ],
+      "k": 5
+    },
+    {
+      "id": "pr-review-praise",
+      "query": "thorough PR review praised",
+      "requiredLessonIds": ["mem_1781185684598_fm29l1"],
+      "k": 5
+    },
+    {
+      "id": "evidence-verification-praise",
+      "query": "evidence-backed verification clear",
+      "requiredLessonIds": ["mem_1781185685684_lx8nmq"],
+      "k": 5
+    },
+    {
+      "id": "feedback-capture-wiring",
+      "query": "proof that feedback capture is wired",
+      "requiredLessonIds": ["mem_1781185678591_aqkl30"],
+      "k": 5
+    },
+    {
+      "id": "cli-test-verification",
+      "query": "cli test verification success",
+      "requiredLessonIds": ["mem_1781185731346_jj63hb"],
+      "k": 5
+    },
+    {
+      "id": "screenshot-fix-request",
+      "query": "fix screenshot from downloads",
+      "requiredLessonIds": [
+        "mem_1781185681874_cp76dr",
+        "mem_1781185681798_6bgh1a"
+      ],
+      "k": 5
+    }
+  ]
+}
