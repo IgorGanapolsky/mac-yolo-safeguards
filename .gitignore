@@ -120,3 +120,10 @@ Compiled-Vaults/goal
 # pool (Poolside CLI): .poolside/settings.yaml is shared/committed; the .local
 # variant is per-machine state (accumulated tool approvals, absolute temp paths).
 .poolside/settings.local.yaml
+
+# Python bytecode. Running the tinker-brain and tests/ Python suites leaves
+# __pycache__ beside the sources; on 2026-07-30 a batch of .pyc files was staged
+# in this repo's shared index by a concurrent agent, one bare `git commit` away
+# from landing bytecode in a public repo.
+__pycache__/
+*.pyc
