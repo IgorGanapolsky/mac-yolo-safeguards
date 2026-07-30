@@ -234,6 +234,23 @@ jobs:
           node tools/ml-integrity.js scan-claim --text "platform ready; production_ml_ready=false"
           ! node tools/ml-integrity.js scan-claim --text "best-in-class production ML model with 100% auc"
 
+      # tinker-brain answers the revenue questions (cash truth, promo bans, score
+      # honesty) and nothing in CI had ever run it: its contracts and eval cases
+      # were hand-run only, so a regression in the brain could ship green. The
+      # suites are hermetic Python — every probe the exporter reads is injected,
+      # so no ~/.hermes state, no Ollama, no network, no node.
+      - name: Tinker-brain revenue contracts and evals
+        run: |
+          set -eu -o pipefail
+          python3 tests/test-tinker-brain.py 2>&1 | tee "$RUNNER_TEMP/tinker-tests.log"
+          python3 tools/tinker-brain/tinker_brain_eval.py | tee "$RUNNER_TEMP/tinker-eval.log"
+          # Both suites exit non-zero on a failing case, but a suite that exits 0
+          # having asserted nothing is VACUOUS, not clean — pin the floors too.
+          ran="$(sed -n 's/^Ran \([0-9]\{1,\}\) test.*/\1/p' "$RUNNER_TEMP/tinker-tests.log")"
+          passed="$(sed -n 's|^tinker-brain eval: \([0-9]\{1,\}\)/.*|\1|p' "$RUNNER_TEMP/tinker-eval.log")"
+          test "${ran:-0}" -ge 15
+          test "${passed:-0}" -ge 42
+
   mobile-checks:
     name: Hermes Mobile typecheck and tests
     runs-on: ubuntu-latest
