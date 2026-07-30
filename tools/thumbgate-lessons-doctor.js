@@ -152,10 +152,18 @@ function main() {
     );
   }
 
-  // 3. LanceDB
+  // 3. LanceDB — optional when neural lesson-embeddings.json is healthy.
   report.lancedb = lancedbDiagnosis(path.join(args.dir, 'lancedb'));
-  if (report.lancedb.status === 'initialized-but-EMPTY') {
+  const neuralEmbeddingsOk =
+    report.embeddings &&
+    !String(report.embeddings.status || '').includes('NOT neural') &&
+    Number(report.embeddings.entries || 0) > 0 &&
+    Number(report.embeddings.distinctMagnitudes || 0) >= MIN_DISTINCT_MAGNITUDES;
+  if (report.lancedb.status === 'initialized-but-EMPTY' && !neuralEmbeddingsOk) {
     problems.push('lancedb initialized but contains zero .lance data files — vector path is a stub');
+  } else if (report.lancedb.status === 'initialized-but-EMPTY' && neuralEmbeddingsOk) {
+    report.lancedb.note =
+      'empty LanceDB is non-blocking while lesson-embeddings.json holds neural vectors';
   }
 
   // 4. Synthesized rules
