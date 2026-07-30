@@ -37,6 +37,7 @@ export function useGatewayConnection() {
   const wifiConnected = useGatewaySelector((ctx) => ctx.wifiConnected);
   const isPaired = useGatewaySelector((ctx) => ctx.isPaired);
   const tailscaleDiscoveries = useGatewaySelector((ctx) => ctx.tailscaleDiscoveries);
+  const reachableTailnetGateways = useGatewaySelector((ctx) => ctx.reachableTailnetGateways);
   const tailscaleDiscoveryProbing = useGatewaySelector((ctx) => ctx.tailscaleDiscoveryProbing);
   const tailscaleVpnActive = useGatewaySelector((ctx) => ctx.tailscaleVpnActive);
   const tailnetProbeHostCount = useGatewaySelector((ctx) => ctx.tailnetProbeHostCount);
@@ -73,6 +74,7 @@ export function useGatewayConnection() {
       wifiConnected,
       isPaired,
       tailscaleDiscoveries,
+      reachableTailnetGateways,
       tailscaleDiscoveryProbing,
       tailscaleVpnActive,
       tailnetProbeHostCount,
@@ -106,6 +108,7 @@ export function useGatewayConnection() {
       wifiConnected,
       isPaired,
       tailscaleDiscoveries,
+      reachableTailnetGateways,
       tailscaleDiscoveryProbing,
       tailscaleVpnActive,
       tailnetProbeHostCount,

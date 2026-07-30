@@ -37,6 +37,8 @@ import ManualComputerAddressForm from './ManualComputerAddressForm';
 import ThumbGatePromoCard from './ThumbGatePromoCard';
 import { shouldShowThumbGatePromoOnConnectionPanel } from '../utils/thumbgatePromoCopy';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
+import CrossMachineRecoveryBanner from './CrossMachineRecoveryBanner';
+import { resolveCrossMachineRecoveryOffer } from '../utils/crossMachineRecovery';
 
 type ChatConnectionPanelProps = {
   connectionState: 'disconnected' | 'connecting' | 'connected' | 'demo';
@@ -66,6 +68,12 @@ type ChatConnectionPanelProps = {
   usbFixBusy?: boolean;
   onOpenSettings?: () => void;
   tailscaleDiscoveries?: DiscoveredGateway[];
+  /**
+   * Every tailnet gateway that answered /health on the last probe — including peers the
+   * user has ALREADY saved (which `tailscaleDiscoveries` filters out). Without this the
+   * app cannot tell that a second saved Mac is alive while the active one is offline.
+   */
+  reachableTailnetGateways?: DiscoveredGateway[];
   tailscaleDiscoveryProbing?: boolean;
   tailnetProbeHostCount?: number;
   onAddTailscaleComputer?: (discovery: DiscoveredGateway) => void;
@@ -138,6 +146,7 @@ export default function ChatConnectionPanel({
   usbFixBusy = false,
   onOpenSettings,
   tailscaleDiscoveries = [],
+  reachableTailnetGateways = [],
   tailscaleDiscoveryProbing = false,
   tailnetProbeHostCount = 0,
   onAddTailscaleComputer,
@@ -253,6 +262,17 @@ export default function ChatConnectionPanel({
   const showNamedScanResults =
     !searching && Boolean(visibleScanResult && visibleScanResult.foundCount > 0);
   const primaryActionLabel = freshUserPrimaryActionLabel(showUsbFix);
+  const crossMachineRecovery = useMemo(
+    () =>
+      resolveCrossMachineRecoveryOffer({
+        profiles,
+        activeProfileId,
+        activeProfileReachable,
+        healExhausted: heal.exhausted,
+        reachableGateways: reachableTailnetGateways,
+      }),
+    [activeProfileId, activeProfileReachable, heal.exhausted, profiles, reachableTailnetGateways],
+  );
   const showThumbGatePromo = shouldShowThumbGatePromoOnConnectionPanel({
     connectionState,
     profileCount: profiles.length,
@@ -273,6 +293,19 @@ export default function ChatConnectionPanel({
           </Text>
         </View>
       </View>
+
+      {crossMachineRecovery ? (
+        <CrossMachineRecoveryBanner
+          offer={crossMachineRecovery}
+          busy={selectionDisabled}
+          onSwitch={(profileId) =>
+            onSelectProfile?.(
+              profileId,
+              profiles.find((profile) => profile.id === profileId),
+            )
+          }
+        />
+      ) : null}
 
       {showScanCard ? (
         <MacScanProgressCard

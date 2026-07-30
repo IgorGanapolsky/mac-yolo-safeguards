@@ -725,4 +725,89 @@ describe('ChatConnectionPanel', () => {
 
     expect(await findByText('Please enter an IP address or URL.')).toBeTruthy();
   });
+  describe('offline computer recovery', () => {
+    const mini = {
+      id: 'mac_igors_mac_mini',
+      label: 'Igors-Mac-mini',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      hostname: 'Igors-Mac-mini.local',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-01T10:00:00Z',
+      lastConnectedAt: '2026-07-30T09:00:00Z',
+    };
+    const pro = {
+      id: 'mac_igors_macbook_pro',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://100.87.85.85:8642',
+      hostname: 'Igors-MacBook-Pro.local',
+      localIp: '100.87.85.85',
+      addedAt: '2026-07-02T10:00:00Z',
+      lastConnectedAt: '2026-07-28T09:00:00Z',
+    };
+    const proReachable = {
+      gatewayUrl: 'http://100.87.85.85:8642',
+      hostname: 'Igors-MacBook-Pro.local',
+      localIp: '100.87.85.85',
+      label: 'Igors-MacBook-Pro',
+    };
+
+    it('offers a one-tap switch to the healthy Mac when the active Mac is offline', () => {
+      const onSelectProfile = jest.fn();
+      const { getByTestId, getByText } = render(
+        <ChatConnectionPanel
+          connectionState="disconnected"
+          macLabel="Igors-Mac-mini"
+          connectionHealAttempt={6}
+          profiles={[mini, pro]}
+          activeProfileId="mac_igors_mac_mini"
+          activeProfileReachable={false}
+          reachableTailnetGateways={[proReachable]}
+          onSelectProfile={onSelectProfile}
+          onSearchMac={jest.fn()}
+        />,
+      );
+
+      expect(getByTestId('cross-machine-recovery-banner')).toBeTruthy();
+      expect(getByText('Igors-Mac-mini is offline')).toBeTruthy();
+      fireEvent.press(getByTestId('cross-machine-recovery-switch'));
+      expect(onSelectProfile).toHaveBeenCalledWith('mac_igors_macbook_pro', pro);
+    });
+
+    it('does not offer another Mac while the active Mac is reachable', () => {
+      const { queryByTestId } = render(
+        <ChatConnectionPanel
+          connectionState="connected"
+          macLabel="Igors-Mac-mini"
+          connectionHealAttempt={6}
+          profiles={[mini, pro]}
+          activeProfileId="mac_igors_mac_mini"
+          activeProfileReachable
+          reachableTailnetGateways={[proReachable]}
+          onSelectProfile={jest.fn()}
+          onSearchMac={jest.fn()}
+        />,
+      );
+
+      expect(queryByTestId('cross-machine-recovery-banner')).toBeNull();
+    });
+
+    it('does not offer another Mac while silent heal still has budget', () => {
+      const { queryByTestId } = render(
+        <ChatConnectionPanel
+          connectionState="disconnected"
+          macLabel="Igors-Mac-mini"
+          connectionHealAttempt={1}
+          connectionHealInFlight
+          profiles={[mini, pro]}
+          activeProfileId="mac_igors_mac_mini"
+          activeProfileReachable={false}
+          reachableTailnetGateways={[proReachable]}
+          onSelectProfile={jest.fn()}
+          onSearchMac={jest.fn()}
+        />,
+      );
+
+      expect(queryByTestId('cross-machine-recovery-banner')).toBeNull();
+    });
+  });
 });

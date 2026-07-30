@@ -288,6 +288,13 @@ export type GatewayContextValue = {
   removeGatewayProfile: (profileId: string) => Promise<void>;
   scanForGatewayProfiles: () => Promise<GatewayProfile[]>;
   tailscaleDiscoveries: DiscoveredGateway[];
+  /**
+   * Every tailnet gateway that answered /health on the last probe, INCLUDING peers the
+   * user already saved. `tailscaleDiscoveries` drops those (it feeds "Add this computer"
+   * chips), which left the app blind to a healthy second Mac while the selected Mac was
+   * offline — the phone had no path forward. Cross-machine recovery reads this list.
+   */
+  reachableTailnetGateways: DiscoveredGateway[];
   tailscaleDiscoveryProbing: boolean;
   tailscaleVpnActive: boolean;
   tailnetProbeHostCount: number;
@@ -399,6 +406,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const [profileScanProgress, setProfileScanProgress] = useState<LanScanProgress | null>(null);
   const [profileScanResult, setProfileScanResult] = useState<LanScanResult | null>(null);
   const [tailscaleDiscoveries, setTailscaleDiscoveries] = useState<DiscoveredGateway[]>([]);
+  const [reachableTailnetGateways, setReachableTailnetGateways] = useState<DiscoveredGateway[]>(
+    [],
+  );
   const [tailscaleDiscoveryProbing, setTailscaleDiscoveryProbing] = useState(false);
   const [tailscaleVpnActive, setTailscaleVpnActive] = useState(false);
   /** Set after a completed hit to a Tailscale host — Samsung NetInfo often stays cellular. */
@@ -3168,9 +3178,13 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         reachedTailscaleHostRef.current = false;
         updateTailscaleVpnActive();
         setTailscaleDiscoveries([]);
+        setReachableTailnetGateways([]);
         return;
       }
       const discovered = await discoverTailscaleGateways(probeHosts);
+      // Healthy peers, unfiltered: saved-and-alive Macs must stay visible so an offline
+      // active Mac can offer a real one-tap switch instead of a dead end.
+      setReachableTailnetGateways(discovered);
       reachedTailscaleHostRef.current = discovered.some((item) =>
         isTailscaleGatewayUrl(item.gatewayUrl),
       );
@@ -4085,6 +4099,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       removeGatewayProfile,
       scanForGatewayProfiles,
       tailscaleDiscoveries,
+      reachableTailnetGateways,
       tailscaleDiscoveryProbing,
       tailscaleVpnActive,
       tailnetProbeHostCount,
@@ -4161,6 +4176,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       removeGatewayProfile,
       scanForGatewayProfiles,
       tailscaleDiscoveries,
+      reachableTailnetGateways,
       tailscaleDiscoveryProbing,
       tailscaleVpnActive,
       tailnetProbeHostCount,

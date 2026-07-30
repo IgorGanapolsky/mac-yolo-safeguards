@@ -604,6 +604,7 @@ export default function ChatScreen() {
     saveSettings,
     wifiConnected,
     tailscaleDiscoveries,
+    reachableTailnetGateways,
     tailscaleDiscoveryProbing,
     tailscaleVpnActive,
     tailnetProbeHostCount,
@@ -7494,6 +7495,7 @@ export default function ChatScreen() {
               usbFixBusy={macRetryBusy}
               onOpenSettings={() => navigation.navigate('Settings' as never)}
               tailscaleDiscoveries={tailscaleDiscoveries}
+              reachableTailnetGateways={reachableTailnetGateways}
               tailscaleDiscoveryProbing={tailscaleDiscoveryProbing}
               tailnetProbeHostCount={tailnetProbeHostCount}
               onAddTailscaleComputer={(discovery) => {
