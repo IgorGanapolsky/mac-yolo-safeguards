@@ -98,8 +98,25 @@ export const RUN_HARD_TIMEOUT_MS = 10 * 60 * 1000;
 /** Mega / huge-context turns (local Ollama) get a longer absolute ceiling. */
 export const MEGA_SESSION_RUN_HARD_TIMEOUT_MS = 15 * 60 * 1000;
 
+/**
+ * Live prompt already ≥200k tokens (model thrash / unexpected EOF class).
+ * Do NOT give these runs the longer mega-session ceiling — they almost never
+ * produce a useful reply and leave "Hermes is thinking" for many minutes.
+ * Incident 2026-07-30: 3M in + 6m stuck thinking after Error code 500 EOF.
+ */
+export const MEGA_PROMPT_INPUT_TOKEN_THRESHOLD = 200_000;
+export const MEGA_PROMPT_RUN_HARD_TIMEOUT_MS = 4 * 60 * 1000;
+
+/** Catastrophic live prompt (≥1M) — fail even sooner. */
+export const CATASTROPHIC_PROMPT_INPUT_TOKEN_THRESHOLD = 1_000_000;
+export const CATASTROPHIC_PROMPT_RUN_HARD_TIMEOUT_MS = 3 * 60 * 1000;
+
 export const RUN_HARD_TIMEOUT_DETAIL =
   'Timed out waiting for your computer — tap ↑ to send again, or Stop if a run is still active.';
+
+/** Hard-timeout detail when the live prompt itself is the failure mode. */
+export const MEGA_PROMPT_HARD_TIMEOUT_DETAIL =
+  'This chat is too large for a reliable reply — start a fresh chat and try again.';
 
 export type RunStaleLevel = 'normal' | 'long' | 'idle' | 'expired';
 
@@ -110,7 +127,26 @@ export type NoTokenFailOptions = {
   session?: SessionTokenFields | null;
 };
 
-function resolveRunHardTimeoutMs(session?: SessionTokenFields | null): number {
+/** Live prompt size from stream usage (not lifetime session traffic). */
+export function livePromptTokenEstimate(progress: RunProgressState | null | undefined): number {
+  if (!progress) {
+    return 0;
+  }
+  return Math.max(progress.inputTokens ?? 0, progress.totalTokens ?? 0);
+}
+
+function resolveRunHardTimeoutMs(
+  progress?: RunProgressState | null,
+  session?: SessionTokenFields | null,
+): number {
+  const livePrompt = livePromptTokenEstimate(progress);
+  // Huge live prompts fail fast — opposite of healthy mega-session work.
+  if (livePrompt >= CATASTROPHIC_PROMPT_INPUT_TOKEN_THRESHOLD) {
+    return CATASTROPHIC_PROMPT_RUN_HARD_TIMEOUT_MS;
+  }
+  if (livePrompt >= MEGA_PROMPT_INPUT_TOKEN_THRESHOLD) {
+    return MEGA_PROMPT_RUN_HARD_TIMEOUT_MS;
+  }
   if (isMegaSession(session)) {
     return MEGA_SESSION_RUN_HARD_TIMEOUT_MS;
   }
@@ -119,6 +155,21 @@ function resolveRunHardTimeoutMs(session?: SessionTokenFields | null): number {
     return MEGA_SESSION_RUN_HARD_TIMEOUT_MS;
   }
   return RUN_HARD_TIMEOUT_MS;
+}
+
+/** User-facing hard-timeout detail (mega-prompt → start fresh). */
+export function runHardTimeoutDetail(
+  progress?: RunProgressState | null,
+  session?: SessionTokenFields | null,
+): string {
+  const livePrompt = livePromptTokenEstimate(progress);
+  if (livePrompt >= MEGA_PROMPT_INPUT_TOKEN_THRESHOLD) {
+    return MEGA_PROMPT_HARD_TIMEOUT_DETAIL;
+  }
+  if (isMegaSession(session) || (session && sessionTotalTokens(session) >= 500_000)) {
+    return MEGA_PROMPT_HARD_TIMEOUT_DETAIL;
+  }
+  return RUN_HARD_TIMEOUT_DETAIL;
 }
 
 export function isRunAwaitingFirstToken(progress: RunProgressState): boolean {
@@ -136,7 +187,7 @@ export function shouldHardTimeoutRun(
   if (!progress || progress.phase === 'completed' || progress.phase === 'failed') {
     return false;
   }
-  return nowMs - progress.startedAtMs >= resolveRunHardTimeoutMs(session);
+  return nowMs - progress.startedAtMs >= resolveRunHardTimeoutMs(progress, session);
 }
 
 export function msUntilRunHardTimeout(
@@ -144,7 +195,7 @@ export function msUntilRunHardTimeout(
   nowMs = Date.now(),
   session?: SessionTokenFields | null,
 ): number {
-  return Math.max(0, resolveRunHardTimeoutMs(session) - (nowMs - progress.startedAtMs));
+  return Math.max(0, resolveRunHardTimeoutMs(progress, session) - (nowMs - progress.startedAtMs));
 }
 
 export function shouldFailRunAwaitingFirstToken(
