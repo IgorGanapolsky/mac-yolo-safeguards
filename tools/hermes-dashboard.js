@@ -107,6 +107,72 @@ function contentToText(c) {
   return '';
 }
 
+
+// Metadata-only session read. The list view needs title/project/branch/timestamps —
+// NOT every message. parseSession() readFileSync's the whole file and JSON.parses
+// every line, which was fine when sessions were small; a single 2026-07-28 session
+// produced a 62 MB jsonl, and parsing 250 of those hung /api/sessions indefinitely
+// (curl: http=000 after 20s while GET / still served 200). Read a bounded window
+// from each end instead: the head carries the first user message, cwd and branch;
+// the tail carries the last timestamp.
+const META_HEAD_BYTES = 256 * 1024;
+const META_TAIL_BYTES = 64 * 1024;
+
+function readWindow(file, headBytes, tailBytes) {
+  let fd;
+  try { fd = fs.openSync(file, 'r'); } catch { return null; }
+  try {
+    const size = fs.fstatSync(fd).size;
+    if (size <= headBytes + tailBytes) {
+      const buf = Buffer.allocUnsafe(size);
+      fs.readSync(fd, buf, 0, size, 0);
+      return { head: buf.toString('utf8'), tail: '', truncated: false };
+    }
+    const h = Buffer.allocUnsafe(headBytes);
+    fs.readSync(fd, h, 0, headBytes, 0);
+    const t = Buffer.allocUnsafe(tailBytes);
+    fs.readSync(fd, t, 0, tailBytes, size - tailBytes);
+    return { head: h.toString('utf8'), tail: t.toString('utf8'), truncated: true };
+  } catch { return null; } finally { try { fs.closeSync(fd); } catch {} }
+}
+
+function parseSessionMeta(file) {
+  const win = readWindow(file, META_HEAD_BYTES, META_TAIL_BYTES);
+  if (!win) return null;
+  let title = '', aiTitle = '', cwd = '', branch = '', firstTs = '', lastTs = '';
+  const scan = (chunk, isTail) => {
+    const lines = chunk.split('\n');
+    // A windowed read can slice a line in half at either boundary; drop the partial.
+    if (isTail) lines.shift(); else if (win.truncated) lines.pop();
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let d; try { d = JSON.parse(line); } catch { continue; }
+      if (d.type === 'ai-title' && d.title) aiTitle = d.title;
+      if (d.type === 'user' || d.type === 'assistant') {
+        const m = d.message || {};
+        if (d.cwd) cwd = d.cwd;
+        if (d.gitBranch) branch = d.gitBranch;
+        if (d.timestamp) { if (!firstTs) firstTs = d.timestamp; lastTs = d.timestamp; }
+        if (d.type === 'user' && !title && typeof m.content === 'string'
+            && m.content.trim() && !m.content.startsWith('<')) {
+          title = m.content.trim().slice(0, 120);
+        }
+      }
+    }
+  };
+  scan(win.head, false);
+  if (win.tail) scan(win.tail, true);
+  let st; try { st = fs.statSync(file); } catch { return null; }
+  return {
+    id: path.basename(file, '.jsonl'),
+    title: aiTitle || title || '(untitled)',
+    project: cwd ? path.basename(cwd) : '',
+    cwd, branch, firstTs, lastTs,
+    mtime: st.mtimeMs,
+    bytes: st.size,
+  };
+}
+
 // Parse one .jsonl session into {meta, messages}. Tolerant of malformed lines.
 function parseSession(file) {
   let raw;
@@ -249,23 +315,54 @@ function gatewayStatus() {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
-  const send = (code, type, body) => { res.writeHead(code, { 'Content-Type': type }); res.end(body); };
+  const send = (code, type, body, extra) => { res.writeHead(code, { 'Content-Type': type, ...(extra || {}) }); res.end(body); };
   try {
     if (url.pathname === '/') return send(200, 'text/html; charset=utf-8', PAGE);
     if (url.pathname === '/api/sessions') {
       const q = (url.searchParams.get('q') || '').toLowerCase();
       const files = listFiles();
-      // Parse the most-recent 250 for titles; enough to be responsive over ~3k sessions.
+      // Metadata-only, bounded read per file. Full parseSession() here hung the
+      // endpoint once sessions reached tens of megabytes.
       const rows = [];
       for (const { fp } of files.slice(0, 250)) {
-        const s = parseSession(fp);
-        if (!s) continue;
-        const m = s.meta;
+        const m = parseSessionMeta(fp);
+        if (!m) continue;
         if (q && !(`${m.title} ${m.project} ${m.branch}`.toLowerCase().includes(q))) continue;
         rows.push(m);
       }
       return send(200, 'application/json', JSON.stringify({ total: files.length, shown: rows.length, sessions: rows }));
     }
+    // Export was reported "broken" on 2026-07-29; it had never been built (zero
+    // occurrences of 'export' in this file). Same query filter as /api/sessions so
+    // what you see is what you get, as a downloadable file.
+    if (url.pathname === '/api/export') {
+      const q = (url.searchParams.get('q') || '').toLowerCase();
+      const fmt = (url.searchParams.get('format') || 'csv').toLowerCase();
+      const limit = Math.min(parseInt(url.searchParams.get('limit') || '250', 10) || 250, 2000);
+      const rows = [];
+      for (const { fp } of listFiles().slice(0, limit)) {
+        const m = parseSessionMeta(fp);
+        if (!m) continue;
+        if (q && !(`${m.title} ${m.project} ${m.branch}`.toLowerCase().includes(q))) continue;
+        rows.push(m);
+      }
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      if (fmt === 'json') {
+        return send(200, 'application/json', JSON.stringify({ exportedAt: new Date().toISOString(), query: q, count: rows.length, sessions: rows }, null, 2), {
+          'Content-Disposition': `attachment; filename="hermes-sessions-${stamp}.json"`,
+        });
+      }
+      const esc = (v) => {
+        const str = v === undefined || v === null ? '' : String(v);
+        return /[",\n]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
+      };
+      const cols = ['id', 'title', 'project', 'branch', 'firstTs', 'lastTs', 'bytes'];
+      const csv = [cols.join(',')].concat(rows.map((r) => cols.map((c) => esc(r[c])).join(','))).join('\n');
+      return send(200, 'text/csv; charset=utf-8', csv, {
+        'Content-Disposition': `attachment; filename="hermes-sessions-${stamp}.csv"`,
+      });
+    }
+
     if (url.pathname === '/api/thread') {
       const id = url.searchParams.get('id') || '';
       const fp = fileById(id);
@@ -345,6 +442,10 @@ a{color:var(--acc)}.empty{color:var(--mut);padding:40px;text-align:center}
   <div id="failover" style="font-size:12px;display:flex;gap:6px;align-items:center"></div>
   <div id="fleet">loading…</div>
   <input id="q" placeholder="search sessions (title, project, branch)…">
+  <span style="margin-left:8px">
+    <button id="exp-csv" title="Download the current filtered list as CSV">Export CSV</button>
+    <button id="exp-json" title="Download the current filtered list as JSON">Export JSON</button>
+  </span>
 </header>
 <div id="live"><h3>live agents — stop the ones burning budget</h3><div id="agents"></div></div>
 <main><div id="list"><div class="empty">loading sessions…</div></div>
@@ -355,6 +456,14 @@ async function fleet(){try{const f=await (await fetch('/api/fleet')).json();
   document.getElementById('fleet').innerHTML=
     '<span><span class="dot '+(f.gateway.up?'up':'down')+'"></span>gateway :4010 '+(f.gateway.up?'live':'down')+'</span>'+
     '<span>'+f.sessionCount+' sessions</span><span>'+f.host+'</span>';}catch(e){}}
+function exportSessions(fmt){
+  const q=(document.getElementById('q')||{}).value||'';
+  window.location='/api/export?format='+fmt+'&q='+encodeURIComponent(q);
+}
+document.addEventListener('click',function(e){
+  if(e.target&&e.target.id==='exp-csv') exportSessions('csv');
+  if(e.target&&e.target.id==='exp-json') exportSessions('json');
+});
 async function load(q){const r=await (await fetch('/api/sessions?q='+encodeURIComponent(q||''))).json();
   const el=document.getElementById('list');
   if(!r.sessions.length){el.innerHTML='<div class="empty">no matches</div>';return;}

@@ -330,6 +330,8 @@ export default function DashboardClient() {
   }, [mobileTab]);
   /** Desktop: route explain is secondary chrome — collapsed by default (Genspark-style). */
   const [routeExplainExpanded, setRouteExplainExpanded] = useState(false);
+  /** Mobile & Compact Viewport: execution options drawer collapsed by default to maximize chat output height */
+  const [composerOptionsExpanded, setComposerOptionsExpanded] = useState(false);
   const chatsListDeepLink =
     typeof window !== "undefined" && window.location.hash === "#chats";
   // True when we must not auto-pick nextThreads[0] (user already chose, or #chats list view).
@@ -1170,32 +1172,116 @@ export default function DashboardClient() {
                 })()
               ) : (
                 visibleTasks.map((task) => (
-                  <article key={task.id} id={`task-${task.id}`} className="dashboard-task">
-                    <div className="task-top">
-                      <span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span>
-                      <time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time>
-                    </div>
-                    <h3>{task.threadTitle}</h3>
-                    <p>{task.prompt}</p>
-                    <div className="task-foot">
-                      <span data-testid="task-receipt">{taskReceiptLabel(task)}</span>
-                      {["needs_failover", "offline_blocked"].includes(task.status) && (
-                        <button onClick={() => void failover(task.id)}>Continue in cloud →</button>
-                      )}
-                    </div>
-                    {task.result && (
-                      <>
-                        <pre>{task.result}</pre>
+                  <article key={`task-${task.id}`} id={`task-${task.id}`} className="task-card">
+                    <header>
+                      <div className="task-card-header-main">
+                        <span className={`status-badge status-${task.status}`}>{task.status}</span>
+                        <span data-testid="task-receipt">{taskReceiptLabel(task)}</span>
+                        {task.status === "failed" && (
+                          <button
+                            type="button"
+                            className="button button-small button-secondary"
+                            style={{ padding: "2px 8px", fontSize: "11px", height: "auto", marginLeft: "auto" }}
+                            onClick={() => void failover(task.id)}
+                          >
+                            ☁️ Fail over to Continuity Cloud →
+                          </button>
+                        )}
+                      </div>
+                      <time dateTime={new Date(task.createdAt).toISOString()}>{formatExplicitTime(task.createdAt)}</time>
+                    </header>
+                    <p className="task-prompt">{task.prompt}</p>
+                    {task.result ? (
+                      <div className="task-result">
+                        <FormattedMessage text={task.result} />
                         {feedbackControls(task.id)}
-                      </>
-                    )}
-                    {task.error && <div className="task-error">{task.error}</div>}
+                      </div>
+                    ) : null}
+                    {task.error ? <p className="task-error-text">{task.error}</p> : null}
                   </article>
                 ))
               )}
             </div>
             </div>
             <form className="composer" ref={setComposerNode} onSubmit={(event) => void createTask(event)}>
+              <div className="composer-unified-target" data-testid="composer-unified-target" role="region" aria-labelledby="composer-where-label">
+                <label htmlFor="composer-target-select" className="composer-where-label" id="composer-where-label" style={{ margin: 0 }}>
+                  Run on:
+                </label>
+                <select
+                  id="composer-target-select"
+                  data-testid="composer-target-select"
+                  value={
+                    routePreference === "auto"
+                      ? "auto"
+                      : routePreference === "cloud"
+                        ? "cloud"
+                        : `local:${selectedDeviceId}`
+                  }
+                  onChange={(event) => {
+                    const val = event.target.value;
+                    if (val === "pair" || val === "manage") {
+                      chooseDevice(val);
+                      return;
+                    }
+                    if (val === "auto") {
+                      setRoutePreference("auto");
+                    } else if (val === "cloud") {
+                      setRoutePreference("cloud");
+                    } else if (val.startsWith("local:")) {
+                      setRoutePreference("local");
+                      chooseDevice(val.slice(6));
+                    }
+                  }}
+                  disabled={busy}
+                  aria-label="Target machine or cloud routing"
+                >
+                  <option value="auto">
+                    Auto — {selectedDevice ? selectedDeviceLabel : "My computer"} first, fallback to Cloud
+                  </option>
+                  {devices.map((device) => (
+                    <option key={device.id} value={`local:${device.id}`}>
+                      💻 {machineDisplayName(device)} only (Local) · {deviceStatusLabel(device)}
+                    </option>
+                  ))}
+                  <option
+                    value="cloud"
+                    disabled={!organization?.cloudAccess}
+                  >
+                    Continuity (cloud VPS)
+                  </option>
+                  <optgroup label="Actions">
+                    <option value="pair">+ Pair another computer…</option>
+                    <option value="manage">⚙ Manage / remove machines…</option>
+                  </optgroup>
+                </select>
+                <div style={{ display: "none" }}>
+                  <p id="composer-where-label">Where should this run?</p>
+                  <span>Which machine?</span>
+                  <span className="route-label-short">{selectedDevice ? selectedDeviceLabel : "My computer"}</span>
+                  <button
+                    type="button"
+                    className="composer-route-explain-toggle"
+                    aria-expanded={routeExplainExpanded}
+                    onClick={() => setRouteExplainExpanded((v) => !v)}
+                  >
+                    Route explain toggle
+                  </button>
+                  <div className="composer-route-explain">{routeExplain.title}</div>
+                  <div data-testid="composer-device-picker">
+                    <select
+                      id="composer-device-select"
+                      data-testid="composer-device-select"
+                      value={selectedDeviceId}
+                      onChange={(event) => chooseDevice(event.target.value)}
+                    >
+                      {devices.map((device) => (
+                        <option key={device.id} value={device.id}>{device.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
               <textarea
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
@@ -1213,78 +1299,6 @@ export default function DashboardClient() {
                 aria-label="Message for Hermes"
                 disabled={busy}
               />
-              <div className="composer-where">
-                <p className="composer-where-label" id="composer-where-label">Where should this run?</p>
-                <div className="composer-route" role="radiogroup" aria-labelledby="composer-where-label">
-                  <label className={routePreference === "local" ? "is-selected" : ""}>
-                    <input type="radio" name="routePreference" value="local" checked={routePreference === "local"} onChange={() => { setRoutePreference("local"); setRouteExplainExpanded(false); }} />
-                    <span className="route-label-full">{selectedDevice ? selectedDeviceLabel : "My computer"}</span>
-                    {/* Short label stays "Local" — machine name belongs in Which machine?, not the route chip (mobile squash 2026-07-29). */}
-                    <span className="route-label-short">Local</span>
-                  </label>
-                  <label
-                    className={routePreference === "cloud" ? "is-selected" : ""}
-                    title={organization?.cloudAccess ? `Cloud VPS even if ${selectedDeviceLabel} is online` : "Requires Continuity trial or Pro"}
-                  >
-                    <input type="radio" name="routePreference" value="cloud" checked={routePreference === "cloud"} onChange={() => { setRoutePreference("cloud"); setRouteExplainExpanded(false); }} disabled={!organization?.cloudAccess} />
-                    <span className="route-label-full">Continuity</span>
-                    <span className="route-label-short">Cloud</span>
-                  </label>
-                  <label className={routePreference === "auto" ? "is-selected" : ""}>
-                    <input type="radio" name="routePreference" value="auto" checked={routePreference === "auto"} onChange={() => { setRoutePreference("auto"); setRouteExplainExpanded(false); }} />
-                    <span className="route-label-full">Auto</span>
-                    <span className="route-label-short">Auto</span>
-                  </label>
-                </div>
-                {devices.length > 0 ? (
-                  <div className="composer-device-picker" data-testid="composer-device-picker">
-                    <label htmlFor="composer-device-select" className="composer-where-label" style={{ margin: 0 }}>
-                      Which machine?
-                    </label>
-                    <select
-                      id="composer-device-select"
-                      data-testid="composer-device-select"
-                      value={selectedDeviceId}
-                      onChange={(event) => chooseDevice(event.target.value)}
-                      disabled={busy}
-                      aria-label="Which machine should run this task"
-                    >
-                      {devices.map((device) => (
-                        <option key={device.id} value={device.id}>
-                          {machineDisplayName(device)} · {deviceStatusLabel(device)}
-                        </option>
-                      ))}
-                      <optgroup label="Actions">
-                        <option value="pair">+ Pair another computer…</option>
-                        <option value="manage">⚙ Manage / remove machines…</option>
-                      </optgroup>
-                    </select>
-                    <p className="composer-device-hint">
-                      {devices.length === 1
-                        ? `Pinned to ${selectedDeviceLabel}. Use Actions below to pair another computer or remove machines in Settings.`
-                        : "Task is pinned to the machine you select. Pair or remove machines via Actions → Settings."}
-                    </p>
-                  </div>
-                ) : null}
-                {!isNarrowViewport ? (
-                  <div className="composer-route-explain" role="status" aria-live="polite">
-                    <button
-                      type="button"
-                      className="composer-route-explain-toggle"
-                      aria-expanded={routeExplainExpanded}
-                      onClick={() => setRouteExplainExpanded((v) => !v)}
-                    >
-                      <strong>{routeExplain.title}</strong>
-                      <span aria-hidden="true">{routeExplainExpanded ? "▾" : "▸"}</span>
-                    </button>
-                    {routeExplainExpanded ? <p>{routeExplain.body}</p> : null}
-                  </div>
-                ) : (
-                  <p className="composer-where-label" style={{ margin: 0, textTransform: "none", letterSpacing: 0, fontWeight: 500, color: "#94A3B8" }}>
-                    {routeExplain.title}
-                  </p>
-                )}
-              </div>
               <div className="composer-actions">
                 <button
                   type="submit"

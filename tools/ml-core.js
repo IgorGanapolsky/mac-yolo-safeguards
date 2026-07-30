@@ -212,6 +212,18 @@ function featureImportance(weights, featureKeys) {
   }));
 }
 
+/** MRR@k (Mean Reciprocal Rank) for ranked retrieval: 1 / (rank of first relevant item, 1-indexed) */
+function mrrAtK(rankedPaths, relevantSubstrings, k) {
+  const top = rankedPaths.slice(0, k);
+  for (let i = 0; i < top.length; i += 1) {
+    const p = top[i];
+    if (relevantSubstrings.some((sub) => p.includes(sub) || p.replace(/\\/g, '/').includes(sub))) {
+      return Number((1 / (i + 1)).toFixed(4));
+    }
+  }
+  return 0;
+}
+
 /** nDCG@k for ranked retrieval with binary per-path relevance (capped ≤ 1). */
 function ndcgAtK(rankedPaths, relevantSubstrings, k) {
   const rel = (path) =>
@@ -223,7 +235,12 @@ function ndcgAtK(rankedPaths, relevantSubstrings, k) {
   const dcg = pathRel.reduce((s, r, i) => s + r / Math.log2(i + 2), 0);
   // Ideal: all relevant docs first. Count = min(k, relevant hits in top-k list)
   // so multiple matches for one substring don't invent nDCG > 1.
-  const idealCount = Math.min(k, pathRel.reduce((s, r) => s + r, 0) || relevantSubstrings.length);
+  // Ideal ranking is over the docs we KNOW are relevant, not the ones we happened to
+  // retrieve. Deriving it from observed hits made partial retrieval score perfectly:
+  // measured 2026-07-29, retrieving 1 of 2 required docs at rank 1 returned nDCG=1.0000
+  // where the correct value is 0.6131. The metric could not penalise a miss, which is
+  // most of what nDCG is for.
+  const idealCount = Math.min(k, relevantSubstrings.length);
   let idcg = 0;
   for (let i = 0; i < idealCount; i += 1) idcg += 1 / Math.log2(i + 2);
   if (idcg === 0) return pathRel.some(Boolean) ? 1 : 0;
@@ -281,6 +298,7 @@ module.exports = {
   fitPlatt,
   crossValidate,
   featureImportance,
+  mrrAtK,
   ndcgAtK,
   twoProportionTest,
   normalCdf,

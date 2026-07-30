@@ -151,3 +151,39 @@ test("keeps secrets server-side, redirects mutable, and device requests signed",
   assert.match(logout, /"set-cookie": clearSessionCookie\(\)/);
   assert.doesNotMatch(callback, /localStorage|sessionStorage/);
 });
+
+test("mobile layout contract: Hermes Tab 1 on far left, strict pane isolation, and fixed bottom dock", async () => {
+  const [dashboard, globalsCss] = await Promise.all([
+    readFile(new URL("../app/dashboard/DashboardClient.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  // 1. Tab Order: H Hermes MUST be the 1st link inside <nav className="mobile-web-tabs">
+  const tabsNavMatch = dashboard.match(/<nav className="mobile-web-tabs"[\s\S]*?<\/nav>/);
+  assert.ok(tabsNavMatch, "mobile-web-tabs nav element must exist in DashboardClient");
+  const tabsNavHtml = tabsNavMatch[0];
+  const firstTabHref = tabsNavHtml.match(/<a href="([^"]+)"/)?.[1];
+  assert.equal(firstTabHref, "#hermes-console", "H Hermes MUST be Tab 1 on the far left");
+
+  // 2. Pane Isolation: hermes tab MUST hide right-rail and sidebar so connection panel never overlaps chat
+  assert.match(
+    globalsCss,
+    /\.dashboard-shell\[data-mobile-tab="hermes"\] \.sidebar,\s*\.dashboard-shell\[data-mobile-tab="hermes"\] \.right-rail\s*\{\s*display:\s*none !important;/i,
+    "hermes tab must hide sidebar and right-rail using display: none !important",
+  );
+
+  // 3. Fixed Dock: mobile-web-tabs MUST be fixed at bottom of viewport with high z-index
+  assert.match(
+    globalsCss,
+    /\.mobile-web-tabs\s*\{\s*position:\s*fixed !important;[\s\S]*?z-index:\s*100 !important;[\s\S]*?bottom:\s*0 !important;/i,
+    "mobile-web-tabs must have position: fixed !important; z-index: 100 !important; bottom: 0 !important;",
+  );
+
+  // 4. Smooth Scrolling: leash and settings tabs MUST enable vertical scroll
+  assert.match(
+    globalsCss,
+    /\.dashboard-shell\[data-mobile-tab="leash"\] \.right-rail,\s*\.dashboard-shell\[data-mobile-tab="settings"\] \.right-rail[\s\S]*?overflow-y:\s*auto !important;/i,
+    "leash and settings tabs must allow overflow-y: auto !important on right-rail",
+  );
+});
+

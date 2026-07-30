@@ -19,6 +19,9 @@ const EVENTS = new Set([
   "client_error",
   // Dashboard chrome (existing clients may emit).
   "dashboard_open_click",
+  // Landing auth chrome (high-intent purchase signals).
+  "manage_billing_click",
+  "upgrade_pro_click",
 ]);
 
 const ALLOWED_ERROR_CLASSES = new Set([

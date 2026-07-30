@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { collectExpertiseData } from "./expertise-data.ts";
+// No `.ts` extension: TS5097 rejects it unless `allowImportingTsExtensions` is on,
+// and enabling that is a tsconfig-wide change owned by no one here. Resolution is
+// unaffected — vitest resolves the extensionless specifier identically. The
+// `vi.mock("./runtime.ts")` call below is a string argument, not an import, so it
+// is not subject to the same rule and is left alone.
+import { collectExpertiseData } from "./expertise-data";
 
 vi.mock("./runtime.ts", () => ({
   db: vi.fn(() => ({

@@ -75,9 +75,9 @@ export function resolveComputerPickerStatus(
       kind: 'searching',
       title: 'Searching for your computer…',
       detail:
-        input.tailscaleVpnActive
+        input.tailscaleVpnActive || input.tailscaleProbing
           ? 'Looking on Wi‑Fi and Tailscale. Keep Hermes open on your computer.'
-          : 'Looking on Wi‑Fi. Tailscale is off on this phone.',
+          : 'Looking on Wi‑Fi and network. If using Tailscale, paste your 100.x IP below.',
       discoveries: [],
     };
   }
@@ -174,7 +174,7 @@ export function resolveComputerPickerStatus(
   if (!input.tailscaleVpnActive) {
     return {
       kind: 'help',
-      title: 'Tailscale looks off on this phone',
+      title: 'Tailscale status unconfirmed',
       detail:
         'Turn on Tailscale to find computers away from home Wi‑Fi, or enter a 100.x address below.',
       discoveries: [],

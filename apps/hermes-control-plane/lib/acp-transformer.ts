@@ -19,6 +19,13 @@ export type AcpMessage = {
     nostrEventId?: string;
     targetMachine?: string;
     fencedSafetyToken?: string;
+    /**
+     * Who the response is addressed to. `transformHermesResultToAcp` has always set
+     * this from its `recipientId` argument, but the field was never declared here,
+     * so the object literal failed to typecheck (TS2353). Declaring it matches the
+     * behaviour that already exists rather than changing it.
+     */
+    recipientId?: string;
   };
 };
 

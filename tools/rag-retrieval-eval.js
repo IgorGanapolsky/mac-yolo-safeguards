@@ -14,7 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { ndcgAtK } = require('./ml-core');
+const { ndcgAtK, mrrAtK } = require('./ml-core');
 
 const REPO = path.resolve(__dirname, '..');
 const DEFAULT_FIXTURE = path.join(REPO, 'tests/fixtures/rag-eval/cases.json');
@@ -66,6 +66,8 @@ function evaluateCase(testCase) {
       pass: false,
       k,
       recallAtK: 0,
+      mrrAtK: 0,
+      ndcgAtK: 0,
       missing: testCase.mustIncludePathSubstrings || [],
       paths: [],
       error: run.error,
@@ -78,11 +80,16 @@ function evaluateCase(testCase) {
   const hit = required.length - missing.length;
   const recallAtK = required.length ? hit / required.length : 1;
   const ndcg = ndcgAtK(run.paths, required, k);
+  // MRR answers the question an agent actually has: is the FIRST result the right one?
+  // Recall says "somewhere in the top 8" — that still costs the agent 8 file reads.
+  // mrrAtK already existed in ml-core and was simply never reported.
+  const mrr = mrrAtK(run.paths, required, k);
   return {
     id: testCase.id,
     pass: missing.length === 0,
     k,
     recallAtK,
+    mrrAtK: mrr,
     ndcgAtK: ndcg,
     missing,
     paths: run.paths.slice(0, k),
@@ -107,6 +114,10 @@ function main() {
     results.length === 0
       ? 0
       : results.reduce((sum, r) => sum + r.recallAtK, 0) / results.length;
+  const meanMrr =
+    results.length === 0
+      ? 0
+      : results.reduce((sum, r) => sum + (r.mrrAtK || 0), 0) / results.length;
   const meanNdcg =
     results.length === 0
       ? 0
@@ -117,19 +128,21 @@ function main() {
     caseCount: results.length,
     passCount,
     meanRecallAtK: Number(meanRecall.toFixed(4)),
+    meanMrrAtK: Number(meanMrr.toFixed(4)),
     meanNdcgAtK: Number(meanNdcg.toFixed(4)),
+    meanMrrAtK: Number(meanMrr.toFixed(4)),
     results,
   };
   if (args.json) {
     console.log(JSON.stringify(report, null, 2));
   } else {
     console.log(
-      `RAG retrieval eval: ${passCount}/${results.length} cases pass · mean recall@k=${report.meanRecallAtK} · mean nDCG@k=${report.meanNdcgAtK}`,
+      `RAG retrieval eval: ${passCount}/${results.length} cases pass · mean recall@k=${report.meanRecallAtK} · mean MRR@k=${report.meanMrrAtK} · mean MRR@k=${report.meanMrrAtK} · mean nDCG@k=${report.meanNdcgAtK}`,
     );
     for (const r of results) {
       const mark = r.pass ? 'PASS' : 'FAIL';
       console.log(
-        `  [${mark}] ${r.id} recall@${r.k}=${r.recallAtK.toFixed(2)} nDCG=${(r.ndcgAtK || 0).toFixed(2)}${r.error ? ` · ${r.error}` : ''}`,
+        `  [${mark}] ${r.id} recall@${r.k}=${r.recallAtK.toFixed(2)} MRR=${(r.mrrAtK || 0).toFixed(2)} nDCG=${(r.ndcgAtK || 0).toFixed(2)} MRR=${(r.mrrAtK || 0).toFixed(2)}${r.error ? ` · ${r.error}` : ''}`,
       );
       if (r.missing?.length) console.log(`         missing: ${r.missing.join(', ')}`);
     }

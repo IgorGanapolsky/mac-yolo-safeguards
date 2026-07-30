@@ -40,6 +40,48 @@ Do **not** use Obsidian Sync for this — git is the cross-machine, cross-teamma
 
 **Rule:** Task locks and file ownership live in each repo's `plan.md`. Cross-project status, people, and durable decisions live in **AI-Agent-Sync**.
 
+### Singleton resources: leases, not locks
+
+`plan.md` §2 locks **files** and never expires. That is correct for source code — a half-finished
+edit *should* block others until a human looks.
+
+It is wrong for **shared singletons**: the Chrome profile, the operator's social sessions, the
+Gmail session, a production deploy, an attached simulator. Only one agent can hold these at a
+time, and an append-only lock means one crashed agent blocks the browser forever.
+
+Those use **expiring leases**:
+
+```bash
+node tools/resource-lease.js status                    # what's held right now
+node tools/resource-lease.js acquire chrome --holder <agent-id> --ttl 900 --task <task-id>
+node tools/resource-lease.js renew   chrome --holder <agent-id>
+node tools/resource-lease.js release chrome --holder <agent-id>
+```
+
+| Resource | Covers |
+|---|---|
+| `chrome` | The Chrome profile driven by claude-in-chrome / browser MCP |
+| `social-publish` | Posting to LinkedIn / X / Bluesky / Threads as the operator |
+| `gmail` | The iganapolsky@gmail.com session (read or send) |
+| `cloudflare-deploy` | `wrangler deploy` / D1 migrations against production |
+| `simulator` | iOS / Android simulator or attached device |
+
+**Contract**
+
+- **Exit code 2 means denied — do not touch the resource.** Not a warning.
+- Acquisition is atomic (`O_EXCL`); two agents racing cannot both win.
+- Leases expire (default 15 min) so a dead holder self-heals. Takeovers are recorded.
+- `release` expires the lease in place rather than deleting it, so it works on filesystems that
+  refuse `unlink`, and leaves an audit trail of who held what.
+- Long jobs should `renew` rather than acquire a huge TTL — a lease you can't outlive is a lock.
+
+**Why:** on 2026-07-29 two agents drove the same Chrome profile at once. One was mid-publish on
+LinkedIn; the other navigated the tab to Gmail. The post survived; the follow-up comment was lost.
+Blind retries in that state risk double-posting, which the content-engine guardrails forbid.
+
+If the tab you are driving navigates somewhere you did not send it, that is **contention, not a
+platform block**. Re-read actual state before retrying, and check the lease table.
+
 ### Replit Agent vault sync
 
 Replit runs in a separate clone (phone preview). It participates in the fleet via git-synced vault files:

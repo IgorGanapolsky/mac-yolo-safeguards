@@ -401,11 +401,25 @@ async function executeLocal(config, task) {
     ? `Cloud/web continuation since this Mac last synced:\n${task.handoffMessages.map((message) => `${message.role}: ${message.content}`).join('\n\n').slice(-24_000)}`
     : undefined;
   const systemMessage = [webCreatedSession ? buildWebSessionSystemPrompt(config, task) : '', handoff || ''].filter(Boolean).join('\n\n');
-  const payload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(task.sourceSessionId)}/chat`, {
-    method: 'POST', gatewayEnvPath: config.gatewayEnvPath,
-    body: JSON.stringify({ message: task.prompt, ...(systemMessage ? { system_message: systemMessage } : {}) }),
-  });
-  return contentText(payload.message?.content || payload.output || payload.content || payload.response) || JSON.stringify(payload);
+  try {
+    const payload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(task.sourceSessionId)}/chat`, {
+      method: 'POST', gatewayEnvPath: config.gatewayEnvPath,
+      body: JSON.stringify({ message: task.prompt, ...(systemMessage ? { system_message: systemMessage } : {}) }),
+    });
+    return contentText(payload.message?.content || payload.output || payload.content || payload.response) || JSON.stringify(payload);
+  } catch (error) {
+    const msg = String(error?.message || error || '').toLowerCase();
+    if (msg.includes('session not found') || msg.includes('session_not_found') || msg.includes('no such session')) {
+      console.log(`[hermes-cloud-connector] Session ${task.sourceSessionId} missing from local gateway. Auto-recreating session...`);
+      await ensureWebHermesSession(config, task);
+      const retryPayload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(task.sourceSessionId)}/chat`, {
+        method: 'POST', gatewayEnvPath: config.gatewayEnvPath,
+        body: JSON.stringify({ message: task.prompt, ...(systemMessage ? { system_message: systemMessage } : {}) }),
+      });
+      return contentText(retryPayload.message?.content || retryPayload.output || retryPayload.content || retryPayload.response) || JSON.stringify(retryPayload);
+    }
+    throw error;
+  }
 }
 
 async function withLeaseRenewal(work, renew, intervalMs = LEASE_RENEW_MS) {
