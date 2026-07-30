@@ -69,6 +69,9 @@ function parseArgs(argv = process.argv.slice(2)) {
     maxBytes: 240000,
     json: false,
     help: false,
+    rewrite: false,
+    pathInclude: [],
+    pathExclude: [],
   };
 
   if (argv[0] && !argv[0].startsWith('--')) {
@@ -87,7 +90,12 @@ function parseArgs(argv = process.argv.slice(2)) {
     else if (arg === '--max-files') args.maxFiles = Number(requireValue(argv, ++index, arg));
     else if (arg === '--max-bytes') args.maxBytes = Number(requireValue(argv, ++index, arg));
     else if (arg === '--json') args.json = true;
-    else if (arg === '--help' || arg === '-h') args.help = true;
+    else if (arg === '--rewrite') args.rewrite = true;
+    else if (arg === '--path-include') {
+      args.pathInclude = String(requireValue(argv, ++index, arg)).split(',').filter(Boolean);
+    } else if (arg === '--path-exclude') {
+      args.pathExclude = String(requireValue(argv, ++index, arg)).split(',').filter(Boolean);
+    } else if (arg === '--help' || arg === '-h') args.help = true;
     else if (!args.query && args.command === 'retrieve') args.query = arg;
     else throw new Error(`Unknown argument: ${arg}`);
   }
@@ -200,6 +208,7 @@ function scoreFile(queryTokens, relativePath, text) {
   const textSet = new Set(textTokens);
   let score = 0;
   const reasons = [];
+  const normPath = String(relativePath || '').replace(/\\/g, '/');
 
   for (const token of queryTokens) {
     const pathHits = pathTokens.filter((pathToken) => pathToken.includes(token) || token.includes(pathToken)).length;
@@ -219,7 +228,26 @@ function scoreFile(queryTokens, relativePath, text) {
     }
   }
 
-  return { score, reasons: [...new Set(reasons)].slice(0, 6) };
+  // Prefer product route modules over tooling/docs when scores are dense.
+  if (score > 0) {
+    if (normPath.includes('/app/api/')) {
+      score += 12;
+      reasons.push('meta:api-route');
+    } else if (normPath.includes('/app/dashboard/')) {
+      score += 10;
+      reasons.push('meta:dashboard');
+    } else if (normPath.includes('/src/') || normPath.includes('/lib/')) {
+      score += 4;
+      reasons.push('meta:src');
+    }
+    // Penalize tests/mocks only — curated docs/HERMES-* and docs/RESEARCH-* stay first-class.
+    if (/(^|\/)(tests?|__tests__|mocks?|fixtures|testdata)\//.test(normPath) || /\.test\.|\.spec\./.test(normPath)) {
+      score = Math.max(1, Math.round(score * 0.55));
+      reasons.push('meta:test-penalty');
+    }
+  }
+
+  return { score, reasons: [...new Set(reasons)].slice(0, 8) };
 }
 
 function firstSnippet(text, queryTokens) {
@@ -237,13 +265,68 @@ function firstSnippet(text, queryTokens) {
     .slice(0, 360);
 }
 
+/** Parent–child lite: score fixed line windows so large files are not one blob. */
+const CHILD_WINDOW_LINES = 80;
+const CHILD_WINDOW_STRIDE = 60;
+const CHILD_MIN_FILE_LINES = 160;
+
+function scoreParentChildWindows(queryTokens, relativePath, text) {
+  const lines = String(text || '').split('\n');
+  if (lines.length < CHILD_MIN_FILE_LINES) {
+    return null;
+  }
+  let best = null;
+  for (let start = 0; start < lines.length; start += CHILD_WINDOW_STRIDE) {
+    const end = Math.min(lines.length, start + CHILD_WINDOW_LINES);
+    const chunk = lines.slice(start, end).join('\n');
+    const scored = scoreFile(queryTokens, relativePath, chunk);
+    if (scored.score <= 0) continue;
+    // Prefer denser windows slightly so parent whole-file fluff loses
+    const density = scored.score / Math.max(1, end - start);
+    const rankKey = scored.score * 10 + density;
+    if (!best || rankKey > best.rankKey) {
+      best = {
+        rankKey,
+        score: scored.score + 2, // small boost: precise child beat diffuse parent
+        reasons: [...scored.reasons, 'parent-child-window'],
+        snippet: firstSnippet(chunk, queryTokens),
+        child: { startLine: start + 1, endLine: end },
+      };
+    }
+    if (end >= lines.length) break;
+  }
+  return best;
+}
+
+function pathFilterOk(relativePath, options = {}) {
+  const norm = String(relativePath || '').replace(/\\/g, '/');
+  const include = options.pathInclude || [];
+  const exclude = options.pathExclude || [];
+  if (exclude.some((ex) => norm.includes(ex))) return false;
+  if (include.length && !include.some((inc) => norm.includes(inc))) return false;
+  return true;
+}
+
 function retrieve(query, options = {}) {
   const repo = path.resolve(options.repo || DEFAULT_REPO);
-  const queryTokens = tokenize(query);
+  let effectiveQuery = query;
+  let rewriteMeta = null;
+  if (options.rewrite) {
+    try {
+      // Optional dependency — dual-path also rewrites; harness can alone.
+      const { rewriteQuery } = require('./retrieval-query-rewrite');
+      rewriteMeta = rewriteQuery(query);
+      effectiveQuery = rewriteMeta.rewritten || query;
+    } catch {
+      rewriteMeta = null;
+    }
+  }
+  const queryTokens = tokenize(effectiveQuery);
   if (queryTokens.length === 0) throw new Error('retrieve requires a non-empty query');
   const inventory = buildInventory(options);
   const candidates = [];
   for (const file of inventory.files) {
+    if (!pathFilterOk(file.path, options)) continue;
     const fullPath = path.join(repo, file.path);
     let text = '';
     try {
@@ -251,19 +334,35 @@ function retrieve(query, options = {}) {
     } catch (error) {
       continue;
     }
-    const scored = scoreFile(queryTokens, file.path, text);
-    if (scored.score <= 0) continue;
-    candidates.push({
-      path: file.path,
-      score: scored.score,
-      bytes: file.bytes,
-      reasons: scored.reasons,
-      snippet: firstSnippet(text, queryTokens),
-    });
+    const parentScored = scoreFile(queryTokens, file.path, text);
+    const childScored = scoreParentChildWindows(queryTokens, file.path, text);
+    let chosen = null;
+    if (childScored && (!parentScored.score || childScored.score >= parentScored.score)) {
+      chosen = {
+        path: file.path,
+        score: childScored.score,
+        bytes: file.bytes,
+        reasons: childScored.reasons,
+        snippet: childScored.snippet,
+        parentPath: file.path,
+        child: childScored.child,
+      };
+    } else if (parentScored.score > 0) {
+      chosen = {
+        path: file.path,
+        score: parentScored.score,
+        bytes: file.bytes,
+        reasons: parentScored.reasons,
+        snippet: firstSnippet(text, queryTokens),
+      };
+    }
+    if (chosen) candidates.push(chosen);
   }
   candidates.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
   return {
     query,
+    effectiveQuery,
+    rewrite: rewriteMeta,
     repo,
     fileCount: inventory.fileCount,
     matches: candidates.slice(0, options.limit || 8),
@@ -396,9 +495,11 @@ module.exports = {
   grep,
   main,
   parseArgs,
+  pathFilterOk,
   readFileRange,
   retrieve,
   safeRepoPath,
+  scoreParentChildWindows,
   tokenize,
   walkFiles,
 };
