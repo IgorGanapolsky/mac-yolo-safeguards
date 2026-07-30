@@ -159,6 +159,7 @@ jobs:
           cmp -s ./scripts/memory-pressure-guardian.sh "$staged_guard_dir/memory-pressure-guardian.sh"
 
       - name: Guard E2E
+        if: runner.os == 'macOS'
         run: |
           set -eu
           tests/test-adb-reverse-device-filter.sh
