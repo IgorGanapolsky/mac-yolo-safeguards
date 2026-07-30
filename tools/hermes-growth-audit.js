@@ -162,7 +162,7 @@ function auditRequiredHeroCtas(file, body, root) {
     const rawUrl = match[0].replace(/[.,;:]+$/, '');
     return new URL(rawUrl);
   });
-  const checkedCampaigns = new Set();
+  const missingHeroCampaigns = new Set();
 
   for (const match of body.matchAll(ATTRIBUTED_STORE_URL)) {
     const rawUrl = match[0].replace(/[.,;:]+$/, '');
@@ -191,8 +191,6 @@ function auditRequiredHeroCtas(file, body, root) {
     if (expected === 'reddit' || source === 'reddit') continue;
 
     const campaignKey = `${source}\u0000${campaign}`;
-    if (checkedCampaigns.has(campaignKey)) continue;
-    checkedCampaigns.add(campaignKey);
     const matchingHeroes = heroes.filter(
       (hero) =>
         hero.searchParams.get('utm_source') === source &&
@@ -203,12 +201,15 @@ function auditRequiredHeroCtas(file, body, root) {
         ),
     );
     if (matchingHeroes.length === 0) {
-      findings.push({
-        rule: 'missing-required-hero-cta',
-        file: path.relative(root, file),
-        line: body.slice(0, match.index).split(/\r?\n/).length,
-        excerpt: `source=${source} campaign=${campaign}`,
-      });
+      if (!missingHeroCampaigns.has(campaignKey)) {
+        missingHeroCampaigns.add(campaignKey);
+        findings.push({
+          rule: 'missing-required-hero-cta',
+          file: path.relative(root, file),
+          line: body.slice(0, match.index).split(/\r?\n/).length,
+          excerpt: `source=${source} campaign=${campaign}`,
+        });
+      }
     } else if (
       matchingHeroes.some(
         (hero) => hero.searchParams.get('cta_id') === ctaId,

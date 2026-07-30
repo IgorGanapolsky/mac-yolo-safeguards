@@ -343,22 +343,27 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
   const mixedMeasurable = rows.filter(
     (r) => r.journeyType === 'mixed' && r.attributedTotal >= minEvents,
   );
-  const hasMixedJourneys =
-    mixedMeasurable.length > 0 ||
-    (landingMeasurable.length > 0 && directMeasurable.length > 0);
-  const measurable = hasMixedJourneys
+  const hasCrossJourneyCohorts =
+    landingMeasurable.length > 0 && directMeasurable.length > 0;
+  const hasOnlyMixedData =
+    mixedMeasurable.length > 0 &&
+    landingMeasurable.length === 0 &&
+    directMeasurable.length === 0;
+  const hasUnusableJourneyMix =
+    hasCrossJourneyCohorts || hasOnlyMixedData;
+  const measurable = hasUnusableJourneyMix
     ? []
     : landingMeasurable.length > 0
       ? landingMeasurable
       : directMeasurable;
   const comparisonJourney =
-    hasMixedJourneys || measurable.length === 0
+    hasUnusableJourneyMix || measurable.length === 0
       ? null
       : measurable[0].journeyType;
   let winner = null;
   let runnerUp = null;
   let decision = 'INSUFFICIENT_DATA';
-  if (hasMixedJourneys) {
+  if (hasUnusableJourneyMix) {
     decision = 'MIXED_JOURNEYS';
   } else if (measurable.length >= 2) {
     winner = measurable[0];
@@ -377,6 +382,11 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
   if (decision === 'MIXED_JOURNEYS') {
     lessons.push(
       'Direct-store and landing-page journeys are reported separately; campaigns that reuse one campaign across both journey types are fail-closed as mixed. Collect enough campaigns within one clean journey cohort before crowning a winner.',
+    );
+  }
+  if (mixedMeasurable.length > 0 && decision !== 'MIXED_JOURNEYS') {
+    lessons.push(
+      `${mixedMeasurable.length} internally mixed campaign(s) were excluded from the clean ${comparisonJourney} comparison cohort.`,
     );
   }
   if (decision === 'INSUFFICIENT_DATA') {

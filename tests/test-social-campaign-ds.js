@@ -225,8 +225,8 @@ test('buildScoreboard refuses a campaign with landing and direct-store CTAs', ()
     minEvents: 5,
   });
 
-  assert.strictEqual(report.decision, 'MIXED_JOURNEYS');
-  assert.strictEqual(report.winner, null);
+  assert.strictEqual(report.decision, 'SINGLE_VARIANT');
+  assert.strictEqual(report.winner.campaign, 'landing-control');
   const mixed = report.campaigns.find(
     (campaign) => campaign.campaign === 'dual-campaign',
   );
@@ -234,6 +234,88 @@ test('buildScoreboard refuses a campaign with landing and direct-store CTAs', ()
   assert.strictEqual(mixed.ctrProxy, null);
   assert.strictEqual(mixed.landingStoreClicks, 5);
   assert.strictEqual(mixed.directStoreClicks, 5);
+});
+
+test('buildScoreboard excludes an internally mixed campaign from clean landing cohorts', () => {
+  const report = buildScoreboard({
+    contentRows: [
+      {
+        date: '2026-07-30',
+        platform: 'LinkedIn',
+        hook: 'winner',
+        campaign: 'clean-winner',
+        status: 'Published',
+        postUrl: 'https://linkedin.com/winner',
+      },
+      {
+        date: '2026-07-30',
+        platform: 'X',
+        hook: 'runner',
+        campaign: 'clean-runner',
+        status: 'Published',
+        postUrl: 'https://x.com/runner',
+      },
+      {
+        date: '2026-07-30',
+        platform: 'Medium',
+        hook: 'mixed',
+        campaign: 'unrelated-mixed',
+        status: 'Published',
+        postUrl: 'https://medium.com/mixed',
+      },
+    ],
+    attributionRows: [
+      {
+        event: 'landing_view',
+        utmCampaign: 'clean-winner',
+        ctaId: 'clean-winner_home',
+        count: 20,
+      },
+      {
+        event: 'play_store_click',
+        utmCampaign: 'clean-winner',
+        ctaId: 'clean-winner_home',
+        count: 10,
+      },
+      {
+        event: 'landing_view',
+        utmCampaign: 'clean-runner',
+        ctaId: 'clean-runner_home',
+        count: 10,
+      },
+      {
+        event: 'play_store_click',
+        utmCampaign: 'clean-runner',
+        ctaId: 'clean-runner_home',
+        count: 5,
+      },
+      {
+        event: 'landing_view',
+        utmCampaign: 'unrelated-mixed',
+        ctaId: 'unrelated-mixed_home',
+        count: 10,
+      },
+      {
+        event: 'play_store_click',
+        utmCampaign: 'unrelated-mixed',
+        ctaId: 'unrelated-mixed_home',
+        count: 5,
+      },
+      {
+        event: 'play_store_click',
+        utmCampaign: 'unrelated-mixed',
+        ctaId: 'unrelated-mixed_play',
+        count: 50,
+      },
+    ],
+    lookbackDays: 30,
+    minEvents: 5,
+  });
+
+  assert.strictEqual(report.decision, 'WINNER');
+  assert.strictEqual(report.winner.campaign, 'clean-winner');
+  assert.strictEqual(report.runnerUp.campaign, 'clean-runner');
+  assert.strictEqual(report.comparisonJourney, 'landing');
 });
 
 test('buildScoreboard treats store clicks above same-CTA landing capacity as mixed', () => {

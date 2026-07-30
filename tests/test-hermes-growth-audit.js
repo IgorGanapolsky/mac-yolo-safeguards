@@ -271,7 +271,8 @@ test('publishable copy audit rejects one CTA ID reused for hero and direct-store
     [
       '# LinkedIn launch',
       'https://thumbgate.app/?utm_source=linkedin&utm_medium=social&utm_campaign=launch&cta_id=linkedin_home',
-      'https://thumbgate.app/go/android?utm_source=linkedin&utm_medium=organic&utm_campaign=launch&cta_id=linkedin_home',
+      'https://thumbgate.app/go/android?utm_source=linkedin&utm_medium=organic&utm_campaign=launch&cta_id=linkedin_play',
+      'https://thumbgate.app/go/ios?utm_source=linkedin&utm_medium=organic&utm_campaign=launch&cta_id=linkedin_home',
     ].join('\n'),
   );
 
