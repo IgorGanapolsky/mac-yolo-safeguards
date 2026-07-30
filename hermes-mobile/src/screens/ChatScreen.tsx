@@ -447,6 +447,7 @@ import {
   shouldHardStopEmptyStreamWait,
   shouldKeepAutoPollingForReply,
   toolActivityAfterLastUser,
+  serverHasAssistantReplyAfterLastUser,
 } from '../utils/emptyStreamReplyRecovery';
 import { shouldShowEmptyStreamRefreshCta } from '../utils/emptyStreamRefreshCta';
 import {
@@ -6714,7 +6715,9 @@ export default function ChatScreen() {
       (a) => a.name.toLowerCase().includes('hermes') && a.status === 'active',
     );
 
-    if (isSending || isChatStreamActive || isHermesAgentActive) {
+    const hasReplyAfterUser = serverHasAssistantReplyAfterLastUser(messages);
+
+    if ((isSending || isChatStreamActive || isHermesAgentActive) && !hasReplyAfterUser) {
       if (sendProgressSnapshotRef.current) {
         return currentSession
           ? mergeSessionUsageIntoRunProgress(
@@ -6742,7 +6745,7 @@ export default function ChatScreen() {
     }
 
     return null;
-  }, [runProgress, currentSession?.id, currentSession?.model, currentSession?.input_tokens, currentSession?.output_tokens, telegramReplySessionId, isSending, isChatStreamActive, activeAgents, queuedOutboundCount]);
+  }, [runProgress, currentSession?.id, currentSession?.model, currentSession?.input_tokens, currentSession?.output_tokens, telegramReplySessionId, isSending, isChatStreamActive, activeAgents, queuedOutboundCount, messages]);
 
   useEffect(() => {
     const observed =
