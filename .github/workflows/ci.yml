@@ -162,6 +162,9 @@ jobs:
           cmp -s ./sim-runaway-guard.sh "$staged_guard_dir/sim-runaway-guard.sh"
           cmp -s ./scripts/memory-pressure-guardian.sh "$staged_guard_dir/memory-pressure-guardian.sh"
 
+      # Browser reclaim / CPU runaway guards are macOS process-model tests.
+      # On ubuntu-latest (required-check unblocked 2026-07-30) T7 false-fails;
+      # keep the suite on Darwin runners only.
       - name: Guard E2E
         if: runner.os == 'macOS'
         run: |
