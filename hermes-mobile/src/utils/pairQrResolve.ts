@@ -59,7 +59,7 @@ export async function resolvePairQrPayloadDetailed(data: string): Promise<Resolv
         ok: false,
         reason: 'loopback_primary',
         message:
-          'This pair page is USB loopback — phones cannot open it off-cable. Use the Tailscale or Wi‑Fi pair link.',
+          'This pair page points at the computer itself (127.0.0.1), which your phone cannot open. Use the Tailscale or Wi‑Fi pair link.',
       };
     }
     const fetchUrl = pairJsonUrl ?? `${trimmed.replace(/\/$/, '')}/pair.json`;
@@ -105,7 +105,7 @@ export async function resolvePairQrPayloadDetailed(data: string): Promise<Resolv
           ok: false,
           reason: 'loopback_primary',
           message:
-            'That link uses USB loopback (127.0.0.1). Scan a Tailscale or home Wi‑Fi pair QR instead.',
+            'That link points at the computer itself (127.0.0.1), which your phone cannot reach. Scan a Tailscale or home Wi‑Fi pair QR instead.',
         };
       }
       return { ok: true, params: accepted };
