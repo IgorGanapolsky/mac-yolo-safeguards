@@ -4,11 +4,15 @@ import {
   profileConnectionRouteDisplayLabel,
   isUsbTransportAllowed,
 } from '../utils/gatewayProfilePicker';
+import {
+  resolveHeaderTransportLabel,
+  isUsbHeaderTransportAllowed,
+  formatMacConnectionRetryBanner,
+} from '../utils/chatMachineHeader';
 import type { GatewayProfile } from '../types/gatewayProfile';
 
-// CEO directive 2026-07-26: "my app should not know about USB, it should only know about
-// tailscale." A live adb reverse makes the phone reach the Mac over loopback, which MASKS the
-// real tailnet state — so the picker presented a cable as a peer of Tailscale.
+// CEO directive 2026-07-26 / 2026-07-30: "I never want to see USB" — product only knows
+// Tailscale + Home Wi‑Fi. Loopback/cable is dogfood-only (EXPO_PUBLIC_ALLOW_USB_TRANSPORT=1).
 const profile = (id: string, gatewayUrl: string): GatewayProfile => ({
   id,
   gatewayUrl,
@@ -50,6 +54,47 @@ describe('tailscale-only transport', () => {
 
   it('is OFF by default — the cable must not come back on its own', () => {
     expect(isUsbTransportAllowed()).toBe(false);
+  });
+
+  it('S55: header never labels loopback as USB when hatch is off', () => {
+    expect(
+      resolveHeaderTransportLabel({
+        gatewayUrl: 'http://127.0.0.1:8642',
+        wifiConnected: true,
+        health: {
+          level: 'green',
+          hostname: 'Igors-MacBook-Pro.local',
+          checkedAt: '2026-07-30T00:00:00.000Z',
+        },
+      }),
+    ).toBeUndefined();
+    expect(
+      isUsbHeaderTransportAllowed({
+        gatewayUrl: 'http://127.0.0.1:8642',
+        wifiConnected: true,
+        health: {
+          level: 'green',
+          hostname: 'Igors-MacBook-Pro.local',
+          checkedAt: '2026-07-30T00:00:00.000Z',
+        },
+      }),
+    ).toBe(false);
+    const banner = formatMacConnectionRetryBanner({
+      connectionState: 'disconnected',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      machineLabel: 'Your computer',
+    });
+    expect(banner).not.toMatch(/USB/i);
+  });
+
+  it('S55: dogfood hatch may still show USB in header', () => {
+    process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT = '1';
+    expect(
+      resolveHeaderTransportLabel({
+        gatewayUrl: 'http://127.0.0.1:8642',
+        wifiConnected: true,
+      }),
+    ).toBe('USB');
   });
 });
 

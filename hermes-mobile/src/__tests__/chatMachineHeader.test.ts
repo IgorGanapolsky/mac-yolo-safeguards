@@ -12,6 +12,10 @@ import {
   USB_UNKNOWN_MACHINE_LABEL,
 } from '../utils/chatMachineHeader';
 
+// Dogfood hatch ON for USB identity/header suite. Product default (hatch OFF)
+// is covered by tailscaleOnlyTransport.test.ts S55.
+process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT = '1';
+
 describe('resolveChatMachineHeaderDisplay', () => {
   const macBook: GatewayProfile = {
     id: 'mac_book',

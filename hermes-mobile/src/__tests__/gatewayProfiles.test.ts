@@ -267,7 +267,7 @@ describe('gatewayProfiles', () => {
     expect(label).toBe('Computer 192.168.12.138');
   });
 
-  it('displays Computer via USB for loopback gateway URLs', () => {
+  it('displays Your computer for loopback gateway URLs (never USB to users)', () => {
     const label = formatProfileLabel({
       id: 'mac_127_0_0_1',
       label: '127.0.0.1',
@@ -275,7 +275,7 @@ describe('gatewayProfiles', () => {
       localIp: '127.0.0.1',
       addedAt: '2026-06-18T12:00:00.000Z',
     });
-    expect(label).toBe('Computer via USB');
+    expect(label).toBe('Your computer');
   });
 
   it('uses LAN URL IP when stored localIp is loopback', () => {

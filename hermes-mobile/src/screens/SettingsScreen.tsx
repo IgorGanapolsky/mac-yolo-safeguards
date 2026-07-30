@@ -531,9 +531,9 @@ export default function SettingsScreen() {
         ) : null}
         {usbHostMismatch ? (
           <GlassCard style={styles.usbMismatchCard} testID="settings-usb-host-mismatch">
-            <Text style={styles.tunnelWizardTitle}>Wrong computer on USB</Text>
+            <Text style={styles.tunnelWizardTitle}>Wrong computer linked</Text>
             <Text style={styles.description}>
-              USB is connected to {usbHostMismatch.usbHostLabel}, but you selected{' '}
+              Phone is linked to {usbHostMismatch.usbHostLabel}, but you selected{' '}
               {usbHostMismatch.selectedProfileLabel}. Tap the matching computer below.
             </Text>
           </GlassCard>

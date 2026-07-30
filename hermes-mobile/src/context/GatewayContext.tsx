@@ -133,6 +133,7 @@ import {
 } from '../utils/discoveryPersistPolicy';
 import {
   hasNonLoopbackSavedProfile,
+  isUsbTransportAllowed,
   profileMatchesDiscoveredGateway,
   profileMatchesHostname,
 } from '../utils/gatewayProfilePicker';
@@ -1658,12 +1659,16 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     // reverse matches the sticky Mac (Wi‑Fi or cellular). Ghost 127.0.0.1 without a
     // matching hostname stays out. Empty sticky + USB must not steal unpaired sessions
     // (false-green Connected + Wrong key — user crisis 2026-07-14).
-    const preferUsbFirst = shouldPreferUsbProbeFirst({
-      activeGatewayUrl: activeForDiscovery?.gatewayUrl,
-      effectiveGatewayUrl: effectiveUrl,
-      wifiConnected: wifiConnectedRef.current,
-      liveUsbSameMachine: Boolean(activeForDiscovery && liveUsbSameMachine),
-    });
+    // CEO: real users never use USB. Only dogfood EXPO_PUBLIC_ALLOW_USB_TRANSPORT=1
+    // may prefer loopback/cable over Tailscale/LAN.
+    const preferUsbFirst =
+      isUsbTransportAllowed() &&
+      shouldPreferUsbProbeFirst({
+        activeGatewayUrl: activeForDiscovery?.gatewayUrl,
+        effectiveGatewayUrl: effectiveUrl,
+        wifiConnected: wifiConnectedRef.current,
+        liveUsbSameMachine: Boolean(activeForDiscovery && liveUsbSameMachine),
+      });
 
     const commitDiscoveredUrl = (
       url: string,

@@ -18,7 +18,7 @@ import {
 } from './gatewayEndpoint';
 import { isMacGatewayHttpOk } from './gatewayConnection';
 import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
-import { profileMatchesHostname } from './gatewayProfilePicker';
+import { isUsbTransportAllowed, profileMatchesHostname } from './gatewayProfilePicker';
 import { relayWorkerDisplayName, selectRelayWorker } from './relayRouting';
 import { isTailnetRouteLabel, isTailscaleGatewayUrl } from './tailscaleHosts';
 
@@ -41,9 +41,10 @@ export function shouldClaimHeaderTransport(input: {
 
 /**
  * Header transport chip from the URL that actually succeeded this session.
- * USB: live loopback on Wi‑Fi, or cellular when /health proves a live cable Mac
- * (hostname + green|amber). Ghost 127.0.0.1 on cellular without live health stays silent.
- * Never USB for Tailscale/MagicDNS/100.x (remote mini in another city).
+ *
+ * CEO 2026-07-26 / 2026-07-30: product surface is Tailscale + Home Wi‑Fi only.
+ * Loopback/cable is never labeled "USB" unless EXPO_PUBLIC_ALLOW_USB_TRANSPORT=1
+ * (agent dogfood escape hatch). Real users must never see "USB" in the header.
  */
 export function resolveHeaderTransportLabel(input: {
   gatewayUrl: string;
@@ -54,13 +55,16 @@ export function resolveHeaderTransportLabel(input: {
   if (!gatewayUrl) {
     return undefined;
   }
-  // Tailscale wins before any loopback/USB check — remote Macs are never USB.
+  // Tailscale wins before any loopback check — remote Macs are never cable.
   if (isTailscaleGatewayUrl(gatewayUrl)) {
     return 'Tailscale';
   }
   if (isLoopbackGatewayUrl(gatewayUrl)) {
-    // Cellular + 127.0.0.1 without live /health is a stale USB primary / wireless-adb ghost.
-    // Live hostname on green|amber proves adb reverse — claim USB even on 5G (product lock).
+    // Default product: never name the cable. Escape hatch only for dogfood.
+    if (!isUsbTransportAllowed()) {
+      return undefined;
+    }
+    // Cellular + 127.0.0.1 without live /health is a stale reverse ghost.
     if (input.wifiConnected === false) {
       const host = input.health?.hostname?.trim();
       const live =
@@ -79,12 +83,15 @@ export function resolveHeaderTransportLabel(input: {
   return formatGatewayEndpointLine(gatewayUrl, input.health)?.trim() || undefined;
 }
 
-/** USB header chip when loopback is the reach URL and Wi‑Fi or live-cable health confirms. */
+/** True only when dogfood USB is allowed AND loopback is the live reach URL. */
 export function isUsbHeaderTransportAllowed(input: {
   gatewayUrl: string;
   wifiConnected?: boolean;
   health?: GatewayHealthSnapshot | null;
 }): boolean {
+  if (!isUsbTransportAllowed()) {
+    return false;
+  }
   return (
     isLoopbackGatewayUrl(input.gatewayUrl) &&
     resolveHeaderTransportLabel(input) === 'USB'
@@ -617,7 +624,17 @@ export function formatMacConnectionRetryBanner(input: {
   let routeDetail = input.machineEndpoint?.trim();
   if (!routeDetail || (loopbackUsb && routeDetail.includes('127.0.0.1'))) {
     const endpointLine = formatGatewayEndpointLine(input.gatewayUrl, input.health)?.trim();
-    routeDetail = loopbackUsb ? 'USB' : endpointLine || input.gatewayUrl.trim();
+    // Never put "USB" in user-facing retry copy (Tailscale-only product surface).
+    routeDetail = loopbackUsb
+      ? isUsbTransportAllowed()
+        ? 'USB'
+        : endpointLine && !/127\.0\.0\.1|localhost/i.test(endpointLine)
+          ? endpointLine
+          : undefined
+      : endpointLine || input.gatewayUrl.trim();
+  }
+  if (routeDetail && !isUsbTransportAllowed() && /\bUSB\b/i.test(routeDetail)) {
+    routeDetail = undefined;
   }
 
   if (routeDetail) {

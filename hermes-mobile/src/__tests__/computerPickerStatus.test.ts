@@ -10,6 +10,9 @@ import {
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 
+// USB status cases need dogfood hatch; product default is covered elsewhere.
+process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT = '1';
+
 const discovery: DiscoveredGateway = {
   gatewayUrl: 'http://100.94.135.78:8642',
   label: 'Igors-Mac-mini',

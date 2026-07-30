@@ -72,9 +72,11 @@ const GENERIC_PROFILE_LABELS = new Set([
   'https',
 ]);
 
-export const GENERIC_USB_PROFILE_LABEL = 'Computer via USB';
+/** Legacy id only — never show "USB" to users (CEO 2026-07-30). */
+export const GENERIC_USB_PROFILE_LABEL = 'Your computer';
 export const GENERIC_TAILSCALE_PROFILE_LABEL = 'Computer via Tailscale';
 
+/** Legacy saved label; stripTransport / isGeneric still recognize "Mac via USB". */
 export const LEGACY_USB_PROFILE_LABEL = 'Mac via USB';
 
 const GENERIC_COMPUTER_IP_LABEL = /^computer \d{1,3}(\.\d{1,3}){3}$/i;

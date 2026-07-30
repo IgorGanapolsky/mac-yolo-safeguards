@@ -1,3 +1,7 @@
+// Dogfood hatch for USB↔Tailscale handoff suite. Product default: hatch OFF
+// (see tailscaleOnlyTransport.test.ts).
+process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT = '1';
+
 import type { GatewayProfile } from '../types/gatewayProfile';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
 import {

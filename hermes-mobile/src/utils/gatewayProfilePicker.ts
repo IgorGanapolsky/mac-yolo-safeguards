@@ -115,15 +115,21 @@ export function profileConnectionRouteDisplayLabel(
   if (!isUsbTransportAllowed()) {
     options = { ...options, cablePluggedIn: false };
   }
-  // Only the USB/loopback row may claim the cable as the active route.
+  // Only the USB/loopback row may claim the cable — and only with dogfood hatch on.
   // LAN/Tailscale rows keep their route label even when a cable is plugged in.
-  if (options.cablePluggedIn && isLoopbackGatewayUrl(profile.gatewayUrl)) {
+  if (
+    isUsbTransportAllowed() &&
+    options.cablePluggedIn &&
+    isLoopbackGatewayUrl(profile.gatewayUrl)
+  ) {
     return 'USB';
   }
   const route = profileConnectionRouteLabel(profile, wifiConnected);
   switch (route) {
     case 'USB':
-      return 'USB';
+      // Loopback profiles are filtered from the picker when USB is off; if one
+      // still surfaces, never label it USB for real users.
+      return isUsbTransportAllowed() ? 'USB' : 'Local link';
     case 'Tailscale':
       return 'Tailscale';
     case 'Wi-Fi':
