@@ -64,7 +64,8 @@ Active tasks (84):
   T-SILENT-BUBBLE-HIDE [in_progress] cursor-silent-bubble-hide: P0: never render cron `[SILENT]` completion sentinel as a chat bubble
   T-EAS-GUARD-DATE-ROLL-20260723 [in_progress] cursor-silent-bubble-hide: Remove UTC-midnight flake from EAS hard-stop process contract blocking all mobile PRs
   … +72 more (run node tools/agent-swarm-harness.js --json)
-File locks (354):
+File locks (355):
+- `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/utils/runProgressDisplay.ts`, `hermes-mobile/src/__tests__/runProgressDisplay.test.ts`, `plan.md` → **antigravity** (T-THINKING-PROGRESS-BANNER-20260730: keep RunProgressBanner visible while Hermes is thinking or executing on Mac) (2026-07-30T18:28:00Z)
 - `hermes-mobile/src/utils/stalledChatRecovery.ts`, `hermes-mobile/src/utils/outboundDeliveryStatus.ts`, `hermes-mobile/src/__tests__/stalledChatRecovery.test.ts`, `hermes-mobile/src/__tests__/outboundDeliveryStatus.test.ts`, `plan.md` → **antigravity** (T-AUTO-RESEND-ON-RECONNECT-20260730: automatically resend pending outbound user messages upon Mac reconnection) (2026-07-30T18:16:00Z)
 - `hermes-mobile/src/utils/thumbgatePromoCopy.ts`, `hermes-mobile/src/__tests__/ThumbGatePromoCard.test.tsx`, `hermes-mobile/src/__tests__/thumbgateContinuityUpsellContract.test.ts`, `plan.md` → **antigravity** (T-THUMBGATE-APP-EXPLICIT-PROMO-COPY-20260730: explicitly promote ThumbGate.app instead of plain ThumbGate across promo card title, body, and button) (2026-07-30T17:58:00Z)
 - `hermes-mobile/src/screens/SettingsScreen.tsx`, `hermes-mobile/src/__tests__/SettingsScreen.test.tsx`, `plan.md` → **antigravity** (T-SETTINGS-REMOVE-USB-COPY-20260730: remove USB mentions from user-facing SettingsScreen copy in favor of Wi-Fi and Tailscale) (2026-07-30T17:49:00Z)

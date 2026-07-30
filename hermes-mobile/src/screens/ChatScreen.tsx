@@ -6707,25 +6707,29 @@ export default function ChatScreen() {
       return runProgress;
     }
 
-    if (isSending || isChatStreamActive) {
+    const isHermesAgentActive = activeAgents.some(
+      (a) => a.name.toLowerCase().includes('hermes') && a.status === 'active',
+    );
+
+    if (isSending || isChatStreamActive || isHermesAgentActive) {
       if (sendProgressSnapshotRef.current) {
         return currentSession
           ? mergeSessionUsageIntoRunProgress(
               sendProgressSnapshotRef.current,
               currentSession,
-              sendProgressSnapshotRef.current.detail ?? 'Agent working…',
+              sendProgressSnapshotRef.current.detail ?? 'Hermes is thinking on your Mac…',
             )
           : sendProgressSnapshotRef.current;
       }
       const fallback: RunProgressState = {
         phase: isSending ? 'sending' : 'working',
-        startedAtMs: sendStartedAtRef.current,
+        startedAtMs: sendStartedAtRef.current || Date.now(),
         detail:
           queuedOutboundCount > 0
             ? `${queuedOutboundCount} more message(s) queued after this`
             : isSending
               ? 'Delivering your message…'
-              : 'Hermes is working on your computer…',
+              : 'Hermes is thinking on your Mac…',
         sessionId: activeId,
       };
       if (currentSession) {
@@ -6735,7 +6739,7 @@ export default function ChatScreen() {
     }
 
     return null;
-  }, [runProgress, currentSession?.id, currentSession?.model, currentSession?.input_tokens, currentSession?.output_tokens, telegramReplySessionId, isSending, isChatStreamActive, queuedOutboundCount]);
+  }, [runProgress, currentSession?.id, currentSession?.model, currentSession?.input_tokens, currentSession?.output_tokens, telegramReplySessionId, isSending, isChatStreamActive, activeAgents, queuedOutboundCount]);
 
   useEffect(() => {
     const observed =
