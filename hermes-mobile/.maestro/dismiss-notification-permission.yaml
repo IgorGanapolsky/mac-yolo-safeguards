@@ -3,13 +3,20 @@ appId: com.iganapolsky.hermesmobile
 # Android 13+ first-launch notification prompt blocks the fresh-user gate.
 # The stranger flow does not need notifications, so preserve a clean install by
 # declining the optional permission before asserting the onboarding UI.
+# Maestro matches text as an ANCHORED regex over the whole element string, not as a
+# substring. The device dialog reads "Allow Hermes Mobile to send you notifications?"
+# (Android interpolates the launcher label), so the old literal
+# "Allow Hermes to send you notifications?" never matched: the guarded runFlow was
+# skipped 20 times and the flow reported COMPLETED with the dialog still on screen.
+# Verified on a physical Galaxy S25 (R3CY90QPM7E) against com.iganapolsky.hermesmobile.paid.
 - repeat:
     times: 20
     commands:
       - runFlow:
           when:
-            visible: "Allow Hermes to send you notifications?"
+            visible: ".*send you notifications.*"
           commands:
+            # "Don’t allow" uses a typographic apostrophe (U+2019); "." matches either form.
             - tapOn: "Don.t allow"
       - waitForAnimationToEnd:
           timeout: 500

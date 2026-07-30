@@ -23,6 +23,7 @@ import {
   cappedBadgeCount,
   pendingApprovalsSignature,
 } from '../utils/pendingApprovalsCap';
+import type { NotificationPermissionSnapshot } from '../utils/notificationPermissionBanner';
 
 type NotificationModule = typeof import('expo-notifications');
 type NotificationContentInput = import('expo-notifications').NotificationContentInput;
@@ -393,22 +394,62 @@ export async function initHermesNotifications(): Promise<void> {
 export const initApprovalNotifications = initHermesNotifications;
 
 export async function requestHermesNotificationPermission(): Promise<boolean> {
+  const snapshot = await requestHermesNotificationPermissionSnapshot();
+  return snapshot?.granted ?? false;
+}
+
+/**
+ * Read-only permission state, including whether the OS will still show its prompt.
+ *
+ * `requestHermesNotificationPermission` collapses everything to a boolean, which cannot
+ * distinguish "denied but re-askable" from "denied and Android will never ask again".
+ * The Leash degraded-capability banner needs that difference to avoid telling the user to
+ * "tap to allow" when no prompt can ever appear.
+ *
+ * Returns null when the notifications module is unavailable (e.g. Expo Go without the
+ * native module) so callers can stay silent instead of showing a false warning.
+ */
+export async function getHermesNotificationPermissionSnapshot(): Promise<NotificationPermissionSnapshot | null> {
   const Notifications = await loadNotifications();
   if (!Notifications) {
-    return false;
+    return null;
   }
-  const existing = await Notifications.getPermissionsAsync();
-  if (existing.granted) {
-    return true;
+  try {
+    const existing = await Notifications.getPermissionsAsync();
+    return {
+      granted: existing.granted === true,
+      canAskAgain: existing.canAskAgain !== false,
+    };
+  } catch {
+    return null;
   }
-  const requested = await Notifications.requestPermissionsAsync({
-    ios: {
-      allowAlert: true,
-      allowBadge: true,
-      allowSound: true,
-    },
-  });
-  return requested.granted ?? false;
+}
+
+/** Request permission and report the resulting state, preserving `canAskAgain`. */
+export async function requestHermesNotificationPermissionSnapshot(): Promise<NotificationPermissionSnapshot | null> {
+  const Notifications = await loadNotifications();
+  if (!Notifications) {
+    return null;
+  }
+  try {
+    const existing = await Notifications.getPermissionsAsync();
+    if (existing.granted) {
+      return { granted: true, canAskAgain: existing.canAskAgain !== false };
+    }
+    const requested = await Notifications.requestPermissionsAsync({
+      ios: {
+        allowAlert: true,
+        allowBadge: true,
+        allowSound: true,
+      },
+    });
+    return {
+      granted: requested.granted === true,
+      canAskAgain: requested.canAskAgain !== false,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /** @deprecated */

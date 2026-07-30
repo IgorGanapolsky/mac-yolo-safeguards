@@ -16,6 +16,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import GateApprovalCard from '../components/GateApprovalCard';
 import GlassCard from '../components/GlassCard';
 import HealthPill from '../components/HealthPill';
+import NotificationPermissionBanner from '../components/NotificationPermissionBanner';
 import ThumbGatePromoCard from '../components/ThumbGatePromoCard';
 import { colors } from '../theme/colors';
 import { useGateway } from '../context/GatewayContext';
@@ -313,6 +314,7 @@ export default function ApprovalsScreen() {
           ) : undefined
         }
       >
+        <NotificationPermissionBanner />
         {pendingApprovals.length === 0 ? (
           <GlassCard style={styles.emptyCard}>
             <View testID="no-pending-approvals" accessible={true} collapsable={false}>
