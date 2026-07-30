@@ -80,11 +80,11 @@ function runHarness(query, limit, repo) {
   }
 }
 
-function runGrepai(query, limit) {
+function runGrepai(query, limit, repo = REPO) {
   const r = spawnSync(
     'grepai',
     ['search', query, '--json', '--compact'],
-    { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 60000, cwd: REPO },
+    { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 60000, cwd: repo },
   );
   if (r.error && r.error.code === 'ENOENT') {
     return { ok: false, error: 'grepai CLI not found', matches: [] };
@@ -166,7 +166,7 @@ function dualPathRetrieve(options = {}) {
     }
   }
   if (!options.harnessOnly) {
-    paths.grepai = runGrepai(q, Math.max(limit, 15));
+    paths.grepai = runGrepai(q, Math.max(limit, 15), options.repo || REPO);
     if (paths.grepai.ok) {
       lists.push(
         paths.grepai.matches

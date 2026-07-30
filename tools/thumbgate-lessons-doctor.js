@@ -31,15 +31,40 @@ const REPO = path.resolve(__dirname, '..');
 const DRIFT_RATIO_FLOOR = 0.5; // sqlite should hold at least half the ledger
 const MIN_DISTINCT_MAGNITUDES = 50; // neural embeddings have ~continuous values
 
+function looksLikeLessonsStore(dir) {
+  if (!dir || !fs.existsSync(dir)) return false;
+  return (
+    fs.existsSync(path.join(dir, 'lessons.sqlite')) ||
+    fs.existsSync(path.join(dir, 'lessons-index.jsonl')) ||
+    fs.existsSync(path.join(dir, 'lesson-embeddings.json'))
+  );
+}
+
+/** Prefer the store that actually holds lessons; never silently "ok" on empty defaults. */
+function resolveDefaultDir() {
+  const candidates = [
+    path.join(REPO, '.thumbgate'),
+    path.join(process.env.HOME || '', '.thumbgate', 'projects', 'default'),
+    path.join(process.env.HOME || '', '.thumbgate'),
+  ];
+  for (const dir of candidates) {
+    if (looksLikeLessonsStore(dir)) return dir;
+  }
+  return candidates[0];
+}
+
 function parseArgs(argv) {
-  const args = { dir: path.join(REPO, '.thumbgate'), json: false, warnOnly: false };
+  const args = { dir: null, json: false, warnOnly: false, dirExplicit: false };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
-    if (a === '--dir') args.dir = path.resolve(argv[++i] || '');
-    else if (a === '--json') args.json = true;
+    if (a === '--dir') {
+      args.dir = path.resolve(argv[++i] || '');
+      args.dirExplicit = true;
+    } else if (a === '--json') args.json = true;
     else if (a === '--warn-only') args.warnOnly = true;
     else throw new Error(`Unknown argument: ${a}`);
   }
+  if (!args.dir) args.dir = resolveDefaultDir();
   return args;
 }
 
@@ -122,11 +147,20 @@ function suspectRules(file) {
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const problems = [];
-  const report = { dir: args.dir, checkedAt: new Date().toISOString() };
+  const report = {
+    dir: args.dir,
+    checkedAt: new Date().toISOString(),
+    dirResolved: !args.dirExplicit,
+  };
 
   if (!fs.existsSync(args.dir)) {
     report.note = '.thumbgate directory absent — nothing to diagnose';
+    report.ok = args.dirExplicit;
+    report.problems = args.dirExplicit
+      ? []
+      : ['no lessons store found under repo .thumbgate, ~/.thumbgate/projects/default, or ~/.thumbgate'];
     console.log(JSON.stringify(report, null, 2));
+    // Explicit empty --dir is a no-op success; default resolution with no store is a soft warn (exit 0 + problems).
     process.exit(0);
   }
 

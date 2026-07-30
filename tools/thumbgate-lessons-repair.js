@@ -264,19 +264,32 @@ CREATE VIRTUAL TABLE IF NOT EXISTS lessons_fts USING fts5(
   });
   const fts5Available = ftsProbe.status === 0;
   if (fts5Available) {
-    spawnSync(SQLITE3, [dbPath], { input: ftsSchemaSql, encoding: 'utf8' });
-    const rebuildFts = spawnSync(
-      SQLITE3,
-      [dbPath, "INSERT INTO lessons_fts(lessons_fts) VALUES('rebuild');"],
-      { encoding: 'utf8', timeout: 120000 },
-    );
-    report.ftsRebuild = rebuildFts.status === 0 ? 'ok' : (rebuildFts.stderr || 'failed').slice(0, 200);
+    const schemaRun = spawnSync(SQLITE3, [dbPath], { input: ftsSchemaSql, encoding: 'utf8' });
+    if (schemaRun.status !== 0) {
+      report.ftsRebuild = (schemaRun.stderr || schemaRun.stdout || 'fts schema failed').slice(0, 200);
+    } else {
+      const rebuildFts = spawnSync(
+        SQLITE3,
+        [dbPath, "INSERT INTO lessons_fts(lessons_fts) VALUES('rebuild');"],
+        { encoding: 'utf8', timeout: 120000 },
+      );
+      report.ftsRebuild = rebuildFts.status === 0 ? 'ok' : (rebuildFts.stderr || 'failed').slice(0, 200);
+    }
   } else {
     report.ftsRebuild = 'skipped-no-fts5-module';
   }
 
   report.afterCount = sqliteCount(dbPath);
-  report.ok = report.afterCount !== null && report.afterCount >= Math.min(limited.length, 1);
+  const baseOk = report.afterCount !== null && report.afterCount >= Math.min(limited.length, 1);
+  // FTS is the search path — base-table success alone must not report ok when rebuild fails.
+  const ftsOk =
+    report.ftsRebuild === 'ok' ||
+    report.ftsRebuild === 'skipped-no-fts5-module' ||
+    !fts5Available;
+  report.ok = baseOk && ftsOk;
+  if (baseOk && !ftsOk) {
+    report.error = `lessons upserted but FTS rebuild failed: ${report.ftsRebuild}`;
+  }
   report.note = `upserted ${limited.length}; before=${before} after=${report.afterCount}; fts=${report.ftsRebuild || 'n/a'}`;
   return report;
 }

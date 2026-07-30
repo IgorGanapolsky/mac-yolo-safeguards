@@ -138,6 +138,7 @@ function main() {
     }
   } else {
     info.indexBytes = null;
+    problems.push('index.gob missing — grepae index absent (not merely undersized)');
   }
 
   if (args.live) {
