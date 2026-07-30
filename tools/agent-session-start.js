@@ -208,8 +208,18 @@ if (!json) {
 }
 
 // Fail-visible: conflict markers in AGENTS.md/plan.md poison every agent prefill.
+let conflictMarkerBlocker = null;
 {
   const conflict = runNode('tools/check-merge-conflict-markers.js', [], 10_000);
+  if (conflict.status !== 0) {
+    conflictMarkerBlocker = {
+      ok: false,
+      tool: 'check-merge-conflict-markers',
+      status: conflict.status,
+      stdout: (conflict.stdout || '').trim(),
+      stderr: (conflict.stderr || '').trim(),
+    };
+  }
   if (!json) {
     if (conflict.stdout) process.stdout.write(`\n${conflict.stdout}`);
     if (conflict.status !== 0) {
@@ -438,4 +448,10 @@ if (fs.existsSync(DEFAULT_VAULT)) {
   }
 }
 
+if (typeof conflictMarkerBlocker !== 'undefined' && conflictMarkerBlocker) {
+  if (json) {
+    process.stdout.write(JSON.stringify({ conflictMarkers: conflictMarkerBlocker }, null, 2) + '\n');
+  }
+  process.exit(2);
+}
 process.exit(brief.status ?? 1);

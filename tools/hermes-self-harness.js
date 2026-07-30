@@ -86,10 +86,22 @@ const PATTERNS = [
     id: 'model_provider_unexpected_eof',
     severity: 'critical',
     surface: 'model_runtime_mega_prompt',
-    match: (evidence) =>
-      /unexpected EOF|Error code:\s*500|while running the model|turn time limit|couldn't generate a final report|could not generate a final report/i.test(
-        evidence.logs,
-      ),
+    match: (evidence) => {
+      const logs = evidence.logs || '';
+      // Require EOF (or explicit model-run crash) — not every generic 500 / turn limit.
+      const eof =
+        /unexpected\s+EOF/i.test(logs) ||
+        /while running the model/i.test(logs);
+      if (!eof) return false;
+      return (
+        /Error code:\s*500/i.test(logs) ||
+        /api_error/i.test(logs) ||
+        /turn time limit/i.test(logs) ||
+        /couldn't generate a final report/i.test(logs) ||
+        /could not generate a final report/i.test(logs) ||
+        /unexpected\s+EOF/i.test(logs)
+      );
+    },
     proposal:
       'Stop feeding multi-million-token prompts. Force Start fresh chat on mega sessions; compact/restart the Mac agent; keep mobile hard-timeout for live prompts ≥200k at ≤4m (see modelProviderErrorRecovery + runStaleDetection).',
     gate:
