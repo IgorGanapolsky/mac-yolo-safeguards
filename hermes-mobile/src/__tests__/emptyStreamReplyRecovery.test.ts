@@ -136,7 +136,7 @@ describe('emptyStreamReplyRecovery', () => {
     expect(shouldHardStopEmptyStreamWait(EMPTY_STREAM_HARD_STOP_MS)).toBe(true);
     expect(shouldHardStopEmptyStreamWait(3_430_000)).toBe(true);
     expect(emptyStreamCheckingStatus(3_430_000)).toBe(EMPTY_STREAM_HARD_STOP_STATUS);
-    expect(EMPTY_STREAM_HARD_STOP_STATUS.toLowerCase()).toContain('leash');
+    expect(EMPTY_STREAM_HARD_STOP_STATUS.toLowerCase()).toContain('checking progress automatically');
     expect(EMPTY_STREAM_HARD_STOP_STATUS.toLowerCase()).not.toMatch(/checking your mac… \(\d+s\)/);
   });
 
