@@ -104,6 +104,51 @@ describe('computerPickerStatus', () => {
     expect(status.title).not.toMatch(/^On Tailscale/);
   });
 
+  it('never claims Tailscale is off while scanning (Samsung NetInfo false negative)', () => {
+    const status = resolveComputerPickerStatus({
+      scanning: true,
+      scanProgress: scanningProgress,
+      scanResult: null,
+      showScanResult: false,
+      tailscaleProbing: false,
+      tailscaleVpnActive: false,
+      tailscaleDiscoveries: [],
+    });
+    expect(status.kind).toBe('searching');
+    expect(status.detail).not.toMatch(/Tailscale is off/i);
+    expect(status.detail).not.toMatch(/looks off/i);
+    expect(status.detail).toMatch(/paste your 100\.x/i);
+  });
+
+  it('treats in-flight Tailscale probe as searching Tailscale even if vpn flag lagging', () => {
+    const status = resolveComputerPickerStatus({
+      scanning: true,
+      scanProgress: scanningProgress,
+      scanResult: null,
+      showScanResult: false,
+      tailscaleProbing: true,
+      tailscaleVpnActive: false,
+      tailscaleDiscoveries: [],
+    });
+    expect(status.detail).toMatch(/Wi‑Fi and Tailscale/i);
+    expect(status.detail).not.toMatch(/is off/i);
+  });
+
+  it('idle help never asserts Tailscale is off (honest soft copy)', () => {
+    const status = resolveComputerPickerStatus({
+      scanning: false,
+      scanProgress: null,
+      scanResult: null,
+      showScanResult: false,
+      tailscaleProbing: false,
+      tailscaleVpnActive: false,
+      tailscaleDiscoveries: [],
+    });
+    expect(status.kind).toBe('help');
+    expect(status.title).not.toMatch(/looks off|is off/i);
+    expect(status.title).toMatch(/Tailscale|100\.x/i);
+  });
+
   it('still shows Add chips when discoveries exist even if NetInfo says VPN off', () => {
     const status = resolveComputerPickerStatus({
       scanning: false,

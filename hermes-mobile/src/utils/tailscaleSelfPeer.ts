@@ -1,9 +1,19 @@
 import NetInfo from '@react-native-community/netinfo';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
+import { getTailscaleTunnelSignals } from '../native/hermesTailscaleTunnel';
 import { gatewayUrlHostname } from './gatewayUrlPolicy';
 import { isTailscaleIpv4, normalizeTailnetProbeHost } from './tailscaleHosts';
 
 export async function getPhoneTailscaleIpv4(): Promise<string | null> {
+  // Prefer native tun0 CGNAT — NetInfo returns wlan0 on Samsung while Tailscale is up.
+  try {
+    const native = await getTailscaleTunnelSignals();
+    if (native.cgnatIpv4 && isTailscaleIpv4(native.cgnatIpv4)) {
+      return native.cgnatIpv4;
+    }
+  } catch {
+    // fall through to NetInfo
+  }
   try {
     const state = await NetInfo.fetch();
     const ipAddress = (state.details as { ipAddress?: string } | null)?.ipAddress?.trim();

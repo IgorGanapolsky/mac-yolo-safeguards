@@ -9,6 +9,7 @@ import { createContext, useContext } from 'use-context-selector';
 import { AppState, Linking, Platform } from 'react-native';
 import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
 import { isTailscaleVpnActive } from '../utils/tailscaleVpnDetect';
+import { getTailscaleTunnelSignals } from '../native/hermesTailscaleTunnel';
 import {
   cacheDirectory as fileSystemCacheDirectory,
   getInfoAsync as fileSystemGetInfoAsync,
@@ -451,6 +452,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const tailscaleProbeInFlightRef = useRef(false);
   const lastTailscaleProbeAtMsRef = useRef(0);
   const lastNetInfoStateRef = useRef<NetInfoState | null>(null);
+  /** Native Android TRANSPORT_VPN + tun0 CGNAT — NetInfo alone false-negatives on Samsung. */
+  const nativeTunnelSignalsRef = useRef<{
+    hasVpnTransport: boolean;
+    cgnatInterfaceIp: string | null;
+  }>({ hasVpnTransport: false, cgnatInterfaceIp: null });
   const probeTailscaleComputersRef = useRef<
     (options?: ProbeTailscaleComputersOptions) => Promise<void>
   >(async () => {});
@@ -470,15 +476,27 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     const ipAddress = (
       currentNetInfoState?.details as { ipAddress?: string } | null | undefined
     )?.ipAddress;
+    const native = nativeTunnelSignalsRef.current;
     setTailscaleVpnActive(
       isTailscaleVpnActive({
         netInfoType: currentNetInfoState?.type,
         isConnected: currentNetInfoState?.isConnected,
         ipAddress,
         reachedTailscaleHost: reachedTailscaleHostRef.current,
+        hasVpnTransport: native.hasVpnTransport,
+        cgnatInterfaceIp: native.cgnatInterfaceIp,
       }),
     );
   }, []);
+
+  const refreshNativeTunnelSignals = useCallback(async () => {
+    const signals = await getTailscaleTunnelSignals();
+    nativeTunnelSignalsRef.current = {
+      hasVpnTransport: signals.hasVpnTransport,
+      cgnatInterfaceIp: signals.cgnatIpv4,
+    };
+    updateTailscaleVpnActive();
+  }, [updateTailscaleVpnActive]);
 
   const addGatewayListener = useCallback((listener: (event: GatewayEventMessage) => void) => {
     listenersRef.current.add(listener);
@@ -1397,17 +1415,24 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     };
     const netSub = NetInfo.addEventListener((state) => {
       applyNetInfo(state);
+      // Re-read tun0 / TRANSPORT_VPN — NetInfo type stays wifi while Tailscale is on.
+      void refreshNativeTunnelSignals();
       refreshHealth();
       void probeTailscaleComputersRef.current({ showUi: false, force: false });
     });
     void NetInfo.fetch().then((state) => {
       applyNetInfo(state);
     });
+    void refreshNativeTunnelSignals();
+    const nativePoll = setInterval(() => {
+      void refreshNativeTunnelSignals();
+    }, 15_000);
     return () => {
       clearInterval(interval);
+      clearInterval(nativePoll);
       netSub();
     };
-  }, [isLoaded, refreshHealth, updateTailscaleVpnActive]);
+  }, [isLoaded, refreshHealth, updateTailscaleVpnActive, refreshNativeTunnelSignals]);
 
   const disconnectEvents = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -3087,10 +3112,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           : await tailnetProbeStorage.load();
       tailnetProbeHostsRef.current = storedHosts;
 
-      // Preflight: Samsung NetInfo often stays `cellular` while tun0 is up. Prove
-      // the tunnel with one quick host probe BEFORE flipping probing=true, so the
-      // picker does not flash "Tailscale is off" (computerPickerStatus gates on
-      // vpnActive while probing).
+      // Preflight: Samsung NetInfo often stays `wifi`/`cellular` while tun0 is up.
+      // 1) Native TRANSPORT_VPN + CGNAT interface enum (no host list required).
+      // 2) Quick host probe when we already know tailnet peers.
+      // Both run before probing=true so picker does not flash false-off copy.
+      await refreshNativeTunnelSignals();
       const preflightHosts = expandTailnetProbeHosts(
         collectTailnetProbeHosts(profileStateRef.current.profiles, storedHosts),
       ).slice(0, 3);
@@ -3251,7 +3277,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
     }
   },
-  [persistDiscoveredGatewayUrl, refreshHealth, updateTailscaleVpnActive],
+  [persistDiscoveredGatewayUrl, refreshHealth, updateTailscaleVpnActive, refreshNativeTunnelSignals],
   );
 
   const addDiscoveredTailscaleComputer = useCallback(async (discovery: DiscoveredGateway) => {

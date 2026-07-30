@@ -45,7 +45,7 @@
             }
           }
         },
-        "NSLocalNetworkUsageDescription": "Hermes Mobile finds your computer on Wi‑Fi and Tailscale so chat can connect."
+        "NSLocalNetworkUsageDescription": "Hermes Mobile finds your computer on Wi\u2011Fi and Tailscale so chat can connect."
       },
       "privacyManifests": {
         "NSPrivacyTracking": false,
@@ -138,6 +138,7 @@
     "plugins": [
       "./plugins/withEmbeddedJsBundle.js",
       "./plugins/withNetworkSecurityConfig.js",
+      "./plugins/withHermesTailscaleTunnel.js",
       "./plugins/withIosAtsTailscale.js",
       "expo-updates",
       "./plugins/withHermesAiGlasses.js",
@@ -153,7 +154,7 @@
             ],
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "extraProguardRules": "# ML Kit barcode + libbarhopper (expo-camera QR scanner)\n-keep class com.google.mlkit.** { *; }\n-keep class com.google.android.gms.internal.mlkit_vision_** { *; }\n-keep class com.google.android.libraries.barhopper.** { *; }\n-keep class com.google.android.gms.vision.** { *; }\n-dontwarn com.google.mlkit.**\n-dontwarn com.google.android.gms.internal.mlkit_vision_**\n# JNI / reflection native methods safety net\n-keepclasseswithmembernames class * { native <methods>; }"
+            "extraProguardRules": "# ML Kit barcode + libbarhopper (expo-camera QR scanner)\n-keep class com.google.mlkit.** { *; }\n-keep class com.google.android.gms.internal.mlkit_vision_** { *; }\n-keep class com.google.android.libraries.barhopper.** { *; }\n-keep class com.google.android.gms.vision.** { *; }\n-dontwarn com.google.mlkit.**\n-dontwarn com.google.android.gms.internal.mlkit_vision_**\n# JNI / reflection native methods safety net\n-keepclasseswithmembernames class * { native <methods>; }\n# Hermes Tailscale tunnel native bridge\n-keep class com.iganapolsky.hermesmobile.tunnel.** { *; }\n-keepclassmembers class com.iganapolsky.hermesmobile.tunnel.** { *; }\n"
           }
         }
       ],
