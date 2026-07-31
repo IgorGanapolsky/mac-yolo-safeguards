@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.igor.tml-tinker-engage</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>{{NODE}}</string>
+    <string>{{REPO}}/tools/tml-tinker-engage-loop.js</string>
+    <string>--write</string>
+    <string>--max-per-run</string>
+    <string>2</string>
+    <string>--max-per-day</string>
+    <string>6</string>
+    <string>--cooldown-days</string>
+    <string>14</string>
+    <string>--json</string>
+  </array>
+  <!-- Every 4 hours: continuous TML tinker-cookbook engagement with hard caps -->
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StartInterval</key>
+  <integer>14400</integer>
+  <key>Nice</key>
+  <integer>15</integer>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>{{HOME}}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>HOME</key>
+    <string>{{HOME}}</string>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>{{HOME}}/Library/Logs/mac-yolo/tml-tinker-engage.log</string>
+  <key>StandardErrorPath</key>
+  <string>{{HOME}}/Library/Logs/mac-yolo/tml-tinker-engage.log</string>
+</dict>
+</plist>
