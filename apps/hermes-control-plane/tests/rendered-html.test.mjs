@@ -114,9 +114,11 @@ test("builds the public Leash subscription landing page", async () => {
   // live Team tier still advertised "Claude 3.5 Sonnet & GPT-4o" — two generations
   // stale — which is the same failure class as hard-coding a price: the page asserts
   // a fact that ages badly with nothing watching it. Capability wording ("Auto model
-  // routing") stays true; a version pin does not.
-  assert.doesNotMatch(page, /Claude\s*3(\.\d)?\s*(Sonnet|Opus|Haiku)/i);
-  assert.doesNotMatch(page, /GPT-4o?\b/i);
+  // routing", brand names without versions) stays true; a version pin does not.
+  // Guard is version-agnostic so Claude 4.5 / GPT-5 / Gemini 2 pins fail too.
+  assert.doesNotMatch(page, /Claude\s*(?:(?:Sonnet|Opus|Haiku)\s*)?\d/i);
+  assert.doesNotMatch(page, /GPT[-\s]*\d/i);
+  assert.doesNotMatch(page, /Gemini\s*\d/i);
   assert.match(page, /application\/ld\+json/);
   assert.match(page, /SoftwareApplication/);
   assert.match(page, /RemoteControlDiagram/);
