@@ -64,6 +64,18 @@ import {
 import { fetchGatewayHealth } from '../services/gatewayClient';
 import { secureCredentials } from '../services/secureCredentials';
 import { profileDisplayName } from '../services/gatewayProfiles';
+import CollapsibleSection from './CollapsibleSection';
+import { useSectionExpansion } from '../hooks/useSectionExpansion';
+import { formatGatewayMachineParts } from '../utils/gatewayEndpoint';
+import {
+  machineScopeHint,
+  machineScopedSectionTitle,
+  resolveOpsMachineLabel,
+  skillsReadOnlyHint,
+  sortCronJobsAlphabetically,
+  sortSkillsAlphabetically,
+  sortToolsetsAlphabetically,
+} from '../utils/opsCatalogOrdering';
 
 type CatalogSection = 'capabilities' | 'skills' | 'toolsets' | 'jobs';
 
@@ -163,7 +175,7 @@ export default function GatewayOpsSection() {
   const [expandedJobIds, setExpandedJobIds] = useState<Set<string>>(new Set());
   const [expandedFeatureKeys, setExpandedFeatureKeys] = useState<Set<string>>(new Set());
   const [expandedSkillNames, setExpandedSkillNames] = useState<Set<string>>(new Set());
-  const [advancedToolsetsOpen, setAdvancedToolsetsOpen] = useState(false);
+  const { isExpanded, toggleSection } = useSectionExpansion();
   const [togglingToolset, setTogglingToolset] = useState<string | null>(null);
   const [integrationsToolset, setIntegrationsToolset] = useState<HermesToolset | null>(null);
   const togglingToolsetRef = useRef<string | null>(null);
@@ -446,8 +458,18 @@ export default function GatewayOpsSection() {
   const featureRows = buildGatewayFeatureRows(featureFlags);
   const toolsetsWritable = phoneToggleAvailable === true || isDemo;
   const phoneToggleBlocked = phoneToggleAvailable === false;
+  // Every catalog below is fetched from the ACTIVE gateway, so each header has
+  // to name the machine it came from — otherwise "Cron jobs (21)" means
+  // something different depending on which computer is selected.
+  const machineLabel = resolveOpsMachineLabel({
+    profileLabel: activeGatewayProfile ? profileDisplayName(activeGatewayProfile) : null,
+    hostLabel: gatewayUrl ? formatGatewayMachineParts(gatewayUrl, health).machineName : null,
+  });
   const { essentials: essentialToolsets, advanced: advancedToolsets } =
     partitionMobileToolsets(toolsets);
+  const sortedAdvancedToolsets = sortToolsetsAlphabetically(advancedToolsets);
+  const sortedJobs = sortCronJobsAlphabetically(jobs);
+  const sortedSkills = sortSkillsAlphabetically(skills);
   const keysNeeded = toolsetsNeedingKeys(essentialToolsets);
   const integrationsConfigAvailable =
     featureFlags.integrations_config === true || isDemo;
@@ -630,63 +652,63 @@ export default function GatewayOpsSection() {
         <ActivityIndicator color={colors.secondary} style={styles.loader} />
       ) : null}
 
-      <Text style={styles.sectionTitle} testID="toolsets-essentials-title">
-        Essentials ({essentialToolsets.length})
-      </Text>
-      <Text style={styles.sectionHint}>
-        {toolsetsSectionHint({
+      <CollapsibleSection
+        title={machineScopedSectionTitle('Essentials', essentialToolsets.length, machineLabel)}
+        hint={toolsetsSectionHint({
           phoneToggleAvailable: toolsetsWritable,
           keysNeededCount: keysNeeded.length,
         })}
-      </Text>
-      <GlassCard>
-        {toolsets.length === 0 ? (
-          <Text style={styles.meta} testID="toolsets-empty-state">
-            {catalogErrors.toolsets
-              ? 'Tools could not load from your computer. Tap Refresh to retry.'
-              : 'No toolsets are installed on this computer.'}
-          </Text>
-        ) : essentialToolsets.length === 0 ? (
-          <Text style={styles.meta} testID="toolsets-essentials-empty">
-            No essential tools reported by your computer yet.
-          </Text>
-        ) : (
-          essentialToolsets.map(renderToolsetRow)
-        )}
-      </GlassCard>
+        expanded={isExpanded('ops-essentials')}
+        onToggle={() => toggleSection('ops-essentials')}
+        testID="ops-section-essentials"
+        titleTestID="toolsets-essentials-title"
+        titleStyle={styles.sectionTitle}
+        hintStyle={styles.sectionHint}
+      >
+        <GlassCard>
+          {toolsets.length === 0 ? (
+            <Text style={styles.meta} testID="toolsets-empty-state">
+              {catalogErrors.toolsets
+                ? 'Tools could not load from your computer. Tap Refresh to retry.'
+                : 'No toolsets are installed on this computer.'}
+            </Text>
+          ) : essentialToolsets.length === 0 ? (
+            <Text style={styles.meta} testID="toolsets-essentials-empty">
+              No essential tools reported by your computer yet.
+            </Text>
+          ) : (
+            essentialToolsets.map(renderToolsetRow)
+          )}
+        </GlassCard>
+      </CollapsibleSection>
 
       {advancedToolsets.length > 0 ? (
-        <>
-          <TouchableOpacity
-            onPress={() => {
-              haptics.selection();
-              setAdvancedToolsetsOpen((open) => !open);
-            }}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: advancedToolsetsOpen }}
-            testID="toolsets-advanced-toggle"
-          >
-            <Text style={styles.sectionTitle}>
-              On your Mac ({advancedToolsets.length}) {advancedToolsetsOpen ? '▾' : '▸'}
-            </Text>
-          </TouchableOpacity>
-          <Text style={styles.sectionHint}>
-            Extra integrations already set up on this computer. Collapsed by default — not part of
-            the Hermes Mobile essentials.
-          </Text>
-          {advancedToolsetsOpen ? (
-            <GlassCard testID="toolsets-advanced-list">
-              {advancedToolsets.map(renderToolsetRow)}
-            </GlassCard>
-          ) : null}
-        </>
+        <CollapsibleSection
+          title={machineScopedSectionTitle('Extra tools', advancedToolsets.length, machineLabel)}
+          hint={`Extra integrations already set up ${
+            machineLabel ? `on ${machineLabel}` : 'on this computer'
+          } — not part of the Hermes Mobile essentials.`}
+          expanded={isExpanded('ops-extra-tools')}
+          onToggle={() => toggleSection('ops-extra-tools')}
+          testID="toolsets-advanced-toggle"
+          titleStyle={styles.sectionTitle}
+          hintStyle={styles.sectionHint}
+        >
+          <GlassCard testID="toolsets-advanced-list">
+            {sortedAdvancedToolsets.map(renderToolsetRow)}
+          </GlassCard>
+        </CollapsibleSection>
       ) : null}
 
-      <Text style={styles.sectionTitle}>Cron jobs ({jobs.length})</Text>
-      <Text style={styles.sectionHint}>
-        Tap a job name for schedule, last/next run, and purpose. Run / Pause / Delete stay one tap
-        away.
-      </Text>
+      <CollapsibleSection
+        title={machineScopedSectionTitle('Cron jobs', jobs.length, machineLabel)}
+        hint={`${machineScopeHint('jobs', machineLabel)} Tap a job name for schedule, last/next run, and purpose. Run / Pause / Delete stay one tap away.`}
+        expanded={isExpanded('ops-jobs')}
+        onToggle={() => toggleSection('ops-jobs')}
+        testID="ops-section-jobs"
+        titleStyle={styles.sectionTitle}
+        hintStyle={styles.sectionHint}
+      >
       <GlassCard>
         {jobs.length === 0 ? (
           <Text style={styles.meta} testID="jobs-empty-state">
@@ -695,7 +717,7 @@ export default function GatewayOpsSection() {
               : 'No scheduled jobs yet.'}
           </Text>
         ) : (
-          jobs.map((job) => {
+          sortedJobs.map((job) => {
             const expanded = expandedJobIds.has(job.id);
             const detailLines = buildCronJobDetailLines(job);
             return (
@@ -786,11 +808,17 @@ export default function GatewayOpsSection() {
           })
         )}
       </GlassCard>
+      </CollapsibleSection>
 
-      <Text style={styles.sectionTitle}>Skills ({skills.length})</Text>
-      <Text style={styles.sectionHint}>
-        Tap a skill for the full description. Skills are invoked from Chat — not toggled here.
-      </Text>
+      <CollapsibleSection
+        title={machineScopedSectionTitle('Skills', skills.length, machineLabel)}
+        hint={skillsReadOnlyHint(machineLabel)}
+        expanded={isExpanded('ops-skills')}
+        onToggle={() => toggleSection('ops-skills')}
+        testID="ops-section-skills"
+        titleStyle={styles.sectionTitle}
+        hintStyle={styles.sectionHint}
+      >
       <GlassCard>
         {skills.length === 0 ? (
           <Text style={styles.meta} testID="skills-empty-state">
@@ -799,7 +827,7 @@ export default function GatewayOpsSection() {
               : 'No skills are installed on this computer.'}
           </Text>
         ) : (
-          skills.map((skill) => {
+          sortedSkills.map((skill) => {
             const expanded = expandedSkillNames.has(skill.name);
             return (
               <TouchableOpacity
@@ -834,17 +862,30 @@ export default function GatewayOpsSection() {
                 {expanded && skill.category ? (
                   <Text style={styles.jobDetailLabel}>Category · {skill.category}</Text>
                 ) : null}
+                {expanded ? (
+                  <Text
+                    style={styles.jobDetailLabel}
+                    testID={`skill-location-${skill.name}`}
+                  >
+                    Edit on {machineLabel ?? 'that computer'} · read-only from the phone
+                  </Text>
+                ) : null}
               </TouchableOpacity>
             );
           })
         )}
       </GlassCard>
+      </CollapsibleSection>
 
-      <Text style={styles.sectionTitle}>Gateway features ({featureRows.length})</Text>
-      <Text style={styles.sectionHint}>
-        What this Hermes build on your computer supports (protocol). Tap for details. These are not
-        user prefs — turn tools on/off under Essentials above when the Mac allows phone toggles.
-      </Text>
+      <CollapsibleSection
+        title={machineScopedSectionTitle('Gateway features', featureRows.length, machineLabel)}
+        hint="What this Hermes build on your computer supports (protocol). Tap for details. These are not user prefs — turn tools on/off under Essentials above when the Mac allows phone toggles."
+        expanded={isExpanded('ops-features')}
+        onToggle={() => toggleSection('ops-features')}
+        testID="ops-section-features"
+        titleStyle={styles.sectionTitle}
+        hintStyle={styles.sectionHint}
+      >
       <GlassCard testID="gateway-features-card">
         {catalogErrors.capabilities ? (
           <Text style={styles.meta}>
@@ -946,6 +987,7 @@ export default function GatewayOpsSection() {
           })
         )}
       </GlassCard>
+      </CollapsibleSection>
 
       <IntegrationsSheet
         visible={integrationsToolset != null}
