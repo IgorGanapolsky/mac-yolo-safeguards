@@ -33,7 +33,9 @@ describe('ApprovalsScreen', () => {
   it('renders thumbgate leash header and connection block', () => {
     const { getByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByTestId('THUMBGATE_LEASH')).toBeTruthy();
-    expect(getByText('Approve blocked tools from your phone — tap notifications on lock screen')).toBeTruthy();
+    expect(getByText('Approve blocked tools from your phone via ThumbGate.app — tap notifications on lock screen')).toBeTruthy();
+    expect(getByTestId('leash-open-thumbgate-app')).toBeTruthy();
+    expect(getByText('Open ThumbGate.app →')).toBeTruthy();
   });
 
   it('keeps header refresh vertically centered beside health pill', () => {
@@ -258,7 +260,7 @@ describe('ApprovalsScreen', () => {
     );
     const { getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(
-      getByText('Approve blocked agent tools — from lock screen (Approve / Deny) or cards below'),
+      getByText('Approve blocked agent tools via ThumbGate.app — lock screen or cards below'),
     ).toBeTruthy();
   });
 
@@ -270,7 +272,7 @@ describe('ApprovalsScreen', () => {
     );
     const { getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(
-      getByText('Approve blocked agent tools — from lock screen (Approve / Deny) or cards below'),
+      getByText('Approve blocked agent tools via ThumbGate.app — lock screen or cards below'),
     ).toBeTruthy();
   });
 
