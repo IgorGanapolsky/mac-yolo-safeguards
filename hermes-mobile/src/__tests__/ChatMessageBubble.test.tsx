@@ -173,6 +173,20 @@ describe('ChatMessageBubble', () => {
     expect(getByTestId('chat-outbound-sent').props.children).toBe('○ Waiting for computer…');
   });
 
+  it('triggers onFailedRetry when tapping the failed message delivery subtext', () => {
+    const onFailedRetry = jest.fn();
+    const { getByTestId } = renderWithDetailModal({
+      content: 'Yes we need a dedup db',
+      isUser: true,
+      timeLabel: 'Jul 31, 2026 10:26 PM',
+      outboundStatus: 'failed',
+      onFailedRetry,
+    });
+
+    fireEvent.press(getByTestId('chat-failed-bubble-retry-button'));
+    expect(onFailedRetry).toHaveBeenCalledTimes(1);
+  });
+
   it('renders Leash output feedback controls for assistant messages', () => {
     const onThumbsUp = jest.fn();
     const onThumbsDown = jest.fn();

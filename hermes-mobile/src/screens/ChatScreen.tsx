@@ -5480,6 +5480,14 @@ export default function ChatScreen() {
           outputFeedback={outputFeedback}
           onShowDetail={handleShowMessageDetail}
           onInlineTextApproval={handleInlineTextApproval}
+          onFailedRetry={() => {
+            haptics.selection();
+            setErrorMessage(null);
+            if (runProgressRef.current?.phase === 'failed') {
+              setRunProgress(null);
+            }
+            void retryFailedOutboundRef.current();
+          }}
         />
       );
     },

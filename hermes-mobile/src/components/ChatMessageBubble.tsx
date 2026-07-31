@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { haptics } from '../services/haptics';
 import ChatFormattedText from './ChatFormattedText';
@@ -60,6 +60,7 @@ type ChatMessageBubbleProps = {
   leashUnlocked?: boolean;
   onFeedback?: (signal: 'up' | 'down') => void;
   promptReplyElapsed?: PromptReplyElapsedState;
+  onFailedRetry?: () => void;
 };
 
 function hasMeaningfulExpansion(preview: string, expanded: string): boolean {
@@ -95,6 +96,7 @@ function ChatMessageBubble({
   macHttpOk = true,
   autoResendPending = false,
   promptReplyElapsed,
+  onFailedRetry,
 }: ChatMessageBubbleProps) {
   const resolved = useMemo(() => {
     if (rawContent !== undefined && truncated !== undefined) {
@@ -245,29 +247,40 @@ function ChatMessageBubble({
             ]}
           >
             {isUser && outboundStatus ? (
-              <Text
-                style={[
-                  styles.deliveryMark,
-                  outboundStatus === 'failed' && styles.deliveryFailed,
-                  outboundStatus === 'sent' &&
-                    outboundDeliveryLabel(outboundStatus, {
-                      connectionState,
-                      macHttpOk,
-                      failureReason: outboundFailureReason,
-                      autoResendPending,
-                    }).startsWith('✓') &&
-                    styles.deliverySent,
-                ]}
-                numberOfLines={outboundStatus === 'failed' ? 3 : 1}
-                testID={`chat-outbound-${outboundStatus}`}
+              <TouchableOpacity
+                disabled={outboundStatus !== 'failed' || !onFailedRetry}
+                onPress={() => {
+                  haptics.selection();
+                  onFailedRetry?.();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Retry sending failed message"
+                testID="chat-failed-bubble-retry-button"
               >
-                {outboundDeliveryLabel(outboundStatus, {
-                  connectionState,
-                  macHttpOk,
-                  failureReason: outboundFailureReason,
-                  autoResendPending,
-                })}
-              </Text>
+                <Text
+                  style={[
+                    styles.deliveryMark,
+                    outboundStatus === 'failed' && styles.deliveryFailed,
+                    outboundStatus === 'sent' &&
+                      outboundDeliveryLabel(outboundStatus, {
+                        connectionState,
+                        macHttpOk,
+                        failureReason: outboundFailureReason,
+                        autoResendPending,
+                      }).startsWith('✓') &&
+                      styles.deliverySent,
+                  ]}
+                  numberOfLines={outboundStatus === 'failed' ? 3 : 1}
+                  testID={`chat-outbound-${outboundStatus}`}
+                >
+                  {outboundDeliveryLabel(outboundStatus, {
+                    connectionState,
+                    macHttpOk,
+                    failureReason: outboundFailureReason,
+                    autoResendPending,
+                  })}
+                </Text>
+              </TouchableOpacity>
             ) : null}
             <Text
               style={[

@@ -49,6 +49,7 @@ export type ChatMessageListItemProps = {
   onInlineTextApproval: (textApproval: ChatTextApproval, choice: ApprovalChoice) => void;
   onClarificationOption?: (option: ClarificationOption) => void;
   promptReplyElapsed?: PromptReplyElapsedState;
+  onFailedRetry?: (item: HermesMessage) => void;
 };
 
 function ChatMessageListItem({
@@ -71,6 +72,7 @@ function ChatMessageListItem({
   onInlineTextApproval,
   onClarificationOption,
   promptReplyElapsed,
+  onFailedRetry,
 }: ChatMessageListItemProps) {
   const isUser = item.role === 'user';
 
