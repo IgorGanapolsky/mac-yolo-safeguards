@@ -65,7 +65,7 @@
       "scene": "rules",
       "width": 1080,
       "height": 1920,
-      "sha256": "0eebf635e9d46058cf1bafe4c254c361e564d4cc22f8c11126b859f42c6889e4"
+      "sha256": "e89d4cc268a743d1dcb591afca893d0c86ba1ea63298f7683dd91c0c795b44cd"
     },
     "fastlane/metadata/android/en-US/images/phoneScreenshots/05_thumbgate.png": {
       "deviceClass": "play",
@@ -128,14 +128,14 @@
       "scene": "rules",
       "width": 1290,
       "height": 2796,
-      "sha256": "d83532983dc65d0b9d1a0dc4c2a81f4aac21e94352d869114bf8600d706cb642"
+      "sha256": "bf217fc762c2433434da3a70ff10f5c92aaf826e48cebd166ed6c361f57460f6"
     },
     "fastlane/screenshots/en-US/04_pair_ipad129.png": {
       "deviceClass": "ipad",
       "scene": "rules",
       "width": 2048,
       "height": 2732,
-      "sha256": "e46d3ad421b3614ecc8463c4a9b812631d8ac85fb920071d5be8ab69be0b7d45"
+      "sha256": "6d4cbae588992b5696c0e0754b589edc260a89ef3046c12717a4547484b2a4cb"
     },
     "fastlane/screenshots/en-US/05_thumbgate_67.png": {
       "deviceClass": "iphone",
