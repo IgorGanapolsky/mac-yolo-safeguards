@@ -11,7 +11,9 @@
  *   node tools/moe-expert-health.js --gate   # exit 1 if any high-volume dead expert
  */
 
+const fs = require('fs');
 const os = require('os');
+const path = require('path');
 const { runReport } = require('./route-quality-report');
 
 // Map traffic `model` strings → economic-router route ids (best effort).
@@ -25,12 +27,56 @@ const MODEL_TO_ROUTE = {
   'qwen2.5:3b-hermes-64k': 'local_fast',
   'kimi-for-coding': 'kimi_coding_live',
   'kimi-coding': 'kimi_coding_live',
+  'kimi-code': 'kimi_coding_live',
+  'kimi-code-fast': 'kimi_coding_live',
   'kimi-k2.7-code': 'kimi_coding_live',
   'nvidia/nemotron-3-ultra-550b-a55b:free': 'nemotron3_ultra_escalation',
   'grok-4.5': 'grok45_verifier_candidate',
 };
 
 const HIGH_VOLUME = 20; // requests in window before a dead expert is P0
+const DEFAULT_RETIRED_PATH = path.join(os.homedir(), '.hermes', 'retired-experts.json');
+
+/**
+ * Load deliberately retired models so historical DEAD volume does not forever
+ * fail production gates after operators rewire defaults off those aliases.
+ */
+function loadRetiredModels(options = {}) {
+  const retiredPath = options.retiredPath || DEFAULT_RETIRED_PATH;
+  const envList = String(process.env.HERMES_RETIRED_EXPERTS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  let fromFile = [];
+  let meta = null;
+  try {
+    meta = JSON.parse(fs.readFileSync(retiredPath, 'utf8'));
+    fromFile = Array.isArray(meta.models) ? meta.models.map(String) : [];
+  } catch {
+    meta = null;
+  }
+  if (Array.isArray(options.retiredModels)) {
+    fromFile = [...fromFile, ...options.retiredModels.map(String)];
+  }
+  const models = [...new Set([...fromFile, ...envList])].sort();
+  return {
+    models,
+    set: new Set(models),
+    path: retiredPath,
+    primary: meta?.primary || null,
+    retiredAt: meta?.retiredAt || null,
+  };
+}
+
+function isRetiredModel(model, retired) {
+  if (!model || !retired) return false;
+  if (retired.set.has(model)) return true;
+  // Prefix aliases: glm-coding ↔ glm-coding/* sometimes appears in logs
+  for (const r of retired.models) {
+    if (model === r || model.startsWith(`${r}/`) || model.startsWith(`${r}:`)) return true;
+  }
+  return false;
+}
 
 function memoryPressure(options = {}) {
   const free = Number(options.freemem ?? os.freemem());
@@ -51,14 +97,19 @@ function loadExpertHealth(options = {}) {
     windowDays: options.windowDays === undefined ? 7 : options.windowDays,
   });
   const mem = memoryPressure(options);
+  const retired = loadRetiredModels(options);
   if (!report.ok) {
     return {
       ok: false,
       error: report.error,
       memory: mem,
+      retired,
       deadModels: [],
       deadRouteIds: [],
       healthyModels: [],
+      highVolumeDead: [],
+      activeHighVolumeDead: [],
+      retiredHighVolumeDead: [],
       byModel: {},
       byRouteId: {},
     };
@@ -76,6 +127,7 @@ function loadExpertHealth(options = {}) {
       Boolean(r.deadRoute) ||
       (r.requests >= HIGH_VOLUME && answerRate !== null && answerRate < 0.1) ||
       (r.requests >= HIGH_VOLUME && emptyRate !== null && emptyRate > 0.9);
+    const retiredFlag = isRetiredModel(r.model, retired);
 
     const entry = {
       model: r.model,
@@ -85,6 +137,7 @@ function loadExpertHealth(options = {}) {
       emptyRatePct: r.emptyRatePct,
       deadRoute: Boolean(r.deadRoute),
       dead,
+      retired: retiredFlag,
       toolCompliancePct: r.toolCompliancePct,
     };
     byModel[r.model] = entry;
@@ -97,28 +150,45 @@ function loadExpertHealth(options = {}) {
     else if (r.requests >= 5 && answerRate !== null && answerRate >= 0.9) healthyModels.push(r.model);
   }
 
-  const deadRouteIds = [...new Set(deadModels.map((m) => MODEL_TO_ROUTE[m]).filter(Boolean))];
+  const deadRouteIds = [
+    ...new Set(
+      deadModels
+        .filter((m) => !isRetiredModel(m, retired))
+        .map((m) => MODEL_TO_ROUTE[m])
+        .filter(Boolean),
+    ),
+  ];
   const highVolumeDead = (report.routes || []).filter(
     (r) => byModel[r.model]?.dead && r.requests >= HIGH_VOLUME,
   );
+  const mapDead = (r) => ({
+    model: r.model,
+    requests: r.requests,
+    answerRatePct: r.answerRatePct,
+    emptyRatePct: r.emptyRatePct,
+    retired: Boolean(byModel[r.model]?.retired),
+  });
+  const retiredHighVolumeDead = highVolumeDead.filter((r) => byModel[r.model]?.retired).map(mapDead);
+  const activeHighVolumeDead = highVolumeDead.filter((r) => !byModel[r.model]?.retired).map(mapDead);
 
   return {
     ok: true,
     logPath: report.logPath,
     windowDays: report.windowDays,
     memory: mem,
+    retired,
     deadModels,
     deadRouteIds,
     healthyModels,
-    highVolumeDead: highVolumeDead.map((r) => ({
-      model: r.model,
-      requests: r.requests,
-      answerRatePct: r.answerRatePct,
-      emptyRatePct: r.emptyRatePct,
-    })),
+    // Full list (incl. retired) for dashboards; gates use activeHighVolumeDead.
+    highVolumeDead: highVolumeDead.map(mapDead),
+    activeHighVolumeDead,
+    retiredHighVolumeDead,
     byModel,
     byRouteId,
     thresholds: { highVolume: HIGH_VOLUME },
+    // Gate signal: only *active* high-volume dead experts fail production.
+    gateOk: activeHighVolumeDead.length === 0,
   };
 }
 
@@ -150,16 +220,25 @@ if (require.main === module) {
     console.log(
       `  memory pressure=${health.memory.pressure} freeRatio=${health.memory.freeRatio}`,
     );
+    console.log(
+      `  retired: ${(health.retired?.models || []).join(', ') || '(none)'} primary=${health.retired?.primary || '-'}`,
+    );
     console.log(`  dead models: ${health.deadModels.join(', ') || '(none)'}`);
     console.log(`  healthy models: ${health.healthyModels.join(', ') || '(none)'}`);
-    for (const d of health.highVolumeDead || []) {
+    for (const d of health.activeHighVolumeDead || []) {
       console.log(
-        `  P0 DEAD volume=${d.requests} model=${d.model} answer%=${d.answerRatePct} empty%=${d.emptyRatePct}`,
+        `  P0 ACTIVE DEAD volume=${d.requests} model=${d.model} answer%=${d.answerRatePct} empty%=${d.emptyRatePct}`,
+      );
+    }
+    for (const d of health.retiredHighVolumeDead || []) {
+      console.log(
+        `  retired DEAD (non-gating) volume=${d.requests} model=${d.model} answer%=${d.answerRatePct}`,
       );
     }
   }
   if (argv.includes('--gate')) {
-    process.exit(health.ok && (health.highVolumeDead || []).length === 0 ? 0 : 1);
+    // Historical DEAD volume on deliberately retired aliases must not fail the gate.
+    process.exit(health.ok && health.gateOk !== false ? 0 : 1);
   }
   process.exit(health.ok ? 0 : 2);
 }
@@ -167,6 +246,9 @@ if (require.main === module) {
 module.exports = {
   MODEL_TO_ROUTE,
   HIGH_VOLUME,
+  DEFAULT_RETIRED_PATH,
+  loadRetiredModels,
+  isRetiredModel,
   loadExpertHealth,
   memoryPressure,
   observedForRoute,

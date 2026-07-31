@@ -1096,12 +1096,15 @@ function decision(args) {
     let allowedFlag = allowed.allowed;
 
     // Quarantine high-volume DEAD experts from selection (P0 MoE fix).
+    // Retired aliases stay quarantined while traffic history still marks them dead —
+    // retirement only clears gates, not selection of a known-bad expert.
     if (allowedFlag && expertHealth && expertHealth.ok && expertHealth.byRouteId) {
       const health = expertHealth.byRouteId[route.id];
       if (health && health.dead && health.requests >= 20) {
         allowedFlag = false;
+        const tag = health.retired ? 'retired-DEAD' : 'DEAD';
         rejectionReasons.push(
-          `expert-health DEAD: ${health.model} answer%=${health.answerRatePct} empty%=${health.emptyRatePct} (n=${health.requests})`,
+          `expert-health ${tag}: ${health.model} answer%=${health.answerRatePct} empty%=${health.emptyRatePct} (n=${health.requests})`,
         );
       }
     }

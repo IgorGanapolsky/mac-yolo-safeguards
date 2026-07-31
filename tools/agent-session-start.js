@@ -433,10 +433,49 @@ if (!json) {
   }
 }
 
+/**
+ * Software MoE brief: active dead experts, retired list, config defaults.
+ * Non-blocking; capped. Does not auto-rewire config (use system-a-plus --heal).
+ */
+function printMoeOpsBrief() {
+  const healthScript = path.join(REPO, 'tools/moe-expert-health.js');
+  if (!fs.existsSync(healthScript)) return;
+  process.stdout.write('\n=== MoE expert health ===\n');
+  const r = runNode('tools/moe-expert-health.js', ['--json'], 30_000);
+  try {
+    const j = JSON.parse(r.stdout || '{}');
+    if (!j.ok) {
+      process.stdout.write(`moe: FAIL ${j.error || 'unavailable'}\n`);
+      return;
+    }
+    const active = j.activeHighVolumeDead || [];
+    const retired = j.retiredHighVolumeDead || [];
+    process.stdout.write(
+      `gate=${j.gateOk ? 'OK' : 'FAIL'} activeDead=${active.length} retiredDead=${retired.length} healthy=${(j.healthyModels || []).slice(0, 4).join(',') || '-'}\n`,
+    );
+    for (const d of active.slice(0, 4)) {
+      process.stdout.write(`  P0 ${d.model} vol=${d.requests} answer%=${d.answerRatePct}\n`);
+    }
+    if (j.retired?.models?.length) {
+      process.stdout.write(
+        `retired: ${j.retired.models.join(', ')} primary=${j.retired.primary || '-'}\n`,
+      );
+    }
+    if (!j.gateOk) {
+      process.stdout.write(
+        'hint: node tools/moe-retire-dead-experts.js --apply --primary kimi-code-fast\n',
+      );
+    }
+  } catch {
+    process.stdout.write('moe: unreadable\n');
+  }
+}
+
 // Local JetBrains Context equivalent (grepai + hermes-context) — every agent sees health.
 if (!json) {
   printFleetRepoIntelligence();
   printRetrievalOpsBrief();
+  printMoeOpsBrief();
 }
 
 const briefArgs = ['tools/ceo-operating-brief.js'];
