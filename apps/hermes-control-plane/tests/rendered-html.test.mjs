@@ -110,6 +110,13 @@ test("builds the public Leash subscription landing page", async () => {
   assert.equal((chrome.match(/fetch\("\/api\/me"/g) ?? []).length, 1);
   // Lease copy lives in steps + FailoverPathDemo (not the old stats-strip HTML).
   assert.match(page, /90s lease/);
+  // Pinned model VERSIONS rot in public and read as abandonment. On 2026-07-31 the
+  // live Team tier still advertised "Claude 3.5 Sonnet & GPT-4o" — two generations
+  // stale — which is the same failure class as hard-coding a price: the page asserts
+  // a fact that ages badly with nothing watching it. Capability wording ("Auto model
+  // routing") stays true; a version pin does not.
+  assert.doesNotMatch(page, /Claude\s*3(\.\d)?\s*(Sonnet|Opus|Haiku)/i);
+  assert.doesNotMatch(page, /GPT-4o?\b/i);
   assert.match(page, /application\/ld\+json/);
   assert.match(page, /SoftwareApplication/);
   assert.match(page, /RemoteControlDiagram/);
