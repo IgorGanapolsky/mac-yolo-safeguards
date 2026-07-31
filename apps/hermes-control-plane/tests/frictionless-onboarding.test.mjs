@@ -391,7 +391,8 @@ test("keeps every workspace telemetry value behind authentication", () => {
   assert.match(chrome, /landingAuthRequest/);
   assert.doesNotMatch(chrome, /After you sign in|Sign in to private dashboard|Open private dashboard|Open dashboard/);
   assert.match(chrome, /className="landing-action" href="#pair"/);
-  assert.match(chrome, /className="landing-action" href="#pricing"/);
+  // Continuity deep-link targets the public eligibility matrix (not only pricing).
+  assert.match(chrome, /className="landing-action" href="#eligibility"/);
   assert.match(chrome, /No workspace telemetry is fetched or rendered on this public page/);
   assert.doesNotMatch(chrome, /getPublicTelemetry|Live production telemetry|Machines online now/);
   assert.doesNotMatch(landing, /getPublicTelemetry|Live production telemetry|Machines online now|P95 task completion|LAST CLOUD CONTINUATION|cloudRunsCompleted|machinesOnlineNow/);
@@ -408,4 +409,24 @@ test("explains the failover path with an interactive approve/deny demo", () => {
   assert.match(failoverDemo, /aria-live="polite"/);
   assert.match(failoverDemo, /no real tools run/);
   assert.doesNotMatch(failoverDemo, /fetch\(|sendBeacon|localStorage/);
+});
+
+test("publishes an honest Continuity eligibility matrix on the landing page and API", () => {
+  const matrix = readFileSync(new URL("../lib/continuity-eligibility.ts", import.meta.url), "utf8");
+  const eligibilityRoute = readFileSync(
+    new URL("../app/api/continuity/eligibility/route.ts", import.meta.url),
+    "utf8",
+  );
+  const llms = readFileSync(new URL("../app/llms.txt/route.ts", import.meta.url), "utf8");
+  assert.match(landing, /id="eligibility"/);
+  assert.match(landing, /Honest Continuity matrix/);
+  assert.match(landing, /queued prompt handoff/);
+  assert.match(landing, /buildContinuityEligibilityMatrix/);
+  assert.match(landing, /\/api\/continuity\/eligibility/);
+  assert.match(matrix, /queued_prompt_handoff/);
+  assert.match(matrix, /process_migration/);
+  assert.match(matrix, /CONTINUITY_LEASE_MS = 90_000/);
+  assert.match(eligibilityRoute, /buildContinuityEligibilityMatrix/);
+  assert.match(llms, /api\/continuity\/eligibility/);
+  assert.match(llms, /not process migration/);
 });
