@@ -393,7 +393,7 @@ def draw_rules(draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
     draw_rule_row(
         draw,
         (70, 650, width - 70, 810),
-        "Thumbs down → remember block",
+        "Deny tool → capture block",
         "Capture rejected tools to ThumbGate",
         COLORS["purple"],
     )
