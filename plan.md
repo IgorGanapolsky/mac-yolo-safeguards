@@ -1721,6 +1721,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 - `tools/revenue-senses-tick.js` (new), `tests/test-revenue-senses-tick.js` (new), `com.igor.revenue-senses-tick.plist` (new), `plan.md` → **claude-senses-tick** (T-REVENUE-SENSES-TICK-20260731: 24/7 change-only heartbeat on funnel conversion + sender deliverability — the two things that went unnoticed for days. Guarded plist exits 0 when the tool is absent so it cannot crashloop before merge, per the 2026-07-28 quota incident rule. NOT touching revenue-autonomous-loop.js, send paths, or GH Actions.) (2026-07-31T16:45:00Z)
 
+- `apps/hermes-control-plane/app/page.tsx` (Team tier model line only), `apps/hermes-control-plane/tests/rendered-html.test.mjs` (model-version guard only), `plan.md` → **claude-stale-model-pins** (T-STALE-MODEL-PINS-20260731: live site advertised "Claude 3.5 Sonnet & GPT-4o" on a paid tier in mid-2026 — two generations stale, reads as abandoned to a developer buyer. Did NOT invent newer names (runner's actual model set is not verifiable from the repo); removed the version pin instead, mirroring the never-hard-code-a-price rule.) (2026-07-31T17:05:00Z)
+
 ## 3. Decisions Log
 
 ### D-2026-07-28-buzz-competitor-p0-shared-room
