@@ -11,6 +11,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from tinker_brain_coverage import banner, coverage  # noqa: E402
+
 SCORE_RE = re.compile(r"\b(?:100|[1-9]?\d)/100\b")
 AS_OF_RE = re.compile(r"\b20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\b")
 UNSUPPORTED_STACK_TERMS = (
@@ -310,8 +312,18 @@ def main() -> int:
     args = parser.parse_args()
     card_text = args.card.read_text(encoding="utf-8")
     if args.render:
-        print(render_response(card_text, args.question), end="")
-        return 0
+        text = render_response(card_text, args.question)
+        # The gate has to sit on EVERY path that emits an answer, not just the
+        # tinker_brain_answer CLI. This --render entry point used to print the card and
+        # return 0 unconditionally, so any caller reaching for it bypassed the coverage
+        # safeguard completely and got exactly the confident non-answer it exists to stop.
+        # Banner goes to STDERR here (unlike the answer CLI) so stdout stays a clean
+        # rendered card for programmatic callers; exit 3 is the machine-readable signal.
+        note = banner(args.question, text)
+        if note:
+            sys.stderr.write(note + "\n\n")
+        print(text, end="")
+        return 0 if coverage(args.question, text)["covered"] else 3
     response = (
         args.response.read_text(encoding="utf-8")
         if args.response
