@@ -49,6 +49,7 @@ else
 fi
 
 plists=(
+  com.igor.stale-checkout-audit.plist
   com.igor.shutdown-simulators.plist
   com.igor.ceo-operating-brief.plist
   com.igor.hermes-source-packs.plist

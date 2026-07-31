@@ -140,3 +140,41 @@ test('config that is not generated output counts as source', () => {
   assert.equal(findings[0].severity, 'CRITICAL');
   assert.match(findings[0].detail, /1 SOURCE file/);
 });
+
+test('LaunchAgent paths using $HOME are matched — including this tool\'s own plist', () => {
+  // executedPaths() searched only for the expanded absolute home path, while plists
+  // routinely write $HOME/... — this tool's own plist does. A checkout executed solely
+  // by such an agent therefore stayed WARN, so --check exited 0 and the daily alert
+  // never fired. The audit was blind to its own job.
+  const { executedPaths } = require('../tools/stale-checkout-audit.js');
+  const map = executedPaths();
+  const all = [...map.values()].flatMap((s) => [...s]);
+  assert.ok(all.includes('com.igor.stale-checkout-audit'),
+    'the audit must detect its own $HOME-form LaunchAgent, or it cannot be trusted to see others');
+});
+
+test('a job running from a worktree is attributed to the worktree, not its parent', () => {
+  // <repo>/.worktrees/<name> was collapsed to <repo>. If the parent checkout was clean
+  // the worktree produced no finding — and jobs installed from pruned .worktrees/*
+  // paths are one of the failure cases this tool exists to catch.
+  const { executedPaths } = require('../tools/stale-checkout-audit.js');
+  const keys = [...executedPaths().keys()];
+  const worktreeKeys = keys.filter((k) => k.includes('/.worktrees/'));
+  assert.ok(worktreeKeys.length > 0,
+    `expected at least one job attributed to a worktree path; got ${keys.slice(0, 5).join(', ')}`);
+  assert.ok(worktreeKeys.every((k) => k.split('/').length === 3),
+    'worktree keys must be <repo>/.worktrees/<name>, not a deeper file path');
+});
+
+test('a fetch failure is UNCOMPARABLE, never a silent "current"', () => {
+  // Discarding the fetch result meant comparing against whatever cached origin/main
+  // existed — the audit could print "Nothing flagged" while a checkout's tracking ref
+  // was arbitrarily old.
+  const findings = classify(entry({
+    unusable: 'could not fetch origin — comparison would use a possibly stale ref',
+    executedBy: ['com.igor.revenue-autonomous-loop'],
+  }), 25);
+  assert.equal(findings[0].kind, 'UNCOMPARABLE');
+  assert.equal(findings[0].severity, 'CRITICAL',
+    'an executed checkout we cannot compare must escalate, not pass quietly');
+});

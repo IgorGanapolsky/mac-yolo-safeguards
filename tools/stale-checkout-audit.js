@@ -67,10 +67,28 @@ function executedPaths() {
     } catch {
       continue;
     }
-    for (const match of text.matchAll(new RegExp(`${WORKSPACE}/([A-Za-z0-9._-]+)`, 'g'))) {
-      const repo = match[1];
-      if (!referenced.has(repo)) referenced.set(repo, new Set());
-      referenced.get(repo).add(entry.replace(/\.plist$/, ''));
+    // Plists routinely write $HOME/... or ${HOME}/... or ~/... — including this tool's
+    // own plist. Matching only the expanded absolute path meant a checkout executed
+    // solely by such an agent stayed WARN, so --check exited 0 and the alert never
+    // fired. Normalise first.
+    const expanded = text
+      .replace(/\$\{HOME\}/g, os.homedir())
+      .replace(/\$HOME/g, os.homedir())
+      .replace(/(^|[\s"'>])~\//g, `$1${os.homedir()}/`);
+
+    // Capture the FULL path, not just the first segment. A job running from
+    // <repo>/.worktrees/<name> was attributed to <repo>; if the parent checkout was
+    // clean the worktree produced no finding at all — and jobs installed from pruned
+    // .worktrees/* paths are one of the cases this tool exists to catch.
+    for (const match of expanded.matchAll(new RegExp(`${WORKSPACE}/([A-Za-z0-9._/-]+)`, 'g'))) {
+      const rel = match[1].replace(/\/+$/, '');
+      const parts = rel.split('/');
+      // <repo> or <repo>/.worktrees/<name>; anything deeper is a file inside one.
+      const key = (parts[1] === '.worktrees' && parts[2])
+        ? `${parts[0]}/.worktrees/${parts[2]}`
+        : parts[0];
+      if (!referenced.has(key)) referenced.set(key, new Set());
+      referenced.get(key).add(entry.replace(/\.plist$/, ''));
     }
   }
   return referenced;
@@ -78,7 +96,19 @@ function executedPaths() {
 
 function auditCheckout(dir, name, executedBy) {
   if (!git(dir, ['rev-parse', '--git-dir'])) return null;
-  git(dir, ['fetch', '--quiet', 'origin']);
+  // A discarded fetch failure means comparing against whatever cached origin/main
+  // happens to exist — the audit could report "Nothing flagged" while a checkout's
+  // remote-tracking ref was arbitrarily old. Fail closed instead.
+  const fetched = git(dir, ['fetch', '--quiet', 'origin']) !== null;
+  if (!fetched) {
+    return {
+      name, dir,
+      branch: git(dir, ['rev-parse', '--abbrev-ref', 'HEAD']) || '(detached)',
+      behind: null, unversioned: [],
+      unusable: 'could not fetch origin — comparison would use a possibly stale ref',
+      executedBy: [...(executedBy || [])],
+    };
+  }
 
   // A repo with no commits reports every staged file as added-but-uncommitted, which
   // is a different problem from unversioned edits to tracked files and must not be
@@ -191,13 +221,30 @@ function main(argv) {
     return 2;
   }
 
+  // Audit every referenced target too, not just top-level checkouts — a job installed
+  // from <repo>/.worktrees/<name> lives at a path `dirs` never lists.
+  const targets = new Set(dirs);
+  for (const key of executed.keys()) targets.add(key);
+
   const results = [];
-  for (const name of dirs) {
-    const entry = auditCheckout(path.join(WORKSPACE, name), name, executed.get(name));
+  for (const name of targets) {
+    const dir = path.join(WORKSPACE, name);
+    if (!fs.existsSync(dir)) {
+      // A pruned worktree that a LaunchAgent still points at is exactly the exit-127
+      // failure this tool exists to catch; it must be reported, not skipped.
+      results.push({
+        name, dir, branch: '(missing)', behind: null, unversioned: [],
+        unusable: 'path does not exist but a job still references it — if that job selects by file presence it will silently use whichever tree happens to exist, which is how tinker-brain ended up running a branch 29 commits behind main',
+        executedBy: [...(executed.get(name) || [])],
+        findings: [],
+      });
+      continue;
+    }
+    const entry = auditCheckout(dir, name, executed.get(name));
     if (!entry) continue;
-    entry.findings = classify(entry, behindThreshold);
     results.push(entry);
   }
+  for (const entry of results) entry.findings = classify(entry, behindThreshold);
 
   const flagged = results.filter((r) => r.findings.length > 0);
   const critical = flagged.filter((r) => r.findings.some((f) => f.severity === 'CRITICAL'));
