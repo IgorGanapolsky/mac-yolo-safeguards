@@ -18,6 +18,8 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 ## 1. Task Board
 
+| T-MOE-HEALTH-ROUTING-20260731 | Health-aware MoE: quarantine DEAD traffic experts, high-risk default budget, memory-pressure demotion | done | grok-moe-health | `tools/moe-expert-health.js`, `tools/hermes-economic-router.js`, `tests/test-moe-expert-health.js`, `tests/test-hermes-economic-router.js`, `plan.md` | economic-router tests PASS; high-risk+paid defaults to non-local; glm DEAD quarantined in live decision |
+
 | T-HARNESS-WIRE-INFOQ-20260731 | Wire InfoQ microbatch into session-start + LaunchAgent; academic retrieve; durable enqueue | done | grok-harness-wire | `tools/agent-session-start.js`, `tools/hermes-academic-research-retrieve.js`, `tools/index-microbatch.js`, `tools/retrieval-interface-contracts.js`, `scripts/install-index-microbatch.sh`, `scripts/com.igor.index-microbatch.plist`, `tests/test-hermes-academic-research-retrieve.js`, `docs/INFOQ-JULY-2026-HARNESS-APPLY.md`, `plan.md` | unit tests green; academic retrieve works; scorecard A+; session-start brief present |
 
 | T-INFOQ-HARNESS-ROI-20260731 | Apply InfoQ July 2026 data-platform patterns to RAG/harness: interface contracts, micro-batch watermark, durable job queue | done | grok-infoq-roi | `tools/retrieval-interface-contracts.js`, `tools/index-microbatch.js`, `tools/durable-job-queue.js`, `tools/rag-stack-scorecard.js`, `tests/test-retrieval-interface-contracts.js`, `tests/test-index-microbatch.js`, `tests/test-durable-job-queue.js`, `docs/INFOQ-JULY-2026-HARNESS-APPLY.md`, `plan.md` | unit tests green; scorecard still A+; microbatch heal works |
