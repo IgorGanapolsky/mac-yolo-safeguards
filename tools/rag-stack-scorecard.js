@@ -71,14 +71,22 @@ function scoreStack(options = {}) {
   const gates = [];
   const heals = [];
 
-  if (options.heal) {
-    // InfoQ micro-batch controller: watermark advance + watcher restart + export.
-    const batch = runNode('index-microbatch.js', ['--once', '--heal', '--json'], { timeout: 180000 });
+  // Always preflight microbatch (FF isolated grepae when behind origin/main).
+  // Without this, dry scorecards fail index-freshness every time main advances
+  // between LaunchAgent cycles (measured 2026-07-31: A+ → B+ within minutes).
+  {
+    const batchArgs = options.heal
+      ? ['--once', '--heal', '--json']
+      : ['--once', '--json'];
+    const batch = runNode('index-microbatch.js', batchArgs, { timeout: 180000 });
     heals.push({
-      step: 'index-microbatch',
+      step: options.heal ? 'index-microbatch-heal' : 'index-microbatch-preflight',
       ok: batch.status === 0 && Boolean(batch.json?.ok ?? true),
       detail: batch.json || batch.stdout.slice(0, 200),
     });
+  }
+
+  if (options.heal) {
     const exp = runNode('thumbgate-lessons-export-jsonl.js', ['--dir', home, '--apply', '--json']);
     heals.push({ step: 'export-jsonl', ok: exp.status === 0, detail: exp.json || exp.stdout.slice(0, 200) });
     const ensure = runNode('ensure-grepai-index.js', ['--canary', '--json'], { timeout: 90000 });
@@ -178,11 +186,21 @@ function scoreStack(options = {}) {
     score: evalScore,
   });
 
-  // 5) dual-path
+  // 5) dual-path (+ second-stage rerank by default)
   const dual = runNode(
     'retrieval-dual-path.js',
-    ['--query', 'hermes cloud connector session recover', '--json', '--limit', '5'],
-    { timeout: 90000 },
+    [
+      '--query',
+      'hermes cloud connector session recover',
+      '--json',
+      '--limit',
+      '5',
+      '--candidate-pool',
+      '10',
+      '--rerank',
+      'ensemble',
+    ],
+    { timeout: 300000 },
   );
   const dualOk =
     dual.json &&
@@ -191,15 +209,33 @@ function scoreStack(options = {}) {
     dual.json.pathStatus.grepai === 'ok' &&
     Array.isArray(dual.json.matches) &&
     dual.json.matches.length > 0;
+  const rerankApplied = Boolean(dual.json?.rerank?.applied);
   gates.push({
     id: 'dual-path',
     hard: true,
-    weight: 0.1,
+    weight: 0.08,
     ok: dualOk,
     detail: dualOk
-      ? `top=${dual.json.matches[0].path}`
+      ? `top=${dual.json.matches[0].path} rerank=${dual.json.rerank?.strategy || 'none'} applied=${rerankApplied}`
       : JSON.stringify(dual.json?.pathStatus || dual.stderr || dual.stdout).slice(0, 200),
-    score: dualOk ? 1 : 0.2,
+    score: dualOk ? (rerankApplied ? 1 : 0.85) : 0.2,
+  });
+
+  // 5b) dedicated rerank stack (CE + ColBERT + LLM capability)
+  const rerankCard = runNode('rerank-stack-scorecard.js', ['--json', '--live'], { timeout: 300000 });
+  const rerankOk = Boolean(rerankCard.json && rerankCard.json.aPlus && rerankCard.json.tenTen);
+  gates.push({
+    id: 'rerank-stack',
+    hard: true,
+    weight: 0.12,
+    ok: rerankOk,
+    detail: rerankOk
+      ? `grade=${rerankCard.json.grade} ${rerankCard.json.scoreOutOf10}/10`
+      : JSON.stringify(rerankCard.json?.gates?.filter((g) => !g.ok) || rerankCard.stderr || rerankCard.stdout).slice(
+          0,
+          220,
+        ),
+    score: rerankOk ? 1 : Math.max(0, Number(rerankCard.json?.score) || 0),
   });
 
   // 6) harness headroom

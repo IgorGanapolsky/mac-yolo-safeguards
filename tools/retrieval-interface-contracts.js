@@ -49,8 +49,19 @@ const CONTRACTS = /** @type {InterfaceContract[]} */ ([
     requiredPaths: [
       path.join(REPO, 'tools', 'retrieval-dual-path.js'),
       path.join(REPO, 'tools', 'retrieval-query-rewrite.js'),
+      path.join(REPO, 'tools', 'retrieval-rerank.js'),
     ],
-    description: 'RRF fusion of harness + grepae',
+    description: 'RRF fusion of harness + grepae + second-stage CE/ColBERT/LLM rerank',
+  },
+  {
+    id: 'code.rerank',
+    owner: 'retrieval-rerank',
+    layer: 'serving',
+    requiredPaths: [
+      path.join(REPO, 'tools', 'retrieval-rerank.js'),
+      path.join(REPO, 'tools', 'rerank-stack-scorecard.js'),
+    ],
+    description: 'Cross-encoder, ColBERT-lite MaxSim, and LLM listwise rerank',
   },
   {
     id: 'lessons.sqlite',

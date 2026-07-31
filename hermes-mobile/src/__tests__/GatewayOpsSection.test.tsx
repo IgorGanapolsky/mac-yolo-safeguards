@@ -1,4 +1,5 @@
 import React from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, render, fireEvent, waitFor } from '@testing-library/react-native';
 import GatewayOpsSection from '../components/GatewayOpsSection';
 import { mockUseGateway } from '../testUtils/gatewayFixtures';
@@ -66,8 +67,9 @@ const { useGateway } = jest.requireMock('../context/GatewayContext');
 const gatewayClient = jest.requireMock('../services/hermesGatewayClient');
 
 describe('GatewayOpsSection', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    await AsyncStorage.clear();
     useGateway.mockReturnValue(mockUseGateway());
     gatewayClient.getCapabilities.mockResolvedValue({
       features: { toolsets_write: true },
@@ -130,6 +132,10 @@ describe('GatewayOpsSection', () => {
 
     const { getByText, getByTestId, queryByText } = render(<GatewayOpsSection />);
 
+    await waitFor(() => {
+      expect(getByTestId('ops-section-skills')).toBeTruthy();
+    });
+    fireEvent.press(getByTestId('ops-section-skills'));
     await waitFor(() => {
       expect(getByText('mac-freeze-rescue')).toBeTruthy();
       expect(getByTestId('toolsets-empty-state').props.children).toContain(
@@ -257,7 +263,7 @@ describe('GatewayOpsSection', () => {
     expect(queryByTestId('toolset-add-key-homeassistant')).toBeNull();
     expect(queryByTestId('toolset-switch-spotify')).toBeNull();
     expect(queryByTestId('toolsets-advanced-list')).toBeNull();
-    expect(getByText(/On your Mac \(2\)/)).toBeTruthy();
+    expect(getByText(/Extra tools/)).toBeTruthy();
 
     fireEvent.press(getByTestId('toolsets-advanced-toggle'));
 
@@ -409,6 +415,10 @@ describe('GatewayOpsSection', () => {
     const { getByTestId } = render(<GatewayOpsSection />);
 
     await waitFor(() => {
+      expect(getByTestId('ops-section-jobs')).toBeTruthy();
+    });
+    fireEvent.press(getByTestId('ops-section-jobs'));
+    await waitFor(() => {
       expect(getByTestId('job-delete-cron-long-name')).toBeTruthy();
     });
   });
@@ -425,6 +435,10 @@ describe('GatewayOpsSection', () => {
 
     const { getByTestId, getByText, queryByTestId } = render(<GatewayOpsSection />);
 
+    await waitFor(() => {
+      expect(getByTestId('ops-section-features')).toBeTruthy();
+    });
+    fireEvent.press(getByTestId('ops-section-features'));
     await waitFor(() => {
       expect(getByTestId('feature-expand-chat_completions')).toBeTruthy();
     });
@@ -458,6 +472,10 @@ describe('GatewayOpsSection', () => {
 
     const { getByTestId, getByText, queryByTestId } = render(<GatewayOpsSection />);
 
+    await waitFor(() => {
+      expect(getByTestId('ops-section-jobs')).toBeTruthy();
+    });
+    fireEvent.press(getByTestId('ops-section-jobs'));
     await waitFor(() => {
       expect(getByTestId('job-expand-job-detail-1')).toBeTruthy();
     });
@@ -493,6 +511,10 @@ describe('GatewayOpsSection', () => {
 
     const { getByTestId, queryByTestId } = render(<GatewayOpsSection />);
 
+    await waitFor(() => {
+      expect(getByTestId('ops-section-jobs')).toBeTruthy();
+    });
+    fireEvent.press(getByTestId('ops-section-jobs'));
     await waitFor(() => {
       expect(getByTestId('job-resume-job-disabled-1')).toBeTruthy();
     });
