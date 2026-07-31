@@ -11,9 +11,15 @@ const path = require('path');
 const {
   buildOutcomeContract,
   buildExecutionPlan,
+  computeAdjustedRouteScore,
   decision,
+  evaluateCanary,
   parseArgs,
+  routeAllowed,
+  ROUTES,
+  scoreRoute,
   taskSignals,
+  updateRouteReliability,
   writeReceipt,
 } = require('../tools/hermes-economic-router');
 
@@ -466,5 +472,82 @@ assert.strictEqual(lines.length, 1);
 assert.strictEqual(JSON.parse(lines[0]).id, routine.id);
 assert.strictEqual(fs.statSync(receiptPath).mode & 0o777, 0o600);
 fs.rmSync(tmp, { recursive: true, force: true });
+
+// ---------------------------------------------------------------------------
+// Feedback-loop coverage (additive). T-INFERENCE-GATEWAY-ROI shipped the canary /
+// reliability loop (computeAdjustedRouteScore, updateRouteReliability,
+// evaluateCanary) and #1287 wired it into decision() via expertHealth — but
+// none of these were covered by tests. These lock the pure feedback functions
+// and the hard gates with values re-probed against origin/main.
+// ---------------------------------------------------------------------------
+
+const g = ROUTES.find((r) => r.id === 'grok45_verifier_candidate');
+const localFast = ROUTES.find((r) => r.id === 'local_fast');
+
+const grokArgs = {
+  task: '@grok 4.5 verify architecture cross-file',
+  risk: 'medium',
+  maxCostUsd: 5,
+  latencyMs: 120000,
+  paidOk: true,
+  ignoreExpertHealth: true,
+};
+const grokSignals = taskSignals(grokArgs.task);
+const obsGood = { calls: 20, successCount: 20, totalCostUsd: 0.01, avgLatencyMs: 100 };
+const obsBad = { calls: 20, successCount: 4, totalCostUsd: 0.01, avgLatencyMs: 100 };
+
+// computeAdjustedRouteScore: null observed === scoreRoute (no behavior change w/o data)
+assert.strictEqual(
+  computeAdjustedRouteScore(g, grokArgs, grokSignals, null),
+  scoreRoute(g, grokArgs, grokSignals),
+);
+// over-performing observed (1.0 vs prior 0.81) boosts score (180 -> 199)
+assert.strictEqual(computeAdjustedRouteScore(g, grokArgs, grokSignals, obsGood), 199);
+assert(computeAdjustedRouteScore(g, grokArgs, grokSignals, obsGood) > scoreRoute(g, grokArgs, grokSignals));
+// under-performing observed (0.2 vs 0.81) penalizes score (180 -> 150)
+assert.strictEqual(computeAdjustedRouteScore(g, grokArgs, grokSignals, obsBad), 150);
+assert(computeAdjustedRouteScore(g, grokArgs, grokSignals, obsBad) < scoreRoute(g, grokArgs, grokSignals));
+
+// updateRouteReliability: Bayesian blend of prior (0.81) with observed success rate (prior weight 3)
+assert.strictEqual(updateRouteReliability(g, { calls: 10, successCount: 10, totalCostUsd: 0, avgLatencyMs: 100 }), 0.9562);
+assert.strictEqual(updateRouteReliability(g, { calls: 10, successCount: 0, totalCostUsd: 0, avgLatencyMs: 100 }), 0.1869);
+assert.strictEqual(updateRouteReliability(g, { calls: 10, successCount: 5, totalCostUsd: 0, avgLatencyMs: 100 }), 0.5715);
+// no observations -> prior unchanged
+assert.strictEqual(updateRouteReliability(g, { calls: 0, successCount: 0, totalCostUsd: 0, avgLatencyMs: 100 }), 0.81);
+
+// evaluateCanary: candidate-vs-default A/B vote (min 5 calls, >=5% delta, <=1.5x latency, <=1.3x cost)
+const canaryDefault = { calls: 10, successCount: 8, totalCostUsd: 0.01, avgLatencyMs: 210 };
+const goodCanary = { calls: 10, successCount: 9, totalCostUsd: 0.01, avgLatencyMs: 200 };
+const promote = evaluateCanary(g, localFast, goodCanary, canaryDefault);
+assert.strictEqual(promote.ok, true);
+assert.strictEqual(promote.vote, 'promote');
+const reject = evaluateCanary(g, localFast, { calls: 10, successCount: 3, totalCostUsd: 0.01, avgLatencyMs: 200 }, canaryDefault);
+assert.strictEqual(reject.ok, false);
+assert.strictEqual(reject.vote, 'reject');
+assert(reject.reasons.some((r) => r.includes('success rate')));
+const insufficient = evaluateCanary(g, localFast, { calls: 2, successCount: 2, totalCostUsd: 0.01, avgLatencyMs: 200 }, canaryDefault);
+assert.strictEqual(insufficient.ok, false);
+assert.strictEqual(insufficient.vote, 'insufficient_data');
+assert.strictEqual(insufficient.scores, null);
+const hold = evaluateCanary(g, localFast, { calls: 10, successCount: 9, totalCostUsd: 0.01, avgLatencyMs: 9999 }, canaryDefault);
+assert.strictEqual(hold.ok, false);
+assert.strictEqual(hold.vote, 'hold');
+
+// routeAllowed gates: paid route blocked without --paid-ok; risk ceiling enforced
+const fuguRoute = ROUTES.find((r) => r.id === 'fugu_escalation');
+const fuguSignals = taskSignals('fugu research sakana');
+assert.strictEqual(
+  routeAllowed(fuguRoute, { task: 'fugu research', risk: 'critical', maxCostUsd: 0.5, latencyMs: 60000, paidOk: false }, fuguSignals).allowed,
+  false,
+);
+assert.strictEqual(
+  routeAllowed(fuguRoute, { task: 'fugu research', risk: 'critical', maxCostUsd: 0.5, latencyMs: 60000, paidOk: true }, fuguSignals).allowed,
+  true,
+);
+// risk ceiling: local_fast (medium ceiling) blocks a critical-risk task
+assert.strictEqual(
+  routeAllowed(localFast, { task: 'x', risk: 'critical', maxCostUsd: 0, latencyMs: 50000, paidOk: true }, taskSignals('x')).allowed,
+  false,
+);
 
 console.log('Hermes economic router tests: PASS');
