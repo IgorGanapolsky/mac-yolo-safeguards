@@ -217,6 +217,6 @@ describe('ComputerPickerStatusRegion', () => {
       />,
     );
     expect(getByText('Searching for your computer…')).toBeTruthy();
-    expect(getByTestID('picker-status-progress-track')).toBeTruthy();
+    expect(getByTestId('picker-status-progress-track')).toBeTruthy();
   });
 });
