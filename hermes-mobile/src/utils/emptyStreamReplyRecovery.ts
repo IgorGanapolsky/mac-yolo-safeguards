@@ -156,6 +156,12 @@ export function toolActivityAfterLastUser(messages: HermesMessage[]): {
   return { active, labels, detail };
 }
 
-export function deferredReplyPollBudgetMs(options: { toolsActive: boolean }): number {
+export function deferredReplyPollBudgetMs(options: {
+  toolsActive: boolean;
+  connectionState?: string | null;
+}): number {
+  if (options.connectionState === 'unreachable' || options.connectionState === 'offline') {
+    return 10_000;
+  }
   return options.toolsActive ? DEFERRED_REPLY_POLL_MAX_WITH_TOOLS_MS : DEFERRED_REPLY_POLL_MAX_MS;
 }

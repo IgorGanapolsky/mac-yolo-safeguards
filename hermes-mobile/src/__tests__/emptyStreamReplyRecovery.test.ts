@@ -93,6 +93,8 @@ describe('emptyStreamReplyRecovery', () => {
     expect(EMPTY_STREAM_HARD_STOP_MS).toBeGreaterThanOrEqual(DEFERRED_REPLY_POLL_MAX_WITH_TOOLS_MS);
     expect(deferredReplyPollBudgetMs({ toolsActive: false })).toBe(60_000);
     expect(deferredReplyPollBudgetMs({ toolsActive: true })).toBe(180_000);
+    expect(deferredReplyPollBudgetMs({ toolsActive: true, connectionState: 'unreachable' })).toBe(10_000);
+    expect(deferredReplyPollBudgetMs({ toolsActive: false, connectionState: 'offline' })).toBe(10_000);
     expect(EMPTY_REPLY_FAILURE_REASON).toMatch(/fresh chat|leash/i);
   });
 
