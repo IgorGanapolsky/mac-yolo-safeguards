@@ -1,5 +1,7 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
+import { spawnSync } from 'child_process';
 
 const mobileRoot = path.resolve(__dirname, '../..');
 const flow = fs.readFileSync(
@@ -188,6 +190,72 @@ describe('iPad simulator fresh-user edge-case flow', () => {
     expect(ipadRunner).toContain('E2E_LEASE_DIR="${YOLO_E2E_LEASE_DIR:-/tmp/yolo-guard-e2e}"');
     expect(ipadRunner).toContain('printf \'%s\\n\' "$$" >"$E2E_LEASE_FILE"');
     expect(ipadRunner).toContain('rm -f "$E2E_LEASE_FILE"');
+    expect(ipadRunner).toContain('trap - EXIT');
+    expect(ipadRunner).toContain('for attempt in 1 2');
+    expect(ipadRunner).toContain(
+      'device.udid === process.env.IPAD_UDID',
+    );
+    expect(ipadRunner).toContain(
+      'Failed to delete disposable iPad simulator $IPAD_UDID',
+    );
+    expect(ipadRunner).not.toContain(
+      'xcrun simctl delete "$IPAD_UDID" >/dev/null 2>&1 || true',
+    );
+  });
+
+  it('fails the gate instead of printing PASS when simulator deletion cannot be verified', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ipad-cleanup-test-'));
+    const fakeXcrun = path.join(tempRoot, 'xcrun');
+    const fakeRunner = path.join(tempRoot, 'runner.sh');
+    const leaseDir = path.join(tempRoot, 'leases');
+
+    fs.writeFileSync(
+      fakeXcrun,
+      `#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == "simctl list devices available -j" ]]; then
+  printf '%s\\n' '{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-18-5":[{"name":"iPad Test","udid":"TEMPLATE-UDID","state":"Shutdown","isAvailable":true,"deviceTypeIdentifier":"com.apple.CoreSimulator.SimDeviceType.iPad"}]}}'
+elif [[ "$1 $2" == "simctl create" ]]; then
+  printf '%s\\n' 'DISPOSABLE-UDID'
+elif [[ "$*" == "simctl list devices booted -j" ]]; then
+  printf '%s\\n' '{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-18-5":[{"name":"iPad Hermes E2E test","udid":"DISPOSABLE-UDID","state":"Booted"}]}}'
+elif [[ "$*" == "simctl list devices -j" ]]; then
+  printf '%s\\n' '{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-18-5":[{"name":"iPad Hermes E2E test","udid":"DISPOSABLE-UDID","state":"Shutdown"}]}}'
+elif [[ "$1 $2" == "simctl delete" ]]; then
+  exit 1
+fi
+`,
+      { mode: 0o755 },
+    );
+    fs.writeFileSync(fakeRunner, '#!/usr/bin/env bash\nexit 0\n', {
+      mode: 0o755,
+    });
+
+    try {
+      const result = spawnSync(
+        'bash',
+        [path.join(mobileRoot, 'scripts/run-ipad-simulator-e2e.sh')],
+        {
+          cwd: mobileRoot,
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            PATH: `${tempRoot}:${process.env.PATH ?? ''}`,
+            HERMES_SIMULATOR_RUNNER: fakeRunner,
+            YOLO_E2E_LEASE_DIR: leaseDir,
+          },
+          timeout: 5_000,
+        },
+      );
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(
+        'Failed to delete disposable iPad simulator DISPOSABLE-UDID',
+      );
+      expect(result.stdout).not.toContain('Strict iPad Simulator E2E: PASS');
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 
   it('gates mobile changes on strict iPad E2E without charging unrelated PRs', () => {

@@ -42,14 +42,57 @@ fi
 
 IPAD_UDID=""
 E2E_LEASE_FILE=""
+RUN_PASSED=0
+
+simulator_is_absent() {
+  xcrun simctl list devices -j | IPAD_UDID="$IPAD_UDID" node -e '
+    const fs = require("fs");
+    const payload = JSON.parse(fs.readFileSync(0, "utf8"));
+    const devices = Object.values(payload.devices || {}).flat();
+    process.exit(
+      devices.some((device) => device.udid === process.env.IPAD_UDID) ? 1 : 0,
+    );
+  '
+}
+
 cleanup() {
+  local original_status=$?
+  local cleanup_failed=0
+  local simulator_deleted=0
+  trap - EXIT
+
   if [[ -n "$IPAD_UDID" ]]; then
-    xcrun simctl shutdown "$IPAD_UDID" >/dev/null 2>&1 || true
-    xcrun simctl delete "$IPAD_UDID" >/dev/null 2>&1 || true
+    for attempt in 1 2; do
+      xcrun simctl shutdown "$IPAD_UDID" >/dev/null 2>&1 || true
+      if xcrun simctl delete "$IPAD_UDID" >/dev/null 2>&1; then
+        :
+      fi
+      if simulator_is_absent; then
+        simulator_deleted=1
+        break
+      fi
+      if [[ "$attempt" -eq 1 ]]; then
+        sleep 1
+      fi
+    done
+    if [[ "$simulator_deleted" -ne 1 ]]; then
+      echo "Failed to delete disposable iPad simulator $IPAD_UDID" >&2
+      cleanup_failed=1
+    fi
   fi
   if [[ -n "$E2E_LEASE_FILE" ]]; then
-    rm -f "$E2E_LEASE_FILE"
+    if ! rm -f "$E2E_LEASE_FILE"; then
+      echo "Failed to remove iPad E2E lease $E2E_LEASE_FILE" >&2
+      cleanup_failed=1
+    fi
   fi
+  if [[ "$cleanup_failed" -ne 0 ]]; then
+    exit 1
+  fi
+  if [[ "$original_status" -eq 0 && "$RUN_PASSED" -eq 1 ]]; then
+    echo "=== Strict iPad Simulator E2E: PASS ($IPAD_NAME) ==="
+  fi
+  exit "$original_status"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
@@ -102,4 +145,4 @@ xcrun simctl list devices booted -j | IPAD_UDID="$IPAD_UDID" node -e '
   }
 '
 
-echo "=== Strict iPad Simulator E2E: PASS ($IPAD_NAME) ==="
+RUN_PASSED=1
