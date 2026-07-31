@@ -339,6 +339,27 @@ function loadDailyPaidGoal() {
   let charges = [];
   // ledger files if present
   try {
+    // The canonical ledger is the TSV that tools/record-cleared-payment.js writes
+    // (revenue-ledger-YYYY-MM.tsv). Nothing in this repository has ever written
+    // cleared-payments-<day>.jsonl, so `paid` could never increment: a real cleared
+    // payment left the goal open, revenue was forced every 30 minutes, and Ralph's
+    // PR maintenance stayed deferred indefinitely.
+    const tsvLedger = path.join(REVENUE_DIR, `revenue-ledger-${day.slice(0, 7)}.tsv`);
+    if (fs.existsSync(tsvLedger)) {
+      const rows = fs.readFileSync(tsvLedger, 'utf8').trim().split('\n').filter(Boolean);
+      if (rows.length > 1) {
+        const headers = rows[0].split('\t');
+        const iDate = headers.indexOf('date_paid');
+        const iStatus = headers.indexOf('status');
+        charges = rows.slice(1)
+          .map((line) => line.split('\t'))
+          .filter((cols) => cols[iDate] === day
+            && ['paid', 'cleared'].includes((cols[iStatus] || '').trim()))
+          .map((cols) => Object.fromEntries(headers.map((h, i) => [h, cols[i]])));
+        paid = charges.length;
+      }
+    }
+    // Legacy path kept so an operator-written jsonl still counts if one appears.
     const ledger = path.join(REVENUE_DIR, `cleared-payments-${day}.jsonl`);
     if (fs.existsSync(ledger)) {
       charges = fs

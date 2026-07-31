@@ -911,7 +911,8 @@ async function run(args) {
   // cold "$499" follow-up on 07-28.
   let hotReplies = [];
   let replyScanBlind = false;
-  if (!args.fast && process.env.REVENUE_REPLY_SCAN !== '0') {
+  // A sending run must scan. Fast mode may skip only when it will not mail anyone.
+  if ((!args.fast || args.autoSend) && process.env.REVENUE_REPLY_SCAN !== '0') {
     try {
       const { run: runReplyScan } = require('./gmail-outreach-reply-scan');
       const useChrome = args.chrome !== false && process.env.REVENUE_NO_CHROME_GMAIL !== '1';
@@ -980,7 +981,11 @@ async function run(args) {
     // No scan means we cannot know who replied. --fast is a diagnostics mode and
     // never sends, but REVENUE_REPLY_SCAN=0 on a sending run must not be a way
     // to skip the check and mail people anyway.
-    replyScanBlind = !args.fast;
+    // Skipping the scan is blind regardless of WHY. The previous `!args.fast` claimed
+      // fast mode was not blind because it "never sends" — but ralph-gsd-loop.js:277
+      // invokes this with `--auto-send --fast`, so the hard-stop below was bypassed on
+      // exactly the path that mails people.
+      replyScanBlind = true;
     actions.push('gmail_reply_scan=skipped');
   }
 
@@ -988,6 +993,13 @@ async function run(args) {
   const repliedEmails = new Set(
     hotReplies.map((h) => String(h.email || '').toLowerCase()).filter(Boolean),
   );
+
+  // `hot` is notification-only: gmail-outreach-reply-scan.js marks seen[id] on first
+  // sight and skips it on every later scan, so a reply excluded a follow-up exactly
+  // ONCE and then dropped out while the pipeline row was still due. That is how a
+  // prospect who replied on 2026-07-22 received a cold follow-up on 07-28.
+  for (const email of loadRepliedContacts()) repliedEmails.add(email);
+  if (repliedEmails.size) saveRepliedContacts(repliedEmails);
 
   // Scheduled jobs can never send just because a plist or inherited environment
   // says "auto". The second, invocation-scoped gate is intentionally absent from
@@ -1269,6 +1281,38 @@ async function run(args) {
   }
 
   return summary;
+}
+
+// Replies are permanent facts about a contact, but the scanner only reports each one
+// on the cycle that first sees it. This is the durable record the send gate consults.
+const REPLIED_CONTACTS_FILE = 'replied-contacts.json';
+
+function repliedContactsPath() {
+  return path.join(REVENUE_DIR, REPLIED_CONTACTS_FILE);
+}
+
+function loadRepliedContacts() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(repliedContactsPath(), 'utf8'));
+    return new Set((raw.emails || []).map((e) => String(e).toLowerCase()).filter(Boolean));
+  } catch {
+    // Absent or unreadable state must not silently widen the send set; callers union
+    // this with the live scan, so an empty set is the conservative direction only when
+    // the live scan succeeded. Blindness is handled separately by replyScanBlind.
+    return new Set();
+  }
+}
+
+function saveRepliedContacts(emails) {
+  try {
+    const existing = loadRepliedContacts();
+    for (const e of emails) existing.add(String(e).toLowerCase());
+    fs.mkdirSync(REVENUE_DIR, { recursive: true });
+    fs.writeFileSync(
+      repliedContactsPath(),
+      `${JSON.stringify({ updatedAt: new Date().toISOString(), emails: [...existing].sort() }, null, 2)}\n`,
+    );
+  } catch { /* best-effort: never block a run on bookkeeping */ }
 }
 
 async function main() {
