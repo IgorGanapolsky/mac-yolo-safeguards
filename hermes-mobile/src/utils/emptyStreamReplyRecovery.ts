@@ -25,9 +25,31 @@ export const EMPTY_REPLY_FAILURE_REASON =
 export const EMPTY_STREAM_HARD_STOP_STATUS =
   'Stopped waiting on your Mac. Open Leash if a tool needs approve/deny/warn, Stop an active run, or start a fresh chat.';
 
+/**
+ * Options for wait-state decisions.
+ *
+ * `hasAssistantReply` is the question every one of these used to skip. Elapsed
+ * time alone cannot tell "still waiting" from "answered slowly", so a reply that
+ * arrived at 4m01s kept the banner counting — and then announced the wait had
+ * been abandoned — directly beneath the answer on screen (reported twice,
+ * 2026-07-31).
+ */
+export type WaitResolutionInput = {
+  /** True once assistant text for the latest user turn is present. */
+  hasAssistantReply?: boolean;
+};
+
 /** User-facing status while auto-polling after send with no reply yet. */
-export function emptyStreamCheckingStatus(elapsedMs: number): string {
-  if (shouldHardStopEmptyStreamWait(elapsedMs)) {
+export function emptyStreamCheckingStatus(
+  elapsedMs: number,
+  input: WaitResolutionInput = {},
+): string {
+  // A reply on screen ends the wait, whatever the clock says. Empty string so the
+  // banner renders nothing rather than contradicting the visible transcript.
+  if (input.hasAssistantReply) {
+    return '';
+  }
+  if (shouldHardStopEmptyStreamWait(elapsedMs, input)) {
     return EMPTY_STREAM_HARD_STOP_STATUS;
   }
   const elapsedSec = Math.max(1, Math.floor(elapsedMs / 1000));
@@ -37,7 +59,14 @@ export function emptyStreamCheckingStatus(elapsedMs: number): string {
   return `Checking your Mac… (${elapsedSec}s)`;
 }
 
-export function shouldHardStopEmptyStreamWait(elapsedMs: number): boolean {
+export function shouldHardStopEmptyStreamWait(
+  elapsedMs: number,
+  input: WaitResolutionInput = {},
+): boolean {
+  // Nothing to abandon once the reply is here.
+  if (input.hasAssistantReply) {
+    return false;
+  }
   return elapsedMs >= EMPTY_STREAM_HARD_STOP_MS;
 }
 

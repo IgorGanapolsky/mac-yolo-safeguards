@@ -3,6 +3,7 @@ import {
   EMPTY_STREAM_HARD_STOP_MS,
   EMPTY_STREAM_HARD_STOP_STATUS,
   shouldHardStopEmptyStreamWait,
+  type WaitResolutionInput,
 } from './emptyStreamReplyRecovery';
 import { EMPTY_STREAM_TIMEOUT_PLACEHOLDER } from './streamAssistantText';
 
@@ -10,8 +11,15 @@ import { EMPTY_STREAM_TIMEOUT_PLACEHOLDER } from './streamAssistantText';
 export const EMPTY_STREAM_REFRESH_BANNER_HINT =
   'Still waiting for reply text from your Mac. Hermes is checking automatically — Stop if a run is active, open Leash for approve/deny/warn, or start a fresh chat.';
 
-export function emptyStreamBannerHint(elapsedMs: number): string {
-  if (shouldHardStopEmptyStreamWait(elapsedMs)) {
+export function emptyStreamBannerHint(
+  elapsedMs: number,
+  input: WaitResolutionInput = {},
+): string {
+  // Same law as the status line: never narrate a wait the transcript disproves.
+  if (input.hasAssistantReply) {
+    return '';
+  }
+  if (shouldHardStopEmptyStreamWait(elapsedMs, input)) {
     return EMPTY_STREAM_HARD_STOP_STATUS;
   }
   const elapsedSec = Math.max(1, Math.floor(elapsedMs / 1000));

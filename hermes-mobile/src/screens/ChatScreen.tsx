@@ -470,6 +470,7 @@ import {
   shouldAwaitGatewayReplyAfterSend,
   shouldHardStopEmptyStreamWait,
   shouldKeepAutoPollingForReply,
+  serverHasAssistantReplyAfterLastUser,
   toolActivityAfterLastUser,
 } from '../utils/emptyStreamReplyRecovery';
 import { shouldShowEmptyStreamRefreshCta } from '../utils/emptyStreamRefreshCta';
@@ -8262,6 +8263,10 @@ export default function ChatScreen() {
 
         {showEmptyStreamRefreshBanner && !showComposerProgressBanner ? (
           <EmptyStreamRefreshBanner
+            // A reply on screen ends the wait, whatever the clock says. Without
+            // this the banner counts past a visible answer and then claims the
+            // wait was abandoned.
+            hasAssistantReply={serverHasAssistantReplyAfterLastUser(messages)}
             autoChecking={awaitingGatewayReply}
             busy={isPullRefreshing}
             waitingSinceMs={lastUserPromptSentAtMs}

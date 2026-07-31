@@ -17,6 +17,12 @@ type EmptyStreamRefreshBannerProps = {
   startingFreshChat?: boolean;
   onOpenLeash?: () => void;
   pendingApprovalCount?: number;
+  /**
+   * True once assistant text for the latest user turn is on screen. Without
+   * this the banner keeps counting — and then claims the wait was abandoned —
+   * directly beneath the reply it is denying (reported twice, 2026-07-31).
+   */
+  hasAssistantReply?: boolean;
 };
 
 export default function EmptyStreamRefreshBanner({
@@ -28,6 +34,7 @@ export default function EmptyStreamRefreshBanner({
   startingFreshChat = false,
   onOpenLeash,
   pendingApprovalCount = 0,
+  hasAssistantReply = false,
 }: EmptyStreamRefreshBannerProps) {
   const [elapsedMs, setElapsedMs] = useState(0);
 
@@ -42,10 +49,13 @@ export default function EmptyStreamRefreshBanner({
     return () => clearInterval(timer);
   }, [waitingSinceMs]);
 
-  const hardStopped = shouldHardStopEmptyStreamWait(elapsedMs);
+  const hardStopped = shouldHardStopEmptyStreamWait(elapsedMs, { hasAssistantReply });
   const displayElapsedMs = emptyStreamDisplayElapsedMs(elapsedMs);
-  const hint = emptyStreamBannerHint(elapsedMs);
-  const showSpinner = autoChecking && !hardStopped;
+  const hint = emptyStreamBannerHint(elapsedMs, { hasAssistantReply });
+  // Making the wait reply-aware turns `hardStopped` false once an answer lands,
+  // which would have RESURRECTED the spinner over a completed turn. The reply
+  // must suppress it directly.
+  const showSpinner = autoChecking && !hardStopped && !hasAssistantReply;
   const leashLabel =
     pendingApprovalCount > 0
       ? `Open Leash (${pendingApprovalCount})`
