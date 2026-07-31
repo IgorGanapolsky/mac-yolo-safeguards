@@ -166,7 +166,7 @@ class StoreScreenshotAssetTests(unittest.TestCase):
         for shipped_control in (
             "Approval-first mode",
             "Quick-approve layout",
-            "Thumbs down → remember block",
+            "Deny tool → capture block",
         ):
             self.assertIn(shipped_control, self.source)
             self.assertIn(shipped_control, approvals_source)
