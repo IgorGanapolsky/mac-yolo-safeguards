@@ -28,11 +28,22 @@ pass=0; fail=0
 ok() { echo "  [PASS] $1"; pass=$((pass+1)); }
 no() { echo "  [FAIL] $1"; fail=$((fail+1)); }
 
-# Stage a throwaway copy of the harness: <dir>/<subject> plus <dir>/tests/<suite>.
-stage() { # $1=dir $2=subject-relpath $3=suite-relpath
-  mkdir -p "$1/$(dirname "$2")" "$1/$(dirname "$3")"
-  cp "$REPO/$2" "$1/$2"; cp "$REPO/$3" "$1/$3"
-  chmod +x "$1/$2" "$1/$3"
+# Stage a throwaway copy of the harness: <dir>/<subject> plus <dir>/tests/<suite>,
+# plus any sidecar files the suite needs to find beside the subject. Sidecars matter:
+# poolside-yolo resolves poolside-acp-imageguard as a SIBLING, so a copy staged without
+# it silently runs unguarded and the guard-wiring assertions fail against an unmutated
+# baseline — a harness artifact that looks exactly like a real regression.
+stage() { # $1=dir $2=subject-relpath $3=suite-relpath [sidecar-relpath...]
+  local dir="$1" subject="$2" suite="$3"; shift 3
+  mkdir -p "$dir/$(dirname "$subject")" "$dir/$(dirname "$suite")"
+  cp "$REPO/$subject" "$dir/$subject"; cp "$REPO/$suite" "$dir/$suite"
+  chmod +x "$dir/$subject" "$dir/$suite"
+  local extra
+  for extra in "$@"; do
+    mkdir -p "$dir/$(dirname "$extra")"
+    cp "$REPO/$extra" "$dir/$extra"
+    chmod +x "$dir/$extra"
+  done
 }
 
 # Run a staged suite; echo "<exit>|<assertions-executed>".
@@ -45,7 +56,7 @@ run_suite() { # $1=dir $2=suite-relpath
 echo "== poolside-yolo: does the suite detect the real 2026-07-27 autonomy bug? =="
 
 # Baseline: unmutated copy must PASS (otherwise a red mutant proves nothing).
-BASE="$ROOT/base"; stage "$BASE" "poolside-yolo" "tests/test-poolside-yolo.sh"
+BASE="$ROOT/base"; stage "$BASE" "poolside-yolo" "tests/test-poolside-yolo.sh" "poolside-acp-imageguard"
 IFS='|' read -r brc bn <<< "$(run_suite "$BASE" "tests/test-poolside-yolo.sh")"
 if [ "$brc" -eq 0 ] && [ "${bn:-0}" -ge 10 ]; then
   ok "baseline suite passes and executed $bn assertions"
@@ -54,7 +65,7 @@ else
 fi
 
 # Mutant: put back the exact broken string that shipped. The suite MUST go red.
-MUT="$ROOT/mut"; stage "$MUT" "poolside-yolo" "tests/test-poolside-yolo.sh"
+MUT="$ROOT/mut"; stage "$MUT" "poolside-yolo" "tests/test-poolside-yolo.sh" "poolside-acp-imageguard"
 # Reintroduce the historical bug: the autonomy mode becomes a mode pool does not have.
 # python3, not `sed -i ''` — that form is BSD-only and would silently no-op elsewhere,
 # which would make every assertion below vacuous.
