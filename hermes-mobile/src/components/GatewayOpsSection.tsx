@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -30,6 +31,16 @@ import {
 } from '../services/hermesGatewayClient';
 import type { HermesCronJob, HermesSkill, HermesToolset } from '../types/gatewayApi';
 import { formatCronSchedule } from '../utils/sessionDisplay';
+import { filterSkills, skillSearchSummary } from '../utils/skillSearch';
+import { sortByName } from '../utils/opsCatalogSort';
+import {
+  isSectionExpanded,
+  toggleSection,
+  sectionHeaderLabel,
+  sectionAccessibilityHint,
+  type CollapseState,
+  type OpsSectionKey,
+} from '../utils/opsSectionCollapse';
 import { buildCronJobDetailLines, isCronJobPaused } from '../utils/cronJobDetails';
 import {
   configuredToolsetsToAutoEnable,
@@ -150,8 +161,22 @@ export default function GatewayOpsSection() {
     : health?.hostname?.replace(/\.local$/i, '') || null;
 
   const [skills, setSkills] = useState<HermesSkill[]>([]);
+  const [skillQuery, setSkillQuery] = useState('');
+  // Filtered view only — `skills` stays the source of truth so the section
+  // header keeps reporting the true installed count while searching.
+  // Alphabetical at the source: the gateway returns these grouped, not sorted,
+  // and filtering downstream preserves whatever order it receives.
+  const sortedSkills = useMemo(() => sortByName(skills, (s) => s.name), [skills]);
+  const visibleSkills = useMemo(
+    () => filterSkills(sortedSkills, skillQuery),
+    [sortedSkills, skillQuery],
+  );
+
+  // Collapse state for the ops catalog. The Settings screen renders every cron job,
+  // skill and feature inline; with 21 cron jobs that is an unusable wall of text.
   const [toolsets, setToolsets] = useState<HermesToolset[]>([]);
   const [jobs, setJobs] = useState<HermesCronJob[]>([]);
+  const sortedJobs = useMemo(() => sortByName(jobs, (j) => j.name), [jobs]);
   const [featureFlags, setFeatureFlags] = useState<Record<string, boolean | string>>({});
   const [phoneToggleAvailable, setPhoneToggleAvailable] = useState<boolean | null>(null);
   const [gatewayModel, setGatewayModel] = useState<string | null>(null);
@@ -159,6 +184,52 @@ export default function GatewayOpsSection() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [catalogErrors, setCatalogErrors] = useState<Partial<Record<CatalogSection, boolean>>>({});
+  const [sectionCollapse, setSectionCollapse] = useState<CollapseState>({});
+  // An empty section caused by a FAILED load must stay open, or the user sees a
+  // zero count with no explanation.
+  const sectionHasError = useCallback(
+    (section: OpsSectionKey): boolean => {
+      if (section === 'jobs') return Boolean(catalogErrors.jobs);
+      if (section === 'skills') return Boolean(catalogErrors.skills);
+      if (section === 'capabilities') return Boolean(catalogErrors.toolsets);
+      return false;
+    },
+    [catalogErrors],
+  );
+  const sectionExpanded = useCallback(
+    (section: OpsSectionKey, itemCount: number) =>
+      isSectionExpanded({
+        section,
+        userState: sectionCollapse,
+        itemCount,
+        hasError: sectionHasError(section),
+      }),
+    [sectionCollapse, sectionHasError],
+  );
+  const renderSectionHeader = useCallback(
+    (section: OpsSectionKey, title: string, itemCount: number, titleTestID?: string) => {
+      const expanded = isSectionExpanded({
+        section,
+        userState: sectionCollapse,
+        itemCount,
+        hasError: sectionHasError(section),
+      });
+      return (
+        <TouchableOpacity
+          onPress={() => setSectionCollapse((prev) => toggleSection(prev, section, expanded))}
+          accessibilityRole="button"
+          accessibilityState={{ expanded }}
+          accessibilityHint={sectionAccessibilityHint(expanded)}
+          testID={`ops-section-toggle-${section}`}
+        >
+          <Text style={styles.sectionTitle} testID={titleTestID}>
+            {sectionHeaderLabel({ title, itemCount, expanded })}
+          </Text>
+        </TouchableOpacity>
+      );
+    },
+    [sectionCollapse, sectionHasError],
+  );
   const [expandedToolsets, setExpandedToolsets] = useState<Set<string>>(new Set());
   const [expandedJobIds, setExpandedJobIds] = useState<Set<string>>(new Set());
   const [expandedFeatureKeys, setExpandedFeatureKeys] = useState<Set<string>>(new Set());
@@ -630,9 +701,9 @@ export default function GatewayOpsSection() {
         <ActivityIndicator color={colors.secondary} style={styles.loader} />
       ) : null}
 
-      <Text style={styles.sectionTitle} testID="toolsets-essentials-title">
-        Essentials ({essentialToolsets.length})
-      </Text>
+      {renderSectionHeader('capabilities', 'Essentials', essentialToolsets.length, 'toolsets-essentials-title')}
+      {sectionExpanded('capabilities', essentialToolsets.length) ? (
+      <>
       <Text style={styles.sectionHint}>
         {toolsetsSectionHint({
           phoneToggleAvailable: toolsetsWritable,
@@ -654,6 +725,8 @@ export default function GatewayOpsSection() {
           essentialToolsets.map(renderToolsetRow)
         )}
       </GlassCard>
+      </>
+      ) : null}
 
       {advancedToolsets.length > 0 ? (
         <>
@@ -682,7 +755,9 @@ export default function GatewayOpsSection() {
         </>
       ) : null}
 
-      <Text style={styles.sectionTitle}>Cron jobs ({jobs.length})</Text>
+      {renderSectionHeader('jobs', 'Cron jobs', jobs.length)}
+      {sectionExpanded('jobs', jobs.length) ? (
+      <>
       <Text style={styles.sectionHint}>
         Tap a job name for schedule, last/next run, and purpose. Run / Pause / Delete stay one tap
         away.
@@ -695,7 +770,7 @@ export default function GatewayOpsSection() {
               : 'No scheduled jobs yet.'}
           </Text>
         ) : (
-          jobs.map((job) => {
+          sortedJobs.map((job) => {
             const expanded = expandedJobIds.has(job.id);
             const detailLines = buildCronJobDetailLines(job);
             return (
@@ -786,12 +861,46 @@ export default function GatewayOpsSection() {
           })
         )}
       </GlassCard>
+      </>
+      ) : null}
 
-      <Text style={styles.sectionTitle}>Skills ({skills.length})</Text>
+      {renderSectionHeader('skills', 'Skills', skills.length)}
+      {sectionExpanded('skills', skills.length) ? (
+      <>
       <Text style={styles.sectionHint}>
         Tap a skill for the full description. Skills are invoked from Chat — not toggled here.
       </Text>
       <GlassCard>
+        {skills.length > 0 ? (
+          <>
+            <TextInput
+              testID="skill-search-input"
+              style={styles.skillSearchInput}
+              value={skillQuery}
+              onChangeText={setSkillQuery}
+              placeholder="Search skills"
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+              accessibilityLabel="Search skills"
+              returnKeyType="search"
+            />
+            {skillSearchSummary({
+              total: skills.length,
+              shown: visibleSkills.length,
+              query: skillQuery,
+            }) ? (
+              <Text style={styles.sectionHint} testID="skill-search-summary">
+                {skillSearchSummary({
+                  total: skills.length,
+                  shown: visibleSkills.length,
+                  query: skillQuery,
+                })}
+              </Text>
+            ) : null}
+          </>
+        ) : null}
         {skills.length === 0 ? (
           <Text style={styles.meta} testID="skills-empty-state">
             {catalogErrors.skills
@@ -799,7 +908,7 @@ export default function GatewayOpsSection() {
               : 'No skills are installed on this computer.'}
           </Text>
         ) : (
-          skills.map((skill) => {
+          visibleSkills.map((skill) => {
             const expanded = expandedSkillNames.has(skill.name);
             return (
               <TouchableOpacity
@@ -839,8 +948,12 @@ export default function GatewayOpsSection() {
           })
         )}
       </GlassCard>
+      </>
+      ) : null}
 
-      <Text style={styles.sectionTitle}>Gateway features ({featureRows.length})</Text>
+      {renderSectionHeader('features', 'Gateway features', featureRows.length)}
+      {sectionExpanded('features', featureRows.length) ? (
+      <>
       <Text style={styles.sectionHint}>
         What this Hermes build on your computer supports (protocol). Tap for details. These are not
         user prefs — turn tools on/off under Essentials above when the Mac allows phone toggles.
@@ -946,6 +1059,8 @@ export default function GatewayOpsSection() {
           })
         )}
       </GlassCard>
+      </>
+      ) : null}
 
       <IntegrationsSheet
         visible={integrationsToolset != null}
@@ -1000,6 +1115,16 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginBottom: 8,
     lineHeight: 16,
+  },
+  skillSearchInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 8,
   },
   meta: { fontSize: 13, color: colors.textMuted, lineHeight: 18 },
   featureLine: { fontSize: 12, color: colors.secondary, marginTop: 4 },
