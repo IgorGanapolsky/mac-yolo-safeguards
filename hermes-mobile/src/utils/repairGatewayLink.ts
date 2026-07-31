@@ -230,6 +230,18 @@ export async function runRepairGatewayLink(
       };
     }
 
+    // Fast-path: if current health probe is ALREADY ok (e.g. temporary glitch),
+    // verify and heal in < 500ms instead of waiting for a 12s pair.json refresh.
+    const initialHealth = await deps.readHealth();
+    if (isGatewayHealthOk(initialHealth ?? null) && initialHealth?.directGatewayReachable !== false && !initialHealth?.authMismatch && !deps.authMismatch) {
+      await deps.reconnect();
+      return {
+        status: 'healed',
+        gatewayUrl,
+        message: 'Connection verified and active.',
+      };
+    }
+
     const refresh =
       deps.refreshCredentials ??
       (() => refreshCredentialsFromPairServer({ gatewayUrl }));
