@@ -472,7 +472,7 @@ export default function SettingsScreen() {
             <Text style={styles.doneText}>Done</Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.subtitle}>Connect your computer with Tailscale or home Wi‑Fi, then manage machines and ops</Text>
+        <Text style={styles.subtitle}>Connect your computer via Home Wi‑Fi (or Tailscale when away), then manage tools and ops</Text>
       </View>
 
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>

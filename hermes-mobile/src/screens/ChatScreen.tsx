@@ -2910,10 +2910,9 @@ export default function ChatScreen() {
         }
       }
 
-      // Choose-computer switch: if list-load still left compose empty, open this Mac's
+      // Reconnect / computer switch: if list-load still left compose empty, open this Mac's
       // remembered / most-recent sendable thread (never stay on New chat while threads exist).
       if (
-        options?.intentionalProfileSwitch &&
         !resolvedSession &&
         !currentSessionRef.current &&
         !skipAutoSelect &&

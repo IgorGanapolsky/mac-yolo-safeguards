@@ -172,6 +172,9 @@ export default function GatewayOpsSection() {
   const [expandedSkillNames, setExpandedSkillNames] = useState<Set<string>>(new Set());
   const [skillQuery, setSkillQuery] = useState('');
   const [showMarketplace, setShowMarketplace] = useState(false);
+  const [essentialsOpen, setEssentialsOpen] = useState(true);
+  const [cronOpen, setCronOpen] = useState(true);
+  const [skillsOpen, setSkillsOpen] = useState(true);
   const [advancedToolsetsOpen, setAdvancedToolsetsOpen] = useState(false);
   const [togglingToolset, setTogglingToolset] = useState<string | null>(null);
   const [integrationsToolset, setIntegrationsToolset] = useState<HermesToolset | null>(null);
@@ -656,30 +659,42 @@ export default function GatewayOpsSection() {
         <ActivityIndicator color={colors.secondary} style={styles.loader} />
       ) : null}
 
-      <Text style={styles.sectionTitle} testID="toolsets-essentials-title">
-        Essentials ({essentialToolsets.length})
-      </Text>
+      <TouchableOpacity
+        onPress={() => {
+          haptics.selection();
+          setEssentialsOpen((open) => !open);
+        }}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: essentialsOpen }}
+        testID="toolsets-essentials-toggle"
+      >
+        <Text style={styles.sectionTitle} testID="toolsets-essentials-title">
+          Essentials ({essentialToolsets.length}) {essentialsOpen ? '▾' : '▸'}
+        </Text>
+      </TouchableOpacity>
       <Text style={styles.sectionHint}>
         {toolsetsSectionHint({
           phoneToggleAvailable: toolsetsWritable,
           keysNeededCount: keysNeeded.length,
         })}
       </Text>
-      <GlassCard>
-        {toolsets.length === 0 ? (
-          <Text style={styles.meta} testID="toolsets-empty-state">
-            {catalogErrors.toolsets
-              ? 'Tools could not load from your computer. Tap Refresh to retry.'
-              : 'No toolsets are installed on this computer.'}
-          </Text>
-        ) : essentialToolsets.length === 0 ? (
-          <Text style={styles.meta} testID="toolsets-essentials-empty">
-            No essential tools reported by your computer yet.
-          </Text>
-        ) : (
-          essentialToolsets.map(renderToolsetRow)
-        )}
-      </GlassCard>
+      {essentialsOpen ? (
+        <GlassCard>
+          {toolsets.length === 0 ? (
+            <Text style={styles.meta} testID="toolsets-empty-state">
+              {catalogErrors.toolsets
+                ? 'Tools could not load from your computer. Tap Refresh to retry.'
+                : 'No toolsets are installed on this computer.'}
+            </Text>
+          ) : essentialToolsets.length === 0 ? (
+            <Text style={styles.meta} testID="toolsets-essentials-empty">
+              No essential tools reported by your computer yet.
+            </Text>
+          ) : (
+            essentialToolsets.map(renderToolsetRow)
+          )}
+        </GlassCard>
+      ) : null}
 
       {advancedToolsets.length > 0 ? (
         <>
@@ -708,179 +723,196 @@ export default function GatewayOpsSection() {
         </>
       ) : null}
 
-      <Text style={styles.sectionTitle}>Cron jobs ({jobs.length})</Text>
+      <TouchableOpacity
+        onPress={() => {
+          haptics.selection();
+          setCronOpen((open) => !open);
+        }}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: cronOpen }}
+        testID="jobs-section-toggle"
+      >
+        <Text style={styles.sectionTitle}>Cron jobs ({jobs.length}) {cronOpen ? '▾' : '▸'}</Text>
+      </TouchableOpacity>
       <Text style={styles.sectionHint}>
         Tap a job name for schedule, last/next run, and purpose. Run / Pause / Delete stay one tap
         away.
       </Text>
-      <GlassCard>
-        {jobs.length === 0 ? (
-          <Text style={styles.meta} testID="jobs-empty-state">
-            {catalogErrors.jobs
-              ? 'Scheduled jobs could not load from your computer. Tap Refresh to retry.'
-              : 'No scheduled jobs yet.'}
-          </Text>
-        ) : (
-          [...jobs]
-            .sort((a, b) => (a.name ?? a.id).localeCompare(b.name ?? b.id))
-            .map((job) => {
-            const expanded = expandedJobIds.has(job.id);
-            const detailLines = buildCronJobDetailLines(job);
-            return (
-              <View key={job.id} style={styles.jobRow} testID={`job-row-${job.id}`}>
-                <TouchableOpacity
-                  onPress={() => {
-                    setExpandedJobIds((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(job.id)) {
-                        next.delete(job.id);
-                      } else {
-                        next.add(job.id);
-                      }
-                      return next;
-                    });
-                  }}
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded }}
-                  accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} details for ${job.name ?? job.id}`}
-                  testID={`job-expand-${job.id}`}
-                  style={styles.jobInfo}
-                >
-                  <View style={styles.jobTitleRow}>
-                    <Text style={styles.rowTitle} numberOfLines={2}>
-                      {job.name ?? job.id}
-                    </Text>
-                    <Text style={styles.expandHint}>{expanded ? '▾' : '▸'}</Text>
-                  </View>
-                  <Text style={styles.rowDesc}>{formatCronSchedule(job.schedule)}</Text>
-                  {!expanded && job.prompt ? (
-                    <Text style={styles.jobPurposePreview} numberOfLines={2}>
-                      {job.prompt.replace(/\s+/g, ' ').trim()}
-                    </Text>
+      {cronOpen ? (
+        <GlassCard>
+          {jobs.length === 0 ? (
+            <Text style={styles.meta} testID="jobs-empty-state">
+              {catalogErrors.jobs
+                ? 'Scheduled jobs could not load from your computer. Tap Refresh to retry.'
+                : 'No scheduled jobs yet.'}
+            </Text>
+          ) : (
+            [...jobs]
+              .sort((a, b) => (a.name ?? a.id).localeCompare(b.name ?? b.id))
+              .map((job) => {
+              const expanded = expandedJobIds.has(job.id);
+              const detailLines = buildCronJobDetailLines(job);
+              return (
+                <View key={job.id} style={styles.jobRow} testID={`job-row-${job.id}`}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setExpandedJobIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(job.id)) {
+                          next.delete(job.id);
+                        } else {
+                          next.add(job.id);
+                        }
+                        return next;
+                      });
+                    }}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded }}
+                    accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} details for ${job.name ?? job.id}`}
+                    testID={`job-expand-${job.id}`}
+                    style={styles.jobInfo}
+                  >
+                    <View style={styles.jobTitleRow}>
+                      <Text style={styles.rowTitle} numberOfLines={2}>
+                        {job.name ?? job.id}
+                      </Text>
+                      <Text style={styles.expandHint}>{expanded ? '▾' : '▸'}</Text>
+                    </View>
+                    <Text style={styles.rowDesc}>{formatCronSchedule(job.schedule)}</Text>
+                    {!expanded && job.prompt ? (
+                      <Text style={styles.jobPurposePreview} numberOfLines={2}>
+                        {job.prompt.replace(/\s+/g, ' ').trim()}
+                      </Text>
+                    ) : null}
+                  </TouchableOpacity>
+                  {expanded ? (
+                    <View style={styles.jobDetails} testID={`job-details-${job.id}`}>
+                      {detailLines.map((line) => (
+                        <View key={`${job.id}-${line.label}`} style={styles.jobDetailRow}>
+                          <Text style={styles.jobDetailLabel}>{line.label}</Text>
+                          <Text style={styles.jobDetailValue} selectable>
+                            {line.value}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
                   ) : null}
-                </TouchableOpacity>
-                {expanded ? (
-                  <View style={styles.jobDetails} testID={`job-details-${job.id}`}>
-                    {detailLines.map((line) => (
-                      <View key={`${job.id}-${line.label}`} style={styles.jobDetailRow}>
-                        <Text style={styles.jobDetailLabel}>{line.label}</Text>
-                        <Text style={styles.jobDetailValue} selectable>
-                          {line.value}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.jobActions}
-                >
-                  <TouchableOpacity
-                    style={styles.jobBtn}
-                    onPress={() => handleJobAction(job, 'run')}
-                    testID={`job-run-${job.id}`}
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.jobActions}
                   >
-                    <Text style={styles.jobBtnText}>Run</Text>
-                  </TouchableOpacity>
-                  {isCronJobPaused(job) ? (
                     <TouchableOpacity
                       style={styles.jobBtn}
-                      onPress={() => handleJobAction(job, 'resume')}
-                      testID={`job-resume-${job.id}`}
+                      onPress={() => handleJobAction(job, 'run')}
+                      testID={`job-run-${job.id}`}
                     >
-                      <Text style={styles.jobBtnText}>Resume</Text>
+                      <Text style={styles.jobBtnText}>Run</Text>
                     </TouchableOpacity>
-                  ) : (
+                    {isCronJobPaused(job) ? (
+                      <TouchableOpacity
+                        style={styles.jobBtn}
+                        onPress={() => handleJobAction(job, 'resume')}
+                        testID={`job-resume-${job.id}`}
+                      >
+                        <Text style={styles.jobBtnText}>Resume</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.jobBtn}
+                        onPress={() => handleJobAction(job, 'pause')}
+                        testID={`job-pause-${job.id}`}
+                      >
+                        <Text style={styles.jobBtnText}>Pause</Text>
+                      </TouchableOpacity>
+                    )}
                     <TouchableOpacity
-                      style={styles.jobBtn}
-                      onPress={() => handleJobAction(job, 'pause')}
-                      testID={`job-pause-${job.id}`}
+                      style={styles.jobBtnDelete}
+                      onPress={() => handleJobAction(job, 'delete')}
+                      testID={`job-delete-${job.id}`}
+                      accessibilityLabel={`Delete cron job ${job.name ?? job.id}`}
                     >
-                      <Text style={styles.jobBtnText}>Pause</Text>
+                      <Text style={styles.jobBtnDeleteText}>Delete</Text>
                     </TouchableOpacity>
-                  )}
-                  <TouchableOpacity
-                    style={styles.jobBtnDelete}
-                    onPress={() => handleJobAction(job, 'delete')}
-                    testID={`job-delete-${job.id}`}
-                    accessibilityLabel={`Delete cron job ${job.name ?? job.id}`}
-                  >
-                    <Text style={styles.jobBtnDeleteText}>Delete</Text>
-                  </TouchableOpacity>
-                </ScrollView>
-              </View>
-            );
-          })
-        )}
-      </GlassCard>
-
-      <Text style={styles.sectionTitle}>Skills &amp; Marketplace ({skills.length})</Text>
-      <Text style={styles.sectionHint}>
-        Developer-first tools &amp; agent skills. Search below or browse the developer marketplace.
-      </Text>
-      
-      <View style={styles.searchBarBox}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search skills (e.g. docker, sentry, github, mac-freeze)..."
-          placeholderTextColor="rgba(255,255,255,0.4)"
-          value={skillQuery}
-          onChangeText={setSkillQuery}
-          testID="skill-search-input"
-        />
-      </View>
-
-      <GlassCard>
-        {filteredInstalledSkills.length === 0 ? (
-          <Text style={styles.meta} testID="skills-empty-state">
-            {catalogErrors.skills
-              ? 'Skills could not load from your computer. Tap Refresh to retry.'
-              : skillQuery
-              ? `No installed skills matching "${skillQuery}". Search Developer Marketplace below.`
-              : 'No skills are installed on this computer.'}
-          </Text>
-        ) : (
-          filteredInstalledSkills.map((skill) => {
-            const expanded = expandedSkillNames.has(skill.name);
-            return (
-              <TouchableOpacity
-                key={skill.name}
-                style={styles.listRow}
-                onPress={() => {
-                  setExpandedSkillNames((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(skill.name)) {
-                      next.delete(skill.name);
-                    } else {
-                      next.add(skill.name);
-                    }
-                    return next;
-                  });
-                }}
-                accessibilityRole="button"
-                accessibilityState={{ expanded }}
-                testID={`skill-expand-${skill.name}`}
-              >
-                <View style={styles.jobTitleRow}>
-                  <Text style={[styles.rowTitle, { flex: 1 }]}>{skill.name}</Text>
-                  <Text style={styles.expandHint}>{expanded ? '▾' : '▸'}</Text>
+                  </ScrollView>
                 </View>
-                {skill.description ? (
-                  <Text style={styles.rowDesc} numberOfLines={expanded ? undefined : 2}>
-                    {skill.description}
-                  </Text>
-                ) : (
-                  <Text style={styles.rowDesc}>No description from the Mac.</Text>
-                )}
-                {expanded && skill.category ? (
-                  <Text style={styles.jobDetailLabel}>Category · {skill.category}</Text>
-                ) : null}
-              </TouchableOpacity>
-            );
-          })
-        )}
-      </GlassCard>
+              );
+            })
+          )}
+        </GlassCard>
+      ) : null}
+
+      <TouchableOpacity
+        onPress={() => {
+          haptics.selection();
+          setSkillsOpen((open) => !open);
+        }}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: skillsOpen }}
+        testID="skills-section-toggle"
+      >
+        <Text style={styles.sectionTitle}>Skills &amp; Marketplace ({skills.length}) {skillsOpen ? '▾' : '▸'}</Text>
+      </TouchableOpacity>
+      {skillsOpen ? (
+        <>
+          <View style={styles.searchBarBox}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search skills (e.g. docker, sentry, github, mac-freeze)..."
+              placeholderTextColor="rgba(255,255,255,0.4)"
+              value={skillQuery}
+              onChangeText={setSkillQuery}
+              testID="skill-search-input"
+            />
+          </View>
+
+          <GlassCard>
+            {filteredInstalledSkills.length === 0 ? (
+              <Text style={styles.meta} testID="skills-empty-state">
+                {catalogErrors.skills
+                  ? 'Skills could not load from your computer. Tap Refresh to retry.'
+                  : skillQuery
+                  ? `No installed skills matching "${skillQuery}". Search Developer Marketplace below.`
+                  : 'No skills are installed on this computer.'}
+              </Text>
+            ) : (
+              filteredInstalledSkills.map((skill) => {
+                const expanded = expandedSkillNames.has(skill.name);
+                return (
+                  <TouchableOpacity
+                    key={skill.name}
+                    style={styles.listRow}
+                    onPress={() => {
+                      setExpandedSkillNames((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(skill.name)) {
+                          next.delete(skill.name);
+                        } else {
+                          next.add(skill.name);
+                        }
+                        return next;
+                      });
+                    }}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded }}
+                    testID={`skill-expand-${skill.name}`}
+                  >
+                    <View style={styles.jobTitleRow}>
+                      <Text style={[styles.rowTitle, { flex: 1 }]}>{skill.name}</Text>
+                      <Text style={styles.expandHint}>{expanded ? '▾' : '▸'}</Text>
+                    </View>
+                    {skill.description ? (
+                      <Text style={styles.rowDesc} numberOfLines={expanded ? undefined : 2}>
+                        {skill.description}
+                      </Text>
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </GlassCard>
+        </>
+      ) : null}
 
       <TouchableOpacity
         style={styles.marketplaceToggleBtn}

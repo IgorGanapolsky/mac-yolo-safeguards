@@ -76,7 +76,7 @@ describe('SettingsScreen', () => {
   it('renders settings header and gateway inputs', async () => {
     const { getByTestId, getByText } = render(<SettingsScreen />);
     expect(getByTestId('SETTINGS')).toBeTruthy();
-    expect(getByText('Connect your computer with Tailscale or home Wi‑Fi, then manage machines and ops')).toBeTruthy();
+    expect(getByText('Connect your computer via Home Wi‑Fi (or Tailscale when away), then manage tools and ops')).toBeTruthy();
     expect(getByTestId('GATEWAY_OPS')).toBeTruthy();
     expect(getByTestId('gateway-url-input')).toBeTruthy();
     expect(getByTestId('gateway-api-key-input')).toBeTruthy();

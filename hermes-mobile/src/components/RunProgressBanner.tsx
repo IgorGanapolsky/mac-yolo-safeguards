@@ -256,7 +256,8 @@ function RunProgressBanner({
                 isCompleted && styles.textCompleted,
                 isFailed && styles.textFailed,
               ]}
-              numberOfLines={showDetailSections && isFailed && failedDetail ? 1 : 2}
+              numberOfLines={2}
+              ellipsizeMode="tail"
               testID="run-progress-detail"
             >
               {isCompleted ? completedTitle : isFailed ? failedTitle : detailLabel}
