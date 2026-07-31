@@ -241,7 +241,7 @@ describe('ApprovalsScreen', () => {
 
   it('shows leash memory and display toggles when unlocked', () => {
     const { getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
-    expect(getByText('Thumbs down → remember block')).toBeTruthy();
+    expect(getByText('Deny tool → capture block')).toBeTruthy();
     expect(getByText('Quick-approve layout')).toBeTruthy();
     expect(
       getByText(

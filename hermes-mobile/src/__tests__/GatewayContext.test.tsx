@@ -120,7 +120,8 @@ jest.mock('../services/signOfLife', () => ({
   emitSignOfLife: jest.fn(),
 }));
 jest.mock('../services/thumbgateClient', () => ({
-  captureThumbgateFeedback: jest.fn().mockResolvedValue({ accepted: true }),
+  captureThumbgateFeedback: jest.fn().mockResolvedValue({ accepted: true, feedbackId: 'fb_test' }),
+  flushOfflineThumbgateFeedback: jest.fn().mockResolvedValue(0),
 }));
 jest.mock('../services/haptics', () => ({
   haptics: {
@@ -308,7 +309,7 @@ describe('GatewayProvider', () => {
     });
     (secureCredentials.loadApiKey as jest.Mock).mockResolvedValue('sk-test');
     (secureCredentials.loadProfileApiKeys as jest.Mock).mockResolvedValue({});
-    (secureCredentials.loadThumbgateApiKey as jest.Mock).mockResolvedValue('');
+    (secureCredentials.loadThumbgateApiKey as jest.Mock).mockResolvedValue('sk-thumbgate-test');
     (secureCredentials.loadMobileToken as jest.Mock).mockResolvedValue('');
     (storage.saveGatewaySettings as jest.Mock).mockResolvedValue(undefined);
     (storage.loadLastGatewayLanIp as jest.Mock).mockResolvedValue(null);
@@ -1742,6 +1743,8 @@ describe('GatewayProvider', () => {
   });
 
   it('captures chat output feedback when Leash is unlocked and thumbs-down capture is enabled', async () => {
+    (secureCredentials.loadThumbgateApiKey as jest.Mock).mockResolvedValue('sk-thumbgate-test');
+
     (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
       connectionMode: 'gateway',
       cloudUrl: 'https://hermesmobile-cloud.fly.dev',
@@ -1814,6 +1817,8 @@ describe('GatewayProvider', () => {
   });
 
   it('captures chat output feedback when old entitlement flags are false', async () => {
+    (secureCredentials.loadThumbgateApiKey as jest.Mock).mockResolvedValue('sk-thumbgate-test');
+
     (captureThumbgateFeedback as jest.Mock).mockClear();
     (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
       connectionMode: 'gateway',

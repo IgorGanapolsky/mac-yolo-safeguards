@@ -58,7 +58,16 @@ import {
   type HermesAgentToolName,
   type HermesAgentToolResult,
 } from '../services/hermesAgentTools';
-import { captureThumbgateFeedback } from '../services/thumbgateClient';
+import {
+  captureThumbgateFeedback,
+  flushOfflineThumbgateFeedback,
+} from '../services/thumbgateClient';
+import {
+  outcomeBlocked,
+  outcomeFailed,
+  outcomeFromCaptureResult,
+  type ThumbgateFeedbackOutcome,
+} from '../utils/thumbgateFeedbackOutcome';
 import { stopRun } from '../services/hermesGatewayClient';
 import {
   setPostHogDogfoodExclusions,
@@ -351,7 +360,7 @@ export type GatewayContextValue = {
     message: HermesMessage,
     signal: ThumbgateCaptureSignal,
     options?: { session?: HermesSession | null; explanation?: string },
-  ) => Promise<boolean>;
+  ) => Promise<ThumbgateFeedbackOutcome>;
 };
 
 export const GatewayContext = createContext<GatewayContextValue | null>(null);
@@ -779,6 +788,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         apiKeyRef.current = resolvedKey;
         thumbgateApiKeyRef.current = savedThumbgateKey ?? '';
         setThumbgateApiKey(savedThumbgateKey ?? '');
+        if (savedThumbgateKey?.trim()) {
+          void flushOfflineThumbgateFeedback(
+            resolvedSettings.thumbgateApiUrl,
+            savedThumbgateKey,
+          );
+        }
         setMobileToken(savedMobileToken ?? '');
         mobileTokenRef.current = savedMobileToken ?? '';
         setIsLoaded(true);
@@ -2614,6 +2629,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         await secureCredentials.saveThumbgateApiKey(nextThumbgateApiKey);
         thumbgateApiKeyRef.current = nextThumbgateApiKey;
         setThumbgateApiKey(nextThumbgateApiKey);
+        if (nextThumbgateApiKey.trim()) {
+          void flushOfflineThumbgateFeedback(
+            persistedSettings.thumbgateApiUrl,
+            nextThumbgateApiKey,
+          );
+        }
       }
       setSettings(persistedSettings);
       setApiKey(nextApiKey);
@@ -3742,11 +3763,19 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       if (!shouldCaptureDown && !shouldCaptureUp) {
         return;
       }
+      const apiKey = thumbgateApiKeyRef.current?.trim() ?? '';
+      if (!apiKey) {
+        return;
+      }
       const body = buildLeashThumbgateCaptureBody(
         approval,
         decision === 'approve' ? 'up' : 'down',
       );
-      await captureThumbgateFeedback(currentSettings.thumbgateApiUrl, body, thumbgateApiKeyRef.current);
+      try {
+        await captureThumbgateFeedback(currentSettings.thumbgateApiUrl, body, apiKey);
+      } catch {
+        // Leash path is best-effort; offline queue handled inside capture.
+      }
     },
     [],
   );
@@ -3756,15 +3785,17 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       message: HermesMessage,
       signal: ThumbgateCaptureSignal,
       options: { session?: HermesSession | null; explanation?: string } = {},
-    ): Promise<boolean> => {
+    ): Promise<ThumbgateFeedbackOutcome> => {
       const currentSettings = settingsRef.current;
       if (!isThumbgateLeashUnlocked(currentSettings)) {
-        return false;
+        return outcomeBlocked('leash_locked');
       }
-      const shouldCaptureDown = signal === 'down' && currentSettings.thumbgateCaptureOnDown;
-      const shouldCaptureUp = signal === 'up' && currentSettings.thumbgateCaptureOnUp;
-      if (!shouldCaptureDown && !shouldCaptureUp) {
-        return false;
+      // Chat 👍/👎 always capture when Leash is unlocked. Leash option toggles
+      // only gate tool approve/deny captures (captureLeashThumbgate), not chat.
+
+      const apiKey = thumbgateApiKeyRef.current?.trim() ?? '';
+      if (!apiKey) {
+        return outcomeBlocked('missing_api_key');
       }
 
       const busyKey =
@@ -3777,25 +3808,37 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           session: options.session,
           explanation: options.explanation,
         });
-        await captureThumbgateFeedback(
+        const result = await captureThumbgateFeedback(
           currentSettings.thumbgateApiUrl,
           body,
-          thumbgateApiKeyRef.current,
+          apiKey,
         );
-        haptics.success();
-        return true;
+        const outcome = outcomeFromCaptureResult(result);
+        if (outcome.accepted) {
+          haptics.success();
+        } else if (outcome.status === 'queued_offline') {
+          haptics.selection();
+        } else {
+          haptics.warning();
+          if (outcome.note) {
+            setLastEventError(outcome.note);
+          }
+        }
+        return outcome;
       } catch (error) {
-        setLastEventError(
-          error instanceof Error ? error.message : 'ThumbGate capture failed',
-        );
+        const messageText =
+          error instanceof Error ? error.message : 'ThumbGate capture failed';
+        setLastEventError(messageText);
         haptics.warning();
-        return false;
+        return outcomeFailed('unknown', messageText);
       } finally {
         setChatOutputFeedbackBusyId(null);
       }
     },
     [],
   );
+
+
 
   const sendGateAction = useCallback((rawMessage: string) => {
     const socket = socketRef.current;

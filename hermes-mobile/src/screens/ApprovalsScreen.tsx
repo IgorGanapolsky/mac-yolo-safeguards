@@ -455,8 +455,10 @@ export default function ApprovalsScreen() {
             </Text>
             <View style={styles.switchRow}>
               <View style={styles.switchLabelCol}>
-                <Text style={styles.switchLabel}>Thumbs down → remember block</Text>
-                <Text style={styles.switchDesc}>Capture to ThumbGate when you reject a tool</Text>
+                <Text style={styles.switchLabel}>Deny tool → capture block</Text>
+                <Text style={styles.switchDesc}>
+                  ThumbGate memory when you Deny on Leash (chat 👎 always tries to capture)
+                </Text>
               </View>
               <Switch
                 value={settings.thumbgateCaptureOnDown}
@@ -469,8 +471,10 @@ export default function ApprovalsScreen() {
             </View>
             <View style={styles.switchRow}>
               <View style={styles.switchLabelCol}>
-                <Text style={styles.switchLabel}>Thumbs up → record approval</Text>
-                <Text style={styles.switchDesc}>Optional positive signal when you allow a tool</Text>
+                <Text style={styles.switchLabel}>Allow tool → capture approval</Text>
+                <Text style={styles.switchDesc}>
+                  ThumbGate memory when you Allow on Leash (chat 👍 always tries to capture)
+                </Text>
               </View>
               <Switch
                 value={settings.thumbgateCaptureOnUp}
