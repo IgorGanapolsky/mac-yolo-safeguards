@@ -201,6 +201,29 @@ const ROUTES = [
     requiresApproval: true,
   },
   {
+    // Subscription (MiniMax Token Plan), not metered per-token — marginal cost of one
+    // task is already bought, so costUsd is 0. It stays candidateOnly until a real smoke
+    // receipt exists: no MINIMAX_API_KEY is provisioned on this machine yet, so the
+    // provider-key-present gate is what keeps this from being picked and failing live.
+    id: 'minimax_m3_long_context',
+    label: 'MiniMax M3 subscription long-context route',
+    agent: 'long-context-agentic-reasoner',
+    provider: 'custom:minimax-m3',
+    model: 'MiniMax-M3',
+    costUsd: 0,
+    billingMode: 'minimax-token-plan-subscription',
+    latencyMs: 30000,
+    reliability: 0.7,
+    riskCeiling: 'high',
+    strengths: ['minimax', 'm3', 'long-context', '1m-context', 'agentic', 'coding-model', 'multimodal', 'subscription', 'no-metered-spend'],
+    commandEnv: {
+      HERMES_YOLO_PROVIDER: 'custom:minimax-m3',
+      HERMES_YOLO_MODEL: 'MiniMax-M3',
+    },
+    proofGates: ['provider-key-present', 'benchmark-before-default', 'endpoint-smoke-pass', 'receipt-written'],
+    candidateOnly: true,
+  },
+  {
     id: 'openrouter_fusion',
     label: 'OpenRouter Fusion grounded panel',
     agent: 'research-panel',
@@ -431,6 +454,9 @@ function taskSignals(task) {
     asksForFugu: /\bfugu\b|sakana/.test(text),
     asksForNemotron: /\bnemotron\b|\bnvidia\b|\bnim\b/.test(text),
     asksForGrok: /\bgrok\b|grok[- ]?4\.5|\bxai\b|\bx\.ai\b/.test(text),
+    // Deliberately NOT a bare /\bm3\b/ — that matches "M3 Mac", "M3 Max", and every
+    // Apple-silicon mention in this repo, which would hijack routing for local tasks.
+    asksForMiniMax: /\bminimax\b|minimax[- ]?m3\b/.test(text),
     asksForParallel: /\bparallel(?:\.ai| search)?\b|dense excerpts/.test(text),
     needsFreshWeb: /\blatest\b|\bcurrent\b|\brecent\b|\btoday\b|\bnews\b|fresh web|web search|new release|company announcement/.test(text),
     fastGrounding: /fast ground|quick ground|low latency|turbo|voice agent|chat agent/.test(text),
@@ -534,6 +560,11 @@ function scoreRoute(route, args, signals) {
     if (signals.architecture || signals.highVarianceReasoning) score += 18;
     if (signals.asksForSubagent) score += 25;
     if (!signals.longContextOrAgentic && !signals.architecture) score -= 10;
+  }
+  if (route.id === 'minimax_m3_long_context') {
+    if (signals.asksForMiniMax) score += 92;
+    if (signals.longContextOrAgentic) score += 20;
+    if (!signals.asksForMiniMax) score -= 40;
   }
   return Number(score.toFixed(2));
 }

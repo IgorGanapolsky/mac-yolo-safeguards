@@ -458,6 +458,35 @@ const catalogK3 = decision(parseArgs([
 ]));
 assert(catalogK3.modelCatalogCandidates.some((model) => model.slug === 'moonshotai/kimi-k3'), 'K3 appears in catalog candidates');
 
+// MiniMax M3 (subscription Token Plan): asking for it by name must surface the route,
+// and it must stay candidate-only + $0 marginal so it never silently becomes a default.
+const minimax = decision(parseArgs([
+  '--task', 'use minimax m3 to review this large repo end to end',
+  '--risk', 'high',
+  '--max-cost-usd', '0',
+  '--latency-ms', '40000',
+]));
+const minimaxRoute = minimax.selectedRoute;
+assert.strictEqual(minimaxRoute.id, 'minimax_m3_long_context', 'named MiniMax task selects the MiniMax route');
+assert.strictEqual(minimaxRoute.model, 'MiniMax-M3');
+assert.strictEqual(minimaxRoute.provider, 'custom:minimax-m3');
+assert.strictEqual(minimax.estimatedCostUsd, 0, 'subscription route adds no metered spend');
+assert.strictEqual(minimaxRoute.billingMode, 'minimax-token-plan-subscription');
+assert(minimaxRoute.candidateOnly, 'stays candidate-only until a smoke receipt exists');
+assert(
+  minimaxRoute.proofGates.includes('provider-key-present'),
+  'must fail closed while no MINIMAX_API_KEY is provisioned',
+);
+
+// "M3 Mac" must NOT pull in MiniMax — a bare /\bm3\b/ would hijack every Apple-silicon task.
+const appleM3 = decision(parseArgs([
+  '--task', 'run the local smoke on the M3 Mac mini',
+  '--risk', 'low',
+  '--max-cost-usd', '0',
+  '--latency-ms', '30000',
+]));
+assert.notStrictEqual(appleM3.selectedRoute.id, 'minimax_m3_long_context');
+
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-economic-router-'));
 const receiptPath = path.join(tmp, 'receipts.jsonl');
 writeReceipt(routine, receiptPath);
