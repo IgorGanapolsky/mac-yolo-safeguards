@@ -12,6 +12,7 @@ import {
 } from "./LandingAuthChrome";
 import { BrandMark } from "./BrandMark";
 import { StoreBadgeRow } from "./StoreBadges";
+import { buildContinuityEligibilityMatrix } from "@/lib/continuity-eligibility";
 import styles from "./landing.module.css";
 
 /**
@@ -40,6 +41,11 @@ const FAQ_ITEMS = [
       "Free Web Control pauses or asks. Eligible trial or paid Cloud Continuity tasks can continue on a fenced VPS runner so work stays recoverable when the lid closes.",
   },
   {
+    question: "What counts as eligible Continuity work?",
+    answer:
+      "Text and cloud-friendly agent work (code review, docs, public APIs, PR drafts) can hand off. Mac-only surfaces — Keychain, AppleScript, USB devices, private LAN, Simulator, and your logged-in Chrome profile — stay on the Mac or pause. Continuity is queued handoff under a 90-second lease, not process migration. Matrix: https://thumbgate.app/api/continuity/eligibility",
+  },
+  {
     question: "How much does ThumbGate cost?",
     answer:
       "The web dashboard (Web Control) is free while your Mac is online. Cloud Continuity is a recurring paid subscription; current pricing is shown live on this page and at https://thumbgate.app/api/billing/plan.",
@@ -47,6 +53,7 @@ const FAQ_ITEMS = [
 ] as const;
 
 export default function Home() {
+  const eligibility = buildContinuityEligibilityMatrix();
   const structuredData = {
     "@context": "https://schema.org",
     "@graph": [
@@ -133,6 +140,56 @@ export default function Home() {
           <article><span>02</span><h3>Run on your Mac</h3><p>While online, work stays on the paired machine under a 90s lease.</p></article>
           <article><span>03</span><h3>Continuity (VPS)</h3><p>When the lid closes: pause, ask, or auto-continue on paid Continuity.</p></article>
         </div>
+      </section>
+
+      <section id="eligibility" className="section-block" aria-labelledby="eligibility-heading">
+        <div className="section-heading">
+          <p className="eyebrow">Honest Continuity matrix</p>
+          <h2 id="eligibility-heading">What is eligible — and what stays on the Mac.</h2>
+          <p>
+            Continuity is <strong>queued prompt handoff</strong> to a fenced VPS under a {eligibility.leaseMs / 1000}-second renewable lease —
+            not process migration, and not Mac tool parity. Still proving in real use.
+          </p>
+        </div>
+        <div className={styles.eligibilityGrid}>
+          <div className={styles.eligibilityColumn}>
+            <h3>Eligible on Continuity</h3>
+            <ul>
+              {eligibility.eligible.map((row) => (
+                <li key={row.id}>
+                  <strong>{row.label}</strong>
+                  <span>{row.reason}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className={styles.eligibilityColumn}>
+            <h3>Local-only (Mac stays online)</h3>
+            <ul>
+              {eligibility.localOnly.map((row) => (
+                <li key={row.id}>
+                  <strong>{row.label}</strong>
+                  <span>{row.reason}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        <ul className={styles.invariantList}>
+          {eligibility.invariants.map((row) => (
+            <li key={row.id}>
+              <strong>{row.label}</strong>
+              <span>{row.detail}</span>
+            </li>
+          ))}
+        </ul>
+        <p className={styles.eligibilityApiNote}>
+          Machine-readable matrix:{" "}
+          <a href="/api/continuity/eligibility">/api/continuity/eligibility</a>
+          {" · "}
+          Live status:{" "}
+          <a href="/api/continuity/status">/api/continuity/status</a>
+        </p>
       </section>
 
       <section id="pricing" className="pricing-section">

@@ -39,6 +39,98 @@
   background: rgba(34, 211, 238, 0.14);
 }
 
+.eligibilityGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.eligibilityColumn {
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+  background: rgba(255, 255, 255, 0.02);
+  padding: 28px;
+  border-radius: 12px;
+}
+
+.eligibilityColumn h3 {
+  margin: 0 0 18px;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+.eligibilityColumn ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.eligibilityColumn li {
+  display: grid;
+  gap: 4px;
+}
+
+.eligibilityColumn strong {
+  font-size: 14px;
+  color: #e8eef0;
+}
+
+.eligibilityColumn span {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted, #8b9694);
+}
+
+.invariantList {
+  list-style: none;
+  margin: 0 0 22px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.invariantList li {
+  border: 1px solid rgba(147, 245, 138, 0.16);
+  background: rgba(147, 245, 138, 0.04);
+  padding: 16px 18px;
+  border-radius: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.invariantList strong {
+  font-size: 13px;
+  color: #dffbe8;
+}
+
+.invariantList span {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted, #8b9694);
+}
+
+.eligibilityApiNote {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted, #8b9694);
+}
+
+.eligibilityApiNote a {
+  color: #93f58a;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 900px) {
+  .eligibilityGrid,
+  .invariantList {
+    grid-template-columns: 1fr;
+  }
+}
+
 .sessionNotice {
   margin: -6px 0 0;
   padding-left: 10px;
