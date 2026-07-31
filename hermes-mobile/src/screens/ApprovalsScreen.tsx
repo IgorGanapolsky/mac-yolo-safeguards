@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   Switch,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -36,7 +37,11 @@ import {
   type LeashDecisionRecord,
 } from '../services/leashDecisionHistory';
 import { PENDING_APPROVALS_RENDER_CAP } from '../utils/pendingApprovalsCap';
-import { resolveLeashThumbGatePromoSurface } from '../utils/thumbgatePromoCopy';
+import {
+  resolveLeashThumbGatePromoSurface,
+  THUMBGATE_WEB_URL,
+  THUMBGATE_PROMO_BUTTON_LABEL,
+} from '../utils/thumbgatePromoCopy';
 
 type RootTabParamList = {
   Leash: undefined;
@@ -256,11 +261,28 @@ export default function ApprovalsScreen() {
         <View testID="THUMBGATE_LEASH" accessible={true} collapsable={false}>
           <Text style={styles.title}>THUMBGATE LEASH</Text>
         </View>
-        <Text style={styles.subtitle}>
+        <Text style={styles.subtitle} testID="leash-hero-subtitle">
           {settings.safetyMode || settings.glanceMode
-            ? 'Approve blocked agent tools — from lock screen (Approve / Deny) or cards below'
-            : 'Approve blocked tools from your phone — tap notifications on lock screen'}
+            ? 'Approve blocked agent tools via ThumbGate.app — lock screen or cards below'
+            : 'Approve blocked tools from your phone via ThumbGate.app — tap notifications on lock screen'}
         </Text>
+        <TouchableOpacity
+          onPress={() => {
+            void Linking.openURL(THUMBGATE_WEB_URL).catch(() => {
+              Alert.alert(
+                'Could not open ThumbGate.app',
+                'Open https://thumbgate.app in your browser to continue.',
+              );
+            });
+          }}
+          testID="leash-open-thumbgate-app"
+          accessibilityRole="link"
+          accessibilityLabel={THUMBGATE_PROMO_BUTTON_LABEL}
+          hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+          style={styles.thumbgateAppLink}
+        >
+          <Text style={styles.thumbgateAppLinkText}>Open ThumbGate.app →</Text>
+        </TouchableOpacity>
         {leashUnlocked ? (
           <>
             <View style={styles.pillRow} testID="leash-header-pill-row">
@@ -455,8 +477,10 @@ export default function ApprovalsScreen() {
             </Text>
             <View style={styles.switchRow}>
               <View style={styles.switchLabelCol}>
-                <Text style={styles.switchLabel}>Thumbs down → remember block</Text>
-                <Text style={styles.switchDesc}>Capture to ThumbGate when you reject a tool</Text>
+                <Text style={styles.switchLabel}>Deny tool → capture block</Text>
+                <Text style={styles.switchDesc}>
+                  ThumbGate memory when you Deny on Leash (chat 👎 always tries to capture)
+                </Text>
               </View>
               <Switch
                 value={settings.thumbgateCaptureOnDown}
@@ -469,8 +493,10 @@ export default function ApprovalsScreen() {
             </View>
             <View style={styles.switchRow}>
               <View style={styles.switchLabelCol}>
-                <Text style={styles.switchLabel}>Thumbs up → record approval</Text>
-                <Text style={styles.switchDesc}>Optional positive signal when you allow a tool</Text>
+                <Text style={styles.switchLabel}>Allow tool → capture approval</Text>
+                <Text style={styles.switchDesc}>
+                  ThumbGate memory when you Allow on Leash (chat 👍 always tries to capture)
+                </Text>
               </View>
               <Switch
                 value={settings.thumbgateCaptureOnUp}
@@ -567,6 +593,16 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 4,
     marginBottom: 12,
+  },
+  thumbgateAppLink: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  thumbgateAppLinkText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.secondary,
   },
   pillRow: {
     flexDirection: 'row',

@@ -306,7 +306,7 @@ describe('formatRunTokenSummary / buildConnectedModelTokenLabel', () => {
         outputTokens: 30,
         streamUsageLive: true,
       }),
-    ).toBe('In: 120 | Out: 30');
+    ).toBe('In: 120 tokens | Out: 30 tokens');
   });
 
   it('builds always-visible Connected chrome with short model + session total', () => {
@@ -316,7 +316,7 @@ describe('formatRunTokenSummary / buildConnectedModelTokenLabel', () => {
         sessionInputTokens: 2400,
         sessionOutputTokens: 100,
       }),
-    ).toBe('Qwen3.5 9B Hermes · 2,500 session');
+    ).toBe('Qwen3.5 9B Hermes · In: 2,400 tokens | Out: 100 tokens');
   });
 
   it('prefers live run usage over session total while runProgress is active', () => {
@@ -332,7 +332,7 @@ describe('formatRunTokenSummary / buildConnectedModelTokenLabel', () => {
           streamUsageLive: true,
         },
       }),
-    ).toBe('GLM 5.2 · In: 1200 | Out: 340');
+    ).toBe('GLM 5.2 · In: 1,200 tokens | Out: 340 tokens');
   });
 
   it('shows em dash for active run without gateway usage yet', () => {

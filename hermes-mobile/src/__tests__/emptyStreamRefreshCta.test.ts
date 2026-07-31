@@ -7,6 +7,8 @@ import {
   emptyStreamDisplayElapsedMs,
   messageIsEmptyStreamTimeout,
   shouldShowEmptyStreamRefreshCta,
+  stripSupersededEmptyStreamTimeouts,
+  isEmptyStreamRecoveryStatus,
   USER_FACING_EMPTY_STREAM_COPY_FILES,
 } from '../utils/emptyStreamRefreshCta';
 import {
@@ -57,4 +59,34 @@ describe('emptyStreamRefreshCta', () => {
     expect(emptyStreamBannerHint(EMPTY_STREAM_HARD_STOP_MS)).toBe(EMPTY_STREAM_HARD_STOP_STATUS);
     expect(emptyStreamDisplayElapsedMs(3_430_000)).toBe(EMPTY_STREAM_HARD_STOP_MS);
   });
+
+  it('does not show CTA when a real reply coexists with a timeout bubble', () => {
+    const messages: HermesMessage[] = [
+      { role: 'user', content: 'Which buyer channel gets priority today?' },
+      { role: 'assistant', content: EMPTY_STREAM_TIMEOUT_PLACEHOLDER },
+      {
+        role: 'assistant',
+        content:
+          'The goal cell shows 5 prepared guard packets but we have not engaged buyers yet.',
+      },
+    ];
+    expect(shouldShowEmptyStreamRefreshCta(messages)).toBe(false);
+    const stripped = stripSupersededEmptyStreamTimeouts(messages);
+    expect(stripped).toHaveLength(2);
+    expect(stripped.some((m) => messageIsEmptyStreamTimeout(m.content))).toBe(false);
+  });
+
+  it('treats legacy Stopped waiting copy as empty-stream timeout', () => {
+    const legacy =
+      'Stopped waiting on your Mac. Open Leash if a tool needs approve/deny/warn, Stop an active run, or start a fresh chat.';
+    expect(messageIsEmptyStreamTimeout(legacy)).toBe(true);
+    expect(isEmptyStreamRecoveryStatus(legacy)).toBe(true);
+    expect(
+      shouldShowEmptyStreamRefreshCta([
+        { role: 'user', content: 'hello' },
+        { role: 'assistant', content: legacy },
+      ]),
+    ).toBe(true);
+  });
+
 });
