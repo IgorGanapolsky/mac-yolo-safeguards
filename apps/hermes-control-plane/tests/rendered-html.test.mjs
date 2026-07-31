@@ -31,7 +31,11 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /Pro Continuity|Cloud Continuity/);
   assert.match(page, /Continue with Google today/);
   assert.doesNotMatch(page, /Continue with Google or Apple/);
-  assert.match(page, /still proving out in real use/);
+  // Hero states the mechanism, not a self-disclaimer: 12 landing views/day converted 0 sign-in
+  // clicks while the lede called the paid capability "still proving this out" (2026-07-30).
+  assert.match(page, /approve or deny each tool call before it runs/);
+  assert.match(page, /fenced VPS runner under the policy you set/);
+  assert.doesNotMatch(page, /still proving/);
   assert.match(page, /by ThumbGate/);
   assert.match(page, /Your Hermes work/);
   assert.match(page, /Leash/);
@@ -100,7 +104,8 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(chrome, /data-funnel-event="cloud_continuity_click"/);
   assert.match(chrome, /data-funnel-event=\{isSession \? "dashboard_open_click" : "sign_in_click"\}/);
   assert.match(chrome, /Try Continuity — 14 days free/);
-  assert.match(chrome, /Can pick up eligible work on a VPS when offline — still proving this out/);
+  assert.match(chrome, /Hands eligible work to a fenced VPS runner when your Mac is offline/);
+  assert.doesNotMatch(chrome, /still proving/);
   assert.equal((chrome.match(/"sign_in_click"/g) ?? []).length, 1);
   assert.equal((chrome.match(/fetch\("\/api\/me"/g) ?? []).length, 1);
   // Lease copy lives in steps + FailoverPathDemo (not the old stats-strip HTML).
