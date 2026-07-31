@@ -57,6 +57,48 @@ if [[ ! -d "$CLONE_PATH/.grepai" ]]; then
   (cd "$CLONE_PATH" && grepai init --provider ollama --backend gob --yes)
 fi
 
+# Never index credential-bearing files.
+#
+# Audited 2026-07-31: the grepai ignore list was
+#   [.git .grepai node_modules vendor bin dist __pycache__ .venv venv .idea
+#    .vscode target .zig-cache zig-out qdrant_storage]
+# — no .env, no *.pem, no *.key, no credentials. Retrieval also takes NO caller
+# identity and the index carries no per-document ownership, so nothing
+# downstream could scope a result either.
+#
+# Today that is not an incident: the indexed corpus is the PUBLIC
+# mac-yolo-safeguards repo (0 real .env, 0 private keys tracked). But that
+# safety is an ACCIDENT of which tree is indexed, not a control — point the
+# indexer at a private tree, or let one real .env land, and it is retrievable
+# with nothing to stop it.
+exclude_secrets_from_index() {
+  local cfg="$CLONE_PATH/.grepai/config.yaml"
+  [[ -f "$cfg" ]] || { printf 'config not found, skipped'; return 0; }
+  python3 - "$cfg" <<'PY2'
+import sys
+p = sys.argv[1]
+lines = open(p, encoding='utf-8').read().split('\n')
+# Text edit only. A yaml round-trip re-serialises this file's timestamp fields
+# into a form grepai's Go parser rejects and takes the index down (2026-07-29).
+want = ['.env', '.env.local', '.pem', '.key', '.p12', 'credentials', 'id_rsa']
+try:
+    i = next(n for n, l in enumerate(lines) if l.rstrip() == 'ignore:')
+except StopIteration:
+    print('no ignore: block, skipped'); raise SystemExit
+j = i + 1
+while j < len(lines) and lines[j].lstrip().startswith('- '):
+    j += 1
+have = {lines[k].split('- ', 1)[1].strip() for k in range(i + 1, j)}
+indent = lines[i + 1][:len(lines[i + 1]) - len(lines[i + 1].lstrip())] if j > i + 1 else '    '
+new = [f'{indent}- {w}' for w in want if w not in have]
+if not new:
+    print('already excluded'); raise SystemExit
+open(p, 'w', encoding='utf-8').write('\n'.join(lines[:j] + new + lines[j:]))
+print('added: ' + ', '.join(w for w in want if w not in have))
+PY2
+}
+log "grepai secret exclusion: $(exclude_secrets_from_index)"
+
 # Ensure watcher for this clone only (isolated .git → no worktree fan-out)
 if ! (cd "$CLONE_PATH" && grepai status 2>/dev/null | grep -qi 'Watcher: running'); then
   log "Starting grepai watch --background on isolated clone…"
