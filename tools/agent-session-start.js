@@ -48,6 +48,56 @@ function printFleetRepoIntelligence() {
   }
 }
 
+/**
+ * InfoQ micro-batch + interface brief (non-blocking, capped).
+ * Heals grepae/lessons only when the dry cycle reports not-ok.
+ */
+function printRetrievalOpsBrief() {
+  const micro = path.join(REPO, 'tools/index-microbatch.js');
+  const contracts = path.join(REPO, 'tools/retrieval-interface-contracts.js');
+  if (!fs.existsSync(micro) && !fs.existsSync(contracts)) return;
+
+  process.stdout.write('\n=== Retrieval ops (InfoQ micro-batch / interfaces) ===\n');
+
+  if (fs.existsSync(contracts)) {
+    const c = runNode('tools/retrieval-interface-contracts.js', ['--json'], 15_000);
+    try {
+      const j = JSON.parse(c.stdout || '{}');
+      process.stdout.write(
+        `interfaces: ${j.ok ? 'OK' : 'FAIL'} ${j.contractCount - (j.failed || 0)}/${j.contractCount || '?'}\n`,
+      );
+    } catch {
+      process.stdout.write('interfaces: unreadable\n');
+    }
+  }
+
+  if (fs.existsSync(micro)) {
+    let r = runNode('tools/index-microbatch.js', ['--once', '--json'], 45_000);
+    let j = null;
+    try {
+      j = JSON.parse(r.stdout || '{}');
+    } catch {
+      j = null;
+    }
+    // Heal only when dry cycle is unhealthy (watcher down / behind / stale).
+    if (j && j.ok === false) {
+      r = runNode('tools/index-microbatch.js', ['--once', '--heal', '--json'], 120_000);
+      try {
+        j = JSON.parse(r.stdout || '{}');
+      } catch {
+        /* keep */
+      }
+      process.stdout.write(
+        `microbatch: ${j?.ok ? 'HEALED' : 'FAIL'} watcher=${j?.watcherRunning} behind=${j?.behindOriginMain}\n`,
+      );
+    } else {
+      process.stdout.write(
+        `microbatch: ${j?.ok ? 'OK' : 'FAIL'}${j?.skipped ? ' (noop)' : ''} watcher=${j?.watcherRunning} cycles=${j?.watermark?.cycleCount ?? j?.previous?.cycleCount ?? '?'}\n`,
+      );
+    }
+  }
+}
+
 const E2E_STALE_MS = 30 * 60 * 1000;
 const args = process.argv.slice(2);
 const json = args.includes('--json');
@@ -383,9 +433,49 @@ if (!json) {
   }
 }
 
+/**
+ * Software MoE brief: active dead experts, retired list, config defaults.
+ * Non-blocking; capped. Does not auto-rewire config (use system-a-plus --heal).
+ */
+function printMoeOpsBrief() {
+  const healthScript = path.join(REPO, 'tools/moe-expert-health.js');
+  if (!fs.existsSync(healthScript)) return;
+  process.stdout.write('\n=== MoE expert health ===\n');
+  const r = runNode('tools/moe-expert-health.js', ['--json'], 30_000);
+  try {
+    const j = JSON.parse(r.stdout || '{}');
+    if (!j.ok) {
+      process.stdout.write(`moe: FAIL ${j.error || 'unavailable'}\n`);
+      return;
+    }
+    const active = j.activeHighVolumeDead || [];
+    const retired = j.retiredHighVolumeDead || [];
+    process.stdout.write(
+      `gate=${j.gateOk ? 'OK' : 'FAIL'} activeDead=${active.length} retiredDead=${retired.length} healthy=${(j.healthyModels || []).slice(0, 4).join(',') || '-'}\n`,
+    );
+    for (const d of active.slice(0, 4)) {
+      process.stdout.write(`  P0 ${d.model} vol=${d.requests} answer%=${d.answerRatePct}\n`);
+    }
+    if (j.retired?.models?.length) {
+      process.stdout.write(
+        `retired: ${j.retired.models.join(', ')} primary=${j.retired.primary || '-'}\n`,
+      );
+    }
+    if (!j.gateOk) {
+      process.stdout.write(
+        'hint: node tools/moe-retire-dead-experts.js --apply --primary kimi-code-fast\n',
+      );
+    }
+  } catch {
+    process.stdout.write('moe: unreadable\n');
+  }
+}
+
 // Local JetBrains Context equivalent (grepai + hermes-context) — every agent sees health.
 if (!json) {
   printFleetRepoIntelligence();
+  printRetrievalOpsBrief();
+  printMoeOpsBrief();
 }
 
 const briefArgs = ['tools/ceo-operating-brief.js'];
