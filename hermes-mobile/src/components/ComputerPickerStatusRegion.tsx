@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
+import { formatLanScanStageLabel, lanScanFraction } from '../utils/lanScanLabels';
 import { tailscaleDiscoveryLabel } from '../services/tailscaleDiscovery';
 import { colors } from '../theme/colors';
 import {
@@ -249,6 +250,29 @@ export default function ComputerPickerStatusRegion({
       <Text style={[styles.detail, compact ? styles.detailCompact : null]} numberOfLines={compact ? 2 : 3}>
         {status.detail}
       </Text>
+      {status.kind === 'searching' && scanProgress ? (
+        <View style={styles.progressContainer} testID="picker-status-progress-track">
+          <View
+            style={styles.track}
+            accessibilityRole="progressbar"
+            accessibilityValue={{
+              min: 0,
+              max: 100,
+              now: Math.round(lanScanFraction(scanProgress) * 100),
+            }}
+          >
+            <View
+              style={[
+                styles.fill,
+                { width: `${Math.max(4, Math.round(lanScanFraction(scanProgress) * 100))}%` },
+              ]}
+            />
+          </View>
+          <Text style={styles.progressLabel}>
+            {formatLanScanStageLabel(scanProgress)}
+          </Text>
+        </View>
+      ) : null}
       {status.kind === 'tailscale_found' && status.discoveries.length > 0 ? (
         <View style={styles.chips} testID={`${testID}-tailscale-chips`}>
           {status.discoveries.map((discovery) => {
@@ -371,5 +395,25 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontSize: 12,
     fontWeight: '700',
+  },
+  progressContainer: {
+    marginTop: 6,
+    gap: 4,
+  },
+  track: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    overflow: 'hidden',
+  },
+  fill: {
+    height: '100%',
+    backgroundColor: colors.accent,
+    borderRadius: 2,
+  },
+  progressLabel: {
+    fontSize: 11,
+    color: colors.accent,
+    fontWeight: '600',
   },
 });

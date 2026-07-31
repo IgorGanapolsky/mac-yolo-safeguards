@@ -198,6 +198,8 @@ describe('ComputerPickerStatusRegion', () => {
     );
     expect(getByTestId('mac-picker-status-region')).toBeTruthy();
     expect(getByText('Searching for your computer…')).toBeTruthy();
+    expect(getByTestId('picker-status-progress-track')).toBeTruthy();
+    expect(getByText(/checking direct hermes links/i)).toBeTruthy();
 
     rerender(
       <ComputerPickerStatusRegion
@@ -215,5 +217,6 @@ describe('ComputerPickerStatusRegion', () => {
       />,
     );
     expect(getByText('Searching for your computer…')).toBeTruthy();
+    expect(getByTestID('picker-status-progress-track')).toBeTruthy();
   });
 });

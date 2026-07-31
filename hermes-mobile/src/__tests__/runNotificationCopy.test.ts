@@ -43,7 +43,13 @@ describe('runNotificationCopy', () => {
         detail: 'Reply ready on your computer',
         replySnippet: 'Here is what I found.',
       }),
-    ).toBe('Hermes replied');
+    ).toBe('✨ Hermes replied');
+    expect(
+      runProgressNotificationTitleFromState({
+        phase: 'running',
+        activeToolName: 'browser_navigate',
+      }),
+    ).toBe('⚡ Using browser navigate');
   });
 
   it('completed body uses reply snippet when provided', () => {

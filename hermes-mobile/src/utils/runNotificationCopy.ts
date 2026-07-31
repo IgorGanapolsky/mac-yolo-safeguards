@@ -66,22 +66,27 @@ export function runProgressNotificationTitleFromState(input: {
   phase?: string | null;
   detail?: string | null;
   replySnippet?: string | null;
+  activeToolName?: string | null;
 }): string {
   const hasSnippet = Boolean(normalizeReplySnippet(input.replySnippet));
   const phase = (input.phase ?? '').toLowerCase();
   if (phase === 'approval') {
-    return 'Waiting for your approval';
+    return '⚡ Approval needed';
   }
   if (phase === 'completed' || isReplyReadyDetail(input.detail)) {
-    return hasSnippet ? 'Hermes replied' : 'Hermes finished';
+    return hasSnippet ? '✨ Hermes replied' : '✅ Hermes finished';
   }
   if (phase === 'failed') {
-    return 'Hermes run stopped';
+    return '❌ Hermes run stopped';
   }
   if (phase === 'streaming' || hasSnippet) {
-    return 'Hermes is responding';
+    return '⚡ Hermes is responding';
   }
-  return 'Hermes is working';
+  if (input.activeToolName?.trim()) {
+    const cleanTool = input.activeToolName.trim().replace(/^browser_/, 'browser ').replace(/_/g, ' ');
+    return `⚡ Using ${cleanTool}`;
+  }
+  return '⚡ Hermes is working';
 }
 
 /**
