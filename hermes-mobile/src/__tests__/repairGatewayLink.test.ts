@@ -193,6 +193,33 @@ describe('repairGatewayLink', () => {
       apiKey: 'fresh',
     });
     const reconnect = jest.fn().mockResolvedValue(undefined);
+    let healthCallCount = 0;
+    const result = await runRepairGatewayLink({
+      gatewayUrl: 'http://100.94.135.78:8642',
+      machineLabel: 'Igors-Mac-mini',
+      refreshCredentials,
+      reconnect,
+      readHealth: async () => {
+        healthCallCount += 1;
+        if (healthCallCount === 1) {
+          return { level: 'red', checkedAt: '2026-07-17T00:00:00Z', directGatewayReachable: false };
+        }
+        return {
+          level: 'green',
+          checkedAt: '2026-07-17T00:00:00Z',
+          directGatewayReachable: true,
+        };
+      },
+    });
+    expect(result.status).toBe('healed');
+    expect(refreshCredentials).toHaveBeenCalled();
+    expect(reconnect).toHaveBeenCalled();
+    expect(() => assertRepairSucceeded(result)).not.toThrow();
+  });
+
+  it('runRepairGatewayLink heals instantly via fast-path when health is already green', async () => {
+    const refreshCredentials = jest.fn();
+    const reconnect = jest.fn().mockResolvedValue(undefined);
     const result = await runRepairGatewayLink({
       gatewayUrl: 'http://100.94.135.78:8642',
       machineLabel: 'Igors-Mac-mini',
@@ -205,9 +232,8 @@ describe('repairGatewayLink', () => {
       }),
     });
     expect(result.status).toBe('healed');
-    expect(refreshCredentials).toHaveBeenCalled();
+    expect(refreshCredentials).not.toHaveBeenCalled();
     expect(reconnect).toHaveBeenCalled();
-    expect(() => assertRepairSucceeded(result)).not.toThrow();
   });
 
   it('surfaces auth_failed instead of a vague timeout when health mismatches', async () => {
