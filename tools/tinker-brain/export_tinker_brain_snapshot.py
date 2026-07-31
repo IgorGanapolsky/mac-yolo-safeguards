@@ -85,14 +85,70 @@ def probe_json(url: str, timeout: float = PROBE_TIMEOUT_S) -> dict[str, Any]:
         return {"ok": False, "body": None, "error": type(exc).__name__}
 
 
+FUNNEL_KEYS = (
+    "landingViewsToday",
+    "signInClicksToday",
+    "cloudContinuityClicksToday",
+    "loginsLast24h",
+    "pairingsLast24h",
+    "checkoutCreatedLast24h",
+    "usersTotal",
+    "paidOrganizationsTotal",
+)
+
+
+def extract_funnel(body: dict[str, Any]) -> dict[str, Any]:
+    """Pull live funnel counters out of /api/health.
+
+    The endpoint was already being probed, but only `status` was kept and the whole
+    `telemetry` block was discarded — so the brain could say "external revenue is $0"
+    while being structurally unable to see WHY. On 2026-07-30 the decisive numbers were
+    landingViewsToday=12 with signInClicksToday=0: traffic arrived and converted nothing.
+    No card carried that, so "ship another campaign beat" kept coming back as the next
+    action when the page, not the traffic, was the binding constraint.
+
+    Absent/unreachable telemetry yields present=False rather than zeros — a zero here
+    means "measured zero", and must never be manufactured from a failed probe.
+    """
+    telemetry = body.get("telemetry")
+    if not isinstance(telemetry, dict):
+        return {"present": False}
+    funnel: dict[str, Any] = {"present": True}
+    for key in FUNNEL_KEYS:
+        value = telemetry.get(key)
+        funnel[key] = value if isinstance(value, int) else None
+    return funnel
+
+
+def funnel_read(funnel: dict[str, Any]) -> str:
+    """One honest sentence about where the funnel is actually stuck."""
+    if not funnel.get("present"):
+        return "Funnel telemetry unavailable — do not infer conversion health."
+    views = funnel.get("landingViewsToday")
+    signins = funnel.get("signInClicksToday")
+    if views is None or signins is None:
+        return "Funnel telemetry incomplete — do not infer conversion health."
+    if views == 0:
+        return "No landing views today: the constraint is reach, not the page."
+    if signins == 0:
+        return (
+            f"{views} landing view(s) today and 0 sign-in clicks: arrivals convert at zero, "
+            "so the page/offer is the live constraint — more distribution amplifies nothing."
+        )
+    return f"{views} landing view(s) today, {signins} sign-in click(s): both reach and conversion are non-zero."
+
+
 def probe_health() -> dict[str, Any]:
     result = probe_json(HEALTH_URL)
     body = result.get("body") or {}
+    funnel = extract_funnel(body)
     return {
         "ok": bool(result["ok"]),
         "status": str(body.get("status") or body.get("ok") or ("up" if result["ok"] else "unreachable")),
         "error": result.get("error"),
         "url": HEALTH_URL,
+        "funnel": funnel,
+        "funnel_read": funnel_read(funnel),
     }
 
 
@@ -243,12 +299,32 @@ def build_snapshot(
             "any campaign copy — never hard-code a price"
         )
 
-    next_money = (
+    # The next money action has to follow the funnel, not a fixed script. Before this,
+    # the card unconditionally recommended shipping another campaign beat — which on
+    # 2026-07-30 put three mutually contradictory lines next to each other in one answer:
+    # WHY_ZERO said "the lever is distribution", FUNNEL_STATE said "more distribution
+    # amplifies nothing", and NEXT_MONEY said "ship another beat". Six campaigns had
+    # already returned zero attributed funnel hits by then.
+    funnel = health.get("funnel") or {}
+    views = funnel.get("landingViewsToday") if funnel.get("present") else None
+    signins = funnel.get("signInClicksToday") if funnel.get("present") else None
+    distribution_beat = (
         "Ship today's ThumbGate.app campaign beat (one persona + one pain + cited evidence + "
         "hook) across the fan-out matrix with verified permalinks; recruit toward 3 Continuity "
         "design partners; check the AEO monitor weekly. Reddit stays draft-only under the burn "
         "rule. Cash counts only on a non-owner Stripe subscription payment."
     )
+    if isinstance(views, int) and isinstance(signins, int) and views > 0 and signins == 0:
+        next_money = (
+            f"Do NOT ship another distribution beat yet: {views} arrival(s) today converted 0 "
+            "sign-in clicks, so added reach multiplies a zero. Fix the landing/offer step first "
+            "(what the visitor sees before sign-in), then re-read /api/health and confirm "
+            "signInClicksToday moved off zero before spending on reach again. Direct 1:1 contact "
+            "with a named human who has the pain still counts — that path does not depend on the "
+            "landing page converting. Cash counts only on a non-owner Stripe subscription payment."
+        )
+    else:
+        next_money = distribution_beat
 
     return {
         "schema_version": "tinker-thumbgate-snapshot/1",
@@ -387,6 +463,12 @@ def write_snapshot(out: Path, payload: dict[str, Any]) -> None:
                     "THUMBGATE_HEALTH="
                     f"status={health.get('status')}; ok={str(bool(health.get('ok'))).lower()}"
                 ),
+                # tinker_brain_answer.py has read FUNNEL_STATE since it was written, but
+                # nothing ever emitted it — a display with no source. Without this the
+                # brain can report "$0 external" while being blind to whether the funnel
+                # is starved of traffic or converting arrivals at zero, which are opposite
+                # problems with opposite next actions.
+                f"FUNNEL_STATE={health.get('funnel_read')}",
                 f"AEO_MONITOR={aeo_line}",
                 f"EXTERNAL_USD={cash.get('external_net_usd')}  (cents={cash.get('external_net_cents')})",
                 (

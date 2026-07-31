@@ -223,3 +223,38 @@ class EvalHarnessTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+# --- Live funnel sight (2026-07-31) -----------------------------------------
+# The exporter probed /api/health but kept only `status`, discarding the whole
+# telemetry block, while tinker_brain_answer.py had read FUNNEL_STATE since it was
+# written and nothing ever emitted it. Net effect: the brain could report "$0
+# external" while structurally unable to tell "no one arrives" (a reach problem)
+# from "everyone bounces" (a page/offer problem) — opposite problems, opposite fixes.
+def test_funnel_extraction_and_read():
+    from export_tinker_brain_snapshot import extract_funnel, funnel_read
+
+    real = {"telemetry": {
+        "landingViewsToday": 12, "signInClicksToday": 0, "cloudContinuityClicksToday": 0,
+        "loginsLast24h": 0, "pairingsLast24h": 0, "checkoutCreatedLast24h": 0,
+        "usersTotal": 4, "paidOrganizationsTotal": 1,
+    }}
+    funnel = extract_funnel(real)
+    assert funnel["present"] is True
+    assert funnel["landingViewsToday"] == 12
+    assert funnel["signInClicksToday"] == 0
+    assert "0 sign-in clicks" in funnel_read(funnel)
+    assert "amplifies nothing" in funnel_read(funnel)
+
+    # Zero traffic is the OPPOSITE diagnosis and must not be conflated.
+    starved = funnel_read(extract_funnel({"telemetry": {"landingViewsToday": 0, "signInClicksToday": 0}}))
+    assert "reach, not the page" in starved
+
+    healthy = funnel_read(extract_funnel({"telemetry": {"landingViewsToday": 40, "signInClicksToday": 3}}))
+    assert "non-zero" in healthy
+
+    # Fail closed: a failed/absent probe must never be rendered as a measured zero.
+    absent = extract_funnel({})
+    assert absent == {"present": False}
+    assert "unavailable" in funnel_read(absent)
+    assert "incomplete" in funnel_read(extract_funnel({"telemetry": {"landingViewsToday": 5}}))
