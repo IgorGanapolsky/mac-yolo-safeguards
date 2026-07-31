@@ -3,17 +3,21 @@
 
 const { spawn } = require('child_process');
 const path = require('path');
-const fs = require('fs');
 const readline = require('readline');
+const { checkGraphStaleness } = require('./graphify-staleness-check');
 
-const REPO = path.resolve(__dirname, '..');
-const GRAPHIFY_BIN = path.join(REPO, '.graphify-venv', 'bin', 'graphify');
-const GRAPH_JSON = path.join(REPO, 'graphify-out', 'graph.json');
+const REPO = path.resolve(process.env.GRAPHIFY_REPO || path.resolve(__dirname, '..'));
+const GRAPHIFY_BIN = path.resolve(
+  process.env.GRAPHIFY_BIN || path.join(REPO, '.graphify-venv', 'bin', 'graphify'),
+);
+const GRAPH_JSON = path.resolve(
+  process.env.GRAPHIFY_GRAPH || path.join(REPO, 'graphify-out', 'graph.json'),
+);
 
 const TOOLS = [
   {
     name: 'graphify_search',
-    description: 'Search the code knowledge graph with a natural-language query. Returns relevant code nodes (functions, classes, files, concepts) with their source locations. Use this instead of grep when you need semantic context about how code works together.',
+    description: 'Search the validated code knowledge graph with a natural-language query. Fails closed when the graph does not match origin/main.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -25,18 +29,18 @@ const TOOLS = [
   },
   {
     name: 'graphify_symbol',
-    description: 'Look up a specific symbol (function, class, constant, file) in the code graph. Returns its type, source location, and direct connections (what imports/calls/contains it).',
+    description: 'Look up a symbol in the validated code graph and return its source and connections.',
     inputSchema: {
       type: 'object',
       properties: {
-        symbol: { type: 'string', description: 'Symbol name (e.g. "checkGraphStaleness", "GatewayContext", "MEGAFILES")' },
+        symbol: { type: 'string', description: 'Symbol name (for example "checkGraphStaleness")' },
       },
       required: ['symbol'],
     },
   },
   {
     name: 'graphify_refs',
-    description: 'Find the relationship path between two code entities (files, functions, symbols). Returns how A connects to B through imports, calls, or containment.',
+    description: 'Find the relationship path between two entities in the validated code graph.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -48,128 +52,150 @@ const TOOLS = [
   },
   {
     name: 'graphify_status',
-    description: 'Check the code graph health: node count, link count, age, and whether it is stale.',
+    description: 'Validate graph JSON, source SHA, build receipt, query canary, age, and package/skill version.',
     inputSchema: { type: 'object', properties: {} },
   },
 ];
 
-function runGraphify(args) {
+function runGraphify(args, options = {}) {
+  const graphifyBin = options.graphifyBin || GRAPHIFY_BIN;
+  const repo = options.repo || REPO;
   return new Promise((resolve) => {
-    const child = spawn(GRAPHIFY_BIN, args, {
-      cwd: REPO,
+    const child = (options.spawn || spawn)(graphifyBin, args, {
+      cwd: repo,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '';
     let stderr = '';
-    child.stdout.on('data', (d) => { stdout += d; });
-    child.stderr.on('data', (d) => { stderr += d; });
-    child.on('error', (err) => resolve({ stdout: '', stderr: err.message, code: -1 }));
+    child.stdout.on('data', (data) => { stdout += data; });
+    child.stderr.on('data', (data) => { stderr += data; });
+    child.on('error', (error) => resolve({ stdout: '', stderr: error.message, code: -1 }));
     child.on('close', (code) => resolve({ stdout, stderr, code }));
   });
 }
 
-function getGraphStatus() {
-  if (!fs.existsSync(GRAPH_JSON)) {
-    return { exists: false, stale: true, reason: 'graph.json missing' };
-  }
-  const stat = fs.statSync(GRAPH_JSON);
-  const ageHours = (Date.now() - stat.mtimeMs) / (1000 * 60 * 60);
-  let nodeCount = 0;
-  let linkCount = 0;
-  try {
-    const parsed = JSON.parse(fs.readFileSync(GRAPH_JSON, 'utf8'));
-    nodeCount = (parsed.nodes || []).length;
-    linkCount = (parsed.links || parsed.edges || []).length;
-  } catch { /* mid-write */ }
+function getGraphStatus(options = {}) {
+  return checkGraphStaleness({
+    repo: options.repo || REPO,
+    graphPath: options.graphPath || GRAPH_JSON,
+    graphifyBin: options.graphifyBin || GRAPHIFY_BIN,
+    originMainSha: options.originMainSha,
+    currentVersionInfo: options.currentVersionInfo,
+    now: options.now,
+  });
+}
+
+function unhealthyResult(status) {
   return {
-    exists: true,
-    mtime: stat.mtime.toISOString(),
-    ageHours: Math.round(ageHours * 10) / 10,
-    nodeCount,
-    linkCount,
-    stale: ageHours > 48,
-    graphifyAvailable: fs.existsSync(GRAPHIFY_BIN),
+    content: [{
+      type: 'text',
+      text: `Graphify snapshot is not safe to serve: ${status.failures.join(', ')}. Run the atomic snapshot refresh and require strict health before querying.`,
+    }],
+    isError: true,
   };
 }
 
-async function handleToolCall(name, args) {
-  switch (name) {
-    case 'graphify_search': {
-      const budget = Math.min(args.budget || 1000, 5000);
-      const res = await runGraphify(['query', args.query, '--budget', String(budget)]);
-      if (res.code !== 0 || !res.stdout.trim()) {
-        return { content: [{ type: 'text', text: `No results (exit ${res.code}). ${res.stderr.slice(0, 200)}` }], isError: true };
-      }
-      return { content: [{ type: 'text', text: res.stdout.trim() }] };
-    }
-    case 'graphify_symbol': {
-      const res = await runGraphify(['explain', args.symbol]);
-      if (res.code !== 0 || !res.stdout.trim()) {
-        return { content: [{ type: 'text', text: `Symbol "${args.symbol}" not found (exit ${res.code})` }], isError: true };
-      }
-      return { content: [{ type: 'text', text: res.stdout.trim() }] };
-    }
-    case 'graphify_refs': {
-      const res = await runGraphify(['path', args.source, args.target]);
-      if (res.code !== 0 || !res.stdout.trim()) {
-        return { content: [{ type: 'text', text: `No path found between "${args.source}" and "${args.target}".` }] };
-      }
-      return { content: [{ type: 'text', text: res.stdout.trim() }] };
-    }
-    case 'graphify_status': {
-      return { content: [{ type: 'text', text: JSON.stringify(getGraphStatus(), null, 2) }] };
-    }
-    default:
-      return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
+async function handleToolCall(name, args = {}, options = {}) {
+  const statusFn = options.getGraphStatus || getGraphStatus;
+  const runFn = options.runGraphify || runGraphify;
+  if (name === 'graphify_status') {
+    return { content: [{ type: 'text', text: JSON.stringify(statusFn(options), null, 2) }] };
   }
+  if (!['graphify_search', 'graphify_symbol', 'graphify_refs'].includes(name)) {
+    return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
+  }
+  const status = statusFn(options);
+  if (!status.ok) return unhealthyResult(status);
+  const graphPath = options.graphPath || GRAPH_JSON;
+
+  if (name === 'graphify_search') {
+    const query = String(args.query || '').trim();
+    if (!query) return { content: [{ type: 'text', text: 'query is required' }], isError: true };
+    const budget = Math.min(Math.max(Number(args.budget) || 1000, 100), 5000);
+    const result = await runFn(['query', query, '--graph', graphPath, '--budget', String(budget)], options);
+    if (result.code !== 0 || !result.stdout.trim()) {
+      return { content: [{ type: 'text', text: `No results (exit ${result.code}). ${result.stderr.slice(0, 200)}` }], isError: true };
+    }
+    return { content: [{ type: 'text', text: result.stdout.trim() }] };
+  }
+  if (name === 'graphify_symbol') {
+    const symbol = String(args.symbol || '').trim();
+    if (!symbol) return { content: [{ type: 'text', text: 'symbol is required' }], isError: true };
+    const result = await runFn(['explain', symbol, '--graph', graphPath], options);
+    if (result.code !== 0 || !result.stdout.trim()) {
+      return { content: [{ type: 'text', text: `Symbol "${symbol}" not found (exit ${result.code})` }], isError: true };
+    }
+    return { content: [{ type: 'text', text: result.stdout.trim() }] };
+  }
+  const source = String(args.source || '').trim();
+  const target = String(args.target || '').trim();
+  if (!source || !target) {
+    return { content: [{ type: 'text', text: 'source and target are required' }], isError: true };
+  }
+  const result = await runFn(['path', source, target, '--graph', graphPath], options);
+  if (result.code !== 0 || !result.stdout.trim()) {
+    return { content: [{ type: 'text', text: `No path found between "${source}" and "${target}".` }], isError: true };
+  }
+  return { content: [{ type: 'text', text: result.stdout.trim() }] };
 }
 
-const rl = readline.createInterface({ input: process.stdin });
-const pending = new Set();
-
-function send(msg) {
-  process.stdout.write(JSON.stringify(msg) + '\n');
+function startServer(options = {}) {
+  const input = options.input || process.stdin;
+  const output = options.output || process.stdout;
+  const rl = readline.createInterface({ input });
+  const pending = new Set();
+  const send = (message) => output.write(`${JSON.stringify(message)}\n`);
+  const handle = async (message) => {
+    const { id, method, params } = message;
+    if (method === 'initialize') {
+      return send({ jsonrpc: '2.0', id, result: {
+        protocolVersion: '2024-11-05',
+        capabilities: { tools: {} },
+        serverInfo: { name: 'graphify', version: '1.1.0' },
+      } });
+    }
+    if (method === 'notifications/initialized') return undefined;
+    if (method === 'tools/list') return send({ jsonrpc: '2.0', id, result: { tools: TOOLS } });
+    if (method === 'tools/call') {
+      const result = await handleToolCall(params.name, params.arguments || {}, options);
+      return send({ jsonrpc: '2.0', id, result });
+    }
+    if (method === 'ping') return send({ jsonrpc: '2.0', id, result: {} });
+    if (id !== undefined) {
+      return send({ jsonrpc: '2.0', id, error: { code: -32601, message: `Method not found: ${method}` } });
+    }
+    return undefined;
+  };
+  rl.on('line', (line) => {
+    if (!line.trim()) return;
+    try {
+      const message = JSON.parse(line);
+      const promise = handle(message).catch((error) => {
+        if (message.id !== undefined) {
+          send({ jsonrpc: '2.0', id: message.id, error: { code: -32603, message: `Internal error: ${error.message}` } });
+        }
+      });
+      pending.add(promise);
+      promise.finally(() => pending.delete(promise));
+    } catch {
+      // JSON-RPC transports ignore malformed individual lines.
+    }
+  });
+  rl.on('close', () => Promise.allSettled(pending).finally(() => {
+    if (!options.noExit) process.exit(0);
+  }));
+  return rl;
 }
 
-async function handle(message) {
-  const { id, method, params } = message;
-  if (method === 'initialize') {
-    return send({ jsonrpc: '2.0', id, result: {
-      protocolVersion: '2024-11-05',
-      capabilities: { tools: {} },
-      serverInfo: { name: 'graphify', version: '1.0.0' },
-    }});
-  }
-  if (method === 'notifications/initialized') return;
-  if (method === 'tools/list') {
-    return send({ jsonrpc: '2.0', id, result: { tools: TOOLS } });
-  }
-  if (method === 'tools/call') {
-    const result = await handleToolCall(params.name, params.arguments || {});
-    return send({ jsonrpc: '2.0', id, result });
-  }
-  if (method === 'ping') {
-    return send({ jsonrpc: '2.0', id, result: {} });
-  }
-  if (id !== undefined) {
-    return send({ jsonrpc: '2.0', id, error: { code: -32601, message: `Method not found: ${method}` } });
-  }
-}
+if (require.main === module) startServer();
 
-rl.on('line', (line) => {
-  if (!line.trim()) return;
-  try {
-    const msg = JSON.parse(line);
-    const p = handle(msg).catch((err) => {
-      if (msg.id !== undefined) {
-        send({ jsonrpc: '2.0', id: msg.id, error: { code: -32603, message: `Internal error: ${err.message}` } });
-      }
-    });
-    pending.add(p);
-    p.finally(() => pending.delete(p));
-  } catch { /* malformed JSON */ }
-});
-
-rl.on('close', () => {
-  Promise.allSettled(pending).finally(() => process.exit(0));
-});
+module.exports = {
+  GRAPHIFY_BIN,
+  GRAPH_JSON,
+  REPO,
+  TOOLS,
+  getGraphStatus,
+  handleToolCall,
+  runGraphify,
+  startServer,
+};

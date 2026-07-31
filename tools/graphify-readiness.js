@@ -5,6 +5,10 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const {
+  detectVersionCompatibility,
+} = require('./graphify-snapshot');
+const { checkGraphStaleness } = require('./graphify-staleness-check');
 
 const DEFAULT_OUT_DIR = path.join(os.homedir(), 'Library', 'Application Support', 'mac-yolo-safeguards');
 const MIN_GRAPHIFY_VERSION = '0.9.26';
@@ -64,10 +68,7 @@ function graphifyPathForRepo(repo) {
 }
 
 function graphifyVersion(graphifyPath) {
-  if (!graphifyPath) return '';
-  const result = run(graphifyPath, ['--version']);
-  if (result.status !== 0) return '';
-  return (result.stdout.match(/\bgraphify\s+(\d+\.\d+\.\d+)\b/i) || [])[1] || '';
+  return detectVersionCompatibility(graphifyPath).packageVersion;
 }
 
 function versionAtLeast(actual, minimum) {
@@ -242,13 +243,16 @@ function buildCommands(repo, options = {}) {
   const outDir = path.join(repo, 'graphify-out');
   const venv = path.join(repo, '.graphify-venv');
   const graphifyBin = path.join(venv, 'bin', 'graphify');
+  const snapshotTool = path.join(repo, 'tools', 'graphify-snapshot.js');
   const ollamaModel = options.ollamaModel || '<installed-ollama-model>';
   return {
     install: `python3 -m venv ${shellQuote(venv)} && ${shellQuote(path.join(venv, 'bin', 'python'))} -m pip install graphifyy==${MIN_GRAPHIFY_VERSION} openai && ${shellQuote(graphifyBin)} install`,
-    build: `${shellQuote(graphifyBin)} extract ${shellQuote(repo)} --code-only --no-cluster --out ${shellQuote(repo)}`,
+    build: `${shellQuote(process.execPath)} ${shellQuote(snapshotTool)} --source-repo ${shellQuote(repo)} --target-graph ${shellQuote(path.join(outDir, 'graph.json'))} --graphify-bin ${shellQuote(graphifyBin)} --code-only --no-cluster --json`,
     buildWithLocalOllama: `${shellQuote(graphifyBin)} extract ${shellQuote(repo)} --backend ollama --model ${shellQuote(ollamaModel)} --max-concurrency 1 --out ${shellQuote(repo)}`,
-    query: `${shellQuote(graphifyBin)} query "Which files explain Hermes Telegram reliability and media ingestion?"`,
-    path: `${shellQuote(graphifyBin)} path "tools/media-content-ingest.js" "hermes-skills/mac-yolo-safeguards/SKILL.md"`,
+    refresh: `${shellQuote(process.execPath)} ${shellQuote(snapshotTool)} --source-repo ${shellQuote(repo)} --target-graph ${shellQuote(path.join(outDir, 'graph.json'))} --graphify-bin ${shellQuote(graphifyBin)} --json`,
+    health: `${shellQuote(process.execPath)} ${shellQuote(path.join(repo, 'tools', 'graphify-staleness-check.js'))} --strict --json`,
+    query: `${shellQuote(graphifyBin)} query "Which files explain Hermes Telegram reliability and media ingestion?" --graph ${shellQuote(path.join(outDir, 'graph.json'))}`,
+    path: `${shellQuote(graphifyBin)} path "tools/media-content-ingest.js" "hermes-skills/mac-yolo-safeguards/SKILL.md" --graph ${shellQuote(path.join(outDir, 'graph.json'))}`,
     outputs: [
       path.join(outDir, 'graph.html'),
       path.join(outDir, 'GRAPH_REPORT.md'),
@@ -264,7 +268,8 @@ function shellQuote(value) {
 function collect(options = {}) {
   const repo = path.resolve(options.repo || process.cwd());
   const graphifyPath = graphifyPathForRepo(repo);
-  const installedVersion = graphifyVersion(graphifyPath);
+  const versionInfo = detectVersionCompatibility(graphifyPath);
+  const installedVersion = versionInfo.packageVersion;
   const versionSupported = Boolean(
     installedVersion && versionAtLeast(installedVersion, MIN_GRAPHIFY_VERSION),
   );
@@ -276,6 +281,12 @@ function collect(options = {}) {
   const localLlmProbe = options.probeLocalLlm ? probeOllama(preferredOllamaModel) : { checked: false };
   const commands = buildCommands(repo, { ollamaModel: preferredOllamaModel || '<installed-ollama-model>' });
   const graphJson = path.join(repo, 'graphify-out', 'graph.json');
+  const graphHealth = checkGraphStaleness({
+    repo,
+    graphPath: graphJson,
+    graphifyBin: graphifyPath || path.join(repo, '.graphify-venv', 'bin', 'graphify'),
+    currentVersionInfo: versionInfo,
+  });
   const venvPython = path.join(repo, '.graphify-venv', 'bin', 'python');
   const ollamaPythonPackagePresent = pythonPackagePresent(venvPython, 'openai');
   const findings = [];
@@ -301,6 +312,14 @@ function collect(options = {}) {
       title: 'Graphify version is too old for clean architecture graphs',
       evidence: `Installed=${installedVersion || 'unreadable'}; required>=${MIN_GRAPHIFY_VERSION}.`,
       recommendation: `${shellQuote(path.join(repo, '.graphify-venv', 'bin', 'python'))} -m pip install --upgrade graphifyy==${MIN_GRAPHIFY_VERSION}`,
+    });
+  }
+  if (graphifyPath && !versionInfo.compatible) {
+    findings.push({
+      severity: 'high',
+      title: 'Graphify package and installed skill do not match',
+      evidence: `Package=${versionInfo.packageVersion || 'unreadable'}; skill=${versionInfo.skillVersion || 'unreadable'}.`,
+      recommendation: `${shellQuote(graphifyPath)} install, then verify with ${commands.health}`,
     });
   }
   if (candidateSummary.semantic > 0 && llmEnvKeys.length === 0) {
@@ -336,7 +355,14 @@ function collect(options = {}) {
       severity: 'medium',
       title: 'Graphify graph is not built yet',
       evidence: `${graphJson} is missing.`,
-      recommendation: candidateSummary.semantic > 0 && llmEnvKeys.length === 0 && localOllamaModels.length > 0 && (!localLlmProbe.checked || localLlmProbe.openAiCompatibleOk) ? commands.buildWithLocalOllama : commands.build,
+      recommendation: commands.refresh,
+    });
+  } else if (!graphHealth.ok) {
+    findings.push({
+      severity: 'high',
+      title: 'Published Graphify graph is not safe to serve',
+      evidence: graphHealth.failures.join(', '),
+      recommendation: commands.refresh,
     });
   }
   if (candidateSummary.total > 800) {
@@ -353,12 +379,16 @@ function collect(options = {}) {
     graphify: {
       cliPath: graphifyPath,
       version: installedVersion,
+      skillVersion: versionInfo.skillVersion,
+      versionCompatible: versionInfo.compatible,
       minimumVersion: MIN_GRAPHIFY_VERSION,
       versionSupported,
       pythonModulePresent: modulePresent,
       installed: Boolean(graphifyPath || modulePresent),
       graphJson,
       graphBuilt: fs.existsSync(graphJson),
+      graphHealthy: graphHealth.ok,
+      health: graphHealth,
     },
     candidateFiles: candidateSummary.total,
     candidateSummary,
@@ -393,8 +423,11 @@ function render(report) {
     `Installed: ${report.graphify.installed ? 'yes' : 'no'}`,
     `CLI: ${report.graphify.cliPath || '<missing>'}`,
     `Version: ${report.graphify.version || '<unreadable>'} (minimum ${report.graphify.minimumVersion})`,
+    `Skill version: ${report.graphify.skillVersion || '<unreadable>'}`,
+    `Package/skill compatible: ${report.graphify.versionCompatible ? 'yes' : 'no'}`,
     `Version supported: ${report.graphify.versionSupported ? 'yes' : 'no'}`,
     `Graph built: ${report.graphify.graphBuilt ? 'yes' : 'no'}`,
+    `Graph safe to serve: ${report.graphify.graphHealthy ? 'yes' : 'no'}`,
     `Candidate files: ${report.candidateFiles}`,
     `Semantic files: ${report.candidateSummary.semantic}`,
     `Cloud LLM keys present: ${report.semanticBackends.envKeysPresent.length > 0 ? report.semanticBackends.envKeysPresent.join(', ') : 'none'}`,
@@ -407,6 +440,8 @@ function render(report) {
     `Install: \`${report.commands.install}\``,
     `Build: \`${report.commands.build}\``,
     `Build with local Ollama: \`${report.commands.buildWithLocalOllama}\``,
+    `Atomic refresh: \`${report.commands.refresh}\``,
+    `Strict health: \`${report.commands.health}\``,
     `Query: \`${report.commands.query}\``,
     `Path: \`${report.commands.path}\``,
     '',
