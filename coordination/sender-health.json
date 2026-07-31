@@ -1,0 +1,12 @@
+{
+  "igor@igorganapolsky.com": {
+    "status": "unhealthy",
+    "lastProbe": "2026-07-31T15:20:11Z",
+    "detail": "Gmail send-as relay to mail.privateemail.com:587 returned 535 5.7.8 authentication failed (CustomFromDenied). 7/7 probes DSN. Alias verificationStatus=accepted is NOT delivery proof."
+  },
+  "iganapolsky@gmail.com": {
+    "status": "ok",
+    "lastProbe": "2026-07-31T16:00:00Z",
+    "detail": "Delivers. Use only as temporary path until domain SMTP is repaired; prefer Reply-To igor@ when forced."
+  }
+}
