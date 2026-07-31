@@ -31,11 +31,12 @@ const FULL_REBUILD_EVERY = 48; // cycles (~ if hourly LaunchAgent, ~2 days)
 const STALE_MS = 24 * 60 * 60 * 1000;
 
 function parseArgs(argv) {
-  const args = { once: true, heal: false, json: false };
+  const args = { once: true, heal: false, json: false, enqueue: false };
   for (const a of argv) {
     if (a === '--once') args.once = true;
     else if (a === '--heal') args.heal = true;
     else if (a === '--json') args.json = true;
+    else if (a === '--enqueue') args.enqueue = true;
     else if (a === '--help') args.help = true;
     else throw new Error(`Unknown ${a}`);
   }
@@ -244,8 +245,16 @@ if (require.main === module) {
   try {
     const args = parseArgs(process.argv.slice(2));
     if (args.help) {
-      console.log('Usage: node tools/index-microbatch.js --once [--heal] [--json]');
+      console.log('Usage: node tools/index-microbatch.js --once [--heal] [--enqueue] [--json]');
       process.exit(0);
+    }
+    if (args.enqueue) {
+      // Durable queue (DBOS pattern): schedule a cycle for a worker claim.
+      const { enqueue } = require('./durable-job-queue');
+      const q = enqueue({ type: 'index-microbatch', payload: { heal: args.heal, once: true } });
+      if (args.json) console.log(JSON.stringify({ enqueued: true, ...q }, null, 2));
+      else console.log(`enqueued job id=${q.job?.id} type=index-microbatch`);
+      process.exit(q.ok ? 0 : 1);
     }
     const report = runCycle({ heal: args.heal });
     if (args.json) console.log(JSON.stringify(report, null, 2));
