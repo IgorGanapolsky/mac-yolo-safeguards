@@ -7,7 +7,7 @@
  * A+ requires every hard gate green — no "mostly fine" rounding up.
  *
  *   node tools/rag-stack-scorecard.js --json
- *   node tools/rag-stack-scorecard.js --heal   # export jsonl + ensure grepae watch/canary
+ *   node tools/rag-stack-scorecard.js --heal   # reconcile source-bound index + lesson export
  */
 
 const path = require('path');
@@ -66,23 +66,41 @@ function letterFromScore(score, hardFail, extras = {}) {
   return 'C';
 }
 
+function evaluateGrepaiGate(canaryJson, generationJson) {
+  const canaryOk = canaryJson?.ok === true && Number(canaryJson?.hits || 0) > 0;
+  const generationOk = generationJson?.ok === true
+    && Boolean(generationJson?.generationId)
+    && /^[a-f0-9]{40}$/i.test(generationJson?.indexedSha || '');
+  const canaryHashOk = /^[a-f0-9]{64}$/i.test(canaryJson?.indexSha256 || '');
+  const receiptHashOk = /^[a-f0-9]{64}$/i.test(generationJson?.receipt?.indexSha256 || '');
+  const sameGeneration = canaryOk && generationOk && canaryHashOk && receiptHashOk
+    && canaryJson.generationId === generationJson.generationId
+    && canaryJson.indexedSha === generationJson.indexedSha
+    && canaryJson.indexSha256 === generationJson.receipt?.indexSha256;
+  return {
+    ok: canaryOk && generationOk && sameGeneration,
+    canaryOk,
+    generationOk,
+    sameGeneration,
+    score: (canaryOk ? 0.3 : 0) + (generationOk ? 0.4 : 0) + (sameGeneration ? 0.3 : 0),
+  };
+}
+
 function scoreStack(options = {}) {
   const home = options.home || path.join(os.homedir(), '.thumbgate');
   const gates = [];
   const heals = [];
 
   if (options.heal) {
-    // InfoQ micro-batch controller: watermark advance + watcher restart + export.
-    const batch = runNode('index-microbatch.js', ['--once', '--heal', '--json'], { timeout: 180000 });
+    // One controller owns both the source-bound grepai generation and lesson export.
+    const batch = runNode('index-microbatch.js', ['--once', '--heal', '--json'], {
+      timeout: 20 * 60_000,
+    });
     heals.push({
       step: 'index-microbatch',
       ok: batch.status === 0 && Boolean(batch.json?.ok ?? true),
       detail: batch.json || batch.stdout.slice(0, 200),
     });
-    const exp = runNode('thumbgate-lessons-export-jsonl.js', ['--dir', home, '--apply', '--json']);
-    heals.push({ step: 'export-jsonl', ok: exp.status === 0, detail: exp.json || exp.stdout.slice(0, 200) });
-    const ensure = runNode('ensure-grepai-index.js', ['--canary', '--json'], { timeout: 90000 });
-    heals.push({ step: 'ensure-grepai', ok: ensure.status === 0, detail: ensure.json || exp.stdout.slice(0, 200) });
   }
 
   // 1) ingestion integrity (home lessons + grepae corpus)
@@ -127,22 +145,26 @@ function scoreStack(options = {}) {
     score: embOk ? 1 : 0.3,
   });
 
-  // 3) grepae canary + watcher
-  const isol = path.join(os.homedir(), '.hermes', 'semantic-index', 'mac-yolo-safeguards');
-  const canary = runNode('grepai-index-canary.js', ['--dir', path.join(isol, '.grepai'), '--live', '--json'], {
-    timeout: 60000,
-  });
-  const canOk = Boolean(canary.json && canary.json.ok);
-  const status = spawnSync('grepai', ['status'], { cwd: isol, encoding: 'utf8', timeout: 15000 });
-  const watchRunning = /Watcher:\s*running/i.test(status.stdout || '');
-  const grepaeScore = (canOk ? 0.7 : 0) + (watchRunning ? 0.3 : 0);
+  // 3) grepai retrieval + exact source-bound generation. A live watcher is not
+  // a health signal: the reconciler deliberately stops it before publication.
+  const isol = path.join(
+    process.env.HERMES_SEMANTIC_INDEX_ROOT || path.join(os.homedir(), '.hermes', 'semantic-index'),
+    'mac-yolo-safeguards',
+  );
+  const canary = runNode(
+    'grepai-mcp-fresh.js',
+    ['probe', '--query', 'retrieval harness', '--json'],
+    { timeout: 150_000 },
+  );
+  const generation = runNode('grepai-mcp-fresh.js', ['check', '--json'], { timeout: 30_000 });
+  const grepaiGate = evaluateGrepaiGate(canary.json, generation.json);
   gates.push({
     id: 'grepai',
     hard: true,
     weight: 0.16,
-    ok: canOk && watchRunning,
-    detail: `canary=${canOk} watcher=${watchRunning ? 'running' : 'down'} bytes=${canary.json?.indexBytes ?? '?'}`,
-    score: grepaeScore,
+    ok: grepaiGate.ok,
+    detail: `pinnedCanary=${grepaiGate.canaryOk} sameGeneration=${grepaiGate.sameGeneration} generation=${generation.json?.generationId || 'stale'} sha=${generation.json?.indexedSha || '?'} hits=${canary.json?.hits ?? '?'}`,
+    score: grepaiGate.score,
   });
 
   // 4) harness eval (tools/rag-retrieval-eval.js — CI fixture)
@@ -246,16 +268,20 @@ function scoreStack(options = {}) {
     score: ifaceOk ? 1 : 0.2,
   });
 
-  // 8) Micro-batch watermark / watcher discipline (InfoQ delta pipeline)
+  // 8) Unified micro-batch discipline (InfoQ delta pipeline)
   const batchDry = runNode('index-microbatch.js', ['--once', '--json'], { timeout: 90000 });
-  const batchOk = Boolean(batchDry.json && batchDry.json.ok && batchDry.json.watcherRunning !== false);
+  const batchOk = Boolean(
+    batchDry.json?.ok
+    && batchDry.json?.generation?.ok
+    && batchDry.json?.lessonsCurrent,
+  );
   gates.push({
     id: 'index-microbatch',
     hard: true,
     weight: 0.07,
     ok: batchOk,
     detail: batchOk
-      ? `watcher=${batchDry.json.watcherRunning} skipped=${Boolean(batchDry.json.skipped)} cycles=${batchDry.json.watermark?.cycleCount ?? batchDry.json.previous?.cycleCount ?? 0}`
+      ? `generation=${batchDry.json.generation.generationId} lessons=current skipped=${Boolean(batchDry.json.skipped)}`
       : JSON.stringify(batchDry.json?.error || batchDry.json?.actions || batchDry.stderr || batchDry.stdout).slice(0, 200),
     score: batchOk ? 1 : 0.2,
   });
@@ -310,4 +336,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { scoreStack, letterFromScore };
+module.exports = { evaluateGrepaiGate, scoreStack, letterFromScore };

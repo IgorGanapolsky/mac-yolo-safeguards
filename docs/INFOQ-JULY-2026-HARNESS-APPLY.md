@@ -13,7 +13,7 @@ This is not a generic "data platform" build. It maps newsletter patterns onto th
 | **Monzo governed data mesh** — interface models, CI-enforced structure, named layers | Stop treating grepae / harness / lessons folders as accidental state. Each is a **product interface** with owner + required artifacts. | `tools/retrieval-interface-contracts.js` |
 | **Anthropic analytics** — success from semantic definitions + governance, not bigger models | A+ scorecard already hard-gates retrieval; contracts add **semantic catalog** of what agents may depend on. | contracts + scorecard gate `interface-contracts` |
 | **Cloudflare Town Lake** — unify fragmented access | Agents should discover one catalog of retrieval interfaces instead of inventing paths. | contracts `--json` lists interfaces |
-| **Delta index micro-batch** (Saini) — 10min→30s lag via watermark cycles, not record-stream | grepae + lessons should advance on **HEAD / mtime watermarks**, restart watcher via watchdog, skip intermediate commits, flag periodic full rebuild. | `tools/index-microbatch.js` |
+| **Delta index micro-batch** (Saini) — 10min→30s lag via watermark cycles, not record-stream | grepai should coalesce to the latest **remote Git SHA**, build off-path, verify retrieval, and publish an atomic source-bound generation; lessons retain an independent mtime projection. | `tools/grepai-microbatch-reconciler.js`, `tools/index-microbatch.js` |
 | **DBOS / durable execution** — queues in the DB, SKIP LOCKED, no extra orchestrator | Heal jobs claimable in local SQLite without Temporal/k8s. | `tools/durable-job-queue.js` |
 | **Agent evals** (Datadog webinar) | Keep multi-case retrieval eval + scorecard as production gate. | existing `rag-retrieval-eval` + extended scorecard |
 
@@ -33,7 +33,7 @@ node tools/retrieval-interface-contracts.js --json
 node tools/index-microbatch.js --once --heal --json
 node tools/index-microbatch.js --enqueue --heal --json   # durable queue
 
-# Install 15m LaunchAgent
+# Compatibility installer delegates to the one canonical 60s LaunchAgent
 bash scripts/install-index-microbatch.sh
 
 # Academic pack is queryable (not write-only)
@@ -52,7 +52,11 @@ node tools/rag-stack-scorecard.js --heal --json
 
 ## Expected system effects
 
-1. **Fewer false "index is fine"** — contracts fail closed on empty shells / missing paths.
-2. **Lower freshness lag** — micro-batch pulls isolated clone + restarts grepae when down without waiting for a human.
+1. **Fewer false "index is fine"** — the MCP and scorecard require the exact index bytes,
+   config, source SHA/tree, canaries, and a recent remote comparison receipt.
+2. **Lower freshness lag** — the 60-second reconciler coalesces directly to the latest complete
+   Git snapshot; its watcher exists only for a bounded off-path build and is stopped before publish.
 3. **Recoverable heal** — durable jobs retry after crash; leases expire.
-4. **Harness discipline** — scorecard A+ now requires interface + microbatch gates, not only eval recall.
+4. **Harness discipline** — scorecard A+ requires interface + microbatch gates and a fresh
+   source-bound generation, not a running process or non-empty index alone. Its live canary runs
+   against that exact immutable generation and must return the same generation/hash binding.

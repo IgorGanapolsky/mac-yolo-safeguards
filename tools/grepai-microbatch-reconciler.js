@@ -158,7 +158,9 @@ function defaultOptions(input = {}) {
     minIndexBytes: input.minIndexBytes ?? 10 * 1024,
     maxCheckAgeMs: input.maxCheckAgeMs ?? 180_000,
     maxBuildMs: input.maxBuildMs ?? 15 * 60_000,
+    watchLaunchTimeoutMs: input.watchLaunchTimeoutMs ?? 60_000,
     pollMs: input.pollMs ?? 2_000,
+    canaryTimeoutMs: input.canaryTimeoutMs ?? 120_000,
     fullRebuildAfterMs: input.fullRebuildAfterMs ?? 7 * DAY_MS,
     forceFull: input.forceFull === true,
     canaries: input.canaries || DEFAULT_CANARIES,
@@ -198,9 +200,21 @@ function assertPrivatePath(candidate, root, label) {
 function validateOptionPaths(opts) {
   assertPrivatePath(opts.servedDir, opts.indexRoot, 'servedDir');
   assertPrivatePath(opts.builderDir, opts.indexRoot, 'builderDir');
+  validateCloneInternals(opts.servedDir, opts.indexRoot, 'servedDir');
+  validateCloneInternals(opts.builderDir, opts.indexRoot, 'builderDir');
   assertPrivatePath(opts.attemptPath, opts.indexRoot, 'attemptPath');
   assertPrivatePath(opts.lockPath, opts.indexRoot, 'lockPath');
   assertPrivatePath(opts.statePath, opts.servedDir, 'statePath');
+}
+
+function validateCloneInternals(cloneDir, indexRoot, label) {
+  for (const child of ['.git', '.grepai']) {
+    const candidate = path.join(cloneDir, child);
+    assertPrivatePath(candidate, indexRoot, `${label}/${child}`);
+    if (child === '.git' && fs.existsSync(candidate) && !fs.lstatSync(candidate).isDirectory()) {
+      throw new Error(`${label}/.git must be a directory from an isolated plain clone`);
+    }
+  }
 }
 
 function isPidAlive(pid) {
@@ -542,6 +556,19 @@ async function reconcile(inputOptions = {}, injected = {}) {
 
     await deps.syncServedSource({ targetSha, options: opts });
     sourceSynced = true;
+    const publicationRemoteSha = await deps.latestRemoteSha({
+      remote: opts.remote,
+      branch: opts.branch,
+    });
+    remoteCheckedMs = deps.now ? deps.now() : Date.now();
+    if (!validSha(publicationRemoteSha)) {
+      throw new Error(`remote returned invalid SHA before publication: ${publicationRemoteSha}`);
+    }
+    if (publicationRemoteSha !== targetSha) {
+      throw new Error(
+        `remote advanced before publication: ${targetSha} -> ${publicationRemoteSha}`,
+      );
+    }
     const completedMs = deps.now ? deps.now() : Date.now();
     const commitLag = Number.isFinite(build.commitTimeMs)
       ? Math.max(0, completedMs - build.commitTimeMs)
@@ -630,15 +657,15 @@ function command(cmd, args, options = {}) {
     timeout: options.timeout || 120_000,
     env: { ...process.env, ...(options.env || {}) },
   });
-  if (result.error) throw result.error;
+  if (result.error && !options.allowFailure) throw result.error;
   if (result.status !== 0 && !options.allowFailure) {
     const detail = (result.stderr || result.stdout || '').trim().slice(0, 800);
     throw new Error(`${cmd} ${args.join(' ')} failed (${result.status}): ${detail}`);
   }
   return {
-    status: result.status,
+    status: result.status ?? (result.error ? 124 : 1),
     stdout: (result.stdout || '').trim(),
-    stderr: (result.stderr || '').trim(),
+    stderr: (result.stderr || result.error?.message || '').trim(),
   };
 }
 
@@ -787,10 +814,10 @@ async function waitForBuild(builderDir, logDir, opts) {
   throw new Error(`grepai build timed out after ${opts.maxBuildMs}ms: ${JSON.stringify(lastStatus)}`);
 }
 
-function runCanary(builderDir, spec) {
+function runCanary(builderDir, spec, timeoutMs = 120_000) {
   const result = command(
     'grepai', ['search', spec.query, '--json', '--compact', '--limit', '10'],
-    { cwd: builderDir, allowFailure: true, timeout: 45_000 },
+    { cwd: builderDir, allowFailure: true, timeout: timeoutMs },
   );
   const hits = result.status === 0 ? parseSearch(result.stdout) : [];
   const paths = hits.map((hit) => hit.file_path || hit.path || hit.file || '').filter(Boolean);
@@ -805,6 +832,13 @@ function runCanary(builderDir, spec) {
     topPaths: paths.slice(0, 5),
     exitCode: result.status,
   };
+}
+
+function watcherStartupProgressing(startResult, logText, statusText = '') {
+  if (startResult?.status === 0) return true;
+  return /Performing initial scan|\[(?:QUEUED|STARTING|RUNNING)\]|Status:\s*running/i.test(
+    `${logText || ''}\n${statusText || ''}`,
+  );
 }
 
 function ensureClone(clonePath, remote, branch) {
@@ -832,8 +866,9 @@ function initializeBuilder(builderDir, servedDir) {
 }
 
 async function prepareRealBuild(opts, { targetSha, previousState, fullRebuild }) {
-  assertPrivatePath(opts.builderDir, opts.indexRoot, 'builderDir');
+  validateCloneInternals(opts.builderDir, opts.indexRoot, 'builderDir');
   ensureClone(opts.builderDir, opts.remote, opts.branch);
+  validateCloneInternals(opts.builderDir, opts.indexRoot, 'builderDir');
   stopWatcherVerified(opts.builderDir, 'builder watcher');
   command('git', ['-C', opts.builderDir, 'fetch', 'origin', opts.branch, '--depth', '128', '--prune'], {
     timeout: 300_000,
@@ -843,6 +878,7 @@ async function prepareRealBuild(opts, { targetSha, previousState, fullRebuild })
 
   const builderGrepai = path.join(opts.builderDir, '.grepai');
   let backup = null;
+  let watcherAttempted = false;
   if (fullRebuild && fs.existsSync(builderGrepai)) {
     backup = `${builderGrepai}.last-incremental-${process.pid}`;
     if (fs.existsSync(backup)) fs.rmSync(backup, { recursive: true, force: true });
@@ -854,17 +890,25 @@ async function prepareRealBuild(opts, { targetSha, previousState, fullRebuild })
     const runId = `${Date.now()}-${targetSha.slice(0, 12)}`;
     const logDir = path.join(opts.builderDir, '.grepai', 'run-logs', runId);
     fs.mkdirSync(logDir, { recursive: true, mode: 0o700 });
+    watcherAttempted = true;
     const watchStart = command('grepai', ['watch', '--background', '--log-dir', logDir], {
       cwd: opts.builderDir,
-      timeout: 60_000,
+      timeout: opts.watchLaunchTimeoutMs,
       allowFailure: true,
     });
     if (watchStart.status !== 0) {
       const logTail = readRunLogs(logDir).slice(-2000);
-      throw new Error(
-        `grepai background build failed to start (${watchStart.status}): `
-        + `${watchStart.stderr || watchStart.stdout || '(no launcher output)'}\n${logTail}`,
-      );
+      const statusProbe = command('grepai', ['watch', '--status'], {
+        cwd: opts.builderDir,
+        timeout: 30_000,
+        allowFailure: true,
+      });
+      if (!watcherStartupProgressing(watchStart, logTail, `${statusProbe.stdout}\n${statusProbe.stderr}`)) {
+        throw new Error(
+          `grepai background build failed to start (${watchStart.status}): `
+          + `${watchStart.stderr || watchStart.stdout || '(no launcher output)'}\n${logTail}`,
+        );
+      }
     }
     let built;
     const stopOnSignal = () => {
@@ -884,7 +928,9 @@ async function prepareRealBuild(opts, { targetSha, previousState, fullRebuild })
     const stableCanaries = opts.canaries.map((query) => ({ query }));
     const delta = selectDeltaCanary(opts.builderDir, previousState?.indexedSha, targetSha);
     if (delta) stableCanaries.push(delta);
-    const canaries = stableCanaries.map((spec) => runCanary(opts.builderDir, spec));
+    const canaries = stableCanaries.map(
+      (spec) => runCanary(opts.builderDir, spec, opts.canaryTimeoutMs),
+    );
     const sourceTreeHash = command(
       'git', ['-C', opts.builderDir, 'rev-parse', `${targetSha}^{tree}`],
     ).stdout;
@@ -910,17 +956,27 @@ async function prepareRealBuild(opts, { targetSha, previousState, fullRebuild })
       builtAt: new Date().toISOString(),
     };
   } catch (error) {
+    let cleanupError = null;
+    if (watcherAttempted) {
+      try { stopWatcherVerified(opts.builderDir, 'builder watcher'); } catch (stopError) {
+        cleanupError = stopError;
+      }
+    }
     if (backup && fs.existsSync(backup)) {
       try { fs.rmSync(builderGrepai, { recursive: true, force: true }); } catch { /* best effort */ }
       fs.renameSync(backup, builderGrepai);
+    }
+    if (cleanupError) {
+      throw new Error(`${error.message || error}; watcher cleanup failed: ${cleanupError.message}`);
     }
     throw error;
   }
 }
 
 function syncRealServedSource(opts, targetSha) {
-  assertPrivatePath(opts.servedDir, opts.indexRoot, 'servedDir');
+  validateCloneInternals(opts.servedDir, opts.indexRoot, 'servedDir');
   ensureClone(opts.servedDir, opts.remote, opts.branch);
+  validateCloneInternals(opts.servedDir, opts.indexRoot, 'servedDir');
   // Transition away from the legacy long-running watcher before publishing a
   // source-bound generation. Otherwise it can mutate index.gob after the
   // receipt is committed and immediately invalidate the generation hash.
@@ -1001,17 +1057,21 @@ module.exports = {
   atomicReplaceFile,
   atomicWriteJson,
   createRealDependencies,
+  command,
   defaultOptions,
   hashFile,
   normalizedConfigHash,
   parseGrepaiStatus,
+  prepareRealBuild,
   publishIndexAndReceipt,
   acquireLock,
   releaseLock,
   reconcile,
   stopWatcherVerified,
   validateBuild,
+  validateCloneInternals,
   validateOptionPaths,
+  watcherStartupProgressing,
 };
 
 if (require.main === module) main();

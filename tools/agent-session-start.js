@@ -49,8 +49,9 @@ function printFleetRepoIntelligence() {
 }
 
 /**
- * InfoQ micro-batch + interface brief (non-blocking, capped).
- * Heals grepae/lessons only when the dry cycle reports not-ok.
+ * InfoQ micro-batch + interface brief (read-only and tightly capped).
+ * The 60-second LaunchAgent owns reconciliation; session start must not block
+ * an agent for a full embedding build or create a second refresh owner.
  */
 function printRetrievalOpsBrief() {
   const micro = path.join(REPO, 'tools/index-microbatch.js');
@@ -72,29 +73,16 @@ function printRetrievalOpsBrief() {
   }
 
   if (fs.existsSync(micro)) {
-    let r = runNode('tools/index-microbatch.js', ['--once', '--json'], 45_000);
+    const r = runNode('tools/index-microbatch.js', ['--once', '--json'], 30_000);
     let j = null;
     try {
       j = JSON.parse(r.stdout || '{}');
     } catch {
       j = null;
     }
-    // Heal only when dry cycle is unhealthy (watcher down / behind / stale).
-    if (j && j.ok === false) {
-      r = runNode('tools/index-microbatch.js', ['--once', '--heal', '--json'], 120_000);
-      try {
-        j = JSON.parse(r.stdout || '{}');
-      } catch {
-        /* keep */
-      }
-      process.stdout.write(
-        `microbatch: ${j?.ok ? 'HEALED' : 'FAIL'} watcher=${j?.watcherRunning} behind=${j?.behindOriginMain}\n`,
-      );
-    } else {
-      process.stdout.write(
-        `microbatch: ${j?.ok ? 'OK' : 'FAIL'}${j?.skipped ? ' (noop)' : ''} watcher=${j?.watcherRunning} cycles=${j?.watermark?.cycleCount ?? j?.previous?.cycleCount ?? '?'}\n`,
-      );
-    }
+    process.stdout.write(
+      `microbatch: ${j?.ok ? 'OK' : 'DEGRADED'} generation=${j?.generation?.generationId || 'stale'} lessons=${j?.lessonsCurrent ? 'current' : 'pending'}\n`,
+    );
   }
 }
 

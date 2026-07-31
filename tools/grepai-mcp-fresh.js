@@ -208,6 +208,64 @@ function preparePinnedSession(verification, input = {}) {
   return { sessionDir, sessionId };
 }
 
+function parseSearchHits(stdout) {
+  try {
+    const body = JSON.parse(stdout || '');
+    if (Array.isArray(body)) return body;
+    if (Array.isArray(body.results)) return body.results;
+    if (Array.isArray(body.matches)) return body.matches;
+  } catch { /* handled as an empty probe */ }
+  return [];
+}
+
+function probePinnedGeneration(input = {}) {
+  const projectPath = path.resolve(input.projectPath || defaultProjectPath());
+  const verification = verifyGeneration({ ...input, projectPath });
+  if (!verification.ok) return { ok: false, verification, problems: verification.problems };
+  const pinned = preparePinnedSession(verification, input);
+  try {
+    const query = input.query || 'retrieval harness';
+    const execute = input.run || spawnSync;
+    const result = execute(
+      'grepai',
+      ['search', query, '--json', '--compact', '--limit', '10'],
+      { cwd: pinned.sessionDir, encoding: 'utf8', timeout: input.probeTimeoutMs || 120_000 },
+    );
+    const hits = result.status === 0 ? parseSearchHits(result.stdout) : [];
+    if (input.beforePostProbeVerify) input.beforePostProbeVerify({ verification, pinned });
+    const postProbe = verifyGeneration({ ...input, projectPath });
+    if (!postProbe.ok || postProbe.generationId !== verification.generationId) {
+      return {
+        ok: false,
+        generationId: verification.generationId,
+        indexedSha: verification.indexedSha,
+        indexSha256: verification.receipt.indexSha256,
+        query,
+        hits: hits.length,
+        raceDetected: true,
+        problems: [problem(
+          'generation_changed_during_probe',
+          `${verification.generationId} -> ${postProbe.generationId || 'invalid'}`,
+        ), ...postProbe.problems],
+      };
+    }
+    return {
+      ok: result.status === 0 && hits.length > 0,
+      generationId: verification.generationId,
+      indexedSha: verification.indexedSha,
+      indexSha256: verification.receipt.indexSha256,
+      query,
+      hits: hits.length,
+      topPaths: hits.slice(0, 5).map((hit) => hit.file_path || hit.path || hit.file || null),
+      problems: result.status === 0 && hits.length > 0
+        ? []
+        : [problem('pinned_canary_failed', (result.stderr || result.stdout || 'zero hits').slice(0, 500))],
+    };
+  } finally {
+    fs.rmSync(pinned.sessionDir, { recursive: true, force: true });
+  }
+}
+
 async function superviseChild(child, verification, input, cleanup) {
   if (!child || typeof child.on !== 'function') {
     cleanup();
@@ -278,7 +336,7 @@ async function serveIfFresh(input = {}) {
 function parseArgs(argv) {
   const args = { mode: 'serve', json: false };
   let index = 0;
-  if (argv[0] === 'serve' || argv[0] === 'check') {
+  if (argv[0] === 'serve' || argv[0] === 'check' || argv[0] === 'probe') {
     args.mode = argv[0];
     index = 1;
   }
@@ -286,6 +344,7 @@ function parseArgs(argv) {
     const arg = argv[index];
     if (arg === '--json') args.json = true;
     else if (arg === '--state') args.statePath = argv[++index];
+    else if (arg === '--query') args.query = argv[++index];
     else if (arg === '--max-check-age-ms') args.maxCheckAgeMs = Number(argv[++index]);
     else if (!args.projectPath) args.projectPath = arg;
     else throw new Error(`unknown argument: ${arg}`);
@@ -301,6 +360,14 @@ async function main() {
       if (args.json) console.log(JSON.stringify(result, null, 2));
       else if (result.ok) console.log(`grepai generation: FRESH ${result.generationId}`);
       else console.error(`grepai generation: STALE ${result.problems.map((p) => p.code).join(',')}`);
+      process.exitCode = result.ok ? 0 : 78;
+      return;
+    }
+    if (args.mode === 'probe') {
+      const result = probePinnedGeneration(args);
+      if (args.json) console.log(JSON.stringify(result, null, 2));
+      else if (result.ok) console.log(`grepai pinned probe: PASS ${result.generationId} hits=${result.hits}`);
+      else console.error(`grepai pinned probe: FAIL ${(result.problems || []).map((p) => p.code).join(',')}`);
       process.exitCode = result.ok ? 0 : 78;
       return;
     }
@@ -324,6 +391,7 @@ module.exports = {
   gitTreeHash,
   defaultProjectPath,
   preparePinnedSession,
+  probePinnedGeneration,
   serveIfFresh,
   verifyGeneration,
 };

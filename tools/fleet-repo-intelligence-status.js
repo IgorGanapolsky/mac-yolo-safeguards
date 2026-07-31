@@ -49,6 +49,10 @@ function parseIndexStatus(text) {
   };
 }
 
+function isWatcherRunning(value) {
+  return /^running\b/i.test(value || '');
+}
+
 function grepaiStatus(clonePath) {
   if (!fs.existsSync(clonePath)) {
     return { ok: false, error: 'clone_missing', path: clonePath };
@@ -59,12 +63,14 @@ function grepaiStatus(clonePath) {
   const nFiles = parsed.files;
   const generation = verifyGeneration({ projectPath: clonePath });
   const nChunks = parsed.chunks;
+  const watcherRunning = isWatcherRunning(parsed.watcher);
   return {
-    ok: r.status === 0 && nFiles > 0 && nChunks > 0 && generation.ok,
+    ok: r.status === 0 && nFiles > 0 && nChunks > 0 && !watcherRunning && generation.ok,
     path: clonePath,
     files: nFiles,
     chunks: nChunks,
     watcher: parsed.watcher,
+    watcherRunning,
     lastUpdated: parsed.lastUpdated,
     generation: {
       ok: generation.ok,
@@ -85,6 +91,17 @@ function launchAgentStatus() {
     required: true,
     loaded: result.status === 0,
     detail: (result.stdout || result.stderr).slice(0, 300),
+  };
+}
+
+function legacyAgentStatus() {
+  if (process.platform !== 'darwin') return { requiredAbsent: false, loaded: null, plistExists: null };
+  const label = 'com.igor.index-microbatch';
+  const result = sh('launchctl', ['print', `gui/${process.getuid()}/${label}`]);
+  return {
+    requiredAbsent: true,
+    loaded: result.status === 0,
+    plistExists: fs.existsSync(path.join(HOME, 'Library', 'LaunchAgents', `${label}.plist`)),
   };
 }
 
@@ -119,6 +136,7 @@ function main() {
     defaultClone: grepaiStatus(DEFAULT_CLONE),
     hermesContext: hermesContextDoctor(),
     launchAgent: launchAgentStatus(),
+    legacyAgent: legacyAgentStatus(),
     mcpHint:
       'Repo .mcp.json → grepai-mcp-fresh.js → grepai mcp-serve (source-bound generations only)',
   };
@@ -126,7 +144,9 @@ function main() {
   report.ok =
     Boolean(report.grepaiBinary) &&
     report.defaultClone.ok === true &&
-    (!report.launchAgent.required || report.launchAgent.loaded === true);
+    (!report.launchAgent.required || report.launchAgent.loaded === true) &&
+    (!report.legacyAgent.requiredAbsent
+      || (report.legacyAgent.loaded === false && report.legacyAgent.plistExists === false));
 
   if (json) {
     console.log(JSON.stringify(report, null, 2));
@@ -156,6 +176,9 @@ function main() {
     console.log(`hermes-context doctor: ${report.hermesContext.error || 'degraded'}`);
   }
   console.log(`reconciler LaunchAgent: ${report.launchAgent.loaded === false ? 'MISSING' : 'OK'}`);
+  console.log(
+    `legacy duplicate controller: ${report.legacyAgent.loaded || report.legacyAgent.plistExists ? 'PRESENT' : 'absent'}`,
+  );
   console.log('Agents: prefer MCP grepai_search / CLI `grepai search` before cold rg on unfamiliar code.');
   process.exit(report.ok ? 0 : 1);
 }
@@ -164,6 +187,8 @@ module.exports = {
   grepaiStatus,
   hermesContextDoctor,
   launchAgentStatus,
+  isWatcherRunning,
+  legacyAgentStatus,
   listClones,
   parseIndexStatus,
 };

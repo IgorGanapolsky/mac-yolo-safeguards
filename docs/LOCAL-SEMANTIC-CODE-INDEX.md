@@ -136,6 +136,8 @@ snapshot; it does not need to replay every intermediate commit. Every 60 seconds
 3. If behind, it jumps directly to the newest SHA in a persistent, separate plain-clone builder.
    The complete target tree naturally overlaps and supersedes skipped intermediate commits;
    added/modified/deleted counts and skipped-commit count are recorded.
+   The remote is checked after the build and again after source synchronization; movement at the
+   final boundary rejects publication and rolls the served source back to the last committed SHA.
 4. A short-lived grepai watcher builds that snapshot. Structural checks and stable plus
    delta-specific retrieval canaries must pass. The short lifecycle removes the indefinite
    watcher memory/liveness class; the LaunchAgent is the external watchdog.
@@ -160,6 +162,10 @@ If any check fails, grepai MCP is unavailable with an explicit reason and agents
 `rg` while the LaunchAgent retries. This is the important behavior change: stale retrieval is an
 observable degraded backend, not a confident answer from unknown bytes.
 
+The RAG scorecard runs its canary from the same immutable artifact in a private pinned session and
+requires its generation ID, Git SHA, and artifact SHA-256 to match the freshness receipt. It cannot
+combine a healthy mutable GOB with a different committed generation.
+
 | Stage | Why it exists | What can go wrong | Measurement / receipt |
 |---|---|---|---|
 | Latest-SHA trigger | Remove scheduler idle time without per-file streaming | repeated triggers, remote unavailable | `targetSha`, lock/busy outcome, `lastRemoteCheckedAt` |
@@ -179,8 +185,13 @@ cost and new failure surfaces without evidence from this source.
 
 `bash tools/install-fleet-repo-intelligence.sh` installs LaunchAgent
 `com.igor.fleet-repo-intelligence` (60-second interval, `RunAtLoad`) that runs one bounded
-reconciliation. The installer establishes a verified initial generation before reporting the
-MCP backend healthy. Status for every agent session:
+cycle: it delegates grepai work to the source-bound reconciler and exports the lesson JSONL when
+the SQLite mtime advances. The installer establishes a verified initial generation, unloads the
+superseded `com.igor.index-microbatch` service, moves its plist to a recoverable disabled backup,
+and verifies the canonical service with `launchctl print` before reporting healthy. Activation is
+failure-atomic: a failed first migration restores the legacy scheduler, while a failed upgrade
+restores and re-verifies the prior canonical scheduler. Status fails if either duplicate owner
+remains. Status for every agent session:
 
 ```
 node tools/fleet-repo-intelligence-status.js
@@ -191,6 +202,16 @@ vs local stack; fleet architecture for all agents).
 
 **Still do not** run `grepai watch` from the multi-worktree live checkout. The reconciler's
 builder is an isolated plain clone and its watcher is stopped after each bounded build.
+
+The real grepai/Ollama adapter is deliberately opt-in and host-serialized so parallel test jobs
+cannot contend for the same local model service:
+
+```
+REQUIRE_REAL_GREPAI=1 node tests/test-grepai-microbatch-reconciler.js
+```
+
+Without that environment flag the suite reports an explicit skip; it never promotes the adapter
+to a pass.
 
 ## Verified retrieval quality (real test query, real results)
 

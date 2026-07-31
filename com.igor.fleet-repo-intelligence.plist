@@ -7,8 +7,9 @@
 	<key>ProgramArguments</key>
 	<array>
 		<string>__NODE__</string>
-		<string>__REPO__/tools/grepai-microbatch-reconciler.js</string>
+		<string>__REPO__/tools/index-microbatch.js</string>
 		<string>--once</string>
+		<string>--heal</string>
 		<string>--json</string>
 	</array>
 	<key>StartInterval</key>
