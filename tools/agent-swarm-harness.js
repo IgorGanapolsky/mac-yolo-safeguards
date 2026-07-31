@@ -38,6 +38,8 @@
  *   node tools/agent-swarm-harness.js eval-check [--json]
  *   node tools/agent-swarm-harness.js sre-autonomy [--json]
  *   node tools/agent-swarm-harness.js sre-act --subsystem ID [--json]
+ *   node tools/agent-swarm-harness.js data-mesh [--json]
+ *   node tools/governed-data-mesh.js cash-truth|live-matrix|campaign-watermark|outbound-claim|…
  */
 
 const fs = require('fs');
@@ -81,6 +83,18 @@ const EVAL_ABILITY_SOURCE = Object.freeze({
 const SRE_AUTONOMY_SOURCE = Object.freeze({
   label: 'Autonomous SRE agents / AI ops hardest part (TNS + Dynatrace framing, 2026-07)',
   url: 'https://thenewstack.io/dynatrace-autonomous-sre-agents/',
+});
+const DATA_MESH_SOURCE = Object.freeze({
+  label: "InfoQ Software Architects' Newsletter July 2026 — Building Data Platforms",
+  url: 'https://www.infoq.com/software-architecture-design/',
+  themes: [
+    'billing_first_cash_interface',
+    'semantic_definitions_over_models',
+    'governed_interface_contracts',
+    'durable_outbound_unique_keys',
+    'campaign_watermarks',
+    'high_stakes_agent_evals',
+  ],
 });
 const HEALTH_MAX_AGE_MS = 15 * 60 * 1000;
 const EVALS_DIR = path.join(REPO, 'evals');
@@ -1867,6 +1881,87 @@ function specificationDrivenDesign() {
   };
 }
 
+/**
+ * InfoQ July 2026 data-platform patterns mapped onto local GTM/cash harness.
+ * Implementation lives in tools/governed-data-mesh.js (interface contracts).
+ */
+function governedDataMeshPlaybook() {
+  let mesh = null;
+  try {
+    // Lazy require so harness brief still works if mesh module is missing mid-rebase.
+    // eslint-disable-next-line global-require, import/no-dynamic-require
+    mesh = require('./governed-data-mesh');
+  } catch (e) {
+    return {
+      ok: false,
+      error: e.message,
+      source: DATA_MESH_SOURCE,
+      principle: 'Governed data interfaces for cash + LIVE + outbound (InfoQ July 2026).',
+    };
+  }
+  const validation = mesh.validateInterfaces();
+  return {
+    ok: validation.ok,
+    principle:
+      'Query named data interfaces only. Cash is billing-first. Semantics + governance beat model upgrades for fleet truth.',
+    source: DATA_MESH_SOURCE,
+    tool: 'tools/governed-data-mesh.js',
+    interfaces: (mesh.INTERFACES || []).map((i) => ({
+      id: i.id,
+      name: i.name,
+      priority: i.priority,
+      owner: i.owner,
+    })),
+    validation,
+    peerPatterns: [
+      {
+        peer: 'Cloudflare Town Lake',
+        lesson: 'Billing workloads dominate platform queries',
+        ours: 'cash_truth interface first; live price ≠ revenue',
+      },
+      {
+        peer: 'Anthropic internal analytics',
+        lesson: '95% self-serve analytics from governance + semantics, not model IQ',
+        ours: 'fixed field meanings on cash_truth / live_social_matrix',
+      },
+      {
+        peer: 'Monzo meshy warehouse',
+        lesson: 'Declared interface models + CI structure/naming',
+        ours: 'validateInterfaces() + named fields + antiPatterns',
+      },
+      {
+        peer: 'DBOS Transact',
+        lesson: 'Durable workflows via unique PK / SKIP LOCKED queues',
+        ours: 'outbound durable ledger pk=sha256(campaign::email)',
+      },
+      {
+        peer: 'Delta index micro-batch',
+        lesson: 'Watermarks over success-file markers; skip intermediate partitions',
+        ours: 'campaignWatermark() on Published content-log rows',
+      },
+      {
+        peer: 'Agent evals (high-stakes)',
+        lesson: 'Measure reasoning/tool claims when agents decide in production',
+        ours: 'eval-rules: no invent cash, LIVE needs URL, owner≠external',
+      },
+    ],
+    commands: [
+      'node tools/governed-data-mesh.js cash-truth --json',
+      'node tools/governed-data-mesh.js live-matrix --campaign <id> --json',
+      'node tools/governed-data-mesh.js campaign-watermark --json',
+      'node tools/governed-data-mesh.js outbound-claim --campaign <id> --email <e> --json',
+      'node tools/agent-swarm-harness.js data-mesh --json',
+    ],
+    antiPatterns: [
+      'Invent external cash without revenue-receipt.json',
+      'Sum owner Stripe subs into "revenue"',
+      'Claim LIVE without https postUrl on content log',
+      'Re-send same campaign+email without ledger progression',
+      'Full historical social re-scan as freshness proof (use watermarks)',
+    ],
+  };
+}
+
 function parseArgs(argv) {
   const args = {
     command: 'brief',
@@ -1907,6 +2002,7 @@ function parseArgs(argv) {
       arg === 'eval-check' ||
       arg === 'sre-autonomy' ||
       arg === 'sre-act' ||
+      arg === 'data-mesh' ||
       arg === 'gateway'
     ) {
       args.command = arg;
@@ -2916,6 +3012,46 @@ function main() {
     process.exit(guide.overBudget ? 2 : 0);
   }
 
+  if (args.command === 'data-mesh') {
+    const playbook = governedDataMeshPlaybook();
+    if (args.json) {
+      console.log(JSON.stringify(playbook, null, 2));
+    } else {
+      console.log('=== Governed data mesh (InfoQ July 2026) ===');
+      console.log(playbook.principle);
+      console.log(`Source: ${playbook.source.label}`);
+      console.log(`Tool: ${playbook.tool || 'n/a'}`);
+      console.log(`Interfaces valid: ${playbook.ok ? 'yes' : 'NO'}`);
+      if (playbook.interfaces) {
+        console.log('');
+        for (const iface of playbook.interfaces) {
+          console.log(
+            `  ${String(iface.id).padEnd(28)} ${iface.priority || ''}  owner=${iface.owner || ''}`,
+          );
+        }
+      }
+      if (playbook.peerPatterns) {
+        console.log('');
+        console.log('Peer → ours:');
+        for (const p of playbook.peerPatterns) {
+          console.log(`  • ${p.peer}: ${p.lesson}`);
+          console.log(`      → ${p.ours}`);
+        }
+      }
+      if (playbook.commands) {
+        console.log('');
+        console.log('Commands:');
+        for (const c of playbook.commands) console.log(`  $ ${c}`);
+      }
+      if (playbook.antiPatterns) {
+        console.log('');
+        console.log('Anti-patterns:');
+        for (const ap of playbook.antiPatterns) console.log(`  - ${ap}`);
+      }
+    }
+    process.exit(playbook.ok ? 0 : 1);
+  }
+
   if (args.command === 'check-hot-files') {
     const files = args.stdin
       ? fs.readFileSync(0, 'utf8').split('\n').map((f) => f.trim()).filter(Boolean)
@@ -2995,6 +3131,7 @@ module.exports = {
   CONTEXT_DIET_SOURCE,
   EVAL_ABILITY_SOURCE,
   SRE_AUTONOMY_SOURCE,
+  DATA_MESH_SOURCE,
   HEALTH_MAX_AGE_MS,
   normalizeClaim,
   claimsOverlap,
@@ -3012,6 +3149,7 @@ module.exports = {
   hardBarForDone,
   frontierModelPlaybook,
   specificationDrivenDesign,
+  governedDataMeshPlaybook,
   stateLayerPolicy,
   classifyTaskStateDesign,
   detectFleetHostRole,
