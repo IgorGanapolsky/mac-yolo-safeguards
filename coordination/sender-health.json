@@ -1,8 +1,8 @@
 {
   "igor@igorganapolsky.com": {
     "status": "unhealthy",
-    "lastProbe": "2026-07-31T15:52:13Z",
-    "detail": "LIVE probe msg 19fb8e042635a195 DSN 19fb8e04ee3f3e07 ~2s later: Send mail as misconfigured. Alias present in send-as enum; PrivateEmail SMTP relay auth fails. 8/8 domain sends bounced including Grok retest. Alias registration is NOT delivery proof."
+    "lastProbe": "2026-07-31T16:36:57Z",
+    "detail": "LIVE are-you-sure probe msg 19fb90939266eee4 DSN 19fb909450015446 ~3s: Send mail as misconfigured. 9/9 domain bounces when counting this retest."
   },
   "iganapolsky@gmail.com": {
     "status": "ok",
