@@ -23,6 +23,29 @@ const {
 
 const REPO = path.resolve(__dirname, '..');
 
+const GOOGLE_API = path.join(
+  os.homedir(),
+  '.hermes/skills/productivity/google-workspace/scripts/google_api.py',
+);
+
+/**
+ * Resolve a Python interpreter that has google-auth installed.
+ * Prefers the hermes google-venv; falls back to system python3.
+ */
+function resolvePython() {
+  const candidates = [
+    process.env.REVENUE_PYTHON,
+    path.join(os.homedir(), '.hermes/google-venv/bin/python'),
+    path.join(os.homedir(), '.hermes/google-venv/bin/python3'),
+    'python3',
+  ].filter(Boolean);
+  for (const py of candidates) {
+    if (py === 'python3' || py === 'python') return py;
+    if (fs.existsSync(py)) return py;
+  }
+  return 'python3';
+}
+
 function resolveRevenueDir() {
   if (process.env.REVENUE_DIR) return path.resolve(process.env.REVENUE_DIR);
   const candidates = [
@@ -79,6 +102,7 @@ function parseArgs(argv) {
   const out = {
     json: false,
     chrome: true,
+    gmailApi: false,
     baseline: false,
     help: false,
     dryRows: null,
@@ -89,6 +113,7 @@ function parseArgs(argv) {
     if (a === '--help' || a === '-h') out.help = true;
     else if (a === '--json') out.json = true;
     else if (a === '--no-chrome') out.chrome = false;
+    else if (a === '--gmail-api') out.gmailApi = true;
     else if (a === '--baseline') out.baseline = true;
     else if (a === '--no-ntfy') out.ntfy = false;
     else if (a === '--dry-rows-json') out.dryRows = argv[++i] || null;
@@ -261,6 +286,81 @@ end tell
   }
 }
 
+/**
+ * Gmail-API-based row collector. Replaces chromeCollectInboxRows (which uses
+ * osascript driving Chrome — banned by the No desktop hijack rule) with the
+ * explicitly preferred Gmail API path (google_api.py).
+ *
+ * Returns the same shape as chromeCollectInboxRows: { ok, rows, title, href, diag }.
+ * A 0-result API search returns { emptyStateVisible: true } in diag, which
+ * classifyBlindCause maps to 'search_genuinely_empty' — NOT blind, because the
+ * Gmail API is authoritative unlike a Chrome scrape that can fail silently.
+ */
+function gmailApiCollectRows() {
+  if (!fs.existsSync(GOOGLE_API)) {
+    return { ok: false, error: 'google_api_missing', rows: [], diag: null };
+  }
+  const python = resolvePython();
+  const query = outreachSearchQuery();
+  const r = spawnSync(python, [GOOGLE_API, 'gmail', 'search', query, '--max', '50'], {
+    encoding: 'utf8',
+    timeout: 30000,
+  });
+  if (r.status !== 0) {
+    return {
+      ok: false,
+      error: `gmail_api_exit_${r.status}`,
+      rows: [],
+      diag: null,
+      stderr: (r.stderr || '').slice(0, 200),
+    };
+  }
+  const raw = `${r.stdout || ''}`.trim();
+  if (!raw || raw === 'No messages found.') {
+    // Reliable API search returning 0 results = genuinely empty, NOT a blind scrape
+    return {
+      ok: true,
+      rows: [],
+      title: 'Gmail API: 0 matching messages',
+      href: `https://mail.google.com/mail/u/0/#search/${encodeURIComponent(query)}`,
+      diag: { emptyStateVisible: true },
+    };
+  }
+  let messages;
+  try {
+    messages = JSON.parse(raw);
+  } catch {
+    return { ok: false, error: 'json_parse', rows: [], diag: null, raw: raw.slice(0, 200) };
+  }
+  if (!Array.isArray(messages)) {
+    return { ok: false, error: 'unexpected_format', rows: [], diag: null };
+  }
+  const rows = messages.map((m) => {
+    const from = String(m.from || m.From || '');
+    const emailMatch = from.match(/([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/);
+    const email = emailMatch ? emailMatch[1] : '';
+    const isUnread = Array.isArray(m.labels) && m.labels.includes('UNREAD');
+    const subject = String(m.subject || m.Subject || '');
+    const snippet = String(m.snippet || m.snippet_text || '');
+    // Format mirrors what chromeCollectInboxRows extracts from Gmail's row
+    // text: "From:" + email + "Subject:" (with Re: for replies) + snippet.
+    const parts = [
+      isUnread ? 'unread' : '',
+      `From: ${email || from}`,
+      `Subject: ${subject}`,
+      snippet,
+    ].filter(Boolean);
+    return parts.join(' ');
+  });
+  return {
+    ok: true,
+    rows,
+    title: `Gmail API: ${rows.length} matching message(s)`,
+    href: `https://mail.google.com/mail/u/0/#search/${encodeURIComponent(query)}`,
+    diag: null,
+  };
+}
+
 function processRows(rows, { contacts, state, baseline }) {
   const hot = [];
   const seen = state.seen || {};
@@ -327,12 +427,16 @@ function writeBoard(revenueDir, summary) {
       unknown_page_state: 'Page rendered with no rows and no recognised empty-state text.',
       scan_not_attempted_no_chrome:
         'Run with --no-chrome and no --dry-rows-json, so no mailbox was read at all.',
+      api_failed:
+        'The Gmail API call failed — verify google_api.py is present and the token is valid.',
     };
     const remedy =
       REMEDY[summary.blindCause] ||
       (String(summary.blindCause).startsWith('scrape_failed_')
         ? 'The Chrome scrape itself errored — see blindCause for the osascript failure.'
-        : 'Verify by hand before reporting a reply count.');
+        : String(summary.blindCause).startsWith('api_failed_')
+          ? 'The Gmail API call failed — verify google_api.py is present and the token is valid.'
+          : 'Verify by hand before reporting a reply count.');
     lines.push(
       '> **REPLY STATE UNKNOWN — do not read this as "0 replies".**',
       `> cause: \`${summary.blindCause}\``,
@@ -403,6 +507,13 @@ function run(args) {
   if (args.dryRows) {
     rows = JSON.parse(args.dryRows);
     chromeOk = true;
+  } else if (args.gmailApi) {
+    const col = gmailApiCollectRows();
+    chromeOk = col.ok;
+    chromeError = col.error || null;
+    rows = col.rows || [];
+    pageDiag = col.diag || null;
+    pageTitle = col.title || null;
   } else if (args.chrome) {
     const col = chromeCollectInboxRows();
     chromeOk = col.ok;
@@ -433,6 +544,11 @@ function run(args) {
   // over: a dead Chrome session looked identical to an empty mailbox.
   const blindCause = (() => {
     if (args.dryRows) return null; // the operator supplied the rows; trust them
+    if (args.gmailApi) {
+      if (!chromeOk) return `api_failed_${chromeError || 'unknown'}`;
+      if (rows.length === 0) return classifyBlindCause(pageDiag);
+      return null;
+    }
     if (!args.chrome) return 'scan_not_attempted_no_chrome';
     if (!chromeOk) return `scrape_failed_${chromeError || 'unknown'}`;
     if (rows.length === 0) return classifyBlindCause(pageDiag);
@@ -456,7 +572,8 @@ function run(args) {
     hot,
     boardPath: null,
     baseline: args.baseline,
-    ok: chromeOk || Boolean(args.dryRows),
+    ok: chromeOk || Boolean(args.dryRows) || (args.gmailApi && chromeOk),
+    gmailApi: Boolean(args.gmailApi),
   };
   summary.boardPath = writeBoard(revenueDir, summary);
 
@@ -515,6 +632,9 @@ module.exports = {
   run,
   classifyBlindCause,
   outreachSearchQuery,
+  gmailApiCollectRows,
+  resolvePython,
+  GOOGLE_API,
   OUTREACH_SUBJECT_RE,
   OUTREACH_SUBJECT_TERMS,
 };

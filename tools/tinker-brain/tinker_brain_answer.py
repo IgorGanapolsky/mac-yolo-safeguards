@@ -27,6 +27,7 @@ from tinker_brain_router import (  # noqa: E402
     route,
 )
 from tinker_response_contract import parse_card, validate_response  # noqa: E402
+from tinker_brain_coverage import banner, coverage  # noqa: E402
 
 # ThumbGate.app GTM expertise. Snapshot copy first (ships with ANSWER_CARD so
 # chat answers stay atomic with the export), repo copy as fallback.
@@ -328,11 +329,27 @@ def main() -> int:
         enforce_contract=not args.no_enforce,
         expert_text=expert_text,
     )
+    # Coverage check runs AFTER routing. The router always returns an intent — its
+    # final branch is `else: primary = INTENT_GENERAL` — so a card sharing one token
+    # with the question is emitted with exactly the same confidence as one that
+    # answers it. On 2026-07-30 a trademark/rename question matched "ThumbGate",
+    # returned the GTM product card, and was acted on as an answer.
+    cov = coverage(args.question, result["text"])
+    result["coverage"] = cov
+
     if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
     else:
+        note = banner(args.question, result["text"])
+        if note:
+            sys.stdout.write(note + "\n\n")
         sys.stdout.write(result["text"])
-    return 0 if result["ok"] else 2
+
+    # Exit 3 = routed but not covered. Distinct from 2 (contract failure) so callers
+    # and scheduled runs can tell "the card is wrong" from "the card is silent".
+    if not result["ok"]:
+        return 2
+    return 0 if cov["covered"] else 3
 
 
 if __name__ == "__main__":

@@ -32,6 +32,7 @@ describe('store listing metadata contract (stellar live)', () => {
   it('Play descriptions stay within limits and the paid listing targets Hermes AI intent', () => {
     const short = read(path.join(ANDROID, 'short_description.txt'));
     const paidShort = read(path.join(ANDROID, 'paid_short_description.txt'));
+    const paidFull = read(path.join(ANDROID, 'paid_full_description.txt'));
     expect(short.length).toBeLessThanOrEqual(80);
     expect(paidShort.length).toBeLessThanOrEqual(80);
     // The unpublished legacy package remains source-compatible while the live paid
@@ -42,9 +43,11 @@ describe('store listing metadata contract (stellar live)', () => {
     expect(short).toMatch(/once/i);
     expect(short).toMatch(/not phone AI/i);
     expect(paidShort).toMatch(/Hermes AI/i);
-    expect(paidShort).toMatch(/from your phone/i);
-    expect(paidShort).toMatch(/approve tools/i);
+    expect(paidShort).toMatch(/Mac, Windows & Linux/i);
+    expect(paidShort).toMatch(/approve tools remotely/i);
     expect(paidShort).not.toMatch(/\$|free|no ads/i);
+    expect(paidFull).toMatch(/^Keep Hermes moving when you step away from your computer\./);
+    expect(paidFull).toMatch(/Pay once\. No ads\./);
   });
 
   it('Play full description does not claim iOS is still in review', () => {
