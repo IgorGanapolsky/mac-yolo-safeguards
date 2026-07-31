@@ -86,7 +86,7 @@ def chunk_text(text, lines_per_chunk, max_chars=DEFAULT_MAX_CHUNK_CHARS):
     buf, buf_start, buf_len = [], 1, 0
 
     def flush(end_line):
-        if buf and any(l.strip() for l in buf):
+        if buf and any(line.strip() for line in buf):
             chunks.append((buf_start, end_line, "\n".join(buf)))
         buf.clear()
 
@@ -350,8 +350,8 @@ def cmd_search(args):
     for score, row in top:
         snippet = row["text"].splitlines()[:3]
         print(f"[{score:.3f}] {row['repo']}/{row['path']}:{row['start_line']}-{row['end_line']}")
-        for l in snippet:
-            print(f"    {l}")
+        for line in snippet:
+            print(f"    {line}")
     return 0
 
 

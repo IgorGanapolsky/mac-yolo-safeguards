@@ -69,7 +69,7 @@ jobs:
           python3 -c 'import ast, pathlib, subprocess; tracked=subprocess.check_output(["git", "ls-files", "*.py"], text=True).splitlines(); files=[path for path in tracked if pathlib.Path(path).is_file()]; [ast.parse(pathlib.Path(path).read_text(), filename=path) for path in files]; print(f"parsed {len(files)} Python files")'
           python3 -m venv "$RUNNER_TEMP/ruff-venv"
           "$RUNNER_TEMP/ruff-venv/bin/pip" install --disable-pip-version-check --quiet ruff==0.15.20 Pillow==11.3.0
-          git ls-files '*.py' | while IFS= read -r file; do test ! -f "$file" || printf '%s\n' "$file"; done | xargs "$RUNNER_TEMP/ruff-venv/bin/ruff" check --select F,E722
+          git ls-files '*.py' | while IFS= read -r file; do test ! -f "$file" || printf '%s\n' "$file"; done | xargs "$RUNNER_TEMP/ruff-venv/bin/ruff" check --select F,E722,E731,E741
 
       - name: Hermes store screenshot asset contract
         run: |

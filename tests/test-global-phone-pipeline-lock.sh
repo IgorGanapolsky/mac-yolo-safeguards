@@ -41,10 +41,6 @@ assert "default GLOBAL_PHONE_DIR contains phone-pipeline" '[[ "$NODE_GLOBAL" == 
 # Override via env
 OVERRIDE="$(mktemp -d "${TMPDIR:-/tmp}/phone-lock-test.XXXXXX")"
 export HERMES_GLOBAL_PHONE_LOCK_DIR="$OVERRIDE"
-eval "$(node -e '
-const path = require("path");
-// re-require after env — module caches; spawn fresh
-' >/dev/null)"
 OVR_GLOBAL="$(HERMES_GLOBAL_PHONE_LOCK_DIR="$OVERRIDE" node -e 'console.log(require("./tools/agent-phone-pipeline-lock.js").GLOBAL_PHONE_DIR)')"
 assert "HERMES_GLOBAL_PHONE_LOCK_DIR override works" '[[ "$OVR_GLOBAL" == "$OVERRIDE" ]]'
 rm -rf "$OVERRIDE"

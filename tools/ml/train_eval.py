@@ -264,7 +264,7 @@ def main():
         rng = random.Random(SEED)
         labels = [e["label"] for e in train]
         rng.shuffle(labels)
-        train = [dict(e, label=l) for e, l in zip(train, labels)]
+        train = [dict(event, label=label) for event, label in zip(train, labels)]
 
     model = LogisticRegression(vocabulary(train)).fit(train)
     yte = [e["label"] for e in test]

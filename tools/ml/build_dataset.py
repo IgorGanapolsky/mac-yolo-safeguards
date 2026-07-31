@@ -145,7 +145,9 @@ def temporal_split(events, holdout_fraction):
     train, test = events[:cut], events[cut:]
     # Guard the invariant here too, not only in the tests: a silent leak is worse
     # than a crash.
-    _utc = lambda e: dt.datetime.fromisoformat(e["ts"]).astimezone(dt.timezone.utc)
+    def _utc(event):
+        return dt.datetime.fromisoformat(event["ts"]).astimezone(dt.timezone.utc)
+
     if train and test and max(_utc(e) for e in train) > min(_utc(e) for e in test):
         raise SystemExit("build_dataset: temporal split violated -- refusing to emit")
     return train, test

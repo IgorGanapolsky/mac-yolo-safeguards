@@ -9,49 +9,6 @@ echo "=== JavaScript syntax ==="
 git ls-files '*.js' | while IFS= read -r file; do
   node --check "$file"
 done
-node --check tools/hermes-contribution-opportunities.js
-node --check tests/test-hermes-contribution-opportunities.js
-node --check tools/hermes-telegram-incident-audit.js
-node --check tests/test-hermes-telegram-incident-audit.js
-node --check tools/hermes-productivity-audit.js
-node --check tests/test-hermes-productivity-audit-live-gate.js
-node --check tools/hermes-project-routing-audit.js
-node --check tests/test-hermes-project-routing-audit.js
-node --check tools/hermes-governance-audit.js
-node --check tests/test-hermes-governance-audit.js
-node --check tools/hermes-gmail-outbox.js
-node --check tests/test-hermes-gmail-outbox.js
-node --check tools/media-content-ingest.js
-node --check tests/test-media-content-ingest.js
-node --check tools/openrouter-reasoning-plan.js
-node --check tools/glm52-hermes-config.js
-node --check tools/hermes-self-harness.js
-node --check tools/merge-gateway-readiness.js
-node --check tools/tencentdb-memory-readiness.js
-node --check tools/athena-agent-revenue-gap.js
-node --check tools/revenue-autonomous-loop.js
-node --check tools/ralph-gsd-loop.js
-node --check tools/smart-ops-controller.js
-node --check tools/hermes-hosting-market-signal.js
-node --check tools/cash-discipline-board.js
-node --check tools/graphify-readiness.js
-node --check tools/openmono-roi-audit.js
-node --check tools/kimi-model-upgrade-audit.js
-node --check tools/plan-coordination-snapshot.js
-node --check tools/agent-swarm-harness.js
-node --check tools/workos-production-guard.js
-node --check tests/test-openrouter-graphify-tools.js
-node --check tests/test-glm52-hermes-config.js
-node --check tests/test-hermes-self-harness.js
-node --check tests/test-merge-gateway-readiness.js
-node --check tests/test-tencentdb-memory-readiness.js
-node --check tests/test-athena-agent-revenue-gap.js
-node --check tests/test-cash-discipline-board.js
-node --check tests/test-openmono-roi-audit.js
-node --check tests/test-kimi-model-upgrade-audit.js
-node --check tests/test-mac-text-hotkeys-config.js
-node --check tests/test-plan-coordination-snapshot.js
-node --check tests/test-agent-swarm-harness.js
 
 echo "=== Shell syntax ==="
 git ls-files '*.sh' | while IFS= read -r file; do
@@ -65,7 +22,7 @@ sh -n yolo-health
 echo "=== Python static checks ==="
 python3 -c 'import ast, pathlib, subprocess; tracked=subprocess.check_output(["git", "ls-files", "*.py"], text=True).splitlines(); files=[path for path in tracked if pathlib.Path(path).is_file()]; [ast.parse(pathlib.Path(path).read_text(), filename=path) for path in files]; print(f"parsed {len(files)} Python files")'
 if command -v ruff >/dev/null 2>&1; then
-  git ls-files '*.py' | while IFS= read -r file; do test ! -f "$file" || printf '%s\n' "$file"; done | xargs ruff check --select F,E722
+  git ls-files '*.py' | while IFS= read -r file; do test ! -f "$file" || printf '%s\n' "$file"; done | xargs ruff check --select F,E722,E731,E741
 else
   echo "Ruff unavailable locally; CI installs the pinned ruff==0.15.20 gate"
 fi
