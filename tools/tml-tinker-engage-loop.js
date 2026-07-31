@@ -27,6 +27,7 @@ const crypto = require('crypto');
 const { spawnSync } = require('child_process');
 
 const REPO_DEFAULT = 'thinking-machines-lab/tinker-cookbook';
+const REPO_ROOT = path.resolve(__dirname, '..');
 const RECEIPT_DIR = path.join(os.homedir(), '.hermes', 'receipts', 'tml-tinker-engage');
 const DEFAULT_LEDGER = path.join(RECEIPT_DIR, 'ledger.jsonl');
 const DEFAULT_STATE = path.join(RECEIPT_DIR, 'state.json');
@@ -241,19 +242,18 @@ function listOpenIssues(repo, limit) {
 }
 
 function issueComments(repo, number) {
-  try {
-    return (
-      ghJson([
-        'api',
-        `repos/${repo}/issues/${number}/comments`,
-        '--paginate',
-        '--jq',
-        '[.[] | {user: .user.login, id: .id, created_at: .created_at}]',
-      ]) || []
-    );
-  } catch {
-    return [];
+  // Fail closed: unknown history must not be treated as empty (Codex P2).
+  const data = ghJson([
+    'api',
+    `repos/${repo}/issues/${number}/comments`,
+    '--paginate',
+    '--jq',
+    '[.[] | {user: .user.login, id: .id, created_at: .created_at}]',
+  ]);
+  if (!Array.isArray(data)) {
+    throw new Error(`issue_comments_unreadable:#${number}`);
   }
+  return data;
 }
 
 function postComment(repo, number, body) {
@@ -266,6 +266,50 @@ function postComment(repo, number, body) {
     throw new Error((r.stderr || r.stdout || 'comment failed').trim().slice(0, 400));
   }
   return (r.stdout || '').trim();
+}
+
+/**
+ * Run tools/social-publish-gate.js before any public GitHub comment that
+ * promotes ThumbGate (AGENTS.md social hard gates). Exit 0 ALLOW, 1 BLOCK.
+ */
+function socialPublishGate({ campaign, body, repoRoot }) {
+  const gate = path.join(repoRoot, 'tools', 'social-publish-gate.js');
+  if (!fs.existsSync(gate)) {
+    return { allow: false, error: 'social_publish_gate_missing', path: gate };
+  }
+  const tmp = path.join(os.tmpdir(), `tml-engage-body-${Date.now()}.md`);
+  fs.writeFileSync(tmp, body, 'utf8');
+  const r = spawnSync(
+    process.execPath,
+    [
+      gate,
+      '--platform',
+      'github',
+      '--campaign',
+      campaign,
+      '--body-file',
+      tmp,
+      '--json',
+    ],
+    { encoding: 'utf8', timeout: 30000, env: process.env, cwd: repoRoot },
+  );
+  try {
+    fs.unlinkSync(tmp);
+  } catch (_) {
+    /* ignore */
+  }
+  let parsed = null;
+  try {
+    parsed = JSON.parse((r.stdout || '').trim() || '{}');
+  } catch {
+    parsed = { raw: (r.stdout || '').slice(0, 300) };
+  }
+  return {
+    allow: r.status === 0,
+    exitCode: r.status,
+    result: parsed,
+    stderr: (r.stderr || '').slice(0, 300),
+  };
 }
 
 function matchTopic(issue) {
@@ -294,8 +338,10 @@ function scoreIssue(issue, me, ledger) {
   if (/^Docs:\s/i.test(issue.title) && comments > 2) score -= 10;
   if (/ZGmbH|spam/i.test(issue.body || '')) score -= 100;
 
-  // Never target our own issues for auto-reply loops
-  if (issue.author && issue.author.login === me) score -= 50;
+  // Never target our own issues for auto-reply loops (hard exclude)
+  if (issue.author && issue.author.login === me) {
+    return { score: -10000, topic, ineligible: 'self_authored' };
+  }
 
   // Already engaged?
   const prior = ledger.filter(
@@ -432,8 +478,21 @@ function run(args) {
   for (const { issue, score, topic } of ranked) {
     if (actions.length >= budget) break;
 
-    // Live check we haven't already commented (API)
-    const comments = issueComments(args.repo, issue.number);
+    // Live check we haven't already commented (API) — fail closed on API error
+    let comments;
+    try {
+      comments = issueComments(args.repo, issue.number);
+    } catch (e) {
+      appendLedger(args.ledger, {
+        ts: new Date().toISOString(),
+        action: 'skip_comments_unreadable',
+        repo: args.repo,
+        issue: issue.number,
+        error: e.message,
+        login: me,
+      });
+      continue;
+    }
     if (comments.some((c) => c.user === me)) {
       appendLedger(args.ledger, {
         ts: new Date().toISOString(),
@@ -452,7 +511,17 @@ function run(args) {
 
     if (args.write && !args.dryRun) {
       try {
-        commentUrl = postComment(args.repo, issue.number, body);
+        const campaign = `tml-tinker-engage-${utcDay()}`;
+        const gate = socialPublishGate({
+          campaign,
+          body,
+          repoRoot: REPO_ROOT,
+        });
+        if (!gate.allow) {
+          error = `social_publish_gate_block:${gate.exitCode}:${JSON.stringify(gate.result).slice(0, 200)}`;
+        } else {
+          commentUrl = postComment(args.repo, issue.number, body);
+        }
       } catch (e) {
         error = e.message;
       }
@@ -548,6 +617,8 @@ module.exports = {
   DISCLOSURE,
   run,
   buildStatus,
+  socialPublishGate,
+  issueComments,
 };
 
 if (require.main === module) {

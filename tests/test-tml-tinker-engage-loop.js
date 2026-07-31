@@ -66,5 +66,19 @@ test('dayCount counts only comment actions for day', () => {
   assert.strictEqual(dayCount(ledger, '2026-07-31'), 2);
 });
 
+test('self-authored issues are ineligible', () => {
+  const issue = {
+    number: 847,
+    title: 'Recipe idea cost balance',
+    body: 'usage credits',
+    comments: 0,
+    updatedAt: new Date().toISOString(),
+    author: { login: 'IgorGanapolsky' },
+  };
+  const r = scoreIssue(issue, 'IgorGanapolsky', []);
+  assert.ok(r.score < 0);
+  assert.strictEqual(r.ineligible, 'self_authored');
+});
+
 if (process.exitCode) process.exit(process.exitCode);
 console.log('All tml-tinker-engage-loop tests passed.');
