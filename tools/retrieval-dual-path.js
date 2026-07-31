@@ -25,6 +25,7 @@ function parseArgs(argv) {
     limit: 10,
     json: false,
     rewrite: true,
+    rerank: true,
     harnessOnly: false,
     grepaeOnly: false,
     pathInclude: [],
@@ -37,6 +38,7 @@ function parseArgs(argv) {
     else if (a === '--limit') args.limit = Number(argv[++i] || 10);
     else if (a === '--json') args.json = true;
     else if (a === '--no-rewrite') args.rewrite = false;
+    else if (a === '--no-rerank') args.rerank = false;
     else if (a === '--harness-only') args.harnessOnly = true;
     else if (a === '--grepai-only' || a === '--grepae-only') args.grepaeOnly = true;
     else if (a === '--path-include') args.pathInclude = String(argv[++i] || '').split(',').filter(Boolean);
@@ -123,9 +125,12 @@ function rrfFuse(lists, k = RRF_K) {
       const key = item.path;
       const add = 1 / (k + item.rank);
       scores.set(key, (scores.get(key) || 0) + add);
-      const prev = meta.get(key) || { path: key, sources: [], snippets: [] };
+      const prev = meta.get(key) || { path: key, sources: [], snippets: [], score: null };
       prev.sources.push(item.source);
       if (item.snippet) prev.snippets.push(String(item.snippet).slice(0, 200));
+      if (typeof item.score === 'number') {
+        prev.score = prev.score == null ? item.score : Math.max(prev.score, item.score);
+      }
       if (item.start_line) prev.start_line = item.start_line;
       if (item.end_line) prev.end_line = item.end_line;
       meta.set(key, prev);
@@ -135,12 +140,55 @@ function rrfFuse(lists, k = RRF_K) {
     .map(([p, score]) => ({
       path: p,
       rrfScore: Number(score.toFixed(6)),
+      score: meta.get(p).score,
       sources: [...new Set(meta.get(p).sources)],
       snippet: meta.get(p).snippets[0] || '',
       start_line: meta.get(p).start_line,
       end_line: meta.get(p).end_line,
     }))
     .sort((a, b) => b.rrfScore - a.rrfScore || a.path.localeCompare(b.path));
+}
+
+/**
+ * Deterministic relevance rerank over an RRF-fused list.
+ *
+ * Pure function (no subprocess): blends a normalized RRF rank score, the raw
+ * grepai/harness score, query-term coverage in the snippet+path, and a small
+ * path-signal penalty for docs/tests corpora. Replaces rank-blind RRF with a
+ * relevance-ordered list. `--no-rerank` restores the pure RRF order.
+ */
+function rerankByRelevance(matches, query, opts = {}) {
+  if (!Array.isArray(matches) || matches.length === 0) return matches;
+  const terms = String(query || '').toLowerCase().match(/[a-z0-9]+/g) || [];
+  const rrf = matches.map((m) => Number(m.rrfScore) || 0);
+  const maxRrf = Math.max(0, ...rrf);
+  const raw = matches.map((m) => (typeof m.score === 'number' ? m.score : 0));
+  const maxRaw = Math.max(0, ...raw);
+  const wRrf = opts.wRrf != null ? opts.wRrf : 0.45;
+  const wRaw = opts.wRaw != null ? opts.wRaw : 0.25;
+  const wCov = opts.wCov != null ? opts.wCov : 0.25;
+  const wPath = opts.wPath != null ? opts.wPath : 0.05;
+  const pathBonus = (p) => {
+    const n = String(p || '').toLowerCase();
+    if (n.includes('/docs/') || n.endsWith('.md')) return -0.15;
+    if (n.includes('/tests/') || n.endsWith('.test.') || n.endsWith('.spec.')) return -0.10;
+    return 0; // code / tooling roots stay neutral
+  };
+  return matches
+    .map((m, i) => {
+      const rrfNorm = maxRrf > 0 ? rrf[i] / maxRrf : 0;
+      const rawNorm = maxRaw > 0 ? raw[i] / maxRaw : 0;
+      const blob = `${m.snippet || ''} ${m.path || ''}`.toLowerCase();
+      const matchCount = terms.length ? terms.filter((t) => blob.includes(t)).length : 0;
+      const coverage = terms.length ? matchCount / terms.length : 0;
+      const rerankScore = Math.min(
+        1,
+        Math.max(0, wRrf * rrfNorm + wRaw * rawNorm + wCov * coverage + wPath * pathBonus(m.path)),
+      );
+      return { ...m, rerankScore: Number(rerankScore.toFixed(4)), rerankRank: 0 };
+    })
+    .sort((a, b) => b.rerankScore - a.rerankScore || a.path.localeCompare(b.path))
+    .map((m, i) => ({ ...m, rerankRank: i + 1 }));
 }
 
 function dualPathRetrieve(options = {}) {
@@ -177,6 +225,8 @@ function dualPathRetrieve(options = {}) {
   }
 
   const fused = rrfFuse(lists).slice(0, limit);
+  const rerankEnabled = options.rerank !== false;
+  const matches = rerankEnabled ? rerankByRelevance(fused, q) : fused;
   return {
     query: queryIn,
     rewritten: rewrite.rewritten,
@@ -189,7 +239,8 @@ function dualPathRetrieve(options = {}) {
     },
     fusion: 'rrf',
     rrfK: RRF_K,
-    matches: fused,
+    rerankApplied: rerankEnabled,
+    matches,
   };
 }
 
@@ -216,4 +267,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { dualPathRetrieve, rrfFuse, pathAllowed, runHarness, runGrepai };
+module.exports = { dualPathRetrieve, rrfFuse, rerankByRelevance, pathAllowed, runHarness, runGrepai };

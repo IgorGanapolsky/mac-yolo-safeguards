@@ -66,6 +66,25 @@ function letterFromScore(score, hardFail, extras = {}) {
   return 'C';
 }
 
+/**
+ * Verify rerankByRelevance produced a usable relevance order (rerankScore
+ * present + descending). Soft check — an empty/undetectable result is ok
+ * rather than a hard A+ killer so a transient reranker gap degrades the
+ * composite score instead of flipping the whole stack to hard-fail.
+ */
+function checkRerankQuality(matches) {
+  if (!Array.isArray(matches)) return { ok: false, detail: 'matches not an array' };
+  if (matches.length === 0) return { ok: true, detail: 'no matches to rerank' };
+  const missing = matches.find((m) => typeof m.rerankScore !== 'number');
+  if (missing) return { ok: false, detail: `rerankScore missing for ${missing.path || '#?'}` };
+  for (let i = 1; i < matches.length; i += 1) {
+    if (matches[i].rerankScore > matches[i - 1].rerankScore + 1e-6) {
+      return { ok: false, detail: `rerank order not descending at index ${i}` };
+    }
+  }
+  return { ok: true, detail: `reranked ${matches.length} matches, top=${matches[0].path}` };
+}
+
 function scoreStack(options = {}) {
   const home = options.home || path.join(os.homedir(), '.thumbgate');
   const gates = [];
@@ -210,6 +229,19 @@ function scoreStack(options = {}) {
     score: dualOk ? 1 : 0.2,
   });
 
+  // 5b) rerank quality — rerankByRelevance must reorder the dual-path fusion.
+  // Reuses dual's matches (rerank is on by default in retrieval-dual-path.js).
+  // Soft gate: degrades composite without hard-failing A+ on a transient gap.
+  const rc = checkRerankQuality(dual.json && Array.isArray(dual.json.matches) ? dual.json.matches : []);
+  gates.push({
+    id: 'rerank',
+    hard: false,
+    weight: 0.1,
+    ok: rc.ok,
+    detail: rc.detail,
+    score: rc.ok ? 1 : 0.5,
+  });
+
   // 6) harness headroom
   const harnessProbe = spawnSync(
     process.execPath,
@@ -318,4 +350,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { scoreStack, letterFromScore };
+module.exports = { scoreStack, letterFromScore, checkRerankQuality };
