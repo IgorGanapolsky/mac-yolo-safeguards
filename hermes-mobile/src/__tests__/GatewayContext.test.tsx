@@ -42,6 +42,8 @@ jest.mock('../services/approvalNotifications', () => ({
   clearRunProgressNotification: jest.fn().mockResolvedValue(undefined),
   scheduleRunStallNotification: jest.fn().mockResolvedValue(undefined),
   cancelRunStallNotification: jest.fn().mockResolvedValue(undefined),
+  scheduleConnectionLifecycleNotification: jest.fn().mockResolvedValue(undefined),
+  resetConnectionLifecycleNotificationState: jest.fn(),
   syncHermesNotificationBadge: jest.fn().mockResolvedValue(undefined),
   dismissApprovalNotifications: jest.fn().mockResolvedValue(undefined),
   dismissApprovalNotification: jest.fn().mockResolvedValue(undefined),

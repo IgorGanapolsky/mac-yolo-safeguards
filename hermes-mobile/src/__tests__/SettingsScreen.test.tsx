@@ -339,7 +339,7 @@ describe('SettingsScreen', () => {
   it('renders per-category notification toggles', () => {
     const { getByTestId, getByText } = render(<SettingsScreen />);
     expect(getByText('Approval heads-up')).toBeTruthy();
-    expect(getByText('Live run status (quiet)')).toBeTruthy();
+    expect(getByText('Live status (quiet, Uber-style)')).toBeTruthy();
     expect(getByText('Completion / failure (quiet)')).toBeTruthy();
     expect(getByTestId('notification-approvals-switch')).toBeTruthy();
     expect(getByTestId('notification-live-run-switch')).toBeTruthy();

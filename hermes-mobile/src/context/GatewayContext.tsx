@@ -237,9 +237,12 @@ import {
   scheduleRunStallNotification,
   cancelRunStallNotification,
   clearRunProgressNotification,
+  scheduleConnectionLifecycleNotification,
   syncHermesNotificationBadge,
   addApprovalNotificationResponseListener,
 } from '../services/approvalNotifications';
+import { connectionEventFromReachability } from '../utils/connectionLifecycleNotifications';
+import { resolveHeaderTransportLabel } from '../utils/chatMachineHeader';
 
 const MOBILE_RELAY_POLL_MS = 2000;
 // After the initial quiet six-probe window, retain an inexpensive reachability
@@ -4046,6 +4049,53 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       gatewayUrl: effectiveGatewayUrl,
     });
   }, [settings.demoMode, effectiveConnectionState, health, effectiveGatewayUrl]);
+
+  /** Uber-style connection shade: lost / restored when Live run status is on. */
+  const lastMacReachableForNotifRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (Platform.OS === 'web' || !settings.notificationLiveRunStatus) {
+      return;
+    }
+    if (settings.demoMode || effectiveConnectionState === 'demo') {
+      return;
+    }
+    const isReachable = gatewayReachable && effectiveConnectionState === 'connected';
+    const event = connectionEventFromReachability({
+      wasReachable: lastMacReachableForNotifRef.current,
+      isReachable,
+    });
+    lastMacReachableForNotifRef.current = isReachable;
+    if (!event) {
+      return;
+    }
+    const machineLabel = activeGatewayProfile
+      ? profileDisplayName(activeGatewayProfile)
+      : health?.hostname?.replace(/\.local$/i, '') || 'Your computer';
+    const transport = resolveHeaderTransportLabel({
+      gatewayUrl: effectiveGatewayUrl || settings.gatewayUrl,
+      wifiConnected,
+    });
+    scheduleConnectionLifecycleNotification(
+      {
+        event,
+        machineLabel,
+        transport: transport ?? undefined,
+        tailscaleOff: !tailscaleVpnActive,
+      },
+      { categoryEnabled: settings.notificationLiveRunStatus },
+    ).catch(() => {});
+  }, [
+    gatewayReachable,
+    effectiveConnectionState,
+    settings.notificationLiveRunStatus,
+    settings.demoMode,
+    settings.gatewayUrl,
+    activeGatewayProfile,
+    health?.hostname,
+    effectiveGatewayUrl,
+    wifiConnected,
+    tailscaleVpnActive,
+  ]);
 
   const connectionHealExhausted = connectionHealAttempt >= CONNECTION_HEAL_EXHAUSTED_AFTER;
 

@@ -813,9 +813,10 @@ export default function SettingsScreen() {
 
           <View style={styles.switchRow}>
             <View style={styles.switchLabelCol}>
-              <Text style={styles.switchLabel}>Live run status (quiet)</Text>
+              <Text style={styles.switchLabel}>Live status (quiet, Uber-style)</Text>
               <Text style={styles.switchDesc}>
-                Optional quiet shade while a run is active. Off by default — does not heads-up.
+                Quiet shade for run progress and connection lost/restored. Off by default — never
+                heads-up.
               </Text>
             </View>
             <Switch

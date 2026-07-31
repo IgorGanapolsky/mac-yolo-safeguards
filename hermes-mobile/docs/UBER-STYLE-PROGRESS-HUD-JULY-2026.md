@@ -16,6 +16,8 @@
 | Android channels | `hermesNotifications` | `CHANNEL_STATUS_V2` **LOW** (shade-only); `CHANNEL_RESULTS_V2` for completion; 15s status throttle |
 | Reply snippet notifs | `#482` / T-NOTIF-SNIPPET / `runNotificationCopy` | Background completion prefers reply text; no leading elapsed |
 | Transcript spam | T-TOOL-STATUS-SPAM | Tool progress only in banner, not chat bubbles |
+| Connection lifecycle | `connectionLifecycleNotifications` + `scheduleConnectionLifecycleNotification` | Background shade for lost/restored/connected when **Live run status** is on; sticky ids; never heads-up |
+| Discovery copy | `computerPickerStatus` | Honest Tailscale-off line + found-so-far while scanning; progress track shows % |
 
 ---
 
