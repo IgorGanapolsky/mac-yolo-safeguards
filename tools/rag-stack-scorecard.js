@@ -72,6 +72,13 @@ function scoreStack(options = {}) {
   const heals = [];
 
   if (options.heal) {
+    // InfoQ micro-batch controller: watermark advance + watcher restart + export.
+    const batch = runNode('index-microbatch.js', ['--once', '--heal', '--json'], { timeout: 180000 });
+    heals.push({
+      step: 'index-microbatch',
+      ok: batch.status === 0 && Boolean(batch.json?.ok ?? true),
+      detail: batch.json || batch.stdout.slice(0, 200),
+    });
     const exp = runNode('thumbgate-lessons-export-jsonl.js', ['--dir', home, '--apply', '--json']);
     heals.push({ step: 'export-jsonl', ok: exp.status === 0, detail: exp.json || exp.stdout.slice(0, 200) });
     const ensure = runNode('ensure-grepai-index.js', ['--canary', '--json'], { timeout: 90000 });
@@ -90,7 +97,7 @@ function scoreStack(options = {}) {
   gates.push({
     id: 'ingestion-integrity',
     hard: true,
-    weight: 0.25,
+    weight: 0.22,
     ok: integOk,
     detail: integOk
       ? 'all checks green'
@@ -112,7 +119,7 @@ function scoreStack(options = {}) {
   gates.push({
     id: 'lessons-doctor',
     hard: true,
-    weight: 0.15,
+    weight: 0.12,
     ok: embOk,
     detail: embOk
       ? `${emb.entries}×${emb.dimensions} ${emb.status}`
@@ -132,7 +139,7 @@ function scoreStack(options = {}) {
   gates.push({
     id: 'grepai',
     hard: true,
-    weight: 0.2,
+    weight: 0.16,
     ok: canOk && watchRunning,
     detail: `canary=${canOk} watcher=${watchRunning ? 'running' : 'down'} bytes=${canary.json?.indexBytes ?? '?'}`,
     score: grepaeScore,
@@ -163,7 +170,7 @@ function scoreStack(options = {}) {
   gates.push({
     id: 'harness-eval',
     hard: true,
-    weight: 0.2,
+    weight: 0.16,
     ok: evalHardOk,
     detail: evalPass
       ? `pass ${evalJson.passCount}/${evalJson.caseCount} recall=${recall} nDCG=${ndcg.toFixed(4)}`
@@ -187,7 +194,7 @@ function scoreStack(options = {}) {
   gates.push({
     id: 'dual-path',
     hard: true,
-    weight: 0.12,
+    weight: 0.1,
     ok: dualOk,
     detail: dualOk
       ? `top=${dual.json.matches[0].path}`
@@ -216,10 +223,41 @@ function scoreStack(options = {}) {
     id: 'harness-headroom',
     // Hard: A+ must not hide a near-full corpus behind a soft weight.
     hard: true,
-    weight: 0.08,
+    weight: 0.07,
     ok: headroomOk,
     detail: `files=${fileCount} maxFiles=${maxFiles} headroom=${(headroom * 100).toFixed(1)}%`,
     score: headroomOk ? 1 : Math.max(0, headroom / 0.15),
+  });
+
+  // 7) Monzo-style governed interfaces (InfoQ July 2026)
+  const iface = runNode('retrieval-interface-contracts.js', ['--json']);
+  const ifaceOk = Boolean(iface.json && iface.json.ok);
+  gates.push({
+    id: 'interface-contracts',
+    hard: true,
+    weight: 0.1,
+    ok: ifaceOk,
+    detail: ifaceOk
+      ? `${iface.json.contractCount} interfaces ok`
+      : `failed=${iface.json?.failed ?? '?'} ${(iface.json?.results || [])
+          .filter((r) => !r.ok)
+          .map((r) => r.id)
+          .join(',')}`,
+    score: ifaceOk ? 1 : 0.2,
+  });
+
+  // 8) Micro-batch watermark / watcher discipline (InfoQ delta pipeline)
+  const batchDry = runNode('index-microbatch.js', ['--once', '--json'], { timeout: 90000 });
+  const batchOk = Boolean(batchDry.json && batchDry.json.ok && batchDry.json.watcherRunning !== false);
+  gates.push({
+    id: 'index-microbatch',
+    hard: true,
+    weight: 0.07,
+    ok: batchOk,
+    detail: batchOk
+      ? `watcher=${batchDry.json.watcherRunning} skipped=${Boolean(batchDry.json.skipped)} cycles=${batchDry.json.watermark?.cycleCount ?? batchDry.json.previous?.cycleCount ?? 0}`
+      : JSON.stringify(batchDry.json?.error || batchDry.json?.actions || batchDry.stderr || batchDry.stdout).slice(0, 200),
+    score: batchOk ? 1 : 0.2,
   });
 
   let weighted = 0;
