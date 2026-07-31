@@ -369,8 +369,17 @@ module.exports = {
 };
 
 if (require.main === module) {
-  const res = runIngestionIntegrity({ skipFreshness: process.argv.includes('--no-git') });
-  if (process.argv.includes('--json')) console.log(JSON.stringify(res, null, 2));
+  const argv = process.argv.slice(2);
+  const opts = { skipFreshness: argv.includes('--no-git') };
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i] === '--home') opts.home = path.resolve(argv[++i] || '');
+    else if (argv[i] === '--sqlite') opts.sqlite = path.resolve(argv[++i] || '');
+    else if (argv[i] === '--jsonl') opts.jsonl = path.resolve(argv[++i] || '');
+    else if (argv[i] === '--embeddings') opts.embeddings = path.resolve(argv[++i] || '');
+    else if (argv[i] === '--grepai-corpus') opts.grepaiCorpus = path.resolve(argv[++i] || '');
+  }
+  const res = runIngestionIntegrity(opts);
+  if (argv.includes('--json')) console.log(JSON.stringify(res, null, 2));
   else console.log(render(res));
   process.exit(res.ok ? 0 : 1);
 }
