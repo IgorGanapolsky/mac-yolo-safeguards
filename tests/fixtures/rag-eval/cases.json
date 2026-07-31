@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "description": "Fixed retrieval cases for hermes-retrieval-harness + path presence checks. Used by tools/rag-retrieval-eval.js.",
+  "version": 2,
+  "description": "Fixed retrieval cases for hermes-retrieval-harness + path presence checks. Used by tools/rag-retrieval-eval.js. v2 (2026-07-31) grew the set from 8 to 50 cases. The 42 added cases are generated from each target file's own purpose comment, then filtered by two rules that make them measure RETRIEVAL rather than string matching: (1) ANTI-LEAK \u2014 no query token may appear anywhere in the target path, so a case cannot be satisfied by filename matching; (2) DISCRIMINATIVE \u2014 every query must retain >=3 tokens that occur in <8% of tracked files, so vague queries with no single right answer are excluded. 18 of 60 generated candidates were dropped by rule (2), e.g. 'probe peers gateway 8642 health', which is ambiguous across the whole gateway subsystem.",
   "cases": [
     {
       "id": "swarm-harness",
@@ -66,6 +66,342 @@
       "query": "propensity train labels SYSTEM_SCORES revenue ML fail-closed",
       "mustIncludePathSubstrings": [
         "tools/ml-propensity-train.js"
+      ],
+      "k": 10
+    },
+    {
+      "id": "tools-llmops-lifecycle-js",
+      "query": "tensorzero closed archived vendor",
+      "mustIncludePathSubstrings": [
+        "tools/llmops-lifecycle.js"
+      ],
+      "k": 10
+    },
+    {
+      "id": "tools-retrieval-dual-path-js",
+      "query": "harness sparse grepae hybrid bm25 dense",
+      "mustIncludePathSubstrings": [
+        "tools/retrieval-dual-path.js"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-composerdraftstorage-ts",
+      "query": "persist composer rejected cleared draft",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/composerDraftStorage.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-services-hermesnotifications-ts",
+      "query": "low channel downgrades channel",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/services/hermesNotifications.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-chatautoscroll-ts",
+      "query": "min between programmatic bottom scrolls",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/chatAutoScroll.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-confirmclearallchats-ts",
+      "query": "often swallows alert alert threads bottomsheetmodal",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/confirmClearAllChats.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-agentdashboardstats-ts",
+      "query": "reconnect share connecting honest",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/agentDashboardStats.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-otabannerlayout-ts",
+      "query": "edge edge often insets views",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/otaBannerLayout.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-chatoutputfeedback-ts",
+      "query": "cron silent protocol ack offer",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/chatOutputFeedback.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "tools-ensure-grepai-index-js",
+      "query": "worktree checkout searching dead",
+      "mustIncludePathSubstrings": [
+        "tools/ensure-grepai-index.js"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-sessionlistselection-ts",
+      "query": "guarantee actively survives threads display",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/sessionListSelection.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-services-sessioncontinuitystorage",
+      "query": "handoff dismiss refetch dismiss",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/services/sessionContinuityStorage.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "tools-alert-investigation-loop-js",
+      "query": "investigate mitigate measured ttm ebay theme",
+      "mustIncludePathSubstrings": [
+        "tools/alert-investigation-loop.js"
+      ],
+      "k": 10
+    },
+    {
+      "id": "tools-agent-cost-analyzer-js",
+      "query": "latency rollup finished",
+      "mustIncludePathSubstrings": [
+        "tools/agent-cost-analyzer.js"
+      ],
+      "k": 10
+    },
+    {
+      "id": "tools-ingestion-integrity-js",
+      "query": "prove retrieval stores agree",
+      "mustIncludePathSubstrings": [
+        "tools/ingestion-integrity.js"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-chatstallinvestigation-ts",
+      "query": "stall investigation conf ebay theme faster",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/chatStallInvestigation.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-sessiondisplay-ts",
+      "query": "prefix started bare timestamp reads activity",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/sessionDisplay.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "tools-rag-retrieval-eval-js",
+      "query": "offline evaluation harness",
+      "mustIncludePathSubstrings": [
+        "tools/rag-retrieval-eval.js"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-safetytimeoutrecovery-ts",
+      "query": "detect refusal often",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/safetyTimeoutRecovery.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "docs-research-thumbgate-hermes-mobile-web-july-2026",
+      "query": "look feel architecture",
+      "mustIncludePathSubstrings": [
+        "docs/RESEARCH-THUMBGATE-HERMES-MOBILE-WEB-JULY-2026.md"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-chatsessionrecovery-ts",
+      "query": "transient errors assume attempt",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/chatSessionRecovery.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-gatewayconnection-ts",
+      "query": "unpaired equivalent credentials direct",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/gatewayConnection.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "docs-research-cgnat-remote-access-2026-07-md",
+      "query": "stable screen across double",
+      "mustIncludePathSubstrings": [
+        "docs/RESEARCH-CGNAT-REMOTE-ACCESS-2026-07.md"
+      ],
+      "k": 10
+    },
+    {
+      "id": "tools-ml-label-store-js",
+      "query": "closed training labels propensity",
+      "mustIncludePathSubstrings": [
+        "tools/ml-label-store.js"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-outboundsubmissionledger-ts",
+      "query": "produce exactly submission",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/outboundSubmissionLedger.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "docs-case-study-md",
+      "query": "average 307 hours",
+      "mustIncludePathSubstrings": [
+        "docs/CASE-STUDY.md"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-tabbarkeyboardpolicy-ts",
+      "query": "software keyboard collapse bottom tab bar",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/tabBarKeyboardPolicy.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "tools-verify-public-post-js",
+      "query": "publish social urls",
+      "mustIncludePathSubstrings": [
+        "tools/verify-public-post.js"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-sessiontokenguards-ts",
+      "query": "estimated warn thresholds",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/sessionTokenGuards.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-applysetupdeeplinkwiththumbg",
+      "query": "persist credential letting",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/applySetupDeepLinkWithThumbgate.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-weaklocalmodel-ts",
+      "query": "slms fine autocomplete cheap",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/weakLocalModel.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-services-pairingcodeexchange-ts",
+      "query": "secretless exchange 330 priority",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/services/pairingCodeExchange.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "tools-governed-agent-sales-copy-js",
+      "query": "roi buyer language offers",
+      "mustIncludePathSubstrings": [
+        "tools/governed-agent-sales-copy.js"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-macunreachablecopy-ts",
+      "query": "brand reconnect reserve word returning",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/macUnreachableCopy.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "apps-hermes-control-plane-app-api-device-sessions-sy",
+      "query": "scheduled cron reddit inbox conversion monitor",
+      "mustIncludePathSubstrings": [
+        "apps/hermes-control-plane/app/api/device/sessions/sync/route.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "tools-hermes-burn-alert-js",
+      "query": "watches litellm traffic litellm logs traffic",
+      "mustIncludePathSubstrings": [
+        "tools/hermes-burn-alert.js"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-streamassistanttext-ts",
+      "query": "shown stream ends",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/streamAssistantText.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-gatewayfeaturecatalog-ts",
+      "query": "capabilities feature flags",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/gatewayFeatureCatalog.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-modelprovidererrorrecovery-t",
+      "query": "detect crash dumps reach",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/modelProviderErrorRecovery.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-utils-computerpickerstatus-ts",
+      "query": "reserved slot card collapsed help dual",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/utils/computerPickerStatus.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "hermes-mobile-src-services-appotaupdate-ts",
+      "query": "enabledupdatescontroller exposes channel runtimeversion",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/services/appOtaUpdate.ts"
+      ],
+      "k": 10
+    },
+    {
+      "id": "tools-revenue-local-draft-js",
+      "query": "weights follow cash",
+      "mustIncludePathSubstrings": [
+        "tools/revenue-local-draft.js"
       ],
       "k": 10
     }
