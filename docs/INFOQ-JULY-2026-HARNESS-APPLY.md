@@ -31,11 +31,20 @@ node tools/retrieval-interface-contracts.js --json
 
 # Micro-batch cycle (LaunchAgent-friendly)
 node tools/index-microbatch.js --once --heal --json
+node tools/index-microbatch.js --enqueue --heal --json   # durable queue
+
+# Install 15m LaunchAgent
+bash scripts/install-index-microbatch.sh
+
+# Academic pack is queryable (not write-only)
+node tools/hermes-academic-research-retrieve.js --query "tool use evaluation" --json
+
+# Session start prints interfaces + microbatch brief automatically
 
 # Durable queue for heal workers
 node tools/durable-job-queue.js enqueue --type index-microbatch --json
 node tools/durable-job-queue.js claim --worker local --json
-node tools/durable-job-queue.js complete --id N --json
+node tools/durable-job-queue.js complete --id N --worker local --json
 
 # Full A+ gate (includes new interfaces + microbatch)
 node tools/rag-stack-scorecard.js --heal --json
