@@ -44,6 +44,7 @@ import {
   toolsetsNeedingKeys,
   capabilitiesAdvertiseToolsetsWrite,
 } from '../utils/opsToolsets';
+import { partitionMobileSkills, skillsSectionHint } from '../utils/opsSkills';
 import ConnectionHealthHub from './ConnectionHealthHub';
 import AgentDashboardStrip from './AgentDashboardStrip';
 import IntegrationsSheet from './IntegrationsSheet';
@@ -164,6 +165,8 @@ export default function GatewayOpsSection() {
   const [expandedFeatureKeys, setExpandedFeatureKeys] = useState<Set<string>>(new Set());
   const [expandedSkillNames, setExpandedSkillNames] = useState<Set<string>>(new Set());
   const [advancedToolsetsOpen, setAdvancedToolsetsOpen] = useState(false);
+  /** Full Mac skill zoo stays collapsed — strangers must not scroll 100+ optional skills. */
+  const [advancedSkillsOpen, setAdvancedSkillsOpen] = useState(false);
   const [togglingToolset, setTogglingToolset] = useState<string | null>(null);
   const [integrationsToolset, setIntegrationsToolset] = useState<HermesToolset | null>(null);
   const togglingToolsetRef = useRef<string | null>(null);
@@ -448,6 +451,7 @@ export default function GatewayOpsSection() {
   const phoneToggleBlocked = phoneToggleAvailable === false;
   const { essentials: essentialToolsets, advanced: advancedToolsets } =
     partitionMobileToolsets(toolsets);
+  const { pinned: pinnedSkills, advanced: advancedSkills } = partitionMobileSkills(skills);
   const keysNeeded = toolsetsNeedingKeys(essentialToolsets);
   const integrationsConfigAvailable =
     featureFlags.integrations_config === true || isDemo;
@@ -529,6 +533,45 @@ export default function GatewayOpsSection() {
           </View>
         ) : null}
       </View>
+    );
+  };
+
+  const renderSkillRow = (skill: HermesSkill) => {
+    const expanded = expandedSkillNames.has(skill.name);
+    return (
+      <TouchableOpacity
+        key={skill.name}
+        style={styles.listRow}
+        onPress={() => {
+          setExpandedSkillNames((prev) => {
+            const next = new Set(prev);
+            if (next.has(skill.name)) {
+              next.delete(skill.name);
+            } else {
+              next.add(skill.name);
+            }
+            return next;
+          });
+        }}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        testID={`skill-expand-${skill.name}`}
+      >
+        <View style={styles.jobTitleRow}>
+          <Text style={[styles.rowTitle, { flex: 1 }]}>{skill.name}</Text>
+          <Text style={styles.expandHint}>{expanded ? '▾' : '▸'}</Text>
+        </View>
+        {skill.description ? (
+          <Text style={styles.rowDesc} numberOfLines={expanded ? undefined : 2}>
+            {skill.description}
+          </Text>
+        ) : (
+          <Text style={styles.rowDesc}>No description from the Mac.</Text>
+        )}
+        {expanded && skill.category ? (
+          <Text style={styles.jobDetailLabel}>Category · {skill.category}</Text>
+        ) : null}
+      </TouchableOpacity>
     );
   };
 
@@ -787,58 +830,54 @@ export default function GatewayOpsSection() {
         )}
       </GlassCard>
 
-      <Text style={styles.sectionTitle}>Skills ({skills.length})</Text>
-      <Text style={styles.sectionHint}>
-        Tap a skill for the full description. Skills are invoked from Chat — not toggled here.
+      <Text style={styles.sectionTitle} testID="skills-section-title">
+        Skills ({skills.length})
       </Text>
-      <GlassCard>
-        {skills.length === 0 ? (
+      <Text style={styles.sectionHint}>{skillsSectionHint(skills.length)}</Text>
+      {skills.length === 0 ? (
+        <GlassCard>
           <Text style={styles.meta} testID="skills-empty-state">
             {catalogErrors.skills
               ? 'Skills could not load from your computer. Tap Refresh to retry.'
               : 'No skills are installed on this computer.'}
           </Text>
-        ) : (
-          skills.map((skill) => {
-            const expanded = expandedSkillNames.has(skill.name);
-            return (
+        </GlassCard>
+      ) : (
+        <>
+          {pinnedSkills.length > 0 ? (
+            <GlassCard testID="skills-pinned-card">
+              {pinnedSkills.map((skill) => renderSkillRow(skill))}
+            </GlassCard>
+          ) : null}
+          {advancedSkills.length > 0 ? (
+            <>
               <TouchableOpacity
-                key={skill.name}
-                style={styles.listRow}
                 onPress={() => {
-                  setExpandedSkillNames((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(skill.name)) {
-                      next.delete(skill.name);
-                    } else {
-                      next.add(skill.name);
-                    }
-                    return next;
-                  });
+                  haptics.selection();
+                  setAdvancedSkillsOpen((open) => !open);
                 }}
                 accessibilityRole="button"
-                accessibilityState={{ expanded }}
-                testID={`skill-expand-${skill.name}`}
+                accessibilityState={{ expanded: advancedSkillsOpen }}
+                testID="skills-advanced-toggle"
               >
-                <View style={styles.jobTitleRow}>
-                  <Text style={[styles.rowTitle, { flex: 1 }]}>{skill.name}</Text>
-                  <Text style={styles.expandHint}>{expanded ? '▾' : '▸'}</Text>
-                </View>
-                {skill.description ? (
-                  <Text style={styles.rowDesc} numberOfLines={expanded ? undefined : 2}>
-                    {skill.description}
-                  </Text>
-                ) : (
-                  <Text style={styles.rowDesc}>No description from the Mac.</Text>
-                )}
-                {expanded && skill.category ? (
-                  <Text style={styles.jobDetailLabel}>Category · {skill.category}</Text>
-                ) : null}
+                <Text style={styles.sectionTitle}>
+                  On your Mac · skills ({advancedSkills.length}){' '}
+                  {advancedSkillsOpen ? '▾' : '▸'}
+                </Text>
               </TouchableOpacity>
-            );
-          })
-        )}
-      </GlassCard>
+              {advancedSkillsOpen ? (
+                <GlassCard testID="skills-advanced-card">
+                  {advancedSkills.map((skill) => renderSkillRow(skill))}
+                </GlassCard>
+              ) : (
+                <Text style={styles.sectionHint} testID="skills-advanced-collapsed-hint">
+                  Optional Mac skills stay collapsed so Settings stays scannable. Tap to expand.
+                </Text>
+              )}
+            </>
+          ) : null}
+        </>
+      )}
 
       <Text style={styles.sectionTitle}>Gateway features ({featureRows.length})</Text>
       <Text style={styles.sectionHint}>

@@ -54,7 +54,20 @@ Implemented as `ESSENTIAL_MOBILE_TOOLSET_NAMES` in `src/utils/opsToolsets.ts`:
 | Non-essential + unconfigured + disabled | Hidden from Settings entirely |
 | Non-essential + configured or already enabled | **On your Mac** section, collapsed by default |
 
+## Skills catalog (Mac zoo → phone)
+
+| Layer | Path | Role |
+|-------|------|------|
+| UI | `GatewayOpsSection.tsx` | Pinned skills (if present) + collapsed **On your Mac · skills** |
+| Client | `hermesGatewayClient.listSkills` → `GET {gateway}/v1/skills` | Full install tree from `~/.hermes/skills` |
+| Policy | `opsSkills.ts` | Pin list + collapse everything else |
+
+Hermes Agent ships ~70 bundled skills; dogfood Macs often exceed 100 after agents add local skills. Settings **must not** dump the full list into the primary scroll. Optional packs (research, smart-home, social-media, media, …) stay under **On your Mac · skills**, collapsed by default. Pin list (`PINNED_MOBILE_SKILL_NAMES`) only surfaces when those skills actually exist on the Mac.
+
+Skills are **not deleted** by the phone — this is display policy only. Mac-side prune of dead cron jobs / unused skills is a separate ops action.
+
 ## Tests
 
 - `opsToolsets.test.ts` — allowlist + partition + auto-enable + no hobby Add key  
-- `GatewayOpsSection.test.tsx` — primary list hides hobby; advanced collapsed; essentials auto-enable only
+- `opsSkills.test.ts` — pin list + partition + collapsed-by-default advanced catalog  
+- `GatewayOpsSection.test.tsx` — primary list hides hobby; advanced collapsed; essentials auto-enable only; skills zoo collapsed until expand

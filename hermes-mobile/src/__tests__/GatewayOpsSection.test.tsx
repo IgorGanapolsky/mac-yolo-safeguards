@@ -139,6 +139,35 @@ describe('GatewayOpsSection', () => {
     expect(queryByText('Network request failed')).toBeNull();
   });
 
+  it('collapses non-pinned Mac skills under On your Mac by default', async () => {
+    gatewayClient.listSkills.mockResolvedValue([
+      { name: 'mac-freeze-rescue', description: 'Recover a sluggish Mac', category: 'ops' },
+      { name: 'polymarket', description: 'Query Polymarket', category: 'research' },
+      { name: 'openhue', description: 'Hue lights', category: 'smart-home' },
+    ]);
+
+    const { getByText, getByTestId, queryByText, queryByTestId } = render(
+      <GatewayOpsSection />,
+    );
+
+    await waitFor(() => {
+      expect(getByText('mac-freeze-rescue')).toBeTruthy();
+      expect(getByTestId('skills-advanced-toggle')).toBeTruthy();
+    });
+    expect(queryByText('polymarket')).toBeNull();
+    expect(queryByText('openhue')).toBeNull();
+    expect(getByTestId('skills-advanced-collapsed-hint')).toBeTruthy();
+    expect(queryByTestId('skills-advanced-card')).toBeNull();
+
+    fireEvent.press(getByTestId('skills-advanced-toggle'));
+
+    await waitFor(() => {
+      expect(getByText('polymarket')).toBeTruthy();
+      expect(getByText('openhue')).toBeTruthy();
+      expect(getByTestId('skills-advanced-card')).toBeTruthy();
+    });
+  });
+
   it('automatically enables only essential configured toolsets returned disabled by the gateway', async () => {
     gatewayClient.listToolsets.mockResolvedValue([
       {
