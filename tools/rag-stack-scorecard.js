@@ -172,16 +172,27 @@ function scoreStack(options = {}) {
   const evalPass = Boolean(evalJson && evalJson.ok && evalJson.passCount === evalJson.caseCount);
   const recall = Number(evalJson?.meanRecallAtK || 0);
   const ndcg = Number(evalJson?.meanNdcgAtK || 0);
+  const mrr = Number(evalJson?.meanMrrAtK || 0);
+  const prec = Number(evalJson?.meanPrecisionAtK || 0);
   // A-tier: perfect recall + strong ranking. A+ needs nDCG >= 0.93.
-  const evalHardOk = evalPass && recall >= 1 && ndcg >= 0.85;
-  const evalScore = !evalPass ? 0 : ndcg >= 0.97 ? 1 : ndcg >= 0.93 ? 0.97 : ndcg >= 0.85 ? 0.9 : 0.7;
+  // MRR/P@K reported; hard floors keep ranking quality honest without over-fitting P@K.
+  const evalHardOk = evalPass && recall >= 1 && ndcg >= 0.85 && mrr >= 0.5;
+  const evalScore = !evalPass
+    ? 0
+    : ndcg >= 0.97 && mrr >= 0.7
+      ? 1
+      : ndcg >= 0.93
+        ? 0.97
+        : ndcg >= 0.85
+          ? 0.9
+          : 0.7;
   gates.push({
     id: 'harness-eval',
     hard: true,
     weight: 0.16,
     ok: evalHardOk,
     detail: evalPass
-      ? `pass ${evalJson.passCount}/${evalJson.caseCount} recall=${recall} nDCG=${ndcg.toFixed(4)}`
+      ? `pass ${evalJson.passCount}/${evalJson.caseCount} R=${recall} MRR=${mrr.toFixed(4)} P@k=${prec.toFixed(4)} nDCG=${ndcg.toFixed(4)}`
       : `exit ${evalRun.status} ${(evalRun.stderr || evalRun.stdout || '').slice(0, 120)}`,
     score: evalScore,
   });
