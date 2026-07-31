@@ -191,13 +191,15 @@ export function formatRunTokenSummary(
     if (!progress.streamUsageLive && (input ?? 0) === 0 && (output ?? 0) === 0) {
       return '—';
     }
-    return `In: ${input ?? 0} | Out: ${output ?? 0}`;
+    const inN = input ?? 0;
+    const outN = output ?? 0;
+    return `In: ${inN.toLocaleString()} tokens | Out: ${outN.toLocaleString()} tokens`;
   }
   if (progress.totalTokens != null) {
     if (!progress.streamUsageLive && progress.totalTokens === 0) {
       return '—';
     }
-    return `${progress.totalTokens} total`;
+    return `${progress.totalTokens.toLocaleString()} tokens total`;
   }
   return null;
 }
@@ -230,8 +232,14 @@ export function buildConnectedModelTokenLabel(options: {
   } else {
     const total = (options.sessionInputTokens ?? 0) + (options.sessionOutputTokens ?? 0);
     if (total > 0) {
-      // Honest label: this is cumulative session/context, not live run usage.
-      tokens = `${total.toLocaleString()} session`;
+      // Honest label: cumulative session tokens (not live run usage).
+      const inN = options.sessionInputTokens ?? 0;
+      const outN = options.sessionOutputTokens ?? 0;
+      if (inN > 0 || outN > 0) {
+        tokens = `In: ${inN.toLocaleString()} tokens | Out: ${outN.toLocaleString()} tokens`;
+      } else {
+        tokens = `${total.toLocaleString()} session tokens`;
+      }
     }
   }
   if (!model && !tokens) {

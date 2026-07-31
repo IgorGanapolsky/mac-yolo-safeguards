@@ -5424,11 +5424,26 @@ export default function ChatScreen() {
       const key = resolveChatOutputFeedbackBusyKey(message);
       // Highlight the tapped thumb; user can switch up<->down freely.
       setFeedbackSelections((prev) => ({ ...prev, [key]: signal }));
-      // Always record the vote to ThumbGate. The explanation sheet is now
-      // opt-in (via the "Add details" link), not auto-opened on every tap.
-      void submitChatOutputFeedbackForMessage(message, signal).then((ok) => {
-        setTransientFeedbackNote(key, ok ? 'Saved to ThumbGate' : 'Not recorded', !ok);
+      // Record immediately with an honest outcome note (never claim "Saved" on offline queue).
+      void submitChatOutputFeedbackForMessage(message, signal).then((outcome) => {
+        const ok =
+          typeof outcome === 'boolean'
+            ? outcome
+            : Boolean(outcome && (outcome.accepted || outcome.status === 'queued_offline'));
+        const note =
+          typeof outcome === 'boolean'
+            ? ok
+              ? 'Saved to ThumbGate memory'
+              : 'Not recorded'
+            : outcome.note;
+        const isError =
+          typeof outcome === 'boolean' ? !ok : Boolean(outcome?.noteIsError);
+        setTransientFeedbackNote(key, note, isError);
       });
+      // Thumbs-down: open optional details so the capture can improve memory quality.
+      if (signal === 'down') {
+        setFeedbackPrompt({ message, signal });
+      }
     },
     [submitChatOutputFeedbackForMessage, setTransientFeedbackNote],
   );
@@ -5450,15 +5465,26 @@ export default function ChatScreen() {
   const resolveFeedbackPrompt = useCallback(
     (explanation?: string) => {
       if (feedbackPrompt) {
+        const key = resolveChatOutputFeedbackBusyKey(feedbackPrompt.message);
         void submitChatOutputFeedbackForMessage(
           feedbackPrompt.message,
           feedbackPrompt.signal,
           explanation?.trim() || undefined,
-        );
+        ).then((outcome) => {
+          if (typeof outcome === 'boolean') {
+            setTransientFeedbackNote(
+              key,
+              outcome ? 'Saved to ThumbGate memory' : 'Not recorded',
+              !outcome,
+            );
+            return;
+          }
+          setTransientFeedbackNote(key, outcome.note, outcome.noteIsError);
+        });
       }
       setFeedbackPrompt(null);
     },
-    [feedbackPrompt, submitChatOutputFeedbackForMessage],
+    [feedbackPrompt, submitChatOutputFeedbackForMessage, setTransientFeedbackNote],
   );
 
   const isTelegramInbox = isTelegramInboxSession(currentSession);
@@ -5514,6 +5540,18 @@ export default function ChatScreen() {
           outputFeedback={outputFeedback}
           onShowDetail={handleShowMessageDetail}
           onInlineTextApproval={handleInlineTextApproval}
+          onResendFailed={() => {
+            // Prefer failed bubble body; refs avoid TDZ (this callback is defined above handleRetryFailedSend).
+            const retryText =
+              (typeof message.content === 'string' ? message.content.trim() : '') ||
+              lastFailedSendTextRef.current?.trim() ||
+              '';
+            if (!retryText) {
+              return;
+            }
+            lastFailedSendTextRef.current = retryText;
+            void sendUserTextRef.current(retryText, true);
+          }}
         />
       );
     },

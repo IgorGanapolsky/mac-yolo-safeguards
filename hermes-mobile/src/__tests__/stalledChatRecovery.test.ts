@@ -70,7 +70,7 @@ describe('stalledChatRecovery', () => {
     expect(next[0]?.outboundFailureReason).toBeUndefined();
   });
 
-  it('auto-recovers only for stall failures while Mac HTTP is green', () => {
+  it('auto-recovers stall failures while Mac HTTP is green', () => {
     expect(
       shouldAutoRecoverStalledSend({
         macHttpOk: true,
@@ -101,6 +101,43 @@ describe('stalledChatRecovery', () => {
         failureReason: RUN_NO_TOKEN_FAIL_DETAIL,
       }),
     ).toBe(false);
+  });
+
+  it('auto-resends connectivity failures once Mac is reachable (no tap ↑ babysitting)', () => {
+    const connectivityReason =
+      'Your Mac is not connected yet. Use Tailscale or Home Wi‑Fi, or choose your Mac in Settings.';
+    expect(
+      shouldAutoRecoverStalledSend({
+        macHttpOk: true,
+        isDemo: false,
+        isSending: false,
+        recoveriesUsed: 0,
+        failedText: 'Continue. Consult with our tinker-brain',
+        failureReason: connectivityReason,
+      }),
+    ).toBe(true);
+    expect(
+      shouldAutoRecoverStalledSend({
+        macHttpOk: false,
+        isDemo: false,
+        isSending: false,
+        recoveriesUsed: 0,
+        failedText: 'Continue. Consult with our tinker-brain',
+        failureReason: connectivityReason,
+      }),
+    ).toBe(false);
+    const messages: HermesMessage[] = [
+      {
+        id: 'user-local-reconnect',
+        role: 'user',
+        content: 'Continue. Consult with our tinker-brain',
+        outboundStatus: 'failed',
+        outboundFailureReason: connectivityReason,
+      },
+    ];
+    expect(findLastStalledFailedOutboundText(messages)).toBe(
+      'Continue. Consult with our tinker-brain',
+    );
   });
 
   it('stall recovery reuses the failed bubble — one intent stays one bubble', () => {
