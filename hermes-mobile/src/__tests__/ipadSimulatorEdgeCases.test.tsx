@@ -168,9 +168,14 @@ describe('iPad simulator fresh-user edge-case flow', () => {
     expect(relaunchSlice).toContain('relaunch-safe-area');
   });
 
-  it('strictly selects an iPad before delegating to the shared simulator runner', () => {
+  it('creates and deletes a disposable iPad before delegating to the shared simulator runner', () => {
     expect(ipadRunner).toContain('xcrun simctl list devices available -j');
     expect(ipadRunner).toContain('device.name.startsWith("iPad")');
+    expect(ipadRunner).toContain('device.deviceTypeIdentifier');
+    expect(ipadRunner).toContain('xcrun simctl create');
+    expect(ipadRunner).toContain('trap cleanup EXIT');
+    expect(ipadRunner).toContain('xcrun simctl delete "$IPAD_UDID"');
+    expect(ipadRunner).not.toContain('xcrun simctl erase');
     expect(ipadRunner).toContain('xcrun simctl shutdown all');
     expect(ipadRunner).toContain('xcrun simctl boot "$IPAD_UDID"');
     expect(ipadRunner).toContain('booted.length !== 1');

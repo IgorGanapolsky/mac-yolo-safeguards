@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Select and prove an iPad simulator before delegating to the shared iOS runner.
+# Create and prove a disposable iPad simulator before delegating to the shared iOS runner.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -11,30 +11,53 @@ if ! command -v xcrun >/dev/null 2>&1; then
   exit 1
 fi
 
-IPAD_RECORD="$(
+IPAD_TEMPLATE_RECORD="$(
   xcrun simctl list devices available -j | node -e '
     const fs = require("fs");
     const payload = JSON.parse(fs.readFileSync(0, "utf8"));
     const devices = Object.entries(payload.devices || {})
       .filter(([runtime]) => runtime.includes("iOS"))
-      .flatMap(([, runtimeDevices]) => runtimeDevices)
+      .flatMap(([runtime, runtimeDevices]) =>
+        runtimeDevices.map((device) => ({ ...device, runtime })),
+      )
       .filter((device) => device.isAvailable !== false)
-      .filter((device) => device.name.startsWith("iPad"));
+      .filter((device) => device.name.startsWith("iPad"))
+      .filter((device) => device.deviceTypeIdentifier);
     if (devices.length === 0) process.exit(2);
-    process.stdout.write(`${devices[0].udid}\t${devices[0].name}`);
+    process.stdout.write(
+      `${devices[0].name}\t${devices[0].deviceTypeIdentifier}\t${devices[0].runtime}`,
+    );
   '
 )" || {
   echo "No available iPad simulator was found" >&2
   exit 1
 }
 
-IFS=$'\t' read -r IPAD_UDID IPAD_NAME <<<"$IPAD_RECORD"
-if [[ -z "$IPAD_UDID" || -z "$IPAD_NAME" ]]; then
-  echo "Failed to resolve an iPad simulator identity" >&2
+IFS=$'\t' read -r IPAD_TEMPLATE_NAME IPAD_DEVICE_TYPE IPAD_RUNTIME <<<"$IPAD_TEMPLATE_RECORD"
+if [[ -z "$IPAD_TEMPLATE_NAME" || -z "$IPAD_DEVICE_TYPE" || -z "$IPAD_RUNTIME" ]]; then
+  echo "Failed to resolve an iPad simulator template" >&2
   exit 1
 fi
 
-echo "Strict iPad target: $IPAD_NAME ($IPAD_UDID)" >&2
+IPAD_UDID=""
+cleanup() {
+  if [[ -n "$IPAD_UDID" ]]; then
+    xcrun simctl shutdown "$IPAD_UDID" >/dev/null 2>&1 || true
+    xcrun simctl delete "$IPAD_UDID" >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+IPAD_NAME="iPad Hermes E2E ${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}-$$"
+IPAD_UDID="$(xcrun simctl create "$IPAD_NAME" "$IPAD_DEVICE_TYPE" "$IPAD_RUNTIME")"
+if [[ -z "$IPAD_UDID" ]]; then
+  echo "Failed to create a disposable iPad simulator from $IPAD_TEMPLATE_NAME" >&2
+  exit 1
+fi
+
+echo "Strict disposable iPad target: $IPAD_NAME ($IPAD_UDID)" >&2
 xcrun simctl shutdown all >/dev/null 2>&1 || true
 xcrun simctl boot "$IPAD_UDID"
 xcrun simctl bootstatus "$IPAD_UDID" -b
