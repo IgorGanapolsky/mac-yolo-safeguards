@@ -52,6 +52,11 @@ def _terms(text: str) -> set[str]:
     return {t for t in _TOKEN_RE.findall((text or "").lower()) if t not in _STOPWORDS}
 
 
+# Below this many substantive terms, a ratio is meaningless — one routing keyword
+# can hold the score above threshold on its own. Short questions need full coverage.
+SHORT_Q_TERMS = 3
+
+
 def coverage(question: str, answer_text: str, *, threshold: float = 0.34) -> dict[str, Any]:
     """Fraction of the question's substantive terms that appear in the answer.
 
@@ -72,17 +77,35 @@ def coverage(question: str, answer_text: str, *, threshold: float = 0.34) -> dic
     score = len(hits) / len(q_terms)
     missing = sorted(q_terms - hits)
 
+    # A ratio alone is WRONG for terse questions. "ThumbGate trademark?" is 1/2 = 0.50,
+    # comfortably over the threshold, yet the single term carrying the question
+    # ("trademark") is absent — the identical confident non-answer this module exists to
+    # stop, merely phrased shorter. Below SHORT_Q_TERMS the ratio has too few buckets to
+    # carry meaning: one routing keyword can hold the score up on its own. So for short
+    # questions require EVERY substantive term to appear. Verified: with the ratio alone,
+    # `ThumbGate trademark?` and `ThumbGate rename?` both exited 0 with no banner.
+    if len(q_terms) <= SHORT_Q_TERMS:
+        covered = not missing
+        reason = (
+            "short question, all terms addressed"
+            if covered
+            else f"short question missing {', '.join(missing)} — one keyword cannot carry it"
+        )
+    else:
+        covered = score >= threshold
+        reason = (
+            "card addresses the question's terms"
+            if covered
+            else f"only {len(hits)}/{len(q_terms)} question terms appear in the card"
+        )
+
     return {
-        "covered": score >= threshold,
+        "covered": covered,
         "score": round(score, 3),
         "threshold": threshold,
         "matched": sorted(hits),
         "missing": missing,
-        "reason": (
-            "card addresses the question's terms"
-            if score >= threshold
-            else f"only {len(hits)}/{len(q_terms)} question terms appear in the card"
-        ),
+        "reason": reason,
     }
 
 

@@ -33,6 +33,8 @@ ThumbGate.app GTM expert answer (AS_OF_RESEARCH: 2026-07-27):
   - Paid SKU is Continuity: when the Mac goes offline, ELIGIBLE work continues on a
     fenced Fly VPS runner. It is NOT live process migration.
   - SKUs: Web Control $0/mo; Pro Continuity $10/mo; Team/Enterprise $49/mo.
+  - Pro price is dynamic from https://thumbgate.app/api/billing/plan — re-read before any
+    campaign; never hard-code the price in copy.
 [POSITIONING]
   - Winning frame: "Upgrade Hermes with ThumbGate" — additive web dashboard plus
     optional paid Continuity on top of Hermes Mobile.
@@ -80,6 +82,55 @@ class TestCoverageGate(unittest.TestCase):
     def test_empty_answer_never_covers_a_real_question(self):
         cov = coverage(TRADEMARK_Q, "")
         self.assertFalse(cov["covered"])
+
+    def test_terse_off_card_question_is_flagged(self):
+        """A ratio alone passes 'ThumbGate trademark?' at 1/2 = 0.5 — same bug, shorter.
+
+        Caught by review on PR #1280 and reproduced through the real CLI: it exited 0
+        with no banner. Below SHORT_Q_TERMS the ratio has too few buckets to mean
+        anything, so every substantive term must appear.
+        """
+        for q in ("ThumbGate trademark?", "ThumbGate rename?"):
+            cov = coverage(q, GTM_CARD)
+            self.assertFalse(cov["covered"], f"terse off-card question {q!r} slipped through: {cov}")
+            self.assertIsNotNone(banner(q, GTM_CARD))
+
+    def test_terse_on_card_question_still_passes(self):
+        """The short-question rule must not become a blanket veto on short questions.
+
+        Known limitation, deliberately not papered over: matching is substring-based, so
+        it catches prefix morphology (rename/renaming, trademark/trademarks) but NOT
+        price/pricing — "price" is not a substring of "pricing". Loosening this to fuzzy
+        stemming would let "trade" satisfy "trademark", reintroducing exactly the false
+        pass this module exists to prevent. A spurious banner is cheap; a false pass is
+        the incident.
+        """
+        cov = coverage("ThumbGate Continuity?", GTM_CARD)
+        self.assertTrue(cov["covered"], f"legitimate terse question wrongly flagged: {cov}")
+
+    def test_render_cli_path_also_gates(self):
+        """Every path that EMITS an answer must gate, not just the answer CLI.
+
+        `tinker_response_contract.py --render` previously printed the card and returned 0
+        unconditionally, so callers using it bypassed the safeguard entirely.
+        """
+        import subprocess
+        import tempfile
+
+        here = os.path.dirname(os.path.abspath(__file__))
+        contract = os.path.join(here, "..", "tools", "tinker-brain", "tinker_response_contract.py")
+        with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as fh:
+            fh.write(GTM_CARD)
+            card = fh.name
+        try:
+            p = subprocess.run(
+                [sys.executable, contract, "--render", "--card", card, "--question", TRADEMARK_Q],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(p.returncode, 3, f"--render did not signal no-coverage: rc={p.returncode}")
+            self.assertIn("NO COVERAGE", p.stderr)
+        finally:
+            os.unlink(card)
 
     def test_score_is_a_fraction(self):
         for q, a in ((TRADEMARK_Q, GTM_CARD), (ON_CARD_Q, GTM_CARD), ("what is it?", GTM_CARD)):

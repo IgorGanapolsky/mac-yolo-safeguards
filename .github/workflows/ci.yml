@@ -261,7 +261,7 @@ jobs:
           cov_ran="$(sed -n 's/^Ran \([0-9]\{1,\}\) test.*/\1/p' "$RUNNER_TEMP/tinker-coverage.log")"
           passed="$(sed -n 's|^tinker-brain eval: \([0-9]\{1,\}\)/.*|\1|p' "$RUNNER_TEMP/tinker-eval.log")"
           test "${ran:-0}" -ge 15
-          test "${cov_ran:-0}" -ge 8
+          test "${cov_ran:-0}" -ge 11
           test "${passed:-0}" -ge 42
 
   mobile-checks:
