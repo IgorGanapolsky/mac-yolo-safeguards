@@ -1,5 +1,5 @@
 {
-  "$comment": "Shared MCP tools for every agent on this repo. github/context7 are REMOTE/http endpoints so the cloud Replit agent can reach them too (tokens come from env vars, never committed). github = the cross-agent coordination bus (issues/PRs/reviews); context7 = current library docs. Verified live 2026-07-09: POST https://api.githubcopilot.com/mcp/ initialize returns tools/prompts/resources. grepai is LOCAL-ONLY (stdio, spawns a binary on the machine) — it only works for agents running directly on Igor's Mac (e.g. this Claude Code CLI), NOT for the cloud Replit agent. It is a free/local semantic code-search index (Tree-sitter chunking + Ollama nomic-embed-text embeddings, zero cloud calls, zero ongoing cost) — see docs/LOCAL-SEMANTIC-CODE-INDEX.md for setup/rationale/limitations. Added 2026-07-24.",
+  "$comment": "Shared MCP tools for every agent on this repo. github/context7 are REMOTE/http endpoints so the cloud Replit agent can reach them too (tokens come from env vars, never committed). github = the cross-agent coordination bus (issues/PRs/reviews); context7 = current library docs. grepai is LOCAL-ONLY and now starts through a source-bound freshness gate: stale, torn, tampered, or unchecked generations fail closed so agents fall back to deterministic rg. See docs/LOCAL-SEMANTIC-CODE-INDEX.md.",
   "mcpServers": {
     "github": {
       "type": "http",
@@ -16,10 +16,10 @@
       }
     },
     "grepai": {
-      "command": "grepai",
+      "command": "node",
       "args": [
-        "mcp-serve",
-        "/Users/igorganapolsky/.hermes/semantic-index/mac-yolo-safeguards"
+        "/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/tools/grepai-mcp-fresh.js",
+        "serve"
       ]
     }
   }

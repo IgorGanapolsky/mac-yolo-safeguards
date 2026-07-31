@@ -43,7 +43,7 @@ Trade-off: this indexes `main`, not whatever branch/WIP a given agent's live wor
 checked out — acceptable for "search the codebase for a concept," not a substitute for reading
 a specific in-flight diff.
 
-## Index build
+## Legacy manual index build (superseded by the reconciler below)
 
 ```
 mkdir -p ~/.hermes/semantic-index
@@ -71,6 +71,9 @@ grepai watch --background
   running (or re-run periodically) for the index to track new commits — see "Keeping it
   fresh" below.
 
+Do not use that sequence for production serving now. It is retained only as background on how
+the original index was created; the source-bound reconciler below owns refresh and publication.
+
 ## Wiring it into Claude Code (MCP)
 
 Added to the repo's shared `.mcp.json` (root of `mac-yolo-safeguards`, next to `github` and
@@ -78,18 +81,21 @@ Added to the repo's shared `.mcp.json` (root of `mac-yolo-safeguards`, next to `
 
 ```json
 "grepai": {
-  "command": "grepai",
-  "args": ["mcp-serve", "/Users/igorganapolsky/.hermes/semantic-index/mac-yolo-safeguards"]
+  "command": "node",
+  "args": [
+    "/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/tools/grepai-mcp-fresh.js",
+    "serve"
+  ]
 }
 ```
 
 Unlike `github`/`context7` (remote HTTP endpoints reachable by the cloud Replit agent too),
-`grepai` is a **local stdio MCP server** — Claude Code spawns the `grepai` binary itself, on
-demand, per session, using the standard MCP stdio transport. There is **no separate daemon
-required to be running for MCP tool calls to work** — `grepai mcp-serve <path>` reads directly
-from the persisted `.grepai/index.gob` at that path and serves it, exactly like the `grepai
-search` CLI command does. The **only reason to also run `grepai watch --background`** in that
-same clone is to keep the index up to date as the repo changes on GitHub.
+`grepai` is a **local stdio MCP server**. Claude Code starts the freshness wrapper on demand;
+the wrapper proves the immutable generation artifact is source-bound, copies it into a private
+generation-pinned session, rechecks the receipt after the copy, and only then starts `grepai
+mcp-serve`. It supervises that child and retires it if the source, receipt, or freshness proof
+changes. No long-running watcher is required for queries. A short-lived watcher runs only inside
+the non-served builder.
 
 **What a future Claude Code session needs to do: nothing.** `.mcp.json` is repo-committed;
 Claude Code auto-starts `grepai mcp-serve` for any session opened in this repo, exposing these
@@ -100,21 +106,81 @@ for the cloud Replit agent.
 
 ## Keeping the index fresh
 
-The index is a point-in-time snapshot of whatever was on `origin/main` when it was built (plus
-anything indexed since if the watcher has been running). It does **not** auto-pull from GitHub.
-To refresh:
+The supervised micro-batch reconciler below replaces manual `git pull` plus a permanent watcher.
+It checks `origin/main` every 60 seconds, performs zero embedding work when the SHA is unchanged,
+and publishes only a validated generation.
 
-```
-cd ~/.hermes/semantic-index/mac-yolo-safeguards
-git pull
-grepai watch --background   # re-embeds only what changed since last run
-```
+### Source-bound micro-batch refresh (2026-07-31)
 
-### Fleet refresh (2026-07-24)
+The original daily refresh had a dangerous proof gap: it could reset the isolated clone to
+current `origin/main` while continuing to serve an older, non-empty `index.gob`. `Files indexed
+> 0` and a generic canary could both stay green. The clone was fresh; the index generation was
+not proven to come from it.
 
-**Installed:** `bash tools/install-fleet-repo-intelligence.sh` installs LaunchAgent
-`com.igor.fleet-repo-intelligence` (daily interval) that re-runs the install/heal path
-(isolated clone `git pull` + ensure watcher). Status for every agent session:
+The July 2026 InfoQ Software Architects newsletter and its linked delta-index case study supplied
+the useful operational pattern: use a bounded snapshot, compare it with an external watermark,
+coalesce lag to the newest complete snapshot, keep an overlapping/full-rebuild recovery path,
+and treat supervised restarts as routine. Source artifact:
+`/Users/igorganapolsky/Downloads/infoq.pdf`, SHA-256
+`6c164d55f8c2c27d93955908b5030afcc8a073707a3db3ac7b97c32946359cd3`;
+[full InfoQ case study](https://www.infoq.com/articles/micro-batch-streaming-lessons-learned/).
+
+For grepai, a **Git commit is the partition**. The system needs the latest complete repository
+snapshot; it does not need to replay every intermediate commit. Every 60 seconds:
+
+1. `grepai-microbatch-reconciler.js` reads the latest remote `main` SHA and the last committed
+   `retrieval-index-generation/v1` receipt.
+2. If equal and the served config plus immutable generation-artifact hashes still match, it
+   performs zero embedding work and refreshes only the remote-check heartbeat. The active GOB is
+   intentionally excluded from this hash because grepai rewrites it during ordinary searches.
+3. If behind, it jumps directly to the newest SHA in a persistent, separate plain-clone builder.
+   The complete target tree naturally overlaps and supersedes skipped intermediate commits;
+   added/modified/deleted counts and skipped-commit count are recorded.
+4. A short-lived grepai watcher builds that snapshot. Structural checks and stable plus
+   delta-specific retrieval canaries must pass. The short lifecycle removes the indefinite
+   watcher memory/liveness class; the LaunchAgent is the external watchdog.
+5. Only then is an immutable generation GOB copied to a same-directory temporary file, fsynced,
+   and renamed into place; the mutable served GOB is restored from it. The source-bound receipt
+   is committed last. A crash between those operations produces a deliberate fail-closed mismatch,
+   never a false fresh result. The current and immediately previous immutable generations are
+   retained for recovery.
+6. Weekly, or after material-integrity drift, the builder performs a clean full rebuild. The
+   previous served generation remains last-known-good until the replacement passes.
+
+`.mcp.json` starts `grepai-mcp-fresh.js`, not `grepai mcp-serve` directly. The wrapper verifies:
+
+- committed schema and successful canaries;
+- `indexedSha == observedOriginSha == served Git HEAD`;
+- exact SHA-256 and byte count for the immutable generation artifact (ordinary queries may mutate
+  the active `index.gob` with usage statistics);
+- exact config SHA-256; and
+- a remote comparison heartbeat no older than three minutes.
+
+If any check fails, grepai MCP is unavailable with an explicit reason and agents use deterministic
+`rg` while the LaunchAgent retries. This is the important behavior change: stale retrieval is an
+observable degraded backend, not a confident answer from unknown bytes.
+
+| Stage | Why it exists | What can go wrong | Measurement / receipt |
+|---|---|---|---|
+| Latest-SHA trigger | Remove scheduler idle time without per-file streaming | repeated triggers, remote unavailable | `targetSha`, lock/busy outcome, `lastRemoteCheckedAt` |
+| Non-served builder | Prevent partially written GOB from reaching search | embedding failure, watcher hang, bad config | bounded duration, files/chunks, rejected-attempt reason |
+| Coalescing snapshot | Reach latest complete truth after lag | skipped commit contained a delete | target-tree build plus added/modified/deleted and skipped counts |
+| Retrieval canaries | Prove bytes are usable, not merely large | old index passes a generic query | stable canaries plus changed-symbol path canary when available |
+| Atomic publish | Readers see last-good or next-good bytes | crash before rename/receipt | immutable-artifact SHA-256, generation ID, previous generation ID |
+| MCP gate | Stop false-green serving | stale heartbeat, source/hash/config drift | fail-closed problem codes; zero server spawns when invalid |
+| Full rebuild | Recover missed incremental updates and tombstones | clean rebuild fails | `fullRebuild`, `lastFullRebuildAt`; last-good remains unchanged |
+
+This pattern is intentionally **not** used for ordered event, audit, billing, or financial ledgers.
+Those systems must process every event and require replay semantics. It also does not add Spark,
+Kafka, a new orchestrator, an embedding model, reranking, or LLM query rewriting; those would add
+cost and new failure surfaces without evidence from this source.
+
+### Fleet refresh installer
+
+`bash tools/install-fleet-repo-intelligence.sh` installs LaunchAgent
+`com.igor.fleet-repo-intelligence` (60-second interval, `RunAtLoad`) that runs one bounded
+reconciliation. The installer establishes a verified initial generation before reporting the
+MCP backend healthy. Status for every agent session:
 
 ```
 node tools/fleet-repo-intelligence-status.js
@@ -123,7 +189,8 @@ node tools/fleet-repo-intelligence-status.js
 Research / decision: `docs/RESEARCH-JETBRAINS-CONTEXT-FLEET-202607.md` (JetBrains Context
 vs local stack; fleet architecture for all agents).
 
-**Still do not** run `grepai watch` from the multi-worktree live checkout.
+**Still do not** run `grepai watch` from the multi-worktree live checkout. The reconciler's
+builder is an isolated plain clone and its watcher is stopped after each bounded build.
 
 ## Verified retrieval quality (real test query, real results)
 
@@ -148,9 +215,9 @@ embedding-based retrieval is not garbage.
 2. **The worktree auto-linking gotcha is undocumented and has no opt-out.** Never run `grepai
    watch` from inside one of this repo's many agent worktrees or the main checkout directly —
    always use the isolated clone described above.
-3. **No auto-refresh.** The index goes stale the moment `main` moves and nobody runs `git pull
-   && grepai watch` again. It is a snapshot tool, not a live mirror, until someone wires a
-   scheduled refresh.
+3. **Remote comparison is fail-closed.** If GitHub remains unreachable long enough for the
+   three-minute heartbeat to expire, new MCP sessions reject grepai and use deterministic `rg`;
+   the last-good artifact is preserved but is not advertised as current.
 4. **Indexes `main`, not your current branch/worktree.** For a question about code that only
    exists on someone's in-flight WIP branch, this index will not see it — fall back to grep in
    that case.

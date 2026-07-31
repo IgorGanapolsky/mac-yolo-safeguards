@@ -4,13 +4,12 @@
 # ~/.hermes/semantic-index/ — never the live multi-worktree checkout.
 set -euo pipefail
 
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
 HOME_DIR="${HOME:-/Users/igorganapolsky}"
+SOURCE_REPO="$(cd "$(dirname "$0")/.." && pwd)"
+REPO="${HERMES_RECONCILER_REPO:-$HOME_DIR/workspace/git/igor/mac-yolo-safeguards}"
 INDEX_ROOT="${HERMES_SEMANTIC_INDEX_ROOT:-$HOME_DIR/.hermes/semantic-index}"
-CLONE_NAME="${HERMES_SEMANTIC_CLONE_NAME:-mac-yolo-safeguards}"
-CLONE_PATH="$INDEX_ROOT/$CLONE_NAME"
 REMOTE_URL="${HERMES_SEMANTIC_REMOTE:-https://github.com/IgorGanapolsky/mac-yolo-safeguards.git}"
-PLIST_SRC="$REPO/com.igor.fleet-repo-intelligence.plist"
+PLIST_SRC="$SOURCE_REPO/com.igor.fleet-repo-intelligence.plist"
 PLIST_DST="$HOME_DIR/Library/LaunchAgents/com.igor.fleet-repo-intelligence.plist"
 LABEL="com.igor.fleet-repo-intelligence"
 
@@ -25,6 +24,12 @@ need_bin() {
 
 need_bin git
 need_bin node
+NODE_BIN="$(command -v node)"
+
+if [[ ! -f "$REPO/tools/grepai-microbatch-reconciler.js" ]]; then
+  log "ERROR: canonical reconciler is missing at $REPO/tools/grepai-microbatch-reconciler.js"
+  exit 1
+fi
 
 if ! command -v grepai >/dev/null 2>&1; then
   log "Installing grepai via Homebrew…"
@@ -42,29 +47,6 @@ fi
 
 mkdir -p "$INDEX_ROOT" "$HOME_DIR/Library/Logs" "$HOME_DIR/Library/LaunchAgents"
 
-if [[ ! -d "$CLONE_PATH/.git" ]]; then
-  log "Cloning isolated index tree (plain clone, not a worktree)…"
-  git clone --depth 1 --single-branch --branch main "$REMOTE_URL" "$CLONE_PATH"
-else
-  log "Refreshing isolated clone…"
-  git -C "$CLONE_PATH" fetch origin main --depth 1
-  git -C "$CLONE_PATH" checkout main 2>/dev/null || git -C "$CLONE_PATH" checkout -B main origin/main
-  git -C "$CLONE_PATH" reset --hard origin/main
-fi
-
-if [[ ! -d "$CLONE_PATH/.grepai" ]]; then
-  log "grepai init (ollama + gob)…"
-  (cd "$CLONE_PATH" && grepai init --provider ollama --backend gob --yes)
-fi
-
-# Ensure watcher for this clone only (isolated .git → no worktree fan-out)
-if ! (cd "$CLONE_PATH" && grepai status 2>/dev/null | grep -qi 'Watcher: running'); then
-  log "Starting grepai watch --background on isolated clone…"
-  (cd "$CLONE_PATH" && grepai watch --background) || true
-else
-  log "grepai watcher already running for isolated clone"
-fi
-
 # hermes-context: index this monorepo + hermes-eval if present
 if command -v hermes-context >/dev/null 2>&1; then
   log "hermes-context index mac-yolo-safeguards…"
@@ -76,11 +58,30 @@ else
   log "WARN: hermes-context not on PATH (optional multi-repo CLI)"
 fi
 
-# LaunchAgent for daily refresh
+# Establish a source-bound generation before advertising MCP as available.
+# The reconciler builds in a separate plain clone, validates retrieval, and
+# atomically publishes only after success; it never indexes the worktree fleet.
+log "Reconciling latest origin/main into a verified grepai generation…"
+HERMES_SEMANTIC_INDEX_ROOT="$INDEX_ROOT" \
+HERMES_SEMANTIC_REMOTE="$REMOTE_URL" \
+  node "$REPO/tools/grepai-microbatch-reconciler.js" --once --json
+
+# Install the 60-second watchdog only after the initial generation commits, so
+# RunAtLoad cannot race the foreground bootstrap and make it observe `busy`.
 if [[ -f "$PLIST_SRC" ]]; then
-  sed "s|__HOME__|$HOME_DIR|g; s|__REPO__|$REPO|g" "$PLIST_SRC" >"$PLIST_DST"
+  sed \
+    -e "s|__HOME__|$HOME_DIR|g" \
+    -e "s|__REPO__|$REPO|g" \
+    -e "s|__NODE__|$NODE_BIN|g" \
+    -e "s|__INDEX_ROOT__|$INDEX_ROOT|g" \
+    -e "s|__REMOTE__|$REMOTE_URL|g" \
+    "$PLIST_SRC" >"$PLIST_DST"
+  plutil -lint "$PLIST_DST" >/dev/null
   launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
-  launchctl bootstrap "gui/$(id -u)" "$PLIST_DST" 2>/dev/null || launchctl load -w "$PLIST_DST" 2>/dev/null || true
+  if ! launchctl bootstrap "gui/$(id -u)" "$PLIST_DST"; then
+    launchctl load -w "$PLIST_DST"
+  fi
+  launchctl print "gui/$(id -u)/$LABEL" >/dev/null
   log "LaunchAgent $LABEL installed → $PLIST_DST"
 fi
 
@@ -90,5 +91,5 @@ if [[ -d "$REPO" ]]; then
 fi
 
 log "Status:"
-node "$REPO/tools/fleet-repo-intelligence-status.js" || true
-log "Done. MCP: repo .mcp.json already points grepai at $CLONE_PATH"
+node "$REPO/tools/fleet-repo-intelligence-status.js"
+log "MCP is gated on the committed source-bound generation receipt."
