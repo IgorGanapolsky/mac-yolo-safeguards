@@ -113,6 +113,14 @@ class TestCoverageGate(unittest.TestCase):
 
         `tinker_response_contract.py --render` previously printed the card and returned 0
         unconditionally, so callers using it bypassed the safeguard entirely.
+
+        Uses nonsense tokens, NOT the trademark question. render_response() pulls the
+        expert card from the local ~/.hermes snapshot, so a real-world question makes
+        this assertion depend on machine state: on a Mac whose snapshot had been
+        refreshed to cover Nous/trademark, --render legitimately returned 0 and this
+        test failed while CI (no ~/.hermes) stayed green. The rest of this CI step is
+        hermetic by contract; this case has to be too. Tokens that cannot appear in any
+        card make the expected coverage 0 regardless of ambient state.
         """
         import subprocess
         import tempfile
@@ -124,7 +132,8 @@ class TestCoverageGate(unittest.TestCase):
             card = fh.name
         try:
             p = subprocess.run(
-                [sys.executable, contract, "--render", "--card", card, "--question", TRADEMARK_Q],
+                [sys.executable, contract, "--render", "--card", card,
+                 "--question", "qzlmvx wibblesnort frobnication?"],
                 capture_output=True, text=True,
             )
             self.assertEqual(p.returncode, 3, f"--render did not signal no-coverage: rc={p.returncode}")
