@@ -1,12 +1,12 @@
 {
   "igor@igorganapolsky.com": {
-    "status": "unhealthy",
-    "lastProbe": "2026-07-31T18:44:05Z",
-    "detail": "DNS FIXED 2026-07-31: NS dns1/dns2.registrar-servers.com (was Cloudflare REFUSED SERVFAIL). MX mx1/mx2.privateemail.com + SPF live. SMTP send-as STILL fails: after-DNS probe msg 19fb97d9e55ee92b DSN 19fb97dac8d0396f ~3s. Need PrivateEmail mailbox password in Gmail send-as form."
+    "status": "ok",
+    "lastProbe": "2026-07-31T19:24:16Z",
+    "detail": "2026-07-31 PE free trial order 209871937 + mailbox igor@ created. SMTP AUTH OK. Direct SMTP + Gmail send-as probes delivered INBOX; no new DSN."
   },
   "iganapolsky@gmail.com": {
     "status": "ok",
-    "lastProbe": "2026-07-31T15:52:00Z",
-    "detail": "Delivers (Jason no-pitch reply 19fb8dcf4bdee316 landed in Sent without DSN). Temporary path until domain SMTP repaired; prefer Reply-To igor@ when forced."
+    "lastProbe": "2026-07-31T19:24:16Z",
+    "detail": "Delivers. Prefer igor@ domain for outreach."
   }
 }
