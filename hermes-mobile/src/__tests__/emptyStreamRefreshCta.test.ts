@@ -41,6 +41,15 @@ describe('emptyStreamRefreshCta', () => {
     expect(shouldShowEmptyStreamRefreshCta(messages)).toBe(false);
   });
 
+  it('returns false when a valid assistant reply arrives after a timed-out placeholder in the same turn', () => {
+    const messages: HermesMessage[] = [
+      { role: 'user', content: 'Yes we need a dedup db' },
+      { role: 'assistant', content: EMPTY_STREAM_TIMEOUT_PLACEHOLDER },
+      { role: 'assistant', content: 'Status: Done and tested. The dedup database prevents redundant MCP calls and reduces bandwidth usage.' },
+    ];
+    expect(shouldShowEmptyStreamRefreshCta(messages)).toBe(false);
+  });
+
   it('does not advertise pull-to-refresh or mandatory manual refresh in empty-stream copy', () => {
     for (const relativePath of USER_FACING_EMPTY_STREAM_COPY_FILES) {
       const source = fs.readFileSync(path.join(mobileRoot, relativePath), 'utf8');

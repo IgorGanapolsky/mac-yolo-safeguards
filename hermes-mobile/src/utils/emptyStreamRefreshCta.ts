@@ -4,7 +4,10 @@ import {
   EMPTY_STREAM_HARD_STOP_STATUS,
   shouldHardStopEmptyStreamWait,
 } from './emptyStreamReplyRecovery';
-import { EMPTY_STREAM_TIMEOUT_PLACEHOLDER } from './streamAssistantText';
+import {
+  EMPTY_STREAM_TIMEOUT_PLACEHOLDER,
+  isDeferredStreamPlaceholder,
+} from './streamAssistantText';
 
 /** Shown above composer while auto-polling for reply text after a soft timeout. */
 export const EMPTY_STREAM_REFRESH_BANNER_HINT =
@@ -34,7 +37,7 @@ export function messageIsEmptyStreamTimeout(content: string | undefined): boolea
   return body.startsWith('Still no reply text.');
 }
 
-/** True when the latest user turn ended with a timed-out empty-stream assistant bubble. */
+/** True when the latest user turn ended with a timed-out empty-stream assistant bubble and no valid reply has arrived. */
 export function shouldShowEmptyStreamRefreshCta(messages: readonly HermesMessage[]): boolean {
   let lastUserIndex = -1;
   for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -46,16 +49,27 @@ export function shouldShowEmptyStreamRefreshCta(messages: readonly HermesMessage
   if (lastUserIndex < 0) {
     return false;
   }
+  let hasTimeoutPlaceholder = false;
+  let hasValidAssistantReply = false;
+
   for (let index = lastUserIndex + 1; index < messages.length; index += 1) {
     const message = messages[index];
     if (message?.role?.toLowerCase() !== 'assistant') {
       continue;
     }
-    if (messageIsEmptyStreamTimeout(message.content)) {
-      return true;
+    const body = message.content?.trim() ?? '';
+    if (messageIsEmptyStreamTimeout(body)) {
+      hasTimeoutPlaceholder = true;
+    } else if (body && !isDeferredStreamPlaceholder(body)) {
+      hasValidAssistantReply = true;
     }
   }
-  return false;
+
+  if (hasValidAssistantReply) {
+    return false;
+  }
+
+  return hasTimeoutPlaceholder;
 }
 
 export const USER_FACING_EMPTY_STREAM_COPY_FILES = [

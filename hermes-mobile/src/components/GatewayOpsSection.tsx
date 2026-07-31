@@ -177,15 +177,17 @@ export default function GatewayOpsSection() {
   const [integrationsToolset, setIntegrationsToolset] = useState<HermesToolset | null>(null);
   const togglingToolsetRef = useRef<string | null>(null);
 
-  const filteredInstalledSkills = skills.filter((s) => {
-    if (!skillQuery.trim()) return true;
-    const q = skillQuery.trim().toLowerCase();
-    return (
-      s.name.toLowerCase().includes(q) ||
-      (s.description && s.description.toLowerCase().includes(q)) ||
-      (s.category && s.category.toLowerCase().includes(q))
-    );
-  });
+  const filteredInstalledSkills = skills
+    .filter((s) => {
+      if (!skillQuery.trim()) return true;
+      const q = skillQuery.trim().toLowerCase();
+      return (
+        s.name.toLowerCase().includes(q) ||
+        (s.description && s.description.toLowerCase().includes(q)) ||
+        (s.category && s.category.toLowerCase().includes(q))
+      );
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const marketplaceMatches = filterMarketplaceSkills(
     DEVELOPER_SKILLS_MARKETPLACE,
@@ -719,7 +721,9 @@ export default function GatewayOpsSection() {
               : 'No scheduled jobs yet.'}
           </Text>
         ) : (
-          jobs.map((job) => {
+          [...jobs]
+            .sort((a, b) => (a.name ?? a.id).localeCompare(b.name ?? b.id))
+            .map((job) => {
             const expanded = expandedJobIds.has(job.id);
             const detailLines = buildCronJobDetailLines(job);
             return (

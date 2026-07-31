@@ -219,7 +219,7 @@ export function partitionMobileToolsets(toolsets: HermesToolset[]): {
 } {
   const essentials = toolsets
     .filter((toolset) => isEssentialMobileToolset(toolset.name))
-    .sort(compareEssentialOrder);
+    .sort((a, b) => formatToolsetLabel(a.label, a.name).localeCompare(formatToolsetLabel(b.label, b.name)));
 
   const advanced = toolsets
     .filter((toolset) => {
