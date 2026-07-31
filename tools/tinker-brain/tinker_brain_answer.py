@@ -158,6 +158,11 @@ def render_from_route(
         )
         if fields.get("FUNNEL_STATE"):
             lines.append(f"Funnel: {fields['FUNNEL_STATE']}")
+        # Any answer that recommends outreach has to state whether outreach can be
+        # delivered. On 2026-07-29 six personalized emails were recorded as sent and
+        # never arrived, because the sending alias was broken.
+        if fields.get("SENDER_HEALTH"):
+            lines.append(f"Sender health: {fields['SENDER_HEALTH']}")
         # Explicit freeze/rail stamp so tiny models cannot invent FREEZE-as-cash-blocker.
         freeze_live = (fields.get("FREEZE_LIVE") or "").strip().lower()
         if freeze_live in {"true", "false"}:

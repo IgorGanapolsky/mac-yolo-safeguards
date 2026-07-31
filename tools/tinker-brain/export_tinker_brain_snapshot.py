@@ -35,6 +35,9 @@ REPO = Path(__file__).resolve().parents[2]
 EXPERT_SRC = REPO / "config" / "THUMBGATE_EXPERT_CARD.txt"
 RECEIPTS_DIR = Path.home() / ".hermes" / "receipts" / "tinker-brain"
 REVENUE_RECEIPT = RECEIPTS_DIR / "revenue-receipt.json"
+# Written by tools/outreach-delivery-guard.js. The brain recommends outreach but had
+# no way to know whether outreach can physically be delivered.
+DELIVERY_LEDGER = Path.home() / ".hermes" / "receipts" / "outreach" / "delivery-ledger.json"
 AEO_LATEST = Path.home() / ".hermes" / "receipts" / "thumbgate-aeo" / "latest.json"
 DEFAULT_OUT = (
     Path.home() / ".hermes" / "business-brain" / "data-snapshot" / "business_snapshot.json"
@@ -119,6 +122,75 @@ def probe_billing() -> dict[str, Any]:
     }
 
 
+def load_sender_health() -> dict[str, Any]:
+    """Can outreach actually be delivered right now?
+
+    The brain's standing advice includes "recruit design partners" and "ship a campaign
+    beat", both of which assume email leaves the building. On 2026-07-29 it did not:
+    every send from igor@igorganapolsky.com failed with Gmail's "Send mail as ...
+    misconfigured or out of date", six personalized emails to named humans were never
+    delivered, and the pipeline recorded them as sent. 34 DSNs accumulated in 30 days
+    with nothing reading them.
+
+    An alias counts as usable only when a delivery was observed AFTER its latest
+    failure — the same rule the delivery guard enforces. Missing ledger yields
+    present=False, never a cheerful default: "no evidence" must not read as "healthy".
+    """
+    ledger = load_json(DELIVERY_LEDGER)
+    if not ledger:
+        return {"present": False}
+    aliases = ledger.get("aliases") or {}
+    usable: list[str] = []
+    broken: list[str] = []
+    for alias, state in aliases.items():
+        if not isinstance(state, dict):
+            continue
+        last_ok = state.get("lastSuccessAt")
+        last_fail = state.get("lastFailureAt")
+        cleared = bool(last_ok) and (not last_fail or str(last_ok) > str(last_fail))
+        (usable if cleared else broken).append(alias)
+    return {
+        "present": True,
+        "usable_senders": sorted(usable),
+        "broken_senders": sorted(broken),
+        "hard_bounced_count": len(ledger.get("hardBounced") or {}),
+    }
+
+
+def sender_health_line(health: dict[str, Any]) -> str:
+    """One honest sentence about whether outreach advice is currently actionable.
+
+    Emits COUNTS ONLY — never the addresses themselves. Two reasons, one of which bit
+    during development: the response contract raises focus_channel_mismatch on any answer
+    containing "gmail", and a single violation makes the answerer discard the whole reply
+    and fall back to a minimal card dump. Interpolating a real address like
+    "...@gmail.com" therefore silently degraded EVERY answer. Addresses stay in the
+    snapshot JSON and the ledger, where an operator can read them; the rendered answer
+    only needs the state. This also keeps addresses out of rendered output generally.
+    """
+    if not health.get("present"):
+        return (
+            "No delivery ledger — sender health unverified. Do not assume outreach is "
+            "being delivered; probe before recommending a send."
+        )
+    usable = len(health.get("usable_senders") or [])
+    broken = len(health.get("broken_senders") or [])
+    bounced = health.get("hard_bounced_count") or 0
+    parts: list[str] = []
+    if broken:
+        parts.append(
+            f"{broken} sending identity(ies) proven NOT delivering — sends from those "
+            "report SENT and are never received"
+        )
+    if usable:
+        parts.append(f"{usable} verified-delivering identity(ies) available")
+    else:
+        parts.append("NO sending identity is verified-delivering — outreach advice is not actionable")
+    if bounced:
+        parts.append(f"{bounced} address(es) hard-bounced and must not be retried")
+    return "; ".join(parts) + " (identities in snapshot JSON, not rendered here)."
+
+
 def load_revenue_receipt() -> dict[str, Any]:
     """Verified cash truth. Absent receipt = $0 external, honestly."""
     receipt = load_json(REVENUE_RECEIPT)
@@ -197,9 +269,11 @@ def build_snapshot(
     revenue: dict[str, Any] | None = None,
     aeo: dict[str, Any] | None = None,
     system_scores: dict[str, Any] | None = None,
+    sender_health: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     health = health if health is not None else probe_health()
     billing = billing if billing is not None else probe_billing()
+    sender_health = sender_health if sender_health is not None else load_sender_health()
     revenue = revenue if revenue is not None else load_revenue_receipt()
     aeo = aeo if aeo is not None else aeo_summary()
     system_scores = (
@@ -304,7 +378,13 @@ def build_snapshot(
             "why_external_zero_if_zero": why_zero,
             "receipt": revenue,
         },
-        "live": {"health": health, "billing": billing, "live_price_line": live_price},
+        "live": {
+            "health": health,
+            "billing": billing,
+            "live_price_line": live_price,
+            "sender_health": sender_health,
+            "sender_health_line": sender_health_line(sender_health),
+        },
         "system_scores": system_scores,
         "aeo_monitor": aeo,
         "next_money_action": next_money,
@@ -387,6 +467,8 @@ def write_snapshot(out: Path, payload: dict[str, Any]) -> None:
                     "THUMBGATE_HEALTH="
                     f"status={health.get('status')}; ok={str(bool(health.get('ok'))).lower()}"
                 ),
+                # Outreach advice is only actionable if mail can physically leave.
+                f"SENDER_HEALTH={live.get('sender_health_line')}",
                 f"AEO_MONITOR={aeo_line}",
                 f"EXTERNAL_USD={cash.get('external_net_usd')}  (cents={cash.get('external_net_cents')})",
                 (

@@ -223,3 +223,63 @@ class EvalHarnessTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+# --- Sender health sense (2026-07-31) ---------------------------------------
+# The brain recommends outreach ("recruit design partners", "ship a campaign beat")
+# but had no way to know whether mail can physically be delivered. On 2026-07-29
+# every send from igor@igorganapolsky.com failed with Gmail's "Send mail as ...
+# misconfigured", six personalized emails to named humans were never received, and
+# the pipeline recorded them as sent. 34 DSNs accrued in 30 days, unread.
+def test_sender_health_line():
+    from export_tinker_brain_snapshot import sender_health_line
+
+    # Missing ledger must never read as healthy.
+    absent = sender_health_line({"present": False})
+    assert "unverified" in absent
+    assert "Do not assume" in absent
+
+    # A broken-only ledger must say outreach advice is NOT actionable.
+    broken = sender_health_line({
+        "present": True, "usable_senders": [],
+        "broken_senders": ["igor@igorganapolsky.com"], "hard_bounced_count": 5,
+    })
+    assert "NOT delivering" in broken
+    assert "not actionable" in broken
+    assert "5 address(es) hard-bounced" in broken
+
+    # The real 2026-07-31 state: one broken alias, one proven-delivering alias.
+    mixed = sender_health_line({
+        "present": True, "usable_senders": ["iganapolsky@gmail.com"],
+        "broken_senders": ["igor@igorganapolsky.com"], "hard_bounced_count": 5,
+    })
+    assert "1 verified-delivering identity(ies) available" in mixed
+    assert "not actionable" not in mixed
+
+
+def test_sender_health_alias_cleared_only_by_later_success():
+    from export_tinker_brain_snapshot import load_sender_health
+    import json, tempfile, pathlib, export_tinker_brain_snapshot as ex
+
+    with tempfile.TemporaryDirectory() as tmp:
+        led = pathlib.Path(tmp) / "delivery-ledger.json"
+        led.write_text(json.dumps({
+            "aliases": {
+                "older-success@x.com": {"lastSuccessAt": "2026-07-01T00:00:00Z",
+                                        "lastFailureAt": "2026-07-29T00:00:00Z"},
+                "repaired@x.com": {"lastSuccessAt": "2026-07-31T00:00:00Z",
+                                   "lastFailureAt": "2026-07-29T00:00:00Z"},
+            },
+            "hardBounced": {"a@b.com": {}},
+        }))
+        original = ex.DELIVERY_LEDGER
+        try:
+            ex.DELIVERY_LEDGER = led
+            health = load_sender_health()
+        finally:
+            ex.DELIVERY_LEDGER = original
+
+    # A success BEFORE the failure does not clear the alias.
+    assert health["broken_senders"] == ["older-success@x.com"]
+    assert health["usable_senders"] == ["repaired@x.com"]
+    assert health["hard_bounced_count"] == 1
