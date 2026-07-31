@@ -532,7 +532,7 @@ describe('ChatScreenHeader', () => {
     );
 
     expect(getByTestId('chat-header-hermes-status').props.children).toBe(
-      'Hermes (active) · qwen3:8b-64k · In: 34,000 | Out: 128',
+      'Hermes (active) · qwen3:8b-64k · Tokens in: 34,000 | out: 128',
     );
   });
 });

@@ -306,7 +306,7 @@ describe('formatRunTokenSummary / buildConnectedModelTokenLabel', () => {
         outputTokens: 30,
         streamUsageLive: true,
       }),
-    ).toBe('In: 120 | Out: 30');
+    ).toBe('Tokens in: 120 | out: 30');
   });
 
   it('builds always-visible Connected chrome with short model + session total', () => {
@@ -332,7 +332,7 @@ describe('formatRunTokenSummary / buildConnectedModelTokenLabel', () => {
           streamUsageLive: true,
         },
       }),
-    ).toBe('GLM 5.2 · In: 1200 | Out: 340');
+    ).toBe('GLM 5.2 · Tokens in: 1200 | out: 340');
   });
 
   it('shows em dash for active run without gateway usage yet', () => {

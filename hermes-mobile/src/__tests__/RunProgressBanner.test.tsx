@@ -131,7 +131,7 @@ describe('RunProgressBanner', () => {
         }}
       />,
     );
-    expect(getByText('In: 0 | Out: 0')).toBeTruthy();
+    expect(getByText('Tokens in: 0 | out: 0')).toBeTruthy();
   });
 
   it('updates terminal missing-usage copy without waiting for token debounce', () => {
@@ -174,7 +174,7 @@ describe('RunProgressBanner', () => {
         }}
       />,
     );
-    expect(getByText('In: 89041 | Out: 1989')).toBeTruthy();
+    expect(getByText('Tokens in: 89041 | out: 1989')).toBeTruthy();
   });
 
   it('shows live model from tool.progress during active runs', () => {
@@ -193,7 +193,7 @@ describe('RunProgressBanner', () => {
       />,
     );
     expect(getByText('Hermes Local Fast')).toBeTruthy();
-    expect(getByText('In: 66476 | Out: 535')).toBeTruthy();
+    expect(getByText('Tokens in: 66476 | out: 535')).toBeTruthy();
   });
 
   it('uses fallbackModel when progress model is a gateway platform label', () => {
@@ -253,7 +253,7 @@ describe('RunProgressBanner', () => {
         }}
       />,
     );
-    expect(getByText('In: 12 | Out: 3')).toBeTruthy();
+    expect(getByText('Tokens in: 12 | out: 3')).toBeTruthy();
     expect(queryByTestId('run-progress-stats')).toBeTruthy();
     expect(queryByText('MODEL')).toBeNull();
   });
@@ -329,7 +329,7 @@ describe('RunProgressBanner', () => {
     expect(getByTestId('run-progress-toggle')).toBeTruthy();
     expect(getByTestId('run-progress-stats')).toBeTruthy();
     expect(getByText('Gemini 2.5 Flash')).toBeTruthy();
-    expect(getByText('In: 120 | Out: 45')).toBeTruthy();
+    expect(getByText('Tokens in: 120 | out: 45')).toBeTruthy();
   });
 
   it('collapses model and token stats while keeping status header', () => {
@@ -351,7 +351,7 @@ describe('RunProgressBanner', () => {
     expect(getByTestId('run-progress-detail').props.children).toBe('Delivering your message…');
     expect(queryByTestId('run-progress-stats')).toBeNull();
     expect(queryByText('Gemini 2.5 Flash')).toBeNull();
-    expect(queryByText('In: 120 | Out: 45')).toBeNull();
+    expect(queryByText('Tokens in: 120 | out: 45')).toBeNull();
   });
 
   it('toggles details when tapping the header row', () => {

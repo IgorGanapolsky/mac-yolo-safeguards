@@ -191,7 +191,7 @@ export function formatRunTokenSummary(
     if (!progress.streamUsageLive && (input ?? 0) === 0 && (output ?? 0) === 0) {
       return '—';
     }
-    return `In: ${input ?? 0} | Out: ${output ?? 0}`;
+    return `Tokens in: ${input ?? 0} | out: ${output ?? 0}`;
   }
   if (progress.totalTokens != null) {
     if (!progress.streamUsageLive && progress.totalTokens === 0) {
