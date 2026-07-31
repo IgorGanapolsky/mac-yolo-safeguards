@@ -75,7 +75,9 @@ def _thumbgate_sections_for_flags(flags: dict[str, Any]) -> list[str]:
     if flags.get("wants_gtm_positioning"):
         wanted += ["POSITIONING", "BUYER"]
     if flags.get("wants_gtm_pricing"):
-        wanted += ["PRICING", "PRODUCT"]
+        # POSITIONING is required on pricing: competitor hosts (Abacus/Nous/…)
+        # price the wedge. PRICING alone hid the most pricing-critical intel.
+        wanted += ["PRICING", "PRODUCT", "POSITIONING"]
     if flags.get("wants_gtm_marketing"):
         wanted += ["CHANNELS", "PROMO_RULES"]
     if flags.get("wants_gtm_sales"):
@@ -288,8 +290,22 @@ def answer(
     violations: list[str] = []
     if enforce_contract:
         violations = validate_response(text, card_text, user_question)
+        if violations and routing.get("primary") == INTENT_THUMBGATE_GTM:
+            # GTM answers that only fail cash-stamp or channel-noise checks should
+            # keep the expert card visible — not collapse to a cash dump that
+            # drops Focus:/Route: and hides [PRICING]/[POSITIONING].
+            fields = parse_card(card_text)
+            if "Cash: external" not in text:
+                text = (
+                    text.rstrip()
+                    + "\n"
+                    + f"Cash: external {_usd_field(fields, 'EXTERNAL_USD')}. "
+                    + f"Owner/test {_usd_field(fields, 'OWNER_TEST_USD')} and is not revenue.\n"
+                    + f"Why external cash is zero: {fields.get('WHY_ZERO', 'not evidenced')}\n"
+                )
+            violations = validate_response(text, card_text, user_question)
         if violations:
-            # Fail closed: minimal cash-safe card dump
+            # Fail closed: minimal cash-safe card dump (non-GTM, or GTM still dirty)
             fields = parse_card(card_text)
             text = (
                 f"AS_OF={fields.get('AS_OF', 'not evidenced')}\n"

@@ -42,7 +42,8 @@ OFF_SCOPE_PATTERNS = (
 THUMBGATE_PATTERNS = (
     r"\bthumb\s?gate\b",
     r"thumbgate\.app",
-    r"\bcontinuity add-?on\b",
+    r"\bcontinuity\b",  # paid Continuity SKU (not only "continuity add-on")
+    r"\bleash\b",  # approval surface — durable wedge vs always-on hosts
 )
 
 GTM_POSITIONING_PATTERNS = (
@@ -52,6 +53,10 @@ GTM_POSITIONING_PATTERNS = (
     r"\bdifferentiat\w*",
     r"\bmessaging\b",
     r"\bnarrative\b",
+    r"\babacus\b",
+    r"\bsupercomputer\b",
+    r"\bnous\b",
+    r"\bminimax\b",
 )
 
 GTM_PRICING_PATTERNS = (
@@ -63,6 +68,8 @@ GTM_PRICING_PATTERNS = (
     r"\bfreemium\b",
     r"\bfree trial\b",
     r"\bupsell\b",
+    r"\bcharge\b",
+    r"\bwhat (?:should|do) we (?:charge|ask)\b",
 )
 
 GTM_MARKETING_PATTERNS = (
@@ -217,6 +224,12 @@ def route(question: str) -> dict[str, Any]:
     # "make money" is next-money unless the user is clearly diagnosing zero cash.
     if flags["wants_make_money_action"] and not flags["cash_diagnosis"]:
         flags["wants_next_money"] = True
+    # Product + cost/charge/price language is a pricing question even when the
+    # word "price" is missing ("how much should Continuity cost?").
+    if flags["wants_thumbgate_product"] and _match_any(
+        lowered, (r"\bcosts?\b", r"\bcharge\b", r"\bhow much\b", r"\$\d+")
+    ):
+        flags["wants_gtm_pricing"] = True
     gtm_hit = (
         flags["wants_gtm_positioning"]
         or flags["wants_gtm_pricing"]
@@ -229,9 +242,17 @@ def route(question: str) -> dict[str, Any]:
     # not when asking about the ban as policy.
     if flags["off_scope_hit"] and flags["wants_improve"] and not flags["wants_thumbgate_gtm"]:
         primary = INTENT_OFF_SCOPE
-    elif flags["wants_thumbgate_gtm"] and not flags["cash_diagnosis"]:
+    elif flags["wants_thumbgate_gtm"] and (
+        not flags["cash_diagnosis"]
+        or flags["wants_gtm_pricing"]
+        or flags["wants_gtm_positioning"]
+        or flags["wants_gtm_marketing"]
+    ):
         # Primary product first: any ThumbGate.app mention or monetize/market/
         # promote/sell/position question gets the expert GTM answer family.
+        # Pricing/positioning/marketing beat bare cash_diagnosis so
+        # "reassess Continuity pricing" does not collapse to cash-only.
+        # Pure "why zero dollars from thumbgate sales?" stays cash_truth.
         primary = INTENT_THUMBGATE_GTM
     elif flags["wants_methods"] and not flags["wants_cash"]:
         primary = INTENT_METHODS

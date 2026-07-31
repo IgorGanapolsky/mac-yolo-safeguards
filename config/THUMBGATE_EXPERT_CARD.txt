@@ -1,6 +1,6 @@
 THUMBGATE_EXPERT_CARD v1
-AS_OF_RESEARCH: 2026-07-27
-SOURCES: mac-yolo-safeguards/docs/RESEARCH-THUMBGATE-{APP-POSITIONING,PAID-COMPANION,AEO,FRICTIONLESS,GOVERNED-AGENTS,CONTINUITY-VPS}-JULY-2026.md, THUMBGATE-AEO-MONITORING.md, social/hermes-mobile-content-log.tsv (2026-07-27 fan-out), PR #1075 lesson (commit 259b1126)
+AS_OF_RESEARCH: 2026-07-31
+SOURCES: mac-yolo-safeguards/docs/RESEARCH-THUMBGATE-{APP-POSITIONING,PAID-COMPANION,AEO,FRICTIONLESS,GOVERNED-AGENTS,CONTINUITY-VPS}-JULY-2026.md, THUMBGATE-AEO-MONITORING.md, social/hermes-mobile-content-log.tsv (2026-07-27 fan-out), PR #1075 lesson (commit 259b1126), Abacus SuperComputer docs (pre-baked Hermes app, 2026-07-31 primary-source check)
 RULE: answer GTM questions from this card only; live prices from /api/billing/plan outrank this card; never invent numbers.
 
 [PRODUCT]
@@ -21,17 +21,23 @@ Buyer wants local-first privacy: local execution stays free; the Mac stays prima
 [POSITIONING]
 Winning frame: "Upgrade Hermes with ThumbGate" — additive web dashboard plus optional paid Continuity on top of Hermes Mobile. Never rescue framing.
 Category white-space: nobody mainstream sells "Mac is primary; pay only for offline continuation" as a clean SKU. Own that wedge.
-Competitors: Cursor Background Agent (~$20/mo cloud-first), Claude Code (~$20 Pro), OpenAI Codex Cloud, Devin/Factory (~$20+ always-cloud), OpenHands Cloud, free OSS local (Aider/Cline/Continue — no Continuity SKU), OneCLI (credential-gateway layer).
-Differentiation: own privacy/local-first resilience; sell resilience, not compute; do not race token tiers.
-Current beat (2026-07-27): "two decisions" framing — free browser Leash/tool approval first; Continuity optional and still proving out.
-Rejected framings: firewall-lecture copy that buries Continuity; rescue copy (PR #1075).
+Competitors (cloud-agent cluster ~$20/mo): Cursor Background Agent, Claude Code, OpenAI Codex Cloud, Devin/Factory, OpenHands Cloud; free OSS local (Aider/Cline/Continue — no Continuity SKU); OneCLI (credential-gateway layer).
+Market settlement signal (2026-07-31): four independent hosts converge on always-on cloud Hermes — Buzz commoditising the gate, Nous hosting the framework at $20–200, MiniMax one-click hosted Hermes, Abacus SuperComputer shipping Hermes as a pre-baked one-click app with "Continuous Operation — Deployed on SuperComputer, Hermes runs 24/7" (primary source: Abacus SuperComputer docs).
+Abacus SuperComputer ($20 Pro / 30k credits): 1 credit per 5 minutes ⇒ ~8,640 credits/mo for 24/7 Hermes (~29% of allowance); remaining tier still includes a root Ubuntu VM, SSH, Docker, managed DBs, object storage, domains, reverse proxy, CI wiring, and frontier model access. That is Continuity's offline-VPS premise sold as a checkbox, not a SKU.
+Durable wedge is the Leash (human-in-the-loop tool approval), orthogonal to *where* the agent runs. Always-on cloud agents need approval gating more, not less — Abacus docs do not describe a HITL control surface for those 24/7 agents (absence-inferred; verify before betting the company on it).
+Buyer tension: card ICP wants local-first privacy; Continuity works by shipping eligible work to a fenced VPS. People most drawn to Continuity may be the ones it least suits.
+Differentiation: own privacy/local-first resilience via Leash + local-primary control; do not race always-on compute or token tiers.
+Current beat: free browser Leash/tool approval first; Continuity optional and still proving out — do not lead with "Mac offline" when the market already runs Hermes always-on.
+Rejected framings: firewall-lecture copy that buries Continuity; rescue copy (PR #1075); anonymous spam promo into a dated funnel.
 
 [PRICING]
-Hold Continuity at $10/mo — deliberately below the ~$20 mass-market agent cluster.
-Charge for resilience events (cloud continuations), never per-token.
-Caps are the commercial envelope: trial 5 / Pro 100 / Team 500 continuations per 30 days, enforced server-side at claim time.
-Hermes Mobile is the paid native app; ThumbGate is the additive upsell. Mobile promo card links to live #pricing with UTM and embeds no dollar amount.
-Deferred until real demand: Stripe usage meters; per-token pricing; enterprise compliance packages (need a buyer first); process migration (needs >=100 paying users + liability posture).
+Strategic warning (2026-07-31): Abacus pre-baked always-on Hermes under a $20 tier deletes the problem Continuity is priced to solve ("when the Mac goes offline"). Charging $10/mo for 100 offline continuations while always-on hosts give away the premise is an inversion — commoditised half paid, durable Leash half free.
+Hold Continuity at $10/mo only as a temporary envelope until Leash is the paid wedge or Continuity is re-scoped; re-read https://thumbgate.app/api/billing/plan before any campaign.
+Charge for resilience events (cloud continuations) or approval control — never per-token races against 30k-credit hosts.
+Caps remain the commercial envelope: trial 5 / Pro 100 / Team 500 continuations per 30 days, enforced server-side at claim time.
+Hermes Mobile is the paid native app; ThumbGate web is the additive control plane. Mobile promo card links to live #pricing with UTM and embeds no dollar amount.
+Deferred until real demand + verified HITL gap in always-on hosts: Stripe usage meters; per-token pricing; enterprise compliance packages; process migration; any claim that Continuity is the only offline path.
+Do not market Continuity with banned uptime overclaims — those claims are what always-on hosts already sell.
 
 [CHANNELS]
 Fan-out matrix: LinkedIn, X, Bluesky, Threads, dev.to, Medium, Hacker News (Show HN), YouTube community. Reddit is draft-only under the standing burn rule (no promo without explicit override). Hashnode frozen.
@@ -61,3 +67,5 @@ External revenue $0 as of 2026-07-20; only 1 paid org (own workspace); no extern
 55% activation / 18% trial-conversion figures are secondary-source hypotheses, not measured truth; funnel has ~2 internal accounts.
 Same-day canaries pass but no 30-day SLO; ~10 completed / 5 failed tasks all-time; 150s local-timeout class open; Mac-only tool gap on cloud runner is top churn risk.
 Play installs "0+", iOS 0 ratings (2026-07-25); channel reach unproven; AEO monitor is a citation proxy, not real AI Overview telemetry.
+Abacus HITL absence is inferred from SuperComputer docs, not product-tested; confirm before repositioning entirely onto Leash.
+Prior GTM delivery bug (fixed 2026-07-31): competitor stacks mentioning CI hosts tripped off_scope_github and wiped expert answers to a cash dump — pricing questions must surface [PRICING]+[POSITIONING]; do not trust cash-only replies as GTM guidance.

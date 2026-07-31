@@ -175,26 +175,34 @@ def validate_response(response: str, card_text: str, user_question: str) -> list
 
     question_lower = user_question.lower()
     card_lower = card_text.lower()
-    if "obsidian" in lowered and "obsidian" not in question_lower and "obsidian" not in card_lower:
-        violations.append("off_scope_obsidian")
-    if "github" in lowered and "github" not in question_lower and "github" not in card_lower:
-        violations.append("off_scope_github")
-    focus_lower = fields.get("FOCUS", "").lower()
-    if "skool" in focus_lower and "reddit" in focus_lower:
-        if "github" in lowered:
-            violations.append("focus_channel_mismatch")
-        if "gmail" in lowered:
-            violations.append("focus_channel_mismatch")
+    try:
+        from tinker_brain_router import route as _route
+    except ModuleNotFoundError:
+        _route = None  # type: ignore
+    primary = _route(user_question)["primary"] if _route else ""
+    # Competitor stack lists on GTM answers legitimately mention GitHub/Gmail
+    # (e.g. Abacus SuperComputer feature tables). Those are not "switch our
+    # acquisition rail" recommendations — only ban them off the GTM route.
+    if primary != "thumbgate_gtm":
+        if "obsidian" in lowered and "obsidian" not in question_lower and "obsidian" not in card_lower:
+            violations.append("off_scope_obsidian")
+        if "github" in lowered and "github" not in question_lower and "github" not in card_lower:
+            violations.append("off_scope_github")
+        focus_lower = fields.get("FOCUS", "").lower()
+        if "skool" in focus_lower and "reddit" in focus_lower:
+            if "github" in lowered:
+                violations.append("focus_channel_mismatch")
+            if "gmail" in lowered:
+                violations.append("focus_channel_mismatch")
+    else:
+        # Still block vault digressions even on GTM.
+        if "obsidian" in lowered and "obsidian" not in question_lower and "obsidian" not in card_lower:
+            violations.append("off_scope_obsidian")
     if any(token in lowered for token in UNSUPPORTED_STACK_TERMS):
         violations.append("unsupported_stack_recommendation")
     # ThumbGate.app has a real 14-day trial SKU, so trial language is legitimate
     # on its GTM routes; elsewhere it is still an invented offer change.
     if "free trial" in lowered or "free demo" in lowered:
-        try:
-            from tinker_brain_router import route as _route
-        except ModuleNotFoundError:
-            _route = None  # type: ignore
-        primary = _route(user_question)["primary"] if _route else ""
         if primary != "thumbgate_gtm":
             violations.append("unsupported_offer_change")
     if any(

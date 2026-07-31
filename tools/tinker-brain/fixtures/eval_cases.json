@@ -27,7 +27,28 @@
       "id": "price_continuity",
       "question": "How should we price Continuity?",
       "expect_route": "thumbgate_gtm",
-      "must_contain": ["[PRICING]", "$10/mo", "never per-token"],
+      "must_contain": ["[PRICING]", "[POSITIONING]", "$10/mo", "Abacus", "never per-token"],
+      "must_not_contain": []
+    },
+    {
+      "id": "price_vs_abacus_delivers_card",
+      "question": "How should we price Continuity against Abacus SuperComputer?",
+      "expect_route": "thumbgate_gtm",
+      "must_contain": ["Focus:", "Route: thumbgate_gtm", "[PRICING]", "[POSITIONING]", "Abacus", "Leash"],
+      "must_not_contain": ["endpoint security"]
+    },
+    {
+      "id": "reassess_pricing_not_cash_only",
+      "question": "Reassess pricing for Continuity",
+      "expect_route": "thumbgate_gtm",
+      "must_contain": ["[PRICING]", "Focus:"],
+      "must_not_contain": []
+    },
+    {
+      "id": "continuity_cost_routes_pricing",
+      "question": "How much money should Continuity cost?",
+      "expect_route": "thumbgate_gtm",
+      "must_contain": ["[PRICING]", "Focus:"],
       "must_not_contain": []
     },
     {
