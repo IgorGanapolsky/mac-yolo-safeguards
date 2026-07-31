@@ -26,6 +26,7 @@ function it(name, fn) {
 
 /** A well-formed message, so each test isolates one variable. */
 const GOOD = {
+  from: "iganapolsky@gmail.com",
   to: ["harper@2389.ai"],
   subject: "In-flight requests that can't be cancelled — coven-gateway #67",
   body: "Saw your issue about in-flight requests that cannot be cancelled. I hit the same shape: "
@@ -155,9 +156,16 @@ it("warns, but does not block, on a sender with no probe record", () => {
   assert.match(r.warnings.join(" "), /No probe record/);
 });
 
+it("BLOCKS the documented default domain sender when unhealthy", () => {
+  // CLI defaults --from to igor@ when omitted. check() with that sender must block.
+  const r = check({ ...GOOD, from: "igor@igorganapolsky.com" });
+  assert.strictEqual(r.ok, false);
+  assert.match(r.blocks.join(" "), /UNHEALTHY/);
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
-if (passed < 19) {
-  console.log(`FAIL only ${passed} assertions ran; expected at least 19. Vacuous pass.`);
+if (passed < 20) {
+  console.log(`FAIL only ${passed} assertions ran; expected at least 20. Vacuous pass.`);
   process.exit(1);
 }
 process.exit(failed === 0 ? 0 : 1);

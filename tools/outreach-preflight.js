@@ -34,9 +34,10 @@
  * Sender reputation is an asset the loop spends without measuring.
  *
  * Usage:
- *   node tools/outreach-preflight.js --to a@b.com --subject "..." --body-file draft.md \
- *        [--evidence "https://news.ycombinator.com/item?id=..."] [--json]
+ *   node tools/outreach-preflight.js --from igor@igorganapolsky.com --to a@b.com --subject "..." \
+ *        --body-file draft.md --verified-by apollo --evidence "https://..." [--json]
  *   node tools/outreach-preflight.js --batch prospects.json
+ * Default --from is igor@igorganapolsky.com (domain). Missing/unhealthy from is BLOCK.
  *
  * Exit: 0 clear to draft · 1 BLOCKED · 2 usage error
  */
@@ -206,8 +207,55 @@ function main() {
     console.log(fs.readFileSync(__filename, "utf8").split("*/")[0]);
     return 2;
   }
+
+  // Default sender is the domain alias — the path that burned five prospects while
+  // looking "configured". Always validate health; never silently skip.
+  const DEFAULT_FROM = "igor@igorganapolsky.com";
+
+  if (flag(argv, "batch")) {
+    const batchPath = flag(argv, "batch");
+    if (!batchPath || !fs.existsSync(batchPath)) {
+      console.error(`outreach-preflight: --batch file missing: ${batchPath || "(none)"}`);
+      return 2;
+    }
+    let rows;
+    try {
+      rows = JSON.parse(fs.readFileSync(batchPath, "utf8"));
+    } catch (e) {
+      console.error(`outreach-preflight: --batch not valid JSON: ${e.message}`);
+      return 2;
+    }
+    if (!Array.isArray(rows)) {
+      console.error("outreach-preflight: --batch must be a JSON array of message objects");
+      return 2;
+    }
+    let anyBlocked = false;
+    const results = [];
+    for (const [i, row] of rows.entries()) {
+      const r = check({
+        to: row.to || row.email || [],
+        subject: row.subject || "",
+        body: row.body || "",
+        evidence: row.evidence || null,
+        verifiedBy: row.verifiedBy || row.verified_by || null,
+        from: row.from || flag(argv, "from") || DEFAULT_FROM,
+        priorThread: Boolean(row.priorThread || row.prior_thread),
+      });
+      results.push({ index: i, ...r });
+      if (!r.ok) anyBlocked = true;
+      if (!argv.includes("--json")) {
+        console.log(`[${i}] ${r.ok ? "CLEAR" : "BLOCKED"} ${(Array.isArray(row.to) ? row.to[0] : row.to || row.email || "?")}`);
+        for (const b of r.blocks) console.log(`  BLOCK: ${b}`);
+      }
+    }
+    if (argv.includes("--json")) console.log(JSON.stringify(results, null, 2));
+    else console.log(`outreach-preflight batch: ${anyBlocked ? "BLOCKED" : "CLEAR"} (${results.length} rows)`);
+    return anyBlocked ? 1 : 0;
+  }
+
   const bodyFile = flag(argv, "body-file");
   const body = bodyFile && fs.existsSync(bodyFile) ? fs.readFileSync(bodyFile, "utf8") : flag(argv, "body", "");
+  const from = flag(argv, "from") || DEFAULT_FROM;
 
   const result = check({
     to: (flag(argv, "to", "") || "").split(",").map((s) => s.trim()).filter(Boolean),
@@ -215,14 +263,14 @@ function main() {
     body,
     evidence: flag(argv, "evidence"),
     verifiedBy: flag(argv, "verified-by"),
-    from: flag(argv, "from"),
+    from,
     priorThread: argv.includes("--prior-thread"),
   });
 
   if (argv.includes("--json")) {
     console.log(JSON.stringify(result, null, 2));
   } else {
-    console.log(`outreach-preflight: ${result.ok ? "CLEAR TO DRAFT" : "BLOCKED"}`);
+    console.log(`outreach-preflight: ${result.ok ? "CLEAR TO DRAFT" : "BLOCKED"} (from ${from})`);
     for (const b of result.blocks) console.log(`  BLOCK: ${b}`);
     for (const w of result.warnings) console.log(`  note:  ${w}`);
   }
