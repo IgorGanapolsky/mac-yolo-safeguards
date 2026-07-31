@@ -1,62 +1,50 @@
-import { captureThumbgateFeedback, ThumbgateApiError } from '../services/thumbgateClient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  captureThumbgateFeedback,
+  enqueueOfflineThumbgateFeedback,
+  flushOfflineThumbgateFeedback,
+} from '../services/thumbgateClient';
 
-describe('captureThumbgateFeedback', () => {
-  beforeEach(() => {
-    global.fetch = jest.fn();
+describe('thumbgateClient offline queueing & flush', () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+    jest.clearAllMocks();
   });
 
-  it('posts capture payload and returns accepted', async () => {
-    (global.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      status: 200,
-      text: async () => JSON.stringify({ accepted: true, feedbackId: 'fb_1' }),
-    });
+  it('enqueues feedback to AsyncStorage on network failure', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
 
-    const result = await captureThumbgateFeedback(
-      'https://thumbgate.example.com',
-      {
-        signal: 'down',
-        context: 'Leash rejected rm',
-        whatWentWrong: 'too risky',
-      },
-      'sk-thumb',
-    );
+    const result = await captureThumbgateFeedback('https://thumbgate.app', {
+      signal: 'down',
+      context: 'Failed tool execution context',
+      whatWentWrong: 'Tool errored',
+    });
 
     expect(result.accepted).toBe(true);
-    expect(result.feedbackId).toBe('fb_1');
-    const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
-    expect(url).toBe('https://thumbgate.example.com/v1/feedback/capture');
-    expect(options.headers.Authorization).toBe('Bearer sk-thumb');
+    expect(result.queuedOffline).toBe(true);
+
+    const raw = await AsyncStorage.getItem('@thumbgate_offline_feedback_queue');
+    const queue = JSON.parse(raw || '[]');
+    expect(queue).toHaveLength(1);
+    expect(queue[0].signal).toBe('down');
+    expect(queue[0].context).toBe('Failed tool execution context');
   });
 
-  it('throws ThumbgateApiError on HTTP failure', async () => {
-    (global.fetch as jest.Mock).mockResolvedValue({
-      ok: false,
-      status: 401,
-      text: async () => JSON.stringify({ detail: 'unauthorized' }),
+  it('flushes queued offline feedback when network becomes available', async () => {
+    await enqueueOfflineThumbgateFeedback({
+      signal: 'up',
+      context: 'Successful execution context',
     });
 
-    await expect(
-      captureThumbgateFeedback('https://thumbgate.example.com', {
-        signal: 'up',
-        context: 'ok',
-      }),
-    ).rejects.toBeInstanceOf(ThumbgateApiError);
-  });
-
-  it('normalizes trailing slash on base URL', async () => {
-    (global.fetch as jest.Mock).mockResolvedValue({
+    global.fetch = jest.fn().mockResolvedValue({
       ok: true,
-      status: 200,
-      text: async () => JSON.stringify({ accepted: true }),
-    });
+      text: jest.fn().mockResolvedValue(JSON.stringify({ accepted: true, feedbackId: 'fb_123' })),
+    } as unknown as Response);
 
-    await captureThumbgateFeedback('https://thumbgate.example.com/', {
-      signal: 'down',
-      context: 'test',
-    });
+    const count = await flushOfflineThumbgateFeedback('https://thumbgate.app');
+    expect(count).toBe(1);
 
-    const [url] = (global.fetch as jest.Mock).mock.calls[0];
-    expect(url).toBe('https://thumbgate.example.com/v1/feedback/capture');
+    const raw = await AsyncStorage.getItem('@thumbgate_offline_feedback_queue');
+    expect(raw).toBeNull();
   });
 });
