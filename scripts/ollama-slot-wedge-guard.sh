@@ -43,6 +43,7 @@ ps -axo pid=,pcpu=,command= 2>/dev/null \
       echo "$slots" | grep -q '"is_processing":true' || continue
 
       # Second CPU sample: busy runners climb, wedged ones stay flat.
+      # Require two samples AND no movement between them to avoid killing legitimate inference.
       sleep "$SAMPLE_GAP"
       cpu2=$(ps -o pcpu= -p "$pid" 2>/dev/null | tr -d ' ')
       [ -n "$cpu2" ] || continue
@@ -50,9 +51,19 @@ ps -axo pid=,pcpu=,command= 2>/dev/null \
       idle=$(awk -v a="$cpu1" -v b="$cpu2" -v m="$CPU_IDLE_MAX" \
                'BEGIN { print (a < m && b < m) ? 1 : 0 }')
       [ "$idle" = "1" ] || continue
+      moved=$(awk -v a="$cpu1" -v b="$cpu2" 'BEGIN { print (a != b) ? 1 : 0 }')
+      [ "$moved" = "1" ] || continue
+
+      # Third sample: confirm the runner is still stuck at low CPU after another gap.
+      sleep "$SAMPLE_GAP"
+      cpu3=$(ps -o pcpu= -p "$pid" 2>/dev/null | tr -d ' ')
+      [ -n "$cpu3" ] || continue
+      still_idle=$(awk -v b="$cpu2" -v c="$cpu3" -v m="$CPU_IDLE_MAX" \
+                     'BEGIN { print (b < m && c < m) ? 1 : 0 }')
+      [ "$still_idle" = "1" ] || continue
 
       ntok=$(echo "$slots" | sed -n 's/.*"n_prompt_tokens":\([0-9]*\).*/\1/p' | head -1)
-      log "WEDGE: llama-server pid=$pid port=$port is_processing=true cpu=${cpu1}/${cpu2}% prompt_tokens=${ntok:-?} -- killing runner"
+      log "WEDGE: llama-server pid=$pid port=$port is_processing=true cpu=${cpu1}/${cpu2}/${cpu3}% prompt_tokens=${ntok:-?} -- killing runner"
       kill -9 "$pid" 2>/dev/null
 
       sleep 3

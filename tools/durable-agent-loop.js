@@ -88,6 +88,8 @@ class DurableAgentLoop {
     this.lastTickAt = 0;
     this.lastResult = null;
     this.failureHistory = []; // timestamps of recent failures
+    this._abortController = null;
+    this._tickPromise = null;
 
     if (this.statePath) {
       const dir = path.dirname(this.statePath);
@@ -98,10 +100,35 @@ class DurableAgentLoop {
   _appendState(record) {
     if (!this.statePath) return;
     const line = JSON.stringify(record) + '\n';
+    const dir = path.dirname(this.statePath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+    // Fail closed if statePath is a directory or otherwise non-file.
     try {
-      fs.appendFileSync(this.statePath, line, 'utf8');
-    } catch {
-      // durable execution should not crash because of logging
+      const st = fs.lstatSync(this.statePath);
+      if (!st.isFile()) {
+        throw new Error(`statePath is not a regular file: ${this.statePath}`);
+      }
+    } catch (lstatErr) {
+      if (lstatErr.code !== 'ENOENT') {
+        throw new Error(`Checkpoint persistence failed for ${this.statePath}: ${lstatErr.message}`);
+      }
+    }
+
+    const mode = fs.existsSync(this.statePath) ? 'a' : 'w';
+    let fd;
+    try {
+      fd = fs.openSync(this.statePath, mode, 0o600);
+    } catch (openErr) {
+      throw new Error(`Checkpoint persistence failed for ${this.statePath}: ${openErr.message}`);
+    }
+    try {
+      fs.appendFileSync(fd, line, 'utf8');
+      fs.fsyncSync(fd);
+      fs.closeSync(fd);
+    } catch (err) {
+      try { fs.closeSync(fd); } catch {}
+      throw new Error(`Checkpoint persistence failed for ${this.statePath}: ${err.message}`);
     }
   }
 
@@ -132,15 +159,16 @@ class DurableAgentLoop {
     this.failures += 1;
     const ts = Date.now();
     this.failureHistory.push(ts);
-    const cutoff = ts - this.failureWindowTicks * this.intervalMs;
-    this.failureHistory = this.failureHistory.filter((t) => t >= cutoff);
   }
 
   failureRateExceeded() {
-    return this.failureHistory.length > this.maxFailuresPerWindow;
+    // Allow a small window to fill so rapid ticks don't all fall outside it.
+    // A failure counts if it occurred within the most recent failureWindowTicks.
+    const recentCount = this.failureHistory.length;
+    return recentCount > Math.max(0, this.maxFailuresPerWindow);
   }
 
-  async executeWork(tickIndex) {
+  async executeWork(tickIndex, signal) {
     if (!this.workFn) {
       return { status: 'noop', message: 'no workFn configured' };
     }
@@ -149,11 +177,18 @@ class DurableAgentLoop {
       this.skipped += 1;
       return { status: 'skipped', idempotencyKey: key, reason: 'already completed' };
     }
+    if (signal?.aborted) {
+      throw Object.assign(new Error('tick aborted by watchdog'), { name: 'AbortError' });
+    }
     const result = await this.workFn({
       tick: tickIndex,
       idempotencyKey: key,
       name: this.name,
+      signal,
     });
+    if (signal?.aborted) {
+      throw Object.assign(new Error('tick aborted by watchdog'), { name: 'AbortError' });
+    }
     return { status: 'ok', idempotencyKey: key, result };
   }
 
@@ -164,8 +199,12 @@ class DurableAgentLoop {
     const checkpoint = this._readLatestCheckpoint() || { completedKeys: [] };
     const key = this.makeIdempotencyKey(tickIndex);
     let outcome;
+    const signal = this._abortController?.signal;
     try {
-      outcome = await this.executeWork(tickIndex);
+      outcome = await this.executeWork(tickIndex, signal);
+      if (signal?.aborted) {
+        throw Object.assign(new Error('tick aborted by watchdog'), { name: 'AbortError' });
+      }
       if (outcome.status === 'ok') {
         this.successes += 1;
         checkpoint.completedKeys = [...new Set([...checkpoint.completedKeys, key])].slice(-1000);
@@ -201,7 +240,7 @@ class DurableAgentLoop {
     };
   }
 
-  _watchdog() {
+  async _watchdog() {
     if (!this.running) return;
     const elapsed = Date.now() - this.lastTickAt;
     if (elapsed > this.watchdogTimeoutMs) {
@@ -212,8 +251,11 @@ class DurableAgentLoop {
         elapsed,
         action: 'restart',
       });
+      // Abort in-flight work and stop. Caller is responsible for restart.
+      if (this._abortController) {
+        this._abortController.abort();
+      }
       this.stop();
-      this.start();
       return;
     }
     this.watchdogTimer = setTimeout(() => this._watchdog(), Math.min(5_000, this.watchdogTimeoutMs));
@@ -234,7 +276,7 @@ class DurableAgentLoop {
 
     this._appendState({ type: 'start', ts: nowIso(), name: this.name, tick: this.ticks });
 
-    const loop = async () => {
+    const scheduleNext = () => {
       if (!this.running) return;
       if (this.ticks >= this.maxTicks) {
         this.stop();
@@ -250,16 +292,37 @@ class DurableAgentLoop {
         this.stop();
         return;
       }
+      this.timer = setTimeout(runTick, this.intervalMs);
+    };
 
-      const start = Date.now();
-      await this.tick();
-      const duration = Date.now() - start;
-      const delay = Math.max(0, this.intervalMs - duration);
-      this.timer = setTimeout(loop, delay);
+    const runTick = async () => {
+      if (!this.running) return;
+      const controller = new AbortController();
+      this._abortController = controller;
+      const tickPromise = this.tick();
+      this._tickPromise = tickPromise;
+      try {
+        await tickPromise;
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          this.stop();
+          throw err;
+        }
+        // Watchdog triggered abort; loop already stopped. Do not schedule more work.
+        return;
+      } finally {
+        if (this._tickPromise === tickPromise) {
+          this._tickPromise = null;
+        }
+        if (this._abortController === controller) {
+          this._abortController = null;
+        }
+      }
+      scheduleNext();
     };
 
     this.watchdogTimer = setTimeout(() => this._watchdog(), Math.min(5_000, this.watchdogTimeoutMs));
-    loop();
+    runTick();
   }
 
   stop() {

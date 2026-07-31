@@ -52,6 +52,22 @@ async function runTest() {
   assert.strictEqual(checkpoints.length, 3);
   assert(checkpoints[2].completedKeys.length >= 2, 'completed keys persisted');
 
+  // Checkpoint persistence must reject a directory path (fail closed).
+  assert.throws(
+    () => {
+      const bad = new DurableAgentLoop({
+        name: 'bad-dir',
+        statePath: tmpDir,
+        intervalMs: 10,
+        maxTicks: 1,
+        workFn: () => ({}),
+      });
+      bad._appendState({ type: 'should-fail' });
+    },
+    /Checkpoint persistence failed/,
+    'directory statePath should fail closed',
+  );
+
   // Restart from checkpoint: tick 0 already completed, workFn should see tick 3 only (resumes after last tick)
   let restartCalls = [];
   const loop2 = new DurableAgentLoop({
@@ -77,6 +93,35 @@ async function runTest() {
   const key0 = loop2.makeIdempotencyKey(0);
   assert(loop2.shouldSkipDuplicate(key0), 'tick 0 should be skipped');
 
+  // Watchdog should abort in-flight work; signal is propagated to workFn.
+  let abortReceived = false;
+  const loopWatchdog = new DurableAgentLoop({
+    name: 'watchdog',
+    statePath: path.join(tmpDir, 'watchdog.jsonl'),
+    intervalMs: 5,
+    watchdogTimeoutMs: 30,
+    maxTicks: 1,
+    workFn: async ({ signal }) => {
+      await new Promise((resolve, reject) => {
+        const iv = setInterval(() => {
+          if (signal?.aborted) {
+            clearInterval(iv);
+            abortReceived = true;
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+          }
+        }, 1);
+      });
+      return {};
+    },
+  });
+  await loopWatchdog.start();
+  const wdStart = Date.now();
+  while (loopWatchdog.running && Date.now() - wdStart < 2000) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert(!loopWatchdog.running, 'watchdog loop should stop after abort');
+  assert(abortReceived, 'watchdog should abort in-flight work');
+
   // Failure-rate circuit opens when too many failures occur.
   const loop3 = new DurableAgentLoop({
     name: 'failing',
@@ -84,16 +129,18 @@ async function runTest() {
     intervalMs: 5,
     maxTicks: 10,
     maxFailuresPerWindow: 2,
-    failureWindowTicks: 3,
+    failureWindowTicks: 10,
     workFn: () => {
       throw new Error('always fails');
     },
   });
   await loop3.start();
-  while (loop3.running) {
+  const failStart = Date.now();
+  while (loop3.running && Date.now() - failStart < 5000) {
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
-  assert(loop3.failureRateExceeded() || loop3.ticks < 10, 'circuit should open or stop early');
+  assert(!loop3.running, 'loop should have stopped');
+  assert(loop3.failureRateExceeded(), 'circuit should open');
   assert(loop3.failures >= 3, `expected >=3 failures, got ${loop3.failures}`);
 
   fs.rmSync(tmpDir, { recursive: true, force: true });

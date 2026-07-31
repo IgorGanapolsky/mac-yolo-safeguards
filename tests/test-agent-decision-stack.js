@@ -1,6 +1,8 @@
 'use strict';
 
 const assert = require('assert');
+const path = require('path');
+const { execFileSync } = require('child_process');
 
 const {
   buildBrief,
@@ -164,5 +166,35 @@ const briefBlocked = buildBrief({
 });
 assert.strictEqual(briefBlocked.governance.status, 'block');
 assert(briefBlocked.recommendation.includes('BLOCKED'));
+
+// Evidence-backed revenue decision should NOT be blocked (P2 review feedback).
+const passWithEvidence = semanticGovernanceGate({
+  task: 'Close the $5K deal',
+  governance: 'revenue',
+  evidence: 'Prospect confirmed budget via email and scheduled signing call',
+});
+assert.strictEqual(passWithEvidence.status, 'warn', `expected warn without metric, got ${JSON.stringify(passWithEvidence)}`);
+assert(passWithEvidence.reason.includes('success metric'));
+
+const passRevenueFull = semanticGovernanceGate({
+  task: 'Close the $5K deal by tomorrow so revenue hits $5K verified via Stripe',
+  governance: 'revenue',
+  evidence: 'Prospect confirmed budget via email and scheduled signing call',
+});
+assert.strictEqual(passRevenueFull.status, 'pass', `expected pass, got ${JSON.stringify(passRevenueFull)}`);
+assert.strictEqual(passRevenueFull.domain, 'revenue');
+
+// CLI must exit 1 when governance blocks.
+const scriptPath = path.join(__dirname, '..', 'tools', 'agent-decision-stack.js');
+try {
+  execFileSync(process.execPath, [scriptPath, '--task', 'Just ship the revenue feature without tests', '--governance', 'revenue', '--skip-thumbgate', '--skip-graphify', '--skip-local-retrieval', '--skip-arc'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: path.join(__dirname, '..'),
+  });
+  assert.fail('CLI should exit 1 on governance block');
+} catch (error) {
+  assert(error.status !== 0, 'CLI should exit non-zero on governance block');
+}
 
 console.log('Agent decision stack tests: PASS');
