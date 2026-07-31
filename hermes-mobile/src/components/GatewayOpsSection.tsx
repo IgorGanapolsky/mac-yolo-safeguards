@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -31,6 +32,10 @@ import {
 import type { HermesCronJob, HermesSkill, HermesToolset } from '../types/gatewayApi';
 import { formatCronSchedule } from '../utils/sessionDisplay';
 import { buildCronJobDetailLines, isCronJobPaused } from '../utils/cronJobDetails';
+import {
+  DEVELOPER_SKILLS_MARKETPLACE,
+  filterMarketplaceSkills,
+} from '../utils/developerSkillsMarketplace';
 import {
   configuredToolsetsToAutoEnable,
   formatToolsetLabel,
@@ -101,8 +106,10 @@ function catalogRequest<T>(request: Promise<T>, section: CatalogSection): Promis
 }
 
 const DEMO_SKILLS: HermesSkill[] = [
-  { name: 'mac-freeze-rescue', description: 'Rescue frozen / sluggish computer (macOS)', category: 'ops' },
-  { name: 'verify-answerguard-fix', description: 'Full AnswerGuard verification contract', category: 'qa' },
+  { name: 'mac-freeze-rescue', description: 'Rescue sluggish Mac, kill runaway process loops, and clear memory leaks (macOS)', category: 'ops' },
+  { name: 'github-actions-spend', description: 'Audit GitHub Actions CI spend, slow workflow steps, and build cache bottlenecks', category: 'devops' },
+  { name: 'sentry-issue-triage', description: 'Triage Sentry crash stack traces, release regressions, and unhandled exceptions', category: 'qa' },
+  { name: 'docker-container-ops', description: 'Inspect, restart, and triage Docker containers & compose services', category: 'devops' },
 ];
 
 const DEMO_JOBS: HermesCronJob[] = [
@@ -163,10 +170,27 @@ export default function GatewayOpsSection() {
   const [expandedJobIds, setExpandedJobIds] = useState<Set<string>>(new Set());
   const [expandedFeatureKeys, setExpandedFeatureKeys] = useState<Set<string>>(new Set());
   const [expandedSkillNames, setExpandedSkillNames] = useState<Set<string>>(new Set());
+  const [skillQuery, setSkillQuery] = useState('');
+  const [showMarketplace, setShowMarketplace] = useState(false);
   const [advancedToolsetsOpen, setAdvancedToolsetsOpen] = useState(false);
   const [togglingToolset, setTogglingToolset] = useState<string | null>(null);
   const [integrationsToolset, setIntegrationsToolset] = useState<HermesToolset | null>(null);
   const togglingToolsetRef = useRef<string | null>(null);
+
+  const filteredInstalledSkills = skills.filter((s) => {
+    if (!skillQuery.trim()) return true;
+    const q = skillQuery.trim().toLowerCase();
+    return (
+      s.name.toLowerCase().includes(q) ||
+      (s.description && s.description.toLowerCase().includes(q)) ||
+      (s.category && s.category.toLowerCase().includes(q))
+    );
+  });
+
+  const marketplaceMatches = filterMarketplaceSkills(
+    DEVELOPER_SKILLS_MARKETPLACE,
+    skillQuery
+  );
 
   const applyToolsetsFromServer = useCallback((serverList: HermesToolset[]) => {
     setToolsets((prev) => {
@@ -787,19 +811,33 @@ export default function GatewayOpsSection() {
         )}
       </GlassCard>
 
-      <Text style={styles.sectionTitle}>Skills ({skills.length})</Text>
+      <Text style={styles.sectionTitle}>Skills &amp; Marketplace ({skills.length})</Text>
       <Text style={styles.sectionHint}>
-        Tap a skill for the full description. Skills are invoked from Chat — not toggled here.
+        Developer-first tools &amp; agent skills. Search below or browse the developer marketplace.
       </Text>
+      
+      <View style={styles.searchBarBox}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search skills (e.g. docker, sentry, github, mac-freeze)..."
+          placeholderTextColor="rgba(255,255,255,0.4)"
+          value={skillQuery}
+          onChangeText={setSkillQuery}
+          testID="skill-search-input"
+        />
+      </View>
+
       <GlassCard>
-        {skills.length === 0 ? (
+        {filteredInstalledSkills.length === 0 ? (
           <Text style={styles.meta} testID="skills-empty-state">
             {catalogErrors.skills
               ? 'Skills could not load from your computer. Tap Refresh to retry.'
+              : skillQuery
+              ? `No installed skills matching "${skillQuery}". Search Developer Marketplace below.`
               : 'No skills are installed on this computer.'}
           </Text>
         ) : (
-          skills.map((skill) => {
+          filteredInstalledSkills.map((skill) => {
             const expanded = expandedSkillNames.has(skill.name);
             return (
               <TouchableOpacity
@@ -839,6 +877,39 @@ export default function GatewayOpsSection() {
           })
         )}
       </GlassCard>
+
+      <TouchableOpacity
+        style={styles.marketplaceToggleBtn}
+        onPress={() => {
+          haptics.selection();
+          setShowMarketplace((prev) => !prev);
+        }}
+        testID="toggle-marketplace-btn"
+      >
+        <Text style={styles.marketplaceToggleText}>
+          {showMarketplace ? '▲ Hide Developer Marketplace' : '▼ Browse Developer Marketplace'}
+        </Text>
+      </TouchableOpacity>
+
+      {showMarketplace ? (
+        <GlassCard testID="marketplace-skills-card">
+          <Text style={styles.marketplaceHeader}>Developer Marketplace ({marketplaceMatches.length})</Text>
+          {marketplaceMatches.length === 0 ? (
+            <Text style={styles.meta}>No marketplace skills matching &quot;{skillQuery}&quot;.</Text>
+          ) : (
+            marketplaceMatches.map((mSkill) => (
+              <View key={mSkill.name} style={styles.listRow} testID={`marketplace-skill-${mSkill.name}`}>
+                <View style={styles.jobTitleRow}>
+                  <Text style={[styles.rowTitle, { flex: 1 }]}>{mSkill.name}</Text>
+                  <Text style={styles.badgeLabel}>{mSkill.category}</Text>
+                </View>
+                <Text style={styles.rowDesc}>{mSkill.description}</Text>
+                <Text style={styles.jobDetailLabel}>Tags: {mSkill.tags.join(', ')} · By {mSkill.author}</Text>
+              </View>
+            ))
+          )}
+        </GlassCard>
+      ) : null}
 
       <Text style={styles.sectionTitle}>Gateway features ({featureRows.length})</Text>
       <Text style={styles.sectionHint}>
@@ -969,15 +1040,6 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 8,
     marginBottom: 4,
-  },
-  demoPill: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.accent,
-    backgroundColor: 'rgba(34, 211, 238, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
   },
   refreshBtn: {
     marginLeft: 'auto',

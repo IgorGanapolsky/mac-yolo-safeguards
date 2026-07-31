@@ -498,4 +498,32 @@ describe('GatewayOpsSection', () => {
     });
     expect(queryByTestId('job-pause-job-disabled-1')).toBeNull();
   });
+
+  it('filters skills via search bar and toggles developer marketplace', async () => {
+    gatewayClient.listSkills.mockResolvedValue([
+      { name: 'mac-freeze-rescue', description: 'Rescue sluggish Mac' },
+      { name: 'sentry-issue-triage', description: 'Triage Sentry errors' },
+    ]);
+
+    const { getByTestId, queryByTestId, getByText, queryByText } = render(
+      <GatewayOpsSection />
+    );
+
+    await waitFor(() => {
+      expect(getByText('mac-freeze-rescue')).toBeTruthy();
+      expect(getByText('sentry-issue-triage')).toBeTruthy();
+    });
+
+    // Test searching
+    fireEvent.changeText(getByTestId('skill-search-input'), 'sentry');
+    expect(getByText('sentry-issue-triage')).toBeTruthy();
+    expect(queryByText('mac-freeze-rescue')).toBeNull();
+
+    // Test Marketplace toggle
+    expect(queryByTestId('marketplace-skills-card')).toBeNull();
+    fireEvent.press(getByTestId('toggle-marketplace-btn'));
+    await waitFor(() => {
+      expect(getByTestId('marketplace-skills-card')).toBeTruthy();
+    });
+  });
 });
