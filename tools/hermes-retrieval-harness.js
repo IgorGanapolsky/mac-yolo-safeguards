@@ -19,6 +19,8 @@ const DEFAULT_IGNORE_DIRS = new Set([
   'dist',
   'node_modules',
   'parallel-research',
+  // Vault dumps are retrieval noise — they rephrase harness docs and steal nDCG.
+  'Compiled-Vaults',
   'Pods',
   'vendor',
 ]);
@@ -65,7 +67,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     start: 1,
     end: 80,
     limit: 8,
-    maxFiles: 5000,
+    maxFiles: 12000,
     maxBytes: 240000,
     json: false,
     help: false,
@@ -145,7 +147,7 @@ function readTextSlice(filePath, maxBytes) {
 
 function walkFiles(repo, options = {}) {
   const root = path.resolve(repo);
-  const maxFiles = options.maxFiles || 5000;
+  const maxFiles = options.maxFiles || 12000;
   const files = [];
 
   function visit(dir) {
@@ -228,17 +230,26 @@ function scoreFile(queryTokens, relativePath, text) {
     }
   }
 
-  // Prefer product route modules over tooling/docs when scores are dense.
+  // Prefer product route modules over tooling/docs when scores are dense —
+  // but do not let generic /api/ routes outrank path-token hits on the
+  // canonical tools/* or docs/HERMES-* files the query literally names.
   if (score > 0) {
+    const pathTokenHits = reasons.filter((r) => r.startsWith('path:')).length;
     if (normPath.includes('/app/api/')) {
-      score += 12;
+      // Soft API boost: strong only when path tokens are weak.
+      score += pathTokenHits >= 2 ? 4 : 12;
       reasons.push('meta:api-route');
     } else if (normPath.includes('/app/dashboard/')) {
-      score += 10;
+      score += pathTokenHits >= 2 ? 3 : 10;
       reasons.push('meta:dashboard');
     } else if (normPath.includes('/src/') || normPath.includes('/lib/')) {
       score += 4;
       reasons.push('meta:src');
+    }
+    // Curated ops docs + tools get a small basename agreement boost.
+    if (/^docs\/HERMES-/.test(normPath) || /^tools\/hermes-/.test(normPath) || /^tools\/agent-swarm-/.test(normPath)) {
+      score += 6;
+      reasons.push('meta:canonical-tool-or-doc');
     }
     // Penalize tests/mocks only — curated docs/HERMES-* and docs/RESEARCH-* stay first-class.
     if (/(^|\/)(tests?|__tests__|mocks?|fixtures|testdata)\//.test(normPath) || /\.test\.|\.spec\./.test(normPath)) {

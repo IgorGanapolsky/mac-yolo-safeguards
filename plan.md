@@ -17,6 +17,9 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
   - One agent per worktree/branch; serialize git ops.
 
 ## 1. Task Board
+
+| T-RAG-A-PLUS-20260731 | Drive production RAG/ingest to A+: export mem_* jsonl projection, grepae auto-watch, scorecard hard gates, harness maxFiles headroom | done | grok-rag-a-plus | `tools/thumbgate-lessons-export-jsonl.js`, `tools/rag-stack-scorecard.js`, `tools/ensure-grepai-index.js`, `tools/ingestion-integrity.js`, `tools/hermes-retrieval-harness.js`, `tests/test-thumbgate-lessons-export-jsonl.js`, `tests/test-rag-stack-scorecard.js`, `plan.md` | scorecard A+; integrity ok on home; grepae canary+watcher; rag-eval 8/8 nDCG>=0.95; dual-path ok; unit tests green |
+
 | T-RETRIEVAL-STACK-UPGRADE-20260730 | Improve retrieval stack: query rewrite, dual-path RRF, parent-child windows, lessons FTS repair, path metadata filters | in_progress | grok-retrieval-upgrade | `tools/retrieval-query-rewrite.js`, `tools/retrieval-dual-path.js`, `tools/thumbgate-lessons-repair.js`, `tools/thumbgate-lessons-doctor.js`, `tools/thumbgate-lessons-embed.js`, `tools/curate-eval-set.js`, `tools/hermes-retrieval-harness.js`, `tools/ensure-grepai-index.js`, `tools/grepai-index-canary.js`, `tests/test-retrieval-*.js`, `tests/test-thumbgate-lessons-repair.js`, `tests/test-thumbgate-lessons-embed.js`, `docs/RETRIEVAL-STACK-UPGRADE-20260730.md`, `plan.md` | unit tests green; rag-eval 8/8; PR open |
 
 | ID  | Task | Status | Owner | Files (claim) | AcceptanceCheck |
