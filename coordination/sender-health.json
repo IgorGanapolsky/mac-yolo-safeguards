@@ -1,12 +1,12 @@
 {
   "igor@igorganapolsky.com": {
     "status": "unhealthy",
-    "lastProbe": "2026-07-31T15:20:11Z",
-    "detail": "Gmail send-as relay to mail.privateemail.com:587 returned 535 5.7.8 authentication failed (CustomFromDenied). 7/7 probes DSN. Alias verificationStatus=accepted is NOT delivery proof."
+    "lastProbe": "2026-07-31T15:52:13Z",
+    "detail": "LIVE probe msg 19fb8e042635a195 DSN 19fb8e04ee3f3e07 ~2s later: Send mail as misconfigured. Alias present in send-as enum; PrivateEmail SMTP relay auth fails. 8/8 domain sends bounced including Grok retest. Alias registration is NOT delivery proof."
   },
   "iganapolsky@gmail.com": {
     "status": "ok",
-    "lastProbe": "2026-07-31T16:00:00Z",
-    "detail": "Delivers. Use only as temporary path until domain SMTP is repaired; prefer Reply-To igor@ when forced."
+    "lastProbe": "2026-07-31T15:52:00Z",
+    "detail": "Delivers (Jason no-pitch reply 19fb8dcf4bdee316 landed in Sent without DSN). Temporary path until domain SMTP repaired; prefer Reply-To igor@ when forced."
   }
 }

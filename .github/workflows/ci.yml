@@ -267,43 +267,17 @@ jobs:
       - name: Publication readiness
         run: node tools/publication-readiness.js
 
-      # Multi-agent coordination + browser-composer contracts.
-      # Added 2026-07-29 after two failure classes hit the same session:
-      #  1. two agents drove the same Chrome profile and lost a published CTA comment;
-      #  2. a TipTap composer silently discarded three comments because the DOM was
-      #     written instead of the editor model.
-      # Both are deterministic and offline, so they belong in CI rather than in an
-      # agent's memory. Per AGENTS.md "Closed feedback loop on discovered bug classes".
-      - name: Shared-resource lease contract
-        run: node tests/test-resource-lease.js
-
-      - name: Rich-text composer contract
-        run: node tests/test-compose-in-editor.js
-
-      # Restored 2026-07-31 — these steps were wiped by the same diff3 merge that
-      # committed conflict markers into this file. Each guards a failure that
-      # already shipped; see the header comment in the corresponding tool.
-      - name: Duplicate-publish guard
-        run: node tests/test-publish-once.js
-
-      - name: Publishing gates
-        run: node tests/test-publishing-gates.js
-
-      - name: Outreach lead qualification
-        run: node tests/test-reddit-lead-qualify.js
-
-      - name: Content engine preflight contract
-        run: node tests/test-engine-preflight.js
-
+      # Only wire suites that exist on this branch. A 2026-07-31 dirty merge had
+      # re-inserted steps for tests that were never committed (test-resource-lease,
+      # compose-in-editor, publish-once, …) so Public funnel checks failed MODULE_NOT_FOUND
+      # after ci.yml was made parseable again. Absence of a step is not absence of the
+      # bug class — add the suite file first, then the CI line.
       # Five guessed role addresses hard-bounced within one minute on 2026-07-31,
       # a design-partner pitch went to a security@ disclosure inbox, and four
       # unrelated founders shared one To: line. docs/REVENUE-LOOP.md already banned
       # guessed addresses — as prose, which nothing ran.
       - name: Outreach deliverability gate
         run: node tests/test-outreach-preflight.js
-
-      - name: Pricing model freshness
-        run: node tools/pricing-model-freshness.js
 
       # ML integrity (fail-closed) — offline platform bar; does not require Stripe/labels.
       - name: ML integrity + platform gate
