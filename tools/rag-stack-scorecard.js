@@ -214,7 +214,8 @@ function scoreStack(options = {}) {
   const headroomOk = headroom >= 0.15;
   gates.push({
     id: 'harness-headroom',
-    hard: false,
+    // Hard: A+ must not hide a near-full corpus behind a soft weight.
+    hard: true,
     weight: 0.08,
     ok: headroomOk,
     detail: `files=${fileCount} maxFiles=${maxFiles} headroom=${(headroom * 100).toFixed(1)}%`,

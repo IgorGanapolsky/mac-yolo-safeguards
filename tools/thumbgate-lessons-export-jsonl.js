@@ -128,21 +128,28 @@ function exportJsonl(options = {}) {
   const existing = loadExistingJsonl(outPath);
   report.priorJsonl = existing.size;
 
-  const merged = new Map(existing);
+  // Canonical projection is exactly the sqlite ID set — drop stale jsonl orphans.
+  const merged = new Map();
+  let droppedOrphans = 0;
+  const sqliteIds = new Set(rows.map((r) => String(r.id)));
+  for (const id of existing.keys()) {
+    if (!sqliteIds.has(id)) droppedOrphans += 1;
+  }
   for (const row of rows) {
     const ledger = rowToLedger(row);
-    const prev = merged.get(ledger.id);
+    const prev = existing.get(ledger.id);
     if (!prev) {
       merged.set(ledger.id, ledger);
       report.added += 1;
       continue;
     }
-    // Prefer longer context (sqlite or existing)
+    // Prefer longer context (sqlite or existing) but keep sqlite as source of truth for id set.
     const prevCtx = String(prev.context || prev.lesson || '');
     const nextCtx = String(ledger.context || '');
     if (nextCtx.length >= prevCtx.length) merged.set(ledger.id, { ...prev, ...ledger });
     else merged.set(ledger.id, { ...ledger, ...prev, id: ledger.id });
   }
+  report.droppedOrphans = droppedOrphans;
 
   const lines = [...merged.values()]
     .sort((a, b) => String(a.id).localeCompare(String(b.id)))

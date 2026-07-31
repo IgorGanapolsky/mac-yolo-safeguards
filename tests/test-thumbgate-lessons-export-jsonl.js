@@ -58,6 +58,37 @@ test('export dry-run merges mem_* missing from jsonl', () => {
   assert.equal(report.ok, true);
 });
 
+test('export drops stale jsonl orphans not in sqlite', () => {
+  if (spawnSync('sqlite3', ['-version'], { encoding: 'utf8' }).status !== 0) return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'export-jsonl-orphan-'));
+  const db = path.join(dir, 'lessons.sqlite');
+  spawnSync('sqlite3', [db], {
+    input: `
+      CREATE TABLE lessons (
+        id TEXT PRIMARY KEY, signal TEXT, context TEXT, whatWentWrong TEXT,
+        whatToChange TEXT, whatWorked TEXT, domain TEXT, tags TEXT, rootCause TEXT,
+        importance TEXT, skill TEXT, timestamp TEXT, sourceFeedbackId TEXT
+      );
+      INSERT INTO lessons (id, signal, context, timestamp) VALUES
+        ('lesson_live', 'positive', 'live', '2026-07-01T00:00:00Z');
+    `,
+    encoding: 'utf8',
+  });
+  fs.writeFileSync(
+    path.join(dir, 'lessons-index.jsonl'),
+    [
+      JSON.stringify({ id: 'lesson_live', context: 'live' }),
+      JSON.stringify({ id: 'lesson_deleted', context: 'gone' }),
+    ].join('\n') + '\n',
+  );
+  const report = exportJsonl({ dir, apply: true });
+  assert.equal(report.ok, true);
+  assert.equal(report.droppedOrphans, 1);
+  const lines = fs.readFileSync(path.join(dir, 'lessons-index.jsonl'), 'utf8').trim().split('\n');
+  assert.equal(lines.length, 1);
+  assert.equal(JSON.parse(lines[0]).id, 'lesson_live');
+});
+
 test('export --apply writes both namespaces', () => {
   if (spawnSync('sqlite3', ['-version'], { encoding: 'utf8' }).status !== 0) return;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'export-jsonl-apply-'));
