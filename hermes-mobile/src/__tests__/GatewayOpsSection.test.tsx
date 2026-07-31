@@ -40,6 +40,7 @@ jest.mock('../services/hermesGatewayClient', () => ({
   getToolsetConfig: jest.fn(),
   saveToolsetEnv: jest.fn(),
   setToolsetProvider: jest.fn(),
+  installSkillOnMac: jest.fn(),
   extractCapabilitiesModel: jest.fn((caps: { default_model?: string }) => caps?.default_model ?? null),
 }));
 
@@ -124,19 +125,61 @@ describe('GatewayOpsSection', () => {
 
   it('keeps successful skills when the toolsets endpoint fails', async () => {
     gatewayClient.listSkills.mockResolvedValue([
-      { name: 'mac-freeze-rescue', description: 'Recover a sluggish Mac' },
+      { name: 'mac-freeze-rescue', description: 'Recover a sluggish Mac', category: 'ops' },
     ]);
     gatewayClient.listToolsets.mockRejectedValue(new Error('Network request failed'));
 
     const { getByText, getByTestId, queryByText } = render(<GatewayOpsSection />);
 
     await waitFor(() => {
-      expect(getByText('mac-freeze-rescue')).toBeTruthy();
+      expect(getByTestId('skill-expand-mac-freeze-rescue')).toBeTruthy();
+      expect(getByText('Installed for developers (1)')).toBeTruthy();
       expect(getByTestId('toolsets-empty-state').props.children).toContain(
         'Tools could not load',
       );
     });
     expect(queryByText('Network request failed')).toBeNull();
+  });
+
+  it('hides hobby Mac skills and shows marketplace search + Install', async () => {
+    gatewayClient.listSkills.mockResolvedValue([
+      { name: 'openhue', category: 'smart-home', description: 'Hue lights' },
+      { name: 'polymarket', category: 'research', description: 'markets' },
+      { name: 'github-pr-workflow', category: 'github', description: 'PRs' },
+    ]);
+    gatewayClient.installSkillOnMac.mockResolvedValue({
+      ok: true,
+      method: 'api',
+      name: 'docker-container-ops',
+    });
+
+    const { getByTestId, queryByText, getByDisplayValue } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('skills-marketplace-title')).toBeTruthy();
+      expect(getByTestId('skill-search-input')).toBeTruthy();
+      expect(getByTestId('marketplace-skills-card')).toBeTruthy();
+    });
+
+    expect(queryByText('openhue')).toBeNull();
+    expect(queryByText('polymarket')).toBeNull();
+    expect(getByTestId('skill-expand-github-pr-workflow')).toBeTruthy();
+
+    fireEvent.changeText(getByTestId('skill-search-input'), 'docker');
+    await waitFor(() => {
+      expect(getByTestId('marketplace-skill-docker-container-ops')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('marketplace-install-docker-container-ops'));
+    await waitFor(() => {
+      expect(gatewayClient.installSkillOnMac).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ name: 'docker-container-ops' }),
+        expect.anything(),
+      );
+    });
+    // silence unused lint if any
+    expect(getByDisplayValue('docker')).toBeTruthy();
   });
 
   it('automatically enables only essential configured toolsets returned disabled by the gateway', async () => {

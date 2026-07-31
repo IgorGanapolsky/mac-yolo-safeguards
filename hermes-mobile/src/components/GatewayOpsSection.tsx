@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -27,10 +28,19 @@ import {
   setToolsetEnabled,
   deleteJob,
   probeToolsetsWriteAccess,
+  installSkillOnMac,
 } from '../services/hermesGatewayClient';
 import type { HermesCronJob, HermesSkill, HermesToolset } from '../types/gatewayApi';
 import { formatCronSchedule } from '../utils/sessionDisplay';
 import { buildCronJobDetailLines, isCronJobPaused } from '../utils/cronJobDetails';
+import {
+  DEVELOPER_SKILLS_MARKETPLACE,
+  filterInstalledDeveloperSkills,
+  filterMarketplaceSkills,
+  marketplaceSkillIsInstalled,
+  skillsMarketplaceSectionHint,
+  type DeveloperMarketplaceSkill,
+} from '../utils/developerSkillsMarketplace';
 import {
   configuredToolsetsToAutoEnable,
   formatToolsetLabel,
@@ -101,8 +111,33 @@ function catalogRequest<T>(request: Promise<T>, section: CatalogSection): Promis
 }
 
 const DEMO_SKILLS: HermesSkill[] = [
-  { name: 'mac-freeze-rescue', description: 'Rescue frozen / sluggish computer (macOS)', category: 'ops' },
-  { name: 'verify-answerguard-fix', description: 'Full AnswerGuard verification contract', category: 'qa' },
+  {
+    name: 'mac-freeze-rescue',
+    description: 'Rescue sluggish Mac, kill runaway process loops, clear memory pressure.',
+    category: 'ops',
+  },
+  {
+    name: 'github-pr-workflow',
+    description: 'PR lifecycle: branch, commit, open, CI, merge via gh.',
+    category: 'github',
+  },
+  {
+    name: 'systematic-debugging',
+    description: '4-phase root-cause debugging: understand bugs before fixing.',
+    category: 'code',
+  },
+];
+
+const MARKETPLACE_CATEGORY_CHIPS: Array<{ id: string; label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'code', label: 'Code' },
+  { id: 'github', label: 'GitHub' },
+  { id: 'devops', label: 'DevOps' },
+  { id: 'qa', label: 'QA' },
+  { id: 'agents', label: 'Agents' },
+  { id: 'mlops', label: 'MLOps' },
+  { id: 'ops', label: 'Ops' },
+  { id: 'data', label: 'Data' },
 ];
 
 const DEMO_JOBS: HermesCronJob[] = [
@@ -163,6 +198,11 @@ export default function GatewayOpsSection() {
   const [expandedJobIds, setExpandedJobIds] = useState<Set<string>>(new Set());
   const [expandedFeatureKeys, setExpandedFeatureKeys] = useState<Set<string>>(new Set());
   const [expandedSkillNames, setExpandedSkillNames] = useState<Set<string>>(new Set());
+  const [skillQuery, setSkillQuery] = useState('');
+  const [skillCategoryFilter, setSkillCategoryFilter] = useState<string>('all');
+  const [installingSkillName, setInstallingSkillName] = useState<string | null>(null);
+  /** Demo-mode installs that are not on a real Mac yet. */
+  const [demoInstalledExtras, setDemoInstalledExtras] = useState<HermesSkill[]>([]);
   const [advancedToolsetsOpen, setAdvancedToolsetsOpen] = useState(false);
   const [togglingToolset, setTogglingToolset] = useState<string | null>(null);
   const [integrationsToolset, setIntegrationsToolset] = useState<HermesToolset | null>(null);
@@ -452,9 +492,19 @@ export default function GatewayOpsSection() {
   const integrationsConfigAvailable =
     featureFlags.integrations_config === true || isDemo;
   const macHttpReachable = isMacGatewayHttpOk(health);
+
+  const installedForDevelopers = filterInstalledDeveloperSkills([
+    ...skills,
+    ...demoInstalledExtras,
+  ]);
+  const marketplaceMatches = filterMarketplaceSkills(
+    DEVELOPER_SKILLS_MARKETPLACE,
+    skillQuery,
+    skillCategoryFilter,
+  );
   const dashboardStats = buildAgentDashboardStats({
     toolsets,
-    skills,
+    skills: installedForDevelopers,
     jobs,
     gatewayModel,
     connectionState,
@@ -531,6 +581,68 @@ export default function GatewayOpsSection() {
       </View>
     );
   };
+
+  const handleInstallMarketplaceSkill = useCallback(
+    async (skill: DeveloperMarketplaceSkill) => {
+      if (marketplaceSkillIsInstalled(skill, [...skills, ...demoInstalledExtras])) {
+        haptics.selection();
+        return;
+      }
+      if (installingSkillName) {
+        return;
+      }
+      if (isDemo) {
+        setDemoInstalledExtras((prev) => {
+          if (prev.some((s) => s.name === skill.name)) {
+            return prev;
+          }
+          return [
+            ...prev,
+            {
+              name: skill.name,
+              description: skill.description,
+              category: skill.category,
+            },
+          ];
+        });
+        haptics.success();
+        return;
+      }
+      setInstallingSkillName(skill.name);
+      setError(undefined);
+      try {
+        const result = await installSkillOnMac(
+          gatewayUrl,
+          { name: skill.name, installId: skill.installId },
+          apiKey,
+        );
+        if (!result.ok) {
+          setError(
+            result.message ??
+              `Could not install ${skill.name}. On your Mac: hermes skills install ${skill.installId}`,
+          );
+          haptics.warning();
+          return;
+        }
+        haptics.success();
+        await loadOps({ refresh: true });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : `Install failed for ${skill.name}`);
+        haptics.warning();
+      } finally {
+        setInstallingSkillName(null);
+      }
+    },
+    [
+      apiKey,
+      demoInstalledExtras,
+      gatewayUrl,
+      installingSkillName,
+      isDemo,
+      loadOps,
+      skills,
+    ],
+  );
 
   const handleRepairConnection = useCallback(async () => {
     const probeUrl = effectiveGatewayUrl || settings.gatewayUrl;
@@ -787,19 +899,139 @@ export default function GatewayOpsSection() {
         )}
       </GlassCard>
 
-      <Text style={styles.sectionTitle}>Skills ({skills.length})</Text>
-      <Text style={styles.sectionHint}>
-        Tap a skill for the full description. Skills are invoked from Chat — not toggled here.
+      <Text style={styles.sectionTitle} testID="skills-marketplace-title">
+        Developer skills marketplace
       </Text>
-      <GlassCard>
-        {skills.length === 0 ? (
-          <Text style={styles.meta} testID="skills-empty-state">
-            {catalogErrors.skills
-              ? 'Skills could not load from your computer. Tap Refresh to retry.'
-              : 'No skills are installed on this computer.'}
+      <Text style={styles.sectionHint}>{skillsMarketplaceSectionHint()}</Text>
+
+      <View style={styles.searchBarBox} testID="skill-search-bar">
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search skills (github, docker, debug, vllm…)"
+          placeholderTextColor="rgba(255,255,255,0.4)"
+          value={skillQuery}
+          onChangeText={setSkillQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+          testID="skill-search-input"
+        />
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.categoryChipScroll}
+        contentContainerStyle={styles.categoryChipRow}
+        testID="skill-category-chips"
+      >
+        {MARKETPLACE_CATEGORY_CHIPS.map((chip) => {
+          const selected = skillCategoryFilter === chip.id;
+          return (
+            <TouchableOpacity
+              key={chip.id}
+              style={[styles.categoryChip, selected ? styles.categoryChipSelected : null]}
+              onPress={() => {
+                haptics.selection();
+                setSkillCategoryFilter(chip.id);
+              }}
+              testID={`skill-category-${chip.id}`}
+            >
+              <Text
+                style={[
+                  styles.categoryChipText,
+                  selected ? styles.categoryChipTextSelected : null,
+                ]}
+              >
+                {chip.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      <Text style={styles.subsectionLabel}>
+        Marketplace ({marketplaceMatches.length})
+      </Text>
+      <GlassCard testID="marketplace-skills-card">
+        {marketplaceMatches.length === 0 ? (
+          <Text style={styles.meta} testID="marketplace-empty-state">
+            No developer skills match &quot;{skillQuery || skillCategoryFilter}&quot;.
           </Text>
         ) : (
-          skills.map((skill) => {
+          marketplaceMatches.map((mSkill) => {
+            const installed = marketplaceSkillIsInstalled(mSkill, [
+              ...skills,
+              ...demoInstalledExtras,
+            ]);
+            const busy = installingSkillName === mSkill.name;
+            return (
+              <View
+                key={mSkill.name}
+                style={styles.marketplaceRow}
+                testID={`marketplace-skill-${mSkill.name}`}
+              >
+                <View style={styles.marketplaceMain}>
+                  <View style={styles.jobTitleRow}>
+                    <Text style={[styles.rowTitle, { flex: 1 }]}>{mSkill.name}</Text>
+                    <Text style={styles.badgeLabel}>{mSkill.category}</Text>
+                  </View>
+                  <Text style={styles.rowDesc}>{mSkill.description}</Text>
+                  <Text style={styles.jobDetailLabel}>
+                    {mSkill.author}
+                    {mSkill.recommended ? ' · Recommended' : ''}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.installBtn,
+                    installed ? styles.installBtnDone : null,
+                    busy ? styles.installBtnBusy : null,
+                  ]}
+                  disabled={installed || busy}
+                  onPress={() => handleInstallMarketplaceSkill(mSkill)}
+                  testID={`marketplace-install-${mSkill.name}`}
+                  accessibilityLabel={
+                    installed ? `${mSkill.name} installed` : `Install ${mSkill.name}`
+                  }
+                >
+                  {busy ? (
+                    <ActivityIndicator size="small" color={colors.secondary} />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.installBtnText,
+                        installed ? styles.installBtnTextDone : null,
+                      ]}
+                    >
+                      {installed ? 'Installed' : 'Install'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            );
+          })
+        )}
+      </GlassCard>
+
+      <Text style={styles.subsectionLabel} testID="installed-dev-skills-title">
+        Installed for developers ({installedForDevelopers.length})
+      </Text>
+      <Text style={styles.sectionHint}>
+        Only tech-relevant skills from your Mac. Consumer packs (Hue, social, research fluff) are
+        hidden here.
+      </Text>
+      <GlassCard>
+        {catalogErrors.skills ? (
+          <Text style={styles.meta} testID="skills-empty-state">
+            Skills could not load from your computer. Tap Refresh to retry.
+          </Text>
+        ) : installedForDevelopers.length === 0 ? (
+          <Text style={styles.meta} testID="skills-empty-state">
+            No developer skills installed yet. Search the marketplace above and tap Install.
+          </Text>
+        ) : (
+          installedForDevelopers.map((skill) => {
             const expanded = expandedSkillNames.has(skill.name);
             return (
               <TouchableOpacity
@@ -829,7 +1061,7 @@ export default function GatewayOpsSection() {
                     {skill.description}
                   </Text>
                 ) : (
-                  <Text style={styles.rowDesc}>No description from the Mac.</Text>
+                  <Text style={styles.rowDesc}>Installed on your Mac · invoke from Chat</Text>
                 )}
                 {expanded && skill.category ? (
                   <Text style={styles.jobDetailLabel}>Category · {skill.category}</Text>
@@ -1118,4 +1350,73 @@ const styles = StyleSheet.create({
   },
   errorText: { color: '#fca5a5', fontSize: 13 },
   loader: { marginVertical: 24 },
+  searchBarBox: {
+    marginBottom: 10,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+  },
+  searchInput: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: colors.text,
+  },
+  categoryChipScroll: { marginBottom: 10, maxHeight: 40 },
+  categoryChipRow: { gap: 8, paddingRight: 8, alignItems: 'center' },
+  categoryChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+    backgroundColor: 'rgba(148, 163, 184, 0.12)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(148, 163, 184, 0.25)',
+  },
+  categoryChipSelected: {
+    backgroundColor: 'rgba(99, 102, 241, 0.35)',
+    borderColor: colors.secondary,
+  },
+  categoryChipText: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
+  categoryChipTextSelected: { color: colors.text },
+  subsectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textMuted,
+    marginTop: 4,
+    marginBottom: 6,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  marketplaceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 14,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  marketplaceMain: { flex: 1 },
+  badgeLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    paddingTop: 3,
+  },
+  installBtn: {
+    minWidth: 78,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(99, 102, 241, 0.35)',
+  },
+  installBtnDone: { backgroundColor: 'rgba(34, 197, 94, 0.2)' },
+  installBtnBusy: { opacity: 0.7 },
+  installBtnText: { fontSize: 11, fontWeight: '700', color: colors.secondary },
+  installBtnTextDone: { color: '#86efac' },
 });

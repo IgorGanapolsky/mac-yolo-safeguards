@@ -54,7 +54,19 @@ Implemented as `ESSENTIAL_MOBILE_TOOLSET_NAMES` in `src/utils/opsToolsets.ts`:
 | Non-essential + unconfigured + disabled | Hidden from Settings entirely |
 | Non-essential + configured or already enabled | **On your Mac** section, collapsed by default |
 
+## Skills: developer marketplace (not Mac zoo dump)
+
+| Layer | Path | Role |
+|-------|------|------|
+| UI | `GatewayOpsSection.tsx` | Search + category chips + **Install** + installed-for-developers only |
+| Catalog | `developerSkillsMarketplace.ts` | Curated developer skills; hobby denylist |
+| Install | `installSkillOnMac` in `hermesGatewayClient.ts` | `POST /v1/skills/install` or agent `hermes skills install` fallback |
+| Mac list | `GET /v1/skills` | Used only to mark Installed + filter tech skills |
+
+**Product rule:** Settings never dumps Polymarket / Hue / Quora / songwriting / etc. Those may exist on the Mac; they are filtered out of the mobile surface. Users find and install developer skills via marketplace search.
+
 ## Tests
 
 - `opsToolsets.test.ts` — allowlist + partition + auto-enable + no hobby Add key  
-- `GatewayOpsSection.test.tsx` — primary list hides hobby; advanced collapsed; essentials auto-enable only
+- `developerSkillsMarketplace.test.ts` — catalog excludes fluff; search; installed filter  
+- `GatewayOpsSection.test.tsx` — hobby skills hidden; search + Install wired; essentials auto-enable only

@@ -124,6 +124,109 @@ export async function listSkills(
   return body.data ?? [];
 }
 
+export type InstallSkillResult = {
+  ok: boolean;
+  method: 'api' | 'agent' | 'unavailable';
+  name: string;
+  message?: string;
+};
+
+/**
+ * Install a Hermes skill on the paired Mac.
+ *
+ * 1) POST /v1/skills/install when the gateway supports it.
+ * 2) Else a short agent turn that runs `hermes skills install <installId>`.
+ */
+export async function installSkillOnMac(
+  gatewayUrl: string,
+  skill: { name: string; installId: string },
+  apiKey?: string | null,
+): Promise<InstallSkillResult> {
+  const name = skill.name.trim();
+  const installId = skill.installId.trim() || name;
+  if (!name) {
+    throw new HermesGatewayApiError(400, 'Skill name is required');
+  }
+
+  // Preferred: dedicated install API (newer Hermes builds).
+  try {
+    const response = await fetch(`${base(gatewayUrl)}/v1/skills/install`, {
+      method: 'POST',
+      headers: jsonHeaders(apiKey),
+      body: JSON.stringify({ name, identifier: installId, install_id: installId }),
+    });
+    if (response.ok) {
+      return { ok: true, method: 'api', name };
+    }
+    if (response.status !== 404 && response.status !== 501 && response.status !== 405) {
+      const text = await response.text();
+      throw new HermesGatewayApiError(
+        response.status,
+        text || `Install failed (HTTP ${response.status})`,
+      );
+    }
+  } catch (err) {
+    if (err instanceof HermesGatewayApiError && err.status !== 404 && err.status !== 501) {
+      throw err;
+    }
+  }
+
+  // Fallback: agent installs via Hermes CLI on the Mac.
+  const prompt = [
+    'Install one Hermes Agent skill on this computer. Do nothing else.',
+    `Run exactly (or the equivalent hermes skills install path): hermes skills install ${installId}`,
+    'If that fails, try: hermes skills install ' + name,
+    'When finished reply with a single line: INSTALLED ' + name + ' or FAILED <reason>.',
+  ].join('\n');
+
+  try {
+    const response = await fetchWithTimeout(
+      `${base(gatewayUrl)}/v1/chat/completions`,
+      {
+        method: 'POST',
+        headers: jsonHeaders(apiKey),
+        body: JSON.stringify({
+          model: 'hermes-agent',
+          stream: false,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      },
+      CHAT_TURN_TIMEOUT_MS,
+    );
+    if (!response.ok) {
+      const text = await response.text();
+      if (response.status === 404 || response.status === 501) {
+        return {
+          ok: false,
+          method: 'unavailable',
+          name,
+          message:
+            'This Hermes build cannot install skills from the phone yet. On your Mac run: hermes skills install ' +
+            installId,
+        };
+      }
+      throw new HermesGatewayApiError(
+        response.status,
+        text || `Install agent failed (HTTP ${response.status})`,
+      );
+    }
+    return { ok: true, method: 'agent', name };
+  } catch (err) {
+    if (err instanceof HermesGatewayApiError) {
+      throw err;
+    }
+    return {
+      ok: false,
+      method: 'unavailable',
+      name,
+      message:
+        err instanceof Error
+          ? err.message
+          : 'Could not reach your computer to install the skill.',
+    };
+  }
+}
+
 export async function listToolsets(
   gatewayUrl: string,
   apiKey?: string | null,
