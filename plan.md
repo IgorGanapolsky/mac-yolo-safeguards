@@ -1723,6 +1723,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 - `apps/hermes-control-plane/app/page.tsx` (Team tier model line only), `apps/hermes-control-plane/tests/rendered-html.test.mjs` (model-version guard only), `plan.md` → **claude-stale-model-pins** (T-STALE-MODEL-PINS-20260731: live site advertised "Claude 3.5 Sonnet & GPT-4o" on a paid tier in mid-2026 — two generations stale, reads as abandoned to a developer buyer. Did NOT invent newer names (runner's actual model set is not verifiable from the repo); removed the version pin instead, mirroring the never-hard-code-a-price rule.) (2026-07-31T17:05:00Z)
 
+- `config/THUMBGATE_EXPERT_CARD.txt` ([POSITIONING] + [KNOWN_GAPS] only), `plan.md` → **claude-card-competitive-reality** (T-CARD-COMPETITIVE-REALITY-20260731: the card's "category white-space" claim is falsified by primary sources — four funded parties ship always-on hosted agents that DELETE the offline-continuation problem rather than compete with it. Records the inversion (Leash is orthogonal and gains value; Continuity is the commoditised half), the 3-way Hermes name collision, and the local-first-buyer contradiction. NOT touching the router, answerer, contract, or coverage guard.) (2026-07-31T17:40:00Z)
+
 ## 3. Decisions Log
 
 ### D-2026-07-28-buzz-competitor-p0-shared-room
