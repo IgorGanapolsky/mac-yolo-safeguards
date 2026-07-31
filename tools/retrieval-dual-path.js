@@ -18,6 +18,7 @@ const { spawnSync } = require('child_process');
 const path = require('path');
 const { rewriteQuery } = require('./retrieval-query-rewrite');
 const { rerank } = require('./retrieval-rerank');
+// multi-query is optional heavy path — lazy require in dualPathRetrieve
 
 const REPO = path.resolve(__dirname, '..');
 const RRF_K = 60;
@@ -37,6 +38,7 @@ function parseArgs(argv) {
     rerank: DEFAULT_RERANK,
     llmRerank: process.env.HERMES_LLM_RERANK === '1',
     candidatePool: 30,
+    multiQuery: process.env.HERMES_MULTI_QUERY === '1',
   };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -52,6 +54,8 @@ function parseArgs(argv) {
     else if (a === '--rerank') args.rerank = argv[++i] || DEFAULT_RERANK;
     else if (a === '--no-rerank') args.rerank = 'none';
     else if (a === '--llm-rerank') args.llmRerank = true;
+    else if (a === '--multi-query') args.multiQuery = true;
+    else if (a === '--no-multi-query') args.multiQuery = false;
     else if (a === '--candidate-pool') args.candidatePool = Number(argv[++i] || 30);
     else if (a === '--help' || a === '-h') args.help = true;
     else throw new Error(`Unknown argument: ${a}`);
@@ -165,6 +169,73 @@ async function dualPathRetrieve(options = {}) {
   const pool = Math.max(limit, options.candidatePool || 30);
   const rerankStrategy = options.rerank === undefined ? DEFAULT_RERANK : options.rerank;
 
+  // Optional multi-query fan-out (deterministic variants → dual-path each → RRF).
+  // Uses multi-query module which itself calls dual-path without multi-query recursion.
+  let multiQueryMeta = { applied: false };
+  if (options.multiQuery) {
+    const { multiQueryRetrieve } = require('./retrieval-multi-query');
+    const mq = await multiQueryRetrieve({
+      query: queryIn,
+      limit: pool,
+      maxVariants: options.maxVariants || 5,
+      llm: Boolean(options.llmMultiQuery),
+    });
+    multiQueryMeta = {
+      applied: true,
+      variantCount: mq.variantCount,
+      variants: mq.variants,
+      llm: mq.llm,
+    };
+    let matches = (mq.matches || []).slice(0, limit);
+    let rerankMeta = { applied: false, strategy: 'none' };
+    if (rerankStrategy && rerankStrategy !== 'none' && mq.matches?.length > 1) {
+      try {
+        const rr = await rerank({
+          query: q,
+          candidates: mq.matches,
+          strategy: rerankStrategy,
+          limit,
+          llm: Boolean(options.llmRerank),
+          embedder: options.embedder,
+          chat: options.chat,
+        });
+        matches = (rr.matches || []).map((m) => ({
+          path: m.path,
+          rrfScore: m.rrfScore,
+          rerankScore: m.rerankScore,
+          sources: m.sources || [],
+          snippet: m.snippet || '',
+          method: m.method,
+        }));
+        rerankMeta = {
+          applied: true,
+          strategy: rr.strategy,
+          llmApplied: rr.llmApplied,
+          elapsedMs: rr.elapsedMs,
+        };
+      } catch (error) {
+        rerankMeta = {
+          applied: false,
+          strategy: rerankStrategy,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
+    return {
+      query: queryIn,
+      rewritten: rewrite.rewritten,
+      rewriteRules: rewrite.rulesFired,
+      expansions: rewrite.expansions,
+      filters: { pathInclude: include, pathExclude: exclude },
+      pathStatus: { harness: 'via-multi-query', grepai: 'via-multi-query' },
+      fusion: 'rrf-multi-query',
+      rrfK: RRF_K,
+      multiQuery: multiQueryMeta,
+      rerank: rerankMeta,
+      matches,
+    };
+  }
+
   const lists = [];
   const paths = { harness: null, grepai: null };
 
@@ -246,6 +317,7 @@ async function dualPathRetrieve(options = {}) {
     },
     fusion: 'rrf',
     rrfK: RRF_K,
+    multiQuery: multiQueryMeta,
     rerank: rerankMeta,
     matches,
   };
