@@ -1718,6 +1718,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 - `apps/hermes-control-plane/app/page.tsx` (hero lede copy only), `apps/hermes-control-plane/app/LandingAuthChrome.tsx` (Continuity action `<small>` copy only), `apps/hermes-control-plane/tests/rendered-html.test.mjs` (the two self-disclaimer assertions only), `plan.md` → **claude-landing-hero-conversion** (T-LANDING-HERO-CONVERSION-20260730: live `/api/health` shows landingViewsToday=12 with signInClicksToday=0 and cloudContinuityClicksToday=0; the hero and the Continuity panel each label the paid capability "still proving this out" above the fold, which disclaims the product to every cold visitor. Replace both with factual mechanism copy using the approved vocabulary (eligible work / fenced VPS / offline policy you set) — no uptime, SLO, "seamless failover", "agent never stops", or price claims. Copy leaves only: NOT touching auth/session logic, LandingAuthHero/Panel behavior, pricing components, FailoverPathDemo, or globals.css.) (2026-07-30T23:20:00Z)
 
+- `tools/revenue-senses-tick.js` (new), `tests/test-revenue-senses-tick.js` (new), `com.igor.revenue-senses-tick.plist` (new), `plan.md` → **claude-senses-tick** (T-REVENUE-SENSES-TICK-20260731: 24/7 change-only heartbeat on funnel conversion + sender deliverability — the two things that went unnoticed for days. Guarded plist exits 0 when the tool is absent so it cannot crashloop before merge, per the 2026-07-28 quota incident rule. NOT touching revenue-autonomous-loop.js, send paths, or GH Actions.) (2026-07-31T16:45:00Z)
+
 ## 3. Decisions Log
 
 ### D-2026-07-28-buzz-competitor-p0-shared-room
