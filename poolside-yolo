@@ -403,7 +403,7 @@ doctor() {
   local format="${1:-text}" bin="" version="" up="false"
   local modes="" mode_valid="unknown" model_ok="unknown" serving="" fellback="unknown"
   local local_ok="false" local_model=""
-  local creds="" native_ok="false" lane=""
+  local creds="" native_ok="false" lane="" quota_ex="false"
   local guard="" guard_ok="false" guard_wired="false"
   if guard="$(resolve_image_guard)"; then
     guard_ok="true"
@@ -415,6 +415,13 @@ doctor() {
   creds="$(resolve_creds "$bin")"
   native_authed "$creds" && native_ok="true"
   lane="$(select_lane "$creds" "$bin")"
+  # Report the daily-quota demotion too. Without this the ONLY trace is a stderr line on
+  # an interactive run, so `--doctor --json` showed lane:gateway with nativeAuthed:true
+  # and no way to tell a quota demotion apart from a plain gateway preference — the
+  # difference between "wait for the reset" and "something is misconfigured".
+  # Mirrors runtime deliberately: with POOLSIDE_YOLO_QUOTA_DEMOTE=off this reads false
+  # because no demotion is being applied, and doctor must agree with what a run does.
+  native_quota_exhausted "$(resolve_logdir "$bin")" && quota_ex="true"
   # Under zero-spend this is the route that actually runs, so report it.
   if local_up; then local_ok="true"; local_model="$(pick_local_model || true)"; fi
   # Only probe the gateway's real behaviour when the gateway is the lane we would
@@ -436,18 +443,24 @@ doctor() {
     fi
   fi
   if [[ "$format" == json ]]; then
-    PYB="$bin" PYV="$version" PYG="$GATEWAY_URL" PYM="$DEFAULT_MODEL" PYUP="$up" \
+    # EXPORT rather than a `VAR=... cmd` prefix: that form binds the assignments to the
+    # FIRST command only, so in `VAR=... node -e '…' || python3 -c '…'` the python3
+    # fallback ran with none of them set and died on KeyError: 'PYB'. It exists precisely
+    # for a machine with no node, which is the one machine where it never worked.
+    export PYB="$bin" PYV="$version" PYG="$GATEWAY_URL" PYM="$DEFAULT_MODEL" PYUP="$up" \
     PYMODE="$YOLO_MODE" PYMODES="$modes" PYMV="$mode_valid" PYMOK="$model_ok" \
     PYSERV="$serving" PYFB="$fellback" PYLOK="$local_ok" PYLM="$local_model" \
-    PYLANE="$lane" PYLANEREQ="$LANE" PYNAT="$native_ok" PYCRED="$creds" \
+    PYLANE="$lane" PYLANEREQ="$LANE" PYNAT="$native_ok" PYCRED="$creds" PYQEX="$quota_ex" \
     PYIG="$guard" PYIGOK="$guard_ok" PYIGW="$guard_wired" PYIGE="$IMAGE_GUARD_ENABLED" \
-    PYZ="$([[ -e "$MARKER" ]] && echo true || echo false)" node -e '
+    PYZ="$([[ -e "$MARKER" ]] && echo true || echo false)"
+    node -e '
       const tri = v => v === "true" ? true : v === "false" ? false : null;
       process.stdout.write(JSON.stringify({
         schema:"poolside-yolo/doctor-v1", ok:true, provider:"Poolside pool CLI (official)",
         binary:process.env.PYB, version:process.env.PYV,
         lane:process.env.PYLANE, laneRequested:process.env.PYLANEREQ,
-        nativeAuthed:process.env.PYNAT==="true", credentialsFile:process.env.PYCRED,
+        nativeAuthed:process.env.PYNAT==="true", nativeQuotaExhausted:process.env.PYQEX==="true",
+        credentialsFile:process.env.PYCRED,
         gateway:process.env.PYG, gatewayUp:process.env.PYUP==="true",
         defaultModel:process.env.PYM, modelServed:tri(process.env.PYMOK),
         modelServing:process.env.PYSERV || null, modelFellBack:tri(process.env.PYFB),
@@ -468,7 +481,9 @@ print(json.dumps({
   "schema": "poolside-yolo/doctor-v1", "ok": True, "provider": "Poolside pool CLI (official)",
   "binary": os.environ["PYB"], "version": os.environ["PYV"],
   "lane": os.environ["PYLANE"], "laneRequested": os.environ["PYLANEREQ"],
-  "nativeAuthed": os.environ["PYNAT"] == "true", "credentialsFile": os.environ["PYCRED"],
+  "nativeAuthed": os.environ["PYNAT"] == "true",
+  "nativeQuotaExhausted": os.environ.get("PYQEX") == "true",
+  "credentialsFile": os.environ["PYCRED"],
   "gateway": os.environ["PYG"], "gatewayUp": os.environ["PYUP"] == "true",
   "defaultModel": os.environ["PYM"], "modelServed": tri(os.environ["PYMOK"]),
   "modelServing": os.environ["PYSERV"] or None, "modelFellBack": tri(os.environ["PYFB"]),

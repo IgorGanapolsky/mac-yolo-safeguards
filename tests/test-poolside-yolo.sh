@@ -106,6 +106,17 @@ DJSON="$("$WRAPPER" --doctor --json)"
 echo "$DJSON" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['schema']=='poolside-yolo/doctor-v1'; assert d['ok'] is True; assert d['autonomous'] is True; assert d['gatewayUp'] is True; assert d['zeroSpendActive'] is False; assert d['binary'].endswith('pool'); assert d['defaultModel']=='glm-coding'" \
   && ok "doctor --json shape" || no "doctor --json shape"
 
+# 1b. the python3 emitter is the fallback for a machine with NO node — the one machine
+#     where it must work, and the one place it was never exercised. It used to be
+#     unreachable-by-construction: `VAR=... node -e '…' || python3 -c '…'` binds the
+#     assignments to node only, so python3 ran with an empty env and died on
+#     KeyError: 'PYB'. --doctor --json crashed instead of emitting JSON.
+#     POOL_BIN is absolute so hiding node from PATH does not hide the stub.
+DJSON_PY="$(PATH="/usr/bin:/bin:/usr/sbin:/sbin" "$WRAPPER" --doctor --json 2>/dev/null || true)"
+echo "$DJSON_PY" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['schema']=='poolside-yolo/doctor-v1'; assert d['binary'].endswith('pool'); assert 'nativeQuotaExhausted' in d" \
+  && ok "doctor --json works without node (python3 emitter)" \
+  || no "doctor --json without node (got: $(printf '%s' "$DJSON_PY" | head -c 80))"
+
 # 1b. doctor's live model probe costs a real completion, so it must never fire while
 #     the fleet zero-spend gate is on. Unknown must surface as null, never as "fine".
 : > "$ROOT/NO_PAID_SPEND"
