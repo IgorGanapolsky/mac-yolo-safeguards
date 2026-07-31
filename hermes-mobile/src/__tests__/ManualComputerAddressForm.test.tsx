@@ -13,7 +13,7 @@ describe('ManualComputerAddressForm', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockConnectManualGatewayAddress.mockImplementation(async ({ persistProfile, ...input }) => {
-      await persistProfile(input.fallbackLabel, input.gatewayUrl);
+      await persistProfile(input.fallbackLabel, input.gatewayUrl, 'verified-manual-key');
     });
   });
 
@@ -30,7 +30,11 @@ describe('ManualComputerAddressForm', () => {
         fallbackLabel: 'Tailscale computer',
         persistProfile: onAddProfile,
       });
-      expect(onAddProfile).toHaveBeenCalledWith('Tailscale computer', 'http://100.87.85.85:8642');
+      expect(onAddProfile).toHaveBeenCalledWith(
+        'Tailscale computer',
+        'http://100.87.85.85:8642',
+        'verified-manual-key',
+      );
     });
   });
 

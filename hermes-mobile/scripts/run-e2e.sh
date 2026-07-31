@@ -8,6 +8,7 @@ HERMES_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SCRIPT_DIR/maestro-env.sh"
 
 FLOW="${1:-.maestro/full-suite.yaml}"
+ANDROID_APP_ID="${HERMES_MOBILE_ANDROID_PACKAGE:-com.iganapolsky.hermesmobile.paid}"
 MAESTRO_AVD_NAME="${HERMES_E2E_AVD_NAME:-Maestro_ANDROID_pixel_6_android-33}"
 CPU_COUNT="$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 8)"
 if [[ -n "${HERMES_E2E_MAX_LOAD:-}" ]]; then
@@ -155,7 +156,10 @@ run_android_maestro_flow() {
       sleep 5
       continue
     fi
-    if maestro test -p android --udid "$device_id" "$flow"; then
+    # The package-aware wrapper performs the same `maestro test -p android`
+    # invocation after rewriting only its temporary flow-tree copy.
+    if HERMES_MOBILE_ANDROID_PACKAGE="$ANDROID_APP_ID" \
+      bash "$SCRIPT_DIR/run-maestro-for-app.sh" "$flow" -p android --udid "$device_id"; then
       return 0
     fi
     echo "Maestro attempt ${attempt} failed for ${flow}" >&2
@@ -169,6 +173,7 @@ if [[ -n "$ANDROID_ID" ]]; then
   echo "=== Hermes Mobile Android Device E2E ==="
   echo "Device: $ANDROID_ID"
   echo "Flow:   $FLOW"
+  echo "App ID: $ANDROID_APP_ID"
   echo "Maestro driver timeout: ${MAESTRO_DRIVER_STARTUP_TIMEOUT}ms"
   if ! run_android_maestro_flow "$ANDROID_ID" "$FLOW"; then
     echo "=== Android Device E2E: FAIL ===" >&2

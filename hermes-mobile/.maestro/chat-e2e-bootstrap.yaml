@@ -18,14 +18,10 @@ appId: com.iganapolsky.hermesmobile
     timeout: 90000
 - openLink: "hermes://chat"
 - runFlow: dismiss-mac-picker.yaml
-- runFlow:
-    when:
-      notVisible:
-        id: "chat-screen-header"
-    commands:
-      - runFlow: hide-keyboard-safe.yaml
-      - tapOn:
-          id: "tab-hermes"
+# iOS can accept the chat deep link while the tab bar is temporarily absent.
+# Delegate to the guarded recovery flow: it taps Hermes only when that tab exists,
+# then re-arms demo mode and retries the deep link if Chat is still unavailable.
+- runFlow: recover-chat-tab.yaml
 - extendedWaitUntil:
     notVisible:
       id: "connect-mac-gate"

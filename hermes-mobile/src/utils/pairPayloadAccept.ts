@@ -112,7 +112,7 @@ export function acceptPairSetupPayload(
         ok: false,
         reason: 'loopback_primary',
         message:
-          'This QR targets USB loopback (127.0.0.1), which phones cannot reach off-cable. Use Tailscale or the same Wi‑Fi pair page.',
+          'This QR targets the computer itself (127.0.0.1), which phones cannot reach. Use Tailscale or the same Wi‑Fi pair page.',
       };
     }
     if (!hostLooksLoopback(gatewayUrl) && !isValidGatewayUrl(gatewayUrl) && !isSupportedHttpPairOrGatewayUrl(gatewayUrl)) {
@@ -137,7 +137,7 @@ export function acceptPairSetupPayload(
         ok: false,
         reason: 'unreachable_pair_server',
         message:
-          'Pair code server is 127.0.0.1 — only works over USB. On cellular, rescan a Tailscale pair QR.',
+          'Pair code server is 127.0.0.1 — your phone cannot reach it. Rescan a Tailscale pair QR.',
       };
     }
   }
@@ -146,7 +146,7 @@ export function acceptPairSetupPayload(
     return {
       ok: false,
       reason: 'empty',
-      message: 'No computer link found in that QR.',
+      message: 'That QR does not contain a Mac connection.',
     };
   }
 

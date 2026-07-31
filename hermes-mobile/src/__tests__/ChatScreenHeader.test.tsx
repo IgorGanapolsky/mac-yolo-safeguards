@@ -107,6 +107,9 @@ describe('ChatScreenHeader', () => {
     expect(getByTestId('chat-header-weak-model-warning').props.children).toMatch(/local worker/i);
     expect(getByTestId('chat-header-hermes-status')).toBeTruthy();
     expect(queryByTestId('chat-header-project-picker')).toBeNull();
+    expect(getByTestId('chat-context-mac-button').props.accessibilityLabel).toBe(
+      'Igors-Mac-mini. Connected. Tailscale. Choose your computer.',
+    );
 
     fireEvent.press(getByTestId('chat-context-mac-button'));
     expect(onPressMachine).toHaveBeenCalledTimes(1);
@@ -184,7 +187,7 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
-    expect(getByTestId('chat-context-link').props.children).toContain('Needs computer link');
+    expect(getByTestId('chat-context-link').props.children).toContain("Can't reach your Mac");
   });
 
   it('shows endpoint while connected when multi-Mac detail is enabled', () => {
@@ -424,7 +427,7 @@ describe('ChatScreenHeader', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
         threadTitle="Print money make money faster"
-        threadCreatedLabel="Jul 2, 2026, 6:53 PM"
+        threadCreatedLabel="Started Jul 2, 2026, 6:53 PM"
         machineLabel="Mac mini"
         connectionState="connected"
         macHttpReachable
@@ -433,7 +436,9 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
-    expect(getByTestId('chat-thread-created').props.children).toBe('Jul 2, 2026, 6:53 PM');
+    expect(getByTestId('chat-thread-created').props.children).toBe(
+      'Started Jul 2, 2026, 6:53 PM',
+    );
   });
 
   it('keeps long thread titles to one ellipsized header line when collapsed', () => {

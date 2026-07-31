@@ -2,7 +2,8 @@ name: control-plane-live-smoke
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    # ECONOMY 2026-07-28: was */30 (48/day). 6h is enough for live smoke + ntfy.
+    - cron: "7 */6 * * *"
   workflow_dispatch:
 
 permissions:

@@ -63,7 +63,7 @@
             {
               "key": 0,
               "fastQuery": true,
-              "matches": "[text*=\"Still checking your computer link\"][visibleToUser=true] <<n * <n * >n * [text*=\"Switch computer\"][visibleToUser=true]",
+              "matches": "[text*=\"Still checking your Mac connection\"][visibleToUser=true] <<n * <n * >n * [text*=\"Switch computer\"][visibleToUser=true]",
               "snapshotUrls": []
             },
             {

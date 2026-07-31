@@ -40,6 +40,15 @@ on:
         description: "Reuse finished production build UUID (submit-only — skips eas build --wait)"
         required: false
         type: string
+      audit_asc:
+        description: "Read App Store Connect version/build state only (no build, submit, or edit)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
       audit_play_track:
         description: "Read Google Play production version/status only (no build, submit, or edit commit)"
         required: true
@@ -60,7 +69,13 @@ permissions:
 jobs:
   internal-proof-gate:
     name: Require Internal Proof
-    if: inputs.skip_internal_proof != 'true'
+    # Read-only audits never run this gate. They only READ store state - no
+    # build, no submit, no edit commit - so requiring a publish signoff to look
+    # at what is already live is pure self-inflicted blocking.
+    if: >-
+      inputs.skip_internal_proof != 'true' &&
+      inputs.audit_play_track != 'true' &&
+      inputs.audit_asc != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Require exact-SHA internal signoff statuses
@@ -98,6 +113,31 @@ jobs:
               ;;
           esac
 
+  asc-audit:
+    name: App Store Connect Audit
+    needs: [internal-proof-gate]
+    if: |
+      always() &&
+      inputs.audit_asc == 'true' &&
+      (needs.internal-proof-gate.result == 'success' || needs.internal-proof-gate.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment: production-ios
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        with:
+          node-version: 22
+
+      - name: Read App Store Connect version and build state
+        env:
+          ASC_KEY_BASE64: ${{ secrets.EXPO_ASC_API_KEY_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.EXPO_ASC_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.EXPO_ASC_API_KEY_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.EXPO_ASC_APP_ID }}
+        run: node ./scripts/asc-audit.cjs
+
   android-production-track-audit:
     name: Android Production Track Audit
     needs: [internal-proof-gate]
@@ -112,7 +152,7 @@ jobs:
       - name: Read production release state from Google Play
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-          PLAY_PACKAGE: com.iganapolsky.hermesmobile
+          PLAY_PACKAGE: com.iganapolsky.hermesmobile.paid
         run: |
           node <<'NODE'
           const crypto = require('crypto');
@@ -174,11 +214,16 @@ jobs:
               versionCodes: release.versionCodes || [],
               userFraction: release.userFraction ?? null,
             }));
+            await json(await fetch(`${base}/edits/${edit.id}`, {
+              method: 'DELETE',
+              headers,
+            }), 'Delete read-only edit');
             console.log(`PLAY_TRACK_AUDIT=${JSON.stringify({
               packageName: process.env.PLAY_PACKAGE,
               track: 'production',
               releases,
               editCommitted: false,
+              editDeleted: true,
             })}`);
           }
 
@@ -200,6 +245,8 @@ jobs:
     environment: production-android
     env:
       SENTRY_DISABLE_AUTO_UPLOAD: "true"
+      HERMES_ANDROID_STORE_SKU: paid
+      EXPO_PUBLIC_ANDROID_PAID_DOWNLOAD: "1"
     defaults:
       run:
         working-directory: hermes-mobile
@@ -207,7 +254,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Set up Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: 20
           cache: npm
@@ -238,6 +285,22 @@ jobs:
         env:
           REQUIRE_ANDROID_SUBMIT_CREDS: ${{ inputs.submit == 'true' && '1' || '0' }}
         run: npm run launch:preflight:android
+
+      - name: Verify paid Android package resolution
+        run: |
+          set -euo pipefail
+          npx expo config --type public --json > /tmp/hermes-paid-expo-config.json
+          node - <<'NODE'
+          const config = require('/tmp/hermes-paid-expo-config.json');
+          const expected = 'com.iganapolsky.hermesmobile.paid';
+          if (config.android?.package !== expected) {
+            throw new Error(`Paid store release resolved ${config.android?.package || 'no package'}; expected ${expected}`);
+          }
+          if (config.extra?.androidStoreSku !== 'paid') {
+            throw new Error(`Paid store release resolved androidStoreSku=${config.extra?.androidStoreSku || 'missing'}`);
+          }
+          console.log(`Paid Android package verified: ${expected}`);
+          NODE
 
       - name: HARD-STOP cloud EAS builds during overage (until 2026-07-22)
         if: inputs.eas_build_id == ''
@@ -273,9 +336,9 @@ jobs:
             echo "Missing required secret: EXPO_TOKEN" >&2
             exit 1
           fi
-          node ./scripts/eas-build-guard.cjs --platform android --profile production -- npx eas-cli@latest build \
+          node ./scripts/eas-build-guard.cjs --platform android --profile production-android-paid -- npx eas-cli@latest build \
             --platform android \
-            --profile production \
+            --profile production-android-paid \
             --non-interactive \
             --wait \
             --json \
@@ -337,7 +400,7 @@ jobs:
           npx eas-cli@latest submit \
             --platform android \
             --id "$BUILD_ID" \
-            --profile production \
+            --profile production-android-paid \
             --non-interactive \
             --wait \
             2>&1 | tee /tmp/eas-android-submit.txt
@@ -359,6 +422,7 @@ jobs:
     if: |
       always() &&
       (needs.internal-proof-gate.result == 'success' || needs.internal-proof-gate.result == 'skipped') &&
+      inputs.audit_asc != 'true' &&
       (inputs.platform == 'ios' || inputs.platform == 'both')
     runs-on: ubuntu-latest
     environment: production-ios
@@ -371,7 +435,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Set up Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: 20
           cache: npm
@@ -426,20 +490,6 @@ jobs:
             exit 1
           fi
 
-      - name: Set remote iOS marketing version to 1.1
-        if: inputs.eas_build_id == ''
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          set -euo pipefail
-          # Live 1.0 keywords/subtitle are locked; ASC 1.1 needs a CFBundleShortVersionString=1.1 binary.
-          npx eas-cli@latest build:version:set \
-            --platform ios \
-            --profile production \
-            --app-version 1.1 \
-            --non-interactive || true
-          npx eas-cli@latest build:version:get --platform ios --profile production --non-interactive --json || true
-
       - name: Build iOS production artifact
         id: build
         if: inputs.eas_build_id == ''
@@ -452,13 +502,15 @@ jobs:
             echo "Missing required secret: EXPO_TOKEN" >&2
             exit 1
           fi
+          APP_VERSION="$(node -p "require('./app.json').expo.version")"
+          test -n "$APP_VERSION"
           node ./scripts/eas-build-guard.cjs --platform ios --profile production -- npx eas-cli@latest build \
             --platform ios \
             --profile production \
             --non-interactive \
             --wait \
             --json \
-            --message "Production Hermes Mobile iOS 1.1 from ${GITHUB_SHA}" \
+            --message "Production Hermes Mobile iOS ${APP_VERSION} from ${GITHUB_SHA}" \
             > /tmp/eas-ios-production-build.json
           cat /tmp/eas-ios-production-build.json
           BUILD_ID="$(node -e 'const fs=require("fs"); const raw=fs.readFileSync("/tmp/eas-ios-production-build.json","utf8"); const json=JSON.parse(raw); const build=Array.isArray(json)?json[0]:json; console.log(build.id || "")')"
@@ -488,9 +540,11 @@ jobs:
           node - <<'NODE'
           const fs = require('fs');
           const build = JSON.parse(fs.readFileSync('/tmp/eas-ios-production-build-view.json', 'utf8'));
+          const expectedAppVersion = JSON.parse(fs.readFileSync('app.json', 'utf8')).expo.version;
           if (build.status !== 'FINISHED') throw new Error(`Build status is ${build.status}`);
           if (build.platform !== 'IOS') throw new Error(`Expected IOS, got ${build.platform}`);
           if (build.distribution !== 'STORE') throw new Error(`Expected STORE distribution, got ${build.distribution}`);
+          if (build.appVersion !== expectedAppVersion) throw new Error(`Expected app version ${expectedAppVersion}, got ${build.appVersion}`);
           console.log(`iOS production build verified: ${build.artifacts?.buildUrl || build.id}`);
           NODE
 
@@ -512,7 +566,7 @@ jobs:
           EXPO_APPLE_TEAM_ID: ${{ secrets.EXPO_APPLE_TEAM_ID }}
           EXPO_ASC_API_KEY_ID: ${{ secrets.EXPO_ASC_API_KEY_ID }}
           EXPO_ASC_API_KEY_ISSUER_ID: ${{ secrets.EXPO_ASC_API_KEY_ISSUER_ID }}
-          BUILD_ID: ${{ steps.build.outputs.build_id }}
+          BUILD_ID: ${{ steps.build.outputs.build_id || steps.adopt_ios_build.outputs.build_id }}
         run: |
           set -euo pipefail
           npx eas-cli@latest submit \

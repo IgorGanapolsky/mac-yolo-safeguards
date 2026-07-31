@@ -7,7 +7,6 @@ import {
   Text,
   RefreshControl,
   Alert,
-  Platform,
   ActivityIndicator,
   Switch,
 } from 'react-native';
@@ -17,10 +16,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import GateApprovalCard from '../components/GateApprovalCard';
 import GlassCard from '../components/GlassCard';
 import HealthPill from '../components/HealthPill';
-import ProUpgradeCard from '../components/ProUpgradeCard';
 import ThumbGatePromoCard from '../components/ThumbGatePromoCard';
-import { isDeveloperLeashUnlockAllowed } from '../utils/demoModePolicy';
-import { thumbgateProPriceLabel } from '../constants/monetization';
 import { colors } from '../theme/colors';
 import { useGateway } from '../context/GatewayContext';
 import {
@@ -31,7 +27,6 @@ import {
 } from '../utils/connectionStatusContract';
 import { formatLeashConnectionDisplay } from '../utils/gatewayEndpoint';
 import { buildLeashEmptyExplanation } from '../utils/leashUx';
-import { hasThumbgateLeashPro, isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
 import type { GatewayHealthLevel } from '../types/gateway';
 import { CHAT_APPROVAL_EDIT_PREFIX } from '../services/approvalResolver';
 import { fromPendingApproval } from '../utils/approvalNormalize';
@@ -87,15 +82,10 @@ export default function ApprovalsScreen() {
     setApprovalEditSeed,
     patchSettings,
     injectSmokeApproval,
-    storeLeashPreviewActive,
   } = useGateway();
 
-  const leashUnlocked = isThumbgateLeashUnlocked(settings) || storeLeashPreviewActive;
-  const showTesterUnlock = isDeveloperLeashUnlockAllowed();
-
-  const unlockThumbgateLeash = React.useCallback(async () => {
-    await patchSettings({ thumbgateProActive: true, developerLeashUnlock: true });
-  }, [patchSettings]);
+  // Hermes Mobile is sold as a paid, full-feature app. Leash has no secondary paywall.
+  const leashUnlocked = true;
 
   const [refreshing, setRefreshing] = React.useState(false);
   const [decisionHistory, setDecisionHistory] = React.useState<LeashDecisionRecord[]>([]);
@@ -267,11 +257,9 @@ export default function ApprovalsScreen() {
           <Text style={styles.title}>THUMBGATE LEASH</Text>
         </View>
         <Text style={styles.subtitle}>
-          {leashUnlocked
-            ? settings.safetyMode || settings.glanceMode
-              ? 'Approve blocked agent tools — from lock screen (Approve / Deny) or cards below'
-              : 'Approve blocked tools from your phone — tap notifications on lock screen'
-            : `Paid add-on (${thumbgateProPriceLabel()}) via ${Platform.OS === 'ios' ? 'App Store' : 'Google Play'}`}
+          {settings.safetyMode || settings.glanceMode
+            ? 'Approve blocked agent tools — from lock screen (Approve / Deny) or cards below'
+            : 'Approve blocked tools from your phone — tap notifications on lock screen'}
         </Text>
         {leashUnlocked ? (
           <>
@@ -325,38 +313,7 @@ export default function ApprovalsScreen() {
           ) : undefined
         }
       >
-        {/*
-          Paid upgrade surface — always first for non-Pro so fresh free users and Maestro
-          find pro-upgrade-card without scrolling past toggles/history.
-          Locked path embeds the card in the empty state below instead (same testIDs).
-        */}
-        {!hasThumbgateLeashPro(settings) && leashUnlocked ? (
-          <GlassCard style={styles.emptyCard} testID="leash-pro-upsell-card">
-            <Text style={styles.emptyTitle}>Upgrade for unlimited Leash</Text>
-            <Text style={styles.emptyBody}>
-              Free tier includes limited weekly approvals. Unlock for unlimited mobile approvals
-              and full ThumbGate Pro gates.
-            </Text>
-            <ProUpgradeCard
-              onUnlocked={unlockThumbgateLeash}
-              onTesterUnlock={showTesterUnlock ? unlockThumbgateLeash : undefined}
-            />
-          </GlassCard>
-        ) : null}
-        {!leashUnlocked ? (
-          <GlassCard style={styles.emptyCard} testID="leash-pro-upsell-card">
-            <Text style={styles.emptyTitle}>ThumbGate Leash is a Pro feature</Text>
-            <Text style={styles.emptyBody}>
-              When your coding agent hits a risky command on your computer, the approval card appears
-              here so you can approve or reject from your phone — with ThumbGate memory gates behind
-              every decision.
-            </Text>
-            <ProUpgradeCard
-              onUnlocked={unlockThumbgateLeash}
-              onTesterUnlock={showTesterUnlock ? unlockThumbgateLeash : undefined}
-            />
-          </GlassCard>
-        ) : pendingApprovals.length === 0 ? (
+        {pendingApprovals.length === 0 ? (
           <GlassCard style={styles.emptyCard}>
             <View testID="no-pending-approvals" accessible={true} collapsable={false}>
               <Text style={styles.emptyTitle}>No pending approvals</Text>

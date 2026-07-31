@@ -52,6 +52,7 @@ const { withPhoneLease } = require('./agent-phone-lease.js');
 const { localTailscaleIpv4 } = require('./hermes-discover-tailscale-macs.js');
 
 const REPO = path.resolve(__dirname, '..');
+const PAID_ANDROID_PACKAGE_NAME = 'com.iganapolsky.hermesmobile.paid';
 const HERMES_ENV = path.join(os.homedir(), '.hermes', '.env');
 const RELAY_WORKER_ENV = path.join(os.homedir(), '.hermes', 'relay-worker.env');
 const PAIR_PORT = 8765;
@@ -322,10 +323,40 @@ function adbDevice() {
   return selectPhysicalAdbSerial(result.stdout);
 }
 
-function openDeepLinkOnDevice(serial, link) {
+function installedAndroidPackages(serial) {
+  const adbBase = serial ? ['-s', serial] : [];
+  const result = spawnSync('adb', [...adbBase, 'shell', 'pm', 'list', 'packages'], {
+    encoding: 'utf8',
+    timeout: 5000,
+  });
+  if (result.status !== 0) return new Set();
+  return new Set(
+    String(result.stdout || '')
+      .split(/\r?\n/)
+      .map((line) => line.replace(/^package:/, '').trim())
+      .filter(Boolean),
+  );
+}
+
+function resolveTargetAndroidPackageName(serial) {
+  const requested = String(process.env.HERMES_MOBILE_ANDROID_PACKAGE || '').trim();
+  if (/^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$/.test(requested)) {
+    return requested;
+  }
+  const installed = installedAndroidPackages(serial);
+  if (installed.has(PAID_ANDROID_PACKAGE_NAME)) {
+    return PAID_ANDROID_PACKAGE_NAME;
+  }
+  if (installed.has(ANDROID_PACKAGE_NAME)) {
+    return ANDROID_PACKAGE_NAME;
+  }
+  return PAID_ANDROID_PACKAGE_NAME;
+}
+
+function openDeepLinkOnDevice(serial, link, packageName = resolveTargetAndroidPackageName(serial)) {
   // Android device shell splits on '&' unless the URI is single-quoted (breaks &name=… params).
   const quoted = `'${String(link).replace(/'/g, `'\\''`)}'`;
-  const shellCmd = `am start -a android.intent.action.VIEW -d ${quoted}`;
+  const shellCmd = `am start -a android.intent.action.VIEW -p ${packageName} -d ${quoted}`;
   const args = serial ? ['-s', serial, 'shell', shellCmd] : ['shell', shellCmd];
   const result = spawnSync('adb', args, {
     encoding: 'utf8',
@@ -586,30 +617,38 @@ function writePairQrPng(qrPayload) {
   } catch {
     // fall through to regenerate
   }
-  const binCandidates = [
-    path.join(REPO, 'node_modules', '.bin', 'qrcode'),
-    path.join(REPO, 'hermes-mobile', 'node_modules', '.bin', 'qrcode'),
+  const generators = [
+    {
+      bin: path.join(REPO, 'node_modules', '.bin', 'qrcode'),
+      args: ['-o', qrPath, qrPayload],
+    },
+    {
+      bin: path.join(REPO, 'hermes-mobile', 'node_modules', '.bin', 'qrcode'),
+      args: ['-o', qrPath, qrPayload],
+    },
+    {
+      bin: '/opt/homebrew/bin/qrencode',
+      args: ['-o', qrPath, qrPayload],
+    },
+    {
+      bin: '/usr/local/bin/qrencode',
+      args: ['-o', qrPath, qrPayload],
+    },
   ];
   let qr = null;
-  for (const bin of binCandidates) {
-    if (fs.existsSync(bin)) {
-      qr = spawnSync(bin, ['-o', qrPath, qrPayload], {
+  for (const generator of generators) {
+    if (fs.existsSync(generator.bin)) {
+      qr = spawnSync(generator.bin, generator.args, {
         encoding: 'utf8',
-        timeout: 5_000,
+        timeout: 2_000,
+        killSignal: 'SIGKILL',
       });
       if (qr.status === 0) break;
     }
   }
-  if (!qr || qr.status !== 0) {
-    qr = spawnSync('npx', ['--yes', 'qrcode', '-o', qrPath, qrPayload], {
-      cwd: REPO,
-      encoding: 'utf8',
-      timeout: 8_000,
-      killSignal: 'SIGKILL',
-    });
-  }
   if (!qr || qr.status !== 0 || !fs.existsSync(qrPath)) {
-    // Still serve pair HTML/JSON without blocking forever.
+    // Pairing remains usable through the button/deep link. Never download tooling
+    // from an HTTP request: npx used to block the event loop beyond the watchdog.
     return { qrPath, imgTag: '' };
   }
   // Data URL so file:// (Mac --open) never depends on Chrome loading a sibling PNG.
@@ -619,11 +658,6 @@ function writePairQrPng(qrPayload) {
     imgTag: `<img src="data:image/png;base64,${b64}" alt="Pair QR code" width="280" height="280"/>`,
   };
 }
-
-/**
- * Persist non-secret-path seed + QR that points at the HTTP pair page (never a stale
- * hermes:// code). Live `/pair` remints from pair-seed.json on every GET.
- */
 
 /**
  * Persist non-secret-path seed + QR that points at the HTTP pair page (never a stale
@@ -698,7 +732,7 @@ function writePairAssets({
 }
 
 /** Mint a fresh secretless deep link from the on-disk seed (HTTP /pair + /pair-live.json). */
-function mintLivePairSession() {
+function mintLivePairSession({ renderPage = true } = {}) {
   const seed = loadPairSeed();
   if (!seed || !seed.gatewayUrl || !seed.apiKey) {
     return { ok: false, reason: 'no_seed' };
@@ -720,19 +754,22 @@ function mintLivePairSession() {
   const deepLink = buildSecretlessDeepLink(minted.code, pairServer, seed.macName || seed.hostname);
   const lanIp = seed.localIp || detectLocalLanIp() || '127.0.0.1';
   const cameraPageUrl = seed.pageUrl || resolveCameraPageUrl(lanIp);
-  const { imgTag } = writePairQrPng(cameraPageUrl);
-  const html = buildLivePairHtml({
-    gatewayUrl: seed.gatewayUrl,
-    deepLink,
-    pageUrl: cameraPageUrl,
-    hostname: seed.macName || seed.hostname || 'Mac',
-    imgTag,
-    expiresAt: minted.expiresAt,
-    remainingMs: minted.remainingMs,
-    refreshMs: PAIRING_CODE_REFRESH_MS,
-  });
-  // Keep on-disk index.html aligned with the live mint for --open / file viewers.
-  fs.writeFileSync(path.join(OUT_DIR, 'index.html'), html);
+  let html = '';
+  if (renderPage) {
+    const { imgTag } = writePairQrPng(cameraPageUrl);
+    html = buildLivePairHtml({
+      gatewayUrl: seed.gatewayUrl,
+      deepLink,
+      pageUrl: cameraPageUrl,
+      hostname: seed.macName || seed.hostname || 'Mac',
+      imgTag,
+      expiresAt: minted.expiresAt,
+      remainingMs: minted.remainingMs,
+      refreshMs: PAIRING_CODE_REFRESH_MS,
+    });
+    // Keep on-disk index.html aligned with the live mint for --open / file viewers.
+    fs.writeFileSync(path.join(OUT_DIR, 'index.html'), html);
+  }
   // P0 2026-07-24: Play Store installs paste Tailscale IP → phone GETs /pair.json then
   // /pair-exchange. Static pair.json on disk kept advertising expired codes while /pair
   // reminted live — "Hermes is reachable, but this phone still needs to pair." Always
@@ -957,7 +994,8 @@ function createPairServer(lanIp) {
     const method = (req.method || 'GET').toUpperCase();
     if (url === '/pair.json') {
       // Live remint — never serve a disk snapshot whose pairCode is already dead in memory.
-      const live = mintLivePairSession();
+      // JSON is a watchdog/discovery fast path and must never render or generate a QR.
+      const live = mintLivePairSession({ renderPage: false });
       if (live.ok && live.pairJson) {
         res.writeHead(200, {
           'Content-Type': 'application/json',
@@ -1046,7 +1084,7 @@ function createPairServer(lanIp) {
       return;
     }
     if (url === '/pair-live.json') {
-      const live = mintLivePairSession();
+      const live = mintLivePairSession({ renderPage: false });
       if (!live.ok) {
         res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
         res.end(JSON.stringify({ error: live.reason || 'unavailable' }));
@@ -1473,7 +1511,8 @@ function runPairMain(args) {
       // intent. Previously these fired consecutively with zero delay, which could race a
       // cold-starting app and drop it back to the launcher or apply the unlock before the
       // setup profile existed.
-      const ok = openDeepLinkOnDevice(serial, deepLink);
+      const targetAndroidPackageName = resolveTargetAndroidPackageName(serial);
+      const ok = openDeepLinkOnDevice(serial, deepLink, targetAndroidPackageName);
       console.log(ok ? `  adb: opened on ${serial}` : '  adb: intent failed — scan QR on pair page');
       if (!ok) {
         console.log('  adb: secondary intent skipped — primary setup intent failed');
@@ -1485,7 +1524,7 @@ function runPairMain(args) {
           console.log('  adb: dismissed runtime permission dialog (notif) so setup can finish');
         }
         const ackWaitMs = Number(process.env.HERMES_PAIR_ACK_WAIT_MS || 8000);
-        const ack = waitForForegroundAck(serial, ANDROID_PACKAGE_NAME, { timeoutMs: ackWaitMs });
+        const ack = waitForForegroundAck(serial, targetAndroidPackageName, { timeoutMs: ackWaitMs });
         if (!ack.ok && dismissAndroidRuntimePermissionDialogs(serial)) {
           console.log('  adb: dismissed runtime permission dialog after ack timeout');
         }
@@ -1495,7 +1534,7 @@ function runPairMain(args) {
             : `  adb: setup ack timed out after ${ack.waitedMs}ms — sending secondary intent anyway (best-effort)`,
         );
         try {
-          openDeepLinkOnDevice(serial, 'hermes://dev/leash-unlock');
+          openDeepLinkOnDevice(serial, 'hermes://dev/leash-unlock', targetAndroidPackageName);
           console.log('  adb: developer Leash unlock intent sent (does not change tab)');
         } catch {
           // App may still be cold-starting after install.
@@ -1514,9 +1553,17 @@ function runPairMain(args) {
   }
 }
 
-try {
-  main();
-} catch (err) {
-  console.error(`[hermes-mobile-pair] ${err instanceof Error ? err.message : err}`);
-  process.exit(1);
+module.exports = {
+  createPairServer,
+  mintLivePairSession,
+  writePairQrPng,
+};
+
+if (require.main === module) {
+  try {
+    main();
+  } catch (err) {
+    console.error(`[hermes-mobile-pair] ${err instanceof Error ? err.message : err}`);
+    process.exit(1);
+  }
 }

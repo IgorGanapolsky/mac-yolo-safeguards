@@ -55,7 +55,7 @@ test('cloud execution preserves the synced thread context', async () => {
 test('renews a cloud lease throughout long-running model work', async () => {
   let renewals = 0;
   const result = await withLeaseRenewal(
-    () => new Promise((resolve) => setTimeout(() => resolve('complete'), 28)),
+    () => new Promise((resolve) => setTimeout(() => resolve('complete'), 60)),
     async () => { renewals += 1; },
     5,
   );

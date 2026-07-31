@@ -13,11 +13,11 @@ import {
 import { useGateway } from '../context/GatewayContext';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { colors } from '../theme/colors';
-import PairQrScannerModal from './PairQrScannerModal';
 import TailscaleDiscoveryBanner from './TailscaleDiscoveryBanner';
 import MacScanProgressCard from './MacScanProgressCard';
 import GatewayProfilePicker from './GatewayProfilePicker';
 import ManualComputerAddressForm from './ManualComputerAddressForm';
+import ThumbGatePromoCard from './ThumbGatePromoCard';
 import LoadingButton from './ui/LoadingButton';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import {
@@ -31,11 +31,11 @@ import {
   isDemoModeAllowed,
 } from '../utils/demoModePolicy';
 import { shouldShowConnectMacGate } from '../utils/freshUserOnboarding';
+import { hasCommittedComputerSelection } from '../utils/discoveredPairingSelection';
 import {
   CONNECT_MAC_GATE_BODY_CELLULAR,
   CONNECT_MAC_GATE_BODY_WIFI,
   CONNECT_MAC_GATE_TITLE,
-  GATE_SCAN_QR_LINK,
   GATE_SEARCHING_STATUS,
 } from '../utils/tailscalePasteIpCopy';
 import { haptics } from '../services/haptics';
@@ -61,7 +61,7 @@ export function connectMacGateCardMaxWidth(windowWidth: number): number {
 
 /**
  * First-run full-screen gate when no Mac is configured yet.
- * Stranger-first: paste Tailscale IP is the hero; Find computers / QR are secondary.
+ * Stranger-first: paste Tailscale IP is the hero; Find computers is secondary.
  */
 export default function ConnectMacGate() {
   const { width: windowWidth } = useWindowDimensions();
@@ -76,7 +76,6 @@ export default function ConnectMacGate() {
     gatewayProfiles,
     activeGatewayProfile,
     effectiveGatewayUrl,
-    applySetupDeepLink,
     retryGatewayBootstrap,
     scanForGatewayProfiles,
     selectGatewayProfile,
@@ -88,8 +87,6 @@ export default function ConnectMacGate() {
     wifiConnected,
   } = useGateway();
 
-  const [qrVisible, setQrVisible] = useState(false);
-  const [invalidQrHint, setInvalidQrHint] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [enablingDemo, setEnablingDemo] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
@@ -117,8 +114,12 @@ export default function ConnectMacGate() {
   };
 
   const handleManualProfileAdded = useCallback(
-    async (label: string, gatewayUrl: string) => {
-      await addGatewayProfile(label, gatewayUrl);
+    async (
+      label: string,
+      gatewayUrl: string,
+      verifiedApiKey: string | null,
+    ) => {
+      await addGatewayProfile(label, gatewayUrl, verifiedApiKey);
       await retryGatewayBootstrap();
     },
     [addGatewayProfile, retryGatewayBootstrap],
@@ -161,22 +162,29 @@ export default function ConnectMacGate() {
     e2eAutomation: isE2eAutomationBuild(),
     storeReviewDemo: isStoreReviewDemoBuild(),
   });
+  const hasCommittedSelection = hasCommittedComputerSelection({
+    activeProfileId: activeGatewayProfile?.id,
+    settingsGatewayUrl: settings.gatewayUrl,
+  });
+  const hasUnselectedScanResults =
+    pickerProfiles.length > 0 && !hasCommittedSelection;
   const keepFreshGateOpenDuringScanRef = useRef(false);
   if (showFreshGate) {
     keepFreshGateOpenDuringScanRef.current = true;
-  } else if (!searching) {
+  } else if (!searching && hasCommittedSelection) {
     keepFreshGateOpenDuringScanRef.current = false;
   }
   const showGate =
     showFreshGate ||
-    (!settings.connectMacGateDismissed && searching && keepFreshGateOpenDuringScanRef.current);
+    (!settings.connectMacGateDismissed &&
+      keepFreshGateOpenDuringScanRef.current &&
+      (searching || hasUnselectedScanResults));
 
   const onCellular = !wifiConnected;
   const contextBody = onCellular ? CONNECT_MAC_GATE_BODY_CELLULAR : CONNECT_MAC_GATE_BODY_WIFI;
   const hasTailscaleCandidates = tailscaleDiscoveries.length > 0;
 
   const runWifiSearch = useCallback(async () => {
-    setInvalidQrHint(null);
     setIsSearching(true);
     try {
       // "Find computers" must search everywhere Hermes can reach a Mac, not just
@@ -275,6 +283,8 @@ export default function ConnectMacGate() {
                 />
               </View>
 
+              <ThumbGatePromoCard surface="connection_unreachable" style={styles.promoSlot} />
+
               {showCompactScanStatus ? (
                 <Text style={styles.statusText} testID="connect-mac-scan-status">
                   {GATE_SEARCHING_STATUS}
@@ -328,20 +338,8 @@ export default function ConnectMacGate() {
                     testID="connect-search-wifi"
                     style={styles.secondaryButton}
                   />
-                  <TouchableOpacity
-                    onPress={() => {
-                      setInvalidQrHint(null);
-                      setQrVisible(true);
-                    }}
-                    accessibilityRole="button"
-                    testID="connect-scan-qr"
-                  >
-                    <Text style={styles.secondaryLink}>{GATE_SCAN_QR_LINK}</Text>
-                  </TouchableOpacity>
                 </View>
               ) : null}
-
-              {invalidQrHint ? <Text style={styles.hintError}>{invalidQrHint}</Text> : null}
 
               {isDemoModeAllowed() ? (
                 <View style={styles.demoEntry}>
@@ -359,21 +357,6 @@ export default function ConnectMacGate() {
           </ScrollView>
         </KeyboardAvoidingView>
       ) : null}
-
-      <PairQrScannerModal
-        visible={qrVisible}
-        onClose={() => {
-          setQrVisible(false);
-          setInvalidQrHint(null);
-        }}
-        onScanned={async (params) => {
-          await applySetupDeepLink(params);
-          await retryGatewayBootstrap();
-        }}
-        onInvalidScan={() =>
-          setInvalidQrHint('That QR is not a Hermes pairing code. Open Connect phone on your computer.')
-        }
-      />
     </>
   );
 }
@@ -389,6 +372,7 @@ const styles = StyleSheet.create({
   },
   cardScrollContent: {
     flexGrow: 1,
+    alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
   },
@@ -429,6 +413,9 @@ const styles = StyleSheet.create({
   heroBlock: {
     gap: 0,
   },
+  promoSlot: {
+    marginVertical: 4,
+  },
   foundBlock: {
     gap: 8,
   },
@@ -448,16 +435,6 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     width: '100%',
-  },
-  secondaryLink: {
-    color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  hintError: {
-    fontSize: 12,
-    color: colors.error,
   },
   demoEntry: {
     marginTop: 4,

@@ -20,6 +20,7 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-retrieval-harness-'));
 fs.mkdirSync(path.join(tmp, 'docs'), { recursive: true });
 fs.mkdirSync(path.join(tmp, 'tools'), { recursive: true });
 fs.mkdirSync(path.join(tmp, 'node_modules', 'ignored'), { recursive: true });
+fs.mkdirSync(path.join(tmp, 'parallel-research'), { recursive: true });
 
 fs.writeFileSync(
   path.join(tmp, 'docs', 'SDD.md'),
@@ -38,6 +39,10 @@ fs.writeFileSync(
   ].join('\n'),
 );
 fs.writeFileSync(path.join(tmp, 'node_modules', 'ignored', 'skip.js'), 'Specification-Driven Design should not be indexed.');
+fs.writeFileSync(
+  path.join(tmp, 'parallel-research', 'raw-provider-output.md'),
+  'ThumbGate lessons response feedback thumbs repeated provider transcript.',
+);
 
 assert.strictEqual(parseArgs(['retrieve', '--query', 'gap analysis', '--json']).json, true);
 assert.deepStrictEqual(tokenize('The Specification-Driven Design gap analysis'), ['specification-driven', 'design', 'gap', 'analysis']);
@@ -47,11 +52,21 @@ const inventory = buildInventory({ repo: tmp });
 assert.strictEqual(inventory.fileCount, 2);
 assert(inventory.files.some((file) => file.path === 'docs/SDD.md'));
 assert(!inventory.files.some((file) => file.path.includes('node_modules')));
+assert(
+  !inventory.files.some((file) => file.path.includes('parallel-research')),
+  'raw deep-research receipts must not displace canonical code or curated docs',
+);
 
 const retrieved = retrieve('modular markdown gap analysis tests', { repo: tmp, limit: 2 });
 assert.strictEqual(retrieved.matches[0].path, 'docs/SDD.md');
 assert(retrieved.matches[0].score > 0);
 assert(retrieved.matches[0].snippet.includes('modular markdown'));
+assert(
+  !retrieve('ThumbGate lessons response feedback thumbs', { repo: tmp, limit: 10 }).matches.some(
+    (match) => match.path.includes('parallel-research'),
+  ),
+  'raw deep-research receipts must stay outside default retrieval',
+);
 
 const read = readFileRange({ repo: tmp, path: 'docs/SDD.md', start: 2, end: 3 });
 assert.strictEqual(read.start, 2);

@@ -24,7 +24,7 @@ export function resolveChatMachineLabel(
     return formatProfileLabel(matched);
   }
   if (!gatewayUrl.trim()) {
-    return 'No computer linked';
+    return 'No Mac selected';
   }
   return formatGatewayHostLabel(gatewayUrl, health);
 }

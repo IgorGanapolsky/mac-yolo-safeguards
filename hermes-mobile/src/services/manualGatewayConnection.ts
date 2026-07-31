@@ -3,6 +3,7 @@ import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
 import {
   pairServerHostFromGatewayUrl,
   resolvePairServerSetupParams,
+  withFreshPairServerSetup,
 } from './gatewayDiscovery';
 import { fetchGatewayHealth } from './gatewayClient';
 import { exchangePairingCode } from './pairingCodeExchange';
@@ -15,11 +16,21 @@ type PairExchangeResult = {
   macName?: string;
 };
 
+type PairingSetupAttempt = {
+  complete: boolean;
+  apiKey: string | null;
+  computerName: string | null;
+};
+
 export type ManualGatewayConnectionDependencies = {
   loadApiKey: () => Promise<string | null>;
   saveApiKey: (apiKey: string) => Promise<void>;
   clearApiKey: () => Promise<void>;
   resolvePairServerSetupParams: (host: string) => Promise<SetupDeepLinkParams | null>;
+  withFreshPairServerSetup?: (
+    host: string,
+    consume: (setup: SetupDeepLinkParams) => Promise<PairingSetupAttempt>,
+  ) => Promise<PairingSetupAttempt | null>;
   exchangePairingCode: (pairServerUrl: string, code: string) => Promise<PairExchangeResult | null>;
   fetchGatewayHealth: (
     gatewayUrl: string,
@@ -48,15 +59,17 @@ const defaultDependencies: ManualGatewayConnectionDependencies = {
   saveApiKey: (apiKey) => secureCredentials.saveApiKey(apiKey),
   clearApiKey: () => secureCredentials.clearApiKey(),
   resolvePairServerSetupParams,
+  withFreshPairServerSetup,
   exchangePairingCode,
   fetchGatewayHealth,
   rememberTailnetProbeHost,
 };
 
-const MANUAL_PROBE_TIMEOUT_MS = 5000;
-// Cellular VPN routes can take several seconds to wake after Android resumes Tailscale.
-// Match the established repair path instead of declaring a healthy 100.x endpoint dead.
+// A user can submit while the bounded LAN sweep is still draining. Give both LAN and
+// Tailscale enough time for health plus the authenticated sessions probe under contention.
+const MANUAL_PROBE_TIMEOUT_MS = 12_000;
 const TAILSCALE_MANUAL_PROBE_TIMEOUT_MS = 12_000;
+const PAIRING_CODE_MAX_ATTEMPTS = 3;
 
 function displayComputerName(value?: string | null): string | null {
   const cleaned = value?.trim().replace(/\.local$/i, '');
@@ -72,29 +85,57 @@ async function pairingCandidate(
     return { apiKey: null, computerName: null };
   }
 
-  const setup = await dependencies.resolvePairServerSetupParams(host);
-  if (!setup) {
-    return { apiKey: null, computerName: null };
-  }
-
-  let apiKey = setup.apiKey?.trim() || null;
-  let computerName = displayComputerName(setup.macName);
-  if (setup.pairingCode?.trim() && setup.pairServerUrl?.trim()) {
+  let computerName: string | null = null;
+  const consumeSetup = async (setup: SetupDeepLinkParams): Promise<PairingSetupAttempt> => {
+    const setupApiKey = setup.apiKey?.trim() || null;
+    const setupComputerName = displayComputerName(setup.macName);
+    if (!setup.pairingCode?.trim() || !setup.pairServerUrl?.trim()) {
+      return {
+        complete: true,
+        apiKey: setupApiKey,
+        computerName: setupComputerName,
+      };
+    }
     const exchanged = await dependencies.exchangePairingCode(
       setup.pairServerUrl,
       setup.pairingCode,
     );
-    apiKey = exchanged?.apiKey?.trim() || apiKey;
-    computerName = displayComputerName(exchanged?.macName) || computerName;
+    const exchangedApiKey = exchanged?.apiKey?.trim() || null;
+    return {
+      complete: Boolean(exchangedApiKey || setupApiKey),
+      apiKey: exchangedApiKey || setupApiKey,
+      computerName:
+        displayComputerName(exchanged?.macName) || setupComputerName,
+    };
+  };
+
+  for (let attempt = 0; attempt < PAIRING_CODE_MAX_ATTEMPTS; attempt += 1) {
+    const result = dependencies.withFreshPairServerSetup
+      ? await dependencies.withFreshPairServerSetup(host, consumeSetup)
+      : await dependencies.resolvePairServerSetupParams(host).then((setup) =>
+          setup ? consumeSetup(setup) : null,
+        );
+    if (!result) {
+      return { apiKey: null, computerName };
+    }
+
+    computerName = result.computerName || computerName;
+    if (result.complete) {
+      return { apiKey: result.apiKey, computerName };
+    }
   }
 
-  return { apiKey, computerName };
+  return { apiKey: null, computerName };
 }
 
 export type ConnectManualGatewayInput = {
   gatewayUrl: string;
   fallbackLabel: string;
-  persistProfile: (label: string, gatewayUrl: string) => Promise<void>;
+  persistProfile: (
+    label: string,
+    gatewayUrl: string,
+    verifiedApiKey: string | null,
+  ) => Promise<void>;
 };
 
 /**
@@ -144,7 +185,7 @@ export async function connectManualGatewayAddress(
 
   const label = displayComputerName(health.hostname) || pair.computerName || input.fallbackLabel;
   try {
-    await input.persistProfile(label, input.gatewayUrl);
+    await input.persistProfile(label, input.gatewayUrl, candidateApiKey);
   } catch (error) {
     if (apiKeyChanged) {
       if (previousApiKey) {

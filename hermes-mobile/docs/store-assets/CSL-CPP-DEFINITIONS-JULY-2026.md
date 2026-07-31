@@ -1,30 +1,51 @@
-# Play CSL + iOS CPP definitions — GSD artifact (2026-07-15)
+# Hermes Mobile CSL and CPP definitions — July 2026
 
-**Machine-readable:** `csl-definitions-20260715.json`, `cpp-definitions-20260715.json`  
-**Console only:** Play Android Publisher API has **no** CSL methods; ASC CPP create is Console/UI (or limited API).  
-**Brand rule:** Prefer category language. Strip Cursor/Claude/Copilot from **titles/subtitles** when pasting (variant B short desc may still mention — sanitize).
+Machine-readable sources:
 
-## Play Custom Store Listings (3)
+- `csl-definitions-20260715.json`
+- `cpp-definitions-20260715.json`
 
-| ID | Theme | Short desc source | Target keywords |
-|----|-------|-------------------|-----------------|
-| `csl-ai-agent-control` | Safety | `short_description_A_safety.txt` | AI agent control, approve tools phone |
-| `csl-devtool-operator` | Operator | `short_description_B_operator.txt` | mobile devtool, remote Mac agent |
-| `csl-wallet-credits` | Wallet / hybrid C | `short_description_C_wallet_guard.txt` | own Mac, Leash Pro, cloud credits |
+These definitions target the paid Hermes Mobile product and replace the stale free-package and subscription-era variants.
 
-**How to create:** Play Console → Grow → Store presence → Custom store listings → New → paste title/short/full from variants → keyword/country targeting → publish.
+## Google Play
 
-## iOS Custom Product Pages (3)
+The target is `com.iganapolsky.hermesmobile.paid`. Google supports search-keyword-targeted Custom Store Listings in Play Console, but the Android Publisher API does not expose creation or keyword-targeting methods. The JSON therefore provides exact, validated Console inputs without pretending they have been published by an API.
 
-| ID | Name | Subtitle source | Notes |
-|----|------|-----------------|-------|
-| `cpp-ai-agent-control` | AI agent control | `subtitle_A_safety.txt` | Reuse 6.7" stellar screenshots |
-| `cpp-mobile-devtool` | Mobile devtool | `subtitle_B_operator.txt` | Organic keyword CPP |
-| `cpp-own-mac-credits` | Own Mac vs credits | `subtitle_C_wallet_guard.txt` | Price anchor in promo text |
+Create three listings from the default paid listing:
 
-**How to create:** ASC → Hermes Mobile → Custom Product Pages → create → media from existing 1.0/1.1 sets → enable search.
+1. Remote AI control
+2. AI coding operator
+3. Local multi-platform agent
 
-## Evidence of prep
+Keep the default icon and six screenshots. Change only the name, short description, target keyword bundle, and first screenshot caption defined in the JSON. Do not add prices, rankings, competitor trademarks, or a free-download claim.
 
-- Variants live under `fastlane/metadata/*/en-US/variants/`
-- Distinct screenshots: `python3 scripts/_assert_store_frame_distinct.py` → all pairs &lt;90% similar (2026-07-15)
+## Apple
+
+The three draft pages are created and verified through the App Store Connect API. Creation is intentionally not embedded in a permanent script: Apple's page-create endpoint requires an atomic compound document and this is a one-time provider operation, while ongoing truth is read back from App Store Connect. The drafts are not submitted for review by this artifact.
+
+Apple currently validates custom-page keyword relationships against the live version 1.3 keyword universe even when version 1.4 is selected as the page template. The immediately assignable clusters are:
+
+- Remote: `remote`, `desktop`, `tailscale`, `wifi`
+- Coding: `coding`, `devtools`, `operator`, `approve`
+- Local/platform: `gateway`, `safety`, `pair`, `usb`, `phone`, `mobile`
+
+After version 1.4 becomes live, migrate to the non-overlapping `nextKeywordIds` stored in the JSON:
+
+- Remote: `remote`, `desktop`, `control`, `computer`
+- Coding: `coding`, `assistant`, `developer`
+- Local/platform: `local`, `selfhosted`, `linux`, `windows`
+
+Apple promotional text is conversion copy, not an organic ranking field. The keyword relationships and intent-specific screenshots are the discoverability surfaces.
+
+## Verification
+
+`src/__tests__/storeGrowthSurfacesContract.test.ts` enforces:
+
+- paid Play package only
+- Google name and short-description limits
+- no stale subscription/free-download/trademark claims
+- three unique search-intent clusters per store
+- immediately assigned Apple keyword IDs are present in the live keyword universe
+- post-1.4 Apple keyword IDs are present in the staged default keyword field
+- no duplicated Apple keyword ownership across pages
+- promotional text stays within Apple's limit

@@ -7,6 +7,17 @@ import { buildTailscaleGatewayUrl, isTailscaleGatewayUrl } from './tailscaleHost
 
 export const USB_LOOPBACK_GATEWAY_URL = 'http://127.0.0.1:8642';
 
+/** Localhost candidates are valid for web and Android adb/emulator transports, never iOS. */
+export function localGatewayProbeCandidates(platformOS: string): string[] {
+  if (platformOS === 'web') {
+    return [USB_LOOPBACK_GATEWAY_URL];
+  }
+  if (platformOS === 'android') {
+    return [USB_LOOPBACK_GATEWAY_URL, 'http://10.0.2.2:8642'];
+  }
+  return [];
+}
+
 /** Skip probing a LAN URL when the phone is off Wi‑Fi — try USB loopback instead. */
 export function shouldSkipLanGatewayProbe(gatewayUrl: string, wifiConnected: boolean): boolean {
   if (wifiConnected || Platform.OS === 'web') {
@@ -15,9 +26,13 @@ export function shouldSkipLanGatewayProbe(gatewayUrl: string, wifiConnected: boo
   return isPrivateLanGatewayUrl(gatewayUrl) && !isLoopbackGatewayUrl(gatewayUrl);
 }
 
-/** Ordered fallback URLs after the active URL fails (native USB adb reverse). */
+/**
+ * Ordered fallback URLs after the active URL fails (Android USB adb reverse only).
+ * iPad/iPhone never get adb reverse — probing 127.0.0.1 leaves them stuck on
+ * "unreachable · USB" forever (2026-07-25 iPad dogfood).
+ */
 export function usbLoopbackFallbackUrls(primaryUrl: string): string[] {
-  if (Platform.OS === 'web' || isLoopbackGatewayUrl(primaryUrl)) {
+  if (Platform.OS !== 'android' || isLoopbackGatewayUrl(primaryUrl)) {
     return [];
   }
   return [USB_LOOPBACK_GATEWAY_URL];

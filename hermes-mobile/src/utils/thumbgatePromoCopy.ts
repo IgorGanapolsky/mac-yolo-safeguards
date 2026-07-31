@@ -5,9 +5,9 @@
 
 /** Canonical Hermes Web / ThumbGate control-plane URL (not thumbgate.ai marketing alias). */
 export const THUMBGATE_WEB_URL =
-  'https://thumbgate.app/?utm_source=hermes-mobile&utm_medium=app&utm_campaign=web_promo';
+  'https://thumbgate.app/?utm_source=hermes-mobile&utm_medium=app&utm_campaign=paid_companion#pricing';
 
-export const THUMBGATE_PROMO_BUTTON_LABEL = 'Open ThumbGate';
+export const THUMBGATE_PROMO_BUTTON_LABEL = 'See ThumbGate plans';
 
 export type ThumbGatePromoSurface = 'leash_disconnected' | 'leash_empty' | 'connection_unreachable';
 
@@ -18,19 +18,15 @@ export type ThumbGatePromoCopy = {
   url: string;
 };
 
+const PAID_COMPANION_COPY = {
+  headline: 'Upgrade Hermes with ThumbGate',
+  body: 'Add a web dashboard and paid Continuity to Hermes Mobile. Manage chats and Leash controls from any browser, and keep eligible work moving when your Mac is offline.',
+} as const;
+
 const SURFACE_COPY: Record<ThumbGatePromoSurface, Omit<ThumbGatePromoCopy, 'url' | 'buttonLabel'>> = {
-  leash_disconnected: {
-    headline: 'Self-Improving Firewall on the web',
-    body: 'Sign in at ThumbGate to review Leash decisions, lesson-backed gates, and chat history from any browser. Your Mac still runs the work locally.',
-  },
-  leash_empty: {
-    headline: 'Self-Improving Firewall',
-    body: 'Review past approvals and thumbs lessons, manage your account, and open Hermes from a desktop browser.',
-  },
-  connection_unreachable: {
-    headline: 'Try ThumbGate.app',
-    body: 'When your phone cannot reach your computer, sign in at ThumbGate.app to pair a Mac and continue in the browser.',
-  },
+  leash_disconnected: PAID_COMPANION_COPY,
+  leash_empty: PAID_COMPANION_COPY,
+  connection_unreachable: PAID_COMPANION_COPY,
 };
 
 export function thumbGatePromoCopy(surface: ThumbGatePromoSurface): ThumbGatePromoCopy {

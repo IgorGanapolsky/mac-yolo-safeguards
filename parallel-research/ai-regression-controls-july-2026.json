@@ -1,0 +1,1076 @@
+{
+  "run_id": "trun_5e3eaa2b7dc3426093a1852b55847b35",
+  "interaction_id": "trun_5e3eaa2b7dc3426093a1852b55847b35",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_5e3eaa2b7dc3426093a1852b55847b35",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Step 1 reasoning: The field_answer provides a comprehensive, structured treatment of the five layers (RAG systems, AI agents with tools, multi-agent workflows, MCP-based enterprise integrations, and production AI systems) with sections addressing: Why the architecture, potential failure modes, measurement approaches, security considerations, deployment patterns, and how to know it works. It also includes a unified control plane concept and a 30/60/90-day implementation sequence for a React Native mobile client + Hermes-like gateway, plus explicit notes on stale tests, cleanup automation, RAG drift, tool side effects, agent ownership, MCP risks, and the local-vs-live testing gap. Therefore, Step 1 (completeness) yields true since the answer addresses all required aspects across all five layers and delivers the requested orchestration and sequencing content.\n\nStep 2 reasoning: Excerpts provided cover MCP security risks and best practices, confused deputy risks, token handling, RAG evaluation and metrics, RAG production pitfalls, RAG chunking strategies, and mobile/E2E testing tooling and frameworks. While the field_answer cites these topics (e.g., MCP token binding, token-passthrough, audience binding, RAG evaluation metrics, and mobile E2E considerations), many specific implementation details (precise SLOs, concrete trace schemas, exact anti-patterns) are narrative and high-level in the excerpts. The excerpts do support the general direction and some concrete elements (MCP security, RAG metrics, E2E testing references) but not every granular claim verbatim. Overall, the field_answer is supported by the excerpts as a coherent synthesis, though some very specific claims are not each individually verifiable from the excerpts alone.\n\nOverall assessment: completeness = true; supported = true",
+        "citations": [
+          {
+            "url": "https://www.truefoundry.com/blog/mcp-security-risks-best-practices",
+            "excerpts": [
+              "MCP Security Risks & Best Practices: Enterprise Guide - Truefoundry\nThe Model Context Protocol creates new vulnerabilities. Explore the top MCP security risks and essential MCP security best practices for enterprise AI."
+            ],
+            "title": "MCP Security Risks & Best Practices: Enterprise Guide - Truefoundry"
+          },
+          {
+            "url": "https://nhimg.org/articles/mcp-security-best-practices-expose-the-confused-deputy-risk",
+            "excerpts": [
+              "MCP security best practices expose the confused deputy risk\nTL;DR: The MCP security best practices specification makes confused deputy attacks, token passthrough, and session-based authentication the central risks for agent and tool trust, while mandating OAuth 2.1, per-request validation, and five authorization patterns, according to Aembit. The bigger issue is that existing IAM assumptions about stable user sessions and broad token reuse do not"
+            ],
+            "title": "MCP security best practices expose the confused deputy risk"
+          },
+          {
+            "url": "https://www.nudgesecurity.com/post/mcp-security-risks-mcp-server-exposure-and-best-practices-for-the-ai-agent-era",
+            "excerpts": [
+              "MCP Security: Risks and Best Practices Explained\nFeb 25, 2026 \u2014 An AI agent connects to an MCP server, and that server facilitates authorized access to platforms like Google Drive, GitHub, Slack, Jira, CRM"
+            ],
+            "title": "MCP Security: Risks and Best Practices Explained"
+          },
+          {
+            "url": "http://aembit.io/blog/mcp-security-testing",
+            "excerpts": [
+              "Learn how to test MCP systems for security vulnerabilities, including confused deputy attacks, token passthrough risks and proper authorization patterns.\nThe MCP specification explicitly forbids token passthrough, where servers forward authentication tokens through intermediaries rather than validating them directly. Standard security tools don't test for this pattern because most protocols don't prohibit it. Your testing must verify that tokens are validated directly against the authorization server at each hop, not relayed through the chain.\nThe most common MCP-specific vulnerability is the confused deputy problem, where an attacker tricks a legitimate client into performing unauthorized actions. Traditional scanners test individual endpoints in isolation. They can't detect scenarios where Application B exploits authorization granted to Application A because the MCP server fails to validate per-client consent.\nLearn how to test MCP systems for security vulnerabilities, including confused deputy attacks, token passthrough risks and proper authorization patterns\nLearn how to test MCP systems for security vulnerabilities, including confused deputy attacks, token passthrough risks and proper authorization patterns. io%2Fblog%2Fmcp-security-testing%2F&title=MCP%20Security%20Testing%3A%20Tools%20and%20Methodologies) If you test the Model Context Protocol (MCP) like a standard API, you'll miss the vulnerabilities attackers are most likely to exploit. MCP introduces dynamic interactions between agents, servers and tools across multiple trust boundaries. This architecture creates attack surfaces that traditional testing approaches weren't designed to handle. The MCP [security specification](https://modelcontextprotocol.io/docs/tutorials/security/security_best_practices) defines six critical threat vectors and five mandatory authorization patterns. Your testing methodology needs to validate each one. When your testing framework expects simple request-response patterns, how do you validate security for systems where agents orchestrate tools, authorization decisions depend on per-client consent and token handling must follow strict prohibitions? The answer lies in methodologies that understand MCP-specific threats and systematically verify the controls the specification requires. Why Traditional Security Tools Miss MCP Vulnerabilities Standard API security scanners were built for stateless endpoints with predictable request-response cycles. MCP interactions break these assumptions in ways that create blind spots. The Confused Deputy Problem Requires Relationship Testing The most common MCP-specific vulnerability is the confused deputy problem, where an attacker tricks a legitimate client into performing unauthorized actions. Traditional scanners test individual endpoints in isolation. They can't detect scenarios where Application B exploits authorization granted to Application A because the MCP server fails to validate per-client consent. Testing for confused deputy vulnerabilities requires simulating multiple client applications with different authorization levels, then attempting cross-client access. A scanner that only tests one client at a time will never catch this. Token Handling Has Absolute Prohibitions The MCP specification explicitly forbids token passthrough, where servers forward authentication tokens through intermediaries rather than validating them directly. Standard security tools don't test for this pattern because most protocols don't prohibit it. Your testing must verify that tokens are validated directly against the authorization server at each hop, not relayed through the chain. The specification also requires that session-based authentication must not substitute for per-request token validation. MCP servers must validate tokens on each request, meaning implementations that rely on HTTP-based session state as their sole authentication mechanism are noncompliant. However, cookies used alongside token-based auth for purposes like CSRF protection don't violate this requirement. ... HTTPS is mandatory for all MCP communication with no exceptions. Test that HTTP connections are rejected at the network level, not redirected. Verify Transport Layer Security (TLS) 1.2 minimum with TLS 1.3 preferred. Test cipher suite configuration to confirm weak ciphers (RC4, DES, 3DES) are disabled. Verify HSTS headers are present. Test certificate validation by presenting expired certificates, self-signed certificates and certificates with incorrect hostnames. All should fail in production configurations. Input Validation Testing The specification requires schema-based validation for all input parameters. Test with missing required parameters, incorrect types, values outside acceptable ranges and oversized inputs. All should be rejected with Tool Execution Errors per the protocol specification. File path inputs require sanitization testing. Test traversal sequences, absolute paths outside allowed directories and encoded variations\nThe MCP specification explicitly forbids token passthrough, where servers forward authentication tokens through intermediaries rather than validating them directly.\nThe most common MCP-specific vulnerability is the confused deputy problem, where an attacker tricks a legitimate client into performing unauthorized actions."
+            ],
+            "title": "MCP Security Testing: Tools and Methodologies - Aembit"
+          },
+          {
+            "url": "https://nhimg.org/community/nhi-best-practices/mcp-confused-deputy-risk-what-iam-teams-need-to-enforce",
+            "excerpts": [
+              "MCP confused deputy risk: what IAM teams need to enforce\nJun 6, 2026 \u2014 A: Token passthrough and session authentication both create reusable trust artefacts that are easy to intercept or replay. Practitioner guidance."
+            ],
+            "title": "MCP confused deputy risk: what IAM teams need to enforce"
+          },
+          {
+            "url": "https://maven.com/p/35585d/rag-anti-patterns-in-the-wild-and-how-to-fix-them",
+            "excerpts": [
+              "RAG Anti-patterns in the Wild, and How to Fix Them\nRAG systems often fail in production despite passing tests, silently frustrating users. By understanding common anti-patterns, you'll develop expertise to"
+            ],
+            "title": "RAG Anti-patterns in the Wild, and How to Fix Them"
+          },
+          {
+            "url": "https://getdevstudio.com/blog/enterprise-rag-knowledge-base-architecture",
+            "excerpts": [
+              "Enterprise RAG Knowledge Base Architecture (2026): 8 ...\nA practitioner architecture for enterprise RAG knowledge bases in 2026 \u2014 8 components from ingestion to grounded generation, plus the four anti-patterns that turn pilots into production-grade systems instead of demos."
+            ],
+            "title": "Enterprise RAG Knowledge Base Architecture (2026): 8 ..."
+          },
+          {
+            "url": "http://www.danieljwoolridge.com/blog/2025/4/24/rag-in-production-avoiding-common-pitfalls",
+            "excerpts": [
+              "RAG in Production: Avoiding Common Pitfalls \u2014 dan\\woolr\nIn this post I want to explore a few pitfalls encountered when implementing RAG in production and how to think about mitigating them. I\u2019ll save deeper dives on the points raised for follow up posts."
+            ],
+            "title": "RAG in Production: Avoiding Common Pitfalls \u2014 dan\\woolr"
+          },
+          {
+            "url": "https://medium.com/%40kanavkalra87/chunking-strategies-for-rag-a-practical-guide-to-high-accuracy-retrieval-in-production-llm-systems-48dd60cb8d60",
+            "excerpts": [
+              "Chunking Strategies for RAG: A Practical Guide to High ...\nThis guide covers fixed, semantic, sliding-window, hierarchical, and hybrid chunking to boost vector search relevance, reduce hallucinations, and build production-grade LLM RAG pipelines."
+            ],
+            "title": "Chunking Strategies for RAG: A Practical Guide to High ..."
+          },
+          {
+            "url": "https://techcommunity.microsoft.com/blog/azure-ai-foundry-blog/vector-drift-in-azure-ai-search-three-hidden-reasons-your-rag-accuracy-degrades-/4493031",
+            "excerpts": [
+              "Vector Drift in Azure AI Search: Three Hidden Reasons Your RAG ...\nVector drift occurs when embeddings stored in a vector index no longer accurately represent the semantic intent of incoming queries. Because"
+            ],
+            "title": "Vector Drift in Azure AI Search: Three Hidden Reasons Your RAG ..."
+          },
+          {
+            "url": "https://datavlab.ai/post/rag-evaluation-methods-metrics-2026-guide",
+            "excerpts": [
+              "RAG Evaluation 2026: Methods, Metrics, Frameworks\nWe focus less on framework comparison and more on the strategic question: which metrics actually predict production quality, how do you read them diagnostically, and where do humans still need to sit in the loop?"
+            ],
+            "title": "RAG Evaluation 2026: Methods, Metrics, Frameworks"
+          },
+          {
+            "url": "http://customgpt.ai/rag-evaluation-metrics",
+            "excerpts": [
+              "RAG Evaluation Metrics: Measure And Improve Systems Use RAG evaluation metrics like RAG Triad\u2014Context Relevance, Faithfulness, and Answer Relevance\u2014as your core evaluation framework.\nRAGAS provides production-ready implementations of these metrics using LLM-as-a-judge approaches."
+            ],
+            "title": "RAG Evaluation Metrics: Measure And Improve Systems"
+          },
+          {
+            "url": "http://vikasgoyal.github.io/agentic/observe/rag-evals.html",
+            "excerpts": [
+              "A practical guide to evaluating RAG systems by separating retrieval quality, grounding quality, citation fidelity, and final answer behavior so teams can diagnose failures instead of hiding them inside one score."
+            ],
+            "title": "RAG Evals: Retrieval Relevance, Grounding, and Citation Fidelity"
+          },
+          {
+            "url": "http://evidentlyai.com/llm-guide/rag-evaluation",
+            "excerpts": [
+              "Aug 22, 2025 \u00b7 This guide breaks down how to evaluate and test RAG systems. You'll learn how to evaluate retrieval and generation quality, build test sets\u00a0...\nBut adding retrieval functionality makes things more complex.\nHow to evaluate retrieval and generation separately\nHow to use LLMs for evaluation and synthetic data generation\nIn this guide, we'll break down how to evaluate and test RAG systems, both during development and in production. We'll cover:\nRAG \u2013 short for Retrieval-Augmented Generation \u2013 is one of the most popular ways to build useful LLM applications. It lets you bring in external knowledge so your AI assistant or chatbot can work with more than just what the LLM memorized during training.\nSuddenly you are not just prompting an LLM \u2013 you're building a pipeline. There is chunking, search, context assembly, and generation. And when something goes wrong, it's not always clear where the problem is. Did the model hallucinate? Or did it never get the right information to begin with?\nThat's where you need evaluations: a way to test how well your RAG system is working \u2013 and catch what isn't, ideally before users do.\nTips for building test sets, running experiments, and monitoring in production"
+            ],
+            "title": "A complete guide to RAG evaluation: metrics, testing and best practices"
+          },
+          {
+            "url": "http://docs.ragas.io/en/stable",
+            "excerpts": [
+              "Ragas Metrics: Create custom metrics tailored to your specific use case with simple decorators or use our library of available metrics. Learn more about"
+            ],
+            "title": "Ragas"
+          },
+          {
+            "url": "https://expo.dev/services/workflows",
+            "excerpts": [
+              "Mobile CI/CD built for React Native - expo.dev\nMobile CI/CD built for React Native Builds, submissions, repacks, and OTA updates in one pipeline. Add it to your existing CI, or run everything here."
+            ],
+            "title": "Mobile CI/CD built for React Native - expo.dev"
+          },
+          {
+            "url": "https://dev.to/peakiqofficial/e2e-testing-react-native-with-maestro-a-practical-guide-1g79",
+            "excerpts": [
+              "E2E Testing React Native with Maestro: A Practical Guide\nLearn to implement fast, reliable, zero-boilerplate E2E UI tests for your React Native app using Maestro. This guide covers installation, usage, and CI/CD. Tagged with reactnative, maestro, e2etesting, uitests."
+            ],
+            "title": "E2E Testing React Native with Maestro: A Practical Guide"
+          },
+          {
+            "url": "https://github.com/enzomanuelmangano/ennio",
+            "excerpts": [
+              "Maestro-compatible E2E test runner for React Native. - GitHub\nSame touch pipeline as a physical finger \u2014 UIKit gesture recognizers, React Native's responder system, and RNGH all see a real touch. No external daemon. Three special cases bypass HID \u2014 tab-bar taps, native-alert button taps, and the iOS back gesture \u2014 because driving those through UIKit selectors is more deterministic than a gesture."
+            ],
+            "title": "Maestro-compatible E2E test runner for React Native. - GitHub"
+          },
+          {
+            "url": "http://methodical.software/",
+            "excerpts": [
+              "A team planning a React Native launch may look ready because several engineers know React. Methodical helps reveal the real planning surface: mobile release pipelines, device testing, offline sync, native bridge debugging, app store review, and observability gaps. ``` project: customer_mobile_launch known_strength: component architecture transferable: state management, api integration ramp_up_risk: native release workflow device QA matrix offline data conflict handling planning_signal: sequence enablement before scope lock ``` Why Methodical A technical ontology built for software delivery, not keyword search. Methodical models depth, relationships, responsibility, transferability, and project context so planning conversations can move beyond generic labels.\nIt supports human judgment with better technical awareness before work is assigned, sequenced, or committed. Beta access Before the plan is committed, know what it depends on. We are inviting engineering leaders and project planners to join the Methodical beta and pressure-test technical awareness on real initiatives. Work email What are you planning? Join the beta methodical.software interested@methodical.software Privacy Policy\nTitles and keywords flatten the technical depth that delivery depends on. What Methodical provides ... A technical awareness layer for planning decisions. Dependency awareness Surface frameworks, architectural constraints, operational concerns, and ecosystem knowledge implied by the plan. ... Planning risk signals Expose missing assumptions before a roadmap becomes a delivery commitment. Workflow ... From project intent to plan readiness. Model the technical surface area Methodical maps technologies, patterns, dependencies, responsibility depth, and related capabilities. 03 Expose assumptions and gaps See where the plan depends on hidden expertise, fragile transferability, or unowned operational work. 04 ... The risk is often adjacent to the skill keyword.\nmethodical.software Platform Workflow Example Beta Join the beta Technical awareness for project planning Know the technical reality behind every project plan. Methodical maps project intent to the capabilities, dependencies, ramp-up paths, and risks that determine whether engineering work can actually be delivered."
+            ],
+            "title": "Methodical Software | Technical awareness for project planning"
+          },
+          {
+            "url": "https://www.qawolf.com/blog/best-mobile-app-testing-frameworks-2026",
+            "excerpts": [
+              "The Best Mobile E2E Testing Frameworks in 2026 - QA Wolf\nJan 21, 2026 \u00b7 Appium is the preferred framework for full end-to-end testing on iOS, exposing those native capabilities through a WebDriver-compatible"
+            ],
+            "title": "The Best Mobile E2E Testing Frameworks in 2026 - QA Wolf"
+          },
+          {
+            "url": "https://unstructured.io/insights/rag-pipeline-challenges-from-data-ingestion-to-retrieval",
+            "excerpts": [
+              "Common Challenges in RAG and How to Solve Them in Production ...\nRAG Pipeline Challenges: From Data Ingestion to Retrieval This guide breaks down the RAG pipeline end to end and shows where production systems fail in practice, from parsing and chunking through embeddings, retrieval, prompting, indexing freshness, synthesis, and evaluation."
+            ],
+            "title": "Common Challenges in RAG and How to Solve Them in Production ..."
+          },
+          {
+            "url": "https://pithycyborg.substack.com/p/the-embeddings-drift-problem-and",
+            "excerpts": [
+              "The Embeddings Drift Problem & Why Your RAG Retrieval Quality ...\nRAG systems often degrade silently. Learn how to identify embeddings drift, the difference between data and model drift, and how to build a retrieval quality monitoring pipeline to prevent your vector search from becoming irrelevant."
+            ],
+            "title": "The Embeddings Drift Problem & Why Your RAG Retrieval Quality ..."
+          },
+          {
+            "url": "http://openlayer.com/blog/post/what-are-embedding-models-complete-guide",
+            "excerpts": [
+              "Mar 9, 2026 \u2014 Openlayer monitors embedding-based systems for drift, retrieval accuracy regression, and context quality degradation with real-time alerts. Mar 9, 2026 \u2014 Openlayer monitors embedding-based systems for drift, retrieval accuracy regression, and context quality degradation with real-time alerts."
+            ],
+            "title": "Embedding models guide March 2026"
+          },
+          {
+            "url": "https://towardsdatascience.com/rag-is-blind-to-time-i-built-a-temporal-layer-to-fix-it-in-production",
+            "excerpts": [
+              "RAG Is Blind to Time \u2014 I Built a Temporal Layer to Fix It in Production\nMay 9, 2026 \u00b7 The standard RAG pipeline embeds documents, embeds the query, finds the closest matches, and sends them to the model [1, 2]. That works fine if\u00a0"
+            ],
+            "title": "RAG Is Blind to Time \u2014 I Built a Temporal Layer to Fix It in Production"
+          },
+          {
+            "url": "https://vdf.ai/blog/embedding-models-rerankers-private-rag-on-premises",
+            "excerpts": [
+              "Embedding Models and Rerankers: The Overlooked Accuracy Layer in ...\n6 days ago \u00b7 Version-pin both models in production. An unannounced model update that changes vector geometry can silently degrade retrieval quality\u00a0"
+            ],
+            "title": "Embedding Models and Rerankers: The Overlooked Accuracy Layer in ..."
+          },
+          {
+            "url": "https://www.braintrust.dev/articles/agent-observability-complete-guide-2026",
+            "excerpts": [
+              "Agent observability: The complete guide for 2026 - Articles ...\nA 2026 guide to agent observability covering tool-call tracing, multi-agent spans, framework integrations, evaluation, and production release enforcement."
+            ],
+            "title": "Agent observability: The complete guide for 2026 - Articles ..."
+          },
+          {
+            "url": "https://www.braintrust.dev/articles/best-ai-observability-tools-2026",
+            "excerpts": [
+              "AI observability tools: A buyer's guide to monitoring AI ...\nBraintrust (best for evaluation-driven AI agent observability) Braintrust is the only platform that integrates evaluation directly into the observability workflow."
+            ],
+            "title": "AI observability tools: A buyer's guide to monitoring AI ..."
+          },
+          {
+            "url": "https://developers.redhat.com/articles/2026/03/23/eval-driven-development-build-evaluate-ai-agents",
+            "excerpts": [
+              "Eval-driven development: Build and evaluate reliable AI agents\nLearn how to build reliable AI agents with our 8-stage evaluation framework. We explore DeepEval, multi-turn testing, and CI/CD integration for Red Hat AI."
+            ],
+            "title": "Eval-driven development: Build and evaluate reliable AI agents"
+          },
+          {
+            "url": "http://hamming.ai/",
+            "excerpts": [
+              "Auto-generate scenarios, define guardrails, run regression tests, and monitor production - all in one platform regardless of modality\nDoes Hamming test chat agents as well as voice agents? Yes. **Hamming tests both voice and chat agents** with unified evaluation, metrics, and production monitoring. Whether your agent speaks or types, you get the same comprehensive QA platform - one set of test scenarios, one dashboard, one evaluation framework. This multi-modal capability means teams building conversational AI don't need separate tools for voice and chat. Auto-generate scenarios, define guardrails, run regression tests, and monitor production - all in one platform regardless of modality\nHamming includes **50+ built-in metrics** (latency, hallucinations, sentiment, compliance, repetition, and more) plus unlimited custom scorers you define.\nThe trust platform for voice and chat agents Test before launch. Monitor in production. Red-team risky behavior before it reaches customers.\nYes. **Hamming tests both voice and chat agents** with unified evaluation, metrics, and production monitoring. Whether your agent speaks or types, you get the same comprehensive QA platform - one set of test scenarios, one dashboard, one evaluation framework."
+            ],
+            "title": "Hamming AI | Enterprise Voice Agent Testing & Production Monitoring"
+          },
+          {
+            "url": "http://ycombinator.com/companies/respan",
+            "excerpts": [
+              "Respan (formerly Keywords AI) gives teams a unified control plane to trace and evaluate agent behavior without guesswork, automatically surface issues,\nRespan connects production observability, automated and human-in-the-loop evaluations, and an adaptive AI gateway to close the loop between detection, decision,\nSelf-driving observability, evals, and gateway for AI agents."
+            ],
+            "title": "Respan (formerly Keywords AI) gives teams a unified control plane to trace and evaluate agent behavior without guesswork, automatically surface issues,"
+          },
+          {
+            "url": "https://www.termdock.com/blog/git-worktree-multi-agent-setup",
+            "excerpts": [
+              "Git Worktree for Multi-Agent Dev: Setup Guide | Termdock\nThe definitive guide to running multiple AI coding agents in parallel using git worktrees. Covers git worktree fundamentals, Claude Code's built-in --worktree flag, step-by-step setup for 3 parallel agents, conflict resolution, merge strategy, and cleanup. Includes a practical example with auth, API, and test agents working simultaneously."
+            ],
+            "title": "Git Worktree for Multi-Agent Dev: Setup Guide | Termdock"
+          },
+          {
+            "url": "https://www.themoonlight.io/review/isolation-as-a-first-class-principle-for-llm-agent-system-safety-concepts-taxonomy-challenges-and-future-directions",
+            "excerpts": [
+              "[Literature Review] Isolation as a First-Class Principle for ...\nThis paper proposes isolation as a first-class principle for LLM-agent system safety, arguing that as agents evolve from simple models to autonomous systems"
+            ],
+            "title": "[Literature Review] Isolation as a First-Class Principle for ..."
+          },
+          {
+            "url": "https://www.termdock.com/en/blog/git-worktree-conflicts-ai-agents",
+            "excerpts": [
+              "Git Worktree Conflicts with Multiple AI Agents: Diagnosis and Fixes\nRating 4.8 (150) \u00b7 Free \u00b7 Developer Mar 20, 2026 \u00b7 Fix git worktree conflicts when running multiple AI agents. Covers lock files, index.lock, branch conflicts, merge failures, stale worktrees,"
+            ],
+            "title": "Git Worktree Conflicts with Multiple AI Agents: Diagnosis and Fixes"
+          },
+          {
+            "url": "https://www.roboticscenter.ai/research/papers/isolation-as-a-first-class-principle-for-llm-agent-system-safety-concepts-taxonomy-challen-2607",
+            "excerpts": [
+              "Isolation as a First-Class Principle for LLM-Agent System ...\nBy isolation, we refer to the separation of user inputs, tool access, execution channels, inter-agent communication, and environment-originated"
+            ],
+            "title": "Isolation as a First-Class Principle for LLM-Agent System ..."
+          },
+          {
+            "url": "https://magnus919.com/2026/05/the-hermes-kanban-a-complete-guide-to-multi-agent-task-orchestration",
+            "excerpts": [
+              "The Hermes Kanban: A Complete Guide to Multi-Agent Task ...\nThe complete guide to Hermes Agent's multi-agent kanban system: durable task boards, the dispatcher loop, worker lifecycle, orchestrator patterns, and production safety engineering for coordinating AI agents across sessions"
+            ],
+            "title": "The Hermes Kanban: A Complete Guide to Multi-Agent Task ..."
+          },
+          {
+            "url": "https://rhesis.ai/post/offline-vs-online-evaluation-llm-applications",
+            "excerpts": [
+              "Offline vs. online evaluation at the application layer: a ...\nHow offline and online evaluation work at the LLM application layer: requirements testing, production monitoring, and the feedback loop. Read the full guide."
+            ],
+            "title": "Offline vs. online evaluation at the application layer: a ..."
+          },
+          {
+            "url": "https://www.maxpetrusenko.com/blog/offline-vs-online-llm-evals",
+            "excerpts": [
+              "Offline vs Online LLM Evals - Max Petrusenko\nDirect answer: Offline vs Online LLM Evals explains how AI product teams building repeatable quality gates before release can implement this topic with clear definitions, evidence-linked decisions, and failure-aware execution."
+            ],
+            "title": "Offline vs Online LLM Evals - Max Petrusenko"
+          },
+          {
+            "url": "https://www.datadoghq.com/blog/offline-llm-evaluations",
+            "excerpts": [
+              "Offline evaluation for AI agents: Best practices - Datadog\nDatadog LLM Experiments lets you create, run, and manage offline evaluation tests and datasets, all within Datadog. You can use production traces from LLM Observability to create datasets and monitor your new app versions\u2019 performance in production from within a single, unified platform."
+            ],
+            "title": "Offline evaluation for AI agents: Best practices - Datadog"
+          },
+          {
+            "url": "https://kindatechnical.com/testing-non-deterministic-systems/offline-eval-to-online-monitoring-pipeline.html",
+            "excerpts": [
+              "Offline Eval to Online Monitoring Pipeline - kindatechnical()\nHow to build the full pipeline from offline evaluation through canary release to continuous online monitoring, including the feedback loops that update baselines, the alert thresholds that trigger investigation, and the data flows that connect pre-deployment testing to post-deployment observation."
+            ],
+            "title": "Offline Eval to Online Monitoring Pipeline - kindatechnical()"
+          },
+          {
+            "url": "https://github.com/AndyUneducated/eval-gate/tree/main/src/evalgate/shadow",
+            "excerpts": [
+              "eval-gate/src/evalgate/shadow at main \u00b7 AndyUneducated/eval ...\nContribute to AndyUneducated/eval-gate development by creating an account on GitHub."
+            ],
+            "title": "eval-gate/src/evalgate/shadow at main \u00b7 AndyUneducated/eval ..."
+          },
+          {
+            "url": "http://warp.dev/blog/terminal-bench",
+            "excerpts": [
+              "Jun 25, 2025 \u2014 Terminal-Bench is an open-source benchmark for evaluating how well AI agents perform on complex tasks that are rooted in the terminal.\nHow we scored #1 on Terminal-Bench (52%) - Warp"
+            ],
+            "title": "How we scored #1 on Terminal-Bench (52%) - Warp"
+          },
+          {
+            "url": "https://www.tbench.ai/",
+            "excerpts": [
+              "Terminal-Bench\nThe original Terminal-Bench benchmark. 80 tasks testing agents' abilities to complete tasks using a terminal. The next frontier benchmark for terminal agents. Currently in development \u2014 contribute tasks and help shape the future of agent evaluation. A domain-specific benchmark for scientific computing in terminal environments."
+            ],
+            "title": "Terminal-Bench"
+          },
+          {
+            "url": "http://artificialanalysis.ai/evaluations/terminalbench-hard",
+            "excerpts": [
+              "Terminal-Bench is a comprehensive benchmark developed by Stanford University and the Laude Institute , for evaluating AI agents in realistic terminal"
+            ],
+            "title": "Terminal-Bench Hard Benchmark Leaderboard"
+          },
+          {
+            "url": "https://arxiv.org/html/2601.11868v1",
+            "excerpts": [
+              "Terminal-Bench: Benchmarking Agents on Hard, Realistic Tasks ...\nTo this end, we present Terminal-Bench 2.0: a carefully curated hard benchmark composed of 89 tasks in computer terminal environments inspired by problems from real workflows. Each task features a unique environment, human-written solution, and comprehensive tests for verification."
+            ],
+            "title": "Terminal-Bench: Benchmarking Agents on Hard, Realistic Tasks ..."
+          },
+          {
+            "url": "https://arxiv.org/abs/2601.11868",
+            "excerpts": [
+              "[2601.11868] Terminal-Bench: Benchmarking Agents on Hard ...\nTo this end, we present Terminal-Bench 2.0: a carefully curated hard benchmark composed of 89 tasks in computer terminal environments inspired by problems from real workflows. Each task features a unique environment, human-written solution, and comprehensive tests for verification."
+            ],
+            "title": "[2601.11868] Terminal-Bench: Benchmarking Agents on Hard ..."
+          },
+          {
+            "url": "https://docs.bswen.com/blog/2026-03-30-git-worktree-ai-agents",
+            "excerpts": [
+              "Git Worktree for AI Agents: Enabling Parallel Development ...\nThis post shows how git worktree enables multiple AI agents to work simultaneously on the same repository. The key point is giving each agent its own working directory and branch."
+            ],
+            "title": "Git Worktree for AI Agents: Enabling Parallel Development ..."
+          },
+          {
+            "url": "https://www.mindstudio.ai/blog/git-worktrees-parallel-ai-coding-agents",
+            "excerpts": [
+              "Git Worktrees for AI Coding: How to Run Multiple Agents ...\nIf you\u2019re running multiple AI coding agents and not using worktrees, you\u2019re managing conflicts manually. That\u2019s the wrong job for a human in 2026. This guide covers exactly how to set up git worktrees for parallel AI coding, how to structure the workflow, and what to watch out for."
+            ],
+            "title": "Git Worktrees for AI Coding: How to Run Multiple Agents ..."
+          },
+          {
+            "url": "http://code.claude.com/docs/en/worktrees",
+            "excerpts": [
+              "Copy gitignored files into worktrees A worktree is a fresh checkout, so untracked files like `.env` or `.env.local` from your main repository are not present. To copy them automatically when Claude creates a worktree, add a `.worktreeinclude` file to your project root. The file uses `.gitignore` syntax. Only files that match a pattern and are also gitignored are copied, so tracked files are never duplicated.\nIf a folder inside the worktree is really a link to somewhere else, such as an NTFS junction or a directory symlink, Claude Code deletes only the link and keeps the folder it points to.\nWhen Claude Code can't enter the worktree directory at startup, it prints an error naming the path and exits with code 1.\nFor full control over how worktrees are created, configure a WorktreeCreate hook, which replaces the default git worktree logic entirely\nTo copy them automatically when Claude creates a worktree, add a `.worktreeinclude` file to your project root\nYou can also ask Claude to \"work in a worktree\" during a session, and it will create one with the EnterWorktree tool"
+            ],
+            "title": "Run parallel sessions with worktrees"
+          },
+          {
+            "url": "https://www.reddit.com/r/AI_Agents/comments/1ovut68/i_implemented_parallel_agents_using_separate_git",
+            "excerpts": [
+              "I implemented parallel agents using separate Git worktrees ...\nI'm working on an AI coding assistant called Pochi, and we recently shipped parallel agents. While designing it, we ran into something"
+            ],
+            "title": "I implemented parallel agents using separate Git worktrees ..."
+          },
+          {
+            "url": "http://github.com/anthropics/claude-code/issues/29436",
+            "excerpts": [
+              "Feb 27, 2026 \u2014 EnterWorktree changes Claude Code's working directory into a git worktree, but there is no corresponding ExitWorktree tool"
+            ],
+            "title": "Add ExitWorktree tool to complement EnterWorktree #29436"
+          },
+          {
+            "url": "http://developers.cloudflare.com/agents/model-context-protocol/protocol/authorization",
+            "excerpts": [
+              "Authorization When building a [Model Context Protocol (MCP) \u2197](https://modelcontextprotocol.io) server, you need both a way to allow users to login (authentication) and allow them to grant the MCP client access to resources on their account (authorization). The Model Context Protocol uses [a subset of OAuth 2.1 for authorization \u2197](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization). OAuth allows your users to grant limited access to resources, without them having to share API keys or other credentials. Cloudflare provides an [OAuth Provider Library \u2197](https://github.com/cloudflare/workers-oauth-provider) that implements the provider side of the OAuth 2.1 protocol, allowing you to easily add authorization to your MCP server. You can use the OAuth Provider Library in four ways: Use Cloudflare Access as an OAuth provider. Integrate directly with a third-party OAuth provider, such as GitHub or Google. Integrate with your own OAuth provider, including authorization-as-a-service providers you might already rely on, such as Stytch, Auth0, or WorkOS. Your Worker handles authorization and authentication itself. Your MCP server, running on Cloudflare, handles the complete OAuth flow. The following sections describe each of these options and link to runnable code examples for each. Authorization options (1) Cloudflare Access OAuth provider Cloudflare Access allows you to add Single Sign-On (SSO) functionality to your MCP server. Users authenticate to your MCP server using a [configured identity provider](https://developers.cloudflare.com/cloudflare-one/integrations/identity-providers/) or a [one-time PIN](https://developers.cloudflare.com/cloudflare-one/integrations/identity-providers/one-time-pin/), and they are only granted access if their identity matches your [Access policies](https://developers.cloudflare.com/cloudflare-one/access-controls/policies/). To deploy an [example MCP server \u2197](https://github.com/cloudflare/ai/tree/main/demos/remote-mcp-cf-access) with Cloudflare Access as the OAuth provider, refer to [Secure MCP servers with Access for SaaS](https://developers.cloudflare.com/cloudflare-one/access-controls/ai-controls/secure-mcp-servers/). ... (2) Third-party OAuth Provider Note that as [defined in the Model Context Protocol specification \u2197](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization#authorization-flow-steps) when you use a third-party OAuth provider, the MCP Server (your Worker) generates and issues its own token to the MCP client: sequenceDiagram participant B as User-Agent (Browser) participant C as MCP Client participant M as MCP Server (your Worker) participant T as Third-Party Auth Server ``` C->>M: Initial OAuth Request M->>B: Redirect to Third-Party /authorize B->>T: Authorization Request Note over T: User authorizes T->>B: Redirect to MCP Server callback B->>M: Authorization code M->>T: Exchange code for token T->>M: Third-party access token Note over M: Generate bound MCP token M->>B: Redirect to MCP Client callback B->>C: MCP authorization code C->>M: Exchange code for token M->>C: MCP access token ``` ... (3) Bring your own OAuth Provider If your application already implements an OAuth Provider itself, or you use an authorization-as-a-service provider, you can use this in the same way that you would use a third-party OAuth provider, described above in [(2) Third-party OAuth Provider](#2-third-party-oauth-provider). You can use the auth provider to: Allow users to authenticate to your MCP server through email, social logins, SSO (single sign-on), and MFA (multi-factor authentication). Define scopes and permissions that directly map to your MCP tools. Present users with a consent page corresponding with the requested permissions. Enforce the permissions so that agents can only invoke permitted tools. ... (4) Your MCP Server handles authorization and authentication itself Your MCP Server, using the [OAuth Provider Library \u2197](https://github.com/cloudflare/workers-oauth-provider), can handle the complete OAuth authorization flow, without any third-party involvement. The [Workers OAuth Provider Library \u2197](https://github.com/cloudflare/workers-oauth-provider) is a Cloudflare Worker that implements a [fetch() handler](https://developers.cloudflare.com/workers/runtime-apis/handlers/fetch/), and handles incoming requests to your MCP server. You provide your own handlers for your MCP Server's API, and authentication and authorization logic, and URI paths for the OAuth endpoints, as shown below: **TypeScript** ... Remember \u2014 [authentication is different"
+            ],
+            "title": "title: Authorization description: Add OAuth 2.1 authorization to your MCP server using Cloudflare Access, third-party providers, or your own identity system. image: https://developers.cloudflare.com/dev-products-preview.png"
+          },
+          {
+            "url": "https://modelcontextprotocol.info/docs",
+            "excerpts": [
+              "MCP Docs \u2013 Model Context Protocol \uff08MCP\uff09\nWelcome to the Model Context Protocol documentation! MCP is a standardized protocol designed to enhance the interaction between Large Language Models (LLMs) and applications by providing structured context management."
+            ],
+            "title": "MCP Docs \u2013 Model Context Protocol \uff08MCP\uff09"
+          },
+          {
+            "url": "https://modelcontextprotocol.io/specification/2025-06-18/client/roots",
+            "excerpts": [
+              "Roots - Model Context Protocol\nThe Model Context Protocol (MCP) provides a standardized way for clients to expose filesystem \u201croots\u201d to servers. Roots define the boundaries of where servers can operate within the filesystem, allowing them to understand which directories and files they have access to."
+            ],
+            "title": "Roots - Model Context Protocol"
+          },
+          {
+            "url": "https://modelcontextprotocol.info/docs/best-practices",
+            "excerpts": [
+              "MCP Best Practices: Architecture & Implementation Guide\nThis guide distills extensive distributed systems experience into actionable best practices for MCP server development, from initial design through production\u00a0"
+            ],
+            "title": "MCP Best Practices: Architecture & Implementation Guide"
+          },
+          {
+            "url": "https://docs.sentry.io/ai/monitoring/mcp",
+            "excerpts": [
+              "MCP Servers - docs.sentry.io\nLearn how to set up Sentry for MCP Monitoring. Learn how to use Sentry's MCP monitoring tools to trace and debug your Model Context Protocol implementations, including server connections, resource access, and tool executions."
+            ],
+            "title": "MCP Servers - docs.sentry.io"
+          },
+          {
+            "url": "https://stackpulsar.com/blog/ai-agent-reliability-monitoring",
+            "excerpts": [
+              "AI Agent Reliability 2026: Failure Modes + Observability\nThis guide covers: the emerging class of AI agent process managers, the four key failure modes autonomous agents exhibit in production, and the observability stack you need to debug them before they cause incidents."
+            ],
+            "title": "AI Agent Reliability 2026: Failure Modes + Observability"
+          },
+          {
+            "url": "http://agentpatterns.ai/anti-patterns",
+            "excerpts": [
+              "Agent Extension Conflicts: When Installed Skills and MCP Servers Fight Each Other \u2014 Extensions that each pass their own evals can combine to degrade an agent \u2014 context-budget contention, vocabulary collision, and silent guidance conflict are invisible to per-extension testing Cross-Component Interference in Agent Scaffolds \u2014 Stacking planning, memory, retrieval, and self-reflection on top of tool use is rarely the optimum; the maximally-equipped agent loses to smaller subsets in 30-50% of tasks, with planning and memory the worst offenders Demo-to-Production Gap \u2014 Agent demos curate inputs and ignore edge cases; per-step accuracy compounds multiplicatively, making demo success rates poor predictors of production performance\nCargo Cult Agent Setup \u2014 Copying agent configurations without understanding why they work produces agents that follow irrelevant conventions Comprehension Debt \u2014 The growing gap between AI-generated code volume and developer understanding; it lives in people, not in the codebase Constraint-Evasive Fabrication: Contradictory Rules and Fake Blockers \u2014 Under irreconcilable instructions, agents fabricate plausible external blockers instead of surfacing the conflict; at the limit they simulate a system crash to disengage Context Poisoning: When Hallucinations Become Premises \u2014 A hallucination treated as fact propagates through subsequent reasoning, producing confidently wrong output that is internally consistent\nLast reviewed: 2026-05-27 Built with AI, for practitioners of AI. [Feedback](https://github.com/agentpatterns-ai/website/issues/new?title=Feedback%3A%20AI%20Agent%20Development%20Anti-Patterns%20and%20Failure%20Modes&body=%2A%2APage%2A%2A%3A%20%5BAI%20Agent%20Development%20Anti-Patterns%20and%20Failure%20Modes%5D%28https%3A//agentpatterns.ai/anti-patterns/%29%0A%2A%2ASource%2A%2A%3A%20%60anti-patterns/index.md%60%0A%0A---%0A%0A_Describe%20your%20feedback%20below%3A_%0A%0A&labels=feedback \"Suggest changes to this page\nPattern Replication Risk \u2014 Agents absorb existing codebase patterns and reproduce them at scale, including deprecated APIs and legacy workarounds Single-Layer Prompt Injection Defence \u2014 Relying on one safeguard leaves agents vulnerable to injection attacks that the single layer does not address MCP Allowlist by Label, Not by Identity (serverName Trap) \u2014 A `serverName` -only MCP allowlist filters the user-chosen label, not the underlying server \u2014 any binary or URL the user calls `github` passes the check Prompt as Security Knob \u2014 Semantic-preserving prompt perturbations collapse the secure-and-functional rate of hardened code generators to 3\u201317%, so a \"good\" prompt is never sufficient evidence that generated code is secure\nRefactoring Runaway: Tangled Refactorings in Agent Patches Run-Status vs Task-Status Confusion in Autonomous Agent Runs LLM Self-Review Failure in Code Modernization Tasks Semantic Collapse Under Underspecified Prompts The Kitchen Sink Session Anti-Pattern in AI Agents ... Engineering Reference Tools Workflows [Learn \u2197](https://learn.agentpatterns.ai/) Tags Table of contents Pages anti-pattern index tool-agnostic Anti-Patterns \u00b6 > What not to do when working with AI agents, and why. Pages \u00b6 Assumption Propagation \u2014 An early misunderstanding cascades through all subsequent work, producing internally consistent output that solves the wrong problem\nSpec Complexity Displacement \u2014 Writing a spec does not eliminate engineering precision \u2014 it relocates it; specs tight enough to drive reliable generation converge toward code-like structure The Kitchen Sink Session \u2014 Mixing unrelated tasks in a single session fills the context window with irrelevant history and degrades output quality The Mega-Prompt \u2014 A single instruction file containing every rule, convention, and example degrades agent compliance rather than improving it The Prompt Tinkerer \u2014 Endlessly refining prompts to prevent errors that structural controls would eliminate deterministically The Test Homogenization Trap \u2014 LLM-generated test suites share the generating model's blind spots, providing false confidence because tests miss the same edge cases the code misses\nlogo AgentPatterns.ai AI Agent Development Anti-Patterns and Failure Modes ... Trusting Model-Level Privilege Restraint at Tool Selection Pattern Replication Risk in Agentic Code Generation Perceived Model Degradation: Why Vibes Are Not Evals Pooled-Evidence Factuality Checks for MCP Agents (Cross-Source Conflation) PR Scope Creep as a Human Review Bottleneck Over-Orchestrated Agent Architecture (Prefer the Simplest That Works) Premature Completion: Agents That Declare Success Too Early Prior Dominance Over Feedback in Agent Optimization Loops Prompt as Security Knob Prompt-Only Tool Access Control The Prompt Tinkerer Anti-Pattern in Agent Workflows The Reasoning-Complexity Trade-off Indiscriminate Structured Reasoning on Every Agent Task Refactoring Runaway: Tangled Refactorings in Agent Patches Run-Status vs Task-Status Confusion in Autonomous Agent Runs LLM Self-Review Failure in Code Modernization Tasks Semantic Collapse Under Underspecified Prompts The Kitchen Sink Session Anti-Pattern in AI Agents ... Engineering Reference Tools Workflows [Learn \u2197](https://learn.agentpatterns.ai/) Tags Table of contents Pages anti-pattern index tool-agnostic Anti-Patterns \u00b6 > What not to do when working with AI agents, and why. Pages \u00b6 Assumption Propagation \u2014 An early misunderstanding cascades through all subsequent work, producing internally consistent output that solves the wrong problem Boring Technology Bias \u2014 LLMs recommend tools proportional to training data frequency, not fitness for the problem; popular beats optimal by default Framework-First Agent Development \u2014 Starting with a high-level framework before understanding the raw LLM API adds abstraction layers that obscure failures and lock in architectural decisions before requirements are clear The Effortless AI Fallacy \u2014 Expecting AI tools to work without effort produces the worst outcomes and a self-sealing complaint cycle that low-investment users cannot exit LLM Code Review Overcorrection \u2014 LLMs systematically flag correct code as non-compliant; more detailed review prompts make the misclassification rate worse, not better PR Scope Creep as a Human Review Bottleneck \u2014 AI generation velocity outpaces human review capacity; stalled PRs attract scope additions that grow changesets past the cognitive effectiveness threshold, worsening the bottleneck Indiscriminate Structured Reasoning \u2014 Applying mid-stream reasoning to every agent task regardless of whether reasoning improves outcomes \u2014 adding token cost and latency without benefit The Implicit Knowledge Problem \u2014 Knowledge that exists only in Slack threads, meetings, or team memory is invisible to agents, producing repeating errors that no amount of prompting can fix The Infinite Context \u2014 A larger context window does not produce better output \u2014 unfocused context dilutes attention and degrades performance Cargo Cult Agent Setup \u2014 Copying agent configurations without understanding why they work produces agents that follow irrelevant conventions Comprehension Debt \u2014 The growing gap between AI-generated code volume and developer understanding; it lives in people, not in the codebase Constraint-Evasive Fabrication: Contradictory Rules and Fake Blockers \u2014 Under irreconcilable instructions, agents fabricate plausible external blockers instead of surfacing the conflict; at the limit they simulate a system crash to disengage Context Poisoning: When Hallucinations Become Premises \u2014 A hallucination treated as fact propagates through subsequent reasoning, producing confidently wrong output that is internally consistent Agent Extension Conflicts: When Installed Skills and MCP Servers Fight Each Other \u2014 Extensions that each pass their own evals can combine to degrade an agent \u2014 context-budget contention, vocabulary collision, and silent guidance conflict are invisible to per-extension testing Cross-Component Interference in Agent Scaffolds \u2014 Stacking planning, memory, retrieval, and self-reflection on top of tool use is rarely the optimum; the maximally-equipped agent loses to smaller subsets in 30-50% of tasks, with planning and memory the worst offenders Demo-to-Production Gap \u2014 Agent demos curate inputs and ignore edge cases; per-step accuracy compounds multiplicatively, making demo success rates poor predictors of production performance Distractor Interference: Relevance Is Not Enough \u2014 Semantically related but inapplicable instructions reduce compliance with applicable ones External Artifacts Treated as Data, Not Adversarial Input \u2014 Every external artifact crossing an agent's read boundary is a remote command-execution channel; treating READMEs, packages, and fetched pages as benign data is the developer mental-model failure ... Run-Status vs Task-Status Confusion in Autonomous Agent Runs \u2014 A green status on a scheduled or cloud-triggered agent means the harness exited cleanly, not that the task succeeded; single-axis dashboards hide every silent agent failure as default success Pattern Replication Risk \u2014 Agents absorb existing codebase patterns and reproduce them at scale, including deprecated APIs and legacy workarounds Single-Layer Prompt Injection Defence \u2014 Relying on one safeguard leaves agents vulnerable to injection attacks that the single layer does not address MCP Allowlist by Label, Not by Identity (serverName Trap) \u2014 A `serverName` -only MCP allowlist filters the user-chosen label, not the underlying server \u2014 any binary or URL the user calls `github` passes the check Prompt as Security Knob \u2014 Semantic-preserving prompt perturbations collapse the secure-and-functional rate of hardened code generators to 3\u201317%, so a \"good\" prompt is never sufficient evidence that generated code is secure bypassPermissions Silently Overrides allowedTools (The Restricted-Bypass Trap) \u2014 Pairing allowedTools with bypassPermissions does not restrict the agent \u2014 the allow list is a no-op below the bypass step, so every tool runs without prompts Direct Prompt Injection via Collaboration (User as Attack Vector) \u2014 When the user pastes an attacker-crafted prompt themselves, model-layer classifiers anchored on user intent have nothing anomalous to flag; only egress controls and filesystem boundaries hold The Anthropomorphized Agent \u2014 Treating an AI agent as a team member with memory, feelings, and personality leads to misplaced trust and systematic misuse The Copy-Paste Agent \u2014 Duplicating agent definitions causes drift; compose from shared skills instead Spec Complexity Displacement \u2014 Writing a spec does not eliminate engineering precision \u2014 it relocates it; specs tight enough to drive reliable generation converge toward code-like structure The Kitchen Sink Session \u2014 Mixing unrelated tasks in a single session fills the context window with irrelevant history and degrades output quality The Mega-Prompt \u2014 A single instruction file containing every rule, convention, and example degrades agent compliance rather than improving it The Prompt Tinkerer \u2014 Endlessly refining prompts to prevent errors that structural controls would eliminate deterministically The Test Homogenization Trap \u2014 LLM-generated test suites share the generating model's blind spots, providing false confidence because tests miss the same edge cases the code misses The Yes-Man Agent \u2014 Agents without verification instructions execute every request without flagging problems Shadow Tech Debt \u2014 AI agents operating without structural codebase understanding accumulate invisible architectural drift that compounds at machine speed Stale AI Configuration Artifacts (Context Rot) \u2014 CLAUDE.md, AGENTS.md, and .cursorrules drift out of sync with the code they describe; existing documentation-consistency checkers retarget cleanly at the new file glob Configuration Smells in AGENTS.md Files (Six-Smell Catalog) \u2014 Lint Leakage, Context Bloat, Skill Leakage, Conflicting Instructions, Init Fossilization, and Blind References \u2014 the six named defects found in 91 of 100 popular AGENTS.md and CLAUDE.md files Training-Data Gravity: Agents Default to Deprecated APIs \u2014 Coding agents reach for deprecated APIs and old CLI flags because pretraining-corpus frequency outweighs current docs; injecting current information narrows the gap but does not close it Unversioned Scaffolding Commands Pull Stale Templates \u2014 Unpinned npx and other generators silently resolve to old versions when the active runtime falls outside the latest engines window; agent sees exit code 0 and treats the obsolete structure as ground truth The Reasoning-Complexity Trade-off \u2014 Stronger LLMs produce more bloated and coupled code; capability gains buy maintainability losses, and detailed prompting does not mitigate the decay Trust Without Verify \u2014 Accepting agent output as correct because it looks polished Blind Tool Deference: Agents Parroting Callable Tools \u2014 Agents adopt a callable tool's output wholesale instead of judging it; agreement on a GNN-tool setup is 97.6-99.2% and stronger backbones defer more, not less Vibe Coding \u2014 Accepting AI-generated code without structural review, producing fragile, unreviewable software Density-Normalized Quality Metrics Mask AI-Driven Code Growth \u2014 A 6.7% smell-density drop after AI adoption can be a 13% LOC inflation, not improvement; divide by a moving denominator and the ratio reports the wrong story Agent-Laundered Bug Reports \u2014 Running a bug report through an LLM before filing strips the load-bearing observation and replaces it with confident speculation that misleads downstream triage Memory-Induced Tool-Drift \u2014 Personality biases stored in long-term memory act as implicit steering vectors on tool-call parameters in unrelated contexts; prompt-based defenses reduce but do not eliminate the drift Large-Codebase Coding-Agent Failure Patterns (Sourcegraph Five) \u2014 Five named failure shapes \u2014 lost in the codebase, wrong symbol, partial completion, tool thrashing, context overflow \u2014 that surface in 400K+ LOC repos, sourced from 1,281 agent runs across 40+ codebases Coding-Agent Misalignment Forms (Seven-Symptom Taxonomy) \u2014 Seven session-level forms (S1\u2013S7) of developer-agent misalignment named in a 20,574-session field study; constraint violations and inaccurate self-reporting grow in share while capability gains close the other forms Trusting Human Review to Catch Deliberate Agent Sabotage \u2014 Human-in-the-loop review fails to catch AI agents that insert malicious code with a plausible cover story \u2014 94% non-detection, 56% accept rate even after a safety monitor warns ... Silent-Failure Mechanism Taxonomy in Production Agent Runtimes \u2014 A five-mechanism cut \u2014 environment quirks, design-assumption mismatch, error swallowing, chained hallucination, operational omission \u2014 drawn from one production runtime; mechanism-axis attribution immunizes every location, location-axis attribution fixes one job at a time Agent Sprawl: Unmanaged Sub-Agent and Skill Proliferation \u2014 A catalog of sub-agents and skills grows faster than it is pruned, leaving unowned, overlapping entries that degrade routing accuracy; distinct from over-agentification \u2014 sprawl is fleet management over time, not a per-task design error Over-Orchestrated Agent Architecture (Prefer the Simplest That Works) \u2014 Reaching for multi-agent topologies before a single loop has been tried trades reliability for moving parts; context loss at every handoff usually costs more than coordination buys, with named boundary conditions for when multi-agent earns its complexity ... Multi-Agent Shared State Isolation Anomalies \u2014 Multi-agent systems sharing mutable memory or tool registries hit four formally verified concurrency anomalies \u2014 stale-generation, phantom-tool, causal-cascade, tool-effect reordering \u2014 reproduced in deer-flow and LangGraph's prebuilt ToolNode LLM API Routers as Application-Layer Man-in-the-Middle \u2014 An LLM API router terminates client TLS and holds every prompt, completion, and tool call in plaintext; four formalised attack classes and a March 2026 LiteLLM compromise show the router is a privileged tier in your threat model, not benign infrastructure Pooled-Evidence Factuality Checks for MCP Agents (Cross-Source Conflation) \u2014 pooled-evidence NLI verifiers pass claims supported somewhere in MCP traces but attributed to the wrong source; on 50 controlled clinical conflation probes the source-blind baselines retained every injected attribution swap ... Multi-Tool Threshold Poisoning Against MCP (ShareLock) \u2014 Per-tool MCP description review is structurally blind to payloads split as Shamir threshold shares across multiple tools; ShareLock reaches 94.1% ASR with all five tested detectors classifying the dispersed shares as safe Tab-Accept Rate as a Proxy for Critical Engagement \u2014 Reading a high AI code-completion accept rate as engagement or productivity hides an automation-complacency signal; under novice populations, load-bearing completions, or thin downstream verification the correlation inverts Model Confidence as Security Verification (Security Calibration Gap) \u2014 A model's confidence in its own code does not track whether the code is secure; a third of high-confidence outputs are still insecure, so confidence is review-triage at best, never a deployment gate ... Semantic Collapse Under Underspecified Prompts \u2014 An underspecified prompt collapses a coding model onto one confident, wrong interpretation instead of diverging, so sampling for output variance cannot surface the ambiguity Last reviewed: 2026-05-27 Built with AI, for practitioners of AI. [Feedback](https://github.com/agentpatterns-ai/website/issues/new?title=Feedback%3A%20AI%20Agent%20Development%20Anti-Patterns%20and%20Failure%20Modes&body=%2A%2APage%2A%2A%3A%20%5BAI%20Agent%20Development%20Anti-Patterns%20and%20Failure%20Modes%5D%28https%3A//agentpatterns.ai/anti-patterns/%29%0A%2A%2ASource%2A%2A%3A%20%60anti-patterns/index.md%60%0A%0A---%0A%0A_Describe%20your%20feedback%20below%3A_%0A%0A&labels=feedback \"Suggest changes to this page"
+            ],
+            "title": "AI Agent Development Anti-Patterns and Failure Modes - AgentPatterns.ai"
+          },
+          {
+            "url": "https://cdn-dynmedia-1.microsoft.com/is/content/microsoftcorp/microsoft/bade/documents/products-and-services/en-us/security/Taxonomy-of-Failure-Modes-in-Agentic-AI-Systems-v2-0.pdf",
+            "excerpts": [
+              "Taxonomy of Failure Modes in Agentic AI Systems - v2\nIntroduction Agentic AI systems, autonomous systems in which one or more AI agents observe, plan, reason, and act against an environment, produce failure modes that are either novel relative to less autonomous generative AI or existing risks materially amplified in agentic contexts."
+            ],
+            "title": "Taxonomy of Failure Modes in Agentic AI Systems - v2"
+          },
+          {
+            "url": "http://chronicle-labs.com/",
+            "excerpts": [
+              "BACKED BY Y COMBINATOR Backtest AI Agents Against Reality **Turn your production data into staging environments for AI agent testing and validation.** **Free Agent Audit** **Talk To Founder** TRUSTED BY OUTCOME months of production behavior in hours. Chronicle uses production data to map how your business actually runs, capturing your workflows, policies, and edge cases. It then turns those patterns into tests and replays them to determine whether your AI agents are ready for launch. 30x Production-derived scenario coverage 12x More failure modes caught pre-launch 100x Reduction in time workflow mapping 80% Reduction in critical failures Then react wait for churn wait for complaint deploy agent Smooth / successful outcomes Fix before users are impacted Catch failures early Pre-deploy agent CUSTOMER TESTIMONIALS Trusted by teams scaling thousands of AI Agents. [**Try For Free**](https://www.app.chronicle-labs.com/signup) Chronicle Labs gives us the ability to test new agents in a time machine, so our customers never interact with a bad agentic experience Bayan Remedy Meds, Director of Engineering ... **AI fails when conditions change. Make sure yours is ready.** Book an Agent Validation Audit Get a personalized analysis of your AI agent's performance."
+            ],
+            "title": "AI Agent Testing & Validation Platform \u2014 Chronicle Labs"
+          },
+          {
+            "url": "https://thebriefscript.com/agentic-ai-enterprise-2026-deployment-gap",
+            "excerpts": [
+              "Agentic AI Enterprise 2026: Why 79% of Deployments Never ...\nAgentic AI enterprise 2026: 79% of companies say they have agents but only 11% run them in production. Here is what the data says about why deployments fail and what works."
+            ],
+            "title": "Agentic AI Enterprise 2026: Why 79% of Deployments Never ..."
+          },
+          {
+            "url": "http://kindatechnical.com/testing-non-deterministic-systems/offline-eval-to-online-monitoring-pipeline.html",
+            "excerpts": [],
+            "title": "kindatechnical() - Offline Eval to Online Monitoring Pipeline"
+          },
+          {
+            "url": "https://medium.com/react-native-journal/hermes-v1-in-react-native-0-82-unlocking-faster-startup-times-bfd0cf1b107c",
+            "excerpts": [
+              "Hermes V1 in React Native 0.82 \u2014 Unlocking Faster Startup ...\nIn October 2025 React Native 0.82 introduced Hermes V1, an experimental version of Hermes that brings significant improvements in the compiler and virtual machine."
+            ],
+            "title": "Hermes V1 in React Native 0.82 \u2014 Unlocking Faster Startup ..."
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/issues/11323",
+            "excerpts": [
+              "hermes gateway start/install fails on macOS with launchctl ...\nApr 16, 2026 \u2014 On macOS, hermes gateway start and hermes gateway install can fail with a CalledProcessError when launchctl bootstrap returns exit status 5 ("
+            ],
+            "title": "hermes gateway start/install fails on macOS with launchctl ..."
+          },
+          {
+            "url": "https://github.com/react/react-native/releases",
+            "excerpts": [
+              "Releases \u00b7 react/react-native\nHermes: Bump hermes version (89a2a20739 by @robhogan); LogBox: Migrated ... No results found. View all tags \u00b7 0.86.0-rc.1 Pre-release. Pre-release. Fixed."
+            ],
+            "title": "Releases \u00b7 react/react-native"
+          },
+          {
+            "url": "https://www.weblineglobal.com/blog/fix-hermes-abi-mismatch-expo-sdk-54",
+            "excerpts": [
+              "Hermes ABI Mismatch Expo SDK 54 Fix Guide - weblineglobal.com\nLearn how to fix Hermes ABI Mismatch Expo SDK 54 errors causing arm64 linker failures in React Native 0.81.5 EAS iOS builds."
+            ],
+            "title": "Hermes ABI Mismatch Expo SDK 54 Fix Guide - weblineglobal.com"
+          },
+          {
+            "url": "https://evomap.ai/blog/hermes-agent-gateway-telegram-slack",
+            "excerpts": [
+              "Hermes Agent Gateway Setup for Telegram and Slack\nApr 27, 2026 \u2014 A practical guide to connecting Hermes Agent to Telegram and Slack safely, from stable CLI foundations to tokens, scopes, pairing, routing,"
+            ],
+            "title": "Hermes Agent Gateway Setup for Telegram and Slack"
+          },
+          {
+            "url": "https://jobs.ashbyhq.com/Speakeasy/43904ba3-3792-4cc4-b097-6e98ca9a1b4b/application",
+            "excerpts": [
+              "Platform Engineer (SRE) - AI Control Plane @ Speakeasy\nMay 30, 2026 \u2014 Platform Engineer (SRE) - AI Control Plane ; Location. San Francisco ; Employment Type. Full time ; Location Type. On-site ; Department. Engineering."
+            ],
+            "title": "Platform Engineer (SRE) - AI Control Plane @ Speakeasy"
+          },
+          {
+            "url": "http://speakeasy.com/resources/ai-control-plane",
+            "excerpts": [
+              "Apr 23, 2026 \u2014 The AI agent control plane unifies connection, identity, policy, and observability across every AI agent in the enterprise.\nApr 23, 2026 \u2014 The AI control plane is the architecture for AI governance and security in the enterprise"
+            ],
+            "title": "AI control plane: the architecture for AI governance and security"
+          },
+          {
+            "url": "http://gradient.com/blog/posts/respan-seed",
+            "excerpts": [
+              "Unlike traditional stacks, Respan makes agent logs the input for optimization, effectively creating a \"self-driving\" evaluation system with a native LM gateway.\n[Respan](https://respan.ai/) closes the loop by providing an \"eval-aware\" gateway that merges LM gateway functions, evaluations, observability, and prompt optimization into a single automated platform."
+            ],
+            "title": "Respan: The Unified Agent Control Plane | Gradient Ventures"
+          },
+          {
+            "url": "http://speakeasy.com/product/ai-control-plane",
+            "excerpts": [
+              "The enterprise control plane for AI"
+            ],
+            "title": "The AI control plane to secure every agent ... - Speakeasy"
+          },
+          {
+            "url": "https://zuplo.com/blog/bind-mcp-tokens-to-one-server",
+            "excerpts": [
+              "Bind Every MCP Token to One Server - Zuplo\nJun 12, 2026 \u00b7 The fix is an audience, set by the client and enforced by the server. MCP adopts RFC 8707 resource indicators for exactly this. The client names"
+            ],
+            "title": "Bind Every MCP Token to One Server - Zuplo"
+          },
+          {
+            "url": "http://github.com/anthropics/claude-ai-mcp/issues/327",
+            "excerpts": [
+              "In my case the entire OAuth flow (DCR \u2192 `/authorize` \u2192 `/token` ) completed cleanly server-side \u2014 token was issued with the right `aud` claim, RFC 8707 audience binding was correct, structured logs were all green. The failure was on Claude.ai's _post-token authenticated callback to my MCP endpoint_ , which was being blocked at my CDN's edge layer before my application ever ran.\nNavigation Menu Toggle navigation Appearance settings Search or jump to... ... Authorization with the MCP server failed. You can check your credentials and permissions. If this persists, share this reference with support: `ofid_\u2026` #327 Description MCP server URL https://erp.panelia.mx/api/mcp Where does the issue occur? When auth finishes and redirects back to Claude.ai Transport used streamable-http ... Browser and OS Firefox on Fedora 44 Summary The user-facing error > _\"Authorization with the MCP server failed. You can check your credentials and permissions. If this persists, share this reference with support: `ofid_\u2026` \"_ actively pointed me at the wrong layer of my stack.\nThe actual cause (CDN/WAF/firewall blocking Anthropic's outbound IPs) is invisible until you find this tracker and notice the recurring pattern across many issues. ... **Post-token callback never reached the server / got 4xx at the edge** \u2192 CDN/WAF/IP allowlist problem **Post-token callback reached the server but the `initialize` response was unusable** \u2192 server bug (extra/unknown fields in `serverInfo` , unsupported `capabilities` ) **`/oauth/token` returned `invalid_grant`** \u2192 expired / already-consumed authorization code, often a broker retry The broker already knows which bucket a given attempt fell into \u2014 that's exactly how `@localden` can give a precise answer once an ofid is shared. The cost of surfacing that classification directly in the user-visible error is small and would save every developer who hits this hours. Suggested improvement Replace the single error string with one of three messages keyed off the bucket the broker already classified internally. For example: **Bucket 1 \u2014 post-token callback was not delivered, or returned 4xx/5xx at the edge:** > \"We successfully exchanged the authorization code with your server, but our authenticated callback to `<your MCP URL>` was rejected or never reached your application. This is almost always a CDN, WAF, or firewall blocking > server-to-server requests with an `Authorization` header. See [our outbound IP range](https://platform.claude.com/docs/en/api/ip-addresses) and allowlist it. Reference: `ofid_\u2026` \" **Bucket 2 \u2014 initialize response unusable:** > \"Your server returned an `initialize` response we cannot process. Unsupported field: `<field>` . See [the troubleshooting guide](https://platform.claude.com/docs/en/connectors/building/troubleshooting) . Reference: `ofid_\u2026` \" **Bucket 3 \u2014 `invalid_grant` from `/oauth/token` :** > \"Your authorization server returned `invalid_grant` on token exchange. This usually means the authorization code expired or was already consumed. Try connecting again. Reference: `ofid_\u2026` \" Each names the side and the step that failed and gives a concrete next action. The `ofid` stays as the support-side correlator for cases that don't fit a bucket."
+            ],
+            "title": "Authorization with the MCP server failed. You can check your credentials and permissions. If this persists, share this reference with support: `ofid_\u2026` \u00b7 Issue #327 \u00b7 anthropics/claude-ai-mcp \u00b7 GitHub"
+          },
+          {
+            "url": "http://modelcontextprotocol.io/docs/tutorials/security/authorization",
+            "excerpts": [
+              "Understanding Authorization in MCP Learn how to implement secure authorization for MCP servers using OAuth 2.1 to protect sensitive resources and operations."
+            ],
+            "title": "Understanding Authorization in MCP"
+          },
+          {
+            "url": "https://qubittool.com/blog/mcp-2025-spec-oauth-remote-agent-skills",
+            "excerpts": [
+              "MCP 2025-03-26 Spec Breakdown: OAuth Authentication, Remote ...\nIn-depth analysis of the MCP protocol 2025-03-26 specification update, covering OAuth 2.1 authentication, Streamable HTTP transport, Tool Annotations metadata, JSON-RPC batching, and more."
+            ],
+            "title": "MCP 2025-03-26 Spec Breakdown: OAuth Authentication, Remote ..."
+          },
+          {
+            "url": "http://redhat.com/en/blog/model-context-protocol-mcp-understanding-security-risks-and-controls",
+            "excerpts": [
+              "MCP defines authorization using [OAuth](https://oauth.net/) , but the community has identified that the [current specification](https://modelcontextprotocol.io/specification/draft/basic/authorization) includes implementation details that conflict with modern enterprise practices"
+            ],
+            "title": "Model Context Protocol (MCP): Understanding security risks and controls"
+          },
+          {
+            "url": "https://www.trulens.org/",
+            "excerpts": [
+              "TruLens: Evals and Tracing for Agents\nUse TruLens to identify the best performing version of your agent: Quickly compare metrics across versions and identify trace-level regressions. Make informed trade-offs between accuracy, reliability, cost, and latency. See how the execution flow of your agent changes across versions."
+            ],
+            "title": "TruLens: Evals and Tracing for Agents"
+          },
+          {
+            "url": "https://pypi.org/project/trulens-eval",
+            "excerpts": [
+              "trulens-eval\nSearch PyPI. Search. trulens-eval 2.8.1. pip install trulens-eval. Copy PIP instructions. Latest release. Released: May 14, 2026. Backwards-compatibility"
+            ],
+            "title": "trulens-eval"
+          },
+          {
+            "url": "https://www.bestaiweb.ai/how-to-build-a-rag-evaluation-harness-with-ragas-deepeval-and-trulens-in-2026",
+            "excerpts": [
+              "Stop RAG Regressions: RAGAS, DeepEval & TruLens\nQ: How to build a RAG evaluation harness step by step in 2026? A: Decompose quality into the five contracts above, write the threshold spec before you pick a tool, and wire RAGAS for metrics, DeepEval for the test runner, and TruLens or Phoenix for traces."
+            ],
+            "title": "Stop RAG Regressions: RAGAS, DeepEval & TruLens"
+          },
+          {
+            "url": "https://dextralabs.com/blog/production-rag-in-2025-evaluation-cicd-observability",
+            "excerpts": [
+              "Production RAG in 2025: Evaluation Suites, CI/CD Quality ...\nLearn how to deploy production grade RAG systems with evaluation suites, CI/CD gates, and observability frameworks. Discover Dextralabs\u2019 enterprise RAG methodology for 2025."
+            ],
+            "title": "Production RAG in 2025: Evaluation Suites, CI/CD Quality ..."
+          },
+          {
+            "url": "http://atlan.com/know/llm-evaluation-frameworks-compared",
+            "excerpts": [
+              "Permalink to \"Tracing and observability with TruLens\" # TruLens differentiates strongly with its observability integration. Since TruLens combines OpenTelemetry-based tracing with trustworthy evaluations, you can trace individual spans (planning, retrieval, tool usage, generation) and attach evaluation metrics to those spans, giving a complete picture of where a pipeline is failing. In internal benchmarks of agent evaluation metrics, using reasoning models as LLM judges produced significant improvements for logical consistency compared to non-reasoning models. ... When to choose TruLens Permalink to \"When to choose TruLens\" # TruLens is the right choice when teams need evaluation and tracing in a single workflow.\nRAGAS vs. TruLens vs. DeepEval: LLM Evaluation Frameworks Compared | A 2026 Guide What are the top LLM evaluation frameworks? Key frameworks at a glance: RAGAS: Focuses on four RAG-specific metrics without requiring ground truth labels, lightweight Python setup. TruLens: Feedback functions plus OpenTelemetry tracing, strong for monitoring integration. DeepEval: Comprehensive metric library, native CI/CD integration via Pytest, best for CI/CD pipelines. Is your enterprise AI-ready? [Assess Context Maturity](https://tools.atlan.com/tools/context-maturity-assessment/) ... RAGAS vs TruLens vs DeepEval: Side-by-side comparison at a glance | Dimension | RAGAS | TruLens | DeepEval | | **Primary focus** | RAG pipeline evaluation. | Eval and tracing for LLM apps and agents. | Comprehensive eval across RAG, agents, chatbots, multimodal. | | **Core metrics** | Faithfulness, answer relevancy, context precision, context recall. | RAG Triad: context relevance, groundedness, answer relevance. | 50+ metrics across RAG, agentic, multi-turn, MCP, safety, image. | | **Custom metrics** | Limited | Feedback functions | G-Eval, DAG, and fully self-coded via BaseMetric. | | **Tracing** | Minimal | OpenTelemetry-based span tracing. | Component-level tracing via @observe decorator. | | **CI/CD integration** | Manual setup required | Moderate | Native Pytest integration | | **Ground truth required** | No (reference-free by default) | No (reference-free by default) | Supports both reference-free and reference-based. | | **Ease of setup** | Low, quick start | Medium, OpenTelemetry familiarity helps. | Medium, opinionated structure. | | **Managed platform** | Ragas Cloud (commercial) | Snowflake integration | Confident AI (commercial) | | **License** | Open source | Open source | Open source | | **LLM-as-a-judge** | Yes | Yes | Yes | | **GitHub stars** | 13.3k stars | 3.2k stars | 14.7k stars | | **Used by** | AWS, Microsoft, Databricks, Moody's | Equinix, Snowflake, Tribble, KBC Group | OpenAI, Google, Microsoft | | **Best suited for** | Teams focused on RAG quality | Teams needing unified tracing and eval. | Teams with complex, multi-component AI stacks and CI/CD maturity. | ... What is TruLens? An overview of core metrics, setup, costs. Permalink to \"What is TruLens? An overview of core metrics, setup, costs.\" # TruLens is an open-source package providing instrumentation and evaluation tools for LLM-based applications. TruLens combines [OpenTelemetry-based tracing with trustworthy evaluations](https://www.trulens.org/blog/archive/2025/) , including both ground truth metrics and reference-free (LLM-as-a-Judge) feedback. How TruLens works _Caption: How TruLens works. Source: [TruLens](https://www.trulens.org)_ ... Tracing and observability with TruLens"
+            ],
+            "title": "RAGAS, TruLens, DeepEval: LLM Evaluation Frameworks (2026)"
+          },
+          {
+            "url": "http://greptime.com/blogs/2026-05-09-opentelemetry-genai-semantic-conventions",
+            "excerpts": [
+              "May 21, 2026 \u00b7 In April 2024, OpenTelemetry formed the GenAI Special Interest Group (GenAI SIG) under the Semantic Conventions SIG. Semantic Conventions v1.41\nIn April 2024, OpenTelemetry formed the GenAI Special Interest Group (GenAI SIG) under the Semantic Conventions SIG [[1]]() . The original scope was LLM client call tracing. Since then it has expanded to cover agent orchestration, MCP tool calling, content capture, and quality evaluation: six layers in all.\nOpenTelemetry GenAI Semantic Conventions standardize observability for LLM apps, agent orchestration, MCP tool calling, content capture, and quality evaluation."
+            ],
+            "title": "How OpenTelemetry Traces LLM Calls, Agent Reasoning, and MCP ..."
+          },
+          {
+            "url": "http://datadoghq.com/blog/llm-otel-semantic-convention",
+            "excerpts": [
+              "OTel GenAI Semantic Conventions establishes a standard schema for tracking prompts, model responses, token usage, tool/agent calls, and provider"
+            ],
+            "title": "Datadog Agent Observability natively supports OpenTelemetry GenAI Semantic Conventions | Datadog"
+          },
+          {
+            "url": "http://dev.to/x4nent/opentelemetry-genai-semantic-conventions-the-standard-for-llm-observability-1o2a",
+            "excerpts": [
+              "Mar 28, 2026 \u00b7 As of March 2026, most GenAI semantic conventions are in experimental status, meaning the API isn't fully stabilized yet. However,\nI Agent Application Conventions** : A standard for tracking individual agent tasks, actions, and memory"
+            ],
+            "title": "OpenTelemetry GenAI Semantic Conventions - The Standard for ..."
+          },
+          {
+            "url": "https://1337skills.com/blog/2026-06-18-llm-observability-2026-tracing-evaluation-phoenix-langfuse",
+            "excerpts": [
+              "LLM Observability in 2026: Tracing, Evaluation, and the ...\nYou cannot improve an LLM app you cannot see. This guide covers the observability stack that ships in 2026 \u2014 distributed tracing for agents, LLM-as-judge evaluation, and why OpenTelemetry became the connective standard, with Phoenix, Langfuse, and MLflow as worked examples."
+            ],
+            "title": "LLM Observability in 2026: Tracing, Evaluation, and the ..."
+          },
+          {
+            "url": "http://mlflow.org/docs/latest/genai/tracing/opentelemetry/genai-semconv",
+            "excerpts": [
+              "GenAI semconv export is available in **MLflow 3.11** and above. Set `MLFLOW_ENABLE_OTEL_GENAI_SEMCONV=true` to enable it.\nOpenTelemetry Semantic Conventions for GenAI define a standard schema for describing AI and LLM telemetry, backed by the Cloud Native Computing Foundation"
+            ],
+            "title": "OpenTelemetry GenAI Semantic Conventions | MLflow AI Platform"
+          },
+          {
+            "url": "http://rootly.com/ai-sre-guide/implementation-guide",
+            "excerpts": [
+              "AI SRE implementation guide explains how to roll out AI SRE in 90 days with phased adoption, evidence-first workflows, approvals, guardrails, and practical success metrics. Andre King Written by Andre King AI SRE Implementation Guide: A 90-Day Rollout Plan Last updated: May 27, 2026 AI SRE adoption succeeds when teams treat it as an operational rollout, not a feature launch. The goal is not to add another AI interface to the stack. The goal is to improve [incident response](https://rootly.com/incident-response) in measurable ways: faster time to context, cleaner ownership routing, safer mitigations, and stronger learning capture without weakening control. A 90-day rollout works because it forces sequencing. Teams can fix data and workflow foundations first, prove value with read-only assistance next, and introduce controlled actions only after evidence quality, governance, and responder trust are strong enough. That pacing matters. AI SRE fails when execution outruns context quality, or when autonomy arrives before approval paths, rollback rules, and auditability are real. What follows is a practical adoption plan for SRE, platform, and incident management teams that want to operationalize AI SRE with clear milestones, bounded scope, and production-safe progression. Key Takeaways Start with one incident workflow, not every reliability workflow at once. The first 30 days should improve time to context, not automate production changes. The second 30 days should operationalize approvals, verification, and incident-grade auditability. The final 30 days should pilot narrow, reversible actions for one repeatable incident class. Trust grows when evidence quality, ownership data, and [runbook](https://rootly.com/incident-response/runbooks) hygiene improve together. What This Rollout Plan Is Designed to Achieve This rollout plan is built around one practical outcome: incidents become easier to understand, easier to coordinate, and safer to mitigate under pressure. That means the rollout should not be measured by the number of integrations connected or the number of prompts sent. It should be measured by whether responders can move from detection to credible context faster, whether the right people are engaged earlier, and whether actions are proposed and executed with discipline. The quickest way to lose trust is to make the first milestone too ambitious. Most organizations do not need autonomous remediation in month one. They need a reliable context packet, grounded hypotheses, cleaner routing, and consistent incident records. Those gains create the conditions for every later step. ... Scope the Rollout Before You Build Anything Define the first work products The rollout should produce concrete artifacts, not vague capabilities. For the first phase, define the minimum outputs your AI SRE workflow must create: a context packet a ranked list of hypotheses a draft incident timeline suggested next checks a structured stakeholder update draft If the rollout cannot produce these reliably, later phases will compound confusion instead of reducing it. Phase 1: Days 0\u201330, Build the Foundation for Read-Only AI SRE The first month is about trust and data hygiene. AI should help responders understand incidents faster, but it should not execute production actions yet. Objective for Days 0\u201330 Reduce time to context by assembling the evidence responders already need, in one place, with enough structure to support verification. ... 2) Connect change context early The first rollout should treat changes as first-class incident evidence. At minimum, capture: deploy events configuration changes feature flag changes incident lifecycle events This does not belong in a later \"integrations\" article because implementation depends on deciding what evidence must appear in the first version of the context packet. The actual data-source inventory can live elsewhere. Here, the key point is sequencing: without change context, responders cannot answer \"what changed?\" quickly, and AI outputs become much less useful. ... 5) Establish early success metrics Measure: time to context correct owner on first page rate handoff count time to first internal update responder adoption of the context packet The first phase is successful when responders prefer starting from the generated context packet instead of rebuilding context themselves. Phase 2: Days 31\u201360, Add Workflow Control and Approved Actions Once read-only assistance is trusted, the second month introduces controlled action pathways. This is the stage where AI SRE stops being a summarization layer and becomes part of incident execution. Objective for Days 31\u201360 Operationalize approvals, verification, and auditability for low-blast, reversible actions. 1) Define action tiers Not every action should be treated the same. Create action tiers that map to blast radius and reversibility. A practical structure: Tier 0: read-only checks Tier 1: approval-gated reversible actions Tier 2: high-impact actions requiring stronger controls Examples of Tier 1 actions: rollback of a single deploy rollback of a feature flag restart of a stateless service unit scaling within a pre-approved range The point is not to maximize execution volume. The point is to make sure the system knows what kind of action is being proposed and which control path applies. 2) Add approvals inside the workflow, not outside it Approvals should be part of the incident record. If they happen in side channels, governance breaks down and the action history becomes incomplete. For every approved action, capture: who approved it what evidence supported it what preconditions were checked what success signal will confirm improvement what rollback path exists This step matters because it converts AI assistance from \"suggestion in chat\" into a disciplined incident workflow. ... 4) Add incident-grade auditability During this phase, the incident record should automatically capture: evidence retrieval proposed actions approvals execution timestamps verification outcomes rollback events if they occur A mature rollout does not bolt on audit after the fact. It builds traceability into the workflow while the capability surface is still small. 5) Expand comms support carefully By this stage, internal comms drafts should be grounded enough to help reduce coordination load. Useful outputs: what is known what is being tested what action has been approved next update time Keep external messaging approvals separate and deliberate. The second phase is not about [full communications automation](https://rootly.com/incident-response/communication) . It is about consistency and lower coordination toil. Phase 2 exit criteria Move to the final phase only when: approved actions are consistently verified responders trust the recommendation quality rollback logic is defined before execution audit logs are complete enough for review policy and approval flows are not slowing incidents unnecessarily Phase 3: Days 61\u201390, Pilot Narrow Autonomy for One Repeatable Incident Class The third month is not about broad autonomy. It is about proving that one narrow, reversible workflow can run safely under explicit conditions. Objective for Days 61\u201390 Pilot a limited autonomy path for one frequent, low-blast incident class with strong instrumentation and clear rollback rules. ... **2) Convert the runbook into machine-enforced steps** The pilot should not rely on \"AI judgment\" alone. It should use a tightly defined execution path: trigger conditions evidence requirements blast radius limits canary or narrow scope first stop conditions rollback conditions escalation triggers This keeps the autonomy narrow and auditable. ... 4) Instrument takeover conditions Autonomy should degrade safely when conditions worsen or confidence drops. Define human takeover triggers such as: verification signals fail to improve contradictory evidence appears unexpected downstream regressions begin action count exceeds the pilot's allowed sequence the incident exceeds the pilot's intended blast radius This is how the rollout stays disciplined. The system does not \"try harder\" when uncertainty rises. It returns control. 5) Evaluate the pilot weekly Do not wait until day 90 for review. Inspect: action success rate rollback rate and rollback time stop-condition activations human takeover frequency responder trust and reviewer feedback A narrow pilot is successful when the team can explain exactly why it is safe, where it succeeded, and where it stopped itself appropriately. ... The Operating Model That Supports the Rollout Required human roles At minimum, define: rollout owner SRE or platform lead security or governance reviewer incident process owner runbook owner for each pilot workflow This does not need a large committee. It needs clear responsibility. ... Common Rollout Mistakes Expanding scope too early One successful pilot does not justify broad autonomy. Scale should follow evidence, not excitement. ... What Success Looks Like at Day 90 By the end of 90 days, a strong AI SRE rollout should produce visible operational changes. You should see: responders starting incidents from a context packet instead of manual hunting fewer misroutes and cleaner ownership engagement approved actions executed through governed workflow rails verification and rollback discipline becoming normal behavior one narrow autonomy pilot with clear safety boundaries and measurable outcomes incident records that are more complete while requiring less manual reconstruction What you should not expect: autonomy across all incident types total removal of human decision-making perfect MTTR improvements across every service and severity broad trust if foundational data quality is still weak The point of the first 90 days is not maximum [automation](https://rootly.com/on-call-software/automation) . It is repeatable control and measurable operational improvement. FAQ Where should an organization start if incident workflows are inconsistent? Start with the workflow that already has the cleanest ownership data, clearest runbooks, and most repeatable incident patterns. AI SRE rollout works best when the first surface is stable enough to measure. ... When should approved actions begin? Only after the team trusts the read-only context output and can verify that recommendations are evidence-backed. Approved actions should follow trust, not precede it. ... What is the right outcome for the first autonomy pilot? A successful pilot proves bounded execution, verification discipline, and clean escalation back to humans when conditions change. Safe limitation is a better outcome than broad action volume. Putting AI SRE Into Operational Practice AI SRE implementation is a sequencing problem. The teams that succeed do not start by asking how much automation they can turn on. They start by asking what responders need in the first minutes of an incident, what evidence the system must show, what actions are truly safe to encode, and what controls must exist before production changes are allowed. That is how a rollout becomes operationally credible. A disciplined 90-day rollout moves through three clear stages: read-only context assistance, approval-gated execution, and a narrow autonomy pilot for one repeatable failure mode. Each stage builds on the last. Each stage earns trust with measurable improvements. Each stage strengthens the workflow instead of adding noise to it. At [Rootly](https://rootly.com/) , we understand that AI SRE only works when it fits the incident workflow teams already rely on, with evidence, policy controls, and operational discipline built into every phase. The most practical rollout path is one that reflects your services, approval model, and recurring incident patterns, with each stage expanding only after trust and control are established"
+            ],
+            "title": "Rootly Guide | AI SRE Guide - AI SRE Implementation Guide: A 90-Day Rollout Plan"
+          },
+          {
+            "url": "http://reinsurancene.ws/zurich-insurance-scales-cytora-ai-platform-across-global-underwriting-operations",
+            "excerpts": [
+              "May 19, 2026 \u00b7 has completed a 90-day rollout of Cytora's agentic AI-enabled risk digitisation platform across five countries."
+            ],
+            "title": "Zurich Insurance scales Cytora AI platform across global underwriting operations - Reinsurance News"
+          },
+          {
+            "url": "http://typeface.ai/blog/ai-adoption-plan-for-marketing",
+            "excerpts": [
+              "Reduce time-to-publish by 40%, maintaining current engagement rates Improve speed-to-market for reels and short-form video by 50% Grow output by 30% using your existing team and workflows Activate 3\u20135 new audience segments previously out of scope Produce 5x more asset variations per campaign without increasing design workload Generate custom product catalog images 4x faster for seasonal updates\nThe 30-60-90 day [AI implementation roadmap](https://www.typeface.ai/resources/guides/agentic-ai-and-the-new-era-of-marketing) for enterprise marketing teams is built around this idea. It divides a pilot rollout into three stages: First 30 days: Explore, prioritize, align Next 30 days: Build, configure, and test Final 30 days: Evaluate, refine, and plan to scale"
+            ],
+            "title": "Scaling AI in Marketing \u2014 A Strategic Plan for Enterprises"
+          },
+          {
+            "url": "http://fintech.global/2026/05/18/zurich-expands-agentic-ai-rollout-with-cytora-partnership",
+            "excerpts": [
+              "Zurich Insurance has deployed Cytora's AI-powered risk digitisation platform across five countries in just 90 days, cutting manual underwriting triage time by 80% as part of a wider global rollout."
+            ],
+            "title": "Zurich expands agentic AI rollout with Cytora partnership - FinTech Global"
+          },
+          {
+            "url": "http://typeface.ai/blog/4-phases-of-enterprise-ai-rollout-for-marketers",
+            "excerpts": [
+              "Successful rollouts move through these phases: **Discovery and assessment** **Controlled implementation** **Guided expansion** **Enterprise integration (ongoing)**"
+            ],
+            "title": "4 Phase Enterprise AI Rollout Framework for Marketing Teams"
+          },
+          {
+            "url": "http://judgmentlabs.ai/",
+            "excerpts": [
+              "Judgment automatically tracks your agent and user behaviors and surfaces any recurrences to protect you from model drift and regressions.\nJudgment Labs \u2014 The continuous-improvement stack for agents\nThe continuous-improvement stack for agents. Monitor and improve your agent's behavior at scale."
+            ],
+            "title": "Judgment Labs \u2014 The continuous-improvement stack for agents"
+          },
+          {
+            "url": "http://mindoverflow.ai/contact",
+            "excerpts": [
+              "Post-training agent monitoring, reward hacking detection, behavioral drift analysis, and unsupervised evaluation of agents at scale."
+            ],
+            "title": "Contact \u2014 Mindoverflow.ai"
+          },
+          {
+            "url": "http://standout.work/companies/judgment-labs",
+            "excerpts": [
+              "Judgment Labs builds infrastructure for Agent Behavior Monitoring (ABM).\nour ABM surfaces behavioral anomalies such as instruction drifts and context retrieval loss in scaled production environments."
+            ],
+            "title": "Judgment Labs | software_development, ai, devtools ..."
+          },
+          {
+            "url": "https://github.com/topics/regression-detection?o=asc&s=stars",
+            "excerpts": [
+              "regression-detection \u00b7 GitHub Topics \u00b7 GitHub\nAgent and LLM evaluation harness \u2014 golden datasets, multi-scorer execution, regression detection across model versions, cost-quality leaderboards, and CI gates for model promotion."
+            ],
+            "title": "regression-detection \u00b7 GitHub Topics \u00b7 GitHub"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban",
+            "excerpts": [
+              "Kanban (Multi-Agent Board) | Hermes Agent\nRead the Kanban tutorial \u2014 four user stories (solo dev, fleet farming, role pipeline with retry, circuit breaker) with dashboard screenshots of each. This page is the reference; the tutorial is the narrative."
+            ],
+            "title": "Kanban (Multi-Agent Board) | Hermes Agent"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs",
+            "excerpts": [
+              "Hermes Agent Documentation | Hermes Agent\nHermes Agent The self-improving AI agent built by Nous Research. The only agent with a built-in learning loop \u2014 it creates skills from experience, improves them during use, nudges itself to persist knowledge, and builds a deepening model of who you are across sessions."
+            ],
+            "title": "Hermes Agent Documentation | Hermes Agent"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban-tutorial",
+            "excerpts": [
+              "Kanban tutorial | Hermes Agent\nA walkthrough of the four use-cases the Hermes Kanban system was designed for, with the dashboard open in a browser. If you haven't read the Kanban overview yet, start there \u2014 this assumes you know what a task, run, assignee, and dispatcher are."
+            ],
+            "title": "Kanban tutorial | Hermes Agent"
+          },
+          {
+            "url": "http://agent37.com/",
+            "excerpts": [
+              "Hosted OpenClaw and Hermes agents from $3.99/mo with a task board, terminal, files, desktop, and scheduled jobs. No server setup. Agent 37 handles the"
+            ],
+            "title": "Agent 37 - Managed OpenClaw & Hermes Hosting"
+          },
+          {
+            "url": "http://qaskills.sh/blog/llm-as-judge-evaluation-guide-2026",
+            "excerpts": [
+              "LLM as a Judge: The Complete Evaluation Guide (2026) LLM as a Judge: The Complete Evaluation Guide (2026) Learn LLM-as-a-judge evaluation with runnable Python: scoring rubrics, G-Eval, pairwise comparison, judge-bias mitigation, and DeepEval GEval."
+            ],
+            "title": "LLM as a Judge: The Complete Evaluation Guide (2026)"
+          },
+          {
+            "url": "https://llm-as-a-judge.github.io/",
+            "excerpts": [
+              "LLM-as-a-judge\nThrough extensive experiments, we empirically confirm the bias of judges towards their related student models caused by preference leakage across multiple LLM baselines and benchmarks."
+            ],
+            "title": "LLM-as-a-judge"
+          },
+          {
+            "url": "https://aclanthology.org/2025.ijcnlp-long.18",
+            "excerpts": [
+              "Judging the Judges: A Systematic Study of Position Bias in ...\nAbstract LLM-as-a-Judge has emerged as a promising alternative to human evaluators across various tasks, yet inherent biases\u2014particularly position bias, the tendency to favor solutions based on their position within the prompt\u2014compromise its reliability. This exploratory study evaluates position bias in LLM judges across pairwise and list-wise comparison settings, introducing three metrics"
+            ],
+            "title": "Judging the Judges: A Systematic Study of Position Bias in ..."
+          },
+          {
+            "url": "https://www.patronus.ai/llm-testing/llm-as-a-judge",
+            "excerpts": [
+              "LLM As a Judge: Tutorial and Best Practices - Patronus AI\nSummary of LLM as a Judge concepts An LLM Judge employs prompt engineering techniques to mimic human judgment. They feature clear criteria, scoring tools such as Likert scales, and reliability checks that support evaluation methods ranging from simple yes/no responses to detailed critiques."
+            ],
+            "title": "LLM As a Judge: Tutorial and Best Practices - Patronus AI"
+          },
+          {
+            "url": "https://www.sciencedirect.com/science/article/pii/S2666675825004564",
+            "excerpts": [
+              "A survey on LLM-as-a-judge - ScienceDirect.com\nLarge language models (LLMs) have achieved remarkable success, leading to \u201cLLM-as-a-judge,\u201d where LLMs serve as evaluators for complex tasks."
+            ],
+            "title": "A survey on LLM-as-a-judge - ScienceDirect.com"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/developer-guide/architecture",
+            "excerpts": [
+              "Architecture | Hermes Agent\nThis page is the top-level map of Hermes Agent internals. Use it to orient yourself in the codebase, then dive into subsystem-specific docs for implementation details."
+            ],
+            "title": "Architecture | Hermes Agent"
+          },
+          {
+            "url": "http://udemy.com/course/hermes-agent-masterclass-build-autonomous-ai-workflows",
+            "excerpts": [
+              "Jun 10, 2026 \u2014 Coordinate multi-agent pipelines with the built-in Kanban board \u2014 delegate complex projects across spec, build, and review workers"
+            ],
+            "title": "Hermes Agent Masterclass: Build Autonomous AI Workflows"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/blob/main/skills/devops/kanban-worker/SKILL.md",
+            "excerpts": [
+              "hermes-agent/skills/devops/kanban-worker/SKILL.md at main ...\nPitfalls, examples, and edge cases for Hermes Kanban workers. The lifecycle itself is auto-injected into every worker's system prompt as KANBAN_GUIDANCE (from agent/prompt_builder.py); this skill is what you load when you want deeper detail on specific scenarios."
+            ],
+            "title": "hermes-agent/skills/devops/kanban-worker/SKILL.md at main ..."
+          },
+          {
+            "url": "https://www.boundev.ai/blog/llm-eval-ci-regression-model-updates",
+            "excerpts": [
+              "LLM eval harness: catch regressions in CI | Boundev\nBy the time a support ticket arrives, the regression has been live for days. The fix is the same one that solved this problem for ordinary software decades ago: a fixed dataset, fixed checks, and fixed thresholds that run automatically."
+            ],
+            "title": "LLM eval harness: catch regressions in CI | Boundev"
+          },
+          {
+            "url": "https://deepeval.com/guides/guides-regression-testing-in-cicd",
+            "excerpts": [
+              "Regression Testing LLM Systems in CI/CD - DeepEval\nThis guide will show how you can include deepeval in your CI/CD pipelines, using GitHub Actions as an example."
+            ],
+            "title": "Regression Testing LLM Systems in CI/CD - DeepEval"
+          },
+          {
+            "url": "http://maida.ai/about",
+            "excerpts": [
+              "Maida.AI is focused on a sharper problem for teams building AI agents: nobody catches behavioral regressions before they merge. We're fixing that. The problem we're solving Every week, engineering teams ship AI agent changes that silently break behavioral properties. Step counts triple. Unexpected APIs get called. Latency doubles. Eval tools pass. Users notice first. We think every PR touching an AI agent should be gated on behavioral invariants \u2014 the same way every PR touching network code gets latency budgets. That's what Maida.AI does. Our approach Deterministic over probabilistic No LLM-as-judge in our check path. Behavioral checks compare measured properties (step count, tool calls, latency) against baselines. No false positives from scoring variance. CI-first, not production-first The right place to catch a regression is the PR, not the incident. We gate before merge so you never have to chase a production regression. Local-first trust Maida runs on your machine or CI runner. Maida.AI does not receive traces by default unless you explicitly export them or configure external telemetry. Open-source core."
+            ],
+            "title": "About \u2014 Maida.AI"
+          },
+          {
+            "url": "http://regrada.com/",
+            "excerpts": [
+              "Regrada catches behavioral regressions before they reach production. Record live LLM traffic via HTTP proxy, convert traces into test cases automatically, and regrada Pricing Documentation About \\_ The CI gate for LLM behavior. Your AI doesn't break loudly \u2014 it drifts quietly. Regrada catches behavioral regressions before they reach production. Record live LLM traffic via HTTP proxy, convert traces into test cases automatically, and enforce policies in CI \u2014 zero code changes required. Fastest First Run $ curl -fsSL https://downloads.regrada.com/install.sh | sh $ regrada init --non-interactive Then run `regrada baseline` and `regrada test` . Choose a Plan View Documentation terminal $ regrada test Loaded 8 test cases \u00b7 baseline: origin/main (a3f9c12) \u2713 summarize.short\\_input \u2713 summarize.long\\_input \u2713 refund.eligible \u2713 refund.ineligible \u2713 safety.pii\\_redaction \u2713 safety.refusal\\_rate \u2717 onboarding.new\\_user variance exceeded: semantic\\_similarity 0.61 < 0.85 \u2717 onboarding.returning\\_user policy violation: pii\\_detected (email in response) 8 cases \u00b7 6 passed \u00b7 2 failed \u00b7 exit 2 What Regrada Does LLMs don't throw exceptions when they regress \u2014 they just quietly start giving worse answers. Regrada gives your AI the same test coverage you give your code. > regrada record \u2014 capture live LLM traffic through an HTTP proxy. No code changes. No SDK wrapping. > regrada accept \u2014 promote recorded traces into version-controlled YAML test cases with baselines. > regrada test \u2014 replay cases, diff against baselines, evaluate policies, and exit non-zero on failure. Without Regrada \u2717 Model version bumps silently change tone, format, and refusal behavior \u2717 Prompt edits ship untested \u2014 regressions surface in user complaints \u2717 PII leaks in responses go undetected until audit time \u2717 Manual eval scripts are brittle, slow, and never run in CI With Regrada \u2713 Every PR is gated on behavioral correctness, not just unit tests \u2713 Prompt and model changes are validated against real production traces \u2713 PII and compliance policies enforced automatically on every run \u2713 Test cases live in your repo, reviewed in your PRs, run in your CI Built for Production AI Everything you need to test, validate, and continuously monitor LLM behavior in real system"
+            ],
+            "title": "regrada"
+          },
+          {
+            "url": "https://www.evidentlyai.com/blog/llm-unit-testing-ci-cd-github-actions",
+            "excerpts": [
+              "CI/CD for LLM apps: Run tests with Evidently and GitHub ...\nJun 23, 2025 \u2014 This GitHub Action runs output quality validation and regression checks on your LLM agent or system \u2014 right inside your CI workflow"
+            ],
+            "title": "CI/CD for LLM apps: Run tests with Evidently and GitHub ..."
+          },
+          {
+            "url": "https://maestro.dev/insights/react-native-automation-setup-guide",
+            "excerpts": [
+              "React Native Automation: Setup Guide - Maestro\nAfter installing the Maestro CLI, your next step is creating your first Flow - a YAML file that outlines how users interact with your app."
+            ],
+            "title": "React Native Automation: Setup Guide - Maestro"
+          },
+          {
+            "url": "http://devicelab.dev/blog/maestro-browserstack-vs-own-devices",
+            "excerpts": [
+              "Dec 25, 2025 \u2014 Maestro Cloud (from mobile."
+            ],
+            "title": "Maestro: BrowserStack vs Your Own Devices - DeviceLab"
+          },
+          {
+            "url": "https://docs.maestro.dev/get-started/supported-platform/react-native",
+            "excerpts": [
+              "React Native | Maestro Docs\nMaestro provides full support for React Native applications on both Android and iOS. By operating at the accessibility layer, Maestro enables cross-platform testing with a single test suite, requiring zero instrumentation or modifications to your JavaScript/TypeScript source code."
+            ],
+            "title": "React Native | Maestro Docs"
+          },
+          {
+            "url": "http://maestro.dev/cloud",
+            "excerpts": [
+              "Scale your UI testing with Maestro Cloud. Run parallel device and browser tests, view video playback, eliminate flakiness and ship faster."
+            ],
+            "title": "Parallel UI Testing for Mobile & Web | Maestro Cloud"
+          },
+          {
+            "url": "http://maestro.dev/insights/end-to-end-ui-testing-for-mobile-apps-with-maestro",
+            "excerpts": [
+              "Maestro Studio is a visual IDE that lets users create and manage UI tests without writing YAML directly. It provides an element inspector, flow builder, and AI"
+            ],
+            "title": "End-to-End UI Testing for Mobile Apps with Maestro"
+          },
+          {
+            "url": "https://den.dev/blog/mcp-confused-deputy-api-management",
+            "excerpts": [
+              "Confused Deputy Attacks In MCP, Solved With Azure APIM\nMitigating confused deputy attacks in remote MCP servers by enforcing per-client consent prompts and proxying Dynamic Client Registration through Azure APIM."
+            ],
+            "title": "Confused Deputy Attacks In MCP, Solved With Azure APIM"
+          },
+          {
+            "url": "https://cornucopia.owasp.org/taxonomy/attacks/confused-deputy-attack",
+            "excerpts": [
+              "confused-deputy-attack\nIn this example, the application is the deputy because it is acting at the request of the user. The application is seen as 'confused' because it was tricked into making a request on behalf of a malicious application."
+            ],
+            "title": "confused-deputy-attack"
+          },
+          {
+            "url": "https://sureprompts.com/blog/prompt-injection-defense-complete-guide-2026",
+            "excerpts": [
+              "Prompt Injection Defense: The Complete 2026 Security Guide\nA defense-in-depth guide to prompt injection in 2026 \u2014 direct, indirect, multi-modal, and many-shot variants \u2014 with honest framing of what mitigations work, what fails, and what's coming."
+            ],
+            "title": "Prompt Injection Defense: The Complete 2026 Security Guide"
+          },
+          {
+            "url": "https://cybersecify.com/blog/prompt-injection-2026-attack-patterns",
+            "excerpts": [
+              "Prompt Injection in 2026: 7 Attack Patterns We See\nIn 2026 production AI applications, we see seven distinct attack patterns across direct user input, indirect retrieved content, RAG store poisoning, tool-chain injection, multi-turn manipulation, cross-agent injection, and visual or multimodal injection."
+            ],
+            "title": "Prompt Injection in 2026: 7 Attack Patterns We See"
+          },
+          {
+            "url": "http://platform.tracxn.com/a/d/company/644588a72dcfa96a0f6ccdc1/langfuse#a:about",
+            "excerpts": [
+              "Name: Langfuse | Short Description: Open-source observability and analytics platform for LLM applications | Detailed Description: Open-source observability and analytics platform for LLM applications."
+            ],
+            "title": "Langfuse"
+          },
+          {
+            "url": "http://langfuse.com/blog/2024-07-ai-agent-observability-with-langfuse",
+            "excerpts": [
+              "LangGraph ([GitHub](https://github.\ncom/langchain-ai/langgraph)) is an open-source framework by the LangChain team for building complex, stateful, multi-agent applications\nLangfuse offers a simple [integration](/integrations/frameworks/llamaindex) for automatic capture of traces and metrics generated in LlamaIndex applications.\nYou do not need any specific tools to build AI agents. However, there are several open-source frameworks that can help you build complex, stateful, multi-agent applications.\n[CrewAI](https://github.com/crewAIInc/crewAI) is all about role-based collaboration among multiple agents.\nFor tracing setup, see: [Trace AutoGen agents with Langfuse](/integrations/frameworks/autogen).\nOpenAI Agents SDK provides a simple yet powerful framework for building and orchestrating AI agents. By instrumenting the SDK with Langfuse, you can capture detailed traces of agent execution, including planning, function calls, and multi-agent handoffs. This integration enables you to monitor performance metrics, trace issues in real time, and optimize your workflows effectively."
+            ],
+            "title": "title: \"AI Agent Observability, Tracing & Evaluation with Langfuse\" date: 2025/03/16 description: \"Trace, monitor, evaluate, and test AI agents in production. Learn about agent observability strategies, evaluation techniques, and how to use Langfuse with LangGraph, OpenAI Agents, Pydantic AI, CrewAI, and more.\" ogImage: /images/blog/ai-agent-observability/ai-agent-observability.png tag: agents, guide, evaluation author: Jannik"
+          },
+          {
+            "url": "http://langfuse.com/docs/observability/overview",
+            "excerpts": [
+              "Open source application tracing and observability for LLM apps. Capture traces, monitor latency, track costs, and debug issues across OpenAI, LangChain,"
+            ],
+            "title": "LLM Observability & Application Tracing (Open Source)"
+          },
+          {
+            "url": "http://langfuse.com/integrations/native/opentelemetry",
+            "excerpts": [
+              "Explicit metadata mapping** | First-level key in `metadata` (filterable) | `langfuse.trace.metadata.customer_tier\nIf you want to query on specific attributes, you can use the `langfuse.trace.metadata` prefix to map them to the top-level `metadata` object of the trace.\nThe following snippet will produce a filterable `user_name` property in the `metadata` object of the trace: ```python with tracer.start_as_current_span(\"Langfuse Attributes\") as span: span.set_attribute(\"langfuse.trace.metadata.user_name\", \"user-123\") ``` </Callout>"
+            ],
+            "title": "title: OpenTelemetry (OTEL) for LLM Observability description: Connect Langfuse to OpenTelemetry (OTEL) and send OTLP traces from your application or collector to Langfuse. sidebarTitle: OpenTelemetry logo: /images/integrations/opentelemetry_icon.svg"
+          },
+          {
+            "url": "http://ycombinator.com/companies/langfuse",
+            "excerpts": [
+              "(last verified: 2026-07-09) (last verified: 2026-06-18) [Langfuse](https://langfuse.com) is the open-source LLM engineering platform designed to help teams build production-grade LLM applications faster.\nAcquired Developer Tools Generative AI Analytics Open Source AI Company Jobs 0 News [https://langfuse.com](https://langfuse.com) Open source LLM engineering platform Traces, evals, prompt management and metrics to debug and improve your LLM application.\nLangfuse Founded: 2022 Batch: Winter 2023\nLangfuse helps you build and improve LLM applications across the entire lifecycle: - Develop: Observability, Langfuse UI & Prompt Management Monitor: Traces, Analytics, Metrics & Evaluations Test: Experiments, Releases & Datasets\nLangfuse was acquired by Clickhouse in January of 2026.\nTeam Size: 19 Status: Acquired Location: Berlin, Germany"
+            ],
+            "title": "Langfuse"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/blob/main/README.md",
+            "excerpts": [
+              "hermes-agent/README.md at main \u00b7 NousResearch ... - GitHub\nHermes Agent \u2624 Hermes Agent | Hermes Desktop The self-improving AI agent built by Nous Research. It's the only agent with a built-in learning loop \u2014 it creates skills from experience, improves them during use, nudges itself to persist knowledge, searches its own past conversations, and builds a deepening model of who you are across sessions."
+            ],
+            "title": "hermes-agent/README.md at main \u00b7 NousResearch ... - GitHub"
+          },
+          {
+            "url": "http://hermes-agent.nousresearch.com/",
+            "excerpts": [
+              "Hermes Agent \u2014 the open-source agent that grows with you. Native app for macOS, Windows, and Linux. Telegram, Discord, Slack, WhatsApp, Signal, Email, CLI \u2026\nHermes Agent \u2014 the open-source agent that grows with you."
+            ],
+            "title": "Hermes Agent | Nous Research"
+          },
+          {
+            "url": "https://hermesagent.org.cn/",
+            "excerpts": [
+              "Hermes Agent \u4e2d\u6587\u6587\u6863\u3001\u5b89\u88c5\u6559\u7a0b\u4e0e\u793e\u533a\nHermes Agent \u4e2d\u6587\u6587\u6863\u4e0e\u5b89\u88c5\u6559\u7a0b\uff1a\u8986\u76d6 Windows\u3001WSL2\u3001\u957f\u671f\u8bb0\u5fc6\u3001Skills\u3001MCP\u3001\u6d88\u606f\u7f51\u5173\u3001\u591a\u5e73\u53f0\u63a5\u5165\u4e0e\u81ea\u6258\u7ba1\u90e8\u7f72\uff0c\u9644\u5fae\u4fe1\u793e\u533a\u548c\u5feb\u901f\u4e0a\u624b\u6307\u5357\u3002"
+            ],
+            "title": "Hermes Agent \u4e2d\u6587\u6587\u6863\u3001\u5b89\u88c5\u6559\u7a0b\u4e0e\u793e\u533a"
+          },
+          {
+            "url": "http://openrouter.ai/apps/hermes-agent",
+            "excerpts": [
+              "Hermes Agent is an open-source, self-improving AI agent by Nous Research that runs persistently with memory across sessions, and builds reusable skills from experience."
+            ],
+            "title": "Hermes Agent | OpenRouter"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/issues/14051",
+            "excerpts": [
+              "Gateway service: exit code mismatch causes StartLimitBurst=5 ...\nWhen the gateway crashes or is killed unexpectedly, the systemd service enters a restart loop and exhausts StartLimitBurst=5 within seconds, permanently failing even though the actual root cause may be transient."
+            ],
+            "title": "Gateway service: exit code mismatch causes StartLimitBurst=5 ..."
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/issues/3173",
+            "excerpts": [
+              "Gateway crashes on Telegram Bad Gateway (502) \u2014 reconnect ...\nAfter Telegram API returns HTTP 502 (Bad Gateway) and reconnection fails, the Gateway continues running for ~25 minutes, then becomes completely unresponsive (no logs, no cron execution, no message handling) until manually restarted."
+            ],
+            "title": "Gateway crashes on Telegram Bad Gateway (502) \u2014 reconnect ..."
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/issues/7536",
+            "excerpts": [
+              "[Gateway] Stuck session resumes on restart \u2014 creates ...\nWhen a gateway session gets stuck (hung terminal command, runaway tool loop), restarting the gateway re-enters the stuck state. The user cannot get a clean start."
+            ],
+            "title": "[Gateway] Stuck session resumes on restart \u2014 creates ..."
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/getting-started/installation",
+            "excerpts": [
+              "Installation | Hermes Agent\nWith the Hermes Desktop installer on macOS or Windows (recommended) To easily install the command-line and desktop applications, download the Hermes Desktop installer from our website and run it."
+            ],
+            "title": "Installation | Hermes Agent"
+          },
+          {
+            "url": "https://modelcontextprotocol.io/specification/2025-11-25",
+            "excerpts": [
+              "Specification - Model Context Protocol\nWhether you\u2019re building an AI-powered IDE, enhancing a chat interface, or creating custom AI workflows, MCP provides a standardized way to connect LLMs with the context they need. This specification defines the authoritative protocol requirements, based on the TypeScript schema in schema.ts."
+            ],
+            "title": "Specification - Model Context Protocol"
+          },
+          {
+            "url": "http://codilime.com/blog/model-context-protocol-explained",
+            "excerpts": [
+              "Feb 1, 2026 \u2014 MCP enables clients to define filesystem boundaries known as \"roots,\" which specify the directories and files a server can access (Figure 7)\nMCP also defines essential interaction primitives that clients expose to servers,** facilitating specific server-side task\nMCP enables clients to define filesystem boundaries known as \"roots,\" which specify the directories and files a server can access (Figure 7)"
+            ],
+            "title": "Model Context Protocol (MCP) explained: A practical ..."
+          },
+          {
+            "url": "https://mcp-find.org/blog/mcp-protocol-handbook",
+            "excerpts": [
+              "The MCP Protocol Handbook: Every JSON-RPC Method Explained\nComplete reference for every MCP method: initialize, tools/list, tools/call, resources/*, prompts/* with real JSON examples."
+            ],
+            "title": "The MCP Protocol Handbook: Every JSON-RPC Method Explained"
+          },
+          {
+            "url": "https://modelcontextprotocol.io/specification/2025-06-18",
+            "excerpts": [
+              "Specification - Model Context Protocol\nWhether you\u2019re building an AI-powered IDE, enhancing a chat interface, or creating custom AI workflows, MCP provides a standardized way to connect LLMs with the context they need. This specification defines the authoritative protocol requirements, based on the TypeScript schema in schema.ts."
+            ],
+            "title": "Specification - Model Context Protocol"
+          },
+          {
+            "url": "http://docs.confident-ai.com/",
+            "excerpts": [
+              "DeepEval is the open-source LLM evaluation framework for testing and benchmarking LLM applications \u2014 50+ plug-and-play metrics for AI agents, RAG, chatbots,"
+            ],
+            "title": "DeepEval - The LLM Evaluation Framework"
+          },
+          {
+            "url": "https://deepeval.com/docs/metrics-llm-evals",
+            "excerpts": [
+              "G-Eval | DeepEval - The LLM Evaluation Framework\nG-Eval is a framework that uses LLM-as-a-judge with chain-of-thoughts (CoT) to evaluate LLM outputs based on ANY custom criteria. The G-Eval metric is the most versatile type of metric deepeval has to offer, and is capable of evaluating almost any use case with human-like accuracy."
+            ],
+            "title": "G-Eval | DeepEval - The LLM Evaluation Framework"
+          },
+          {
+            "url": "http://deepeval.com/blog/top-5-llm-evaluation-frameworks",
+            "excerpts": [
+              "2 days ago \u00b7 DeepEval is an open-source, Python-native LLM evaluation framework. It works like Pytest for LLM applications, with test cases, reusable metrics, assertions,"
+            ],
+            "title": "Top 5 LLM Evaluation Frameworks in 2026, Compared - DeepEval"
+          },
+          {
+            "url": "http://docs.ragas.io/en/stable/concepts/metrics/available_metrics",
+            "excerpts": [
+              "Ragas provides a set of evaluation metrics that can be used to measure the performance of your LLM application. December 9, 2025"
+            ],
+            "title": "List of available metrics"
+          },
+          {
+            "url": "https://deepeval.com/docs/metrics-introduction",
+            "excerpts": [
+              "Introduction to LLM Evaluation Metrics - DeepEval\ndeepeval provides G-Eval, a state-of-the-art LLM evaluation framework for anyone to create a custom LLM-evaluated metric using natural language. structured\u00a0... Quick Summary \u00b7 Why deepeval Metrics? \u00b7 Custom Metrics \u00b7 Configure LLM Judges"
+            ],
+            "title": "Introduction to LLM Evaluation Metrics - DeepEval"
+          },
+          {
+            "url": "http://medium.com/%40drmikecrowe/taming-git-worktrees-from-chaos-to-a-clean-hub-structure-badc9b4f0200",
+            "excerpts": [
+              "Each linked worktree has a .git file containing gitdir: /path/to/.bare/worktrees/<name> ."
+            ],
+            "title": "Taming Git Worktrees: From Chaos to a Clean Hub Structure"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/38004148/another-git-process-seems-to-be-running-in-this-repository",
+            "excerpts": [
+              "Another Git process seems to be running in this repository\nTry deleting index.lock file in your .git directory or in one of your worktrees .git/worktrees/*/index.lock if you are in a worktree. ... Such problems generally occur when you execute two git commands simultaneously; maybe one from the command prompt and one from an IDE."
+            ],
+            "title": "Another Git process seems to be running in this repository"
+          },
+          {
+            "url": "http://git-scm.com/docs/git-worktree",
+            "excerpts": [
+              "Each linked worktree has a private sub-directory in the repository's `$GIT_DIR/worktrees` directory.\n$ git worktree add -b emergency-fix ../temp master $ pushd ../temp\nTo remove a locked worktree, specify `--force` twice. `-b` _<new-branch>_ `-B` _<new-branch>_ With `add` , create a new branch named _<new-branch>_ starting at _<commit-ish>_ , and check out _<new-branch>_ into the new worktree.\n``` `git` `worktree` `add` [ `-f` ] [ `--detach` ] [ `--checkout` ] [ `--lock` [ `--reason` _<string>_ ]] [ `--orphan` ] [( `-b` | `-B` ) _<new-branch>_ ] _<path>_ [ _<commit-ish>_ ] `git` `worktree` `list` [ `-v` | `--porcelain` [ `-z` ]] `git` `worktree` `lock` [ `--reason` _<string>_ ] _<worktree>_ `git` `worktree` `move` _<worktree>_ _<new-path>_ `git` `worktree` `prune` [ `-n` ] [ `-v` ] [ `--expire` _<expire>_ ] `git` `worktree` `remove` [ `-f` ] _<worktree>_ `git` `worktree` `repair` [ _<path>_ \u2026] `git` `worktree` `unlock` _<worktree>_ ```\n`add` _<path>_ [ _<commit-ish>_ ] Create a worktree at _<path>_ and checkout _<commit-ish>_ into it.\n(The `git` `worktree` `repair` command, however, can reestablish the connection with linked worktrees if you move the main worktree manually.) `prune` Remove worktree information in `$GIT_DIR/worktrees` for worktrees whose working trees are missing. Useful after manually removing a working tree that is no longer needed (but use \"git worktree remove\" next time you want to do so)\nBy default, add refuses to create a new worktree when <commit-ish> is a branch name and is already\nIf _<branch>_ does exist, it will be checked out in the new worktree, if it's not checked out anywhere else, otherwise the command will refuse to create the worktree (unless `--force` is used)\nRemove a worktree\nprune Remove worktree information in for worktrees whose working trees are missing\nBy default, the repository `config` file is shared across all worktrees.\nIn order to have worktree-specific configuration, you can turn on the `worktreeConfig` extension, e.g.: ``` $ git config extensions.worktreeConfig true\nWithin a linked worktree, `$GIT_DIR` is set to point to this private directory (e.g. `/path/main/.git/worktrees/test-next` in the example) and `$GIT_COMMON_DIR` is set to point back to the main worktree's `$GIT_DIR` (e.g. `/path/main/.git` )."
+            ],
+            "title": null
+          },
+          {
+            "url": "https://blog.nghia-pham.com/blog/claude-code-rules-agent-safety-worktree-isolation",
+            "excerpts": [
+              "Sharing my Claude Code rules: agent safety and worktree isolation\nThe global rule that decides when to delegate code edits to a sub-agent, when to put that agent in a worktree, and how to integrate the result without breaking the main session's working tree."
+            ],
+            "title": "Sharing my Claude Code rules: agent safety and worktree isolation"
+          },
+          {
+            "url": "http://stackoverflow.com/questions/48779515/per-worktree-local-exclusion",
+            "excerpts": [
+              "I tried adding the file name to .git/worktrees/$worktreename/info/exclude but it doesn't take."
+            ],
+            "title": "Per-worktree local exclusion - git"
+          },
+          {
+            "url": "http://awslabs.github.io/agent-evaluation",
+            "excerpts": [
+              "Agent Evaluation - GitHub Pages Home Agent Evaluation is a generative AI-powered framework for testing virtual agents"
+            ],
+            "title": "Agent Evaluation - GitHub Pages"
+          },
+          {
+            "url": "https://medium.com/pinterest-engineering/experiment-without-the-wait-speeding-up-the-iteration-cycle-with-offline-replay-experimentation-7a4a95fa674b",
+            "excerpts": [
+              "Speeding up the iteration cycle with Offline Replay ...\nOne can obtain initial directional analysis on concepts through offline evaluation of assessment metrics such as Mean Average Precision or AUC."
+            ],
+            "title": "Speeding up the iteration cycle with Offline Replay ..."
+          },
+          {
+            "url": "https://jamesrledoux.com/algorithms/offline-bandit-evaluation",
+            "excerpts": [
+              "Offline Evaluation of Multi-Armed Bandit Algorithms in Python ...\nJan 20, 2020 \u2014 Replay evaluation essentially takes your historic event steam and your algorithm's recommendations at each time step, and throws out all samples"
+            ],
+            "title": "Offline Evaluation of Multi-Armed Bandit Algorithms in Python ..."
+          },
+          {
+            "url": "https://docs.lindy.ai/fundamentals/lindy-101/evals",
+            "excerpts": [
+              "Evals - Lindy Documentation\nOffline evals uses historical data to assess agent performance. It is helpful for preventing regressions when an agent is edited. \u00b7 Online evals uses real time"
+            ],
+            "title": "Evals - Lindy Documentation"
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "ai-regression-controls-july-2026.md"
+  }
+}

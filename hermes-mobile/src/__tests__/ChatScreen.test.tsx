@@ -2,6 +2,7 @@ import React from 'react';
 import { Alert, BackHandler, Platform } from 'react-native';
 import { fireEvent, act, waitFor, cleanup, within } from '@testing-library/react-native';
 import ChatScreen, {
+  iosComposerDockKeyboardFocusStyle,
   resolveEffectiveKeyboardInset,
   shouldIgnoreKeyboardHide,
   shouldClearKeyboardScreenVisible,
@@ -132,6 +133,7 @@ jest.mock('../services/secureCredentials', () => ({
     loadMobileToken: jest.fn().mockResolvedValue('test-token'),
     saveMobileToken: jest.fn().mockResolvedValue(true),
     clearMobileToken: jest.fn().mockResolvedValue(true),
+    resolveApiKeyForProfile: jest.fn().mockResolvedValue('test-api-key'),
   },
 }));
 
@@ -525,7 +527,10 @@ describe('ChatScreen', () => {
 
     expect(queryByTestId('chat-connection-panel')).toBeNull();
     expect(getByTestId('chat-input')).toBeTruthy();
-    expect(getByTestId('chat-context-mac').props.children).toBe('Your computer');
+    // The product law under test is that the PAIRING status stays distinct from the
+    // computer transport — not that the machine name is hidden. One computer is saved,
+    // so the header names it instead of the "Your computer" placeholder (2026-07-30).
+    expect(getByTestId('chat-context-mac').props.children).toBe('Demo computer');
     expect(getByTestId('chat-context-link').props.children).toContain(
       'Pair to receive approval requests anywhere',
     );
@@ -586,7 +591,7 @@ describe('ChatScreen', () => {
       await drainChatScreenAsync();
     });
 
-    expect(mockGatewayState.scanForGatewayProfiles).toHaveBeenCalled();
+    expect(mockGatewayState.scanForGatewayProfiles).not.toHaveBeenCalled();
     expect(mockGatewayState.autoConnectGateway).toHaveBeenCalled();
     expect(mockGatewayState.retryGatewayBootstrap).toHaveBeenCalled();
     expect(mockGatewayState.refreshHealth).toHaveBeenCalled();
@@ -1451,16 +1456,41 @@ describe('ChatScreen', () => {
   });
 
   it('clears composer after send and ignores Android IME echo onChangeText', async () => {
-    const { getByTestId } = await renderChatScreen();
-    const input = getByTestId('chat-input');
-    const sendButton = getByTestId('chat-send-button');
+    const originalOs = Platform.OS;
+    Platform.OS = 'android';
+    try {
+      const { getByTestId } = await renderChatScreen();
+      const input = getByTestId('chat-input');
+      const sendButton = getByTestId('chat-send-button');
 
-    fireEvent.changeText(input, 'Hello Hermes');
-    fireEvent.press(sendButton);
-    expect(input.props.value).toBe('');
+      fireEvent.changeText(input, 'Hello Hermes');
+      fireEvent.press(sendButton);
+      expect(input.props.value).toBe('');
 
-    fireEvent.changeText(input, 'Hello Hermes');
-    expect(input.props.value).toBe('');
+      fireEvent.changeText(input, 'Hello Hermes');
+      expect(input.props.value).toBe('');
+    } finally {
+      Platform.OS = originalOs;
+    }
+  });
+
+  it('accepts the exact previous prompt on iOS after send clears the composer', async () => {
+    const originalOs = Platform.OS;
+    Platform.OS = 'ios';
+    try {
+      const { getByTestId } = await renderChatScreen();
+      const input = getByTestId('chat-input');
+      const sendButton = getByTestId('chat-send-button');
+
+      fireEvent.changeText(input, 'Hello Hermes');
+      fireEvent.press(sendButton);
+      expect(input.props.value).toBe('');
+
+      fireEvent.changeText(input, 'Hello Hermes');
+      expect(input.props.value).toBe('Hello Hermes');
+    } finally {
+      Platform.OS = originalOs;
+    }
   });
 
   it('keeps optimistic user bubble as failed when send hits a false disconnect', async () => {
@@ -1620,6 +1650,63 @@ describe('ChatScreen', () => {
       flexDirection: 'column',
     });
   });
+
+  it('does not select the row beneath the touch that opens the computer picker', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+    const selectGatewayProfile = jest.fn().mockResolvedValue(true);
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      selectGatewayProfile,
+      activeGatewayProfile: {
+        id: 'macbook',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://10.2.29.103:8642',
+        localIp: '10.2.29.103',
+        addedAt: '2026-07-02T00:00:00Z',
+      },
+      gatewayProfiles: [
+        {
+          id: 'macmini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          localIp: '100.87.85.85',
+          addedAt: '2026-07-02T00:00:00Z',
+        },
+        {
+          id: 'macbook',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://10.2.29.103:8642',
+          localIp: '10.2.29.103',
+          addedAt: '2026-07-02T00:00:00Z',
+        },
+      ],
+    });
+
+    try {
+      const { getByTestId } = await renderChatScreen();
+      fireEvent.press(getByTestId('chat-context-mac-button'));
+
+      const macMiniRow = getByTestId('select-gateway-profile-macmini');
+      expect(macMiniRow.props.accessibilityState).toEqual(
+        expect.objectContaining({ disabled: true }),
+      );
+      fireEvent.press(macMiniRow);
+      expect(selectGatewayProfile).not.toHaveBeenCalled();
+
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+      expect(getByTestId('select-gateway-profile-macmini').props.accessibilityState).toEqual(
+        expect.objectContaining({ disabled: false }),
+      );
+      fireEvent.press(getByTestId('select-gateway-profile-macmini'));
+      await act(async () => undefined);
+      expect(selectGatewayProfile).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('keeps one computer-picker status region instead of stacking discovery banners', async () => {
     Object.assign(mockGatewayState, {
       tailscaleDiscoveryProbing: true,
@@ -1664,6 +1751,7 @@ describe('ChatScreen', () => {
       expect(addGatewayProfile).toHaveBeenCalledWith(
         'Tailscale computer',
         'http://100.87.85.85:8642',
+        'test-api-key',
       );
     });
     await waitFor(() => {
@@ -1778,6 +1866,11 @@ describe('ChatScreen', () => {
     autoConnectGateway.mockClear();
 
     fireEvent.press(getByTestId('chat-context-mac-button'));
+    await waitFor(() => {
+      expect(
+        getByTestId('select-gateway-profile-macmini').props.accessibilityState,
+      ).toEqual(expect.objectContaining({ disabled: false }));
+    });
     fireEvent.press(getByTestId('select-gateway-profile-macmini'));
 
     await waitFor(() => {
@@ -3224,5 +3317,19 @@ describe('shouldIgnoreKeyboardHide', () => {
 
   it('never ignores iOS hide events', () => {
     expect(shouldIgnoreKeyboardHide('ios', 260, true)).toBe(false);
+  });
+});
+
+describe('iosComposerDockKeyboardFocusStyle', () => {
+  it('never mutates shadow or elevation while the Fabric TextInput is focused', () => {
+    const style = iosComposerDockKeyboardFocusStyle();
+
+    expect(style.paddingTop).toBe(8);
+    expect(style.borderTopColor).toBeTruthy();
+    expect(style.shadowColor).toBeUndefined();
+    expect(style.shadowOpacity).toBeUndefined();
+    expect(style.shadowRadius).toBeUndefined();
+    expect(style.shadowOffset).toBeUndefined();
+    expect(style.elevation).toBeUndefined();
   });
 });

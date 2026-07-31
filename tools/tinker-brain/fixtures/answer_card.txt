@@ -1,0 +1,20 @@
+AS_OF=2026-07-22T18:07:42Z
+FOCUS=Sell ThumbGate.app (primary product); fan-out matrix for marketing; Skool and Reddit stay watch-only acquisition channels
+THUMBGATE_PRODUCT=ThumbGate.app: free Hermes web control plane (Leash approvals, P-256 pairing) + paid Continuity add-on (Pro $10/mo, Team $49/mo, 14-day trial w/ 5 cloud runs); companion to Hermes Mobile $4.99 pay-once, never a rescue for it; the $19 firewall is a separate product — never conflate
+THUMBGATE_EXPERT_CARD=THUMBGATE_EXPERT_CARD.txt in this directory; answer monetize/market/promote/sell questions from it
+THUMBGATE_LIVE_PRICE=fixture: live /api/billing/plan readback not attempted in tests
+THUMBGATE_HEALTH=status=fixture; ok=false
+AEO_MONITOR=present=false; run tools/thumbgate-aeo-monitor.js weekly
+EXTERNAL_USD=0.0  (cents=0)
+OWNER_TEST_USD=10.0  (cents=1000; NOT revenue)
+BAN_SUM_CASH=never add EXTERNAL+OWNER_TEST into 'total revenue' or 'total cash'
+WHY_ZERO=No non-owner buyer payment is verifiable: no revenue receipt exists, so external cash is $0 by fail-closed rule.
+PRIVATE_CONVERT_AUTHORIZED=false
+PRIVATE_CONVERT_RULE=false means do not recommend DM/private conversion; value-first public content only
+SAAS=fan-out free value → thumbgate.app visit → WorkOS sign-in → pair → first chat → Continuity trial → non-owner Stripe subscription
+BAN_CONVERT_WITHOUT_INTEREST=only after the exact human requests a trial, demo, or intake
+BAN_INVENT_SCORES=never invent DS/ML or GTM scores; only SYSTEM_SCORES line below
+SYSTEM_SCORES=DS 55/100 (F); ML 40/100 (F); RAG 90/100 (A-); OVERALL 67/100 (D+); MONETIZATION 0/100
+SCORE_SCOPE=copy SYSTEM_SCORES exactly
+NEXT_MONEY=Ship today's ThumbGate.app campaign beat (persona+pain+cited evidence+hook) across the fan-out matrix; recruit toward 3 Continuity design partners; Reddit draft-only under burn rule. Cash counts only on a non-owner Stripe subscription payment.
+ZERO_SPEND=true

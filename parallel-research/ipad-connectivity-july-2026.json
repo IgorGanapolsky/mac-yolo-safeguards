@@ -1,0 +1,926 @@
+{
+  "run_id": "trun_c427d833548b455094b9e80dc03ac0a3",
+  "interaction_id": "trun_c427d833548b455094b9e80dc03ac0a3",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_c427d833548b455094b9e80dc03ac0a3",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Assessment reasoning:\n- The user field aims for a complete, actionable, edge-case rich analysis with a prioritized test matrix, focusing on Expo SDK 55 / RN iPad on iPadOS 17-26, covering ATS, local network permissions, Bonjour, Tailscale/MagicDNS, pairing concurrency, reinstall persistence, cold-launch races, and Maestro/XCUITest automation realities. \n- The provided field_answer is a long, structured document that addresses discovery vs. auth gates, local network privacy, ATS IP-literal behavior, Tailscale MagicDNS issues, pairing concurrency/races, keychain persistence, cold-launch lifecycle races, automation limits with Maestro, and a prioritized test matrix plus recommended sequence. It explicitly cites or references relevant mechanisms and known edge cases. \n- The excerpts contain multiple supported references to NSLocalNetworkUsageDescription, NSBonjourServices, ATS, and Tailscale/MagicDNS as well as notes on Expo SDK 55, making the answer well-aligned with the field description. \n- Therefore, I judge completeness as true since the answer closely matches the expected scope and provides actionable content and a testing matrix. \n- I judge support by excerpts as true since excerpts cover the key topics discussed in the answer (local network permission keys, Bonjour services, ATS behavior, Tailscale/MagicDNS, etc.).",
+        "citations": [
+          {
+            "url": "https://developer.apple.com/documentation/bundleresources/information-property-list/nslocalnetworkusagedescription",
+            "excerpts": [
+              "NSLocalNetworkUsageDescription\nAny app that uses the local network, directly or indirectly, should include this description. This includes apps that use Bonjour and services implemented with"
+            ],
+            "title": "NSLocalNetworkUsageDescription"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/bundleresources/information-property-list/nsapptransportsecurity/nsallowslocalnetworking",
+            "excerpts": [
+              "NSAllowsLocalNetworking | Apple Developer Documentation\nInstead you use NSAllowsArbitraryLoads when you want to load directly from an IP address. In iOS 10 through iOS 16, iPadOS 13.1 through iPadOS 16, and macOS"
+            ],
+            "title": "NSAllowsLocalNetworking | Apple Developer Documentation"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/65633915/test-flight-local-network-permission-nsbonjourservices-error-in-testflight-bu",
+            "excerpts": [
+              "ios - Test Flight - Local Network permission ...\nAdding both of NSLocalNetworkUsageDescription and NSBonjourServices keys in Infos.plist is the correct solution for me. This is required since iOS 14 and it makes NSNetServices finding services."
+            ],
+            "title": "ios - Test Flight - Local Network permission ..."
+          },
+          {
+            "url": "https://developer.apple.com/documentation/BundleResources/Information-Property-List/NSLocalNetworkUsageDescription?changes=_4_9",
+            "excerpts": [
+              "NSLocalNetworkUsageDescription | Apple Developer Documentation\nA message that tells people why the app is requesting access to the local network."
+            ],
+            "title": "NSLocalNetworkUsageDescription | Apple Developer Documentation"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/bundleresources/information-property-list/nsbonjourservices",
+            "excerpts": [
+              "NSBonjourServices | Apple Developer Documentation\nBonjour service type strings look like _ipp._tcp , and _myservice._udp , where the first substring identifies the application protocol and the second identifies"
+            ],
+            "title": "NSBonjourServices | Apple Developer Documentation"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/bundleresources/information-property-list/nsapptransportsecurity",
+            "excerpts": [
+              "NSAppTransportSecurity | Apple Developer Documentation\nOn Apple platforms, a networking feature called App Transport Security (ATS) improves privacy and data integrity for all apps and app extensions. ATS requires that all HTTP connections made with the URL Loading System \u2014typically using the URLSession class\u2014use HTTPS."
+            ],
+            "title": "NSAppTransportSecurity | Apple Developer Documentation"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/31216758/how-can-i-add-nsapptransportsecurity-to-my-info-plist-file",
+            "excerpts": [
+              "How can I add NSAppTransportSecurity to my info.plist file?\nJul 4, 2015 \u00b7 You have to add just the NSAllowsArbitraryLoads key to YES in NSAppTransportSecurity dictionary in your info.plist file."
+            ],
+            "title": "How can I add NSAppTransportSecurity to my info.plist file?"
+          },
+          {
+            "url": "https://github.com/expo/expo/issues/26573",
+            "excerpts": [
+              "App Transport Security policy error on iOS with Expo dev client in ...\nThe exception only seems to allow HTTP for localhost . You would presumably need to allow it for exp.direct and also allow subdomains. Something"
+            ],
+            "title": "App Transport Security policy error on iOS with Expo dev client in ..."
+          },
+          {
+            "url": "https://docs.expo.dev/versions/latest/sdk/build-properties",
+            "excerpts": [
+              "Expo BuildProperties - Expo Documentation\nConfig plugin allowing customizing native Android and iOS build properties for managed apps. ... Indicates whether the app intends to use cleartext network"
+            ],
+            "title": "Expo BuildProperties - Expo Documentation"
+          },
+          {
+            "url": "https://github.com/facebook/react-native/issues/7564",
+            "excerpts": [
+              "[IOS] \"fetch + FormData\" create the Content-Type with a ...\nMay 14, 2016 \u2014 \"fetch + FormData\" create the Content-Type with a boundary wrapped with delimiter cause by the code in _react-native/Libraries/Network/"
+            ],
+            "title": "[IOS] \"fetch + FormData\" create the Content-Type with a ..."
+          },
+          {
+            "url": "https://tailscale.com/docs/features/exit-nodes",
+            "excerpts": [
+              "Exit nodes (route all traffic) - Tailscale Docs\nEnsure both the exit node and devices using the exit node run Tailscale v1.20 or later. Ensure the exit node is a Linux, macOS, Windows, Android, iOS, or tvOS device."
+            ],
+            "title": "Exit nodes (route all traffic) - Tailscale Docs"
+          },
+          {
+            "url": "https://wellstsai.com/en/post/tailscale-advanced-guides",
+            "excerpts": [
+              "Advanced Tailscale Applications: Taildrop, Exit Nodes, and ...\nA comprehensive guide to Taildrop file sharing, Exit Node setup, and Subnet Routing configuration, enabling seamless NAT traversal, secure remote access, and optimized VPN networking."
+            ],
+            "title": "Advanced Tailscale Applications: Taildrop, Exit Nodes, and ..."
+          },
+          {
+            "url": "https://github.com/tailscale/tailscale/issues/18385",
+            "excerpts": [
+              "[iOS] MagicDNS hostname doesn't work except when using Exit Node\nWhat is the issue? On iOS, the MagicDNS hostname myserver doesn't work except when using myserver as Exit Node. I couldn't find any issues on it. I only found a lone reddit comment from more than 1 year ago. For me magicdns only works if"
+            ],
+            "title": "[iOS] MagicDNS hostname doesn't work except when using Exit Node"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/magicdns",
+            "excerpts": [
+              "MagicDNS \u00b7 Tailscale Docs\nJan 5, 2026 \u00b7 To SSH into it, run ssh username@monitoring; To ping it, run ping monitoring; To open it in your browser, type monitoring in your address bar"
+            ],
+            "title": "MagicDNS \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/subnet-routers",
+            "excerpts": [
+              "Subnet routers \u00b7 Tailscale Docs\nThe recommended workaround for this is to sepearate the role of the subnet router and the exit node between two nodes if the subnet router must have SNAT disabled."
+            ],
+            "title": "Subnet routers \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://expo.dev/changelog/sdk-55",
+            "excerpts": [
+              "Expo SDK 55 - Expo Changelog\nFeb 25, 2026 \u2014 Today we're announcing the release of Expo SDK 55. SDK 55 includes React Native 0.83 and React 19.2. SDK 56 will include React Native 0.85"
+            ],
+            "title": "Expo SDK 55 - Expo Changelog"
+          },
+          {
+            "url": "https://expo.dev/changelog",
+            "excerpts": [
+              "Changelog - Expo\nCheck out new updates and improvements to <b>Expo</b>. Changes to project loading behavior in Expo. Expo SDK 55 Alan Hughes by up to 30% on both Android and"
+            ],
+            "title": "Changelog - Expo"
+          },
+          {
+            "url": "https://medium.com/%40onix_react/whats-new-in-expo-sdk-55-6eac1553cee8",
+            "excerpts": [
+              "What's New in Expo SDK 55 - Medium\nJan 23, 2026 \u00b7 The SDK 55 update brings a massive wave of quality-of-life improvements across the ecosystem, focusing on developer tooling, native performance"
+            ],
+            "title": "What's New in Expo SDK 55 - Medium"
+          },
+          {
+            "url": "https://github.com/expo/expo/issues/29005?timeline_page=1",
+            "excerpts": [
+              "expo-dev-client \"Searching for development servers...\" returns no ...\nQuick check: if Expo dev client settings shows Local Network toggle as missing/greyed out for the app, those keys are not present in the"
+            ],
+            "title": "expo-dev-client \"Searching for development servers...\" returns no ..."
+          },
+          {
+            "url": "https://reactnative.dev/docs/network",
+            "excerpts": [],
+            "title": "Networking \u00b7 React Native"
+          },
+          {
+            "url": "https://docs.expo.dev/guides/config-plugins/",
+            "excerpts": [],
+            "title": "Introduction to config plugins - Expo Documentation"
+          },
+          {
+            "url": "https://docs.expo.dev/guides/local-app-development/",
+            "excerpts": [],
+            "title": "modificationDate: June 03, 2026 title: Create a debug build locally description: Learn how to create a debug build for your Expo app locally."
+          },
+          {
+            "url": "https://github.com/facebook/react-native/issues/23922",
+            "excerpts": [],
+            "title": "[0.59.x] URLSearchParams 'Error: not implemented' \u00b7 Issue #23922 \u00b7 facebook/react-native \u00b7 GitHub"
+          },
+          {
+            "url": "https://maestro.mobile.dev/api-reference/commands",
+            "excerpts": [],
+            "title": "Page Not Found"
+          },
+          {
+            "url": "https://tailscale.com/kb/1133/apple-extensions/",
+            "excerpts": [],
+            "title": "Tailscale on a Proxmox host"
+          },
+          {
+            "url": "https://tailscale.com/kb/1230/acl-templating/",
+            "excerpts": [],
+            "title": "Tailnet Lock white paper"
+          },
+          {
+            "url": "https://reactnative.dev/docs/new-architecture-intro",
+            "excerpts": [],
+            "title": "GitHub - reactwg/react-native-new-architecture: Workgroup for the New React Native Architecture \u00b7 GitHub"
+          },
+          {
+            "url": "https://docs.expo.dev/versions/latest/config/app/",
+            "excerpts": [],
+            "title": "title: app.json / app.config.js description: A reference of available properties in Expo app config."
+          },
+          {
+            "url": "https://developer.apple.com/documentation/uikit/uidevice/1620059-identifierforvendor",
+            "excerpts": [],
+            "title": "identifierForVendor | Apple Developer Documentation"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/security/keychain_services",
+            "excerpts": [],
+            "title": "Keychain services | Apple Developer Documentation"
+          },
+          {
+            "url": "https://nodejs.org/api/fs.html#fsfsrenameoldpath-newpath-callback",
+            "excerpts": [],
+            "title": "File system | Node.js v26.5.0 Documentation"
+          },
+          {
+            "url": "https://nodejs.org/api/fs.html",
+            "excerpts": [],
+            "title": "File system | Node.js v26.5.0 Documentation"
+          },
+          {
+            "url": "https://docs.npmjs.com/about-npm",
+            "excerpts": [],
+            "title": "About npm | npm Docs"
+          },
+          {
+            "url": "https://tailscale.com/kb/1019/domains/",
+            "excerpts": [],
+            "title": "Subnet routers"
+          },
+          {
+            "url": "https://deepwiki.com/tailscale/tailscale/7.1-dns-resolution-and-magicdns",
+            "excerpts": [
+              "DNS Resolution and MagicDNS | tailscale/tailscale | DeepWiki\nThis document covers the DNS resolution system in Tailscale, including the MagicDNS feature that provides automatic hostname resolution for Tailscale nodes. It explains the architecture of the DNS subsystem, query resolution flow, split DNS support, DoH (DNS over HTTPS), and integration with upstream DNS servers."
+            ],
+            "title": "DNS Resolution and MagicDNS | tailscale/tailscale | DeepWiki"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/networkextension/nevpnmanager?language=objc",
+            "excerpts": [
+              "NEVPNManager"
+            ],
+            "title": "NEVPNManager"
+          },
+          {
+            "url": "https://github.com/tailscale/tailscale/issues/13461",
+            "excerpts": [
+              "Unable to resolve MagicDNS or tailnet FQDN's after macOS DNS ...\nIn OSS tailscaled prior to 1.74.0 (last working version 1.72.1), I could resolve MagicDNS and tailnet FQDN's (*.ts.net) under the following setup. The changelog notes changes in this area in 1.74.0: https://tailscale.com/changelog#2024-09-12."
+            ],
+            "title": "Unable to resolve MagicDNS or tailnet FQDN's after macOS DNS ..."
+          },
+          {
+            "url": "https://developer.apple.com/documentation/networkextension/nevpnmanager",
+            "excerpts": [
+              "NEVPNManager | Apple Developer Documentation"
+            ],
+            "title": "NEVPNManager | Apple Developer Documentation Apple Developer https://developer.apple.com \u203a networkextension \u203a nevpn..."
+          },
+          {
+            "url": "http://docs.expo.dev/versions/latest/sdk/build-properties",
+            "excerpts": [
+              "A config plugin that allows customizing native build properties during prebuild. config plugin configuring the native build properties of your android/gradle"
+            ],
+            "title": "Expo BuildProperties"
+          },
+          {
+            "url": "http://npmjs.com/package/expo-build-properties",
+            "excerpts": [
+              "May 26, 2026 \u2014 Config plugin to customize native build properties on prebuild"
+            ],
+            "title": "expo-build-properties"
+          },
+          {
+            "url": "https://github.com/expo/expo/discussions/25887",
+            "excerpts": [
+              "Prebuild config plugin for pod and android manifest updation\nDec 12, 2023 \u2014 I need a config plugin that makes the config for me at prebuild time and Adds the required config to the pod file and Android manifest."
+            ],
+            "title": "Prebuild config plugin for pod and android manifest updation"
+          },
+          {
+            "url": "http://app.unpkg.com/expo-build-properties%400.12.5/files/build/pluginConfig.d.ts",
+            "excerpts": [
+              "Interface representing base build properties configuration. useLegacyPackaging?: boolean;"
+            ],
+            "title": "expo-build-properties"
+          },
+          {
+            "url": "https://github.com/mrousavy/react-native-mmkv/issues/1030",
+            "excerpts": [
+              "MMKV does not persist data. \u00b7 Issue #1030\nmmkv doesn't persist the data. MMKV doesn't even create its folder suggests something in your native build config or module resolution changed"
+            ],
+            "title": "MMKV does not persist data. \u00b7 Issue #1030"
+          },
+          {
+            "url": "https://github.com/mobile-dev-inc/maestro/issues/2895",
+            "excerpts": [
+              "iOS Simulator: reliable offline / airplane-mode simulation ...\nUse case Problem Maestro currently cannot reliably test offline behavior on iOS simulators. setAirplaneMode is a no-op on iOS iOS Simulator exposes no real airplane-mode toggle As a result, offline-dependent flows are not testable or det"
+            ],
+            "title": "iOS Simulator: reliable offline / airplane-mode simulation ..."
+          },
+          {
+            "url": "http://github.com/mobile-dev-inc/maestro",
+            "excerpts": [
+              "Maestro is an open-source framework that makes UI and end-to-end testing for Android, iOS, and web apps simple and fast\nREADME.md Tip Great things happen when testers connect \u2014 [Join the Maestro Community](https://maestrodev.typeform.com/to/FelIEe8A) [Maestro logo](https://www.maestro.dev/) **Maestro** is an open-source framework that makes UI and end-to-end testing for Android, iOS, and web apps simple and fast. Write your first test in under five minutes using YAML flows and run them on any emulator, simulator, or browser. Table of Contents Why Maestro? Getting Started Resources & Community Contributing Maestro Studio \u2013 Test IDE Maestro Cloud \u2013 Parallel Execution & Scalability Why Maestro? Maestro is built on learnings from its predecessors (Appium, Espresso, UIAutomator, XCTest, Selenium, Playwright) and allows you to easily define and test your Flows. By combining a human-readable YAML syntax with an interpreted execution engine, it lets you write, run, and scale cross-platform end-to-end tests for mobile and web with ease. **Cross-platform coverage** \u2013 test Android, iOS, and web apps (React Native, Flutter, hybrid) on emulators, simulators, or real devices. **Human-readable YAML flows** \u2013 express interactions as commands like `launchApp` , `tapOn` , and `assertVisible` . **Resilience & smart waiting** \u2013 built-in flakiness tolerance and automatic waiting handle dynamic UIs without manual `sleep()` calls. **Fast iteration & simple install** \u2013 flows are interpreted (no compilation) and installation is a single script. **Simple Example:** ``` flow_contacts_android.yaml appId: com.android.contacts --- launchApp tapOn: \"Create new contact\" tapOn: \"First Name\" inputText: \"John\" tapOn: \"Last Name\" inputText: \"Snow\" tapOn: \"Save\" ``` Getting Started Maestro requires Java 17 or higher to be installed on your system. You can verify your Java version by running: ``` java -version ``` Installing the CLI: Run the following command to install Maestro on macOS, Linux or Windows (WSL): ``` curl -fsSL \"https://get.maestro.mobile.dev\" | bash ``` The links below will guide you through the next steps. [Installing Maestro](https://docs.maestro.dev/getting-started/installing-maestro) (includes regular Windows installation) [Build and install your app](https://docs.maestro.dev/getting-started/build-and-install-your-app) [Run a sample flow](https://docs.maestro.dev/getting-started/run-a-sample-flow) [Writing your first flow](https://docs.maestro.dev/getting-started/writing-your-first-flow) Resources & Community \ud83d\udcac [Join the Slack Community](https://maestrodev.typeform.com/to/FelIEe8A) \ud83d\udcd8 [Documentation](https://docs.maestro.dev/) \ud83d\udcf0 [Blog](https://maestro.dev/blog?utm_source=github-readme) \ud83d\udc26 [Follow us on X](https://twitter.com/maestro__dev) Contributing Maestro is open-source under the Apache 2.0 license \u2014 contributions are welcome! Check [good first issues](https://github.com/mobile-dev-inc/maestro/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) Read the [Contribution Guide](https://github.com/mobile-dev-inc/Maestro/blob/main/CONTRIBUTING.md) Fork, create a branch, and open a Pull Request. If you find Maestro useful, \u2b50 star the repository to support the project. Maestro Studio \u2013 Test IDE **Maestro Studio Desktop** is a lightweight IDE that lets you design and execute tests visually \u2014 no terminal needed. It is also free, even though Studio is not an open-source project. So you won't find the Maestro Studio code here. **Simple setup** \u2013 just download the native app for macOS, Windows, or Linux. **Visual flow builder & inspector** \u2013 record interactions, inspect elements, and build flows visually. [Download Maestro Studio\n**Maestro** is an open-source framework that makes UI and end-to-end testing for Android, iOS, and web apps simple and fast.\nWrite your first test in under five minutes using YAML flows and run them on any emulator, simulator, or browser."
+            ],
+            "title": "mobile-dev-inc/Maestro: Painless E2E Automation for ..."
+          },
+          {
+            "url": "http://dev.to/omnarayan/maestro-on-real-ios-devices-working-guide-5dfk",
+            "excerpts": [
+              "Maestro on Real iOS Devices: Working Guide - DEV Community Maestro doesn't officially support physical iPhones. Here's a working solution to run your existing Maestro flows on real iOS devices \u2014 no simulator required"
+            ],
+            "title": "Maestro on Real iOS Devices: Working Guide - DEV Community"
+          },
+          {
+            "url": "http://devicelab.dev/blog/maestro-browserstack-vs-own-devices",
+            "excerpts": [
+              "Dec 25, 2025 \u2014 Maestro Cloud (from mobile."
+            ],
+            "title": "Maestro: BrowserStack vs Your Own Devices - DeviceLab"
+          },
+          {
+            "url": "http://maestro.dev/insights/end-to-end-ui-testing-for-mobile-apps-with-maestro",
+            "excerpts": [
+              "Maestro Studio is a visual IDE that lets users create and manage UI tests without writing YAML directly. It provides an element inspector, flow builder, and AI"
+            ],
+            "title": "End-to-End UI Testing for Mobile Apps with Maestro"
+          },
+          {
+            "url": "https://tailscale.com/kb/1081/magicdns/",
+            "excerpts": [],
+            "title": "MagicDNS \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/security/ksecattraccessibleafterfirstunlock",
+            "excerpts": [],
+            "title": "kSecAttrAccessibleAfterFirstUnlock | Apple Developer Documentation"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/security/keychain_services/keychain_items/using_the_keychain_to_manage_user_secrets",
+            "excerpts": [],
+            "title": "Using the keychain to manage user secrets | Apple Developer Documentation"
+          },
+          {
+            "url": "http://reactnative.dev/blog/2026/02/11/react-native-0.84",
+            "excerpts": [
+              "2026 \u2014 Hermes V1 is now the default JavaScript engine for React Native on both iOS and Android, following"
+            ],
+            "title": "React Native 0.84 - Hermes V1 by Default"
+          },
+          {
+            "url": "https://medium.com/react-native-journal/hermes-v1-in-react-native-0-82-unlocking-faster-startup-times-bfd0cf1b107c",
+            "excerpts": [
+              "Hermes V1 in React Native 0.82 \u2014 Unlocking Faster Startup ...\nIn October 2025 React Native 0.82 introduced Hermes V1, an experimental version of Hermes that brings significant improvements in the compiler and virtual machine."
+            ],
+            "title": "Hermes V1 in React Native 0.82 \u2014 Unlocking Faster Startup ..."
+          },
+          {
+            "url": "http://tothenew.com/blog/hermes-v1-by-default-in-react-native-0-84-the-biggest-performance-win-of-2026",
+            "excerpts": [
+              "Apr 6, 2026 \u2014 React Native team released version 0.84 and has made Hermes V1 the default JavaScript engine for both iOS and Android."
+            ],
+            "title": "Hermes V1 by Default in React Native 0.84"
+          },
+          {
+            "url": "https://medium.com/%40onix_react/release-react-native-0-84-4163b8efcd74",
+            "excerpts": [
+              "Release React Native 0.84 - Medium\nFeb 12, 2026 \u00b7 Hermes V1 by Default. After a successful experimental phase in version 0.82, Hermes V1 is now the default engine for both iOS and Android."
+            ],
+            "title": "Release React Native 0.84 - Medium"
+          },
+          {
+            "url": "https://github.com/react/react-native/issues/56284",
+            "excerpts": [
+              "[Hermes V1] Crash in CodeBlock::getSourceLocation when ...\nThe crash occurs in hermes::vm::CodeBlock::getSourceLocation () due to a null pointer dereference. The debugger's getLocationForState () does not check if state.codeBlock is null before calling ->getSourceLocation (). This is the same root cause as #55571 (which was closed due to inactivity)."
+            ],
+            "title": "[Hermes V1] Crash in CodeBlock::getSourceLocation when ..."
+          },
+          {
+            "url": "http://npmjs.com/package/%40expo/config-plugins?activeTab=dependents",
+            "excerpts": [
+              "May 23, 2026 \u2014 A library for Expo config plugins."
+            ],
+            "title": "expo/config-plugins"
+          },
+          {
+            "url": "http://docs.expo.dev/config-plugins/development-and-debugging",
+            "excerpts": [
+              "Jun 26, 2026 \u2014 The expo/config-plugins and expo/config packages are re-exported from the expo package."
+            ],
+            "title": "Developing and debugging a plugin"
+          },
+          {
+            "url": "https://github.com/expo/config-plugins",
+            "excerpts": [
+              "expo/config-plugins\nThis repository is a collection of assorted Expo config plugins for configuring the npx expo prebuild command. It is meant to be a temporary home for packages"
+            ],
+            "title": "expo/config-plugins"
+          },
+          {
+            "url": "http://github.com/react-native-maps/react-native-maps/issues/5927",
+            "excerpts": [
+              "SDK 47, Expo recommends importing from expo/config-plugins\nWhen using the built-in Expo config plugin with Expo SDK 56, npx expo prebuild fails because the plugin imports from @expo/config-plugins\n(last verified: 2026-07-01) When using the built-in Expo config plugin with Expo SDK 56, npx expo prebuild fails because the plugin imports from @expo/config-plugins"
+            ],
+            "title": "Config plugin fails on Expo SDK 56: Cannot find module ' ..."
+          },
+          {
+            "url": "https://github.com/expo/expo/issues/38225",
+            "excerpts": [
+              "[docs] [expo-build-properties] buildArchs from ...\nJul 22, 2025 \u2014 Summary. I am using the expo-build-properties plugin to restrict the Android build to specific ABIs (arm64-v8a and x86_64)."
+            ],
+            "title": "[docs] [expo-build-properties] buildArchs from ..."
+          },
+          {
+            "url": "https://developer.apple.com/documentation/bundleresources/information-property-list/nsapptransportsecurity/nsexceptiondomains",
+            "excerpts": [
+              "NSExceptionDomains | Apple Developer Documentation\nUse a DNS domain name, IP address , or range of IP addresses \u2014 In iOS 17, iPadOS 17, and macOS 14, you can use an IPv4 address , for example 192.168.42.63 , or an"
+            ],
+            "title": "NSExceptionDomains | Apple Developer Documentation"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/bundleresources/information-property-list/nsapptransportsecurity/nsallowsarbitraryloads",
+            "excerpts": [
+              "NSAllowsArbitraryLoads | Apple Developer Documentation\nUse this key with caution because it significantly reduces the security of your app. In most cases, it\u2019s better to upgrade your servers to meet the requirements imposed by ATS, or at least to use a narrower exception. Disabling ATS means that unsecured HTTP connections are allowed."
+            ],
+            "title": "NSAllowsArbitraryLoads | Apple Developer Documentation"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/bundleresources/information-property-list/nsapptransportsecurity/nsallowsarbitraryloadsinwebcontent",
+            "excerpts": [
+              "NSAllowsArbitraryLoadsInWebContent - Apple Developer\nIn iOS 10 and later and in macOS 10.12 and later, if you include this key with any value, then App Transport Security ignores the value of the NSAllowsArbitraryLoads key, instead using that key\u2019s default value of NO."
+            ],
+            "title": "NSAllowsArbitraryLoadsInWebContent - Apple Developer"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/BundleResources/Information-Property-List/NSAppTransportSecurity/NSExceptionDomains",
+            "excerpts": [
+              "NSExceptionDomains | Apple Developer Documentation\nThe value for this key is a dictionary with keys that name specific domains, IP addresses, or IP address ranges for which you want to set exceptions."
+            ],
+            "title": "NSExceptionDomains | Apple Developer Documentation"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/40478331/what-is-nsexceptiondomains-and-when-should-i-use-it",
+            "excerpts": [
+              "What is NSExceptionDomains and when should I use it?\nAs a temporary measure, until all apps and servers can comply with the requirements, they allow you to define exceptions to the security requirements."
+            ],
+            "title": "What is NSExceptionDomains and when should I use it?"
+          },
+          {
+            "url": "https://www.reddit.com/r/Tailscale/comments/17xrhg9/tailscale_on_ios_blocks_connectivity_on_network",
+            "excerpts": [
+              "Tailscale on iOS blocks connectivity on network change\nI recently noticed that sometimes when changing from WiFi to cellular data on my iPhone there was no internet connectivity at all."
+            ],
+            "title": "Tailscale on iOS blocks connectivity on network change"
+          },
+          {
+            "url": "https://tailscale.com/blog/march-26-product-update",
+            "excerpts": [
+              "Tailscale Monthly Update: March 2026\nFixed: DNS related health warnings no longer display when Tailscale DNS is disabled."
+            ],
+            "title": "Tailscale Monthly Update: March 2026"
+          },
+          {
+            "url": "https://www.vybecoding.sh/blog/tailscale-ssh-setup-iphone",
+            "excerpts": [
+              "Tailscale SSH Setup: Access Any Server from iPhone in 2026\nStep-by-step guide to setting up Tailscale for secure SSH access to your servers from iPhone. Learn how to install Tailscale, configure MagicDNS, and connect through VybeCoding without exposing ports."
+            ],
+            "title": "Tailscale SSH Setup: Access Any Server from iPhone in 2026"
+          },
+          {
+            "url": "https://tailscale.com/docs/reference/troubleshooting",
+            "excerpts": [
+              "Troubleshooting guide \u00b7 Tailscale Docs\nJan 5, 2026 \u2014 This topic contains various suggestions and tips to help troubleshoot common issues . If you have additional issues , contact Tailscale Support."
+            ],
+            "title": "Troubleshooting guide \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://taoofmac.com/space/blog/2025/07/25/2200",
+            "excerpts": [
+              "My Take On The iPadOS 26 Beta\nJul 25, 2025 \u2014 First Impressions \u00b7 Everything feels much slower (and this is an M1 Pro) \u00b7 Even trying to turn off animations didn't help (\u201creduce motion\u201d doesn't"
+            ],
+            "title": "My Take On The iPadOS 26 Beta"
+          },
+          {
+            "url": "https://docs.expo.dev/versions/latest/sdk/network",
+            "excerpts": [
+              "Network - Expo Documentation\nexpo-network provides useful information about the device's network such as its IP address, MAC address, and airplane mode status."
+            ],
+            "title": "Network - Expo Documentation"
+          },
+          {
+            "url": "https://github.com/likeSo/expo-bonjour",
+            "excerpts": [
+              "GitHub - likeSo/expo-bonjour: Zero-config mDNS (Bonjour ...\nexpo-bonjour Zero-config mDNS (Bonjour) service discovery for Expo and React Native apps. \u4e00\u4e2a\u201d\u96f6\u914d\u7f6e\u201c\uff08mDNS\uff09\u670d\u52a1\u63d2\u4ef6\uff0c\u8ba9\u4f60\u53ef\u4ee5\u5229\u7528mDNS\u548cBonjour\u670d\u52a1\uff0c\u53d1\u73b0\u5c40\u57df\u7f51\u4e2d\u7684\u8bbe\u5907\u3002"
+            ],
+            "title": "GitHub - likeSo/expo-bonjour: Zero-config mDNS (Bonjour ..."
+          },
+          {
+            "url": "https://github.com/likeSo/expo-bonjour/blob/main/README.md",
+            "excerpts": [
+              "expo-bonjour/README.md at main \u00b7 likeSo/expo-bonjour \u00b7 GitHub\nexpo-bonjour Zero-config mDNS (Bonjour) service discovery for Expo and React Native apps. \u4e00\u4e2a\u201d\u96f6\u914d\u7f6e\u201c\uff08mDNS\uff09\u670d\u52a1\u63d2\u4ef6\uff0c\u8ba9\u4f60\u53ef\u4ee5\u5229\u7528mDNS\u548cBonjour\u670d\u52a1\uff0c\u53d1\u73b0\u5c40\u57df\u7f51\u4e2d\u7684\u8bbe\u5907\u3002"
+            ],
+            "title": "expo-bonjour/README.md at main \u00b7 likeSo/expo-bonjour \u00b7 GitHub"
+          },
+          {
+            "url": "https://appium.readthedocs.io/en/latest/en/drivers/ios-xcuitest-real-devices",
+            "excerpts": [
+              "Ios xcuitest real devices - appium\nThe way that the XCUITest driver works is via the installation of a helper application called WebDriverAgent-Runner onto the device, through which the"
+            ],
+            "title": "Ios xcuitest real devices - appium"
+          },
+          {
+            "url": "https://appium.github.io/appium.io/docs/en/drivers/ios-xcuitest",
+            "excerpts": [
+              "XCUITest (iOS) - Appium\nAppium's primary support for automating iOS apps is via the XCUITest driver. This driver leverages Apple's XCUITest libraries under the hood. This access to \u00a0"
+            ],
+            "title": "XCUITest (iOS) - Appium"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/47801985/how-do-i-install-the-xcuitest-runner-app-and-ipa-on-a-real-device-and-get-the-re",
+            "excerpts": [
+              "How do I install the XCUITest runner app and ipa on a real device ...\nWindow > Devices and Simulators \u00b7 Select your connected device. \u00b7 Tap the + button under Installed Apps. \u00b7 Navigate to and select your UI test .ipa"
+            ],
+            "title": "How do I install the XCUITest runner app and ipa on a real device ..."
+          },
+          {
+            "url": "http://github.com/SonicCloudOrg/sonic-ios-wda",
+            "excerpts": [
+              "GitHub - SonicCloudOrg/sonic-ios-wda: A WebDriver server for ... WebDriverAgent is a WebDriver server implementation for iOS that can be used to remote control iOS devices. It allows you to launch & kill applications, tap & scroll views or confirm view presence on a screen"
+            ],
+            "title": "GitHub - SonicCloudOrg/sonic-ios-wda: A WebDriver server for ..."
+          },
+          {
+            "url": "https://stackoverflow.com/questions/67368483/ios-react-native-fetch-with-redirect-to-custom-url-scheme-fails-with-network-re",
+            "excerpts": [
+              "iOS React Native fetch with redirect to custom url scheme fails with ...\niOS's URLSession doesn't know how to handle your custom url schema. RN throws a network error but if you debug this using xcode you will see more info."
+            ],
+            "title": "iOS React Native fetch with redirect to custom url scheme fails with ..."
+          },
+          {
+            "url": "https://developer.apple.com/documentation/foundation/urlsession",
+            "excerpts": [
+              "URLSession | Apple Developer Documentation\nYour app can also use this API to perform background downloads when your app isn\u2019t running or, in iOS, while your app is suspended. You can use the related URLSessionDelegate and URLSessionTaskDelegate to support authentication and receive events like redirection and task completion."
+            ],
+            "title": "URLSession | Apple Developer Documentation"
+          },
+          {
+            "url": "https://forums.kodeco.com/t/nsurlsession-tutorial-getting-started/1047",
+            "excerpts": [
+              "NSURLSession Tutorial: Getting Started\n28 Feb 2016 \u2014 In this NSURLSession tutorial, you'll learn how to create HTTP requests, as well as implement background downloads that can be both paused and resumed."
+            ],
+            "title": "NSURLSession Tutorial: Getting Started"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/40016361/nsurlsession-request-and-response",
+            "excerpts": [
+              "NSURLSession request and response - ios"
+            ],
+            "title": "NSURLSession request and response - ios Stack Overflow 1 answer \u00b7 9 years ago"
+          },
+          {
+            "url": "https://docs.expo.dev/versions/latest/sdk/securestore",
+            "excerpts": [
+              "SecureStore - Expo Documentation\nOn iOS: Data saved using expo-secure-store will persist across app uninstallations if the app is reinstalled with the same bundle ID. This is due to how the iOS Keychain manages stored credentials."
+            ],
+            "title": "SecureStore - Expo Documentation"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/21878560/how-to-preserve-identifierforvendor-in-ios-after-uninstalling-ios-app-on-device",
+            "excerpts": [
+              "uuid - How to preserve identifierForVendor in ios after ...\nGenerally, don't use identifierForVendor. Instead, use NSUUID to generate a custom UUID and store that in the keychain (because the keychain isn't deleted if the app is deleted and reinstalled)."
+            ],
+            "title": "uuid - How to preserve identifierForVendor in ios after ..."
+          },
+          {
+            "url": "https://developer.apple.com/documentation/security/ksecattrsynchronizable",
+            "excerpts": [
+              "kSecAttrSynchronizable | Apple Developer Documentation\nA keychain item created in macOS with this attribute behaves like an iOS keychain item. For example, you share the item between apps using Access Groups"
+            ],
+            "title": "kSecAttrSynchronizable | Apple Developer Documentation"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/56700680/keychain-query-always-returns-errsecitemnotfound-after-upgrading-to-ios-13",
+            "excerpts": [
+              "Keychain Query Always Returns errSecItemNotFound After ...\nkSecAttrSynchronizable has a kSecAttrSynchronizableAny. To accept any value for any other attribute, you simply don't include it in the query."
+            ],
+            "title": "Keychain Query Always Returns errSecItemNotFound After ..."
+          },
+          {
+            "url": "https://developer.apple.com/tutorials/app-dev-training/persisting-data",
+            "excerpts": [
+              "Persisting data \u2014 App Dev Tutorials"
+            ],
+            "title": "Persisting data \u2014 App Dev Tutorials Apple Developer https://developer.apple.com \u203a tutorials \u203a app-dev-training"
+          },
+          {
+            "url": "https://www.npmjs.com/package/proper-lockfile",
+            "excerpts": [
+              "proper-lockfile - npm\nThere are various ways to achieve file locking. This library utilizes the mkdir strategy which works atomically on any kind of file system, even network based ones. The lockfile path is based on the file path you are trying to lock by suffixing it with .lock."
+            ],
+            "title": "proper-lockfile - npm"
+          },
+          {
+            "url": "http://nodejs.org/api/fs.html",
+            "excerpts": [
+              "fs.rename(oldPath, newPath, callback)` `oldPath` [`<string>`](https://developer.mozilla.org/docs/Web/JavaScript/Data_structures) | `<Buffer>` | `<URL>` `newPath` [`<string>`](https://developer.mozilla.org/docs/Web/JavaScript/Data_structures) | `<Buffer>` | `<URL>` `callback` [`<Function>`](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Function) `err` [`<Error>`](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Error) Asynchronously rename file at `oldPath` to the pathname provided as `newPath` . In the case that `newPath` already exists, it will be overwritten.\nIn the case that `newPath` already exists, it will be overwritten.\nAsynchronously computes the canonical pathname by resolving `.` , `..` , and symbolic links.\nDo not use `fs.access()` to check for the accessibility of a file before calling `fs.open()` , `fs.readFile()` , or `fs.writeFile()` . Doing so introduces a race condition, since other processes may change the file's state between the two calls.\nUsing `fs.exists()` to check for the existence of a file before calling `fs.open()` , `fs.readFile()` , or `fs.writeFile()` is not recommended. Doing so introduces a race condition, since other processes may change the file's state between the two calls. Instead, user code should open/read/write the file directly and handle the error raised if the file does not exist. **write (NOT RECOMMENDED)** ``` import { exists , open , close } from 'node:fs' ; exists ( 'myfile' , ( e ) => { if (e) { console . error ( 'myfile already exists' ) ; } else { open ( 'myfile' , 'wx' , ( err , fd ) => { if (err) throw err ; try { writeMyData (fd) ; } finally { close (fd , ( err ) => { if (err) throw err ; } ) ; } } ) ; } } ) ;\nIn the case that `newPath` already exists, it will be overwritten\n`fs.open(path[, flags[, mode]], callback)` Asynchronous file open. See the POSIX [`open(2)`](http://man7.org/linux/man-pages/man2/open.2.html) documentation for more details. `mode` sets the file mode (permission and sticky bits), but only if the file was created. On Windows, only the write permission can be manipulated; see `fs.chmod()` . The callback gets two arguments `(err, fd)` . Some characters ( `< > : \" / \\ | ? *` ) are reserved under Windows as documented by [Naming Files, Paths, and Namespaces](https://docs.microsoft.com/en-us/windows/desktop/FileIO/naming-a-file) . Under NTFS, if the filename contains a colon, Node.js will open a file system stream, as described by [this MSDN page](https://docs.microsoft.com/en-us/windows/desktop/FileIO/using-streams) . Functions based on `fs.open()` exhibit this behavior as well: `fs.writeFile()` , `fs.readFile()` , etc.\n`fsPromises.lstat(path[, options])` Equivalent to `fsPromises.stat()` unless `path` refers to a symbolic link, in which case the link itself is stat-ed, not the file that it refers to."
+            ],
+            "title": "File system | Node.js v26.5.0 Documentation"
+          },
+          {
+            "url": "https://npm.io/package/proper-lockfile",
+            "excerpts": [
+              "Proper-lockfile NPM | npm.io\nThere are various ways to achieve file locking. This library utilizes the mkdir strategy which works atomically on any kind of file system, even network based ones. The lockfile path is based on the file path you are trying to lock by suffixing it with .lock."
+            ],
+            "title": "Proper-lockfile NPM | npm.io"
+          },
+          {
+            "url": "https://github.com/moxystudio/node-proper-lockfile/blob/master/README.md",
+            "excerpts": [
+              "node-proper-lockfile/README.md at master - GitHub\nThere are various ways to achieve file locking. This library utilizes the mkdir strategy which works atomically on any kind of file system, even network based ones. The lockfile path is based on the file path you are trying to lock by suffixing it with .lock."
+            ],
+            "title": "node-proper-lockfile/README.md at master - GitHub"
+          },
+          {
+            "url": "http://github.com/npm/write-file-atomic/issues/227",
+            "excerpts": [
+              "On Windows, `writeFile()` fails with `EPERM: operation not permitted` when `fs.rename(tmpfile, truename)` is called and another process (Windows Defender, Windows Search indexer, or a concurrent Node.js worker) holds a transient lock on the target file. This surfaces in npm's `install-strategy=linked` where `bin-links/fix-bin.js` calls `write-file-atomic` to rewrite hashbang lines in bin files. The linked strategy creates many files in `.store/` in parallel, which triggers antivirus scanning. The `fs.rename` call fails immediately with no retry: ``` EPERM: operation not permitted, rename '...\\jscodeshift\\bin\\jscodeshift.js.2477615846' -> '...\\jscodeshift\\bin\\jscodeshift.js' ``` The root cause is that `write-file-atomic` uses bare `require('fs')` ([line 7](https://github.com/npm/write-file-atomic/blob/main/lib/index.js)). `graceful-fs` already patches `fs.rename` on Windows with exponential backoff (up to 60s) for EACCES/EPERM/EBUSY errors ([`polyfills.js` lines 96-120](https://github.com/isaacs/node-graceful-fs/blob/master/polyfills.js)), but `write-file-atomic` doesn't use it and fails immediately.\nOn Windows, writeFile() fails with EPERM: operation not permitted when fs.rename(tmpfile, truename) is called and another process (Windows\nOn Windows, `writeFile()` fails with `EPERM: operation not permitted` when `fs.rename(tmpfile, truename)` is called and another process (Windows Defender, Windows Search indexer, or a concurrent Node.js worker) holds a transient lock on the target file."
+            ],
+            "title": "[BUG] EPERM on Windows: `fs.rename` fails due to transient file locks (no retry) \u00b7 Issue #227 \u00b7 npm/write-file-atomic \u00b7 GitHub"
+          },
+          {
+            "url": "https://www.reddit.com/r/iOSProgramming/comments/10ie1et/will_app_group_persist_after_app_removed_and_then",
+            "excerpts": [
+              "Will App Group persist after app removed and then reinstalled?\nJan 22, 2023 \u00b7 I would think App Groups should be backed up by iCloud, since you can remove an app from the system and download it later with your app data intact. FYI: iOS is not deleting app data even if you uninstall the app. - Reddit How to remove any iOS apps not assigned to a group ... - Reddit More results from www.reddit.com"
+            ],
+            "title": "Will App Group persist after app removed and then reinstalled?"
+          },
+          {
+            "url": "https://news.ycombinator.com/item?id=46468852",
+            "excerpts": [
+              "iOS: Apps persist data after full deletion - Hacker News\nI noticed that apps retain info after being deleted. That means we are tracked by the app even after we deleted it. For example, if I delete whatsapp or"
+            ],
+            "title": "iOS: Apps persist data after full deletion - Hacker News"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/18911434/will-items-in-ios-keychain-survive-app-uninstall-and-reinstall",
+            "excerpts": [
+              "Will items in iOS keychain survive app uninstall and reinstall?\nI am looking for documentation about the iOS keychain items. My specific question is if keychain items will survive an app uninstall and reinstall cycle."
+            ],
+            "title": "Will items in iOS keychain survive app uninstall and reinstall?"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/72349004/swift-userdefaults-not-persisting-after-relaunching-app",
+            "excerpts": [
+              "ios - Swift UserDefaults not persisting after relaunching app ...\nI realized in very random fashion, which was very difficult to replicate, the data was resetting after immediately opening the app after a device restart. After days of digging around, I realized that the problem lies in the use of UserDefaults, which are so frequently used to store objects."
+            ],
+            "title": "ios - Swift UserDefaults not persisting after relaunching app ..."
+          },
+          {
+            "url": "https://stackoverflow.com/questions/24158410/uninstalling-app-not-delete-app-group-data-do-i-have-to-remove-app-group-contai",
+            "excerpts": [
+              "Uninstalling app not delete app group data .Do I have to remove app ...\nJun 11, 2014 \u00b7 In iOS8 beta 4, App group container is deleted automatically when the last app that is belongs to the group is uninstalled. Removing App doesn't remove App Group data - Stack Overflow Is it good approach to keep database in AppGroup's shared container More results from stackoverflow.com"
+            ],
+            "title": "Uninstalling app not delete app group data .Do I have to remove app ..."
+          },
+          {
+            "url": "https://developer.apple.com/documentation/networkextension/packet-tunnel-provider",
+            "excerpts": [
+              "Packet tunnel provider | Apple Developer Documentation\nIf you want to build a VPN client that implements a packet-oriented, custom VPN protocol, create a packet tunnel provider app extension. When the system starts a VPN configuration that uses your packet tunnel provider, it performs the following steps:"
+            ],
+            "title": "Packet tunnel provider | Apple Developer Documentation"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/networkextension/app-proxy-provider",
+            "excerpts": [
+              "App proxy provider | Apple Developer Documentation\nApp proxy providers are one form of per-app VPN, the other being a Packet tunnel provider in source application mode."
+            ],
+            "title": "App proxy provider | Apple Developer Documentation"
+          },
+          {
+            "url": "https://github.com/networkextension/SimpleTunnel",
+            "excerpts": [
+              "networkextension/SimpleTunnel\nThe App Proxy Provider extension point is used to implement the client side of a custom network proxy protocol that encapsulates network data in the form of"
+            ],
+            "title": "networkextension/SimpleTunnel"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/updates/networkextension",
+            "excerpts": [
+              "Network Extension updates | Apple Developer Documentation\nLearn about important changes to Network Extension. Browse notable changes in Network Extension. Fine-tune your use of URL filters by setting the NEURLFilterManager properties urlParsingConfiguration and urlParsingRegularExpression."
+            ],
+            "title": "Network Extension updates | Apple Developer Documentation"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/networkextension/routing-your-vpn-network-traffic",
+            "excerpts": [
+              "Routing your VPN network traffic - Apple Developer\nYou can configure the routing of packets to per-app VPNs using rules, and make exceptions to always-on VPNs on MDM supervised devices. For the complete APIs to create the different types of VPNs, see Personal VPN, Packet tunnel provider, and App proxy provider."
+            ],
+            "title": "Routing your VPN network traffic - Apple Developer"
+          },
+          {
+            "url": "https://docs.expo.dev/versions/latest/sdk/network/",
+            "excerpts": [],
+            "title": "title: Network description: A library that provides access to the device's network such as its IP address, MAC address, and airplane mode status. sourceCodeUrl: 'https://github.com/expo/expo/tree/sdk-57/packages/expo-network' packageName: 'expo-network' iconUrl: '/static/images/packages/expo-network.png' platforms: ['android', 'ios', 'web', 'tvos', 'expo-go']"
+          },
+          {
+            "url": "https://tailscale.com/kb/1019/subnets/",
+            "excerpts": [],
+            "title": "Subnet routers \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://tailscale.com/kb/1103/exit-nodes/",
+            "excerpts": [],
+            "title": "Exit nodes (route all traffic) \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://developer.apple.com/forums/thread/761927",
+            "excerpts": [
+              "Local Network privacy alert not tr\u2026 | Apple Developer Forums\nI have been testing my app with iOS 18 beta and noticing an issue with the triggering of Local Network privacy prompt. My app uses this permission to make a request to a local network address."
+            ],
+            "title": "Local Network privacy alert not tr\u2026 | Apple Developer Forums"
+          },
+          {
+            "url": "https://developer.apple.com/forums/thread/766133",
+            "excerpts": [
+              "iOS 18 local network permission is\u2026 | Apple Developer Forums\nWe found inconsistencies in iOS 17 and 18 regarding Local Network permissions. In iOS 17, denied permission blocks network calls, and even after allowing, a device restart is needed."
+            ],
+            "title": "iOS 18 local network permission is\u2026 | Apple Developer Forums"
+          },
+          {
+            "url": "https://developer.apple.com/videos/play/wwdc2020/10110",
+            "excerpts": [
+              "Support local network privacy in your app - WWDC20 - Videos\nJul 31, 2020 \u00b7 If your app interacts with devices using Bonjour or other local networking protocols, you must add support for local network privacy permissions in iOS 14."
+            ],
+            "title": "Support local network privacy in your app - WWDC20 - Videos"
+          },
+          {
+            "url": "https://developer.apple.com/bonjour",
+            "excerpts": [
+              "Bonjour - Apple Developer\nBonjour, also known as zero-configuration networking, enables automatic discovery of devices and services on a local network using industry standard IP protocols. Bonjour makes it easy to discover, publish, and resolve network services with a sophisticated, easy-to-use programming interface that is accessible from Cocoa, Ruby, Python, and other languages."
+            ],
+            "title": "Bonjour - Apple Developer"
+          },
+          {
+            "url": "https://developer.apple.com/forums/thread/660485",
+            "excerpts": [
+              "iOS 14 Network privacy permission \u2026 | Apple Developer Forums\niOS 14 Network privacy permission check is not shown after reinstall, nor is the toggle shown in Settings -> Privacy -> Local Network \u00b7 User is on version 2.8."
+            ],
+            "title": "iOS 14 Network privacy permission \u2026 | Apple Developer Forums"
+          },
+          {
+            "url": "https://tailscale.com/kb/1388/device-local-dns/",
+            "excerpts": [],
+            "title": "Inviting users vs sharing a device"
+          },
+          {
+            "url": "https://tailscale.com/kb/1054/dns/",
+            "excerpts": [],
+            "title": "DNS in Tailscale \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://github.com/facebook/react-native/blob/main/packages/react-native/Libraries/Network/RCTNetworking.mm",
+            "excerpts": [],
+            "title": "react-native/packages/react-native/Libraries/Network/RCTNetworking.mm at main \u00b7 react/react-native \u00b7 GitHub"
+          },
+          {
+            "url": "https://en.wikipedia.org/wiki/IPadOS_26",
+            "excerpts": [
+              "iPadOS 26 is"
+            ],
+            "title": "iPadOS 26 is"
+          },
+          {
+            "url": "https://support.apple.com/guide/ipad/whats-new-in-ipados-26-ipad8d9d296d/ipados",
+            "excerpts": [
+              "What\u2019s new in iPadOS 26 - Apple Support\nOpen windows and then resize or arrange them just how you want. Use controls to close or minimize windows, take them full screen, or arrange them in easy-to-view layouts."
+            ],
+            "title": "What\u2019s new in iPadOS 26 - Apple Support"
+          },
+          {
+            "url": "https://www.reddit.com/r/ipad/comments/1nid4o3/ipad_os_26_is_insane_for_ipad",
+            "excerpts": [
+              "iPadOS 26 is"
+            ],
+            "title": "iPadOS 26 is"
+          },
+          {
+            "url": "https://apple.fandom.com/wiki/IPadOS_26",
+            "excerpts": [
+              "iPadOS 26 - Apple Wiki - Fandom"
+            ],
+            "title": "iPadOS 26 - Apple Wiki - Fandom Apple Wiki | Fandom https://apple.fandom.com \u203a wiki \u203a IPadOS_26"
+          },
+          {
+            "url": "https://towardsdev.com/atomic-operations-race-conditions-critical-sections-guide-8df00dc28be8",
+            "excerpts": [
+              "Atomic Operations, Race Conditions, and Critical Sections \u2014 A ...\nMaster the fundamentals of concurrency. Learn how to identify critical sections, prevent race conditions, and implement atomic operations to ensure thread safety in your applications"
+            ],
+            "title": "Atomic Operations, Race Conditions, and Critical Sections \u2014 A ..."
+          },
+          {
+            "url": "http://doc.rust-lang.org/nomicon/atomics.html",
+            "excerpts": [
+              "Most notably x86/64 provides strong ordering guarantees, while ARM provides weak ordering guarantees.\nRelaxed accesses are the absolute weakest. They can be freely re-ordered and provide no happens-before relationship. Still, relaxed operations are still atomic. That is, they don't count as data accesses and any read-modify-write operations done to them occur atomically.\nWhen thread A releases a location in memory and then thread B subsequently acquires _the same_ location in memory, causality is established. Every write (including non-atomic and relaxed atomic writes) that happened before A's release will be observed by B after its acquisition."
+            ],
+            "title": "Atomics - The Rustonomicon"
+          },
+          {
+            "url": "https://www.geeksforgeeks.org/operating-systems/race-condition-in-operating-systems",
+            "excerpts": [
+              "Race condition - GeeksforGeeks\nA race condition occurs when two or more processes or threads access and modify the same data at the same time, and the final result depends on the order in which they run. Without proper coordination, this can lead to incorrect or unpredictable results."
+            ],
+            "title": "Race condition - GeeksforGeeks"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/2049247/atomic-file-write-operations-cross-platform",
+            "excerpts": [
+              "java - Atomic file write operations (cross platform) - Stack ...\nHow can avoid conditions where the old file is deleted but the new filename is yet to be renamed? Do these programming languages (python and java) offer constructs to lock and avoid this situation?"
+            ],
+            "title": "java - Atomic file write operations (cross platform) - Stack ..."
+          },
+          {
+            "url": "https://en.wikipedia.org/wiki/Race_condition",
+            "excerpts": [
+              "Race condition - Wikipedia\nA race condition existed in the alarm subsystem; when three sagging power lines were tripped simultaneously, the condition prevented alerts from being raised to the monitoring technicians, delaying their awareness of the problem."
+            ],
+            "title": "Race condition - Wikipedia"
+          },
+          {
+            "url": "https://apple.stackexchange.com/questions/475737/how-can-i-manually-allow-local-network-access-for-an-app",
+            "excerpts": [
+              "permission - How can I manually allow Local Network access ...\nFirst, the multicast entitlement applies only to iOS, not macOS. Mac applications need a special key in their Info.plist file in order to prompt the user for permission to access the local network."
+            ],
+            "title": "permission - How can I manually allow Local Network access ..."
+          },
+          {
+            "url": "https://stackoverflow.com/questions/79809131/ios-local-network-permission-prompt-not-appearing-for-multipeerconnectivity-de",
+            "excerpts": [
+              "iOS local network permission prompt not appearing for ...\nI'm building an iOS app using MultipeerConnectivity for local peer-to-peer networking. The local network permission prompt isn't appearing, and I'm getting -72008 errors (NSNetServicesErrorDomain)."
+            ],
+            "title": "iOS local network permission prompt not appearing for ..."
+          },
+          {
+            "url": "https://support.apple.com/en-la/102229",
+            "excerpts": [
+              "If an app would like to connect to devices on your local network\nIn iOS 14 or later and iPadOS 14 or later, any app that wants to interact with devices on your network must ask for permission the first time that it tries to browse your local network. The app developer can customize the message to explain why the app would like access."
+            ],
+            "title": "If an app would like to connect to devices on your local network"
+          },
+          {
+            "url": "https://support.apple.com/en-us/102229",
+            "excerpts": [
+              "If an app would like to connect to devices on your local network\nIn iOS 14 or later and iPadOS 14 or later, any app that wants to interact with devices on your network must ask for permission the first time that it tries to browse your local network. The app developer can customize the message to explain why the app would like access."
+            ],
+            "title": "If an app would like to connect to devices on your local network"
+          },
+          {
+            "url": "https://github.com/mobile-dev-inc/maestro-docs/tree/main/introduction/get-started/supported-platform/ios",
+            "excerpts": [
+              "maestro-docs/introduction/get-started/supported-platform/ios ...\nScaling iOS tests locally can be difficult due to macOS hardware requirements. Maestro Cloud provides instant access to a fleet of iOS Simulators, allowing you to run your entire suite in parallel."
+            ],
+            "title": "maestro-docs/introduction/get-started/supported-platform/ios ..."
+          },
+          {
+            "url": "https://docs.maestro.dev/get-started/supported-platform/ios",
+            "excerpts": [
+              "iOS | Maestro Docs\nScaling iOS tests locally can be difficult due to macOS hardware requirements. Maestro Cloud provides instant access to a fleet of iOS Simulators, allowing you to run your entire suite in parallel."
+            ],
+            "title": "iOS | Maestro Docs"
+          },
+          {
+            "url": "https://maestro.dev/blog/maestro-re-building-the-ios-driver",
+            "excerpts": [
+              "Maestro \u2014 Re-Building the iOS Driver\nA completely new version of the iOS driver for Maestro, rebuilt from the ground up. Starting from Maestro 1.18 the new driver now provides a complete"
+            ],
+            "title": "Maestro \u2014 Re-Building the iOS Driver"
+          },
+          {
+            "url": "https://github.com/expo/expo/discussions/18725",
+            "excerpts": [
+              "[config-plugins] Help with iOS Plugin #18725\nAug 24, 2022 \u2014 I'm trying to create a config plugin to pretty much perform all the steps in this guide. Create group and put both main app and extension under"
+            ],
+            "title": "[config-plugins] Help with iOS Plugin #18725"
+          },
+          {
+            "url": "https://discussions.unity.com/t/ios-14-properly-dealing-with-nslocalnetworkusagedescription/808978",
+            "excerpts": [
+              "Unity Engine\nSep 17, 2020 \u2014 I've tried adding NSLocalNetworkUsageDescription to my .plist file, but that only allowed me to set a custom message. Also, what's a good"
+            ],
+            "title": "Unity Engine"
+          },
+          {
+            "url": "https://github.com/react-native-google-cast/react-native-google-cast/issues/355",
+            "excerpts": [
+              "NSLocalNetworkUsageDescription is against App Store ...\nAug 25, 2021 \u2014 the NSLocalNetworkUsageDescription is against the App Store Guidelines. To help users make informed decisions about how their data is used,"
+            ],
+            "title": "NSLocalNetworkUsageDescription is against App Store ..."
+          },
+          {
+            "url": "https://tailscale.com/kb/1138/ip-leases/",
+            "excerpts": [],
+            "title": "User roles"
+          },
+          {
+            "url": "https://www.reddit.com/r/expo/comments/1poekmh/maestro_real_ios_devices_opensourced_our_solution",
+            "excerpts": [
+              "Maestro + real iOS devices \u2014 open-sourced our solution\nMaestro + real iOS devices \u2026 a ready-to-use tool: Works with physical iOS devices. clearState not working on real devices for iOS?"
+            ],
+            "title": "Maestro + real iOS devices \u2014 open-sourced our solution"
+          },
+          {
+            "url": "http://maestro.dev/",
+            "excerpts": [
+              "Create reliable UI tests fast. Run free on CLI or Maestro Studio, then scale on Maestro Cloud. Automate iOS, Android and web with simple setup.\nCreate reliable UI tests fast. Run free on CLI or Maestro Studio, then scale on Maestro Cloud.\nMaestro is mobile UI testing at agentic velocity. Open source, human-readable code, easy CI integrations, and powerful CLI and desktop apps."
+            ],
+            "title": "Maestro, End-to-End UI Testing for Mobile and Web"
+          },
+          {
+            "url": "https://reactnative.dev/blog/2022/11/22/react-native-core-0.72-release",
+            "excerpts": [],
+            "title": "Page Not Found \u00b7 React Native"
+          },
+          {
+            "url": "https://github.com/facebook/react-native/issues/24127",
+            "excerpts": [],
+            "title": "Question:  Symbol.asyncIterator support ? \u00b7 Issue #24127 \u00b7 react/react-native \u00b7 GitHub"
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "ipad-connectivity-july-2026.md"
+  }
+}

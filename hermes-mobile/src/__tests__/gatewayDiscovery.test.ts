@@ -1,16 +1,20 @@
 import NetInfo from '@react-native-community/netinfo';
+import { Platform } from 'react-native';
 import {
   classifyDiscoveredReach,
   bootstrapTailnetProbeHostsFromPairServers,
   countUniqueDiscoveredMachines,
   dedupeDiscoveredGatewaysByMachine,
+  EXPLICIT_PAIR_SETUP_TIMEOUT_MS,
   summarizeDiscoveredReach,
   discoverGatewayOnPhoneSubnet,
   discoverGatewayViaPairServer,
   discoverAllGatewaysOnLan,
   pairServerHostFromGatewayUrl,
+  resolvePairServerGatewayUrl,
   probeLiveUsbGateway,
   resolvePairServerSetupParams,
+  withFreshPairServerSetup,
 } from '../services/gatewayDiscovery';
 
 jest.mock('@react-native-community/netinfo', () => ({
@@ -43,6 +47,32 @@ describe('gatewayDiscovery', () => {
     expect(url).toBe('http://192.168.12.208:8642');
   });
 
+  it('never promotes a Mac-advertised USB loopback route on iOS', () => {
+    expect(
+      resolvePairServerGatewayUrl(
+        {
+          gatewayUrl: 'http://127.0.0.1:8642',
+          deepLink:
+            'hermes://setup?url=http%3A%2F%2F127.0.0.1%3A8642',
+        },
+        '192.168.68.60',
+        'ios',
+      ),
+    ).toBe('http://192.168.68.60:8642');
+
+    expect(
+      resolvePairServerGatewayUrl(
+        {
+          gatewayUrl: 'http://127.0.0.1:8642',
+          deepLink:
+            'hermes://setup?url=http%3A%2F%2F127.0.0.1%3A8642',
+        },
+        '127.0.0.1',
+        'ios',
+      ),
+    ).toBeNull();
+  });
+
   it('resolves setup params with API key from pair server deep link', async () => {
     (global.fetch as jest.Mock).mockImplementation((url: string) => {
       if (url === 'http://100.94.135.78:8765/pair.json') {
@@ -61,6 +91,106 @@ describe('gatewayDiscovery', () => {
     const setup = await resolvePairServerSetupParams('100.94.135.78');
     expect(setup?.gatewayUrl).toBe('http://100.94.135.78:8642');
     expect(setup?.apiKey).toBe('sk-mini-rotated-key');
+  });
+
+  it('does not queue an explicit setup exchange behind background pair-server reads', async () => {
+    let releaseExchange!: () => void;
+    let exchangeStarted!: () => void;
+    const exchangeGate = new Promise<void>((resolve) => {
+      releaseExchange = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      exchangeStarted = resolve;
+    });
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        gatewayUrl: 'http://100.87.85.85:8642',
+        deepLink:
+          'hermes://setup?pairCode=FRESH-LEASED&pairServer=http%3A%2F%2F100.87.85.85%3A8765',
+      }),
+    });
+
+    const exchange = withFreshPairServerSetup(
+      '100.87.85.85',
+      async (setup) => {
+        exchangeStarted();
+        await exchangeGate;
+        return setup.pairingCode;
+      },
+    );
+    await started;
+
+    // Current pair servers preserve multiple unconsumed codes. Discovery through
+    // another alias must therefore continue without turning a user tap into a
+    // scan-wide wait.
+    const backgroundRead = resolvePairServerSetupParams('192.168.68.60');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+
+    releaseExchange();
+    await expect(exchange).resolves.toBe('FRESH-LEASED');
+    await expect(backgroundRead).resolves.toEqual(
+      expect.objectContaining({ pairingCode: 'FRESH-LEASED' }),
+    );
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('gives an explicit pairing request time to outlive a slow Mac pair-server QR refresh', async () => {
+    jest.useFakeTimers();
+    try {
+      let explicitSignal: AbortSignal | undefined;
+      (global.fetch as jest.Mock).mockImplementation(
+        (_url: string, options?: { signal?: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            explicitSignal = options?.signal;
+            explicitSignal?.addEventListener('abort', () => reject(new Error('aborted')));
+          }),
+      );
+
+      const pairing = withFreshPairServerSetup('100.87.85.85', async () => 'unused');
+      await jest.advanceTimersByTimeAsync(1_500);
+      expect(explicitSignal?.aborted).toBe(false);
+
+      await jest.advanceTimersByTimeAsync(EXPLICIT_PAIR_SETUP_TIMEOUT_MS - 1_500);
+      await expect(pairing).resolves.toBeNull();
+      expect(explicitSignal?.aborted).toBe(true);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('preserves secretless pair setup in memory through LAN discovery', async () => {
+    (NetInfo.fetch as jest.Mock).mockResolvedValue({
+      details: { ipAddress: '192.168.68.42' },
+    });
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url === 'http://192.168.68.60:8765/pair.json') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            gatewayUrl: 'http://100.87.85.85:8642',
+            hostname: 'Igors-MacBook-Pro',
+            deepLink:
+              'hermes://setup?pairCode=FRESH123&pairServer=http%3A%2F%2F192.168.68.60%3A8765&name=Igors-MacBook-Pro',
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+
+    const { gateways } = await discoverAllGatewaysOnLan();
+
+    expect(gateways).toEqual([
+      expect.objectContaining({
+        gatewayUrl: 'http://100.87.85.85:8642',
+        pairingSetup: expect.objectContaining({
+          pairingCode: 'FRESH123',
+          pairServerUrl: 'http://192.168.68.60:8765',
+        }),
+      }),
+    ]);
   });
 
   it('maps loopback gateway URL to pair server on 127.0.0.1', () => {
@@ -325,6 +455,8 @@ describe('gatewayDiscovery', () => {
   });
 
   it('never returns the phone Tailscale self-peer from bootstrap probe storage', async () => {
+    const originalPlatform = Platform.OS;
+    Platform.OS = 'android';
     (NetInfo.fetch as jest.Mock).mockResolvedValue({
       details: { ipAddress: '100.70.124.54' },
     });
@@ -347,13 +479,17 @@ describe('gatewayDiscovery', () => {
       return Promise.resolve({ ok: false });
     });
 
-    const boot = await bootstrapTailnetProbeHostsFromPairServers();
+    try {
+      const boot = await bootstrapTailnetProbeHostsFromPairServers();
 
-    expect(boot.tailnetProbeHosts).toEqual(['100.94.135.78']);
-    expect(boot.gateways).toEqual([
-      expect.objectContaining({ gatewayUrl: 'http://100.94.135.78:8642' }),
-    ]);
-    expect(global.fetch).not.toHaveBeenCalledWith('http://100.70.124.54:8642/health', expect.anything());
+      expect(boot.tailnetProbeHosts).toEqual(['100.94.135.78']);
+      expect(boot.gateways).toEqual([
+        expect.objectContaining({ gatewayUrl: 'http://100.94.135.78:8642' }),
+      ]);
+      expect(global.fetch).not.toHaveBeenCalledWith('http://100.70.124.54:8642/health', expect.anything());
+    } finally {
+      Platform.OS = originalPlatform;
+    }
   });
 
   it('returns null when phone has no LAN IP and no loopback pair server', async () => {
@@ -363,6 +499,8 @@ describe('gatewayDiscovery', () => {
   });
 
   it('scans loopback when phone has no LAN IP but loopback pair server is up', async () => {
+    const originalPlatform = Platform.OS;
+    Platform.OS = 'android';
     (NetInfo.fetch as jest.Mock).mockResolvedValue({ details: {} });
     (global.fetch as jest.Mock).mockImplementation((url: string) => {
       if (url.includes('127.0.0.1:8765/pair.json') || url.includes('localhost:8765/pair.json')) {
@@ -378,18 +516,24 @@ describe('gatewayDiscovery', () => {
       return Promise.resolve({ ok: false });
     });
 
-    const url = await discoverGatewayViaPairServer();
-    expect(url).toBe('http://127.0.0.1:8642');
+    try {
+      const url = await discoverGatewayViaPairServer();
+      expect(url).toBe('http://127.0.0.1:8642');
 
-    const { gateways, tailnetProbeHosts } = await discoverAllGatewaysOnLan();
-    expect(gateways).toHaveLength(1);
-    expect(gateways[0].gatewayUrl).toBe('http://127.0.0.1:8642');
-    expect(tailnetProbeHosts).toEqual(
-      expect.arrayContaining(['100.94.135.78', 'igors-mac-mini.tail12aa33.ts.net']),
-    );
+      const { gateways, tailnetProbeHosts } = await discoverAllGatewaysOnLan();
+      expect(gateways).toHaveLength(1);
+      expect(gateways[0].gatewayUrl).toBe('http://127.0.0.1:8642');
+      expect(tailnetProbeHosts).toEqual(
+        expect.arrayContaining(['100.94.135.78', 'igors-mac-mini.tail12aa33.ts.net']),
+      );
+    } finally {
+      Platform.OS = originalPlatform;
+    }
   });
 
   it('probeLiveUsbGateway returns hostname when adb reverse loopback is healthy', async () => {
+    const originalPlatform = Platform.OS;
+    Platform.OS = 'android';
     (global.fetch as jest.Mock).mockImplementation((url: string) => {
       if (url === 'http://127.0.0.1:8642/health') {
         return Promise.resolve({
@@ -404,8 +548,23 @@ describe('gatewayDiscovery', () => {
       return Promise.resolve({ ok: false });
     });
 
-    const discovery = await probeLiveUsbGateway();
-    expect(discovery?.gatewayUrl).toBe('http://127.0.0.1:8642');
-    expect(discovery?.hostname).toBe('Igors-MacBook-Pro.local');
+    try {
+      const discovery = await probeLiveUsbGateway();
+      expect(discovery?.gatewayUrl).toBe('http://127.0.0.1:8642');
+      expect(discovery?.hostname).toBe('Igors-MacBook-Pro.local');
+    } finally {
+      Platform.OS = originalPlatform;
+    }
+  });
+
+  it('never probes Android USB loopback on iPad', async () => {
+    const originalPlatform = Platform.OS;
+    Platform.OS = 'ios';
+    try {
+      await expect(probeLiveUsbGateway()).resolves.toBeNull();
+      expect(global.fetch).not.toHaveBeenCalled();
+    } finally {
+      Platform.OS = originalPlatform;
+    }
   });
 });

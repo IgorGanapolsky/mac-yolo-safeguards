@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import {
   cellularTailscaleFallbackUrls,
+  localGatewayProbeCandidates,
   shouldSkipLanGatewayProbe,
   usbLoopbackFallbackUrls,
   USB_LOOPBACK_GATEWAY_URL,
@@ -8,18 +9,27 @@ import {
 } from '../utils/gatewayLoopbackFallback';
 
 describe('gatewayLoopbackFallback', () => {
+  it('never offers Android localhost transports to an iPad', () => {
+    expect(localGatewayProbeCandidates('ios')).toEqual([]);
+    expect(localGatewayProbeCandidates('android')).toEqual([
+      USB_LOOPBACK_GATEWAY_URL,
+      'http://10.0.2.2:8642',
+    ]);
+  });
+
   it('skips LAN probe off Wi-Fi but not for loopback URLs', () => {
     expect(shouldSkipLanGatewayProbe('http://10.2.29.103:8642', false)).toBe(true);
     expect(shouldSkipLanGatewayProbe('http://10.2.29.103:8642', true)).toBe(false);
     expect(shouldSkipLanGatewayProbe(USB_LOOPBACK_GATEWAY_URL, false)).toBe(false);
   });
 
-  it('offers USB loopback fallback for LAN URLs on native', () => {
+  it('offers USB loopback fallback for LAN URLs on Android only', () => {
     const fallbacks = usbLoopbackFallbackUrls('http://10.2.29.103:8642');
-    if (Platform.OS === 'web') {
-      expect(fallbacks).toEqual([]);
-    } else {
+    if (Platform.OS === 'android') {
       expect(fallbacks).toEqual([USB_LOOPBACK_GATEWAY_URL]);
+    } else {
+      // iOS/web: no adb reverse — never probe 127.0.0.1 as a heal candidate.
+      expect(fallbacks).toEqual([]);
     }
   });
 

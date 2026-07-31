@@ -265,6 +265,10 @@ async function renderAuthMismatchChat() {
 }
 
 describe('ChatScreen authMismatch header', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('shows wrong-key repair header instead of Connected when health is green but auth mismatches', async () => {
     const { getByTestId } = await renderAuthMismatchChat();
     const link = getByTestId('chat-context-link').props.children;
@@ -287,7 +291,48 @@ describe('ChatScreen authMismatch header', () => {
     expect(queryByTestId('mac-connection-retry-banner')).toBeNull();
     fireEvent.press(getByTestId('composer-error-banner-action-area'));
     await waitFor(() => {
-      expect(mockGatewayState.selectGatewayProfile).toHaveBeenCalled();
+      expect(mockGatewayState.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gatewayUrl: 'http://100.94.135.78:8642',
+          connectionMode: 'gateway',
+        }),
+        'fresh-mini-key',
+      );
     });
+    const { fetchGatewayHealth } = jest.requireMock('../services/gatewayClient') as {
+      fetchGatewayHealth: jest.Mock;
+    };
+    expect(fetchGatewayHealth).toHaveBeenCalledWith(
+      'http://100.94.135.78:8642',
+      'fresh-mini-key',
+    );
+    expect(mockGatewayState.scanForGatewayProfiles).not.toHaveBeenCalled();
+  });
+
+  it('keeps failed re-pair in context instead of opening the generic computer picker', async () => {
+    const { fireEvent } = require('@testing-library/react-native');
+    const { refreshCredentialsFromPairServer } = jest.requireMock('../utils/repairGatewayLink') as {
+      refreshCredentialsFromPairServer: jest.Mock;
+    };
+    const { fetchGatewayHealth } = jest.requireMock('../services/gatewayClient') as {
+      fetchGatewayHealth: jest.Mock;
+    };
+    refreshCredentialsFromPairServer.mockResolvedValueOnce(null);
+    fetchGatewayHealth.mockResolvedValueOnce({
+      level: 'red',
+      checkedAt: '2026-07-17T00:00:00Z',
+      directGatewayReachable: false,
+      authMismatch: true,
+      errorMessage: 'Outdated connection',
+    });
+    const { getByTestId, queryByText } = await renderAuthMismatchChat();
+
+    fireEvent.press(getByTestId('composer-error-banner-action-area'));
+
+    await waitFor(() => {
+      expect(fetchGatewayHealth).toHaveBeenCalled();
+    });
+    expect(queryByText('Choose your computer')).toBeNull();
+    expect(mockGatewayState.scanForGatewayProfiles).not.toHaveBeenCalled();
   });
 });

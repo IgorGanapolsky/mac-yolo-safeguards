@@ -34,6 +34,15 @@ module.exports = {
       lines: 75,
       statements: 75,
     },
+    // Connected header name/transport pure logic — above global floor so
+    // address-shaped Tailscale titles cannot rot silently (2026-07-25).
+    // Measured ~77% lines / 73% branches with chatMachineHeader tests alone.
+    './src/utils/chatMachineHeader.ts': {
+      branches: 70,
+      functions: 90,
+      lines: 75,
+      statements: 75,
+    },
     './src/utils/chatMessageDisplay.ts': {
       branches: 50,
       functions: 85,
@@ -52,8 +61,8 @@ module.exports = {
   watchman: false,
   testPathIgnorePatterns: [
     '/node_modules/',
-    '/\\.worktrees/',
-    '/\\.wt-[^/]+/',
+    '<rootDir>/\\.worktrees/',
+    '<rootDir>/\\.wt-[^/]+/',
   ],
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*)',

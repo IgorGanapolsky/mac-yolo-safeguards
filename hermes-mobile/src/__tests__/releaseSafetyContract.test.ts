@@ -608,7 +608,7 @@ describe('Android security audit (Jul 2026)', () => {
     expect(buildProps?.[1]?.android?.enableMinifyInReleaseBuilds).toBe(true);
     expect(buildProps?.[1]?.android?.enableShrinkResourcesInReleaseBuilds).toBe(true);
     const rules = String(buildProps?.[1]?.android?.extraProguardRules ?? '');
-    expect(rules).toContain('com.android.billingclient.api');
+    expect(rules).not.toContain('com.android.billingclient.api');
     expect(rules).toContain('com.google.mlkit');
     expect(rules).not.toContain('swmansion.reanimated');
     expect(rules).not.toContain('swmansion.gesturehandler');
@@ -624,9 +624,16 @@ describe('Android security audit (Jul 2026)', () => {
     }
   });
 
+  // The hazard this guards is the security audit's react-native@0.84.6
+  // recommendation, which is wrong for SDK 55 — NOT patch bumps inside 0.83.x.
+  // The exact pin must track what Expo SDK 55 actually requires, because
+  // `Expo Doctor` in CI independently asserts the same number: when Expo moved
+  // the requirement to 0.83.10, a frozen 0.83.6 here deadlocked the two checks
+  // against each other and blocked every PR onto main. Move both together.
   it('keeps Expo SDK-pinned react-native (audit react-native@0.84.6 is wrong for SDK 55)', () => {
     const pkg = JSON.parse(read('hermes-mobile/package.json'));
-    expect(pkg.dependencies['react-native']).toBe('0.83.6');
+    expect(pkg.dependencies['react-native']).toBe('0.83.10');
+    expect(pkg.dependencies['react-native']).not.toBe('0.84.6');
     expect(pkg.dependencies.expo).toMatch(/^~55\./);
     const auditDoc = read('hermes-mobile/docs/ANDROID-SECURITY-AUDIT-JULY-2026.md');
     expect(auditDoc).toContain('0.84.6');

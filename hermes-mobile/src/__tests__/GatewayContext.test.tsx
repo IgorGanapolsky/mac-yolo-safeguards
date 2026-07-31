@@ -1,7 +1,11 @@
 import React from 'react';
 import { Text } from 'react-native';
 import { render, act, fireEvent, waitFor } from '@testing-library/react-native';
-import { GatewayProvider, useGateway } from '../context/GatewayContext';
+import {
+  GatewayProvider,
+  resolveBootstrapGatewayRoute,
+  useGateway,
+} from '../context/GatewayContext';
 import { storage } from '../services/storage';
 import { secureCredentials } from '../services/secureCredentials';
 import {
@@ -9,12 +13,6 @@ import {
   fetchQueue,
 } from '../services/mobileRelayClient';
 import { captureThumbgateFeedback } from '../services/thumbgateClient';
-import {
-  __resetFreeLeashAllowanceForTests,
-  consumeFreeLeashApproval,
-  refreshFreeLeashWeeklyState,
-} from '../utils/freeLeashAllowance';
-import { FREE_LEASH_APPROVALS_PER_WEEK } from '../constants/monetization';
 
 jest.mock('../services/storage');
 jest.mock('../services/secureCredentials');
@@ -69,11 +67,6 @@ jest.mock('../services/gatewayProfiles', () => {
     dedupeGatewayProfiles: jest.fn((state) => state),
   };
 });
-jest.mock('../services/thumbgateIap', () => ({
-  initializeThumbgateIapListeners: jest.fn(),
-  syncThumbgateLeashEntitlement: jest.fn(() => Promise.resolve(true)),
-}));
-
 jest.mock('../services/mobileRelayClient', () => {
   const actual = jest.requireActual('../services/mobileRelayClient');
   return {
@@ -171,8 +164,10 @@ function Probe() {
       <Text testID="last-error">{gateway.lastEventError ?? ''}</Text>
       <Text testID="mobile-token">{gateway.mobileToken}</Text>
       <Text testID="connection-mode">{gateway.settings.connectionMode}</Text>
+      <Text testID="settings-gateway-url">{gateway.settings.gatewayUrl}</Text>
       <Text testID="gateway-api-key">{gateway.apiKey}</Text>
       <Text testID="profiles-ids">{gateway.gatewayProfiles.map(p => p.id).join(',')}</Text>
+      <Text testID="active-profile-id">{gateway.activeGatewayProfile?.id ?? 'none'}</Text>
       <Text testID="relay-worker-count">{gateway.relayWorkers.length}</Text>
       <Text testID="active-relay-worker-id">{gateway.activeRelayWorkerId ?? ''}</Text>
       <Text
@@ -189,6 +184,36 @@ function Probe() {
         }}
       >
         select
+      </Text>
+      <Text
+        testID="add-verified-profile"
+        onPress={() => {
+          void (
+            gateway.addGatewayProfile as unknown as (
+              label: string,
+              gatewayUrl: string,
+              verifiedApiKey: string,
+            ) => Promise<void>
+          )(
+            'Verified Mac',
+            'http://10.2.29.103:8642',
+            'verified-manual-key',
+          );
+        }}
+      >
+        add verified
+      </Text>
+      <Text
+        testID="add-verified-lan-route"
+        onPress={() => {
+          void gateway.addGatewayProfile(
+            'Igors-MacBook-Pro',
+            'http://192.168.68.60:8642',
+            'verified-manual-key',
+          );
+        }}
+      >
+        add verified LAN
       </Text>
       <Text
         testID="enqueue-text-approval"
@@ -227,6 +252,7 @@ function ProgressProbe() {
       <Text testID="connection-heal-attempt">{gateway.connectionHealAttempt}</Text>
       <Text testID="active-profile-id">{gateway.activeGatewayProfile?.id ?? 'none'}</Text>
       <Text testID="run-progress-detail">{gateway.runProgress?.detail ?? 'none'}</Text>
+      <Text testID="gateway-reachable">{String(gateway.health?.directGatewayReachable ?? false)}</Text>
       <Text
         testID="chat-stream-lock"
         onPress={() => gateway.setChatStreamProgressActive(true)}
@@ -260,8 +286,6 @@ describe('GatewayProvider', () => {
     MockWebSocket.instances = [];
     (global as unknown as { WebSocket: typeof MockWebSocket }).WebSocket = MockWebSocket;
 
-    const thumbgateIap = jest.requireMock('../services/thumbgateIap');
-    thumbgateIap.syncThumbgateLeashEntitlement.mockResolvedValue(true);
     (captureThumbgateFeedback as jest.Mock).mockResolvedValue({ accepted: true });
 
     (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
@@ -283,6 +307,7 @@ describe('GatewayProvider', () => {
       includeToolActivity: true,
     });
     (secureCredentials.loadApiKey as jest.Mock).mockResolvedValue('sk-test');
+    (secureCredentials.loadProfileApiKeys as jest.Mock).mockResolvedValue({});
     (secureCredentials.loadThumbgateApiKey as jest.Mock).mockResolvedValue('');
     (secureCredentials.loadMobileToken as jest.Mock).mockResolvedValue('');
     (storage.saveGatewaySettings as jest.Mock).mockResolvedValue(undefined);
@@ -394,6 +419,112 @@ describe('GatewayProvider', () => {
       jest.useRealTimers();
     }
   });
+
+  it('P0 2026-07-23: a saved profile stuck "unreachable" self-heals in the foreground, on its documented ~30s cadence, without any AppState/relaunch trigger, once the backend is genuinely healthy again', async () => {
+    // Live bug Igor hit on his S25: phone showed a full-screen "Can't reach your
+    // computer" / Tailscale-unreachable state while `curl http://<mac>:8642/health`
+    // from the Mac itself answered instantly the whole time. The app never recovered
+    // on its own — only `adb shell am force-stop` + relaunch fixed it. Root cause:
+    // the exhausted-phase reconnect effect depended on raw `health` snapshot fields
+    // (`level`/`checkedAt`/`directGatewayReachable`) that mutate on every tick of the
+    // fully independent 30s background health poll a few effects up. That unrelated
+    // churn tore down and re-armed the reconnect `setInterval` before it could reach
+    // its own SAVED_PROFILE_RECONNECT_INTERVAL_MS deadline, silently degrading the
+    // documented ~30s retry cadence toward ~60s+ (worse with real device probe
+    // latency) — this is what a real "unreachable" screen sitting for minutes looks
+    // like. This test uses a realistically slow (not instant) failing fetch to
+    // reproduce that drift, then proves two things a naive single-shot retry test
+    // would miss: (1) the retry cadence itself stays close to the documented ~30s
+    // pace instead of drifting slower the longer it stays down, and (2) recovery
+    // happens without simulating any app backgrounding, foregrounding, or restart.
+    jest.useFakeTimers();
+    try {
+      const gatewayProfilesMock = jest.requireMock('../services/gatewayProfiles');
+      gatewayProfilesMock.gatewayProfiles.load.mockResolvedValue({
+        profiles: [
+          {
+            id: 'saved-mac',
+            label: 'Saved Mac',
+            gatewayUrl: 'http://100.87.85.85:8642',
+            hostname: 'Saved Mac',
+            addedAt: '2026-07-19T00:00:00.000Z',
+          },
+        ],
+        activeProfileId: 'saved-mac',
+      });
+      let online = false;
+      // Realistic device timing: an unreachable host takes real wall-clock time to
+      // fail (VPN/TCP timeout), not an instant rejection — an idealized instant-fetch
+      // mock hides the exact drift the independent health poll causes.
+      global.fetch = jest.fn(
+        () =>
+          new Promise((resolve) => {
+            setTimeout(
+              () =>
+                resolve({
+                  ok: online,
+                  status: online ? 200 : 503,
+                  json: async () =>
+                    online
+                      ? { status: 'ok', gateway_state: 'running', pid: 1 }
+                      : { error: 'unreachable' },
+                }),
+              online ? 50 : 800,
+            );
+          }),
+      ) as jest.Mock;
+
+      const { getByTestId } = render(
+        <GatewayProvider>
+          <ProgressProbe />
+        </GatewayProvider>,
+      );
+
+      // Drive 5 simulated minutes while genuinely unreachable, in small steps so the
+      // independent 30s health poll and the exhausted-phase reconnect interval
+      // interleave the way they would on a real device (never perfect lockstep).
+      // No AppState change, no unmount/remount — the app just sits foregrounded.
+      for (let i = 0; i < 60; i += 1) {
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(5_000);
+        });
+      }
+      expect(getByTestId('gateway-reachable').props.children).toBe('false');
+      const attemptsAfterFiveMinutes = Number(
+        getByTestId('connection-heal-attempt').props.children,
+      );
+      expect(attemptsAfterFiveMinutes).toBeGreaterThanOrEqual(6);
+      // The regression contract: after the quiet-heal window, the exhausted-phase
+      // interval must keep firing close to its documented ~30s cadence for the whole
+      // 5 minutes, not decay toward ~60s+ as the unrelated health-poll churn causes.
+      // Pre-fix this consistently plateaus at exactly 10 (bounded by the unrelated 30s
+      // health-poll churn tearing the interval down before it can fire) regardless of
+      // per-attempt probe cost; post-fix it always exceeds that plateau because the
+      // interval survives unrelated health polls and fires on schedule. Assert strictly
+      // greater than the documented pre-fix ceiling rather than an absolute count, since
+      // legitimate unrelated changes to the self-heal probe path (e.g. an added USB-loopback
+      // probe) shift the post-fix count without reintroducing the bug.
+      expect(attemptsAfterFiveMinutes).toBeGreaterThan(10);
+
+      // The backend is genuinely healthy now (matches Igor's live report). The app
+      // must self-heal in the foreground — no background/foreground cycle, no
+      // remount/relaunch simulated.
+      online = true;
+      let reachable = false;
+      for (let i = 0; i < 24 && !reachable; i += 1) {
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(5_000);
+        });
+        reachable = getByTestId('gateway-reachable').props.children === 'true';
+      }
+
+      expect(reachable).toBe(true);
+      expect(getByTestId('connection-heal-attempt').props.children).toBe(0);
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  }, 30000);
 
   it('shows connected (not Reconnecting) when HTTP /health is OK even if the events socket never opens', async () => {
     // The real :8642 gateway exposes NO events WebSocket — the socket errors/closes
@@ -567,8 +698,6 @@ describe('GatewayProvider', () => {
   });
 
   it('uses paired cloud relay without Wi-Fi WebSocket or Pro gating', async () => {
-    const thumbgateIap = jest.requireMock('../services/thumbgateIap');
-    thumbgateIap.syncThumbgateLeashEntitlement.mockResolvedValue(false);
     (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
       connectionMode: 'relay',
       cloudUrl: 'https://hermesmobile-cloud.fly.dev',
@@ -634,7 +763,7 @@ describe('GatewayProvider', () => {
     expect(MockWebSocket.instances).toHaveLength(0);
   });
 
-  it('preserves relay mode when selecting a saved machine profile', async () => {
+  it('switches from relay mode to direct gateway mode when selecting a saved machine profile', async () => {
     const gatewayProfilesMock = jest.requireMock('../services/gatewayProfiles');
     gatewayProfilesMock.gatewayProfiles.load.mockResolvedValue({
       profiles: [
@@ -686,9 +815,11 @@ describe('GatewayProvider', () => {
     });
 
     await waitFor(() => {
+      expect(getByTestId('connection-mode').props.children).toBe('gateway');
       expect(storage.saveGatewaySettings).toHaveBeenCalledWith(
         expect.objectContaining({
-          connectionMode: 'relay',
+          connectMacGateDismissed: true,
+          connectionMode: 'gateway',
           gatewayUrl: 'http://10.2.29.103:8642',
         }),
       );
@@ -753,6 +884,617 @@ describe('GatewayProvider', () => {
     });
     expect(gatewayProfilesMock.gatewayProfiles.save).toHaveBeenCalled();
     expect(storage.saveLastSelectedProfileId).toHaveBeenCalled();
+  });
+
+  it('does not replace a fresh discovery pairing key during the selection refresh', async () => {
+    const gatewayProfilesMock = jest.requireMock('../services/gatewayProfiles');
+    gatewayProfilesMock.gatewayProfiles.load.mockResolvedValue({
+      profiles: [
+        {
+          id: 'discovered-mac',
+          label: 'Discovered Mac',
+          gatewayUrl: 'http://10.2.29.103:8642',
+          hostname: 'Discovered-Mac.local',
+          addedAt: '2026-07-26T12:00:00.000Z',
+        },
+      ],
+      activeProfileId: null,
+    });
+    (secureCredentials.resolveApiKeyForProfile as jest.Mock).mockResolvedValue(
+      'sk-stale-profile',
+    );
+
+    const gatewayAuthHeaders: Array<string | undefined> = [];
+    global.fetch = jest.fn(async (input, init) => {
+      const url = String(input);
+      if (url.startsWith('http://127.0.0.1:8642/')) {
+        return {
+          ok: false,
+          status: 503,
+          json: async () => ({ status: 'unreachable' }),
+        } as Response;
+      }
+      if (url === 'http://10.2.29.103:8765/pair.json') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            gatewayUrl: 'http://10.2.29.103:8642',
+            deepLink:
+              'hermes://setup?pairCode=FRESH-SELECTION&pairServer=http%3A%2F%2F10.2.29.103%3A8765',
+          }),
+        } as Response;
+      }
+      if (
+        url ===
+        'http://10.2.29.103:8765/pair-exchange?code=FRESH-SELECTION'
+      ) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            gatewayUrl: 'http://10.2.29.103:8642',
+            apiKey: 'sk-fresh-pair-exchange',
+            macName: 'Discovered-Mac',
+          }),
+        } as Response;
+      }
+      if (url.startsWith('http://10.2.29.103:8642/api/sessions')) {
+        const authorization = (init?.headers as Record<string, string> | undefined)
+          ?.Authorization;
+        gatewayAuthHeaders.push(authorization);
+        const ok = authorization === 'Bearer sk-fresh-pair-exchange';
+        return {
+          ok,
+          status: ok ? 200 : 401,
+          json: async () => ({}),
+        } as Response;
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: 'ok',
+          gateway_state: 'running',
+          hostname: 'Discovered-Mac.local',
+          local_ip: '10.2.29.103',
+        }),
+      } as Response;
+    }) as jest.Mock;
+
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <Probe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('profiles-ids').props.children).toContain('mac_10_2_29_103');
+    });
+
+    gatewayAuthHeaders.length = 0;
+    await act(async () => {
+      fireEvent.press(getByTestId('select-profile'));
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('gateway-api-key').props.children).toBe(
+        'sk-fresh-pair-exchange',
+      );
+      expect(getByTestId('connection-state').props.children).toBe('connected');
+    });
+    expect(gatewayAuthHeaders.length).toBeGreaterThan(0);
+    expect(gatewayAuthHeaders).toEqual(
+      expect.arrayContaining(['Bearer sk-fresh-pair-exchange']),
+    );
+    // Probes already in flight when the tap starts may finish with the previous
+    // profile credential. The invariant is that selection converges to, and
+    // continues with, the freshly exchanged credential.
+    expect(gatewayAuthHeaders.at(-1)).toBe('Bearer sk-fresh-pair-exchange');
+  });
+
+  it('selects an existing profile with its saved key when pair refresh is expired', async () => {
+    const gatewayProfilesMock = jest.requireMock('../services/gatewayProfiles');
+    gatewayProfilesMock.gatewayProfiles.load.mockResolvedValue({
+      profiles: [
+        {
+          id: 'discovered-mac',
+          label: 'Discovered Mac',
+          gatewayUrl: 'http://10.2.29.103:8642',
+          hostname: 'Discovered-Mac.local',
+          addedAt: '2026-07-26T12:00:00.000Z',
+        },
+      ],
+      activeProfileId: null,
+    });
+    (secureCredentials.loadProfileApiKeys as jest.Mock).mockResolvedValue({
+      mac_10_2_29_103: 'sk-saved-profile',
+    });
+
+    global.fetch = jest.fn(async (input) => {
+      const url = String(input);
+      if (url === 'http://10.2.29.103:8765/pair.json') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            gatewayUrl: 'http://10.2.29.103:8642',
+            deepLink:
+              'hermes://setup?pairCode=EXPIRED-REFRESH&pairServer=http%3A%2F%2F10.2.29.103%3A8765',
+          }),
+        } as Response;
+      }
+      if (
+        url ===
+        'http://10.2.29.103:8765/pair-exchange?code=EXPIRED-REFRESH'
+      ) {
+        return {
+          ok: false,
+          status: 410,
+          json: async () => ({}),
+        } as Response;
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: 'ok',
+          gateway_state: 'running',
+          hostname: 'Discovered-Mac.local',
+          local_ip: '10.2.29.103',
+        }),
+      } as Response;
+    }) as jest.Mock;
+
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <Probe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('profiles-ids').props.children).toContain('mac_10_2_29_103');
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('select-profile'));
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('gateway-api-key').props.children).toBe(
+        'sk-saved-profile',
+      );
+      expect(getByTestId('active-profile-id').props.children).toBe(
+        'mac_10_2_29_103',
+      );
+    });
+    expect(secureCredentials.saveApiKey).toHaveBeenCalledWith('sk-saved-profile');
+    expect(getByTestId('last-error').props.children).toBe('');
+  });
+
+  it('rejects an expired pair refresh when only another Mac global key exists', async () => {
+    const gatewayProfilesMock = jest.requireMock('../services/gatewayProfiles');
+    gatewayProfilesMock.gatewayProfiles.load.mockResolvedValue({
+      profiles: [
+        {
+          id: 'discovered-mac-b',
+          label: 'Mac B',
+          gatewayUrl: 'http://10.2.29.104:8642',
+          hostname: 'Mac-B.local',
+          addedAt: '2026-07-26T12:00:00.000Z',
+        },
+      ],
+      activeProfileId: null,
+    });
+    (secureCredentials.loadApiKey as jest.Mock).mockResolvedValue('sk-mac-a-global');
+    (secureCredentials.loadProfileApiKeys as jest.Mock).mockResolvedValue({});
+    (secureCredentials.resolveApiKeyForProfile as jest.Mock).mockResolvedValue(
+      'sk-mac-a-global',
+    );
+
+    global.fetch = jest.fn(async (input) => {
+      const url = String(input);
+      if (url === 'http://10.2.29.104:8765/pair.json') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            gatewayUrl: 'http://10.2.29.104:8642',
+            deepLink:
+              'hermes://setup?pairCode=EXPIRED-MAC-B&pairServer=http%3A%2F%2F10.2.29.104%3A8765',
+          }),
+        } as Response;
+      }
+      if (
+        url ===
+        'http://10.2.29.104:8765/pair-exchange?code=EXPIRED-MAC-B'
+      ) {
+        return {
+          ok: false,
+          status: 410,
+          json: async () => ({}),
+        } as Response;
+      }
+      return {
+        ok: false,
+        status: 503,
+        json: async () => ({ status: 'unreachable' }),
+      } as Response;
+    }) as jest.Mock;
+
+    function SelectMacBProbe() {
+      const gateway = useGateway();
+      return (
+        <>
+          <Text testID="mac-b-error">{gateway.lastEventError ?? ''}</Text>
+          <Text testID="mac-b-active">
+            {gateway.activeGatewayProfile?.id ?? 'none'}
+          </Text>
+          <Text testID="mac-b-profiles">
+            {gateway.gatewayProfiles.map((profile) => profile.gatewayUrl).join(',')}
+          </Text>
+          <Text
+            testID="select-mac-b"
+            onPress={() => {
+              const profile = gateway.gatewayProfiles.find(
+                (item) => item.gatewayUrl === 'http://10.2.29.104:8642',
+              );
+              if (profile) {
+                void gateway.selectGatewayProfile(profile.id);
+              }
+            }}
+          >
+            select
+          </Text>
+        </>
+      );
+    }
+
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <SelectMacBProbe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('mac-b-profiles').props.children).toContain(
+        'http://10.2.29.104:8642',
+      );
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('select-mac-b'));
+    });
+    await waitFor(() => {
+      expect(getByTestId('mac-b-error').props.children).toContain(
+        'pairing expired',
+      );
+    });
+    expect(getByTestId('mac-b-active').props.children).toBe('none');
+    expect(secureCredentials.saveProfileApiKey).not.toHaveBeenCalledWith(
+      expect.any(String),
+      'sk-mac-a-global',
+    );
+  });
+
+  it('atomically activates a manually verified profile without minting a second pairing code', async () => {
+    const gatewayProfilesMock = jest.requireMock('../services/gatewayProfiles');
+    gatewayProfilesMock.gatewayProfiles.load.mockResolvedValue({
+      profiles: [],
+      activeProfileId: null,
+    });
+    (secureCredentials.saveProfileApiKey as jest.Mock).mockResolvedValue(undefined);
+
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <Probe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('active-profile-id').props.children).toBe('none');
+    });
+    (global.fetch as jest.Mock).mockClear();
+
+    await act(async () => {
+      fireEvent.press(getByTestId('add-verified-profile'));
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('active-profile-id').props.children).toBe(
+        'mac_10_2_29_103',
+      );
+      expect(storage.saveLastSelectedProfileId).toHaveBeenCalledWith(
+        'mac_10_2_29_103',
+      );
+      expect(secureCredentials.saveProfileApiKey).toHaveBeenCalledWith(
+        'mac_10_2_29_103',
+        'verified-manual-key',
+      );
+    });
+    expect(global.fetch).not.toHaveBeenCalledWith(
+      'http://10.2.29.103:8765/pair.json',
+      expect.anything(),
+    );
+  });
+
+  it('switches an existing same-Mac Tailscale profile to a manually verified LAN route', async () => {
+    const gatewayProfilesMock = jest.requireMock('../services/gatewayProfiles');
+    gatewayProfilesMock.gatewayProfiles.load.mockResolvedValue({
+      profiles: [
+        {
+          id: 'mac_100_87_85_85',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          hostname: 'Igors-MacBook-Pro',
+          localIp: '100.87.85.85',
+          addedAt: '2026-07-27T00:00:00.000Z',
+        },
+      ],
+      activeProfileId: 'mac_100_87_85_85',
+    });
+    (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
+      connectionMode: 'gateway',
+      cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+      gatewayUrl: 'http://100.87.85.85:8642',
+      usePortal: false,
+      redactPii: true,
+      notificationsEnabled: false,
+      demoMode: false,
+      glanceMode: false,
+      safetyMode: false,
+      thumbgateCaptureOnDown: true,
+      thumbgateCaptureOnUp: false,
+      thumbgateApiUrl: 'https://thumbgate.example.com',
+      thumbgateProActive: true,
+      approvalPolicy: 'balanced',
+      analyticsOptOut: false,
+      includeToolActivity: true,
+    });
+
+    const { getByTestId, unmount } = render(
+      <GatewayProvider>
+        <Probe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('settings-gateway-url').props.children).toBe(
+        'http://100.87.85.85:8642',
+      );
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('add-verified-lan-route'));
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('settings-gateway-url').props.children).toBe(
+        'http://192.168.68.60:8642',
+      );
+    });
+    expect(secureCredentials.saveProfileApiKey).toHaveBeenCalledWith(
+      expect.any(String),
+      'verified-manual-key',
+    );
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://192.168.68.60:8642/api/sessions?limit=1',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer verified-manual-key',
+          }),
+        }),
+      );
+    });
+    await act(async () => {
+      unmount();
+    });
+  });
+
+  it('restores the last explicit LAN route when the profile catalog canonicalized the same Mac as Tailscale', () => {
+    const profileState = {
+      profiles: [
+        {
+          id: 'mac_igors_macbook_pro',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          hostname: 'Igors-MacBook-Pro',
+          localIp: '192.168.68.60',
+          addedAt: '2026-07-27T00:00:00.000Z',
+        },
+      ],
+      activeProfileId: 'mac_igors_macbook_pro',
+    };
+    expect(
+      resolveBootstrapGatewayRoute(
+        'http://192.168.68.60:8642',
+        profileState,
+        'mac_igors_macbook_pro',
+      ),
+    ).toBe('http://192.168.68.60:8642');
+    expect(
+      resolveBootstrapGatewayRoute(
+        '',
+        profileState,
+        'mac_igors_macbook_pro',
+      ),
+    ).toBe('http://100.87.85.85:8642');
+  });
+
+  it('rejects a saved route owned by the previously selected Mac during interrupted switch recovery', () => {
+    const profileState = {
+      profiles: [
+        {
+          id: 'mac_a',
+          label: 'Mac A',
+          gatewayUrl: 'http://192.168.68.60:8642',
+          hostname: 'mac-a',
+          localIp: '192.168.68.60',
+          addedAt: '2026-07-27T00:00:00.000Z',
+        },
+        {
+          id: 'mac_b',
+          label: 'Mac B',
+          gatewayUrl: 'http://100.99.88.77:8642',
+          hostname: 'mac-b',
+          localIp: '192.168.68.61',
+          addedAt: '2026-07-27T00:00:00.000Z',
+        },
+      ],
+      activeProfileId: 'mac_b',
+    };
+    expect(
+      resolveBootstrapGatewayRoute(
+        'http://192.168.68.60:8642',
+        profileState,
+        'mac_a',
+      ),
+    ).toBe('http://100.99.88.77:8642');
+  });
+
+  it('rejects a foreign saved route even when the profile selection write completed first', () => {
+    const profileState = {
+      profiles: [
+        {
+          id: 'mac_a',
+          label: 'Mac A',
+          gatewayUrl: 'http://192.168.68.60:8642',
+          hostname: 'mac-a',
+          localIp: '192.168.68.60',
+          addedAt: '2026-07-27T00:00:00.000Z',
+        },
+        {
+          id: 'mac_b',
+          label: 'Mac B',
+          gatewayUrl: 'http://100.99.88.77:8642',
+          hostname: 'mac-b',
+          localIp: '192.168.68.61',
+          addedAt: '2026-07-27T00:00:00.000Z',
+        },
+      ],
+      activeProfileId: 'mac_b',
+    };
+    expect(
+      resolveBootstrapGatewayRoute(
+        'http://192.168.68.60:8642',
+        profileState,
+        'mac_b',
+      ),
+    ).toBe('http://100.99.88.77:8642');
+  });
+
+  it('keeps a fresh user unselected when silent auto-discovery finds a reachable computer', async () => {
+    const gatewayProfilesMock = jest.requireMock('../services/gatewayProfiles');
+    const discoverMock = jest.requireMock('../services/discover');
+    gatewayProfilesMock.gatewayProfiles.load.mockResolvedValue({
+      profiles: [],
+      activeProfileId: null,
+    });
+    (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
+      connectionMode: 'gateway',
+      cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+      gatewayUrl: '',
+      usePortal: false,
+      redactPii: true,
+      notificationsEnabled: false,
+      demoMode: false,
+      glanceMode: false,
+      safetyMode: false,
+      thumbgateCaptureOnDown: true,
+      thumbgateCaptureOnUp: false,
+      thumbgateApiUrl: 'https://thumbgate.example.com',
+      thumbgateProActive: true,
+      approvalPolicy: 'balanced',
+      analyticsOptOut: false,
+      includeToolActivity: true,
+    });
+    discoverMock.getPackagerHostIp.mockReturnValue('192.168.68.60');
+    (storage.saveLastSelectedProfileId as jest.Mock).mockClear();
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        status: 'ok',
+        gateway_state: 'running',
+        hostname: 'Igors-MacBook-Pro.local',
+        local_ip: '192.168.68.60',
+      }),
+    })) as jest.Mock;
+
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <Probe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://192.168.68.60:8642/health',
+        expect.objectContaining({ signal: expect.anything() }),
+      );
+    });
+    await waitFor(() => {
+      expect(getByTestId('profiles-ids').props.children).toBe('');
+      expect(getByTestId('active-profile-id').props.children).toBe('none');
+      expect(getByTestId('settings-gateway-url').props.children).toBe('');
+    });
+    expect(storage.saveLastSelectedProfileId).not.toHaveBeenCalled();
+  });
+
+  it('does not bootstrap-select a catalog-only profile before the fresh user pairs', async () => {
+    const gatewayProfilesMock = jest.requireMock('../services/gatewayProfiles');
+    gatewayProfilesMock.gatewayProfiles.load.mockResolvedValue({
+      profiles: [
+        {
+          id: 'mac_100_94_135_78',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini',
+          localIp: '100.94.135.78',
+          addedAt: '2026-07-27T06:05:48.257Z',
+        },
+      ],
+      activeProfileId: null,
+    });
+    (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
+      connectionMode: 'gateway',
+      cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+      gatewayUrl: '',
+      usePortal: false,
+      redactPii: true,
+      notificationsEnabled: false,
+      demoMode: false,
+      glanceMode: false,
+      safetyMode: false,
+      thumbgateCaptureOnDown: true,
+      thumbgateCaptureOnUp: false,
+      thumbgateApiUrl: 'https://thumbgate.example.com',
+      thumbgateProActive: true,
+      approvalPolicy: 'balanced',
+      analyticsOptOut: false,
+      includeToolActivity: true,
+    });
+    (storage.saveLastSelectedProfileId as jest.Mock).mockClear();
+
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <Probe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('profiles-ids').props.children).toBe(
+        'mac_100_94_135_78',
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getByTestId('active-profile-id').props.children).toBe('none');
+    expect(getByTestId('settings-gateway-url').props.children).toBe('');
+    expect(storage.saveLastSelectedProfileId).not.toHaveBeenCalled();
   });
 
   it('handles stop_run action from notifications and calls stopRun API', async () => {
@@ -1071,15 +1813,8 @@ describe('GatewayProvider', () => {
     });
   });
 
-  it('skips chat output feedback capture when Leash is locked', async () => {
+  it('captures chat output feedback when old entitlement flags are false', async () => {
     (captureThumbgateFeedback as jest.Mock).mockClear();
-    __resetFreeLeashAllowanceForTests();
-    await refreshFreeLeashWeeklyState();
-    for (let i = 0; i < FREE_LEASH_APPROVALS_PER_WEEK; i += 1) {
-      await consumeFreeLeashApproval();
-    }
-    const thumbgateIap = jest.requireMock('../services/thumbgateIap');
-    thumbgateIap.syncThumbgateLeashEntitlement.mockResolvedValue(false);
     (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
       connectionMode: 'gateway',
       cloudUrl: 'https://hermesmobile-cloud.fly.dev',
@@ -1134,6 +1869,6 @@ describe('GatewayProvider', () => {
       fireEvent.press(getByTestId('submit-chat-output-up'));
     });
 
-    expect(captureThumbgateFeedback).not.toHaveBeenCalled();
+    expect(captureThumbgateFeedback).toHaveBeenCalled();
   });
 });

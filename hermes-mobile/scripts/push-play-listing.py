@@ -108,8 +108,8 @@ def replace_images(
 
 
 def validate_copy(label: str, title: str, short_description: str, full_description: str) -> None:
-    if len(title) > 50:
-        raise SystemExit(f"{label} title {len(title)} > 50")
+    if len(title) > 30:
+        raise SystemExit(f"{label} title {len(title)} > 30")
     if len(short_description) > 80:
         raise SystemExit(f"{label} shortDescription {len(short_description)} > 80")
     if len(full_description) > 4000:

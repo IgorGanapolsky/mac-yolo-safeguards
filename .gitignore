@@ -116,3 +116,7 @@ Compiled-Vaults/compiled-vault-brain-2026-06-29/AI-Memories/
 # Redundant alias symlink — canonical snapshot is compiled-vault-brain-2026-06-29/
 Compiled-Vaults/goal
 .grepai/
+
+# pool (Poolside CLI): .poolside/settings.yaml is shared/committed; the .local
+# variant is per-machine state (accumulated tool approvals, absolute temp paths).
+.poolside/settings.local.yaml

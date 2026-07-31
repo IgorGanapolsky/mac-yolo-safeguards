@@ -1,5 +1,6 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import ConnectMacGate, { connectMacGateCardMaxWidth } from '../components/ConnectMacGate';
 import { DEFAULT_GATEWAY_SETTINGS } from '../types/gateway';
 import { CONNECT_MAC_GATE_TITLE, TAILSCALE_PASTE_IP_TITLE } from '../utils/tailscalePasteIpCopy';
@@ -81,6 +82,8 @@ describe('ConnectMacGate', () => {
     expect(view.getByText(TAILSCALE_PASTE_IP_TITLE)).toBeTruthy();
     expect(view.getByTestId('connect-manual-input')).toBeTruthy();
     expect(view.getByTestId('connect-search-wifi')).toBeTruthy();
+    expect(view.queryByTestId('connect-scan-qr')).toBeNull();
+    expect(view.queryByText(/QR/i)).toBeNull();
     expect(view.queryByTestId('fresh-user-step-1')).toBeNull();
   });
 
@@ -324,6 +327,45 @@ describe('ConnectMacGate', () => {
     expect(retryGatewayBootstrap).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps first-run onboarding open after catalog results arrive until the user selects one', () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    const profile = {
+      id: 'mac-mini',
+      label: 'Mac mini',
+      gatewayUrl: 'http://192.168.1.50:8642',
+      localIp: '192.168.1.50',
+      addedAt: '2026-07-27T00:00:00.000Z',
+    };
+    mockUseGateway.mockReturnValue(
+      gateway({
+        profileScanning: true,
+        gatewayProfiles: [],
+        activeGatewayProfile: null,
+        effectiveGatewayUrl: '',
+      }),
+    );
+    const view = render(<ConnectMacGate />);
+
+    mockUseGateway.mockReturnValue(
+      gateway({
+        profileScanning: false,
+        gatewayProfiles: [profile],
+        activeGatewayProfile: null,
+        effectiveGatewayUrl: '',
+        settings: {
+          ...DEFAULT_GATEWAY_SETTINGS,
+          gatewayUrl: '',
+          demoMode: false,
+        },
+      }),
+    );
+    view.rerender(<ConnectMacGate />);
+
+    expect(view.getByTestId('connect-mac-gate')).toBeTruthy();
+    expect(view.getByTestId('gateway-profile-list')).toBeTruthy();
+    expect(view.getByTestId('select-gateway-profile-mac-mini')).toBeTruthy();
+  });
+
   it('uses cellular one-liner when not on Wi-Fi', () => {
     delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
     mockUseGateway.mockReturnValue(gateway({ wifiConnected: false }));
@@ -335,7 +377,7 @@ describe('ConnectMacGate', () => {
     expect(view.queryByText('Use Tailscale from cellular')).toBeNull();
   });
 
-  it('promotes Tailscale candidates and demotes QR / competing Wi-Fi loaders', () => {
+  it('promotes Tailscale candidates and hides competing Wi-Fi loaders', () => {
     delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
     mockUseGateway.mockReturnValue(
       gateway({
@@ -377,6 +419,22 @@ describe('ConnectMacGate', () => {
     expect(connectMacGateCardMaxWidth(834)).toBe(459);
     // iPad Pro landscape (~1366pt): capped, never edge to edge.
     expect(connectMacGateCardMaxWidth(1366)).toBe(640);
+  });
+
+  it('centers the width-bounded card on both axes of an iPad canvas', () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    mockUseGateway.mockReturnValue(gateway());
+
+    const view = render(<ConnectMacGate />);
+    const scroll = view.UNSAFE_getByType(ScrollView);
+    const contentStyle = StyleSheet.flatten(scroll.props.contentContainerStyle);
+
+    expect(contentStyle).toEqual(
+      expect.objectContaining({
+        alignItems: 'center',
+        justifyContent: 'center',
+      }),
+    );
   });
 
   it('Find computers triggers a forced Tailscale probe, not just the LAN sweep (away-from-home gap)', async () => {

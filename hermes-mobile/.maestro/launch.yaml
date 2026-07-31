@@ -3,6 +3,7 @@ appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
 - runFlow: e2e-bootstrap.yaml
+- runFlow: recover-chat-tab.yaml
 - assertVisible:
     id: "HERMES CHAT"
 - assertVisible:

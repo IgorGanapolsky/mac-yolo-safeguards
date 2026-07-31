@@ -410,10 +410,22 @@ else
   bad "extras only when auth verifies; skip foreign keys"
 fi
 # Deep link adb intent must single-quote URI so device shell does not split on &name=
-if [[ "$PAIR_JS" == *"device shell splits"* ]] && [[ "$PAIR_JS" == *"single-quoted"* ]] && [[ "$PAIR_JS" == *"am start -a android.intent.action.VIEW -d"* ]]; then
+if [[ "$PAIR_JS" == *"device shell splits"* ]] && [[ "$PAIR_JS" == *"single-quoted"* ]] && [[ "$PAIR_JS" == *"am start -a android.intent.action.VIEW -p"* ]]; then
   ok "pair adb deep link quotes URI for &name= params"
 else
   bad "pair adb deep link quotes URI for &name= params"
+fi
+
+if [[ "$PAIR_JS" == *"HERMES_MOBILE_ANDROID_PACKAGE"* ]] \
+  && [[ "$PAIR_JS" == *"const PAID_ANDROID_PACKAGE_NAME = 'com.iganapolsky.hermesmobile.paid';"* ]] \
+  && [[ "$PAIR_JS" == *"if (installed.has(PAID_ANDROID_PACKAGE_NAME))"* ]] \
+  && [[ "$PAIR_JS" == *"return PAID_ANDROID_PACKAGE_NAME;"* ]] \
+  && [[ "$PAIR_JS" == *"resolveTargetAndroidPackageName(serial)"* ]] \
+  && [[ "$PAIR_JS" == *"openDeepLinkOnDevice(serial, deepLink, targetAndroidPackageName)"* ]] \
+  && [[ "$PAIR_JS" == *"waitForForegroundAck(serial, targetAndroidPackageName"* ]]; then
+  ok "pair adb prefers the paid installed app and targets setup plus foreground ack consistently"
+else
+  bad "pair adb prefers the paid installed app and targets setup plus foreground ack consistently"
 fi
 
 # Unattended session-start pairing must never expose the credential-bearing LAN server,
@@ -707,6 +719,143 @@ if run_node "
   ok "adb/open path mints a fresh display-TTL code each time"
 else
   bad "adb/open path mints a fresh display-TTL code each time"
+fi
+
+# Pair discovery/watchdog JSON must not share the QR renderer's process latency.
+# The fake npx reproduces the former 8s event-loop block without using the network.
+cat > "$BIN/npx" <<'MOCK'
+#!/usr/bin/env bash
+touch "$QR_MARKER"
+sleep 6
+exit 1
+MOCK
+chmod +x "$BIN/npx"
+QR_MARKER="$TMP/npx-was-called"
+if HOME="$TMP/home" PATH="$BIN:$PATH" QR_MARKER="$QR_MARKER" \
+  PAIR_SCRIPT="$REPO/tools/hermes-mobile-pair.js" node <<'NODE'
+const fs = require('fs');
+const http = require('http');
+const os = require('os');
+const path = require('path');
+
+const outDir = path.join(
+  os.homedir(),
+  'Library',
+  'Application Support',
+  'mac-yolo-safeguards',
+  'hermes-mobile-pair',
+);
+fs.mkdirSync(outDir, { recursive: true });
+fs.writeFileSync(
+  path.join(outDir, 'pair-seed.json'),
+  JSON.stringify({
+    gatewayUrl: 'http://100.87.85.85:8642',
+    apiKey: 'isolated-test-key',
+    macName: 'Latency-Test-Mac',
+    localIp: '192.168.68.60',
+    pairServer: 'http://100.87.85.85:8765',
+    pageUrl: 'http://100.87.85.85:8765/pair',
+  }),
+);
+
+const { createPairServer } = require(process.env.PAIR_SCRIPT);
+const server = createPairServer('192.168.68.60');
+const fail = (message) => {
+  process.stderr.write(`${message}\n`);
+  server.close(() => process.exit(1));
+};
+const deadline = setTimeout(() => fail('pair.json exceeded 5s watchdog deadline'), 5_000);
+
+server.listen(0, '127.0.0.1', () => {
+  const startedAt = Date.now();
+  const { port } = server.address();
+  http
+    .get(`http://127.0.0.1:${port}/pair.json`, (response) => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk) => {
+        body += chunk;
+      });
+      response.on('end', () => {
+        clearTimeout(deadline);
+        const elapsedMs = Date.now() - startedAt;
+        let payload;
+        try {
+          payload = JSON.parse(body);
+        } catch {
+          fail('pair.json did not return JSON');
+          return;
+        }
+        if (response.statusCode !== 200 || !payload.deepLink?.includes('pairCode=')) {
+          fail(`pair.json response invalid (${response.statusCode})`);
+          return;
+        }
+        if (elapsedMs >= 1_500) {
+          fail(`pair.json took ${elapsedMs}ms`);
+          return;
+        }
+        if (fs.existsSync(process.env.QR_MARKER)) {
+          fail('pair.json invoked npx QR generation');
+          return;
+        }
+        server.close(() => process.exit(0));
+      });
+    })
+    .on('error', (error) => fail(error.message));
+});
+NODE
+then
+  ok "pair.json stays below 1.5s and never invokes QR tooling"
+else
+  bad "pair.json stays below 1.5s and never invokes QR tooling"
+fi
+
+# A clean npm install must deterministically include a bounded local QR generator.
+# The macOS guard intentionally runs without installing the mobile dependency tree,
+# so prove the exact lockfile artifact and CLI entry unconditionally. When the
+# dependencies are installed (developer/production setup), also render a real PNG.
+if HOME="$TMP/home" PATH="$BIN:$PATH" REPO="$REPO" node <<'NODE'
+const fs = require('fs');
+const path = require('path');
+
+const repo = process.env.REPO;
+const manifest = require(path.join(repo, 'hermes-mobile', 'package.json'));
+if (manifest.dependencies?.qrcode !== '1.5.4') {
+  throw new Error('qrcode must be pinned as a clean-install runtime dependency');
+}
+const lock = require(path.join(repo, 'hermes-mobile', 'package-lock.json'));
+const lockedQr = lock.packages?.['node_modules/qrcode'];
+if (
+  lockedQr?.version !== '1.5.4' ||
+  lockedQr?.bin?.qrcode !== 'bin/qrcode' ||
+  typeof lockedQr?.integrity !== 'string' ||
+  !lockedQr.integrity.startsWith('sha512-')
+) {
+  throw new Error('package-lock must pin the qrcode CLI with integrity metadata');
+}
+const localGenerator = path.join(
+  repo,
+  'hermes-mobile',
+  'node_modules',
+  '.bin',
+  'qrcode',
+);
+if (fs.existsSync(localGenerator)) {
+  const { writePairQrPng } = require(path.join(repo, 'tools', 'hermes-mobile-pair.js'));
+  const result = writePairQrPng('http://100.87.85.85:8765/pair');
+  if (!result.imgTag.startsWith('<img src="data:image/png;base64,')) {
+    throw new Error('/pair QR was not embedded as a PNG data URL');
+  }
+  const png = fs.readFileSync(result.qrPath);
+  if (png.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') {
+    throw new Error('generated QR is not a PNG');
+  }
+}
+NODE
+then
+  ok "clean npm install pins QR CLI; installed deps render PNG without npx or Homebrew"
+else
+  bad "clean npm install pins QR CLI; installed deps render PNG without npx or Homebrew"
 fi
 
 printf "\nResults: %s passed, %s failed\n" "$pass" "$fail"

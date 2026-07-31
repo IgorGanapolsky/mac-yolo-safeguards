@@ -31,7 +31,11 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /Pro Continuity|Cloud Continuity/);
   assert.match(page, /Continue with Google today/);
   assert.doesNotMatch(page, /Continue with Google or Apple/);
-  assert.match(page, /still proving out in real use/);
+  // Hero states the mechanism, not a self-disclaimer: 12 landing views/day converted 0 sign-in
+  // clicks while the lede called the paid capability "still proving this out" (2026-07-30).
+  assert.match(page, /approve or deny each tool call before it runs/);
+  assert.match(page, /fenced VPS runner under the policy you set/);
+  assert.doesNotMatch(page, /still proving/);
   assert.match(page, /by ThumbGate/);
   assert.match(page, /Your Hermes work/);
   assert.match(page, /Leash/);
@@ -85,6 +89,10 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(portalRoute, /\/\^\(ThumbGate\|Leash\)\\b\/i\.test\(productName\)/);
   assert.match(portalRoute, /\/v1\/billing_portal\/sessions/);
   assert.match(portalRoute, /billing\.portal\.created/);
+  // Landing "Manage billing" is a GET link — must not 405.
+  assert.match(portalRoute, /export async function GET/);
+  assert.match(portalRoute, /export async function POST/);
+  assert.match(portalRoute, /handlePortalRequest|isGet/);
   assert.match(dashboard, /\? manageBilling\(\) : subscribe\(\)/);
   assert.match(page, /100 cloud continuations/);
   assert.match(page, /Run one installer/);
@@ -96,7 +104,8 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(chrome, /data-funnel-event="cloud_continuity_click"/);
   assert.match(chrome, /data-funnel-event=\{isSession \? "dashboard_open_click" : "sign_in_click"\}/);
   assert.match(chrome, /Try Continuity — 14 days free/);
-  assert.match(chrome, /Can pick up eligible work on a VPS when offline — still proving this out/);
+  assert.match(chrome, /Hands eligible work to a fenced VPS runner when your Mac is offline/);
+  assert.doesNotMatch(chrome, /still proving/);
   assert.equal((chrome.match(/"sign_in_click"/g) ?? []).length, 1);
   assert.equal((chrome.match(/fetch\("\/api\/me"/g) ?? []).length, 1);
   // Lease copy lives in steps + FailoverPathDemo (not the old stats-strip HTML).
@@ -107,13 +116,18 @@ test("builds the public Leash subscription landing page", async () => {
   const diagram = await readFile(new URL("../app/RemoteControlDiagram.tsx", import.meta.url), "utf8");
   assert.match(diagram, /Your phone/);
   assert.match(diagram, /Encrypted pairing/);
-  // Landing no longer ships a FAQ block; keep mobile + pricing anchors instead.
+  // AEO contract (config/thumbgate-aeo-prompts.json): landing must ship a
+  // visible FAQ + FAQPage JSON-LD so answer engines can cite it.
+  assert.match(page, /FAQPage/);
+  assert.match(page, /id="faq"/);
+  assert.match(page, /What is ThumbGate\?/);
   assert.match(page, /id="mobile"/);
   assert.match(page, /id="pricing"/);
   assert.match(robots, /disallow: \["\/dashboard", "\/admin", "\/api\/"\]/);
   assert.match(robots, /https:\/\/thumbgate\.app\/sitemap\.xml/);
   assert.match(sitemap, /https:\/\/thumbgate\.app\//);
   assert.match(sitemap, /2026-07-22/);
+  assert.match(llms, /# ThumbGate for Hermes/);
   assert.match(llms, /Aggregate, content-free product analytics/);
   assert.match(llms, /## Direct answers/);
   assert.match(llms, /web dashboard for Hermes remote control/);

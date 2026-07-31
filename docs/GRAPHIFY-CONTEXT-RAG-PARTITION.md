@@ -21,12 +21,18 @@ answers.
 
 ## The three tools, honestly
 
-### 1. Graphify (AST knowledge graph) — wired, root graph built
+### 1. Graphify (AST knowledge graph) — wired; runtime truth is checked live
 - Binary: `.graphify-venv/bin/graphify`
-- Graph: `graphify-out/graph.json` (built 2026-07-24, ~158MB, root repo only)
+- Graph: `graphify-out/graph.json` (ignored local artifact; never infer its presence, freshness, size, or version from this document)
+- Truth command: `node tools/graphify-readiness.js --json`, followed by
+  `node tools/graphify-staleness-check.js --json`
+- Minimum supported runtime: Graphify `0.9.26`, which prunes newly ignored files correctly.
+- Default architecture build: `.graphify-venv/bin/graphify extract . --code-only --no-cluster`
 - Commands that matter: `query`, `path "A" "B"`, `explain "X"`, `update`, `merge-graphs`, `merge-driver`
 - **Strength:** deterministic symbol/dependency graph. "What imports X" is a graph traversal, not a guess.
 - **Limitation:** no semantic/NL matching. "Where's the reconnect logic" returns nothing if no symbol is named that.
+- **Corpus contract:** code architecture graphs must contain zero `ios/Pods` and
+  `node_modules` nodes. Full docs/image extraction is a separate, optional semantic build.
 - Per `AGENTS.md`: run `graphify update .` after code edits (when the graph already exists) to keep it current — AST-only, no API cost.
 
 ### 2. grepai (local semantic vector index) — wired
@@ -48,11 +54,10 @@ Graphify **already supports** cross-repo graphs:
 graphify merge-graphs <g1> <g2> [--out merged.json]
 graphify merge-driver <base> <current> <other>   # git merge driver
 ```
-The gap is that **only the root repo has a built `graph.json`** today. Neither
-`hermes-mobile/graphify-out/graph.json` nor `apps/hermes-control-plane/graphify-out/graph.json`
-exists. So there is nothing to merge *yet*. A multi-repo query helper would be speculative
-scaffolding with no inputs — that's why `T-CONTEXT-INTELLIGENCE-ROI-20260724` deliberately did not
-build one.
+Never use this document as evidence that any graph is currently built. Check each
+checkout with `node tools/graphify-readiness.js --repo <path> --json`. Only pass
+existing, current `graph.json` artifacts to `merge-graphs`; otherwise report the
+multi-repo query as unavailable and use targeted source reads.
 
 **To close the gap when it's real:** run `graphify update` inside each sub-repo to build their
 graphs, then `merge-graphs` them. No new tool needed.

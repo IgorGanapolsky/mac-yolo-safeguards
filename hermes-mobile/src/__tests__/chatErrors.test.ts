@@ -63,6 +63,19 @@ describe('isAuthApiError', () => {
     expect(message).not.toContain('Settings → Your active machines');
     expect(message.toLowerCase()).not.toContain('settings →');
   });
+
+  it('humanizes unexpected EOF / Error code 500 model crashes', () => {
+    const { kind, message } = humanizeChatError(
+      new Error(
+        "Error code: 500 - {'error': {'message': 'an error was encountered while running the model: unexpected EOF', 'type': 'api_error'}}",
+      ),
+      'fallback',
+    );
+    expect(kind).toBe('operational');
+    expect(message.toLowerCase()).not.toContain('unexpected eof');
+    expect(message.toLowerCase()).not.toContain('error code');
+    expect(message.toLowerCase()).toContain('fresh chat');
+  });
 });
 
 describe('isSessionInUseError', () => {
@@ -203,7 +216,7 @@ describe('isConnectivityMessage', () => {
     expect(isConnectivityMessage("Can't reach direct link (10.2.29.103:8642) — tap to retry")).toBe(true);
   });
 
-  it('explains chat needs a computer link when account path is up but Mac HTTP is down', () => {
+  it('explains that Chat needs a Mac connection when account path is up but Mac HTTP is down', () => {
     const message = chatSendBlockedMessage({
       connectionMode: 'relay',
       connectionState: 'connected',
@@ -219,6 +232,6 @@ describe('isConnectivityMessage', () => {
       connectionState: 'connecting',
       healthProbePending: true,
     });
-    expect(message).toBe('Still checking your computer link. Message kept locally.');
+    expect(message).toBe('Still checking your Mac connection. Message kept locally.');
   });
 });

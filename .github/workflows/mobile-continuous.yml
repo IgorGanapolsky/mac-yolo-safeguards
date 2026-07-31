@@ -15,9 +15,22 @@ on:
 permissions:
   contents: read
 
+# One global group starved the iOS e2e job: the 6-hourly cron held the lock for hours while
+# PR runs queued behind it, and each new push cancelled the queued predecessor. Evidence
+# 2026-07-27: six consecutive `pull_request` runs `cancelled`, one `pending` behind a
+# 4-hour-old `schedule` run — so "Maestro ship-guard (macOS sim)" never reported on a PR.
+# That is why the fatal iPad WatchdogTermination (Sentry APPS-3S) reached a device.
+#
+# PRs now get their own per-ref group (new push cancels only its own predecessor); the cron
+# keeps a separate serialized group so scheduled verification still never overlaps itself.
 concurrency:
-  group: hermes-mobile-continuous
-  cancel-in-progress: false
+  group: >-
+    hermes-mobile-continuous-${{ github.event_name == 'pull_request'
+      && format('pr-{0}', github.event.pull_request.number)
+      || github.event_name == 'merge_group'
+      && format('mq-{0}', github.ref)
+      || 'scheduled' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   unit-and-contract:
@@ -29,7 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: 22
           cache: npm
@@ -51,13 +64,20 @@ jobs:
     name: Release APK + embedded bundle
     runs-on: ubuntu-latest
     needs: unit-and-contract
+    # ECONOMY 2026-07-28: full prebuild+assembleRelease is multi‑minute Ubuntu
+    # per mobile PR under multi-agent thrash. Default PR path = unit+typecheck only.
+    # APK guard still runs on schedule / merge_group / workflow_dispatch, or when
+    # the PR has label `apk-guard`.
+    if: >-
+      github.event_name != 'pull_request'
+      || contains(join(github.event.pull_request.labels.*.name, ','), 'apk-guard')
     defaults:
       run:
         working-directory: hermes-mobile
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: 22
           cache: npm
@@ -108,13 +128,21 @@ jobs:
     name: Maestro ship-guard (macOS sim)
     # Expo SDK 55's iOS native modules require Xcode 26; pin the runner so
     # the simulator smoke does not drift onto older Xcode 15/16 images.
+    #
+    # ECONOMY (2026-07-28): GitHub-hosted macos-26 is ~10× Linux minutes and was
+    # burning free-plan Actions quota under multi-agent PR thrash (90% of 3k min).
+    # Android Maestro + Ubuntu unit/APK remain the default PR gates. Hosted macOS
+    # sim is opt-in only:
+    #   - workflow_dispatch, or
+    #   - PR label `macos-e2e`
+    # Local continuous E2E LaunchAgent remains the day-to-day dogfood path.
+    # Required branch check is "Maestro ship-guard (Android emulator)", not this job.
     runs-on: macos-26
     needs: unit-and-contract
-    # Run on PRs too (not just manual dispatch) so launch/runtime regressions are
-    # caught before merge — e.g. the otel v2 crash that only surfaces at app launch
-    # and which unit tests + a build job cannot detect. Make this a required check
-    # in branch protection to block merges on E2E failure.
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'pull_request'
+          && contains(join(github.event.pull_request.labels.*.name, ','), 'macos-e2e'))
     timeout-minutes: 45
     defaults:
       run:
@@ -122,7 +150,7 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: 22
           cache: npm

@@ -174,7 +174,28 @@ function main() {
       // High repeated failure severity premium
       const repeatedFailurePremium = parseBool(row.repeated_failure) ? 1.0 : 0.0;
 
-      const propensityScore = score + segmentPremium + sourcePremium + repeatedFailurePremium;
+      const heuristicPropensity = score + segmentPremium + sourcePremium + repeatedFailurePremium;
+
+      // When a trained propensity model is available, prefer calibrated probability
+      // (scaled 0–10 for sort compatibility). Fail-closed: no model → heuristic only.
+      let modelProbability = null;
+      let propensityScore = heuristicPropensity;
+      let propensitySource = 'heuristic';
+      try {
+        const serve = require('./ml-serve');
+        const model = serve.loadModel(serve.resolveModelPath());
+        if (model && model.trained) {
+          const scored = serve.scoreOne(model, row, 0.5);
+          if (scored.ok && typeof scored.probability_paid === 'number') {
+            modelProbability = scored.probability_paid;
+            // blend: 70% model (×10) + 30% heuristic, keeps ranking stable
+            propensityScore = modelProbability * 10 * 0.7 + heuristicPropensity * 0.3;
+            propensitySource = 'calibrated_model_blend';
+          }
+        }
+      } catch {
+        /* keep heuristic */
+      }
 
       prospectMap.set(label, {
         label,
@@ -183,6 +204,9 @@ function main() {
         notes: row.notes,
         score,
         propensityScore,
+        heuristicPropensity,
+        modelProbability,
+        propensitySource,
         route,
         value: val,
         stage: statusInfo.stage,
@@ -251,11 +275,19 @@ ${args.requestedDate ? `- Requested date: ${args.requestedDate}\n- Data date: ${
 ${segmentStats.map(s => `| ${s.segment} | ${s.count} | ${s.avgScore} | ${s.avgPropensity} | $${s.gross.toLocaleString('en-US', { minimumFractionDigits: 2 })} |`).join('\n')}
 
 ### Propensity Indexing Model
-Our Propensity model weights prospects based on:
-1. Base quality (0-10): calculated from internal signals (\`agent_stack\`, \`repeated_failure\`, \`business_cost\`, \`budget_owner\`, etc.).
+**Primary:** trained calibrated logistic model via \`tools/ml-serve.js\` when
+\`~/.hermes/ml/propensity-model.json\` is trained (blend 70% model×10 + 30% heuristic).
+**Fallback (fail-closed):** heuristic weights:
+1. Base quality (0-10): internal signals (\`agent_stack\`, \`repeated_failure\`, \`business_cost\`, \`budget_owner\`, etc.).
 2. Segment premium: \`+2.0\` for agency/studio, \`+1.0\` for consultancy/vendor.
 3. Source premium: \`+1.5\` for inbound inquiries.
 4. Behavioral premium: \`+1.0\` if prospect has explicit repeated agent failure patterns.
+
+Scoring source counts this run: ${(() => {
+  const counts = {};
+  for (const p of allProspects) counts[p.propensitySource] = (counts[p.propensitySource] || 0) + 1;
+  return Object.entries(counts).map(([k, v]) => `${k}=${v}`).join(', ');
+})()}
 
 ### Top Ready Prospects for Immediate Outreach
 Below are the top prioritized ready prospects to drive revenue toward the $300/day after-tax target.

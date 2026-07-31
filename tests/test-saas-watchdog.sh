@@ -128,4 +128,89 @@ grep -q '"checkoutCreatedLast24h":"1"' "$TMP/status.jsonl"
 grep -q '"portalCreatedLast24h":"1"' "$TMP/status.jsonl"
 grep -q 'Title: ThumbGate recovered' "$TMP/curl.log"
 
-echo "saas watchdog tests: degraded alert + healthy recovery + analytics readback PASS"
+# Soft yellow: high clientErrorsToday alerts but does not hard-fail the probe.
+# Reuse the healthy fixture surface (HSTS headers, AuthKit chain, gates) with
+# only clientErrorsToday=42 elevated.
+cat >"$FAKE_CURL" <<'FAKE2'
+#!/usr/bin/env bash
+set -u
+printf '%s\n' "$*" >>"${FAKE_CURL_LOG:?}"
+
+format=""
+dump_headers=0
+follow=0
+method=GET
+args=("$@")
+url="${args[${#args[@]}-1]}"
+for ((index=0; index<${#args[@]}; index+=1)); do
+  case "${args[$index]}" in
+    -w) format="${args[$((index+1))]}" ;;
+    -D) dump_headers=1 ;;
+    -L) follow=1 ;;
+    -X) method="${args[$((index+1))]}" ;;
+  esac
+done
+
+if [[ "$url" == https://ntfy.sh/* ]]; then
+  exit 0
+fi
+
+if (( dump_headers == 1 )); then
+  printf 'HTTP/2 200\r\nStrict-Transport-Security: max-age=63072000; includeSubDomains; preload\r\n\r\n'
+  exit 0
+fi
+
+case "$format" in
+  '%{http_code}|%{redirect_url}')
+    printf '308|https://thumbgate.app/'
+    ;;
+  '%{http_code}|%{url_effective}')
+    if (( follow == 1 )); then
+      printf '200|https://example.authkit.app/sign-in'
+    fi
+    ;;
+  '%{http_code}')
+    case "$url" in
+      https://thumbgate.app|https://thumbgate.app/|https://app.thumbgate.app|https://app.thumbgate.app/) printf '200' ;;
+      https://thumbgate.app/api/health|https://hermes-control-plane.iganapolsky.workers.dev/api/health) printf '200' ;;
+      https://thumbgate.app/api/billing/plan) printf '200' ;;
+      https://thumbgate.app/api/me) printf '200' ;;
+      https://thumbgate.app/api/tasks) printf '401' ;;
+      https://thumbgate.app/api/analytics/event)
+        [[ "$method" == POST ]] && printf '204' || printf '405'
+        ;;
+      https://thumbgate.app/api/billing/webhook) printf '401' ;;
+      https://igor-hermes-cloud-runner.fly.dev/health) printf '200' ;;
+      *) printf '000' ;;
+    esac
+    ;;
+  *)
+    case "$url" in
+      https://thumbgate.app/api/health)
+        printf '{"ok":true,"ready":true,"status":"ok","database":"available","schema":"current","config":{"workosAuthConfigured":true,"stripeCheckoutConfigured":true,"stripeWebhookConfigured":true,"cloudRunnerConfigured":true},"telemetry":{"analyticsLatestAt":1784584500000,"auditLatestAt":1784584400000,"deviceHeartbeatLatestAt":null,"billingEventLatestAt":1784584300000,"realBillingEventLatestAt":null,"checkoutCreatedLast24h":1,"checkoutFailedLast24h":0,"portalCreatedLast24h":1,"portalFailedLast24h":0,"billingEventsLast24h":0,"paidOrganizationsTotal":1,"clientErrorsToday":42}}'
+        ;;
+      https://thumbgate.app/api/me)
+        printf '{"authenticated":false,"workosConfigured":true}'
+        ;;
+      https://thumbgate.app/api/billing/plan)
+        printf '{"configured":true,"active":true,"unitAmount":1000,"currency":"usd","interval":"month"}'
+        ;;
+      https://igor-hermes-cloud-runner.fly.dev/health) printf '{"ok":true,"degraded":false}' ;;
+      *) printf '{}';;
+    esac
+    ;;
+esac
+FAKE2
+chmod 700 "$FAKE_CURL"
+: >"$TMP/curl.log"
+printf 'ok\n' >"$TMP/state"
+printf 'false\n' >"$TMP/state.client-errors"
+FAKE_CURL_LOG="$TMP/curl.log" CURL_BIN="$FAKE_CURL" SAAS_WATCHDOG_STATE="$TMP/state" SAAS_WATCHDOG_LOG="$TMP/status.jsonl" \
+  SAAS_WATCHDOG_CLIENT_ERROR_SPIKE=15 bash "$ROOT/saas/saas-watchdog.sh"
+grep -q '^ok$' "$TMP/state"
+grep -q '"hardStatus":"ok"' "$TMP/status.jsonl"
+grep -q '"clientErrorSpike":true' "$TMP/status.jsonl"
+grep -q 'clientErrorsToday":"42"' "$TMP/status.jsonl"
+grep -q 'Title: ThumbGate client errors spike' "$TMP/curl.log"
+
+echo "saas watchdog tests: degraded alert + healthy recovery + analytics readback + client error spike PASS"

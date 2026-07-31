@@ -41,8 +41,9 @@ describe('gatewayUrlPolicy', () => {
       new Error('Network request failed'),
       'http://127.0.0.1:8642',
     );
-    expect(message.toLowerCase()).toContain('usb');
-    expect(message.toLowerCase()).toContain('pair');
+    // Standing rule: the app never names USB to the user.
+    expect(message.toLowerCase()).not.toContain('usb');
+    expect(message.toLowerCase()).toContain('find computers');
   });
 
   it('drops loopback local_ip when gateway URL is LAN', () => {

@@ -1,0 +1,184 @@
+# Physical-iPad reliability gate. Run only after a clean install of the exact
+# release build under test. It proves both cleartext routes, first-run error
+# handling, and persistence without demo mode or pre-seeded app state.
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp:
+    clearState: false
+    stopApp: true
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      # The notification prompt otherwise intercepts the first reliability
+      # assertion. iPadOS exposes the alert label to Maestro but not either
+      # action as a tappable text node, so use the stable right-hand action.
+      - tapOn:
+          point: "60%,53%"
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 120000
+- extendedWaitUntil:
+    visible:
+      id: "connect-mac-gate"
+    timeout: 30000
+- assertVisible:
+    id: "connect-mac-onboarding-card"
+- assertNotVisible: "USB"
+
+# Empty input must stay recoverable and must not create a false profile.
+- tapOn:
+    id: "connect-manual-submit"
+- assertVisible:
+    id: "connect-manual-error"
+- assertVisible: "Please enter an IP address or URL."
+
+# Reproduce the screenshot's exact path and require a real discovery result.
+# The iOS simulator is NATed outside the iPad's Wi-Fi subnet and can therefore
+# surface an offline tailnet peer before the reachable host-LAN Mac. Do not turn
+# that simulator topology into a false product failure: prove the reachable
+# fresh-user connection through the MacBook's supplied Tailscale address after
+# verifying that Find computers populated the real catalog.
+- tapOn:
+    id: "connect-search-wifi"
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn: "Allow"
+- extendedWaitUntil:
+    visible:
+      id: "connect-mac-found-machines"
+    timeout: 45000
+- assertVisible:
+    id: "gateway-profile-list"
+- tapOn:
+    id: "connect-manual-input"
+- inputText: "${TAILSCALE_HOST}"
+- tapOn:
+    id: "connect-manual-submit"
+- extendedWaitUntil:
+    notVisible:
+      id: "connect-mac-gate"
+    timeout: 45000
+- extendedWaitUntil:
+    visible:
+      id: "chat-context-mac-button"
+      text: "^${EXPECTED_MACHINE}\\. Connected\\..*$"
+    timeout: 45000
+- assertVisible:
+    id: "chat-context-mac-button"
+- assertNotVisible: "^Not connected$"
+- assertNotVisible: "Outdated connection"
+- assertNotVisible: "USB"
+- takeScreenshot: build/ipad-connection-reliability/discovery-connected
+
+# A cold relaunch must preserve and reconnect the discovered profile.
+- stopApp
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: "chat-context-mac-button"
+      text: "^${EXPECTED_MACHINE}\\. Connected\\..*$"
+    timeout: 45000
+- assertVisible:
+    id: "chat-context-mac-button"
+- assertNotVisible: "^Not connected$"
+- assertNotVisible: "Outdated connection"
+- assertNotVisible:
+    id: "connect-mac-gate"
+- assertNotVisible: "USB"
+
+# Prove the same-Wi-Fi cleartext path through the switch-computer picker.
+- tapOn:
+    id: "chat-context-mac-button"
+- extendedWaitUntil:
+    visible: "Choose your computer"
+    timeout: 15000
+- tapOn:
+    id: "mac-picker-manual-input"
+- inputText: "${LAN_HOST}"
+- tapOn:
+    id: "mac-picker-manual-submit"
+- extendedWaitUntil:
+    notVisible:
+      id: "mac-picker-modal"
+    timeout: 45000
+- extendedWaitUntil:
+    visible:
+      id: "chat-context-mac-button"
+      text: "^${EXPECTED_MACHINE}\\. Connected\\..*$"
+    timeout: 45000
+- assertVisible:
+    id: "chat-context-mac-button"
+- assertNotVisible: "^Not connected$"
+- assertNotVisible: "Outdated connection"
+- assertVisible: ".*Home Wi‑Fi.*"
+- assertNotVisible: "USB"
+- takeScreenshot: build/ipad-connection-reliability/lan-connected
+
+# A cold relaunch must preserve and reconnect the LAN profile.
+- stopApp
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: "chat-context-mac-button"
+      text: "^${EXPECTED_MACHINE}\\. Connected\\..*$"
+    timeout: 45000
+- assertVisible:
+    id: "chat-context-mac-button"
+- assertNotVisible: "^Not connected$"
+- assertNotVisible: "Outdated connection"
+- assertNotVisible:
+    id: "connect-mac-gate"
+- assertVisible: ".*Home Wi‑Fi.*"
+
+# Add the same Mac by Tailscale and make that the active, reachable route.
+- tapOn:
+    id: "chat-context-mac-button"
+- extendedWaitUntil:
+    visible: "Choose your computer"
+    timeout: 15000
+- tapOn:
+    id: "mac-picker-manual-input"
+- inputText: "${TAILSCALE_HOST}"
+- tapOn:
+    id: "mac-picker-manual-submit"
+- extendedWaitUntil:
+    notVisible:
+      id: "mac-picker-modal"
+    timeout: 45000
+- extendedWaitUntil:
+    visible:
+      id: "chat-context-mac-button"
+      text: "^${EXPECTED_MACHINE}\\. Connected\\..*$"
+    timeout: 45000
+- assertVisible:
+    id: "chat-context-mac-button"
+- assertNotVisible: "^Not connected$"
+- assertNotVisible: "Outdated connection"
+- assertVisible: ".*Tailscale.*"
+- assertNotVisible: "USB"
+- takeScreenshot: build/ipad-connection-reliability/tailscale-connected
+
+# A second cold relaunch proves the selected Tailscale profile and credentials persist.
+- stopApp
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: "chat-context-mac-button"
+      text: "^${EXPECTED_MACHINE}\\. Connected\\..*$"
+    timeout: 45000
+- assertVisible:
+    id: "chat-context-mac-button"
+- assertNotVisible: "^Not connected$"
+- assertNotVisible: "Outdated connection"
+- assertVisible: ".*Tailscale.*"
+- assertNotVisible:
+    id: "connect-mac-gate"
+- assertNotVisible: "USB"
+- takeScreenshot: build/ipad-connection-reliability/relaunch-connected

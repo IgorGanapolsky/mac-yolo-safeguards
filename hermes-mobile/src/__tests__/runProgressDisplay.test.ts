@@ -207,7 +207,7 @@ describe('runProgressDisplay', () => {
   it('shortens connectivity failures for banner title row', () => {
     expect(
       runProgressFailedTitle(
-        "Your phone can't reach that local computer link. Join the same Wi‑Fi, add a tunnel URL in Settings.",
+        "Your phone can't reach that Mac connection. Join the same Wi‑Fi, add a tunnel URL in Settings.",
       ),
     ).toBe("Couldn't reach your computer");
   });

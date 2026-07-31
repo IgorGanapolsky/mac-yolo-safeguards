@@ -262,7 +262,7 @@ export default function SettingsScreen() {
           'Connected',
           health?.level === 'green'
             ? `Direct local link healthy at ${url}`
-            : `Using ${url}. If Chat still fails, turn on Tailscale or scan the QR from Hermes on your computer.`,
+            : `Using ${url}. If Chat still fails, make sure Hermes is open on that computer and use Find computers.`,
         );
       }
     } catch (err) {
@@ -270,7 +270,7 @@ export default function SettingsScreen() {
       if (!demoMode) {
         Alert.alert(
           'Auto-connect failed',
-          err instanceof Error ? err.message : 'Could not reach a direct computer link.',
+          err instanceof Error ? err.message : 'Could not reach your Mac directly.',
         );
       }
     } finally {
@@ -547,8 +547,8 @@ export default function SettingsScreen() {
         <GlassCard>
           <Text style={styles.label}>Your active machines</Text>
           <Text style={styles.description}>
-            Away from home, use Tailscale so your phone can reach your computer. On home Wi‑Fi,
-            Find computers works without a tunnel. Saved machines power Chat, tools, and ops.
+            Tailscale reaches your computer anywhere — at home or away. On the same Wi‑Fi, Find
+            computers can also discover it. Saved machines power Chat, tools, and ops.
           </Text>
           <GatewayProfilePicker
             profiles={profilesForSwitchComputerPicker(savedMacProfiles)}

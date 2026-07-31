@@ -101,6 +101,256 @@ describe('ChatConnectionPanel', () => {
     expect(getByTestId('select-gateway-profile-p1')).toBeTruthy();
   });
 
+  it('shows named selectable rows immediately after Find computers succeeds', () => {
+    const { getByTestId, getByText, queryByTestId } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        macLabel="Igors-MacBook-Pro"
+        connectionHealAttempt={6}
+        scanResult={{
+          completedAtMs: Date.now(),
+          foundCount: 1,
+          tailscaleCount: 1,
+          discoveredProfileIds: ['macbook'],
+        }}
+        profiles={[
+          {
+            id: 'macbook',
+            label: 'Igors-MacBook-Pro',
+            gatewayUrl: 'http://100.87.85.85:8642',
+            addedAt: '2026-07-26T21:47:00Z',
+          },
+        ]}
+        activeProfileId="macbook"
+        onSelectProfile={jest.fn()}
+        onSearchMac={jest.fn()}
+      />,
+    );
+
+    expect(getByText('Found 1 on Tailscale')).toBeTruthy();
+    expect(getByText('Available computers')).toBeTruthy();
+    expect(getByText('Scan found 1 computer. Saved computers are also shown.')).toBeTruthy();
+    expect(getByTestId('chat-connection-found-computers')).toBeTruthy();
+    expect(getByTestId('select-gateway-profile-macbook').props.accessibilityLabel).toContain(
+      'Igors-MacBook-Pro',
+    );
+    expect(queryByTestId('fresh-user-onboarding-card')).toBeNull();
+  });
+
+  it('keeps unscanned saved computers available under Other ways after a partial scan', () => {
+    const { getAllByTestId, getByTestId, queryByTestId } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        connectionHealAttempt={6}
+        scanResult={{
+          completedAtMs: Date.now(),
+          foundCount: 1,
+          tailscaleCount: 1,
+          discoveredProfileIds: ['macbook'],
+        }}
+        profiles={[
+          {
+            id: 'macbook',
+            label: 'Igors-MacBook-Pro',
+            gatewayUrl: 'http://100.87.85.85:8642',
+            addedAt: '2026-07-26T21:47:00Z',
+          },
+          {
+            id: 'saved-mini',
+            label: 'Igors-Mac-mini',
+            gatewayUrl: 'http://100.94.135.78:8642',
+            addedAt: '2026-07-26T21:48:00Z',
+          },
+        ]}
+        activeProfileId="macbook"
+        onSelectProfile={jest.fn()}
+        onSearchMac={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('select-gateway-profile-macbook')).toBeTruthy();
+    expect(queryByTestId('select-gateway-profile-saved-mini')).toBeNull();
+
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
+
+    expect(getByTestId('select-gateway-profile-saved-mini')).toBeTruthy();
+    expect(getAllByTestId('select-gateway-profile-macbook')).toHaveLength(1);
+  });
+
+  it('does not merge distinct same-name Macs across scan and saved sections', () => {
+    // Display names are presentation, not the scanner's discovery provenance.
+    const { getByTestId, queryByTestId } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        connectionHealAttempt={6}
+        scanResult={{
+          completedAtMs: Date.now(),
+          foundCount: 1,
+          tailscaleCount: 1,
+          discoveredProfileIds: ['found-mini'],
+        }}
+        profiles={[
+          {
+            id: 'found-mini',
+            label: 'Mac mini',
+            gatewayUrl: 'http://100.94.135.78:8642',
+            addedAt: '2026-07-27T05:10:00Z',
+          },
+          {
+            id: 'saved-mini',
+            label: 'Mac mini',
+            gatewayUrl: 'http://100.87.85.85:8642',
+            addedAt: '2026-07-27T05:11:00Z',
+          },
+        ]}
+        onSelectProfile={jest.fn()}
+        onSearchMac={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('select-gateway-profile-found-mini')).toBeTruthy();
+    expect(queryByTestId('select-gateway-profile-saved-mini')).toBeNull();
+
+    fireEvent.press(getByTestId('chat-connection-other-ways-toggle'));
+
+    expect(getByTestId('select-gateway-profile-saved-mini')).toBeTruthy();
+  });
+
+  it('never shows a count-only success before a named row exists', () => {
+    const { queryByText, queryByTestId } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        scanResult={{
+          completedAtMs: Date.now(),
+          foundCount: 1,
+          tailscaleCount: 1,
+          discoveredProfileIds: ['missing'],
+        }}
+        profiles={[]}
+        onSearchMac={jest.fn()}
+      />,
+    );
+
+    expect(queryByText(/Found 1/)).toBeNull();
+    expect(queryByTestId('chat-connection-scan-progress-result')).toBeNull();
+    expect(queryByTestId('chat-connection-found-computers')).toBeNull();
+  });
+
+  it('never presents an unrelated saved computer as a successful scan result', () => {
+    const { queryByText, queryByTestId } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        scanResult={{
+          completedAtMs: Date.now(),
+          foundCount: 1,
+          usbCount: 1,
+          discoveredProfileIds: ['usb-found'],
+        }}
+        profiles={[
+          {
+            id: 'usb-found',
+            label: 'MacBook Pro',
+            hostname: 'MacBook-Pro.local',
+            gatewayUrl: 'http://127.0.0.1:8642',
+            addedAt: '2026-07-27T03:43:00Z',
+          },
+          {
+            id: 'stale-mini',
+            label: 'Mac mini',
+            gatewayUrl: 'http://100.94.135.78:8642',
+            addedAt: '2026-07-26T12:00:00Z',
+          },
+        ]}
+        onSearchMac={jest.fn()}
+      />,
+    );
+
+    expect(queryByText(/Found 1/)).toBeNull();
+    expect(queryByTestId('chat-connection-found-computers')).toBeNull();
+    expect(queryByTestId('select-gateway-profile-stale-mini')).toBeNull();
+  });
+
+  it('keeps a discovered reachable USB computer in the immediate result section', () => {
+    const previousUsbTransport = process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT;
+    process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT = '1';
+    try {
+      const { getByTestId, getByText } = render(
+        <ChatConnectionPanel
+          connectionState="disconnected"
+          scanResult={{
+            completedAtMs: Date.now(),
+            foundCount: 1,
+            usbCount: 1,
+            discoveredProfileIds: ['usb-found'],
+          }}
+          profiles={[
+            {
+              id: 'usb-found',
+              label: 'Igors-MacBook-Pro',
+              hostname: 'Igors-MacBook-Pro.local',
+              gatewayUrl: 'http://127.0.0.1:8642',
+              addedAt: '2026-07-27T06:06:00Z',
+            },
+          ]}
+          liveUsb={{ reachable: true, hostname: 'Igors-MacBook-Pro.local' }}
+          onSelectProfile={jest.fn()}
+          onSearchMac={jest.fn()}
+        />,
+      );
+
+      // Standing rule: discovery copy never names the cable, even with the
+      // EXPO_PUBLIC_ALLOW_USB_TRANSPORT debug hatch on.
+      expect(getByText('Found 1 Hermes computer')).toBeTruthy();
+      expect(getByTestId('chat-connection-found-computers')).toBeTruthy();
+      expect(getByTestId('select-gateway-profile-usb-found')).toBeTruthy();
+    } finally {
+      if (previousUsbTransport === undefined) {
+        delete process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT;
+      } else {
+        process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT = previousUsbTransport;
+      }
+    }
+  });
+
+  it('does not synthesize unrelated live USB into a remote-only scan result', () => {
+    const previousUsbTransport = process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT;
+    process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT = '1';
+    try {
+      const { getByTestId, queryByText } = render(
+        <ChatConnectionPanel
+          connectionState="disconnected"
+          scanResult={{
+            completedAtMs: Date.now(),
+            foundCount: 1,
+            tailscaleCount: 1,
+            discoveredProfileIds: ['mini-tailscale'],
+          }}
+          profiles={[
+            {
+              id: 'mini-tailscale',
+              label: 'Igors-Mac-mini',
+              hostname: 'Igors-Mac-mini.local',
+              gatewayUrl: 'http://100.94.135.78:8642',
+              addedAt: '2026-07-27T06:07:00Z',
+            },
+          ]}
+          liveUsb={{ reachable: true, hostname: 'Igors-MacBook-Pro.local' }}
+          onSelectProfile={jest.fn()}
+          onSearchMac={jest.fn()}
+        />,
+      );
+
+      expect(getByTestId('select-gateway-profile-mini-tailscale')).toBeTruthy();
+      expect(queryByText('Igors-MacBook-Pro')).toBeNull();
+    } finally {
+      if (previousUsbTransport === undefined) {
+        delete process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT;
+      } else {
+        process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT = previousUsbTransport;
+      }
+    }
+  });
+
   it('does not call an unreachable active computer active now', () => {
     const { getByText, queryByText } = render(
       <ChatConnectionPanel
@@ -162,7 +412,7 @@ describe('ChatConnectionPanel', () => {
     expect(getByTestId('relay-worker-row-mac-mini')).toBeTruthy();
   });
 
-  it('shows Fix USB connection CTA for loopback failures off Wi‑Fi', () => {
+  it('shows the Fix computer link CTA for loopback failures off Wi‑Fi', () => {
     const onFixUsbLink = jest.fn();
     const { getByTestId, getByText } = render(
       <ChatConnectionPanel
@@ -179,10 +429,10 @@ describe('ChatConnectionPanel', () => {
       />,
     );
 
-    expect(getByText('USB connection needs setup')).toBeTruthy();
-    expect(getByText(/USB link is not ready yet/)).toBeTruthy();
+    expect(getByText('Computer link needs setup')).toBeTruthy();
+    expect(getByText(/that link is not ready yet/)).toBeTruthy();
     expect(getByTestId('chat-connection-fix-usb')).toBeTruthy();
-    expect(getByText('Fix USB connection')).toBeTruthy();
+    expect(getByText('Fix computer link')).toBeTruthy();
 
     fireEvent.press(getByTestId('chat-connection-fix-usb'));
     expect(onFixUsbLink).toHaveBeenCalled();
@@ -258,8 +508,8 @@ describe('ChatConnectionPanel', () => {
         onSearchMac={jest.fn()}
       />,
     );
-    expect(getByText('Wrong computer plugged in')).toBeTruthy();
-    expect(getByText(/USB is connected to Igors-MacBook-Pro/)).toBeTruthy();
+    expect(getByText('Wrong computer connected')).toBeTruthy();
+    expect(getByText(/Your phone is linked to Igors-MacBook-Pro/)).toBeTruthy();
   });
 
   it('explains cellular blocks direct home Wi‑Fi URLs', () => {
@@ -426,7 +676,7 @@ describe('ChatConnectionPanel', () => {
     const connectSpy = jest
       .spyOn(manualGatewayConnection, 'connectManualGatewayAddress')
       .mockImplementationOnce(async ({ fallbackLabel, gatewayUrl, persistProfile }) => {
-        await persistProfile(fallbackLabel, gatewayUrl);
+        await persistProfile(fallbackLabel, gatewayUrl, 'verified-panel-key');
       });
     const { getByTestId } = render(
       <ChatConnectionPanel
@@ -450,7 +700,11 @@ describe('ChatConnectionPanel', () => {
         gatewayUrl: 'http://100.87.85.85:8642',
         persistProfile: onAddProfile,
       });
-      expect(onAddProfile).toHaveBeenCalledWith('Tailscale computer', 'http://100.87.85.85:8642');
+    expect(onAddProfile).toHaveBeenCalledWith(
+      'Tailscale computer',
+      'http://100.87.85.85:8642',
+      'verified-panel-key',
+    );
     });
     connectSpy.mockRestore();
   });

@@ -161,7 +161,7 @@ try {
 
   const llms = await fetch(`http://127.0.0.1:${port}/llms.txt`);
   assert.equal(llms.status, 200);
-  assert.match(await llms.text(), /Leash by ThumbGate/);
+  assert.match(await llms.text(), /# ThumbGate for Hermes/);
 
   const health = await fetch(`http://127.0.0.1:${port}/api/health`);
   assert.equal(health.status, 200);

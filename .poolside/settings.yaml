@@ -1,0 +1,14 @@
+# Shared, repo-scoped pool settings (committed).
+# grepai is this repo's mandated primary code-search tool (see CLAUDE.md): a local,
+# free semantic index (Tree-sitter chunks + Ollama embeddings, zero cloud calls).
+# Scoped HERE rather than in ~/.config/poolside/settings.yaml on purpose — the index
+# path is pinned to this repo, so a global entry would answer queries in every other
+# repo with mac-yolo-safeguards' code.
+# Requires `grepai` on PATH; pool degrades gracefully (the server just fails to
+# connect, check with /mcp) on machines that don't have it.
+mcp_servers:
+    grepai:
+        command: grepai
+        args:
+            - mcp-serve
+            - /Users/igorganapolsky/.hermes/semantic-index/mac-yolo-safeguards

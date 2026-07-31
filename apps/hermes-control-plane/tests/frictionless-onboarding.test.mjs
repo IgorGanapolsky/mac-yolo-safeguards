@@ -148,7 +148,7 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   assert.match(globals, /safe-area-inset-bottom/);
   assert.match(globals, /\.mobile-web-tabs a\.is-active/);
   assert.doesNotMatch(globals, /\.mobile-web-tabs a:first-child\{color/);
-  assert.match(dashboard, /route-label-short/);
+  assert.match(dashboard, /composer-unified-target/);
   assert.match(dashboard, /composer-actions/);
   assert.match(dashboard, /composer-run/);
   assert.match(dashboard, /isNarrowViewport/);
@@ -195,6 +195,19 @@ test("preserves web accessibility contracts while adopting the mobile feel", () 
   assert.match(dashboard, /aria-label="Hermes workspace"/);
 });
 
+test("mobile Settings/Leash scroll on .right-rail and machine pick from both tabs", () => {
+  // Scrollport must be the real DOM node — never a missing wrapper class.
+  assert.equal(/\.dashboard-sub-panels\s*\{/.test(globals), false);
+  assert.match(globals, /data-mobile-tab="settings"\] \.right-rail/);
+  assert.match(globals, /overflow-y:\s*scroll\s*!important/);
+  assert.match(globals, /flex:\s*1 1 0\s*!important/);
+  // Machine pin: Leash select + Settings "Use for tasks"
+  assert.match(dashboard, /data-testid="leash-device-select"/);
+  assert.match(dashboard, /device-use-for-tasks/);
+  assert.match(dashboard, /is-preferred/);
+  assert.match(dashboard, /className="right-rail"/);
+});
+
 test("makes every dashboard metric a labeled shortcut instead of an inert card", () => {
   assert.match(dashboard, /<nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">/);
   assert.match(dashboard, /className="metric-card" href="#web-settings"/);
@@ -219,8 +232,10 @@ test("dashboard uses shell-first SWR navigation cache (Issues-style instant nav)
 
 test("lessons workspace activity stats and lesson cards deep-link into Hermes", () => {
   assert.match(lessonsClient, /href="\/dashboard"/);
-  assert.match(lessonsClient, /href="\/dashboard#chats"/);
-  assert.match(lessonsClient, /href="\/dashboard#task-activity"/);
+  assert.match(lessonsClient, /href="\/dashboard\?view=chats#chats"/);
+  assert.match(lessonsClient, /href="\/dashboard\?filter=completed#task-activity"/);
+  assert.match(lessonsClient, /href="\/dashboard\?filter=unrated#task-activity"/);
+  assert.match(lessonsClient, /ready to rate/);
   assert.match(lessonsClient, /Open chat list/);
   assert.match(lessonsClient, /Open in Hermes/);
   assert.match(lessonsClient, /hermesTaskHref|params\.set\("task"/);
@@ -228,20 +243,47 @@ test("lessons workspace activity stats and lesson cards deep-link into Hermes", 
   assert.match(dashboard, /focusedTaskFromUrl/);
   assert.match(dashboard, /URLSearchParams\(window\.location\.search\)\.get\("task"\)/);
   assert.match(dashboard, /id=\{`task-\$\{task\.id\}`\}/);
+  assert.match(dashboard, /taskFilter/);
+  assert.match(dashboard, /filter === "unrated"/);
+  assert.match(dashboard, /Pair another computer/);
+  assert.match(dashboard, /Manage \/ remove machines/);
   assert.match(globals, /\.lesson-activity li a\{/);
   assert.match(globals, /\.lesson-card-actions\{/);
+  assert.match(globals, /\.task-filter-banner\{/);
+});
+
+test("Improve/Helpful metric clicks navigate to Hermes when count is 1, else filter with URL + scroll", () => {
+  // Navigation decision lives in pure helpers (unit-tested in lessons-ui.test.ts).
+  assert.match(lessonsClient, /resolveSignalClickDestination/);
+  assert.match(lessonsClient, /handleSignalClick/);
+  assert.match(lessonsClient, /Open that answer in Hermes/);
+  assert.match(lessonsClient, /window\.location\.assign/);
+  assert.match(lessonsClient, /lessonsListHref/);
+  assert.match(lessonsClient, /id="lesson-list"/);
+  assert.match(lessonsClient, /pendingScrollRef/);
+  assert.match(lessonsClient, /lesson-card-flash/);
+  assert.match(lessonsClient, /lesson-results-count/);
+  assert.match(lessonsClient, /search-highlight|HighlightText/);
+  assert.match(globals, /lesson-card-flash/);
+  assert.match(globals, /search-highlight/);
+  assert.match(globals, /scroll-margin-top/);
+  const lessonsUi = readFileSync(new URL("../lib/lessons-ui.ts", import.meta.url), "utf8");
+  assert.match(lessonsUi, /kind: "open-hermes"/);
+  assert.match(lessonsUi, /count === 1/);
+  assert.match(lessonsUi, /#lesson-list/);
 });
 
 test("lets users choose local machine vs Continuity VPS on every task not only offline failover", () => {
   const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
   const taskRouting = readFileSync(new URL("../lib/task-routing.ts", import.meta.url), "utf8");
   assert.match(dashboard, /routePreference/);
-  // Route chip uses real hostname when known — never a generic "My Mac" for multi-platform hosts.
+  // Unified "Run on" select (dual Where/Which chips removed — unreadable on mobile).
   assert.match(dashboard, /selectedDevice \? selectedDeviceLabel : "My computer"/);
-  assert.match(dashboard, /Where should this run\?/);
-  assert.match(dashboard, /composer-route-explain/);
-  assert.match(dashboard, /Auto — \$\{selectedDeviceLabel\} first/);
-  assert.match(dashboard, /\$\{selectedDeviceLabel\} only/);
+  assert.match(dashboard, /composer-unified-target/);
+  assert.match(dashboard, /composer-target-select/);
+  assert.match(dashboard, /Run on/);
+  assert.match(dashboard, /Auto — \{selectedDevice \? selectedDeviceLabel : "My computer"\} first, then Continuity/);
+  assert.match(dashboard, /only \(this Mac\)/);
   assert.match(dashboard, /Continuity \(cloud VPS\)/);
   assert.match(dashboard, /aria-labelledby="composer-where-label"/);
   assert.doesNotMatch(dashboard, /composer-route-label/);
@@ -254,19 +296,17 @@ test("lets users choose local machine vs Continuity VPS on every task not only o
 
 test("always shows which paired machine will run a task and pins deviceId", () => {
   const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
-  // Always show the select, always POST deviceId, and label with the connector hostname
-  // (not a hard-coded "Mac") so multi-platform users see the real machine.
+  // Unified select always POSTs deviceId; hostname via machineDisplayName (not hard-coded "Mac").
   assert.match(dashboard, /selectedDeviceId/);
   assert.match(dashboard, /composer-device-picker/);
-  assert.match(dashboard, /Which machine\?/);
+  assert.match(dashboard, /Which machine\?/); // sr-only contract alias
   assert.match(dashboard, /machineDisplayName/);
-  assert.match(dashboard, /devices\.length > 0/);
   assert.match(dashboard, /deviceId: selectedDeviceId/);
   assert.match(dashboard, /pickDefaultDeviceId/);
   assert.match(dashboard, /preferredDevicePreferenceKey|thumbgate\.preferredDeviceId/);
   assert.doesNotMatch(dashboard, /Most recently active/);
   assert.doesNotMatch(dashboard, /devices\.length > 1 && routePreference !== "cloud"/);
-  assert.match(globals, /\.composer-device-hint\{/);
+  assert.match(globals, /\.composer-unified-target\{/);
   assert.match(tasksRoute, /payload\?\.deviceId/);
 });
 

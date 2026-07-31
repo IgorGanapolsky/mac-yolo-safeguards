@@ -39,10 +39,7 @@ export function currentAndroidStorePackage(): string {
   return HERMES_MOBILE_ANDROID_PACKAGE;
 }
 
-/**
- * Paid-download builds already paid at install — treat Pro as unlocked without IAP.
- * Free listing builds still use hermes_pro_lifetime ($4.99 once).
- */
+/** Hermes Mobile is a paid, full-feature app on every supported store/package. */
 export function isStorePaidDownloadEntitled(): boolean {
-  return isAndroidPaidDownloadBuild();
+  return true;
 }

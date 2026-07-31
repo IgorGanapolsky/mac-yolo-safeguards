@@ -52,13 +52,16 @@ export function formatSessionCreated(value: unknown): string | null {
   if (!date) {
     return null;
   }
-  return date.toLocaleString([], {
+  // Prefix "Started": bare, this timestamp reads as "last activity" or "now". It is the
+  // moment the thread was created, and a stale-looking clock in the header made users think
+  // the app was frozen.
+  return `Started ${date.toLocaleString([], {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-  });
+  })}`;
 }
 
 /** Relative label for session lists — emphasizes recency (e.g. "2m ago", "11:24 AM"). */

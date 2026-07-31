@@ -1,5 +1,9 @@
 import { GATEWAY_WRONG_KEY_MESSAGE, gatewayAuthRepairBanner } from '../services/gatewayClient';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
+import {
+  humanizeModelProviderErrorMessage,
+  isModelProviderErrorMessage,
+} from './modelProviderErrorRecovery';
 
 const CONNECTIVITY_MARKERS = [
   'failed to fetch',
@@ -29,13 +33,17 @@ export function isConnectivityMessage(message: string): boolean {
     normalized.includes("can't reach hermes") ||
     normalized.includes("can't reach your mac") ||
     normalized.includes("can't reach your computer") ||
-    normalized.includes("can't reach that local computer link") ||
+    /can't reach that local computer (?:link|connection)/.test(normalized) ||
     normalized.includes("can't reach direct link") ||
     normalized.includes('hermes relay is not connected yet') ||
     normalized.includes('hermes relay is not paired yet') ||
     normalized.includes('your computer is not connected yet') ||
+    // friendlyMacUnreachableMessage() — keep these markers in sync with that copy.
+    normalized.includes('your mac is not connected yet') ||
+    normalized.includes('turn on tailscale') ||
     normalized.includes("can't reach that home wi-fi address") ||
     normalized.includes('chat needs a link to your computer') ||
+    normalized.includes('chat needs a connection to your mac') ||
     normalized.includes('use tailscale') ||
     normalized.includes('failed to connect to your computer') ||
     normalized.includes('failed to connect to your mac') ||
@@ -193,6 +201,13 @@ export function humanizeChatError(
     };
   }
 
+  if (isModelProviderErrorMessage(message)) {
+    return {
+      kind: 'operational',
+      message: humanizeModelProviderErrorMessage(message),
+    };
+  }
+
   if (lower.includes('ollama') || lower.includes('stalled') || lower.includes('stream timed out')) {
     return { kind: 'operational', message };
   }
@@ -231,11 +246,21 @@ export function humanizeChatError(
           if (msg === 'invalid_request_error') {
             return { kind: 'operational', message: 'Something went wrong talking to your computer. Try again.' };
           }
+          if (isModelProviderErrorMessage(msg)) {
+            return {
+              kind: 'operational',
+              message: humanizeModelProviderErrorMessage(msg),
+            };
+          }
           return { kind: 'operational', message: humanizeIfAbortMessage(msg) };
         }
       }
       if (parsed.message && typeof parsed.message === 'string') {
-        return { kind: 'operational', message: humanizeIfAbortMessage(parsed.message) };
+        const m = parsed.message;
+        if (isModelProviderErrorMessage(m)) {
+          return { kind: 'operational', message: humanizeModelProviderErrorMessage(m) };
+        }
+        return { kind: 'operational', message: humanizeIfAbortMessage(m) };
       }
       if (typeof parsed.error === 'string' && isRawAbortMessage(parsed.error)) {
         return { kind: 'operational', message: USER_RUN_INTERRUPTED_MESSAGE };
@@ -251,9 +276,9 @@ export function humanizeChatError(
 export function friendlyMacUnreachableMessage(gatewayUrl?: string): string {
   const url = gatewayUrl?.trim();
   if (url && isPrivateLanGatewayUrl(url)) {
-    return "Your phone can't reach that home Wi‑Fi address. Join the same Wi‑Fi, use Tailscale, or add a tunnel URL in Settings.";
+    return "Your phone can't reach that home Wi‑Fi address. Tailscale reaches your computer from anywhere — turn it on, or join the same Wi‑Fi.";
   }
-  return 'Your computer is not connected yet. Use Tailscale or home Wi‑Fi, or add your computer link in Settings.';
+  return 'Your Mac is not connected yet. Turn on Tailscale — it reaches your computer anywhere — or choose your Mac in Settings.';
 }
 
 /** Short copy for banners — full guidance lives in chatSendBlockedMessage. */
@@ -268,13 +293,13 @@ export function chatSendBlockedMessage(input: {
   healthProbePending?: boolean;
 }): string {
   if (input.healthProbePending) {
-    return 'Still checking your computer link. Message kept locally.';
+    return 'Still checking your Mac connection. Message kept locally.';
   }
   if (input.connectionMode === 'relay' && input.connectionState === 'connected') {
-    return 'Chat needs a link to your computer (home Wi‑Fi, Tailscale, or tunnel URL).';
+    return 'Chat needs a connection to your Mac (Home Wi‑Fi or Tailscale).';
   }
   if (input.connectionMode === 'relay') {
-    return 'Your computer is not connected yet. Open Settings to add Tailscale or a home Wi‑Fi link for Chat.';
+    return 'Your Mac is not connected yet. Open Settings to choose a Tailscale or Home Wi‑Fi connection.';
   }
   return friendlyMacUnreachableMessage(input.gatewayUrl);
 }

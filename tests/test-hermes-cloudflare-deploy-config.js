@@ -29,6 +29,20 @@ test("direct Cloudflare config is safe for local builds by default", () => {
   assert.equal(JSON.stringify(config).includes("appgprj_"), false);
 });
 
+test("observability sets explicit logs sampling and leaves beta traces off", () => {
+  const config = createDirectCloudflareConfig({});
+
+  assert.deepEqual(config.observability, {
+    enabled: true,
+    logs: { head_sampling_rate: 1 },
+  });
+  // Explicit intent: never miss an error (matches head_sampling_rate default,
+  // but written down rather than implicit). Traces stays unset — it is a
+  // separate, real wrangler key (verified against the installed 4.112.0
+  // config schema) that is billable and must be opted into deliberately.
+  assert.equal(config.observability.traces, undefined);
+});
+
 test("production gate requires the owned domain and a real D1 UUID", () => {
   assert.throws(
     () => assertProductionCloudflareEnvironment({}),
@@ -103,6 +117,34 @@ test("production deploy validates, migrates D1, then deploys the Worker", async 
   assert.equal(
     packageJson.scripts["deploy:cloudflare"],
     "npm run cloudflare:validate-production && npm run build:cloudflare && wrangler d1 migrations apply DB --remote --config dist/server/wrangler.json && wrangler deploy --config dist/server/wrangler.json",
+  );
+});
+
+test("predeploy:cloudflare backs up D1 before deploy:cloudflare applies migrations", async () => {
+  const packageJson = JSON.parse(
+    await readFile(
+      new URL("../apps/hermes-control-plane/package.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  // npm auto-runs "pre<script>" before "<script>" for any script name, so
+  // this fires ahead of deploy:cloudflare with no extra wiring required.
+  assert.equal(
+    packageJson.scripts["predeploy:cloudflare"],
+    "npm run cloudflare:validate-production && npm run build:cloudflare && wrangler d1 export DB --remote --output=.wrangler/backups/pre-deploy-$(date -u +%Y%m%dT%H%M%SZ).sql --config dist/server/wrangler.json",
+  );
+});
+
+test("rollback:cloudflare reverts the Worker to a previous published version", async () => {
+  const packageJson = JSON.parse(
+    await readFile(
+      new URL("../apps/hermes-control-plane/package.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  assert.equal(
+    packageJson.scripts["rollback:cloudflare"],
+    "wrangler rollback --config dist/server/wrangler.json",
   );
 });
 

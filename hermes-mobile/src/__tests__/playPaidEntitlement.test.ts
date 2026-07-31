@@ -28,9 +28,9 @@ describe('playPaidEntitlement', () => {
     };
   });
 
-  it('treats free listing builds as not store-paid', () => {
+  it('keeps the legacy Android package fully entitled with no IAP', () => {
     expect(isAndroidPaidDownloadBuild()).toBe(false);
-    expect(isStorePaidDownloadEntitled()).toBe(false);
+    expect(isStorePaidDownloadEntitled()).toBe(true);
     expect(currentAndroidStorePackage()).toBe('com.iganapolsky.hermesmobile');
   });
 

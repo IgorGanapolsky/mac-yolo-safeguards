@@ -7,6 +7,7 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
+    <!-- Audit-only: the script never deletes an existing worktree. -->
     <string>{{REPO}}/scripts/prune-stale-worktrees.sh</string>
   </array>
   <key>StartInterval</key>

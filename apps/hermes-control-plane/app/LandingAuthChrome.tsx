@@ -94,7 +94,7 @@ export function LandingAuthHero() {
       </a>
       {isPaid ? (
         <a href="/api/billing/portal" className="button button-secondary" data-funnel-event="manage_billing_click">
-          Manage Pro Subscription ($10/mo)
+          You&apos;re on Pro · Manage billing
         </a>
       ) : isSession ? (
         <a href="/api/billing/checkout" className="button button-secondary" data-funnel-event="upgrade_pro_click">
@@ -140,7 +140,7 @@ export function LandingAuthPanel() {
           <span className="action-icon" aria-hidden="true">☁</span>
           <span>
             <strong>Continuity</strong>
-            <small>Can pick up eligible work on a VPS when offline — still proving this out.</small>
+            <small>Hands eligible work to a fenced VPS runner when your Mac is offline.</small>
           </span>
           <b aria-hidden="true">→</b>
         </a>

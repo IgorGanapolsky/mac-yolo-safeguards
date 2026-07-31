@@ -1,0 +1,131 @@
+{
+  "run_id": "trun_d3be5e813aa94970beece9fa897b7b22",
+  "interaction_id": "trun_d3be5e813aa94970beece9fa897b7b22",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_d3be5e813aa94970beece9fa897b7b22",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Reasoning: The user provided a long, corrective field answer that makes several factual claims about ThumbGate.app being live, its pricing, and its relationship to Hermes Mobile, Web Control, Leash, and Cloud Continuity. The excerpts given include many references to ThumbGate.ai and general Hermes-related materials, but do not clearly corroborate the specific first-party ThumbGate.app claims (especially pricing, exact feature set, and the branding distinctions). Therefore, while the field answer attempts to be comprehensive, it is not clearly supported by the excerpts, and its completeness with respect to the provided field excerpts is questionable. I mark completeness as false and supported as false based on the excerpts provided.\n",
+        "citations": [
+          {
+            "url": "https://thumbgate.app/.well-known/ai-catalog.json",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://thumbgate.app/llms.txt",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://thumbgate.app/",
+            "excerpts": [],
+            "title": "ThumbGate \u2014 Your Hermes chats from any screen"
+          },
+          {
+            "url": "https://thumbgate.app/api/billing/plan",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "http://github.com/IgorGanapolsky/ThumbGate",
+            "excerpts": [
+              "6 days ago \u2014 ThumbGate is the local-first firewall for AI coding agents.\nThumbGate is the open-source layer that makes the trust part real: PreToolUse gates, thumbs-down to rule, audit trail on every interception."
+            ],
+            "title": "IgorGanapolsky/ThumbGate: Agent governance ..."
+          },
+          {
+            "url": "https://thumbgate.ai/guides/hermes-agent-guardrails",
+            "excerpts": [
+              "Hermes Agent Guardrails | Firewall for Self-Improving Agents\nThe buyer message Hermes can be the agent that grows with you. ThumbGate is the firewall that makes sure growth does not mean repeating expensive mistakes faster across more surfaces. For teams evaluating persistent agents, the practical first step is not another prompt."
+            ],
+            "title": "Hermes Agent Guardrails | Firewall for Self-Improving Agents"
+          },
+          {
+            "url": "https://thumbgate.ai/",
+            "excerpts": [
+              "ThumbGate \u2014 Pre-action checks for AI coding agents\nThumbGate adds a human-feedback loop plus configured Pre-Action Checks at the tool-call boundary. The default policy denies detected secret exfiltration and gate kill/bypass commands while other matching high-risk checks warn; strict mode also denies matching warning-mode checks."
+            ],
+            "title": "ThumbGate \u2014 Pre-action checks for AI coding agents"
+          },
+          {
+            "url": "https://github.com/IgorGanapolsky",
+            "excerpts": [
+              "IgorGanapolsky (Igor Ganapolsky) \u00b7 GitHub\nIgor Ganapolsky I build AI systems, mobile products, and developer tooling. Current focus: ThumbGate.ai - self-improving agent governance that turns thumbs-up/down feedback into pre-action gates that block repeat AI mistakes Random-Timer - native iOS and Android reaction timer for combat sports, BJJ, boxing, and HIIT"
+            ],
+            "title": "IgorGanapolsky (Igor Ganapolsky) \u00b7 GitHub"
+          },
+          {
+            "url": "http://linkedin.com/in/igor-ganapolsky-859317343",
+            "excerpts": [
+              "Senior Software Engineer & AI Architect specializing in Agentic Governance and Deterministic Guardrails."
+            ],
+            "title": "Igor Ganapolsky - Senior AI Systems Engineer"
+          },
+          {
+            "url": "https://thumbgate.app/sitemap.xml",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/blob/main/README.md",
+            "excerpts": [],
+            "title": "mac-yolo-safeguards/README.md at main \u00b7 IgorGanapolsky/mac-yolo-safeguards \u00b7 GitHub"
+          },
+          {
+            "url": "https://github.com/IgorGanapolsky/mac-yolo-safeguards",
+            "excerpts": [],
+            "title": "GitHub - IgorGanapolsky/mac-yolo-safeguards: OS-level safeguards layer for AI agent loops \u2014 runaway-kill, timeouts & resource limits so coding agents (Claude Code, Cursor, Codex, Antigravity) in YOLO mode can't burn tokens or freeze your Mac \u00b7 GitHub"
+          },
+          {
+            "url": "https://raw.githubusercontent.com/IgorGanapolsky/mac-yolo-safeguards/main/README.md",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://aisuccesslabjuliangoldie.com/blog/hermes-webui",
+            "excerpts": [
+              "Hermes WebUI Mobile Access: Use Your AI Agent From ...\naccess your Hermes AI agent from your phone anywhere in the world. Does it work on Android? Yes \u2014 same as iPhone. Home Screen on iOS / Android."
+            ],
+            "title": "Hermes WebUI Mobile Access: Use Your AI Agent From ..."
+          },
+          {
+            "url": "https://github.com/nesquena/hermes-webui",
+            "excerpts": [
+              "Hermes WebUI: The best way to use ...\nThe Hermes Web UI is fully responsive with a mobile-optimized layout (hamburger sidebar, sidebar top tabs in the drawer, touch-friendly controls), so it"
+            ],
+            "title": "Hermes WebUI: The best way to use ..."
+          },
+          {
+            "url": "https://github.com/bohanyt/hermes-custom-skills/blob/main/handoff/SKILL.md",
+            "excerpts": [
+              "hermes-custom-skills/handoff/SKILL.md at main \u00b7 bohanyt ...\nCustom skills for my Hermes Agent\ud83d\ude1c. Contribute to bohanyt/hermes-custom-skills development by creating an account on GitHub."
+            ],
+            "title": "hermes-custom-skills/handoff/SKILL.md at main \u00b7 bohanyt ..."
+          },
+          {
+            "url": "http://play.google.com/store/apps/details?hl=en-US&id=com.hermesagent.android",
+            "excerpts": [
+              "Hermes Agent - Android - Apps on Google Play Hermes Agent brings a powerful AI assistant directly to your Android device. Run AI agents locally with a built-in terminal, supporting multiple AI providers and advanced features \u2014 all from"
+            ],
+            "title": "Hermes Agent - Android - Apps on Google Play"
+          },
+          {
+            "url": "https://github.com/Anesu/hermes-custom-skills/blob/main/skills/handoff/SKILL.md",
+            "excerpts": [
+              "hermes-custom-skills/skills/handoff/SKILL.md at main \u00b7 Anesu ...\nWrite a handoff document summarising the current conversation so a fresh agent can continue the work. Save to the temporary directory of the user's OS - not the current workspace. Include a \"suggested skills\" section in the document, which suggests skills that the agent should invoke."
+            ],
+            "title": "hermes-custom-skills/skills/handoff/SKILL.md at main \u00b7 Anesu ..."
+          }
+        ],
+        "confidence": "low"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "trun_d3be5e813aa94970beece9fa897b7b22.md"
+  }
+}

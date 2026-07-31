@@ -92,7 +92,10 @@ describe('useHermesDeepLinks', () => {
           url: 'hermes://setup?pairCode=AB23CD45&pairServer=http://192.168.1.5:8765&name=Mac-Mini',
         });
       });
-      expect(fetchMock).toHaveBeenCalledWith('http://192.168.1.5:8765/pair-exchange?code=AB23CD45');
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://192.168.1.5:8765/pair-exchange?code=AB23CD45',
+        expect.objectContaining({ signal: expect.any(Object) }),
+      );
       expect(applySetupDeepLink).toHaveBeenCalledWith(
         expect.objectContaining({ gatewayUrl: 'http://127.0.0.1:8642', apiKey: 'sk-exchanged' }),
       );

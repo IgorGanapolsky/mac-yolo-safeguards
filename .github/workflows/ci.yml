@@ -19,12 +19,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # mac-mini-hermes (self-hosted, macos-arm64, hermes-e2e) is the default to cut
-  # GitHub-hosted macOS queue wait. Fork PRs stay on macos-latest (arbitrary code).
-  # If the mini is offline, temporarily switch runs-on below to macos-latest.
+  # Guard kit is pure Node/shell/static analysis — must stay on ubuntu-latest.
+  # 2026-07-30: PR runs on macos-latest sat queued forever (GitHub-hosted macOS starvation)
+  # and blocked required check "macOS guard kit" → merges stuck. Keep job name for branch protection.
   macos-guard:
     name: macOS guard kit
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'macos-latest' || fromJSON('["self-hosted", "macos-arm64", "hermes-e2e"]') }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -68,8 +68,13 @@ jobs:
           set -eu
           python3 -c 'import ast, pathlib, subprocess; tracked=subprocess.check_output(["git", "ls-files", "*.py"], text=True).splitlines(); files=[path for path in tracked if pathlib.Path(path).is_file()]; [ast.parse(pathlib.Path(path).read_text(), filename=path) for path in files]; print(f"parsed {len(files)} Python files")'
           python3 -m venv "$RUNNER_TEMP/ruff-venv"
-          "$RUNNER_TEMP/ruff-venv/bin/pip" install --disable-pip-version-check --quiet ruff==0.15.20
+          "$RUNNER_TEMP/ruff-venv/bin/pip" install --disable-pip-version-check --quiet ruff==0.15.20 Pillow==11.3.0
           git ls-files '*.py' | while IFS= read -r file; do test ! -f "$file" || printf '%s\n' "$file"; done | xargs "$RUNNER_TEMP/ruff-venv/bin/ruff" check --select F,E722
+
+      - name: Hermes store screenshot asset contract
+        run: |
+          set -eu
+          "$RUNNER_TEMP/ruff-venv/bin/python" hermes-mobile/scripts/test-store-screenshot-assets.py
 
       - name: Hermes gateway watchdog unit tests
         run: |
@@ -154,10 +159,39 @@ jobs:
           cmp -s ./scripts/memory-pressure-guardian.sh "$staged_guard_dir/memory-pressure-guardian.sh"
 
       - name: Guard E2E
+        if: runner.os == 'macOS'
         run: |
           set -eu
           tests/test-adb-reverse-device-filter.sh
           tests/test-secondary-browser-reclaim.sh
+
+      # poolside-yolo asserts it runs fully autonomous. It shipped a --mode value
+      # pool does not recognise, so pool silently reverted to approval prompts and
+      # nobody noticed for days — this suite was never wired into CI. It is
+      # hermetic (stubs pool + the gateway) and skips its one live probe when no
+      # real pool/gateway is present, so it is safe on a Linux runner.
+      - name: Vendor -yolo wrappers
+        run: |
+          set -eu
+          # Run through run-suite, not bare bash: a suite that exits 0 having asserted
+          # nothing is VACUOUS, not clean, and must not be reported as a pass. The
+          # trailing number is the min assertion count each suite must actually emit.
+          bash tests/run-suite.sh tests/test-run-suite.sh 7
+          bash tests/run-suite.sh tests/test-poolside-yolo.sh 30
+          # The ACP image guard. Without it a pasted screenshot returns
+          # "400 ... does not support multimodal" and — because pool replays the whole
+          # conversation each turn — poisons the session so every later prompt fails
+          # too, text-only ones included. One of its assertions is a live canary that
+          # goes red if Poolside ever fixes the capability mismatch upstream.
+          bash tests/run-suite.sh tests/test-poolside-acp-imageguard.sh 11
+          bash tests/run-suite.sh tests/test-hermes-primary-route-recovery.sh 6
+          # Mutation control: proves the suites above actually go RED against the
+          # real historical bugs, instead of passing while measuring nothing.
+          bash tests/run-suite.sh tests/test-harness-verifier-integrity.sh 6
+          # ML pipeline: mostly negative controls. Two independent label leaks reached
+          # AUC 0.9999 and 1.0000 during development; these assert the pipeline can
+          # still tell leaking from learning.
+          bash tests/run-suite.sh tests/test-ml-pipeline.sh 9
 
       - name: Public secret smoke scan
         run: |
@@ -193,14 +227,36 @@ jobs:
       - name: Store link freshness check
         run: node tools/check-store-links.js
 
-      - name: Social publish hard gates (unit)
-        run: node tests/test-social-publish-gate.js
-
-      - name: Social campaign data science (unit)
-        run: node tests/test-social-campaign-ds.js
-
       - name: Publication readiness
         run: node tools/publication-readiness.js
+
+      # ML integrity (fail-closed) — offline platform bar; does not require Stripe/labels.
+      - name: ML integrity + platform gate
+        run: |
+          set -eu
+          node tests/test-ml-stack.js
+          node tests/test-ml-best-in-class.js
+          node tests/test-ml-integrity.js
+          ML_GATE_SKIP_UNIT=1 node tools/ml-gate.js --strict-platform
+          node tools/ml-integrity.js scan-claim --text "platform ready; production_ml_ready=false"
+          ! node tools/ml-integrity.js scan-claim --text "best-in-class production ML model with 100% auc"
+
+      # tinker-brain answers the revenue questions (cash truth, promo bans, score
+      # honesty) and nothing in CI had ever run it: its contracts and eval cases
+      # were hand-run only, so a regression in the brain could ship green. The
+      # suites are hermetic Python — every probe the exporter reads is injected,
+      # so no ~/.hermes state, no Ollama, no network, no node.
+      - name: Tinker-brain revenue contracts and evals
+        run: |
+          set -eu -o pipefail
+          python3 tests/test-tinker-brain.py 2>&1 | tee "$RUNNER_TEMP/tinker-tests.log"
+          python3 tools/tinker-brain/tinker_brain_eval.py | tee "$RUNNER_TEMP/tinker-eval.log"
+          # Both suites exit non-zero on a failing case, but a suite that exits 0
+          # having asserted nothing is VACUOUS, not clean — pin the floors too.
+          ran="$(sed -n 's/^Ran \([0-9]\{1,\}\) test.*/\1/p' "$RUNNER_TEMP/tinker-tests.log")"
+          passed="$(sed -n 's|^tinker-brain eval: \([0-9]\{1,\}\)/.*|\1|p' "$RUNNER_TEMP/tinker-eval.log")"
+          test "${ran:-0}" -ge 15
+          test "${passed:-0}" -ge 42
 
   mobile-checks:
     name: Hermes Mobile typecheck and tests

@@ -21,9 +21,23 @@ const EVENTS = new Set([
   "dashboard_open_click",
 ]);
 
+const ALLOWED_ERROR_CLASSES = new Set([
+  "Error",
+  "TypeError",
+  "ReferenceError",
+  "SyntaxError",
+  "RangeError",
+  "URIError",
+  "EvalError",
+  "AggregateError",
+  "OtherError",
+]);
+
 type AnalyticsPayload = {
   schemaVersion?: number;
   event?: string;
+  /** Allowlisted Error.name only (ClientErrorBeacon). Never free-form. */
+  errorClass?: string;
   utmSource?: string;
   utm_source?: string;
   utmMedium?: string;
@@ -33,6 +47,12 @@ type AnalyticsPayload = {
   ctaId?: string;
   cta_id?: string;
 };
+
+function sanitizeErrorClass(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  if (!ALLOWED_ERROR_CLASSES.has(value)) return null;
+  return value;
+}
 
 async function bumpAggregate(day: string, event: string, now: number) {
   await db()
@@ -91,11 +111,16 @@ export async function POST(request: Request) {
 
   const event = payload.event as string;
   const attr = parseAttributionFromPayload(payload);
+  const errorClass = event === "client_error" ? sanitizeErrorClass(payload.errorClass) : null;
   const now = Date.now();
   const day = new Date(now).toISOString().slice(0, 10);
 
   try {
     await bumpAggregate(day, event, now);
+    // Class histogram for triage (still content-free — name only).
+    if (errorClass) {
+      await bumpAggregate(day, `client_error_class_${errorClass}`, now);
+    }
     // Dual-write only when at least one sanitized campaign token is present.
     if (hasAttribution(attr)) {
       await bumpAttribution(day, event, attr, now);

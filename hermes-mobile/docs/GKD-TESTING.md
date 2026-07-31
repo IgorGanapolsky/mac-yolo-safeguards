@@ -10,7 +10,7 @@
 |-----|-----|
 | Mega-session stall CTA | Auto-tap **Start fresh chat** when summarization stub leaves the chat looking done |
 | Stuck run banner | Tap **Stop stuck run** / **Stop run** during long dogfood sessions |
-| Heal exhausted | Prefer **Switch computer** when **Still checking your computer link** lingers |
+| Heal exhausted | Prefer **Switch computer** when **Still checking your Mac connection** lingers |
 
 ## When NOT to use GKD
 

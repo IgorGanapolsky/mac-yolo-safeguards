@@ -8,7 +8,7 @@
 |------|------------------|------------|
 | Cold start | `stranger-cold-start.yaml` | `connect-mac-gate` + onboarding card + Find computers |
 | Tabs | `fresh-user-tabs.yaml` | Leash / Settings / Hermes reachable without demo |
-| Paid upgrade UI | `fresh-user-leash-paywall.yaml` | `pro-upgrade-card`, IAP subscribe/restore, legal copy; tap Subscribe does not crash |
+| Paid app access | `fresh-user-paid-full-access.yaml` | Full Leash access; no unlock, restore, or second-payment controls |
 
 **Not proven (needs real Mac + store sandbox):** chat send to gateway, completed IAP charge, multi-Mac identity.
 
@@ -39,7 +39,8 @@ Proofs: `docs/proofs/fresh-user-e2e-<timestamp>/result.json` (+ Maestro logs / f
 | Android emulator | **PASS** full suite (cold start + tabs + paywall + Subscribe → alert OK) | `docs/proofs/fresh-user-e2e-20260715T182722Z/android-maestro.log` |
 | iOS simulator | **Blocked this session** by host thrash: `sim-runaway-guard` + jetsam shut down the sim under load 100–400 while Maestro ran | Orchestration ready; re-run when load &lt; ~40 with guard paused or after RAM reclaim |
 
-**Paid upgrade on emulator:** asserts `leash-pro-upsell-card`, `pro-upgrade-card`, IAP subscribe/restore/legal, taps Subscribe; debug build shows “Store billing is unavailable” (expected without Play Billing). Real charge still needs store sandbox.
+**Paid-app access on emulator:** asserts the Leash empty state is available and
+the retired paywall, purchase, and restore controls are absent.
 
 ## Suite entry
 
@@ -47,12 +48,12 @@ Proofs: `docs/proofs/fresh-user-e2e-<timestamp>/result.json` (+ Maestro logs / f
 .maestro/fresh-user-suite.yaml
   → fresh-user-cold-start.yaml
   → fresh-user-tabs.yaml
-  → fresh-user-leash-paywall.yaml
+  → fresh-user-paid-full-access.yaml
 ```
 
 ## Paid upgrade notes
 
-- Free weekly Leash still unlocks approvals; **Pro upsell is near the top of Leash** when not Pro (`leash-pro-upsell-card` / `pro-upgrade-card`).
+- Paid Hermes Mobile includes Leash with no weekly meter or second paywall.
 - Maestro **does not complete** a real Store purchase (needs sandbox Apple/Google account + human OTP).
 - It **does** assert the IAP CTA surface and that tapping Subscribe leaves the app alive.
 

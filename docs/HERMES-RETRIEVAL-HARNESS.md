@@ -22,6 +22,10 @@ node tools/hermes-retrieval-harness.js grep --pattern "gap analysis" --json
 
 - Only text-like repo files are indexed.
 - Build, dependency, artifact, and worktree directories are skipped.
+- Raw `parallel-research/` provider receipts are skipped so repeated generated
+  prose cannot crowd canonical code or curated `docs/RESEARCH-*` decisions out
+  of bounded architecture retrieval. The curated decision document remains
+  searchable; the raw receipt remains in git as provenance.
 - `read` refuses paths outside the repo.
 - Results are citations and snippets, not completion claims.
 - Secret-bearing runtime files are not needed for normal use.

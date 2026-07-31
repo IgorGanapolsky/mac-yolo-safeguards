@@ -1,0 +1,238 @@
+{
+  "run_id": "trun_d3be5e813aa949708dfbfc4702467c9f",
+  "interaction_id": "trun_d3be5e813aa949708dfbfc4702467c9f",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_d3be5e813aa949708dfbfc4702467c9f",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Assessment notes:\n- The field_description asks for 3 concise card variants promoting paid plans, with specific constraints, plus a recommendation and measurable conversion events. It also requires live first-party sources when possible.\n- The provided field_answer delivers only one card variant (not three), and primarily argues that many features in the prompt do not exist and that only ThumbGate Pro should be promoted with one variant. It does not supply 3 variants as requested, nor does it explicitly enumerate 3 concise variants with headlines/body/CTA beyond the single recommended card. Therefore, completeness should be false.\n- The answer leans on claims about feature existence (e.g., ThumbGate.app, Hermes Web, Continuity, Leash, signed pairing, etc.) that are not fully corroborated by the excerpts. The excerpts do include pricing, Pro features, and general ThumbGate positioning, but do not clearly substantiate all negative assertions or the absence of those surfaces. Given the mixed support, the field answer is not clearly supported across all asserted facts.\n- Given the instruction to rely on first-party sources, the answer does provide a recommended card grounded in Pricing/Pro pages, but the absence of three variants and explicit measurable conversion events makes it incomplete.\n- Conclude: completeness = false; supported = likely false or mixed, but due to explicit missing variants and potential gaps in support, set to false.",
+        "citations": [
+          {
+            "url": "https://www.reddit.com/r/hermesagent/comments/1u3iscw/hermes_agent_mobile_fully_local_android_app",
+            "excerpts": [
+              "Hermes Agent Mobile - Fully Local Android App (Pre ...\nI'm developing Hermes Agent Mobile, a native Android app for Hermes. It runs fully locally on-device with no cloud dependency for core features."
+            ],
+            "title": "Hermes Agent Mobile - Fully Local Android App (Pre ..."
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?hl=fr&id=hermes.agent.mobile",
+            "excerpts": [
+              "Hermes Agent \u2013 Applications sur Google Play\n22 juin 2026 \u00b7 Hermes Agent transpose l'exp\u00e9rience Hermes Desktop sur Android. Con\u00e7ue comme une interface mobile intuitive, elle offre les m\u00eames"
+            ],
+            "title": "Hermes Agent \u2013 Applications sur Google Play"
+          },
+          {
+            "url": "https://thumbgate.ai/guides/hermes-agent-guardrails",
+            "excerpts": [
+              "Hermes Agent Guardrails | Firewall for Self-Improving Agents\nThe buyer message Hermes can be the agent that grows with you. ThumbGate is the firewall that makes sure growth does not mean repeating expensive mistakes faster across more surfaces. For teams evaluating persistent agents, the practical first step is not another prompt."
+            ],
+            "title": "Hermes Agent Guardrails | Firewall for Self-Improving Agents"
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?id=com.hermes.maisonhermesjpv2",
+            "excerpts": [
+              "Maison Herm\u00e8s - Apps on Google Play\n25 mars 2026 \u2014 The \"Maison Herm\u00e8s\" app introduces you to the world of Herm\u00e8s. Beginning with information about Herm\u00e8s' official online boutiques,"
+            ],
+            "title": "Maison Herm\u00e8s - Apps on Google Play"
+          },
+          {
+            "url": "http://play.google.com/store/apps/details?hl=en_US&id=com.groundwidgets.hermes",
+            "excerpts": [
+              "[GroundWidgets (GW)](https://play.google.com/store/apps/developer?id=GroundWidgets+%28GW%29) Content rating Rated for 3+ _info_ 100+ Downloads Install Share Add to wishlist Content rating Rated for 3+ [Learn more](https://support.google.com/googleplay?p=appgame_ratings) Screenshot image Screenshot image Screenshot image Screenshot image Screenshot image Screenshot image ## About this app _arrow_forward_ With Hermes Worldwide mobile app you can book premium car service right from your mobile device!"
+            ],
+            "title": "Hermes Worldwide - Apps on Google Play"
+          },
+          {
+            "url": "https://thumbgate.ai/pricing",
+            "excerpts": [
+              "Pricing \u2014 ThumbGate\nThumbGate pricing: free CLI forever, $19/mo Pro dashboard, and custom Enterprise enforcement scoped after intake. One clear subscription path."
+            ],
+            "title": "Pricing \u2014 ThumbGate"
+          },
+          {
+            "url": "https://agentic.ai/t/thumbgate",
+            "excerpts": [
+              "ThumbGate - Agentic AI Directory\nThumbGate sits in front of coding-agent tool calls and blocks risky repeats before they run. It turns thumbs-up and thumbs-down feedback into reusable rules, with local use for individuals and paid options for dashboards, sync, and team visibility."
+            ],
+            "title": "ThumbGate - Agentic AI Directory"
+          },
+          {
+            "url": "https://thumbgate.ai/",
+            "excerpts": [
+              "ThumbGate \u2014 Stop risky AI-agent actions before they run\nThumbGate's role: the pre-action gate between generated intent and executed action. Verification after a pull request is useful, but it is too late for force-pushes, destructive SQL, unsafe deploys, leaked secrets, and costly external API calls."
+            ],
+            "title": "ThumbGate \u2014 Stop risky AI-agent actions before they run"
+          },
+          {
+            "url": "https://thumbgate.ai/chatgpt-app",
+            "excerpts": [
+              "ThumbGate for ChatGPT - GPT Action + Agent Guardrails\nUse the live ThumbGate GPT to preflight risky agent actions, capture typed thumbs-up/down lessons, and route those lessons into local enforcement for Codex, Claude Code, Cursor, Gemini CLI, and MCP-compatible agents."
+            ],
+            "title": "ThumbGate for ChatGPT - GPT Action + Agent Guardrails"
+          },
+          {
+            "url": "https://marketplace.visualstudio.com/items?itemName=igorganapolsky.thumbgate",
+            "excerpts": [
+              "ThumbGate - Visual Studio Marketplace\nThumbGate adds a local MCP guardrail layer for AI coding agents. It captures thumbs up/down feedback, turns repeated mistakes into local prevention rules, and checks risky tool calls before they run. Works through VS Code's MCP provider API plus a .vscode/mcp.json fallback for VS Code-compatible IDEs, including Open VSX and Antigravity-style forks."
+            ],
+            "title": "ThumbGate - Visual Studio Marketplace"
+          },
+          {
+            "url": "https://thumbgate.ai/pro",
+            "excerpts": [
+              "ThumbGate Pro | Personal local dashboard and proof for AI ...\nFree keeps the local recall, Pre-Action Checks, and MCP setup. Pro adds the personal local dashboard, DPO export, auto-connect after activation, and founder support when one risky workflow keeps repeating the same failure mode."
+            ],
+            "title": "ThumbGate Pro | Personal local dashboard and proof for AI ..."
+          },
+          {
+            "url": "https://www.thumbgate.com/",
+            "excerpts": [
+              "thumbgate.com - Login to your admin interface\nForgot your password? Don't worry! Simply enter your email address and we'll send you a new one right now."
+            ],
+            "title": "thumbgate.com - Login to your admin interface"
+          },
+          {
+            "url": "https://thumbgate.ai/federal",
+            "excerpts": [
+              "ThumbGate for Federal Agencies | Auditable pre-action gates ...\nThumbGate is a pre-action enforcement layer for AI coding agents used inside federal agencies. Auditable agent behavior, agency-owned policy, vendor-neutral. Pilot-ready posture mapped to NIST 800-53 and OMB M-24-10."
+            ],
+            "title": "ThumbGate for Federal Agencies | Auditable pre-action gates ..."
+          },
+          {
+            "url": "https://thumbgate-production.up.railway.app/",
+            "excerpts": [
+              "ThumbGate \u2014 Pre-action checks for AI coding agents\nPricing is workflow-scoped and shared after the intake call. Annual pre-pay available. Enterprise Pilot. Start the AI Agent Governance Sprint with one repeat"
+            ],
+            "title": "ThumbGate \u2014 Pre-action checks for AI coding agents"
+          },
+          {
+            "url": "https://thumbgate.ai/compare/arcjet",
+            "excerpts": [
+              "ThumbGate vs Arcjet | Agent-Outbound Gate Pairs With App ...\nJun 8, 2026 \u2014 Arcjet has a free tier and paid tiers for production volume (see arcjet.com/pricing). ThumbGate ships an open-source free tier. The two pricing decisions are"
+            ],
+            "title": "ThumbGate vs Arcjet | Agent-Outbound Gate Pairs With App ..."
+          },
+          {
+            "url": "https://clawhub.ai/igorganapolsky/thumbgate",
+            "excerpts": [
+              "ThumbGate \u2014 ClawHub\nThumbGate \u2014 Pre-Action Gates for AI Agents Stop your AI from making the same mistake twice. Repeated AI mistakes cost real money in tokens. Thumbs-down once \u2014 ThumbGate blocks that exact pattern on every future call, across every agent you use."
+            ],
+            "title": "ThumbGate \u2014 ClawHub"
+          },
+          {
+            "url": "http://github.com/IgorGanapolsky/ThumbGate",
+            "excerpts": [
+              "6 days ago \u2014 ThumbGate is the local-first firewall for AI coding agents.\nThumbGate is the open-source layer that makes the trust part real: PreToolUse gates, thumbs-down to rule, audit trail on every interception."
+            ],
+            "title": "IgorGanapolsky/ThumbGate: Agent governance ..."
+          },
+          {
+            "url": "https://thumbgate.ai/guides/pre-action-checks",
+            "excerpts": [
+              "Pre-Action Checks for AI Coding Agents | ThumbGate Guide\nPre-action gates stop the risky move before the agent executes it. ThumbGate uses thumbs-up/down feedback to decide what should be reinforced, warned, or blocked. Prompt rules are advisory. Pre-action gates are enforcement. A repeated thumbs down can become a warning gate or a hard block."
+            ],
+            "title": "Pre-Action Checks for AI Coding Agents | ThumbGate Guide"
+          },
+          {
+            "url": "https://play.google.com/store/apps/details?hl=fr&id=com.domaintools.whois",
+            "excerpts": [
+              "Whois \u2013 Applications sur Google Play\nMay 17, 2026 \u2014 V\u00e9rifiez rapidement les informations WHOIS d'un domaine : - Le domaine est disponible ou pris - Qui est le propri\u00e9taire du domaine"
+            ],
+            "title": "Whois \u2013 Applications sur Google Play"
+          },
+          {
+            "url": "https://github.com/IgorGanapolsky/ThumbGate",
+            "excerpts": [
+              "GitHub - IgorGanapolsky/ThumbGate: Agent governance for ...\nFree tier: 2 feedback captures/day (10 total) and up to 3 active auto-promoted prevention rules. Pro: $19/mo or $149/yr \u2014 unlimited rules, history-aware lessons, feedback sessions, dashboard, DPO export. Enterprise (custom pricing, scoped after intake) adds a shared hosted lesson DB, org dashboard, and shared org-wide enforcement."
+            ],
+            "title": "GitHub - IgorGanapolsky/ThumbGate: Agent governance for ..."
+          },
+          {
+            "url": "https://www.freshcrate.ai/projects/ThumbGate",
+            "excerpts": [
+              "ThumbGate \u2014 freshcrate\nAcross Claude Code, Cursor, Codex, Gemini, Amp, OpenCode \u2014 any MCP-compatible agent, forever. Under the hood: your thumbs-down becomes a Pre-Action Gate that physically blocks the pattern permanently on every future call \u2014 across every session, every model, every agent."
+            ],
+            "title": "ThumbGate \u2014 freshcrate"
+          },
+          {
+            "url": "https://developer.paypal.com/docs/multiparty/checkout/apm/reference/subscribe-to-webhooks",
+            "excerpts": [
+              "Subscribe to checkout webhooks\nMay 6, 2026 \u2014 To complete an end-to-end integration of alternative payment methods with the Orders API, subscribe to the following webhooks: CHECKOUT."
+            ],
+            "title": "Subscribe to checkout webhooks"
+          },
+          {
+            "url": "http://play.google.com/store/apps/details?hl=en_US&id=com.hermesagent.android",
+            "excerpts": [
+              "Jul 12, 2026 \u2014 Hermes Agent brings a powerful AI assistant directly to your Android device."
+            ],
+            "title": "Hermes Agent - Android - Apps on Google Play"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/",
+            "excerpts": [
+              "Hermes Agent | Nous Research\nHermes Agent \u2014 the open-source agent that grows with you. Native app for macOS, Windows, and Linux. By Nous Research."
+            ],
+            "title": "Hermes Agent | Nous Research"
+          },
+          {
+            "url": "https://www.noxcod.com/outils-ia/hermes",
+            "excerpts": [
+              "Hermes Agent (Nous Research) : l'agent IA \u00e0 m\u00e9moire long ...\n31 mai 2026 \u2014 Hermes Agent est un agent IA autonome open source (licence MIT) d\u00e9velopp\u00e9 par Nous Research et lanc\u00e9 d\u00e9but 2026. Sa particularit\u00e9 tient en\u00a0"
+            ],
+            "title": "Hermes Agent (Nous Research) : l'agent IA \u00e0 m\u00e9moire long ..."
+          },
+          {
+            "url": "https://hermes-agent.org/",
+            "excerpts": [
+              "Hermes Agent \u2014 Open-Source AI Agent with Persistent Memory"
+            ],
+            "title": "Hermes Agent \u2014 Open-Source AI Agent with Persistent Memory hermes-agent.org https://hermes-agent.org"
+          },
+          {
+            "url": "https://mcpmarket.com/server/thumbgate",
+            "excerpts": [
+              "ThumbGate: Block AI Coding Errors with Pre-Action Gates\nTransforms human feedback into preventative gates to block AI coding agent mistakes before they execute. ThumbGate acts as a critical safety net for AI coding agents, allowing users to reinforce good behavior with a thumbs-up and block repeated mistakes with a thumbs-down."
+            ],
+            "title": "ThumbGate: Block AI Coding Errors with Pre-Action Gates"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/blob/main/website/docs/getting-started/installation.md",
+            "excerpts": [
+              "hermes-agent/website/docs/getting-started/installation.md at main\nInstall Hermes Agent on Linux, macOS, WSL2, native Windows, or Android via Termux Installation Get Hermes Agent up and running in under two"
+            ],
+            "title": "hermes-agent/website/docs/getting-started/installation.md at main"
+          },
+          {
+            "url": "http://github.com/NousResearch/hermes-agent",
+            "excerpts": [
+              "Hermes Agent](https://hermes-agent.nousresearch.com/) | [Hermes Desktop](https://hermes-agent.nousresearch.com/) [Documentation](https://hermes-agent.nousresearch.com/docs/) [Discord](https://discord.gg/NousResearch) [License: MIT](https://github.com/NousResearch/hermes-agent/blob/main/LICENSE) [Built by Nous Research](https://nousresearch.com) \u4e2d\u6587 \u0627\u0631\u062f\u0648 Espa\u00f1ol **The self-improving AI agent built by [Nous Research](https://nousresearch.com) .** It's the only agent with a built-in learning loop \u2014 it creates skills from experience, improves them during use, nudges itself to persist knowledge, searches its own past conversations, and builds a deepening model of who you\n[Hermes Agent](https://hermes-agent.nousresearch.com/) | [Hermes Desktop](https://hermes-agent.nousresearch.com/) [Documentation](https://hermes-agent.nousresearch.com/docs/) [Discord](https://discord.gg/NousResearch) [License: MIT](https://github.com/NousResearch/hermes-agent/blob/main/LICENSE) [Built by Nous Research](https://nousresearch.com) \u4e2d\u6587 \u0627\u0631\u062f\u0648 Espa\u00f1ol **The self-improving AI agent built by [Nous Research](https://nousresearch.com) .** It's the only agent with a built-in learning loop \u2014 it creates skills from experience, improves them during use, nudges itself to persist knowledge, searches its own past conversations, and builds a deepening model of who you are across sessions. Run it on a $5 VPS, a GPU cluster, or serverless infrastructure that costs nearly nothing when idle."
+            ],
+            "title": "GitHub - NousResearch/hermes-agent: The agent that grows with you \u00b7 GitHub"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs",
+            "excerpts": [
+              "Hermes Agent Documentation | Hermes Agent\nThe self-improving AI agent built by Nous Research. The only agent with a built-in learning loop \u2014 it creates skills from experience, improves them during use, nudges itself to persist knowledge, and builds a deepening model of who you are across sessions."
+            ],
+            "title": "Hermes Agent Documentation | Hermes Agent"
+          },
+          {
+            "url": "https://hub.docker.com/r/nousresearch/hermes-agent",
+            "excerpts": [
+              "nousresearch/hermes-agent - Docker Image\nHermes Agent \u2060 The self-improving AI agent built by Nous Research. The only agent with a built-in learning loop \u2014 it creates skills from experience, improves them during use, nudges itself to persist knowledge, and builds a deepening model of who you are across sessions. What is Hermes Agent?"
+            ],
+            "title": "nousresearch/hermes-agent - Docker Image"
+          }
+        ],
+        "confidence": "low"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "trun_d3be5e813aa949708dfbfc4702467c9f.md"
+  }
+}

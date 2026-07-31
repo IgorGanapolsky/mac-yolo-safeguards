@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import {
@@ -50,7 +51,9 @@ export function savedProfileFallbackUrls(input: {
     if (isTailscaleGatewayUrl(url)) {
       tailscale.push(url);
     } else if (isLoopbackGatewayUrl(url)) {
-      loopback.push(url);
+      if (Platform.OS === 'android') {
+        loopback.push(url);
+      }
     } else if (isPrivateLanGatewayUrl(url)) {
       lan.push(url);
     } else {
@@ -175,6 +178,10 @@ export function shouldPreferUsbProbeFirst(input: {
    */
   liveUsbSameMachine?: boolean;
 }): boolean {
+  // iOS/web: no adb reverse — never prioritize 127.0.0.1 (iPad stuck USB 2026-07-25).
+  if (Platform.OS !== 'android') {
+    return false;
+  }
   if (input.liveUsbSameMachine) {
     return true;
   }
@@ -201,6 +208,10 @@ export function shouldKeepUsbOverStickyRemote(input: {
   stickyProfileUrl?: string | null;
   liveUsbSameMachine: boolean;
 }): boolean {
+  // iOS has no adb reverse — never pin the session on 127.0.0.1 over a real Mac URL.
+  if (Platform.OS !== 'android') {
+    return false;
+  }
   const effective = input.effectiveGatewayUrl?.trim() ?? '';
   const sticky = input.stickyProfileUrl?.trim() ?? '';
   if (!input.liveUsbSameMachine || !isLoopbackGatewayUrl(effective)) {
@@ -231,6 +242,21 @@ export function shouldDeferLoopbackSuccessOnCellular(input: {
     isLoopbackGatewayUrl(input.primaryUrl) &&
     input.hasTailscaleAlternate
   );
+}
+
+/**
+ * Probe the selected route first unless network state proves that doing so would
+ * impose a full gateway timeout before a usable remote fallback.
+ *
+ * A VPN can make NetInfo ambiguous, so reachable Wi-Fi routes remain
+ * authoritative. A private-LAN route that is definitively off Wi-Fi must yield
+ * immediately to its same-machine Tailscale alternate.
+ */
+export function shouldProbePrimaryGatewayBeforeFallbacks(input: {
+  skipLan: boolean;
+  deferLoopbackOnCellular: boolean;
+}): boolean {
+  return !input.skipLan && !input.deferLoopbackOnCellular;
 }
 
 /**
@@ -346,16 +372,29 @@ export async function resolveApiKeyForGatewayProbe(input: {
   profiles: GatewayProfile[];
   activeProfileId: string | null | undefined;
   fallbackKey: string;
+  preferFallbackForActiveMachine?: boolean;
   resolveProfileKey: (profileId: string) => Promise<string | null>;
 }): Promise<string> {
   const matched = findProfileForGatewayUrl(input.profiles, input.gatewayUrl);
+  const activeId = input.activeProfileId?.trim();
+  const active = activeId
+    ? input.profiles.find((profile) => profile.id === activeId)
+    : undefined;
+  if (
+    input.preferFallbackForActiveMachine &&
+    input.fallbackKey.trim() &&
+    matched &&
+    activeId &&
+    (matched.id === activeId || (active && profilesShareMachine(active, matched)))
+  ) {
+    return input.fallbackKey.trim();
+  }
   if (matched) {
     const matchedKey = await input.resolveProfileKey(matched.id);
     if (matchedKey) {
       return matchedKey;
     }
   }
-  const activeId = input.activeProfileId?.trim();
   if (activeId) {
     const activeKey = await input.resolveProfileKey(activeId);
     if (activeKey) {

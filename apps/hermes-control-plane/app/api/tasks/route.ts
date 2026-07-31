@@ -61,6 +61,8 @@ export async function POST(request: Request) {
     threadId?: string;
     deviceId?: string;
     idempotencyKey?: string;
+    /** Optional correlation id for observability (defaults to task id). */
+    traceId?: string;
     /** local = Mac only; cloud = Continuity always; auto = offline failover (default). */
     routePreference?: string;
   } | null;
@@ -138,6 +140,11 @@ export async function POST(request: Request) {
   }
 
   const taskId = crypto.randomUUID();
+  /** Client may supply a correlation id; default to task id for end-to-end traces. */
+  const traceId =
+    typeof payload?.traceId === "string" && payload.traceId.trim()
+      ? payload.traceId.trim().slice(0, 64)
+      : taskId;
   const idempotencyKey = payload?.idempotencyKey?.trim().slice(0, 120) || crypto.randomUUID();
   try {
     await db().batch([
@@ -156,8 +163,12 @@ export async function POST(request: Request) {
   } catch (error) {
     if (String(error).includes("tasks_org_idempotency_unique")) {
       const existing = await db().prepare("SELECT id, status, route FROM tasks WHERE organization_id = ? AND idempotency_key = ?")
-        .bind(session.organizationId, idempotencyKey).first();
-      return Response.json({ task: existing, duplicate: true }, { status: 200 });
+        .bind(session.organizationId, idempotencyKey).first() as { id?: string; status?: string; route?: string } | null;
+      return Response.json({
+        task: existing ? { ...existing, traceId: existing.id ?? traceId } : existing,
+        duplicate: true,
+        traceId: existing?.id ?? traceId,
+      }, { status: 200 });
     }
     throw error;
   }
@@ -173,6 +184,7 @@ export async function POST(request: Request) {
       status,
       preference,
       deviceId: device.id,
+      traceId,
       ...governanceAuditMetadata(decision, { stage: "admission", route }),
     },
   });
@@ -186,6 +198,11 @@ export async function POST(request: Request) {
       preference,
       deviceId: device.id,
       createdAt: now,
+      traceId,
     },
-  }, { status: 201 });
+    traceId,
+  }, {
+    status: 201,
+    headers: { "x-thumbgate-trace-id": traceId },
+  });
 }

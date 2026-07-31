@@ -40,6 +40,8 @@ export type ChatMessageListItemProps = {
   isTelegramInbox: boolean;
   connectionState: LeashConnectionState;
   macHttpOk: boolean;
+  /** Failed turn the app will resend by itself — bubble shows progress, not "tap ↑". */
+  autoResendPending?: boolean;
   approvalBusy: boolean;
   isSending: boolean;
   outputFeedback?: OutputFeedbackHandlers;
@@ -61,6 +63,7 @@ function ChatMessageListItem({
   isTelegramInbox,
   connectionState,
   macHttpOk,
+  autoResendPending = false,
   approvalBusy,
   isSending,
   outputFeedback,
@@ -170,6 +173,7 @@ function ChatMessageListItem({
       outboundFailureReason={isUser ? item.outboundFailureReason : undefined}
       connectionState={connectionState}
       macHttpOk={macHttpOk}
+      autoResendPending={autoResendPending}
       onShowDetail={(body) => onShowDetail(body, isUser)}
       inlineApproval={inlineApproval}
       clarification={clarification}
@@ -205,6 +209,9 @@ export default React.memo(ChatMessageListItem, (prev, next) => {
     return false;
   }
   if (prev.connectionState !== next.connectionState) {
+    return false;
+  }
+  if (prev.autoResendPending !== next.autoResendPending) {
     return false;
   }
   if (prev.macHttpOk !== next.macHttpOk) {

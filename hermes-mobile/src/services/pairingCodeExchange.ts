@@ -22,16 +22,21 @@ export interface PairExchangePayload {
   extraComputers?: SetupExtraComputer[];
 }
 
-export type FetchJsonImpl = (url: string) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
+export type FetchJsonImpl = (
+  url: string,
+  options?: RequestInit,
+) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
 
-const defaultFetchJson: FetchJsonImpl = async (url: string) => {
-  const response = await fetch(url);
+const defaultFetchJson: FetchJsonImpl = async (url: string, options?: RequestInit) => {
+  const response = await fetch(url, options);
   return {
     ok: response.ok,
     status: response.status,
     json: () => response.json(),
   };
 };
+
+export const PAIR_EXCHANGE_TIMEOUT_MS = 5_000;
 
 function isPairExchangePayload(value: unknown): value is PairExchangePayload {
   return typeof value === 'object' && value !== null;
@@ -46,21 +51,43 @@ export async function exchangePairingCode(
   pairServerUrl: string,
   code: string,
   fetchJsonImpl: FetchJsonImpl = defaultFetchJson,
+  timeoutMs = PAIR_EXCHANGE_TIMEOUT_MS,
 ): Promise<PairExchangePayload | null> {
   const base = pairServerUrl.trim().replace(/\/$/, '');
   const trimmedCode = code.trim();
   if (!base || !trimmedCode) {
     return null;
   }
+  const controller = new AbortController();
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
   try {
-    const response = await fetchJsonImpl(`${base}/pair-exchange?code=${encodeURIComponent(trimmedCode)}`);
-    if (!response.ok) {
-      return null;
-    }
-    const payload = await response.json();
-    return isPairExchangePayload(payload) ? payload : null;
+    const url = `${base}/pair-exchange?code=${encodeURIComponent(trimmedCode)}`;
+    const exchange = async (): Promise<PairExchangePayload | null> => {
+      // Keep one-argument test/adapter implementations backward-compatible while
+      // giving the production fetch a real abort signal.
+      const response =
+        fetchJsonImpl === defaultFetchJson
+          ? await fetchJsonImpl(url, { signal: controller.signal })
+          : await fetchJsonImpl(url);
+      if (!response.ok) {
+        return null;
+      }
+      const payload = await response.json();
+      return isPairExchangePayload(payload) ? payload : null;
+    };
+    const timeout = new Promise<null>((resolve) => {
+      timeoutId = setTimeout(() => {
+        controller.abort();
+        resolve(null);
+      }, Math.max(1, timeoutMs));
+    });
+    return await Promise.race([exchange(), timeout]);
   } catch {
     return null;
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
   }
 }
 

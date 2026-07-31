@@ -42,23 +42,51 @@ async function recordPortal(input: {
   }
 }
 
-export async function POST(request: Request) {
+/**
+ * Shared portal session creation.
+ * GET: browser navigation (landing "Manage subscription") → 303 redirect to Stripe.
+ * POST: SPA (dashboard Manage plan) → JSON { url }.
+ */
+async function handlePortalRequest(request: Request) {
+  const isGet = request.method === "GET";
   let session;
-  try { session = await requireSession(); } catch { return jsonError("sign in required", 401); }
+  try {
+    session = await requireSession();
+  } catch {
+    if (isGet) {
+      return Response.redirect(
+        `${new URL(request.url).origin}/api/auth/login?return_to=${encodeURIComponent("/api/billing/portal")}`,
+        303,
+      );
+    }
+    return jsonError("sign in required", 401);
+  }
+
   const organization = await db().prepare("SELECT plan FROM organizations WHERE id = ?")
     .bind(session.organizationId).first<{ plan: string }>();
   if (!["pro", "team"].includes(organization?.plan ?? "")) {
+    if (isGet) {
+      return Response.redirect(`${new URL(request.url).origin}/dashboard?billing_error=subscription_required`, 303);
+    }
     return jsonError("an active subscription is required", 409);
   }
 
   const current = runtimeEnv();
   const secret = current.STRIPE_SECRET_KEY;
-  if (!secret || !current.STRIPE_PRICE_ID) return jsonError("billing management is not configured", 503);
+  if (!secret || !current.STRIPE_PRICE_ID) {
+    if (isGet) {
+      return Response.redirect(`${new URL(request.url).origin}/dashboard?billing_error=not_configured`, 303);
+    }
+    return jsonError("billing management is not configured", 503);
+  }
 
   const customerQuery = new URLSearchParams({ email: session.email, limit: "10" });
   const customers = await stripeGet<StripeList<StripeCustomer>>(`/v1/customers?${customerQuery}`, secret);
   if (!customers.response.ok) {
     await recordPortal({ organizationId: session.organizationId, userId: session.userId, action: "billing.portal.failed", providerStatus: customers.response.status });
+    if (isGet) {
+      return Response.redirect(`${new URL(request.url).origin}/dashboard?billing_error=unavailable`, 303);
+    }
     return jsonError("billing management is unavailable", 502);
   }
 
@@ -91,6 +119,9 @@ export async function POST(request: Request) {
 
   if (!customerId) {
     await recordPortal({ organizationId: session.organizationId, userId: session.userId, action: "billing.portal.failed", providerStatus: 404 });
+    if (isGet) {
+      return Response.redirect(`${new URL(request.url).origin}/dashboard?billing_error=no_subscription`, 303);
+    }
     return jsonError("no managed subscription was found", 404);
   }
 
@@ -106,9 +137,24 @@ export async function POST(request: Request) {
   const payload = await portal.json().catch(() => null) as { url?: string } | null;
   if (!portal.ok || !payload?.url) {
     await recordPortal({ organizationId: session.organizationId, userId: session.userId, action: "billing.portal.failed", providerStatus: portal.status });
+    if (isGet) {
+      return Response.redirect(`${new URL(request.url).origin}/dashboard?billing_error=portal_failed`, 303);
+    }
     return jsonError("billing management is unavailable", 502);
   }
 
   await recordPortal({ organizationId: session.organizationId, userId: session.userId, action: "billing.portal.created", providerStatus: portal.status });
+
+  if (isGet) {
+    return Response.redirect(payload.url, 303);
+  }
   return Response.json({ url: payload.url });
+}
+
+export async function GET(request: Request) {
+  return handlePortalRequest(request);
+}
+
+export async function POST(request: Request) {
+  return handlePortalRequest(request);
 }

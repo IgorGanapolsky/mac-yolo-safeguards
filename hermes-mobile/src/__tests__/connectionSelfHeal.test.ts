@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import {
   buildSelfHealProbeUrls,
@@ -8,6 +9,7 @@ import {
   shouldDeferLoopbackSuccessOnCellular,
   shouldKeepUsbOverStickyRemote,
   shouldPreferUsbProbeFirst,
+  shouldProbePrimaryGatewayBeforeFallbacks,
 } from '../utils/connectionSelfHeal';
 
 const profiles: GatewayProfile[] = [
@@ -58,6 +60,8 @@ describe('connectionSelfHeal', () => {
   });
 
   it('prefers Tailscale before USB loopback on cellular when activeProfileId is set', () => {
+    const originalPlatform = Platform.OS;
+    Platform.OS = 'android';
     const miniProfiles: GatewayProfile[] = [
       {
         id: 'lan',
@@ -83,24 +87,28 @@ describe('connectionSelfHeal', () => {
         addedAt: '2026-06-28T00:00:02Z',
       },
     ];
-    const cellular = savedProfileFallbackUrls({
-      primaryUrl: 'http://192.168.68.56:8642',
-      profiles: miniProfiles,
-      activeProfileId: 'lan',
-      wifiConnected: false,
-    });
-    const wifi = savedProfileFallbackUrls({
-      primaryUrl: 'http://192.168.68.56:8642',
-      profiles: miniProfiles,
-      activeProfileId: 'lan',
-      wifiConnected: true,
-    });
-    expect(cellular.indexOf('http://100.94.135.78:8642')).toBeLessThan(
-      cellular.indexOf('http://127.0.0.1:8642'),
-    );
-    expect(wifi.indexOf('http://127.0.0.1:8642')).toBeLessThan(
-      wifi.indexOf('http://100.94.135.78:8642'),
-    );
+    try {
+      const cellular = savedProfileFallbackUrls({
+        primaryUrl: 'http://192.168.68.56:8642',
+        profiles: miniProfiles,
+        activeProfileId: 'lan',
+        wifiConnected: false,
+      });
+      const wifi = savedProfileFallbackUrls({
+        primaryUrl: 'http://192.168.68.56:8642',
+        profiles: miniProfiles,
+        activeProfileId: 'lan',
+        wifiConnected: true,
+      });
+      expect(cellular.indexOf('http://100.94.135.78:8642')).toBeLessThan(
+        cellular.indexOf('http://127.0.0.1:8642'),
+      );
+      expect(wifi.indexOf('http://127.0.0.1:8642')).toBeLessThan(
+        wifi.indexOf('http://100.94.135.78:8642'),
+      );
+    } finally {
+      Platform.OS = originalPlatform;
+    }
   });
 
   it('does not include other saved Mac URLs when activeProfileId is set', () => {
@@ -146,22 +154,53 @@ describe('connectionSelfHeal', () => {
   });
 
   it('includes USB only when the saved loopback row is the active Mac', () => {
-    const urls = buildSelfHealProbeUrls({
-      primaryUrl: 'http://192.168.68.56:8642',
-      wifiConnected: true,
-      profiles: [
-        ...profiles,
-        {
-          id: 'usb',
-          label: 'Igors-Mac-mini',
-          hostname: 'Igors-Mac-mini',
-          gatewayUrl: 'http://127.0.0.1:8642',
-          addedAt: '2026-06-28T00:00:02Z',
-        },
-      ],
-      activeProfileId: 'lan',
-    });
-    expect(urls).toContain('http://127.0.0.1:8642');
+    const originalPlatform = Platform.OS;
+    Platform.OS = 'android';
+    try {
+      const urls = buildSelfHealProbeUrls({
+        primaryUrl: 'http://192.168.68.56:8642',
+        wifiConnected: true,
+        profiles: [
+          ...profiles,
+          {
+            id: 'usb',
+            label: 'Igors-Mac-mini',
+            hostname: 'Igors-Mac-mini',
+            gatewayUrl: 'http://127.0.0.1:8642',
+            addedAt: '2026-06-28T00:00:02Z',
+          },
+        ],
+        activeProfileId: 'lan',
+      });
+      expect(urls).toContain('http://127.0.0.1:8642');
+    } finally {
+      Platform.OS = originalPlatform;
+    }
+  });
+
+  it('removes saved Android loopback routes from iOS self-heal', () => {
+    const originalPlatform = Platform.OS;
+    Platform.OS = 'ios';
+    try {
+      const urls = buildSelfHealProbeUrls({
+        primaryUrl: 'http://100.94.135.78:8642',
+        wifiConnected: true,
+        profiles: [
+          ...profiles,
+          {
+            id: 'usb',
+            label: 'Igors-Mac-mini',
+            hostname: 'Igors-Mac-mini',
+            gatewayUrl: 'http://127.0.0.1:8642',
+            addedAt: '2026-06-28T00:00:02Z',
+          },
+        ],
+        activeProfileId: 'ts',
+      });
+      expect(urls).not.toContain('http://127.0.0.1:8642');
+    } finally {
+      Platform.OS = originalPlatform;
+    }
   });
 
   it('never probes Pro USB while Mac mini is the active computer', () => {
@@ -214,6 +253,35 @@ describe('connectionSelfHeal', () => {
 });
 
 describe('USB primary on cellular', () => {
+  const originalPlatform = Platform.OS;
+
+  beforeEach(() => {
+    Platform.OS = 'android';
+  });
+
+  afterEach(() => {
+    Platform.OS = originalPlatform;
+  });
+
+  it('never prioritizes or pins USB loopback on iOS', () => {
+    Platform.OS = 'ios';
+    expect(
+      shouldPreferUsbProbeFirst({
+        activeGatewayUrl: 'http://127.0.0.1:8642',
+        effectiveGatewayUrl: 'http://127.0.0.1:8642',
+        wifiConnected: true,
+        liveUsbSameMachine: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldKeepUsbOverStickyRemote({
+        effectiveGatewayUrl: 'http://127.0.0.1:8642',
+        stickyProfileUrl: 'http://100.87.85.85:8642',
+        liveUsbSameMachine: true,
+      }),
+    ).toBe(false);
+  });
+
   it('prefers USB probe only on Wi‑Fi with loopback active', () => {
     expect(
       shouldPreferUsbProbeFirst({
@@ -235,27 +303,29 @@ describe('USB primary on cellular', () => {
     ).toBe(false);
   });
 
-  it('prefers USB when effective URL is loopback even if sticky profile is Tailscale', () => {
+  it('prefers USB when effective URL is loopback even if sticky profile is Tailscale (Android)', () => {
     // Same-Mac USB↔Tailscale handoff: activeProfileId stays on the Tailscale row but the
     // live session is already on the cable — must not demote USB in the probe order.
-    expect(
-      shouldPreferUsbProbeFirst({
-        activeGatewayUrl: 'http://100.87.85.85:8642',
-        effectiveGatewayUrl: 'http://127.0.0.1:8642',
-        wifiConnected: true,
-      }),
-    ).toBe(true);
+    const prefer = shouldPreferUsbProbeFirst({
+      activeGatewayUrl: 'http://100.87.85.85:8642',
+      effectiveGatewayUrl: 'http://127.0.0.1:8642',
+      wifiConnected: true,
+    });
+    expect(prefer).toBe(true);
   });
 
-  it('prefers USB on cellular when live reverse matches the sticky Mac', () => {
-    expect(
-      shouldPreferUsbProbeFirst({
-        activeGatewayUrl: 'http://100.87.85.85:8642',
-        effectiveGatewayUrl: 'http://100.87.85.85:8642',
-        wifiConnected: false,
-        liveUsbSameMachine: true,
-      }),
-    ).toBe(true);
+  it('prefers USB on cellular when live reverse matches the sticky Mac (Android only)', () => {
+    const prefer = shouldPreferUsbProbeFirst({
+      activeGatewayUrl: 'http://100.87.85.85:8642',
+      effectiveGatewayUrl: 'http://100.87.85.85:8642',
+      wifiConnected: false,
+      liveUsbSameMachine: true,
+    });
+    if (Platform.OS === 'android') {
+      expect(prefer).toBe(true);
+    } else {
+      expect(prefer).toBe(false);
+    }
   });
 
   it('does not prefer USB for a sticky foreign Tailscale Mac (mini vs Pro cable)', () => {
@@ -269,16 +339,20 @@ describe('USB primary on cellular', () => {
     ).toBe(false);
   });
 
-  it('keeps USB over a sticky same-Mac Tailscale URL when the cable is live', () => {
+  it('keeps USB over a sticky same-Mac Tailscale URL when the cable is live (Android)', () => {
     // The exact P0 2026-07-23 race: autoDiscover step 2 re-probes loadLastSelectedProfileId's
     // sticky Tailscale URL every tick and must not steal the header away from a healthy cable.
-    expect(
-      shouldKeepUsbOverStickyRemote({
-        effectiveGatewayUrl: 'http://127.0.0.1:8642',
-        stickyProfileUrl: 'http://100.87.85.85:8642',
-        liveUsbSameMachine: true,
-      }),
-    ).toBe(true);
+    // iOS never keeps USB (no adb reverse).
+    const keep = shouldKeepUsbOverStickyRemote({
+      effectiveGatewayUrl: 'http://127.0.0.1:8642',
+      stickyProfileUrl: 'http://100.87.85.85:8642',
+      liveUsbSameMachine: true,
+    });
+    if (Platform.OS === 'android') {
+      expect(keep).toBe(true);
+    } else {
+      expect(keep).toBe(false);
+    }
   });
 
   it('does not keep USB over a foreign sticky Mac (mini) even if cabled to a different Mac', () => {
@@ -321,6 +395,30 @@ describe('USB primary on cellular', () => {
         primaryUrl: 'http://127.0.0.1:8642',
         wifiConnected: true,
         hasTailscaleAlternate: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('skips an off-Wi-Fi LAN primary before probing its Tailscale fallback', () => {
+    expect(
+      shouldProbePrimaryGatewayBeforeFallbacks({
+        skipLan: true,
+        deferLoopbackOnCellular: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps selected-route-first ordering when Wi-Fi or VPN state permits it', () => {
+    expect(
+      shouldProbePrimaryGatewayBeforeFallbacks({
+        skipLan: false,
+        deferLoopbackOnCellular: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldProbePrimaryGatewayBeforeFallbacks({
+        skipLan: false,
+        deferLoopbackOnCellular: true,
       }),
     ).toBe(false);
   });
@@ -467,4 +565,20 @@ describe('resolveApiKeyForGatewayProbe', () => {
     });
     expect(key).toBe('sk-lan-key');
   });
+
+  it('can preserve a freshly selected in-memory key for the active machine', async () => {
+    const resolveProfileKey = jest.fn().mockResolvedValue('sk-stale-profile');
+    const key = await resolveApiKeyForGatewayProbe({
+      gatewayUrl: profiles[0].gatewayUrl,
+      profiles,
+      activeProfileId: profiles[0].id,
+      fallbackKey: 'sk-fresh-pair-exchange',
+      preferFallbackForActiveMachine: true,
+      resolveProfileKey,
+    });
+
+    expect(key).toBe('sk-fresh-pair-exchange');
+    expect(resolveProfileKey).not.toHaveBeenCalled();
+  });
+
 });

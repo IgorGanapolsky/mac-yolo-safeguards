@@ -962,6 +962,62 @@ describe('resolveHeaderTransportLabel / USB allow rule', () => {
     expect(display.machineEndpoint).toBe('Tailscale');
     expect(formatChatMachineHeaderLine(display)).toBe('Your computer · Tailscale');
   });
+
+  it('P0 2026-07-25: Connected never titles endpoint IP:port when /health.hostname is live', () => {
+    // Device proof: header showed "100.94.135.78:8642 · Connected · Tailscale"
+    // because a discovery label was the gateway endpoint, not the Mac name.
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_100_94_135_78',
+        label: '100.94.135.78:8642',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        localIp: '100.94.135.78',
+        addedAt: '2026-07-25T00:00:00.000Z',
+      },
+      gatewayUrl: 'http://100.94.135.78:8642',
+      health: {
+        level: 'green',
+        checkedAt: '2026-07-25T13:00:00.000Z',
+        hostname: 'Igors-Mac-mini.local',
+        directGatewayReachable: true,
+      },
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 1,
+      wifiConnected: true,
+    });
+    expect(display.machineLabel).toBe('Igors-Mac-mini');
+    expect(display.machineLabel).not.toMatch(/100\.94\.135\.78/);
+    expect(display.machineEndpoint).toBe('Tailscale');
+    expect(formatChatMachineHeaderLine(display)).toBe('Igors-Mac-mini · Tailscale');
+  });
+
+  it('P0 2026-07-25: bare CGNAT IP profile label is not a computer name', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_100_94_135_78',
+        label: '100.94.135.78',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        localIp: '100.94.135.78',
+        addedAt: '2026-07-25T00:00:00.000Z',
+      },
+      gatewayUrl: 'http://100.94.135.78:8642',
+      health: {
+        level: 'green',
+        checkedAt: '2026-07-25T13:00:00.000Z',
+        hostname: 'Igors-Mac-mini.local',
+        directGatewayReachable: true,
+      },
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 1,
+      wifiConnected: false,
+    });
+    expect(display.machineLabel).toBe('Igors-Mac-mini');
+    expect(display.machineEndpoint).toBe('Tailscale');
+  });
 });
 
 describe('profileDisplayName generic labels', () => {

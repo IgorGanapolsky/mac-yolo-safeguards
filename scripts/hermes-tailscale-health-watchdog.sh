@@ -39,10 +39,58 @@ kickstart() {
   "$LAUNCHCTL_BIN" kickstart -k "${GUI_DOMAIN}/$1" >/dev/null 2>&1 || true
 }
 
+# Self-heal-failure alerting. This watchdog was found with zero alerting of any
+# kind: it already self-heals (regenerates the pair document with an immediate
+# same-tick recheck; kicks the gateway watchdog / opens Tailscale for the
+# async cases) but a repair that doesn't land was previously discoverable only
+# by a human noticing "why is my phone offline". Some of its heals are
+# synchronous+rechecked in this tick (pair regen) and some are async and need
+# the NEXT ~60s tick to prove out (gateway watchdog kickstart, Tailscale app
+# open) -- so, to avoid alerting on the very tick a fix was just kicked off,
+# this uses the same 2-tick healing->degraded state machine as
+# hermes-gateway-watchdog.sh: first bad tick = healing (routine, silent);
+# still bad on the following tick = the self-heal attempt failed to resolve
+# it, which is what nobody currently hears about. finish() is the single exit
+# path so every "exit N" below carries the same edge-triggered alert without
+# changing any of the actual heal logic that runs before it.
+ALERT_STATE="${HERMES_TAILSCALE_WATCHDOG_ALERT_STATE:-${HOME}/Library/Logs/mac-yolo/hermes-tailscale-health-watchdog.state}"
+ALERT_NTFY_TOPIC="${HERMES_TAILSCALE_WATCHDOG_NTFY_TOPIC:-yolo-guard-fdh8ktuw1vtxb5sb}"
+ALERT_NTFY_URL="${HERMES_TAILSCALE_WATCHDOG_NTFY_URL:-https://ntfy.sh/$ALERT_NTFY_TOPIC}"
+mkdir -p "$(dirname "$ALERT_STATE")" 2>/dev/null || true
+
+finish() {
+  local exit_code="$1" reason="$2"
+  local prev
+  prev="$(cat "$ALERT_STATE" 2>/dev/null || echo ok)"
+  if [[ "$exit_code" -eq 0 ]]; then
+    if [[ "$prev" == "degraded" ]]; then
+      "$CURL_BIN" -sS -m 10 -H "Title: Hermes tailscale watchdog recovered" \
+        -d "recovered at $(date '+%Y-%m-%dT%H:%M:%S%z'): $reason" "$ALERT_NTFY_URL" >/dev/null 2>&1 || true
+    fi
+    printf 'ok' > "$ALERT_STATE" 2>/dev/null || true
+  else
+    case "$prev" in
+      healing)
+        alert_body="Hermes tailscale watchdog self-heal failed at $(date '+%Y-%m-%dT%H:%M:%S%z'): $reason"
+        "$CURL_BIN" -sS -m 10 -H "Title: Hermes tailscale watchdog self-heal failed" -H "Priority: high" \
+          -d "$alert_body" "$ALERT_NTFY_URL" >/dev/null 2>&1 || true
+        printf 'degraded' > "$ALERT_STATE" 2>/dev/null || true
+        ;;
+      degraded)
+        : # already alerted this outage; stay silent until recovery (edge-triggered)
+        ;;
+      *)
+        printf 'healing' > "$ALERT_STATE" 2>/dev/null || true
+        ;;
+    esac
+  fi
+  exit "$exit_code"
+}
+
 TAILSCALE_BIN="$(resolve_tailscale_bin || true)"
 if [[ -z "$TAILSCALE_BIN" ]]; then
   logline 'tailscale CLI missing'
-  exit 1
+  finish 1 'tailscale CLI missing'
 fi
 
 status_json="$($TAILSCALE_BIN status --json 2>/dev/null || true)"
@@ -60,14 +108,14 @@ let raw=""; process.stdin.on("data", d => raw += d).on("end", () => {
 if [[ -z "$tail_ip" ]]; then
   "$OPEN_BIN" -ga Tailscale >/dev/null 2>&1 || true
   logline 'tailscale self offline -> requested app start'
-  exit 1
+  finish 1 'tailscale self offline'
 fi
 
 gateway_code="$(http_code "$GATEWAY_URL")"
 if [[ "$gateway_code" != '200' ]]; then
   kickstart com.igor.hermes-gateway-watchdog
   logline "gateway unhealthy (http=$gateway_code) -> kicked gateway watchdog"
-  exit 1
+  finish 1 "gateway unhealthy http=$gateway_code"
 fi
 
 pair_json="$($CURL_BIN -sS --max-time 5 "$PAIR_URL" 2>/dev/null || true)"
@@ -108,8 +156,8 @@ fi
 
 if [[ "$pair_valid" != 'yes' ]]; then
   logline "pair service repair failed for $tail_ip"
-  exit 1
+  finish 1 "pair service repair failed for $tail_ip"
 fi
 
 logline "healthy tail_ip=$tail_ip gateway=200 pair=200"
-exit 0
+finish 0 "healthy tail_ip=$tail_ip gateway=200 pair=200"

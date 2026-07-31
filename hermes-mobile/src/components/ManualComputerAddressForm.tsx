@@ -14,7 +14,11 @@ import {
 import LoadingButton from './ui/LoadingButton';
 
 export type ManualComputerAddressFormProps = {
-  onAddProfile: (label: string, gatewayUrl: string) => Promise<void>;
+  onAddProfile: (
+    label: string,
+    gatewayUrl: string,
+    verifiedApiKey: string | null,
+  ) => Promise<void>;
   /** Choose-computer modal — paste-IP copy from #787. */
   pickerMode?: boolean;
   /** First-run ConnectMacGate hero — dominant paste IP row at top of viewport. */

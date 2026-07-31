@@ -138,11 +138,20 @@ export async function fetchGatewayHealth(
 
   const detailedUrl = `${httpBase}/health/detailed`;
   const simpleUrl = `${httpBase}/health`;
+  // timeoutMs is one wall-clock budget for the complete verification, not a
+  // fresh allowance for detailed health, simple health, and authenticated
+  // sessions independently.
+  const deadlineMs = Date.now() + Math.max(1, timeoutMs);
+  const remainingMs = () => Math.max(1, deadlineMs - Date.now());
+  const deadlineExpired = () => Date.now() >= deadlineMs;
 
   try {
-    let response = await fetchWithTimeout(detailedUrl, { headers }, timeoutMs);
+    let response = await fetchWithTimeout(detailedUrl, { headers }, remainingMs());
     if (!response.ok) {
-      response = await fetchWithTimeout(simpleUrl, { headers }, timeoutMs);
+      if (deadlineExpired()) {
+        throw new Error('Gateway health verification timed out');
+      }
+      response = await fetchWithTimeout(simpleUrl, { headers }, remainingMs());
     }
     if (!response.ok) {
       return {
@@ -160,11 +169,17 @@ export async function fetchGatewayHealth(
     // Reachability alone is never enough for Connected — always auth-probe when we
     // claim chat is live (empty key included → wrong-key / re-pair, not green).
     if (directGatewayReachable) {
-      const auth = await probeGatewayAuth(gatewayUrl, apiKey, timeoutMs);
+      if (deadlineExpired()) {
+        throw new Error('Gateway health verification timed out');
+      }
+      const auth = await probeGatewayAuth(gatewayUrl, apiKey, remainingMs());
       if (!auth.ok) {
         directGatewayReachable = false;
-        authMismatch = true;
-        authErrorMessage = auth.errorMessage;
+        authMismatch =
+          auth.errorMessage === GATEWAY_WRONG_KEY_MESSAGE ||
+          auth.status === 401 ||
+          auth.status === 403;
+        authErrorMessage = authMismatch ? GATEWAY_WRONG_KEY_MESSAGE : undefined;
         // Force red so isGatewayHealthOk / level consumers cannot false-green.
         level = 'red';
       }

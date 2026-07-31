@@ -83,7 +83,7 @@ function linkMeta(
   if (link.label === GATEWAY_AUTH_REPAIR_HEADER) {
     return { label: link.label, color: colors.error, connected: false };
   }
-  if (link.label === 'Needs computer link' || link.label === 'Relay only') {
+  if (link.label === 'Relay only') {
     return { label: link.label, color: colors.warning, connected: false };
   }
   if (needsPair) {
@@ -260,7 +260,7 @@ export default function ChatScreenHeader({
           onPress={onPressMachine}
           style={({ pressed }) => [styles.macRowMain, pressed && styles.pressed]}
           testID="chat-context-mac-button"
-          accessibilityLabel="Choose your computer"
+          accessibilityLabel={`${machineLabel}. ${link.label}.${showEndpoint ? ` ${endpoint}.` : ''} Choose your computer.`}
         >
           <View style={[styles.statusDot, { backgroundColor: link.color }]} />
           <View style={styles.macTextBlock}>

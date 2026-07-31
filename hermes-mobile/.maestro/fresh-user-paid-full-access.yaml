@@ -1,0 +1,49 @@
+# Paid-app contract: a fresh install gets full Leash access with no second paywall.
+appId: com.iganapolsky.hermesmobile
+---
+- runFlow:
+    when:
+      visible:
+        id: "connect-mac-gate-dismiss"
+    commands:
+      - tapOn:
+          id: "connect-mac-gate-dismiss"
+- runFlow:
+    when:
+      visible:
+        id: "mac-picker-modal-backdrop"
+    commands:
+      - tapOn:
+          id: "mac-picker-modal-backdrop"
+- runFlow: hide-keyboard-safe.yaml
+- runFlow: dismiss-logbox.yaml
+- tapOn:
+    id: "tab-leash"
+- extendedWaitUntil:
+    notVisible:
+      id: "tab-screen-loading"
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      id: "THUMBGATE_LEASH"
+    timeout: 30000
+- assertNotVisible:
+    id: "leash-pro-upsell-card"
+- assertNotVisible:
+    id: "pro-upgrade-card"
+- assertNotVisible:
+    id: "subscribe-thumbgate-leash-iap"
+- assertNotVisible:
+    id: "restore-thumbgate-leash"
+- extendedWaitUntil:
+    visible:
+      id: "no-pending-approvals"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "tab-leash"
+    timeout: 15000
+- assertVisible:
+    id: "tab-leash"
+- assertVisible:
+    id: "tab-hermes"

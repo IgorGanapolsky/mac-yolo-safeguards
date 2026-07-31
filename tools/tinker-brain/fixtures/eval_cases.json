@@ -1,0 +1,104 @@
+{
+  "schema_version": "tinker-brain-eval-cases/1",
+  "notes": "End-to-end golden regression set for tinker-brain. Run via scripts/revenue_ops/tinker_brain_eval.py. Every case must produce a contract-clean answer (ok=true) plus the route and substring expectations below. This is the reproduction dataset for 'the chatbot suddenly got worse'.",
+  "cases": [
+    {
+      "id": "sell_thumbgate",
+      "question": "How do we sell ThumbGate.app?",
+      "expect_route": "thumbgate_gtm",
+      "must_contain": ["[SALES_MOTION]", "14-day trial", "first chat is the product"],
+      "must_not_contain": ["endpoint security"]
+    },
+    {
+      "id": "marketing_plan",
+      "question": "What is our marketing plan?",
+      "expect_route": "thumbgate_gtm",
+      "must_contain": ["[CHANNELS]", "dev.to", "AEO"],
+      "must_not_contain": ["upwork"]
+    },
+    {
+      "id": "promote_week",
+      "question": "How should we promote ThumbGate.app this week?",
+      "expect_route": "thumbgate_gtm",
+      "must_contain": ["[PROMO_RULES]", "burn rule"],
+      "must_not_contain": []
+    },
+    {
+      "id": "price_continuity",
+      "question": "How should we price Continuity?",
+      "expect_route": "thumbgate_gtm",
+      "must_contain": ["[PRICING]", "$10/mo", "never per-token"],
+      "must_not_contain": []
+    },
+    {
+      "id": "positioning_vs_cloud_agents",
+      "question": "What is our positioning against Cursor Background Agent?",
+      "expect_route": "thumbgate_gtm",
+      "must_contain": ["[POSITIONING]", "wedge", "resilience"],
+      "must_not_contain": ["endpoint security"]
+    },
+    {
+      "id": "monetize_fastest",
+      "question": "What is the fastest way to monetize ThumbGate.app?",
+      "expect_route": "thumbgate_gtm",
+      "must_contain": ["[PRICING]", "Continuity"],
+      "must_not_contain": []
+    },
+    {
+      "id": "product_truth",
+      "question": "What exactly is ThumbGate.app?",
+      "expect_route": "thumbgate_gtm",
+      "must_contain": ["[PRODUCT]", "control plane", "NOT live process migration"],
+      "must_not_contain": []
+    },
+    {
+      "id": "gtm_grounding_rule",
+      "question": "Give me the ThumbGate go-to-market summary.",
+      "expect_route": "thumbgate_gtm",
+      "must_contain": ["api/billing/plan", "never hard-code"],
+      "must_not_contain": []
+    },
+    {
+      "id": "cash_truth_zero",
+      "question": "Why did we make zero dollars?",
+      "expect_route": "cash_truth",
+      "must_contain": ["external $0.00", "non-owner"],
+      "must_not_contain": ["[CHANNELS]"]
+    },
+    {
+      "id": "next_money_action",
+      "question": "What is the next money action?",
+      "expect_route": "next_money",
+      "must_contain": ["Next money action"],
+      "must_not_contain": []
+    },
+    {
+      "id": "make_money_still_routes",
+      "question": "make money",
+      "expect_route": "next_money",
+      "must_contain": ["Cash: external"],
+      "must_not_contain": []
+    },
+    {
+      "id": "system_scores_exact",
+      "question": "Give the exact system scores.",
+      "expect_route": "system_scores",
+      "must_contain": ["Evidence scores"],
+      "must_not_contain": []
+    },
+    {
+      "id": "off_scope_vault_refused",
+      "question": "Improve things by rebuilding the Obsidian vault sync.",
+      "expect_route": "off_scope_refuse",
+      "must_contain": ["Off-scope refuse"],
+      "must_not_contain": []
+    },
+    {
+      "id": "conflation_never_emitted",
+      "question": "Should ThumbGate.app absorb the firewall product?",
+      "expect_route": "thumbgate_gtm",
+      "must_contain": ["[PRODUCT]"],
+      "must_not_contain": []
+    }
+  ]
+}
