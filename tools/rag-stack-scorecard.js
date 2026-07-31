@@ -71,14 +71,22 @@ function scoreStack(options = {}) {
   const gates = [];
   const heals = [];
 
-  if (options.heal) {
-    // InfoQ micro-batch controller: watermark advance + watcher restart + export.
-    const batch = runNode('index-microbatch.js', ['--once', '--heal', '--json'], { timeout: 180000 });
+  // Always preflight microbatch (FF isolated grepae when behind origin/main).
+  // Without this, dry scorecards fail index-freshness every time main advances
+  // between LaunchAgent cycles (measured 2026-07-31: A+ → B+ within minutes).
+  {
+    const batchArgs = options.heal
+      ? ['--once', '--heal', '--json']
+      : ['--once', '--json'];
+    const batch = runNode('index-microbatch.js', batchArgs, { timeout: 180000 });
     heals.push({
-      step: 'index-microbatch',
+      step: options.heal ? 'index-microbatch-heal' : 'index-microbatch-preflight',
       ok: batch.status === 0 && Boolean(batch.json?.ok ?? true),
       detail: batch.json || batch.stdout.slice(0, 200),
     });
+  }
+
+  if (options.heal) {
     const exp = runNode('thumbgate-lessons-export-jsonl.js', ['--dir', home, '--apply', '--json']);
     heals.push({ step: 'export-jsonl', ok: exp.status === 0, detail: exp.json || exp.stdout.slice(0, 200) });
     const ensure = runNode('ensure-grepai-index.js', ['--canary', '--json'], { timeout: 90000 });
