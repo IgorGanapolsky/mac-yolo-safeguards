@@ -35,6 +35,11 @@ const LOG_PATH =
   process.env.HERMES_TS_REACH_LOG ||
   path.join(os.homedir(), 'Library', 'Logs', 'hermes-tailscale-reachability.log');
 const NTFY_COOLDOWN_MS = Number(process.env.HERMES_TS_REACH_NTFY_COOLDOWN_MS || 30 * 60 * 1000);
+// Restart on 2 consecutive unhealthy probes: a single sessions timeout can
+// be a transient mobile-network blip, and cycling the gateway mid-turn drops
+// an active agent run.
+const UNHEALTHY_RESTART_THRESHOLD =
+  Number(process.env.HERMES_TS_REACH_RESTART_THRESHOLD || 2);
 const REPO_ROOT = path.resolve(__dirname, '..');
 
 function log(line) {
@@ -167,25 +172,97 @@ function listPhysicalAdbSerials() {
   }
 }
 
-function restartLocalGateway(dryRun) {
-  if (dryRun) return { attempted: true, dryRun: true, ok: true };
-  // Prefer hermes CLI; fall back to launchctl kickstart if present.
-  const attempts = [];
-  const hermes = spawnSync('hermes', ['gateway', 'restart'], {
-    encoding: 'utf8',
-    timeout: 60_000,
-  });
-  attempts.push({ cmd: 'hermes gateway restart', status: hermes.status });
-  if (hermes.status === 0) {
-    return { attempted: true, ok: true, attempts };
+// `hermes` lives in ~/.local/bin, which is NOT on the LaunchAgent PATH, so
+// `spawnSync('hermes', …)` fails there with ENOENT (original
+// `restart_gateway ok=false` on 2026-07-31T13:16:36Z). Resolve it off-disk.
+function which(bin) {
+  const dirs = String(process.env.PATH || '').split(path.delimiter);
+  for (const dir of dirs) {
+    if (!dir) continue;
+    const p = path.join(dir, bin);
+    try {
+      if (fs.statSync(p).isFile()) return p;
+    } catch {}
   }
-  const label = `gui/${process.getuid()}/ai.hermes.gateway`;
-  const kick = spawnSync('launchctl', ['kickstart', '-k', label], {
-    encoding: 'utf8',
-    timeout: 15_000,
-  });
-  attempts.push({ cmd: `launchctl kickstart ${label}`, status: kick.status });
-  return { attempted: true, ok: kick.status === 0, attempts };
+  return null;
+}
+
+function findHermesBin() {
+  const candidates = [
+    process.env.HERMES_BIN,
+    which('hermes'),
+    path.join(os.homedir(), '.local', 'bin', 'hermes'),
+    path.join(os.homedir(), '.hermes', 'hermes-agent', 'venv', 'bin', 'hermes'),
+  ];
+  for (const c of candidates) {
+    if (!c) continue;
+    try {
+      if (fs.statSync(c).isFile()) return c;
+    } catch {}
+  }
+  return null;
+}
+
+// Unhealthy = health down OR a sessions wedge (health 200 but sessions
+// non-2xx that is NOT a 401/403 key mismatch — that's operator config).
+// The probe only checked `!healthOk`, so a `health=200 sessions=0` wedge
+// (logged 2026-07-31T13:03–13:23 EDT) never triggered a restart.
+function localProbeIsUnhealthy(p) {
+  if (!p) return false; // no probe to judge — caller guards the undefined case
+  if (!p.healthOk) return true; // down / crashed
+  if (p.sessionsSkipped === 'no_api_key') return false; // operator config, not down
+  if (p.authProbeSkipped) return false;
+  if (p.sessionsStatus === 401 || p.sessionsStatus === 403) return false; // bad key, not a wedge
+  return !p.sessionsOk; // wedge: health 200, sessions non-2xx (timeout/0/5xx)
+}
+
+// Inject { spawn, fsExists, hermesBin } to test without touching launchd.
+function restartLocalGateway(dryRun, options = {}) {
+  const spawn = options.spawn || spawnSync;
+  const fsExists = options.fsExists || fs.existsSync;
+  if (dryRun) return { attempted: true, dryRun: true, ok: true, attempts: [], method: 'dry-run' };
+
+  const attempts = [];
+  const uid = String(process.getuid());
+  const label = `gui/${uid}/ai.hermes.gateway`;
+  const plist = path.join(os.homedir(), 'Library', 'LaunchAgents', 'ai.hermes.gateway.plist');
+
+  // Preferred: hermes CLI, resolved off ~/.local/bin so the LaunchAgent env works.
+  const hermesBin = options.hermesBin ?? findHermesBin();
+  if (hermesBin) {
+    const r = spawn(hermesBin, ['gateway', 'restart'], { encoding: 'utf8', timeout: 60_000 });
+    attempts.push({ cmd: `${hermesBin} gateway restart`, status: r.status, signal: r.signal });
+    if (r.status === 0) return { attempted: true, ok: true, attempts, method: 'hermes' };
+  } else {
+    attempts.push({ cmd: 'hermes gateway restart', skipped: 'cli_not_found', status: null });
+  }
+
+  // Robust fallback: a full launchctl cycle. `kickstart -k` alone cannot
+  // revive a crashed/dead job (the original ok=false bug); bootout ->
+  // bootstrap -> kickstart reloads from the plist and actually revives it.
+  if (fsExists(plist)) {
+    const boot = spawn('launchctl', ['bootout', label], { encoding: 'utf8', timeout: 15_000 });
+    attempts.push({ cmd: `launchctl bootout ${label}`, status: boot.status });
+    const load = spawn('launchctl', ['bootstrap', `gui/${uid}`, plist], {
+      encoding: 'utf8',
+      timeout: 15_000,
+    });
+    attempts.push({ cmd: `launchctl bootstrap gui/${uid} ${plist}`, status: load.status });
+    const kick = spawn('launchctl', ['kickstart', '-k', label], {
+      encoding: 'utf8',
+      timeout: 15_000,
+    });
+    attempts.push({ cmd: `launchctl kickstart -k ${label}`, status: kick.status });
+    return {
+      attempted: true,
+      ok: kick.status === 0,
+      attempts,
+      method: 'launchctl-cycle',
+    };
+  }
+
+  // No managed launchd job + no hermes CLI: nothing safe to cycle here.
+  return { attempted: true, ok: false, attempts, method: 'unavailable' };
 }
 
 function autoPair(dryRun) {
@@ -241,10 +318,19 @@ async function runOnce(options = {}) {
   const actions = [];
   const state = loadState();
 
-  if (localProbe && !localProbe.healthOk) {
+  const probeUnhealthy = Boolean(localProbe && localProbeIsUnhealthy(localProbe));
+  state.consecutiveUnhealthy = probeUnhealthy
+    ? (state.consecutiveUnhealthy || 0) + 1
+    : 0;
+  // Two consecutive unhealthy probes before cycling: a single sessions
+  // timeout can be a transient mobile-network blip, and cycling the gateway
+  // mid-turn would drop an active agent run.
+  if (probeUnhealthy && state.consecutiveUnhealthy >= UNHEALTHY_RESTART_THRESHOLD) {
     const restart = restartLocalGateway(dryRun);
     actions.push({ type: 'restart_gateway', ...restart });
-    log(`restart_gateway ok=${restart.ok} local=${localIp || 'unknown'}`);
+    log(
+      `restart_gateway ok=${restart.ok} method=${restart.method} local=${localIp || 'unknown'} (wedge x${state.consecutiveUnhealthy})`,
+    );
   }
 
   const phones = listPhysicalAdbSerials();
@@ -337,6 +423,9 @@ module.exports = {
   apiKeyForRole,
   listPhysicalAdbSerials,
   localTailscaleIpv4,
+  localProbeIsUnhealthy,
+  findHermesBin,
+  restartLocalGateway,
   MBP_TS,
   MINI_TS,
 };
