@@ -5,6 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FLOW="${1:-.maestro/ipad-simulator-edge-cases.yaml}"
 SIMULATOR_RUNNER="${HERMES_SIMULATOR_RUNNER:-$SCRIPT_DIR/run-simulator-e2e.sh}"
+E2E_LEASE_DIR="${YOLO_E2E_LEASE_DIR:-/tmp/yolo-guard-e2e}"
 
 if ! command -v xcrun >/dev/null 2>&1; then
   echo "xcrun is required for iPad simulator E2E" >&2
@@ -40,15 +41,23 @@ if [[ -z "$IPAD_TEMPLATE_NAME" || -z "$IPAD_DEVICE_TYPE" || -z "$IPAD_RUNTIME" ]
 fi
 
 IPAD_UDID=""
+E2E_LEASE_FILE=""
 cleanup() {
   if [[ -n "$IPAD_UDID" ]]; then
     xcrun simctl shutdown "$IPAD_UDID" >/dev/null 2>&1 || true
     xcrun simctl delete "$IPAD_UDID" >/dev/null 2>&1 || true
   fi
+  if [[ -n "$E2E_LEASE_FILE" ]]; then
+    rm -f "$E2E_LEASE_FILE"
+  fi
 }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+
+mkdir -p "$E2E_LEASE_DIR"
+E2E_LEASE_FILE="$E2E_LEASE_DIR/ipad-simulator-e2e-$$.pid"
+printf '%s\n' "$$" >"$E2E_LEASE_FILE"
 
 IPAD_NAME="iPad Hermes E2E ${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}-$$"
 IPAD_UDID="$(xcrun simctl create "$IPAD_NAME" "$IPAD_DEVICE_TYPE" "$IPAD_RUNTIME")"

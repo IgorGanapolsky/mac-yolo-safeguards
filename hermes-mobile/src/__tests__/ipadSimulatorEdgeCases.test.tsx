@@ -181,6 +181,9 @@ describe('iPad simulator fresh-user edge-case flow', () => {
     expect(ipadRunner).toContain('booted.length !== 1');
     expect(ipadRunner).toContain('EXPO_PUBLIC_E2E_AUTOMATION=0');
     expect(ipadRunner).toContain('bash "$SIMULATOR_RUNNER" "$FLOW"');
+    expect(ipadRunner).toContain('E2E_LEASE_DIR="${YOLO_E2E_LEASE_DIR:-/tmp/yolo-guard-e2e}"');
+    expect(ipadRunner).toContain('printf \'%s\\n\' "$$" >"$E2E_LEASE_FILE"');
+    expect(ipadRunner).toContain('rm -f "$E2E_LEASE_FILE"');
   });
 
   it('gates mobile changes on strict iPad E2E without charging unrelated PRs', () => {
