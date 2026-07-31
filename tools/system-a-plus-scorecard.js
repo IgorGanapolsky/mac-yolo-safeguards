@@ -96,7 +96,7 @@ function scoreSystem(options = {}) {
     gates.push({
       id: 'rag-stack',
       hard: true,
-      weight: 0.45,
+      weight: 0.4,
       ok: Boolean(rag.aPlus),
       detail: `grade=${rag.grade} score=${rag.score} hardFail=${rag.hardFail}`,
       score: rag.aPlus ? 1 : Math.max(0, Number(rag.score) || 0) * 0.85,
@@ -110,6 +110,32 @@ function scoreSystem(options = {}) {
       ok: true,
       detail: 'skipped (--skip-rag)',
       score: 1,
+    });
+  }
+
+  // --- Rerank stack (CE / ColBERT / LLM) — required for system A+ ---
+  if (!options.skipRag) {
+    const rerankRun = spawnSync(
+      process.execPath,
+      [path.join(REPO, 'tools', 'rerank-stack-scorecard.js'), '--json', '--live'],
+      { encoding: 'utf8', cwd: REPO, timeout: 300000, maxBuffer: 8 * 1024 * 1024 },
+    );
+    let rerankJson = null;
+    try {
+      rerankJson = JSON.parse(rerankRun.stdout || '{}');
+    } catch {
+      rerankJson = null;
+    }
+    const rerankOk = Boolean(rerankJson && rerankJson.aPlus && rerankJson.tenTen);
+    gates.push({
+      id: 'rerank-stack',
+      hard: true,
+      weight: 0.12,
+      ok: rerankOk,
+      detail: rerankOk
+        ? `grade=${rerankJson.grade} ${rerankJson.scoreOutOf10}/10`
+        : JSON.stringify(rerankJson?.gates?.filter((g) => !g.ok) || rerankRun.stderr || rerankRun.stdout).slice(0, 220),
+      score: rerankOk ? 1 : Math.max(0, Number(rerankJson?.score) || 0),
     });
   }
 

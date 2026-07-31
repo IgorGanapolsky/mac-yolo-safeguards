@@ -3,21 +3,25 @@
 
 /**
  * Dual-path retrieval: hermes-retrieval-harness (sparse) + grepae (hybrid BM25+dense)
- * fused with Reciprocal Rank Fusion (RRF). Optional deterministic query rewrite
- * and path metadata filters.
+ * fused with Reciprocal Rank Fusion (RRF), then second-stage rerank
+ * (cross-encoder / ColBERT-lite / ensemble / optional LLM).
  *
  * Usage:
  *   node tools/retrieval-dual-path.js --query "session not found" --json
  *   node tools/retrieval-dual-path.js --query "..." --limit 10 --path-include "tools/,hermes-mobile/src/"
  *   node tools/retrieval-dual-path.js --query "..." --no-rewrite --harness-only
+ *   node tools/retrieval-dual-path.js --query "..." --rerank ensemble --json
+ *   node tools/retrieval-dual-path.js --query "..." --no-rerank --json
  */
 
 const { spawnSync } = require('child_process');
 const path = require('path');
 const { rewriteQuery } = require('./retrieval-query-rewrite');
+const { rerank } = require('./retrieval-rerank');
 
 const REPO = path.resolve(__dirname, '..');
 const RRF_K = 60;
+const DEFAULT_RERANK = process.env.HERMES_RERANK_STRATEGY || 'ensemble';
 
 function parseArgs(argv) {
   const args = {
@@ -30,6 +34,9 @@ function parseArgs(argv) {
     pathInclude: [],
     pathExclude: [],
     repo: REPO,
+    rerank: DEFAULT_RERANK,
+    llmRerank: process.env.HERMES_LLM_RERANK === '1',
+    candidatePool: 30,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -42,6 +49,10 @@ function parseArgs(argv) {
     else if (a === '--path-include') args.pathInclude = String(argv[++i] || '').split(',').filter(Boolean);
     else if (a === '--path-exclude') args.pathExclude = String(argv[++i] || '').split(',').filter(Boolean);
     else if (a === '--repo') args.repo = path.resolve(argv[++i] || REPO);
+    else if (a === '--rerank') args.rerank = argv[++i] || DEFAULT_RERANK;
+    else if (a === '--no-rerank') args.rerank = 'none';
+    else if (a === '--llm-rerank') args.llmRerank = true;
+    else if (a === '--candidate-pool') args.candidatePool = Number(argv[++i] || 30);
     else if (a === '--help' || a === '-h') args.help = true;
     else throw new Error(`Unknown argument: ${a}`);
   }
@@ -143,7 +154,7 @@ function rrfFuse(lists, k = RRF_K) {
     .sort((a, b) => b.rrfScore - a.rrfScore || a.path.localeCompare(b.path));
 }
 
-function dualPathRetrieve(options = {}) {
+async function dualPathRetrieve(options = {}) {
   const queryIn = String(options.query || '').trim();
   if (!queryIn) throw new Error('--query required');
   const rewrite = options.rewrite !== false ? rewriteQuery(queryIn) : { original: queryIn, rewritten: queryIn, expansions: [], rulesFired: [] };
@@ -151,12 +162,14 @@ function dualPathRetrieve(options = {}) {
   const limit = options.limit || 10;
   const include = options.pathInclude || [];
   const exclude = options.pathExclude || [];
+  const pool = Math.max(limit, options.candidatePool || 30);
+  const rerankStrategy = options.rerank === undefined ? DEFAULT_RERANK : options.rerank;
 
   const lists = [];
   const paths = { harness: null, grepai: null };
 
   if (!options.grepaeOnly) {
-    paths.harness = runHarness(q, Math.max(limit, 15), options.repo || REPO);
+    paths.harness = runHarness(q, Math.max(pool, 15), options.repo || REPO);
     if (paths.harness.ok) {
       lists.push(
         paths.harness.matches
@@ -166,7 +179,7 @@ function dualPathRetrieve(options = {}) {
     }
   }
   if (!options.harnessOnly) {
-    paths.grepai = runGrepai(q, Math.max(limit, 15), options.repo || REPO);
+    paths.grepai = runGrepai(q, Math.max(pool, 15), options.repo || REPO);
     if (paths.grepai.ok) {
       lists.push(
         paths.grepai.matches
@@ -176,7 +189,51 @@ function dualPathRetrieve(options = {}) {
     }
   }
 
-  const fused = rrfFuse(lists).slice(0, limit);
+  const fused = rrfFuse(lists).slice(0, pool);
+  let matches = fused.slice(0, limit);
+  let rerankMeta = { applied: false, strategy: 'none' };
+
+  if (rerankStrategy && rerankStrategy !== 'none' && fused.length > 1) {
+    try {
+      const rr = await rerank({
+        query: q,
+        candidates: fused,
+        strategy: rerankStrategy,
+        limit,
+        llm: Boolean(options.llmRerank),
+        embedder: options.embedder,
+        chat: options.chat,
+      });
+      matches = (rr.matches || []).map((m) => ({
+        path: m.path,
+        rrfScore: m.rrfScore,
+        rerankScore: m.rerankScore,
+        sources: m.sources || [],
+        snippet: m.snippet || '',
+        start_line: m.start_line,
+        end_line: m.end_line,
+        priorRank: m.priorRank,
+        method: m.method,
+        components: m.components,
+      }));
+      rerankMeta = {
+        applied: true,
+        strategy: rr.strategy,
+        llmApplied: rr.llmApplied,
+        llmError: rr.llmError,
+        elapsedMs: rr.elapsedMs,
+        capabilities: rr.capabilities,
+      };
+    } catch (error) {
+      rerankMeta = {
+        applied: false,
+        strategy: rerankStrategy,
+        error: error instanceof Error ? error.message : String(error),
+      };
+      matches = fused.slice(0, limit);
+    }
+  }
+
   return {
     query: queryIn,
     rewritten: rewrite.rewritten,
@@ -189,31 +246,40 @@ function dualPathRetrieve(options = {}) {
     },
     fusion: 'rrf',
     rrfK: RRF_K,
-    matches: fused,
+    rerank: rerankMeta,
+    matches,
   };
 }
 
 if (require.main === module) {
-  try {
-    const args = parseArgs(process.argv.slice(2));
-    if (args.help || !args.query) {
-      console.log(`Usage: node tools/retrieval-dual-path.js --query "..." [--json] [--path-include a,b] [--path-exclude c]`);
-      process.exit(args.help ? 0 : 2);
+  (async () => {
+    try {
+      const args = parseArgs(process.argv.slice(2));
+      if (args.help || !args.query) {
+        console.log(
+          `Usage: node tools/retrieval-dual-path.js --query "..." [--json] [--rerank ensemble|cross_encoder|colbert_lite|none] [--llm-rerank]`,
+        );
+        process.exit(args.help ? 0 : 2);
+      }
+      const out = await dualPathRetrieve(args);
+      if (args.json) console.log(JSON.stringify(out, null, 2));
+      else {
+        console.log(`query: ${out.query}`);
+        if (out.rewritten !== out.query) console.log(`rewritten: ${out.rewritten}`);
+        console.log(
+          `paths: harness=${out.pathStatus.harness} grepai=${out.pathStatus.grepai} rerank=${out.rerank?.strategy || 'none'} applied=${Boolean(out.rerank?.applied)}`,
+        );
+        out.matches.forEach((m, i) => {
+          const score = m.rerankScore != null ? m.rerankScore : m.rrfScore;
+          const src = (m.sources || []).join('+') || '-';
+          console.log(`${i + 1}. ${Number(score).toFixed(4)}  [${src}]  ${m.path}`);
+        });
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : error);
+      process.exit(2);
     }
-    const out = dualPathRetrieve(args);
-    if (args.json) console.log(JSON.stringify(out, null, 2));
-    else {
-      console.log(`query: ${out.query}`);
-      if (out.rewritten !== out.query) console.log(`rewritten: ${out.rewritten}`);
-      console.log(`paths: harness=${out.pathStatus.harness} grepai=${out.pathStatus.grepai}`);
-      out.matches.forEach((m, i) => {
-        console.log(`${i + 1}. ${m.rrfScore.toFixed(4)}  [${m.sources.join('+')}]  ${m.path}`);
-      });
-    }
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : error);
-    process.exit(2);
-  }
+  })();
 }
 
 module.exports = { dualPathRetrieve, rrfFuse, pathAllowed, runHarness, runGrepai };
