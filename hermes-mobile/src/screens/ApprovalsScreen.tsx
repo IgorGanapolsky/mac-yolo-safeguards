@@ -251,8 +251,8 @@ export default function ApprovalsScreen() {
         </View>
         <Text style={styles.subtitle}>
           {settings.safetyMode || settings.glanceMode
-            ? 'Approve blocked agent tools — from lock screen (Approve / Deny) or cards below'
-            : 'Approve blocked tools from your phone — tap notifications on lock screen'}
+            ? 'Approve blocked agent tools via ThumbGate.app — lock screen or cards below'
+            : 'Approve blocked tools from your phone via ThumbGate.app — tap notifications on lock screen'}
         </Text>
         {leashUnlocked ? (
           <>
