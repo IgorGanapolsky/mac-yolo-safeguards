@@ -19,7 +19,7 @@
 > 3. If lease expires, execution on the primary node fails closed before secondary continuity takes over.
 
 **First Comment Links:**
-- Google Play: https://play.google.com/store/apps/details?id=com.hermes.mobile&utm_source=linkedin&utm_medium=post&utm_campaign=double_execution_lease
+- Google Play: https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile.paid&utm_source=linkedin&utm_medium=post&utm_campaign=double_execution_lease
 - Web Continuity: https://thumbgate.app?utm_source=linkedin&utm_medium=post&utm_campaign=double_execution_lease
 - GitHub Repository: https://github.com/IgorGanapolsky/mac-yolo-safeguards
 
@@ -32,7 +32,7 @@
 > Two executors on one thread is strictly worse than zero executors.
 >
 > Here is how a 90-second renewable lease prevents double-execution when your Mac sleeps:
-> https://play.google.com/store/apps/details?id=com.hermes.mobile&utm_source=x&utm_medium=post&utm_campaign=double_execution_lease
+> https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile.paid&utm_source=x&utm_medium=post&utm_campaign=double_execution_lease
 
 ---
 
@@ -43,4 +43,4 @@
 > None of them answer the harder question: who finishes the job when your laptop lid closes?
 >
 > Two executors on one thread is worse than zero. Our 90-second lease guarantees 1-executor failover:
-> https://play.google.com/store/apps/details?id=com.hermes.mobile&utm_source=bluesky&utm_medium=post&utm_campaign=double_execution_lease
+> https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile.paid&utm_source=bluesky&utm_medium=post&utm_campaign=double_execution_lease

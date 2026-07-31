@@ -50,5 +50,5 @@ By combining the **90-second resource lease** with **mobile push approvals**, de
 Hermes Mobile keeps coding agents under human control without requiring you to sit bound to your laptop.
 
 - **Website**: [thumbgate.app](https://thumbgate.app?utm_source=devto&utm_medium=article&utm_campaign=double_execution_lease)
-- **Google Play Store**: [Hermes Agent: Mobile AI Leash](https://play.google.com/store/apps/details?id=com.hermes.mobile&utm_source=devto&utm_medium=article&utm_campaign=double_execution_lease)
+- **Google Play Store**: [Hermes Agent: Mobile AI Leash](https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile.paid&utm_source=devto&utm_medium=article&utm_campaign=double_execution_lease)
 - **GitHub Repository**: [IgorGanapolsky/mac-yolo-safeguards](https://github.com/IgorGanapolsky/mac-yolo-safeguards)
