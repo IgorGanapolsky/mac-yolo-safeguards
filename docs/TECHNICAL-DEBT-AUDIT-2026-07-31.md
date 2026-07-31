@@ -2,8 +2,8 @@
 
 ## Verdict
 
-This audit scanned every file tracked by Git at `origin/main` commit
-`b7cda5e12b254032dae5494a3a5f5e5388347d6d`. The cleanup is safe and locally green,
+This audit scanned every file tracked by Git and was reconciled to `origin/main` commit
+`9697294fa`. The cleanup is safe and locally green,
 but the repository is **not** at 100% operational reliability or 100% coverage.
 The exact remaining gaps are recorded below rather than hidden behind a completion claim.
 
@@ -14,8 +14,8 @@ The audit ran in an isolated worktree on branch
 
 | Metric | Before | After | Delta |
 |---|---:|---:|---:|
-| Git-tracked files | 2,028 | 2,023 | -5 |
-| Git-tracked text lines | 348,233 | 348,086 | -147 |
+| Git-tracked files | 2,031 | 2,026 | -5 |
+| Git-tracked text lines | 349,576 | 349,429 | -147 |
 | Files deleted | 0 | 6 | -6 |
 | Gross changed lines removed | 0 | 358 | -358 |
 | Exact duplicate groups | 25 | 24 | -1 |
@@ -30,8 +30,8 @@ coordination claim, so it is intentionally reported separately.
 
 ## Scope and inventory
 
-The inventory covered all 2,028 tracked files and 262 tracked directories. Of those files,
-1,953 were text and 75 were binary, totaling 45,438,967 bytes. The tree contained 474 test
+The final inventory covered all 2,031 tracked files and 262 tracked directories. Of those files,
+1,956 were text and 75 were binary, totaling 45,507,832 bytes. The tree contained 475 test
 files and 22 GitHub Actions workflow files.
 
 Largest language groups measured with SCC:
@@ -39,12 +39,12 @@ Largest language groups measured with SCC:
 | Language | Files | Lines | Code |
 |---|---:|---:|---:|
 | TypeScript | 624 | 111,714 | 99,382 |
-| JavaScript | 416 | 104,098 | 93,204 |
-| Markdown | 400 | 41,787 | 31,680 |
+| JavaScript | 417 | 104,593 | 93,541 |
+| Markdown | 401 | 42,017 | 31,861 |
 | JSON | 80 | 27,065 | 27,065 |
-| Shell | 150 | 17,524 | 13,761 |
+| Shell | 151 | 17,951 | 14,063 |
 | Python | 25 | 8,184 | 7,193 |
-| YAML | 73 | 5,889 | 5,388 |
+| YAML | 73 | 5,895 | 5,015 |
 | Swift | 8 | 526 | 455 |
 | Kotlin | 5 | 378 | 333 |
 
@@ -135,8 +135,8 @@ cloud runner 5, relay 12, and ML pipeline 12 tests.
 
 RAG cleanup count is zero because the available provider surface supports recall and capture but
 does not expose safe record deletion/merge. The audit does not mutate the raw RAG database behind
-the provider. One evidence-backed lesson is added after the PR is published and recalled to verify
-the write/read path.
+the provider. A capture of the PR ownership-gate lesson was attempted after publication, but its
+write/read verification timed out; no successful RAG mutation is claimed.
 
 ## Dependency and security findings
 
