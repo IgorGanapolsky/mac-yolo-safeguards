@@ -159,8 +159,12 @@ describe('iPad simulator fresh-user edge-case flow', () => {
   it('cold-relaunches without clearing state and rechecks native focus', () => {
     const relaunchIndex = flow.lastIndexOf('- launchApp:');
     const relaunchSlice = flow.slice(relaunchIndex);
+    const settleIndex = relaunchSlice.indexOf('- waitForAnimationToEnd:');
+    const bootstrapIndex = relaunchSlice.indexOf('id: "hermes-bootstrap"');
 
     expect(relaunchSlice).toMatch(/clearState:\s*false/);
+    expect(settleIndex).toBeGreaterThan(-1);
+    expect(settleIndex).toBeLessThan(bootstrapIndex);
     expect(relaunchSlice).toContain('assertNotVisible:\n    id: "connect-mac-gate"');
     expect(relaunchSlice).toContain('id: "chat-input"');
     expect(relaunchSlice).toContain('inputText: "make money today"');
