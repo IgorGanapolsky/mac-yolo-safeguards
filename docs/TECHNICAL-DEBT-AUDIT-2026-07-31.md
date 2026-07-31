@@ -3,7 +3,7 @@
 ## Verdict
 
 This audit scanned every file tracked by Git and was reconciled to `origin/main` commit
-`9697294fa`. The cleanup is safe and locally green,
+`4cf4ab2a5`. The cleanup is safe and locally green,
 but the repository is **not** at 100% operational reliability or 100% coverage.
 The exact remaining gaps are recorded below rather than hidden behind a completion claim.
 
@@ -14,8 +14,8 @@ The audit ran in an isolated worktree on branch
 
 | Metric | Before | After | Delta |
 |---|---:|---:|---:|
-| Git-tracked files | 2,031 | 2,026 | -5 |
-| Git-tracked text lines | 349,576 | 349,429 | -147 |
+| Git-tracked files | 2,040 | 2,035 | -5 |
+| Git-tracked text lines | 350,818 | 350,671 | -147 |
 | Files deleted | 0 | 6 | -6 |
 | Gross changed lines removed | 0 | 358 | -358 |
 | Exact duplicate groups | 25 | 24 | -1 |
@@ -30,8 +30,8 @@ coordination claim, so it is intentionally reported separately.
 
 ## Scope and inventory
 
-The final inventory covered all 2,031 tracked files and 262 tracked directories. Of those files,
-1,956 were text and 75 were binary, totaling 45,507,832 bytes. The tree contained 475 test
+The final inventory covered all 2,040 tracked files and 262 tracked directories. Of those files,
+1,965 were text and 75 were binary, totaling 45,554,662 bytes. The tree contained 479 test
 files and 22 GitHub Actions workflow files.
 
 Largest language groups measured with SCC:
@@ -39,8 +39,8 @@ Largest language groups measured with SCC:
 | Language | Files | Lines | Code |
 |---|---:|---:|---:|
 | TypeScript | 624 | 111,714 | 99,382 |
-| JavaScript | 417 | 104,593 | 93,541 |
-| Markdown | 401 | 42,017 | 31,861 |
+| JavaScript | 425 | 105,784 | 94,463 |
+| Markdown | 402 | 42,068 | 31,898 |
 | JSON | 80 | 27,065 | 27,065 |
 | Shell | 151 | 17,951 | 14,063 |
 | Python | 25 | 8,184 | 7,193 |
@@ -184,10 +184,12 @@ Ten finding categories remain:
 ## CI health
 
 - Previous completed main CI evidence: [run 30590584192](https://github.com/IgorGanapolsky/mac-yolo-safeguards/actions/runs/30590584192) — success.
-- Current audited main SHA run: [run 30634881258](https://github.com/IgorGanapolsky/mac-yolo-safeguards/actions/runs/30634881258) — in progress at audit snapshot; JavaScript/TypeScript, Python, Actions, and Socket checks had passed while Swift analysis was still running.
+- Current audited main SHA CodeQL run: [run 30639385912](https://github.com/IgorGanapolsky/mac-yolo-safeguards/actions/runs/30639385912) — queued at the final reconciliation snapshot.
 - Pull request: [draft PR #1271](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1271)
-- Branch required-check verdict: read from the live PR; checks were queued at the publication
-  snapshot and no green remote verdict is claimed inside this static report.
+- Prior branch head `f0de60b3a` completed every executed GitHub check successfully, including
+  macOS guard kit, mobile typecheck/tests, Android Maestro, Swift CodeQL, and security providers.
+  The final reconciled head must be read from the live PR; no future green verdict is claimed in
+  this static report.
 
 ## Completion status
 
