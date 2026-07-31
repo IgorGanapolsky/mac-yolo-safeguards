@@ -470,9 +470,14 @@ import {
   shouldAwaitGatewayReplyAfterSend,
   shouldHardStopEmptyStreamWait,
   shouldKeepAutoPollingForReply,
+  serverHasAssistantReplyAfterLastUser,
   toolActivityAfterLastUser,
 } from '../utils/emptyStreamReplyRecovery';
-import { shouldShowEmptyStreamRefreshCta } from '../utils/emptyStreamRefreshCta';
+import {
+  isEmptyStreamRecoveryStatus,
+  shouldShowEmptyStreamRefreshCta,
+  stripSupersededEmptyStreamTimeouts,
+} from '../utils/emptyStreamRefreshCta';
 import {
   msUntilLivePromptHardTimeout,
   messageSentAtMs,
@@ -3543,10 +3548,12 @@ export default function ChatScreen() {
             awaitingGatewayReplyRef.current = false;
             setAwaitingGatewayReply(false);
             commitMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId
-                  ? { ...m, content: preferRicherAssistantText(m.content, reply) }
-                  : m,
+              stripSupersededEmptyStreamTimeouts(
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? { ...m, content: preferRicherAssistantText(m.content, reply) }
+                    : m,
+                ),
               ),
             );
             const activityAfterReply = toolActivityAfterLastUser(msgs);
@@ -4564,6 +4571,37 @@ export default function ChatScreen() {
     () => !isDemo && macChatLive && shouldShowEmptyStreamRefreshCta(messages),
     [isDemo, macChatLive, messages],
   );
+
+  // When a real assistant reply lands after soft/hard empty-stream timeout, drop the
+  // stale "Stopped waiting" banner chrome, timeout bubble, and recovery toolStatus.
+  useEffect(() => {
+    if (isDemo || !macChatLive) {
+      return;
+    }
+    if (!serverHasAssistantReplyAfterLastUser(messages)) {
+      return;
+    }
+    const stripped = stripSupersededEmptyStreamTimeouts(messages);
+    if (stripped.length !== messages.length) {
+      commitMessages(() => stripped);
+    }
+    if (isEmptyStreamRecoveryStatus(toolStatus)) {
+      setToolStatus(null);
+    }
+    setRunProgress((prev) => {
+      if (!prev || prev.phase !== 'failed') {
+        return prev;
+      }
+      if (isEmptyStreamRecoveryStatus(prev.detail)) {
+        return null;
+      }
+      return prev;
+    });
+    if (awaitingGatewayReply) {
+      awaitingGatewayReplyRef.current = false;
+      setAwaitingGatewayReply(false);
+    }
+  }, [isDemo, macChatLive, messages, toolStatus, awaitingGatewayReply, commitMessages]);
 
   const lastUserPromptSentAtMs = useMemo(() => {
     const fromMessages = resolveLastUserPromptSentAtMs(messages);
