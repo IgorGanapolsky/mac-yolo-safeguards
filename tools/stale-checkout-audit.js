@@ -113,6 +113,20 @@ function auditCheckout(dir, name, executedBy) {
   return { name, dir, branch, behind, unversioned, executedBy: [...(executedBy || [])] };
 }
 
+// Generated output the jobs rewrite themselves. skool_top1percent went from 159
+// unversioned files to 17 within ten minutes of committing, and all 17 were
+// reports/gtm/* and data/* written by the loops — zero source files. Escalating that
+// to CRITICAL every day is how a guard teaches you to ignore it.
+const GENERATED_DIR = /^(data|reports|out|dist|build|coverage|graphify-out|node_modules)\//;
+const GENERATED_FILE = /(\.(sqlite|db|log|jsonl|lock)$|cache[^/]*\.json$|_last_run\.txt$)/;
+const SOURCE_EXT = /\.(py|js|mjs|cjs|ts|tsx|jsx|sh|bash|rb|go|rs|java|swift|kt|yaml|yml|toml)$/;
+
+/** Source edits are unrecoverable work; generated churn is just the loops running. */
+function isSourceFile(file) {
+  if (GENERATED_DIR.test(file) || GENERATED_FILE.test(file)) return false;
+  return SOURCE_EXT.test(file);
+}
+
 function classify(entry, behindThreshold) {
   const findings = [];
   const executed = entry.executedBy.length > 0;
@@ -128,12 +142,25 @@ function classify(entry, behindThreshold) {
   }
 
   if (entry.unversioned.length > 0) {
-    findings.push({
-      severity: executed ? 'CRITICAL' : 'WARN',
-      kind: 'UNVERSIONED',
-      detail: `${entry.unversioned.length} tracked file(s) modified but never committed`
-        + (executed ? ` — and ${entry.executedBy.join(', ')} run from here` : ''),
-    });
+    const source = entry.unversioned.filter(isSourceFile);
+    const generated = entry.unversioned.length - source.length;
+    if (source.length > 0) {
+      findings.push({
+        severity: executed ? 'CRITICAL' : 'WARN',
+        kind: 'UNVERSIONED',
+        detail: `${source.length} SOURCE file(s) modified but never committed`
+          + (generated ? ` (plus ${generated} generated)` : '')
+          + ` — ${source.slice(0, 3).join(', ')}${source.length > 3 ? ', …' : ''}`
+          + (executed ? ` — and ${entry.executedBy.join(', ')} run from here` : ''),
+      });
+    } else {
+      // Never CRITICAL: the jobs rewrite these by design.
+      findings.push({
+        severity: 'INFO',
+        kind: 'GENERATED-CHURN',
+        detail: `${generated} generated file(s) differ from HEAD — expected while the loops run`,
+      });
+    }
   }
   if (entry.behind !== null && entry.behind >= behindThreshold) {
     findings.push({

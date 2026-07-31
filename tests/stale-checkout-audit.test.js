@@ -95,3 +95,48 @@ test('end to end against a real repo on disk', () => {
 
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test('generated churn is never CRITICAL, even where jobs run', () => {
+  // skool_top1percent went 159 -> 17 unversioned files within ten minutes of a commit,
+  // and all 17 were reports/gtm/* and data/* written by its own loops. Paging on that
+  // daily is how a guard trains you to ignore it.
+  const churn = classify(entry({
+    unversioned: [
+      'data/skool_knowledge.sqlite',
+      'reports/gtm/next-dollar-distance.json',
+      // A generated file with a SOURCE extension. Without this the directory check is
+      // never exercised: .sqlite/.json fail the extension test on their own, so the
+      // test passed even with GENERATED_DIR deleted.
+      'graphify-out/bundle.js',
+      'dist/index.js',
+    ],
+    executedBy: ['com.igor.ralph_loop'],
+  }), 25);
+  assert.equal(churn.length, 1);
+  assert.equal(churn[0].kind, 'GENERATED-CHURN');
+  assert.equal(churn[0].severity, 'INFO', 'loops rewriting their own output is not an incident');
+});
+
+test('a single source edit still escalates, and is named', () => {
+  const findings = classify(entry({
+    unversioned: ['data/state.json', 'reports/gtm/out.md', 'scripts/revenue_ops/autopilot.py'],
+    executedBy: ['com.igor.ralph_loop'],
+  }), 25);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].kind, 'UNVERSIONED');
+  assert.equal(findings[0].severity, 'CRITICAL');
+  assert.match(findings[0].detail, /1 SOURCE file/);
+  assert.match(findings[0].detail, /autopilot\.py/, 'must name the file so it can be rescued');
+  assert.match(findings[0].detail, /plus 2 generated/, 'generated count still reported, just not escalated');
+});
+
+test('config that is not generated output counts as source', () => {
+  // hermes-eval's litellm/config.yaml was the live gateway routing config and was
+  // unversioned. Misclassifying that as churn would have hidden it.
+  const findings = classify(entry({
+    unversioned: ['litellm/config.yaml'],
+    executedBy: ['com.igor.hermes-litellm'],
+  }), 25);
+  assert.equal(findings[0].severity, 'CRITICAL');
+  assert.match(findings[0].detail, /1 SOURCE file/);
+});
