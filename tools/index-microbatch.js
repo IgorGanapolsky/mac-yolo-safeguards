@@ -210,22 +210,33 @@ function runCycle(options = {}) {
     });
   }
 
-  const cycleCount = Number(prev.cycleCount || 0) + 1;
-  const needFullRebuild = cycleCount % FULL_REBUILD_EVERY === 0;
-  const next = {
-    gitSha: gitSha(ISOLATED) || head,
-    cycleCount,
-    updatedAt: new Date().toISOString(),
-    lessonsSqliteMtime: lessonsMtime,
-    needFullRebuild,
-    lastTriggers: report.triggers,
-  };
-  fs.mkdirSync(path.dirname(WATERMARK), { recursive: true });
-  fs.writeFileSync(WATERMARK, JSON.stringify(next, null, 2));
-  report.watermark = next;
-  report.needFullRebuild = needFullRebuild;
-  report.ok = (report.actions.length === 0 || report.actions.every((a) => a.ok)) && grepaeWatcherRunning();
-  report.watcherRunning = grepaeWatcherRunning();
+  const actionsOk = report.actions.length === 0 || report.actions.every((a) => a.ok);
+  const watcherOk = grepaeWatcherRunning();
+  report.ok = actionsOk && watcherOk;
+  report.watcherRunning = watcherOk;
+
+  // Advance watermark only after heal actions succeed (InfoQ: never mark progress
+  // on a failed cycle — that hides lag behind a false "current" SHA).
+  if (report.ok) {
+    const cycleCount = Number(prev.cycleCount || 0) + 1;
+    const needFullRebuild = cycleCount % FULL_REBUILD_EVERY === 0;
+    const next = {
+      gitSha: gitSha(ISOLATED) || head,
+      cycleCount,
+      updatedAt: new Date().toISOString(),
+      lessonsSqliteMtime: lessonsMtime,
+      needFullRebuild,
+      lastTriggers: report.triggers,
+    };
+    fs.mkdirSync(path.dirname(WATERMARK), { recursive: true });
+    fs.writeFileSync(WATERMARK, JSON.stringify(next, null, 2));
+    report.watermark = next;
+    report.needFullRebuild = needFullRebuild;
+  } else {
+    report.watermarkAdvanced = false;
+    report.watermark = prev;
+    report.needFullRebuild = false;
+  }
   return report;
 }
 

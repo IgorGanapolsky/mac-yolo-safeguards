@@ -147,14 +147,41 @@ function complete(options = {}) {
   const dbPath = options.dbPath || DEFAULT_DB;
   const id = Number(options.id);
   if (!id) throw new Error('--id required');
+  const worker = options.worker ? String(options.worker) : null;
   const ts = nowIso();
   const status = options.fail ? 'failed' : 'done';
   const err = options.error ? String(options.error).slice(0, 500).replace(/'/g, "''") : '';
+  // Lease ownership required when worker is provided — expired/stolen leases cannot complete.
+  if (worker) {
+    const rows = sql(
+      dbPath,
+      `SELECT id, locked_by, status FROM jobs WHERE id=${id};`,
+      { json: true },
+    );
+    const row = rows[0];
+    if (!row) return { ok: false, id, error: 'job not found', dbPath };
+    if (row.locked_by && row.locked_by !== worker) {
+      return {
+        ok: false,
+        id,
+        error: `lease owned by ${row.locked_by}, not ${worker}`,
+        dbPath,
+      };
+    }
+  }
+  const ownerClause = worker
+    ? ` AND (locked_by IS NULL OR locked_by='${worker.replace(/'/g, "''")}')`
+    : '';
   sql(
     dbPath,
     `UPDATE jobs SET status='${status}', locked_by=NULL, locked_until=NULL,
-      last_error=${err ? `'${err}'` : 'NULL'}, updated_at='${ts}' WHERE id=${id};`,
+      last_error=${err ? `'${err}'` : 'NULL'}, updated_at='${ts}'
+     WHERE id=${id}${ownerClause};`,
   );
+  const check = sql(dbPath, `SELECT status FROM jobs WHERE id=${id};`, { json: true });
+  if (!check[0] || check[0].status !== status) {
+    return { ok: false, id, error: 'complete failed (lease/ownership)', dbPath };
+  }
   return { ok: true, id, status, dbPath };
 }
 
@@ -185,7 +212,15 @@ if (require.main === module) {
     let report;
     if (args.cmd === 'enqueue') report = enqueue({ dbPath: args.dbPath, type: args.type });
     else if (args.cmd === 'claim') report = claim({ dbPath: args.dbPath, worker: args.worker });
-    else if (args.cmd === 'complete') report = complete({ dbPath: args.dbPath, id: args.id, fail: args.fail, error: args.error });
+    else if (args.cmd === 'complete') {
+      report = complete({
+        dbPath: args.dbPath,
+        id: args.id,
+        fail: args.fail,
+        error: args.error,
+        worker: args.worker,
+      });
+    }
     else throw new Error(`Unknown command ${args.cmd}`);
     if (args.json) console.log(JSON.stringify(report, null, 2));
     else console.log(JSON.stringify(report));

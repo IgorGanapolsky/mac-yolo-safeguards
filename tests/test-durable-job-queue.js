@@ -24,7 +24,11 @@ test('enqueue → claim → complete durable lifecycle', () => {
   const c2 = claim({ dbPath, worker: 'w-other', leaseSec: 60 });
   assert.equal(c2.job, null);
 
-  const done = complete({ dbPath, id: c1.job.id });
+  const stolen = complete({ dbPath, id: c1.job.id, worker: 'not-owner' });
+  assert.equal(stolen.ok, false);
+
+  const done = complete({ dbPath, id: c1.job.id, worker: 'w-test' });
+  assert.equal(done.ok, true);
   assert.equal(done.status, 'done');
 
   const c3 = claim({ dbPath, worker: 'w-test' });
