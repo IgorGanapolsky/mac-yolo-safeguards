@@ -1,0 +1,57 @@
+{
+  "schema_version": "rag-generation-eval/1",
+  "description": "Deterministic faithfulness / groundedness / answer-relevance fixtures. Sources must support the answer; negative cases expectPass=false.",
+  "cases": [
+    {
+      "id": "continuity-supported",
+      "query": "What is ThumbGate Continuity?",
+      "answer": "ThumbGate Continuity continues eligible Hermes work on a fenced VPS when the Mac goes offline. It is queued prompt handoff, not live process migration.",
+      "sources": [
+        "Paid SKU is Continuity: when the Mac goes offline, ELIGIBLE work continues on a fenced Fly VPS runner (queued prompt/thread handoff, 90s fenced lease). It is NOT live process migration."
+      ],
+      "minAnswerRelevance": 0.2,
+      "minFaithfulness": 0.6,
+      "minGroundedness": 0.4
+    },
+    {
+      "id": "swarm-harness-supported",
+      "query": "How does the agent swarm harness coordinate workers?",
+      "answer": "The agent swarm harness uses plan.md claims, planner/worker roles, and AcceptanceCheck gates so agents do not thrash the same megafile.",
+      "sources": [
+        "tools/agent-swarm-harness.js implements planner/worker roles, file claims against plan.md, thrash detection, and AcceptanceCheck verification before merge."
+      ],
+      "minAnswerRelevance": 0.15,
+      "minFaithfulness": 0.5,
+      "minGroundedness": 0.35
+    },
+    {
+      "id": "retrieval-harness-supported",
+      "query": "How does hermes retrieval harness score chunks?",
+      "answer": "The hermes retrieval harness scores path tokens highest, then headers, then text matches, with co-occurrence bonuses before returning top-k citations.",
+      "sources": [
+        "Retrieval scoring — path tokens are weighted most heavily, then headers, then exact text, then fuzzy substring matches. A co-occurrence bonus rewards chunks that cover multiple query aspects."
+      ]
+    },
+    {
+      "id": "hallucinated-unsupported",
+      "query": "What is ThumbGate Continuity?",
+      "answer": "ThumbGate Continuity is a Kubernetes operator that auto-scales GPU clusters on AWS with guaranteed 99.99% uptime and end-to-end encryption for every tool call.",
+      "sources": [
+        "Paid SKU is Continuity: when the Mac goes offline, ELIGIBLE work continues on a fenced Fly VPS runner."
+      ],
+      "expectPass": false,
+      "minFaithfulness": 0.5,
+      "minGroundedness": 0.35
+    },
+    {
+      "id": "off-topic-low-relevance",
+      "query": "How should we price Continuity against Abacus SuperComputer?",
+      "answer": "The weather tomorrow will be sunny with a chance of rain in the afternoon across coastal regions.",
+      "sources": [
+        "Abacus SuperComputer ships Hermes as a pre-baked always-on agent. Continuity is priced for offline VPS handoff."
+      ],
+      "expectPass": false,
+      "minAnswerRelevance": 0.15
+    }
+  ]
+}

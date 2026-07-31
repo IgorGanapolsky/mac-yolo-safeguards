@@ -72,6 +72,47 @@ function rewriteQuery(query) {
   return { original, rewritten, expansions, rulesFired };
 }
 
+/**
+ * Multi-query variants for RRF fusion (deterministic — no LLM).
+ * Includes original, synonym rewrite, per-expansion probes, and a HyDE-lite
+ * "pseudo document" query when expansions exist.
+ */
+function multiQueryVariants(query, options = {}) {
+  const max = Number.isInteger(options.max) && options.max > 0 ? options.max : 5;
+  const rw = rewriteQuery(query);
+  const variants = [];
+  const push = (q, kind) => {
+    const t = String(q || '').replace(/\s+/g, ' ').trim();
+    if (!t) return;
+    if (variants.some((v) => v.query === t)) return;
+    variants.push({ query: t, kind });
+  };
+  push(rw.original, 'original');
+  if (rw.rewritten && rw.rewritten !== rw.original) push(rw.rewritten, 'rewrite');
+  for (const term of rw.expansions.slice(0, 3)) {
+    push(`${rw.original} ${term}`, 'expansion');
+  }
+  // HyDE-lite: retrieve as if hunting an implementation doc that names the expansions.
+  if (rw.expansions.length) {
+    push(
+      `documentation implementation ${rw.expansions.slice(0, 4).join(' ')} ${rw.original}`,
+      'hyde_lite',
+    );
+  }
+  // Token-decomposition multi-query for long asks (no synonym hit).
+  if (variants.length === 1) {
+    const tokens = rw.original.split(/\s+/).filter((t) => t.length >= 4);
+    if (tokens.length >= 4) {
+      push(tokens.slice(0, Math.ceil(tokens.length / 2)).join(' '), 'half_a');
+      push(tokens.slice(Math.floor(tokens.length / 2)).join(' '), 'half_b');
+    }
+  }
+  return {
+    ...rw,
+    variants: variants.slice(0, max),
+  };
+}
+
 if (require.main === module) {
   const argv = process.argv.slice(2);
   let query = '';
@@ -95,4 +136,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { rewriteQuery, SYNONYM_RULES };
+module.exports = { rewriteQuery, multiQueryVariants, SYNONYM_RULES };

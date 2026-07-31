@@ -42,3 +42,14 @@ not have a repo-local retrieval receipt for generic specification language. This
 harness closes that gap: a PDF/email/source note can now be turned into a local
 query, file citations, readback, and focused follow-up tests before any
 implementation claim is made.
+
+## Eval stack (measured metrics only)
+
+| Metric | Command |
+|--------|---------|
+| recall@k, precision@k, MRR, nDCG@k | `node tools/rag-retrieval-eval.js --json` |
+| faithfulness, groundedness, answer relevance | `node tools/rag-generation-eval.js --json` |
+| multi-query + RRF + CE-lite rerank | `node tools/retrieval-dual-path.js --query "..." --json` |
+| composite grade | `node tools/rag-stack-scorecard.js --json` |
+
+Pure scorers: `tools/rag-metrics.js`. Benchmark suite (`tools/eval-benchmark-suite.js`) only reports `measured:true` fields — never fabricated groundedness constants.

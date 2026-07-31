@@ -14,7 +14,8 @@
 
 const { spawnSync } = require('child_process');
 const path = require('path');
-const { rewriteQuery } = require('./retrieval-query-rewrite');
+const { rewriteQuery, multiQueryVariants } = require('./retrieval-query-rewrite');
+const { rerankCrossEncoderLite } = require('./rag-metrics');
 
 const REPO = path.resolve(__dirname, '..');
 const RRF_K = 60;
@@ -25,6 +26,8 @@ function parseArgs(argv) {
     limit: 10,
     json: false,
     rewrite: true,
+    multiQuery: true,
+    rerank: true,
     harnessOnly: false,
     grepaeOnly: false,
     pathInclude: [],
@@ -37,6 +40,8 @@ function parseArgs(argv) {
     else if (a === '--limit') args.limit = Number(argv[++i] || 10);
     else if (a === '--json') args.json = true;
     else if (a === '--no-rewrite') args.rewrite = false;
+    else if (a === '--no-multi-query') args.multiQuery = false;
+    else if (a === '--no-rerank') args.rerank = false;
     else if (a === '--harness-only') args.harnessOnly = true;
     else if (a === '--grepai-only' || a === '--grepae-only') args.grepaeOnly = true;
     else if (a === '--path-include') args.pathInclude = String(argv[++i] || '').split(',').filter(Boolean);
@@ -146,49 +151,92 @@ function rrfFuse(lists, k = RRF_K) {
 function dualPathRetrieve(options = {}) {
   const queryIn = String(options.query || '').trim();
   if (!queryIn) throw new Error('--query required');
-  const rewrite = options.rewrite !== false ? rewriteQuery(queryIn) : { original: queryIn, rewritten: queryIn, expansions: [], rulesFired: [] };
-  const q = rewrite.rewritten;
+  const useMulti = options.multiQuery !== false;
+  const useRewrite = options.rewrite !== false;
+  const mq = useMulti
+    ? multiQueryVariants(queryIn)
+    : {
+        ...rewriteQuery(queryIn),
+        variants: useRewrite
+          ? [{ query: rewriteQuery(queryIn).rewritten, kind: 'rewrite' }]
+          : [{ query: queryIn, kind: 'original' }],
+      };
+  if (!useRewrite && useMulti) {
+    // Keep multi-query structural variants but strip synonym expansions that
+    // only appear via rewrite path... multiQueryVariants always rewrites;
+    // for --no-rewrite force single original.
+    mq.variants = [{ query: queryIn, kind: 'original' }];
+    mq.rewritten = queryIn;
+    mq.expansions = [];
+    mq.rulesFired = [];
+  }
   const limit = options.limit || 10;
   const include = options.pathInclude || [];
   const exclude = options.pathExclude || [];
+  const pool = Math.max(limit, 15);
 
   const lists = [];
-  const paths = { harness: null, grepai: null };
+  const pathStatus = { harness: [], grepai: [] };
+  const variantsUsed = [];
 
-  if (!options.grepaeOnly) {
-    paths.harness = runHarness(q, Math.max(limit, 15), options.repo || REPO);
-    if (paths.harness.ok) {
-      lists.push(
-        paths.harness.matches
-          .filter((m) => pathAllowed(m.path, include, exclude))
-          .map((m, i) => ({ ...m, rank: i + 1 })),
-      );
+  let grepaeDone = false;
+  for (const variant of mq.variants) {
+    variantsUsed.push(variant);
+    if (!options.grepaeOnly) {
+      const harness = runHarness(variant.query, pool, options.repo || REPO);
+      pathStatus.harness.push(harness.ok ? 'ok' : harness.error);
+      if (harness.ok) {
+        lists.push(
+          harness.matches
+            .filter((m) => pathAllowed(m.path, include, exclude))
+            .map((m, i) => ({ ...m, rank: i + 1, source: `harness:${variant.kind}` })),
+        );
+      }
+    }
+    // Dense path once on the primary (rewrite preferred) — grepae is slower.
+    if (
+      !options.harnessOnly &&
+      !grepaeDone &&
+      (variant.kind === 'rewrite' || variant.kind === 'original' || mq.variants.length === 1)
+    ) {
+      const grepae = runGrepai(variant.query, pool, options.repo || REPO);
+      pathStatus.grepai.push(grepae.ok ? 'ok' : grepae.error);
+      grepaeDone = true;
+      if (grepae.ok) {
+        lists.push(
+          grepae.matches
+            .filter((m) => pathAllowed(m.path, include, exclude))
+            .map((m, i) => ({ ...m, rank: i + 1, source: `grepai:${variant.kind}` })),
+        );
+      }
     }
   }
-  if (!options.harnessOnly) {
-    paths.grepai = runGrepai(q, Math.max(limit, 15), options.repo || REPO);
-    if (paths.grepai.ok) {
-      lists.push(
-        paths.grepai.matches
-          .filter((m) => pathAllowed(m.path, include, exclude))
-          .map((m, i) => ({ ...m, rank: i + 1 })),
-      );
-    }
+
+  let fused = rrfFuse(lists).slice(0, Math.max(limit * 2, limit));
+  let rerankApplied = false;
+  if (options.rerank !== false) {
+    fused = rerankCrossEncoderLite(queryIn, fused).slice(0, limit);
+    rerankApplied = true;
+  } else {
+    fused = fused.slice(0, limit);
   }
 
-  const fused = rrfFuse(lists).slice(0, limit);
   return {
     query: queryIn,
-    rewritten: rewrite.rewritten,
-    rewriteRules: rewrite.rulesFired,
-    expansions: rewrite.expansions,
+    rewritten: mq.rewritten,
+    rewriteRules: mq.rulesFired,
+    expansions: mq.expansions,
+    multiQuery: variantsUsed,
     filters: { pathInclude: include, pathExclude: exclude },
     pathStatus: {
-      harness: paths.harness ? (paths.harness.ok ? 'ok' : paths.harness.error) : 'skipped',
-      grepai: paths.grepai ? (paths.grepai.ok ? 'ok' : paths.grepai.error) : 'skipped',
+      harness: pathStatus.harness[0] || 'skipped',
+      grepai: pathStatus.grepai[0] || 'skipped',
+      harnessLegs: pathStatus.harness,
+      grepaiLegs: pathStatus.grepai,
     },
-    fusion: 'rrf',
+    fusion: 'rrf+multi_query',
     rrfK: RRF_K,
+    rerank: rerankApplied ? 'cross_encoder_lite' : 'none',
     matches: fused,
   };
 }
@@ -216,4 +264,11 @@ if (require.main === module) {
   }
 }
 
-module.exports = { dualPathRetrieve, rrfFuse, pathAllowed, runHarness, runGrepai };
+module.exports = {
+  dualPathRetrieve,
+  rrfFuse,
+  pathAllowed,
+  runHarness,
+  runGrepai,
+  multiQueryVariants,
+};

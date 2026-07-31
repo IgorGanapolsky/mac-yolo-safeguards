@@ -105,7 +105,7 @@ function scoreStack(options = {}) {
   gates.push({
     id: 'ingestion-integrity',
     hard: true,
-    weight: 0.22,
+    weight: 0.18,
     ok: integOk,
     detail: integOk
       ? 'all checks green'
@@ -171,22 +171,48 @@ function scoreStack(options = {}) {
   }
   const evalPass = Boolean(evalJson && evalJson.ok && evalJson.passCount === evalJson.caseCount);
   const recall = Number(evalJson?.meanRecallAtK || 0);
-  const ndcg = Number(evalJson?.meanNdcgAtK || 0);
+  const ndcg = Number(evalJson?.meanNdcgAtK || evalJson?.meanNDCGAtK || 0);
+  const precision = Number(evalJson?.meanPrecisionAtK || 0);
+  const mrr = Number(evalJson?.meanMRR || 0);
   // A-tier: perfect recall + strong ranking. A+ needs nDCG >= 0.93.
   const evalHardOk = evalPass && recall >= 1 && ndcg >= 0.85;
   const evalScore = !evalPass ? 0 : ndcg >= 0.97 ? 1 : ndcg >= 0.93 ? 0.97 : ndcg >= 0.85 ? 0.9 : 0.7;
   gates.push({
     id: 'harness-eval',
     hard: true,
-    weight: 0.16,
+    weight: 0.14,
     ok: evalHardOk,
     detail: evalPass
-      ? `pass ${evalJson.passCount}/${evalJson.caseCount} recall=${recall} nDCG=${ndcg.toFixed(4)}`
+      ? `pass ${evalJson.passCount}/${evalJson.caseCount} R=${recall} P=${precision} MRR=${mrr} nDCG=${ndcg.toFixed(4)}`
       : `exit ${evalRun.status} ${(evalRun.stderr || evalRun.stdout || '').slice(0, 120)}`,
     score: evalScore,
   });
 
-  // 5) dual-path
+  // 4b) generation quality (faithfulness / groundedness / answer relevance)
+  const genRun = runNode('rag-generation-eval.js', ['--json'], { timeout: 30000 });
+  const gen = genRun.json;
+  const genOk = Boolean(gen && gen.ok && gen.measured);
+  const genScore = !genOk
+    ? 0
+    : Math.min(
+        1,
+        0.34 * Number(gen.meanFaithfulness || 0) +
+          0.33 * Number(gen.meanGroundedness || 0) +
+          0.33 * Number(gen.meanAnswerRelevance || 0) +
+          (gen.passCount === gen.caseCount ? 0.15 : 0),
+      );
+  gates.push({
+    id: 'generation-eval',
+    hard: true,
+    weight: 0.1,
+    ok: genOk,
+    detail: genOk
+      ? `pass ${gen.passCount}/${gen.caseCount} faith=${gen.meanFaithfulness} ground=${gen.meanGroundedness} rel=${gen.meanAnswerRelevance}`
+      : `exit ${genRun.status} ${(genRun.stderr || genRun.stdout || '').slice(0, 120)}`,
+    score: Math.min(1, genScore),
+  });
+
+  // 5) dual-path (multi-query + RRF + CE-lite rerank)
   const dual = runNode(
     'retrieval-dual-path.js',
     ['--query', 'hermes cloud connector session recover', '--json', '--limit', '5'],
@@ -199,13 +225,14 @@ function scoreStack(options = {}) {
     dual.json.pathStatus.grepai === 'ok' &&
     Array.isArray(dual.json.matches) &&
     dual.json.matches.length > 0;
+  const multiN = Array.isArray(dual.json?.multiQuery) ? dual.json.multiQuery.length : 0;
   gates.push({
     id: 'dual-path',
     hard: true,
-    weight: 0.1,
+    weight: 0.08,
     ok: dualOk,
     detail: dualOk
-      ? `top=${dual.json.matches[0].path}`
+      ? `top=${dual.json.matches[0].path} multiQuery=${multiN} rerank=${dual.json.rerank || 'none'}`
       : JSON.stringify(dual.json?.pathStatus || dual.stderr || dual.stdout).slice(0, 200),
     score: dualOk ? 1 : 0.2,
   });
@@ -243,7 +270,7 @@ function scoreStack(options = {}) {
   gates.push({
     id: 'interface-contracts',
     hard: true,
-    weight: 0.1,
+    weight: 0.08,
     ok: ifaceOk,
     detail: ifaceOk
       ? `${iface.json.contractCount} interfaces ok`
@@ -289,6 +316,15 @@ function scoreStack(options = {}) {
     hardFail,
     meanNdcgAtK: ndcg,
     meanRecallAtK: recall,
+    meanPrecisionAtK: precision,
+    meanMRR: mrr,
+    generation: genOk
+      ? {
+          meanFaithfulness: gen.meanFaithfulness,
+          meanGroundedness: gen.meanGroundedness,
+          meanAnswerRelevance: gen.meanAnswerRelevance,
+        }
+      : undefined,
     gates,
     heals: heals.length ? heals : undefined,
     ok: aPlus,
