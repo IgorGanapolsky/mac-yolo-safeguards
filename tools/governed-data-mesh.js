@@ -329,6 +329,54 @@ function isPublishedStatus(status) {
   return s === 'published' || s.startsWith('published');
 }
 
+/** Normalize platform keys so "dev.to" / "Dev.to" share one watermark. */
+function normalizePlatform(platform) {
+  return String(platform || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/\./g, '');
+}
+
+/**
+ * Conservative LIVE claim: Published + https URL on a known public host.
+ * Does not replace verify-public-post; rejects em-dash / random hosts.
+ */
+const LIVE_HOST_ALLOW = new Set([
+  'bsky.app',
+  'x.com',
+  'twitter.com',
+  'www.linkedin.com',
+  'linkedin.com',
+  'www.threads.com',
+  'threads.com',
+  'www.threads.net',
+  'dev.to',
+  'medium.com',
+  'news.ycombinator.com',
+  'www.youtube.com',
+  'youtube.com',
+  'github.com',
+  'www.reddit.com',
+  'reddit.com',
+]);
+
+function isLiveClaimUrl(url) {
+  const u = String(url || '').trim();
+  if (!/^https:\/\//i.test(u)) return false;
+  if (u === '—' || u === '-' || u === 'n/a') return false;
+  try {
+    const host = new URL(u).hostname.toLowerCase();
+    if (LIVE_HOST_ALLOW.has(host)) return true;
+    for (const allowed of LIVE_HOST_ALLOW) {
+      if (host === allowed || host.endsWith(`.${allowed}`)) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * LIVE matrix for one campaign (governed live_social_matrix interface).
  */
@@ -339,25 +387,28 @@ function liveMatrix({ campaign, logPath = DEFAULT_CONTENT_LOG } = {}) {
   const rows = parseContentLog(logPath).filter((r) => r.campaign === campaign);
   const byPlatform = new Map();
   for (const r of rows) {
-    // last row wins (append-only log)
-    byPlatform.set(r.platform, r);
+    // last row wins (append-only log); key by normalized platform
+    byPlatform.set(normalizePlatform(r.platform), r);
   }
   const matrix = [...byPlatform.values()].map((r) => {
     const published = isPublishedStatus(r.status);
-    const hasUrl = /^https?:\/\//i.test(r.postUrl || '');
+    const urlOk = isLiveClaimUrl(r.postUrl);
     let liveClass = 'not_live';
-    if (published && hasUrl) liveClass = 'live';
+    if (published && urlOk) liveClass = 'live';
     else if (String(r.status).toLowerCase().includes('blocked')) liveClass = 'blocked';
     else if (String(r.status).toLowerCase().includes('skip')) liveClass = 'skipped';
     else if (String(r.status).toLowerCase().includes('frozen')) liveClass = 'frozen';
-    else if (published && !hasUrl) liveClass = 'published_without_url';
+    else if (published && !urlOk) liveClass = 'published_without_verified_url';
     return {
       platform: r.platform,
+      platformKey: normalizePlatform(r.platform),
       status: r.status,
       postUrl: r.postUrl || null,
       hook: r.hook,
       liveClass,
+      // claim-LIVE on allowlisted host; still run verify-public-post for HTML proof
       live: liveClass === 'live',
+      verifiedLive: false,
       outcome: r.outcome,
       date: r.date,
     };
@@ -381,7 +432,7 @@ function campaignWatermark({ logPath = DEFAULT_CONTENT_LOG } = {}) {
   const rows = parseContentLog(logPath).filter((r) => isPublishedStatus(r.status));
   const latest = new Map();
   for (const r of rows) {
-    const key = r.platform;
+    const key = normalizePlatform(r.platform);
     // Prefer later date string (YYYY-MM-DD sorts lexicographically)
     const prev = latest.get(key);
     if (!prev || r.date >= prev.date) {
@@ -391,12 +442,13 @@ function campaignWatermark({ logPath = DEFAULT_CONTENT_LOG } = {}) {
   const platforms = [...latest.values()]
     .map((r) => ({
       platform: r.platform,
+      platformKey: normalizePlatform(r.platform),
       campaign: r.campaign,
       lastPublishedAt: r.date,
       postUrl: r.postUrl || null,
-      watermark: `${r.date}::${r.campaign}::${r.platform}`,
+      watermark: `${r.date}::${r.campaign}::${normalizePlatform(r.platform)}`,
     }))
-    .sort((a, b) => a.platform.localeCompare(b.platform));
+    .sort((a, b) => a.platformKey.localeCompare(b.platformKey));
 
   return {
     ok: true,
@@ -594,16 +646,32 @@ function classifyStripeCharges({
     const refunded = Number(ch.amount_refunded) || 0;
     // Net cash only — refunded charges must not inflate external_net_cents (Codex P1).
     const netAmount = Math.max(0, amount - refunded);
+    // Test-mode charges must never become external cash (Codex P1).
+    // livemode must be explicitly true for external; missing/false is excluded.
+    const isLiveMode = ch.livemode === true;
     const paid = ch.paid === true && ch.status === 'succeeded' && netAmount > 0;
     const isOwner = owners.has(email) || !email;
     if (paid) {
       if (isOwner) {
         ownerPaidCents += netAmount;
-        ownerSuccess.push({ id: ch.id, email, amount: netAmount, refunded });
-      } else {
+        ownerSuccess.push({
+          id: ch.id,
+          email,
+          amount: netAmount,
+          refunded,
+          livemode: ch.livemode,
+        });
+      } else if (isLiveMode) {
         externalPaidCents += netAmount;
-        externalSuccess.push({ id: ch.id, email, amount: netAmount, refunded });
+        externalSuccess.push({
+          id: ch.id,
+          email,
+          amount: netAmount,
+          refunded,
+          livemode: true,
+        });
       }
+      // non-owner + test-mode paid: ignored for external cash
     } else if (ch.status === 'failed') {
       if (isOwner) ownerFailed += 1;
       else externalFailed += 1;
@@ -624,7 +692,7 @@ function classifyStripeCharges({
     ownerFailed,
     externalSuccess,
     ownerSuccess,
-    bans: ['owner_is_not_external_revenue'],
+    bans: ['owner_is_not_external_revenue', 'test_mode_is_not_external_revenue'],
   };
 }
 
@@ -810,6 +878,8 @@ module.exports = {
   validateInterfaces,
   cashTruth,
   parseContentLog,
+  normalizePlatform,
+  isLiveClaimUrl,
   liveMatrix,
   campaignWatermark,
   outboundPk,
