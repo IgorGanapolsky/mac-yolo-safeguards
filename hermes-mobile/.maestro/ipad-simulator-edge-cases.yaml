@@ -7,8 +7,11 @@
 appId: com.iganapolsky.hermesmobile
 ---
 - stopApp
+# clearKeychain: SecureStore credentials + some pairing state survive clearState
+# alone on iOS Simulator and can skip ConnectMacGate after prior dogfood runs.
 - launchApp:
     clearState: true
+    clearKeychain: true
 - extendedWaitUntil:
     notVisible:
       id: "hermes-bootstrap"

@@ -54,6 +54,21 @@ xcrun simctl list devices booted -j | IPAD_UDID="$IPAD_UDID" node -e '
   }
 '
 
+# Stop any live Metro before the fresh-user Release install. A packager on
+# :8081 (common on this self-hosted Mac) can override the embedded bundle and
+# hide ConnectMacGate when EXPO_PUBLIC_E2E_AUTOMATION=1 is in that process env.
+for port in 8081 8082 19000 19001 19006; do
+  pids="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+  if [[ -n "$pids" ]]; then
+    echo "Stopping packager on :$port ($pids) before real-user iPad E2E" >&2
+    # shellcheck disable=SC2086
+    kill $pids 2>/dev/null || true
+    sleep 0.5
+    # shellcheck disable=SC2086
+    kill -9 $pids 2>/dev/null || true
+  fi
+done
+
 HERMES_SIM_NAME="$IPAD_NAME" \
 EXPO_PUBLIC_E2E_AUTOMATION=0 \
 bash "$SIMULATOR_RUNNER" "$FLOW"

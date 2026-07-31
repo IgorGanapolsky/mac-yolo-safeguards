@@ -19,6 +19,26 @@ export EXPO_PUBLIC_E2E_AUTOMATION="${EXPO_PUBLIC_E2E_AUTOMATION:-1}"
 # enabled for EAS/store builds and must not make simulator installation credential-bound.
 export SENTRY_DISABLE_AUTO_UPLOAD=true
 
+# Real-user / stranger flows bake EXPO_PUBLIC_E2E_AUTOMATION=0 so ConnectMacGate
+# shows. A live Metro on :8081 still wins when `expo run:ios` opens the app via
+# expo-development-client — and that packager often has E2E=1, which hides the
+# gate and fails ipad-simulator-edge-cases / stranger cold-start (2026-07-31 CI).
+kill_local_metro_packagers() {
+  local port
+  for port in 8081 8082 19000 19001 19006; do
+    local pids
+    pids="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+    if [[ -n "$pids" ]]; then
+      echo "iOS app:   stopping packager listeners on :$port ($pids) so Release uses the embedded bundle" >&2
+      # shellcheck disable=SC2086
+      kill $pids 2>/dev/null || true
+      sleep 0.5
+      # shellcheck disable=SC2086
+      kill -9 $pids 2>/dev/null || true
+    fi
+  done
+}
+
 wait_for_simulator_boot() {
   local udid="$1"
   echo "Waiting for simulator boot (bootstatus, up to ${MAESTRO_READY_TIMEOUT_SEC}s)..." >&2
@@ -79,7 +99,11 @@ install_fresh_ios_release() {
     echo "Stale $IOS_BUNDLE_ID container remains after uninstall on simulator $udid" >&2
     return 1
   fi
-  echo "iOS app:   building and installing exact-head embedded Release build" >&2
+  # Fresh-user gate builds must not attach to a live packager mid-install.
+  if [[ "${EXPO_PUBLIC_E2E_AUTOMATION}" == "0" ]]; then
+    kill_local_metro_packagers
+  fi
+  echo "iOS app:   building and installing exact-head embedded Release build (E2E_AUTOMATION=${EXPO_PUBLIC_E2E_AUTOMATION})" >&2
   npx expo run:ios --no-bundler --device "$udid" --configuration Release --no-build-cache
 
   if ! xcrun simctl get_app_container "$udid" "$IOS_BUNDLE_ID" app >/dev/null 2>&1; then
@@ -94,6 +118,13 @@ install_fresh_ios_release() {
     return 1
   fi
   echo "iOS app:   embedded bundle verified ($(wc -c <"$app_path/main.jsbundle" | tr -d ' ') bytes)" >&2
+
+  # expo run:ios may open expo-development-client → packager. Kill packagers again
+  # and terminate the app so Maestro owns a clean embedded-bundle launch.
+  if [[ "${EXPO_PUBLIC_E2E_AUTOMATION}" == "0" ]]; then
+    kill_local_metro_packagers
+    xcrun simctl terminate "$udid" "$IOS_BUNDLE_ID" >/dev/null 2>&1 || true
+  fi
 }
 
 if ! command -v maestro >/dev/null 2>&1; then
@@ -135,6 +166,10 @@ echo "Maestro driver timeout: ${MAESTRO_DRIVER_STARTUP_TIMEOUT}ms"
 
 wait_for_maestro_ios_device "$UDID"
 install_fresh_ios_release "$UDID"
+
+if [[ "${EXPO_PUBLIC_E2E_AUTOMATION}" == "0" ]]; then
+  kill_local_metro_packagers
+fi
 
 cd "$HERMES_DIR"
 maestro test -p ios --udid "$UDID" "$FLOW"
