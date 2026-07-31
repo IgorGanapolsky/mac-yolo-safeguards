@@ -83,6 +83,15 @@ const CONTRACTS = /** @type {InterfaceContract[]} */ ([
     ],
     description: 'Hard-gate health + integrity for production RAG',
   },
+  {
+    id: 'research.academic',
+    owner: 'hermes-academic-research',
+    layer: 'serving',
+    // Tool must exist; pack is machine-local (ingest LaunchAgent). Empty pack is a
+    // retrieve-time miss, not a missing interface binary.
+    requiredPaths: [path.join(REPO, 'tools', 'hermes-academic-research-retrieve.js')],
+    description: 'Academic evidence pack retrieve path (queryable; not write-only)',
+  },
 ]);
 
 function parseArgs(argv) {
