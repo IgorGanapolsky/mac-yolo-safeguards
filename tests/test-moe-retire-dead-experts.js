@@ -5,7 +5,23 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { rewireConfig } = require('../tools/moe-retire-dead-experts');
+const {
+  rewireConfig,
+  acceptsSmokeResponse,
+  SMOKE_MARKER,
+} = require('../tools/moe-retire-dead-experts');
+
+test('acceptsSmokeResponse requires SMOKE_OK marker, not arbitrary text', () => {
+  assert.equal(acceptsSmokeResponse({ content: SMOKE_MARKER }).ok, true);
+  assert.equal(acceptsSmokeResponse({ content: `here is ${SMOKE_MARKER}` }).ok, true);
+  assert.equal(
+    acceptsSmokeResponse({ content: '', reasoning_content: `token ${SMOKE_MARKER}` }).ok,
+    true,
+  );
+  assert.equal(acceptsSmokeResponse({ content: 'I cannot serve this request' }).ok, false);
+  assert.equal(acceptsSmokeResponse({ content: 'OK' }).ok, false);
+  assert.equal(acceptsSmokeResponse({ content: '' }).ok, false);
+});
 
 test('rewireConfig moves glm defaults to primary and backs up', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'moe-rewire-'));

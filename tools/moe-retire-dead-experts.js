@@ -50,10 +50,23 @@ function readRetired() {
   }
 }
 
+const SMOKE_MARKER = 'SMOKE_OK';
+
+/** Pure check used by smokeModel — unit-tested without the live gateway. */
+function acceptsSmokeResponse(message = {}) {
+  const content = String(message.content || '').trim();
+  const reasoning = String(message.reasoning_content || '').trim();
+  const haystack = `${content}\n${reasoning}`;
+  return {
+    ok: haystack.includes(SMOKE_MARKER),
+    content: (content || reasoning).slice(0, 80),
+  };
+}
+
 function smokeModel(model) {
   const body = JSON.stringify({
     model,
-    messages: [{ role: 'user', content: 'Say only: SMOKE_OK' }],
+    messages: [{ role: 'user', content: `Reply with exactly one token: ${SMOKE_MARKER}` }],
     max_tokens: 32,
   });
   // Retry once: gateway occasionally returns litellm.Timeout on first call.
@@ -84,18 +97,20 @@ function smokeModel(model) {
         continue;
       }
       const msg = j?.choices?.[0]?.message || {};
-      const content = String(msg.content || '').trim();
-      const reasoning = String(msg.reasoning_content || '').trim();
-      // Reasoning-only models sometimes put the answer only in reasoning_content.
-      const ok = Boolean(content || reasoning);
+      const checked = acceptsSmokeResponse(msg);
       last = {
-        ok,
-        content: (content || reasoning).slice(0, 80),
+        ok: checked.ok,
+        content: checked.content,
         servedModel: j.model || model,
         attempt: attempt + 1,
+        marker: SMOKE_MARKER,
       };
-      if (ok) return last;
-      last = { ok: false, error: 'empty content and reasoning', attempt: attempt + 1 };
+      if (checked.ok) return last;
+      last = {
+        ok: false,
+        error: `missing ${SMOKE_MARKER} marker in content/reasoning: ${(checked.content || '(empty)').slice(0, 120)}`,
+        attempt: attempt + 1,
+      };
     } catch {
       last = { ok: false, error: (r.stdout || '').slice(0, 200) };
     }
@@ -198,15 +213,21 @@ function run(options = {}) {
     return report;
   }
 
-  fs.mkdirSync(path.dirname(RETIRED_PATH), { recursive: true });
-  fs.writeFileSync(RETIRED_PATH, `${JSON.stringify(next, null, 2)}\n`);
+  // Rewire first — never publish retired-experts.json if config is still on a dead default.
+  // (Codex P1: write-before-rewire left gates green while defaults stayed broken.)
   const rewire = rewireConfig(CONFIG_PATH, primary);
   report.rewire = rewire;
-  report.ok = rewire.ok && rewire.changed !== false;
-  if (!rewire.ok) report.error = rewire.error;
-  if (rewire.ok && !rewire.changed) {
-    report.note = 'config already pointed at primary or patterns unmatched — retired list written';
-    report.ok = true;
+  if (!rewire.ok) {
+    report.error = rewire.error || 'config rewire failed';
+    report.ok = false;
+    return report;
+  }
+
+  fs.mkdirSync(path.dirname(RETIRED_PATH), { recursive: true });
+  fs.writeFileSync(RETIRED_PATH, `${JSON.stringify(next, null, 2)}\n`);
+  report.ok = true;
+  if (!rewire.changed) {
+    report.note = 'config already pointed at primary or patterns unmatched — retired list written after rewire ok';
   }
   return report;
 }
@@ -236,4 +257,12 @@ if (require.main === module) {
   }
 }
 
-module.exports = { run, rewireConfig, smokeModel, RETIRED_PATH, DEFAULT_PRIMARY };
+module.exports = {
+  run,
+  rewireConfig,
+  smokeModel,
+  acceptsSmokeResponse,
+  SMOKE_MARKER,
+  RETIRED_PATH,
+  DEFAULT_PRIMARY,
+};
