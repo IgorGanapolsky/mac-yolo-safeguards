@@ -12,6 +12,15 @@ const body = `# ThumbGate for Hermes
 - Renewable, expiring fenced leases so only the current unexpired executor can complete a task
 - Aggregate, content-free product analytics and an auditable task trail
 
+## Continuity honesty
+- Model: queued prompt/thread handoff to a fenced VPS — not process migration, not Mac tool parity
+- Lease: 90-second renewable fence; one thread, one executor
+- Eligible examples: code review, docs, public APIs, PR drafts, refactors on a cloud clone
+- Local-only (stay on Mac): Keychain, AppleScript, USB devices, private LAN, Simulator, operator Chrome profile
+- Still proving in real use — do not claim always-on seamless failover for every task
+- Machine-readable matrix: https://thumbgate.app/api/continuity/eligibility
+- Live status + canary proof: https://thumbgate.app/api/continuity/status
+
 ## Pricing
 - Web Control: $0/month (dashboard while the machine is online)
 - Cloud Continuity is a recurring paid subscription (VPS failover when offline)
@@ -30,6 +39,7 @@ const body = `# ThumbGate for Hermes
 - What is this? A web dashboard for Hermes remote control, plus Continuity so work can keep running on a VPS when the Mac is offline.
 - Access Hermes from the web: sign in, approve the outbound-only connector on the Mac that runs Hermes, then open the dashboard.
 - Mac offline behavior: free Web Control pauses or asks; eligible trial or paid Cloud Continuity tasks can use a fenced cloud runner.
+- What is eligible? See https://thumbgate.app/api/continuity/eligibility — local-only patterns are denied before cloud claim.
 - Credential boundary: the local gateway credential stays on the paired Mac; ThumbGate receives a separate device identity and requires no inbound port.
 
 ## Relationship to other products

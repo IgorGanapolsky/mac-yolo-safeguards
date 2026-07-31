@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateCloudPromptToolPolicy } from "./cloud-tool-policy";
+import { evaluateCloudPromptToolPolicy, LOCAL_ONLY_PROMPT_PATTERNS } from "./cloud-tool-policy";
 
 describe("evaluateCloudPromptToolPolicy", () => {
   it("allows ordinary coding prompts", () => {
@@ -23,5 +23,29 @@ describe("evaluateCloudPromptToolPolicy", () => {
       allowed: false,
       matched: "localhost_gateway",
     });
+  });
+
+  it("blocks macOS UI helpers, simctl, Chrome profile, and docker.sock", () => {
+    expect(evaluateCloudPromptToolPolicy("open -a 'Google Chrome' and click Publish")).toMatchObject({
+      allowed: false,
+      matched: "macos_ui",
+    });
+    expect(evaluateCloudPromptToolPolicy("xcrun simctl boot 'iPhone 16'")).toMatchObject({
+      allowed: false,
+      matched: "simctl",
+    });
+    expect(evaluateCloudPromptToolPolicy("Drive the logged-in Chrome profile via claude-in-chrome")).toMatchObject({
+      allowed: false,
+      matched: "browser_profile",
+    });
+    expect(evaluateCloudPromptToolPolicy("curl --unix-socket /var/run/docker.sock http://localhost/containers/json")).toMatchObject({
+      allowed: false,
+      matched: "local_docker_sock",
+    });
+  });
+
+  it("keeps every LOCAL_ONLY pattern id unique", () => {
+    const ids = LOCAL_ONLY_PROMPT_PATTERNS.map((p) => p.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });

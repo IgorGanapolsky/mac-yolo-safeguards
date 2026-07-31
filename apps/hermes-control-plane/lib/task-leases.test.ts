@@ -42,6 +42,14 @@ vi.mock("./security", () => ({
 }));
 
 import { claimTask, completeTask, renewTask, TASK_LEASE_MS } from "./task-leases";
+import { CONTINUITY_LEASE_MS } from "./continuity-eligibility";
+
+describe("lease TTL lockstep", () => {
+  it("public Continuity matrix lease matches task fencing TTL", () => {
+    expect(TASK_LEASE_MS).toBe(90_000);
+    expect(CONTINUITY_LEASE_MS).toBe(TASK_LEASE_MS);
+  });
+});
 
 beforeEach(() => {
   mocks.state.existing = null;

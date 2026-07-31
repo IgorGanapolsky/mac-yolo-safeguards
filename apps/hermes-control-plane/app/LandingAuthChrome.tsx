@@ -64,7 +64,7 @@ export function LandingAuthNav() {
   return (
     <div className="nav-actions" data-landing-auth={session.mode}>
       <a href="#pair" className="nav-link">Pair</a>
-      <a href="#mobile" className="nav-link">Apps</a>
+      <a href="#eligibility" className="nav-link">Eligibility</a>
       <a href="#how-it-works" className="nav-link">How it works</a>
       <a href="#pricing" className="nav-link">Pricing</a>
       {isSession ? (
@@ -114,8 +114,8 @@ export function LandingAuthHero() {
  * Points to pair + Continuity (keeps public HTML free of workspace telemetry).
  */
 export function LandingAuthPanel() {
-  const mode = useLandingAuth();
-  const isSession = mode === "session";
+  const session = useLandingAuth();
+  const isSession = session.mode === "session";
   return (
     <>
       <div className="console-header">
@@ -124,7 +124,7 @@ export function LandingAuthPanel() {
           <img className="brand-mark" src="/brand/thumbgate-mark-inline-v3.svg" alt="" width={22} height={22} decoding="async" /> Your workspace is private
         </span>
         <span className="action-label">
-          {mode === "loading" ? "Checking session…" : isSession ? "Session active" : "Sign-in required"}
+          {session.mode === "loading" ? "Checking session…" : isSession ? "Session active" : "Sign-in required"}
         </span>
       </div>
       <div className="landing-action-list">
@@ -136,7 +136,7 @@ export function LandingAuthPanel() {
           </span>
           <b aria-hidden="true">→</b>
         </a>
-        <a className="landing-action" href="#pricing">
+        <a className="landing-action" href="#eligibility">
           <span className="action-icon" aria-hidden="true">☁</span>
           <span>
             <strong>Continuity</strong>
@@ -154,8 +154,8 @@ export function LandingAuthPanel() {
 }
 
 function useSessionHref(): string {
-  const mode = useLandingAuth();
-  return mode === "session" ? "/dashboard" : "/api/auth/login";
+  const session = useLandingAuth();
+  return session.mode === "session" ? "/dashboard" : "/api/auth/login";
 }
 
 export function LandingPricingCtaFree() {
@@ -167,11 +167,27 @@ export function LandingPricingCtaFree() {
   );
 }
 
+/**
+ * Paid Continuity CTA: checkout when signed in without cloud access,
+ * portal when already paid, login when anon (Stripe requires session).
+ */
 export function LandingPricingCtaPaid() {
-  const href = useSessionHref();
+  const session = useLandingAuth();
+  const isSession = session.mode === "session";
+  const isPaid = isSession && (session.plan === "pro" || session.plan === "team" || session.cloudAccess);
+  const href = isPaid
+    ? "/api/billing/portal"
+    : isSession
+      ? "/api/billing/checkout"
+      : "/api/auth/login";
+  const label = isPaid
+    ? "Manage Continuity billing →"
+    : isSession
+      ? "Start Continuity trial →"
+      : "Try cloud continuity →";
   return (
     <a href={href} className="button button-primary" data-funnel-event="cloud_continuity_click">
-      Try cloud continuity →
+      {label}
     </a>
   );
 }
