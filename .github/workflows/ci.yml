@@ -177,7 +177,13 @@ jobs:
           # nothing is VACUOUS, not clean, and must not be reported as a pass. The
           # trailing number is the min assertion count each suite must actually emit.
           bash tests/run-suite.sh tests/test-run-suite.sh 7
-          bash tests/run-suite.sh tests/test-poolside-yolo.sh 14
+          bash tests/run-suite.sh tests/test-poolside-yolo.sh 30
+          # The ACP image guard. Without it a pasted screenshot returns
+          # "400 ... does not support multimodal" and — because pool replays the whole
+          # conversation each turn — poisons the session so every later prompt fails
+          # too, text-only ones included. One of its assertions is a live canary that
+          # goes red if Poolside ever fixes the capability mismatch upstream.
+          bash tests/run-suite.sh tests/test-poolside-acp-imageguard.sh 11
           bash tests/run-suite.sh tests/test-hermes-primary-route-recovery.sh 6
           # Mutation control: proves the suites above actually go RED against the
           # real historical bugs, instead of passing while measuring nothing.
@@ -244,12 +250,18 @@ jobs:
         run: |
           set -eu -o pipefail
           python3 tests/test-tinker-brain.py 2>&1 | tee "$RUNNER_TEMP/tinker-tests.log"
+          # The coverage gate is what stops a routed NON-answer from being emitted with
+          # the same confidence as an answer. Unrun, it can rot silently and the only
+          # symptom is a confident wrong card — the exact bug it was added to catch.
+          python3 tests/test-tinker-brain-coverage.py 2>&1 | tee "$RUNNER_TEMP/tinker-coverage.log"
           python3 tools/tinker-brain/tinker_brain_eval.py | tee "$RUNNER_TEMP/tinker-eval.log"
           # Both suites exit non-zero on a failing case, but a suite that exits 0
           # having asserted nothing is VACUOUS, not clean — pin the floors too.
           ran="$(sed -n 's/^Ran \([0-9]\{1,\}\) test.*/\1/p' "$RUNNER_TEMP/tinker-tests.log")"
+          cov_ran="$(sed -n 's/^Ran \([0-9]\{1,\}\) test.*/\1/p' "$RUNNER_TEMP/tinker-coverage.log")"
           passed="$(sed -n 's|^tinker-brain eval: \([0-9]\{1,\}\)/.*|\1|p' "$RUNNER_TEMP/tinker-eval.log")"
           test "${ran:-0}" -ge 15
+          test "${cov_ran:-0}" -ge 11
           test "${passed:-0}" -ge 42
 
   mobile-checks:

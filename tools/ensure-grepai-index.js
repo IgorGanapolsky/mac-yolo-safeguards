@@ -34,9 +34,11 @@ const ISOLATED = path.join(os.homedir(), '.hermes/semantic-index/mac-yolo-safegu
 const MIN_BYTES = 10 * 1024;
 
 function parseArgs(argv) {
-  const args = { startWatch: false, canary: false, json: false, help: false };
+  // Default: heal watcher when down. Pass --no-start-watch to stay read-only.
+  const args = { startWatch: true, canary: false, json: false, help: false };
   for (const a of argv) {
     if (a === '--start-watch') args.startWatch = true;
+    else if (a === '--no-start-watch') args.startWatch = false;
     else if (a === '--canary') args.canary = true;
     else if (a === '--json') args.json = true;
     else if (a === '--help' || a === '-h') args.help = true;
