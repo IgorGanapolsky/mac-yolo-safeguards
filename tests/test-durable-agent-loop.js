@@ -100,18 +100,20 @@ async function runTest() {
     statePath: path.join(tmpDir, 'watchdog.jsonl'),
     intervalMs: 5,
     watchdogTimeoutMs: 30,
-    maxTicks: 1,
-    workFn: async ({ signal }) => {
-      await new Promise((resolve, reject) => {
-        const iv = setInterval(() => {
-          if (signal?.aborted) {
-            clearInterval(iv);
-            abortReceived = true;
-            reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
-          }
-        }, 1);
-      });
-      return {};
+    maxTicks: 2,
+    workFn: async ({ tick, signal }) => {
+      if (tick === 0) {
+        await new Promise((resolve, reject) => {
+          const iv = setInterval(() => {
+            if (signal?.aborted) {
+              clearInterval(iv);
+              abortReceived = true;
+              reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+            }
+          }, 1);
+        });
+      }
+      return { value: tick };
     },
   });
   await loopWatchdog.start();
@@ -121,6 +123,11 @@ async function runTest() {
   }
   assert(!loopWatchdog.running, 'watchdog loop should stop after abort');
   assert(abortReceived, 'watchdog should abort in-flight work');
+  // The aborted tick should NOT be marked completed.
+  const wdLines = fs.readFileSync(loopWatchdog.statePath, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  const abortedRecord = wdLines.find((r) => r.type === 'aborted');
+  assert(abortedRecord, 'expected an aborted sentinel in state');
+  assert(!wdLines.some((r) => r.type === 'checkpoint' && r.tick === 0), 'tick 0 should not have a completed checkpoint');
 
   // Failure-rate circuit opens when too many failures occur.
   const loop3 = new DurableAgentLoop({

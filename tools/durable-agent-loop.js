@@ -214,15 +214,37 @@ class DurableAgentLoop {
       outcome = { status: 'error', error: error.message || String(error), idempotencyKey: key };
     }
 
-    this._appendState({
-      type: 'checkpoint',
-      ts: nowIso(),
-      name: this.name,
-      tick: tickIndex,
-      outcome,
-      completedKeys: checkpoint.completedKeys,
-      stats: this.stats(),
-    });
+    // Persist a sentinel for aborted ticks so recovery can detect the cancellation,
+    // but do not mark the key completed so the work can be retried.
+    if (outcome.status === 'error' && /tick aborted by watchdog|aborted/i.test(outcome.error)) {
+      this._appendState({
+        type: 'aborted',
+        ts: nowIso(),
+        name: this.name,
+        tick: tickIndex,
+        idempotencyKey: key,
+        stats: this.stats(),
+      });
+      this.lastResult = outcome;
+      return outcome;
+    }
+
+    try {
+      this._appendState({
+        type: 'checkpoint',
+        ts: nowIso(),
+        name: this.name,
+        tick: tickIndex,
+        outcome,
+        completedKeys: checkpoint.completedKeys,
+        stats: this.stats(),
+      });
+    } catch (appendErr) {
+      // Checkpoint failure is a loop failure; stop so side effects are not repeated.
+      this._recordFailure(appendErr);
+      this.stop();
+      throw appendErr;
+    }
 
     this.lastResult = outcome;
     return outcome;
