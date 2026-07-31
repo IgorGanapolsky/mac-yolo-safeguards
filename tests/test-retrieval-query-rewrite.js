@@ -20,5 +20,14 @@ test('rewrite is no-op when no rule matches', () => {
 });
 
 test('synonym rule table is non-empty', () => {
-  assert.ok(SYNONYM_RULES.length >= 4);
+  assert.ok(SYNONYM_RULES.length >= 8);
+});
+
+test('cloud-connector and moe-routing rules expand', () => {
+  const c = rewriteQuery('hermes cloud connector failover');
+  assert.ok(c.rulesFired.includes('cloud-connector'));
+  assert.ok(c.rewritten.includes('hermes-cloud-connector'));
+  const m = rewriteQuery('dead expert economic router');
+  assert.ok(m.rulesFired.includes('moe-routing'));
+  assert.ok(m.rewritten.includes('moe-expert-health'));
 });
