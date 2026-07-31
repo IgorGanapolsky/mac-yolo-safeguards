@@ -250,12 +250,18 @@ jobs:
         run: |
           set -eu -o pipefail
           python3 tests/test-tinker-brain.py 2>&1 | tee "$RUNNER_TEMP/tinker-tests.log"
+          # The coverage gate is what stops a routed NON-answer from being emitted with
+          # the same confidence as an answer. Unrun, it can rot silently and the only
+          # symptom is a confident wrong card — the exact bug it was added to catch.
+          python3 tests/test-tinker-brain-coverage.py 2>&1 | tee "$RUNNER_TEMP/tinker-coverage.log"
           python3 tools/tinker-brain/tinker_brain_eval.py | tee "$RUNNER_TEMP/tinker-eval.log"
           # Both suites exit non-zero on a failing case, but a suite that exits 0
           # having asserted nothing is VACUOUS, not clean — pin the floors too.
           ran="$(sed -n 's/^Ran \([0-9]\{1,\}\) test.*/\1/p' "$RUNNER_TEMP/tinker-tests.log")"
+          cov_ran="$(sed -n 's/^Ran \([0-9]\{1,\}\) test.*/\1/p' "$RUNNER_TEMP/tinker-coverage.log")"
           passed="$(sed -n 's|^tinker-brain eval: \([0-9]\{1,\}\)/.*|\1|p' "$RUNNER_TEMP/tinker-eval.log")"
           test "${ran:-0}" -ge 15
+          test "${cov_ran:-0}" -ge 8
           test "${passed:-0}" -ge 42
 
   mobile-checks:
