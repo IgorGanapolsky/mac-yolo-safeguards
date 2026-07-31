@@ -569,6 +569,17 @@ test('specificationDrivenDesign maps Ozkary loop onto repo artifacts', () => {
   assert.ok(sdd.steps.every((s) => s.ourArtifact && s.name));
 });
 
+test('governedDataMeshPlaybook encodes InfoQ July 2026 data-platform patterns', () => {
+  const { governedDataMeshPlaybook, DATA_MESH_SOURCE } = require('../tools/agent-swarm-harness');
+  assert.ok(DATA_MESH_SOURCE.label.includes('InfoQ'));
+  const playbook = governedDataMeshPlaybook();
+  assert.strictEqual(playbook.ok, true, playbook.error || JSON.stringify(playbook.validation));
+  assert.ok(playbook.interfaces.some((i) => i.id === 'cash_truth'));
+  assert.ok(playbook.peerPatterns.length >= 5);
+  assert.ok(playbook.commands.some((c) => c.includes('governed-data-mesh.js')));
+  assert.ok(playbook.antiPatterns.some((a) => /invent/i.test(a)));
+});
+
 test('repo Field Guide exists and is within line budget', () => {
   const guide = loadFieldGuide();
   assert.strictEqual(guide.ok, true, guide.error);
