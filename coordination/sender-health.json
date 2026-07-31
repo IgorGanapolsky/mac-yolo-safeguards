@@ -1,8 +1,8 @@
 {
   "igor@igorganapolsky.com": {
     "status": "unhealthy",
-    "lastProbe": "2026-07-31T17:10:38Z",
-    "detail": "LIVE fail msg 19fb92811126202a DSN 19fb9281cf7aab29: Send mail as / PrivateEmail SMTP misconfigured. Alias accepted ≠ delivery."
+    "lastProbe": "2026-07-31T18:44:05Z",
+    "detail": "DNS FIXED 2026-07-31: NS dns1/dns2.registrar-servers.com (was Cloudflare REFUSED SERVFAIL). MX mx1/mx2.privateemail.com + SPF live. SMTP send-as STILL fails: after-DNS probe msg 19fb97d9e55ee92b DSN 19fb97dac8d0396f ~3s. Need PrivateEmail mailbox password in Gmail send-as form."
   },
   "iganapolsky@gmail.com": {
     "status": "ok",
