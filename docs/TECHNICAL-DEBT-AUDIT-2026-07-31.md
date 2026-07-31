@@ -15,9 +15,9 @@ The audit ran in an isolated worktree on branch
 | Metric | Before | After | Delta |
 |---|---:|---:|---:|
 | Git-tracked files | 2,028 | 2,023 | -5 |
-| Git-tracked text lines | 348,233 | 348,084 | -149 |
+| Git-tracked text lines | 348,233 | 348,086 | -147 |
 | Files deleted | 0 | 6 | -6 |
-| Gross changed lines removed | 0 | 359 | -359 |
+| Gross changed lines removed | 0 | 358 | -358 |
 | Exact duplicate groups | 25 | 24 | -1 |
 | Python selected-lint findings | 4 | 0 | -4 |
 | ShellCheck findings (`*.sh`) | 328 | 326 | -2 |
@@ -185,8 +185,9 @@ Ten finding categories remain:
 
 - Previous completed main CI evidence: [run 30590584192](https://github.com/IgorGanapolsky/mac-yolo-safeguards/actions/runs/30590584192) — success.
 - Current audited main SHA run: [run 30634881258](https://github.com/IgorGanapolsky/mac-yolo-safeguards/actions/runs/30634881258) — in progress at audit snapshot; JavaScript/TypeScript, Python, Actions, and Socket checks had passed while Swift analysis was still running.
-- Pull request: PR_URL_PLACEHOLDER
-- Branch required-check verdict: PR_CHECKS_PLACEHOLDER
+- Pull request: [draft PR #1271](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1271)
+- Branch required-check verdict: read from the live PR; checks were queued at the publication
+  snapshot and no green remote verdict is claimed inside this static report.
 
 ## Completion status
 
