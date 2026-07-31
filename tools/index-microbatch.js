@@ -70,6 +70,67 @@ function gitBehind(cwd) {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Fast-forward isolated grepae corpus to origin/main.
+ * Returns structured result so scorecard/LaunchAgent never claim "current" while lagging.
+ */
+function fastForwardIsolated(cwd = ISOLATED) {
+  const before = gitBehind(cwd);
+  const headBefore = gitSha(cwd);
+  if (before === null) {
+    return {
+      ok: false,
+      pulled: false,
+      behindBefore: null,
+      behindAfter: null,
+      head: headBefore,
+      detail: 'could not compute behind-origin/main (fetch/rev-list failed)',
+    };
+  }
+  if (before === 0) {
+    return {
+      ok: true,
+      pulled: false,
+      behindBefore: 0,
+      behindAfter: 0,
+      head: headBefore,
+      detail: 'already level with origin/main',
+    };
+  }
+  const pull = spawnSync('git', ['-C', cwd, 'pull', '--ff-only', 'origin', 'main'], {
+    encoding: 'utf8',
+    timeout: 120000,
+  });
+  const headAfter = gitSha(cwd);
+  // Re-fetch so behindAfter is honest even if local origin/main was stale.
+  const after = gitBehind(cwd);
+  const ok = pull.status === 0 && after === 0;
+  return {
+    ok,
+    pulled: true,
+    behindBefore: before,
+    behindAfter: after,
+    head: headAfter,
+    headBefore,
+    detail: (pull.stdout || pull.stderr || '').slice(0, 240),
+    error: ok
+      ? null
+      : pull.status !== 0
+        ? `ff-only pull failed: ${(pull.stderr || pull.stdout || '').slice(0, 160)}`
+        : `still ${after} commits behind origin/main after pull`,
+  };
+}
+
+/**
+ * Pure skip policy — never skip when isolated clone lags origin/main.
+ * Regression 2026-07-31: watermark matched HEAD while HEAD lagged origin → A+ false green.
+ */
+function shouldSkipCycle({ headAdvanced, lessonsAdvanced, watcherDown, stale, heal, behind }) {
+  if (heal) return false;
+  if (Number(behind) > 0) return false;
+  return !headAdvanced && !lessonsAdvanced && !watcherDown && !stale;
+}
+
 function grepaeWatcherRunning() {
   const r = spawnSync('grepai', ['status'], { cwd: ISOLATED, encoding: 'utf8', timeout: 15000 });
   return /Watcher:\s*running/i.test(r.stdout || '');
@@ -126,10 +187,29 @@ function runCycle(options = {}) {
     return report;
   }
 
-  const head = gitSha(ISOLATED);
-  const behind = gitBehind(ISOLATED);
+  let head = gitSha(ISOLATED);
+  let behind = gitBehind(ISOLATED);
   report.head = head;
   report.behindOriginMain = behind;
+
+  // Always FF when lagging — do this BEFORE skip, so behind-only cycles never no-op.
+  if (behind != null && behind > 0) {
+    const ff = fastForwardIsolated(ISOLATED);
+    report.actions.push({
+      step: 'git-ff-origin-main',
+      ok: ff.ok,
+      detail: ff,
+    });
+    head = ff.head || gitSha(ISOLATED);
+    behind = ff.behindAfter;
+    report.head = head;
+    report.behindOriginMain = behind;
+    if (!ff.ok) {
+      report.error = ff.error || 'isolated grepae corpus failed to fast-forward to origin/main';
+      report.ok = false;
+      return report;
+    }
+  }
 
   // Watermark advance: only when HEAD moved OR lessons sqlite newer OR watcher dead.
   const lessonsDb = path.join(LESSONS_DIR, 'lessons.sqlite');
@@ -143,30 +223,31 @@ function runCycle(options = {}) {
   const stale =
     prev.updatedAt && Date.now() - Date.parse(prev.updatedAt) > STALE_MS;
 
-  report.triggers = { headAdvanced, lessonsAdvanced, watcherDown, stale };
+  report.triggers = {
+    headAdvanced,
+    lessonsAdvanced,
+    watcherDown,
+    stale,
+    behindOriginMain: behind,
+  };
 
-  if (!headAdvanced && !lessonsAdvanced && !watcherDown && !stale && !heal) {
-    report.note = 'no-op: watermark current, watcher up, lessons unchanged';
+  if (
+    shouldSkipCycle({
+      headAdvanced,
+      lessonsAdvanced,
+      watcherDown,
+      stale,
+      heal,
+      behind,
+    })
+  ) {
+    report.note = 'no-op: watermark current, watcher up, lessons unchanged, level with origin/main';
     report.ok = true;
     report.skipped = true;
     return report;
   }
 
   // Micro-batch heal steps (grouped index state — not record-level streaming).
-  if (heal || behind > 0) {
-    if (behind > 0) {
-      const pull = spawnSync('git', ['-C', ISOLATED, 'pull', '--ff-only', 'origin', 'main'], {
-        encoding: 'utf8',
-        timeout: 120000,
-      });
-      report.actions.push({
-        step: 'git-pull',
-        ok: pull.status === 0,
-        detail: (pull.stdout || pull.stderr || '').slice(0, 200),
-      });
-    }
-  }
-
   if (heal || watcherDown) {
     if (!grepaeWatcherRunning()) {
       const started = startWatcher();
@@ -176,7 +257,8 @@ function runCycle(options = {}) {
     }
   }
 
-  if (heal || headAdvanced || behind > 0) {
+  // After any HEAD advance (including FF), re-link canary/index into active checkouts.
+  if (heal || headAdvanced || Number(behind) > 0 || report.actions.some((a) => a.step === 'git-ff-origin-main')) {
     const ensure = runNode('ensure-grepai-index.js', ['--canary', '--json']);
     let ensureJson = null;
     try {
@@ -213,8 +295,15 @@ function runCycle(options = {}) {
 
   const actionsOk = report.actions.length === 0 || report.actions.every((a) => a.ok);
   const watcherOk = grepaeWatcherRunning();
-  report.ok = actionsOk && watcherOk;
+  // Fail-closed on lag: never report ok while still behind origin/main.
+  const levelWithMain = report.behindOriginMain === 0 || report.behindOriginMain === null;
+  report.ok = actionsOk && watcherOk && levelWithMain;
   report.watcherRunning = watcherOk;
+  if (!levelWithMain && report.behindOriginMain > 0) {
+    report.error =
+      report.error ||
+      `isolated grepae corpus still ${report.behindOriginMain} commits behind origin/main`;
+  }
 
   // Advance watermark only after heal actions succeed (InfoQ: never mark progress
   // on a failed cycle — that hides lag behind a false "current" SHA).
@@ -274,4 +363,13 @@ if (require.main === module) {
   }
 }
 
-module.exports = { runCycle, WATERMARK, ISOLATED, FULL_REBUILD_EVERY };
+module.exports = {
+  runCycle,
+  WATERMARK,
+  ISOLATED,
+  FULL_REBUILD_EVERY,
+  fastForwardIsolated,
+  shouldSkipCycle,
+  gitBehind,
+  gitSha,
+};

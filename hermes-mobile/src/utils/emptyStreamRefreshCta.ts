@@ -1,8 +1,10 @@
 import type { HermesMessage } from '../types/chat';
 import {
+  EMPTY_REPLY_FAILURE_REASON,
   EMPTY_STREAM_HARD_STOP_MS,
   EMPTY_STREAM_HARD_STOP_STATUS,
   shouldHardStopEmptyStreamWait,
+  serverHasAssistantReplyAfterLastUser,
 } from './emptyStreamReplyRecovery';
 import { EMPTY_STREAM_TIMEOUT_PLACEHOLDER } from './streamAssistantText';
 
@@ -28,14 +30,46 @@ export function emptyStreamDisplayElapsedMs(elapsedMs: number): number {
 
 export function messageIsEmptyStreamTimeout(content: string | undefined): boolean {
   const body = content?.trim() ?? '';
+  if (!body) {
+    return false;
+  }
   if (body === EMPTY_STREAM_TIMEOUT_PLACEHOLDER) {
     return true;
   }
-  return body.startsWith('Still no reply text.');
+  if (body === EMPTY_STREAM_HARD_STOP_STATUS) {
+    return true;
+  }
+  // Soft-timeout placeholder + legacy hard-stop copy that shipped as bubbles/status.
+  return (
+    body.startsWith('Still no reply text.') ||
+    body.startsWith('Stopped waiting on your Mac')
+  );
 }
 
-/** True when the latest user turn ended with a timed-out empty-stream assistant bubble. */
+/**
+ * Drop empty-stream timeout bubbles once a real assistant reply exists for the
+ * current turn. Prevents "answer + Stopped waiting" stacked UX.
+ */
+export function stripSupersededEmptyStreamTimeouts(
+  messages: readonly HermesMessage[],
+): HermesMessage[] {
+  if (!serverHasAssistantReplyAfterLastUser(messages as HermesMessage[])) {
+    return messages as HermesMessage[];
+  }
+  return messages.filter((message) => {
+    if (message?.role?.toLowerCase() !== 'assistant') {
+      return true;
+    }
+    return !messageIsEmptyStreamTimeout(message.content);
+  });
+}
+
+/** True when the latest user turn is stuck on empty-stream timeout with no real reply. */
 export function shouldShowEmptyStreamRefreshCta(messages: readonly HermesMessage[]): boolean {
+  // Real answer already on screen — never show the empty-stream recovery chrome.
+  if (serverHasAssistantReplyAfterLastUser(messages as HermesMessage[])) {
+    return false;
+  }
   let lastUserIndex = -1;
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     if (messages[index]?.role?.toLowerCase() === 'user') {
@@ -56,6 +90,28 @@ export function shouldShowEmptyStreamRefreshCta(messages: readonly HermesMessage
     }
   }
   return false;
+}
+
+/** Status/footer strings that must clear once a real reply lands. */
+export function isEmptyStreamRecoveryStatus(status: string | null | undefined): boolean {
+  if (!status) {
+    return false;
+  }
+  const body = status.trim();
+  if (!body) {
+    return false;
+  }
+  if (body === EMPTY_STREAM_HARD_STOP_STATUS || body === EMPTY_REPLY_FAILURE_REASON) {
+    return true;
+  }
+  return (
+    messageIsEmptyStreamTimeout(body) ||
+    body.startsWith('Checking your Mac') ||
+    body.startsWith('Checking your computer') ||
+    body.startsWith('Still waiting for reply text') ||
+    body.startsWith('Working on your computer… Hermes may be using tools') ||
+    body.startsWith('Stopped waiting on your Mac')
+  );
 }
 
 export const USER_FACING_EMPTY_STREAM_COPY_FILES = [

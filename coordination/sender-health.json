@@ -1,0 +1,12 @@
+{
+  "igor@igorganapolsky.com": {
+    "status": "unhealthy",
+    "lastProbe": "2026-07-31T17:10:38Z",
+    "detail": "LIVE fail msg 19fb92811126202a DSN 19fb9281cf7aab29: Send mail as / PrivateEmail SMTP misconfigured. Alias accepted ≠ delivery."
+  },
+  "iganapolsky@gmail.com": {
+    "status": "ok",
+    "lastProbe": "2026-07-31T15:52:00Z",
+    "detail": "Delivers (Jason no-pitch reply 19fb8dcf4bdee316 landed in Sent without DSN). Temporary path until domain SMTP repaired; prefer Reply-To igor@ when forced."
+  }
+}
