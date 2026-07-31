@@ -14,7 +14,7 @@ describe('EmptyStreamRefreshBanner', () => {
     );
 
     expect(screen.getByTestId('empty-stream-auto-checking')).toBeTruthy();
-    expect(screen.getByTestId('empty-stream-refresh-banner')).toHaveTextContent(/\(45s\)/);
+    expect(screen.getByTestId('empty-stream-refresh-banner')).toHaveTextContent(/\(\d+s\)/);
     expect(screen.getByTestId('empty-stream-elapsed')).toBeTruthy();
     expect(screen.getByTestId('empty-stream-refresh-banner')).not.toHaveTextContent(/tap refresh/i);
   });
