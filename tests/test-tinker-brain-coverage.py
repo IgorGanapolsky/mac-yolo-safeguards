@@ -119,8 +119,14 @@ class TestCoverageGate(unittest.TestCase):
         this assertion depend on machine state: on a Mac whose snapshot had been
         refreshed to cover Nous/trademark, --render legitimately returned 0 and this
         test failed while CI (no ~/.hermes) stayed green. The rest of this CI step is
-        hermetic by contract; this case has to be too. Tokens that cannot appear in any
-        card make the expected coverage 0 regardless of ambient state.
+        hermetic by contract; this case has to be too.
+
+        The question keeps a ThumbGate routing token ALONGSIDE impossible ones. Dropping
+        it entirely routes to general_card, and render_response() then never loads the
+        expert card — so a regression bypassing the gate only for thumbgate_gtm, the very
+        route the trademark incident travelled, would sail past this test. With the token
+        it routes thumbgate_gtm (verified); with the nonsense terms coverage is 1/4 = 0.25
+        against ANY card, ambient or not, so it stays deterministic.
         """
         import subprocess
         import tempfile
@@ -133,7 +139,7 @@ class TestCoverageGate(unittest.TestCase):
         try:
             p = subprocess.run(
                 [sys.executable, contract, "--render", "--card", card,
-                 "--question", "qzlmvx wibblesnort frobnication?"],
+                 "--question", "ThumbGate qzlmvx wibblesnort frobnication?"],
                 capture_output=True, text=True,
             )
             self.assertEqual(p.returncode, 3, f"--render did not signal no-coverage: rc={p.returncode}")
