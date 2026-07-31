@@ -1723,6 +1723,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 - `apps/hermes-control-plane/app/page.tsx` (Team tier model line only), `apps/hermes-control-plane/tests/rendered-html.test.mjs` (model-version guard only), `plan.md` → **claude-stale-model-pins** (T-STALE-MODEL-PINS-20260731: live site advertised "Claude 3.5 Sonnet & GPT-4o" on a paid tier in mid-2026 — two generations stale, reads as abandoned to a developer buyer. Did NOT invent newer names (runner's actual model set is not verifiable from the repo); removed the version pin instead, mirroring the never-hard-code-a-price rule.) (2026-07-31T17:05:00Z)
 
+- `apps/hermes-control-plane/lib/tenant-isolation.test.ts` (new) , `plan.md` → **claude-tenant-isolation** (T-TENANT-ISOLATION-20260731: thumbgate.app promises "Your workspace is private" with 24 files of organizationId scoping and ZERO cross-tenant tests. The existing thread-operations.test.ts fake ignores bound args, so deleting `AND organization_id = ?` passes it. New file only — NOT modifying thread-operations.ts or its existing test.) (2026-07-31T17:55:00Z)
+
 ## 3. Decisions Log
 
 ### D-2026-07-28-buzz-competitor-p0-shared-room
