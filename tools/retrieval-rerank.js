@@ -36,6 +36,7 @@ function parseArgs(argv) {
     selfTest: false,
     llm: process.env.HERMES_LLM_RERANK === '1',
     noCache: !!process.env.HERMES_RERANK_NO_CACHE,
+    diversityLambda: Number(process.env.HERMES_RERANK_DIVERSITY || 0) || 0,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -48,6 +49,7 @@ function parseArgs(argv) {
     else if (a === '--llm') args.llm = true;
     else if (a === '--no-llm') args.llm = false;
     else if (a === '--no-cache') args.noCache = true;
+    else if (a === '--rerank-diversity') args.diversityLambda = Number(argv[++i] || 0);
     else if (a === '--help') args.help = true;
     else throw new Error(`Unknown ${a}`);
   }
@@ -436,6 +438,38 @@ const RERANK_CACHE = new RerankCache();
 function clearRerankCache() { RERANK_CACHE.clear(); }
 
 /**
+ * Maximal Marginal Relevance re-rank (diversity over the scored candidate set).
+ *
+ * Greedy selection by `(1-λ) * rerankScore - λ * max_overlap(already_selected)`.
+ * λ (options.diversityLambda) defaults to 0 => a no-op, so ranking is unchanged
+ * unless a caller explicitly opts into diversity. `overlap(a,b)` is injected so
+ * the selection logic is hermetic and unit-testable; in `rerank()` we pass
+ * lexicalOverlap so NO extra model calls are required.
+ *
+ * Why surface this: the CE/ColBERT reranker is already A+ on nDCG@K (precision
+ * of the list); MMR attacks the complementary axis — top-K redundancy (near-
+ * duplicate paths / snippets) — at zero added latency or cost. Opt-in so the
+ * existing A+ scores and rankings are never disturbed.
+ */
+function mmrReorder(candidates, lambda, overlap) {
+  if (!lambda || !Array.isArray(candidates) || candidates.length <= 1) return candidates;
+  const pool = candidates.slice();
+  const chosen = [];
+  while (pool.length) {
+    let bestIdx = 0;
+    let bestScore = -Infinity;
+    for (let i = 0; i < pool.length; i += 1) {
+      const rel = Number(pool[i].rerankScore) || 0;
+      const red = chosen.length ? Math.max(...chosen.map((c) => overlap(pool[i], c))) : 0;
+      const s = (1 - lambda) * rel - lambda * red; // marginal relevance
+      if (s > bestScore) { bestScore = s; bestIdx = i; }
+    }
+    chosen.push(pool.splice(bestIdx, 1)[0]);
+  }
+  return chosen;
+}
+
+/**
  * Main entry: rerank a candidate list.
  * @param {object} options
  * @param {string} options.query
@@ -474,6 +508,18 @@ async function rerank(options = {}) {
 
   const started = Date.now();
   const result = await scoreCandidates(query, candidates, strategy, options);
+  // Optional MMR diversity re-rank (default off; opt-in via options.diversityLambda,
+  // CLI --rerank-diversity). Lexical-overlap redundancy penalty => no extra model
+  // calls; λ=0 is a no-op so default rerank behavior / A+ scores are unchanged.
+  const mmrLambda = Number(options.diversityLambda) || 0;
+  if (mmrLambda > 0 && result.candidates.length > 1) {
+    const overlap = (a, b) =>
+      lexicalOverlap(
+        String(a.snippet || a.text || a.path || ''),
+        String(b.snippet || b.text || b.path || ''),
+      );
+    result.candidates = mmrReorder(result.candidates, mmrLambda, overlap);
+  }
   const matches = result.candidates.slice(0, limit).map((c, i) => ({
     ...c,
     rank: i + 1,
@@ -598,6 +644,7 @@ if (require.main === module) {
         limit: args.limit,
         llm: args.llm,
         disableCache: args.noCache,
+        diversityLambda: args.diversityLambda,
       });
       if (args.json) console.log(JSON.stringify(out, null, 2));
       else {
@@ -634,4 +681,5 @@ module.exports = {
   rerankSnapshot,
   cacheEnabled,
   clearRerankCache,
+  mmrReorder,
 };

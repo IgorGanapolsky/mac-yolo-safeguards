@@ -17,6 +17,7 @@ const {
   rerankSnapshot,
   cacheEnabled,
   clearRerankCache,
+  mmrReorder,
 } = require('../tools/retrieval-rerank');
 
 function hashEmbed(text, dim = 32) {
@@ -226,4 +227,57 @@ test('clearRerankCache empties the shared instance', () => {
   assert.equal(RerankCacheInstance.size(), 1);
   clearRerankCache();
   assert.equal(RerankCacheInstance.size(), 0);
+});
+
+// --- MMR diversity re-rank (rerank-layer A+ lift, opt-in) ---
+
+test('mmrReorder is a no-op when lambda=0 or the candidate list has <=1 item', () => {
+  const cands = [{ path: 'a', rerankScore: 0.9 }, { path: 'b', rerankScore: 0.5 }];
+  const overlap = () => 0;
+  // identity: same array reference + order when λ=0 (regardless of overlap)
+  assert.equal(mmrReorder(cands, 0, overlap), cands);
+  assert.equal(mmrReorder(cands, 0, () => 1), cands);
+  assert.equal(mmrReorder([{ path: 'a', rerankScore: 0.9 }], 0.5, overlap).length, 1);
+});
+
+test('mmrReorder demotes redundant candidates (Maximal Marginal Relevance)', () => {
+  // overlap = 1 when snippets are identical (fully redundant), else 0
+  const overlap = (a, b) => (String(a.snippet) === String(b.snippet) ? 1 : 0);
+  const cands = [
+    { path: 'A', snippet: 'alpha', rerankScore: 0.90 }, // highest relevance
+    { path: 'B', snippet: 'alpha', rerankScore: 0.85 }, // redundant to A (identical)
+    { path: 'C', snippet: 'gamma', rerankScore: 0.80 }, // distinct surface
+  ];
+  const ranked = mmrReorder(cands, 0.5, overlap);
+  // A first (top relevance); then C (distinct) ahead of fully-redundant B
+  assert.equal(ranked[0].path, 'A');
+  assert.equal(ranked[1].path, 'C');
+  assert.equal(ranked[2].path, 'B');
+  // all original items preserved (permutation)
+  assert.equal(ranked.length, 3);
+  assert.deepEqual(ranked.map((c) => c.path).sort(), ['A', 'B', 'C']);
+});
+
+test('rerank routes MMR when diversityLambda>0 and is a no-op at lambda=0', async () => {
+  const cands = [
+    { path: 'A', snippet: 'alpha gateway session', rrfScore: 0.10 },
+    { path: 'B', snippet: 'alpha gateway session', rrfScore: 0.05 }, // redundant to A
+    { path: 'C', snippet: 'gamma unrelated marketing', rrfScore: 0.02 }, // distinct
+  ];
+  const opts = (extra) => ({
+    query: 'alpha', candidates: cands, strategy: 'cross_encoder', embedder, limit: 3, ...extra,
+  });
+  const base = await rerank(opts());
+  const zero = await rerank(opts({ diversityLambda: 0 }));
+  const withMm = await rerank(opts({ diversityLambda: 0.5 }));
+  assert.equal(base.matches.length, 3);
+  assert.equal(withMm.matches.length, 3);
+  // λ=0 must not perturb the default ranking
+  assert.deepEqual(zero.matches.map((m) => m.path), base.matches.map((m) => m.path));
+  // MMR path executes and returns a permutation of the input
+  assert.deepEqual(withMm.matches.map((m) => m.path).sort(), ['A', 'B', 'C']);
+  // redundant B (identical snippet to top A) ranks below distinct C under MMR
+  const posB = withMm.matches.findIndex((m) => m.path === 'B');
+  const posC = withMm.matches.findIndex((m) => m.path === 'C');
+  assert.ok(posC < posB, 'distinct C should rank above redundant B under MMR');
 });
