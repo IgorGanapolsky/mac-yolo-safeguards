@@ -35,6 +35,7 @@ function parseArgs(argv) {
     json: false,
     selfTest: false,
     llm: process.env.HERMES_LLM_RERANK === '1',
+    noCache: !!process.env.HERMES_RERANK_NO_CACHE,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -46,6 +47,7 @@ function parseArgs(argv) {
     else if (a === '--self-test') args.selfTest = true;
     else if (a === '--llm') args.llm = true;
     else if (a === '--no-llm') args.llm = false;
+    else if (a === '--no-cache') args.noCache = true;
     else if (a === '--help') args.help = true;
     else throw new Error(`Unknown ${a}`);
   }
@@ -342,6 +344,98 @@ async function scoreCandidates(query, candidates, strategy, options = {}) {
 }
 
 /**
+ * Second-stage rerank result cache (LRU + TTL).
+ *
+ * Why: CE/ColBERT/LLM rerank (`scoreCandidates`) is the expensive stage — it calls
+ * Ollama embeddings and optionally the LLM judge. On a long-lived Hermes process
+ * (the continuous-e2e LaunchAgent is always-running), the SAME query+strategy+
+ * candidate-set recurs across user repeats; caching the final scored order skips
+ * embeddings entirely on hit.
+ *
+ * Correctness / safety:
+ *  - Keyed on query + strategy + limit + llm-flag + a canonical (order-insensitive)
+ *    fingerprint of the candidate SET. A changed upstream set / index refresh is a
+ *    natural miss; rerank is deterministic so TTL is a freshness floor, not a
+ *    correctness shortcut.
+ *  - WRITE-disabled whenever an embedder/chat is injected (test fakes) so fake
+ *    vectors can never poison the production cache. Production never injects
+ *    (it uses createOllamaEmbedder/createOllamaChat), so caching is on by default
+ *    in prod with no flag needed; injected (hermetic) test runs are always cache-off.
+ *  - `HERMES_RERANK_NO_CACHE=1` / `options.disableCache` / CLI `--no-cache` force off
+ *    (fail-open: a cache fault never changes matches, only latency).
+ *  - Matches are cloned on cache hit so callers can never mutate cached state.
+ */
+const RERANK_CACHE_MAX = Number(process.env.HERMES_RERANK_CACHE_SIZE || 256);
+const RERANK_CACHE_TTL_MS = Number(process.env.HERMES_RERANK_CACHE_TTL_MS || 300000);
+
+function cacheEnabled(options = {}) {
+  return !options.disableCache && !process.env.HERMES_RERANK_NO_CACHE;
+}
+
+function canonicalCandidates(candidates) {
+  return JSON.stringify(
+    (candidates || [])
+      .map((c) => ({
+        p: c.path,
+        s: (c.snippet || c.text || '').slice(0, 800),
+        r: Number(c.rrfScore || c.score || 0),
+      }))
+      .sort((a, b) => String(a.p).localeCompare(String(b.p)) || a.s.localeCompare(b.s)),
+  );
+}
+
+function rerankCacheKey(opts) {
+  const o = opts || {};
+  return [
+    'rerank',
+    String(o.query || ''),
+    String(o.strategy || 'ensemble'),
+    String(o.limit || ''),
+    o.llm ? 'llm' : '',
+    canonicalCandidates(o.candidates),
+  ].join('|');
+}
+
+function rerankSnapshot(out) {
+  const { elapsedMs, cacheHit, ...rest } = out;
+  return rest;
+}
+
+class RerankCache {
+  constructor({ maxSize = RERANK_CACHE_MAX, ttlMs = RERANK_CACHE_TTL_MS, now = Date.now } = {}) {
+    this.max = Math.max(1, maxSize);
+    this.ttl = Math.max(0, ttlMs);
+    this.now = now;
+    this.map = new Map();
+  }
+  get(key) {
+    const entry = this.map.get(key);
+    if (!entry) return undefined;
+    if (this.ttl > 0 && this.now() - entry.t > this.ttl) {
+      this.map.delete(key);
+      return undefined;
+    }
+    // LRU: refresh recency (Map insertion order == access order after re-insert)
+    this.map.delete(key);
+    this.map.set(key, entry);
+    return entry.v;
+  }
+  set(key, value) {
+    if (this.map.size >= this.max) {
+      const oldest = this.map.keys().next().value;
+      if (oldest !== undefined) this.map.delete(oldest);
+    }
+    this.map.set(key, { v: value, t: this.now() });
+    return value;
+  }
+  clear() { this.map.clear(); }
+  size() { return this.map.size; }
+}
+
+const RERANK_CACHE = new RerankCache();
+function clearRerankCache() { RERANK_CACHE.clear(); }
+
+/**
  * Main entry: rerank a candidate list.
  * @param {object} options
  * @param {string} options.query
@@ -364,13 +458,27 @@ async function rerank(options = {}) {
   }
   const strategy = options.strategy || 'ensemble';
   const limit = options.limit || candidates.length;
+
+  if (cacheEnabled(options) && !options.embedder && !options.chat) {
+    const key = rerankCacheKey({ query, strategy, limit, llm: options.llm, candidates });
+    const cached = RERANK_CACHE.get(key);
+    if (cached) {
+      return {
+        ...cached,
+        cacheHit: true,
+        elapsedMs: 0,
+        matches: cached.matches.map((m) => ({ ...m })),
+      };
+    }
+  }
+
   const started = Date.now();
   const result = await scoreCandidates(query, candidates, strategy, options);
   const matches = result.candidates.slice(0, limit).map((c, i) => ({
     ...c,
     rank: i + 1,
   }));
-  return {
+  const out = {
     ok: true,
     query,
     strategy,
@@ -379,6 +487,7 @@ async function rerank(options = {}) {
     elapsedMs: Date.now() - started,
     matchCount: matches.length,
     matches,
+    cacheHit: false,
     // Capability matrix for scorecard
     capabilities: {
       cross_encoder: true,
@@ -387,6 +496,13 @@ async function rerank(options = {}) {
       ensemble: true,
     },
   };
+  if (cacheEnabled(options) && !options.embedder && !options.chat) {
+    RERANK_CACHE.set(
+      rerankCacheKey({ query, strategy, limit, llm: options.llm, candidates }),
+      rerankSnapshot(out),
+    );
+  }
+  return out;
 }
 
 /** Hermetic self-test: inverted list must be corrected by CE/ColBERT features. */
@@ -481,6 +597,7 @@ if (require.main === module) {
         strategy: args.strategy,
         limit: args.limit,
         llm: args.llm,
+        disableCache: args.noCache,
       });
       if (args.json) console.log(JSON.stringify(out, null, 2));
       else {
@@ -510,4 +627,11 @@ module.exports = {
   passageWindows,
   createOllamaEmbedder,
   createOllamaChat,
+  // Rerank result cache (LRU + TTL) — for observability hooks and hermetic testing
+  RerankCache,
+  RerankCacheInstance: RERANK_CACHE,
+  rerankCacheKey,
+  rerankSnapshot,
+  cacheEnabled,
+  clearRerankCache,
 };
