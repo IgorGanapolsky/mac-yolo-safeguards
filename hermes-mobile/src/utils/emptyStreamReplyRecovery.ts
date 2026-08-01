@@ -23,7 +23,7 @@ export const EMPTY_REPLY_FAILURE_REASON =
   'Still no reply text — your Mac may be stuck or waiting for a Leash approval. Stop the run, open Leash to approve/deny/warn, or start a fresh chat.';
 
 export const EMPTY_STREAM_HARD_STOP_STATUS =
-  'Stopped waiting on your Mac. Open Leash if a tool needs approve/deny/warn, Stop an active run, or start a fresh chat.';
+  'Still no live reply text after a long wait. Open Leash if a tool needs approve/deny/warn, Stop an active run, or start a fresh chat.';
 
 /** User-facing status while auto-polling after send with no reply yet. */
 export function emptyStreamCheckingStatus(elapsedMs: number): string {

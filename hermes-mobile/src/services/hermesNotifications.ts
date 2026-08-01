@@ -16,9 +16,18 @@ import {
   resolveHermesNotificationPresentation,
   shouldScheduleApprovalNotification,
   shouldScheduleApprovalsSummaryNotification,
+  shouldScheduleConnectionLifecycleNotification,
   shouldScheduleRunCompletedNotification,
   shouldScheduleRunProgressNotification,
 } from '../utils/smartNotificationPolicy';
+import {
+  connectionEventNotificationBody,
+  connectionEventNotificationId,
+  connectionEventNotificationTitle,
+  shouldEmitConnectionLifecycleEvent,
+  type ConnectionLifecycleEvent,
+  type ConnectionLifecyclePayload,
+} from '../utils/connectionLifecycleNotifications';
 import {
   cappedBadgeCount,
   pendingApprovalsSignature,
@@ -384,6 +393,19 @@ export async function initHermesNotifications(): Promise<void> {
     {
       identifier: 'view_chat',
       buttonTitle: 'Open chat',
+      options: { opensAppToForeground: true },
+    },
+  ]);
+
+  await Notifications.setNotificationCategoryAsync(CATEGORY_CONNECTION, [
+    {
+      identifier: 'view_chat',
+      buttonTitle: 'Open chat',
+      options: { opensAppToForeground: true },
+    },
+    {
+      identifier: 'find_computers',
+      buttonTitle: 'Find computers',
       options: { opensAppToForeground: true },
     },
   ]);
@@ -881,6 +903,103 @@ export async function cancelRunStallNotification(): Promise<void> {
   } catch {
     /* ignore */
   }
+}
+
+const THREAD_CONNECTION = 'hermes.thread.connection';
+const CATEGORY_CONNECTION = 'hermes_connection';
+
+let lastConnectionLifecycleEvent: ConnectionLifecycleEvent | null = null;
+let lastConnectionLifecycleAt = 0;
+let lastConnectionLifecycleSignature = '';
+
+/**
+ * Uber-style connection shade: one quiet update when the computer story changes
+ * (found / lost / restored). Never heads-up; never while foregrounded.
+ */
+export async function scheduleConnectionLifecycleNotification(
+  payload: ConnectionLifecyclePayload,
+  options?: { categoryEnabled?: boolean; force?: boolean },
+): Promise<void> {
+  if (
+    !options?.force &&
+    !shouldScheduleConnectionLifecycleNotification(
+      AppState.currentState,
+      options?.categoryEnabled ?? true,
+    )
+  ) {
+    return;
+  }
+
+  const now = Date.now();
+  if (
+    !options?.force &&
+    !shouldEmitConnectionLifecycleEvent({
+      previous: lastConnectionLifecycleEvent,
+      next: payload.event,
+      nowMs: now,
+      lastEmittedAtMs: lastConnectionLifecycleAt,
+      lastEmittedEvent: lastConnectionLifecycleEvent,
+    })
+  ) {
+    return;
+  }
+
+  const title = connectionEventNotificationTitle(payload);
+  const body = connectionEventNotificationBody(payload);
+  const signature = `${payload.event}\u0001${title}\u0001${body}`;
+  if (!options?.force && signature === lastConnectionLifecycleSignature) {
+    return;
+  }
+
+  const Notifications = await loadNotifications();
+  if (!Notifications) {
+    return;
+  }
+  const granted = await requestHermesNotificationPermission();
+  if (!granted) {
+    return;
+  }
+
+  lastConnectionLifecycleEvent = payload.event;
+  lastConnectionLifecycleAt = now;
+  lastConnectionLifecycleSignature = signature;
+
+  const identifier = connectionEventNotificationId(payload.event);
+  await Notifications.scheduleNotificationAsync({
+    identifier,
+    content: {
+      title,
+      subtitle: 'Connection',
+      body,
+      categoryIdentifier: CATEGORY_CONNECTION,
+      threadIdentifier: THREAD_CONNECTION,
+      ...(Platform.OS === 'ios'
+        ? { interruptionLevel: 'passive' as const, sound: false }
+        : {}),
+      ...(Platform.OS === 'android'
+        ? {
+            channelId: CHANNEL_STATUS_V2,
+            color: NOTIFICATION_COLOR,
+            priority: Notifications.AndroidNotificationPriority.LOW,
+            sticky: payload.event === 'lost' || payload.event === 'searching',
+            autoDismiss: payload.event !== 'lost' && payload.event !== 'searching',
+          }
+        : {}),
+      data: {
+        type: 'connection_lifecycle',
+        event: payload.event,
+        machineLabel: payload.machineLabel ?? '',
+        transport: payload.transport ?? '',
+      },
+    } as NotificationContentInput,
+    trigger: null,
+  });
+}
+
+export function resetConnectionLifecycleNotificationState(): void {
+  lastConnectionLifecycleEvent = null;
+  lastConnectionLifecycleAt = 0;
+  lastConnectionLifecycleSignature = '';
 }
 
 export async function dismissHermesNotifications(): Promise<void> {

@@ -166,7 +166,7 @@ export default function Home() {
             <ul>
               <li>Everything in Pro Continuity</li>
               <li>500 cloud continuations / 30 days</li>
-              <li>Claude 3.5 Sonnet &amp; GPT-4o access</li>
+              <li>Auto model routing across providers</li>
               <li>Custom BYO API Key support</li>
               <li>Priority Fly.io cloud VPS runner</li>
             </ul>

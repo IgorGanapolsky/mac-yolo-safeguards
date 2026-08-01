@@ -4,7 +4,7 @@ import type { HermesToolset } from '../types/gatewayApi';
  * July 2026 Hermes Mobile essentials — phone remote for a Mac agent.
  * Rationale + citations: docs/DEFAULT-SKILLS-JULY-2026.md
  *
- * Order is primary Settings display order.
+ * Membership only. Settings sorts the rendered display labels A-Z.
  */
 export const ESSENTIAL_MOBILE_TOOLSET_NAMES = [
   'session_search',
@@ -33,10 +33,6 @@ export const HOBBY_INTEGRATION_TOOLSET_NAMES = [
 
 const ESSENTIAL_SET = new Set<string>(ESSENTIAL_MOBILE_TOOLSET_NAMES);
 const HOBBY_SET = new Set<string>(HOBBY_INTEGRATION_TOOLSET_NAMES);
-
-const ESSENTIAL_ORDER = new Map<string, number>(
-  ESSENTIAL_MOBILE_TOOLSET_NAMES.map((name, index) => [name, index]),
-);
 
 /** Known env keys when the Mac has not yet advertised /v1/toolsets/{name}/config. */
 export const FALLBACK_TOOLSET_ENV_KEYS: Record<
@@ -199,13 +195,11 @@ export function requiredEnvKeysForToolset(name: string): string[] {
   return (FALLBACK_TOOLSET_ENV_KEYS[name] ?? []).map((field) => field.key);
 }
 
-function compareEssentialOrder(a: HermesToolset, b: HermesToolset): number {
-  const ai = ESSENTIAL_ORDER.get(a.name) ?? Number.MAX_SAFE_INTEGER;
-  const bi = ESSENTIAL_ORDER.get(b.name) ?? Number.MAX_SAFE_INTEGER;
-  if (ai !== bi) {
-    return ai - bi;
-  }
-  return (a.label ?? a.name).localeCompare(b.label ?? b.name);
+function compareToolsetDisplayLabel(a: HermesToolset, b: HermesToolset): number {
+  const aLabel = formatToolsetLabel(a.label, a.name);
+  const bLabel = formatToolsetLabel(b.label, b.name);
+  const byLabel = aLabel.localeCompare(bLabel, undefined, { sensitivity: 'base' });
+  return byLabel !== 0 ? byLabel : aLabel.localeCompare(bLabel);
 }
 
 /**
@@ -219,7 +213,7 @@ export function partitionMobileToolsets(toolsets: HermesToolset[]): {
 } {
   const essentials = toolsets
     .filter((toolset) => isEssentialMobileToolset(toolset.name))
-    .sort(compareEssentialOrder);
+    .sort(compareToolsetDisplayLabel);
 
   const advanced = toolsets
     .filter((toolset) => {
@@ -228,7 +222,7 @@ export function partitionMobileToolsets(toolsets: HermesToolset[]): {
       }
       return toolset.configured === true || toolset.enabled === true;
     })
-    .sort((a, b) => (a.label ?? a.name).localeCompare(b.label ?? b.name));
+    .sort(compareToolsetDisplayLabel);
 
   return { essentials, advanced };
 }
