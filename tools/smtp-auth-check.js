@@ -40,28 +40,75 @@ function readSecret(name, account = 'hermes-fleet') {
   }
 }
 
-/** A sender domain that does not resolve cannot send or receive, whatever the password. */
-async function checkDomain(domain) {
-  const out = { domain, resolves: false, mx: [], spf: null, dmarc: null, error: null };
+/**
+ * Domain existence and MX presence are SEPARATE facts.
+ *
+ * resolveMx() rejects with ENODATA for a domain that exists but publishes no MX — which
+ * is normal for an outbound-only sender. Treating that as "does not resolve" produced
+ * DOMAIN_BROKEN and skipped a relay authentication that would have succeeded. Only
+ * NXDOMAIN (never registered) and SERVFAIL/REFUSED (delegated but unserved) mean the
+ * domain itself is broken.
+ *
+ * `resolver` is injectable so the SERVFAIL/NXDOMAIN/ENODATA cases can be tested
+ * deterministically instead of depending on the state of a live domain.
+ */
+const DOMAIN_DEAD_CODES = new Set(['ENOTFOUND', 'NXDOMAIN', 'ESERVFAIL', 'SERVFAIL', 'EREFUSED', 'REFUSED']);
+
+async function checkDomain(domain, resolver = require('node:dns').promises) {
+  const out = {
+    domain, exists: false, mx: [], hasMx: false, spf: null, dmarc: null, error: null,
+  };
+
+  // Existence first, via NS — independent of whether the zone publishes mail records.
   try {
-    out.mx = (await dns.resolveMx(domain)).map((m) => m.exchange);
-    out.resolves = true;
+    await resolver.resolveNs(domain);
+    out.exists = true;
   } catch (err) {
-    out.error = err.code || String(err.message || err);
-    // SERVFAIL/REFUSED mean the nameservers are delegated but not serving the zone —
-    // a deleted zone at the DNS provider, not an expired domain. NXDOMAIN differs.
-    return out;
+    const code = err.code || String(err.message || err);
+    if (DOMAIN_DEAD_CODES.has(code)) { out.error = code; return out; }
+    // ENODATA on NS is odd but not proof of absence; fall through and let MX decide.
+    out.exists = true;
+    out.error = code;
   }
+
   try {
-    const txt = await dns.resolveTxt(domain);
-    const spf = txt.flat().find((r) => r.startsWith('v=spf1'));
-    out.spf = spf || null;
-  } catch { /* absent SPF is reported as null, not an error */ }
+    out.mx = (await resolver.resolveMx(domain)).map((m) => m.exchange);
+    out.hasMx = out.mx.length > 0;
+  } catch (err) {
+    const code = err.code || String(err.message || err);
+    if (DOMAIN_DEAD_CODES.has(code)) { out.exists = false; out.error = code; return out; }
+    // ENODATA here means: domain exists, publishes no MX. Outbound-only senders do this.
+    out.hasMx = false;
+  }
+
   try {
-    const txt = await dns.resolveTxt(`_dmarc.${domain}`);
+    const txt = await resolver.resolveTxt(domain);
+    out.spf = txt.flat().find((r) => r.startsWith('v=spf1')) || null;
+  } catch { /* absent SPF is null, not an error */ }
+  try {
+    const txt = await resolver.resolveTxt(`_dmarc.${domain}`);
     out.dmarc = txt.flat().find((r) => r.startsWith('v=DMARC1')) || null;
-  } catch { /* absent DMARC is reported as null */ }
+  } catch { /* absent DMARC is null */ }
   return out;
+}
+
+/**
+ * Only a genuine credential rejection is AUTH_FAILED.
+ *
+ * 535/534/530 are "your credential is wrong". A relay that rejects EHLO or STARTTLS, or
+ * answers 454/504 (transient, or mechanism unsupported), never evaluated the credential
+ * — labelling those AUTH_FAILED and advising a password change is exactly the misleading
+ * diagnosis this tool exists to prevent.
+ */
+const CREDENTIAL_REJECTION_CODES = new Set([535, 534, 530]);
+
+function classifyAuth(auth) {
+  if (!auth) return 'RELAY_UNREACHABLE';
+  if (auth.ok) return 'OK';
+  if (auth.stage !== 'auth') return 'RELAY_PROTOCOL_ERROR';
+  if (CREDENTIAL_REJECTION_CODES.has(auth.code)) return 'AUTH_FAILED';
+  if (auth.code >= 400 && auth.code < 500) return 'AUTH_TRANSIENT';
+  return 'RELAY_PROTOCOL_ERROR';
 }
 
 function smtpConverse(socket, script, timeoutMs) {
@@ -180,7 +227,7 @@ async function main(argv) {
 
   // Domain first: a sender whose domain does not resolve cannot deliver regardless of
   // whether the relay accepts the password, so reporting only AUTH would mislead.
-  if (!domainResult.resolves) {
+  if (!domainResult.exists) {
     result.verdict = 'DOMAIN_BROKEN';
     result.advice = `${domain} does not resolve (${domainResult.error}). `
       + 'If the nameservers are delegated but answer REFUSED, the zone was deleted at the DNS '
@@ -194,16 +241,27 @@ async function main(argv) {
     } else {
       try {
         result.auth = await checkAuth({ host, port, user, secret });
-        result.verdict = result.auth.ok ? 'OK' : 'AUTH_FAILED';
-        if (!result.auth.ok) {
-          result.advice = `Relay rejected the credential at stage '${result.auth.stage}' `
-            + `with ${result.auth.code}. The relay itself is reachable, so this is the credential `
-            + 'or the username form (most relays want the full address as the username).';
+        result.verdict = classifyAuth(result.auth);
+        if (result.verdict === 'AUTH_FAILED') {
+          result.advice = `The relay evaluated the credential and rejected it (${result.auth.code}). `
+            + 'Check the password and the username form — most relays want the full address.';
+        } else if (result.verdict === 'AUTH_TRANSIENT') {
+          result.advice = `The relay answered ${result.auth.code} at AUTH — a transient or `
+            + 'unsupported-mechanism response, NOT a statement that the credential is wrong. '
+            + 'Retry before changing anything.';
+        } else if (result.verdict === 'RELAY_PROTOCOL_ERROR') {
+          result.advice = `The relay failed at stage '${result.auth.stage}' with ${result.auth.code} `
+            + 'before the credential was ever evaluated. This is a relay/protocol problem, not a '
+            + 'password problem.';
         }
       } catch (err) {
         result.verdict = 'RELAY_UNREACHABLE';
         result.advice = `Could not complete an SMTP conversation with ${host}:${port} (${err.message}).`;
       }
+    }
+    if (result.verdict === 'OK' && !domainResult.hasMx) {
+      result.warning = 'Auth succeeded and the domain resolves, but it publishes no MX record. '
+        + 'Outbound-only senders do this deliberately; if you expect replies, this is a fault.';
     }
     if (result.verdict === 'OK' && !domainResult.spf) {
       result.warning = 'Auth succeeded but the domain publishes no SPF record; recipients will '
@@ -235,8 +293,8 @@ async function main(argv) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } else {
     process.stdout.write(`\nsender: ${user}  relay: ${host}:${port}\n`);
-    process.stdout.write(`  domain resolves : ${domainResult.resolves ? 'yes' : `NO (${domainResult.error})`}\n`);
-    process.stdout.write(`  MX              : ${domainResult.mx.join(', ') || '<none>'}\n`);
+    process.stdout.write(`  domain exists   : ${domainResult.exists ? 'yes' : `NO (${domainResult.error})`}\n`);
+    process.stdout.write(`  MX              : ${domainResult.mx.join(', ') || '<none> (outbound-only is legitimate)'}\n`);
     process.stdout.write(`  SPF             : ${domainResult.spf ? 'present' : '<none>'}\n`);
     process.stdout.write(`  DMARC           : ${domainResult.dmarc ? 'present' : '<none>'}\n`);
     if (result.auth) process.stdout.write(`  SMTP AUTH       : ${result.auth.code} ${result.auth.ok ? 'accepted' : 'REJECTED'}\n`);
@@ -248,7 +306,7 @@ async function main(argv) {
   return result.verdict === 'OK' ? 0 : 1;
 }
 
-module.exports = { checkDomain, readSecret };
+module.exports = { checkDomain, readSecret, classifyAuth, CREDENTIAL_REJECTION_CODES };
 
 if (require.main === module) {
   main(process.argv.slice(2)).then((c) => process.exit(c)).catch((err) => {

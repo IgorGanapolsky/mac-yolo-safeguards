@@ -40,23 +40,17 @@ if [[ ! -t 0 ]]; then
   exit 3
 fi
 
-printf 'Value for %s (input hidden): ' "$NAME" >&2
-IFS= read -rs VALUE </dev/tty
-printf '\n' >&2
-printf 'Confirm: ' >&2
-IFS= read -rs VALUE2 </dev/tty
-printf '\n' >&2
+# `security` prompts on the terminal when -w is given as the LAST option with no value.
+# Its own help says so: "Use of the -p or -w options is insecure. Specify -w as the last
+# option to be prompted." Passing the value as `-w "$VALUE"` — which this script did
+# originally — puts the secret in argv, where any process can read it out of `ps`, and
+# also parks it in a shell variable. Prompting means the value goes keyboard ->
+# security(1) without passing through bash or the process table at all.
+echo "You will be prompted by security(1). The value is not read by this script." >&2
+security add-generic-password -U -a "$ACCOUNT" -s "$NAME" -w
 
-if [[ -z "$VALUE" ]]; then echo "secret-put: empty value, nothing stored" >&2; exit 4; fi
-if [[ "$VALUE" != "$VALUE2" ]]; then echo "secret-put: values did not match, nothing stored" >&2; exit 5; fi
-
-# -U updates in place if the entry exists. -w takes the value on stdin-free argv, so
-# pass it via a here-string on a subshell that is not logged.
-security add-generic-password -U -a "$ACCOUNT" -s "$NAME" -w "$VALUE" 2>/dev/null
-
-# Verify by length only — never print, never log, never return the value.
+# Verify by reading back LENGTH ONLY — never print, never log, never return the value.
 STORED_LEN=$(security find-generic-password -a "$ACCOUNT" -s "$NAME" -w 2>/dev/null | tr -d '\n' | wc -c | tr -d ' ')
-unset VALUE VALUE2
 
 if [[ "${STORED_LEN:-0}" -gt 0 ]]; then
   echo "stored: account=$ACCOUNT service=$NAME length=$STORED_LEN"
