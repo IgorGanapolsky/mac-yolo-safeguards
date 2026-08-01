@@ -34,8 +34,26 @@ const liveHealth = {
 };
 
 describe('no USB user-facing copy (CEO 2026-07-30)', () => {
+  // Save and RESTORE, never blind-delete. Four other suites set this var at
+  // module scope, and jest --runInBand shares one process across files — so an
+  // unconditional delete here wiped a value earlier files had established and
+  // broke an unrelated ChatScreen test purely by file ordering.
+  const originalUsbHatch = process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT;
+
   afterEach(() => {
-    delete process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT;
+    if (originalUsbHatch === undefined) {
+      delete process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT;
+    } else {
+      process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT = originalUsbHatch;
+    }
+  });
+
+  afterAll(() => {
+    if (originalUsbHatch === undefined) {
+      delete process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT;
+    } else {
+      process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT = originalUsbHatch;
+    }
   });
 
   it('header transport never returns the word USB (default product)', () => {

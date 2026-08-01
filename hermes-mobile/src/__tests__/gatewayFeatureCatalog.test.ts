@@ -27,8 +27,8 @@ describe('gatewayFeatureCatalog', () => {
     });
     expect(rows.map((r) => r.key)).toEqual([
       'chat_completions',
-      'run_stop',
       'model_note',
+      'run_stop',
     ]);
     expect(rows.find((r) => r.key === 'model_note')?.valueLabel).toBe('qwen3');
   });

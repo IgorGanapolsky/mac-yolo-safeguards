@@ -67,6 +67,13 @@ export default function ConnectionHealthHub({
     macHttpReachable,
   );
   const dotColor = healthDotColor(connectionState, health, macHttpReachable);
+  const recoveryActionLabel = health?.authMismatch
+    ? 'Re-pair computer'
+    : macHttpReachable || health?.level === 'green' || connectionState === 'demo'
+      ? null
+      : connectionState === 'connecting'
+        ? 'Retry connection'
+        : 'Reconnect computer';
 
   const handleRepair = useCallback(async () => {
     haptics.selection();
@@ -76,12 +83,12 @@ export default function ConnectionHealthHub({
       haptics.success();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Repair failed';
-      Alert.alert('Could not repair link', message);
+      Alert.alert(`Could not ${recoveryActionLabel?.toLowerCase() ?? 'recover connection'}`, message);
       haptics.warning();
     } finally {
       setRepairBusy(false);
     }
-  }, [onRepairConnection]);
+  }, [onRepairConnection, recoveryActionLabel]);
 
   const handleCheckUpdate = useCallback(async () => {
     haptics.selection();
@@ -158,18 +165,20 @@ export default function ConnectionHealthHub({
             <Text style={styles.actionBtnText}>Check for update</Text>
           )}
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionBtn, styles.repairBtn]}
-          onPress={() => void handleRepair()}
-          disabled={repairBusy}
-          testID="connection-health-repair"
-        >
-          {repairBusy ? (
-            <ActivityIndicator size="small" color={colors.warning} />
-          ) : (
-            <Text style={[styles.actionBtnText, styles.repairBtnText]}>Repair link</Text>
-          )}
-        </TouchableOpacity>
+        {recoveryActionLabel ? (
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.repairBtn]}
+            onPress={() => void handleRepair()}
+            disabled={repairBusy}
+            testID="connection-health-repair"
+          >
+            {repairBusy ? (
+              <ActivityIndicator size="small" color={colors.warning} />
+            ) : (
+              <Text style={[styles.actionBtnText, styles.repairBtnText]}>{recoveryActionLabel}</Text>
+            )}
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {updateMessage ? (

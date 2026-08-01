@@ -1,0 +1,43 @@
+# Independent of ci.yml: if ci.yml itself contains conflict markers, GitHub never
+# parses CI and never runs in-workflow guards. This tiny workflow is a separate
+# required-path check that still runs when ci.yml is unparseable.
+name: Conflict marker guard
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  markers:
+    name: conflict markers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: No merge conflict markers in tracked files
+        run: |
+          set -eu
+          if git grep -nE '^(<<<<<<< |>>>>>>> |\|\|\|\|\|\|\| )' -- ':!node_modules' ':!*.lock'; then
+            echo "::error::Merge conflict markers committed. Resolve before merging."
+            exit 1
+          fi
+          echo "no conflict markers"
+      - name: YAML-parse all workflows
+        run: |
+          set -eu
+          python3 - <<'PY'
+          import glob, sys, yaml
+          failed = 0
+          for path in sorted(glob.glob(".github/workflows/*.{yml,yaml}")):
+              try:
+                  yaml.safe_load(open(path))
+                  print(f"ok  {path}")
+              except Exception as e:
+                  failed += 1
+                  print(f"FAIL {path}: {e}", file=sys.stderr)
+          sys.exit(1 if failed else 0)
+          PY

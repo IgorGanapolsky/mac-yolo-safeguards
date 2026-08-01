@@ -73,15 +73,25 @@ export function resolveComputerPickerStatus(
     !input.scanning;
 
   if (input.scanning) {
-    // Stable copy only — mid-scan host % / stage labels reflow the sheet (jitter).
-    // Detailed progress stays on MacScanProgressCard when that surface is shown.
+    // Title stays stable (signature ignores detail) so the band does not thrash.
+    // Detail is honest + actionable; % / "N so far" live in the progress track.
+    const found = input.scanProgress?.foundCount ?? 0;
+    let detail: string;
+    if (!input.tailscaleVpnActive) {
+      detail =
+        found > 0
+          ? `Wi‑Fi · ${found} found so far. Tailscale is off — turn it on for cellular.`
+          : 'Looking on Wi‑Fi. Tailscale is off on this phone — scan can take ~30s.';
+    } else if (found > 0) {
+      detail = `Wi‑Fi + Tailscale · ${found} computer${found === 1 ? '' : 's'} so far. Keep Hermes open on your Mac.`;
+    } else {
+      detail =
+        'Looking on Wi‑Fi and Tailscale. Keep Hermes open on your computer — ~30s typical.';
+    }
     return {
       kind: 'searching',
       title: 'Searching for your computer…',
-      detail:
-        input.tailscaleVpnActive
-          ? 'Looking on Wi‑Fi and Tailscale. Keep Hermes open on your computer.'
-          : 'Looking on Wi‑Fi. Tailscale is off on this phone.',
+      detail,
       discoveries: [],
     };
   }

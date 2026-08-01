@@ -51,6 +51,20 @@ describe('computerPickerStatus', () => {
     expect(status.kind).toBe('searching');
     expect(status.title).toBe('Searching for your computer…');
     expect(status.discoveries).toEqual([]);
+    expect(status.detail).toMatch(/1 computer/);
+  });
+
+  it('mentions Tailscale off honestly while scanning without VPN', () => {
+    const status = resolveComputerPickerStatus({
+      scanning: true,
+      scanProgress: null,
+      scanResult: null,
+      showScanResult: false,
+      tailscaleProbing: false,
+      tailscaleVpnActive: false,
+      tailscaleDiscoveries: [],
+    });
+    expect(status.detail).toMatch(/Tailscale is off/i);
   });
 
   it('keeps searching title stable across progress ticks (no % thrash)', () => {

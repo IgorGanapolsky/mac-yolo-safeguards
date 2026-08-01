@@ -23,6 +23,12 @@ jobs:
   # 2026-07-30: PR runs on macos-latest sat queued forever (GitHub-hosted macOS starvation)
   # and blocked required check "macOS guard kit" → merges stuck. Keep job name for branch protection.
   macos-guard:
+    # Job NAME must stay "macOS guard kit" even though the job no longer runs on
+    # macOS: it is a required check in branch protection, and renaming it makes
+    # every PR wait forever on a check that will never report. The comment above
+    # says exactly this, and a diff3 merge overwrote it anyway on 2026-07-31,
+    # leaving conflict markers committed to HEAD and ci.yml unparseable — so CI
+    # was not skipping tests, it was not running at all.
     name: macOS guard kit
     runs-on: ubuntu-latest
     steps:
@@ -44,6 +50,36 @@ jobs:
           fi
           git diff --name-only "${BASE_SHA}" HEAD \
             | node tools/plan-coordination-snapshot.js check-ownership --stdin
+
+      # Conflict-marker guard. Second occurrence of this class: PR #1190 removed "a
+      # stray diff3 conflict marker committed to main", and on 2026-07-31 a diff3
+      # merge committed markers into ci.yml itself — which made the workflow
+      # unparseable, so CI was not failing, it was not running. A broken CI file is
+      # the one bug that disables every other check, so this runs first and cheap.
+      - name: No merge conflict markers
+        run: |
+          set -eu
+          if git grep -nE '^(<<<<<<< |>>>>>>> |\|\|\|\|\|\|\| )' -- ':!node_modules'; then
+            echo "::error::Merge conflict markers committed. Resolve before merging."
+            exit 1
+          fi
+          echo "no conflict markers"
+
+      - name: Workflow files parse
+        run: |
+          set -eu
+          python3 - <<'PY'
+          import glob, sys, yaml
+          bad = 0
+          for path in glob.glob(".github/workflows/*.yml"):
+              try:
+                  yaml.safe_load(open(path))
+                  print(f"ok   {path}")
+              except Exception as exc:
+                  print(f"FAIL {path}: {exc}")
+                  bad += 1
+          sys.exit(1 if bad else 0)
+          PY
 
       - name: JavaScript syntax
         run: |
@@ -165,6 +201,13 @@ jobs:
           tests/test-adb-reverse-device-filter.sh
           tests/test-secondary-browser-reclaim.sh
 
+      # RAG retrieval quality (hermes-retrieval-harness) — added 2026-07-28 after
+      # zero-result grepai MCP searches went undetected for days. Measures recall@k,
+      # MRR@k, nDCG@k against 8 fixture cases. Fails when the mean recall drops
+      # below 1.0 (one or more queries find zero relevant results).
+      - name: Retrieval quality eval
+        run: node tools/rag-retrieval-eval.js
+
       # poolside-yolo asserts it runs fully autonomous. It shipped a --mode value
       # pool does not recognise, so pool silently reverted to approval prompts and
       # nobody noticed for days — this suite was never wired into CI. It is
@@ -178,6 +221,7 @@ jobs:
           # trailing number is the min assertion count each suite must actually emit.
           bash tests/run-suite.sh tests/test-run-suite.sh 7
           bash tests/run-suite.sh tests/test-poolside-yolo.sh 14
+          bash tests/run-suite.sh tests/test-poolside-acp-imageguard.sh 12
           bash tests/run-suite.sh tests/test-hermes-primary-route-recovery.sh 6
           # Mutation control: proves the suites above actually go RED against the
           # real historical bugs, instead of passing while measuring nothing.
@@ -224,6 +268,18 @@ jobs:
       - name: Publication readiness
         run: node tools/publication-readiness.js
 
+      # Only wire suites that exist on this branch. A 2026-07-31 dirty merge had
+      # re-inserted steps for tests that were never committed (test-resource-lease,
+      # compose-in-editor, publish-once, …) so Public funnel checks failed MODULE_NOT_FOUND
+      # after ci.yml was made parseable again. Absence of a step is not absence of the
+      # bug class — add the suite file first, then the CI line.
+      # Five guessed role addresses hard-bounced within one minute on 2026-07-31,
+      # a design-partner pitch went to a security@ disclosure inbox, and four
+      # unrelated founders shared one To: line. docs/REVENUE-LOOP.md already banned
+      # guessed addresses — as prose, which nothing ran.
+      - name: Outreach deliverability gate
+        run: node tests/test-outreach-preflight.js
+
       # ML integrity (fail-closed) — offline platform bar; does not require Stripe/labels.
       - name: ML integrity + platform gate
         run: |
@@ -244,12 +300,18 @@ jobs:
         run: |
           set -eu -o pipefail
           python3 tests/test-tinker-brain.py 2>&1 | tee "$RUNNER_TEMP/tinker-tests.log"
+          # The coverage gate is what stops a routed NON-answer from being emitted with
+          # the same confidence as an answer. Unrun, it can rot silently and the only
+          # symptom is a confident wrong card — the exact bug it was added to catch.
+          python3 tests/test-tinker-brain-coverage.py 2>&1 | tee "$RUNNER_TEMP/tinker-coverage.log"
           python3 tools/tinker-brain/tinker_brain_eval.py | tee "$RUNNER_TEMP/tinker-eval.log"
           # Both suites exit non-zero on a failing case, but a suite that exits 0
           # having asserted nothing is VACUOUS, not clean — pin the floors too.
           ran="$(sed -n 's/^Ran \([0-9]\{1,\}\) test.*/\1/p' "$RUNNER_TEMP/tinker-tests.log")"
+          cov_ran="$(sed -n 's/^Ran \([0-9]\{1,\}\) test.*/\1/p' "$RUNNER_TEMP/tinker-coverage.log")"
           passed="$(sed -n 's|^tinker-brain eval: \([0-9]\{1,\}\)/.*|\1|p' "$RUNNER_TEMP/tinker-eval.log")"
           test "${ran:-0}" -ge 15
+          test "${cov_ran:-0}" -ge 11
           test "${passed:-0}" -ge 42
 
   mobile-checks:
