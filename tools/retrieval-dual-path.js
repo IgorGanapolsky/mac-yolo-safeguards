@@ -18,10 +18,10 @@ const { spawnSync } = require('child_process');
 const path = require('path');
 const { rewriteQuery } = require('./retrieval-query-rewrite');
 const { rerank } = require('./retrieval-rerank');
+const { rrfFuse, DEFAULT_K: RRF_K } = require('./retrieval-rrf');
 // multi-query is optional heavy path — lazy require in dualPathRetrieve
 
 const REPO = path.resolve(__dirname, '..');
-const RRF_K = 60;
 const DEFAULT_RERANK = process.env.HERMES_RERANK_STRATEGY || 'ensemble';
 
 function parseArgs(argv) {
@@ -125,39 +125,6 @@ function runGrepai(query, limit, repo = REPO) {
   }
 }
 
-/**
- * Reciprocal Rank Fusion across ranked lists.
- * score(d) = Σ 1 / (k + rank_i(d))
- */
-function rrfFuse(lists, k = RRF_K) {
-  const scores = new Map();
-  const meta = new Map();
-  for (const list of lists) {
-    for (const item of list) {
-      if (!item.path) continue;
-      const key = item.path;
-      const add = 1 / (k + item.rank);
-      scores.set(key, (scores.get(key) || 0) + add);
-      const prev = meta.get(key) || { path: key, sources: [], snippets: [] };
-      prev.sources.push(item.source);
-      if (item.snippet) prev.snippets.push(String(item.snippet).slice(0, 200));
-      if (item.start_line) prev.start_line = item.start_line;
-      if (item.end_line) prev.end_line = item.end_line;
-      meta.set(key, prev);
-    }
-  }
-  return [...scores.entries()]
-    .map(([p, score]) => ({
-      path: p,
-      rrfScore: Number(score.toFixed(6)),
-      sources: [...new Set(meta.get(p).sources)],
-      snippet: meta.get(p).snippets[0] || '',
-      start_line: meta.get(p).start_line,
-      end_line: meta.get(p).end_line,
-    }))
-    .sort((a, b) => b.rrfScore - a.rrfScore || a.path.localeCompare(b.path));
-}
-
 async function dualPathRetrieve(options = {}) {
   const queryIn = String(options.query || '').trim();
   if (!queryIn) throw new Error('--query required');
@@ -179,6 +146,9 @@ async function dualPathRetrieve(options = {}) {
       limit: pool,
       maxVariants: options.maxVariants || 5,
       llm: Boolean(options.llmMultiQuery),
+      pathInclude: include,
+      pathExclude: exclude,
+      repo: options.repo || REPO,
     });
     multiQueryMeta = {
       applied: true,
@@ -186,7 +156,10 @@ async function dualPathRetrieve(options = {}) {
       variants: mq.variants,
       llm: mq.llm,
     };
-    let matches = (mq.matches || []).slice(0, limit);
+    // Honor path filters after multi-query fuse (CLI children may not inherit filters).
+    let matches = (mq.matches || [])
+      .filter((m) => pathAllowed(m.path, include, exclude))
+      .slice(0, limit);
     let rerankMeta = { applied: false, strategy: 'none' };
     if (rerankStrategy && rerankStrategy !== 'none' && mq.matches?.length > 1) {
       try {
@@ -260,7 +233,9 @@ async function dualPathRetrieve(options = {}) {
     }
   }
 
-  const fused = rrfFuse(lists).slice(0, pool);
+  // Weighted RRF: harness prioritized for identifier-heavy code ranking quality
+  // (measured 2026-08-01: plain RRF buried agent-swarm-harness at dual@6).
+  const fused = rrfFuse(lists, { k: RRF_K, query: q }).slice(0, pool);
   let matches = fused.slice(0, limit);
   let rerankMeta = { applied: false, strategy: 'none' };
 
@@ -315,7 +290,7 @@ async function dualPathRetrieve(options = {}) {
       harness: paths.harness ? (paths.harness.ok ? 'ok' : paths.harness.error) : 'skipped',
       grepai: paths.grepai ? (paths.grepai.ok ? 'ok' : paths.grepai.error) : 'skipped',
     },
-    fusion: 'rrf',
+    fusion: 'weighted-rrf',
     rrfK: RRF_K,
     multiQuery: multiQueryMeta,
     rerank: rerankMeta,
