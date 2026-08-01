@@ -84,7 +84,7 @@ export default function Home() {
       />
       <FunnelSignals />
       <nav className="topbar landing-nav" aria-label="Primary navigation">
-        <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Hermes Web</small></span></Link>
+        <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate Leash <small>Hermes Web</small></span></Link>
         <LandingAuthNav />
       </nav>
 
@@ -203,7 +203,7 @@ export default function Home() {
       </section>
 
       <footer>
-        <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Hermes Web</small></span></Link>
+        <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate Leash <small>Hermes Web</small></span></Link>
         <p>Your Hermes work, on the web—and still running when the lid closes.</p>
       </footer>
     </main>

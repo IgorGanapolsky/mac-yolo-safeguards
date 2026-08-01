@@ -1018,7 +1018,7 @@ export default function DashboardClient() {
     >
       <aside className={`sidebar${chatRailExpanded ? "" : " is-collapsed"}`} aria-label="Hermes navigation">
         <div className="sidebar-header">
-          <a href="/dashboard" className="brand" aria-label="ThumbGate dashboard"><Mark /><span>ThumbGate <small>Hermes Web</small></span></a>
+          <a href="/dashboard" className="brand" aria-label="ThumbGate Leash dashboard"><Mark /><span>ThumbGate Leash <small>Hermes Web</small></span></a>
           <button type="button" className="sidebar-toggle" aria-expanded={chatRailExpanded} aria-controls="hermes-chat-rail" aria-label={chatRailExpanded ? "Collapse chat sidebar" : "Expand chat sidebar"} onClick={toggleChatRail}><span aria-hidden="true">{chatRailExpanded ? "‹" : "›"}</span></button>
         </div>
         <div className="sidebar-content" id="hermes-chat-rail">
