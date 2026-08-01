@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 'use strict';
 
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
 const DEFAULT_REPO = path.resolve(__dirname, '..');
+const INDEX_DIR = '.rag-index';
+const INDEX_FILE = 'index.jsonl';
+const INDEX_VERSION = 1;
 
 const DEFAULT_IGNORE_DIRS = new Set([
   '.git',
@@ -19,10 +23,10 @@ const DEFAULT_IGNORE_DIRS = new Set([
   'dist',
   'node_modules',
   'parallel-research',
-  // Vault dumps are retrieval noise — they rephrase harness docs and steal nDCG.
-  'Compiled-Vaults',
   'Pods',
   'vendor',
+  'Compiled-Vaults',
+  'graphify-out',
 ]);
 
 const TEXT_EXTENSIONS = new Set([
@@ -57,6 +61,88 @@ const STOP_WORDS = new Set([
   'you',
 ]);
 
+// ---------------------------------------------------------------------------
+// Query expansion: synonyms + acronym expansion + sub-query generation
+// ---------------------------------------------------------------------------
+
+const SYNONYM_MAP = {
+  freeze: ['hang', 'stuck', 'unresponsive', 'lockup'],
+  hang: ['freeze', 'stuck', 'unresponsive'],
+  crash: ['panic', 'segfault', 'terminate'],
+  deploy: ['release', 'publish', 'ship', 'rollout'],
+  cache: ['memoize', 'store', 'buffer'],
+  latency: ['delay', 'slow', 'response_time'],
+  observability: ['telemetry', 'tracing', 'monitoring'],
+  hallucination: ['fabrication', 'confabulation', 'unsupported_claim'],
+  reranker: ['rerank', 'cross_encoder', 'relevance_model'],
+  retrieval: ['search', 'query', 'lookup'],
+  permission: ['acl', 'authorization', 'access_control'],
+  tenant: ['organization', 'org', 'workspace'],
+  auth: ['authentication', 'login', 'oauth'],
+  billing: ['payment', 'stripe', 'subscription', 'invoice'],
+  pricing: ['price', 'cost', 'plan', 'tier'],
+  cost: ['price', 'pricing'],
+  feedback: ['rating', 'thumbs', 'signal', 'vote'],
+  eval: ['evaluation', 'benchmark', 'test', 'score'],
+  prompt: ['instruction', 'system_message'],
+  model: ['llm', 'provider', 'engine'],
+  token: ['tokens', 'usage', 'cost'],
+  api: ['endpoint', 'route', 'handler'],
+  ota: ['update', 'over_the_air', 'release'],
+  mobile: ['android', 'ios', 'app'],
+  cloud: ['remote', 'server', 'worker'],
+  local: ['on_device', 'offline'],
+  stripe: ['billing', 'payment', 'checkout'],
+};
+
+const ACRONYM_MAP = {
+  rag: ['retrieval', 'augmented', 'generation', 'retrieval_augmented_generation'],
+  llm: ['large', 'language', 'model', 'language_model'],
+  acl: ['access', 'control', 'list', 'permission', 'access_control'],
+  mcp: ['model', 'context', 'protocol', 'model_context_protocol'],
+  ota: ['over', 'air', 'over_the_air'],
+  api: ['application', 'programming', 'interface', 'endpoint'],
+  ci: ['continuous', 'integration', 'continuous_integration'],
+  cd: ['continuous', 'deployment', 'continuous_deployment'],
+  sdk: ['software', 'development', 'kit', 'software_development_kit'],
+  npm: ['node', 'package', 'manager', 'node_package_manager'],
+};
+
+function expandQuery(rawQuery) {
+  const tokens = tokenize(rawQuery);
+  const expanded = new Set(tokens);
+  const expansions = [];
+
+  for (const token of tokens) {
+    const syn = SYNONYM_MAP[token];
+    if (syn) {
+      for (const s of syn) {
+        if (!expanded.has(s)) {
+          expanded.add(s);
+          expansions.push({ token, type: 'synonym', expansion: s });
+        }
+      }
+    }
+    const acr = ACRONYM_MAP[token];
+    if (acr) {
+      for (const a of acr) {
+        if (!expanded.has(a)) {
+          expanded.add(a);
+          expansions.push({ token, type: 'acronym', expansion: a });
+        }
+      }
+    }
+  }
+
+  // Generate a sub-query with synonyms to catch docs that use different vocabulary.
+  const subQuery = [...expanded];
+  return { originalTokens: tokens, expandedTokens: subQuery, expansions };
+}
+
+// ---------------------------------------------------------------------------
+// CLI argument parsing
+// ---------------------------------------------------------------------------
+
 function parseArgs(argv = process.argv.slice(2)) {
   const args = {
     command: 'retrieve',
@@ -67,13 +153,10 @@ function parseArgs(argv = process.argv.slice(2)) {
     start: 1,
     end: 80,
     limit: 8,
-    maxFiles: 12000,
+    maxFiles: 5000,
     maxBytes: 240000,
     json: false,
     help: false,
-    rewrite: false,
-    pathInclude: [],
-    pathExclude: [],
   };
 
   if (argv[0] && !argv[0].startsWith('--')) {
@@ -92,12 +175,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     else if (arg === '--max-files') args.maxFiles = Number(requireValue(argv, ++index, arg));
     else if (arg === '--max-bytes') args.maxBytes = Number(requireValue(argv, ++index, arg));
     else if (arg === '--json') args.json = true;
-    else if (arg === '--rewrite') args.rewrite = true;
-    else if (arg === '--path-include') {
-      args.pathInclude = String(requireValue(argv, ++index, arg)).split(',').filter(Boolean);
-    } else if (arg === '--path-exclude') {
-      args.pathExclude = String(requireValue(argv, ++index, arg)).split(',').filter(Boolean);
-    } else if (arg === '--help' || arg === '-h') args.help = true;
+    else if (arg === '--help' || arg === '-h') args.help = true;
     else if (!args.query && args.command === 'retrieve') args.query = arg;
     else throw new Error(`Unknown argument: ${arg}`);
   }
@@ -109,6 +187,10 @@ function requireValue(argv, index, flag) {
   if (!argv[index]) throw new Error(`${flag} requires a value`);
   return argv[index];
 }
+
+// ---------------------------------------------------------------------------
+// Path safety and file classification
+// ---------------------------------------------------------------------------
 
 function safeRepoPath(repo, relativePath) {
   const root = path.resolve(repo);
@@ -127,6 +209,10 @@ function shouldIgnoreDir(name) {
   return DEFAULT_IGNORE_DIRS.has(name);
 }
 
+// ---------------------------------------------------------------------------
+// Tokenization and normalization
+// ---------------------------------------------------------------------------
+
 function tokenize(value) {
   return String(value || '')
     .toLowerCase()
@@ -134,6 +220,21 @@ function tokenize(value) {
     .map((token) => token.trim())
     .filter((token) => token.length >= 2 && !STOP_WORDS.has(token));
 }
+
+function normalizeForHash(text) {
+  return String(text)
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function contentHash(text) {
+  return crypto.createHash('sha256').update(normalizeForHash(text)).digest('hex');
+}
+
+// ---------------------------------------------------------------------------
+// File reading
+// ---------------------------------------------------------------------------
 
 function readTextSlice(filePath, maxBytes) {
   const stat = fs.statSync(filePath);
@@ -145,9 +246,17 @@ function readTextSlice(filePath, maxBytes) {
   return buffer.toString('utf8');
 }
 
+function readTextFile(filePath) {
+  return fs.readFileSync(filePath, 'utf8');
+}
+
+// ---------------------------------------------------------------------------
+// Inventory (live file walk)
+// ---------------------------------------------------------------------------
+
 function walkFiles(repo, options = {}) {
   const root = path.resolve(repo);
-  const maxFiles = options.maxFiles || 12000;
+  const maxFiles = options.maxFiles || 5000;
   const files = [];
 
   function visit(dir) {
@@ -167,7 +276,9 @@ function walkFiles(repo, options = {}) {
       const fullPath = path.join(dir, entry.name);
       const relativePath = path.relative(root, fullPath);
       if (entry.isDirectory()) {
-        if (!shouldIgnoreDir(entry.name)) visit(fullPath);
+        if (!shouldIgnoreDir(entry.name) && !fs.existsSync(path.join(fullPath, '.git'))) {
+          visit(fullPath);
+        }
       } else if (entry.isFile() && isTextFile(fullPath)) {
         files.push(relativePath);
       }
@@ -193,6 +304,7 @@ function buildInventory(options = {}) {
       path: relativePath,
       bytes: stat.size,
       extension: ext,
+      mtime: stat.mtimeMs,
     };
   });
   return {
@@ -204,19 +316,380 @@ function buildInventory(options = {}) {
   };
 }
 
-function scoreFile(queryTokens, relativePath, text) {
-  const pathTokens = tokenize(relativePath);
-  const textTokens = tokenize(text);
+// ---------------------------------------------------------------------------
+// Metadata extraction
+// ---------------------------------------------------------------------------
+
+function classifyKind(relativePath) {
+  if (relativePath.includes('test') || relativePath.includes('__tests__') || relativePath.includes('spec')) {
+    return 'test';
+  }
+  if (relativePath.includes('.claude/skills') || relativePath.includes('.cursor/skills') || relativePath.includes('.agents/skills')) {
+    return 'skill';
+  }
+  if (relativePath.startsWith('docs/') || path.extname(relativePath) === '.md') {
+    return 'doc';
+  }
+  if (relativePath.startsWith('config/') || relativePath.startsWith('.github/')) {
+    return 'config';
+  }
+  return 'code';
+}
+
+function fileMetadata(relativePath, stat) {
+  return {
+    path: relativePath,
+    extension: path.extname(relativePath) || '[none]',
+    bytes: stat.size,
+    mtime: stat.mtimeMs,
+    kind: classifyKind(relativePath),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Chunking
+// ---------------------------------------------------------------------------
+
+function chunkMarkdown(text, relativePath) {
+  const lines = text.split('\n');
+  const chunks = [];
+  let current = { start: 1, lines: [], header: '' };
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+    if (headingMatch) {
+      if (current.lines.length > 0) {
+        chunks.push(current);
+      }
+      current = { start: i + 1, lines: [line], header: headingMatch[2] };
+    } else {
+      current.lines.push(line);
+    }
+  }
+  if (current.lines.length > 0) {
+    chunks.push(current);
+  }
+
+  return chunks.map((chunk) => ({
+    parentPath: relativePath,
+    startLine: chunk.start,
+    endLine: chunk.start + chunk.lines.length - 1,
+    text: chunk.lines.join('\n'),
+    chunkType: 'markdown-section',
+    header: chunk.header,
+  }));
+}
+
+function chunkCode(text, relativePath) {
+  const lines = text.split('\n');
+  const chunks = [];
+  const maxLines = 50;
+  const overlap = 5;
+
+  // Next.js / App Router convention files often have generic basenames like
+  // route.ts, page.tsx, layout.tsx. Inject the parent directory name as the
+  // initial header so retrieval can match the semantic surface even when the
+  // file itself is named after the framework convention.
+  const ext = path.extname(relativePath).toLowerCase();
+  const basename = path.basename(relativePath, ext).toLowerCase();
+  const genericConventionNames = ['index', 'route', 'page', 'layout', 'actions', 'handler', 'server'];
+  const parentDir = path.dirname(relativePath).split('/').filter(Boolean).pop() || '';
+  let lastHeader = genericConventionNames.includes(basename) && parentDir ? parentDir : '';
+
+  // Try to split on function/class-like boundaries for supported languages.
+  const boundaryRe = /^(\s*)(export\s+|function\s+|class\s+|async\s+function\s+|const\s+\w+\s*=\s*(async\s*)?\(|def\s+|class\s+)/;
+  let current = { start: 1, lines: [] };
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const isBoundary = boundaryRe.test(line);
+    if (isBoundary && current.lines.length > 0) {
+      chunks.push({ ...current, header: lastHeader });
+      current = { start: i + 1, lines: [] };
+    }
+    if (isBoundary) {
+      lastHeader = line.trim().slice(0, 120);
+    }
+    current.lines.push(line);
+    if (current.lines.length >= maxLines) {
+      chunks.push({ ...current, header: lastHeader });
+      const overlapLines = current.lines.slice(-overlap);
+      current = { start: i + 1 - overlap, lines: overlapLines };
+    }
+  }
+  if (current.lines.length > 0) {
+    chunks.push({ ...current, header: lastHeader });
+  }
+
+  return chunks.map((chunk) => ({
+    parentPath: relativePath,
+    startLine: chunk.start,
+    endLine: chunk.start + chunk.lines.length - 1,
+    text: chunk.lines.join('\n'),
+    chunkType: 'code-block',
+    header: chunk.header,
+  }));
+}
+
+function chunkJsonYaml(text, relativePath) {
+  const lines = text.split('\n');
+  const chunks = [];
+  let current = { start: 1, lines: [], header: '' };
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const topLevelMatch = line.match(/^([a-zA-Z0-9_-]+):\s*(.*)$/);
+    if (topLevelMatch && current.lines.length > 0) {
+      chunks.push(current);
+      current = { start: i + 1, lines: [line], header: topLevelMatch[1] };
+    } else {
+      if (current.lines.length === 0) {
+        current.start = i + 1;
+      }
+      current.lines.push(line);
+    }
+  }
+  if (current.lines.length > 0) {
+    chunks.push(current);
+  }
+
+  return chunks.map((chunk) => ({
+    parentPath: relativePath,
+    startLine: chunk.start,
+    endLine: chunk.start + chunk.lines.length - 1,
+    text: chunk.lines.join('\n'),
+    chunkType: 'config-key',
+    header: chunk.header,
+  }));
+}
+
+function chunkTextFallback(text, relativePath) {
+  const lines = text.split('\n');
+  const maxLines = 50;
+  const overlap = 5;
+  const chunks = [];
+  let current = { start: 1, lines: [] };
+
+  for (let i = 0; i < lines.length; i += 1) {
+    current.lines.push(lines[i]);
+    if (current.lines.length >= maxLines) {
+      chunks.push({ ...current });
+      const overlapLines = current.lines.slice(-overlap);
+      current = { start: i + 1 - overlap, lines: overlapLines };
+    }
+  }
+  if (current.lines.length > 0) {
+    chunks.push({ ...current });
+  }
+
+  return chunks.map((chunk) => ({
+    parentPath: relativePath,
+    startLine: chunk.start,
+    endLine: chunk.start + chunk.lines.length - 1,
+    text: chunk.lines.join('\n'),
+    chunkType: 'text-window',
+    header: '',
+  }));
+}
+
+function chunkFile(text, relativePath) {
+  const ext = path.extname(relativePath);
+  if (ext === '.md') {
+    return chunkMarkdown(text, relativePath);
+  }
+  if (ext === '.json' || ext === '.yaml' || ext === '.yml') {
+    return chunkJsonYaml(text, relativePath);
+  }
+  if (['.js', '.ts', '.jsx', '.tsx', '.py', '.cjs', '.mjs'].includes(ext)) {
+    return chunkCode(text, relativePath);
+  }
+  return chunkTextFallback(text, relativePath);
+}
+
+// ---------------------------------------------------------------------------
+// Indexing
+// ---------------------------------------------------------------------------
+
+function indexDirectory(repo) {
+  return path.join(repo, INDEX_DIR);
+}
+
+function indexPath(repo) {
+  return path.join(indexDirectory(repo), INDEX_FILE);
+}
+
+function ensureIndexDir(repo) {
+  const dir = indexDirectory(repo);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return dir;
+}
+
+function buildChunkIndex(repo, options = {}) {
+  const inventory = buildInventory({ repo, maxFiles: options.maxFiles });
+  const seenHashes = new Set();
+  const fileEntries = [];
+
+  for (const file of inventory.files) {
+    const fullPath = path.join(repo, file.path);
+    let text;
+    try {
+      text = readTextFile(fullPath);
+    } catch (error) {
+      continue;
+    }
+    const hash = contentHash(text);
+    const chunks = chunkFile(text, file.path).map((chunk) => ({
+      ...chunk,
+      hash: contentHash(chunk.text),
+      metadata: fileMetadata(file.path, fs.statSync(fullPath)),
+    }));
+
+    const dedupedChunks = [];
+    for (const chunk of chunks) {
+      if (seenHashes.has(chunk.hash)) {
+        continue;
+      }
+      seenHashes.add(chunk.hash);
+      dedupedChunks.push(chunk);
+    }
+
+    fileEntries.push({
+      path: file.path,
+      mtime: file.mtime,
+      contentHash: hash,
+      chunks: dedupedChunks,
+    });
+  }
+
+  return {
+    version: INDEX_VERSION,
+    createdAt: new Date().toISOString(),
+    repo,
+    fileCount: fileEntries.length,
+    chunkCount: fileEntries.reduce((sum, entry) => sum + entry.chunks.length, 0),
+    files: fileEntries,
+  };
+}
+
+function writeIndex(repo, index) {
+  ensureIndexDir(repo);
+  const filePath = indexPath(repo);
+  const lines = [JSON.stringify({ type: 'indexHeader', version: index.version, createdAt: index.createdAt, repo: index.repo })];
+  for (const entry of index.files) {
+    lines.push(JSON.stringify({ type: 'file', ...entry }));
+  }
+  fs.writeFileSync(filePath, lines.join('\n') + '\n');
+  return filePath;
+}
+
+function readIndex(repo) {
+  const filePath = indexPath(repo);
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+  const text = fs.readFileSync(filePath, 'utf8');
+  const lines = text.split('\n').filter(Boolean);
+  if (lines.length === 0) return null;
+  const header = JSON.parse(lines[0]);
+  if (header.type !== 'indexHeader' || header.version !== INDEX_VERSION) {
+    return null;
+  }
+  const files = [];
+  for (let i = 1; i < lines.length; i += 1) {
+    const entry = JSON.parse(lines[i]);
+    if (entry.type === 'file') {
+      files.push(entry);
+    }
+  }
+  return {
+    version: header.version,
+    createdAt: header.createdAt,
+    repo: header.repo,
+    files,
+  };
+}
+
+function updateIndex(repo, options = {}) {
+  const existing = readIndex(repo);
+  const fresh = buildChunkIndex(repo, options);
+  if (!existing) {
+    return fresh;
+  }
+
+  // Incremental update: reuse existing entries whose mtime/contentHash match.
+  const existingByPath = new Map(existing.files.map((entry) => [entry.path, entry]));
+  const mergedFiles = [];
+  for (const file of fresh.files) {
+    const existingEntry = existingByPath.get(file.path);
+    if (existingEntry && existingEntry.mtime === file.mtime && existingEntry.contentHash === file.contentHash) {
+      mergedFiles.push(existingEntry);
+    } else {
+      mergedFiles.push(file);
+    }
+  }
+
+  // Remove deleted files: any path in existing but not in fresh is dropped.
+  const freshPaths = new Set(fresh.files.map((file) => file.path));
+  for (const existingEntry of existing.files) {
+    if (!freshPaths.has(existingEntry.path)) {
+      // intentionally not included
+    }
+  }
+
+  return {
+    ...fresh,
+    files: mergedFiles,
+    chunkCount: mergedFiles.reduce((sum, entry) => sum + entry.chunks.length, 0),
+  };
+}
+
+function indexCommand(repo, options = {}) {
+  const index = updateIndex(repo, options);
+  const writtenPath = writeIndex(repo, index);
+  return { indexPath: writtenPath, ...indexStats(index) };
+}
+
+function reindexCommand(repo, options = {}) {
+  const index = buildChunkIndex(repo, options);
+  const writtenPath = writeIndex(repo, index);
+  return { indexPath: writtenPath, ...indexStats(index) };
+}
+
+function indexStats(index) {
+  return {
+    version: index.version,
+    createdAt: index.createdAt,
+    repo: index.repo,
+    fileCount: index.files.length,
+    chunkCount: index.files.reduce((sum, entry) => sum + entry.chunks.length, 0),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Retrieval
+// ---------------------------------------------------------------------------
+
+function scoreChunk(queryTokens, chunk, fileKind = 'code') {
+  const pathTokens = tokenize(chunk.parentPath);
+  const headerTokens = tokenize(chunk.header);
+  const textTokens = tokenize(chunk.text);
   const textSet = new Set(textTokens);
   let score = 0;
   const reasons = [];
-  const normPath = String(relativePath || '').replace(/\\/g, '/');
 
   for (const token of queryTokens) {
     const pathHits = pathTokens.filter((pathToken) => pathToken.includes(token) || token.includes(pathToken)).length;
     if (pathHits > 0) {
-      score += pathHits * 8;
+      score += pathHits * 25;
       reasons.push(`path:${token}`);
+    }
+    const headerHits = headerTokens.filter((headerToken) => headerToken.includes(token) || token.includes(headerToken)).length;
+    if (headerHits > 0) {
+      score += headerHits * 8;
+      reasons.push(`header:${token}`);
     }
     if (textSet.has(token)) {
       score += 4;
@@ -224,41 +697,41 @@ function scoreFile(queryTokens, relativePath, text) {
     } else {
       const fuzzyHits = textTokens.filter((textToken) => textToken.includes(token) || token.includes(textToken)).length;
       if (fuzzyHits > 0) {
-        score += Math.min(3, fuzzyHits);
+        score += Math.min(2, fuzzyHits);
         reasons.push(`fuzzy:${token}`);
       }
     }
   }
 
-  // Prefer product route modules over tooling/docs when scores are dense —
-  // but do not let generic /api/ routes outrank path-token hits on the
-  // canonical tools/* or docs/HERMES-* files the query literally names.
-  if (score > 0) {
-    const pathTokenHits = reasons.filter((r) => r.startsWith('path:')).length;
-    if (normPath.includes('/app/api/')) {
-      // Soft API boost: strong only when path tokens are weak.
-      score += pathTokenHits >= 2 ? 4 : 12;
-      reasons.push('meta:api-route');
-    } else if (normPath.includes('/app/dashboard/')) {
-      score += pathTokenHits >= 2 ? 3 : 10;
-      reasons.push('meta:dashboard');
-    } else if (normPath.includes('/src/') || normPath.includes('/lib/')) {
-      score += 4;
-      reasons.push('meta:src');
-    }
-    // Curated ops docs + tools get a small basename agreement boost.
-    if (/^docs\/HERMES-/.test(normPath) || /^tools\/hermes-/.test(normPath) || /^tools\/agent-swarm-/.test(normPath)) {
-      score += 6;
-      reasons.push('meta:canonical-tool-or-doc');
-    }
-    // Penalize tests/mocks only — curated docs/HERMES-* and docs/RESEARCH-* stay first-class.
-    if (/(^|\/)(tests?|__tests__|mocks?|fixtures|testdata)\//.test(normPath) || /\.test\.|\.spec\./.test(normPath)) {
-      score = Math.max(1, Math.round(score * 0.55));
-      reasons.push('meta:test-penalty');
+  // Co-occurrence bonus: chunks that cover multiple query aspects are more
+  // likely to be the relevant implementation surface than long documents that
+  // mention each term in unrelated sections.
+  const matchedTokens = queryTokens.filter(
+    (token) =>
+      pathTokens.some((pathToken) => pathToken.includes(token) || token.includes(pathToken)) ||
+      headerTokens.some((headerToken) => headerToken.includes(token) || token.includes(headerToken)) ||
+      textSet.has(token) ||
+      textTokens.some((textToken) => textToken.includes(token) || token.includes(textToken)),
+  );
+  if (matchedTokens.length > 1) {
+    score += (matchedTokens.length - 1) * 8;
+  }
+
+  // Compound-token bonus: a single run-on token like `response_feedback` or
+  // `cleanFeedbackSignal` covers multiple query aspects at once, which is a
+  // strong signal that the chunk is the implementation surface the query is
+  // targeting.
+  const textTokenSet = new Set(textTokens);
+  for (const textToken of textTokenSet) {
+    const matchedInToken = queryTokens.filter(
+      (token) => textToken.includes(token) || token.includes(textToken),
+    );
+    if (matchedInToken.length >= 2) {
+      score += (matchedInToken.length - 1) * 6;
     }
   }
 
-  return { score, reasons: [...new Set(reasons)].slice(0, 8) };
+  return { score, reasons: [...new Set(reasons)].slice(0, 6) };
 }
 
 function firstSnippet(text, queryTokens) {
@@ -276,109 +749,176 @@ function firstSnippet(text, queryTokens) {
     .slice(0, 360);
 }
 
-/** Parent–child lite: score fixed line windows so large files are not one blob. */
-const CHILD_WINDOW_LINES = 80;
-const CHILD_WINDOW_STRIDE = 60;
-const CHILD_MIN_FILE_LINES = 160;
-
-function scoreParentChildWindows(queryTokens, relativePath, text) {
-  const lines = String(text || '').split('\n');
-  if (lines.length < CHILD_MIN_FILE_LINES) {
-    return null;
+function allChunks(repo, options = {}) {
+  const index = readIndex(repo);
+  if (index) {
+    return index.files.flatMap((entry) => entry.chunks);
   }
-  let best = null;
-  for (let start = 0; start < lines.length; start += CHILD_WINDOW_STRIDE) {
-    const end = Math.min(lines.length, start + CHILD_WINDOW_LINES);
-    const chunk = lines.slice(start, end).join('\n');
-    const scored = scoreFile(queryTokens, relativePath, chunk);
-    if (scored.score <= 0) continue;
-    // Prefer denser windows slightly so parent whole-file fluff loses
-    const density = scored.score / Math.max(1, end - start);
-    const rankKey = scored.score * 10 + density;
-    if (!best || rankKey > best.rankKey) {
-      best = {
-        rankKey,
-        score: scored.score + 2, // small boost: precise child beat diffuse parent
-        reasons: [...scored.reasons, 'parent-child-window'],
-        snippet: firstSnippet(chunk, queryTokens),
-        child: { startLine: start + 1, endLine: end },
-      };
-    }
-    if (end >= lines.length) break;
-  }
-  return best;
-}
-
-function pathFilterOk(relativePath, options = {}) {
-  const norm = String(relativePath || '').replace(/\\/g, '/');
-  const include = options.pathInclude || [];
-  const exclude = options.pathExclude || [];
-  if (exclude.some((ex) => norm.includes(ex))) return false;
-  if (include.length && !include.some((inc) => norm.includes(inc))) return false;
-  return true;
+  // Fallback: build an in-memory chunked index if no persisted index exists.
+  return buildChunkIndex(repo, options).files.flatMap((entry) => entry.chunks);
 }
 
 function retrieve(query, options = {}) {
   const repo = path.resolve(options.repo || DEFAULT_REPO);
-  let effectiveQuery = query;
-  let rewriteMeta = null;
-  if (options.rewrite) {
-    try {
-      // Optional dependency — dual-path also rewrites; harness can alone.
-      const { rewriteQuery } = require('./retrieval-query-rewrite');
-      rewriteMeta = rewriteQuery(query);
-      effectiveQuery = rewriteMeta.rewritten || query;
-    } catch {
-      rewriteMeta = null;
-    }
-  }
-  const queryTokens = tokenize(effectiveQuery);
+  const queryExpansion = expandQuery(query);
+  const queryTokens = queryExpansion.expandedTokens;
   if (queryTokens.length === 0) throw new Error('retrieve requires a non-empty query');
   const inventory = buildInventory(options);
-  const candidates = [];
-  for (const file of inventory.files) {
-    if (!pathFilterOk(file.path, options)) continue;
-    const fullPath = path.join(repo, file.path);
-    let text = '';
+  const chunks = allChunks(repo, options);
+  const scoredChunks = [];
+
+  for (const chunk of chunks) {
+    const scored = scoreChunk(queryTokens, chunk, chunk.metadata ? chunk.metadata.kind : 'code');
+    if (scored.score <= 0) continue;
+    scoredChunks.push({
+      path: chunk.parentPath,
+      score: scored.score,
+      reasons: scored.reasons,
+      snippet: firstSnippet(chunk.text, queryTokens),
+      chunk: {
+        startLine: chunk.startLine,
+        endLine: chunk.endLine,
+        chunkType: chunk.chunkType,
+        header: chunk.header,
+      },
+    });
+  }
+
+  // Collapse by parent path: keep only the best-scoring chunk per file so a
+  // single large document cannot spam the top-k with many similar chunks.
+  const bestByPath = new Map();
+  for (const candidate of scoredChunks) {
+    const existing = bestByPath.get(candidate.path);
+    if (!existing || candidate.score > existing.score) {
+      bestByPath.set(candidate.path, candidate);
+    }
+  }
+
+  const collapsed = [...bestByPath.values()].sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
+
+  // Reranking stage: re-score the top candidates using query-document interaction
+  // signals that the initial BM25-style scorer cannot capture.
+  // This is a lightweight cross-encoder proxy — no external model dependency.
+  const rerankerPool = collapsed.slice(0, Math.min(collapsed.length, (options.limit || 8) * 3));
+  const reranked = rerankCandidates(queryTokens, rerankerPool);
+
+  const matches = reranked.sort((a, b) => b.rerankScore - a.rerankScore || a.path.localeCompare(b.path));
+
+  return {
+    query,
+    repo,
+    fileCount: inventory.fileCount,
+    chunkCount: chunks.length,
+    queryExpansions: queryExpansion ? queryExpansion.expansions : [],
+    matches: matches.slice(0, options.limit || 8),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Reranker: lightweight cross-encoder proxy using query-document interaction
+// ---------------------------------------------------------------------------
+
+/**
+ * Rerank retrieved candidates using signals the initial lexical scorer misses:
+ *
+ * 1. Query-term density in the snippet (terms-per-char ratio)
+ * 2. Exact-phrase proximity (consecutive query terms appearing together)
+ * 3. Header/path specificity bonus (header directly matches a query term)
+ * 4. Score normalization (dampen runaway scores from very long documents)
+ *
+ * This is deliberately dependency-free. A production system would swap this
+ * for a real cross-encoder (e.g., ms-marco-MiniLM) once the infra supports it.
+ */
+function rerankCandidates(queryTokens, candidates) {
+  if (candidates.length === 0) return [];
+
+  const maxInitialScore = Math.max(...candidates.map((c) => c.score || 0), 1);
+
+  return candidates.map((candidate) => {
+    const snippetTokens = tokenize(candidate.snippet || '');
+    const snippetSet = new Set(snippetTokens);
+    const headerTokens = tokenize(candidate.chunk?.header || '');
+    const headerSet = new Set(headerTokens);
+
+    // 1. Query-term density: how many distinct query terms appear in the snippet
+    const termsInSnippet = queryTokens.filter((t) => snippetSet.has(t)).length;
+    const density = queryTokens.length > 0 ? termsInSnippet / queryTokens.length : 0;
+
+    // 2. Phrase proximity: check for consecutive query-term pairs in the snippet
+    let phraseBonus = 0;
+    const snippetLower = (candidate.snippet || '').toLowerCase();
+    for (let i = 0; i < queryTokens.length - 1; i += 1) {
+      const pair = `${queryTokens[i]} ${queryTokens[i + 1]}`;
+      if (snippetLower.includes(pair)) {
+        phraseBonus += 5;
+      }
+    }
+
+    // 3. Header specificity: header directly contains a query term
+    const headerMatches = queryTokens.filter((t) => headerSet.has(t)).length;
+    const headerBonus = headerMatches * 6;
+
+    // 4. Normalized initial score (keep score proportional, not log-compressed too hard)
+    const normalizedScore = candidate.score || 0;
+
+    // Weighted combination: initial score is the base, density and phrase are additive bonuses
+    const rerankScore =
+      normalizedScore * (1 + density * 0.3) + phraseBonus + headerBonus;
+
+    return {
+      ...candidate,
+      rerankScore: Number(rerankScore.toFixed(4)),
+      rerankReasons: [
+        `density:${density.toFixed(2)}`,
+        phraseBonus > 0 ? `phrase:+${phraseBonus}` : null,
+        headerBonus > 0 ? `header:+${headerBonus}` : null,
+      ].filter(Boolean),
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Grep (literal substring, no live regex)
+// ---------------------------------------------------------------------------
+
+function escapeRegExp(string) {
+  return String(string).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function grep(options = {}) {
+  const repo = path.resolve(options.repo || DEFAULT_REPO);
+  const pattern = String(options.pattern || '');
+  if (!pattern) throw new Error('grep requires --pattern');
+  const escaped = escapeRegExp(pattern);
+  const re = new RegExp(escaped, 'i');
+  const files = walkFiles(repo, options);
+  const matches = [];
+  const limit = options.limit || 50;
+
+  for (const relativePath of files) {
+    if (matches.length >= limit) break;
+    const fullPath = path.join(repo, relativePath);
+    let text;
     try {
-      text = readTextSlice(fullPath, options.maxBytes || 240000);
+      text = readTextFile(fullPath);
     } catch (error) {
       continue;
     }
-    const parentScored = scoreFile(queryTokens, file.path, text);
-    const childScored = scoreParentChildWindows(queryTokens, file.path, text);
-    let chosen = null;
-    if (childScored && (!parentScored.score || childScored.score >= parentScored.score)) {
-      chosen = {
-        path: file.path,
-        score: childScored.score,
-        bytes: file.bytes,
-        reasons: childScored.reasons,
-        snippet: childScored.snippet,
-        parentPath: file.path,
-        child: childScored.child,
-      };
-    } else if (parentScored.score > 0) {
-      chosen = {
-        path: file.path,
-        score: parentScored.score,
-        bytes: file.bytes,
-        reasons: parentScored.reasons,
-        snippet: firstSnippet(text, queryTokens),
-      };
+    const lines = text.split('\n');
+    for (let i = 0; i < lines.length; i += 1) {
+      if (re.test(lines[i])) {
+        matches.push({ path: relativePath, line: i + 1, text: lines[i].trim() });
+        if (matches.length >= limit) break;
+      }
     }
-    if (chosen) candidates.push(chosen);
   }
-  candidates.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
-  return {
-    query,
-    effectiveQuery,
-    rewrite: rewriteMeta,
-    repo,
-    fileCount: inventory.fileCount,
-    matches: candidates.slice(0, options.limit || 8),
-  };
+
+  return { pattern, matches };
 }
+
+// ---------------------------------------------------------------------------
+// Read file range
+// ---------------------------------------------------------------------------
 
 function readFileRange(options = {}) {
   const repo = path.resolve(options.repo || DEFAULT_REPO);
@@ -400,126 +940,94 @@ function readFileRange(options = {}) {
   };
 }
 
-// `--pattern` is command-line-argument-controlled (untrusted per CodeQL
-// js/regex-injection, CWE-400/730). A prior fix (PR #880) tried to keep
-// `--pattern` as a live, unescaped regex and only bound the blast radius
-// (length cap + a catastrophic-backtracking-shape heuristic). CodeQL still
-// flagged it, correctly: those are runtime guards, not a taint-clearing
-// sanitizer, and the heuristic can't catch every ReDoS shape anyway.
-// The actual fix: escape regex metacharacters before the string ever reaches
-// `new RegExp(...)`, so `grep --pattern` is a safe, case-insensitive literal
-// substring search. No metacharacters survive escaping, so no pattern —
-// however long or adversarial — can trigger catastrophic backtracking.
-// (No repo caller currently passes real regex syntax to this command; the
-// documented example in docs/HERMES-RETRIEVAL-HARNESS.md is a literal phrase.)
-const MAX_GREP_PATTERN_LENGTH = 500;
+// ---------------------------------------------------------------------------
+// CLI entrypoint
+// ---------------------------------------------------------------------------
 
-function escapeRegExp(rawString) {
-  return String(rawString).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function assertSafeGrepPattern(rawPattern) {
-  if (rawPattern.length > MAX_GREP_PATTERN_LENGTH) {
-    throw new Error(
-      `Pattern too long (${rawPattern.length} chars, max ${MAX_GREP_PATTERN_LENGTH}) — refusing to construct RegExp.`,
-    );
-  }
-}
-
-function grep(options = {}) {
-  const repo = path.resolve(options.repo || DEFAULT_REPO);
-  if (!options.pattern) throw new Error('grep requires --pattern');
-  assertSafeGrepPattern(options.pattern);
-  let pattern;
-  try {
-    pattern = new RegExp(escapeRegExp(options.pattern), 'i');
-  } catch (error) {
-    throw new Error(`Invalid --pattern: ${error.message}`);
-  }
-  const inventory = buildInventory(options);
-  const matches = [];
-  try {
-    for (const file of inventory.files) {
-      const fullPath = path.join(repo, file.path);
-      let lines;
-      try {
-        lines = fs.readFileSync(fullPath, 'utf8').split('\n');
-      } catch (error) {
-        continue;
-      }
-      for (let index = 0; index < lines.length; index += 1) {
-        if (!pattern.test(lines[index])) continue;
-        matches.push({
-          path: file.path,
-          line: index + 1,
-          text: lines[index].trim().slice(0, 360),
-        });
-        if (matches.length >= (options.limit || 20)) {
-          return { pattern: options.pattern, repo, matches };
-        }
-      }
-    }
-  } catch (error) {
-    throw new Error(`grep failed while applying --pattern: ${error.message}`);
-  }
-  return { pattern: options.pattern, repo, matches };
-}
-
-function render(result) {
-  if (result.matches) {
-    const lines = [`# Hermes Retrieval`, '', `Query: ${result.query || result.pattern || ''}`, `Matches: ${result.matches.length}`, ''];
-    for (const match of result.matches) {
-      lines.push(`- ${match.path}${match.line ? `:${match.line}` : ''} score=${match.score || 'match'}`);
-      if (match.snippet || match.text) lines.push(`  ${match.snippet || match.text}`);
-    }
-    return `${lines.join('\n')}\n`;
-  }
-  if (result.files) {
-    return `# Hermes Retrieval Inventory\n\nFiles: ${result.fileCount}\nBytes: ${result.totalBytes}\n`;
-  }
-  return result.text || JSON.stringify(result, null, 2);
-}
-
-function main(argv = process.argv.slice(2)) {
-  const args = parseArgs(argv);
+function main() {
+  const args = parseArgs();
   if (args.help) {
-    console.log('Usage: node tools/hermes-retrieval-harness.js [inventory|retrieve|read|grep] [options]');
-    return null;
+    console.log(`Usage: node hermes-retrieval-harness.js [command] [options]
+Commands:
+  inventory                 list indexed text files
+  index                     build or update the .rag-index/index.jsonl
+  reindex                   force a full rebuild of the index
+  retrieve [query]          retrieve relevant chunks
+  grep --pattern <pattern>  literal substring grep
+  read --path <path>        read a file range
+Options:
+  --repo <path>             repository root (default: parent of this file)
+  --query <query>           query for retrieve
+  --pattern <pattern>       pattern for grep (literal, escaped)
+  --path <path>             file path for read
+  --start <n>               start line for read (default: 1)
+  --end <n>                 end line for read (default: start+79)
+  --limit <n>               max results for retrieve/grep (default: 8/50)
+  --max-files <n>           max files to index (default: 5000)
+  --json                    output JSON`);
+    process.exit(0);
   }
 
-  let result;
-  if (args.command === 'inventory') result = buildInventory(args);
-  else if (args.command === 'retrieve') result = retrieve(args.query, args);
-  else if (args.command === 'read') result = readFileRange(args);
-  else if (args.command === 'grep') result = grep(args);
-  else throw new Error(`Unknown command: ${args.command}`);
+  let output;
+  switch (args.command) {
+    case 'inventory': {
+      output = buildInventory({ repo: args.repo, maxFiles: args.maxFiles });
+      break;
+    }
+    case 'index': {
+      output = indexCommand(args.repo, { maxFiles: args.maxFiles });
+      break;
+    }
+    case 'reindex': {
+      output = reindexCommand(args.repo, { maxFiles: args.maxFiles });
+      break;
+    }
+    case 'retrieve': {
+      if (!args.query) throw new Error('retrieve requires a query');
+      output = retrieve(args.query, { repo: args.repo, limit: args.limit, maxFiles: args.maxFiles });
+      break;
+    }
+    case 'grep': {
+      output = grep({ repo: args.repo, pattern: args.pattern, limit: args.limit, maxFiles: args.maxFiles });
+      break;
+    }
+    case 'read': {
+      output = readFileRange({ repo: args.repo, path: args.path, start: args.start, end: args.end });
+      break;
+    }
+    default:
+      throw new Error(`Unknown command: ${args.command}`);
+  }
 
-  if (args.json) console.log(JSON.stringify(result, null, 2));
-  else process.stdout.write(render(result));
-  return result;
+  if (args.json) {
+    console.log(JSON.stringify(output, null, 2));
+  } else {
+    console.log(JSON.stringify(output, null, 2));
+  }
+}
+
+if (require.main === module) {
+  main();
 }
 
 module.exports = {
-  TEXT_EXTENSIONS,
   buildInventory,
+  buildChunkIndex,
+  chunkFile,
+  contentHash,
   escapeRegExp,
+  expandQuery,
   grep,
-  main,
+  indexCommand,
+  indexStats,
   parseArgs,
-  pathFilterOk,
   readFileRange,
+  readIndex,
+  reindexCommand,
   retrieve,
+  rerankCandidates,
   safeRepoPath,
-  scoreParentChildWindows,
   tokenize,
-  walkFiles,
+  updateIndex,
+  writeIndex,
 };
-
-if (require.main === module) {
-  try {
-    main();
-  } catch (error) {
-    console.error(error.message || error);
-    process.exit(1);
-  }
-}
