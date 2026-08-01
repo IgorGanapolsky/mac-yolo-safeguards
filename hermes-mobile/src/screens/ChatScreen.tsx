@@ -401,6 +401,7 @@ import {
   shouldShowFailedSendRetry,
 } from '../utils/failedSendRetry';
 import { idHasPrefix } from '../utils/messageIds';
+import { resolveRunProgressRetryAction } from '../utils/runProgressRetryAction';
 import {
   RECONNECT_AUTO_RESEND_DEBOUNCE_MS,
   attachOutboundSubmissionSession,
@@ -8290,19 +8291,16 @@ export default function ChatScreen() {
               emptyReplyRunRefreshEligible ? () => void handleManualSync() : undefined
             }
             refreshRunBusy={isPullRefreshing}
-            onRetry={
-              isEmptyReplyFailureMessage(progressBanner.detail) ||
-              isDeadRunEndedMessage(progressBanner.detail) ||
-              (progressBanner.phase === 'failed' &&
-                Boolean(
-                  lastFailedSendTextRef.current?.trim() || lastFailedOutboundText?.trim(),
-                ) &&
-                !isConnectivityMessage(progressBanner.detail ?? ''))
-                ? () => void handleRetryFailedSend()
-                : connectivityRunFailure
-                  ? () => void handleRetryConnectivity()
-                  : undefined
-            }
+            onRetry={resolveRunProgressRetryAction({
+              phase: progressBanner.phase,
+              detail: progressBanner.detail,
+              lastFailedSendText: lastFailedSendTextRef.current,
+              lastFailedOutboundText,
+              connectivityRunFailure,
+              macReachable: effectiveMacHttpOk,
+              onRetryFailedSend: () => void handleRetryFailedSend(),
+              onRetryConnectivity: () => void handleRetryConnectivity(),
+            })}
             terminalToolName={operatorTerminalLine?.toolName}
             terminalPreview={operatorTerminalLine?.text}
           />
