@@ -32,6 +32,8 @@ const path = require('path');
 const REPO = path.resolve(__dirname, '..');
 const DEFAULT_PLAN = path.join(REPO, 'plan.md');
 const DEFAULT_RECEIPTS = path.join(os.homedir(), '.hermes', 'receipts');
+/** Economic router writes a single JSONL here (not under receipts/<runner>/). */
+const ECONOMIC_ROUTER_RECEIPTS = path.join(os.homedir(), '.hermes', 'economic-router-receipts.jsonl');
 
 const usage = `Usage:
   node tools/agent-cost-analyzer.js [options]
@@ -100,17 +102,100 @@ function parseArgs(argv) {
 }
 
 /**
- * Read every history.jsonl under the receipts root. Returns { rows, errors }.
- * Each row is normalized to a flat record. errors[] holds {file, line, reason}.
+ * Extract a model/route invocation row from a receipt object.
+ * Accepts either `route` (runner history) or `selectedRoute` (economic router).
+ */
+function rowFromReceipt(rec, sourcePath, cutoffMs) {
+  if (!rec || typeof rec !== 'object') return null;
+  const schema = rec.schema || '';
+  if (typeof schema === 'string' && schema.includes('zero-spend')) return null;
+
+  const route = rec.route || rec.selectedRoute;
+  if (!route || typeof route !== 'object') return null;
+
+  const exec = rec.execution || {};
+  const generatedAt = rec.generatedAt || rec.createdAt || '';
+  if (cutoffMs > 0 && generatedAt) {
+    const t = Date.parse(generatedAt);
+    if (Number.isFinite(t) && t < cutoffMs) return null;
+  }
+
+  const model = String(route.model || route.selectedBackend || route.requestedBackend || 'unknown');
+  const durationMs = Number.isFinite(exec.durationMs)
+    ? exec.durationMs
+    : Number.isFinite(Number(rec.estimatedLatencyMs))
+      ? Number(rec.estimatedLatencyMs)
+      : null;
+  const status = exec.status || (rec.requiresApproval ? 'approval_required' : 'routed');
+  const host = rec.host || '';
+
+  // Prefer token-metered cost only when value is non-null and finite.
+  // Number(null) === 0 would falsely mark failed usage as free.
+  let meteredCostUsd = null;
+  let costSource = 'route_ceiling';
+  if (
+    rec.costSource === 'token_meter' &&
+    rec.effectiveCostUsd != null &&
+    Number.isFinite(Number(rec.effectiveCostUsd))
+  ) {
+    meteredCostUsd = Number(rec.effectiveCostUsd);
+    costSource = 'token_meter';
+  } else if (rec.meteredCostUsd != null && Number.isFinite(Number(rec.meteredCostUsd))) {
+    meteredCostUsd = Number(rec.meteredCostUsd);
+    costSource = 'token_meter';
+  }
+
+  const usage = rec.usage && rec.usage.ok ? rec.usage : null;
+  return {
+    model,
+    durationMs,
+    status,
+    host,
+    generatedAt,
+    schema,
+    source: sourcePath,
+    meteredCostUsd,
+    costSource,
+    promptTokens: usage ? usage.promptTokens : null,
+    completionTokens: usage ? usage.completionTokens : null,
+  };
+}
+
+function ingestJsonlFile(full, rows, errors, cutoffMs) {
+  let raw;
+  try {
+    raw = fs.readFileSync(full, 'utf8');
+  } catch (error) {
+    errors.push({ file: full, line: 0, reason: error.message });
+    return;
+  }
+  raw.split('\n').forEach((line, idx) => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    let rec;
+    try {
+      rec = JSON.parse(trimmed);
+    } catch (e) {
+      errors.push({ file: full, line: idx + 1, reason: `json parse: ${e.message}` });
+      return;
+    }
+    if (!rec || typeof rec !== 'object') {
+      errors.push({ file: full, line: idx + 1, reason: 'not an object' });
+      return;
+    }
+    const row = rowFromReceipt(rec, full, cutoffMs);
+    if (row) rows.push(row);
+  });
+}
+
+/**
+ * Read every history.jsonl under the receipts root plus economic-router JSONL.
+ * Returns { rows, errors }. errors[] holds {file, line, reason}.
  */
 function readReceipts(receiptsRoot, sinceHours) {
   const rows = [];
   const errors = [];
-  if (!fs.existsSync(receiptsRoot)) {
-    return { rows, errors, scannedFiles: 0 };
-  }
-  const cutoffMs =
-    sinceHours > 0 ? Date.now() - sinceHours * 3600 * 1000 : 0;
+  const cutoffMs = sinceHours > 0 ? Date.now() - sinceHours * 3600 * 1000 : 0;
   let scannedFiles = 0;
 
   function walk(dir) {
@@ -126,77 +211,20 @@ function readReceipts(receiptsRoot, sinceHours) {
         walk(full);
       } else if (entry.name === 'history.jsonl') {
         scannedFiles += 1;
-        let raw;
-        try {
-          raw = fs.readFileSync(full, 'utf8');
-        } catch (_) {
-          continue;
-        }
-        raw.split('\n').forEach((line, idx) => {
-          const trimmed = line.trim();
-          if (!trimmed) return;
-          let rec;
-          try {
-            rec = JSON.parse(trimmed);
-          } catch (e) {
-            errors.push({ file: full, line: idx + 1, reason: `json parse: ${e.message}` });
-            return;
-          }
-          if (!rec || typeof rec !== 'object') {
-            errors.push({ file: full, line: idx + 1, reason: 'not an object' });
-            return;
-          }
-          const schema = rec.schema || '';
-          // Only route receipts carry a `route` object. Other "receipt"-named schemas
-          // (zero-spend policy blocks, outcome-gate stage receipts) don't model a
-          // provider/model invocation, so they're skipped to avoid polluting the rollup.
-          if (!rec.route || typeof rec.route !== 'object') {
-            return;
-          }
-          if (typeof schema === 'string' && schema.includes('zero-spend')) {
-            return; // spend-policy block, not an invocation
-          }
-          const route = rec.route;
-          const exec = rec.execution || {};
-          const generatedAt = rec.generatedAt || '';
-          if (cutoffMs > 0 && generatedAt) {
-            const t = Date.parse(generatedAt);
-            if (Number.isFinite(t) && t < cutoffMs) return;
-          }
-          const model = String(route.model || route.selectedBackend || route.requestedBackend || 'unknown');
-          const durationMs = Number.isFinite(exec.durationMs) ? exec.durationMs : null;
-          const status = exec.status || '';
-          const host = rec.host || '';
-          // Prefer token-metered cost when the receipt carries usage.
-          let meteredCostUsd = null;
-          let costSource = 'route_ceiling';
-          if (Number.isFinite(Number(rec.effectiveCostUsd)) && rec.costSource === 'token_meter') {
-            meteredCostUsd = Number(rec.effectiveCostUsd);
-            costSource = 'token_meter';
-          } else if (Number.isFinite(Number(rec.meteredCostUsd))) {
-            meteredCostUsd = Number(rec.meteredCostUsd);
-            costSource = 'token_meter';
-          }
-          const usage = rec.usage && rec.usage.ok ? rec.usage : null;
-          rows.push({
-            model,
-            durationMs,
-            status,
-            host,
-            generatedAt,
-            schema,
-            source: full,
-            meteredCostUsd,
-            costSource,
-            promptTokens: usage ? usage.promptTokens : null,
-            completionTokens: usage ? usage.completionTokens : null,
-          });
-        });
+        ingestJsonlFile(full, rows, errors, cutoffMs);
       }
     }
   }
 
-  walk(receiptsRoot);
+  if (fs.existsSync(receiptsRoot)) walk(receiptsRoot);
+  else errors.push({ file: receiptsRoot, line: 0, reason: 'receipts root missing' });
+
+  // Also ingest economic-router receipts (selectedRoute schema).
+  if (fs.existsSync(ECONOMIC_ROUTER_RECEIPTS)) {
+    scannedFiles += 1;
+    ingestJsonlFile(ECONOMIC_ROUTER_RECEIPTS, rows, errors, cutoffMs);
+  }
+
   return { rows, errors, scannedFiles };
 }
 
@@ -227,7 +255,7 @@ function rollupByModel(rows, costModel) {
     if (r.status === 'pass') b.pass += 1;
     else if (r.status === 'fail' || r.status === 'timeout') b.fail += 1;
     else b.other += 1;
-    if (r.meteredCostUsd != null && Number.isFinite(r.meteredCostUsd)) {
+    if (r.meteredCostUsd != null && Number.isFinite(r.meteredCostUsd) && r.costSource === 'token_meter') {
       b.meteredCostUsd += r.meteredCostUsd;
       b.meteredInvocations += 1;
     } else {
@@ -420,12 +448,14 @@ function main() {
 module.exports = {
   parseArgs,
   readReceipts,
+  rowFromReceipt,
   rollupByModel,
   countFinishedAC,
   buildReport,
   formatHuman,
   DEFAULT_COST_MODEL,
   loadCostModel,
+  ECONOMIC_ROUTER_RECEIPTS,
 };
 
 if (require.main === module) {

@@ -76,10 +76,15 @@ function finalizeRetrieveResult(result, options = {}) {
   const started = options._startedAt || Date.now();
   let matches = result.matches || [];
   let aclMeta = { aclApplied: false };
+  // Fail closed: if caller requested ACL enforcement, never return unfiltered
+  // matches when the ACL file is missing, unreadable, or malformed.
   if (options.acl || options.principal) {
     try {
       const { loadAcl, filterMatchesByAcl } = require('./production-ops');
       const acl = options.acl ? loadAcl(options.acl) : null;
+      if (options.acl && !acl) {
+        throw new Error('ACL path resolved to empty policy');
+      }
       const filtered = filterMatchesByAcl(matches, options.principal || '', acl);
       matches = filtered.matches;
       aclMeta = {
@@ -89,9 +94,15 @@ function finalizeRetrieveResult(result, options = {}) {
         reason: filtered.reason,
       };
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      matches = [];
       aclMeta = {
-        aclApplied: false,
-        error: error instanceof Error ? error.message : String(error),
+        aclApplied: true,
+        failClosed: true,
+        principal: options.principal || null,
+        filtered: (result.matches || []).length,
+        error: msg,
+        reason: 'acl_load_or_filter_failed',
       };
     }
   }

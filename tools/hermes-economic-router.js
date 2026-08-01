@@ -1576,21 +1576,26 @@ function main() {
     if (args.usageJson) {
       try {
         const { enrichReceiptWithUsage } = require('./production-ops');
+        const ap = (receipt.selectedRoute && receipt.selectedRoute.apiPricing) || {};
+        // Routes use inputPerMillionUsd / cachedInputPerMillionUsd; OpenRouter
+        // catalog rows use inputPerM. Accept both so metered cost is never $0
+        // solely due to field-name drift.
         const pricing =
           args.pricingJson ||
-          (receipt.selectedRoute && receipt.selectedRoute.apiPricing
-            ? {
-                inputPer1M: receipt.selectedRoute.apiPricing.inputPerM,
-                outputPer1M: receipt.selectedRoute.apiPricing.outputPerM,
-                cacheReadPer1M: receipt.selectedRoute.apiPricing.cachedInputPerM,
-              }
-            : {});
+          {
+            inputPer1M: ap.inputPerMillionUsd ?? ap.inputPerM ?? ap.inputPer1M,
+            outputPer1M: ap.outputPerMillionUsd ?? ap.outputPerM ?? ap.outputPer1M,
+            cacheReadPer1M:
+              ap.cachedInputPerMillionUsd ?? ap.cachedInputPerM ?? ap.cacheReadPer1M,
+          };
         receipt = enrichReceiptWithUsage(receipt, args.usageJson, pricing);
       } catch (error) {
         receipt.usage = {
           ok: false,
           errors: [error instanceof Error ? error.message : String(error)],
         };
+        receipt.meteredCostUsd = null;
+        receipt.costSource = 'route_ceiling';
       }
     }
     if (args.write) {

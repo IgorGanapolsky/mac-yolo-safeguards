@@ -130,3 +130,52 @@ test('production scorecard awards A+ when all hard pillars green', () => {
   assert.equal(report.ok, true);
   assert.equal(report.pillars.length, 5);
 });
+
+test('ACL load failure fail-closed: dual-path finalize clears matches', () => {
+  const { finalizeRetrieveResult } = require('../tools/retrieval-dual-path');
+  const out = finalizeRetrieveResult(
+    {
+      query: 'x',
+      matches: [{ path: 'tools/production-ops.js' }, { path: 'docs/a.md' }],
+      fusion: 'test',
+    },
+    { acl: '/nonexistent/acl-policy.json', principal: 'org:demo', _startedAt: Date.now() },
+  );
+  assert.equal(out.matches.length, 0);
+  assert.equal(out.acl.failClosed, true);
+  assert.equal(out.acl.filtered, 2);
+});
+
+test('null meteredCostUsd does not coerce to free token_meter spend', () => {
+  const { rowFromReceipt } = require('../tools/agent-cost-analyzer');
+  const row = rowFromReceipt(
+    {
+      schema: 'hermes-economic-router/receipt-v1',
+      selectedRoute: { model: 'grok-4.5' },
+      meteredCostUsd: null,
+      costSource: 'token_meter',
+      effectiveCostUsd: null,
+      createdAt: new Date().toISOString(),
+    },
+    'test.jsonl',
+    0,
+  );
+  assert.ok(row);
+  assert.equal(row.meteredCostUsd, null);
+  assert.equal(row.costSource, 'route_ceiling');
+});
+
+test('pricing field aliases map to non-zero metered cost for Grok-style apiPricing', () => {
+  const { enrichReceiptWithUsage } = require('../tools/production-ops');
+  const enriched = enrichReceiptWithUsage(
+    { estimatedCostUsd: 0.01, selectedRoute: { apiPricing: { inputPerMillionUsd: 2, outputPerMillionUsd: 6, cachedInputPerMillionUsd: 0.5 } } },
+    { promptTokens: 1_000_000, completionTokens: 0, cacheReadTokens: 0 },
+    {
+      inputPer1M: 2,
+      outputPer1M: 6,
+      cacheReadPer1M: 0.5,
+    },
+  );
+  assert.equal(enriched.costSource, 'token_meter');
+  assert.ok(enriched.meteredCostUsd >= 1.9 && enriched.meteredCostUsd <= 2.1);
+});
