@@ -2447,7 +2447,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             if (reconnectTimeoutRef.current) {
               clearTimeout(reconnectTimeoutRef.current);
             }
-            const retryMs = stillHttpOk ? 60000 : 5000;
+            const retryMs = stillHttpOk ? 2000 : 3000;
             reconnectTimeoutRef.current = setTimeout(() => {
               connectEventsRef.current();
             }, retryMs);

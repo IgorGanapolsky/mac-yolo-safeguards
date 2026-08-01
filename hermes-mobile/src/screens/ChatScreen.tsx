@@ -7306,6 +7306,9 @@ export default function ChatScreen() {
   );
 
   const showComposerProgressBanner = useMemo(() => {
+    if (operationalError && isConnectivityMessage(operationalError)) {
+      return false;
+    }
     if (!shouldShowComposerProgressBanner(progressBanner, isSending)) {
       return false;
     }
@@ -7319,6 +7322,7 @@ export default function ChatScreen() {
       hasAlternateRoutes: alternateHealRoutes,
     });
   }, [
+    operationalError,
     progressBanner,
     isSending,
     isDemo,
