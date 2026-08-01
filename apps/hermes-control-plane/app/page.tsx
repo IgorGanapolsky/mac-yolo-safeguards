@@ -22,27 +22,27 @@ const FAQ_ITEMS = [
   {
     question: "What is ThumbGate?",
     answer:
-      "ThumbGate is the Hermes web dashboard and Continuity product: remote control of Hermes from any browser, free while your Mac is online, with optional paid VPS continuity when it goes offline.",
+      "ThumbGate is the web control plane and safety leash for your Hermes AI agents. It gives you free remote control and phone approvals while your Mac is online, with optional Cloud Continuity when your Mac goes offline or closes the lid.",
   },
   {
     question: "What is Hermes Mobile?",
     answer:
-      "Hermes Mobile is the iOS and Android app that chats with your Hermes agent on your Mac, handles Leash approvals, and switches between paired computers—same remote-control model as the ThumbGate web dashboard.",
+      "Hermes Mobile is the iOS and Android app that pairs with your Hermes agent on your Mac via Home Wi-Fi, Tailscale, or USB. It delivers lock-screen approvals for high-risk tool calls and syncs chat sessions seamlessly across your devices.",
   },
   {
-    question: "Does ThumbGate open inbound ports on my Mac?",
+    question: "How does Cloud Continuity work when my Mac goes offline?",
     answer:
-      "No. The connector dials out over HTTPS with private-key pairing. Your local gateway credential stays on the Mac; ThumbGate uses a separate device identity.",
+      "You stay in full control. When your Mac goes offline or closes its lid, ThumbGate applies your chosen policy: (1) Pause until online (Free — tasks wait until your Mac wakes up), (2) Ask me first (Notifies your phone so you can approve cloud failover with 1 tap), or (3) Auto cloud continuity (Fenced VPS runner immediately claims eligible tasks via an encrypted lease).",
   },
   {
-    question: "What happens when my Mac is offline?",
+    question: "Does ThumbGate open inbound ports or store my credentials?",
     answer:
-      "Free Web Control pauses or asks. Eligible trial or paid Cloud Continuity tasks can continue on a fenced VPS runner so work stays recoverable when the lid closes.",
+      "No. Your local gateway credentials and API keys stay encrypted on your Mac. The connector uses outbound HTTPS WebSockets with private-key pairing. ThumbGate never opens inbound ports.",
   },
   {
     question: "How much does ThumbGate cost?",
     answer:
-      "The web dashboard (Web Control) is free while your Mac is online. Cloud Continuity is a recurring paid subscription; current pricing is shown live on this page and at https://thumbgate.app/api/billing/plan.",
+      "Web Control and local Mac remote pairing are 100% free while your Mac is online. Cloud Continuity (offline VPS failover) is an optional paid subscription. Live pricing is shown on this page and at https://thumbgate.app/api/billing/plan.",
   },
 ] as const;
 

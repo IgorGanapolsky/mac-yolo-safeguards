@@ -182,18 +182,19 @@ export async function claimTask(input: {
   }
 
   let sourceSessionId = candidate.sourceSessionId;
-  if (input.route === "local" && !sourceSessionId) {
+  if (!sourceSessionId || (input.route === "cloud" && /^api_|^cron_/.test(sourceSessionId))) {
     sourceSessionId = webSessionIdForThread(candidate.threadId);
-    const binding = await db().prepare(
-      `UPDATE threads SET device_id = ?, source_session_id = ?, source = 'thumbgate-web'
-        WHERE id = ? AND organization_id = ? AND source_session_id IS NULL`
-    ).bind(input.deviceId!, sourceSessionId, candidate.threadId, candidate.organizationId).run();
-    if (binding.meta.changes !== 1) {
-      const current = await db().prepare(
-        "SELECT source_session_id AS sourceSessionId FROM threads WHERE id = ? AND organization_id = ?"
-      ).bind(candidate.threadId, candidate.organizationId).first<{ sourceSessionId: string | null }>();
-      if (!current?.sourceSessionId) throw new Error("Failed to persist the Hermes session binding");
-      sourceSessionId = current.sourceSessionId;
+    if (input.route === "local") {
+      const binding = await db().prepare(
+        `UPDATE threads SET device_id = ?, source_session_id = ?, source = 'thumbgate-web'
+          WHERE id = ? AND organization_id = ? AND source_session_id IS NULL`
+      ).bind(input.deviceId!, sourceSessionId, candidate.threadId, candidate.organizationId).run();
+      if (binding.meta.changes !== 1) {
+        const current = await db().prepare(
+          "SELECT source_session_id AS sourceSessionId FROM threads WHERE id = ? AND organization_id = ?"
+        ).bind(candidate.threadId, candidate.organizationId).first<{ sourceSessionId: string | null }>();
+        if (current?.sourceSessionId) sourceSessionId = current.sourceSessionId;
+      }
     }
   }
 
@@ -323,6 +324,11 @@ export async function completeTask(input: {
   ).bind(status, input.result ?? null, input.error ?? null, now, now,
     input.taskId, input.owner, tokenHash, now).run();
   if (update.meta.changes !== 1) return false;
+  if (input.error && /session_not_found|Session not found/i.test(input.error)) {
+    await db().prepare(
+      "UPDATE threads SET source_session_id = NULL WHERE id = (SELECT thread_id FROM tasks WHERE id = ?)"
+    ).bind(input.taskId).run();
+  }
   const receipt = buildTaskCompletionReceipt({
     actorType: input.actorType,
     actorId: input.owner,
