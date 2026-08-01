@@ -1,18 +1,16 @@
-import { buildDemoGateBlockedEvent } from '../services/gatewayClient';
+import {
+  buildDemoGateBlockedEvent,
+  DEMO_GATE_BLOCKED_ACTION_ID,
+  placeSmokePreviewApproval,
+} from '../services/gatewayClient';
 
 /**
  * Owner report, 2026-08-01: "when i press Preview Approval Card, it just keeps
  * creating and appending new cards".
  *
- * GatewayContext.injectSmokeApproval already guards against duplicates:
- *
- *     if (prev.some((item) => item.actionId === pending.actionId)) return prev;
- *
- * That guard is unreachable, because buildDemoGateBlockedEvent minted
- * `demo_${Date.now()}` — a NEW id on every press. The dedupe could never match,
- * so a smoke test meant to preview ONE card accumulated state on the very
- * surface it exists to verify, and the fake cards sit indistinguishably beside
- * real pending approvals.
+ * Root cause: buildDemoGateBlockedEvent minted `demo_${Date.now()}` — a NEW id
+ * on every press — so injectSmokeApproval's actionId dedupe never matched and
+ * each tap appended another identical card.
  */
 describe('smoke-test preview approval is idempotent', () => {
   it('uses a STABLE actionId so repeated presses dedupe', () => {
@@ -26,6 +24,7 @@ describe('smoke-test preview approval is idempotent', () => {
       spy.mockReturnValue(9_999_999);
       const b = buildDemoGateBlockedEvent();
       expect(a.payload?.actionId).toBe(b.payload?.actionId);
+      expect(a.payload?.actionId).toBe(DEMO_GATE_BLOCKED_ACTION_ID);
     } finally {
       spy.mockRestore();
     }
@@ -53,5 +52,23 @@ describe('smoke-test preview approval is idempotent', () => {
     const a = buildDemoGateBlockedEvent();
     expect(typeof a.timestamp).toBe('string');
     expect(a.event).toBe('GATE.BLOCKED');
+  });
+
+  it('placeSmokePreviewApproval keeps one smoke card and never stacks', () => {
+    const identity = <T,>(items: T[]) => items;
+    const smoke = { actionId: DEMO_GATE_BLOCKED_ACTION_ID };
+    const real = { actionId: 'act_real_1' };
+    const legacyStacks = [
+      { actionId: 'demo_1000' },
+      { actionId: 'demo_2000' },
+      { actionId: 'demo_3000' },
+      real,
+    ];
+
+    const first = placeSmokePreviewApproval(legacyStacks, smoke, identity);
+    expect(first.map((i) => i.actionId)).toEqual([DEMO_GATE_BLOCKED_ACTION_ID, 'act_real_1']);
+
+    const second = placeSmokePreviewApproval(first, smoke, identity);
+    expect(second).toBe(first);
   });
 });
