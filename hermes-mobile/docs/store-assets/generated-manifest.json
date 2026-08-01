@@ -10,7 +10,7 @@
     {
       "id": "connect",
       "headline": "Connect your computer",
-      "subtitle": "Home Wi-Fi, Tailscale, or USB"
+      "subtitle": "Home Wi-Fi or Tailscale"
     },
     {
       "id": "run",

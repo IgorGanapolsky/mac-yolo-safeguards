@@ -22,7 +22,7 @@ and every depicted control maps to an existing Hermes surface.
 
 | # | Headline | Supporting line | Product proof shown |
 |---|---|---|---|
-| 1 | **Connect your computer** | Home Wi-Fi, Tailscale, or USB | Computer picker with three supported transport choices |
+| 1 | **Connect your computer** | Home Wi-Fi or Tailscale | Computer picker with the two supported transports |
 | 2 | **Run your AI from anywhere** | Send work, files, and follow-ups | Connected chat, release-plan result, attachment, and composer |
 | 3 | **Approve risky actions** | Block or allow once in one tap | Leash approval with command, reason, Block, and Allow once |
 | 4 | **Stay on top of approvals** | Prioritize alerts. Decide one at a time | Shipped Approval-first mode, Quick-approve layout, and ThumbGate rejection capture |
