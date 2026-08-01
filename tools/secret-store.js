@@ -107,6 +107,18 @@ function readStdin() {
 // space stores as empty (verified: 'two words here' -> 0 bytes unquoted, exact quoted).
 const ASCII_PRINTABLE = /^[\x20-\x7e]*$/;
 
+// Split out so the escaping can be unit-tested on ANY platform. The Keychain itself is
+// macOS-only, and this repo's CI runs the Node suite on ubuntu — so without this the
+// only tests would be ones CI can never execute, i.e. no protection at all where it
+// counts. The space-handling bug lived here, not in the Keychain call.
+function escapeForSecurityInteractive(value) {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function buildSecuritySetCommand(name, value) {
+  return `add-generic-password -a ${name} -s ${SERVICE} -U -w "${escapeForSecurityInteractive(value)}"\n`;
+}
+
 function keychainSet(name, value) {
   // Non-ASCII cannot round-trip: `find-generic-password -w` prints such passwords
   // HEX-ENCODED, so a stored "pässwörd" reads back as "70c3a4737377c3b67264". Failing
@@ -118,9 +130,8 @@ function keychainSet(name, value) {
       "(e.g. base64) instead."
     );
   }
-  const escaped = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
   const r = spawnSync("security", ["-i"], {
-    input: `add-generic-password -a ${name} -s ${SERVICE} -U -w "${escaped}"\n`,
+    input: buildSecuritySetCommand(name, value),
     encoding: "utf8",
   });
   if (r.status !== 0) return (r.stderr || "").trim() || "security exited " + r.status;
@@ -232,4 +243,15 @@ async function main() {
   return 2;
 }
 
-main().then((code) => process.exit(code));
+// Exported for tests. Requiring this file must not run the CLI, or `node -e require(...)`
+// would execute a command.
+module.exports = {
+  ASCII_PRINTABLE,
+  escapeForSecurityInteractive,
+  buildSecuritySetCommand,
+  SERVICE,
+};
+
+if (require.main === module) {
+  main().then((code) => process.exit(code));
+}
