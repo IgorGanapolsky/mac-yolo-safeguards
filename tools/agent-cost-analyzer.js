@@ -216,8 +216,8 @@ function readReceipts(receiptsRoot, sinceHours) {
     }
   }
 
+  // Missing receipts root is not an error (CI / clean machines); return empty.
   if (fs.existsSync(receiptsRoot)) walk(receiptsRoot);
-  else errors.push({ file: receiptsRoot, line: 0, reason: 'receipts root missing' });
 
   // Also ingest economic-router receipts (selectedRoute schema).
   if (fs.existsSync(ECONOMIC_ROUTER_RECEIPTS)) {
