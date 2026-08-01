@@ -108,7 +108,7 @@ function taskListEmptyCopy(input: {
   }
   if (input.hasSelectedThread && input.syncedMessageCount > 0) {
     return {
-      title: "No web tasks in this chat yet",
+      title: "Ready for next step",
       body: `Conversation is synced above. Type below to run the next step on ${input.machineLabel} (fenced runner, 90s lease).`,
       compact: true,
     };
@@ -263,22 +263,22 @@ export default function DashboardClient() {
 
   /** Plain-English copy for the machine / Continuity / Auto control (always show, never jargon-only). */
   const routeExplain =
-    !devices.length
+    routePreference === "cloud"
       ? {
-          title: "Pair a computer first",
-          body: "Install the connector on the machine that runs Hermes (Settings), then you can choose where work runs.",
+          title: "Continuity (cloud VPS)",
+          body: organization?.cloudAccess
+            ? `Always runs on ThumbGate’s cloud runner${selectedDevice ? ` (workspace machine: ${selectedDeviceLabel})` : ""}. Uses a Continuity run from your plan.`
+            : "Needs a Continuity trial or Pro plan. Start Continuity to use the cloud runner.",
         }
-      : routePreference === "local"
+      : !devices.length
         ? {
-            title: `${selectedDeviceLabel} only`,
-            body: `Runs on ${selectedDeviceLabel}. If that machine is asleep or offline, this task waits — Continuity will not start.`,
+            title: "Pair a computer first",
+            body: "Install the connector on the machine that runs Hermes (Settings), then you can choose where work runs.",
           }
-        : routePreference === "cloud"
+        : routePreference === "local"
           ? {
-              title: "Continuity (cloud VPS)",
-              body: organization?.cloudAccess
-                ? `Always runs on ThumbGate’s cloud runner (workspace machine: ${selectedDeviceLabel}). Uses a Continuity run from your plan.`
-                : "Needs a Continuity trial or Pro plan. Start Continuity to use the cloud runner.",
+              title: `${selectedDeviceLabel} only`,
+              body: `Runs on ${selectedDeviceLabel}. If that machine is asleep or offline, this task waits — Continuity will not start.`,
             }
           : {
               title: `Auto — ${selectedDeviceLabel} first`,
@@ -731,11 +731,11 @@ export default function DashboardClient() {
       setNotice("Type a message first, then tap Run task.");
       return;
     }
-    if (!devices.length) {
+    if (!devices.length && routePreference !== "cloud") {
       setNotice("Pair a computer first (open Settings → run the installer).");
       return;
     }
-    if (!selectedDeviceId) {
+    if (!selectedDeviceId && routePreference !== "cloud") {
       setNotice("Select which machine should run this task.");
       return;
     }
@@ -1254,19 +1254,19 @@ export default function DashboardClient() {
                   aria-label="Target machine or Continuity routing"
                 >
                   <option value="auto">
-                    Auto — {selectedDevice ? selectedDeviceLabel : "My computer"} first, then Continuity
+                    Auto ({selectedDevice ? selectedDeviceLabel : "My computer"} → Cloud)
                   </option>
                   {devices.map((device) => (
                     <option key={device.id} value={`local:${device.id}`}>
-                      {machineDisplayName(device)} only (this Mac) · {deviceStatusLabel(device)}
+                      {machineDisplayName(device)} · {deviceStatusLabel(device)}
                     </option>
                   ))}
                   <option value="cloud" disabled={!organization?.cloudAccess}>
-                    Continuity (cloud VPS){organization?.cloudAccess ? "" : " — needs trial/Pro"}
+                    Continuity (Cloud VPS){organization?.cloudAccess ? "" : " (needs Pro)"}
                   </option>
                   <optgroup label="Actions">
-                    <option value="pair">+ Pair another computer…</option>
-                    <option value="manage">⚙ Manage / remove machines…</option>
+                    <option value="pair">+ Pair computer…</option>
+                    <option value="manage">⚙ Manage machines…</option>
                   </optgroup>
                 </select>
                 {/* Hidden contract strings for tests — dual Where/Which UI removed from visible dock. */}
@@ -1308,10 +1308,10 @@ export default function DashboardClient() {
                 <button
                   type="submit"
                   className="button button-primary button-small composer-run"
-                  disabled={busy || !devices.length}
+                  disabled={busy || (!devices.length && routePreference !== "cloud")}
                   aria-busy={busy}
                 >
-                  {busy ? "Sending…" : !devices.length ? "Pair a computer first" : "Run task →"}
+                  {busy ? "Sending…" : !devices.length && routePreference !== "cloud" ? "Pair a computer first" : "Run task →"}
                 </button>
               </div>
             </form>

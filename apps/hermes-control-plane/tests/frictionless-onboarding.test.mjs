@@ -286,9 +286,8 @@ test("lets users choose local machine vs Continuity VPS on every task not only o
   assert.match(dashboard, /composer-unified-target/);
   assert.match(dashboard, /composer-target-select/);
   assert.match(dashboard, /Run on/);
-  assert.match(dashboard, /Auto — \{selectedDevice \? selectedDeviceLabel : "My computer"\} first, then Continuity/);
-  assert.match(dashboard, /only \(this Mac\)/);
-  assert.match(dashboard, /Continuity \(cloud VPS\)/);
+  assert.match(dashboard, /Auto \(\{selectedDevice \? selectedDeviceLabel : "My computer"\} → Cloud\)/);
+  assert.match(dashboard, /Continuity \(Cloud VPS\)/);
   assert.match(dashboard, /aria-labelledby="composer-where-label"/);
   assert.doesNotMatch(dashboard, /composer-route-label/);
   assert.doesNotMatch(dashboard, /My Mac only|Which Mac\?|>My Mac</);
