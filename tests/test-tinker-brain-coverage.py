@@ -113,6 +113,20 @@ class TestCoverageGate(unittest.TestCase):
 
         `tinker_response_contract.py --render` previously printed the card and returned 0
         unconditionally, so callers using it bypassed the safeguard entirely.
+
+        Uses nonsense tokens, NOT the trademark question. render_response() pulls the
+        expert card from the local ~/.hermes snapshot, so a real-world question makes
+        this assertion depend on machine state: on a Mac whose snapshot had been
+        refreshed to cover Nous/trademark, --render legitimately returned 0 and this
+        test failed while CI (no ~/.hermes) stayed green. The rest of this CI step is
+        hermetic by contract; this case has to be too.
+
+        The question keeps a ThumbGate routing token ALONGSIDE impossible ones. Dropping
+        it entirely routes to general_card, and render_response() then never loads the
+        expert card — so a regression bypassing the gate only for thumbgate_gtm, the very
+        route the trademark incident travelled, would sail past this test. With the token
+        it routes thumbgate_gtm (verified); with the nonsense terms coverage is 1/4 = 0.25
+        against ANY card, ambient or not, so it stays deterministic.
         """
         import subprocess
         import tempfile
@@ -124,7 +138,8 @@ class TestCoverageGate(unittest.TestCase):
             card = fh.name
         try:
             p = subprocess.run(
-                [sys.executable, contract, "--render", "--card", card, "--question", TRADEMARK_Q],
+                [sys.executable, contract, "--render", "--card", card,
+                 "--question", "ThumbGate qzlmvx wibblesnort frobnication?"],
                 capture_output=True, text=True,
             )
             self.assertEqual(p.returncode, 3, f"--render did not signal no-coverage: rc={p.returncode}")

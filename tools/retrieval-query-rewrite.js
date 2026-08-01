@@ -43,6 +43,31 @@ const SYNONYM_RULES = [
     match: /llm.?as.?judge|groundedness|eval\s+suite|fabricated\s+score/i,
     expand: ['curate-eval-set', 'eval-benchmark-suite', 'llm-judge-policy', 'humanPositiveRate'],
   },
+  {
+    id: 'cloud-connector',
+    match: /cloud\s+connector|cloud\s+failover|hermes\s+cloud|vps\s+runner/i,
+    expand: ['hermes-cloud-connector', 'HERMES-CLOUD-FAILOVER', 'cloudAccess', 'failover'],
+  },
+  {
+    id: 'pair-gateway',
+    match: /pair(ing)?|gateway\s+url|usb\s+reverse|adb\s+reverse|localIp/i,
+    expand: ['hermes-mobile-pair', 'gatewayDiscovery', 'gatewayProfiles', 'pairCode'],
+  },
+  {
+    id: 'ota-billing',
+    match: /\bota\b|over.?the.?air|expo\s+update|billing\s+freeze/i,
+    expand: ['appOtaUpdate', 'otaClientPromptPolicy', 'checkAutomatically', 'EAS'],
+  },
+  {
+    id: 'moe-routing',
+    match: /\bmoe\b|mixture\s+of\s+experts|dead\s+expert|economic\s+router|model\s+route/i,
+    expand: ['hermes-economic-router', 'moe-expert-health', 'retired-experts', 'route-quality'],
+  },
+  {
+    id: 'rag-rerank',
+    match: /rerank|cross.?encoder|colbert|dual.?path|retrieval\s+fusion/i,
+    expand: ['retrieval-rerank', 'retrieval-dual-path', 'rrfFuse', 'colbert_lite'],
+  },
 ];
 
 /**

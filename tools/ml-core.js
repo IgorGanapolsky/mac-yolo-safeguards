@@ -212,12 +212,16 @@ function featureImportance(weights, featureKeys) {
   }));
 }
 
+/** Binary path relevance: true if any required substring matches. */
+function pathIsRelevant(path, relevantSubstrings) {
+  const p = String(path || '');
+  const norm = p.replace(/\\/g, '/');
+  return (relevantSubstrings || []).some((sub) => p.includes(sub) || norm.includes(sub));
+}
+
 /** nDCG@k for ranked retrieval with binary per-path relevance (capped ≤ 1). */
 function ndcgAtK(rankedPaths, relevantSubstrings, k) {
-  const rel = (path) =>
-    relevantSubstrings.some((sub) => path.includes(sub) || path.replace(/\\/g, '/').includes(sub))
-      ? 1
-      : 0;
+  const rel = (path) => (pathIsRelevant(path, relevantSubstrings) ? 1 : 0);
   const top = rankedPaths.slice(0, k);
   const pathRel = top.map(rel);
   const dcg = pathRel.reduce((s, r, i) => s + r / Math.log2(i + 2), 0);
@@ -228,6 +232,44 @@ function ndcgAtK(rankedPaths, relevantSubstrings, k) {
   for (let i = 0; i < idealCount; i += 1) idcg += 1 / Math.log2(i + 2);
   if (idcg === 0) return pathRel.some(Boolean) ? 1 : 0;
   return Number(Math.min(1, dcg / idcg).toFixed(4));
+}
+
+/**
+ * Mean Reciprocal Rank@k — 1/rank of first relevant hit, else 0.
+ * Standard IR metric for "how soon do we hit a good path?"
+ */
+function mrrAtK(rankedPaths, relevantSubstrings, k) {
+  const top = (rankedPaths || []).slice(0, k);
+  for (let i = 0; i < top.length; i += 1) {
+    if (pathIsRelevant(top[i], relevantSubstrings)) {
+      return Number((1 / (i + 1)).toFixed(4));
+    }
+  }
+  return 0;
+}
+
+/**
+ * Precision@k — relevant hits in top-k divided by k (standard IR cutoff).
+ * Complements recall (which is fraction of required labels hit).
+ * Denominator is always k when k>0, even if fewer paths returned.
+ */
+function precisionAtK(rankedPaths, relevantSubstrings, k) {
+  const cutoff = Math.max(0, Number(k) || 0);
+  if (!cutoff) return 0;
+  const top = (rankedPaths || []).slice(0, cutoff);
+  const hits = top.filter((p) => pathIsRelevant(p, relevantSubstrings)).length;
+  return Number((hits / cutoff).toFixed(4));
+}
+
+/** Recall@k — fraction of required substrings found somewhere in top-k. */
+function recallAtK(rankedPaths, relevantSubstrings, k) {
+  const required = relevantSubstrings || [];
+  if (!required.length) return 1;
+  const top = (rankedPaths || []).slice(0, k);
+  const hit = required.filter((sub) =>
+    top.some((p) => pathIsRelevant(p, [sub])),
+  ).length;
+  return Number((hit / required.length).toFixed(4));
 }
 
 /**
@@ -281,7 +323,11 @@ module.exports = {
   fitPlatt,
   crossValidate,
   featureImportance,
+  pathIsRelevant,
   ndcgAtK,
+  mrrAtK,
+  precisionAtK,
+  recallAtK,
   twoProportionTest,
   normalCdf,
 };
