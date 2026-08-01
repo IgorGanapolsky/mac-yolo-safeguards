@@ -48,10 +48,11 @@ const CONTRACTS = /** @type {InterfaceContract[]} */ ([
     layer: 'serving',
     requiredPaths: [
       path.join(REPO, 'tools', 'retrieval-dual-path.js'),
+      path.join(REPO, 'tools', 'retrieval-rrf.js'),
       path.join(REPO, 'tools', 'retrieval-query-rewrite.js'),
       path.join(REPO, 'tools', 'retrieval-rerank.js'),
     ],
-    description: 'RRF fusion of harness + grepae + second-stage CE/ColBERT/LLM rerank',
+    description: 'Weighted RRF fusion of harness + grepae + second-stage CE/ColBERT/LLM rerank',
   },
   {
     id: 'code.rerank',
