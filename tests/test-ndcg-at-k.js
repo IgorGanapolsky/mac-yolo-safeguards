@@ -143,4 +143,66 @@ test('the result is always within [0, 1]', () => {
   }
 });
 
+// --- ORDER INDEPENDENCE (found by review, 2026-07-31) ---------------------------
+// The first version of the credit-once fix used a greedy `find`, which made the
+// score depend on how the fixture was WRITTEN rather than on retrieval quality:
+//
+//   paths ['foo/bar.js','foo/qux.js']
+//     ['foo','foo/bar'] -> 0.6131      ['foo/bar','foo'] -> 1.0
+//
+// The loose 'foo' consumed 'foo/bar.js' and stranded the specific 'foo/bar'.
+// None of the 13 tests above caught it, because not one used OVERLAPPING
+// expectations. Maximum bipartite matching removes the ordering entirely.
+
+test('the exact reported case is order-independent', () => {
+  const paths = ['foo/bar.js', 'foo/qux.js'];
+  const a = ndcgAtK(paths, ['foo', 'foo/bar'], 2);
+  const b = ndcgAtK(paths, ['foo/bar', 'foo'], 2);
+  assert.equal(a, b, `reordering expectations changed the score: ${a} vs ${b}`);
+  assert.equal(a, 1, 'both expectations are satisfiable at once, so this is a perfect ranking');
+});
+
+test('EVERY permutation of overlapping expectations scores identically', () => {
+  const permute = (a) => (a.length <= 1 ? [a]
+    : a.flatMap((x, i) => permute([...a.slice(0, i), ...a.slice(i + 1)]).map((r) => [x, ...r])));
+  const cases = [
+    [['foo/bar.js', 'foo/qux.js'], ['foo', 'foo/bar']],
+    [['a/b.js', 'a/c.js', 'd.js'], ['a', 'a/b', 'd']],
+    [['x/y.ts', 'x/y.test.ts'], ['x/y', 'x/y.test']],
+    [['p/q.js', 'p/r.js', 'p/s.js'], ['p', 'p/q', 'p/r']],
+  ];
+  for (const [paths, subs] of cases) {
+    const seen = new Set(permute(subs).map((s) => ndcgAtK(paths, s, paths.length)));
+    assert.equal(seen.size, 1,
+      `${JSON.stringify(subs)} produced ${seen.size} different scores: ${[...seen].join(', ')}`);
+  }
+});
+
+test('a loose expectation does not strand a more specific one', () => {
+  // Both are satisfiable simultaneously; greedy matching scored this 0.6131.
+  assert.equal(ndcgAtK(['foo/bar.js', 'foo/qux.js'], ['foo', 'foo/bar'], 2), 1);
+});
+
+test('randomized: 3000 permutation trials never disagree or leave [0,1]', () => {
+  // Deterministic PRNG so any failure is reproducible from the seed.
+  let seed = 42;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const pick = (a) => a[Math.floor(rnd() * a.length)];
+  const permute = (a) => (a.length <= 1 ? [a]
+    : a.flatMap((x, i) => permute([...a.slice(0, i), ...a.slice(i + 1)]).map((r) => [x, ...r])));
+  const segs = ['a', 'b', 'c', 'ab', 'a/b', 'a/c'];
+  let trials = 0;
+  for (let t = 0; t < 3000; t += 1) {
+    const paths = Array.from({ length: 1 + Math.floor(rnd() * 4) },
+      () => `${pick(segs)}/${pick(segs)}.js`);
+    const subs = [...new Set(Array.from({ length: 1 + Math.floor(rnd() * 3) }, () => pick(segs)))];
+    if (subs.length > 4) continue;
+    trials += 1;
+    const seen = new Set(permute(subs).map((s) => ndcgAtK(paths, s, paths.length)));
+    assert.equal(seen.size, 1, `unstable at trial ${t}: ${JSON.stringify({ paths, subs })}`);
+    for (const v of seen) assert.ok(v >= 0 && v <= 1, `out of range: ${v}`);
+  }
+  assert.ok(trials > 2000, `expected a meaningful number of trials, ran ${trials}`);
+});
+
 console.log(`\n=== ndcgAtK: ${pass} passed, ${fail} failed ===`);

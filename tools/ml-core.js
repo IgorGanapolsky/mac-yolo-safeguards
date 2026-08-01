@@ -228,16 +228,49 @@ function ndcgAtK(rankedPaths, relevantSubstrings, k) {
   // match the same expectation (e.g. `foo.ts` and `foo.test.ts` both contain
   // "foo"), and counting each of them as a separate relevant document inflates
   // DCG above what the ideal ranking could ever achieve.
-  const credited = new Set();
-  const pathRel = top.map((p) => {
-    const norm = p.replace(/\\/g, '/');
-    const sub = relevantSubstrings.find(
-      (s) => !credited.has(s) && (p.includes(s) || norm.includes(s)),
-    );
-    if (!sub) return 0;
-    credited.add(sub);
-    return 1;
-  });
+  // Credit each expectation AT MOST ONCE, via maximum bipartite matching.
+  //
+  // A greedy `find` was tried first and is ORDER-DEPENDENT, which makes the
+  // metric depend on how a fixture happens to be written rather than on
+  // retrieval quality. Reported by review on 2026-07-31 and reproduced exactly:
+  //
+  //   paths ['foo/bar.js', 'foo/qux.js']
+  //     expectations ['foo', 'foo/bar'] -> 0.6131
+  //     expectations ['foo/bar', 'foo'] -> 1.0
+  //
+  // Greedy lets the loose 'foo' consume 'foo/bar.js' and strands the more
+  // specific 'foo/bar', so simply reordering the annotation changes the score.
+  // A metric that moves when you reorder its fixture is not a measurement.
+  //
+  // Maximum matching removes the ordering entirely: it asks "how many
+  // expectations CAN be satisfied at once", which has one answer regardless of
+  // input order. Augmenting-path search is O(V*E) and k is <= 10 here.
+  const matchOf = new Array(relevantSubstrings.length).fill(-1); // expectation -> path index
+  const matches = (pathIdx, subIdx) => {
+    const p = top[pathIdx];
+    const s = relevantSubstrings[subIdx];
+    return p.includes(s) || p.replace(/\\/g, '/').includes(s);
+  };
+  const tryAssign = (pathIdx, seen) => {
+    for (let s = 0; s < relevantSubstrings.length; s += 1) {
+      if (seen[s] || !matches(pathIdx, s)) continue;
+      seen[s] = true;
+      // Take this expectation if it is free, or if its current owner can move.
+      if (matchOf[s] === -1 || tryAssign(matchOf[s], seen)) {
+        matchOf[s] = pathIdx;
+        return true;
+      }
+    }
+    return false;
+  };
+  const matchedPaths = new Set();
+  for (let i = 0; i < top.length; i += 1) {
+    if (tryAssign(i, new Array(relevantSubstrings.length).fill(false))) matchedPaths.add(i);
+  }
+  // Recompute which paths ended up holding an expectation: augmenting can move
+  // an earlier path's assignment, so the final owner set is authoritative.
+  const finalOwners = new Set(matchOf.filter((v) => v !== -1));
+  const pathRel = top.map((_, i) => (finalOwners.has(i) ? 1 : 0));
   const dcg = pathRel.reduce((s, r, i) => s + r / Math.log2(i + 2), 0);
 
   // The ideal ranking is over the documents we KNOW are relevant — not the ones
