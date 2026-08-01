@@ -46,9 +46,9 @@ Options:
 
 // Cost model (USD per invocation), aligned with tools/hermes-economic-router.js ROUTES.
 // Local/Ollama routes are $0 by design; cloud routes carry the router's published costUsd.
-// These are conservative per-call estimates, not token-metered — the receipt schema does
-// not carry token counts, so we use the router's flat per-route ceiling. Override via
-// env COST_MODEL_JSON={"model":usd,...}.
+// Prefer token-metered `effectiveCostUsd` / `meteredCostUsd` on receipts when
+// present (see production-ops.enrichReceiptWithUsage). Otherwise fall back to
+// flat per-route ceilings. Override ceilings via COST_MODEL_JSON={"model":usd,...}.
 const DEFAULT_COST_MODEL = {
   'grok-4.5': 0,
   'glm-coding': 0,
@@ -167,7 +167,30 @@ function readReceipts(receiptsRoot, sinceHours) {
           const durationMs = Number.isFinite(exec.durationMs) ? exec.durationMs : null;
           const status = exec.status || '';
           const host = rec.host || '';
-          rows.push({ model, durationMs, status, host, generatedAt, schema, source: full });
+          // Prefer token-metered cost when the receipt carries usage.
+          let meteredCostUsd = null;
+          let costSource = 'route_ceiling';
+          if (Number.isFinite(Number(rec.effectiveCostUsd)) && rec.costSource === 'token_meter') {
+            meteredCostUsd = Number(rec.effectiveCostUsd);
+            costSource = 'token_meter';
+          } else if (Number.isFinite(Number(rec.meteredCostUsd))) {
+            meteredCostUsd = Number(rec.meteredCostUsd);
+            costSource = 'token_meter';
+          }
+          const usage = rec.usage && rec.usage.ok ? rec.usage : null;
+          rows.push({
+            model,
+            durationMs,
+            status,
+            host,
+            generatedAt,
+            schema,
+            source: full,
+            meteredCostUsd,
+            costSource,
+            promptTokens: usage ? usage.promptTokens : null,
+            completionTokens: usage ? usage.completionTokens : null,
+          });
         });
       }
     }
@@ -192,6 +215,10 @@ function rollupByModel(rows, costModel) {
         fail: 0,
         other: 0,
         estCostUsd: 0,
+        meteredCostUsd: 0,
+        meteredInvocations: 0,
+        promptTokens: 0,
+        completionTokens: 0,
       };
     }
     const b = buckets[r.model];
@@ -200,8 +227,15 @@ function rollupByModel(rows, costModel) {
     if (r.status === 'pass') b.pass += 1;
     else if (r.status === 'fail' || r.status === 'timeout') b.fail += 1;
     else b.other += 1;
-    const rate = costModel[r.model];
-    if (Number.isFinite(rate)) b.estCostUsd += rate;
+    if (r.meteredCostUsd != null && Number.isFinite(r.meteredCostUsd)) {
+      b.meteredCostUsd += r.meteredCostUsd;
+      b.meteredInvocations += 1;
+    } else {
+      const rate = costModel[r.model];
+      if (Number.isFinite(rate)) b.estCostUsd += rate;
+    }
+    if (Number.isFinite(r.promptTokens)) b.promptTokens += r.promptTokens;
+    if (Number.isFinite(r.completionTokens)) b.completionTokens += r.completionTokens;
   }
   const out = Object.values(buckets).map((b) => {
     const ds = b.durations;
@@ -212,6 +246,7 @@ function rollupByModel(rows, costModel) {
     const p95 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] : null;
     const maxMs = sorted.length ? sorted[sorted.length - 1] : null;
     const successRate = b.invocations ? +(b.pass / b.invocations).toFixed(4) : null;
+    const totalCost = b.meteredInvocations > 0 ? b.meteredCostUsd + b.estCostUsd : b.estCostUsd;
     return {
       model: b.model,
       invocations: b.invocations,
@@ -220,7 +255,11 @@ function rollupByModel(rows, costModel) {
       other: b.other,
       successRate,
       latencyMs: { avg: avgMs, p50, p95, max: maxMs },
-      estCostUsd: +b.estCostUsd.toFixed(4),
+      estCostUsd: +totalCost.toFixed(6),
+      meteredInvocations: b.meteredInvocations,
+      promptTokens: b.promptTokens,
+      completionTokens: b.completionTokens,
+      costSource: b.meteredInvocations > 0 ? 'mixed_or_token_meter' : 'route_ceiling',
     };
   });
   out.sort((a, b) => b.invocations - a.invocations);
@@ -298,7 +337,7 @@ function buildReport(args) {
     byModel,
     receiptErrors: errors,
     costModelNote:
-      'Costs are per-invocation ceilings from tools/hermes-economic-router.js ROUTES, not token-metered (the receipt schema carries no token counts). Override via COST_MODEL_JSON env.',
+      'Costs prefer token-metered effectiveCostUsd when receipts include usage (production-ops). Otherwise per-invocation ceilings from hermes-economic-router ROUTES. Override ceilings via COST_MODEL_JSON env.',
   };
 }
 

@@ -341,6 +341,8 @@ function parseArgs(argv) {
     maxCostUsdExplicit: false,
     latencyMs: 30000,
     paidOk: false,
+    usageJson: null,
+    pricingJson: null,
     executePlan: false,
     write: false,
     json: false,
@@ -356,6 +358,20 @@ function parseArgs(argv) {
       args.maxCostUsdExplicit = true;
     } else if (arg === '--latency-ms') args.latencyMs = parseNonNegativeNumber(requireValue(argv, ++i, arg), arg);
     else if (arg === '--paid-ok') args.paidOk = true;
+    else if (arg === '--usage-json') {
+      try {
+        args.usageJson = JSON.parse(requireValue(argv, ++i, arg));
+      } catch (error) {
+        throw new Error(`--usage-json must be valid JSON: ${error.message}`);
+      }
+    }
+    else if (arg === '--pricing-json') {
+      try {
+        args.pricingJson = JSON.parse(requireValue(argv, ++i, arg));
+      } catch (error) {
+        throw new Error(`--pricing-json must be valid JSON: ${error.message}`);
+      }
+    }
     else if (arg === '--execute-plan') args.executePlan = true;
     else if (arg === '--write') args.write = true;
     else if (arg === '--json') args.json = true;
@@ -1439,9 +1455,31 @@ function main() {
       console.log(usage());
       return;
     }
-    const receipt = decision(args);
+    let receipt = decision(args);
     if (args.executePlan) {
       receipt.executionPlan = buildExecutionPlan(receipt);
+    }
+    // Optional token metering: attach real usage + metered USD when callers
+    // have prompt/completion counts (closes the flat-ceiling cost gap).
+    if (args.usageJson) {
+      try {
+        const { enrichReceiptWithUsage } = require('./production-ops');
+        const pricing =
+          args.pricingJson ||
+          (receipt.selectedRoute && receipt.selectedRoute.apiPricing
+            ? {
+                inputPer1M: receipt.selectedRoute.apiPricing.inputPerM,
+                outputPer1M: receipt.selectedRoute.apiPricing.outputPerM,
+                cacheReadPer1M: receipt.selectedRoute.apiPricing.cachedInputPerM,
+              }
+            : {});
+        receipt = enrichReceiptWithUsage(receipt, args.usageJson, pricing);
+      } catch (error) {
+        receipt.usage = {
+          ok: false,
+          errors: [error instanceof Error ? error.message : String(error)],
+        };
+      }
     }
     if (args.write) {
       receipt.receiptPath = writeReceipt(receipt);
