@@ -18,7 +18,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT_ANDROID="$ROOT/fastlane/store-capture/raw"
 OUT_IOS="$ROOT/fastlane/metadata/ios/en-US/screenshots"
 DEVICE="${HERMES_ANDROID_DEVICE:-R3CY90QPM7E}"
-PKG="com.iganapolsky.hermesmobile"
+# Paid download package is the public product (free listing is retired).
+PKG="${HERMES_MOBILE_ANDROID_PACKAGE:-com.iganapolsky.hermesmobile.paid}"
 REPO="$(cd "$ROOT/.." && pwd)"
 # Comma-separated subset: 02_block,03_standing,04_pair (default: all legacy raw frames)
 STORE_FRAMES="${STORE_FRAMES:-01_approve,02_block,03_standing,04_pair,05_thumbgate,06_works}"

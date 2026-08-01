@@ -1,39 +1,36 @@
 {
-  "schemaVersion": 2,
-  "source": "deterministic-product-render-v2",
-  "renderer": {
-    "pillow": "11.3.0",
-    "font": "Pillow embedded default"
-  },
+  "schemaVersion": 3,
+  "source": "device-capture-framed-v1",
+  "captions": true,
   "frames": 6,
   "scenes": [
     {
-      "id": "connect",
+      "id": "01_approve",
       "headline": "Connect your computer",
-      "subtitle": "Home Wi-Fi, Tailscale, or USB"
+      "subtitle": "Home Wi-Fi, Tailscale, or QR"
     },
     {
-      "id": "run",
-      "headline": "Run your AI from anywhere",
-      "subtitle": "Send work, files, and follow-ups"
-    },
-    {
-      "id": "approve",
+      "id": "02_block",
       "headline": "Approve risky actions",
-      "subtitle": "Block or allow once in one tap"
+      "subtitle": "Block or allow once from your phone"
     },
     {
-      "id": "rules",
-      "headline": "Stay on top of approvals",
-      "subtitle": "Prioritize alerts. Decide one at a time"
+      "id": "03_standing",
+      "headline": "Chat with your computer",
+      "subtitle": "Send work and see agent proposals"
     },
     {
-      "id": "learn",
-      "headline": "Teach Hermes what works",
-      "subtitle": "Feedback improves future runs"
+      "id": "04_pair",
+      "headline": "Pair without USB",
+      "subtitle": "Scan a live pairing QR or Find computers"
     },
     {
-      "id": "switch",
+      "id": "05_thumbgate",
+      "headline": "ThumbGate Leash",
+      "subtitle": "Approve blocked tools on the lock screen"
+    },
+    {
+      "id": "06_works",
       "headline": "One phone. Every computer.",
       "subtitle": "Switch machines without losing context"
     }
@@ -41,129 +38,100 @@
   "assets": {
     "fastlane/metadata/android/en-US/images/phoneScreenshots/01_approve.png": {
       "deviceClass": "play",
-      "scene": "connect",
+      "scene": "01_approve",
+      "source": "fastlane/store-capture/raw-sanitized/01_computer_picker.png",
       "width": 1080,
       "height": 1920,
-      "sha256": "8cd87f4e10250aa6854daf23c28ce7d52c215a1e0bb53032182bc86367cf0169"
-    },
-    "fastlane/metadata/android/en-US/images/phoneScreenshots/02_block.png": {
-      "deviceClass": "play",
-      "scene": "run",
-      "width": 1080,
-      "height": 1920,
-      "sha256": "2ce4b99d320e1753b47cb16f5ec1970afdf3af7cfad4cf7370b6976f3d1931cb"
-    },
-    "fastlane/metadata/android/en-US/images/phoneScreenshots/03_standing.png": {
-      "deviceClass": "play",
-      "scene": "approve",
-      "width": 1080,
-      "height": 1920,
-      "sha256": "94ef9e52e406460256e7a109ae6ef2816b44269d564d2000dfbc41d51a2c7bca"
-    },
-    "fastlane/metadata/android/en-US/images/phoneScreenshots/04_pair.png": {
-      "deviceClass": "play",
-      "scene": "rules",
-      "width": 1080,
-      "height": 1920,
-      "sha256": "e89d4cc268a743d1dcb591afca893d0c86ba1ea63298f7683dd91c0c795b44cd"
-    },
-    "fastlane/metadata/android/en-US/images/phoneScreenshots/05_thumbgate.png": {
-      "deviceClass": "play",
-      "scene": "learn",
-      "width": 1080,
-      "height": 1920,
-      "sha256": "6105f2b6b8eb0ec3b5e3a0161317775cdde58698ebcb52829ab606beeb0847aa"
-    },
-    "fastlane/metadata/android/en-US/images/phoneScreenshots/06_works.png": {
-      "deviceClass": "play",
-      "scene": "switch",
-      "width": 1080,
-      "height": 1920,
-      "sha256": "4cf7f659863dd2831dc2b1bce95fb2b9a7a7be48da5b95a0c67d84f327806227"
+      "sha256": "4c4d30e8adfc3a0da978ebfb2a5e01c878bec5ab1fe2939011bb19d23ef77b97"
     },
     "fastlane/screenshots/en-US/01_approve_67.png": {
       "deviceClass": "iphone",
-      "scene": "connect",
+      "scene": "01_approve",
+      "source": "fastlane/store-capture/raw-sanitized/01_computer_picker.png",
       "width": 1290,
       "height": 2796,
-      "sha256": "f071e04f48f5b2e43266e1ff5dfb5f6ea371bd0abc01d73cfee09b1091765da8"
+      "sha256": "106e5057e444b4685b4ebbf54ff445fc95618ad2b3c4a129fe9b4ca207cff465"
     },
-    "fastlane/screenshots/en-US/01_approve_ipad129.png": {
-      "deviceClass": "ipad",
-      "scene": "connect",
-      "width": 2048,
-      "height": 2732,
-      "sha256": "5f8375e6d6beb355494c10caf68ead41a12fefe706b05012b4760685fdfdf514"
+    "fastlane/metadata/android/en-US/images/phoneScreenshots/02_block.png": {
+      "deviceClass": "play",
+      "scene": "02_block",
+      "source": "fastlane/store-capture/raw-sanitized/02_leash_approval.png",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "71637dafb0d0ee4be0174291756aa5a626f66b60e2709d75dd19e093f915578b"
     },
     "fastlane/screenshots/en-US/02_block_67.png": {
       "deviceClass": "iphone",
-      "scene": "run",
+      "scene": "02_block",
+      "source": "fastlane/store-capture/raw-sanitized/02_leash_approval.png",
       "width": 1290,
       "height": 2796,
-      "sha256": "f61134364765ef7df229055688cdc52584f3622d23a79c181575af63f3085e7b"
+      "sha256": "686adf9b48315da323d400914030e4d793b29de99e562ba6f612581a5f5a7390"
     },
-    "fastlane/screenshots/en-US/02_block_ipad129.png": {
-      "deviceClass": "ipad",
-      "scene": "run",
-      "width": 2048,
-      "height": 2732,
-      "sha256": "8bf947fc8d2c9a7e48ea92250bc152fbf411d9140ae9cab2b34d4016420685b2"
+    "fastlane/metadata/android/en-US/images/phoneScreenshots/03_standing.png": {
+      "deviceClass": "play",
+      "scene": "03_standing",
+      "source": "fastlane/store-capture/raw-sanitized/01_chat_connected.png",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "69f3e9a4a92f4a8b33ac93e4e492bc066354cdfb61186a870a11f3d465bc1ea3"
     },
     "fastlane/screenshots/en-US/03_standing_67.png": {
       "deviceClass": "iphone",
-      "scene": "approve",
+      "scene": "03_standing",
+      "source": "fastlane/store-capture/raw-sanitized/01_chat_connected.png",
       "width": 1290,
       "height": 2796,
-      "sha256": "b8e6c28d116310fa101299057edf79014c17c74c792bfae87615e24ab35ac35e"
+      "sha256": "eb6e1212fbdb9c605fd9d32a55692a63434389cb7c602f207c6d635002cbac75"
     },
-    "fastlane/screenshots/en-US/03_standing_ipad129.png": {
-      "deviceClass": "ipad",
-      "scene": "approve",
-      "width": 2048,
-      "height": 2732,
-      "sha256": "82ee560f281d7cbbfddb577883d3be5b6350516d441bb79a5bb03eb19357a360"
+    "fastlane/metadata/android/en-US/images/phoneScreenshots/04_pair.png": {
+      "deviceClass": "play",
+      "scene": "04_pair",
+      "source": "fastlane/store-capture/raw-sanitized/04_pair_qr.png",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "c5bddaf34d0004677d67bd17cd5bc394a15fb4452a63588ee61253e69545a217"
     },
     "fastlane/screenshots/en-US/04_pair_67.png": {
       "deviceClass": "iphone",
-      "scene": "rules",
+      "scene": "04_pair",
+      "source": "fastlane/store-capture/raw-sanitized/04_pair_qr.png",
       "width": 1290,
       "height": 2796,
-      "sha256": "bf217fc762c2433434da3a70ff10f5c92aaf826e48cebd166ed6c361f57460f6"
+      "sha256": "c8f31777f702b38a3cc51fdda8f8ba4ae0b4955e5e8aa6d74cee63bf7e43c371"
     },
-    "fastlane/screenshots/en-US/04_pair_ipad129.png": {
-      "deviceClass": "ipad",
-      "scene": "rules",
-      "width": 2048,
-      "height": 2732,
-      "sha256": "6d4cbae588992b5696c0e0754b589edc260a89ef3046c12717a4547484b2a4cb"
+    "fastlane/metadata/android/en-US/images/phoneScreenshots/05_thumbgate.png": {
+      "deviceClass": "play",
+      "scene": "05_thumbgate",
+      "source": "fastlane/store-capture/raw-sanitized/05_leash.png",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "d0b227db56f9464a83f84b764f5098996adba55cb6ee72c8e4ab6d7c31bee6ec"
     },
     "fastlane/screenshots/en-US/05_thumbgate_67.png": {
       "deviceClass": "iphone",
-      "scene": "learn",
+      "scene": "05_thumbgate",
+      "source": "fastlane/store-capture/raw-sanitized/05_leash.png",
       "width": 1290,
       "height": 2796,
-      "sha256": "3455167a6e262c032621625dae18ecb12b463067135bdb27670f99e6c0fadb1b"
+      "sha256": "8985665ab6a5fbd68553aca0380c39baa10b6683872aeeb9de155b3cb54d122c"
     },
-    "fastlane/screenshots/en-US/05_thumbgate_ipad129.png": {
-      "deviceClass": "ipad",
-      "scene": "learn",
-      "width": 2048,
-      "height": 2732,
-      "sha256": "19e63671295586314f5d2e570b96993427d54352c91ea1e5608e6d64d59f1f4a"
+    "fastlane/metadata/android/en-US/images/phoneScreenshots/06_works.png": {
+      "deviceClass": "play",
+      "scene": "06_works",
+      "source": "fastlane/store-capture/raw-sanitized/06_settings_machines.png",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "8ee5b2657065f038b919ef69e5bfab00c2c113792c5b5b7ab327263f2b0aa69b"
     },
     "fastlane/screenshots/en-US/06_works_67.png": {
       "deviceClass": "iphone",
-      "scene": "switch",
+      "scene": "06_works",
+      "source": "fastlane/store-capture/raw-sanitized/06_settings_machines.png",
       "width": 1290,
       "height": 2796,
-      "sha256": "655818aaf26ec33298bfb9ef09ae864e031db86f880d051c970e998a28868657"
-    },
-    "fastlane/screenshots/en-US/06_works_ipad129.png": {
-      "deviceClass": "ipad",
-      "scene": "switch",
-      "width": 2048,
-      "height": 2732,
-      "sha256": "e8dd128ffbe2c73c6c75b51138febd7fa86a0a2331c09fb8b8cb8c4e0e9fa830"
+      "sha256": "3f9cdc39e0477cf422aa950a5ba4f889d8eccb994f56231c2e3a47ec7c0cf21c"
     }
-  }
+  },
+  "note": "Device-sourced frames (adb screencap), not Pillow product renders. Private strings must be scrubbed via sanitize-store-raw-frames.py."
 }

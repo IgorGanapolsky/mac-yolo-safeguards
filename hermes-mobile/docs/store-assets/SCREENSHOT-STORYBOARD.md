@@ -1,22 +1,28 @@
 # Hermes Mobile store screenshot storyboard
 
-Updated: 2026-07-29
+Updated: 2026-08-01
 
 ## Conversion audit
 
-The previous live and pending sets were not fit for a public product listing:
+Earlier live/pending sets had two failure modes:
 
-- live App Store version 1.3 contained 10 assets per device class but only six
-  unique checksums, so four story beats appeared twice;
-- the pending 1.4 set was checksum-unique but still showed internal commands,
-  local addresses, a huge-session warning, diagnostic controls, and tiny text;
-- the old generator framed mutable dogfood captures, so an OCR scrub could hide
-  individual strings without turning the scene into a convincing customer story;
-- the screenshots did not form one conversion sequence.
+1. **Duplicate / dogfood garbage** (ASC 1.3 duplicates, mega-session warnings, raw IPs).
+2. **Pillow product renders** (`deterministic-product-render-v2`) that looked polished but
+   did **not** match real Hermes Mobile UI — they invent layout chrome and always-green
+   Connected states while production users often see Tailscale/5G friction.
 
-The current generator renders a privacy-safe, deterministic product story from
-supported Hermes Mobile capabilities. It uses no live user data or generated imagery,
-and every depicted control maps to an existing Hermes surface.
+**2026-08-01:** store assets are **device-sourced** again:
+
+```bash
+# paid release on phone, mini Tailscale pair, then:
+bash scripts/capture-store-screenshots.sh   # or adb deep-link captures
+python3 scripts/frame-store-captures.py     # OCR scrub + 1080×1920 / 6.7" framing
+```
+
+- Real `ChatScreen` / Leash / Settings chrome (not Pillow mockups).
+- OCR scrub via `sanitize-store-raw-frames.py` + expanded BAN list (hostnames, `100.x`,
+  force-leak probes, stalled banners).
+- Optional marketing caption band above the real UI (honest product, still readable in SERP).
 
 ## Six-frame story
 
@@ -45,19 +51,27 @@ They sell the core outcome before secondary proof.
 - Generated assets are representative product renders. They must map to shipped Hermes
   Mobile capabilities and may not invent outcomes.
 
-## Deterministic generation and verification
+## Generation and verification
+
+**Preferred (honest listing):**
 
 ```bash
-python3 scripts/generate-store-screenshots.py
+# Device already on USB with paid package + Tailscale computer saved
+HERMES_MOBILE_ANDROID_PACKAGE=com.iganapolsky.hermesmobile.paid \
+  bash scripts/capture-store-screenshots.sh
+python3 scripts/frame-store-captures.py
 python3 scripts/test-store-screenshot-assets.py
 npx jest src/__tests__/storeListingMetadataContract.test.ts --runInBand
 ```
 
-The Python contract regenerates the complete set twice in isolated directories and
-requires byte-identical output, exact dimensions, six unique assets per device class,
-non-trivial visual distance between every pair, committed-manifest hash agreement, and
-customer-safe copy. When Tesseract is installed it also OCR-scans the committed iPhone
-set for private or diagnostic strings.
+**Fallback (CI / no phone):** `generate-store-screenshots.py` still emits Pillow
+renders for dimension/contract smoke — do **not** publish those as the public
+gallery when device frames exist (`generated-manifest.json` `source` should be
+`device-capture-framed-v1` for a ship).
+
+Contracts require: exact Play/iPhone dimensions, six unique assets, non-trivial
+visual distance, and OCR-clean customer copy (no owner hostnames / Tailscale IPs /
+debug probes).
 
 Outputs:
 

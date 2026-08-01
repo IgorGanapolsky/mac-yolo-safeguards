@@ -121,7 +121,14 @@ def scrub_one(src: Path, dest: Path) -> list[str]:
 
 def main() -> int:
     SANITIZED.mkdir(parents=True, exist_ok=True)
-    names = [
+    # Prefer live device captures when present; fall back to legacy stems.
+    preferred = [
+        "01_computer_picker.png",
+        "01_chat_connected.png",
+        "02_leash_approval.png",
+        "04_pair_qr.png",
+        "05_leash.png",
+        "06_settings_machines.png",
         "01_approve.png",
         "02_block.png",
         "03_standing.png",
@@ -129,13 +136,15 @@ def main() -> int:
         "05_thumbgate.png",
         "06_works.png",
     ]
+    names = [n for n in preferred if (RAW / n).exists() or (BACKUP / n).exists()]
+    if not names:
+        raise SystemExit(f"no raw frames under {RAW}")
     for name in names:
-        src = BACKUP / name if (BACKUP / name).exists() else RAW / name
-        if not src.exists():
-            raise SystemExit(f"missing raw frame {name}")
+        src = RAW / name if (RAW / name).exists() else BACKUP / name
         dest = SANITIZED / name
         hits = scrub_one(src, dest)
-        shutil.copy2(dest, RAW / name)
+        # Do not overwrite live device captures with scrubbed copies in RAW —
+        # frame-store-captures prefers SANITIZED.
         print(f"{name}: scrubbed {len(hits)} region(s)")
         for h in hits:
             print(f"  - {h[:100]}")

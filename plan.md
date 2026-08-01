@@ -19,6 +19,8 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 ## 1. Task Board
 
+| T-STORE-ASSETS-REAL-UI-20260801 | Replace Pillow store composites with privacy-scrubbed real-device frames | in_progress | grok-store-real-ui | `hermes-mobile/scripts/frame-store-captures.py`, `hermes-mobile/scripts/capture-store-screenshots.sh`, `hermes-mobile/scripts/sanitize-store-raw-frames.py`, `hermes-mobile/scripts/test-store-screenshot-assets.py`, `hermes-mobile/fastlane/store-capture/`, `hermes-mobile/fastlane/metadata/android/en-US/images/phoneScreenshots/`, `hermes-mobile/fastlane/screenshots/en-US/`, `hermes-mobile/docs/store-assets/`, `plan.md` | Device-sourced 6 Play frames OCR-clean; tests green; PR |
+
 | T-TML-TINKER-ENGAGE-CRON-20260731 | 24/7 LaunchAgent for thinking-machines-lab/tinker-cookbook engagement (capped, ledgered, social-gate) | done | grok-tml-engage | `tools/tml-tinker-engage-loop.js`, `com.igor.tml-tinker-engage.plist`, `tests/test-tml-tinker-engage-loop.js`, `scripts/install-agent-launchagents.sh`, `scripts/verify-agent-automations.sh`, `docs/AGENT-AUTOMATIONS.md`, `plan.md` | unit tests green; LaunchAgent loaded; caps 2/run 6/day |
 | T-MOE-HEALTH-ROUTING-20260731 | Health-aware MoE: quarantine DEAD traffic experts, high-risk default budget, memory-pressure demotion | done | grok-moe-health | `tools/moe-expert-health.js`, `tools/hermes-economic-router.js`, `tests/test-moe-expert-health.js`, `tests/test-hermes-economic-router.js`, `plan.md` | economic-router tests PASS; high-risk+paid defaults to non-local; glm DEAD quarantined in live decision |
 

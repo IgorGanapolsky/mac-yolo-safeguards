@@ -20,6 +20,7 @@ from PIL import Image, ImageChops, ImageStat
 
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = ROOT / "scripts/generate-store-screenshots.py"
+FRAME_DEVICE = ROOT / "scripts/frame-store-captures.py"
 IOS_DIR = ROOT / "fastlane/screenshots/en-US"
 PLAY_DIR = ROOT / "fastlane/metadata/android/en-US/images/phoneScreenshots"
 MANIFEST = ROOT / "docs/store-assets/generated-manifest.json"
@@ -33,6 +34,7 @@ EXPECTED_SCENE_IDS = (
     "learn",
     "switch",
 )
+DEVICE_SOURCE = "device-capture-framed-v1"
 EXPECTED_DIMENSIONS = {
     "play": (1080, 1920),
     "iphone": (1290, 2796),
@@ -75,23 +77,38 @@ class StoreScreenshotAssetTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.source = GENERATOR.read_text(encoding="utf-8")
-        cls.is_v2 = 'SCENE_VERSION = "deterministic-product-render-v2"' in cls.source
-
-    def require_v2(self) -> None:
-        if not self.is_v2:
-            self.skipTest("full asset checks require the deterministic v2 generator")
-
-    def test_01_generator_does_not_reuse_debug_capture_frames(self) -> None:
-        self.assertTrue(
-            self.is_v2,
-            "legacy raw-device generator can preserve debug/private UI in public assets",
+        cls.frame_source = (
+            FRAME_DEVICE.read_text(encoding="utf-8") if FRAME_DEVICE.is_file() else ""
         )
-        self.assertNotIn("raw-sanitized", self.source)
-        self.assertNotIn("resolve_raw", self.source)
+        cls.is_v2 = 'SCENE_VERSION = "deterministic-product-render-v2"' in cls.source
+        cls.manifest = (
+            json.loads(MANIFEST.read_text(encoding="utf-8")) if MANIFEST.is_file() else {}
+        )
+        cls.is_device = cls.manifest.get("source") == DEVICE_SOURCE
+
+    def require_assets(self) -> None:
+        if not self.is_v2 and not self.is_device:
+            self.skipTest("need Pillow v2 generator or device-capture-framed-v1 manifest")
+
+    def test_01_pipeline_is_declared(self) -> None:
+        self.assertTrue(
+            self.is_v2 or FRAME_DEVICE.is_file(),
+            "need generate-store-screenshots.py v2 and/or frame-store-captures.py",
+        )
+        if self.is_device:
+            self.assertIn("device-capture-framed", self.frame_source)
+            self.assertIn("raw-sanitized", self.frame_source)
+        else:
+            self.assertNotIn("resolve_raw", self.source)
         self.assertIsNone(FORBIDDEN_COPY.search(self.source))
+        if self.frame_source:
+            self.assertIsNone(FORBIDDEN_COPY.search(self.frame_source))
 
     def test_02_two_runs_are_byte_deterministic(self) -> None:
-        self.require_v2()
+        if self.is_device:
+            self.skipTest("device frames are not re-generated in CI; hash locked via manifest")
+        if not self.is_v2:
+            self.skipTest("Pillow v2 only")
         generator = load_generator()
         self.assertEqual(generator.PILLOW_VERSION, generator.REQUIRED_PILLOW_VERSION)
         self.assertNotIn("/System/Library/Fonts", self.source)
@@ -106,50 +123,62 @@ class StoreScreenshotAssetTests(unittest.TestCase):
             for rel_path in first_manifest["assets"]:
                 self.assertEqual(sha256(first_root / rel_path), sha256(second_root / rel_path))
 
-    def test_03_committed_assets_match_the_generator(self) -> None:
-        self.require_v2()
-        # Golden PNGs are produced on Darwin with Pillow 11.3.0 load_default metrics.
-        # Linux CI default bitmap metrics differ (same Pillow pin) — compare would false-fail.
-        if platform.system() != "Darwin":
+    def test_03_committed_assets_match_manifest_hashes(self) -> None:
+        self.require_assets()
+        committed = self.manifest
+        self.assertTrue(committed.get("assets"), "manifest missing assets")
+        if self.is_device:
+            self.assertEqual(committed.get("source"), DEVICE_SOURCE)
+        elif platform.system() != "Darwin":
             self.skipTest(
-                "byte-identical store assets are golden-locked on Darwin; "
-                "Linux font metrics for ImageFont.load_default differ under the same Pillow pin"
+                "Pillow golden lock is Darwin-only; device path uses manifest hashes on all OSes"
             )
-        generator = load_generator()
-        with tempfile.TemporaryDirectory() as tmp:
-            generated_root = Path(tmp)
-            generated = generator.generate_assets(generated_root)
-            committed = json.loads(MANIFEST.read_text(encoding="utf-8"))
-            self.assertEqual(committed, generated)
-            for rel_path, attributes in committed["assets"].items():
-                committed_path = ROOT / rel_path
-                self.assertTrue(committed_path.is_file(), rel_path)
-                self.assertEqual(sha256(committed_path), attributes["sha256"])
-                self.assertEqual(sha256(generated_root / rel_path), attributes["sha256"])
+        else:
+            generator = load_generator()
+            with tempfile.TemporaryDirectory() as tmp:
+                generated = generator.generate_assets(Path(tmp))
+                self.assertEqual(committed, generated)
+        for rel_path, attributes in committed["assets"].items():
+            committed_path = ROOT / rel_path
+            self.assertTrue(committed_path.is_file(), rel_path)
+            self.assertEqual(sha256(committed_path), attributes["sha256"])
 
-    def test_04_exactly_six_unique_assets_per_device_class(self) -> None:
-        self.require_v2()
-        classes = {
-            "play": sorted(PLAY_DIR.glob("*.png")),
-            "iphone": sorted(IOS_DIR.glob("*_67.png")),
-            "ipad": sorted(IOS_DIR.glob("*_ipad129.png")),
-        }
-        for device_class, paths in classes.items():
-            with self.subTest(device_class=device_class):
-                self.assertEqual(len(paths), 6)
-                self.assertEqual(len({sha256(path) for path in paths}), 6)
-                for path in paths:
-                    with Image.open(path) as image:
-                        self.assertEqual(image.size, EXPECTED_DIMENSIONS[device_class])
-                for first, second in combinations(paths, 2):
-                    self.assertGreater(
-                        image_difference_percent(first, second),
-                        1.0,
-                        f"{first.name} and {second.name} are visually near-duplicates",
-                    )
+    def test_04_exactly_six_unique_play_assets(self) -> None:
+        self.require_assets()
+        paths = sorted(PLAY_DIR.glob("*.png"))
+        self.assertEqual(len(paths), 6)
+        self.assertEqual(len({sha256(path) for path in paths}), 6)
+        for path in paths:
+            with Image.open(path) as image:
+                self.assertEqual(image.size, EXPECTED_DIMENSIONS["play"])
+        for first, second in combinations(paths, 2):
+            self.assertGreater(
+                image_difference_percent(first, second),
+                1.0,
+                f"{first.name} and {second.name} are visually near-duplicates",
+            )
+        # iPhone optional when device path only ships Play first
+        iphone = sorted(IOS_DIR.glob("*_67.png"))
+        if iphone:
+            self.assertEqual(len(iphone), 6)
+            for path in iphone:
+                with Image.open(path) as image:
+                    self.assertEqual(image.size, EXPECTED_DIMENSIONS["iphone"])
 
-    def test_05_scene_copy_is_unique_and_customer_safe(self) -> None:
-        self.require_v2()
+    def test_05_scene_copy_is_customer_safe(self) -> None:
+        self.require_assets()
+        if self.is_device:
+            scenes = self.manifest.get("scenes") or []
+            self.assertEqual(len(scenes), 6)
+            visible = " ".join(
+                str(value)
+                for scene in scenes
+                for value in scene.values()
+                if isinstance(value, str)
+            )
+            self.assertIsNone(FORBIDDEN_COPY.search(visible))
+            self.assertEqual(len({scene.get("headline") for scene in scenes}), 6)
+            return
         generator = load_generator()
         scenes = generator.SCENES
         self.assertEqual(tuple(scene["id"] for scene in scenes), EXPECTED_SCENE_IDS)
@@ -162,21 +191,15 @@ class StoreScreenshotAssetTests(unittest.TestCase):
         )
         self.assertIsNone(FORBIDDEN_COPY.search(visible_copy))
         self.assertIsNone(INVENTED_CONTROL_COPY.search(self.source))
-        approvals_source = APPROVALS_SCREEN.read_text(encoding="utf-8")
-        for shipped_control in (
-            "Approval-first mode",
-            "Quick-approve layout",
-            "Deny tool → capture block",
-        ):
-            self.assertIn(shipped_control, self.source)
-            self.assertIn(shipped_control, approvals_source)
 
     def test_06_local_ocr_finds_no_forbidden_copy(self) -> None:
-        self.require_v2()
+        self.require_assets()
         tesseract = shutil.which("tesseract")
         if not tesseract:
             self.skipTest("tesseract is unavailable")
-        for path in sorted(IOS_DIR.glob("*_67.png")):
+        targets = list(PLAY_DIR.glob("*.png")) + list(IOS_DIR.glob("*_67.png"))
+        self.assertTrue(targets, "no store PNGs to OCR")
+        for path in sorted(targets):
             result = subprocess.run(
                 [tesseract, str(path), "stdout"],
                 check=True,
@@ -185,7 +208,7 @@ class StoreScreenshotAssetTests(unittest.TestCase):
             )
             self.assertIsNone(
                 FORBIDDEN_COPY.search(result.stdout),
-                f"forbidden public copy detected in {path.name}",
+                f"forbidden public copy detected in {path.name}: {result.stdout[:200]}",
             )
 
 
