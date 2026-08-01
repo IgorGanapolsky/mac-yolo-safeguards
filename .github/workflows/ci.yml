@@ -23,16 +23,13 @@ jobs:
   # 2026-07-30: PR runs on macos-latest sat queued forever (GitHub-hosted macOS starvation)
   # and blocked required check "macOS guard kit" → merges stuck. Keep job name for branch protection.
   macos-guard:
-<<<<<<< HEAD
-    name: Repository guard kit & static checks
-||||||| b9e35672c
+    # Job NAME must stay "macOS guard kit" even though the job no longer runs on
+    # macOS: it is a required check in branch protection, and renaming it makes
+    # every PR wait forever on a check that will never report. The comment above
+    # says exactly this, and a diff3 merge overwrote it anyway on 2026-07-31,
+    # leaving conflict markers committed to HEAD and ci.yml unparseable — so CI
+    # was not skipping tests, it was not running at all.
     name: macOS guard kit
-    # PRs on GitHub-hosted macOS (free for public repo) so guard-kit is not stuck
-    # behind the single mini self-hosted hermes-e2e runner (see PR #1151).
-    runs-on: ${{ github.event_name == 'pull_request' && 'macos-latest' || fromJSON('["self-hosted", "macos-arm64", "hermes-e2e"]') }}
-=======
-    name: macOS guard kit
->>>>>>> origin/main
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -53,6 +50,36 @@ jobs:
           fi
           git diff --name-only "${BASE_SHA}" HEAD \
             | node tools/plan-coordination-snapshot.js check-ownership --stdin
+
+      # Conflict-marker guard. Second occurrence of this class: PR #1190 removed "a
+      # stray diff3 conflict marker committed to main", and on 2026-07-31 a diff3
+      # merge committed markers into ci.yml itself — which made the workflow
+      # unparseable, so CI was not failing, it was not running. A broken CI file is
+      # the one bug that disables every other check, so this runs first and cheap.
+      - name: No merge conflict markers
+        run: |
+          set -eu
+          if git grep -nE '^(<<<<<<< |>>>>>>> |\|\|\|\|\|\|\| )' -- ':!node_modules'; then
+            echo "::error::Merge conflict markers committed. Resolve before merging."
+            exit 1
+          fi
+          echo "no conflict markers"
+
+      - name: Workflow files parse
+        run: |
+          set -eu
+          python3 - <<'PY'
+          import glob, sys, yaml
+          bad = 0
+          for path in glob.glob(".github/workflows/*.yml"):
+              try:
+                  yaml.safe_load(open(path))
+                  print(f"ok   {path}")
+              except Exception as exc:
+                  print(f"FAIL {path}: {exc}")
+                  bad += 1
+          sys.exit(1 if bad else 0)
+          PY
 
       - name: JavaScript syntax
         run: |
@@ -252,6 +279,31 @@ jobs:
 
       - name: Rich-text composer contract
         run: node tests/test-compose-in-editor.js
+
+      # Restored 2026-07-31 — these steps were wiped by the same diff3 merge that
+      # committed conflict markers into this file. Each guards a failure that
+      # already shipped; see the header comment in the corresponding tool.
+      - name: Duplicate-publish guard
+        run: node tests/test-publish-once.js
+
+      - name: Publishing gates
+        run: node tests/test-publishing-gates.js
+
+      - name: Outreach lead qualification
+        run: node tests/test-reddit-lead-qualify.js
+
+      - name: Content engine preflight contract
+        run: node tests/test-engine-preflight.js
+
+      # Five guessed role addresses hard-bounced within one minute on 2026-07-31,
+      # a design-partner pitch went to a security@ disclosure inbox, and four
+      # unrelated founders shared one To: line. docs/REVENUE-LOOP.md already banned
+      # guessed addresses — as prose, which nothing ran.
+      - name: Outreach deliverability gate
+        run: node tests/test-outreach-preflight.js
+
+      - name: Pricing model freshness
+        run: node tools/pricing-model-freshness.js
 
       # ML integrity (fail-closed) — offline platform bar; does not require Stripe/labels.
       - name: ML integrity + platform gate
