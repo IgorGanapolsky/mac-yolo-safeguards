@@ -251,6 +251,179 @@ test('too few seeds is refused even when every run looks good', async () => {
   fs.rmSync(env.dir, { recursive: true, force: true });
 });
 
+// ---------------------------------------------------------------------------
+// LABEL LEAKAGE — the defect that invalidated the first CERTIFIED result.
+//
+// build_dataset.py writes `lesson` only AFTER the outcome is known, so rows
+// literally begin "MISTAKE: ..." or "SUCCESS: ...". Measured on the live
+// corpus: 1280 of 1298 usable rows come from `lesson`, 84.7% contain an
+// outcome word, and the label is recoverable from that ONE word 97.0% of the
+// time. A six-line regex scored kappa 0.772 on it; the LLM judge scored 0.644.
+//
+// The judge was WORSE than the cheat, and the old gate (kappa >= 0.40)
+// certified it anyway. Kappa-over-chance was the wrong bar.
+// ---------------------------------------------------------------------------
+const { stripOutcomeMarkers, trivialBaseline } = require(path.join(ROOT, 'tools', 'llm-judge-calibrate.js'));
+
+test('outcome markers are stripped so a judge cannot echo the label', () => {
+  for (const [raw, banned] of [
+    ['MISTAKE: the deploy failed', 'MISTAKE'],
+    ['SUCCESS: it worked first try', 'SUCCESS'],
+    ['user gave thumbs down on this', 'thumbs down'],
+    ['the run FAILED overnight', 'FAILED'],
+  ]) {
+    const out = stripOutcomeMarkers(raw);
+    assert.ok(!new RegExp(banned.replace(' ', '[ _-]?'), 'i').test(out),
+      `"${banned}" survived stripping: ${out}`);
+  }
+});
+
+test('stripping preserves the substantive text', () => {
+  const out = stripOutcomeMarkers('MISTAKE: the deploy targeted the wrong cluster');
+  assert.match(out, /deploy targeted the wrong cluster/,
+    'stripping must remove the marker, not gut the transcript');
+});
+
+test('the trivial baseline reads the leak — that is the point', () => {
+  assert.equal(trivialBaseline('MISTAKE: broken'), 'negative');
+  assert.equal(trivialBaseline('SUCCESS: fine'), 'positive');
+  // No marker -> majority class, which is what a cheat with no signal scores.
+  assert.equal(trivialBaseline('an ordinary sentence'), 'positive');
+});
+
+test('a leak-echoing judge is REFUSED, and told it lost to a regex', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'leak-'));
+  const p = path.join(dir, 'l.jsonl');
+  fs.writeFileSync(p, Array.from({ length: 200 }, (_, i) => {
+    const neg = i % 2 === 0;
+    return JSON.stringify({
+      id: `r${i}`,
+      signal: neg ? 'negative' : 'positive',
+      lesson: `${neg ? 'MISTAKE: ' : 'SUCCESS: '}a sufficiently long body of text ${i} to clear the filter`,
+    });
+  }).join('\n'));
+  const prev = process.env.JUDGE_LABELS_PATH;
+  process.env.JUDGE_LABELS_PATH = p;
+  delete require.cache[require.resolve(path.join(ROOT, 'tools', 'llm-judge-calibrate.js'))];
+  // eslint-disable-next-line global-require
+  const fresh = require(path.join(ROOT, 'tools', 'llm-judge-calibrate.js'));
+  const echo = async ({ messages }) => ({
+    ok: true,
+    content: JSON.stringify({
+      verdict: /MISTAKE|FAIL/i.test(messages[messages.length - 1].content) ? 'negative' : 'positive',
+      confidence: 0.9, reason: 'echo',
+    }),
+  });
+  const r = await fresh.calibrate({ n: 60, seed: 7, judgeOpts: { transport: echo } });
+  assert.equal(r.certified, false, 'a judge that only echoes leaked markers must NOT certify');
+  assert.ok(r.baselineKappa > r.kappa, 'the regex must be shown beating it');
+  assert.ok(r.notCertifiedBecause.some((x) => /trivial regex baseline/.test(x)),
+    `must name the baseline as the reason, got: ${r.notCertifiedBecause.join(' | ')}`);
+  if (prev === undefined) delete process.env.JUDGE_LABELS_PATH; else process.env.JUDGE_LABELS_PATH = prev;
+  delete require.cache[require.resolve(path.join(ROOT, 'tools', 'llm-judge-calibrate.js'))];
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// Each gate below is the ONLY thing preventing certification, so removing that
+// gate flips `certified` to true and the test fails. The first draft of these
+// asserted on the REASON TEXT while the judge also failed the kappa floor —
+// so dropping a gate changed nothing observable and 3 of 5 mutations survived.
+// A test must turn on the decision, not on the message.
+
+// Corpus with NO leak: label is not recoverable from the text.
+function cleanCorpus(n = 240) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'clean-'));
+  const p = path.join(dir, 'c.jsonl');
+  fs.writeFileSync(p, Array.from({ length: n }, (_, i) => JSON.stringify({
+    id: `r${i}`,
+    signal: i % 2 === 0 ? 'negative' : 'positive',
+    triggerMessage: `transcript number ${i} describing some agent behaviour at length`,
+  })).join('\n'));
+  return { dir, p };
+}
+async function calibrateWith(corpusPath, opts) {
+  const prev = process.env.JUDGE_LABELS_PATH;
+  process.env.JUDGE_LABELS_PATH = corpusPath;
+  delete require.cache[require.resolve(path.join(ROOT, 'tools', 'llm-judge-calibrate.js'))];
+  // eslint-disable-next-line global-require
+  const fresh = require(path.join(ROOT, 'tools', 'llm-judge-calibrate.js'));
+  const r = await fresh.calibrate(opts);
+  if (prev === undefined) delete process.env.JUDGE_LABELS_PATH; else process.env.JUDGE_LABELS_PATH = prev;
+  delete require.cache[require.resolve(path.join(ROOT, 'tools', 'llm-judge-calibrate.js'))];
+  return r;
+}
+// Answers correctly `acc` of the time; label comes from the fixture id parity,
+// which the judge could not read from the text — so kappa is genuine.
+const oracle = (acc) => {
+  let i = 0;
+  return async ({ messages }) => {
+    const m = /number (\d+)/.exec(messages[messages.length - 1].content);
+    const truth = m && Number(m[1]) % 2 === 0 ? 'negative' : 'positive';
+    const right = (i += 1) % 100 < acc * 100;
+    const v = right ? truth : (truth === 'negative' ? 'positive' : 'negative');
+    return { ok: true, content: JSON.stringify({ verdict: v, confidence: 0.9, reason: 'x' }) };
+  };
+};
+
+test('GATE: a judge that loses to the baseline is refused ON THAT GROUND ALONE', async () => {
+  // Leaky corpus so the baseline scores high; judge is strong but not stronger.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-'));
+  const p = path.join(dir, 'g.jsonl');
+  fs.writeFileSync(p, Array.from({ length: 240 }, (_, i) => {
+    const neg = i % 2 === 0;
+    return JSON.stringify({
+      id: `r${i}`, signal: neg ? 'negative' : 'positive',
+      lesson: `${neg ? 'MISTAKE: ' : 'SUCCESS: '}number ${i} a long enough body to pass the filter`,
+    });
+  }).join('\n'));
+  const r = await calibrateWith(p, { n: 80, seed: 3, judgeOpts: { transport: oracle(0.85) } });
+  assert.ok(r.kappa >= 0.4, `judge must clear the kappa floor for this to isolate the gate, got ${r.kappa}`);
+  assert.ok(r.baselineKappa >= r.kappa, `baseline must win here, got base=${r.baselineKappa} judge=${r.kappa}`);
+  assert.equal(r.certified, false, 'losing to a six-line regex must block certification');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('GATE: low attempted-coverage is refused ON THAT GROUND ALONE', async () => {
+  const { dir, p } = cleanCorpus();
+  // Perfect judge, but half the attempts die in transport.
+  let n = 0;
+  const flaky = async (args) => {
+    n += 1;
+    if (n % 2 === 0) return { ok: false, error: 'transport blew up' };
+    return oracle(1)(args);
+  };
+  const r = await calibrateWith(p, { n: 80, seed: 5, judgeOpts: { transport: flaky } });
+  assert.ok(r.kappa >= 0.4, `judge kappa must be high to isolate coverage, got ${r.kappa}`);
+  assert.ok(r.coverage < 0.8, `coverage must be low, got ${r.coverage}`);
+  assert.equal(r.certified, false, 'a biased surviving subset must not certify');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('GATE: null-confidence verdicts are excluded from the scored set', async () => {
+  const { dir, p } = cleanCorpus();
+  const noConf = async ({ messages }) => {
+    const m = /number (\d+)/.exec(messages[messages.length - 1].content);
+    const truth = m && Number(m[1]) % 2 === 0 ? 'negative' : 'positive';
+    // confidence 42 is out of range -> judge() nulls it -> must not be scored.
+    return { ok: true, content: JSON.stringify({ verdict: truth, confidence: 42 }) };
+  };
+  const r = await calibrateWith(p, { n: 60, seed: 9, judgeOpts: { transport: noConf } });
+  assert.equal(r.n, 0, `no verdict had valid confidence, so none may be scored; got n=${r.n}`);
+  assert.ok(r.droppedNoConfidence > 0, 'the drop must be reported, not silent');
+  assert.equal(r.certified, false);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('a genuinely good judge on CLEAN data still certifies', async () => {
+  // Guards the opposite failure: gates so strict nothing can ever pass.
+  const { dir, p } = cleanCorpus();
+  const r = await calibrateWith(p, { n: 80, seed: 11, judgeOpts: { transport: oracle(0.95) } });
+  assert.ok(r.kappa > 0.7, `expected a strong kappa, got ${r.kappa}`);
+  assert.ok(r.baselineKappa < 0.2, `clean corpus must starve the baseline, got ${r.baselineKappa}`);
+  assert.equal(r.certified, true, `a real judge on unleaked data must certify: ${r.notCertifiedBecause}`);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 (async () => {
   for (const [name, fn] of tests) {
     try {

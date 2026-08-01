@@ -38,7 +38,15 @@ const path = require('path');
 const { judge, JUDGE_MODEL, JUDGE_PROMPT_VERSION } = require('./llm-judge.js');
 
 const KAPPA_FLOOR = 0.4;   // "moderate" agreement (Landis & Koch). Below this the judge is not a signal.
-const MIN_SAMPLE = 30;     // too few and the interval is wider than the number itself.
+const MIN_SAMPLE = 30;
+// Certification must beat the trivial heuristic, not merely chance. Measured
+// 2026-07-31: the regex scores kappa 0.772 on the raw corpus while the LLM
+// judge scored 0.644 — the judge was WORSE than six lines of regex, and the
+// old gate (kappa >= 0.40) certified it anyway.
+const BASELINE_MARGIN = 0.05;
+// Scored/attempted floor. Failures concentrate on hard cases, so a high kappa
+// over a small surviving subset is biased optimistic.
+const MIN_COVERAGE = 0.8;     // too few and the interval is wider than the number itself.
 
 const LABELS_PATH = process.env.JUDGE_LABELS_PATH
   || path.join(os.homedir(), '.thumbgate', 'lessons-index.jsonl');
@@ -56,6 +64,37 @@ function mulberry32(seed) {
   };
 }
 
+// Outcome markers written AFTER the fact, which leak the label into the text.
+//
+// build_dataset.py writes `lesson` only once the outcome is known, so a row can
+// literally begin "MISTAKE: ..." or "SUCCESS: ...". Measured on the live corpus:
+// 1280 of 1298 usable rows come from `lesson` rather than `triggerMessage`,
+// 84.7% of those contain an outcome word, and the label is recoverable from
+// that ONE word 97.0% of the time.
+//
+// Calibrating on that text does not measure judgement. It measures whether the
+// model can echo a word it was handed.
+const OUTCOME_MARKER = /\b(SUCCESS|MISTAKE|FAIL(?:ED|URE)?|WORKED|thumbs?[ _-]?(?:up|down))\b/gi;
+
+function stripOutcomeMarkers(text) {
+  return String(text || '').replace(OUTCOME_MARKER, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// The bar a judge must clear to be worth anything: a six-line heuristic on the
+// SAME data. Reported alongside every calibration so an LLM that merely echoes
+// leaked markers cannot look skilled. On the unstripped corpus this scores
+// kappa 0.772 — higher than the LLM judge's 0.644, which is exactly why
+// certification now compares against it instead of against chance alone.
+const TRIVIAL_POS = /\b(SUCCESS|WORKED|thumbs?[ _-]?up)\b/i;
+const TRIVIAL_NEG = /\b(MISTAKE|FAIL(?:ED|URE)?|thumbs?[ _-]?down)\b/i;
+
+function trivialBaseline(text) {
+  const t = String(text || '');
+  if (TRIVIAL_NEG.test(t)) return 'negative';
+  if (TRIVIAL_POS.test(t)) return 'positive';
+  return 'positive';
+}
+
 function loadLabelled(limit, seed) {
   if (!fs.existsSync(LABELS_PATH)) {
     return { error: `no human-labelled corpus at ${LABELS_PATH} — cannot calibrate` };
@@ -67,11 +106,16 @@ function loadLabelled(limit, seed) {
     try { r = JSON.parse(line); } catch { continue; }
     const label = r.signal;
     if (label !== 'positive' && label !== 'negative') continue;
-    const text = String(r.triggerMessage || r.lesson || '').trim();
+    const raw = String(r.triggerMessage || r.lesson || '').trim();
+    // The judge sees text with outcome markers REMOVED, so it cannot pass by
+    // echoing them. The baseline sees the raw text, which is the honest
+    // comparison: it is the score a cheat would get.
+    const text = stripOutcomeMarkers(raw);
+    const preOutcome = String(r.triggerMessage || '').trim().length >= 40;
     // Very short excerpts carry no signal for EITHER a human or a model; keeping
     // them would measure the corpus's noise floor, not the judge.
     if (text.length < 40) continue;
-    rows.push({ id: r.id, label, text });
+    rows.push({ id: r.id, label, text, raw, preOutcome });
   }
   if (rows.length === 0) return { error: 'labelled corpus present but no usable rows' };
 
@@ -111,7 +155,11 @@ async function calibrate(opts = {}) {
     if (opts.onProgress) opts.onProgress(results.length, loaded.rows.length);
   }
 
-  const scored = results.filter((r) => r.judged.ok);
+  // A verdict whose confidence was missing or out of range is an INCOMPLETE
+  // response, not a successful judgement. Counting it toward kappa lets
+  // malformed output certify a judge (review 2026-07-31).
+  const scored = results.filter((r) => r.judged.ok && r.judged.confidence !== null);
+  const droppedNoConfidence = results.filter((r) => r.judged.ok && r.judged.confidence === null).length;
   const failed = results.length - scored.length;
 
   const m = { tp: 0, tn: 0, fp: 0, fn: 0 };
@@ -139,16 +187,43 @@ async function calibrate(opts = {}) {
   const se = total ? Math.sqrt((accuracy * (1 - accuracy)) / total) : 0;
   const ci95 = [Math.max(0, accuracy - 1.96 * se), Math.min(1, accuracy + 1.96 * se)];
 
-  const certified = total >= MIN_SAMPLE && kappa >= KAPPA_FLOOR;
+  // The trivial heuristic on the SAME rows — the score a cheat gets.
+  const baseKappa = total ? cohensKappa(scored.reduce((m, r) => {
+    const p = trivialBaseline(r.raw) === 'negative';
+    const a = r.label === 'negative';
+    if (p && a) m.tp += 1; else if (!p && !a) m.tn += 1; else if (p && !a) m.fp += 1; else m.fn += 1;
+    return m;
+  }, { tp: 0, tn: 0, fp: 0, fn: 0 }), total) : 0;
+
+  // Attempted-sample coverage. Certification previously considered only
+  // SUCCESSFUL responses, so a requested 60 could lose half its hard or
+  // ambiguous cases to transport/parse failures and still certify from the
+  // survivors. Those failures are not random, so kappa on the remainder is
+  // biased optimistic (review 2026-07-31).
+  const attempted = results.length;
+  const coverage = attempted ? total / attempted : 0;
+
+  const certified = total >= MIN_SAMPLE
+    && kappa >= KAPPA_FLOOR
+    && coverage >= MIN_COVERAGE
+    && kappa > baseKappa + BASELINE_MARGIN;
   const reasons = [];
   if (total < MIN_SAMPLE) reasons.push(`sample ${total} < required ${MIN_SAMPLE}`);
   if (kappa < KAPPA_FLOOR) reasons.push(`kappa ${kappa.toFixed(3)} < floor ${KAPPA_FLOOR}`);
+  if (coverage < MIN_COVERAGE) {
+    reasons.push(`coverage ${(coverage * 100).toFixed(1)}% < ${MIN_COVERAGE * 100}% `
+      + `(${total} scored of ${attempted} attempted) — dropped cases are not random`);
+  }
+  if (kappa <= baseKappa + BASELINE_MARGIN) {
+    reasons.push(`kappa ${kappa.toFixed(3)} does not beat the trivial regex baseline `
+      + `${baseKappa.toFixed(3)} by ${BASELINE_MARGIN} — a six-line heuristic is cheaper and better`);
+  }
 
   return {
     ok: true,
     certified,
     notCertifiedBecause: reasons,
-    model: JUDGE_MODEL,
+    model: (opts.judgeOpts && opts.judgeOpts.model) || JUDGE_MODEL,
     promptVersion: JUDGE_PROMPT_VERSION,
     corpus: { path: LABELS_PATH, usableRows: loaded.total, sampled: loaded.rows.length, seed },
     judgeFailures: failed,
@@ -159,6 +234,11 @@ async function calibrate(opts = {}) {
     majorityBaseline,
     liftOverBaseline: accuracy - majorityBaseline,
     kappa,
+    baselineKappa: baseKappa,
+    kappaOverBaseline: kappa - baseKappa,
+    coverage,
+    attempted,
+    droppedNoConfidence,
     precisionNegative: precision,
     recallNegative: recall,
     f1Negative: f1,
@@ -238,7 +318,7 @@ async function certifyAcrossSeeds(opts = {}) {
 }
 
 module.exports = {
-  calibrate, certifyAcrossSeeds, cohensKappa, loadLabelled, KAPPA_FLOOR, MIN_SAMPLE, MIN_SEEDS,
+  calibrate, stripOutcomeMarkers, trivialBaseline, certifyAcrossSeeds, cohensKappa, loadLabelled, KAPPA_FLOOR, MIN_SAMPLE, MIN_SEEDS,
 };
 
 if (require.main === module) {
