@@ -291,7 +291,7 @@ export function buildDemoGateBlockedEvent(): GatewayEventMessage {
     event: 'GATE.BLOCKED',
     timestamp: new Date().toISOString(),
     payload: {
-      actionId: `demo_${Date.now()}`,
+      actionId: 'demo_preview',
       toolName: 'run_command',
       reason: 'Pre-action rule blocked execution to prevent memory runaway.',
       command: 'node tests/test-runaway.js --force-leak',

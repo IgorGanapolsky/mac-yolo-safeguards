@@ -2,6 +2,7 @@ import {
   normalizeGatewayUrl,
   gateBlockedToPending,
   buildGateActionMessage,
+  buildDemoGateBlockedEvent,
   buildEventsWebSocketUrl,
   fetchGatewayHealth,
   probeGatewayAuth,
@@ -11,6 +12,7 @@ import {
   parseGatewayEvent,
   parseReclaimEvent,
 } from '../services/gatewayClient';
+import { dedupeAndCapPendingApprovals } from '../utils/pendingApprovalsCap';
 
 function classifyHealth(body: Record<string, unknown>, errorMessage?: string) {
   if (errorMessage) return 'red';
@@ -283,5 +285,23 @@ describe('health classification', () => {
 
   it('returns green for ok+running', () => {
     expect(classifyHealth({ status: 'ok', gateway_state: 'running' })).toBe('green');
+  });
+});
+
+describe('buildDemoGateBlockedEvent (Preview Approval smoke)', () => {
+  it('produces a STABLE actionId so repeated Preview presses do not append duplicate cards', () => {
+    // Regression: actionId was `demo_${Date.now()}` -> unique per call -> defeated
+    // GatewayContext.injectSmokeApproval's actionId dedup (3704) -> N presses = N cards.
+    const a = buildDemoGateBlockedEvent();
+    const b = buildDemoGateBlockedEvent();
+    expect(a.payload?.actionId).toBe('demo_preview');           // stable constant
+    expect(a.payload?.actionId).toBe(b.payload?.actionId);     // same across calls
+    expect(a.payload?.actionId).not.toMatch(/demo_\d+$/);       // not the buggy time-varying form
+    // Mirrors injectSmokeApproval: [pending, ...prev] then dedupeAndCap.
+    const stacked = dedupeAndCapPendingApprovals([
+      gateBlockedToPending(b)!,
+      gateBlockedToPending(a)!,
+    ]);
+    expect(stacked).toHaveLength(1);                           // one card, not two
   });
 });
