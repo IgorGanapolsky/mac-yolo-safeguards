@@ -1,5 +1,16 @@
 # Hermes Mobile — testing
 
+**August 2026 practice:** see [MOBILE-TESTING-AUGUST-2026.md](./MOBILE-TESTING-AUGUST-2026.md) (pyramid, tiers, OTA, anti-patterns). Research: [RESEARCH-MOBILE-TESTING-AUGUST-2026.md](./RESEARCH-MOBILE-TESTING-AUGUST-2026.md).
+
+| Continuous tier | Command |
+|---|---|
+| core (default) | `npm run e2e:continuous:once` |
+| connection | `npm run e2e:continuous:once:connection` |
+| full (pre-OTA) | `npm run e2e:continuous:once:full` or `npm run e2e:fresh-user` |
+
+`e2e=skipped` is **yellow SLO**, not pass. Production OTA: `npm run ota:gate` only.
+
+
 ## Layers (prevents shipping broken APKs)
 
 | Layer | Command | Catches |
@@ -89,7 +100,9 @@ Runs **329 unit tests + Maestro ship-guard + chat-send-persistence** on a schedu
 
 | Command | What |
 |---|---|
-| `npm run e2e:continuous:once` | Single cycle now |
+| `npm run e2e:continuous:once` | Single cycle now (tier `core`) |
+| `npm run e2e:continuous:once:connection` | core + leash/wrong-key |
+| `npm run e2e:continuous:once:full` | connection + stranger cold-start |
 | `npm run e2e:continuous` | Background daemon (every 15 min) |
 | `npm run e2e:continuous:watch` | Re-run on `src/` changes |
 | `npm run e2e:continuous:status` | LaunchAgent + last result |

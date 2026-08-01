@@ -37,10 +37,49 @@ else
 fi
 LOAD_WAIT_SEC="${HERMES_E2E_LOAD_WAIT_SEC:-900}"
 MAX_SIMRUNTIME_PROCS="${HERMES_E2E_MAX_SIMRUNTIME_PROCS:-80}"
-E2E_FLOWS=(
+# August 2026 practice: cheap continuous core; connection/full tiers on demand.
+# HERMES_E2E_TIER=core|connection|full  (default core)
+E2E_TIER="${HERMES_E2E_TIER:-core}"
+E2E_FLOWS_CORE=(
   ".maestro/ship-guard.yaml" # includes regression-composer-typeable (#91 keyboard hit-rect)
   ".maestro/chat-send-persistence.yaml"
 )
+E2E_FLOWS_CONNECTION=(
+  ".maestro/leash-connection.yaml"
+  ".maestro/wrong-key-repair.yaml"
+)
+E2E_FLOWS_FULL=(
+  ".maestro/stranger-cold-start.yaml"
+)
+
+build_e2e_flows() {
+  E2E_FLOWS=("${E2E_FLOWS_CORE[@]}")
+  case "$E2E_TIER" in
+    core) ;;
+    connection)
+      E2E_FLOWS+=("${E2E_FLOWS_CONNECTION[@]}")
+      ;;
+    full)
+      E2E_FLOWS+=("${E2E_FLOWS_CONNECTION[@]}")
+      E2E_FLOWS+=("${E2E_FLOWS_FULL[@]}")
+      ;;
+    *)
+      echo "Unknown HERMES_E2E_TIER=$E2E_TIER (use core|connection|full)" >&2
+      exit 2
+      ;;
+  esac
+  # Drop missing flow files so optional flows do not hard-fail older checkouts.
+  local filtered=()
+  local f
+  for f in "${E2E_FLOWS[@]}"; do
+    if [[ -f "$HERMES_DIR/$f" ]]; then
+      filtered+=("$f")
+    else
+      echo "continuous E2E: skip missing flow $f" >&2
+    fi
+  done
+  E2E_FLOWS=("${filtered[@]}")
+}
 
 usage() {
   cat <<EOF
@@ -51,10 +90,18 @@ Usage: $(basename "$0") [--once|--daemon|--watch|--stop]
   --watch    Re-run when hermes-mobile/src changes (debounced)
   --stop     Stop a running --daemon background process
 
+Env:
+  HERMES_E2E_TIER=core|connection|full   default core
+    core        ship-guard + chat-send-persistence
+    connection  + leash-connection + wrong-key-repair
+    full        + stranger-cold-start (pre-OTA / nightly)
+
 Logs:  ${LOG_DIR}/
 Status: ${LATEST_JSON}
 EOF
 }
+
+build_e2e_flows
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

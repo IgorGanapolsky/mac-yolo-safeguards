@@ -1,0 +1,887 @@
+{
+  "run_id": "trun_530cc911f7344667907913723de5ba62",
+  "interaction_id": "trun_530cc911f7344667907913723de5ba62",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_530cc911f7344667907913723de5ba62",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Assessment reasoning:\n- Completeness: The provided field_answer covers a broad, structured set of topics requested in the query for August 2026 best practices, including the testing pyramid interpretation, tool recommendations (Maestro, Detox, Appium, agent-device, Espresso, XCUITest), strategies to reduce flaky E2E tests, real-device continuous testing, fresh-user/cold-start scenarios, network/connection reliability tests, visual regression, startup/jank performance, CI cost optimization, contract vs UI testing, accessibility considerations, OTA release gates, and practical guidance for a chat/agent companion app pairing phone to desktop via Tailscale. It also includes an actionable checklist and a realistic architecture example (Hermes Mobile with Tailscale). Therefore, completeness can be judged true.\n- Excerpts relevance: The excerpts provided include content about Maestro flow conditions, Detox for RN, wait commands, contract testing with Pact, visual testing with Storybook/Chromatic, offline network emulation, runtime versions for OTA, and other relevant concepts. While not every single line in the field_answer is directly echoed in the excerpts, the excerpts collectively support the core claims and recommendations (testing pyramid interpretation, tool choices, contract testing, visual testing, OTA/runtimeVersion, etc.). Hence, the field_answer is supported by excerpts, yielding a true support assessment.",
+        "citations": [
+          {
+            "url": "https://docs.maestro.dev/maestro-flows/flow-control-and-logic/conditions",
+            "excerpts": [
+              "Conditions | Flows\nApr 24, 2026 \u2014 Relying on unstable UI states for conditions can lead to flaky tests. Ensure your visible selectors are unique and reliable. Using notVisible"
+            ],
+            "title": "Conditions | Flows"
+          },
+          {
+            "url": "https://qaskills.sh/blog/detox-react-native-e2e-testing-guide-2026",
+            "excerpts": [
+              "Detox React Native E2E Testing Guide (2026) | QASkills.sh\nLearn Detox for React Native E2E testing in 2026: gray-box automatic synchronization, matchers, actions, assertions, CI setup, and how to kill flaky tests."
+            ],
+            "title": "Detox React Native E2E Testing Guide (2026) | QASkills.sh"
+          },
+          {
+            "url": "https://docs.maestro.dev/maestro-flows/flow-control-and-logic/wait-commands",
+            "excerpts": [
+              "Wait commands | Flows | Maestro Docs\nControl timing with wait commands for animations, network calls, and UI updates. In a perfect world, apps respond instantly. In reality, network latency, slow animations, and background processing can cause tests to fail because Maestro tries to interact with an element that isn't ready yet."
+            ],
+            "title": "Wait commands | Flows | Maestro Docs"
+          },
+          {
+            "url": "http://maestro.dev/insights/best-mobile-app-testing-frameworks",
+            "excerpts": [
+              "Feb 23, 2026 \u2014 Detox is ideal for React Native"
+            ],
+            "title": "The Best Mobile App Testing Frameworks in 2026"
+          },
+          {
+            "url": "https://edgedelta.com/company/knowledge-center/flaky-tests-ci-cd-pipelines",
+            "excerpts": [
+              "Detect & Fix Flaky Tests in CI/CD Pipelines \u2013 How To Do It ...\nFeb 25, 2026 \u2014 This article defines flaky tests, examines their root causes in modern software development, and explores their impact on testing reliability"
+            ],
+            "title": "Detect & Fix Flaky Tests in CI/CD Pipelines \u2013 How To Do It ..."
+          },
+          {
+            "url": "https://docs.pact.io/",
+            "excerpts": [
+              "Introduction | Pact Docs\nPact is a code-first consumer-driven contract testing tool, and is generally used by developers and testers who code. The contract is generated during the execution of the automated consumer tests."
+            ],
+            "title": "Introduction | Pact Docs"
+          },
+          {
+            "url": "https://kindatechnical.com/continuous-integration-continuous-deployment/contract-testing-and-api-compatibility-checks.html",
+            "excerpts": [
+              "Contract Testing and API Compatibility Checks - kindatechnical()\nExplains contract testing with Pact for verifying API compatibility between services without running full integration tests. Covers consumer-driven contracts, provider verification, and the Pact Broker workflow in CI/CD."
+            ],
+            "title": "Contract Testing and API Compatibility Checks - kindatechnical()"
+          },
+          {
+            "url": "https://medium.com/redbee/contract-testing-qu%C3%A9-es-y-c%C3%B3mo-implementarlo-con-pact-4b9ee434dd9e",
+            "excerpts": [
+              "Contract Testing: Qu\u00e9 Es y C\u00f3mo Implementarlo con Pact"
+            ],
+            "title": "Contract Testing: Qu\u00e9 Es y C\u00f3mo Implementarlo con Pact Medium\u00a0\u00b7\u00a0redbee M\u00e1s de 10 \"me gusta\" \u00b7 hace 2 a\u00f1os"
+          },
+          {
+            "url": "https://medium.com/%40ngzhian/chrome-offline-network-emulation-and-websocket-6ecc914e2308",
+            "excerpts": [
+              "Chrome offline network emulation and WebSocket\nMost network calls in Chrome goes through a Fetch API, which has throttling capabilities (offline is equivalent full throttle!), but WebSockets, (and WebRTC"
+            ],
+            "title": "Chrome offline network emulation and WebSocket"
+          },
+          {
+            "url": "https://pactflow.io/blog/what-is-contract-testing",
+            "excerpts": [
+              "What is Contract Testing & How is it Used? - Pactflow\nSep 2, 2023 \u2014 Contract testing is a methodology for ensuring that two separate systems (such as two microservices) are compatible and can communicate with one other."
+            ],
+            "title": "What is Contract Testing & How is it Used? - Pactflow"
+          },
+          {
+            "url": "https://storybook.js.org/docs/writing-tests/visual-testing",
+            "excerpts": [
+              "Visual tests | Storybook docs\nStorybook supports cross-browser visual testing natively using Chromatic, a cloud service made by the Storybook team. When you enable visual testing, every story is automatically turned into a test. This gives you instant feedback on UI bugs directly in Storybook."
+            ],
+            "title": "Visual tests | Storybook docs"
+          },
+          {
+            "url": "http://chromatic.com/storybook",
+            "excerpts": [
+              "Visual testing for Storybook Chromatic catches visual and functional bugs in your stories automatically. It runs UI tests across browsers, viewports, and themes before changes merge. Made by Storybook. Get started for free No credit card required Go to docs muji logo"
+            ],
+            "title": "Visual testing for Storybook \u2022 Chromatic"
+          },
+          {
+            "url": "http://chromatic.com/blog",
+            "excerpts": [
+              "Vitest Visual Testing sneak peek Fast, reliable visual tests, debuggable snapshots, collaborative review loading Kyle Gach May 27, 2026 React Native visual testing sneak peek Test on real iOS and Android simulators, fast and flake-free. loading Varun Vachhar May 13, 2026 Chromatic changelog: April 2026 PR comments, automatic flake tracing, and published MCP loading Varun Vachhar Apr 16, 2026 Published Storybook MCP servers Give your entire organization access to a shared MCP instance to improve generated code quality. Chromatic manages publishing, auth, and versioning. loading Varun Vachhar Mar 23, 2026\nAccessibility Testing & Dashboard are live Introducing our component-driven approach to accessibility loading Dominic Nguyen Jul 02, 2025 Sneak peek: Accessibility Regression Testing Catch accessibility issues where they start \u2013 components loading Dominic Nguyen Mar 11, 2025\nStorybook security advisory Impacted versions 7\u201310. Patches available now. loading Dominic Nguyen Dec 17, 2025 Chromatic changelog: Dec 2025 Accessibility testing updates for faster triage and Page Shift Detection upgrades loading Varun Vachhar Nov 25, 2025\nChromatic changelog: April 2026 PR comments, automatic flake tracing, and published MCP\nPlatform Solutions Docs Resources Pricing Contact Contact News and updates Search \u2705 Visual Testing \ud83d\udcd5 Storybook \ud83d\udc69\ud83c\udffd\ud83d\udcbb Front-end development \ud83d\udcf2 UI + 32 more [](https://twitter.com/chromaui) Automatic flaky-test filtering Chromatic now auto-detects unstable tests, so you can focus on real changes without getting blocked by flakes loading Varun Vachhar Jul 14, 2026 Vitest Visual Testing sneak peek Fast, reliable visual tests, debuggable snapshots, collaborative review loading Kyle Gach May 27, 2026 React Native visual testing sneak peek Test on real iOS and Android simulators, fast and flake-free. loading Varun Vachhar May 13, 2026 Chromatic changelog: April 2026 PR comments, automatic flake tracing, and published MCP loading Varun Vachhar Apr 16, 2026 Published Storybook MCP servers Give your entire organization access to a shared MCP instance to improve generated code quality. Chromatic manages publishing, auth, and versioning. loading Varun Vachhar Mar 23, 2026 Storybook security advisory Impacted versions 7\u201310. Patches available now. loading Dominic Nguyen Dec 17, 2025 Chromatic changelog: Dec 2025 Accessibility testing updates for faster triage and Page Shift Detection upgrades loading Varun Vachhar Nov 25, 2025 Get in-depth frontend guides emailed to you Our team researches UI development best practices, summarizes our findings, and writes in-depth guides. Your email Send 4,232 developers and counting Capture 8 is now available Automatic Shadow DOM support and better handling of out-of-root elements loading Varun Vachhar Nov 04, 2025 How to automate UI Testing from scratch Learn how to implement effective UI testing from the ground up, ensuring your applications are both robust and user-friendly. loading Varun Vachhar Oct 28, 2025 Introducing SteadySnap Updates to our algorithm that reduces test flake by stabilizing frontend rendering loading Varun Vachhar Sep 03, 2025 Accessibility Testing & Dashboard are live Introducing our component-driven approach to accessibility loading Dominic Nguyen Jul 02, 2025 Sneak peek: Accessibility Regression Testing Catch accessibility issues where they start \u2013 components\nPublished Storybook MCP servers Give your entire organization access to a shared MCP instance to improve generated code quality. Chromatic manages publishing, auth, and versioning."
+            ],
+            "title": "Articles | Chromatic"
+          },
+          {
+            "url": "https://medium.com/%40islamrustamov/how-react-native-improved-from-2023-to-2025-animation-stress-testing-and-a-little-bit-of-flutter-edd44297b815",
+            "excerpts": [
+              "How React Native improved from 2023 to 2025? Animation stress ...\n30 dic 2024 \u00b7 ... performance of React Native with Skia and Reanimated has increased a lot. For example, in 2023 when I tested RN + Skia + Reanimated on 1500"
+            ],
+            "title": "How React Native improved from 2023 to 2025? Animation stress ..."
+          },
+          {
+            "url": "https://www.npmjs.com/package/chromatic",
+            "excerpts": [
+              "chromatic\nJun 17, 2026 \u2014 Publishes your Storybook to Chromatic and kicks off tests if they're enabled. We provide support for the following platforms: Latest (LTS) versions of Ubuntu,"
+            ],
+            "title": "chromatic"
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/runtime-versions",
+            "excerpts": [
+              "Runtime versions and updates\nDec 5, 2025 \u2014 The \"runtimeVersion\" property allows us to guarantee that an update is compatible with a specific build's native code. Since updates must be"
+            ],
+            "title": "Runtime versions and updates"
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/deployment",
+            "excerpts": [
+              "Deploy updates - Expo Documentation\nIf you've mistakenly published an update to any of your environments, you can run eas update:rollback initiate a rollback to a previous update."
+            ],
+            "title": "Deploy updates - Expo Documentation"
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/rollouts",
+            "excerpts": [
+              "Rollouts - Expo Documentation\n7 de jul. de 2025 \u00b7 When reverted, a rollback-to-embedded update will be created, which will revert the clients to their previous state (embedded update)."
+            ],
+            "title": "Rollouts - Expo Documentation"
+          },
+          {
+            "url": "https://docs.expo.dev/versions/latest/sdk/updates",
+            "excerpts": [
+              "Updates - Expo Documentation\nThe \"fingerprint\" runtime version policy automatically calculates the runtime version for you, including through changes like SDK upgrades or adding custom native code. This policy works for both projects with and without custom native code."
+            ],
+            "title": "Updates - Expo Documentation"
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/rollbacks",
+            "excerpts": [
+              "Rollbacks - Expo Documentation\nRollback a branch to a previous update or the embedded update. There are two types of rollbacks supported by EAS Update: Roll back to a previously-published update. Roll back to the update embedded in the build. To start a rollback, run the following command:"
+            ],
+            "title": "Rollbacks - Expo Documentation"
+          },
+          {
+            "url": "https://maestro.dev/insights/detox-vs-appium-react-native-testing-comparison",
+            "excerpts": [
+              "Detox vs Appium: React Native Testing Comparison - maestro.dev\nExplore the differences between two automated testing frameworks for React Native, highlighting their strengths, weaknesses, and ideal use cases."
+            ],
+            "title": "Detox vs Appium: React Native Testing Comparison - maestro.dev"
+          },
+          {
+            "url": "https://jishulabs.com/blog/expo-react-native-mobile-2026",
+            "excerpts": [
+              "Expo and React Native in 2026: Complete Mobile Development ...\nBuild production mobile apps with Expo and React Native. Learn project setup, navigation, native modules, EAS Build, and deployment best practices."
+            ],
+            "title": "Expo and React Native in 2026: Complete Mobile Development ..."
+          },
+          {
+            "url": "https://codersera.com/blog/maestro-vs-appium-vs-detox-2026",
+            "excerpts": [
+              "Maestro vs Appium vs Detox 2026 - codersera.com\nMaestro vs Appium vs Detox: Which Mobile E2E Framework in 2026? A neutral, sourced comparison of Maestro, Appium, and Detox for mobile end-to-end testing in 2026 \u2014 with a decision matrix by team type."
+            ],
+            "title": "Maestro vs Appium vs Detox 2026 - codersera.com"
+          },
+          {
+            "url": "http://github.com/mobile-dev-inc/maestro",
+            "excerpts": [
+              "Maestro is an open-source framework that makes UI and end-to-end testing for Android, iOS, and web apps simple and fast. Write your first test in under five\nMaestro is built on learnings from its predecessors (Appium, Espresso, UIAutomator, XCTest\nPricing for Maestro Cloud is completely transparent and can be found on the pricing page. Start your free 7-day trial."
+            ],
+            "title": "mobile-dev-inc/Maestro: Painless E2E Automation for ..."
+          },
+          {
+            "url": "http://drizz.dev/post/detox-vs-appium-vs-maestro-which-mobile-testing-framework-in-2026",
+            "excerpts": [
+              "Apr 28, 2026 \u2014 Detox, Appium, and Maestro all test mobile devices in different ways, but they all use fragile selectors, which makes maintenance the most"
+            ],
+            "title": "Detox vs Appium vs Maestro - Which Framework?"
+          },
+          {
+            "url": "https://docs.expo.dev/build-reference/ios-builds",
+            "excerpts": [
+              "iOS build process - Expo Documentation\nThis page describes the process of building iOS projects with EAS Build. We'll first run some steps on your local machine to prepare the"
+            ],
+            "title": "iOS build process - Expo Documentation"
+          },
+          {
+            "url": "https://www.shariqsp.com/mobileTesting/optimizing-test-execution.html",
+            "excerpts": [
+              "Optimizing Test Execution - shariqsp.com\nOptimizing test execution involves using strategies and tools to reduce execution time, improve reliability, and maximize resource utilization. Below are detailed approaches to optimize test execution during mobile application testing:"
+            ],
+            "title": "Optimizing Test Execution - shariqsp.com"
+          },
+          {
+            "url": "https://docs.expo.dev/develop/development-builds/development-workflows",
+            "excerpts": [
+              "Tools, workflows and extensions - Expo Documentation\nTo get a tunneled URL, pass the --tunnel flag to npx expo start from the command line. ... The URL will be https://u.expo.dev/[your-project-id]?"
+            ],
+            "title": "Tools, workflows and extensions - Expo Documentation"
+          },
+          {
+            "url": "https://expo.dev/services/workflows",
+            "excerpts": [
+              "Mobile CI/CD built for React Native - expo.dev\nMobile CI/CD built for React Native Builds, submissions, repacks, and OTA updates in one pipeline. Add it to your existing CI, or run everything here."
+            ],
+            "title": "Mobile CI/CD built for React Native - expo.dev"
+          },
+          {
+            "url": "https://bitrise.io/guides/mobile-cicd",
+            "excerpts": [
+              "What is mobile CI/CD and why it matters - Bitrise\nMobile CI/CD best practices\n___Automate code signing from day one. ...\n___Cache dependencies aggressively. ...\n___Fail fast by ordering stages cheaply. ...\n___Shard UI tests across parallel devices. ...\n___Set build time budgets and treat regressions as bugs. ...\n___Run both platform workflows in parallel."
+            ],
+            "title": "What is mobile CI/CD and why it matters - Bitrise"
+          },
+          {
+            "url": "https://reactnativerelay.com/article/complete-guide-testing-react-native-apps-2026-unit-tests-e2e-maestro",
+            "excerpts": [
+              "React Native Testing Guide 2026: Jest\u2026 | React Native Relay\nA practical guide to testing React Native apps in 2026 using Jest 30, React Native Testing Library, and Maestro. Covers unit tests, component tests, E2E testing with real code examples, and CI/CD integration."
+            ],
+            "title": "React Native Testing Guide 2026: Jest\u2026 | React Native Relay"
+          },
+          {
+            "url": "https://viewlytics.ai/blog/react-native-testing-strategies-guide",
+            "excerpts": [
+              "React Native Testing Strategies: From Unit Tests to E2E Testing\nComprehensive testing is essential for building reliable React Native applications. This guide covers the complete testing pyramid from unit tests to end-to-end testing, including setup, best practices, and CI/CD integration."
+            ],
+            "title": "React Native Testing Strategies: From Unit Tests to E2E Testing"
+          },
+          {
+            "url": "https://reactnative.dev/docs/testing-overview",
+            "excerpts": [
+              "Testing - React Native\nMay 7, 2026 \u00b7 In this guide, we will cover different, automated ways to ensure your app works as expected, ranging from static analysis to end-to-end tests."
+            ],
+            "title": "Testing - React Native"
+          },
+          {
+            "url": "https://www.accessibilitychecker.org/blog/react-native-accessibility",
+            "excerpts": [
+              "React Native Accessibility Best Practices: 2026 Guide for ...\nMaster React Native Accessibility with our complete guide. Learn to map web standards to native props, handle dynamic states, and ensure your mobile app is inclusive for all users."
+            ],
+            "title": "React Native Accessibility Best Practices: 2026 Guide for ..."
+          },
+          {
+            "url": "https://dev.to/hellonehha/react-native-code-practices-6dl",
+            "excerpts": [
+              "React Native Best Practices - DEV Community\nSep 14, 2024 \u00b7 1. Project structure \u00b7 2. imports alias \u00b7 3. imports order \u00b7 4. TypeScript \u00b7 5. Style \u00b7 6. props \u00b7 7. State management \u00b7 8. Crash Analytics."
+            ],
+            "title": "React Native Best Practices - DEV Community"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/subnet-routers",
+            "excerpts": [
+              "Subnet routers \u00b7 Tailscale Docs\n12 Jan 2026 \u2014 Exit nodes route outbound internet traffic from your tailnet devices, effectively functioning as VPN servers. When you connect to an exit node,"
+            ],
+            "title": "Subnet routers \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/exit-nodes",
+            "excerpts": [
+              "Exit nodes (route all traffic) \u00b7 Tailscale Docs\n15 \u0433\u0440\u0443\u0434. 2025\u202f\u0440. \u00b7 If you want to allow the device access to its local network when routing traffic through an exit node, enable exit node local network access."
+            ],
+            "title": "Exit nodes (route all traffic) \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/access-control/acls",
+            "excerpts": [
+              "Manage permissions using ACLs\nACLs are deny-by-default, directional, locally enforced, and don't affect local network traffic. A device enforces incoming connections based"
+            ],
+            "title": "Manage permissions using ACLs"
+          },
+          {
+            "url": "https://github.com/tailscale/tailscale/issues/18385",
+            "excerpts": [
+              "[iOS] MagicDNS hostname doesn't work except when using Exit Node\nWhat is the issue? On iOS, the MagicDNS hostname myserver doesn't work except when using myserver as Exit Node. I couldn't find any issues on it. I only found a lone reddit comment from more than 1 year ago. For me magicdns only works if"
+            ],
+            "title": "[iOS] MagicDNS hostname doesn't work except when using Exit Node"
+          },
+          {
+            "url": "https://github.com/tailscale/tailscale/issues/13799",
+            "excerpts": [
+              "ios: MagicDNS hostname detection not working \u00b7 Issue #13799 ...\nWhen I disconnect Tailscale and refresh Safari, I get a \"server can't be found error\" (e.g. trying to resolve or connect to this *.ts.net hostname does not trigger the Tailscale VPN to connect again, despite the configuration)"
+            ],
+            "title": "ios: MagicDNS hostname detection not working \u00b7 Issue #13799 ..."
+          },
+          {
+            "url": "https://reactnative.dev/docs/accessibility",
+            "excerpts": [],
+            "title": "Accessibility \u00b7 React Native"
+          },
+          {
+            "url": "https://reactnative.dev/docs/performance",
+            "excerpts": [],
+            "title": "Performance Overview \u00b7 React Native"
+          },
+          {
+            "url": "http://appium.io/docs/en/2.0",
+            "excerpts": [
+              "Appium is an open-source project and ecosystem of related\nsoftware, designed to facilitate UI automation of many app platforms, including mobile (iOS,\nAndroid, Tizen), browser (Chrome, Firefox, Safari), desktop (macOS, Windows), TV (Roku, tvOS,\nAndroid TV, Samsung), and more.\nAppium is used mostly in the field of software test automation, to help determine whether the functionality of a given app is working as expected.\nyou can always find Appium's code on GitHub at [appium/appium](https://github.com/appium/appium) ."
+            ],
+            "title": "Appium Documentation"
+          },
+          {
+            "url": "http://developer.evinced.com/sdks-for-mobile-apps/appium-sdk-java-doc",
+            "excerpts": [
+              "* `Espresso`\n* `UIAutomator2`\n* `XCUI SDK`\nEvinced Appium SDK supports the following values for Appium's automationName desired capability:\nThe Evinced Appium Java SDK integrates with new or existing Appium tests to automatically detect accessibility issues. With the addition of as few as 5"
+            ],
+            "title": "Appium Java SDK - Evinced Inc. Documentation for Developers"
+          },
+          {
+            "url": "http://en.wikipedia.org/wiki/Appium",
+            "excerpts": [
+              "* [Official website](http://appium.io/)\nAppium is an open source automation tool for running scripts and testing native applications, mobile-web applications and hybrid applications on Android or iOS using a webdriver.\nAppium was also selected as an _Open Source Rookie of the Year_ by Black Duck Software.\nAppium was originally developed by Dan Cuellar in 2011 under the name \"iOSAuto\", written in the C#\") programming language\nAppium won the 2014 _Bossie award_ of InfoWorld for the best open source desktop and mobile software.\nIn January 2013, Sauce Labs agreed to fund Appium's development and motivated its code to be rewritten using Node.js .\nIn October 2016, Appium joined the JS Foundation .\nAppium is an open source automation tool for running scripts and testing native applications, mobile-web applications and hybrid applications on Android\npium** is an open source automation tool for running scripts and testing native applications, mobile-web applications and hybrid applications on Android\") or iOS using a webdrive"
+            ],
+            "title": "Appium - Wikipedia"
+          },
+          {
+            "url": "https://github.com/appium/appium/issues/16212",
+            "excerpts": [
+              "Docs: `-allowProvisioningUpdates` argument for XCUITest driver on ...\nThe problem. The \"Full manual configuration\" steps on the \"Appium XCUITest Driver Real Device Setup\" doc page didn't work for me."
+            ],
+            "title": "Docs: `-allowProvisioningUpdates` argument for XCUITest driver on ..."
+          },
+          {
+            "url": "http://appium.io/docs/en/2.0/guides/caps",
+            "excerpts": [
+              "\"Capabilities\" is the name given to the set of parameters used to start an Appium session. Capabilities are represented as key-value pairs,"
+            ],
+            "title": "Capabilities - Appium Documentation"
+          },
+          {
+            "url": "https://github.com/camillanapoles/automation_agent-device",
+            "excerpts": [
+              "GitHub - camillanapoles/automation_agent-device: CLI to ...\nagent-device is a device automation CLI for AI mobile app testing. It lets AI agents verify real apps on iOS, Android, TV, desktop, simulators, emulators, and physical devices."
+            ],
+            "title": "GitHub - camillanapoles/automation_agent-device: CLI to ..."
+          },
+          {
+            "url": "https://agent-device.dev/",
+            "excerpts": [
+              "The mobile verification for AI Agents | agent-device\nDevice automation CLI for AI agents. Real apps on iOS, Android, TV, and desktop. Token-efficient snapshots, semantic refs, evidence captured only when needed. Inspired by the browser automation patterns that made web agents practical. Built for native mobile and TV apps."
+            ],
+            "title": "The mobile verification for AI Agents | agent-device"
+          },
+          {
+            "url": "https://github.com/callstack/agent-device",
+            "excerpts": [
+              "GitHub - callstack/agent-device: CLI to control iOS and ...\nagent-device is a device automation CLI for AI mobile app testing. It lets AI agents verify real apps on iOS, Android, TV, desktop, simulators, emulators, and physical devices."
+            ],
+            "title": "GitHub - callstack/agent-device: CLI to control iOS and ..."
+          },
+          {
+            "url": "http://callstack.com/blog/agent-device-ai-native-mobile-automation-for-ios-android",
+            "excerpts": [
+              "That's why we built [agent-device](https://agent-device.dev/): a lightweight, token-efficient CLI for automating iOS and Android devices and simulators, with a command model designed for agents and developers. Vercel's [agent-browser](https://agent-browser.dev) was a big inspiration for this project. If browser automation gave agents \"eyes and hands\" on the web while not burning tokens, [agent-device](https://agent-device.dev/) brings that same idea to native mobile UI."
+            ],
+            "title": "Agent Device: iOS & Android Automation for AI Agents"
+          },
+          {
+            "url": "https://android-developers.googleblog.com/2026/02/the-intelligent-os-making-ai-agents.html",
+            "excerpts": [
+              "Android Developers Blog: The Intelligent OS: Making AI agents ...\nWe\u2019re also developing a UI automation framework for AI agents and assistants to intelligently execute generic tasks on users\u2019 installed apps, with user transparency and control built in."
+            ],
+            "title": "Android Developers Blog: The Intelligent OS: Making AI agents ..."
+          },
+          {
+            "url": "https://wix.github.io/Detox",
+            "excerpts": [
+              "Detox - GitHub Pages\nGain confidence to ship by testing your app on a device/simulator just like a real user (not yet supported on iOS). Detox provides a set of APIs to use with any test runner or without it. It comes with Jest integration out of the box."
+            ],
+            "title": "Detox - GitHub Pages"
+          },
+          {
+            "url": "https://medium.com/%40selvakumarsubramanian/detox-gray-box-testing-dc6e0a800575",
+            "excerpts": [],
+            "title": "Detox \u2014 Gray Box Testing Medium\u00a0\u00b7\u00a0Selvakumar Subramanian M\u00e1s de 10 \"me gusta\" \u00b7 hace 7 a\u00f1os"
+          },
+          {
+            "url": "https://github.com/wix/Detox",
+            "excerpts": [
+              "GitHub - wix/Detox: Gray box end-to-end testing and ...\nRN v0.77.x - v0.84.x: Fully compatible with React Native's \"New Architecture\". Newer RN versions might work with Detox, but they've not been thoroughly tested by the Detox team yet. Although we do not officially support older React Native versions, we do our best to keep Detox compatible with them."
+            ],
+            "title": "GitHub - wix/Detox: Gray box end-to-end testing and ..."
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/eas-cli",
+            "excerpts": [
+              "Manage branches and channels with EAS CLI - Expo Documentation\nEAS Update works by linking branches to channels. Channels are specified at build time and exist inside a build's native code."
+            ],
+            "title": "Manage branches and channels with EAS CLI - Expo Documentation"
+          },
+          {
+            "url": "https://github.com/expo/expo/issues/43908",
+            "excerpts": [
+              "[docs] Need info on why setting a runtimeVersion policy of 'fingerprint ...\nMar 12, 2026 \u00b7 setting a runtimeVersion policy of 'fingerprint' will cause the dev server not to connect \u2026 causes expo-dev-server to not be able to talk"
+            ],
+            "title": "[docs] Need info on why setting a runtimeVersion policy of 'fingerprint ..."
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/introduction",
+            "excerpts": [
+              "EAS Update - Expo Documentation\nJun 3, 2026 \u00b7 EAS Update is a cloud service from EAS (Expo Application Services) that serves updates for projects using the expo-updates library."
+            ],
+            "title": "EAS Update - Expo Documentation"
+          },
+          {
+            "url": "https://storybook.js.org/",
+            "excerpts": [
+              "Storybook is a frontend workshop for building UI components and pages in isolation. Thousands of teams use it for UI development, testing, and documentation. It's open source and free."
+            ],
+            "title": "Storybook: Frontend workshop for UI development"
+          },
+          {
+            "url": "https://www.reddit.com/r/reactnative/comments/mq8ypr/visual_regression_testing",
+            "excerpts": [
+              "Visual regression testing : r/reactnative\nHi everyone, I'm looking for a cloud service that would allow me to post screenshots from my appium or detox tests, do comparisons on them,"
+            ],
+            "title": "Visual regression testing : r/reactnative"
+          },
+          {
+            "url": "http://chromatic.com/docs/visual",
+            "excerpts": [
+              "Visual testing with Chromatic Visual Tests are a powerful tool for catching visual regressions and ensuring your app functions as expected. They work by capturing snapshots of every test within a cloud browser environment. Then, whenever you push code, Chromatic compares your new snapshots to baseline versions to identify visual changes."
+            ],
+            "title": "Visual tests \u2022 Chromatic docs"
+          },
+          {
+            "url": "http://reactnative.dev/docs/view",
+            "excerpts": [
+              "pointerEvents`  Controls whether the `View` can be the target of touch events.\nOverrides the text that's read by the screen reader when the user interacts with the element. By default, the label is constructed by traversing all the children and accumulating all the `Text` nodes separated by space.\n`accessibilityRole` communicates the purpose of a component to the user of an assistive technology. `accessibilityRole` can be one of the following: `'none'` - Used when the element has no role. `'button'` - Used when the element should be treated as a button. `'link'` - Used when the element should be treated as a link. `'search'` - Used when the text field element should also be treated as a search field. `'image'` - Used when the element should be treated as an image. Can be combined with button or link, for example. `'keyboardkey'` - Used when the element acts as a keyboard key. `'text'` - Used when the element should be treated as static text that cannot change.\n`role`  `role` communicates the purpose of a component to the user of an assistive technology. Has precedence over the `accessibilityRole` prop. | Type |"
+            ],
+            "title": "View \u00b7 React Native"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/uikit/uiaccessibilityelement/accessibilitylabel",
+            "excerpts": [
+              "accessibilityLabel | Apple Developer Documentation\nThe label is a very short, localized string that identifies the accessibility element, but does not include the type of the control or view. For example, the label for a Save button is \u201cSave,\u201d not \u201cSave button.\u201d By default, standard UIKit controls and views have labels that derive from their titles."
+            ],
+            "title": "accessibilityLabel | Apple Developer Documentation"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/44119385/issues-with-accessibility-keyboard-input-on-android-with-react-native",
+            "excerpts": [
+              "Issues with accessibility keyboard input on Android ...\nNavigate to the touchable element and press Alt + Enter (or Alt + Shift + Enter if using an old enough flavor of Android) Notice that your"
+            ],
+            "title": "Issues with accessibility keyboard input on Android ..."
+          },
+          {
+            "url": "https://stackoverflow.com/questions/54187062/how-to-programmatically-set-accessibilitylabel-on-uilabel",
+            "excerpts": [
+              "How to programmatically set accessibilityLabel on UILabel?\nI am attempting to programmatically set the accessibility label and value for a UILabel (the one titled 'Mega Title!') in my UIViewController."
+            ],
+            "title": "How to programmatically set accessibilityLabel on UILabel?"
+          },
+          {
+            "url": "https://developer.android.com/studio/profile/jank-detection",
+            "excerpts": [
+              "UI jank detection | Android Studio\nMay 18, 2026 \u2014 Use the Jetpack Compose Performance guide if you have isolated the jank to your UI layer. That guide helps you fix Compose-specific"
+            ],
+            "title": "UI jank detection | Android Studio"
+          },
+          {
+            "url": "https://lobste.rs/s/traf1f/jank_is_off_great_start_2026",
+            "excerpts": [
+              "jank is off to a great start in 2026\nMar 6, 2026 \u2014 Jank is such a cool project! I've never liked how GraalVM works or had much success with it for anything interesting, so a native compile target"
+            ],
+            "title": "jank is off to a great start in 2026"
+          },
+          {
+            "url": "https://www.chromium.org/developers/how-tos/trace-event-profiling-tool/anatomy-of-jank",
+            "excerpts": [
+              "Anatomy of Jank\n\u201cPerformance\u201d is an oft-cited problem area for web developers. This is the pursuit and elimination of jank. This document attempts to categorize the various"
+            ],
+            "title": "Anatomy of Jank"
+          },
+          {
+            "url": "https://jank-lang.org/blog/2026-03-06-great-start",
+            "excerpts": [
+              "jank is off to a great start in 2026\nMar 6, 2026 \u2014 jank now supports encoding C++ types via a custom DSL. With this DSL, we can support any C++ type, regardless of how complex. That includes"
+            ],
+            "title": "jank is off to a great start in 2026"
+          },
+          {
+            "url": "https://medium.com/%40santimattius/compose-performance-2026-stability-as-the-key-lever-against-jank-dc9e5b946e64",
+            "excerpts": [
+              "Compose Performance 2026: Stability as the Key Lever ...\nIn this article, we'll break down what stability in Compose is, why it's the most important lever for combating jank, and how to implement it in"
+            ],
+            "title": "Compose Performance 2026: Stability as the Key Lever ..."
+          },
+          {
+            "url": "https://firebase.google.com/docs/test-lab",
+            "excerpts": [
+              "Firebase Test Lab\nTest Lab uses real, production devices running in a Google data center to test your app. The devices are flashed with updated APIs and have customizable locale settings, allowing you to"
+            ],
+            "title": "Firebase Test Lab"
+          },
+          {
+            "url": "https://www.testingxperts.com/blog/network-condition-simulation",
+            "excerpts": [
+              "Network Condition Simulation in Mobile App Testing - TestingXperts\n1 Jun 2026 \u00b7 Offline mode testing for mobile applications should verify local storage, conflict resolution, sync queues, data encryption, and recovery after"
+            ],
+            "title": "Network Condition Simulation in Mobile App Testing - TestingXperts"
+          },
+          {
+            "url": "https://www.drizz.dev/post/firebase-test-lab-guide",
+            "excerpts": [
+              "Firebase Test Lab: Setup Guide and Alternatives - Drizz\nPlan\nVirtual Devices\nPhysical Devices\nSpark (Free)\n10 tests/day\n5 tests/day\nBlaze (Pay-as-you-go)\n$1/device/hour\n$5/device/hour"
+            ],
+            "title": "Firebase Test Lab: Setup Guide and Alternatives - Drizz"
+          },
+          {
+            "url": "https://techbytes.app/posts/ci-cd-performance-optimization-caching-parallelism",
+            "excerpts": [
+              "CI/CD Performance Optimization: Caching, Parallelism\nThis tutorial shows a practical path to faster pipelines in GitHub Actions: measure the baseline, add deterministic dependency caching, parallelize the job graph, and restructure Docker builds so BuildKit can reuse expensive layers across runs."
+            ],
+            "title": "CI/CD Performance Optimization: Caching, Parallelism"
+          },
+          {
+            "url": "https://softwareqaservice.com/blog/mobile-app-testing-in-2026-devices-automation-real-world-users",
+            "excerpts": [
+              "Mobile App Testing in 2026: Devices, Automation & Real-World ...\nOne of the longest-running debates in mobile QA is whether emulators are \"good enough.\" In 2026, the answer depends on your test layer\u2014but real device testing is essential for any release pipeline. Emulators excel at speed and CI integration."
+            ],
+            "title": "Mobile App Testing in 2026: Devices, Automation & Real-World ..."
+          },
+          {
+            "url": "https://developer.android.com/training/testing/espresso/idling-resource",
+            "excerpts": [],
+            "title": "Espresso idling resources \u00a0|\u00a0 Test your app on Android \u00a0|\u00a0 Android Developers"
+          },
+          {
+            "url": "https://developer.android.com/training/testing/espresso",
+            "excerpts": [],
+            "title": "Espresso \u00a0|\u00a0 Test your app on Android \u00a0|\u00a0 Android Developers"
+          },
+          {
+            "url": "https://wix.github.io/Detox/docs/api/matchers",
+            "excerpts": [
+              "Matchers | Detox - GitHub Pages\nMatch elements with the specified accessibility identifier. In React Native, this corresponds to the value in the testIDprop. Supports regex matching."
+            ],
+            "title": "Matchers | Detox - GitHub Pages"
+          },
+          {
+            "url": "https://github.com/debitoor/detox",
+            "excerpts": [],
+            "title": "GitHub - debitoor/detox: Gray Box End-to-End Testing and Automation Framework for Mobile Apps"
+          },
+          {
+            "url": "https://github.com/UlcreativeSoftware/detox",
+            "excerpts": [],
+            "title": "GitHub - UlcreativeSoftware/detox: Gray Box End-to-End Testing and Automation Framework for Mobile Apps"
+          },
+          {
+            "url": "https://wix.github.io/Detox/docs/next/troubleshooting/synchronization",
+            "excerpts": [],
+            "title": "Dealing With Synchronization Issues in Tests | Detox"
+          },
+          {
+            "url": "https://firebase.google.com/docs/test-lab/overview",
+            "excerpts": [],
+            "title": "Get started testing for Android with Firebase Test Lab"
+          },
+          {
+            "url": "https://firebase.google.com/docs/test-lab/android/command-line",
+            "excerpts": [],
+            "title": "Start testing with the gcloud CLI \u00a0|\u00a0 Firebase Test Lab"
+          },
+          {
+            "url": "https://storybook.js.org/docs/get-started/frameworks/react-native-web-vite",
+            "excerpts": [],
+            "title": "Storybook for React Native Web | Storybook docs"
+          },
+          {
+            "url": "https://docs.pact.io/getting_started/sharing_pacts",
+            "excerpts": [],
+            "title": "Sharing Pacts with the Pact Broker | Pact Docs"
+          },
+          {
+            "url": "http://appium.io/docs/en/2.0/",
+            "excerpts": [],
+            "title": "Appium Documentation - Appium Documentation"
+          },
+          {
+            "url": "https://appium.io/docs/en/latest/ecosystem/drivers/",
+            "excerpts": [],
+            "title": "Appium Drivers - Appium Documentation"
+          },
+          {
+            "url": "https://appium.io/docs/en/latest/intro/",
+            "excerpts": [],
+            "title": "Appium in a Nutshell - Appium Documentation"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/xctest/xctapplicationlaunchmetric",
+            "excerpts": [],
+            "title": "XCTApplicationLaunchMetric | Apple Developer Documentation"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/xcuiautomation",
+            "excerpts": [],
+            "title": "XCUIAutomation | Apple Developer Documentation"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/xctest",
+            "excerpts": [],
+            "title": "XCTest | Apple Developer Documentation"
+          },
+          {
+            "url": "https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview",
+            "excerpts": [],
+            "title": "Write a Macrobenchmark \u00a0|\u00a0 App quality \u00a0|\u00a0 Android Developers"
+          },
+          {
+            "url": "https://developer.android.com/topic/performance/vitals/launch-time",
+            "excerpts": [],
+            "title": "App startup time \u00a0|\u00a0 App quality \u00a0|\u00a0 Android Developers"
+          },
+          {
+            "url": "https://wix.github.io/Detox/docs/api/device/",
+            "excerpts": [],
+            "title": "Device | Detox"
+          },
+          {
+            "url": "https://wix.github.io/Detox/docs/troubleshooting/synchronization/",
+            "excerpts": [],
+            "title": "Dealing With Synchronization Issues in Tests | Detox"
+          },
+          {
+            "url": "https://wix.github.io/Detox/",
+            "excerpts": [],
+            "title": "Detox"
+          },
+          {
+            "url": "http://appium.io/docs/en",
+            "excerpts": [
+              "Appium is an open-source project and ecosystem of related\nsoftware, designed to facilitate UI automation of many app platforms, including mobile (iOS,\nAndroid, Tizen), browser (Chrome, Firefox, Safari), desktop (macOS, Windows), TV (Roku, tvOS,\nAndroid TV, Samsung), and more!\nWelcome to the Appium documentation! Appium is an open-source project and ecosystem of related\nsoftware, designed to facilitate UI automation of many app platforms, including mobile (iOS,\nAndroid, Tizen), browser (Chrome, Firefox, Safari), desktop (macOS, Windows), TV (Roku, tvOS,\nAndroid TV, Samsung), and more!"
+            ],
+            "title": "Appium - GitHub"
+          },
+          {
+            "url": "https://appium.io/docs/en/2.3/ecosystem/drivers",
+            "excerpts": [
+              "Appium Drivers - Appium Documentation\nYou can't use Appium without at least one driver! Click on the link for each driver to see the specific installation instructions and documentation for that driver."
+            ],
+            "title": "Appium Drivers - Appium Documentation"
+          },
+          {
+            "url": "https://appium.io/docs/en/2.12/ecosystem/drivers/",
+            "excerpts": [
+              "Click on the link for each driver to see the specific installation instructions and documentation for that driver. Generally, drivers can be installed using their listed installation key, with the following command:"
+            ],
+            "title": "Appium Drivers - Appium Documentation"
+          },
+          {
+            "url": "https://discuss.appium.io/u/B_G",
+            "excerpts": [],
+            "title": "  Profile - B_G - Appium Discuss\n"
+          },
+          {
+            "url": "https://discuss.appium.io/u/Harshada",
+            "excerpts": [],
+            "title": "  Profile - Harshada - Appium Discuss\n"
+          },
+          {
+            "url": "http://github.com/callstack/agent-device",
+            "excerpts": [
+              "agent-device [npm version](https://www.npmjs.com/package/agent-device) [CI](https://github.com/callstack/agent-device/actions/workflows/ci.yml) License: MIT [Glama MCP server](https://glama.ai/mcp/servers/callstack/agent-device) Mobile app verification for AI agents. A device automation CLI for real apps on iOS, Android, TV, web, and desktop. Agents get token-efficient snapshots, semantic refs, and evidence captured only when needed. `agent-device` lets coding agents open apps, inspect the current UI, interact with visible elements, and collect debugging evidence through one CLI. Use it when an agent needs to verify what actually happens on a device, not just reason about code. The CLI is the agent's hands, eyes, and evidence collector; it is not the brain. Your coding agent or QA harness reads the task, interprets the current screen, chooses the next command, and decides whether the result satisfies the test. `agent-device` keeps that loop grounded in structured accessibility data, deterministic actions, and files an engineer can inspect. If you know Vercel's [agent-browser](https://github.com/vercel-labs/agent-browser) , `agent-device` is the same idea for mobile, TV, and desktop apps. Minimal `--platform web` support reuses `agent-browser` when a browser session needs to fit into the same command/session/replay loop. It works with native iOS and Android apps, plus apps built with Expo, Flutter, and React Native, as long as the target can run on a supported device, simulator, emulator, or desktop environment. agent-device demo showing Codex using agent-device to create a new contact in the iOS Contacts app from a simple prompt Capabilities **Inspect** real app UI through structured accessibility snapshots, interactive refs like `@e3` , selectors, and React Native component trees. **Interact** by opening apps, tapping, typing, scrolling, performing gestures, waiting, asserting state, handling alerts, and closing sessions. **Capture evidence** with screenshots, videos, logs, traces, network traffic, performance samples, crash context, and React profiles."
+            ],
+            "title": "GitHub - callstack/agent-device: CLI to control iOS and Android devices for AI agents \u00b7 GitHub"
+          },
+          {
+            "url": "https://github.com/callstackincubator/agent-device",
+            "excerpts": [
+              "CLI to control iOS and Android devices for AI agents \u00b7 GitHub\n4 days ago \u00b7 Appium, Detox, and Maestro are traditional mobile automation frameworks. agent-device is optimized for AI agents that need to inspect app state,"
+            ],
+            "title": "CLI to control iOS and Android devices for AI agents \u00b7 GitHub"
+          },
+          {
+            "url": "https://github.com/hamr0/baremobile/tree/main",
+            "excerpts": [
+              "GitHub - hamr0/baremobile: Gives agents Android + iOS devices ...\nWhat this is baremobile gives AI agents full control of real mobile devices -- read the screen, tap, type, swipe, launch apps, send SMS, take photos. The screen comes back as a pruned accessibility snapshot with [ref=N] markers; the agent picks a ref and acts on it."
+            ],
+            "title": "GitHub - hamr0/baremobile: Gives agents Android + iOS devices ..."
+          },
+          {
+            "url": "https://bitrise.io/",
+            "excerpts": [
+              "Bitrise: Mobile DevOps Platform for iOS & Android\nStreamline your mobile development process with Bitrise. The Mobile DevOps platform that helps you build, test, and deploy your apps quickly and reliably."
+            ],
+            "title": "Bitrise: Mobile DevOps Platform for iOS & Android"
+          },
+          {
+            "url": "https://docs.maestro.dev/",
+            "excerpts": [
+              "Overview of Maestro documentation with links to guides, tutorials, and community resources."
+            ],
+            "title": "Maestro documentation | Maestro Docs"
+          },
+          {
+            "url": "https://deepwiki.com/mobile-dev-inc/maestro-docs/9.4-device-selection-and-sharding",
+            "excerpts": [
+              "Device Selection and Sharding | mobile-dev-inc/maestro-docs ...\nMaestro Cloud automatically distributes tests across its device fleet. When multiple flows are uploaded, the cloud infrastructure schedules them across available devices for parallel execution without requiring explicit shard configuration."
+            ],
+            "title": "Device Selection and Sharding | mobile-dev-inc/maestro-docs ..."
+          },
+          {
+            "url": "https://bitrise.io/platform/mobile-devops",
+            "excerpts": [
+              "Mobile DevOps Platform for iOS & Android\nWith Bitrise, you can quickly build a complete CI/CD pipeline by assembling your workflows from our 400+ mobile-optimized Steps and then chaining these together"
+            ],
+            "title": "Mobile DevOps Platform for iOS & Android"
+          },
+          {
+            "url": "http://mobile.dev/",
+            "excerpts": [
+              "Maestro [00.0k](https://github.com/mobile-dev-inc/maestro) [Documentation](https://docs.maestro.dev) Cloud [Community](https://maestrodev.typeform.com/to/FelIEe8A) Blog Pricing [00.0k](https://github.com/mobile-dev-inc/maestro) AGENTIC UI TESTING Go ahead. Code at 150mph. Maestro is mobile UI testing at agentic velocity. Open source, human-readable code, easy CI integrations, and powerful CLI and desktop apps. [Download](https://studio.maestro.dev/MaestroStudio.dmg) [Install MCP](https://docs.maestro.dev/get-started/maestro-mcp) appId: com.example.app --- launchApp tapOn: Login inputText: test@example.com tapOn: Continue assertVisible: Welcome back Maestro in action Add Tasks.yaml Running Features Battle-tested, AI-native Robust, open-source, time-tested - and now fully primed for human+AI development. Close the agentic loop Unlock high-velocity mobile development by powering up your agents with Maestro's AI toolkit. > write Maestro tests for the new settings screen, including setting/testing each setting within > with full test plan, pls \u25cf Let me look at the live screen and existing Maestro tests to understand what needs testing. Read emulator screen hierarchy, searched for 1 pattern, read 4 files, listed 1 directory \u25cf Now I have a clear picture of the settings screen. Let me write a suite of focused Maestro tests. --- Here are the tests I propose: Structure / Smoke settings_sections_visible - scroll through the full screen and assert every section header is present Content Correctness"
+            ],
+            "title": "Maestro, End-to-End UI Testing for Mobile and Web"
+          },
+          {
+            "url": "https://developer.apple.com/forums/thread/690358",
+            "excerpts": [
+              "\"Network Link Conditioner\" in \"Additional Tools for Xcode ...\nI've just downloaded \"Additional Tools for Xcode 13\" after today's release, and installed \"Network Link Conditioner.prefPane\" on my macOS Big Sur 11.6"
+            ],
+            "title": "\"Network Link Conditioner\" in \"Additional Tools for Xcode ..."
+          },
+          {
+            "url": "https://sigidhanafi.medium.com/simulate-poor-network-on-ios-simulator-bc904d42e505",
+            "excerpts": [
+              "Simulate Poor Network on iOS Simulator - Sigit Hanafi - Medium\nApple have it's official tool to simulate poor network internet conditions. It can installed. The tool named Network Link Conditioner."
+            ],
+            "title": "Simulate Poor Network on iOS Simulator - Sigit Hanafi - Medium"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/75980250/network-link-conditioner",
+            "excerpts": [
+              "Network Link Conditioner"
+            ],
+            "title": "Network Link Conditioner - Stack Overflow"
+          },
+          {
+            "url": "https://medium.com/%40jpmtech/test-ios-apps-with-limited-or-no-network-connectivity-cd85f1d286b6",
+            "excerpts": [
+              "Test iOS Apps with Limited or No Network Connectivity\nThe Network Link Conditioner (pictured below) allows us to use our phone with several different kinds of mocked connection states. These range"
+            ],
+            "title": "Test iOS Apps with Limited or No Network Connectivity"
+          },
+          {
+            "url": "https://tailscale.com/",
+            "excerpts": [
+              "Tailscale | Secure Connectivity for AI, IoT & Multi-Cloud"
+            ],
+            "title": "Tailscale | Secure Connectivity for AI, IoT & Multi-Cloud Tailscale https://tailscale.com"
+          },
+          {
+            "url": "https://docs.expo.dev/",
+            "excerpts": [
+              "Expo Documentation\nBuild one JavaScript/TypeScript project that runs natively on all your users' devices."
+            ],
+            "title": "Expo Documentation"
+          },
+          {
+            "url": "https://docs.expo.dev/eas/workflows/examples/e2e-tests",
+            "excerpts": [
+              "Run E2E tests on EAS Workflows with Maestro - Expo Documentation\nIn this guide, you'll learn how to run end-to-end (E2E) tests on EAS Workflows using Maestro. The example demonstrates how to configure your E2E tests workflow using the default Expo template. For your own app, you'll need to adjust the flows to match your app's UI."
+            ],
+            "title": "Run E2E tests on EAS Workflows with Maestro - Expo Documentation"
+          },
+          {
+            "url": "https://www.reddit.com/r/expo/comments/162v0my/using_detox_with_development_builds",
+            "excerpts": [
+              "Using Detox with development builds : r/expo - Reddit\nI recently created a boilerplate for expo (development build) projects. I used detox for e2e tests by following official guidline."
+            ],
+            "title": "Using Detox with development builds : r/expo - Reddit"
+          },
+          {
+            "url": "https://wix.github.io/Detox/docs/19.x/guide/expo",
+            "excerpts": [
+              "Expo | Detox\nExpo support with Detox is entirely a community driven effort. We have no specific support in Detox for Expo applications (ejected or otherwise)."
+            ],
+            "title": "Expo | Detox"
+          },
+          {
+            "url": "https://reactnativetesting.io/e2e/setup",
+            "excerpts": [
+              "Setting Up Detox - ReactNativeTesting.io\nAlthough Detox does not officially support Expo, it currently seems to work if you build a non-development client (e.g. the JS bundle is built-in). If this no"
+            ],
+            "title": "Setting Up Detox - ReactNativeTesting.io"
+          },
+          {
+            "url": "https://www.chromatic.com/blog/react-native-visual-testing-sneak-peek",
+            "excerpts": [
+              "React Native visual testing sneak peek - Chromatic\nThe Chromatic UI gives your team one place to examine visual changes (using the Diff Inspector), accept, reject, and collaborate. Screenshot of"
+            ],
+            "title": "React Native visual testing sneak peek - Chromatic"
+          },
+          {
+            "url": "http://chromatic.com/blog/tag/visual-testing",
+            "excerpts": [
+              "React Native visual testing sneak peek. Test on real iOS and Android simulators, fast and flake-free. \u00b7 May 13, 2026 ; Chromatic changelog: Dec 2025."
+            ],
+            "title": "Visual Testing"
+          },
+          {
+            "url": "https://www.chromatic.com/storybook",
+            "excerpts": [
+              "Visual testing for Storybook - Chromatic\nChromatic catches visual and functional bugs in your stories automatically. It runs UI tests across browsers, viewports, and themes before changes merge."
+            ],
+            "title": "Visual testing for Storybook - Chromatic"
+          },
+          {
+            "url": "https://docs.expo.dev/develop/development-builds/introduction/",
+            "excerpts": [],
+            "title": "Introduction to development builds"
+          },
+          {
+            "url": "https://docs.expo.dev/develop/unit-testing/",
+            "excerpts": [],
+            "title": "Unit testing with Jest"
+          },
+          {
+            "url": "https://developer.android.com/topic/performance/benchmarking/macrobenchmark-metrics",
+            "excerpts": [
+              "Capture Macrobenchmark metrics | App quality\ntimeToInitialDisplayMs : The amount of time from when the system receives a launch intent to when it renders the first frame of the destination Activity ."
+            ],
+            "title": "Capture Macrobenchmark metrics | App quality"
+          },
+          {
+            "url": "https://developer.android.com/topic/performance/benchmarking/macrobenchmark-control-app",
+            "excerpts": [
+              "Control your app from Macrobenchmark | App quality\n19.05.2026 \u2014 Macrobenchmark tests run in a separate process from the app itself. This is necessary to enable things like stopping the app process and compiling from DEX"
+            ],
+            "title": "Control your app from Macrobenchmark | App quality"
+          },
+          {
+            "url": "https://developer.android.com/stories/apps/josh",
+            "excerpts": [],
+            "title": "Josh sees increased customer retention by improving app startup time by 30% \u00a0|\u00a0 Developer stories \u00a0|\u00a0 Android Developers"
+          },
+          {
+            "url": "https://developer.android.com/codelabs/android-macrobenchmark-inspect",
+            "excerpts": [],
+            "title": "Inspect app performance with Macrobenchmark \u00a0|\u00a0 Android Developers"
+          },
+          {
+            "url": "http://pactflow.io/",
+            "excerpts": [
+              "Farewell costly and flakey end-to-end integration tests\nPactflow System Status Check here for outage information.\nSwagger is the chosen way to implement contract testing for thousands of engineering teams world-wide\u2014from startups through to fortune 500 companies.\nSwagger makes contract testing accessible to more users through two key frameworks: the popular OSS consumer-driven Pact framework and the OpenAPI Specification Bi-Directional Contract Testing framework.\nThe most comprehensive contract testing platform.\nThousands of teams use Swagger to implement and scale contract testing to remove the stress and pains of testing distributed systems\nPactflow System Status Check here for outage information. The most comprehensive contract testing platform. Features \u00b7 Pricing \u00b7 Playground \u00b7 Try for free # Worry less about testing and deploying distributed systems. Thousands of teams use Swagger to implement and scale contract testing to remove the stress and pains of testing distributed systems [Try for free](https://try.platform.smartbear.com?product=ApiHub) [Live Playground](https://playground.pactflow.io/login?code=0aedb051-efe5-4eb6-98b6-8dbc8487ef42&utm_source=homepage&utm_content=hero) See how PactFlow works * * * * * * The most comprehensive contract testing platform. Swagger makes contract testing accessible to more users through two key frameworks: the popular OSS consumer-driven Pact framework and the OpenAPI Specification Bi-Directional Contract Testing framework. Farewell costly and flakey end-to-end integration tests Swagger is the chosen way to implement contract testing for thousands of engineering teams world-wide\u2014from startups through to fortune 500 companies. Unlike end-to-end integrated testing, contract testing is a proven way to: Increase developer confidence Decouple teams to deploy faster Reduce issues in production Decrease testing costs Read more about contract testing or watch our [Introduction to Contract Testing](https://www.youtube.com/playlist?list=PLwy9Bnco-IpfZ72VQ7hce8GicVZs7nm0i) series. Get started and scale up contract testing easily And from day one, Swagger has been tightly integrated with Pact\u2014the de-facto consumer driven contract testing framework\u2014and its open source ecosystem. With Swagger, you'll get all the goodness of the Pact consumer-driven contract testing framework plus additional advanced capabilities including: Managed solution or self-hosted options Authentication and user management Secure access and traceability Insights and reporting Support when you need it Exclusive features Get to know all the premium Swagger features . The most comprehensive contract testing suite Swagger has an expanded breadth of contract testing capabilities beyond the open source Pact consumer driven contract testing frame. Swagger customers get access to an exclusive feature\u2014 Bi-Directional Contract Testing, which enables new modes of contract capture and compliance, a broader set of use cases, and a simplified developer experience. This means: Lowers barriers to getting started Rapid scale of contract testing coverage across all systems Everyone's welcome\u2014developers, QAs, SDETs and testers Flexible implementation for both consumer or provider driven workflows Support for more technologies and solves for additional classes of problems Faster time to value Learn more about Bi-Directional Contract Testing \\+ Consumer Driven Contract Testing . Plan options to suit teams of all sizes We want to create a world that doesn't worry about deployments so we've set up our plans to suit teams of all sizes. It's super easy to get up and running with our generous, always free Start Plan. And when the time comes, scale up to plans that best suits your needs. Plus we offer a 10% discount on all plans paid annually. See our pricing options. Looking for an enterprise custom package? Book a chat with our sales team. Ready to get started? [Try for free](http://pactflow.io/try-for-free?utm_source=homepage&utm_content=get_started) Learn about contract testing Swagger supports multiple modes of contract testing in one place - choose the approach that works best for your team. Consumer Driven It's in the name! Swagger for contract testing integrates with Pact - the industry standard open source consumer driven contract testing framework. Learn More Bi-Directional Our exclusive feature, Bi-Directional Contract Testing allows you to \"upgrade\" your favourite tools into a powerful contract testing workflow. Learn More What our customers say M1 Finance How hypergrowth FinTech, M1 Finance rapidly rolled out contract testing with Swagger Read case study. Boost Insurance Boost insurance sees 80% increase in service stability with Swagger for contract testing Read case study. Tech we support Swagger integrates with your favourite tools Ready to get started? Try for free Talk to Sales Navigate Home * Pricing Features Terms & Conditions Privacy Policy Partners Become a Partner Resources GDPR Case Studies Security [Documentation](https://support.smartbear.com/swagger/contract-testing/docs/en/user-guide/getting-started-with.html) Blog Newsletter [Careers](https://smartbear.com/company/careers/) Contact [@smartbear](https://twitter.com/smartbear) [Youtube](https://www.youtube.com/channel/UCuN2fL_eCtHruv2SP3WJgNQ) Slack ( [join](http://slack.pact.io) | [chat](https://pact-foundation.slack.com/) )"
+            ],
+            "title": "Comprehensive Contract Testing | Pactflow"
+          },
+          {
+            "url": "http://docs.pact.io/pact_broker",
+            "excerpts": [
+              "Sep 27, 2024 \u2014 The Pact Broker is an application for sharing consumer driven contracts and verification results. It is optimised for use with pacts (contracts created by the"
+            ],
+            "title": "Introduction | Pact Docs"
+          },
+          {
+            "url": "https://docs.pact.io/implementation_guides/javascript/docs/provider",
+            "excerpts": [
+              "Provider Verification | Pact Docs\nTo dynamically retrieve pacts from a Pact Broker for a provider, provide the broker URL, the name of the provider, and the consumer version tags that you want to verify: To verify a pact at a specific URL (eg. when running a pact verification triggered by a 'contract content changed' webhook, or when verifying a pact from your local machine, or a n"
+            ],
+            "title": "Provider Verification | Pact Docs"
+          },
+          {
+            "url": "https://docs.pact.io/pact_nirvana",
+            "excerpts": [
+              "CI/CD Setup Guide | Pact Docs\nEach of the levels below gets you a step towards having a fully automated process of verifying contracts as part of CI/CD with no need for an integration environment. As Pact has been implemented in many different languages, this document will outline the theory for each step."
+            ],
+            "title": "CI/CD Setup Guide | Pact Docs"
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "mobile-testing-aug-2026.md"
+  }
+}
