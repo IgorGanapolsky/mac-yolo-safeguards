@@ -9,6 +9,9 @@ import { db } from "@/lib/runtime";
 import { evaluateCloudPromptToolPolicy } from "@/lib/cloud-tool-policy";
 import { jsonError } from "@/lib/security";
 import { decideTaskRoute, parseRoutePreference } from "@/lib/task-routing";
+// A+ imports: runtime schema validation + rate limiting
+import { validateRoute, RouteSchemas } from "@/lib/schema-validator";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 interface DeviceRoute {
   id: string;
@@ -56,21 +59,39 @@ export async function POST(request: Request) {
     });
     return governanceError(decision);
   }
-  const payload = await request.json().catch(() => null) as {
-    prompt?: string;
+  const rawPayload = await request.json().catch(() => null);
+  // A+ Structured Outputs: validate payload before processing
+  const validation = validateRoute<{ prompt: string }>(RouteSchemas.createTask, rawPayload);
+  if (!validation.ok) {
+    return jsonError(`invalid request: ${validation.errors.join('; ')}`, 400);
+  }
+  const payload = validation.value as {
+    prompt: string;
     threadId?: string;
     deviceId?: string;
     idempotencyKey?: string;
-    /** Optional correlation id for observability (defaults to task id). */
     traceId?: string;
-    /** local = Mac only; cloud = Continuity always; auto = offline failover (default). */
     routePreference?: string;
-  } | null;
-  const prompt = payload?.prompt?.trim().slice(0, 24_000);
+  };
+  // A+ Multi-tenancy: enforce per-organization rate limit before task creation
+  const rateLimitResult = checkRateLimit(`org:${session.organizationId}`, org.plan);
+  if (!rateLimitResult.allowed) {
+    return Response.json(
+      {
+        error: "rate limit exceeded",
+        reason: rateLimitResult.reason || 'exceeded',
+      },
+      {
+        status: 429,
+        headers: rateLimitResult.headers,
+      },
+    );
+  }
+  const prompt = payload.prompt.trim().slice(0, 24_000);
   if (!prompt) return jsonError("prompt is required");
-  const preference = parseRoutePreference(payload?.routePreference);
+  const preference = parseRoutePreference(payload.routePreference);
 
-  const device = payload?.deviceId
+  const device = payload.deviceId
     ? await db().prepare(
         `SELECT id, failover_mode AS failoverMode, last_seen_at AS lastSeenAt FROM devices
           WHERE id = ? AND organization_id = ? AND revoked_at IS NULL`
@@ -119,13 +140,13 @@ export async function POST(request: Request) {
       actorId: session.userId,
       action: "task.policy.denied",
       targetType: "task-admission",
-      targetId: payload?.threadId ?? null,
+      targetId: payload.threadId ?? null,
       metadata: governanceAuditMetadata(decision, { stage: "admission", route }),
     });
     return governanceError(decision);
   }
 
-  let threadId = payload?.threadId;
+  let threadId = payload.threadId;
   if (threadId) {
     const owned = await db().prepare("SELECT id FROM threads WHERE id = ? AND organization_id = ? AND deleted_at IS NULL")
       .bind(threadId, session.organizationId).first();
@@ -142,10 +163,10 @@ export async function POST(request: Request) {
   const taskId = crypto.randomUUID();
   /** Client may supply a correlation id; default to task id for end-to-end traces. */
   const traceId =
-    typeof payload?.traceId === "string" && payload.traceId.trim()
+    typeof payload.traceId === "string" && payload.traceId.trim()
       ? payload.traceId.trim().slice(0, 64)
       : taskId;
-  const idempotencyKey = payload?.idempotencyKey?.trim().slice(0, 120) || crypto.randomUUID();
+  const idempotencyKey = payload.idempotencyKey?.trim().slice(0, 120) || crypto.randomUUID();
   try {
     await db().batch([
       db().prepare(

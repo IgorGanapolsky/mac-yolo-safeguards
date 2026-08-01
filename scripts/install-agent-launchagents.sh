@@ -49,11 +49,13 @@ else
 fi
 
 plists=(
+  com.igor.stale-checkout-audit.plist
   com.igor.shutdown-simulators.plist
   com.igor.ceo-operating-brief.plist
   com.igor.hermes-source-packs.plist
   com.igor.react-native-newsletter-ingest.plist
   com.igor.hermes-contribution-opportunities.plist
+  com.igor.tml-tinker-engage.plist
   com.igor.hermes-mobile-continuous-e2e.plist
   com.igor.hermes-gateway-watchdog.plist
   com.igor.hermes-mobile-pair-server.plist

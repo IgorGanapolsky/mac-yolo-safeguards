@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.igor.stale-checkout-audit</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-lc</string>
+    <!-- Runs from the repo root by absolute path on purpose: a relative path would make
+         this job itself a victim of the problem it detects. -->
+    <string>cd "$HOME/workspace/git/igor/mac-yolo-safeguards" &amp;&amp; /usr/bin/env node tools/stale-checkout-audit.js &gt; "$HOME/.cache/stale-checkout-audit.log" 2&gt;&amp;1; node tools/stale-checkout-audit.js --check &gt;/dev/null 2&gt;&amp;1 || /opt/homebrew/bin/terminal-notifier -title "Stale checkout" -message "A checkout an automated job runs from is stale or has unversioned work. See ~/.cache/stale-checkout-audit.log" 2&gt;/dev/null || true</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>15</integer></dict>
+  <key>RunAtLoad</key><false/>
+  <key>StandardOutPath</key><string>/tmp/stale-checkout-audit.out</string>
+  <key>StandardErrorPath</key><string>/tmp/stale-checkout-audit.err</string>
+</dict>
+</plist>

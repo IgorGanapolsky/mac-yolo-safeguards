@@ -6,9 +6,9 @@ export function buildLeashEmptyExplanation(settings: GatewaySettings): string {
     return 'Demo mode — preview a card from Leash options below.';
   }
   if (settings.safetyMode) {
-    return 'Approval-first is on. Cards appear when your Mac blocks a risky tool.';
+    return 'Approval-first is on. Cards appear when your Mac blocks a risky tool. Manage policies on ThumbGate.app too.';
   }
-  return 'When Hermes on your Mac blocks a risky tool, the card shows up here.';
+  return 'When Hermes on your Mac blocks a risky tool, the card shows up here. Web dashboard and Continuity: ThumbGate.app.';
 }
 
 /**

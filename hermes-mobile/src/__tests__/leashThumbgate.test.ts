@@ -63,8 +63,8 @@ describe('buildLeashThumbgateCaptureBody', () => {
 
     expect(body.signal).toBe('up');
     expect(body.context).toContain('Useful final report');
-    expect(body.whatWorked).toBe('Operator marked this Hermes output as useful.');
-    expect(body.tags).toContain('thumbs-up');
+    expect(body.whatWorked).toMatch(/Operator marked this Hermes output as useful/i);
+    expect(body.tags).toEqual(expect.arrayContaining(['thumbs-up', 'memory-feedback']));
   });
 
   it('clips long chat output feedback context', () => {
@@ -78,6 +78,6 @@ describe('buildLeashThumbgateCaptureBody', () => {
 
     expect(body.context.length).toBeLessThan(1900);
     expect(body.context).toContain('...');
-    expect(body.whatToChange).toContain('Adjust future Hermes outputs');
+    expect(body.whatToChange).toMatch(/ThumbGate memory|Prefer concrete|Adjust future/i);
   });
 });

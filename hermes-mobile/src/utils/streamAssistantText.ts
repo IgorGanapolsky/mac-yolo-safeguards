@@ -48,7 +48,10 @@ export function isDeferredStreamPlaceholder(content: string | undefined): boolea
     // Legacy copy (shipped builds + tests)
     body.startsWith('(Hermes did not return text yet') ||
     body.startsWith('Working on your computer…') ||
-    body.startsWith('Still no reply text.')
+    body.startsWith('Still no reply text.') ||
+    // Hard-stop / recovery status accidentally persisted as a bubble
+    body.startsWith('Stopped waiting on your Mac') ||
+    body.startsWith('Still no live reply text after a long wait')
   );
 }
 

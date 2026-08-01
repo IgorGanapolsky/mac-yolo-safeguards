@@ -129,6 +129,38 @@ describe('ChatMessageBubble', () => {
     expect(getByTestId('chat-outbound-failed').props.children).not.toContain('Computer above');
   });
 
+  it('makes the failed status itself resend the message', () => {
+    const onResendFailed = jest.fn();
+    const { getByTestId } = renderWithDetailModal({
+      content: 'Send this again',
+      isUser: true,
+      timeLabel: 'Jul 31, 2026 6:53 AM',
+      outboundStatus: 'failed',
+      connectionState: 'connected',
+      macHttpOk: true,
+      onResendFailed,
+    });
+
+    fireEvent.press(getByTestId('chat-outbound-failed-resend'));
+    expect(onResendFailed).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows automatic resend progress only while an automatic retry is pending', () => {
+    const { getByTestId } = renderWithDetailModal({
+      content: 'Send this again',
+      isUser: true,
+      timeLabel: 'Jul 31, 2026 6:53 AM',
+      outboundStatus: 'failed',
+      connectionState: 'connected',
+      macHttpOk: true,
+      autoResendPending: true,
+    });
+
+    expect(getByTestId('chat-outbound-failed').props.children).toContain(
+      'resending',
+    );
+  });
+
   it('shows live waiting elapsed on pending user prompts', () => {
     const sentAt = '2026-07-14T22:00:00.000Z';
     jest.useFakeTimers();
