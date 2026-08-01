@@ -25,6 +25,54 @@ export const EMPTY_REPLY_FAILURE_REASON =
 export const EMPTY_STREAM_HARD_STOP_STATUS =
   'Still no live reply text after a long wait. Open Leash if a tool needs approve/deny/warn, Stop an active run, or start a fresh chat.';
 
+/**
+ * Zero-token stall class (fresh Play install + Tailscale pair, 2026-08-01):
+ * session exists and the user row is on the Mac, but api_call_count / output_tokens
+ * stay 0. Transcript polling alone never starts the agent — self-heal forks a
+ * fresh session and resends once.
+ */
+export const ZERO_TOKEN_SELF_HEAL_AFTER_MS = DEFERRED_REPLY_POLL_MAX_MS;
+export const ZERO_TOKEN_SELF_HEAL_MAX = 1;
+export const ZERO_TOKEN_SELF_HEAL_HINT =
+  'No reply from your computer — starting a fresh chat and resending…';
+
+/**
+ * After soft empty-stream timeout, auto fork+resend when the Mac link is healthy
+ * but the agent never produced tokens (not a connectivity failure).
+ */
+export function shouldZeroTokenSelfHeal(input: {
+  macHttpOk: boolean;
+  isDemo?: boolean;
+  waitElapsedMs: number;
+  /** Inverse of serverHasAssistantReplyAfterLastUser when a user turn exists. */
+  hasUserWithoutAssistant: boolean;
+  sessionOutputTokens?: number | null;
+  sessionApiCallCount?: number | null;
+  healsUsed: number;
+  maxHeals?: number;
+}): boolean {
+  if (input.isDemo || !input.macHttpOk) {
+    return false;
+  }
+  if (!input.hasUserWithoutAssistant) {
+    return false;
+  }
+  const maxHeals = input.maxHeals ?? ZERO_TOKEN_SELF_HEAL_MAX;
+  if (input.healsUsed >= maxHeals) {
+    return false;
+  }
+  if (input.waitElapsedMs < ZERO_TOKEN_SELF_HEAL_AFTER_MS) {
+    return false;
+  }
+  if (typeof input.sessionOutputTokens === 'number' && input.sessionOutputTokens > 0) {
+    return false;
+  }
+  if (typeof input.sessionApiCallCount === 'number' && input.sessionApiCallCount > 0) {
+    return false;
+  }
+  return true;
+}
+
 /** User-facing status while auto-polling after send with no reply yet. */
 export function emptyStreamCheckingStatus(elapsedMs: number): string {
   if (shouldHardStopEmptyStreamWait(elapsedMs)) {

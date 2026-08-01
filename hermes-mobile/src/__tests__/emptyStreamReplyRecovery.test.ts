@@ -12,7 +12,10 @@ import {
   shouldAwaitGatewayReplyAfterSend,
   shouldHardStopEmptyStreamWait,
   shouldKeepAutoPollingForReply,
+  shouldZeroTokenSelfHeal,
   toolActivityAfterLastUser,
+  ZERO_TOKEN_SELF_HEAL_AFTER_MS,
+  ZERO_TOKEN_SELF_HEAL_MAX,
 } from '../utils/emptyStreamReplyRecovery';
 import type { HermesMessage } from '../types/chat';
 import { GENERIC_EMPTY_STREAM_PLACEHOLDER } from '../utils/streamAssistantText';
@@ -146,6 +149,46 @@ describe('emptyStreamReplyRecovery', () => {
       /checking your mac/i,
     );
     expect(emptyStreamCheckingStatus(45_000)).toBe('Checking your Mac… (45s)');
+  });
+
+  it('zero-token self-heal after soft timeout when Mac is live but agent never ran', () => {
+    expect(
+      shouldZeroTokenSelfHeal({
+        macHttpOk: true,
+        waitElapsedMs: ZERO_TOKEN_SELF_HEAL_AFTER_MS,
+        hasUserWithoutAssistant: true,
+        sessionOutputTokens: 0,
+        sessionApiCallCount: 0,
+        healsUsed: 0,
+      }),
+    ).toBe(true);
+    expect(
+      shouldZeroTokenSelfHeal({
+        macHttpOk: true,
+        waitElapsedMs: ZERO_TOKEN_SELF_HEAL_AFTER_MS,
+        hasUserWithoutAssistant: true,
+        sessionOutputTokens: 0,
+        sessionApiCallCount: 0,
+        healsUsed: ZERO_TOKEN_SELF_HEAL_MAX,
+      }),
+    ).toBe(false);
+    expect(
+      shouldZeroTokenSelfHeal({
+        macHttpOk: false,
+        waitElapsedMs: ZERO_TOKEN_SELF_HEAL_AFTER_MS,
+        hasUserWithoutAssistant: true,
+        healsUsed: 0,
+      }),
+    ).toBe(false);
+    expect(
+      shouldZeroTokenSelfHeal({
+        macHttpOk: true,
+        waitElapsedMs: ZERO_TOKEN_SELF_HEAL_AFTER_MS,
+        hasUserWithoutAssistant: true,
+        sessionApiCallCount: 2,
+        healsUsed: 0,
+      }),
+    ).toBe(false);
   });
 
   it('surfaces tool activity after the last user turn', () => {

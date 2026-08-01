@@ -463,6 +463,7 @@ import {
 import {
   deferredReplyPollBudgetMs,
   DEFERRED_REPLY_POLL_MS,
+  DEFERRED_REPLY_POLL_MAX_MS,
   EMPTY_REPLY_FAILURE_REASON,
   EMPTY_STREAM_HARD_STOP_STATUS,
   EMPTY_STREAM_SELF_HEAL_AFTER_MS,
@@ -470,8 +471,10 @@ import {
   shouldAwaitGatewayReplyAfterSend,
   shouldHardStopEmptyStreamWait,
   shouldKeepAutoPollingForReply,
+  shouldZeroTokenSelfHeal,
   serverHasAssistantReplyAfterLastUser,
   toolActivityAfterLastUser,
+  ZERO_TOKEN_SELF_HEAL_HINT,
 } from '../utils/emptyStreamReplyRecovery';
 import {
   isEmptyStreamRecoveryStatus,
@@ -920,6 +923,8 @@ export default function ChatScreen() {
   );
   const stalledRecoveriesUsedRef = useRef(0);
   const stalledRecoverInFlightRef = useRef(false);
+  /** Zero-token session self-heal (fork+resend) budget per session. */
+  const zeroTokenSelfHealsUsedRef = useRef(0);
   const activeChatStreamRef = useRef(false);
   /** Session ids the gateway rejected as removed/restarted — never resume or target these again. */
   const removedSessionIdsRef = useRef<Set<string>>(new Set());
@@ -1466,6 +1471,7 @@ export default function ChatScreen() {
   useEffect(() => {
     stalledRecoveriesUsedRef.current = 0;
     stalledRecoverInFlightRef.current = false;
+    zeroTokenSelfHealsUsedRef.current = 0;
     scopeOutboundSubmissionsToSession(outboundLedgerRef.current, currentSession?.id);
   }, [currentSession?.id]);
 
@@ -6996,6 +7002,37 @@ export default function ChatScreen() {
                 }
                 return next;
               });
+              // Zero-token stall: Mac accepted the user row but never ran the
+              // model (api_call_count/output_tokens stay 0). Polling cannot fix
+              // that — fork a fresh session and resend once.
+              const session = currentSessionRef.current;
+              const hasUserWithoutAssistant = !serverHasAssistantReplyAfterLastUser(
+                messagesRef.current,
+              );
+              if (
+                !summarizationStub &&
+                shouldZeroTokenSelfHeal({
+                  macHttpOk: macChatLiveRef.current,
+                  isDemo: isDemoRef.current,
+                  waitElapsedMs: DEFERRED_REPLY_POLL_MAX_MS,
+                  hasUserWithoutAssistant,
+                  sessionOutputTokens: session?.output_tokens ?? 0,
+                  sessionApiCallCount: session?.api_call_count ?? 0,
+                  healsUsed: zeroTokenSelfHealsUsedRef.current,
+                })
+              ) {
+                zeroTokenSelfHealsUsedRef.current += 1;
+                setErrorMessage(ZERO_TOKEN_SELF_HEAL_HINT);
+                void (async () => {
+                  const freshOk = await handleStartFreshChat();
+                  if (!freshOk) {
+                    setErrorMessage(EMPTY_REPLY_FAILURE_REASON);
+                    return;
+                  }
+                  await sendUserText(userText, true);
+                })();
+                return;
+              }
               setErrorMessage(
                 summarizationStub
                   ? compactionStallBannerCopy(megaSessionDisplayTokens(currentSessionRef.current))
