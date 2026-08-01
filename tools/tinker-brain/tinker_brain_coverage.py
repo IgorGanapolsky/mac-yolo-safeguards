@@ -105,10 +105,23 @@ def coverage(question: str, answer_text: str, *, threshold: float = 0.34) -> dic
     # than the question ("How do I monetize fastest?" answered with pricing and
     # sales-motion guidance shares no terms at all), and flagging that rejected 3 of
     # the 14 golden cases.
+    # Three independent ways a card fails to answer. Using only ONE of them loses cases:
+    #   ratio       catches the verbose regression ("Should ThumbGate rename away from
+    #               Hermes given Nous Research trademark exposure?") where the card shares
+    #               several tokens but addresses none of the question.
+    #   brand_only  catches the concise form ("ThumbGate trademark?") which scores 1/2 =
+    #               0.5 and sails past any sane threshold — the same bug, shorter.
+    #   empty       an answer with no terms at all can never cover a real question.
+    # An earlier rewrite of mine kept only brand_only and silently regressed both of the
+    # others; tests/test-tinker-brain-coverage.py caught it.
     brand_only = bool(hits) and hits <= BRAND_TOKENS and bool(missing)
+    below_threshold = score < threshold
+    empty_answer = not a_terms
 
-    covered = not brand_only
-    if brand_only:
+    covered = not (brand_only or below_threshold or empty_answer)
+    if empty_answer:
+        reason = "the card has no substantive terms, so it cannot answer anything"
+    elif brand_only:
         reason = (
             f"the card shares only the product name ({', '.join(sorted(hits))}) with the "
             f"question and does not address {', '.join(missing[:4])}"

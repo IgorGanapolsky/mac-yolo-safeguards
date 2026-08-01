@@ -33,22 +33,25 @@ class CoverageAdvisoryTest(unittest.TestCase):
             coverage("Should I rename ThumbGate for trademark reasons?", CARD)["covered"]
         )
 
-    def test_does_not_flag_an_answer_that_paraphrases(self):
-        # Previously 0.0 and rejected; shares no terms with the question by design.
-        self.assertTrue(
-            coverage(
-                "How do I monetize fastest?",
-                "Lead with the $499 diagnostic; a bounded engagement with proof.",
-            )["covered"]
-        )
+    def test_a_paraphrase_may_warn_but_must_never_gate(self):
+        """A lexical hint WILL over-warn on paraphrase; that is why it is advisory.
 
-    def test_does_not_flag_related_language(self):
-        self.assertTrue(
-            coverage(
-                "What is the GTM grounding rule?",
-                "Ground every claim in a shipped artifact before it goes in a deck.",
-            )["covered"]
+        These two cases previously asserted 'must not warn'. That was aiming at the
+        wrong target: the harm was golden prompts exiting 3, and that is fixed by
+        removing the exit gate. Demanding a lexical checker never over-warn would mean
+        weakening detection until it missed the verbose trademark regression and empty
+        answers — which is exactly what my earlier brand-only rewrite did, and what
+        tests/test-tinker-brain-coverage.py caught.
+        """
+        import tinker_brain_answer as tba
+        src = Path(tba.__file__).read_text()
+        self.assertNotIn("else 3", src, "coverage must not decide the exit code")
+        # Warning on a paraphrase is tolerable; the verdict just must not be fatal.
+        cov = coverage(
+            "How do I monetize fastest?",
+            "Lead with the $499 diagnostic; a bounded engagement with proof.",
         )
+        self.assertIn("covered", cov, "a verdict is still produced")
 
     def test_names_the_brand_token_it_objected_to(self):
         reason = coverage("ThumbGate trademark?", CARD)["reason"]
