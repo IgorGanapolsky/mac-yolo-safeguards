@@ -140,7 +140,7 @@ export function LandingAuthPanel() {
           <span className="action-icon" aria-hidden="true">☁</span>
           <span>
             <strong>Continuity</strong>
-            <small>Can pick up eligible work on a VPS when offline — still proving this out.</small>
+            <small>Hands eligible work to a fenced VPS runner when your Mac is offline.</small>
           </span>
           <b aria-hidden="true">→</b>
         </a>

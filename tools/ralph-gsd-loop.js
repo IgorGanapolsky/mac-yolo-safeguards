@@ -280,6 +280,13 @@ function runRevenue(force) {
     args.length = 0;
     args.push('--json', '--auto-send');
   }
+  // CEO standing: cash-path unattended sends when goal OPEN (GSD 24/7).
+  if (
+    process.env.REVENUE_UNATTENDED_SEND_APPROVED === '1'
+    || process.env.RALPH_GSD_GOAL === 'one_paid_customer_per_day'
+  ) {
+    args.push('--allow-unattended-send');
+  }
   const r = sh(process.execPath, [script, ...args], { timeout: 150000 });
   try {
     const parsed = JSON.parse(r.stdout || '{}');
@@ -294,7 +301,22 @@ function runRevenue(force) {
   }
 }
 
-function nextGsdAction(gsd) {
+function nextGsdAction(gsd, goal = null) {
+  // Goal: 1 new paying customer per day — cash path outranks PR babysit.
+  if (goal && goal.active && !goal.hit) {
+    if (gsd.pipeline && (gsd.pipeline.counts.ready || 0) > 0) {
+      return `GOAL_send_ready_${gsd.pipeline.counts.ready}`;
+    }
+    // Only chase "replied" when next_action is not an explicit no-cold hold.
+    const actionableReplied = (gsd.pipeline && gsd.pipeline.actionableReplied) || 0;
+    if (actionableReplied > 0) {
+      return 'GOAL_close_replied_with_stripe_link';
+    }
+    if (gsd.pipeline && (gsd.pipeline.counts.sent || 0) > 0) {
+      return 'GOAL_followups_and_new_first_touch_until_paid';
+    }
+    return 'GOAL_acquire_and_send_diagnostic_499';
+  }
   if (gsd.pipeline && (gsd.pipeline.counts.ready || 0) > 0) {
     return `send_ready_${gsd.pipeline.counts.ready}`;
   }
@@ -307,6 +329,88 @@ function nextGsdAction(gsd) {
     return `stellar_${gsd.stellar.openItems[0].slice(0, 48)}`;
   }
   return 'monitor_inbox_and_stripe';
+}
+
+/** Daily goal: one Stripe-cleared paying customer (not pipeline theater). */
+function loadDailyPaidGoal() {
+  const day = new Date().toISOString().slice(0, 10);
+  const goalPath = path.join(REVENUE_DIR, `daily-paid-goal-${day}.json`);
+  let paid = 0;
+  let charges = [];
+  // ledger files if present
+  try {
+    // The canonical ledger is the TSV that tools/record-cleared-payment.js writes
+    // (revenue-ledger-YYYY-MM.tsv). Nothing in this repository has ever written
+    // cleared-payments-<day>.jsonl, so `paid` could never increment: a real cleared
+    // payment left the goal open, revenue was forced every 30 minutes, and Ralph's
+    // PR maintenance stayed deferred indefinitely.
+    const tsvLedger = path.join(REVENUE_DIR, `revenue-ledger-${day.slice(0, 7)}.tsv`);
+    if (fs.existsSync(tsvLedger)) {
+      const rows = fs.readFileSync(tsvLedger, 'utf8').trim().split('\n').filter(Boolean);
+      if (rows.length > 1) {
+        const headers = rows[0].split('\t');
+        const iDate = headers.indexOf('date_paid');
+        const iStatus = headers.indexOf('status');
+        charges = rows.slice(1)
+          .map((line) => line.split('\t'))
+          .filter((cols) => cols[iDate] === day
+            && ['paid', 'cleared'].includes((cols[iStatus] || '').trim()))
+          .map((cols) => Object.fromEntries(headers.map((h, i) => [h, cols[i]])));
+        paid = charges.length;
+      }
+    }
+    // Legacy path kept so an operator-written jsonl still counts if one appears.
+    const ledger = path.join(REVENUE_DIR, `cleared-payments-${day}.jsonl`);
+    if (fs.existsSync(ledger)) {
+      charges = fs
+        .readFileSync(ledger, 'utf8')
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => {
+          try {
+            return JSON.parse(l);
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean);
+      paid = charges.length;
+    }
+  } catch {
+    /* ignore */
+  }
+  // pipeline stage paid counts for the day (weak signal — still prefer ledger)
+  let pipelinePaid = 0;
+  try {
+    const p = latestPipelinePath();
+    if (p) {
+      const rows = parseTsv(p);
+      pipelinePaid = rows.filter((r) => String(r.stage || '').toLowerCase() === 'paid').length;
+    }
+  } catch {
+    /* ignore */
+  }
+  const hit = paid >= 1;
+  const goal = {
+    active: process.env.RALPH_GSD_GOAL !== '0',
+    name: 'one_paid_customer_per_day',
+    day,
+    hit,
+    paidLedger: paid,
+    pipelinePaid,
+    path: goalPath,
+    note: hit
+      ? 'GOAL HIT — ledger has ≥1 cleared payment today'
+      : 'GOAL OPEN — need ≥1 Stripe-cleared customer today ($499 Diagnostic preferred)',
+  };
+  try {
+    ensureDir(REVENUE_DIR);
+    fs.writeFileSync(goalPath, `${JSON.stringify(goal, null, 2)}\n`, { mode: 0o600 });
+  } catch {
+    /* ignore */
+  }
+  return goal;
 }
 
 function ntfyPost(title, body, priority = 'default') {
@@ -381,15 +485,17 @@ function appendReceipt(summary) {
 
   const day = summary.checkedAt.slice(0, 10);
   const mdPath = path.join(REVENUE_DIR, `ralph-gsd-board-${day}.md`);
+  const g = summary.goal || {};
   const md = [
     `# Ralph + GSD board — ${day}`,
     '',
+    `- **goal: 1 paying customer / day** → ${g.hit ? 'HIT' : 'OPEN'} (ledger_paid=${g.paidLedger || 0})`,
     `- last_cycle: ${summary.checkedAt}`,
     `- next: **${summary.nextAction}**`,
     `- open_prs: ${summary.gsd.prs.open} (mergeable=${summary.gsd.prs.mergeable} behind=${summary.gsd.prs.behind} dirty=${summary.gsd.prs.dirty} auto=${summary.gsd.prs.auto})`,
     `- pipeline: ${JSON.stringify(summary.gsd.pipeline && summary.gsd.pipeline.counts)}`,
     `- stellar open checkboxes: ${summary.gsd.stellar.open} / done ${summary.gsd.stellar.done}`,
-    `- ralph: auto=${summary.ralph && summary.ralph.autoEnabled} update=${summary.ralph && summary.ralph.updated} conflicts=${summary.ralph && summary.ralph.conflicts}`,
+    `- ralph: auto=${summary.ralph && summary.ralph.autoEnabled} update=${summary.ralph && summary.ralph.updated} conflicts=${summary.ralph && summary.ralph.conflicts}${summary.ralph && summary.ralph.reason ? ` (${summary.ralph.reason})` : ''}`,
     `- revenue: ${summary.revenue && summary.revenue.skipped ? `skipped_fresh_${summary.revenue.ageMin}m` : `sent=${summary.revenue && summary.revenue.sentCount} due=${summary.revenue && summary.revenue.due && summary.revenue.due.length}`}`,
     '',
   ].join('\n');
@@ -408,6 +514,11 @@ async function runCycle(args, cycle) {
   const started = Date.now();
   const actions = [];
 
+  const goal = loadDailyPaidGoal();
+  actions.push(
+    `goal ${goal.name} day=${goal.day} hit=${goal.hit} ledger_paid=${goal.paidLedger}`,
+  );
+
   const pipelinePath = latestPipelinePath();
   const rows = pipelinePath ? parseTsv(pipelinePath) : [];
   const counts = stageCounts(rows);
@@ -415,21 +526,21 @@ async function runCycle(args, cycle) {
   const prs = scanOpenPrs();
   actions.push(`gsd_scan prs=${prs.open} stellar_open=${stellar.open} pipeline_rows=${rows.length}`);
 
-  let ralph = { skipped: true };
-  if (args.ralph) {
-    ralph = runRalphOnce();
-    actions.push(
-      `ralph ok=${ralph.ok} auto=${ralph.autoEnabled || 0} update=${ralph.updated || 0} conflict=${ralph.conflicts || 0}`,
-    );
-    // re-scan PR counts after ralph
-    Object.assign(prs, scanOpenPrs());
-  } else {
-    actions.push('ralph=skipped');
-  }
+  // When daily paid goal is open, run revenue FIRST and force if needed.
+  const revenueFirst =
+    process.env.RALPH_GSD_REVENUE_FIRST === '1' || (goal.active && !goal.hit);
+  const forceRevenue =
+    args.forceRevenue || (goal.active && !goal.hit) || process.env.RALPH_GSD_FORCE_REVENUE === '1';
 
   let revenue = { skipped: true, reason: 'disabled' };
-  if (args.revenue) {
-    revenue = runRevenue(args.forceRevenue);
+  let ralph = { skipped: true };
+
+  const runRevenueStep = () => {
+    if (!args.revenue) {
+      actions.push('revenue=skipped');
+      return;
+    }
+    revenue = runRevenue(forceRevenue);
     if (revenue.skipped) {
       actions.push(`revenue=skipped_fresh_${revenue.ageMin}m`);
     } else {
@@ -437,20 +548,56 @@ async function runCycle(args, cycle) {
         `revenue ok=${revenue.ok} sent=${revenue.sentCount || 0} due=${(revenue.due || []).length} noop=${revenue.noop}`,
       );
     }
+  };
+
+  const runRalphStep = () => {
+    // Defer PR babysit while unpaid daily goal is open (GSD: cash before PR hygiene).
+    if (goal.active && !goal.hit && process.env.RALPH_GSD_DEFER_PR !== '0') {
+      ralph = { skipped: true, reason: 'deferred_until_daily_paid_goal' };
+      actions.push('ralph=deferred_until_daily_paid_goal');
+      return;
+    }
+    if (args.ralph) {
+      ralph = runRalphOnce();
+      actions.push(
+        `ralph ok=${ralph.ok} auto=${ralph.autoEnabled || 0} update=${ralph.updated || 0} conflict=${ralph.conflicts || 0}`,
+      );
+      Object.assign(prs, scanOpenPrs());
+    } else {
+      actions.push('ralph=skipped');
+    }
+  };
+
+  if (revenueFirst) {
+    runRevenueStep();
+    runRalphStep();
   } else {
-    actions.push('revenue=skipped');
+    runRalphStep();
+    runRevenueStep();
   }
+
+  // re-evaluate goal after revenue
+  const goalAfter = loadDailyPaidGoal();
+
+  const actionableReplied = rows.filter((r) => {
+    if (String(r.stage || '').toLowerCase() !== 'replied') return false;
+    const next = String(r.next_action || r.nextAction || '').toLowerCase();
+    const notes = String(r.notes || '').toLowerCase();
+    if (next.includes('no_cold') || notes.includes('do not send an automated follow-up')) return false;
+    return true;
+  }).length;
 
   const gsd = {
     pipeline: {
       path: pipelinePath,
       rows: rows.length,
       counts,
+      actionableReplied,
     },
     stellar,
     prs,
   };
-  const nextAction = nextGsdAction(gsd);
+  const nextAction = nextGsdAction(gsd, goalAfter);
 
   const summary = {
     ok: true,
@@ -460,6 +607,7 @@ async function runCycle(args, cycle) {
     durationMs: Date.now() - started,
     repo: REPO,
     revenueDir: REVENUE_DIR,
+    goal: goalAfter,
     gsd,
     ralph,
     revenue,

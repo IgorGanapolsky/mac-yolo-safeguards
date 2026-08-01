@@ -6,7 +6,24 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+// A+ infrastructure integrations
+let ResponseCache, CircuitBreaker, retryWithBackoff, executeWithProtection;
+try {
+  // eslint-disable-next-line global-require
+  ({ ResponseCache } = require('./hermes-response-cache'));
+} catch { ResponseCache = null; }
+try {
+  // eslint-disable-next-line global-require
+  ({ CircuitBreaker, retryWithBackoff, executeWithProtection } = require('./hermes-circuit-breaker'));
+} catch { CircuitBreaker = null; retryWithBackoff = null; executeWithProtection = null; }
+
 const RECEIPT_PATH = path.join(os.homedir(), '.hermes/economic-router-receipts.jsonl');
+
+// Route-decision cache: identical tasks within TTL get instant cache hits.
+// Keyed on (task, risk, maxCostUsd, paidOk) — the routing inputs.
+const _routeCache = ResponseCache
+  ? new ResponseCache({ maxEntries: 256, defaultTtlMs: 5 * 60 * 1000 })
+  : null;
 
 const RISK_LEVELS = ['low', 'medium', 'high', 'critical'];
 
@@ -322,10 +339,12 @@ function openRouterToolPayload(type, parameters = {}) {
 
 function usage() {
   return `Usage:
-  node tools/hermes-economic-router.js --task TEXT [--risk low|medium|high|critical] [--max-cost-usd N] [--latency-ms N] [--paid-ok] [--execute-plan] [--write] [--json]
+  node tools/hermes-economic-router.js --task TEXT [--risk low|medium|high|critical] [--max-cost-usd N] [--latency-ms N] [--paid-ok] [--ignore-expert-health] [--execute-plan] [--write] [--json]
 
-Routes Hermes work through a multi-agent economic pipeline. It emits receipts
-and budget gates; it does not call paid providers by itself.
+Routes Hermes work through a multi-agent economic pipeline (software MoE).
+Emits receipts and budget gates; does not call paid providers by itself.
+Live traffic DEAD experts are quarantined unless --ignore-expert-health.
+High risk + --paid-ok defaults max-cost to $0.10 unless --max-cost-usd is set.
 
 Use --execute-plan to emit a dry-run execution plan with bounded steps, caps,
 and blocked approval surfaces. It still performs no provider calls.`;
@@ -336,27 +355,49 @@ function parseArgs(argv) {
     task: '',
     risk: 'medium',
     maxCostUsd: 0,
+    maxCostUsdExplicit: false,
     latencyMs: 30000,
     paidOk: false,
     executePlan: false,
     write: false,
     json: false,
     help: false,
+    ignoreExpertHealth: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--task') args.task = requireValue(argv, ++i, arg);
     else if (arg === '--risk') args.risk = normalizeRisk(requireValue(argv, ++i, arg));
-    else if (arg === '--max-cost-usd') args.maxCostUsd = parseNonNegativeNumber(requireValue(argv, ++i, arg), arg);
-    else if (arg === '--latency-ms') args.latencyMs = parseNonNegativeNumber(requireValue(argv, ++i, arg), arg);
+    else if (arg === '--max-cost-usd') {
+      args.maxCostUsd = parseNonNegativeNumber(requireValue(argv, ++i, arg), arg);
+      args.maxCostUsdExplicit = true;
+    } else if (arg === '--latency-ms') args.latencyMs = parseNonNegativeNumber(requireValue(argv, ++i, arg), arg);
     else if (arg === '--paid-ok') args.paidOk = true;
     else if (arg === '--execute-plan') args.executePlan = true;
     else if (arg === '--write') args.write = true;
     else if (arg === '--json') args.json = true;
+    else if (arg === '--ignore-expert-health') args.ignoreExpertHealth = true;
     else if (arg === '--help' || arg === '-h') args.help = true;
     else throw new Error(`Unknown argument: ${arg}`);
   }
   if (!args.help && !args.task.trim()) throw new Error('--task is required');
+  return args;
+}
+
+/**
+ * High-risk + paid work must not default to a $0 cap that silently excludes GLM.
+ * Only applies when the caller did not set --max-cost-usd explicitly.
+ */
+function applyDefaultBudget(args) {
+  if (args.maxCostUsdExplicit) return args;
+  const risk = normalizeRisk(args.risk || 'medium');
+  if (!args.paidOk) return args;
+  if (risk === 'high' && args.maxCostUsd === 0) {
+    return { ...args, maxCostUsd: 0.1, budgetDefaulted: true };
+  }
+  if (risk === 'critical' && args.maxCostUsd === 0) {
+    return { ...args, maxCostUsd: 0.25, budgetDefaulted: true };
+  }
   return args;
 }
 
@@ -431,8 +472,13 @@ function scoreRoute(route, args, signals) {
 
   if (route.id === 'local_fast') {
     if (signals.routine) score += 25;
-    if (args.maxCostUsd === 0) score += 18;
+    // Zero-cost boost only for low/medium risk. High-risk must not prefer 3B local.
+    if (args.maxCostUsd === 0 && riskValue(args.risk) <= riskValue('medium')) score += 18;
     if (riskValue(args.risk) <= riskValue('medium')) score += 12;
+    if (riskValue(args.risk) >= riskValue('high')) score -= 35;
+    if ((signals.userDoubt || signals.architecture) && riskValue(args.risk) >= riskValue('high')) {
+      score -= 25;
+    }
   }
   if (route.id === 'glm52_reasoning') {
     if (signals.asksForGlm) score += 45;
@@ -1034,21 +1080,93 @@ function buildMicroAgentRecipe(selected, args, signals, evaluated) {
 }
 
 function decision(args) {
-  const normalizedArgs = {
+  // A+ Latency: cache route decisions for identical inputs (5-min TTL)
+  const cacheKey = _routeCache
+    ? JSON.stringify({ t: args.task, r: args.risk, c: args.maxCostUsd, p: args.paidOk })
+    : null;
+  if (_routeCache) {
+    const cached = _routeCache.get(cacheKey);
+    if (cached.hit) {
+      _routeCacheHits++;
+      return cached.value;
+    }
+  }
+
+  let normalizedArgs = {
     ...args,
     risk: normalizeRisk(args.risk || 'medium'),
     maxCostUsd: Number(args.maxCostUsd || 0),
+    maxCostUsdExplicit: Boolean(args.maxCostUsdExplicit),
     latencyMs: Number(args.latencyMs || 30000),
     paidOk: Boolean(args.paidOk),
+    ignoreExpertHealth: Boolean(args.ignoreExpertHealth),
   };
+  normalizedArgs = applyDefaultBudget(normalizedArgs);
   const signals = taskSignals(normalizedArgs.task);
+
+  // Live MoE health (traffic DEAD experts). Fail open if log missing — never crash routing.
+  // Unit tests set HERMES_IGNORE_EXPERT_HEALTH=1 for hermetic scoring without the live log.
+  let expertHealth = null;
+  const healthDisabled =
+    normalizedArgs.ignoreExpertHealth || process.env.HERMES_IGNORE_EXPERT_HEALTH === '1';
+  if (!healthDisabled) {
+    try {
+      // Lazy require keeps unit tests hermetic when traffic log is huge/absent.
+      // eslint-disable-next-line global-require
+      expertHealth = require('./moe-expert-health').loadExpertHealth({});
+    } catch {
+      expertHealth = null;
+    }
+  }
+
   const evaluated = ROUTES.map((route) => {
     const allowed = routeAllowed(route, normalizedArgs, signals);
+    const rejectionReasons = [...allowed.reasons];
+    let allowedFlag = allowed.allowed;
+
+    // Quarantine high-volume DEAD experts from selection (P0 MoE fix).
+    // Retired aliases stay quarantined while traffic history still marks them dead —
+    // retirement only clears gates, not selection of a known-bad expert.
+    if (allowedFlag && expertHealth && expertHealth.ok && expertHealth.byRouteId) {
+      const health = expertHealth.byRouteId[route.id];
+      if (health && health.dead && health.requests >= 20) {
+        allowedFlag = false;
+        const tag = health.retired ? 'retired-DEAD' : 'DEAD';
+        rejectionReasons.push(
+          `expert-health ${tag}: ${health.model} answer%=${health.answerRatePct} empty%=${health.emptyRatePct} (n=${health.requests})`,
+        );
+      }
+    }
+    // Memory pressure: deprioritize heavy local candidates (do not hard-block free tiny local).
+    if (
+      allowedFlag &&
+      expertHealth &&
+      expertHealth.memory &&
+      expertHealth.memory.pressure &&
+      (route.id === 'local_qwen36_candidate' || route.id === 'local_coder_candidate')
+    ) {
+      // keep allowed but scored down below
+    }
+
+    let score = -Infinity;
+    if (allowedFlag) {
+      const observed =
+        expertHealth && expertHealth.ok
+          ? require('./moe-expert-health').observedForRoute(expertHealth, route.id, route.model)
+          : null;
+      score = computeAdjustedRouteScore(route, normalizedArgs, signals, observed);
+      if (expertHealth && expertHealth.memory && expertHealth.memory.pressure) {
+        if (route.id === 'local_qwen36_candidate' || route.id === 'local_coder_candidate') {
+          score -= 40;
+        }
+      }
+    }
+
     return {
       route,
-      allowed: allowed.allowed,
-      rejectionReasons: allowed.reasons,
-      score: allowed.allowed ? scoreRoute(route, normalizedArgs, signals) : -Infinity,
+      allowed: allowedFlag,
+      rejectionReasons,
+      score,
     };
   }).sort((a, b) => b.score - a.score || a.route.costUsd - b.route.costUsd || a.route.id.localeCompare(b.route.id));
 
@@ -1065,7 +1183,15 @@ function decision(args) {
       maxCostUsd: normalizedArgs.maxCostUsd,
       latencyMs: normalizedArgs.latencyMs,
       paidOk: normalizedArgs.paidOk,
+      budgetDefaulted: Boolean(normalizedArgs.budgetDefaulted),
     },
+    expertHealth: expertHealth && expertHealth.ok
+      ? {
+          deadRouteIds: expertHealth.deadRouteIds,
+          highVolumeDead: expertHealth.highVolumeDead,
+          memoryPressure: expertHealth.memory?.pressure || false,
+        }
+      : null,
     selectedRoute: publicRoute(selected),
     estimatedCostUsd: selected.costUsd,
     estimatedLatencyMs: selected.latencyMs,
@@ -1099,7 +1225,90 @@ function decision(args) {
       kimiK3Rule: 'Kimi K3 earns its $3/$15 per 1M tokens via 2.8T parameter MoE quality and 1M context for long-context agentic workflows. It replaces K2.7-code in fusion panels and routes to long-context/repo-wide/agentic tasks. Use evaluateCanary() to compare K3 against GLM-5.2 before changing default reasoning route.',
     },
   };
+
+  // A+ Latency: cache the receipt for identical future requests
+  if (_routeCache && cacheKey) {
+    _routeCache.set(cacheKey, receipt);
+  }
+
+  // A+ Observability: record routing metrics
+  _routeDecisionCount++;
+  if (receipt.selectedRoute) {
+    _routeProviderCounts[receipt.selectedRoute.provider] =
+      (_routeProviderCounts[receipt.selectedRoute.provider] || 0) + 1;
+  }
+
   return receipt;
+}
+
+// A+ Observability: routing metrics counters
+let _routeCacheHits = 0;
+let _routeDecisionCount = 0;
+const _routeProviderCounts = {};
+
+// ---------------------------------------------------------------------------
+// A+ Observability: metrics export for routing decisions and cache performance
+// ---------------------------------------------------------------------------
+
+function getRoutingMetrics() {
+  return {
+    decisions: _routeDecisionCount,
+    cacheHits: _routeCacheHits,
+    cacheHitRate: _routeDecisionCount > 0
+      ? Number((_routeCacheHits / (_routeDecisionCount + _routeCacheHits)).toFixed(4))
+      : 0,
+    providerCounts: { ..._routeProviderCounts },
+    cacheStats: _routeCache ? _routeCache.stats() : null,
+  };
+}
+
+function resetRoutingMetrics() {
+  _routeCacheHits = 0;
+  _routeDecisionCount = 0;
+  for (const key of Object.keys(_routeProviderCounts)) delete _routeProviderCounts[key];
+}
+
+// ---------------------------------------------------------------------------
+// A+ Failure Modes: execute an LLM call with circuit breaker + retry
+// ---------------------------------------------------------------------------
+
+/**
+ * Execute an LLM inference with circuit-breaker protection and retry with backoff.
+ * Returns { ok, result, error, attempts, latencyMs }.
+ *
+ * @param {string} routeId - Route identifier for breaker scoping
+ * @param {() => Promise<*>} fn - Async function performing the LLM call
+ * @param {{ maxRetries?: number, breakerThreshold?: number, breakerCooldownMs?: number }} [opts]
+ * @returns {Promise<{ ok: boolean, result: *, error: string|null, attempts: number, latencyMs: number }>}
+ */
+async function executeWithResilience(routeId, fn, opts = {}) {
+  if (!CircuitBreaker || !retryWithBackoff) {
+    // Graceful degradation if circuit-breaker module is unavailable
+    const start = Date.now();
+    const result = await fn();
+    return { ok: true, result, error: null, attempts: 1, latencyMs: Date.now() - start };
+  }
+
+  const breaker = new CircuitBreaker({
+    failureThreshold: opts.breakerThreshold || 5,
+    cooldownMs: opts.breakerCooldownMs || 60_000,
+  });
+
+  const start = Date.now();
+  const result = await executeWithProtection(
+    breaker,
+    fn,
+    { maxRetries: opts.maxRetries || 3, baseDelayMs: 500 },
+  );
+
+  return {
+    ok: result.ok,
+    result: result.ok ? result.value : null,
+    error: result.ok ? null : (result.error?.message || String(result.error)),
+    attempts: result.attempts,
+    circuitOpen: result.circuitOpen || false,
+    latencyMs: Date.now() - start,
+  };
 }
 
 function publicRoute(route) {
@@ -1535,6 +1744,7 @@ module.exports = {
   buildExecutionPlan,
   decision,
   parseArgs,
+  applyDefaultBudget,
   providerModelCatalogQuery,
   receiptId,
   render,
@@ -1547,6 +1757,10 @@ module.exports = {
   computeAdjustedRouteScore,
   evaluateCanary,
   DEFAULT_CANARY_CONFIG,
+  // A+ infrastructure exports
+  getRoutingMetrics,
+  resetRoutingMetrics,
+  executeWithResilience,
 };
 
 if (require.main === module) {
