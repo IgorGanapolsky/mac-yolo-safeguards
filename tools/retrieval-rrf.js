@@ -33,12 +33,17 @@ function pathTokenBoost(filePath, queryTokens) {
     .replace(/\\/g, '/')
     .toLowerCase();
   const leaf = base.split('/').pop() || base;
+  const stem = leaf.replace(/\.[a-z0-9]+$/i, '');
+  const parts = new Set(stem.split(/[-_.]+/).filter((p) => p.length >= 3));
   let hits = 0;
+  let partHits = 0;
   for (const t of queryTokens) {
     if (leaf.includes(t) || base.includes(t)) hits += 1;
+    if (parts.has(t)) partHits += 1;
   }
-  // Small additive — enough to break ties, not swamp RRF
-  return Math.min(0.02, hits * 0.008);
+  // Prefer basenames that share multiple query tokens (agent-swarm-harness ↔ agent swarm harness)
+  const multi = partHits >= 2 ? 0.02 : partHits === 1 ? 0.008 : 0;
+  return Math.min(0.045, hits * 0.008 + multi);
 }
 
 /**
@@ -119,10 +124,11 @@ function rrfFuse(lists, options = {}) {
             ? 0.006
             : 0;
       const pathBoost = pathTokenBoost(p, queryTokens);
-      // Respect strong sparse ranker: harness@1 should not be buried by grepae noise
-      // (2026-08-01: agent-swarm-harness harness@1 dual@6 under equal RRF).
+      // Respect strong sparse ranker: harness@1 should not be buried by grepae agreement noise
+      // (2026-08-01: agent-swarm-harness harness@1 dual@6 under equal RRF;
+      //  re-proof: still dual@2 under 0.03 prior — raise to clear multi-source docs).
       const harnessPrior =
-        m.harnessRank === 1 ? 0.03 : m.harnessRank != null && m.harnessRank <= 2 ? 0.015 : 0;
+        m.harnessRank === 1 ? 0.055 : m.harnessRank === 2 ? 0.022 : m.harnessRank === 3 ? 0.01 : 0;
       const rrfScore = Number((score + agreement + pathBoost + harnessPrior).toFixed(6));
       return {
         path: p,
