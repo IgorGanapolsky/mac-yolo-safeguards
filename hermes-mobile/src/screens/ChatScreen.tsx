@@ -4564,8 +4564,14 @@ export default function ChatScreen() {
   }, [currentSession, messages]);
 
   const showEmptyStreamRefreshBanner = useMemo(
-    () => !isDemo && macChatLive && shouldShowEmptyStreamRefreshCta(messages),
-    [isDemo, macChatLive, messages],
+    () =>
+      !isDemo &&
+      macChatLive &&
+      connectionState === 'connected' &&
+      effectiveMacHttpOk &&
+      !isConnectivityMessage(errorMessage ?? '') &&
+      shouldShowEmptyStreamRefreshCta(messages),
+    [isDemo, macChatLive, connectionState, effectiveMacHttpOk, errorMessage, messages],
   );
 
   const lastUserPromptSentAtMs = useMemo(() => {
@@ -5485,7 +5491,11 @@ export default function ChatScreen() {
             if (runProgressRef.current?.phase === 'failed') {
               setRunProgress(null);
             }
-            void retryFailedOutboundRef.current();
+            if (connectionState !== 'connected' || !effectiveMacHttpOk || isConnectivityMessage(errorMessage ?? '')) {
+              void handleMacRetry();
+            } else {
+              void retryFailedOutboundRef.current();
+            }
           }}
         />
       );
@@ -8183,16 +8193,18 @@ export default function ChatScreen() {
                 ? 'Stop run on computer & retry'
                 : isAuthRepairMessage(operationalError)
                   ? WRONG_KEY_PRIMARY_CTA
-                  : isEmptyReplyFailureMessage(operationalError) ||
-                      lastFailedSendTextRef.current?.trim() ||
-                      lastFailedOutboundText?.trim()
-                    ? 'Retry send'
-                    : undefined
+                  : isConnectivityMessage(operationalError) || connectionState !== 'connected' || !effectiveMacHttpOk
+                    ? 'Reconnect & retry'
+                    : isEmptyReplyFailureMessage(operationalError) ||
+                        lastFailedSendTextRef.current?.trim() ||
+                        lastFailedOutboundText?.trim()
+                      ? 'Retry send'
+                      : undefined
             }
             onAction={
               showSessionBusyStop
                 ? () => void handleStopMacAndRetrySend()
-                : isAuthRepairMessage(operationalError)
+                : isAuthRepairMessage(operationalError) || isConnectivityMessage(operationalError) || connectionState !== 'connected' || !effectiveMacHttpOk
                   ? () => void handleMacRetry()
                   : isEmptyReplyFailureMessage(operationalError) ||
                       lastFailedSendTextRef.current?.trim() ||
