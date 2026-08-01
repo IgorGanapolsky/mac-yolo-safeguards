@@ -243,11 +243,15 @@ def build_snapshot(
             "any campaign copy — never hard-code a price"
         )
 
+    # Gate-first (2026-08-01): sell free Leash/approval control plane first; Continuity
+    # remains optional and must not be the only NEXT_MONEY line while competitive
+    # always-on cloud Hermes weakens the "lid closes" premise.
     next_money = (
         "Ship today's ThumbGate.app campaign beat (one persona + one pain + cited evidence + "
-        "hook) across the fan-out matrix with verified permalinks; recruit toward 3 Continuity "
-        "design partners; check the AEO monitor weekly. Reddit stays draft-only under the burn "
-        "rule. Cash counts only on a non-owner Stripe subscription payment."
+        "hook) across the fan-out matrix with verified permalinks; lead with free browser "
+        "Leash/tool-approval (the gate) as the durable wedge; Continuity stays optional add-on "
+        "not the sole pitch. Check AEO monitor weekly. Reddit draft-only under burn rule. "
+        "Cash counts only on a non-owner Stripe subscription payment."
     )
 
     return {
@@ -422,6 +426,10 @@ def write_snapshot(out: Path, payload: dict[str, Any]) -> None:
         try:
             shutil.copyfile(EXPERT_SRC, expert_dst)
             expert_dst.chmod(0o600)
+            # Fail loud if the snapshot copy did not land byte-identical (runtime
+            # prefers snapshot — silent drift is the divergence class of bug).
+            if expert_dst.read_bytes() != EXPERT_SRC.read_bytes():
+                raise OSError("expert card snapshot copy mismatch after write")
         except OSError:
             pass  # answer path falls back to the repo copy
 

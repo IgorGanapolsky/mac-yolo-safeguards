@@ -14,6 +14,25 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from tinker_brain_coverage import banner, coverage  # noqa: E402
 
 SCORE_RE = re.compile(r"\b(?:100|[1-9]?\d)/100\b")
+
+
+def _proposes_marketing_channel(text: str, channel: str) -> bool:
+    """True only when the answer treats `channel` as a marketing/conversion rail.
+
+    Factual citations (stars, repos, competitor host metrics) must not match.
+    """
+    ch = re.escape(channel.lower())
+    patterns = (
+        rf"\bmake\s+{ch}\b",
+        rf"\b{ch}\s+the\s+top\b",
+        rf"\b{ch}\b.{{0,48}}\b(?:conversion\s+)?channel\b",
+        rf"\b(?:post|promote|market|advertise|publish|sell)\s+(?:to|on|via)\s+{ch}\b",
+        rf"\buse\s+{ch}\s+(?:for|as)\b",
+        rf"\bvia\s+{ch}\s+(?:for|as|to)\b",
+        rf"\btop\s+conversion\s+channel\b.{{0,24}}{ch}",
+    )
+    return any(re.search(p, text, flags=re.I) for p in patterns)
+
 AS_OF_RE = re.compile(r"\b20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\b")
 UNSUPPORTED_STACK_TERMS = (
     "dropbox",
@@ -177,13 +196,16 @@ def validate_response(response: str, card_text: str, user_question: str) -> list
     card_lower = card_text.lower()
     if "obsidian" in lowered and "obsidian" not in question_lower and "obsidian" not in card_lower:
         violations.append("off_scope_obsidian")
-    if "github" in lowered and "github" not in question_lower and "github" not in card_lower:
+    # Propose-as-channel only. Bare competitor citations ("214K GitHub stars") must
+    # not trip off_scope / focus_channel — that false positive silently suppressed
+    # every GTM answer that mentioned a public code host (2026-07-31 incident).
+    if _proposes_marketing_channel(lowered, "github") and "github" not in question_lower:
         violations.append("off_scope_github")
     focus_lower = fields.get("FOCUS", "").lower()
     if "skool" in focus_lower and "reddit" in focus_lower:
-        if "github" in lowered:
+        if _proposes_marketing_channel(lowered, "github"):
             violations.append("focus_channel_mismatch")
-        if "gmail" in lowered:
+        if _proposes_marketing_channel(lowered, "gmail"):
             violations.append("focus_channel_mismatch")
     if any(token in lowered for token in UNSUPPORTED_STACK_TERMS):
         violations.append("unsupported_stack_recommendation")
