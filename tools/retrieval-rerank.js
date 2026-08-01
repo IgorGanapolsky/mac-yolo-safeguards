@@ -349,20 +349,31 @@ async function scoreCandidates(query, candidates, strategy, options = {}) {
  * Second-stage rerank result cache (LRU + TTL).
  *
  * Why: CE/ColBERT/LLM rerank (`scoreCandidates`) is the expensive stage — it calls
- * Ollama embeddings and optionally the LLM judge. On a long-lived Hermes process
- * (the continuous-e2e LaunchAgent is always-running), the SAME query+strategy+
- * candidate-set recurs across user repeats; caching the final scored order skips
- * embeddings entirely on hit.
+ * Ollama embeddings and optionally the LLM judge. Caching the final scored order skips
+ * those model calls on repeat queries with identical inputs.
+ *
+ * Scope / honesty (review Comment #2): rerank is reached via fresh `spawnSync` Node
+ * processes for CLI/eval entry points (`rag-retrieval-eval.js`, `retrieval-multi-query.js`,
+ * and the `retrieval-dual-path` CLI all spawn a new process per call), so an in-process
+ * `Map` only persists for the lifetime of one process. It therefore benefits any
+ * in-process caller that reranks the same (query, strategy, candidate-set) more than
+ * once, AND — with `persistPath` below — repeated CLI/eval queries across processes.
  *
  * Correctness / safety:
  *  - Keyed on query + strategy + limit + llm-flag + a canonical (order-insensitive)
- *    fingerprint of the candidate SET. A changed upstream set / index refresh is a
- *    natural miss; rerank is deterministic so TTL is a freshness floor, not a
- *    correctness shortcut.
- *  - WRITE-disabled whenever an embedder/chat is injected (test fakes) so fake
- *    vectors can never poison the production cache. Production never injects
- *    (it uses createOllamaEmbedder/createOllamaChat), so caching is on by default
- *    in prod with no flag needed; injected (hermetic) test runs are always cache-off.
+ *    fingerprint of the candidate SET. The fingerprint hashes the full snippet (up to
+ *    2000 chars — covering the CE/ColBERT consumption window) plus start/end line, so
+ *    a snippet differing only beyond char 800 or a shifted source range is a natural
+ *    miss, never a stale cache hit. Rerank is deterministic, so TTL is a freshness
+ *    floor, not a correctness shortcut.
+ *  - WRITE is disabled whenever an embedder/chat is injected (test fakes) so fake
+ *    vectors can never poison the cache; production never injects (it uses
+ *    createOllamaEmbedder/createOllamaChat), so caching is on by default in-process.
+ *  - Optional cross-process persistence: set `HERMES_RERANK_CACHE_PATH` to a writable
+ *    file; the cache then loads on construction and write-throughs (atomic temp+rename)
+ *    on each set. Reads/writes are fail-open (missing/corrupt/unwritable file => cold
+ *    start; write failure ignored). Persistence is also suppressed by the inject guard,
+ *    so hermetic test runs never touch the persist file.
  *  - `HERMES_RERANK_NO_CACHE=1` / `options.disableCache` / CLI `--no-cache` force off
  *    (fail-open: a cache fault never changes matches, only latency).
  *  - Matches are cloned on cache hit so callers can never mutate cached state.
@@ -379,8 +390,10 @@ function canonicalCandidates(candidates) {
     (candidates || [])
       .map((c) => ({
         p: c.path,
-        s: (c.snippet || c.text || '').slice(0, 800),
+        s: (c.snippet || c.text || '').slice(0, 2000),
         r: Number(c.rrfScore || c.score || 0),
+        sl: c.start_line,
+        el: c.end_line,
       }))
       .sort((a, b) => String(a.p).localeCompare(String(b.p)) || a.s.localeCompare(b.s)),
   );
@@ -404,17 +417,40 @@ function rerankSnapshot(out) {
 }
 
 class RerankCache {
-  constructor({ maxSize = RERANK_CACHE_MAX, ttlMs = RERANK_CACHE_TTL_MS, now = Date.now } = {}) {
+  constructor({ maxSize = RERANK_CACHE_MAX, ttlMs = RERANK_CACHE_TTL_MS, now = Date.now, persistPath = null } = {}) {
     this.max = Math.max(1, maxSize);
     this.ttl = Math.max(0, ttlMs);
     this.now = now;
+    this.persistPath = persistPath || null;
     this.map = new Map();
+    if (this.persistPath) this._load();
+  }
+  _load() {
+    try {
+      const { entries } = JSON.parse(fs.readFileSync(this.persistPath, 'utf8'));
+      if (Array.isArray(entries)) for (const { k, v, t } of entries) this.map.set(k, { v, t });
+    } catch (_) {
+      /* missing / corrupt / unreadable -> cold start (fail-open) */
+    }
+  }
+  _persist() {
+    if (!this.persistPath) return;
+    const entries = [];
+    for (const [k, val] of this.map) entries.push({ k, v: val.v, t: val.t });
+    const tmp = `${this.persistPath}.tmp`;
+    try {
+      fs.writeFileSync(tmp, JSON.stringify({ entries }));
+      fs.renameSync(tmp, this.persistPath); // atomic on the same filesystem
+    } catch (_) {
+      try { fs.existsSync(tmp) && fs.unlinkSync(tmp); } catch (_) {}
+    }
   }
   get(key) {
     const entry = this.map.get(key);
     if (!entry) return undefined;
     if (this.ttl > 0 && this.now() - entry.t > this.ttl) {
       this.map.delete(key);
+      this._persist();
       return undefined;
     }
     // LRU: refresh recency (Map insertion order == access order after re-insert)
@@ -428,13 +464,19 @@ class RerankCache {
       if (oldest !== undefined) this.map.delete(oldest);
     }
     this.map.set(key, { v: value, t: this.now() });
+    this._persist();
     return value;
   }
-  clear() { this.map.clear(); }
+  clear() {
+    this.map.clear();
+    this._persist();
+  }
   size() { return this.map.size; }
 }
 
-const RERANK_CACHE = new RerankCache();
+const RERANK_CACHE = new RerankCache({
+  persistPath: process.env.HERMES_RERANK_CACHE_PATH || null,
+});
 function clearRerankCache() { RERANK_CACHE.clear(); }
 
 /**

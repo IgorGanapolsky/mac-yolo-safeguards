@@ -2,6 +2,9 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const {
   selfTest,
   cosine,
@@ -227,6 +230,63 @@ test('clearRerankCache empties the shared instance', () => {
   assert.equal(RerankCacheInstance.size(), 1);
   clearRerankCache();
   assert.equal(RerankCacheInstance.size(), 0);
+});
+
+// --- Review Comment regressions: cache key fidelity (Comment #1) + persistence (Comment #2) ---
+
+test('rerankCacheKey is collision-free for snippets differing beyond the 800-char window', () => {
+  // identical through the first 1200 chars (covers CE 1200 / ColBERT 2000 windows),
+  // differ only after -> key MUST differ (fix: 800 -> 2000 + start/end line)
+  const base = 'gateway session recover when tailscale path fails; reconnect session token';
+  const a = [{ path: 'a.md', snippet: base.padEnd(1200, 'x') + 'DIFFTAIL-A', rrfScore: 0.1 }];
+  const b = [{ path: 'a.md', snippet: base.padEnd(1200, 'x') + 'DIFFTAIL-B', rrfScore: 0.1 }];
+  const opts = { query: 'gateway session recover', strategy: 'ensemble', limit: 10, llm: false };
+  assert.notEqual(rerankCacheKey({ ...opts, candidates: a }), rerankCacheKey({ ...opts, candidates: b }));
+});
+
+test('rerankCacheKey differs when start/end line change (no stale source coords)', () => {
+  const a = [{ path: 'a.md', snippet: 'gateway session', rrfScore: 0.1, start_line: 10, end_line: 12 }];
+  const b = [{ path: 'a.md', snippet: 'gateway session', rrfScore: 0.1, start_line: 20, end_line: 22 }];
+  const opts = { query: 'q', strategy: 'ensemble', limit: 5 };
+  assert.notEqual(rerankCacheKey({ ...opts, candidates: a }), rerankCacheKey({ ...opts, candidates: b }));
+});
+
+test('RerankCache persists across construction when persistPath is set (cross-process CLI reuse)', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rerank-cache-'));
+  const file = path.join(dir, 'cache.json');
+  try {
+    const c1 = new RerankCache({ persistPath: file, ttlMs: 60000 });
+    c1.set('k1', { matches: [{ path: 'a' }] });
+    c1.set('k2', { matches: [{ path: 'b' }] });
+    assert.equal(c1.size(), 2);
+    // Simulate a fresh CLI process reading the SAME store:
+    const c2 = new RerankCache({ persistPath: file, ttlMs: 60000 });
+    assert.equal(c2.size(), 2);
+    assert.deepEqual(c2.get('k1').matches, [{ path: 'a' }]);
+    assert.deepEqual(c2.get('k2').matches, [{ path: 'b' }]);
+    c2.clear();
+    assert.equal(c2.size(), 0);
+    // clear() write-throughs an empty state -> on-disk file is empty
+    assert.equal(fs.readFileSync(file, 'utf8'), JSON.stringify({ entries: [] }));
+    // a brand-new process is cold after clear
+    const c3 = new RerankCache({ persistPath: file, ttlMs: 60000 });
+    assert.equal(c3.size(), 0);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('RerankCache with no persistPath is process-local (no file I/O)', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rerank-nofile-'));
+  const leaked = path.join(dir, 'should-not-exist.json');
+  try {
+    const c = new RerankCache({ ttlMs: 60000 }); // persistPath null
+    c.set('k', { matches: [] });
+    assert.equal(c.size(), 1);
+    assert.equal(fs.existsSync(leaked), false);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 // --- MMR diversity re-rank (rerank-layer A+ lift, opt-in) ---
