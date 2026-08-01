@@ -122,11 +122,12 @@ export function buildHermesStatusLabel(
   ) {
     const input = (runProgress?.inputTokens ?? 0).toLocaleString();
     const output = (runProgress?.outputTokens ?? 0).toLocaleString();
-    tokensLabel = ` · In: ${input} | Out: ${output}`;
+    tokensLabel = ` · In: ${input} tokens | Out: ${output} tokens`;
   } else {
-    const totalTokens = (currentSession?.input_tokens ?? 0) + (currentSession?.output_tokens ?? 0);
-    if (totalTokens > 0) {
-      tokensLabel = ` · ${totalTokens.toLocaleString()} session`;
+    const sessionIn = currentSession?.input_tokens ?? 0;
+    const sessionOut = currentSession?.output_tokens ?? 0;
+    if (sessionIn > 0 || sessionOut > 0) {
+      tokensLabel = ` · In: ${sessionIn.toLocaleString()} tokens | Out: ${sessionOut.toLocaleString()} tokens`;
     }
   }
 
