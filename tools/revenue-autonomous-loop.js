@@ -954,11 +954,25 @@ async function run(args) {
   //
   // Unknown reply state is also a hard stop: if we cannot see who replied, we
   // cannot safely cold-mail anyone.
+  // A sender proven not to deliver must not consume prospects. Five were burned on
+  // 2026-07-29 because every send bounced while the ledger recorded them as sent — you
+  // get one first email per person, so a bounced send is a lost contact, not a retry.
+  // UNKNOWN only warns: blocking on unknown would deadlock the loop the first time a
+  // new address appears, and a guard that halts normal work gets switched off.
+  const senderAddress = process.env.REVENUE_SENDER_ADDRESS || 'igor@igorganapolsky.com';
+  const senderHealth = require('./sender-health').checkSender(senderAddress);
+  if (!senderHealth.allowed) {
+    actions.push(`auto_send=blocked_sender_unhealthy:${senderHealth.status}`);
+  } else if (senderHealth.status !== 'ok') {
+    actions.push(`sender_health=${senderHealth.status}`);
+  }
+
   const unattendedSendAllowed =
     args.autoSend &&
     args.allowUnattendedSend &&
     process.env.REVENUE_UNATTENDED_SEND_APPROVED === '1' &&
-    !replyScanBlind;
+    !replyScanBlind &&
+    senderHealth.allowed;
   if (args.autoSend && args.allowUnattendedSend && replyScanBlind) {
     actions.push('auto_send=blocked_reply_scan_blind');
   }
