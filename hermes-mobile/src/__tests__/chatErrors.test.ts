@@ -8,6 +8,7 @@ import {
   isSessionInUseError,
   isSessionRemovedError,
   isTitleInUseError,
+  shortMacUnreachableTitle,
   USER_RUN_INTERRUPTED_MESSAGE,
 } from '../utils/chatErrors';
 import { gatewayAuthRepairBanner } from '../services/gatewayClient';
@@ -214,6 +215,31 @@ describe('isConnectivityMessage', () => {
 
   it('recognizes Mac unreachable retry banner copy as connectivity', () => {
     expect(isConnectivityMessage("Can't reach direct link (10.2.29.103:8642) — tap to retry")).toBe(true);
+  });
+
+  it('classifies hostname reconnect-fail copy as connectivity (never Retry send)', () => {
+    // handleMacRetry failure — screenshot 2026-08-01: red banner + "Retry send" while Not connected.
+    expect(
+      isConnectivityMessage(
+        "Still can't reach Igors-Mac-mini. Keep Tailscale on, or tap Find computers.",
+      ),
+    ).toBe(true);
+    expect(
+      isConnectivityMessage("Can't reach Igors-Mac-mini (Tailscale) — switch computer above"),
+    ).toBe(true);
+    expect(
+      isConnectivityMessage("Couldn't reach your computer — tap Computer above"),
+    ).toBe(true);
+    expect(isConnectivityMessage(shortMacUnreachableTitle())).toBe(true);
+  });
+
+  it('does not treat operational empty-reply failures as connectivity', () => {
+    expect(
+      isConnectivityMessage(
+        'Your computer finished but no reply text arrived — tap to retry.',
+      ),
+    ).toBe(false);
+    expect(isConnectivityMessage('Still on the previous chat — stop it and retry.')).toBe(false);
   });
 
   it('explains that Chat needs a Mac connection when account path is up but Mac HTTP is down', () => {

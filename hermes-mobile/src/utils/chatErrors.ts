@@ -28,20 +28,24 @@ export function isConnectivityError(error: unknown): boolean {
 
 export function isConnectivityMessage(message: string): boolean {
   const normalized = message.toLowerCase().replace(/\u2011/g, '-');
+  // Generic reachability phrasing covers hostname-specific reconnect copy such as
+  // "Still can't reach Igors-Mac-mini…" and bubble hints like
+  // "Couldn't reach your computer — tap Computer above". Those must never become
+  // operational "Retry send" CTAs — the Mac is offline; reconnect first.
+  const cantReach =
+    /\bcan(?:'|’)?t reach\b/.test(normalized) ||
+    /\bcouldn(?:'|’)?t reach\b/.test(normalized) ||
+    /\bunable to reach\b/.test(normalized);
   return (
     CONNECTIVITY_MARKERS.some((marker) => normalized.includes(marker)) ||
-    normalized.includes("can't reach hermes") ||
-    normalized.includes("can't reach your mac") ||
-    normalized.includes("can't reach your computer") ||
-    /can't reach that local computer (?:link|connection)/.test(normalized) ||
-    normalized.includes("can't reach direct link") ||
+    cantReach ||
     normalized.includes('hermes relay is not connected yet') ||
     normalized.includes('hermes relay is not paired yet') ||
     normalized.includes('your computer is not connected yet') ||
     // friendlyMacUnreachableMessage() — keep these markers in sync with that copy.
     normalized.includes('your mac is not connected yet') ||
     normalized.includes('turn on tailscale') ||
-    normalized.includes("can't reach that home wi-fi address") ||
+    normalized.includes('keep tailscale') ||
     normalized.includes('chat needs a link to your computer') ||
     normalized.includes('chat needs a connection to your mac') ||
     normalized.includes('use tailscale') ||
@@ -49,7 +53,10 @@ export function isConnectivityMessage(message: string): boolean {
     normalized.includes('failed to connect to your mac') ||
     normalized.includes('gateway is running') ||
     normalized.includes('home wi-fi only') ||
-    normalized.includes('same wi-fi')
+    normalized.includes('same wi-fi') ||
+    normalized.includes('tap find computers') ||
+    normalized.includes('switch computer above') ||
+    normalized.includes('tap computer above')
   );
 }
 
