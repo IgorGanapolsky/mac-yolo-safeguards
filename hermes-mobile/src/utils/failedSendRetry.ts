@@ -7,7 +7,7 @@ import { EMPTY_REPLY_FAILURE_REASON } from './emptyStreamReplyRecovery';
 import { OUTBOUND_STUCK_FAILURE_REASON } from './outboundSendRecovery';
 import { isConnectivityMessage } from './chatErrors';
 import { normalizeMessageText } from './chatMessageMerge';
-import { isWrongKeyFailure } from './wrongKeyRecovery';
+import { isWrongKeyFailure, WRONG_KEY_PRIMARY_CTA } from './wrongKeyRecovery';
 
 export type ComposerSendAction =
   | { kind: 'none' }
@@ -255,3 +255,49 @@ export function shouldHideMacTileForSilentHeal(input: {
   }
   return input.silentHealInFlight;
 }
+
+/**
+ * Composer red-banner CTA. Never offer plain "Retry send" while the Mac link is down —
+ * that only re-fails. Prefer reconnect (or auth repair / session-busy stop).
+ */
+export function resolveComposerErrorAction(input: {
+  message: string;
+  macChatLive: boolean;
+  isDemo?: boolean;
+  isSessionBusy?: boolean;
+  isAuthRepair?: boolean;
+  hasFailedSend?: boolean;
+}): { label: string; kind: 'stop_retry' | 'auth' | 'reconnect' | 'retry_send' } | null {
+  const message = input.message?.trim() ?? '';
+  if (!message) {
+    return null;
+  }
+  if (input.isSessionBusy) {
+    return { label: 'Stop run on computer & retry', kind: 'stop_retry' };
+  }
+  if (input.isAuthRepair) {
+    return { label: WRONG_KEY_PRIMARY_CTA, kind: 'auth' };
+  }
+  const offline = !input.isDemo && !input.macChatLive;
+  const emptyReply = isEmptyReplyFailureMessage(message);
+  if (offline || isConnectivityMessage(message)) {
+    return { label: 'Reconnect & retry', kind: 'reconnect' };
+  }
+  if (emptyReply || input.hasFailedSend) {
+    return { label: 'Retry send', kind: 'retry_send' };
+  }
+  return null;
+}
+
+/** Empty-reply / stuck-run copy is only actionable when the Mac chat path is live. */
+export function shouldSurfaceEmptyReplyFailure(input: {
+  message: string | null | undefined;
+  macChatLive: boolean;
+  isDemo?: boolean;
+}): boolean {
+  if (!isEmptyReplyFailureMessage(input.message)) {
+    return false;
+  }
+  return Boolean(input.isDemo || input.macChatLive);
+}
+

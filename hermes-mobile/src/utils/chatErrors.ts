@@ -29,7 +29,7 @@ export function isConnectivityError(error: unknown): boolean {
 export function isConnectivityMessage(message: string): boolean {
   const normalized = message.toLowerCase().replace(/\u2011/g, '-');
   // Generic reachability phrasing covers hostname-specific reconnect copy such as
-  // "Still can't reach Igors-Mac-mini…" and bubble hints like
+  // "Still can't reach <saved computer name>…" and bubble hints like
   // "Couldn't reach your computer — tap Computer above". Those must never become
   // operational "Retry send" CTAs — the Mac is offline; reconnect first.
   const cantReach =

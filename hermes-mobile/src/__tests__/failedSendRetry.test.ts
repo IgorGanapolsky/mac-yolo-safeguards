@@ -3,9 +3,11 @@ import {
   findLastFailedOutboundRetry,
   findLastFailedOutboundText,
   isEmptyReplyFailureMessage,
+  resolveComposerErrorAction,
   resolveComposerSendAction,
   shouldHideMacTileForSilentHeal,
   shouldShowFailedSendRetry,
+  shouldSurfaceEmptyReplyFailure,
 } from '../utils/failedSendRetry';
 import { EMPTY_REPLY_FAILURE_REASON } from '../utils/emptyStreamReplyRecovery';
 import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
@@ -272,5 +274,43 @@ describe('shouldHideMacTileForSilentHeal', () => {
         hasRetryableFailedSend: false,
       }),
     ).toBe(false);
+  });
+});
+
+
+describe('resolveComposerErrorAction / empty-reply offline', () => {
+  it('never offers Retry send when Mac chat is offline', () => {
+    expect(
+      resolveComposerErrorAction({
+        message: EMPTY_REPLY_FAILURE_REASON,
+        macChatLive: false,
+        hasFailedSend: true,
+      }),
+    ).toEqual({ label: 'Reconnect & retry', kind: 'reconnect' });
+  });
+
+  it('offers Retry send for empty-reply only when Mac is live', () => {
+    expect(
+      resolveComposerErrorAction({
+        message: EMPTY_REPLY_FAILURE_REASON,
+        macChatLive: true,
+        hasFailedSend: true,
+      }),
+    ).toEqual({ label: 'Retry send', kind: 'retry_send' });
+  });
+
+  it('hides empty-reply failure surface when offline', () => {
+    expect(
+      shouldSurfaceEmptyReplyFailure({
+        message: EMPTY_REPLY_FAILURE_REASON,
+        macChatLive: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldSurfaceEmptyReplyFailure({
+        message: EMPTY_REPLY_FAILURE_REASON,
+        macChatLive: true,
+      }),
+    ).toBe(true);
   });
 });

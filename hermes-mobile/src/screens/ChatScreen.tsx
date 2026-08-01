@@ -394,11 +394,13 @@ import {
   failedSendRetryTelemetryProperties,
   findLastFailedOutboundRetry,
   findLastFailedOutboundText,
+  resolveComposerErrorAction,
   resolveComposerSendAction,
   resolveComposerSendText,
   shouldHideMacTileForSilentHeal,
   isEmptyReplyFailureMessage,
   shouldShowFailedSendRetry,
+  shouldSurfaceEmptyReplyFailure,
 } from '../utils/failedSendRetry';
 import { idHasPrefix } from '../utils/messageIds';
 import {
@@ -1856,11 +1858,39 @@ export default function ChatScreen() {
     return () => removeGatewayListener(handleEvent);
   }, [addGatewayListener, removeGatewayListener, scrollChatToLatestIfPinned]);
 
-  const operationalError =
-    errorMessage && !isConnectivityMessage(errorMessage) ? errorMessage : null;
+  // Empty-reply / "Still no reply text" is meaningless when the Mac chat path is
+  // already down — surfacing it with Retry send is the rage screenshot class.
+  const operationalError = (() => {
+    if (!errorMessage || isConnectivityMessage(errorMessage)) {
+      return null;
+    }
+    if (
+      isEmptyReplyFailureMessage(errorMessage) &&
+      !shouldSurfaceEmptyReplyFailure({
+        message: errorMessage,
+        macChatLive: effectiveMacChatLive,
+        isDemo,
+      })
+    ) {
+      return null;
+    }
+    return errorMessage;
+  })();
   const showSessionBusyStop = Boolean(
     operationalError?.toLowerCase().includes('still on the previous chat'),
   );
+  const composerErrorAction = operationalError
+    ? resolveComposerErrorAction({
+        message: operationalError,
+        macChatLive: effectiveMacChatLive,
+        isDemo,
+        isSessionBusy: showSessionBusyStop,
+        isAuthRepair: isAuthRepairMessage(operationalError),
+        hasFailedSend: Boolean(
+          lastFailedSendTextRef.current?.trim() || lastFailedOutboundText?.trim(),
+        ),
+      })
+    : null;
 
   useEffect(() => {
     if (!showMacConnectionHelp || isDemo) {
@@ -8237,25 +8267,14 @@ export default function ChatScreen() {
           <ComposerErrorBanner
             message={operationalError}
             onDismiss={() => setErrorMessage(null)}
-            actionLabel={
-              showSessionBusyStop
-                ? 'Stop run on computer & retry'
-                : isAuthRepairMessage(operationalError)
-                  ? WRONG_KEY_PRIMARY_CTA
-                  : isEmptyReplyFailureMessage(operationalError) ||
-                      lastFailedSendTextRef.current?.trim() ||
-                      lastFailedOutboundText?.trim()
-                    ? 'Retry send'
-                    : undefined
-            }
+            actionLabel={composerErrorAction?.label}
             onAction={
-              showSessionBusyStop
+              composerErrorAction?.kind === 'stop_retry'
                 ? () => void handleStopMacAndRetrySend()
-                : isAuthRepairMessage(operationalError)
+                : composerErrorAction?.kind === 'auth' ||
+                    composerErrorAction?.kind === 'reconnect'
                   ? () => void handleMacRetry()
-                  : isEmptyReplyFailureMessage(operationalError) ||
-                      lastFailedSendTextRef.current?.trim() ||
-                      lastFailedOutboundText?.trim()
+                  : composerErrorAction?.kind === 'retry_send'
                     ? () => void handleRetryFailedSend()
                     : undefined
             }
@@ -8291,16 +8310,18 @@ export default function ChatScreen() {
             }
             refreshRunBusy={isPullRefreshing}
             onRetry={
-              isEmptyReplyFailureMessage(progressBanner.detail) ||
-              isDeadRunEndedMessage(progressBanner.detail) ||
-              (progressBanner.phase === 'failed' &&
-                Boolean(
-                  lastFailedSendTextRef.current?.trim() || lastFailedOutboundText?.trim(),
-                ) &&
-                !isConnectivityMessage(progressBanner.detail ?? ''))
-                ? () => void handleRetryFailedSend()
-                : connectivityRunFailure
-                  ? () => void handleRetryConnectivity()
+              !effectiveMacChatLive ||
+              connectivityRunFailure ||
+              isConnectivityMessage(progressBanner.detail ?? '')
+                ? () => void handleRetryConnectivity()
+                : isEmptyReplyFailureMessage(progressBanner.detail) ||
+                    isDeadRunEndedMessage(progressBanner.detail) ||
+                    (progressBanner.phase === 'failed' &&
+                      Boolean(
+                        lastFailedSendTextRef.current?.trim() ||
+                          lastFailedOutboundText?.trim(),
+                      ))
+                  ? () => void handleRetryFailedSend()
                   : undefined
             }
             terminalToolName={operatorTerminalLine?.toolName}

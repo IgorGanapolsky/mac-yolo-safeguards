@@ -55,10 +55,10 @@ describe('isAuthApiError', () => {
     const { kind, message } = humanizeChatError(
       new Error(JSON.stringify({ error: { code: 'invalid_api_key' } })),
       'fallback',
-      { machineLabel: 'Igors-Mac-mini' },
+      { machineLabel: 'Home-Mac' },
     );
     expect(kind).toBe('auth');
-    expect(message).toBe(gatewayAuthRepairBanner('Igors-Mac-mini'));
+    expect(message).toBe(gatewayAuthRepairBanner('Home-Mac'));
     expect(message).toContain('Re-pair this Mac');
     expect(message).toContain('Outdated connection');
     expect(message).not.toContain('Settings → Your active machines');
@@ -221,11 +221,11 @@ describe('isConnectivityMessage', () => {
     // handleMacRetry failure — screenshot 2026-08-01: red banner + "Retry send" while Not connected.
     expect(
       isConnectivityMessage(
-        "Still can't reach Igors-Mac-mini. Keep Tailscale on, or tap Find computers.",
+        "Still can't reach Home-Mac. Keep Tailscale on, or tap Find computers.",
       ),
     ).toBe(true);
     expect(
-      isConnectivityMessage("Can't reach Igors-Mac-mini (Tailscale) — switch computer above"),
+      isConnectivityMessage("Can't reach Home-Mac (Tailscale) — switch computer above"),
     ).toBe(true);
     expect(
       isConnectivityMessage("Couldn't reach your computer — tap Computer above"),
