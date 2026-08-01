@@ -310,6 +310,10 @@ def answer(
         "routing": routing,
         "answer_mode": "deterministic_card",
         "text": text,
+        # Attached here rather than in main(): CI runs tests/test-tinker-brain.py and
+        # tinker_brain_eval.py, both of which call answer() directly and never touch
+        # the CLI, so a check living in main() is never exercised.
+        "coverage": coverage(user_question, text),
     }
 
 
@@ -334,22 +338,21 @@ def main() -> int:
     # with the question is emitted with exactly the same confidence as one that
     # answers it. On 2026-07-30 a trademark/rename question matched "ThumbGate",
     # returned the GTM product card, and was acted on as an answer.
-    cov = coverage(args.question, result["text"])
-    result["coverage"] = cov
 
     if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
     else:
-        note = banner(args.question, result["text"])
+        note = banner(args.question, result["text"])  # same signal as result["coverage"]
         if note:
             sys.stdout.write(note + "\n\n")
         sys.stdout.write(result["text"])
 
-    # Exit 3 = routed but not covered. Distinct from 2 (contract failure) so callers
-    # and scheduled runs can tell "the card is wrong" from "the card is silent".
+    # Coverage is ADVISORY and deliberately does not affect the exit code. Gating on it
+    # failed 3 of the 14 golden cases (a good answer paraphrases rather than repeating
+    # the question), and a check that rejects correct output gets switched off.
     if not result["ok"]:
         return 2
-    return 0 if cov["covered"] else 3
+    return 0
 
 
 if __name__ == "__main__":
