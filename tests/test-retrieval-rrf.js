@@ -4,15 +4,16 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { rrfFuse } = require('../tools/retrieval-rrf');
 
-test('agreement across lists ranks first', () => {
+test('agreement across lists ranks first when harness ranks are mid-pack', () => {
+  // Avoid harness@1 prior dominating: mid ranks so multi-source b.js wins
   const fused = rrfFuse([
     [
-      { path: 'a.js', rank: 1, source: 'harness' },
-      { path: 'b.js', rank: 2, source: 'harness' },
+      { path: 'a.js', rank: 4, source: 'harness' },
+      { path: 'b.js', rank: 3, source: 'harness' },
     ],
     [
-      { path: 'b.js', rank: 1, source: 'grepai' },
-      { path: 'c.js', rank: 2, source: 'grepai' },
+      { path: 'b.js', rank: 2, source: 'grepai' },
+      { path: 'c.js', rank: 3, source: 'grepai' },
     ],
   ]);
   assert.equal(fused[0].path, 'b.js');
@@ -33,6 +34,21 @@ test('weighted RRF prefers strong harness hit over grepae-only noise', () => {
   );
   assert.equal(fused[0].path, 'tools/agent-swarm-harness.js');
   assert.ok(fused[0].rrfScore > fused.find((m) => m.path.includes('unrelated')).rrfScore);
+});
+
+test('harness@1 beats multi-source grepae agreement on different path', () => {
+  // coordination.md has both sources @ mid ranks; gold only on harness@1
+  const fused = rrfFuse(
+    [
+      [
+        { path: 'tools/agent-swarm-harness.js', rank: 1, source: 'harness' },
+        { path: 'docs/agents/coordination.md', rank: 3, source: 'harness' },
+      ],
+      [{ path: 'docs/agents/coordination.md', rank: 1, source: 'grepai' }],
+    ],
+    { query: 'agent swarm harness planner worker' },
+  );
+  assert.equal(fused[0].path, 'tools/agent-swarm-harness.js');
 });
 
 test('path token boost helps basename match', () => {
