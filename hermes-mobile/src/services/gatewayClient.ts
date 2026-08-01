@@ -286,12 +286,18 @@ export function buildEventsWebSocketUrl(gatewayUrl: string): string {
 }
 
 /** Demo event for UI development when gateway WS is unavailable. */
+/** Fixed id for the Leash smoke-test card so repeated presses replace, never stack. */
+export const DEMO_GATE_BLOCKED_ACTION_ID = 'demo_gate_blocked_preview';
+
 export function buildDemoGateBlockedEvent(): GatewayEventMessage {
   return {
     event: 'GATE.BLOCKED',
     timestamp: new Date().toISOString(),
     payload: {
-      actionId: `demo_${Date.now()}`,
+      // STABLE id on purpose. injectSmokeApproval dedupes on actionId, so a
+      // timestamped id made that guard unreachable and every press appended
+      // another identical card to the real approvals list.
+      actionId: DEMO_GATE_BLOCKED_ACTION_ID,
       toolName: 'run_command',
       reason: 'Pre-action rule blocked execution to prevent memory runaway.',
       command: 'node tests/test-runaway.js --force-leak',
