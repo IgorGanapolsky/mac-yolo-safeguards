@@ -46,6 +46,8 @@ const MUTATION_ACTION =
   /\b(?:buy|purchase|upgrade|subscribe|activate|checkout|pay|charge|confirm|submit|create|attach|change|update|switch|cancel|refund|post|put|patch|delete)\b/i;
 const DIRECT_CHECKOUT_PATH =
   /(?:\/|\b)(?:checkout|purchase|upgrade|subscribe)(?:\/|\?|\b)|billing\/(?:activate|change|checkout|subscribe|upgrade)/i;
+const PROTECTED_GUARD_PATH =
+  /(?:^|[\s"'])(?:~\/|\$(?:HOME|\{HOME\})["']?\/|\/Users\/[^/\s"']+\/)?\.(?:thumbgate\/bin\/thumbgate-spend-guard\.js|claude\/settings\.json)(?:$|[\s"'])/i;
 
 function flatten(value, depth = 0) {
   if (depth > 5 || value == null) return '';
@@ -61,6 +63,10 @@ function flatten(value, depth = 0) {
   return '';
 }
 
+function normalizeForMatching(value) {
+  return String(value || '').replace(/[_./:-]+/g, ' ');
+}
+
 function evaluateSpend(toolName, toolInput) {
   const name = String(toolName || '');
   const text = flatten(toolInput);
@@ -70,14 +76,20 @@ function evaluateSpend(toolName, toolInput) {
   }
 
   const combined = `${name} ${text}`;
+  const semantic = normalizeForMatching(combined);
+  const isReadOnlyTool = /^(?:read|read file)$/i.test(normalizeForMatching(name).trim());
+  if (PROTECTED_GUARD_PATH.test(text) && !isReadOnlyTool) {
+    return { decision: 'deny', ruleId: 'guard_tampering', reason: DENY_REASON };
+  }
+
   const isInteractiveUi = /(?:browser|chrome|computer[_-]?use|playwright)/i.test(name);
   const hasInteractiveAction =
-    /\b(?:click|type|press|tap|fill|select|submit|interact|drag)\b/i.test(combined);
+    /\b(?:click|type|press|tap|fill|select|submit|interact|drag)\b/i.test(semantic);
   if (isInteractiveUi && hasInteractiveAction) {
     return { decision: 'deny', ruleId: 'unverifiable_interactive_ui', reason: DENY_REASON };
   }
 
-  if (MUTATION_ACTION.test(combined) && FINANCIAL_OBJECT.test(combined)) {
+  if (MUTATION_ACTION.test(semantic) && FINANCIAL_OBJECT.test(semantic)) {
     return { decision: 'deny', ruleId: 'financial_action_and_object', reason: DENY_REASON };
   }
 
@@ -163,5 +175,6 @@ module.exports = {
   DIRECT_TOOL_RULES,
   evaluateSpend,
   flatten,
+  normalizeForMatching,
   safeToolName,
 };

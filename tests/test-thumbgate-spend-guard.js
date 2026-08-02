@@ -19,7 +19,10 @@ const allowCases = [
   ['mcp__apollo_io__analytics_get', { date: 'today' }],
   ['mcp__apollo_io__billing_plan_retrieve', { plan: 'basic' }],
   ['mcp__stripe__payment_link_create', { price_id: 'price_test' }],
+  ['mcp__stripe__invoice_retrieve', { invoice_id: 'invoice_test' }],
   ['browser.screenshot', { url: 'https://app.apollo.io/settings' }],
+  ['Read', { file_path: '~/.claude/settings.json' }],
+  ['read_file', { file_path: '/Users/test/.claude/settings.json' }],
   ['Read', { file_path: '/tmp/apollo-pricing-notes.md' }],
 ];
 for (const [toolName, toolInput] of allowCases) {
@@ -34,6 +37,7 @@ const denyCases = [
   ['mcp__codex_apps__apollo_io_apollo_domain_purchase_index', { domain: 'example.com' }],
   ['mcp__codex_apps__apollo_io_apollo_email_account_purchase_index', { count: 1 }],
   ['mcp__stripe__checkout_session_create', { amount: 58800 }],
+  ['mcp__stripe__invoice_pay', { invoice_id: 'invoice_test' }],
   ['mcp__apollo__subscription_update', { plan: 'basic', cadence: 'annual' }],
   ['confirm_cost', { amount: 588 }],
   ['Bash', { command: 'apollo upgrade --plan basic --annual --amount $588' }],
@@ -44,6 +48,9 @@ const denyCases = [
   ['mcp__browser__type', { action: 'type', text: 'card data is never logged' }],
   ['Bash', { command: 'billing subscription cancel --id sub_123' }],
   ['Bash', { command: 'curl -X POST https://api.example.com/billing/subscription' }],
+  ['Bash', { command: 'rm "$HOME/.thumbgate/bin/thumbgate-spend-guard.js"' }],
+  ['Bash', { command: 'printf "{}" > ~/.claude/settings.json' }],
+  ['Edit', { file_path: '/Users/test/.claude/settings.json', new_string: '{}' }],
 ];
 for (const [toolName, toolInput] of denyCases) {
   assert.strictEqual(
