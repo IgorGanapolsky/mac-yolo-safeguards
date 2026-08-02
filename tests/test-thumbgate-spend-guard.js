@@ -18,6 +18,8 @@ const allowCases = [
   ['Bash', { command: 'apollo people search --titles CTO --format json' }],
   ['mcp__apollo_io__analytics_get', { date: 'today' }],
   ['mcp__apollo_io__billing_plan_retrieve', { plan: 'basic' }],
+  ['mcp__stripe__payment_link_create', { price_id: 'price_test' }],
+  ['browser.screenshot', { url: 'https://app.apollo.io/settings' }],
   ['Read', { file_path: '/tmp/apollo-pricing-notes.md' }],
 ];
 for (const [toolName, toolInput] of allowCases) {
@@ -38,7 +40,10 @@ const denyCases = [
   ['Bash', { command: 'apollo buy credits --count 1000' }],
   ['browser.click', { text: 'Upgrade to Basic $588/year', url: 'https://app.apollo.io/billing' }],
   ['browser.navigate', { url: 'https://app.apollo.io/checkout/annual-basic' }],
+  ['mcp__computer_use__interact', { action: 'click', coordinate: [640, 410] }],
+  ['mcp__browser__type', { action: 'type', text: 'card data is never logged' }],
   ['Bash', { command: 'billing subscription cancel --id sub_123' }],
+  ['Bash', { command: 'curl -X POST https://api.example.com/billing/subscription' }],
 ];
 for (const [toolName, toolInput] of denyCases) {
   assert.strictEqual(

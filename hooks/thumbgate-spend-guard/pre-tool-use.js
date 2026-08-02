@@ -31,7 +31,11 @@ const DIRECT_TOOL_RULES = [
   },
   {
     id: 'payment_mutation_tool',
-    re: /payment[_-]?(?:method|intent)?.*(?:create|attach|confirm|submit)|(?:create|attach|confirm|submit).*payment/i,
+    re: /payment[_-]?(?:method|intent).*(?:create|attach|confirm|submit)|(?:create|attach|confirm|submit).*payment[_-]?(?:method|intent)/i,
+  },
+  {
+    id: 'billing_mutation_tool',
+    re: /(?:billing|plan|seat|credits?).*(?:buy|purchase|upgrade|activate|change|update)|(?:buy|purchase|upgrade|activate|change|update).*(?:billing|plan|seat|credits?)/i,
   },
   { id: 'cost_confirmation_tool', re: /confirm[_-]?cost|approve[_-]?(?:spend|purchase|payment)/i },
 ];
@@ -39,7 +43,7 @@ const DIRECT_TOOL_RULES = [
 const FINANCIAL_OBJECT =
   /\b(?:annual|monthly|paid)\s+(?:plan|seat)|\b(?:billing|checkout|invoice|payment\s*method|subscription|credits?|credit\s*pack|paid\s*tier|pricing\s*tier)\b|\b(?:basic|professional|organization)\s+(?:plan|seat|tier)\b|[$€£]\s*\d/i;
 const MUTATION_ACTION =
-  /\b(?:buy|purchase|upgrade|subscribe|activate|checkout|pay|charge|confirm|submit|create|attach|change|update|switch|cancel|refund)\b/i;
+  /\b(?:buy|purchase|upgrade|subscribe|activate|checkout|pay|charge|confirm|submit|create|attach|change|update|switch|cancel|refund|post|put|patch|delete)\b/i;
 const DIRECT_CHECKOUT_PATH =
   /(?:\/|\b)(?:checkout|purchase|upgrade|subscribe)(?:\/|\?|\b)|billing\/(?:activate|change|checkout|subscribe|upgrade)/i;
 
@@ -66,6 +70,13 @@ function evaluateSpend(toolName, toolInput) {
   }
 
   const combined = `${name} ${text}`;
+  const isInteractiveUi = /(?:browser|chrome|computer[_-]?use|playwright)/i.test(name);
+  const hasInteractiveAction =
+    /\b(?:click|type|press|tap|fill|select|submit|interact|drag)\b/i.test(combined);
+  if (isInteractiveUi && hasInteractiveAction) {
+    return { decision: 'deny', ruleId: 'unverifiable_interactive_ui', reason: DENY_REASON };
+  }
+
   if (MUTATION_ACTION.test(combined) && FINANCIAL_OBJECT.test(combined)) {
     return { decision: 'deny', ruleId: 'financial_action_and_object', reason: DENY_REASON };
   }
