@@ -26,11 +26,47 @@ interactive_hermes_is_active() {
   esac
 }
 
-if ! /bin/mkdir "$LOCK_DIR" 2>/dev/null; then
+LOCK_OWNER_FILE="$LOCK_DIR/owner.pid"
+acquire_lock() {
+  if /bin/mkdir "$LOCK_DIR" 2>/dev/null; then
+    printf '%s\n' "$$" > "$LOCK_OWNER_FILE"
+    return 0
+  fi
+  local owner=""
+  if [ -f "$LOCK_OWNER_FILE" ]; then
+    owner="$(/bin/cat "$LOCK_OWNER_FILE" 2>/dev/null || true)"
+  fi
+  if [[ "$owner" =~ ^[0-9]+$ ]] && /bin/kill -0 "$owner" 2>/dev/null; then
+    return 1
+  fi
+  # Only reclaim locks created by this PID-aware implementation. A legacy
+  # ownerless lock is left alone for manual one-time migration.
+  if [[ "$owner" =~ ^[0-9]+$ ]]; then
+    /bin/rm -f "$LOCK_OWNER_FILE"
+    /bin/rmdir "$LOCK_DIR" 2>/dev/null || return 1
+    /bin/mkdir "$LOCK_DIR" 2>/dev/null || return 1
+    printf '%s\n' "$$" > "$LOCK_OWNER_FILE"
+    return 0
+  fi
+  return 1
+}
+
+release_lock() {
+  local owner=""
+  if [ -f "$LOCK_OWNER_FILE" ]; then
+    owner="$(/bin/cat "$LOCK_OWNER_FILE" 2>/dev/null || true)"
+  fi
+  if [ "$owner" = "$$" ]; then
+    /bin/rm -f "$LOCK_OWNER_FILE"
+    /bin/rmdir "$LOCK_DIR" 2>/dev/null || true
+  fi
+}
+
+if ! acquire_lock; then
   echo "=== $(/bin/date) Hermes updater skipped: another run owns $LOCK_DIR ==="
   exit 0
 fi
-trap '/bin/rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT INT TERM
+trap release_lock EXIT INT TERM
 
 echo "=== $(/bin/date) Hermes updater ==="
 if [ ! -x "$HERMES_BIN" ]; then
