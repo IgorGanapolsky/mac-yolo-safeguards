@@ -37,15 +37,21 @@ const PATTERNS = [
     configChecks: [['display.busy_input_mode', /busy_input_mode:\s*queue/]],
   },
   {
-    id: 'prompt_tool_bloat',
-    severity: 'high',
+    id: 'capability_filter_regression',
+    severity: 'critical',
     surface: 'toolsets_and_mcp',
-    match: (evidence) => /Tool schemas\s+:\s+\d|context7[\s\S]{0,80}enabled:\s*true|toolsets:[\s\S]{0,120}computer_use/i.test(evidence.logsAndConfig),
-    proposal: 'Keep the default CLI toolset small and disable always-on MCP docs lookup; enable browser/computer-use/context7 only per task.',
-    gate: 'hermes tools list shows only the slim CLI working set enabled by default and context7 disabled.',
+    match: (evidence) => {
+      const wrapperLine = evidence.yoloWrapper.match(/DEFAULT_TOOLSETS[^\n]*/)?.[0] || '';
+      return /context7[\s\S]{0,80}enabled:\s*false/i.test(evidence.config)
+        || !/\bskills\b/.test(wrapperLine)
+        || !/\bcontext7\b/.test(wrapperLine);
+    },
+    proposal: 'Enable the skills toolset and Context7, and keep both names in the hermes-yolo allowlist so configuration and launcher state cannot disagree.',
+    gate: 'A fresh Hermes banner reports a non-zero skill count, Context7 is configured, and hermes mcp test context7 discovers at least one tool.',
     configChecks: [
-      ['default toolsets', /toolsets:\s*\n-\s*terminal\s*\n-\s*file\s*\n-\s*web\s*\n-\s*code_execution\s*\n-\s*memory\s*\n-\s*clarify/],
-      ['context7 disabled', /context7:\s*\n\s*enabled:\s*false/],
+      ['skills enabled for CLI', /platform_toolsets:[\s\S]*?cli:[\s\S]*?-\s*skills\b/],
+      ['context7 enabled', /context7:\s*\n\s*enabled:\s*true/],
+      ['wrapper includes skills and Context7', /DEFAULT_TOOLSETS[^\n]*\bskills\b[^\n]*\bcontext7\b/],
     ],
   },
   {
@@ -155,7 +161,7 @@ function extractEvidence(pattern, evidence) {
   const tokens = {
     provider_credit_or_context_limit: [/HTTP 402[^\n]*/gi, /Prompt tokens limit exceeded[^\n]*/gi, /requires more credits[^\n]*/gi],
     busy_input_interrupt_loop: [/interrupted_during_api_call[^\n]*/gi, /busy_input_mode:\s*\w+/gi],
-    prompt_tool_bloat: [/Tool schemas\s+:[^\n]*/gi, /context7:[\s\S]{0,80}enabled:\s*\w+/gi, /toolsets:[\s\S]{0,160}/gi],
+    capability_filter_regression: [/context7:[\s\S]{0,80}enabled:\s*\w+/gi, /platform_toolsets:[\s\S]{0,200}/gi, /DEFAULT_TOOLSETS[^\n]*/gi],
     placeholder_plan_drift: [/YOUR_RETRIEVAL_ENDPOINT[^\n]*/gi, /tone-police[^\n]*/gi, /never emit fake endpoints[^\n]*/gi],
     stale_yolo_lock_or_prefix_process: [/Another hermes-yolo is already running[^\n]*/gi, /DEFAULT_TOOLSETS[^\n]*/gi],
     gateway_completion_timeout: [/Operation timed out[^\n]*/gi, /idle for \d+s[^\n]*/gi, /waiting for stream response[^\n]*/gi],

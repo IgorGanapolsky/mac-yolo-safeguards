@@ -32,7 +32,10 @@ const HERMES_YOLO_LATEST_RECEIPT_PATH = process.env.HERMES_YOLO_LATEST_RECEIPT_P
 const HERMES_YOLO_HISTORY_RECEIPT_PATH = process.env.HERMES_YOLO_HISTORY_RECEIPT_PATH || path.join(HERMES_YOLO_RECEIPT_DIR, 'history.jsonl');
 // All thresholds overridable via env vars.
 const HERMES_BIN = process.env.HERMES_BIN || path.join(HOME, '.local/bin/hermes');
-const DEFAULT_TOOLSETS = process.env.HERMES_YOLO_TOOLSETS || 'terminal,file,web,code_execution,memory,clarify,computer_use,vision';
+// Passing --toolsets is an allowlist. Keep essential dynamic capabilities
+// explicit or an enabled MCP server / installed skill catalog is silently
+// hidden from the session banner and the model.
+const DEFAULT_TOOLSETS = process.env.HERMES_YOLO_TOOLSETS || 'terminal,file,web,code_execution,memory,clarify,computer_use,vision,skills,context7';
 
 function parseEnvFile(filePath = HERMES_ENV_PATH) {
   if (!filePath || !fs.existsSync(filePath)) return {};
@@ -793,6 +796,7 @@ module.exports = {
   writeRouteReceipt,
   digest,
   HERMES_COMMANDS,
-  DEFAULT_READY_PROMPT
+  DEFAULT_READY_PROMPT,
+  DEFAULT_TOOLSETS
 };
 }

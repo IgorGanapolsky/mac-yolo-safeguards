@@ -107,6 +107,7 @@ function collect(options = {}) {
   const selfHarness = readText(path.join(repo, 'tools/hermes-self-harness.js'));
   const yoloWrapper = readText(path.join(repo, 'hermes-yolo-wrapper.js'));
   const ci = readText(path.join(repo, 'scripts/ci-verify.sh'));
+  const defaultToolsets = yoloWrapper.match(/DEFAULT_TOOLSETS[^\n]*/)?.[0] || '';
 
   const evidence = {
     repo,
@@ -116,6 +117,7 @@ function collect(options = {}) {
     hasSelfHarness: /Hermes Self-Harness|self-harness-inspired|criticalOpenCount/.test(selfHarness),
     hasRevenueControls: /captured_cents|stripe|customer|checkout|payment/i.test(revenueControls),
     hasSlimYoloWrapper: /DEFAULT_TOOLSETS.*terminal,file,web,code_execution,memory,clarify/.test(yoloWrapper),
+    hasEssentialYoloCapabilities: /\bskills\b/.test(defaultToolsets) && /\bcontext7\b/.test(defaultToolsets),
     ciCoversSelfHarness: /test-hermes-self-harness/.test(ci),
     hasMergeGatewayProvider: /merge/i.test(hermesConfig),
     hasGatewayDocs: exists(repo, 'docs/MERGE-GATEWAY-READINESS.md'),
@@ -130,7 +132,7 @@ function capabilityStatus(capability, evidence) {
     budget_controls: evidence.hasRevenueControls && evidence.hasSelfHarness,
     request_observability: evidence.hasSelfHarness,
     dlp_prompt_injection: evidence.hasSelfHarness,
-    policy_routing: evidence.hasLocalDefault && evidence.hasSlimYoloWrapper,
+    policy_routing: evidence.hasLocalDefault && evidence.hasSlimYoloWrapper && evidence.hasEssentialYoloCapabilities,
     multi_provider_failover: evidence.hasLocalDefault && evidence.hasOpenRouterConfigured,
   }[capability.key];
   const productionGap = !mitigatedByCurrent || (evidence.hasOpenRouterFailures && ['budget_controls', 'multi_provider_failover', 'request_observability'].includes(capability.key));
