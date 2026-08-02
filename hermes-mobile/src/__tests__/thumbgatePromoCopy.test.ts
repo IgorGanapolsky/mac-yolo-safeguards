@@ -1,11 +1,17 @@
 import {
   THUMBGATE_WEB_URL,
+  HERDR_INTEGRATION_COPY,
   resolveLeashThumbGatePromoSurface,
   shouldShowThumbGatePromoOnConnectionPanel,
   thumbGatePromoCopy,
 } from '../utils/thumbgatePromoCopy';
 
 describe('thumbgatePromoCopy', () => {
+  it('exposes Herdr multiplexer integration promo copy', () => {
+    expect(HERDR_INTEGRATION_COPY.headline).toContain('Herdr');
+    expect(HERDR_INTEGRATION_COPY.url).toBe('https://herdr.dev/docs/agent-skill/');
+  });
+
   it('uses thumbgate.app as the canonical web URL', () => {
     expect(THUMBGATE_WEB_URL).toMatch(/^https:\/\/thumbgate\.app\//);
     expect(THUMBGATE_WEB_URL).toContain('utm_campaign=paid_companion');

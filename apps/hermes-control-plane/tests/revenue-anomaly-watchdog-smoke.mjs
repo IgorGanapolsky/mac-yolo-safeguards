@@ -15,18 +15,32 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:http";
+import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const wrangler = new URL("../node_modules/.bin/wrangler", import.meta.url).pathname;
-const config = "dist/server/wrangler.json";
-const port = 8793;
+const controlPlaneDir = fileURLToPath(new URL("../", import.meta.url));
+const wrangler = fileURLToPath(new URL("../node_modules/.bin/wrangler", import.meta.url));
+const config = fileURLToPath(new URL("../dist/server/wrangler.json", import.meta.url));
+const port = 8797;
 const watchdogScript = fileURLToPath(new URL("../../../saas/revenue-anomaly-watchdog.sh", import.meta.url));
 const persistence = await mkdtemp(join(tmpdir(), "thumbgate-revenue-anomaly-d1-"));
 const stateDir = await mkdtemp(join(tmpdir(), "thumbgate-revenue-anomaly-state-"));
 const stateFile = join(stateDir, "state.env");
+
+async function fetchJson(url, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(url);
+      return await res.json();
+    } catch (err) {
+      if (i === retries - 1) throw err;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+  }
+}
 
 function waitForReady(child) {
   return new Promise((resolve, reject) => {
@@ -54,7 +68,7 @@ function d1Execute(sql) {
   const result = spawnSync(
     wrangler,
     ["d1", "execute", "DB", "--local", "--config", config, "--persist-to", persistence, "--command", sql],
-    { encoding: "utf8", env: { ...process.env, CI: "1" } },
+    { cwd: controlPlaneDir, encoding: "utf8", env: { ...process.env, CI: "1" } },
   );
   assert.equal(result.status, 0, `D1 seed failed:\n${result.stdout}\n${result.stderr}`);
 }
@@ -65,13 +79,17 @@ const catcher = createServer((request, response) => {
   let body = "";
   request.on("data", (chunk) => { body += chunk; });
   request.on("end", () => {
-    alerts.push({ title: request.headers.title, priority: request.headers.priority, body });
-    response.writeHead(200);
-    response.end("ok");
+    alerts.push({ topic: request.url, title: request.headers.title ?? "", priority: request.headers.priority, body, headers: request.headers });
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ ok: true }));
   });
 });
-await new Promise((resolve) => catcher.listen(0, "127.0.0.1", resolve));
-const catcherPort = catcher.address().port;
+const catcherPort = await new Promise((resolve) => {
+  catcher.listen(0, "127.0.0.1", () => {
+    const address = catcher.address();
+    resolve(typeof address === "object" && address ? address.port : 0);
+  });
+});
 const ntfyUrl = `http://127.0.0.1:${catcherPort}/alert`;
 
 // Deliberately async (spawn, not spawnSync): the local ntfy catcher lives in
@@ -82,6 +100,7 @@ const ntfyUrl = `http://127.0.0.1:${catcherPort}/alert`;
 function runWatchdog() {
   return new Promise((resolve, reject) => {
     const child = spawn("bash", [watchdogScript], {
+      cwd: controlPlaneDir,
       env: {
         ...process.env,
         HERMES_APP_URL: `http://127.0.0.1:${port}`,
@@ -106,26 +125,14 @@ function runWatchdog() {
 
 let worker;
 try {
-  worker = spawn(
-    wrangler,
-    [
-      "dev", "--config", config, "--local", "--host", "localhost",
-      "--local-upstream", "localhost", "--port", String(port),
-      "--persist-to", persistence, "--show-interactive-dev-session=false",
-    ],
-    { env: { ...process.env, CI: "1" }, stdio: ["ignore", "pipe", "pipe"] },
-  );
-  await waitForReady(worker);
-
   const migration = spawnSync(
     wrangler,
     ["d1", "migrations", "apply", "DB", "--local", "--config", config, "--persist-to", persistence],
-    { encoding: "utf8", env: { ...process.env, CI: "1" } },
+    { cwd: controlPlaneDir, encoding: "utf8", env: { ...process.env, CI: "1" } },
   );
   assert.equal(migration.status, 0, `D1 migration failed:\n${migration.stdout}\n${migration.stderr}`);
 
   const now = Date.now();
-  // Seed two paid orgs and one real (non-canary) billing event in the last 24h.
   d1Execute(
     [
       `INSERT INTO organizations (id, name, plan, created_at, updated_at) VALUES ('org-a', 'Org A', 'pro', ${now}, ${now})`,
@@ -134,24 +141,21 @@ try {
     ].join("; "),
   );
 
-  worker.kill("SIGTERM");
-  await new Promise((resolve) => worker.once("exit", resolve));
-  worker = undefined;
   worker = spawn(
     wrangler,
     [
       "dev", "--config", config, "--local", "--host", "localhost",
-      "--local-upstream", "localhost", "--port", String(port),
+      "--local-upstream", "localhost", "--port", String(port), "--inspector-port", "0",
       "--persist-to", persistence, "--show-interactive-dev-session=false",
     ],
-    { env: { ...process.env, CI: "1" }, stdio: ["ignore", "pipe", "pipe"] },
+    { cwd: controlPlaneDir, env: { ...process.env, CI: "1" }, stdio: ["ignore", "pipe", "pipe"] },
   );
   await waitForReady(worker);
 
   // Sanity: confirm the watchdog's data source really is live and correct
   // before trusting the rest of the proof.
-  const health = await fetch(`http://127.0.0.1:${port}/api/health`);
-  const healthPayload = await health.json();
+  const healthPayload = await fetchJson(`http://127.0.0.1:${port}/api/health`);
+  assert.ok(healthPayload.telemetry, `Health payload missing telemetry: ${JSON.stringify(healthPayload)}`);
   assert.equal(healthPayload.telemetry.billingEventsLast24h, 1);
   assert.equal(healthPayload.telemetry.paidOrganizationsTotal, 2);
 
@@ -167,7 +171,7 @@ try {
   // ages out of the 24h window (never delete/mutate via the watchdog itself
   // — this is test setup, not something the script does). ---
   d1Execute(`UPDATE billing_events SET processed_at = ${now - 25 * 60 * 60 * 1000} WHERE event_id = 'evt-1'`);
-  const silentHealth = await (await fetch(`http://127.0.0.1:${port}/api/health`)).json();
+  const silentHealth = await fetchJson(`http://127.0.0.1:${port}/api/health`);
   assert.equal(silentHealth.telemetry.billingEventsLast24h, 0);
 
   // --- Check 3: 1st zero check after real activity — must NOT alert yet. ---
@@ -191,7 +195,7 @@ try {
 
   // --- Org-count drop: org-b churns off the paid plan. ---
   d1Execute(`UPDATE organizations SET plan = 'trial', updated_at = ${Date.now()} WHERE id = 'org-b'`);
-  const droppedHealth = await (await fetch(`http://127.0.0.1:${port}/api/health`)).json();
+  const droppedHealth = await fetchJson(`http://127.0.0.1:${port}/api/health`);
   assert.equal(droppedHealth.telemetry.paidOrganizationsTotal, 1);
   await runWatchdog();
   assert.equal(alerts.length, 3, "must alert exactly once on the paid-org-count drop");

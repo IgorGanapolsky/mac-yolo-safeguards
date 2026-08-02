@@ -128,12 +128,12 @@ function taskListEmptyCopy(input: {
 }
 
 function taskReceiptLabel(task: { route: string; deviceName: string | null; status: string }): string {
-  if (task.route === "cloud") return "☁ Continuity · fenced · 90s lease";
+  if (task.route === "cloud") return "☁ Continuity (Cloud VPS)";
   if (task.route === "local") {
-    const host = task.deviceName?.trim() || "Hermes machine";
-    return `⌘ ${host} · fenced · 90s lease`;
+    const host = task.deviceName?.trim() || "Hermes computer";
+    return `⌘ ${host}`;
   }
-  return "Ⅱ Awaiting route · fenced when claimed";
+  return "Ⅱ Awaiting route";
 }
 
 /** Prefer online machines, then most recently seen — only when the user has no saved pick. */
@@ -272,8 +272,8 @@ export default function DashboardClient() {
         }
       : !devices.length
         ? {
-            title: "Pair a computer first",
-            body: "Install the connector on the machine that runs Hermes (Settings), then you can choose where work runs.",
+            title: "Cloud VPS (unpaired workspace)",
+            body: "No local computer is paired yet. Tasks will run on ThumbGate’s Cloud VPS.",
           }
         : routePreference === "local"
           ? {
@@ -731,11 +731,15 @@ export default function DashboardClient() {
       setNotice("Type a message first, then tap Run task.");
       return;
     }
-    if (!devices.length && routePreference !== "cloud") {
-      setNotice("Pair a computer first (open Settings → run the installer).");
+    const hasCloud = Boolean(organization?.cloudAccess);
+    const effectiveRoute = routePreference === "cloud" || (!devices.length && hasCloud) ? "cloud" : routePreference;
+    if (!devices.length && effectiveRoute !== "cloud") {
+      setNotice("Pair your computer below, or switch target to Continuity (Cloud VPS).");
+      const leashEl = document.getElementById("leash-control");
+      if (leashEl) leashEl.scrollIntoView({ behavior: "smooth" });
       return;
     }
-    if (!selectedDeviceId && routePreference !== "cloud") {
+    if (!selectedDeviceId && effectiveRoute !== "cloud") {
       setNotice("Select which machine should run this task.");
       return;
     }
@@ -751,7 +755,7 @@ export default function DashboardClient() {
           deviceId: selectedDeviceId,
           idempotencyKey: crypto.randomUUID(),
           traceId: crypto.randomUUID(),
-          routePreference,
+          routePreference: effectiveRoute,
         }),
       });
       let body: { task?: { route: string; threadId: string; preference?: string; deviceId?: string; traceId?: string }; error?: string; traceId?: string } = {};
@@ -1254,14 +1258,14 @@ export default function DashboardClient() {
                   aria-label="Target machine or Continuity routing"
                 >
                   <option value="auto">
-                    Auto ({selectedDevice ? selectedDeviceLabel : "My computer"} → Cloud)
+                    Auto ({selectedDevice ? selectedDeviceLabel : "Cloud VPS"})
                   </option>
                   {devices.map((device) => (
                     <option key={device.id} value={`local:${device.id}`}>
                       {machineDisplayName(device)} · {deviceStatusLabel(device)}
                     </option>
                   ))}
-                  <option value="cloud" disabled={!organization?.cloudAccess}>
+                  <option value="cloud">
                     Continuity (Cloud VPS){organization?.cloudAccess ? "" : " (needs Pro)"}
                   </option>
                   <optgroup label="Actions">
@@ -1308,10 +1312,14 @@ export default function DashboardClient() {
                 <button
                   type="submit"
                   className="button button-primary button-small composer-run"
-                  disabled={busy || (!devices.length && routePreference !== "cloud")}
+                  disabled={busy}
                   aria-busy={busy}
                 >
-                  {busy ? "Sending…" : !devices.length && routePreference !== "cloud" ? "Pair a computer first" : "Run task →"}
+                  {busy
+                    ? "Sending…"
+                    : (devices.length > 0 || organization?.cloudAccess || routePreference === "cloud")
+                      ? (routePreference === "cloud" || !devices.length ? "Run on Cloud VPS →" : "Run task →")
+                      : "+ Pair computer →"}
                 </button>
               </div>
             </form>

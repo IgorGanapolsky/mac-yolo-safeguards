@@ -144,14 +144,15 @@ try {
   );
   assert.equal(migration.status, 0, `D1 migration failed:\n${migration.stdout}\n${migration.stderr}`);
 
+  const insertNow = Date.now();
   d1(
     [
-      `INSERT INTO users (id, workos_user_id, email, name, created_at, updated_at) VALUES ('e2e-user', 'workos-e2e-user', 'e2e@example.com', 'E2E User', ${now}, ${now})`,
-      `INSERT INTO organizations (id, name, plan, created_at, updated_at) VALUES ('e2e-org', 'E2E Workspace', 'pro', ${now}, ${now})`,
-      `INSERT INTO memberships (id, organization_id, user_id, role, created_at) VALUES ('e2e-mem', 'e2e-org', 'e2e-user', 'owner', ${now})`,
-      `INSERT INTO sessions (id_hash, user_id, organization_id, workos_session_id, expires_at, created_at) VALUES ('${sessionHash}', 'e2e-user', 'e2e-org', '${WORKOS_SESSION_ID}', ${now + 3_600_000}, ${now})`,
-      `INSERT INTO devices (id, organization_id, name, public_jwk, fingerprint, failover_mode, last_seen_at, created_at, updated_at) VALUES ('${DEVICE_LINUX.id}', 'e2e-org', '${DEVICE_LINUX.name}', '${JWK.replace(/'/g, "''")}', '${DEVICE_LINUX.fingerprint}', 'manual', ${DEVICE_LINUX.lastSeen}, ${now}, ${now})`,
-      `INSERT INTO devices (id, organization_id, name, public_jwk, fingerprint, failover_mode, last_seen_at, created_at, updated_at) VALUES ('${DEVICE_MINI.id}', 'e2e-org', '${DEVICE_MINI.name}', '${JWK.replace(/'/g, "''")}', '${DEVICE_MINI.fingerprint}', 'manual', ${DEVICE_MINI.lastSeen}, ${now}, ${now})`,
+      `INSERT INTO users (id, workos_user_id, email, name, created_at, updated_at) VALUES ('e2e-user', 'workos-e2e-user', 'e2e@example.com', 'E2E User', ${insertNow}, ${insertNow})`,
+      `INSERT INTO organizations (id, name, plan, created_at, updated_at) VALUES ('e2e-org', 'E2E Workspace', 'pro', ${insertNow}, ${insertNow})`,
+      `INSERT INTO memberships (id, organization_id, user_id, role, created_at) VALUES ('e2e-mem', 'e2e-org', 'e2e-user', 'owner', ${insertNow})`,
+      `INSERT INTO sessions (id_hash, user_id, organization_id, workos_session_id, expires_at, created_at) VALUES ('${sessionHash}', 'e2e-user', 'e2e-org', '${WORKOS_SESSION_ID}', ${insertNow + 3_600_000}, ${insertNow})`,
+      `INSERT INTO devices (id, organization_id, name, public_jwk, fingerprint, failover_mode, last_seen_at, created_at, updated_at) VALUES ('${DEVICE_LINUX.id}', 'e2e-org', '${DEVICE_LINUX.name}', '${JWK.replace(/'/g, "''")}', '${DEVICE_LINUX.fingerprint}', 'manual', ${insertNow - 3_000}, ${insertNow}, ${insertNow})`,
+      `INSERT INTO devices (id, organization_id, name, public_jwk, fingerprint, failover_mode, last_seen_at, created_at, updated_at) VALUES ('${DEVICE_MINI.id}', 'e2e-org', '${DEVICE_MINI.name}', '${JWK.replace(/'/g, "''")}', '${DEVICE_MINI.fingerprint}', 'manual', ${insertNow - 20_000}, ${insertNow}, ${insertNow})`,
     ].join("; "),
   );
 
@@ -268,7 +269,6 @@ try {
   assert.ok(clientJs.length > 1000, "DashboardClient bundle not served — cannot assert UI contract");
   // Minified bundles keep user-facing string literals; symbol identifiers may be renamed.
   assert.match(clientJs, /Which machine\?/);
-  assert.match(clientJs, /My computer/);
   assert.match(clientJs, /your computer/);
   assert.match(clientJs, /thumbgate\.preferredDeviceId|composer-device-select/);
   assert.doesNotMatch(clientJs, /Which Mac\?/);

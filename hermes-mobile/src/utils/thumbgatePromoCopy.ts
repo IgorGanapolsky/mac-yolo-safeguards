@@ -23,6 +23,13 @@ const PAID_COMPANION_COPY = {
   body: 'Add a web dashboard and paid Continuity to Hermes Mobile with ThumbGate.app. Manage chats and Leash controls from any browser, and keep eligible work moving when your Mac is offline.',
 } as const;
 
+export const HERDR_INTEGRATION_COPY = {
+  headline: 'Multiplex Agents with Herdr + ThumbGate.app',
+  body: 'Run your coding agent herd in Herdr terminal panes with 1-tap mobile status tracking, Herdr socket sync, and ThumbGate pre-action safety guardrails.',
+  buttonLabel: 'Learn Herdr + ThumbGate integration',
+  url: 'https://herdr.dev/docs/agent-skill/',
+} as const;
+
 const SURFACE_COPY: Record<ThumbGatePromoSurface, Omit<ThumbGatePromoCopy, 'url' | 'buttonLabel'>> = {
   leash_disconnected: PAID_COMPANION_COPY,
   leash_empty: PAID_COMPANION_COPY,
