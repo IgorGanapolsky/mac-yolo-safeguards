@@ -53,6 +53,8 @@ try {
 
   const isolatedLink = path.join(isolatedHome, '.local', 'bin', 'hermes-yolo');
   assert.strictEqual(fs.readlinkSync(isolatedLink), path.join(repoRoot, 'hermes-yolo-wrapper.js'));
+  const isolatedHealer = path.join(isolatedHome, '.local', 'bin', 'hermes-capability-heal');
+  assert.strictEqual(fs.readlinkSync(isolatedHealer), path.join(repoRoot, 'tools', 'hermes-capability-heal.js'));
 
   const isolatedPlist = fs.readFileSync(
     path.join(isolatedHome, 'Library', 'LaunchAgents', 'com.igor.shutdown-simulators.plist'),
@@ -65,6 +67,7 @@ try {
   assert(!/\b(?:bootout|bootstrap)\b/.test(launchctlCalls), 'CI must not mutate live LaunchAgent state');
   assert(result.stdout.includes(`CI smoke isolation: ${isolatedHome}`));
   assert(result.stdout.includes('skipped in CI smoke mode; live LaunchAgent state is untouched'));
+  assert(result.stdout.includes('capability probe skipped in CI smoke mode'));
 
   console.log('PASS: CI smoke install is isolated from the operator home and live LaunchAgent');
 } finally {

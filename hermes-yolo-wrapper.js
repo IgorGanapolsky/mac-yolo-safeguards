@@ -35,7 +35,19 @@ const HERMES_BIN = process.env.HERMES_BIN || path.join(HOME, '.local/bin/hermes'
 // Passing --toolsets is an allowlist. Keep essential dynamic capabilities
 // explicit or an enabled MCP server / installed skill catalog is silently
 // hidden from the session banner and the model.
-const DEFAULT_TOOLSETS = process.env.HERMES_YOLO_TOOLSETS || 'terminal,file,web,code_execution,memory,clarify,computer_use,vision,skills,context7';
+const REQUIRED_TOOLSETS = Object.freeze(['skills', 'context7']);
+
+function normalizeToolsets(value) {
+  const configured = String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return [...new Set([...configured, ...REQUIRED_TOOLSETS])].join(',');
+}
+
+const DEFAULT_TOOLSETS = normalizeToolsets(
+  process.env.HERMES_YOLO_TOOLSETS || 'terminal,file,web,code_execution,memory,clarify,computer_use,vision',
+);
 
 function parseEnvFile(filePath = HERMES_ENV_PATH) {
   if (!filePath || !fs.existsSync(filePath)) return {};
@@ -797,6 +809,7 @@ module.exports = {
   digest,
   HERMES_COMMANDS,
   DEFAULT_READY_PROMPT,
-  DEFAULT_TOOLSETS
+  DEFAULT_TOOLSETS,
+  normalizeToolsets,
 };
 }
