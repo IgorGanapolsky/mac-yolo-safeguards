@@ -94,11 +94,19 @@ echo "=== Bootstrapping LaunchAgent ==="
 if [ "$CI_SMOKE" -eq 1 ]; then
   echo "  skipped in CI smoke mode; live LaunchAgent state is untouched"
 else
+  bootstrap_agent() {
+    local plist="$1"
+    if launchctl bootstrap gui/$(id -u) "$plist"; then
+      return 0
+    fi
+    sleep 1
+    launchctl bootstrap gui/$(id -u) "$plist"
+  }
   launchctl bootout gui/$(id -u)/com.igor.shutdown-simulators 2>/dev/null || true
-  launchctl bootstrap gui/$(id -u) "$PLIST_DEST"
+  bootstrap_agent "$PLIST_DEST"
   echo "  com.igor.shutdown-simulators bootstrapped"
   launchctl bootout gui/$(id -u)/com.igor.hermes-fleet-autoupdate 2>/dev/null || true
-  launchctl bootstrap gui/$(id -u) "$UPDATE_PLIST_DEST"
+  bootstrap_agent "$UPDATE_PLIST_DEST"
   echo "  com.igor.hermes-fleet-autoupdate bootstrapped"
 fi
 

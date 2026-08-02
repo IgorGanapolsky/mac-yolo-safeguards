@@ -10,7 +10,7 @@ const { spawnSync } = require('child_process');
 const repoRoot = path.resolve(__dirname, '..');
 const updater = path.join(repoRoot, 'scripts', 'hermes-fleet-autoupdate.sh');
 
-function makeFixture({ active, healerExit = 0 }) {
+function makeFixture({ active, healerExit = 0, staleLock = false }) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-fleet-autoupdate-'));
   const agentRepo = path.join(root, 'agent');
   const fakeBin = path.join(root, 'bin');
@@ -40,6 +40,11 @@ function makeFixture({ active, healerExit = 0 }) {
     `exit ${healerExit}`,
     '',
   ].join('\n'), { mode: 0o755 });
+  const lockDir = path.join(root, 'updater.lock');
+  if (staleLock) {
+    fs.mkdirSync(lockDir);
+    fs.writeFileSync(path.join(lockDir, 'owner.pid'), '99999999\n');
+  }
   const result = spawnSync('/bin/bash', [updater], {
     encoding: 'utf8',
     timeout: 30_000,
@@ -49,7 +54,7 @@ function makeFixture({ active, healerExit = 0 }) {
       HERMES_AGENT_REPO: agentRepo,
       HERMES_BIN: hermes,
       HERMES_CAPABILITY_HEALER: healer,
-      HERMES_UPDATE_LOCK_DIR: path.join(root, 'updater.lock'),
+      HERMES_UPDATE_LOCK_DIR: lockDir,
       HERMES_UPDATER_ASSUME_ACTIVE: String(active),
       HERMES_NTFY_URL: '',
     },
@@ -88,6 +93,15 @@ try {
   assert.match(failedCapability.result.stderr, /capability proof failed/i);
 } finally {
   fs.rmSync(failedCapability.root, { recursive: true, force: true });
+}
+
+const staleLock = makeFixture({ active: true, staleLock: true });
+try {
+  assert.strictEqual(staleLock.result.status, 0, staleLock.result.stderr);
+  assert.match(fs.readFileSync(staleLock.calls, 'utf8'), /healer/,
+    'a dead PID lock must be reclaimed so healing still runs');
+} finally {
+  fs.rmSync(staleLock.root, { recursive: true, force: true });
 }
 
 console.log('Hermes fleet updater tests: PASS');
