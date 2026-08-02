@@ -133,13 +133,13 @@ describe('SettingsScreen', () => {
     expect(
       getByText('Use Tailscale away from home, or USB/home Wi‑Fi nearby, for Chat, tools, and ops.'),
     ).toBeTruthy();
-    expect(getAllByText('Cloud approvals (optional)').length).toBeGreaterThan(0);
+    expect(getAllByText('Lock-screen approvals (optional)').length).toBeGreaterThan(0);
     expect(
       getByText(
         'Pair your Hermes account for approval requests anywhere. Does not provide live Chat or computer tools.',
       ),
     ).toBeTruthy();
-    expect(getByTestId('relay-route-title').props.children).toBe('Cloud approvals');
+    expect(getByTestId('relay-route-title').props.children).toBe('Lock-screen approvals');
     expect(getByTestId('relay-route-status').props.children.join('')).toContain(
       'Pair to receive approval requests anywhere',
     );
@@ -237,7 +237,7 @@ describe('SettingsScreen', () => {
       );
     });
     expect(alertSpy).toHaveBeenCalledWith(
-      'Cloud approvals paired',
+      'Lock-screen approvals ready',
       'Approval requests can arrive anywhere. This does not provide live Chat or computer tools; connect to your computer with Tailscale, USB, or home Wi‑Fi.',
     );
   });

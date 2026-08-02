@@ -2106,9 +2106,13 @@ export default function ChatScreen() {
     });
   }, [health?.authMismatch, repairComputerLabel]);
 
+  // Never put optional "cloud approval push" status next to the computer name when
+  // chat itself is down — that reads as "computer not paired" (owner rage 2026-08-02).
+  // Only surface unpaired-relay copy when chat/HTTP is already healthy (secondary tip).
   const routeStatusLabel =
     settings.connectionMode === 'relay' &&
     !isPaired &&
+    effectiveMacHttpOk &&
     relayRouteDisplay.routeStatus !== 'Direct link'
       ? relayRouteDisplay.routeStatus
       : !effectiveMacHttpOk && connectionHealExhausted
