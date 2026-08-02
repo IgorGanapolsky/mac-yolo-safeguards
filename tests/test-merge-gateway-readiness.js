@@ -26,6 +26,7 @@ const weakPlan = buildPlan({
     hasSelfHarness: false,
     hasRevenueControls: false,
     hasSlimYoloWrapper: false,
+    hasEssentialYoloCapabilities: false,
     ciCoversSelfHarness: false,
     hasMergeGatewayProvider: false,
     hasGatewayDocs: false,
@@ -44,6 +45,7 @@ const mitigatedPlan = buildPlan({
     hasSelfHarness: true,
     hasRevenueControls: true,
     hasSlimYoloWrapper: true,
+    hasEssentialYoloCapabilities: true,
     ciCoversSelfHarness: true,
     hasMergeGatewayProvider: false,
     hasGatewayDocs: false,
@@ -60,7 +62,7 @@ fs.mkdirSync(path.join(repo, 'tools'), { recursive: true });
 fs.mkdirSync(path.join(repo, 'scripts'), { recursive: true });
 fs.writeFileSync(path.join(repo, 'tools', 'revenue-control-checks.js'), 'captured_cents stripe customer checkout payment');
 fs.writeFileSync(path.join(repo, 'tools', 'hermes-self-harness.js'), 'Hermes Self-Harness self-harness-inspired criticalOpenCount');
-fs.writeFileSync(path.join(repo, 'hermes-yolo-wrapper.js'), "const DEFAULT_TOOLSETS = 'terminal,file,web,code_execution,memory,clarify';");
+fs.writeFileSync(path.join(repo, 'hermes-yolo-wrapper.js'), "const DEFAULT_TOOLSETS = process.env.HERMES_YOLO_TOOLSETS || 'terminal,file,web,code_execution,memory,clarify,skills,context7';");
 fs.writeFileSync(path.join(repo, 'scripts', 'ci-verify.sh'), 'node tests/test-hermes-self-harness.js');
 const config = path.join(tmp, 'config.yaml');
 const errors = path.join(tmp, 'errors.log');
@@ -71,6 +73,12 @@ assert.strictEqual(evidence.hasLocalDefault, true);
 assert.strictEqual(evidence.hasSelfHarness, true);
 assert.strictEqual(evidence.hasRevenueControls, true);
 assert.strictEqual(evidence.hasOpenRouterFailures, false);
+assert.strictEqual(evidence.hasEssentialYoloCapabilities, true);
+
+fs.writeFileSync(path.join(repo, 'hermes-yolo-wrapper.js'), "const DEFAULT_TOOLSETS = process.env.HERMES_YOLO_TOOLSETS || 'terminal,file,web,code_execution,memory,clarify';");
+const filteredEvidence = collect({ repo, hermesConfig: config, errorsLog: errors });
+assert.strictEqual(filteredEvidence.hasSlimYoloWrapper, true);
+assert.strictEqual(filteredEvidence.hasEssentialYoloCapabilities, false);
 
 fs.rmSync(tmp, { recursive: true, force: true });
 
