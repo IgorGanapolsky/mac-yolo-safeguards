@@ -263,22 +263,22 @@ export default function DashboardClient() {
 
   /** Plain-English copy for the machine / Continuity / Auto control (always show, never jargon-only). */
   const routeExplain =
-    !devices.length
+    routePreference === "cloud"
       ? {
-          title: "Pair a computer first",
-          body: "Install the connector on the machine that runs Hermes (Settings), then you can choose where work runs.",
+          title: "Continuity (Cloud VPS)",
+          body: organization?.cloudAccess
+            ? "Runs on ThumbGate.app’s fenced cloud runner — no local computer required for this mode. Uses a Continuity run from your plan."
+            : "Needs a Continuity trial or Pro plan on ThumbGate.app. Start Continuity to use the cloud runner.",
         }
-      : routePreference === "local"
+      : !devices.length
         ? {
-            title: `${selectedDeviceLabel} only`,
-            body: `Runs on ${selectedDeviceLabel}. If that machine is asleep or offline, this task waits — Continuity will not start.`,
+            title: "No computer paired yet",
+            body: "Pair a computer in Settings for Auto/local runs, or switch Run on to Continuity (Cloud VPS) if your plan includes it.",
           }
-        : routePreference === "cloud"
+        : routePreference === "local"
           ? {
-              title: "Continuity (cloud VPS)",
-              body: organization?.cloudAccess
-                ? `Always runs on ThumbGate’s cloud runner (workspace machine: ${selectedDeviceLabel}). Uses a Continuity run from your plan.`
-                : "Needs a Continuity trial or Pro plan. Start Continuity to use the cloud runner.",
+              title: `${selectedDeviceLabel} only`,
+              body: `Runs on ${selectedDeviceLabel}. If that machine is asleep or offline, this task waits — Continuity will not start.`,
             }
           : {
               title: `Auto — ${selectedDeviceLabel} first`,
@@ -731,11 +731,20 @@ export default function DashboardClient() {
       setNotice("Type a message first, then tap Run task.");
       return;
     }
-    if (!devices.length) {
-      setNotice("Pair a computer first (open Settings → run the installer).");
+    const hasCloud = Boolean(organization?.cloudAccess);
+    const effectiveRoute =
+      routePreference === "cloud" || (!devices.length && hasCloud) ? "cloud" : routePreference;
+    if (!devices.length && effectiveRoute !== "cloud") {
+      setNotice(
+        "Pair a computer in Settings, or set Run on to Continuity (Cloud VPS) on ThumbGate.app.",
+      );
       return;
     }
-    if (!selectedDeviceId) {
+    if (effectiveRoute === "cloud" && !hasCloud) {
+      setNotice("Continuity needs a trial or Pro plan. Open Manage plan to start Continuity.");
+      return;
+    }
+    if (!selectedDeviceId && effectiveRoute !== "cloud") {
       setNotice("Select which machine should run this task.");
       return;
     }
@@ -748,10 +757,10 @@ export default function DashboardClient() {
         body: JSON.stringify({
           prompt: text,
           threadId: selectedThread,
-          deviceId: selectedDeviceId,
+          deviceId: selectedDeviceId || undefined,
           idempotencyKey: crypto.randomUUID(),
           traceId: crypto.randomUUID(),
-          routePreference,
+          routePreference: effectiveRoute,
         }),
       });
       let body: { task?: { route: string; threadId: string; preference?: string; deviceId?: string; traceId?: string }; error?: string; traceId?: string } = {};
@@ -769,7 +778,9 @@ export default function DashboardClient() {
           body.task.route === "local"
             ? `Sent — running on ${macName}.`
             : body.task.route === "cloud"
-              ? `Sent — Continuity VPS (workspace: ${macName}).`
+              ? (devices.length
+                  ? `Sent — Continuity (Cloud VPS) · workspace: ${macName}.`
+                  : "Sent — Continuity (Cloud VPS) on ThumbGate.app.")
               : `Sent — awaiting route on ${macName}.`
         );
         setPrompt("");
@@ -1308,10 +1319,24 @@ export default function DashboardClient() {
                 <button
                   type="submit"
                   className="button button-primary button-small composer-run"
-                  disabled={busy || !devices.length}
+                  disabled={
+                    busy ||
+                    (!devices.length &&
+                      routePreference !== "cloud" &&
+                      !organization?.cloudAccess) ||
+                    (routePreference === "cloud" && !organization?.cloudAccess)
+                  }
                   aria-busy={busy}
                 >
-                  {busy ? "Sending…" : !devices.length ? "Pair a computer first" : "Run task →"}
+                  {busy
+                    ? "Sending…"
+                    : routePreference === "cloud" || (!devices.length && organization?.cloudAccess)
+                      ? organization?.cloudAccess
+                        ? "Run on Continuity (Cloud VPS) →"
+                        : "Continuity needs Pro"
+                      : !devices.length
+                        ? "Pair a computer or pick Continuity"
+                        : "Run task →"}
                 </button>
               </div>
             </form>
