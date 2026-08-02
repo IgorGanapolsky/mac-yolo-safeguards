@@ -35,6 +35,11 @@ const LOG_PATH =
   process.env.HERMES_TS_REACH_LOG ||
   path.join(os.homedir(), 'Library', 'Logs', 'hermes-tailscale-reachability.log');
 const NTFY_COOLDOWN_MS = Number(process.env.HERMES_TS_REACH_NTFY_COOLDOWN_MS || 30 * 60 * 1000);
+// Cap `hermes gateway restart` attempts so a persistent /api/sessions hang does NOT
+// trigger a restart on every daemon poll (crisis 2026-08-02 flap saw the daemon sit idle
+// during the sessions-hang because the old gate only fired on !healthOk; the new gate fires
+// on sessions-hang too, so it needs a backoff to avoid hammering `hermes gateway restart`).
+const RESTART_COOLDOWN_MS = Number(process.env.HERMES_TS_REACH_RESTART_COOLDOWN_MS || 5 * 60 * 1000);
 const REPO_ROOT = path.resolve(__dirname, '..');
 
 function log(line) {
@@ -188,6 +193,25 @@ function restartLocalGateway(dryRun) {
   return { attempted: true, ok: kick.status === 0, attempts };
 }
 
+function shouldRestartGateway(localProbe) {
+  if (!localProbe) return false;
+  if (!localProbe.healthOk) return true;
+  // Sessions-hang flap signature (crisis 2026-08-02): /health is 200 over the Tailscale
+  // IP but /api/sessions times out (sessionsOk === false, sessionsStatus 0) — the Python
+  // hermes-agent /api/sessions handler is hung while the tunnel + gateway stay up. The old
+  // gate (`!localProbe.healthOk`) never fired here, so the flap never self-healed.
+  // 401/403 are auth failures handled by autoPair (needRepair), NOT a gateway restart.
+  if (
+    localProbe.sessionsOk === false &&
+    !localProbe.authProbeSkipped &&
+    localProbe.sessionsStatus !== 401 &&
+    localProbe.sessionsStatus !== 403
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function autoPair(dryRun) {
   if (dryRun) return { attempted: true, dryRun: true, ok: true };
   const pairJs = path.join(REPO_ROOT, 'tools', 'hermes-mobile-pair.js');
@@ -241,10 +265,20 @@ async function runOnce(options = {}) {
   const actions = [];
   const state = loadState();
 
-  if (localProbe && !localProbe.healthOk) {
-    const restart = restartLocalGateway(dryRun);
-    actions.push({ type: 'restart_gateway', ...restart });
-    log(`restart_gateway ok=${restart.ok} local=${localIp || 'unknown'}`);
+  const needsRestart = localProbe && shouldRestartGateway(localProbe);
+  if (needsRestart) {
+    const sinceRestart = state.lastRestartAt ? Date.now() - state.lastRestartAt : Infinity;
+    if (sinceRestart > RESTART_COOLDOWN_MS) {
+      const restart = restartLocalGateway(dryRun);
+      actions.push({ type: 'restart_gateway', ...restart });
+      log(`restart_gateway ok=${restart.ok} local=${localIp || 'unknown'}`);
+      state.lastRestartAt = Date.now();
+    } else {
+      actions.push({ type: 'restart_gateway', reason: 'cooldown', dryRun });
+      log(
+        `restart_gateway skipped (cooldown ${Math.round(sinceRestart / 1000)}s of ${RESTART_COOLDOWN_MS / 1000}s) local=${localIp || 'unknown'}`,
+      );
+    }
   }
 
   const phones = listPhysicalAdbSerials();
@@ -333,6 +367,7 @@ if (require.main === module) {
 module.exports = {
   probeHost,
   runOnce,
+  shouldRestartGateway,
   readLocalApiKey,
   apiKeyForRole,
   listPhysicalAdbSerials,

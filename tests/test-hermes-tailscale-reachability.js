@@ -3,7 +3,7 @@
 
 const assert = require('assert');
 const http = require('http');
-const { probeHost } = require('../tools/hermes-tailscale-reachability.js');
+const { probeHost, shouldRestartGateway } = require('../tools/hermes-tailscale-reachability.js');
 
 let pass = 0;
 let fail = 0;
@@ -89,6 +89,50 @@ async function main() {
     });
     assert.strictEqual(health, 200);
     assert.strictEqual(sessions, 200);
+  });
+
+  // shouldRestartGateway: the flap gate. Crisis 2026-08-02 flap signature is
+  // healthOk:true + sessionsOk:false + sessionsStatus:0 (Python /api/sessions handler
+  // hung while the gateway + Tailscale tunnel stay up). The old gate only fired on
+  // !healthOk and silently ignored that case — these checks pin the new behaviour.
+  check('shouldRestartGateway: null probe (no local mac) -> false', () => {
+    assert.strictEqual(shouldRestartGateway(null), false);
+  });
+  check('shouldRestartGateway: health down -> true (existing restart trigger)', () => {
+    assert.strictEqual(
+      shouldRestartGateway({ healthOk: false, sessionsOk: null, sessionsStatus: null, authProbeSkipped: true }),
+      true,
+    );
+  });
+  check('shouldRestartGateway: sessions-hang flap (health 200, sessions timed out) -> true', () => {
+    assert.strictEqual(
+      shouldRestartGateway({ healthOk: true, sessionsOk: false, sessionsStatus: 0, authProbeSkipped: false }),
+      true,
+    );
+  });
+  check('shouldRestartGateway: healthy (health + sessions ok) -> false', () => {
+    assert.strictEqual(
+      shouldRestartGateway({ healthOk: true, sessionsOk: true, sessionsStatus: 200, authProbeSkipped: false }),
+      false,
+    );
+  });
+  check('shouldRestartGateway: sessions 401 (auth) -> false (autoPair owns 401)', () => {
+    assert.strictEqual(
+      shouldRestartGateway({ healthOk: true, sessionsOk: false, sessionsStatus: 401, authProbeSkipped: false }),
+      false,
+    );
+  });
+  check('shouldRestartGateway: sessions 403 (auth) -> false (autoPair owns 403)', () => {
+    assert.strictEqual(
+      shouldRestartGateway({ healthOk: true, sessionsOk: false, sessionsStatus: 403, authProbeSkipped: false }),
+      false,
+    );
+  });
+  check('shouldRestartGateway: no api key (sessions skipped) -> false', () => {
+    assert.strictEqual(
+      shouldRestartGateway({ healthOk: true, sessionsOk: null, sessionsStatus: null, authProbeSkipped: true }),
+      false,
+    );
   });
 
   await checkAsync('probeHost rejects bad key with 401', async () => {
