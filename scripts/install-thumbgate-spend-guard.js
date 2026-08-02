@@ -4,10 +4,18 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const SOURCE = path.join(ROOT, 'hooks', 'thumbgate-spend-guard', 'pre-tool-use.js');
 const COMMAND_MARKER = 'thumbgate-spend-guard.js';
+
+function setGuardImmutable(destination, immutable) {
+  if (process.platform !== 'darwin' || !fs.existsSync(destination)) return;
+  execFileSync('chflags', [immutable ? 'uchg' : 'nouchg', destination], {
+    stdio: ['ignore', 'ignore', 'pipe'],
+  });
+}
 
 function installSpendGuard(home = process.env.HOME || os.homedir()) {
   const destinationDirectory = path.join(home, '.thumbgate', 'bin');
@@ -15,8 +23,15 @@ function installSpendGuard(home = process.env.HOME || os.homedir()) {
   const settingsPath = path.join(home, '.claude', 'settings.json');
 
   fs.mkdirSync(destinationDirectory, { recursive: true, mode: 0o700 });
-  fs.copyFileSync(SOURCE, destination);
-  fs.chmodSync(destination, 0o700);
+  setGuardImmutable(destination, false);
+  try {
+    fs.copyFileSync(SOURCE, destination);
+    fs.chmodSync(destination, 0o700);
+  } finally {
+    // The installed hook is user-immutable during normal agent operation. The
+    // installer alone opens this bounded replacement window and always closes it.
+    setGuardImmutable(destination, true);
+  }
 
   fs.mkdirSync(path.dirname(settingsPath), { recursive: true, mode: 0o700 });
   let settings = {};
@@ -66,4 +81,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { COMMAND_MARKER, installSpendGuard };
+module.exports = { COMMAND_MARKER, installSpendGuard, setGuardImmutable };

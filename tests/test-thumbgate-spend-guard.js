@@ -124,6 +124,16 @@ fs.writeFileSync(
   }),
 );
 installSpendGuard(tempHome);
+const installedGuardPath = path.join(
+  tempHome,
+  '.thumbgate',
+  'bin',
+  'thumbgate-spend-guard.js',
+);
+if (process.platform === 'darwin') {
+  const lock = spawnSync('chflags', ['uchg', installedGuardPath], { encoding: 'utf8' });
+  assert.strictEqual(lock.status, 0, lock.stderr);
+}
 installSpendGuard(tempHome);
 const installedSettings = JSON.parse(
   fs.readFileSync(path.join(tempHome, '.claude', 'settings.json'), 'utf8'),
@@ -143,5 +153,10 @@ assert.strictEqual(
   1,
 );
 assert(fs.existsSync(path.join(tempHome, '.thumbgate', 'bin', 'thumbgate-spend-guard.js')));
+if (process.platform === 'darwin') {
+  const flags = spawnSync('stat', ['-f', '%Sf', installedGuardPath], { encoding: 'utf8' });
+  assert.strictEqual(flags.status, 0, flags.stderr);
+  assert.match(flags.stdout, /uchg/);
+}
 
 console.log('test-thumbgate-spend-guard: ok');
