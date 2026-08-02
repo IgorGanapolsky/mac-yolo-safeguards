@@ -68,12 +68,6 @@ function machineDisplayName(device: Device | null | undefined, fallback = "your 
   return name || fallback;
 }
 
-function shortMachineLabel(name: string, max = 12): string {
-  const trimmed = name.trim();
-  if (trimmed.length <= max) return trimmed;
-  return `${trimmed.slice(0, Math.max(1, max - 1))}…`;
-}
-
 /**
  * Empty-task copy must not blame pairing when machines exist (Buzz lesson 2026-07-28:
  * shared-room honesty — chats/synced messages ≠ unpaired).
