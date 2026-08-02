@@ -262,9 +262,8 @@ export default function ApprovalsScreen() {
           <Text style={styles.title}>THUMBGATE LEASH</Text>
         </View>
         <Text style={styles.subtitle} testID="leash-hero-subtitle">
-          {settings.safetyMode || settings.glanceMode
-            ? 'Approve blocked agent tools via ThumbGate.app — lock screen or cards below'
-            : 'Approve blocked tools from your phone via ThumbGate.app — tap notifications on lock screen'}
+          When Hermes on your Mac blocks a risky tool (shell, files, browser, etc.), approve or deny
+          it here — or from lock-screen alerts. Not chat messages; only blocked tools.
         </Text>
         <TouchableOpacity
           onPress={() => {
@@ -505,23 +504,6 @@ export default function ApprovalsScreen() {
                 }}
                 trackColor={{ false: '#1F2937', true: colors.primary }}
                 thumbColor={settings.thumbgateCaptureOnUp ? '#ffffff' : '#9CA3AF'}
-              />
-            </View>
-            <View style={styles.switchRow}>
-              <View style={styles.switchLabelCol}>
-                <Text style={styles.switchLabel}>Approval-first mode</Text>
-                <Text style={styles.switchDesc}>
-                  Prioritize lock-screen approval alerts. Hermes tab still opens on launch.
-                </Text>
-              </View>
-              <Switch
-                value={settings.safetyMode}
-                onValueChange={(val) => {
-                  void patchSettings({ safetyMode: val });
-                }}
-                testID="safety-mode-switch"
-                trackColor={{ false: '#1F2937', true: colors.primary }}
-                thumbColor={settings.safetyMode ? '#ffffff' : '#9CA3AF'}
               />
             </View>
             <View style={styles.switchRow}>

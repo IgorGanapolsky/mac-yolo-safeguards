@@ -396,7 +396,7 @@ export default function SettingsScreen() {
       );
       setPairCode('');
       Alert.alert(
-        'Cloud approvals paired',
+        'Lock-screen approvals ready',
         'Approval requests can arrive anywhere. This does not provide live Chat or computer tools; connect to your computer with Tailscale, USB, or home Wi‑Fi.',
       );
     } catch (err) {
@@ -680,7 +680,7 @@ export default function SettingsScreen() {
             Use Tailscale away from home, or USB/home Wi‑Fi nearby, for Chat, tools, and ops.
           </Text>
           <View style={styles.relayRouteCard} testID="relay-route-card">
-            <Text style={styles.relayRouteEyebrow}>Cloud approvals (optional)</Text>
+            <Text style={styles.relayRouteEyebrow}>Lock-screen approvals (optional)</Text>
             <Text style={styles.relayRouteTitle} testID="relay-route-title">
               {relayRouteDisplay.machineLabel}
             </Text>
@@ -726,7 +726,7 @@ export default function SettingsScreen() {
           <View style={styles.spacer} />
           <View style={styles.switchRow}>
             <View style={styles.switchLabelCol}>
-              <Text style={styles.switchLabel}>Cloud approvals (optional)</Text>
+              <Text style={styles.switchLabel}>Lock-screen approvals (optional)</Text>
               <Text style={styles.switchDesc}>
                 Pair your Hermes account for approval requests anywhere. Does not provide live Chat or computer tools.
               </Text>
@@ -747,7 +747,7 @@ export default function SettingsScreen() {
             </Text>
           ) : null}
           <View style={styles.divider} />
-          <Text style={styles.label}>Cloud approvals URL (advanced)</Text>
+          <Text style={styles.label}>Approval push URL (advanced)</Text>
           <TextInput
             style={styles.input}
             value={cloudUrl}

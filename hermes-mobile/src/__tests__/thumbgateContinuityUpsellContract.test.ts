@@ -5,6 +5,7 @@ import {
 
 // CEO, 2026-07-26: the promo must sell ThumbGate.app as an ADDITION to the mobile app and
 // drive paid signups — not present it as a fallback for a broken connection.
+// Public brand: always ThumbGate.app (never bare "ThumbGate" in promo CTAs).
 //
 const SURFACES = ['leash_disconnected', 'leash_empty', 'connection_unreachable'] as const;
 
@@ -12,11 +13,14 @@ describe('ThumbGate promo is a continuity upsell, not a failure fallback', () =>
   it('positions the plans as an additive paid companion on every surface', () => {
     for (const s of SURFACES) {
       const promo = thumbGatePromoCopy(s);
-      expect(promo.headline).toBe('Upgrade Hermes with ThumbGate');
-      expect(promo.body).toMatch(/Add a web dashboard and paid Continuity to Hermes Mobile/);
+      expect(promo.headline).toBe('Upgrade Hermes with ThumbGate.app');
+      expect(promo.headline).toMatch(/ThumbGate\.app/);
+      expect(promo.headline).not.toMatch(/with ThumbGate$/);
+      expect(promo.body).toMatch(/ThumbGate\.app/);
+      expect(promo.body).toMatch(/Add a web dashboard and paid Continuity/);
       expect(promo.body).toMatch(/Leash controls/);
-      expect(promo.body).toMatch(/eligible work moving when your Mac is offline/);
-      expect(promo.buttonLabel).toBe('See ThumbGate plans');
+      expect(promo.body).toMatch(/eligible work moving when your computer is offline/);
+      expect(promo.buttonLabel).toBe('See ThumbGate.app plans');
       expect(promo.body).not.toMatch(
         /phone cannot reach|can't reach|unable to reach|pair a Mac and continue|replacement|instead/i,
       );
