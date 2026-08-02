@@ -1,13 +1,14 @@
 /**
- * Single source of truth for ThumbGate web funnel copy in Hermes Mobile.
+ * Single source of truth for ThumbGate.app web funnel copy in Hermes Mobile.
  * Production control plane: https://thumbgate.app (see apps/hermes-control-plane).
+ * Public marketing always says **ThumbGate.app** (never bare "ThumbGate" alone).
  */
 
-/** Canonical Hermes Web / ThumbGate control-plane URL (not thumbgate.ai marketing alias). */
+/** Canonical Hermes Web / ThumbGate.app control-plane URL (not thumbgate.ai). */
 export const THUMBGATE_WEB_URL =
   'https://thumbgate.app/?utm_source=hermes-mobile&utm_medium=app&utm_campaign=paid_companion#pricing';
 
-export const THUMBGATE_PROMO_BUTTON_LABEL = 'See ThumbGate plans';
+export const THUMBGATE_PROMO_BUTTON_LABEL = 'See ThumbGate.app plans';
 
 export type ThumbGatePromoSurface = 'leash_disconnected' | 'leash_empty' | 'connection_unreachable';
 
@@ -19,8 +20,8 @@ export type ThumbGatePromoCopy = {
 };
 
 const PAID_COMPANION_COPY = {
-  headline: 'Upgrade Hermes with ThumbGate',
-  body: 'Add a web dashboard and paid Continuity to Hermes Mobile. Manage chats and Leash controls from any browser, and keep eligible work moving when your Mac is offline.',
+  headline: 'Upgrade Hermes with ThumbGate.app',
+  body: 'Add a web dashboard and paid Continuity from ThumbGate.app to Hermes Mobile. Manage chats and Leash controls from any browser, and keep eligible work moving when your computer is offline.',
 } as const;
 
 const SURFACE_COPY: Record<ThumbGatePromoSurface, Omit<ThumbGatePromoCopy, 'url' | 'buttonLabel'>> = {
