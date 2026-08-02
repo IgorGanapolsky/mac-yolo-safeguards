@@ -107,6 +107,7 @@ Prefer invoking the relevant skill over ad-hoc diagnosis:
 - Mac sluggish / fans / load → `mac-freeze-rescue`
 - Run / screenshot / smoke-test → `run`; verify PR end-to-end → `verify`
 - RN perf / upgrade / GitHub Actions → `.cursor/skills/` (react-native-best-practices, upgrading-react-native, github-actions)
+- Consult GTM / revenue expert / tinker-brain → `python3 tools/tinker-brain/tinker_brain_answer.py --card config/THUMBGATE_EXPERT_CARD.txt --question "<question>"` (CLI script, NOT an MCP tool)
 - Stripe/Chrome login walls → **blocked by default** (§ No desktop hijack); Stripe CLI/API first.
 
 ## What NOT to do
