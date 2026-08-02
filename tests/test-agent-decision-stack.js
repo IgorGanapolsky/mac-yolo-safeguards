@@ -25,6 +25,13 @@ const retrieval = localRetrieval('Hermes retrieval harness Specification-Driven 
 assert(!retrieval.error, retrieval.error);
 assert(Array.isArray(retrieval.citations));
 assert(retrieval.citations.some((citation) => citation.path === 'tools/hermes-retrieval-harness.js'));
+// Production-ops live path: dual-path finalize writes turn traces by default.
+assert(retrieval.backend, 'expected retrieval backend (dual-path or harness)');
+assert(retrieval.production, 'expected production meta (ACL/trace) on localRetrieval');
+assert(
+  retrieval.production.traceId || retrieval.production.tracePath || retrieval.production.traceError,
+  `expected turn-trace attempt, got production=${JSON.stringify(retrieval.production)}`,
+);
 
 const brief = buildBrief({
   task: 'Hermes Specification-Driven Design retrieval harness',
@@ -33,6 +40,7 @@ const brief = buildBrief({
   skipLocalRetrieval: false,
 });
 assert(brief.rag.localRetrieval.citations.length > 0);
+assert(brief.rag.localRetrieval.production, 'brief.rag.localRetrieval must carry production meta');
 assert.strictEqual(brief.telemetry.githubRun.skipped, true);
 
 const action = recommendNextAction({
