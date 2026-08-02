@@ -761,7 +761,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
-- `tools/coordctl.js`, `tests/test-coordctl.js`, `docs/AGENT-COORDINATION-SSOT.md`, `plan.md` → **codex-coordctl-phase1** (T-COORDCTL-CENTRAL-STORE-20260802: new-file-only Phase 1 central coordination store and proof; no Linear/Obsidian mutation, no existing lease/parser/megafile/CI edits) (2026-08-02T00:00:00-04:00)
+- `tools/coordctl.js`, `tests/test-coordctl.js`, `docs/AGENT-COORDINATION-SSOT.md`, `plan.md` → **codex-coordctl-phase1** (T-COORDCTL-CENTRAL-STORE-20260802: new-file-only Phase 1 central coordination store and proof; no Linear/Obsidian mutation, no existing lease/parser/megafile/CI edits) (2026-08-02T18:49:50-04:00)
 - `hermes-mobile/src/__tests__/ChatScreen.test.tsx` → **grok-ota-ship-20260802** (T-EMPTY-STREAM-CI-FIX-20260802 2026-08-02T20:27Z)
 - `hermes-mobile/src/__tests__/SettingsScreen.test.tsx` → **grok-ota-ship-20260802** (T-EMPTY-STREAM-CI-FIX-20260802 2026-08-02T20:27Z)
 - `hermes-mobile/src/__tests__/ManualComputerAddressForm.test.tsx` → **grok-ota-ship-20260802** (T-EMPTY-STREAM-CI-FIX-20260802 2026-08-02T20:27Z)
