@@ -24,6 +24,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import urllib.error
 import urllib.request
@@ -429,9 +430,20 @@ def write_snapshot(out: Path, payload: dict[str, Any]) -> None:
             # Fail loud if the snapshot copy did not land byte-identical (runtime
             # prefers snapshot — silent drift is the divergence class of bug).
             if expert_dst.read_bytes() != EXPERT_SRC.read_bytes():
-                raise OSError("expert card snapshot copy mismatch after write")
-        except OSError:
-            pass  # answer path falls back to the repo copy
+                try:
+                    expert_dst.unlink()
+                except OSError:
+                    pass
+                raise OSError(
+                    f"expert card snapshot copy mismatch after write: {expert_dst}"
+                )
+        except OSError as exc:
+            # Do not leave a partial/stale snapshot preferred over the repo card.
+            print(
+                f"export_tinker_brain_snapshot: expert card copy failed: {exc}",
+                file=sys.stderr,
+            )
+            raise
 
 
 def validate_snapshot(path: Path) -> list[str]:

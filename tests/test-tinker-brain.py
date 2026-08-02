@@ -68,9 +68,17 @@ class RouterTest(unittest.TestCase):
         self.assertLess(weak["confidence"], 0.4)
 
     def test_legal_brand_flag(self):
-        r = route("trademark rename Hermes Nous Research risk")
+        r = route("Should ThumbGate rename given Hermes trademark risk?")
         self.assertTrue(r["flags"]["wants_legal_brand"])
         self.assertEqual(r["primary"], INTENT_THUMBGATE_GTM)
+
+    def test_bare_competitor_name_not_thumbgate_gtm(self):
+        # Review P2: "What is Cursor?" must not dump ThumbGate positioning.
+        self.assertNotEqual(route("What is Cursor?")["primary"], INTENT_THUMBGATE_GTM)
+        self.assertNotEqual(
+            route("How do I compete against my neighbor?")["primary"],
+            INTENT_THUMBGATE_GTM,
+        )
 
 
 class AnswerTest(unittest.TestCase):
@@ -124,6 +132,12 @@ class ContractTest(unittest.TestCase):
     def test_github_citation_not_channel_proposal(self):
         self.assertFalse(_proposes_marketing_channel("214k github stars on the public repo", "github"))
         self.assertTrue(_proposes_marketing_channel("Make GitHub the top conversion channel.", "github"))
+        self.assertTrue(
+            _proposes_marketing_channel("GitHub should drive acquisition for us.", "github")
+        )
+        self.assertTrue(
+            _proposes_marketing_channel("Acquire users through GitHub this quarter.", "github")
+        )
         citation = (
             "AS_OF=2026-07-22T18:07:42Z. Nous public repo ~214K GitHub stars; "
             "lead with ThumbGate brand."

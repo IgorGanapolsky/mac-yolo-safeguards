@@ -30,6 +30,11 @@ def _proposes_marketing_channel(text: str, channel: str) -> bool:
         rf"\buse\s+{ch}\s+(?:for|as)\b",
         rf"\bvia\s+{ch}\s+(?:for|as|to)\b",
         rf"\btop\s+conversion\s+channel\b.{{0,24}}{ch}",
+        # Acquisition / growth phrasing (review: not only "conversion channel")
+        rf"\b{ch}\b.{{0,40}}\b(?:drive|for)\s+acquisition\b",
+        rf"\b(?:acquire|acquisition|grow|growth)\b.{{0,40}}\b(?:through|via|on|with)\s+{ch}\b",
+        rf"\brely\s+on\s+{ch}\b.{{0,40}}\b(?:acquisition|customers?|leads?|conversion)\b",
+        rf"\b{ch}\s+should\s+drive\b",
     )
     return any(re.search(p, text, flags=re.I) for p in patterns)
 

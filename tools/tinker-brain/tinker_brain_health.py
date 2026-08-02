@@ -36,7 +36,9 @@ _REPO_CARD = _REPO_ROOT / "config" / "THUMBGATE_EXPERT_CARD.txt"
 _SNAPSHOT_CARD = (
     Path.home() / ".hermes" / "business-brain" / "data-snapshot" / "THUMBGATE_EXPERT_CARD.txt"
 )
-_GAP_LOG = _REPO_ROOT / "coordination" / "tinker-brain-coverage-gaps.jsonl"
+# Private receipts only — never write user questions into the public repo tree
+# (customer names / credentials must not land in a later broad commit).
+_GAP_LOG = Path.home() / ".hermes" / "receipts" / "tinker-brain" / "coverage-gaps.jsonl"
 _EXPORTER = Path(__file__).resolve().parent / "export_tinker_brain_snapshot.py"
 
 _AS_OF = re.compile(r"AS_OF[_A-Z]*\s*:?\s*(\d{4}-\d{2}-\d{2})")

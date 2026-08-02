@@ -287,14 +287,33 @@ def route(question: str) -> dict[str, Any]:
     # "make money" is next-money unless the user is clearly diagnosing zero cash.
     if flags["wants_make_money_action"] and not flags["cash_diagnosis"]:
         flags["wants_next_money"] = True
-    if flags["wants_legal_brand"] or flags["wants_competitive"]:
+    # Legal/competitive flags only promote GTM when the question already has product
+    # or GTM context — bare "What is Cursor?" must not dump ThumbGate positioning.
+    product_or_gtm_context = (
+        flags["wants_thumbgate_product"]
+        or flags["wants_gtm_positioning"]
+        or flags["wants_gtm_pricing"]
+        or flags["wants_gtm_marketing"]
+        or flags["wants_gtm_sales"]
+        or flags["wants_cash"]
+        or flags["wants_next_money"]
+        or flags["wants_make_money_action"]
+    )
+    if (flags["wants_legal_brand"] or flags["wants_competitive"]) and product_or_gtm_context:
         flags["wants_gtm_positioning"] = True
+    elif flags["wants_legal_brand"] and _match_any(lowered, THUMBGATE_PATTERNS + (r"\bhermes\b",)):
+        # "ThumbGate rename / Hermes trademark" without other GTM verbs still GTM.
+        flags["wants_gtm_positioning"] = True
+        flags["wants_thumbgate_product"] = True
     gtm_hit = (
         flags["wants_gtm_positioning"]
         or flags["wants_gtm_pricing"]
         or flags["wants_gtm_marketing"]
         or flags["wants_gtm_sales"]
-        or flags["wants_legal_brand"]
+        or (
+            flags["wants_legal_brand"]
+            and (flags["wants_thumbgate_product"] or _match_any(lowered, (r"\bhermes\b",)))
+        )
     )
     flags["wants_thumbgate_gtm"] = flags["wants_thumbgate_product"] or gtm_hit
 
