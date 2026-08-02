@@ -141,7 +141,7 @@ describe('SettingsScreen', () => {
     ).toBeTruthy();
     expect(getByTestId('relay-route-title').props.children).toBe('Lock-screen approvals');
     expect(getByTestId('relay-route-status').props.children.join('')).toContain(
-      'Pair to receive approval requests anywhere',
+      'Optional: pair for approvals off your home network',
     );
   });
 
