@@ -259,14 +259,22 @@ export default function DashboardClient() {
   }, [devices, deviceOverrideId]);
 
   const selectedDevice = devices.find((device) => device.id === selectedDeviceId) ?? null;
-  const selectedDeviceLabel = machineDisplayName(selectedDevice, "your computer");
+  /** Prefer the real paired hostname — never a vague placeholder when a device exists. */
+  const selectedDeviceLabel = machineDisplayName(selectedDevice, "paired Mac");
+  const pairComputerLabel = devices.length
+    ? "+ Pair another computer…"
+    : "+ Pair computer…";
+  /** Auto option must name a real host when paired; unpaired must say pair is required. */
+  const autoRouteLabel = selectedDevice
+    ? `Auto — ${selectedDeviceLabel} first, then Continuity`
+    : "Auto — needs a paired Mac first";
 
   /** Plain-English copy for the machine / Continuity / Auto control (always show, never jargon-only). */
   const routeExplain =
     !devices.length
       ? {
-          title: "Pair a computer first",
-          body: "Install the connector on the machine that runs Hermes (Settings), then you can choose where work runs.",
+          title: "No computer paired yet",
+          body: "Pair the Mac that runs Hermes (Settings → one-line installer). Auto and Continuity only apply after that machine is in this workspace.",
         }
       : routePreference === "local"
         ? {
@@ -371,23 +379,31 @@ export default function DashboardClient() {
     selectedThreadRef.current = selectedThread;
   }, [selectedThread]);
 
+  /** Jump to Settings installer — used by RUN ON → Pair and the primary unpaired CTA. */
+  function openPairingSettings(reason: "pair" | "manage" = "pair") {
+    setMobileTab("settings");
+    window.history.replaceState(null, "", "#web-settings");
+    window.setTimeout(() => {
+      document.getElementById("web-settings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+    if (reason === "manage") {
+      setNotice("Manage machines: remove or add connectors under Settings.");
+      return;
+    }
+    setNotice(
+      devices.length
+        ? "Pair another computer: run the one-line installer there, then approve the code under Settings."
+        : "Pair a computer: run the one-line installer on the Mac that hosts Hermes, then approve the code under Settings.",
+    );
+  }
+
   function chooseDevice(deviceId: string) {
     if (deviceId === "pair") {
-      setMobileTab("settings");
-      window.history.replaceState(null, "", "#web-settings");
-      window.setTimeout(() => {
-        document.getElementById("web-settings")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 50);
-      setNotice("Pair another computer: run the one-line installer there, then approve the code under Settings.");
+      openPairingSettings("pair");
       return;
     }
     if (deviceId === "manage") {
-      setMobileTab("settings");
-      window.history.replaceState(null, "", "#web-settings");
-      window.setTimeout(() => {
-        document.getElementById("web-settings")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 50);
-      setNotice("Manage machines: remove or add connectors under Settings.");
+      openPairingSettings("manage");
       return;
     }
     setDeviceOverrideId(deviceId);
@@ -732,7 +748,7 @@ export default function DashboardClient() {
       return;
     }
     if (!devices.length) {
-      setNotice("Pair a computer first (open Settings → run the installer).");
+      openPairingSettings("pair");
       return;
     }
     if (!selectedDeviceId) {
@@ -1253,20 +1269,18 @@ export default function DashboardClient() {
                   disabled={busy}
                   aria-label="Target machine or Continuity routing"
                 >
-                  <option value="auto">
-                    Auto — {selectedDevice ? selectedDeviceLabel : "My computer"} first, then Continuity
-                  </option>
+                  <option value="auto">{autoRouteLabel}</option>
                   {devices.map((device) => (
                     <option key={device.id} value={`local:${device.id}`}>
-                      {machineDisplayName(device)} only (this Mac) · {deviceStatusLabel(device)}
+                      {machineDisplayName(device)} only · {deviceStatusLabel(device)}
                     </option>
                   ))}
                   <option value="cloud" disabled={!organization?.cloudAccess}>
                     Continuity (cloud VPS){organization?.cloudAccess ? "" : " — needs trial/Pro"}
                   </option>
-                  <optgroup label="Actions">
-                    <option value="pair">+ Pair another computer…</option>
-                    <option value="manage">⚙ Manage / remove machines…</option>
+                  <optgroup label="Setup">
+                    <option value="pair">{pairComputerLabel}</option>
+                    <option value="manage">⚙ Manage machines…</option>
                   </optgroup>
                 </select>
                 {/* Hidden contract strings for tests — dual Where/Which UI removed from visible dock. */}
@@ -1305,14 +1319,27 @@ export default function DashboardClient() {
                 </div>
               ) : null}
               <div className="composer-actions">
-                <button
-                  type="submit"
-                  className="button button-primary button-small composer-run"
-                  disabled={busy || !devices.length}
-                  aria-busy={busy}
-                >
-                  {busy ? "Sending…" : !devices.length ? "Pair a computer first" : "Run task →"}
-                </button>
+                {!devices.length ? (
+                  <button
+                    type="button"
+                    className="button button-primary button-small composer-run"
+                    data-testid="composer-pair-cta"
+                    disabled={busy}
+                    onClick={() => openPairingSettings("pair")}
+                  >
+                    Pair computer →
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    className="button button-primary button-small composer-run"
+                    data-testid="composer-run-cta"
+                    disabled={busy}
+                    aria-busy={busy}
+                  >
+                    {busy ? "Sending…" : "Run task →"}
+                  </button>
+                )}
               </div>
             </form>
           </section>
@@ -1339,9 +1366,9 @@ export default function DashboardClient() {
                         {machineDisplayName(device)} · {deviceStatusLabel(device)}
                       </option>
                     ))}
-                    <optgroup label="Actions">
-                      <option value="pair">+ Pair another computer…</option>
-                      <option value="manage">⚙ Manage / remove machines…</option>
+                    <optgroup label="Setup">
+                      <option value="pair">{pairComputerLabel}</option>
+                      <option value="manage">⚙ Manage machines…</option>
                     </optgroup>
                   </select>
                 </div>

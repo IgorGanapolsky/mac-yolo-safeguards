@@ -34,7 +34,8 @@ assert.equal(jsRes.status, 200, jsUrl);
 const js = await jsRes.text();
 
 assert.match(js, /Which machine\?/);
-assert.match(js, /My computer/);
+// Accept current prod ("My computer") OR post-deploy pair-copy UX until canary flips.
+assert.match(js, /My computer|needs a paired Mac first|Pair computer →|paired Mac/);
 assert.doesNotMatch(js, /Which Mac\?/);
 assert.doesNotMatch(js, /My Mac only/);
 assert.doesNotMatch(js, /Pair a Mac first/);
