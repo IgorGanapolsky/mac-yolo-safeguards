@@ -307,7 +307,8 @@ test("always shows which paired machine will run a task and pins deviceId", () =
   assert.doesNotMatch(dashboard, /Most recently active/);
   assert.doesNotMatch(dashboard, /devices\.length > 1 && routePreference !== "cloud"/);
   assert.match(globals, /\.composer-unified-target\{/);
-  assert.match(tasksRoute, /payload\?\.deviceId/);
+  // After schema validation, payload is typed — optional chain no longer required.
+  assert.match(tasksRoute, /payload(?:\?)?\.deviceId/);
 });
 
 test("explains fenced execution through a visible interactive safety panel", () => {
