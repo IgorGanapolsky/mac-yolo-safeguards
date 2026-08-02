@@ -28,6 +28,14 @@ from tinker_brain_router import (  # noqa: E402
 )
 from tinker_response_contract import parse_card, validate_response  # noqa: E402
 from tinker_brain_coverage import banner, coverage  # noqa: E402
+from tinker_brain_section_retrieve import select_sections  # noqa: E402
+
+try:
+    from tinker_brain_health import log_gap  # noqa: E402
+except ImportError:  # pragma: no cover — health module optional on older installs
+    def log_gap(question: str, missing: list | None = None) -> None:  # type: ignore[misc]
+        return None
+
 
 # ThumbGate.app GTM expertise. Snapshot copy first (ships with ANSWER_CARD so
 # chat answers stay atomic with the export), repo copy as fallback.
@@ -71,7 +79,10 @@ def parse_expert_sections(expert_text: str) -> dict[str, list[str]]:
 
 
 def _thumbgate_sections_for_flags(flags: dict[str, Any]) -> list[str]:
+    """Legacy flag→section map kept for tests; answer path prefers BM25 select_sections."""
     wanted: list[str] = []
+    if flags.get("wants_legal_brand"):
+        wanted += ["LEGAL_BRAND", "POSITIONING"]
     if flags.get("wants_gtm_positioning"):
         wanted += ["POSITIONING", "BUYER"]
     if flags.get("wants_gtm_pricing"):
@@ -104,19 +115,25 @@ def render_from_route(
     user_question: str,
     routing: dict[str, Any] | None = None,
     expert_text: str | None = None,
+    *,
+    retrieval_out: dict[str, Any] | None = None,
 ) -> str:
     fields = parse_card(card_text)
     routing = routing or route(user_question)
     primary = routing["primary"]
     flags = routing.get("flags") or {}
     lines: list[str] = []
+    conf = routing.get("confidence")
+    conf_s = f"; confidence={conf}" if conf is not None else ""
 
     # Always stamp AS_OF for contract cash paths and grounding.
     lines.append(f"AS_OF={fields.get('AS_OF', 'not evidenced')}")
     lines.append(
         f"Focus: {fields.get('FOCUS', 'Sell ThumbGate.app first; Skool/Reddit are acquisition channels')}"
     )
-    lines.append(f"Route: {primary} (deterministic_card; model_required=false)")
+    lines.append(
+        f"Route: {primary} (deterministic_card; model_required=false{conf_s})"
+    )
 
     if primary == INTENT_THUMBGATE_GTM:
         expert = expert_text if expert_text is not None else load_expert_card()
@@ -126,17 +143,27 @@ def render_from_route(
                 (ln for ln in expert.splitlines() if ln.startswith("AS_OF_RESEARCH:")),
                 "AS_OF_RESEARCH: unknown",
             )
+            retrieval = select_sections(user_question, sections, flags, top_k=4)
+            if retrieval_out is not None:
+                retrieval_out.clear()
+                retrieval_out.update(retrieval)
+            section_names = retrieval.get("sections") or _thumbgate_sections_for_flags(flags)
             lines.append(f"ThumbGate.app GTM expert answer ({header.strip()}):")
-            for name in _thumbgate_sections_for_flags(flags):
+            lines.append(
+                f"Retrieval: {retrieval.get('method', 'flags')} → "
+                + ", ".join(section_names)
+            )
+            for name in section_names:
                 body = sections.get(name) or []
                 if not body:
                     continue
+                # Honesty rail: show at most 3 KNOWN_GAPS bullets.
+                if name == "KNOWN_GAPS":
+                    lines.append(f"[{name} — keep claims honest]")
+                    lines.extend(f"  - {item}" for item in body[:3])
+                    continue
                 lines.append(f"[{name}]")
                 lines.extend(f"  - {item}" for item in body)
-            gaps = sections.get("KNOWN_GAPS") or []
-            if gaps and "KNOWN_GAPS" not in _thumbgate_sections_for_flags(flags):
-                lines.append("[KNOWN_GAPS — keep claims honest]")
-                lines.extend(f"  - {item}" for item in gaps[:2])
             lines.append(
                 "Grounding rule: live https://thumbgate.app/api/billing/plan outranks this card for "
                 "price; never hard-code a dollar amount into campaign copy; cash is only non-owner "
@@ -144,7 +171,7 @@ def render_from_route(
             )
         else:
             lines.append(
-                "ThumbGate expert card missing (rag/thumbgate/THUMBGATE_EXPERT_CARD.txt): "
+                "ThumbGate expert card missing (config/THUMBGATE_EXPERT_CARD.txt): "
                 "refusing to invent GTM guidance; re-export the snapshot to restore it."
             )
 
@@ -284,7 +311,14 @@ def answer(
     expert_text: str | None = None,
 ) -> dict[str, Any]:
     routing = route(user_question)
-    text = render_from_route(card_text, user_question, routing, expert_text=expert_text)
+    retrieval_meta: dict[str, Any] = {}
+    text = render_from_route(
+        card_text,
+        user_question,
+        routing,
+        expert_text=expert_text,
+        retrieval_out=retrieval_meta,
+    )
     violations: list[str] = []
     if enforce_contract:
         violations = validate_response(text, card_text, user_question)
@@ -303,11 +337,31 @@ def answer(
                 "Immediate improvement: deterministic person-bound evidence + golden contract; "
                 "act only through a compliant Skool/Reddit rail.\n"
             )
+            # Preserve the ORIGINAL violation list — re-validating the fallback
+            # would mask which rule killed the full GTM answer (2026-07-31).
+            suppressed = list(violations)
             violations = validate_response(text, card_text, user_question)
+            return {
+                "ok": not violations,
+                "violations": violations,
+                "suppressedAnswer": True,
+                "suppressedBy": suppressed,
+                "routing": routing,
+                "retrieval": retrieval_meta,
+                "answer_mode": "deterministic_card_fallback",
+                "text": text,
+                # Attached here rather than in main(): CI runs tests/test-tinker-brain.py and
+                # tinker_brain_eval.py, both of which call answer() directly and never touch
+                # the CLI, so a check living in main() is never exercised.
+                "coverage": coverage(user_question, text),
+            }
     return {
         "ok": not violations,
         "violations": violations,
+        "suppressedAnswer": False,
+        "suppressedBy": [],
         "routing": routing,
+        "retrieval": retrieval_meta,
         "answer_mode": "deterministic_card",
         "text": text,
         # Attached here rather than in main(): CI runs tests/test-tinker-brain.py and
@@ -333,15 +387,26 @@ def main() -> int:
         enforce_contract=not args.no_enforce,
         expert_text=expert_text,
     )
-    # Coverage check runs AFTER routing. The router always returns an intent — its
-    # final branch is `else: primary = INTENT_GENERAL` — so a card sharing one token
-    # with the question is emitted with exactly the same confidence as one that
-    # answers it. On 2026-07-30 a trademark/rename question matched "ThumbGate",
-    # returned the GTM product card, and was acted on as an answer.
+    # Coverage is computed inside answer() so eval/unit paths see it. Log gaps for the
+    # research agenda when the card did not address the question's terms.
+    cov = result.get("coverage") or coverage(args.question, result["text"])
+    result["coverage"] = cov
+    if not cov.get("covered"):
+        try:
+            log_gap(args.question, cov.get("missing", []))
+        except OSError:
+            pass
 
     if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
     else:
+        if result.get("suppressedAnswer"):
+            sys.stdout.write(
+                "\u26a0\ufe0f  ANSWER SUPPRESSED \u2014 the full response failed the response "
+                "contract and was replaced by the cash-safe fallback below.\n"
+                f"    Triggered by: {', '.join(result.get('suppressedBy') or [])}\n"
+                "    The fallback is generic. Do NOT read it as an answer to what you asked.\n\n"
+            )
         note = banner(args.question, result["text"])  # same signal as result["coverage"]
         if note:
             sys.stdout.write(note + "\n\n")
