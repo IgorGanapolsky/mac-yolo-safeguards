@@ -10,7 +10,8 @@ import {
 
 // CEO, 2026-07-26: the promo must sell ThumbGate.app as an ADDITION to the mobile app and
 // drive paid signups — not present it as a fallback for a broken connection.
-// 2026-08-02: also facilitate install when ThumbGate is absent (Herdr-style one-liner + web).
+// 2026-08-02: also facilitate install when ThumbGate.app is absent (Herdr-style one-liner + web).
+// Public brand: always ThumbGate.app (never bare "ThumbGate" in promo CTAs).
 //
 const SURFACES = ['leash_disconnected', 'leash_empty', 'connection_unreachable'] as const;
 
@@ -19,11 +20,13 @@ describe('ThumbGate promo is a continuity upsell + absence facilitation', () => 
     for (const s of SURFACES) {
       const promo = thumbGatePromoCopy(s);
       expect(promo.headline).toBe('No ThumbGate.app yet?');
+      expect(promo.headline).toMatch(/ThumbGate\.app/);
       expect(promo.body).toMatch(/Hermes Mobile still chats with your computer/);
       expect(promo.body).toMatch(/ThumbGate\.app/);
       expect(promo.body).toMatch(/Continuity/);
       expect(promo.body).toMatch(/one-line Mac installer/);
       expect(promo.buttonLabel).toBe(THUMBGATE_PROMO_BUTTON_LABEL);
+      expect(promo.buttonLabel).toMatch(/ThumbGate\.app/);
       expect(promo.secondaryButtonLabel).toBe(THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL);
       // Must not frame the whole product as "phone broken → use web instead"
       expect(promo.body).not.toMatch(

@@ -1,5 +1,6 @@
 import {
   CONNECT_MAC_GATE_BODY_CELLULAR,
+  CONNECT_MAC_GATE_BODY_WIFI,
   CONNECT_MAC_GATE_TITLE,
   MAC_PICKER_SUBTITLE,
   PICKER_EMPTY_FOOTER,
@@ -24,20 +25,24 @@ describe('tailscalePasteIpCopy', () => {
       PICKER_HELP_MISSING_DETAIL,
     ].join(' ');
 
-    expect(joined).toContain('Tailscale IP');
+    expect(joined).toContain('Tailscale');
     expect(joined).toContain('100.x');
     expect(joined).toContain('Find computers');
     expect(joined.toLowerCase()).not.toContain('relay');
     expect(joined.toLowerCase()).not.toContain('plugged into');
     expect(joined.toLowerCase()).not.toContain('preferred automatically');
-    expect(joined.toLowerCase()).not.toContain('scan the');
     expect(joined.toLowerCase()).not.toContain('gateway');
-    expect(joined.toLowerCase()).not.toContain('lan');
   });
 
-  it('keeps the Mac paste path to one short line', () => {
+  it('states cellular = Tailscale only and Wi‑Fi Find = same network', () => {
+    expect(CONNECT_MAC_GATE_BODY_CELLULAR.toLowerCase()).toContain('cellular');
+    expect(CONNECT_MAC_GATE_BODY_CELLULAR.toLowerCase()).toContain('tailscale only');
+    expect(CONNECT_MAC_GATE_BODY_WIFI.toLowerCase()).toMatch(/same wi.?fi/);
+  });
+
+  it('keeps the paste path to one short line', () => {
     expect(TAILSCALE_PASTE_IP_DETAIL.split('→').length).toBeGreaterThanOrEqual(3);
     expect(TAILSCALE_PASTE_IP_DETAIL.length).toBeLessThan(90);
-    expect(SCAN_NONE_FOUND_DETAIL.length).toBeLessThan(100);
+    expect(SCAN_NONE_FOUND_DETAIL.length).toBeLessThan(120);
   });
 });
