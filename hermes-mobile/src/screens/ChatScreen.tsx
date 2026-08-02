@@ -299,6 +299,8 @@ import GatewayOpsSection from '../components/GatewayOpsSection';
 import ChatApprovalBar from '../components/ChatApprovalBar';
 import RunProgressBanner from '../components/RunProgressBanner';
 import EmptyStreamRefreshBanner from '../components/EmptyStreamRefreshBanner';
+import WorkingActivityBar from '../components/WorkingActivityBar';
+import { isChatWorkingActivity } from '../utils/chatWorkingActivity';
 import ComposerErrorBanner from '../components/ComposerErrorBanner';
 import type { RunProgressState } from '../types/chatDisplay';
 import type { GatewayEventMessage } from '../types/gateway';
@@ -7375,6 +7377,18 @@ export default function ChatScreen() {
     alternateHealRoutes,
   ]);
 
+  /** Top pulse + "Connected · working" while Mac is still thinking / checking. */
+  const chatWorking = useMemo(
+    () =>
+      isChatWorkingActivity({
+        isSending,
+        awaitingGatewayReply,
+        emptyStreamAutoChecking: showEmptyStreamRefreshBanner && awaitingGatewayReply,
+        runProgress: progressBanner,
+      }),
+    [isSending, awaitingGatewayReply, showEmptyStreamRefreshBanner, progressBanner],
+  );
+
   const emptyReplyRunRefreshEligible = useMemo(
     () =>
       !isDemo &&
@@ -7989,6 +8003,7 @@ export default function ChatScreen() {
           }
           isDemo={isDemo}
           chatStalled={effectiveAuthMismatch ? false : chatStalled}
+          chatWorking={effectiveAuthMismatch ? false : chatWorking}
           activeAgents={activeAgents}
           currentSession={currentSession}
           gatewayModel={headerGatewayModel}
@@ -8030,6 +8045,7 @@ export default function ChatScreen() {
           }}
           onMacRetry={() => void handleMacRetry()}
         />
+        <WorkingActivityBar visible={chatWorking && !effectiveAuthMismatch} />
       </View>
 
       <View style={styles.keyboardContainer}>
