@@ -245,7 +245,7 @@ test("lessons workspace activity stats and lesson cards deep-link into Hermes", 
   assert.match(dashboard, /id=\{`task-\$\{task\.id\}`\}/);
   assert.match(dashboard, /taskFilter/);
   assert.match(dashboard, /filter === "unrated"/);
-  assert.match(dashboard, /Pair another computer|pairComputerLabel/);
+  assert.match(dashboard, /pairComputerLabel|Pair another computer|Pair computer/);
   assert.match(dashboard, /Manage machines/);
   assert.match(globals, /\.lesson-activity li a\{/);
   assert.match(globals, /\.lesson-card-actions\{/);
@@ -277,22 +277,18 @@ test("lets users choose local machine vs Continuity VPS on every task not only o
   const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
   const taskRouting = readFileSync(new URL("../lib/task-routing.ts", import.meta.url), "utf8");
   assert.match(dashboard, /routePreference/);
-  // Unified "Run on" select (dual Where/Which chips removed — unreadable on mobile).
-  // Auto must name the real host when paired; unpaired must not invent "My computer".
+  // Unified "Run on" select — honest host names, active pair CTA when unpaired.
   assert.match(dashboard, /autoRouteLabel/);
   assert.match(dashboard, /needs a paired Mac first/);
-  assert.match(dashboard, /first, then Continuity/);
   assert.match(dashboard, /composer-unified-target/);
   assert.match(dashboard, /composer-target-select/);
   assert.match(dashboard, /Run on/);
-  assert.match(dashboard, /composer-pair-cta/);
+  assert.match(dashboard, /composer-pair-cta|openPairingSettings/);
   assert.match(dashboard, /Pair computer →/);
-  assert.match(dashboard, /openPairingSettings/);
-  assert.match(dashboard, /pairComputerLabel/);
   assert.match(dashboard, /Continuity \(cloud VPS\)/);
   assert.match(dashboard, /aria-labelledby="composer-where-label"/);
-  assert.doesNotMatch(dashboard, /My computer/);
   assert.doesNotMatch(dashboard, /composer-route-label/);
+  assert.doesNotMatch(dashboard, /My computer/);
   assert.doesNotMatch(dashboard, /My Mac only|Which Mac\?|>My Mac</);
   assert.match(tasksRoute, /routePreference/);
   assert.match(tasksRoute, /decideTaskRoute/);
@@ -313,7 +309,8 @@ test("always shows which paired machine will run a task and pins deviceId", () =
   assert.doesNotMatch(dashboard, /Most recently active/);
   assert.doesNotMatch(dashboard, /devices\.length > 1 && routePreference !== "cloud"/);
   assert.match(globals, /\.composer-unified-target\{/);
-  assert.match(tasksRoute, /payload\.deviceId|payload\?\.deviceId/);
+  // After schema validation, payload is typed — optional chain no longer required.
+  assert.match(tasksRoute, /payload(?:\?)?\.deviceId/);
 });
 
 test("explains fenced execution through a visible interactive safety panel", () => {

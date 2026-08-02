@@ -268,7 +268,7 @@ try {
   assert.ok(clientJs.length > 1000, "DashboardClient bundle not served — cannot assert UI contract");
   // Minified bundles keep user-facing string literals; symbol identifiers may be renamed.
   assert.match(clientJs, /Which machine\?/);
-  // Live bundle may still be pre-deploy ("My computer") or post pair-copy UX.
+  // Live may lag deploy; accept new pair-copy strings when present.
   assert.match(clientJs, /My computer|needs a paired Mac first|Pair computer|paired Mac/);
   assert.match(clientJs, /thumbgate\.preferredDeviceId|composer-device-select/);
   assert.doesNotMatch(clientJs, /Which Mac\?/);

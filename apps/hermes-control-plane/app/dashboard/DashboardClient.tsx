@@ -68,6 +68,12 @@ function machineDisplayName(device: Device | null | undefined, fallback = "your 
   return name || fallback;
 }
 
+function shortMachineLabel(name: string, max = 12): string {
+  const trimmed = name.trim();
+  if (trimmed.length <= max) return trimmed;
+  return `${trimmed.slice(0, Math.max(1, max - 1))}…`;
+}
+
 /**
  * Empty-task copy must not blame pairing when machines exist (Buzz lesson 2026-07-28:
  * shared-room honesty — chats/synced messages ≠ unpaired).
@@ -253,34 +259,39 @@ export default function DashboardClient() {
   }, [devices, deviceOverrideId]);
 
   const selectedDevice = devices.find((device) => device.id === selectedDeviceId) ?? null;
-  /** Prefer the real paired hostname — never a vague placeholder when a device exists. */
+  /** Real paired hostname when present — never a vague placeholder. */
   const selectedDeviceLabel = machineDisplayName(selectedDevice, "paired Mac");
   const pairComputerLabel = devices.length
     ? "+ Pair another computer…"
     : "+ Pair computer…";
-  /** Auto option must name a real host when paired; unpaired must say pair is required. */
+  const hasCloudAccess = Boolean(organization?.cloudAccess);
+  /** Auto names a real host when paired; unpaired says pair is required (or cloud if entitled). */
   const autoRouteLabel = selectedDevice
     ? `Auto — ${selectedDeviceLabel} first, then Continuity`
-    : "Auto — needs a paired Mac first";
+    : hasCloudAccess
+      ? "Auto — Continuity (cloud) until a Mac is paired"
+      : "Auto — needs a paired Mac first";
 
   /** Plain-English copy for the machine / Continuity / Auto control (always show, never jargon-only). */
   const routeExplain =
-    !devices.length
+    routePreference === "cloud"
       ? {
-          title: "No computer paired yet",
-          body: "Pair the Mac that runs Hermes (Settings → one-line installer). Auto and Continuity only apply after that machine is in this workspace.",
+          title: "Continuity (Cloud VPS)",
+          body: hasCloudAccess
+            ? "Runs on ThumbGate.app’s fenced cloud runner — no local computer required for this mode. Uses a Continuity run from your plan."
+            : "Needs a Continuity trial or Pro plan on ThumbGate.app. Start Continuity to use the cloud runner.",
         }
-      : routePreference === "local"
+      : !devices.length
         ? {
-            title: `${selectedDeviceLabel} only`,
-            body: `Runs on ${selectedDeviceLabel}. If that machine is asleep or offline, this task waits — Continuity will not start.`,
+            title: "No computer paired yet",
+            body: hasCloudAccess
+              ? "Pair a Mac in Settings for Auto/local runs, or keep Run on as Continuity (Cloud VPS) to send without a paired computer."
+              : "Pair the Mac that runs Hermes (Settings → one-line installer). Or start Continuity trial/Pro to run on Cloud VPS without a local machine.",
           }
-        : routePreference === "cloud"
+        : routePreference === "local"
           ? {
-              title: "Continuity (cloud VPS)",
-              body: organization?.cloudAccess
-                ? `Always runs on ThumbGate’s cloud runner (workspace machine: ${selectedDeviceLabel}). Uses a Continuity run from your plan.`
-                : "Needs a Continuity trial or Pro plan. Start Continuity to use the cloud runner.",
+              title: `${selectedDeviceLabel} only`,
+              body: `Runs on ${selectedDeviceLabel}. If that machine is asleep or offline, this task waits — Continuity will not start.`,
             }
           : {
               title: `Auto — ${selectedDeviceLabel} first`,
@@ -741,11 +752,18 @@ export default function DashboardClient() {
       setNotice("Type a message first, then tap Run task.");
       return;
     }
-    if (!devices.length) {
+    const hasCloud = Boolean(organization?.cloudAccess);
+    const effectiveRoute =
+      routePreference === "cloud" || (!devices.length && hasCloud) ? "cloud" : routePreference;
+    if (!devices.length && effectiveRoute !== "cloud") {
       openPairingSettings("pair");
       return;
     }
-    if (!selectedDeviceId) {
+    if (effectiveRoute === "cloud" && !hasCloud) {
+      setNotice("Continuity needs a trial or Pro plan. Open Manage plan to start Continuity.");
+      return;
+    }
+    if (!selectedDeviceId && effectiveRoute !== "cloud") {
       setNotice("Select which machine should run this task.");
       return;
     }
@@ -758,10 +776,10 @@ export default function DashboardClient() {
         body: JSON.stringify({
           prompt: text,
           threadId: selectedThread,
-          deviceId: selectedDeviceId,
+          deviceId: selectedDeviceId || undefined,
           idempotencyKey: crypto.randomUUID(),
           traceId: crypto.randomUUID(),
-          routePreference,
+          routePreference: effectiveRoute,
         }),
       });
       let body: { task?: { route: string; threadId: string; preference?: string; deviceId?: string; traceId?: string }; error?: string; traceId?: string } = {};
@@ -779,7 +797,9 @@ export default function DashboardClient() {
           body.task.route === "local"
             ? `Sent — running on ${macName}.`
             : body.task.route === "cloud"
-              ? `Sent — Continuity VPS (workspace: ${macName}).`
+              ? (devices.length
+                  ? `Sent — Continuity (Cloud VPS) · workspace: ${macName}.`
+                  : "Sent — Continuity (Cloud VPS) on ThumbGate.app.")
               : `Sent — awaiting route on ${macName}.`
         );
         setPrompt("");
@@ -1313,27 +1333,46 @@ export default function DashboardClient() {
                 </div>
               ) : null}
               <div className="composer-actions">
-                {!devices.length ? (
-                  <button
-                    type="button"
-                    className="button button-primary button-small composer-run"
-                    data-testid="composer-pair-cta"
-                    disabled={busy}
-                    onClick={() => openPairingSettings("pair")}
-                  >
-                    Pair computer →
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    className="button button-primary button-small composer-run"
-                    data-testid="composer-run-cta"
-                    disabled={busy}
-                    aria-busy={busy}
-                  >
-                    {busy ? "Sending…" : "Run task →"}
-                  </button>
-                )}
+                {(() => {
+                  const canRunCloud =
+                    hasCloudAccess &&
+                    (routePreference === "cloud" || (!devices.length && routePreference === "auto"));
+                  const needsPairCta = !devices.length && !canRunCloud && routePreference !== "cloud";
+                  if (needsPairCta) {
+                    return (
+                      <button
+                        type="button"
+                        className="button button-primary button-small composer-run"
+                        data-testid="composer-pair-cta"
+                        disabled={busy}
+                        onClick={() => openPairingSettings("pair")}
+                      >
+                        Pair computer →
+                      </button>
+                    );
+                  }
+                  return (
+                    <button
+                      type="submit"
+                      className="button button-primary button-small composer-run"
+                      data-testid="composer-run-cta"
+                      disabled={
+                        busy ||
+                        (routePreference === "cloud" && !hasCloudAccess) ||
+                        (!devices.length && !canRunCloud)
+                      }
+                      aria-busy={busy}
+                    >
+                      {busy
+                        ? "Sending…"
+                        : routePreference === "cloud" || (!devices.length && hasCloudAccess)
+                          ? hasCloudAccess
+                            ? "Run on Continuity (Cloud VPS) →"
+                            : "Continuity needs Pro"
+                          : "Run task →"}
+                    </button>
+                  );
+                })()}
               </div>
             </form>
           </section>
@@ -1360,7 +1399,7 @@ export default function DashboardClient() {
                         {machineDisplayName(device)} · {deviceStatusLabel(device)}
                       </option>
                     ))}
-                    <optgroup label="Setup">
+                    <optgroup label="Actions">
                       <option value="pair">{pairComputerLabel}</option>
                       <option value="manage">⚙ Manage machines…</option>
                     </optgroup>
