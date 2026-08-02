@@ -33,6 +33,7 @@ const calls = [];
 function healthyRunner(command, args) {
   calls.push([command, ...args]);
   const joined = args.join(' ');
+  if (joined === 'config get terminal.cwd') return { code: 0, stdout: 'auto\n', stderr: '' };
   if (joined === 'config get mcp_servers.context7.enabled') return { code: 0, stdout: 'true\n', stderr: '' };
   if (joined === 'tools list') return { code: 0, stdout: 'enabled  skills  Skills\n', stderr: '' };
   if (joined === 'skills list') return { code: 0, stdout: '128 enabled, 0 disabled\n', stderr: '' };
@@ -54,6 +55,8 @@ const receipt = heal({
 assert.strictEqual(receipt.healthy, true);
 assert.strictEqual(receipt.checks.enabledSkills, 128);
 assert.strictEqual(receipt.checks.context7Connected, true);
+assert.strictEqual(receipt.checks.launchDirectoryDynamic, true);
+assert.ok(calls.some((call) => call.join(' ').includes('config set terminal.cwd auto')));
 assert.ok(calls.some((call) => call.join(' ').includes('tools enable skills --platform cli')));
 
 function brokenRunner(command, args) {
@@ -81,6 +84,23 @@ const unprobed = heal({
   runner: healthyRunner,
 });
 assert.strictEqual(unprobed.healthy, false, 'an unprobed MCP must never receive a healthy receipt');
+
+function staleCwdRunner(command, args) {
+  const result = healthyRunner(command, args);
+  if (args.join(' ') === 'config get terminal.cwd') {
+    return { code: 0, stdout: '/stale/repository\n', stderr: '' };
+  }
+  return result;
+}
+const staleCwd = heal({
+  hermes: '/fake/hermes',
+  wrapper,
+  repo: tmp,
+  repair: false,
+  writeReceipt: false,
+  runner: staleCwdRunner,
+});
+assert.strictEqual(staleCwd.healthy, false, 'a globally pinned project must fail launch-context health');
 
 const fleetInstaller = fs.readFileSync(path.join(repoRoot, 'scripts', 'install-grok-yolo.sh'), 'utf8');
 assert.match(fleetInstaller, /tools\/hermes-capability-heal\.js/);

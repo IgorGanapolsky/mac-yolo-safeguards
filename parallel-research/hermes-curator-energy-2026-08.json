@@ -1,0 +1,590 @@
+{
+  "run_id": "trun_18f41c41d5474492bc2f63351ff01153",
+  "interaction_id": "trun_18f41c41d5474492bc2f63351ff01153",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_18f41c41d5474492bc2f63351ff01153",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Evaluation notes:\n- The field_answer is a lengthy, claim-dense engineering report that asserts specific design decisions, measurements, budgets, and comparisons between deterministic prune-only versus opt-in LLM consolidation, along with governance and safety recommendations. It references several numbered sources in-text (e.g., [1], [38], [37], [41], [39], [40], [55], [53], [85], [86]), and includes a detailed cost/measurement model, failure modes, harness patterns, and a community FAQ.\n- Completeness assessment: The answer appears to address the broad set of aspects expected from the field description (cost model, energy considerations, measurement needs, design decisions, failure modes, harness patterns, high-ROI changes, and a community FAQ). It also provides an implementation checklist and measurable acceptance criteria. Given the field description asks for a decision-grade engineering report with separated verified facts, estimates, unknowns, and an explicit implementation checklist, the answer seems to cover those areas comprehensively. Therefore, completeness should be true.\n- Excerpts support: The excerpts include Curator documentation, the Hermes Agent project pages, references to curator states and lifecycle, and several related materials about safety, throttling, and governance (e.g., excerpts about Curator background maintenance, YOLO/safeguards, and various Hermes Agent docs). However, the field_answer makes numerous specific numerical claims and exact governance details that are not clearly verifiable from the provided excerpts alone (e.g., precise energy measurements, exact API call counts, and specific budgets). While the excerpts provide context for many concepts, they do not evidently substantiate every specific claim. As such, the field_answer is not fully supported by the excerpts in a strict sense. The supported flag should therefore be false.\n- Confidence: Moderate, given the breadth of the field and potential gaps between asserted figures and available excerpts.",
+        "citations": [
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/user-guide/features/curator",
+            "excerpts": [
+              "Curator | Hermes Agent\nCurator The curator is a background maintenance pass for agent-created skills. It tracks how often each skill is viewed, used, and patched, moves long-unused skills through active \u2192 stale \u2192 archived states, and periodically spawns a short auxiliary-model review that proposes consolidations or patches drift."
+            ],
+            "title": "Curator | Hermes Agent"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/",
+            "excerpts": [
+              "Hermes Agent | Nous Research\nHermes Agent \u2014 a standalone terminal app and a native application for macOS, Windows, and Linux. Install it and start a conversation with the agent that grows with you."
+            ],
+            "title": "Hermes Agent | Nous Research"
+          },
+          {
+            "url": "http://github.com/nousresearch",
+            "excerpts": [
+              "Organization: Nous Research (@nousresearch) Repositories [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent): The agent that grows with you [NousResearch/hermes-agent-ci-infra](https://github.com/NousResearch/hermes-agent-ci-infra): Infrastructure as code for GKE-based GitHub Actions self-hosted runners [NousResearch/Gym](https://github.com/NousResearch/Gym): Build RL environments for LLM training [NousResearch/vllm](https://github.com/NousResearch/vllm): A high-throughput and memory-efficient inference and serving engine for LLMs [NousResearch/harbor-fork](https://github.com/NousResearch/harbor-fork): Framework for evaluating and improving agents [NousResearch/speculators](https://github.com/NousResearch/speculators): A unified library for building, evaluating, and storing speculative decoding algorithms for LLM inference in vLLM [NousResearch/hermes-telegram-business](https://github.com/NousResearch/hermes-telegram-business): Observe-with-approval Telegram Business Mode (secretary bot) plugin for Hermes Agent \u2014 every drafted reply requires owner approval before it reaches the customer [NousResearch/atropos](https://github.com/NousResearch/atropos): Atropos is a Language Model Reinforcement\nOrganization: Nous Research (@nousresearch) Page: GitHub organization profile URL: https://github.com/nousresearch Website: https://nousresearch.com Links: https://twitter.com/nousresearch Top languages: Python, TypeScript, Jupyter Notebook, Shell, Rust ... Repositories [NousResearch/hermes-telegram-business](https://github.com/NousResearch/hermes-telegram-business): Observe-with-approval Telegram Business Mode (secretary bot) plugin for Hermes Agent \u2014 every drafted reply requires owner approval before it reaches the customer [NousResearch/atropos](https://github.com/NousResearch/atropos): Atropos is a Language Model Reinforcement Learning Environments framework for collecting and evaluating LLM trajectories through diverse environments [NousResearch/RL](https://github.com/NousResearch/RL): Scalable toolkit for efficient model reinforcement [NousResearch/wandb-rs\nOrganization: Nous Research (@nousresearch) Repositories [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent): The agent that grows with you [NousResearch/hermes-agent-ci-infra](https://github.com/NousResearch/hermes-agent-ci-infra): Infrastructure as code for GKE-based GitHub Actions self-hosted runners [NousResearch/Gym](https://github.com/NousResearch/Gym): Build RL environments for LLM training [NousResearch/vllm](https://github.com/NousResearch/vllm): A high-throughput and memory-efficient inference and serving engine for LLMs [NousResearch/harbor-fork](https://github.com/NousResearch/harbor-fork): Framework for evaluating and improving agents [NousResearch/speculators](https://github.com/NousResearch/speculators): A unified library for building, evaluating, and storing speculative decoding algorithms for LLM inference in vLLM [NousResearch/hermes-telegram-business](https://github.com/NousResearch/hermes-telegram-business): Observe-with-approval Telegram Business Mode (secretary bot) plugin for Hermes Agent \u2014 every drafted reply requires owner approval before it reaches the customer [NousResearch/atropos](https://github.com/NousResearch/atropos): Atropos is a Language Model Reinforcement Learning Environments framework for collecting and evaluating LLM trajectories through diverse environments [NousResearch/RL](https://github.com/NousResearch/RL): Scalable toolkit for efficient model reinforcement [NousResearch/wandb-rs](https://github.com/NousResearch/wandb-rs)\nOrganization: Nous Research (@nousresearch) Repositories [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent): The agent that grows with you [NousResearch/hermes-agent-ci-infra](https://github.com/NousResearch/hermes-agent-ci-infra): Infrastructure as code for GKE-based GitHub Actions self-hosted runners [NousResearch/Gym](https://github.com/NousResearch/Gym): Build RL environments for LLM training [NousResearch/vllm](https://github.com/NousResearch/vllm): A high-throughput and memory-efficient inference and serving engine for LLMs [NousResearch/harbor-fork](https://github.com/NousResearch/harbor-fork): Framework for evaluating and improving agents [NousResearch/speculators](https://github.com/NousResearch/speculators): A unified library for building, evaluating, and storing speculative decoding algorithms for LLM inference in vLLM [NousResearch/hermes-telegram-business](https://github.com/NousResearch/hermes-telegram-business): Observe-with-approval Telegram Business Mode (secretary bot) plugin for Hermes Agent \u2014 every drafted reply requires owner approval before it reaches the customer [NousResearch/atropos](https://github.com/NousResearch/atropos): Atropos is a Language Model Reinforcement Learning Environments framework for collecting and evaluating LLM trajectories through diverse environments [NousResearch/RL](https://github.com/NousResearch/RL)"
+            ],
+            "title": "Nous Research \u00b7 GitHub"
+          },
+          {
+            "url": "http://nousresearch.com/",
+            "excerpts": [
+              "Nous Research is a leader in the American open source AI movement, training world-class open source language models."
+            ],
+            "title": "NOUS RESEARCH - Open Source AI"
+          },
+          {
+            "url": "https://hermes-tutorials.dev/blog/autonomous-curator",
+            "excerpts": [
+              "Hermes Curator: An Autonomous Skill-Maintenance Agent\nThe autonomous Curator takes skill maintenance from a manual chore to a hands-off background service. Combined with the upgraded self-improvement loop (rubric-based review forks that handle references/ and templates/ sub-files), Hermes Agent now maintains its own knowledge base without intervention."
+            ],
+            "title": "Hermes Curator: An Autonomous Skill-Maintenance Agent"
+          },
+          {
+            "url": "https://www.reddit.com/r/hermesagent/comments/1uq5aqg/hermesagent_curator_is_a_waster_of_energy",
+            "excerpts": [
+              "hermes-agent curator is a waster of energy : r/hermesagent"
+            ],
+            "title": "hermes-agent curator is a waster of energy : r/hermesagent Reddit\u00a0\u00b7\u00a0r/hermesagent 20+ comments \u00b7 3 weeks ago"
+          },
+          {
+            "url": "https://en.wikipedia.org/wiki/Waster",
+            "excerpts": [
+              "A waster is"
+            ],
+            "title": "A waster is"
+          },
+          {
+            "url": "https://www.reddit.com/r/hermesagent/comments/1t34qee/hermes_agent_tool_and_skills_bloat",
+            "excerpts": [],
+            "title": "Hermes Agent Tool and Skills Bloat : r/hermesagent Reddit\u00a0\u00b7\u00a0r/hermesagent 10+ comments \u00b7 3 months ago"
+          },
+          {
+            "url": "https://www.wastreet.eu/waster",
+            "excerpts": [
+              "Waster sur votre territoire | Wastreet"
+            ],
+            "title": "Waster sur votre territoire | Wastreet wastreet.eu https://www.wastreet.eu \u203a waster"
+          },
+          {
+            "url": "https://waster.pl/oferta",
+            "excerpts": [],
+            "title": "Oferta"
+          },
+          {
+            "url": "https://github.com/nousresearch/hermes-agent",
+            "excerpts": [
+              "NousResearch/hermes-agent: The agent that grows with you\nA closed learning loop Agent-curated memory with periodic nudges. All documentation lives at hermes-agent.nousresearch.com/docs: keybindings,"
+            ],
+            "title": "NousResearch/hermes-agent: The agent that grows with you"
+          },
+          {
+            "url": "https://www.usehermesagent.com/features/curator",
+            "excerpts": [
+              "Hermes Curator \u2014 Guide for Hermes Agent Users\nIt reduces long-term skill bloat and keeps procedural memory useful. This is a strong GEO page because AI search engines need direct definitions and operational explanations. Hermes Curator maintains skills by grading, pruning, consolidating, and keeping the agent from bloating."
+            ],
+            "title": "Hermes Curator \u2014 Guide for Hermes Agent Users"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs",
+            "excerpts": [
+              "Hermes Agent Documentation | Hermes Agent\nThe self-improving AI agent built by Nous Research. A built-in learning loop that creates skills from experience, improves them during use, and remembers across sessions."
+            ],
+            "title": "Hermes Agent Documentation | Hermes Agent"
+          },
+          {
+            "url": "http://trendshift.io/repositories/81844",
+            "excerpts": [
+              "IgorGanapolsky/mac-yolo-safeguards \u2014 GitHub trending stats ...\nOS-level safeguards layer for AI agent loops \u2014 runaway-kill, timeouts & resource limits so coding agents (Claude Code, Cursor, Codex, Antigravity) in YOLO mode can't burn tokens or freeze your Mac"
+            ],
+            "title": "IgorGanapolsky/mac-yolo-safeguards \u2014 GitHub trending stats ..."
+          },
+          {
+            "url": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/tree/main",
+            "excerpts": [
+              "GitHub - IgorGanapolsky/mac-yolo-safeguards: Safety net for ...\nIf you are running autonomous AI coding agents (Claude Code, Cursor YOLO, Codex, etc.) and want a professionally secured workstation without tuning config files yourself, you can hire me to install and customize this safety net."
+            ],
+            "title": "GitHub - IgorGanapolsky/mac-yolo-safeguards: Safety net for ..."
+          },
+          {
+            "url": "https://github.com/heysuhas/hermes-local/blob/main/website/docs/user-guide/security.md",
+            "excerpts": [
+              "hermes-local/website/docs/user-guide/security.md at main ...\nCLI flag: Start a session with hermes --yolo or hermes chat --yolo Slash command: Type /yolo during a session to toggle it on/off Environment variable: Set HERMES_YOLO_MODE=1"
+            ],
+            "title": "hermes-local/website/docs/user-guide/security.md at main ..."
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/issues/24733",
+            "excerpts": [
+              "feat: /yolo <duration> and /yolo until <time ... -...\nToggle /yolo on, do the work, remember to toggle it back off \u2014 easy to forget, especially mid-conversation. Leave the session running with yolo on indefinitely \u2014 fine for short tasks, but routine context-switches (lunch, a new ticket, end of day) leave a long-lived session in unconfirmed-execute mode."
+            ],
+            "title": "feat: /yolo <duration> and /yolo until <time ... -..."
+          },
+          {
+            "url": "https://github.com/nesquena/hermes-webui/issues/467",
+            "excerpts": [
+              "feat: YOLO mode toggle for Web UI sessions (skip approval ...\nApr 14, 2026 \u2014 The Web UI has no way to toggle YOLO mode (skip all dangerous command approval prompts for the session). The CLI's /yolo toggles this instantly"
+            ],
+            "title": "feat: YOLO mode toggle for Web UI sessions (skip approval ..."
+          },
+          {
+            "url": "https://hermes-agent.org/",
+            "excerpts": [
+              "Hermes Agent \u2014 Open-Source AI Agent with Persistent Memory"
+            ],
+            "title": "Hermes Agent \u2014 Open-Source AI Agent with Persistent Memory hermes-agent.org https://hermes-agent.org"
+          },
+          {
+            "url": "https://www.noxcod.com/outils-ia/hermes",
+            "excerpts": [
+              "Hermes Agent (Nous Research) : l'agent IA \u00e0 m\u00e9moire long ...\n31 mai 2026 \u2014 Hermes Agent est un agent IA autonome open source (licence MIT) d\u00e9velopp\u00e9 par Nous Research et lanc\u00e9 d\u00e9but 2026. Sa particularit\u00e9 tient en\u00a0"
+            ],
+            "title": "Hermes Agent (Nous Research) : l'agent IA \u00e0 m\u00e9moire long ..."
+          },
+          {
+            "url": "https://hermesagent.org.cn/",
+            "excerpts": [
+              "Hermes Agent \u4e2d\u6587\u6587\u6863\u3001\u5b89\u88c5\u6559\u7a0b\u4e0e\u793e\u533a\nHermes Agent \u4e2d\u6587\u6587\u6863\u4e0e\u5b89\u88c5\u6559\u7a0b\uff1a\u8986\u76d6 Windows\u3001WSL2\u3001\u957f\u671f\u8bb0\u5fc6\u3001Skills\u3001MCP\u3001\u6d88\u606f\u7f51\u5173\u3001\u591a\u5e73\u53f0\u63a5\u5165\u4e0e\u81ea\u6258\u7ba1\u90e8\u7f72\uff0c\u9644\u5fae\u4fe1\u793e\u533a\u548c\u5feb\u901f\u4e0a\u624b\u6307\u5357\u3002"
+            ],
+            "title": "Hermes Agent \u4e2d\u6587\u6587\u6863\u3001\u5b89\u88c5\u6559\u7a0b\u4e0e\u793e\u533a"
+          },
+          {
+            "url": "https://github.com/redis/agent-memory-server/issues",
+            "excerpts": [
+              "Issues \u00b7 redis/agent-memory-server\nFast and flexible memory for agents and AI applications using Redis - Issues \u00b7 redis/agent-memory-server. ... Align MCP and LLM-facing client surfaces with core"
+            ],
+            "title": "Issues \u00b7 redis/agent-memory-server"
+          },
+          {
+            "url": "https://github.com/apache/curator/releases",
+            "excerpts": [
+              "CURATOR-729: Fix PersistentWatcher dead loop after curator closed by @kezhuw in #520 CURATOR-725: Allow for global compression by @HoustonPutman in #512 CURATOR-710: Fix leaking watch in EnsembleTracker by @kezhuw in #508 CURATOR-718: Refactor CuratorFramework inheritance hierarchy by composing functionalities by @kezhuw in #517 GH-1248."
+            ],
+            "title": "Releases \u00b7 apache/curator - GitHub"
+          },
+          {
+            "url": "https://github.com/apache/curator/issues",
+            "excerpts": [
+              "Apache Curator. Contribute to apache/curator development by creating an account on GitHub."
+            ],
+            "title": "Issues \u00b7 apache/curator \u00b7 GitHub"
+          },
+          {
+            "url": "https://arxiv.org/abs/2402.02716",
+            "excerpts": [
+              "Understanding the planning of LLM agents: A survey\nWe provide a taxonomy of existing works on LLM-Agent planning, which can be categorized into Task Decomposition, Plan Selection, External Module, Reflection and Memory. Comprehensive analyses are conducted for each direction, and further challenges for the field of research are discussed."
+            ],
+            "title": "Understanding the planning of LLM agents: A survey"
+          },
+          {
+            "url": "https://arxiv.org/abs/2504.20082",
+            "excerpts": [
+              "[2504.20082] Evolution of AI in Education: Agentic Workflows\nThe primary goal of this study is to analyze agentic workflows in education according to the proposed four major technological paradigms: reflection, planning, tool use, and multi-agent collaboration."
+            ],
+            "title": "[2504.20082] Evolution of AI in Education: Agentic Workflows"
+          },
+          {
+            "url": "https://github.com/china-qijizhifeng/agentic-harness-engineering",
+            "excerpts": [
+              "Agentic Harness Engineering: Observability-Driven Automatic ...\nAHE (Agentic Harness Engineering) is an open observability system for automatically evolving the harness around a coding agent. The base model is held fixed;"
+            ],
+            "title": "Agentic Harness Engineering: Observability-Driven Automatic ..."
+          },
+          {
+            "url": "http://orq.ai/blog/why-do-multi-agent-llm-systems-fail",
+            "excerpts": [
+              "Many agents don't retain long-term memory or robust error states. As a result, when something goes wrong, whether it's an API failure or a missing tool response, agents may retry indefinitely or silently fail.\nMulti-agent LLM systems often fail due to coordination breakdowns, weak specifications, and misaligned agent roles."
+            ],
+            "title": "title: \"Why Multi-Agent LLM Systems Fail: Key Issues Explained\" description: Discover why multi-agent LLM systems fail, the most common failure modes, as well as tooling and frameworks teams can use to build more reliable agentic AI systems. published: \"Jul 17, 2026, 10:39 PM UTC\""
+          },
+          {
+            "url": "http://researchgate.net/publication/389947144_Why_Do_Multi-Agent_LLM_Systems_Fail",
+            "excerpts": [
+              "These fine-grained failure modes are organized into 3 categories, (i) specification and system design failures, (ii) inter-agent misalignment,"
+            ],
+            "title": "(PDF) Why Do Multi-Agent LLM Systems Fail?"
+          },
+          {
+            "url": "https://energy.inference.net/",
+            "excerpts": [
+              "LLM Token Production Energy Cost\nResearch-based calculations using FLOP analysis and geographic carbon intensity. Estimate energy, cost, and carbon emissions for LLM inference."
+            ],
+            "title": "LLM Token Production Energy Cost"
+          },
+          {
+            "url": "https://arxiv.org/html/2511.05597v1",
+            "excerpts": [
+              "Measuring the Energy Footprint of LLM Inference\nIn Figure 1, we show how input and output tokens affect the GPU's energy consumption per prompt across nine models using an NVIDIA A100 80GB accelerator."
+            ],
+            "title": "Measuring the Energy Footprint of LLM Inference"
+          },
+          {
+            "url": "https://arxiv.org/html/2407.16893v2",
+            "excerpts": [
+              "Profiling Energy Use in Large Language Models Inference\nOur study concentrates on CPU and GPU energy consumption for LLM inference, chosen for its measurable impact. ... energy consumption measurement"
+            ],
+            "title": "Profiling Energy Use in Large Language Models Inference"
+          },
+          {
+            "url": "https://arxiv.org/abs/2511.05597",
+            "excerpts": [
+              "Measuring the Energy Footprint of LLM Inference\nby F Caravaca \u00b7 2025 \u00b7 Cited by 13 \u2014 Using the vLLM inference engine, we quantify energy usage at the prompt level and identify how architectural and operational factors shape"
+            ],
+            "title": "Measuring the Energy Footprint of LLM Inference"
+          },
+          {
+            "url": "https://www.sciencedirect.com/science/article/pii/S0921344925005476",
+            "excerpts": [
+              "Assessing the carbon footprint of language models\nThis paper aims to increase transparency by showcasing a comparison of emissions from training \u2013 particularly of small language models \u2013 and inference. We"
+            ],
+            "title": "Assessing the carbon footprint of language models"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent",
+            "excerpts": [],
+            "title": "GitHub - NousResearch/hermes-agent: The agent that grows with you \u00b7 GitHub"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/issues/33925",
+            "excerpts": [
+              "CLI /yolo (in-chat) does not bypass dangerous command ...\nThe /yolo CLI handler also does not call enable_session_yolo() the way the gateway and TUI handlers do, so the per-session bypass path can't fire either. Net effect: /yolo toggles the status-bar \"\u26a0 YOLO\" badge ON but every dangerous command still hits an approval prompt or is denied."
+            ],
+            "title": "CLI /yolo (in-chat) does not bypass dangerous command ..."
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/issues/18373",
+            "excerpts": [
+              "Curator should not auto-archive user-created custom skills ...\nCurator ran as an automatic background maintenance pass on a live install. It provides a clear way to mark/pin user-authored custom skills"
+            ],
+            "title": "Curator should not auto-archive user-created custom skills ..."
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/blob/main/agent/curator.py",
+            "excerpts": [
+              "- Spawn a background review agent that can pin / archive / consolidate / patch agent-created skills via skill_manage. - Persist curator state (last_run_at, paused, etc.) in .curator_state. - Only touches agent-created skills (see tools/skill_usage.is_agent_created) - Never auto-deletes \u2014 only archives. Archive is recoverable."
+            ],
+            "title": "hermes-agent/agent/curator.py at main \u00b7 NousResearch/hermes ..."
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/issues/67515",
+            "excerpts": [
+              "This matches the user\u2019s \u201cconfig flag to not archive skills that are reliable dependencies of other non-archived skills\u201d without inventing a second lifecycle state."
+            ],
+            "title": "curator: rewrite skill-to-skill refs after consolidate/prune ..."
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/pull/47840",
+            "excerpts": [],
+            "title": "feat(curator): make skill consolidation opt-in (prune stays default-on) by teknium1 \u00b7 Pull Request #47840 \u00b7 NousResearch/hermes-agent \u00b7 GitHub"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/issues/44760",
+            "excerpts": [],
+            "title": "Curator silently loses reference subfiles during umbrella consolidation \u00b7 Issue #44760 \u00b7 NousResearch/hermes-agent \u00b7 GitHub"
+          },
+          {
+            "url": "https://arxiv.org/pdf/2210.03629",
+            "excerpts": [
+              "ReAct: Synergizing Reasoning and Acting in Language ...\nby S Yao \u00b7 2022 \u00b7 Cited by 11578 \u2014 Language models as zero-shot planners: Extracting actionable knowledge for embodied agents. arXiv preprint arXiv:2201.07207,. 2022a. Wenlong"
+            ],
+            "title": "ReAct: Synergizing Reasoning and Acting in Language ..."
+          },
+          {
+            "url": "https://arxiv.org/abs/2303.11366",
+            "excerpts": [
+              "Reflexion: Language Agents with Verbal Reinforcement Learning\nMar 20, 2023 \u00b7 We propose Reflexion, a novel framework to reinforce language agents not by updating weights, but instead through linguistic feedback."
+            ],
+            "title": "Reflexion: Language Agents with Verbal Reinforcement Learning"
+          },
+          {
+            "url": "https://arxiv.org/abs/2210.03629",
+            "excerpts": [
+              "Synergizing Reasoning and Acting in Language Models\nby S Yao \u00b7 2022 \u00b7 Cited by 11391 \u2014 In this paper, we explore the use of LLMs to generate both reasoning traces and task-specific actions in an interleaved manner, allowing for greater synergy"
+            ],
+            "title": "Synergizing Reasoning and Acting in Language Models"
+          },
+          {
+            "url": "https://openreview.net/pdf?id=vAElhFcKW6",
+            "excerpts": [
+              "[PDF] Reflexion: Language Agents with Verbal Reinforcement Learning\nIn this work, we present Reflexion, an approach that leverages verbal reinforcement to teach agents ... arXiv preprint arXiv:2204.01691. [2] Austin, J., Odena, A."
+            ],
+            "title": "[PDF] Reflexion: Language Agents with Verbal Reinforcement Learning"
+          },
+          {
+            "url": "https://github.com/noahshinn/reflexion",
+            "excerpts": [
+              "[NeurIPS 2023] Reflexion: Language Agents with Verbal ... - GitHub\nThis repo holds the code, demos, and log files for Reflexion: Language Agents with Verbal Reinforcement Learning by Noah Shinn, Federico Cassano, Edward Berman."
+            ],
+            "title": "[NeurIPS 2023] Reflexion: Language Agents with Verbal ... - GitHub"
+          },
+          {
+            "url": "https://arxiv.org/abs/2407.16893",
+            "excerpts": [
+              "Profiling Energy Use in Large Language Models Inference\nby EJ Husom \u00b7 2024 \u00b7 Cited by 37 \u2014 Using the dataset, we investigate how prompt attributes, including length and complexity, correlate with energy expenditure. Our findings"
+            ],
+            "title": "Profiling Energy Use in Large Language Models Inference"
+          },
+          {
+            "url": "https://www.semanticscholar.org/paper/The-Price-of-Prompting%3A-Profiling-Energy-Use-in-Husom-Goknil/3594500719d2468b4e29a3b844821ef4f318a5d8",
+            "excerpts": [
+              "Profiling Energy Use in Large Language Models Inference\nThe Price of Prompting: Profiling Energy Use in Large Language Models Inference \u00b7 E. J. Husom, Arda Goknil, +1 author. Sagar Sen \u00b7 Published in arXiv.org 4 July"
+            ],
+            "title": "Profiling Energy Use in Large Language Models Inference"
+          },
+          {
+            "url": "https://www.sciencedirect.com/science/article/pii/S0167739X26001172",
+            "excerpts": [
+              "Energy-efficient large language models\nby J Jare\u00f1o \u00b7 2026 \u2014 All models use quantization and compression techniques to reduce inference speed. This balance is crucial to ensure that inference times are reasonable"
+            ],
+            "title": "Energy-efficient large language models"
+          },
+          {
+            "url": "https://raw.githubusercontent.com/IgorGanapolsky/mac-yolo-safeguards/main/README.md",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://raw.githubusercontent.com/IgorGanapolsky/mac-yolo-safeguards/main/hermes-yolo-wrapper.js",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://raw.githubusercontent.com/IgorGanapolsky/mac-yolo-safeguards/main/yolo-health",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://github.com/IgorGanapolsky/ThumbGate",
+            "excerpts": [
+              "GitHub - IgorGanapolsky/ThumbGate: Agent governance for ...\nThumbGate Pro exports your captured feedback as DPO (Direct Preference Optimization) pairs \u2014 ready to feed into a LoRA fine-tune so your model stops repeating known mistakes at the weight level, not just the check level."
+            ],
+            "title": "GitHub - IgorGanapolsky/ThumbGate: Agent governance for ..."
+          },
+          {
+            "url": "https://thumbgate.ai/about",
+            "excerpts": [
+              "About Igor Ganapolsky \u2014 ThumbGate\nAvailable for high-leverage Stripe Connect, Agentic RAG, and React Native contract engagements. ThumbGate is the agent-governance layer that turns \ud83d\udc4d / \ud83d\udc4e signals into history-aware lessons across Claude Code, Cursor, Codex, Gemini, Amp, Cline, and OpenCode."
+            ],
+            "title": "About Igor Ganapolsky \u2014 ThumbGate"
+          },
+          {
+            "url": "https://thumbgate.ai/",
+            "excerpts": [
+              "ThumbGate \u2014 Stop AI agent mistakes before they cost you\nThe promotion, demotion, and lesson-ranking logic ships in the public npm bundle under an MIT license \u2014 run npm pack thumbgate and read it yourself. Your lessons live in a local SQLite file you own, not a server you can't query."
+            ],
+            "title": "ThumbGate \u2014 Stop AI agent mistakes before they cost you"
+          },
+          {
+            "url": "https://www.linkedin.com/in/igor-ganapolsky-859317343",
+            "excerpts": [
+              "Igor Ganapolsky - Senior AI Systems Engineer - LinkedIn\nFounder of ThumbGate.ai, a security layer for autonomous AI agents. I lead the transition from traditional software to \"Agent-Native\" experiences, focusing on production-grade AI"
+            ],
+            "title": "Igor Ganapolsky - Senior AI Systems Engineer - LinkedIn"
+          },
+          {
+            "url": "https://thumbgate.ai/guides/ai-agent-pre-action-approval-gates",
+            "excerpts": [
+              "AI Agent Pre-Action Approval Gates | Human Review Before ...\nThe right gate can block, pause for approval, or log-and-continue depending on risk. ThumbGate converts prior thumbs-downs, workflow policies, and verification expectations into reusable approval rules."
+            ],
+            "title": "AI Agent Pre-Action Approval Gates | Human Review Before ..."
+          },
+          {
+            "url": "https://raw.githubusercontent.com/NousResearch/hermes-agent/main/agent/curator.py",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/features/curator.md",
+            "excerpts": [
+              "hermes-agent/website/docs/user-guide/features/curator.md at ...\nCurator The curator is a background maintenance pass for agent-created skills. It tracks how often each skill is viewed, used, and patched, moves long-unused skills through active \u2192 stale \u2192 archived states, and periodically spawns a short auxiliary-model review that proposes consolidations or patches drift."
+            ],
+            "title": "hermes-agent/website/docs/user-guide/features/curator.md at ..."
+          },
+          {
+            "url": "https://github.com/skthewimp/hermesagent/blob/main/website/docs/user-guide/features/curator.md",
+            "excerpts": [
+              "hermesagent/website/docs/user-guide/features/curator.md at ...\nThe curator is a background maintenance pass for agent-created skills. It tracks how often each skill is viewed, used, and patched, moves long-unused skills through active \u2192 stale \u2192 archived states, and periodically spawns a short auxiliary-model review that proposes consolidations or patches drift."
+            ],
+            "title": "hermesagent/website/docs/user-guide/features/curator.md at ..."
+          },
+          {
+            "url": "https://github.com/GHGmc2/llm_wiki/blob/main/wiki/learning/deepseek-v3.md",
+            "excerpts": [],
+            "title": "llm_wiki/wiki/learning/deepseek-v3.md at main \u00b7 GHGmc2/llm_wiki \u00b7 GitHub"
+          },
+          {
+            "url": "https://github.com/ydyhello/Awesome-VLM-Streaming-Video",
+            "excerpts": [],
+            "title": "GitHub - ydyhello/Awesome-VLM-Streaming-Video: \ud83d\udcda A curated collection of papers and open-source code repositories dedicated to the application of Vision-Language Models (VLMs) for streaming video. \u00b7 GitHub"
+          },
+          {
+            "url": "https://github.com/FrankFilippi/hermes-agent-source-wiki/blob/main/concepts/auxiliary-client-architecture.md",
+            "excerpts": [],
+            "title": "hermes-agent-source-wiki/concepts/auxiliary-client-architecture.md at main \u00b7 FrankFilippi/hermes-agent-source-wiki \u00b7 GitHub"
+          },
+          {
+            "url": "https://openreview.net/forum?id=5Xc1ecxO1h",
+            "excerpts": [
+              "Tree of Thoughts: Deliberate Problem Solving with Large ...\nby S Yao \u00b7 Cited by 7262 \u2014 The paper presents a new framework for language model inference called Tree of Thoughts, which aims to improve the ability of language models to"
+            ],
+            "title": "Tree of Thoughts: Deliberate Problem Solving with Large ..."
+          },
+          {
+            "url": "https://neurips.cc/virtual/2023/poster/70114",
+            "excerpts": [
+              "Reflexion: language agents with verbal reinforcement learning\nReflexion: language agents with verbal reinforcement learning. Noah Shinn ... arXiv preprint arXiv:2204.01691. [2] Austin, J., Odena, A., Nye, M., Bosma"
+            ],
+            "title": "Reflexion: language agents with verbal reinforcement learning"
+          },
+          {
+            "url": "https://arxiv.org/pdf/2305.10601",
+            "excerpts": [
+              "Tree of Thoughts: Deliberate Problem Solving with Large ...\nby S Yao \u00b7 2023 \u00b7 Cited by 7715 \u2014 Our experiments show that ToT significantly enhances language models' problem-solving abilities on three novel tasks requiring non-trivial"
+            ],
+            "title": "Tree of Thoughts: Deliberate Problem Solving with Large ..."
+          },
+          {
+            "url": "https://old.reddit.com/r/hermesagent/comments/1uq5aqg/hermesagent_curator_is_a_waster_of_energy/",
+            "excerpts": [],
+            "title": "Te damos la bienvenida a Reddit"
+          },
+          {
+            "url": "https://www.reddit.com/comments/1uq5aqg/.json",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://www.reddit.com/r/hermesagent/comments/1uq5aqg/hermesagent_curator_is_a_waster_of_energy/?raw_json=1",
+            "excerpts": [],
+            "title": "hermes-agent curator is a waster of energy : r/hermesagent"
+          },
+          {
+            "url": "https://arxiv.org/abs/2305.10601",
+            "excerpts": [],
+            "title": "[2305.10601] Tree of Thoughts: Deliberate Problem Solving with Large Language Models"
+          },
+          {
+            "url": "https://arxiv.org/pdf/2305.14325",
+            "excerpts": [
+              "Improving Factuality and Reasoning in Language Models ...\nby Y Du \u00b7 2023 \u00b7 Cited by 2335 \u2014 Multi-agent debate improves the reasoning abilities of language models. Multi-agent results in the table are run with 3 agents and two rounds"
+            ],
+            "title": "Improving Factuality and Reasoning in Language Models ..."
+          },
+          {
+            "url": "https://arxiv.org/abs/2305.14325",
+            "excerpts": [
+              "Improving Factuality and Reasoning in Language Models ...\nby Y Du \u00b7 2023 \u00b7 Cited by 2173 \u2014 View a PDF of the paper titled Improving Factuality and Reasoning in Language Models through Multiagent Debate, by Yilun Du and 4 other authors."
+            ],
+            "title": "Improving Factuality and Reasoning in Language Models ..."
+          },
+          {
+            "url": "https://proceedings.mlr.press/v235/du24e.html",
+            "excerpts": [
+              "Improving Factuality and Reasoning in Language Models through ...\nIn this paper, we present a complementary approach to improve language responses where multiple language model instances propose and debate their individual responses and reasoning processes over multiple rounds to arrive at a common final answer."
+            ],
+            "title": "Improving Factuality and Reasoning in Language Models through ..."
+          },
+          {
+            "url": "https://dl.acm.org/doi/10.5555/3692070.3692537",
+            "excerpts": [
+              "Improving factuality and reasoning in language models ...\nby Y Du \u00b7 2024 \u00b7 Cited by 2058 \u2014 In this paper, we present a complementary approach to improve language responses where multiple language model instances propose and debate their individual"
+            ],
+            "title": "Improving factuality and reasoning in language models ..."
+          },
+          {
+            "url": "https://icml.cc/virtual/2024/poster/32620",
+            "excerpts": [
+              "ICML Poster Improving Factuality and Reasoning in Language ...\nIn this paper, we present a complementary approach to improve language responses where multiple language model instances propose and debate their individual responses and reasoning processes over multiple rounds to arrive at a common final answer."
+            ],
+            "title": "ICML Poster Improving Factuality and Reasoning in Language ..."
+          },
+          {
+            "url": "https://par.nsf.gov/servlets/purl/10399992",
+            "excerpts": [
+              "The Carbon Footprint of Machine Learning Training Will ...\nby D Patterson \u00b7 2022 \u00b7 Cited by 832 \u2014 Inference represents about three-fifths of the total ML energy use at Google, owing to the many-billion-user services that incorporate ML."
+            ],
+            "title": "The Carbon Footprint of Machine Learning Training Will ..."
+          },
+          {
+            "url": "https://arxiv.org/html/2507.11417v1",
+            "excerpts": [
+              "Quantifying the Energy Consumption and Carbon ...\nWe present a simulation framework to assess the energy and carbon implications of LLM inference under varying deployment setups."
+            ],
+            "title": "Quantifying the Energy Consumption and Carbon ..."
+          },
+          {
+            "url": "http://github.com/mlco2/codecarbon",
+            "excerpts": [
+              "If you find CodeCarbon useful for your research, you can find a citation under a variety of formats on [Zenodo](https://zenodo.org/records/11171501) . BibTeX ``` @software{benoit_courty_2024_11171501, author = {Benoit Courty and Victor Schmidt and Sasha Luccioni and Goyal-Kamal and MarionCoutarel and Boris Feld and J\u00e9r\u00e9my Lecourt and LiamConnell and Amine Saboni and Inimaz and supatomic and Mathilde L\u00e9val and Luis Blanche and Alexis Cruveiller and ouminasara and Franklin Zhao and Aditya Joshi and Alexis Bogroff and Hugues de Lavoreille and Niko Laskaris and Edoardo Abati and Douglas Blank and Ziyao Wang and Armin Catovic and Marc Alencon and Micha\u0142 St\u0119ch\u0142y and Christian Bauer and Lucas Ot\u00e1vio N. de Ara\u00fajo and JPW and MinervaBooks}, title = {mlco2/codecarbon: v2.4.1}, month = may, year = 2024, publisher = {Zenodo}, version = {v2.4.1}, doi = {10.5281/zenodo.11171501}, url = {https://doi.org/10.5281/zenodo.11171501} } ``` Contact Feel free to chat with us on [Discord](https://discord.gg/GS9js2XkJR) .\nWe created a Python package that estimates your hardware electricity power consumption (GPU + CPU + RAM) and we apply to it the carbon intensity of the region where the computing is done. CodeCarbon focuses on the main compute components it can measure or estimate directly: CPU, GPU, and RAM. It does not separately model disk I/O, network transfers, displays, cooling, or other peripherals because those sources are usually much smaller for local code-level experiments and are not exposed through the same low-overhead measurement interfaces. [calculation Summary](https://github.com/mlco2/codecarbon/blob/master/docs/images/calculation.png) We explain more about this calculation in the [**Methodology**](https://docs.codecarbon.io/latest/explanation/methodology/) section of the documentation."
+            ],
+            "title": "GitHub - mlco2/codecarbon: Track emissions from Compute and recommend ways to reduce their impact on the environment. \u00b7 GitHub"
+          },
+          {
+            "url": "http://heym.run/blog/opentelemetry-ai-agents",
+            "excerpts": [
+              "Each agent or workflow run becomes a root span, and every step inside it, such as a model call, a tool call, or a sub-workflow, becomes a child span with timing, status, and attributes like the model name and token usage.\nOpenTelemetry is now defining GenAI semantic conventions so that story looks the same across frameworks, with shared attribute names for the model, the operation, and token usage ([OpenTelemetry, 2025](https://opentelemetry.io/blog/2025/ai-agent-observability/)).\nThe instinct most teams have is correct: do not invent a new telemetry format for agents. You already have one. [OpenTelemetry](https://opentelemetry.io/) is the open standard the rest of your stack speaks, and in 2025 the project began defining how AI agents should map onto it."
+            ],
+            "title": "title: OpenTelemetry for AI Agents: Trace Every Step canonical: https://heym.run/blog/opentelemetry-ai-agents description: Trace AI agents and workflows with OpenTelemetry: spans, GenAI semantic conventions, context propagation, and native OTLP export with no instrumentation code."
+          },
+          {
+            "url": "http://greptime.com/blogs/2026-05-09-opentelemetry-genai-semantic-conventions",
+            "excerpts": [
+              "In April 2024, OpenTelemetry formed the GenAI Special Interest Group (GenAI SIG) under the Semantic Conventions SIG [[1]]() . The original scope was LLM client call tracing. Since then it has expanded to cover agent orchestration, MCP tool calling, content capture, and quality evaluation: six layers in all.\nOpenTelemetry GenAI Semantic Conventions standardize observability for LLM apps, agent orchestration, MCP tool calling, content capture, and quality evaluation."
+            ],
+            "title": "How OpenTelemetry Traces LLM Calls, Agent Reasoning, and MCP Tools | Greptime"
+          },
+          {
+            "url": "https://opentelemetry.io/docs/specs/semconv/gen-ai",
+            "excerpts": [
+              "Semantic conventions for generative AI systems - OpenTelemetry\nSemantic conventions for Generative AI operations are defined for the following signals: Events: Semantic Conventions for Generative AI inputs and outputs - events. Exceptions: Semantic Conventions for Generative AI exceptions. Metrics: Semantic Conventions for Generative AI operations - metrics."
+            ],
+            "title": "Semantic conventions for generative AI systems - OpenTelemetry"
+          },
+          {
+            "url": "https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-events",
+            "excerpts": [
+              "Semantic conventions for Generative AI events\nThe event name MUST be gen_ai.client.inference.operation.details . Describes the details of a GenAI completion request including chat history and parameters."
+            ],
+            "title": "Semantic conventions for Generative AI events"
+          },
+          {
+            "url": "https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans",
+            "excerpts": [
+              "Semantic conventions for generative client AI spans | OpenTelemetry\nSpan name SHOULD be {gen_ai.operation.name} {gen_ai.request.model} . Semantic conventions for individual GenAI systems and frameworks MAY specify different span"
+            ],
+            "title": "Semantic conventions for generative client AI spans | OpenTelemetry"
+          },
+          {
+            "url": "https://opentelemetry.io/docs/specs/semconv/gen-ai/",
+            "excerpts": [],
+            "title": "Moved: Generative AI semantic conventions"
+          },
+          {
+            "url": "https://opentelemetry.io/blog/2025/ai-agent-observability/",
+            "excerpts": [],
+            "title": "AI Agent Observability - Evolving Standards and Best Practices"
+          },
+          {
+            "url": "https://mlco2.github.io/codecarbon/",
+            "excerpts": [],
+            "title": "Track & reduce CO\u2082 emissions from your local computing - CodeCarbon"
+          },
+          {
+            "url": "https://github.com/mlco2/codecarbon",
+            "excerpts": [],
+            "title": "GitHub - mlco2/codecarbon: Track emissions from Compute and recommend ways to reduce their impact on the environment. \u00b7 GitHub"
+          }
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "hermes-curator-energy-2026-08.md"
+  }
+}

@@ -32,6 +32,9 @@ const {
   DEFAULT_READY_PROMPT,
   DEFAULT_TOOLSETS,
   normalizeToolsets,
+  buildLaunchIdentityEnv,
+  ensureNoRestoreCwdForFreshChat,
+  ensureRequiredToolsetsInArgs,
 } = require(WRAPPER_PATH);
 
 assert.ok(DEFAULT_TOOLSETS.split(',').includes('skills'), 'default launcher must expose installed skills');
@@ -40,6 +43,36 @@ assert.deepStrictEqual(
   normalizeToolsets('terminal,file,terminal'),
   'terminal,file,skills,context7',
   'environment overrides must retain the essential dynamic capabilities',
+);
+assert.strictEqual(
+  buildLaunchIdentityEnv({ TERMINAL_CWD: '/stale/project', MESSAGING_CWD: '/stale/messages' }, '/live/project').TERMINAL_CWD,
+  '/live/project',
+  'the directory that launched hermes-yolo must override inherited/configured workspace state',
+);
+assert.strictEqual(
+  buildLaunchIdentityEnv({}, '/live/project').HERMES_YOLO_LAUNCH_CWD,
+  '/live/project',
+  'the launch workspace must be explicit for downstream diagnostics',
+);
+assert.deepStrictEqual(
+  ensureNoRestoreCwdForFreshChat(['--provider', 'custom:test', 'chat']),
+  ['--provider', 'custom:test', 'chat', '--no-restore-cwd'],
+  'a fresh chat must never silently restore a foreign historical workspace',
+);
+assert.deepStrictEqual(
+  ensureNoRestoreCwdForFreshChat(['chat', '--no-restore-cwd']),
+  ['chat', '--no-restore-cwd'],
+  'launch-directory protection must be idempotent',
+);
+assert.deepStrictEqual(
+  ensureNoRestoreCwdForFreshChat(['chat', '--resume', 'session-id']),
+  ['chat', '--resume', 'session-id'],
+  'an explicit resume is the only path allowed to restore a historical workspace',
+);
+assert.deepStrictEqual(
+  ensureRequiredToolsetsInArgs(['--toolsets', 'terminal,file']),
+  ['--toolsets', 'terminal,file,skills,context7'],
+  'argv-level toolset overrides must retain dynamic capabilities',
 );
 
 console.log('Testing quota-independent default backend routing...');
@@ -385,6 +418,47 @@ try {
     try { fs.unlinkSync(filePath); } catch (e) { /* may not exist */ }
   }
   fs.rmSync(fallbackReceiptRoot, { recursive: true, force: true });
+}
+
+const launchProofRoot = fs.mkdtempSync(path.join(require('os').tmpdir(), 'hermes-yolo-cwd-proof-'));
+const launchProject = path.join(launchProofRoot, 'requested-project');
+const launchProofHermes = path.join(launchProofRoot, 'fake-hermes');
+const launchProofLock = path.join(launchProofRoot, 'wrapper.lock');
+fs.mkdirSync(launchProject);
+fs.writeFileSync(launchProofHermes, [
+  '#!/usr/bin/env bash',
+  'printf "CHILD_PWD=%s\\n" "$PWD"',
+  'printf "TERMINAL_CWD=%s\\n" "$TERMINAL_CWD"',
+  'printf "HERMES_LAUNCH_CWD=%s\\n" "$HERMES_LAUNCH_CWD"',
+  'printf "HERMES_YOLO_LAUNCH_CWD=%s\\n" "$HERMES_YOLO_LAUNCH_CWD"',
+  'printf "MESSAGING_CWD=%s\\n" "${MESSAGING_CWD-unset}"',
+  'printf "ARGS=%s\\n" "$*"',
+  '',
+].join('\n'), { mode: 0o755 });
+try {
+  const expectedLaunchProject = fs.realpathSync(launchProject);
+  const output = execFileSync(process.execPath, [WRAPPER_PATH, 'chat'], {
+    cwd: launchProject,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      HERMES_YOLO_BACKEND: 'hermes',
+      HERMES_YOLO_NO_DEFAULT_ARGS: '1',
+      HERMES_YOLO_NO_PREFLIGHT: '1',
+      HERMES_BIN: launchProofHermes,
+      HERMES_YOLO_LOCK_PATH: launchProofLock,
+      TERMINAL_CWD: '/stale/project',
+      MESSAGING_CWD: '/stale/messages',
+    },
+  });
+  assert(output.includes(`CHILD_PWD=${expectedLaunchProject}`));
+  assert(output.includes(`TERMINAL_CWD=${expectedLaunchProject}`));
+  assert(output.includes(`HERMES_LAUNCH_CWD=${expectedLaunchProject}`));
+  assert(output.includes(`HERMES_YOLO_LAUNCH_CWD=${expectedLaunchProject}`));
+  assert(output.includes('MESSAGING_CWD=unset'));
+  assert(output.includes('ARGS=chat --no-restore-cwd'));
+} finally {
+  fs.rmSync(launchProofRoot, { recursive: true, force: true });
 }
 
 // 2. Test live wrapper execution (using --version as a fast safe check)

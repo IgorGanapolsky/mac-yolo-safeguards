@@ -27,6 +27,8 @@ node --check tools/openrouter-reasoning-plan.js
 node --check tools/glm52-hermes-config.js
 node --check tools/hermes-self-harness.js
 node --check tools/hermes-capability-heal.js
+node --check tools/hermes-provider-routing-audit.js
+node --check tools/hermes-curator-value-audit.js
 node --check tests/test-hermes-fleet-autoupdate.js
 node --check tools/merge-gateway-readiness.js
 node --check tools/tencentdb-memory-readiness.js
@@ -46,6 +48,8 @@ node --check tests/test-openrouter-graphify-tools.js
 node --check tests/test-glm52-hermes-config.js
 node --check tests/test-hermes-self-harness.js
 node --check tests/test-hermes-capability-heal.js
+node --check tests/test-hermes-provider-routing-audit.js
+node --check tests/test-hermes-curator-value-audit.js
 node --check tests/test-merge-gateway-readiness.js
 node --check tests/test-tencentdb-memory-readiness.js
 node --check tests/test-athena-agent-revenue-gap.js
@@ -86,6 +90,8 @@ node tests/test-glm52-hermes-config.js
 node tests/test-hermes-self-harness.js
 node tests/test-hermes-capability-heal.js
 node tests/test-hermes-fleet-autoupdate.js
+node tests/test-hermes-provider-routing-audit.js
+node tests/test-hermes-curator-value-audit.js
 node tests/test-merge-gateway-readiness.js
 node tests/test-tencentdb-memory-readiness.js
 node tests/test-athena-agent-revenue-gap.js

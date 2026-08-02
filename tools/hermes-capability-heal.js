@@ -138,12 +138,15 @@ function heal(options = {}) {
   const wrapperResult = ensureWrapperCapabilities(wrapper, repair);
   actions.push({ action: 'wrapper_capabilities', ...wrapperResult });
   if (repair) {
+    const dynamicCwd = runner(hermes, ['config', 'set', 'terminal.cwd', 'auto']);
+    actions.push({ action: 'make_launch_directory_dynamic', code: dynamicCwd.code });
     const contextEnable = runner(hermes, ['config', 'set', 'mcp_servers.context7.enabled', 'true']);
     actions.push({ action: 'enable_context7', code: contextEnable.code });
     const skillsEnable = runner(hermes, ['tools', 'enable', 'skills', '--platform', 'cli']);
     actions.push({ action: 'enable_skills', code: skillsEnable.code });
   }
 
+  const cwdConfig = runner(hermes, ['config', 'get', 'terminal.cwd']);
   const contextConfig = runner(hermes, ['config', 'get', 'mcp_servers.context7.enabled']);
   const tools = runner(hermes, ['tools', 'list']);
   const skills = runner(hermes, ['skills', 'list']);
@@ -151,6 +154,8 @@ function heal(options = {}) {
   const mcpProbe = probeNetwork ? runner(hermes, ['mcp', 'test', 'context7'], 45_000) : null;
   const skillSummary = parseSkillSummary(skills.stdout);
   const checks = {
+    launchDirectoryDynamic: cwdConfig.code === 0
+      && /^(?:auto|cwd|\.)$/i.test(cwdConfig.stdout.trim()),
     wrapperHasSkillsAndContext7: ensureWrapperCapabilities(wrapper, false).healthy,
     skillsToolsetEnabled: /enabled\s+skills\s+/i.test(tools.stdout),
     enabledSkills: skillSummary.enabled,
@@ -164,7 +169,8 @@ function heal(options = {}) {
         && /Tools discovered:\s*[1-9]/i.test(mcpProbe.stdout)
       : null,
   };
-  const healthy = checks.wrapperHasSkillsAndContext7
+  const healthy = checks.launchDirectoryDynamic
+    && checks.wrapperHasSkillsAndContext7
     && checks.skillsToolsetEnabled
     && checks.enabledSkills > 0
     && checks.context7Enabled

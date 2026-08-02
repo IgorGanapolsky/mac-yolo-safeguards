@@ -6,6 +6,7 @@ set -u
 HERMES_AGENT_REPO="${HERMES_AGENT_REPO:-$HOME/.hermes/hermes-agent}"
 HERMES_BIN="${HERMES_BIN:-$HOME/.local/bin/hermes}"
 CAPABILITY_HEALER="${HERMES_CAPABILITY_HEALER:-$HOME/.local/bin/hermes-capability-heal}"
+GIT_BIN="${HERMES_GIT_BIN:-/usr/bin/git}"
 LOCK_DIR="${HERMES_UPDATE_LOCK_DIR:-/tmp/com.igor.hermes-fleet-autoupdate.lock}"
 NTFY_URL="${HERMES_NTFY_URL:-}"
 
@@ -24,6 +25,24 @@ interactive_hermes_is_active() {
     auto) /usr/bin/pgrep -f "$HERMES_AGENT_REPO/venv/bin/hermes" >/dev/null 2>&1 ;;
     *) echo "Invalid HERMES_UPDATER_ASSUME_ACTIVE value" >&2; return 0 ;;
   esac
+}
+
+source_checkout_is_safe() {
+  local dirty=""
+  local counts=""
+  local ahead=""
+  if [ ! -d "$HERMES_AGENT_REPO/.git" ] && [ ! -f "$HERMES_AGENT_REPO/.git" ]; then
+    echo "  source update deferred: checkout is not a git worktree"
+    return 1
+  fi
+  dirty="$("$GIT_BIN" -C "$HERMES_AGENT_REPO" status --porcelain=v1 2>/dev/null || true)"
+  counts="$("$GIT_BIN" -C "$HERMES_AGENT_REPO" rev-list --left-right --count HEAD...origin/main 2>/dev/null || true)"
+  ahead="${counts%%[[:space:]]*}"
+  if [ -n "$dirty" ] || ! [[ "$ahead" =~ ^[0-9]+$ ]] || [ "$ahead" -gt 0 ]; then
+    echo "  source update deferred: checkout is dirty or ahead (dirty=$([ -n "$dirty" ] && echo yes || echo no), ahead=${ahead:-unknown})"
+    return 1
+  fi
+  return 0
 }
 
 LOCK_OWNER_FILE="$LOCK_DIR/owner.pid"
@@ -86,6 +105,8 @@ if [ "$check_status" -ne 0 ]; then
 elif printf '%s\n' "$update_check" | /usr/bin/grep -q 'Update available'; then
   if interactive_hermes_is_active; then
     echo "  update deferred: an interactive Hermes CLI is active"
+  elif ! source_checkout_is_safe; then
+    :
   elif "$HERMES_BIN" update --yes; then
     did_update=1
   else

@@ -49,6 +49,53 @@ const DEFAULT_TOOLSETS = normalizeToolsets(
   process.env.HERMES_YOLO_TOOLSETS || 'terminal,file,web,code_execution,memory,clarify,computer_use,vision',
 );
 
+function ensureRequiredToolsetsInArgs(argv) {
+  const out = Array.isArray(argv) ? [...argv] : [];
+  for (let index = 0; index < out.length; index += 1) {
+    if (out[index] === '--toolsets' && out[index + 1]) {
+      out[index + 1] = normalizeToolsets(out[index + 1]);
+    }
+  }
+  return out;
+}
+
+function resolveLaunchCwd(env = process.env) {
+  const override = String(env.HERMES_YOLO_CWD || env.HERMES_LAUNCH_CWD || '').trim();
+  if (override) {
+    try {
+      const resolved = fs.realpathSync(path.resolve(override));
+      if (fs.statSync(resolved).isDirectory()) return resolved;
+    } catch (_error) {}
+  }
+  try {
+    return fs.realpathSync(process.cwd());
+  } catch (_error) {
+    return process.cwd();
+  }
+}
+
+function buildLaunchIdentityEnv(baseEnv = {}, launchCwd = resolveLaunchCwd()) {
+  const env = Object.assign({}, baseEnv, {
+    TERMINAL_CWD: launchCwd,
+    HERMES_LAUNCH_CWD: launchCwd,
+    HERMES_YOLO_LAUNCH_CWD: launchCwd,
+    PWD: launchCwd,
+  });
+  delete env.MESSAGING_CWD;
+  return env;
+}
+
+function ensureNoRestoreCwdForFreshChat(argv) {
+  const out = Array.isArray(argv) ? [...argv] : [];
+  if (out.includes('--no-restore-cwd')) return out;
+  const explicitlyResuming = out.includes('--resume') || out.includes('-r')
+    || out.includes('--continue') || out.includes('-c');
+  if (explicitlyResuming) return out;
+  const chatIndex = out.indexOf('chat');
+  if (chatIndex >= 0) out.splice(chatIndex + 1, 0, '--no-restore-cwd');
+  return out;
+}
+
 function parseEnvFile(filePath = HERMES_ENV_PATH) {
   if (!filePath || !fs.existsSync(filePath)) return {};
   const parsed = {};
@@ -621,14 +668,19 @@ updateStatus(data => {
 });
 
 // Run with HERMES_YOLO=1 and HERMES_ACCEPT_HOOKS=1 env set.
-const env = Object.assign({}, ROUTE_ENV, {
+const launchCwd = resolveLaunchCwd(process.env);
+const env = buildLaunchIdentityEnv(Object.assign({}, ROUTE_ENV, {
   HERMES_YOLO: '1',
-  HERMES_ACCEPT_HOOKS: '1'
-});
+  HERMES_ACCEPT_HOOKS: '1',
+}), launchCwd);
 
 const childStdio = 'inherit';  // interactive chat needs stdin (keyboard), not just stdout/stderr
-const child = spawn(HERMES_BIN, [...EXTRA_ARGS, ...childPromptArgs], { stdio: childStdio, env });
-log(`SPAWNED childPid=${child.pid}`);
+const childArgs = ensureNoRestoreCwdForFreshChat(
+  ensureRequiredToolsetsInArgs([...EXTRA_ARGS, ...childPromptArgs]),
+);
+console.error(`\x1b[36m[hermes-yolo]\x1b[0m launch cwd → ${launchCwd}`);
+const child = spawn(HERMES_BIN, childArgs, { stdio: childStdio, env, cwd: launchCwd });
+log(`SPAWNED childPid=${child.pid} launchCwd=${launchCwd} args=${JSON.stringify(childArgs)}`);
 
 child.on('error', (err) => {
   log(`SPAWN_ERROR ${err.code} ${err.message}`);
@@ -811,5 +863,9 @@ module.exports = {
   DEFAULT_READY_PROMPT,
   DEFAULT_TOOLSETS,
   normalizeToolsets,
+  ensureRequiredToolsetsInArgs,
+  resolveLaunchCwd,
+  buildLaunchIdentityEnv,
+  ensureNoRestoreCwdForFreshChat,
 };
 }
