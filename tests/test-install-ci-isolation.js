@@ -55,6 +55,8 @@ try {
   assert.strictEqual(fs.readlinkSync(isolatedLink), path.join(repoRoot, 'hermes-yolo-wrapper.js'));
   const isolatedHealer = path.join(isolatedHome, '.local', 'bin', 'hermes-capability-heal');
   assert.strictEqual(fs.readlinkSync(isolatedHealer), path.join(repoRoot, 'tools', 'hermes-capability-heal.js'));
+  const isolatedUpdater = path.join(isolatedHome, '.local', 'bin', 'hermes-fleet-autoupdate.sh');
+  assert.strictEqual(fs.readlinkSync(isolatedUpdater), path.join(repoRoot, 'scripts', 'hermes-fleet-autoupdate.sh'));
 
   const isolatedPlist = fs.readFileSync(
     path.join(isolatedHome, 'Library', 'LaunchAgents', 'com.igor.shutdown-simulators.plist'),
@@ -62,6 +64,12 @@ try {
   );
   assert(isolatedPlist.includes(isolatedHome), 'CI plist must reference only the isolated home');
   assert(!isolatedPlist.includes(operatorHome), 'CI plist must not reference the operator home');
+  const updaterPlist = fs.readFileSync(
+    path.join(isolatedHome, 'Library', 'LaunchAgents', 'com.igor.hermes-fleet-autoupdate.plist'),
+    'utf8',
+  );
+  assert(updaterPlist.includes('<integer>14400</integer>'), 'updater must self-heal at least every four hours');
+  assert(updaterPlist.includes(isolatedHome), 'CI updater plist must reference only the isolated home');
 
   const launchctlCalls = fs.existsSync(launchctlLog) ? fs.readFileSync(launchctlLog, 'utf8') : '';
   assert(!/\b(?:bootout|bootstrap)\b/.test(launchctlCalls), 'CI must not mutate live LaunchAgent state');

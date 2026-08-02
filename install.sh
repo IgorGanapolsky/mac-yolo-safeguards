@@ -55,6 +55,7 @@ echo "=== Linking files ==="
 link "$REPO/agy-yolo-wrapper.js"              "$AGY_CLI_DIR/bin/agy-yolo-wrapper.js"
 link "$REPO/hermes-yolo-wrapper.js"           "$INSTALL_HOME/.local/bin/hermes-yolo"
 link "$REPO/tools/hermes-capability-heal.js"  "$INSTALL_HOME/.local/bin/hermes-capability-heal"
+link "$REPO/scripts/hermes-fleet-autoupdate.sh" "$INSTALL_HOME/.local/bin/hermes-fleet-autoupdate.sh"
 link "$REPO/sim-runaway-guard.sh"             "$INSTALL_HOME/.local/bin/sim-runaway-guard.sh"
 link "$REPO/yolo-health"                      "$INSTALL_HOME/.local/bin/yolo-health"
 link "$REPO/opencode-yolo"                     "$INSTALL_HOME/.local/bin/opencode-yolo"
@@ -77,6 +78,11 @@ if [ -f "$HEAL_PLIST_DEST" ] || [ -L "$HEAL_PLIST_DEST" ]; then rm -f "$HEAL_PLI
 sed "s|{{HOME}}|$INSTALL_HOME|g" "$REPO/com.igor.heal-launchd-paths.plist" > "$HEAL_PLIST_DEST"
 echo "  $HEAL_PLIST_DEST created with resolved paths"
 
+UPDATE_PLIST_DEST="$INSTALL_HOME/Library/LaunchAgents/com.igor.hermes-fleet-autoupdate.plist"
+if [ -f "$UPDATE_PLIST_DEST" ] || [ -L "$UPDATE_PLIST_DEST" ]; then rm -f "$UPDATE_PLIST_DEST"; fi
+sed "s|{{HOME}}|$INSTALL_HOME|g" "$REPO/com.igor.hermes-fleet-autoupdate.plist" > "$UPDATE_PLIST_DEST"
+echo "  $UPDATE_PLIST_DEST created with resolved paths"
+
 # Hourly reaper for stale grok/grok-yolo procs that pin the local Ollama model (memory thrash).
 REAP_PLIST_DEST="$INSTALL_HOME/Library/LaunchAgents/com.igor.grok-yolo-leak-reaper.plist"
 if [ -f "$REAP_PLIST_DEST" ] || [ -L "$REAP_PLIST_DEST" ]; then rm -f "$REAP_PLIST_DEST"; fi
@@ -91,6 +97,9 @@ else
   launchctl bootout gui/$(id -u)/com.igor.shutdown-simulators 2>/dev/null || true
   launchctl bootstrap gui/$(id -u) "$PLIST_DEST"
   echo "  com.igor.shutdown-simulators bootstrapped"
+  launchctl bootout gui/$(id -u)/com.igor.hermes-fleet-autoupdate 2>/dev/null || true
+  launchctl bootstrap gui/$(id -u) "$UPDATE_PLIST_DEST"
+  echo "  com.igor.hermes-fleet-autoupdate bootstrapped"
 fi
 
 echo ""
