@@ -28,6 +28,16 @@ const allowCases = [
   ['Bash', { command: 'git checkout -- README.md' }],
   ['Bash', { command: 'rg checkout docs/' }],
   ['Bash', { command: 'curl https://api.stripe.com/v1/payment_intents/pi_test' }],
+  ['Bash', { command: 'curl "https://api.stripe.com/v1/charges?limit=3"' }],
+  ['Edit', {
+    file_path: '/tmp/apollo-incident.md',
+    old_string: 'Status: investigating',
+    new_string: 'Update the incident: charge was $588',
+  }],
+  ['Write', {
+    file_path: '/tmp/pricing.md',
+    content: 'Update the pricing docs: the paid tier remains $588 annually.',
+  }],
 ];
 for (const [toolName, toolInput] of allowCases) {
   assert.strictEqual(
@@ -56,6 +66,15 @@ const denyCases = [
   ['Bash', { command: 'billing subscription cancel --id sub_123' }],
   ['Bash', { command: 'curl -X POST https://api.example.com/billing/subscription' }],
   ['Bash', { command: 'curl -X POST https://api.stripe.com/v1/payment_intents/pi_test/confirm' }],
+  ['Bash', {
+    command: 'curl https://api.stripe.com/v1/charges -d amount=58800 -d currency=usd -d source=tok_test',
+  }],
+  ['Bash', {
+    command: 'curl https://api.stripe.com/v1/refunds --data-urlencode charge=ch_test',
+  }],
+  ['Bash', {
+    command: 'curl https://api.example.com/billing/subscription --json \'{"plan":"annual"}\'',
+  }],
   ['Bash', { command: 'rm "$HOME/.thumbgate/bin/thumbgate-spend-guard.js"' }],
   ['Bash', { command: 'printf "{}" > ~/.claude/settings.json' }],
   ['Edit', { file_path: '/Users/test/.claude/settings.json', new_string: '{}' }],
