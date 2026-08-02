@@ -5,17 +5,15 @@ export function buildLeashEmptyExplanation(settings: GatewaySettings): string {
   if (settings.demoMode) {
     return 'Demo mode — preview a card from Leash options below.';
   }
-  if (settings.safetyMode) {
-    return 'Approval-first is on. Cards appear when your Mac blocks a risky tool. Manage policies on ThumbGate.app too.';
-  }
-  return 'When Hermes on your Mac blocks a risky tool, the card shows up here. Web dashboard and Continuity: ThumbGate.app.';
+  // Cards = Mac blocked a tool run (not chat). Policies live on Mac / ThumbGate.app.
+  return 'No blocked tools right now. When your Mac stops a risky command, the card shows here to allow or deny it.';
 }
 
 /**
  * Which tab the app lands on at launch. ALWAYS the Hermes (Chat) tab. Opening on Leash
- * at launch — even in approval-first mode — strands the operator away from chat and is
- * disorienting; approvals stay reachable via the Leash tab + lock-screen notifications,
- * so launch never hijacks onto Leash. `safetyMode`/`glanceMode` do not change the landing tab.
+ * at launch strands the operator away from chat and is disorienting; approvals stay
+ * reachable via the Leash tab + lock-screen notifications, so launch never hijacks onto
+ * Leash. `glanceMode` only affects the in-screen Leash layout.
  */
 export function resolveInitialTab(_settings: GatewaySettings): 'Leash' | 'Chat' {
   return 'Chat';
