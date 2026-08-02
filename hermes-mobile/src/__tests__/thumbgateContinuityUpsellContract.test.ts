@@ -1,24 +1,33 @@
 import {
   THUMBGATE_WEB_URL,
+  THUMBGATE_PROMO_BUTTON_LABEL,
   thumbGatePromoCopy,
 } from '../utils/thumbgatePromoCopy';
+import {
+  THUMBGATE_CONNECTOR_INSTALL_COMMAND,
+  THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL,
+} from '../utils/thumbgateFacilitation';
 
 // CEO, 2026-07-26: the promo must sell ThumbGate.app as an ADDITION to the mobile app and
 // drive paid signups — not present it as a fallback for a broken connection.
+// 2026-08-02: also facilitate install when ThumbGate is absent (Herdr-style one-liner + web).
 //
 const SURFACES = ['leash_disconnected', 'leash_empty', 'connection_unreachable'] as const;
 
-describe('ThumbGate promo is a continuity upsell, not a failure fallback', () => {
-  it('positions the plans as an additive paid companion on every surface', () => {
+describe('ThumbGate promo is a continuity upsell + absence facilitation', () => {
+  it('positions ThumbGate.app as additive Continuity and facilitates install when absent', () => {
     for (const s of SURFACES) {
       const promo = thumbGatePromoCopy(s);
-      expect(promo.headline).toBe('Upgrade Hermes with ThumbGate');
-      expect(promo.body).toMatch(/Add a web dashboard and paid Continuity to Hermes Mobile/);
-      expect(promo.body).toMatch(/Leash controls/);
-      expect(promo.body).toMatch(/eligible work moving when your Mac is offline/);
-      expect(promo.buttonLabel).toBe('See ThumbGate plans');
+      expect(promo.headline).toBe('No ThumbGate.app yet?');
+      expect(promo.body).toMatch(/Hermes Mobile still chats with your computer/);
+      expect(promo.body).toMatch(/ThumbGate\.app/);
+      expect(promo.body).toMatch(/Continuity/);
+      expect(promo.body).toMatch(/one-line Mac installer/);
+      expect(promo.buttonLabel).toBe(THUMBGATE_PROMO_BUTTON_LABEL);
+      expect(promo.secondaryButtonLabel).toBe(THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL);
+      // Must not frame the whole product as "phone broken → use web instead"
       expect(promo.body).not.toMatch(
-        /phone cannot reach|can't reach|unable to reach|pair a Mac and continue|replacement|instead/i,
+        /phone cannot reach|unable to reach|pair a Mac and continue|replacement for Hermes Mobile/i,
       );
     }
   });
@@ -30,5 +39,9 @@ describe('ThumbGate promo is a continuity upsell, not a failure fallback', () =>
     for (const s of SURFACES) {
       expect(thumbGatePromoCopy(s).url).toBe(THUMBGATE_WEB_URL);
     }
+  });
+
+  it('shares the same Mac installer command as the web dashboard', () => {
+    expect(THUMBGATE_CONNECTOR_INSTALL_COMMAND).toContain('install-connector.sh');
   });
 });

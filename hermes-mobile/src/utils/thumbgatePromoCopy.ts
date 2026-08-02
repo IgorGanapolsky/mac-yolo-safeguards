@@ -1,13 +1,24 @@
 /**
  * Single source of truth for ThumbGate web funnel copy in Hermes Mobile.
  * Production control plane: https://thumbgate.app (see apps/hermes-control-plane).
+ *
+ * When the user does not have ThumbGate yet, Hermes Mobile facilitates install
+ * (Herdr-style): open web + share Mac one-line connector + optional agent skill.
+ * See thumbgateFacilitation.ts and hermes-mobile-connect skill.
  */
+
+import {
+  HERDR_AGENT_SKILL_DOCS_URL,
+  THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL,
+} from './thumbgateFacilitation';
 
 /** Canonical Hermes Web / ThumbGate control-plane URL (not thumbgate.ai marketing alias). */
 export const THUMBGATE_WEB_URL =
   'https://thumbgate.app/?utm_source=hermes-mobile&utm_medium=app&utm_campaign=paid_companion#pricing';
 
-export const THUMBGATE_PROMO_BUTTON_LABEL = 'See ThumbGate plans';
+export const THUMBGATE_PROMO_BUTTON_LABEL = 'Open ThumbGate.app';
+
+export { THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL };
 
 export type ThumbGatePromoSurface = 'leash_disconnected' | 'leash_empty' | 'connection_unreachable';
 
@@ -16,14 +27,25 @@ export type ThumbGatePromoCopy = {
   body: string;
   buttonLabel: string;
   url: string;
+  /** Secondary path: share one-line Mac connector install (Herdr-style). */
+  secondaryButtonLabel: string;
 };
 
 const PAID_COMPANION_COPY = {
-  headline: 'Upgrade Hermes with ThumbGate',
-  body: 'Add a web dashboard and paid Continuity to Hermes Mobile. Manage chats and Leash controls from any browser, and keep eligible work moving when your Mac is offline.',
+  headline: 'No ThumbGate.app yet?',
+  body:
+    'Hermes Mobile still chats with your computer over Hermes. ThumbGate.app adds a web dashboard and Continuity when that computer is offline. Open the site, then run the one-line Mac installer once so the web workspace can reach it.',
 } as const;
 
-const SURFACE_COPY: Record<ThumbGatePromoSurface, Omit<ThumbGatePromoCopy, 'url' | 'buttonLabel'>> = {
+/** Optional cross-link: agent-skill pattern (inspired by Herdr; not affiliation). */
+export const HERDR_INTEGRATION_COPY = {
+  headline: 'Agent skill pattern (Herdr-style)',
+  body: 'Coding agents can load a markdown skill that teaches safe Hermes Mobile pairing and ThumbGate facilitation — same idea as Herdr’s agent skill file.',
+  buttonLabel: 'Herdr agent skill docs',
+  url: HERDR_AGENT_SKILL_DOCS_URL,
+} as const;
+
+const SURFACE_COPY: Record<ThumbGatePromoSurface, Omit<ThumbGatePromoCopy, 'url' | 'buttonLabel' | 'secondaryButtonLabel'>> = {
   leash_disconnected: PAID_COMPANION_COPY,
   leash_empty: PAID_COMPANION_COPY,
   connection_unreachable: PAID_COMPANION_COPY,
@@ -34,6 +56,7 @@ export function thumbGatePromoCopy(surface: ThumbGatePromoSurface): ThumbGatePro
   return {
     ...block,
     buttonLabel: THUMBGATE_PROMO_BUTTON_LABEL,
+    secondaryButtonLabel: THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL,
     url: THUMBGATE_WEB_URL,
   };
 }
