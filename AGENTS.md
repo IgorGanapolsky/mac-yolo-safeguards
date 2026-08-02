@@ -63,6 +63,7 @@ Tables and full protocol: [docs/agents/decision-stack.md](./docs/agents/decision
 
 ## Operational safety
 
+- **NEVER spend operator money (HARD BLOCK / ERP-lite, 2026-08-02).** No paid upgrades, credit packs, checkout, Subscribe/Pay/Buy, or payment-method changes unless Igor explicitly authorizes **that exact amount in the same message**. Free-tier/API limits ≠ permission to upsell. Prefer free workarounds. **Allowed:** refund, cancel, remove card, bank dispute. **Enforce:** `node tools/operator-spend-gate.js check --action "..." --message "..."` (exit 1 = BLOCK) before any spend-adjacent tool/UI action; ledger `~/.hermes/spend-ledger/commitments.jsonl`. Pretool: `scripts/pretool-operator-spend-gate.sh`. ThumbGate gate id `hard-ban-never-spend-operator-money`. Incident: Apollo Basic $588.
 - **Never write secrets to tracked files.** If a credential lands in chat: refuse to use it, don't store it, flag for rotation. Authenticate via existing keychain/env (`gh auth status`).
 - **Hard-to-reverse actions require explicit consent:** deleting files, force-pushing, merging PRs, killing processes the user didn't name.
 - **`business_os/` is gitignored internal ops data.** Do not modify without explicit per-file consent.

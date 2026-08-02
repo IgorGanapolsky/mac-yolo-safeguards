@@ -497,6 +497,27 @@ function buildBrief(args) {
   }
   // Always attach evidence-backed DS/ML/RAG scores (fail-closed, never invented).
   brief.telemetry.mlSystemScores = mlSystemScoresBrief();
+  // ERP-lite: flag spend-intent tasks (does not auto-buy; blocks recommendation drift).
+  try {
+    const spendGate = require('./operator-spend-gate');
+    brief.telemetry.operatorSpendGate = spendGate.evaluateSpendGate({
+      action: task,
+      message: task,
+      log: true,
+      agentId: 'agent-decision-stack',
+    });
+    if (brief.telemetry.operatorSpendGate.decision === 'BLOCK') {
+      brief.recommendation =
+        `SPEND GATE BLOCK: ${brief.telemetry.operatorSpendGate.reason}. ` +
+        'Do not upgrade/pay/buy credits. Use free workarounds or request refund/cancel only. ' +
+        'Same-message authorization required for any real spend (I authorize spend $N on …).';
+      return brief;
+    }
+  } catch (error) {
+    brief.telemetry.operatorSpendGate = {
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
   brief.recommendation = recommendNextAction(brief);
   return brief;
 }
