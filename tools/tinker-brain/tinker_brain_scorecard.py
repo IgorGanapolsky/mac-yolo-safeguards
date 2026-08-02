@@ -100,13 +100,22 @@ def _grade_pillar(
 
 def grade_store() -> dict[str, Any]:
     sys.path.insert(0, str(BRAIN))
-    from tinker_brain_health import check  # noqa: WPS433
+    from tinker_brain_health import check, heal  # noqa: WPS433
 
     health = check(max_age_days=14)
+    healed = False
+    # Snapshot/repo divergence is the common local footgun: operator edits config/
+    # and forgets export. Auto-heal once so the scorecard grades the live truth,
+    # not a stale shadow. CI usually has repo-only (no snapshot) → no heal needed.
+    fails0 = [f for f in health.get("findings") or [] if f.get("severity") == "fail"]
+    if any(f.get("check") == "source-divergence" for f in fails0):
+        heal_result = heal()
+        healed = bool(heal_result.get("ok"))
+        health = heal_result.get("post_check") or check(max_age_days=14)
+
     score = 10.0
     if not health.get("ok"):
         fails = [f for f in health.get("findings") or [] if f.get("severity") == "fail"]
-        # Divergence is fully healable; still fail closed until healed.
         score = 4.0 if any(f.get("check") == "source-divergence" for f in fails) else 6.0
         if any(f.get("check") == "card-missing" for f in fails):
             score = 0.0
@@ -120,7 +129,7 @@ def grade_store() -> dict[str, Any]:
         "store_cards_live_export",
         score_10=score,
         required=True,
-        evidence={"health": health, "legal_brand_section": has_legal},
+        evidence={"health": health, "legal_brand_section": has_legal, "auto_healed": healed},
         notes="Text cards + live export (not a Vector DB). A+ requires in-sync snapshot + fresh AS_OF + LEGAL_BRAND.",
     )
 
