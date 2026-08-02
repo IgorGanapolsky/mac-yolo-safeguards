@@ -54,6 +54,7 @@ link() {
 echo "=== Linking files ==="
 link "$REPO/agy-yolo-wrapper.js"              "$AGY_CLI_DIR/bin/agy-yolo-wrapper.js"
 link "$REPO/hermes-yolo-wrapper.js"           "$INSTALL_HOME/.local/bin/hermes-yolo"
+link "$REPO/tools/hermes-capability-heal.js"  "$INSTALL_HOME/.local/bin/hermes-capability-heal"
 link "$REPO/sim-runaway-guard.sh"             "$INSTALL_HOME/.local/bin/sim-runaway-guard.sh"
 link "$REPO/yolo-health"                      "$INSTALL_HOME/.local/bin/yolo-health"
 link "$REPO/opencode-yolo"                     "$INSTALL_HOME/.local/bin/opencode-yolo"
@@ -101,6 +102,19 @@ MAC_YOLO_REPO="$REPO" HOME="$INSTALL_HOME" bash "$REPO/scripts/heal-launchd-path
 
 echo "=== Verifying ==="
 HOME="$INSTALL_HOME" "$INSTALL_HOME/.local/bin/yolo-health" || { echo "yolo-health reported failures"; exit 1; }
+
+if [ "$CI_SMOKE" -eq 1 ]; then
+  echo "  capability probe skipped in CI smoke mode"
+elif [ -x "$INSTALL_HOME/.local/bin/hermes" ]; then
+  echo "=== Repairing Hermes capabilities ==="
+  HOME="$INSTALL_HOME" \
+    HERMES_BIN="$INSTALL_HOME/.local/bin/hermes" \
+    HERMES_YOLO_WRAPPER="$INSTALL_HOME/.local/bin/hermes-yolo" \
+    HERMES_AGENT_REPO="$INSTALL_HOME/.hermes/hermes-agent" \
+    "$INSTALL_HOME/.local/bin/hermes-capability-heal"
+else
+  echo "  Hermes CLI is not installed; capability repair deferred"
+fi
 
 # Preserve an operator's explicit zero-spend policy after this installer
 # refreshes the Hermes symlink. CI smoke homes never inherit the live marker.

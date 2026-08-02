@@ -8,6 +8,24 @@ const { spawnSync } = require('child_process');
 
 const REQUIRED_WRAPPER_CAPABILITIES = ['skills', 'context7'];
 
+function hardenedWrapperBlock(defaultToolsets) {
+  return [
+    "const REQUIRED_TOOLSETS = Object.freeze(['skills', 'context7']);",
+    '',
+    'function normalizeToolsets(value) {',
+    "  const configured = String(value || '')",
+    "    .split(',')",
+    '    .map((item) => item.trim())',
+    '    .filter(Boolean);',
+    "  return [...new Set([...configured, ...REQUIRED_TOOLSETS])].join(',');",
+    '}',
+    '',
+    'const DEFAULT_TOOLSETS = normalizeToolsets(',
+    `  process.env.HERMES_YOLO_TOOLSETS || '${defaultToolsets}',`,
+    ');',
+  ].join('\n');
+}
+
 function clean(text) {
   return String(text || '').replace(/\x1b\[[0-9;]*m/g, '');
 }
@@ -39,8 +57,28 @@ function ensureWrapperCapabilities(filePath, shouldRepair = false) {
       error: error.message,
     };
   }
-  const match = text.match(/const DEFAULT_TOOLSETS = process\.env\.HERMES_YOLO_TOOLSETS \|\| '([^']+)';/);
-  if (!match) {
+  const hardenedMatch = text.match(/const REQUIRED_TOOLSETS = Object\.freeze\(\[([^\]]+)\]\);/);
+  const hasNormalizer = /function normalizeToolsets\(value\)/.test(text)
+    && /const DEFAULT_TOOLSETS = normalizeToolsets\(/.test(text);
+  if (hardenedMatch && hasNormalizer) {
+    const required = hardenedMatch[1]
+      .split(',')
+      .map((item) => item.trim().replace(/^['"]|['"]$/g, ''))
+      .filter(Boolean);
+    const missing = REQUIRED_WRAPPER_CAPABILITIES.filter((item) => !required.includes(item));
+    if (missing.length && shouldRepair) {
+      const replacement = `const REQUIRED_TOOLSETS = Object.freeze([${REQUIRED_WRAPPER_CAPABILITIES.map((item) => `'${item}'`).join(', ')}]);`;
+      fs.writeFileSync(filePath, text.replace(hardenedMatch[0], replacement));
+    }
+    return {
+      healthy: missing.length === 0 || shouldRepair,
+      changed: missing.length > 0 && shouldRepair,
+      missing,
+    };
+  }
+
+  const legacyMatch = text.match(/const DEFAULT_TOOLSETS = process\.env\.HERMES_YOLO_TOOLSETS \|\| '([^']+)';/);
+  if (!legacyMatch) {
     return {
       healthy: false,
       changed: false,
@@ -48,16 +86,15 @@ function ensureWrapperCapabilities(filePath, shouldRepair = false) {
       error: 'DEFAULT_TOOLSETS declaration not found',
     };
   }
-  const toolsets = match[1].split(',').map((item) => item.trim()).filter(Boolean);
-  const missing = REQUIRED_WRAPPER_CAPABILITIES.filter((item) => !toolsets.includes(item));
-  if (missing.length && shouldRepair) {
-    const replacement = match[0].replace(match[1], [...toolsets, ...missing].join(','));
-    fs.writeFileSync(filePath, text.replace(match[0], replacement));
+  const toolsets = legacyMatch[1].split(',').map((item) => item.trim()).filter(Boolean);
+  if (shouldRepair) {
+    const baseToolsets = toolsets.filter((item) => !REQUIRED_WRAPPER_CAPABILITIES.includes(item)).join(',');
+    fs.writeFileSync(filePath, text.replace(legacyMatch[0], hardenedWrapperBlock(baseToolsets)));
   }
   return {
-    healthy: missing.length === 0 || shouldRepair,
-    changed: missing.length > 0 && shouldRepair,
-    missing,
+    healthy: shouldRepair,
+    changed: shouldRepair,
+    missing: shouldRepair ? [] : [...REQUIRED_WRAPPER_CAPABILITIES],
   };
 }
 
@@ -94,7 +131,7 @@ function heal(options = {}) {
   const repo = options.repo || process.env.HERMES_AGENT_REPO || path.join(home, '.hermes/hermes-agent');
   const receiptDir = options.receiptDir || process.env.HERMES_CAPABILITY_RECEIPT_DIR || path.join(home, '.hermes/receipts/capability-healer');
   const repair = options.repair !== false;
-  const probeNetwork = Boolean(options.probeNetwork);
+  const probeNetwork = options.probeNetwork !== false;
   const runner = options.runner || run;
   const actions = [];
 
@@ -131,7 +168,7 @@ function heal(options = {}) {
     && checks.skillsToolsetEnabled
     && checks.enabledSkills > 0
     && checks.context7Enabled
-    && checks.context7Connected !== false;
+    && checks.context7Connected === true;
   const receipt = {
     schemaVersion: 1,
     checkedAt: new Date().toISOString(),
@@ -148,7 +185,7 @@ function heal(options = {}) {
 function main() {
   const receipt = heal({
     repair: !process.argv.includes('--check-only'),
-    probeNetwork: process.argv.includes('--probe-network'),
+    probeNetwork: !process.argv.includes('--skip-network'),
   });
   process.stdout.write(`${JSON.stringify(receipt, null, 2)}\n`);
   process.exitCode = receipt.healthy ? 0 : 1;

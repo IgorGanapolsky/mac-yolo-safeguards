@@ -40,6 +40,7 @@ install_local_files() {
   mkdir -p "$HOME/.hermes/grok45/tools" "$HOME/.local/bin"
   install -m 0755 "$ROOT/grok-yolo-wrapper.js" "$HOME/.hermes/grok45/grok-yolo-wrapper.js"
   install -m 0755 "$ROOT/hermes-yolo-wrapper.js" "$HOME/.hermes/hermes-yolo-wrapper.js"
+  install -m 0755 "$ROOT/tools/hermes-capability-heal.js" "$HOME/.hermes/grok45/tools/hermes-capability-heal.js"
   install -m 0755 "$ROOT/tools/hermes-grok45-harness.js" "$HOME/.hermes/grok45/tools/hermes-grok45-harness.js"
   install -m 0755 "$ROOT/tools/hermes-economic-router.js" "$HOME/.hermes/grok45/tools/hermes-economic-router.js"
   install -m 0755 "$ROOT/tools/hermes-harness-eval.js" "$HOME/.hermes/grok45/tools/hermes-harness-eval.js"
@@ -47,6 +48,7 @@ install_local_files() {
   install -m 0755 "$ROOT/tools/hermes-parallel-search.js" "$HOME/.hermes/grok45/tools/hermes-parallel-search.js"
   ln -sfn "$HOME/.hermes/grok45/grok-yolo-wrapper.js" "$HOME/.local/bin/grok-yolo"
   ln -sfn "$HOME/.hermes/hermes-yolo-wrapper.js" "$HOME/.local/bin/hermes-yolo"
+  ln -sfn "$HOME/.hermes/grok45/tools/hermes-capability-heal.js" "$HOME/.local/bin/hermes-capability-heal"
   ln -sfn "$HOME/.hermes/grok45/tools/hermes-grok45-harness.js" "$HOME/.local/bin/hermes-grok45"
   ln -sfn "$HOME/.hermes/grok45/tools/hermes-economic-router.js" "$HOME/.local/bin/hermes-economic-router"
   ln -sfn "$HOME/.hermes/grok45/tools/hermes-harness-eval.js" "$HOME/.local/bin/hermes-harness-eval"
@@ -70,12 +72,23 @@ install_remote_files() {
   ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" 'mkdir -p "$HOME/.hermes/grok45/tools" "$HOME/.local/bin"'
   rsync -a "$ROOT/grok-yolo-wrapper.js" "$host:~/.hermes/grok45/grok-yolo-wrapper.js"
   rsync -a "$ROOT/hermes-yolo-wrapper.js" "$host:~/.hermes/hermes-yolo-wrapper.js"
+  rsync -a "$ROOT/tools/hermes-capability-heal.js" "$host:~/.hermes/grok45/tools/hermes-capability-heal.js"
   rsync -a "$ROOT/tools/hermes-grok45-harness.js" "$host:~/.hermes/grok45/tools/hermes-grok45-harness.js"
   rsync -a "$ROOT/tools/hermes-economic-router.js" "$host:~/.hermes/grok45/tools/hermes-economic-router.js"
   rsync -a "$ROOT/tools/hermes-harness-eval.js" "$host:~/.hermes/grok45/tools/hermes-harness-eval.js"
   rsync -a "$ROOT/tools/hermes-outcome-gate.js" "$host:~/.hermes/grok45/tools/hermes-outcome-gate.js"
   rsync -a "$ROOT/tools/hermes-parallel-search.js" "$host:~/.hermes/grok45/tools/hermes-parallel-search.js"
-  ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" 'chmod 0755 "$HOME/.hermes/grok45/grok-yolo-wrapper.js" "$HOME/.hermes/hermes-yolo-wrapper.js" "$HOME/.hermes/grok45/tools/hermes-grok45-harness.js" "$HOME/.hermes/grok45/tools/hermes-economic-router.js" "$HOME/.hermes/grok45/tools/hermes-harness-eval.js" "$HOME/.hermes/grok45/tools/hermes-outcome-gate.js" "$HOME/.hermes/grok45/tools/hermes-parallel-search.js"; ln -sfn "$HOME/.hermes/grok45/grok-yolo-wrapper.js" "$HOME/.local/bin/grok-yolo"; ln -sfn "$HOME/.hermes/hermes-yolo-wrapper.js" "$HOME/.local/bin/hermes-yolo"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-grok45-harness.js" "$HOME/.local/bin/hermes-grok45"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-economic-router.js" "$HOME/.local/bin/hermes-economic-router"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-harness-eval.js" "$HOME/.local/bin/hermes-harness-eval"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-outcome-gate.js" "$HOME/.local/bin/hermes-outcome-gate"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-parallel-search.js" "$HOME/.local/bin/hermes-parallel-search"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-parallel-search.js" "$HOME/.local/bin/hermes-search-turbo"'
+  ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" 'chmod 0755 "$HOME/.hermes/grok45/grok-yolo-wrapper.js" "$HOME/.hermes/hermes-yolo-wrapper.js" "$HOME/.hermes/grok45/tools/hermes-capability-heal.js" "$HOME/.hermes/grok45/tools/hermes-grok45-harness.js" "$HOME/.hermes/grok45/tools/hermes-economic-router.js" "$HOME/.hermes/grok45/tools/hermes-harness-eval.js" "$HOME/.hermes/grok45/tools/hermes-outcome-gate.js" "$HOME/.hermes/grok45/tools/hermes-parallel-search.js"; ln -sfn "$HOME/.hermes/grok45/grok-yolo-wrapper.js" "$HOME/.local/bin/grok-yolo"; ln -sfn "$HOME/.hermes/hermes-yolo-wrapper.js" "$HOME/.local/bin/hermes-yolo"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-capability-heal.js" "$HOME/.local/bin/hermes-capability-heal"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-grok45-harness.js" "$HOME/.local/bin/hermes-grok45"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-economic-router.js" "$HOME/.local/bin/hermes-economic-router"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-harness-eval.js" "$HOME/.local/bin/hermes-harness-eval"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-outcome-gate.js" "$HOME/.local/bin/hermes-outcome-gate"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-parallel-search.js" "$HOME/.local/bin/hermes-parallel-search"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-parallel-search.js" "$HOME/.local/bin/hermes-search-turbo"'
+}
+
+heal_local_capabilities() {
+  HERMES_YOLO_WRAPPER="$HOME/.hermes/hermes-yolo-wrapper.js" \
+    "$HOME/.local/bin/hermes-capability-heal"
+}
+
+heal_remote_capabilities() {
+  local host="$1"
+  ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" 'HERMES_YOLO_WRAPPER="$HOME/.hermes/hermes-yolo-wrapper.js" "$HOME/.local/bin/hermes-capability-heal"'
 }
 
 update_remote_grok() {
@@ -95,12 +108,14 @@ doctor_remote() {
 }
 
 install_local_files
+heal_local_capabilities
 if ((UPDATE_GROK)); then
   update_local_grok
 fi
 
 if ((INSTALL_REMOTE)); then
   install_remote_files "$REMOTE_HOST"
+  heal_remote_capabilities "$REMOTE_HOST"
   if ((UPDATE_GROK)); then
     update_remote_grok "$REMOTE_HOST"
   fi

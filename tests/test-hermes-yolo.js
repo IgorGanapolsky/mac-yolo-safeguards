@@ -31,10 +31,16 @@ const {
   HERMES_COMMANDS,
   DEFAULT_READY_PROMPT,
   DEFAULT_TOOLSETS,
+  normalizeToolsets,
 } = require(WRAPPER_PATH);
 
 assert.ok(DEFAULT_TOOLSETS.split(',').includes('skills'), 'default launcher must expose installed skills');
 assert.ok(DEFAULT_TOOLSETS.split(',').includes('context7'), 'default launcher must expose enabled Context7 MCP');
+assert.deepStrictEqual(
+  normalizeToolsets('terminal,file,terminal'),
+  'terminal,file,skills,context7',
+  'environment overrides must retain the essential dynamic capabilities',
+);
 
 console.log('Testing quota-independent default backend routing...');
 assert.strictEqual(shouldUseGrokBackend([], {}), false);
