@@ -70,7 +70,6 @@ export function resolveLeashThumbGatePromoSurface(input: {
   pendingApprovalsCount: number;
   hasThumbGateCompanion?: boolean;
 }): ThumbGatePromoSurface | null {
-  // Users who already have ThumbGate.app should not see absence/install theater.
   if (input.hasThumbGateCompanion) {
     return null;
   }
@@ -88,7 +87,6 @@ export function shouldShowThumbGatePromoOnConnectionPanel(input: {
   profileCount: number;
   healExhausted: boolean;
   activeProfileReachable: boolean;
-  /** True when phone already has ThumbGate.app companion credential / entitlement signal. */
   hasThumbGateCompanion?: boolean;
 }): boolean {
   if (input.hasThumbGateCompanion) {
