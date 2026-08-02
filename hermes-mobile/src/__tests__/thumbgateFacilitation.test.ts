@@ -6,6 +6,10 @@ import {
   shouldFacilitateThumbGateInstall,
   thumbGateFacilitationSteps,
 } from '../utils/thumbgateFacilitation';
+import {
+  shouldShowThumbGatePromoOnConnectionPanel,
+  resolveLeashThumbGatePromoSurface,
+} from '../utils/thumbgatePromoCopy';
 
 describe('thumbgateFacilitation (Herdr-style absence path)', () => {
   it('uses the same one-line connector install as the web dashboard', () => {
@@ -71,5 +75,29 @@ describe('thumbgateFacilitation (Herdr-style absence path)', () => {
       false,
     );
     expect(pairDeepLinkIncludesThumbGate(null)).toBe(false);
+  });
+});
+
+describe('promo gates on companion presence', () => {
+  it('hides connection panel promo when companion credential exists', () => {
+    expect(
+      shouldShowThumbGatePromoOnConnectionPanel({
+        connectionState: 'disconnected',
+        profileCount: 0,
+        healExhausted: true,
+        activeProfileReachable: false,
+        hasThumbGateCompanion: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('hides leash absence promo when companion credential exists', () => {
+    expect(
+      resolveLeashThumbGatePromoSurface({
+        connectionState: 'connected',
+        pendingApprovalsCount: 0,
+        hasThumbGateCompanion: true,
+      }),
+    ).toBeNull();
   });
 });

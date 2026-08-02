@@ -96,6 +96,8 @@ describe('ApprovalsScreen', () => {
   });
 
   it('shows empty state when no pending approvals', () => {
+    // Absence promo only when companion credential is not on the phone.
+    useGateway.mockReturnValue(mockUseGateway({ thumbgateApiKey: '' }));
     const { getByText, getByTestId, queryByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByText('No pending approvals')).toBeTruthy();
     const body = getByTestId('leash-empty-body');
@@ -110,10 +112,22 @@ describe('ApprovalsScreen', () => {
     useGateway.mockReturnValue(
       mockUseGateway({
         connectionState: 'disconnected',
+        thumbgateApiKey: '',
       }),
     );
     const { getByTestId } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByTestId('thumbgate-promo-leash_disconnected')).toBeTruthy();
+  });
+
+  it('hides absence promo when ThumbGate companion key is already stored', () => {
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        connectionState: 'disconnected',
+        thumbgateApiKey: 'sk-thumbgate-present',
+      }),
+    );
+    const { queryByTestId } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    expect(queryByTestId('thumbgate-promo-leash_disconnected')).toBeNull();
   });
 
   it('collapses connection prose to one headline line when linked', () => {

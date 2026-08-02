@@ -64,7 +64,12 @@ export function thumbGatePromoCopy(surface: ThumbGatePromoSurface): ThumbGatePro
 export function resolveLeashThumbGatePromoSurface(input: {
   connectionState: 'disconnected' | 'connecting' | 'connected' | 'demo';
   pendingApprovalsCount: number;
+  hasThumbGateCompanion?: boolean;
 }): ThumbGatePromoSurface | null {
+  // Users who already have ThumbGate should not see "No ThumbGate.app yet?" install theater.
+  if (input.hasThumbGateCompanion) {
+    return null;
+  }
   if (input.connectionState === 'connected' || input.connectionState === 'demo') {
     return input.pendingApprovalsCount === 0 ? 'leash_empty' : null;
   }
@@ -79,7 +84,12 @@ export function shouldShowThumbGatePromoOnConnectionPanel(input: {
   profileCount: number;
   healExhausted: boolean;
   activeProfileReachable: boolean;
+  /** True when phone already has ThumbGate companion credential / entitlement signal. */
+  hasThumbGateCompanion?: boolean;
 }): boolean {
+  if (input.hasThumbGateCompanion) {
+    return false;
+  }
   if (input.connectionState === 'connected' || input.connectionState === 'demo') {
     return false;
   }

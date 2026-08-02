@@ -67,7 +67,10 @@ curl -sf -m 3 http://127.0.0.1:8642/health | jq .
 curl -sf -m 3 http://127.0.0.1:8642/v1/capabilities | jq '.features | {thumbgate_leash, thumbgate_pro_active, approvals}'
 
 # Pair deep link — ThumbGate key present only after provisioned
-curl -sf -m 3 http://127.0.0.1:8765/pair.json | jq -r '.deepLink' | grep -q 'thumbgate=' && echo PRESENT || echo ABSENT
+# Note: secretless pairCode deep links may omit thumbgate= even when provisioned;
+# the key is in the one-time exchange payload. Prefer phone secure store / agent
+# re-pair after signup, or check local ThumbGate license — not deepLink alone.
+curl -sf -m 3 http://127.0.0.1:8765/pair.json | jq -r '.deepLink' | grep -q 'thumbgate=' && echo DEEPLINK_HAS_KEY || echo DEEPLINK_NO_KEY_MAY_STILL_BE_PROVISIONED
 ```
 
 Helpers (unit-tested):
