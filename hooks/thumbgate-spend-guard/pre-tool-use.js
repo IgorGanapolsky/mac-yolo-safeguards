@@ -31,7 +31,11 @@ const DIRECT_TOOL_RULES = [
   },
   {
     id: 'payment_mutation_tool',
-    re: /payment[_-]?(?:method|intent).*(?:create|attach|confirm|submit)|(?:create|attach|confirm|submit).*payment[_-]?(?:method|intent)/i,
+    re: /payment[_-]?(?:methods?|intents?).*(?:create|attach|capture|confirm|submit)|(?:create|attach|capture|confirm|submit).*payment[_-]?(?:methods?|intents?)/i,
+  },
+  {
+    id: 'money_movement_tool',
+    re: /(?:refunds?|charges?).*(?:create|capture|confirm|submit)|(?:create|capture|confirm|submit).*(?:refunds?|charges?)/i,
   },
   {
     id: 'billing_mutation_tool',
@@ -41,11 +45,11 @@ const DIRECT_TOOL_RULES = [
 ];
 
 const FINANCIAL_OBJECT =
-  /\b(?:annual|monthly|paid)\s+(?:plan|seat)|\b(?:billing|checkout|invoice|payment\s*method|subscription|credits?|credit\s*pack|paid\s*tier|pricing\s*tier)\b|\b(?:basic|professional|organization)\s+(?:plan|seat|tier)\b|[$€£]\s*\d/i;
+  /\b(?:annual|monthly|paid)\s+(?:plan|seat)|\b(?:billing|checkout\s+(?:page|session)|charges?|invoice|payment\s*(?:intents?|methods?)|refunds?|subscription|credits?|credit\s*pack|paid\s*tier|pricing\s*tier)\b|\b(?:basic|professional|organization)\s+(?:plan|seat|tier)\b|[$€£]\s*\d/i;
 const MUTATION_ACTION =
   /\b(?:buy|purchase|upgrade|subscribe|activate|checkout|pay|charge|confirm|submit|create|attach|change|update|switch|cancel|refund|post|put|patch|delete)\b/i;
 const DIRECT_CHECKOUT_PATH =
-  /(?:\/|\b)(?:checkout|purchase|upgrade|subscribe)(?:\/|\?|\b)|billing\/(?:activate|change|checkout|subscribe|upgrade)/i;
+  /(?:https?:\/\/[^\s"']*|(?:^|[\s"']))\/(?:checkout|purchase|upgrade|subscribe)(?:\/|\?|$)|(?:https?:\/\/[^\s"']*|(?:^|[\s"']))\/?billing\/(?:activate|change|checkout|subscribe|upgrade)(?:\/|\?|$)/i;
 const PROTECTED_GUARD_PATH =
   /(?:^|[\s"'])(?:~\/|\$(?:HOME|\{HOME\})["']?\/|\/Users\/[^/\s"']+\/)?\.(?:thumbgate\/bin\/thumbgate-spend-guard\.js|claude\/settings\.json)(?:$|[\s"'])/i;
 

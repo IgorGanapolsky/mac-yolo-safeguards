@@ -24,6 +24,10 @@ const allowCases = [
   ['Read', { file_path: '~/.claude/settings.json' }],
   ['read_file', { file_path: '/Users/test/.claude/settings.json' }],
   ['Read', { file_path: '/tmp/apollo-pricing-notes.md' }],
+  ['Bash', { command: 'git checkout main' }],
+  ['Bash', { command: 'git checkout -- README.md' }],
+  ['Bash', { command: 'rg checkout docs/' }],
+  ['Bash', { command: 'curl https://api.stripe.com/v1/payment_intents/pi_test' }],
 ];
 for (const [toolName, toolInput] of allowCases) {
   assert.strictEqual(
@@ -38,6 +42,9 @@ const denyCases = [
   ['mcp__codex_apps__apollo_io_apollo_email_account_purchase_index', { count: 1 }],
   ['mcp__stripe__checkout_session_create', { amount: 58800 }],
   ['mcp__stripe__invoice_pay', { invoice_id: 'invoice_test' }],
+  ['mcp__stripe__refund_create', { charge_id: 'charge_test' }],
+  ['mcp__stripe__charge_create', { amount: 58800 }],
+  ['mcp__stripe__payment_intent_confirm', { payment_intent_id: 'pi_test' }],
   ['mcp__apollo__subscription_update', { plan: 'basic', cadence: 'annual' }],
   ['confirm_cost', { amount: 588 }],
   ['Bash', { command: 'apollo upgrade --plan basic --annual --amount $588' }],
@@ -48,6 +55,7 @@ const denyCases = [
   ['mcp__browser__type', { action: 'type', text: 'card data is never logged' }],
   ['Bash', { command: 'billing subscription cancel --id sub_123' }],
   ['Bash', { command: 'curl -X POST https://api.example.com/billing/subscription' }],
+  ['Bash', { command: 'curl -X POST https://api.stripe.com/v1/payment_intents/pi_test/confirm' }],
   ['Bash', { command: 'rm "$HOME/.thumbgate/bin/thumbgate-spend-guard.js"' }],
   ['Bash', { command: 'printf "{}" > ~/.claude/settings.json' }],
   ['Edit', { file_path: '/Users/test/.claude/settings.json', new_string: '{}' }],
@@ -83,7 +91,16 @@ fs.writeFileSync(
   JSON.stringify({
     hooks: {
       SessionStart: [{ hooks: [{ type: 'command', command: 'node existing-session-hook.js' }] }],
-      PreToolUse: [{ matcher: 'Read', hooks: [{ type: 'command', command: 'node existing-read-hook.js' }] }],
+      PreToolUse: [
+        { matcher: 'Read', hooks: [{ type: 'command', command: 'node existing-read-hook.js' }] },
+        {
+          matcher: '.*',
+          hooks: [
+            { type: 'command', command: 'node /old/thumbgate-spend-guard.js' },
+            { type: 'command', command: 'node sibling-audit-hook.js' },
+          ],
+        },
+      ],
     },
   }),
 );
@@ -93,10 +110,16 @@ const installedSettings = JSON.parse(
   fs.readFileSync(path.join(tempHome, '.claude', 'settings.json'), 'utf8'),
 );
 assert.strictEqual(installedSettings.hooks.SessionStart.length, 1);
-assert.strictEqual(installedSettings.hooks.PreToolUse.length, 2);
+assert.strictEqual(installedSettings.hooks.PreToolUse.length, 3);
 assert.strictEqual(
   installedSettings.hooks.PreToolUse.filter((entry) =>
     JSON.stringify(entry).includes('thumbgate-spend-guard.js'),
+  ).length,
+  1,
+);
+assert.strictEqual(
+  installedSettings.hooks.PreToolUse.filter((entry) =>
+    JSON.stringify(entry).includes('sibling-audit-hook.js'),
   ).length,
   1,
 );

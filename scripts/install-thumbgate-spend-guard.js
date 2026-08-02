@@ -25,9 +25,15 @@ function installSpendGuard(home = process.env.HOME || os.homedir()) {
   }
   settings.hooks = settings.hooks && typeof settings.hooks === 'object' ? settings.hooks : {};
   const existing = Array.isArray(settings.hooks.PreToolUse) ? settings.hooks.PreToolUse : [];
-  const withoutOldGuard = existing.filter(
-    (entry) => !JSON.stringify(entry).includes(COMMAND_MARKER),
-  );
+  const withoutOldGuard = existing
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object' || !Array.isArray(entry.hooks)) return entry;
+      const hooks = entry.hooks.filter(
+        (hook) => !JSON.stringify(hook).includes(COMMAND_MARKER),
+      );
+      return hooks.length > 0 ? { ...entry, hooks } : null;
+    })
+    .filter(Boolean);
   withoutOldGuard.push({
     matcher: '.*',
     hooks: [
