@@ -761,4 +761,14 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(display.machineLabel).not.toMatch(/100\.94\.135\.78/);
     expect(display.machineEndpoint).toBe('Tailscale');
   });
+
+  it('S52: ThumbGate web URLs must point directly to /dashboard and never include #pricing (2026-08-03)', () => {
+    const promoCopy = read('hermes-mobile/src/utils/thumbgatePromoCopy.ts');
+    const monetization = read('hermes-mobile/src/constants/monetization.ts');
+
+    expect(promoCopy).toContain('https://thumbgate.app/dashboard');
+    expect(promoCopy).not.toContain('#pricing');
+    expect(monetization).toContain('https://thumbgate.app/dashboard');
+    expect(monetization).not.toContain('#pricing');
+  });
 });
