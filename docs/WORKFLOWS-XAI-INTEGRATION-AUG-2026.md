@@ -148,11 +148,19 @@ node tools/linear-agent-bridge.js --done AGENT-N --agent grok --comment "…"
 |--------------|-----|------|----------|
 | `linear-fleet-triage` | Open Linear + locks → top-10 actions | read-only + shell | **P0** |
 | `adversarial-pr-review` | PR features → reviewers → skeptics → report | read-only | **P0** |
-| `ship-claim-audit` | Batch-verify LIVE/ship claims with evidence | read-only + shell | P1 |
-| `megafile-risk-scan` | Diff vs MEGAFILES list + plan.md ownership | read-only | P1 |
-| `rag-gap-harvest` | Find missing lessons / eval cases | read-only | P2 |
+| `ship-claim-audit` | Batch-verify LIVE/ship claims with evidence | execute + verify | **P0** |
+| `megafile-risk-scan` | Diff vs MEGAFILES + plan.md ownership | execute + verify | **P0** |
+| `rag-gap-harvest` | Missing lessons / eval coverage gaps | execute + verify | **P1** |
 
-Scripts live under [`.grok/workflows/`](../.grok/workflows/).
+**Deterministic companions (unit-tested):**
+
+| Tool | Job |
+|------|-----|
+| `tools/megafile-risk-scan.js` | Path vs MEGAFILES + decision cite |
+| `tools/ship-claim-batch.js` | Multi-claim honesty gate |
+| `tools/workflow-preflight.js` | Catalog + static Rhai checks + self-tests |
+
+Scripts: [`.grok/workflows/`](../.grok/workflows/). Preflight: `node tools/workflow-preflight.js`.
 
 ---
 
@@ -171,11 +179,12 @@ Research lease defaults (15m claim) still apply **outside** the workflow journal
 
 ## AcceptanceCheck for “Workflows integrated”
 
-1. At least two named scripts in `.grok/workflows/` with `validate_only` smoke-check documented.  
-2. Protocol doc links Workflows ≠ Linear locks.  
-3. Write workflows either use `isolation_worktree` or refuse multi-file writes without a Linear claim note in the parent prompt.  
-4. Prefer Node gates for binary facts; Workflows for multi-finding judgment.  
-5. CEO can run `/linear-fleet-triage` or `/adversarial-pr-review` without re-prompting the architecture.
+1. Five named scripts in `.grok/workflows/` (triage, pr-review, ship-audit, megafile, rag-gap).  
+2. `node tools/workflow-preflight.js` exit 0 (catalog + self-tests + megafile smoke).  
+3. `validate_only` smoke-check passes for each workflow.  
+4. Protocol doc links Workflows ≠ Linear locks.  
+5. Prefer Node gates for binary facts; Workflows for multi-finding judgment.  
+6. Session-start prints workflow names when `.grok/workflows/` exists.
 
 ---
 

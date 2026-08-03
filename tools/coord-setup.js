@@ -302,6 +302,7 @@ async function main() {
   console.log('\nNext:');
   console.log('  node tools/linear-agent-bridge.js --coord-status');
   console.log('  node tools/linear-agent-bridge.js --scrub-stale');
+  console.log('  node tools/workflow-preflight.js');
   console.log('  node tools/coord-setup.js --sync-obsidian');
 }
 

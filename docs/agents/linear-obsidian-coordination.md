@@ -76,5 +76,6 @@ Auth: env / `~/.config/linear/api_key` / Keychain `LINEAR_API_KEY` — bridge pr
 | **Linear + vault** | Inter-agent fleet ownership (Claude/Codex/Cursor/Hermes/Grok) |
 | **plan.md + worktrees** | Code exclusivity |
 
-Saved scripts: `.grok/workflows/linear-fleet-triage.rhai`, `adversarial-pr-review.rhai`.  
+Saved scripts: `linear-fleet-triage`, `adversarial-pr-review`, `ship-claim-audit`, `megafile-risk-scan`, `rag-gap-harvest` under `.grok/workflows/`.
+Preflight: `node tools/workflow-preflight.js`.  
 Full map: [docs/WORKFLOWS-XAI-INTEGRATION-AUG-2026.md](../WORKFLOWS-XAI-INTEGRATION-AUG-2026.md).

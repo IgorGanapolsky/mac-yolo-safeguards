@@ -256,6 +256,26 @@ function printLinearFleetSnapshot() {
 }
 const linearSnap = printLinearFleetSnapshot();
 
+// High-ROI Grok Build workflows (intra-Grok fan-out; Linear still owns fleet locks)
+(function printWorkflowHint() {
+  try {
+    const wfDir = path.join(REPO, '.grok', 'workflows');
+    if (!fs.existsSync(wfDir)) return;
+    const names = fs
+      .readdirSync(wfDir)
+      .filter((f) => f.endsWith('.rhai'))
+      .map((f) => f.replace(/\.rhai$/, ''));
+    if (!names.length || json) return;
+    process.stdout.write('\n=== Grok workflows (high-ROI) ===\n');
+    process.stdout.write(`  ${names.join(', ')}\n`);
+    process.stdout.write('  preflight: node tools/workflow-preflight.js\n');
+    process.stdout.write('  Linear locks still: node tools/linear-agent-bridge.js --coord-status\n');
+  } catch {
+    /* non-fatal */
+  }
+})();
+
+
 const verify = runBash('scripts/verify-agent-automations.sh', 20_000);
 if (!json) {
   if (verify.stdout) process.stdout.write(verify.stdout);
