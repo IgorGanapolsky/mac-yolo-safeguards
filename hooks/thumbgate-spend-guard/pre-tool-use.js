@@ -47,7 +47,9 @@ const DIRECT_TOOL_RULES = [
 const FINANCIAL_OBJECT =
   /\b(?:annual|monthly|paid)\s+(?:plan|seat)|\b(?:billing|checkout\s+(?:page|session)|charges?|invoice|payment\s*(?:intents?|methods?)|refunds?|subscription|credits?|credit\s*pack|paid\s*tier|pricing\s*tier)\b|\b(?:basic|professional|organization)\s+(?:plan|seat|tier)\b|[$€£]\s*\d/i;
 const MUTATION_ACTION =
-  /\b(?:buy|purchase|upgrade|subscribe|activate|checkout|pay|charge|confirm|submit|create|attach|change|update|switch|cancel|refund|post|put|patch|delete)\b/i;
+  /\b(?:buy|purchase|upgrade|subscribe|activate|checkout|pay|confirm|submit|create|attach|change|update|switch|cancel|post|put|patch|delete)\b/i;
+const CURL_IMPLICIT_MUTATION =
+  /(?:^|\s)(?:-d(?:\s|=|["'@{\[]|[A-Za-z0-9])|--data(?:-ascii|-binary|-raw|-urlencode)?(?:\s|=)|--json(?:\s|=)|-F(?:\s|=|[A-Za-z0-9])|--form(?:-string)?(?:\s|=)|-T(?:\s|=|[A-Za-z0-9./~])|--upload-file(?:\s|=))/i;
 const DIRECT_CHECKOUT_PATH =
   /(?:https?:\/\/[^\s"']*|(?:^|[\s"']))\/(?:checkout|purchase|upgrade|subscribe)(?:\/|\?|$)|(?:https?:\/\/[^\s"']*|(?:^|[\s"']))\/?billing\/(?:activate|change|checkout|subscribe|upgrade)(?:\/|\?|$)/i;
 const PROTECTED_GUARD_PATH =
@@ -81,7 +83,8 @@ function evaluateSpend(toolName, toolInput) {
 
   const combined = `${name} ${text}`;
   const semantic = normalizeForMatching(combined);
-  const isReadOnlyTool = /^(?:read|read file)$/i.test(normalizeForMatching(name).trim());
+  const normalizedName = normalizeForMatching(name).trim();
+  const isReadOnlyTool = /^(?:read|read file)$/i.test(normalizedName);
   if (PROTECTED_GUARD_PATH.test(text) && !isReadOnlyTool) {
     return { decision: 'deny', ruleId: 'guard_tampering', reason: DENY_REASON };
   }
@@ -93,7 +96,21 @@ function evaluateSpend(toolName, toolInput) {
     return { decision: 'deny', ruleId: 'unverifiable_interactive_ui', reason: DENY_REASON };
   }
 
-  if (MUTATION_ACTION.test(semantic) && FINANCIAL_OBJECT.test(semantic)) {
+  const isCommandExecution =
+    /\b(?:bash|shell|terminal|exec|exec command|run command|command)\b/i.test(normalizedName);
+  const isStructuredFinancialTool =
+    /\b(?:apollo|billing|charge|checkout|credit|invoice|payment|refund|stripe|subscription)\b/i.test(
+      normalizedName,
+    );
+  const hasMutationAction =
+    MUTATION_ACTION.test(semantic) ||
+    (isCommandExecution && /\bcurl\b/i.test(semantic) && CURL_IMPLICIT_MUTATION.test(text));
+
+  if (
+    (isCommandExecution || isStructuredFinancialTool) &&
+    hasMutationAction &&
+    FINANCIAL_OBJECT.test(semantic)
+  ) {
     return { decision: 'deny', ruleId: 'financial_action_and_object', reason: DENY_REASON };
   }
 
