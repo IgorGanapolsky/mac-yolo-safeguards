@@ -15,10 +15,9 @@
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { rewriteQuery } = require('./retrieval-query-rewrite');
-const { rrfFuse } = require('./retrieval-dual-path');
+const { rrfFuse, DEFAULT_K: RRF_K } = require('./retrieval-rrf');
 
 const REPO = path.resolve(__dirname, '..');
-const RRF_K = 60;
 
 /** Deterministic paraphrase templates — no LLM. */
 const TEMPLATES = [
@@ -38,6 +37,8 @@ function parseArgs(argv) {
     maxVariants: 5,
     perQueryLimit: 12,
     noRewrite: false,
+    pathInclude: [],
+    pathExclude: [],
   };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -47,10 +48,19 @@ function parseArgs(argv) {
     else if (a === '--llm') args.llm = true;
     else if (a === '--max-variants') args.maxVariants = Number(argv[++i] || 5);
     else if (a === '--no-rewrite') args.noRewrite = true;
+    else if (a === '--path-include') args.pathInclude = String(argv[++i] || '').split(',').filter(Boolean);
+    else if (a === '--path-exclude') args.pathExclude = String(argv[++i] || '').split(',').filter(Boolean);
     else if (a === '--help') args.help = true;
     else throw new Error(`Unknown ${a}`);
   }
   return args;
+}
+
+function pathAllowed(p, include, exclude) {
+  const norm = String(p || '').replace(/\\/g, '/');
+  if ((exclude || []).some((ex) => norm.includes(ex))) return false;
+  if (!(include || []).length) return true;
+  return include.some((inc) => norm.includes(inc));
 }
 
 function uniqueQueries(list) {
@@ -123,26 +133,35 @@ function llmParaphrases(query, n = 2) {
   }
 }
 
-function runDualOnce(query, limit) {
+function runDualOnce(query, limit, options = {}) {
   const dual = path.join(REPO, 'tools', 'retrieval-dual-path.js');
-  const r = spawnSync(
-    process.execPath,
-    [
-      dual,
-      '--query',
-      query,
-      '--limit',
-      String(limit),
-      '--candidate-pool',
-      String(Math.max(limit, 15)),
-      '--no-rerank',
-      '--no-multi-query', // prevent recursive multi-query fan-out
-      '--json',
-    ],
-    { cwd: REPO, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 120000 },
-  );
-  // dual-path always rewrites by default; pass --no-rewrite only if we already expanded
-  // We re-invoke with rewrite left on for synonym benefit on templates.
+  const args = [
+    dual,
+    '--query',
+    query,
+    '--limit',
+    String(limit),
+    '--candidate-pool',
+    String(Math.max(limit, 15)),
+    '--no-rerank',
+    '--no-multi-query', // prevent recursive multi-query fan-out
+    '--json',
+  ];
+  if (options.pathInclude?.length) {
+    args.push('--path-include', options.pathInclude.join(','));
+  }
+  if (options.pathExclude?.length) {
+    args.push('--path-exclude', options.pathExclude.join(','));
+  }
+  if (options.repo) {
+    args.push('--repo', options.repo);
+  }
+  const r = spawnSync(process.execPath, args, {
+    cwd: REPO,
+    encoding: 'utf8',
+    maxBuffer: 8 * 1024 * 1024,
+    timeout: 120000,
+  });
   if (r.status !== 0) {
     return { ok: false, matches: [], error: (r.stderr || r.stdout || '').slice(0, 200) };
   }
@@ -177,10 +196,18 @@ async function multiQueryRetrieve(options = {}) {
     if (llm.ok) variants = uniqueQueries([...variants, ...llm.variants]).slice(0, maxVariants + 2);
   }
 
+  const include = options.pathInclude || [];
+  const exclude = options.pathExclude || [];
+  const childOpts = {
+    pathInclude: include,
+    pathExclude: exclude,
+    repo: options.repo,
+  };
+
   const lists = [];
   const perQuery = [];
   for (const v of variants) {
-    const run = runDualOnce(v, perQueryLimit);
+    const run = runDualOnce(v, perQueryLimit, childOpts);
     perQuery.push({
       query: v,
       ok: run.ok,
@@ -190,18 +217,23 @@ async function multiQueryRetrieve(options = {}) {
     });
     if (run.ok && run.matches?.length) {
       lists.push(
-        run.matches.map((m, i) => ({
-          path: m.path,
-          rank: i + 1,
-          source: `mq:${v.slice(0, 40)}`,
-          snippet: m.snippet,
-          rrfScore: m.rrfScore,
-        })),
+        run.matches
+          .filter((m) => pathAllowed(m.path, include, exclude))
+          .map((m, i) => ({
+            path: m.path,
+            rank: i + 1,
+            source: `mq:${v.slice(0, 40)}`,
+            snippet: m.snippet,
+            rrfScore: m.rrfScore,
+            harnessRank: m.harnessRank,
+          })),
       );
     }
   }
 
-  const fused = rrfFuse(lists, RRF_K).slice(0, limit);
+  const fused = rrfFuse(lists, { k: RRF_K, query: queryIn })
+    .filter((m) => pathAllowed(m.path, include, exclude))
+    .slice(0, limit);
   return {
     ok: lists.length > 0,
     query: queryIn,
@@ -211,6 +243,7 @@ async function multiQueryRetrieve(options = {}) {
     perQuery,
     fusion: 'rrf-multi-query',
     rrfK: RRF_K,
+    filters: { pathInclude: include, pathExclude: exclude },
     matches: fused,
   };
 }

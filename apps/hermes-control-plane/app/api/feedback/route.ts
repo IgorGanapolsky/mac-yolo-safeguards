@@ -3,6 +3,8 @@ import { audit } from "@/lib/audit";
 import { cleanFeedbackNote, cleanFeedbackSignal, cleanTaskIds } from "@/lib/feedback";
 import { db } from "@/lib/runtime";
 import { jsonError } from "@/lib/security";
+// A+ import: runtime schema validation
+import { validateRoute, RouteSchemas } from "@/lib/schema-validator";
 
 export async function GET(request: Request) {
   let session;
@@ -21,10 +23,16 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   let session;
   try { session = await requireSession(); } catch { return jsonError("sign in required", 401); }
-  const payload = await request.json().catch(() => null) as { taskId?: string; signal?: unknown; note?: unknown } | null;
-  const taskId = payload?.taskId?.trim().slice(0, 160);
-  const signal = cleanFeedbackSignal(payload?.signal);
-  const note = cleanFeedbackNote(payload?.note);
+  const rawPayload = await request.json().catch(() => null);
+  // A+ Structured Outputs: validate feedback payload
+  const validation = validateRoute(RouteSchemas.feedback, rawPayload);
+  if (!validation.ok) {
+    return jsonError(`invalid request: ${validation.errors.join('; ')}`, 400);
+  }
+  const payload = validation.value as { taskId: string; signal: unknown; note: unknown };
+  const taskId = payload.taskId.trim().slice(0, 160);
+  const signal = cleanFeedbackSignal(payload.signal);
+  const note = cleanFeedbackNote(payload.note);
   if (!taskId) return jsonError("taskId is required");
   if (!signal) return jsonError("signal must be up or down");
   const task = await db().prepare(

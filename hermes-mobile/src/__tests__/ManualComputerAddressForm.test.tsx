@@ -46,8 +46,10 @@ describe('ManualComputerAddressForm', () => {
         testIDPrefix="mac-picker-manual"
       />,
     );
-    expect(getByText('Paste your Mac’s Tailscale IP')).toBeTruthy();
-    expect(getByText(/On the Mac: Tailscale → copy 100\.x → paste → Connect/)).toBeTruthy();
+    expect(getByText('Paste Tailscale IP (100.x)')).toBeTruthy();
+    expect(
+      getByText(/On the computer: Tailscale → copy 100\.x → paste → Connect/),
+    ).toBeTruthy();
     expect(getByTestId('mac-picker-manual-input')).toBeTruthy();
     expect(getByTestId('mac-picker-manual-submit')).toBeTruthy();
     expect(getByTestId('mac-picker-manual-input-row')).toBeTruthy();
@@ -62,8 +64,10 @@ describe('ManualComputerAddressForm', () => {
         testIDPrefix="mac-picker-manual"
       />,
     );
-    expect(getByText('Paste your Mac’s Tailscale IP')).toBeTruthy();
-    expect(queryByText(/On the Mac: Tailscale → copy 100\.x → paste → Connect/)).toBeNull();
+    expect(getByText('Paste Tailscale IP (100.x)')).toBeTruthy();
+    expect(
+      queryByText(/On the computer: Tailscale → copy 100\.x → paste → Connect/),
+    ).toBeNull();
     expect(getByTestId('mac-picker-manual-input-row')).not.toHaveStyle({
       flexDirection: 'column',
     });

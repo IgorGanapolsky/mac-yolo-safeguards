@@ -46,6 +46,8 @@ On 2026-05-26 an iPhone 17 simulator was auto-booted (first by macOS window rest
 | `tools/hermes-grok45-harness.js` | `~/.local/bin/hermes-grok45` | Runs Grok 4.5 as a bounded independent Hermes verifier with auth, billing, evidence, and redacted receipts. |
 | `tools/hermes-harness-eval.js` | `~/.local/bin/hermes-harness-eval` | Mines prompt-free route/verifier traces into reliability, latency, fallback, and failure-cluster metrics plus an inspectable wiki. |
 | `tools/hermes-parallel-search.js` | `~/.local/bin/hermes-parallel-search`, `~/.local/bin/hermes-search-turbo` | Provides dry-run-first Parallel Turbo grounding with Keychain auth, explicit paid approval, cost/context caps, and basic/advanced escalation. |
+| `tools/agent-decision-stack.js` | repo-local | Gathers RAG/telemetry before non-trivial decisions. Includes a **semantic governance gate** that requires an explicit domain + measurable success metric, blocking vague imperatives and revenue claims without evidence. |
+| `tools/durable-agent-loop.js` | repo-local | Bounded, **idempotent, checkpointed, watchdog-guarded** agent loop. Inspired by DBOS Transact and streaming micro-batch pipelines: idempotency keys, durable JSONL state, failure-rate circuit breaker, and watchdog restart. |
 | `sim-runaway-guard.sh` | `~/.local/bin/` | Threshold-checking script. Shuts down booted simulators when simruntime processes exceed the hard ceiling, or when lower-count simulator pressure crosses load/memory thresholds. |
 | `com.igor.shutdown-simulators.plist` | `~/Library/LaunchAgents/` | LaunchAgent that runs the guard script every 60 seconds. |
 | `yolo-health` | `~/.local/bin/` | Health-check that verifies all safeguards are installed and active. Run anytime: `yolo-health` |
@@ -212,6 +214,16 @@ The LaunchAgent reads these from the environment when `sim-runaway-guard.sh` run
 | other | propagated from agy |
 
 ## Tests
+
+Run the Node.js unit tests from this directory:
+
+```sh
+node tests/test-agent-decision-stack.js
+node tests/test-durable-agent-loop.js
+node tests/test-revenue-autonomous-loop.js
+node tests/test-governed-agent-sales-copy.js
+node tests/test-hermes-retrieval-harness.js
+```
 
 The wrapper has a 5-test verification suite. To re-run from this directory:
 
