@@ -27,25 +27,24 @@ export function resolveConnectionHealthLabel(
   macHttpReachable = false,
 ): string {
   if (connectionState === 'demo') {
-    return 'Demo preview';
+    return 'Demo';
   }
   if (health?.authMismatch) {
-    return 'Needs re-pair';
+    return 'Re-pair';
   }
   if (macHttpReachable || health?.level === 'green') {
-    return 'Computer linked';
+    return 'Linked';
   }
   if (connectionState === 'connecting') {
-    // First-connect and reconnect share 'connecting' state — prefer honest copy.
-    return 'Connecting…';
+    return 'Checking';
   }
   if (health?.level === 'amber') {
-    return 'Degraded link';
+    return 'Degraded';
   }
   if (health?.level === 'red') {
-    return 'Computer unreachable';
+    return 'Offline';
   }
-  return 'Not linked';
+  return 'Offline';
 }
 
 export function buildAgentDashboardStats(input: {

@@ -14,7 +14,15 @@ export default function AgentDashboardStrip({ stats, activeRunLabel }: AgentDash
       <Text style={styles.title}>Agent dashboard</Text>
       <View style={styles.row}>
         <View style={styles.stat} testID="agent-dashboard-connection">
-          <Text style={styles.statValue} numberOfLines={1}>
+          <Text
+            style={[
+              styles.statValue,
+              stats.connectionLabel === 'Linked' && { color: colors.success },
+              (stats.connectionLabel === 'Offline' || stats.connectionLabel === 'Re-pair') && { color: colors.error },
+              (stats.connectionLabel === 'Checking' || stats.connectionLabel === 'Degraded') && { color: colors.warning },
+            ]}
+            numberOfLines={1}
+          >
             {stats.connectionLabel}
           </Text>
           <Text style={styles.statLabel}>Link</Text>

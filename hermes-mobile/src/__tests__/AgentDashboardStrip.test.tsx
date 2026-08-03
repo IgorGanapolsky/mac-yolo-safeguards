@@ -10,7 +10,7 @@ const baseStats: AgentDashboardStats = {
   cronJobCount: 2,
   activeCronCount: 1,
   gatewayModel: 'qwen3:8b-64k',
-  connectionLabel: 'Computer linked',
+  connectionLabel: 'Linked',
   hostname: 'Igors-Mac-mini.local',
 };
 

@@ -28,7 +28,7 @@ describe('agentDashboardStats', () => {
   it('labels green linked health', () => {
     expect(
       resolveConnectionHealthLabel('connected', { level: 'green', checkedAt: 'x' }, true),
-    ).toBe('Computer linked');
+    ).toBe('Linked');
   });
 
   it('labels auth mismatch', () => {
@@ -38,7 +38,7 @@ describe('agentDashboardStats', () => {
         checkedAt: 'x',
         authMismatch: true,
       }),
-    ).toBe('Needs re-pair');
+    ).toBe('Re-pair');
   });
 
   it('builds dashboard stats snapshot', () => {
@@ -56,7 +56,7 @@ describe('agentDashboardStats', () => {
     expect(stats.skillCount).toBe(1);
     expect(stats.cronJobCount).toBe(2);
     expect(stats.gatewayModel).toBe('qwen3:8b-64k');
-    expect(stats.connectionLabel).toBe('Computer linked');
+    expect(stats.connectionLabel).toBe('Linked');
     expect(stats.hostname).toBe('mini.local');
   });
 });
