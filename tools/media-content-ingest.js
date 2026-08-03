@@ -69,8 +69,15 @@ function run(command, args, options = {}) {
 }
 
 function commandExists(command) {
-  const result = run('sh', ['-c', 'command -v "$1"', 'sh', command], { timeout: 5000 });
-  return result.status === 0;
+  const base = path.basename(String(command || ''));
+  const home = require('os').homedir();
+  const candidates = [
+    path.join(home, '.local', 'bin', base),
+    path.join('/opt/homebrew/bin', base),
+    path.join('/usr/local/bin', base),
+    path.join('/usr/bin', base),
+  ];
+  return candidates.some((c) => fs.existsSync(c));
 }
 
 function safeName(input) {

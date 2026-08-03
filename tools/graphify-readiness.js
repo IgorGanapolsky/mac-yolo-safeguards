@@ -68,8 +68,27 @@ function run(command, args, options = {}) {
 }
 
 function commandPath(command) {
-  const result = run('sh', ['-c', 'command -v "$1"', 'sh', command]);
-  return result.status === 0 ? result.stdout.trim() : '';
+  // Fixed candidate paths only — no `sh -c command -v` (CodeQL
+  // js/shell-command-injection-from-environment on absolute paths).
+  const base = path.basename(String(command || ''));
+  if (!base || base !== String(command) && String(command).includes('/')) {
+    // If caller already passed absolute path, only accept allowlisted basenames.
+    const abs = path.resolve(String(command));
+    if (fs.existsSync(abs) && ['graphify', 'graphify.exe', 'node', 'node.exe'].includes(path.basename(abs))) {
+      return abs;
+    }
+  }
+  const home = os.homedir();
+  const candidates = [
+    path.join(home, '.local', 'bin', base),
+    path.join('/opt/homebrew/bin', base),
+    path.join('/usr/local/bin', base),
+    path.join('/usr/bin', base),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return '';
 }
 
 function graphifyPathForRepo(repo) {

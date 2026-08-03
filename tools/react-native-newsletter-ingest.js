@@ -186,14 +186,14 @@ function parseRssItems(xml, limit = 20) {
 }
 
 function extractJsonLdBlogPosting(html) {
-  const blocks = html.match(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script\s*>/gi) || [];
+  const blocks = html.match(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script\b[^>]*>/gi) || [];
   for (const block of blocks) {
     // Extract the inner JSON via a single capturing match instead of two
     // sequential .replace() calls that strip the open/close tags: stripping
     // in two passes can leave a match behind if removing one tag creates a
     // new "<...>" adjacency (incomplete multi-character sanitization), and a
     // direct capture sidesteps that class of bug entirely.
-    const raw = (block.match(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/i) || [])[1] || '';
+    const raw = (block.match(/<script\b[^>]*>([\s\S]*?)<\/script\b[^>]*>/i) || [])[1] || '';
     try {
       const data = JSON.parse(raw);
       if (data && data['@type'] === 'BlogPosting') {

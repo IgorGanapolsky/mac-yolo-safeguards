@@ -51,3 +51,12 @@ test('summarize counts', () => {
 });
 
 console.log('test-codeql-security-helpers: done');
+
+
+// CodeQL js/bad-tag-filter: end tags may be </script\t bar>
+{
+  const dirty = '<p>x</p><script>alert(1)</script\t bar>y';
+  const out = stripHtml(dirty);
+  assert.ok(!/alert\(1\)/.test(out), 'must strip script end tags with whitespace/attrs before >');
+  console.log('PASS stripHtml removes script with tab/attr before >');
+}

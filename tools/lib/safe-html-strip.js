@@ -1,12 +1,12 @@
 'use strict';
 
 /**
- * HTML → plain text with CodeQL-safe tag filters (js/bad-tag-filter, js/double-escaping).
- * Does not implement a full HTML parser; good enough for RSS/post body sniffing.
+ * HTML → plain text with CodeQL-safe tag filters (js/bad-tag-filter).
+ * Closing tags may include whitespace/attrs: </script >, </script\t bar>.
+ * Use \b[^>]* before > — not just \s* — so those forms match.
  */
 
 function decodeBasicEntities(s) {
-  // Single-pass entity decode: avoid &amp; → & → later double-use as entity opener.
   return String(s || '').replace(/&(#x?[0-9a-fA-F]+|nbsp|amp|lt|gt|quot|apos|#39);/g, (m, name) => {
     const n = String(name).toLowerCase();
     if (n === 'nbsp') return ' ';
@@ -29,11 +29,10 @@ function decodeBasicEntities(s) {
 
 function stripHtml(html) {
   let s = String(html || '');
-  // Remove script/style blocks — allow whitespace before closing >
-  s = s.replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, ' ');
-  s = s.replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, ' ');
-  s = s.replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript\s*>/gi, ' ');
-  // Orphan open/close tags (truncated feeds)
+  // Pair-match open+close with attribute-tolerant end tags (CodeQL bad-tag-filter).
+  s = s.replace(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi, ' ');
+  s = s.replace(/<style\b[^>]*>[\s\S]*?<\/style\b[^>]*>/gi, ' ');
+  s = s.replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript\b[^>]*>/gi, ' ');
   s = s.replace(/<\/?(?:script|style|noscript)\b[^>]*>/gi, ' ');
   s = s.replace(/<!--[\s\S]*?-->/g, ' ');
   s = s.replace(/<[^>]+>/g, ' ');
