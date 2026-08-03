@@ -172,25 +172,84 @@ function scoreStack(options = {}) {
   const evalPass = Boolean(evalJson && evalJson.ok && evalJson.passCount === evalJson.caseCount);
   const recall = Number(evalJson?.meanRecallAtK || 0);
   const ndcg = Number(evalJson?.meanNdcgAtK || 0);
+  const mrr = Number(evalJson?.meanMrrAtK || 0);
+  const prec = Number(evalJson?.meanPrecisionAtK || 0);
   // A-tier: perfect recall + strong ranking. A+ needs nDCG >= 0.93.
-  const evalHardOk = evalPass && recall >= 1 && ndcg >= 0.85;
-  const evalScore = !evalPass ? 0 : ndcg >= 0.97 ? 1 : ndcg >= 0.93 ? 0.97 : ndcg >= 0.85 ? 0.9 : 0.7;
+  // MRR/P@K reported; hard floors keep ranking quality honest without over-fitting P@K.
+  const evalHardOk = evalPass && recall >= 1 && ndcg >= 0.85 && mrr >= 0.5;
+  const evalScore = !evalPass
+    ? 0
+    : ndcg >= 0.97 && mrr >= 0.7
+      ? 1
+      : ndcg >= 0.93
+        ? 0.97
+        : ndcg >= 0.85
+          ? 0.9
+          : 0.7;
   gates.push({
     id: 'harness-eval',
     hard: true,
-    weight: 0.16,
+    weight: 0.12,
     ok: evalHardOk,
     detail: evalPass
-      ? `pass ${evalJson.passCount}/${evalJson.caseCount} recall=${recall} nDCG=${ndcg.toFixed(4)}`
+      ? `pass ${evalJson.passCount}/${evalJson.caseCount} R=${recall} MRR=${mrr.toFixed(4)} P@k=${prec.toFixed(4)} nDCG=${ndcg.toFixed(4)}`
       : `exit ${evalRun.status} ${(evalRun.stderr || evalRun.stdout || '').slice(0, 120)}`,
     score: evalScore,
   });
 
-  // 5) dual-path
+  // 4b) dual-path offline IR (production fuse path — no embed rerank for CI speed)
+  const dualEval = spawnSync(
+    process.execPath,
+    [path.join(REPO, 'tools', 'rag-retrieval-eval.js'), '--retriever', 'dual-path', '--json'],
+    { encoding: 'utf8', cwd: REPO, timeout: 180000, maxBuffer: 8 * 1024 * 1024 },
+  );
+  let dualEvalJson = null;
+  try {
+    dualEvalJson = JSON.parse(dualEval.stdout || '');
+  } catch {
+    dualEvalJson = null;
+  }
+  const dualPass = Boolean(dualEvalJson && dualEvalJson.ok);
+  const dualR = Number(dualEvalJson?.meanRecallAtK || 0);
+  const dualMrr = Number(dualEvalJson?.meanMrrAtK || 0);
+  const dualNdcg = Number(dualEvalJson?.meanNdcgAtK || 0);
+  // Floors from re-proof after weighted RRF (2026-08-01): target MRR≥0.85 nDCG≥0.90
+  const dualEvalOk = dualPass && dualR >= 1 && dualMrr >= 0.75 && dualNdcg >= 0.85;
+  const dualEvalScore = !dualPass
+    ? 0
+    : dualNdcg >= 0.93 && dualMrr >= 0.9
+      ? 1
+      : dualNdcg >= 0.9 && dualMrr >= 0.85
+        ? 0.97
+        : dualEvalOk
+          ? 0.9
+          : 0.5;
+  gates.push({
+    id: 'dual-path-eval',
+    hard: true,
+    weight: 0.1,
+    ok: dualEvalOk,
+    detail: dualPass
+      ? `pass ${dualEvalJson.passCount}/${dualEvalJson.caseCount} R=${dualR} MRR=${dualMrr.toFixed(4)} nDCG=${dualNdcg.toFixed(4)}`
+      : `exit ${dualEval.status} ${(dualEval.stderr || dualEval.stdout || '').slice(0, 120)}`,
+    score: dualEvalScore,
+  });
+
+  // 5) dual-path (+ second-stage rerank by default)
   const dual = runNode(
     'retrieval-dual-path.js',
-    ['--query', 'hermes cloud connector session recover', '--json', '--limit', '5'],
-    { timeout: 90000 },
+    [
+      '--query',
+      'hermes cloud connector session recover',
+      '--json',
+      '--limit',
+      '5',
+      '--candidate-pool',
+      '10',
+      '--rerank',
+      'ensemble',
+    ],
+    { timeout: 300000 },
   );
   const dualOk =
     dual.json &&
@@ -199,15 +258,33 @@ function scoreStack(options = {}) {
     dual.json.pathStatus.grepai === 'ok' &&
     Array.isArray(dual.json.matches) &&
     dual.json.matches.length > 0;
+  const rerankApplied = Boolean(dual.json?.rerank?.applied);
   gates.push({
     id: 'dual-path',
     hard: true,
-    weight: 0.1,
+    weight: 0.08,
     ok: dualOk,
     detail: dualOk
-      ? `top=${dual.json.matches[0].path}`
+      ? `top=${dual.json.matches[0].path} rerank=${dual.json.rerank?.strategy || 'none'} applied=${rerankApplied}`
       : JSON.stringify(dual.json?.pathStatus || dual.stderr || dual.stdout).slice(0, 200),
-    score: dualOk ? 1 : 0.2,
+    score: dualOk ? (rerankApplied ? 1 : 0.85) : 0.2,
+  });
+
+  // 5b) dedicated rerank stack (CE + ColBERT + LLM capability)
+  const rerankCard = runNode('rerank-stack-scorecard.js', ['--json', '--live'], { timeout: 300000 });
+  const rerankOk = Boolean(rerankCard.json && rerankCard.json.aPlus && rerankCard.json.tenTen);
+  gates.push({
+    id: 'rerank-stack',
+    hard: true,
+    weight: 0.12,
+    ok: rerankOk,
+    detail: rerankOk
+      ? `grade=${rerankCard.json.grade} ${rerankCard.json.scoreOutOf10}/10`
+      : JSON.stringify(rerankCard.json?.gates?.filter((g) => !g.ok) || rerankCard.stderr || rerankCard.stdout).slice(
+          0,
+          220,
+        ),
+    score: rerankOk ? 1 : Math.max(0, Number(rerankCard.json?.score) || 0),
   });
 
   // 6) harness headroom

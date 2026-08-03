@@ -27,6 +27,19 @@ describe("decideTaskRoute", () => {
     });
   });
 
+  it("cloud preference works with no paired computer (pure Continuity)", () => {
+    expect(decideTaskRoute({ preference: "cloud", device: null, now })).toEqual({
+      status: "cloud_pending",
+      route: "cloud",
+      preference: "cloud",
+    });
+  });
+
+  it("local/auto without a device stay blocked", () => {
+    expect(decideTaskRoute({ preference: "local", device: null, now }).route).toBe("blocked");
+    expect(decideTaskRoute({ preference: "auto", device: null, now }).route).toBe("blocked");
+  });
+
   it("local preference uses Mac when online and blocks when offline", () => {
     expect(decideTaskRoute({ preference: "local", device: onlineDevice, now }).route).toBe("local");
     expect(decideTaskRoute({ preference: "local", device: offlineDevice, now })).toEqual({

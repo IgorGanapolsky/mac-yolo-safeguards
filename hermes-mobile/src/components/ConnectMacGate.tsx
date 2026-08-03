@@ -17,7 +17,6 @@ import TailscaleDiscoveryBanner from './TailscaleDiscoveryBanner';
 import MacScanProgressCard from './MacScanProgressCard';
 import GatewayProfilePicker from './GatewayProfilePicker';
 import ManualComputerAddressForm from './ManualComputerAddressForm';
-import ThumbGatePromoCard from './ThumbGatePromoCard';
 import LoadingButton from './ui/LoadingButton';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import {
@@ -36,7 +35,11 @@ import {
   CONNECT_MAC_GATE_BODY_CELLULAR,
   CONNECT_MAC_GATE_BODY_WIFI,
   CONNECT_MAC_GATE_TITLE,
+  FIND_COMPUTERS_LABEL_CELLULAR,
+  FIND_COMPUTERS_LABEL_WIFI,
+  FIND_COMPUTERS_WIFI_HINT,
   GATE_SEARCHING_STATUS,
+  GATE_SEARCHING_STATUS_CELLULAR,
 } from '../utils/tailscalePasteIpCopy';
 import { haptics } from '../services/haptics';
 
@@ -184,26 +187,30 @@ export default function ConnectMacGate() {
   const contextBody = onCellular ? CONNECT_MAC_GATE_BODY_CELLULAR : CONNECT_MAC_GATE_BODY_WIFI;
   const hasTailscaleCandidates = tailscaleDiscoveries.length > 0;
 
-  const runWifiSearch = useCallback(async () => {
+  const runFindComputers = useCallback(async () => {
     setIsSearching(true);
     try {
-      // "Find computers" must search everywhere Hermes can reach a Mac, not just
-      // the phone's own Wi-Fi subnet. scanForGatewayProfiles is a LAN-only sweep
-      // (fast when actually on the same network as the Mac); its own background
-      // Tailscale follow-up is debounced/best-effort and silently no-ops when a
-      // probe already ran recently, so a tap here can otherwise report "None
-      // found yet" while away from home even though Tailscale can see the Mac.
-      // Run both concurrently and force the Tailscale probe so a tap always
-      // performs a fresh, non-debounced Tailscale-wide search.
-      await Promise.all([
-        scanForGatewayProfiles(),
-        probeTailscaleComputers({ showUi: true, force: true }),
-      ]);
+      // Product law: LAN scan only on Wi‑Fi (same network as Hermes). Cellular =
+      // Tailscale only — never pretend Wi‑Fi Find works off-network.
+      if (onCellular) {
+        await probeTailscaleComputers({ showUi: true, force: true });
+      } else {
+        // Wi‑Fi: LAN subnet sweep + forced Tailscale probe (home LAN + tailnet).
+        await Promise.all([
+          scanForGatewayProfiles(),
+          probeTailscaleComputers({ showUi: true, force: true }),
+        ]);
+      }
       await retryGatewayBootstrap();
     } finally {
       setIsSearching(false);
     }
-  }, [probeTailscaleComputers, retryGatewayBootstrap, scanForGatewayProfiles]);
+  }, [
+    onCellular,
+    probeTailscaleComputers,
+    retryGatewayBootstrap,
+    scanForGatewayProfiles,
+  ]);
 
   useEffect(() => {
     if (!showGate) {
@@ -217,10 +224,10 @@ export default function ConnectMacGate() {
       return;
     }
     const timer = setInterval(() => {
-      runWifiSearch();
+      void runFindComputers();
     }, AUTO_RETRY_MS);
     return () => clearInterval(timer);
-  }, [showGate, searching, runWifiSearch]);
+  }, [showGate, searching, runFindComputers]);
 
   useEffect(() => {
     if (!showGate) {
@@ -283,11 +290,9 @@ export default function ConnectMacGate() {
                 />
               </View>
 
-              <ThumbGatePromoCard surface="connection_unreachable" style={styles.promoSlot} />
-
               {showCompactScanStatus ? (
                 <Text style={styles.statusText} testID="connect-mac-scan-status">
-                  {GATE_SEARCHING_STATUS}
+                  {onCellular ? GATE_SEARCHING_STATUS_CELLULAR : GATE_SEARCHING_STATUS}
                 </Text>
               ) : null}
 
@@ -330,14 +335,23 @@ export default function ConnectMacGate() {
               {!hasTailscaleCandidates ? (
                 <View style={styles.secondaryRow}>
                   <LoadingButton
-                    label="Find computers"
-                    loadingLabel="Finding…"
+                    label={onCellular ? FIND_COMPUTERS_LABEL_CELLULAR : FIND_COMPUTERS_LABEL_WIFI}
+                    loadingLabel={onCellular ? 'Searching Tailscale…' : 'Finding…'}
                     loading={searching}
                     variant="secondary"
-                    onPress={() => runWifiSearch()}
+                    onPress={() => void runFindComputers()}
                     testID="connect-search-wifi"
                     style={styles.secondaryButton}
                   />
+                  {!onCellular ? (
+                    <Text style={styles.findHint} testID="connect-find-wifi-hint">
+                      {FIND_COMPUTERS_WIFI_HINT}
+                    </Text>
+                  ) : (
+                    <Text style={styles.findHint} testID="connect-find-cellular-hint">
+                      Cellular cannot scan home Wi‑Fi. Use Tailscale or paste 100.x above.
+                    </Text>
+                  )}
                 </View>
               ) : null}
 
@@ -410,12 +424,17 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.textSecondary,
   },
+  findHint: {
+    marginTop: 8,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
   heroBlock: {
     gap: 0,
   },
-  promoSlot: {
-    marginVertical: 4,
-  },
+
   foundBlock: {
     gap: 8,
   },

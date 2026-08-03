@@ -6,7 +6,24 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+// A+ infrastructure integrations
+let ResponseCache, CircuitBreaker, retryWithBackoff, executeWithProtection;
+try {
+  // eslint-disable-next-line global-require
+  ({ ResponseCache } = require('./hermes-response-cache'));
+} catch { ResponseCache = null; }
+try {
+  // eslint-disable-next-line global-require
+  ({ CircuitBreaker, retryWithBackoff, executeWithProtection } = require('./hermes-circuit-breaker'));
+} catch { CircuitBreaker = null; retryWithBackoff = null; executeWithProtection = null; }
+
 const RECEIPT_PATH = path.join(os.homedir(), '.hermes/economic-router-receipts.jsonl');
+
+// Route-decision cache: identical tasks within TTL get instant cache hits.
+// Keyed on (task, risk, maxCostUsd, paidOk) — the routing inputs.
+const _routeCache = ResponseCache
+  ? new ResponseCache({ maxEntries: 256, defaultTtlMs: 5 * 60 * 1000 })
+  : null;
 
 const RISK_LEVELS = ['low', 'medium', 'high', 'critical'];
 
@@ -341,6 +358,8 @@ function parseArgs(argv) {
     maxCostUsdExplicit: false,
     latencyMs: 30000,
     paidOk: false,
+    usageJson: null,
+    pricingJson: null,
     executePlan: false,
     write: false,
     json: false,
@@ -356,6 +375,20 @@ function parseArgs(argv) {
       args.maxCostUsdExplicit = true;
     } else if (arg === '--latency-ms') args.latencyMs = parseNonNegativeNumber(requireValue(argv, ++i, arg), arg);
     else if (arg === '--paid-ok') args.paidOk = true;
+    else if (arg === '--usage-json') {
+      try {
+        args.usageJson = JSON.parse(requireValue(argv, ++i, arg));
+      } catch (error) {
+        throw new Error(`--usage-json must be valid JSON: ${error.message}`);
+      }
+    }
+    else if (arg === '--pricing-json') {
+      try {
+        args.pricingJson = JSON.parse(requireValue(argv, ++i, arg));
+      } catch (error) {
+        throw new Error(`--pricing-json must be valid JSON: ${error.message}`);
+      }
+    }
     else if (arg === '--execute-plan') args.executePlan = true;
     else if (arg === '--write') args.write = true;
     else if (arg === '--json') args.json = true;
@@ -1063,6 +1096,18 @@ function buildMicroAgentRecipe(selected, args, signals, evaluated) {
 }
 
 function decision(args) {
+  // A+ Latency: cache route decisions for identical inputs (5-min TTL)
+  const cacheKey = _routeCache
+    ? JSON.stringify({ t: args.task, r: args.risk, c: args.maxCostUsd, p: args.paidOk })
+    : null;
+  if (_routeCache) {
+    const cached = _routeCache.get(cacheKey);
+    if (cached.hit) {
+      _routeCacheHits++;
+      return cached.value;
+    }
+  }
+
   let normalizedArgs = {
     ...args,
     risk: normalizeRisk(args.risk || 'medium'),
@@ -1196,7 +1241,90 @@ function decision(args) {
       kimiK3Rule: 'Kimi K3 earns its $3/$15 per 1M tokens via 2.8T parameter MoE quality and 1M context for long-context agentic workflows. It replaces K2.7-code in fusion panels and routes to long-context/repo-wide/agentic tasks. Use evaluateCanary() to compare K3 against GLM-5.2 before changing default reasoning route.',
     },
   };
+
+  // A+ Latency: cache the receipt for identical future requests
+  if (_routeCache && cacheKey) {
+    _routeCache.set(cacheKey, receipt);
+  }
+
+  // A+ Observability: record routing metrics
+  _routeDecisionCount++;
+  if (receipt.selectedRoute) {
+    _routeProviderCounts[receipt.selectedRoute.provider] =
+      (_routeProviderCounts[receipt.selectedRoute.provider] || 0) + 1;
+  }
+
   return receipt;
+}
+
+// A+ Observability: routing metrics counters
+let _routeCacheHits = 0;
+let _routeDecisionCount = 0;
+const _routeProviderCounts = {};
+
+// ---------------------------------------------------------------------------
+// A+ Observability: metrics export for routing decisions and cache performance
+// ---------------------------------------------------------------------------
+
+function getRoutingMetrics() {
+  return {
+    decisions: _routeDecisionCount,
+    cacheHits: _routeCacheHits,
+    cacheHitRate: _routeDecisionCount > 0
+      ? Number((_routeCacheHits / (_routeDecisionCount + _routeCacheHits)).toFixed(4))
+      : 0,
+    providerCounts: { ..._routeProviderCounts },
+    cacheStats: _routeCache ? _routeCache.stats() : null,
+  };
+}
+
+function resetRoutingMetrics() {
+  _routeCacheHits = 0;
+  _routeDecisionCount = 0;
+  for (const key of Object.keys(_routeProviderCounts)) delete _routeProviderCounts[key];
+}
+
+// ---------------------------------------------------------------------------
+// A+ Failure Modes: execute an LLM call with circuit breaker + retry
+// ---------------------------------------------------------------------------
+
+/**
+ * Execute an LLM inference with circuit-breaker protection and retry with backoff.
+ * Returns { ok, result, error, attempts, latencyMs }.
+ *
+ * @param {string} routeId - Route identifier for breaker scoping
+ * @param {() => Promise<*>} fn - Async function performing the LLM call
+ * @param {{ maxRetries?: number, breakerThreshold?: number, breakerCooldownMs?: number }} [opts]
+ * @returns {Promise<{ ok: boolean, result: *, error: string|null, attempts: number, latencyMs: number }>}
+ */
+async function executeWithResilience(routeId, fn, opts = {}) {
+  if (!CircuitBreaker || !retryWithBackoff) {
+    // Graceful degradation if circuit-breaker module is unavailable
+    const start = Date.now();
+    const result = await fn();
+    return { ok: true, result, error: null, attempts: 1, latencyMs: Date.now() - start };
+  }
+
+  const breaker = new CircuitBreaker({
+    failureThreshold: opts.breakerThreshold || 5,
+    cooldownMs: opts.breakerCooldownMs || 60_000,
+  });
+
+  const start = Date.now();
+  const result = await executeWithProtection(
+    breaker,
+    fn,
+    { maxRetries: opts.maxRetries || 3, baseDelayMs: 500 },
+  );
+
+  return {
+    ok: result.ok,
+    result: result.ok ? result.value : null,
+    error: result.ok ? null : (result.error?.message || String(result.error)),
+    attempts: result.attempts,
+    circuitOpen: result.circuitOpen || false,
+    latencyMs: Date.now() - start,
+  };
 }
 
 function publicRoute(route) {
@@ -1439,9 +1567,36 @@ function main() {
       console.log(usage());
       return;
     }
-    const receipt = decision(args);
+    let receipt = decision(args);
     if (args.executePlan) {
       receipt.executionPlan = buildExecutionPlan(receipt);
+    }
+    // Optional token metering: attach real usage + metered USD when callers
+    // have prompt/completion counts (closes the flat-ceiling cost gap).
+    if (args.usageJson) {
+      try {
+        const { enrichReceiptWithUsage } = require('./production-ops');
+        const ap = (receipt.selectedRoute && receipt.selectedRoute.apiPricing) || {};
+        // Routes use inputPerMillionUsd / cachedInputPerMillionUsd; OpenRouter
+        // catalog rows use inputPerM. Accept both so metered cost is never $0
+        // solely due to field-name drift.
+        const pricing =
+          args.pricingJson ||
+          {
+            inputPer1M: ap.inputPerMillionUsd ?? ap.inputPerM ?? ap.inputPer1M,
+            outputPer1M: ap.outputPerMillionUsd ?? ap.outputPerM ?? ap.outputPer1M,
+            cacheReadPer1M:
+              ap.cachedInputPerMillionUsd ?? ap.cachedInputPerM ?? ap.cacheReadPer1M,
+          };
+        receipt = enrichReceiptWithUsage(receipt, args.usageJson, pricing);
+      } catch (error) {
+        receipt.usage = {
+          ok: false,
+          errors: [error instanceof Error ? error.message : String(error)],
+        };
+        receipt.meteredCostUsd = null;
+        receipt.costSource = 'route_ceiling';
+      }
     }
     if (args.write) {
       receipt.receiptPath = writeReceipt(receipt);
@@ -1645,6 +1800,10 @@ module.exports = {
   computeAdjustedRouteScore,
   evaluateCanary,
   DEFAULT_CANARY_CONFIG,
+  // A+ infrastructure exports
+  getRoutingMetrics,
+  resetRoutingMetrics,
+  executeWithResilience,
 };
 
 if (require.main === module) {

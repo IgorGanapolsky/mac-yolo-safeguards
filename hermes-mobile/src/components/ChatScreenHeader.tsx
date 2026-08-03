@@ -51,6 +51,8 @@ type ChatScreenHeaderProps = {
   onPressMachine: () => void;
   /** Health OK but last message failed — amber header instead of green Connected. */
   chatStalled?: boolean;
+  /** Send/await/run still in flight — green "Connected · working" + top pulse. */
+  chatWorking?: boolean;
 };
 
 function linkMeta(
@@ -62,6 +64,7 @@ function linkMeta(
   chatStalled = false,
   wrongKeyBannerActive = false,
   needsPair = false,
+  chatWorking = false,
 ): { label: string; color: string; connected: boolean } {
   const link = resolveChatLinkDisplay({
     connectionState: state,
@@ -71,6 +74,7 @@ function linkMeta(
     authMismatch,
     wrongKeyBannerActive,
     chatStalled,
+    chatWorking,
     needsPair,
     pairStatusLabel: needsPair ? disconnectedLabel : undefined,
   });
@@ -78,6 +82,7 @@ function linkMeta(
     return { label: link.label, color: colors.warning, connected: true };
   }
   if (link.chatReachable) {
+    // Working uses success green + "Connected · working" (not amber stalled).
     return { label: link.label, color: colors.success, connected: true };
   }
   if (link.label === GATEWAY_AUTH_REPAIR_HEADER) {
@@ -122,11 +127,12 @@ export function buildHermesStatusLabel(
   ) {
     const input = (runProgress?.inputTokens ?? 0).toLocaleString();
     const output = (runProgress?.outputTokens ?? 0).toLocaleString();
-    tokensLabel = ` · In: ${input} | Out: ${output}`;
+    tokensLabel = ` · In: ${input} tokens | Out: ${output} tokens`;
   } else {
-    const totalTokens = (currentSession?.input_tokens ?? 0) + (currentSession?.output_tokens ?? 0);
-    if (totalTokens > 0) {
-      tokensLabel = ` · ${totalTokens.toLocaleString()} session`;
+    const sessionIn = currentSession?.input_tokens ?? 0;
+    const sessionOut = currentSession?.output_tokens ?? 0;
+    if (sessionIn > 0 || sessionOut > 0) {
+      tokensLabel = ` · In: ${sessionIn.toLocaleString()} tokens | Out: ${sessionOut.toLocaleString()} tokens`;
     }
   }
 
@@ -162,6 +168,7 @@ export default function ChatScreenHeader({
   onOpenTools,
   onPressMachine,
   chatStalled = false,
+  chatWorking = false,
 }: ChatScreenHeaderProps) {
   const link = linkMeta(
     connectionState,
@@ -172,6 +179,7 @@ export default function ChatScreenHeader({
     chatStalled,
     wrongKeyBannerActive,
     needsPair,
+    chatWorking,
   );
   const endpoint = machineEndpoint?.trim() || '';
   const showEndpoint = endpoint.length > 0;
