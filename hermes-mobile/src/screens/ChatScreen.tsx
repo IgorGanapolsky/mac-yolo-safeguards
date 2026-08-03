@@ -354,6 +354,11 @@ import {
   shouldShowConnectivityRunBanner,
 } from '../utils/connectionErrorPolicy';
 import {
+  resolveRunProgressRetryKind,
+  runProgressRetryAccessibilityLabel,
+  runProgressRetryLabel,
+} from '../utils/runProgressRetryPolicy';
+import {
   connectingToMacCopy,
   formatSavedMacUnreachableBanner,
   reconnectingToMacCopy,
@@ -1703,9 +1708,11 @@ export default function ChatScreen() {
       userSendFailed,
       profiles: gatewayProfiles,
     });
-  // Auth mismatch already has the red Re-pair banner — don't stack orange "Can't reach".
+  // Auth mismatch already has the red Re-pair banner — don't stack orange "Can't reach",
+  // and when composer progress banner (RunProgressBanner) is visible, don't show duplicate retry buttons.
   const showMacRetryBanner =
     !effectiveAuthMismatch &&
+    !showComposerProgressBanner &&
     shouldShowMacRetryBanner({
       isDemo,
       macChatLive: effectiveMacChatLive,
@@ -7341,6 +7348,28 @@ export default function ChatScreen() {
     [isDemo, macChatLive, showEmptyStreamRefreshBanner, progressBanner],
   );
 
+  /** Banner Retry only when Mac is live; offline reconnect is COMPUTER "Tap to reconnect". */
+  const runProgressRetryKind = useMemo(
+    () =>
+      resolveRunProgressRetryKind({
+        macChatLive: effectiveMacChatLive,
+        connectivityFailure: Boolean(connectivityRunFailure),
+        emptyOrDeadRun:
+          isEmptyReplyFailureMessage(progressBanner?.detail) ||
+          isDeadRunEndedMessage(progressBanner?.detail),
+        hasFailedSendText: Boolean(
+          lastFailedSendTextRef.current?.trim() || lastFailedOutboundText?.trim(),
+        ),
+      }),
+    [
+      effectiveMacChatLive,
+      connectivityRunFailure,
+      progressBanner?.detail,
+      lastFailedOutboundText,
+      messages,
+    ],
+  );
+
   const isRunActive = useMemo(() => {
     if (isSending) {
       return true;
@@ -8248,17 +8277,13 @@ export default function ChatScreen() {
             }
             refreshRunBusy={isPullRefreshing}
             onRetry={
-              isEmptyReplyFailureMessage(progressBanner.detail) ||
-              isDeadRunEndedMessage(progressBanner.detail) ||
-              (progressBanner.phase === 'failed' &&
-                Boolean(
-                  lastFailedSendTextRef.current?.trim() || lastFailedOutboundText?.trim(),
-                ) &&
-                !isConnectivityMessage(progressBanner.detail ?? ''))
+              runProgressRetryKind === 'retry_send'
                 ? () => void handleRetryFailedSend()
-                : connectivityRunFailure
-                  ? () => void handleRetryConnectivity()
-                  : undefined
+                : undefined
+            }
+            retryLabel={runProgressRetryLabel(runProgressRetryKind) ?? undefined}
+            retryAccessibilityLabel={
+              runProgressRetryAccessibilityLabel(runProgressRetryKind) ?? undefined
             }
             terminalToolName={operatorTerminalLine?.toolName}
             terminalPreview={operatorTerminalLine?.text}
