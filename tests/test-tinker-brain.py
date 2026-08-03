@@ -19,7 +19,7 @@ sys.path.insert(0, str(BRAIN))
 import export_tinker_brain_snapshot as exporter  # noqa: E402
 import tinker_brain_economics as economics  # noqa: E402
 import tinker_brain_fingerprint as fingerprint  # noqa: E402
-from tinker_brain_answer import answer, load_expert_card  # noqa: E402
+from tinker_brain_answer import answer, load_expert_card, parse_expert_sections  # noqa: E402
 from tinker_brain_router import (  # noqa: E402
     INTENT_NEXT_MONEY,
     INTENT_OFF_SCOPE,
@@ -27,7 +27,11 @@ from tinker_brain_router import (  # noqa: E402
     INTENT_THUMBGATE_GTM,
     route,
 )
-from tinker_response_contract import validate_response  # noqa: E402
+from tinker_brain_section_retrieve import select_sections  # noqa: E402
+from tinker_response_contract import (  # noqa: E402
+    _proposes_marketing_channel,
+    validate_response,
+)
 
 FIXTURE_CARD = (BRAIN / "fixtures" / "answer_card.txt").read_text(encoding="utf-8")
 EXPERT_TEXT = load_expert_card(REPO / "config" / "THUMBGATE_EXPERT_CARD.txt")
@@ -41,6 +45,7 @@ class RouterTest(unittest.TestCase):
             "How should we price Continuity?",
             "Promote thumbgate this week",
             "positioning vs Cursor background agents",
+            "Should ThumbGate rename given Hermes trademark exposure?",
         ):
             self.assertEqual(route(question)["primary"], INTENT_THUMBGATE_GTM, question)
 
@@ -53,6 +58,28 @@ class RouterTest(unittest.TestCase):
             INTENT_OFF_SCOPE,
         )
 
+    def test_router_emits_confidence(self):
+        r = route("How do we sell ThumbGate.app?")
+        self.assertIn("confidence", r)
+        self.assertGreater(r["confidence"], 0.5)
+        self.assertLessEqual(r["confidence"], 0.99)
+        weak = route("hello")
+        self.assertEqual(weak["primary"], "general_card")
+        self.assertLess(weak["confidence"], 0.4)
+
+    def test_legal_brand_flag(self):
+        r = route("Should ThumbGate rename given Hermes trademark risk?")
+        self.assertTrue(r["flags"]["wants_legal_brand"])
+        self.assertEqual(r["primary"], INTENT_THUMBGATE_GTM)
+
+    def test_bare_competitor_name_not_thumbgate_gtm(self):
+        # Review P2: "What is Cursor?" must not dump ThumbGate positioning.
+        self.assertNotEqual(route("What is Cursor?")["primary"], INTENT_THUMBGATE_GTM)
+        self.assertNotEqual(
+            route("How do I compete against my neighbor?")["primary"],
+            INTENT_THUMBGATE_GTM,
+        )
+
 
 class AnswerTest(unittest.TestCase):
     def test_gtm_answer_serves_expert_sections_and_passes_contract(self):
@@ -61,6 +88,8 @@ class AnswerTest(unittest.TestCase):
         self.assertIn("[SALES_MOTION]", result["text"])
         self.assertIn("first chat is the product", result["text"])
         self.assertNotIn("endpoint security", result["text"].lower())
+        self.assertIn("Retrieval:", result["text"])
+        self.assertIsInstance(result.get("retrieval"), dict)
 
     def test_marketing_answer_includes_promo_rules(self):
         result = answer(FIXTURE_CARD, "What is our marketing plan?", expert_text=EXPERT_TEXT)
@@ -74,8 +103,50 @@ class AnswerTest(unittest.TestCase):
         self.assertIn("external $0.00", result["text"])
         self.assertIn("non-owner", result["text"])
 
+    def test_trademark_question_surfaces_legal_brand(self):
+        result = answer(
+            FIXTURE_CARD,
+            "Should ThumbGate rename away from Hermes trademark exposure?",
+            expert_text=EXPERT_TEXT,
+        )
+        self.assertTrue(result["ok"], result["violations"])
+        self.assertFalse(result.get("suppressedAnswer"), result.get("suppressedBy"))
+        self.assertIn("[LEGAL_BRAND]", result["text"])
+        self.assertIn("trademark", result["text"].lower())
+
+
+class SectionRetrieveTest(unittest.TestCase):
+    def test_bm25_picks_pricing_and_legal(self):
+        sections = parse_expert_sections(EXPERT_TEXT)
+        pricing = select_sections("How should we price Continuity?", sections, {"wants_gtm_pricing": True})
+        self.assertIn("PRICING", pricing["sections"])
+        legal = select_sections(
+            "Should we rename for trademark risk?",
+            sections,
+            {"wants_legal_brand": True},
+        )
+        self.assertIn("LEGAL_BRAND", legal["sections"])
+
 
 class ContractTest(unittest.TestCase):
+    def test_github_citation_not_channel_proposal(self):
+        self.assertFalse(_proposes_marketing_channel("214k github stars on the public repo", "github"))
+        self.assertTrue(_proposes_marketing_channel("Make GitHub the top conversion channel.", "github"))
+        self.assertTrue(
+            _proposes_marketing_channel("GitHub should drive acquisition for us.", "github")
+        )
+        self.assertTrue(
+            _proposes_marketing_channel("Acquire users through GitHub this quarter.", "github")
+        )
+        citation = (
+            "AS_OF=2026-07-22T18:07:42Z. Nous public repo ~214K GitHub stars; "
+            "lead with ThumbGate brand."
+        )
+        self.assertEqual(
+            validate_response(citation, FIXTURE_CARD, "positioning vs Nous"),
+            [],
+        )
+
     def test_promo_overclaims_and_conflation_rejected(self):
         bad = (
             "AS_OF=2026-07-22T18:07:42Z. Sell ThumbGate Continuity as seamless failover — "
@@ -219,6 +290,19 @@ class EvalHarnessTest(unittest.TestCase):
             harness.run_contract_case(c, FIXTURE_CARD) for c in contract_spec["cases"]
         ]
         self.assertEqual([r for r in contract_results if not r["ok"]], [])
+        self.assertGreaterEqual(len(spec["cases"]) + len(contract_spec["cases"]), 48)
+
+
+class ScorecardSmokeTest(unittest.TestCase):
+    def test_scorecard_modules_importable(self):
+        sys.path.insert(0, str(BRAIN))
+        import tinker_brain_scorecard as scorecard
+        import tinker_brain_health as health
+
+        self.assertTrue(callable(scorecard.grade_models))
+        self.assertTrue(callable(health.check))
+        models = scorecard.grade_models()
+        self.assertEqual(models["grade"], "A+")
 
 
 if __name__ == "__main__":

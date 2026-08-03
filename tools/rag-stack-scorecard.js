@@ -189,12 +189,50 @@ function scoreStack(options = {}) {
   gates.push({
     id: 'harness-eval',
     hard: true,
-    weight: 0.16,
+    weight: 0.12,
     ok: evalHardOk,
     detail: evalPass
       ? `pass ${evalJson.passCount}/${evalJson.caseCount} R=${recall} MRR=${mrr.toFixed(4)} P@k=${prec.toFixed(4)} nDCG=${ndcg.toFixed(4)}`
       : `exit ${evalRun.status} ${(evalRun.stderr || evalRun.stdout || '').slice(0, 120)}`,
     score: evalScore,
+  });
+
+  // 4b) dual-path offline IR (production fuse path — no embed rerank for CI speed)
+  const dualEval = spawnSync(
+    process.execPath,
+    [path.join(REPO, 'tools', 'rag-retrieval-eval.js'), '--retriever', 'dual-path', '--json'],
+    { encoding: 'utf8', cwd: REPO, timeout: 180000, maxBuffer: 8 * 1024 * 1024 },
+  );
+  let dualEvalJson = null;
+  try {
+    dualEvalJson = JSON.parse(dualEval.stdout || '');
+  } catch {
+    dualEvalJson = null;
+  }
+  const dualPass = Boolean(dualEvalJson && dualEvalJson.ok);
+  const dualR = Number(dualEvalJson?.meanRecallAtK || 0);
+  const dualMrr = Number(dualEvalJson?.meanMrrAtK || 0);
+  const dualNdcg = Number(dualEvalJson?.meanNdcgAtK || 0);
+  // Floors from re-proof after weighted RRF (2026-08-01): target MRR≥0.85 nDCG≥0.90
+  const dualEvalOk = dualPass && dualR >= 1 && dualMrr >= 0.75 && dualNdcg >= 0.85;
+  const dualEvalScore = !dualPass
+    ? 0
+    : dualNdcg >= 0.93 && dualMrr >= 0.9
+      ? 1
+      : dualNdcg >= 0.9 && dualMrr >= 0.85
+        ? 0.97
+        : dualEvalOk
+          ? 0.9
+          : 0.5;
+  gates.push({
+    id: 'dual-path-eval',
+    hard: true,
+    weight: 0.1,
+    ok: dualEvalOk,
+    detail: dualPass
+      ? `pass ${dualEvalJson.passCount}/${dualEvalJson.caseCount} R=${dualR} MRR=${dualMrr.toFixed(4)} nDCG=${dualNdcg.toFixed(4)}`
+      : `exit ${dualEval.status} ${(dualEval.stderr || dualEval.stdout || '').slice(0, 120)}`,
+    score: dualEvalScore,
   });
 
   // 5) dual-path (+ second-stage rerank by default)

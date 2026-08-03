@@ -205,11 +205,13 @@ describe('defect 2 — transport copy does not claim Tailscale is only for away'
   });
 });
 
-// --- DEFECT 3: ThumbGate promo actually renders on the Connect-your-Mac gate -------
-describe('defect 3 — ThumbGate promo renders on the Connect-your-Mac gate', () => {
+// --- DEFECT 3: first-launch ConnectMacGate keeps a single primary CTA ---------------
+// 2026-08-02: ThumbGate absence facilitation lives on ChatConnectionPanel / Leash,
+// not on ConnectMacGate (competed with Find computers / broke stranger cold-start).
+describe('defect 3 — Connect-your-Mac gate does not bury Find computers under promo', () => {
   afterEach(() => jest.clearAllMocks());
 
-  it('renders the promo card with a working CTA while the gate is up', () => {
+  it('keeps Find computers visible and omits ThumbGate install theater on first launch', () => {
     mockUseGateway.mockReturnValue(
       gateway({
         settings: { ...DEFAULT_GATEWAY_SETTINGS, demoMode: false },
@@ -219,18 +221,8 @@ describe('defect 3 — ThumbGate promo renders on the Connect-your-Mac gate', ()
     );
     const view = render(<ConnectMacGate />);
     expect(view.getByTestId('connect-mac-gate')).toBeTruthy();
-    expect(view.getByTestId('thumbgate-promo-connection_unreachable')).toBeTruthy();
-    expect(view.getByTestId('thumbgate-promo-open')).toBeTruthy();
-  });
-
-  it('does not collapse the promo slot to zero height', () => {
-    mockUseGateway.mockReturnValue(gateway());
-    const view = render(<ConnectMacGate />);
-    const promo = view.getByTestId('thumbgate-promo-connection_unreachable');
-    const flat = require('react-native').StyleSheet.flatten(promo.props.style) ?? {};
-    expect(flat.height).not.toBe(0);
-    expect(flat.maxHeight).not.toBe(0);
-    expect(flat.display).not.toBe('none');
+    expect(view.getByTestId('connect-search-wifi')).toBeTruthy();
+    expect(view.queryByTestId('thumbgate-promo-connection_unreachable')).toBeNull();
   });
 });
 

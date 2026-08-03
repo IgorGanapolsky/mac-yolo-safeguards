@@ -39,6 +39,9 @@ function parseArgs(argv) {
     llmRerank: process.env.HERMES_LLM_RERANK === '1',
     candidatePool: 30,
     multiQuery: process.env.HERMES_MULTI_QUERY === '1',
+    principal: process.env.HERMES_RETRIEVE_PRINCIPAL || '',
+    acl: process.env.HERMES_DOCUMENT_ACL || '',
+    trace: process.env.HERMES_TURN_TRACE === '1',
   };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -57,10 +60,84 @@ function parseArgs(argv) {
     else if (a === '--multi-query') args.multiQuery = true;
     else if (a === '--no-multi-query') args.multiQuery = false;
     else if (a === '--candidate-pool') args.candidatePool = Number(argv[++i] || 30);
+    else if (a === '--principal') args.principal = argv[++i] || '';
+    else if (a === '--acl') args.acl = argv[++i] || '';
+    else if (a === '--trace') args.trace = true;
     else if (a === '--help' || a === '-h') args.help = true;
     else throw new Error(`Unknown argument: ${a}`);
   }
   return args;
+}
+
+/**
+ * Apply document ACL + optional turn-trace write (production observability).
+ */
+function finalizeRetrieveResult(result, options = {}) {
+  const started = options._startedAt || Date.now();
+  let matches = result.matches || [];
+  let aclMeta = { aclApplied: false };
+  // Fail closed: if caller requested ACL enforcement, never return unfiltered
+  // matches when the ACL file is missing, unreadable, or malformed.
+  if (options.acl || options.principal) {
+    try {
+      const { loadAcl, filterMatchesByAcl } = require('./production-ops');
+      const acl = options.acl ? loadAcl(options.acl) : null;
+      if (options.acl && !acl) {
+        throw new Error('ACL path resolved to empty policy');
+      }
+      const filtered = filterMatchesByAcl(matches, options.principal || '', acl);
+      matches = filtered.matches;
+      aclMeta = {
+        aclApplied: filtered.aclApplied,
+        principal: options.principal || null,
+        filtered: filtered.filtered,
+        reason: filtered.reason,
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      matches = [];
+      aclMeta = {
+        aclApplied: true,
+        failClosed: true,
+        principal: options.principal || null,
+        filtered: (result.matches || []).length,
+        error: msg,
+        reason: 'acl_load_or_filter_failed',
+      };
+    }
+  }
+  const out = {
+    ...result,
+    matches,
+    acl: aclMeta,
+    latencyMs: Date.now() - started,
+  };
+  if (options.trace || process.env.HERMES_TURN_TRACE === '1') {
+    try {
+      const { buildTurnTrace, writeTurnTrace } = require('./production-ops');
+      const trace = buildTurnTrace({
+        query: out.query,
+        route: options.route || { id: 'dual-path' },
+        principal: options.principal || null,
+        tenant: options.tenant || null,
+        retrieval: {
+          backend: out.fusion,
+          rewritten: out.rewritten,
+          multiQuery: out.multiQuery,
+          rerank: out.rerank,
+          matches: out.matches,
+          latencyMs: out.latencyMs,
+        },
+        acl: aclMeta,
+        latencyMs: out.latencyMs,
+      });
+      out.tracePath = writeTurnTrace(trace, { dir: options.traceDir });
+      out.traceId = trace.id;
+    } catch (error) {
+      out.traceError = error instanceof Error ? error.message : String(error);
+    }
+  }
+  return out;
 }
 
 function pathAllowed(p, include, exclude) {
@@ -126,6 +203,7 @@ function runGrepai(query, limit, repo = REPO) {
 }
 
 async function dualPathRetrieve(options = {}) {
+  const _startedAt = Date.now();
   const queryIn = String(options.query || '').trim();
   if (!queryIn) throw new Error('--query required');
   const rewrite = options.rewrite !== false ? rewriteQuery(queryIn) : { original: queryIn, rewritten: queryIn, expansions: [], rulesFired: [] };
@@ -194,19 +272,22 @@ async function dualPathRetrieve(options = {}) {
         };
       }
     }
-    return {
-      query: queryIn,
-      rewritten: rewrite.rewritten,
-      rewriteRules: rewrite.rulesFired,
-      expansions: rewrite.expansions,
-      filters: { pathInclude: include, pathExclude: exclude },
-      pathStatus: { harness: 'via-multi-query', grepai: 'via-multi-query' },
-      fusion: 'rrf-multi-query',
-      rrfK: RRF_K,
-      multiQuery: multiQueryMeta,
-      rerank: rerankMeta,
-      matches,
-    };
+    return finalizeRetrieveResult(
+      {
+        query: queryIn,
+        rewritten: rewrite.rewritten,
+        rewriteRules: rewrite.rulesFired,
+        expansions: rewrite.expansions,
+        filters: { pathInclude: include, pathExclude: exclude },
+        pathStatus: { harness: 'via-multi-query', grepai: 'via-multi-query' },
+        fusion: 'rrf-multi-query',
+        rrfK: RRF_K,
+        multiQuery: multiQueryMeta,
+        rerank: rerankMeta,
+        matches,
+      },
+      { ...options, _startedAt },
+    );
   }
 
   const lists = [];
@@ -280,22 +361,25 @@ async function dualPathRetrieve(options = {}) {
     }
   }
 
-  return {
-    query: queryIn,
-    rewritten: rewrite.rewritten,
-    rewriteRules: rewrite.rulesFired,
-    expansions: rewrite.expansions,
-    filters: { pathInclude: include, pathExclude: exclude },
-    pathStatus: {
-      harness: paths.harness ? (paths.harness.ok ? 'ok' : paths.harness.error) : 'skipped',
-      grepai: paths.grepai ? (paths.grepai.ok ? 'ok' : paths.grepai.error) : 'skipped',
+  return finalizeRetrieveResult(
+    {
+      query: queryIn,
+      rewritten: rewrite.rewritten,
+      rewriteRules: rewrite.rulesFired,
+      expansions: rewrite.expansions,
+      filters: { pathInclude: include, pathExclude: exclude },
+      pathStatus: {
+        harness: paths.harness ? (paths.harness.ok ? 'ok' : paths.harness.error) : 'skipped',
+        grepai: paths.grepai ? (paths.grepai.ok ? 'ok' : paths.grepai.error) : 'skipped',
+      },
+      fusion: 'weighted-rrf',
+      rrfK: RRF_K,
+      multiQuery: multiQueryMeta,
+      rerank: rerankMeta,
+      matches,
     },
-    fusion: 'weighted-rrf',
-    rrfK: RRF_K,
-    multiQuery: multiQueryMeta,
-    rerank: rerankMeta,
-    matches,
-  };
+    { ...options, _startedAt },
+  );
 }
 
 if (require.main === module) {
@@ -329,4 +413,4 @@ if (require.main === module) {
   })();
 }
 
-module.exports = { dualPathRetrieve, rrfFuse, pathAllowed, runHarness, runGrepai };
+module.exports = { dualPathRetrieve, rrfFuse, pathAllowed, runHarness, runGrepai, finalizeRetrieveResult };
