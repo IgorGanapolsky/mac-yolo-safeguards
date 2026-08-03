@@ -285,13 +285,43 @@ export function buildEventsWebSocketUrl(gatewayUrl: string): string {
   return `${wsBase}/v1/events`;
 }
 
+/** Fixed id for the Leash smoke-test card so repeated presses replace, never stack. */
+export const DEMO_GATE_BLOCKED_ACTION_ID = 'demo_gate_blocked_preview';
+
+/** Local UI-only preview cards (never from a real Mac/relay). */
+export function isLocalDemoApprovalId(actionId: string): boolean {
+  return actionId.startsWith('demo_');
+}
+
+/**
+ * Keep at most one smoke preview. Strips any prior demo_* fakes (including
+ * legacy `demo_${Date.now()}` stacks) and leaves real pending approvals alone.
+ */
+export function placeSmokePreviewApproval<T extends { actionId: string }>(
+  prev: T[],
+  pending: T,
+  cap: (items: T[]) => T[],
+): T[] {
+  const withoutDemo = prev.filter((item) => !isLocalDemoApprovalId(item.actionId));
+  const alreadyOnlyThisSmoke =
+    prev.length === withoutDemo.length + 1 &&
+    prev.some((item) => item.actionId === pending.actionId);
+  if (alreadyOnlyThisSmoke) {
+    return prev;
+  }
+  return cap([pending, ...withoutDemo]);
+}
+
 /** Demo event for UI development when gateway WS is unavailable. */
 export function buildDemoGateBlockedEvent(): GatewayEventMessage {
   return {
     event: 'GATE.BLOCKED',
     timestamp: new Date().toISOString(),
     payload: {
-      actionId: `demo_${Date.now()}`,
+      // STABLE id on purpose. injectSmokeApproval dedupes on actionId, so a
+      // timestamped id made that guard unreachable and every press appended
+      // another identical card to the real approvals list.
+      actionId: DEMO_GATE_BLOCKED_ACTION_ID,
       toolName: 'run_command',
       reason: 'Pre-action rule blocked execution to prevent memory runaway.',
       command: 'node tests/test-runaway.js --force-leak',

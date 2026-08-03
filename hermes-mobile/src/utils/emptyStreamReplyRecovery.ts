@@ -20,10 +20,11 @@ export const EMPTY_STREAM_SELF_HEAL_AFTER_MS = 30_000;
 export const EMPTY_STREAM_HARD_STOP_MS = 4 * 60_000;
 
 export const EMPTY_REPLY_FAILURE_REASON =
-  'Still no reply text — your Mac may be stuck or waiting for a Leash approval. Stop the run, open Leash to approve/deny/warn, or start a fresh chat.';
+  'Still no reply text — the run on your Mac stalled or never produced an answer. Start a fresh chat, or resend. Only open Leash if a tool is actually waiting for approve/deny.';
 
+/** Hard-stop banner/status after EMPTY_STREAM_HARD_STOP_MS with no assistant text. */
 export const EMPTY_STREAM_HARD_STOP_STATUS =
-  'Still no live reply text after a long wait. Open Leash if a tool needs approve/deny/warn, Stop an active run, or start a fresh chat.';
+  'Stopped waiting on your Mac — no reply text arrived. Start a fresh chat (best), or resend. Open Leash only if a tool is waiting for approve/deny.';
 
 /** User-facing status while auto-polling after send with no reply yet. */
 export function emptyStreamCheckingStatus(elapsedMs: number): string {

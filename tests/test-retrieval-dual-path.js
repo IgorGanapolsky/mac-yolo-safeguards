@@ -5,14 +5,15 @@ const assert = require('node:assert/strict');
 const { rrfFuse, pathAllowed } = require('../tools/retrieval-dual-path');
 
 test('rrfFuse boosts documents that appear in both lists', () => {
+  // Mid harness ranks so harness@1 prior does not dominate multi-source agreement
   const fused = rrfFuse([
     [
-      { path: 'a.js', rank: 1, source: 'harness' },
-      { path: 'b.js', rank: 2, source: 'harness' },
+      { path: 'a.js', rank: 4, source: 'harness' },
+      { path: 'b.js', rank: 3, source: 'harness' },
     ],
     [
-      { path: 'b.js', rank: 1, source: 'grepai' },
-      { path: 'c.js', rank: 2, source: 'grepai' },
+      { path: 'b.js', rank: 2, source: 'grepai' },
+      { path: 'c.js', rank: 3, source: 'grepai' },
     ],
   ]);
   assert.equal(fused[0].path, 'b.js', 'agreement across lists should rank first');
