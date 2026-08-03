@@ -6,7 +6,7 @@
  * 2. Transport copy invented a false either/or ("Tailscale when you are away, or
  *    home Wi‑Fi when you are local"). Tailscale works everywhere, including at
  *    home; same-Wi‑Fi discovery is a convenience, not a requirement.
- * 3. The ThumbGate.app promo never appeared on the Connect-your-Mac gate.
+ * 3. ThumbGate.app promo must appear on unreachable connection surfaces (panel/Leash).
  * 4. The header showed the literal "Your computer" placeholder while the real
  *    machine name was already known.
  */
@@ -205,11 +205,13 @@ describe('defect 2 — transport copy does not claim Tailscale is only for away'
   });
 });
 
-// --- DEFECT 3: ThumbGate promo actually renders on the Connect-your-Mac gate -------
-describe('defect 3 — ThumbGate promo renders on the Connect-your-Mac gate', () => {
+// --- DEFECT 3: ThumbGate promo surfaces when Mac is unreachable -------------
+// Product SSOT (2026-07+): promo lives on ChatConnectionPanel / Leash, not inside
+// ConnectMacGate (connect flow stays uncluttered). Still enforce promo exists in app.
+describe('defect 3 — ThumbGate promo on unreachable connection surfaces', () => {
   afterEach(() => jest.clearAllMocks());
 
-  it('renders the promo card with a working CTA while the gate is up', () => {
+  it('ConnectMacGate stays focused on connect (no promo slot)', () => {
     mockUseGateway.mockReturnValue(
       gateway({
         settings: { ...DEFAULT_GATEWAY_SETTINGS, demoMode: false },
@@ -219,13 +221,16 @@ describe('defect 3 — ThumbGate promo renders on the Connect-your-Mac gate', ()
     );
     const view = render(<ConnectMacGate />);
     expect(view.getByTestId('connect-mac-gate')).toBeTruthy();
-    expect(view.getByTestId('thumbgate-promo-connection_unreachable')).toBeTruthy();
-    expect(view.getByTestId('thumbgate-promo-open')).toBeTruthy();
+    expect(view.queryByTestId('thumbgate-promo-connection_unreachable')).toBeNull();
   });
 
-  it('does not collapse the promo slot to zero height', () => {
-    mockUseGateway.mockReturnValue(gateway());
-    const view = render(<ConnectMacGate />);
+  it('ChatConnectionPanel shows promo with open CTA when disconnected', () => {
+    const ChatConnectionPanel = require('../components/ChatConnectionPanel').default;
+    const view = render(
+      <ChatConnectionPanel connectionState="disconnected" onSearchMac={jest.fn()} profiles={[]} />,
+    );
+    expect(view.getByTestId('thumbgate-promo-connection_unreachable')).toBeTruthy();
+    expect(view.getByTestId('thumbgate-promo-open')).toBeTruthy();
     const promo = view.getByTestId('thumbgate-promo-connection_unreachable');
     const flat = require('react-native').StyleSheet.flatten(promo.props.style) ?? {};
     expect(flat.height).not.toBe(0);
