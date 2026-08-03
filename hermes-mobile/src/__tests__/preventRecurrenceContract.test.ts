@@ -771,4 +771,10 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(monetization).toContain('https://thumbgate.app/dashboard');
     expect(monetization).not.toContain('#pricing');
   });
+
+  it('S53: Active computer profiles must automatically disable demoMode on bootstrap (2026-08-03)', () => {
+    const context = read('hermes-mobile/src/context/GatewayContext.tsx');
+    expect(context).toContain('if (active && resolvedSettings.demoMode)');
+    expect(context).toContain('resolvedSettings = { ...resolvedSettings, demoMode: false };');
+  });
 });

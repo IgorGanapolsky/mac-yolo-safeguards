@@ -729,6 +729,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         const active = activeProfile(loadedProfiles);
         let resolvedKey = savedKey || '';
         let resolvedSettings = sanitizeDemoModeForRelease(savedSettings);
+        if (active && resolvedSettings.demoMode) {
+          resolvedSettings = { ...resolvedSettings, demoMode: false };
+        }
         if (!isDemoModeAllowed() && savedSettings.demoMode) {
           await storage.saveGatewaySettings(resolvedSettings);
         }
