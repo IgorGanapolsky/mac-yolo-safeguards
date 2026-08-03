@@ -18,6 +18,8 @@ import {
 import {
   HERMES_MOBILE_CONNECT_SKILL_INSTALL_COMMAND,
   THUMBGATE_CONNECTOR_INSTALL_COMMAND,
+  THUMBGATE_CONNECTOR_INSTALL_SHARED_LABEL,
+  THUMBGATE_SHARE_SCOPE_NOTE,
   thumbGateFacilitationSteps,
 } from '../utils/thumbgateFacilitation';
 
@@ -29,7 +31,7 @@ type ThumbGatePromoCardProps = {
 const OPEN_FAIL_TITLE = 'Could not open ThumbGate.app';
 const OPEN_FAIL_MESSAGE =
   'Open https://thumbgate.app/dashboard in your browser to continue.';
-const SHARE_FAIL_TITLE = 'Could not share installer';
+const SHARE_FAIL_TITLE = 'Could not share install command';
 const SHARE_FAIL_MESSAGE =
   'Copy this into Terminal on your Mac:\n\n' + THUMBGATE_CONNECTOR_INSTALL_COMMAND;
 
@@ -134,7 +136,9 @@ export default function ThumbGatePromoCard({ surface, style }: ThumbGatePromoCar
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Text style={styles.buttonSecondaryText}>
-            {sharedInstaller ? 'Installer shared' : copy.secondaryButtonLabel}
+            {sharedInstaller
+              ? THUMBGATE_CONNECTOR_INSTALL_SHARED_LABEL
+              : copy.secondaryButtonLabel}
           </Text>
         </TouchableOpacity>
 
@@ -146,9 +150,13 @@ export default function ThumbGatePromoCard({ surface, style }: ThumbGatePromoCar
           accessibilityLabel="Share agent skill install command"
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={styles.buttonTertiaryText}>Share agent skill install</Text>
+          <Text style={styles.buttonTertiaryText}>Share agent skill command</Text>
         </TouchableOpacity>
       </View>
+
+      <Text style={styles.shareScopeNote} testID="thumbgate-share-scope-note">
+        {THUMBGATE_SHARE_SCOPE_NOTE}
+      </Text>
     </GlassCard>
   );
 }
@@ -172,6 +180,12 @@ const styles = StyleSheet.create({
   steps: {
     gap: 8,
     marginTop: 2,
+  },
+  shareScopeNote: {
+    marginTop: 8,
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.textMuted,
   },
   stepRow: {
     gap: 2,

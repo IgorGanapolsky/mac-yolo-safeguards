@@ -73,6 +73,50 @@ describe('ThumbGatePromoCard', () => {
     });
   });
 
+  // 2026-08-03 user-panic report: "Installer shared" + "Share Mac installer" was
+  // read as "you are sharing my machine with the whole world". The share payload
+  // is a public command string only. Copy must never let that reading stand.
+  it('never implies the Mac itself is shared, before or after sharing', async () => {
+    const { getByTestId, queryByText } = render(
+      <ThumbGatePromoCard surface="connection_unreachable" />,
+    );
+
+    const shareButton = getByTestId('thumbgate-promo-share-installer');
+    expect(shareButton).toHaveTextContent('Share install command');
+    expect(queryByText(/Share Mac installer/i)).toBeNull();
+
+    // The scope clarifier must state what is and is not shared.
+    const note = getByTestId('thumbgate-share-scope-note').props.children as string;
+    expect(note).toMatch(/text command/i);
+    expect(note).toMatch(/not your Mac/i);
+
+    fireEvent.press(shareButton);
+
+    await waitFor(() => {
+      expect(shareButton).toHaveTextContent('Install command shared');
+    });
+    // The bare word "Installer shared" (machine reading) must never render.
+    expect(queryByText(/^Installer shared$/)).toBeNull();
+  });
+
+  it('shares only the public command text — no host, address, or credential', async () => {
+    const { getByTestId } = render(
+      <ThumbGatePromoCard surface="connection_unreachable" />,
+    );
+
+    fireEvent.press(getByTestId('thumbgate-promo-share-installer'));
+
+    await waitFor(() => {
+      expect(Share.share).toHaveBeenCalled();
+    });
+    const payload = (Share.share as jest.Mock).mock.calls[0][0];
+    const serialized = JSON.stringify(payload);
+    expect(payload.message).toBe(THUMBGATE_CONNECTOR_INSTALL_COMMAND);
+    // Nothing machine-identifying may ride along in the share sheet.
+    expect(serialized).not.toMatch(/ts\.net|100\.\d+\.\d+\.\d+|192\.168\.|localhost|127\.0\.0\.1/i);
+    expect(serialized).not.toMatch(/token|apiKey|api_key|secret|Bearer/i);
+  });
+
   it('opens ThumbGate even when analytics never resolves', async () => {
     (trackProductEvent as jest.Mock).mockImplementation(
       () => new Promise(() => {}),

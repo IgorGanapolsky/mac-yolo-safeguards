@@ -19,8 +19,23 @@
 export const THUMBGATE_CONNECTOR_INSTALL_COMMAND =
   'curl -fsSL https://raw.githubusercontent.com/IgorGanapolsky/mac-yolo-safeguards/main/saas/install-connector.sh | bash';
 
-/** Short label for the secondary CTA (Share / copy path). */
-export const THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL = 'Share Mac installer command';
+/**
+ * Short label for the secondary CTA (Share / copy path).
+ *
+ * Wording rule: this button shares the install COMMAND TEXT shown above via the
+ * OS share sheet. It never shares the Mac, its address, or any credential.
+ * Labels must name the command as the object — "Share Mac installer" + a
+ * post-tap "Installer shared" was read as "my machine is shared with the whole
+ * world" and produced a real user-panic report (2026-08-03).
+ */
+export const THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL = 'Share install command';
+
+/** Post-share confirmation. Must not imply the machine itself was shared. */
+export const THUMBGATE_CONNECTOR_INSTALL_SHARED_LABEL = 'Install command shared';
+
+/** Clarifier rendered under the share buttons — kills the "shared my Mac" reading. */
+export const THUMBGATE_SHARE_SCOPE_NOTE =
+  'Shares the text command above — not your Mac, its address, or any key.';
 
 /**
  * How an agent (or human) installs the Hermes Mobile connect skill into a
