@@ -21,7 +21,26 @@ const DEFAULT_IGNORE_DIRS = new Set([
   'parallel-research',
   'Pods',
   'vendor',
+  // Heavy non-source dumps that filled the 5k corpus cap and hid tools/* (2026-08-03)
+  'Compiled-Vaults',
+  'content-engine',
+  'proofs',
+  'tmp',
+  'ios',
 ]);
+
+/** Index these first so tools/tests/docs stay visible under maxFiles caps. */
+const PRIORITY_WALK_ROOTS = [
+  'tools',
+  'tests',
+  'docs',
+  'evals',
+  'scripts',
+  'hermes-mobile',
+  'apps',
+  '.github',
+  'coordination',
+];
 
 const TEXT_EXTENSIONS = new Set([
   '.cjs',
@@ -65,7 +84,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     start: 1,
     end: 80,
     limit: 8,
-    maxFiles: 5000,
+    maxFiles: 8000,
     maxBytes: 240000,
     json: false,
     help: false,
@@ -154,8 +173,9 @@ function readTextSlice(filePath, maxBytes) {
 
 function walkFiles(repo, options = {}) {
   const root = path.resolve(repo);
-  const maxFiles = options.maxFiles || 5000;
+  const maxFiles = options.maxFiles || 8000;
   const files = [];
+  const seen = new Set();
 
   function visit(dir) {
     if (files.length >= maxFiles) return;
@@ -176,11 +196,19 @@ function walkFiles(repo, options = {}) {
       if (entry.isDirectory()) {
         if (!shouldIgnoreDir(entry.name)) visit(fullPath);
       } else if (entry.isFile() && isTextFile(fullPath)) {
+        if (seen.has(relativePath)) continue;
+        seen.add(relativePath);
         files.push(relativePath);
       }
     }
   }
 
+  // Priority roots first so tools/ml-propensity-train.js is never beyond the cap.
+  for (const rel of PRIORITY_WALK_ROOTS) {
+    const full = path.join(root, rel);
+    if (fs.existsSync(full)) visit(full);
+  }
+  // Remaining top-level entries (business_os, etc.) fill the rest of the budget.
   visit(root);
   return files;
 }
@@ -219,6 +247,9 @@ function pathQualityMultiplier(relativePath) {
   // route ranked #20.
   const p = String(relativePath || '').replace(/\\/g, '/');
   let m = 1;
+  // Prefer first-party tools/ over business_os dumps — but not so much that
+  // app/api production routes (e.g. lessons) fall out of top-k (2026-08-03).
+  if (/^tools\//i.test(p)) m *= 1.22;
   if (
     /\/__tests__\/|\/tests\/|\/test\/|\.test\.|\.spec\.|\/mocks?\/|\/fixtures?\/|\/testdata\//i.test(
       p,
@@ -229,7 +260,9 @@ function pathQualityMultiplier(relativePath) {
   if (/\/generated\/|\.generated\.|\.gen\./i.test(p)) m *= 0.4;
   // Do NOT penalize docs/ — several golden queries require docs/HERMES-*.md
   // (cloud-failover, hardware-leash). Test noise is the real problem.
-  if (/\/(src|lib|app)\//i.test(p) || /\/app\/api\//i.test(p)) m *= 1.15;
+  if (/\/(src|lib|app)\//i.test(p)) m *= 1.15;
+  // API routes are the production surface agents must hit first.
+  if (/\/app\/api\//i.test(p)) m *= 1.45;
   return m;
 }
 
@@ -357,7 +390,7 @@ function retrieve(query, options = {}) {
     });
   }
   candidates.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
-  const maxFiles = options.maxFiles || 5000;
+  const maxFiles = options.maxFiles || 8000;
   const capReached = inventory.fileCount >= maxFiles;
   const capNear = !capReached && inventory.fileCount >= Math.floor(maxFiles * 0.9);
   if (capReached || capNear) {

@@ -33,9 +33,20 @@ function parseArgs(argv) {
 }
 
 function runRetrieve(query, limit) {
+  // Prefer a high max-files budget so tools/* stay visible (cap hid ml-propensity-train).
   const result = spawnSync(
     process.execPath,
-    [RETRIEVE, 'retrieve', '--query', query, '--limit', String(limit), '--json'],
+    [
+      RETRIEVE,
+      'retrieve',
+      '--query',
+      query,
+      '--limit',
+      String(limit),
+      '--max-files',
+      '12000',
+      '--json',
+    ],
     { cwd: REPO, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 },
   );
   if (result.status !== 0) {
