@@ -22,6 +22,10 @@ Implements the durable parts of [Cursor’s agent-swarm model economics](https:/
 | `node tools/agent-swarm-harness.js propose-eval --task "..."` | Fail → durable eval stub (`--write` under `evals/`) |
 | `node tools/agent-swarm-harness.js eval-mine` | Mine continuous E2E + harness trace + plan thrash → proposals |
 | `node tools/agent-swarm-harness.js eval-check` | Catalog integrity + failure→ability routing smoke |
+| `node tools/ship-claim-gate.js --claim "…" …` | Evidence-only LIVE/shipped language (no completion theater) |
+| `node tools/taste-gate.js --domain promo_social --text "…"` | Non-slop taste rubric (see `docs/TASTE-LAYER.md`) |
+| `node tools/taste-gate.js --eval-golden` | Taste golden set regression |
+| `node tools/linear-agent-bridge.js --doctor` | Linear task-bus auth + fleet health |
 | `node tools/agent-swarm-harness.js sre-autonomy` | SRE subsystems: detect → act → verify |
 | `node tools/agent-swarm-harness.js sre-act --subsystem ID` | Health-freshness gate before remediate |
 | `node tools/agent-swarm-harness.js data-mesh` | InfoQ July 2026 governed data interfaces (cash / LIVE / outbound / watermarks) |
