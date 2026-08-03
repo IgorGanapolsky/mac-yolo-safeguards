@@ -55,6 +55,124 @@ function normalizeAgent(name) {
   return AGENT_ALIASES[key] || key;
 }
 
+/** Label names used as agent locks on Linear issues (not category tags like agent-task). */
+function isAgentLockLabel(name) {
+  const n = String(name || '').toLowerCase();
+  if (n === 'agent-lock') return true;
+  if (!n.startsWith('agent-')) return false;
+  const rest = n.slice('agent-'.length);
+  if (!rest || rest === 'task' || rest === 'ready' || rest === 'needs-human' || rest === 'stale') {
+    // agent-ready / agent-stale style tags are orthogonal; only strip agent-<runner>
+    // Keep agent-stale strippable when we add it; for now only known runners.
+  }
+  const known = new Set(
+    Object.values(AGENT_ALIASES).map((a) => String(a).toLowerCase()).concat(Object.keys(AGENT_ALIASES)),
+  );
+  // Also allow agent-claude-code style
+  return known.has(rest);
+}
+
+/**
+ * Pure: rewrite or insert ## In flight section in Agent-State markdown.
+ * action: claim | done | release | clear
+ */
+function applyAgentStateInFlight(text, opts = {}) {
+  const {
+    agent = 'grok',
+    issueId = '',
+    title = '',
+    files = [],
+    action = 'claim',
+    stamp = new Date().toISOString(),
+    branch = '',
+  } = opts;
+  const free = action === 'done' || action === 'release' || action === 'clear';
+  let block;
+  if (free) {
+    block = `## In flight\n(none — free)\n`;
+  } else {
+    const fileLines = (files || []).length
+      ? (files || []).map((f) => `  - ${f}`).join('\n')
+      : '  - (none listed)';
+    block = [
+      '## In flight',
+      `- Linear: ${issueId || '(none)'}`,
+      `- Title: ${(title || '').replace(/\n/g, ' ').slice(0, 120)}`,
+      `- Agent: ${normalizeAgent(agent)}`,
+      `- Claimed: ${stamp}`,
+      branch ? `- Branch: ${branch}` : null,
+      '- Files:',
+      fileLines,
+      '',
+    ]
+      .filter((x) => x !== null)
+      .join('\n');
+  }
+
+  const src = String(text || '');
+  const re = /## In flight[\s\S]*?(?=\n## |\n# [^#]|$)/i;
+  if (re.test(src)) {
+    return src.replace(re, block.trimEnd() + '\n\n').replace(/\n{3,}/g, '\n\n');
+  }
+  // Prefer insert after frontmatter or at end
+  if (src.startsWith('---')) {
+    const endFm = src.indexOf('\n---', 3);
+    if (endFm !== -1) {
+      const insertAt = endFm + 4;
+      return (src.slice(0, insertAt) + '\n\n' + block + '\n' + src.slice(insertAt)).replace(/\n{3,}/g, '\n\n');
+    }
+  }
+  return (src.trimEnd() + '\n\n' + block + '\n').replace(/\n{3,}/g, '\n\n');
+}
+
+/**
+ * Pure: detect stale agent locks from Linear issue + vault claim snapshot.
+ * Returns reason string or null if not stale.
+ */
+function detectStaleAgentLock(issue, vaultClaim, opts = {}) {
+  const maxAgeHours = opts.maxAgeHours ?? 24;
+  const now = opts.now ? new Date(opts.now) : new Date();
+  const labels = (issue?.labels?.nodes || issue?.labels || []).map((l) =>
+    typeof l === 'string' ? l : l?.name,
+  );
+  const hasLock = labels.some((n) => isAgentLockLabel(n));
+  if (!hasLock) return null;
+
+  const stateName = issue?.state?.name || '';
+  const stateType = issue?.state?.type || '';
+  if (/done|completed|canceled|cancelled/i.test(stateName) || stateType === 'completed' || stateType === 'canceled') {
+    return 'linear_done_still_locked';
+  }
+  // Lock without started workflow = abandoned claim
+  if (/backlog|todo|triage|unstarted/i.test(stateName) || stateType === 'unstarted' || stateType === 'backlog') {
+    return 'lock_on_unstarted';
+  }
+
+  if (vaultClaim) {
+    const act = String(vaultClaim.action || '').toLowerCase();
+    const st = String(vaultClaim.status || '').toLowerCase();
+    if ((act === 'done' || act === 'release') && (/done|completed|released/.test(st) || act === 'release')) {
+      return 'vault_says_released';
+    }
+    if (act === 'done' || act === 'release') return 'vault_says_released';
+  }
+
+  // Age based on vault claim updated_at if present
+  const updated = vaultClaim?.updated || vaultClaim?.updated_at;
+  if (updated) {
+    const ageMs = now - new Date(updated);
+    if (Number.isFinite(ageMs) && ageMs > maxAgeHours * 3600 * 1000) {
+      // only if not actively in progress with a recent claim
+      if (!vaultClaim || String(vaultClaim.action || '').toLowerCase() !== 'claim') {
+        return 'stale_age';
+      }
+      // claim older than maxAge still counts as stale for scrub --aggressive
+      if (opts.aggressive) return 'stale_claim_age';
+    }
+  }
+  return null;
+}
+
 /**
  * Collect candidate PATs. Order: env → file → keychain.
  * On this Mac (2026-08-02): Keychain LINEAR_API_KEY was a narrow PAT that only
@@ -390,7 +508,7 @@ function issueListFields() {
     url
     state { id name type }
     assignee { id name email }
-    labels { nodes { name } }
+    labels { nodes { id name } }
     team { id key name }
     updatedAt
     createdAt
@@ -500,7 +618,7 @@ async function findIssueByIdentifier(identifier) {
             team { id key name }
             state { id name type }
             assignee { id name email }
-            labels { nodes { name } }
+            labels { nodes { id name } }
           }
         }
       }
@@ -527,7 +645,7 @@ async function findIssueByIdentifier(identifier) {
           team { id key name }
           state { id name type }
           assignee { id name email }
-          labels { nodes { name } }
+          labels { nodes { id name } }
         }
       }
     `,
@@ -681,6 +799,80 @@ async function ensureAgentLabels(teamId, agent) {
   return { labelIds: ids };
 }
 
+/**
+ * Remove agent-lock + agent-* labels from an issue. Idempotent.
+ */
+async function stripAgentLockLabels(issue) {
+  let current = issue;
+  let labels = current?.labels?.nodes || [];
+  let removeIds = labels.filter((l) => isAgentLockLabel(l.name)).map((l) => l.id).filter(Boolean);
+  // List queries may omit label ids — re-fetch full issue
+  if (!removeIds.length && labels.some((l) => isAgentLockLabel(l.name)) && current?.identifier) {
+    const again = await findIssueByIdentifier(current.identifier);
+    if (!again.error && again.issue) {
+      current = again.issue;
+      labels = current.labels?.nodes || [];
+      removeIds = labels.filter((l) => isAgentLockLabel(l.name)).map((l) => l.id).filter(Boolean);
+    }
+  }
+  if (!removeIds.length) return { stripped: 0, issue: current };
+  const upd = await updateIssueFields(current.id, { removedLabelIds: removeIds.map(String) });
+  if (upd.error) return upd;
+  return {
+    stripped: removeIds.length,
+    issue: upd.data?.issueUpdate?.issue || current,
+  };
+}
+
+/**
+ * Update Agent-State/<agent>.md ## In flight section (structured, not append-only).
+ */
+function writeAgentStateInFlight({ agent, issue, files, action, branch }) {
+  const agentName = normalizeAgent(agent || 'grok');
+  const stateDir = path.join(VAULT_ROOT, 'Agent-State');
+  try {
+    fs.mkdirSync(stateDir, { recursive: true });
+  } catch {
+    /* ignore */
+  }
+  const agentFile = path.join(stateDir, `${agentName}.md`);
+  let existing = '';
+  try {
+    if (fs.existsSync(agentFile)) existing = fs.readFileSync(agentFile, 'utf8');
+  } catch {
+    existing = '';
+  }
+  if (!existing) {
+    existing = `---
+type: agent-state
+agent: ${agentName}
+status: active
+last_verified: ${new Date().toISOString().slice(0, 10)}
+---
+
+# ${agentName}
+
+Live agent state for multi-agent coordination.
+`;
+  }
+  const next = applyAgentStateInFlight(existing, {
+    agent: agentName,
+    issueId: issue?.identifier || '',
+    title: issue?.title || '',
+    files: files || [],
+    action: action || 'claim',
+    stamp: new Date().toISOString(),
+    branch: branch || '',
+  });
+  // touch last_verified in frontmatter lightly
+  const stamped = next.replace(
+    /^last_verified:\s*.+$/m,
+    `last_verified: ${new Date().toISOString().slice(0, 10)}`,
+  );
+  fs.writeFileSync(agentFile, stamped, 'utf8');
+  return agentFile;
+}
+
 async function updateIssueFields(issueId, input) {
   return queryLinear(
     `
@@ -763,19 +955,14 @@ ${comment ? `## Note\n\n${comment}\n` : ''}
     /* ignore */
   }
 
-  // Update agent state file lightly
+  // Structured ## In flight (not append-only history dump)
   try {
-    const agentFile = path.join(VAULT_ROOT, 'Agent-State', `${normalizeAgent(agent)}.md`);
-    const snippet = `\n## Linear (${stamp.slice(0, 16)})\n- ${action}: **${id}** ${issue.title || ''} → ${issue.state?.name || ''}\n- Claim note: \`${path.relative(VAULT_ROOT, file)}\`\n`;
-    if (fs.existsSync(agentFile)) {
-      fs.appendFileSync(agentFile, snippet, 'utf8');
-    } else {
-      fs.writeFileSync(
-        agentFile,
-        `# ${normalizeAgent(agent)}\n\nLive agent state.\n${snippet}`,
-        'utf8',
-      );
-    }
+    writeAgentStateInFlight({
+      agent,
+      issue,
+      files,
+      action,
+    });
   } catch {
     /* ignore */
   }
@@ -982,8 +1169,8 @@ async function coordStatus() {
   const issues = fleet.issues || [];
 
   const agentLocked = issues.filter((i) => {
-    const labs = (i.labels?.nodes || []).map((l) => l.name.toLowerCase());
-    return labs.some((n) => n === 'agent-lock' || n.startsWith('agent-'));
+    const labs = (i.labels?.nodes || []).map((l) => l.name);
+    return labs.some((n) => isAgentLockLabel(n));
   });
   const inProgress = issues.filter((i) => /progress|started/i.test(i.state?.name || ''));
 
@@ -1062,6 +1249,142 @@ async function coordStatus() {
   };
 }
 
+/**
+ * Done or release: state update (done only), strip agent-lock labels, vault + Agent-State free.
+ */
+async function finalizeIssue({ identifier, agent, comment, mode }) {
+  const found = await findIssueByIdentifier(identifier);
+  if (found.error) return found;
+  let issue = found.issue;
+  let newStateName = issue.state?.name;
+
+  if (mode === 'done') {
+    const teamId = issue.team?.id;
+    if (!teamId) return { error: true, message: 'Issue has no team id' };
+    const st = await teamStates(teamId);
+    if (st.error) return st;
+    const picked = pickState(st.states, 'Done') || pickState(st.states, 'completed');
+    if (!picked) {
+      return {
+        error: true,
+        message: 'No Done/completed state on team',
+        states: st.states.map((s) => s.name),
+      };
+    }
+    const upd = await setIssueState(issue.id, picked.id);
+    if (upd.error) return upd;
+    issue = upd.data?.issueUpdate?.issue || issue;
+    newStateName = picked.name;
+  }
+
+  // Re-fetch labels after state change
+  const again = await findIssueByIdentifier(issue.identifier || identifier);
+  if (!again.error) issue = again.issue;
+
+  const strippedRes = await stripAgentLockLabels(issue);
+  if (strippedRes.error) {
+    // non-fatal for comment path — still record vault
+    console.error('Warning: strip labels failed:', strippedRes.message || strippedRes.code);
+  } else {
+    issue = strippedRes.issue || issue;
+  }
+  const stripped = strippedRes.stripped || 0;
+
+  const who = agent ? `[\`${normalizeAgent(agent)}\`] ` : '';
+  const body =
+    mode === 'done'
+      ? `${who}${comment || 'Done'}${stripped ? `\nUnlocked: removed ${stripped} agent-lock label(s)` : ''}`
+      : `${who}${comment || 'Released'}${stripped ? `\nUnlocked: removed ${stripped} agent-lock label(s)` : ''}`;
+  await addComment(issue.id, body);
+
+  const action = mode === 'done' ? 'done' : 'release';
+  const claimPath = writeVaultClaim({
+    issue: { ...issue, state: { name: newStateName } },
+    agent: agent || 'grok',
+    action,
+    comment: comment || action,
+    files: [],
+  });
+
+  return {
+    success: true,
+    issue: { ...issue, state: { name: newStateName } },
+    state: newStateName,
+    claimPath,
+    stripped,
+    mode,
+  };
+}
+
+/**
+ * Scrub stale agent-lock labels: vault says done/release, or Linear completed still locked.
+ * Default dry-run; pass apply=true to mutate.
+ */
+async function scrubStaleLocks({ apply = false, aggressive = false, maxAgeHours = 24 } = {}) {
+  // Include completed issues that still have locks — list open + recent completed via fleet open + locked open
+  const fleet = await listIssues({ fleet: true, openOnly: false, first: 100 });
+  if (fleet.error) return fleet;
+  const claims = fleet.vaultClaims || loadVaultClaimsIndex();
+  const issues = fleet.issues || [];
+  const candidates = [];
+
+  for (const issue of issues) {
+    const id = String(issue.identifier || '').toUpperCase();
+    const reason = detectStaleAgentLock(issue, claims[id], {
+      maxAgeHours,
+      aggressive,
+    });
+    if (!reason) continue;
+    candidates.push({
+      id,
+      title: (issue.title || '').slice(0, 80),
+      state: issue.state?.name,
+      labels: (issue.labels?.nodes || []).map((l) => l.name),
+      reason,
+      vault: claims[id] || null,
+      issue,
+    });
+  }
+
+  const results = [];
+  if (apply) {
+    for (const c of candidates) {
+      const strip = await stripAgentLockLabels(c.issue);
+      if (strip.error) {
+        results.push({ id: c.id, error: strip.message || strip.code, reason: c.reason });
+        continue;
+      }
+      const claimPath = writeVaultClaim({
+        issue: strip.issue || c.issue,
+        agent: c.vault?.agent || 'grok',
+        action: 'release',
+        comment: `scrub-stale: ${c.reason}`,
+        files: [],
+      });
+      await addComment(
+        c.issue.id,
+        `🧹 scrub-stale removed agent-lock labels (${c.reason})`,
+      );
+      results.push({
+        id: c.id,
+        stripped: strip.stripped || 0,
+        reason: c.reason,
+        claimPath,
+      });
+    }
+  }
+
+  return {
+    ok: true,
+    apply,
+    aggressive,
+    maxAgeHours,
+    candidateCount: candidates.length,
+    candidates: candidates.map(({ issue, ...rest }) => rest),
+    results,
+  };
+}
+
 function printHelp() {
   console.log(`linear-agent-bridge — Linear + vault multi-agent coordination
 
@@ -1073,8 +1396,9 @@ Usage:
   --doctor [--json]                Auth sources + team/open-issue health
   --claim ID --agent NAME          Claim issue (In Progress + comment + vault note)
   --update ID --state NAME         Update state; optional --comment --agent
-  --done ID --agent NAME           Shortcut: state Done + comment
-  --release ID --agent NAME        Comment release + vault note (state unchanged)
+  --release ID --agent NAME        Strip agent-lock labels + vault free (state unchanged)
+  --done ID --agent NAME           Done + strip agent-lock labels + vault free
+  --scrub-stale [--apply]          Dry-run (or apply) remove stale agent-lock labels
   --create --title "..."           Create issue; optional --agent --project --description
   --help
 
@@ -1167,6 +1491,30 @@ async function main() {
     return;
   }
 
+  if (hasFlag(args, '--scrub-stale')) {
+    const apply = hasFlag(args, '--apply');
+    const aggressive = hasFlag(args, '--aggressive');
+    const maxAgeHours = Number(argValue(args, '--max-age-hours') || 24);
+    const res = await scrubStaleLocks({ apply, aggressive, maxAgeHours });
+    if (res.error) return out(isJson, res);
+    if (isJson) return out(true, res);
+    console.log(`\n=== scrub-stale (${apply ? 'APPLY' : 'dry-run'}) ===`);
+    console.log(`candidates: ${res.candidateCount} · maxAgeHours=${res.maxAgeHours}`);
+    for (const c of res.candidates || []) {
+      console.log(`  [${c.id}] ${c.reason} · ${c.state} · ${(c.labels || []).join(',')}`);
+      console.log(`    ${(c.title || '').slice(0, 70)}`);
+    }
+    if (apply) {
+      for (const r of res.results || []) {
+        if (r.error) console.log(`  FAIL ${r.id}: ${r.error}`);
+        else console.log(`  OK ${r.id} stripped=${r.stripped} (${r.reason})`);
+      }
+    } else if (res.candidateCount) {
+      console.log('\nRe-run with --apply to strip agent-lock labels.');
+    }
+    return;
+  }
+
   if (hasFlag(args, '--list')) {
     const wantTeam = hasFlag(args, '--team');
     const openOnly = !hasFlag(args, '--all');
@@ -1228,15 +1576,16 @@ async function main() {
   if (hasFlag(args, '--done')) {
     const identifier = argValue(args, '--done');
     const comment = argValue(args, '--comment') || 'Done';
-    const res = await updateIssue({
+    const res = await finalizeIssue({
       identifier,
-      state: 'Done',
-      comment,
       agent,
+      comment,
+      mode: 'done',
     });
     if (res.error) return out(isJson, res);
     if (isJson) return out(true, res);
     console.log(`Done ${res.issue.identifier || identifier} → ${res.state}`);
+    console.log(`Labels stripped: ${res.stripped || 0}`);
     console.log(`Vault: ${res.claimPath}`);
     return;
   }
@@ -1246,10 +1595,15 @@ async function main() {
     const comment =
       argValue(args, '--comment') ||
       `Released by \`${normalizeAgent(agent)}\` — issue free for reassignment`;
-    const res = await updateIssue({ identifier, comment, agent });
+    const res = await finalizeIssue({
+      identifier,
+      agent,
+      comment,
+      mode: 'release',
+    });
     if (res.error) return out(isJson, res);
     if (isJson) return out(true, res);
-    console.log(`Release note on ${identifier}`);
+    console.log(`Released ${identifier} · labels stripped: ${res.stripped || 0}`);
     console.log(`Vault: ${res.claimPath}`);
     return;
   }
@@ -1315,8 +1669,15 @@ module.exports = {
   claimIssue,
   updateIssue,
   createIssue,
+  finalizeIssue,
+  scrubStaleLocks,
+  stripAgentLockLabels,
   findIssueByIdentifier,
   writeVaultClaim,
+  writeAgentStateInFlight,
+  applyAgentStateInFlight,
+  detectStaleAgentLock,
+  isAgentLockLabel,
   loadVaultClaimsIndex,
   doctorLinearFleet,
   coordStatus,

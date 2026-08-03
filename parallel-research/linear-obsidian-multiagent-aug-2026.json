@@ -1,0 +1,1041 @@
+{
+  "run_id": "trun_d3be5e813aa94970a1aa9fc9306812e5",
+  "interaction_id": "trun_d3be5e813aa94970a1aa9fc9306812e5",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_d3be5e813aa94970a1aa9fc9306812e5",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Assessment reasoning:\n- The user field_description asks for August 2026 best practices for a multi-agent software engineering fleet coordinated via Linear and Obsidian, including API usage, anti-patterns, session protocol, automation, comparisons to plan.md + git worktrees, and an actionable setup checklist for a solo founder Mac fleet, with industry patterns from 2025-2026. \n- The provided field_answer is a comprehensive, multi-section document that covers Linear GraphQL primitives, agent-oriented usage, Obsidian as a WIP ledger, leasing/claims, anti-patterns, a session-start protocol, stigmergy, plan.md vs worktrees, automation, adapter contracts, and a detailed setup checklist. It also references industry patterns and 2025-2026 timing (e.g., Linear Agent beta in 2026).\n- Completeness check: The answer appears to address all major requested components: durable ledger via Linear, Obsidian as WIP ledger, claim/lease mechanism, session protocol, automation/daemons, plan.md vs worktrees comparison, and a practical onboarding checklist. While no single sentence enumerates every single topic, the content collectively satisfies the breadth and depth implied by the prompt. Therefore completeness is true.\n- Excerpts support check: The provided excerpts include multiple items on Linear API usage, Obsidian vault usage, synchronization, and agent coordination patterns (e.g., excerpts 5, 9, 6, 7, 8, 12, 15, 60, 61, 87, 106). The field_answer contains assertions and guidance that are consistent with these excerpts (e.g., Linear as durable ledger, Obsidian as WIP ledger, agent-ops in Linear, session isolation with worktrees). While exact wording may differ, the themes are supported by the excerpts. Therefore supported is true.\n- Confidence: Moderate to high given the alignment between the answer content and the provided excerpts, but some specifics in the field_answer (like exact numeric defaults or precise protocol steps) are not verifiable solely from excerpts. Overall, classification stands.\n",
+        "citations": [
+          {
+            "url": "https://github.com/breferrari/obsidian-mind",
+            "excerpts": [
+              "GitHub - breferrari/obsidian-mind: An Obsidian vault that ...\nAn Obsidian vault that gives AI coding agents persistent memory. Built for Claude Code, with working hooks for Codex CLI and Gemini CLI. Start a session, talk about your day, and the agent handles the rest \u2014 notes, links, indexes, performance tracking. Every conversation builds on the last."
+            ],
+            "title": "GitHub - breferrari/obsidian-mind: An Obsidian vault that ..."
+          },
+          {
+            "url": "https://felo.ai/blog/ai-agent-memory-obsidian-vault-vs-workspace",
+            "excerpts": [
+              "AI Agent Memory: Obsidian Vault vs Dedicated Workspace\nCompare Obsidian MCP and dedicated workspace tools for giving AI agents persistent memory. Honest breakdown of setup, project isolation, and multi-agent workflows."
+            ],
+            "title": "AI Agent Memory: Obsidian Vault vs Dedicated Workspace"
+          },
+          {
+            "url": "http://aiundecided.com/",
+            "excerpts": [
+              "Obsidian Vault - The Local-First Knowledge Base 28 Jun 2026 \u00b7 krishna An Obsidian vault is a folder of plain markdown files, linked into a graph. We use it as the human view of our Claude Code second brain: the agent does the writing, Obsidian is where you read it. #obsidian #obsidian-vault #knowledge-management \ud83d\udccb Case-study Kai Forest: How Five AI Brains Solve One Problem 28 Mar 2026 \u00b7 krishna \u00b7 12 min read One brain can't hold everything. So we built five, connected them with mycelium, and let them argue. Here's how the Kai Forest works. #kai-forest #multi-brain #ai-agents \ud83d\udca1 Article AI Undecided Reading Path: Our Story in Sequence 28 Mar 2026 \u00b7 krishna \u00b7 3 min read From a Mac Studio and a dog to a multi-brain AI architecture with 500 souls."
+            ],
+            "title": "AI Undecided: notes from people building AI in plain English"
+          },
+          {
+            "url": "https://obsidian.md/help/teams/sync",
+            "excerpts": [
+              "Syncing for teams - Obsidian Help"
+            ],
+            "title": "Syncing for teams - Obsidian Help Obsidian https://obsidian.md \u203a teams \u203a sync"
+          },
+          {
+            "url": "https://obsidian.md/help/sync/settings",
+            "excerpts": [
+              "Sync settings and selective syncing - Obsidian Help\nChoose how to resolve conflicts when you modify a file on multiple devices before syncing. You can automatically merge changes or create separate conflict files for manual review."
+            ],
+            "title": "Sync settings and selective syncing - Obsidian Help"
+          },
+          {
+            "url": "https://linear.app/developers",
+            "excerpts": [
+              "Linear Developers\nLinear Developers Learn about building apps and integrations for Linear using the GraphQL API and TypeScript SDK."
+            ],
+            "title": "Linear Developers"
+          },
+          {
+            "url": "http://linear.app/developers/graphql",
+            "excerpts": [
+              "Getting started Linear's public API is built using GraphQL. It's the same API we use internally for developing our applications. If you are new to GraphQL, Apollo has [resources for beginners](https://blog.apollographql.com/the-basics-of-graphql-in-5-links-9e1dc4cac055). The official [GraphQL documentation](https://graphql.org/) is another good starting point. Endpoint Linear's GraphQL endpoint is: ```http https://api.linear.app/graphql ``` It supports introspection so you can query the whole schema. Authentication The Linear API supports personal API keys and OAuth2 authentication. OAuth If you're building an application for others to use, we recommend you use [OAuth2 authentication](https://linear.app/developers/oauth-2-0-authentication). Once you complete the authentication flow and acquire an access token, pass it with the header `Authorization: Bearer <ACCESS_TOKEN>` ```sh curl \\ -X POST \\ -H \"Content-Type: application/json\" \\ -H \"Authorization: Bearer <ACCESS_TOKEN>\" \\ --data '{ \"query\": \"{ issues { nodes { id title } } }\" }' \\ https://api.linear.app/graphql ``` Personal API Keys For personal scripts API keys are the easiest way to access the API. Visit [Security & access](https://linear.app/settings/account/security) settings to create and manage them."
+            ],
+            "title": "Getting started"
+          },
+          {
+            "url": "http://reddit.com/r/Linear/comments/1s4gqdy/linearnative_ai_dev_agent_using_claude_code_mcp",
+            "excerpts": [
+              "Having an agent alongside your team to automate tasks within linear is a huge win.\nI love that Linear issues can serve as a centralized brain for both developers and LLMs to read/write from.\nWhen we assign an issue to the agent, the webhook fires off to our Node app, which in turn spawns Claude Code in 'architect' mode to scope the codebase and post a plan to the Linear issue, then pings the issue owner that the plan is ready to review."
+            ],
+            "title": "Linear-native AI dev agent using Claude Code, MCP, and ..."
+          },
+          {
+            "url": "https://linear.app/docs/labels",
+            "excerpts": [
+              "Issue labels \u2013 Linear Docs\nLabel data like SLA and Triage rules the label's used in, when it was last applied, and how many issues have that label appear in settings to guide your"
+            ],
+            "title": "Issue labels \u2013 Linear Docs"
+          },
+          {
+            "url": "http://linear.app/agents",
+            "excerpts": [
+              "Build and deploy AI agents that work alongside you as teammates. Work on complex tasks together or delegate entire issues end-to-end."
+            ],
+            "title": "Linear for Agents"
+          },
+          {
+            "url": "http://linear.app/",
+            "excerpts": [
+              "**A new species of product tool.** Purpose-built for modern teams with AI workflows at its core, Linear sets a new standard for planning and building products. Built for purpose Linear is shaped by the practices and principles of world-class product teams. Powered by AI agents Designed for workflows shared by humans and agents. From drafting PRDs to pushing PRs. Designed for speed Reduces noise and restores momentum to help teams ship with high velocity and focus. FIG 0.2 Built for purpose Linear is shaped by the practices and principles of world-class product teams. FIG 0.3 Powered by AI agents Designed for workflows shared by humans and agents. From drafting PRDs to pushing PRs."
+            ],
+            "title": "Linear \u2013 The system for product development"
+          },
+          {
+            "url": "https://linear.app/next",
+            "excerpts": [
+              "Issue tracking is dead\nMar 24, 2026 \u2014 Starting with Triage, trigger agent workflows the moment an issue enters the system. Every new issue adds context to your workspace and Linear"
+            ],
+            "title": "Issue tracking is dead"
+          },
+          {
+            "url": "http://linear.app/changelog/2026-03-24-introducing-linear-agent",
+            "excerpts": [
+              "Mar 24, 2026 \u2014 March 24, 2026 Share. Linear Agent is now available in public beta for all teams."
+            ],
+            "title": "Introducing Linear Agent \u2013 Changelog"
+          },
+          {
+            "url": "http://linear.app/ai",
+            "excerpts": [
+              "Create your own agents Build your own AI teammates with the Linear API. Keep them private or share with the Linear community. Other features AI that works where you work From finding the right issue to staying on top of updates, AI is part of every workflow in Linear. It works quietly in the background, so you can focus on building. Linear MCP Connect Linear to your favorite AI tools including Cursor, Claude, ChatGPT, and more. AI-powered search Semantic search looks across titles, descriptions, customer feedback, and support tickets to find exactly what you're looking for. Stay in sync with Pulse updates AI distills all project and initiative updates into a short daily or weekly summary, available in your inbox to read or listen as an audio digest. Enterprise-grade security\nEverything in Linear is designed to keep your work safe and secure. Your information is never used to train AI models and remains secure at every step.\nFind duplicates before they slow you down Triage Intelligence identifies similar issues and links related work, so you don't end up with three versions of the same thing. Unlock the value of your backlog Tribal knowledge, made actionable. Triage Intelligence uncovers the implicit patterns of your issue history and applies them to what comes next. Leading AI companies plan and build with Linear Meet our customers Linear for Agents Delegate and automate work with AI agents **Scale output.** Build and deploy AI agents that work alongside you as teammates. Work on complex tasks together or delegate entire issues end-to-end.\nTriage Intelligence Suggestions Avatar of Nan nan Mobile App Refactor Slack Duplicate of ENG-1419 Loading spinner keeps running on startup Related to ENG-1820 Mobile app takes a long time to open Avatar of Nan nan Why this assignee was suggested This person was the assignee on previous issues related to performance problems in the mobile app launch flow Alternatives Avatar of Nan yann Avatar of Nan erin Mobile App Refactor Optimize mobile app performance In Progress Medium Why this project was suggested The current issue seems to be a mobile app related bug that would fit well within the scope of this project. Issue Type Bug Why this label was suggested This appears to be a bug in the mobile app A similar issue ENG-2029 iOS app keeps freezing is also labeled as Bug Accept suggestion\nActivity Unsubscribe Avatar of Karri Avatar of Paco Avatar of Leela skyline created the issue \u22c5 15min ago Linear notified nan \u22c5 15min ago Triage Intelligence Suggestions Avatar of Nan nan Mobile App Refactor Slack Duplicate of ENG-1419 Loading spinner keeps running on startup Related to ENG-1820 Mobile app takes a long time to open Looking at the issue\u2026 Triage Intelligence Self-driving product operations **Automate the overhead.** AI-powered features like Triage Intelligence proactively suggest and apply the right assignees, teams, labels, and projects based on your team's historical patterns. Triage Intelligence Suggestions Avatar of Nan nan Mobile App Refactor Slack Duplicate of ENG-1419 Loading spinner keeps running on startup Related to ENG-1820 Mobile app takes a long time to open Avatar of Nan nan Why this assignee was suggested This person was the assignee on previous issues related to performance problems in the mobile app launch flow Alternatives Avatar of Nan yann Avatar of Nan erin Mobile App Refactor Optimize mobile app performance In Progress Medium Why this project was suggested The current issue seems to be a mobile app related bug that would fit well within the scope of this project. Issue Type Bug Why this label was suggested ... Unlock the value of your backlog Tribal knowledge, made actionable. Triage Intelligence uncovers the implicit patterns of your issue history and applies them to what comes next. Leading AI companies plan and build with Linear Meet our customers Linear for Agents Delegate and automate work with AI agents **Scale output.** Build and deploy AI agents that work alongside you as teammates. Work on complex tasks together or delegate entire issues end-to-end. Learn more Agents for every use case, ready to deploy Choose from a variety of AI agents and start delegating work, from code generation to other technical tasks. Create your own agents Build your own AI teammates with the Linear API. Keep them private or share with the Linear community. Other features AI that works where you work\nFrom finding the right issue to staying on top of updates, AI is part of every workflow in Linear. It works quietly in the background, so you can focus on building. Linear MCP Connect Linear to your favorite AI tools including Cursor, Claude, ChatGPT, and more. AI-powered search Semantic search looks across titles, descriptions, customer feedback, and support tickets to find exactly what you're looking for. ... Enterprise-grade security Everything in Linear is designed to keep your work safe and secure. Your information is never used to train AI models and remains secure at every step.\nTriage Intelligence uncovers the implicit patterns of your issue history and applies them to what comes next. Leading AI companies plan and build with Linear Meet our customers Linear for Agents Delegate and automate work with AI agents **Scale output.** Build and deploy AI agents that work alongside you as teammates. Work on complex tasks together or delegate entire issues end-to-end. Learn more Agents for every use case, ready to deploy Choose from a variety of AI agents and start delegating work, from code generation to other technical tasks. Create your own agents Build your own AI teammates with the Linear API. Keep them private or share with the Linear community. Other features AI that works where you work From finding the right issue to staying on top of updates, AI is part of every workflow in Linear. It works quietly in the background, so you can focus on building. Linear MCP Connect Linear to your favorite AI tools including Cursor, Claude, ChatGPT, and more. AI-powered search Semantic search looks across titles, descriptions, customer feedback, and support tickets to find exactly what you're looking for. ... Enterprise-grade security Everything in Linear is designed to keep your work safe and secure. Your information is never used to train AI models and remains secure at every step."
+            ],
+            "title": "AI workflows for product teams \u2013 Linear"
+          },
+          {
+            "url": "http://linear.app/careers/1d652292-04d9-405c-8101-578efd020e94",
+            "excerpts": [
+              "Product Resources Customers Pricing Now Contact Docs Open app Careers / Marketing Developer Relations Full-time (Europe, North America) Apply At Linear, we're building the product development system for teams and agents. AI is fundamentally changing how software gets built, and we're shaping the tools this new era requires. Founded in 2019, Linear has become the platform of choice for more than 30,000 companies (including OpenAI, Coinbase, and Ramp) to plan, build, and ship their products. Today, our team is distributed across North America, Europe, and Australia, and we're continuing to grow internationally. What unites us is relentless focus, fast execution, and a deep care for software craftsmanship. Linear is becoming a much broader product than people realize. With agents, mobile workflows, and new modalities, there's a growing gap between what Linear can do and what people think it can do. This role exists to close that gap. We're looking for someone who will live inside the product, discover what's possible, and show the world. That means figuring out the most compelling use cases for Linear's AI agent, demonstrating real workflows that teams can adopt, and getting those stories out through whatever format works best, whether that's a tweet, a video, a blog post, or a live demo at a conference. The goal is to help people understand what they can actually do with Linear and make that feel concrete and exciting. Think of it as a product-obsessed marketer who is genuinely technical and knows how to communicate with depth. **Location & work mode** _Linear is a remote-first company, with optional co-working offices in San Francisco, New York, and London. This role is open to candidates based in the US and Europe. You can work from anywhere within those regions. We value deep focus and async collaboration, with intentional moments to connect in person through team off-sites, optional co-working, and occasional travel._ **What you'll do** Deeply understand Linear's product, especially our AI agent and newer capabilities, and continuously discover productive, real-world use cases that teams would care about Create content that demonstrates those use cases, whether that's short-form social, blog posts, video walkthroughs, or live demos. Format follows the story, not the other way around Build relationships with engineering and product-focused creators and collaborate on content that feels authentic rather than sponsored Work with our video team to produce technical product content that comes across with genuine depth Partner with support, sales, and product on developer-facing documentation and educational content Stay plugged into the conversations happening on X, in newsletters, and at events, and make sure Linear has a voice in the ones that matter **What we're looking"
+            ],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://mer.vin/2026/04/managing-handoffs-in-multi-agent-coding-sessions-fresh-context-without-losing-continuity",
+            "excerpts": [
+              "Managing Handoffs in Multi-Agent Coding Sessions: Fresh ...\nUse one active handoff per branch and topic. Require status and next-action before any tool run. Archive or mark stale handoffs quickly to reduce ambiguity. Bottom line: fresh sessions are not in conflict with continuity. They require continuity to move from chat history into operational artefacts."
+            ],
+            "title": "Managing Handoffs in Multi-Agent Coding Sessions: Fresh ..."
+          },
+          {
+            "url": "https://github.com/openclaw/openclaw/issues/4082",
+            "excerpts": [
+              "Stale session lock files not cleaned up after agent crash\nAdding stale lock detection at gateway startup (or periodic cleanup) would prevent this from silently blocking the agent. A PID-based liveness check or a max-age on lock files would both work."
+            ],
+            "title": "Stale session lock files not cleaned up after agent crash"
+          },
+          {
+            "url": "https://www.answeroverflow.com/m/1474425989437325415",
+            "excerpts": [
+              "Bug v2026.2.12] Session .lock file persists and blocks agent ...\nOnly fix: manually delete the .lock file inside the container. Happens multiple times per hour after any failed tool call (SSH, git, long tasks) or container restart. Our questions: What is the exact purpose of the .jsonl.lock file?"
+            ],
+            "title": "Bug v2026.2.12] Session .lock file persists and blocks agent ..."
+          },
+          {
+            "url": "https://github.com/openclaw/openclaw/issues/31489",
+            "excerpts": [
+              "session file locked (timeout 10000ms) causes agent to fail ...\nSession writes should not deadlock or time out due to a lock file while the gateway process is healthy. If a lock can\u2019t be acquired quickly, the system should recover (e.g., detect stale lock, or provide safer lock recovery). This looks like stale-lock or lock-release failure."
+            ],
+            "title": "session file locked (timeout 10000ms) causes agent to fail ..."
+          },
+          {
+            "url": "https://www.answeroverflow.com/m/1508786431093379072",
+            "excerpts": [
+              "Agent failed before reply - : session file locked - (timeout 60000ms\nCheck openclaw logs --follow openclaw logs --follow for the run that's stuck, then restart the gateway/container if there's no active turn you"
+            ],
+            "title": "Agent failed before reply - : session file locked - (timeout 60000ms"
+          },
+          {
+            "url": "https://cursor.com/docs",
+            "excerpts": [
+              "Cursor Docs \u2014 Agent, Rules, MCP, Skills & CLI\nOfficial Cursor documentation. Covers Agent mode, Rules, Skills, MCP servers, CLI, models, and Teams & Enterprise setup. Start building in minutes."
+            ],
+            "title": "Cursor Docs \u2014 Agent, Rules, MCP, Skills & CLI"
+          },
+          {
+            "url": "http://gitworktree.org/cases/parallel-ai-agents",
+            "excerpts": [
+              "If two agents share the same checkout, they will overwrite each other's changes and produce conflicts. You need isolation \u2014 but you also want a single repository so merging is straightforward."
+            ],
+            "title": "3 AI Agents, 3 Worktrees, 1 Repository \u2014 Git Worktree Case ..."
+          },
+          {
+            "url": "http://nimbalyst.com/",
+            "excerpts": [
+              "Agent management environment Run parallel sessions across Claude Code, Codex, and more, optionally isolated in git worktrees. ... Session Kanban Organize sessions on a kanban board by phase \u2014 backlog, planning, implementing, complete. See your full workstream at a glance.\nInstead of reading terminal output and trusting blind edits, you see every change your Claude Code session makes across markdown, mockups, diagrams, data models, and code \u2014 and you approve or reject each one in place, with full session history visible on a kanban board.\nIntegrated task management Track plans, bugs, ideas, and more Blog drafts, feature specs, research tasks, bugs \u2014 all tracked with status, tags, and priority. Edit yourself or let your agents do it.\nNimbalyst is built for running multiple Claude Code sessions in parallel. Any session can opt into its own git worktree with one click, so when you want isolation, sessions never stomp on each other's files.\nNimbalyst is open source The desktop and iOS apps are MIT licensed. Read the code, file issues, build extensions, or fork it.\nNimbalyst supports Claude Code (by Anthropic) and Codex (by OpenAI), with OpenCode, Copilot, and Codex via ACP in Alpha. You can run multiple sessions in parallel, manage them on a kanban board, and review all agent file changes in one place.\nNimbalyst works with supported Claude Code and Codex provider access or explicitly configured API keys, so you can run both agents in one workspace without replacing your Anthropic or OpenAI plan. The provider still handles authentication, model usage, billing, and plan limits.\nReview AI changes. Approve, reject, edit, iterate."
+            ],
+            "title": "Nimbalyst: Visual Editor for Claude Code & Codex (Open Source)"
+          },
+          {
+            "url": "https://cursor.com/docs/configuration/worktrees",
+            "excerpts": [
+              "Worktrees | Cursor Docs\nRun agents in isolated Git worktrees from the Agents Window."
+            ],
+            "title": "Worktrees | Cursor Docs"
+          },
+          {
+            "url": "https://developer.upsun.com/posts/ai/git-worktrees-for-parallel-ai-coding-agents",
+            "excerpts": [
+              "Git worktrees for parallel AI coding agents - Upsun Developer\nFeb 11, 2026 \u00b7 Learn how git worktrees enable parallel AI agent workflows, their limitations, and what an ideal orchestration tool needs. Why AI agents need worktrees \u00b7 Preview environments fix the"
+            ],
+            "title": "Git worktrees for parallel AI coding agents - Upsun Developer"
+          },
+          {
+            "url": "https://developers.openai.com/codex/cli",
+            "excerpts": [
+              "Codex CLI\nApproval modes. Choose the approval mode that matches your comfort level before Codex edits or runs commands. Next. Features. Ask AI. Docs agent. Loading docs"
+            ],
+            "title": "Codex CLI"
+          },
+          {
+            "url": "https://openaicli.com/docs",
+            "excerpts": [
+              "Codex CLI - Build, debug & deploy with AI\nA coding agent that runs locally from your terminal. Read, modify, and run code on your machine with the power of AI."
+            ],
+            "title": "Codex CLI - Build, debug & deploy with AI"
+          },
+          {
+            "url": "http://en.wikipedia.org/wiki/OpenAI_Codex_%28AI_agent%29",
+            "excerpts": [
+              "OpenAI released Codex CLI on April 16, 2025, as an open-source coding agent that runs locally in the terminal. It connects OpenAI's language models with"
+            ],
+            "title": "OpenAI Codex (AI agent)"
+          },
+          {
+            "url": "http://openai.com/index/introducing-codex",
+            "excerpts": [
+              "May 16, 2025 \u2014 Last month, we launched Codex CLI, a lightweight open-source coding agent that runs in your terminal. It brings the power of models like o3 and"
+            ],
+            "title": "Introducing Codex"
+          },
+          {
+            "url": "http://github.com/openai/codex",
+            "excerpts": [
+              "Codex CLI is a coding agent from OpenAI that runs locally on your computer. Run codex and select Sign in with ChatGPT. account to use Codex as part of your"
+            ],
+            "title": "openai/codex: Lightweight coding agent that runs in your ..."
+          },
+          {
+            "url": "http://anthropic.com/",
+            "excerpts": [
+              "Anthropic is an AI safety and research company that's working to build reliable, interpretable, and steerable AI systems.\n(last verified: 2026-06-18) https://www.anthropic.com"
+            ],
+            "title": "Anthropic"
+          },
+          {
+            "url": "https://github.com/Investigator13th/anthropic-agent-methodology/blob/main/references/multi-agent-research-system.md",
+            "excerpts": [
+              "anthropic-agent-methodology/references/multi-agent-research ...\nThis article details the Anthropic team's real-world engineering experience in building and pushing a multi-agent research system from zero to production. Unlike papers that stay at the theoretical level, this article directly addresses the architecture, evaluation, tool design, and engineering challenges during agent implementation."
+            ],
+            "title": "anthropic-agent-methodology/references/multi-agent-research ..."
+          },
+          {
+            "url": "https://www.anthropic.com/engineering/multi-agent-research-system",
+            "excerpts": [
+              "How we built our multi-agent research system \\ Anthropic\nHow we built our multi-agent research system Published Jun 13, 2025 Our Research feature uses multiple Claude agents to explore complex topics more effectively. We share the engineering challenges and the lessons we learned from building this system."
+            ],
+            "title": "How we built our multi-agent research system \\ Anthropic"
+          },
+          {
+            "url": "https://inferensys.com/glossary/multi-agent-system-orchestration/agent-swarm-intelligence/stigmergy",
+            "excerpts": [
+              "Stigmergy: Indirect Coordination for Multi-Agent Systems\nStigmergy is a foundational coordination mechanism in swarm intelligence and multi-agent systems, enabling complex collective outcomes without direct communication or centralized control."
+            ],
+            "title": "Stigmergy: Indirect Coordination for Multi-Agent Systems"
+          },
+          {
+            "url": "https://signals.aktagon.com/articles/2026/03/how-we-built-our-multi-agent-research-system",
+            "excerpts": [
+              "How We Built Our Multi-Agent Research System \u2014 Signals\nHow We Built Our Multi-Agent Research System Anthropic shares the engineering challenges and lessons learned from building Claude\u2019s Research feature, a multi-agent system that uses multiple AI agents working in parallel to explore complex topics more effectively than single-agent approaches."
+            ],
+            "title": "How We Built Our Multi-Agent Research System \u2014 Signals"
+          },
+          {
+            "url": "http://github.com/MaxMiksa/Auto-Company",
+            "excerpts": [
+              "**A fully autonomous AI company running 24/7** [[\u4e2d\u6587\u8bf4\u660e]](https://github.com/MaxMiksa/Auto-Company/blob/main/README-ZH.md) Powered by **Agentic Workflows** , this project orchestrates 14 **Autonomous AI Agents** , each modeled after world-class experts in their domain.\nCosts money** : each cycle consumes model quota\nPowered by **Agentic Workflows** , this project orchestrates 14 **Autonomous AI Agents** , each modeled after world-class experts in their domain.\nThis is an **experimental project** : **Daemon mode works on both macOS and WSL** : launchd on macOS, systemd --user on WSL **Windows entry requires WSL** : PowerShell is only the control layer **Still under test** : runs, but stability is not guaranteed **Costs money** : each cycle consumes model quota **Fully autonomous** : agents act without approval prompts; configure guardrails carefully in `CLAUDE.md`\n\u2502 \u251c\u2500\u2500 core/ # Core loop and control scripts (auto-loop/monitor/stop) \u2502 \u251c\u2500\u2500 windows/ # Windows entry/guardian/autostart scripts \u2502 \u251c\u2500\u2500 wsl/ # WSL systemd --user daemon scripts \u2502 \u2514\u2500\u2500 macos/ # macOS launchd daemon scripts \u251c\u2500\u2500 memories/ \u2502 \u2514\u2500\u2500 consensus.md # Shared handoff memory across cycles \u251c\u2500\u2500 docs/ # Agent outputs (14 folders + Windows guide) \u251c\u2500\u2500 projects/ # Workspace for generated projects \u251c\u2500\u2500 logs/ # Loop logs \u2514\u2500\u2500 .claude/ \u251c\u2500\u2500 agents/ # 14 agent definitions (expert personas) \u251c\u2500\u2500 skills/ # 30+ reusable skills \u2514\u2500\u2500 settings.json # Permissions + Agent Teams switch ``` Dependencies |Dependency |Notes | |**Claude Code / Codex CLI** |Supported CLI engines (default: Claude) |\nAuto Company **A fully autonomous AI company running 24/7** [[\u4e2d\u6587\u8bf4\u660e]](https://github.com/MaxMiksa/Auto-Company/blob/main/README-ZH.md) Powered by **Agentic Workflows** , this project orchestrates 14 **Autonomous AI Agents** , each modeled after world-class experts in their domain. They ideate products, make decisions, write code, deploy, and market - without human intervention.\nThis is an **experimental project** : **Daemon mode works on both macOS and WSL** : launchd on macOS, systemd --user on WSL **Windows entry requires WSL** : PowerShell is only the control layer **Still under test** : runs, but stability is not guaranteed"
+            ],
+            "title": "GitHub - MaxMiksa/Auto-Company: An auto-company works for 24/7 on your own PC - Windows/Linux/macOS. \u00b7 GitHub"
+          },
+          {
+            "url": "https://linear.app/developers/webhooks",
+            "excerpts": [
+              "Webhooks \u2013 Linear Developers\nLinear provides webhooks which allow you to receive HTTP push notifications whenever data is created, updated or removed. This allows you to build integrations that respond to changes in real time, such as triggering CI builds, updating external systems, or sending messages based on issue activity."
+            ],
+            "title": "Webhooks \u2013 Linear Developers"
+          },
+          {
+            "url": "https://linear.app/docs/api-and-webhooks",
+            "excerpts": [
+              "API and Webhooks \u2013 Linear Docs\nConsider using webhooks to trigger CI builds, perform calculations on issue data or send messages on specific conditions. Creating and managing webhooks requires admin permissions."
+            ],
+            "title": "API and Webhooks \u2013 Linear Docs"
+          },
+          {
+            "url": "http://mise.jdx.dev/bootstrap/launchd.html",
+            "excerpts": [
+              "Jul 8, 2026 \u2014 launchd mise can declare macOS user LaunchAgents in [bootstrap.macos.launchd.agents] and apply them with mise"
+            ],
+            "title": "launchd | mise-en-place - jdx"
+          },
+          {
+            "url": "https://inventivehq.com/blog/linear-webhooks-guide",
+            "excerpts": [
+              "Linear Webhooks: Complete Guide with Payload Examples [2025]\nLinear's GraphQL-based webhook system provides immediate event notifications for issues, comments, projects, cycles, and more. With proper signature verification using HMAC-SHA256, you can build secure, real-time integrations that respond instantly to your team's workflow changes."
+            ],
+            "title": "Linear Webhooks: Complete Guide with Payload Examples [2025]"
+          },
+          {
+            "url": "https://linear.app/developers/graphql",
+            "excerpts": [
+              "Getting started \u2013 Linear Developers\nThe Linear SDK exposes the Linear GraphQL schema, and makes it easy to access models, or perform mutations. We recommend using it to interact with the GraphQL API."
+            ],
+            "title": "Getting started \u2013 Linear Developers"
+          },
+          {
+            "url": "https://mcpservers.org/agent-skills/anthropic/linear-api",
+            "excerpts": [
+              "linear-api | Agent Skills Library\nLinear has a single GraphQL endpoint \u2014 there is no REST API. Every read is a query, every write is a mutation, and everything goes to one URL. Don't look for /api/v1/issues -style paths; they don't exist. POST https://api.linear.app/graphql Two ID systems coexist: UUID (id) \u2014 what the API uses everywhere for lookups and mutations. Identifier (identifier, e.g. ENG-123) \u2014 the human"
+            ],
+            "title": "linear-api | Agent Skills Library"
+          },
+          {
+            "url": "https://github.com/linear/linear/issues/1066",
+            "excerpts": [
+              "GraphQL docs: clarify that IssueFilter does not ... - GitHub\nExplicitly note that IssueFilter does not include identifier. Show issue (id: \"ANI-123\") as the correct pattern for direct identifier lookup. If there is a recommended batched alternative, show that as well."
+            ],
+            "title": "GraphQL docs: clarify that IssueFilter does not ... - GitHub"
+          },
+          {
+            "url": "https://linear.app/docs/configuring-workflows",
+            "excerpts": [
+              "Issue status \u2013 Linear Docs\nThe default status defines the workflow status that will be applied to newly created issues in your team. select Make default."
+            ],
+            "title": "Issue status \u2013 Linear Docs"
+          },
+          {
+            "url": "https://linear.app/agents",
+            "excerpts": [
+              "Linear for Agents\nBuild and deploy AI agents that work alongside you as teammates. Build your own AI teammates with the Linear API. Keep them private or share with the Linear"
+            ],
+            "title": "Linear for Agents"
+          },
+          {
+            "url": "https://linear.app/docs/agents-in-linear",
+            "excerpts": [
+              "AI Agents \u2013 Linear Docs\nDevelopers can build custom agents using Linear's developer platform. Documentation on agent APIs , authentication, and behavior can be found in our Developer"
+            ],
+            "title": "AI Agents \u2013 Linear Docs"
+          },
+          {
+            "url": "https://linear.app/docs/mcp",
+            "excerpts": [
+              "MCP server \u2013 Linear Docs\nIn Linear, go to Settings > Account > Security & Access \u00b7 Generate a new API key and copy it somewhere secure \u00b7 Now in Jules, go to MCP Settings \u00b7 Select Connect"
+            ],
+            "title": "MCP server \u2013 Linear Docs"
+          },
+          {
+            "url": "https://linear.app/changelog/2026-04-23-linear-agent-mcp-support",
+            "excerpts": [
+              "Linear Agent MCP support \u2013 Changelog\nEnabled webhooks now show the correct status dot in API settings API Agent delegation webhooks are now retried after an initial failed delivery"
+            ],
+            "title": "Linear Agent MCP support \u2013 Changelog"
+          },
+          {
+            "url": "https://www.developersdigest.tech/blog/grok-build-developer-guide-2026",
+            "excerpts": [
+              "Grok Build Developer Guide: xAI's Terminal Coding Agent ...\n7 hours ago \u2014 Grok Build is xAI's agentic CLI with 8 parallel subagents, a plan-first workflow, and Arena Mode for competing outputs. Installation, pricing, real commands"
+            ],
+            "title": "Grok Build Developer Guide: xAI's Terminal Coding Agent ..."
+          },
+          {
+            "url": "http://blakecrosley.com/guides/codex",
+            "excerpts": [
+              "Use --ephemeral : Skip session persistence in CI/CD to reduce overhead --dangerously-bypass-approvals-and-sandbox"
+            ],
+            "title": "Codex CLI Guide 2026: Setup, Sandbox, AGENTS.md & ..."
+          },
+          {
+            "url": "http://facebook.com/openai/posts/codex-is-a-coding-agent-from-openai-that-works-everywhere-you-do-powered-by-chat/1358767919378148",
+            "excerpts": [
+              "Codex CLI enables users to input natural language commands, which are then translated into executable code by OpenAI's language models. This"
+            ],
+            "title": "Codex is a coding agent from OpenAI that works everywhere you do ..."
+          },
+          {
+            "url": "http://developers.openai.com/codex/cli",
+            "excerpts": [
+              "(last verified: 2026-06-28) Codex CLI Pair with Codex in your terminal Copy Page Codex CLI is OpenAI's coding agent that you can run locally from your terminal. It can read, change, and run code on your machine in the selected directory. It's [open source](https://github.com/openai/codex) and built in Rust for speed and efficiency. ChatGPT Plus, Pro, Business, Edu, and Enterprise plans include Codex. Learn more about what's included . CLI setup Choose your install option macOS/Linux Windows npm Homebrew 1 Install Install the Codex CLI with the standalone installer for macOS and Linux. macOS/Linux install command curl -fsSL https://chatgpt.com/codex/install.sh | sh Copy For unattended installs, set `CODEX_NON_INTERACTIVE=1` on the shell that runs the downloaded installer."
+            ],
+            "title": null
+          },
+          {
+            "url": "http://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-grok",
+            "excerpts": [
+              "Delegate coding tasks to Grok Build (xAI's autonomous coding agent CLI, the grok command) via the Hermes terminal. Grok can read files, write code, run shell commands, spawn subagents, and manage git workflows. It runs three ways: an interactive TUI, headless (-p), and as an ACP agent over JSON-RPC.\nIt runs three ways: an interactive TUI, headless (-p), and as an ACP agent over JSON-RPC.\n## Useful Subcommands & TUI Commands \n| Command | Purpose |\n| `grok` | Start the interactive TUI |\n| `grok -p \"query\"` | Headless one-shot |\nGrok Build CLI \u2014 Hermes Orchestration Guide Delegate coding tasks to Grok Build (xAI's autonomous coding agent CLI, the grok command) via the Hermes terminal. Grok can read files, write code, run shell commands, spawn subagents, and manage git workflows. It runs three ways: an interactive TUI, headless (-p), and as an ACP agent over JSON-RPC.\nIt runs three ways: an interactive TUI, **headless** ( `-p` ), and as\nan **ACP agent** over JSON-RPC.\n`grok agent stdio` | Run as an ACP agent over JSON-RPC (for IDE/tool integration) |\nGrok Build CLI \u2014 Hermes Orchestration Guide Delegate coding tasks to Grok Build (xAI's autonomous coding agent CLI, the grok command) via the Hermes terminal.\ne 1: Headless ( `-p` ) \u2014 Non-Interactive (PREFERRED) \n* One-shot coding tasks (fix a bug, add a feature, refactor)\n* CI/CD automation and scripting\n* Structured output parsing with `--output-format json`\n* Any task that doesn't need multi-turn conversati\nDelegate coding tasks to [Grok Build](https://docs.x.ai/build/overview) (xAI's\nautonomous coding agent CLI, the `grok` command) via the Hermes terminal. Grok\ncan read files, write code, run shell commands, spawn subagents, and manage git\nworkflows.\nl. Grok can read files, write code, run shell commands, spawn subagents, and manage git workflows. It runs three ways: an interactive TUI, headless (-p), and as an ACP agent over JSON-RPC."
+            ],
+            "title": "Grok \u2014 Delegate coding to xAI Grok Build CLI (features, PRs) | Hermes Agent"
+          },
+          {
+            "url": "http://hackernoon.com/the-fencing-gap-why-your-distributed-lock-isnt-safe-and-how-to-fix-it",
+            "excerpts": [
+              "Apr 7, 2026 \u2014 Martin Kleppmann exposed a gap between the assumed and actual safety of distributed locks\u2014a. The Stale Read Trap Fencing prevents stale writes\nApr 7, 2026 \u2014 A stale token error means your operation is obsolete\u2014retrying will never succeed. Handle it as a terminal failure.\nApr 7, 2026 \u2014 ZooKeeper is the only system that generates safe, monotonic fencing tokens out of the box\u2014but your storage layer must still enforce them. If"
+            ],
+            "title": "The Fencing Gap: Why Your Distributed Lock Isn't Safe ..."
+          },
+          {
+            "url": "http://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html",
+            "excerpts": [
+              "by M Kleppmann \u00b7 Cited by 11 \u2014 The fix for this problem is actually pretty simple: you need to include a fencing token with every write request to the storage service.\nby M Kleppmann \u00b7 Cited by 11 \u2014 Using fencing tokens to make resource access safe Client 1 acquires the lease and gets a token of 33, but then it goes into a long pause and\nby M Kleppmann \u00b7 Cited by 11 \u2014 For example, if you are using ZooKeeper as lock service, you can use the zxid or the znode version number as fencing token, and you're in good"
+            ],
+            "title": "How to do distributed locking"
+          },
+          {
+            "url": "http://medium.com/towardsdev/implementing-distributed-locks-correctly-5a35179422a6",
+            "excerpts": [
+              "A fencing token is a strictly increasing stamp given out on each lock acquisition. It prevents a stale lock-holder from making changes after\nZooKeeper similarly offers the znode's zxid or version number as a fencing token. In practice, any system using TTL-based locks should"
+            ],
+            "title": "Implementing Distributed Locks Correctly | by Alex Razkevich"
+          },
+          {
+            "url": "http://martin.kleppmann.com/",
+            "excerpts": [
+              "I am an Associate Professor at the University of Cambridge, working on local-first collaboration software and distributed systems security.\nI'm Dr. Martin Kleppmann.\nok [Designing Data-Intensive Applications](https://dataintensive.net) (2nd edition co-authored with [Chris Riccomini](https://cnr.sh/) appeared in 2026)\n  is a best-selling title on the architecture of databases and distributed data processing systems,\n  and it has [thousands of five-star reviews](https://www.amazon.com/gp/product/1449373321/ref=as_li_qf_sp_asin_il_tl?\nie=UTF8&tag=dataintensive-20&camp=1789&creative=9325&linkCode=as2&creativeASIN=1449373321&linkId=7b365b768a6f6c8e5e397e48e30d435e) on Amazon."
+            ],
+            "title": "Martin Kleppmann's website"
+          },
+          {
+            "url": "https://singhajit.com/distributed-systems/lease",
+            "excerpts": [
+              "Lease Pattern in Distributed Systems Explained - Ajit Singh\nLearn the Lease pattern in distributed systems: time-bound exclusive access using TTL, heartbeats, and fencing tokens. With real implementations from etcd, Kubernetes, ZooKeeper, Chubby, and HDFS, plus pitfalls around GC pauses and clock drift."
+            ],
+            "title": "Lease Pattern in Distributed Systems Explained - Ajit Singh"
+          },
+          {
+            "url": "https://code.claude.com/docs/en/agent-teams",
+            "excerpts": [
+              "Orchestrate teams of Claude Code sessions\nAgent teams let you coordinate multiple Claude Code instances working together. One session acts as the team lead, coordinating work, assigning tasks, and"
+            ],
+            "title": "Orchestrate teams of Claude Code sessions"
+          },
+          {
+            "url": "https://git-scm.com/docs/git-worktree",
+            "excerpts": [
+              "Git - git-worktree Documentation\nA git repository can support multiple working trees, allowing you to check out more than one branch at a time. With git worktree add a new working tree is associated with the repository, along with additional metadata that differentiates that working tree from others in the same repository."
+            ],
+            "title": "Git - git-worktree Documentation"
+          },
+          {
+            "url": "https://code.claude.com/docs/en/worktrees",
+            "excerpts": [
+              "Run parallel sessions with worktrees - Claude Code Docs\nThe desktop app creates a worktree for every new session automatically . ... Non-git version control. Worktree isolation uses git by default. For SVN"
+            ],
+            "title": "Run parallel sessions with worktrees - Claude Code Docs"
+          },
+          {
+            "url": "https://zhuanlan.zhihu.com/p/2017290839030784536",
+            "excerpts": [
+              "Claude Code + Git Worktree + Agent Teams\uff1a\u591aAgent \u5e76\u884c ...\nSubagent + worktree, \u4e3b\u4f1a\u8bdd\u5185\u6d3e\u751f\u5b50agent\uff0c\u5404\u6709\u72ec\u7acbworktree, \u5b50agent \u53ea\u5411\u4e3bagent \u6c47\u62a5\u7ed3\u679c, \u5355\u4f1a\u8bdd\u5185\u7684\u5e76\u884c\u5b50\u4efb\u52a1, \u7a33\u5b9a\uff0c\u6b63\u5f0f\u529f\u80fd. Agent Teams, \u591a\u4e2a\u72ec\u7acbClaude \u5b9e\u4f8b"
+            ],
+            "title": "Claude Code + Git Worktree + Agent Teams\uff1a\u591aAgent \u5e76\u884c ..."
+          },
+          {
+            "url": "https://git-scm.com/docs/git-worktree/2.30.0",
+            "excerpts": [
+              "Git - git-worktree Documentation\nManage multiple working trees attached to the same repository. A git repository can support multiple working trees, allowing you to check out more than one branch at a time. With git worktree add a new working tree is associated with the repository."
+            ],
+            "title": "Git - git-worktree Documentation"
+          },
+          {
+            "url": "https://deepwiki.com/obsidianmd/obsidian-headless/2.3-sync-commands",
+            "excerpts": [
+              "Sync Commands | obsidianmd/obsidian-headless | DeepWiki\nSync Commands Relevant source files This page documents the three sync operation commands: ob sync, ob sync-config, and ob sync-status. These commands are responsible for running the sync engine, adjusting its behavior, and inspecting current state. For documentation on how to link a local directory to a remote vault before running sync, see the vault management commands in 2.2 For a deeper"
+            ],
+            "title": "Sync Commands | obsidianmd/obsidian-headless | DeepWiki"
+          },
+          {
+            "url": "https://forum.obsidian.md/t/shared-vault-forces-teammates-to-use-the-same-settings-and-theme/72057",
+            "excerpts": [
+              "Shared Vault forces teammates to use the same settings and theme?\nNov 28, 2023 \u00b7 Me and my Teammates are using obsidian to share knowledebases of our company. The vaults are shared via OneDrive which works great so far. Can mutliple users on single PC share a common vault? Does each ... Selective Sync Between Vaults in a Team - Help - Obsidian Forum More results from forum.obsidian.md"
+            ],
+            "title": "Shared Vault forces teammates to use the same settings and theme?"
+          },
+          {
+            "url": "https://obsidian.md/changelog/2025-08-18-desktop-v1.9.10",
+            "excerpts": [
+              "Obsidian 1.9.10 Desktop (Public)\nAug 18, 2025 \u2014 Property editor is now available inside page preview and Canvas. \u00b7 Sync: Added new \"Conflict resolution\" setting. \u00b7 Added button to open current"
+            ],
+            "title": "Obsidian 1.9.10 Desktop (Public)"
+          },
+          {
+            "url": "http://desktopcommander.app/blog/zettelkasten-obsidian",
+            "excerpts": [
+              "The Zettelkasten Method in Obsidian: A Practical Setup Guide\nLearn how to set up a working Zettelkasten in Obsidian: note types, vault structure, MOCs, and how AI handles the maintenance that kills most systems."
+            ],
+            "title": "The Zettelkasten Method in Obsidian: A Practical Setup Guide"
+          },
+          {
+            "url": "https://www.anthropic.com/engineering",
+            "excerpts": [
+              "Here\u2019s what we\u2019ve learned building containment for claude.ai, Claude Code, and Cowork. Want to help us build the u2028future of safe AI? Anthropic is an AI safety and research company that's working to build reliable, interpretable, and steerable AI systems."
+            ],
+            "title": "Engineering \\ Anthropic"
+          },
+          {
+            "url": "https://www.engineering.fyi/article/how-we-built-our-multi-agent-research-system",
+            "excerpts": [
+              "How we built our multi-agent research system | Anthropic ...\nWe share the engineering challenges and the lessons we learned from building this system. The article discusses the development of a multi-agent research system, detailing its architecture, benefits, and the lessons learned during its transition from prototype to production."
+            ],
+            "title": "How we built our multi-agent research system | Anthropic ..."
+          },
+          {
+            "url": "https://cuizhanming.com/anthropic-multi-agent-research-architecture",
+            "excerpts": [
+              "How Anthropic Built Their Multi-Agent Research System ...\nDeep dive into Anthropic\u2019s production multi-agent system architecture: orchestrator-worker patterns, prompt engineering principles, and lessons from scaling Claude\u2019s Research feature to handle complex tasks with 15x token usage."
+            ],
+            "title": "How Anthropic Built Their Multi-Agent Research System ..."
+          },
+          {
+            "url": "https://arxiv.org/abs/2310.03903",
+            "excerpts": [
+              "LLM-Coordination: Evaluating and Analyzing Multi-agent ...\nResults from Agentic Coordination experiments reveal that LLM-Agents excel in multi-agent coordination settings where decision-making primarily relies on environmental variables but face challenges in scenarios requiring active consideration of partners' beliefs and intentions."
+            ],
+            "title": "LLM-Coordination: Evaluating and Analyzing Multi-agent ..."
+          },
+          {
+            "url": "http://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html",
+            "excerpts": [
+              "The second is `ProgramArguments` which has a value of an array of strings which represent the tokenized arguments and the program to run.\nThe third and final key is `KeepAlive` which indicates that this job needs to be running at all times, rather than the default launch-on-demand behavior, so launchd should always try to keep this job running.\nWhen this happens, `launchd` monitors the shutdown and makes a note to launch the daemon again when future requests arrive. **Important:** If your daemon shuts down too quickly after being launched, `launchd` may think it has crashed.\nYou must not daemonize your process. This includes calling the `daemon` function, calling `fork` followed by `exec` , or calling `fork` followed by `exit` . If you do, `launchd` thinks your process has died."
+            ],
+            "title": "Creating Launch Daemons and Agents"
+          },
+          {
+            "url": "https://mundobytes.com/en/How-to-use-launchagents-and-launchdaemons-on-macOS",
+            "excerpts": [
+              "LaunchAgents and LaunchDaemons on macOS: A Complete and ...\nNormally launchd does not appear in the lead; if it is at 30-40% continuously, restart the system and check again. If it persists, list services with launchctl list and eliminate suspects."
+            ],
+            "title": "LaunchAgents and LaunchDaemons on macOS: A Complete and ..."
+          },
+          {
+            "url": "http://gist.github.com/johndturn/09a5c055e6a56ab61212204607940fa0",
+            "excerpts": [
+              "RunAtLoad : Should we run the job at boot time (for daemons) / login time (agents)?; StartCalendarInterval : Dictionary used to specify cron -like running"
+            ],
+            "title": "Overview of using launchd to set up services on a macOS ..."
+          },
+          {
+            "url": "https://www.webhooks.io/docs/relay/retry-policies",
+            "excerpts": [
+              "Retry Policies\nA linear retry policy will attempt to resend the request n number of times for a certain interval. ... The minimum interval is 5 and the maximum retry count is 60"
+            ],
+            "title": "Retry Policies"
+          },
+          {
+            "url": "https://linear.app/ai",
+            "excerpts": [],
+            "title": "AI workflows for product teams \u2013 Linear"
+          },
+          {
+            "url": "https://help.obsidian.md/Obsidian/Advanced+topics/How+Obsidian+stores+data",
+            "excerpts": [],
+            "title": "How Obsidian stores data - Obsidian Help"
+          },
+          {
+            "url": "https://help.obsidian.md/Obsidian+Sync/Sync+troubleshooting",
+            "excerpts": [],
+            "title": "Sync troubleshooting - Obsidian Help"
+          },
+          {
+            "url": "https://help.obsidian.md/Getting%2Bstarted/Create%2Ba%2Bvault",
+            "excerpts": [],
+            "title": "Create a vault - Obsidian Help"
+          },
+          {
+            "url": "http://docs.anthropic.com/en/docs/claude-code/common-workflows",
+            "excerpts": [],
+            "title": "Common workflows - Claude Code Docs"
+          },
+          {
+            "url": "http://code.claude.com/docs/en/agent-teams",
+            "excerpts": [],
+            "title": "Orchestrate teams of Claude Code sessions"
+          },
+          {
+            "url": "https://studio.apollographql.com/public/Linear-API/variant/current/schema/reference/inputs/IssueUpdateInput?query=labels",
+            "excerpts": [
+              "Schema | Linear API@current\nInput for updating an existing issue. All fields are optional; only provided fields will be updated. Updates multiple issues at once. Show more Mutation."
+            ],
+            "title": "Schema | Linear API@current"
+          },
+          {
+            "url": "https://studio.apollographql.com/public/Linear-API/variant/current/schema/reference/inputs/IssueUpdateInput",
+            "excerpts": [
+              "Schema | Linear API@current - Apollo Studio\nSetting a field to null (where supported) will clear the value. Kind of ... The identifiers of the issue labels to be added to this issue. Show more."
+            ],
+            "title": "Schema | Linear API@current - Apollo Studio"
+          },
+          {
+            "url": "https://linear.app/",
+            "excerpts": [
+              "Linear \u2013 The system for product development\nPurpose-built for modern teams with AI workflows at its core, Linear sets a new standard for planning and building products. Linear is shaped by the practices and principles of world-class product teams. Designed for workflows shared by humans and agents. From drafting PRDs to pushing PRs."
+            ],
+            "title": "Linear \u2013 The system for product development"
+          },
+          {
+            "url": "https://github.com/obsidianmd/obsidian-help/blob/master/en/Files%20and%20folders/How%20Obsidian%20stores%20data.md",
+            "excerpts": [
+              "obsidian-help/en/Files and folders/How Obsidian stores data ...\nObsidian stores your notes as [ [Basic formatting syntax|Markdown-formatted]] plain text files in a vault. A vault is a folder on your local file system, including any subfolders. Because notes are plain text files, you can use other text editors and file managers to edit and manage notes."
+            ],
+            "title": "obsidian-help/en/Files and folders/How Obsidian stores data ..."
+          },
+          {
+            "url": "https://ca.linkedin.com/company/obsidianmd",
+            "excerpts": [
+              "Obsidian\nWebsite: https://obsidian.md/. External link for Obsidian ; Industry: Desktop Computing Software Products ; Company size: 2-10 employees ; Headquarters: Toronto,"
+            ],
+            "title": "Obsidian"
+          },
+          {
+            "url": "https://docs.obsidian.md/Plugins/Vault",
+            "excerpts": [
+              "Vault - Developer Documentation\nVault Each collection of notes in Obsidian is known as a Vault. A Vault consists of a folder, and any sub-folders within it. While your plugin can access the file system like any other Node.js application, the Vault module aims to make it easier to work with files and folders within a Vault."
+            ],
+            "title": "Vault - Developer Documentation"
+          },
+          {
+            "url": "https://obsidian.md/help/sync/security",
+            "excerpts": [
+              "Security and privacy - Obsidian Help\nYour data, however, is usually safely stored locally on each of your devices . To continue using Obsidian Sync, we suggest doing a full re-setup to be able"
+            ],
+            "title": "Security and privacy - Obsidian Help"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs",
+            "excerpts": [
+              "Hermes Agent Documentation | Hermes Agent\nThe self-improving AI agent built by Nous Research. The only agent with a built-in learning loop \u2014 it creates skills from experience, improves them during use, nudges itself to persist knowledge, and builds a deepening model of who you are across sessions."
+            ],
+            "title": "Hermes Agent Documentation | Hermes Agent"
+          },
+          {
+            "url": "http://verdent.ai/guides/grok-build-install",
+            "excerpts": [
+              "### Try headless mode for scripts and automation\nHeadless mode runs the agent without the interactive TUI, suitable for automated pipelines. Grok Build also supports the ACP (Agent Client Protocol) for deeper automation integration. In headless environments, you'll use API key authentication rather than browser OAuth (covered next).\nGrok Build also supports the ACP (Agent Client Protocol) for deeper automation integration.\nGrok Build is xAI's terminal-native AI coding agent \u2014 a command-line tool (CLI) with an interactive terminal UI (TUI), launched in beta in May 2026.\nThe default interactive mode is a terminal UI (TUI) \u2014 a structured back-and-forth session in your terminal."
+            ],
+            "title": "Grok Build Install Guide: CLI, Windows, and Setup - Verdent Guides"
+          },
+          {
+            "url": "http://hermes-agent.nousresearch.com/",
+            "excerpts": [
+              "Hermes Agent \u2014 the open-source agent that grows with you. Native app for macOS, Windows, and Linux. Telegram, Discord, Slack, WhatsApp, Signal, Email, CLI \u2026"
+            ],
+            "title": "Hermes Agent | Nous Research"
+          },
+          {
+            "url": "https://x.ai/cli",
+            "excerpts": [
+              "Grok Build | SpaceXAI\nInstall now and start building with Grok 4.5 in Grok Build. Grok Build is now powered by Grok 4.5, our new model \u2014 with a native subagent view, Plan Mode integration, mouse support, and a fullscreen terminal UI. Install with curl -fsSL https://x.ai/cli/install.sh | bash."
+            ],
+            "title": "Grok Build | SpaceXAI"
+          },
+          {
+            "url": "https://linear.app/changelog",
+            "excerpts": [
+              "Use the Linear mobile app to review code changes, comment on specific lines, and iterate with Linear Agent. Open any diff and switch to the Changes tab to inspect the code."
+            ],
+            "title": "Changelog \u2013 Linear"
+          },
+          {
+            "url": "https://linear.app/changelog/page/10",
+            "excerpts": [
+              "Changelog \u2013 Linear\nAdds a signature key field to the webhook form and signature and timestamp headers to outgoing webhook requests; Improved scroll restoration when navigating"
+            ],
+            "title": "Changelog \u2013 Linear"
+          },
+          {
+            "url": "http://iamstackwell.com/posts/human-in-the-loop-ai-agents",
+            "excerpts": [
+              "That is the real problem behind the search query **human in the loop AI agents** . Most teams get this wrong in one of two directions: they let the agent act too freely and eventually eat something expensive, or they put a human approval gate on everything and quietly kill the whole point of automation. Both paths are dumb. A good human-in-the-loop system does not mean a person clicks \"approve\" 400 times a day. It means the agent runs autonomously on the cheap, boring, high-confidence work and only escalates the moments that actually carry risk, ambiguity, or irreversible consequences. That is how you get both speed and control. What human-in-the-loop AI agents actually are A human-in-the-loop AI agent is just an agent with **deliberate intervention points** . The human is not there to babysit every token. The human is there to approve, reject, edit, or route actions when the system crosses a threshold you defined in advance. That threshold is usually one of these: the action is irreversible the action affects money the action touches customer-facing communications the action changes permissions or system state the agent is below confidence threshold the input came from an untrusted source the cost of being wrong is materially higher than the cost of waiting If your agent can send outbound email, modify records, publish content, move money, delete data, invite integrations, or trigger downstream automations, you already need approval logic whether you admit it or not. The only question is whether you built it on purpose. Where approval gates should go The easiest way to design human oversight is to stop thinking in terms of whole workflows and start thinking in terms of **risky actions** . Do not ask, \"Should this whole agent have a human in the loop?\" Ask, \"Which exact actions should never happen without review?\" For most production agents, the answer includes some version of this list. 1. External communication Anything customer-facing, partner-facing, or public-facing deserves more scrutiny than internal note-taking. Examples: sending outbound emails posting publicly messaging leads or customers publishing web content updating contracts or proposals A draft-first workflow is usually the right starting point here. Let the agent prepare the artifact. Let the human approve the final send. 2. Money movement or financial commitments This should be obvious, but production systems keep relearning it the hard way. If an action moves funds, approves spend, changes pricing, issues refunds, or commits the business financially, it should hit a hard approval gate. No \"small amount\" exceptions. No vibes. 3. Destructive changes Deletion, revocation, overwriting source-of-truth data, mass edits, or permission changes all deserve a human checkpoint. Agents are very good at being confidently wrong at scale. That is a bad combination with destructive tools. 4. Low-confidence decisions Some work is safe to automate when confidence is high and worth escalating when confidence is low. Examples: lead qualification support routing invoice anomaly detection document classification CRM deduping The trick is to approve the **uncertain tail** , not the entire distribution. 5. Work triggered by untrusted input If the workflow depends on external emails, pasted text, attachments, scraped pages, or forwarded instructions, treat the content as hostile until proven otherwise. This is one of the easiest places for prompt injection, bad context, and fake urgency to sneak in. The three approval patterns that actually work You do not need one giant approval system. You need the right pattern for the right job. Hard gate approval The agent prepares the action but cannot execute until a human approves it. Use this for: financial actions public publishing account changes permissions destructive operations This is the safest pattern, but it adds latency. Use it where the downside justifies the wait. ... What a good approval request looks like Most human-in-the-loop workflows fail because the approval request itself is garbage. If the reviewer has to reconstruct the whole situation from logs and vibes, the system is broken. A good approval packet should include: the proposed action why the agent wants to take it the relevant source context the exact output or payload the risk reason for escalation clear choices: approve, reject, edit, or route elsewhere an expiry time a run ID or receipt link The reviewer should be able to decide in under a minute. If approval takes ten minutes, your automation is not automation. It is inbox theater wearing an agent costume. A simple human-in-the-loop architecture You do not need fancy infrastructure to start. A solid first version looks like this: the agent does retrieval, planning, drafting, and validation a rules layer checks whether the next action is allowed safe actions execute automatically risky actions generate an approval task the human approves from a single queue the system stores a receipt for the decision and outcome That queue can live in Discord, Slack, email, a dashboard, or your internal ops tool. The location matters less than the structure. What matters is that approvals are: centralized easy to act on tied to receipts bounded by explicit rules If every approval is a custom exception handled in chat, the system will rot fast.\nThe human is not there to babysit every token. The human is there to approve, reject, edit, or route actions when the system crosses a threshold you defined in advance. That threshold is usually one of these: the action is irreversible the action affects money the action touches customer-facing communications the action changes permissions or system state the agent is below confidence threshold the input came from an untrusted source the cost of being wrong is materially higher than the cost of waiting If your agent can send outbound email, modify records, publish content, move money, delete data, invite integrations, or trigger downstream automations, you already need approval logic whether you admit it or not. The only question is whether you built it on purpose. Where approval gates should go The easiest way to design human oversight is to stop thinking in terms of whole workflows and start thinking in terms of **risky actions** . Do not ask, \"Should this whole agent have a human in the loop?\" Ask, \"Which exact actions should never happen without review?\" For most production agents, the answer includes some version of this list. 1. External communication Anything customer-facing, partner-facing, or public-facing deserves more scrutiny than internal note-taking. Examples: sending outbound emails posting publicly messaging leads or customers publishing web content updating contracts or proposals A draft-first workflow is usually the right starting point here. Let the agent prepare the artifact. Let the human approve the final send. 2. Money movement or financial commitments This should be obvious, but production systems keep relearning it the hard way. If an action moves funds, approves spend, changes pricing, issues refunds, or commits the business financially, it should hit a hard approval gate. No \"small amount\" exceptions. No vibes. 3. Destructive changes Deletion, revocation, overwriting source-of-truth data, mass edits, or permission changes all deserve a human checkpoint. Agents are very good at being confidently wrong at scale. That is a bad combination with destructive tools. 4. Low-confidence decisions Some work is safe to automate when confidence is high and worth escalating when confidence is low. Examples: lead qualification support routing invoice anomaly detection document classification CRM deduping The trick is to approve the **uncertain tail** , not the entire distribution. 5. Work triggered by untrusted input If the workflow depends on external emails, pasted text, attachments, scraped pages, or forwarded instructions, treat the content as hostile until proven otherwise. This is one of the easiest places for prompt injection, bad context, and fake urgency to sneak in. The three approval patterns that actually work You do not need one giant approval system. You need the right pattern for the right job. Hard gate approval The agent prepares the action but cannot execute until a human approves it. Use this for: financial actions public publishing account changes permissions destructive operations This is the safest pattern, but it adds latency. Use it where the downside justifies the wait. ... What a good approval request looks like Most human-in-the-loop workflows fail because the approval request itself is garbage. If the reviewer has to reconstruct the whole situation from logs and vibes, the system is broken. A good approval packet should include: the proposed action why the agent wants to take it the relevant source context the exact output or payload the risk reason for escalation clear choices: approve, reject, edit, or route elsewhere an expiry time a run ID or receipt link The reviewer should be able to decide in under a minute. If approval takes ten minutes, your automation is not automation. It is inbox theater wearing an agent costume. A simple human-in-the-loop architecture You do not need fancy infrastructure to start. A solid first version looks like this: the agent does retrieval, planning, drafting, and validation a rules layer checks whether the next action is allowed safe actions execute automatically risky actions generate an approval task the human approves from a single queue the system stores a receipt for the decision and outcome That queue can live in Discord, Slack, email, a dashboard, or your internal ops tool. The location matters less than the structure. What matters is that approvals are: centralized easy to act on tied to receipts bounded by explicit rules If every approval is a custom exception handled in chat, the system will rot fast.\nThen move toward exception-only review as your evals, logs, and confidence improve. That is the real path to production-grade human-in-the-loop AI agents. If you want help designing approval logic, escalation rules, or a real production workflow that does not collapse into manual babysitting, the async build lane is on the services page . [< [ How to Roll Back AI Agents in Production (Without Taking the Whole System Down) ]](https://iamstackwell.com/posts/rollback-ai-agents-production/) :: [[ The First 5 AI Agent Offers I'd Sell Before Building a SaaS ] >](https://iamstackwell.com/posts/the-first-5-ai-agent-offers-id-sell-before-building-a-saas/)\nThis is one of the easiest places for prompt injection, bad context, and fake urgency to sneak in. The three approval patterns that actually work You do not need one giant approval system. You need the right pattern for the right job. Hard gate approval The agent prepares the action but cannot execute until a human approves it. Use this for: financial actions public publishing account changes permissions destructive operations This is the safest pattern, but it adds latency. Use it where the downside justifies the wait. Exception-only approval The agent runs by default and only escalates when a rule triggers. Use this for: confidence below threshold missing required context policy conflict tool failure or retry exhaustion unusual cost or latency spike This is the pattern that preserves the most speed. It is usually the best long-term shape for production systems. Sampled review The agent executes, but a percentage of outputs are reviewed after the fact. Use this for: quality monitoring prompt tuning drift detection low-risk internal workflows This is not a substitute for hard gates on dangerous actions. It is a way to keep learning without choking throughput. What a good approval request looks like Most human-in-the-loop workflows fail because the approval request itself is garbage. If the reviewer has to reconstruct the whole situation from logs and vibes, the system is broken. A good approval packet should include: the proposed action why the agent wants to take it the relevant source context the exact output or payload the risk reason for escalation clear choices: approve, reject, edit, or route elsewhere an expiry time a run ID or receipt link The reviewer should be able to decide in under a minute. If approval takes ten minutes, your automation is not automation. It is inbox theater wearing an agent costume. ... The most common mistakes Mistake 3: no receipts If you cannot see who approved what, based on which context, with which output, you cannot debug incidents or improve the workflow. Receipts are operating leverage. The practical rule **Automate the reversible. Gate the irreversible. Review the uncertain.** If you are early, start with hard approval gates on anything public, financial, destructive, or permission-related. Then move toward exception-only review as your evals, logs, and confidence improve. That is the real path to production-grade human-in-the-loop AI agents. If you want help designing approval logic, escalation rules, or a real production workflow that does not collapse into manual babysitting, the async build lane is on the services page . [< [ How to Roll Back AI Agents in Production (Without Taking the Whole System Down) ]](https://iamstackwell.com/posts/rollback-ai-agents-production/) :: [[ The First 5 AI Agent Offers I'd Sell Before Building a SaaS ] >](https://iamstackwell.com/posts/the-first-5-ai-agent-offers-id-sell-before-building-a-saas/)\nWhat a good approval request looks like Most human-in-the-loop workflows fail because the approval request itself is garbage. If the reviewer has to reconstruct the whole situation from logs and vibes, the system is broken. A good approval packet should include: the proposed action why the agent wants to take it the relevant source context the exact output or payload the risk reason for escalation clear choices: approve, reject, edit, or route elsewhere an expiry time a run ID or receipt link The reviewer should be able to decide in under a minute. If approval takes ten minutes, your automation is not automation. It is inbox theater wearing an agent costume. A simple human-in-the-loop architecture You do not need fancy infrastructure to start. A solid first version looks like this: the agent does retrieval, planning, drafting, and validation a rules layer checks whether the next action is allowed safe actions execute automatically risky actions generate an approval task the human approves from a single queue the system stores a receipt for the decision and outcome That queue can live in Discord, Slack, email, a dashboard, or your internal ops tool. The location matters less than the structure. What matters is that approvals are: centralized easy to act on tied to receipts bounded by explicit rules If every approval is a custom exception handled in chat, the system will rot fast.\nWhere approval gates should go The easiest way to design human oversight is to stop thinking in terms of whole workflows and start thinking in terms of **risky actions** . Do not ask, \"Should this whole agent have a human in the loop?\" Ask, \"Which exact actions should never happen without review?\" For most production agents, the answer includes some version of this list. 1. External communication Anything customer-facing, partner-facing, or public-facing deserves more scrutiny than internal note-taking. Examples: sending outbound emails posting publicly messaging leads or customers publishing web content updating contracts or proposals A draft-first workflow is usually the right starting point here. Let the agent prepare the artifact. Let the human approve the final send. 2. Money movement or financial commitments This should be obvious, but production systems keep relearning it the hard way. If an action moves funds, approves spend, changes pricing, issues refunds, or commits the business financially, it should hit a hard approval gate. No \"small amount\" exceptions. No vibes. 3. Destructive changes Deletion, revocation, overwriting source-of-truth data, mass edits, or permission changes all deserve a human checkpoint. Agents are very good at being confidently wrong at scale. That is a bad combination with destructive tools. 4. Low-confidence decisions Some work is safe to automate when confidence is high and worth escalating when confidence is low. Examples: lead qualification support routing invoice anomaly detection document classification CRM deduping The trick is to approve the **uncertain tail** , not the entire distribution. 5. Work triggered by untrusted input If the workflow depends on external emails, pasted text, attachments, scraped pages, or forwarded instructions, treat the content as hostile until proven otherwise. This is one of the easiest places for prompt injection, bad context, and fake urgency to sneak in. The three approval patterns that actually work You do not need one giant approval system. You need the right pattern for the right job. Hard gate approval The agent prepares the action but cannot execute until a human approves it. Use this for: financial actions public publishing account changes permissions destructive operations This is the safest pattern, but it adds latency.\n[How to Add Human-in-the-Loop Approval to AI Agents (Without Killing Speed)](https://iamstackwell.com/posts/human-in-the-loop-ai-agents/) 2026-03-09 [Updated: 2026-03-09] [agents](https://iamstackwell.com/tags/agents/) # [human-in-the-loop](https://iamstackwell.com/tags/human-in-the-loop/) # [approval workflows](https://iamstackwell.com/tags/approval-workflows/) # [production](https://iamstackwell.com/tags/production/) # [guide](https://iamstackwell.com/tags/guide/) If you are building AI agents for real work, the question is not whether you need human oversight. The question is **where** you need it, **how much** you need it, and whether your approval flow keeps the system useful instead of turning it into a slower intern. That is the real problem behind the search query **human in the loop AI agents** . Most teams get this wrong in one of two directions: they let the agent act too freely and eventually eat something expensive, or they put a human approval gate on everything and quietly kill the whole point of automation. Both paths are dumb. A good human-in-the-loop system does not mean a person clicks \"approve\" 400 times a day. It means the agent runs autonomously on the cheap, boring, high-confidence work and only escalates the moments that actually carry risk, ambiguity, or irreversible consequences. That is how you get both speed and control. What human-in-the-loop AI agents actually are A human-in-the-loop AI agent is just an agent with **deliberate intervention points** . The human is not there to babysit every token. The human is there to approve, reject, edit, or route actions when the system crosses a threshold you defined in advance. That threshold is usually one of these: the action is irreversible the action affects money the action touches customer-facing communications the action changes permissions or system state the agent is below confidence threshold the input came from an untrusted source the cost of being wrong is materially higher than the cost of waiting If your agent can send outbound email, modify records, publish content, move money, delete data, invite integrations, or trigger downstream automations, you already need approval logic whether you admit it or not. The only question is whether you built it on purpose. Where approval gates should go The easiest way to design human oversight is to stop thinking in terms of whole workflows and start thinking in terms of **risky actions** . Do not ask, \"Should this whole agent have a human in the loop?\" Ask, \"Which exact actions should never happen without review?\" For most production agents, the answer includes some version of this list. 1. External communication Anything customer-facing, partner-facing, or public-facing deserves more scrutiny than internal note-taking. Examples: sending outbound emails posting publicly messaging leads or customers publishing web content updating contracts or proposals A draft-first workflow is usually the right starting point here. Let the agent prepare the artifact. Let the human approve the final send. 2. Money movement or financial commitments This should be obvious, but production systems keep relearning it the hard way. If an action moves funds, approves spend, changes pricing, issues refunds, or commits the business financially, it should hit a hard approval gate. No \"small amount\" exceptions. No vibes. 3. Destructive changes Deletion, revocation, overwriting source-of-truth data, mass edits, or permission changes all deserve a human checkpoint. Agents are very good at being confidently wrong at scale. That is a bad combination with destructive tools. 4. Low-confidence decisions Some work is safe to automate when confidence is high and worth escalating when confidence is low. Examples: lead qualification support routing invoice anomaly detection document classification CRM deduping The trick is to approve the **uncertain tail** , not the entire distribution. 5. Work triggered by untrusted input If the workflow depends on external emails, pasted text, attachments, scraped pages, or forwarded instructions, treat the content as hostile until proven otherwise. This is one of the easiest places for prompt injection, bad context, and fake urgency to sneak in. The three approval patterns that actually work You do not need one giant approval system. You need the right pattern for the right job. Hard gate approval The agent prepares the action but cannot execute until a human approves it. Use this for: financial actions public publishing account changes permissions destructive operations This is the safest pattern, but it adds latency. Use it where the downside justifies the wait. ... What a good approval request looks like Most human-in-the-loop workflows fail because the approval request itself is garbage. If the reviewer has to reconstruct the whole situation from logs and vibes, the system is broken. A good approval packet should include: the proposed action why the agent wants to take it the relevant source context the exact output or payload the risk reason for escalation clear choices: approve, reject, edit, or route elsewhere an expiry time a run ID or receipt link The reviewer should be able to decide in under a minute. If approval takes ten minutes, your automation is not automation. It is inbox theater wearing an agent costume. A simple human-in-the-loop architecture You do not need fancy infrastructure to start. A solid first version looks like this: the agent does retrieval, planning, drafting, and validation a rules layer checks whether the next action is allowed safe actions execute automatically risky actions generate an approval task the human approves from a single queue the system stores a receipt for the decision and outcome That queue can live in Discord, Slack, email, a dashboard, or your internal ops tool. The location matters less than the structure. What matters is that approvals are: centralized easy to act on tied to receipts bounded by explicit rules If every approval is a custom exception handled in chat, the system will rot fast."
+            ],
+            "title": "How to Add Human-in-the-Loop Approval to AI Agents (Without Killing Speed) :: I Am Stackwell"
+          },
+          {
+            "url": "http://promptarmor.com/resources/securing-cursor-a-security-practitioners-guide",
+            "excerpts": [
+              "**Automations and long-running agents.** Automations are AI agents that execute on schedules or in response to events from connected services. They are useful precisely because they run without a human initiating each one. ... The [NIST Generative AI Profile](https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.600-1.pdf) is explicit that human oversight is a risk-management control that degrades as autonomy increases; autonomous and scheduled agents sit at the end of that spectrum where compensating controls need to be strongest.\nApr 21, 2026 \u2014 PromptArmor continuously monitors across your portfolio of third party AI in vendors, skills, plugins, connectors, MCP servers, models and more.\n_ Cursor has a high level of autonomy across your development workflow \u2013 agent mode, shell execution, filesystem writes, and web browsing allow Cursor's AI to access a mix of trusted and untrusted data. ... Bugbot code review with MCP tool access that learns over time. Plugins that bundle skills, subagents, MCP servers, hooks, and rules into a single install. An expanding list of AI and infrastructure subprocessors processing your code. Canvases now allow agents to render interactive UIs, and MCP Apps allow MCP servers to return interactive UIs (details on an unremediated RCE vulnerability in Cursor's MCP Apps feature below). Each of those is another way for untrusted input to reach the agent, or another action the agent can take on your systems. [Indirect prompt injection](https://www.promptarmor.com/resources/indirect-prompt-injection) is a serious risk."
+            ],
+            "title": "Securing Cursor: A Security Practitioner's Guide"
+          },
+          {
+            "url": "https://www.techtimes.com/articles/319874/20260707/claude-code-defaults-human-approval-auto-mode-requires-explicit-opt.htm",
+            "excerpts": [
+              "Claude Code Defaults to Human Approval: Auto Mode Requires ...\nClaude Code permission mode defaults to Manual in v2.1.200, requiring human authorization before every file write, shell command, or network call \u2014 shifting from Auto mode\u2019s classifier, which"
+            ],
+            "title": "Claude Code Defaults to Human Approval: Auto Mode Requires ..."
+          },
+          {
+            "url": "https://github.com/anthropics/claude-code-action",
+            "excerpts": [
+              "anthropics/claude-code-action\nA general-purpose Claude Code action for GitHub PRs and issues that can answer questions and implement code changes. permissions , environment variables, and"
+            ],
+            "title": "anthropics/claude-code-action"
+          },
+          {
+            "url": "http://anthropic.com/engineering/how-we-contain-claude",
+            "excerpts": [
+              "The result was an 84% reduction in permission prompts, and we [open-sourced the runtime](https://github.com/anthropic-experimental/sandbox-runtime) , so the boundary is auditable.\ne environment in which the agent runs.** We constrain where and how an agent can act with process sandboxes, VMs, filesystem boundaries, and egress controls.\nlaude Code's [reference devcontainer](https://code.claude.\ncom/docs/en/devcontainer) exists precisely so that the agent can run unattended, without per-action approvals.\nFor example, if credentials never enter the sandbox, they can't be exfiltrated, regardless of whether the cause is a user, a model finding a \"creative\" path, or an attacker. A tight perimeter also means you can relax oversight. Claude Code's [reference devcontainer](https://code.claude.com/docs/en/devcontainer) exists precisely so that the agent can run unattended, without per-action approvals. **The model the agent consults.** The mechanisms here include system prompts, classifiers, probes, and training modifications. Because models are probabilistic, these shape only what the agent _tends_ to do, not what it is theoretically capable of doing. ... **Patterns for containing agents** **Pattern 2: The human-in-the-loop sandbox (Claude Code)** Claude Code runs on a user's machine and has access to their filesystem, shell, and network. Without this, coding agents have limited usefulness, so it's imperative to find a way to grant that access safely. One approach is to rely on a human-in-the-loop. This is only a tractable solution for Claude Code because the average user is a developer who's familiar with coding environments: they can read bash, they understand what rm -rf does, and they already run npm install from untrusted sources several times a week. All that means that when an \"allow this\" dialog pops up, they are highly likely to have the expertise to accurately evaluate what the agent is attempting to do and the risk involved. Given this, Claude Code launched with the simplest possible defense: allow reads, require approval for write, bash, and network access. However, as mentioned, approval fatigue showed [up within weeks.](https://www.reddit.com/r/ClaudeAI/comments/1rru8zw/just_picked_up_a_new_keyboard_cant_wait_to_write/) Ironically, this meant that a feature originally designed to provide oversight could arguably have the opposite effect\u2014some users might simply stop paying attention. As a first step to mitigate incautious approvals, we shipped an OS-level sandbox (Seatbelt on macOS, bubblewrap on Linux) that hardens the boundary: reads are allowed, writes are allowed inside the workspace, but network is denied by default. Within the sandbox, the agent runs largely without interruption. The result was an 84% reduction in permission prompts, and we [open-sourced the runtime](https://github.com/anthropic-experimental/sandbox-runtime) , so the boundary is auditable. Our [anonymized usage data](https://www.anthropic.com/news/measuring-agent-autonomy) also showed that experienced users auto-approve roughly twice as often as new users, but they also interrupt the agent mid-execution more frequently. Instead of gating individual steps, experienced users are more likely to supervise the agent only when it goes off track. While this may be a natural evolution in how people prefer to work with agents, this too is fallible, requiring users to be technical and attentive enough to notice drift in the first place.\nHow we contain Claude across products The second approach to capping the blast radius\u2014and the focus of much of this post\u2014is containment. Rather than supervising what the agent does, we supervise what it's _able_ to do by enforcing access boundaries through, for example, sandboxes, virtual machines, and egress controls. This is where Anthropic engineering has devoted the most effort, and also where many of the most surprising security failures have occurred. Over the past two years, we've shipped three primary agentic products: [claude.ai](http://claude.ai/redirect/website.v1.62ef366a-33f6-4eb8-b1b5-b65e2d5d253c) , Claude Code, and Claude Cowork. Each serves a different audience, requiring a different containment architecture. This article shares what's held up, what's broken, and what we've learned about agent security along the way. ... **Three types of risk, three components of defense** At Anthropic, we've seen Claude models [\"helpfully\" escape a sandbox](https://red.anthropic.com/2026/mythos-preview/) in order to complete a task, examine git history to [find answers to a coding test](https://assets.anthropic.com/m/64823ba7485345a7/Claude-Opus-4-5-System-Card.pdf) , and spontaneously identify the benchmark it was being run on in order to [decrypt its answer key](https://www.anthropic.com/engineering/eval-awareness-browsecomp) . Each model brings a new set of capabilities that are sometimes put to work in unexpected ways. **External attackers:** The agent is attacked through external vectors such as tools, files, or network access. This category includes both prompt injection and conventional attacks on the agent's runtime, orchestration layer, or proxy. When building containment and defense systems, we apply defenses to three main components: **The environment in which the agent runs.** We constrain where and how an agent can act with process sandboxes, VMs, filesystem boundaries, and egress controls. The goal is to set a hard boundary on what an agent can reach. For example, if credentials never enter the sandbox, they can't be exfiltrated, regardless of whether the cause is a user, a model finding a \"creative\" path, or an attacker. A tight perimeter also means you can relax oversight. Claude Code's [reference devcontainer](https://code.claude.com/docs/en/devcontainer) exists precisely so that the agent can run unattended, without per-action approvals. **The model the agent consults.** The mechanisms here include system prompts, classifiers, probes, and training modifications. Because models are probabilistic, these shape only what the agent _tends_ to do, not what it is theoretically capable of doing. ... **Patterns for containing agents** **Pattern 2: The human-in-the-loop sandbox (Claude Code)** Claude Code runs on a user's machine and has access to their filesystem, shell, and network. Without this, coding agents have limited usefulness, so it's imperative to find a way to grant that access safely. One approach is to rely on a human-in-the-loop. This is only a tractable solution for Claude Code because the average user is a developer who's familiar with coding environments: they can read bash, they understand what rm -rf does, and they already run npm install from untrusted sources several times a week. All that means that when an \"allow this\" dialog pops up, they are highly likely to have the expertise to accurately evaluate what the agent is attempting to do and the risk involved. Given this, Claude Code launched with the simplest possible defense: allow reads, require approval for write, bash, and network access. However, as mentioned, approval fatigue showed [up within weeks.](https://www.reddit.com/r/ClaudeAI/comments/1rru8zw/just_picked_up_a_new_keyboard_cant_wait_to_write/) Ironically, this meant that a feature originally designed to provide oversight could arguably have the opposite effect\u2014some users might simply stop paying attention. As a first step to mitigate incautious approvals, we shipped an OS-level sandbox (Seatbelt on macOS, bubblewrap on Linux) that hardens the boundary: reads are allowed, writes are allowed inside the workspace, but network is denied by default. Within the sandbox, the agent runs largely without interruption. The result was an 84% reduction in permission prompts, and we [open-sourced the runtime](https://github.com/anthropic-experimental/sandbox-runtime) , so the boundary is auditable. Our [anonymized usage data](https://www.anthropic.com/news/measuring-agent-autonomy) also showed that experienced users auto-approve roughly twice as often as new users, but they also interrupt the agent mid-execution more frequently. Instead of gating individual steps, experienced users are more likely to supervise the agent only when it goes off track. While this may be a natural evolution in how people prefer to work with agents, this too is fallible, requiring users to be technical and attentive enough to notice drift in the first place."
+            ],
+            "title": "How we contain Claude across products - Anthropic"
+          },
+          {
+            "url": "https://studio.apollographql.com/public/Linear-API/variant/current/schema/reference/inputs/IssueCreateInput",
+            "excerpts": [
+              "Schema | Linear API@current - Apollo Studio\nInput for creating a new issue. At minimum, a team must be specified. A title is required unless a template is provided. All other fields are optional and will"
+            ],
+            "title": "Schema | Linear API@current - Apollo Studio"
+          },
+          {
+            "url": "https://studio.apollographql.com/public/Linear-API/variant/current/schema/reference/inputs/CommentCreateInput",
+            "excerpts": [
+              "Schema | Linear API@current\nCommentCreateInput. Input for creating a new comment. Kind of type: InputObject. 18. Fields"
+            ],
+            "title": "Schema | Linear API@current"
+          },
+          {
+            "url": "https://studio.apollographql.com/public/Linear-API/variant/current/schema/reference/inputs/CommentCreateInput?query=user",
+            "excerpts": [
+              "Schema | Linear API@current\nCommentCreateInput. CommentCreateInput. Input for creating a new comment. Kind of type: InputObject. 18. Fields. Matching fields. fields. DETAILS. ACTIONS."
+            ],
+            "title": "Schema | Linear API@current"
+          },
+          {
+            "url": "https://studio.apollographql.com/public/Linear-API/variant/current/changelog/version/7bf6adc3-3725-4116-bb2e-6d20f31afd3a",
+            "excerpts": [],
+            "title": "Changelog | Linear API@current | Studio"
+          },
+          {
+            "url": "https://obsidian.md/help/sync/troubleshoot",
+            "excerpts": [
+              "Troubleshoot Obsidian Sync - Obsidian Help\nThis page lists uncommon issues you may encounter with Obsidian Sync and how to resolve them."
+            ],
+            "title": "Troubleshoot Obsidian Sync - Obsidian Help"
+          },
+          {
+            "url": "http://obsidian.md/sync",
+            "excerpts": [
+              "Obsidian Sync is the simple and secure way to synchronize your Obsidian notes across any device and OS."
+            ],
+            "title": "Obsidian Sync"
+          },
+          {
+            "url": "https://obsidian.md/help/sync-notes",
+            "excerpts": [
+              "Sync your notes across devices - Obsidian Help\nObsidian Sync keeps your vaults synced across all devices by using an off-site remote vault to make copies of your data. A local copy remains on your devices at"
+            ],
+            "title": "Sync your notes across devices - Obsidian Help"
+          },
+          {
+            "url": "https://www.reddit.com/r/ObsidianMD/comments/15ri9l8/which_folders_to_exclude_to_resolve_syncthing",
+            "excerpts": [
+              "Which folders to exclude to resolve syncthing conflicts\nWhich folders to exclude to resolve syncthing conflicts I have been using syncthing since a long time to sync notes between my pc and phone . Recently I switched to windows 11 and here I didn't exclude any folders since this was my setup in Linux too . But I am encountering workspace conflicts ."
+            ],
+            "title": "Which folders to exclude to resolve syncthing conflicts"
+          },
+          {
+            "url": "http://abdn.elsevierpure.com/en/publications/multi-agent-coordination-and-control-using-stigmergy",
+            "excerpts": [
+              "by K Hadeli \u00b7 2004 \u00b7 Cited by 233 \u2014 Agents in this system use an indirect coordination mechanism, called stigmergy. Stigmergy is a class of mechanisms that mediate animal-animal interactions."
+            ],
+            "title": "Multi-agent coordination and control using stigmergy"
+          },
+          {
+            "url": "http://sciencedirect.com/science/article/abs/pii/S0166361503001234",
+            "excerpts": [
+              "by P Valckenaers \u00b7 2004 \u00b7 Cited by 233 \u2014 Agents in this system use an indirect coordination mechanism, called stigmergy. Stigmergy is a class of mechanisms that mediate animal-animal interactions."
+            ],
+            "title": "Multi-agent coordination and control using stigmergy"
+          },
+          {
+            "url": "http://facebook.com/groups/DeepNetGroup/posts/2530678597325007",
+            "excerpts": [
+              "Agents access shared data (e.g., Blackboard Architecture). Agents broadcast information to all others. Agents communicate directly with each"
+            ],
+            "title": "Blackboard architecture for LLM multi-agent systems"
+          },
+          {
+            "url": "http://arxiv.org/abs/2507.01701",
+            "excerpts": [
+              "by B Han \u00b7 2025 \u00b7 Cited by 20 \u2014 In this paper, we propose to incorporate the blackboard architecture into LLM multi-agent systems (MASs) so that (1) agents with various roles can share all"
+            ],
+            "title": "Exploring Advanced LLM Multi-Agent Systems Based on ..."
+          },
+          {
+            "url": "http://pespmc1.vub.ac.be/Papers/Stigmergy-varieties.pdf",
+            "excerpts": [
+              "by F Heylighen \u00b7 Cited by 81 \u2014 Abstract: The concept of stigmergy has been used to analyze self-organizing activities in an ever-widening range of domains, including social insects,\nby F Heylighen \u00b7 Cited by 81 \u2014 The present paper clarifies the issue by defining stigmergy as a mechanism of indirect coordination, in which the trace left by an action in a medium stimulates"
+            ],
+            "title": "Stigmergy as a Universal Coordination Mechanism"
+          },
+          {
+            "url": "https://www.elementum.ai/blog/human-in-the-loop-agentic-ai",
+            "excerpts": [
+              "Human-in-the-Loop AI Agents: Deploying Agentic AI With ...\nMar 12, 2026 \u2014 AI agents without structured human oversight create compounding risk across security, compliance, and operational reliability. But deploying"
+            ],
+            "title": "Human-in-the-Loop AI Agents: Deploying Agentic AI With ..."
+          },
+          {
+            "url": "http://strata.io/blog/agentic-identity/practicing-the-human-in-the-loop",
+            "excerpts": [
+              "May 11, 2026 \u2014 Human-in-the-loop (HITL) is an AI governance approach where trained humans retain decision authority over high-risk agent actions. In"
+            ],
+            "title": "Human-in-the-Loop: A 2026 Guide to AI Oversight ..."
+          },
+          {
+            "url": "https://www.dtex.ai/use-cases/ai-agent-oversight",
+            "excerpts": [
+              "AI Agent Oversight | DTEX\nAI agent oversight is the practice of monitoring, attributing, and controlling the actions autonomous AI agents take inside an enterprise, the same way security"
+            ],
+            "title": "AI Agent Oversight | DTEX"
+          },
+          {
+            "url": "https://arxiv.org/html/2606.05391v1",
+            "excerpts": [
+              "Human oversight of agentic systems in practice\nWe found at least four forms of emergent oversight work: a priori control, co-planning, real-time monitoring, and post hoc review."
+            ],
+            "title": "Human oversight of agentic systems in practice"
+          },
+          {
+            "url": "https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.600-1.pdf",
+            "excerpts": [
+              "Artificial Intelligence Risk Management Framework\nby N AI \u00b7 2024 \u00b7 Cited by 145 \u2014 GAI may call for different levels of oversight from AI Actors or different human-AI configurations in order to manage their risks effectively."
+            ],
+            "title": "Artificial Intelligence Risk Management Framework"
+          },
+          {
+            "url": "https://www.launchd.info/",
+            "excerpts": [
+              "A launchd Tutorial\nIn fact, only when RunAtLoad or KeepAlive have been specified, launchd will start the job unconditionally when it has been loaded."
+            ],
+            "title": "A launchd Tutorial"
+          },
+          {
+            "url": "https://github.com/tjluoma/launchd-keepalive",
+            "excerpts": [
+              "tjluoma/launchd-keepalive: Mac OS X plist ...\nA plist to keep an app running all of the time unless it exits cleanly (ie the user told it to quit). It uses KeepAlive but adds a check called SuccessfulExit."
+            ],
+            "title": "tjluoma/launchd-keepalive: Mac OS X plist ..."
+          },
+          {
+            "url": "https://apple.stackexchange.com/questions/128479/why-is-my-launchd-job-running-at-boot-even-with-runatload-key-set-to-false",
+            "excerpts": [
+              "macos - Why is my launchd job running at boot even with ...\nIt appears that my KeepAlive definition was implying RunAtLoad, and even overriding my attempt to set RunAtLoad to false. Not sure why this is the case, but taking out the KeepAlive block seems to have fixed the problem."
+            ],
+            "title": "macos - Why is my launchd job running at boot even with ..."
+          },
+          {
+            "url": "https://medium.com/%40felipe.ascari_49171/distributed-locks-and-fencing-tokens-31904c71f61b",
+            "excerpts": [
+              "Distributed Locks and Fencing Tokens - Medium\nLearn how fencing tokens solve the zombie process problem in distributed systems. Practical Go implementation using Redis to prevent race conditions and ensure data consistency."
+            ],
+            "title": "Distributed Locks and Fencing Tokens - Medium"
+          },
+          {
+            "url": "https://www.youngju.dev/blog/culture/2026-04-15-distributed-locks-redis-zookeeper-etcd-guide-2025.en",
+            "excerpts": [
+              "Distributed Locks Complete Guide 2025: Redlock, Zookeeper ...\nEverything about distributed locks! Why it is hard, single Redis lock, Redlock algorithm, Martin Kleppmann critique, Zookeeper/etcd locks, Fencing Token, real-world implementation, pitfalls to avoid."
+            ],
+            "title": "Distributed Locks Complete Guide 2025: Redlock, Zookeeper ..."
+          },
+          {
+            "url": "https://www.systemoverflow.com/learn/distributed-primitives/distributed-locks/fencing-tokens-preventing-split-brain-operations",
+            "excerpts": [
+              "Fencing Tokens: Preventing Split Brain Operations\nFencing Tokens: Preventing Split Brain Operations The most dangerous failure mode in distributed locking occurs when a client's lease silently expires due to a long garbage collection pause or network partition, a new client acquires the lock, but the old holder continues attempting writes to the protected resource."
+            ],
+            "title": "Fencing Tokens: Preventing Split Brain Operations"
+          },
+          {
+            "url": "https://oneuptime.com/blog/post/2026-01-27-sqs-message-visibility-timeout/view",
+            "excerpts": [
+              "How to Handle SQS Message Visibility Timeout - OneUptime\nJan 27, 2026 \u00b7 Learn how to configure and handle SQS message visibility timeout for reliable message processing, including extension strategies,\u00a0... Setting Visibility Timeout in... \u00b7 Extending Visibility Timeout... \u00b7 Batch Processing"
+            ],
+            "title": "How to Handle SQS Message Visibility Timeout - OneUptime"
+          },
+          {
+            "url": "http://hermes-agent.nousresearch.com/docs",
+            "excerpts": [
+              "The self-improving AI agent built by Nous Research. A built-in learning loop that creates skills from experience, improves them during use, and remembers"
+            ],
+            "title": "Hermes Agent Documentation"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/user-guide/cli",
+            "excerpts": [
+              "CLI Interface | Hermes Agent - nous research"
+            ],
+            "title": "CLI Interface | Hermes Agent - nous research Hermes Agent https://hermes-agent.nousresearch.com \u203a docs \u203a user-guide"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/tree/main/docs",
+            "excerpts": [
+              "hermes-agent/docs at main \u00b7 NousResearch/hermes-agent \u00b7 GitHub\nThe agent that grows with you. Contribute to NousResearch/hermes-agent development by creating an account on GitHub."
+            ],
+            "title": "hermes-agent/docs at main \u00b7 NousResearch/hermes-agent \u00b7 GitHub"
+          },
+          {
+            "url": "http://hermes-agent.org/",
+            "excerpts": [
+              "From sandboxed code execution to real-time browser control \u2014 Hermes Agent handles it all. ... LLM Providers Nous Portal Native OAuth integration \u2713 OpenRouter Access 200+ models via API key \u2713 Custom API Any OpenAI-compatible endpoint \u2713 Local vLLM Run models fully on-premise \u2713 ... Built for MLOps & AI Training RL Training Atropos integration for reinforcement learning on agent behaviors. 11 tool-call parsers for training any model architecture. ... Get Started in Minutes Keep It Up to Date hermes update Pulls the latest changes and reinstalls dependencies. Run anytime to get new features and fixes.\nHermes Agent Home Features MLOps Quick Start [GitHub](https://github.com/NousResearch/hermes-agent \"GitHub\") Language English \u4e2d\u6587 \u7e41\u9ad4\u4e2d\u6587 \u65e5\u672c\u8a9e Espa\u00f1ol Portugu\u00eas Deutsch Fran\u00e7ais \ud55c\uad6d\uc5b4 Italiano \u0627\u0644\u0639\u0631\u0628\u064a\u0629 Nederlands Svenska Norsk Open Source \u00b7 MIT License \u00b7 By Nous Research Hermes Agent The AI agent that grows with you. Install it on your server, give it your messaging accounts, and it becomes a persistent personal agent \u2014 learning your projects, building its own skills, and reaching you wherever you are. Not a chatbot. Not a copilot. An agent that lives on your machine and gets smarter every day. [Get Started Free](https://github.com/NousResearch/hermes-agent) Learn More 40+ Built-in Skills 5 Chat Platforms MIT License 100% Self-Hosted ... Powerful Capabilities Out of the Box From sandboxed code execution to real-time browser control \u2014 Hermes Agent handles it all. ... LLM Providers Nous Portal Native OAuth integration \u2713 OpenRouter Access 200+ models via API key \u2713 Custom API Any OpenAI-compatible endpoint \u2713 Local vLLM Run models fully on-premise \u2713 ... Built for MLOps & AI Training RL Training Atropos integration for reinforcement learning on agent behaviors. 11 tool-call parsers for training any model architecture. ... Get Started in Minutes Keep It Up to Date hermes update Pulls the latest changes and reinstalls dependencies. Run anytime to get new features and fixes."
+            ],
+            "title": "Hermes Agent \u2014 Open-Source AI Agent with Persistent Memory"
+          },
+          {
+            "url": "https://linear.app/customers",
+            "excerpts": [
+              "Linear Customers\nWhy OpenAI chose Linear and scaled to 3,000 users \u00b7 How Cursor builds with Linear \u00b7 Coinbase's bet on agent-first development \u00b7 How teams at Oscar left one of the"
+            ],
+            "title": "Linear Customers"
+          },
+          {
+            "url": "https://www.reddit.com/r/Linear/comments/1s4gqdy/linearnative_ai_dev_agent_using_claude_code_mcp",
+            "excerpts": [
+              "Linear-native AI dev agent using Claude Code, MCP ...\nLinear app and its features Best programming languages for beginners Open App Code, MCP, and the Linear Agent API"
+            ],
+            "title": "Linear-native AI dev agent using Claude Code, MCP ..."
+          },
+          {
+            "url": "https://www.instagram.com/p/DYzZZGyR18K",
+            "excerpts": [
+              "Linear (featured on Quasa.io/projects/linear) is the product ...\nLinear is designed for AI native software and product teams so you can roadmap, breakdown and offload more work to agents. Linear is an AI native product"
+            ],
+            "title": "Linear (featured on Quasa.io/projects/linear) is the product ..."
+          },
+          {
+            "url": "https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html",
+            "excerpts": [],
+            "title": "Amazon SQS visibility timeout"
+          },
+          {
+            "url": "https://docs.obsidian.md/Reference/TypeScript%2BAPI/Vault",
+            "excerpts": [
+              "Vault - Developer Documentation - Obsidian Developer Docs\nRead a plaintext file that is stored inside the vault, directly from disk. Use this if you intend to modify the file content afterwards. Use Vault.cachedRead()"
+            ],
+            "title": "Vault - Developer Documentation - Obsidian Developer Docs"
+          },
+          {
+            "url": "https://forum.obsidian.md/t/api-for-special-files-in-vault/80981",
+            "excerpts": [
+              "API for special files in vault - Developers - Obsidian Forum\nApr 28, 2024 \u00b7 I would like to be able to detect, read and write to special files in the vault. That is files like .stignore which are special for syncing files across"
+            ],
+            "title": "API for special files in vault - Developers - Obsidian Forum"
+          },
+          {
+            "url": "https://www.reddit.com/r/ObsidianMD/comments/17x0jzu/api_access_to_your_vault",
+            "excerpts": [
+              "API access to your vault : r/ObsidianMD - Reddit\nNov 16, 2023 \u00b7 They're just text files on your PC. Doesn't really require an API to get to them. Any OS-level file manipulation should be valid. Send data to Obsidian from other apps : r/ObsidianMD Building a retrieval API to search my Obsidian vault More results from www.reddit.com"
+            ],
+            "title": "API access to your vault : r/ObsidianMD - Reddit"
+          },
+          {
+            "url": "https://forum.obsidian.md/t/help-vault-adapter-write-vs-vault-modifybinary-for-working-with-custom-files-to-store-json-data/113621",
+            "excerpts": [
+              "HELP : `vault.adapter.write()` VS `vault.modifyBinary()` for working ...\nApr 23, 2026 \u00b7 The question I am asking here is to make things clear about the various APIs provided by Obsidian to work with custom files (non-markdown/"
+            ],
+            "title": "HELP : `vault.adapter.write()` VS `vault.modifyBinary()` for working ..."
+          },
+          {
+            "url": "https://blakelink.us/posts/session-handoff-protocol-solving-ai-agent-continuity-in-complex-projects",
+            "excerpts": [
+              "Session Handoff Protocol: Solving AI Agent Continuity in ...\nToday I implemented a Session Handoff Protocol in my project\u2019s CLAUDE.md file that automatically generates context-aware prompts for the next AI agent iteration. This ensures seamless continuity regardless of the type of work being performed."
+            ],
+            "title": "Session Handoff Protocol: Solving AI Agent Continuity in ..."
+          },
+          {
+            "url": "https://www.facebook.com/groups/claudeaicommunity/posts/1243913117775853",
+            "excerpts": [
+              "Claude code session handoff prompt explained - Facebook\nA Claude Code session handoff prompt is a structured summary created at the end of an AI conversation (or coding session) that allows a new AI session to \"pick up\" exactly where the last one left off. It bridges the gap caused by context window limits. Or Network or Auth token time outs."
+            ],
+            "title": "Claude code session handoff prompt explained - Facebook"
+          },
+          {
+            "url": "https://github.com/topics/session-handoff?o=desc&s=forks",
+            "excerpts": [
+              "session-handoff \u00b7 GitHub Topics\nJul 5, 2026 \u00b7 Local-first CLI to read, compare, and hand off sessions across Claude Code, Codex, Gemini, and Cursor agents. Checkpoints, cross-agent messaging"
+            ],
+            "title": "session-handoff \u00b7 GitHub Topics"
+          },
+          {
+            "url": "https://www.reddit.com/r/ClaudeAI/comments/1sthldc/how_do_you_hand_off_from_claude_chat_to_claude",
+            "excerpts": [
+              "How do you hand off from Claude chat to Claude Code?\nInstead of pasting the whole chat, get your Chat session to summarize the plan, goals, and next steps into a handoff.md or PLAN.md file. Then,"
+            ],
+            "title": "How do you hand off from Claude chat to Claude Code?"
+          },
+          {
+            "url": "https://www.facebook.com/groups/evolutionunleashedai/posts/27071470209140707",
+            "excerpts": [
+              "Managing Session State with Multiple Coding Agents Using GitHub\nContext-handoff pattern for anyone running multiple coding agents. Claude Code emit a handoff MD: current task, decisions made and the"
+            ],
+            "title": "Managing Session State with Multiple Coding Agents Using GitHub"
+          },
+          {
+            "url": "https://docs.x.ai/build/overview",
+            "excerpts": [
+              "Grok Build | SpaceXAI Docs - xAI API Documentation\n5 days ago \u00b7 Grok Build is a powerful and extensible coding agent. Use it via an interactive TUI, headlessly in scripts or bots, or through the Agent Client"
+            ],
+            "title": "Grok Build | SpaceXAI Docs - xAI API Documentation"
+          },
+          {
+            "url": "http://teamday.ai/harness/grok",
+            "excerpts": [
+              "Headless scripting: docs.x.ai/build/cli/headless-scripting\nTeamDay invokes Grok Build in headless JSON mode, captures streaming events, and resumes durable CLI sessions when follow-up work returns to the same agent."
+            ],
+            "title": "Grok Build \u2014 xAI Coding Harness"
+          },
+          {
+            "url": "https://docs.x.ai/build/cli/headless-scripting",
+            "excerpts": [
+              "Headless & Scripting | SpaceXAI Docs\nSuppressing updates in xai-grok-shell: When using headless mode (-p) or ACP (grok agent stdio) in scripts, CI, or other automated environments, pass --no-auto-update (e.g. grok --no-auto-update -p \"...\") to skip background update checks."
+            ],
+            "title": "Headless & Scripting | SpaceXAI Docs"
+          },
+          {
+            "url": "http://linear.app/customers",
+            "excerpts": [
+              "Product Resources Customers Pricing Now Contact Docs Open app Customers Featured SaaS AI Fintech Consumer Hardware Health Enterprise Boom Supersonic builds as fast as it flies Watch video \u2192 Why OpenAI chose Linear and scaled to 3,000 users Read story \u2192 How Cursor builds with Linear Watch video \u2192 Coinbase's bet on agent-first development Read story \u2192 How teams at Oscar left one of the world's most complex Jira instances Read story \u2192 The coding agent behind 60% of Ramp's merged PRs Read story \u2192 Why teams switch to Linear Learn more \u2192 2.0x Increase in filed issues 3.3x Faster issue resolution 28% Issues authored by agents How Automattic migrated to Linear and unified its product teams Read story \u2192 Brex proved Linear's impact with a data-driven pilot Read story \u2192 How Dandelion Chocolate scales craft Watch video \u2192 How Opendoor is rebuilding its product culture with Linear Read story \u2192 Cars24's push to being AI-native with Linear Read story \u2192 How Scale compressed bug resolution time by 52% Read story \u2192 Powering more than 33,000 organizations.\nFeatured SaaS AI Fintech Consumer Hardware Health Enterprise Boom Supersonic builds as fast as it flies Watch video \u2192 Why OpenAI chose Linear and scaled to 3,000 users Read story \u2192 How Cursor builds with Linear Watch video \u2192 Coinbase's bet on agent-first development Read story \u2192 How teams at Oscar left one of the world's most complex Jira instances Read story \u2192 The coding agent behind 60% of Ramp's merged PRs Read story \u2192 Why teams switch to Linear Learn more \u2192 2.0x Increase in filed issues 3.3x Faster issue resolution 28% Issues authored by agents How Automattic migrated to Linear and unified its product teams Read story \u2192 Brex proved Linear's impact with a data-driven pilot Read story \u2192 How Dandelion Chocolate scales craft Watch video \u2192 How Opendoor is rebuilding its product culture with Linear Read story \u2192 Cars24's push to being AI-native with Linear Read story \u2192 How Scale compressed bug resolution time by 52% Read story \u2192 Powering more than 33,000 organizations. From ambitious startups to major enterprise and Fortune 20 companies. [Vercel logo Vercel SaaS, AI Visit site \u2197](https://vercel.com) Pleo logo Pleo Pleo transitioned their internal support workflows to Linear Asks Fintech Read story \u2192 Klaviyo logo Klaviyo Klaviyo boosts visibility and velocity with Linear SaaS, Enterprise Read story \u2192 Mercury logo Mercury Mercury eliminated cluttered feedback with Linear Asks Fintech, Enterprise Read story \u2192 Sierra logo Sierra From project updates to accountability, Sierra moves as one company in Linear AI Read story \u2192 Cash App logo Cash App Linear helps Cash App manage aggressive roadmaps Fintech, Consumer, Enterprise Read story \u2192 Clay logo Clay How Clay manages bugs using Linear SaaS Read story \u2192 [Perplexity logo Perplexity AI, Consumer Visit site \u2197](https://www.perplexity.ai/) Watershed logo Watershed Watershed switched to Linear to accelerate their team SaaS Read story \u2192 [Substack logo Substack Consumer Visit site \u2197](https://substack.com/) Clio logo Clio How Linear helps engineering managers at Clio operate more efficiently SaaS, AI, Enterprise Read story \u2192 [Monzo logo Monzo Fintech, Consumer Visit site \u2197](https://monzo.com/) Descript logo Descript Why Descript builds with Linear SaaS, AI Read story \u2192 [Runway logo Runway AI Visit site \u2197](https://runwayml.com/) [Netlify logo Netlify SaaS Visit site \u2197](https://www.netlify.com/) Retool logo Retool How Retool turns customer feedback into engineering work SaaS Read story \u2192 [Supercell logo Supercell Consumer Visit site \u2197](https://supercell.com/) [Lovable logo Lovable AI Visit site \u2197](https://lovable.dev/) Remote logo Remote Remote switched their 1,000 person team to Linear to move faster SaaS, Enterprise Read story \u2192 Cohere logo Cohere Why Cohere builds with Linear AI Read story \u2192 [Polymarket logo Polymarket Consumer Visit site \u2197](https://polymarket.com/) Raycast logo Raycast Why Raycast builds with Linear SaaS Read story \u2192 Semgrep logo Semgrep Why Semgrep builds with Linear SaaS Read story \u2192 [Hex logo Hex SaaS\nBoom Supersonic builds as fast as it flies Watch video \u2192 Why OpenAI chose Linear and scaled to 3,000 users Read story \u2192 How Cursor builds with Linear Watch video \u2192 Coinbase's bet on agent-first development Read story \u2192 How teams at Oscar left one of the world's most complex Jira instances Read story \u2192 The coding agent behind 60% of Ramp's merged PRs Read story \u2192 Why teams switch to Linear Learn more \u2192 2.0x Increase in filed issues 3.3x Faster issue resolution 28% Issues authored by agents How Automattic migrated to Linear and unified its product teams Read story \u2192 Brex proved Linear's impact with a data-driven pilot Read story \u2192 How Dandelion Chocolate scales craft Watch video \u2192 How Opendoor is rebuilding its product culture with Linear Read story \u2192 Cars24's push to being AI-native with Linear Read story \u2192 How Scale compressed bug resolution time by 52% Read story \u2192 Powering more than 37,000 organizations.\nBrex proved Linear's impact with a data-driven pilot\nHow Automattic migrated to Linear and unified its product teams\nHow Cursor builds with Linear\nOpenAI chose Linear and scaled to 3,000 users\nThe coding agent behind 60% of Ramp's merged PRs"
+            ],
+            "title": "Linear Customers"
+          },
+          {
+            "url": "https://linear.app/customers/coinbase",
+            "excerpts": [
+              "Coinbase's bet on agent-first development\nChintan Turakhia is the Head of Engineering for Base App and leads AI acceleration within Coinbase. That place is Linear. Product requirements, designs, bug"
+            ],
+            "title": "Coinbase's bet on agent-first development"
+          },
+          {
+            "url": "http://linear.app/now/how-we-use-linear-agent-at-linear",
+            "excerpts": [
+              "Dark Slack thread screenshot showing a teammate asking about private sub-team issues in a parent team's cycle, followed by a Linear agent reply explaining they are not included. Dark Slack thread screenshot showing a teammate asking about private sub-team issues in a parent team's cycle, followed by a Linear agent reply explaining they are not included. Product engineers like Mingjie keep an eye on these discussions, often using the agent to create an issue routed to the engineering triage queue directly from Slack. And if the discussion continues, he tags Linear again to update the issue instead of reading through dozens of new messages. Dark Slack thread showing a user asking Linear to create triage issues from messages, followed by the app confirming that two issues were created. Dark Slack thread showing a user asking Linear to create triage issues from messages, followed by the app confirming that two issues were created. Stage 2: Code alongside the agents  When engineer Matthijs Wolting is assigned a customer-specific issue like this, he uses Linear agent, along with Code Intelligence and custom MCP servers, to investigate. This saves him from the tedium of looking up the right customer ID, logs, and metadata, and correlating information fragmented across various tools. Matthijs gets the best results from coding agents by breaking the work into small, targeted steps, which keeps the agent on track and creates a much narrower path to success. ... When the person who noticed it can also ship it  Dark workflow diagram showing Product creating a new issue that passes to a Linear Agent, then to a pull request routed to Engineering. Dark workflow diagram showing Product creating a new issue that passes to a Linear Agent, then to a pull request routed to Engineering. Stage 1: Find a problem (and fix it)  Product managers like Sid are restless beings. He sometimes fiddles with features in Linear without a precise objective, just to re-experience them the way a new user would. Recently, he noticed there was no way to filter for issues that had been created from a specific external source, a gap that made it harder to track and triage that work He used Linear agent to create an issue to add that filter _and_ take a first pass at actually adding it. The agent opened a pull request, which was reviewed by a human engineer within the hour (thanks, Paco Coursey), and the change was live.\nProduct Resources Customers Pricing Now Contact Docs Open app Now From the team How we use Linear Agent at Linear Symmetrical white lines and dots radiating from a bright central point on a black background. Symmetrical white lines and dots radiating from a bright central point on a black background. Rhea Purohit \u00b7 April 10, 2026 Before we launched Linear agent, our teams were already using it across Slack, Linear, and our codebase. It's become a core part of how we build. Here are three workflows that have proven most effective: A customer email turns into a shipped feature A Slack thread becomes a pull request A PM files an issue, and ships the fix _As you'd expect, some of what we use internally has not been released yet, and we've called that out where relevant._ From customer email to shipped feature  Dark workflow diagram showing a support process from Intercom to Triage Intelligence, then to Product and Engineering, with Product linked to a Linear Agent and Engineering linked to a Coding Agent. Dark workflow diagram showing a support process from Intercom to Triage Intelligence, then to Product and Engineering, with Product linked to a Linear Agent and Engineering linked to a Coding Agent. Stage 1: Pull the context into Linear  Customer feedback submitted by email, or in-app within Linear, accrues to an Intercom inbox managed by [Customer Experience](https://linear.app/now/cx-in-linear) . That creates a large volume of high-signal feedback which needs to find its way through the org to the right team. Through [Linear agent](https://linear.app/integrations) , CX turns emails into scoped issues directly from Intercom, without ever needing to leave the inbox. Dark interface mockup of an Intercom ticket sidebar with a Linear integration, showing a prompt field and a \"Create with Linear Agent\" button. Dark interface mockup of an Intercom ticket sidebar with a Linear integration, showing a prompt field and a \"Create with Linear Agent\" button. The agent picks up the full context, including any back-and-forth with the customer, metadata, and attachments. While you can add extra details in Intercom to help define the issue, Alexandra Lapinsky Wilson, who leads Product Operations and CX, says she rarely finds it necessary. The agent typically gets it right. Stage 2: Route it to the right team automatically  Once the agent has scoped the context into an actionable issue in Linear, the CX team doesn't have to hesitate over who to assign it to because [Triage Intelligence](https://linear.app/docs/triage-intelligence) handles that step. It sends feature requests to the product management team's triage queue, and in doing so, flags duplicates, suggests the right labels, and links relevant customer context, including their [Datadog](https://linear.app/integrations/datadog) and [Sentry](https://linear.app/integrations/sentry) . Dark UI card labeled \"Triage Intelligence\" showing suggested issue tags, a possible duplicate, and a related engineering issue Dark UI card labeled \"Triage Intelligence\" showing suggested issue tags, a possible duplicate, and a related engineering issue Stage 3: Make sense of overlapping feature requests  Often projects can fill up with feature requests related to the same part of the product without _quite_ asking for the same thing. Untangling this is time consuming and easy to put off, which can turn it into a bottleneck. When Sid Bhargava, a PM, runs into a catch-all project like this, he opens a chat with Linear agent and asks it to identify the main themes across the requests; an example of a repeatable workflow that Sid could save as a [Skill](https://linear.app/changelog/2026-03-24-introducing-linear-agent) . Dark UI mockup of an AI chat panel summarizing discussion themes inside Linear. Dark UI mockup of an AI chat panel summarizing discussion themes inside Linear. After reviewing the output, he instructs the agent to reorganize the issues around the themes, shaping the work into a clearer starting point for Engineering. Sid also might use the agent to add usage scenario context to an existing PRD, draft implementation issues based on a spec, or write a PRD from scratch for a new project. Stage 4: Code alongside the agents  Once an engineer picks up the issue, how they work with the agent depends on the nature of the task at hand. For more complex requests, Mingjie Jiang, one of our product engineers, starts by chatting with Linear agent about the history of decisions around that part of the product: Why did we build the feature _this_ way? When was it most recently touched? Which engineers should I talk to if I have further questions? The agent uses Code Intelligence to provide answers grounded in its knowledge of our codebase. _(We're currently testing Code Intelligence and custom MCP servers internally, with plans to launch soon.)"
+            ],
+            "title": "How we use Linear Agent at Linear"
+          },
+          {
+            "url": "http://linear.app/customers/enterprise",
+            "excerpts": [
+              "Featured SaaS AI Fintech Consumer Hardware Health Enterprise Why OpenAI chose Linear and scaled to 3,000 users Read story \u2192 Coinbase's bet on agent-first development Read story \u2192 How teams at Oscar left one of the world's most complex Jira instances Read story \u2192 The coding agent behind 60% of Ramp's merged PRs Read story \u2192 How Automattic migrated to Linear and unified its product teams Read story \u2192 How Opendoor is rebuilding its product culture with Linear Read story \u2192 Why teams switch to Linear Learn more \u2192 2.0x Increase in filed issues 3.3x Faster issue resolution 28% Issues authored by agents Cars24's push to being AI-native with Linear Read story \u2192 How Scale compressed bug resolution time by 52% Read story \u2192 Klaviyo boosts visibility and velocity with Linear Read story \u2192 Mercury eliminated cluttered feedback with Linear Asks Read story \u2192 Linear helps Cash App manage aggressive roadmaps Read story \u2192 How Linear helps engineering managers at Clio operate more efficiently Read story \u2192 Remote logo Remote Remote switched their 1,000 person team to Linear to move faster SaaS, Enterprise Read story \u2192 [Commure logo Commure Health, Enterprise Visit site \u2197](https://www.commure.com/) Your company Make the switch"
+            ],
+            "title": "Enterprise Customers - Linear"
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "linear-obsidian-multiagent-aug-2026.md"
+  }
+}

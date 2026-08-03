@@ -110,3 +110,105 @@ test('coordStatus is exported', () => {
 if (!process.exitCode) {
   console.log('test-linear-agent-bridge: all assertions ran');
 }
+
+const {
+  applyAgentStateInFlight,
+  detectStaleAgentLock,
+  isAgentLockLabel,
+} = require('../tools/linear-agent-bridge');
+
+test('isAgentLockLabel', () => {
+  assert.strictEqual(isAgentLockLabel('agent-lock'), true);
+  assert.strictEqual(isAgentLockLabel('agent-grok'), true);
+  assert.strictEqual(isAgentLockLabel('agent-codex'), true);
+  assert.strictEqual(isAgentLockLabel('agent-task'), false);
+  assert.strictEqual(isAgentLockLabel('verification'), false);
+  assert.strictEqual(isAgentLockLabel('cto-agent'), false);
+});
+
+test('applyAgentStateInFlight claim and free', () => {
+  const base = `# grok\n\n## In flight\n(none — free)\n\n## Protocol\nok\n`;
+  const claimed = applyAgentStateInFlight(base, {
+    agent: 'grok',
+    issueId: 'AGENT-99',
+    title: 'Test claim',
+    files: ['tools/a.js', 'tools/b.js'],
+    action: 'claim',
+    stamp: '2026-08-03T12:00:00.000Z',
+  });
+  assert.ok(claimed.includes('AGENT-99'), claimed);
+  assert.ok(claimed.includes('tools/a.js'), claimed);
+  assert.ok(!/## In flight[\s\S]*?\(none — free\)/.test(claimed) || claimed.indexOf('AGENT-99') < claimed.indexOf('(none'), 'should not keep free after claim');
+
+  const freed = applyAgentStateInFlight(claimed, {
+    agent: 'grok',
+    action: 'done',
+    issueId: 'AGENT-99',
+  });
+  assert.ok(/## In flight\s*\n\(none — free\)/.test(freed), freed);
+  assert.ok(freed.includes('## Protocol'), 'preserves later sections');
+});
+
+test('applyAgentStateInFlight inserts after frontmatter', () => {
+  const fm = `---\nagent: codex\nstatus: active\n---\n\n# codex\n\nHello\n`;
+  const next = applyAgentStateInFlight(fm, {
+    agent: 'codex',
+    issueId: 'AGENT-1',
+    title: 'x',
+    action: 'claim',
+    files: ['a'],
+  });
+  assert.ok(next.includes('## In flight'));
+  assert.ok(next.includes('AGENT-1'));
+  assert.ok(next.startsWith('---'));
+});
+
+test('detectStaleAgentLock vault released', () => {
+  const issue = {
+    state: { name: 'In Progress', type: 'started' },
+    labels: { nodes: [{ name: 'agent-lock' }, { name: 'agent-codex' }] },
+  };
+  assert.strictEqual(
+    detectStaleAgentLock(issue, { action: 'done', status: 'Done' }),
+    'vault_says_released',
+  );
+  assert.strictEqual(
+    detectStaleAgentLock(issue, { action: 'claim', status: 'In Progress', updated: new Date().toISOString() }),
+    null,
+  );
+  assert.strictEqual(
+    detectStaleAgentLock(
+      { state: { name: 'Done', type: 'completed' }, labels: { nodes: [{ name: 'agent-lock' }] } },
+      null,
+    ),
+    'linear_done_still_locked',
+  );
+  assert.strictEqual(
+    detectStaleAgentLock({ state: { name: 'In Progress' }, labels: { nodes: [] } }, null),
+    null,
+  );
+});
+
+test('detectStaleAgentLock lock on backlog', () => {
+  const issue = {
+    state: { name: 'Backlog', type: 'unstarted' },
+    labels: { nodes: [{ name: 'agent-lock' }, { name: 'agent-codex' }] },
+  };
+  assert.strictEqual(detectStaleAgentLock(issue, null), 'lock_on_unstarted');
+});
+
+test('detectStaleAgentLock aggressive age', () => {
+  const issue = {
+    state: { name: 'In Progress', type: 'started' },
+    labels: { nodes: [{ name: 'agent-lock' }] },
+  };
+  const old = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+  assert.strictEqual(
+    detectStaleAgentLock(issue, { action: 'claim', status: 'In Progress', updated: old }, { maxAgeHours: 24, aggressive: true }),
+    'stale_claim_age',
+  );
+  assert.strictEqual(
+    detectStaleAgentLock(issue, { action: 'claim', status: 'In Progress', updated: old }, { maxAgeHours: 24, aggressive: false }),
+    null,
+  );
+});
