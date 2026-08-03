@@ -63,6 +63,13 @@ GTM_PRICING_PATTERNS = (
     r"\bfreemium\b",
     r"\bfree trial\b",
     r"\bupsell\b",
+    r"\brevenue model\b",
+    # "make money" is a pricing signal ONLY in a ThumbGate context.  Without
+    # a ThumbGate mention it stays next_money/cash_truth (see MAKE_MONEY_ACTION_PATTERNS).
+    r"\bmoney\b.{0,40}\bthumb\s?gate\b",
+    r"\bthumb\s?gate\b.{0,40}\bmoney\b",
+    r"\bmake money\b.{0,40}\bthumb\s?gate\b",
+    r"\bthumb\s?gate\b.{0,40}\bmake money\b",
 )
 
 GTM_MARKETING_PATTERNS = (
@@ -345,7 +352,13 @@ def route(question: str) -> dict[str, Any]:
         primary = INTENT_GENERAL
 
     # Cash reassessment that also asks improve → still include cash in answer.
-    if flags["wants_cash"] and primary in {INTENT_IMPROVE, INTENT_NEXT_MONEY}:
+    # But when the route is thumbgate_gtm, suppress the cash block: the GTM
+    # expert card already includes revenue truth (KNOWN_GAPS, grounding rule),
+    # and appending "Cash: external $0.00" dilutes the pricing/monetization
+    # answer the user actually asked for.
+    if primary == INTENT_THUMBGATE_GTM:
+        flags["force_cash_block"] = False
+    elif flags["wants_cash"] and primary in {INTENT_IMPROVE, INTENT_NEXT_MONEY}:
         flags["force_cash_block"] = True
     else:
         flags["force_cash_block"] = (
