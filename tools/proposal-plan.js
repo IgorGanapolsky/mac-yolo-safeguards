@@ -222,7 +222,7 @@ function safeLabel(value) {
   return String(value || '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'prospect';
+    .replace(/^-+/, '').replace(/-+$/, '') || 'prospect';
 }
 
 function discoverBuyerSegment(date, prospect) {

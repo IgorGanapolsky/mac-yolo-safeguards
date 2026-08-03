@@ -55,24 +55,38 @@ function requireValue(argv, index, flag) {
 }
 
 function run(command, args, options = {}) {
-  return spawnSync(command, args, {
+  // argv form only — no shell (js/shell-command-injection-from-environment).
+  const cmd = String(command);
+  if (cmd.includes(' ') || cmd.includes(';') || cmd.includes('|') || cmd.includes('&')) {
+    throw new Error('refusing shell metacharacters in command');
+  }
+  return spawnSync(cmd, (args || []).map(String), {
     encoding: 'utf8',
     timeout: options.timeout || 60000,
     maxBuffer: options.maxBuffer || 1024 * 1024 * 16,
+    shell: false,
   });
 }
 
 function commandExists(command) {
-  const result = run('sh', ['-c', 'command -v "$1"', 'sh', command], { timeout: 5000 });
-  return result.status === 0;
+  const base = path.basename(String(command || ''));
+  const home = require('os').homedir();
+  const candidates = [
+    path.join(home, '.local', 'bin', base),
+    path.join('/opt/homebrew/bin', base),
+    path.join('/usr/local/bin', base),
+    path.join('/usr/bin', base),
+  ];
+  return candidates.some((c) => fs.existsSync(c));
 }
 
 function safeName(input) {
-  return String(input)
+  let s = String(input)
     .replace(/^https?:\/\//, '')
-    .replace(/[^a-zA-Z0-9._-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 120) || 'media';
+    .replace(/[^a-zA-Z0-9._-]+/g, '-');
+  while (s.startsWith('-')) s = s.slice(1);
+  while (s.endsWith('-')) s = s.slice(0, -1);
+  return s.slice(0, 120) || 'media';
 }
 
 function parseJson(text) {
