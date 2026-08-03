@@ -14,8 +14,9 @@ import {
 } from './thumbgateFacilitation';
 
 /** Canonical Hermes Web / ThumbGate.app control-plane URL (not thumbgate.ai). */
+/** Opens landing top (no #pricing) so users see hero + free control before plans. */
 export const THUMBGATE_WEB_URL =
-  'https://thumbgate.app/?utm_source=hermes-mobile&utm_medium=app&utm_campaign=paid_companion#pricing';
+  'https://thumbgate.app/?utm_source=hermes-mobile&utm_medium=app&utm_campaign=paid_companion';
 
 export const THUMBGATE_PROMO_BUTTON_LABEL = 'Open ThumbGate.app';
 

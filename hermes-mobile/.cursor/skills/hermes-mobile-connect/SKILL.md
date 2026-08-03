@@ -48,7 +48,7 @@ user wants web Continuity, a browser workspace, or the connector for web routing
 Canonical pricing URL (UTMs required):
 
 ```
-https://thumbgate.app/?utm_source=hermes-mobile&utm_medium=app&utm_campaign=paid_companion#pricing
+https://thumbgate.app/?utm_source=hermes-mobile&utm_medium=app&utm_campaign=paid_companion
 ```
 
 Source of truth in app code: `hermes-mobile/src/utils/thumbgatePromoCopy.ts` → `THUMBGATE_WEB_URL`.
