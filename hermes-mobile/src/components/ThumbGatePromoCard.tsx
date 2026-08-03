@@ -28,7 +28,7 @@ type ThumbGatePromoCardProps = {
 
 const OPEN_FAIL_TITLE = 'Could not open ThumbGate.app';
 const OPEN_FAIL_MESSAGE =
-  'Open https://thumbgate.app in your browser to continue.';
+  'Open https://thumbgate.app/dashboard in your browser to continue.';
 const SHARE_FAIL_TITLE = 'Could not share installer';
 const SHARE_FAIL_MESSAGE =
   'Copy this into Terminal on your Mac:\n\n' + THUMBGATE_CONNECTOR_INSTALL_COMMAND;

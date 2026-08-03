@@ -14,10 +14,11 @@ import {
 } from './thumbgateFacilitation';
 
 /** Canonical Hermes Web / ThumbGate.app control-plane URL (not thumbgate.ai). */
+/** Product-first: open /dashboard (session → workspace; no session → login?return_to=/dashboard). Never deep-link to pricing. */
 export const THUMBGATE_WEB_URL =
-  'https://thumbgate.app/?utm_source=hermes-mobile&utm_medium=app&utm_campaign=paid_companion#pricing';
+  'https://thumbgate.app/dashboard?utm_source=hermes-mobile&utm_medium=app&utm_campaign=paid_companion';
 
-export const THUMBGATE_PROMO_BUTTON_LABEL = 'Open ThumbGate.app';
+export const THUMBGATE_PROMO_BUTTON_LABEL = 'Open ThumbGate.app Dashboard';
 
 export { THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL };
 
