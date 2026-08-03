@@ -176,6 +176,8 @@ export default function GatewayOpsSection() {
   const [essentialsOpen, setEssentialsOpen] = useState(false);
   const [cronOpen, setCronOpen] = useState(false);
   const [skillsOpen, setSkillsOpen] = useState(false);
+  /** Full Mac skill registry is ops noise — summary only until user asks for the list. */
+  const [skillsListOpen, setSkillsListOpen] = useState(false);
   const [advancedToolsetsOpen, setAdvancedToolsetsOpen] = useState(false);
   const [featuresOpen, setFeaturesOpen] = useState(false);
   const [togglingToolset, setTogglingToolset] = useState<string | null>(null);
@@ -866,120 +868,176 @@ export default function GatewayOpsSection() {
         }}
         accessibilityRole="button"
         accessibilityState={{ expanded: skillsOpen }}
-        accessibilityLabel={`${skillsOpen ? 'Collapse' : 'Expand'} Skills and Marketplace`}
+        accessibilityLabel={`${skillsOpen ? 'Collapse' : 'Expand'} Skills on your Mac`}
         testID="skills-section-toggle"
         style={styles.sectionToggleRow}
       >
         <Text style={[styles.sectionTitle, styles.sectionTitleFlex]}>
-          Skills &amp; Marketplace ({skills.length})
+          Skills on your Mac ({skills.length})
         </Text>
         <Text style={styles.sectionShowHide} testID="skills-section-chevron">
           {skillsOpen ? 'Hide ▾' : 'Show ▸'}
         </Text>
       </TouchableOpacity>
       <Text style={styles.sectionHint}>
-        Installed skills on your computer, plus optional Developer Marketplace browse.
+        Count of skills Hermes can use on this computer. Not App Store features — installs live on
+        your Mac.
       </Text>
       {skillsOpen ? (
         <>
-          <View style={styles.searchBarBox}>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search skills (e.g. docker, sentry, github, mac-freeze)..."
-              placeholderTextColor="rgba(255,255,255,0.4)"
-              value={skillQuery}
-              onChangeText={setSkillQuery}
-              testID="skill-search-input"
-            />
-          </View>
-
-          <GlassCard>
-            {filteredInstalledSkills.length === 0 ? (
+          <GlassCard testID="skills-summary-card">
+            {catalogErrors.skills ? (
               <Text style={styles.meta} testID="skills-empty-state">
-                {catalogErrors.skills
-                  ? 'Skills could not load from your computer. Tap Refresh to retry.'
-                  : skillQuery
-                  ? `No installed skills matching "${skillQuery}". Search Developer Marketplace below.`
-                  : 'No skills are installed on this computer.'}
+                Skills could not load from your computer. Tap Refresh to retry.
+              </Text>
+            ) : skills.length === 0 ? (
+              <Text style={styles.meta} testID="skills-empty-state">
+                No skills are installed on this computer yet. Chat still works; install skills on
+                your Mac if you need them.
               </Text>
             ) : (
-              filteredInstalledSkills.map((skill) => {
-                const expanded = expandedSkillNames.has(skill.name);
-                return (
-                  <TouchableOpacity
-                    key={skill.name}
-                    style={styles.listRow}
-                    onPress={() => {
-                      setExpandedSkillNames((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(skill.name)) {
-                          next.delete(skill.name);
-                        } else {
-                          next.add(skill.name);
-                        }
-                        return next;
-                      });
-                    }}
-                    accessibilityRole="button"
-                    accessibilityState={{ expanded }}
-                    testID={`skill-expand-${skill.name}`}
-                  >
-                    <View style={styles.jobTitleRow}>
-                      <Text style={[styles.rowTitle, { flex: 1 }]}>{skill.name}</Text>
-                      <Text style={styles.expandHint}>{expanded ? '▾' : '▸'}</Text>
-                    </View>
-                    {skill.description ? (
-                      <Text style={styles.rowDesc} numberOfLines={expanded ? undefined : 2}>
-                        {skill.description}
-                      </Text>
-                    ) : null}
-                  </TouchableOpacity>
-                );
-              })
+              <>
+                <Text style={styles.skillsSummaryTitle} testID="skills-summary-count">
+                  {skills.length} skill{skills.length === 1 ? '' : 's'} on this Mac
+                </Text>
+                <Text style={styles.meta} testID="skills-summary-body">
+                  Chat uses them automatically when needed. You do not manage this list on the phone
+                  — add or remove skills on your computer.
+                </Text>
+              </>
             )}
           </GlassCard>
 
-          <TouchableOpacity
-            style={styles.marketplaceToggleBtn}
-            onPress={() => {
-              haptics.selection();
-              setShowMarketplace((prev) => !prev);
-            }}
-            testID="toggle-marketplace-btn"
-          >
-            <Text style={styles.marketplaceToggleText}>
-              {showMarketplace ? '▲ Hide Developer Marketplace' : '▼ Browse Developer Marketplace'}
-            </Text>
-          </TouchableOpacity>
-
-          {showMarketplace ? (
-            <GlassCard testID="marketplace-skills-card">
-              <Text style={styles.marketplaceHeader}>
-                Developer Marketplace ({marketplaceMatches.length})
+          {skills.length > 0 || catalogErrors.skills ? (
+            <TouchableOpacity
+              onPress={() => {
+                haptics.selection();
+                setSkillsListOpen((open) => !open);
+              }}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: skillsListOpen }}
+              accessibilityLabel={
+                skillsListOpen
+                  ? 'Hide full skill list'
+                  : 'Show full skill list from this Mac'
+              }
+              testID="skills-list-toggle"
+              style={styles.sectionToggleRow}
+            >
+              <Text style={[styles.sectionTitle, styles.sectionTitleFlex]}>
+                Full list (advanced)
               </Text>
-              {marketplaceMatches.length === 0 ? (
-                <Text style={styles.meta}>
-                  No marketplace skills matching &quot;{skillQuery}&quot;.
+              <Text style={styles.sectionShowHide} testID="skills-list-chevron">
+                {skillsListOpen ? 'Hide ▾' : 'Show ▸'}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {skillsListOpen ? (
+            <>
+              <View style={styles.searchBarBox}>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search skills on this Mac…"
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  value={skillQuery}
+                  onChangeText={setSkillQuery}
+                  testID="skill-search-input"
+                />
+              </View>
+
+              <GlassCard testID="skills-full-list">
+                {filteredInstalledSkills.length === 0 ? (
+                  <Text style={styles.meta} testID="skills-filter-empty">
+                    {skillQuery
+                      ? `No installed skills matching "${skillQuery}".`
+                      : 'No skills are installed on this computer.'}
+                  </Text>
+                ) : (
+                  filteredInstalledSkills.map((skill) => {
+                    const expanded = expandedSkillNames.has(skill.name);
+                    return (
+                      <TouchableOpacity
+                        key={skill.name}
+                        style={styles.listRow}
+                        onPress={() => {
+                          setExpandedSkillNames((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(skill.name)) {
+                              next.delete(skill.name);
+                            } else {
+                              next.add(skill.name);
+                            }
+                            return next;
+                          });
+                        }}
+                        accessibilityRole="button"
+                        accessibilityState={{ expanded }}
+                        testID={`skill-expand-${skill.name}`}
+                      >
+                        <View style={styles.jobTitleRow}>
+                          <Text style={[styles.rowTitle, { flex: 1 }]}>{skill.name}</Text>
+                          <Text style={styles.expandHint}>{expanded ? '▾' : '▸'}</Text>
+                        </View>
+                        {skill.description ? (
+                          <Text style={styles.rowDesc} numberOfLines={expanded ? undefined : 2}>
+                            {skill.description}
+                          </Text>
+                        ) : null}
+                      </TouchableOpacity>
+                    );
+                  })
+                )}
+              </GlassCard>
+
+              <TouchableOpacity
+                style={styles.marketplaceToggleBtn}
+                onPress={() => {
+                  haptics.selection();
+                  setShowMarketplace((prev) => !prev);
+                }}
+                testID="toggle-marketplace-btn"
+              >
+                <Text style={styles.marketplaceToggleText}>
+                  {showMarketplace
+                    ? '▲ Hide developer catalog'
+                    : '▼ Browse developer catalog (optional)'}
                 </Text>
-              ) : (
-                marketplaceMatches.map((mSkill) => (
-                  <View
-                    key={mSkill.name}
-                    style={styles.listRow}
-                    testID={`marketplace-skill-${mSkill.name}`}
-                  >
-                    <View style={styles.jobTitleRow}>
-                      <Text style={[styles.rowTitle, { flex: 1 }]}>{mSkill.name}</Text>
-                      <Text style={styles.badgeLabel}>{mSkill.category}</Text>
-                    </View>
-                    <Text style={styles.rowDesc}>{mSkill.description}</Text>
-                    <Text style={styles.jobDetailLabel}>
-                      Tags: {mSkill.tags.join(', ')} · By {mSkill.author}
+              </TouchableOpacity>
+
+              {showMarketplace ? (
+                <GlassCard testID="marketplace-skills-card">
+                  <Text style={styles.marketplaceHeader}>
+                    Developer catalog ({marketplaceMatches.length})
+                  </Text>
+                  <Text style={styles.meta}>
+                    Ideas only — not installed on your phone. Install on the Mac if you want them.
+                  </Text>
+                  {marketplaceMatches.length === 0 ? (
+                    <Text style={styles.meta}>
+                      No catalog entries matching &quot;{skillQuery}&quot;.
                     </Text>
-                  </View>
-                ))
-              )}
-            </GlassCard>
+                  ) : (
+                    marketplaceMatches.map((mSkill) => (
+                      <View
+                        key={mSkill.name}
+                        style={styles.listRow}
+                        testID={`marketplace-skill-${mSkill.name}`}
+                      >
+                        <View style={styles.jobTitleRow}>
+                          <Text style={[styles.rowTitle, { flex: 1 }]}>{mSkill.name}</Text>
+                          <Text style={styles.badgeLabel}>{mSkill.category}</Text>
+                        </View>
+                        <Text style={styles.rowDesc}>{mSkill.description}</Text>
+                        <Text style={styles.jobDetailLabel}>
+                          Tags: {mSkill.tags.join(', ')} · By {mSkill.author}
+                        </Text>
+                      </View>
+                    ))
+                  )}
+                </GlassCard>
+              ) : null}
+            </>
           ) : null}
         </>
       ) : null}
@@ -1294,7 +1352,19 @@ const styles = StyleSheet.create({
   demoPill: { fontSize: 10, fontWeight: '700', color: colors.secondary, backgroundColor: 'rgba(99, 102, 241, 0.2)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   searchBarBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.cardBg, borderRadius: 8, paddingHorizontal: 10, marginVertical: 8 },
   searchInput: { flex: 1, height: 36, color: colors.text, fontSize: 13 },
-  marketplaceToggleBtn: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: colors.cardBg },
+  skillsSummaryTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 6,
+  },
+  marketplaceToggleBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: colors.cardBg,
+    marginTop: 8,
+  },
   marketplaceToggleText: { fontSize: 12, fontWeight: '600', color: colors.secondary },
   marketplaceHeader: { fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 8 },
   badgeLabel: { fontSize: 11, fontWeight: '600', color: colors.textMuted },

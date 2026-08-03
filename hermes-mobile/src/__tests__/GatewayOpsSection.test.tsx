@@ -179,7 +179,9 @@ describe('GatewayOpsSection', () => {
     ]);
     gatewayClient.listToolsets.mockRejectedValue(new Error('Network request failed'));
 
-    const { getByText, getByTestId, queryByText } = render(<GatewayOpsSection />);
+    const { getByText, getByTestId, queryByText, queryByTestId } = render(
+      <GatewayOpsSection />,
+    );
 
     await waitFor(() => {
       expect(getByTestId('skills-section-toggle')).toBeTruthy();
@@ -189,12 +191,43 @@ describe('GatewayOpsSection', () => {
     expandSection(getByTestId, 'toolsets-essentials-toggle');
 
     await waitFor(() => {
-      expect(getByText('mac-freeze-rescue')).toBeTruthy();
+      // Summary only — not the full Mac skill dump
+      expect(getByTestId('skills-summary-count').props.children.join('')).toContain('1 skill');
+      expect(queryByTestId('skills-full-list')).toBeNull();
       expect(getByTestId('toolsets-empty-state').props.children).toContain(
         'Tools could not load',
       );
     });
+    expandSection(getByTestId, 'skills-list-toggle');
+    await waitFor(() => {
+      expect(getByText('mac-freeze-rescue')).toBeTruthy();
+    });
     expect(queryByText('Network request failed')).toBeNull();
+  });
+
+  it('shows skills summary by default — not the full Mac skill registry', async () => {
+    gatewayClient.listSkills.mockResolvedValue([
+      { name: 'yellow-pages-lead-gen', description: 'Generate leads' },
+      { name: 'gif-search', description: 'Search GIFs' },
+    ]);
+
+    const { getByTestId, queryByTestId, queryByText } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('skills-section-toggle')).toBeTruthy();
+    });
+    expandSection(getByTestId, 'skills-section-toggle');
+
+    await waitFor(() => {
+      expect(getByTestId('skills-summary-card')).toBeTruthy();
+      expect(getByTestId('skills-summary-count').props.children.join('')).toContain('2 skills');
+      expect(getByTestId('skills-summary-body')).toBeTruthy();
+    });
+    expect(queryByTestId('skills-full-list')).toBeNull();
+    expect(queryByTestId('skill-search-input')).toBeNull();
+    expect(queryByText('yellow-pages-lead-gen')).toBeNull();
+    expect(queryByText('gif-search')).toBeNull();
+    expect(queryByTestId('toggle-marketplace-btn')).toBeNull();
   });
 
   it('automatically enables only essential configured toolsets returned disabled by the gateway', async () => {
@@ -595,7 +628,7 @@ describe('GatewayOpsSection', () => {
     expect(queryByTestId('job-pause-job-disabled-1')).toBeNull();
   });
 
-  it('filters skills via search bar and toggles developer marketplace', async () => {
+  it('filters skills via search bar and toggles developer catalog only after full list', async () => {
     gatewayClient.listSkills.mockResolvedValue([
       { name: 'mac-freeze-rescue', description: 'Rescue sluggish Mac' },
       { name: 'sentry-issue-triage', description: 'Triage Sentry errors' },
@@ -611,6 +644,11 @@ describe('GatewayOpsSection', () => {
     expandSection(getByTestId, 'skills-section-toggle');
 
     await waitFor(() => {
+      expect(getByTestId('skills-summary-card')).toBeTruthy();
+    });
+    expandSection(getByTestId, 'skills-list-toggle');
+
+    await waitFor(() => {
       expect(getByText('mac-freeze-rescue')).toBeTruthy();
       expect(getByText('sentry-issue-triage')).toBeTruthy();
     });
@@ -620,7 +658,7 @@ describe('GatewayOpsSection', () => {
     expect(getByText('sentry-issue-triage')).toBeTruthy();
     expect(queryByText('mac-freeze-rescue')).toBeNull();
 
-    // Test Marketplace toggle
+    // Test catalog toggle (buried under advanced full list)
     expect(queryByTestId('marketplace-skills-card')).toBeNull();
     fireEvent.press(getByTestId('toggle-marketplace-btn'));
     await waitFor(() => {
