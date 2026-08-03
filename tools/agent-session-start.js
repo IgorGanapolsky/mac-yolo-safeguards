@@ -273,6 +273,39 @@ if (graphReport.stale && graphReport.graphifyAvailable) {
   }
 }
 
+// Linear + vault multi-agent task bus (non-fatal if no API key)
+// Prefer --coord-status (locks + Agent-State) over raw --list alone.
+function printLinearFleetSnapshot() {
+  const bridge = path.join(REPO, 'tools/linear-agent-bridge.js');
+  if (!fs.existsSync(bridge)) return { ok: false, reason: 'no-bridge' };
+  const r = spawnSync(process.execPath, [bridge, '--coord-status'], {
+    cwd: REPO,
+    encoding: 'utf8',
+    timeout: 45_000,
+    env: process.env,
+  });
+  const text = `${r.stdout || ''}${r.stderr || ''}`.trim();
+  if (!json) {
+    process.stdout.write('\n=== Linear + vault coordination ===\n');
+    if (text.includes('LINEAR_API_KEY not found') || text.includes('NO_API_KEY')) {
+      process.stdout.write(
+        'No LINEAR_API_KEY (env / Keychain / ~/.config/linear/api_key). Task bus offline.\n',
+      );
+      process.stdout.write(
+        'PAT: https://linear.app/igorganapolsky/settings/api → store as Keychain LINEAR_API_KEY\n',
+      );
+      return { ok: false, reason: 'no-key' };
+    }
+    if (r.status !== 0 && !text) {
+      process.stdout.write(`Linear bridge failed (exit ${r.status})\n`);
+      return { ok: false, reason: 'bridge-fail' };
+    }
+    process.stdout.write(`${text}\n`);
+  }
+  return { ok: r.status === 0, text };
+}
+const linearSnap = printLinearFleetSnapshot();
+
 const verify = runBash('scripts/verify-agent-automations.sh', 20_000);
 if (!json) {
   if (verify.stdout) process.stdout.write(verify.stdout);
