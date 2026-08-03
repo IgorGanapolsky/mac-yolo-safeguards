@@ -1,12 +1,12 @@
 {
   "igor@igorganapolsky.com": {
-    "status": "ok",
-    "lastProbe": "2026-07-31T19:24:16Z",
-    "detail": "2026-07-31 PE free trial order 209871937 + mailbox igor@ created. SMTP AUTH OK. Direct SMTP + Gmail send-as probes delivered INBOX; no new DSN."
+    "status": "unhealthy",
+    "lastProbe": "2026-07-31T15:20:11Z",
+    "detail": "7/7 bounces; live probe DSN'd ~4s later. Do not draft campaign mail from this address until re-probed healthy."
   },
   "iganapolsky@gmail.com": {
     "status": "ok",
-    "lastProbe": "2026-07-31T19:24:16Z",
-    "detail": "Delivers. Prefer igor@ domain for outreach."
+    "lastProbe": "2026-07-31T16:00:00Z",
+    "detail": "Verified deliverable send path for outreach fallback."
   }
 }

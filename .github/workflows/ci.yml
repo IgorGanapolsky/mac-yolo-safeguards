@@ -273,6 +273,21 @@ jobs:
       # compose-in-editor, publish-once, …) so Public funnel checks failed MODULE_NOT_FOUND
       # after ci.yml was made parseable again. Absence of a step is not absence of the
       # bug class — add the suite file first, then the CI line.
+
+      # Harness engineering: evidence-only ship claims + non-slop taste golden set
+      # (TNS harness-on-the-loop + Taste Labs-style rubric layer, 2026-08).
+      - name: Ship-claim gate
+        run: node tests/test-ship-claim-gate.js
+
+      - name: Taste layer golden set
+        run: node tests/test-taste-gate.js
+
+      - name: Linear bridge pure helpers
+        run: node tests/test-linear-agent-bridge.js
+
+      - name: Harness smeval (ship-honesty offline)
+        run: node tests/test-harness-smeval.js
+
       # Five guessed role addresses hard-bounced within one minute on 2026-07-31,
       # a design-partner pitch went to a security@ disclosure inbox, and four
       # unrelated founders shared one To: line. docs/REVENUE-LOOP.md already banned
