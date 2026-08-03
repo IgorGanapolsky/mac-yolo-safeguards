@@ -57,5 +57,14 @@ Not a hired panel. **Ground truth is:**
 - Not affiliate VSL pipelines  
 - Not a substitute for `ship-claim-gate` evidence (counts/permalinks)  
 - Not Linear/Obsidian coordination  
+- Not [smevals](https://simonwillison.net/2026/Jul/31/smevals/) itself — see architecture decision below  
+
+## Eval architecture (CEO decision)
+
+See [`docs/DECISIONS/D-2026-08-03-eval-architecture.md`](./DECISIONS/D-2026-08-03-eval-architecture.md):
+
+- Steal smevals **run ≠ grade** design  
+- Keep **Node gates** as production law  
+- Offline suite: `node tools/harness-smeval.js run evals/ship-honesty`  
 
 See also: `docs/AGENT-SWARM-HARNESS.md` (hard bar for done), `tools/ship-claim-gate.js`.

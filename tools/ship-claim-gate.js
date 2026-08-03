@@ -198,13 +198,16 @@ function evaluateShipClaim(input) {
   if (results) {
     const mAll = claim.match(COUNT_ALL);
     const mN = claim.match(COUNT_N);
+    // "Not all LIVE" is honest language — must NOT trip universal all-live.
+    const negatedAll = /\bnot\s+(all|every|both)\b/i.test(claim);
     const universal =
-      /\b(all|every|both|entire)\b/i.test(claim) ||
-      /\ball\b.*\blive\b/i.test(claim) ||
-      /\blive\b.*\ball\b/i.test(claim);
+      !negatedAll &&
+      (/\b(all|every|both|entire)\b/i.test(claim) ||
+        /\ball\b.*\blive\b/i.test(claim) ||
+        /\blive\b.*\ball\b/i.test(claim));
     let claimedLive = null;
     if (mN) claimedLive = parseInt(mN[1], 10);
-    if (mAll || universal) {
+    if ((mAll || universal) && !negatedAll) {
       claimedLive = /\bboth\b/i.test(claim) ? Math.min(2, results.total) : results.total;
     }
     if (claimedLive != null && claimedLive > results.okCount) {
@@ -222,7 +225,7 @@ function evaluateShipClaim(input) {
       );
     }
     if (results.okCount > 0 && results.failCount > 0) {
-      if (universal && hasLiveLanguage) {
+      if (universal && hasLiveLanguage && !negatedAll) {
         blocks.push(
           `Partial success only: ok=${results.okCount} fail=${results.failCount} — cannot claim all/both LIVE`,
         );

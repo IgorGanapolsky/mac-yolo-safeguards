@@ -300,6 +300,9 @@ jobs:
       - name: Linear bridge pure helpers
         run: node tests/test-linear-agent-bridge.js
 
+      - name: Harness smeval (ship-honesty offline)
+        run: node tests/test-harness-smeval.js
+
       - name: Outreach lead qualification
         run: node tests/test-reddit-lead-qualify.js
 
