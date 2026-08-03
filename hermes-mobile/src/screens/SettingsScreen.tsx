@@ -97,6 +97,11 @@ export default function SettingsScreen() {
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [qrScannerVisible, setQrScannerVisible] = useState(false);
   const [glassesConnected, setGlassesConnected] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(true);
+  const [machinesOpen, setMachinesOpen] = useState(true);
+  const [connectionOpen, setConnectionOpen] = useState(true);
+  const [notificationsOpen, setNotificationsOpen] = useState(true);
+  const [safeguardsOpen, setSafeguardsOpen] = useState(true);
 
   const leaveSettings = useCallback(() => {
     Keyboard.dismiss();
@@ -477,27 +482,51 @@ export default function SettingsScreen() {
 
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
 
-        <Text style={styles.sectionTitle}>📊 Privacy</Text>
-        <GlassCard>
-          <View style={styles.switchRow}>
-            <View style={styles.switchLabelCol}>
-              <Text style={styles.label}>Product analytics</Text>
-              <Text style={styles.description}>
-                Anonymous usage events (screen views, computer scan results) via PostHog. No chat content.
-              </Text>
+        <TouchableOpacity
+          onPress={() => {
+            haptics.selection();
+            setPrivacyOpen((open) => !open);
+          }}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: privacyOpen }}
+          testID="settings-privacy-toggle"
+        >
+          <Text style={styles.sectionTitle}>📊 Privacy</Text>
+        </TouchableOpacity>
+        {privacyOpen ? (
+          <GlassCard>
+            <View style={styles.switchRow}>
+              <View style={styles.switchLabelCol}>
+                <Text style={styles.label}>Product analytics</Text>
+                <Text style={styles.description}>
+                  Anonymous usage events (screen views, computer scan results) via PostHog. No chat content.
+                </Text>
+              </View>
+              <Switch
+                value={!analyticsOptOut}
+                onValueChange={(enabled) => {
+                  setAnalyticsOptOut(!enabled);
+                  setProductAnalyticsOptOut(!enabled);
+                }}
+                testID="analytics-opt-in-switch"
+              />
             </View>
-            <Switch
-              value={!analyticsOptOut}
-              onValueChange={(enabled) => {
-                setAnalyticsOptOut(!enabled);
-                setProductAnalyticsOptOut(!enabled);
-              }}
-              testID="analytics-opt-in-switch"
-            />
-          </View>
-        </GlassCard>
+          </GlassCard>
+        ) : null}
 
-        <Text style={styles.sectionTitle}>Hermes Machines</Text>
+        <TouchableOpacity
+          onPress={() => {
+            haptics.selection();
+            setMachinesOpen((open) => !open);
+          }}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: machinesOpen }}
+          testID="settings-machines-toggle"
+        >
+          <Text style={styles.sectionTitle}>Hermes Machines</Text>
+        </TouchableOpacity>
+        {machinesOpen ? (
+          <>
         {cellularBlocksDirect ? (
           <GlassCard style={styles.tunnelWizardCard} testID="settings-cellular-tunnel-banner">
             <Text style={styles.tunnelWizardTitle} testID="settings-tunnel-wizard-title">
@@ -634,6 +663,8 @@ export default function SettingsScreen() {
             Stored in the device keychain. Required for direct Chat tab session APIs.
           </Text>
         </GlassCard>
+        </>
+        ) : null}
 
         <View testID="GATEWAY_OPS" accessible={true}>
           <Text style={styles.sectionTitle}>Computer gateway ops</Text>
@@ -643,8 +674,19 @@ export default function SettingsScreen() {
         </Text>
         <GatewayOpsSection />
 
-        <Text style={styles.sectionTitle}>Computer connection</Text>
-        <GlassCard>
+        <TouchableOpacity
+          onPress={() => {
+            haptics.selection();
+            setConnectionOpen((open) => !open);
+          }}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: connectionOpen }}
+          testID="settings-connection-toggle"
+        >
+          <Text style={styles.sectionTitle}>Computer connection</Text>
+        </TouchableOpacity>
+        {connectionOpen ? (
+          <GlassCard>
           <Text style={styles.description}>
             Use Tailscale away from home, or home Wi‑Fi nearby, for Chat, tools, and ops.
           </Text>
@@ -781,78 +823,102 @@ export default function SettingsScreen() {
             without a key on LAN.
           </Text>
         </GlassCard>
+        ) : null}
 
-        <Text style={styles.sectionTitle}>Notification preferences</Text>
-        <GlassCard>
-          <Text style={styles.switchDesc}>
-            Heads-up banners are reserved for approvals only. Live run and completion stay in the
-            quiet status shade — never pop when you leave the app. Turn each category off anytime.
-          </Text>
+        <TouchableOpacity
+          onPress={() => {
+            haptics.selection();
+            setNotificationsOpen((open) => !open);
+          }}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: notificationsOpen }}
+          testID="settings-notifications-toggle"
+        >
+          <Text style={styles.sectionTitle}>Notification preferences</Text>
+        </TouchableOpacity>
+        {notificationsOpen ? (
+          <GlassCard>
+            <Text style={styles.switchDesc}>
+              Heads-up banners are reserved for approvals only. Live run and completion stay in the
+              quiet status shade — never pop when you leave the app. Turn each category off anytime.
+            </Text>
 
-          <View style={styles.divider} />
+            <View style={styles.divider} />
 
-          <View style={styles.switchRow}>
-            <View style={styles.switchLabelCol}>
-              <Text style={styles.switchLabel}>Approval heads-up</Text>
-              <Text style={styles.switchDesc}>
-                Only high-value lock-screen alerts with Approve and Deny. Off = no pop.
-              </Text>
+            <View style={styles.switchRow}>
+              <View style={styles.switchLabelCol}>
+                <Text style={styles.switchLabel}>Approval heads-up</Text>
+                <Text style={styles.switchDesc}>
+                  Only high-value lock-screen alerts with Approve and Deny. Off = no pop.
+                </Text>
+              </View>
+              <Switch
+                testID="notification-approvals-switch"
+                value={notificationApprovals}
+                onValueChange={(val) => {
+                  void handleNotificationToggle(val, setNotificationApprovals);
+                }}
+                trackColor={{ false: '#1F2937', true: colors.primary }}
+                thumbColor={notificationApprovals ? '#ffffff' : '#9CA3AF'}
+              />
             </View>
-            <Switch
-              testID="notification-approvals-switch"
-              value={notificationApprovals}
-              onValueChange={(val) => {
-                void handleNotificationToggle(val, setNotificationApprovals);
-              }}
-              trackColor={{ false: '#1F2937', true: colors.primary }}
-              thumbColor={notificationApprovals ? '#ffffff' : '#9CA3AF'}
-            />
-          </View>
 
-          <View style={styles.divider} />
+            <View style={styles.divider} />
 
-          <View style={styles.switchRow}>
-            <View style={styles.switchLabelCol}>
-              <Text style={styles.switchLabel}>Live run status (quiet)</Text>
-              <Text style={styles.switchDesc}>
-                Optional quiet shade while a run is active. Off by default — does not heads-up.
-              </Text>
+            <View style={styles.switchRow}>
+              <View style={styles.switchLabelCol}>
+                <Text style={styles.switchLabel}>Live run status (quiet)</Text>
+                <Text style={styles.switchDesc}>
+                  Optional quiet shade while a run is active. Off by default — does not heads-up.
+                </Text>
+              </View>
+              <Switch
+                testID="notification-live-run-switch"
+                value={notificationLiveRunStatus}
+                onValueChange={(val) => {
+                  void handleNotificationToggle(val, setNotificationLiveRunStatus);
+                }}
+                trackColor={{ false: '#1F2937', true: colors.primary }}
+                thumbColor={notificationLiveRunStatus ? '#ffffff' : '#9CA3AF'}
+              />
             </View>
-            <Switch
-              testID="notification-live-run-switch"
-              value={notificationLiveRunStatus}
-              onValueChange={(val) => {
-                void handleNotificationToggle(val, setNotificationLiveRunStatus);
-              }}
-              trackColor={{ false: '#1F2937', true: colors.primary }}
-              thumbColor={notificationLiveRunStatus ? '#ffffff' : '#9CA3AF'}
-            />
-          </View>
 
-          <View style={styles.divider} />
+            <View style={styles.divider} />
 
-          <View style={styles.switchRow}>
-            <View style={styles.switchLabelCol}>
-              <Text style={styles.switchLabel}>Completion / failure (quiet)</Text>
-              <Text style={styles.switchDesc}>
-                Quiet shade when a background task finishes or fails. Never a heads-up banner.
-              </Text>
+            <View style={styles.switchRow}>
+              <View style={styles.switchLabelCol}>
+                <Text style={styles.switchLabel}>Completion / failure (quiet)</Text>
+                <Text style={styles.switchDesc}>
+                  Quiet shade when a background task finishes or fails. Never a heads-up banner.
+                </Text>
+              </View>
+              <Switch
+                testID="notification-completion-switch"
+                value={notificationCompletion}
+                onValueChange={(val) => {
+                  void handleNotificationToggle(val, setNotificationCompletion);
+                }}
+                trackColor={{ false: '#1F2937', true: colors.primary }}
+                thumbColor={notificationCompletion ? '#ffffff' : '#9CA3AF'}
+              />
             </View>
-            <Switch
-              testID="notification-completion-switch"
-              value={notificationCompletion}
-              onValueChange={(val) => {
-                void handleNotificationToggle(val, setNotificationCompletion);
-              }}
-              trackColor={{ false: '#1F2937', true: colors.primary }}
-              thumbColor={notificationCompletion ? '#ffffff' : '#9CA3AF'}
-            />
-          </View>
-        </GlassCard>
+          </GlassCard>
+        ) : null}
 
         {/* Safeguard Options */}
-        <Text style={styles.sectionTitle}>🛡 Safeguard Rules</Text>
-        <GlassCard>
+        <TouchableOpacity
+          onPress={() => {
+            haptics.selection();
+            setSafeguardsOpen((open) => !open);
+          }}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: safeguardsOpen }}
+          testID="settings-safeguards-toggle"
+        >
+          <Text style={styles.sectionTitle}>🛡 Safeguard Rules</Text>
+        </TouchableOpacity>
+        {safeguardsOpen ? (
+          <GlassCard>
           <Text style={styles.switchLabel}>Approval policy</Text>
           <Text style={styles.switchDesc}>
             Strict hides “always allow” and gates prod deploy. Autonomous defers to computer standing approvals.
@@ -937,6 +1003,7 @@ export default function SettingsScreen() {
             />
           </View>
         </GlassCard>
+        ) : null}
 
         {Platform.OS === 'android' ? (
           <>

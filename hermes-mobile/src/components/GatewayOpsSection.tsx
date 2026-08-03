@@ -176,6 +176,7 @@ export default function GatewayOpsSection() {
   const [cronOpen, setCronOpen] = useState(true);
   const [skillsOpen, setSkillsOpen] = useState(true);
   const [advancedToolsetsOpen, setAdvancedToolsetsOpen] = useState(false);
+  const [featuresOpen, setFeaturesOpen] = useState(true);
   const [togglingToolset, setTogglingToolset] = useState<string | null>(null);
   const [integrationsToolset, setIntegrationsToolset] = useState<HermesToolset | null>(null);
   const togglingToolsetRef = useRef<string | null>(null);
@@ -666,10 +667,15 @@ export default function GatewayOpsSection() {
         }}
         accessibilityRole="button"
         accessibilityState={{ expanded: essentialsOpen }}
+        accessibilityLabel={`${essentialsOpen ? 'Collapse' : 'Expand'} Essentials`}
         testID="toolsets-essentials-toggle"
+        style={styles.sectionToggleRow}
       >
-        <Text style={styles.sectionTitle} testID="toolsets-essentials-title">
-          Essentials ({essentialToolsets.length}) {essentialsOpen ? '▾' : '▸'}
+        <Text style={[styles.sectionTitle, styles.sectionTitleFlex]} testID="toolsets-essentials-title">
+          Essentials ({essentialToolsets.length})
+        </Text>
+        <Text style={styles.sectionShowHide} testID="toolsets-essentials-chevron">
+          {essentialsOpen ? 'Hide ▾' : 'Show ▸'}
         </Text>
       </TouchableOpacity>
       <Text style={styles.sectionHint}>
@@ -679,7 +685,7 @@ export default function GatewayOpsSection() {
         })}
       </Text>
       {essentialsOpen ? (
-        <GlassCard>
+        <GlassCard testID="toolsets-essentials-list">
           {toolsets.length === 0 ? (
             <Text style={styles.meta} testID="toolsets-empty-state">
               {catalogErrors.toolsets
@@ -705,10 +711,15 @@ export default function GatewayOpsSection() {
             }}
             accessibilityRole="button"
             accessibilityState={{ expanded: advancedToolsetsOpen }}
+            accessibilityLabel={`${advancedToolsetsOpen ? 'Collapse' : 'Expand'} On your Mac`}
             testID="toolsets-advanced-toggle"
+            style={styles.sectionToggleRow}
           >
-            <Text style={styles.sectionTitle}>
-              On your Mac ({advancedToolsets.length}) {advancedToolsetsOpen ? '▾' : '▸'}
+            <Text style={[styles.sectionTitle, styles.sectionTitleFlex]}>
+              On your Mac ({advancedToolsets.length})
+            </Text>
+            <Text style={styles.sectionShowHide}>
+              {advancedToolsetsOpen ? 'Hide ▾' : 'Show ▸'}
             </Text>
           </TouchableOpacity>
           <Text style={styles.sectionHint}>
@@ -730,9 +741,14 @@ export default function GatewayOpsSection() {
         }}
         accessibilityRole="button"
         accessibilityState={{ expanded: cronOpen }}
+        accessibilityLabel={`${cronOpen ? 'Collapse' : 'Expand'} Cron jobs`}
         testID="jobs-section-toggle"
+        style={styles.sectionToggleRow}
       >
-        <Text style={styles.sectionTitle}>Cron jobs ({jobs.length}) {cronOpen ? '▾' : '▸'}</Text>
+        <Text style={[styles.sectionTitle, styles.sectionTitleFlex]}>
+          Cron jobs ({jobs.length})
+        </Text>
+        <Text style={styles.sectionShowHide}>{cronOpen ? 'Hide ▾' : 'Show ▸'}</Text>
       </TouchableOpacity>
       <Text style={styles.sectionHint}>
         Tap a job name for schedule, last/next run, and purpose. Run / Pause / Delete stay one tap
@@ -947,112 +963,126 @@ export default function GatewayOpsSection() {
         </GlassCard>
       ) : null}
 
-      <Text style={styles.sectionTitle}>Gateway features ({featureRows.length})</Text>
+      <TouchableOpacity
+        onPress={() => {
+          haptics.selection();
+          setFeaturesOpen((open) => !open);
+        }}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: featuresOpen }}
+        testID="gateway-features-toggle"
+      >
+        <Text style={styles.sectionTitle}>
+          Gateway features ({featureRows.length}) {featuresOpen ? '▾' : '▸'}
+        </Text>
+      </TouchableOpacity>
       <Text style={styles.sectionHint}>
         What this Hermes build on your computer supports (protocol). Tap for details. These are not
         user prefs — turn tools on/off under Essentials above when the Mac allows phone toggles.
       </Text>
-      <GlassCard testID="gateway-features-card">
-        {catalogErrors.capabilities ? (
-          <Text style={styles.meta}>
-            Gateway features could not load. Tap Refresh to retry.
-          </Text>
-        ) : featureRows.length === 0 ? (
-          <Text style={styles.meta}>
-            Connect your computer above to discover features.
-          </Text>
-        ) : (
-          featureRows.map((row) => {
-            const expanded = expandedFeatureKeys.has(row.key);
-            const toggleable = gatewayFeatureIsPhoneToggleable(row.key);
-            return (
-              <View key={row.key} style={styles.featureRow} testID={`feature-row-${row.key}`}>
-                <View style={styles.featureHeader}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setExpandedFeatureKeys((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(row.key)) {
-                          next.delete(row.key);
-                        } else {
-                          next.add(row.key);
-                        }
-                        return next;
-                      });
-                    }}
-                    accessibilityRole="button"
-                    accessibilityState={{ expanded }}
-                    accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} ${row.info.title}`}
-                    testID={`feature-expand-${row.key}`}
-                    style={styles.featureMain}
-                  >
-                    <View style={styles.jobTitleRow}>
-                      <Text style={[styles.rowTitle, { flex: 1 }]} numberOfLines={2}>
-                        {row.info.title}
-                      </Text>
-                      <Text style={styles.expandHint}>{expanded ? '▾' : '▸'}</Text>
-                    </View>
-                    <Text style={styles.rowDesc} numberOfLines={expanded ? undefined : 2}>
-                      {row.info.summary}
-                    </Text>
-                  </TouchableOpacity>
-                  <View style={styles.featureToggleCol}>
-                    <Switch
-                      value={row.active}
-                      disabled={!toggleable}
-                      onValueChange={() => {
-                        // Protocol features are not phone-writable today.
+      {featuresOpen ? (
+        <GlassCard testID="gateway-features-card">
+          {catalogErrors.capabilities ? (
+            <Text style={styles.meta}>
+              Gateway features could not load. Tap Refresh to retry.
+            </Text>
+          ) : featureRows.length === 0 ? (
+            <Text style={styles.meta}>
+              Connect your computer above to discover features.
+            </Text>
+          ) : (
+            featureRows.map((row) => {
+              const expanded = expandedFeatureKeys.has(row.key);
+              const toggleable = gatewayFeatureIsPhoneToggleable(row.key);
+              return (
+                <View key={row.key} style={styles.featureRow} testID={`feature-row-${row.key}`}>
+                  <View style={styles.featureHeader}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setExpandedFeatureKeys((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(row.key)) {
+                            next.delete(row.key);
+                          } else {
+                            next.add(row.key);
+                          }
+                          return next;
+                        });
                       }}
-                      testID={`feature-switch-${row.key}`}
-                      accessibilityLabel={
-                        toggleable
-                          ? `Toggle ${row.info.title}`
-                          : `${row.info.title} is always on for this gateway`
-                      }
-                      accessibilityState={{ disabled: !toggleable, checked: row.active }}
-                    />
-                    <Text style={styles.featureToggleHint}>
-                      {toggleable ? 'Phone' : 'On'}
-                    </Text>
+                      accessibilityRole="button"
+                      accessibilityState={{ expanded }}
+                      accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} ${row.info.title}`}
+                      testID={`feature-expand-${row.key}`}
+                      style={styles.featureMain}
+                    >
+                      <View style={styles.jobTitleRow}>
+                        <Text style={[styles.rowTitle, { flex: 1 }]} numberOfLines={2}>
+                          {row.info.title}
+                        </Text>
+                        <Text style={styles.expandHint}>{expanded ? '▾' : '▸'}</Text>
+                      </View>
+                      <Text style={styles.rowDesc} numberOfLines={expanded ? undefined : 2}>
+                        {row.info.summary}
+                      </Text>
+                    </TouchableOpacity>
+                    <View style={styles.featureToggleCol}>
+                      <Switch
+                        value={row.active}
+                        disabled={!toggleable}
+                        onValueChange={() => {
+                          // Protocol features are not phone-writable today.
+                        }}
+                        testID={`feature-switch-${row.key}`}
+                        accessibilityLabel={
+                          toggleable
+                            ? `Toggle ${row.info.title}`
+                            : `${row.info.title} is always on for this gateway`
+                        }
+                        accessibilityState={{ disabled: !toggleable, checked: row.active }}
+                      />
+                      <Text style={styles.featureToggleHint}>
+                        {toggleable ? 'Phone' : 'On'}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-                {expanded ? (
-                  <View style={styles.jobDetails} testID={`feature-details-${row.key}`}>
-                    <View style={styles.jobDetailRow}>
-                      <Text style={styles.jobDetailLabel}>About</Text>
-                      <Text style={styles.jobDetailValue} selectable>
-                        {row.info.detail}
-                      </Text>
-                    </View>
-                    <View style={styles.jobDetailRow}>
-                      <Text style={styles.jobDetailLabel}>API flag</Text>
-                      <Text style={styles.jobDetailValue} selectable>
-                        {row.key}
-                      </Text>
-                    </View>
-                    {row.valueLabel ? (
+                  {expanded ? (
+                    <View style={styles.jobDetails} testID={`feature-details-${row.key}`}>
                       <View style={styles.jobDetailRow}>
-                        <Text style={styles.jobDetailLabel}>Value</Text>
+                        <Text style={styles.jobDetailLabel}>About</Text>
                         <Text style={styles.jobDetailValue} selectable>
-                          {row.valueLabel}
+                          {row.info.detail}
                         </Text>
                       </View>
-                    ) : null}
-                    <View style={styles.jobDetailRow}>
-                      <Text style={styles.jobDetailLabel}>Control</Text>
-                      <Text style={styles.jobDetailValue}>
-                        {toggleable
-                          ? 'Can be changed from this phone when the Mac allows it.'
-                          : 'Built into the gateway protocol — not a per-user switch. Use Essentials tool toggles for tools the agent can run.'}
-                      </Text>
+                      <View style={styles.jobDetailRow}>
+                        <Text style={styles.jobDetailLabel}>API flag</Text>
+                        <Text style={styles.jobDetailValue} selectable>
+                          {row.key}
+                        </Text>
+                      </View>
+                      {row.valueLabel ? (
+                        <View style={styles.jobDetailRow}>
+                          <Text style={styles.jobDetailLabel}>Value</Text>
+                          <Text style={styles.jobDetailValue} selectable>
+                            {row.valueLabel}
+                          </Text>
+                        </View>
+                      ) : null}
+                      <View style={styles.jobDetailRow}>
+                        <Text style={styles.jobDetailLabel}>Control</Text>
+                        <Text style={styles.jobDetailValue}>
+                          {toggleable
+                            ? 'Can be changed from this phone when the Mac allows it.'
+                            : 'Built into the gateway protocol — not a per-user switch. Use Essentials tool toggles for tools the agent can run.'}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                ) : null}
-              </View>
-            );
-          })
-        )}
-      </GlassCard>
+                  ) : null}
+                </View>
+              );
+            })
+          )}
+        </GlassCard>
+      ) : null}
 
       <IntegrationsSheet
         visible={integrationsToolset != null}
@@ -1085,13 +1115,32 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(99, 102, 241, 0.2)',
   },
   refreshBtnText: { fontSize: 12, fontWeight: '700', color: colors.secondary },
+  sectionToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 12,
+    minHeight: 40,
+    paddingVertical: 4,
+  },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: colors.textMuted,
     marginTop: 16,
     marginBottom: 4,
     letterSpacing: 0.5,
+  },
+  sectionTitleFlex: {
+    flex: 1,
+    marginTop: 0,
+    marginBottom: 0,
+  },
+  sectionShowHide: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
   },
   sectionHint: {
     fontSize: 11,
@@ -1216,4 +1265,11 @@ const styles = StyleSheet.create({
   },
   errorText: { color: '#fca5a5', fontSize: 13 },
   loader: { marginVertical: 24 },
+  demoPill: { fontSize: 10, fontWeight: '700', color: colors.secondary, backgroundColor: 'rgba(99, 102, 241, 0.2)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  searchBarBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.cardBg, borderRadius: 8, paddingHorizontal: 10, marginVertical: 8 },
+  searchInput: { flex: 1, height: 36, color: colors.text, fontSize: 13 },
+  marketplaceToggleBtn: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: colors.cardBg },
+  marketplaceToggleText: { fontSize: 12, fontWeight: '600', color: colors.secondary },
+  marketplaceHeader: { fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 8 },
+  badgeLabel: { fontSize: 11, fontWeight: '600', color: colors.textMuted },
 });
