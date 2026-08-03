@@ -147,3 +147,78 @@ The next revenue-loop runs double as the demand test. Full plan:
      burn is measured in thousands and whose agent touches something that matters. A $120
      hobby burn is the wrong end of the market, and that segment is what the current sourcing
      keeps surfacing.
+
+### 2026-08-03 — run 3 (measurement run; 0 new drafts — kill criteria triggered, escalated)
+
+- **Hypothesis under test (carried):** "$499 Agent Reliability Diagnostic" / "$1,500 Hardening
+  Sprint" / "$3,000 Partner Pilot" outreach converts.
+- **DNS root cause from run 2 is fixed.** Re-probed 2026-08-03 via Google DNS-over-HTTPS:
+  `igorganapolsky.com` MX (mx1/mx2.privateemail.com), SPF (`v=spf1 include:spf.privateemail.com
+  ~all`), A, and NS all return **Status 0** now, served by `registrar-servers.com` (the zone
+  moved off the missing Cloudflare delegation onto Namecheap's own nameservers). The lame
+  delegation that made `igor@igorganapolsky.com` a dead drop is resolved. `sender-health.json`
+  still shows that address `"unhealthy"` from the 2026-07-31 probe — this run did not rewrite
+  that file (out of this run's file-edit scope) but the underlying DNS blocker it described no
+  longer holds; next run should re-probe SMTP send-as and refresh the file.
+- **Metrics measured (objective, via Gmail):**
+  - **Replies: 0.** No new replies since the Stiles thread (already logged run 2). No thread
+    anywhere (including trash) shows a reply to the `footprint-ai.com` / `insforge.dev` /
+    Rogivue prospects logged in run 1 — and no sent copy of those 3 run-1 drafts exists either
+    (not in Sent, not in Trash). Status: **unmeasured** — cannot confirm whether Igor sent them,
+    deleted them, or the drafts expired.
+  - **Booked calls (cal.com): 0.**
+  - **Sends: a large, uncontrolled volume outside this loop's own process.** Searching
+    `subject:(Governed agents)` returns **~201 threads**, sent from both `igor@igorganapolsky.com`
+    and `iganapolsky@gmail.com`, running on an **hourly cadence continuously from at least
+    2026-08-01T10:59Z through 2026-08-03T16:28Z** (still active minutes before this run). This is
+    not this loop's output — this loop has sent 0 mail directly (human-sends-only) and has
+    logged only 3 total prospects across runs 0–2. **Zero replies across all ~201 threads**
+    (`subject:(Governed agents) -in:sent` → 0 results).
+- **Learn — two findings, both serious:**
+  1. **The kill criterion is now triggered by an order of magnitude.** The loop's own rule —
+     4 consecutive 0-reply runs across ≥20 sends means recommend changing the offer/hook, not
+     volume — was already arguably met after run 2. This run finds ~201 sends of essentially the
+     same governed-agents pitch ($499/$1,500/$3,000 tiers) with **0 qualified replies**. Adding
+     5–10 more drafts into this channel right now would be exactly the "more volume" mistake the
+     kill criterion exists to prevent.
+  2. **A separate, unsupervised sending process is running outside this loop's guardrails** and
+     is actively causing harm:
+     - It **re-contacts the same recipients repeatedly** (e.g. `chris@diveanddev.com`,
+       `akhil@apra.in`, `nomiki@theanna.io`, `evan@skimai.com`, `petr@usedialtone.com`,
+       `waqar@agentaiarmy.com`, `jaime@aiseoagent.co`, `shawn@hummingagent.ai`,
+       `aram@thechange.ai`, `roy@wishtales.ai` each appear ≥2 times, ~1–2 days apart) — directly
+       against the "never re-contact" rule this loop follows.
+     - It **pitched "Partner Pilot ($3,000)" to David Stout (webai) and Harper Reed (2389)**
+       on 2026-08-03 — the exact two prospects the 2026-07-19 directive said to *watch for pull
+       signal only, not pitch*, since the dashboard build/kill gate (≥3 qualified conversations,
+       ≥1 paid $499, ≥2 explicit continuous-monitoring asks) has not been met.
+     - A related high-frequency campaign (different subject: "Stop losing money to Claude Code
+       token burn" / "Your lost tokens from the Claude Code bug", pitching ThumbGate rather than
+       this loop's offer) is now producing **deliverability damage on `iganapolsky@gmail.com`
+       itself**: Gmail hard-blocked a send to `miyoumu@gmail.com` as spam (`550 5.7.1 Gmail has
+       detected that this message is spam`) and bounced `akshay@hamker.dev` (`554`) on
+       2026-08-02. This is the address `sender-health.json` currently marks "ok" as the outreach
+       fallback — that may no longer be true.
+     - This was escalated to Igor via push notification mid-run (2026-08-03) since it is an
+       active, ongoing issue outside this loop's control and file-edit scope
+       (`docs/REVENUE-LOOP.md` only) to fix directly.
+- **Why 0 prospects were sourced this run:** per the loop's own kill criterion and the discovery
+  above, sourcing fresh prospects into a channel that is (a) statistically producing 0 qualified
+  replies at ~200+ volume on this exact offer, and (b) actively accumulating spam-block signals
+  on the very sender addresses this loop would draft into, would be volume added to a channel
+  known to be broken — the opposite of what the loop is supposed to do when the kill criterion
+  fires. Precedent: run 2 made the same call for a different reason (DNS was down).
+- **Next run must, in this order:**
+  1. **Confirm the rogue "Governed agents" campaign has been identified and stopped** (it is not
+     scheduled via this session's CronList, so it's either another session, a GitHub Action, or a
+     host-level scheduler outside this repo's visibility — Igor needs to locate and kill it).
+  2. **Re-verify sender health end-to-end** before drafting anything new: re-run the DNS probe
+     (now green), send a real test SMTP message from `igor@igorganapolsky.com`, and check
+     `iganapolsky@gmail.com` isn't itself now spam-flagged by Gmail after the token-burn
+     campaign's blocks. Update `coordination/sender-health.json` accordingly.
+  3. **Change the offer/hook, not the volume**, per kill criteria: ~201+ sends of the
+     governed-agents/diagnostic pitch across two sending identities have produced one reply ever
+     (Stiles, a disqualification) and zero booked calls. The next experiment should test a
+     materially different hook or a materially different buyer segment (burn measured in
+     thousands, not hobby projects), not a variant subject line on the same pitch.
+  4. Only resume drafting (≤10, human-sends-only, never re-contact) once 1–3 are resolved.
