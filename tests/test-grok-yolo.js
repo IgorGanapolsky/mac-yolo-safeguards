@@ -12,6 +12,7 @@ const {
   HERMES_VERIFIER_PROFILE,
   LOCAL_BASE_URL,
   LOCAL_CONTEXT_TOKENS,
+  LOCAL_FALLBACK_CONTEXT_TOKENS,
   LOCAL_HERMES_PROFILE,
   LOCAL_MODEL_ALIAS,
   MODEL,
@@ -215,6 +216,17 @@ assert.match(localToml, /base_url = "http:\/\/127\.0\.0\.1:11434\/v1"/);
 assert.match(localToml, new RegExp(`context_window = ${LOCAL_CONTEXT_TOKENS}`));
 assert.match(localToml, /otel_log_user_prompts = false/);
 assert.match(localToml, /otel_log_tool_details = false/);
+
+// The advertised context_window must never exceed the underlying model's real
+// capacity (qwen3:8b architecture max is 40960) — otherwise Ollama silently
+// truncates long sessions from the top, dropping system/tool context first.
+const fallbackToml = localConfig('qwen3:8b-64k');
+assert.match(fallbackToml, /context_window = 40960/);
+assert.doesNotMatch(fallbackToml, /context_window = 65536/);
+const qwen25Toml = localConfig('qwen2.5:3b-hermes-64k');
+assert.match(qwen25Toml, /context_window = 32768/);
+const unknownModelToml = localConfig('some-unknown-model:latest');
+assert.match(unknownModelToml, new RegExp(`context_window = ${LOCAL_FALLBACK_CONTEXT_TOKENS}`));
 assert.doesNotMatch(localToml, /^\s*(api_key|env_key|password|authorization)\s*=/im);
 
 assert.deepStrictEqual(externalOtelStatus({

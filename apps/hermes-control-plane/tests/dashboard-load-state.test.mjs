@@ -101,3 +101,21 @@ test("load errors are caught rather than left as unhandled rejections", () => {
     "network failures inside load() must be caught and surfaced",
   );
 });
+
+test("does not blame pairing when machines exist (Buzz shared-room honesty)", () => {
+  // "Pair a machine" is only valid when deviceCount === 0.
+  assert.match(dashboard, /function taskListEmptyCopy/);
+  assert.match(dashboard, /if \(input\.deviceCount === 0\)/);
+  assert.match(
+    dashboard,
+    /Pair a machine, then continue a Hermes thread from anywhere/,
+    "zero-device onboarding copy retained for unpaired workspaces",
+  );
+  assert.match(dashboard, /No web tasks in this chat yet/);
+  assert.match(dashboard, /Machines are paired/);
+  assert.match(dashboard, /data-pair-blame=\{devices\.length === 0 && taskFilter === "all" \? "1" : "0"\}/);
+  // Receipt shows fence + machine (differentiation vs free team chat tools).
+  assert.match(dashboard, /function taskReceiptLabel/);
+  assert.match(dashboard, /fenced · 90s lease/);
+  assert.match(dashboard, /data-testid="task-receipt"/);
+});

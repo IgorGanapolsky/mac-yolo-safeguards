@@ -33,9 +33,13 @@
  *   node tools/agent-swarm-harness.js worker-toolbox [--json] [--task "..."]
  *   node tools/agent-swarm-harness.js doctor [--json]
  *   node tools/agent-swarm-harness.js eval-abilities [--json]
- *   node tools/agent-swarm-harness.js propose-eval --task "..." [--json]
+ *   node tools/agent-swarm-harness.js propose-eval --task "..." [--write] [--json]
+ *   node tools/agent-swarm-harness.js eval-mine [--write] [--json]
+ *   node tools/agent-swarm-harness.js eval-check [--json]
  *   node tools/agent-swarm-harness.js sre-autonomy [--json]
  *   node tools/agent-swarm-harness.js sre-act --subsystem ID [--json]
+ *   node tools/agent-swarm-harness.js data-mesh [--json]
+ *   node tools/governed-data-mesh.js cash-truth|live-matrix|campaign-watermark|outbound-claim|…
  */
 
 const fs = require('fs');
@@ -79,6 +83,18 @@ const EVAL_ABILITY_SOURCE = Object.freeze({
 const SRE_AUTONOMY_SOURCE = Object.freeze({
   label: 'Autonomous SRE agents / AI ops hardest part (TNS + Dynatrace framing, 2026-07)',
   url: 'https://thenewstack.io/dynatrace-autonomous-sre-agents/',
+});
+const DATA_MESH_SOURCE = Object.freeze({
+  label: "InfoQ Software Architects' Newsletter July 2026 — Building Data Platforms",
+  url: 'https://www.infoq.com/software-architecture-design/',
+  themes: [
+    'billing_first_cash_interface',
+    'semantic_definitions_over_models',
+    'governed_interface_contracts',
+    'durable_outbound_unique_keys',
+    'campaign_watermarks',
+    'high_stakes_agent_evals',
+  ],
 });
 const HEALTH_MAX_AGE_MS = 15 * 60 * 1000;
 const EVALS_DIR = path.join(REPO, 'evals');
@@ -1012,6 +1028,8 @@ function contextDietReport({ repo = REPO, role = 'worker' } = {}) {
 
 /**
  * Product ability eval catalog (Harbor-shaped triples without requiring Harbor).
+ * match: regex strings for failure→ability routing (LangChain: mine traces → fixed eval).
+ * verifyCommand: optional offline/machine check (exit 0 = pass); null = human/device only.
  */
 function evalAbilityPolicy() {
   return {
@@ -1024,6 +1042,17 @@ function evalAbilityPolicy() {
         instruction: 'Stranger phone pairs to Mac over Tailscale without adb reverse assumptions',
         env: 'release install + cellular or TS path; no demo=1',
         verifier: 'continuous E2E latest.json e2e=pass OR Maestro stranger flow',
+        verifyCommand: null,
+        match: [
+          'tailscale',
+          'fresh.?user',
+          'stranger',
+          'pair(ing)?\\s+fail',
+          'can.?t reach',
+          'unreachable',
+          'gateway.*health',
+          'connect.*mac',
+        ],
         liveTools: 'sim or device; never require Chrome',
       },
       {
@@ -1031,6 +1060,18 @@ function evalAbilityPolicy() {
         instruction: 'Empty stream never leaves Checking forever; Leash CTA available',
         env: 'unit + focused UI tests',
         verifier: 'Jest empty-stream suites exit 0',
+        verifyCommand:
+          'cd hermes-mobile && npx jest --testPathPattern="emptyStream|EmptyStream" --passWithNoTests --watchAll=false 2>/dev/null | tail -5',
+        match: [
+          'empty.?stream',
+          'checking forever',
+          'checking your mac',
+          'awaitingGatewayReply',
+          'stream.*stuck',
+          'stuck.*stream',
+          'no.?token',
+          'open leash',
+        ],
         liveTools: 'none',
       },
       {
@@ -1038,6 +1079,17 @@ function evalAbilityPolicy() {
         instruction: 'No multi-owner megafile design thrash without decision ref',
         env: 'plan.md claims',
         verifier: 'check-hot-files + harness contention',
+        verifyCommand:
+          'node -e "const h=require(\'./tools/agent-swarm-harness.js\'); if(!h.MEGAFILES||!h.MEGAFILES.length) process.exit(1); const r=h.buildHarnessReport&&h.buildHarnessReport(); if(r&&r.contention&&r.contention.hot&&!Array.isArray(h.MEGAFILES)) process.exit(1);"',
+        match: [
+          'megafile',
+          'multi.?owner',
+          'contention',
+          'gatewaycontext',
+          'chatscreen',
+          'claim.*conflict',
+          'hot.?file',
+        ],
         liveTools: 'none',
       },
       {
@@ -1045,6 +1097,17 @@ function evalAbilityPolicy() {
         instruction: 'Ship claims require machine evidence not adjectives',
         env: 'CI + continuous proof',
         verifier: 'hardBarForDone + outcome-gate evidence IDs',
+        verifyCommand:
+          'node -e "const h=require(\'./tools/agent-swarm-harness.js\'); const b=h.hardBarForDone(); if(!b||!b.principle||!b.loop||!Array.isArray(b.examples)||!b.examples.length) process.exit(1);"',
+        match: [
+          'ship(ped)?\\s+without',
+          'false\\s+green',
+          'unit.?green',
+          'adjective',
+          'looks good',
+          'works on device',
+          'demo=1',
+        ],
         liveTools: 'none',
       },
       {
@@ -1052,6 +1115,16 @@ function evalAbilityPolicy() {
         instruction: 'Social LIVE only with permalink + CTA; no double-post',
         env: 'Pro + PUBLISH_APPROVED',
         verifier: 'content log LIVE matrix scan',
+        verifyCommand: 'node tests/test-social-publish-gate.js',
+        match: [
+          'double.?post',
+          'permalink',
+          'live matrix',
+          'linkedin',
+          'post everywhere',
+          'cta.?missing',
+          'no.?utm',
+        ],
         liveTools: 'simulate publish in CI; real Chrome only on Pro with gates',
       },
       {
@@ -1059,7 +1132,34 @@ function evalAbilityPolicy() {
         instruction: 'Pipeline row → follow-up JSON with live Stripe URL field',
         env: 'business_os private pipeline (gitignored)',
         verifier: 'schema + payment-readiness ready links; paid only with charge',
+        verifyCommand: 'node tools/revenue-local-draft.js --label eval --offer diagnostic --template --json',
+        match: [
+          'revenue',
+          'follow.?up',
+          'stripe',
+          'pipeline',
+          'outreach',
+          'payment.?link',
+          'diagnostic',
+        ],
         liveTools: 'local Ollama draft; no auto-send without gates',
+      },
+      {
+        id: 'ml_labels_fail_closed',
+        instruction: 'Propensity ML refuses fake AUC when paid labels are insufficient',
+        env: 'offline unit + ~/.hermes/ml receipts',
+        verifier: 'ml-propensity-train exits insufficient_labels without inventing model weights',
+        verifyCommand:
+          'node tools/ml-propensity-train.js train --labels /dev/null --out /tmp/ml-propensity-empty-model.json --json | node -e "let s=\'\';process.stdin.on(\'data\',d=>s+=d);process.stdin.on(\'end\',()=>{const j=JSON.parse(s); if(j.trained||j.status!==\'insufficient_labels\') process.exit(1);})"',
+        match: [
+          'insufficient.?labels',
+          'propensity',
+          'fake.?auc',
+          'invent.*score',
+          'ml.?train',
+          'system_scores',
+        ],
+        liveTools: 'none',
       },
     ],
     antiPatterns: [
@@ -1072,10 +1172,57 @@ function evalAbilityPolicy() {
 }
 
 /**
- * Propose a durable eval stub from a failure description (trace → eval).
- * @param {{ failureText?: string, write?: boolean, repo?: string }} [opts]
+ * Match failure text to a catalog ability (prefer first match by priority order).
+ * @param {string} failureText
+ * @returns {{ ability: object, score: number, matchedPattern: string|null, toolboxHint: string }}
  */
-function proposeEvalFromFailure({ failureText = '', write = false, repo = REPO } = {}) {
+function matchAbilityForFailure(failureText) {
+  const text = String(failureText || '').toLowerCase();
+  const policy = evalAbilityPolicy();
+  let best = null;
+  for (const ability of policy.abilities) {
+    const patterns = ability.match || [];
+    for (const pat of patterns) {
+      let re;
+      try {
+        re = new RegExp(pat, 'i');
+      } catch {
+        continue;
+      }
+      if (re.test(text)) {
+        const score = pat.length;
+        if (!best || score > best.score) {
+          best = { ability, score, matchedPattern: pat };
+        }
+      }
+    }
+  }
+  if (best) {
+    return {
+      ...best,
+      toolboxHint: classifyTaskToolbox(failureText).toolboxId,
+    };
+  }
+  const fallback =
+    policy.abilities.find((a) => a.id === 'ship_claim_honesty') || policy.abilities[0];
+  return {
+    ability: fallback,
+    score: 0,
+    matchedPattern: null,
+    toolboxHint: classifyTaskToolbox(failureText).toolboxId,
+  };
+}
+
+/**
+ * Propose a durable eval stub from a failure description (trace → eval).
+ * @param {{ failureText?: string, write?: boolean, repo?: string, abilityId?: string }} [opts]
+ */
+function proposeEvalFromFailure({
+  failureText = '',
+  write = false,
+  repo = REPO,
+  abilityId = null,
+} = {}) {
   const text = String(failureText || 'unspecified failure').trim();
   const slug = text
     .toLowerCase()
@@ -1083,21 +1230,28 @@ function proposeEvalFromFailure({ failureText = '', write = false, repo = REPO }
     .replace(/^-|-$/g, '')
     .slice(0, 48) || 'unspecified';
   const id = `ability-${slug}-${new Date().toISOString().slice(0, 10)}`;
-  const classified = classifyTaskToolbox(text);
-  const ability = evalAbilityPolicy().abilities.find((a) => {
-    if (classified.toolboxId === 'device_mobile') return a.id.includes('pair') || a.id.includes('stream');
-    if (classified.toolboxId === 'social_promo') return a.id.includes('social');
-    if (classified.toolboxId === 'revenue_cash') return a.id.includes('revenue');
-    return a.id === 'ship_claim_honesty' || a.id === 'megafile_claim_discipline';
-  }) || evalAbilityPolicy().abilities.find((a) => a.id === 'ship_claim_honesty');
+  const matched = abilityId
+    ? {
+        ability:
+          evalAbilityPolicy().abilities.find((a) => a.id === abilityId) ||
+          matchAbilityForFailure(text).ability,
+        matchedPattern: abilityId ? `forced:${abilityId}` : null,
+        toolboxHint: classifyTaskToolbox(text).toolboxId,
+        score: 999,
+      }
+    : matchAbilityForFailure(text);
+  const ability = matched.ability;
 
   const stub = {
     id,
+    abilityId: ability.id,
     sourceFailure: text.slice(0, 500),
-    toolboxHint: classified.toolboxId,
+    toolboxHint: matched.toolboxHint,
+    matchedPattern: matched.matchedPattern,
     instruction: ability.instruction,
     env: ability.env,
     verifier: ability.verifier,
+    verifyCommand: ability.verifyCommand || null,
     status: 'proposed',
     next: 'Human approve → implement verifier test or Maestro flow → re-run until green',
   };
@@ -1109,6 +1263,9 @@ function proposeEvalFromFailure({ failureText = '', write = false, repo = REPO }
     const md = [
       `# Eval: ${id}`,
       '',
+      `## Ability`,
+      ability.id,
+      '',
       `## Instruction`,
       stub.instruction,
       '',
@@ -1118,8 +1275,14 @@ function proposeEvalFromFailure({ failureText = '', write = false, repo = REPO }
       `## Verifier`,
       stub.verifier,
       '',
+      `## Verify command`,
+      stub.verifyCommand || '(device/human only)',
+      '',
       `## Source failure`,
       stub.sourceFailure,
+      '',
+      `## Matched pattern`,
+      String(stub.matchedPattern || 'fallback'),
       '',
       `## Status`,
       stub.status,
@@ -1129,7 +1292,7 @@ function proposeEvalFromFailure({ failureText = '', write = false, repo = REPO }
     fs.writeFileSync(writtenPath, md);
     fs.writeFileSync(
       path.join(dir, 'task.toml'),
-      `id = "${id}"\nstatus = "proposed"\ntoolbox = "${classified.toolboxId}"\n`,
+      `id = "${id}"\nability = "${ability.id}"\nstatus = "proposed"\ntoolbox = "${matched.toolboxHint}"\n`,
     );
   }
 
@@ -1139,6 +1302,208 @@ function proposeEvalFromFailure({ failureText = '', write = false, repo = REPO }
     source: EVAL_ABILITY_SOURCE,
     stub,
     writtenPath,
+    checkedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Mine continuous E2E / harness traces / plan thrash into failure signals + proposed evals.
+ * LangChain loop: production data → abilities worth testing.
+ * @param {{ repo?: string, write?: boolean, planPath?: string, maxProposals?: number }} [opts]
+ */
+function mineEvalFailures({
+  repo = REPO,
+  write = false,
+  planPath = DEFAULT_PLAN,
+  maxProposals = 10,
+} = {}) {
+  const signals = [];
+  const e2ePath = path.join(repo, 'hermes-mobile/docs/proofs/continuous/latest.json');
+  if (fs.existsSync(e2ePath)) {
+    try {
+      const e2e = JSON.parse(fs.readFileSync(e2ePath, 'utf8'));
+      const e2eStatus = e2e.e2e || e2e.status || 'unknown';
+      const detail = String(e2e.detail || e2e.reason || e2e.error || '');
+      if (e2eStatus !== 'pass') {
+        signals.push({
+          source: 'continuous_e2e',
+          severity: e2eStatus === 'fail' ? 'high' : 'medium',
+          text: `continuous e2e=${e2eStatus}${detail ? `: ${detail}` : ''}`,
+          abilityHint:
+            /pair|tailscale|gateway|connect|reach/i.test(detail + e2eStatus)
+              ? 'fresh_user_tailscale_pair'
+              : /stream|checking/i.test(detail)
+                ? 'empty_stream_hard_stop'
+                : 'fresh_user_tailscale_pair',
+        });
+      }
+    } catch (error) {
+      signals.push({
+        source: 'continuous_e2e',
+        severity: 'low',
+        text: `continuous latest.json unreadable: ${error.message}`,
+        abilityHint: 'ship_claim_honesty',
+      });
+    }
+  } else {
+    signals.push({
+      source: 'continuous_e2e',
+      severity: 'medium',
+      text: 'continuous E2E latest.json missing — no device proof artifact',
+      abilityHint: 'fresh_user_tailscale_pair',
+    });
+  }
+
+  const tracePath = path.join(repo, '.harness-trace.jsonl');
+  if (fs.existsSync(tracePath)) {
+    try {
+      const lines = fs.readFileSync(tracePath, 'utf8').split('\n').filter(Boolean).slice(-50);
+      let multiOwner = 0;
+      let overCap = 0;
+      for (const line of lines) {
+        try {
+          const e = JSON.parse(line);
+          if (e.multiOwnerMega) multiOwner += 1;
+          if (e.concurrencyOverCap) overCap += 1;
+        } catch {
+          /* skip */
+        }
+      }
+      if (multiOwner > 0) {
+        signals.push({
+          source: 'harness_trace',
+          severity: 'high',
+          text: `harness trace: ${multiOwner} multi-owner megafile hits in last ${lines.length} entries`,
+          abilityHint: 'megafile_claim_discipline',
+        });
+      }
+      if (overCap > 0) {
+        signals.push({
+          source: 'harness_trace',
+          severity: 'medium',
+          text: `harness trace: ${overCap} concurrency-over-cap events`,
+          abilityHint: 'megafile_claim_discipline',
+        });
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (fs.existsSync(planPath)) {
+    try {
+      const planText = fs.readFileSync(planPath, 'utf8');
+      const contention = findFileContention(parseActiveTasks(planText));
+      if (contention.length > 0) {
+        signals.push({
+          source: 'plan_contention',
+          severity: contention.length > 5 ? 'high' : 'medium',
+          text: `plan.md multi-owner contention hits=${contention.length}`,
+          abilityHint: 'megafile_claim_discipline',
+        });
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const proposals = [];
+  const seenAbilities = new Set();
+  for (const signal of signals) {
+    if (proposals.length >= maxProposals) break;
+    const proposed = proposeEvalFromFailure({
+      failureText: signal.text,
+      write: false,
+      repo,
+      abilityId: signal.abilityHint || null,
+    });
+    const abilityId = proposed.stub.abilityId;
+    if (seenAbilities.has(abilityId) && signal.severity !== 'high') continue;
+    seenAbilities.add(abilityId);
+    if (write) {
+      const written = proposeEvalFromFailure({
+        failureText: signal.text,
+        write: true,
+        repo,
+        abilityId: signal.abilityHint || null,
+      });
+      proposals.push({ signal, proposal: written });
+    } else {
+      proposals.push({ signal, proposal: proposed });
+    }
+  }
+
+  return {
+    ok: true,
+    principle: evalAbilityPolicy().principle,
+    source: EVAL_ABILITY_SOURCE,
+    signalCount: signals.length,
+    signals,
+    proposals,
+    write,
+    checkedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Offline catalog integrity + optional verifyCommand smokes (no device).
+ * @param {{ repo?: string, runCommands?: boolean }} [opts]
+ */
+function evalAbilityCheck({ repo = REPO, runCommands = false } = {}) {
+  const policy = evalAbilityPolicy();
+  const results = [];
+  let ok = true;
+  for (const ability of policy.abilities) {
+    const row = {
+      id: ability.id,
+      hasInstruction: Boolean(ability.instruction),
+      hasEnv: Boolean(ability.env),
+      hasVerifier: Boolean(ability.verifier),
+      hasMatch: Array.isArray(ability.match) && ability.match.length > 0,
+      hasVerifyCommand: Boolean(ability.verifyCommand),
+      commandOk: null,
+      commandExit: null,
+    };
+    if (!row.hasInstruction || !row.hasEnv || !row.hasVerifier || !row.hasMatch) {
+      ok = false;
+      row.catalogOk = false;
+    } else {
+      row.catalogOk = true;
+    }
+    if (runCommands && ability.verifyCommand) {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync('bash', ['-lc', ability.verifyCommand], {
+        cwd: repo,
+        encoding: 'utf8',
+        timeout: 120000,
+      });
+      row.commandExit = r.status;
+      row.commandOk = r.status === 0;
+      if (!row.commandOk) ok = false;
+    }
+    results.push(row);
+  }
+  // Routing smoke: known failure phrases map to expected abilities
+  const routing = [
+    { text: 'empty stream left Checking forever', expect: 'empty_stream_hard_stop' },
+    { text: 'fresh user Tailscale pair failed', expect: 'fresh_user_tailscale_pair' },
+    { text: 'double-post on LinkedIn without permalink', expect: 'social_live_matrix' },
+    { text: 'Stripe follow-up missing payment link', expect: 'revenue_followup_draft' },
+    { text: 'GatewayContext multi-owner thrash', expect: 'megafile_claim_discipline' },
+  ];
+  const routingResults = routing.map((r) => {
+    const m = matchAbilityForFailure(r.text);
+    const pass = m.ability.id === r.expect;
+    if (!pass) ok = false;
+    return { text: r.text, expect: r.expect, got: m.ability.id, ok: pass };
+  });
+
+  return {
+    ok,
+    principle: policy.principle,
+    source: EVAL_ABILITY_SOURCE,
+    abilities: results,
+    routing: routingResults,
     checkedAt: new Date().toISOString(),
   };
 }
@@ -1516,6 +1881,63 @@ function specificationDrivenDesign() {
   };
 }
 
+/**
+ * InfoQ July 2026 data-platform patterns mapped onto local GTM/cash harness.
+ * Implementation: tools/governed-data-mesh.js
+ */
+function governedDataMeshPlaybook() {
+  let mesh = null;
+  try {
+    // eslint-disable-next-line global-require, import/no-dynamic-require
+    mesh = require('./governed-data-mesh');
+  } catch (e) {
+    return {
+      ok: false,
+      error: e.message,
+      source: DATA_MESH_SOURCE,
+      principle: 'Governed data interfaces for cash + LIVE + outbound (InfoQ July 2026).',
+    };
+  }
+  const validation = mesh.validateInterfaces();
+  return {
+    ok: validation.ok,
+    principle:
+      'Query named data interfaces only. Cash is billing-first. Semantics + governance beat model upgrades for fleet truth.',
+    source: DATA_MESH_SOURCE,
+    tool: 'tools/governed-data-mesh.js',
+    interfaces: (mesh.INTERFACES || []).map((i) => ({
+      id: i.id,
+      name: i.name,
+      priority: i.priority,
+      owner: i.owner,
+    })),
+    validation,
+    peerPatterns: [
+      { peer: 'Cloudflare Town Lake', lesson: 'Billing workloads dominate queries', ours: 'cash_truth first; live price ≠ revenue' },
+      { peer: 'Anthropic analytics', lesson: 'Semantics + governance > model IQ', ours: 'fixed field meanings on cash/LIVE interfaces' },
+      { peer: 'Monzo meshy warehouse', lesson: 'Declared interfaces + CI naming', ours: 'validateInterfaces() + antiPatterns' },
+      { peer: 'DBOS Transact', lesson: 'Durable unique PK / queues', ours: 'outbound ledger pk + file lock' },
+      { peer: 'Delta micro-batch', lesson: 'Watermarks over success-file markers', ours: 'campaignWatermark() on Published rows' },
+      { peer: 'Agent evals high-stakes', lesson: 'Measure production agent claims', ours: 'eval-rules invent-cash / LIVE-URL / owner≠external' },
+    ],
+    commands: [
+      'node tools/governed-data-mesh.js cash-truth --json',
+      'node tools/governed-data-mesh.js live-matrix --campaign <id> --json',
+      'node tools/governed-data-mesh.js campaign-watermark --json',
+      'node tools/governed-data-mesh.js outbound-claim --campaign <id> --email <e> --json',
+      'node tools/agent-swarm-harness.js data-mesh --json',
+    ],
+    antiPatterns: [
+      'Invent external cash without revenue-receipt.json',
+      'Sum owner Stripe subs into "revenue"',
+      'Count refunded charges as net cash',
+      'Claim LIVE without https postUrl on content log',
+      'Re-send same campaign+email without ledger progression',
+      'Full historical social re-scan as freshness proof (use watermarks)',
+    ],
+  };
+}
+
 function parseArgs(argv) {
   const args = {
     command: 'brief',
@@ -1532,6 +1954,7 @@ function parseArgs(argv) {
     write: false,
     force: false,
     healthAgeMs: null,
+    runCommands: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -1551,10 +1974,19 @@ function parseArgs(argv) {
       arg === 'doctor' ||
       arg === 'eval-abilities' ||
       arg === 'propose-eval' ||
+      arg === 'eval-mine' ||
+      arg === 'eval-check' ||
       arg === 'sre-autonomy' ||
-      arg === 'sre-act'
+      arg === 'sre-act' ||
+      arg === 'data-mesh' ||
+      arg === 'gateway'
     ) {
       args.command = arg;
+      // For gateway, collect remaining args verbatim as pass-through to inference-gateway.js
+      if (arg === 'gateway') {
+        args.gatewayArgs = argv.slice(i + 1);
+        break; // stop parsing — rest is for the subprocess
+      }
     } else if (arg === '--json') {
       args.json = true;
     } else if (arg === '--stdin') {
@@ -1573,6 +2005,8 @@ function parseArgs(argv) {
       args.write = true;
     } else if (arg === '--force') {
       args.force = true;
+    } else if (arg === '--run-commands') {
+      args.runCommands = true;
     } else if (arg === '--health-age-ms') {
       args.healthAgeMs = parseInt(argv[++i] || '0', 10);
     } else if (arg === '--help' || arg === '-h') {
@@ -1835,7 +2269,7 @@ function buildActions(report) {
   }
   if (report.evalAbilities?.abilities?.length) {
     actions.push(
-      `Eval abilities: ${report.evalAbilities.abilities.length} catalogued — mine fails via propose-eval`,
+      `Eval abilities: ${report.evalAbilities.abilities.length} catalogued — mine fails via eval-mine / propose-eval; integrity via eval-check`,
     );
   }
   if (report.sreAutonomy?.subsystems?.length) {
@@ -2198,8 +2632,11 @@ function main() {
   node tools/agent-swarm-harness.js doctor [--json]
   node tools/agent-swarm-harness.js eval-abilities [--json]
   node tools/agent-swarm-harness.js propose-eval --task "..." [--write] [--json]
+  node tools/agent-swarm-harness.js eval-mine [--write] [--json]
+  node tools/agent-swarm-harness.js eval-check [--run-commands] [--json]
   node tools/agent-swarm-harness.js sre-autonomy [--json]
-  node tools/agent-swarm-harness.js sre-act --subsystem ID [--health-age-ms N|--force] [--json]`);
+  node tools/agent-swarm-harness.js sre-act --subsystem ID [--health-age-ms N|--force] [--json]
+  node tools/agent-swarm-harness.js gateway <record|query|summary|cost|compare|health|trace-path> [args...]`);
     process.exit(0);
   }
 
@@ -2436,6 +2873,52 @@ function main() {
     process.exit(0);
   }
 
+  if (args.command === 'eval-mine') {
+    const result = mineEvalFailures({
+      write: args.write,
+      planPath: args.planPath,
+    });
+    if (args.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log('=== Eval mine (traces → proposals) ===');
+      console.log(`signals: ${result.signalCount}`);
+      for (const s of result.signals) {
+        console.log(`  [${s.severity}] ${s.source}: ${s.text.slice(0, 120)}`);
+      }
+      console.log(`proposals: ${result.proposals.length}`);
+      for (const p of result.proposals) {
+        console.log(
+          `  → ${p.proposal.stub.abilityId} (${p.proposal.stub.matchedPattern || 'fallback'})`,
+        );
+        if (p.proposal.writtenPath) console.log(`    wrote ${p.proposal.writtenPath}`);
+      }
+    }
+    process.exit(0);
+  }
+
+  if (args.command === 'eval-check') {
+    const result = evalAbilityCheck({ runCommands: args.runCommands });
+    if (args.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log('=== Eval ability check ===');
+      console.log(`overall: ${result.ok ? 'ok' : 'FAIL'}`);
+      for (const a of result.abilities) {
+        console.log(
+          `  ${a.catalogOk ? 'ok' : 'FAIL'} ${a.id} match=${a.hasMatch} cmd=${a.hasVerifyCommand}${
+            a.commandOk == null ? '' : a.commandOk ? ' run=ok' : ` run=fail(${a.commandExit})`
+          }`,
+        );
+      }
+      console.log('Routing:');
+      for (const r of result.routing) {
+        console.log(`  ${r.ok ? 'ok' : 'FAIL'} expect=${r.expect} got=${r.got}`);
+      }
+    }
+    process.exit(result.ok ? 0 : 2);
+  }
+
   if (args.command === 'sre-autonomy') {
     const policy = sreAutonomyPolicy();
     if (args.json) {
@@ -2482,6 +2965,18 @@ function main() {
     process.exit(result.ok ? 0 : 2);
   }
 
+  if (args.command === 'gateway') {
+    const gatewayScript = path.join(path.dirname(process.argv[1]), 'hermes-inference-gateway.js');
+    const childArgs = args.gatewayArgs || [];
+    // Pass through all args to inference gateway
+    const result = require('child_process').spawnSync(
+      process.execPath,
+      [gatewayScript, ...childArgs],
+      { stdio: 'inherit', cwd: process.cwd() }
+    );
+    process.exit(result.status);
+  }
+
   if (args.command === 'field-guide') {
     const guide = loadFieldGuide();
     if (!guide.ok) {
@@ -2491,6 +2986,30 @@ function main() {
     process.stdout.write(guide.body);
     if (!guide.body.endsWith('\n')) process.stdout.write('\n');
     process.exit(guide.overBudget ? 2 : 0);
+  }
+
+
+  if (args.command === 'data-mesh') {
+    const playbook = governedDataMeshPlaybook();
+    if (args.json) {
+      console.log(JSON.stringify(playbook, null, 2));
+    } else {
+      console.log('=== Governed data mesh (InfoQ July 2026) ===');
+      console.log(playbook.principle);
+      console.log(`Source: ${playbook.source.label}`);
+      console.log(`Tool: ${playbook.tool || 'n/a'}`);
+      console.log(`Interfaces valid: ${playbook.ok ? 'yes' : 'NO'}`);
+      if (playbook.interfaces) {
+        for (const iface of playbook.interfaces) {
+          console.log(`  ${String(iface.id).padEnd(28)} ${iface.priority || ''}  owner=${iface.owner || ''}`);
+        }
+      }
+      if (playbook.commands) {
+        console.log('Commands:');
+        for (const c of playbook.commands) console.log(`  $ ${c}`);
+      }
+    }
+    process.exit(playbook.ok ? 0 : 1);
   }
 
   if (args.command === 'check-hot-files') {
@@ -2572,6 +3091,7 @@ module.exports = {
   CONTEXT_DIET_SOURCE,
   EVAL_ABILITY_SOURCE,
   SRE_AUTONOMY_SOURCE,
+  DATA_MESH_SOURCE,
   HEALTH_MAX_AGE_MS,
   normalizeClaim,
   claimsOverlap,
@@ -2589,6 +3109,7 @@ module.exports = {
   hardBarForDone,
   frontierModelPlaybook,
   specificationDrivenDesign,
+  governedDataMeshPlaybook,
   stateLayerPolicy,
   classifyTaskStateDesign,
   detectFleetHostRole,
@@ -2601,7 +3122,10 @@ module.exports = {
   estimateTokens,
   contextDietReport,
   evalAbilityPolicy,
+  matchAbilityForFailure,
   proposeEvalFromFailure,
+  mineEvalFailures,
+  evalAbilityCheck,
   sreAutonomyPolicy,
   resolveSreAction,
   parseArgs,

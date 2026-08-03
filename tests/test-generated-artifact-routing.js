@@ -9,6 +9,7 @@ const childProcess = require('child_process');
 
 const repo = path.resolve(__dirname, '..');
 const date = '2099-12-31';
+const DECISION_LOOP_TIMEOUT_MS = 90_000;
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'generated-artifact-routing-'));
 const opsDir = path.join(temp, 'private-ops');
 fs.mkdirSync(opsDir, { recursive: true });
@@ -137,9 +138,14 @@ try {
     cwd: repo,
     env: { ...process.env, MAC_YOLO_HERMES_DECISION_DIR: hermesDir },
     encoding: 'utf8',
-    timeout: 30_000,
+    // collect() executes several independently bounded health probes. Their
+    // cumulative worst case exceeds 30 seconds even when none is wedged.
+    timeout: DECISION_LOOP_TIMEOUT_MS,
   });
-  assert.ok([0, 1].includes(hermesResult.status), hermesResult.stderr || 'Hermes decision loop failed');
+  assert.ok(
+    [0, 1].includes(hermesResult.status),
+    hermesResult.error?.message || hermesResult.stderr || 'Hermes decision loop failed',
+  );
   assert.ok(fs.existsSync(path.join(hermesDir, `hermes-decision-${date}.md`)));
   assert.ok(fs.existsSync(path.join(hermesDir, `hermes-decisions-${date}.jsonl`)));
   assert.ok(!fs.existsSync(path.join(repo, `hermes-decision-${date}.md`)));

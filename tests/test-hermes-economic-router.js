@@ -1,5 +1,8 @@
 'use strict';
 
+// Hermetic scoring: do not quarantine routes from the live traffic log.
+process.env.HERMES_IGNORE_EXPERT_HEALTH = '1';
+
 const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
@@ -53,6 +56,7 @@ const glm = decision(parseArgs([
   '--max-cost-usd', '0.10',
   '--latency-ms', '30000',
   '--paid-ok',
+  '--ignore-expert-health',
 ]));
 assert.strictEqual(glm.selectedRoute.id, 'glm52_reasoning');
 assert.strictEqual(glm.selectedRoute.model, 'glm-5.2');
@@ -69,10 +73,38 @@ const glmNoBudget = decision(parseArgs([
   '--risk', 'high',
   '--max-cost-usd', '0',
   '--latency-ms', '30000',
+  '--ignore-expert-health',
 ]));
 assert.notStrictEqual(glmNoBudget.selectedRoute.id, 'glm52_reasoning');
 assert(
   glmNoBudget.rejectedRoutes.some((route) => route.id === 'glm52_reasoning' && route.reasons.some((reason) => reason.includes('paid route'))),
+);
+
+// High-risk + paid without explicit $0 cap: default budget so GLM is not excluded by accident.
+const highRiskDefaultBudget = decision(parseArgs([
+  '--task', 'are you sure about architecture of gateway pairing cross-file',
+  '--risk', 'high',
+  '--paid-ok',
+  '--ignore-expert-health',
+]));
+assert.strictEqual(highRiskDefaultBudget.budget.budgetDefaulted, true);
+assert.ok(highRiskDefaultBudget.budget.maxCostUsd >= 0.1);
+assert.notStrictEqual(highRiskDefaultBudget.selectedRoute.id, 'local_fast');
+
+// Explicit $0 cap still forces zero-cost routes even when paid-ok + high risk.
+const highRiskZeroCap = decision(parseArgs([
+  '--task', 'are you sure about architecture of gateway pairing',
+  '--risk', 'high',
+  '--paid-ok',
+  '--max-cost-usd', '0',
+  '--ignore-expert-health',
+]));
+assert.strictEqual(highRiskZeroCap.budget.budgetDefaulted, false);
+// Explicit $0 still allows local_fast; high-risk penalty may still pick another zero-cost route.
+assert.strictEqual(highRiskZeroCap.budget.maxCostUsd, 0);
+assert.ok(
+  highRiskZeroCap.selectedRoute.costUsd === undefined ||
+    Number(highRiskZeroCap.estimatedCostUsd) === 0,
 );
 
 const grok45 = decision(parseArgs([
@@ -377,6 +409,54 @@ assert.strictEqual(remom.microAgentRecipe.breadth.minSuccessfulResponses, 2);
 assert.strictEqual(remom.microAgentRecipe.synthesis.contractRepair, true);
 assert.strictEqual(remom.microAgentRecipe.synthesis.preserveExactAnswer, true);
 assert.strictEqual(remom.microAgentRecipe.fallback.condition, 'synthesis-timeout-or-contract-repair-failed');
+
+const kimiK3LongCtx = decision(parseArgs([
+  '--task', 'perform long-context analysis of the full repository codebase with multi-step agentic tool-use debugging',
+  '--risk', 'high',
+  '--max-cost-usd', '0.15',
+  '--latency-ms', '60000',
+  '--paid-ok',
+]));
+assert.strictEqual(kimiK3LongCtx.signals.longContextOrAgentic, true, 'long-context/agentic signal detected');
+assert.strictEqual(kimiK3LongCtx.selectedRoute.id, 'kimi_k3_agentic_specialist');
+assert.strictEqual(kimiK3LongCtx.selectedRoute.model, 'moonshotai/kimi-k3');
+assert.strictEqual(kimiK3LongCtx.selectedRoute.provider, 'openrouter');
+assert.strictEqual(kimiK3LongCtx.microAgentRecipe.pattern, 'fusion');
+assert.strictEqual(kimiK3LongCtx.microAgentRecipe.id, 'kimi_k3_long_context_agentic');
+assert(kimiK3LongCtx.microAgentRecipe.panel.some((p) => p.role === 'long-context-agentic-specialist'));
+assert(kimiK3LongCtx.microAgentRecipe.panel.some((p) => p.role === 'local-baseline'));
+
+const kimiK3Architecture = decision(parseArgs([
+  '--task', 'review the multi-agent pipeline architecture for the million-token context window router',
+  '--risk', 'high',
+  '--max-cost-usd', '0.15',
+  '--latency-ms', '60000',
+  '--paid-ok',
+]));
+assert.strictEqual(kimiK3Architecture.signals.architecture, true, 'architecture signal detected');
+assert.strictEqual(kimiK3Architecture.signals.longContextOrAgentic, true, 'long-context signal detected from "million-token context"');
+assert.strictEqual(kimiK3Architecture.selectedRoute.id, 'kimi_k3_agentic_specialist');
+
+const kimiK3NoBudget = decision(parseArgs([
+  '--task', 'large-repo agentic workflow debugging with tool-use iteration',
+  '--risk', 'high',
+  '--max-cost-usd', '0',
+  '--latency-ms', '60000',
+]));
+assert.strictEqual(kimiK3NoBudget.signals.longContextOrAgentic, true, 'signal still detected without budget');
+assert.notStrictEqual(kimiK3NoBudget.selectedRoute.id, 'kimi_k3_agentic_specialist', 'K3 requires paid-ok');
+assert(
+  kimiK3NoBudget.rejectedRoutes.some((route) => route.id === 'kimi_k3_agentic_specialist' && route.reasons.some((reason) => reason.includes('paid route'))),
+  'K3 rejected for missing paid-ok'
+);
+
+const catalogK3 = decision(parseArgs([
+  '--task', 'compare price with Models API before you commit to a model benchmark',
+  '--risk', 'medium',
+  '--max-cost-usd', '0',
+  '--latency-ms', '30000',
+]));
+assert(catalogK3.modelCatalogCandidates.some((model) => model.slug === 'moonshotai/kimi-k3'), 'K3 appears in catalog candidates');
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-economic-router-'));
 const receiptPath = path.join(tmp, 'receipts.jsonl');

@@ -49,6 +49,7 @@ import {
   gateBlockedToPending,
   parseGatewayEvent,
   parseReclaimEvent,
+  placeSmokePreviewApproval,
 } from '../services/gatewayClient';
 import { haptics } from '../services/haptics';
 import { getPackagerHostIp } from '../services/discover';
@@ -58,7 +59,16 @@ import {
   type HermesAgentToolName,
   type HermesAgentToolResult,
 } from '../services/hermesAgentTools';
-import { captureThumbgateFeedback } from '../services/thumbgateClient';
+import {
+  captureThumbgateFeedback,
+  flushOfflineThumbgateFeedback,
+} from '../services/thumbgateClient';
+import {
+  outcomeBlocked,
+  outcomeFailed,
+  outcomeFromCaptureResult,
+  type ThumbgateFeedbackOutcome,
+} from '../utils/thumbgateFeedbackOutcome';
 import { stopRun } from '../services/hermesGatewayClient';
 import {
   setPostHogDogfoodExclusions,
@@ -237,9 +247,12 @@ import {
   scheduleRunStallNotification,
   cancelRunStallNotification,
   clearRunProgressNotification,
+  scheduleConnectionLifecycleNotification,
   syncHermesNotificationBadge,
   addApprovalNotificationResponseListener,
 } from '../services/approvalNotifications';
+import { connectionEventFromReachability } from '../utils/connectionLifecycleNotifications';
+import { resolveHeaderTransportLabel } from '../utils/chatMachineHeader';
 
 const MOBILE_RELAY_POLL_MS = 2000;
 // After the initial quiet six-probe window, retain an inexpensive reachability
@@ -351,7 +364,7 @@ export type GatewayContextValue = {
     message: HermesMessage,
     signal: ThumbgateCaptureSignal,
     options?: { session?: HermesSession | null; explanation?: string },
-  ) => Promise<boolean>;
+  ) => Promise<ThumbgateFeedbackOutcome>;
 };
 
 export const GatewayContext = createContext<GatewayContextValue | null>(null);
@@ -779,6 +792,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         apiKeyRef.current = resolvedKey;
         thumbgateApiKeyRef.current = savedThumbgateKey ?? '';
         setThumbgateApiKey(savedThumbgateKey ?? '');
+        if (savedThumbgateKey?.trim()) {
+          void flushOfflineThumbgateFeedback(
+            resolvedSettings.thumbgateApiUrl,
+            savedThumbgateKey,
+          );
+        }
         setMobileToken(savedMobileToken ?? '');
         mobileTokenRef.current = savedMobileToken ?? '';
         setIsLoaded(true);
@@ -2614,6 +2633,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         await secureCredentials.saveThumbgateApiKey(nextThumbgateApiKey);
         thumbgateApiKeyRef.current = nextThumbgateApiKey;
         setThumbgateApiKey(nextThumbgateApiKey);
+        if (nextThumbgateApiKey.trim()) {
+          void flushOfflineThumbgateFeedback(
+            persistedSettings.thumbgateApiUrl,
+            nextThumbgateApiKey,
+          );
+        }
       }
       setSettings(persistedSettings);
       setApiKey(nextApiKey);
@@ -3700,12 +3725,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     const pending = gateBlockedToPending(event);
     if (pending) {
       haptics.warning();
-      setPendingApprovals((prev) => {
-        if (prev.some((item) => item.actionId === pending.actionId)) {
-          return prev;
-        }
-        return dedupeAndCapPendingApprovals([pending, ...prev]);
-      });
+      // One preview only: stable id + drop any prior demo_* stacks (legacy
+      // demo_${Date.now()} cards included). Real Mac/relay approvals stay.
+      setPendingApprovals((prev) =>
+        placeSmokePreviewApproval(prev, pending, dedupeAndCapPendingApprovals),
+      );
     }
   }, []);
 
@@ -3742,11 +3766,19 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       if (!shouldCaptureDown && !shouldCaptureUp) {
         return;
       }
+      const apiKey = thumbgateApiKeyRef.current?.trim() ?? '';
+      if (!apiKey) {
+        return;
+      }
       const body = buildLeashThumbgateCaptureBody(
         approval,
         decision === 'approve' ? 'up' : 'down',
       );
-      await captureThumbgateFeedback(currentSettings.thumbgateApiUrl, body, thumbgateApiKeyRef.current);
+      try {
+        await captureThumbgateFeedback(currentSettings.thumbgateApiUrl, body, apiKey);
+      } catch {
+        // Leash path is best-effort; offline queue handled inside capture.
+      }
     },
     [],
   );
@@ -3756,15 +3788,17 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       message: HermesMessage,
       signal: ThumbgateCaptureSignal,
       options: { session?: HermesSession | null; explanation?: string } = {},
-    ): Promise<boolean> => {
+    ): Promise<ThumbgateFeedbackOutcome> => {
       const currentSettings = settingsRef.current;
       if (!isThumbgateLeashUnlocked(currentSettings)) {
-        return false;
+        return outcomeBlocked('leash_locked');
       }
-      const shouldCaptureDown = signal === 'down' && currentSettings.thumbgateCaptureOnDown;
-      const shouldCaptureUp = signal === 'up' && currentSettings.thumbgateCaptureOnUp;
-      if (!shouldCaptureDown && !shouldCaptureUp) {
-        return false;
+      // Chat 👍/👎 always capture when Leash is unlocked. Leash option toggles
+      // only gate tool approve/deny captures (captureLeashThumbgate), not chat.
+
+      const apiKey = thumbgateApiKeyRef.current?.trim() ?? '';
+      if (!apiKey) {
+        return outcomeBlocked('missing_api_key');
       }
 
       const busyKey =
@@ -3777,19 +3811,29 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           session: options.session,
           explanation: options.explanation,
         });
-        await captureThumbgateFeedback(
+        const result = await captureThumbgateFeedback(
           currentSettings.thumbgateApiUrl,
           body,
-          thumbgateApiKeyRef.current,
+          apiKey,
         );
-        haptics.success();
-        return true;
+        const outcome = outcomeFromCaptureResult(result);
+        if (outcome.accepted) {
+          haptics.success();
+        } else if (outcome.status === 'queued_offline') {
+          haptics.selection();
+        } else {
+          haptics.warning();
+          if (outcome.note) {
+            setLastEventError(outcome.note);
+          }
+        }
+        return outcome;
       } catch (error) {
-        setLastEventError(
-          error instanceof Error ? error.message : 'ThumbGate capture failed',
-        );
+        const messageText =
+          error instanceof Error ? error.message : 'ThumbGate capture failed';
+        setLastEventError(messageText);
         haptics.warning();
-        return false;
+        return outcomeFailed('unknown', messageText);
       } finally {
         setChatOutputFeedbackBusyId(null);
       }
@@ -4046,6 +4090,53 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       gatewayUrl: effectiveGatewayUrl,
     });
   }, [settings.demoMode, effectiveConnectionState, health, effectiveGatewayUrl]);
+
+  /** Uber-style connection shade: lost / restored when Live run status is on. */
+  const lastMacReachableForNotifRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (Platform.OS === 'web' || !settings.notificationLiveRunStatus) {
+      return;
+    }
+    if (settings.demoMode || effectiveConnectionState === 'demo') {
+      return;
+    }
+    const isReachable = gatewayReachable && effectiveConnectionState === 'connected';
+    const event = connectionEventFromReachability({
+      wasReachable: lastMacReachableForNotifRef.current,
+      isReachable,
+    });
+    lastMacReachableForNotifRef.current = isReachable;
+    if (!event) {
+      return;
+    }
+    const machineLabel = activeGatewayProfile
+      ? profileDisplayName(activeGatewayProfile)
+      : health?.hostname?.replace(/\.local$/i, '') || 'Your computer';
+    const transport = resolveHeaderTransportLabel({
+      gatewayUrl: effectiveGatewayUrl || settings.gatewayUrl,
+      wifiConnected,
+    });
+    scheduleConnectionLifecycleNotification(
+      {
+        event,
+        machineLabel,
+        transport: transport ?? undefined,
+        tailscaleOff: !tailscaleVpnActive,
+      },
+      { categoryEnabled: settings.notificationLiveRunStatus },
+    ).catch(() => {});
+  }, [
+    gatewayReachable,
+    effectiveConnectionState,
+    settings.notificationLiveRunStatus,
+    settings.demoMode,
+    settings.gatewayUrl,
+    activeGatewayProfile,
+    health?.hostname,
+    effectiveGatewayUrl,
+    wifiConnected,
+    tailscaleVpnActive,
+  ]);
 
   const connectionHealExhausted = connectionHealAttempt >= CONNECTION_HEAL_EXHAUSTED_AFTER;
 

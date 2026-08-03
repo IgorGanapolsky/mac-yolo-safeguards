@@ -44,6 +44,30 @@
         "apps/hermes-control-plane/app/api/billing/portal"
       ],
       "k": 8
+    },
+    {
+      "id": "empty-stream-hard-stop",
+      "query": "empty stream checking forever hard stop leash CTA recovery",
+      "mustIncludePathSubstrings": [
+        "emptyStream"
+      ],
+      "k": 12
+    },
+    {
+      "id": "eval-ability-harness",
+      "query": "agent swarm harness evalAbilityPolicy matchAbilityForFailure propose-eval mine failures",
+      "mustIncludePathSubstrings": [
+        "tools/agent-swarm-harness.js"
+      ],
+      "k": 10
+    },
+    {
+      "id": "ml-propensity-stack",
+      "query": "propensity train labels SYSTEM_SCORES revenue ML fail-closed",
+      "mustIncludePathSubstrings": [
+        "tools/ml-propensity-train.js"
+      ],
+      "k": 10
     }
   ]
 }

@@ -6,7 +6,24 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+// A+ infrastructure integrations
+let ResponseCache, CircuitBreaker, retryWithBackoff, executeWithProtection;
+try {
+  // eslint-disable-next-line global-require
+  ({ ResponseCache } = require('./hermes-response-cache'));
+} catch { ResponseCache = null; }
+try {
+  // eslint-disable-next-line global-require
+  ({ CircuitBreaker, retryWithBackoff, executeWithProtection } = require('./hermes-circuit-breaker'));
+} catch { CircuitBreaker = null; retryWithBackoff = null; executeWithProtection = null; }
+
 const RECEIPT_PATH = path.join(os.homedir(), '.hermes/economic-router-receipts.jsonl');
+
+// Route-decision cache: identical tasks within TTL get instant cache hits.
+// Keyed on (task, risk, maxCostUsd, paidOk) — the routing inputs.
+const _routeCache = ResponseCache
+  ? new ResponseCache({ maxEntries: 256, defaultTtlMs: 5 * 60 * 1000 })
+  : null;
 
 const RISK_LEVELS = ['low', 'medium', 'high', 'critical'];
 
@@ -167,6 +184,23 @@ const ROUTES = [
     candidateOnly: true,
   },
   {
+    id: 'kimi_k3_agentic_specialist',
+    label: 'Kimi K3 long-context agentic specialist',
+    agent: 'long-context-agentic-reasoner',
+    provider: 'openrouter',
+    model: 'moonshotai/kimi-k3',
+    costUsd: 0.08,
+    latencyMs: 35000,
+    reliability: 0.78,
+    riskCeiling: 'high',
+    strengths: ['kimi', 'k3', 'moonshot', 'long-context', 'agentic-workflow', 'large-repo', 'tool-use', 'debugging', 'multi-step', 'agentic'],
+    commandEnv: {
+      HERMES_OPENROUTER_MODEL: 'moonshotai/kimi-k3',
+    },
+    proofGates: ['explicit-approval', 'cost-cap', 'long-context-justified', 'receipt-written'],
+    requiresApproval: true,
+  },
+  {
     id: 'openrouter_fusion',
     label: 'OpenRouter Fusion grounded panel',
     agent: 'research-panel',
@@ -237,6 +271,7 @@ const OPENROUTER_JUNE_MODELS = [
   { slug: 'anthropic/claude-sonnet-5', inputPerM: 2.00, outputPerM: 10.00, context: '1M', use: 'frontier coding, agents, professional work' },
   { slug: 'z-ai/glm-5.2', inputPerM: 0.93, outputPerM: 3.00, context: '1M', use: 'high-risk reasoning and architecture review' },
   { slug: 'moonshotai/kimi-k2.7-code', inputPerM: 0.74, outputPerM: 3.50, context: '262K', use: 'code specialist candidate' },
+  { slug: 'moonshotai/kimi-k3', inputPerM: 3.00, outputPerM: 15.00, context: '1M', use: 'frontier long-horizon agent/coding OPT-IN only (2.8T open-weight MoE) — large-repo, debugging, tool-use; never local on laptop' },
   { slug: 'qwen/qwen3.7-plus', inputPerM: 0.32, outputPerM: 1.28, context: '1M', use: 'cheap broad reasoning candidate' },
   { slug: 'cohere/north-mini-code:free', inputPerM: 0, outputPerM: 0, context: '256K', use: 'free code worker candidate' },
   { slug: 'nex-agi/nex-n2-pro', inputPerM: 0.25, outputPerM: 1.00, context: '262K', use: 'low-cost agentic candidate' },
@@ -304,10 +339,12 @@ function openRouterToolPayload(type, parameters = {}) {
 
 function usage() {
   return `Usage:
-  node tools/hermes-economic-router.js --task TEXT [--risk low|medium|high|critical] [--max-cost-usd N] [--latency-ms N] [--paid-ok] [--execute-plan] [--write] [--json]
+  node tools/hermes-economic-router.js --task TEXT [--risk low|medium|high|critical] [--max-cost-usd N] [--latency-ms N] [--paid-ok] [--ignore-expert-health] [--execute-plan] [--write] [--json]
 
-Routes Hermes work through a multi-agent economic pipeline. It emits receipts
-and budget gates; it does not call paid providers by itself.
+Routes Hermes work through a multi-agent economic pipeline (software MoE).
+Emits receipts and budget gates; does not call paid providers by itself.
+Live traffic DEAD experts are quarantined unless --ignore-expert-health.
+High risk + --paid-ok defaults max-cost to $0.10 unless --max-cost-usd is set.
 
 Use --execute-plan to emit a dry-run execution plan with bounded steps, caps,
 and blocked approval surfaces. It still performs no provider calls.`;
@@ -318,27 +355,65 @@ function parseArgs(argv) {
     task: '',
     risk: 'medium',
     maxCostUsd: 0,
+    maxCostUsdExplicit: false,
     latencyMs: 30000,
     paidOk: false,
+    usageJson: null,
+    pricingJson: null,
     executePlan: false,
     write: false,
     json: false,
     help: false,
+    ignoreExpertHealth: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--task') args.task = requireValue(argv, ++i, arg);
     else if (arg === '--risk') args.risk = normalizeRisk(requireValue(argv, ++i, arg));
-    else if (arg === '--max-cost-usd') args.maxCostUsd = parseNonNegativeNumber(requireValue(argv, ++i, arg), arg);
-    else if (arg === '--latency-ms') args.latencyMs = parseNonNegativeNumber(requireValue(argv, ++i, arg), arg);
+    else if (arg === '--max-cost-usd') {
+      args.maxCostUsd = parseNonNegativeNumber(requireValue(argv, ++i, arg), arg);
+      args.maxCostUsdExplicit = true;
+    } else if (arg === '--latency-ms') args.latencyMs = parseNonNegativeNumber(requireValue(argv, ++i, arg), arg);
     else if (arg === '--paid-ok') args.paidOk = true;
+    else if (arg === '--usage-json') {
+      try {
+        args.usageJson = JSON.parse(requireValue(argv, ++i, arg));
+      } catch (error) {
+        throw new Error(`--usage-json must be valid JSON: ${error.message}`);
+      }
+    }
+    else if (arg === '--pricing-json') {
+      try {
+        args.pricingJson = JSON.parse(requireValue(argv, ++i, arg));
+      } catch (error) {
+        throw new Error(`--pricing-json must be valid JSON: ${error.message}`);
+      }
+    }
     else if (arg === '--execute-plan') args.executePlan = true;
     else if (arg === '--write') args.write = true;
     else if (arg === '--json') args.json = true;
+    else if (arg === '--ignore-expert-health') args.ignoreExpertHealth = true;
     else if (arg === '--help' || arg === '-h') args.help = true;
     else throw new Error(`Unknown argument: ${arg}`);
   }
   if (!args.help && !args.task.trim()) throw new Error('--task is required');
+  return args;
+}
+
+/**
+ * High-risk + paid work must not default to a $0 cap that silently excludes GLM.
+ * Only applies when the caller did not set --max-cost-usd explicitly.
+ */
+function applyDefaultBudget(args) {
+  if (args.maxCostUsdExplicit) return args;
+  const risk = normalizeRisk(args.risk || 'medium');
+  if (!args.paidOk) return args;
+  if (risk === 'high' && args.maxCostUsd === 0) {
+    return { ...args, maxCostUsd: 0.1, budgetDefaulted: true };
+  }
+  if (risk === 'critical' && args.maxCostUsd === 0) {
+    return { ...args, maxCostUsd: 0.25, budgetDefaulted: true };
+  }
   return args;
 }
 
@@ -390,6 +465,7 @@ function taskSignals(task) {
     paidOrExternal: /payment|wallet|stablecoin|on[- ]chain|post|send|publish|charge|stripe/.test(text) || externalDelivery,
     externalDelivery,
     routine: /smoke|small|quick|lint|unit test|local/.test(text),
+    longContextOrAgentic: /long[- ]?context|large[- ]?repo|whole[- ]?repo|multi[- ]?step\s+agent|agentic.*workflow|repository.*understand|tool[- ]?use.*debug|debug.*iterate|codebase.*analysis|full.repo|million[\s-]token/.test(text),
   };
 }
 
@@ -412,8 +488,13 @@ function scoreRoute(route, args, signals) {
 
   if (route.id === 'local_fast') {
     if (signals.routine) score += 25;
-    if (args.maxCostUsd === 0) score += 18;
+    // Zero-cost boost only for low/medium risk. High-risk must not prefer 3B local.
+    if (args.maxCostUsd === 0 && riskValue(args.risk) <= riskValue('medium')) score += 18;
     if (riskValue(args.risk) <= riskValue('medium')) score += 12;
+    if (riskValue(args.risk) >= riskValue('high')) score -= 35;
+    if ((signals.userDoubt || signals.architecture) && riskValue(args.risk) >= riskValue('high')) {
+      score -= 25;
+    }
   }
   if (route.id === 'glm52_reasoning') {
     if (signals.asksForGlm) score += 45;
@@ -463,6 +544,12 @@ function scoreRoute(route, args, signals) {
   if (route.id === 'mobile_e2e_gate') {
     if (signals.mobile) score += 55;
     if (!signals.mobile) score -= 30;
+  }
+  if (route.id === 'kimi_k3_agentic_specialist') {
+    if (signals.longContextOrAgentic) score += 85;
+    if (signals.architecture || signals.highVarianceReasoning) score += 18;
+    if (signals.asksForSubagent) score += 25;
+    if (!signals.longContextOrAgentic && !signals.architecture) score -= 10;
   }
   return Number(score.toFixed(2));
 }
@@ -617,7 +704,7 @@ function openRouterServerToolPlan(kind) {
           analysis_models: [
             'z-ai/glm-5.2',
             'qwen/qwen3.7-plus',
-            'moonshotai/kimi-k2.7-code',
+            'moonshotai/kimi-k3',
           ],
           model: 'z-ai/glm-5.2',
           max_tool_calls: 4,
@@ -651,6 +738,7 @@ function buildMicroAgentRecipe(selected, args, signals, evaluated) {
   const openrouterFusion = allowedRoute(evaluated, 'openrouter_fusion');
   const openrouterAdvisor = allowedRoute(evaluated, 'openrouter_advisor');
   const openrouterSubagent = allowedRoute(evaluated, 'openrouter_subagent');
+  const kimiK3 = allowedRoute(evaluated, 'kimi_k3_agentic_specialist');
   const primaryReasoner = firstAllowed(evaluated, ['glm52_reasoning', 'local_fast']) || selected;
 
   const base = {
@@ -970,6 +1058,27 @@ function buildMicroAgentRecipe(selected, args, signals, evaluated) {
     };
   }
 
+  if ((signals.longContextOrAgentic || signals.architecture) && kimiK3) {
+    return {
+      ...base,
+      id: 'kimi_k3_long_context_agentic',
+      pattern: 'fusion',
+      reason: 'Kimi K3 (2.8T, 1M ctx) excels at long-context agentic workflows, large-repo understanding, and multi-step tool use — use it when the task exceeds local capacity for repo-wide or multi-agent analysis.',
+      hardCaps: {
+        ...base.hardCaps,
+        maxConcurrent: 2,
+        maxSteps: 4,
+      },
+      panel: [
+        compactRoute(localFast, 'local-baseline'),
+        compactRoute(kimiK3, 'long-context-agentic-specialist'),
+      ],
+      judge: compactRoute(kimiK3, 'agentic-judge'),
+      finalizer: compactRoute(localFast, 'contract-finalizer'),
+      disagreementPolicy: 'Prefer the specialist model for long-context or codebase-wide evidence; surface contradictions.',
+    };
+  }
+
   return {
     ...base,
     id: 'local_confidence_escalation',
@@ -987,21 +1096,93 @@ function buildMicroAgentRecipe(selected, args, signals, evaluated) {
 }
 
 function decision(args) {
-  const normalizedArgs = {
+  // A+ Latency: cache route decisions for identical inputs (5-min TTL)
+  const cacheKey = _routeCache
+    ? JSON.stringify({ t: args.task, r: args.risk, c: args.maxCostUsd, p: args.paidOk })
+    : null;
+  if (_routeCache) {
+    const cached = _routeCache.get(cacheKey);
+    if (cached.hit) {
+      _routeCacheHits++;
+      return cached.value;
+    }
+  }
+
+  let normalizedArgs = {
     ...args,
     risk: normalizeRisk(args.risk || 'medium'),
     maxCostUsd: Number(args.maxCostUsd || 0),
+    maxCostUsdExplicit: Boolean(args.maxCostUsdExplicit),
     latencyMs: Number(args.latencyMs || 30000),
     paidOk: Boolean(args.paidOk),
+    ignoreExpertHealth: Boolean(args.ignoreExpertHealth),
   };
+  normalizedArgs = applyDefaultBudget(normalizedArgs);
   const signals = taskSignals(normalizedArgs.task);
+
+  // Live MoE health (traffic DEAD experts). Fail open if log missing — never crash routing.
+  // Unit tests set HERMES_IGNORE_EXPERT_HEALTH=1 for hermetic scoring without the live log.
+  let expertHealth = null;
+  const healthDisabled =
+    normalizedArgs.ignoreExpertHealth || process.env.HERMES_IGNORE_EXPERT_HEALTH === '1';
+  if (!healthDisabled) {
+    try {
+      // Lazy require keeps unit tests hermetic when traffic log is huge/absent.
+      // eslint-disable-next-line global-require
+      expertHealth = require('./moe-expert-health').loadExpertHealth({});
+    } catch {
+      expertHealth = null;
+    }
+  }
+
   const evaluated = ROUTES.map((route) => {
     const allowed = routeAllowed(route, normalizedArgs, signals);
+    const rejectionReasons = [...allowed.reasons];
+    let allowedFlag = allowed.allowed;
+
+    // Quarantine high-volume DEAD experts from selection (P0 MoE fix).
+    // Retired aliases stay quarantined while traffic history still marks them dead —
+    // retirement only clears gates, not selection of a known-bad expert.
+    if (allowedFlag && expertHealth && expertHealth.ok && expertHealth.byRouteId) {
+      const health = expertHealth.byRouteId[route.id];
+      if (health && health.dead && health.requests >= 20) {
+        allowedFlag = false;
+        const tag = health.retired ? 'retired-DEAD' : 'DEAD';
+        rejectionReasons.push(
+          `expert-health ${tag}: ${health.model} answer%=${health.answerRatePct} empty%=${health.emptyRatePct} (n=${health.requests})`,
+        );
+      }
+    }
+    // Memory pressure: deprioritize heavy local candidates (do not hard-block free tiny local).
+    if (
+      allowedFlag &&
+      expertHealth &&
+      expertHealth.memory &&
+      expertHealth.memory.pressure &&
+      (route.id === 'local_qwen36_candidate' || route.id === 'local_coder_candidate')
+    ) {
+      // keep allowed but scored down below
+    }
+
+    let score = -Infinity;
+    if (allowedFlag) {
+      const observed =
+        expertHealth && expertHealth.ok
+          ? require('./moe-expert-health').observedForRoute(expertHealth, route.id, route.model)
+          : null;
+      score = computeAdjustedRouteScore(route, normalizedArgs, signals, observed);
+      if (expertHealth && expertHealth.memory && expertHealth.memory.pressure) {
+        if (route.id === 'local_qwen36_candidate' || route.id === 'local_coder_candidate') {
+          score -= 40;
+        }
+      }
+    }
+
     return {
       route,
-      allowed: allowed.allowed,
-      rejectionReasons: allowed.reasons,
-      score: allowed.allowed ? scoreRoute(route, normalizedArgs, signals) : -Infinity,
+      allowed: allowedFlag,
+      rejectionReasons,
+      score,
     };
   }).sort((a, b) => b.score - a.score || a.route.costUsd - b.route.costUsd || a.route.id.localeCompare(b.route.id));
 
@@ -1018,7 +1199,15 @@ function decision(args) {
       maxCostUsd: normalizedArgs.maxCostUsd,
       latencyMs: normalizedArgs.latencyMs,
       paidOk: normalizedArgs.paidOk,
+      budgetDefaulted: Boolean(normalizedArgs.budgetDefaulted),
     },
+    expertHealth: expertHealth && expertHealth.ok
+      ? {
+          deadRouteIds: expertHealth.deadRouteIds,
+          highVolumeDead: expertHealth.highVolumeDead,
+          memoryPressure: expertHealth.memory?.pressure || false,
+        }
+      : null,
     selectedRoute: publicRoute(selected),
     estimatedCostUsd: selected.costUsd,
     estimatedLatencyMs: selected.latencyMs,
@@ -1049,9 +1238,93 @@ function decision(args) {
       grokRule: 'The user-facing hermes-yolo prompt route defaults to Grok 4.5; inside multi-agent recipes, Grok remains an explicit independent verifier with doctor, auth, billing, and comparison receipts.',
       retrievalRule: 'Trace query construction and retrieval separately from generation; use explicit Parallel Turbo for approved fast grounding, and escalate to basic or advanced only when measured retrieval quality requires it.',
       memoryRule: 'Compress durable harness knowledge into an inspectable wiki generated from prompt-free traces; do not treat raw chat logs as memory by default.',
+      kimiK3Rule: 'Kimi K3 earns its $3/$15 per 1M tokens via 2.8T parameter MoE quality and 1M context for long-context agentic workflows. It replaces K2.7-code in fusion panels and routes to long-context/repo-wide/agentic tasks. Use evaluateCanary() to compare K3 against GLM-5.2 before changing default reasoning route.',
     },
   };
+
+  // A+ Latency: cache the receipt for identical future requests
+  if (_routeCache && cacheKey) {
+    _routeCache.set(cacheKey, receipt);
+  }
+
+  // A+ Observability: record routing metrics
+  _routeDecisionCount++;
+  if (receipt.selectedRoute) {
+    _routeProviderCounts[receipt.selectedRoute.provider] =
+      (_routeProviderCounts[receipt.selectedRoute.provider] || 0) + 1;
+  }
+
   return receipt;
+}
+
+// A+ Observability: routing metrics counters
+let _routeCacheHits = 0;
+let _routeDecisionCount = 0;
+const _routeProviderCounts = {};
+
+// ---------------------------------------------------------------------------
+// A+ Observability: metrics export for routing decisions and cache performance
+// ---------------------------------------------------------------------------
+
+function getRoutingMetrics() {
+  return {
+    decisions: _routeDecisionCount,
+    cacheHits: _routeCacheHits,
+    cacheHitRate: _routeDecisionCount > 0
+      ? Number((_routeCacheHits / (_routeDecisionCount + _routeCacheHits)).toFixed(4))
+      : 0,
+    providerCounts: { ..._routeProviderCounts },
+    cacheStats: _routeCache ? _routeCache.stats() : null,
+  };
+}
+
+function resetRoutingMetrics() {
+  _routeCacheHits = 0;
+  _routeDecisionCount = 0;
+  for (const key of Object.keys(_routeProviderCounts)) delete _routeProviderCounts[key];
+}
+
+// ---------------------------------------------------------------------------
+// A+ Failure Modes: execute an LLM call with circuit breaker + retry
+// ---------------------------------------------------------------------------
+
+/**
+ * Execute an LLM inference with circuit-breaker protection and retry with backoff.
+ * Returns { ok, result, error, attempts, latencyMs }.
+ *
+ * @param {string} routeId - Route identifier for breaker scoping
+ * @param {() => Promise<*>} fn - Async function performing the LLM call
+ * @param {{ maxRetries?: number, breakerThreshold?: number, breakerCooldownMs?: number }} [opts]
+ * @returns {Promise<{ ok: boolean, result: *, error: string|null, attempts: number, latencyMs: number }>}
+ */
+async function executeWithResilience(routeId, fn, opts = {}) {
+  if (!CircuitBreaker || !retryWithBackoff) {
+    // Graceful degradation if circuit-breaker module is unavailable
+    const start = Date.now();
+    const result = await fn();
+    return { ok: true, result, error: null, attempts: 1, latencyMs: Date.now() - start };
+  }
+
+  const breaker = new CircuitBreaker({
+    failureThreshold: opts.breakerThreshold || 5,
+    cooldownMs: opts.breakerCooldownMs || 60_000,
+  });
+
+  const start = Date.now();
+  const result = await executeWithProtection(
+    breaker,
+    fn,
+    { maxRetries: opts.maxRetries || 3, baseDelayMs: 500 },
+  );
+
+  return {
+    ok: result.ok,
+    result: result.ok ? result.value : null,
+    error: result.ok ? null : (result.error?.message || String(result.error)),
+    attempts: result.attempts,
+    circuitOpen: result.circuitOpen || false,
+    latencyMs: Date.now() - start,
+  };
 }
 
 function publicRoute(route) {
@@ -1294,9 +1567,36 @@ function main() {
       console.log(usage());
       return;
     }
-    const receipt = decision(args);
+    let receipt = decision(args);
     if (args.executePlan) {
       receipt.executionPlan = buildExecutionPlan(receipt);
+    }
+    // Optional token metering: attach real usage + metered USD when callers
+    // have prompt/completion counts (closes the flat-ceiling cost gap).
+    if (args.usageJson) {
+      try {
+        const { enrichReceiptWithUsage } = require('./production-ops');
+        const ap = (receipt.selectedRoute && receipt.selectedRoute.apiPricing) || {};
+        // Routes use inputPerMillionUsd / cachedInputPerMillionUsd; OpenRouter
+        // catalog rows use inputPerM. Accept both so metered cost is never $0
+        // solely due to field-name drift.
+        const pricing =
+          args.pricingJson ||
+          {
+            inputPer1M: ap.inputPerMillionUsd ?? ap.inputPerM ?? ap.inputPer1M,
+            outputPer1M: ap.outputPerMillionUsd ?? ap.outputPerM ?? ap.outputPer1M,
+            cacheReadPer1M:
+              ap.cachedInputPerMillionUsd ?? ap.cachedInputPerM ?? ap.cacheReadPer1M,
+          };
+        receipt = enrichReceiptWithUsage(receipt, args.usageJson, pricing);
+      } catch (error) {
+        receipt.usage = {
+          ok: false,
+          errors: [error instanceof Error ? error.message : String(error)],
+        };
+        receipt.meteredCostUsd = null;
+        receipt.costSource = 'route_ceiling';
+      }
     }
     if (args.write) {
       receipt.receiptPath = writeReceipt(receipt);
@@ -1308,6 +1608,177 @@ function main() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Feedback loop: incorporate observed inference data into route scoring
+// (TensorZero-inspired: close the loop between routing decisions and outcomes)
+// ---------------------------------------------------------------------------
+
+/**
+ * Update a route's reliability estimate based on observed success rate.
+ * Weighted update: observed data carries more weight as sample size grows.
+ *
+ * @param {object} route - Route definition
+ * @param {{ calls: number, successCount: number }} observed
+ * @returns {number} Updated reliability estimate (0-1)
+ */
+function updateRouteReliability(route, observed) {
+  if (!observed || observed.calls < 1) return route.reliability;
+  const observedRate = observed.successCount / observed.calls;
+  // Bayesian-ish: start with prior (route.reliability), blend with observed
+  // Prior weight = 3 observations; observed weight = actual sample
+  const priorWeight = 3;
+  const totalWeight = priorWeight + observed.calls;
+  const updated = (route.reliability * priorWeight + observedRate * observed.calls) / totalWeight;
+  return Number(Math.min(1, Math.max(0, updated)).toFixed(4));
+}
+
+/**
+ * Compute adjusted score incorporating observed reliability and cost data.
+ *
+ * @param {object} route - Route definition
+ * @param {object} args - Routing args (risk, latency, cost caps)
+ * @param {object} signals - Task signals
+ * @param {{ calls: number, successCount: number, totalCostUsd: number, avgLatencyMs: number }|null} observed
+ * @returns {number} Adjusted score
+ */
+function computeAdjustedRouteScore(route, args, signals, observed = null) {
+  let score = scoreRoute(route, args, signals);
+
+  if (observed && observed.calls >= 3) {
+    const obsRate = observed.successCount / observed.calls;
+    // Boost routes that overperform their stated reliability
+    if (obsRate > route.reliability + 0.05) {
+      score += Math.min(20, (obsRate - route.reliability) * 100);
+    }
+    // Penalize routes that underperform
+    if (obsRate < route.reliability - 0.05) {
+      score -= Math.min(30, (route.reliability - obsRate) * 100);
+    }
+    // Cost efficiency bonus: if observed cost is lower than estimated
+    const routeCostPerCall = route.costUsd || 0;
+    const obsCostPerCall = observed.totalCostUsd / observed.calls;
+    if (routeCostPerCall > 0 && obsCostPerCall < routeCostPerCall * 0.7) {
+      score += 10; // signficantly cheaper than estimated
+    }
+    if (routeCostPerCall > 0 && obsCostPerCall > routeCostPerCall * 1.3) {
+      score -= 15; // significantly more expensive than estimated
+    }
+  }
+
+  return Number(score.toFixed(2));
+}
+
+// ---------------------------------------------------------------------------
+// Canary route evaluation (A/B: candidate vs default)
+// ---------------------------------------------------------------------------
+
+const DEFAULT_CANARY_CONFIG = Object.freeze({
+  minCallsToEvaluate: 5,
+  minSuccessRateDelta: 0.05, // 5% better to prefer candidate
+  maxLatencyMultiplier: 1.5, // candidate can be at most 1.5x slower
+  maxCostMultiplier: 1.3,    // candidate can be at most 1.3x more expensive
+  minDaysToPromote: 1,       // at least 1 day of data needed
+});
+
+/**
+ * Evaluate whether a canary candidate route should be promoted.
+ *
+ * @param {object} candidate - Route definition for the candidate
+ * @param {object} default_ - Route definition for the current default
+ * @param {{ calls: number, successCount: number, totalCostUsd: number, avgLatencyMs: number }} candidateObserved
+ * @param {{ calls: number, successCount: number, totalCostUsd: number, avgLatencyMs: number }} defaultObserved
+ * @param {object} [config] - Threshold configuration
+ * @returns {{ ok: boolean, vote: string, reasons: string[], scores: object }}
+ */
+function evaluateCanary(candidate, default_, candidateObserved, defaultObserved, config = {}) {
+  const cfg = { ...DEFAULT_CANARY_CONFIG, ...config };
+  const reasons = [];
+  let vote = 'hold';
+
+  // Insufficient data check
+  if (candidateObserved.calls < cfg.minCallsToEvaluate) {
+    reasons.push(`Candidate only ${candidateObserved.calls} calls, need ${cfg.minCallsToEvaluate}`);
+    return { ok: false, vote: 'insufficient_data', reasons, scores: null };
+  }
+  if (defaultObserved.calls < cfg.minCallsToEvaluate) {
+    reasons.push(`Default only ${defaultObserved.calls} calls, need ${cfg.minCallsToEvaluate}`);
+    return { ok: false, vote: 'insufficient_data', reasons, scores: null };
+  }
+
+  const candidateSuccessRate = candidateObserved.calls > 0
+    ? candidateObserved.successCount / candidateObserved.calls
+    : 0;
+  const defaultSuccessRate = defaultObserved.calls > 0
+    ? defaultObserved.successCount / defaultObserved.calls
+    : 0;
+  const candidateAvgLatency = candidateObserved.calls > 0
+    ? candidateObserved.avgLatencyMs
+    : Infinity;
+  const defaultAvgLatency = defaultObserved.calls > 0
+    ? defaultObserved.avgLatencyMs
+    : Infinity;
+  const candidateCostPerCall = candidateObserved.calls > 0
+    ? candidateObserved.totalCostUsd / candidateObserved.calls
+    : Infinity;
+  const defaultCostPerCall = defaultObserved.calls > 0
+    ? defaultObserved.totalCostUsd / defaultObserved.calls
+    : Infinity;
+
+  const scores = {
+    candidate: {
+      successRate: Number((candidateSuccessRate * 100).toFixed(1)),
+      avgLatencyMs: Math.round(candidateAvgLatency),
+      costPerCallUsd: Number(candidateCostPerCall.toFixed(6)),
+    },
+    default: {
+      successRate: Number((defaultSuccessRate * 100).toFixed(1)),
+      avgLatencyMs: Math.round(defaultAvgLatency),
+      costPerCallUsd: Number(defaultCostPerCall.toFixed(6)),
+    },
+  };
+
+  // Success rate check
+  if (candidateSuccessRate < defaultSuccessRate - cfg.minSuccessRateDelta) {
+    reasons.push(`Candidate success rate ${scores.candidate.successRate}% < default ${scores.default.successRate}%`);
+    vote = 'reject';
+  }
+
+  // Latency check
+  if (candidateAvgLatency > defaultAvgLatency * cfg.maxLatencyMultiplier && Number.isFinite(defaultAvgLatency)) {
+    reasons.push(`Candidate latency ${candidateAvgLatency}ms > ${cfg.maxLatencyMultiplier}x default ${defaultAvgLatency}ms`);
+    if (vote !== 'reject') vote = 'hold';
+  }
+
+  // Cost check
+  if (candidateCostPerCall > defaultCostPerCall * cfg.maxCostMultiplier && Number.isFinite(defaultCostPerCall)) {
+    reasons.push(`Candidate cost $${candidateCostPerCall.toFixed(4)} > ${cfg.maxCostMultiplier}x default $${defaultCostPerCall.toFixed(4)}`);
+    if (vote !== 'reject') vote = 'hold';
+  }
+
+  // Promote if candidate beats or matches default on all metrics
+  if (vote === 'hold') {
+    const improves = candidateSuccessRate >= defaultSuccessRate - cfg.minSuccessRateDelta;
+    const notSlower = !Number.isFinite(defaultAvgLatency) || candidateAvgLatency <= defaultAvgLatency * cfg.maxLatencyMultiplier;
+    const notCostlier = !Number.isFinite(defaultCostPerCall) || candidateCostPerCall <= defaultCostPerCall * cfg.maxCostMultiplier;
+    if (improves && notSlower && notCostlier) {
+      vote = 'promote';
+      reasons.push('Candidate meets or beats default on all metrics');
+    } else {
+      reasons.push('Candidate comparable — hold for more data');
+    }
+  }
+
+  return {
+    ok: vote === 'promote',
+    vote,
+    reasons,
+    scores,
+    candidateRoute: candidate.id,
+    defaultRoute: default_.id,
+    evaluatedAt: new Date().toISOString(),
+  };
+}
+
 module.exports = {
   RECEIPT_PATH,
   ROUTES,
@@ -1316,6 +1787,7 @@ module.exports = {
   buildExecutionPlan,
   decision,
   parseArgs,
+  applyDefaultBudget,
   providerModelCatalogQuery,
   receiptId,
   render,
@@ -1323,6 +1795,15 @@ module.exports = {
   scoreRoute,
   taskSignals,
   writeReceipt,
+  // Feedback loop exports (TensorZero-inspired)
+  updateRouteReliability,
+  computeAdjustedRouteScore,
+  evaluateCanary,
+  DEFAULT_CANARY_CONFIG,
+  // A+ infrastructure exports
+  getRoutingMetrics,
+  resetRoutingMetrics,
+  executeWithResilience,
 };
 
 if (require.main === module) {

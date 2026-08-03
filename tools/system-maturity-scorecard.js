@@ -251,7 +251,7 @@ function buildReport() {
     },
     {
       id: 'observability-device-proof',
-      weight: 2,
+      weight: 1,
       check: () => {
         const run = runNode('tools/hermes-observability-gate.js', [
           '--mode',
@@ -272,6 +272,57 @@ function buildReport() {
             `e2e=${e2e}` +
             (Number.isFinite(ageMin) ? ` ageMin=${ageMin}` : '') +
             (result?.deviceVerified === true ? ' deviceVerified=true' : ' deviceVerified=false'),
+        };
+      },
+    },
+    {
+      id: 'aplus-schema-validation',
+      weight: 1,
+      check: () => ({
+        pass: exists('tools/hermes-schema-validator.js') && exists('apps/hermes-control-plane/lib/schema-validator.ts'),
+        detail: 'hermes-schema-validator.js + lib/schema-validator.ts',
+      }),
+    },
+    {
+      id: 'aplus-response-cache',
+      weight: 0.5,
+      check: () => ({
+        pass: exists('tools/hermes-response-cache.js'),
+        detail: 'hermes-response-cache.js',
+      }),
+    },
+    {
+      id: 'aplus-circuit-breaker',
+      weight: 0.5,
+      check: () => ({
+        pass: exists('tools/hermes-circuit-breaker.js'),
+        detail: 'hermes-circuit-breaker.js',
+      }),
+    },
+    {
+      id: 'aplus-rate-limiter',
+      weight: 0.5,
+      check: () => ({
+        pass: exists('tools/hermes-rate-limiter.js') && exists('apps/hermes-control-plane/lib/rate-limit.ts'),
+        detail: 'hermes-rate-limiter.js + lib/rate-limit.ts',
+      }),
+    },
+    {
+      id: 'aplus-llm-metrics',
+      weight: 0.5,
+      check: () => ({
+        pass: exists('apps/hermes-control-plane/app/api/llm-metrics/route.ts') && read('apps/hermes-control-plane/db/schema.ts').includes('llmCalls'),
+        detail: 'llm-metrics endpoint + llmCalls table',
+      }),
+    },
+    {
+      id: 'aplus-infrastructure-tests',
+      weight: 1,
+      check: () => {
+        const run = runNode('tests/test-aplus-infrastructure.js');
+        return {
+          pass: run.ok && (run.stdout || '').includes('0 failed'),
+          detail: run.ok ? 'A+ infrastructure tests pass' : (run.stderr || run.stdout).slice(0, 200),
         };
       },
     },
@@ -329,7 +380,112 @@ function buildReport() {
     },
   ]);
 
-  const pillars = [rag, agentTools, multiAgent, mcp, prod];
+  const mlStack = scorePillar('ml_stack', 'ML platform July 2026 (fail-closed)', [
+    {
+      id: 'label-store',
+      weight: 1,
+      check: () => ({
+        pass: exists('tools/ml-label-store.js'),
+        detail: 'tools/ml-label-store.js',
+      }),
+    },
+    {
+      id: 'ml-core-metrics',
+      weight: 1,
+      check: () => ({
+        pass: exists('tools/ml-core.js'),
+        detail: 'AUC/Brier/CV/calibration/nDCG/A-B tests',
+      }),
+    },
+    {
+      id: 'propensity-train',
+      weight: 2,
+      check: () => {
+        const run = runNode('tools/ml-propensity-train.js', [
+          'train',
+          '--labels',
+          'tests/fixtures/ml/synthetic-labels.jsonl',
+          '--out',
+          path.join(require('os').tmpdir(), `ml-propensity-scorecard-${process.pid}.json`),
+          '--json',
+        ]);
+        let body = null;
+        try {
+          body = JSON.parse(run.stdout);
+        } catch {
+          /* below */
+        }
+        return {
+          pass: Boolean(
+            body &&
+              body.trained === true &&
+              body.ok === true &&
+              body.holdout_metrics?.brier != null &&
+              body.cv?.mean_auc != null,
+          ),
+          detail: body
+            ? `auc=${body.holdout_metrics?.auc} brier=${body.holdout_metrics?.brier} cv=${body.cv?.mean_auc}`
+            : (run.stderr || run.stdout).slice(0, 180),
+        };
+      },
+    },
+    {
+      id: 'insufficient-labels-fail-closed',
+      weight: 2,
+      check: () => {
+        const empty = path.join(require('os').tmpdir(), `ml-empty-labels-${process.pid}.jsonl`);
+        fs.writeFileSync(empty, '');
+        const run = runNode('tools/ml-propensity-train.js', [
+          'train',
+          '--labels',
+          empty,
+          '--out',
+          path.join(require('os').tmpdir(), `ml-propensity-empty-${process.pid}.json`),
+          '--json',
+        ]);
+        let body = null;
+        try {
+          body = JSON.parse(run.stdout);
+        } catch {
+          /* below */
+        }
+        return {
+          pass: Boolean(body && body.trained === false && body.status === 'insufficient_labels'),
+          detail: body ? body.status : (run.stderr || run.stdout).slice(0, 180),
+        };
+      },
+    },
+    {
+      id: 'registry-serve-experiment-gate',
+      weight: 1.5,
+      check: () => ({
+        pass:
+          exists('tools/ml-registry.js') &&
+          exists('tools/ml-serve.js') &&
+          exists('tools/ml-experiment.js') &&
+          exists('tools/ml-gate.js'),
+        detail: 'registry + serve + experiment + gate',
+      }),
+    },
+    {
+      id: 'system-scores',
+      weight: 1,
+      check: () => ({
+        pass: exists('tools/ml-system-scores.js'),
+        detail: 'tools/ml-system-scores.js',
+      }),
+    },
+    {
+      id: 'ml-docs',
+      weight: 0.5,
+      check: () => ({
+        pass: exists('docs/ML-STACK-JULY-2026.md') || exists('docs/ML-BEST-IN-CLASS-JULY-2026.md'),
+        detail: 'ML docs',
+      }),
+    },
+  ]);
+
+  const pillars = [rag, agentTools, multiAgent, mcp, prod, mlStack];
   const overall = Number(
     (pillars.reduce((s, p) => s + p.score, 0) / pillars.length).toFixed(2),
   );

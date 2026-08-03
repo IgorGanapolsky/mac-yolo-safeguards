@@ -1,0 +1,162 @@
+{
+  "schema": "hermes/incident-eval-manifest/v1",
+  "version": "2026-07-28",
+  "tasks": [
+    {
+      "id": "connection-proof",
+      "ability": "distinguish authenticated connection state from UI substring matches",
+      "tier": "pr",
+      "instruction": "Accept a connection claim only when structured state, authenticated health, and non-contradictory UI evidence agree.",
+      "environment": {
+        "kind": "fixture",
+        "network": "denied",
+        "productionWrites": "denied"
+      },
+      "artifact": {
+        "kind": "typescript-export",
+        "path": "hermes-mobile/src/utils/connectionStatusContract.ts",
+        "export": "resolveCalmConnectionStatus"
+      },
+      "verifier": "connection-proof-v1",
+      "cases": [
+        {
+          "id": "production-unreachable-label",
+          "expectedDecision": "reject",
+          "input": {
+            "health": {
+              "authMismatch": false,
+              "directGatewayReachable": false,
+              "checkedAt": 1700000000000,
+              "level": "red"
+            }
+          }
+        },
+        {
+          "id": "production-auth-mismatch",
+          "expectedDecision": "reject",
+          "input": {
+            "health": {
+              "authMismatch": true,
+              "directGatewayReachable": true,
+              "checkedAt": 1700000000000,
+              "level": "green"
+            }
+          }
+        },
+        {
+          "id": "production-relay-green-mac-down",
+          "expectedDecision": "reject",
+          "input": {
+            "health": {
+              "authMismatch": false,
+              "directGatewayReachable": false,
+              "checkedAt": 1700000000000,
+              "level": "green"
+            }
+          }
+        },
+        {
+          "id": "production-direct-connected",
+          "expectedDecision": "accept",
+          "input": {
+            "health": {
+              "authMismatch": false,
+              "directGatewayReachable": true,
+              "checkedAt": 1700000000000,
+              "level": "green"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "continuous-e2e-proof",
+      "ability": "distinguish a real E2E pass from skipped or unproven evidence",
+      "tier": "pr",
+      "instruction": "Accept mobile E2E proof only when the run passed and binds both the tested revision and immutable artifact.",
+      "environment": {
+        "kind": "fixture",
+        "network": "denied",
+        "productionWrites": "denied"
+      },
+      "artifact": {
+        "kind": "json-binding",
+        "path": "evals/incidents/artifacts/continuous-e2e-bound.json",
+        "sha256": "14e9f54c5d709df450d98201b6a4b7fd26068f961dc3fa2e19db12fffdf0fd2e"
+      },
+      "verifier": "continuous-e2e-proof-v1",
+      "cases": [
+        {
+          "id": "reported-skipped-run",
+          "expectedDecision": "reject",
+          "input": {
+            "e2e": "skipped",
+            "gitSha": "1111111111111111111111111111111111111111",
+            "artifactSha256": "14e9f54c5d709df450d98201b6a4b7fd26068f961dc3fa2e19db12fffdf0fd2e"
+          }
+        },
+        {
+          "id": "statusless-proof",
+          "expectedDecision": "reject",
+          "input": {
+            "gitSha": "1111111111111111111111111111111111111111",
+            "artifactSha256": "14e9f54c5d709df450d98201b6a4b7fd26068f961dc3fa2e19db12fffdf0fd2e"
+          }
+        },
+        {
+          "id": "stale-artifact-revision",
+          "expectedDecision": "reject",
+          "input": {
+            "e2e": "pass",
+            "gitSha": "2222222222222222222222222222222222222222",
+            "artifactSha256": "14e9f54c5d709df450d98201b6a4b7fd26068f961dc3fa2e19db12fffdf0fd2e"
+          }
+        },
+        {
+          "id": "revision-bound-pass",
+          "expectedDecision": "accept",
+          "input": {
+            "e2e": "pass",
+            "gitSha": "1111111111111111111111111111111111111111",
+            "artifactSha256": "14e9f54c5d709df450d98201b6a4b7fd26068f961dc3fa2e19db12fffdf0fd2e"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ipad-runner-cost-proof",
+      "ability": "route trusted iPad E2E to a reserved self-hosted capability runner",
+      "tier": "pr",
+      "instruction": "Accept iPad CI routing only for trusted code on the reserved self-hosted iPad simulator runner.",
+      "environment": {
+        "kind": "fixture",
+        "network": "denied",
+        "productionWrites": "denied"
+      },
+      "verifier": "ipad-runner-cost-proof-v1",
+      "cases": [
+        {
+          "id": "hosted-macos-fixture",
+          "expectedDecision": "reject",
+          "input": {
+            "artifactPath": "evals/incidents/artifacts/ipad-hosted.yml"
+          }
+        },
+        {
+          "id": "untrusted-fork-fixture",
+          "expectedDecision": "reject",
+          "input": {
+            "artifactPath": "evals/incidents/artifacts/ipad-untrusted.yml"
+          }
+        },
+        {
+          "id": "production-workflow-safe",
+          "expectedDecision": "accept",
+          "input": {
+            "artifactPath": ".github/workflows/ipad-simulator-e2e.yml"
+          }
+        }
+      ]
+    }
+  ]
+}

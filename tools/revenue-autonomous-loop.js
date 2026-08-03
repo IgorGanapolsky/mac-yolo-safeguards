@@ -145,6 +145,10 @@ function parseArgs(argv) {
     else if (arg === '--help' || arg === '-h') args.help = true;
     else throw new Error(`Unknown argument: ${arg}`);
   }
+  // CEO GSD/Ralph 24-7: env alone is enough when LaunchAgent cannot pass CLI flags.
+  if (process.env.REVENUE_UNATTENDED_SEND_APPROVED === '1') {
+    args.allowUnattendedSend = true;
+  }
   return args;
 }
 
@@ -900,14 +904,132 @@ async function run(args) {
     linkByOffer[s.offer] = s;
   }
 
+  // Surface inbound replies BEFORE any sending. This ordering is the whole
+  // point: when the scan ran after the send loop, a run could cold-mail someone
+  // who had already replied and only note the blindness afterwards — which is
+  // exactly what happened to a prospect who replied 2026-07-22 and got another
+  // cold "$499" follow-up on 07-28.
+  let hotReplies = [];
+  let replyScanBlind = false;
+  // A sending run must scan. Fast mode may skip only when it will not mail anyone.
+  if ((!args.fast || args.autoSend) && process.env.REVENUE_REPLY_SCAN !== '0') {
+    try {
+      const { run: runReplyScan } = require('./gmail-outreach-reply-scan');
+      const useChrome = args.chrome !== false && process.env.REVENUE_NO_CHROME_GMAIL !== '1';
+      let scan = runReplyScan({
+        chrome: useChrome,
+        // Prefer Chrome when enabled; Gmail API is a fallback path (below).
+        gmailApi: !useChrome && process.env.HERMES_GOOGLE_API !== '0',
+        baseline: false,
+        ntfy: false,
+        json: true,
+        help: false,
+      });
+      // Chrome scrape is flaky (selector/load races). A blind Chrome result used
+      // to hard-stop ALL auto-send for the cycle even when Hermes Gmail API can
+      // answer "who replied?" — which zeroed emailable_due sends while the
+      // 24/7 cash loop was supposed to run. Retry once via Gmail API.
+      if (
+        scan &&
+        scan.scanBlind &&
+        useChrome &&
+        process.env.HERMES_GOOGLE_API !== '0' &&
+        process.env.REVENUE_NO_GMAIL_API_FALLBACK !== '1'
+      ) {
+        actions.push(
+          `gmail_reply_scan chrome_blind cause=${scan.blindCause || 'unknown'}; retry_gmail_api`,
+        );
+        try {
+          const apiScan = runReplyScan({
+            chrome: false,
+            gmailApi: true,
+            baseline: false,
+            ntfy: false,
+            json: true,
+            help: false,
+          });
+          if (apiScan && !apiScan.scanBlind) {
+            scan = apiScan;
+            actions.push('gmail_reply_scan api_fallback=ok');
+          } else {
+            actions.push(
+              `gmail_reply_scan api_fallback=${apiScan && apiScan.scanBlind ? 'still_blind' : 'fail'}`,
+            );
+          }
+        } catch (apiErr) {
+          actions.push(
+            `gmail_reply_scan api_fallback_error:${(apiErr.message || '').slice(0, 60)}`,
+          );
+        }
+      }
+      hotReplies = (scan && scan.hot) || [];
+      // hot=0 from a blind scan is not the same fact as hot=0 from a real scan,
+      // and the difference decides whether we keep cold-mailing.
+      replyScanBlind = Boolean(scan && scan.scanBlind);
+      actions.push(
+        `gmail_reply_scan hot=${hotReplies.length} status=${(scan && scan.replyStatus) || 'unknown'} chrome=${scan && scan.chromeOk} gmailApi=${scan && scan.gmailApi} board=${scan && scan.boardPath}`,
+      );
+      if (replyScanBlind) {
+        actions.push('gmail_reply_scan_BLIND=reply_state_unknown_do_not_read_as_zero');
+      }
+    } catch (err) {
+      // An erroring scan is unknown reply state, not zero — same as a blind one.
+      replyScanBlind = true;
+      actions.push(`gmail_reply_scan_error:${(err.message || '').slice(0, 80)}`);
+    }
+  } else {
+    // No scan means we cannot know who replied. --fast is a diagnostics mode and
+    // never sends, but REVENUE_REPLY_SCAN=0 on a sending run must not be a way
+    // to skip the check and mail people anyway.
+    // Skipping the scan is blind regardless of WHY. The previous `!args.fast` claimed
+      // fast mode was not blind because it "never sends" — but ralph-gsd-loop.js:277
+      // invokes this with `--auto-send --fast`, so the hard-stop below was bypassed on
+      // exactly the path that mails people.
+      replyScanBlind = true;
+    actions.push('gmail_reply_scan=skipped');
+  }
+
+  // Addresses that have already replied are never cold-followed-up again.
+  const repliedEmails = new Set(
+    hotReplies.map((h) => String(h.email || '').toLowerCase()).filter(Boolean),
+  );
+
+  // `hot` is notification-only: gmail-outreach-reply-scan.js marks seen[id] on first
+  // sight and skips it on every later scan, so a reply excluded a follow-up exactly
+  // ONCE and then dropped out while the pipeline row was still due. That is how a
+  // prospect who replied on 2026-07-22 received a cold follow-up on 07-28.
+  for (const email of loadRepliedContacts()) repliedEmails.add(email);
+  if (repliedEmails.size) saveRepliedContacts(repliedEmails);
+
   // Scheduled jobs can never send just because a plist or inherited environment
   // says "auto". The second, invocation-scoped gate is intentionally absent from
   // every LaunchAgent, so unattended outreach defaults to a queued, reviewable
   // operation after an incident.
+  //
+  // Unknown reply state is also a hard stop: if we cannot see who replied, we
+  // cannot safely cold-mail anyone.
+  // A sender proven not to deliver must not consume prospects. Five were burned on
+  // 2026-07-29 because every send bounced while the ledger recorded them as sent — you
+  // get one first email per person, so a bounced send is a lost contact, not a retry.
+  // UNKNOWN only warns: blocking on unknown would deadlock the loop the first time a
+  // new address appears, and a guard that halts normal work gets switched off.
+  const senderAddress = process.env.REVENUE_SENDER_ADDRESS || 'igor@igorganapolsky.com';
+  const senderHealth = require('./sender-health').checkSender(senderAddress);
+  if (!senderHealth.allowed) {
+    actions.push(`auto_send=blocked_sender_unhealthy:${senderHealth.status}`);
+  } else if (senderHealth.status !== 'ok') {
+    actions.push(`sender_health=${senderHealth.status}`);
+  }
+
   const unattendedSendAllowed =
     args.autoSend &&
     args.allowUnattendedSend &&
-    process.env.REVENUE_UNATTENDED_SEND_APPROVED === '1';
+    process.env.REVENUE_UNATTENDED_SEND_APPROVED === '1' &&
+    !replyScanBlind &&
+    senderHealth.allowed;
+  if (args.autoSend && args.allowUnattendedSend && replyScanBlind) {
+    actions.push('auto_send=blocked_reply_scan_blind');
+  }
   if (args.autoSend && !unattendedSendAllowed) {
     actions.push('auto_send=blocked_by_safety_gate');
     for (const row of dueRows) {
@@ -922,8 +1044,23 @@ async function run(args) {
   }
 
   if (unattendedSendAllowed) {
+    // Someone who replied gets a human answer, never another cold follow-up.
+    const sendable = dueRows.filter((row) => {
+      const c = contactForProspect(contacts, row);
+      const email = String(c?.email || '').toLowerCase();
+      if (email && repliedEmails.has(email)) {
+        actions.push(`auto_send=skipped_already_replied:${row.prospect_label}`);
+        pendingSends.push({
+          prospect: row.prospect_label,
+          reason: 'already_replied_needs_human_answer',
+          to: c?.email,
+        });
+        return false;
+      }
+      return true;
+    });
     // Prefer emailable due rows first (GH-only issues sort later)
-    const ranked = [...dueRows].sort((a, b) => {
+    const ranked = [...sendable].sort((a, b) => {
       const ae = contactForProspect(contacts, a) ? 0 : 1;
       const be = contactForProspect(contacts, b) ? 0 : 1;
       return ae - be || (b.hours_since || 0) - (a.hours_since || 0);
@@ -1070,28 +1207,8 @@ async function run(args) {
     { mode: 0o600 },
   );
 
-  // High-ROI: surface inbound replies so agents act with buyer-reply-packet (skip in --fast).
-  let hotReplies = [];
-  if (!args.fast && process.env.REVENUE_REPLY_SCAN !== '0') {
-    try {
-      const { run: runReplyScan } = require('./gmail-outreach-reply-scan');
-      const scan = runReplyScan({
-        chrome: args.chrome !== false && process.env.REVENUE_NO_CHROME_GMAIL !== '1',
-        baseline: false,
-        ntfy: false,
-        json: true,
-        help: false,
-      });
-      hotReplies = (scan && scan.hot) || [];
-      actions.push(
-        `gmail_reply_scan hot=${hotReplies.length} chrome=${scan && scan.chromeOk} board=${scan && scan.boardPath}`,
-      );
-    } catch (err) {
-      actions.push(`gmail_reply_scan_error:${(err.message || '').slice(0, 80)}`);
-    }
-  } else {
-    actions.push('gmail_reply_scan=skipped');
-  }
+  // (The inbound-reply scan used to run here — after the send loop. It now runs
+  //  BEFORE it, so its result can gate sending. See scanInboundReplies above.)
 
   const summary = {
     ok: true,
@@ -1109,6 +1226,7 @@ async function run(args) {
       hours_since: d.hours_since,
     })),
     hotReplies,
+    replyScanBlind,
     actions,
     sentCount,
     pendingMcp: pendingSends.length,
@@ -1124,8 +1242,17 @@ async function run(args) {
   summary.receiptPath = appendState(summary);
 
   const badN = stripe.filter((s) => !s.ok).length;
+  // A blind reply scan is never a no-op. Without this the scheduled loop can
+  // finish "healthy" — or be silenced entirely by the quiet-noop rule — while
+  // the reply state is actually unknown, which is how a real buyer reply went
+  // unnoticed for six days. The scanner's own page is suppressed on this path
+  // (it is invoked with ntfy:false), so this is the only alert that fires.
   const noop =
-    badN === 0 && dueRows.length === 0 && sentCount === 0 && pendingSends.length === 0;
+    badN === 0 &&
+    dueRows.length === 0 &&
+    sentCount === 0 &&
+    pendingSends.length === 0 &&
+    !replyScanBlind;
   summary.noop = noop;
   summary.fast = Boolean(args.fast);
 
@@ -1138,10 +1265,15 @@ async function run(args) {
       const title =
         badN > 0
           ? `Revenue loop: ${badN} Stripe links broken`
-          : dueRows.length > 0
-            ? `Revenue loop: ${dueRows.length} follow-ups due`
-            : `Revenue loop: healthy (open $${funnel.openGross})`;
+          : replyScanBlind
+            ? 'Revenue loop: REPLY STATE UNKNOWN (scan blind)'
+            : dueRows.length > 0
+              ? `Revenue loop: ${dueRows.length} follow-ups due`
+              : `Revenue loop: healthy (open $${funnel.openGross})`;
       const body = [
+        replyScanBlind
+          ? 'REPLY SCAN BLIND — reply count is unknown, not zero. Do not read "0 replies" from this run.'
+          : null,
         `Funnel open $${funnel.openGross} total=${funnel.total} sent=${funnel.counts.sent || 0} replied=${funnel.counts.replied || 0} paid=${funnel.counts.paid || 0}`,
         `Stripe OK ${stripe.filter((s) => s.ok).length}/${stripe.length}`,
         `Due ≥${FOLLOWUP_HOURS}h: ${dueRows.length}`,
@@ -1150,13 +1282,51 @@ async function run(args) {
         gmail.ready
           ? 'Gmail API ready'
           : `Gmail API not ready — Chrome compose fallback enabled (${(gmail.reason || '').slice(0, 60)})`,
-      ].join('\n');
-      summary.ntfy = ntfyPush(title, body, badN > 0 || dueRows.length > 3 ? 'high' : 'default');
+      ]
+        .filter(Boolean)
+        .join('\n');
+      summary.ntfy = ntfyPush(
+        title,
+        body,
+        badN > 0 || replyScanBlind || dueRows.length > 3 ? 'high' : 'default',
+      );
       actions.push(`ntfy=${summary.ntfy.ok ? 'ok' : 'fail'}`);
     }
   }
 
   return summary;
+}
+
+// Replies are permanent facts about a contact, but the scanner only reports each one
+// on the cycle that first sees it. This is the durable record the send gate consults.
+const REPLIED_CONTACTS_FILE = 'replied-contacts.json';
+
+function repliedContactsPath() {
+  return path.join(REVENUE_DIR, REPLIED_CONTACTS_FILE);
+}
+
+function loadRepliedContacts() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(repliedContactsPath(), 'utf8'));
+    return new Set((raw.emails || []).map((e) => String(e).toLowerCase()).filter(Boolean));
+  } catch {
+    // Absent or unreadable state must not silently widen the send set; callers union
+    // this with the live scan, so an empty set is the conservative direction only when
+    // the live scan succeeded. Blindness is handled separately by replyScanBlind.
+    return new Set();
+  }
+}
+
+function saveRepliedContacts(emails) {
+  try {
+    const existing = loadRepliedContacts();
+    for (const e of emails) existing.add(String(e).toLowerCase());
+    fs.mkdirSync(REVENUE_DIR, { recursive: true });
+    fs.writeFileSync(
+      repliedContactsPath(),
+      `${JSON.stringify({ updatedAt: new Date().toISOString(), emails: [...existing].sort() }, null, 2)}\n`,
+    );
+  } catch { /* best-effort: never block a run on bookkeeping */ }
 }
 
 async function main() {
