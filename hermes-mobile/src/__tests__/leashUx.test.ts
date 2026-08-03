@@ -46,10 +46,11 @@ describe('leashUx', () => {
     expect(text).not.toMatch(/config\.yaml|approvals\.mode|gateway|LAN/i);
   });
 
-  it('explains approval-first empty state without claiming Leash opens first', () => {
+  it('empty state names blocked tools — not a mystery “approval first” mode', () => {
     const text = buildLeashEmptyExplanation({ ...DEFAULT_GATEWAY_SETTINGS, safetyMode: true });
-    expect(text).toContain('Approval-first is on');
+    expect(text).toMatch(/blocked tools|risky command|file action/i);
     expect(text).toContain('your Mac');
+    expect(text).not.toContain('Approval-first');
     expect(text).not.toContain('Leash opens first');
     expect(text).not.toMatch(/config\.yaml|approvals\.mode/i);
   });

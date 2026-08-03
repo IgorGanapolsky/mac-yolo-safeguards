@@ -245,8 +245,8 @@ test("lessons workspace activity stats and lesson cards deep-link into Hermes", 
   assert.match(dashboard, /id=\{`task-\$\{task\.id\}`\}/);
   assert.match(dashboard, /taskFilter/);
   assert.match(dashboard, /filter === "unrated"/);
-  assert.match(dashboard, /Pair another computer/);
-  assert.match(dashboard, /Manage \/ remove machines/);
+  assert.match(dashboard, /pairComputerLabel|Pair another computer|Pair computer/);
+  assert.match(dashboard, /Manage machines/);
   assert.match(globals, /\.lesson-activity li a\{/);
   assert.match(globals, /\.lesson-card-actions\{/);
   assert.match(globals, /\.task-filter-banner\{/);
@@ -277,16 +277,18 @@ test("lets users choose local machine vs Continuity VPS on every task not only o
   const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
   const taskRouting = readFileSync(new URL("../lib/task-routing.ts", import.meta.url), "utf8");
   assert.match(dashboard, /routePreference/);
-  // Unified "Run on" select (dual Where/Which chips removed — unreadable on mobile).
-  assert.match(dashboard, /selectedDevice \? selectedDeviceLabel : "My computer"/);
+  // Unified "Run on" select — honest host names, active pair CTA when unpaired.
+  assert.match(dashboard, /autoRouteLabel/);
+  assert.match(dashboard, /needs a paired Mac first/);
   assert.match(dashboard, /composer-unified-target/);
   assert.match(dashboard, /composer-target-select/);
   assert.match(dashboard, /Run on/);
-  assert.match(dashboard, /Auto — \{selectedDevice \? selectedDeviceLabel : "My computer"\} first, then Continuity/);
-  assert.match(dashboard, /only \(this Mac\)/);
+  assert.match(dashboard, /composer-pair-cta|openPairingSettings/);
+  assert.match(dashboard, /Pair computer →/);
   assert.match(dashboard, /Continuity \(cloud VPS\)/);
   assert.match(dashboard, /aria-labelledby="composer-where-label"/);
   assert.doesNotMatch(dashboard, /composer-route-label/);
+  assert.doesNotMatch(dashboard, /My computer/);
   assert.doesNotMatch(dashboard, /My Mac only|Which Mac\?|>My Mac</);
   assert.match(tasksRoute, /routePreference/);
   assert.match(tasksRoute, /decideTaskRoute/);

@@ -13,7 +13,7 @@ type ThumbGatePromoCardProps = {
   style?: object;
 };
 
-const OPEN_FAIL_TITLE = 'Could not open ThumbGate';
+const OPEN_FAIL_TITLE = 'Could not open ThumbGate.app';
 const OPEN_FAIL_MESSAGE =
   'Open https://thumbgate.app in your browser to continue.';
 
