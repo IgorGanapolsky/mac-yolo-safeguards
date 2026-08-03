@@ -159,9 +159,12 @@ function decodeXml(text) {
 // dependency, since none exists in this repo and this tool doesn't warrant
 // adding one.
 function stripHtml(html) {
+  // Closing tags may include whitespace/attrs (`</script >`, `</script\t bar>`).
+  // Bare `<\/script\s*>` is a CodeQL js/bad-tag-filter hit and can leave script
+  // source as "body text" — same fix pattern as tools/verify-public-post.js.
   return decodeXml(html)
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, ' ')
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, ' ')
+    .replace(/<script\b[\s\S]*?<\/script\s*[^>]*>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style\s*[^>]*>/gi, ' ')
     .replace(/<\/?(?:script|style)\b[^>]*>/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
