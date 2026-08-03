@@ -17,11 +17,13 @@ function decodeBasicEntities(s) {
     if (n === 'apos' || n === '#39') return "'";
     if (n.startsWith('#x')) {
       const cp = parseInt(n.slice(2), 16);
-      return Number.isFinite(cp) ? String.fromCodePoint(cp) : m;
+      if (!Number.isFinite(cp) || cp < 0 || cp > 0x10ffff) return m;
+      return String.fromCodePoint(cp);
     }
     if (n.startsWith('#')) {
       const cp = parseInt(n.slice(1), 10);
-      return Number.isFinite(cp) ? String.fromCodePoint(cp) : m;
+      if (!Number.isFinite(cp) || cp < 0 || cp > 0x10ffff) return m;
+      return String.fromCodePoint(cp);
     }
     return m;
   });

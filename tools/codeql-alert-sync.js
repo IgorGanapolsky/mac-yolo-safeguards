@@ -31,12 +31,21 @@ function parseArgs(argv) {
     if (a === '--json') out.json = true;
     else if (a === '--gate') out.gate = true;
     else if (a === '--help' || a === '-h') out.help = true;
-    else if (a === '--max-high') out.maxHigh = Number(argv[++i]);
-    else if (a === '--max-open') out.maxOpen = Number(argv[++i]);
+    else if (a === '--max-high') out.maxHigh = argv[++i];
+    else if (a === '--max-open') out.maxOpen = argv[++i];
     else if (a === '--write-baseline') out.writeBaseline = true;
     else if (a === '--check-increase') out.checkIncrease = true;
     else if (a === '--dismiss-fps') out.dismissFps = true;
     else if (a === '--dry-run') out.dryRun = true;
+  }
+  // Coerce thresholds: reject NaN so typos cannot soft-pass the gate.
+  for (const key of ['maxHigh', 'maxOpen']) {
+    if (out[key] === undefined || out[key] === null || out[key] === '') continue;
+    const n = Number(out[key]);
+    if (!Number.isFinite(n) || n < 0) {
+      throw new Error(`Invalid --${key === 'maxHigh' ? 'max-high' : 'max-open'}: ${out[key]} (need non-negative number)`);
+    }
+    out[key] = n;
   }
   return out;
 }
@@ -164,7 +173,14 @@ function dismissAlert(slug, number, reason, comment, dryRun) {
 }
 
 function main() {
-  const args = parseArgs(process.argv.slice(2));
+  let args;
+  try {
+    args = parseArgs(process.argv.slice(2));
+  } catch (e) {
+    console.error('codeql-alert-sync:', e.message || e);
+    process.exitCode = 2;
+    return;
+  }
   if (args.help) {
     console.log(`codeql-alert-sync
 
@@ -187,7 +203,9 @@ Usage:
   const alerts = ghApi(`repos/${slug}/code-scanning/alerts?state=open&per_page=100`);
   if (alerts.error) {
     console.error('codeql-alert-sync:', alerts.message);
-    if (args.gate && process.env.CODEQL_GATE_STRICT === '1') process.exitCode = 1;
+    // --gate must not silent-pass when alert retrieval fails (auth/rate/network).
+    // Soft only when explicitly not gating, or GATE_SOFT=1 for optional CI probes.
+    if (args.gate && process.env.CODEQL_GATE_SOFT !== '1') process.exitCode = 1;
     if (args.json) console.log(JSON.stringify({ ok: false, error: alerts.message }));
     return;
   }

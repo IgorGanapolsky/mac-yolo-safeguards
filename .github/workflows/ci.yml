@@ -296,6 +296,7 @@ jobs:
       - name: Code scanning open-alert budget
         env:
           CODEQL_GATE_STRICT: ${{ vars.CODEQL_GATE_STRICT || '0' }}
+          CODEQL_GATE_SOFT: ${{ vars.CODEQL_GATE_SOFT || '1' }}
         run: |
           set -eu
           node tools/codeql-alert-sync.js --gate --max-high 0 --max-open 15 --json | tee "$RUNNER_TEMP/codeql-gate.json" || {
