@@ -32,6 +32,7 @@ import {
   useGatewayApprovals,
   useGatewayChatSync,
 } from '../hooks/useGatewaySelector';
+import { useGateway } from '../context/GatewayContext';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import {
   composerDockInsets,
@@ -299,6 +300,8 @@ import GatewayOpsSection from '../components/GatewayOpsSection';
 import ChatApprovalBar from '../components/ChatApprovalBar';
 import RunProgressBanner from '../components/RunProgressBanner';
 import EmptyStreamRefreshBanner from '../components/EmptyStreamRefreshBanner';
+import WorkingActivityBar from '../components/WorkingActivityBar';
+import { isChatWorkingActivity } from '../utils/chatWorkingActivity';
 import ComposerErrorBanner from '../components/ComposerErrorBanner';
 import type { RunProgressState } from '../types/chatDisplay';
 import type { GatewayEventMessage } from '../types/gateway';
@@ -470,9 +473,14 @@ import {
   shouldAwaitGatewayReplyAfterSend,
   shouldHardStopEmptyStreamWait,
   shouldKeepAutoPollingForReply,
+  serverHasAssistantReplyAfterLastUser,
   toolActivityAfterLastUser,
 } from '../utils/emptyStreamReplyRecovery';
-import { shouldShowEmptyStreamRefreshCta } from '../utils/emptyStreamRefreshCta';
+import {
+  isEmptyStreamRecoveryStatus,
+  shouldShowEmptyStreamRefreshCta,
+  stripSupersededEmptyStreamTimeouts,
+} from '../utils/emptyStreamRefreshCta';
 import {
   msUntilLivePromptHardTimeout,
   messageSentAtMs,
@@ -653,6 +661,7 @@ export default function ChatScreen() {
     connectionHealInFlight,
     connectionHealExhausted,
   } = useGatewayConnection();
+  const { thumbgateApiKey } = useGateway();
   const [activeAgents, setActiveAgents] = useState<{ name: string; status: string }[]>([]);
   const { relayWorkers, isPaired, activeRelayWorkerId } = useGatewayRelay();
   const {
@@ -2099,9 +2108,13 @@ export default function ChatScreen() {
     });
   }, [health?.authMismatch, repairComputerLabel]);
 
+  // Never put optional "cloud approval push" status next to the computer name when
+  // chat itself is down — that reads as "computer not paired" (owner rage 2026-08-02).
+  // Only surface unpaired-relay copy when chat/HTTP is already healthy (secondary tip).
   const routeStatusLabel =
     settings.connectionMode === 'relay' &&
     !isPaired &&
+    effectiveMacHttpOk &&
     relayRouteDisplay.routeStatus !== 'Direct link'
       ? relayRouteDisplay.routeStatus
       : !effectiveMacHttpOk && connectionHealExhausted
@@ -3543,10 +3556,12 @@ export default function ChatScreen() {
             awaitingGatewayReplyRef.current = false;
             setAwaitingGatewayReply(false);
             commitMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId
-                  ? { ...m, content: preferRicherAssistantText(m.content, reply) }
-                  : m,
+              stripSupersededEmptyStreamTimeouts(
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? { ...m, content: preferRicherAssistantText(m.content, reply) }
+                    : m,
+                ),
               ),
             );
             const activityAfterReply = toolActivityAfterLastUser(msgs);
@@ -4565,6 +4580,37 @@ export default function ChatScreen() {
     [isDemo, macChatLive, messages],
   );
 
+  // When a real assistant reply lands after soft/hard empty-stream timeout, drop the
+  // stale "Stopped waiting" banner chrome, timeout bubble, and recovery toolStatus.
+  useEffect(() => {
+    if (isDemo || !macChatLive) {
+      return;
+    }
+    if (!serverHasAssistantReplyAfterLastUser(messages)) {
+      return;
+    }
+    const stripped = stripSupersededEmptyStreamTimeouts(messages);
+    if (stripped.length !== messages.length) {
+      commitMessages(() => stripped);
+    }
+    if (isEmptyStreamRecoveryStatus(toolStatus)) {
+      setToolStatus(null);
+    }
+    setRunProgress((prev) => {
+      if (!prev || prev.phase !== 'failed') {
+        return prev;
+      }
+      if (isEmptyStreamRecoveryStatus(prev.detail)) {
+        return null;
+      }
+      return prev;
+    });
+    if (awaitingGatewayReply) {
+      awaitingGatewayReplyRef.current = false;
+      setAwaitingGatewayReply(false);
+    }
+  }, [isDemo, macChatLive, messages, toolStatus, awaitingGatewayReply, commitMessages]);
+
   const lastUserPromptSentAtMs = useMemo(() => {
     const fromMessages = resolveLastUserPromptSentAtMs(messages);
     if (fromMessages != null) {
@@ -5386,11 +5432,26 @@ export default function ChatScreen() {
       const key = resolveChatOutputFeedbackBusyKey(message);
       // Highlight the tapped thumb; user can switch up<->down freely.
       setFeedbackSelections((prev) => ({ ...prev, [key]: signal }));
-      // Always record the vote to ThumbGate. The explanation sheet is now
-      // opt-in (via the "Add details" link), not auto-opened on every tap.
-      void submitChatOutputFeedbackForMessage(message, signal).then((ok) => {
-        setTransientFeedbackNote(key, ok ? 'Saved to ThumbGate' : 'Not recorded', !ok);
+      // Record immediately with an honest outcome note (never claim "Saved" on offline queue).
+      void submitChatOutputFeedbackForMessage(message, signal).then((outcome) => {
+        const ok =
+          typeof outcome === 'boolean'
+            ? outcome
+            : Boolean(outcome && (outcome.accepted || outcome.status === 'queued_offline'));
+        const note =
+          typeof outcome === 'boolean'
+            ? ok
+              ? 'Saved to ThumbGate memory'
+              : 'Not recorded'
+            : outcome.note;
+        const isError =
+          typeof outcome === 'boolean' ? !ok : Boolean(outcome?.noteIsError);
+        setTransientFeedbackNote(key, note, isError);
       });
+      // Thumbs-down: open optional details so the capture can improve memory quality.
+      if (signal === 'down') {
+        setFeedbackPrompt({ message, signal });
+      }
     },
     [submitChatOutputFeedbackForMessage, setTransientFeedbackNote],
   );
@@ -5412,15 +5473,26 @@ export default function ChatScreen() {
   const resolveFeedbackPrompt = useCallback(
     (explanation?: string) => {
       if (feedbackPrompt) {
+        const key = resolveChatOutputFeedbackBusyKey(feedbackPrompt.message);
         void submitChatOutputFeedbackForMessage(
           feedbackPrompt.message,
           feedbackPrompt.signal,
           explanation?.trim() || undefined,
-        );
+        ).then((outcome) => {
+          if (typeof outcome === 'boolean') {
+            setTransientFeedbackNote(
+              key,
+              outcome ? 'Saved to ThumbGate memory' : 'Not recorded',
+              !outcome,
+            );
+            return;
+          }
+          setTransientFeedbackNote(key, outcome.note, outcome.noteIsError);
+        });
       }
       setFeedbackPrompt(null);
     },
-    [feedbackPrompt, submitChatOutputFeedbackForMessage],
+    [feedbackPrompt, submitChatOutputFeedbackForMessage, setTransientFeedbackNote],
   );
 
   const isTelegramInbox = isTelegramInboxSession(currentSession);
@@ -5476,6 +5548,18 @@ export default function ChatScreen() {
           outputFeedback={outputFeedback}
           onShowDetail={handleShowMessageDetail}
           onInlineTextApproval={handleInlineTextApproval}
+          onResendFailed={() => {
+            // Prefer failed bubble body; refs avoid TDZ (this callback is defined above handleRetryFailedSend).
+            const retryText =
+              (typeof message.content === 'string' ? message.content.trim() : '') ||
+              lastFailedSendTextRef.current?.trim() ||
+              '';
+            if (!retryText) {
+              return;
+            }
+            lastFailedSendTextRef.current = retryText;
+            void sendUserTextRef.current(retryText, true);
+          }}
         />
       );
     },
@@ -7299,6 +7383,18 @@ export default function ChatScreen() {
     alternateHealRoutes,
   ]);
 
+  /** Top pulse + "Connected · working" while Mac is still thinking / checking. */
+  const chatWorking = useMemo(
+    () =>
+      isChatWorkingActivity({
+        isSending,
+        awaitingGatewayReply,
+        emptyStreamAutoChecking: showEmptyStreamRefreshBanner && awaitingGatewayReply,
+        runProgress: progressBanner,
+      }),
+    [isSending, awaitingGatewayReply, showEmptyStreamRefreshBanner, progressBanner],
+  );
+
   const emptyReplyRunRefreshEligible = useMemo(
     () =>
       !isDemo &&
@@ -7913,6 +8009,7 @@ export default function ChatScreen() {
           }
           isDemo={isDemo}
           chatStalled={effectiveAuthMismatch ? false : chatStalled}
+          chatWorking={effectiveAuthMismatch ? false : chatWorking}
           activeAgents={activeAgents}
           currentSession={currentSession}
           gatewayModel={headerGatewayModel}
@@ -7954,6 +8051,7 @@ export default function ChatScreen() {
           }}
           onMacRetry={() => void handleMacRetry()}
         />
+        <WorkingActivityBar visible={chatWorking && !effectiveAuthMismatch} />
       </View>
 
       <View style={styles.keyboardContainer}>
@@ -8016,6 +8114,7 @@ export default function ChatScreen() {
               }}
               liveUsb={liveUsbGateway}
               onAddProfile={addGatewayProfile}
+              hasThumbGateCompanion={Boolean(thumbgateApiKey?.trim())}
             />
           </ScrollView>
         ) : null}

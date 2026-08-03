@@ -220,23 +220,147 @@ function graphifyQuery(task) {
   };
 }
 
-function localRetrieval(task) {
+/**
+ * Local repo retrieval for the decision stack.
+ * Prefers dual-path (production finalize: doc ACL + turn-trace) so agent RAG
+ * is observable and fail-closed. Falls back to plain harness retrieve.
+ *
+ * Env:
+ *   HERMES_TURN_TRACE=0          disable default turn traces
+ *   HERMES_RETRIEVE_PRINCIPAL    document ACL principal (e.g. org:demo)
+ *   HERMES_DOCUMENT_ACL          path or JSON for hermes-document-acl/v1
+ *   HERMES_DECISION_DUAL_PATH=full  also fuse grepae (slower)
+ */
+function localRetrieval(task, options = {}) {
   const harnessPath = path.join(REPO, 'tools', 'hermes-retrieval-harness.js');
+  const dualPathScript = path.join(REPO, 'tools', 'retrieval-dual-path.js');
+  if (!fs.existsSync(harnessPath) && !fs.existsSync(dualPathScript)) {
+    return { skipped: true, reason: 'retrieval tools missing' };
+  }
+
+  const limit = Number(options.limit || 5);
+  const principal = options.principal || process.env.HERMES_RETRIEVE_PRINCIPAL || '';
+  const acl = options.acl || process.env.HERMES_DOCUMENT_ACL || '';
+  // Default ON for live agent path unless explicitly disabled.
+  const wantTrace = options.trace !== false && process.env.HERMES_TURN_TRACE !== '0';
+  const fullDual = options.fullDualPath === true || process.env.HERMES_DECISION_DUAL_PATH === 'full';
+
+  // Prefer dual-path CLI so ACL + writeTurnTrace always go through production-ops.
+  if (fs.existsSync(dualPathScript)) {
+    try {
+      const args = [
+        dualPathScript,
+        '--query',
+        String(task),
+        '--limit',
+        String(limit),
+        '--json',
+        '--no-rerank',
+        '--repo',
+        REPO,
+      ];
+      if (!fullDual) args.push('--harness-only');
+      if (wantTrace) args.push('--trace');
+      if (principal) {
+        args.push('--principal', principal);
+      }
+      if (acl) {
+        args.push('--acl', acl);
+      }
+      const r = spawnSync(process.execPath, args, {
+        encoding: 'utf8',
+        cwd: REPO,
+        timeout: 90_000,
+        maxBuffer: 8 * 1024 * 1024,
+      });
+      if (r.status === 0) {
+        const body = JSON.parse(r.stdout || '{}');
+        const matches = Array.isArray(body.matches) ? body.matches : [];
+        return {
+          query: String(task).slice(0, 200),
+          backend: body.fusion || 'dual-path',
+          fileCount: matches.length,
+          production: {
+            acl: body.acl || null,
+            latencyMs: body.latencyMs ?? null,
+            traceId: body.traceId || null,
+            tracePath: body.tracePath || null,
+            traceError: body.traceError || null,
+            pathStatus: body.pathStatus || null,
+            rewritten: body.rewritten || null,
+          },
+          citations: matches.map((match) => ({
+            path: match.path,
+            score: match.rerankScore ?? match.rrfScore ?? match.score,
+            reasons: match.reasons || match.sources || match.method || undefined,
+            snippet: match.snippet,
+          })),
+        };
+      }
+      // Fall through to harness on non-zero dual-path exit.
+    } catch {
+      /* fall through */
+    }
+  }
+
   if (!fs.existsSync(harnessPath)) {
-    return { skipped: true, reason: 'tools/hermes-retrieval-harness.js missing' };
+    return { error: 'dual-path failed and harness missing' };
   }
   try {
     const { retrieve } = require(harnessPath);
     const result = retrieve(task, {
       repo: REPO,
-      limit: 5,
+      limit,
       maxFiles: 4000,
       maxBytes: 160000,
     });
+    // Still apply production-ops finalize when dual-path CLI is unavailable.
+    let matches = (result.matches || []).map((m, i) => ({
+      path: m.path,
+      rank: i + 1,
+      score: m.score,
+      snippet: m.snippet,
+      reasons: m.reasons,
+      source: 'harness',
+    }));
+    let production = { backend: 'harness', fallback: true };
+    try {
+      const { finalizeRetrieveResult } = require(dualPathScript);
+      const finalized = finalizeRetrieveResult(
+        {
+          query: task,
+          matches,
+          fusion: 'decision-stack-harness-fallback',
+          pathStatus: { harness: 'ok', grepai: 'skipped' },
+        },
+        {
+          principal: principal || undefined,
+          acl: acl || undefined,
+          trace: wantTrace,
+          route: { id: 'agent-decision-stack/localRetrieval' },
+          traceDir: options.traceDir,
+          _startedAt: Date.now(),
+        },
+      );
+      matches = finalized.matches || matches;
+      production = {
+        backend: finalized.fusion || 'decision-stack-harness-fallback',
+        fallback: true,
+        acl: finalized.acl || null,
+        latencyMs: finalized.latencyMs ?? null,
+        traceId: finalized.traceId || null,
+        tracePath: finalized.tracePath || null,
+        traceError: finalized.traceError || null,
+      };
+    } catch (finalizeErr) {
+      production.finalizeError = finalizeErr.message || String(finalizeErr);
+    }
     return {
-      query: task.slice(0, 200),
+      query: String(task).slice(0, 200),
+      backend: production.backend || 'harness',
       fileCount: result.fileCount,
-      citations: result.matches.map((match) => ({
+      production,
+      citations: matches.map((match) => ({
         path: match.path,
         score: match.score,
         reasons: match.reasons,
@@ -406,6 +530,12 @@ function main() {
   }
   if (brief.rag.localRetrieval?.citations?.length) {
     console.log('## Local retrieval citations');
+    const prod = brief.rag.localRetrieval.production;
+    if (prod) {
+      console.log(
+        `backend=${brief.rag.localRetrieval.backend || '-'} traceId=${prod.traceId || '-'} latencyMs=${prod.latencyMs ?? '-'}`,
+      );
+    }
     for (const citation of brief.rag.localRetrieval.citations) {
       console.log(`- ${citation.path} score=${citation.score}`);
     }

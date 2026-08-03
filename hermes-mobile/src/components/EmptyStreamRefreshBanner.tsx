@@ -44,12 +44,12 @@ export default function EmptyStreamRefreshBanner({
 
   const hardStopped = shouldHardStopEmptyStreamWait(elapsedMs);
   const displayElapsedMs = emptyStreamDisplayElapsedMs(elapsedMs);
-  const hint = emptyStreamBannerHint(elapsedMs);
+  const hint = emptyStreamBannerHint(elapsedMs, { pendingApprovalCount });
   const showSpinner = autoChecking && !hardStopped;
-  const leashLabel =
-    pendingApprovalCount > 0
-      ? `Open Leash (${pendingApprovalCount})`
-      : 'Open Leash';
+  // Only surface Leash when something is actually waiting for approve/deny.
+  // Empty-stream stalls are almost never "go open Leash" — that was rage bait.
+  const showLeashCta = Boolean(onOpenLeash) && pendingApprovalCount > 0;
+  const leashLabel = `Open Leash (${pendingApprovalCount})`;
 
   return (
     <View style={styles.wrap} testID="empty-stream-refresh-banner">
@@ -69,7 +69,9 @@ export default function EmptyStreamRefreshBanner({
           ) : null}
           {hardStopped ? (
             <Text style={styles.stoppedLabel} testID="empty-stream-hard-stopped">
-              Wait stopped — act on Leash or start fresh
+              {showLeashCta
+                ? 'Wait stopped — clear Leash approvals or start fresh'
+                : 'Wait stopped — start a fresh chat'}
             </Text>
           ) : null}
         </View>
@@ -100,7 +102,7 @@ export default function EmptyStreamRefreshBanner({
             )}
           </Pressable>
         ) : null}
-        {onOpenLeash ? (
+        {showLeashCta ? (
           <Pressable
             onPress={onOpenLeash}
             accessibilityRole="button"

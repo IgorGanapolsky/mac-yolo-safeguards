@@ -71,6 +71,21 @@ function scoreStack(options = {}) {
   const gates = [];
   const heals = [];
 
+  // Always preflight microbatch (FF isolated grepae when behind origin/main).
+  // Without this, dry scorecards fail index-freshness every time main advances
+  // between LaunchAgent cycles (measured 2026-07-31: A+ → B+ within minutes).
+  {
+    const batchArgs = options.heal
+      ? ['--once', '--heal', '--json']
+      : ['--once', '--json'];
+    const batch = runNode('index-microbatch.js', batchArgs, { timeout: 180000 });
+    heals.push({
+      step: options.heal ? 'index-microbatch-heal' : 'index-microbatch-preflight',
+      ok: batch.status === 0 && Boolean(batch.json?.ok ?? true),
+      detail: batch.json || batch.stdout.slice(0, 200),
+    });
+  }
+
   if (options.heal) {
     const exp = runNode('thumbgate-lessons-export-jsonl.js', ['--dir', home, '--apply', '--json']);
     heals.push({ step: 'export-jsonl', ok: exp.status === 0, detail: exp.json || exp.stdout.slice(0, 200) });
@@ -90,7 +105,7 @@ function scoreStack(options = {}) {
   gates.push({
     id: 'ingestion-integrity',
     hard: true,
-    weight: 0.25,
+    weight: 0.22,
     ok: integOk,
     detail: integOk
       ? 'all checks green'
@@ -112,7 +127,7 @@ function scoreStack(options = {}) {
   gates.push({
     id: 'lessons-doctor',
     hard: true,
-    weight: 0.15,
+    weight: 0.12,
     ok: embOk,
     detail: embOk
       ? `${emb.entries}×${emb.dimensions} ${emb.status}`
@@ -132,7 +147,7 @@ function scoreStack(options = {}) {
   gates.push({
     id: 'grepai',
     hard: true,
-    weight: 0.2,
+    weight: 0.16,
     ok: canOk && watchRunning,
     detail: `canary=${canOk} watcher=${watchRunning ? 'running' : 'down'} bytes=${canary.json?.indexBytes ?? '?'}`,
     score: grepaeScore,
@@ -157,25 +172,84 @@ function scoreStack(options = {}) {
   const evalPass = Boolean(evalJson && evalJson.ok && evalJson.passCount === evalJson.caseCount);
   const recall = Number(evalJson?.meanRecallAtK || 0);
   const ndcg = Number(evalJson?.meanNdcgAtK || 0);
+  const mrr = Number(evalJson?.meanMrrAtK || 0);
+  const prec = Number(evalJson?.meanPrecisionAtK || 0);
   // A-tier: perfect recall + strong ranking. A+ needs nDCG >= 0.93.
-  const evalHardOk = evalPass && recall >= 1 && ndcg >= 0.85;
-  const evalScore = !evalPass ? 0 : ndcg >= 0.97 ? 1 : ndcg >= 0.93 ? 0.97 : ndcg >= 0.85 ? 0.9 : 0.7;
+  // MRR/P@K reported; hard floors keep ranking quality honest without over-fitting P@K.
+  const evalHardOk = evalPass && recall >= 1 && ndcg >= 0.85 && mrr >= 0.5;
+  const evalScore = !evalPass
+    ? 0
+    : ndcg >= 0.97 && mrr >= 0.7
+      ? 1
+      : ndcg >= 0.93
+        ? 0.97
+        : ndcg >= 0.85
+          ? 0.9
+          : 0.7;
   gates.push({
     id: 'harness-eval',
     hard: true,
-    weight: 0.2,
+    weight: 0.12,
     ok: evalHardOk,
     detail: evalPass
-      ? `pass ${evalJson.passCount}/${evalJson.caseCount} recall=${recall} nDCG=${ndcg.toFixed(4)}`
+      ? `pass ${evalJson.passCount}/${evalJson.caseCount} R=${recall} MRR=${mrr.toFixed(4)} P@k=${prec.toFixed(4)} nDCG=${ndcg.toFixed(4)}`
       : `exit ${evalRun.status} ${(evalRun.stderr || evalRun.stdout || '').slice(0, 120)}`,
     score: evalScore,
   });
 
-  // 5) dual-path
+  // 4b) dual-path offline IR (production fuse path — no embed rerank for CI speed)
+  const dualEval = spawnSync(
+    process.execPath,
+    [path.join(REPO, 'tools', 'rag-retrieval-eval.js'), '--retriever', 'dual-path', '--json'],
+    { encoding: 'utf8', cwd: REPO, timeout: 180000, maxBuffer: 8 * 1024 * 1024 },
+  );
+  let dualEvalJson = null;
+  try {
+    dualEvalJson = JSON.parse(dualEval.stdout || '');
+  } catch {
+    dualEvalJson = null;
+  }
+  const dualPass = Boolean(dualEvalJson && dualEvalJson.ok);
+  const dualR = Number(dualEvalJson?.meanRecallAtK || 0);
+  const dualMrr = Number(dualEvalJson?.meanMrrAtK || 0);
+  const dualNdcg = Number(dualEvalJson?.meanNdcgAtK || 0);
+  // Floors from re-proof after weighted RRF (2026-08-01): target MRR≥0.85 nDCG≥0.90
+  const dualEvalOk = dualPass && dualR >= 1 && dualMrr >= 0.75 && dualNdcg >= 0.85;
+  const dualEvalScore = !dualPass
+    ? 0
+    : dualNdcg >= 0.93 && dualMrr >= 0.9
+      ? 1
+      : dualNdcg >= 0.9 && dualMrr >= 0.85
+        ? 0.97
+        : dualEvalOk
+          ? 0.9
+          : 0.5;
+  gates.push({
+    id: 'dual-path-eval',
+    hard: true,
+    weight: 0.1,
+    ok: dualEvalOk,
+    detail: dualPass
+      ? `pass ${dualEvalJson.passCount}/${dualEvalJson.caseCount} R=${dualR} MRR=${dualMrr.toFixed(4)} nDCG=${dualNdcg.toFixed(4)}`
+      : `exit ${dualEval.status} ${(dualEval.stderr || dualEval.stdout || '').slice(0, 120)}`,
+    score: dualEvalScore,
+  });
+
+  // 5) dual-path (+ second-stage rerank by default)
   const dual = runNode(
     'retrieval-dual-path.js',
-    ['--query', 'hermes cloud connector session recover', '--json', '--limit', '5'],
-    { timeout: 90000 },
+    [
+      '--query',
+      'hermes cloud connector session recover',
+      '--json',
+      '--limit',
+      '5',
+      '--candidate-pool',
+      '10',
+      '--rerank',
+      'ensemble',
+    ],
+    { timeout: 300000 },
   );
   const dualOk =
     dual.json &&
@@ -184,15 +258,33 @@ function scoreStack(options = {}) {
     dual.json.pathStatus.grepai === 'ok' &&
     Array.isArray(dual.json.matches) &&
     dual.json.matches.length > 0;
+  const rerankApplied = Boolean(dual.json?.rerank?.applied);
   gates.push({
     id: 'dual-path',
     hard: true,
-    weight: 0.12,
+    weight: 0.08,
     ok: dualOk,
     detail: dualOk
-      ? `top=${dual.json.matches[0].path}`
+      ? `top=${dual.json.matches[0].path} rerank=${dual.json.rerank?.strategy || 'none'} applied=${rerankApplied}`
       : JSON.stringify(dual.json?.pathStatus || dual.stderr || dual.stdout).slice(0, 200),
-    score: dualOk ? 1 : 0.2,
+    score: dualOk ? (rerankApplied ? 1 : 0.85) : 0.2,
+  });
+
+  // 5b) dedicated rerank stack (CE + ColBERT + LLM capability)
+  const rerankCard = runNode('rerank-stack-scorecard.js', ['--json', '--live'], { timeout: 300000 });
+  const rerankOk = Boolean(rerankCard.json && rerankCard.json.aPlus && rerankCard.json.tenTen);
+  gates.push({
+    id: 'rerank-stack',
+    hard: true,
+    weight: 0.12,
+    ok: rerankOk,
+    detail: rerankOk
+      ? `grade=${rerankCard.json.grade} ${rerankCard.json.scoreOutOf10}/10`
+      : JSON.stringify(rerankCard.json?.gates?.filter((g) => !g.ok) || rerankCard.stderr || rerankCard.stdout).slice(
+          0,
+          220,
+        ),
+    score: rerankOk ? 1 : Math.max(0, Number(rerankCard.json?.score) || 0),
   });
 
   // 6) harness headroom
@@ -216,10 +308,41 @@ function scoreStack(options = {}) {
     id: 'harness-headroom',
     // Hard: A+ must not hide a near-full corpus behind a soft weight.
     hard: true,
-    weight: 0.08,
+    weight: 0.07,
     ok: headroomOk,
     detail: `files=${fileCount} maxFiles=${maxFiles} headroom=${(headroom * 100).toFixed(1)}%`,
     score: headroomOk ? 1 : Math.max(0, headroom / 0.15),
+  });
+
+  // 7) Monzo-style governed interfaces (InfoQ July 2026)
+  const iface = runNode('retrieval-interface-contracts.js', ['--json']);
+  const ifaceOk = Boolean(iface.json && iface.json.ok);
+  gates.push({
+    id: 'interface-contracts',
+    hard: true,
+    weight: 0.1,
+    ok: ifaceOk,
+    detail: ifaceOk
+      ? `${iface.json.contractCount} interfaces ok`
+      : `failed=${iface.json?.failed ?? '?'} ${(iface.json?.results || [])
+          .filter((r) => !r.ok)
+          .map((r) => r.id)
+          .join(',')}`,
+    score: ifaceOk ? 1 : 0.2,
+  });
+
+  // 8) Micro-batch watermark / watcher discipline (InfoQ delta pipeline)
+  const batchDry = runNode('index-microbatch.js', ['--once', '--json'], { timeout: 90000 });
+  const batchOk = Boolean(batchDry.json && batchDry.json.ok && batchDry.json.watcherRunning !== false);
+  gates.push({
+    id: 'index-microbatch',
+    hard: true,
+    weight: 0.07,
+    ok: batchOk,
+    detail: batchOk
+      ? `watcher=${batchDry.json.watcherRunning} skipped=${Boolean(batchDry.json.skipped)} cycles=${batchDry.json.watermark?.cycleCount ?? batchDry.json.previous?.cycleCount ?? 0}`
+      : JSON.stringify(batchDry.json?.error || batchDry.json?.actions || batchDry.stderr || batchDry.stdout).slice(0, 200),
+    score: batchOk ? 1 : 0.2,
   });
 
   let weighted = 0;

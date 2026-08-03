@@ -123,7 +123,7 @@ jobs:
 
       - name: Upload public identity artifact
         if: inputs.phase == 'emit'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: connector-public-identity
           path: connector-public-identity.json

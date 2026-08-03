@@ -3,21 +3,26 @@
 
 /**
  * Dual-path retrieval: hermes-retrieval-harness (sparse) + grepae (hybrid BM25+dense)
- * fused with Reciprocal Rank Fusion (RRF). Optional deterministic query rewrite
- * and path metadata filters.
+ * fused with Reciprocal Rank Fusion (RRF), then second-stage rerank
+ * (cross-encoder / ColBERT-lite / ensemble / optional LLM).
  *
  * Usage:
  *   node tools/retrieval-dual-path.js --query "session not found" --json
  *   node tools/retrieval-dual-path.js --query "..." --limit 10 --path-include "tools/,hermes-mobile/src/"
  *   node tools/retrieval-dual-path.js --query "..." --no-rewrite --harness-only
+ *   node tools/retrieval-dual-path.js --query "..." --rerank ensemble --json
+ *   node tools/retrieval-dual-path.js --query "..." --no-rerank --json
  */
 
 const { spawnSync } = require('child_process');
 const path = require('path');
 const { rewriteQuery } = require('./retrieval-query-rewrite');
+const { rerank } = require('./retrieval-rerank');
+const { rrfFuse, DEFAULT_K: RRF_K } = require('./retrieval-rrf');
+// multi-query is optional heavy path — lazy require in dualPathRetrieve
 
 const REPO = path.resolve(__dirname, '..');
-const RRF_K = 60;
+const DEFAULT_RERANK = process.env.HERMES_RERANK_STRATEGY || 'ensemble';
 
 function parseArgs(argv) {
   const args = {
@@ -30,6 +35,13 @@ function parseArgs(argv) {
     pathInclude: [],
     pathExclude: [],
     repo: REPO,
+    rerank: DEFAULT_RERANK,
+    llmRerank: process.env.HERMES_LLM_RERANK === '1',
+    candidatePool: 30,
+    multiQuery: process.env.HERMES_MULTI_QUERY === '1',
+    principal: process.env.HERMES_RETRIEVE_PRINCIPAL || '',
+    acl: process.env.HERMES_DOCUMENT_ACL || '',
+    trace: process.env.HERMES_TURN_TRACE === '1',
   };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -42,10 +54,90 @@ function parseArgs(argv) {
     else if (a === '--path-include') args.pathInclude = String(argv[++i] || '').split(',').filter(Boolean);
     else if (a === '--path-exclude') args.pathExclude = String(argv[++i] || '').split(',').filter(Boolean);
     else if (a === '--repo') args.repo = path.resolve(argv[++i] || REPO);
+    else if (a === '--rerank') args.rerank = argv[++i] || DEFAULT_RERANK;
+    else if (a === '--no-rerank') args.rerank = 'none';
+    else if (a === '--llm-rerank') args.llmRerank = true;
+    else if (a === '--multi-query') args.multiQuery = true;
+    else if (a === '--no-multi-query') args.multiQuery = false;
+    else if (a === '--candidate-pool') args.candidatePool = Number(argv[++i] || 30);
+    else if (a === '--principal') args.principal = argv[++i] || '';
+    else if (a === '--acl') args.acl = argv[++i] || '';
+    else if (a === '--trace') args.trace = true;
     else if (a === '--help' || a === '-h') args.help = true;
     else throw new Error(`Unknown argument: ${a}`);
   }
   return args;
+}
+
+/**
+ * Apply document ACL + optional turn-trace write (production observability).
+ */
+function finalizeRetrieveResult(result, options = {}) {
+  const started = options._startedAt || Date.now();
+  let matches = result.matches || [];
+  let aclMeta = { aclApplied: false };
+  // Fail closed: if caller requested ACL enforcement, never return unfiltered
+  // matches when the ACL file is missing, unreadable, or malformed.
+  if (options.acl || options.principal) {
+    try {
+      const { loadAcl, filterMatchesByAcl } = require('./production-ops');
+      const acl = options.acl ? loadAcl(options.acl) : null;
+      if (options.acl && !acl) {
+        throw new Error('ACL path resolved to empty policy');
+      }
+      const filtered = filterMatchesByAcl(matches, options.principal || '', acl);
+      matches = filtered.matches;
+      aclMeta = {
+        aclApplied: filtered.aclApplied,
+        principal: options.principal || null,
+        filtered: filtered.filtered,
+        reason: filtered.reason,
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      matches = [];
+      aclMeta = {
+        aclApplied: true,
+        failClosed: true,
+        principal: options.principal || null,
+        filtered: (result.matches || []).length,
+        error: msg,
+        reason: 'acl_load_or_filter_failed',
+      };
+    }
+  }
+  const out = {
+    ...result,
+    matches,
+    acl: aclMeta,
+    latencyMs: Date.now() - started,
+  };
+  if (options.trace || process.env.HERMES_TURN_TRACE === '1') {
+    try {
+      const { buildTurnTrace, writeTurnTrace } = require('./production-ops');
+      const trace = buildTurnTrace({
+        query: out.query,
+        route: options.route || { id: 'dual-path' },
+        principal: options.principal || null,
+        tenant: options.tenant || null,
+        retrieval: {
+          backend: out.fusion,
+          rewritten: out.rewritten,
+          multiQuery: out.multiQuery,
+          rerank: out.rerank,
+          matches: out.matches,
+          latencyMs: out.latencyMs,
+        },
+        acl: aclMeta,
+        latencyMs: out.latencyMs,
+      });
+      out.tracePath = writeTurnTrace(trace, { dir: options.traceDir });
+      out.traceId = trace.id;
+    } catch (error) {
+      out.traceError = error instanceof Error ? error.message : String(error);
+    }
+  }
+  return out;
 }
 
 function pathAllowed(p, include, exclude) {
@@ -110,40 +202,8 @@ function runGrepai(query, limit, repo = REPO) {
   }
 }
 
-/**
- * Reciprocal Rank Fusion across ranked lists.
- * score(d) = Σ 1 / (k + rank_i(d))
- */
-function rrfFuse(lists, k = RRF_K) {
-  const scores = new Map();
-  const meta = new Map();
-  for (const list of lists) {
-    for (const item of list) {
-      if (!item.path) continue;
-      const key = item.path;
-      const add = 1 / (k + item.rank);
-      scores.set(key, (scores.get(key) || 0) + add);
-      const prev = meta.get(key) || { path: key, sources: [], snippets: [] };
-      prev.sources.push(item.source);
-      if (item.snippet) prev.snippets.push(String(item.snippet).slice(0, 200));
-      if (item.start_line) prev.start_line = item.start_line;
-      if (item.end_line) prev.end_line = item.end_line;
-      meta.set(key, prev);
-    }
-  }
-  return [...scores.entries()]
-    .map(([p, score]) => ({
-      path: p,
-      rrfScore: Number(score.toFixed(6)),
-      sources: [...new Set(meta.get(p).sources)],
-      snippet: meta.get(p).snippets[0] || '',
-      start_line: meta.get(p).start_line,
-      end_line: meta.get(p).end_line,
-    }))
-    .sort((a, b) => b.rrfScore - a.rrfScore || a.path.localeCompare(b.path));
-}
-
-function dualPathRetrieve(options = {}) {
+async function dualPathRetrieve(options = {}) {
+  const _startedAt = Date.now();
   const queryIn = String(options.query || '').trim();
   if (!queryIn) throw new Error('--query required');
   const rewrite = options.rewrite !== false ? rewriteQuery(queryIn) : { original: queryIn, rewritten: queryIn, expansions: [], rulesFired: [] };
@@ -151,12 +211,90 @@ function dualPathRetrieve(options = {}) {
   const limit = options.limit || 10;
   const include = options.pathInclude || [];
   const exclude = options.pathExclude || [];
+  const pool = Math.max(limit, options.candidatePool || 30);
+  const rerankStrategy = options.rerank === undefined ? DEFAULT_RERANK : options.rerank;
+
+  // Optional multi-query fan-out (deterministic variants → dual-path each → RRF).
+  // Uses multi-query module which itself calls dual-path without multi-query recursion.
+  let multiQueryMeta = { applied: false };
+  if (options.multiQuery) {
+    const { multiQueryRetrieve } = require('./retrieval-multi-query');
+    const mq = await multiQueryRetrieve({
+      query: queryIn,
+      limit: pool,
+      maxVariants: options.maxVariants || 5,
+      llm: Boolean(options.llmMultiQuery),
+      pathInclude: include,
+      pathExclude: exclude,
+      repo: options.repo || REPO,
+    });
+    multiQueryMeta = {
+      applied: true,
+      variantCount: mq.variantCount,
+      variants: mq.variants,
+      llm: mq.llm,
+    };
+    // Honor path filters after multi-query fuse (CLI children may not inherit filters).
+    let matches = (mq.matches || [])
+      .filter((m) => pathAllowed(m.path, include, exclude))
+      .slice(0, limit);
+    let rerankMeta = { applied: false, strategy: 'none' };
+    if (rerankStrategy && rerankStrategy !== 'none' && mq.matches?.length > 1) {
+      try {
+        const rr = await rerank({
+          query: q,
+          candidates: mq.matches,
+          strategy: rerankStrategy,
+          limit,
+          llm: Boolean(options.llmRerank),
+          embedder: options.embedder,
+          chat: options.chat,
+        });
+        matches = (rr.matches || []).map((m) => ({
+          path: m.path,
+          rrfScore: m.rrfScore,
+          rerankScore: m.rerankScore,
+          sources: m.sources || [],
+          snippet: m.snippet || '',
+          method: m.method,
+        }));
+        rerankMeta = {
+          applied: true,
+          strategy: rr.strategy,
+          llmApplied: rr.llmApplied,
+          elapsedMs: rr.elapsedMs,
+        };
+      } catch (error) {
+        rerankMeta = {
+          applied: false,
+          strategy: rerankStrategy,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
+    return finalizeRetrieveResult(
+      {
+        query: queryIn,
+        rewritten: rewrite.rewritten,
+        rewriteRules: rewrite.rulesFired,
+        expansions: rewrite.expansions,
+        filters: { pathInclude: include, pathExclude: exclude },
+        pathStatus: { harness: 'via-multi-query', grepai: 'via-multi-query' },
+        fusion: 'rrf-multi-query',
+        rrfK: RRF_K,
+        multiQuery: multiQueryMeta,
+        rerank: rerankMeta,
+        matches,
+      },
+      { ...options, _startedAt },
+    );
+  }
 
   const lists = [];
   const paths = { harness: null, grepai: null };
 
   if (!options.grepaeOnly) {
-    paths.harness = runHarness(q, Math.max(limit, 15), options.repo || REPO);
+    paths.harness = runHarness(q, Math.max(pool, 15), options.repo || REPO);
     if (paths.harness.ok) {
       lists.push(
         paths.harness.matches
@@ -166,7 +304,7 @@ function dualPathRetrieve(options = {}) {
     }
   }
   if (!options.harnessOnly) {
-    paths.grepai = runGrepai(q, Math.max(limit, 15), options.repo || REPO);
+    paths.grepai = runGrepai(q, Math.max(pool, 15), options.repo || REPO);
     if (paths.grepai.ok) {
       lists.push(
         paths.grepai.matches
@@ -176,44 +314,103 @@ function dualPathRetrieve(options = {}) {
     }
   }
 
-  const fused = rrfFuse(lists).slice(0, limit);
-  return {
-    query: queryIn,
-    rewritten: rewrite.rewritten,
-    rewriteRules: rewrite.rulesFired,
-    expansions: rewrite.expansions,
-    filters: { pathInclude: include, pathExclude: exclude },
-    pathStatus: {
-      harness: paths.harness ? (paths.harness.ok ? 'ok' : paths.harness.error) : 'skipped',
-      grepai: paths.grepai ? (paths.grepai.ok ? 'ok' : paths.grepai.error) : 'skipped',
+  // Weighted RRF: harness prioritized for identifier-heavy code ranking quality
+  // (measured 2026-08-01: plain RRF buried agent-swarm-harness at dual@6).
+  const fused = rrfFuse(lists, { k: RRF_K, query: q }).slice(0, pool);
+  let matches = fused.slice(0, limit);
+  let rerankMeta = { applied: false, strategy: 'none' };
+
+  if (rerankStrategy && rerankStrategy !== 'none' && fused.length > 1) {
+    try {
+      const rr = await rerank({
+        query: q,
+        candidates: fused,
+        strategy: rerankStrategy,
+        limit,
+        llm: Boolean(options.llmRerank),
+        embedder: options.embedder,
+        chat: options.chat,
+      });
+      matches = (rr.matches || []).map((m) => ({
+        path: m.path,
+        rrfScore: m.rrfScore,
+        rerankScore: m.rerankScore,
+        sources: m.sources || [],
+        snippet: m.snippet || '',
+        start_line: m.start_line,
+        end_line: m.end_line,
+        priorRank: m.priorRank,
+        method: m.method,
+        components: m.components,
+      }));
+      rerankMeta = {
+        applied: true,
+        strategy: rr.strategy,
+        llmApplied: rr.llmApplied,
+        llmError: rr.llmError,
+        elapsedMs: rr.elapsedMs,
+        capabilities: rr.capabilities,
+      };
+    } catch (error) {
+      rerankMeta = {
+        applied: false,
+        strategy: rerankStrategy,
+        error: error instanceof Error ? error.message : String(error),
+      };
+      matches = fused.slice(0, limit);
+    }
+  }
+
+  return finalizeRetrieveResult(
+    {
+      query: queryIn,
+      rewritten: rewrite.rewritten,
+      rewriteRules: rewrite.rulesFired,
+      expansions: rewrite.expansions,
+      filters: { pathInclude: include, pathExclude: exclude },
+      pathStatus: {
+        harness: paths.harness ? (paths.harness.ok ? 'ok' : paths.harness.error) : 'skipped',
+        grepai: paths.grepai ? (paths.grepai.ok ? 'ok' : paths.grepai.error) : 'skipped',
+      },
+      fusion: 'weighted-rrf',
+      rrfK: RRF_K,
+      multiQuery: multiQueryMeta,
+      rerank: rerankMeta,
+      matches,
     },
-    fusion: 'rrf',
-    rrfK: RRF_K,
-    matches: fused,
-  };
+    { ...options, _startedAt },
+  );
 }
 
 if (require.main === module) {
-  try {
-    const args = parseArgs(process.argv.slice(2));
-    if (args.help || !args.query) {
-      console.log(`Usage: node tools/retrieval-dual-path.js --query "..." [--json] [--path-include a,b] [--path-exclude c]`);
-      process.exit(args.help ? 0 : 2);
+  (async () => {
+    try {
+      const args = parseArgs(process.argv.slice(2));
+      if (args.help || !args.query) {
+        console.log(
+          `Usage: node tools/retrieval-dual-path.js --query "..." [--json] [--rerank ensemble|cross_encoder|colbert_lite|none] [--llm-rerank]`,
+        );
+        process.exit(args.help ? 0 : 2);
+      }
+      const out = await dualPathRetrieve(args);
+      if (args.json) console.log(JSON.stringify(out, null, 2));
+      else {
+        console.log(`query: ${out.query}`);
+        if (out.rewritten !== out.query) console.log(`rewritten: ${out.rewritten}`);
+        console.log(
+          `paths: harness=${out.pathStatus.harness} grepai=${out.pathStatus.grepai} rerank=${out.rerank?.strategy || 'none'} applied=${Boolean(out.rerank?.applied)}`,
+        );
+        out.matches.forEach((m, i) => {
+          const score = m.rerankScore != null ? m.rerankScore : m.rrfScore;
+          const src = (m.sources || []).join('+') || '-';
+          console.log(`${i + 1}. ${Number(score).toFixed(4)}  [${src}]  ${m.path}`);
+        });
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : error);
+      process.exit(2);
     }
-    const out = dualPathRetrieve(args);
-    if (args.json) console.log(JSON.stringify(out, null, 2));
-    else {
-      console.log(`query: ${out.query}`);
-      if (out.rewritten !== out.query) console.log(`rewritten: ${out.rewritten}`);
-      console.log(`paths: harness=${out.pathStatus.harness} grepai=${out.pathStatus.grepai}`);
-      out.matches.forEach((m, i) => {
-        console.log(`${i + 1}. ${m.rrfScore.toFixed(4)}  [${m.sources.join('+')}]  ${m.path}`);
-      });
-    }
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : error);
-    process.exit(2);
-  }
+  })();
 }
 
-module.exports = { dualPathRetrieve, rrfFuse, pathAllowed, runHarness, runGrepai };
+module.exports = { dualPathRetrieve, rrfFuse, pathAllowed, runHarness, runGrepai, finalizeRetrieveResult };
