@@ -17,15 +17,21 @@ export default function AgentDashboardStrip({ stats, activeRunLabel }: AgentDash
           <Text
             style={[
               styles.statValue,
-              stats.connectionLabel === 'Linked' && { color: colors.success },
-              (stats.connectionLabel === 'Offline' || stats.connectionLabel === 'Re-pair') && { color: colors.error },
-              (stats.connectionLabel === 'Checking' || stats.connectionLabel === 'Degraded') && { color: colors.warning },
+              stats.connectionLabel === 'Connected' && { color: colors.success },
+              (stats.connectionLabel === 'Offline' || stats.connectionLabel === 'Re-pair') && {
+                color: colors.error,
+              },
+              (stats.connectionLabel === 'Checking' || stats.connectionLabel === 'Weak') && {
+                color: colors.warning,
+              },
             ]}
             numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
           >
             {stats.connectionLabel}
           </Text>
-          <Text style={styles.statLabel}>Link</Text>
+          <Text style={styles.statLabel}>Mac</Text>
         </View>
         <View style={styles.divider} />
         <View style={styles.stat} testID="agent-dashboard-tools">

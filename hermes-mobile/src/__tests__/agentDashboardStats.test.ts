@@ -3,6 +3,7 @@ import {
   countActiveCronJobs,
   countToolsFromToolsets,
   resolveConnectionHealthLabel,
+  resolveConnectionHealthSummary,
 } from '../utils/agentDashboardStats';
 
 describe('agentDashboardStats', () => {
@@ -25,10 +26,23 @@ describe('agentDashboardStats', () => {
     ).toBe(1);
   });
 
-  it('labels green linked health', () => {
+  it('uses short plain status for the narrow dashboard column (never Computer linked)', () => {
     expect(
       resolveConnectionHealthLabel('connected', { level: 'green', checkedAt: 'x' }, true),
-    ).toBe('Linked');
+    ).toBe('Connected');
+    // Must stay one short word — multi-word "Computer linked" ellipsizes to "Computer… / LINK".
+    expect(resolveConnectionHealthLabel('connected', { level: 'green', checkedAt: 'x' }, true)).not.toMatch(
+      /Computer|linked|Link/i,
+    );
+  });
+
+  it('uses full plain English for the connection health hub', () => {
+    expect(
+      resolveConnectionHealthSummary('connected', { level: 'green', checkedAt: 'x' }, true),
+    ).toBe('Your Mac is connected');
+    expect(resolveConnectionHealthSummary('disconnected', { level: 'red', checkedAt: 'x' })).toBe(
+      "Can't reach your Mac",
+    );
   });
 
   it('labels auth mismatch', () => {
@@ -56,7 +70,7 @@ describe('agentDashboardStats', () => {
     expect(stats.skillCount).toBe(1);
     expect(stats.cronJobCount).toBe(2);
     expect(stats.gatewayModel).toBe('qwen3:8b-64k');
-    expect(stats.connectionLabel).toBe('Linked');
+    expect(stats.connectionLabel).toBe('Connected');
     expect(stats.hostname).toBe('mini.local');
   });
 });

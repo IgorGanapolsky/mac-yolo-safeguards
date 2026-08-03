@@ -12,7 +12,7 @@ import { colors } from '../theme/colors';
 import { haptics } from '../services/haptics';
 import type { GatewayHealthSnapshot } from '../types/gateway';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
-import { resolveConnectionHealthLabel } from '../utils/agentDashboardStats';
+import { resolveConnectionHealthSummary } from '../utils/agentDashboardStats';
 import {
   checkAndApplyAppUpdate,
   checkForAppUpdate,
@@ -61,7 +61,7 @@ export default function ConnectionHealthHub({
 
   const appVersion =
     Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? 'unknown';
-  const connectionLabel = resolveConnectionHealthLabel(
+  const connectionSummary = resolveConnectionHealthSummary(
     connectionState,
     health,
     macHttpReachable,
@@ -76,7 +76,7 @@ export default function ConnectionHealthHub({
       haptics.success();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Repair failed';
-      Alert.alert('Could not repair link', message);
+      Alert.alert('Could not reconnect', message);
       haptics.warning();
     } finally {
       setRepairBusy(false);
@@ -124,7 +124,7 @@ export default function ConnectionHealthHub({
         <View style={styles.headerText}>
           <Text style={styles.title}>Connection health</Text>
           <Text style={styles.subtitle} testID="connection-health-label">
-            {connectionLabel}
+            {connectionSummary}
           </Text>
         </View>
         <Text style={styles.version} testID="connection-health-version">
@@ -167,7 +167,7 @@ export default function ConnectionHealthHub({
           {repairBusy ? (
             <ActivityIndicator size="small" color={colors.warning} />
           ) : (
-            <Text style={[styles.actionBtnText, styles.repairBtnText]}>Repair link</Text>
+            <Text style={[styles.actionBtnText, styles.repairBtnText]}>Reconnect</Text>
           )}
         </TouchableOpacity>
       </View>

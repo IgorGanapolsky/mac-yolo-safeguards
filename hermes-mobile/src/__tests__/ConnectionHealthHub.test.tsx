@@ -51,7 +51,7 @@ describe('ConnectionHealthHub', () => {
       />,
     );
 
-    expect(getByTestId('connection-health-label').props.children).toBe('Linked');
+    expect(getByTestId('connection-health-label').props.children).toBe('Your Mac is connected');
     expect(getByTestId('connection-health-version').props.children.join('')).toContain('1.2.3');
     expect(getByTestId('connection-health-model').props.children.join('')).toContain('qwen3:8b-64k');
   });
@@ -97,7 +97,7 @@ describe('ConnectionHealthHub', () => {
       expect(button.props.accessibilityState?.disabled ?? button.props.disabled).toBe(false);
     });
     expect(alertSpy).toHaveBeenCalledWith(
-      'Could not repair link',
+      'Could not reconnect',
       'Repair link timed out after 30s',
     );
     alertSpy.mockRestore();

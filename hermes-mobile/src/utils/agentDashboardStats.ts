@@ -21,6 +21,10 @@ export function countActiveCronJobs(jobs: HermesCronJob[]): number {
   return jobs.filter((job) => !job.paused && job.enabled !== false).length;
 }
 
+/**
+ * Short status for the Agent dashboard first column (narrow; must not ellipsize to "Computer…").
+ * Never use multi-word phrases like "Computer linked" — they clip into nonsense next to "Link".
+ */
 export function resolveConnectionHealthLabel(
   connectionState: LeashConnectionState,
   health?: GatewayHealthSnapshot | null,
@@ -33,18 +37,45 @@ export function resolveConnectionHealthLabel(
     return 'Re-pair';
   }
   if (macHttpReachable || health?.level === 'green') {
-    return 'Linked';
+    return 'Connected';
   }
   if (connectionState === 'connecting') {
     return 'Checking';
   }
   if (health?.level === 'amber') {
-    return 'Degraded';
+    return 'Weak';
   }
   if (health?.level === 'red') {
     return 'Offline';
   }
   return 'Offline';
+}
+
+/** Full plain-English line for Connection health hub (has room to breathe). */
+export function resolveConnectionHealthSummary(
+  connectionState: LeashConnectionState,
+  health?: GatewayHealthSnapshot | null,
+  macHttpReachable = false,
+): string {
+  if (connectionState === 'demo') {
+    return 'Demo mode';
+  }
+  if (health?.authMismatch) {
+    return 'Pair again — key does not match this Mac';
+  }
+  if (macHttpReachable || health?.level === 'green') {
+    return 'Your Mac is connected';
+  }
+  if (connectionState === 'connecting') {
+    return 'Checking your Mac…';
+  }
+  if (health?.level === 'amber') {
+    return 'Connection is weak';
+  }
+  if (health?.level === 'red') {
+    return "Can't reach your Mac";
+  }
+  return "Can't reach your Mac";
 }
 
 export function buildAgentDashboardStats(input: {
