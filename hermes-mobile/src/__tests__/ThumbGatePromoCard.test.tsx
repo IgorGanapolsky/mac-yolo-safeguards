@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Linking } from 'react-native';
+import { Alert, Linking, Share } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import ThumbGatePromoCard, {
   OPEN_FAIL_MESSAGE,
@@ -7,6 +7,7 @@ import ThumbGatePromoCard, {
 } from '../components/ThumbGatePromoCard';
 import { trackProductEvent } from '../services/productAnalytics';
 import { THUMBGATE_WEB_URL } from '../utils/thumbgatePromoCopy';
+import { THUMBGATE_CONNECTOR_INSTALL_COMMAND } from '../utils/thumbgateFacilitation';
 
 jest.mock('../services/productAnalytics', () => ({
   trackProductEvent: jest.fn(() => Promise.resolve()),
@@ -17,20 +18,25 @@ describe('ThumbGatePromoCard', () => {
     jest.clearAllMocks();
     jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined as never);
     jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    jest.spyOn(Share, 'share').mockResolvedValue({ action: Share.sharedAction });
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  it('renders the paid companion offer and opens pricing with analytics', async () => {
+  it('renders facilitation steps and opens ThumbGate.app with analytics', async () => {
     const { getByTestId, getByText } = render(
       <ThumbGatePromoCard surface="connection_unreachable" />,
     );
 
     expect(getByTestId('thumbgate-promo-connection_unreachable')).toBeTruthy();
-    expect(getByText('Upgrade Hermes with ThumbGate')).toBeTruthy();
-    expect(getByText('See ThumbGate plans')).toBeTruthy();
+    expect(getByText('No ThumbGate.app yet?')).toBeTruthy();
+    expect(getByText('Open ThumbGate.app')).toBeTruthy();
+    expect(getByTestId('thumbgate-facilitation-steps')).toBeTruthy();
+    expect(getByTestId('thumbgate-connector-install-command').props.children).toBe(
+      THUMBGATE_CONNECTOR_INSTALL_COMMAND,
+    );
     expect(trackProductEvent).toHaveBeenCalledWith('thumbgate_promo_view', {
       surface: 'connection_unreachable',
     });
@@ -41,8 +47,29 @@ describe('ThumbGatePromoCard', () => {
       expect(trackProductEvent).toHaveBeenCalledWith('thumbgate_promo_tap', {
         surface: 'connection_unreachable',
         url: THUMBGATE_WEB_URL,
+        action: 'open_web',
       });
       expect(Linking.openURL).toHaveBeenCalledWith(THUMBGATE_WEB_URL);
+    });
+  });
+
+  it('shares the Mac one-line installer (Herdr-style facilitate path)', async () => {
+    const { getByTestId } = render(
+      <ThumbGatePromoCard surface="connection_unreachable" />,
+    );
+
+    fireEvent.press(getByTestId('thumbgate-promo-share-installer'));
+
+    await waitFor(() => {
+      expect(Share.share).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: THUMBGATE_CONNECTOR_INSTALL_COMMAND,
+        }),
+      );
+      expect(trackProductEvent).toHaveBeenCalledWith('thumbgate_promo_tap', {
+        surface: 'connection_unreachable',
+        action: 'share_connector_install',
+      });
     });
   });
 

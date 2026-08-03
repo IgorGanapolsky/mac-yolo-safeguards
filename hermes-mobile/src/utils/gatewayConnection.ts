@@ -49,6 +49,11 @@ export function resolveChatLinkDisplay(input: {
   wrongKeyBannerActive?: boolean;
   chatStalled?: boolean;
   /**
+   * Send/await/run still in flight — prefer "working" over "stalled" so the header
+   * does not rage-bait while the empty-stream checker is still polling.
+   */
+  chatWorking?: boolean;
+  /**
    * Unpaired relay (or equivalent missing credentials) with no direct Mac HTTP.
    * Must win over Connecting/Connected so Tailscale URL never looks like a live path.
    */
@@ -62,6 +67,10 @@ export function resolveChatLinkDisplay(input: {
   }
   if (input.isDemo || input.connectionState === 'demo') {
     return { label: 'Demo', chatReachable: true };
+  }
+  // Working beats stalled: still checking Mac for reply text.
+  if (input.macHttpOk && input.chatWorking) {
+    return { label: 'Connected · working', chatReachable: true };
   }
   if (input.macHttpOk && input.chatStalled) {
     return { label: 'Connected — chat stalled', chatReachable: true, chatStalled: true };
