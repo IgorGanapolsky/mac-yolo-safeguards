@@ -124,3 +124,6 @@ Compiled-Vaults/goal
 # ThumbGate local feedback data
 .thumbgate/feedback-log.jsonl
 .thumbgate/memory-log.jsonl
+
+# harness-smeval live run artifacts
+evals/**/runs/

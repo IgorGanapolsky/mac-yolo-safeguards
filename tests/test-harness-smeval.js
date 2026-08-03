@@ -4,7 +4,13 @@
 const assert = require('assert');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { runEval, gradeTask, loadEval } = require('../tools/harness-smeval');
+const {
+  runEval,
+  gradeTask,
+  loadEval,
+  renderPrompt,
+  gradeClaim,
+} = require('../tools/harness-smeval');
 
 function test(name, fn) {
   try {
@@ -75,6 +81,33 @@ test('CLI run exits 0', () => {
   });
   assert.strictEqual(r.status, 0, r.stdout + r.stderr);
   assert.ok(/PASS/.test(r.stdout));
+});
+
+test('list shows live tasks and configs', () => {
+  const r = spawnSync(process.execPath, [CLI, 'list', EVAL], {
+    encoding: 'utf8',
+    cwd: ROOT,
+  });
+  assert.strictEqual(r.status, 0, r.stdout + r.stderr);
+  assert.ok(/live tasks/.test(r.stdout));
+  assert.ok(/honesty-glm|bare/.test(r.stdout));
+});
+
+test('renderPrompt injects results_json', () => {
+  const p = renderPrompt({
+    prompt: 'Data:\n{{results_json}}\nDone',
+    results: [{ ok: true, comment_id: 't1_x' }],
+  });
+  assert.ok(p.includes('t1_x'));
+  assert.ok(!p.includes('{{results_json}}'));
+});
+
+test('gradeClaim promo slop fails', () => {
+  const g = gradeClaim({
+    claim: 'Unleash seamless game-changer with 50k+ users as official Nous partner!',
+    domain: 'promo_social',
+  });
+  assert.strictEqual(g.ok, false);
 });
 
 if (!process.exitCode) {
