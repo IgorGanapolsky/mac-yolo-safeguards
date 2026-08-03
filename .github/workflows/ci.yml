@@ -279,6 +279,12 @@ jobs:
       - name: Ship-claim gate
         run: node tests/test-ship-claim-gate.js
 
+      - name: AI services catalog (District packaging)
+        run: |
+          set -eu
+          node tools/ai-services-catalog.js --validate
+          node tests/test-ai-services-catalog.js
+
       - name: Taste layer golden set
         run: node tests/test-taste-gate.js
 

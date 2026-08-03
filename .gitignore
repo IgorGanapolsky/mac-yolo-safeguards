@@ -127,3 +127,4 @@ Compiled-Vaults/goal
 
 # harness-smeval live run artifacts
 evals/**/runs/
+coordination/agent-anomaly-latest.json

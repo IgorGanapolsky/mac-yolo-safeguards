@@ -1,0 +1,167 @@
+{
+  "$schema": "https://thumbgate.app/schemas/ai-services-catalog.v1.json",
+  "version": 1,
+  "asOf": "2026-08-03",
+  "sourceInspiration": {
+    "note": "Packaging structure adapted from District Cyber AI services page (district-cyber.webflow.io/services/ai). We are a product company (ThumbGate / Hermes), not an outsourcing firm — map their service cards to our SKUs and automation.",
+    "url": "https://district-cyber.webflow.io/services/ai",
+    "stolenPatterns": [
+      "Five crisp service cards (not feature soup)",
+      "Full lifecycle language: prepare → train/eval → integrate",
+      "LLM integration as a named offer",
+      "Performance under hardware constraints",
+      "Anomaly detection as a standalone pillar",
+      "Domain proof (they: HealthTech; we: agent reliability / token burn)",
+      "Home-page 1-2-3: Imagine → Innovate → Ignite mapped to Diagnostic → Build → Operate"
+    ]
+  },
+  "productHero": {
+    "name": "ThumbGate + Hermes Agent Control",
+    "tagline": "Govern coding agents on your Mac — Leash approvals, Continuity, and reliability automation",
+    "primaryCta": "https://thumbgate.app/?utm_source=ai_services_catalog&utm_campaign=district_pattern",
+    "buyCta": "https://thumbgate.app/pricing?utm_source=ai_services_catalog&utm_campaign=district_pattern&cta_id=ai_services_pricing"
+  },
+  "journey": [
+    {
+      "id": "imagine",
+      "districtAnalog": "Imagine",
+      "ours": "Diagnose",
+      "offer": "Agent Reliability Diagnostic",
+      "priceUsd": 499,
+      "outcome": "Ranked failure classes (runaway loops, lock thrash, false ship claims, CodeQL debt) with a 7-day action plan"
+    },
+    {
+      "id": "innovate",
+      "districtAnalog": "Innovate",
+      "ours": "Harden",
+      "offer": "Governed Agent Hardening Sprint",
+      "priceUsd": 1500,
+      "outcome": "Ship-claim gates, CodeQL pattern gate, Linear/vault locks, fleet LLM routing wired and proven"
+    },
+    {
+      "id": "ignite",
+      "districtAnalog": "Ignite",
+      "ours": "Operate",
+      "offer": "ThumbGate Continuity + Leash (product)",
+      "priceUsd": null,
+      "priceNote": "Live from /api/billing/plan — never hard-code",
+      "outcome": "Ongoing control plane: approvals when away, optional Continuity when Mac offline"
+    }
+  ],
+  "services": [
+    {
+      "id": "full-cycle-agent-reliability",
+      "districtAnalog": "Full-Cycle Model Development",
+      "title": "Full-Cycle Agent Reliability",
+      "summary": "Dataset → eval → gates → integrate into your agent fleet. Same lifecycle District sells for CV models — applied to coding-agent failure classes.",
+      "lifecycle": [
+        "Capture failure corpus (ship-honesty, CodeQL, thrash incidents)",
+        "Train/eval weak-supervision + golden sets (taste, ship-claim, RAG)",
+        "Wire deterministic gates into CI and session-start",
+        "Integrate with ThumbGate Leash + Linear/vault ownership"
+      ],
+      "tools": [
+        "tools/ship-claim-gate.js",
+        "tools/codeql-pattern-gate.js",
+        "tools/coord-automate.js",
+        "tools/hermes-retrieval-hybrid.js",
+        "evals/"
+      ],
+      "cta": "diagnostic",
+      "proofMetric": "CI Public funnel + pattern-gate green; false LIVE claims blocked offline"
+    },
+    {
+      "id": "llm-fleet-integration",
+      "districtAnalog": "LLM Integration",
+      "summary": "Wire frontier + local models into Hermes fleet (LiteLLM gateway), with routing, secrets, and cost controls — not a greenfield chatbot.",
+      "title": "LLM Fleet Integration",
+      "models": ["OpenAI-compatible via LiteLLM :4010", "local Ollama/vLLM", "paid subscriptions (Kimi, OpenCode, etc.)"],
+      "tools": [
+        "tools/llmops-lifecycle.js",
+        "tools/operate-hermes-model-gateway (skill)",
+        "hermes-yolo-wrapper.js"
+      ],
+      "cta": "hardening",
+      "proofMetric": "llmops doctor JSON ok; gateway /health + /v1/models"
+    },
+    {
+      "id": "performance-under-constraints",
+      "districtAnalog": "Model Performance Optimization",
+      "title": "Performance Under Mac Constraints",
+      "summary": "Optimize agent fleets for real Macs (jetsam, memory, 24GB mini) — speed/quality under hardware limits, not cloud-only GPUs.",
+      "tools": [
+        "tools/llmops-lifecycle.js",
+        "docs on jetsam / hermes-yolo crash skill",
+        "tools/agent-swarm-harness.js"
+      ],
+      "cta": "diagnostic",
+      "proofMetric": "No silent SIGKILL loops; harness thrash score; continuous E2E"
+    },
+    {
+      "id": "agent-anomaly-detection",
+      "districtAnalog": "Anomaly Detection",
+      "title": "Agent Anomaly Detection",
+      "summary": "Detect irregularities across fleet locks, CodeQL debt, ship-claim theater, Continuity failures, and revenue funnel stalls — before they become $47k loops.",
+      "signals": [
+        "codeql_open_highish",
+        "codeql_pattern_findings",
+        "coord_stale_locks",
+        "ship_claim_blocked",
+        "continuity_failure_rate",
+        "funnel_stage_stall"
+      ],
+      "tools": [
+        "tools/agent-anomaly-detect.js",
+        "tools/codeql-alert-sync.js",
+        "tools/codeql-pattern-gate.js",
+        "tools/coord-automate.js",
+        "tools/ship-claim-batch.js"
+      ],
+      "cta": "diagnostic",
+      "proofMetric": "Single JSON anomaly report with ranked actions"
+    },
+    {
+      "id": "domain-agent-ops",
+      "districtAnalog": "HealthTech Solutions (domain models)",
+      "title": "Domain: Coding-Agent Operations",
+      "summary": "Their lung-cancer demo = domain proof. Ours = agent reliability / token-burn / multi-agent thrash — the domain we actually own evidence in.",
+      "domain": "AI coding agents on developer Macs",
+      "caseShapes": [
+        "Runaway loop burn",
+        "Multi-agent file thrash",
+        "False LIVE/ship claims",
+        "CodeQL / secret debt backlog"
+      ],
+      "cta": "continuity",
+      "proofMetric": "Expertise API stats + content log + public funnel"
+    }
+  ],
+  "offers": {
+    "diagnostic": {
+      "name": "Agent Reliability Diagnostic",
+      "priceUsd": 499,
+      "deliverables": [
+        "agent-anomaly-detect report",
+        "CodeQL + pattern-gate snapshot",
+        "coord/fleet lock health",
+        "7-day ranked fix plan",
+        "optional 30-min readout"
+      ]
+    },
+    "hardening": {
+      "name": "Governed Agent Hardening Sprint",
+      "priceUsd": 1500,
+      "deliverables": [
+        "ship-claim + taste + CodeQL pattern gates in CI",
+        "Linear/vault claim protocol live",
+        "LLM gateway routing verified",
+        "written runbook for operators"
+      ]
+    },
+    "continuity": {
+      "name": "ThumbGate Continuity (product)",
+      "priceUsd": null,
+      "priceSource": "https://thumbgate.app/api/billing/plan"
+    }
+  }
+}
