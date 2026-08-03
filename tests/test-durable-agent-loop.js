@@ -118,8 +118,12 @@ async function runTest() {
   });
   await loopWatchdog.start();
   const wdStart = Date.now();
-  while (loopWatchdog.running && Date.now() - wdStart < 2000) {
-    await new Promise((resolve) => setTimeout(resolve, 10));
+  // Wait for BOTH the loop to stop AND the abort signal to be observed by
+  // the workFn. There is an inherent race: the watchdog calls abort() then
+  // stop() synchronously, but the workFn's polling interval (1ms) may not
+  // have detected the abort yet when the loop stops.
+  while ((loopWatchdog.running || !abortReceived) && Date.now() - wdStart < 3000) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
   }
   assert(!loopWatchdog.running, 'watchdog loop should stop after abort');
   assert(abortReceived, 'watchdog should abort in-flight work');
