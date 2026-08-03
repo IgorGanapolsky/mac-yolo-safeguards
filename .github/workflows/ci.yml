@@ -279,6 +279,9 @@ jobs:
       - name: Ship-claim gate
         run: node tests/test-ship-claim-gate.js
 
+      - name: CodeQL security helpers
+        run: node tests/test-codeql-security-helpers.js
+
       - name: Taste layer golden set
         run: node tests/test-taste-gate.js
 

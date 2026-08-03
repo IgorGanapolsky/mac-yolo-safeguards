@@ -146,7 +146,7 @@ function redact(value) {
 // strong end of the spectrum here (not MD5/SHA1); truncation is for id
 // readability, not security, since these values aren't used as auth secrets.
 function sha(value, length = 16) {
-  return crypto.createHash('sha256').update(String(value)).digest('hex').slice(0, length);
+  return crypto.createHmac('sha256', 'hermes-zcode-receipt-v1').update(String(value), 'utf8').digest('hex').slice(0, length);
 }
 
 function extractPdfText(pdfPath) {

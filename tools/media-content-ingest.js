@@ -55,10 +55,16 @@ function requireValue(argv, index, flag) {
 }
 
 function run(command, args, options = {}) {
-  return spawnSync(command, args, {
+  // argv form only — no shell (js/shell-command-injection-from-environment).
+  const cmd = String(command);
+  if (cmd.includes(' ') || cmd.includes(';') || cmd.includes('|') || cmd.includes('&')) {
+    throw new Error('refusing shell metacharacters in command');
+  }
+  return spawnSync(cmd, (args || []).map(String), {
     encoding: 'utf8',
     timeout: options.timeout || 60000,
     maxBuffer: options.maxBuffer || 1024 * 1024 * 16,
+    shell: false,
   });
 }
 

@@ -2773,3 +2773,13 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 - 2026-08-02T22:36:00Z `codex-apollo-spend-guard` review correction: fresh Codex review found missing refund/charge/payment-intent coverage, a `git checkout` false positive, and installer loss of sibling hooks grouped with an older guard. Added explicit money-movement coverage, required URL/path context for checkout-path denial, and nested-hook removal that preserves siblings. Regression proof: 14 allow + 21 deny cases pass; direct Mac mini refund probe exits 2 while `git checkout main` exits 0; settings remain valid with the guard installed.
 
 - 2026-08-02T22:12:19Z `codex-apollo-spend-guard` P1 review remediation: Codex review correctly identified that JavaScript word boundaries do not split snake-case MCP names (`invoice_pay`) and that ordinary Bash/Edit access could remove the installed user-space hook. Matching now normalizes separators before semantic evaluation, and non-read tool access to the installed guard or Claude settings denies as `guard_tampering`. Regression proof covers `invoice_pay`, Bash removal/overwrite, Edit overwrite, and read-only settings inspection. Scope claim corrected: no environment bypass and ordinary tool-level tampering are blocked; same-user indirect evasion and runtimes that do not execute Claude hooks are not claimed as universally enforced.
+
+## CodeQL burn-down claims (grok 2026-08-03)
+- `hermes-mobile/scripts/asc-api.js` → **grok** (CodeQL burn-down 2026-08-03)
+- `hermes-mobile/scripts/attach-and-submit-asc-1.1.js` → **grok** (CodeQL burn-down 2026-08-03)
+- `hermes-mobile/scripts/attach-and-submit-asc-1.3.js` → **grok** (CodeQL burn-down 2026-08-03)
+- `hermes-mobile/scripts/dedupe-asc-screenshots.js` → **grok** (CodeQL burn-down 2026-08-03)
+- `hermes-mobile/scripts/submit-asc-for-review.js` → **grok** (CodeQL burn-down 2026-08-03)
+- `hermes-mobile/scripts/verify-apk-package.cjs` → **grok** (CodeQL burn-down 2026-08-03)
+- `hermes-mobile/scripts/verify-firebase-distribute-auth.cjs` → **grok** (CodeQL burn-down 2026-08-03)
+- `hermes-mobile/src/__tests__/apkReleaseGuards.test.ts` → **grok** (CodeQL burn-down 2026-08-03)

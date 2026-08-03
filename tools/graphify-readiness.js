@@ -5,6 +5,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const pathMod = require('path');
+const fsMod = require('fs');
 
 const DEFAULT_OUT_DIR = path.join(os.homedir(), 'Library', 'Application Support', 'mac-yolo-safeguards');
 const MIN_GRAPHIFY_VERSION = '0.9.26';
@@ -45,10 +47,23 @@ function requireValue(argv, index, flag) {
 }
 
 function run(command, args, options = {}) {
-  return spawnSync(command, args, {
+  // Never shell; require absolute path under repo or PATH basenames only.
+  let cmd = command;
+  if (cmd.includes('/') || cmd.includes('\\')) {
+    cmd = pathMod.resolve(cmd);
+    if (!fsMod.existsSync(cmd)) {
+      return { status: 127, stdout: '', stderr: 'missing binary', error: new Error('missing') };
+    }
+    const base = pathMod.basename(cmd);
+    if (!['graphify', 'graphify.exe', 'node', 'node.exe', 'sh', 'bash'].includes(base) && !cmd.includes('.graphify-venv')) {
+      return { status: 126, stdout: '', stderr: 'binary not allowlisted', error: new Error('deny') };
+    }
+  }
+  return spawnSync(cmd, args, {
     encoding: 'utf8',
     timeout: options.timeout || 10000,
     maxBuffer: 1024 * 1024 * 4,
+    shell: false,
   });
 }
 
