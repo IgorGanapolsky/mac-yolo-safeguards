@@ -32,7 +32,7 @@ Rejected framings: firewall-lecture copy that buries Continuity; rescue copy (PR
 Hold Continuity at $10/mo only after re-checking live /api/billing/plan — deliberately below the ~$20 mass-market agent cluster, but $10-for-100-continuations can look cheap next to $20 always-on cloud Hermes with a full VM.
 Charge for resilience events (cloud continuations), never per-token.
 Caps are the commercial envelope: trial 5 / Pro 100 / Team 500 continuations per 30 days, enforced server-side at claim time.
-Hermes Mobile is the paid native app; ThumbGate is the additive upsell. Mobile promo card links to thumbgate.app landing top with paid_companion UTMs and embeds no dollar amount (no #pricing jump).
+Hermes Mobile is the paid native app; ThumbGate is the additive upsell. Mobile promo card opens thumbgate.app/dashboard (product-first) with paid_companion UTMs; never #pricing. Logged-in users land in workspace; logged-out hit login then return_to=/dashboard.
 Deferred until real demand: Stripe usage meters; per-token pricing; enterprise compliance packages (need a buyer first); process migration (needs >=100 paying users + liability posture).
 If always-on cloud Hermes adoption rises, re-price/re-package around the gate (approvals) rather than racing runtime.
 
@@ -41,7 +41,7 @@ Fan-out matrix: LinkedIn, X, Bluesky, Threads, dev.to, Medium, Hacker News (Show
 Cadence: one themed campaign beat every 1-2 days; each beat = one persona + one pain + cited evidence + hook, fanned across platforms with per-channel adaptation and verified permalinks.
 Channel reliability: dev.to is the dependable longform rail; Medium editor and Threads compose fail often; Show HN survived 2026-07-27 despite HN throttling at 3 karma.
 AEO: visible direct answers to the three monitored buyer questions mirrored in FAQPage JSON-LD; canonical/sitemap/robots/llms.txt/ai-catalog kept machine-readable; weekly 3-prompt citation-proxy monitor (Monday 9:15 launchd, ~$0.005/mo, $0.10 cap). Citation loss goes branch -> tests -> canary -> promote/revert; never autonomous publishing from a visibility dip.
-Attribution: UTM campaign paid_companion, utm_source=hermes-mobile; open landing top (not #pricing); aggregate content-free funnel events only.
+Attribution: UTM campaign paid_companion, utm_source=hermes-mobile; open /dashboard (not #pricing); aggregate content-free funnel events only.
 
 [PROMO_RULES]
 Sell Continuity as an add-on, never as a fallback for a broken app (PR #1075). Rescue language fails the regression gate: "phone cannot reach", "pair a Mac and continue", "replacement", "instead".

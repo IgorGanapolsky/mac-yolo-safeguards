@@ -762,6 +762,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- `hermes-mobile/src/utils/thumbgatePromoCopy.ts` (URL + CTA → /dashboard), `hermes-mobile/src/constants/monetization.ts` (dashboard URLs only), `hermes-mobile/src/__tests__/thumbgatePromoCopy.test.ts`, `hermes-mobile/src/__tests__/thumbgateContinuityUpsellContract.test.ts`, `hermes-mobile/src/__tests__/ThumbGatePromoCard.test.tsx` (open URL/label only), `hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts` (S52 only), `hermes-mobile/.cursor/skills/hermes-mobile-connect/SKILL.md`, `skills/hermes-mobile-connect/SKILL.md`, `config/THUMBGATE_EXPERT_CARD.txt`, `plan.md` → **grok-promo-no-pricing-jump** (T-THUMBGATE-PROMO-NO-PRICING-JUMP-20260803: product-first /dashboard entry; never pricing deep-link) (2026-08-03T17:02Z)
+
 - `hermes-mobile/src/utils/thumbgatePromoCopy.ts` (THUMBGATE_WEB_URL only — drop #pricing), `hermes-mobile/src/__tests__/thumbgatePromoCopy.test.ts` (#pricing assertion only), `hermes-mobile/src/__tests__/thumbgateContinuityUpsellContract.test.ts` (#pricing assertion only), `hermes-mobile/.cursor/skills/hermes-mobile-connect/SKILL.md` (URL only), `config/THUMBGATE_EXPERT_CARD.txt` (promo URL note only), `plan.md` → **grok-promo-no-pricing-jump** (T-THUMBGATE-PROMO-NO-PRICING-JUMP-20260803: mobile promo opens landing top, not #pricing; coord with grok-thumbgate-facilitate-20260802 URL slice only) (2026-08-03T16:58Z)
 - `plan.md` → **grok-thumbgate-facilitate-20260802** (merge3 2026-08-03T02:11Z)
 - `hooks/thumbgate-spend-guard/pre-tool-use.js` → **grok-thumbgate-facilitate-20260802** (merge3 2026-08-03T02:11Z)

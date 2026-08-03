@@ -35,9 +35,10 @@ describe('ThumbGate promo is a continuity upsell + absence facilitation', () => 
     }
   });
 
-  it('attributes mobile conversions and opens the landing top (not #pricing jump)', () => {
+  it('attributes mobile conversions and opens /dashboard (product-first, not #pricing)', () => {
     expect(THUMBGATE_WEB_URL).toContain('utm_source=hermes-mobile');
     expect(THUMBGATE_WEB_URL).toContain('utm_campaign=paid_companion');
+    expect(THUMBGATE_WEB_URL).toContain('/dashboard');
     expect(THUMBGATE_WEB_URL).not.toContain('#pricing');
     for (const s of SURFACES) {
       expect(thumbGatePromoCopy(s).url).toBe(THUMBGATE_WEB_URL);

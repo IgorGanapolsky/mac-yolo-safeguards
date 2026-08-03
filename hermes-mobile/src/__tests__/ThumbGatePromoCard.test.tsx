@@ -32,7 +32,7 @@ describe('ThumbGatePromoCard', () => {
 
     expect(getByTestId('thumbgate-promo-connection_unreachable')).toBeTruthy();
     expect(getByText('No ThumbGate.app yet?')).toBeTruthy();
-    expect(getByText('Open ThumbGate.app')).toBeTruthy();
+    expect(getByText('Open ThumbGate.app Dashboard')).toBeTruthy();
     expect(getByTestId('thumbgate-facilitation-steps')).toBeTruthy();
     expect(getByTestId('thumbgate-connector-install-command').props.children).toBe(
       THUMBGATE_CONNECTOR_INSTALL_COMMAND,
