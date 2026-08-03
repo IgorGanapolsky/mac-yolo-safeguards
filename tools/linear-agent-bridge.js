@@ -123,17 +123,29 @@ function getLinearApiKey() {
   return preferred.key;
 }
 
-function queryLinearWithKey(apiKey, query, variables = {}) {
+const LINEAR_HTTP_TIMEOUT_MS = Number(process.env.LINEAR_HTTP_TIMEOUT_MS || 25_000);
+const LINEAR_HTTP_RETRIES = Number(process.env.LINEAR_HTTP_RETRIES || 2);
+
+function queryLinearWithKeyOnce(apiKey, query, variables = {}) {
   const payload = JSON.stringify({ query, variables });
   return new Promise((resolve) => {
+    let settled = false;
+    const finish = (val) => {
+      if (settled) return;
+      settled = true;
+      resolve(val);
+    };
     const req = https.request(
-      'https://api.linear.app/graphql',
       {
+        hostname: 'api.linear.app',
+        path: '/graphql',
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: apiKey,
+          'Content-Length': Buffer.byteLength(payload),
         },
+        timeout: LINEAR_HTTP_TIMEOUT_MS,
       },
       (res) => {
         let body = '';
@@ -144,7 +156,7 @@ function queryLinearWithKey(apiKey, query, variables = {}) {
           try {
             const parsed = JSON.parse(body);
             if (parsed.errors?.length) {
-              resolve({
+              finish({
                 error: true,
                 code: 'GRAPHQL',
                 message: parsed.errors.map((e) => e.message).join('; '),
@@ -152,17 +164,40 @@ function queryLinearWithKey(apiKey, query, variables = {}) {
               });
               return;
             }
-            resolve(parsed);
+            finish(parsed);
           } catch (e) {
-            resolve({ error: true, code: 'PARSE', message: e.message, body });
+            finish({ error: true, code: 'PARSE', message: e.message, body });
           }
         });
       },
     );
-    req.on('error', (err) => resolve({ error: true, code: 'NETWORK', message: err.message }));
+    req.on('error', (err) =>
+      finish({ error: true, code: 'NETWORK', message: err.message || String(err) }),
+    );
+    req.on('timeout', () => {
+      req.destroy();
+      finish({
+        error: true,
+        code: 'NETWORK',
+        message: `timeout after ${LINEAR_HTTP_TIMEOUT_MS}ms`,
+      });
+    });
     req.write(payload);
     req.end();
   });
+}
+
+async function queryLinearWithKey(apiKey, query, variables = {}) {
+  let last = null;
+  const attempts = Math.max(1, LINEAR_HTTP_RETRIES + 1);
+  for (let i = 0; i < attempts; i += 1) {
+    last = await queryLinearWithKeyOnce(apiKey, query, variables);
+    if (!last.error) return last;
+    if (last.code !== 'NETWORK') return last;
+    // brief backoff before retry
+    await new Promise((r) => setTimeout(r, 200 * (i + 1)));
+  }
+  return last;
 }
 
 async function ensureLinearApiKey() {
@@ -517,6 +552,7 @@ async function findIssueByIdentifier(identifier) {
 }
 
 async function teamStates(teamId) {
+  // Linear GraphQL: team(id: String!) on this workspace schema (ID! fails).
   const res = await queryLinear(
     `
     query($teamId: String!) {
@@ -936,12 +972,103 @@ async function createIssue({ title, description, agent, teamKey, project }) {
   };
 }
 
+/**
+ * Combined Linear + vault coordination status for multi-agent sync.
+ */
+async function coordStatus() {
+  const fleet = await listIssues({ fleet: true, openOnly: true, first: 80 });
+  if (fleet.error) return fleet;
+  const claims = fleet.vaultClaims || loadVaultClaimsIndex();
+  const issues = fleet.issues || [];
+
+  const agentLocked = issues.filter((i) => {
+    const labs = (i.labels?.nodes || []).map((l) => l.name.toLowerCase());
+    return labs.some((n) => n === 'agent-lock' || n.startsWith('agent-'));
+  });
+  const inProgress = issues.filter((i) => /progress|started/i.test(i.state?.name || ''));
+
+  // Vault Agent-State snapshots
+  const stateDir = path.join(VAULT_ROOT, 'Agent-State');
+  const vaultAgents = [];
+  try {
+    if (fs.existsSync(stateDir)) {
+      for (const f of fs.readdirSync(stateDir).filter((x) => x.endsWith('.md'))) {
+        const text = fs.readFileSync(path.join(stateDir, f), 'utf8');
+        const agent =
+          (text.match(/^agent:\s*(.+)$/m) || [])[1]?.trim() || f.replace(/\.md$/, '');
+        const status = (text.match(/^status:\s*(.+)$/m) || [])[1]?.trim() || '?';
+        const verified = (text.match(/^last_verified:\s*(.+)$/m) || [])[1]?.trim() || '';
+        const inflight = /## In flight/i.test(text);
+        vaultAgents.push({
+          file: f,
+          agent,
+          status,
+          last_verified: verified,
+          hasInFlightSection: inflight,
+        });
+      }
+    }
+  } catch {
+    /* non-fatal */
+  }
+
+  // Ghosts: Linear In Progress + agent-lock but vault last claim is done
+  const ghosts = [];
+  for (const issue of inProgress) {
+    const id = String(issue.identifier || '').toUpperCase();
+    const vc = claims[id];
+    if (vc && /done|release/i.test(vc.action || '') && /done|completed/i.test(vc.status || '')) {
+      ghosts.push({
+        id,
+        linearState: issue.state?.name,
+        vaultAction: vc.action,
+        vaultStatus: vc.status,
+        vaultAgent: vc.agent,
+      });
+    }
+  }
+
+  return {
+    ok: true,
+    teams: (fleet.teams || []).map((t) => t.key),
+    openIssueCount: issues.length,
+    agentLockedCount: agentLocked.length,
+    inProgressCount: inProgress.length,
+    agentLocked: agentLocked.map((i) => ({
+      id: i.identifier,
+      title: i.title,
+      state: i.state?.name,
+      assignee: i.assignee?.name || null,
+      labels: (i.labels?.nodes || []).map((l) => l.name),
+      vault: claims[String(i.identifier || '').toUpperCase()] || null,
+    })),
+    inProgress: inProgress.slice(0, 25).map((i) => ({
+      id: i.identifier,
+      title: (i.title || '').slice(0, 80),
+      state: i.state?.name,
+      labels: (i.labels?.nodes || []).map((l) => l.name),
+    })),
+    vaultAgents,
+    ghosts,
+    claimsDir: CLAIMS_DIR,
+    vaultRoot: VAULT_ROOT,
+    protocol: [
+      'node tools/linear-agent-bridge.js --coord-status',
+      'node tools/linear-agent-bridge.js --claim ID --agent <you> --files a,b',
+      'mirror Agent-State/<agent>.md',
+      'plan.md for megafiles',
+      'node tools/linear-agent-bridge.js --done ID --agent <you> --comment sha',
+    ],
+  };
+}
+
 function printHelp() {
   console.log(`linear-agent-bridge — Linear + vault multi-agent coordination
 
 Usage:
   --list [--json]                  Fleet: open issues across ALL teams (default)
   --list --team KEY [--all]        Single team (KEY=IGO|AGENT); --all includes done
+  --coord-status [--json]          Linear locks + vault Agent-State (preferred session start)
   --teams [--json]                 List teams
   --doctor [--json]                Auth sources + team/open-issue health
   --claim ID --agent NAME          Claim issue (In Progress + comment + vault note)
@@ -952,6 +1079,7 @@ Usage:
   --help
 
 Auth: env / ~/.config/linear/api_key / Keychain — probes for broadest workspace (IGO+AGENT).
+HTTP: timeout ${LINEAR_HTTP_TIMEOUT_MS}ms, retries ${LINEAR_HTTP_RETRIES} on NETWORK.
 Workspace: https://linear.app/igorganapolsky/agent
 Vault claims: ${CLAIMS_DIR}
 
@@ -1002,6 +1130,40 @@ async function main() {
     console.log(`  teams: ${report.teamKeys.join(', ') || '(none)'}`);
     console.log(`  openIssues: ${report.openIssueCount ?? 'n/a'}`);
     if (!report.ok) process.exitCode = 1;
+    return;
+  }
+
+  if (hasFlag(args, '--coord-status') || hasFlag(args, '--status')) {
+    const report = await coordStatus();
+    if (report.error) return out(isJson, report);
+    if (isJson) return out(true, report);
+    console.log('\n=== Multi-agent coord status (Linear + vault) ===');
+    console.log(`teams: ${(report.teams || []).join(', ')} · open: ${report.openIssueCount}`);
+    console.log(`agent-locked: ${report.agentLockedCount} · in-progress: ${report.inProgressCount}`);
+    if (report.ghosts?.length) {
+      console.log(`GHOSTS (Linear open but vault says done): ${report.ghosts.length}`);
+      for (const g of report.ghosts) {
+        console.log(
+          `  ! ${g.id} linear=${g.linearState} vault=${g.vaultAgent}/${g.vaultAction}/${g.vaultStatus}`,
+        );
+      }
+    }
+    console.log('\nAgent locks (Linear labels agent-*):');
+    if (!report.agentLocked?.length) console.log('  (none)');
+    for (const i of report.agentLocked || []) {
+      const v = i.vault ? `vault:${i.vault.agent}/${i.vault.action}` : 'vault:—';
+      console.log(
+        `  [${i.id}] ${i.state} · ${(i.labels || []).join(',')} · ${v} · ${(i.title || '').slice(0, 60)}`,
+      );
+    }
+    console.log('\nVault Agent-State:');
+    for (const a of report.vaultAgents || []) {
+      console.log(
+        `  ${a.file} · ${a.status} · verified=${a.last_verified || '—'} · inflight=${a.hasInFlightSection}`,
+      );
+    }
+    console.log('\nProtocol:');
+    for (const p of report.protocol || []) console.log(`  ${p}`);
     return;
   }
 
@@ -1157,6 +1319,8 @@ module.exports = {
   writeVaultClaim,
   loadVaultClaimsIndex,
   doctorLinearFleet,
+  coordStatus,
   normalizeAgent,
   DEFAULT_TEAM_KEY,
+  LINEAR_HTTP_TIMEOUT_MS,
 };

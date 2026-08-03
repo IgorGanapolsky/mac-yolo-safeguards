@@ -29,15 +29,19 @@ Human dashboard note: `~/Documents/AI-Agent-Sync/Agent-Jobs/Linear-Fleet-Dashboa
 ## Bridge CLI
 
 ```bash
+# Preferred session start (Linear locks + vault Agent-State + ghost detection)
+node tools/linear-agent-bridge.js --coord-status
+
 node tools/linear-agent-bridge.js --list
 node tools/linear-agent-bridge.js --list --team IGO
-node tools/linear-agent-bridge.js --claim IGO-34 --agent grok
-node tools/linear-agent-bridge.js --update IGO-34 --state "In Progress" --comment "…"
-node tools/linear-agent-bridge.js --done IGO-34 --agent grok --comment "merged abc123"
-node tools/linear-agent-bridge.js --create --title "…" --agent grok --project hermes-mobile
+node tools/linear-agent-bridge.js --claim AGENT-25 --agent grok --files tools/a.js,tools/b.js
+node tools/linear-agent-bridge.js --done AGENT-25 --agent grok --comment "merged abc123"
+node tools/linear-agent-bridge.js --create --title "…" --agent grok --project hermes-mobile --team AGENT
 ```
 
 Auth: candidates from env, `~/.config/linear/api_key`, Keychain `LINEAR_API_KEY` — bridge **probes** and uses the PAT that sees the most teams (2026-08-02: Keychain-only PAT saw empty `AGENT`; file PAT sees `IGO`+`AGENT`). Prefer a full-workspace PAT in `~/.config/linear/api_key` (mode 600).
+
+HTTP: 25s timeout + retries on NETWORK (was hanging / false NETWORK on Done). Team GraphQL uses `ID!`.
 
 Default **create** team: `AGENT` (*Agent Operations*). Personal: `--team IGO`.  
 Default **list**: all teams, open issues only (`--all` for closed).
@@ -46,10 +50,11 @@ Default **list**: all teams, open issues only (`--all` for closed).
 
 ## Agent protocol
 
-1. Session start runs `agent-session-start.js` → prints Linear fleet list (if key present).
+1. Session start runs `agent-session-start.js` → `--coord-status` (Linear + vault).
 2. Before multi-file work: **claim** Linear issue + update own `Agent-State/<agent>.md`.
 3. Never edit files another agent claimed in vault without a handoff note.
 4. On finish: `--done` with proof (SHA / PR URL).
+5. Megafiles still require `plan.md` ownership (Linear does not replace it).
 
 ## Skill
 

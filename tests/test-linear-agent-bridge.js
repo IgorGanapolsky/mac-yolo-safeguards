@@ -16,6 +16,8 @@ const {
   normalizeAgent,
   loadVaultClaimsIndex,
   resetLinearApiKeyCache,
+  LINEAR_HTTP_TIMEOUT_MS,
+  coordStatus,
 } = require('../tools/linear-agent-bridge');
 
 function test(name, fn) {
@@ -94,6 +96,15 @@ updated_at: 2026-08-03T00:00:00.000Z
 
 test('resetLinearApiKeyCache is callable', () => {
   resetLinearApiKeyCache();
+});
+
+test('HTTP timeout configured (no hang forever)', () => {
+  assert.ok(Number(LINEAR_HTTP_TIMEOUT_MS) >= 5000);
+  assert.ok(Number(LINEAR_HTTP_TIMEOUT_MS) <= 120_000);
+});
+
+test('coordStatus is exported', () => {
+  assert.strictEqual(typeof coordStatus, 'function');
 });
 
 if (!process.exitCode) {
