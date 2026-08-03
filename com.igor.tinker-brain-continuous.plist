@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.igor.tinker-brain-continuous</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>python3</string>
+    <string>/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/tools/tinker-brain/tinker_brain_continuous.py</string>
+    <string>--once</string>
+    <string>--heal</string>
+    <string>--json</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards</string>
+  <key>StartInterval</key>
+  <integer>3600</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>Nice</key>
+  <integer>10</integer>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>/Users/igorganapolsky/Library/Logs/hermes/tinker-brain-continuous.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/igorganapolsky/Library/Logs/hermes/tinker-brain-continuous.err.log</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>HOME</key>
+    <string>/Users/igorganapolsky</string>
+  </dict>
+</dict>
+</plist>

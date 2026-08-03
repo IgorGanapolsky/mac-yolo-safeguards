@@ -26,9 +26,9 @@ from tinker_brain_router import (  # noqa: E402
     INTENT_THUMBGATE_GTM,
     route,
 )
-from tinker_response_contract import parse_card, validate_response  # noqa: E402
 from tinker_brain_coverage import banner, coverage  # noqa: E402
 from tinker_brain_section_retrieve import select_sections  # noqa: E402
+from tinker_response_contract import parse_card, validate_response  # noqa: E402
 
 try:
     from tinker_brain_health import log_gap  # noqa: E402
@@ -355,6 +355,13 @@ def answer(
                 # the CLI, so a check living in main() is never exercised.
                 "coverage": coverage(user_question, text),
             }
+    cov = coverage(user_question, text)
+    # Self-learning even when callers use answer() without CLI (eval, other agents).
+    if not cov.get("covered") and cov.get("missing"):
+        try:
+            log_gap(user_question, list(cov.get("missing") or []))
+        except OSError:
+            pass
     return {
         "ok": not violations,
         "violations": violations,
@@ -367,7 +374,7 @@ def answer(
         # Attached here rather than in main(): CI runs tests/test-tinker-brain.py and
         # tinker_brain_eval.py, both of which call answer() directly and never touch
         # the CLI, so a check living in main() is never exercised.
-        "coverage": coverage(user_question, text),
+        "coverage": cov,
     }
 
 

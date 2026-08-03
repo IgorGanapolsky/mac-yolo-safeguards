@@ -139,7 +139,24 @@ def check(max_age_days: int = 14) -> dict:
 
 
 def heal() -> dict:
-    """Re-export snapshot so expert card + ANSWER_CARD match the repo + live APIs."""
+    """Heal divergence then re-export snapshot so runtime matches git + live APIs.
+
+    Prefer tinker_brain_continuous.heal_divergence when available (promotes the
+    newer AS_OF card into config/, then exports). Fall back to export-only.
+    """
+    try:
+        from tinker_brain_continuous import heal_divergence  # type: ignore
+
+        cont = heal_divergence(dry_run=False)
+        post = check()
+        return {
+            "ok": bool(cont.get("ok")) and post.get("ok"),
+            "continuous": cont,
+            "post_check": post,
+        }
+    except ImportError:
+        pass
+
     if not _EXPORTER.is_file():
         return {"ok": False, "error": f"exporter missing: {_EXPORTER}"}
     try:
