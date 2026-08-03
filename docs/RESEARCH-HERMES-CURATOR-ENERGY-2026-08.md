@@ -1,7 +1,9 @@
 # Hermes Curator: cost, safety, and value gate
 
-Research run: `trun_18f41c41d5474492bc2f63351ff01153`  
-Completed: 2026-08-02  
+Research run: `trun_18f41c41d5474492bc2f63351ff01153`
+
+Completed: 2026-08-02
+
 Raw evidence: `parallel-research/hermes-curator-energy-2026-08.json`
 
 ## Decision
@@ -69,4 +71,3 @@ The audit scored that observed mode 100/100. That proves this run avoided the LL
 ## Community answer draft (do not auto-publish)
 
 The energy concern is valid for opt-in consolidation, not for every Curator run. Current Hermes separates deterministic prune-only maintenance from the LLM consolidation pass. On this installation, the latest prune-only run took 0.23 seconds and recorded zero model identity and zero tool calls. Consolidation still needs hard call/token/time/spend budgets plus dependency fixtures before it should run unattended. The useful community ask is a structured per-run receipt—mode, model, tokens, calls, duration, changes, and rollback—not an unsupported universal wattage claim.
-
