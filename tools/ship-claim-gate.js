@@ -21,6 +21,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
+const { compareClaimToResults, parseClaimIntegers } = require('./deterministic-count');
 const DEFAULT_E2E = path.join(ROOT, 'hermes-mobile/docs/proofs/continuous/latest.json');
 
 const LIVE_WORDS =
@@ -328,6 +329,24 @@ function evaluateShipClaim(input) {
     blocks.push(
       'Completion language without evidence. Pass --results-json, --matrix-file, --device, --require-sha, and/or --require-url',
     );
+  }
+
+
+  // --- Deterministic counting (arXiv:2410.19730) ---
+  // LLM tokenizers mis-count; require results matrix for numeric LIVE claims.
+  {
+    const parsed = parseClaimIntegers(claim);
+    if ((parsed.numbers.length || parsed.universal) && hasLiveLanguage) {
+      if (!results && !matrix) {
+        blocks.push(
+          'Numeric/universal LIVE claim requires --results-json or --matrix-file (deterministic count; arXiv:2410.19730)',
+        );
+      } else if (results) {
+        const cmp = compareClaimToResults(claim, results);
+        for (const b of cmp.blocks || []) blocks.push(b);
+        for (const a of cmp.allows || []) allows.push(a);
+      }
+    }
   }
 
   // --- Code scanning / Security tab theater (2026-08) ---

@@ -92,3 +92,13 @@ Adjective-only bars (“high quality”) are invalid AC language.
 - [docs/HERMES-ECONOMIC-ROUTER.md](./HERMES-ECONOMIC-ROUTER.md)
 - [docs/SDD-SPECIFICATION-DRIVEN-DESIGN.md](./SDD-SPECIFICATION-DRIVEN-DESIGN.md)
 - [AGENTS.md](../AGENTS.md)
+
+## Reasoning walkthroughs / ten-proofs / counting (2026-08)
+
+```bash
+node tools/reasoning-proof-ladder.js --self-test
+node tools/independent-verifier.js --self-test
+node tools/deterministic-count.js --self-test
+```
+
+Detail: [docs/REASONING-PROOF-HARNESS.md](./REASONING-PROOF-HARNESS.md)

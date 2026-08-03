@@ -289,6 +289,7 @@ jobs:
           set -eu
           node tests/test-codeql-pattern-gate.js
           node tests/test-codeql-agent-hygiene.js
+          node tests/test-reasoning-proof-harness.js
           node tools/codeql-pattern-gate.js --diff origin/main
           node tools/codeql-agent-hygiene.js --pre-ship --skip-network
 
