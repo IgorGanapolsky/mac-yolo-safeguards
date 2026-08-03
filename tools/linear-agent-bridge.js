@@ -998,7 +998,9 @@ async function coordStatus() {
           (text.match(/^agent:\s*(.+)$/m) || [])[1]?.trim() || f.replace(/\.md$/, '');
         const status = (text.match(/^status:\s*(.+)$/m) || [])[1]?.trim() || '?';
         const verified = (text.match(/^last_verified:\s*(.+)$/m) || [])[1]?.trim() || '';
-        const inflight = /## In flight/i.test(text);
+        const inflight = /## In flight[\s\S]{0,400}?(?:AGENT-|IGO-|claimed_files:|Branch:|tools\/|hermes-mobile\/)/i.test(text)
+          && !/## In flight[\s\S]{0,120}?\(none/i.test(text)
+          && !/No multi-file claim in progress/i.test(text);
         vaultAgents.push({
           file: f,
           agent,
