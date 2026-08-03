@@ -105,14 +105,30 @@ function inferPlatform(url, explicit) {
   return 'generic';
 }
 
+// Strip leading www. so alias/subdomain checks compare the registrable host.
+function bareHost(host) {
+  return String(host || '').toLowerCase().replace(/^www\./, '');
+}
+
+// Which PLATFORM_HOSTS platform owns this hostname, if any.
+function platformForHost(host) {
+  const h = bareHost(host);
+  for (const [platform, domains] of PLATFORM_HOSTS) {
+    if (domains.some((d) => hostMatchesDomain(h, d))) return platform;
+  }
+  return null;
+}
+
 // Returns a human-readable "asked -> got" string when the response came from a
 // different party than requested, or '' when the hosts are equivalent.
 //
-// Equivalent means: identical, or one is a subdomain of the other (so
-// www.medium.com <-> medium.com and old.reddit.com <-> reddit.com are fine).
-// Anything else is a different party answering, however healthy its 200 looks.
-// Unparseable input returns '' — fetchUrl already normalises both sides, and a
-// parse failure must not manufacture a redirect that did not happen.
+// Equivalent means: identical, one is a subdomain of the other (www.medium.com
+// <-> medium.com, old.reddit.com <-> reddit.com), OR both hosts are known
+// aliases of the same platform in PLATFORM_HOSTS (twitter.com <-> x.com,
+// threads.net <-> threads.com). Anything else is a different party answering,
+// however healthy its 200 looks. Unparseable input returns '' — fetchUrl
+// already normalises both sides, and a parse failure must not manufacture a
+// redirect that did not happen.
 function describeHostDrift(requestedUrl, finalUrl) {
   if (!finalUrl) return '';
   let a;
@@ -125,6 +141,10 @@ function describeHostDrift(requestedUrl, finalUrl) {
   }
   if (!a || !b || a === b) return '';
   if (a.endsWith(`.${b}`) || b.endsWith(`.${a}`)) return '';
+  // Canonical platform aliases (twitter.com→x.com, threads.net→threads.com).
+  const pa = platformForHost(a);
+  const pb = platformForHost(b);
+  if (pa && pb && pa === pb) return '';
   return `${a} -> ${b}`;
 }
 
@@ -343,10 +363,12 @@ async function verify(args) {
 
   const title = extractTitle(fetched.body);
   const text = extractArticleish(fetched.body, platform);
+  // Needle search is extracted-visible text only. Searching raw fetched.body
+  // lets a needle that exists only inside <script>/<style> (or HTML attrs)
+  // false-pass LIVE after stripHtml removed it from the public body.
   const missing = [];
   for (const needle of args.mustContain) {
-    if (!text.toLowerCase().includes(String(needle).toLowerCase())
-      && !fetched.body.toLowerCase().includes(String(needle).toLowerCase())) {
+    if (!text.toLowerCase().includes(String(needle).toLowerCase())) {
       missing.push(needle);
     }
   }

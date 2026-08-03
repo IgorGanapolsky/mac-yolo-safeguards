@@ -164,12 +164,27 @@ async function main() {
   }
 
   // A --must-contain needle must never be satisfied from script source.
+  // Fixture is independently LIVE-capable (rich body ≥500 chars) so the only
+  // reason not-live is the missing-text branch — not title-only / short body.
+  // Needle lives only inside <script>; if verify() still scans raw fetched.body
+  // this would false-LIVE.
   await test('a --must-contain needle is not satisfied by script source', async () => {
-    globalThis.fetch = () => Promise.resolve(mkRes(200,
-      `<html><body><p>hello</p><script>var s="NEEDLE_IN_SCRIPT";${'y'.repeat(3000)}</script></body></html>`));
+    const visible = 'We shipped governed agents that ask before they act. '.repeat(30);
+    const html = `<html><head><title>Governed agents: a field report</title></head>`
+      + `<body><article><h1>Governed agents: a field report</h1>`
+      + `<p>${visible}</p>`
+      + `<script>var s="NEEDLE_IN_SCRIPT";${'y'.repeat(500)}</script>`
+      + `</article></body></html>`;
+    globalThis.fetch = () => Promise.resolve(mkRes(200, html));
     const r = await vpp.verify({ ...ARGS, mustContain: ['NEEDLE_IN_SCRIPT'] });
     assert.notStrictEqual(r.live, true,
       'a needle found only inside <script> must not count as published copy');
+    assert.ok(
+      r.reason && /Missing required text/i.test(r.reason) && /NEEDLE_IN_SCRIPT/.test(r.reason),
+      `must fail on missing-text branch, not short-body/title-only (reason=${r.reason})`,
+    );
+    assert.ok(Array.isArray(r.missing) && r.missing.includes('NEEDLE_IN_SCRIPT'),
+      'missing array must name the script-only needle');
   });
 
   // Draft/editor URLs must never verify, regardless of what the network returns.
@@ -197,6 +212,10 @@ async function main() {
     assert.strictEqual(d('https://medium.com/p', 'https://medium.com/p'), '');
     assert.strictEqual(d('https://www.medium.com/p', 'https://medium.com/p'), '');
     assert.strictEqual(d('https://medium.com/p', 'https://igor.medium.com/p'), '');
+    // Platform aliases from PLATFORM_HOSTS — not drift (twitter↔x, threads).
+    assert.strictEqual(d('https://twitter.com/igor/status/1', 'https://x.com/igor/status/1'), '');
+    assert.strictEqual(d('https://x.com/igor/status/1', 'https://twitter.com/igor/status/1'), '');
+    assert.strictEqual(d('https://www.threads.net/@igor/post/1', 'https://www.threads.com/@igor/post/1'), '');
     // Different party — drift, and it must NAME both sides.
     assert.strictEqual(d('https://medium.com/p', 'https://accounts.google.com/signin'),
       'medium.com -> accounts.google.com');
@@ -206,6 +225,20 @@ async function main() {
     // Absent/unparseable must not manufacture a redirect.
     assert.strictEqual(d('https://medium.com/p', ''), '');
     assert.strictEqual(d('https://medium.com/p', 'not a url'), '');
+  });
+
+  // twitter.com → x.com redirect must still verify LIVE (alias, not off-host).
+  await test('twitter.com -> x.com alias redirect still reports live', async () => {
+    globalThis.fetch = () => Promise.resolve(
+      mkRes(200, richPage(), 'https://x.com/igor/status/123'));
+    const r = await vpp.verify({
+      ...ARGS,
+      url: 'https://twitter.com/igor/status/123',
+      platform: 'x',
+      minBodyChars: 40,
+    });
+    assert.strictEqual(r.live, true,
+      `twitter↔x is a platform alias, not host drift (reason=${r.reason})`);
   });
 
   // ---- POSITIVE CONTROL -----------------------------------------------------

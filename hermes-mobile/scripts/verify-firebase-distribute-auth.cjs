@@ -15,11 +15,13 @@ const APP_ID = process.env.FIREBASE_ANDROID_APP_ID || '';
 // js/clear-text-logging (CWE-312/359/532): anything derived from
 // FIREBASE_SERVICE_ACCOUNT_JSON (process.env) is taint. Never pass SA-derived
 // strings into console.log/error — not even "masked" forms (still a flow).
-// Fail with a static message; put detail only in process.exit path via code.
-function fail(_detailCode) {
+// Static detail codes (literals only) are safe and must appear so operators
+// can distinguish invalid_sa_json / oauth_token_exchange_failed / etc.
+function fail(detailCode) {
+  const code = typeof detailCode === 'string' && detailCode ? detailCode : 'unknown';
   console.error(
-    'Firebase distribute auth: FAIL — check CI secret FIREBASE_SERVICE_ACCOUNT_JSON ' +
-      'and roles/firebaseappdistro.admin (identity not logged; see script source for cases).',
+    `Firebase distribute auth: FAIL [${code}] — check CI secret FIREBASE_SERVICE_ACCOUNT_JSON ` +
+      'and roles/firebaseappdistro.admin (identity not logged; code is static, not SA-derived).',
   );
   process.exit(1);
 }
