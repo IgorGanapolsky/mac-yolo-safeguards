@@ -47,8 +47,13 @@ jobs:
             fi
           done
 
+  # Stale scan is intentionally schedule/dispatch only.
+  # Running actions/stale on every pull_request re-walks the whole open-PR set
+  # (100+ ops) under the same concurrency group as the 6h cron, burns the
+  # operations-per-run budget, and races the janitor. 97/100 recent runs were PR.
   stale:
     name: Mark and close stale PRs
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/stale@1e223db275d687790206a7acac4d1a11bd6fe629 # v10.4.0
@@ -64,7 +69,9 @@ jobs:
           exempt-draft-pr: true
           delete-branch: true
           ascending: true   # oldest first, so the backlog drains predictably
-          operations-per-run: 100
+          # Must be ≥ open PR count so one cron pass can label/close the backlog.
+          # 2026-08: ~148 open; 200 leaves headroom without infinite loops.
+          operations-per-run: 200
           stale-pr-message: >
             This PR has had no activity for 4 days. It will be closed in 3 more days
             if nothing changes. Push a commit, comment, or add the `keep` label to hold it.
