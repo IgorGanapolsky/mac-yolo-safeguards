@@ -285,6 +285,17 @@ jobs:
       - name: Linear bridge pure helpers
         run: node tests/test-linear-agent-bridge.js
 
+      - name: Megafile risk scan unit tests
+        run: node tests/test-megafile-risk-scan.js
+
+      - name: Workflow catalog + preflight (offline)
+        run: |
+          set -eu
+          node tests/test-workflows-catalog.js
+          node tools/ship-claim-batch.js --self-test
+          node tools/coord-automate.js --ci
+          node tests/test-coord-automate.js
+
       - name: Harness smeval (ship-honesty offline)
         run: node tests/test-harness-smeval.js
 

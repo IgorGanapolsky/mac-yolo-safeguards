@@ -28,6 +28,18 @@
 | Megafiles | **plan.md** | Serialize hot paths |
 | Code | git worktrees / PRs | Truth of product |
 
+## Smart automation (preferred)
+
+```bash
+node tools/coord-automate.js           # preflight + doctor + safe scrub apply + LaunchAgent
+node tools/coord-automate.js --quick   # session-start
+node tools/coord-automate.js --daemon  # 15m LaunchAgent
+node tools/coord-automate.js --ci      # offline CI
+```
+
+Safe auto-scrub reasons only: done-still-locked · vault-released · lock-on-backlog.  
+Health: `coordination/coord-health.json`.
+
 ## Bridge CLI
 
 ```bash

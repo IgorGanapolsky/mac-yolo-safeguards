@@ -1320,7 +1320,14 @@ async function finalizeIssue({ identifier, agent, comment, mode }) {
  * Scrub stale agent-lock labels: vault says done/release, or Linear completed still locked.
  * Default dry-run; pass apply=true to mutate.
  */
-async function scrubStaleLocks({ apply = false, aggressive = false, maxAgeHours = 24 } = {}) {
+/** Reasons safe for unattended auto-apply (no active claim thrash). */
+const SAFE_SCRUB_REASONS = Object.freeze([
+  'linear_done_still_locked',
+  'vault_says_released',
+  'lock_on_unstarted',
+]);
+
+async function scrubStaleLocks({ apply = false, aggressive = false, maxAgeHours = 24, safeOnly = false } = {}) {
   // Include completed issues that still have locks — list open + recent completed via fleet open + locked open
   const fleet = await listIssues({ fleet: true, openOnly: false, first: 100 });
   if (fleet.error) return fleet;
@@ -1335,6 +1342,7 @@ async function scrubStaleLocks({ apply = false, aggressive = false, maxAgeHours 
       aggressive,
     });
     if (!reason) continue;
+    if (safeOnly && !SAFE_SCRUB_REASONS.includes(reason)) continue;
     candidates.push({
       id,
       title: (issue.title || '').slice(0, 80),
@@ -1378,6 +1386,7 @@ async function scrubStaleLocks({ apply = false, aggressive = false, maxAgeHours 
     ok: true,
     apply,
     aggressive,
+    safeOnly,
     maxAgeHours,
     candidateCount: candidates.length,
     candidates: candidates.map(({ issue, ...rest }) => rest),
@@ -1398,7 +1407,7 @@ Usage:
   --update ID --state NAME         Update state; optional --comment --agent
   --release ID --agent NAME        Strip agent-lock labels + vault free (state unchanged)
   --done ID --agent NAME           Done + strip agent-lock labels + vault free
-  --scrub-stale [--apply]          Dry-run (or apply) remove stale agent-lock labels
+  --scrub-stale [--apply] [--safe-only]  Scrub locks; --safe-only = done/unstarted/vault-released only
   --create --title "..."           Create issue; optional --agent --project --description
   --help
 
@@ -1494,11 +1503,12 @@ async function main() {
   if (hasFlag(args, '--scrub-stale')) {
     const apply = hasFlag(args, '--apply');
     const aggressive = hasFlag(args, '--aggressive');
+    const safeOnly = hasFlag(args, '--safe-only');
     const maxAgeHours = Number(argValue(args, '--max-age-hours') || 24);
-    const res = await scrubStaleLocks({ apply, aggressive, maxAgeHours });
+    const res = await scrubStaleLocks({ apply, aggressive, maxAgeHours, safeOnly });
     if (res.error) return out(isJson, res);
     if (isJson) return out(true, res);
-    console.log(`\n=== scrub-stale (${apply ? 'APPLY' : 'dry-run'}) ===`);
+    console.log(`\n=== scrub-stale (${apply ? 'APPLY' : 'dry-run'}${safeOnly ? ', safe-only' : ''}) ===`);
     console.log(`candidates: ${res.candidateCount} · maxAgeHours=${res.maxAgeHours}`);
     for (const c of res.candidates || []) {
       console.log(`  [${c.id}] ${c.reason} · ${c.state} · ${(c.labels || []).join(',')}`);
@@ -1677,6 +1687,7 @@ module.exports = {
   writeAgentStateInFlight,
   applyAgentStateInFlight,
   detectStaleAgentLock,
+  SAFE_SCRUB_REASONS,
   isAgentLockLabel,
   loadVaultClaimsIndex,
   doctorLinearFleet,

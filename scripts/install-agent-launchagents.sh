@@ -128,3 +128,12 @@ if [[ -f "$REPO_ROOT/tools/install-fleet-repo-intelligence.sh" ]]; then
   bash "$REPO_ROOT/tools/install-fleet-repo-intelligence.sh" || true
 fi
 
+
+# Multi-agent Linear + vault + workflow preflight (2026-08)
+if [[ -f "${repo_root}/tools/coord-automate.js" ]]; then
+  echo "Installing coord automation LaunchAgent via coord-automate..."
+  node "${repo_root}/tools/coord-automate.js" --json >/tmp/coord-automate-install.json 2>&1 || true
+  if [[ -f /tmp/coord-automate-install.json ]]; then
+    node -e "const j=require('/tmp/coord-automate-install.json'); console.log('coord-automate ok='+j.ok+' launchAgent.loaded='+(j.launchAgent&&j.launchAgent.loaded));" 2>/dev/null || true
+  fi
+fi

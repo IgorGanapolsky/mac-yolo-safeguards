@@ -115,6 +115,7 @@ const {
   applyAgentStateInFlight,
   detectStaleAgentLock,
   isAgentLockLabel,
+  SAFE_SCRUB_REASONS,
 } = require('../tools/linear-agent-bridge');
 
 test('isAgentLockLabel', () => {
@@ -211,4 +212,11 @@ test('detectStaleAgentLock aggressive age', () => {
     detectStaleAgentLock(issue, { action: 'claim', status: 'In Progress', updated: old }, { maxAgeHours: 24, aggressive: false }),
     null,
   );
+});
+
+
+test('SAFE_SCRUB_REASONS closed set', () => {
+  assert.ok(Array.isArray(SAFE_SCRUB_REASONS));
+  assert.ok(SAFE_SCRUB_REASONS.includes('linear_done_still_locked'));
+  assert.ok(!SAFE_SCRUB_REASONS.includes('stale_claim_age'));
 });

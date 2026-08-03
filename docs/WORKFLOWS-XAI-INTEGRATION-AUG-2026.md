@@ -162,6 +162,8 @@ node tools/linear-agent-bridge.js --done AGENT-N --agent grok --comment "…"
 
 Scripts: [`.grok/workflows/`](../.grok/workflows/). Preflight: `node tools/workflow-preflight.js`.
 
+**Smart automation:** `node tools/coord-automate.js` (full/quick/daemon/ci) — offline tests + safe scrub apply + LaunchAgent heal. Health: `coordination/coord-health.json`.
+
 ---
 
 ## Economics (when to spend the budget)

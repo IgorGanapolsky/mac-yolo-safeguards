@@ -256,20 +256,24 @@ function printLinearFleetSnapshot() {
 }
 const linearSnap = printLinearFleetSnapshot();
 
-// High-ROI Grok Build workflows (intra-Grok fan-out; Linear still owns fleet locks)
-(function printWorkflowHint() {
+// Smart automation: offline preflight + coord snapshot (no lock apply on session start)
+(function runCoordAutomateQuick() {
   try {
-    const wfDir = path.join(REPO, '.grok', 'workflows');
-    if (!fs.existsSync(wfDir)) return;
-    const names = fs
-      .readdirSync(wfDir)
-      .filter((f) => f.endsWith('.rhai'))
-      .map((f) => f.replace(/\.rhai$/, ''));
-    if (!names.length || json) return;
-    process.stdout.write('\n=== Grok workflows (high-ROI) ===\n');
-    process.stdout.write(`  ${names.join(', ')}\n`);
-    process.stdout.write('  preflight: node tools/workflow-preflight.js\n');
-    process.stdout.write('  Linear locks still: node tools/linear-agent-bridge.js --coord-status\n');
+    const auto = path.join(REPO, 'tools/coord-automate.js');
+    if (!fs.existsSync(auto) || json) return;
+    const r = spawnSync(process.execPath, [auto, '--quick'], {
+      cwd: REPO,
+      encoding: 'utf8',
+      timeout: 120_000,
+      env: process.env,
+    });
+    const text = `${r.stdout || ''}${r.stderr || ''}`.trim();
+    if (text) {
+      process.stdout.write('\n=== coord-automate --quick ===\n');
+      // Cap noise: last 40 lines
+      const lines = text.split('\n');
+      process.stdout.write(lines.slice(-40).join('\n') + '\n');
+    }
   } catch {
     /* non-fatal */
   }
