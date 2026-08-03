@@ -289,6 +289,17 @@ jobs:
       - name: Publishing gates
         run: node tests/test-publishing-gates.js
 
+      # Harness engineering: evidence-only ship claims + non-slop taste golden set
+      # (TNS harness-on-the-loop + Taste Labs-style rubric layer, 2026-08).
+      - name: Ship-claim gate
+        run: node tests/test-ship-claim-gate.js
+
+      - name: Taste layer golden set
+        run: node tests/test-taste-gate.js
+
+      - name: Linear bridge pure helpers
+        run: node tests/test-linear-agent-bridge.js
+
       - name: Outreach lead qualification
         run: node tests/test-reddit-lead-qualify.js
 

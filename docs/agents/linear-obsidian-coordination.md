@@ -1,71 +1,60 @@
-# Multi-Agent Coordination: Linear + Obsidian + Herdr Harness Integration 🚀
+# Multi-Agent Coordination: Linear + AI-Agent-Sync Vault
 
-**Goal**: Transform our multi-agent harness into a real-time, conflict-free coordination architecture using **Linear API**, **Obsidian Linear Plugin**, and **Herdr Multiplexer**.
+**Updated:** 2026-08-02  
 
----
+## Does Linear / Obsidian Linear improve the harness?
 
-## 1. Why Linear + Obsidian Elevates Our Workflow
+| Piece | Improves multi-agent coordination? | Role |
+|-------|-------------------------------------|------|
+| **Linear workspace** (`linear.app/igorganapolsky/agent`) | **Yes — as task bus** when agents claim/release via API | Who owns which **issue** |
+| **`linear-agent-bridge.js`** | **Yes — required path** for agents (claim/list/done + vault note) | Machine-readable locks |
+| **Community [Obsidian Linear plugin](https://community.obsidian.md/plugins/linear)** | **No for locks** | Human **display** only (embed/filter issues in notes) |
+| **plan.md file ownership** | Still required in-repo for megafile claims | Local agent swarm board |
+| **AI-Agent-Sync vault** | **Yes — file/WIP bus** | Mid-flight files outside git |
 
-Currently, our agents coordinate via `plan.md`. While local markdown is fast, high concurrency (3+ agents) introduces git rebase thrash when multiple agents update `plan.md` simultaneously.
+**Verdict:** Linear improves intelligent coordination **only if** every agent uses the bridge (`--list` → `--claim` → work → `--done`). The Obsidian plugin alone does not coordinate agents; install it for your dashboard, not as SSOT.
 
-### The Hybrid Architecture
+**Bug fixed 2026-08-02:** Linear GraphQL `teams` without `first:` returned a single team (`AGENT`), so `--list` fell back to an empty Agent Operations board and hid real `IGO-*` work. Default `--list` is now **fleet-wide open issues**.
+
+## Layers (do not collapse)
+
+| Layer | System | Job |
+|-------|--------|-----|
+| Task bus | **Linear** (`https://linear.app/igorganapolsky/agent`) | Who owns which **issue** |
+| File/WIP bus | **AI-Agent-Sync** vault | Who is mid-flight on which **files** |
+| Code | git worktrees / PRs | Truth of product |
+
+Human dashboard note: `~/Documents/AI-Agent-Sync/Agent-Jobs/Linear-Fleet-Dashboard.md`.
+
+## Bridge CLI
+
+```bash
+node tools/linear-agent-bridge.js --list
+node tools/linear-agent-bridge.js --list --team IGO
+node tools/linear-agent-bridge.js --claim IGO-34 --agent grok
+node tools/linear-agent-bridge.js --update IGO-34 --state "In Progress" --comment "…"
+node tools/linear-agent-bridge.js --done IGO-34 --agent grok --comment "merged abc123"
+node tools/linear-agent-bridge.js --create --title "…" --agent grok --project hermes-mobile
 ```
-                  ┌─────────────────────────────────────────┐
-                  │          Linear App (Cloud SSOT)        │
-                  │     https://linear.app/igorganapolsky   │
-                  └────────────────────┬────────────────────┘
-                                       │
-                      ┌────────────────┴────────────────┐
-                      ▼                                 ▼
-         ┌─────────────────────────┐       ┌─────────────────────────┐
-         │ Obsidian Linear Plugin  │       │  Linear MCP / Node API  │
-         │  (Local Markdown Sync)  │       │ (Agent State Interceptor)│
-         └────────────┬────────────┘       └────────────┬────────────┘
-                      │                                 │
-                      ▼                                 ▼
-         ┌───────────────────────────────────────────────────────────┐
-         │              Local Developer Environment                  │
-         │     Herdr Multiplexer · Antigravity · Claude · Codex      │
-         └─────────────────────────────────────────────────────────┘
-```
 
-### Key Benefits
-1. **Zero Git Conflict Lock Management**: Linear API handles issue state transitions (`Backlog` → `In Progress` → `In Review` → `Done`) atomically, eliminating `plan.md` git merge conflicts.
-2. **Obsidian Local-First RAG**: The Obsidian Linear plugin keeps local markdown notes byte-synced with Linear issues, giving agents instantaneous semantic search over project context.
-3. **Herdr Pane State Alignment**: Herdr detects agent pane states (`working`, `blocked`, `done`, `idle`) and mirrors them directly into Linear issue statuses.
+Auth: candidates from env, `~/.config/linear/api_key`, Keychain `LINEAR_API_KEY` — bridge **probes** and uses the PAT that sees the most teams (2026-08-02: Keychain-only PAT saw empty `AGENT`; file PAT sees `IGO`+`AGENT`). Prefer a full-workspace PAT in `~/.config/linear/api_key` (mode 600).
 
----
+Default **create** team: `AGENT` (*Agent Operations*). Personal: `--team IGO`.  
+Default **list**: all teams, open issues only (`--all` for closed).
 
-## 2. Technical Component Design
+**Claim** applies: In Progress · Linear assignee = human owner (viewer) · labels `agent-lock` + `agent-<name>` · comment · vault note under `Handoffs/linear-claims/`.
 
-### A. Linear API Connector (`tools/linear-agent-bridge.js`)
-- Queries active team issues under `https://linear.app/igorganapolsky/agent`.
-- Maps Linear IDs (`AGENT-12`, `AGENT-15`) to local worktree branches (`feat/AGENT-12-auth`).
-- Auto-assigns issues to active agent IDs (`antigravity`, `claude`, `codex`, `grok`).
+## Agent protocol
 
-### B. Obsidian Linear Plugin Configuration
-- **Plugin Repository**: `community.obsidian.md/plugins/linear`
-- **Vault Location**: `~/workspace/git/igor/mac-yolo-safeguards/docs/`
-- **Format**: Each Linear issue renders as a clean Obsidian markdown document with YAML frontmatter:
-  ```yaml
-  ---
-  linear_id: AGENT-12
-  status: In Progress
-  assignee: antigravity
-  claimed_files:
-    - hermes-mobile/src/services/herdrStatus.ts
-  ---
-  ```
+1. Session start runs `agent-session-start.js` → prints Linear fleet list (if key present).
+2. Before multi-file work: **claim** Linear issue + update own `Agent-State/<agent>.md`.
+3. Never edit files another agent claimed in vault without a handoff note.
+4. On finish: `--done` with proof (SHA / PR URL).
 
-### C. Agent Workflow Rules
-1. **Read Linear State**: Before picking up a task, the agent queries `node tools/linear-agent-bridge.js --list` or reads local Obsidian sync notes.
-2. **Claim Issue**: Transition Linear issue state to `In Progress` and assign to self.
-3. **Execute & Verify**: Run tests locally; update Linear issue with SHA and test proof upon completion.
+## Skill
 
----
+`~/.claude/skills/linear-agent-coordination/SKILL.md` (and repo `tools/linear-agent-bridge.js`).
 
-## 3. Immediate Implementation Steps
+## Why not Linear alone?
 
-1. **Obtain Linear API Key**: Generate a personal access token at `https://linear.app/igorganapolsky/settings/api` and save to macOS Keychain (`LINEAR_API_KEY`).
-2. **Deploy `tools/linear-agent-bridge.js`**: Lightweight Node.js CLI script interfacing with Linear’s GraphQL API (`https://api.linear.app/graphql`).
-3. **Wire into `agent-session-start.js`**: Automatically fetch assigned Linear issues on session start.
+2026-07 thrashing proved multiple agents on one tree need a **local, outside-repo** ledger. Linear is cloud SSOT for *tickets*; vault is SSOT for *live file claims*.

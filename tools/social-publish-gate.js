@@ -87,6 +87,7 @@ Optional:
   --lookback-days N      default ${LOOKBACK_DAYS}
   --require-buy-links    fail if body lacks ThumbGate/store/UTM CTA
   --require-mentions     fail if agent/cloud/pre-exec talk lacks product links
+  --require-taste        fail if taste-gate promo_social score below threshold
   --allow-partial        treat PARTIAL log rows as non-blocking for re-attempt
   --json                 machine-readable result
   --help
@@ -100,6 +101,7 @@ function parseArgs(argv) {
     lookbackDays: LOOKBACK_DAYS,
     requireBuyLinks: false,
     requireMentions: false,
+    requireTaste: false,
     allowPartial: false,
     json: false,
     log: DEFAULT_LOG,
@@ -110,6 +112,7 @@ function parseArgs(argv) {
     else if (a === '--json') args.json = true;
     else if (a === '--require-buy-links') args.requireBuyLinks = true;
     else if (a === '--require-mentions') args.requireMentions = true;
+    else if (a === '--require-taste') args.requireTaste = true;
     else if (a === '--allow-partial') args.allowPartial = true;
     else if (a === '--platform') args.platform = argv[++i];
     else if (a === '--campaign') args.campaign = argv[++i];
@@ -383,6 +386,26 @@ function evaluate(args) {
   for (const re of FAKE_TRACTION) {
     if (re.test(combined)) {
       blocks.push(`Fake/unverified traction language matched: ${re}`);
+    }
+  }
+
+  // Taste layer (promo_social): always soft-warn; hard-block with --require-taste
+  if (combined && combined.trim().length >= 40) {
+    try {
+      // Lazy require so gate still works if taste-gate missing
+      const { scoreTaste } = require('./taste-gate');
+      const taste = scoreTaste(combined, 'promo_social');
+      if (!taste.ok) {
+        const msg = `Taste FAIL score=${taste.score} < ${taste.threshold} (${Object.entries(
+          taste.dimensions,
+        )
+          .map(([k, v]) => `${k}=${v.score}`)
+          .join(' ')})`;
+        if (args.requireTaste) blocks.push(msg);
+        else warnings.push(`${msg} — re-score: node tools/taste-gate.js --domain promo_social --text-file …`);
+      }
+    } catch (e) {
+      warnings.push(`taste-gate unavailable: ${e.message}`);
     }
   }
 
