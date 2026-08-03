@@ -48,9 +48,42 @@ const CONTRACTS = /** @type {InterfaceContract[]} */ ([
     layer: 'serving',
     requiredPaths: [
       path.join(REPO, 'tools', 'retrieval-dual-path.js'),
+      path.join(REPO, 'tools', 'retrieval-rrf.js'),
+      path.join(REPO, 'tools', 'retrieval-query-rewrite.js'),
+      path.join(REPO, 'tools', 'retrieval-rerank.js'),
+    ],
+    description: 'Weighted RRF fusion of harness + grepae + second-stage CE/ColBERT/LLM rerank',
+  },
+  {
+    id: 'code.rerank',
+    owner: 'retrieval-rerank',
+    layer: 'serving',
+    requiredPaths: [
+      path.join(REPO, 'tools', 'retrieval-rerank.js'),
+      path.join(REPO, 'tools', 'rerank-stack-scorecard.js'),
+    ],
+    description: 'Cross-encoder, ColBERT-lite MaxSim, and LLM listwise rerank',
+  },
+  {
+    id: 'code.multi-query',
+    owner: 'retrieval-multi-query',
+    layer: 'serving',
+    requiredPaths: [
+      path.join(REPO, 'tools', 'retrieval-multi-query.js'),
       path.join(REPO, 'tools', 'retrieval-query-rewrite.js'),
     ],
-    description: 'RRF fusion of harness + grepae',
+    description: 'Deterministic multi-query expansion + RRF fuse (optional LLM paraphrases)',
+  },
+  {
+    id: 'ops.retrieval-eval',
+    owner: 'rag-retrieval-eval',
+    layer: 'governance',
+    requiredPaths: [
+      path.join(REPO, 'tools', 'rag-retrieval-eval.js'),
+      path.join(REPO, 'tools', 'ml-core.js'),
+      path.join(REPO, 'tests', 'fixtures', 'rag-eval', 'cases.json'),
+    ],
+    description: 'Offline IR metrics: Recall@K, MRR@K, Precision@K, nDCG@K',
   },
   {
     id: 'lessons.sqlite',

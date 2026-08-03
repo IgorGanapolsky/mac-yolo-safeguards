@@ -1,4 +1,5 @@
 import React from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import SettingsScreen from '../screens/SettingsScreen';
@@ -66,8 +67,17 @@ jest.mock('../utils/demoModePolicy', () => ({
 
 const { isDemoModeAllowed } = jest.requireMock('../utils/demoModePolicy');
 
+function expandSettingsSection(
+  utils: { getByTestId: (id: string) => Parameters<typeof fireEvent.press>[0] },
+  testID: string,
+) {
+  fireEvent.press(utils.getByTestId(testID));
+}
+
+
 describe('SettingsScreen', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
     isDemoModeAllowed.mockReturnValue(false);
     useGateway.mockReturnValue(mockUseGateway());
     mockNavigate.mockClear();
@@ -118,19 +128,20 @@ describe('SettingsScreen', () => {
     );
 
     const { getAllByText, getByTestId, getByText } = render(<SettingsScreen />);
+    expandSettingsSection({ getByTestId }, 'settings-section-computer-connection');
     expect(getByText('Computer connection')).toBeTruthy();
     expect(
       getByText('Use Tailscale away from home, or USB/home Wi‑Fi nearby, for Chat, tools, and ops.'),
     ).toBeTruthy();
-    expect(getAllByText('Cloud approvals (optional)').length).toBeGreaterThan(0);
+    expect(getAllByText('Lock-screen approvals (optional)').length).toBeGreaterThan(0);
     expect(
       getByText(
         'Pair your Hermes account for approval requests anywhere. Does not provide live Chat or computer tools.',
       ),
     ).toBeTruthy();
-    expect(getByTestId('relay-route-title').props.children).toBe('Cloud approvals');
+    expect(getByTestId('relay-route-title').props.children).toBe('Lock-screen approvals');
     expect(getByTestId('relay-route-status').props.children.join('')).toContain(
-      'Pair to receive approval requests anywhere',
+      'Optional: pair for approvals off your home network',
     );
   });
 
@@ -155,6 +166,7 @@ describe('SettingsScreen', () => {
     );
 
     const { getByTestId, getByText } = render(<SettingsScreen />);
+    expandSettingsSection({ getByTestId }, 'settings-section-computer-connection');
     expect(getByTestId('relay-route-title').props.children).toBe(
       'Igors-Mac-mini · skool_top1percent',
     );
@@ -186,7 +198,9 @@ describe('SettingsScreen', () => {
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     useGateway.mockReturnValue(mockUseGateway({ saveSettings, completePair }));
 
-    const { getByPlaceholderText, getByText } = render(<SettingsScreen />);
+    const utils = render(<SettingsScreen />);
+    const { getByPlaceholderText, getByText, getByTestId } = utils;
+    expandSettingsSection({ getByTestId }, 'settings-section-computer-connection');
     fireEvent.changeText(getByPlaceholderText('MOON-DUST'), 'MOON-DUST');
     fireEvent.press(getByText('PAIR WITH COMPUTER'));
 
@@ -207,7 +221,9 @@ describe('SettingsScreen', () => {
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     useGateway.mockReturnValue(mockUseGateway({ saveSettings, completePair }));
 
-    const { getByPlaceholderText, getByText } = render(<SettingsScreen />);
+    const utils = render(<SettingsScreen />);
+    const { getByPlaceholderText, getByText, getByTestId } = utils;
+    expandSettingsSection({ getByTestId }, 'settings-section-computer-connection');
     fireEvent.changeText(getByPlaceholderText('MOON-DUST'), 'MOON-DUST');
     fireEvent.press(getByText('PAIR WITH COMPUTER'));
 
@@ -221,7 +237,7 @@ describe('SettingsScreen', () => {
       );
     });
     expect(alertSpy).toHaveBeenCalledWith(
-      'Cloud approvals paired',
+      'Lock-screen approvals ready',
       'Approval requests can arrive anywhere. This does not provide live Chat or computer tools; connect to your computer with Tailscale, USB, or home Wi‑Fi.',
     );
   });
@@ -235,6 +251,7 @@ describe('SettingsScreen', () => {
     isDemoModeAllowed.mockReturnValue(true);
 
     const { getByTestId, getByText, queryByTestId } = render(<SettingsScreen />);
+    expandSettingsSection({ getByTestId }, 'settings-section-developer');
     expect(getByText('Demo mode')).toBeTruthy();
     expect(getByTestId('demo-mode-switch')).toBeTruthy();
     expect(queryByTestId('inject-mock-approval')).toBeNull();
@@ -327,7 +344,8 @@ describe('SettingsScreen', () => {
   });
 
   it('clarifies notification preferences do not change Leash layout', () => {
-    const { getByText } = render(<SettingsScreen />);
+    const { getByText, getByTestId } = render(<SettingsScreen />);
+    expandSettingsSection({ getByTestId }, 'settings-section-notifications');
     expect(getByText('Notification preferences')).toBeTruthy();
     expect(
       getByText(
@@ -338,8 +356,9 @@ describe('SettingsScreen', () => {
 
   it('renders per-category notification toggles', () => {
     const { getByTestId, getByText } = render(<SettingsScreen />);
+    expandSettingsSection({ getByTestId }, 'settings-section-notifications');
     expect(getByText('Approval heads-up')).toBeTruthy();
-    expect(getByText('Live run status (quiet)')).toBeTruthy();
+    expect(getByText('Live status (quiet, Uber-style)')).toBeTruthy();
     expect(getByText('Completion / failure (quiet)')).toBeTruthy();
     expect(getByTestId('notification-approvals-switch')).toBeTruthy();
     expect(getByTestId('notification-live-run-switch')).toBeTruthy();
@@ -351,6 +370,7 @@ describe('SettingsScreen', () => {
     useGateway.mockReturnValue(mockUseGateway({ saveSettings }));
 
     const { getByTestId } = render(<SettingsScreen />);
+    expandSettingsSection({ getByTestId }, 'settings-section-notifications');
     // Defaults: approvals on, live off, completion on. Disable the two that are on.
     fireEvent(getByTestId('notification-approvals-switch'), 'valueChange', false);
     fireEvent(getByTestId('notification-completion-switch'), 'valueChange', false);
