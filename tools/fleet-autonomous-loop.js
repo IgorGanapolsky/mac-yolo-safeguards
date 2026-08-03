@@ -1,9 +1,21 @@
 #!/usr/bin/env node
 'use strict';
 
+/**
+ * Background multi-agent coord hygiene (LaunchAgent every 15m).
+ *
+ * Safe defaults:
+ * - Obsidian display sync (mirror, not lock)
+ * - scrub-stale dry-run log (apply is explicit)
+ * - Optional vault self-heal if script present
+ *
+ * Does NOT auto-create Linear issues from GitHub (no dedup — would spam).
+ * Run tools/github-linear-sync.js manually only after adding identity checks.
+ */
+
 const { execSync } = require('child_process');
 const path = require('path');
-const { queryLinear } = require('./linear-agent-bridge');
+const fs = require('fs');
 
 const CWD = path.resolve(__dirname, '..');
 
@@ -11,78 +23,58 @@ function log(msg) {
   console.log(`[Autonomous Fleet Loop ${new Date().toISOString()}] ${msg}`);
 }
 
-async function markOldNotificationsRead() {
-  log('Checking for old unread Linear notifications to auto-archive...');
-  try {
-    const listRes = await queryLinear('{ notifications(first: 50) { nodes { id readAt } } }');
-    const nodes = listRes.data?.notifications?.nodes || [];
-    const unread = nodes.filter(n => !n.readAt);
-
-    if (unread.length > 0) {
-      log(`Auto-archiving ${unread.length} unread Linear notifications...`);
-      const mutation = `mutation MarkRead($id: String!, $input: NotificationUpdateInput!) { notificationUpdate(id: $id, input: $input) { success } }`;
-      const now = new Date().toISOString();
-      for (const n of unread) {
-        await queryLinear(mutation, { id: n.id, input: { readAt: now } });
-      }
-      log(`✅ Auto-archived ${unread.length} notifications.`);
-    } else {
-      log('Linear notification inbox is already clean.');
-    }
-  } catch (err) {
-    log(`Warning: Notification auto-archive failed: ${err.message}`);
-  }
+function run(cmd, timeout = 120000) {
+  return execSync(cmd, { cwd: CWD, encoding: 'utf8', timeout });
 }
 
 function runLoop() {
-  log('Starting background autonomous sync & self-healing pass...');
+  log('Starting background coord hygiene pass...');
 
-  // 1. GitHub -> Linear Sync
+  // 1. Obsidian display board
   try {
-    log('Running GitHub -> Linear Sync...');
-    execSync('node tools/github-linear-sync.js', { cwd: CWD, encoding: 'utf8' });
+    log('Running Obsidian display sync...');
+    const out = run('node tools/obsidian-linear-sync.js');
+    log((out || '').trim().split('\n').slice(-2).join(' | '));
   } catch (err) {
-    log(`GitHub -> Linear Sync error: ${err.message}`);
+    log(`Obsidian sync error: ${err.message}`);
   }
 
-  // 2. Obsidian Vault Sync
-  try {
-    log('Running Obsidian Vault Sync...');
-    execSync('node tools/obsidian-linear-sync.js', { cwd: CWD, encoding: 'utf8' });
-  } catch (err) {
-    log(`Obsidian Vault Sync error: ${err.message}`);
-  }
-
-  // 3. Vault Self-Healing & Hygiene
-  try {
-    log('Running Vault Self-Healing...');
-    execSync('node tools/obsidian-self-healing-orchestration.js', { cwd: CWD, encoding: 'utf8' });
-  } catch (err) {
-    log(`Vault Self-Healing error: ${err.message}`);
-  }
-
-  // 4. Scrub stale agent-locks (dry-run log; apply is explicit)
+  // 2. scrub-stale dry-run (never --apply in daemon)
   try {
     log('Running stale agent-lock dry-run...');
-    const out = execSync('node tools/linear-agent-bridge.js --scrub-stale --json', {
-      cwd: CWD,
-      encoding: 'utf8',
-      timeout: 120000,
-    });
+    const out = run('node tools/linear-agent-bridge.js --scrub-stale --json');
     try {
       const j = JSON.parse(out);
       log(`scrub-stale candidates: ${j.candidateCount ?? '?'}`);
+      if (j.candidateCount > 0) {
+        for (const c of (j.candidates || []).slice(0, 8)) {
+          log(`  candidate ${c.id} reason=${c.reason}`);
+        }
+        log('To clean: node tools/linear-agent-bridge.js --scrub-stale --apply');
+      }
     } catch {
-      log('scrub-stale ran (non-JSON output)');
+      log('scrub-stale ran (non-JSON)');
     }
   } catch (err) {
     log(`scrub-stale error: ${err.message}`);
   }
 
-  // 5. Auto-clear Inbox Notifications
-  markOldNotificationsRead().then(() => {
-    log('Autonomous background loop completed successfully!');
-  });
+  // 3. Optional self-heal if present
+  const heal = path.join(CWD, 'tools/obsidian-self-healing-orchestration.js');
+  if (fs.existsSync(heal)) {
+    try {
+      log('Running vault self-healing...');
+      run('node tools/obsidian-self-healing-orchestration.js', 60000);
+    } catch (err) {
+      log(`Vault self-healing error: ${err.message}`);
+    }
+  }
+
+  log('Autonomous background loop completed.');
 }
 
-runLoop();
+if (require.main === module) {
+  runLoop();
+}
+
+module.exports = { runLoop };
