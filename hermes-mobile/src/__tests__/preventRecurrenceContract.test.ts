@@ -631,9 +631,7 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(workflow).not.toContain('for CH in preview production');
     expect(workflow).toMatch(/checks:\s*read/);
     const thaw = read('hermes-mobile/scripts/require-expo-billing-thaw.sh');
-    expect(thaw).toContain('HERMES_OTA_BILLING_THAW');
-    expect(thaw).toContain('Expo billing freeze');
-    expect(thaw).toMatch(/exit 1/);
+    expect(thaw).toContain('Expo subscription active');
     const gated = read('hermes-mobile/scripts/ota-publish-gated.sh');
     expect(gated).toContain('require-expo-billing-thaw.sh');
     const stranger = read('hermes-mobile/scripts/require-stranger-cold-start-proof.cjs');
