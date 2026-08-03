@@ -69,3 +69,13 @@ gh api -X PATCH repos/IgorGanapolsky/mac-yolo-safeguards/code-scanning/default-s
 ```
 
 (Or Security → Code scanning → CodeQL → Edit configuration → configuration file.)
+
+## AI orchestration entry
+
+```bash
+node tools/codeql-agent-hygiene.js --session-start
+node tools/codeql-agent-hygiene.js --pre-ship
+node tools/codeql-agent-hygiene.js --claim "security clean"
+```
+
+Agents: [docs/agents/codeql-orchestration.md](./agents/codeql-orchestration.md).
