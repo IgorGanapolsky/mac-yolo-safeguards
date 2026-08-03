@@ -20,6 +20,8 @@ function parseArgs(argv) {
     gate: false,
     maxHigh: 0,
     maxOpen: 5,
+    writeBaseline: false,
+    checkIncrease: false,
     help: false,
   };
   for (let i = 0; i < argv.length; i++) {
@@ -29,6 +31,8 @@ function parseArgs(argv) {
     else if (a === '--help' || a === '-h') out.help = true;
     else if (a === '--max-high') out.maxHigh = Number(argv[++i]);
     else if (a === '--max-open') out.maxOpen = Number(argv[++i]);
+    else if (a === '--write-baseline') out.writeBaseline = true;
+    else if (a === '--check-increase') out.checkIncrease = true;
   }
   return out;
 }
@@ -95,6 +99,8 @@ function main() {
 Usage:
   node tools/codeql-alert-sync.js --json
   node tools/codeql-alert-sync.js --gate [--max-high 0] [--max-open 5]
+  node tools/codeql-alert-sync.js --write-baseline
+  node tools/codeql-alert-sync.js --check-increase
 `);
     return;
   }
@@ -129,6 +135,35 @@ Usage:
     report.ok = !failHigh && !failOpen;
     report.gate = { failHigh, failOpen };
     if (!report.ok) process.exitCode = 1;
+  }
+
+
+  const baselinePath = path.join(REPO, 'coordination', 'codeql-baseline.json');
+  if (args.writeBaseline && !alerts.error) {
+    const baseline = {
+      writtenAt: new Date().toISOString(),
+      open: summary.open,
+      highish: summary.highish,
+      byRule: summary.byRule,
+    };
+    fs.mkdirSync(path.dirname(baselinePath), { recursive: true });
+    fs.writeFileSync(baselinePath, JSON.stringify(baseline, null, 2) + '\n');
+    report.baselineWritten = baselinePath;
+  }
+  if (args.checkIncrease && !alerts.error && fs.existsSync(baselinePath)) {
+    try {
+      const base = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
+      const openUp = summary.open > (base.open ?? 0);
+      const highUp = summary.highish > (base.highish ?? 0);
+      report.baseline = base;
+      report.increase = { openUp, highUp };
+      if (openUp || highUp) {
+        report.ok = false;
+        process.exitCode = 1;
+      }
+    } catch (e) {
+      report.baselineError = e.message;
+    }
   }
 
   if (args.json) {

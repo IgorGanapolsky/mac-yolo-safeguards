@@ -282,6 +282,29 @@ jobs:
       - name: CodeQL security helpers
         run: node tests/test-codeql-security-helpers.js
 
+      # Offline shift-left gate: ban the exact pattern classes that piled up
+      # 33 open Security alerts (2026-08). Network CodeQL still runs separately.
+      - name: CodeQL pattern gate (offline prevention)
+        run: |
+          set -eu
+          node tests/test-codeql-pattern-gate.js
+          node tools/codeql-pattern-gate.js --diff origin/main
+
+      # Live open-alert budget (uses GITHUB_TOKEN). Soft on API failure unless CODEQL_GATE_STRICT=1.
+      - name: Code scanning open-alert budget
+        env:
+          CODEQL_GATE_STRICT: ${{ vars.CODEQL_GATE_STRICT || '0' }}
+        run: |
+          set -eu
+          node tools/codeql-alert-sync.js --gate --max-high 0 --max-open 15 --json | tee "$RUNNER_TEMP/codeql-gate.json" || {
+            # Soft-fail if gh/code-scanning API unavailable (private fork, token scope)
+            if [[ "${CODEQL_GATE_STRICT}" == "1" ]]; then exit 1; fi
+            echo "codeql-alert-sync gate soft-failed (set CODEQL_GATE_STRICT=1 to hard-fail)"
+            exit 0
+          }
+          # If JSON says ok=false and we have numbers, hard fail
+          node -e "const j=require(process.env.RUNNER_TEMP+'/codeql-gate.json'); if(j.ok===false && typeof j.open==='number') process.exit(1);"
+
       - name: Taste layer golden set
         run: node tests/test-taste-gate.js
 

@@ -77,7 +77,7 @@ function safeName(input) {
   return String(input)
     .replace(/^https?:\/\//, '')
     .replace(/[^a-zA-Z0-9._-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+    .replace(/^-+/, '').replace(/-+$/, '')
     .slice(0, 120) || 'media';
 }
 

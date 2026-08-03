@@ -2783,3 +2783,4 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 - `hermes-mobile/scripts/verify-apk-package.cjs` → **grok** (CodeQL burn-down 2026-08-03)
 - `hermes-mobile/scripts/verify-firebase-distribute-auth.cjs` → **grok** (CodeQL burn-down 2026-08-03)
 - `hermes-mobile/src/__tests__/apkReleaseGuards.test.ts` → **grok** (CodeQL burn-down 2026-08-03)
+- `hermes-mobile/src/utils/chatApproval.ts` → **grok** (CodeQL burn-down / prevent-recurrence 2026-08-03)
