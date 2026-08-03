@@ -1738,6 +1738,7 @@ function hardBarForDone() {
       'node tools/ship-claim-gate.js --claim "…" --results-json … (no all-LIVE theater)',
       'node tools/taste-gate.js --domain promo_social --text "…" (non-slop rubric PASS)',
       'node tools/social-publish-gate.js … --require-taste before Post',
+      'node tools/harness-smeval.js run evals/ship-honesty (offline honesty suite)',
       'revenue paid only with Stripe charge / ledger proof',
     ],
     loop: 'build → run bar → record gaps → refine → stop when bar green or mark blocked (no invent green)',
