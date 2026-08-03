@@ -15,6 +15,8 @@ const path = require('path');
 
 const REPO = path.resolve(__dirname, '..');
 
+const GOVERNANCE_SCHEMA_VERSION = '2026-07-30-v1';
+
 const usage = `Usage:
   node tools/agent-decision-stack.js --task "<decision context>" [options]
 
@@ -28,6 +30,9 @@ Options:
                        Skip local repo retrieval harness query.
   --with-arc           Run ARC-AGI-inspired skill-acquisition probe (tools/arc-skill-efficiency.js).
   --skip-arc           Skip ARC probe (default: run when task mentions model/eval/promote/intelligence).
+  --skip-governance    Skip semantic-governance / context-definition gate.
+  --governance TEXT    Optional governance domain (e.g. 'revenue', 'mobile', 'public-api').
+  --evidence TEXT      Concrete signal that justifies a revenue/growth decision.
   --json               Print structured brief only.`;
 
 function parseArgs(argv) {
@@ -35,9 +40,12 @@ function parseArgs(argv) {
     task: '',
     ghRun: '',
     graphifyQuery: '',
+    governance: '',
+    evidence: '',
     skipThumbgate: false,
     skipGraphify: false,
     skipLocalRetrieval: false,
+    skipGovernance: false,
     withArc: false,
     skipArc: false,
     json: false,
@@ -48,9 +56,12 @@ function parseArgs(argv) {
     if (arg === '--task') args.task = argv[++i] || '';
     else if (arg === '--gh-run') args.ghRun = argv[++i] || '';
     else if (arg === '--graphify-query') args.graphifyQuery = argv[++i] || '';
+    else if (arg === '--governance') args.governance = argv[++i] || '';
+    else if (arg === '--evidence') args.evidence = argv[++i] || '';
     else if (arg === '--skip-thumbgate') args.skipThumbgate = true;
     else if (arg === '--skip-graphify') args.skipGraphify = true;
     else if (arg === '--skip-local-retrieval') args.skipLocalRetrieval = true;
+    else if (arg === '--skip-governance') args.skipGovernance = true;
     else if (arg === '--with-arc') args.withArc = true;
     else if (arg === '--skip-arc') args.skipArc = true;
     else if (arg === '--json') args.json = true;
@@ -58,6 +69,106 @@ function parseArgs(argv) {
     else throw new Error(`Unknown argument: ${arg}`);
   }
   return args;
+}
+
+/**
+ * Semantic governance / context-definition gate (InfoQ Anthropic analytics lesson).
+ *
+ * Many agent failures stem from ambiguous context, not model capability. This gate
+ * requires the agent to declare the decision's domain, intent, and success metric
+ * before RAG/telemetry are consulted. It returns:
+ *   - status 'pass' when the brief contains an explicit task + domain + metric.
+ *   - status 'warn' when the task is vague or no success metric is supplied.
+ *   - status 'block' when a known anti-pattern is present (e.g., "just do it",
+ *     "make it go viral", revenue claims without evidence).
+ */
+function semanticGovernanceGate(args) {
+  const task = String(args.task || '').trim();
+  const domain = String(args.governance || '').trim();
+  const evidence = args.evidence ? String(args.evidence).trim() : '';
+  const lower = task.toLowerCase();
+
+  // Integrity violations always block, regardless of evidence.
+  const integrityPatterns = [
+    { pattern: /\b(no one will know|skip .* test|fake .* (metric|number|data))\b/, message: 'integrity violation' },
+  ];
+  const integrityHit = integrityPatterns.find((ap) => ap.pattern.test(lower));
+  if (integrityHit) {
+    return {
+      status: 'block',
+      reason: integrityHit.message,
+      schemaVersion: GOVERNANCE_SCHEMA_VERSION,
+      required: ['task', 'governance', 'successMetric'],
+    };
+  }
+
+  // Vague imperatives always block — they cannot be verified.
+  const imperativeHit = /\bjust (do|make|ship|push|deploy)\b/.test(lower);
+  if (imperativeHit) {
+    return {
+      status: 'block',
+      reason: 'vague imperative without acceptance criteria',
+      schemaVersion: GOVERNANCE_SCHEMA_VERSION,
+      required: ['task', 'governance', 'successMetric'],
+      suggestions: ['Replace "just X" with a measurable outcome: "Do X so that Y is verifiable by Z".'],
+    };
+  }
+
+  // Revenue/growth claims require evidence to pass; warn otherwise, block if unmeasurable.
+  const revenuePattern = /\b(make money|revenue|profit|\$\d+[kK]|close .* deal)\b/;
+  const viralPattern = /\b(make .* go viral|viral growth|growth hack)\b/;
+  const hasEvidence = evidence.length > 10;
+  if (revenuePattern.test(lower) && !hasEvidence) {
+    return {
+      status: 'block',
+      reason: 'revenue action requires evidence gate; route through tools/revenue-autonomous-loop.js',
+      schemaVersion: GOVERNANCE_SCHEMA_VERSION,
+      required: ['task', 'governance', 'successMetric', 'evidence'],
+      suggestions: ['Provide --evidence "<concrete signal>" or route through tools/revenue-autonomous-loop.js.'],
+    };
+  }
+  if (revenuePattern.test(lower) && hasEvidence) {
+    // Evidence supplied: allow pass only if task also contains an explicit success metric.
+    const metricPresent = /\b(within|by|to|at least|under|over|≤|>=|<=|until|reduce|increase|maintain|pass|green|fail|verified)\b/.test(lower);
+    return {
+      status: metricPresent ? 'pass' : 'warn',
+      reason: metricPresent ? 'revenue decision supported by evidence and success metric' : 'revenue decision supported by evidence but no success metric',
+      domain,
+      schemaVersion: GOVERNANCE_SCHEMA_VERSION,
+      required: ['task', 'governance', 'successMetric', 'evidence'],
+      suggestions: metricPresent ? [] : ['Phrase task as "Do X so that Y is measurable by Z".'],
+    };
+  }
+  if (viralPattern.test(lower)) {
+    return {
+      status: 'block',
+      reason: 'unmeasurable growth framing',
+      schemaVersion: GOVERNANCE_SCHEMA_VERSION,
+      required: ['task', 'governance', 'successMetric'],
+    };
+  }
+
+  const domainSet = domain && !/^--/.test(domain);
+  const vague = /\b(something|anything|better|improve|fix|handle) *(maybe|just|somehow)?\b/.test(lower);
+  const hasMetric = /\b(within|by|to|at least|under|over|≤|>=|<=|until|reduce|increase|maintain|pass|green|fail|verified)\b/.test(lower);
+  if (!domainSet || vague || !hasMetric) {
+    return {
+      status: 'warn',
+      reason: `Missing ${!domainSet ? 'governance domain' : vague ? 'specific action' : 'success metric'}`,
+      schemaVersion: GOVERNANCE_SCHEMA_VERSION,
+      required: ['task', 'governance', 'successMetric'],
+      suggestions: [
+        'Add --governance <domain> (revenue, mobile, public-api, infra, ai-safety).',
+        'Phrase task as "Do X so that Y is measurable by Z"',
+      ],
+    };
+  }
+  return {
+    status: 'pass',
+    domain,
+    schemaVersion: GOVERNANCE_SCHEMA_VERSION,
+    required: ['task', 'governance', 'successMetric'],
+  };
 }
 
 function shouldRunArcProbe(args) {
@@ -430,6 +541,13 @@ function mlSystemScoresBrief() {
 }
 
 function recommendNextAction(brief) {
+  const gov = brief.governance;
+  if (gov && gov.status === 'block') {
+    return `BLOCKED by semantic governance: ${gov.reason}. Provide --governance <domain> and a measurable success metric before proceeding.`;
+  }
+  if (gov && gov.status === 'warn') {
+    return `GOVERNANCE WARNING: ${gov.reason}. ${gov.suggestions ? gov.suggestions.join('; ') : ''}`;
+  }
   const continuous = brief.telemetry?.continuousE2e;
   if (continuous && continuous.deviceVerified === false && !continuous.skipped && !continuous.error) {
     return (
@@ -471,6 +589,7 @@ function buildBrief(args) {
   const brief = {
     checkedAt: new Date().toISOString(),
     task,
+    governance: args.skipGovernance ? { skipped: true } : semanticGovernanceGate(args),
     rag: {},
     telemetry: {},
     recommendation: '',
@@ -508,12 +627,23 @@ function main() {
     process.exit(0);
   }
   const brief = buildBrief(args);
+  const exitCode = brief.governance && !brief.governance.skipped && brief.governance.status === 'block' ? 1 : 0;
   if (args.json) {
     console.log(JSON.stringify(brief, null, 2));
-    return;
+    process.exit(exitCode);
   }
   console.log(`# Agent decision stack — ${brief.checkedAt}`);
   console.log(`Task: ${brief.task}\n`);
+  if (brief.governance && !brief.governance.skipped) {
+    console.log(`## Semantic governance (${brief.governance.schemaVersion || GOVERNANCE_SCHEMA_VERSION})`);
+    console.log(`status=${brief.governance.status}${brief.governance.domain ? ` domain=${brief.governance.domain}` : ''}`);
+    if (brief.governance.reason) console.log(`reason=${brief.governance.reason}`);
+    if (brief.governance.suggestions?.length) {
+      console.log('suggestions:');
+      for (const s of brief.governance.suggestions) console.log(`  - ${s}`);
+    }
+    console.log('');
+  }
   if (brief.rag.thumbgate?.topLessons?.length) {
     console.log('## ThumbGate lessons (RAG)');
     for (const lesson of brief.rag.thumbgate.topLessons) {
@@ -581,6 +711,7 @@ function main() {
     console.log('');
   }
   console.log(`## Recommendation\n${brief.recommendation}`);
+  if (exitCode !== 0) process.exit(exitCode);
 }
 
 module.exports = {
@@ -592,6 +723,7 @@ module.exports = {
   readContinuousDeviceVerified,
   recommendNextAction,
   runArcSkillProbe,
+  semanticGovernanceGate,
   shouldRunArcProbe,
   thumbgateLessons,
 };
