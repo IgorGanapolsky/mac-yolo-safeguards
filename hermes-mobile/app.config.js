@@ -19,16 +19,13 @@ module.exports = ({ config }) => {
     androidStoreSku === 'paid' ? ANDROID_PAID_PACKAGE : ANDROID_FREE_PACKAGE;
   const baseUpdates = appJson.expo.updates || {};
   const baseAndroid = appJson.expo.android || {};
-  // Expo billing freeze 2026-07-23: native ON_LOAD can replace a local release
-  // APK with a CDN OTA mid-session ("Applying update…"). Until thaw, disable
-  // automatic checks entirely (and disable the updates controller for phone
-  // installs). Thaw: HERMES_OTA_BILLING_THAW=1 / EXPO_PUBLIC_OTA_BILLING_THAW=1.
-  const billingThawed =
-    truthy(process.env.HERMES_OTA_BILLING_THAW) ||
-    truthy(process.env.EXPO_PUBLIC_OTA_BILLING_THAW);
-  const billingFreezeActive =
-    !billingThawed && Date.now() < Date.parse('2026-08-15T00:00:00.000Z');
-  const otaControllerOff = e2eAutomation || billingFreezeActive;
+  // Client OTA is ON for real installs (Expo subscription is paid / live).
+  // Only E2E automation APKs disable the controller so Maestro is not hijacked
+  // mid-test by "Applying update…". Never re-introduce a calendar "billing
+  // freeze" that silently blocks store users after the account is paid.
+  // Emergency client kill-switch: EXPO_PUBLIC_OTA_FORCE_DISABLE=1 at build time.
+  const otaForceDisable = truthy(process.env.EXPO_PUBLIC_OTA_FORCE_DISABLE);
+  const otaControllerOff = e2eAutomation || otaForceDisable;
 
   return {
     ...appJson.expo,

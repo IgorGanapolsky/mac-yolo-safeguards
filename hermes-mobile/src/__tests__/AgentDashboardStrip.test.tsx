@@ -10,7 +10,7 @@ const baseStats: AgentDashboardStats = {
   cronJobCount: 2,
   activeCronCount: 1,
   gatewayModel: 'qwen3:8b-64k',
-  connectionLabel: 'Computer linked',
+  connectionLabel: 'Connected',
   hostname: 'Igors-Mac-mini.local',
 };
 
@@ -23,6 +23,20 @@ describe('AgentDashboardStrip', () => {
     expect(getByTestId('agent-dashboard-runs').props.children[0].props.children).toBe(2);
     expect(getByTestId('agent-dashboard-skills').props.children[0].props.children).toBe(3);
     expect(getByText(/Model on computer: qwen3:8b-64k/)).toBeTruthy();
+  });
+
+  it('shows short Mac status — never Link label or ellipsized Computer… value', () => {
+    const { getByTestId, getByText, queryByText } = render(
+      <AgentDashboardStrip stats={baseStats} />,
+    );
+    const connection = getByTestId('agent-dashboard-connection');
+    expect(connection).toBeTruthy();
+    expect(getByText('Connected')).toBeTruthy();
+    expect(getByText('Mac')).toBeTruthy();
+    expect(queryByText('Link')).toBeNull();
+    // Status value must stay a short word (Connected), not "Computer linked" → "Computer…"
+    expect(connection.props.children[0].props.children).toBe('Connected');
+    expect(connection.props.children[1].props.children).toBe('Mac');
   });
 
   it('shows active run label when provided', () => {

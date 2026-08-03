@@ -21,31 +21,61 @@ export function countActiveCronJobs(jobs: HermesCronJob[]): number {
   return jobs.filter((job) => !job.paused && job.enabled !== false).length;
 }
 
+/**
+ * Short status for the Agent dashboard first column (narrow; must not ellipsize to "Computer…").
+ * Never use multi-word phrases like "Computer linked" — they clip into nonsense next to "Link".
+ */
 export function resolveConnectionHealthLabel(
   connectionState: LeashConnectionState,
   health?: GatewayHealthSnapshot | null,
   macHttpReachable = false,
 ): string {
   if (connectionState === 'demo') {
-    return 'Demo preview';
+    return 'Demo';
   }
   if (health?.authMismatch) {
-    return 'Needs re-pair';
+    return 'Re-pair';
   }
   if (macHttpReachable || health?.level === 'green') {
-    return 'Computer linked';
+    return 'Connected';
   }
   if (connectionState === 'connecting') {
-    // First-connect and reconnect share 'connecting' state — prefer honest copy.
-    return 'Connecting…';
+    return 'Checking';
   }
   if (health?.level === 'amber') {
-    return 'Degraded link';
+    return 'Weak';
   }
   if (health?.level === 'red') {
-    return 'Computer unreachable';
+    return 'Offline';
   }
-  return 'Not linked';
+  return 'Offline';
+}
+
+/** Full plain-English line for Connection health hub (has room to breathe). */
+export function resolveConnectionHealthSummary(
+  connectionState: LeashConnectionState,
+  health?: GatewayHealthSnapshot | null,
+  macHttpReachable = false,
+): string {
+  if (connectionState === 'demo') {
+    return 'Demo mode';
+  }
+  if (health?.authMismatch) {
+    return 'Pair again — key does not match this Mac';
+  }
+  if (macHttpReachable || health?.level === 'green') {
+    return 'Your Mac is connected';
+  }
+  if (connectionState === 'connecting') {
+    return 'Checking your Mac…';
+  }
+  if (health?.level === 'amber') {
+    return 'Connection is weak';
+  }
+  if (health?.level === 'red') {
+    return "Can't reach your Mac";
+  }
+  return "Can't reach your Mac";
 }
 
 export function buildAgentDashboardStats(input: {

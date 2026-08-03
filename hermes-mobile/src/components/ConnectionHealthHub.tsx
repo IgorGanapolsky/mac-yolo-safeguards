@@ -12,7 +12,7 @@ import { colors } from '../theme/colors';
 import { haptics } from '../services/haptics';
 import type { GatewayHealthSnapshot } from '../types/gateway';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
-import { resolveConnectionHealthLabel } from '../utils/agentDashboardStats';
+import { resolveConnectionHealthSummary } from '../utils/agentDashboardStats';
 import {
   checkAndApplyAppUpdate,
   checkForAppUpdate,
@@ -61,19 +61,12 @@ export default function ConnectionHealthHub({
 
   const appVersion =
     Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? 'unknown';
-  const connectionLabel = resolveConnectionHealthLabel(
+  const connectionSummary = resolveConnectionHealthSummary(
     connectionState,
     health,
     macHttpReachable,
   );
   const dotColor = healthDotColor(connectionState, health, macHttpReachable);
-  const recoveryActionLabel = health?.authMismatch
-    ? 'Re-pair computer'
-    : macHttpReachable || health?.level === 'green' || connectionState === 'demo'
-      ? null
-      : connectionState === 'connecting'
-        ? 'Retry connection'
-        : 'Reconnect computer';
 
   const handleRepair = useCallback(async () => {
     haptics.selection();
@@ -83,12 +76,12 @@ export default function ConnectionHealthHub({
       haptics.success();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Repair failed';
-      Alert.alert(`Could not ${recoveryActionLabel?.toLowerCase() ?? 'recover connection'}`, message);
+      Alert.alert('Could not reconnect', message);
       haptics.warning();
     } finally {
       setRepairBusy(false);
     }
-  }, [onRepairConnection, recoveryActionLabel]);
+  }, [onRepairConnection]);
 
   const handleCheckUpdate = useCallback(async () => {
     haptics.selection();
@@ -131,7 +124,7 @@ export default function ConnectionHealthHub({
         <View style={styles.headerText}>
           <Text style={styles.title}>Connection health</Text>
           <Text style={styles.subtitle} testID="connection-health-label">
-            {connectionLabel}
+            {connectionSummary}
           </Text>
         </View>
         <Text style={styles.version} testID="connection-health-version">
@@ -165,20 +158,18 @@ export default function ConnectionHealthHub({
             <Text style={styles.actionBtnText}>Check for update</Text>
           )}
         </TouchableOpacity>
-        {recoveryActionLabel ? (
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.repairBtn]}
-            onPress={() => void handleRepair()}
-            disabled={repairBusy}
-            testID="connection-health-repair"
-          >
-            {repairBusy ? (
-              <ActivityIndicator size="small" color={colors.warning} />
-            ) : (
-              <Text style={[styles.actionBtnText, styles.repairBtnText]}>{recoveryActionLabel}</Text>
-            )}
-          </TouchableOpacity>
-        ) : null}
+        <TouchableOpacity
+          style={[styles.actionBtn, styles.repairBtn]}
+          onPress={() => void handleRepair()}
+          disabled={repairBusy}
+          testID="connection-health-repair"
+        >
+          {repairBusy ? (
+            <ActivityIndicator size="small" color={colors.warning} />
+          ) : (
+            <Text style={[styles.actionBtnText, styles.repairBtnText]}>Reconnect</Text>
+          )}
+        </TouchableOpacity>
       </View>
 
       {updateMessage ? (

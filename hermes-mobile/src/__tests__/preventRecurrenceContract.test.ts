@@ -631,11 +631,23 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(workflow).not.toContain('for CH in preview production');
     expect(workflow).toMatch(/checks:\s*read/);
     const thaw = read('hermes-mobile/scripts/require-expo-billing-thaw.sh');
+    // Live Expo probe — never a permanent "you didn't pay" story after recovery.
     expect(thaw).toContain('HERMES_OTA_BILLING_THAW');
-    expect(thaw).toContain('Expo billing freeze');
+    expect(thaw).toContain('eas-cli');
+    expect(thaw).toContain('whoami');
+    expect(thaw).toContain('HERMES_OTA_FORCE_BLOCK');
+    expect(thaw).toContain('Do NOT invent');
     expect(thaw).toMatch(/exit 1/);
+    // Stale Visa folklore must not be the hard block path.
+    expect(thaw).not.toMatch(/Visa 2394/);
+    expect(thaw).not.toMatch(/failed-payments@expo\.dev/);
     const gated = read('hermes-mobile/scripts/ota-publish-gated.sh');
     expect(gated).toContain('require-expo-billing-thaw.sh');
+    // Client must not calendar-freeze OTA after Expo is paid.
+    const appConfig = read('hermes-mobile/app.config.js');
+    expect(appConfig).not.toMatch(/2026-08-15T00:00:00/);
+    expect(appConfig).toContain('EXPO_PUBLIC_OTA_FORCE_DISABLE');
+    expect(appConfig).toContain('e2eAutomation');
     const stranger = read('hermes-mobile/scripts/require-stranger-cold-start-proof.cjs');
     expect(stranger).toContain('checkGithubStrangerProof');
     const pairJs = read('tools/hermes-mobile-pair.js');

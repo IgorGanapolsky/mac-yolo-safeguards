@@ -137,10 +137,14 @@ describe('GatewayOpsSection', () => {
     });
     fireEvent.press(getByTestId('ops-section-skills'));
     await waitFor(() => {
-      expect(getByText('mac-freeze-rescue')).toBeTruthy();
+      expect(getByTestId('skills-summary-card')).toBeTruthy();
       expect(getByTestId('toolsets-empty-state').props.children).toContain(
         'Tools could not load',
       );
+    });
+    fireEvent.press(getByTestId('skills-list-toggle'));
+    await waitFor(() => {
+      expect(getByText('mac-freeze-rescue')).toBeTruthy();
     });
     expect(queryByText('Network request failed')).toBeNull();
   });

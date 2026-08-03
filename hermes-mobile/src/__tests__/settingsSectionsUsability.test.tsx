@@ -178,6 +178,11 @@ describe('Settings ops catalogs are alphabetical', () => {
       expect(getByTestId('ops-section-skills')).toBeTruthy();
     });
     fireEvent.press(getByTestId('ops-section-skills'));
+    // Summary first — full registry is advanced.
+    await waitFor(() => {
+      expect(getByTestId('skills-summary-card')).toBeTruthy();
+    });
+    fireEvent.press(getByTestId('skills-list-toggle'));
 
     await waitFor(() => {
       expect(getAllByTestId(/^skill-expand-/).map((node) => node.props.testID)).toEqual([
@@ -237,7 +242,12 @@ describe('Skills are honestly read-only', () => {
     });
     expect(getByText(/cannot edit or delete them/)).toBeTruthy();
     expect(getAllByText(/Igors-Mac-mini/).length).toBeGreaterThan(0);
+    expect(getByTestId('skills-summary-card')).toBeTruthy();
 
+    fireEvent.press(getByTestId('skills-list-toggle'));
+    await waitFor(() => {
+      expect(getByTestId('skill-expand-mac-freeze-rescue')).toBeTruthy();
+    });
     fireEvent.press(getByTestId('skill-expand-mac-freeze-rescue'));
     await waitFor(() => {
       expect(getByTestId('skill-location-mac-freeze-rescue').props.children).toEqual(

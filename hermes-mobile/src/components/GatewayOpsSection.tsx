@@ -176,6 +176,8 @@ export default function GatewayOpsSection() {
   const [expandedJobIds, setExpandedJobIds] = useState<Set<string>>(new Set());
   const [expandedFeatureKeys, setExpandedFeatureKeys] = useState<Set<string>>(new Set());
   const [expandedSkillNames, setExpandedSkillNames] = useState<Set<string>>(new Set());
+  /** Full Mac skill registry is ops noise — summary only until user opens advanced list. */
+  const [skillsListOpen, setSkillsListOpen] = useState(false);
   const { isExpanded, toggleSection } = useSectionExpansion();
   const [togglingToolset, setTogglingToolset] = useState<string | null>(null);
   const [integrationsToolset, setIntegrationsToolset] = useState<HermesToolset | null>(null);
@@ -822,12 +824,54 @@ export default function GatewayOpsSection() {
         titleStyle={styles.sectionTitle}
         hintStyle={styles.sectionHint}
       >
-      <GlassCard>
-        {skills.length === 0 ? (
+      <GlassCard testID="skills-summary-card">
+        {catalogErrors.skills ? (
           <Text style={styles.meta} testID="skills-empty-state">
-            {catalogErrors.skills
-              ? 'Skills could not load from your computer. Tap Refresh to retry.'
-              : 'No skills are installed on this computer.'}
+            Skills could not load from your computer. Tap Refresh to retry.
+          </Text>
+        ) : skills.length === 0 ? (
+          <Text style={styles.meta} testID="skills-empty-state">
+            No skills are installed on this computer.
+          </Text>
+        ) : (
+          <>
+            <Text style={styles.skillsSummaryTitle} testID="skills-summary-count">
+              {skills.length} skill{skills.length === 1 ? '' : 's'} on this Mac
+            </Text>
+            <Text style={styles.meta} testID="skills-summary-body">
+              Chat uses them automatically. This is not an App Store feature list — installs live
+              on your computer. The phone is read-only.
+            </Text>
+          </>
+        )}
+      </GlassCard>
+
+      {skills.length > 0 || catalogErrors.skills ? (
+        <TouchableOpacity
+          onPress={() => {
+            haptics.selection();
+            setSkillsListOpen((open) => !open);
+          }}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: skillsListOpen }}
+          accessibilityLabel={
+            skillsListOpen ? 'Hide full skill list' : 'Show full skill list from this Mac'
+          }
+          testID="skills-list-toggle"
+          style={styles.sectionToggleRow}
+        >
+          <Text style={[styles.sectionTitle, styles.sectionTitleFlex]}>Full list (advanced)</Text>
+          <Text style={styles.sectionShowHide} testID="skills-list-chevron">
+            {skillsListOpen ? 'Hide ▾' : 'Show ▸'}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
+
+      {skillsListOpen ? (
+      <GlassCard testID="skills-full-list">
+        {sortedSkills.length === 0 ? (
+          <Text style={styles.meta} testID="skills-filter-empty">
+            No skills are installed on this computer.
           </Text>
         ) : (
           sortedSkills.map((skill) => {
@@ -878,6 +922,7 @@ export default function GatewayOpsSection() {
           })
         )}
       </GlassCard>
+      ) : null}
       </CollapsibleSection>
 
       <CollapsibleSection
@@ -1045,6 +1090,31 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginBottom: 8,
     lineHeight: 16,
+  },
+  sectionToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 8,
+    minHeight: 36,
+    paddingVertical: 4,
+  },
+  sectionTitleFlex: {
+    flex: 1,
+    marginTop: 0,
+    marginBottom: 0,
+  },
+  sectionShowHide: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  skillsSummaryTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 6,
   },
   meta: { fontSize: 13, color: colors.textMuted, lineHeight: 18 },
   featureLine: { fontSize: 12, color: colors.secondary, marginTop: 4 },

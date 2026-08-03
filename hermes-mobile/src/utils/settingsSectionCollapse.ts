@@ -40,6 +40,7 @@ export const SECTION_DEFAULT_EXPANDED: Record<CollapsibleSectionId, boolean> = {
   safeguards: false,
   'ai-glasses': false,
   developer: false,
+  // Essentials: compact phone-toggles for chat tools (kept open — primary ops).
   'ops-essentials': true,
   'ops-extra-tools': false,
   'ops-jobs': false,
