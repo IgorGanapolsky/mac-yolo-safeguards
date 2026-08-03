@@ -28,6 +28,12 @@ const {
   routeStatus,
   summarizeRouteArgs,
   digest,
+  modelCapability,
+  isAgentCapableModel,
+  assertAgentCapableModel,
+  fingerprintCommand,
+  createToolBudget,
+  DEFAULT_TOOLSETS,
   HERMES_COMMANDS,
   DEFAULT_READY_PROMPT,
 } = require(WRAPPER_PATH);
@@ -206,6 +212,7 @@ assert.strictEqual(chooseLocalModel(['qwen3:8b-agent-64k', 'qwen3:8b']), 'qwen3:
 assert.strictEqual(chooseLocalModel(['qwen3:8b-64k']), 'qwen3:8b-64k');
 assert.strictEqual(chooseLocalModel(['gpt-oss:20b', 'qwen3:8b-64k']), 'gpt-oss:20b');
 assert.strictEqual(chooseLocalModel(['qwen3.6:35b-a3b', 'gpt-oss:20b']), 'qwen3.6:35b-a3b');
+// Weak 3b only when no agent-capable local present
 assert.deepStrictEqual(defaultModelRoute({}, { availableModels: ['qwen2.5:3b-64k'] }), {
   provider: 'custom:ollama-local-64k',
   model: 'qwen2.5:3b-64k',
@@ -214,38 +221,86 @@ assert.deepStrictEqual(defaultModelRoute({}, { availableModels: ['qwen3:8b-agent
   provider: 'custom:ollama-local-64k',
   model: 'qwen3:8b-agent-64k',
 });
+// Fleet path: z.ai key ⇒ LiteLLM gateway + glm-coding (agent class + DeepSeek/kimi fallbacks)
 assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
   configuredProviderIds: ['zai-coding-glm'],
 }), {
-  provider: 'custom:zai-coding-glm',
-  model: 'glm-5.2',
+  provider: 'custom:litellm-gateway',
+  model: 'glm-coding',
 });
 assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
   configuredProviderIds: ['zai-coding-nothink'],
 }), {
-  provider: 'custom:zai-coding-nothink',
-  model: 'glm-5.2',
+  provider: 'custom:litellm-gateway',
+  model: 'glm-coding',
 });
 assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
   configuredProviderIds: [],
 }), {
-  provider: 'zai',
-  model: 'glm-5.2',
+  provider: 'custom:litellm-gateway',
+  model: 'glm-coding',
 });
 assert.deepStrictEqual(defaultModelRoute({
   OPENROUTER_API_KEY: 'openrouter-key',
 }, { availableModels: ['qwen3:8b-agent-64k'] }), {
-  provider: 'custom:openrouter-glm52',
-  model: 'z-ai/glm-5.2',
+  provider: 'custom:litellm-gateway',
+  model: 'glm-coding',
 });
 assert.deepStrictEqual(defaultModelRoute({
   Z_AI_API_KEY: 'zai-key',
   HERMES_YOLO_PROVIDER: 'custom:test-provider',
-  HERMES_YOLO_MODEL: 'test-model',
+  HERMES_YOLO_MODEL: 'glm-coding',
 }), {
   provider: 'custom:test-provider',
-  model: 'test-model',
+  model: 'glm-coding',
 });
+
+// --- P0 capability gate + tool budget + slim toolsets ---
+console.log('Testing capability registry and tool budget...');
+assert.strictEqual(isAgentCapableModel('glm-coding'), true);
+assert.strictEqual(isAgentCapableModel('deepseek-v4-flash'), true);
+assert.strictEqual(isAgentCapableModel('kimi-code'), true);
+assert.strictEqual(isAgentCapableModel('qwen2.5:3b-64k'), false);
+assert.strictEqual(isAgentCapableModel('qwen2.5:3b-64k', { HERMES_YOLO_ALLOW_WEAK_MODEL: '1' }), true);
+assert.strictEqual(modelCapability('deepseek-v4-flash').class, 'coding');
+assert.throws(() => assertAgentCapableModel('qwen2.5:3b'), /NOT_AGENT_CAPABLE|not agent_capable/i);
+// defaultModelRoute does not throw (load-safe); spawn-time assertAgentCapableModel does
+assert.deepStrictEqual(
+  defaultModelRoute({ HERMES_YOLO_MODEL: 'qwen2.5:3b-64k' }),
+  { provider: 'custom:litellm-gateway', model: 'qwen2.5:3b-64k' }
+);
+assert.deepStrictEqual(
+  defaultModelRoute({ HERMES_YOLO_MODEL: 'qwen2.5:3b-64k', HERMES_YOLO_ALLOW_WEAK_MODEL: '1' }),
+  { provider: 'custom:litellm-gateway', model: 'qwen2.5:3b-64k' }
+);
+// Slim defaults: no computer_use / vision unless opted in
+assert.ok(!DEFAULT_TOOLSETS.includes('computer_use'), 'default toolsets must omit computer_use');
+assert.ok(!DEFAULT_TOOLSETS.includes('vision'), 'default toolsets must omit vision');
+assert.ok(DEFAULT_TOOLSETS.includes('terminal'));
+
+const fp1 = fingerprintCommand('cargo check -p lancedb-python');
+const fp2 = fingerprintCommand('cargo  check  -p   lancedb-python');
+assert.strictEqual(fp1, fp2, 'command fingerprint must normalize whitespace');
+const budget = createToolBudget({ maxIdenticalRetries: 1, maxToolCalls: 5 });
+assert.strictEqual(budget.record('cargo check -p foo', 'timeout').allowed, true);
+const blocked = budget.record('cargo check -p foo', 'timeout');
+assert.strictEqual(blocked.allowed, false);
+assert.strictEqual(blocked.reason, 'identical_timeout_budget');
+const receiptV2 = buildRouteReceipt({
+  rawArgs: ['fix'],
+  selectedBackend: 'hermes-legacy',
+  model: 'glm-coding',
+  requestedModel: 'glm-coding',
+  actualModel: 'glm-coding',
+  toolsets: DEFAULT_TOOLSETS,
+  toolBudget: budget.snapshot(),
+  status: 'pass',
+  exitCode: 0,
+});
+assert.strictEqual(receiptV2.schema, 'hermes-yolo/route-receipt-v2');
+assert.strictEqual(receiptV2.route.agentCapable, true);
+assert.ok(receiptV2.runId);
+assert.ok(!JSON.stringify(receiptV2).includes('computer_use'));
 
 const tmpEnvPath = path.join(require('os').tmpdir(), `hermes-yolo-env-${process.pid}.env`);
 fs.writeFileSync(tmpEnvPath, [
