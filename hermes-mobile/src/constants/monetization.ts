@@ -7,7 +7,7 @@
  * paying upgrade taps at the wrong one.
  */
 export const THUMBGATE_PRO_URL =
-  'https://thumbgate.app/?utm_source=hermes-mobile&utm_medium=app&utm_campaign=pro_upgrade';
+  'https://thumbgate.app/dashboard?utm_source=hermes-mobile&utm_medium=app&utm_campaign=pro_upgrade';
 
 /**
  * Web dashboard for ThumbGate / Leash subscriptions.
@@ -15,7 +15,7 @@ export const THUMBGATE_PRO_URL =
  * StoreKit / Play Billing subscription SKUs inside Hermes Mobile.
  */
 export const THUMBGATE_WEB_SUBSCRIPTION_URL =
-  'https://thumbgate.app/?utm_source=hermes-mobile&utm_medium=app&utm_campaign=web_subscription';
+  'https://thumbgate.app/dashboard?utm_source=hermes-mobile&utm_medium=app&utm_campaign=web_subscription';
 
 /** Bottom navigation tab label (short). */
 export const LEASH_TAB_LABEL = 'Leash';

@@ -3,11 +3,11 @@
  * Production control plane: https://thumbgate.app (see apps/hermes-control-plane).
  */
 
-/** Canonical Hermes Web / ThumbGate control-plane URL (not thumbgate.ai marketing alias). */
+/** Canonical Hermes Web / ThumbGate control-plane URL (direct to /dashboard). */
 export const THUMBGATE_WEB_URL =
-  'https://thumbgate.app/?utm_source=hermes-mobile&utm_medium=app&utm_campaign=paid_companion#pricing';
+  'https://thumbgate.app/dashboard?utm_source=hermes-mobile&utm_medium=app&utm_campaign=paid_companion';
 
-export const THUMBGATE_PROMO_BUTTON_LABEL = 'See ThumbGate.app plans';
+export const THUMBGATE_PROMO_BUTTON_LABEL = 'Open ThumbGate.app Dashboard';
 
 export type ThumbGatePromoSurface = 'leash_disconnected' | 'leash_empty' | 'connection_unreachable';
 

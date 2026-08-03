@@ -198,12 +198,12 @@ describe('hermes-mobile-connect skill — ThumbGate-absent contract', () => {
   // --- Skill §1: canonical ThumbGate URL ---
 
   describe('THUMBGATE_WEB_URL', () => {
-    it('points to thumbgate.app with correct UTM params and pricing anchor', () => {
+    it('points to thumbgate.app with correct UTM params and no pricing jump', () => {
       expect(THUMBGATE_WEB_URL).toMatch(/^https:\/\/thumbgate\.app\//);
       expect(THUMBGATE_WEB_URL).toContain('utm_source=hermes-mobile');
       expect(THUMBGATE_WEB_URL).toContain('utm_medium=app');
       expect(THUMBGATE_WEB_URL).toContain('utm_campaign=paid_companion');
-      expect(THUMBGATE_WEB_URL.endsWith('#pricing')).toBe(true);
+      expect(THUMBGATE_WEB_URL).not.toContain('#pricing');
     });
 
     it('is NOT the wrong thumbgate.ai domain', () => {
@@ -217,7 +217,7 @@ describe('hermes-mobile-connect skill — ThumbGate-absent contract', () => {
     it('uses canonical thumbgate.app URL', () => {
       const copy = thumbGatePromoCopy('connection_unreachable');
       expect(copy.url).toBe(THUMBGATE_WEB_URL);
-      expect(copy.buttonLabel).toBe('See ThumbGate.app plans');
+      expect(copy.buttonLabel).toBe('Open ThumbGate.app Dashboard');
     });
   });
 
