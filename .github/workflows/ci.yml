@@ -142,10 +142,15 @@ jobs:
           # Hammerspoon config (~/Documents/mac-text-hotkeys/init.lua) not present
           # in the repo. Stubbing it would assert against the stub, so it stays
           # excluded until that config is checked in.
+          #
+          # test-hermes-buzz-integration.js needs root npm deps (@noble/curves,
+          # @scure/base). This job does not npm ci (speed); the dedicated
+          # "Hermes Buzz / Nostr integration" step under Public funnel does.
           failed=0
           for f in tests/test-*.js; do
             case "$f" in
               tests/test-mac-text-hotkeys-config.js) continue ;;
+              tests/test-hermes-buzz-integration.js) continue ;;
             esac
             if node "$f" >/tmp/node-test.log 2>&1; then
               echo "ok   $f"
