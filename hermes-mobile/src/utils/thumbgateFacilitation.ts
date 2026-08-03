@@ -105,26 +105,23 @@ export type ThumbGateFacilitationStep = {
   actionLabel: string;
 };
 
-/** Numbered steps shown on the promo card (and documented in the agent skill). */
+/**
+ * Docs/agent skill only — NOT rendered on the consumer Leash card (CEO 2026-08-03).
+ * Consumer UI is short copy + Open ThumbGate.app; connector setup is on the web dashboard.
+ */
 export function thumbGateFacilitationSteps(): ThumbGateFacilitationStep[] {
   return [
     {
       id: 'open_web',
-      title: '1. Open ThumbGate.app',
-      body: 'Create or sign in on the web. This unlocks the browser dashboard and Continuity when your computer is offline.',
+      title: 'Open ThumbGate.app',
+      body: 'Sign in on the web for the dashboard and Continuity.',
       actionLabel: 'Open ThumbGate.app',
     },
     {
       id: 'install_connector',
-      title: '2. One-time Mac installer',
-      body: 'Paste this in Terminal on the computer you want ThumbGate to reach (once). Same path as the web dashboard.',
+      title: 'Mac connector (on the website)',
+      body: 'After sign-in, the dashboard shows the one-time Mac install if needed.',
       actionLabel: THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL,
-    },
-    {
-      id: 'agent_skill',
-      title: '3. Coding agents (optional)',
-      body: 'Install the Hermes Mobile connect skill so an agent on your Mac can diagnose pairing and facilitate ThumbGate without guessing.',
-      actionLabel: 'Copy skill install command',
     },
   ];
 }

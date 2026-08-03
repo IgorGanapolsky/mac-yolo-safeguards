@@ -1,9 +1,5 @@
-# ThumbGate facilitation card — the share CTA must name the COMMAND as the object.
-#
-# 2026-08-03: "Share Mac installer command" + post-tap "Installer shared" was read
-# by a real user as "you are sharing my machine with the whole world". The payload
-# is a public install string only. This flow proves the on-screen wording on a real
-# rendered app, not just under a test renderer.
+# Consumer Leash ThumbGate promo — short card, one CTA (CEO 2026-08-03).
+# No multi-step manuals, no coding-agent skill install, no curl dump on Leash.
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
@@ -11,16 +7,22 @@ appId: com.iganapolsky.hermesmobile
 - tapOn: "Leash"
 - scrollUntilVisible:
     element:
-      id: "thumbgate-share-scope-note"
+      id: "thumbgate-promo-leash_empty"
     direction: DOWN
     timeout: 30000
+    visibilityPercentage: 40
 
-# The clarifier must state what is and is not shared.
 - assertVisible:
-    id: "thumbgate-share-scope-note"
-- assertVisible: "Shares the text command above — not your Mac, its address, or any key."
+    id: "thumbgate-promo-open"
+- assertVisible: "ThumbGate.app"
+- assertVisible: "Web dashboard and Continuity when your computer is offline."
+- assertVisible: "Open ThumbGate.app"
 
-# The CTA names the command, never the machine.
-- assertVisible: "Share install command"
-- assertNotVisible: "Share Mac installer command"
-- assertNotVisible: "Installer shared"
+# Banned consumer noise
+- assertNotVisible: "Coding agents"
+- assertNotVisible: "Share agent skill"
+- assertNotVisible: "one-line Mac installer"
+- assertNotVisible:
+    id: "thumbgate-facilitation-steps"
+- assertNotVisible:
+    id: "thumbgate-connector-install-command"

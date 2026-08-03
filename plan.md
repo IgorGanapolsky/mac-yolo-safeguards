@@ -762,6 +762,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- `hermes-mobile/src/components/ThumbGatePromoCard.tsx`, `hermes-mobile/src/utils/thumbgatePromoCopy.ts`, `hermes-mobile/src/utils/thumbgateFacilitation.ts` (steps/export only), `hermes-mobile/src/__tests__/ThumbGatePromoCard.test.tsx`, `hermes-mobile/src/__tests__/thumbgateFacilitation.test.ts`, `hermes-mobile/src/__tests__/thumbgateContinuityUpsellContract.test.ts`, `hermes-mobile/.maestro/thumbgate-share-copy.yaml`, `plan.md` → **grok-leash-promo-short-20260803** (T-LEASH-PROMO-SHORT-20260803: consumer Leash card short, no coding agents) (2026-08-03T23:00Z)
+
 - `hermes-mobile/src/components/ThumbGatePromoCard.tsx` (share button label only), `hermes-mobile/src/utils/thumbgateFacilitation.ts` (share copy only), `hermes-mobile/src/__tests__/ThumbGatePromoCard.test.tsx` (share label), `hermes-mobile/.maestro/thumbgate-share-copy.yaml` (new e2e flow), `plan.md` → **claude-share-copy** (T-SHARE-COPY-CLARITY-20260803: shared object is the command, not the Mac) (2026-08-03T19:18Z)
 
 - `hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts` (S52 hardened walk), `hermes-mobile/src/components/ThumbGatePromoCard.tsx` (fallback URL only), `hermes-mobile/src/screens/ApprovalsScreen.tsx` (fallback URL only), `hermes-mobile/docs/PREVENT-RECURRENCE-JULY-2026.md` (S52 note), `config/THUMBGATE_EXPERT_CARD.txt`, `plan.md` → **grok-promo-no-pricing-jump** (T-THUMBGATE-PROMO-NO-PRICING-JUMP-20260803: harden S52 repo-wide scan) (2026-08-03T17:04Z)
