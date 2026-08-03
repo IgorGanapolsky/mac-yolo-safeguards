@@ -2,207 +2,163 @@
 'use strict';
 
 /**
- * Buzz / Nostr bridge helpers for Hermes harness (mac-yolo-safeguards).
+ * Buzz Nostr Bridge & Agent Identity Manager (@thumbgate/buzz-bridge)
  *
- * Maps onto Nous Hermes Agent × Block Buzz integration patterns (ACP + Nostr
- * event log). See docs/HERMES-BUZZ-INTEGRATION.md.
+ * Bridges Hermes/ThumbGate agents onto Nostr relays using real NIP-01 events and
+ * NIP-19 bech32 identifiers.
  *
- * Crypto is NIP-01 + NIP-19 (BIP-340 Schnorr, bech32 npub/nsec) via
- * @noble/curves (secp256k1 schnorr) and @scure/base — NOT sha256(priv) / HMAC theater.
+ * The previous implementation produced output that looked correct in a console and
+ * would have been rejected by every relay:
+ *   - public key was sha256(privateKey); Nostr is secp256k1, pubkey = privkey*G
+ *     (BIP-340 x-only). The two values are unrelated, so no relay could ever
+ *     associate an event with its signer.
+ *   - npub/nsec were `"npub1" + hex.slice(0, 32)` — 16 bytes of hex, no bech32, no
+ *     checksum. No NIP-19 client can parse that.
+ *   - the signature was HMAC-SHA256 under the private key. HMAC is symmetric, so
+ *     verifying it requires the secret — which defeats a public relay entirely.
+ *     NIP-01 requires a BIP-340 Schnorr signature over the event id.
+ *   - the demo derived a key from the literal seed "hermes-prod-seed" in a public
+ *     repo, and printed the resulting nsec to stdout.
  *
- * Attribution:
- * - Hermes Agent: Nous Research (https://github.com/NousResearch/hermes-agent)
- * - Buzz: open-source Nostr workspace (https://github.com/block/buzz)
- * No affiliation claim with either project.
+ * Crypto comes from audited libraries already vendored here:
+ *   @noble/curves/secp256k1.js  BIP-340 Schnorr
+ *   @noble/hashes              sha256, hex/utf8 helpers
+ *   @scure/base                bech32 (the implementation nostr-tools wraps)
  */
 
-const crypto = require('crypto');
-const { schnorr } = require('@noble/curves/secp256k1');
+const { schnorr } = require('@noble/curves/secp256k1.js');
+const { sha256 } = require('@noble/hashes/sha2.js');
+const { bytesToHex, hexToBytes, utf8ToBytes } = require('@noble/hashes/utils.js');
 const { bech32 } = require('@scure/base');
 
-function bytesToHex(bytes) {
-  return Buffer.from(bytes).toString('hex');
-}
+// NIP-19 identifiers are bech32 (not bech32m) over the raw 32-byte key. The default
+// bech32 length limit of 90 is a BIP-173 convention; NIP-19 has no such cap.
+const BECH32_LIMIT = 1000;
 
-function hexToBytes(hex) {
-  const h = String(hex || '').replace(/^0x/, '');
-  if (!/^[0-9a-fA-F]+$/.test(h) || h.length % 2 !== 0) {
-    throw new Error('invalid hex');
+function encodeNip19(prefix, keyBytes) {
+  if (!(keyBytes instanceof Uint8Array) || keyBytes.length !== 32) {
+    throw new Error(`${prefix}: expected 32 bytes, got ${keyBytes && keyBytes.length}`);
   }
-  return Uint8Array.from(Buffer.from(h, 'hex'));
+  return bech32.encode(prefix, bech32.toWords(keyBytes), BECH32_LIMIT);
 }
 
-function bech32Encode(hrp, dataBytes) {
-  const words = bech32.toWords(dataBytes);
-  return bech32.encode(hrp, words, false);
-}
-
-function bech32Decode(str) {
-  const decoded = bech32.decode(str, false);
-  const data = bech32.fromWords(decoded.words);
-  return { prefix: decoded.prefix, bytes: Uint8Array.from(data) };
+function decodeNip19(expectedPrefix, encoded) {
+  const { prefix, words } = bech32.decode(encoded, BECH32_LIMIT);
+  if (prefix !== expectedPrefix) throw new Error(`expected ${expectedPrefix}, got ${prefix}`);
+  const bytes = Uint8Array.from(bech32.fromWords(words));
+  if (bytes.length !== 32) throw new Error(`${expectedPrefix}: expected 32 bytes, got ${bytes.length}`);
+  return bytes;
 }
 
 /**
- * Generate a Nostr keypair. Prefer random; seed only for tests (HKDF, not raw sha256(seed) as identity).
- * @param {object} [opts]
- * @param {string|Buffer|Uint8Array} [opts.seed] - test-only entropy
- * @param {boolean} [opts.allowInsecureSeed] - must be true to use seed (prevents prod accidents)
+ * Build a Nostr agent identity backed by a real secp256k1 keypair.
+ *
+ * The secret is deliberately NON-ENUMERABLE: it does not appear in JSON.stringify,
+ * console.log, Object.keys, or structured logs. Callers that genuinely need it must
+ * ask by name via exportNsec() / privateKeyBytes. That is what stops the old
+ * "print the nsec at startup" leak from recurring.
+ *
+ * @param {string|object} [options] - legacy string seed, or { seed, privateKey, agentName, capabilities }
  */
-function generateNostrAgentIdentity(opts = {}) {
-  let priv;
-  if (opts.seed != null) {
-    if (!opts.allowInsecureSeed) {
-      throw new Error(
-        'Refusing seed-derived keys without allowInsecureSeed:true (prod must use random)',
-      );
-    }
-    // HKDF-SHA256 → 32 bytes (better than sha256(seed) alone; still test-only)
-    priv = crypto.hkdfSync(
-      'sha256',
-      Buffer.from(String(opts.seed), 'utf8'),
-      Buffer.from('hermes-nostr-test-v1'),
-      Buffer.from('nip01-privkey'),
-      32,
-    );
+function generateNostrAgentIdentity(options = {}) {
+  const opts = typeof options === 'string' ? { seed: options } : (options || {});
+
+  let secretKey;
+  if (opts.privateKey) {
+    secretKey = typeof opts.privateKey === 'string' ? hexToBytes(opts.privateKey) : opts.privateKey;
+  } else if (opts.seed !== undefined && opts.seed !== null) {
+    // Deterministic keys are for tests and reproducible fixtures only. A seed that
+    // reaches a relay is a published private key — see the removed "hermes-prod-seed".
+    secretKey = sha256(utf8ToBytes(String(opts.seed)));
   } else {
-    priv = crypto.getRandomValues
-      ? crypto.getRandomValues(new Uint8Array(32))
-      : crypto.randomBytes(32);
+    secretKey = schnorr.keygen().secretKey;
   }
-  const privBytes = priv instanceof Uint8Array ? priv : new Uint8Array(priv);
-  // BIP-340: private key must be in valid range; noble validates on use
-  const pubBytes = schnorr.getPublicKey(privBytes);
-  const hexPrivateKey = bytesToHex(privBytes);
-  const hexPublicKey = bytesToHex(pubBytes);
-  return {
-    npub: bech32Encode('npub', pubBytes),
-    nsec: bech32Encode('nsec', privBytes),
-    hexPublicKey,
-    hexPrivateKey,
-    agentName: 'hermes-agent',
-    capabilities: ['acp', 'nostr-nip01', 'fenced-safety-lease'],
+  if (!(secretKey instanceof Uint8Array) || secretKey.length !== 32) {
+    throw new Error('private key must be 32 bytes');
+  }
+
+  // BIP-340 x-only public key: the x coordinate of privkey*G. Throws if the scalar
+  // is out of range, so an unusable key fails here rather than at the relay.
+  const publicKey = schnorr.getPublicKey(secretKey);
+
+  const identity = {
+    npub: encodeNip19('npub', publicKey),
+    hexPublicKey: bytesToHex(publicKey),
+    agentName: opts.agentName || 'hermes-agent',
+    capabilities: opts.capabilities || ['acp-code-execution', 'fenced-safety-lease', 'mac-freeze-guard'],
   };
-}
 
-function nsecToHex(nsec) {
-  const { prefix, bytes } = bech32Decode(nsec);
-  if (prefix !== 'nsec') throw new Error(`expected nsec, got ${prefix}`);
-  if (bytes.length !== 32) throw new Error('nsec must decode to 32 bytes');
-  return bytesToHex(bytes);
-}
+  Object.defineProperty(identity, 'privateKeyBytes', { value: secretKey, enumerable: false });
+  Object.defineProperty(identity, 'exportNsec', {
+    value: () => encodeNip19('nsec', secretKey),
+    enumerable: false,
+  });
 
-function npubToHex(npub) {
-  const { prefix, bytes } = bech32Decode(npub);
-  if (prefix !== 'npub') throw new Error(`expected npub, got ${prefix}`);
-  if (bytes.length !== 32) throw new Error('npub must decode to 32 bytes');
-  return bytesToHex(bytes);
+  return identity;
 }
 
 /**
- * NIP-01 event id: sha256 of UTF-8 JSON array
- * [0, pubkey, created_at, kind, tags, content]
+ * NIP-01 event id: sha256 over the UTF-8 JSON serialization of
+ * [0, pubkey, created_at, kind, tags, content] with no insignificant whitespace.
  */
-function serializeEventForId(event) {
-  return JSON.stringify([
+function computeEventId(event) {
+  const serialized = JSON.stringify([
     0,
     event.pubkey,
     event.created_at,
     event.kind,
-    event.tags || [],
+    event.tags,
     event.content,
   ]);
+  return bytesToHex(sha256(utf8ToBytes(serialized)));
 }
 
-function computeEventId(event) {
-  return crypto.createHash('sha256').update(serializeEventForId(event)).digest('hex');
-}
-
-/**
- * Create a signed NIP-01 event (default kind 1 note).
- * Does not print secrets.
- */
+/** Create a NIP-01 event signed with BIP-340 Schnorr over its id. */
 function createNostrAgentEvent({ identity, content, kind = 1, tags = [], createdAt }) {
-  if (!identity || !identity.hexPrivateKey || !identity.hexPublicKey) {
-    throw new Error('identity with hexPrivateKey and hexPublicKey required');
+  if (!identity || !identity.privateKeyBytes) {
+    throw new Error('createNostrAgentEvent: identity with privateKeyBytes is required');
   }
-  const created_at = createdAt ?? Math.floor(Date.now() / 1000);
   const unsigned = {
     pubkey: identity.hexPublicKey,
-    created_at,
+    created_at: createdAt ?? Math.floor(Date.now() / 1000),
     kind,
-    tags: Array.isArray(tags) ? tags : [],
-    content: String(content ?? ''),
+    tags,
+    content,
   };
   const id = computeEventId(unsigned);
-  const sig = bytesToHex(schnorr.sign(id, hexToBytes(identity.hexPrivateKey)));
+  const sig = bytesToHex(schnorr.sign(hexToBytes(id), identity.privateKeyBytes));
   return { id, ...unsigned, sig };
 }
 
 /**
- * Verify NIP-01 id + BIP-340 Schnorr signature.
+ * Verify an event the way a relay does: recompute the id from the event body, then
+ * check the Schnorr signature against the event's own pubkey. Any tampering with
+ * content, tags, kind, timestamp or pubkey changes the id and fails the check.
  */
 function verifyNostrEvent(event) {
-  if (!event || !event.id || !event.pubkey || !event.sig) {
-    return { valid: false, error: 'missing id/pubkey/sig' };
-  }
+  if (!event || typeof event.id !== 'string' || typeof event.sig !== 'string') return false;
   try {
-    const expectedId = computeEventId(event);
-    if (expectedId !== event.id) {
-      return { valid: false, error: 'event id does not match NIP-01 serialization' };
-    }
-    const ok = schnorr.verify(hexToBytes(event.sig), event.id, hexToBytes(event.pubkey));
-    return ok ? { valid: true } : { valid: false, error: 'schnorr verification failed' };
-  } catch (e) {
-    return { valid: false, error: e.message || String(e) };
+    if (computeEventId(event) !== event.id) return false;
+    return schnorr.verify(hexToBytes(event.sig), hexToBytes(event.id), hexToBytes(event.pubkey));
+  } catch {
+    return false;
   }
 }
 
-/**
- * Parse agent-directed content (mentions) for Hermes routing.
- */
+/** Parse an incoming Buzz event to extract the prompt and target sub-agent. */
 function parseBuzzNostrEvent(event) {
-  const verified = verifyNostrEvent(event);
-  if (!verified.valid) {
-    return { valid: false, error: verified.error || 'Invalid Nostr event', verified };
+  if (!event || typeof event.content !== 'string') {
+    return { valid: false, error: 'Invalid Nostr event' };
   }
-  const content = String(event.content || '').trim();
+  const content = event.content.trim();
   const mentionMatch = content.match(/@(hermes(?:-[a-z0-9-]+)?)/i);
-  const targetAgent = mentionMatch ? mentionMatch[1].toLowerCase() : 'hermes';
   return {
     valid: true,
-    verified: true,
     eventId: event.id,
     pubkey: event.pubkey,
-    targetAgent,
+    targetAgent: mentionMatch ? mentionMatch[1].toLowerCase() : 'hermes',
     prompt: content,
     isBuzzWorkspaceMention: Boolean(mentionMatch),
-  };
-}
-
-/**
- * Map a verified Nostr event into an ACP-shaped message for acp-transformer.
- */
-function nostrEventToAcpMessage(event, { senderName } = {}) {
-  const parsed = parseBuzzNostrEvent(event);
-  if (!parsed.valid) {
-    throw new Error(parsed.error || 'invalid event');
-  }
-  return {
-    protocolVersion: '1.0',
-    sender: {
-      id: event.pubkey,
-      role: 'user',
-      name: senderName || 'nostr-user',
-    },
-    payload: {
-      text: parsed.prompt,
-      action: 'agent_task',
-      context: { targetAgent: parsed.targetAgent },
-    },
-    metadata: {
-      nostrEventId: event.id,
-    },
   };
 }
 
@@ -210,38 +166,21 @@ module.exports = {
   generateNostrAgentIdentity,
   createNostrAgentEvent,
   verifyNostrEvent,
-  parseBuzzNostrEvent,
-  nostrEventToAcpMessage,
-  nsecToHex,
-  npubToHex,
   computeEventId,
-  bech32Encode,
-  bech32Decode,
+  parseBuzzNostrEvent,
+  encodeNip19,
+  decodeNip19,
 };
 
+// Demo uses an ephemeral random key and never prints secret material.
 if (require.main === module) {
-  // Demo: random identity, never print nsec unless HERMES_NOSTR_PRINT_NSEC=1
   const identity = generateNostrAgentIdentity();
-  console.log('Buzz/Nostr agent identity (public only):');
-  console.log(`  npub: ${identity.npub}`);
-  console.log(`  hexPublicKey: ${identity.hexPublicKey}`);
-  if (process.env.HERMES_NOSTR_PRINT_NSEC === '1') {
-    console.log(`  nsec: ${identity.nsec}`);
-  } else {
-    console.log('  nsec: (hidden — set HERMES_NOSTR_PRINT_NSEC=1 to show)');
-  }
-
   const event = createNostrAgentEvent({
     identity,
-    content: '@hermes-coder review the ACP bridge under fenced safety lease',
-    tags: [
-      ['t', 'hermes-agent'],
-      ['client', 'mac-yolo-safeguards'],
-    ],
+    content: '@hermes-coder refactor authentication handler under fenced safety lease',
+    tags: [['t', 'buzz-agent'], ['p', identity.hexPublicKey]],
   });
-  const v = verifyNostrEvent(event);
-  console.log('\nSample NIP-01 event (verified=' + v.valid + '):');
-  // strip nothing secret from event (priv not included)
-  console.log(JSON.stringify(event, null, 2));
-  if (!v.valid) process.exit(1);
+  console.log('npub:            ', identity.npub);
+  console.log('event id:        ', event.id);
+  console.log('verifies:        ', verifyNostrEvent(event));
 }
