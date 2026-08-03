@@ -126,6 +126,13 @@
       ]
     },
     {
+      "id": "github_competitor_citation_allowed",
+      "question": "What is our positioning vs Nous Research?",
+      "candidate": "AS_OF=2026-07-22T18:07:42Z. Nous public repo ~214K GitHub stars; lead with ThumbGate brand; do not invent a rename.",
+      "expected_violations": []
+    },
+
+    {
       "id": "invented_stack_rejected",
       "question": "How should Reddit operate?",
       "candidate": "Add TensorFlow, FAISS, and Google Cloud before engaging.",

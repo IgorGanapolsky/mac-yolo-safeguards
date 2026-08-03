@@ -1,13 +1,13 @@
-THUMBGATE_EXPERT_CARD v1
-AS_OF_RESEARCH: 2026-07-27
-SOURCES: mac-yolo-safeguards/docs/RESEARCH-THUMBGATE-{APP-POSITIONING,PAID-COMPANION,AEO,FRICTIONLESS,GOVERNED-AGENTS,CONTINUITY-VPS}-JULY-2026.md, THUMBGATE-AEO-MONITORING.md, social/hermes-mobile-content-log.tsv (2026-07-27 fan-out), PR #1075 lesson (commit 259b1126)
+THUMBGATE_EXPERT_CARD v2
+AS_OF_RESEARCH: 2026-08-01
+SOURCES: mac-yolo-safeguards/docs/RESEARCH-THUMBGATE-{APP-POSITIONING,PAID-COMPANION,AEO,FRICTIONLESS,GOVERNED-AGENTS,CONTINUITY-VPS}-JULY-2026.md, THUMBGATE-AEO-MONITORING.md, social/hermes-mobile-content-log.tsv (2026-07-27 fan-out), PR #1075 lesson (commit 259b1126), competitive notes 2026-07-31 (Nous hosted / MiniMax MaxHermes / Abacus SuperComputer)
 RULE: answer GTM questions from this card only; live prices from /api/billing/plan outrank this card; never invent numbers.
 
 [PRODUCT]
 ThumbGate.app is the free browser control plane (Web Control) for Hermes coding agents running on your Mac: chats, machines, Leash tool approvals, signed P-256 machine pairing.
 Paid SKU is Continuity: when the Mac goes offline, ELIGIBLE work continues on a fenced Fly VPS runner (queued prompt/thread handoff, 90s fenced lease). It is NOT live process migration.
 It complements Hermes Mobile (paid native app, $4.99 pay-once, Play + App Store). It is never a workaround for mobile connectivity failure.
-SKUs (live readback 2026-07-26): Web Control $0/mo; Pro Continuity $10/mo (100 cloud continuations/30d, model routing, 14-day trial with 5 cloud runs); Team/Enterprise $49/mo (500 continuations, BYO key, priority runner).
+SKUs (live readback): Web Control $0/mo; Pro Continuity $10/mo (100 cloud continuations/30d, model routing, 14-day trial with 5 cloud runs); Team/Enterprise $49/mo (500 continuations, BYO key, priority runner).
 Pro price is dynamic from https://thumbgate.app/api/billing/plan — re-read before any campaign; never hard-code the price in copy.
 Surfaces: thumbgate.app, app.thumbgate.app, /llms.txt, /.well-known/ai-catalog.json, /go/android, /go/ios.
 Stack: Cloudflare Worker + D1, WorkOS AuthKit, Stripe, Fly runner. Keep this stack; no rewrites.
@@ -20,18 +20,21 @@ Buyer wants local-first privacy: local execution stays free; the Mac stays prima
 
 [POSITIONING]
 Winning frame: "Upgrade Hermes with ThumbGate" — additive web dashboard plus optional paid Continuity on top of Hermes Mobile. Never rescue framing.
-Category white-space: nobody mainstream sells "Mac is primary; pay only for offline continuation" as a clean SKU. Own that wedge.
+Category white-space: own "Mac is primary; pay only for offline continuation" AND more durably "human-in-the-loop gate for unattended agents" (the gate is orthogonal to where the agent runs).
 Competitors: Cursor Background Agent (~$20/mo cloud-first), Claude Code (~$20 Pro), OpenAI Codex Cloud, Devin/Factory (~$20+ always-cloud), OpenHands Cloud, free OSS local (Aider/Cline/Continue — no Continuity SKU), OneCLI (credential-gateway layer).
-Differentiation: own privacy/local-first resilience; sell resilience, not compute; do not race token tiers.
-Current beat (2026-07-27): "two decisions" framing — free browser Leash/tool approval first; Continuity optional and still proving out.
+Competitors ADDED 2026-07-31 (primary sources): Nous Research hosted Hermes $20–200/mo (framework author; public repo ~214K stars / 40K forks; funding earmarked to expand Hermes products); MiniMax MaxHermes (hosted Hermes, 10s deploy); Abacus.AI SuperComputer ships Hermes as a one-click always-on app inside a $20/mo tier — that dissolves the "lid closes" Continuity premise when the agent already runs 24/7 in their cloud.
+Competitive implication: do not defend Continuity solely as "Mac offline runtime"; lead with free Leash/approval (gate) first; Continuity is optional resilience, not the only wedge.
+Differentiation: privacy/local-first control surface; sell resilience and pre-execution gates, not compute tokens.
+Current beat: "two decisions" framing — free browser Leash/tool approval first; Continuity optional and still proving out.
 Rejected framings: firewall-lecture copy that buries Continuity; rescue copy (PR #1075).
 
 [PRICING]
-Hold Continuity at $10/mo — deliberately below the ~$20 mass-market agent cluster.
+Hold Continuity at $10/mo only after re-checking live /api/billing/plan — deliberately below the ~$20 mass-market agent cluster, but $10-for-100-continuations can look cheap next to $20 always-on cloud Hermes with a full VM.
 Charge for resilience events (cloud continuations), never per-token.
 Caps are the commercial envelope: trial 5 / Pro 100 / Team 500 continuations per 30 days, enforced server-side at claim time.
 Hermes Mobile is the paid native app; ThumbGate is the additive upsell. Mobile promo card links to live #pricing with UTM and embeds no dollar amount.
 Deferred until real demand: Stripe usage meters; per-token pricing; enterprise compliance packages (need a buyer first); process migration (needs >=100 paying users + liability posture).
+If always-on cloud Hermes adoption rises, re-price/re-package around the gate (approvals) rather than racing runtime.
 
 [CHANNELS]
 Fan-out matrix: LinkedIn, X, Bluesky, Threads, dev.to, Medium, Hacker News (Show HN), YouTube community. Reddit is draft-only under the standing burn rule (no promo without explicit override). Hashnode frozen.
@@ -54,10 +57,19 @@ Web funnel: landing -> sign-in -> authenticated landing -> first chat visible ->
 Activation: WorkOS sign-in -> one copyable installer command -> auto-opened prefilled pair URL -> explicit approve of named Mac (zero code transcription) -> connector reads local Hermes key (never copied off-machine) -> newest chat auto-opens. Target P50 first real chat under 180s (acceptance target, not yet measured).
 Operating metric: install is step 0, pair is step 1, first chat is the product. Pair -> first chat -> first real approve/deny is what counts, not store installs.
 Paid users default failover_mode=auto so Continuity actually fires; denied claims fail to recoverable offline_blocked.
-GTM checklist: 3 design partners dogfooding offline Continuity; public canary/status page; hero stack = free dashboard -> paid Continuity -> store badges -> pairing diagram.
+GTM checklist: public canary/status page; hero stack = free dashboard (Leash/gate) -> optional Continuity -> store badges -> pairing diagram; design partners for gate value, not Continuity-only outreach.
+
+[LEGAL_BRAND]
+Trademark / rename questions: ThumbGate is our product brand; Hermes is the agent framework name from Nous Research (the framework author). Public Hermes ecosystem stars are large (~214K on the public code host) — that is competitive and brand adjacency, not a marketing channel for us.
+Do NOT invent a rename decision. Card stance as of 2026-08-01: no formal rename away from Hermes adjacency is decided; lead with "ThumbGate" as the product name in all promo; say "works with Hermes agents" not "we are Hermes".
+Trademark exposure risk is real enough to track (framework author is commercializing hosted Hermes) but not evidenced as a cease-and-desist on this card — refuse invented legal advice.
+If asked "should we rename?": answer is research agenda not a yes/no ship order — (1) keep product name ThumbGate primary, (2) avoid implying affiliation with Nous, (3) counsel only with real counsel for trademark clearance, (4) do not spend a full rebrand sprint until external cash path is live.
+Never propose the public code host as a conversion channel; FOCUS acquisition stays Skool/Reddit watch-only + fan-out matrix.
 
 [KNOWN_GAPS]
-External revenue $0 as of 2026-07-20; only 1 paid org (own workspace); no external paid customer receipt.
+External revenue $0 as of last verified receipt; only owner/test payments may appear and are NOT revenue.
 55% activation / 18% trial-conversion figures are secondary-source hypotheses, not measured truth; funnel has ~2 internal accounts.
-Same-day canaries pass but no 30-day SLO; ~10 completed / 5 failed tasks all-time; 150s local-timeout class open; Mac-only tool gap on cloud runner is top churn risk.
+Same-day canaries pass but no 30-day SLO; Mac-only tool gap on cloud runner is top Continuity churn risk.
 Play installs "0+", iOS 0 ratings (2026-07-25); channel reach unproven; AEO monitor is a citation proxy, not real AI Overview telemetry.
+Continuity premise under competitive pressure from always-on cloud Hermes (Nous/MiniMax/Abacus) — gate-first narrative is the durable path; Continuity design-partner-only NEXT_MONEY is stale.
+Trademark/rename has no counsel memo on file; LEGAL_BRAND is stance + risk, not a legal opinion.
