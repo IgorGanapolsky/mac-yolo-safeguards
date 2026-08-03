@@ -1,0 +1,26 @@
+# ThumbGate facilitation card — the share CTA must name the COMMAND as the object.
+#
+# 2026-08-03: "Share Mac installer command" + post-tap "Installer shared" was read
+# by a real user as "you are sharing my machine with the whole world". The payload
+# is a public install string only. This flow proves the on-screen wording on a real
+# rendered app, not just under a test renderer.
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp
+- runFlow: e2e-bootstrap.yaml
+- tapOn: "Leash"
+- scrollUntilVisible:
+    element:
+      id: "thumbgate-share-scope-note"
+    direction: DOWN
+    timeout: 30000
+
+# The clarifier must state what is and is not shared.
+- assertVisible:
+    id: "thumbgate-share-scope-note"
+- assertVisible: "Shares the text command above — not your Mac, its address, or any key."
+
+# The CTA names the command, never the machine.
+- assertVisible: "Share install command"
+- assertNotVisible: "Share Mac installer command"
+- assertNotVisible: "Installer shared"
