@@ -475,7 +475,8 @@ export default function ApprovalsScreen() {
               <Text style={styles.secondaryButtonText}>Preview approval card (smoke test)</Text>
             </TouchableOpacity>
             <Text style={styles.hintMuted}>
-              Injects a fake blocked-command card here. Does not touch your relay or computer.
+              Shows one fake blocked-command card. Press again does not stack. Does not touch your
+              relay or computer.
             </Text>
             <View style={styles.switchRow}>
               <View style={styles.switchLabelCol}>
