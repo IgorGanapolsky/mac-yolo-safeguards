@@ -65,3 +65,16 @@ Auth: env / `~/.config/linear/api_key` / Keychain `LINEAR_API_KEY` — bridge pr
 ## Why not Linear alone?
 
 2026-07 thrashing proved multiple agents on one tree need a **local, outside-repo** ledger. Linear is cloud SSOT for tickets; vault is SSOT for live file claims; worktrees prevent clobber.
+
+## Grok Build Workflows (complement, not replace)
+
+[x.ai/news/workflows](https://x.ai/news/workflows) (Jul 2026): fan-out → verify → synthesize inside **one Grok session** (budget 128–1024 agents, background `/workflows`).
+
+| Layer | Owns |
+|-------|------|
+| **Workflows** | Intra-Grok parallel judgment (PR review, Linear triage, audits) |
+| **Linear + vault** | Inter-agent fleet ownership (Claude/Codex/Cursor/Hermes/Grok) |
+| **plan.md + worktrees** | Code exclusivity |
+
+Saved scripts: `.grok/workflows/linear-fleet-triage.rhai`, `adversarial-pr-review.rhai`.  
+Full map: [docs/WORKFLOWS-XAI-INTEGRATION-AUG-2026.md](../WORKFLOWS-XAI-INTEGRATION-AUG-2026.md).
