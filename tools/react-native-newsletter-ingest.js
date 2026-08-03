@@ -5,6 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { stripHtml: stripHtmlSafe } = require('./lib/safe-html-strip');
 
 const REPO = path.resolve(__dirname, '..');
 const HERMES_MOBILE = path.join(REPO, 'hermes-mobile');
@@ -159,16 +160,7 @@ function decodeXml(text) {
 // dependency, since none exists in this repo and this tool doesn't warrant
 // adding one.
 function stripHtml(html) {
-  // Closing tags may include whitespace/attrs (`</script >`, `</script\t bar>`).
-  // Bare `<\/script\s*>` is a CodeQL js/bad-tag-filter hit and can leave script
-  // source as "body text" — same fix pattern as tools/verify-public-post.js.
-  return decodeXml(html)
-    .replace(/<script\b[\s\S]*?<\/script\s*[^>]*>/gi, ' ')
-    .replace(/<style\b[\s\S]*?<\/style\s*[^>]*>/gi, ' ')
-    .replace(/<\/?(?:script|style)\b[^>]*>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return stripHtmlSafe(html);
 }
 
 function parseRssItems(xml, limit = 20) {
@@ -194,14 +186,14 @@ function parseRssItems(xml, limit = 20) {
 }
 
 function extractJsonLdBlogPosting(html) {
-  const blocks = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi) || [];
+  const blocks = html.match(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script\s*>/gi) || [];
   for (const block of blocks) {
     // Extract the inner JSON via a single capturing match instead of two
     // sequential .replace() calls that strip the open/close tags: stripping
     // in two passes can leave a match behind if removing one tag creates a
     // new "<...>" adjacency (incomplete multi-character sanitization), and a
     // direct capture sidesteps that class of bug entirely.
-    const raw = (block.match(/<script[^>]*>([\s\S]*?)<\/script>/i) || [])[1] || '';
+    const raw = (block.match(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/i) || [])[1] || '';
     try {
       const data = JSON.parse(raw);
       if (data && data['@type'] === 'BlogPosting') {

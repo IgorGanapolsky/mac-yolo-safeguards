@@ -216,6 +216,20 @@ const RULES = [
   },
 ];
 
+
+function stripComments(text) {
+  // Reduce false positives from explanatory comments/docs that mention banned APIs.
+  return String(text || '')
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .replace(/(^|[^:])\/\/.*$/gm, (m) => {
+      // keep URL schemes like http://
+      if (m.includes('://') && !m.trimStart().startsWith('//')) return m;
+      const i = m.indexOf('//');
+      if (i < 0) return m;
+      return m.slice(0, i);
+    });
+}
+
 function lineOf(text, re) {
   const m = text.match(re);
   if (!m) return 1;
@@ -321,9 +335,10 @@ function scanFile(absPath) {
   // skip huge
   if (text.length > 1_500_000) return [];
   const findings = [];
+  const code = stripComments(text);
   for (const rule of RULES) {
     try {
-      const hits = rule.test(text, rel) || [];
+      const hits = rule.test(code, rel) || [];
       for (const h of hits) {
         findings.push({
           file: rel,

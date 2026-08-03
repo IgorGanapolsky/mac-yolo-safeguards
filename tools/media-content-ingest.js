@@ -74,11 +74,12 @@ function commandExists(command) {
 }
 
 function safeName(input) {
-  return String(input)
+  let s = String(input)
     .replace(/^https?:\/\//, '')
-    .replace(/[^a-zA-Z0-9._-]+/g, '-')
-    .replace(/^-+/, '').replace(/-+$/, '')
-    .slice(0, 120) || 'media';
+    .replace(/[^a-zA-Z0-9._-]+/g, '-');
+  while (s.startsWith('-')) s = s.slice(1);
+  while (s.endsWith('-')) s = s.slice(0, -1);
+  return s.slice(0, 120) || 'media';
 }
 
 function parseJson(text) {

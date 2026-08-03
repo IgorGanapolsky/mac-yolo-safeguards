@@ -22,6 +22,8 @@ function parseArgs(argv) {
     maxOpen: 5,
     writeBaseline: false,
     checkIncrease: false,
+    dismissFps: false,
+    dryRun: false,
     help: false,
   };
   for (let i = 0; i < argv.length; i++) {
@@ -33,6 +35,8 @@ function parseArgs(argv) {
     else if (a === '--max-open') out.maxOpen = Number(argv[++i]);
     else if (a === '--write-baseline') out.writeBaseline = true;
     else if (a === '--check-increase') out.checkIncrease = true;
+    else if (a === '--dismiss-fps') out.dismissFps = true;
+    else if (a === '--dry-run') out.dryRun = true;
   }
   return out;
 }
@@ -91,6 +95,74 @@ function summarize(alerts) {
   };
 }
 
+
+function isTestPath(pathStr) {
+  const p = String(pathStr || '');
+  return (
+    p.startsWith('tests/') ||
+    p.includes('/__tests__/') ||
+    /\.test\.(js|ts|tsx|mjs)$/.test(p) ||
+    /\.spec\.(js|ts)$/.test(p)
+  );
+}
+
+/** Known false-positive classes for this monorepo (JWT ≠ password hash; test hosts). */
+function classifyFp(alert) {
+  const rule = alert.rule?.id || '';
+  const pathStr = alert.most_recent_instance?.location?.path || '';
+  const classes = alert.most_recent_instance?.classifications || [];
+  if (classes.includes('test') || isTestPath(pathStr)) {
+    return { reason: 'used in tests', comment: `Test-only path ${pathStr} — not production attack surface.` };
+  }
+  if (rule === 'js/insufficient-password-hash') {
+    if (
+      pathStr.includes('asc-') ||
+      pathStr.includes('attach-and-submit-asc') ||
+      pathStr.includes('submit-asc') ||
+      pathStr.includes('dedupe-asc') ||
+      pathStr.includes('hermes-zcode-harness')
+    ) {
+      return {
+        reason: 'false positive',
+        comment:
+          'Not password storage: App Store Connect ES256 JWT signing or content fingerprint HMAC. See tools/lib/asc-jwt-es256.js.',
+      };
+    }
+  }
+  if (rule === 'js/incomplete-url-substring-sanitization' && isTestPath(pathStr)) {
+    return { reason: 'used in tests', comment: 'URL host string in unit assertion only.' };
+  }
+  return null;
+}
+
+function dismissAlert(slug, number, reason, comment, dryRun) {
+  if (dryRun) {
+    return { number, dryRun: true, reason, comment };
+  }
+  const r = spawnSync(
+    'gh',
+    [
+      'api',
+      '-X',
+      'PATCH',
+      `repos/${slug}/code-scanning/alerts/${number}`,
+      '-f',
+      `state=dismissed`,
+      '-f',
+      `dismissed_reason=${reason}`,
+      '-f',
+      `dismissed_comment=${comment}`,
+    ],
+    { encoding: 'utf8', cwd: REPO },
+  );
+  return {
+    number,
+    ok: r.status === 0,
+    status: r.status,
+    err: (r.stderr || '').slice(0, 200),
+  };
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
@@ -101,6 +173,7 @@ Usage:
   node tools/codeql-alert-sync.js --gate [--max-high 0] [--max-open 5]
   node tools/codeql-alert-sync.js --write-baseline
   node tools/codeql-alert-sync.js --check-increase
+  node tools/codeql-alert-sync.js --dismiss-fps [--dry-run]
 `);
     return;
   }
@@ -118,6 +191,22 @@ Usage:
     if (args.json) console.log(JSON.stringify({ ok: false, error: alerts.message }));
     return;
   }
+  if (args.dismissFps) {
+    const results = [];
+    for (const a of alerts) {
+      const fp = classifyFp(a);
+      if (!fp) continue;
+      results.push(dismissAlert(slug, a.number, fp.reason, fp.comment, args.dryRun));
+    }
+    const out = { ok: true, dismissed: results.length, results };
+    if (args.json) console.log(JSON.stringify(out, null, 2));
+    else {
+      console.log(`codeql-alert-sync dismiss-fps: ${results.length} alerts`);
+      for (const r of results) console.log(JSON.stringify(r));
+    }
+    return;
+  }
+
 
   const list = Array.isArray(alerts) ? alerts : [];
   const summary = summarize(list);
