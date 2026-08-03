@@ -128,3 +128,5 @@ Compiled-Vaults/goal
 # harness-smeval live run artifacts
 evals/**/runs/
 coordination/codeql-open-summary.json
+node_modules/
+node_modules/
