@@ -32,6 +32,7 @@ import {
   useGatewayApprovals,
   useGatewayChatSync,
 } from '../hooks/useGatewaySelector';
+import { useGateway } from '../context/GatewayContext';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import {
   composerDockInsets,
@@ -660,6 +661,7 @@ export default function ChatScreen() {
     connectionHealInFlight,
     connectionHealExhausted,
   } = useGatewayConnection();
+  const { thumbgateApiKey } = useGateway();
   const [activeAgents, setActiveAgents] = useState<{ name: string; status: string }[]>([]);
   const { relayWorkers, isPaired, activeRelayWorkerId } = useGatewayRelay();
   const {
@@ -8112,6 +8114,7 @@ export default function ChatScreen() {
               }}
               liveUsb={liveUsbGateway}
               onAddProfile={addGatewayProfile}
+              hasThumbGateCompanion={Boolean(thumbgateApiKey?.trim())}
             />
           </ScrollView>
         ) : null}

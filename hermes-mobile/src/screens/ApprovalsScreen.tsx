@@ -87,6 +87,7 @@ export default function ApprovalsScreen() {
     setApprovalEditSeed,
     patchSettings,
     injectSmokeApproval,
+    thumbgateApiKey,
   } = useGateway();
 
   // Hermes Mobile is sold as a paid, full-feature app. Leash has no secondary paywall.
@@ -194,10 +195,12 @@ export default function ApprovalsScreen() {
   const visibleApprovals = glance
     ? []
     : pendingApprovals.slice(0, PENDING_APPROVALS_RENDER_CAP);
+  const hasThumbGateCompanion = Boolean(thumbgateApiKey?.trim());
   const leashPromoSurface = leashUnlocked
     ? resolveLeashThumbGatePromoSurface({
         connectionState,
         pendingApprovalsCount: pendingApprovals.length,
+        hasThumbGateCompanion,
       })
     : null;
 
@@ -472,7 +475,8 @@ export default function ApprovalsScreen() {
               <Text style={styles.secondaryButtonText}>Preview approval card (smoke test)</Text>
             </TouchableOpacity>
             <Text style={styles.hintMuted}>
-              Injects a fake blocked-command card here. Does not touch your relay or computer.
+              Shows one fake blocked-command card. Press again does not stack. Does not touch your
+              relay or computer.
             </Text>
             <View style={styles.switchRow}>
               <View style={styles.switchLabelCol}>
