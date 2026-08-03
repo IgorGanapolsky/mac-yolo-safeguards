@@ -17,6 +17,7 @@ answers.
 | "Where's the reconnect-backoff logic?" (natural language, meaning not literal string) | **grepai** (`grepai search "..."`) | Semantic vector match finds the code by *meaning* even when the literal string is absent. |
 | "Show me the function and its neighbors explained plainly" | **Graphify** (`explain`) | Graph traversal gives structural context a vector search can't. |
 | "Is this a frontend/backend/cross-cutting concern?" | **grepai** then **Graphify** (in that order) | Semantic first to locate, graph second to confirm structure. Never reverse — the graph is the ground truth, the vector is the hypothesis. |
+| "How does leash relate to Continuity / ThumbGate?" (ops/business multi-hop) | **Hermes Graph RAG** (`tools/hermes-graph-rag.js` gate+retrieve) then hybrid if needed | Dual-layer entity graph + chunks; pre-action gate skips cloud for pure entity lookups. See [`HERMES-GRAPH-RAG.md`](./HERMES-GRAPH-RAG.md). |
 | Multi-repo ("does Hermes Mobile depend on control-plane types?") | **Graphify `merge-graphs`** *(if both graphs built)* | Cross-repo dependency graph. **Currently blocked: only root graph is built** — see below. |
 
 ## The three tools, honestly
@@ -75,5 +76,7 @@ you cite a result — don't let the two blur into an ungrounded "the codebase sa
 
 ## Related
 - [`docs/LOCAL-SEMANTIC-CODE-INDEX.md`](./LOCAL-SEMANTIC-CODE-INDEX.md) — grepai install, evaluation table, worktree gotcha
+- [`docs/HERMES-GRAPH-RAG.md`](./HERMES-GRAPH-RAG.md) — ops/business Graph RAG + pre-action safety gate (LightRAG-style, $0 index)
 - [`AGENTS.md`](../AGENTS.md) § graphify — when to use graphify query/path/explain vs raw grep
 - `tools/agent-cost-analyzer.js` — measures fleet cost/latency (the "$" denominator the swarm harness names)
+- `tools/hermes-retrieval-router.js` — fuses graph + keyword (+ optional hybrid) behind the gate
