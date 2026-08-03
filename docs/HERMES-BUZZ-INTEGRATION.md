@@ -54,3 +54,25 @@ This repo implements the **protocol slice** (identity, signed events, ACP shape,
 node tests/test-hermes-buzz-integration.js
 node tools/hermes-integration-paths.js --self-test
 ```
+
+
+## Control-plane ingress
+
+```http
+POST /api/nostr/events
+Cookie: session…
+Content-Type: application/json
+
+{
+  "event": { "id", "pubkey", "created_at", "kind", "tags", "content", "sig" },
+  "enqueue": false
+}
+```
+
+- `enqueue: false` (default) — verify + ACP map only (safe dry-run)
+- `enqueue: true` — create task (same admission as `POST /api/tasks`, idempotent on `nostr:<event.id>`)
+
+```bash
+cd apps/hermes-control-plane
+node --experimental-strip-types --test lib/nostr-ingress.test.ts
+```

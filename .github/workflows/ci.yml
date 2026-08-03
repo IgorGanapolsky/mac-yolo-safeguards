@@ -289,10 +289,17 @@ jobs:
           set -eu
           node tests/test-codeql-pattern-gate.js
           node tests/test-codeql-agent-hygiene.js
-          node tests/test-hermes-buzz-integration.js
-          node --experimental-strip-types tests/test-acp-transformer.mjs || node tests/test-acp-transformer.mjs
           node tools/codeql-pattern-gate.js --diff origin/main
           node tools/codeql-agent-hygiene.js --pre-ship --skip-network
+
+      # Buzz/Nostr crypto needs root package deps (@noble/curves, @scure/base).
+      - name: Hermes Buzz / Nostr integration
+        run: |
+          set -eu
+          npm ci
+          node tests/test-hermes-buzz-integration.js
+          node --experimental-strip-types tests/test-acp-transformer.mjs || node tests/test-acp-transformer.mjs
+          node tools/hermes-integration-paths.js doctor
 
       # Live open-alert budget (uses GITHUB_TOKEN). Soft on API failure unless CODEQL_GATE_STRICT=1.
       - name: Code scanning open-alert budget
