@@ -5,11 +5,24 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { parseHermesDefaults, letterFromScore } = require('../tools/system-a-plus-scorecard');
+const {
+  parseHermesDefaults,
+  letterFromScore,
+  scoreSystem,
+} = require('../tools/system-a-plus-scorecard');
 
 test('letterFromScore still fail-closed for A+', () => {
   assert.equal(letterFromScore(0.99, true), 'B+');
   assert.equal(letterFromScore(0.99, false, { ndcg: 0.94 }), 'A+');
+});
+
+test('scoreSystem includes production-ops pillar even with --skip-rag', () => {
+  const report = scoreSystem({ skipRag: true });
+  const prod = report.gates.find((g) => g.id === 'production-ops');
+  assert.ok(prod, 'production-ops gate missing from system scorecard');
+  assert.equal(prod.hard, true);
+  assert.equal(prod.ok, true, `production-ops hard gate failed: ${prod.detail}`);
+  assert.ok(Number(prod.weight) > 0);
 });
 
 test('parseHermesDefaults flags glm-coding primary as dead', () => {

@@ -115,6 +115,10 @@ def capture() -> dict[str, Any]:
             "contract_sha256": sha256_file(BRAIN / "tinker_response_contract.py"),
             "exporter_sha256": sha256_file(BRAIN / "export_tinker_brain_snapshot.py"),
             "eval_sha256": sha256_file(BRAIN / "tinker_brain_eval.py"),
+            "section_retrieve_sha256": sha256_file(BRAIN / "tinker_brain_section_retrieve.py"),
+            "coverage_sha256": sha256_file(BRAIN / "tinker_brain_coverage.py"),
+            "health_sha256": sha256_file(BRAIN / "tinker_brain_health.py"),
+            "scorecard_sha256": sha256_file(BRAIN / "tinker_brain_scorecard.py"),
         },
         "tools": {
             "ollama_version": str(version.get("version") or "unreachable"),

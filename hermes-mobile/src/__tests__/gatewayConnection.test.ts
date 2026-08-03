@@ -199,4 +199,18 @@ describe('gatewayConnection', () => {
       chatStalled: true,
     });
   });
+
+  it('prefers Connected · working over stalled while Mac is still thinking', () => {
+    expect(
+      resolveChatLinkDisplay({
+        connectionState: 'connected',
+        macHttpOk: true,
+        chatStalled: true,
+        chatWorking: true,
+      }),
+    ).toEqual({
+      label: 'Connected · working',
+      chatReachable: true,
+    });
+  });
 });

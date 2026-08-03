@@ -531,9 +531,12 @@ describe('ChatScreen', () => {
     // computer transport — not that the machine name is hidden. One computer is saved,
     // so the header names it instead of the "Your computer" placeholder (2026-07-30).
     expect(getByTestId('chat-context-mac').props.children).toBe('Demo computer');
-    expect(getByTestId('chat-context-link').props.children).toContain(
-      'Pair to receive approval requests anywhere',
-    );
+    // When chat HTTP is down, header shows computer reachability — never the
+    // optional cloud-approval pair nudge (owner rage 2026-08-02).
+    const link = String(getByTestId('chat-context-link').props.children);
+    expect(link.toLowerCase()).not.toContain('pair to receive approval');
+    expect(link.toLowerCase()).not.toContain('cloud approvals are not paired');
+    expect(link).toMatch(/unreachable|Can't reach|Reconnecting|Checking/i);
   });
 
   it('allows text input and shows send button active', async () => {

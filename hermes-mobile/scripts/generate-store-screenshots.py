@@ -379,23 +379,23 @@ def draw_rules(draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
     draw_rule_row(
         draw,
         (70, 270, width - 70, 430),
-        "Approval-first mode",
-        "Prioritize lock-screen approval alerts",
-        COLORS["red"],
-    )
-    draw_rule_row(
-        draw,
-        (70, 460, width - 70, 620),
         "Quick-approve layout",
         "One approval at a time with bigger buttons",
         COLORS["amber"],
     )
     draw_rule_row(
         draw,
-        (70, 650, width - 70, 810),
+        (70, 460, width - 70, 620),
         "Deny tool → capture block",
         "Capture rejected tools to ThumbGate",
         COLORS["purple"],
+    )
+    draw_rule_row(
+        draw,
+        (70, 650, width - 70, 810),
+        "Allow tool → capture approval",
+        "Capture approved tools to ThumbGate",
+        COLORS["green"],
     )
     rounded_panel(draw, (70, 865, width - 70, 1030), COLORS["surface_alt"], radius=24)
     draw_text(draw, (105, 905), "Decide without opening your computer", 30, bold=True)

@@ -99,6 +99,48 @@
       "expect_route": "thumbgate_gtm",
       "must_contain": ["[PRODUCT]"],
       "must_not_contain": []
+    },
+    {
+      "id": "trademark_legal_brand",
+      "question": "Should ThumbGate rename away from Hermes given trademark exposure?",
+      "expect_route": "thumbgate_gtm",
+      "must_contain": ["[LEGAL_BRAND]", "trademark", "rename"],
+      "must_not_contain": ["endpoint security"]
+    },
+    {
+      "id": "nous_competitive_pressure",
+      "question": "How does Nous Research hosted Hermes affect our positioning?",
+      "expect_route": "thumbgate_gtm",
+      "must_contain": ["[POSITIONING]", "Nous", "gate"],
+      "must_not_contain": ["endpoint security"]
+    },
+    {
+      "id": "retrieval_surfaces_method",
+      "question": "How should we price Continuity?",
+      "expect_route": "thumbgate_gtm",
+      "must_contain": ["Retrieval:", "[PRICING]", "$10/mo"],
+      "must_not_contain": []
+    },
+    {
+      "id": "buyer_icp",
+      "question": "Who is the ideal buyer for ThumbGate.app?",
+      "expect_route": "thumbgate_gtm",
+      "must_contain": ["[BUYER]", "ICP"],
+      "must_not_contain": []
+    },
+    {
+      "id": "promo_rules_never_rescue",
+      "question": "What are the ThumbGate promo rules?",
+      "expect_route": "thumbgate_gtm",
+      "must_contain": ["[PROMO_RULES]", "add-on"],
+      "must_not_contain": ["endpoint security"]
+    },
+    {
+      "id": "cash_truth_with_thumbgate_token",
+      "question": "why zero dollars — reassess cash truth",
+      "expect_route": "cash_truth",
+      "must_contain": ["external $0.00", "non-owner"],
+      "must_not_contain": ["[SALES_MOTION]"]
     }
   ]
 }
