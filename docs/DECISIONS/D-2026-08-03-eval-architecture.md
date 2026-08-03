@@ -9,7 +9,7 @@
 1. **Production law stays Node gates** (`ship-claim-gate`, `taste-gate`, `social-publish-gate`, continuous E2E). CI must stay offline-first and not depend on paid model calls.
 2. **Do not adopt `uvx smevals` as a monorepo CI dependency.** Useful design (run ≠ grade, config includes harness, re-grade without re-run); wrong default stack for us (Python/`llm`/multi-model leaderboard product, not our cash path).
 3. **Steal the architecture in Node:** `tools/harness-smeval.js` + `evals/ship-honesty/` fixture runs graded by our existing checkers.
-4. **Optional later:** live LiteLLM multi-model runs under `HERMES_EVAL_LIVE=1` — only when comparing route policy $ vs quality. Not required for merge gates.
+4. **Live LiteLLM compare (optional):** `node tools/harness-smeval.js live evals/ship-honesty` — grades model outputs with the same gates. Not required for merge gates; use for route policy $ vs honesty.
 5. **Business priority:** honesty + non-slop + cheap flat-rate routing beat haiku-style model beauty contests. Cash path and Hermes Mobile reliability remain higher ROI than expanding eval UX.
 
 ## Context
@@ -33,5 +33,7 @@
 ```bash
 node tests/test-harness-smeval.js
 node tools/harness-smeval.js run evals/ship-honesty --json
+# Live (local LiteLLM :4010; not CI):
+node tools/harness-smeval.js live evals/ship-honesty --configs honesty-glm,honesty-kimi,bare --json
 node tests/test-ship-claim-gate.js && node tests/test-taste-gate.js
 ```
