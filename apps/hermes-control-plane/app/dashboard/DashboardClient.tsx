@@ -1076,9 +1076,40 @@ export default function DashboardClient() {
               </button>
               <p className="eyebrow">HERMES WEB</p>
             </div>
-            <h1 title={selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title ?? "Your Hermes workspace" : "Your Hermes workspace"}>
-              {selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title : "Your Hermes workspace"}
-            </h1>
+            {(() => {
+              const activeThreadObj = selectedThread ? threads.find((thread) => thread.id === selectedThread) : null;
+              return (
+                <div className="dashboard-title-row" style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  <h1
+                    style={{ cursor: activeThreadObj ? "pointer" : "default" }}
+                    title={activeThreadObj ? "Click to rename chat" : "Your Hermes workspace"}
+                    onClick={() => {
+                      if (activeThreadObj) {
+                        setRenameValue(activeThreadObj.title);
+                        setChatDialog({ kind: "rename", thread: activeThreadObj });
+                      }
+                    }}
+                  >
+                    {activeThreadObj ? activeThreadObj.title : "Your Hermes workspace"}
+                  </h1>
+                  {activeThreadObj && (
+                    <button
+                      type="button"
+                      className="button button-small button-secondary edit-chat-title-btn"
+                      style={{ padding: "2px 8px", fontSize: "12px", minHeight: "28px" }}
+                      title="Rename chat"
+                      aria-label="Rename chat"
+                      onClick={() => {
+                        setRenameValue(activeThreadObj.title);
+                        setChatDialog({ kind: "rename", thread: activeThreadObj });
+                      }}
+                    >
+                      ✏️ Edit name
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           <div className="header-actions">
             <span className="status-chip online"><i /> ThumbGate online</span>
@@ -1317,9 +1348,11 @@ export default function DashboardClient() {
                 >
                   {busy
                     ? "Sending…"
-                    : (devices.length > 0 || organization?.cloudAccess || routePreference === "cloud")
-                      ? (routePreference === "cloud" || !devices.length ? "Run on Cloud VPS →" : "Run task →")
-                      : "+ Pair computer →"}
+                    : routePreference === "cloud" || (!devices.length && organization?.cloudAccess)
+                      ? "Run on Cloud VPS →"
+                      : devices.length > 0
+                        ? "Run task →"
+                        : "Pair a computer first"}
                 </button>
               </div>
             </form>

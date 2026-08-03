@@ -79,8 +79,8 @@ export async function POST(request: Request) {
         `SELECT id, failover_mode AS failoverMode, last_seen_at AS lastSeenAt FROM devices
           WHERE organization_id = ? AND revoked_at IS NULL ORDER BY last_seen_at DESC NULLS LAST, created_at DESC LIMIT 1`
       ).bind(session.organizationId).first<DeviceRoute>();
-  // Continuity-only runs still need a paired device id for org/thread ownership.
-  if (!device) return jsonError("pair a Hermes machine before starting work", 409);
+  // Continuity-only runs use null deviceId if no machine is paired yet.
+  if (!device && route !== "cloud") return jsonError("pair a Hermes machine before starting work", 409);
 
   const decisionRoute = decideTaskRoute({ preference, device });
   const status = decisionRoute.status;
@@ -152,7 +152,7 @@ export async function POST(request: Request) {
         `INSERT INTO tasks
           (id, organization_id, thread_id, device_id, prompt, status, route, idempotency_key, lease_generation, created_by_user_id, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`
-      ).bind(taskId, session.organizationId, threadId, device.id, prompt, status, route, idempotencyKey, session.userId, now, now),
+      ).bind(taskId, session.organizationId, threadId, device?.id ?? null, prompt, status, route, idempotencyKey, session.userId, now, now),
       db().prepare(
         `UPDATE threads SET updated_at = ?,
            source_updated_at = CASE WHEN source_session_id IS NULL THEN source_updated_at
@@ -183,7 +183,7 @@ export async function POST(request: Request) {
       route,
       status,
       preference,
-      deviceId: device.id,
+      deviceId: device?.id ?? null,
       traceId,
       ...governanceAuditMetadata(decision, { stage: "admission", route }),
     },
@@ -196,7 +196,7 @@ export async function POST(request: Request) {
       status,
       route,
       preference,
-      deviceId: device.id,
+      deviceId: device?.id ?? null,
       createdAt: now,
       traceId,
     },
