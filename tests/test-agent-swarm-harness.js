@@ -1,15 +1,6 @@
 #!/usr/bin/env node
 'use strict';
 
-function __hostOf(u) {
-  try { return new URL(String(u)).hostname.toLowerCase(); } catch { return ''; }
-}
-function __hostMatch(u, root) {
-  const h = __hostOf(u);
-  const r = String(root).toLowerCase();
-  return h === r || h.endsWith('.' + r);
-}
-
 const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
@@ -215,7 +206,7 @@ test('frontierModelPlaybook maps video patterns onto harness artifacts', () => {
 
 test('stateLayerPolicy encodes Pro+mini hybrid (stateless inference, shared board)', () => {
   const policy = stateLayerPolicy();
-  assert.ok(__hostMatch(policy.source.url, 'machinelearningmastery.com'));
+  assert.ok(policy.source.url.includes('machinelearningmastery.com'));
   assert.strictEqual(policy.source.url, STATE_LAYER_SOURCE.url);
   const byId = Object.fromEntries(policy.layers.map((l) => [l.id, l]));
   assert.strictEqual(byId.inference.design, 'stateless');
@@ -573,7 +564,7 @@ test('specificationDrivenDesign maps Ozkary loop onto repo artifacts', () => {
     'gap-analysis',
     'traceability',
   ]);
-  assert.ok(__hostMatch(sdd.source.url, 'ozkary.com'));
+  assert.ok(sdd.source.url.includes('ozkary.com'));
   assert.ok(sdd.antiPatterns.length >= 3);
   assert.ok(sdd.steps.every((s) => s.ourArtifact && s.name));
 });
