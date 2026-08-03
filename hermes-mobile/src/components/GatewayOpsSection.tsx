@@ -172,11 +172,12 @@ export default function GatewayOpsSection() {
   const [expandedSkillNames, setExpandedSkillNames] = useState<Set<string>>(new Set());
   const [skillQuery, setSkillQuery] = useState('');
   const [showMarketplace, setShowMarketplace] = useState(false);
-  const [essentialsOpen, setEssentialsOpen] = useState(true);
-  const [cronOpen, setCronOpen] = useState(true);
-  const [skillsOpen, setSkillsOpen] = useState(true);
+  // Large catalogs start collapsed so Settings is scannable (expand one section at a time).
+  const [essentialsOpen, setEssentialsOpen] = useState(false);
+  const [cronOpen, setCronOpen] = useState(false);
+  const [skillsOpen, setSkillsOpen] = useState(false);
   const [advancedToolsetsOpen, setAdvancedToolsetsOpen] = useState(false);
-  const [featuresOpen, setFeaturesOpen] = useState(true);
+  const [featuresOpen, setFeaturesOpen] = useState(false);
   const [togglingToolset, setTogglingToolset] = useState<string | null>(null);
   const [integrationsToolset, setIntegrationsToolset] = useState<HermesToolset | null>(null);
   const togglingToolsetRef = useRef<string | null>(null);
@@ -865,10 +866,20 @@ export default function GatewayOpsSection() {
         }}
         accessibilityRole="button"
         accessibilityState={{ expanded: skillsOpen }}
+        accessibilityLabel={`${skillsOpen ? 'Collapse' : 'Expand'} Skills and Marketplace`}
         testID="skills-section-toggle"
+        style={styles.sectionToggleRow}
       >
-        <Text style={styles.sectionTitle}>Skills &amp; Marketplace ({skills.length}) {skillsOpen ? '▾' : '▸'}</Text>
+        <Text style={[styles.sectionTitle, styles.sectionTitleFlex]}>
+          Skills &amp; Marketplace ({skills.length})
+        </Text>
+        <Text style={styles.sectionShowHide} testID="skills-section-chevron">
+          {skillsOpen ? 'Hide ▾' : 'Show ▸'}
+        </Text>
       </TouchableOpacity>
+      <Text style={styles.sectionHint}>
+        Installed skills on your computer, plus optional Developer Marketplace browse.
+      </Text>
       {skillsOpen ? (
         <>
           <View style={styles.searchBarBox}>
@@ -927,40 +938,50 @@ export default function GatewayOpsSection() {
               })
             )}
           </GlassCard>
+
+          <TouchableOpacity
+            style={styles.marketplaceToggleBtn}
+            onPress={() => {
+              haptics.selection();
+              setShowMarketplace((prev) => !prev);
+            }}
+            testID="toggle-marketplace-btn"
+          >
+            <Text style={styles.marketplaceToggleText}>
+              {showMarketplace ? '▲ Hide Developer Marketplace' : '▼ Browse Developer Marketplace'}
+            </Text>
+          </TouchableOpacity>
+
+          {showMarketplace ? (
+            <GlassCard testID="marketplace-skills-card">
+              <Text style={styles.marketplaceHeader}>
+                Developer Marketplace ({marketplaceMatches.length})
+              </Text>
+              {marketplaceMatches.length === 0 ? (
+                <Text style={styles.meta}>
+                  No marketplace skills matching &quot;{skillQuery}&quot;.
+                </Text>
+              ) : (
+                marketplaceMatches.map((mSkill) => (
+                  <View
+                    key={mSkill.name}
+                    style={styles.listRow}
+                    testID={`marketplace-skill-${mSkill.name}`}
+                  >
+                    <View style={styles.jobTitleRow}>
+                      <Text style={[styles.rowTitle, { flex: 1 }]}>{mSkill.name}</Text>
+                      <Text style={styles.badgeLabel}>{mSkill.category}</Text>
+                    </View>
+                    <Text style={styles.rowDesc}>{mSkill.description}</Text>
+                    <Text style={styles.jobDetailLabel}>
+                      Tags: {mSkill.tags.join(', ')} · By {mSkill.author}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </GlassCard>
+          ) : null}
         </>
-      ) : null}
-
-      <TouchableOpacity
-        style={styles.marketplaceToggleBtn}
-        onPress={() => {
-          haptics.selection();
-          setShowMarketplace((prev) => !prev);
-        }}
-        testID="toggle-marketplace-btn"
-      >
-        <Text style={styles.marketplaceToggleText}>
-          {showMarketplace ? '▲ Hide Developer Marketplace' : '▼ Browse Developer Marketplace'}
-        </Text>
-      </TouchableOpacity>
-
-      {showMarketplace ? (
-        <GlassCard testID="marketplace-skills-card">
-          <Text style={styles.marketplaceHeader}>Developer Marketplace ({marketplaceMatches.length})</Text>
-          {marketplaceMatches.length === 0 ? (
-            <Text style={styles.meta}>No marketplace skills matching &quot;{skillQuery}&quot;.</Text>
-          ) : (
-            marketplaceMatches.map((mSkill) => (
-              <View key={mSkill.name} style={styles.listRow} testID={`marketplace-skill-${mSkill.name}`}>
-                <View style={styles.jobTitleRow}>
-                  <Text style={[styles.rowTitle, { flex: 1 }]}>{mSkill.name}</Text>
-                  <Text style={styles.badgeLabel}>{mSkill.category}</Text>
-                </View>
-                <Text style={styles.rowDesc}>{mSkill.description}</Text>
-                <Text style={styles.jobDetailLabel}>Tags: {mSkill.tags.join(', ')} · By {mSkill.author}</Text>
-              </View>
-            ))
-          )}
-        </GlassCard>
       ) : null}
 
       <TouchableOpacity
@@ -970,10 +991,15 @@ export default function GatewayOpsSection() {
         }}
         accessibilityRole="button"
         accessibilityState={{ expanded: featuresOpen }}
+        accessibilityLabel={`${featuresOpen ? 'Collapse' : 'Expand'} Gateway features`}
         testID="gateway-features-toggle"
+        style={styles.sectionToggleRow}
       >
-        <Text style={styles.sectionTitle}>
-          Gateway features ({featureRows.length}) {featuresOpen ? '▾' : '▸'}
+        <Text style={[styles.sectionTitle, styles.sectionTitleFlex]}>
+          Gateway features ({featureRows.length})
+        </Text>
+        <Text style={styles.sectionShowHide} testID="gateway-features-chevron">
+          {featuresOpen ? 'Hide ▾' : 'Show ▸'}
         </Text>
       </TouchableOpacity>
       <Text style={styles.sectionHint}>

@@ -119,6 +119,7 @@ describe('SettingsScreen', () => {
 
     const { getAllByText, getByTestId, getByText } = render(<SettingsScreen />);
     expect(getByText('Computer connection')).toBeTruthy();
+    fireEvent.press(getByTestId('settings-connection-toggle'));
     expect(
       getByText('Use Tailscale away from home, or home Wi‑Fi nearby, for Chat, tools, and ops.'),
     ).toBeTruthy();
@@ -155,6 +156,7 @@ describe('SettingsScreen', () => {
     );
 
     const { getByTestId, getByText } = render(<SettingsScreen />);
+    fireEvent.press(getByTestId('settings-connection-toggle'));
     expect(getByTestId('relay-route-title').props.children).toBe(
       'Igors-Mac-mini · skool_top1percent',
     );
@@ -186,7 +188,8 @@ describe('SettingsScreen', () => {
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     useGateway.mockReturnValue(mockUseGateway({ saveSettings, completePair }));
 
-    const { getByPlaceholderText, getByText } = render(<SettingsScreen />);
+    const { getByPlaceholderText, getByText, getByTestId } = render(<SettingsScreen />);
+    fireEvent.press(getByTestId('settings-connection-toggle'));
     fireEvent.changeText(getByPlaceholderText('MOON-DUST'), 'MOON-DUST');
     fireEvent.press(getByText('PAIR WITH COMPUTER'));
 
@@ -207,7 +210,8 @@ describe('SettingsScreen', () => {
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     useGateway.mockReturnValue(mockUseGateway({ saveSettings, completePair }));
 
-    const { getByPlaceholderText, getByText } = render(<SettingsScreen />);
+    const { getByPlaceholderText, getByText, getByTestId } = render(<SettingsScreen />);
+    fireEvent.press(getByTestId('settings-connection-toggle'));
     fireEvent.changeText(getByPlaceholderText('MOON-DUST'), 'MOON-DUST');
     fireEvent.press(getByText('PAIR WITH COMPUTER'));
 
@@ -327,8 +331,9 @@ describe('SettingsScreen', () => {
   });
 
   it('clarifies notification preferences do not change Leash layout', () => {
-    const { getByText } = render(<SettingsScreen />);
+    const { getByText, getByTestId } = render(<SettingsScreen />);
     expect(getByText('Notification preferences')).toBeTruthy();
+    fireEvent.press(getByTestId('settings-notifications-toggle'));
     expect(
       getByText(
         /Heads-up banners are reserved for approvals only/,
@@ -338,6 +343,7 @@ describe('SettingsScreen', () => {
 
   it('renders per-category notification toggles', () => {
     const { getByTestId, getByText } = render(<SettingsScreen />);
+    fireEvent.press(getByTestId('settings-notifications-toggle'));
     expect(getByText('Approval heads-up')).toBeTruthy();
     expect(getByText('Live run status (quiet)')).toBeTruthy();
     expect(getByText('Completion / failure (quiet)')).toBeTruthy();
@@ -351,6 +357,7 @@ describe('SettingsScreen', () => {
     useGateway.mockReturnValue(mockUseGateway({ saveSettings }));
 
     const { getByTestId } = render(<SettingsScreen />);
+    fireEvent.press(getByTestId('settings-notifications-toggle'));
     // Defaults: approvals on, live off, completion on. Disable the two that are on.
     fireEvent(getByTestId('notification-approvals-switch'), 'valueChange', false);
     fireEvent(getByTestId('notification-completion-switch'), 'valueChange', false);

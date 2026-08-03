@@ -65,6 +65,14 @@ jest.mock('expo-constants', () => ({
 const { useGateway } = jest.requireMock('../context/GatewayContext');
 const gatewayClient = jest.requireMock('../services/hermesGatewayClient');
 
+/** Large catalogs start collapsed — expand before asserting list content. */
+function expandSection(
+  getByTestId: (id: string) => unknown,
+  toggleTestId: string,
+) {
+  fireEvent.press(getByTestId(toggleTestId) as never);
+}
+
 describe('GatewayOpsSection', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -92,8 +100,51 @@ describe('GatewayOpsSection', () => {
     gatewayClient.probeToolsetsWriteAccess.mockResolvedValue(true);
   });
 
+  it('starts large catalogs collapsed until the user expands them', async () => {
+    gatewayClient.listJobs.mockResolvedValue([
+      { id: 'job-1', name: 'Nightly', schedule: '0 0 * * *', paused: false },
+    ]);
+    gatewayClient.listSkills.mockResolvedValue([
+      { name: 'mac-freeze-rescue', description: 'Rescue sluggish Mac' },
+    ]);
+    gatewayClient.getCapabilities.mockResolvedValue({
+      features: { chat_completions: true },
+      default_model: 'qwen3:8b-64k',
+    });
+
+    const { getByTestId, queryByTestId, getByText } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('toolsets-essentials-toggle')).toBeTruthy();
+      expect(getByTestId('jobs-section-toggle')).toBeTruthy();
+      expect(getByTestId('skills-section-toggle')).toBeTruthy();
+      expect(getByTestId('gateway-features-toggle')).toBeTruthy();
+    });
+
+    expect(queryByTestId('toolsets-essentials-list')).toBeNull();
+    expect(queryByTestId('toolset-switch-web')).toBeNull();
+    expect(queryByTestId('job-row-job-1')).toBeNull();
+    expect(queryByTestId('skill-search-input')).toBeNull();
+    expect(queryByTestId('gateway-features-card')).toBeNull();
+    expect(getByTestId('toolsets-essentials-chevron').props.children).toBe('Show ▸');
+    expect(getByTestId('skills-section-chevron').props.children).toBe('Show ▸');
+    expect(getByTestId('gateway-features-chevron').props.children).toBe('Show ▸');
+
+    expandSection(getByTestId, 'toolsets-essentials-toggle');
+    await waitFor(() => {
+      expect(getByTestId('toolsets-essentials-list')).toBeTruthy();
+      expect(getByTestId('toolset-switch-web')).toBeTruthy();
+      expect(getByTestId('toolsets-essentials-chevron').props.children).toBe('Hide ▾');
+    });
+  });
+
   it('updates toolset switch on first tap (optimistic)', async () => {
     const { getByTestId } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('toolsets-essentials-toggle')).toBeTruthy();
+    });
+    expandSection(getByTestId, 'toolsets-essentials-toggle');
 
     await waitFor(() => {
       expect(getByTestId('toolset-switch-web')).toBeTruthy();
@@ -129,6 +180,13 @@ describe('GatewayOpsSection', () => {
     gatewayClient.listToolsets.mockRejectedValue(new Error('Network request failed'));
 
     const { getByText, getByTestId, queryByText } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('skills-section-toggle')).toBeTruthy();
+      expect(getByTestId('toolsets-essentials-toggle')).toBeTruthy();
+    });
+    expandSection(getByTestId, 'skills-section-toggle');
+    expandSection(getByTestId, 'toolsets-essentials-toggle');
 
     await waitFor(() => {
       expect(getByText('mac-freeze-rescue')).toBeTruthy();
@@ -205,6 +263,10 @@ describe('GatewayOpsSection', () => {
         true,
         'sk-test-key',
       );
+    });
+
+    expandSection(getByTestId, 'toolsets-essentials-toggle');
+    await waitFor(() => {
       expect(getByTestId('toolset-switch-skills').props.value).toBe(true);
       expect(getByTestId('toolset-switch-todo').props.value).toBe(true);
       expect(queryByTestId('toolset-switch-x_search')).toBeNull();
@@ -250,6 +312,12 @@ describe('GatewayOpsSection', () => {
 
     await waitFor(() => {
       expect(getByTestId('toolsets-essentials-title')).toBeTruthy();
+      expect(getByText(/On your Mac \(2\)/)).toBeTruthy();
+    });
+    expect(queryByTestId('toolsets-essentials-list')).toBeNull();
+
+    expandSection(getByTestId, 'toolsets-essentials-toggle');
+    await waitFor(() => {
       expect(getByTestId('toolset-switch-session_search')).toBeTruthy();
     });
 
@@ -257,7 +325,6 @@ describe('GatewayOpsSection', () => {
     expect(queryByTestId('toolset-add-key-homeassistant')).toBeNull();
     expect(queryByTestId('toolset-switch-spotify')).toBeNull();
     expect(queryByTestId('toolsets-advanced-list')).toBeNull();
-    expect(getByText(/On your Mac \(2\)/)).toBeTruthy();
 
     fireEvent.press(getByTestId('toolsets-advanced-toggle'));
 
@@ -311,6 +378,10 @@ describe('GatewayOpsSection', () => {
         true,
         'sk-test-key',
       );
+    });
+
+    expandSection(getByTestId, 'toolsets-essentials-toggle');
+    await waitFor(() => {
       expect(getByTestId('toolset-switch-web').props.value).toBe(true);
       expect(queryByTestId('toolset-switch-spotify')).toBeNull();
     });
@@ -344,6 +415,11 @@ describe('GatewayOpsSection', () => {
     gatewayClient.probeToolsetsWriteAccess.mockResolvedValue(false);
 
     const { getByTestId, queryByTestId } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('toolsets-essentials-toggle')).toBeTruthy();
+    });
+    expandSection(getByTestId, 'toolsets-essentials-toggle');
 
     await waitFor(() => {
       expect(getByTestId('toolset-switch-web')).toBeTruthy();
@@ -409,6 +485,11 @@ describe('GatewayOpsSection', () => {
     const { getByTestId } = render(<GatewayOpsSection />);
 
     await waitFor(() => {
+      expect(getByTestId('jobs-section-toggle')).toBeTruthy();
+    });
+    expandSection(getByTestId, 'jobs-section-toggle');
+
+    await waitFor(() => {
       expect(getByTestId('job-delete-cron-long-name')).toBeTruthy();
     });
   });
@@ -424,6 +505,11 @@ describe('GatewayOpsSection', () => {
     });
 
     const { getByTestId, getByText, queryByTestId } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('gateway-features-toggle')).toBeTruthy();
+    });
+    expandSection(getByTestId, 'gateway-features-toggle');
 
     await waitFor(() => {
       expect(getByTestId('feature-expand-chat_completions')).toBeTruthy();
@@ -457,6 +543,11 @@ describe('GatewayOpsSection', () => {
     ]);
 
     const { getByTestId, getByText, queryByTestId } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('jobs-section-toggle')).toBeTruthy();
+    });
+    expandSection(getByTestId, 'jobs-section-toggle');
 
     await waitFor(() => {
       expect(getByTestId('job-expand-job-detail-1')).toBeTruthy();
@@ -494,6 +585,11 @@ describe('GatewayOpsSection', () => {
     const { getByTestId, queryByTestId } = render(<GatewayOpsSection />);
 
     await waitFor(() => {
+      expect(getByTestId('jobs-section-toggle')).toBeTruthy();
+    });
+    expandSection(getByTestId, 'jobs-section-toggle');
+
+    await waitFor(() => {
       expect(getByTestId('job-resume-job-disabled-1')).toBeTruthy();
     });
     expect(queryByTestId('job-pause-job-disabled-1')).toBeNull();
@@ -508,6 +604,11 @@ describe('GatewayOpsSection', () => {
     const { getByTestId, queryByTestId, getByText, queryByText } = render(
       <GatewayOpsSection />
     );
+
+    await waitFor(() => {
+      expect(getByTestId('skills-section-toggle')).toBeTruthy();
+    });
+    expandSection(getByTestId, 'skills-section-toggle');
 
     await waitFor(() => {
       expect(getByText('mac-freeze-rescue')).toBeTruthy();

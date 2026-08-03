@@ -97,11 +97,12 @@ export default function SettingsScreen() {
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [qrScannerVisible, setQrScannerVisible] = useState(false);
   const [glassesConnected, setGlassesConnected] = useState(false);
-  const [privacyOpen, setPrivacyOpen] = useState(true);
+  // Only Machines stays open by default — connection path. Other cards collapse for scroll.
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const [machinesOpen, setMachinesOpen] = useState(true);
-  const [connectionOpen, setConnectionOpen] = useState(true);
-  const [notificationsOpen, setNotificationsOpen] = useState(true);
-  const [safeguardsOpen, setSafeguardsOpen] = useState(true);
+  const [connectionOpen, setConnectionOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [safeguardsOpen, setSafeguardsOpen] = useState(false);
 
   const leaveSettings = useCallback(() => {
     Keyboard.dismiss();
@@ -489,9 +490,12 @@ export default function SettingsScreen() {
           }}
           accessibilityRole="button"
           accessibilityState={{ expanded: privacyOpen }}
+          accessibilityLabel={`${privacyOpen ? 'Collapse' : 'Expand'} Privacy`}
           testID="settings-privacy-toggle"
+          style={styles.sectionToggleRow}
         >
-          <Text style={styles.sectionTitle}>📊 Privacy</Text>
+          <Text style={[styles.sectionTitle, styles.sectionTitleFlex]}>📊 Privacy</Text>
+          <Text style={styles.sectionShowHide}>{privacyOpen ? 'Hide ▾' : 'Show ▸'}</Text>
         </TouchableOpacity>
         {privacyOpen ? (
           <GlassCard>
@@ -521,9 +525,12 @@ export default function SettingsScreen() {
           }}
           accessibilityRole="button"
           accessibilityState={{ expanded: machinesOpen }}
+          accessibilityLabel={`${machinesOpen ? 'Collapse' : 'Expand'} Hermes Machines`}
           testID="settings-machines-toggle"
+          style={styles.sectionToggleRow}
         >
-          <Text style={styles.sectionTitle}>Hermes Machines</Text>
+          <Text style={[styles.sectionTitle, styles.sectionTitleFlex]}>Hermes Machines</Text>
+          <Text style={styles.sectionShowHide}>{machinesOpen ? 'Hide ▾' : 'Show ▸'}</Text>
         </TouchableOpacity>
         {machinesOpen ? (
           <>
@@ -681,9 +688,12 @@ export default function SettingsScreen() {
           }}
           accessibilityRole="button"
           accessibilityState={{ expanded: connectionOpen }}
+          accessibilityLabel={`${connectionOpen ? 'Collapse' : 'Expand'} Computer connection`}
           testID="settings-connection-toggle"
+          style={styles.sectionToggleRow}
         >
-          <Text style={styles.sectionTitle}>Computer connection</Text>
+          <Text style={[styles.sectionTitle, styles.sectionTitleFlex]}>Computer connection</Text>
+          <Text style={styles.sectionShowHide}>{connectionOpen ? 'Hide ▾' : 'Show ▸'}</Text>
         </TouchableOpacity>
         {connectionOpen ? (
           <GlassCard>
@@ -832,9 +842,12 @@ export default function SettingsScreen() {
           }}
           accessibilityRole="button"
           accessibilityState={{ expanded: notificationsOpen }}
+          accessibilityLabel={`${notificationsOpen ? 'Collapse' : 'Expand'} Notification preferences`}
           testID="settings-notifications-toggle"
+          style={styles.sectionToggleRow}
         >
-          <Text style={styles.sectionTitle}>Notification preferences</Text>
+          <Text style={[styles.sectionTitle, styles.sectionTitleFlex]}>Notification preferences</Text>
+          <Text style={styles.sectionShowHide}>{notificationsOpen ? 'Hide ▾' : 'Show ▸'}</Text>
         </TouchableOpacity>
         {notificationsOpen ? (
           <GlassCard>
@@ -913,9 +926,12 @@ export default function SettingsScreen() {
           }}
           accessibilityRole="button"
           accessibilityState={{ expanded: safeguardsOpen }}
+          accessibilityLabel={`${safeguardsOpen ? 'Collapse' : 'Expand'} Safeguard Rules`}
           testID="settings-safeguards-toggle"
+          style={styles.sectionToggleRow}
         >
-          <Text style={styles.sectionTitle}>🛡 Safeguard Rules</Text>
+          <Text style={[styles.sectionTitle, styles.sectionTitleFlex]}>🛡 Safeguard Rules</Text>
+          <Text style={styles.sectionShowHide}>{safeguardsOpen ? 'Hide ▾' : 'Show ▸'}</Text>
         </TouchableOpacity>
         {safeguardsOpen ? (
           <GlassCard>
@@ -1137,6 +1153,15 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     paddingHorizontal: 16,
   },
+  sectionToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 12,
+    minHeight: 40,
+    paddingVertical: 4,
+  },
   sectionTitle: {
     fontSize: 13,
     fontWeight: '800',
@@ -1145,6 +1170,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 1,
+  },
+  sectionTitleFlex: {
+    flex: 1,
+    marginTop: 0,
+    marginBottom: 0,
+  },
+  sectionShowHide: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
   },
   label: {
     fontSize: 12,
