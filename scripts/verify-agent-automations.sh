@@ -9,6 +9,7 @@ EXPECTED=(
   com.igor.hermes-source-packs
   com.igor.react-native-newsletter-ingest
   com.igor.hermes-contribution-opportunities
+  com.igor.tml-tinker-engage
   com.igor.hermes-mobile-continuous-e2e
   com.igor.hermes-mobile-play-paid-review-poll
   com.igor.hermes-usb-reverse-watchdog

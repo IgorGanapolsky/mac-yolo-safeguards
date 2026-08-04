@@ -359,8 +359,15 @@ function countPromptUserBubbles(getAllByTestId: (testId: string) => unknown[], p
 }
 
 describe('ChatScreen', () => {
+  afterEach(() => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
+    // Unit fixtures still use demoMode for mock replies; product law allows demo only when
+    // E2E automation is on (never store/customer). Opt the suite into that carve-out.
+    process.env.EXPO_PUBLIC_E2E_AUTOMATION = '1';
     const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
       listSessions: jest.Mock;
       listMessages: jest.Mock;
@@ -531,9 +538,12 @@ describe('ChatScreen', () => {
     // computer transport — not that the machine name is hidden. One computer is saved,
     // so the header names it instead of the "Your computer" placeholder (2026-07-30).
     expect(getByTestId('chat-context-mac').props.children).toBe('Demo computer');
-    expect(getByTestId('chat-context-link').props.children).toContain(
-      'Pair to receive approval requests anywhere',
-    );
+    // When chat HTTP is down, header shows computer reachability — never the
+    // optional cloud-approval pair nudge (owner rage 2026-08-02).
+    const link = String(getByTestId('chat-context-link').props.children);
+    expect(link.toLowerCase()).not.toContain('pair to receive approval');
+    expect(link.toLowerCase()).not.toContain('cloud approvals are not paired');
+    expect(link).toMatch(/unreachable|Can't reach|Reconnecting|Checking/i);
   });
 
   it('allows text input and shows send button active', async () => {

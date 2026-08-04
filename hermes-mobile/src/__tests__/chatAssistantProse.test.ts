@@ -55,4 +55,17 @@ describe('chatAssistantProse', () => {
       ),
     ).toBe('Your computer paused this step — continuing automatically…');
   });
+
+  it('never shows raw Error code 500 / unexpected EOF dumps (screenshot 2026-07-30)', () => {
+    const raw =
+      "I reached the turn time limit and couldn't generate a final report Error: Error code: 500 - " +
+      "{'error': {'message': 'an error was encountered while running the model: unexpected EOF', " +
+      "'type': 'api_error', 'param': None, 'code': None}}";
+    const out = humanizeAssistantProse(raw);
+    expect(out.toLowerCase()).not.toContain('unexpected eof');
+    expect(out.toLowerCase()).not.toContain('error code: 500');
+    expect(out.toLowerCase()).not.toContain('api_error');
+    expect(out.toLowerCase()).toContain('fresh chat');
+  });
 });
+

@@ -1,4 +1,5 @@
 import type { HermesMessage } from '../types/chat';
+import { isConnectivityMessage } from './chatErrors';
 import { idHasPrefix } from './messageIds';
 import { RUN_NO_TOKEN_FAIL_DETAIL, RUN_STREAM_IDLE_FAIL_DETAIL, RUN_STALE_TIMEOUT_DETAIL } from './runStaleDetection';
 import { OUTBOUND_STUCK_FAILURE_REASON } from './outboundSendRecovery';
@@ -44,6 +45,23 @@ export function isStalledOutboundFailureReason(reason: string | undefined | null
   }
   const lower = reason.toLowerCase();
   return STALL_REASON_MARKERS.some((marker) => lower.includes(marker.toLowerCase()));
+}
+
+/**
+ * Failed outbound that should auto-resend once the Mac is reachable again.
+ * Includes stall/no-reply class AND connectivity-class reasons (CEO 2026-07-30:
+ * "tap to resend does nothing — just resend automatically" after reconnect).
+ */
+export function isAutoRecoverableOutboundFailureReason(
+  reason: string | undefined | null,
+): boolean {
+  if (!reason?.trim()) {
+    return false;
+  }
+  if (isStalledOutboundFailureReason(reason)) {
+    return true;
+  }
+  return isConnectivityMessage(reason);
 }
 
 function indexOfLastUser(messages: readonly HermesMessage[]): number {
@@ -144,7 +162,11 @@ export function findLastStalledFailedOutboundText(messages: readonly HermesMessa
     if (message.role?.toLowerCase() !== 'user' || message.outboundStatus !== 'failed') {
       continue;
     }
-    if (!isStalledOutboundFailureReason(message.outboundFailureReason)) {
+    // Prefer recoverable reasons (stall + connectivity); fall through to any failed body.
+    if (
+      message.outboundFailureReason &&
+      !isAutoRecoverableOutboundFailureReason(message.outboundFailureReason)
+    ) {
       continue;
     }
     const text = message.content?.trim();
@@ -155,7 +177,7 @@ export function findLastStalledFailedOutboundText(messages: readonly HermesMessa
   return null;
 }
 
-/** When Mac HTTP is green and the last failure is a stall, auto-recover instead of babysitting. */
+/** When Mac HTTP is green and the last failure is recoverable, auto-resend. */
 export function shouldAutoRecoverStalledSend(input: {
   macHttpOk: boolean;
   isDemo: boolean;
@@ -175,9 +197,13 @@ export function shouldAutoRecoverStalledSend(input: {
   if (!text) {
     return false;
   }
+  // No reason stored but we still have a failed text + live Mac → resend.
+  if (!input.failureReason?.trim() && !input.runDetail?.trim()) {
+    return true;
+  }
   return (
-    isStalledOutboundFailureReason(input.failureReason) ||
-    isStalledOutboundFailureReason(input.runDetail)
+    isAutoRecoverableOutboundFailureReason(input.failureReason) ||
+    isAutoRecoverableOutboundFailureReason(input.runDetail)
   );
 }
 

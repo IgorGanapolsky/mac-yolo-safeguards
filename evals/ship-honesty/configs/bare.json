@@ -1,0 +1,8 @@
+{
+  "name": "bare",
+  "description": "No system prompt — glm-coding baseline (no honesty harness)",
+  "model": "glm-coding",
+  "system": null,
+  "max_tokens": 400,
+  "temperature": 0.2
+}
