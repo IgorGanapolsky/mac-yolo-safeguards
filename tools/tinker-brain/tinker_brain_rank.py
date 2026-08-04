@@ -619,9 +619,9 @@ def main() -> int:
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument(
         "--suite",
-        choices=("core", "governance", "all"),
+        choices=("core", "governance", "defended-rag", "all"),
         default="core",
-        help="core=5 eval dimensions; governance=8 gate/RAI dimensions; all=both",
+        help="core | governance | defended-rag | all",
     )
     args = parser.parse_args()
 
@@ -650,6 +650,31 @@ def main() -> int:
             print(f"  receipt: {out}")
         return 0 if receipt["overall"]["a_plus"] else 1
 
+    if args.suite == "defended-rag":
+        from tinker_brain_defended_rag import rank_defended_rag  # noqa: WPS433
+
+        receipt = rank_defended_rag()
+        out = args.out if args.out != DEFAULT_OUT else RECEIPTS / "defended-rag-rank-latest.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        if args.json:
+            print(json.dumps(receipt, indent=2, sort_keys=True))
+        else:
+            print("tinker-brain defended RAG rank")
+            for d in receipt["dimensions"]:
+                mark = "PASS" if d["ok"] else "FAIL"
+                print(
+                    f"  [{mark}] rank#{d['rank']} {d['dimension']}: "
+                    f"{d['grade']} ({d['score_10']}/10) — {d['notes'][:90]}"
+                )
+            o = receipt["overall"]
+            print(
+                f"  overall: {o['grade']} ({o['score_10']}/10) "
+                f"A+={o['a_plus']} required_ok={o['required_ok']}"
+            )
+            print(f"  receipt: {out}")
+        return 0 if receipt["overall"]["a_plus"] else 1
+
     dimensions = [
         grade_offline_golden(),
         grade_online_production(),
@@ -658,14 +683,20 @@ def main() -> int:
         grade_learning_tradeoffs(),
     ]
     governance_block: dict[str, Any] | None = None
+    defended_block: dict[str, Any] | None = None
     if args.suite == "all":
         from tinker_brain_governance import run_governance  # noqa: WPS433
+        from tinker_brain_defended_rag import rank_defended_rag  # noqa: WPS433
 
         governance_block = run_governance()
-        # Merge governance dims with rank offset so display is clear.
         for d in governance_block.get("dimensions") or []:
             row = dict(d)
             row["suite"] = "governance"
+            dimensions.append(row)
+        defended_block = rank_defended_rag()
+        for d in defended_block.get("dimensions") or []:
+            row = dict(d)
+            row["suite"] = "defended-rag"
             dimensions.append(row)
 
     # Stable rank order within suites.
@@ -676,10 +707,12 @@ def main() -> int:
     a_plus = required_ok and all(d["grade"] == "A+" for d in dimensions)
     if governance_block is not None:
         a_plus = a_plus and bool((governance_block.get("overall") or {}).get("a_plus"))
+    if defended_block is not None:
+        a_plus = a_plus and bool((defended_block.get("overall") or {}).get("a_plus"))
     overall_grade = "A+" if a_plus else _score_to_grade(avg if required_ok else min(d["score_10"] for d in dimensions))
 
     receipt = {
-        "schema_version": "tinker-brain-rank/2",
+        "schema_version": "tinker-brain-rank/3",
         "suite": args.suite,
         "ran_at": utc_now(),
         "ranking_order": [d["dimension"] for d in dimensions],
@@ -688,9 +721,14 @@ def main() -> int:
             "learning": "supervised_routing_rules_not_llm + labeled contract preferences (not RLHF)",
             "cash": "fail-closed external $0 until non-owner Stripe",
             "governance": "gate calibration, offline/online, providers, feedback quality, scale, bypass, RAI",
+            "defended_rag": (
+                "capture 👎 → quality-gate → FTS5 store → pragmatic-hybrid → "
+                "multi-query@0.6 → CE rerank → assemble → deterministic gate"
+            ),
         },
         "dimensions": dimensions,
         "governance": governance_block,
+        "defended_rag": defended_block,
         "overall": {
             "score_10": round(avg, 2),
             "grade": overall_grade,
