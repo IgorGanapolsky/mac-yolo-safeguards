@@ -3,7 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 const { exportDpoPairs } = require('./export-dpo-benchmark-pairs');
 
 function runEvalBenchmarkSuite(options = {}) {
@@ -35,7 +35,7 @@ function runEvalBenchmarkSuite(options = {}) {
   const connectorTestPath = path.join(root, 'tests', 'test-hermes-cloud-connector.js');
   if (fs.existsSync(connectorTestPath)) {
     try {
-      execSync(`node --test "${connectorTestPath}"`, { stdio: 'ignore', timeout: 30000 });
+      execFileSync(process.execPath, ['--test', connectorTestPath], { stdio: 'ignore', timeout: 30000 });
       results.metrics.offlineEvals.status = 'pass';
     } catch {
       results.metrics.offlineEvals.status = 'fail';

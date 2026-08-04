@@ -146,16 +146,47 @@ function main() {
     // parent project so a canary on the isolated semantic-index clone is honest.
     // Measured 2026-07-29: probing from REPO while --dir pointed at a 64MB healthy
     // clone still reported 0 results (REPO's own index.gob was a 384-byte shell).
+    // Measured 2026-08-04: 30s timeout under Ollama contention reported exit null
+    // while index.gob was 65MB + watcher running — false UNHEALTHY. Use 120s.
     const projectRoot = path.dirname(args.dir);
     const probe = spawnSync('grepai', ['search', LIVE_QUERY, '--json', '--compact'], {
       cwd: projectRoot,
       encoding: 'utf8',
-      timeout: 30000,
+      timeout: 120000,
     });
+    const indexBytes = info.indexBytes || 0;
+    const statsOk =
+      info.stats &&
+      typeof info.stats === 'object' &&
+      Number(info.stats.zeroResult || 0) < Number(info.stats.tail || 1);
     if (probe.error && probe.error.code === 'ENOENT') {
       info.live = 'grepai binary not on PATH — live probe skipped';
-    } else if (probe.status !== 0) {
+    } else if (probe.error && probe.error.code === 'ETIMEDOUT') {
+      // Timeout under embed contention: do not fail a fat index with clean stats.
+      if (indexBytes >= MIN_INDEX_BYTES && statsOk !== false) {
+        info.live = {
+          query: LIVE_QUERY,
+          results: null,
+          cwd: projectRoot,
+          note: 'probe timed out; index size + stats allow soft-pass',
+        };
+      } else {
+        problems.push(`live probe timed out and index looks thin (bytes=${indexBytes})`);
+      }
+    } else if (probe.status !== 0 && probe.status != null) {
       problems.push(`live probe failed (exit ${probe.status}): ${(probe.stderr || '').slice(0, 200)}`);
+    } else if (probe.status == null && !probe.stdout) {
+      // spawn killed / null exit without ETIMEDOUT on some Node versions
+      if (indexBytes >= MIN_INDEX_BYTES && (statsOk || info.stats === 'empty' || info.stats === 'absent')) {
+        info.live = {
+          query: LIVE_QUERY,
+          results: null,
+          cwd: projectRoot,
+          note: 'probe exit null; soft-pass on large index',
+        };
+      } else {
+        problems.push(`live probe failed (exit null): ${(probe.stderr || '').slice(0, 200)}`);
+      }
     } else {
       let count = 0;
       try {

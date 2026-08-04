@@ -32,7 +32,7 @@ Rejected framings: firewall-lecture copy that buries Continuity; rescue copy (PR
 Hold Continuity at $10/mo only after re-checking live /api/billing/plan — deliberately below the ~$20 mass-market agent cluster, but $10-for-100-continuations can look cheap next to $20 always-on cloud Hermes with a full VM.
 Charge for resilience events (cloud continuations), never per-token.
 Caps are the commercial envelope: trial 5 / Pro 100 / Team 500 continuations per 30 days, enforced server-side at claim time.
-Hermes Mobile is the paid native app; ThumbGate is the additive upsell. Mobile promo card links to live #pricing with UTM and embeds no dollar amount.
+Hermes Mobile is the paid native app; ThumbGate is the additive upsell. Mobile promo card ALWAYS opens https://thumbgate.app/dashboard (product-first) with paid_companion UTMs. Logged-in users land in workspace; logged-out hit login then return_to=/dashboard. NEVER deep-link mobile CTAs to pricing.
 Deferred until real demand: Stripe usage meters; per-token pricing; enterprise compliance packages (need a buyer first); process migration (needs >=100 paying users + liability posture).
 If always-on cloud Hermes adoption rises, re-price/re-package around the gate (approvals) rather than racing runtime.
 
@@ -41,7 +41,7 @@ Fan-out matrix: LinkedIn, X, Bluesky, Threads, dev.to, Medium, Hacker News (Show
 Cadence: one themed campaign beat every 1-2 days; each beat = one persona + one pain + cited evidence + hook, fanned across platforms with per-channel adaptation and verified permalinks.
 Channel reliability: dev.to is the dependable longform rail; Medium editor and Threads compose fail often; Show HN survived 2026-07-27 despite HN throttling at 3 karma.
 AEO: visible direct answers to the three monitored buyer questions mirrored in FAQPage JSON-LD; canonical/sitemap/robots/llms.txt/ai-catalog kept machine-readable; weekly 3-prompt citation-proxy monitor (Monday 9:15 launchd, ~$0.005/mo, $0.10 cap). Citation loss goes branch -> tests -> canary -> promote/revert; never autonomous publishing from a visibility dip.
-Attribution: UTM campaign paid_companion, utm_source=hermes-mobile, to #pricing; aggregate content-free funnel events only.
+Attribution: UTM campaign paid_companion, utm_source=hermes-mobile; open /dashboard product-first (never pricing deep-link); aggregate content-free funnel events only.
 
 [PROMO_RULES]
 Sell Continuity as an add-on, never as a fallback for a broken app (PR #1075). Rescue language fails the regression gate: "phone cannot reach", "pair a Mac and continue", "replacement", "instead".
@@ -52,7 +52,7 @@ Analytics never send prompts, chat bodies, credentials, device keys, emails, IPs
 Evidence rule: first-party URLs and live billing endpoints outrank deep-research prose (a research run once declared ThumbGate.app nonexistent and pitched the wrong $19 product).
 
 [SALES_MOTION]
-Mobile funnel: promo view -> tap (UTM) -> paid_companion landing -> pricing view -> 14-day trial (5 cloud runs) -> active paid subscription.
+Mobile funnel: promo view -> tap (UTM) -> /dashboard workspace (Leash/chats) -> Continuity/billing only when user needs offline failover -> 14-day trial (5 cloud runs) -> active paid subscription. Pricing is secondary, never the default entry.
 Web funnel: landing -> sign-in -> authenticated landing -> first chat visible -> pairing started -> pairing approved -> failover enabled -> checkout -> paid subscription confirmed.
 Activation: WorkOS sign-in -> one copyable installer command -> auto-opened prefilled pair URL -> explicit approve of named Mac (zero code transcription) -> connector reads local Hermes key (never copied off-machine) -> newest chat auto-opens. Target P50 first real chat under 180s (acceptance target, not yet measured).
 Operating metric: install is step 0, pair is step 1, first chat is the product. Pair -> first chat -> first real approve/deny is what counts, not store installs.
