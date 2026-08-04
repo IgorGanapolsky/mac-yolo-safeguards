@@ -1,8 +1,9 @@
 /**
  * Post-deploy production smoke (no auth / no desktop hijack).
- * Proves thumbgate.app serves machine-name UI contract, not generic "Mac" labels.
+ * Proves thumbgate.app serves pair-copy UX — not stale "My computer".
  *
  * Network-dependent; skip with THUMBGATE_PROD_SMOKE=0.
+ * Fail-closed: missing new strings = failed/stale deploy.
  */
 import assert from "node:assert/strict";
 
@@ -34,7 +35,9 @@ assert.equal(jsRes.status, 200, jsUrl);
 const js = await jsRes.text();
 
 assert.match(js, /Which machine\?/);
-assert.match(js, /My computer/);
+assert.match(js, /needs a paired Mac first/);
+assert.match(js, /Pair computer/);
+assert.doesNotMatch(js, /My computer/);
 assert.doesNotMatch(js, /Which Mac\?/);
 assert.doesNotMatch(js, /My Mac only/);
 assert.doesNotMatch(js, /Pair a Mac first/);
@@ -47,5 +50,6 @@ console.log(
     base,
     dashboardClient: file,
     bytes: js.length,
+    required: ["needs a paired Mac first", "Pair computer", "no My computer"],
   }),
 );

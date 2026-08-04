@@ -23,6 +23,16 @@ else
   echo "⚠ gitleaks not installed — secret scan skipped (brew install gitleaks)" >&2
 fi
 
+# 0b) CodeQL-debt pattern gate on staged files (offline) — prevent Security backlog recurrence
+if [[ -f "$repo_root/tools/codeql-pattern-gate.js" ]]; then
+  if ! node "$repo_root/tools/codeql-pattern-gate.js" --staged; then
+    echo "✗ CodeQL pattern gate failed — fix banned security patterns before commit."
+    echo "  Helpers: tools/lib/safe-url-host.js, safe-html-strip.js, asc-jwt-es256.js"
+    echo "  Docs: docs/CODEQL-SECURITY-BURN-DOWN.md"
+    exit 1
+  fi
+fi
+
 # Only act when hermes-mobile TS/TSX is staged (skip docs/asset/other commits).
 staged=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^hermes-mobile/.*\.(ts|tsx)$' || true)
 [ -z "$staged" ] && exit 0

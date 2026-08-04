@@ -65,7 +65,7 @@ function formatTokenSummary(progress: RunProgressState, hasModel: boolean): stri
     return summary;
   }
   if (progress.inputTokens != null || progress.outputTokens != null) {
-    return `In: ${progress.inputTokens ?? 0} | Out: ${progress.outputTokens ?? 0}`;
+    return `In: ${(progress.inputTokens ?? 0).toLocaleString()} tokens | Out: ${(progress.outputTokens ?? 0).toLocaleString()} tokens`;
   }
   // A missing usage payload is a Mac capability/state, not a number. Explain it plainly.
   if (
