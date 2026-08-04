@@ -74,6 +74,36 @@ const STOP_WORDS = new Set([
   'you',
 ]);
 
+/**
+ * Light morphological normalize so sparse path hits work on natural language.
+ * Measured 2026-08-04: query "discovers" failed to match path token "discovery"
+ * (gatewayDiscovery.ts ranked #220). Keep tiny + domain-safe — not a full stemmer.
+ */
+function normalizeToken(token) {
+  const t = String(token || '').toLowerCase();
+  if (!t) return t;
+  if (/^discover/.test(t)) return 'discover';
+  if (/^comput/.test(t)) return 'comput'; // computer(s)
+  if (/^network/.test(t) || t === 'lan' || t === 'subnet') return 'network';
+  if (/^gateways?$/.test(t)) return 'gateway';
+  if (/^machines?$/.test(t) || /^hosts?$/.test(t)) return 'host';
+  return t;
+}
+
+function tokensMatch(a, b) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  // Original sparse path/text match (substring).
+  if (a.includes(b) || b.includes(a)) return true;
+  // Morphological family only when normalize rewrote at least one side
+  // (discovers↔discovery). Do NOT re-run includes on stems — that inflated
+  // tools/* scores and pushed dashboard/lessons out of top-10 (2026-08-04).
+  const na = normalizeToken(a);
+  const nb = normalizeToken(b);
+  if (na === a && nb === b) return false;
+  return na === nb;
+}
+
 function parseArgs(argv = process.argv.slice(2)) {
   const args = {
     command: 'retrieve',
@@ -239,13 +269,17 @@ function buildInventory(options = {}) {
   };
 }
 
-function pathQualityMultiplier(relativePath) {
+function pathQualityMultiplier(relativePath, queryTokens = []) {
   // Mirror .grepai path boosts/penalties so production routes beat test clones of
   // the same tokens (e.g. ThumbGatePromoCard.test vs app/api/lessons/route).
   // Measured 2026-07-29: lessons-feedback fixture failed because k=10 was filled
   // with __tests__ / PromoCard hits (path:thumbgate + path:thumbs) while the API
   // route ranked #20.
   const p = String(relativePath || '').replace(/\\/g, '/');
+  const q = (queryTokens || []).map((t) => normalizeToken(t));
+  const mobileDiscoveryQuery =
+    q.includes('mobile') &&
+    (q.includes('discover') || q.includes('network') || q.includes('comput') || q.includes('gateway'));
   let m = 1;
   // Prefer first-party tools/ over business_os dumps — but not so much that
   // app/api production routes (e.g. lessons) fall out of top-k (2026-08-03).
@@ -261,8 +295,16 @@ function pathQualityMultiplier(relativePath) {
   // Do NOT penalize docs/ — several golden queries require docs/HERMES-*.md
   // (cloud-failover, hardware-leash). Test noise is the real problem.
   if (/\/(src|lib|app)\//i.test(p)) m *= 1.15;
-  // API routes are the production surface agents must hit first.
-  if (/\/app\/api\//i.test(p)) m *= 1.45;
+  // API routes are the production surface agents must hit first — unless the
+  // query is clearly mobile client discovery (measured 2026-08-04: control-plane
+  // /app/api/* flooded top-15 on "discovers computers on local network").
+  if (/\/app\/api\//i.test(p)) m *= mobileDiscoveryQuery ? 0.85 : 1.45;
+  // Mobile product services only when the query is about LAN/host discovery —
+  // unconditional services boost demoted dashboard/lessons below tools/* .
+  if (mobileDiscoveryQuery) {
+    if (/^hermes-mobile\/src\/services\//i.test(p)) m *= 1.55;
+    if (/gatewaydiscovery|tailscalediscovery|lanscan/i.test(p)) m *= 1.35;
+  }
   return m;
 }
 
@@ -274,16 +316,28 @@ function scoreFile(queryTokens, relativePath, text) {
   const reasons = [];
 
   for (const token of queryTokens) {
-    const pathHits = pathTokens.filter((pathToken) => pathToken.includes(token) || token.includes(pathToken)).length;
+    // Morphological path match (discovers↔discovery) without changing non-stem
+    // substring behavior (tokensMatch falls back to includes).
+    const pathHits = pathTokens.filter((pathToken) => tokensMatch(pathToken, token)).length;
     if (pathHits > 0) {
       score += pathHits * 8;
       reasons.push(`path:${token}`);
     }
+    // Keep exact text + original fuzzy includes; only add morphological family
+    // as a full text hit when normalize rewrote the query token (discovers→discover).
     if (textSet.has(token)) {
       score += 4;
       reasons.push(`text:${token}`);
+    } else if (
+      normalizeToken(token) !== token &&
+      [...textSet].some((t) => tokensMatch(t, token))
+    ) {
+      score += 4;
+      reasons.push(`text:${token}`);
     } else {
-      const fuzzyHits = textTokens.filter((textToken) => textToken.includes(token) || token.includes(textToken)).length;
+      const fuzzyHits = textTokens.filter(
+        (textToken) => textToken.includes(token) || token.includes(textToken),
+      ).length;
       if (fuzzyHits > 0) {
         score += Math.min(3, fuzzyHits);
         reasons.push(`fuzzy:${token}`);
@@ -309,10 +363,25 @@ function scoreFile(queryTokens, relativePath, text) {
       compounds += 1;
       score += 22;
     }
+    // Stemmed compounds: discovers+computers not in path, but gateway+discovery is
+    // covered by segment hits below.
+    const na = normalizeToken(a);
+    const nb = normalizeToken(b);
+    if (
+      na !== a &&
+      nb !== b &&
+      (pathLower.includes(`${na}${nb}`) || pathLower.includes(`${na}-${nb}`))
+    ) {
+      compounds += 1;
+      score += 12;
+    }
   }
   if (compounds > 0) reasons.push(`compound:${compounds}`);
 
   // Exact directory/basename segment equality (not substring) for non-test paths.
+  // Do NOT use tokensMatch here — hyphenated basenames like thumbgate-lessons-doctor
+  // would substring-match "lessons" and inflate tools/* over dashboard/lessons.
+  // Morphological discover↔discovery is handled by pathHits + intent lift below.
   const segments = pathLower
     .split('/')
     .flatMap((seg) => tokenize(seg.replace(/\.[^.]+$/, ''), { splitCamel: true }));
@@ -326,13 +395,23 @@ function scoreFile(queryTokens, relativePath, text) {
   }
   if (segmentHits > 0) reasons.push(`segment:${segmentHits}`);
 
-  const mult = pathQualityMultiplier(relativePath);
+  // Intent lift: discovery + gateway basename when query is about finding hosts.
+  const qNorm = queryTokens.map(normalizeToken);
+  if (
+    qNorm.includes('discover') &&
+    (segmentSet.has('discovery') || segmentSet.has('gateway') || /gatewaydiscovery/i.test(pathLower))
+  ) {
+    score += 28;
+    reasons.push('intent:gateway-discovery');
+  }
+
+  const mult = pathQualityMultiplier(relativePath, queryTokens);
   if (mult !== 1 && score > 0) {
     score = Math.max(1, Math.round(score * mult));
     reasons.push(mult < 1 ? `penalty:path×${mult}` : `boost:path×${mult}`);
   }
 
-  return { score, reasons: [...new Set(reasons)].slice(0, 8) };
+  return { score, reasons: [...new Set(reasons)].slice(0, 10) };
 }
 
 function firstSnippet(text, queryTokens) {

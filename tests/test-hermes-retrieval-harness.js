@@ -92,5 +92,47 @@ assert.strictEqual(literalGrep.matches[0].path, 'tools/literal.js');
 const redosShapeGrep = grep({ repo: tmp, pattern: '(a+)+$', limit: 5 });
 assert.strictEqual(redosShapeGrep.matches.length, 0);
 
+// Morphological + mobile-discovery intent (measured 2026-08-04): query
+// "discovers computers on local network" failed to surface gatewayDiscovery.ts
+// (#220) while /app/api/* flooded top-k. Stem match + services boost fix it.
+const discoverTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-retrieval-discover-'));
+fs.mkdirSync(path.join(discoverTmp, 'hermes-mobile', 'src', 'services'), { recursive: true });
+fs.mkdirSync(path.join(discoverTmp, 'apps', 'hermes-control-plane', 'app', 'api', 'network'), {
+  recursive: true,
+});
+fs.writeFileSync(
+  path.join(discoverTmp, 'hermes-mobile', 'src', 'services', 'gatewayDiscovery.ts'),
+  [
+    'export async function discoverAllGatewaysOnLan() {',
+    '  // scan phone subnet for pair.json / local computers',
+    '  return [] as DiscoveredGateway[];',
+    '}',
+  ].join('\n'),
+);
+fs.writeFileSync(
+  path.join(discoverTmp, 'apps', 'hermes-control-plane', 'app', 'api', 'network', 'route.ts'),
+  [
+    'export async function GET() {',
+    '  // mobile app network status on local machines',
+    '  return Response.json({ ok: true });',
+    '}',
+  ].join('\n'),
+);
+const discoverHits = retrieve('mobile app discovers computers on local network', {
+  repo: discoverTmp,
+  limit: 5,
+});
+assert.strictEqual(
+  discoverHits.matches[0].path,
+  'hermes-mobile/src/services/gatewayDiscovery.ts',
+  'NL discovers-computers query must rank gatewayDiscovery.ts first',
+);
+assert(
+  discoverHits.matches[0].score >
+    (discoverHits.matches.find((m) => m.path.includes('app/api/network'))?.score || 0),
+  'mobile discovery intent must beat control-plane /app/api noise',
+);
+fs.rmSync(discoverTmp, { recursive: true, force: true });
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log('Hermes retrieval harness tests: PASS');
