@@ -220,3 +220,117 @@ Fix shape: `channel_scope_from_filter` — one `#h` → `channel_id`; many → `
 2. WF-08: open design issue then PR only after double-resume + idempotent `create_approval` tests green.
 3. Optional: small PR for #4565 deny-by-default config if maintainers signal OK.
 
+---
+
+## 2026-08-04 — Run 3 (access blocker persists; read-only survey only)
+
+### What was VERIFIED (Step 0 — reconfirmed, no change)
+
+- Canonical repo unchanged from Run 1/2: [`github.com/block/buzz`](https://github.com/block/buzz)
+  (Block / Jack Dorsey). No new identity confusion — a separate, unrelated PR in
+  *this* repo (`fix/buzz-nostr-real-nip01-crypto-20260803`, #1392) flags that its
+  own header attribution was ambiguous between Block's Buzz and "Nous Research's
+  Buzz Blocks," but that PR fixes internal bridge crypto and does not assert
+  either way; it doesn't change this routine's independently-sourced
+  identification (TechCrunch, Decrypt, Block's own announcement post, since
+  Run 1).
+- `buzz-wf08-pr-plan.md` still does **not** exist anywhere in this repo (checked
+  root of `origin/main` at `af6ba71`). Run 2's log claimed this file existed —
+  that claim doesn't reproduce; treat it as mistaken, not as prior context.
+
+### Access blocker: STILL PRESENT (2nd consecutive run to hit it)
+
+Confirmed independently, two ways, this run:
+
+- `add_repo({owner:"block", repo:"buzz"})` → `cross-tier adds are not supported
+  in v1: requested "block/buzz" but session already has repos from owner(s)
+  [igorganapolsky]`
+- `mcp__github__pull_request_read` on `block/buzz#4624` → `Access denied:
+  repository "block/buzz" is not configured for this session. Allowed
+  repositories: igorganapolsky/mac-yolo-safeguards`
+
+Same root cause already reported in `coordination/oss-engagement-log.md`
+(2026-08-04 entry) and tracked in open PR
+[#1400](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1400) — no
+new information here beyond: still broken, same reason, second run in a row.
+
+**Partial workaround found this run:** `mcp__github__search_issues` /
+`mcp__github__search_pull_requests` (global cross-repo search, not scoped to
+session sources) still work read-only against `block/buzz` even though direct
+`pull_request_read` / `get_file_contents` / `add_repo` calls are denied. That
+made a real survey possible without write access — see below. It does **not**
+provide any write path (no comments, no PRs, no forks).
+
+### What was surveyed (read-only, via search — last ~72h)
+
+PR status change since Run 2:
+
+- [#4598](https://github.com/block/buzz/pull/4598) (this routine's own prior
+  PR) — **closed**, failed DCO (no `Signed-off-by` on the commit).
+- [#4624](https://github.com/block/buzz/pull/4624) — supersedes #4598 with a
+  DCO-compliant commit, same fix for #4579, **still open**. Not opened by this
+  session — this session cannot write to `block/buzz` at all; it was presumably
+  pushed by whatever session/environment had access before today's regression.
+
+New issues in Igor's domain opened in the last ~24-48h (surveyed only — nothing
+acted on, no write access):
+
+| Issue | Topic | Domain fit |
+|-------|-------|------------|
+| [#2698](https://github.com/block/buzz/issues/2698) | buzz-acp: agent generates a correct reply (visible in the Activity panel and session transcript) but it's never delivered to the channel — weaker models don't know they must explicitly call `buzz messages send`, so generation succeeds while delivery silently fails | **Verification-vs-self-report**, textbook. 14 comments — most-discussed issue surveyed, open since 2026-07-24, no maintainer fix landed as of this run |
+| [#4617](https://github.com/block/buzz/issues/4617) | NIP-IA: `if !changed { return Ok(()) }` runs before republish, so a failed `kind:13535` snapshot publish can never be repaired by retrying — `ON CONFLICT DO NOTHING` makes every retry a no-op that still reports success | **Idempotency done wrong** — retry returns `ok:true` while the real side effect never happens; exactly the false-completion-evidence class a pre-action/post-action gate exists to catch |
+| [#4620](https://github.com/block/buzz/issues/4620) | Managed-agent UI shows the updated persona record but the runtime launches a stale identity-backed duplicate | Double-execution / stale-state divergence |
+| [#4634](https://github.com/block/buzz/issues/4634) | Persona @mentions from a second desktop fail to send and mint **orphan agent keypairs** | Double-execution / identity leak on retry |
+| [#4638](https://github.com/block/buzz/issues/4638) | `buzz-dev-mcp`: the 600s shell cap is silently clamped and unconfigurable — long agent jobs die mid-work with no signal | Silent failure, no audit trail on timeout |
+| [#4639](https://github.com/block/buzz/issues/4639) | `enabled: false` in a workflow YAML definition is inert — the workflow still fires | Write-gating that doesn't actually gate |
+
+Not an exhaustive 72h sweep — this is one page of `search_issues` sorted by
+`updated`, not a full crawl. Flagging so a future run doesn't assume it's
+complete.
+
+### What was opened / answered
+
+**Nothing.** No PR, no issue comment, no fork — same reason as the 2026-08-04
+`oss-engagement-log.md` entry: this session has zero write path to
+`block/buzz`.
+
+### Positioning read: unchanged — **neither competitor nor partner**, technical overlap reconfirmed and getting sharper
+
+The two highest-signal issues surveyed this run (#2698, #4617) are not edge
+cases — they're the same failure class Run 2 already flagged in
+WF-08/#4580/#4565: Buzz's own agent-facing surfaces keep shipping "looks
+done, isn't done" states (generation succeeds, delivery silently fails; retry
+reports `ok:true`, the real side effect never happens). That is precisely the
+reliability class a pre-action/post-action gate exists to catch. Still **no**
+relationship, **no** contact, **zero** ThumbGate mentions this run — nothing
+was posted anywhere.
+
+### What was skipped and why
+
+- **Everything requiring write access** — comments on #2698/#4617, any
+  fix/PR — blocked at the infrastructure layer, not a judgment call. Per hard
+  rules, no fix, test, or PR was attempted or claimed.
+- **Full 72h issue sweep** — one page of `search_issues` sorted by `updated`
+  is a sample, not exhaustive; re-run properly once normal repo access also
+  returns (verify, don't trust, this list).
+
+### Action needed from Igor
+
+Same ask as the 2026-08-04 `oss-engagement-log.md` entry and PR #1400: this
+session/environment needs GitHub scope (or an `add_repo` path) that reaches
+`block/buzz`, not just `igorganapolsky/*`. Until that's fixed, this routine
+can survey (read-only search still works) but cannot answer questions, fix
+bugs, or open PRs — which is most of its mandate.
+
+### Next run candidates (once access is restored)
+
+1. Comment on #2698 — Igor has a direct, concrete answer (explicit delivery
+   contract in the turn prompt + harness-side fallback detection when a turn
+   ends without a `send` call), and it's the highest-engagement issue
+   surveyed.
+2. #4617 — idempotent-retry fix is small and testable: keep the no-op skip for
+   the DB write, but always attempt `publish_nipia_archival_list`; needs a
+   unit test proving retry-after-a-failed-publish now actually republishes.
+3. Re-check #4598/#4624 — if #4624 gets review feedback, that's this
+   routine's own PR to defend once access returns.
+
