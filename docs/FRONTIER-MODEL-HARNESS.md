@@ -92,3 +92,7 @@ Adjective-only bars (“high quality”) are invalid AC language.
 - [docs/HERMES-ECONOMIC-ROUTER.md](./HERMES-ECONOMIC-ROUTER.md)
 - [docs/SDD-SPECIFICATION-DRIVEN-DESIGN.md](./SDD-SPECIFICATION-DRIVEN-DESIGN.md)
 - [AGENTS.md](../AGENTS.md)
+
+## Hermes × Buzz / three paths
+
+See [HERMES-BUZZ-INTEGRATION.md](./HERMES-BUZZ-INTEGRATION.md). `node tools/hermes-integration-paths.js doctor`
