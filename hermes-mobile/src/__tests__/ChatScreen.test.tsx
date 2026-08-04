@@ -359,8 +359,15 @@ function countPromptUserBubbles(getAllByTestId: (testId: string) => unknown[], p
 }
 
 describe('ChatScreen', () => {
+  afterEach(() => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
+    // Unit fixtures still use demoMode for mock replies; product law allows demo only when
+    // E2E automation is on (never store/customer). Opt the suite into that carve-out.
+    process.env.EXPO_PUBLIC_E2E_AUTOMATION = '1';
     const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
       listSessions: jest.Mock;
       listMessages: jest.Mock;
