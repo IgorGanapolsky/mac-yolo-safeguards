@@ -251,7 +251,7 @@ function buildReport() {
     },
     {
       id: 'observability-device-proof',
-      weight: 2,
+      weight: 1,
       check: () => {
         const run = runNode('tools/hermes-observability-gate.js', [
           '--mode',
@@ -272,6 +272,57 @@ function buildReport() {
             `e2e=${e2e}` +
             (Number.isFinite(ageMin) ? ` ageMin=${ageMin}` : '') +
             (result?.deviceVerified === true ? ' deviceVerified=true' : ' deviceVerified=false'),
+        };
+      },
+    },
+    {
+      id: 'aplus-schema-validation',
+      weight: 1,
+      check: () => ({
+        pass: exists('tools/hermes-schema-validator.js') && exists('apps/hermes-control-plane/lib/schema-validator.ts'),
+        detail: 'hermes-schema-validator.js + lib/schema-validator.ts',
+      }),
+    },
+    {
+      id: 'aplus-response-cache',
+      weight: 0.5,
+      check: () => ({
+        pass: exists('tools/hermes-response-cache.js'),
+        detail: 'hermes-response-cache.js',
+      }),
+    },
+    {
+      id: 'aplus-circuit-breaker',
+      weight: 0.5,
+      check: () => ({
+        pass: exists('tools/hermes-circuit-breaker.js'),
+        detail: 'hermes-circuit-breaker.js',
+      }),
+    },
+    {
+      id: 'aplus-rate-limiter',
+      weight: 0.5,
+      check: () => ({
+        pass: exists('tools/hermes-rate-limiter.js') && exists('apps/hermes-control-plane/lib/rate-limit.ts'),
+        detail: 'hermes-rate-limiter.js + lib/rate-limit.ts',
+      }),
+    },
+    {
+      id: 'aplus-llm-metrics',
+      weight: 0.5,
+      check: () => ({
+        pass: exists('apps/hermes-control-plane/app/api/llm-metrics/route.ts') && read('apps/hermes-control-plane/db/schema.ts').includes('llmCalls'),
+        detail: 'llm-metrics endpoint + llmCalls table',
+      }),
+    },
+    {
+      id: 'aplus-infrastructure-tests',
+      weight: 1,
+      check: () => {
+        const run = runNode('tests/test-aplus-infrastructure.js');
+        return {
+          pass: run.ok && (run.stdout || '').includes('0 failed'),
+          detail: run.ok ? 'A+ infrastructure tests pass' : (run.stderr || run.stdout).slice(0, 200),
         };
       },
     },

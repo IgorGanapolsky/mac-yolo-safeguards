@@ -33,9 +33,39 @@ const os = require('os');
 const path = require('path');
 
 const DEFAULT_LOG = path.join(os.homedir(), '.hermes', 'litellm-logs', 'traffic.jsonl');
+const DEFAULT_RETIRED_PATH = path.join(os.homedir(), '.hermes', 'retired-experts.json');
 // Below this many tool-offered requests, a compliance rate is noise, not a signal.
 const MIN_TOOL_OFFERED = 5;
 const COMPLIANCE_FLOOR = 0.5;
+
+/** Models operators deliberately retired (see tools/moe-retire-dead-experts.js). */
+function loadRetiredModelSet(options = {}) {
+  const retiredPath = options.retiredPath || DEFAULT_RETIRED_PATH;
+  const envList = String(process.env.HERMES_RETIRED_EXPERTS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  let fromFile = [];
+  try {
+    const meta = JSON.parse(fs.readFileSync(retiredPath, 'utf8'));
+    fromFile = Array.isArray(meta.models) ? meta.models.map(String) : [];
+  } catch {
+    /* no file yet */
+  }
+  if (Array.isArray(options.retiredModels)) {
+    fromFile = [...fromFile, ...options.retiredModels.map(String)];
+  }
+  return new Set([...fromFile, ...envList]);
+}
+
+function isRetiredRouteModel(model, retiredSet) {
+  if (!model || !retiredSet || retiredSet.size === 0) return false;
+  if (retiredSet.has(model)) return true;
+  for (const r of retiredSet) {
+    if (model === r || model.startsWith(`${r}/`) || model.startsWith(`${r}:`)) return true;
+  }
+  return false;
+}
 
 // The traffic log is append-only and never pruned, so an all-time aggregate can
 // never recover from a bad route: once a model has accumulated MIN_TOOL_OFFERED
@@ -346,7 +376,21 @@ if (require.main === module) {
   // whose routes had all stopped answering entirely would exit 0 — the exact
   // absence-is-not-evidence trap this tool exists to close. Observed 2026-07-28:
   // the Mac Pro had three dead routes and the gate reported OK.
-  if (argv.includes('--gate') && (res.degraded.length || res.dead.length)) process.exit(1);
+  //
+  // 2026-07-31: deliberately retired experts (retired-experts.json) stay in the
+  // report for history but do not fail --gate after operators rewired defaults.
+  if (argv.includes('--gate')) {
+    const retired = loadRetiredModelSet({});
+    const activeDead = (res.dead || []).filter((d) => !isRetiredRouteModel(d.model, retired));
+    const activeDegraded = (res.degraded || []).filter((d) => !isRetiredRouteModel(d.model, retired));
+    if (activeDead.length || activeDegraded.length) process.exit(1);
+  }
 }
 
-module.exports = { summarizeRouteQuality, runReport };
+module.exports = {
+  summarizeRouteQuality,
+  runReport,
+  loadRetiredModelSet,
+  isRetiredRouteModel,
+  DEFAULT_RETIRED_PATH,
+};

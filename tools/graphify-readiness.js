@@ -5,6 +5,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const pathMod = require('path');
+const fsMod = require('fs');
 
 const DEFAULT_OUT_DIR = path.join(os.homedir(), 'Library', 'Application Support', 'mac-yolo-safeguards');
 const MIN_GRAPHIFY_VERSION = '0.9.26';
@@ -45,16 +47,48 @@ function requireValue(argv, index, flag) {
 }
 
 function run(command, args, options = {}) {
-  return spawnSync(command, args, {
+  // Never shell; require absolute path under repo or PATH basenames only.
+  let cmd = command;
+  if (cmd.includes('/') || cmd.includes('\\')) {
+    cmd = pathMod.resolve(cmd);
+    if (!fsMod.existsSync(cmd)) {
+      return { status: 127, stdout: '', stderr: 'missing binary', error: new Error('missing') };
+    }
+    const base = pathMod.basename(cmd);
+    if (!['graphify', 'graphify.exe', 'node', 'node.exe', 'sh', 'bash'].includes(base) && !cmd.includes('.graphify-venv')) {
+      return { status: 126, stdout: '', stderr: 'binary not allowlisted', error: new Error('deny') };
+    }
+  }
+  return spawnSync(cmd, args, {
     encoding: 'utf8',
     timeout: options.timeout || 10000,
     maxBuffer: 1024 * 1024 * 4,
+    shell: false,
   });
 }
 
 function commandPath(command) {
-  const result = run('sh', ['-c', 'command -v "$1"', 'sh', command]);
-  return result.status === 0 ? result.stdout.trim() : '';
+  // Fixed candidate paths only — no `sh -c command -v` (CodeQL
+  // js/shell-command-injection-from-environment on absolute paths).
+  const base = path.basename(String(command || ''));
+  if (!base || base !== String(command) && String(command).includes('/')) {
+    // If caller already passed absolute path, only accept allowlisted basenames.
+    const abs = path.resolve(String(command));
+    if (fs.existsSync(abs) && ['graphify', 'graphify.exe', 'node', 'node.exe'].includes(path.basename(abs))) {
+      return abs;
+    }
+  }
+  const home = os.homedir();
+  const candidates = [
+    path.join(home, '.local', 'bin', base),
+    path.join('/opt/homebrew/bin', base),
+    path.join('/usr/local/bin', base),
+    path.join('/usr/bin', base),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return '';
 }
 
 function graphifyPathForRepo(repo) {

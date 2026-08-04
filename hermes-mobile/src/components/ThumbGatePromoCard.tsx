@@ -1,5 +1,11 @@
 import React, { useEffect } from 'react';
-import { Alert, Linking, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import {
+  Alert,
+  Linking,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+} from 'react-native';
 import GlassCard from './GlassCard';
 import { trackProductEvent } from '../services/productAnalytics';
 import { colors } from '../theme/colors';
@@ -13,10 +19,15 @@ type ThumbGatePromoCardProps = {
   style?: object;
 };
 
-const OPEN_FAIL_TITLE = 'Could not open ThumbGate';
+const OPEN_FAIL_TITLE = 'Could not open ThumbGate.app';
 const OPEN_FAIL_MESSAGE =
-  'Open https://thumbgate.app in your browser to continue.';
+  'Open https://thumbgate.app/dashboard in your browser to continue.';
 
+/**
+ * Consumer Leash / connection promo — short, one CTA.
+ * No multi-step manuals, no coding-agent skill install, no curl dump.
+ * Mac connector setup lives on the web dashboard after sign-in.
+ */
 export default function ThumbGatePromoCard({ surface, style }: ThumbGatePromoCardProps) {
   const copy = thumbGatePromoCopy(surface);
 
@@ -26,7 +37,7 @@ export default function ThumbGatePromoCard({ surface, style }: ThumbGatePromoCar
 
   const openThumbGate = async () => {
     // Never await analytics before opening — a hung PostHog fetch made the CTA a no-op.
-    void trackProductEvent('thumbgate_promo_tap', { surface, url: copy.url });
+    void trackProductEvent('thumbgate_promo_tap', { surface, url: copy.url, action: 'open_web' });
     try {
       await Linking.openURL(copy.url);
     } catch {
@@ -69,14 +80,15 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   button: {
-    marginTop: 4,
-    alignSelf: 'flex-start',
+    marginTop: 2,
+    alignSelf: 'stretch',
     backgroundColor: 'rgba(99, 102, 241, 0.18)',
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.borderLight,
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 14,
+    alignItems: 'center',
   },
   buttonText: {
     color: colors.secondary,
