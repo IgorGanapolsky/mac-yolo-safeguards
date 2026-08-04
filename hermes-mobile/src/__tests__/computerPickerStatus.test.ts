@@ -255,21 +255,32 @@ describe('computerPickerStatus', () => {
     expect(status.detail).not.toMatch(/Using USB/i);
   });
 
-  it('shows Connected · USB when loopback is the active path', () => {
-    const status = resolveComputerPickerStatus({
-      scanning: false,
-      scanProgress: null,
-      scanResult: null,
-      showScanResult: false,
-      tailscaleProbing: false,
-      tailscaleVpnActive: true,
-      tailscaleDiscoveries: [],
-      activeGatewayUrl: 'http://127.0.0.1:8642',
-      wifiConnected: true,
-      activeReachable: true,
-    });
-    expect(status.kind).toBe('active');
-    expect(status.title).toBe('Connected · USB');
+  it('shows Connected (never · USB) when loopback is the active path under Tailscale-only ban', () => {
+    const previous = process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT;
+    delete process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT;
+    try {
+      const status = resolveComputerPickerStatus({
+        scanning: false,
+        scanProgress: null,
+        scanResult: null,
+        showScanResult: false,
+        tailscaleProbing: false,
+        tailscaleVpnActive: true,
+        tailscaleDiscoveries: [],
+        activeGatewayUrl: 'http://127.0.0.1:8642',
+        wifiConnected: true,
+        activeReachable: true,
+      });
+      expect(status.kind).toBe('active');
+      expect(status.title).toBe('Connected');
+      expect(status.title).not.toMatch(/USB/i);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT;
+      } else {
+        process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT = previous;
+      }
+    }
   });
 
   it('debounces rapid signature flips but commits first paint immediately', () => {

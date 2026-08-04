@@ -8,6 +8,9 @@ import {
   usbHandoffPreservesConversation,
 } from '../utils/usbTransportHandoff';
 
+// Handoff suite exercises the debug hatch; product default bans USB transport.
+process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT = '1';
+
 const macBookTs: GatewayProfile = {
   id: 'mac_book_ts',
   label: 'Igors-MacBook-Pro',
@@ -220,5 +223,25 @@ describe('usbHandoffPreservesConversation', () => {
         afterMessageCount: 0,
       }),
     ).toBe(false);
+  });
+});
+
+
+describe('USB transport ban (product default)', () => {
+  afterEach(() => {
+    process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT = '1';
+  });
+
+  it('refuses Tailscale → USB handoff when EXPO_PUBLIC_ALLOW_USB_TRANSPORT is unset', () => {
+    delete process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT;
+    const decision = resolveUsbTransportHandoff({
+      currentGatewayUrl: macBookTs.gatewayUrl,
+      wifiConnected: true,
+      liveUsbReachable: true,
+      liveUsbHostname: 'Igors-MacBook-Pro.local',
+      activeProfile: macBookTs,
+    });
+    expect(decision.shouldHandoff).toBe(false);
+    expect(decision.reason).toBe('usb_transport_banned');
   });
 });

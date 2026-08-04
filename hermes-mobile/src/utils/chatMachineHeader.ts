@@ -18,7 +18,7 @@ import {
 } from './gatewayEndpoint';
 import { isMacGatewayHttpOk } from './gatewayConnection';
 import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
-import { profileMatchesHostname } from './gatewayProfilePicker';
+import { isUsbTransportAllowed, profileMatchesHostname } from './gatewayProfilePicker';
 import { relayWorkerDisplayName, selectRelayWorker } from './relayRouting';
 import { isTailnetRouteLabel, isTailscaleGatewayUrl } from './tailscaleHosts';
 
@@ -41,9 +41,12 @@ export function shouldClaimHeaderTransport(input: {
 
 /**
  * Header transport chip from the URL that actually succeeded this session.
- * USB: live loopback on Wi‑Fi, or cellular when /health proves a live cable Mac
- * (hostname + green|amber). Ghost 127.0.0.1 on cellular without live health stays silent.
- * Never USB for Tailscale/MagicDNS/100.x (remote mini in another city).
+ *
+ * CEO HARD BAN (2026-07-26, restated 2026-08-04): the consumer app must NEVER show
+ * "USB" unless EXPO_PUBLIC_ALLOW_USB_TRANSPORT=1 (agent debug only). Loopback may still
+ * exist under the hood for pair/adb; it must not paint as a transport chip.
+ *
+ * Prefer Tailscale, then Home Wi‑Fi. Never USB for Tailscale/MagicDNS/100.x.
  */
 export function resolveHeaderTransportLabel(input: {
   gatewayUrl: string;
@@ -54,13 +57,16 @@ export function resolveHeaderTransportLabel(input: {
   if (!gatewayUrl) {
     return undefined;
   }
-  // Tailscale wins before any loopback/USB check — remote Macs are never USB.
+  // Tailscale wins before any loopback check — remote Macs are never cable.
   if (isTailscaleGatewayUrl(gatewayUrl)) {
     return 'Tailscale';
   }
   if (isLoopbackGatewayUrl(gatewayUrl)) {
-    // Cellular + 127.0.0.1 without live /health is a stale USB primary / wireless-adb ghost.
-    // Live hostname on green|amber proves adb reverse — claim USB even on 5G (product lock).
+    // Product default: hide cable transport entirely (Tailscale-only UX).
+    if (!isUsbTransportAllowed()) {
+      return undefined;
+    }
+    // Debug hatch only: live reverse may claim USB on Wi‑Fi or proven cellular cable.
     if (input.wifiConnected === false) {
       const host = input.health?.hostname?.trim();
       const live =
@@ -79,12 +85,15 @@ export function resolveHeaderTransportLabel(input: {
   return formatGatewayEndpointLine(gatewayUrl, input.health)?.trim() || undefined;
 }
 
-/** USB header chip when loopback is the reach URL and Wi‑Fi or live-cable health confirms. */
+/** Cable header chip only when the debug USB hatch is on AND loopback is the reach URL. */
 export function isUsbHeaderTransportAllowed(input: {
   gatewayUrl: string;
   wifiConnected?: boolean;
   health?: GatewayHealthSnapshot | null;
 }): boolean {
+  if (!isUsbTransportAllowed()) {
+    return false;
+  }
   return (
     isLoopbackGatewayUrl(input.gatewayUrl) &&
     resolveHeaderTransportLabel(input) === 'USB'
@@ -615,12 +624,24 @@ export function formatMacConnectionRetryBanner(input: {
 
   const loopbackUsb = isLoopbackGatewayUrl(input.gatewayUrl);
   let routeDetail = input.machineEndpoint?.trim();
+  // Never surface "USB" / loopback IP in consumer unreachable copy (CEO ban).
+  if (routeDetail && /\bUSB\b|127\.0\.0\.1|localhost/i.test(routeDetail) && !isUsbTransportAllowed()) {
+    routeDetail = undefined;
+  }
   if (!routeDetail || (loopbackUsb && routeDetail.includes('127.0.0.1'))) {
-    const endpointLine = formatGatewayEndpointLine(input.gatewayUrl, input.health)?.trim();
-    routeDetail = loopbackUsb ? 'USB' : endpointLine || input.gatewayUrl.trim();
+    if (loopbackUsb && !isUsbTransportAllowed()) {
+      routeDetail = undefined;
+    } else {
+      const endpointLine = formatGatewayEndpointLine(input.gatewayUrl, input.health)?.trim();
+      routeDetail = loopbackUsb
+        ? isUsbTransportAllowed()
+          ? 'USB'
+          : undefined
+        : endpointLine || input.gatewayUrl.trim();
+    }
   }
 
-  if (routeDetail) {
+  if (routeDetail && !(/\bUSB\b/i.test(routeDetail) && !isUsbTransportAllowed())) {
     return `Can't reach ${label} (${routeDetail}) — tap to retry`;
   }
   return `Can't reach ${label} — tap to retry`;

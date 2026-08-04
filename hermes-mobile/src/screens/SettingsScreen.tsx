@@ -397,7 +397,7 @@ export default function SettingsScreen() {
       setPairCode('');
       Alert.alert(
         'Lock-screen approvals ready',
-        'Approval requests can arrive anywhere. This does not provide live Chat or computer tools; connect to your computer with Tailscale, USB, or home Wi‑Fi.',
+        'Approval requests can arrive anywhere. This does not provide live Chat or computer tools; connect to your computer with Tailscale or home Wi‑Fi.',
       );
     } catch (err) {
       Alert.alert('Pairing failed', err instanceof Error ? err.message : 'Could not complete pairing');
@@ -541,9 +541,9 @@ export default function SettingsScreen() {
         ) : null}
         {usbHostMismatch ? (
           <GlassCard style={styles.usbMismatchCard} testID="settings-usb-host-mismatch">
-            <Text style={styles.tunnelWizardTitle}>Wrong computer on USB</Text>
+            <Text style={styles.tunnelWizardTitle}>Wrong computer selected</Text>
             <Text style={styles.description}>
-              USB is connected to {usbHostMismatch.usbHostLabel}, but you selected{' '}
+              A direct link reached {usbHostMismatch.usbHostLabel}, but you selected{' '}
               {usbHostMismatch.selectedProfileLabel}. Tap the matching computer below.
             </Text>
           </GlassCard>
@@ -601,7 +601,7 @@ export default function SettingsScreen() {
             testID="auto-connect-gateway"
           >
             <Text style={styles.primaryButtonText}>
-              {isAutoConnecting ? 'Connecting…' : 'Find computer on USB or Wi‑Fi'}
+              {isAutoConnecting ? 'Connecting…' : 'Find computer on Tailscale or Wi‑Fi'}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -677,7 +677,7 @@ export default function SettingsScreen() {
         >
         <GlassCard>
           <Text style={styles.description}>
-            Use Tailscale away from home, or USB/home Wi‑Fi nearby, for Chat, tools, and ops.
+            Use Tailscale (works anywhere) or home Wi‑Fi nearby for Chat, tools, and ops.
           </Text>
           <View style={styles.relayRouteCard} testID="relay-route-card">
             <Text style={styles.relayRouteEyebrow}>Lock-screen approvals (optional)</Text>

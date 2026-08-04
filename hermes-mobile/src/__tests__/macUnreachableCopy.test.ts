@@ -101,11 +101,18 @@ describe('macUnreachableCopy', () => {
 
   it('formats reconnecting and exhausted banners', () => {
     expect(reconnectingToMacCopy('Igors-Mac-mini')).toBe('Reconnecting to Igors-Mac-mini…');
+    // CEO ban: never echo "USB" in consumer unreachable banners.
     expect(
       formatSavedMacUnreachableBanner({
         macLabel: 'Igors-Mac-mini',
         machineEndpoint: 'USB',
       }),
-    ).toBe("Can't reach Igors-Mac-mini (USB) — switch computer above");
+    ).toBe("Can't reach Igors-Mac-mini — switch computer above");
+    expect(
+      formatSavedMacUnreachableBanner({
+        macLabel: 'Igors-Mac-mini',
+        machineEndpoint: 'Tailscale',
+      }),
+    ).toBe("Can't reach Igors-Mac-mini (Tailscale) — switch computer above");
   });
 });

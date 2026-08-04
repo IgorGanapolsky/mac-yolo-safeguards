@@ -151,7 +151,11 @@ export function formatSavedMacUnreachableBanner(input: {
   machineEndpoint?: string;
 }): string {
   const label = input.macLabel?.trim() || 'your computer';
-  const endpoint = input.machineEndpoint?.trim();
+  // CEO HARD BAN: never paint "USB" (or loopback) in consumer unreachable banners.
+  let endpoint = input.machineEndpoint?.trim();
+  if (endpoint && /\bUSB\b|127\.0\.0\.1|localhost/i.test(endpoint)) {
+    endpoint = undefined;
+  }
   const name =
     label === 'your computer' || label === 'Computer' || label === 'computer'
       ? 'your computer'

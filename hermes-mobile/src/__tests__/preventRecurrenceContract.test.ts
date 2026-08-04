@@ -847,4 +847,29 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(appConfig).toMatch(/storeReviewDemo = false/);
   });
 
+  it('S54: never paint USB in consumer UI by default (CEO 2026-08-04 — Tailscale only)', () => {
+    // Production/preview/e2e must NOT set EXPO_PUBLIC_ALLOW_USB_TRANSPORT=1.
+    const eas = JSON.parse(read('hermes-mobile/eas.json'));
+    for (const cfg of Object.values(eas.build as Record<string, any>)) {
+      for (const env of [cfg.env, cfg.ios?.env, cfg.android?.env].filter(Boolean)) {
+        const v = (env as Record<string, unknown>).EXPO_PUBLIC_ALLOW_USB_TRANSPORT;
+        expect(v === undefined || v === '0' || v === false).toBe(true);
+      }
+    }
+    const picker = read('hermes-mobile/src/utils/gatewayProfilePicker.ts');
+    expect(picker).toContain('isUsbTransportAllowed');
+    expect(picker).toMatch(/EXPO_PUBLIC_ALLOW_USB_TRANSPORT === ['"]1['"]/);
+    const header = read('hermes-mobile/src/utils/chatMachineHeader.ts');
+    expect(header).toContain('isUsbTransportAllowed');
+    // Default path must early-return for loopback when hatch is off.
+    expect(header).toMatch(/if \(!isUsbTransportAllowed\(\)\) \{\s*return undefined;/);
+    const settings = read('hermes-mobile/src/screens/SettingsScreen.tsx');
+    // User-facing Settings CTAs must not pitch USB as a transport.
+    expect(settings).toContain('Find computer on Tailscale or Wi‑Fi');
+    expect(settings).not.toMatch(/Find computer on USB/);
+    expect(settings).not.toMatch(/USB\/home Wi/);
+    expect(settings).not.toMatch(/Wrong computer on USB/);
+    expect(settings).not.toMatch(/connect to your computer with Tailscale, USB/);
+  });
+
 });

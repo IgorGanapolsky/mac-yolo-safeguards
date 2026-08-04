@@ -1,6 +1,7 @@
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 import { resolveHeaderTransportLabel } from './chatMachineHeader';
+import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
 import {
   formatLanScanResultDetail,
   formatLanScanResultLabel,
@@ -148,10 +149,22 @@ export function resolveComputerPickerStatus(
       return {
         kind: 'active',
         title: `Connected · ${activeTransport}`,
+        // Never name USB in consumer copy (CEO ban). Debug hatch may still
+        // resolve transport as USB; keep detail cable-free.
         detail:
           activeTransport === 'USB'
-            ? 'Chat uses this link. Tap another computer below to switch.'
+            ? 'Chat uses this link. Prefer Tailscale for a durable path.'
             : 'Chat uses this path. Another route to the same computer may also be available.',
+        success: true,
+        discoveries: [],
+      };
+    }
+    // Loopback reachable but USB UI banned: still "Connected", never "· USB".
+    if (isLoopbackGatewayUrl(input.activeGatewayUrl)) {
+      return {
+        kind: 'active',
+        title: 'Connected',
+        detail: 'Chat uses this link. Prefer Tailscale for a durable path.',
         success: true,
         discoveries: [],
       };

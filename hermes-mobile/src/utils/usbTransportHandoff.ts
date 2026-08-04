@@ -4,7 +4,7 @@ import { USB_LOOPBACK_GATEWAY_URL } from './gatewayLoopbackFallback';
 import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
 import { isTailscaleGatewayUrl } from './tailscaleHosts';
-import { profileMatchesHostname } from './gatewayProfilePicker';
+import { isUsbTransportAllowed, profileMatchesHostname } from './gatewayProfilePicker';
 import { resolveHeaderTransportLabel } from './chatMachineHeader';
 
 /**
@@ -13,6 +13,9 @@ import { resolveHeaderTransportLabel } from './chatMachineHeader';
  *   (Wi‑Fi *or* cellular — live probe is the ghost guard, not NetInfo wifi).
  * - Unplug: USB reverse gone → fall back to same Mac Tailscale/LAN.
  * Never change activeProfileId or clear the conversation.
+ *
+ * CEO HARD BAN (2026-08-04): when EXPO_PUBLIC_ALLOW_USB_TRANSPORT is unset (product
+ * default), never hand off chat onto loopback — stay on Tailscale/LAN.
  */
 
 export type UsbTransportHandoffInput = {
@@ -40,7 +43,8 @@ export type UsbTransportHandoffDecision = {
     | 'missing_usb_hostname'
     | 'no_active_profile'
     | 'foreign_usb_host'
-    | 'not_remote_route';
+    | 'not_remote_route'
+    | 'usb_transport_banned';
 };
 
 export type UsbToRemoteHandoffInput = {
@@ -108,6 +112,11 @@ export function resolveUsbTransportHandoff(
     usbGatewayUrl: USB_LOOPBACK_GATEWAY_URL,
     preserveActiveProfileId: activeId,
   };
+
+  // Product default: never move chat onto loopback (CEO ban / Tailscale-only).
+  if (!isUsbTransportAllowed()) {
+    return { ...base, shouldHandoff: false, reason: 'usb_transport_banned' };
+  }
 
   if (isLoopbackGatewayUrl(current)) {
     return { ...base, shouldHandoff: false, reason: 'already_usb' };

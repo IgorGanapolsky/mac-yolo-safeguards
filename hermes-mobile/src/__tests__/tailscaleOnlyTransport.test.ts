@@ -4,11 +4,19 @@ import {
   profileConnectionRouteDisplayLabel,
   isUsbTransportAllowed,
 } from '../utils/gatewayProfilePicker';
+import {
+  resolveHeaderTransportLabel,
+  isUsbHeaderTransportAllowed,
+  formatMacConnectionRetryBanner,
+  resolveChatMachineHeaderDisplay,
+  formatChatMachineHeaderLine,
+} from '../utils/chatMachineHeader';
+import { formatSavedMacUnreachableBanner } from '../utils/macUnreachableCopy';
 import type { GatewayProfile } from '../types/gatewayProfile';
 
-// CEO directive 2026-07-26: "my app should not know about USB, it should only know about
-// tailscale." A live adb reverse makes the phone reach the Mac over loopback, which MASKS the
-// real tailnet state — so the picker presented a cable as a peer of Tailscale.
+// CEO directive 2026-07-26, HARD restated 2026-08-04: "I never want to see USB in my app again."
+// A live adb reverse makes the phone reach the Mac over loopback, which MASKS the real
+// tailnet state — so the picker/header presented a cable as a peer of Tailscale.
 const profile = (id: string, gatewayUrl: string): GatewayProfile => ({
   id,
   gatewayUrl,
@@ -50,6 +58,52 @@ describe('tailscale-only transport', () => {
 
   it('is OFF by default — the cable must not come back on its own', () => {
     expect(isUsbTransportAllowed()).toBe(false);
+  });
+
+  it('header never paints USB for loopback when the ban is on', () => {
+    expect(
+      resolveHeaderTransportLabel({
+        gatewayUrl: 'http://127.0.0.1:8642',
+        wifiConnected: true,
+        health: { level: 'green', hostname: 'Igors-MacBook-Pro.local' } as never,
+      }),
+    ).toBeUndefined();
+    expect(
+      isUsbHeaderTransportAllowed({
+        gatewayUrl: 'http://127.0.0.1:8642',
+        wifiConnected: true,
+        health: { level: 'green', hostname: 'Igors-MacBook-Pro.local' } as never,
+      }),
+    ).toBe(false);
+
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: USB,
+      gatewayUrl: 'http://127.0.0.1:8642',
+      health: { level: 'red', hostname: 'Igors-MacBook-Pro.local' } as never,
+      connectionMode: 'gateway',
+      isPaired: true,
+      workers: [],
+      savedMacCount: 1,
+      wifiConnected: true,
+    });
+    expect(formatChatMachineHeaderLine(display).toLowerCase()).not.toContain('usb');
+    expect(display.machineEndpoint ?? '').not.toMatch(/\bUSB\b/i);
+
+    const banner = formatMacConnectionRetryBanner({
+      connectionState: 'disconnected',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      machineLabel: 'Your computer',
+      machineEndpoint: 'USB',
+    });
+    expect(banner.toLowerCase()).not.toContain('usb');
+    expect(banner).toMatch(/tap to retry|switch computer/i);
+
+    expect(
+      formatSavedMacUnreachableBanner({
+        macLabel: 'Igors-Mac-mini',
+        machineEndpoint: 'USB',
+      }).toLowerCase(),
+    ).not.toContain('usb');
   });
 });
 

@@ -12,6 +12,10 @@ import {
   USB_UNKNOWN_MACHINE_LABEL,
 } from '../utils/chatMachineHeader';
 
+// USB identity-law cases below need the debug hatch. Product default is Tailscale-only
+// (EXPO_PUBLIC_ALLOW_USB_TRANSPORT unset) — see tailscaleOnlyTransport.test.ts.
+process.env.EXPO_PUBLIC_ALLOW_USB_TRANSPORT = '1';
+
 describe('resolveChatMachineHeaderDisplay', () => {
   const macBook: GatewayProfile = {
     id: 'mac_book',
