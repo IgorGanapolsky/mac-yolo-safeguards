@@ -220,3 +220,120 @@ Fix shape: `channel_scope_from_filter` — one `#h` → `channel_id`; many → `
 2. WF-08: open design issue then PR only after double-resume + idempotent `create_approval` tests green.
 3. Optional: small PR for #4565 deny-by-default config if maintainers signal OK.
 
+---
+
+## 2026-08-04 — Run 3 (access blocked again; survey + Run 2 claims re-checked)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+Same project as Run 1/2, re-confirmed independently this run via `WebFetch`
+against public GitHub pages (no `gh`/API-token access available this run —
+see below):
+
+- **Canonical repo:** [`github.com/block/buzz`](https://github.com/block/buzz)
+  — active, dozens of issues/PRs updated same-day (Aug 4 2026).
+- **Nothing changed** about architecture, maintainer, or community surface
+  since Run 2's write-up; no new facts to add there.
+
+**Access check (Step 0 prerequisite for write actions):** `add_repo("block",
+"buzz", access: "push")` was attempted first thing this run and rejected
+with the identical error as Run 1: *"cross-tier adds are not supported in
+v1: requested block/buzz but session already has repos from owner(s)
+[igorganapolsky]."* This session's GitHub write path is closed for the
+same structural reason as Run 1 — this session's initial source repo is
+`igorganapolsky/mac-yolo-safeguards`, and `block/buzz` can't be added
+cross-owner into it. Run 2's write access (PR #4598/#4624, alleged comment
+on #4565) evidently came from a *different* session that was initialized
+with `block/buzz` as its source — that is consistent with the tool's own
+suggested remedy ("start a new session with the requested repo as the
+initial source"), not something available to this scheduled run.
+
+**Discrepancy flagged for the record:** Run 2 logged a comment on
+[#4565](https://github.com/block/buzz/issues/4565) at
+`#issuecomment-5171118220`. Three independent `WebFetch` reads this run
+(the issue page twice, plus the specific comment-anchor URL) show **only
+the original post by @James-16 — no comment from IgorGanapolsky is
+visible**, and `api.github.com` requests were blocked (403) from this
+session so a fully authoritative check wasn't possible. This may be a
+`WebFetch` markdown-rendering limitation on GitHub's comment thread markup
+rather than proof the comment doesn't exist — but it doesn't independently
+confirm Run 2's claim either. **Do not treat that comment as confirmed
+without an authenticated re-check** (a session with real `block/buzz`
+access can verify this in one `gh issue view 4565 --comments` call).
+
+**PR #4598 → #4624:** independently confirmed real. #4598 (IgorGanapolsky,
+opened 2026-08-03) was closed — DCO check failed (missing `Signed-off-by`).
+It was superseded same-day by
+[#4624](https://github.com/block/buzz/pull/4624), same fix, properly
+signed off. As of this run #4624 is **open**, no reviews yet, a review was
+requested from code owners, and a "Codex" review bot commented that
+automated review usage limits were reached. No maintainer action needed
+from this run — nothing to push, nothing to reply to.
+
+### What was surveyed (last ~72h, as of 2026-08-04)
+
+| Issue/PR | Topic | Notes |
+|----------|-------|-------|
+| [#2698](https://github.com/block/buzz/issues/2698) | `buzz-acp` reply delivery is implicit — Sonnet-class agents answer in session text, which the harness silently never delivers; nothing logged, nothing errors | **Best-fit candidate for Igor's expertise this run** — this is a verification-vs-self-report failure mode: the agent *believes* it answered (produced text), the system silently drops it, and there is no signal distinguishing success from failure. Directly in-domain. |
+| [#4192](https://github.com/block/buzz/issues/4192) | Relay rejects spec-compliant NIP-17 DMs — freshness check on kind:1059 gift-wrap doesn't account for NIP-59's intentional 2-day backdating, breaking interop with `nostr-tools` | Well-scoped, single-file (`ingest.rs:1524`), plausible one-PR fix — good candidate for a future access-enabled run. |
+| [#2754](https://github.com/block/buzz/issues/2754) | RFC: stable extension points for downstream integrations (identity, notifications, **permissions/access-control**, **audit/admin**, storage, search) | Maintainers are explicitly soliciting *external* extensions for exactly the permission-gating and audit-trail surface area ThumbGate works in, rather than wanting it upstreamed into core. Relevant to positioning (below) — not answered or commented on. |
+| #4676 (relay logs omit `event.kind`), #4677 (desktop never subscribes to kind 1059), #4678/#4679/#4673 (Windows/Linux/macOS packaging papercuts) | Surveyed, skipped — not in Igor's stated domain (or, for #4676/#4677, plausibly related to the same #4192 gift-wrap thread but not independently scoped/reproduced this run). |
+| WF-08 (approval-gate resume path) | No change since Run 2; still the multi-file, dedicated-run item. | Deferred, unchanged. |
+
+### What was opened / answered this run
+
+**Nothing.** Identical reason to Run 1: no GitHub write path to `block/buzz`
+from this session (`add_repo` cross-tier rejection, confirmed above). No
+comment, no PR, no issue interaction. Per the hard rules, no fix or answer
+was drafted-and-withheld either — there is no point writing content this
+session cannot post, and doing so risks it being copy-pasted without the
+same verification rigor by a future run.
+
+### Positioning read: **neither** (unchanged from Run 2, reinforced by #2754)
+
+- Still not a competitor: Buzz is a team workspace/agent-channel fabric;
+  ThumbGate is a cross-tool pre-action gate. Different surfaces.
+- Still not a partner: no relationship, no contact, no agreement.
+- **New data point reinforcing the "real overlap, no relationship" read:**
+  #2754's own RFC lists "Permissions — custom access control models" and
+  "Administration — audit, lifecycle, and management integrations" as
+  extension points Buzz's maintainers want built *externally*, not folded
+  into core. That's a concrete signal — from the project itself, not
+  inferred — that a pre-action gate/audit layer is a legitimate external
+  add-on to Buzz's architecture rather than a redundant or competing
+  layer. It is **not** an invitation, an endorsement, or a partnership —
+  just evidence the shape of the gap is real. #2698 (silent-drop replies,
+  no verification the send actually happened) is the same theme playing
+  out as a live bug, not a design RFC.
+- ThumbGate was not mentioned anywhere public this run (nothing was
+  posted at all).
+
+### What was skipped and why
+
+- **Answering #2698:** skipped — no write path this run (see access check
+  above). Strong candidate for the next access-enabled run; the answer
+  should point at the harness/prompt fix, not pitch anything.
+- **#4192 fix:** skipped — same access blocker; also would need a local
+  Rust build + relay test run before opening a PR, not attempted without
+  a path to actually submit it.
+- **#2754 RFC comment:** skipped — a design RFC comment isn't "genuinely
+  fixing an issue" and the run cap is about substance, not just volume;
+  logging the read here was enough this run.
+- **Second PR:** N/A — zero PRs opened this run.
+
+### Action needed from Igor
+
+Same as Run 1, restated because it recurred identically: this scheduled
+session's GitHub scope is fixed to `igorganapolsky/*` and cannot add
+`block/buzz` mid-session. Run 2's write access came from some other,
+differently-initialized session/environment. Until this scheduled routine
+itself runs from an environment/session that has `block/buzz` in scope
+from the start, every firing of this task will re-verify facts, survey,
+and then hit the identical wall — worth pointing this routine's
+environment at a session pre-scoped to `block/buzz`, or granting
+`igorganapolsky/mac-yolo-safeguards` sessions a same-owner fork
+(`IgorGanapolsky/buzz`) they can push to and PR from cross-repo, whichever
+matches how Run 2 actually got access. Separately: someone with real
+`block/buzz` access should confirm or retract the #4565 comment (see
+discrepancy above) so the record is accurate.
+
