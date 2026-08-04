@@ -19,8 +19,23 @@
 export const THUMBGATE_CONNECTOR_INSTALL_COMMAND =
   'curl -fsSL https://raw.githubusercontent.com/IgorGanapolsky/mac-yolo-safeguards/main/saas/install-connector.sh | bash';
 
-/** Short label for the secondary CTA (Share / copy path). */
-export const THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL = 'Share Mac installer command';
+/**
+ * Short label for the secondary CTA (Share / copy path).
+ *
+ * Wording rule: this button shares the install COMMAND TEXT shown above via the
+ * OS share sheet. It never shares the Mac, its address, or any credential.
+ * Labels must name the command as the object — "Share Mac installer" + a
+ * post-tap "Installer shared" was read as "my machine is shared with the whole
+ * world" and produced a real user-panic report (2026-08-03).
+ */
+export const THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL = 'Share install command';
+
+/** Post-share confirmation. Must not imply the machine itself was shared. */
+export const THUMBGATE_CONNECTOR_INSTALL_SHARED_LABEL = 'Install command shared';
+
+/** Clarifier rendered under the share buttons — kills the "shared my Mac" reading. */
+export const THUMBGATE_SHARE_SCOPE_NOTE =
+  'Shares the text command above — not your Mac, its address, or any key.';
 
 /**
  * How an agent (or human) installs the Hermes Mobile connect skill into a
@@ -90,26 +105,23 @@ export type ThumbGateFacilitationStep = {
   actionLabel: string;
 };
 
-/** Numbered steps shown on the promo card (and documented in the agent skill). */
+/**
+ * Docs/agent skill only — NOT rendered on the consumer Leash card (CEO 2026-08-03).
+ * Consumer UI is short copy + Open ThumbGate.app; connector setup is on the web dashboard.
+ */
 export function thumbGateFacilitationSteps(): ThumbGateFacilitationStep[] {
   return [
     {
       id: 'open_web',
-      title: '1. Open ThumbGate.app',
-      body: 'Create or sign in on the web. This unlocks the browser dashboard and Continuity when your computer is offline.',
+      title: 'Open ThumbGate.app',
+      body: 'Sign in on the web for the dashboard and Continuity.',
       actionLabel: 'Open ThumbGate.app',
     },
     {
       id: 'install_connector',
-      title: '2. One-time Mac installer',
-      body: 'Paste this in Terminal on the computer you want ThumbGate to reach (once). Same path as the web dashboard.',
+      title: 'Mac connector (on the website)',
+      body: 'After sign-in, the dashboard shows the one-time Mac install if needed.',
       actionLabel: THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL,
-    },
-    {
-      id: 'agent_skill',
-      title: '3. Coding agents (optional)',
-      body: 'Install the Hermes Mobile connect skill so an agent on your Mac can diagnose pairing and facilitate ThumbGate without guessing.',
-      actionLabel: 'Copy skill install command',
     },
   ];
 }

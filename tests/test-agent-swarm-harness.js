@@ -206,7 +206,10 @@ test('frontierModelPlaybook maps video patterns onto harness artifacts', () => {
 
 test('stateLayerPolicy encodes Pro+mini hybrid (stateless inference, shared board)', () => {
   const policy = stateLayerPolicy();
-  assert.ok(policy.source.url.includes('machinelearningmastery.com'));
+  {
+    const host = new URL(policy.source.url).hostname;
+    assert.ok(host === 'machinelearningmastery.com' || host.endsWith('.machinelearningmastery.com'));
+  }
   assert.strictEqual(policy.source.url, STATE_LAYER_SOURCE.url);
   const byId = Object.fromEntries(policy.layers.map((l) => [l.id, l]));
   assert.strictEqual(byId.inference.design, 'stateless');
@@ -564,7 +567,10 @@ test('specificationDrivenDesign maps Ozkary loop onto repo artifacts', () => {
     'gap-analysis',
     'traceability',
   ]);
-  assert.ok(sdd.source.url.includes('ozkary.com'));
+  {
+    const host = new URL(sdd.source.url).hostname;
+    assert.ok(host === 'ozkary.com' || host.endsWith('.ozkary.com'));
+  }
   assert.ok(sdd.antiPatterns.length >= 3);
   assert.ok(sdd.steps.every((s) => s.ourArtifact && s.name));
 });

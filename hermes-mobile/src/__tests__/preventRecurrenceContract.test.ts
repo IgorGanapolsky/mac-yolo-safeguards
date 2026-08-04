@@ -763,4 +763,88 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(display.machineLabel).not.toMatch(/100\.94\.135\.78/);
     expect(display.machineEndpoint).toBe('Tailscale');
   });
+
+  it('S52: ThumbGate product-first URLs — /dashboard only, never pricing deep-link (2026-08-03)', () => {
+    // CEO: mobile opens ThumbGate.app *functionality* first; pricing is second.
+    // Scan production hermes-mobile/src (not only the SSOT files) so a second
+    // agent cannot reintroduce pricing deep-links or a marketing-only open URL.
+    const srcRoot = path.join(root, 'hermes-mobile', 'src');
+    const productionFiles: string[] = [];
+    const walk = (dir: string) => {
+      for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (ent.name === '__tests__' || ent.name === 'fixtures' || ent.name === 'node_modules') {
+          continue;
+        }
+        const full = path.join(dir, ent.name);
+        if (ent.isDirectory()) walk(full);
+        else if (/\.(ts|tsx)$/.test(ent.name)) productionFiles.push(full);
+      }
+    };
+    walk(srcRoot);
+
+    const urlRe = /https:\/\/thumbgate\.app[^\s'"`]*/g;
+    const offenders: string[] = [];
+    const productUrls: string[] = [];
+
+    for (const file of productionFiles) {
+      const text = fs.readFileSync(file, 'utf8');
+      const rel = path.relative(root, file);
+      if (text.includes('#pricing')) {
+        offenders.push(`${rel}: contains pricing hash fragment (banned in production mobile source)`);
+      }
+      for (const match of text.matchAll(urlRe)) {
+        const raw = match[0];
+        const url = raw.replace(/[.,;)\]]+$/, '');
+        try {
+          const u = new URL(url);
+          if (u.hostname !== 'thumbgate.app') continue;
+          if (u.hash && /pricing/i.test(u.hash)) {
+            offenders.push(`${rel}: pricing hash ${url}`);
+          }
+          const pth = u.pathname.replace(/\/$/, '') || '';
+          if (pth === '' || pth === '/') {
+            // bare origin — OK for comments/prose; openable CTAs must be /dashboard
+            continue;
+          }
+          if (pth === '/dashboard' || pth.startsWith('/dashboard/')) {
+            productUrls.push(`${rel}: ${url}`);
+            continue;
+          }
+          offenders.push(`${rel}: non-dashboard product path ${url}`);
+        } catch {
+          offenders.push(`${rel}: unparseable thumbgate URL ${url}`);
+        }
+      }
+    }
+
+    expect(offenders).toEqual([]);
+    // SSOT constants must still point at dashboard (not only "some file does").
+    const promoCopy = read('hermes-mobile/src/utils/thumbgatePromoCopy.ts');
+    const monetization = read('hermes-mobile/src/constants/monetization.ts');
+    expect(promoCopy).toMatch(/https:\/\/thumbgate\.app\/dashboard\?/);
+    expect(monetization).toMatch(/https:\/\/thumbgate\.app\/dashboard\?/);
+    expect(productUrls.length).toBeGreaterThanOrEqual(3);
+  });
+
+
+
+  it('S53: zero demo forever — no store-review demo flag, policy hard-denies store demo (2026-08-03)', () => {
+    const eas = JSON.parse(read('hermes-mobile/eas.json'));
+    const iosEnv = (eas.build.production.ios && eas.build.production.ios.env) || {};
+    expect(iosEnv.EXPO_PUBLIC_STORE_REVIEW_DEMO).toBeUndefined();
+    for (const cfg of Object.values(eas.build as Record<string, any>)) {
+      for (const env of [cfg.env, cfg.ios?.env, cfg.android?.env].filter(Boolean)) {
+        expect((env as Record<string, unknown>).EXPO_PUBLIC_STORE_REVIEW_DEMO).toBeUndefined();
+      }
+    }
+    const policy = read('hermes-mobile/src/utils/demoModePolicy.ts');
+    expect(policy).toContain('ZERO DEMO FOREVER');
+    expect(policy).toMatch(/export function isStoreReviewDemoBuild\(\)[^{]*\{[\s\S]*?return false/);
+    expect(policy).toMatch(/export function isDemoModeAllowed\(\)[^{]*\{[\s\S]*?return isE2eAutomationBuild\(\)/);
+    expect(policy).not.toContain('isStoreReviewDemoBuild() ||');
+    expect(policy).not.toMatch(/return __DEV__ \|\|/);
+    const appConfig = read('hermes-mobile/app.config.js');
+    expect(appConfig).toMatch(/storeReviewDemo = false/);
+  });
+
 });

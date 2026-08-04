@@ -142,10 +142,15 @@ jobs:
           # Hammerspoon config (~/Documents/mac-text-hotkeys/init.lua) not present
           # in the repo. Stubbing it would assert against the stub, so it stays
           # excluded until that config is checked in.
+          #
+          # test-hermes-buzz-integration.js needs root npm deps (@noble/curves,
+          # @scure/base). This job does not npm ci (speed); the dedicated
+          # "Hermes Buzz / Nostr integration" step under Public funnel does.
           failed=0
           for f in tests/test-*.js; do
             case "$f" in
               tests/test-mac-text-hotkeys-config.js) continue ;;
+              tests/test-hermes-buzz-integration.js) continue ;;
             esac
             if node "$f" >/tmp/node-test.log 2>&1; then
               echo "ok   $f"
@@ -273,6 +278,59 @@ jobs:
       # compose-in-editor, publish-once, …) so Public funnel checks failed MODULE_NOT_FOUND
       # after ci.yml was made parseable again. Absence of a step is not absence of the
       # bug class — add the suite file first, then the CI line.
+
+      # Harness engineering: evidence-only ship claims + non-slop taste golden set
+      # (TNS harness-on-the-loop + Taste Labs-style rubric layer, 2026-08).
+      - name: Ship-claim gate
+        run: node tests/test-ship-claim-gate.js
+
+      - name: CodeQL security helpers
+        run: node tests/test-codeql-security-helpers.js
+
+      # Offline shift-left gate: ban the exact pattern classes that piled up
+      # 33 open Security alerts (2026-08). Network CodeQL still runs separately.
+      - name: CodeQL pattern gate (offline prevention)
+        run: |
+          set -eu
+          node tests/test-codeql-pattern-gate.js
+          node tests/test-codeql-agent-hygiene.js
+          node tools/codeql-pattern-gate.js --diff origin/main
+          node tools/codeql-agent-hygiene.js --pre-ship --skip-network
+
+      # Buzz/Nostr crypto needs root package deps (@noble/curves, @scure/base).
+      - name: Hermes Buzz / Nostr integration
+        run: |
+          set -eu
+          npm ci
+          node tests/test-hermes-buzz-integration.js
+          node --experimental-strip-types tests/test-acp-transformer.mjs || node tests/test-acp-transformer.mjs
+          node tools/hermes-integration-paths.js doctor
+
+      # Live open-alert budget (uses GITHUB_TOKEN). Soft on API failure unless CODEQL_GATE_STRICT=1.
+      - name: Code scanning open-alert budget
+        env:
+          CODEQL_GATE_STRICT: ${{ vars.CODEQL_GATE_STRICT || '0' }}
+          CODEQL_GATE_SOFT: ${{ vars.CODEQL_GATE_SOFT || '1' }}
+        run: |
+          set -eu
+          node tools/codeql-alert-sync.js --gate --max-high 0 --max-open 15 --json | tee "$RUNNER_TEMP/codeql-gate.json" || {
+            # Soft-fail if gh/code-scanning API unavailable (private fork, token scope)
+            if [[ "${CODEQL_GATE_STRICT}" == "1" ]]; then exit 1; fi
+            echo "codeql-alert-sync gate soft-failed (set CODEQL_GATE_STRICT=1 to hard-fail)"
+            exit 0
+          }
+          # If JSON says ok=false and we have numbers, hard fail
+          node -e "const j=require(process.env.RUNNER_TEMP+'/codeql-gate.json'); if(j.ok===false && typeof j.open==='number') process.exit(1);"
+
+      - name: Taste layer golden set
+        run: node tests/test-taste-gate.js
+
+      - name: Linear bridge pure helpers
+        run: node tests/test-linear-agent-bridge.js
+
+      - name: Harness smeval (ship-honesty offline)
+        run: node tests/test-harness-smeval.js
+
       # Five guessed role addresses hard-bounced within one minute on 2026-07-31,
       # a design-partner pitch went to a security@ disclosure inbox, and four
       # unrelated founders shared one To: line. docs/REVENUE-LOOP.md already banned
