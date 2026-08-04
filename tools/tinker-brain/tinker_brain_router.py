@@ -88,6 +88,9 @@ GTM_SALES_PATTERNS = (
     r"\bideal customer\b",
     r"\bsales motion\b",
     r"\bclose deals?\b",
+    r"\bdesign partners?\b",
+    r"\boutreach\b",
+    r"\bpipeline\b",
 )
 
 CASH_PATTERNS = (

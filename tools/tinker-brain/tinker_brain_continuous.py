@@ -26,8 +26,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
-import re
 import subprocess
 import sys
 import time
@@ -59,7 +57,6 @@ from tinker_brain_health import (  # noqa: E402
     _SNAPSHOT_CARD,
     _digest,
     check,
-    log_gap,
     read_gaps,
 )
 

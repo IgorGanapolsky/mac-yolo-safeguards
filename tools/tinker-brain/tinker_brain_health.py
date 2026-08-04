@@ -163,20 +163,67 @@ def heal() -> dict:
     }
 
 
+# Noise terms that must never drive the research agenda (punctuation artifacts + fillers).
+_GAP_NOISE = frozenset(
+    {
+        "things",
+        "thing",
+        "exactly",
+        "week",
+        "fastest",
+        "ideal",
+        "still",
+        "please",
+        "help",
+        "tell",
+        "show",
+        "look",
+        "summary",
+        "sync",  # off-scope vault sync residue (normalized from "sync.")
+        "improve",  # often from off-scope "improve X" prompts
+        "rebuilding",
+        "obsidian",  # off-scope vault work
+        "dollars",  # cash path is a dedicated route, not a card gap
+    }
+)
+
+
+def _normalize_gap_term(term: str) -> str:
+    return (term or "").lower().strip().strip(".-_")
+
+
 def log_gap(question: str, missing: list[str] | None = None) -> None:
+    """Append a coverage miss. Filters punctuation artifacts and agenda noise."""
+    cleaned: list[str] = []
+    for raw in missing or []:
+        term = _normalize_gap_term(str(raw))
+        if not term or len(term) < 3 or term in _GAP_NOISE:
+            continue
+        cleaned.append(term)
+    if not cleaned and not (missing or []):
+        return
+    # If everything was noise, skip the row entirely.
+    if not cleaned:
+        return
     _GAP_LOG.parent.mkdir(parents=True, exist_ok=True)
     rec = {
         "ts": datetime.now(timezone.utc).isoformat(),
         "question": question,
-        "missing": missing or [],
+        "missing": cleaned,
     }
     with _GAP_LOG.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(rec) + "\n")
 
 
-def read_gaps() -> dict[str, int]:
+def read_gaps(*, max_age_days: int = 7) -> dict[str, int]:
+    """Aggregate recent gap terms (noise-filtered).
+
+    Historical jsonl is dirty (punctuation artifacts + off-scope spam). Only count
+    rows within max_age_days so the research agenda tracks *current* card holes.
+    """
     if not _GAP_LOG.is_file():
         return {}
+    cutoff = datetime.now(timezone.utc).timestamp() - max(1, int(max_age_days)) * 86400
     counts: dict[str, int] = {}
     for line in _GAP_LOG.read_text(encoding="utf-8").splitlines():
         if not line.strip():
@@ -185,7 +232,22 @@ def read_gaps() -> dict[str, int]:
             rec = json.loads(line)
         except ValueError:
             continue
-        for term in rec.get("missing", []):
+        ts = rec.get("ts") or ""
+        if ts:
+            try:
+                # Accept both ...Z and +00:00
+                ts_norm = str(ts).replace("Z", "+00:00")
+                age_ts = datetime.fromisoformat(ts_norm)
+                if age_ts.tzinfo is None:
+                    age_ts = age_ts.replace(tzinfo=timezone.utc)
+                if age_ts.timestamp() < cutoff:
+                    continue
+            except ValueError:
+                pass
+        for raw in rec.get("missing", []):
+            term = _normalize_gap_term(str(raw))
+            if not term or len(term) < 3 or term in _GAP_NOISE:
+                continue
             counts[term] = counts.get(term, 0) + 1
     return counts
 

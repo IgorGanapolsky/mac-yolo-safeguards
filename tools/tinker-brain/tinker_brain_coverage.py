@@ -44,6 +44,7 @@ import re
 from typing import Any
 
 # Words that carry no topical signal. Matching on these produces false coverage.
+# Includes low-signal fillers that previously polluted the research agenda.
 _STOPWORDS = frozenset("""
 a an and are as at be been but by can could did do does for from get give go had has
 have how i if in into is it its just like make made may me more most must my no not
@@ -51,13 +52,34 @@ now of on or our out should so than that the their them then there these they th
 to too us use was we were what when where which who why will with would you your
 about after all also any because before between both each how many much need only
 own same some such take then there through under until up very want way well
+things thing exactly week fastest ideal still please help tell show look
 """.split())
 
+# Keep hyphen/compound tokens; strip trailing punctuation so "summary." ≠ a gap term.
 _TOKEN_RE = re.compile(r"[a-z][a-z0-9.\-]{2,}")
+
+# Domain synonyms: question term → answer terms that count as coverage.
+# Fixes "go-to-market summary" answered with SALES_MOTION/CHANNELS without those exact strings.
+_SYNONYMS: dict[str, frozenset[str]] = {
+    "go-to-market": frozenset(
+        {"gtm", "sales", "sales_motion", "channels", "marketing", "funnel", "promo", "positioning"}
+    ),
+    "gtm": frozenset({"go-to-market", "sales", "channels", "marketing", "funnel"}),
+    "summary": frozenset({"overview", "checklist", "plan", "motion", "focus", "gtm"}),
+    "monetize": frozenset({"pricing", "continuity", "revenue", "paid", "subscription", "trial"}),
+    "buyer": frozenset({"icp", "persona", "customer", "user"}),
+    "icp": frozenset({"buyer", "persona", "customer"}),
+}
+
+
+def _normalize_token(token: str) -> str:
+    t = (token or "").lower().strip(".-_")
+    return t
 
 
 def _terms(text: str) -> set[str]:
-    return {t for t in _TOKEN_RE.findall((text or "").lower()) if t not in _STOPWORDS}
+    raw = {_normalize_token(t) for t in _TOKEN_RE.findall((text or "").lower())}
+    return {t for t in raw if t and t not in _STOPWORDS and len(t) >= 3}
 
 
 # Product/brand nouns appear in nearly every card, so a card matching ONLY these has
@@ -81,11 +103,19 @@ def coverage(question: str, answer_text: str, *, threshold: float = 0.34) -> dic
         return {"covered": True, "score": 1.0, "missing": [], "reason": "no substantive terms in question"}
 
     a_terms = _terms(answer_text)
+    answer_lower = (answer_text or "").lower()
+
+    def _hit(term: str) -> bool:
+        if term in a_terms or any(term in a or a in term for a in a_terms if len(a) > 3):
+            return True
+        # Synonym expansion (GTM domain).
+        for syn in _SYNONYMS.get(term, ()):
+            if syn in a_terms or syn in answer_lower:
+                return True
+        return False
+
     # Substring match both ways so "rename"/"renaming" and "trademark"/"trademarks" count.
-    hits = {
-        t for t in q_terms
-        if t in a_terms or any(t in a or a in t for a in a_terms if len(a) > 3)
-    }
+    hits = {t for t in q_terms if _hit(t)}
     score = len(hits) / len(q_terms)
     missing = sorted(q_terms - hits)
 

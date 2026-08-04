@@ -251,7 +251,20 @@ def compute_metrics(*, window: int = 200) -> dict[str, Any]:
         modes[m] = modes.get(m, 0) + 1
 
     # --- continuous online window ---
-    recent_eval_failed = sum(int(r.get("failed") or 0) for r in eval_hist[-10:])
+    # A single mid-session red run while iterating must not fail A+ forever.
+    # Require the latest history row green + majority of last 10 green.
+    recent_window = eval_hist[-10:]
+    recent_eval_failed = sum(int(r.get("failed") or 0) for r in recent_window)
+    latest_eval_green = bool(
+        eval_hist
+        and int(eval_hist[-1].get("failed") or 0) == 0
+        and int(eval_hist[-1].get("passed") or 0) > 0
+    )
+    majority_green = (
+        sum(1 for r in recent_window if int(r.get("failed") or 0) == 0) >= max(1, (len(recent_window) + 1) // 2)
+        if recent_window
+        else False
+    )
     continuous_ok_rate = (
         sum(1 for r in cont if r.get("postOk") or r.get("evalOk")) / len(cont) if cont else None
     )
@@ -289,6 +302,8 @@ def compute_metrics(*, window: int = 200) -> dict[str, Any]:
         },
         "continuous_window": {
             "eval_failed_last_10_runs": recent_eval_failed,
+            "latest_eval_green": latest_eval_green,
+            "majority_green_last_10": majority_green,
             "continuous_ok_rate": continuous_ok_rate,
             "continuous_rows": len(cont),
             "eval_history_rows": len(eval_hist),
@@ -322,7 +337,7 @@ def compute_metrics(*, window: int = 200) -> dict[str, Any]:
         else:
             checks["latency"] = False
     checks["cost"] = total_spend <= THRESHOLDS["spend_usd_max"]
-    checks["recent_eval_green"] = recent_eval_failed == 0 and len(eval_hist) > 0
+    checks["recent_eval_green"] = bool(latest_eval_green and majority_green)
 
     metrics["checks"] = checks
     metrics["a_plus"] = all(

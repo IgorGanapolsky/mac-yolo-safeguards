@@ -240,6 +240,31 @@
         "[SALES_MOTION]"
       ],
       "domain": "cash"
+    },
+    {
+      "id": "gtm_summary_phrase",
+      "question": "Give me the ThumbGate go-to-market summary.",
+      "expect_route": "thumbgate_gtm",
+      "must_contain": [
+        "go-to-market",
+        "api/billing/plan",
+        "never invent"
+      ],
+      "must_not_contain": [],
+      "domain": "gtm"
+    },
+    {
+      "id": "design_partner_gate",
+      "question": "How should ThumbGate design partner outreach work?",
+      "expect_route": "thumbgate_gtm",
+      "must_contain": [
+        "design partner",
+        "gate"
+      ],
+      "must_not_contain": [
+        "endpoint security"
+      ],
+      "domain": "sales"
     }
   ]
 }
