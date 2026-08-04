@@ -7,6 +7,23 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 WRAPPER="$HERE/../poolside-yolo"
 ROOT="$(mktemp -d)"
+
+# Interactive invocations register the ACP image guard in poolside's settings.yaml.
+# Point that at a throwaway file: a test suite must never rewrite the developer's real
+# ~/.config/poolside/settings.yaml, and if it did it would record whatever transient
+# path this checkout happens to live at (a worktree that later gets pruned), leaving
+# `pool` pointing at a command that no longer exists.
+export POOLSIDE_SETTINGS="$ROOT/settings.yaml"
+# Keep the guard's reachability probe off the network in a hermetic suite.
+export POOLSIDE_IMAGE_GUARD_URL="http://127.0.0.1:1/v1"
+# Lane selection consults pool's OWN log directory to detect a blown daily quota, so
+# point that at an empty throwaway dir. Without this the suite reads the developer's
+# real ~/Library/Application Support/poolside/logs and every lane assertion becomes
+# timing-dependent — passing only while the last real 429 is older than the cooldown
+# window. Measured while writing this: 36/36 with aged-out logs, 32/4 with a quota
+# error inside the window. Same hazard, and same fix, as POOLSIDE_SETTINGS above.
+export POOLSIDE_YOLO_LOGDIR="$ROOT/pool-logs"
+mkdir -p "$POOLSIDE_YOLO_LOGDIR"
 pass=0; fail=0
 ok() { echo "  [PASS] $1"; pass=$((pass+1)); }
 no() { echo "  [FAIL] $1"; fail=$((fail+1)); }
@@ -89,6 +106,17 @@ DJSON="$("$WRAPPER" --doctor --json)"
 echo "$DJSON" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['schema']=='poolside-yolo/doctor-v1'; assert d['ok'] is True; assert d['autonomous'] is True; assert d['gatewayUp'] is True; assert d['zeroSpendActive'] is False; assert d['binary'].endswith('pool'); assert d['defaultModel']=='glm-coding'" \
   && ok "doctor --json shape" || no "doctor --json shape"
 
+# 1b. the python3 emitter is the fallback for a machine with NO node — the one machine
+#     where it must work, and the one place it was never exercised. It used to be
+#     unreachable-by-construction: `VAR=... node -e '…' || python3 -c '…'` binds the
+#     assignments to node only, so python3 ran with an empty env and died on
+#     KeyError: 'PYB'. --doctor --json crashed instead of emitting JSON.
+#     POOL_BIN is absolute so hiding node from PATH does not hide the stub.
+DJSON_PY="$(PATH="/usr/bin:/bin:/usr/sbin:/sbin" "$WRAPPER" --doctor --json 2>/dev/null || true)"
+echo "$DJSON_PY" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['schema']=='poolside-yolo/doctor-v1'; assert d['binary'].endswith('pool'); assert 'nativeQuotaExhausted' in d" \
+  && ok "doctor --json works without node (python3 emitter)" \
+  || no "doctor --json without node (got: $(printf '%s' "$DJSON_PY" | head -c 80))"
+
 # 1b. doctor's live model probe costs a real completion, so it must never fire while
 #     the fleet zero-spend gate is on. Unknown must surface as null, never as "fine".
 : > "$ROOT/NO_PAID_SPEND"
@@ -161,6 +189,49 @@ rm -f "$ARGS_OUT"
 grep -q -- "--mode" "$ARGS_OUT" && grep -qx "always-allow" "$ARGS_OUT" && grep -q -- "-C" "$ARGS_OUT" \
   && ok "flag-led invocation forces --mode always-allow" || no "flag-led invocation forces --mode always-allow ($(tr '\n' ' ' < "$ARGS_OUT" 2>/dev/null))"
 
+# 6b-i. Interactive sessions go through the ACP image guard. Without it, a pasted
+#       screenshot returns "400 ... does not support multimodal" AND poisons the
+#       session history, so every later turn — text-only included — fails too.
+rm -f "$ARGS_OUT"
+"$WRAPPER" >/dev/null 2>&1 || true
+grep -qx "HermesImageGuard" "$ARGS_OUT" 2>/dev/null && grep -qx -- "-s" "$ARGS_OUT" \
+  && ok "interactive run is routed through the ACP image guard" \
+  || no "interactive run not guarded ($(tr '\n' ' ' < "$ARGS_OUT" 2>/dev/null))"
+
+# 6b-ii. Opt-out must actually opt out.
+rm -f "$ARGS_OUT"
+POOLSIDE_YOLO_IMAGE_GUARD=off "$WRAPPER" >/dev/null 2>&1 || true
+# Require proof that pool ACTUALLY RAN. "no HermesImageGuard in the args" is also true
+# when the wrapper died before spawning anything — which is exactly what happened on
+# bash 3.2, where an empty "${GUARD_ARGS[@]}" is an unbound variable under `set -u`.
+if [ ! -s "$ARGS_OUT" ]; then
+  no "POOLSIDE_YOLO_IMAGE_GUARD=off never spawned pool (vacuous pass guarded)"
+elif grep -qx "HermesImageGuard" "$ARGS_OUT"; then
+  no "POOLSIDE_YOLO_IMAGE_GUARD=off still injected the guard"
+else
+  ok "POOLSIDE_YOLO_IMAGE_GUARD=off runs unguarded (and pool still ran)"
+fi
+
+# 6b-iii. An explicit -s is the caller's choice; never override it.
+rm -f "$ARGS_OUT"
+"$WRAPPER" -s Poolside >/dev/null 2>&1 || true
+[ "$(grep -c -- "-s" "$ARGS_OUT" 2>/dev/null || echo 0)" -eq 1 ] && grep -qx "Poolside" "$ARGS_OUT" \
+  && ok "explicit -s wins over the image guard (no double agent-server)" \
+  || no "explicit -s was overridden ($(tr '\n' ' ' < "$ARGS_OUT" 2>/dev/null))"
+
+# 6b-iv. `pool exec` has no --agent-server flag, and nothing can paste an image into
+#        it, so the guard must NOT leak onto that path — passing -s there would make
+#        every one-shot run fail on an unknown flag.
+rm -f "$ARGS_OUT"
+"$WRAPPER" exec -p hello >/dev/null 2>&1 || true
+if [ ! -s "$ARGS_OUT" ]; then
+  no "exec path never spawned pool (vacuous pass guarded)"
+elif grep -qx -- "-s" "$ARGS_OUT"; then
+  no "guard leaked onto the exec path (pool exec rejects -s)"
+else
+  ok "exec path stays unguarded (pool exec has no -s flag)"
+fi
+
 # 6c. an explicit --mode is respected (no double --mode)
 rm -f "$ARGS_OUT"
 "$WRAPPER" --mode accept-edits >/dev/null 2>&1 || true
@@ -213,6 +284,54 @@ POOLSIDE_YOLO_CREDENTIALS="$CREDS" "$WRAPPER" "hi" >/dev/null 2>&1 || true
 { grep -qx "BASE=" "$ENV_OUT" && grep -qx "MODEL=" "$ENV_OUT"; } \
   && ok "auto + creds -> native lane (no gateway override)" \
   || no "auto + creds -> native lane ($(tr '\n' ' ' < "$ENV_OUT" 2>/dev/null))"
+
+# 10a-quota. Poolside's free tier has a DAILY cap. When it blows, the credential is
+#     still valid, so native_authed() keeps saying yes and `auto` kept feeding a lane
+#     that could not answer a single prompt — every turn 429ing while --doctor reported
+#     ok:true. That is what "poolside-yolo is completely broken" looked like.
+#     pool logs the rejection itself, so the demotion is a local file read.
+QLOGS="$ROOT/quota-logs"; mkdir -p "$QLOGS"
+printf 'level=ERROR msg="OpenAI API error" error_body="{\\"error\\":\\"usage limit exceeded\\"}"\n' \
+  > "$QLOGS/pool-quota.log"
+rm -f "$ENV_OUT"
+POOLSIDE_YOLO_CREDENTIALS="$CREDS" POOLSIDE_YOLO_LOGDIR="$QLOGS" "$WRAPPER" "hi" >/dev/null 2>&1 || true
+{ grep -q "BASE=http" "$ENV_OUT" 2>/dev/null && grep -q "MODEL=glm-coding" "$ENV_OUT" 2>/dev/null; } \
+  && ok "auto + creds + blown daily quota -> demotes to gateway" \
+  || no "auto + creds + blown quota should demote ($(tr '\n' ' ' < "$ENV_OUT" 2>/dev/null))"
+
+# 10a-quota-negative. The discriminator: a 429 that is NOT Poolside's daily cap must
+#     NOT demote. The gateway's own chain 429s constantly (OpenRouter free tiers, z.ai
+#     code 1310); rerouting TO the gateway because the GATEWAY is rate-limited would be
+#     strictly worse than doing nothing. Match the specific body, never a bare "429".
+printf 'level=ERROR msg="OpenAI API error" error_body="{\\"error\\":\\"429 rate limited\\"}"\n' \
+  > "$QLOGS/pool-quota.log"
+rm -f "$ENV_OUT"
+POOLSIDE_YOLO_CREDENTIALS="$CREDS" POOLSIDE_YOLO_LOGDIR="$QLOGS" "$WRAPPER" "hi" >/dev/null 2>&1 || true
+{ grep -qx "BASE=" "$ENV_OUT" && grep -qx "MODEL=" "$ENV_OUT"; } \
+  && ok "unrelated 429 in the log does NOT demote off native" \
+  || no "unrelated 429 wrongly demoted ($(tr '\n' ' ' < "$ENV_OUT" 2>/dev/null))"
+
+# 10a-quota-stale. Self-healing: the cooldown is an mtime window, so once the daily cap
+#     resets and pool stops logging, native is preferred again with no state to clear.
+printf 'level=ERROR msg="OpenAI API error" error_body="{\\"error\\":\\"usage limit exceeded\\"}"\n' \
+  > "$QLOGS/pool-quota.log"
+touch -t 202001010000 "$QLOGS/pool-quota.log"
+rm -f "$ENV_OUT"
+POOLSIDE_YOLO_CREDENTIALS="$CREDS" POOLSIDE_YOLO_LOGDIR="$QLOGS" "$WRAPPER" "hi" >/dev/null 2>&1 || true
+{ grep -qx "BASE=" "$ENV_OUT" && grep -qx "MODEL=" "$ENV_OUT"; } \
+  && ok "quota error older than the cooldown -> native again" \
+  || no "stale quota error still demoting ($(tr '\n' ' ' < "$ENV_OUT" 2>/dev/null))"
+
+# 10a-quota-explicit. An EXPLICIT lane=native is never rerouted. Naming a lane and
+#     silently getting a different one is the silent degradation this wrapper removes.
+printf 'level=ERROR msg="OpenAI API error" error_body="{\\"error\\":\\"usage limit exceeded\\"}"\n' \
+  > "$QLOGS/pool-quota.log"
+rm -f "$ENV_OUT"
+POOLSIDE_YOLO_CREDENTIALS="$CREDS" POOLSIDE_YOLO_LOGDIR="$QLOGS" POOLSIDE_YOLO_LANE=native \
+  "$WRAPPER" "hi" >/dev/null 2>&1 || true
+{ grep -qx "BASE=" "$ENV_OUT" && grep -qx "MODEL=" "$ENV_OUT"; } \
+  && ok "explicit lane=native is not rerouted by quota" \
+  || no "explicit lane=native was rerouted ($(tr '\n' ' ' < "$ENV_OUT" 2>/dev/null))"
 
 # 10b. an exported gateway override in the caller's shell must NOT drag a native run
 #      back onto the gateway — the wrapper unsets, it does not merely skip setting.

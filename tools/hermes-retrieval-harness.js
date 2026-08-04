@@ -21,7 +21,26 @@ const DEFAULT_IGNORE_DIRS = new Set([
   'parallel-research',
   'Pods',
   'vendor',
+  // Heavy non-source dumps that filled the 5k corpus cap and hid tools/* (2026-08-03)
+  'Compiled-Vaults',
+  'content-engine',
+  'proofs',
+  'tmp',
+  'ios',
 ]);
+
+/** Index these first so tools/tests/docs stay visible under maxFiles caps. */
+const PRIORITY_WALK_ROOTS = [
+  'tools',
+  'tests',
+  'docs',
+  'evals',
+  'scripts',
+  'hermes-mobile',
+  'apps',
+  '.github',
+  'coordination',
+];
 
 const TEXT_EXTENSIONS = new Set([
   '.cjs',
@@ -65,7 +84,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     start: 1,
     end: 80,
     limit: 8,
-    maxFiles: 5000,
+    maxFiles: 8000,
     maxBytes: 240000,
     json: false,
     help: false,
@@ -117,12 +136,29 @@ function shouldIgnoreDir(name) {
   return DEFAULT_IGNORE_DIRS.has(name);
 }
 
-function tokenize(value) {
-  return String(value || '')
-    .toLowerCase()
-    .split(/[^a-z0-9_.-]+/)
-    .map((token) => token.trim())
-    .filter((token) => token.length >= 2 && !STOP_WORDS.has(token));
+function tokenize(value, options = {}) {
+  // Document-side dual tokenization: every word contributes its full lowercase
+  // form, and — when splitCamel is set (used for indexed path/text, NOT for
+  // queries) — also its camelCase parts. "emptyStream" -> [emptystream, empty,
+  // stream], so the query "empty stream" matches the identifier, while the
+  // compound token is preserved for exact-match scoring. Queries are NOT
+  // expanded: splitting "ThumbGate" into thumb+gate on the query side flooded
+  // the ranking with every "*-gate" file in the repo and regressed the eval.
+  const splitCamel = Boolean(options.splitCamel);
+  const words = String(value || '').split(/[^a-zA-Z0-9_.-]+/);
+  const tokens = [];
+  for (const word of words) {
+    if (!word) continue;
+    const full = word.toLowerCase().trim();
+    if (full.length >= 2 && !STOP_WORDS.has(full)) tokens.push(full);
+    if (splitCamel && /[a-z][A-Z]/.test(word)) {
+      for (const part of word.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().split(/[^a-z0-9_.-]+/)) {
+        const trimmed = part.trim();
+        if (trimmed.length >= 2 && trimmed !== full && !STOP_WORDS.has(trimmed)) tokens.push(trimmed);
+      }
+    }
+  }
+  return [...new Set(tokens)];
 }
 
 function readTextSlice(filePath, maxBytes) {
@@ -137,8 +173,9 @@ function readTextSlice(filePath, maxBytes) {
 
 function walkFiles(repo, options = {}) {
   const root = path.resolve(repo);
-  const maxFiles = options.maxFiles || 5000;
+  const maxFiles = options.maxFiles || 8000;
   const files = [];
+  const seen = new Set();
 
   function visit(dir) {
     if (files.length >= maxFiles) return;
@@ -159,11 +196,19 @@ function walkFiles(repo, options = {}) {
       if (entry.isDirectory()) {
         if (!shouldIgnoreDir(entry.name)) visit(fullPath);
       } else if (entry.isFile() && isTextFile(fullPath)) {
+        if (seen.has(relativePath)) continue;
+        seen.add(relativePath);
         files.push(relativePath);
       }
     }
   }
 
+  // Priority roots first so tools/ml-propensity-train.js is never beyond the cap.
+  for (const rel of PRIORITY_WALK_ROOTS) {
+    const full = path.join(root, rel);
+    if (fs.existsSync(full)) visit(full);
+  }
+  // Remaining top-level entries (business_os, etc.) fill the rest of the budget.
   visit(root);
   return files;
 }
@@ -194,9 +239,36 @@ function buildInventory(options = {}) {
   };
 }
 
+function pathQualityMultiplier(relativePath) {
+  // Mirror .grepai path boosts/penalties so production routes beat test clones of
+  // the same tokens (e.g. ThumbGatePromoCard.test vs app/api/lessons/route).
+  // Measured 2026-07-29: lessons-feedback fixture failed because k=10 was filled
+  // with __tests__ / PromoCard hits (path:thumbgate + path:thumbs) while the API
+  // route ranked #20.
+  const p = String(relativePath || '').replace(/\\/g, '/');
+  let m = 1;
+  // Prefer first-party tools/ over business_os dumps — but not so much that
+  // app/api production routes (e.g. lessons) fall out of top-k (2026-08-03).
+  if (/^tools\//i.test(p)) m *= 1.22;
+  if (
+    /\/__tests__\/|\/tests\/|\/test\/|\.test\.|\.spec\.|\/mocks?\/|\/fixtures?\/|\/testdata\//i.test(
+      p,
+    )
+  ) {
+    m *= 0.45;
+  }
+  if (/\/generated\/|\.generated\.|\.gen\./i.test(p)) m *= 0.4;
+  // Do NOT penalize docs/ — several golden queries require docs/HERMES-*.md
+  // (cloud-failover, hardware-leash). Test noise is the real problem.
+  if (/\/(src|lib|app)\//i.test(p)) m *= 1.15;
+  // API routes are the production surface agents must hit first.
+  if (/\/app\/api\//i.test(p)) m *= 1.45;
+  return m;
+}
+
 function scoreFile(queryTokens, relativePath, text) {
-  const pathTokens = tokenize(relativePath);
-  const textTokens = tokenize(text);
+  const pathTokens = tokenize(relativePath, { splitCamel: true });
+  const textTokens = tokenize(text, { splitCamel: true });
   const textSet = new Set(textTokens);
   let score = 0;
   const reasons = [];
@@ -219,18 +291,74 @@ function scoreFile(queryTokens, relativePath, text) {
     }
   }
 
-  return { score, reasons: [...new Set(reasons)].slice(0, 6) };
+  // Compound path tokens: query bigrams that appear joined in the path
+  // (hardware+leash → hardware-leash, cloud+failover → CLOUD-FAILOVER).
+  // This lifts canonical docs/tools over adjacent-but-generic hits without
+  // special-casing product names. Measured 2026-07-29 on hardware-leash MRR.
+  const pathLower = String(relativePath || '').toLowerCase().replace(/\\/g, '/');
+  let compounds = 0;
+  for (let i = 0; i < queryTokens.length - 1; i += 1) {
+    const a = queryTokens[i];
+    const b = queryTokens[i + 1];
+    if (a.length < 3 || b.length < 3) continue;
+    if (
+      pathLower.includes(`${a}-${b}`) ||
+      pathLower.includes(`${a}_${b}`) ||
+      pathLower.includes(`${a}${b}`)
+    ) {
+      compounds += 1;
+      score += 22;
+    }
+  }
+  if (compounds > 0) reasons.push(`compound:${compounds}`);
+
+  // Exact directory/basename segment equality (not substring) for non-test paths.
+  const segments = pathLower
+    .split('/')
+    .flatMap((seg) => tokenize(seg.replace(/\.[^.]+$/, ''), { splitCamel: true }));
+  const segmentSet = new Set(segments);
+  let segmentHits = 0;
+  for (const token of queryTokens) {
+    if (segmentSet.has(token)) {
+      segmentHits += 1;
+      score += 6;
+    }
+  }
+  if (segmentHits > 0) reasons.push(`segment:${segmentHits}`);
+
+  const mult = pathQualityMultiplier(relativePath);
+  if (mult !== 1 && score > 0) {
+    score = Math.max(1, Math.round(score * mult));
+    reasons.push(mult < 1 ? `penalty:path×${mult}` : `boost:path×${mult}`);
+  }
+
+  return { score, reasons: [...new Set(reasons)].slice(0, 8) };
 }
 
 function firstSnippet(text, queryTokens) {
+  // Best-window snippet: instead of the FIRST line containing any query token
+  // (which favors imports/headers), slide a 3-line window and return the one
+  // covering the most DISTINCT query tokens. Ties resolve to the earliest
+  // window, preserving the old behavior when all windows are equal.
   const lines = String(text || '').split('\n');
-  const matchIndex = lines.findIndex((line) => {
-    const lower = line.toLowerCase();
-    return queryTokens.some((token) => lower.includes(token));
-  });
-  if (matchIndex < 0) return lines.slice(0, 3).join(' ').replace(/\s+/g, ' ').trim().slice(0, 280);
+  const lowered = lines.map((line) => line.toLowerCase());
+  let bestIndex = -1;
+  let bestCoverage = 0;
+  for (let index = 0; index < lowered.length; index += 1) {
+    const windowText = lowered.slice(Math.max(0, index - 1), Math.min(lowered.length, index + 2)).join('\n');
+    let coverage = 0;
+    for (const token of queryTokens) {
+      if (windowText.includes(token)) coverage += 1;
+    }
+    if (coverage > bestCoverage) {
+      bestCoverage = coverage;
+      bestIndex = index;
+      if (coverage === queryTokens.length) break;
+    }
+  }
+  if (bestIndex < 0) return lines.slice(0, 3).join(' ').replace(/\s+/g, ' ').trim().slice(0, 280);
   return lines
-    .slice(Math.max(0, matchIndex - 1), Math.min(lines.length, matchIndex + 2))
+    .slice(Math.max(0, bestIndex - 1), Math.min(lines.length, bestIndex + 2))
     .join(' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -262,10 +390,25 @@ function retrieve(query, options = {}) {
     });
   }
   candidates.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
+  const maxFiles = options.maxFiles || 8000;
+  const capReached = inventory.fileCount >= maxFiles;
+  const capNear = !capReached && inventory.fileCount >= Math.floor(maxFiles * 0.9);
+  if (capReached || capNear) {
+    // Silent truncation is how retrieval quality degrades without anyone
+    // noticing; surface it on stderr so logs catch it before users do.
+    process.stderr.write(
+      `[hermes-retrieval-harness] WARNING: corpus ${inventory.fileCount} files is ${
+        capReached ? 'AT' : 'within 10% of'
+      } the maxFiles cap (${maxFiles}); files beyond the cap are invisible to retrieval. Raise --max-files.\n`,
+    );
+  }
   return {
     query,
     repo,
     fileCount: inventory.fileCount,
+    maxFiles,
+    capReached,
+    capNear,
     matches: candidates.slice(0, options.limit || 8),
   };
 }

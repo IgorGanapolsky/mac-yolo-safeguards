@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "updated": "2026-08-03",
+  "notes": "Taste layer golden set for ThumbGate/Hermes. good → must PASS; slop → must FAIL. Not personalization — quality taste. Refresh when brand narrative or slop patterns shift.",
+  "cases": [
+    {
+      "id": "promo-good-continuity",
+      "domain": "promo_social",
+      "label": "good",
+      "expect": "pass",
+      "text": "Your team's agents stop when the Mac sleeps. Continuity keeps a leased cloud path warm so work continues. Start at https://thumbgate.app/?utm_source=linkedin&utm_campaign=continuity-202608&cta_id=li_cont — not affiliated with Nous Research; we build on open Hermes tooling."
+    },
+    {
+      "id": "promo-slop-hype",
+      "domain": "promo_social",
+      "label": "slop",
+      "expect": "fail",
+      "text": "In today's fast-paced world, unleash the power of seamless AI to revolutionize your workflow! Excited to share our world-class game-changer — 50k+ users trust us as the official Nous partner!"
+    },
+    {
+      "id": "promo-slop-store-only-fake",
+      "domain": "promo_social",
+      "label": "slop",
+      "expect": "fail",
+      "text": "We are the #1 app on the Play Store with a million installs. Download now and transform your business with cutting-edge synergy!"
+    },
+    {
+      "id": "ship-good-matrix",
+      "domain": "ship_status",
+      "label": "good",
+      "expect": "pass",
+      "text": "Reddit fan-out: 1 LIVE (t1_p1ccuu5 on 1uq5aqg); 3 FAIL (reddit rate-limit 500). results.json okCount=1. Next: wait cooldown, re-run cookie path. Not claiming all LIVE."
+    },
+    {
+      "id": "ship-slop-all-live",
+      "domain": "ship_status",
+      "label": "slop",
+      "expect": "fail",
+      "text": "Everything is LIVE and shipped! Fan-out is complete. All 5 replies are published. 100% working. You're absolutely right this went great!"
+    },
+    {
+      "id": "ship-good-device",
+      "domain": "ship_status",
+      "label": "good",
+      "expect": "pass",
+      "text": "Device claim blocked until e2e=pass. latest.json e2e=fail unit=pass. Next: kick continuous E2E, re-check before any works-on-device language."
+    },
+    {
+      "id": "email-good",
+      "domain": "outreach_email",
+      "label": "good",
+      "expect": "pass",
+      "text": "Saw your agent loop burned $2k overnight on a stuck tool call. We run ThumbGate Continuity + leash gates for Hermes fleets. If useful, reply with your setup and I'll send a 15-min diagnostic outline — igor@igorganapolsky.com."
+    },
+    {
+      "id": "email-slop",
+      "domain": "outreach_email",
+      "label": "slop",
+      "expect": "fail",
+      "text": "I hope this email finds you well! Excited to share our industry-leading solution that will revolutionize your business. 50k+ users. Official partner. Let's unleash synergy — book a call anytime!"
+    },
+    {
+      "id": "ui-good",
+      "domain": "product_ui",
+      "label": "good",
+      "expect": "pass",
+      "text": "Can't reach your computer. Check Wi‑Fi or USB, then tap Retry. If you use Tailscale, confirm the phone and Mac are on the same tailnet."
+    },
+    {
+      "id": "ui-slop-jargon",
+      "domain": "product_ui",
+      "label": "slop",
+      "expect": "fail",
+      "text": "Amazing incredible computer link is seamless! Your macHttpOk gateway profile pair payload is world-class!!!"
+    }
+  ]
+}

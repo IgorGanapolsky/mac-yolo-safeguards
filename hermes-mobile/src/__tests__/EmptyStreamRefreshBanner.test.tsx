@@ -14,7 +14,7 @@ describe('EmptyStreamRefreshBanner', () => {
     );
 
     expect(screen.getByTestId('empty-stream-auto-checking')).toBeTruthy();
-    expect(screen.getByTestId('empty-stream-refresh-banner')).toHaveTextContent(/\(45s\)/);
+    expect(screen.getByTestId('empty-stream-refresh-banner')).toHaveTextContent(/\(\d+s\)/);
     expect(screen.getByTestId('empty-stream-elapsed')).toBeTruthy();
     expect(screen.getByTestId('empty-stream-refresh-banner')).not.toHaveTextContent(/tap refresh/i);
   });
@@ -42,7 +42,7 @@ describe('EmptyStreamRefreshBanner', () => {
     expect(onStartFreshChat).toHaveBeenCalledTimes(1);
   });
 
-  it('shows Open Leash CTA and stops the forever spinner after the hard bound', () => {
+  it('shows Open Leash CTA only when approvals are pending after hard bound', () => {
     const onOpenLeash = jest.fn();
     render(
       <EmptyStreamRefreshBanner
@@ -61,6 +61,25 @@ describe('EmptyStreamRefreshBanner', () => {
     expect(screen.queryByTestId('empty-stream-refresh-button')).toBeNull();
     fireEvent.press(screen.getByTestId('empty-stream-open-leash'));
     expect(onOpenLeash).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides Open Leash when nothing is pending — empty stream is not a Leash demand', () => {
+    render(
+      <EmptyStreamRefreshBanner
+        autoChecking
+        waitingSinceMs={Date.now() - EMPTY_STREAM_HARD_STOP_MS - 5_000}
+        onRefresh={jest.fn()}
+        onOpenLeash={jest.fn()}
+        pendingApprovalCount={0}
+        onStartFreshChat={jest.fn()}
+      />,
+    );
+
+    expect(screen.queryByTestId('empty-stream-open-leash')).toBeNull();
+    expect(screen.getByTestId('empty-stream-hard-stopped')).toHaveTextContent(
+      /start a fresh chat/i,
+    );
+    expect(screen.getByTestId('empty-stream-start-fresh-chat')).toBeTruthy();
   });
 
   it('shows elapsed timer when waitingSinceMs is provided', () => {

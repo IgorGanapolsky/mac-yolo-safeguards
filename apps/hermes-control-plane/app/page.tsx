@@ -93,7 +93,7 @@ export default function Home() {
           <p className="eyebrow"><span className="live-dot" /> Hermes remote control</p>
           <h1>Hermes dashboard<br /><span>from any browser.</span></h1>
           <p className="hero-lede">
-            Chat and control your Hermes agents on the web. Continuity can pick up eligible work on a VPS when your Mac is offline — a capability we&apos;re still proving out in real use.
+            Chat with your Hermes agents from any browser — and approve or deny each tool call before it runs on your Mac. When the Mac goes offline, optional Continuity hands eligible work to a fenced VPS runner under the policy you set.
           </p>
           <LandingAuthHero />
           <p className="signin-note">Hermes Web by ThumbGate. Continue with Google today — more providers activate once configured.</p>
@@ -166,7 +166,7 @@ export default function Home() {
             <ul>
               <li>Everything in Pro Continuity</li>
               <li>500 cloud continuations / 30 days</li>
-              <li>Claude 3.5 Sonnet &amp; GPT-4o access</li>
+              <li>Auto model routing across providers</li>
               <li>Custom BYO API Key support</li>
               <li>Priority Fly.io cloud VPS runner</li>
             </ul>
