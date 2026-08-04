@@ -827,4 +827,24 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
   });
 
 
+
+  it('S53: zero demo forever — no store-review demo flag, policy hard-denies store demo (2026-08-03)', () => {
+    const eas = JSON.parse(read('hermes-mobile/eas.json'));
+    const iosEnv = (eas.build.production.ios && eas.build.production.ios.env) || {};
+    expect(iosEnv.EXPO_PUBLIC_STORE_REVIEW_DEMO).toBeUndefined();
+    for (const cfg of Object.values(eas.build as Record<string, any>)) {
+      for (const env of [cfg.env, cfg.ios?.env, cfg.android?.env].filter(Boolean)) {
+        expect((env as Record<string, unknown>).EXPO_PUBLIC_STORE_REVIEW_DEMO).toBeUndefined();
+      }
+    }
+    const policy = read('hermes-mobile/src/utils/demoModePolicy.ts');
+    expect(policy).toContain('ZERO DEMO FOREVER');
+    expect(policy).toMatch(/export function isStoreReviewDemoBuild\(\)[^{]*\{[\s\S]*?return false/);
+    expect(policy).toMatch(/export function isDemoModeAllowed\(\)[^{]*\{[\s\S]*?return isE2eAutomationBuild\(\)/);
+    expect(policy).not.toContain('isStoreReviewDemoBuild() ||');
+    expect(policy).not.toMatch(/return __DEV__ \|\|/);
+    const appConfig = read('hermes-mobile/app.config.js');
+    expect(appConfig).toMatch(/storeReviewDemo = false/);
+  });
+
 });
