@@ -92,7 +92,8 @@ export function formatGatewayHostLabel(
       fromHealthName?.replace(/\.local$/i, '') ??
       fromUrl.hostname?.replace(/\.local$/i, '') ??
       'Computer';
-    return `${name} · USB`;
+    // Tailscale-only copy: the endpoint slot names the computer, never the cable.
+    return name;
   }
 
   const fromHealthName = isUsableHost(health?.hostname);
@@ -162,7 +163,7 @@ export function formatLeashConnectionDisplay(input: {
         const usb = isLoopbackGatewayUrl(input.gatewayUrl);
         const name = machineName.replace(/\.local$/i, '');
         return {
-          headline: usb ? `Connected via USB · ${name}` : `Connected · ${name}`,
+          headline: `Connected · ${name}`,
           machineName,
           lanIp: usb ? undefined : lanIp,
           footnote: resolveOptionalApprovalsFootnote({

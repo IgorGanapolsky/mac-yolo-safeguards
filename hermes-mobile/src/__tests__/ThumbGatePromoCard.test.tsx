@@ -23,14 +23,25 @@ describe('ThumbGatePromoCard', () => {
     jest.restoreAllMocks();
   });
 
-  it('renders the paid companion offer and opens pricing with analytics', async () => {
-    const { getByTestId, getByText } = render(
+  it('renders short consumer copy and one open CTA — no coding or install essay', async () => {
+    const { getByTestId, getByText, queryByText, queryByTestId } = render(
       <ThumbGatePromoCard surface="connection_unreachable" />,
     );
 
     expect(getByTestId('thumbgate-promo-connection_unreachable')).toBeTruthy();
-    expect(getByText('Upgrade Hermes with ThumbGate')).toBeTruthy();
-    expect(getByText('See ThumbGate plans')).toBeTruthy();
+    expect(getByText('ThumbGate.app')).toBeTruthy();
+    expect(getByText('Web dashboard and Continuity when your computer is offline.')).toBeTruthy();
+    expect(getByText('Open ThumbGate.app')).toBeTruthy();
+
+    // Must not pollute Leash with agent/dev manuals.
+    expect(queryByText(/Coding agents/i)).toBeNull();
+    expect(queryByText(/one-line Mac installer/i)).toBeNull();
+    expect(queryByText(/npx skills/i)).toBeNull();
+    expect(queryByTestId('thumbgate-facilitation-steps')).toBeNull();
+    expect(queryByTestId('thumbgate-connector-install-command')).toBeNull();
+    expect(queryByTestId('thumbgate-promo-share-installer')).toBeNull();
+    expect(queryByTestId('thumbgate-promo-share-skill')).toBeNull();
+
     expect(trackProductEvent).toHaveBeenCalledWith('thumbgate_promo_view', {
       surface: 'connection_unreachable',
     });
@@ -41,6 +52,7 @@ describe('ThumbGatePromoCard', () => {
       expect(trackProductEvent).toHaveBeenCalledWith('thumbgate_promo_tap', {
         surface: 'connection_unreachable',
         url: THUMBGATE_WEB_URL,
+        action: 'open_web',
       });
       expect(Linking.openURL).toHaveBeenCalledWith(THUMBGATE_WEB_URL);
     });

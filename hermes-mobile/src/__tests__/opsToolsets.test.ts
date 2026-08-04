@@ -168,7 +168,7 @@ describe('opsToolsets', () => {
     ];
 
     const { essentials, advanced } = partitionMobileToolsets(toolsets);
-    expect(essentials.map((toolset) => toolset.name)).toEqual(['session_search', 'clarify']);
+    expect(essentials.map((toolset) => toolset.name)).toEqual(['clarify', 'session_search']);
     expect(advanced.map((toolset) => toolset.name)).toEqual(['image_gen', 'spotify']);
     expect(advanced.some((toolset) => toolset.name === 'homeassistant')).toBe(false);
     expect(advanced.some((toolset) => toolset.name === 'x_search')).toBe(false);

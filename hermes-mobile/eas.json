@@ -65,7 +65,6 @@
       "ios": {
         "simulator": false,
         "env": {
-          "EXPO_PUBLIC_STORE_REVIEW_DEMO": "1",
           "SENTRY_DISABLE_AUTO_UPLOAD": "true"
         }
       },

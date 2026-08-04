@@ -216,7 +216,8 @@ export function freshUserOnboardingSteps(input: {
 }
 
 export function freshUserPrimaryActionLabel(showUsbFix: boolean): string {
-  return showUsbFix ? 'Fix USB connection' : 'Find computers';
+  // Tailscale-only copy: the repair is named by what it does, never by the cable.
+  return showUsbFix ? 'Fix computer link' : 'Find computers';
 }
 
 export function freshUserConnectionTitle(input: {
@@ -228,7 +229,7 @@ export function freshUserConnectionTitle(input: {
   tailscaleSearching?: boolean;
 }): string {
   if (input.usbHostMismatch) {
-    return 'Wrong computer plugged in';
+    return 'Wrong computer connected';
   }
   if (input.tailscaleSearching) {
     return 'On Tailscale — adding your computer';
@@ -240,7 +241,7 @@ export function freshUserConnectionTitle(input: {
     return 'Finding your computer…';
   }
   if (input.showUsbFix) {
-    return 'USB connection needs setup';
+    return 'Computer link needs setup';
   }
   if (input.freshUser) {
     return 'Connect your computer';
@@ -286,11 +287,11 @@ export function freshUserConnectionBody(input: {
   }
   if (input.showUsbFix) {
     return input.macLabel
-      ? `Your phone is plugged into ${input.macLabel}, but the USB link is not ready yet. Tap Fix USB connection.`
-      : 'Your phone is plugged in, but the USB link is not ready yet. Tap Fix USB connection.';
+      ? `Your phone is linked to ${input.macLabel}, but that link is not ready yet. Tap Fix computer link.`
+      : 'Your phone is linked to your computer, but that link is not ready yet. Tap Fix computer link.';
   }
   if (input.tailscaleSearching) {
-    return 'On Tailscale — searching for your computer. This works without a USB cable.';
+    return 'On Tailscale — searching for your computer. This works from anywhere.';
   }
   if (input.freshUser) {
     return 'Follow the steps below — no technical setup on your phone.';

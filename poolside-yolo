@@ -68,6 +68,18 @@ MARKER="${HERMES_ZERO_SPEND_MARKER:-$HOME/.hermes/NO_PAID_SPEND}"
 LANE="${POOLSIDE_YOLO_LANE:-auto}"
 KNOWN_LANES="auto native gateway local"
 
+# Image guard. `pool acp` advertises promptCapabilities.image=true, but the only
+# models it serves (poolside/laguna-s-2.1, poolside/laguna-xs-2.1) are text-only. So
+# the TUI accepts a pasted screenshot, inference returns
+#   400 ... This model does not support multimodal (image/video/audio) inputs
+# and — because pool replays the whole conversation every turn — that image stays in
+# history and kills EVERY later prompt in the session, text-only ones included. A
+# session bricked this way stays bricked (observed: 48 consecutive failures over 18
+# hours). poolside-acp-imageguard proxies the ACP stream to make that impossible.
+# Set POOLSIDE_YOLO_IMAGE_GUARD=off to run unguarded.
+IMAGE_GUARD_NAME="HermesImageGuard"
+IMAGE_GUARD_ENABLED="${POOLSIDE_YOLO_IMAGE_GUARD:-on}"
+
 # The "never ask me for permission" mode. Overridable, but it must still be a mode
 # the agent server really advertises.
 YOLO_MODE="${POOLSIDE_YOLO_MODE:-always-allow}"
@@ -101,6 +113,41 @@ mode_known() {
   local m
   for m in $KNOWN_MODES; do [[ "$m" == "$1" ]] && return 0; done
   return 1
+}
+
+# The guard ships beside this wrapper. Resolve through the symlink so an install at
+# ~/.local/bin/poolside-yolo still finds the copy in the repo it points at.
+resolve_image_guard() {
+  local self
+  self="$( (readlink -f "${BASH_SOURCE[0]}" 2>/dev/null) || (python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "${BASH_SOURCE[0]}" 2>/dev/null) )"
+  [[ -z "$self" ]] && return 1
+  local cand="${self%/*}/poolside-acp-imageguard"
+  [[ -x "$cand" ]] || return 1
+  printf '%s\n' "$cand"
+}
+
+# Idempotent: adds the agent_servers entry only when it is missing, and refreshes the
+# recorded path when the repo has moved. Failure is never fatal — an unguarded run is
+# still better than no run, it just gets a warning.
+ensure_image_guard() {
+  local guard="$1"
+  "$guard" --install >/dev/null 2>&1
+}
+
+# Deliberately a file read, not `$guard --doctor`: doctor probes the vision gateway,
+# and this runs on EVERY interactive launch. Asking "is it registered?" must not cost a
+# network round trip (or a multi-second stall whenever the gateway happens to be down).
+image_guard_settings() {
+  printf '%s\n' "${POOLSIDE_SETTINGS:-${XDG_CONFIG_HOME:-$HOME/.config}/poolside/settings.yaml}"
+}
+
+image_guard_installed() {
+  local guard="$1" settings
+  settings="$(image_guard_settings)"
+  [[ -f "$settings" ]] || return 1
+  # Registered AND pointing at THIS copy — a stale entry left behind by a pruned
+  # worktree names a command that no longer exists, and pool would fail to start.
+  grep -q "^[[:space:]]\+${IMAGE_GUARD_NAME}:" "$settings" && grep -qF "$guard" "$settings"
 }
 
 resolve_pool() {
@@ -139,6 +186,22 @@ resolve_creds() {
   printf '%s\n' "${XDG_CONFIG_HOME:-$HOME/.config}/poolside/credentials.json"
 }
 
+# Where pool writes its own logs. Ask the binary, exactly as resolve_creds does:
+# `pool --help` MISPRINTS this as ".../poolside/pool/logs" while `pool config` gives the
+# real ".../poolside/logs", so parsing help output would silently scan an empty dir —
+# and an empty dir is indistinguishable from "no quota error", which would make the
+# demotion below fail open forever.
+resolve_logdir() {
+  local bin="$1" line
+  # The env override is checked BEFORE shelling out, so callers that set it (the
+  # hermetic tests, anyone with a non-standard layout) never spawn the binary at all.
+  if [[ -n "${POOLSIDE_YOLO_LOGDIR:-}" ]]; then printf '%s\n' "$POOLSIDE_YOLO_LOGDIR"; return 0; fi
+  [[ -n "$bin" && -x "$bin" ]] || { printf '%s\n' "$HOME/Library/Application Support/poolside/logs"; return 0; }
+  line="$("$bin" config 2>/dev/null | sed -n 's/^[[:space:]]*log directory:[[:space:]]*//p' | head -n1)"
+  [[ -n "$line" ]] && { printf '%s\n' "$line"; return 0; }
+  printf '%s\n' "$HOME/Library/Application Support/poolside/logs"
+}
+
 # Is a native lane configured? Two ways, and BOTH count:
 #   1. a non-empty credentials file, written by `pool login`
 #   2. an inherited POOLSIDE_API_KEY — docs.poolside.ai: "For automation environments,
@@ -160,6 +223,41 @@ native_authed() {
   [[ -n "${POOLSIDE_API_KEY:-}" && "${POOLSIDE_API_KEY:-}" != "$GATEWAY_PLACEHOLDER_KEY" ]]
 }
 
+# Poolside's free tier has a DAILY cap, and blowing it is a THIRD state native_authed()
+# cannot see: the credential is still perfectly valid, so `auto` kept feeding a lane that
+# could not answer a single prompt. Every turn died with
+#   429 Too Many Requests: Daily limit exceeded. Usage limit resets in 2 hours.
+# while --doctor still reported ok:true and the gateway sat up and answering. From the
+# outside that is indistinguishable from "poolside-yolo is completely broken" (reported
+# twice by Igor on 2026-07-30, reproduced cold with a one-word prompt).
+#
+# Detection is a LOCAL FILE READ on purpose. pool logs the rejection itself:
+#   level=ERROR msg="OpenAI API error" error_body="{\"error\":\"usage limit exceeded\"}"
+# so there is no probe, no network round trip, no added latency on every run, and — the
+# point — no quota spent in order to discover that quota is gone. A pre-flight
+# completion would burn the very budget it is testing.
+#
+# Match that SPECIFIC body, never a bare "429": the gateway's own chain 429s constantly
+# (OpenRouter free tiers, z.ai code 1310), and demoting *to* the gateway because the
+# gateway is rate-limited would be worse than doing nothing.
+#
+# The -mmin window makes this self-healing: once the daily cap resets, pool stops
+# logging the error, the window lapses, and native is preferred again on its own. That
+# is why it does not parse "resets in 2 hours" — a wall-clock deadline parsed out of a
+# vendor string is a second thing to get wrong, and it fails closed if the wording ever
+# changes.
+NATIVE_QUOTA_COOLDOWN_MIN="${POOLSIDE_YOLO_QUOTA_COOLDOWN_MIN:-20}"
+native_quota_exhausted() {
+  local dir="$1" f
+  [[ "${POOLSIDE_YOLO_QUOTA_DEMOTE:-on}" == "off" ]] && return 1
+  [[ -n "$dir" && -d "$dir" ]] || return 1
+  while IFS= read -r f; do
+    [[ -n "$f" ]] || continue
+    grep -q 'usage limit exceeded' "$f" 2>/dev/null && return 0
+  done < <(find "$dir" -type f -name '*.log' -mmin "-$NATIVE_QUOTA_COOLDOWN_MIN" 2>/dev/null)
+  return 1
+}
+
 # Resolve LANE=auto to a concrete lane. Order is deliberate:
 #   1. zero-spend marker wins over everything (unchanged policy: no paid/metered calls)
 #   2. native  — free, independent quota, no shared failure domain with the fleet
@@ -177,11 +275,26 @@ native_authed() {
 # forced `local` — misleading diagnostics precisely during policy enforcement, which is
 # the exact failure class this wrapper exists to eliminate.
 select_lane() {
-  local creds="$1" want="$LANE"
+  local creds="$1" bin="${2:-}" want="$LANE"
+  # Zero-spend is resolved FIRST. It outranks every other lane rule, so deciding it up
+  # front means the quota probe below never runs for a lane policy is about to override
+  # anyway — and, because that probe may shell out to `pool config`, it also keeps the
+  # blocked-by-policy paths free of any spawn at all.
+  if [[ -e "$MARKER" ]]; then printf 'local\n'; return 0; fi
   if [[ "$want" == auto ]]; then
-    if native_authed "$creds"; then want=native; else want=gateway; fi
+    if native_authed "$creds"; then
+      want=native
+      # Configured but out of daily quota -> prefer a lane that can actually answer.
+      # Resolved LAZILY (only here, only for auto+native) because resolve_logdir may
+      # spawn `pool config`: every other path — explicit lane, zero-spend, a failed
+      # guard — must still reach its exit without starting the binary.
+      #
+      # Only `auto` is rerouted. An EXPLICIT POOLSIDE_YOLO_LANE=native still runs (and
+      # still 429s) on purpose: when someone names a lane, silently serving a different
+      # one is the same silent-degradation failure this wrapper exists to remove.
+      if native_quota_exhausted "$(resolve_logdir "$bin")"; then want=gateway; fi
+    else want=gateway; fi
   fi
-  if [[ -e "$MARKER" && "$want" != "local" ]]; then printf 'local\n'; return 0; fi
   printf '%s\n' "$want"
 }
 
@@ -290,13 +403,25 @@ doctor() {
   local format="${1:-text}" bin="" version="" up="false"
   local modes="" mode_valid="unknown" model_ok="unknown" serving="" fellback="unknown"
   local local_ok="false" local_model=""
-  local creds="" native_ok="false" lane=""
+  local creds="" native_ok="false" lane="" quota_ex="false"
+  local guard="" guard_ok="false" guard_wired="false"
+  if guard="$(resolve_image_guard)"; then
+    guard_ok="true"
+    image_guard_installed "$guard" && guard_wired="true"
+  fi
   if ! bin="$(resolve_pool)"; then emit_missing "$format"; return 127; fi
   version="$("$bin" --version 2>/dev/null | head -n1 || true)"
   gateway_up && up="true"
   creds="$(resolve_creds "$bin")"
   native_authed "$creds" && native_ok="true"
-  lane="$(select_lane "$creds")"
+  lane="$(select_lane "$creds" "$bin")"
+  # Report the daily-quota demotion too. Without this the ONLY trace is a stderr line on
+  # an interactive run, so `--doctor --json` showed lane:gateway with nativeAuthed:true
+  # and no way to tell a quota demotion apart from a plain gateway preference — the
+  # difference between "wait for the reset" and "something is misconfigured".
+  # Mirrors runtime deliberately: with POOLSIDE_YOLO_QUOTA_DEMOTE=off this reads false
+  # because no demotion is being applied, and doctor must agree with what a run does.
+  native_quota_exhausted "$(resolve_logdir "$bin")" && quota_ex="true"
   # Under zero-spend this is the route that actually runs, so report it.
   if local_up; then local_ok="true"; local_model="$(pick_local_model || true)"; fi
   # Only probe the gateway's real behaviour when the gateway is the lane we would
@@ -318,17 +443,24 @@ doctor() {
     fi
   fi
   if [[ "$format" == json ]]; then
-    PYB="$bin" PYV="$version" PYG="$GATEWAY_URL" PYM="$DEFAULT_MODEL" PYUP="$up" \
+    # EXPORT rather than a `VAR=... cmd` prefix: that form binds the assignments to the
+    # FIRST command only, so in `VAR=... node -e '…' || python3 -c '…'` the python3
+    # fallback ran with none of them set and died on KeyError: 'PYB'. It exists precisely
+    # for a machine with no node, which is the one machine where it never worked.
+    export PYB="$bin" PYV="$version" PYG="$GATEWAY_URL" PYM="$DEFAULT_MODEL" PYUP="$up" \
     PYMODE="$YOLO_MODE" PYMODES="$modes" PYMV="$mode_valid" PYMOK="$model_ok" \
     PYSERV="$serving" PYFB="$fellback" PYLOK="$local_ok" PYLM="$local_model" \
-    PYLANE="$lane" PYLANEREQ="$LANE" PYNAT="$native_ok" PYCRED="$creds" \
-    PYZ="$([[ -e "$MARKER" ]] && echo true || echo false)" node -e '
+    PYLANE="$lane" PYLANEREQ="$LANE" PYNAT="$native_ok" PYCRED="$creds" PYQEX="$quota_ex" \
+    PYIG="$guard" PYIGOK="$guard_ok" PYIGW="$guard_wired" PYIGE="$IMAGE_GUARD_ENABLED" \
+    PYZ="$([[ -e "$MARKER" ]] && echo true || echo false)"
+    node -e '
       const tri = v => v === "true" ? true : v === "false" ? false : null;
       process.stdout.write(JSON.stringify({
         schema:"poolside-yolo/doctor-v1", ok:true, provider:"Poolside pool CLI (official)",
         binary:process.env.PYB, version:process.env.PYV,
         lane:process.env.PYLANE, laneRequested:process.env.PYLANEREQ,
-        nativeAuthed:process.env.PYNAT==="true", credentialsFile:process.env.PYCRED,
+        nativeAuthed:process.env.PYNAT==="true", nativeQuotaExhausted:process.env.PYQEX==="true",
+        credentialsFile:process.env.PYCRED,
         gateway:process.env.PYG, gatewayUp:process.env.PYUP==="true",
         defaultModel:process.env.PYM, modelServed:tri(process.env.PYMOK),
         modelServing:process.env.PYSERV || null, modelFellBack:tri(process.env.PYFB),
@@ -336,6 +468,10 @@ doctor() {
         mode:process.env.PYMODE, modeValid:tri(process.env.PYMV),
         availableModes:process.env.PYMODES ? process.env.PYMODES.split(" ") : [],
         zeroSpendActive:process.env.PYZ==="true",
+        imageGuard:process.env.PYIG || null,
+        imageGuardEnabled:process.env.PYIGE !== "off",
+        imageGuardPresent:process.env.PYIGOK==="true",
+        imageGuardWired:process.env.PYIGW==="true",
         autonomous:true
       })+"\n");' 2>/dev/null || python3 -c '
 import json, os
@@ -345,7 +481,9 @@ print(json.dumps({
   "schema": "poolside-yolo/doctor-v1", "ok": True, "provider": "Poolside pool CLI (official)",
   "binary": os.environ["PYB"], "version": os.environ["PYV"],
   "lane": os.environ["PYLANE"], "laneRequested": os.environ["PYLANEREQ"],
-  "nativeAuthed": os.environ["PYNAT"] == "true", "credentialsFile": os.environ["PYCRED"],
+  "nativeAuthed": os.environ["PYNAT"] == "true",
+  "nativeQuotaExhausted": os.environ.get("PYQEX") == "true",
+  "credentialsFile": os.environ["PYCRED"],
   "gateway": os.environ["PYG"], "gatewayUp": os.environ["PYUP"] == "true",
   "defaultModel": os.environ["PYM"], "modelServed": tri(os.environ["PYMOK"]),
   "modelServing": os.environ["PYSERV"] or None, "modelFellBack": tri(os.environ["PYFB"]),
@@ -353,6 +491,10 @@ print(json.dumps({
   "mode": os.environ["PYMODE"], "modeValid": tri(os.environ["PYMV"]),
   "availableModes": os.environ["PYMODES"].split() if os.environ["PYMODES"] else [],
   "zeroSpendActive": os.environ["PYZ"] == "true",
+  "imageGuard": os.environ["PYIG"] or None,
+  "imageGuardEnabled": os.environ["PYIGE"] != "off",
+  "imageGuardPresent": os.environ["PYIGOK"] == "true",
+  "imageGuardWired": os.environ["PYIGW"] == "true",
   "autonomous": True,
 }))'
   else
@@ -395,7 +537,17 @@ if ! lane_known "$LANE"; then
 fi
 
 CREDS="$(resolve_creds "$PBIN")"
-RESOLVED_LANE="$(select_lane "$CREDS")"
+RESOLVED_LANE="$(select_lane "$CREDS" "$PBIN")"
+
+# Announce the quota demotion. A lane change the user cannot see is exactly the silent
+# degradation this wrapper exists to remove, so say it out loud and say why. The
+# native_quota_exhausted re-check is guarded by the cheap tests first, so it only runs
+# on the one path that could have been demoted.
+if [[ "$LANE" == auto && "$RESOLVED_LANE" == gateway ]] && native_authed "$CREDS" \
+   && native_quota_exhausted "$(resolve_logdir "$PBIN")"; then
+  echo "poolside-yolo: native lane is out of DAILY quota (pool logged 'usage limit exceeded') — falling back to the gateway" >&2
+  echo "poolside-yolo: native is retried automatically once ${NATIVE_QUOTA_COOLDOWN_MIN}m pass with no new quota error; POOLSIDE_YOLO_QUOTA_DEMOTE=off disables this" >&2
+fi
 
 # The zero-spend marker is policy, not a preference: it outranks an explicit lane
 # request for every lane that would make a paid or metered call. select_lane already
@@ -472,8 +624,38 @@ fi
 # Human at a terminal wants readable output; a pipe/cron wants parseable NLJSON.
 oneshot_output() { [[ -t 1 ]] && printf 'markdown\n' || printf 'json\n'; }
 
+# Interactive sessions are the only ones that can receive a pasted image (`pool exec`
+# has no --agent-server and no way to attach one), so that is exactly where the guard
+# goes. GUARD_ARGS stays empty when the guard is disabled, missing, or when the caller
+# already chose an agent server — we never override an explicit -s.
+# NOTE: expanded as ${GUARD_ARGS[@]+"${GUARD_ARGS[@]}"} everywhere — bash 3.2 (macOS
+# system bash) treats "${arr[@]}" on an empty array as unbound under `set -u`.
+GUARD_ARGS=()
+guard_args_for_interactive() {
+  GUARD_ARGS=()
+  [[ "$IMAGE_GUARD_ENABLED" == "off" ]] && return 0
+  local a
+  for a in "$@"; do
+    case "$a" in -s|-s=*|--agent-server|--agent-server=*) return 0 ;; esac
+  done
+  local guard
+  if ! guard="$(resolve_image_guard)"; then
+    echo "poolside-yolo: NOTE poolside-acp-imageguard not found beside this wrapper — running UNGUARDED; a pasted screenshot will 400 and permanently brick the session" >&2
+    return 0
+  fi
+  if ! image_guard_installed "$guard"; then
+    if ! ensure_image_guard "$guard"; then
+      echo "poolside-yolo: WARNING could not register the image guard in poolside settings — running UNGUARDED (a pasted screenshot would brick the session)" >&2
+      return 0
+    fi
+    echo "poolside-yolo: registered image guard '$IMAGE_GUARD_NAME' (pasted screenshots are transcribed instead of bricking the session)" >&2
+  fi
+  GUARD_ARGS=(-s "$IMAGE_GUARD_NAME")
+}
+
 if [[ $# -eq 0 ]]; then
-  exec "$PBIN" --mode "$YOLO_MODE"
+  guard_args_for_interactive
+  exec "$PBIN" ${GUARD_ARGS[@]+"${GUARD_ARGS[@]}"} --mode "$YOLO_MODE"
 fi
 
 case "$1" in
@@ -501,9 +683,11 @@ case "$1" in
         echo "poolside-yolo: '--mode $want_mode' is not a pool session mode ($KNOWN_MODES); pool would silently fall back to approval prompts" >&2
         exit 2
       fi
-      exec "$PBIN" "${args[@]}"
+      guard_args_for_interactive "${args[@]}"
+      exec "$PBIN" ${GUARD_ARGS[@]+"${GUARD_ARGS[@]}"} "${args[@]}"
     else
-      exec "$PBIN" --mode "$YOLO_MODE" "${args[@]}"
+      guard_args_for_interactive "${args[@]}"
+      exec "$PBIN" ${GUARD_ARGS[@]+"${GUARD_ARGS[@]}"} --mode "$YOLO_MODE" "${args[@]}"
     fi ;;
   *)
     # Bare task string -> autonomous one-shot, mirroring kimi-yolo's routing.

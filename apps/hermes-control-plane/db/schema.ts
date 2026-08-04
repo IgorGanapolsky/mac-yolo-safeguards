@@ -175,6 +175,32 @@ export const billingEvents = sqliteTable("billing_events", {
   processedAt: integer("processed_at").notNull(),
 });
 
+/**
+ * LLM call observability — tracks every model invocation with cost,
+ * latency, token counts, and routing metadata for the admin metrics dashboard.
+ */
+export const llmCalls = sqliteTable("llm_calls", {
+  id: text("id").primaryKey(),
+  taskId: text("task_id").references(() => tasks.id, { onDelete: "set null" }),
+  organizationId: text("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  provider: text("provider").notNull(),
+  model: text("model").notNull(),
+  promptTokens: integer("prompt_tokens"),
+  completionTokens: integer("completion_tokens"),
+  cachedPromptTokens: integer("cached_prompt_tokens"),
+  costUsd: text("cost_usd"),
+  latencyMs: integer("latency_ms"),
+  route: text("route"),
+  success: integer("success", { mode: "boolean" }).notNull().default(true),
+  error: text("error"),
+  traceId: text("trace_id"),
+  createdAt: integer("created_at").notNull(),
+}, (table) => [
+  index("llm_calls_org_created_idx").on(table.organizationId, table.createdAt),
+  index("llm_calls_model_created_idx").on(table.model, table.createdAt),
+  index("llm_calls_task_idx").on(table.taskId),
+]);
+
 export const funnelCounters = sqliteTable("funnel_counters", {
   day: text("day").notNull(),
   event: text("event").notNull(),

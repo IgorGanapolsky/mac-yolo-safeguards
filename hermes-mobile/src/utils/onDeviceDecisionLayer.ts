@@ -94,7 +94,7 @@ export function connectionCopyFromPrediction(
   if (prediction.transport === 'usb') {
     return {
       title: `Connected directly to ${computerLabel}`,
-      detail: 'Using this cable.',
+      detail: 'Using the direct link to this computer.',
       tone: 'positive',
     };
   }
