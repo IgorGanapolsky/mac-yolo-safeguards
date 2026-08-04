@@ -54,6 +54,21 @@ const SYNONYM_RULES = [
     expand: ['hermes-mobile-pair', 'gatewayDiscovery', 'gatewayProfiles', 'pairCode'],
   },
   {
+    // Natural-language discovery: "mobile app discovers computers on local network"
+    // must expand to gatewayDiscovery.ts (measured miss #220 harness / grepae empty, 2026-08-04).
+    id: 'lan-gateway-discovery',
+    match:
+      /discover(s|ed|ing)?\s+(computers?|hosts?|gateways?|macs?|machines?)|find\s+(computers?|macs?|gateways?)\s+on|local\s+network|scan\s+(the\s+)?(lan|subnet|network)|discovers?\s+computers/i,
+    expand: [
+      'gatewayDiscovery',
+      'discoverAllGatewaysOnLan',
+      'discoverGatewayOnPhoneSubnet',
+      'lanScan',
+      'pair.json',
+      'DiscoveredGateway',
+    ],
+  },
+  {
     id: 'ota-billing',
     match: /\bota\b|over.?the.?air|expo\s+update|billing\s+freeze/i,
     expand: ['appOtaUpdate', 'otaClientPromptPolicy', 'checkAutomatically', 'EAS'],
