@@ -14,7 +14,8 @@ lexical overlap of question terms against the answer, which failed both ways:
 The signal that actually distinguishes the incident is narrow: the ONLY thing the
 card shares with the question is a brand noun.
 """
-import sys, unittest
+import sys
+import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))

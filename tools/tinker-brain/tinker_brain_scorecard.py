@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -37,6 +38,18 @@ SCORE_FOR_GRADE = {
     "A": 9.5,
     "A+": 10,
 }
+
+# Scrub secrets before JSON/human sinks print receipt content. Evidence blocks
+# can carry billing probe bodies, agenda items, or heal reasons sourced from
+# user transcripts — never emit those raw to stdout.
+_SENSITIVE = re.compile(
+    r"(sk|pk|rk|gh[pousr]|xox[baprs]|AKIA|AIza|ya29|eyJ|Bearer\s+)[A-Za-z0-9_\-\.]{8,}",
+    re.IGNORECASE,
+)
+
+
+def _redact(text: object) -> str:
+    return _SENSITIVE.sub("<redacted>", str(text))
 
 
 def _run(cmd: list[str], timeout: float = 90.0) -> dict[str, Any]:
@@ -278,6 +291,93 @@ def grade_eval() -> dict[str, Any]:
     )
 
 
+def grade_continuous() -> dict[str, Any]:
+    """Self-heal/learn loop for sales GTM (optional required=False until always on main)."""
+    cont = BRAIN / "tinker_brain_continuous.py"
+    if not cont.is_file():
+        return _grade_pillar(
+            "continuous_sales_loop",
+            score_10=0.0,
+            required=False,
+            evidence={"present": False},
+            notes="A+ = continuous --once --heal posts ok + agenda + billing probe.",
+        )
+    run = _run(
+        [sys.executable, str(cont), "--once", "--heal", "--no-eval", "--json"],
+        timeout=120.0,
+    )
+    body: dict[str, Any] = {}
+    try:
+        body = json.loads(run["stdout"] or "{}")
+    except json.JSONDecodeError:
+        body = {}
+    ok = bool(body.get("ok")) and run["exit"] == 0
+    billing_ok = bool((body.get("billing") or {}).get("ok"))
+    has_agenda = bool((body.get("agenda") or {}).get("nextActions"))
+    score = 10.0 if ok and billing_ok and has_agenda else (8.0 if ok else 5.0)
+    return _grade_pillar(
+        "continuous_sales_loop",
+        score_10=score,
+        required=False,
+        evidence={
+            "exit": run["exit"],
+            "ok": body.get("ok"),
+            "billing": _redact((body.get("billing") or {}).get("ok")),
+            "funnel": _redact((body.get("funnel") or {})),
+            "nextActions": _redact((body.get("agenda") or {}).get("nextActions")),
+        },
+        notes="A+ = heal+learn cycle ok, live billing probe, sales nextActions non-empty.",
+    )
+
+
+def grade_live_eval() -> dict[str, Any]:
+    """Golden suite against live ANSWER_CARD (export atomic with cash stamp).
+
+    Falls back to the repo fixture card when no live snapshot is present
+    (CI / fresh machine) — the store pillar already accepts repo-only cards;
+    the eval pillar must not hard-fail on environment alone. The golden
+    contract is unchanged: 0 failures on ≥48 cases, whichever card is graded.
+    """
+    live_card = Path.home() / ".hermes" / "business-brain" / "data-snapshot" / "ANSWER_CARD.txt"
+    use_live = live_card.is_file()
+    cmd = [sys.executable, str(BRAIN / "tinker_brain_eval.py")]
+    if use_live:
+        cmd.append("--live")
+    run = _run(cmd)
+    passed = failed = total = 0
+    for line in (run["stdout"] or "").splitlines():
+        if "tinker-brain eval:" in line and "passed" in line:
+            try:
+                chunk = line.split("eval:")[1].strip().split()[0]
+                passed_s, total_s = chunk.split("/")
+                passed = int(passed_s)
+                total = int(total_s)
+                failed = total - passed
+            except (IndexError, ValueError):
+                pass
+    if total <= 0:
+        score = 0.0
+    elif failed == 0 and total >= 48:
+        score = 10.0
+    elif failed == 0:
+        score = 9.0
+    else:
+        score = max(0.0, 10.0 * passed / total - 2.0)
+    return _grade_pillar(
+        "eval_live_card",
+        score_10=score,
+        required=True,
+        evidence={
+            "passed": passed,
+            "failed": failed,
+            "total": total,
+            "exit": run["exit"],
+            "mode": "live" if use_live else "repo-fixture",
+        },
+        notes="A+ = live ANSWER_CARD + expert card still 0 golden failures (≥48 cases); repo-fixture fallback in CI.",
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true")
@@ -298,6 +398,8 @@ def main() -> int:
         grade_orchestration(),
         grade_models(),
         grade_eval(),
+        grade_live_eval(),
+        grade_continuous(),
     ]
     required_ok = all(p["ok"] for p in pillars if p["required"])
     avg = sum(p["score_10"] for p in pillars) / max(len(pillars), 1)
@@ -332,10 +434,10 @@ def main() -> int:
     args.out.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     if args.json:
-        print(json.dumps(receipt, indent=2, sort_keys=True))
+        print(_redact(json.dumps(receipt, indent=2, sort_keys=True)))
     else:
         print("tinker-brain scorecard")
-        print(f"  design: {receipt['design']['orchestration']}")
+        print(f"  design: {_redact(receipt['design']['orchestration'])}")
         for p in pillars:
             mark = "PASS" if p["ok"] else "FAIL"
             print(f"  [{mark}] {p['pillar']}: {p['grade']} ({p['score_10']}/10) — {p['notes'][:80]}")

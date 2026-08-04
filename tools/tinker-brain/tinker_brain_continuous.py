@@ -406,12 +406,12 @@ def main() -> int:
     def cycle() -> int:
         result = run_once(heal=heal, dry_run=args.dry_run, run_eval=not args.no_eval)
         if args.json:
-            print(json.dumps(result, indent=2, default=str))
+            print(_redact(json.dumps(result, indent=2, default=str)))
         else:
             print(f"tinker-brain-continuous: {'OK' if result['ok'] else 'UNHEALTHY'}")
             print(f"  heal: {_redact(result['heal'].get('reason'))} acted={result['heal'].get('acted')}")
             print(f"  card AS_OF={result['post'].get('asOf')} force={result['post'].get('effectiveCard')}")
-            print(f"  billing ok={result['billing'].get('ok')} unitAmount={result['billing'].get('unitAmount')}")
+            print(f"  billing ok={result['billing'].get('ok')} unitAmount={_redact(result['billing'].get('unitAmount'))}")
             print(f"  funnel ok={result['funnel'].get('ok')} fails={result['funnel'].get('failStages')}")
             print(f"  agenda: {result['agendaPath']}")
             for a in (result.get("agenda") or {}).get("nextActions", [])[:6]:
