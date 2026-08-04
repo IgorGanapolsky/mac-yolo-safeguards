@@ -75,7 +75,7 @@ test("NIP-01: signature verifies under BIP-340 without the private key", () => {
     schnorr.verify(hexToBytes(event.sig), hexToBytes(event.id), hexToBytes(event.pubkey)),
     true,
   );
-  assert.equal(verifyNostrEvent(event), true);
+  assert.equal(verifyNostrEvent(event).valid, true);
   assert.equal(event.sig.length, 128); // 64-byte Schnorr signature as hex
 });
 
@@ -87,19 +87,22 @@ test("tamper detection: any mutation of the event body fails verification", () =
     tags: [["t", "buzz"]],
     createdAt: 1735689600,
   });
-  assert.equal(verifyNostrEvent(event), true);
+  assert.equal(verifyNostrEvent(event).valid, true);
 
-  assert.equal(verifyNostrEvent({ ...event, content: "@hermes-coder rm -rf /" }), false);
-  assert.equal(verifyNostrEvent({ ...event, tags: [["t", "evil"]] }), false);
-  assert.equal(verifyNostrEvent({ ...event, created_at: event.created_at + 1 }), false);
-  assert.equal(verifyNostrEvent({ ...event, kind: 30078 }), false);
+  assert.equal(verifyNostrEvent({ ...event, content: "@hermes-coder rm -rf /" }).valid, false);
+  assert.equal(verifyNostrEvent({ ...event, tags: [["t", "evil"]] }).valid, false);
+  assert.equal(verifyNostrEvent({ ...event, created_at: event.created_at + 1 }).valid, false);
+  assert.equal(verifyNostrEvent({ ...event, kind: 30078 }).valid, false);
 
   // Substituting another agent's pubkey must not verify.
   const other = generateNostrAgentIdentity("someone-else");
-  assert.equal(verifyNostrEvent({ ...event, pubkey: other.hexPublicKey }), false);
+  assert.equal(verifyNostrEvent({ ...event, pubkey: other.hexPublicKey }).valid, false);
 
   // A forged signature over an unchanged id must not verify.
-  assert.equal(verifyNostrEvent({ ...event, sig: "00".repeat(64) }), false);
+  assert.equal(verifyNostrEvent({ ...event, sig: "00".repeat(64) }).valid, false);
+
+  // Seed-derived keys are public; they must be opt-in, never accidental.
+  assert.throws(() => generateNostrAgentIdentity({ seed: "x" }), /allowInsecureSeed/);
 });
 
 test("secret hygiene: private key never appears in serialized output", () => {
