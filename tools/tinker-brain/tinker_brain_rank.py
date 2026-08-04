@@ -617,7 +617,38 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    parser.add_argument(
+        "--suite",
+        choices=("core", "governance", "all"),
+        default="core",
+        help="core=5 eval dimensions; governance=8 gate/RAI dimensions; all=both",
+    )
     args = parser.parse_args()
+
+    if args.suite == "governance":
+        from tinker_brain_governance import run_governance  # noqa: WPS433
+
+        receipt = run_governance()
+        out = args.out if args.out != DEFAULT_OUT else RECEIPTS / "governance-latest.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        if args.json:
+            print(json.dumps(receipt, indent=2, sort_keys=True))
+        else:
+            print("tinker-brain governance rank")
+            for d in receipt["dimensions"]:
+                mark = "PASS" if d["ok"] else "FAIL"
+                print(
+                    f"  [{mark}] rank#{d['rank']} {d['dimension']}: "
+                    f"{d['grade']} ({d['score_10']}/10) — {d['notes'][:90]}"
+                )
+            o = receipt["overall"]
+            print(
+                f"  overall: {o['grade']} ({o['score_10']}/10) "
+                f"A+={o['a_plus']} required_ok={o['required_ok']}"
+            )
+            print(f"  receipt: {out}")
+        return 0 if receipt["overall"]["a_plus"] else 1
 
     dimensions = [
         grade_offline_golden(),
@@ -626,30 +657,40 @@ def main() -> int:
         grade_feedback_loop(),
         grade_learning_tradeoffs(),
     ]
-    # Stable rank order 1..5 by importance.
-    dimensions.sort(key=lambda d: d["rank"])
+    governance_block: dict[str, Any] | None = None
+    if args.suite == "all":
+        from tinker_brain_governance import run_governance  # noqa: WPS433
+
+        governance_block = run_governance()
+        # Merge governance dims with rank offset so display is clear.
+        for d in governance_block.get("dimensions") or []:
+            row = dict(d)
+            row["suite"] = "governance"
+            dimensions.append(row)
+
+    # Stable rank order within suites.
+    dimensions.sort(key=lambda d: (d.get("suite") or "core", d["rank"]))
 
     required_ok = all(d["ok"] for d in dimensions if d["required"])
     avg = sum(d["score_10"] for d in dimensions) / max(len(dimensions), 1)
     a_plus = required_ok and all(d["grade"] == "A+" for d in dimensions)
+    if governance_block is not None:
+        a_plus = a_plus and bool((governance_block.get("overall") or {}).get("a_plus"))
     overall_grade = "A+" if a_plus else _score_to_grade(avg if required_ok else min(d["score_10"] for d in dimensions))
 
     receipt = {
-        "schema_version": "tinker-brain-rank/1",
+        "schema_version": "tinker-brain-rank/2",
+        "suite": args.suite,
         "ran_at": utc_now(),
-        "ranking_order": [
-            "offline_golden_regression",
-            "online_production_metrics",
-            "continuous_provider_eval",
-            "feedback_loop_closure",
-            "learning_tradeoffs",
-        ],
+        "ranking_order": [d["dimension"] for d in dimensions],
         "design": {
             "stack": "export → rules_router(+confidence) → BM25_section_retrieve → deterministic_card → contract → coverage",
             "learning": "supervised_routing_rules_not_llm + labeled contract preferences (not RLHF)",
             "cash": "fail-closed external $0 until non-owner Stripe",
+            "governance": "gate calibration, offline/online, providers, feedback quality, scale, bypass, RAI",
         },
         "dimensions": dimensions,
+        "governance": governance_block,
         "overall": {
             "score_10": round(avg, 2),
             "grade": overall_grade,
@@ -663,14 +704,15 @@ def main() -> int:
     if args.json:
         print(json.dumps(receipt, indent=2, sort_keys=True))
     else:
-        print("tinker-brain multi-dimension rank")
+        print(f"tinker-brain multi-dimension rank (suite={args.suite})")
         print(f"  design: {receipt['design']['stack']}")
         print(f"  learning: {receipt['design']['learning']}")
         for d in dimensions:
             mark = "PASS" if d["ok"] else "FAIL"
+            suite = d.get("suite") or "core"
             print(
-                f"  [{mark}] rank#{d['rank']} {d['dimension']}: "
-                f"{d['grade']} ({d['score_10']}/10) — {d['notes'][:90]}"
+                f"  [{mark}] [{suite}] rank#{d['rank']} {d['dimension']}: "
+                f"{d['grade']} ({d['score_10']}/10) — {d['notes'][:80]}"
             )
         o = receipt["overall"]
         print(

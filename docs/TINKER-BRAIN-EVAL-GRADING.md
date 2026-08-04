@@ -6,9 +6,14 @@
 python3 tools/tinker-brain/tinker_brain_scorecard.py
 python3 tools/tinker-brain/tinker_brain_scorecard.py --json
 
-# Five operator dimensions (offline / online / continuous / feedback / RLHF tradeoffs)
+# Five core operator dimensions (offline / online / continuous / feedback / RLHF tradeoffs)
 python3 tools/tinker-brain/tinker_brain_rank.py
 python3 tools/tinker-brain/tinker_brain_rank.py --json
+
+# Eight governance dimensions (gate calibration, providers, bypass, RAI, scale, …)
+python3 tools/tinker-brain/tinker_brain_governance.py
+python3 tools/tinker-brain/tinker_brain_rank.py --suite governance
+python3 tools/tinker-brain/tinker_brain_rank.py --suite all
 
 # Online KPIs only
 python3 tools/tinker-brain/tinker_brain_production_metrics.py --json
