@@ -31,3 +31,13 @@ test('cloud-connector and moe-routing rules expand', () => {
   assert.ok(m.rulesFired.includes('moe-routing'));
   assert.ok(m.rewritten.includes('moe-expert-health'));
 });
+
+// Measured miss 2026-08-04: NL "discovers computers on local network" ranked
+// gatewayDiscovery.ts ~#220 until lan-gateway-discovery expansion + stem scoring.
+test('lan-gateway-discovery expands discovers-computers NL query', () => {
+  const r = rewriteQuery('mobile app discovers computers on local network');
+  assert.ok(r.rulesFired.includes('lan-gateway-discovery'));
+  assert.ok(r.rewritten.includes('gatewayDiscovery'));
+  assert.ok(r.rewritten.includes('discoverAllGatewaysOnLan'));
+  assert.ok(r.expansions.includes('lanScan'));
+});

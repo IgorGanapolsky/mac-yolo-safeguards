@@ -68,6 +68,14 @@
         "tools/ml-propensity-train.js"
       ],
       "k": 10
+    },
+    {
+      "id": "gateway-discovery",
+      "query": "mobile app discovers computers on local network",
+      "mustIncludePathSubstrings": [
+        "hermes-mobile/src/services/gatewayDiscovery.ts"
+      ],
+      "k": 10
     }
   ]
 }
