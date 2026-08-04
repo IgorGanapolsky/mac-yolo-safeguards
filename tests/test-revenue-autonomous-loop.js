@@ -195,7 +195,17 @@ check('reply scan runs before unattended sending, and blindness blocks it', () =
   assert.match(gate, /!replyScanBlind/, 'gate must block when the reply scan is blind');
 
   // A skipped or erroring scan is unknown state, not zero.
-  assert.match(src, /replyScanBlind = !args\.fast/, 'skipped scan must mark state unknown');
+  // This previously pinned the literal string `replyScanBlind = !args.fast`, which is the
+  // opposite of what the message says: `!args.fast` marks fast mode as KNOWN, and
+  // ralph-gsd-loop.js invokes this with `--auto-send --fast`, so the hard-stop was
+  // bypassed on exactly the path that mails people. The assertion enforced the bug it
+  // claimed to prevent. Pin the behaviour instead of the implementation string.
+  assert.ok(!/replyScanBlind\s*=\s*!args\.fast/.test(src),
+    'skipping the scan must not be treated as sighted just because --fast was passed');
+  assert.match(src, /replyScanBlind = true;/,
+    'skipped scan must mark state unknown, unconditionally');
+  assert.match(src, /!args\.fast \|\| args\.autoSend/,
+    'a sending run must not be able to skip the reply scan at all');
   assert.match(src, /replyScanBlind = true;/, 'erroring scan must mark state unknown');
 
   // Blindness must reach the operator: never silenced as a no-op.

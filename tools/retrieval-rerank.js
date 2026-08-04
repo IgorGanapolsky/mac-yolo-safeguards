@@ -35,6 +35,8 @@ function parseArgs(argv) {
     json: false,
     selfTest: false,
     llm: process.env.HERMES_LLM_RERANK === '1',
+    noCache: !!process.env.HERMES_RERANK_NO_CACHE,
+    diversityLambda: Number(process.env.HERMES_RERANK_DIVERSITY || 0) || 0,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -46,6 +48,8 @@ function parseArgs(argv) {
     else if (a === '--self-test') args.selfTest = true;
     else if (a === '--llm') args.llm = true;
     else if (a === '--no-llm') args.llm = false;
+    else if (a === '--no-cache') args.noCache = true;
+    else if (a === '--rerank-diversity') args.diversityLambda = Number(argv[++i] || 0);
     else if (a === '--help') args.help = true;
     else throw new Error(`Unknown ${a}`);
   }
@@ -342,6 +346,172 @@ async function scoreCandidates(query, candidates, strategy, options = {}) {
 }
 
 /**
+ * Second-stage rerank result cache (LRU + TTL).
+ *
+ * Why: CE/ColBERT/LLM rerank (`scoreCandidates`) is the expensive stage — it calls
+ * Ollama embeddings and optionally the LLM judge. Caching the final scored order skips
+ * those model calls on repeat queries with identical inputs.
+ *
+ * Scope / honesty (review Comment #2): rerank is reached via fresh `spawnSync` Node
+ * processes for CLI/eval entry points (`rag-retrieval-eval.js`, `retrieval-multi-query.js`,
+ * and the `retrieval-dual-path` CLI all spawn a new process per call), so an in-process
+ * `Map` only persists for the lifetime of one process. It therefore benefits any
+ * in-process caller that reranks the same (query, strategy, candidate-set) more than
+ * once, AND — with `persistPath` below — repeated CLI/eval queries across processes.
+ *
+ * Correctness / safety:
+ *  - Keyed on query + strategy + limit + llm-flag + a canonical (order-insensitive)
+ *    fingerprint of the candidate SET. The fingerprint hashes the full snippet (up to
+ *    2000 chars — covering the CE/ColBERT consumption window) plus start/end line, so
+ *    a snippet differing only beyond char 800 or a shifted source range is a natural
+ *    miss, never a stale cache hit. Rerank is deterministic, so TTL is a freshness
+ *    floor, not a correctness shortcut.
+ *  - WRITE is disabled whenever an embedder/chat is injected (test fakes) so fake
+ *    vectors can never poison the cache; production never injects (it uses
+ *    createOllamaEmbedder/createOllamaChat), so caching is on by default in-process.
+ *  - Optional cross-process persistence: set `HERMES_RERANK_CACHE_PATH` to a writable
+ *    file; the cache then loads on construction and write-throughs (atomic temp+rename)
+ *    on each set. Reads/writes are fail-open (missing/corrupt/unwritable file => cold
+ *    start; write failure ignored). Persistence is also suppressed by the inject guard,
+ *    so hermetic test runs never touch the persist file.
+ *  - `HERMES_RERANK_NO_CACHE=1` / `options.disableCache` / CLI `--no-cache` force off
+ *    (fail-open: a cache fault never changes matches, only latency).
+ *  - Matches are cloned on cache hit so callers can never mutate cached state.
+ */
+const RERANK_CACHE_MAX = Number(process.env.HERMES_RERANK_CACHE_SIZE || 256);
+const RERANK_CACHE_TTL_MS = Number(process.env.HERMES_RERANK_CACHE_TTL_MS || 300000);
+
+function cacheEnabled(options = {}) {
+  return !options.disableCache && !process.env.HERMES_RERANK_NO_CACHE;
+}
+
+function canonicalCandidates(candidates) {
+  return JSON.stringify(
+    (candidates || [])
+      .map((c) => ({
+        p: c.path,
+        s: (c.snippet || c.text || '').slice(0, 2000),
+        r: Number(c.rrfScore || c.score || 0),
+        sl: c.start_line,
+        el: c.end_line,
+      }))
+      .sort((a, b) => String(a.p).localeCompare(String(b.p)) || a.s.localeCompare(b.s)),
+  );
+}
+
+function rerankCacheKey(opts) {
+  const o = opts || {};
+  return [
+    'rerank',
+    String(o.query || ''),
+    String(o.strategy || 'ensemble'),
+    String(o.limit || ''),
+    o.llm ? 'llm' : '',
+    canonicalCandidates(o.candidates),
+  ].join('|');
+}
+
+function rerankSnapshot(out) {
+  const { elapsedMs, cacheHit, ...rest } = out;
+  return rest;
+}
+
+class RerankCache {
+  constructor({ maxSize = RERANK_CACHE_MAX, ttlMs = RERANK_CACHE_TTL_MS, now = Date.now, persistPath = null } = {}) {
+    this.max = Math.max(1, maxSize);
+    this.ttl = Math.max(0, ttlMs);
+    this.now = now;
+    this.persistPath = persistPath || null;
+    this.map = new Map();
+    if (this.persistPath) this._load();
+  }
+  _load() {
+    try {
+      const { entries } = JSON.parse(fs.readFileSync(this.persistPath, 'utf8'));
+      if (Array.isArray(entries)) for (const { k, v, t } of entries) this.map.set(k, { v, t });
+    } catch (_) {
+      /* missing / corrupt / unreadable -> cold start (fail-open) */
+    }
+  }
+  _persist() {
+    if (!this.persistPath) return;
+    const entries = [];
+    for (const [k, val] of this.map) entries.push({ k, v: val.v, t: val.t });
+    const tmp = `${this.persistPath}.tmp`;
+    try {
+      fs.writeFileSync(tmp, JSON.stringify({ entries }));
+      fs.renameSync(tmp, this.persistPath); // atomic on the same filesystem
+    } catch (_) {
+      try { fs.existsSync(tmp) && fs.unlinkSync(tmp); } catch (_) {}
+    }
+  }
+  get(key) {
+    const entry = this.map.get(key);
+    if (!entry) return undefined;
+    if (this.ttl > 0 && this.now() - entry.t > this.ttl) {
+      this.map.delete(key);
+      this._persist();
+      return undefined;
+    }
+    // LRU: refresh recency (Map insertion order == access order after re-insert)
+    this.map.delete(key);
+    this.map.set(key, entry);
+    return entry.v;
+  }
+  set(key, value) {
+    if (this.map.size >= this.max) {
+      const oldest = this.map.keys().next().value;
+      if (oldest !== undefined) this.map.delete(oldest);
+    }
+    this.map.set(key, { v: value, t: this.now() });
+    this._persist();
+    return value;
+  }
+  clear() {
+    this.map.clear();
+    this._persist();
+  }
+  size() { return this.map.size; }
+}
+
+const RERANK_CACHE = new RerankCache({
+  persistPath: process.env.HERMES_RERANK_CACHE_PATH || null,
+});
+function clearRerankCache() { RERANK_CACHE.clear(); }
+
+/**
+ * Maximal Marginal Relevance re-rank (diversity over the scored candidate set).
+ *
+ * Greedy selection by `(1-λ) * rerankScore - λ * max_overlap(already_selected)`.
+ * λ (options.diversityLambda) defaults to 0 => a no-op, so ranking is unchanged
+ * unless a caller explicitly opts into diversity. `overlap(a,b)` is injected so
+ * the selection logic is hermetic and unit-testable; in `rerank()` we pass
+ * lexicalOverlap so NO extra model calls are required.
+ *
+ * Why surface this: the CE/ColBERT reranker is already A+ on nDCG@K (precision
+ * of the list); MMR attacks the complementary axis — top-K redundancy (near-
+ * duplicate paths / snippets) — at zero added latency or cost. Opt-in so the
+ * existing A+ scores and rankings are never disturbed.
+ */
+function mmrReorder(candidates, lambda, overlap) {
+  if (!lambda || !Array.isArray(candidates) || candidates.length <= 1) return candidates;
+  const pool = candidates.slice();
+  const chosen = [];
+  while (pool.length) {
+    let bestIdx = 0;
+    let bestScore = -Infinity;
+    for (let i = 0; i < pool.length; i += 1) {
+      const rel = Number(pool[i].rerankScore) || 0;
+      const red = chosen.length ? Math.max(...chosen.map((c) => overlap(pool[i], c))) : 0;
+      const s = (1 - lambda) * rel - lambda * red; // marginal relevance
+      if (s > bestScore) { bestScore = s; bestIdx = i; }
+    }
+    chosen.push(pool.splice(bestIdx, 1)[0]);
+  }
+  return chosen;
+}
+
+/**
  * Main entry: rerank a candidate list.
  * @param {object} options
  * @param {string} options.query
@@ -364,13 +534,39 @@ async function rerank(options = {}) {
   }
   const strategy = options.strategy || 'ensemble';
   const limit = options.limit || candidates.length;
+
+  if (cacheEnabled(options) && !options.embedder && !options.chat) {
+    const key = rerankCacheKey({ query, strategy, limit, llm: options.llm, candidates });
+    const cached = RERANK_CACHE.get(key);
+    if (cached) {
+      return {
+        ...cached,
+        cacheHit: true,
+        elapsedMs: 0,
+        matches: cached.matches.map((m) => ({ ...m })),
+      };
+    }
+  }
+
   const started = Date.now();
   const result = await scoreCandidates(query, candidates, strategy, options);
+  // Optional MMR diversity re-rank (default off; opt-in via options.diversityLambda,
+  // CLI --rerank-diversity). Lexical-overlap redundancy penalty => no extra model
+  // calls; λ=0 is a no-op so default rerank behavior / A+ scores are unchanged.
+  const mmrLambda = Number(options.diversityLambda) || 0;
+  if (mmrLambda > 0 && result.candidates.length > 1) {
+    const overlap = (a, b) =>
+      lexicalOverlap(
+        String(a.snippet || a.text || a.path || ''),
+        String(b.snippet || b.text || b.path || ''),
+      );
+    result.candidates = mmrReorder(result.candidates, mmrLambda, overlap);
+  }
   const matches = result.candidates.slice(0, limit).map((c, i) => ({
     ...c,
     rank: i + 1,
   }));
-  return {
+  const out = {
     ok: true,
     query,
     strategy,
@@ -379,6 +575,7 @@ async function rerank(options = {}) {
     elapsedMs: Date.now() - started,
     matchCount: matches.length,
     matches,
+    cacheHit: false,
     // Capability matrix for scorecard
     capabilities: {
       cross_encoder: true,
@@ -387,6 +584,13 @@ async function rerank(options = {}) {
       ensemble: true,
     },
   };
+  if (cacheEnabled(options) && !options.embedder && !options.chat) {
+    RERANK_CACHE.set(
+      rerankCacheKey({ query, strategy, limit, llm: options.llm, candidates }),
+      rerankSnapshot(out),
+    );
+  }
+  return out;
 }
 
 /** Hermetic self-test: inverted list must be corrected by CE/ColBERT features. */
@@ -481,6 +685,8 @@ if (require.main === module) {
         strategy: args.strategy,
         limit: args.limit,
         llm: args.llm,
+        disableCache: args.noCache,
+        diversityLambda: args.diversityLambda,
       });
       if (args.json) console.log(JSON.stringify(out, null, 2));
       else {
@@ -510,4 +716,12 @@ module.exports = {
   passageWindows,
   createOllamaEmbedder,
   createOllamaChat,
+  // Rerank result cache (LRU + TTL) — for observability hooks and hermetic testing
+  RerankCache,
+  RerankCacheInstance: RERANK_CACHE,
+  rerankCacheKey,
+  rerankSnapshot,
+  cacheEnabled,
+  clearRerankCache,
+  mmrReorder,
 };

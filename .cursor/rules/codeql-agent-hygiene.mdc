@@ -1,0 +1,18 @@
+---
+description: Code scanning / CodeQL debt prevention for multi-agent work
+globs:
+  - tools/**/*.js
+  - hermes-mobile/scripts/**
+  - .github/workflows/**
+  - services/**/*.js
+alwaysApply: false
+---
+
+# CodeQL hygiene (hard)
+
+- Security UI is **branch:main only**. Unmerged PR fixes do not clear alerts.
+- Before security-clean claims: `node tools/codeql-agent-hygiene.js --claim "…"`.
+- Before commit: `node tools/codeql-pattern-gate.js --staged` (also pre-commit).
+- Use helpers: `tools/lib/asc-jwt-es256.js`, `safe-url-host.js`, `safe-html-strip.js`, `safe-exec.js`.
+- Never open a parallel CodeQL burn-down while PR #1371 (or successor) is open.
+- Detail: docs/agents/codeql-orchestration.md

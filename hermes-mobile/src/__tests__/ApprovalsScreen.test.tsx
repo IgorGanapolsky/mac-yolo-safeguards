@@ -33,7 +33,9 @@ describe('ApprovalsScreen', () => {
   it('renders thumbgate leash header and connection block', () => {
     const { getByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByTestId('THUMBGATE_LEASH')).toBeTruthy();
-    expect(getByText('Approve blocked tools from your phone via ThumbGate.app — tap notifications on lock screen')).toBeTruthy();
+    expect(getByTestId('leash-hero-subtitle')).toBeTruthy();
+    const hero = [].concat(getByTestId('leash-hero-subtitle').props.children as never).join('');
+    expect(hero).toMatch(/blocks a risky tool/i);
     expect(getByTestId('leash-open-thumbgate-app')).toBeTruthy();
     expect(getByText('Open ThumbGate.app →')).toBeTruthy();
   });
@@ -96,6 +98,8 @@ describe('ApprovalsScreen', () => {
   });
 
   it('shows empty state when no pending approvals', () => {
+    // Absence promo only when companion credential is not on the phone.
+    useGateway.mockReturnValue(mockUseGateway({ thumbgateApiKey: '' }));
     const { getByText, getByTestId, queryByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByText('No pending approvals')).toBeTruthy();
     const body = getByTestId('leash-empty-body');
@@ -110,10 +114,22 @@ describe('ApprovalsScreen', () => {
     useGateway.mockReturnValue(
       mockUseGateway({
         connectionState: 'disconnected',
+        thumbgateApiKey: '',
       }),
     );
     const { getByTestId } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByTestId('thumbgate-promo-leash_disconnected')).toBeTruthy();
+  });
+
+  it('hides absence promo when ThumbGate companion key is already stored', () => {
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        connectionState: 'disconnected',
+        thumbgateApiKey: 'sk-thumbgate-present',
+      }),
+    );
+    const { queryByTestId } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    expect(queryByTestId('thumbgate-promo-leash_disconnected')).toBeNull();
   });
 
   it('collapses connection prose to one headline line when linked', () => {
@@ -252,28 +268,20 @@ describe('ApprovalsScreen', () => {
     ).toBeTruthy();
   });
 
-  it('mentions lock screen in hero subtitle when quick-approve layout is on', () => {
-    useGateway.mockReturnValue(
-      mockUseGateway({
-        settings: { ...mockGatewaySettings, glanceMode: true },
-      }),
+  it('hero subtitle says what is approved: blocked Mac tools, not chat', () => {
+    const { getByTestId, queryByText, queryByTestId } = renderInTabNavigator(
+      ApprovalsScreen,
+      'Leash',
     );
-    const { getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
-    expect(
-      getByText('Approve blocked agent tools via ThumbGate.app — lock screen or cards below'),
-    ).toBeTruthy();
-  });
-
-  it('mentions lock screen in hero subtitle when approval-first mode is on', () => {
-    useGateway.mockReturnValue(
-      mockUseGateway({
-        settings: { ...mockGatewaySettings, safetyMode: true },
-      }),
-    );
-    const { getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
-    expect(
-      getByText('Approve blocked agent tools via ThumbGate.app — lock screen or cards below'),
-    ).toBeTruthy();
+    const heroText = []
+      .concat(getByTestId('leash-hero-subtitle').props.children as never)
+      .join('');
+    expect(heroText).toMatch(/blocks a risky tool/i);
+    expect(heroText).toMatch(/shell|files|browser/i);
+    expect(heroText).toMatch(/Not chat messages/i);
+    // Misleading dead toggle removed — safetyMode only changed copy before.
+    expect(queryByText('Approval-first mode')).toBeNull();
+    expect(queryByTestId('safety-mode-switch')).toBeNull();
   });
 
   it('refreshes from header button, bottom button, and pull-to-refresh', async () => {

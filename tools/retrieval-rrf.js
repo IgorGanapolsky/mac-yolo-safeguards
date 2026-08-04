@@ -33,12 +33,36 @@ function pathTokenBoost(filePath, queryTokens) {
     .replace(/\\/g, '/')
     .toLowerCase();
   const leaf = base.split('/').pop() || base;
+  const stem = leaf.replace(/\.[a-z0-9]+$/i, '');
+  const parts = new Set(stem.split(/[-_.]+/).filter((p) => p.length >= 3));
   let hits = 0;
+  let partHits = 0;
   for (const t of queryTokens) {
     if (leaf.includes(t) || base.includes(t)) hits += 1;
+    if (parts.has(t)) partHits += 1;
   }
-  // Small additive — enough to break ties, not swamp RRF
-  return Math.min(0.02, hits * 0.008);
+  // Prefer basenames that share multiple query tokens (agent-swarm-harness ↔ agent swarm harness).
+  // Cap is intentionally modest: boosts ≥0.04 can bury harness@8 production paths under
+  // test-* filename hits (measured 2026-08-04 lessons-feedback dual-path IR miss).
+  const multi = partHits >= 2 ? 0.01 : partHits === 1 ? 0.004 : 0;
+  return Math.min(0.018, hits * 0.004 + multi);
+}
+
+function pathQualityPenalty(filePath) {
+  const base = String(filePath || '')
+    .replace(/\\/g, '/')
+    .toLowerCase();
+  // Align with grepae search.boost.penalties — tests are valid but secondary to product code.
+  if (
+    /\/tests?\//.test(base) ||
+    /__tests__/.test(base) ||
+    /\.(test|spec)\.[a-z]+$/.test(base) ||
+    /\/fixtures?\//.test(base) ||
+    /\/mocks?\//.test(base)
+  ) {
+    return 0.012;
+  }
+  return 0;
 }
 
 /**
@@ -107,6 +131,13 @@ function rrfFuse(lists, options = {}) {
     }
   }
 
+  // Count non-empty rank lists — single-list fuse should nearly preserve input order
+  // (path boosts alone were enough to drop apps/.../lessons out of top-10, 2026-08-04).
+  const activeLists = (lists || []).filter((entry) => {
+    const list = Array.isArray(entry) ? entry : entry?.items || [];
+    return list.length > 0;
+  }).length;
+
   return [...scores.entries()]
     .map(([p, score]) => {
       const m = meta.get(p);
@@ -118,12 +149,27 @@ function rrfFuse(lists, options = {}) {
           : sources.length > 1
             ? 0.006
             : 0;
-      const pathBoost = pathTokenBoost(p, queryTokens);
-      // Respect strong sparse ranker: harness@1 should not be buried by grepae noise
-      // (2026-08-01: agent-swarm-harness harness@1 dual@6 under equal RRF).
-      const harnessPrior =
-        m.harnessRank === 1 ? 0.03 : m.harnessRank != null && m.harnessRank <= 2 ? 0.015 : 0;
-      const rrfScore = Number((score + agreement + pathBoost + harnessPrior).toFixed(6));
+      // Only apply path-token boost when fusing ≥2 lists; single-path is already ranked.
+      const pathBoost = activeLists >= 2 ? pathTokenBoost(p, queryTokens) : 0;
+      const qualityPenalty = pathQualityPenalty(p);
+      // Respect strong sparse ranker: harness@1 should not be buried by grepae agreement noise
+      // (2026-08-01: agent-swarm-harness harness@1 dual@6 under equal RRF;
+      //  re-proof: still dual@2 under 0.03 prior — raise to clear multi-source docs).
+      // Soft prior through rank 10 keeps production paths ahead of test filename boosts.
+      let harnessPrior = 0;
+      if (m.harnessRank != null && m.harnessRank > 0 && m.harnessRank <= 10) {
+        harnessPrior =
+          m.harnessRank === 1
+            ? 0.055
+            : m.harnessRank === 2
+              ? 0.022
+              : m.harnessRank === 3
+                ? 0.01
+                : 0.004 * (11 - m.harnessRank);
+      }
+      const rrfScore = Number(
+        (score + agreement + pathBoost + harnessPrior - qualityPenalty).toFixed(6),
+      );
       return {
         path: p,
         rrfScore,

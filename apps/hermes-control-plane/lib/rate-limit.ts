@@ -1,13 +1,8 @@
 /**
  * A+ Multi-tenancy: per-organization rate limiting.
- *
- * Thin TypeScript wrapper around `hermes-rate-limiter.js`.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { RateLimiter } = require("../../tools/hermes-rate-limiter.js") as {
-  RateLimiter: new () => RateLimiterInstance;
-};
+import { RateLimiter } from "./hermes-rate-limiter.js";
 
 interface RateLimitRawResult {
   allowed: boolean;
@@ -17,13 +12,9 @@ interface RateLimitRawResult {
   headers: Record<string, string>;
 }
 
-interface RateLimiterInstance {
+const limiter = new (RateLimiter as new () => {
   check: (orgId: string, plan: string) => RateLimitRawResult;
-  getMetrics: () => Record<string, unknown>;
-  reset: (orgId: string) => void;
-}
-
-const limiter = new RateLimiter();
+})();
 
 export interface RateLimitResult {
   allowed: boolean;
