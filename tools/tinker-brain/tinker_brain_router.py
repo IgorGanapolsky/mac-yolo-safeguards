@@ -189,9 +189,77 @@ METHODS_PATTERNS = (
     r"\barchitecture\b",
 )
 
+# Brand / trademark / rename — must surface LEGAL_BRAND section, not a silent GTM dump.
+LEGAL_BRAND_PATTERNS = (
+    r"\btrademark\b",
+    r"\brename\b",
+    r"\brenaming\b",
+    r"\bbrand risk\b",
+    r"\bbrand exposure\b",
+    r"\bnous research\b",
+    r"\bip risk\b",
+    r"\bname collision\b",
+    r"\bhermes\b.{0,40}\b(?:trademark|brand|rename|nous)\b",
+    r"\b(?:trademark|brand|rename|nous).{0,40}\bhermes\b",
+)
+
+COMPETITIVE_PATTERNS = (
+    r"\bcompetitor",
+    r"\bcompetitive\b",
+    r"\bvs\.?\b",
+    r"\bagainst\b",
+    r"\bcursor\b",
+    r"\bdevin\b",
+    r"\bopenhands\b",
+    r"\bminimax\b",
+    r"\babacus\b",
+    r"\bnous\b",
+)
+
 
 def _match_any(text: str, patterns: tuple[str, ...]) -> bool:
     return any(re.search(p, text, flags=re.I) for p in patterns)
+
+
+def _match_count(text: str, patterns: tuple[str, ...]) -> int:
+    return sum(1 for p in patterns if re.search(p, text, flags=re.I))
+
+
+def _confidence_for(primary: str, flags: dict[str, bool], match_hits: int) -> float:
+    """Deterministic confidence in [0.15, 0.99] from rule strength — not model logits."""
+    base = {
+        INTENT_THUMBGATE_GTM: 0.72,
+        INTENT_CASH: 0.88,
+        INTENT_NEXT_MONEY: 0.8,
+        INTENT_SYSTEM_SCORES: 0.9,
+        INTENT_IMPROVE: 0.7,
+        INTENT_ECONOMICS: 0.75,
+        INTENT_METHODS: 0.75,
+        INTENT_OFF_SCOPE: 0.85,
+        INTENT_GENERAL: 0.25,
+    }.get(primary, 0.4)
+    # More independent pattern families → higher confidence (capped).
+    family_hits = sum(
+        1
+        for k in (
+            "wants_cash",
+            "wants_next_money",
+            "wants_scores",
+            "wants_thumbgate_product",
+            "wants_gtm_positioning",
+            "wants_gtm_pricing",
+            "wants_gtm_marketing",
+            "wants_gtm_sales",
+            "wants_legal_brand",
+            "off_scope_hit",
+            "cash_diagnosis",
+        )
+        if flags.get(k)
+    )
+    score = base + 0.04 * family_hits + 0.01 * min(match_hits, 8)
+    if primary == INTENT_GENERAL:
+        score = min(score, 0.35)
+    return round(max(0.15, min(0.99, score)), 3)
 
 
 def route(question: str) -> dict[str, Any]:
@@ -213,15 +281,39 @@ def route(question: str) -> dict[str, Any]:
         "wants_gtm_pricing": _match_any(lowered, GTM_PRICING_PATTERNS),
         "wants_gtm_marketing": _match_any(lowered, GTM_MARKETING_PATTERNS),
         "wants_gtm_sales": _match_any(lowered, GTM_SALES_PATTERNS),
+        "wants_legal_brand": _match_any(lowered, LEGAL_BRAND_PATTERNS),
+        "wants_competitive": _match_any(lowered, COMPETITIVE_PATTERNS),
     }
     # "make money" is next-money unless the user is clearly diagnosing zero cash.
     if flags["wants_make_money_action"] and not flags["cash_diagnosis"]:
         flags["wants_next_money"] = True
+    # Legal/competitive flags only promote GTM when the question already has product
+    # or GTM context — bare "What is Cursor?" must not dump ThumbGate positioning.
+    product_or_gtm_context = (
+        flags["wants_thumbgate_product"]
+        or flags["wants_gtm_positioning"]
+        or flags["wants_gtm_pricing"]
+        or flags["wants_gtm_marketing"]
+        or flags["wants_gtm_sales"]
+        or flags["wants_cash"]
+        or flags["wants_next_money"]
+        or flags["wants_make_money_action"]
+    )
+    if (flags["wants_legal_brand"] or flags["wants_competitive"]) and product_or_gtm_context:
+        flags["wants_gtm_positioning"] = True
+    elif flags["wants_legal_brand"] and _match_any(lowered, THUMBGATE_PATTERNS + (r"\bhermes\b",)):
+        # "ThumbGate rename / Hermes trademark" without other GTM verbs still GTM.
+        flags["wants_gtm_positioning"] = True
+        flags["wants_thumbgate_product"] = True
     gtm_hit = (
         flags["wants_gtm_positioning"]
         or flags["wants_gtm_pricing"]
         or flags["wants_gtm_marketing"]
         or flags["wants_gtm_sales"]
+        or (
+            flags["wants_legal_brand"]
+            and (flags["wants_thumbgate_product"] or _match_any(lowered, (r"\bhermes\b",)))
+        )
     )
     flags["wants_thumbgate_gtm"] = flags["wants_thumbgate_product"] or gtm_hit
 
@@ -260,14 +352,32 @@ def route(question: str) -> dict[str, Any]:
             flags["wants_cash"] or primary == INTENT_CASH or flags["wants_make_money_action"]
         )
 
+    match_hits = sum(
+        [
+            _match_count(lowered, CASH_PATTERNS),
+            _match_count(lowered, NEXT_MONEY_PATTERNS),
+            _match_count(lowered, THUMBGATE_PATTERNS),
+            _match_count(lowered, GTM_POSITIONING_PATTERNS),
+            _match_count(lowered, GTM_PRICING_PATTERNS),
+            _match_count(lowered, GTM_MARKETING_PATTERNS),
+            _match_count(lowered, GTM_SALES_PATTERNS),
+            _match_count(lowered, LEGAL_BRAND_PATTERNS),
+            _match_count(lowered, OFF_SCOPE_PATTERNS),
+        ]
+    )
+    confidence = _confidence_for(primary, flags, match_hits)
+
     return {
-        "schema_version": "tinker-brain-router/1",
+        "schema_version": "tinker-brain-router/2",
         "primary": primary,
         "flags": flags,
+        "confidence": confidence,
+        "match_hits": match_hits,
         "model_required": False,
         "answer_mode": "deterministic_card",
         "learning_mode": "supervised_routing_rules_not_llm",
         "architecture": "rules_router_not_transformer",
+        "retrieval": "section_bm25_lite_on_expert_card",
     }
 
 

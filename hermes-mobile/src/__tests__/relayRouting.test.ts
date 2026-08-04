@@ -30,7 +30,7 @@ describe('relayRouting', () => {
     expect(selectRelayWorker(workers, null)?.id).toBe('mac-mini');
   });
 
-  it('labels an unpaired cloud approval queue without implying computer transport', () => {
+  it('labels an unpaired optional approval-push path without implying computer transport', () => {
     const display = resolveRelayRouteDisplay({
       connectionMode: 'relay',
       isPaired: false,
@@ -40,9 +40,10 @@ describe('relayRouting', () => {
       fallbackMachineLabel: '192.168.1.10',
     });
 
-    expect(display.machineLabel).toBe('Cloud approvals');
+    expect(display.machineLabel).toBe('Lock-screen approvals');
     expect(display.endpointLabel).toBeUndefined();
-    expect(display.routeStatus).toBe('Pair to receive approval requests anywhere');
+    expect(display.routeStatus).toMatch(/optional/i);
+    expect(display.routeStatus.toLowerCase()).not.toContain('cloud approvals are not paired');
   });
 
   it('suppresses pair relay nag while silently reconnecting on Wi-Fi', () => {
@@ -74,7 +75,7 @@ describe('relayRouting', () => {
       heal: { attempt: 1, inFlight: true, exhausted: false },
       macHttpOk: false,
     });
-    expect(empty.routeStatus).toBe('Waiting for approval pairing…');
+    expect(empty.routeStatus).toMatch(/optional approval push|setting up/i);
     expect(empty.routeStatus.toLowerCase()).not.toContain('reconnect');
 
     const usb = resolveRelayRouteDisplay({
@@ -87,10 +88,10 @@ describe('relayRouting', () => {
       heal: { attempt: 1, inFlight: true, exhausted: false },
       macHttpOk: false,
     });
-    expect(usb.routeStatus).toBe('Waiting for approval pairing…');
+    expect(usb.routeStatus).toMatch(/optional approval push|setting up/i);
   });
 
-  it('labels paired relay workers as cloud approvals, not Tailscale transport', () => {
+  it('labels paired relay workers as off-network approvals, not Tailscale transport', () => {
     const display = resolveRelayRouteDisplay({
       connectionMode: 'relay',
       isPaired: true,
@@ -102,8 +103,8 @@ describe('relayRouting', () => {
     });
 
     expect(display.machineLabel).toBe('Igors-Mac-mini · skool_top1percent');
-    expect(display.endpointLabel).toBe('cloud approvals');
-    expect(display.routeStatus).toContain('Approval requests anywhere');
+    expect(display.endpointLabel).toBe('approval push');
+    expect(display.routeStatus).toContain('Approvals off-network');
   });
 
   it('keeps direct fallback display in gateway mode', () => {

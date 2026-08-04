@@ -228,10 +228,33 @@ check('genuinely empty search is not reported as blind', () => {
 // When Chrome is disabled but gmailApi is enabled, the scan must NOT report
 // 'scan_not_attempted_no_chrome' — it should either succeed (API returns rows
 // or a genuinely-empty diag) or name an API failure.
-check('parseArgs --gmail-api sets gmailApi and keeps chrome default', () => {
+check('parseArgs --gmail-api sets gmailApi and disables chrome', () => {
   const a = parseArgs(['--gmail-api']);
   assert.strictEqual(a.gmailApi, true);
-  assert.strictEqual(a.chrome, true); // --gmail-api does not auto-disable chrome
+  assert.strictEqual(a.chrome, false); // API path is exclusive; Chrome was the blind path
+});
+
+check('parseArgs defaults prefer Gmail API over Chrome', () => {
+  const a = parseArgs([]);
+  assert.strictEqual(a.gmailApi, true);
+  assert.strictEqual(a.chrome, false);
+});
+
+check('parseArgs --chrome opts into DOM path', () => {
+  const a = parseArgs(['--chrome']);
+  assert.strictEqual(a.chrome, true);
+  assert.strictEqual(a.gmailApi, false);
+});
+
+check('new cash-path subjects are watched', () => {
+  assert.ok(OUTREACH_SUBJECT_TERMS.some((t) => /Kill switch/i.test(t)));
+  assert.ok(OUTREACH_SUBJECT_TERMS.some((t) => /Cancel in-flight/i.test(t)));
+  assert.ok(OUTREACH_SUBJECT_TERMS.some((t) => /costBleedMonitor/i.test(t)));
+  assert.ok(OUTREACH_SUBJECT_RE.test('Re: Kill switch for runaway agent sessions'));
+  assert.ok(OUTREACH_SUBJECT_RE.test('Re: Cancel in-flight agents (coven-gateway #67)'));
+  const q = outreachSearchQuery(14);
+  assert.ok(q.includes('Kill switch'));
+  assert.ok(q.includes('in:anywhere'));
 });
 
 check('gmailApiCollectRows is exported', () => {

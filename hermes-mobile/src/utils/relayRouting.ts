@@ -84,15 +84,17 @@ export function resolveRelayRouteDisplay(input: {
       !gatewayUrl ||
       gatewayUrl === 'http://127.0.0.1:8642' ||
       gatewayUrl === 'http://localhost:8642';
+    // Optional cloud *relay* for lock-screen tool approvals when you're not on
+    // the same network as the computer. NOT "is my computer paired for chat."
     return {
-      machineLabel: 'Cloud approvals',
+      machineLabel: 'Lock-screen approvals',
       routeStatus: showPairNudge
-        ? 'Pair to receive approval requests anywhere'
+        ? 'Optional: pair for approvals off your home network'
         : heal.inFlight
           ? neverConnected
-            ? 'Waiting for approval pairing…'
+            ? 'Optional approval push: setting up…'
             : 'Reconnecting…'
-          : 'Cloud approvals are not paired',
+          : 'Optional approval push: not set up',
     };
   }
 
@@ -101,17 +103,17 @@ export function resolveRelayRouteDisplay(input: {
     const workerName = relayWorkerDisplayName(worker);
     return {
       machineLabel: workerName,
-      endpointLabel: 'cloud approvals',
-      routeStatus: `Approval requests anywhere${worker.status ? ` · ${worker.status}` : ''}`,
+      endpointLabel: 'approval push',
+      routeStatus: `Approvals off-network${worker.status ? ` · ${worker.status}` : ''}`,
     };
   }
 
   return {
-    machineLabel: 'Cloud approvals',
+    machineLabel: 'Lock-screen approvals',
     endpointLabel: undefined,
     routeStatus:
       input.connectionState === 'connected'
-        ? 'Paired for approval requests anywhere'
-        : 'Connects when approval requests are available',
+        ? 'Off-network approvals ready'
+        : 'Approvals connect when a blocked tool needs you',
   };
 }

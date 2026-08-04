@@ -15,6 +15,7 @@
  */
 
 const { spawnSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 const { rewriteQuery } = require('./retrieval-query-rewrite');
 const { rerank } = require('./retrieval-rerank');
@@ -39,6 +40,9 @@ function parseArgs(argv) {
     llmRerank: process.env.HERMES_LLM_RERANK === '1',
     candidatePool: 30,
     multiQuery: process.env.HERMES_MULTI_QUERY === '1',
+    principal: process.env.HERMES_RETRIEVE_PRINCIPAL || '',
+    acl: process.env.HERMES_DOCUMENT_ACL || '',
+    trace: process.env.HERMES_TURN_TRACE === '1',
   };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -57,10 +61,84 @@ function parseArgs(argv) {
     else if (a === '--multi-query') args.multiQuery = true;
     else if (a === '--no-multi-query') args.multiQuery = false;
     else if (a === '--candidate-pool') args.candidatePool = Number(argv[++i] || 30);
+    else if (a === '--principal') args.principal = argv[++i] || '';
+    else if (a === '--acl') args.acl = argv[++i] || '';
+    else if (a === '--trace') args.trace = true;
     else if (a === '--help' || a === '-h') args.help = true;
     else throw new Error(`Unknown argument: ${a}`);
   }
   return args;
+}
+
+/**
+ * Apply document ACL + optional turn-trace write (production observability).
+ */
+function finalizeRetrieveResult(result, options = {}) {
+  const started = options._startedAt || Date.now();
+  let matches = result.matches || [];
+  let aclMeta = { aclApplied: false };
+  // Fail closed: if caller requested ACL enforcement, never return unfiltered
+  // matches when the ACL file is missing, unreadable, or malformed.
+  if (options.acl || options.principal) {
+    try {
+      const { loadAcl, filterMatchesByAcl } = require('./production-ops');
+      const acl = options.acl ? loadAcl(options.acl) : null;
+      if (options.acl && !acl) {
+        throw new Error('ACL path resolved to empty policy');
+      }
+      const filtered = filterMatchesByAcl(matches, options.principal || '', acl);
+      matches = filtered.matches;
+      aclMeta = {
+        aclApplied: filtered.aclApplied,
+        principal: options.principal || null,
+        filtered: filtered.filtered,
+        reason: filtered.reason,
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      matches = [];
+      aclMeta = {
+        aclApplied: true,
+        failClosed: true,
+        principal: options.principal || null,
+        filtered: (result.matches || []).length,
+        error: msg,
+        reason: 'acl_load_or_filter_failed',
+      };
+    }
+  }
+  const out = {
+    ...result,
+    matches,
+    acl: aclMeta,
+    latencyMs: Date.now() - started,
+  };
+  if (options.trace || process.env.HERMES_TURN_TRACE === '1') {
+    try {
+      const { buildTurnTrace, writeTurnTrace } = require('./production-ops');
+      const trace = buildTurnTrace({
+        query: out.query,
+        route: options.route || { id: 'dual-path' },
+        principal: options.principal || null,
+        tenant: options.tenant || null,
+        retrieval: {
+          backend: out.fusion,
+          rewritten: out.rewritten,
+          multiQuery: out.multiQuery,
+          rerank: out.rerank,
+          matches: out.matches,
+          latencyMs: out.latencyMs,
+        },
+        acl: aclMeta,
+        latencyMs: out.latencyMs,
+      });
+      out.tracePath = writeTurnTrace(trace, { dir: options.traceDir });
+      out.traceId = trace.id;
+    } catch (error) {
+      out.traceError = error instanceof Error ? error.message : String(error);
+    }
+  }
+  return out;
 }
 
 function pathAllowed(p, include, exclude) {
@@ -95,14 +173,54 @@ function runHarness(query, limit, repo) {
   }
 }
 
+function defaultGrepaiCwd(repo = REPO) {
+  // Prefer the isolated semantic-index clone when the multi-worktree checkout
+  // has a dead shell index (or when env points at the fleet index).
+  const isol = path.join(
+    process.env.HOME || '',
+    '.hermes',
+    'semantic-index',
+    'mac-yolo-safeguards',
+  );
+  const isolGob = path.join(isol, '.grepai', 'index.gob');
+  const repoGob = path.join(repo, '.grepai', 'index.gob');
+  try {
+    const isolBytes = fs.existsSync(isolGob) ? fs.statSync(isolGob).size : 0;
+    const repoBytes = fs.existsSync(repoGob) ? fs.statSync(repoGob).size : 0;
+    if (isolBytes >= 10 * 1024 && isolBytes >= repoBytes) return isol;
+  } catch {
+    /* fall through */
+  }
+  return repo;
+}
+
 function runGrepai(query, limit, repo = REPO) {
+  const cwd = defaultGrepaiCwd(repo);
+  // Fail-fast on empty shell index (384B gob). Searching an empty index under
+  // Ollama contention hangs dual-path eval for minutes (measured 2026-08-04).
+  try {
+    const gob = path.join(cwd, '.grepai', 'index.gob');
+    const bytes = fs.existsSync(gob) ? fs.statSync(gob).size : 0;
+    if (bytes < 10 * 1024) {
+      return {
+        ok: false,
+        error: `grepai index empty shell (${bytes}B) at ${cwd}`,
+        matches: [],
+      };
+    }
+  } catch {
+    /* proceed to live search */
+  }
   const r = spawnSync(
     'grepai',
     ['search', query, '--json', '--compact'],
-    { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 60000, cwd: repo },
+    { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 45000, cwd },
   );
   if (r.error && r.error.code === 'ENOENT') {
     return { ok: false, error: 'grepai CLI not found', matches: [] };
+  }
+  if (r.error && r.error.code === 'ETIMEDOUT') {
+    return { ok: false, error: 'grepai search timed out', matches: [] };
   }
   if (r.status !== 0) {
     return { ok: false, error: (r.stderr || r.stdout || '').slice(0, 300), matches: [] };
@@ -126,6 +244,7 @@ function runGrepai(query, limit, repo = REPO) {
 }
 
 async function dualPathRetrieve(options = {}) {
+  const _startedAt = Date.now();
   const queryIn = String(options.query || '').trim();
   if (!queryIn) throw new Error('--query required');
   const rewrite = options.rewrite !== false ? rewriteQuery(queryIn) : { original: queryIn, rewritten: queryIn, expansions: [], rulesFired: [] };
@@ -194,19 +313,22 @@ async function dualPathRetrieve(options = {}) {
         };
       }
     }
-    return {
-      query: queryIn,
-      rewritten: rewrite.rewritten,
-      rewriteRules: rewrite.rulesFired,
-      expansions: rewrite.expansions,
-      filters: { pathInclude: include, pathExclude: exclude },
-      pathStatus: { harness: 'via-multi-query', grepai: 'via-multi-query' },
-      fusion: 'rrf-multi-query',
-      rrfK: RRF_K,
-      multiQuery: multiQueryMeta,
-      rerank: rerankMeta,
-      matches,
-    };
+    return finalizeRetrieveResult(
+      {
+        query: queryIn,
+        rewritten: rewrite.rewritten,
+        rewriteRules: rewrite.rulesFired,
+        expansions: rewrite.expansions,
+        filters: { pathInclude: include, pathExclude: exclude },
+        pathStatus: { harness: 'via-multi-query', grepai: 'via-multi-query' },
+        fusion: 'rrf-multi-query',
+        rrfK: RRF_K,
+        multiQuery: multiQueryMeta,
+        rerank: rerankMeta,
+        matches,
+      },
+      { ...options, _startedAt },
+    );
   }
 
   const lists = [];
@@ -280,22 +402,25 @@ async function dualPathRetrieve(options = {}) {
     }
   }
 
-  return {
-    query: queryIn,
-    rewritten: rewrite.rewritten,
-    rewriteRules: rewrite.rulesFired,
-    expansions: rewrite.expansions,
-    filters: { pathInclude: include, pathExclude: exclude },
-    pathStatus: {
-      harness: paths.harness ? (paths.harness.ok ? 'ok' : paths.harness.error) : 'skipped',
-      grepai: paths.grepai ? (paths.grepai.ok ? 'ok' : paths.grepai.error) : 'skipped',
+  return finalizeRetrieveResult(
+    {
+      query: queryIn,
+      rewritten: rewrite.rewritten,
+      rewriteRules: rewrite.rulesFired,
+      expansions: rewrite.expansions,
+      filters: { pathInclude: include, pathExclude: exclude },
+      pathStatus: {
+        harness: paths.harness ? (paths.harness.ok ? 'ok' : paths.harness.error) : 'skipped',
+        grepai: paths.grepai ? (paths.grepai.ok ? 'ok' : paths.grepai.error) : 'skipped',
+      },
+      fusion: 'weighted-rrf',
+      rrfK: RRF_K,
+      multiQuery: multiQueryMeta,
+      rerank: rerankMeta,
+      matches,
     },
-    fusion: 'weighted-rrf',
-    rrfK: RRF_K,
-    multiQuery: multiQueryMeta,
-    rerank: rerankMeta,
-    matches,
-  };
+    { ...options, _startedAt },
+  );
 }
 
 if (require.main === module) {
@@ -329,4 +454,4 @@ if (require.main === module) {
   })();
 }
 
-module.exports = { dualPathRetrieve, rrfFuse, pathAllowed, runHarness, runGrepai };
+module.exports = { dualPathRetrieve, rrfFuse, pathAllowed, runHarness, runGrepai, finalizeRetrieveResult };

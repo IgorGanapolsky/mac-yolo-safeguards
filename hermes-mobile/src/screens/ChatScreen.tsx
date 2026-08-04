@@ -32,6 +32,7 @@ import {
   useGatewayApprovals,
   useGatewayChatSync,
 } from '../hooks/useGatewaySelector';
+import { useGateway } from '../context/GatewayContext';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import {
   composerDockInsets,
@@ -296,9 +297,12 @@ import AttachPickerSheet, { type AttachPickerOption } from '../components/Attach
 import ChatMessageDetailModal from '../components/ChatMessageDetailModal';
 import FeedbackPromptModal from '../components/FeedbackPromptModal';
 import GatewayOpsSection from '../components/GatewayOpsSection';
+import { RECONNECT_REPAIR_ACTION_LABEL } from '../components/ConnectionHealthHub';
 import ChatApprovalBar from '../components/ChatApprovalBar';
 import RunProgressBanner from '../components/RunProgressBanner';
 import EmptyStreamRefreshBanner from '../components/EmptyStreamRefreshBanner';
+import WorkingActivityBar from '../components/WorkingActivityBar';
+import { isChatWorkingActivity } from '../utils/chatWorkingActivity';
 import ComposerErrorBanner from '../components/ComposerErrorBanner';
 import type { RunProgressState } from '../types/chatDisplay';
 import type { GatewayEventMessage } from '../types/gateway';
@@ -659,6 +663,7 @@ export default function ChatScreen() {
     connectionHealInFlight,
     connectionHealExhausted,
   } = useGatewayConnection();
+  const { thumbgateApiKey } = useGateway();
   const [activeAgents, setActiveAgents] = useState<{ name: string; status: string }[]>([]);
   const { relayWorkers, isPaired, activeRelayWorkerId } = useGatewayRelay();
   const {
@@ -2105,9 +2110,13 @@ export default function ChatScreen() {
     });
   }, [health?.authMismatch, repairComputerLabel]);
 
+  // Never put optional "cloud approval push" status next to the computer name when
+  // chat itself is down — that reads as "computer not paired" (owner rage 2026-08-02).
+  // Only surface unpaired-relay copy when chat/HTTP is already healthy (secondary tip).
   const routeStatusLabel =
     settings.connectionMode === 'relay' &&
     !isPaired &&
+    effectiveMacHttpOk &&
     relayRouteDisplay.routeStatus !== 'Direct link'
       ? relayRouteDisplay.routeStatus
       : !effectiveMacHttpOk && connectionHealExhausted
@@ -4284,9 +4293,16 @@ export default function ChatScreen() {
         fresh?.apiKey ?? (await secureCredentials.resolveApiKeyForProfile(activeProfileId));
       const probeUrl = nextSettings.gatewayUrl || fresh?.gatewayUrl || probeBase;
       const postRetryHealth = await fetchGatewayHealth(probeUrl, profileKey);
+      // A tap that ends in the same banner it started with is indistinguishable
+      // from a dead button — the user taps "tap to reconnect" forever and nothing
+      // on screen changes. Both give-up paths must say what failed and what works.
       if (postRetryHealth.authMismatch) {
         setErrorMessage(gatewayAuthRepairBanner(repairComputerLabel));
         haptics.warning();
+        Alert.alert(
+          `Could not reconnect to ${repairComputerLabel}`,
+          `${repairComputerLabel} answered, but this phone's saved key is out of date, so reconnecting alone cannot fix it.\n\nOpen Connection health and tap ${RECONNECT_REPAIR_ACTION_LABEL} to pair with it again.`,
+        );
         return;
       }
       if (!postRetryHealth.directGatewayReachable && postRetryHealth.level === 'red') {
@@ -4294,6 +4310,10 @@ export default function ChatScreen() {
           `Still can't reach ${repairComputerLabel}. Keep Tailscale on, or tap Find computers.`,
         );
         haptics.warning();
+        Alert.alert(
+          `Still can't reach ${repairComputerLabel}`,
+          'Your computer did not answer. Keep it awake and on the same Wi-Fi, or keep Tailscale on when you are on cellular, then tap Find computers.',
+        );
         return;
       }
 
@@ -7376,6 +7396,18 @@ export default function ChatScreen() {
     alternateHealRoutes,
   ]);
 
+  /** Top pulse + "Connected · working" while Mac is still thinking / checking. */
+  const chatWorking = useMemo(
+    () =>
+      isChatWorkingActivity({
+        isSending,
+        awaitingGatewayReply,
+        emptyStreamAutoChecking: showEmptyStreamRefreshBanner && awaitingGatewayReply,
+        runProgress: progressBanner,
+      }),
+    [isSending, awaitingGatewayReply, showEmptyStreamRefreshBanner, progressBanner],
+  );
+
   const emptyReplyRunRefreshEligible = useMemo(
     () =>
       !isDemo &&
@@ -7990,6 +8022,7 @@ export default function ChatScreen() {
           }
           isDemo={isDemo}
           chatStalled={effectiveAuthMismatch ? false : chatStalled}
+          chatWorking={effectiveAuthMismatch ? false : chatWorking}
           activeAgents={activeAgents}
           currentSession={currentSession}
           gatewayModel={headerGatewayModel}
@@ -8031,6 +8064,7 @@ export default function ChatScreen() {
           }}
           onMacRetry={() => void handleMacRetry()}
         />
+        <WorkingActivityBar visible={chatWorking && !effectiveAuthMismatch} />
       </View>
 
       <View style={styles.keyboardContainer}>
@@ -8094,6 +8128,7 @@ export default function ChatScreen() {
               }}
               liveUsb={liveUsbGateway}
               onAddProfile={addGatewayProfile}
+              hasThumbGateCompanion={Boolean(thumbgateApiKey?.trim())}
             />
           </ScrollView>
         ) : null}
