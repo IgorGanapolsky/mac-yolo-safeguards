@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import subprocess
 import sys
@@ -59,7 +58,6 @@ from tinker_brain_health import (  # noqa: E402
     _SNAPSHOT_CARD,
     _digest,
     check,
-    log_gap,
     read_gaps,
 )
 
@@ -72,6 +70,22 @@ _HEALTH_URL = "https://thumbgate.app/api/health"
 
 def _utc() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+_SENSITIVE = re.compile(
+    r"(?i)(api[_-]?key|secret|token|password|passwd|authorization|bearer|client[_-]?secret)"
+    r"\b[^\n]{0,80}?[:=][^\n]{0,80}",
+)
+
+
+def _redact(text: str) -> str:
+    """Scrub secrets before the loop prints tainted strings to stdout.
+
+    heal.reason and agenda.nextActions are sourced from the card-divergence
+    diff and from aggregated logged questions, which can carry credentials
+    that leaked into a card or a user transcript. Never emit those raw.
+    """
+    return _SENSITIVE.sub("<redacted>", str(text))
 
 
 def _probe(url: str, timeout: float = 3.0) -> dict[str, Any]:
@@ -395,13 +409,13 @@ def main() -> int:
             print(json.dumps(result, indent=2, default=str))
         else:
             print(f"tinker-brain-continuous: {'OK' if result['ok'] else 'UNHEALTHY'}")
-            print(f"  heal: {result['heal'].get('reason')} acted={result['heal'].get('acted')}")
+            print(f"  heal: {_redact(result['heal'].get('reason'))} acted={result['heal'].get('acted')}")
             print(f"  card AS_OF={result['post'].get('asOf')} force={result['post'].get('effectiveCard')}")
             print(f"  billing ok={result['billing'].get('ok')} unitAmount={result['billing'].get('unitAmount')}")
             print(f"  funnel ok={result['funnel'].get('ok')} fails={result['funnel'].get('failStages')}")
             print(f"  agenda: {result['agendaPath']}")
             for a in (result.get("agenda") or {}).get("nextActions", [])[:6]:
-                print(f"    → {a}")
+                print(f"    → {_redact(a)}")
             print(f"  eval ok={result['eval'].get('ok')} latency={result['latency_s']}s")
         return 0 if result["ok"] else 1
 
