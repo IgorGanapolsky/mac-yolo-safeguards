@@ -6,141 +6,240 @@
       "id": "sell_thumbgate",
       "question": "How do we sell ThumbGate.app?",
       "expect_route": "thumbgate_gtm",
-      "must_contain": ["[SALES_MOTION]", "14-day trial", "first chat is the product"],
-      "must_not_contain": ["endpoint security"]
+      "must_contain": [
+        "[SALES_MOTION]",
+        "14-day trial",
+        "first chat is the product"
+      ],
+      "must_not_contain": [
+        "endpoint security"
+      ],
+      "domain": "sales"
     },
     {
       "id": "marketing_plan",
       "question": "What is our marketing plan?",
       "expect_route": "thumbgate_gtm",
-      "must_contain": ["[CHANNELS]", "dev.to", "AEO"],
-      "must_not_contain": ["upwork"]
+      "must_contain": [
+        "[CHANNELS]",
+        "dev.to",
+        "AEO"
+      ],
+      "must_not_contain": [
+        "upwork"
+      ],
+      "domain": "channels"
     },
     {
       "id": "promote_week",
       "question": "How should we promote ThumbGate.app this week?",
       "expect_route": "thumbgate_gtm",
-      "must_contain": ["[PROMO_RULES]", "burn rule"],
-      "must_not_contain": []
+      "must_contain": [
+        "[PROMO_RULES]",
+        "burn rule"
+      ],
+      "must_not_contain": [],
+      "domain": "promo"
     },
     {
       "id": "price_continuity",
       "question": "How should we price Continuity?",
       "expect_route": "thumbgate_gtm",
-      "must_contain": ["[PRICING]", "$10/mo", "never per-token"],
-      "must_not_contain": []
+      "must_contain": [
+        "[PRICING]",
+        "$10/mo",
+        "never per-token"
+      ],
+      "must_not_contain": [],
+      "domain": "pricing"
     },
     {
       "id": "positioning_vs_cloud_agents",
       "question": "What is our positioning against Cursor Background Agent?",
       "expect_route": "thumbgate_gtm",
-      "must_contain": ["[POSITIONING]", "wedge", "resilience"],
-      "must_not_contain": ["endpoint security"]
+      "must_contain": [
+        "[POSITIONING]",
+        "wedge",
+        "resilience"
+      ],
+      "must_not_contain": [
+        "endpoint security"
+      ],
+      "domain": "positioning"
     },
     {
       "id": "monetize_fastest",
       "question": "What is the fastest way to monetize ThumbGate.app?",
       "expect_route": "thumbgate_gtm",
-      "must_contain": ["[PRICING]", "Continuity"],
-      "must_not_contain": []
+      "must_contain": [
+        "[PRICING]",
+        "Continuity"
+      ],
+      "must_not_contain": [],
+      "domain": "pricing"
     },
     {
       "id": "product_truth",
       "question": "What exactly is ThumbGate.app?",
       "expect_route": "thumbgate_gtm",
-      "must_contain": ["[PRODUCT]", "control plane", "NOT live process migration"],
-      "must_not_contain": []
+      "must_contain": [
+        "[PRODUCT]",
+        "control plane",
+        "NOT live process migration"
+      ],
+      "must_not_contain": [],
+      "domain": "product"
     },
     {
       "id": "gtm_grounding_rule",
       "question": "Give me the ThumbGate go-to-market summary.",
       "expect_route": "thumbgate_gtm",
-      "must_contain": ["api/billing/plan", "never hard-code"],
-      "must_not_contain": []
+      "must_contain": [
+        "api/billing/plan",
+        "never hard-code"
+      ],
+      "must_not_contain": [],
+      "domain": "gtm"
     },
     {
       "id": "cash_truth_zero",
       "question": "Why did we make zero dollars?",
       "expect_route": "cash_truth",
-      "must_contain": ["external $0.00", "non-owner"],
-      "must_not_contain": ["[CHANNELS]"]
+      "must_contain": [
+        "external $0.00",
+        "non-owner"
+      ],
+      "must_not_contain": [
+        "[CHANNELS]"
+      ],
+      "domain": "cash"
     },
     {
       "id": "next_money_action",
       "question": "What is the next money action?",
       "expect_route": "next_money",
-      "must_contain": ["Next money action"],
-      "must_not_contain": []
+      "must_contain": [
+        "Next money action"
+      ],
+      "must_not_contain": [],
+      "domain": "cash"
     },
     {
       "id": "make_money_still_routes",
       "question": "make money",
       "expect_route": "next_money",
-      "must_contain": ["Cash: external"],
-      "must_not_contain": []
+      "must_contain": [
+        "Cash: external"
+      ],
+      "must_not_contain": [],
+      "domain": "cash"
     },
     {
       "id": "system_scores_exact",
       "question": "Give the exact system scores.",
       "expect_route": "system_scores",
-      "must_contain": ["Evidence scores"],
-      "must_not_contain": []
+      "must_contain": [
+        "Evidence scores"
+      ],
+      "must_not_contain": [],
+      "domain": "scores"
     },
     {
       "id": "off_scope_vault_refused",
       "question": "Improve things by rebuilding the Obsidian vault sync.",
       "expect_route": "off_scope_refuse",
-      "must_contain": ["Off-scope refuse"],
-      "must_not_contain": []
+      "must_contain": [
+        "Off-scope refuse"
+      ],
+      "must_not_contain": [],
+      "domain": "off_scope"
     },
     {
       "id": "conflation_never_emitted",
       "question": "Should ThumbGate.app absorb the firewall product?",
       "expect_route": "thumbgate_gtm",
-      "must_contain": ["[PRODUCT]"],
-      "must_not_contain": []
+      "must_contain": [
+        "[PRODUCT]"
+      ],
+      "must_not_contain": [],
+      "domain": "product"
     },
     {
       "id": "trademark_legal_brand",
       "question": "Should ThumbGate rename away from Hermes given trademark exposure?",
       "expect_route": "thumbgate_gtm",
-      "must_contain": ["[LEGAL_BRAND]", "trademark", "rename"],
-      "must_not_contain": ["endpoint security"]
+      "must_contain": [
+        "[LEGAL_BRAND]",
+        "trademark",
+        "rename"
+      ],
+      "must_not_contain": [
+        "endpoint security"
+      ],
+      "domain": "legal"
     },
     {
       "id": "nous_competitive_pressure",
       "question": "How does Nous Research hosted Hermes affect our positioning?",
       "expect_route": "thumbgate_gtm",
-      "must_contain": ["[POSITIONING]", "Nous", "gate"],
-      "must_not_contain": ["endpoint security"]
+      "must_contain": [
+        "[POSITIONING]",
+        "Nous",
+        "gate"
+      ],
+      "must_not_contain": [
+        "endpoint security"
+      ],
+      "domain": "positioning"
     },
     {
       "id": "retrieval_surfaces_method",
       "question": "How should we price Continuity?",
       "expect_route": "thumbgate_gtm",
-      "must_contain": ["Retrieval:", "[PRICING]", "$10/mo"],
-      "must_not_contain": []
+      "must_contain": [
+        "Retrieval:",
+        "[PRICING]",
+        "$10/mo"
+      ],
+      "must_not_contain": [],
+      "domain": "pricing"
     },
     {
       "id": "buyer_icp",
       "question": "Who is the ideal buyer for ThumbGate.app?",
       "expect_route": "thumbgate_gtm",
-      "must_contain": ["[BUYER]", "ICP"],
-      "must_not_contain": []
+      "must_contain": [
+        "[BUYER]",
+        "ICP"
+      ],
+      "must_not_contain": [],
+      "domain": "buyer"
     },
     {
       "id": "promo_rules_never_rescue",
       "question": "What are the ThumbGate promo rules?",
       "expect_route": "thumbgate_gtm",
-      "must_contain": ["[PROMO_RULES]", "add-on"],
-      "must_not_contain": ["endpoint security"]
+      "must_contain": [
+        "[PROMO_RULES]",
+        "add-on"
+      ],
+      "must_not_contain": [
+        "endpoint security"
+      ],
+      "domain": "promo"
     },
     {
       "id": "cash_truth_with_thumbgate_token",
-      "question": "why zero dollars — reassess cash truth",
+      "question": "why zero dollars \u2014 reassess cash truth",
       "expect_route": "cash_truth",
-      "must_contain": ["external $0.00", "non-owner"],
-      "must_not_contain": ["[SALES_MOTION]"]
+      "must_contain": [
+        "external $0.00",
+        "non-owner"
+      ],
+      "must_not_contain": [
+        "[SALES_MOTION]"
+      ],
+      "domain": "cash"
     }
   ]
 }

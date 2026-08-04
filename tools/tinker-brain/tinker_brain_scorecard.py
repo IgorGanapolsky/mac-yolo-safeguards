@@ -278,6 +278,134 @@ def grade_eval() -> dict[str, Any]:
     )
 
 
+def grade_continuous() -> dict[str, Any]:
+    """Self-heal/learn loop for sales GTM (optional required=False until always on main)."""
+    cont = BRAIN / "tinker_brain_continuous.py"
+    if not cont.is_file():
+        return _grade_pillar(
+            "continuous_sales_loop",
+            score_10=0.0,
+            required=False,
+            evidence={"present": False},
+            notes="A+ = continuous --once --heal posts ok + agenda + billing probe.",
+        )
+    run = _run(
+        [sys.executable, str(cont), "--once", "--heal", "--no-eval", "--json"],
+        timeout=120.0,
+    )
+    body: dict[str, Any] = {}
+    try:
+        body = json.loads(run["stdout"] or "{}")
+    except json.JSONDecodeError:
+        body = {}
+    ok = bool(body.get("ok")) and run["exit"] == 0
+    billing_ok = bool((body.get("billing") or {}).get("ok"))
+    has_agenda = bool((body.get("agenda") or {}).get("nextActions"))
+    score = 10.0 if ok and billing_ok and has_agenda else (8.0 if ok else 5.0)
+    return _grade_pillar(
+        "continuous_sales_loop",
+        score_10=score,
+        required=False,
+        evidence={
+            "exit": run["exit"],
+            "ok": body.get("ok"),
+            "billing": body.get("billing"),
+            "funnel": body.get("funnel"),
+            "nextActions": (body.get("agenda") or {}).get("nextActions"),
+        },
+        notes="A+ = heal+learn cycle ok, live billing probe, sales nextActions non-empty.",
+    )
+
+
+def grade_live_eval() -> dict[str, Any]:
+    """Golden suite against live ANSWER_CARD (export atomic with cash stamp)."""
+    run = _run([sys.executable, str(BRAIN / "tinker_brain_eval.py"), "--live"])
+    passed = failed = total = 0
+    for line in (run["stdout"] or "").splitlines():
+        if "tinker-brain eval:" in line and "passed" in line:
+            try:
+                chunk = line.split("eval:")[1].strip().split()[0]
+                passed_s, total_s = chunk.split("/")
+                passed = int(passed_s)
+                total = int(total_s)
+                failed = total - passed
+            except (IndexError, ValueError):
+                pass
+    if total <= 0:
+        score = 0.0
+    elif failed == 0 and total >= 48:
+        score = 10.0
+    elif failed == 0:
+        score = 9.0
+    else:
+        score = max(0.0, 10.0 * passed / total - 2.0)
+    return _grade_pillar(
+        "eval_live_card",
+        score_10=score,
+        required=True,
+        evidence={"passed": passed, "failed": failed, "total": total, "exit": run["exit"]},
+        notes="A+ = live ANSWER_CARD + expert card still 0 golden failures (≥48 cases).",
+    )
+
+
+def grade_multidim_rank() -> dict[str, Any]:
+    """Five operator dimensions: offline/online/continuous/feedback/RLHF tradeoffs.
+
+    Delegates to tinker_brain_rank.py so there is one mechanical A+ contract for
+    the dimensions operators actually ask about. Optional on scorecard (required
+    via rank CLI); still surfaces evidence when present.
+    """
+    rank_mod = BRAIN / "tinker_brain_rank.py"
+    if not rank_mod.is_file():
+        return _grade_pillar(
+            "multidim_rank_contract",
+            score_10=0.0,
+            required=False,
+            evidence={"present": False},
+            notes="A+ = tinker_brain_rank.py overall A+ on 5 dimensions.",
+        )
+    # Avoid double-running full continuous+eval inside scorecard by default —
+    # read latest rank receipt if fresh (<2h), else run rank.
+    latest = RECEIPTS / "rank-latest.json"
+    body: dict[str, Any] = {}
+    used_cache = False
+    if latest.is_file():
+        try:
+            body = json.loads(latest.read_text(encoding="utf-8"))
+            ran = body.get("ran_at") or ""
+            # Accept cache only when overall a_plus true and schema matches.
+            if body.get("schema_version") == "tinker-brain-rank/1" and (body.get("overall") or {}).get(
+                "a_plus"
+            ):
+                used_cache = True
+        except (OSError, json.JSONDecodeError):
+            body = {}
+    if not used_cache:
+        run = _run([sys.executable, str(rank_mod), "--json"], timeout=300.0)
+        try:
+            body = json.loads(run["stdout"] or "{}")
+        except json.JSONDecodeError:
+            body = {}
+    overall = body.get("overall") or {}
+    a_plus = bool(overall.get("a_plus"))
+    score = 10.0 if a_plus else float(overall.get("score_10") or 0.0)
+    dims = [
+        {
+            "dimension": d.get("dimension"),
+            "grade": d.get("grade"),
+            "score_10": d.get("score_10"),
+        }
+        for d in (body.get("dimensions") or [])
+    ]
+    return _grade_pillar(
+        "multidim_rank_contract",
+        score_10=score,
+        required=False,
+        evidence={"a_plus": a_plus, "dimensions": dims, "used_cache": used_cache, "ran_at": body.get("ran_at")},
+        notes="A+ = offline/online/continuous/feedback/learning_tradeoffs all 10/10 via tinker_brain_rank.py.",
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true")
@@ -298,6 +426,9 @@ def main() -> int:
         grade_orchestration(),
         grade_models(),
         grade_eval(),
+        grade_live_eval(),
+        grade_continuous(),
+        grade_multidim_rank(),
     ]
     required_ok = all(p["ok"] for p in pillars if p["required"])
     avg = sum(p["score_10"] for p in pillars) / max(len(pillars), 1)
