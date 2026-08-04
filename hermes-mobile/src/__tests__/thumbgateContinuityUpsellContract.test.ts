@@ -3,39 +3,32 @@ import {
   THUMBGATE_PROMO_BUTTON_LABEL,
   thumbGatePromoCopy,
 } from '../utils/thumbgatePromoCopy';
-import {
-  THUMBGATE_CONNECTOR_INSTALL_COMMAND,
-  THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL,
-} from '../utils/thumbgateFacilitation';
+import { THUMBGATE_CONNECTOR_INSTALL_COMMAND } from '../utils/thumbgateFacilitation';
 
-// CEO, 2026-07-26: the promo must sell ThumbGate.app as an ADDITION to the mobile app and
-// drive paid signups — not present it as a fallback for a broken connection.
-// 2026-08-02: also facilitate install when ThumbGate.app is absent (Herdr-style one-liner + web).
-// Public brand: always ThumbGate.app (never bare "ThumbGate" in promo CTAs).
+// CEO 2026-07-26: additive Continuity, not broken-connection fallback.
+// CEO 2026-08-03: consumer Leash promo is SHORT — no coding agents, no install essay.
 //
 const SURFACES = ['leash_disconnected', 'leash_empty', 'connection_unreachable'] as const;
 
-describe('ThumbGate promo is a continuity upsell + absence facilitation', () => {
-  it('positions ThumbGate.app as additive Continuity and facilitates install when absent', () => {
+describe('ThumbGate promo is a short consumer upsell', () => {
+  it('keeps copy short and free of agent/dev manuals', () => {
     for (const s of SURFACES) {
       const promo = thumbGatePromoCopy(s);
-      expect(promo.headline).toBe('No ThumbGate.app yet?');
-      expect(promo.headline).toMatch(/ThumbGate\.app/);
-      expect(promo.body).toMatch(/Hermes Mobile still chats with your computer/);
-      expect(promo.body).toMatch(/ThumbGate\.app/);
-      expect(promo.body).toMatch(/Continuity/);
-      expect(promo.body).toMatch(/one-line Mac installer/);
+      expect(promo.headline).toBe('ThumbGate.app');
+      expect(promo.body).toBe(
+        'Web dashboard and Continuity when your computer is offline.',
+      );
+      expect(promo.body.length).toBeLessThan(90);
       expect(promo.buttonLabel).toBe(THUMBGATE_PROMO_BUTTON_LABEL);
       expect(promo.buttonLabel).toMatch(/ThumbGate\.app/);
-      expect(promo.secondaryButtonLabel).toBe(THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL);
-      // Must not frame the whole product as "phone broken → use web instead"
+      expect(promo.body).not.toMatch(/coding agent|npx skills|one-line Mac installer|Herdr/i);
       expect(promo.body).not.toMatch(
         /phone cannot reach|unable to reach|pair a Mac and continue|replacement for Hermes Mobile/i,
       );
     }
   });
 
-  it('attributes mobile conversions and opens /dashboard (product-first, not #pricing)', () => {
+  it('attributes mobile conversions and opens /dashboard (product-first)', () => {
     expect(THUMBGATE_WEB_URL).toContain('utm_source=hermes-mobile');
     expect(THUMBGATE_WEB_URL).toContain('utm_campaign=paid_companion');
     expect(THUMBGATE_WEB_URL).toContain('/dashboard');
@@ -45,7 +38,7 @@ describe('ThumbGate promo is a continuity upsell + absence facilitation', () => 
     }
   });
 
-  it('shares the same Mac installer command as the web dashboard', () => {
+  it('keeps the public Mac connector command for the web dashboard (not Leash UI)', () => {
     expect(THUMBGATE_CONNECTOR_INSTALL_COMMAND).toContain('install-connector.sh');
   });
 });

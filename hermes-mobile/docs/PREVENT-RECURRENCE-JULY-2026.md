@@ -290,3 +290,11 @@ Shipped hardening: PR #151 (initial unblock), #186 (stall CTA + WARN 350k), T-18
 
 **Gate:** `preventRecurrenceContract.test.ts` S52 walks all production `hermes-mobile/src` TS/TSX and fails on pricing hashes or non-`/dashboard` thumbgate.app paths. Also in `npm run test:release-safety`.
 
+
+## S53 — Zero demo forever (2026-08-03)
+
+**Incident:** Production iOS App Store builds baked `EXPO_PUBLIC_STORE_REVIEW_DEMO=1`, so customers could enter mock chat (`[Demo Mode]`) via Settings or `hermes://setup?demo=1`.
+
+**Law:** No demo for real users or store binaries. `isStoreReviewDemoBuild()` always returns false. `isDemoModeAllowed()` is true only for explicit `EXPO_PUBLIC_E2E_AUTOMATION` Maestro builds. Production EAS must never set `EXPO_PUBLIC_STORE_REVIEW_DEMO`.
+
+**Gate:** `preventRecurrenceContract` S53 + `releaseSafetyContract` + `demoModePolicy.test.ts`.

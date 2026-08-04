@@ -83,6 +83,14 @@ const OUTREACH_SUBJECT_TERMS = [
   'agent reliability',
   'ThumbGate Continuity',
   'design partner',
+  // 2026-08-03 personalized cash-path subjects (missed by prior list → scan blind to replies)
+  'Cancel in-flight agents',
+  'Kill switch for runaway',
+  'costBleedMonitor',
+  'always-on guard',
+  'Operator control for production',
+  'multi-agent fleets',
+  'ThumbGate.app',
 ];
 
 const OUTREACH_SUBJECT_RE = new RegExp(
@@ -99,10 +107,14 @@ function outreachSearchQuery(days = 14) {
 }
 
 function parseArgs(argv) {
+  // Default to Gmail API (headless-safe). Chrome DOM path goes blind when
+  // selectors drift (2026-08-03: row_selector_stale_tr_zA → scanBlind).
+  // LaunchAgents must pass --gmail-api; default here matches that contract.
+  const envPreferApi = process.env.GMAIL_REPLY_SCAN_GMAIL_API !== '0';
   const out = {
     json: false,
-    chrome: true,
-    gmailApi: false,
+    chrome: false,
+    gmailApi: envPreferApi,
     baseline: false,
     help: false,
     dryRows: null,
@@ -113,8 +125,13 @@ function parseArgs(argv) {
     if (a === '--help' || a === '-h') out.help = true;
     else if (a === '--json') out.json = true;
     else if (a === '--no-chrome') out.chrome = false;
-    else if (a === '--gmail-api') out.gmailApi = true;
-    else if (a === '--baseline') out.baseline = true;
+    else if (a === '--chrome') {
+      out.chrome = true;
+      out.gmailApi = false;
+    } else if (a === '--gmail-api') {
+      out.gmailApi = true;
+      out.chrome = false;
+    } else if (a === '--baseline') out.baseline = true;
     else if (a === '--no-ntfy') out.ntfy = false;
     else if (a === '--dry-rows-json') out.dryRows = argv[++i] || null;
   }
