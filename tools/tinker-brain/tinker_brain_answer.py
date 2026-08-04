@@ -372,6 +372,8 @@ def answer(
 
 
 def main() -> int:
+    import time
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--card", type=Path, required=True)
     parser.add_argument("--question", required=True)
@@ -381,12 +383,14 @@ def main() -> int:
     args = parser.parse_args()
     card_text = args.card.read_text(encoding="utf-8")
     expert_text = load_expert_card(args.expert_card)
+    t0 = time.perf_counter()
     result = answer(
         card_text,
         args.question,
         enforce_contract=not args.no_enforce,
         expert_text=expert_text,
     )
+    wall_ms = (time.perf_counter() - t0) * 1000.0
     # Coverage is computed inside answer() so eval/unit paths see it. Log gaps for the
     # research agenda when the card did not address the question's terms.
     cov = result.get("coverage") or coverage(args.question, result["text"])
@@ -396,6 +400,35 @@ def main() -> int:
             log_gap(args.question, cov.get("missing", []))
         except OSError:
             pass
+
+    result["wall_ms"] = round(wall_ms, 3)
+    # Online metrics receipts — never fail the answer path.
+    try:
+        from tinker_brain_economics import record as record_econ  # noqa: WPS433
+        from tinker_brain_production_metrics import record_production_answer  # noqa: WPS433
+
+        mode = (
+            "deterministic"
+            if "deterministic" in str(result.get("answer_mode") or "")
+            else "local_model"
+        )
+        record_econ(
+            out=Path.home() / ".hermes" / "receipts" / "tinker-brain" / "economics.json",
+            mode=mode,
+            wall_ms=wall_ms,
+        )
+        record_production_answer(
+            question=args.question,
+            ok=bool(result.get("ok")),
+            route=str((result.get("routing") or {}).get("primary") or "unknown"),
+            wall_ms=wall_ms,
+            answer_mode=str(result.get("answer_mode") or "deterministic_card"),
+            spend_usd=0.0,
+            suppressed=bool(result.get("suppressedAnswer")),
+            covered=cov.get("covered"),
+        )
+    except Exception:  # noqa: BLE001
+        pass
 
     if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
