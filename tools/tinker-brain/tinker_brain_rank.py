@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from collections import Counter
@@ -43,6 +44,19 @@ GRADE_ORDER = ("F", "D", "C", "C+", "B-", "B", "B+", "A-", "A", "A+")
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+# Scrub secrets before JSON/human sinks print receipt content. Evidence blocks
+# can carry billing probe bodies, agenda items, or heal reasons sourced from
+# user transcripts — never emit those raw to stdout.
+_SENSITIVE = re.compile(
+    r"(sk|pk|rk|gh[pousr]|xox[baprs]|AKIA|AIza|ya29|eyJ|Bearer\s+)[A-Za-z0-9_\-\.]{8,}",
+    re.IGNORECASE,
+)
+
+
+def _redact(text: object) -> str:
+    return _SENSITIVE.sub("<redacted>", str(text))
 
 
 def _run(cmd: list[str], timeout: float = 120.0) -> dict[str, Any]:
@@ -740,11 +754,11 @@ def main() -> int:
     args.out.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     if args.json:
-        print(json.dumps(receipt, indent=2, sort_keys=True))
+        print(_redact(json.dumps(receipt, indent=2, sort_keys=True)))
     else:
         print(f"tinker-brain multi-dimension rank (suite={args.suite})")
-        print(f"  design: {receipt['design']['stack']}")
-        print(f"  learning: {receipt['design']['learning']}")
+        print(f"  design: {_redact(receipt['design']['stack'])}")
+        print(f"  learning: {_redact(receipt['design']['learning'])}")
         for d in dimensions:
             mark = "PASS" if d["ok"] else "FAIL"
             suite = d.get("suite") or "core"

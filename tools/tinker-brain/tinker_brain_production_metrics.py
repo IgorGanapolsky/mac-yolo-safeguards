@@ -204,10 +204,13 @@ def compute_metrics(*, window: int = 200) -> dict[str, Any]:
     task_success_rate = (task_ok / task_n) if task_n else None
 
     # --- human override ---
-    # Open override debt only: unconsumed thumbs_down|override|need_section + suppressed answers.
-    # Consumed feedback means LEARN closed the loop (agenda absorbed it) — not an open override.
-    override_signals = {"thumbs_down", "override", "need_section"}
-    all_override_fb = [r for r in feedback if r.get("signal") in override_signals]
+    # Rate of *actual overrides of delivered answers*: open signal=override rows
+    # plus suppressed production answers. Improvement suggestions (thumbs_down /
+    # need_section, even unconsumed) are learning debt, not override events —
+    # they surface in unconsumed_feedback, not in the override rate. This keeps
+    # the metric honest: 27 healthy answers with 3 suggestions is 0% overrides,
+    # not a 11% override load.
+    all_override_fb = [r for r in feedback if r.get("signal") == "override"]
     open_override_fb = [r for r in all_override_fb if not r.get("consumed")]
     suppressed = sum(1 for r in prod if r.get("suppressed"))
     override_num = len(open_override_fb) + suppressed
@@ -222,7 +225,11 @@ def compute_metrics(*, window: int = 200) -> dict[str, Any]:
         override_den = 0
         human_override_rate = 0.0
 
-    unconsumed_feedback = open_override_fb
+    # Unconsumed actionable feedback debt (all open signals), for the loop report.
+    actionable_signals = {"thumbs_down", "override", "need_section"}
+    unconsumed_feedback = [
+        r for r in feedback if r.get("signal") in actionable_signals and not r.get("consumed")
+    ]
 
     # --- latency ---
     walls: list[float] = []
