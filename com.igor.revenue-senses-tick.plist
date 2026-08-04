@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  24/7 revenue senses tick.
+
+  Deliberately guarded with `[ -f ... ]`: if the tool is not present (e.g. the branch
+  has not merged yet, or the repo moved), the job exits 0 silently instead of failing
+  every 30 minutes. This repo has a documented 2026-07-28 quota incident caused by
+  crashlooping crons, and a standing rule that a failing cron is disabled until fixed —
+  so a job that cannot find its own program must be quiet, not noisy.
+
+  Prints only when state CHANGES, so stdout stays empty on a normal tick.
+
+  Install:  launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.igor.revenue-senses-tick.plist
+  Remove:   launchctl bootout gui/$(id -u)/com.igor.revenue-senses-tick
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.igor.revenue-senses-tick</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>TICK=/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/tools/revenue-senses-tick.js; [ -f "$TICK" ] || exit 0; exec /usr/bin/env node "$TICK"</string>
+    </array>
+
+    <!-- Two HTTP reads, no build, no model call. 30 min is cheap and still catches a
+         first non-owner payment quickly. -->
+    <key>StartInterval</key>
+    <integer>1800</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/igorganapolsky/.hermes/receipts/tinker-brain/senses-tick.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/igorganapolsky/.hermes/receipts/tinker-brain/senses-tick.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>LowPriorityIO</key>
+    <true/>
+    <key>Nice</key>
+    <integer>5</integer>
+</dict>
+</plist>

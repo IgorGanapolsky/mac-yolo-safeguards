@@ -16,6 +16,8 @@ export {
   clearRunProgressNotification,
   scheduleRunStallNotification,
   cancelRunStallNotification,
+  scheduleConnectionLifecycleNotification,
+  resetConnectionLifecycleNotificationState,
   syncHermesNotificationBadge,
   dismissHermesNotifications,
   dismissHermesNotifications as dismissApprovalNotifications,

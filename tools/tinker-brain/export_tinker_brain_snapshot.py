@@ -7,10 +7,14 @@ ThumbGate-native since 2026-07-28 (no skool_top1percent dependency). Evidence:
 - optional local receipts: ~/.hermes/receipts/tinker-brain/revenue-receipt.json
   (Stripe reconciliation written by a separate process) and
   ~/.hermes/receipts/thumbgate-aeo/latest.json (weekly AEO monitor)
+- the scorecard from tools/ml-system-scores.js (SYSTEM_SCORES)
 - the GTM expert card at config/THUMBGATE_EXPERT_CARD.txt (shipped alongside
   the ANSWER_CARD so answers stay atomic with the export)
 
-Fail-closed: no revenue receipt means external cash is $0 — never invented.
+Fail-closed: no revenue receipt means external cash is $0 — never invented, and
+no scorecard means not_scored. Every piece of evidence is gathered into the
+snapshot payload; write_snapshot() only serialises what the payload already
+carries, so an export is reproducible from its own evidence.
 """
 
 from __future__ import annotations
@@ -19,6 +23,8 @@ import argparse
 import json
 import os
 import shutil
+import subprocess
+import sys
 import tempfile
 import urllib.error
 import urllib.request
@@ -142,17 +148,66 @@ def aeo_summary() -> dict[str, Any]:
     }
 
 
+def _unscored(reason: str) -> dict[str, Any]:
+    """Fail-closed scorecard: say not_scored rather than imply a grade."""
+    return {"line": f"not_scored ({reason})", "source": "unavailable"}
+
+
+def read_system_scores() -> dict[str, Any]:
+    """Evidence-backed scores from tools/ml-system-scores.js; never invent.
+
+    This is the live gather, so only the production export path (main()) calls
+    it. Everything else — tests, replays, any rebuild from recorded evidence —
+    passes a scorecard into build_snapshot() instead, exactly like the health,
+    billing, revenue and AEO evidence.
+    """
+    script = REPO / "tools" / "ml-system-scores.js"
+    if not script.is_file():
+        return _unscored(
+            "tools/ml-system-scores.js missing; eval receipts at "
+            "~/.hermes/receipts/tinker-brain/ are the quality signal"
+        )
+    try:
+        proc = subprocess.run(
+            ["node", str(script), "--json", "--write"],
+            cwd=str(REPO),
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+        if proc.returncode == 0 and proc.stdout.strip():
+            data = json.loads(proc.stdout)
+            line = data.get("system_scores_line")
+            if isinstance(line, str) and line.strip():
+                return {"line": line.strip(), "source": "ml-system-scores.js"}
+    except Exception:  # noqa: BLE001 — export must never die on scores
+        pass
+    # Fall back to the last written scorecard receipt.
+    cached = load_json(Path.home() / ".hermes" / "ml" / "system-scores.json")
+    line = cached.get("system_scores_line")
+    if isinstance(line, str) and line.strip():
+        return {"line": f"{line.strip()} (cached)", "source": "system-scores-receipt"}
+    return _unscored("ml-system-scores failed; run node tools/ml-system-scores.js --write")
+
+
 def build_snapshot(
     *,
     health: dict[str, Any] | None = None,
     billing: dict[str, Any] | None = None,
     revenue: dict[str, Any] | None = None,
     aeo: dict[str, Any] | None = None,
+    system_scores: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     health = health if health is not None else probe_health()
     billing = billing if billing is not None else probe_billing()
     revenue = revenue if revenue is not None else load_revenue_receipt()
     aeo = aeo if aeo is not None else aeo_summary()
+    system_scores = (
+        system_scores
+        if system_scores is not None
+        else _unscored("no scorecard supplied; run node tools/ml-system-scores.js --write")
+    )
 
     external_cents = int(revenue.get("external_net_cents") or 0)
     owner_cents = int(revenue.get("owner_test_net_cents") or 0)
@@ -189,11 +244,15 @@ def build_snapshot(
             "any campaign copy — never hard-code a price"
         )
 
+    # Gate-first (2026-08-01): sell free Leash/approval control plane first; Continuity
+    # remains optional and must not be the only NEXT_MONEY line while competitive
+    # always-on cloud Hermes weakens the "lid closes" premise.
     next_money = (
         "Ship today's ThumbGate.app campaign beat (one persona + one pain + cited evidence + "
-        "hook) across the fan-out matrix with verified permalinks; recruit toward 3 Continuity "
-        "design partners; check the AEO monitor weekly. Reddit stays draft-only under the burn "
-        "rule. Cash counts only on a non-owner Stripe subscription payment."
+        "hook) across the fan-out matrix with verified permalinks; lead with free browser "
+        "Leash/tool-approval (the gate) as the durable wedge; Continuity stays optional add-on "
+        "not the sole pitch. Check AEO monitor weekly. Reddit draft-only under burn rule. "
+        "Cash counts only on a non-owner Stripe subscription payment."
     )
 
     return {
@@ -251,6 +310,7 @@ def build_snapshot(
             "receipt": revenue,
         },
         "live": {"health": health, "billing": billing, "live_price_line": live_price},
+        "system_scores": system_scores,
         "aeo_monitor": aeo,
         "next_money_action": next_money,
         "visibility_limits": [
@@ -290,6 +350,8 @@ def write_snapshot(out: Path, payload: dict[str, Any]) -> None:
     live = payload.get("live") or {}
     health = live.get("health") or {}
     aeo = payload.get("aeo_monitor") or {}
+    scores = payload.get("system_scores") or {}
+    scores_line = str(scores.get("line") or _unscored("snapshot carries no scorecard")["line"])
     aeo_line = (
         f"present=true; checked_at={aeo.get('checked_at')}"
         if aeo.get("present")
@@ -349,7 +411,7 @@ def write_snapshot(out: Path, payload: dict[str, Any]) -> None:
                 ),
                 "BAN_CONVERT_WITHOUT_INTEREST=only after the exact human requests a trial, demo, or intake",
                 "BAN_INVENT_SCORES=never invent DS/ML or GTM scores; only SYSTEM_SCORES line below",
-                f"SYSTEM_SCORES={_system_scores_line()}",
+                f"SYSTEM_SCORES={scores_line}",
                 "SCORE_SCOPE=copy SYSTEM_SCORES exactly; do not invent better grades than the line",
                 f"NEXT_MONEY={payload.get('next_money_action')}",
                 "RULE: zero tools; do not list_files; answer now from this card.",
@@ -365,46 +427,23 @@ def write_snapshot(out: Path, payload: dict[str, Any]) -> None:
         try:
             shutil.copyfile(EXPERT_SRC, expert_dst)
             expert_dst.chmod(0o600)
-        except OSError:
-            pass  # answer path falls back to the repo copy
-
-
-def _system_scores_line() -> str:
-    """Evidence-backed scores from tools/ml-system-scores.js; never invent."""
-    script = REPO / "tools" / "ml-system-scores.js"
-    if not script.is_file():
-        return (
-            "not_scored (tools/ml-system-scores.js missing; "
-            "eval receipts at ~/.hermes/receipts/tinker-brain/ are the quality signal)"
-        )
-    try:
-        import subprocess
-
-        proc = subprocess.run(
-            ["node", str(script), "--json", "--write"],
-            cwd=str(REPO),
-            capture_output=True,
-            text=True,
-            timeout=120,
-            check=False,
-        )
-        if proc.returncode == 0 and proc.stdout.strip():
-            data = json.loads(proc.stdout)
-            line = data.get("system_scores_line")
-            if isinstance(line, str) and line.strip():
-                return line.strip()
-    except Exception:  # noqa: BLE001 — export must never die on scores
-        pass
-    # Fall back to last written receipt
-    scores_path = Path.home() / ".hermes" / "ml" / "system-scores.json"
-    cached = load_json(scores_path)
-    line = cached.get("system_scores_line") if isinstance(cached, dict) else None
-    if isinstance(line, str) and line.strip():
-        return line.strip() + " (cached)"
-    return (
-        "not_scored (ml-system-scores failed; "
-        "run node tools/ml-system-scores.js --write)"
-    )
+            # Fail loud if the snapshot copy did not land byte-identical (runtime
+            # prefers snapshot — silent drift is the divergence class of bug).
+            if expert_dst.read_bytes() != EXPERT_SRC.read_bytes():
+                try:
+                    expert_dst.unlink()
+                except OSError:
+                    pass
+                raise OSError(
+                    f"expert card snapshot copy mismatch after write: {expert_dst}"
+                )
+        except OSError as exc:
+            # Do not leave a partial/stale snapshot preferred over the repo card.
+            print(
+                f"export_tinker_brain_snapshot: expert card copy failed: {exc}",
+                file=sys.stderr,
+            )
+            raise
 
 
 def validate_snapshot(path: Path) -> list[str]:
@@ -447,7 +486,7 @@ def main() -> int:
         print(json.dumps({"ok": not errors, "errors": errors, "path": str(args.check)}, indent=2))
         return 0 if not errors else 2
     out = args.out or DEFAULT_OUT
-    payload = build_snapshot()
+    payload = build_snapshot(system_scores=read_system_scores())
     write_snapshot(out, payload)
     print(
         json.dumps(
@@ -459,6 +498,7 @@ def main() -> int:
                 "health_ok": bool(payload["live"]["health"].get("ok")),
                 "billing_ok": bool(payload["live"]["billing"].get("ok")),
                 "revenue_receipt": payload["cash"]["receipt"].get("has_receipt"),
+                "system_scores_source": payload["system_scores"].get("source"),
             },
             indent=2,
         )

@@ -124,6 +124,19 @@ Use `grepai search "<intent>" --json --compact` as the primary code-exploration 
 
 Issues = public-safe product intake only (incident reports, hardening inquiries, product bugs). Never internal backlog, agent coordination, secrets, or customer names. Detail: [docs/agents/shipping-and-hygiene.md](./docs/agents/shipping-and-hygiene.md).
 
+
+## Code scanning hygiene (2026-08, permanent)
+
+Security → Code scanning is **`branch:main` only**. Unmerged PR fixes do not clear it.
+
+| NEVER | ALWAYS |
+|-------|--------|
+| Claim "security clean" / "0 open alerts" without live API | `node tools/codeql-agent-hygiene.js --claim "…"` |
+| Re-implement ASC JWT / host `.includes` / naive script strip / shell `execSync(\`…\`)` | Helpers under `tools/lib/` + pattern gate |
+| Parallel CodeQL burn-down while one PR is open | Finish/merge existing; session brief shows open count |
+
+Session start prints open count. Detail: [docs/agents/codeql-orchestration.md](./docs/agents/codeql-orchestration.md).
+
 ## Detail index
 
 - [docs/agents/coordination.md](./docs/agents/coordination.md) — full multi-agent protocol, swarm roles, megafiles, verification lenses

@@ -387,10 +387,12 @@ const versionReceiptRoot = fs.mkdtempSync(path.join(require('os').tmpdir(), 'her
 try {
   try { fs.unlinkSync(testLockPath); } catch (e) { /* may not exist */ }
   // HERMES_YOLO_NO_PREFLIGHT bypasses slow Telegram API calls during testing
-  const stdout = execSync(`HERMES_YOLO_NO_PREFLIGHT=1 HERMES_YOLO_LOCK_PATH=${testLockPath} node ${binaryPath} --version`, {
+  const stdout = execFileSync(process.execPath, [binaryPath, '--version'], {
     encoding: 'utf8',
     env: {
       ...process.env,
+      HERMES_YOLO_NO_PREFLIGHT: '1',
+      HERMES_YOLO_LOCK_PATH: testLockPath,
       HERMES_YOLO_RECEIPT_DIR: versionReceiptRoot,
     },
   });
