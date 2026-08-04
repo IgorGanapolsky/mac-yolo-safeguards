@@ -18,7 +18,6 @@ sys.path.insert(0, str(BRAIN))
 class ProductionMetricsTests(unittest.TestCase):
     def test_record_and_compute(self) -> None:
         from tinker_brain_production_metrics import (
-            compute_metrics,
             mark_feedback_consumed,
             record_feedback,
             record_production_answer,

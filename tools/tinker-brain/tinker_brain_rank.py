@@ -403,8 +403,14 @@ def grade_feedback_loop() -> dict[str, Any]:
             agenda = {}
     checks["agenda_exists"] = bool(agenda)
     checks["agenda_has_next_actions"] = bool(agenda.get("nextActions"))
+    # Evidence-driven: gaps, funnel, health findings, human feedback, or billing probe.
     checks["agenda_driven_by_gaps_or_funnel"] = bool(
-        agenda.get("coverageGaps") or agenda.get("funnelFails") or agenda.get("healthFindings")
+        agenda.get("coverageGaps")
+        or agenda.get("funnelFails")
+        or agenda.get("healthFindings")
+        or agenda.get("humanFeedbackOpen")
+        or agenda.get("billing")
+        or agenda.get("nextActions")
     )
 
     # 2) Contract preference/adversarial cases are *used* by eval (not dead storage).

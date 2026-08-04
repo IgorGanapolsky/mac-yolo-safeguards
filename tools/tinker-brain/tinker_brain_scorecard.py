@@ -372,7 +372,6 @@ def grade_multidim_rank() -> dict[str, Any]:
     if latest.is_file():
         try:
             body = json.loads(latest.read_text(encoding="utf-8"))
-            ran = body.get("ran_at") or ""
             # Accept cache only when overall a_plus true and schema matches.
             if body.get("schema_version") == "tinker-brain-rank/1" and (body.get("overall") or {}).get(
                 "a_plus"

@@ -1,5 +1,5 @@
 THUMBGATE_EXPERT_CARD v2
-AS_OF_RESEARCH: 2026-08-01
+AS_OF_RESEARCH: 2026-08-03
 SOURCES: mac-yolo-safeguards/docs/RESEARCH-THUMBGATE-{APP-POSITIONING,PAID-COMPANION,AEO,FRICTIONLESS,GOVERNED-AGENTS,CONTINUITY-VPS}-JULY-2026.md, THUMBGATE-AEO-MONITORING.md, social/hermes-mobile-content-log.tsv (2026-07-27 fan-out), PR #1075 lesson (commit 259b1126), competitive notes 2026-07-31 (Nous hosted / MiniMax MaxHermes / Abacus SuperComputer)
 RULE: answer GTM questions from this card only; live prices from /api/billing/plan outrank this card; never invent numbers.
 
@@ -52,6 +52,7 @@ Analytics never send prompts, chat bodies, credentials, device keys, emails, IPs
 Evidence rule: first-party URLs and live billing endpoints outrank deep-research prose (a research run once declared ThumbGate.app nonexistent and pitched the wrong $19 product).
 
 [SALES_MOTION]
+Go-to-market summary (one screen): free browser control plane (Leash/gate) first; optional Continuity $ from live /api/billing/plan; fan-out marketing (dev.to + LinkedIn + X matrix); cash only on non-owner Stripe; never invent revenue.
 Mobile funnel: promo view -> tap (UTM) -> /dashboard workspace (Leash/chats) -> Continuity/billing only when user needs offline failover -> 14-day trial (5 cloud runs) -> active paid subscription. Pricing is secondary, never the default entry.
 Web funnel: landing -> sign-in -> authenticated landing -> first chat visible -> pairing started -> pairing approved -> failover enabled -> checkout -> paid subscription confirmed.
 Activation: WorkOS sign-in -> one copyable installer command -> auto-opened prefilled pair URL -> explicit approve of named Mac (zero code transcription) -> connector reads local Hermes key (never copied off-machine) -> newest chat auto-opens. Target P50 first real chat under 180s (acceptance target, not yet measured).

@@ -395,7 +395,9 @@ def main() -> int:
     # research agenda when the card did not address the question's terms.
     cov = result.get("coverage") or coverage(args.question, result["text"])
     result["coverage"] = cov
-    if not cov.get("covered"):
+    # Off-scope refuse is intentional non-answer — do not pollute the research agenda.
+    primary = str((result.get("routing") or {}).get("primary") or "")
+    if not cov.get("covered") and primary != "off_scope_refuse":
         try:
             log_gap(args.question, cov.get("missing", []))
         except OSError:
