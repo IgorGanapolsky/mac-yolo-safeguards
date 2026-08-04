@@ -4,7 +4,6 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const { spawnSync } = require('child_process');
 
 const repoRoot = path.resolve(__dirname, '..');
 const installScript = path.join(repoRoot, 'scripts/install-agent-launchagents.sh');
@@ -28,27 +27,22 @@ assert.doesNotMatch(
   'chrome-cdp must not be in default LaunchAgent template list',
 );
 
-const gateProbe = spawnSync(
-  '/bin/bash',
-  [
-    '-c',
-    `
-set -euo pipefail
-repo_root=${JSON.stringify(repoRoot)}
-export HERMES_ALLOW_INTERACTIVE_CHROME=0
-if [[ "\${HERMES_ALLOW_INTERACTIVE_CHROME:-0}" == "1" && -x "\${repo_root}/scripts/install-hermes-chrome-cdp.sh" ]]; then
-  echo INSTALLED
-else
-  echo "SKIP com.hermes.chrome-cdp (HERMES_ALLOW_INTERACTIVE_CHROME!=1)"
-fi
-`,
-  ],
-  { encoding: 'utf8' },
-);
+// Pure-JS gate probe (no bash -c + absolute path — CodeQL shell-command-injection-from-environment).
+const prevChrome = process.env.HERMES_ALLOW_INTERACTIVE_CHROME;
+process.env.HERMES_ALLOW_INTERACTIVE_CHROME = '0';
+const chromeScript = path.join(repoRoot, 'scripts/install-hermes-chrome-cdp.sh');
+const chromeAllowed =
+  process.env.HERMES_ALLOW_INTERACTIVE_CHROME === '1' &&
+  fs.existsSync(chromeScript) &&
+  Boolean(fs.statSync(chromeScript).mode & 0o111);
+const gateStdout = chromeAllowed
+  ? 'INSTALLED'
+  : 'SKIP com.hermes.chrome-cdp (HERMES_ALLOW_INTERACTIVE_CHROME!=1)';
+if (prevChrome === undefined) delete process.env.HERMES_ALLOW_INTERACTIVE_CHROME;
+else process.env.HERMES_ALLOW_INTERACTIVE_CHROME = prevChrome;
 
-assert.strictEqual(gateProbe.status, 0, gateProbe.stderr);
 assert.match(
-  gateProbe.stdout,
+  gateStdout,
   /SKIP com\.hermes\.chrome-cdp \(HERMES_ALLOW_INTERACTIVE_CHROME!=1\)/,
 );
 

@@ -47,3 +47,17 @@ This repo is **public**. The Issues UI is for **public-safe product intake only*
 - [`hermes-mobile/docs/JULY-2026-STANDARDS-GAP-BACKLOG.md`](../../hermes-mobile/docs/JULY-2026-STANDARDS-GAP-BACKLOG.md) — standards gap AC
 
 Do **not** bulk-create internal tech-debt epics as public Issues. Labels (`priority:*`, `handoff:*`) may exist for the few product issues; they do not justify dumping the agent board onto Issues.
+
+## Code scanning (CodeQL) — do not re-accumulate debt
+
+Offline gate: `node tools/codeql-pattern-gate.js` (CI Public funnel + pre-commit). Live budget: `node tools/codeql-alert-sync.js --gate`. Shared helpers under `tools/lib/` (`asc-jwt-es256`, `safe-url-host`, `safe-html-strip`, `safe-exec`). Full playbook: [docs/CODEQL-SECURITY-BURN-DOWN.md](../CODEQL-SECURITY-BURN-DOWN.md).
+
+### AI orchestration (required)
+
+```bash
+node tools/codeql-agent-hygiene.js --session-start   # open_on_main brief
+node tools/codeql-agent-hygiene.js --pre-ship        # before security PRs
+node tools/codeql-agent-hygiene.js --claim "security clean"
+```
+
+Agents must not claim Security tab clean without live `gh` open count on **main**. Full: [codeql-orchestration.md](./codeql-orchestration.md).

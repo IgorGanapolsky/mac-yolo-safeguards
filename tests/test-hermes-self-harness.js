@@ -102,4 +102,68 @@ assert.ok(report.summary.alreadyConfiguredCount >= 1);
 assert.ok(renderMarkdown(report).includes('Hermes Self-Harness Report'));
 assert.ok(renderMarkdown(report).includes('Acceptance Rule'));
 
+// Regression: a config assertion must not be satisfiable by log text.
+// `logsAndConfig` concatenates logs + config + wrapper, so a config check could pass
+// purely because an agent log echoed the remediation string it was looking for --
+// marking the weakness "configured" while the real config still held the bad value.
+const logEchoEvidence = {
+  paths: {},
+  config: ['display:', '  busy_input_mode: interrupt'].join('\n'),
+  agentLog: 'Turn ended: reason=interrupted_during_api_call; hint: set busy_input_mode: queue',
+  errorsLog: '',
+  yoloWrapper: '',
+};
+logEchoEvidence.logs = `${logEchoEvidence.agentLog}\n${logEchoEvidence.errorsLog}`;
+logEchoEvidence.logsAndConfig = `${logEchoEvidence.logs}\n${logEchoEvidence.config}\n${logEchoEvidence.yoloWrapper}`;
+
+const busyInput = mineWeaknesses(logEchoEvidence).find((item) => item.id === 'busy_input_interrupt_loop');
+assert.ok(busyInput, 'busy_input_interrupt_loop should be detected from the log evidence');
+assert.strictEqual(
+  busyInput.configChecks[0].passed,
+  false,
+  'config assertion must read config, not logs: a log echo must not mark it configured',
+);
+assert.strictEqual(
+  busyInput.status,
+  'candidate',
+  'weakness must stay a candidate while the real config still says interrupt',
+);
+
+// Fail-closed regression: a CRITICAL weakness whose config regexes all match is reported
+// "configured" and exits 0 under the legacy gate -- even though nothing ever proved the
+// fix works. --require-proof must keep it open until a proof actually runs and passes.
+const criticalDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-critical-'));
+const critCfg = path.join(criticalDir, 'config.yaml');
+const critAgentLog = path.join(criticalDir, 'agent.log');
+const critErrorsLog = path.join(criticalDir, 'errors.log');
+const critWrapper = path.join(criticalDir, 'wrapper.js');
+fs.writeFileSync(critCfg, ['model:', '  provider: custom:ollama-local-64k', '  max_tokens: 2048'].join('\n'));
+fs.writeFileSync(critAgentLog, '');
+fs.writeFileSync(critErrorsLog, 'HTTP 402: Prompt tokens limit exceeded: 13535 > 9237.');
+fs.writeFileSync(critWrapper, '');
+const critPaths = {
+  config: critCfg,
+  agentLog: critAgentLog,
+  errorsLog: critErrorsLog,
+  yoloWrapper: critWrapper,
+};
+
+const legacyReport = buildReport(critPaths);
+const criticalItem = legacyReport.weaknesses.find((item) => item.id === 'provider_credit_or_context_limit');
+assert.ok(criticalItem, 'critical provider weakness should be detected from the HTTP 402 line');
+assert.strictEqual(criticalItem.severity, 'critical');
+assert.strictEqual(criticalItem.status, 'already_promoted_or_configured');
+assert.strictEqual(
+  legacyReport.summary.criticalOpenCount,
+  0,
+  'legacy gate lets an unproven critical weakness exit 0 on regex agreement alone',
+);
+
+const strictReport = buildReport({ ...critPaths, requireProof: true });
+assert.strictEqual(
+  strictReport.summary.criticalOpenCount,
+  1,
+  '--require-proof must keep an unproven critical weakness open',
+);
+
 console.log('Hermes self-harness tests: PASS');
