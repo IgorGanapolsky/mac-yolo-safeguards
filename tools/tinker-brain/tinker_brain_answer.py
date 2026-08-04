@@ -372,22 +372,64 @@ def answer(
 
 
 def main() -> int:
+    import os
     import time
+    from datetime import datetime, timezone
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--card", type=Path, required=True)
     parser.add_argument("--question", required=True)
     parser.add_argument("--expert-card", type=Path, default=None)
     parser.add_argument("--json", action="store_true")
-    parser.add_argument("--no-enforce", action="store_true")
+    parser.add_argument(
+        "--no-enforce",
+        action="store_true",
+        help="Disable contract enforce (requires TINKER_BRAIN_ALLOW_NO_ENFORCE=1; logs bypass).",
+    )
     args = parser.parse_args()
+
+    enforce = True
+    if args.no_enforce:
+        if os.environ.get("TINKER_BRAIN_ALLOW_NO_ENFORCE") != "1":
+            print(
+                "REFUSED: --no-enforce bypass requires TINKER_BRAIN_ALLOW_NO_ENFORCE=1 "
+                "(default gate cannot be silently disabled).",
+                file=sys.stderr,
+            )
+            return 3
+        enforce = False
+        # Durable bypass receipt so attempts are auditable (governance A+).
+        bypass_log = (
+            Path.home() / ".hermes" / "receipts" / "tinker-brain" / "bypass-attempts.jsonl"
+        )
+        try:
+            bypass_log.parent.mkdir(parents=True, exist_ok=True)
+            with bypass_log.open("a", encoding="utf-8") as fh:
+                fh.write(
+                    json.dumps(
+                        {
+                            "ts": datetime.now(timezone.utc)
+                            .replace(microsecond=0)
+                            .isoformat()
+                            .replace("+00:00", "Z"),
+                            "kind": "no_enforce",
+                            "question": (args.question or "")[:300],
+                            "allowed": True,
+                        },
+                        sort_keys=True,
+                    )
+                    + "\n"
+                )
+        except OSError:
+            pass
+
     card_text = args.card.read_text(encoding="utf-8")
     expert_text = load_expert_card(args.expert_card)
     t0 = time.perf_counter()
     result = answer(
         card_text,
         args.question,
-        enforce_contract=not args.no_enforce,
+        enforce_contract=enforce,
         expert_text=expert_text,
     )
     wall_ms = (time.perf_counter() - t0) * 1000.0

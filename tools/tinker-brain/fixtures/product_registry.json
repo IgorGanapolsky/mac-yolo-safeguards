@@ -1,0 +1,55 @@
+{
+  "schema_version": "tinker-brain-product-registry/1",
+  "notes": "Multi-product scale model: each product line owns one expert card + optional answer card fixtures. Shared router/contract/eval harness; isolated truth per product. Team of ~20: 1 card owner + 2 reviewers per line; CI runs rank --suite all per changed product.",
+  "products": [
+    {
+      "id": "thumbgate_app",
+      "name": "ThumbGate.app",
+      "expert_card": "config/THUMBGATE_EXPERT_CARD.txt",
+      "answer_fixture": "tools/tinker-brain/fixtures/answer_card.txt",
+      "eval_cases": "tools/tinker-brain/fixtures/eval_cases.json",
+      "contract_cases": "tools/tinker-brain/fixtures/contract_cases.json",
+      "owners": ["gtm", "revenue"],
+      "cash_path": true,
+      "status": "active"
+    },
+    {
+      "id": "hermes_mobile",
+      "name": "Hermes Mobile",
+      "expert_card": null,
+      "notes": "Store/mobile narrative is subordinate to ThumbGate.app CTAs; no separate cash-inventing card. Scale slot reserved — add card only when mobile-only GTM questions exceed coverage threshold.",
+      "status": "reserved",
+      "inherits_from": "thumbgate_app"
+    },
+    {
+      "id": "thumbgate_ai_firewall",
+      "name": "ThumbGate.ai (Self-Improving Firewall)",
+      "expert_card": null,
+      "notes": "SEPARATE product — contract bans conflation. Future card must never share ANSWER_CARD cash stamp with .app Continuity.",
+      "status": "reserved_isolated",
+      "cash_path": false
+    }
+  ],
+  "team_scale_model": {
+    "engineers_target": 20,
+    "per_product_line": {
+      "card_owner": 1,
+      "reviewers": 2,
+      "ci_gate": "tinker_brain_rank.py --suite all && tinker_brain_scorecard.py"
+    },
+    "shared_platform": [
+      "router",
+      "contract",
+      "eval harness",
+      "fingerprint",
+      "continuous heal/learn",
+      "production metrics"
+    ],
+    "isolation_rules": [
+      "One expert card digest per product line",
+      "No cross-product cash stamp sharing",
+      "Contract cases product-scoped",
+      "Feedback tagged with product_id"
+    ]
+  }
+}
