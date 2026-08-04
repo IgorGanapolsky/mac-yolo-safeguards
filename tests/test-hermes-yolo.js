@@ -16,6 +16,7 @@ const {
   chooseLocalModel,
   chooseZaiProvider,
   configuredProviderIds,
+  configuredDefaultModel,
   defaultModelRoute,
   findOllamaBinary,
   hasOpenRouterKey,
@@ -206,38 +207,103 @@ assert.strictEqual(chooseLocalModel(['qwen3:8b-agent-64k', 'qwen3:8b']), 'qwen3:
 assert.strictEqual(chooseLocalModel(['qwen3:8b-64k']), 'qwen3:8b-64k');
 assert.strictEqual(chooseLocalModel(['gpt-oss:20b', 'qwen3:8b-64k']), 'gpt-oss:20b');
 assert.strictEqual(chooseLocalModel(['qwen3.6:35b-a3b', 'gpt-oss:20b']), 'qwen3.6:35b-a3b');
-assert.deepStrictEqual(defaultModelRoute({}, { availableModels: ['qwen2.5:3b-64k'] }), {
+// configuredDefault: null is passed explicitly so these assertions describe the
+// no-operator-override path instead of silently reading whichever ~/.hermes/config.yaml
+// happens to be on the machine running the suite.
+assert.deepStrictEqual(defaultModelRoute({}, { availableModels: ['qwen2.5:3b-64k'], configuredDefault: null }), {
   provider: 'custom:ollama-local-64k',
   model: 'qwen2.5:3b-64k',
 });
-assert.deepStrictEqual(defaultModelRoute({}, { availableModels: ['qwen3:8b-agent-64k'] }), {
+assert.deepStrictEqual(defaultModelRoute({}, { availableModels: ['qwen3:8b-agent-64k'], configuredDefault: null }), {
   provider: 'custom:ollama-local-64k',
   model: 'qwen3:8b-agent-64k',
 });
 assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
-  configuredProviderIds: ['zai-coding-glm'],
+  configuredProviderIds: ['zai-coding-glm'], configuredDefault: null,
 }), {
   provider: 'custom:zai-coding-glm',
   model: 'glm-5.2',
 });
 assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
-  configuredProviderIds: ['zai-coding-nothink'],
+  configuredProviderIds: ['zai-coding-nothink'], configuredDefault: null,
 }), {
   provider: 'custom:zai-coding-nothink',
   model: 'glm-5.2',
 });
 assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
-  configuredProviderIds: [],
+  configuredProviderIds: [], configuredDefault: null,
 }), {
   provider: 'zai',
   model: 'glm-5.2',
 });
 assert.deepStrictEqual(defaultModelRoute({
   OPENROUTER_API_KEY: 'openrouter-key',
-}, { availableModels: ['qwen3:8b-agent-64k'] }), {
+}, { availableModels: ['qwen3:8b-agent-64k'], configuredDefault: null }), {
   provider: 'custom:openrouter-glm52',
   model: 'z-ai/glm-5.2',
 });
+
+// --- quota-dead paid route must not be pinned by key presence (2026-08-03 incident) ---
+// A valid key is not evidence of a live quota. z.ai returned 429 "Weekly/Monthly Limit
+// Exhausted" until 2026-08-08 and Kimi Code returned 403, yet hasZaiKey() saw a good key
+// and routed every launch straight back at the dead rung.
+assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
+  configuredProviderIds: ['zai-coding-glm'],
+  configuredDefault: { model: 'deepseek-v4-flash', provider: 'custom:litellm-gateway' },
+}), {
+  provider: 'custom:litellm-gateway',
+  model: 'deepseek-v4-flash',
+}, 'an explicit model.default must outrank the z.ai key-presence heuristic');
+
+// A config default with no provider falls back to the gateway, not to z.ai.
+assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
+  configuredProviderIds: ['zai-coding-glm'],
+  configuredDefault: { model: 'deepseek-v4-flash', provider: null },
+}), {
+  provider: 'custom:litellm-gateway',
+  model: 'deepseek-v4-flash',
+});
+
+// Explicit env override still beats the config default.
+assert.deepStrictEqual(defaultModelRoute({
+  HERMES_YOLO_PROVIDER: 'custom:test-provider',
+  HERMES_YOLO_MODEL: 'test-model',
+}, { configuredDefault: { model: 'deepseek-v4-flash', provider: 'custom:litellm-gateway' } }), {
+  provider: 'custom:test-provider',
+  model: 'test-model',
+});
+
+// --- configuredDefaultModel parsing ---
+{
+  const cfgDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'hermes-cfg-'));
+  const cfgPath = path.join(cfgDir, 'config.yaml');
+
+  fs.writeFileSync(cfgPath, [
+    'model:',
+    '  max_tokens: 2048',
+    '  provider: custom:litellm-gateway',
+    '  default: deepseek-v4-flash',
+    '  context_length: 131072',
+    'providers:',
+    '  some-provider:',
+    '    default: should-not-be-read',
+  ].join('\n'));
+  assert.deepStrictEqual(configuredDefaultModel(cfgPath), {
+    model: 'deepseek-v4-flash',
+    provider: 'custom:litellm-gateway',
+  });
+
+  // A `default:` outside the model block must not leak in.
+  fs.writeFileSync(cfgPath, ['providers:', '  p:', '    default: nope'].join('\n'));
+  assert.strictEqual(configuredDefaultModel(cfgPath), null);
+
+  // model block without a default yields null, not a partial object.
+  fs.writeFileSync(cfgPath, ['model:', '  provider: custom:litellm-gateway'].join('\n'));
+  assert.strictEqual(configuredDefaultModel(cfgPath), null);
+
+  assert.strictEqual(configuredDefaultModel(path.join(cfgDir, 'missing.yaml')), null);
+  fs.rmSync(cfgDir, { recursive: true, force: true });
+}
 assert.deepStrictEqual(defaultModelRoute({
   Z_AI_API_KEY: 'zai-key',
   HERMES_YOLO_PROVIDER: 'custom:test-provider',

@@ -78,6 +78,35 @@ function configuredProviderIds(configPath = HERMES_CONFIG_PATH) {
   return ids;
 }
 
+// Reads the `model:` block of ~/.hermes/config.yaml for an explicit default route.
+// This exists because routing on "is a key present?" is not the same question as
+// "does that key currently work". On 2026-08-03 the z.ai Coding Plan hit its
+// weekly/monthly token limit (429 until 2026-08-08 21:07) and Kimi Code hit its
+// billing cycle (403); the operator set `model.default: deepseek-v4-flash` to move
+// off the dead rung, but hasZaiKey() still saw a perfectly valid key and pinned
+// every launch back to z.ai — so every call 429'd and ground down the whole
+// fallback chain.
+function configuredDefaultModel(configPath = HERMES_CONFIG_PATH) {
+  if (!configPath || !fs.existsSync(configPath)) return null;
+  let text;
+  try {
+    text = fs.readFileSync(configPath, 'utf8');
+  } catch (error) {
+    return null;
+  }
+  let inModelBlock = false;
+  const found = {};
+  for (const line of text.split(/\r?\n/)) {
+    if (/^model:\s*$/.test(line)) { inModelBlock = true; continue; }
+    if (!inModelBlock) continue;
+    // Any non-indented, non-empty line ends the block.
+    if (/^\S/.test(line)) break;
+    const match = line.match(/^\s{2}(default|provider):\s*(\S+)\s*$/);
+    if (match) found[match[1]] = match[2];
+  }
+  return found.default ? { model: found.default, provider: found.provider || null } : null;
+}
+
 function chooseZaiProvider(configuredIds = configuredProviderIds()) {
   const preferred = ['zai-coding-glm', 'zai-coding-nothink'];
   const id = preferred.find((candidate) => configuredIds.includes(candidate));
@@ -134,6 +163,20 @@ function defaultModelRoute(env = process.env, options = {}) {
     return {
       provider: env.HERMES_YOLO_PROVIDER || 'custom:ollama-local-64k',
       model: env.HERMES_YOLO_MODEL || chooseLocalModel(options.availableModels),
+    };
+  }
+
+  // An explicit model.default in ~/.hermes/config.yaml outranks the key-presence
+  // heuristics below: it is a deliberate operator override (typically "this paid
+  // route is quota-dead, use the working one until it resets"), and a valid key is
+  // not evidence of a live quota.
+  const configuredDefault = options.configuredDefault !== undefined
+    ? options.configuredDefault
+    : configuredDefaultModel();
+  if (configuredDefault && configuredDefault.model) {
+    return {
+      provider: configuredDefault.provider || 'custom:litellm-gateway',
+      model: configuredDefault.model,
     };
   }
 
@@ -506,13 +549,15 @@ if (fs.existsSync(LOCK_PATH)) {
   if (alive) {
     let state = '';
     try {
-      state = execSync(`ps -o state= -p ${lockPid}`, { encoding: 'utf8' }).trim();
+      // execFileSync with an argv array: no shell, so a non-numeric lockPid read from
+      // the lock file cannot be interpolated into a command string.
+      state = execFileSync('ps', ['-o', 'state=', '-p', String(lockPid)], { encoding: 'utf8' }).trim();
     } catch (e) {}
 
     if (state.includes('T') || state.includes('Z')) {
       console.warn(`\x1b[33m[hermes-yolo]\x1b[0m Found stale/suspended hermes-yolo process (PID ${lockPid}, state: ${state}). Cleaning it up.`);
       try {
-        const childrenStr = execSync(`pgrep -P ${lockPid}`, { encoding: 'utf8' }).trim();
+        const childrenStr = execFileSync('pgrep', ['-P', String(lockPid)], { encoding: 'utf8' }).trim();
         if (childrenStr) {
           const children = childrenStr.split(/\s+/).map(p => parseInt(p, 10)).filter(Boolean);
           for (const childPid of children) {
@@ -535,7 +580,7 @@ if (fs.existsSync(LOCK_PATH)) {
 
 // Clean up any other suspended/zombie hermes/hermes-yolo processes owned by the user
 try {
-  const psOutput = execSync(`ps -axo pid,state,command`, { encoding: 'utf8' });
+  const psOutput = execFileSync('ps', ['-axo', 'pid,state,command'], { encoding: 'utf8' });
   const lines = psOutput.split('\n');
   for (const line of lines) {
     const parts = line.trim().split(/\s+/);
@@ -658,7 +703,7 @@ function getDescendantPids(parentPid) {
   while (index < pids.length) {
     const p = pids[index];
     try {
-      const childrenStr = execSync(`pgrep -P ${p}`, { encoding: 'utf8' }).trim();
+      const childrenStr = execFileSync('pgrep', ['-P', String(p)], { encoding: 'utf8' }).trim();
       if (childrenStr) {
         const children = childrenStr.split(/\s+/).map(x => parseInt(x, 10)).filter(Boolean);
         for (const childPid of children) {
@@ -678,7 +723,7 @@ function getAggregateCpu(pids) {
   let totalCpu = 0;
   for (const pid of pids) {
     try {
-      const cpuStr = execSync(`ps -p ${pid} -o %cpu=`, { encoding: 'utf8' }).trim();
+      const cpuStr = execFileSync('ps', ['-p', String(pid), '-o', '%cpu='], { encoding: 'utf8' }).trim();
       const cpu = parseFloat(cpuStr);
       if (Number.isFinite(cpu)) {
         totalCpu += cpu;
@@ -778,6 +823,7 @@ module.exports = {
   chooseLocalModel,
   chooseZaiProvider,
   configuredProviderIds,
+  configuredDefaultModel,
   findOllamaBinary,
   hasOpenRouterKey,
   hasZaiKey,
