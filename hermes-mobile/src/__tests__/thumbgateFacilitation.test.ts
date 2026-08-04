@@ -24,13 +24,10 @@ describe('thumbgateFacilitation (Herdr-style absence path)', () => {
     expect(HERMES_MOBILE_CONNECT_SKILL_INSTALL_COMMAND).toContain('hermes-mobile-connect');
   });
 
-  it('exposes three facilitation steps open_web → install_connector → agent_skill', () => {
+  it('docs steps are open_web → install_connector only (no coding-agent step on consumer path)', () => {
     const steps = thumbGateFacilitationSteps();
-    expect(steps.map((s) => s.id)).toEqual([
-      'open_web',
-      'install_connector',
-      'agent_skill',
-    ]);
+    expect(steps.map((s) => s.id)).toEqual(['open_web', 'install_connector']);
+    expect(steps.every((s) => !/coding agent/i.test(s.title + s.body))).toBe(true);
   });
 
   describe('resolveThumbGatePresenceFromFeatures', () => {
