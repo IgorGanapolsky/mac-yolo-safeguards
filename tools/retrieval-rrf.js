@@ -14,8 +14,10 @@
 
 const DEFAULT_K = 60;
 const DEFAULT_WEIGHTS = Object.freeze({
-  harness: 2.2, // sparse path/token scorer — best for identifier-heavy code queries
-  grepai: 1.0,
+  harness: 2.4, // sparse path/token scorer — best for identifier-heavy code queries
+  // grepae dense is complementary but can promote mobile/UI near-neighbors over
+  // control-plane routes (measured 2026-08-04 lessons-feedback flaky miss).
+  grepai: 0.85,
   default: 1.0,
 });
 
@@ -155,17 +157,18 @@ function rrfFuse(lists, options = {}) {
       // Respect strong sparse ranker: harness@1 should not be buried by grepae agreement noise
       // (2026-08-01: agent-swarm-harness harness@1 dual@6 under equal RRF;
       //  re-proof: still dual@2 under 0.03 prior — raise to clear multi-source docs).
-      // Soft prior through rank 10 keeps production paths ahead of test filename boosts.
+      // Soft prior through rank 12 keeps harness production paths (e.g. apps/.../lessons
+      // at harness@8-9) inside top-k when grepae injects UI near-neighbors.
       let harnessPrior = 0;
-      if (m.harnessRank != null && m.harnessRank > 0 && m.harnessRank <= 10) {
+      if (m.harnessRank != null && m.harnessRank > 0 && m.harnessRank <= 12) {
         harnessPrior =
           m.harnessRank === 1
             ? 0.055
             : m.harnessRank === 2
-              ? 0.022
+              ? 0.028
               : m.harnessRank === 3
-                ? 0.01
-                : 0.004 * (11 - m.harnessRank);
+                ? 0.016
+                : 0.006 * (13 - m.harnessRank);
       }
       const rrfScore = Number(
         (score + agreement + pathBoost + harnessPrior - qualityPenalty).toFixed(6),

@@ -211,10 +211,13 @@ function runGrepai(query, limit, repo = REPO) {
   } catch {
     /* proceed to live search */
   }
+  // Keep grepae wall-time short: under Ollama load a 45s×N dual-path eval
+  // blows the scorecard's dual-path-eval budget and hard-fails A+ (2026-08-04).
+  const grepaeTimeout = Number(process.env.HERMES_GREPAI_TIMEOUT_MS || 15000);
   const r = spawnSync(
     'grepai',
     ['search', query, '--json', '--compact'],
-    { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 45000, cwd },
+    { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: grepaeTimeout, cwd },
   );
   if (r.error && r.error.code === 'ENOENT') {
     return { ok: false, error: 'grepai CLI not found', matches: [] };
