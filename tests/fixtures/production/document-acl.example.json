@@ -1,0 +1,14 @@
+{
+  "schema": "hermes-document-acl/v1",
+  "defaultEffect": "deny",
+  "principals": {
+    "org:demo": {
+      "allow": ["tools/**", "docs/**", "apps/hermes-control-plane/**"],
+      "deny": ["tools/secrets/**", "business_os/**"]
+    },
+    "org:readonly": {
+      "allow": ["docs/**"],
+      "deny": ["tools/**"]
+    }
+  }
+}

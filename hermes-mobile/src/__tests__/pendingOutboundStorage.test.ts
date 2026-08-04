@@ -59,6 +59,135 @@ describe('pendingOutboundStorage', () => {
     expect((await loadPendingOutbound('sess-real'))?.messages[0]?.content).toBe('hello');
   });
 
+  it('persists the bounded retry envelope needed to reconstruct an image resend', async () => {
+    await savePendingOutbound('sess-image', {
+      messages: [
+        {
+          id: 'user-image',
+          role: 'user',
+          content: 'inspect\n\n📎 screenshot.png',
+          outboundStatus: 'failed',
+          outboundRetryEnvelope: {
+            version: 1,
+            text: 'inspect',
+            displayText: 'inspect\n\n📎 screenshot.png',
+            attachments: [
+              {
+                id: 'att-image',
+                name: 'screenshot.png',
+                mimeType: 'image/png',
+                uri: 'file:///cache/screenshot.png',
+                kind: 'image',
+                sizeBytes: 321,
+              },
+            ],
+          },
+        },
+      ],
+      pinnedStatus: 'failed',
+    });
+
+    const loaded = await loadPendingOutbound('sess-image');
+    expect(loaded?.messages[0]?.outboundRetryEnvelope).toEqual({
+      version: 1,
+      text: 'inspect',
+      displayText: 'inspect\n\n📎 screenshot.png',
+      attachments: [
+        {
+          id: 'att-image',
+          name: 'screenshot.png',
+          mimeType: 'image/png',
+          uri: 'file:///cache/screenshot.png',
+          kind: 'image',
+          sizeBytes: 321,
+        },
+      ],
+    });
+  });
+
+  it('drops a malformed partial retry envelope instead of retrying a corrupted subset', async () => {
+    await AsyncStorage.setItem(
+      PENDING_OUTBOUND_STORAGE_KEY,
+      JSON.stringify({
+        'sess-bad': {
+          sessionId: 'sess-bad',
+          messages: [
+            {
+              id: 'user-bad',
+              role: 'user',
+              content: 'inspect\n\n📎 one.png, two.png',
+              outboundStatus: 'failed',
+              outboundRetryEnvelope: {
+                version: 1,
+                text: 'inspect',
+                displayText: 'inspect\n\n📎 one.png, two.png',
+                attachments: [
+                  {
+                    id: 'att-good',
+                    name: 'one.png',
+                    mimeType: 'image/png',
+                    uri: 'file:///cache/one.png',
+                    kind: 'image',
+                    sizeBytes: 1,
+                  },
+                  {
+                    id: 'att-bad',
+                    name: 'two.png',
+                    mimeType: 'image/png',
+                    kind: 'image',
+                    sizeBytes: 1,
+                  },
+                ],
+              },
+            },
+          ],
+          pinnedStatus: 'failed',
+          updatedAt: '2026-07-29T00:00:00.000Z',
+        },
+      }),
+    );
+
+    const loaded = await loadPendingOutbound('sess-bad');
+    expect(loaded?.messages[0]?.outboundRetryEnvelope).toBeUndefined();
+  });
+
+  it('drops an oversized retry envelope instead of silently truncating attachments', async () => {
+    await AsyncStorage.setItem(
+      PENDING_OUTBOUND_STORAGE_KEY,
+      JSON.stringify({
+        'sess-too-many': {
+          sessionId: 'sess-too-many',
+          messages: [
+            {
+              id: 'user-too-many',
+              role: 'user',
+              content: 'inspect six files',
+              outboundStatus: 'failed',
+              outboundRetryEnvelope: {
+                version: 1,
+                text: 'inspect six files',
+                displayText: 'inspect six files',
+                attachments: Array.from({ length: 6 }, (_, index) => ({
+                  id: `att-${index}`,
+                  name: `file-${index}.png`,
+                  mimeType: 'image/png',
+                  uri: `file:///cache/file-${index}.png`,
+                  kind: 'image',
+                  sizeBytes: 1,
+                })),
+              },
+            },
+          ],
+          pinnedStatus: 'failed',
+          updatedAt: '2026-07-29T00:00:00.000Z',
+        },
+      }),
+    );
+
+    const loaded = await loadPendingOutbound('sess-too-many');
+    expect(loaded?.messages[0]?.outboundRetryEnvelope).toBeUndefined();
+  });
+
   it('uses persisted messages when in-memory transcript was wiped on remount', () => {
     const persisted: HermesMessage[] = [
       {
