@@ -234,6 +234,8 @@ appId: com.iganapolsky.hermesmobile
 - stopApp
 - launchApp:
     clearState: false
+- waitForAnimationToEnd:
+    timeout: 3000
 - extendedWaitUntil:
     notVisible:
       id: "hermes-bootstrap"

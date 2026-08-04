@@ -17,10 +17,12 @@ test('mrrAtK is 1/rank of first hit', () => {
   assert.equal(mrrAtK(['docs/a.md'], relevant, 3), 0);
 });
 
-test('precisionAtK counts relevant fraction of top-k', () => {
+test('precisionAtK divides by cutoff k (not returned length)', () => {
   assert.equal(precisionAtK(ranked, relevant, 3), Number((1 / 3).toFixed(4)));
   assert.equal(precisionAtK(ranked, relevant, 1), 0);
   assert.equal(precisionAtK(['tools/hermes-cloud-connector.js', 'x.js'], relevant, 2), 0.5);
+  // fewer hits than k → still /k
+  assert.equal(precisionAtK(['tools/hermes-cloud-connector.js'], relevant, 3), Number((1 / 3).toFixed(4)));
 });
 
 test('recallAtK is fraction of required labels hit', () => {

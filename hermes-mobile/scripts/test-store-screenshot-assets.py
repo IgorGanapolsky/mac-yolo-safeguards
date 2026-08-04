@@ -163,13 +163,16 @@ class StoreScreenshotAssetTests(unittest.TestCase):
         self.assertIsNone(FORBIDDEN_COPY.search(visible_copy))
         self.assertIsNone(INVENTED_CONTROL_COPY.search(self.source))
         approvals_source = APPROVALS_SCREEN.read_text(encoding="utf-8")
+        # Approval-first mode was removed from Leash UI (misleading + no-op).
+        # Store composites + Leash screen must still document the real controls.
         for shipped_control in (
-            "Approval-first mode",
             "Quick-approve layout",
             "Deny tool → capture block",
+            "Allow tool → capture approval",
         ):
             self.assertIn(shipped_control, self.source)
             self.assertIn(shipped_control, approvals_source)
+        self.assertNotIn("Approval-first mode", approvals_source)
 
     def test_06_local_ocr_finds_no_forbidden_copy(self) -> None:
         self.require_v2()

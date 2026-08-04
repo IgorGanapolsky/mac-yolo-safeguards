@@ -103,13 +103,25 @@ function senderHealth(from) {
   }
 }
 
-function check({ to = [], subject = "", body = "", evidence = null, priorThread = false, verifiedBy = null, from = null }) {
+function check({
+  to = [],
+  subject = "",
+  body = "",
+  evidence = null,
+  priorThread = false,
+  verifiedBy = null,
+  from = null,
+  // Tests inject probe state so production coordination/sender-health.json can stay
+  // at live truth (ok after 2026-07-31 PE mailbox restore) without freezing the gate
+  // fixtures on a permanent outage.
+  healthOverride = undefined,
+}) {
   const blocks = [];
   const warnings = [];
   const recipients = Array.isArray(to) ? to : [to];
 
   if (from) {
-    const h = senderHealth(from);
+    const h = healthOverride !== undefined ? healthOverride : senderHealth(from);
     if (!h) {
       warnings.push(`No probe record for sender ${from}. Run a send-as probe before a campaign.`);
     } else if (h.status !== "ok") {

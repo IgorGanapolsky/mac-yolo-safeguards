@@ -1,0 +1,6 @@
+{
+  "name": "promo-continuity",
+  "domain": "promo_social",
+  "goal": "taste_pass",
+  "prompt": "Write a LinkedIn-length promo (max 80 words) for ThumbGate Continuity: agents keep working when the Mac sleeps. Rules: ThumbGate.app is the hero CTA with utm_source=eval and cta_id=live1; do not claim official partnership with Nous; no fake user counts; no 'game-changer' or 'unleash the power' slop. Name Continuity concretely."
+}

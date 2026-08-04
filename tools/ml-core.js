@@ -249,14 +249,16 @@ function mrrAtK(rankedPaths, relevantSubstrings, k) {
 }
 
 /**
- * Precision@k — fraction of top-k results that are relevant.
+ * Precision@k — relevant hits in top-k divided by k (standard IR cutoff).
  * Complements recall (which is fraction of required labels hit).
+ * Denominator is always k when k>0, even if fewer paths returned.
  */
 function precisionAtK(rankedPaths, relevantSubstrings, k) {
-  const top = (rankedPaths || []).slice(0, k);
-  if (!top.length) return 0;
+  const cutoff = Math.max(0, Number(k) || 0);
+  if (!cutoff) return 0;
+  const top = (rankedPaths || []).slice(0, cutoff);
   const hits = top.filter((p) => pathIsRelevant(p, relevantSubstrings)).length;
-  return Number((hits / top.length).toFixed(4));
+  return Number((hits / cutoff).toFixed(4));
 }
 
 /** Recall@k — fraction of required substrings found somewhere in top-k. */

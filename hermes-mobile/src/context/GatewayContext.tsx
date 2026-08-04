@@ -49,6 +49,7 @@ import {
   gateBlockedToPending,
   parseGatewayEvent,
   parseReclaimEvent,
+  placeSmokePreviewApproval,
 } from '../services/gatewayClient';
 import { haptics } from '../services/haptics';
 import { getPackagerHostIp } from '../services/discover';
@@ -3724,12 +3725,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     const pending = gateBlockedToPending(event);
     if (pending) {
       haptics.warning();
-      setPendingApprovals((prev) => {
-        if (prev.some((item) => item.actionId === pending.actionId)) {
-          return prev;
-        }
-        return dedupeAndCapPendingApprovals([pending, ...prev]);
-      });
+      // One preview only: stable id + drop any prior demo_* stacks (legacy
+      // demo_${Date.now()} cards included). Real Mac/relay approvals stay.
+      setPendingApprovals((prev) =>
+        placeSmokePreviewApproval(prev, pending, dedupeAndCapPendingApprovals),
+      );
     }
   }, []);
 
