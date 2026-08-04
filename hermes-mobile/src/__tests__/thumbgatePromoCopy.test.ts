@@ -9,7 +9,7 @@ describe('thumbgatePromoCopy', () => {
   it('uses thumbgate.app as the canonical web URL', () => {
     expect(THUMBGATE_WEB_URL).toMatch(/^https:\/\/thumbgate\.app\//);
     expect(THUMBGATE_WEB_URL).toContain('utm_campaign=paid_companion');
-    expect(THUMBGATE_WEB_URL.endsWith('#pricing')).toBe(true);
+    expect(THUMBGATE_WEB_URL).toContain('/dashboard');
     expect(thumbGatePromoCopy('leash_empty').url).toBe(THUMBGATE_WEB_URL);
   });
 

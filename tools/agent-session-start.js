@@ -421,6 +421,24 @@ if (!json) {
   printFleetRepoIntelligence();
 }
 
+// Code scanning debt — prevent Security-tab theater (2026-08).
+// Prints open_on_main; does not fail the whole session-start process.
+{
+  const codeqlArgs = ['--session-start'];
+  if (json) codeqlArgs.push('--json');
+  const codeqlHyg = runNode('tools/codeql-agent-hygiene.js', codeqlArgs, 60_000);
+  if (!json && codeqlHyg.stdout) {
+    const out = codeqlHyg.stdout;
+    process.stdout.write(`\n${out}${out.endsWith('\n') ? '' : '\n'}`);
+  } else if (!json && (codeqlHyg.status === 127 || /missing/.test(codeqlHyg.stderr || ''))) {
+    process.stdout.write(
+      '\n=== Code scanning hygiene ===\nWARN tools/codeql-agent-hygiene.js missing — land CodeQL burn-down PR.\n',
+    );
+  } else if (json && codeqlHyg.status !== 0 && codeqlHyg.stderr) {
+    process.stderr.write(codeqlHyg.stderr.slice(0, 400));
+  }
+}
+
 const briefArgs = ['tools/ceo-operating-brief.js'];
 if (json) briefArgs.push('--json');
 if (full) briefArgs.push('--full');

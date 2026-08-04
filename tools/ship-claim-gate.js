@@ -32,6 +32,33 @@ const COUNT_N =
 const DEVICE_CLAIM =
   /\b(works?\s+on\s+(device|phone)|device\s+verified|e2e\s*=?\s*pass|production\s+ota)\b/i;
 const SHIP_CLAIM = /\b(shipped|merged\s+to\s+main|production\s+ready|released)\b/i;
+const SECURITY_CLEAN_CLAIM =
+  /\b(security\s+clean|0\s+open\s+alerts?|code\s*scanning\s+clean|no\s+codeql|codeql\s+clean|all\s+alerts?\s+(fixed|closed|gone))\b/i;
+
+
+function checkSecurityCleanClaim(claim) {
+  if (!SECURITY_CLEAN_CLAIM.test(String(claim || ''))) return null;
+  const r = require('child_process').spawnSync(
+    process.execPath,
+    [path.join(ROOT, 'tools/codeql-agent-hygiene.js'), '--claim', String(claim), '--json'],
+    { cwd: ROOT, encoding: 'utf8', timeout: 90_000, maxBuffer: 4 * 1024 * 1024 },
+  );
+  let body = null;
+  try {
+    body = JSON.parse((r.stdout || '').trim() || '{}');
+  } catch {
+    body = null;
+  }
+  if (r.status !== 0 || (body && body.ok === false)) {
+    return {
+      allow: false,
+      reasons: (body && body.claim && body.claim.reasons) || [
+        'codeql-agent-hygiene blocked security-clean claim (open alerts on main or dirty pattern gate)',
+      ],
+    };
+  }
+  return { allow: true, reasons: [] };
+}
 
 function parseArgs(argv) {
   const out = {
@@ -301,6 +328,16 @@ function evaluateShipClaim(input) {
     blocks.push(
       'Completion language without evidence. Pass --results-json, --matrix-file, --device, --require-sha, and/or --require-url',
     );
+  }
+
+  // --- Code scanning / Security tab theater (2026-08) ---
+  if (SECURITY_CLEAN_CLAIM.test(claim)) {
+    const sec = checkSecurityCleanClaim(claim);
+    if (sec && !sec.allow) {
+      for (const r of sec.reasons || []) blocks.push(r);
+    } else if (sec && sec.allow) {
+      allows.push('codeql-agent-hygiene ALLOW security-clean claim');
+    }
   }
 
   const ok = blocks.length === 0;
