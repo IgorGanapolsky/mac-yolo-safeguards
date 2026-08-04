@@ -139,7 +139,11 @@ describe('emptyStreamReplyRecovery', () => {
     expect(shouldHardStopEmptyStreamWait(EMPTY_STREAM_HARD_STOP_MS)).toBe(true);
     expect(shouldHardStopEmptyStreamWait(3_430_000)).toBe(true);
     expect(emptyStreamCheckingStatus(3_430_000)).toBe(EMPTY_STREAM_HARD_STOP_STATUS);
-    expect(EMPTY_STREAM_HARD_STOP_STATUS.toLowerCase()).toContain('leash');
+    // Primary CTA is fresh chat / resend — not a false Leash demand.
+    expect(EMPTY_STREAM_HARD_STOP_STATUS.toLowerCase()).toMatch(/fresh chat|resend/);
+    expect(EMPTY_STREAM_HARD_STOP_STATUS.toLowerCase()).not.toMatch(
+      /open leash if a tool needs approve/,
+    );
     expect(EMPTY_STREAM_HARD_STOP_STATUS.toLowerCase()).not.toMatch(/checking your mac… \(\d+s\)/);
   });
 

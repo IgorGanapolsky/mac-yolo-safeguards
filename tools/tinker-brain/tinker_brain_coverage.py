@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Coverage check: does the card actually address this question, or did it merely route?
+"""ADVISORY ONLY — this never gates and never changes an exit code.
+
+A lexical check cannot tell paraphrase from topic mismatch: "How much does ThumbGate
+cost?" answered with "pricing: $499" shares only the brand token, exactly like the
+2026-07-30 incident where a trademark question returned the GTM card. Both look
+identical to word overlap. So this prints a note a human can weigh and nothing more —
+used as a gate it would reject correct answers, and a guard that blocks good output
+gets switched off.
+Coverage check: does the card actually address this question, or did it merely route?
 
 Why this exists
 ---------------
@@ -52,9 +60,13 @@ def _terms(text: str) -> set[str]:
     return {t for t in _TOKEN_RE.findall((text or "").lower()) if t not in _STOPWORDS}
 
 
-# Below this many substantive terms, a ratio is meaningless — one routing keyword
-# can hold the score above threshold on its own. Short questions need full coverage.
-SHORT_Q_TERMS = 3
+# Product/brand nouns appear in nearly every card, so a card matching ONLY these has
+# told you nothing about the question. This list is the incident signature, not a
+# stopword list — ordinary topic words must keep counting as real coverage.
+BRAND_TOKENS = {
+    "thumbgate", "hermes", "tinker", "poolside", "opencode", "kimi",
+    "skool", "claude", "codex", "gemini", "cursor",
+}
 
 
 def coverage(question: str, answer_text: str, *, threshold: float = 0.34) -> dict[str, Any]:
@@ -77,27 +89,45 @@ def coverage(question: str, answer_text: str, *, threshold: float = 0.34) -> dic
     score = len(hits) / len(q_terms)
     missing = sorted(q_terms - hits)
 
-    # A ratio alone is WRONG for terse questions. "ThumbGate trademark?" is 1/2 = 0.50,
-    # comfortably over the threshold, yet the single term carrying the question
-    # ("trademark") is absent — the identical confident non-answer this module exists to
-    # stop, merely phrased shorter. Below SHORT_Q_TERMS the ratio has too few buckets to
-    # carry meaning: one routing keyword can hold the score up on its own. So for short
-    # questions require EVERY substantive term to appear. Verified: with the ratio alone,
-    # `ThumbGate trademark?` and `ThumbGate rename?` both exited 0 with no banner.
-    if len(q_terms) <= SHORT_Q_TERMS:
-        covered = not missing
+    # A ratio cannot separate the two failure modes, and using one produced both:
+    #   FALSE PASS: "ThumbGate trademark?" scores 1/2 = 0.5 and is accepted, so the
+    #     concise form of the exact 2026-07-30 incident slips through. The verbose form
+    #     ("Should I rename ThumbGate for trademark reasons?") only fails because it has
+    #     more terms — the guard caught that incident by accident of phrasing length.
+    #   FALSE FAIL: "How do I monetize fastest?" answered with pricing and sales-motion
+    #     guidance scores 0.0, because a good answer uses related language instead of
+    #     repeating the prompt.
+    #
+    # The actual signal in the incident is narrower: the ONLY thing the card had in
+    # common with the question was a brand noun. That is what gets flagged now — a
+    # ratio is only used to explain, never to decide.
+    # `nothing_matched` is NOT flagged. A good answer routinely uses different words
+    # than the question ("How do I monetize fastest?" answered with pricing and
+    # sales-motion guidance shares no terms at all), and flagging that rejected 3 of
+    # the 14 golden cases.
+    # Three independent ways a card fails to answer. Using only ONE of them loses cases:
+    #   ratio       catches the verbose regression ("Should ThumbGate rename away from
+    #               Hermes given Nous Research trademark exposure?") where the card shares
+    #               several tokens but addresses none of the question.
+    #   brand_only  catches the concise form ("ThumbGate trademark?") which scores 1/2 =
+    #               0.5 and sails past any sane threshold — the same bug, shorter.
+    #   empty       an answer with no terms at all can never cover a real question.
+    # An earlier rewrite of mine kept only brand_only and silently regressed both of the
+    # others; tests/test-tinker-brain-coverage.py caught it.
+    brand_only = bool(hits) and hits <= BRAND_TOKENS and bool(missing)
+    below_threshold = score < threshold
+    empty_answer = not a_terms
+
+    covered = not (brand_only or below_threshold or empty_answer)
+    if empty_answer:
+        reason = "the card has no substantive terms, so it cannot answer anything"
+    elif brand_only:
         reason = (
-            "short question, all terms addressed"
-            if covered
-            else f"short question missing {', '.join(missing)} — one keyword cannot carry it"
+            f"the card shares only the product name ({', '.join(sorted(hits))}) with the "
+            f"question and does not address {', '.join(missing[:4])}"
         )
     else:
-        covered = score >= threshold
-        reason = (
-            "card addresses the question's terms"
-            if covered
-            else f"only {len(hits)}/{len(q_terms)} question terms appear in the card"
-        )
+        reason = "card addresses the question's terms"
 
     return {
         "covered": covered,

@@ -87,6 +87,7 @@ export default function ApprovalsScreen() {
     setApprovalEditSeed,
     patchSettings,
     injectSmokeApproval,
+    thumbgateApiKey,
   } = useGateway();
 
   // Hermes Mobile is sold as a paid, full-feature app. Leash has no secondary paywall.
@@ -194,10 +195,12 @@ export default function ApprovalsScreen() {
   const visibleApprovals = glance
     ? []
     : pendingApprovals.slice(0, PENDING_APPROVALS_RENDER_CAP);
+  const hasThumbGateCompanion = Boolean(thumbgateApiKey?.trim());
   const leashPromoSurface = leashUnlocked
     ? resolveLeashThumbGatePromoSurface({
         connectionState,
         pendingApprovalsCount: pendingApprovals.length,
+        hasThumbGateCompanion,
       })
     : null;
 
@@ -262,16 +265,15 @@ export default function ApprovalsScreen() {
           <Text style={styles.title}>THUMBGATE LEASH</Text>
         </View>
         <Text style={styles.subtitle} testID="leash-hero-subtitle">
-          {settings.safetyMode || settings.glanceMode
-            ? 'Approve blocked agent tools via ThumbGate.app — lock screen or cards below'
-            : 'Approve blocked tools from your phone via ThumbGate.app — tap notifications on lock screen'}
+          When Hermes on your Mac blocks a risky tool (shell, files, browser, etc.), approve or deny
+          it here — or from lock-screen alerts. Not chat messages; only blocked tools.
         </Text>
         <TouchableOpacity
           onPress={() => {
             void Linking.openURL(THUMBGATE_WEB_URL).catch(() => {
               Alert.alert(
                 'Could not open ThumbGate.app',
-                'Open https://thumbgate.app in your browser to continue.',
+                'Open https://thumbgate.app/dashboard in your browser to continue.',
               );
             });
           }}
@@ -473,7 +475,8 @@ export default function ApprovalsScreen() {
               <Text style={styles.secondaryButtonText}>Preview approval card (smoke test)</Text>
             </TouchableOpacity>
             <Text style={styles.hintMuted}>
-              Injects a fake blocked-command card here. Does not touch your relay or computer.
+              Shows one fake blocked-command card. Press again does not stack. Does not touch your
+              relay or computer.
             </Text>
             <View style={styles.switchRow}>
               <View style={styles.switchLabelCol}>
@@ -505,23 +508,6 @@ export default function ApprovalsScreen() {
                 }}
                 trackColor={{ false: '#1F2937', true: colors.primary }}
                 thumbColor={settings.thumbgateCaptureOnUp ? '#ffffff' : '#9CA3AF'}
-              />
-            </View>
-            <View style={styles.switchRow}>
-              <View style={styles.switchLabelCol}>
-                <Text style={styles.switchLabel}>Approval-first mode</Text>
-                <Text style={styles.switchDesc}>
-                  Prioritize lock-screen approval alerts. Hermes tab still opens on launch.
-                </Text>
-              </View>
-              <Switch
-                value={settings.safetyMode}
-                onValueChange={(val) => {
-                  void patchSettings({ safetyMode: val });
-                }}
-                testID="safety-mode-switch"
-                trackColor={{ false: '#1F2937', true: colors.primary }}
-                thumbColor={settings.safetyMode ? '#ffffff' : '#9CA3AF'}
               />
             </View>
             <View style={styles.switchRow}>

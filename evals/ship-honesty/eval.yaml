@@ -1,0 +1,6 @@
+name: ship-honesty
+description: >
+  Does status language and promo copy meet our honesty + non-slop bars?
+  Fixture runs only (no model). Graders: ship-claim-gate + taste-gate.
+  Question: can agents claim LIVE/shipped without evidence, or ship slop?
+source: docs/DECISIONS/D-2026-08-03-eval-architecture.md
