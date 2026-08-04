@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -37,6 +38,15 @@ SCORE_FOR_GRADE = {
     "A": 9.5,
     "A+": 10,
 }
+
+_SENSITIVE = re.compile(
+    r"(sk|pk|rk|gh[pousr]|xox[baprs]|AKIA|AIza|ya29|eyJ|Bearer\s+)[A-Za-z0-9_\-\.]{8,}",
+    re.IGNORECASE,
+)
+
+
+def _redact(text: object) -> str:
+    return _SENSITIVE.sub("<redacted>", str(text))
 
 
 def _run(cmd: list[str], timeout: float = 90.0) -> dict[str, Any]:
@@ -476,10 +486,10 @@ def main() -> int:
         },
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    args.out.write_text(_redact(json.dumps(receipt, indent=2, sort_keys=True)) + "\n", encoding="utf-8")
 
     if args.json:
-        print(json.dumps(receipt, indent=2, sort_keys=True))
+        print(_redact(json.dumps(receipt, indent=2, sort_keys=True)))
     else:
         print("tinker-brain scorecard")
         print(f"  design: {receipt['design']['orchestration']}")

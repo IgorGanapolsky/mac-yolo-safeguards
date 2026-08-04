@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import time
@@ -50,6 +51,15 @@ def _find_repo_root(start: Path) -> Path:
 
 _REPO = _find_repo_root(_HERE)
 sys.path.insert(0, str(_HERE))
+
+_SENSITIVE = re.compile(
+    r"(sk|pk|rk|gh[pousr]|xox[baprs]|AKIA|AIza|ya29|eyJ|Bearer\s+)[A-Za-z0-9_\-\.]{8,}",
+    re.IGNORECASE,
+)
+
+
+def _redact(text: object) -> str:
+    return _SENSITIVE.sub("<redacted>", str(text))
 
 from tinker_brain_health import (  # noqa: E402
     _AS_OF,
@@ -443,7 +453,7 @@ def main() -> int:
     def cycle() -> int:
         result = run_once(heal=heal, dry_run=args.dry_run, run_eval=not args.no_eval)
         if args.json:
-            print(json.dumps(result, indent=2, default=str))
+            print(_redact(json.dumps(result, indent=2, default=str)))
         else:
             print(f"tinker-brain-continuous: {'OK' if result['ok'] else 'UNHEALTHY'}")
             print(f"  heal: {result['heal'].get('reason')} acted={result['heal'].get('acted')}")
