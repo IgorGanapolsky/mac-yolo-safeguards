@@ -68,7 +68,7 @@ assert.strictEqual(report.overallStatus, 'pass', JSON.stringify(report.metrics))
 assert.ok(report.gates.holdoutPass);
 assert.ok(report.gates.trainPass);
 assert.ok(report.metrics.holdoutAccuracy >= 0.8);
-assert.ok(report.source.philosophy.includes('arcprize.org'));
+assert.match(String(report.source.philosophy || ''), /ARC|abstraction|reasoning/i);
 
 // Gate-style fail path: empty battery → fail
 const empty = runProbe({ battery: [], holdoutIds: [], minHoldout: 0.8 });

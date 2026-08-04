@@ -281,3 +281,20 @@ Shipped hardening: PR #151 (initial unblock), #186 (stall CTA + WARN 350k), T-18
 - [RELEASE-SAFETY-NET.md](./RELEASE-SAFETY-NET.md)
 - [AGENTS.md](../AGENTS.md)
 - Vault: `~/Documents/AI-Agent-Sync/Handoffs/2026-07-10-prevent-recurrence.md`
+
+## S52 — ThumbGate mobile opens /dashboard product-first (2026-08-03)
+
+**Incident:** In-app ThumbGate CTAs opened `thumbgate.app` with a pricing hash, scrolling users to plans instead of the workspace.
+
+**Law:** Mobile open URLs are `https://thumbgate.app/dashboard?utm_…`. Logged-in → dashboard; logged-out → login with `return_to=/dashboard`. Never a pricing deep-link as default entry.
+
+**Gate:** `preventRecurrenceContract.test.ts` S52 walks all production `hermes-mobile/src` TS/TSX and fails on pricing hashes or non-`/dashboard` thumbgate.app paths. Also in `npm run test:release-safety`.
+
+
+## S53 — Zero demo forever (2026-08-03)
+
+**Incident:** Production iOS App Store builds baked `EXPO_PUBLIC_STORE_REVIEW_DEMO=1`, so customers could enter mock chat (`[Demo Mode]`) via Settings or `hermes://setup?demo=1`.
+
+**Law:** No demo for real users or store binaries. `isStoreReviewDemoBuild()` always returns false. `isDemoModeAllowed()` is true only for explicit `EXPO_PUBLIC_E2E_AUTOMATION` Maestro builds. Production EAS must never set `EXPO_PUBLIC_STORE_REVIEW_DEMO`.
+
+**Gate:** `preventRecurrenceContract` S53 + `releaseSafetyContract` + `demoModePolicy.test.ts`.

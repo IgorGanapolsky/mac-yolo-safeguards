@@ -12,53 +12,45 @@ const https = require('https');
 const SA_JSON = process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '';
 const APP_ID = process.env.FIREBASE_ANDROID_APP_ID || '';
 
-function fail(message) {
-  console.error(`Firebase distribute auth: FAIL\n- ${message}`);
+// js/clear-text-logging (CWE-312/359/532): anything derived from
+// FIREBASE_SERVICE_ACCOUNT_JSON (process.env) is taint. Never pass SA-derived
+// strings into console.log/error — not even "masked" forms (still a flow).
+// Static detail codes (literals only) are safe and must appear so operators
+// can distinguish invalid_sa_json / oauth_token_exchange_failed / etc.
+function fail(detailCode) {
+  const code = typeof detailCode === 'string' && detailCode ? detailCode : 'unknown';
+  console.error(
+    `Firebase distribute auth: FAIL [${code}] — check CI secret FIREBASE_SERVICE_ACCOUNT_JSON ` +
+      'and roles/firebaseappdistro.admin (identity not logged; code is static, not SA-derived).',
+  );
   process.exit(1);
 }
 
-// js/clear-text-logging (CWE-312/359/532): clientEmail/projectId are derived
-// from FIREBASE_SERVICE_ACCOUNT_JSON (process.env), a credential-bearing
-// source, so CodeQL treats any value extracted from it as sensitive even
-// though the service account *email* isn't the private key itself. Mask the
-// identifying local-part before it reaches console.log/console.error so a
-// leaked CI log still shows enough to debug (which project, which SA
-// domain) without printing the full identity string in clear text.
-function maskEmail(email) {
-  const str = String(email || '');
-  const at = str.indexOf('@');
-  if (at <= 0) return str ? `${str.slice(0, 2)}***` : str;
-  const local = str.slice(0, at);
-  const domain = str.slice(at);
-  const visible = local.slice(0, Math.min(3, local.length));
-  return `${visible}***${domain}`;
-}
-
 if (!SA_JSON) {
-  fail('FIREBASE_SERVICE_ACCOUNT_JSON is not set (see scripts/sync-firebase-secrets.sh)');
+  fail('missing_sa_json');
 }
 if (!APP_ID) {
-  fail('FIREBASE_ANDROID_APP_ID is not set');
+  fail('missing_app_id');
 }
 
 let parsed;
 try {
   parsed = JSON.parse(SA_JSON);
 } catch {
-  fail('Service account JSON is not valid JSON');
+  fail('invalid_sa_json');
 }
 
 const clientEmail = parsed.client_email || '';
-const projectId = parsed.project_id || '';
 const privateKey = parsed.private_key || '';
 if (!clientEmail) {
-  fail('Service account JSON missing client_email');
+  fail('missing_client_email');
 }
 if (!privateKey) {
-  fail('Service account JSON missing private_key');
+  fail('missing_private_key');
 }
 
-console.log(`Firebase distribute auth: checking ${maskEmail(clientEmail)} (project_id=${projectId || 'unknown'})`);
+// No SA-derived fields in logs (CodeQL js/clear-text-logging).
+console.log('Firebase distribute auth: checking configured service account for App Distribution');
 
 const projectNumber = firebaseProject.projectNumber;
 
@@ -136,7 +128,7 @@ async function getAccessToken() {
     body,
   );
   if (response.statusCode !== 200 || !response.body?.access_token) {
-    fail(`OAuth token exchange failed (${response.statusCode}): ${response.raw.slice(0, 600)}`);
+    fail('oauth_token_exchange_failed');
   }
   return response.body.access_token;
 }
@@ -161,19 +153,20 @@ async function verifyAppDistributionAccess() {
 
   const detail = response.raw || JSON.stringify(response.body || {});
   if (response.statusCode === 401) {
-    fail(`Service account OAuth succeeded, but App Distribution rejected the token (HTTP 401): ${detail.slice(0, 600)}`);
+    fail('app_distribution_401');
   }
   if (/403|permission|PERMISSION_DENIED/i.test(detail) || response.statusCode === 403) {
-    fail(
-      `Service account ${maskEmail(clientEmail)} lacks Firebase App Distribution permission (HTTP ${response.statusCode}).\n` +
-        '  Fix: Firebase Console -> Hermes Mobile -> Project settings -> Service accounts -> generate key,\n' +
-        `  OR grant roles/firebaseappdistro.admin on Hermes Mobile Firebase (${firebaseProject.projectNumber}),\n` +
-        '  then set GitHub secret FIREBASE_SERVICE_ACCOUNT_JSON.',
+    // Static remediation only — no SA email/project id in logs.
+    console.error(
+      'Firebase distribute auth: missing App Distribution permission.\n' +
+        '  Fix: Firebase Console -> Project settings -> Service accounts -> key with\n' +
+        '  roles/firebaseappdistro.admin, then set GitHub secret FIREBASE_SERVICE_ACCOUNT_JSON.',
     );
+    process.exit(1);
   }
-  fail(`App Distribution groups.list failed (${response.statusCode}): ${detail.slice(0, 600)}`);
+  fail('app_distribution_groups_list_failed');
 }
 
-verifyAppDistributionAccess().catch((error) => {
-  fail(error instanceof Error ? error.message : String(error));
+verifyAppDistributionAccess().catch(() => {
+  fail('unexpected_error');
 });
