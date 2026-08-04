@@ -14,7 +14,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 const { snapshotPlan } = require('./plan-coordination-snapshot');
 
 const REPO = path.resolve(__dirname, '..');
@@ -56,7 +56,7 @@ function launchctlState(label) {
   const uid = process.getuid?.() ?? 0;
   const target = `gui/${uid}/${label}`;
   try {
-    const out = execSync(`launchctl print ${target}`, {
+    const out = execFileSync('launchctl', ['print', target], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });

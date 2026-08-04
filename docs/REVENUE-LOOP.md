@@ -72,3 +72,78 @@ The next revenue-loop runs double as the demand test. Full plan:
 - **Durability note:** position on local models + metered provider APIs, never third-party
   OAuth into Claude Pro/Max subscription quotas (Apr 4 2026 wrapper ban).
 - Human sends only — the loop never sends outreach itself.
+
+### 2026-07-31 — run 2 (measurement run; NO new prospects sourced, deliberately)
+
+- **Hypothesis under test (carried):** "$499 Agent Reliability Diagnostic" outreach converts.
+- **Metrics measured (objective, via Gmail):**
+  - **Replies: 1** — Jason Stiles (jason.stiles@me.com), 2026-07-31, on "Fable-class burn". First
+    real reply this loop has ever recorded. It is a clean **disqualification**: Hedge is an
+    unmonetized passion project, the $120 burn was expiring promo credits, and the root cause was
+    his own tiered-subagent rule never being persisted to claude.md. He is not a $499 buyer and
+    said so generously.
+  - **Booked calls: 0.**
+  - **Sends: high, not zero.** ~201 threads match outreach terms in Sent. Dozens went out on
+    2026-07-31 alone, mail-merged, four recipients per To: line.
+- **The finding: this is not a sending deficit. It is a deliverability and targeting failure.**
+  1. **Five hard bounces inside one minute** (13:21Z): hello@factory.ai, team@galileo.ai,
+     hello@all-hands.dev, hello@llamaindex.ai, hello@crewai.com — all `550 address not found`.
+     All guessed role addresses. Run 1 of this loop *already* skipped seven candidates for
+     exactly this reason; the rule existed as prose and nothing enforced it.
+  2. **The entire 2026-07-29 batch from igor@igorganapolsky.com never left the building.** Every
+     message bounced: "the settings for your 'Send mail as' account are misconfigured or out of
+     date." TeamCalendar, Sondos, Layla, ChatFin and stiles.one were recorded as sent and were
+     not delivered. The one reply we got came only after a manual resend from the Gmail address.
+     **The doc specifies outbound from the domain address; that path is broken.**
+  3. **A design-partner pitch went to security@e2b.dev**, a vulnerability disclosure inbox.
+  4. Hard bounces are a primary spam signal. Five in one minute from one sender is the shape of
+     a scraped list, and the cost lands on the deliverability of every *good* email sent after.
+- **Why no prospects were sourced this run:** the kill criterion says that when volume is not
+  producing replies the loop must "recommend changing the offer/hook, not produce more volume."
+  Drafting ten more messages into a channel that is bouncing, misconfigured on the intended
+  sender, and whose only honest reply says the targeting is wrong would be volume, not progress.
+- **Actions taken:**
+  - Reply to Jason Stiles created as a **draft** (human sends only). No pitch — he said no
+    clearly. It credits his actual root cause and offers the session-start-assertion fix.
+  - Built `tools/outreach-preflight.js` + `tests/test-outreach-preflight.js` (16 assertions,
+    in CI). Blocks role addresses, known-bounced addresses, security@/abuse@ inboxes,
+    multi-recipient To: lines, fake-familiarity openers with no prior thread, Stripe links in a
+    first touch, and any address with no stated provenance. Fixtures are the real 2026-07-31
+    sends. A negative control initially passed with the role rule disabled — because
+    KNOWN_BOUNCED masked it — so an isolating case was added.
+  - **Repaired CI, which was not running at all.** A diff3 merge committed conflict markers into
+    `.github/workflows/ci.yml`, making it unparseable; `plan.md` carried an orphaned base marker
+    too. Second occurrence of this class (PR #1190 was the first). Added two CI guards: a
+    conflict-marker scan and a YAML-parse check over every workflow. The same merge had also
+    silently dropped six previously-wired test steps; restored.
+- **Next run must, in this order:**
+  1. **🔴 igorganapolsky.com HAS NO DNS. The password theory was wrong; this is the root cause.**
+     Verified 2026-07-31 via Google DNS-over-HTTPS: MX, TXT and NS all return **Status 2
+     (SERVFAIL)**, `rcode=REFUSED` from all six Cloudflare nameservers — a **lame delegation**.
+     **Registration is healthy** (Verisign RDAP: NameCheap, registered 2026-03-17, expires
+     2027-03-17, normal transfer lock, NS = DEVIN/SUE.NS.CLOUDFLARE.COM). **The proof it is the
+     zone and not the nameservers:** `devin.ns.cloudflare.com` answers *authoritatively* for
+     `thumbgate.app` (Status 0, A = 172.67.214.175 / 104.21.37.232) while **refusing**
+     `igorganapolsky.com`. Same nameserver, same Cloudflare account — so the zone for
+     igorganapolsky.com is simply absent.
+     **What this actually means:**
+     - No A record → the personal site is down.
+     - **No MX → nobody can email igor@igorganapolsky.com.** Every prospect who hits *reply* on
+       domain-sent outreach gets a bounce. Outreach from that address was never a
+       conversation, it was a dead drop.
+     - No SPF/DKIM/DMARC → even with a working relay, mail would fail authentication and be
+       filtered as spam.
+     - The `535 5.7.8 authentication failed` at `mail.privateemail.com:587` is a **secondary
+       symptom**. Host and port are correct (confirmed against the live Gmail send-as config).
+     **Fix:** re-add igorganapolsky.com as a zone in the Cloudflare account owning devin/sue,
+     restore A/CNAME, MX (mx1/mx2.privateemail.com), SPF (`include:spf.privateemail.com`), DKIM
+     and DMARC. **Re-probe only after DNS resolves** — re-typing the SMTP password changes
+     nothing while the zone is missing.
+     Recorded machine-readably in `coordination/sender-health.json`; `tools/outreach-preflight.js`
+     blocks any draft from this sender until the probe comes back clean.
+  2. Re-target: named humans, public evidence of the failure, verified addresses. Run every
+     draft through `node tools/outreach-preflight.js` — exit 1 means do not create the draft.
+  3. Treat the Stiles reply as the offer signal it is: the $499 diagnostic needs a buyer whose
+     burn is measured in thousands and whose agent touches something that matters. A $120
+     hobby burn is the wrong end of the market, and that segment is what the current sourcing
+     keeps surfacing.

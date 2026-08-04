@@ -1,0 +1,28 @@
+# Consumer Leash ThumbGate promo — short card, one CTA (CEO 2026-08-03).
+# No multi-step manuals, no coding-agent skill install, no curl dump on Leash.
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp
+- runFlow: e2e-bootstrap.yaml
+- tapOn: "Leash"
+- scrollUntilVisible:
+    element:
+      id: "thumbgate-promo-leash_empty"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 40
+
+- assertVisible:
+    id: "thumbgate-promo-open"
+- assertVisible: "ThumbGate.app"
+- assertVisible: "Web dashboard and Continuity when your computer is offline."
+- assertVisible: "Open ThumbGate.app"
+
+# Banned consumer noise
+- assertNotVisible: "Coding agents"
+- assertNotVisible: "Share agent skill"
+- assertNotVisible: "one-line Mac installer"
+- assertNotVisible:
+    id: "thumbgate-facilitation-steps"
+- assertNotVisible:
+    id: "thumbgate-connector-install-command"

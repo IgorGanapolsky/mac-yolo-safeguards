@@ -28,19 +28,28 @@ export function parseRoutePreference(value: unknown): RoutePreference {
 /**
  * Decide task status + route from user preference and device presence.
  * Entitlement / tool policy are enforced by the caller after this decision.
+ *
+ * Continuity (`preference: "cloud"`) does **not** require a paired local machine —
+ * that is the whole point of selecting Cloud VPS. Local/auto still need a device.
  */
 export function decideTaskRoute(input: {
   preference: RoutePreference;
-  device: DeviceRouteInput;
+  device: DeviceRouteInput | null;
   now?: number;
 }): TaskRouteDecision {
   const preference = input.preference;
   const now = input.now ?? Date.now();
-  const online = isDeviceOnline(input.device.lastSeenAt, now);
 
   if (preference === "cloud") {
     return { status: "cloud_pending", route: "cloud", preference };
   }
+
+  if (!input.device) {
+    // No paired computer: only Continuity can run (caller should set preference=cloud).
+    return { status: "offline_blocked", route: "blocked", preference };
+  }
+
+  const online = isDeviceOnline(input.device.lastSeenAt, now);
 
   if (preference === "local") {
     if (online) return { status: "local_pending", route: "local", preference };

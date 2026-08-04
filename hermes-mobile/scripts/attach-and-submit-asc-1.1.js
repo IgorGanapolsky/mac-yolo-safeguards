@@ -4,6 +4,7 @@
  * Usage: node scripts/attach-and-submit-asc-1.1.js [--build 15] [--dry-run]
  */
 const path = require('path');
+const { makeAscJwt } = require('../../tools/lib/asc-jwt-es256');
 const { loadEnv, ascGet, ascPost } = require('./asc-api');
 
 const ROOT = path.join(__dirname, '..');
@@ -13,20 +14,7 @@ const buildArg = args.find((a) => a.startsWith('--build='));
 const targetBuildNumber = buildArg ? buildArg.split('=')[1] : (args[args.indexOf('--build') + 1] || '15');
 
 async function rawPatch(apiPath, body) {
-  const crypto = require('crypto');
-  const fs = require('fs');
-  const header = Buffer.from(JSON.stringify({ alg: 'ES256', kid: process.env.EXPO_ASC_API_KEY_ID, typ: 'JWT' })).toString('base64url');
-  const now = Math.floor(Date.now() / 1000);
-  const payload = Buffer.from(JSON.stringify({ iss: process.env.EXPO_ASC_API_KEY_ISSUER_ID, iat: now, exp: now + 1200, aud: 'appstoreconnect-v1' })).toString('base64url');
-  const data = `${header}.${payload}`;
-  // NOT a password hash: this is an ES256 (ECDSA-SHA256) JWT signature used to
-  // authenticate as an App Store Connect API key, per Apple's required auth
-  // scheme. SHA256 is the mandated digest for ES256 — not user password storage.
-  const sign = crypto.createSign('SHA256');
-  sign.update(data);
-  sign.end();
-  const key = crypto.createPrivateKey(fs.readFileSync(process.env.EXPO_ASC_API_KEY_PATH, 'utf8'));
-  const token = `${data}.${sign.sign({ key, dsaEncoding: 'ieee-p1363' }, 'base64url')}`;
+  const token = makeAscJwt();
   const res = await fetch(`https://api.appstoreconnect.apple.com${apiPath}`, {
     method: 'PATCH',
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', 'Content-Type': 'application/json' },
