@@ -32,22 +32,34 @@ const {
   DEFAULT_READY_PROMPT,
 } = require(WRAPPER_PATH);
 
-console.log('Testing quota-independent default backend routing...');
-assert.strictEqual(shouldUseGrokBackend([], {}), false);
-assert.strictEqual(shouldUseGrokBackend(['fix', 'the', 'bug'], {}), false);
-assert.strictEqual(shouldUseGrokBackend(['fix', 'the', 'bug'], { HERMES_YOLO_BACKEND: 'grok' }), true);
-assert.strictEqual(shouldUseGrokBackend(['doctor'], {}), false);
-assert.strictEqual(shouldUseGrokBackend(['--version'], {}), false);
-assert.strictEqual(shouldUseGrokBackend(['fix'], { HERMES_YOLO_BACKEND: 'hermes' }), false);
+console.log('Testing SuperGrok-preferred auto backend routing...');
+// When grok doctor is not ready → hermes-legacy fallback
+const noGrok = { grokReady: false };
+assert.strictEqual(shouldUseGrokBackend([], {}, noGrok), false);
+assert.strictEqual(shouldUseGrokBackend(['fix', 'the', 'bug'], {}, noGrok), false);
+assert.strictEqual(shouldUseGrokBackend(['fix', 'the', 'bug'], { HERMES_YOLO_BACKEND: 'grok' }, noGrok), true);
+assert.strictEqual(shouldUseGrokBackend(['doctor'], {}, noGrok), false);
+assert.strictEqual(shouldUseGrokBackend(['--version'], {}, noGrok), false);
+assert.strictEqual(shouldUseGrokBackend(['fix'], { HERMES_YOLO_BACKEND: 'hermes' }, noGrok), false);
 assert.throws(() => shouldUseGrokBackend([], { HERMES_YOLO_BACKEND: 'unknown' }), /Unsupported/);
 assert.deepStrictEqual(buildGrokBackendArgs([], { isTty: true }), []);
 assert.deepStrictEqual(buildGrokBackendArgs([], { isTty: false }), ['-p', DEFAULT_READY_PROMPT, '--output-format', 'plain']);
 assert.deepStrictEqual(buildGrokBackendArgs(['fix', 'the', 'bug']), ['-p', 'fix the bug', '--output-format', 'plain']);
 assert.deepStrictEqual(buildGrokBackendArgs(['-z', 'return', 'marker']), ['-p', 'return marker', '--output-format', 'plain']);
-assert.deepStrictEqual(classifyBackend(['fix', 'the', 'bug'], {}), {
-  requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'quota-independent-default',
+assert.deepStrictEqual(classifyBackend(['fix', 'the', 'bug'], {}, noGrok), {
+  requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'auto-hermes-fallback',
 });
-assert.deepStrictEqual(classifyBackend(['doctor'], {}), {
+// SuperGrok Heavy / grok.com OAuth ready → auto uses grok-4.5 (underuse fix 2026-08-04)
+assert.deepStrictEqual(classifyBackend(['fix', 'the', 'bug'], {}, { grokReady: true }), {
+  requestedBackend: 'auto', selectedBackend: 'grok-4.5', reason: 'auto-supergrok-ready',
+});
+assert.strictEqual(shouldUseGrokBackend(['fix'], {}, { grokReady: true }), true);
+// Force hermes even when grok would be ready
+assert.deepStrictEqual(
+  classifyBackend(['fix'], { HERMES_YOLO_FORCE_HERMES: '1' }, { grokReady: true }),
+  { requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'auto-hermes-fallback' },
+);
+assert.deepStrictEqual(classifyBackend(['doctor'], {}, noGrok), {
   requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'hermes-admin-command',
 });
 assert.deepStrictEqual(classifyBackend(['fix'], { HERMES_YOLO_BACKEND: 'grok' }), {
@@ -206,37 +218,50 @@ assert.strictEqual(chooseLocalModel(['qwen3:8b-agent-64k', 'qwen3:8b']), 'qwen3:
 assert.strictEqual(chooseLocalModel(['qwen3:8b-64k']), 'qwen3:8b-64k');
 assert.strictEqual(chooseLocalModel(['gpt-oss:20b', 'qwen3:8b-64k']), 'gpt-oss:20b');
 assert.strictEqual(chooseLocalModel(['qwen3.6:35b-a3b', 'gpt-oss:20b']), 'qwen3.6:35b-a3b');
-assert.deepStrictEqual(defaultModelRoute({}, { availableModels: ['qwen2.5:3b-64k'] }), {
+assert.deepStrictEqual(defaultModelRoute({}, {
+  availableModels: ['qwen2.5:3b-64k'],
+  configuredDefault: null,
+}), {
   provider: 'custom:ollama-local-64k',
   model: 'qwen2.5:3b-64k',
 });
-assert.deepStrictEqual(defaultModelRoute({}, { availableModels: ['qwen3:8b-agent-64k'] }), {
+assert.deepStrictEqual(defaultModelRoute({}, {
+  availableModels: ['qwen3:8b-agent-64k'],
+  configuredDefault: null,
+}), {
   provider: 'custom:ollama-local-64k',
   model: 'qwen3:8b-agent-64k',
 });
+// No config override: key present → LiteLLM glm-coding (agent class)
 assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
+  configuredDefault: null,
   configuredProviderIds: ['zai-coding-glm'],
 }), {
-  provider: 'custom:zai-coding-glm',
-  model: 'glm-5.2',
+  provider: 'custom:litellm-gateway',
+  model: 'glm-coding',
 });
+// Explicit config default beats a still-present but quota-dead z.ai key
 assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
-  configuredProviderIds: ['zai-coding-nothink'],
+  configuredDefault: { model: 'deepseek-v4-flash', provider: 'custom:litellm-gateway' },
 }), {
-  provider: 'custom:zai-coding-nothink',
-  model: 'glm-5.2',
+  provider: 'custom:litellm-gateway',
+  model: 'deepseek-v4-flash',
 });
 assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
+  configuredDefault: null,
   configuredProviderIds: [],
 }), {
-  provider: 'zai',
-  model: 'glm-5.2',
+  provider: 'custom:litellm-gateway',
+  model: 'glm-coding',
 });
 assert.deepStrictEqual(defaultModelRoute({
   OPENROUTER_API_KEY: 'openrouter-key',
-}, { availableModels: ['qwen3:8b-agent-64k'] }), {
-  provider: 'custom:openrouter-glm52',
-  model: 'z-ai/glm-5.2',
+}, {
+  availableModels: ['qwen3:8b-agent-64k'],
+  configuredDefault: null,
+}), {
+  provider: 'custom:litellm-gateway',
+  model: 'glm-coding',
 });
 assert.deepStrictEqual(defaultModelRoute({
   Z_AI_API_KEY: 'zai-key',
@@ -325,7 +350,7 @@ try {
     }),
   });
   assert.strictEqual(status.ready, true);
-  assert.strictEqual(status.defaultPromptBackend, 'hermes-legacy');
+  assert.strictEqual(status.defaultPromptBackend, 'grok-4.5');
   assert.strictEqual(status.grokReady, true);
   assert.strictEqual(status.silentFallbackAllowed, false);
 } finally {
@@ -340,6 +365,11 @@ const fallbackReceiptRoot = fs.mkdtempSync(path.join(require('os').tmpdir(), 'he
 const fallbackLockPath = path.join(require('os').tmpdir(), `hermes-yolo-quota-proof-${process.pid}.lock`);
 fs.writeFileSync(exhaustedGrokPath, [
   '#!/usr/bin/env bash',
+  '# Doctor reports not ready (quota) without counting as a chat spawn.',
+  'if [ "$1" = "--doctor" ]; then',
+  '  printf \'%s\\n\' \'{"ready":false,"modelAvailable":false,"authenticated":false,"blocker":"quota"}\'',
+  '  exit 0',
+  'fi',
   `touch ${JSON.stringify(grokInvocationSentinel)}`,
   'echo "API error (status 402 Payment Required): usage balance exhausted" >&2',
   'exit 1',
@@ -368,7 +398,7 @@ try {
   const storedRoute = JSON.parse(fs.readFileSync(path.join(fallbackReceiptRoot, 'latest.json'), 'utf8'));
   assert.strictEqual(storedRoute.route.requestedBackend, 'auto');
   assert.strictEqual(storedRoute.route.selectedBackend, 'hermes-legacy');
-  assert.strictEqual(storedRoute.route.reason, 'quota-independent-default');
+  assert.strictEqual(storedRoute.route.reason, 'auto-hermes-fallback');
   assert.strictEqual(storedRoute.execution.status, 'pass');
 } finally {
   for (const filePath of [exhaustedGrokPath, fakeHermesPath, grokInvocationSentinel, fallbackLockPath]) {
