@@ -1,5 +1,8 @@
 'use strict';
 
+// Hermetic scoring: do not quarantine routes from the live traffic log.
+process.env.HERMES_IGNORE_EXPERT_HEALTH = '1';
+
 const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
@@ -53,6 +56,7 @@ const glm = decision(parseArgs([
   '--max-cost-usd', '0.10',
   '--latency-ms', '30000',
   '--paid-ok',
+  '--ignore-expert-health',
 ]));
 assert.strictEqual(glm.selectedRoute.id, 'glm52_reasoning');
 assert.strictEqual(glm.selectedRoute.model, 'glm-5.2');
@@ -69,10 +73,38 @@ const glmNoBudget = decision(parseArgs([
   '--risk', 'high',
   '--max-cost-usd', '0',
   '--latency-ms', '30000',
+  '--ignore-expert-health',
 ]));
 assert.notStrictEqual(glmNoBudget.selectedRoute.id, 'glm52_reasoning');
 assert(
   glmNoBudget.rejectedRoutes.some((route) => route.id === 'glm52_reasoning' && route.reasons.some((reason) => reason.includes('paid route'))),
+);
+
+// High-risk + paid without explicit $0 cap: default budget so GLM is not excluded by accident.
+const highRiskDefaultBudget = decision(parseArgs([
+  '--task', 'are you sure about architecture of gateway pairing cross-file',
+  '--risk', 'high',
+  '--paid-ok',
+  '--ignore-expert-health',
+]));
+assert.strictEqual(highRiskDefaultBudget.budget.budgetDefaulted, true);
+assert.ok(highRiskDefaultBudget.budget.maxCostUsd >= 0.1);
+assert.notStrictEqual(highRiskDefaultBudget.selectedRoute.id, 'local_fast');
+
+// Explicit $0 cap still forces zero-cost routes even when paid-ok + high risk.
+const highRiskZeroCap = decision(parseArgs([
+  '--task', 'are you sure about architecture of gateway pairing',
+  '--risk', 'high',
+  '--paid-ok',
+  '--max-cost-usd', '0',
+  '--ignore-expert-health',
+]));
+assert.strictEqual(highRiskZeroCap.budget.budgetDefaulted, false);
+// Explicit $0 still allows local_fast; high-risk penalty may still pick another zero-cost route.
+assert.strictEqual(highRiskZeroCap.budget.maxCostUsd, 0);
+assert.ok(
+  highRiskZeroCap.selectedRoute.costUsd === undefined ||
+    Number(highRiskZeroCap.estimatedCostUsd) === 0,
 );
 
 const grok45 = decision(parseArgs([

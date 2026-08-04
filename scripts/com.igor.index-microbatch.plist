@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- InfoQ micro-batch: advance grepae/lessons watermarks without human babysitting.
+     Install: bash scripts/install-agent-automations.sh  (or launchctl bootstrap)
+     Interval: 15 minutes — finer than daily batch, coarser than record-stream. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.igor.index-microbatch</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>node</string>
+    <string>REPO_ROOT_PLACEHOLDER/tools/index-microbatch.js</string>
+    <string>--once</string>
+    <string>--heal</string>
+    <string>--json</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>REPO_ROOT_PLACEHOLDER</string>
+  <key>StartInterval</key>
+  <integer>900</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/PLACEHOLDER/Library/Logs/index-microbatch.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/PLACEHOLDER/Library/Logs/index-microbatch.err.log</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+</dict>
+</plist>

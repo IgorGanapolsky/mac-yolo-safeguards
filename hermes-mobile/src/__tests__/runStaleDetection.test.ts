@@ -1,4 +1,7 @@
 import {
+  CATASTROPHIC_PROMPT_RUN_HARD_TIMEOUT_MS,
+  MEGA_PROMPT_HARD_TIMEOUT_DETAIL,
+  MEGA_PROMPT_RUN_HARD_TIMEOUT_MS,
   MEGA_SESSION_RUN_HARD_TIMEOUT_MS,
   MEGA_SESSION_RUN_STALE_AUTO_FAIL_MS,
   RUN_HARD_TIMEOUT_MS,
@@ -13,6 +16,7 @@ import {
   msUntilNoTokenFail,
   msUntilRunStaleAutoFail,
   msUntilStreamIdleFail,
+  runHardTimeoutDetail,
   runStaleHint,
   shouldAutoClearStalledRun,
   shouldFailRunAwaitingFirstToken,
@@ -147,6 +151,44 @@ describe('runStaleDetection', () => {
         session: mega,
       }),
     ).toBe(false);
+  });
+
+  it('fails catastrophic live prompts (3M in) far sooner than mega-session ceiling', () => {
+    // Device screenshot 2026-07-30: Hermes thinking 6m+ with In: 3,017,685.
+    const thrashing = baseProgress({
+      startedAtMs: 0,
+      outputTokens: 0,
+      lastProgressAtMs: 0,
+      inputTokens: 3_017_685,
+    });
+    const megaSession = { input_tokens: 3_017_685, output_tokens: 15_031, api_call_count: 1 };
+    expect(CATASTROPHIC_PROMPT_RUN_HARD_TIMEOUT_MS).toBeLessThan(RUN_HARD_TIMEOUT_MS);
+    expect(CATASTROPHIC_PROMPT_RUN_HARD_TIMEOUT_MS).toBeLessThan(MEGA_SESSION_RUN_HARD_TIMEOUT_MS);
+    // Must NOT inherit the 15m mega-session grace while the live prompt is insane.
+    expect(shouldHardTimeoutRun(thrashing, RUN_HARD_TIMEOUT_MS, megaSession)).toBe(true);
+    expect(shouldHardTimeoutRun(thrashing, CATASTROPHIC_PROMPT_RUN_HARD_TIMEOUT_MS - 1, megaSession)).toBe(
+      false,
+    );
+    expect(shouldHardTimeoutRun(thrashing, CATASTROPHIC_PROMPT_RUN_HARD_TIMEOUT_MS, megaSession)).toBe(
+      true,
+    );
+    expect(
+      shouldFailRunAwaitingFirstToken(thrashing, CATASTROPHIC_PROMPT_RUN_HARD_TIMEOUT_MS, {
+        streamInFlight: true,
+        session: megaSession,
+      }),
+    ).toBe(true);
+    expect(runHardTimeoutDetail(thrashing, megaSession)).toBe(MEGA_PROMPT_HARD_TIMEOUT_DETAIL);
+  });
+
+  it('uses 4m hard timeout for mega live prompts (≥200k in)', () => {
+    const big = baseProgress({
+      startedAtMs: 0,
+      outputTokens: 0,
+      inputTokens: 250_000,
+    });
+    expect(shouldHardTimeoutRun(big, MEGA_PROMPT_RUN_HARD_TIMEOUT_MS - 1)).toBe(false);
+    expect(shouldHardTimeoutRun(big, MEGA_PROMPT_RUN_HARD_TIMEOUT_MS)).toBe(true);
   });
 
   it('does not fail awaiting-first-token once output tokens arrive', () => {
