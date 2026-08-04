@@ -8200,8 +8200,8 @@ export default function ChatScreen() {
                 keyboardShouldPersistTaps="handled"
                 // MVCP on BOTH platforms. The iOS-only restriction dated from the
                 // FlashList era (RecyclerView remeasure loops, #676/#697/#719);
-                // this list is a plain FlatList now and @shopify/flash-list is no
-                // longer imported anywhere in src/. RN 0.83 supports MVCP on
+                // this list is a plain FlatList now and that library is no longer
+                // imported anywhere in src/. RN 0.83 supports MVCP on
                 // Android, and without it every off-screen row remeasure shifts
                 // the viewport — that is the "screen keeps jumping up/down by
                 // itself" report (2026-08-04). Anchoring the first visible item
