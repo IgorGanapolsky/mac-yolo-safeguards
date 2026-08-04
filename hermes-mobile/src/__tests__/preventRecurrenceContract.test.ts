@@ -474,7 +474,7 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(profilePickerLines(rows[0], { cablePluggedIn: true }).title).toBe(
       'Igors-MacBook-Pro (Mac Pro)',
     );
-    expect(profilePickerLines(rows[0], { cablePluggedIn: true }).detail).toMatch(/USB cable connected/i);
+    expect(profilePickerLines(rows[0], { cablePluggedIn: true }).detail).toMatch(/Direct link/i);
     expect(profilePickerLines(rows[2]).title).toBe('Igors-Mac-mini');
   });
 

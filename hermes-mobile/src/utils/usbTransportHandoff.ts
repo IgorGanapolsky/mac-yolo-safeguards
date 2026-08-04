@@ -5,7 +5,10 @@ import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
 import { isTailscaleGatewayUrl } from './tailscaleHosts';
 import { profileMatchesHostname } from './gatewayProfilePicker';
-import { resolveHeaderTransportLabel } from './chatMachineHeader';
+import {
+  DIRECT_LINK_TRANSPORT_LABEL,
+  resolveHeaderTransportLabel,
+} from './chatMachineHeader';
 
 /**
  * Product lock (2026-07-20 / hardened 2026-07-21):
@@ -194,7 +197,11 @@ export function liveUsbHealthConfirmsCable(
   return health?.level === 'green' || health?.level === 'amber';
 }
 
-/** Header must read USB after a successful same-machine handoff (Wi‑Fi or live-cable cellular). */
+/**
+ * Header must read the direct-link chip after a successful same-machine handoff
+ * (Wi‑Fi or live-cable cellular). The user never sees the word USB — see
+ * DIRECT_LINK_TRANSPORT_LABEL.
+ */
 export function headerShowsUsbAfterHandoff(input: {
   effectiveGatewayUrl: string;
   wifiConnected: boolean;
@@ -205,6 +212,6 @@ export function headerShowsUsbAfterHandoff(input: {
       gatewayUrl: input.effectiveGatewayUrl,
       wifiConnected: input.wifiConnected,
       health: input.health,
-    }) === 'USB'
+    }) === DIRECT_LINK_TRANSPORT_LABEL
   );
 }

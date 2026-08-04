@@ -1,6 +1,9 @@
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
-import { resolveHeaderTransportLabel } from './chatMachineHeader';
+import {
+  DIRECT_LINK_TRANSPORT_LABEL,
+  resolveHeaderTransportLabel,
+} from './chatMachineHeader';
 import {
   formatLanScanResultDetail,
   formatLanScanResultLabel,
@@ -119,7 +122,7 @@ export function resolveComputerPickerStatus(
     if (
       input.activeReachable &&
       activeTransport &&
-      activeTransport !== 'USB' &&
+      activeTransport !== DIRECT_LINK_TRANSPORT_LABEL &&
       isLoopbackOnlyScanReach(input.scanResult)
     ) {
       return {
@@ -149,7 +152,7 @@ export function resolveComputerPickerStatus(
         kind: 'active',
         title: `Connected · ${activeTransport}`,
         detail:
-          activeTransport === 'USB'
+          activeTransport === DIRECT_LINK_TRANSPORT_LABEL
             ? 'Chat uses this link. Tap another computer below to switch.'
             : 'Chat uses this path. Another route to the same computer may also be available.',
         success: true,

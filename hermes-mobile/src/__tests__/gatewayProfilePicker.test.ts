@@ -110,7 +110,7 @@ describe('gatewayProfilePicker', () => {
       'Igors-MacBook-Pro (Mac Pro)',
     );
     expect(profilePickerLines(usbRow!, { cablePluggedIn: true }).detail).toBe(
-      'USB cable connected · Tailscale is the away-from-home option',
+      'Direct link · Tailscale is the away-from-home option',
     );
     expect(profiles.map((p) => p.id)).toContain('mac_mini_ts');
     const miniTs = profiles.find((p) => p.id === 'mac_mini_ts')!;
@@ -161,7 +161,7 @@ describe('gatewayProfilePicker', () => {
     expect(profileConnectionRouteLabel(usbRow!, true)).toBe('USB');
     expect(isCablePluggedInForProfile(usbRow!, liveUsb)).toBe(true);
     expect(profilePickerLines(usbRow!, { cablePluggedIn: true }).detail).toMatch(
-      /USB cable connected/i,
+      /Direct link/i,
     );
     expect(profileConnectionRouteDisplayLabel(activeRow!, true, { cablePluggedIn: true })).toBe(
       'Tailscale',
@@ -205,7 +205,7 @@ describe('gatewayProfilePicker', () => {
       'Home Wi‑Fi',
     );
     expect(profilePickerLines(profiles[0], { cablePluggedIn: true }).detail).toMatch(
-      /USB cable connected/i,
+      /Direct link/i,
     );
     expect(resolveSelectedPickerProfileId(profiles, activeProfileId)).toBe(pickerRowKey(profiles[1]));
   });
@@ -686,9 +686,9 @@ describe('gatewayProfilePicker', () => {
     );
     expect(profiles[0].gatewayUrl).toContain('127.0.0.1');
     expect(profiles[0].label).toMatch(/MacBook-Pro/i);
-    expect(profilePickerLines(profiles[0], { cablePluggedIn: true }).detail).toMatch(/USB cable connected/i);
+    expect(profilePickerLines(profiles[0], { cablePluggedIn: true }).detail).toMatch(/Direct link/i);
     expect(profileConnectionRouteDisplayLabel(profiles[0], true, { cablePluggedIn: true })).toBe(
-      'USB',
+      'Direct link',
     );
   });
 

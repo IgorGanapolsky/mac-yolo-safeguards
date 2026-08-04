@@ -53,8 +53,10 @@ export function repairAuthFailedMessage(machineLabel?: string | null): string {
 export function repairUnreachableMessage(machineLabel?: string | null): string {
   const target = authRepairTargetLabel(machineLabel);
   return (
-    `Can't reach ${target}. Keep Tailscale on (cellular), plug in USB, ` +
-    `or tap Find computers, then try Repair link again.`
+    // Tailscale-only copy (CEO directive 2026-07-22, restated 2026-07-30): never
+    // name a cable to the user. Only the USB copy string changed here.
+    `Can't reach ${target}. Keep Tailscale on (cellular), or join the same Wi‑Fi ` +
+    `as your Mac, then tap Find computers and try Repair link again.`
   );
 }
 

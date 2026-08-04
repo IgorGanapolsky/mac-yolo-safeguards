@@ -131,7 +131,7 @@ describe('SettingsScreen', () => {
     expandSettingsSection({ getByTestId }, 'settings-section-computer-connection');
     expect(getByText('Computer connection')).toBeTruthy();
     expect(
-      getByText('Use Tailscale away from home, or USB/home Wi‑Fi nearby, for Chat, tools, and ops.'),
+      getByText('Use Tailscale away from home, or home Wi‑Fi nearby, for Chat, tools, and ops.'),
     ).toBeTruthy();
     expect(getAllByText('Lock-screen approvals (optional)').length).toBeGreaterThan(0);
     expect(
@@ -238,7 +238,7 @@ describe('SettingsScreen', () => {
     });
     expect(alertSpy).toHaveBeenCalledWith(
       'Lock-screen approvals ready',
-      'Approval requests can arrive anywhere. This does not provide live Chat or computer tools; connect to your computer with Tailscale, USB, or home Wi‑Fi.',
+      'Approval requests can arrive anywhere. This does not provide live Chat or computer tools; connect to your computer with Tailscale or home Wi‑Fi.',
     );
   });
 
