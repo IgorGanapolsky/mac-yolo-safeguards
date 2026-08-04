@@ -7,6 +7,7 @@ import {
   shouldCommitComputerPickerStatus,
   shouldHideIdlePickerHelp,
 } from '../utils/computerPickerStatus';
+import { DIRECT_LINK_TRANSPORT_LABEL } from '../utils/chatMachineHeader';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 
@@ -255,7 +256,7 @@ describe('computerPickerStatus', () => {
     expect(status.detail).not.toMatch(/Using USB/i);
   });
 
-  it('shows Connected · USB when loopback is the active path', () => {
+  it('shows the direct-link chip (never USB) when loopback is the active path', () => {
     const status = resolveComputerPickerStatus({
       scanning: false,
       scanProgress: null,
@@ -269,7 +270,10 @@ describe('computerPickerStatus', () => {
       activeReachable: true,
     });
     expect(status.kind).toBe('active');
-    expect(status.title).toBe('Connected · USB');
+    expect(status.title).toBe(`Connected · ${DIRECT_LINK_TRANSPORT_LABEL}`);
+    // COPY LAW (CEO 2026-07-22 / 2026-07-30): never name the cable to the user.
+    expect(status.title).not.toMatch(/usb/i);
+    expect(status.detail).not.toMatch(/usb|cable/i);
   });
 
   it('debounces rapid signature flips but commits first paint immediately', () => {

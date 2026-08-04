@@ -63,21 +63,22 @@ export function profilePickerLines(
   }
   // Cable presence is secondary. Label the row's actual route first so Home Wi‑Fi
   // never reads as "Using USB" when the active path is a LAN URL.
+  // Dogfood hatch only: never name "USB" — product surface is Tailscale / Wi‑Fi / Direct link.
   if (options.cablePluggedIn && isLoopbackGatewayUrl(profile.gatewayUrl)) {
     return {
       title,
-      detail: 'USB cable connected · Tailscale is the away-from-home option',
+      detail: 'Direct link · Tailscale is the away-from-home option',
     };
   }
   if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
-    return { title, detail: 'This USB cable' };
+    return { title, detail: 'Direct link' };
   }
   const endpoint = profilePickerEndpoint(profile);
   if (isTailscaleGatewayUrl(profile.gatewayUrl)) {
     const base = endpoint ? `Tailscale · ${endpoint}` : 'Tailscale';
     return {
       title,
-      detail: options.cablePluggedIn ? `${base} · USB cable also available` : base,
+      detail: options.cablePluggedIn ? `${base} · direct link also available` : base,
     };
   }
   const endpointInTitle = Boolean(
@@ -86,7 +87,7 @@ export function profilePickerLines(
   if (isPrivateLanGatewayUrl(profile.gatewayUrl)) {
     if (options.cablePluggedIn) {
       const base = endpoint && !endpointInTitle ? endpoint : 'Home Wi‑Fi';
-      return { title, detail: `${base} · USB cable also available` };
+      return { title, detail: `${base} · direct link also available` };
     }
     if (endpoint && !endpointInTitle) {
       return { title, detail: endpoint };
@@ -96,11 +97,11 @@ export function profilePickerLines(
   if (endpoint && !endpointInTitle) {
     return {
       title,
-      detail: options.cablePluggedIn ? `${endpoint} · USB cable also available` : endpoint,
+      detail: options.cablePluggedIn ? `${endpoint} · direct link also available` : endpoint,
     };
   }
   if (options.cablePluggedIn) {
-    return { title, detail: 'USB cable also available' };
+    return { title, detail: 'Direct link also available' };
   }
   return { title };
 }
@@ -115,15 +116,16 @@ export function profileConnectionRouteDisplayLabel(
   if (!isUsbTransportAllowed()) {
     options = { ...options, cablePluggedIn: false };
   }
-  // Only the USB/loopback row may claim the cable as the active route.
+  // Only the loopback row may claim the direct link as the active route.
   // LAN/Tailscale rows keep their route label even when a cable is plugged in.
+  // Never emit the word "USB" (CEO 2026-07-26 / 2026-07-30).
   if (options.cablePluggedIn && isLoopbackGatewayUrl(profile.gatewayUrl)) {
-    return 'USB';
+    return 'Direct link';
   }
   const route = profileConnectionRouteLabel(profile, wifiConnected);
   switch (route) {
     case 'USB':
-      return 'USB';
+      return 'Direct link';
     case 'Tailscale':
       return 'Tailscale';
     case 'Wi-Fi':

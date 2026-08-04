@@ -156,8 +156,15 @@ export function formatSavedMacUnreachableBanner(input: {
     label === 'your computer' || label === 'Computer' || label === 'computer'
       ? 'your computer'
       : label;
-  if (endpoint) {
-    return `Can't reach ${name} (${endpoint}) — switch computer above`;
+  // CEO directive (2026-07-22, restated 2026-07-30): the app must not name USB to
+  // the user. When the Mac is unreachable the transport type is irrelevant — a
+  // stale loopback profile still reports "USB" / "Direct link" even though no
+  // cable is connected. Drop it so the banner focuses on the actionable message
+  // only. Tailscale / Home Wi‑F / IP endpoints are still useful, so they stay.
+  const UNREACHABLE_OMIT_ENDPOINTS = new Set(['USB', 'Computer via USB', 'Direct link']);
+  const displayEndpoint = endpoint && !UNREACHABLE_OMIT_ENDPOINTS.has(endpoint) ? endpoint : undefined;
+  if (displayEndpoint) {
+    return `Can't reach ${name} (${displayEndpoint}) — switch computer above`;
   }
   return `Can't reach ${name} — switch computer above`;
 }

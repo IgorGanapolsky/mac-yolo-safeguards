@@ -104,8 +104,20 @@ describe('macUnreachableCopy', () => {
     expect(
       formatSavedMacUnreachableBanner({
         macLabel: 'Igors-Mac-mini',
+        machineEndpoint: 'Direct link',
+      }),
+    ).toBe("Can't reach Igors-Mac-mini — switch computer above");
+    expect(
+      formatSavedMacUnreachableBanner({
+        macLabel: 'Igors-Mac-mini',
         machineEndpoint: 'USB',
       }),
-    ).toBe("Can't reach Igors-Mac-mini (USB) — switch computer above");
+    ).toBe("Can't reach Igors-Mac-mini — switch computer above");
+    expect(
+      formatSavedMacUnreachableBanner({
+        macLabel: 'Igors-Mac-mini',
+        machineEndpoint: 'Tailscale',
+      }),
+    ).toBe("Can't reach Igors-Mac-mini (Tailscale) — switch computer above");
   });
 });
