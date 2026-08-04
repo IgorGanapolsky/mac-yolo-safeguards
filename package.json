@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@noble/curves": "^1.9.7",
+    "@scure/base": "^2.2.0"
+  },
+  "name": "mac-yolo-safeguards",
+  "private": true
+}
