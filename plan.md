@@ -2796,3 +2796,4 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 - `hermes-mobile/scripts/verify-firebase-distribute-auth.cjs` → **grok** (CodeQL burn-down 2026-08-03)
 - `hermes-mobile/src/__tests__/apkReleaseGuards.test.ts` → **grok** (CodeQL burn-down 2026-08-03)
 - `hermes-mobile/src/utils/chatApproval.ts` → **grok** (CodeQL burn-down / prevent-recurrence 2026-08-03)
+- `hermes-mobile/src/screens/ChatScreen.tsx` (executeClearAllChats epoch bump + stream state reset only — no other ChatScreen slices), `hermes-mobile/src/__tests__/ChatScreen.test.tsx` (clear-all in-flight stream regression only), `plan.md` → **fix-clear-all-inflight-stream** (T-CLEAR-ALL-INFLIGHT-STREAM-20260804: Clear all must bump outboundEpoch to block stale in-flight stream mutations from re-populating the transcript) (2026-08-04T11:30:00Z)

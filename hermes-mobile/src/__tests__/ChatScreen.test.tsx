@@ -3264,6 +3264,107 @@ describe('ChatScreen', () => {
 
     scrollToEnd.mockRestore();
   });
+
+  it('blocks in-flight stream mutations after clear all so old messages do not reappear', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    const { listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listMessages: jest.Mock;
+    };
+    const { streamSessionChat, clearAllSessions } = jest.requireMock(
+      '../services/hermesGatewayClient',
+    ) as {
+      streamSessionChat: jest.Mock;
+      clearAllSessions: jest.Mock;
+    };
+
+    listMessages.mockResolvedValue([]);
+    clearAllSessions.mockClear();
+
+    let capturedOnEvent:
+      | ((event: { event: string; data: Record<string, unknown> }) => void)
+      | null = null;
+    streamSessionChat.mockImplementation(
+      (
+        _gatewayUrl: string,
+        _sessionId: string,
+        _message: unknown,
+        _apiKey: string,
+        onEvent: (event: { event: string; data: Record<string, unknown> }) => void,
+        _systemPrompt: string,
+        onStreamAccepted?: () => void,
+      ) => {
+        capturedOnEvent = onEvent;
+        onStreamAccepted?.();
+        // Fire an initial delta so assistant text appears while the stream is in-flight.
+        // The promise never resolves — the stream stays open.
+        onEvent({ event: 'assistant.delta', data: { delta: 'Previous assistant reply.' } });
+        return new Promise<string>(() => {});
+      },
+    );
+
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: { ok: true, level: 'green', hostname: 'demo-mac.local', localIp: '127.0.0.1' },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const { getByTestId, findByTestId, queryByText, queryByTestId } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(getByTestId('chat-input')).toBeTruthy();
+    });
+
+    // Send a prompt — starts the in-flight stream which fires an initial delta
+    await act(async () => {
+      fireEvent.changeText(getByTestId('chat-input'), 'make money today');
+      fireEvent.press(getByTestId('chat-send-button'));
+      await Promise.resolve();
+    });
+
+    // The initial delta should commit to the transcript
+    await waitFor(() => {
+      expect(queryByText('Previous assistant reply.')).not.toBeNull();
+    });
+
+    // Trigger Clear all via the threads modal
+    fireEvent.press(getByTestId('open-sessions-modal'));
+    fireEvent.press(await findByTestId('threads-modal-clear-all'));
+    await confirmAlertButton('Clear all');
+
+    // Wait for clear-all to complete and the transcript to be emptied
+    await waitFor(() => {
+      expect(clearAllSessions).toHaveBeenCalled();
+      expect(queryByText('Previous assistant reply.')).toBeNull();
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Simulate the stale in-flight stream delivering more deltas AFTER clear-all
+    await act(async () => {
+      capturedOnEvent?.({
+        event: 'assistant.delta',
+        data: { delta: 'This should NOT appear after clear all.' },
+      });
+      capturedOnEvent?.({ event: 'done', data: {} });
+      await Promise.resolve();
+    });
+
+    // The stale stream text must NOT reappear
+    expect(queryByText('This should NOT appear after clear all.')).toBeNull();
+    expect(queryByText('Previous assistant reply.')).toBeNull();
+    expect(queryByTestId('chat-empty-state')).toBeTruthy();
+
+    alertSpy.mockRestore();
+  });
 });
 
 describe('resolveEffectiveKeyboardInset', () => {

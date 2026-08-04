@@ -4664,6 +4664,19 @@ export default function ChatScreen() {
     haptics.warning();
     setIsClearing(true);
 
+    // PRODUCT LAW: invalidate any in-flight assistant stream BEFORE dropping the
+    // transcript. The stream's onEvent callback captures the send-epoch at send
+    // time and calls commitMessages via isSendEpochLive(). Without this bump,
+    // a stale stream keeps appending assistant text back into the just-cleared
+    // messages array — the user sees the "previous message" reappear after
+    // Clear all. Same guard as profile-switch (handleSelectGatewayProfile).
+    outboundEpochRef.current = nextOutboundEpoch(outboundEpochRef.current);
+    pendingOutboundSendsRef.current = 0;
+    isSendingRef.current = false;
+    setIsSending(false);
+    activeChatStreamRef.current = false;
+    setIsChatStreamActive(false);
+
     // Drop transcript immediately so a slow gateway reload cannot flash old messages.
     skipSessionAutoSelectRef.current = true;
     continuityComposeFirstRef.current = true;
