@@ -41,7 +41,7 @@ describe('ConnectionHealthHub', () => {
   });
 
   it('renders connection label and version', () => {
-    const { getByTestId } = render(
+    const { getByTestId, queryByTestId } = render(
       <ConnectionHealthHub
         connectionState="connected"
         health={{ level: 'green', checkedAt: 'x', hostname: 'mini.local' }}
@@ -54,6 +54,27 @@ describe('ConnectionHealthHub', () => {
     expect(getByTestId('connection-health-label').props.children).toBe('Computer linked');
     expect(getByTestId('connection-health-version').props.children.join('')).toContain('1.2.3');
     expect(getByTestId('connection-health-model').props.children.join('')).toContain('qwen3:8b-64k');
+    expect(queryByTestId('connection-health-repair')).toBeNull();
+  });
+
+  it('names broken-link recovery for the state instead of showing a vague Repair link', () => {
+    const disconnected = render(
+      <ConnectionHealthHub
+        connectionState="disconnected"
+        onRepairConnection={jest.fn().mockResolvedValue(undefined)}
+      />,
+    );
+    expect(disconnected.getByText('Reconnect computer')).toBeTruthy();
+    disconnected.unmount();
+
+    const authMismatch = render(
+      <ConnectionHealthHub
+        connectionState="connected"
+        health={{ level: 'red', checkedAt: 'x', authMismatch: true }}
+        onRepairConnection={jest.fn().mockResolvedValue(undefined)}
+      />,
+    );
+    expect(authMismatch.getByText('Re-pair computer')).toBeTruthy();
   });
 
   it('runs repair callback', async () => {
@@ -97,7 +118,7 @@ describe('ConnectionHealthHub', () => {
       expect(button.props.accessibilityState?.disabled ?? button.props.disabled).toBe(false);
     });
     expect(alertSpy).toHaveBeenCalledWith(
-      'Could not repair link',
+      'Could not reconnect computer',
       'Repair link timed out after 30s',
     );
     alertSpy.mockRestore();

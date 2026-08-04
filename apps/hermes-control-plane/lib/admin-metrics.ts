@@ -67,11 +67,16 @@ export type AdminMetrics = {
   tokens: {
     available: boolean;
     note: string;
+    calls24h: number;
+    promptTokens24h: number;
+    completionTokens24h: number;
+    modelsUsed24h: number;
   };
   cost: {
     available: boolean;
     note: string;
     estimatedContinuityInfraUsdPerMonth: number;
+    llmCost24hUsd: number;
   };
   privacy: {
     chatBodies: false;
@@ -127,7 +132,12 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
        (SELECT COUNT(*) FROM billing_events WHERE processed_at >= ? AND event_type NOT LIKE '%.canary') AS billing_events_24h,
        (SELECT COALESCE(SUM(count), 0) FROM funnel_counters WHERE day = ? AND event = 'landing_view') AS landing_views_today,
        (SELECT COALESCE(SUM(count), 0) FROM funnel_counters WHERE day = ? AND event = 'sign_in_click') AS sign_in_clicks_today,
-       (SELECT COALESCE(SUM(count), 0) FROM funnel_counters WHERE day = ? AND event = 'cloud_continuity_click') AS cloud_continuity_clicks_today
+       (SELECT COALESCE(SUM(count), 0) FROM funnel_counters WHERE day = ? AND event = 'cloud_continuity_click') AS cloud_continuity_clicks_today,
+       (SELECT COUNT(*) FROM llm_calls WHERE created_at >= ?) AS llm_calls_24h,
+       (SELECT COALESCE(SUM(prompt_tokens), 0) FROM llm_calls WHERE created_at >= ?) AS prompt_tokens_24h,
+       (SELECT COALESCE(SUM(completion_tokens), 0) FROM llm_calls WHERE created_at >= ?) AS completion_tokens_24h,
+       (SELECT COALESCE(SUM(CAST(cost_usd AS REAL)), 0) FROM llm_calls WHERE created_at >= ?) AS llm_cost_24h,
+       (SELECT COUNT(DISTINCT model) FROM llm_calls WHERE created_at >= ?) AS models_used_24h
     `,
   ).bind(
     now,
@@ -143,7 +153,11 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
     dayAgo,
     day,
     day,
-    day,
+    dayAgo,
+    dayAgo,
+    dayAgo,
+    dayAgo,
+    dayAgo,
   ).first<{
     paid_orgs: number;
     active_sessions: number;
@@ -162,6 +176,11 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
     landing_views_today: number;
     sign_in_clicks_today: number;
     cloud_continuity_clicks_today: number;
+    llm_calls_24h: number;
+    prompt_tokens_24h: number;
+    completion_tokens_24h: number;
+    llm_cost_24h: number;
+    models_used_24h: number;
   }>();
 
   const topActions = await db().prepare(
@@ -270,12 +289,17 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
     })),
     tokens: {
       available: true,
-      note: "Hermes Cloud Continuity runs the full Hermes Agentic System — multi-step tool execution, memory recall, and model routing. No LangSmith required.",
+      note: `${Number(aggregate?.llm_calls_24h ?? 0)} LLM calls / ${Number(aggregate?.prompt_tokens_24h ?? 0)} prompt + ${Number(aggregate?.completion_tokens_24h ?? 0)} completion tokens across ${Number(aggregate?.models_used_24h ?? 0)} models in last 24h.`,
+      calls24h: Number(aggregate?.llm_calls_24h ?? 0),
+      promptTokens24h: Number(aggregate?.prompt_tokens_24h ?? 0),
+      completionTokens24h: Number(aggregate?.completion_tokens_24h ?? 0),
+      modelsUsed24h: Number(aggregate?.models_used_24h ?? 0),
     },
     cost: {
       available: true,
-      note: "Shared Fly.io runner fleet with per-second autostop compute billing + multi-model inference routing.",
+      note: `LLM inference cost (last 24h): $${Number(aggregate?.llm_cost_24h ?? 0).toFixed(4)} across ${Number(aggregate?.models_used_24h ?? 0)} models.`,
       estimatedContinuityInfraUsdPerMonth: 5,
+      llmCost24hUsd: Number(aggregate?.llm_cost_24h ?? 0),
     },
     privacy: {
       chatBodies: false,
