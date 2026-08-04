@@ -453,7 +453,7 @@ function buildLivePairHtml({
     ? 'On cellular: install Tailscale on this phone and your computer, then scan this QR (it opens over Tailscale). USB cable pairing auto-opens Hermes without a scan. Stock Camera cannot open hermes:// links by itself.'
     : 'Scan this QR with your phone camera on the same Wi‑Fi or with Tailscale on. On cellular without Tailscale, the QR cannot reach your computer — that is expected.';
   const gatewayLabel = usbPrimary ? 'USB gateway (cable only)' : 'Your computer';
-  const safeDeepLink = String(deepLink || '').replace(/'/g, "\\'");
+  const safeDeepLink = String(deepLink || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   const remainingLabel = formatRemainingLabel(remainingMs);
   const refreshSec = Math.max(5, Math.round(refreshMs / 1000));
   const livePageHint = pageUrl

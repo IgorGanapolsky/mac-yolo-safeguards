@@ -28,6 +28,14 @@ type ConnectionHealthHubProps = {
   onRepairConnection: () => Promise<void>;
 };
 
+/**
+ * Label of the control that actually fixes a stale-credential ("Outdated
+ * connection") state. Exported so any screen telling the user to tap it names
+ * the real button — copy that points at a renamed control is a dead end, which
+ * is the bug this constant exists to prevent.
+ */
+export const RECONNECT_REPAIR_ACTION_LABEL = 'Re-pair computer';
+
 function healthDotColor(
   connectionState: LeashConnectionState,
   health?: GatewayHealthSnapshot | null,
@@ -68,7 +76,7 @@ export default function ConnectionHealthHub({
   );
   const dotColor = healthDotColor(connectionState, health, macHttpReachable);
   const recoveryActionLabel = health?.authMismatch
-    ? 'Re-pair computer'
+    ? RECONNECT_REPAIR_ACTION_LABEL
     : macHttpReachable || health?.level === 'green' || connectionState === 'demo'
       ? null
       : connectionState === 'connecting'
