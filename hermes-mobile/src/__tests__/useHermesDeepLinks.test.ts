@@ -173,7 +173,7 @@ describe('useHermesDeepLinks', () => {
     expect(navigationRef.current.navigate).toHaveBeenCalledWith('Chat');
   });
 
-  it('forces demo mode on App Store review builds for hermes://setup?demo=1', async () => {
+  it('ignores hermes://setup?demo=1 when store-review demo flag is set (zero demo forever)', async () => {
     const forceE2eDemoMode = jest.fn().mockResolvedValue(undefined);
     const applySetupDeepLink = jest.fn().mockResolvedValue(undefined);
     (Constants.expoConfig as { extra?: Record<string, unknown> }).extra = {
@@ -194,9 +194,8 @@ describe('useHermesDeepLinks', () => {
     await act(async () => {
       await handler({ url: 'hermes://setup?demo=1' });
     });
-    expect(forceE2eDemoMode).toHaveBeenCalled();
-    expect(applySetupDeepLink).not.toHaveBeenCalled();
-    expect(navigationRef.current.navigate).toHaveBeenCalledWith('Chat');
+    // Store-review demo is permanently disabled; demo deep link must not force sandbox.
+    expect(forceE2eDemoMode).not.toHaveBeenCalled();
   });
 
   it('re-applies E2E demo mode when hermes://setup?demo=1 is opened again', async () => {

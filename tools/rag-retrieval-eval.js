@@ -2,13 +2,17 @@
 'use strict';
 
 /**
- * Offline retrieval evaluation for the local RAG stack (hermes-retrieval-harness).
+ * Offline retrieval evaluation for the local RAG stack.
  *
- * Measures recall@k against fixed fixtures — not live ThumbGate MCP (auth-bound).
- * Exit 0 when all cases hit required path substrings within top-k.
+ * Backends:
+ *   harness   — hermes-retrieval-harness (default, CI-safe)
+ *   dual-path — harness + grepae RRF + optional rerank
+ *
+ * Metrics: Recall@K, MRR@K, Precision@K, nDCG@K
  *
  *   node tools/rag-retrieval-eval.js
  *   node tools/rag-retrieval-eval.js --json
+ *   node tools/rag-retrieval-eval.js --retriever dual-path --json
  */
 
 const fs = require('fs');
@@ -19,21 +23,38 @@ const { ndcgAtK, mrrAtK } = require('./ml-core');
 const REPO = path.resolve(__dirname, '..');
 const DEFAULT_FIXTURE = path.join(REPO, 'tests/fixtures/rag-eval/cases.json');
 const RETRIEVE = path.join(REPO, 'tools/hermes-retrieval-harness.js');
+const DUAL = path.join(REPO, 'tools/retrieval-dual-path.js');
 
 function parseArgs(argv) {
-  const args = { fixture: DEFAULT_FIXTURE, json: false, help: false };
+  const args = {
+    fixture: DEFAULT_FIXTURE,
+    json: false,
+    help: false,
+    retriever: 'harness',
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '--json') args.json = true;
     else if (a === '--fixture') args.fixture = path.resolve(argv[++i] || '');
+    else if (a === '--retriever') args.retriever = String(argv[++i] || 'harness');
     else if (a === '--help' || a === '-h') args.help = true;
     else throw new Error(`Unknown argument: ${a}`);
   }
   return args;
 }
 
-function runRetrieve(query, limit) {
-  // Prefer a high max-files budget so tools/* stay visible (cap hid ml-propensity-train).
+function precisionAtK(rankedPaths, relevantSubstrings, k) {
+  const top = (rankedPaths || []).slice(0, k);
+  if (!top.length) return 0;
+  let hits = 0;
+  for (const p of top) {
+    const norm = String(p).replace(/\\/g, '/');
+    if ((relevantSubstrings || []).some((sub) => norm.includes(sub))) hits += 1;
+  }
+  return hits / top.length;
+}
+
+function runRetrieveHarness(query, limit) {
   const result = spawnSync(
     process.execPath,
     [
@@ -47,7 +68,7 @@ function runRetrieve(query, limit) {
       '12000',
       '--json',
     ],
-    { cwd: REPO, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 },
+    { cwd: REPO, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 180000 },
   );
   if (result.status !== 0) {
     return {
@@ -68,9 +89,58 @@ function runRetrieve(query, limit) {
   }
 }
 
-function evaluateCase(testCase) {
+function runRetrieveDualPath(query, limit) {
+  if (!fs.existsSync(DUAL)) {
+    return { ok: false, error: 'missing tools/retrieval-dual-path.js', paths: [] };
+  }
+  // IR metrics measure fusion quality — not second-stage CE/ColBERT (scored by
+  // rerank-stack-scorecard). Ensemble can demote exact path hits and tank nDCG
+  // while fusion alone matches harness goldens (measured 2026-08-04).
+  // Empty grepae shell fail-fasts in runGrepai; dual-path degrades to harness.
+  const result = spawnSync(
+    process.execPath,
+    [
+      DUAL,
+      '--query',
+      query,
+      '--limit',
+      String(limit),
+      '--candidate-pool',
+      String(Math.max(limit * 3, 20)),
+      '--no-rerank',
+      '--json',
+    ],
+    { cwd: REPO, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 90000 },
+  );
+  if (result.status !== 0) {
+    return {
+      ok: false,
+      error: (result.stderr || result.stdout || `exit ${result.status}`).trim().slice(0, 400),
+      paths: [],
+    };
+  }
+  try {
+    const body = JSON.parse(result.stdout);
+    const hits = body.matches || body.results || [];
+    const paths = hits
+      .map((hit) => hit.path || hit.relativePath || hit.file || '')
+      .filter(Boolean);
+    return { ok: true, paths, raw: body };
+  } catch (error) {
+    return { ok: false, error: `invalid JSON: ${error.message}`, paths: [] };
+  }
+}
+
+function runRetrieve(query, limit, retriever = 'harness') {
+  if (retriever === 'dual-path' || retriever === 'dual') {
+    return runRetrieveDualPath(query, limit);
+  }
+  return runRetrieveHarness(query, limit);
+}
+
+function evaluateCase(testCase, retriever = 'harness') {
   const k = testCase.k || 8;
-  const run = runRetrieve(testCase.query, k);
+  const run = runRetrieve(testCase.query, k, retriever);
   if (!run.ok) {
     return {
       id: testCase.id,
@@ -78,6 +148,7 @@ function evaluateCase(testCase) {
       k,
       recallAtK: 0,
       mrrAtK: 0,
+      precisionAtK: 0,
       ndcgAtK: 0,
       missing: testCase.mustIncludePathSubstrings || [],
       paths: [],
@@ -91,16 +162,15 @@ function evaluateCase(testCase) {
   const hit = required.length - missing.length;
   const recallAtK = required.length ? hit / required.length : 1;
   const ndcg = ndcgAtK(run.paths, required, k);
-  // MRR answers the question an agent actually has: is the FIRST result the right one?
-  // Recall says "somewhere in the top 8" — that still costs the agent 8 file reads.
-  // mrrAtK already existed in ml-core and was simply never reported.
   const mrr = mrrAtK(run.paths, required, k);
+  const prec = precisionAtK(run.paths, required, k);
   return {
     id: testCase.id,
     pass: missing.length === 0,
     k,
     recallAtK,
     mrrAtK: mrr,
+    precisionAtK: prec,
     ndcgAtK: ndcg,
     missing,
     paths: run.paths.slice(0, k),
@@ -110,7 +180,9 @@ function evaluateCase(testCase) {
 function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
-    console.log(`Usage: node tools/rag-retrieval-eval.js [--fixture PATH] [--json]`);
+    console.log(
+      `Usage: node tools/rag-retrieval-eval.js [--fixture PATH] [--retriever harness|dual-path] [--json]`,
+    );
     process.exit(0);
   }
   if (!fs.existsSync(RETRIEVE)) {
@@ -119,7 +191,7 @@ function main() {
   }
   const fixture = JSON.parse(fs.readFileSync(args.fixture, 'utf8'));
   const cases = fixture.cases || [];
-  const results = cases.map(evaluateCase);
+  const results = cases.map((c) => evaluateCase(c, args.retriever));
   const passCount = results.filter((r) => r.pass).length;
   const meanRecall =
     results.length === 0
@@ -133,27 +205,35 @@ function main() {
     results.length === 0
       ? 0
       : results.reduce((sum, r) => sum + (r.ndcgAtK || 0), 0) / results.length;
+  const meanPrec =
+    results.length === 0
+      ? 0
+      : results.reduce((sum, r) => sum + (r.precisionAtK || 0), 0) / results.length;
   const report = {
     ok: passCount === results.length && results.length > 0,
+    retriever: args.retriever,
     fixture: path.relative(REPO, args.fixture),
     caseCount: results.length,
     passCount,
     meanRecallAtK: Number(meanRecall.toFixed(4)),
     meanMrrAtK: Number(meanMrr.toFixed(4)),
+    meanPrecisionAtK: Number(meanPrec.toFixed(4)),
     meanNdcgAtK: Number(meanNdcg.toFixed(4)),
-    meanMrrAtK: Number(meanMrr.toFixed(4)),
     results,
   };
   if (args.json) {
     console.log(JSON.stringify(report, null, 2));
   } else {
     console.log(
-      `RAG retrieval eval: ${passCount}/${results.length} cases pass · mean recall@k=${report.meanRecallAtK} · mean MRR@k=${report.meanMrrAtK} · mean MRR@k=${report.meanMrrAtK} · mean nDCG@k=${report.meanNdcgAtK}`,
+      `RAG retrieval eval (${args.retriever}): ${passCount}/${results.length} cases pass · ` +
+        `recall@k=${report.meanRecallAtK} · MRR@k=${report.meanMrrAtK} · ` +
+        `P@k=${report.meanPrecisionAtK} · nDCG@k=${report.meanNdcgAtK}`,
     );
     for (const r of results) {
       const mark = r.pass ? 'PASS' : 'FAIL';
       console.log(
-        `  [${mark}] ${r.id} recall@${r.k}=${r.recallAtK.toFixed(2)} MRR=${(r.mrrAtK || 0).toFixed(2)} nDCG=${(r.ndcgAtK || 0).toFixed(2)} MRR=${(r.mrrAtK || 0).toFixed(2)}${r.error ? ` · ${r.error}` : ''}`,
+        `  [${mark}] ${r.id} R@${r.k}=${r.recallAtK.toFixed(2)} MRR=${(r.mrrAtK || 0).toFixed(2)} ` +
+          `nDCG=${(r.ndcgAtK || 0).toFixed(2)}${r.error ? ` · ${r.error}` : ''}`,
       );
       if (r.missing?.length) console.log(`         missing: ${r.missing.join(', ')}`);
     }
@@ -170,4 +250,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { evaluateCase, runRetrieve, parseArgs, ndcgAtK };
+module.exports = { evaluateCase, runRetrieve, parseArgs, ndcgAtK, precisionAtK };
