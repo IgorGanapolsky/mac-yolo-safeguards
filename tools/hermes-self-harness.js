@@ -4,6 +4,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
 const HOME = os.homedir();
 
@@ -34,6 +35,12 @@ const PATTERNS = [
     match: (evidence) => /interrupted_during_api_call|Interrupted - processing new message|busy_input_mode:\s*interrupt/i.test(evidence.logsAndConfig),
     proposal: 'Set Hermes interactive busy input to queue so follow-up messages do not abort the active model call.',
     gate: 'Config parse shows display.busy_input_mode=queue and a CLI smoke is not interrupted while running.',
+    // Re-reads the live config and reports the parsed value, rather than regex-matching
+    // a blob assembled earlier in this process. A stale or truncated read fails closed.
+    proof: {
+      cmd: 'node -e \'const fs=require("fs");let t="";try{t=fs.readFileSync(process.env.HOME+"/.hermes/config.yaml","utf8")}catch{};const m=t.match(/busy_input_mode:\\s*(\\w+)/);console.log("BUSY_INPUT_MODE="+(m?m[1]:"unset"))\'',
+      expect: /BUSY_INPUT_MODE=queue/,
+    },
     configChecks: [['display.busy_input_mode', /busy_input_mode:\s*queue/]],
   },
   {
@@ -65,8 +72,8 @@ const PATTERNS = [
     proposal: 'Have the wrapper default to the slim local route and clear only verified stale locks/processes.',
     gate: 'hermes-yolo final smoke returns an exact cwd marker and /tmp/hermes-yolo.lock is absent or owned by the live wrapper.',
     configChecks: [
-      ['wrapper slim toolsets', /DEFAULT_TOOLSETS.*terminal,file,web,code_execution,memory,clarify/],
-      ['wrapper local provider', /provider:.*custom:ollama-local-64k/],
+      ['wrapper slim toolsets', /DEFAULT_TOOLSETS.*terminal,file,web,code_execution,memory,clarify/, 'yoloWrapper'],
+      ['wrapper local provider', /provider:.*custom:ollama-local-64k/, 'yoloWrapper'],
     ],
   },
   {
@@ -87,6 +94,8 @@ function parseArgs(argv) {
     json: false,
     markdown: false,
     failOnCritical: false,
+    runProofs: false,
+    requireProof: false,
     config: DEFAULT_PATHS.config,
     agentLog: DEFAULT_PATHS.agentLog,
     errorsLog: DEFAULT_PATHS.errorsLog,
@@ -97,6 +106,10 @@ function parseArgs(argv) {
     if (arg === '--json') args.json = true;
     else if (arg === '--markdown') args.markdown = true;
     else if (arg === '--fail-on-critical') args.failOnCritical = true;
+    else if (arg === '--run-proofs') args.runProofs = true;
+    // Fail-closed mode: a critical weakness counts as open unless a proof actually ran
+    // and passed. Regex agreement alone can no longer exit 0 on a critical finding.
+    else if (arg === '--require-proof') { args.requireProof = true; args.runProofs = true; }
     else if (arg === '--config') args.config = requireValue(argv, ++i, arg);
     else if (arg === '--agent-log') args.agentLog = requireValue(argv, ++i, arg);
     else if (arg === '--errors-log') args.errorsLog = requireValue(argv, ++i, arg);
@@ -169,19 +182,47 @@ function extractEvidence(pattern, evidence) {
   return snippets;
 }
 
+// Config assertions must read the config/wrapper they claim to be about — never the
+// logs. `logsAndConfig` concatenates agentLog + errorsLog + config + yoloWrapper, so a
+// check could pass purely because a log line echoed its own failure text. That is the
+// "assertions that opt themselves out" class: it pins a string, not a behaviour.
 function evaluateConfigChecks(pattern, evidence) {
-  return pattern.configChecks.map(([name, regex]) => ({
+  return pattern.configChecks.map(([name, regex, source = 'config']) => ({
     name,
-    passed: regex.test(evidence.logsAndConfig),
+    source,
+    passed: regex.test(evidence[source] ?? ''),
   }));
 }
 
-function mineWeaknesses(evidence) {
+// A prose `gate` is a promise, not a proof: nothing ever executed it, so a weakness
+// could reach "configured" on regex matches alone. `proof` makes the gate runnable --
+// only a proof that actually ran AND passed earns `verified`. Opt-in via --run-proofs,
+// because a reporting tool must not acquire side effects by default.
+function runProof(pattern, options = {}) {
+  if (!options.runProofs) return { ran: false, passed: false, reason: 'proofs not requested' };
+  if (!pattern.proof) return { ran: false, passed: false, reason: 'no proof defined' };
+  try {
+    const output = execFileSync('/bin/sh', ['-c', pattern.proof.cmd], {
+      encoding: 'utf8',
+      timeout: pattern.proof.timeoutMs || 60000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return { ran: true, passed: pattern.proof.expect.test(output), output: output.slice(0, 400) };
+  } catch (error) {
+    return { ran: true, passed: false, reason: String(error.message).slice(0, 200) };
+  }
+}
+
+function mineWeaknesses(evidence, options = {}) {
   return PATTERNS
     .filter((pattern) => pattern.match(evidence))
     .map((pattern) => {
       const checks = evaluateConfigChecks(pattern, evidence);
       const configured = checks.length > 0 && checks.every((check) => check.passed);
+      const proof = runProof(pattern, options);
+      let status = 'candidate';
+      if (proof.ran && proof.passed) status = 'verified';
+      else if (configured) status = 'already_promoted_or_configured';
       return {
         id: pattern.id,
         severity: pattern.severity,
@@ -190,15 +231,20 @@ function mineWeaknesses(evidence) {
         proposal: pattern.proposal,
         promotionGate: pattern.gate,
         configChecks: checks,
-        status: configured ? 'already_promoted_or_configured' : 'candidate',
+        proof,
+        status,
       };
     });
 }
 
 function buildReport(options = {}) {
   const evidence = collectEvidence(options);
-  const weaknesses = mineWeaknesses(evidence);
-  const criticalOpen = weaknesses.filter((item) => item.severity === 'critical' && item.status === 'candidate');
+  const weaknesses = mineWeaknesses(evidence, options);
+  // Default keeps the historical meaning (open == candidate). Under --require-proof a
+  // critical weakness stays open unless a proof ran and passed, so "the regex matched"
+  // can never exit 0 on a critical finding.
+  const criticalOpen = weaknesses.filter((item) => item.severity === 'critical'
+    && (options.requireProof ? item.status !== 'verified' : item.status === 'candidate'));
   const summary = {
     checkedAt: new Date().toISOString(),
     source: 'self-harness-inspired deterministic Hermes trace/config miner',

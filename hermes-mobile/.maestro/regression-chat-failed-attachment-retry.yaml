@@ -1,0 +1,33 @@
+# Failed attachment retry — the ↑ affordance must reuse the original multimodal
+# envelope and report one accepted retry. The fixture is compiled out of normal
+# production behavior: ChatScreen honors it only when EXPO_PUBLIC_E2E_AUTOMATION
+# is enabled and demo mode is active.
+appId: com.iganapolsky.hermesmobile
+---
+- openLink: "hermes://setup?demo=1"
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 30000
+- runFlow: recover-chat-tab.yaml
+- openLink: "hermes://chat?e2eFailedRetry=attachment"
+- extendedWaitUntil:
+    visible:
+      id: "chat-failed-retry-e2e-status"
+      text: "fixture_ready"
+    timeout: 15000
+- assertVisible:
+    id: "chat-message-body"
+    text: "(?s)make money today.*retry-proof\\.png"
+- tapOn:
+    id: "chat-send-button"
+- extendedWaitUntil:
+    visible:
+      id: "chat-failed-retry-e2e-status"
+      text: "accepted_1"
+    timeout: 15000
+- assertVisible:
+    id: "chat-message-body"
+    text: "(?s)make money today.*retry-proof\\.png"
+- assertNotVisible: "reattach_required"
+- assertNotVisible: "prepare_failed"
