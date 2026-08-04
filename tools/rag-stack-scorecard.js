@@ -10,6 +10,7 @@
  *   node tools/rag-stack-scorecard.js --heal   # export jsonl + ensure grepae watch/canary
  */
 
+const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
@@ -139,18 +140,29 @@ function scoreStack(options = {}) {
 
   // 3) grepae canary + watcher
   const isol = path.join(os.homedir(), '.hermes', 'semantic-index', 'mac-yolo-safeguards');
+  const isolGob = path.join(isol, '.grepai', 'index.gob');
+  // Direct stat is truth for size — canary JSON can be missing when scorecard
+  // kills the probe early (measured 2026-08-04: scorecard reported bytes=376
+  // while isol index.gob was 59MB and dual-path grepae=ok in same run).
+  let gobBytes = 0;
+  try {
+    gobBytes = fs.existsSync(isolGob) ? fs.statSync(isolGob).size : 0;
+  } catch {
+    gobBytes = 0;
+  }
+  // Live canary needs up to 120s under Ollama thrash; scorecard used 60s → kill mid-probe.
   const canary = runNode('grepai-index-canary.js', ['--dir', path.join(isol, '.grepai'), '--live', '--json'], {
-    timeout: 60000,
+    timeout: 180000,
   });
   const canOk = Boolean(canary.json && canary.json.ok);
   const status = spawnSync('grepai', ['status'], { cwd: isol, encoding: 'utf8', timeout: 15000 });
   const watchRunning = /Watcher:\s*running/i.test(status.stdout || '');
-  const indexBytes = Number(canary.json?.indexBytes || 0);
-  // Soft-healthy: fat index + watcher while live probe flaky under Ollama load.
+  const indexBytes = Math.max(gobBytes, Number(canary.json?.indexBytes || 0));
+  // Soft-healthy: fat gob + watcher while live probe flaky under Ollama load.
   const softHealthy =
     !canOk &&
     watchRunning &&
-    indexBytes >= 10 * 1024 &&
+    indexBytes >= 10 * 1024 * 1024 && // multi-MB real index, not 384B shell
     !(canary.json?.problems || []).some((p) => String(p).includes('empty shell'));
   const grepaeOk = canOk || softHealthy;
   const grepaeScore = (canOk ? 0.7 : softHealthy ? 0.55 : 0) + (watchRunning ? 0.3 : 0);
@@ -159,7 +171,7 @@ function scoreStack(options = {}) {
     hard: true,
     weight: 0.16,
     ok: grepaeOk && watchRunning,
-    detail: `canary=${canOk} soft=${softHealthy} watcher=${watchRunning ? 'running' : 'down'} bytes=${indexBytes || '?'}`,
+    detail: `canary=${canOk} soft=${softHealthy} watcher=${watchRunning ? 'running' : 'down'} bytes=${indexBytes || '?'} gob=${gobBytes}`,
     score: Math.min(1, grepaeScore),
   });
 
@@ -207,11 +219,13 @@ function scoreStack(options = {}) {
     score: evalScore,
   });
 
-  // 4b) dual-path offline IR (production fuse path — no embed rerank for CI speed)
+  // 4b) dual-path offline IR (production fuse path — no embed rerank for CI speed).
+  // Budget: 8 cases × (harness + grepae≤15s). 180s was too tight when grepae
+  // stalled and dual-path-eval exited mid-run → hard-fail A+ (2026-08-04).
   const dualEval = spawnSync(
     process.execPath,
     [path.join(REPO, 'tools', 'rag-retrieval-eval.js'), '--retriever', 'dual-path', '--json'],
-    { encoding: 'utf8', cwd: REPO, timeout: 180000, maxBuffer: 8 * 1024 * 1024 },
+    { encoding: 'utf8', cwd: REPO, timeout: 600000, maxBuffer: 8 * 1024 * 1024 },
   );
   let dualEvalJson = null;
   try {
