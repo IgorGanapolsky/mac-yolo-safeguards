@@ -19,18 +19,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # mac-mini-hermes (self-hosted, macos-arm64, hermes-e2e) is the default to cut
-  # GitHub-hosted macOS queue wait. Fork PRs stay on macos-latest (arbitrary code).
-  # If the mini is offline, temporarily switch runs-on below to macos-latest.
+  # Guard kit is pure Node/shell/static analysis — must stay on ubuntu-latest.
+  # 2026-07-30: PR runs on macos-latest sat queued forever (GitHub-hosted macOS starvation)
+  # and blocked required check "macOS guard kit" → merges stuck. Keep job name for branch protection.
   macos-guard:
+    # Job NAME must stay "macOS guard kit" even though the job no longer runs on
+    # macOS: it is a required check in branch protection, and renaming it makes
+    # every PR wait forever on a check that will never report. The comment above
+    # says exactly this, and a diff3 merge overwrote it anyway on 2026-07-31,
+    # leaving conflict markers committed to HEAD and ci.yml unparseable — so CI
+    # was not skipping tests, it was not running at all.
     name: macOS guard kit
-    runs-on: ${{ github.event_name == 'pull_request' && 'macos-latest' || fromJSON('["self-hosted", "macos-arm64", "hermes-e2e"]') }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: '22'
 
@@ -44,6 +50,36 @@ jobs:
           fi
           git diff --name-only "${BASE_SHA}" HEAD \
             | node tools/plan-coordination-snapshot.js check-ownership --stdin
+
+      # Conflict-marker guard. Second occurrence of this class: PR #1190 removed "a
+      # stray diff3 conflict marker committed to main", and on 2026-07-31 a diff3
+      # merge committed markers into ci.yml itself — which made the workflow
+      # unparseable, so CI was not failing, it was not running. A broken CI file is
+      # the one bug that disables every other check, so this runs first and cheap.
+      - name: No merge conflict markers
+        run: |
+          set -eu
+          if git grep -nE '^(<<<<<<< |>>>>>>> |\|\|\|\|\|\|\| )' -- ':!node_modules'; then
+            echo "::error::Merge conflict markers committed. Resolve before merging."
+            exit 1
+          fi
+          echo "no conflict markers"
+
+      - name: Workflow files parse
+        run: |
+          set -eu
+          python3 - <<'PY'
+          import glob, sys, yaml
+          bad = 0
+          for path in glob.glob(".github/workflows/*.yml"):
+              try:
+                  yaml.safe_load(open(path))
+                  print(f"ok   {path}")
+              except Exception as exc:
+                  print(f"FAIL {path}: {exc}")
+                  bad += 1
+          sys.exit(1 if bad else 0)
+          PY
 
       - name: JavaScript syntax
         run: |
@@ -106,10 +142,15 @@ jobs:
           # Hammerspoon config (~/Documents/mac-text-hotkeys/init.lua) not present
           # in the repo. Stubbing it would assert against the stub, so it stays
           # excluded until that config is checked in.
+          #
+          # test-hermes-buzz-integration.js needs root npm deps (@noble/curves,
+          # @scure/base). This job does not npm ci (speed); the dedicated
+          # "Hermes Buzz / Nostr integration" step under Public funnel does.
           failed=0
           for f in tests/test-*.js; do
             case "$f" in
               tests/test-mac-text-hotkeys-config.js) continue ;;
+              tests/test-hermes-buzz-integration.js) continue ;;
             esac
             if node "$f" >/tmp/node-test.log 2>&1; then
               echo "ok   $f"
@@ -159,10 +200,18 @@ jobs:
           cmp -s ./scripts/memory-pressure-guardian.sh "$staged_guard_dir/memory-pressure-guardian.sh"
 
       - name: Guard E2E
+        if: runner.os == 'macOS'
         run: |
           set -eu
           tests/test-adb-reverse-device-filter.sh
           tests/test-secondary-browser-reclaim.sh
+
+      # RAG retrieval quality (hermes-retrieval-harness) — added 2026-07-28 after
+      # zero-result grepai MCP searches went undetected for days. Measures recall@k,
+      # MRR@k, nDCG@k against 8 fixture cases. Fails when the mean recall drops
+      # below 1.0 (one or more queries find zero relevant results).
+      - name: Retrieval quality eval
+        run: node tools/rag-retrieval-eval.js
 
       # poolside-yolo asserts it runs fully autonomous. It shipped a --mode value
       # pool does not recognise, so pool silently reverted to approval prompts and
@@ -177,6 +226,7 @@ jobs:
           # trailing number is the min assertion count each suite must actually emit.
           bash tests/run-suite.sh tests/test-run-suite.sh 7
           bash tests/run-suite.sh tests/test-poolside-yolo.sh 14
+          bash tests/run-suite.sh tests/test-poolside-acp-imageguard.sh 12
           bash tests/run-suite.sh tests/test-hermes-primary-route-recovery.sh 6
           # Mutation control: proves the suites above actually go RED against the
           # real historical bugs, instead of passing while measuring nothing.
@@ -198,7 +248,7 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: '22'
 
@@ -223,6 +273,71 @@ jobs:
       - name: Publication readiness
         run: node tools/publication-readiness.js
 
+      # Only wire suites that exist on this branch. A 2026-07-31 dirty merge had
+      # re-inserted steps for tests that were never committed (test-resource-lease,
+      # compose-in-editor, publish-once, …) so Public funnel checks failed MODULE_NOT_FOUND
+      # after ci.yml was made parseable again. Absence of a step is not absence of the
+      # bug class — add the suite file first, then the CI line.
+
+      # Harness engineering: evidence-only ship claims + non-slop taste golden set
+      # (TNS harness-on-the-loop + Taste Labs-style rubric layer, 2026-08).
+      - name: Ship-claim gate
+        run: node tests/test-ship-claim-gate.js
+
+      - name: CodeQL security helpers
+        run: node tests/test-codeql-security-helpers.js
+
+      # Offline shift-left gate: ban the exact pattern classes that piled up
+      # 33 open Security alerts (2026-08). Network CodeQL still runs separately.
+      - name: CodeQL pattern gate (offline prevention)
+        run: |
+          set -eu
+          node tests/test-codeql-pattern-gate.js
+          node tests/test-codeql-agent-hygiene.js
+          node tools/codeql-pattern-gate.js --diff origin/main
+          node tools/codeql-agent-hygiene.js --pre-ship --skip-network
+
+      # Buzz/Nostr crypto needs root package deps (@noble/curves, @scure/base).
+      - name: Hermes Buzz / Nostr integration
+        run: |
+          set -eu
+          npm ci
+          node tests/test-hermes-buzz-integration.js
+          node --experimental-strip-types tests/test-acp-transformer.mjs || node tests/test-acp-transformer.mjs
+          node tools/hermes-integration-paths.js doctor
+
+      # Live open-alert budget (uses GITHUB_TOKEN). Soft on API failure unless CODEQL_GATE_STRICT=1.
+      - name: Code scanning open-alert budget
+        env:
+          CODEQL_GATE_STRICT: ${{ vars.CODEQL_GATE_STRICT || '0' }}
+          CODEQL_GATE_SOFT: ${{ vars.CODEQL_GATE_SOFT || '1' }}
+        run: |
+          set -eu
+          node tools/codeql-alert-sync.js --gate --max-high 0 --max-open 15 --json | tee "$RUNNER_TEMP/codeql-gate.json" || {
+            # Soft-fail if gh/code-scanning API unavailable (private fork, token scope)
+            if [[ "${CODEQL_GATE_STRICT}" == "1" ]]; then exit 1; fi
+            echo "codeql-alert-sync gate soft-failed (set CODEQL_GATE_STRICT=1 to hard-fail)"
+            exit 0
+          }
+          # If JSON says ok=false and we have numbers, hard fail
+          node -e "const j=require(process.env.RUNNER_TEMP+'/codeql-gate.json'); if(j.ok===false && typeof j.open==='number') process.exit(1);"
+
+      - name: Taste layer golden set
+        run: node tests/test-taste-gate.js
+
+      - name: Linear bridge pure helpers
+        run: node tests/test-linear-agent-bridge.js
+
+      - name: Harness smeval (ship-honesty offline)
+        run: node tests/test-harness-smeval.js
+
+      # Five guessed role addresses hard-bounced within one minute on 2026-07-31,
+      # a design-partner pitch went to a security@ disclosure inbox, and four
+      # unrelated founders shared one To: line. docs/REVENUE-LOOP.md already banned
+      # guessed addresses — as prose, which nothing ran.
+      - name: Outreach deliverability gate
+        run: node tests/test-outreach-preflight.js
+
       # ML integrity (fail-closed) — offline platform bar; does not require Stripe/labels.
       - name: ML integrity + platform gate
         run: |
@@ -243,13 +358,24 @@ jobs:
         run: |
           set -eu -o pipefail
           python3 tests/test-tinker-brain.py 2>&1 | tee "$RUNNER_TEMP/tinker-tests.log"
+          # The coverage gate is what stops a routed NON-answer from being emitted with
+          # the same confidence as an answer. Unrun, it can rot silently and the only
+          # symptom is a confident wrong card — the exact bug it was added to catch.
+          python3 tests/test-tinker-brain-coverage.py 2>&1 | tee "$RUNNER_TEMP/tinker-coverage.log"
           python3 tools/tinker-brain/tinker_brain_eval.py | tee "$RUNNER_TEMP/tinker-eval.log"
+          # Fail-closed A+ scorecard (purpose-fit pillars). No --heal-first in CI:
+          # heal needs live thumbgate.app; store pillar accepts repo-only card.
+          python3 tools/tinker-brain/tinker_brain_scorecard.py 2>&1 | tee "$RUNNER_TEMP/tinker-scorecard.log"
           # Both suites exit non-zero on a failing case, but a suite that exits 0
           # having asserted nothing is VACUOUS, not clean — pin the floors too.
           ran="$(sed -n 's/^Ran \([0-9]\{1,\}\) test.*/\1/p' "$RUNNER_TEMP/tinker-tests.log")"
+          cov_ran="$(sed -n 's/^Ran \([0-9]\{1,\}\) test.*/\1/p' "$RUNNER_TEMP/tinker-coverage.log")"
           passed="$(sed -n 's|^tinker-brain eval: \([0-9]\{1,\}\)/.*|\1|p' "$RUNNER_TEMP/tinker-eval.log")"
-          test "${ran:-0}" -ge 15
-          test "${passed:-0}" -ge 42
+          test "${ran:-0}" -ge 21
+          test "${cov_ran:-0}" -ge 11
+          test "${passed:-0}" -ge 49
+          # Scorecard human line ends with "A+=True required_ok=True"
+          grep -q 'A+=True' "$RUNNER_TEMP/tinker-scorecard.log"
 
   mobile-checks:
     name: Hermes Mobile typecheck and tests
@@ -265,7 +391,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: 22
           cache: npm

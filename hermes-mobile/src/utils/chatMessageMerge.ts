@@ -2,6 +2,7 @@ import type { HermesMessage } from '../types/chat';
 import { coerceMessageId, idHasPrefix } from './messageIds';
 import { dedupeToolDumpMessages } from './chatToolDump';
 import { serverHasAssistantReplyAfterLastUser } from './emptyStreamReplyRecovery';
+import { stripSupersededEmptyStreamTimeouts } from './emptyStreamRefreshCta';
 import { isOrphanFailedOutboundBubble } from './stalledChatRecovery';
 import {
   isDeferredStreamPlaceholder,
@@ -527,7 +528,7 @@ export function mergeServerMessagesWithPending(
   const visibleServerMessages = stripSilentProtocolMessages(serverMessages);
   let dedupedServer = dedupeDeferredStreamPlaceholders(dedupeChatMessages(visibleServerMessages));
   if (localMessages.length === 0) {
-    return dedupedServer;
+    return stripSupersededEmptyStreamTimeouts(dedupedServer);
   }
 
   const serverFingerprints = new Set(dedupedServer.map(messageFingerprint));
@@ -638,8 +639,10 @@ export function mergeServerMessagesWithPending(
   }
 
   if (pendingTail.length === 0) {
-    return collapseNearDuplicateAssistantTurns(
-      dedupeDeferredStreamPlaceholders(dedupeToolDumpMessages(dedupedServer)),
+    return stripSupersededEmptyStreamTimeouts(
+      collapseNearDuplicateAssistantTurns(
+        dedupeDeferredStreamPlaceholders(dedupeToolDumpMessages(dedupedServer)),
+      ),
     );
   }
   const merged = dedupeToolDumpMessages([...dedupedServer, ...pendingTail]);
@@ -647,7 +650,9 @@ export function mergeServerMessagesWithPending(
     (message) => isOptimisticUserMessage(message) && message.outboundStatus === 'pending',
   );
   const normalized = hasPendingUser ? merged : dedupeChatMessages(merged);
-  return collapseNearDuplicateAssistantTurns(dedupeDeferredStreamPlaceholders(normalized));
+  return stripSupersededEmptyStreamTimeouts(
+    collapseNearDuplicateAssistantTurns(dedupeDeferredStreamPlaceholders(normalized)),
+  );
 }
 
 /** Cheap fingerprint to skip FlatList updates when a gateway refresh returns the same transcript. */

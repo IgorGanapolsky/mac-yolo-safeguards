@@ -7,6 +7,8 @@ import {
   emptyStreamDisplayElapsedMs,
   messageIsEmptyStreamTimeout,
   shouldShowEmptyStreamRefreshCta,
+  stripSupersededEmptyStreamTimeouts,
+  isEmptyStreamRecoveryStatus,
   USER_FACING_EMPTY_STREAM_COPY_FILES,
 } from '../utils/emptyStreamRefreshCta';
 import {
@@ -46,15 +48,53 @@ describe('emptyStreamRefreshCta', () => {
       const source = fs.readFileSync(path.join(mobileRoot, relativePath), 'utf8');
       assertNoPullToRefreshCopy(source, relativePath);
     }
-    expect(EMPTY_STREAM_TIMEOUT_PLACEHOLDER.toLowerCase()).toMatch(/check|leash/);
-    expect(EMPTY_REPLY_FAILURE_REASON.toLowerCase()).toMatch(/fresh chat|leash/);
+    expect(EMPTY_STREAM_TIMEOUT_PLACEHOLDER.toLowerCase()).toMatch(/fresh chat|resend/);
+    expect(EMPTY_STREAM_TIMEOUT_PLACEHOLDER.toLowerCase()).not.toMatch(
+      /open leash for approve/,
+    );
+    expect(EMPTY_REPLY_FAILURE_REASON.toLowerCase()).toMatch(/fresh chat|stalled/);
     expect(EMPTY_STREAM_REFRESH_BANNER_HINT.toLowerCase()).toContain('checking automatically');
-    expect(EMPTY_STREAM_REFRESH_BANNER_HINT.toLowerCase()).toContain('leash');
+    expect(EMPTY_STREAM_REFRESH_BANNER_HINT.toLowerCase()).not.toContain('open leash');
     expect(EMPTY_STREAM_REFRESH_BANNER_HINT.toLowerCase()).not.toContain('tap refresh');
     expect(emptyStreamBannerHint(45_000)).toContain('(45s)');
-    expect(emptyStreamBannerHint(45_000).toLowerCase()).toContain('leash');
+    expect(emptyStreamBannerHint(45_000).toLowerCase()).toMatch(/fresh chat/);
+    expect(emptyStreamBannerHint(45_000).toLowerCase()).not.toContain('open leash');
+    // Leash only appears when there is a real pending approval.
+    expect(emptyStreamBannerHint(45_000, { pendingApprovalCount: 2 }).toLowerCase()).toContain(
+      'leash',
+    );
     expect(emptyStreamBannerHint(45_000).toLowerCase()).not.toContain('tap refresh');
     expect(emptyStreamBannerHint(EMPTY_STREAM_HARD_STOP_MS)).toBe(EMPTY_STREAM_HARD_STOP_STATUS);
     expect(emptyStreamDisplayElapsedMs(3_430_000)).toBe(EMPTY_STREAM_HARD_STOP_MS);
   });
+
+  it('does not show CTA when a real reply coexists with a timeout bubble', () => {
+    const messages: HermesMessage[] = [
+      { role: 'user', content: 'Which buyer channel gets priority today?' },
+      { role: 'assistant', content: EMPTY_STREAM_TIMEOUT_PLACEHOLDER },
+      {
+        role: 'assistant',
+        content:
+          'The goal cell shows 5 prepared guard packets but we have not engaged buyers yet.',
+      },
+    ];
+    expect(shouldShowEmptyStreamRefreshCta(messages)).toBe(false);
+    const stripped = stripSupersededEmptyStreamTimeouts(messages);
+    expect(stripped).toHaveLength(2);
+    expect(stripped.some((m) => messageIsEmptyStreamTimeout(m.content))).toBe(false);
+  });
+
+  it('treats legacy Stopped waiting copy as empty-stream timeout', () => {
+    const legacy =
+      'Stopped waiting on your Mac. Open Leash if a tool needs approve/deny/warn, Stop an active run, or start a fresh chat.';
+    expect(messageIsEmptyStreamTimeout(legacy)).toBe(true);
+    expect(isEmptyStreamRecoveryStatus(legacy)).toBe(true);
+    expect(
+      shouldShowEmptyStreamRefreshCta([
+        { role: 'user', content: 'hello' },
+        { role: 'assistant', content: legacy },
+      ]),
+    ).toBe(true);
+  });
+
 });

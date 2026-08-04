@@ -49,7 +49,17 @@ export const SILENT_STATUS_NOTIFICATION_TYPES = new Set([
   'run_progress',
   'run_stall',
   'run_completed',
+  /** Connection lifecycle is shade-only (Uber trip card), never heads-up. */
+  'connection_lifecycle',
 ]);
+
+/** Background-only connection story (found / lost / restored). */
+export function shouldScheduleConnectionLifecycleNotification(
+  appState: SmartNotificationAppState = AppState.currentState,
+  categoryEnabled = true,
+): boolean {
+  return categoryEnabled && isBackgrounded(appState);
+}
 
 export function isSilentStatusNotificationType(type: string | undefined): boolean {
   return typeof type === 'string' && SILENT_STATUS_NOTIFICATION_TYPES.has(type);
