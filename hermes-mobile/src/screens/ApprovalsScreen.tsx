@@ -273,7 +273,7 @@ export default function ApprovalsScreen() {
             void Linking.openURL(THUMBGATE_WEB_URL).catch(() => {
               Alert.alert(
                 'Could not open ThumbGate.app',
-                'Open https://thumbgate.app in your browser to continue.',
+                'Open https://thumbgate.app/dashboard in your browser to continue.',
               );
             });
           }}
