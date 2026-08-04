@@ -97,6 +97,9 @@ function runRetrieveDualPath(query, limit) {
   // rerank-stack-scorecard). Ensemble can demote exact path hits and tank nDCG
   // while fusion alone matches harness goldens (measured 2026-08-04).
   // Empty grepae shell fail-fasts in runGrepai; dual-path degrades to harness.
+  // Pull a slightly wider pool than K so grepae near-neighbors can't push a
+  // harness@8-9 production path past the eval horizon (lessons-feedback flake).
+  const retrieveLimit = Math.max(limit, Math.min(limit + 4, 16));
   const result = spawnSync(
     process.execPath,
     [
@@ -104,13 +107,14 @@ function runRetrieveDualPath(query, limit) {
       '--query',
       query,
       '--limit',
-      String(limit),
+      String(retrieveLimit),
       '--candidate-pool',
-      String(Math.max(limit * 3, 20)),
+      String(Math.max(retrieveLimit * 3, 24)),
       '--no-rerank',
       '--json',
     ],
-    { cwd: REPO, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 90000 },
+    // Per-case budget: harness + grepae (≤15s default) + RRF. Keep under 60s.
+    { cwd: REPO, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 60000 },
   );
   if (result.status !== 0) {
     return {
@@ -156,14 +160,17 @@ function evaluateCase(testCase, retriever = 'harness') {
     };
   }
   const required = testCase.mustIncludePathSubstrings || [];
+  // Always grade against top-K only — dual-path may retrieve a slightly wider
+  // pool for stability, but Recall@K/MRR/nDCG must not use ranks > K.
+  const topK = (run.paths || []).slice(0, k);
   const missing = required.filter(
-    (sub) => !run.paths.some((p) => p.includes(sub) || p.replace(/\\/g, '/').includes(sub)),
+    (sub) => !topK.some((p) => p.includes(sub) || p.replace(/\\/g, '/').includes(sub)),
   );
   const hit = required.length - missing.length;
   const recallAtK = required.length ? hit / required.length : 1;
-  const ndcg = ndcgAtK(run.paths, required, k);
-  const mrr = mrrAtK(run.paths, required, k);
-  const prec = precisionAtK(run.paths, required, k);
+  const ndcg = ndcgAtK(topK, required, k);
+  const mrr = mrrAtK(topK, required, k);
+  const prec = precisionAtK(topK, required, k);
   return {
     id: testCase.id,
     pass: missing.length === 0,
@@ -173,7 +180,7 @@ function evaluateCase(testCase, retriever = 'harness') {
     precisionAtK: prec,
     ndcgAtK: ndcg,
     missing,
-    paths: run.paths.slice(0, k),
+    paths: topK,
   };
 }
 

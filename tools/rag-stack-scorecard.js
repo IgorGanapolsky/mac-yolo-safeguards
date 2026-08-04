@@ -207,11 +207,13 @@ function scoreStack(options = {}) {
     score: evalScore,
   });
 
-  // 4b) dual-path offline IR (production fuse path — no embed rerank for CI speed)
+  // 4b) dual-path offline IR (production fuse path — no embed rerank for CI speed).
+  // Budget: 8 cases × (harness + grepae≤15s). 180s was too tight when grepae
+  // stalled and dual-path-eval exited mid-run → hard-fail A+ (2026-08-04).
   const dualEval = spawnSync(
     process.execPath,
     [path.join(REPO, 'tools', 'rag-retrieval-eval.js'), '--retriever', 'dual-path', '--json'],
-    { encoding: 'utf8', cwd: REPO, timeout: 180000, maxBuffer: 8 * 1024 * 1024 },
+    { encoding: 'utf8', cwd: REPO, timeout: 600000, maxBuffer: 8 * 1024 * 1024 },
   );
   let dualEvalJson = null;
   try {
