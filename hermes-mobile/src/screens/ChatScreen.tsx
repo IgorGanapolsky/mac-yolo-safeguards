@@ -14,6 +14,7 @@ import {
   AppState,
   BackHandler,
   Keyboard,
+  Linking,
   Alert,
   useWindowDimensions,
   Dimensions,
@@ -31,6 +32,7 @@ import {
   useGatewayApprovals,
   useGatewayChatSync,
 } from '../hooks/useGatewaySelector';
+import { useGateway } from '../context/GatewayContext';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import {
   composerDockInsets,
@@ -42,6 +44,7 @@ import Constants from 'expo-constants';
 import { colors } from '../theme/colors';
 import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import { haptics } from '../services/haptics';
+import { trackProductEvent } from '../services/productAnalytics';
 import { scheduleRunCompletedNotification } from '../services/hermesNotifications';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
 import { MAC_PICKER_SUBTITLE } from '../utils/tailscalePasteIpCopy';
@@ -222,6 +225,7 @@ import {
   RUN_NO_TOKEN_FAIL_DETAIL,
   RUN_STREAM_IDLE_FAIL_DETAIL,
   RUN_STALE_TIMEOUT_DETAIL,
+  runHardTimeoutDetail,
   shouldFailRunAwaitingFirstToken,
   shouldFailRunForStreamIdle,
   shouldHardTimeoutRun,
@@ -293,9 +297,12 @@ import AttachPickerSheet, { type AttachPickerOption } from '../components/Attach
 import ChatMessageDetailModal from '../components/ChatMessageDetailModal';
 import FeedbackPromptModal from '../components/FeedbackPromptModal';
 import GatewayOpsSection from '../components/GatewayOpsSection';
+import { RECONNECT_REPAIR_ACTION_LABEL } from '../components/ConnectionHealthHub';
 import ChatApprovalBar from '../components/ChatApprovalBar';
 import RunProgressBanner from '../components/RunProgressBanner';
 import EmptyStreamRefreshBanner from '../components/EmptyStreamRefreshBanner';
+import WorkingActivityBar from '../components/WorkingActivityBar';
+import { isChatWorkingActivity } from '../utils/chatWorkingActivity';
 import ComposerErrorBanner from '../components/ComposerErrorBanner';
 import type { RunProgressState } from '../types/chatDisplay';
 import type { GatewayEventMessage } from '../types/gateway';
@@ -374,7 +381,10 @@ import {
   resolveEffectiveMacHttpOk,
 } from '../utils/gatewayConnection';
 import { probeLiveUsbGateway } from '../services/gatewayDiscovery';
-import { isGatewayLiveForDelivery } from '../utils/outboundDeliveryStatus';
+import {
+  OUTBOUND_RECONNECTED_AUTO_RESEND,
+  isGatewayLiveForDelivery,
+} from '../utils/outboundDeliveryStatus';
 import {
   OUTBOUND_HARD_TIMEOUT_MS,
   OUTBOUND_PENDING_RECOVERY_MS,
@@ -385,12 +395,30 @@ import {
   shouldRecoverOutboundSendLock,
 } from '../utils/outboundSendRecovery';
 import {
+  failedSendRetryTelemetryProperties,
+  findLastFailedOutboundRetry,
   findLastFailedOutboundText,
   resolveComposerSendAction,
+  resolveComposerSendText,
   shouldHideMacTileForSilentHeal,
   isEmptyReplyFailureMessage,
   shouldShowFailedSendRetry,
 } from '../utils/failedSendRetry';
+import { idHasPrefix } from '../utils/messageIds';
+import {
+  RECONNECT_AUTO_RESEND_DEBOUNCE_MS,
+  attachOutboundSubmissionSession,
+  markOutboundSubmissionDispatched,
+  createOutboundId,
+  createOutboundSubmissionLedger,
+  markOutboundBubbleDelivered,
+  markOutboundSubmissionAccepted,
+  recordAutoResendAttempt,
+  recordOutboundSubmission,
+  resolveReconnectResendPlan,
+  resolveStallRecoveryPlan,
+  scopeOutboundSubmissionsToSession,
+} from '../utils/outboundSubmissionLedger';
 import {
   listAllPendingTextApprovals,
   listInlineTextApprovals,
@@ -446,9 +474,14 @@ import {
   shouldAwaitGatewayReplyAfterSend,
   shouldHardStopEmptyStreamWait,
   shouldKeepAutoPollingForReply,
+  serverHasAssistantReplyAfterLastUser,
   toolActivityAfterLastUser,
 } from '../utils/emptyStreamReplyRecovery';
-import { shouldShowEmptyStreamRefreshCta } from '../utils/emptyStreamRefreshCta';
+import {
+  isEmptyStreamRecoveryStatus,
+  shouldShowEmptyStreamRefreshCta,
+  stripSupersededEmptyStreamTimeouts,
+} from '../utils/emptyStreamRefreshCta';
 import {
   msUntilLivePromptHardTimeout,
   messageSentAtMs,
@@ -457,7 +490,11 @@ import {
   shouldHardTimeoutLivePromptWait,
 } from '../utils/promptReplyElapsed';
 import { extractTerminalActivityFromMessage, isTerminalToolName } from '../utils/terminalActivity';
-import type { ChatMessageContent, ComposerAttachment } from '../types/chatAttachment';
+import type {
+  ChatMessageContent,
+  ComposerAttachment,
+  OutboundRetryEnvelope,
+} from '../types/chatAttachment';
 import {
   composerHasSendableContent,
   formatAttachmentBubbleText,
@@ -580,6 +617,18 @@ const MAC_PICKER_SELECTION_ARM_DELAY_MS = 400;
 /** How long the per-message "Saved to ThumbGate" confirmation stays visible. */
 const FEEDBACK_NOTE_TTL_MS = 4000;
 
+type OutboundSendExtras = {
+  gatewayContent?: ChatMessageContent;
+  displayText?: string;
+  attachments?: ComposerAttachment[];
+};
+
+type SendUserText = (
+  text: string,
+  isProgrammatic?: boolean,
+  extras?: OutboundSendExtras,
+) => Promise<boolean>;
+
 export default function ChatScreen() {
   const {
     settings,
@@ -613,6 +662,7 @@ export default function ChatScreen() {
     connectionHealInFlight,
     connectionHealExhausted,
   } = useGatewayConnection();
+  const { thumbgateApiKey } = useGateway();
   const [activeAgents, setActiveAgents] = useState<{ name: string; status: string }[]>([]);
   const { relayWorkers, isPaired, activeRelayWorkerId } = useGatewayRelay();
   const {
@@ -647,6 +697,7 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<HermesMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [composerAttachments, setComposerAttachments] = useState<ComposerAttachment[]>([]);
+  const [retryE2eStatus, setRetryE2eStatus] = useState<string | null>(null);
   
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
@@ -851,10 +902,27 @@ export default function ChatScreen() {
   /** Carries typed composer text across Start fresh so draft-load cannot wipe it. */
   const pendingFreshComposerTransferRef = useRef<string | null>(null);
   const composerDraftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const sendUserTextRef = useRef<(text: string, isProgrammatic?: boolean) => Promise<boolean>>(
-    async () => false,
-  );
+  const sendUserTextRef = useRef<SendUserText>(async () => false);
+  const retryFailedOutboundRef = useRef<() => Promise<boolean>>(async () => false);
+  /**
+   * Exact prepared multimodal bodies stay in memory only (never AsyncStorage).
+   * Persisted envelopes retain bounded URI metadata and are re-prepared after a remount.
+   */
+  const preparedRetryContentRef = useRef<Map<string, ChatMessageContent>>(new Map());
   const lastFailedSendTextRef = useRef<string | null>(null);
+  /** One user message = one gateway submission. Stall recovery reads this to
+   *  decide resume-vs-resend instead of blindly re-POSTing (duplicate-run P0). */
+  const outboundLedgerRef = useRef(createOutboundSubmissionLedger());
+  const outboundSubmissionSeqRef = useRef(0);
+  /** Assigned below once startDeferredReplyPoll exists — resume, never re-POST. */
+  const resumeStalledOutboundRef = useRef<(body: string) => void>(() => {});
+  /** Guards concurrent reconnect auto-resends within one tick (flap bursts). */
+  const autoResendInFlightRef = useRef(false);
+  /** True once the chat link has actually gone down — arms the reconnect edge. */
+  const sawLinkDownRef = useRef(false);
+  const [autoResendPendingMessageId, setAutoResendPendingMessageId] = useState<string | null>(
+    null,
+  );
   const stalledRecoveriesUsedRef = useRef(0);
   const stalledRecoverInFlightRef = useRef(false);
   const activeChatStreamRef = useRef(false);
@@ -1133,6 +1201,67 @@ export default function ChatScreen() {
     return settings.demoMode || connectionState === 'demo';
   }, [settings.demoMode, connectionState]);
 
+  useEffect(() => {
+    const e2eAutomation =
+      process.env.EXPO_PUBLIC_E2E_AUTOMATION === '1' ||
+      process.env.EXPO_PUBLIC_E2E_AUTOMATION === 'true';
+    if (!e2eAutomation || !isDemo || !isDemoModeAllowed()) {
+      return;
+    }
+    const applyRetryFixture = (url: string | null) => {
+      if (!url || !/[?&]e2eFailedRetry=attachment(?:&|$)/i.test(url)) {
+        return;
+      }
+      const messageId = 'user-e2e-failed-attachment-retry';
+      const text = 'make money today';
+      const attachment: ComposerAttachment = {
+        id: 'att-e2e-retry-proof',
+        name: 'retry-proof.png',
+        mimeType: 'image/png',
+        uri: 'file:///e2e/retry-proof.png',
+        kind: 'image',
+        sizeBytes: 68,
+      };
+      const displayText = formatAttachmentBubbleText(text, [attachment]);
+      const envelope: OutboundRetryEnvelope = {
+        version: 1,
+        text,
+        displayText,
+        attachments: [{ ...attachment }],
+      };
+      preparedRetryContentRef.current.set(messageId, [
+        { type: 'text', text },
+        {
+          type: 'image_url',
+          image_url: {
+            url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB',
+          },
+        },
+      ]);
+      const fixture: HermesMessage = {
+        id: messageId,
+        role: 'user',
+        content: displayText,
+        created_at: new Date().toISOString(),
+        outboundStatus: 'failed',
+        outboundFailureReason: 'E2E retry fixture',
+        outboundRetryEnvelope: envelope,
+      };
+      commitMessages((prev) => [
+        ...prev.filter((message) => message.id !== messageId),
+        fixture,
+      ]);
+      lastFailedSendTextRef.current = text;
+      setRetryE2eStatus('fixture_ready');
+      setRunProgress(null);
+    };
+    void Linking.getInitialURL().then(applyRetryFixture);
+    const subscription = Linking.addEventListener('url', (event) => {
+      applyRetryFixture(event.url);
+    });
+    return () => subscription.remove();
+  }, [commitMessages, isDemo, setRunProgress]);
+
 
   const persistOutboundSnapshot = useCallback(
     (
@@ -1273,18 +1402,30 @@ export default function ChatScreen() {
   );
   /** Chat needs direct HTTP to the Mac — relay WebSocket "connected" is not enough. */
   const macChatLive = isDemo || macHttpOk;
+  const lastFailedOutboundRetry = useMemo(
+    () => findLastFailedOutboundRetry(messages),
+    [messages],
+  );
   const lastFailedOutboundText = useMemo(
     () => findLastFailedOutboundText(messages),
     [messages],
   );
+  // Read by the stable-identity ↑ handler — keeps ChatInputBar's memo intact.
+  const lastFailedOutboundTextRef = useRef<string | null>(null);
+  lastFailedOutboundTextRef.current = lastFailedOutboundText;
+  const isDemoRef = useRef(isDemo);
+  isDemoRef.current = isDemo;
+  const macChatLiveRef = useRef(macChatLive);
+  macChatLiveRef.current = macChatLive;
   const connectivityRunFailure = useMemo(
     () =>
       shouldShowFailedSendRetry({
         runPhase: runProgress?.phase,
         runDetail: runProgress?.detail,
         lastFailedText: lastFailedOutboundText,
+        hasFailedPayload: Boolean(lastFailedOutboundRetry),
       }),
-    [runProgress, lastFailedOutboundText],
+    [runProgress, lastFailedOutboundRetry, lastFailedOutboundText],
   );
   // RELEASE BLOCK: Wrong-key banner is authoritative — never leave header green beside it.
   const wrongKeyBannerActive = useMemo(
@@ -1320,7 +1461,7 @@ export default function ChatScreen() {
     [gatewayUrl, gatewayProfiles, tailnetProbeHostCount, tailscaleDiscoveries],
   );
   const userSendFailed = pinnedOutboundStatus === 'failed';
-  const hasRetryableFailedSend = Boolean(lastFailedOutboundText?.trim());
+  const hasRetryableFailedSend = Boolean(lastFailedOutboundRetry);
   const chatStalled =
     hasRetryableFailedSend &&
     macHttpOk &&
@@ -1330,9 +1471,11 @@ export default function ChatScreen() {
   useEffect(() => {
     stalledRecoveriesUsedRef.current = 0;
     stalledRecoverInFlightRef.current = false;
+    scopeOutboundSubmissionsToSession(outboundLedgerRef.current, currentSession?.id);
   }, [currentSession?.id]);
 
   useEffect(() => {
+    const failedRetry = findLastFailedOutboundRetry(messages);
     const failedText =
       findLastStalledFailedOutboundText(messages) ??
       (isStalledOutboundFailureReason(runProgress?.detail)
@@ -1367,6 +1510,18 @@ export default function ChatScreen() {
       if (!retryText) {
         return;
       }
+      // P0 duplicate-run guard: the Mac may already hold this exact prompt.
+      // Re-POSTing it runs the user's instruction twice and appends a second
+      // identical user row to the server transcript (the two-bubble report).
+      const plan = resolveStallRecoveryPlan({
+        failedText: retryText,
+        sessionId: currentSessionRef.current?.id,
+        messageId: failedRetry?.messageId,
+        ledger: outboundLedgerRef.current,
+      });
+      if (plan.kind === 'none') {
+        return;
+      }
       stalledRecoverInFlightRef.current = true;
       stalledRecoveriesUsedRef.current += 1;
       lastFailedSendTextRef.current = retryText;
@@ -1379,6 +1534,17 @@ export default function ChatScreen() {
               detail: STALLED_SEND_RECOVERING_HINT,
             },
       );
+      if (plan.kind === 'resume') {
+        // Gateway already accepted this outbound — resume (poll for the reply)
+        // instead of submitting again. Never release the operator slot here:
+        // that would kill the very run we are waiting on.
+        try {
+          resumeStalledOutboundRef.current(retryText);
+        } finally {
+          stalledRecoverInFlightRef.current = false;
+        }
+        return;
+      }
       void (async () => {
         try {
           const runIds = [
@@ -1392,7 +1558,7 @@ export default function ChatScreen() {
           setPinnedOutboundText(null);
           setPinnedOutboundSentAt(null);
           setPinnedOutboundStatus('pending');
-          await sendUserTextRef.current(retryText, true);
+          await retryFailedOutboundRef.current();
         } finally {
           stalledRecoverInFlightRef.current = false;
         }
@@ -1410,6 +1576,120 @@ export default function ChatScreen() {
     runProgress?.detail,
     runProgress?.phase,
   ]);
+
+  /**
+   * AUTO-RESEND ON RECONNECTION.
+   *
+   * Device verdict 2026-07-29: "tap to resend does absolutely nothing!!! Just
+   * have it done automatically on reconnection." The safe rule is
+   * accepted-vs-not-accepted, not manual-vs-automatic:
+   *
+   *   accepted     → the Mac has (or had) the prompt. Resume; resubmitting is
+   *                  the duplicate-run P0 this ledger exists to prevent.
+   *   not accepted → nothing on the Mac to duplicate, so resend it without a tap.
+   *
+   * Igor's mini flaps (its watchdog SIGTERMs the gateway roughly every 60s on a
+   * slow start), so reconnect edges arrive in bursts. Three guards keep that
+   * from fanning out copies: a settle debounce, a per-intent cooldown, and a
+   * per-intent attempt cap — all held in the ledger, which survives re-renders.
+   */
+  useEffect(() => {
+    // Arm on the DOWN edge; only a real down->up transition may auto-resend.
+    // Without this, any failed bubble appearing on a healthy link would schedule
+    // a resend — including a turn the user just Stopped.
+    if (!macChatLive) {
+      sawLinkDownRef.current = true;
+    }
+    if (isDemo || !macChatLive || isSending) {
+      setAutoResendPendingMessageId(null);
+      return;
+    }
+    if (!sawLinkDownRef.current) {
+      setAutoResendPendingMessageId(null);
+      return;
+    }
+    const failedRetry = findLastFailedOutboundRetry(messages);
+    if (!failedRetry || failedRetry.requiresReattach) {
+      setAutoResendPendingMessageId(null);
+      return;
+    }
+    const body = failedRetry.displayText || failedRetry.text;
+    const failureReason = findLastFailedOutboundFailureReason(messages);
+    // A gateway-assigned id means the transcript merge matched this turn to a
+    // server row — the strongest proof of acceptance we have on the client.
+    const serverAcknowledged = Boolean(
+      failedRetry.messageId && !idHasPrefix(failedRetry.messageId, 'user-'),
+    );
+    const planFor = (nowMs: number) =>
+      resolveReconnectResendPlan({
+        failedText: body,
+        sessionId: currentSessionRef.current?.id,
+        messageId: failedRetry.messageId,
+        failureReason,
+        serverAcknowledged,
+        ledger: outboundLedgerRef.current,
+        nowMs,
+        macChatLive: macChatLiveRef.current,
+        isDemo: isDemoRef.current,
+        isSending: isSendingRef.current,
+      });
+
+    const plan = planFor(Date.now());
+    if (plan.kind === 'none') {
+      setAutoResendPendingMessageId(null);
+      return;
+    }
+    setAutoResendPendingMessageId(plan.kind === 'resend' ? failedRetry.messageId : null);
+
+    const timer = setTimeout(() => {
+      if (
+        autoResendInFlightRef.current ||
+        stalledRecoverInFlightRef.current ||
+        isSendingRef.current
+      ) {
+        return;
+      }
+      // Re-resolve at fire time: the link may have flapped back down, or another
+      // path may have already consumed this intent's budget.
+      const livePlan = planFor(Date.now());
+      if (livePlan.kind === 'none') {
+        setAutoResendPendingMessageId(null);
+        return;
+      }
+      if (livePlan.kind === 'resume') {
+        setAutoResendPendingMessageId(null);
+        resumeStalledOutboundRef.current(body);
+        return;
+      }
+      // Bump the budget BEFORE awaiting so a burst of reconnect edges landing in
+      // the same window sees the cooldown, not a second submission.
+      recordAutoResendAttempt(outboundLedgerRef.current, livePlan.intentKey, Date.now());
+      // Consume the reconnect edge — the next auto-resend needs a NEW disconnect.
+      sawLinkDownRef.current = false;
+      autoResendInFlightRef.current = true;
+      setErrorMessage(null);
+      setRunProgress((prev) =>
+        prev
+          ? { ...prev, phase: 'sending', detail: OUTBOUND_RECONNECTED_AUTO_RESEND }
+          : {
+              phase: 'sending',
+              startedAtMs: Date.now(),
+              detail: OUTBOUND_RECONNECTED_AUTO_RESEND,
+              sessionId: currentSessionRef.current?.id,
+            },
+      );
+      void (async () => {
+        try {
+          await retryFailedOutboundRef.current();
+        } finally {
+          autoResendInFlightRef.current = false;
+          setAutoResendPendingMessageId(null);
+        }
+      })();
+    }, RECONNECT_AUTO_RESEND_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [isDemo, isSending, macChatLive, messages, setRunProgress]);
+
   const hideMacTileForSilentHeal = shouldHideMacTileForSilentHeal({
     silentHealInFlight: connectionHealInFlight,
     macRetryBusy,
@@ -1829,9 +2109,13 @@ export default function ChatScreen() {
     });
   }, [health?.authMismatch, repairComputerLabel]);
 
+  // Never put optional "cloud approval push" status next to the computer name when
+  // chat itself is down — that reads as "computer not paired" (owner rage 2026-08-02).
+  // Only surface unpaired-relay copy when chat/HTTP is already healthy (secondary tip).
   const routeStatusLabel =
     settings.connectionMode === 'relay' &&
     !isPaired &&
+    effectiveMacHttpOk &&
     relayRouteDisplay.routeStatus !== 'Direct link'
       ? relayRouteDisplay.routeStatus
       : !effectiveMacHttpOk && connectionHealExhausted
@@ -3273,10 +3557,12 @@ export default function ChatScreen() {
             awaitingGatewayReplyRef.current = false;
             setAwaitingGatewayReply(false);
             commitMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId
-                  ? { ...m, content: preferRicherAssistantText(m.content, reply) }
-                  : m,
+              stripSupersededEmptyStreamTimeouts(
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? { ...m, content: preferRicherAssistantText(m.content, reply) }
+                    : m,
+                ),
               ),
             );
             const activityAfterReply = toolActivityAfterLastUser(msgs);
@@ -3396,6 +3682,43 @@ export default function ChatScreen() {
     },
     [startDeferredReplyPoll],
   );
+
+  /**
+   * Stall recovery for an outbound the gateway ALREADY accepted: resume the
+   * existing run (re-mark delivered + poll the transcript) instead of issuing a
+   * second submission. One user message must produce exactly one submission.
+   */
+  const resumeStalledOutboundDelivery = useCallback(
+    (body: string) => {
+      const text = body.trim();
+      if (!text) {
+        return;
+      }
+      isSendingRef.current = false;
+      setIsSending(false);
+      setErrorMessage(null);
+      commitMessages((prev) => markOutboundBubbleDelivered(prev, text));
+      pinnedOutboundStatusRef.current = 'sent';
+      setPinnedOutboundStatus('sent');
+      setRunProgress((prev) =>
+        prev
+          ? { ...prev, phase: 'working', detail: STALLED_SEND_RECOVERING_HINT }
+          : {
+              phase: 'working',
+              startedAtMs: Date.now(),
+              detail: STALLED_SEND_RECOVERING_HINT,
+              sessionId: currentSessionRef.current?.id,
+            },
+      );
+      startDeferredReplyPoll(
+        `asst-resume-${Date.now()}`,
+        snapshotAssistantBodies(messagesRef.current),
+        { recoveryMode: true },
+      );
+    },
+    [commitMessages, setRunProgress, startDeferredReplyPoll],
+  );
+  resumeStalledOutboundRef.current = resumeStalledOutboundDelivery;
 
   const resumeEmptyStreamRecoveryPoll = useCallback(() => {
     if (isDemo || !macChatLive || deferredTelegramPollRef.current) {
@@ -3979,10 +4302,17 @@ export default function ChatScreen() {
         fresh?.apiKey ?? (await secureCredentials.resolveApiKeyForProfile(activeProfileId));
       const probeUrl = nextSettings.gatewayUrl || fresh?.gatewayUrl || probeBase;
       const postRetryHealth = await fetchGatewayHealth(probeUrl, profileKey);
+      // A tap that ends in the same banner it started with is indistinguishable
+      // from a dead button — the user taps "tap to reconnect" forever and nothing
+      // on screen changes. Both give-up paths must say what failed and what works.
       if (postRetryHealth.authMismatch) {
         // Never re-print the banner the user just tapped — say what actually blocked it.
         setErrorMessage(repairFailureMessage ?? gatewayAuthRepairBanner(repairComputerLabel));
         haptics.warning();
+        Alert.alert(
+          `Could not reconnect to ${repairComputerLabel}`,
+          `${repairComputerLabel} answered, but this phone's saved key is out of date, so reconnecting alone cannot fix it.\n\nOpen Connection health and tap ${RECONNECT_REPAIR_ACTION_LABEL} to pair with it again.`,
+        );
         return;
       }
       if (!postRetryHealth.directGatewayReachable && postRetryHealth.level === 'red') {
@@ -3991,14 +4321,15 @@ export default function ChatScreen() {
             `Still can't reach ${repairComputerLabel}. Keep Tailscale on, or tap Find computers.`,
         );
         haptics.warning();
+        Alert.alert(
+          `Still can't reach ${repairComputerLabel}`,
+          'Your computer did not answer. Keep it awake and on the same Wi-Fi, or keep Tailscale on when you are on cellular, then tap Find computers.',
+        );
         return;
       }
 
       setErrorMessage((prev) => (prev && isAuthRepairMessage(prev) ? null : prev));
-      const retryText = lastFailedSendTextRef.current?.trim();
-      if (retryText) {
-        await sendUserTextRef.current(retryText, true);
-      }
+      await retryFailedOutboundRef.current();
     } catch (err) {
       console.warn('[handleMacRetry] failed:', err);
       setErrorMessage(
@@ -4273,6 +4604,37 @@ export default function ChatScreen() {
     () => !isDemo && macChatLive && shouldShowEmptyStreamRefreshCta(messages),
     [isDemo, macChatLive, messages],
   );
+
+  // When a real assistant reply lands after soft/hard empty-stream timeout, drop the
+  // stale "Stopped waiting" banner chrome, timeout bubble, and recovery toolStatus.
+  useEffect(() => {
+    if (isDemo || !macChatLive) {
+      return;
+    }
+    if (!serverHasAssistantReplyAfterLastUser(messages)) {
+      return;
+    }
+    const stripped = stripSupersededEmptyStreamTimeouts(messages);
+    if (stripped.length !== messages.length) {
+      commitMessages(() => stripped);
+    }
+    if (isEmptyStreamRecoveryStatus(toolStatus)) {
+      setToolStatus(null);
+    }
+    setRunProgress((prev) => {
+      if (!prev || prev.phase !== 'failed') {
+        return prev;
+      }
+      if (isEmptyStreamRecoveryStatus(prev.detail)) {
+        return null;
+      }
+      return prev;
+    });
+    if (awaitingGatewayReply) {
+      awaitingGatewayReplyRef.current = false;
+      setAwaitingGatewayReply(false);
+    }
+  }, [isDemo, macChatLive, messages, toolStatus, awaitingGatewayReply, commitMessages]);
 
   const lastUserPromptSentAtMs = useMemo(() => {
     const fromMessages = resolveLastUserPromptSentAtMs(messages);
@@ -4778,6 +5140,7 @@ export default function ChatScreen() {
     const action = resolveComposerSendAction({
       composerText,
       lastFailedText: lastFailedOutboundText ?? lastFailedSendTextRef.current,
+      hasFailedPayload: Boolean(lastFailedOutboundRetry),
       isDemo,
       macChatLive,
     });
@@ -4794,7 +5157,7 @@ export default function ChatScreen() {
       if (runProgressRef.current?.phase === 'failed') {
         setRunProgress(null);
       }
-      const accepted = await sendUserText(action.text, true);
+      const accepted = await retryFailedOutboundRef.current();
       if (accepted) {
         haptics.light();
       }
@@ -4886,14 +5249,39 @@ export default function ChatScreen() {
 
   const handleSend = useCallback(
     (latestText?: string) => {
-      const composerText = latestText ?? inputValueRef.current;
+      const composerText = resolveComposerSendText({
+        latestText,
+        composerValue: inputValueRef.current,
+        lastSentComposerText: lastSentComposerTextRef.current,
+      });
       if (!composerHasSendableContent(composerText, composerAttachmentsRef.current)) {
+        /**
+         * P0 (2026-07-25): the failed bubble tells the user "tap ↑ to send
+         * again", and this early return was swallowing that tap — the retry
+         * branch lives in handleSendMessage (resolveComposerSendAction), which
+         * was never reached with an empty composer. Route the tap through it.
+         *
+         * Gate strictly on a failed bubble that is ACTUALLY in the transcript —
+         * never on lastFailedSendTextRef, which outlives a recovered send and
+         * would turn a stray ↑ into a resurrected old prompt.
+         */
+        const retryAction = resolveComposerSendAction({
+          composerText: '',
+          lastFailedText: lastFailedOutboundTextRef.current,
+          hasFailedPayload: Boolean(findLastFailedOutboundRetry(messagesRef.current)),
+          isDemo: isDemoRef.current,
+          macChatLive: macChatLiveRef.current,
+        });
+        if (retryAction.kind === 'none') {
+          return;
+        }
+        void handleSendMessageRef.current('');
         return;
       }
       if (shouldBlockComposerSend(composerText)) {
         return;
       }
-      void handleSendMessageRef.current(latestText);
+      void handleSendMessageRef.current(composerText);
     },
     [shouldBlockDuplicateOutboundSend],
   );
@@ -5069,11 +5457,26 @@ export default function ChatScreen() {
       const key = resolveChatOutputFeedbackBusyKey(message);
       // Highlight the tapped thumb; user can switch up<->down freely.
       setFeedbackSelections((prev) => ({ ...prev, [key]: signal }));
-      // Always record the vote to ThumbGate. The explanation sheet is now
-      // opt-in (via the "Add details" link), not auto-opened on every tap.
-      void submitChatOutputFeedbackForMessage(message, signal).then((ok) => {
-        setTransientFeedbackNote(key, ok ? 'Saved to ThumbGate' : 'Not recorded', !ok);
+      // Record immediately with an honest outcome note (never claim "Saved" on offline queue).
+      void submitChatOutputFeedbackForMessage(message, signal).then((outcome) => {
+        const ok =
+          typeof outcome === 'boolean'
+            ? outcome
+            : Boolean(outcome && (outcome.accepted || outcome.status === 'queued_offline'));
+        const note =
+          typeof outcome === 'boolean'
+            ? ok
+              ? 'Saved to ThumbGate memory'
+              : 'Not recorded'
+            : outcome.note;
+        const isError =
+          typeof outcome === 'boolean' ? !ok : Boolean(outcome?.noteIsError);
+        setTransientFeedbackNote(key, note, isError);
       });
+      // Thumbs-down: open optional details so the capture can improve memory quality.
+      if (signal === 'down') {
+        setFeedbackPrompt({ message, signal });
+      }
     },
     [submitChatOutputFeedbackForMessage, setTransientFeedbackNote],
   );
@@ -5095,15 +5498,26 @@ export default function ChatScreen() {
   const resolveFeedbackPrompt = useCallback(
     (explanation?: string) => {
       if (feedbackPrompt) {
+        const key = resolveChatOutputFeedbackBusyKey(feedbackPrompt.message);
         void submitChatOutputFeedbackForMessage(
           feedbackPrompt.message,
           feedbackPrompt.signal,
           explanation?.trim() || undefined,
-        );
+        ).then((outcome) => {
+          if (typeof outcome === 'boolean') {
+            setTransientFeedbackNote(
+              key,
+              outcome ? 'Saved to ThumbGate memory' : 'Not recorded',
+              !outcome,
+            );
+            return;
+          }
+          setTransientFeedbackNote(key, outcome.note, outcome.noteIsError);
+        });
       }
       setFeedbackPrompt(null);
     },
-    [feedbackPrompt, submitChatOutputFeedbackForMessage],
+    [feedbackPrompt, submitChatOutputFeedbackForMessage, setTransientFeedbackNote],
   );
 
   const isTelegramInbox = isTelegramInboxSession(currentSession);
@@ -5150,11 +5564,27 @@ export default function ChatScreen() {
           isTelegramInbox={isTelegramInbox}
           connectionState={connectionState}
           macHttpOk={effectiveMacHttpOk}
+          autoResendPending={
+            Boolean(autoResendPendingMessageId) &&
+            message.id === autoResendPendingMessageId
+          }
           approvalBusy={approvalBusy}
           isSending={isSending}
           outputFeedback={outputFeedback}
           onShowDetail={handleShowMessageDetail}
           onInlineTextApproval={handleInlineTextApproval}
+          onResendFailed={() => {
+            // Prefer failed bubble body; refs avoid TDZ (this callback is defined above handleRetryFailedSend).
+            const retryText =
+              (typeof message.content === 'string' ? message.content.trim() : '') ||
+              lastFailedSendTextRef.current?.trim() ||
+              '';
+            if (!retryText) {
+              return;
+            }
+            lastFailedSendTextRef.current = retryText;
+            void sendUserTextRef.current(retryText, true);
+          }}
         />
       );
     },
@@ -5165,6 +5595,7 @@ export default function ChatScreen() {
       isTelegramInbox,
       connectionState,
       effectiveMacHttpOk,
+      autoResendPendingMessageId,
       approvalBusy,
       isSending,
       leashUnlocked,
@@ -5194,7 +5625,10 @@ export default function ChatScreen() {
     await sendUserText(CHAT_APPROVAL_UNDO_TEXT, true);
   };
 
-  const commitOutboundUserBubble = (text: string): string => {
+  const commitOutboundUserBubble = (
+    text: string,
+    retryEnvelope?: OutboundRetryEnvelope,
+  ): string => {
     const trimmed = text.trim();
     lastCommittedOutboundBodyRef.current = normalizeMessageText(trimmed);
     // Delivering / queue / stall-recovery must never clone the same intent.
@@ -5204,7 +5638,11 @@ export default function ChatScreen() {
       if (reusable.outboundStatus === 'failed') {
         pendingOutboundSendsRef.current += 1;
         commitMessages((prev) => {
-          const next = reactivateOptimisticUserBubble(prev, reusable.id!);
+          const next = reactivateOptimisticUserBubble(prev, reusable.id!).map((message) =>
+            message.id === reusable.id && retryEnvelope
+              ? { ...message, outboundRetryEnvelope: retryEnvelope }
+              : message,
+          );
           persistOutboundSnapshot(currentSessionRef.current?.id, next, {
             pinnedText: trimmed,
             pinnedSentAt: sentAt,
@@ -5235,6 +5673,7 @@ export default function ChatScreen() {
       content: trimmed,
       created_at: sentAt,
       outboundStatus: 'pending',
+      outboundRetryEnvelope: retryEnvelope,
     };
     commitMessages((prev) => {
       // Race-safe: another commit may have landed the same intent between the
@@ -5245,15 +5684,22 @@ export default function ChatScreen() {
           already.outboundStatus === 'failed'
             ? reactivateOptimisticUserBubble(prev, already.id)
             : prev;
+        const withRetryEnvelope = retryEnvelope
+          ? next.map((message) =>
+              message.id === already.id
+                ? { ...message, outboundRetryEnvelope: retryEnvelope }
+                : message,
+            )
+          : next;
         if (already.outboundStatus === 'failed') {
           pendingOutboundSendsRef.current += 1;
         }
-        persistOutboundSnapshot(currentSessionRef.current?.id, next, {
+        persistOutboundSnapshot(currentSessionRef.current?.id, withRetryEnvelope, {
           pinnedText: trimmed,
           pinnedSentAt: already.created_at ?? sentAt,
           pinnedStatus: 'pending',
         });
-        return next;
+        return withRetryEnvelope;
       }
       pendingOutboundSendsRef.current += 1;
       const next = [...prev, userMessage];
@@ -5287,17 +5733,19 @@ export default function ChatScreen() {
   async function sendUserText(
     userText: string,
     isProgrammatic = false,
-    outboundExtras?: {
-      gatewayContent?: ChatMessageContent;
-      displayText?: string;
-      attachments?: ComposerAttachment[];
-    },
+    outboundExtras?: OutboundSendExtras,
   ): Promise<boolean> {
     const typed = userText.trim();
     const attachments = outboundExtras?.attachments ?? [];
     const displayText = outboundExtras?.displayText?.trim() ?? typed;
     const gatewayMessage = outboundExtras?.gatewayContent ?? typed;
     if (!displayText) return false;
+    const retryEnvelope: OutboundRetryEnvelope = {
+      version: 1,
+      text: typed,
+      displayText,
+      attachments: attachments.map((attachment) => ({ ...attachment })),
+    };
 
     const normalizedDisplay = normalizeMessageText(displayText);
     if (
@@ -5558,7 +6006,11 @@ export default function ChatScreen() {
       pendingOutboundSendsRef.current += 1;
       const sentAt = reusableOutbound.created_at ?? new Date().toISOString();
       commitMessages((prev) => {
-        const next = reactivateOptimisticUserBubble(prev, reusableOutbound.id!);
+        const next = reactivateOptimisticUserBubble(prev, reusableOutbound.id!).map((message) =>
+          message.id === reusableOutbound.id
+            ? { ...message, outboundRetryEnvelope: retryEnvelope }
+            : message,
+        );
         persistOutboundSnapshot(currentSessionRef.current?.id, next, {
           pinnedText: displayText,
           pinnedSentAt: sentAt,
@@ -5573,9 +6025,47 @@ export default function ChatScreen() {
       setPinnedOutboundStatus('pending');
     } else {
       committedUserMessageId =
-        reusableOutbound?.id ?? commitOutboundUserBubble(displayText);
+        reusableOutbound?.id ?? commitOutboundUserBubble(displayText, retryEnvelope);
+    }
+    if (committedUserMessageId) {
+      // Sends are serialized; only the newest failed turn is retryable. Keeping
+      // older image data URLs would retain several megabytes per historical send.
+      preparedRetryContentRef.current.clear();
+      preparedRetryContentRef.current.set(committedUserMessageId, gatewayMessage);
     }
     outboundUserBubbleCommitted = true;
+
+    /**
+     * Idempotency record for THIS outbound intent, created BEFORE the offline
+     * gate on purpose: a send blocked while the Mac was unreachable must still
+     * leave a record, because "record exists and was never accepted" is what
+     * proves nothing is on the Mac and makes auto-resend-on-reconnect safe.
+     */
+    outboundSubmissionSeqRef.current += 1;
+    const outboundSubmissionId = createOutboundId(
+      Date.now(),
+      outboundSubmissionSeqRef.current,
+    );
+    recordOutboundSubmission(outboundLedgerRef.current, {
+      outboundId: outboundSubmissionId,
+      sessionId: currentSessionRef.current?.id ?? null,
+      messageId: committedUserMessageId,
+      body: normalizedDisplay,
+      nowMs: Date.now(),
+    });
+    /**
+     * Deliberately NOT routed through markMessageDeliveredToMac(): that helper is
+     * gated on isGatewayLiveForDelivery(), so a red health probe at accept time
+     * leaves a delivered bubble on `pending`. That exact gap is what let stall
+     * recovery re-POST a prompt the Mac was already running.
+     */
+    const markOutboundAcceptedByGateway = () => {
+      markOutboundSubmissionAccepted(
+        outboundLedgerRef.current,
+        outboundSubmissionId,
+        Date.now(),
+      );
+    };
 
     // False disconnect / offline send: keep the optimistic bubble as failed+retryable.
     // Never silently drop the typed message (composer already cleared by handleSend).
@@ -6038,6 +6528,14 @@ export default function ChatScreen() {
     let sendSucceeded = false;
     let sendFailureDetail: string | null = null;
 
+    // The target session is only known now (it may have been created for this
+    // very turn) — bind the record so cross-thread bodies never match.
+    attachOutboundSubmissionSession(
+      outboundLedgerRef.current,
+      outboundSubmissionId,
+      targetSessionId,
+    );
+
     try {
       activeChatStreamRef.current = true;
       setIsChatStreamActive(true);
@@ -6271,6 +6769,7 @@ export default function ChatScreen() {
           mobileChatSystemPrompt,
           () => {
             streamAccepted = true;
+            markOutboundAcceptedByGateway();
             markMessageDeliveredToMac();
             releaseOutboundSendLock();
             setRunProgress((prev) =>
@@ -6370,6 +6869,13 @@ export default function ChatScreen() {
       };
 
       let removedSessionRecoveryAttempted = false;
+      // Past this line the request is on the wire: if we never see the ack we can
+      // no longer PROVE the Mac does not have it, so auto-resend must stand down.
+      markOutboundSubmissionDispatched(
+        outboundLedgerRef.current,
+        outboundSubmissionId,
+        Date.now(),
+      );
       try {
         assistantText = await streamChatToSession(targetSessionId);
       } catch (streamErr) {
@@ -6419,6 +6925,7 @@ export default function ChatScreen() {
               ),
             notifyWaitingForMacSlot,
           );
+          markOutboundAcceptedByGateway();
           assistantText = response.assistantText;
           updateAssistant(assistantText);
           setToolStatus('Sent without live stream (connection fallback)');
@@ -6434,6 +6941,7 @@ export default function ChatScreen() {
         return false;
       }
 
+      markOutboundAcceptedByGateway();
       markMessageDeliveredToMac();
 
       const telegramDeferred = isTelegramDeferredEmptyStream(activeSess, assistantText);
@@ -6676,7 +7184,114 @@ export default function ChatScreen() {
     }
   };
 
+  const retryFailedOutbound = async (): Promise<boolean> => {
+    const retry =
+      findLastFailedOutboundRetry(messagesRef.current) ??
+      (() => {
+        const text = lastFailedSendTextRef.current?.trim() ?? '';
+        return text
+          ? {
+              messageId: null,
+              text,
+              displayText: text,
+              attachments: [],
+              source: 'legacy_text' as const,
+              requiresReattach: false,
+            }
+          : null;
+      })();
+    if (!retry) {
+      setErrorMessage('Nothing to retry — type your message again and send.');
+      return false;
+    }
+
+    void trackProductEvent(
+      'chat_failed_send_retry',
+      failedSendRetryTelemetryProperties(retry, 'attempt'),
+    );
+    setRetryE2eStatus(`attempt_${retry.attachments.length}`);
+    if (retry.requiresReattach) {
+      const message =
+        'This failed message included an attachment that is no longer available. Reattach it before sending — Hermes will not drop it.';
+      inputValueRef.current = retry.text;
+      setInputValue(retry.text);
+      setErrorMessage(message);
+      setRetryE2eStatus('reattach_required');
+      void trackProductEvent(
+        'chat_failed_send_retry',
+        failedSendRetryTelemetryProperties(retry, 'reattach_required'),
+      );
+      haptics.warning();
+      return false;
+    }
+
+    const acceptedPlan = resolveStallRecoveryPlan({
+      failedText: retry.displayText,
+      sessionId: currentSessionRef.current?.id,
+      messageId: retry.messageId ?? undefined,
+      ledger: outboundLedgerRef.current,
+    });
+    if (acceptedPlan.kind === 'resume') {
+      resumeStalledOutboundRef.current(retry.displayText);
+      setRetryE2eStatus(`accepted_${retry.attachments.length}`);
+      void trackProductEvent(
+        'chat_failed_send_retry',
+        failedSendRetryTelemetryProperties(retry, 'resumed_accepted'),
+      );
+      return true;
+    }
+
+    let gatewayContent =
+      (retry.messageId
+        ? preparedRetryContentRef.current.get(retry.messageId)
+        : undefined) ?? retry.text;
+    if (retry.attachments.length > 0 && !preparedRetryContentRef.current.has(retry.messageId ?? '')) {
+      let prepared: Awaited<ReturnType<typeof prepareChatMessageContent>>;
+      try {
+        prepared = await prepareChatMessageContent(retry.text, retry.attachments);
+      } catch (error) {
+        prepared = {
+          content: retry.text,
+          error: error instanceof Error ? error.message : 'Could not prepare attachments.',
+        };
+      }
+      if (prepared.error) {
+        inputValueRef.current = retry.text;
+        setInputValue(retry.text);
+        setComposerAttachments(retry.attachments.map((attachment) => ({ ...attachment })));
+        setErrorMessage(
+          `${prepared.error} The message was not resent; reattach the missing file and try again.`,
+        );
+        setRetryE2eStatus('prepare_failed');
+        void trackProductEvent(
+          'chat_failed_send_retry',
+          failedSendRetryTelemetryProperties(retry, 'prepare_failed'),
+        );
+        haptics.warning();
+        return false;
+      }
+      gatewayContent = prepared.content;
+      if (retry.messageId) {
+        preparedRetryContentRef.current.set(retry.messageId, prepared.content);
+      }
+    }
+
+    lastFailedSendTextRef.current = retry.text || retry.displayText;
+    const accepted = await sendUserText(retry.text, true, {
+      gatewayContent,
+      displayText: retry.displayText,
+      attachments: retry.attachments.map((attachment) => ({ ...attachment })),
+    });
+    setRetryE2eStatus(accepted ? `accepted_${retry.attachments.length}` : 'rejected');
+    void trackProductEvent(
+      'chat_failed_send_retry',
+      failedSendRetryTelemetryProperties(retry, accepted ? 'accepted' : 'rejected'),
+    );
+    return accepted;
+  };
+
   sendUserTextRef.current = sendUserText;
+  retryFailedOutboundRef.current = retryFailedOutbound;
 
   useEffect(() => {
     if (!pinnedOutboundText) {
@@ -6793,6 +7408,18 @@ export default function ChatScreen() {
     alternateHealRoutes,
   ]);
 
+  /** Top pulse + "Connected · working" while Mac is still thinking / checking. */
+  const chatWorking = useMemo(
+    () =>
+      isChatWorkingActivity({
+        isSending,
+        awaitingGatewayReply,
+        emptyStreamAutoChecking: showEmptyStreamRefreshBanner && awaitingGatewayReply,
+        runProgress: progressBanner,
+      }),
+    [isSending, awaitingGatewayReply, showEmptyStreamRefreshBanner, progressBanner],
+  );
+
   const emptyReplyRunRefreshEligible = useMemo(
     () =>
       !isDemo &&
@@ -6898,34 +7525,21 @@ export default function ChatScreen() {
     setPinnedOutboundText(null);
     setPinnedOutboundSentAt(null);
     setPinnedOutboundStatus('pending');
-    const retryText = lastFailedSendTextRef.current?.trim();
-    if (retryText) {
-      await sendUserTextRef.current(retryText, true);
-    }
+    await retryFailedOutboundRef.current();
   }, [apiKey, gatewayUrl, progressBanner?.runId, runProgress?.runId]);
 
   /** Empty-reply / "tap to retry" banner — must resend last failed text, not no-op. */
   const handleRetryFailedSend = useCallback(async () => {
     haptics.selection();
-    const retryText =
-      lastFailedSendTextRef.current?.trim() ||
-      lastFailedOutboundText?.trim() ||
-      pinnedOutboundText?.trim() ||
-      '';
     setErrorMessage(null);
     if (runProgressRef.current?.phase === 'failed') {
       setRunProgress(null);
     }
-    if (!retryText) {
-      setErrorMessage('Nothing to retry — type your message again and send.');
-      return;
-    }
-    lastFailedSendTextRef.current = retryText;
-    const accepted = await sendUserTextRef.current(retryText, true);
+    const accepted = await retryFailedOutboundRef.current();
     if (accepted) {
       haptics.light();
     }
-  }, [lastFailedOutboundText, pinnedOutboundText]);
+  }, []);
 
   const handleSelectAgentThread = useCallback(
     async (session: HermesSession) => {
@@ -7215,10 +7829,15 @@ export default function ChatScreen() {
     if (isDemo || !progress || !isActiveChatRun(progress)) {
       return;
     }
-    const noTokenOpts = { streamInFlight: activeChatStreamRef.current };
+    const activeSession = currentSessionRef.current;
+    const noTokenOpts = {
+      streamInFlight: activeChatStreamRef.current,
+      session: activeSession,
+    };
     const failNoToken = (current: NonNullable<typeof progress>) => {
-      const detail = shouldHardTimeoutRun(current, Date.now())
-        ? RUN_HARD_TIMEOUT_DETAIL
+      // Mega/live-prompt thrash → start-fresh copy; not "tap ↑" on a poisoned thread.
+      const detail = shouldHardTimeoutRun(current, Date.now(), activeSession)
+        ? runHardTimeoutDetail(current, activeSession)
         : RUN_NO_TOKEN_FAIL_DETAIL;
       isSendingRef.current = false;
       setIsSending(false);
@@ -7244,11 +7863,15 @@ export default function ChatScreen() {
     }
     const waitMs = Math.min(
       msUntilNoTokenFail(progress, Date.now(), noTokenOpts),
-      msUntilRunHardTimeout(progress, Date.now()),
+      msUntilRunHardTimeout(progress, Date.now(), activeSession),
     );
     const timer = setTimeout(() => {
       const current = runProgressRef.current;
-      const opts = { streamInFlight: activeChatStreamRef.current };
+      const session = currentSessionRef.current;
+      const opts = {
+        streamInFlight: activeChatStreamRef.current,
+        session,
+      };
       if (!current || !shouldFailRunAwaitingFirstToken(current, Date.now(), opts)) {
         return;
       }
@@ -7411,6 +8034,7 @@ export default function ChatScreen() {
           }
           isDemo={isDemo}
           chatStalled={effectiveAuthMismatch ? false : chatStalled}
+          chatWorking={effectiveAuthMismatch ? false : chatWorking}
           activeAgents={activeAgents}
           currentSession={currentSession}
           gatewayModel={headerGatewayModel}
@@ -7452,6 +8076,7 @@ export default function ChatScreen() {
           }}
           onMacRetry={() => void handleMacRetry()}
         />
+        <WorkingActivityBar visible={chatWorking && !effectiveAuthMismatch} />
       </View>
 
       <View style={styles.keyboardContainer}>
@@ -7514,6 +8139,7 @@ export default function ChatScreen() {
               }}
               liveUsb={liveUsbGateway}
               onAddProfile={addGatewayProfile}
+              hasThumbGateCompanion={Boolean(thumbgateApiKey?.trim())}
             />
           </ScrollView>
         ) : null}
@@ -7833,6 +8459,14 @@ export default function ChatScreen() {
           />
         ) : null}
 
+        {retryE2eStatus &&
+        (process.env.EXPO_PUBLIC_E2E_AUTOMATION === '1' ||
+          process.env.EXPO_PUBLIC_E2E_AUTOMATION === 'true') ? (
+          <Text testID="chat-failed-retry-e2e-status">
+            {retryE2eStatus}
+          </Text>
+        ) : null}
+
         <ChatInputBar
           value={inputValue}
           onChangeText={handleComposerTextChange}
@@ -7846,7 +8480,10 @@ export default function ChatScreen() {
           }
           sendMuted={
             megaSessionSendHardBlocked ||
-            !composerHasSendableContent(inputValue, composerAttachments)
+            // Empty composer + a retryable failed send IS actionable — the bubble
+            // says "tap ↑ to send again", so the arrow must not read as dead.
+            (!composerHasSendableContent(inputValue, composerAttachments) &&
+              !hasRetryableFailedSend)
           }
           sendDisabled={isComposerSendDisabled({
             isSending,

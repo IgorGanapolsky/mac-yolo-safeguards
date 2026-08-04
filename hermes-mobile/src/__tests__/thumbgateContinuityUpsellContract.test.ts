@@ -1,34 +1,44 @@
 import {
   THUMBGATE_WEB_URL,
+  THUMBGATE_PROMO_BUTTON_LABEL,
   thumbGatePromoCopy,
 } from '../utils/thumbgatePromoCopy';
+import { THUMBGATE_CONNECTOR_INSTALL_COMMAND } from '../utils/thumbgateFacilitation';
 
-// CEO, 2026-07-26: the promo must sell ThumbGate.app as an ADDITION to the mobile app and
-// drive paid signups — not present it as a fallback for a broken connection.
+// CEO 2026-07-26: additive Continuity, not broken-connection fallback.
+// CEO 2026-08-03: consumer Leash promo is SHORT — no coding agents, no install essay.
 //
 const SURFACES = ['leash_disconnected', 'leash_empty', 'connection_unreachable'] as const;
 
-describe('ThumbGate promo is a continuity upsell, not a failure fallback', () => {
-  it('positions the plans as an additive paid companion on every surface', () => {
+describe('ThumbGate promo is a short consumer upsell', () => {
+  it('keeps copy short and free of agent/dev manuals', () => {
     for (const s of SURFACES) {
       const promo = thumbGatePromoCopy(s);
-      expect(promo.headline).toBe('Upgrade Hermes with ThumbGate');
-      expect(promo.body).toMatch(/Add a web dashboard and paid Continuity to Hermes Mobile/);
-      expect(promo.body).toMatch(/Leash controls/);
-      expect(promo.body).toMatch(/eligible work moving when your Mac is offline/);
-      expect(promo.buttonLabel).toBe('See ThumbGate plans');
+      expect(promo.headline).toBe('ThumbGate.app');
+      expect(promo.body).toBe(
+        'Web dashboard and Continuity when your computer is offline.',
+      );
+      expect(promo.body.length).toBeLessThan(90);
+      expect(promo.buttonLabel).toBe(THUMBGATE_PROMO_BUTTON_LABEL);
+      expect(promo.buttonLabel).toMatch(/ThumbGate\.app/);
+      expect(promo.body).not.toMatch(/coding agent|npx skills|one-line Mac installer|Herdr/i);
       expect(promo.body).not.toMatch(
-        /phone cannot reach|can't reach|unable to reach|pair a Mac and continue|replacement|instead/i,
+        /phone cannot reach|unable to reach|pair a Mac and continue|replacement for Hermes Mobile/i,
       );
     }
   });
 
-  it('attributes mobile conversions and opens the pricing section', () => {
+  it('attributes mobile conversions and opens /dashboard (product-first)', () => {
     expect(THUMBGATE_WEB_URL).toContain('utm_source=hermes-mobile');
     expect(THUMBGATE_WEB_URL).toContain('utm_campaign=paid_companion');
-    expect(THUMBGATE_WEB_URL.endsWith('#pricing')).toBe(true);
+    expect(THUMBGATE_WEB_URL).toContain('/dashboard');
+    expect(THUMBGATE_WEB_URL).not.toContain('#pricing');
     for (const s of SURFACES) {
       expect(thumbGatePromoCopy(s).url).toBe(THUMBGATE_WEB_URL);
     }
+  });
+
+  it('keeps the public Mac connector command for the web dashboard (not Leash UI)', () => {
+    expect(THUMBGATE_CONNECTOR_INSTALL_COMMAND).toContain('install-connector.sh');
   });
 });

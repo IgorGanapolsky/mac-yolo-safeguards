@@ -1,3 +1,4 @@
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import {
@@ -117,7 +118,7 @@ describe('apkReleaseGuards integration', () => {
       .readFileSync(releaseApk)
       .length > 0
       ? require('child_process')
-          .execSync(`unzip -Z1 ${JSON.stringify(releaseApk)}`, { encoding: 'utf8' })
+          .execFileSync('unzip', ['-Z1', releaseApk], { encoding: 'utf8' })
           .split('\n')
           .filter(Boolean)
       : [];

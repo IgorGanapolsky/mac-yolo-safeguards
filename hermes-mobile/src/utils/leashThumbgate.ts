@@ -70,7 +70,13 @@ export function buildChatOutputThumbgateCaptureBody(
   ]
     .filter(Boolean)
     .join(' · ');
-  const tags = ['hermes-mobile', 'leash', 'chat-output', signal === 'down' ? 'thumbs-down' : 'thumbs-up'];
+  const tags = [
+    'hermes-mobile',
+    'leash',
+    'chat-output',
+    'memory-feedback',
+    signal === 'down' ? 'thumbs-down' : 'thumbs-up',
+  ];
 
   if (signal === 'down') {
     return {
@@ -78,7 +84,8 @@ export function buildChatOutputThumbgateCaptureBody(
       context,
       whatWentWrong: explanation || 'Operator marked this Hermes output as unhelpful.',
       whatToChange:
-        explanation || 'Adjust future Hermes outputs using this chat-output feedback signal.',
+        explanation ||
+        'Prefer concrete results over claims; verify tools ran; avoid mega-session thrash; capture this pattern in ThumbGate memory for future agents.',
       tags,
     };
   }
@@ -86,7 +93,9 @@ export function buildChatOutputThumbgateCaptureBody(
   return {
     signal,
     context,
-    whatWorked: explanation || 'Operator marked this Hermes output as useful.',
+    whatWorked:
+      explanation ||
+      'Operator marked this Hermes output as useful — prefer similar structure and verified results.',
     tags,
   };
 }

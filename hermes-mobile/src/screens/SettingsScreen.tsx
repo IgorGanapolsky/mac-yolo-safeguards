@@ -40,6 +40,8 @@ import { secureCredentials } from '../services/secureCredentials';
 import { requestHermesNotificationPermission } from '../services/approvalNotifications';
 import { deriveNotificationsEnabled } from '../utils/notificationPreferences';
 import { consumeSettingsPairQrOnFocus } from '../utils/storeCaptureDeepLink';
+import CollapsibleSection from '../components/CollapsibleSection';
+import { useSectionExpansion } from '../hooks/useSectionExpansion';
 
 export default function SettingsScreen() {
   const navigation = useNavigation();
@@ -97,6 +99,7 @@ export default function SettingsScreen() {
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [qrScannerVisible, setQrScannerVisible] = useState(false);
   const [glassesConnected, setGlassesConnected] = useState(false);
+  const { isExpanded, toggleSection } = useSectionExpansion();
 
   const leaveSettings = useCallback(() => {
     Keyboard.dismiss();
@@ -393,7 +396,7 @@ export default function SettingsScreen() {
       );
       setPairCode('');
       Alert.alert(
-        'Cloud approvals paired',
+        'Lock-screen approvals ready',
         'Approval requests can arrive anywhere. This does not provide live Chat or computer tools; connect to your computer with Tailscale, USB, or home Wi‑Fi.',
       );
     } catch (err) {
@@ -477,27 +480,34 @@ export default function SettingsScreen() {
 
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
 
-        <Text style={styles.sectionTitle}>📊 Privacy</Text>
-        <GlassCard>
-          <View style={styles.switchRow}>
-            <View style={styles.switchLabelCol}>
-              <Text style={styles.label}>Product analytics</Text>
-              <Text style={styles.description}>
-                Anonymous usage events (screen views, computer scan results) via PostHog. No chat content.
-              </Text>
+        <CollapsibleSection
+          title="📊 Privacy"
+          expanded={isExpanded('privacy')}
+          onToggle={() => toggleSection('privacy')}
+          testID="settings-section-privacy"
+          titleStyle={styles.sectionTitle}
+        >
+          <GlassCard>
+            <View style={styles.switchRow}>
+              <View style={styles.switchLabelCol}>
+                <Text style={styles.label}>Product analytics</Text>
+                <Text style={styles.description}>
+                  Anonymous usage events (screen views, computer scan results) via PostHog. No chat content.
+                </Text>
+              </View>
+              <Switch
+                value={!analyticsOptOut}
+                onValueChange={(enabled) => {
+                  setAnalyticsOptOut(!enabled);
+                  setProductAnalyticsOptOut(!enabled);
+                }}
+                testID="analytics-opt-in-switch"
+              />
             </View>
-            <Switch
-              value={!analyticsOptOut}
-              onValueChange={(enabled) => {
-                setAnalyticsOptOut(!enabled);
-                setProductAnalyticsOptOut(!enabled);
-              }}
-              testID="analytics-opt-in-switch"
-            />
-          </View>
-        </GlassCard>
+          </GlassCard>
+        </CollapsibleSection>
 
-        <Text style={styles.sectionTitle}>Hermes Machines</Text>
+        {/* Connection warnings stay outside collapsible bodies so they cannot be hidden. */}
         {cellularBlocksDirect ? (
           <GlassCard style={styles.tunnelWizardCard} testID="settings-cellular-tunnel-banner">
             <Text style={styles.tunnelWizardTitle} testID="settings-tunnel-wizard-title">
@@ -544,11 +554,18 @@ export default function SettingsScreen() {
             void addDiscoveredTailscaleComputer(discovery);
           }}
         />
+        <CollapsibleSection
+          title="Hermes Machines"
+          expanded={isExpanded('machines')}
+          onToggle={() => toggleSection('machines')}
+          testID="settings-section-machines"
+          titleStyle={styles.sectionTitle}
+        >
         <GlassCard>
           <Text style={styles.label}>Your active machines</Text>
           <Text style={styles.description}>
-            Away from home, use Tailscale so your phone can reach your computer. On home Wi‑Fi,
-            Find computers works without a tunnel. Saved machines power Chat, tools, and ops.
+            Tailscale reaches your computer anywhere — at home or away. On the same Wi‑Fi, Find
+            computers can also discover it. Saved machines power Chat, tools, and ops.
           </Text>
           <GatewayProfilePicker
             profiles={profilesForSwitchComputerPicker(savedMacProfiles)}
@@ -635,21 +652,35 @@ export default function SettingsScreen() {
           </Text>
         </GlassCard>
 
-        <View testID="GATEWAY_OPS" accessible={true}>
-          <Text style={styles.sectionTitle}>Computer gateway ops</Text>
-        </View>
-        <Text style={styles.description}>
-          Toolsets, cron jobs, and skills from your computer (Tailscale, home Wi‑Fi, or USB).
-        </Text>
-        <GatewayOpsSection />
+        </CollapsibleSection>
 
-        <Text style={styles.sectionTitle}>Computer connection</Text>
+        <View testID="GATEWAY_OPS">
+          <CollapsibleSection
+            title="Computer gateway ops"
+            hint="Toolsets, cron jobs, and skills from your computer (Tailscale or home Wi‑Fi). Each catalog names the machine it came from."
+            expanded={isExpanded('gateway-ops')}
+            onToggle={() => toggleSection('gateway-ops')}
+            testID="settings-section-gateway-ops"
+            titleStyle={styles.sectionTitle}
+            hintStyle={styles.description}
+          >
+            <GatewayOpsSection />
+          </CollapsibleSection>
+        </View>
+
+        <CollapsibleSection
+          title="Computer connection"
+          expanded={isExpanded('computer-connection')}
+          onToggle={() => toggleSection('computer-connection')}
+          testID="settings-section-computer-connection"
+          titleStyle={styles.sectionTitle}
+        >
         <GlassCard>
           <Text style={styles.description}>
             Use Tailscale away from home, or USB/home Wi‑Fi nearby, for Chat, tools, and ops.
           </Text>
           <View style={styles.relayRouteCard} testID="relay-route-card">
-            <Text style={styles.relayRouteEyebrow}>Cloud approvals (optional)</Text>
+            <Text style={styles.relayRouteEyebrow}>Lock-screen approvals (optional)</Text>
             <Text style={styles.relayRouteTitle} testID="relay-route-title">
               {relayRouteDisplay.machineLabel}
             </Text>
@@ -695,7 +726,7 @@ export default function SettingsScreen() {
           <View style={styles.spacer} />
           <View style={styles.switchRow}>
             <View style={styles.switchLabelCol}>
-              <Text style={styles.switchLabel}>Cloud approvals (optional)</Text>
+              <Text style={styles.switchLabel}>Lock-screen approvals (optional)</Text>
               <Text style={styles.switchDesc}>
                 Pair your Hermes account for approval requests anywhere. Does not provide live Chat or computer tools.
               </Text>
@@ -716,7 +747,7 @@ export default function SettingsScreen() {
             </Text>
           ) : null}
           <View style={styles.divider} />
-          <Text style={styles.label}>Cloud approvals URL (advanced)</Text>
+          <Text style={styles.label}>Approval push URL (advanced)</Text>
           <TextInput
             style={styles.input}
             value={cloudUrl}
@@ -782,7 +813,15 @@ export default function SettingsScreen() {
           </Text>
         </GlassCard>
 
-        <Text style={styles.sectionTitle}>Notification preferences</Text>
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title="Notification preferences"
+          expanded={isExpanded('notifications')}
+          onToggle={() => toggleSection('notifications')}
+          testID="settings-section-notifications"
+          titleStyle={styles.sectionTitle}
+        >
         <GlassCard>
           <Text style={styles.switchDesc}>
             Heads-up banners are reserved for approvals only. Live run and completion stay in the
@@ -813,9 +852,10 @@ export default function SettingsScreen() {
 
           <View style={styles.switchRow}>
             <View style={styles.switchLabelCol}>
-              <Text style={styles.switchLabel}>Live run status (quiet)</Text>
+              <Text style={styles.switchLabel}>Live status (quiet, Uber-style)</Text>
               <Text style={styles.switchDesc}>
-                Optional quiet shade while a run is active. Off by default — does not heads-up.
+                Quiet shade for run progress and connection lost/restored. Off by default — never
+                heads-up.
               </Text>
             </View>
             <Switch
@@ -850,8 +890,15 @@ export default function SettingsScreen() {
           </View>
         </GlassCard>
 
-        {/* Safeguard Options */}
-        <Text style={styles.sectionTitle}>🛡 Safeguard Rules</Text>
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title="🛡 Safeguard Rules"
+          expanded={isExpanded('safeguards')}
+          onToggle={() => toggleSection('safeguards')}
+          testID="settings-section-safeguards"
+          titleStyle={styles.sectionTitle}
+        >
         <GlassCard>
           <Text style={styles.switchLabel}>Approval policy</Text>
           <Text style={styles.switchDesc}>
@@ -938,9 +985,16 @@ export default function SettingsScreen() {
           </View>
         </GlassCard>
 
+        </CollapsibleSection>
+
         {Platform.OS === 'android' ? (
-          <>
-            <Text style={styles.sectionTitle}>🕶️ AI glasses</Text>
+          <CollapsibleSection
+            title="🕶️ AI glasses"
+            expanded={isExpanded('ai-glasses')}
+            onToggle={() => toggleSection('ai-glasses')}
+            testID="settings-section-ai-glasses"
+            titleStyle={styles.sectionTitle}
+          >
             <GlassCard>
               <Text style={styles.description}>
                 Launch the native projected ThumbGate Leash activity on paired AI glasses. Currently supports
@@ -971,12 +1025,17 @@ export default function SettingsScreen() {
                 </Text>
               </TouchableOpacity>
             </GlassCard>
-          </>
+          </CollapsibleSection>
         ) : null}
 
         {isDemoModeAllowed() ? (
-          <>
-            <Text style={styles.sectionTitle}>🧪 Developer Tools</Text>
+          <CollapsibleSection
+            title="🧪 Developer Tools"
+            expanded={isExpanded('developer')}
+            onToggle={() => toggleSection('developer')}
+            testID="settings-section-developer"
+            titleStyle={styles.sectionTitle}
+          >
             <GlassCard>
               <View style={styles.switchRow}>
                 <View style={styles.switchLabelCol}>
@@ -1004,7 +1063,7 @@ export default function SettingsScreen() {
                 </TouchableOpacity>
               ) : null}
             </GlassCard>
-          </>
+          </CollapsibleSection>
         ) : null}
 
         {/* Save Button */}

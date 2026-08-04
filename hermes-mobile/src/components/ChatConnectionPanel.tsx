@@ -76,6 +76,8 @@ type ChatConnectionPanelProps = {
   ) => Promise<void>;
   liveUsb?: LiveUsbPickerInput | null;
   testID?: string;
+  /** Suppress absence/install promo when companion credential already on phone. */
+  hasThumbGateCompanion?: boolean;
 };
 
 export type ConnectionStatusChip = {
@@ -144,6 +146,7 @@ export default function ChatConnectionPanel({
   onAddProfile,
   liveUsb = null,
   testID = 'chat-connection-panel',
+  hasThumbGateCompanion = false,
 }: ChatConnectionPanelProps) {
   const [showOtherWays, setShowOtherWays] = useState(false);
   const heal = connectionHealSnapshot(connectionHealAttempt, connectionHealInFlight);
@@ -258,6 +261,7 @@ export default function ChatConnectionPanel({
     profileCount: profiles.length,
     healExhausted: heal.exhausted,
     activeProfileReachable,
+    hasThumbGateCompanion,
   });
 
   return (
@@ -317,7 +321,7 @@ export default function ChatConnectionPanel({
             {showUsbFix ? (
               <LoadingButton
                 label={primaryActionLabel}
-                loadingLabel="Fixing USB connection…"
+                loadingLabel="Fixing computer link…"
                 loading={usbFixBusy}
                 onPress={() => onFixUsbLink?.()}
                 testID="chat-connection-fix-usb"

@@ -115,14 +115,6 @@ const CATALOG: Record<string, GatewayFeatureInfo> = {
   },
 };
 
-const GROUP_ORDER: Record<GatewayFeatureInfo['group'], number> = {
-  chat: 0,
-  runs: 1,
-  tools: 2,
-  platform: 3,
-  other: 4,
-};
-
 function humanizeFeatureKey(key: string): string {
   return key
     .replace(/_/g, ' ')
@@ -176,11 +168,8 @@ export function buildGatewayFeatureRows(
     }
   }
   rows.sort((a, b) => {
-    const g = GROUP_ORDER[a.info.group] - GROUP_ORDER[b.info.group];
-    if (g !== 0) {
-      return g;
-    }
-    return a.info.title.localeCompare(b.info.title);
+    const byTitle = a.info.title.localeCompare(b.info.title, undefined, { sensitivity: 'base' });
+    return byTitle !== 0 ? byTitle : a.info.title.localeCompare(b.info.title);
   });
   return rows;
 }
