@@ -1,0 +1,33 @@
+name: "mac-yolo-safeguards CodeQL"
+
+# Default query suite (security-and-quality via default setup UI).
+# paths-ignore reduces monorepo noise so Security tab stays actionable.
+paths-ignore:
+  - "node_modules/**"
+  - "**/node_modules/**"
+  - ".worktrees/**"
+  - "business_os/**"
+  - "parallel-research/**"
+  - "graphify-out/**"
+  - "tmp/**"
+  - "**/dist/**"
+  - "**/build/**"
+  - "**/coverage/**"
+  - "**/Pods/**"
+  - "hermes-mobile/android/**"
+  - "hermes-mobile/ios/**"
+  - "content-engine/**"
+  - "outreach/**"
+  # Test fixtures intentionally use domain/host string checks and shell probes.
+  # Production tools must use tools/lib/safe-*.js (enforced by codeql-pattern-gate).
+  - "tests/**"
+  - "**/__tests__/**"
+  - "**/*.test.js"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.test.mjs"
+  - "**/*.spec.ts"
+  - "**/*.spec.js"
+
+# Do not disable insufficient-password-hash globally — only false-positive on JWT
+# hand-roll, which is banned by tools/codeql-pattern-gate.js offline.

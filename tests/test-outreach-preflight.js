@@ -134,33 +134,66 @@ it("warns but does not block on length and extra links", () => {
 
 // --- sender health: the failure that produced zero deliveries ---------------
 
+// Snapshot of the 2026-07-31 outage. Live coordination/sender-health.json is now ok
+// after PE free trial + mailbox restore — fixtures must not depend on that file.
+const UNHEALTHY_IGOR = {
+  status: "unhealthy",
+  lastProbe: "2026-07-31T15:20:11Z",
+  detail: "Gmail send-as relay 535 CustomFromDenied (fixture of pre-restore outage)",
+};
+
 it("BLOCKS drafting from a sender whose last probe failed", () => {
-  // igor@igorganapolsky.com: 7/7 bounces, most recent a live probe on 2026-07-31T15:20:11Z
-  // that DSN'd 4 seconds later. Five prospects were consumed by this on 2026-07-29 while
-  // the ledger recorded them as sent.
-  const r = check({ ...GOOD, from: "igor@igorganapolsky.com" });
+  // igor@igorganapolsky.com: 7/7 bounces through 2026-07-31T15:20:11Z while domain SMTP
+  // was broken. Five prospects were consumed on 2026-07-29 with ledger stage=sent.
+  const r = check({
+    ...GOOD,
+    from: "igor@igorganapolsky.com",
+    healthOverride: UNHEALTHY_IGOR,
+  });
   assert.strictEqual(r.ok, false, "allowed a draft from a sender proven not to deliver");
   assert.match(r.blocks.join(" "), /UNHEALTHY/);
 });
 
 it("ALLOWS drafting from the sender that actually delivers", () => {
-  const r = check({ ...GOOD, from: "iganapolsky@gmail.com" });
+  const r = check({
+    ...GOOD,
+    from: "iganapolsky@gmail.com",
+    healthOverride: { status: "ok", lastProbe: "2026-07-31T16:00:00Z", detail: "fixture" },
+  });
   assert.strictEqual(r.ok, true, `blocked the working sender: ${r.blocks.join("; ")}`);
 });
 
 it("warns, but does not block, on a sender with no probe record", () => {
   // Unknown is not the same as broken. Blocking unknown senders would make the gate
   // unusable the first time a new address is introduced.
-  const r = check({ ...GOOD, from: "someone@newdomain.com" });
+  const r = check({ ...GOOD, from: "someone@newdomain.com", healthOverride: null });
   assert.strictEqual(r.ok, true);
   assert.match(r.warnings.join(" "), /No probe record/);
 });
 
 it("BLOCKS the documented default domain sender when unhealthy", () => {
-  // CLI defaults --from to igor@ when omitted. check() with that sender must block.
-  const r = check({ ...GOOD, from: "igor@igorganapolsky.com" });
+  // CLI defaults --from to igor@ when omitted. Unhealthy probe state must block.
+  const r = check({
+    ...GOOD,
+    from: "igor@igorganapolsky.com",
+    healthOverride: UNHEALTHY_IGOR,
+  });
   assert.strictEqual(r.ok, false);
   assert.match(r.blocks.join(" "), /UNHEALTHY/);
+});
+
+it("ALLOWS drafting from igor@ when the live probe is ok", () => {
+  // After 2026-07-31 PE mailbox restore, domain send-as delivers. Gate must open.
+  const r = check({
+    ...GOOD,
+    from: "igor@igorganapolsky.com",
+    healthOverride: {
+      status: "ok",
+      lastProbe: "2026-07-31T19:22:54Z",
+      detail: "Gmail send-as probe delivered INBOX; no DSN",
+    },
+  });
+  assert.strictEqual(r.ok, true, `blocked healthy domain sender: ${r.blocks.join("; ")}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
