@@ -14,10 +14,10 @@
 
 const DEFAULT_K = 60;
 const DEFAULT_WEIGHTS = Object.freeze({
-  harness: 2.4, // sparse path/token scorer — best for identifier-heavy code queries
-  // grepae dense is complementary but can promote mobile/UI near-neighbors over
-  // control-plane routes (measured 2026-08-04 lessons-feedback flaky miss).
-  grepai: 0.85,
+  harness: 2.2, // sparse path/token scorer — best for identifier-heavy code queries
+  // grepae complementary; slightly below 1.0 so dual agreement still beats
+  // mid-pack harness-only (unit tests) without burying harness@1 (swarm goldens).
+  grepai: 0.9,
   default: 1.0,
 });
 
@@ -147,28 +147,27 @@ function rrfFuse(lists, options = {}) {
       const agreement =
         sources.some((s) => String(s).startsWith('harness')) &&
         sources.some((s) => String(s).includes('grepai') || s === 'grepai')
-          ? 0.012
+          ? 0.015
           : sources.length > 1
             ? 0.006
             : 0;
       // Only apply path-token boost when fusing ≥2 lists; single-path is already ranked.
       const pathBoost = activeLists >= 2 ? pathTokenBoost(p, queryTokens) : 0;
       const qualityPenalty = pathQualityPenalty(p);
-      // Respect strong sparse ranker: harness@1 should not be buried by grepae agreement noise
-      // (2026-08-01: agent-swarm-harness harness@1 dual@6 under equal RRF;
-      //  re-proof: still dual@2 under 0.03 prior — raise to clear multi-source docs).
-      // Soft prior through rank 12 keeps harness production paths (e.g. apps/.../lessons
-      // at harness@8-9) inside top-k when grepae injects UI near-neighbors.
+      // Strong prior only for top-3 sparse hits (keeps harness@1 goldens first).
+      // Ranks 4–12 get a light nudge so apps/.../lessons@8-9 stay near top-k without
+      // letting harness@4 solo beat dual-listed mid-pack agreement (CI unit tests
+      // 2026-08-04: a.js@4 solo was wrongly beating b.js dual after prior over-tune).
       let harnessPrior = 0;
       if (m.harnessRank != null && m.harnessRank > 0 && m.harnessRank <= 12) {
         harnessPrior =
           m.harnessRank === 1
             ? 0.055
             : m.harnessRank === 2
-              ? 0.028
+              ? 0.025
               : m.harnessRank === 3
-                ? 0.016
-                : 0.006 * (13 - m.harnessRank);
+                ? 0.012
+                : 0.0015 * (13 - m.harnessRank);
       }
       const rrfScore = Number(
         (score + agreement + pathBoost + harnessPrior - qualityPenalty).toFixed(6),
