@@ -477,14 +477,27 @@ describe('release safety contract', () => {
     expect(flow).toContain('connect-mac-gate');
   });
 
-  it('iOS App Store production EAS enables store review demo only on iOS', () => {
+  it('iOS App Store production EAS never enables store review demo (zero demo forever)', () => {
     const eas = JSON.parse(read('hermes-mobile/eas.json'));
-    expect(eas.build.production.ios.env.EXPO_PUBLIC_STORE_REVIEW_DEMO).toBe('1');
+    const iosEnv = eas.build.production.ios?.env || {};
+    expect(iosEnv.EXPO_PUBLIC_STORE_REVIEW_DEMO).toBeUndefined();
     expect(eas.build.production.env.EXPO_PUBLIC_STORE_REVIEW_DEMO).toBeUndefined();
+    // No build profile may bake store-review demo.
+    for (const [name, cfg] of Object.entries(eas.build as Record<string, any>)) {
+      const envs = [cfg.env, cfg.ios?.env, cfg.android?.env].filter(Boolean);
+      for (const env of envs) {
+        expect(env.EXPO_PUBLIC_STORE_REVIEW_DEMO).toBeUndefined();
+      }
+    }
+    const policy = read('hermes-mobile/src/utils/demoModePolicy.ts');
+    expect(policy).toContain('ZERO DEMO FOREVER');
+    expect(policy).toMatch(/isStoreReviewDemoBuild[\s\S]*return false/);
+    expect(policy).toContain('isE2eAutomationBuild()');
+    expect(policy).not.toMatch(/return __DEV__ \|\| isE2eAutomationBuild/);
     const safeNotes = read('hermes-mobile/scripts/asc-review-notes-template.txt');
-    expect(safeNotes).toContain('Demo mode');
     expect(safeNotes).toContain('macOS, Linux, or Windows');
-    expect(safeNotes).toContain('hermes://setup?demo=1');
+    expect(safeNotes).not.toContain('Demo mode');
+    expect(safeNotes).not.toContain('hermes://setup?demo=1');
     expect(safeNotes).not.toMatch(/ts\.net/);
   });
 

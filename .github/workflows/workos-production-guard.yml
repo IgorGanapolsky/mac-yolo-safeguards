@@ -21,14 +21,19 @@ concurrency:
   group: workos-production-guard
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   guard:
     name: Verify production auth (client, chain, sign-in methods)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version: '22'
 

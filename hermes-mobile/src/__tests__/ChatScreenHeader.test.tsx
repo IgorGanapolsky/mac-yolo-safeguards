@@ -17,7 +17,7 @@ describe('ChatScreenHeader', () => {
       />,
     );
     expect(getByTestId('chat-header-model-strip').props.children).toContain('Qwen3.5 9B Hermes');
-    expect(getByTestId('chat-header-model-strip').props.children).toContain('1,240 session');
+    expect(getByTestId('chat-header-model-strip').props.children).toContain('In: 1,200 tokens | Out: 40 tokens');
     expect(queryByTestId('chat-header-details-toggle')).toBeNull();
     expect(queryByTestId('chat-header-details-chevron')).toBeNull();
   });
@@ -507,7 +507,7 @@ describe('ChatScreenHeader', () => {
     const label = getByTestId('chat-header-hermes-status').props.children;
     expect(label).toContain('qwen3:8b-64k');
     expect(label).not.toContain('hermes-agent');
-    expect(label).toBe('Hermes (active) · qwen3:8b-64k · 1,000 session');
+    expect(label).toBe('Hermes (active) · qwen3:8b-64k · In: 800 tokens | Out: 200 tokens');
   });
 
   it('shows live in/out tokens from run progress while a turn is active', () => {
@@ -532,7 +532,7 @@ describe('ChatScreenHeader', () => {
     );
 
     expect(getByTestId('chat-header-hermes-status').props.children).toBe(
-      'Hermes (active) · qwen3:8b-64k · In: 34,000 | Out: 128',
+      'Hermes (active) · qwen3:8b-64k · In: 34,000 tokens | Out: 128 tokens',
     );
   });
 });
@@ -547,7 +547,7 @@ describe('buildHermesStatusLabel', () => {
         { model: 'qwen3:8b-64k', input_tokens: 500, output_tokens: 20 },
         'google/gemini-2.5-flash',
       ),
-    ).toBe('Hermes (active) · qwen3:8b-64k · 520 session');
+    ).toBe('Hermes (active) · qwen3:8b-64k · In: 500 tokens | Out: 20 tokens');
   });
 
   it('hides gateway platform labels and falls back to the next source', () => {

@@ -43,19 +43,16 @@ function isWorkerFresh(worker, now = Date.now()) {
 }
 
 function slugify(input) {
-  return String(input || 'worker')
+  // No leading/trailing dash regexes at all: CodeQL still flags even the
+  // split `.replace(/^-+/,'').replace(/-+$/,'')` form as polynomial-redos
+  // on worker-supplied machineId. Slice with startsWith/endsWith is O(n).
+  let s = String(input || 'worker')
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    // Two anchored, non-global replaces instead of the classic
-    // `/^-+|-+$/g` trim-polyfill pattern: that global alternation-of-anchors
-    // shape is a known polynomial-ReDoS trap (js/polynomial-redos) once it
-    // runs on attacker-influenced input (this feeds worker-supplied
-    // machineId), because the engine retries the `-+$` branch at every
-    // position instead of stopping after one anchored match.
-    .replace(/^-+/, '')
-    .replace(/-+$/, '')
-    .slice(0, 48) || 'worker';
+    .replace(/[^a-z0-9]+/g, '-');
+  while (s.startsWith('-')) s = s.slice(1);
+  while (s.endsWith('-')) s = s.slice(0, -1);
+  return s.slice(0, 48) || 'worker';
 }
 
 function generatePairCode(existingCodes) {

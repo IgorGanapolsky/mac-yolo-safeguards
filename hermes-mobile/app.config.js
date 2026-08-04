@@ -8,7 +8,7 @@ const ANDROID_PAID_PACKAGE = 'com.iganapolsky.hermesmobile.paid';
 
 module.exports = ({ config }) => {
   const e2eAutomation = truthy(process.env.EXPO_PUBLIC_E2E_AUTOMATION);
-  const storeReviewDemo = truthy(process.env.EXPO_PUBLIC_STORE_REVIEW_DEMO);
+  const storeReviewDemo = false; // CEO 2026-08-03: zero demo forever — never bake store-review demo
   const updatesChannel = process.env.EXPO_PUBLIC_UPDATES_CHANNEL || 'production';
   const androidStoreSku =
     process.env.HERMES_ANDROID_STORE_SKU === 'paid' ||

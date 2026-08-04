@@ -30,6 +30,7 @@ bash scripts/verify-agent-automations.sh
 | `com.igor.hermes-mobile-continuous-e2e` | 15m | `hermes-mobile/scripts/run-continuous-e2e.sh --once` | Unit tests + Maestro E2E (Android USB → iOS sim) |
 | `com.igor.shutdown-simulators` | 60s | `sim-runaway-guard.sh` | Mac freeze guard (protected) |
 | `com.igor.revenue-autonomous-loop` | 4h | `tools/revenue-autonomous-loop.js --auto-send --json` | Funnel diagnose, Stripe link health, due follow-ups, Gmail auto-send (cap 5), ntfy |
+| `com.igor.tml-tinker-engage` | 4h | `tools/tml-tinker-engage-loop.js --write` | Thinking Machines Lab `tinker-cookbook` issue engagement (caps: 2/run, 6/day, 14d cooldown); pause via `~/.hermes/receipts/tml-tinker-engage/PAUSE` |
 | `com.igor.smart-ops` | 1h | `tools/smart-ops-controller.js --json` | Efficient brain: heal agents, revenue `--fast`, GH reply monitor, **market signals** (`hermes-hosted` + `enterprise-sdlc`, pipeline apply once/day) |
 
 Logs: `~/Library/Logs/<label>.log` (CEO brief uses `ceo-operating-brief.log`; revenue loop: `~/Library/Logs/mac-yolo/revenue-autonomous-loop.*.log`).
