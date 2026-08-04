@@ -4677,6 +4677,16 @@ export default function ChatScreen() {
     transcriptDigestRef.current = '';
     setTelegramReplySessionId('');
     setRecentChatsDismissed(true);
+    // Clearing threads must also drop the in-flight run, exactly like New chat.
+    // Without this the cleared screen keeps rendering the PREVIOUS run:
+    // "Hermes (active)", its token totals, and "Delivering your message…" —
+    // so clearing looks like it did nothing (user report 2026-08-04).
+    setRunProgress(null);
+    setToolStatus(null);
+    setErrorMessage(null);
+    setPinnedOutboundText(null);
+    setPinnedOutboundSentAt(null);
+    setPinnedOutboundStatus('pending');
 
     try {
       if (isDemo) {
@@ -8188,11 +8198,15 @@ export default function ChatScreen() {
                 nestedScrollEnabled={false}
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
                 keyboardShouldPersistTaps="handled"
-                // iOS MVCP only (RN FlatList API). Android relies on our
-                // throttled contentSize follow — safer than FlashList remeasure loops.
-                maintainVisibleContentPosition={
-                  Platform.OS === 'ios' ? { minIndexForVisible: 0 } : undefined
-                }
+                // MVCP on BOTH platforms. The iOS-only restriction dated from the
+                // FlashList era (RecyclerView remeasure loops, #676/#697/#719);
+                // this list is a plain FlatList now and @shopify/flash-list is no
+                // longer imported anywhere in src/. RN 0.83 supports MVCP on
+                // Android, and without it every off-screen row remeasure shifts
+                // the viewport — that is the "screen keeps jumping up/down by
+                // itself" report (2026-08-04). Anchoring the first visible item
+                // is what actually holds the reader's position.
+                maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
                 onScroll={handleChatScroll}
                 onScrollBeginDrag={handleChatScrollBeginDrag}
                 onScrollEndDrag={handleChatScrollEndDrag}
