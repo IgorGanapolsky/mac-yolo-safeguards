@@ -11,6 +11,7 @@ const { expandPipeline, listPipelines } = require('../tools/inference-eng/pipeli
 const { runOptimizer, propose } = require('../tools/inference-eng/optimizer');
 const { runScorecard } = require('../tools/inference-eng/scorecard');
 const { estimateCostUsd } = require('../tools/inference-eng/pricing');
+const { assess, gradeFleet } = require('../tools/inference-eng/fleet-health');
 
 const FIXTURE = path.join(__dirname, 'fixtures/inference-eng/traffic-sample.jsonl');
 
@@ -91,5 +92,15 @@ assert.strictEqual(scorecard.aPlus, true, `expected A+, got ${scorecard.grade} a
 assert.ok(scorecard.averageScore >= 9.5);
 assert.ok(scorecard.checks.every((c) => c.pass));
 console.log('  scorecard A+: PASS');
+
+// Fleet health grades live log separately (fixture path)
+const fleet = assess({ windowHours: 0, logPath: FIXTURE, env: {} });
+assert.ok(fleet.n >= 5, `expected fixture rows, n=${fleet.n}`);
+assert.ok(fleet.grade);
+assert.ok(fleet.recommendedMode);
+assert.ok(fleet.recommendedCodingPrimary);
+assert.strictEqual(gradeFleet(0.12, 30).grade, 'F');
+assert.strictEqual(gradeFleet(0.96, 30).grade, 'A+');
+console.log(`  fleet-health fixture grade=${fleet.grade} success=${fleet.successRate}: PASS`);
 
 console.log('\n=== inference-eng A+ suite: ALL PASS ===');
