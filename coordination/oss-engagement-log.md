@@ -4,6 +4,89 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 
 ---
 
+## 2026-08-04 (later) — LanceDB blob-v2 `update()` fix ready and verified, still blocked at PR-open
+
+An earlier run today (see entry immediately below) hit the same session-scope blocker and stopped at research only. This run went further: found, fixed, and locally verified a real bug in `lancedb/lancedb` — including the exact `#3760` the earlier run had already flagged as a future candidate — but hit the identical blocker at the PR-open step. Logging it here rather than re-running the same research.
+
+### Repos surveyed
+
+| Org | Repos |
+|-----|--------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker`, `tinker-cookbook`, `tinker-feedback`, `batch_invariant_ops` |
+| Poolside AI | `poolsideai/pool` + every other public `poolsideai/*` repo (`bridge-sdk`, `pooleval`, `code-review-training`, `kargo`, `llama.cpp` fork, `browser-harness`, `hermes-agent`, `cutlass` fork, `flash-msa`, `glamour`, `storage`, `arrow-go`, `dev-browser`, `paperclip`, `sturdyc`, `PrimeIntellect-renderers`, `amazon-s3-tar-tool`, `demo-fluent-bit`, `the_platinum_searcher`) |
+| LanceDB | `lancedb/lancedb` |
+
+### Issues considered
+
+**Tinker / TML**
+- [#51](https://github.com/thinking-machines-lab/tinker/issues/51) — my regression-test PR [#54](https://github.com/thinking-machines-lab/tinker/pull/54) from the 2026-08-03 run is still open, awaiting maintainer review; nothing new to do.
+- [tinker-feedback#139](https://github.com/thinking-machines-lab/tinker-feedback/issues/139) — still needs the unpublished `tml_tokenizers` package; unfixable without it.
+- [#45](https://github.com/thinking-machines-lab/tinker/issues/45) `checkpoint delete` 32-way parallelism — well-documented by another reporter's own benchmark; a real fix would need live API access to independently re-verify server-side timing, which I don't have. Skipped rather than ship an unverified perf change.
+- `tinker-cookbook#847`, `#832` — feature/verification requests, not bugs.
+
+**Poolside**
+- `poolsideai/pool` remains the only repo with real user-facing issues, and remains **not open source** (binary agent; README/CHANGELOG/LICENSE only).
+- Checked every other public `poolsideai/*` repo (listed above). **Zero open issues** across all of them — the only open items anywhere in the org are Dependabot PRs and `pool`'s feedback issues. No code-level contribution surface exists in this org right now.
+
+**LanceDB**
+- [#3765](https://github.com/lancedb/lancedb/issues/3765) hybrid-search `.offset()` — reporter (`@Adityaj0`) already has a PR open → skipped (don't pile on).
+- [#3764](https://github.com/lancedb/lancedb/issues/3764) FreeBSD/arm64 build failure — can't verify on this platform → skipped.
+- [#3773](https://github.com/lancedb/lancedb/issues/3773) Python 3.13 debugger hang inspecting `LanceDBConnection` — root cause unclear (likely PyO3/`__repr__`/introspection interaction); not confident enough to ship a fix this run → skipped.
+- [#3744](https://github.com/lancedb/lancedb/issues/3744) `Table.optimize()` silently corrupts blob payloads on storage 2.0 — real, serious (silent data loss), but the fix is deep in lance-core's compaction entry-point differences and I couldn't confidently narrow it down and verify it this run → left for a future run.
+- **[#3760](https://github.com/lancedb/lancedb/issues/3760) `update()` fails on any table with a blob v2 column** → **acted** (see below).
+
+### What was opened
+
+**Nothing merged into any upstream org this run** — blocked at the same step as the earlier run today (see Blocker below). Unlike the earlier run, this one produced real, verified, pushed work:
+
+| Repo | Branch | Commit | Compare link (opens the PR draft) |
+|------|--------|--------|-----------------------------------|
+| `lancedb/lancedb` | `IgorGanapolsky:fix/update-blob-v2-clear-error` | [`a4a758b`](https://github.com/IgorGanapolsky/lancedb/commit/a4a758ba4fb75026d8f13d4a06a1b0ff1ace3fd5) | https://github.com/lancedb/lancedb/compare/main...IgorGanapolsky:lancedb:fix/update-blob-v2-clear-error?expand=1 |
+
+#### LanceDB blob-v2 `update()` fix detail
+
+- **Bug:** `Table.update()` (Rust core, `rust/lancedb/src/table/update.rs`) fails on **any** table containing a `lancedb.blob()` column, even when updating an unrelated column, with an internal lance-core panic ("Encountered internal error. Please file a bug report...") instead of a usable error. Root cause: `add()` coerces raw `LargeBinary` input into the blob's declared `Struct<data, uri>` descriptor via `cast_to_table_schema`/`coerce_blob_expr`; `update()` hands the dataset straight to `lance::dataset::UpdateBuilder` with no such coercion, so lance-core's schema-equality check trips on the descriptor-`Struct` vs. storage-`LargeBinary` mismatch.
+- **Fix:** `execute_update()` now checks the dataset schema for blob v2 columns (reusing the existing `has_blob_columns`/`blob_column_names` helpers already used on the write path) before calling into `LanceUpdateBuilder`, and returns `Error::NotSupported` with an actionable message ("delete() the affected rows and add() them again instead") rather than letting the internal panic surface. This matches the issue's stated acceptable fallback. Fully fixing `update()` to work (not just fail cleanly) needs changes on lance-core's side and is out of scope. `merge_insert()` hits a *different* failure mode per the issue and is not touched by this fix.
+- **Test:** new `update_on_blob_v2_table_returns_a_clear_error_instead_of_internal_panic` in `rust/lancedb/src/table/update.rs`, builds an in-memory blob-v2 table and asserts `update()` on an unrelated column returns `Error::NotSupported` mentioning "blob v2".
+- **Verified (real, not fabricated):**
+  - With the guard removed, the test panics with the *exact* traceback from the issue (`.../lance/src/dataset/write/update.rs:303`, same schema-mismatch message) — confirms the test genuinely reproduces the reported bug on current `main`.
+  - With the fix: `cargo test -p lancedb --lib table::update::` → **4 passed, 0 failed**.
+  - No regressions: `cargo test -p lancedb --lib table::` → **276 passed, 0 failed**; `cargo test -p lancedb --lib blob::` → **9 passed, 0 failed**.
+  - `cargo fmt -p lancedb -- --check` → clean on the changed file.
+  - `cargo clippy -p lancedb --lib --no-deps` → no new warnings introduced (two pre-existing, unrelated `dead_code` warnings already exist on upstream `main`).
+
+### Blocker
+
+Same as the earlier run today: this session's GitHub scope is pre-configured to `igorganapolsky/mac-yolo-safeguards` only. Adding `igorganapolsky/lancedb` (Igor's fork, same account) succeeded — clone, build, edit, test, commit, and push all worked fine — but every write call against `lancedb/lancedb` itself (`create_pull_request`, `add_issue_comment`) was rejected with:
+
+> `cross-tier adds are not supported in v1: requested "lancedb/lancedb" but session already has repos from owner(s) [igorganapolsky]. Start a new session with the requested repo as the initial source, or add a repo from the same owner as the existing sources`
+
+This confirms the blocker is per-session and independent of which repo or org is targeted — pushing to an already-forked repo under the same account works, but nothing against an external owner does (create_pull_request, add_issue_comment, list_issues, fork_repository all fail the same way). The fix itself is complete, tested, and pushed; only the PR-open step is blocked. **Action needed:** open the PR manually from the compare link above, or re-run this routine in a session whose initial repo source is a target org (or one that isn't pre-bound to `mac-yolo-safeguards`).
+
+### What was answered
+
+None — blocked (see above). No comment could be posted to #3760 or any other issue this run.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| Poolside (entire org, all repos re-checked) | No open issues anywhere except closed-source `pool`; nothing to fix |
+| Tinker `#45` checkpoint-delete perf | Can't independently verify server-side timing without live API access |
+| Tinker `tinker-feedback#139` | Requires unpublished `tml_tokenizers` package |
+| LanceDB `#3765` | Already claimed with an open PR from another contributor |
+| LanceDB `#3764` | FreeBSD/arm64-specific; can't verify on this platform |
+| LanceDB `#3773` | Root cause unclear (PyO3 introspection); not confident enough to ship a fix |
+| LanceDB `#3744` | Real bug (silent data corruption) but the fix requires deep lance-core compaction tracing not completed with confidence this run |
+| New manufactured question | No real unknown after reading the code |
+| ThumbGate mentions | Zero — no one asked about agent write-gating this run |
+
+### ThumbGate mentions
+
+**None** this run.
+
+---
+
 ## 2026-08-04 — Blocked: session has no GitHub write access outside mac-yolo-safeguards
 
 **Outcome: no PRs opened, no comments posted. This is a SUCCESS per the hard rules (nothing worth defending in review beats a manufactured PR) — but the real story this run is an environment regression, not a quiet day upstream.**
