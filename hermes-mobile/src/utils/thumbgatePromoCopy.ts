@@ -3,9 +3,8 @@
  * Production control plane: https://thumbgate.app (see apps/hermes-control-plane).
  * Public marketing always says **ThumbGate.app** (never bare "ThumbGate" alone).
  *
- * When the user does not have ThumbGate.app yet, Hermes Mobile facilitates install
- * (Herdr-style): open web + share Mac one-line connector + optional agent skill.
- * See thumbgateFacilitation.ts and hermes-mobile-connect skill.
+ * Consumer Leash/connection promo: short + one CTA. No coding-agent manuals,
+ * no multi-step install essay. Connector setup lives on the web dashboard.
  */
 
 import {
@@ -14,9 +13,11 @@ import {
 } from './thumbgateFacilitation';
 
 /** Canonical Hermes Web / ThumbGate.app control-plane URL (not thumbgate.ai). */
+/** Product-first: open /dashboard. Never deep-link to pricing. */
 export const THUMBGATE_WEB_URL =
-  'https://thumbgate.app/?utm_source=hermes-mobile&utm_medium=app&utm_campaign=paid_companion#pricing';
+  'https://thumbgate.app/dashboard?utm_source=hermes-mobile&utm_medium=app&utm_campaign=paid_companion';
 
+/** Primary consumer CTA — short. */
 export const THUMBGATE_PROMO_BUTTON_LABEL = 'Open ThumbGate.app';
 
 export { THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL };
@@ -28,17 +29,18 @@ export type ThumbGatePromoCopy = {
   body: string;
   buttonLabel: string;
   url: string;
-  /** Secondary path: share one-line Mac connector install (Herdr-style). */
-  secondaryButtonLabel: string;
 };
 
+/** Short consumer card — CEO 2026-08-03: no long instructions, no coding agents. */
 const PAID_COMPANION_COPY = {
-  headline: 'No ThumbGate.app yet?',
-  body:
-    'Hermes Mobile still chats with your computer over Hermes. ThumbGate.app adds a web dashboard and paid Continuity when that computer is offline. Open the site, then run the one-line Mac installer once so the web workspace can reach it.',
+  headline: 'ThumbGate.app',
+  body: 'Web dashboard and Continuity when your computer is offline.',
 } as const;
 
-/** Optional cross-link: agent-skill pattern (inspired by Herdr; not affiliation). */
+/**
+ * Dev/docs only — not shown on the consumer Leash card.
+ * Kept so agent tooling can still deep-link Herdr skill docs without polluting UI.
+ */
 export const HERDR_INTEGRATION_COPY = {
   headline: 'Agent skill pattern (Herdr-style)',
   body: 'Coding agents can load a markdown skill that teaches safe Hermes Mobile pairing and ThumbGate.app facilitation — same idea as Herdr’s agent skill file.',
@@ -48,7 +50,7 @@ export const HERDR_INTEGRATION_COPY = {
 
 const SURFACE_COPY: Record<
   ThumbGatePromoSurface,
-  Omit<ThumbGatePromoCopy, 'url' | 'buttonLabel' | 'secondaryButtonLabel'>
+  Omit<ThumbGatePromoCopy, 'url' | 'buttonLabel'>
 > = {
   leash_disconnected: PAID_COMPANION_COPY,
   leash_empty: PAID_COMPANION_COPY,
@@ -60,7 +62,6 @@ export function thumbGatePromoCopy(surface: ThumbGatePromoSurface): ThumbGatePro
   return {
     ...block,
     buttonLabel: THUMBGATE_PROMO_BUTTON_LABEL,
-    secondaryButtonLabel: THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL,
     url: THUMBGATE_WEB_URL,
   };
 }

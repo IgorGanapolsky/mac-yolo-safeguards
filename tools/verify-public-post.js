@@ -63,18 +63,89 @@ function parseArgs(argv) {
   return args;
 }
 
+// Platform is matched on the URL's HOST, never on a substring of the whole URL.
+// Substring matching let any host claim any platform: a path or query could carry
+// the marker (https://example.com/?ref=linkedin.com) and so could a lookalike
+// (https://linkedin.com.evil.test/p). That is not cosmetic here — inferPlatform
+// picks the verification thresholds. defaultMinBody() returns 500 chars for
+// 'medium' but 40 for 'x', so a Medium URL misread as 'x' lets a near-empty page
+// verify as a live post, and extractArticleish() switches strategy on the same
+// value. A misread platform makes this tool report success for a post it never
+// actually confirmed.
+const PLATFORM_HOSTS = [
+  ['medium', ['medium.com']],
+  ['dev.to', ['dev.to']],
+  ['bluesky', ['bsky.app', 'bsky.social']],
+  ['threads', ['threads.net', 'threads.com']],
+  ['linkedin', ['linkedin.com']],
+  ['x', ['x.com', 'twitter.com']],
+  ['hackernews', ['news.ycombinator.com']],
+  ['reddit', ['reddit.com']],
+];
+
+// Exact host, or a true subdomain of it. `endsWith('.' + domain)` is what stops
+// 'evil-medium.com' and 'medium.com.evil.test' from matching 'medium.com'.
+function hostMatchesDomain(host, domain) {
+  return host === domain || host.endsWith(`.${domain}`);
+}
+
 function inferPlatform(url, explicit) {
   if (explicit) return explicit.replace(/\s+/g, '');
-  const u = String(url || '').toLowerCase();
-  if (u.includes('medium.com')) return 'medium';
-  if (u.includes('dev.to')) return 'dev.to';
-  if (u.includes('bsky.app') || u.includes('bsky.social')) return 'bluesky';
-  if (u.includes('threads.net') || u.includes('threads.com')) return 'threads';
-  if (u.includes('linkedin.com')) return 'linkedin';
-  if (u.includes('x.com/') || u.includes('twitter.com/')) return 'x';
-  if (u.includes('news.ycombinator.com')) return 'hackernews';
-  if (u.includes('reddit.com')) return 'reddit';
+  let host;
+  try {
+    // A bare 'medium.com/@me/post' has no scheme and is not a valid URL; treat
+    // anything unparseable as 'generic' rather than guessing from its text.
+    host = new URL(String(url || '')).hostname.toLowerCase().replace(/^www\./, '');
+  } catch {
+    return 'generic';
+  }
+  for (const [platform, domains] of PLATFORM_HOSTS) {
+    if (domains.some((d) => hostMatchesDomain(host, d))) return platform;
+  }
   return 'generic';
+}
+
+// Strip leading www. so alias/subdomain checks compare the registrable host.
+function bareHost(host) {
+  return String(host || '').toLowerCase().replace(/^www\./, '');
+}
+
+// Which PLATFORM_HOSTS platform owns this hostname, if any.
+function platformForHost(host) {
+  const h = bareHost(host);
+  for (const [platform, domains] of PLATFORM_HOSTS) {
+    if (domains.some((d) => hostMatchesDomain(h, d))) return platform;
+  }
+  return null;
+}
+
+// Returns a human-readable "asked -> got" string when the response came from a
+// different party than requested, or '' when the hosts are equivalent.
+//
+// Equivalent means: identical, one is a subdomain of the other (www.medium.com
+// <-> medium.com, old.reddit.com <-> reddit.com), OR both hosts are known
+// aliases of the same platform in PLATFORM_HOSTS (twitter.com <-> x.com,
+// threads.net <-> threads.com). Anything else is a different party answering,
+// however healthy its 200 looks. Unparseable input returns '' — fetchUrl
+// already normalises both sides, and a parse failure must not manufacture a
+// redirect that did not happen.
+function describeHostDrift(requestedUrl, finalUrl) {
+  if (!finalUrl) return '';
+  let a;
+  let b;
+  try {
+    a = new URL(String(requestedUrl)).hostname.toLowerCase();
+    b = new URL(String(finalUrl)).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+  if (!a || !b || a === b) return '';
+  if (a.endsWith(`.${b}`) || b.endsWith(`.${a}`)) return '';
+  // Canonical platform aliases (twitter.com→x.com, threads.net→threads.com).
+  const pa = platformForHost(a);
+  const pb = platformForHost(b);
+  if (pa && pb && pa === pb) return '';
+  return `${a} -> ${b}`;
 }
 
 function defaultMinBody(platform) {
@@ -98,17 +169,34 @@ function defaultMinBody(platform) {
 
 function stripHtml(html) {
   return String(html || '')
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+    // HTML permits whitespace inside a closing tag: `</script >` is a valid end
+    // tag. The previous `<\/script>` missed it, so everything up to the NEXT
+    // `</script>` — or, with no next one, the entire remaining document — was
+    // never removed as script and instead fell through to the generic tag strip,
+    // which leaves the JS source itself as "body text". That inflates the
+    // character count checked against defaultMinBody() and can satisfy a
+    // --must-contain needle from code rather than from the visible post, so an
+    // unpublished page verifies as live. \s* is the fix.
+    // HTML allows arbitrary attributes in closing tags: `</script data-foo>` and
+    // `</script\t\n bar>` are both valid. Without [^>]* the tag is not removed,
+    // leaving script source to inflate body text and potentially satisfy --must-contain
+    // — making an unpublished page verify as live.
+    .replace(/<script\b[\s\S]*?<\/script\s*[^>]*>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style\s*[^>]*>/gi, ' ')
+    .replace(/<noscript\b[\s\S]*?<\/noscript\s*[^>]*>/gi, ' ')
     .replace(/<!--[\s\S]*?-->/g, ' ')
     .replace(/<[^>]+>/g, ' ')
+    // &amp; is decoded LAST. Decoding it first re-creates entities out of text
+    // that was deliberately escaped: `&amp;lt;` would become `&lt;` and then `<`,
+    // so a post quoting an escaped tag is read as containing real markup.
+    // Every other entity is decoded before it, and its own output is never
+    // re-scanned.
     .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&#39;/g, "'")
     .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -231,6 +319,36 @@ async function verify(args) {
     };
   }
 
+  // The 200 must have come from the host we asked for.
+  //
+  // fetch() follows redirects silently, so a login gate, a consent interstitial
+  // or an SSO provider answers 200 with a perfectly rich page — and every
+  // downstream content check then passes against SOMEONE ELSE'S document.
+  // finalUrl was already captured and reported here, but never compared, so a
+  // redirect to accounts.google.com/signin verified as a live Medium post.
+  //
+  // This is the same measurement error that produced a phantom "31/31 assets
+  // 404" outage in this repo on 2026-07-29: /dashboard 307s to WorkOS AuthKit,
+  // and AuthKit's asset paths were scraped and then tested against our own
+  // host. Comparing what you asked for against what actually answered is the
+  // fix in both cases.
+  //
+  // Subdomain drift is tolerated (www.medium.com -> medium.com), since that is
+  // ordinary canonicalisation and not a different party.
+  const hostDrift = describeHostDrift(url, fetched.finalUrl);
+  if (hostDrift) {
+    return {
+      status: 'PARTIAL',
+      live: false,
+      reason: `Redirected off-host: ${hostDrift} — the 200 did not come from the requested host`,
+      url,
+      platform,
+      finalUrl: fetched.finalUrl,
+      httpStatus: fetched.status,
+      exitCode: 1,
+    };
+  }
+
   if (fetched.status >= 400) {
     return {
       status: 'PARTIAL',
@@ -245,10 +363,12 @@ async function verify(args) {
 
   const title = extractTitle(fetched.body);
   const text = extractArticleish(fetched.body, platform);
+  // Needle search is extracted-visible text only. Searching raw fetched.body
+  // lets a needle that exists only inside <script>/<style> (or HTML attrs)
+  // false-pass LIVE after stripHtml removed it from the public body.
   const missing = [];
   for (const needle of args.mustContain) {
-    if (!text.toLowerCase().includes(String(needle).toLowerCase())
-      && !fetched.body.toLowerCase().includes(String(needle).toLowerCase())) {
+    if (!text.toLowerCase().includes(String(needle).toLowerCase())) {
       missing.push(needle);
     }
   }
@@ -375,6 +495,7 @@ module.exports = {
   parseArgs,
   verify,
   inferPlatform,
+  describeHostDrift,
   stripHtml,
   extractArticleish,
   isMediumTitleOnly,
