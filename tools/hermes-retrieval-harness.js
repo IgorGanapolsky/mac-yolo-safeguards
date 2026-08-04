@@ -321,7 +321,8 @@ function scoreFile(queryTokens, relativePath, text) {
   for (const token of queryTokens) {
     if (segmentSet.has(token)) {
       segmentHits += 1;
-      score += 6;
+      score += 22; // exact full-path-segment equality: strongest path signal.
+      // Additive (not ratio) so multi-token queries still win by breadth.
     }
   }
   if (segmentHits > 0) reasons.push(`segment:${segmentHits}`);
