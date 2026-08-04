@@ -1,6 +1,6 @@
-const body = `# Leash by ThumbGate
+const body = `# ThumbGate for Hermes
 
-> ThumbGate is the Hermes web dashboard and Continuity product: remote control of Hermes from any browser, free while your machine is online, with optional paid VPS continuity when it goes offline.
+> ThumbGate is the Hermes web dashboard and Continuity product: remote control of Hermes from any browser, free while your machine is online, with optional paid VPS continuity when it goes offline. Leash is ThumbGate's approval-control feature for supervised agent actions.
 
 ## Canonical URL
 - https://thumbgate.app/

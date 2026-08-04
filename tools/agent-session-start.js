@@ -223,6 +223,39 @@ if (graphReport.stale && graphReport.graphifyAvailable) {
   }
 }
 
+// Linear + vault multi-agent task bus (non-fatal if no API key)
+// Prefer --coord-status (locks + Agent-State) over raw --list alone.
+function printLinearFleetSnapshot() {
+  const bridge = path.join(REPO, 'tools/linear-agent-bridge.js');
+  if (!fs.existsSync(bridge)) return { ok: false, reason: 'no-bridge' };
+  const r = spawnSync(process.execPath, [bridge, '--coord-status'], {
+    cwd: REPO,
+    encoding: 'utf8',
+    timeout: 45_000,
+    env: process.env,
+  });
+  const text = `${r.stdout || ''}${r.stderr || ''}`.trim();
+  if (!json) {
+    process.stdout.write('\n=== Linear + vault coordination ===\n');
+    if (text.includes('LINEAR_API_KEY not found') || text.includes('NO_API_KEY')) {
+      process.stdout.write(
+        'No LINEAR_API_KEY (env / Keychain / ~/.config/linear/api_key). Task bus offline.\n',
+      );
+      process.stdout.write(
+        'PAT: https://linear.app/igorganapolsky/settings/api → store as Keychain LINEAR_API_KEY\n',
+      );
+      return { ok: false, reason: 'no-key' };
+    }
+    if (r.status !== 0 && !text) {
+      process.stdout.write(`Linear bridge failed (exit ${r.status})\n`);
+      return { ok: false, reason: 'bridge-fail' };
+    }
+    process.stdout.write(`${text}\n`);
+  }
+  return { ok: r.status === 0, text };
+}
+const linearSnap = printLinearFleetSnapshot();
+
 const verify = runBash('scripts/verify-agent-automations.sh', 20_000);
 if (!json) {
   if (verify.stdout) process.stdout.write(verify.stdout);
@@ -386,6 +419,24 @@ if (!json) {
 // Local JetBrains Context equivalent (grepai + hermes-context) — every agent sees health.
 if (!json) {
   printFleetRepoIntelligence();
+}
+
+// Code scanning debt — prevent Security-tab theater (2026-08).
+// Prints open_on_main; does not fail the whole session-start process.
+{
+  const codeqlArgs = ['--session-start'];
+  if (json) codeqlArgs.push('--json');
+  const codeqlHyg = runNode('tools/codeql-agent-hygiene.js', codeqlArgs, 60_000);
+  if (!json && codeqlHyg.stdout) {
+    const out = codeqlHyg.stdout;
+    process.stdout.write(`\n${out}${out.endsWith('\n') ? '' : '\n'}`);
+  } else if (!json && (codeqlHyg.status === 127 || /missing/.test(codeqlHyg.stderr || ''))) {
+    process.stdout.write(
+      '\n=== Code scanning hygiene ===\nWARN tools/codeql-agent-hygiene.js missing — land CodeQL burn-down PR.\n',
+    );
+  } else if (json && codeqlHyg.status !== 0 && codeqlHyg.stderr) {
+    process.stderr.write(codeqlHyg.stderr.slice(0, 400));
+  }
 }
 
 const briefArgs = ['tools/ceo-operating-brief.js'];

@@ -58,7 +58,7 @@ assert(!hosts.includes('100.70.124.54'), 'phone peer must be skipped');
 assert(hosts.includes('100.94.135.78'), 'online Mac mini must be included');
 assert(hosts.includes('100.87.85.85'), 'self Mac tailnet IP must be included (T-222: MBP in picker)');
 assert(
-  hosts.includes('igors-macbook-pro-1.tail12aa33.ts.net'),
+  hosts.some((h) => h === 'igors-macbook-pro-1.tail12aa33.ts.net'),
   'self MagicDNS name must be included without trailing dot',
 );
 

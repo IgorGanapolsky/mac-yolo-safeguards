@@ -1,4 +1,6 @@
 import {
+  failedSendRetryTelemetryProperties,
+  findLastFailedOutboundRetry,
   findLastFailedOutboundText,
   isEmptyReplyFailureMessage,
   resolveComposerSendAction,
@@ -7,6 +9,7 @@ import {
 } from '../utils/failedSendRetry';
 import { EMPTY_REPLY_FAILURE_REASON } from '../utils/emptyStreamReplyRecovery';
 import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
+import type { HermesMessage } from '../types/chat';
 
 describe('resolveComposerSendAction', () => {
   it('returns none when composer and last failed are empty', () => {
@@ -63,6 +66,18 @@ describe('resolveComposerSendAction', () => {
       }),
     ).toEqual({ kind: 'retry_resend', text: 'demo prompt' });
   });
+
+  it('retries an attachment-only failed payload even when its text is empty', () => {
+    expect(
+      resolveComposerSendAction({
+        composerText: '',
+        lastFailedText: '',
+        hasFailedPayload: true,
+        isDemo: false,
+        macChatLive: true,
+      }),
+    ).toEqual({ kind: 'retry_resend', text: '' });
+  });
 });
 
 describe('findLastFailedOutboundText', () => {
@@ -74,6 +89,106 @@ describe('findLastFailedOutboundText', () => {
         { id: '3', role: 'user', content: ' second ', outboundStatus: 'failed' },
       ]),
     ).toBe('second');
+  });
+
+  it('returns a cloned retry envelope with every attachment intact', () => {
+    const messages: HermesMessage[] = [
+      {
+        id: 'failed-image',
+        role: 'user',
+        content: 'inspect this\n\n📎 screenshot.png',
+        outboundStatus: 'failed',
+        outboundRetryEnvelope: {
+          version: 1,
+          text: 'inspect this',
+          displayText: 'inspect this\n\n📎 screenshot.png',
+          attachments: [
+            {
+              id: 'att-1',
+              name: 'screenshot.png',
+              mimeType: 'image/png',
+              uri: 'file:///cache/screenshot.png',
+              kind: 'image',
+              sizeBytes: 1234,
+            },
+          ],
+        },
+      },
+    ];
+    const retry = findLastFailedOutboundRetry(messages);
+    expect(retry).toEqual({
+      messageId: 'failed-image',
+      text: 'inspect this',
+      displayText: 'inspect this\n\n📎 screenshot.png',
+      attachments: [
+        {
+          id: 'att-1',
+          name: 'screenshot.png',
+          mimeType: 'image/png',
+          uri: 'file:///cache/screenshot.png',
+          kind: 'image',
+          sizeBytes: 1234,
+        },
+      ],
+      source: 'envelope',
+      requiresReattach: false,
+    });
+    expect(retry?.attachments).not.toBe(messages[0]?.outboundRetryEnvelope?.attachments);
+    expect(retry?.attachments[0]).not.toBe(
+      messages[0]?.outboundRetryEnvelope?.attachments[0],
+    );
+  });
+
+  it('fails closed for a legacy attachment bubble with no reconstructable payload', () => {
+    expect(
+      findLastFailedOutboundRetry([
+        {
+          id: 'legacy-image',
+          role: 'user',
+          content: 'inspect this\n\n📎 screenshot.png',
+          outboundStatus: 'failed',
+        },
+      ]),
+    ).toEqual({
+      messageId: 'legacy-image',
+      text: 'inspect this',
+      displayText: 'inspect this\n\n📎 screenshot.png',
+      attachments: [],
+      source: 'legacy_attachment_missing',
+      requiresReattach: true,
+    });
+  });
+
+  it('emits retry telemetry without content, filename, MIME type, URI, or session id', () => {
+    const properties = failedSendRetryTelemetryProperties(
+      {
+        messageId: 'local-only',
+        text: 'private prompt',
+        displayText: 'private prompt\n\n📎 secret.png',
+        attachments: [
+          {
+            id: 'att-private',
+            name: 'secret.png',
+            mimeType: 'image/png',
+            uri: 'file:///secret.png',
+            kind: 'image',
+            sizeBytes: 55,
+          },
+        ],
+        source: 'envelope',
+        requiresReattach: false,
+      },
+      'accepted',
+    );
+    expect(properties).toEqual({
+      outcome: 'accepted',
+      attachment_count: 1,
+      payload_source: 'envelope',
+      requires_reattach: false,
+    });
+    expect(JSON.stringify(properties)).not.toMatch(
+      /private prompt|secret\.png|image\/png|file:|local-only/i,
+    );
   });
 });
 

@@ -22,8 +22,14 @@ Implements the durable parts of [Cursor’s agent-swarm model economics](https:/
 | `node tools/agent-swarm-harness.js propose-eval --task "..."` | Fail → durable eval stub (`--write` under `evals/`) |
 | `node tools/agent-swarm-harness.js eval-mine` | Mine continuous E2E + harness trace + plan thrash → proposals |
 | `node tools/agent-swarm-harness.js eval-check` | Catalog integrity + failure→ability routing smoke |
+| `node tools/ship-claim-gate.js --claim "…" …` | Evidence-only LIVE/shipped language (no completion theater) |
+| `node tools/taste-gate.js --domain promo_social --text "…"` | Non-slop taste rubric (see `docs/TASTE-LAYER.md`) |
+| `node tools/taste-gate.js --eval-golden` | Taste golden set regression |
+| `node tools/linear-agent-bridge.js --doctor` | Linear task-bus auth + fleet health |
 | `node tools/agent-swarm-harness.js sre-autonomy` | SRE subsystems: detect → act → verify |
 | `node tools/agent-swarm-harness.js sre-act --subsystem ID` | Health-freshness gate before remediate |
+| `node tools/agent-swarm-harness.js data-mesh` | InfoQ July 2026 governed data interfaces (cash / LIVE / outbound / watermarks) |
+| `node tools/governed-data-mesh.js cash-truth\|live-matrix\|…` | Billing-first cash truth, campaign watermarks, durable outbound ledger |
 | `node tools/revenue-local-draft.js` | Open-weights follow-up draft (template fallback; no send) |
 | `node tools/agent-swarm-harness.js check-hot-files --stdin --body-file pr.md` | Megafile + decision-ref gate |
 | `node tools/agent-swarm-harness.js field-guide` | Print `docs/agent-field-guide/index.md` |
@@ -48,6 +54,7 @@ Implements the durable parts of [Cursor’s agent-swarm model economics](https:/
 12. **Eval abilities** — fixed instruction/env/verifier catalog; `propose-eval` mines failures into stubs. Source: [LangChain eval engineering](https://www.langchain.com/blog/towards-automating-eval-engineering/).
 13. **SRE act→verify** — subsystem remediations require fresh health (15m) then mandatory verify command. Source: [Dynatrace / AI ops framing](https://thenewstack.io/dynatrace-autonomous-sre-agents/).
 14. **Revenue local draft** — open-weights follow-up JSON for cash path (`revenue-local-draft.js`); never auto-send / never invent paid.
+15. **Governed data mesh (InfoQ July 2026)** — billing-first `cash_truth` (net of refunds), semantic LIVE matrix, Monzo-style interface validation, DBOS-style outbound unique keys + lock, campaign watermarks, high-stakes eval rules. CLI: `data-mesh` + `tools/governed-data-mesh.js`.
 
 ## State layers (high-ROI)
 

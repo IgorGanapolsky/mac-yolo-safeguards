@@ -1,0 +1,727 @@
+#!/usr/bin/env node
+'use strict';
+
+/**
+ * Second-stage reranking for dual-path retrieval.
+ *
+ * Strategies (all production-callable):
+ *   1. cross_encoder  — joint (query, passage) scoring (CE-style cross-feature encoder)
+ *                       via Ollama nomic embeddings: cos(q,d) + cos(joint,q) + lexical
+ *   2. colbert_lite   — late-interaction MaxSim over query-token × passage-window embeds
+ *   3. llm            — local LLM pointwise/listwise rank of top-N (Ollama chat)
+ *   4. ensemble       — default: blend CE + ColBERT (+ optional LLM on top slice)
+ *
+ * Usage:
+ *   node tools/retrieval-rerank.js --query "..." --candidates-file c.json --strategy ensemble --json
+ *   node tools/retrieval-rerank.js --self-test --json
+ *
+ * Inject embedder/llm for hermetic unit tests via options.embed / options.chat.
+ */
+
+const fs = require('fs');
+const path = require('path');
+const { spawnSync } = require('child_process');
+
+const DEFAULT_EMBED_MODEL = process.env.HERMES_RERANK_EMBED_MODEL || 'nomic-embed-text';
+const DEFAULT_CHAT_MODEL = process.env.HERMES_RERANK_CHAT_MODEL || 'qwen2.5:3b-64k';
+const OLLAMA = process.env.OLLAMA_HOST || 'http://127.0.0.1:11434';
+
+function parseArgs(argv) {
+  const args = {
+    query: '',
+    strategy: 'ensemble',
+    limit: 10,
+    candidatesFile: null,
+    json: false,
+    selfTest: false,
+    llm: process.env.HERMES_LLM_RERANK === '1',
+    noCache: !!process.env.HERMES_RERANK_NO_CACHE,
+    diversityLambda: Number(process.env.HERMES_RERANK_DIVERSITY || 0) || 0,
+  };
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i];
+    if (a === '--query') args.query = argv[++i] || '';
+    else if (a === '--strategy') args.strategy = argv[++i] || 'ensemble';
+    else if (a === '--limit') args.limit = Number(argv[++i] || 10);
+    else if (a === '--candidates-file') args.candidatesFile = argv[++i];
+    else if (a === '--json') args.json = true;
+    else if (a === '--self-test') args.selfTest = true;
+    else if (a === '--llm') args.llm = true;
+    else if (a === '--no-llm') args.llm = false;
+    else if (a === '--no-cache') args.noCache = true;
+    else if (a === '--rerank-diversity') args.diversityLambda = Number(argv[++i] || 0);
+    else if (a === '--help') args.help = true;
+    else throw new Error(`Unknown ${a}`);
+  }
+  return args;
+}
+
+function cosine(a, b) {
+  if (!a?.length || !b?.length || a.length !== b.length) return 0;
+  let dot = 0;
+  let na = 0;
+  let nb = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  if (!na || !nb) return 0;
+  return dot / (Math.sqrt(na) * Math.sqrt(nb));
+}
+
+function tokenize(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9_./+-]+/g, ' ')
+    .split(/\s+/)
+    .filter((t) => t.length >= 2);
+}
+
+function lexicalOverlap(query, passage) {
+  const qt = new Set(tokenize(query));
+  const pt = tokenize(passage);
+  if (!qt.size || !pt.length) return 0;
+  let hit = 0;
+  for (const t of pt) if (qt.has(t)) hit += 1;
+  const uniqHit = [...qt].filter((t) => pt.includes(t)).length;
+  return 0.5 * (hit / pt.length) + 0.5 * (uniqHit / qt.size);
+}
+
+function pathBonus(query, filePath) {
+  const qt = tokenize(query);
+  const p = String(filePath || '').toLowerCase();
+  if (!qt.length || !p) return 0;
+  let n = 0;
+  for (const t of qt) if (p.includes(t)) n += 1;
+  return Math.min(1, n / Math.max(2, qt.length * 0.5));
+}
+
+/** Default Ollama embedder (batch-friendly sequential with cache). */
+function createOllamaEmbedder(options = {}) {
+  const model = options.model || DEFAULT_EMBED_MODEL;
+  const endpoint = options.endpoint || `${OLLAMA}/api/embeddings`;
+  const cache = new Map();
+  return {
+    model,
+    async embed(text) {
+      const key = String(text || '').slice(0, 4000);
+      if (cache.has(key)) return cache.get(key);
+      const body = JSON.stringify({ model, prompt: key });
+      // Use curl for zero-deps reliability in agent env.
+      const r = spawnSync(
+        'curl',
+        ['-sS', '--max-time', String(options.timeoutSec || 60), endpoint, '-H', 'Content-Type: application/json', '-d', body],
+        { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 },
+      );
+      if (r.status !== 0) throw new Error(`embed failed: ${(r.stderr || r.stdout || '').slice(0, 160)}`);
+      const j = JSON.parse(r.stdout || '{}');
+      const vec = j.embedding;
+      if (!Array.isArray(vec) || !vec.length) throw new Error(`empty embedding: ${r.stdout.slice(0, 120)}`);
+      cache.set(key, vec);
+      return vec;
+    },
+    cacheSize: () => cache.size,
+  };
+}
+
+function createOllamaChat(options = {}) {
+  const model = options.model || DEFAULT_CHAT_MODEL;
+  const endpoint = options.endpoint || `${OLLAMA}/api/chat`;
+  return {
+    model,
+    async chat(messages, opts = {}) {
+      const body = JSON.stringify({
+        model,
+        messages,
+        stream: false,
+        options: { temperature: opts.temperature ?? 0, num_predict: opts.maxTokens || 256 },
+      });
+      const r = spawnSync(
+        'curl',
+        ['-sS', '--max-time', String(opts.timeoutSec || 90), endpoint, '-H', 'Content-Type: application/json', '-d', body],
+        { encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 },
+      );
+      if (r.status !== 0) throw new Error(`chat failed: ${(r.stderr || r.stdout || '').slice(0, 160)}`);
+      const j = JSON.parse(r.stdout || '{}');
+      const content = j?.message?.content || j?.choices?.[0]?.message?.content || '';
+      if (!content) throw new Error(`empty chat: ${r.stdout.slice(0, 120)}`);
+      return String(content);
+    },
+  };
+}
+
+function passageWindows(text, maxWindows = 8, winChars = 280) {
+  const t = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!t) return [''];
+  if (t.length <= winChars) return [t];
+  const out = [];
+  const step = Math.max(80, Math.floor(winChars * 0.6));
+  for (let i = 0; i < t.length && out.length < maxWindows; i += step) {
+    out.push(t.slice(i, i + winChars));
+  }
+  return out;
+}
+
+function significantQueryTokens(query, maxTokens = 12) {
+  const stop = new Set([
+    'the', 'a', 'an', 'and', 'or', 'to', 'of', 'in', 'on', 'for', 'is', 'are', 'with', 'from', 'that', 'this', 'how', 'what', 'when', 'where', 'why',
+  ]);
+  const toks = tokenize(query).filter((t) => !stop.has(t) && t.length >= 3);
+  // Prefer longer / rarer-looking tokens
+  toks.sort((a, b) => b.length - a.length || a.localeCompare(b));
+  return [...new Set(toks)].slice(0, maxTokens);
+}
+
+/**
+ * Cross-encoder style joint scorer (CE-lite without torch).
+ * Features joint embed(query||passage) + bi-encoder cos + lexical + path.
+ */
+async function crossEncoderScore(query, candidate, embedder, ctx = {}) {
+  const passage = String(candidate.snippet || candidate.text || candidate.path || '').slice(0, 1200);
+  const joint = `query: ${query}\npassage: ${passage}\npath: ${candidate.path || ''}`;
+  const [qVec, dVec, jVec] = await Promise.all([
+    embedder.embed(query),
+    embedder.embed(passage || candidate.path || ' '),
+    embedder.embed(joint),
+  ]);
+  const bi = cosine(qVec, dVec);
+  const jointAlign = cosine(jVec, qVec);
+  const lex = lexicalOverlap(query, `${passage} ${candidate.path || ''}`);
+  const path = pathBonus(query, candidate.path);
+  const rrf = Number(candidate.rrfScore || candidate.score || 0);
+  const rrfN = Math.min(1, rrf * 20); // RRF scores are small (~0.03)
+  // Weights tuned for CE-like joint dominance
+  const score =
+    0.38 * bi + 0.32 * jointAlign + 0.18 * lex + 0.08 * path + 0.04 * rrfN;
+  return {
+    score,
+    components: {
+      biEncoderCos: Number(bi.toFixed(4)),
+      jointAlign: Number(jointAlign.toFixed(4)),
+      lexical: Number(lex.toFixed(4)),
+      path: Number(path.toFixed(4)),
+      rrfPrior: Number(rrfN.toFixed(4)),
+    },
+  };
+}
+
+/**
+ * ColBERT-style late interaction: MaxSim over query tokens × passage windows.
+ */
+async function colbertLiteScore(query, candidate, embedder) {
+  const qTokens = significantQueryTokens(query);
+  const passage = String(candidate.snippet || candidate.text || '').slice(0, 2000);
+  const windows = passageWindows(passage, 6, 240);
+  if (!qTokens.length) {
+    return { score: lexicalOverlap(query, passage), components: { maxSim: 0, tokens: 0 } };
+  }
+  const qEmbs = [];
+  for (const t of qTokens) qEmbs.push(await embedder.embed(t));
+  const wEmbs = [];
+  for (const w of windows) wEmbs.push(await embedder.embed(w || ' '));
+  // also include path as a "window"
+  if (candidate.path) wEmbs.push(await embedder.embed(String(candidate.path)));
+
+  let sum = 0;
+  for (const qe of qEmbs) {
+    let best = -1;
+    for (const we of wEmbs) {
+      const c = cosine(qe, we);
+      if (c > best) best = c;
+    }
+    sum += Math.max(0, best);
+  }
+  const maxSim = sum / qEmbs.length;
+  const lex = lexicalOverlap(query, `${passage} ${candidate.path || ''}`);
+  const score = 0.85 * maxSim + 0.15 * lex;
+  return {
+    score,
+    components: {
+      maxSim: Number(maxSim.toFixed(4)),
+      tokens: qTokens.length,
+      windows: wEmbs.length,
+      lexical: Number(lex.toFixed(4)),
+    },
+  };
+}
+
+/**
+ * LLM listwise rerank — returns order of candidate indices (0-based).
+ */
+async function llmRerankOrder(query, candidates, chat) {
+  const lines = candidates.map((c, i) => {
+    const snip = String(c.snippet || '').replace(/\s+/g, ' ').slice(0, 180);
+    return `${i}. ${c.path || '(no path)'} :: ${snip}`;
+  });
+  const prompt =
+    `You are a relevance ranker for a code/docs retrieval system.\n` +
+    `Query: ${query}\n` +
+    `Candidates:\n${lines.join('\n')}\n` +
+    `Return ONLY a JSON array of candidate indices from most to least relevant, e.g. [2,0,1].\n` +
+    `Use every index exactly once.`;
+  const raw = await chat.chat([{ role: 'user', content: prompt }], { maxTokens: 200, temperature: 0 });
+  const match = raw.match(/\[[\d,\s]+\]/);
+  if (!match) throw new Error(`LLM did not return index array: ${raw.slice(0, 120)}`);
+  const order = JSON.parse(match[0]);
+  if (!Array.isArray(order) || order.length !== candidates.length) {
+    throw new Error(`LLM order length mismatch: ${JSON.stringify(order)}`);
+  }
+  const set = new Set(order);
+  if (set.size !== candidates.length) throw new Error('LLM order missing/dupe indices');
+  return order.map(Number);
+}
+
+async function scoreCandidates(query, candidates, strategy, options = {}) {
+  const embedder = options.embedder || createOllamaEmbedder(options);
+  const chat = options.chat || createOllamaChat(options);
+  const useLlm = Boolean(options.llm) || strategy === 'llm';
+  const strat = strategy === 'auto' ? 'ensemble' : strategy;
+
+  const scored = [];
+  for (let i = 0; i < candidates.length; i += 1) {
+    const c = candidates[i];
+    let ce = null;
+    let col = null;
+    if (strat === 'cross_encoder' || strat === 'ensemble') {
+      ce = await crossEncoderScore(query, c, embedder, options);
+    }
+    if (strat === 'colbert_lite' || strat === 'ensemble') {
+      col = await colbertLiteScore(query, c, embedder);
+    }
+    let score = 0;
+    let method = strat;
+    if (strat === 'cross_encoder') {
+      score = ce.score;
+      method = 'cross_encoder';
+    } else if (strat === 'colbert_lite') {
+      score = col.score;
+      method = 'colbert_lite';
+    } else if (strat === 'ensemble') {
+      score = 0.55 * (ce?.score || 0) + 0.45 * (col?.score || 0);
+      method = 'ensemble(ce+colbert)';
+    } else if (strat === 'llm') {
+      // placeholder until listwise reorder
+      score = (ce?.score || 0) * 0.5 + (col?.score || 0) * 0.5;
+      method = 'llm';
+    } else {
+      throw new Error(`Unknown strategy: ${strat}`);
+    }
+    scored.push({
+      ...c,
+      priorRank: i + 1,
+      rerankScore: Number(score.toFixed(6)),
+      method,
+      components: {
+        crossEncoder: ce?.components,
+        colbert: col?.components,
+      },
+    });
+  }
+
+  scored.sort((a, b) => b.rerankScore - a.rerankScore || a.path.localeCompare(b.path || ''));
+
+  if (useLlm || strat === 'llm') {
+    const topN = scored.slice(0, Math.min(8, scored.length));
+    try {
+      const order = await llmRerankOrder(query, topN, chat);
+      const reordered = order.map((idx, rank) => ({
+        ...topN[idx],
+        llmRank: rank + 1,
+        method: `${topN[idx].method}+llm`,
+        rerankScore: Number((topN[idx].rerankScore + (topN.length - rank) * 0.001).toFixed(6)),
+      }));
+      const rest = scored.slice(topN.length);
+      return { candidates: [...reordered, ...rest], llmApplied: true };
+    } catch (error) {
+      return {
+        candidates: scored,
+        llmApplied: false,
+        llmError: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  return { candidates: scored, llmApplied: false };
+}
+
+/**
+ * Second-stage rerank result cache (LRU + TTL).
+ *
+ * Why: CE/ColBERT/LLM rerank (`scoreCandidates`) is the expensive stage — it calls
+ * Ollama embeddings and optionally the LLM judge. Caching the final scored order skips
+ * those model calls on repeat queries with identical inputs.
+ *
+ * Scope / honesty (review Comment #2): rerank is reached via fresh `spawnSync` Node
+ * processes for CLI/eval entry points (`rag-retrieval-eval.js`, `retrieval-multi-query.js`,
+ * and the `retrieval-dual-path` CLI all spawn a new process per call), so an in-process
+ * `Map` only persists for the lifetime of one process. It therefore benefits any
+ * in-process caller that reranks the same (query, strategy, candidate-set) more than
+ * once, AND — with `persistPath` below — repeated CLI/eval queries across processes.
+ *
+ * Correctness / safety:
+ *  - Keyed on query + strategy + limit + llm-flag + a canonical (order-insensitive)
+ *    fingerprint of the candidate SET. The fingerprint hashes the full snippet (up to
+ *    2000 chars — covering the CE/ColBERT consumption window) plus start/end line, so
+ *    a snippet differing only beyond char 800 or a shifted source range is a natural
+ *    miss, never a stale cache hit. Rerank is deterministic, so TTL is a freshness
+ *    floor, not a correctness shortcut.
+ *  - WRITE is disabled whenever an embedder/chat is injected (test fakes) so fake
+ *    vectors can never poison the cache; production never injects (it uses
+ *    createOllamaEmbedder/createOllamaChat), so caching is on by default in-process.
+ *  - Optional cross-process persistence: set `HERMES_RERANK_CACHE_PATH` to a writable
+ *    file; the cache then loads on construction and write-throughs (atomic temp+rename)
+ *    on each set. Reads/writes are fail-open (missing/corrupt/unwritable file => cold
+ *    start; write failure ignored). Persistence is also suppressed by the inject guard,
+ *    so hermetic test runs never touch the persist file.
+ *  - `HERMES_RERANK_NO_CACHE=1` / `options.disableCache` / CLI `--no-cache` force off
+ *    (fail-open: a cache fault never changes matches, only latency).
+ *  - Matches are cloned on cache hit so callers can never mutate cached state.
+ */
+const RERANK_CACHE_MAX = Number(process.env.HERMES_RERANK_CACHE_SIZE || 256);
+const RERANK_CACHE_TTL_MS = Number(process.env.HERMES_RERANK_CACHE_TTL_MS || 300000);
+
+function cacheEnabled(options = {}) {
+  return !options.disableCache && !process.env.HERMES_RERANK_NO_CACHE;
+}
+
+function canonicalCandidates(candidates) {
+  return JSON.stringify(
+    (candidates || [])
+      .map((c) => ({
+        p: c.path,
+        s: (c.snippet || c.text || '').slice(0, 2000),
+        r: Number(c.rrfScore || c.score || 0),
+        sl: c.start_line,
+        el: c.end_line,
+      }))
+      .sort((a, b) => String(a.p).localeCompare(String(b.p)) || a.s.localeCompare(b.s)),
+  );
+}
+
+function rerankCacheKey(opts) {
+  const o = opts || {};
+  return [
+    'rerank',
+    String(o.query || ''),
+    String(o.strategy || 'ensemble'),
+    String(o.limit || ''),
+    o.llm ? 'llm' : '',
+    canonicalCandidates(o.candidates),
+  ].join('|');
+}
+
+function rerankSnapshot(out) {
+  const { elapsedMs, cacheHit, ...rest } = out;
+  return rest;
+}
+
+class RerankCache {
+  constructor({ maxSize = RERANK_CACHE_MAX, ttlMs = RERANK_CACHE_TTL_MS, now = Date.now, persistPath = null } = {}) {
+    this.max = Math.max(1, maxSize);
+    this.ttl = Math.max(0, ttlMs);
+    this.now = now;
+    this.persistPath = persistPath || null;
+    this.map = new Map();
+    if (this.persistPath) this._load();
+  }
+  _load() {
+    try {
+      const { entries } = JSON.parse(fs.readFileSync(this.persistPath, 'utf8'));
+      if (Array.isArray(entries)) for (const { k, v, t } of entries) this.map.set(k, { v, t });
+    } catch (_) {
+      /* missing / corrupt / unreadable -> cold start (fail-open) */
+    }
+  }
+  _persist() {
+    if (!this.persistPath) return;
+    const entries = [];
+    for (const [k, val] of this.map) entries.push({ k, v: val.v, t: val.t });
+    const tmp = `${this.persistPath}.tmp`;
+    try {
+      fs.writeFileSync(tmp, JSON.stringify({ entries }));
+      fs.renameSync(tmp, this.persistPath); // atomic on the same filesystem
+    } catch (_) {
+      try { fs.existsSync(tmp) && fs.unlinkSync(tmp); } catch (_) {}
+    }
+  }
+  get(key) {
+    const entry = this.map.get(key);
+    if (!entry) return undefined;
+    if (this.ttl > 0 && this.now() - entry.t > this.ttl) {
+      this.map.delete(key);
+      this._persist();
+      return undefined;
+    }
+    // LRU: refresh recency (Map insertion order == access order after re-insert)
+    this.map.delete(key);
+    this.map.set(key, entry);
+    return entry.v;
+  }
+  set(key, value) {
+    if (this.map.size >= this.max) {
+      const oldest = this.map.keys().next().value;
+      if (oldest !== undefined) this.map.delete(oldest);
+    }
+    this.map.set(key, { v: value, t: this.now() });
+    this._persist();
+    return value;
+  }
+  clear() {
+    this.map.clear();
+    this._persist();
+  }
+  size() { return this.map.size; }
+}
+
+const RERANK_CACHE = new RerankCache({
+  persistPath: process.env.HERMES_RERANK_CACHE_PATH || null,
+});
+function clearRerankCache() { RERANK_CACHE.clear(); }
+
+/**
+ * Maximal Marginal Relevance re-rank (diversity over the scored candidate set).
+ *
+ * Greedy selection by `(1-λ) * rerankScore - λ * max_overlap(already_selected)`.
+ * λ (options.diversityLambda) defaults to 0 => a no-op, so ranking is unchanged
+ * unless a caller explicitly opts into diversity. `overlap(a,b)` is injected so
+ * the selection logic is hermetic and unit-testable; in `rerank()` we pass
+ * lexicalOverlap so NO extra model calls are required.
+ *
+ * Why surface this: the CE/ColBERT reranker is already A+ on nDCG@K (precision
+ * of the list); MMR attacks the complementary axis — top-K redundancy (near-
+ * duplicate paths / snippets) — at zero added latency or cost. Opt-in so the
+ * existing A+ scores and rankings are never disturbed.
+ */
+function mmrReorder(candidates, lambda, overlap) {
+  if (!lambda || !Array.isArray(candidates) || candidates.length <= 1) return candidates;
+  const pool = candidates.slice();
+  const chosen = [];
+  while (pool.length) {
+    let bestIdx = 0;
+    let bestScore = -Infinity;
+    for (let i = 0; i < pool.length; i += 1) {
+      const rel = Number(pool[i].rerankScore) || 0;
+      const red = chosen.length ? Math.max(...chosen.map((c) => overlap(pool[i], c))) : 0;
+      const s = (1 - lambda) * rel - lambda * red; // marginal relevance
+      if (s > bestScore) { bestScore = s; bestIdx = i; }
+    }
+    chosen.push(pool.splice(bestIdx, 1)[0]);
+  }
+  return chosen;
+}
+
+/**
+ * Main entry: rerank a candidate list.
+ * @param {object} options
+ * @param {string} options.query
+ * @param {Array} options.candidates - {path, snippet?, rrfScore?, score?}
+ * @param {string} [options.strategy] cross_encoder|colbert_lite|llm|ensemble|auto
+ * @param {number} [options.limit]
+ */
+async function rerank(options = {}) {
+  const query = String(options.query || '').trim();
+  if (!query) throw new Error('query required');
+  const candidates = Array.isArray(options.candidates) ? options.candidates : [];
+  if (!candidates.length) {
+    return {
+      ok: true,
+      query,
+      strategy: options.strategy || 'ensemble',
+      matches: [],
+      note: 'empty candidates',
+    };
+  }
+  const strategy = options.strategy || 'ensemble';
+  const limit = options.limit || candidates.length;
+
+  if (cacheEnabled(options) && !options.embedder && !options.chat) {
+    const key = rerankCacheKey({ query, strategy, limit, llm: options.llm, candidates });
+    const cached = RERANK_CACHE.get(key);
+    if (cached) {
+      return {
+        ...cached,
+        cacheHit: true,
+        elapsedMs: 0,
+        matches: cached.matches.map((m) => ({ ...m })),
+      };
+    }
+  }
+
+  const started = Date.now();
+  const result = await scoreCandidates(query, candidates, strategy, options);
+  // Optional MMR diversity re-rank (default off; opt-in via options.diversityLambda,
+  // CLI --rerank-diversity). Lexical-overlap redundancy penalty => no extra model
+  // calls; λ=0 is a no-op so default rerank behavior / A+ scores are unchanged.
+  const mmrLambda = Number(options.diversityLambda) || 0;
+  if (mmrLambda > 0 && result.candidates.length > 1) {
+    const overlap = (a, b) =>
+      lexicalOverlap(
+        String(a.snippet || a.text || a.path || ''),
+        String(b.snippet || b.text || b.path || ''),
+      );
+    result.candidates = mmrReorder(result.candidates, mmrLambda, overlap);
+  }
+  const matches = result.candidates.slice(0, limit).map((c, i) => ({
+    ...c,
+    rank: i + 1,
+  }));
+  const out = {
+    ok: true,
+    query,
+    strategy,
+    llmApplied: result.llmApplied,
+    llmError: result.llmError,
+    elapsedMs: Date.now() - started,
+    matchCount: matches.length,
+    matches,
+    cacheHit: false,
+    // Capability matrix for scorecard
+    capabilities: {
+      cross_encoder: true,
+      colbert_lite: true,
+      llm_rerank: true,
+      ensemble: true,
+    },
+  };
+  if (cacheEnabled(options) && !options.embedder && !options.chat) {
+    RERANK_CACHE.set(
+      rerankCacheKey({ query, strategy, limit, llm: options.llm, candidates }),
+      rerankSnapshot(out),
+    );
+  }
+  return out;
+}
+
+/** Hermetic self-test: inverted list must be corrected by CE/ColBERT features. */
+async function selfTest() {
+  // Deterministic fake embedder: bag-of-char hashing into fixed dim
+  function hashEmbed(text, dim = 32) {
+    const v = new Array(dim).fill(0);
+    const s = String(text || '').toLowerCase();
+    for (let i = 0; i < s.length; i += 1) {
+      const code = s.charCodeAt(i);
+      v[code % dim] += 1;
+      v[(code * 7 + i) % dim] += 0.3;
+    }
+    const norm = Math.sqrt(v.reduce((a, b) => a + b * b, 0)) || 1;
+    return v.map((x) => x / norm);
+  }
+  const embedder = { embed: async (t) => hashEmbed(t) };
+  const query = 'gateway session recover tailscale';
+  const candidates = [
+    {
+      path: 'docs/unrelated-marketing.md',
+      snippet: 'pricing funnel continuity stripe buy links promo social',
+      rrfScore: 0.05,
+    },
+    {
+      path: 'tools/hermes-cloud-connector.js',
+      snippet: 'gateway session recover when tailscale path fails; reconnect session token',
+      rrfScore: 0.02,
+    },
+  ];
+  // RRF would prefer marketing (higher prior); CE/ColBERT must flip to connector.
+  const ce = await rerank({
+    query,
+    candidates,
+    strategy: 'cross_encoder',
+    embedder,
+    limit: 2,
+  });
+  const col = await rerank({
+    query,
+    candidates,
+    strategy: 'colbert_lite',
+    embedder,
+    limit: 2,
+  });
+  const ens = await rerank({
+    query,
+    candidates,
+    strategy: 'ensemble',
+    embedder,
+    limit: 2,
+  });
+  const want = 'tools/hermes-cloud-connector.js';
+  return {
+    ok:
+      ce.matches[0]?.path === want &&
+      col.matches[0]?.path === want &&
+      ens.matches[0]?.path === want,
+    cross_encoder_top: ce.matches[0]?.path,
+    colbert_top: col.matches[0]?.path,
+    ensemble_top: ens.matches[0]?.path,
+    capabilities: ce.capabilities,
+  };
+}
+
+if (require.main === module) {
+  (async () => {
+    try {
+      const args = parseArgs(process.argv.slice(2));
+      if (args.help) {
+        console.log(
+          'Usage: node tools/retrieval-rerank.js --query "..." --candidates-file f.json [--strategy ensemble] [--json]\n' +
+            '       node tools/retrieval-rerank.js --self-test --json',
+        );
+        process.exit(0);
+      }
+      if (args.selfTest) {
+        const report = await selfTest();
+        if (args.json) console.log(JSON.stringify(report, null, 2));
+        else console.log(`rerank self-test: ${report.ok ? 'OK' : 'FAIL'}`);
+        process.exit(report.ok ? 0 : 1);
+      }
+      if (!args.query || !args.candidatesFile) {
+        console.error('--query and --candidates-file required (or --self-test)');
+        process.exit(2);
+      }
+      const candidates = JSON.parse(fs.readFileSync(path.resolve(args.candidatesFile), 'utf8'));
+      const list = Array.isArray(candidates) ? candidates : candidates.matches || candidates.candidates || [];
+      const out = await rerank({
+        query: args.query,
+        candidates: list,
+        strategy: args.strategy,
+        limit: args.limit,
+        llm: args.llm,
+        disableCache: args.noCache,
+        diversityLambda: args.diversityLambda,
+      });
+      if (args.json) console.log(JSON.stringify(out, null, 2));
+      else {
+        console.log(`rerank strategy=${out.strategy} n=${out.matchCount} llm=${out.llmApplied}`);
+        out.matches.forEach((m) => {
+          console.log(`${m.rank}. ${m.rerankScore.toFixed(4)}  ${m.path}`);
+        });
+      }
+      process.exit(out.ok ? 0 : 1);
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : error);
+      process.exit(2);
+    }
+  })();
+}
+
+module.exports = {
+  rerank,
+  selfTest,
+  crossEncoderScore,
+  colbertLiteScore,
+  llmRerankOrder,
+  cosine,
+  lexicalOverlap,
+  tokenize,
+  significantQueryTokens,
+  passageWindows,
+  createOllamaEmbedder,
+  createOllamaChat,
+  // Rerank result cache (LRU + TTL) — for observability hooks and hermetic testing
+  RerankCache,
+  RerankCacheInstance: RERANK_CACHE,
+  rerankCacheKey,
+  rerankSnapshot,
+  cacheEnabled,
+  clearRerankCache,
+  mmrReorder,
+};
