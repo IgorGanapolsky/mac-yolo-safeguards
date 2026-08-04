@@ -143,3 +143,80 @@ This session cannot proceed past research until one of:
 Until then, future scheduled runs of this task will keep re-verifying the
 same facts and hitting the same wall — worth fixing the access grant once
 rather than re-discovering it every 72h.
+
+---
+
+## 2026-08-03 (PM) — Run 2 (first real contribution)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+| Fact | Evidence |
+|------|----------|
+| **Canonical repo** | [`github.com/block/buzz`](https://github.com/block/buzz) — Apache-2.0, ~21.7k★, `open_issues_count` ~1787, pushed actively 2026-08-03 |
+| **Maintainer** | Block (Jack Dorsey org); official post [Introducing Buzz](https://block.xyz/inside/introducing-buzz-where-humans-and-agents-work-together) |
+| **Product** | Open-source human+agent workspace (channels, threads, DMs, voice, repos, workflows) on **Nostr** at [buzz.xyz](https://buzz.xyz/) |
+| **Architecture** | Rust workspace (`buzz-core`, `buzz-relay`, `buzz-workflow`, `buzz-db`, `buzz-acp`, …) + desktop/web/mobile; Axum relay; Postgres/Redis; event kinds as feature switch (`ARCHITECTURE.md`, `CONTRIBUTING.md`) |
+| **Community surface** | **GitHub Issues/PRs only** (`has_discussions: false`). No separate Discord found. Managed relay: `*.communities.buzz.xyz` |
+| **Prior Igor context** | `buzz-wf08-pr-plan.md` (root) maps WF-08 approval-gate gap; branches `feat/buzz-nostr-acp-bridge-*`, `feat/hermes-buzz-three-paths-nostr-*`; earlier Run 1 log (access blocked) |
+
+Confidence: **high** — same identity as Run 1 + live `gh api repos/block/buzz` this session. Proceeded.
+
+### What was surveyed (last ~72h)
+
+High-signal open issues (sample):
+
+| Issue | Topic | Action |
+|-------|--------|--------|
+| [#4579](https://github.com/block/buzz/issues/4579) | Multi-value `#h` silently narrows to lex-first channel | **Fixed (PR)** |
+| [#4580](https://github.com/block/buzz/issues/4580) | Workflow delete accepted-but-ignored / ghost events | Skipped (auth+NIP-09 surface; larger) |
+| [#4565](https://github.com/block/buzz/issues/4565) | buzz-acp permission auto-response deny-by-default | **Answered** |
+| [#4564](https://github.com/block/buzz/issues/4564) | Membership subscribe `since` drops first DM | Skipped (race; careful replay design) |
+| [#4577](https://github.com/block/buzz/issues/4577) | ACP subprocess leak per turn | Skipped (process lifecycle; needs harness repro) |
+| [#4529](https://github.com/block/buzz/issues/4529) | Knowledge receipt event kinds | Skipped (feature/registry) |
+| [#2509](https://github.com/block/buzz/issues/2509) | `verdict_ref` on request_approval | Skipped this run (design; already has comments) |
+| WF-08 | Approval resume path blocked in `finalize_run` | Deferred — multi-file DB/engine change; needs dedicated run |
+
+### What was opened / answered
+
+| Action | URL |
+|--------|-----|
+| **PR** multi-`#h` silent narrow fix | https://github.com/block/buzz/pull/4598 |
+| **Comment** on #4565 (fail-closed permission auto-response design notes) | https://github.com/block/buzz/issues/4565#issuecomment-5171118220 |
+
+#### PR #4598 verification (executed this run)
+
+```text
+cargo test -p buzz-relay --lib handlers::req::tests
+# 51 passed; 0 failed
+# including:
+#   extract_channel_id_from_filter_multi_h_returns_none
+#   filter_to_query_params_multi_h_sets_channel_ids_not_first_only
+#   apply_access_scope_intersects_multi_h_channel_ids
+```
+
+Fix shape: `channel_scope_from_filter` — one `#h` → `channel_id`; many → `channel_ids` (never first-only); access scope **intersects** multi lists.
+
+### Positioning read: **neither competitor nor partner** (overlap remains real)
+
+| Axis | Assessment |
+|------|------------|
+| **Competitor?** | **No.** Buzz is a **workspace + agent channel fabric** (Slack/GitHub-shaped). ThumbGate is a **pre-action gate / governance layer** for agent tool use across arbitrary runtimes. Different product surfaces; users can need both. |
+| **Partner?** | **Not yet.** No relationship, no integration agreement. |
+| **Technical overlap?** | **Yes.** Buzz's own roadmap still has incomplete approval plumbing (WF-08), accepted-but-ignored writes (#4580), and default **auto-allow** ACP permissions (#4565). Those are exactly the reliability class ThumbGate cares about (false completion evidence, fail-closed, double-execution). Contributing **inside Buzz's own gate surfaces** (as #4598 does for silent query loss) is honest engineering credit — not a partnership claim. |
+| **ThumbGate mentions this run** | **Zero** in PR body and issue comments. |
+
+### What was skipped and why
+
+- **Second PR** — hard max 1/run.
+- **WF-08 implementation** — plan exists in `buzz-wf08-pr-plan.md`; still multi-file + double-resume race; requires dedicated suite + maintainer alignment.
+- **#4580 workflow delete** — two defects (auth false-complete + ghost kind:30620); larger than one surgical PR.
+- **#4564 / #4577** — need careful race/process design; not a one-line fix with clean unit isolation.
+- **Pitch / README / typo PRs** — banned.
+- **Manufactured question** — none; #4565 answer was enough.
+
+### Next run candidates
+
+1. Review feedback on #4598; land if requested.
+2. WF-08: open design issue then PR only after double-resume + idempotent `create_approval` tests green.
+3. Optional: small PR for #4565 deny-by-default config if maintainers signal OK.
+
