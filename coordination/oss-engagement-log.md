@@ -4,6 +4,16 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 
 ---
 
+## 2026-08-04 (run 3) — Same blocker confirmed independently; new root-cause lead on #3773
+
+Third firing today. Hit the identical `add_repo` cross-tier wall documented in the two entries below (own repro: `add_repo("lancedb", "lancedb")` → `cross-tier adds are not supported in v1 ... session already has repos from owner(s) [igorganapolsky]`; a direct `GH_TOKEN` probe against `api.github.com`, authenticated and not, returns the same proxy-level denial for every target-org repo). Not re-running the full survey — see the two entries immediately below for that and for the LanceDB blob-v2 fix already pushed to `IgorGanapolsky:lancedb:fix/update-blob-v2-clear-error`, still awaiting a human to open the PR from its compare link.
+
+One new finding worth recording: the "(later)" entry below marked [lancedb#3773](https://github.com/lancedb/lancedb/issues/3773) (debugger hangs inspecting `LanceDBConnection` on Python 3.13.5) as root-cause-unclear and skipped it. A plain unauthenticated `git clone` of `lancedb/lancedb` (read-only public clone, unaffected by the session block) turned up a strong candidate: `LanceDBConnection.read_consistency_interval` (`python/python/lancedb/db.py:760-762`) is a `@property` that calls `LOOP.run(self._conn.get_read_consistency_interval())` — a blocking, cross-thread call into the async-runtime bridge. Debugger variable inspectors (PyCharm/VS Code) eagerly evaluate every property when rendering an object in the inspector pane, so opening a `LanceDBConnection` there calls this property from the debugger's own thread and blocks on `LOOP.run` — matching the reported hang exactly. Not fixed or filed this run (no write path to `lancedb/lancedb`); a real fix would defer/exclude this property from eager inspection (e.g. move it out of `__repr__`'s implicit reach, or make the debugger-facing surface lazy). Worth picking up whenever this org is reachable again.
+
+No comments posted, no PRs opened, nothing else surveyed beyond confirming the blocker still stands. ThumbGate: not mentioned, no access to post anywhere this run.
+
+---
+
 ## 2026-08-04 (later) — LanceDB blob-v2 `update()` fix ready and verified, still blocked at PR-open
 
 An earlier run today (see entry immediately below) hit the same session-scope blocker and stopped at research only. This run went further: found, fixed, and locally verified a real bug in `lancedb/lancedb` — including the exact `#3760` the earlier run had already flagged as a future candidate — but hit the identical blocker at the PR-open step. Logging it here rather than re-running the same research.
