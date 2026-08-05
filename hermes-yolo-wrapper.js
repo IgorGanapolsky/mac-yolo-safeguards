@@ -38,6 +38,27 @@ const DEFAULT_TOOLSETS = process.env.HERMES_YOLO_TOOLSETS
   || 'terminal,file,web,code_execution,memory,clarify';
 
 /**
+ * YugabyteDB AMP sprawl-control module (proliferation, decision traces, guarded autonomy).
+ * Soft-fail if missing — routing still works.
+ * Install: tools/ next to wrapper, or ~/.hermes/hermes-yolo-sprawl-control.js
+ */
+function loadSprawlControlModule() {
+  const candidates = [
+    path.join(__dirname, 'tools', 'hermes-yolo-sprawl-control.js'),
+    path.join(__dirname, 'hermes-yolo-sprawl-control.js'),
+    path.join(HOME, '.hermes', 'hermes-yolo-sprawl-control.js'),
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) return require(candidate);
+    } catch {
+      // continue
+    }
+  }
+  return null;
+}
+
+/**
  * Capability registry for fail-closed model selection (P0).
  * Availability-only LiteLLM fallbacks can land on chat-tier free models that
  * cannot tool-call — hermes-yolo must refuse those for agent runs.
@@ -483,6 +504,8 @@ function buildRouteReceipt(options = {}) {
       toolsets: options.toolsets || DEFAULT_TOOLSETS,
       failClosed: options.failClosed !== false,
       agentCapableRequired: true,
+      sprawl: options.sprawl || null,
+      decisionTrace: options.decisionTrace || null,
     },
     route: {
       requestedBackend: options.requestedBackend || 'grok',
@@ -521,6 +544,11 @@ function releaseLock() {
     const owner = parseInt(fs.readFileSync(LOCK_PATH, 'utf8').trim(), 10);
     if (owner === process.pid) fs.unlinkSync(LOCK_PATH);
   } catch (e) {}
+  // Scale-to-zero / fleet hygiene: drop this pid from sprawl registry
+  try {
+    const mod = loadSprawlControlModule();
+    if (mod) mod.unregisterRun(process.pid);
+  } catch (e) { /* ignore */ }
 }
 
 function findGrokYoloBinary(env = process.env) {
@@ -767,10 +795,171 @@ if (args.length === 1 && (args[0] === '--route-status' || args[0] === 'route-sta
   console.log(JSON.stringify(status, null, 2));
   process.exit(status.ready ? 0 : 2);
 }
-const activeClassification = classifyBackend(args, process.env);
+// Yugabyte AMP fleet sprawl status / scale-to-zero dry-run
+if (args.length >= 1 && (args[0] === '--sprawl-status' || args[0] === 'sprawl-status')) {
+  const sprawl = loadSprawlControlModule();
+  if (!sprawl) {
+    console.error('[hermes-yolo] sprawl-control module missing');
+    process.exit(2);
+  }
+  const assessment = sprawl.assessFleet();
+  console.log(JSON.stringify(assessment, null, 2));
+  process.exit(0);
+}
+if (args.length >= 1 && (args[0] === '--sprawl-reap' || args[0] === 'sprawl-reap')) {
+  const sprawl = loadSprawlControlModule();
+  if (!sprawl) {
+    console.error('[hermes-yolo] sprawl-control module missing');
+    process.exit(2);
+  }
+  const execute = args.includes('--execute');
+  const killIdle = args.includes('--kill-idle');
+  const result = sprawl.reapFleet({ dryRun: !execute, killIdle });
+  console.log(JSON.stringify(result, null, 2));
+  process.exit(0);
+}
+
+// Strip leading --dry-run so backend classification still works on the real task.
+const dryRunFlag = args.includes('--dry-run') || process.env.HERMES_YOLO_DRY_RUN === '1';
+const argsForRoute = args.filter((a) => a !== '--dry-run');
+if (dryRunFlag) process.env.HERMES_YOLO_DRY_RUN = '1';
+
+const activeClassification = classifyBackend(argsForRoute.length ? argsForRoute : args, process.env);
 const legacyStartedAt = Date.now();
+
+// --- Sprawl plan: roles + guarded autonomy + decision trace (before spawn) ---
+const sprawlMod = process.env.HERMES_YOLO_SPRAWL === '0' ? null : loadSprawlControlModule();
+let sprawlPlan = null;
+let sprawlRunEntry = null;
+if (sprawlMod) {
+  const taskForPlan = (() => {
+    if (!argsForRoute.length) return '';
+    if (argsForRoute[0] === '-z' || argsForRoute[0] === '--single') {
+      return argsForRoute.slice(1).join(' ').trim();
+    }
+    if (argsForRoute[0].startsWith('-') || HERMES_COMMANDS.has(argsForRoute[0])) return '';
+    return argsForRoute.join(' ').trim();
+  })();
+  if (taskForPlan && taskForPlan !== DEFAULT_READY_PROMPT) {
+    sprawlPlan = sprawlMod.planRun({
+      taskText: taskForPlan,
+      argCount: argsForRoute.length,
+      cwd: process.cwd(),
+      context: {
+        backend: activeClassification.selectedBackend,
+        model: activeClassification.selectedBackend === 'grok-4.5' ? 'grok-4.5' : DEFAULT_MODEL,
+      },
+    });
+    try {
+      sprawlMod.writeDecisionTrace(sprawlPlan.decisionTrace);
+    } catch (e) {
+      log(`SPRAWL_TRACE_WRITE_ERROR ${e && e.message}`);
+    }
+    console.error(
+      `\x1b[36m[hermes-yolo]\x1b[0m amp-role=${sprawlPlan.roles.primary} `
+      + `autonomy=${sprawlPlan.autonomy.mode} `
+      + `fleet_live=${sprawlPlan.fleet.live} idle=${sprawlPlan.fleet.idle}`,
+    );
+    if (sprawlPlan.fleet.sprawlWarning) {
+      console.error(
+        `\x1b[33m[hermes-yolo]\x1b[0m fleet sprawl warning: concurrent runs high `
+        + `(live+idle). Run: hermes-yolo --sprawl-status`,
+      );
+    }
+    if (sprawlPlan.autonomy.mode === 'block') {
+      writeRouteReceipt(buildRouteReceipt({
+        rawArgs: argsForRoute,
+        ...activeClassification,
+        model: DEFAULT_MODEL,
+        status: 'blocked',
+        exitCode: 3,
+        durationMs: Date.now() - legacyStartedAt,
+        error: sprawlPlan.blockReason,
+        sprawl: {
+          role: sprawlPlan.roles.primary,
+          autonomy: sprawlPlan.autonomy.mode,
+          fleet: sprawlPlan.fleet,
+        },
+        decisionTrace: {
+          primaryRole: sprawlPlan.decisionTrace.inferred.primaryRole,
+          autonomyMode: sprawlPlan.decisionTrace.inferred.autonomyMode,
+          riskCategories: sprawlPlan.decisionTrace.inferred.riskCategories,
+        },
+      }));
+      console.error(`\x1b[31m[hermes-yolo]\x1b[0m blocked by sprawl autonomy: ${sprawlPlan.blockReason}`);
+      process.exit(3);
+    }
+    if (sprawlPlan.autonomy.mode === 'ask' && process.env.HERMES_YOLO_ASK_BEFORE === '1') {
+      writeRouteReceipt(buildRouteReceipt({
+        rawArgs: argsForRoute,
+        ...activeClassification,
+        model: DEFAULT_MODEL,
+        status: 'blocked',
+        exitCode: 4,
+        durationMs: Date.now() - legacyStartedAt,
+        error: sprawlPlan.askReason || 'ask-before',
+        sprawl: {
+          role: sprawlPlan.roles.primary,
+          autonomy: 'ask',
+          fleet: sprawlPlan.fleet,
+        },
+        decisionTrace: {
+          primaryRole: sprawlPlan.decisionTrace.inferred.primaryRole,
+          autonomyMode: 'ask',
+          riskCategories: sprawlPlan.decisionTrace.inferred.riskCategories,
+        },
+      }));
+      console.error(`\x1b[33m[hermes-yolo]\x1b[0m ask-before (Yugabyte guarded autonomy): ${sprawlPlan.askReason}`);
+      console.error('[hermes-yolo] re-run with confirmation env for this category, or narrow the task.');
+      process.exit(4);
+    }
+    if (sprawlPlan.autonomy.mode === 'dry_run' || dryRunFlag) {
+      const md = sprawlMod.renderDryRunMarkdown(sprawlPlan);
+      console.log(md);
+      writeRouteReceipt(buildRouteReceipt({
+        rawArgs: argsForRoute,
+        ...activeClassification,
+        model: DEFAULT_MODEL,
+        status: 'pass',
+        exitCode: 0,
+        durationMs: Date.now() - legacyStartedAt,
+        sprawl: {
+          role: sprawlPlan.roles.primary,
+          autonomy: 'dry_run',
+          fleet: sprawlPlan.fleet,
+        },
+        decisionTrace: {
+          primaryRole: sprawlPlan.decisionTrace.inferred.primaryRole,
+          autonomyMode: 'dry_run',
+          riskCategories: sprawlPlan.decisionTrace.inferred.riskCategories,
+        },
+      }));
+      process.exit(0);
+    }
+    try {
+      sprawlRunEntry = sprawlMod.registerRun({
+        pid: process.pid,
+        runId: sprawlPlan.decisionTrace.runId,
+        taskText: taskForPlan,
+        role: sprawlPlan.roles.primary,
+        backend: activeClassification.selectedBackend,
+        model: activeClassification.selectedBackend === 'grok-4.5' ? 'grok-4.5' : DEFAULT_MODEL,
+        autonomyMode: sprawlPlan.autonomy.mode,
+        cwd: process.cwd(),
+      });
+    } catch (e) {
+      log(`SPRAWL_REGISTER_ERROR ${e && e.message}`);
+    }
+  }
+}
+
 if (activeClassification.selectedBackend === 'grok-4.5') {
-  runGrokBackend(args, process.env);
+  if (sprawlMod && sprawlRunEntry) {
+    process.on('exit', () => {
+      try { sprawlMod.unregisterRun(process.pid); } catch (e) { /* ignore */ }
+    });
+  }
+  runGrokBackend(argsForRoute.length ? argsForRoute : args, process.env);
 }
 // --- Singleton lock: refuse second instance, clear stale locks ---
 if (fs.existsSync(LOCK_PATH)) {
@@ -1084,6 +1273,21 @@ child.on('close', (code, signal) => {
     signal: signal || null,
     durationMs,
     error: killed ? killReason : null,
+    sprawl: sprawlPlan
+      ? {
+          role: sprawlPlan.roles.primary,
+          autonomy: sprawlPlan.autonomy.mode,
+          fleet: sprawlPlan.fleet,
+          runId: sprawlRunEntry && sprawlRunEntry.runId,
+        }
+      : null,
+    decisionTrace: sprawlPlan
+      ? {
+          primaryRole: sprawlPlan.decisionTrace.inferred.primaryRole,
+          autonomyMode: sprawlPlan.decisionTrace.inferred.autonomyMode,
+          riskCategories: sprawlPlan.decisionTrace.inferred.riskCategories,
+        }
+      : null,
   }));
 
   updateStatus(data => {
@@ -1151,6 +1355,7 @@ module.exports = {
   assertAgentCapableModel,
   fingerprintCommand,
   createToolBudget,
+  loadSprawlControlModule,
   MODEL_CAPABILITY_REGISTRY,
   DEFAULT_TOOLSETS,
   HERMES_COMMANDS,
