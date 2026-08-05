@@ -291,12 +291,21 @@ soft_check('grepai index is non-trivial', () => {
     warn('grepai index', `Index dir ${GREPAI_INDEX} not found — RAG may be offline`);
     return;
   }
-  const stat = fs.statSync(GREPAI_INDEX);
-  const sizeBytes = stat.size || 0;
+  // Recursively sum all file sizes — statSync on a directory returns the
+  // inode size (a few KB), not the actual content (which can be hundreds of MB).
+  let sizeBytes = 0;
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.isFile()) sizeBytes += fs.statSync(full).size;
+    }
+  };
+  walk(GREPAI_INDEX);
   if (sizeBytes < MIN_INDEX_BYTES) {
     warn(
       'grepai index',
-      `Index dir ${GREPAI_INDEX} is only ${sizeBytes} bytes — likely dead. Run grepai index --rebuild.`,
+      `Index dir ${GREPAI_INDEX} is only ${sizeBytes} bytes — likely dead. Run: grepai watch`,
     );
   }
 });
