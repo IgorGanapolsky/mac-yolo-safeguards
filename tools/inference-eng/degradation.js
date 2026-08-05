@@ -6,8 +6,13 @@
  *
  * Modes:
  *   normal     — preferred models in order
- *   degraded   — skip frontier/subscription; coding→fast/free/local
+ *   degraded   — skip thrash/metered burn; KEEP SuperGrok flat plan + free/local
  *   emergency  — local/free only (swap thrash, all paid 429)
+ *
+ * SuperGrok / grok-4.5 is flat-rate subscription (policy pricing tier), not
+ * per-token thrash. Degraded mode MUST NOT strip it — that was the 2026-08-05
+ * live bug where HERMES_INFERENCE_MODE=degraded + HERMES_YOLO_MODEL=glm-coding
+ * demoted SuperGrok to glm despite a ready SuperGrok path.
  *
  *   node tools/inference-eng/degradation.js --task "fix auth" --mode normal --json
  */
@@ -15,6 +20,37 @@
 const { classifyTask, getTask } = require('./task-registry');
 
 const MODES = Object.freeze(['normal', 'degraded', 'emergency']);
+
+/** Models that are thrashy or pay-per-token burn under pressure — not SuperGrok. */
+const DEGRADED_DROP = Object.freeze([
+  /^gpt-/i,
+  /^claude-/i,
+  /^o[1-9]/i,
+  /^kimi-k3$/i,
+  /^kimi-k2\.7/i,
+  /^muse-spark/i,
+  /^sakana\//i,
+  /^nvidia\/nemotron-3-ultra/i,
+]);
+
+/**
+ * Operator wants SuperGrok as coding primary when backend is grok/auto or explicit prefer.
+ * @param {NodeJS.ProcessEnv} env
+ */
+function wantsSuperGrok(env = process.env) {
+  if (env.HERMES_PREFER_SUPERGROK === '0') return false;
+  if (env.HERMES_PREFER_SUPERGROK === '1') return true;
+  const backend = String(env.HERMES_YOLO_BACKEND || 'auto').toLowerCase();
+  return backend === 'grok' || backend === 'auto' || backend === 'grok-4.5';
+}
+
+/**
+ * Stale glm pin from pre-SuperGrok days should not defeat SuperGrok preference.
+ * @param {string} pin
+ */
+function isStaleGlmPin(pin) {
+  return /^(glm-coding|glm-5\.2|glm-5|glm-47|glm-4\.7)$/i.test(String(pin || ''));
+}
 
 /**
  * @param {{ taskId?: string, taskText?: string, mode?: string, env?: NodeJS.ProcessEnv, probeFailures?: string[] }} opts
@@ -30,26 +66,50 @@ function selectModelChain(opts = {}) {
 
   const failures = new Set((opts.probeFailures || []).map(String));
   let chain = [...task.preferredModels];
+  const preferGrok = wantsSuperGrok(env) && mode !== 'emergency' && !failures.has('grok-4.5');
 
   if (mode === 'degraded') {
-    // Drop frontier; keep coding/fast/local/free
-    chain = chain.filter((m) => !/^grok-4/.test(m));
+    // Drop thrash/metered burn models; KEEP SuperGrok + coding flat + free + local.
+    chain = chain.filter((m) => !DEGRADED_DROP.some((re) => re.test(m)));
     if (!chain.includes('deepseek-v4-flash')) chain.push('deepseek-v4-flash');
     if (!chain.includes('hermes-local')) chain.push('hermes-local');
+    // Ensure SuperGrok stays available for coding/plan even if registry order shifts.
+    if (preferGrok && !chain.includes('grok-4.5')) {
+      chain = ['grok-4.5', ...chain];
+    }
   } else if (mode === 'emergency') {
     chain = ['hermes-local-fast', 'hermes-local', 'deepseek-v4-flash-free'].filter(Boolean);
   }
 
-  // Operator env pin wins as head of chain except in emergency (thrash / total paid outage)
-  // where we refuse to re-pin a dead glm/kimi primary.
+  // Operator env pin wins as head of chain except:
+  // - emergency (refuse re-pinning a dead glm/kimi primary)
+  // - stale glm pin when SuperGrok is preferred (2026-08-05 regression)
   if (env.HERMES_YOLO_MODEL && mode !== 'emergency') {
-    chain = [env.HERMES_YOLO_MODEL, ...chain.filter((m) => m !== env.HERMES_YOLO_MODEL)];
+    const pin = env.HERMES_YOLO_MODEL;
+    if (!(preferGrok && isStaleGlmPin(pin))) {
+      chain = [pin, ...chain.filter((m) => m !== pin)];
+    }
+  }
+
+  if (preferGrok) {
+    chain = ['grok-4.5', ...chain.filter((m) => m !== 'grok-4.5')];
   }
 
   // Drop known probe failures
   chain = chain.filter((m) => !failures.has(m));
   if (chain.length === 0) {
     chain = mode === 'emergency' ? ['hermes-local'] : ['deepseek-v4-flash', 'hermes-local'];
+  }
+
+  let reason;
+  if (mode === 'normal') {
+    reason = preferGrok
+      ? `normal chain for task=${task.id} (SuperGrok preferred)`
+      : `normal chain for task=${task.id}`;
+  } else {
+    reason = `${mode} degradation for task=${task.id} (skipped ${[...failures].join(',') || 'none'}${
+      preferGrok ? '; SuperGrok kept' : ''
+    })`;
   }
 
   return {
@@ -60,11 +120,9 @@ function selectModelChain(opts = {}) {
     latencyBudgetMs: task.latencyBudgetMs,
     modelClass: task.modelClass,
     businessKpi: task.businessKpi,
-    reason:
-      mode === 'normal'
-        ? `normal chain for task=${task.id}`
-        : `${mode} degradation for task=${task.id} (skipped ${[...failures].join(',') || 'none'})`,
-    policyVersion: 2,
+    preferSuperGrok: preferGrok,
+    reason,
+    policyVersion: 3,
   };
 }
 
@@ -97,11 +155,18 @@ if (require.main === module) {
     else if (argv[i] === '--json') json = true;
   }
   const result = selectModelChain({ taskText: task, mode });
-  process.stdout.write(json ? `${JSON.stringify(result, null, 2)}\n` : `${result.primary} ← [${result.chain.join(' → ')}] (${result.reason})\n`);
+  process.stdout.write(
+    json
+      ? `${JSON.stringify(result, null, 2)}\n`
+      : `${result.primary} ← [${result.chain.join(' → ')}] (${result.reason})\n`,
+  );
 }
 
 module.exports = {
   MODES,
+  DEGRADED_DROP,
+  wantsSuperGrok,
+  isStaleGlmPin,
   selectModelChain,
   inferMode,
 };
