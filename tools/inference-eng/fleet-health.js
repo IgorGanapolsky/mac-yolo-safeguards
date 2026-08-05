@@ -49,10 +49,13 @@ function assess(options = {}) {
     swapUsedPct: options.swapUsedPct,
     env: options.env || process.env,
   });
+  // Prefer live process env so SuperGrok backend pin / stale glm pin are visible,
+  // unless caller overrides (tests pass env: {}).
+  const routeEnv = options.env !== undefined ? options.env : process.env;
   const codingRoute = selectModelChain({
     taskText: 'fix the production bug',
     mode,
-    env: options.env || {},
+    env: routeEnv,
   });
   const opt = runOptimizer({ windowHours, logPath });
 
