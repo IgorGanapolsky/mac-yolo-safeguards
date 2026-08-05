@@ -46,7 +46,7 @@ export const FIND_COMPUTERS_WIFI_HINT =
   'Same Wi‑Fi only — not cellular, not a different network.';
 
 export const PICKER_EMPTY_FOOTER =
-  'No saved computers yet. Paste a Tailscale IP above, or Find computers on the same Wi‑Fi.';
+  'No saved computers yet. On home Wi‑Fi, tap Find computers (same network as Hermes). Away or on cellular, use Tailscale (100.x) or paste a Tailscale IP.';
 
 /** Fallback help when Tailscale is on but no Add chips / scan hits yet. */
 export const PICKER_HELP_MISSING_TITLE = TAILSCALE_PASTE_IP_TITLE;

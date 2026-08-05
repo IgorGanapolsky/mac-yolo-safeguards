@@ -81,6 +81,20 @@ describe('prevent recurrence contract (July 2026 CI gates)', () => {
     expect(util).toContain('authMismatch');
   });
 
+  it('picker/header share effectiveMacHttpOk SSOT (no Connected while header Not connected)', () => {
+    // Screenshot 2026-08-05: picker row green "Connected · Tailscale · Now" while header
+    // "Igors-Mac-mini · Not connected · Tailscale". ChatScreen must pass effectiveMacHttpOk
+    // (not raw macHttpOk) into GatewayProfilePicker / ComputerPickerStatusRegion.
+    const chat = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chat).toMatch(/activeReachable=\{effectiveMacHttpOk\}/);
+    expect(chat).toMatch(/activeProfileReachable=\{effectiveMacHttpOk\}/);
+    expect(chat).not.toMatch(/activeReachable=\{macHttpOk\}/);
+    expect(chat).not.toMatch(/activeProfileReachable=\{macHttpOk\}/);
+    const settings = read('hermes-mobile/src/screens/SettingsScreen.tsx');
+    expect(settings).toMatch(/activeReachable=\{effectiveMacHttpOk\}/);
+    expect(settings).toContain('resolveEffectiveMacHttpOk');
+  });
+
   it('green health with authMismatch is not mac HTTP ok', () => {
     expect(
       isMacGatewayHttpOk({

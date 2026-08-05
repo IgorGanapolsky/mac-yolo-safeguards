@@ -101,6 +101,14 @@ export function resetHandledUrls() {
   handledUrls.clear();
 }
 
+/**
+ * GH-#1451: setup must never be replaced by a later leash-unlock (or any second URL)
+ * while the first setup is still applying. Serial queue + defer unlock until setup settles.
+ */
+function isSetupPairingDeepLink(url: string): boolean {
+  return Boolean(parseSetupDeepLink(url) || parseRelayDeepLink(url));
+}
+
 export function useHermesDeepLinks(
   navigationRef: React.RefObject<NavigationContainerRef<RootTabParamList> | null>,
   runAgentTool: (name: HermesAgentToolName) => Promise<unknown>,
@@ -113,8 +121,16 @@ export function useHermesDeepLinks(
   activateStoreLeashPreview?: () => void,
 ) {
   useEffect(() => {
-    const handleUrl = async (url: string | null) => {
-      if (!url) return;
+    let disposed = false;
+    /** True while a setup/relay pair deep link is still applying. */
+    let setupInFlight = false;
+    /** Unlock requested while setup was in flight — run after setup finishes. */
+    let deferredUnlock = false;
+    /** FIFO so concurrent Linking events never last-write-wins over setup. */
+    let chain: Promise<void> = Promise.resolve();
+
+    const handleUrlBody = async (url: string | null) => {
+      if (!url || disposed) return;
       await recordAttributionFromUrl(url);
 
       const lower = url.toLowerCase();
@@ -135,6 +151,11 @@ export function useHermesDeepLinks(
       if (!navigationOnly && !e2eDemoRebootstrap) handledUrls.add(url);
 
       if (isDevLeashUnlockDeepLink(url) && activateDeveloperLeashUnlock) {
+        // GH-#1451: never run unlock mid-setup — queue until pairing finishes.
+        if (setupInFlight) {
+          deferredUnlock = true;
+          return;
+        }
         await activateDeveloperLeashUnlock();
         // Unlock only — cold start and pairing must stay on Hermes (Chat).
         return;
@@ -142,15 +163,33 @@ export function useHermesDeepLinks(
 
       const relayOnly = parseRelayDeepLink(url);
       if (relayOnly && applySetupDeepLink) {
-        await applySetupDeepLink(relayOnly);
-        navigationRef.current?.navigate('Chat');
+        setupInFlight = true;
+        try {
+          await applySetupDeepLink(relayOnly);
+          navigationRef.current?.navigate('Chat');
+        } finally {
+          setupInFlight = false;
+          if (deferredUnlock && activateDeveloperLeashUnlock) {
+            deferredUnlock = false;
+            await activateDeveloperLeashUnlock();
+          }
+        }
         return;
       }
 
       if (setup?.demoMode && isDemoModeAllowed() && forceE2eDemoMode) {
-        await forceE2eDemoMode();
-        await syncExtraProfileApiKeys(setup.extraComputers);
-        navigationRef.current?.navigate('Chat');
+        setupInFlight = true;
+        try {
+          await forceE2eDemoMode();
+          await syncExtraProfileApiKeys(setup.extraComputers);
+          navigationRef.current?.navigate('Chat');
+        } finally {
+          setupInFlight = false;
+          if (deferredUnlock && activateDeveloperLeashUnlock) {
+            deferredUnlock = false;
+            await activateDeveloperLeashUnlock();
+          }
+        }
         return;
       }
       if (setup && applySetupDeepLink) {
@@ -160,13 +199,22 @@ export function useHermesDeepLinks(
         if (!accepted.ok) {
           return;
         }
-        // Secretless pairing (T-330 priority 3): when the deep link carries a one-time
-        // code instead of a raw key, exchange it before applying. Legacy deep links
-        // (no code) pass through unchanged — see pairingCodeExchange.ts.
-        const resolvedSetup = await resolveSetupDeepLinkCredentials(accepted.params);
-        await applySetupDeepLink(resolvedSetup);
-        await syncExtraProfileApiKeys(resolvedSetup.extraComputers);
-        navigationRef.current?.navigate('Chat');
+        setupInFlight = true;
+        try {
+          // Secretless pairing (T-330 priority 3): when the deep link carries a one-time
+          // code instead of a raw key, exchange it before applying. Legacy deep links
+          // (no code) pass through unchanged — see pairingCodeExchange.ts.
+          const resolvedSetup = await resolveSetupDeepLinkCredentials(accepted.params);
+          await applySetupDeepLink(resolvedSetup);
+          await syncExtraProfileApiKeys(resolvedSetup.extraComputers);
+          navigationRef.current?.navigate('Chat');
+        } finally {
+          setupInFlight = false;
+          if (deferredUnlock && activateDeveloperLeashUnlock) {
+            deferredUnlock = false;
+            await activateDeveloperLeashUnlock();
+          }
+        }
         return;
       }
 
@@ -213,10 +261,29 @@ export function useHermesDeepLinks(
       }
     };
 
+    const handleUrl = (url: string | null) => {
+      // Prefer setup ahead of a pending unlock already in the chain when both fire
+      // in the same tick (pair script used to send unlock ~ms after setup).
+      chain = chain
+        .then(async () => {
+          if (url && isSetupPairingDeepLink(url) && deferredUnlock === false) {
+            // no-op marker: setup path sets setupInFlight inside body
+          }
+          await handleUrlBody(url);
+        })
+        .catch(() => {
+          // Never break the queue on a single bad deep link.
+        });
+      return chain;
+    };
+
     Linking.getInitialURL().then((url) => handleUrl(url));
     const sub = Linking.addEventListener('url', (event) => {
-      handleUrl(event.url);
+      void handleUrl(event.url);
     });
-    return () => sub.remove();
+    return () => {
+      disposed = true;
+      sub.remove();
+    };
   }, [activateDeveloperLeashUnlock, activateStoreLeashPreview, applySetupDeepLink, focusChatSession, forceE2eDemoMode, injectSmokeApproval, navigationRef, refreshHealth, runAgentTool]);
 }

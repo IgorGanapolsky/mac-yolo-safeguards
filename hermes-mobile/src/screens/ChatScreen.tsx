@@ -8102,7 +8102,7 @@ export default function ChatScreen() {
               scanResult={profileScanResult}
               profiles={gatewayProfiles}
               activeProfileId={activeGatewayProfile?.id ?? null}
-              activeProfileReachable={macHttpOk}
+              activeProfileReachable={effectiveMacHttpOk}
               activeProfileConnecting={headerConnectionState === 'connecting'}
               usbLoopback={isLoopbackGatewayUrl(gatewayUrl)}
               usbCableLikely={usbCableLikely}
@@ -8520,7 +8520,9 @@ export default function ChatScreen() {
                 profiles={switchComputerProfiles}
                 activeProfileId={activeGatewayProfile?.id ?? null}
                 activeProfile={activeGatewayProfile}
-                activeReachable={macHttpOk}
+                // Same SSOT as chat header (effectiveMacHttpOk) — never green "Connected"
+                // while header shows Not connected (authMismatch / connectivity stall).
+                activeReachable={effectiveMacHttpOk}
                 authNeedsRepair={effectiveAuthMismatch}
                 activeConnecting={headerConnectionState === 'connecting'}
                 selectionDisabled={profileSwitchBusy || !macPickerSelectionArmed}
@@ -8565,7 +8567,7 @@ export default function ChatScreen() {
                 tailscaleDiscoveries={tailscaleDiscoveries}
                 activeGatewayUrl={gatewayUrl}
                 wifiConnected={wifiConnected}
-                activeReachable={macHttpOk}
+                activeReachable={effectiveMacHttpOk}
                 addingTailscale={tailscaleDiscoveryProbing}
                 savedProfileCount={switchComputerProfiles.length}
                 helpExpanded={macPickerHelpExpanded}
