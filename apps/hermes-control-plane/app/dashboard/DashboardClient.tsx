@@ -354,29 +354,17 @@ export default function DashboardClient() {
   const openedChatsListFromUrl = useRef(false);
   const composerObserverRef = useRef<ResizeObserver | null>(null);
   /**
-   * Mobile composer is position:absolute docked to the bottom of `.task-panel`.
-   * `--composer-dock-space` (globals.css) pads `.hermes-scroll-pane` by the *measured*
-   * composer height so messages/run controls never cover the textarea. Re-measure on
-   * resize (textarea grow, route chips wrap, keyboard chrome).
+   * Mobile composer is in-flow flex under `.hermes-scroll-pane` (globals.css 2026-08).
+   * Keep ResizeObserver as a no-op cleanup of legacy --composer-dock-space so old
+   * cached CSS vars do not leave a huge empty pad under the thread.
    */
   const setComposerNode = useCallback((node: HTMLFormElement | null) => {
     composerObserverRef.current?.disconnect();
     composerObserverRef.current = null;
-    if (!node) {
-      if (typeof document !== "undefined") {
-        document.documentElement.style.removeProperty("--composer-dock-space");
-      }
-      return;
+    if (typeof document !== "undefined") {
+      document.documentElement.style.removeProperty("--composer-dock-space");
     }
-    if (typeof ResizeObserver === "undefined") return;
-    const applyDockSpace = () => {
-      const px = Math.max(160, Math.ceil(node.getBoundingClientRect().height) + 20);
-      document.documentElement.style.setProperty("--composer-dock-space", `${px}px`);
-    };
-    applyDockSpace();
-    const observer = new ResizeObserver(applyDockSpace);
-    observer.observe(node);
-    composerObserverRef.current = observer;
+    void node;
   }, []);
 
 
