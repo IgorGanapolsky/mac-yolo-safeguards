@@ -157,11 +157,13 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   // Phone must not re-show the route explain card after base CSS (CEO overlap 2026-07-25).
   assert.match(globals, /\.composer-route-explain\{[\s\S]*display:none !important/);
   assert.match(globals, /\.dashboard-header\{[\s\S]*grid-template-columns:1fr/);
-  // Fixed composer dock + measured reserved scroll space (item 3 of mobile UX checklist).
-  assert.match(dashboard, /--composer-dock-space/);
-  assert.match(globals, /--composer-dock-space/);
-  assert.match(globals, /position:absolute !important/);
-  assert.match(globals, /hermes-scroll-pane\{[\s\S]*padding-bottom:max/);
+  // In-flow composer + bounded .hermes-scroll-pane (CEO 2026-08: vertical scroll + Run CTA clip).
+  // Absolute dock was removed — thread scrolls; composer stays fully visible above tabs.
+  assert.match(globals, /hermes-scroll-pane\{[\s\S]*overflow-y:scroll !important/);
+  assert.match(globals, /position:relative !important/);
+  assert.match(globals, /data-mobile-tab="hermes"\] \.task-panel\{[\s\S]*overflow:hidden !important/);
+  assert.match(dashboard, /hermes-scroll-pane/);
+  assert.match(dashboard, /className="composer"/);
 });
 
 test("renders the configured Stripe price instead of duplicating marketing price copy", () => {
