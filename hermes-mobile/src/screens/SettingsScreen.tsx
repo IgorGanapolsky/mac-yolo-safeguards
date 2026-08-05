@@ -26,7 +26,7 @@ import MacPairingHelp from '../components/MacPairingHelp';
 import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
 import TailscaleDiscoveryBanner from '../components/TailscaleDiscoveryBanner';
-import { profilesForSwitchComputerPicker, detectUsbHostMismatch } from '../utils/gatewayProfilePicker';
+import { profilesForSwitchComputerPicker, detectUsbHostMismatch, isUsbTransportAllowed } from '../utils/gatewayProfilePicker';
 import { confirmForgetGatewayProfile } from '../utils/confirmForgetGatewayProfile';
 import { profileDisplayName } from '../services/gatewayProfiles';
 import { setProductAnalyticsOptOut } from '../services/productAnalytics';
@@ -397,7 +397,7 @@ export default function SettingsScreen() {
       setPairCode('');
       Alert.alert(
         'Lock-screen approvals ready',
-        'Approval requests can arrive anywhere. This does not provide live Chat or computer tools; connect to your computer with Tailscale, USB, or home Wi‑Fi.',
+        'Approval requests can arrive anywhere. This does not provide live Chat or computer tools; connect to your computer with Tailscale or home Wi‑Fi.',
       );
     } catch (err) {
       Alert.alert('Pairing failed', err instanceof Error ? err.message : 'Could not complete pairing');
@@ -541,9 +541,9 @@ export default function SettingsScreen() {
         ) : null}
         {usbHostMismatch ? (
           <GlassCard style={styles.usbMismatchCard} testID="settings-usb-host-mismatch">
-            <Text style={styles.tunnelWizardTitle}>Wrong computer on USB</Text>
+            <Text style={styles.tunnelWizardTitle}>Different computer linked</Text>
             <Text style={styles.description}>
-              USB is connected to {usbHostMismatch.usbHostLabel}, but you selected{' '}
+              Your phone is connected to {usbHostMismatch.usbHostLabel}, but you selected{' '}
               {usbHostMismatch.selectedProfileLabel}. Tap the matching computer below.
             </Text>
           </GlassCard>
@@ -601,7 +601,7 @@ export default function SettingsScreen() {
             testID="auto-connect-gateway"
           >
             <Text style={styles.primaryButtonText}>
-              {isAutoConnecting ? 'Connecting…' : 'Find computer on USB or Wi‑Fi'}
+              {isAutoConnecting ? 'Connecting…' : 'Find computer on Wi‑Fi or Tailscale'}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -677,7 +677,7 @@ export default function SettingsScreen() {
         >
         <GlassCard>
           <Text style={styles.description}>
-            Use Tailscale away from home, or USB/home Wi‑Fi nearby, for Chat, tools, and ops.
+            Use Tailscale away from home, or home Wi‑Fi nearby, for Chat, tools, and ops.
           </Text>
           <View style={styles.relayRouteCard} testID="relay-route-card">
             <Text style={styles.relayRouteEyebrow}>Lock-screen approvals (optional)</Text>
@@ -987,46 +987,7 @@ export default function SettingsScreen() {
 
         </CollapsibleSection>
 
-        {Platform.OS === 'android' ? (
-          <CollapsibleSection
-            title="🕶️ AI glasses"
-            expanded={isExpanded('ai-glasses')}
-            onToggle={() => toggleSection('ai-glasses')}
-            testID="settings-section-ai-glasses"
-            titleStyle={styles.sectionTitle}
-          >
-            <GlassCard>
-              <Text style={styles.description}>
-                Launch the native projected ThumbGate Leash activity on paired AI glasses. Currently supports
-                Jetpack XR on Android (emulator or hardware). Other platforms coming. Requires
-                prebuild with the XR config plugin.
-              </Text>
-              <TouchableOpacity
-                style={[
-                  styles.pairButton,
-                  !glassesConnected && styles.saveButtonDisabled,
-                ]}
-                disabled={!glassesConnected}
-                testID="launch-on-glasses-button"
-                onPress={async () => {
-                  try {
-                    await launchHermesOnGlasses();
-                    haptics.success();
-                  } catch (err) {
-                    Alert.alert(
-                      'Glasses launch failed',
-                      err instanceof Error ? err.message : 'Could not launch projected activity',
-                    );
-                  }
-                }}
-              >
-                <Text style={styles.pairButtonText}>
-                  {glassesConnected ? 'LAUNCH LEASH ON GLASSES' : 'GLASSES NOT CONNECTED'}
-                </Text>
-              </TouchableOpacity>
-            </GlassCard>
-          </CollapsibleSection>
-        ) : null}
+
 
         {isDemoModeAllowed() ? (
           <CollapsibleSection
