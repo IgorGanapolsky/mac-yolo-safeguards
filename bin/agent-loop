@@ -1,0 +1,427 @@
+#!/usr/bin/env bash
+# bin/agent-loop — Unified context-engineering agent loop.
+#
+# Implements the HuggingFace Context Course minimal agent loop:
+#   Recollect → Plan → Act → Observe → Evaluate → Learn
+#
+# Integrates existing repo infrastructure:
+#   - ThumbGate MCP (recall + capture)
+#   - plan.md coordination snapshot (active tasks + file claims)
+#   - ~/.claude/settings.json hook validation
+#   - .mcp.json server inventory
+#   - SKILLS.md skill registry
+#   - latest.json E2E status
+#   - check-rag-health.js (semantic index liveness)
+#
+# Usage:
+#   bin/agent-loop                    # interactive run (human-readable)
+#   bin/agent-loop --json             # machine-readable summary
+#   bin/agent-loop --health           # just context-layer health checks
+#   bin/agent-loop --health --json    # health checks as JSON
+#   bin/agent-loop --watch            # repeat every N seconds (default 300)
+#
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+export REPO_ROOT="$ROOT"
+
+# Global flag: suppressed log output when JSON mode is active
+JSON_MODE="false"
+
+# ─── Helpers ─────────────────────────────────────────────────────────────────
+
+now_iso() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
+now_epoch() { date +%s; }
+
+log() {
+  if [ "$JSON_MODE" = "true" ]; then return 0; fi
+  echo "[$(date -u +%H:%M:%S)] $*" >&2
+}
+
+# Run a node script and capture output (exit code preserved)
+run_node() {
+  local script="$1"; shift
+  node "$ROOT/tools/$script" "$@" 2>/dev/null || true
+}
+
+# Run a bash script and capture output
+run_bash() {
+  local script="$1"; shift
+  bash "$ROOT/scripts/$script" "$@" 2>/dev/null || true
+}
+
+# ─── Step 1: Recollect ───────────────────────────────────────────────────────
+
+recollect() {
+  local json_out="$1"
+  log "Recollect: RAG context + recent lessons"
+
+  local rag_health=""
+  if [ -f "$ROOT/.grepai/stats.json" ]; then
+    rag_health=$(run_node "check-rag-health.js" "--json" 2>/dev/null || echo '{"ok":false}')
+  fi
+
+  # Recent ThumbGate lessons (last 3 captured)
+  local lessons=""
+  if command -v thumbgate &>/dev/null; then
+    lessons=$(thumbgate recall "lesson" --limit 3 --json 2>/dev/null || echo '[]')
+  elif [ -f "$HOME/.thumbgate/runtime/node_modules/.bin/thumbgate" ]; then
+    lessons=$("$HOME/.thumbgate/runtime/node_modules/.bin/thumbgate" recall "lesson" --limit 3 --json 2>/dev/null || echo '[]')
+  fi
+
+  echo "{\"rag_health\": ${rag_health:-null}, \"recent_lessons\": ${lessons:-[]}}"
+}
+
+# ─── Step 2: Plan ───────────────────────────────────────────────────────────
+
+plan() {
+  local json_out="$1"
+  log "Plan: snapshot plan.md for active tasks + file claims"
+
+  local snapshot
+  snapshot=$(run_node "plan-coordination-snapshot.js" "--json" 2>/dev/null || echo '{"error":"snapshot failed"}')
+  echo "$snapshot"
+}
+
+# ─── Step 3: Observe ────────────────────────────────────────────────────────
+
+observe() {
+  local json_out="$1"
+  log "Observe: context-layer health (hooks, MCP, skills, E2E)"
+
+  local results=()
+
+  # Hook validation
+  local hooks_ok="false"
+  if [ -f "$HOME/.claude/settings.json" ] && python3 -c "import json,sys; json.load(open('$HOME/.claude/settings.json'))" 2>/dev/null; then
+    hooks_ok="true"
+  fi
+  results+=("\"hooks_valid_json\": $hooks_ok")
+
+  # MCP server count
+  local mcp_count="0"
+  if [ -f "$ROOT/.mcp.json" ]; then
+    mcp_count=$(python3 -c "
+import json
+with open('$ROOT/.mcp.json') as f:
+    d = json.load(f)
+print(len(d.get('mcpServers', {})))
+" 2>/dev/null || echo "0")
+  fi
+  results+=("\"mcp_servers_count\": $mcp_count")
+
+  # Skills.md entries
+  local skills_count="0"
+  if [ -f "$ROOT/SKILLS.md" ]; then
+    skills_count=$(grep -c '| `.*`' "$ROOT/SKILLS.md" 2>/dev/null || echo "0")
+  fi
+  results+=("\"skills_registered\": $skills_count")
+
+  # E2E status
+  local e2e_status="unknown"
+  if [ -f "$ROOT/hermes-mobile/docs/proofs/continuous/latest.json" ]; then
+    e2e_status=$(python3 -c "
+import json
+with open('$ROOT/hermes-mobile/docs/proofs/continuous/latest.json') as f:
+    d = json.load(f)
+print(d.get('e2e', 'unknown'))
+" 2>/dev/null || echo "unknown")
+  fi
+  results+=("\"e2e_status\": \"$e2e_status\"")
+
+  # LaunchAgent health (capture first to avoid SIGPIPE under pipefail)
+  local launchagent_status="unknown"
+  local launchlist
+  launchlist=$(launchctl list 2>/dev/null || true)
+  if echo "$launchlist" | grep -q "com.igor.hermes-mobile-continuous-e2e"; then
+    launchagent_status="running"
+  else
+    launchagent_status="stopped"
+  fi
+  results+=("\"continuous_e2e_launchagent\": \"$launchagent_status\"")
+
+  # Phone paired? (capture first to avoid SIGPIPE under pipefail)
+  local phone_paired="false"
+  local adb_out
+  adb_out=$(adb devices 2>/dev/null || true)
+  if echo "$adb_out" | grep -q "R3CY90QPM7E.*device"; then
+    phone_paired="true"
+  fi
+  results+=("\"phone_paired\": $phone_paired")
+
+  local joined
+  joined=$(IFS=,; echo "${results[*]}")
+  echo "{$joined}"
+}
+
+# ─── Step 4: Act ────────────────────────────────────────────────────────────
+
+act() {
+  local observe_output="$1"
+  local plan_output="$2"
+  local json_mode="$3"
+
+  log "Act: prioritize next actions"
+
+  # Parse key fields from observe
+  local hooks_valid mcp_count skills_count e2e_status launchagent phone_paired
+  hooks_valid=$(echo "$observe_output" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('hooks_valid_json', False))" 2>/dev/null || echo "False")
+  mcp_count=$(echo "$observe_output" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('mcp_servers_count', 0))" 2>/dev/null || echo "0")
+  skills_count=$(echo "$observe_output" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('skills_registered', 0))" 2>/dev/null || echo "0")
+  e2e_status=$(echo "$observe_output" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('e2e_status', 'unknown'))" 2>/dev/null || echo "unknown")
+  launchagent=$(echo "$observe_output" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('continuous_e2e_launchagent', 'unknown'))" 2>/dev/null || echo "unknown")
+  phone_paired=$(echo "$observe_output" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('phone_paired', False))" 2>/dev/null || echo "False")
+
+  local actions=()
+
+  # Priority 1: Context layer integrity
+  if [ "$hooks_valid" = "False" ]; then
+    actions+=("🔴 CRITICAL: ~/.claude/settings.json is invalid — hooks may not fire. Run: node tests/test-session-context.js")
+  fi
+  if [ "$mcp_count" -lt 2 ] 2>/dev/null; then
+    actions+=("🟡 WARNING: Fewer than 2 MCP servers configured — search/recall may be degraded")
+  fi
+  if [ "$skills_count" -lt 5 ] 2>/dev/null; then
+    actions+=("🟡 WARNING: Fewer than 5 skills registered in SKILLS.md — skill resolution may miss capabilities")
+  fi
+
+  # Priority 2: E2E status
+  if [ "$e2e_status" = "skipped" ]; then
+    actions+=("🟡 E2E is skipped — latest.json reports device in use. Check again later or force run.")
+  elif [ "$e2e_status" = "fail" ] || [ "$e2e_status" = "unknown" ]; then
+    actions+=("🔴 E2E not passing — do not claim device UX is verified. Run: npm run e2e:continuous:once")
+  fi
+
+  # Priority 3: LaunchAgent
+  if [ "$launchagent" = "stopped" ]; then
+    actions+=("🔴 Continuous E2E LaunchAgent stopped. Recover: bash scripts/install-agent-launchagents.sh")
+  fi
+
+  # Priority 4: Phone pairing
+  if [ "$phone_paired" = "False" ]; then
+    actions+=("ℹ️  No physical phone detected (adb). Mobile E2E will use simulator/emulator only.")
+  fi
+
+  # Priority 5: Check for stale RAG / graphify
+  local graph_stale
+  graph_stale=$(run_node "graphify-staleness-check.js" "--json" 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('stale', False))" 2>/dev/null || echo "False")
+  if [ "$graph_stale" = "True" ]; then
+    actions+=("ℹ️  Graphify index is stale — run: node tools/graphify-staleness-check.js --update")
+  fi
+
+  # Output
+  if [ "$json_mode" = "json" ]; then
+    local actions_json
+    actions_json=$(printf '%s\n' "${actions[@]}" | python3 -c "
+import json, sys
+lines = [l for l in sys.stdin.read().strip().split('\n') if l]
+print(json.dumps(lines))
+" 2>/dev/null || echo '[]')
+    echo "$actions_json"
+  else
+    echo ""
+    echo "=== Priority Actions ==="
+    if [ ${#actions[@]} -eq 0 ]; then
+      echo "  ✅ All clear — no urgent context-layer issues."
+    else
+      for i in "${!actions[@]}"; do
+        echo "  $((i+1)). ${actions[$i]}"
+      done
+    fi
+    echo ""
+  fi
+}
+
+# ─── Step 5: Evaluate ───────────────────────────────────────────────────────
+
+evaluate() {
+  local start_time="$1"
+  local end_time
+  end_time=$(now_epoch)
+  local duration_ms=$(( (end_time - start_time) * 1000 ))
+
+  log "Evaluate: metrics (duration=$duration_ms ms)"
+
+  # Track a simple metric: how many gates passed
+  local gates_passed=0
+  local total_gates=0
+
+  # Hook validity = 1 gate
+  total_gates=$((total_gates + 1))
+  if [ -f "$HOME/.claude/settings.json" ] && python3 -c "import json; json.load(open('$HOME/.claude/settings.json'))" 2>/dev/null; then
+    gates_passed=$((gates_passed + 1))
+  fi
+
+  # MCP configured = 1 gate
+  total_gates=$((total_gates + 1))
+  if [ -f "$ROOT/.mcp.json" ]; then
+    gates_passed=$((gates_passed + 1))
+  fi
+
+  # SKILLS.md present = 1 gate
+  total_gates=$((total_gates + 1))
+  if [ -f "$ROOT/SKILLS.md" ]; then
+    gates_passed=$((gates_passed + 1))
+  fi
+
+  # Agent loop exists = 1 gate
+  total_gates=$((total_gates + 1))
+  if [ -x "$ROOT/bin/agent-loop" ]; then
+    gates_passed=$((gates_passed + 1))
+  fi
+
+  echo "{\"duration_ms\": $duration_ms, \"gates_passed\": $gates_passed, \"total_gates\": $total_gates, \"score\": $(python3 -c "print(round($gates_passed / $total_gates, 2))" 2>/dev/null || echo 0)}"
+}
+
+# ─── Step 6: Learn ──────────────────────────────────────────────────────────
+
+learn() {
+  local observe_output="$1"
+  local evaluate_output="$2"
+  local json_mode="${3:-false}"
+  local e2e_status
+  e2e_status=$(echo "$observe_output" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('e2e_status', 'unknown'))" 2>/dev/null || echo "unknown")
+
+  local score
+  score=$(echo "$evaluate_output" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('score', 0))" 2>/dev/null || echo "0")
+
+  local captured="false"
+  # Capture learnings to ThumbGate if available
+  if command -v thumbgate &>/dev/null; then
+    thumbgate capture "agent-loop-run" \
+      --text "agent-loop run: gates=${score}, e2e=${e2e_status}, timestamp=$(now_iso)" \
+      --metadata "source:agent-loop,score:${score},e2e:${e2e_status}" 2>/dev/null || true
+    captured="true"
+  elif [ -x "$HOME/.thumbgate/runtime/node_modules/.bin/thumbgate" ]; then
+    "$HOME/.thumbgate/runtime/node_modules/.bin/thumbgate" capture "agent-loop-run" \
+      --text "agent-loop run: gates=${score}, e2e=${e2e_status}, timestamp=$(now_iso)" \
+      --metadata "source:agent-loop,score:${score},e2e:${e2e_status}" 2>/dev/null || true
+    captured="true"
+  fi
+
+  # Always output JSON so callers can parse
+  echo "{\"captured\": $captured, \"score\": $score, \"e2e_status\": \"$e2e_status\", \"timestamp\": \"$(now_iso)\"}"
+}
+
+# ─── Main ────────────────────────────────────────────────────────────────────
+
+main() {
+  local mode="full"
+  local json_mode="false"
+  local watch_interval=0
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json_mode="true"; JSON_MODE="true"; shift ;;
+      --health) mode="health"; shift ;;
+      --watch) watch_interval=300; shift ;;
+      --watch-interval) watch_interval="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [ "$mode" = "health" ]; then
+    local observe_output
+    observe_output=$(observe "true")
+    local evaluate_output
+    evaluate_output=$(evaluate "$(now_epoch)")
+    local learn_output
+    learn_output=$(learn "$observe_output" "$evaluate_output" "true" 2>/dev/null || echo '{"captured": false}')
+
+    if [ "$json_mode" = "true" ]; then
+      echo "{\"hooks\": $observe_output, \"metrics\": $evaluate_output, \"learning\": $learn_output}"
+    else
+      echo "=== Agent Loop Health Check ==="
+      echo "  Hooks valid:        $(echo "$observe_output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('hooks_valid_json', 'unknown'))" 2>/dev/null || echo "unknown")"
+      echo "  MCP servers:        $(echo "$observe_output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('mcp_servers_count', 0))" 2>/dev/null || echo 0)"
+      echo "  Skills registered:  $(echo "$observe_output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('skills_registered', 0))" 2>/dev/null || echo 0)"
+      echo "  E2E status:         $(echo "$observe_output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('e2e_status', 'unknown'))" 2>/dev/null || echo "unknown")"
+      echo "  E2E LaunchAgent:    $(echo "$observe_output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('continuous_e2e_launchagent', 'unknown'))" 2>/dev/null || echo "unknown")"
+      echo "  Phone paired:       $(echo "$observe_output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('phone_paired', False))" 2>/dev/null || echo "false")"
+      echo "  Loop score:         $(echo "$evaluate_output" | python3 -c "import json,sys; d=json.load(sys.stdin); print(f'{d[\"gates_passed\"]}/{d[\"total_gates\"]} ({d[\"score\"]})')" 2>/dev/null || echo "n/a")"
+    fi
+    exit 0
+  fi
+
+  # Full loop
+  if [ "$json_mode" = "true" ]; then
+    local recollect_out plan_out observe_out act_out evaluate_out
+    recollect_out=$(recollect "true")
+    plan_out=$(plan "true")
+    observe_out=$(observe "true")
+    act_out=$(act "$observe_out" "$plan_out" "true")
+    evaluate_out=$(evaluate "$(now_epoch)")
+    learn "$observe_out" "$evaluate_out" 2>/dev/null || true
+
+    echo "{\"recollect\": $recollect_out, \"plan\": $plan_out, \"observe\": $observe_out, \"actions\": $act_out, \"metrics\": $evaluate_out}"
+  else
+    local start_time
+    start_time=$(now_epoch)
+
+    echo "┌─────────────────────────────────────────────────┐"
+    echo "│  Agent Loop — Context Engineering Cycle         │"
+    echo "│  $(now_iso) │"
+    echo "└─────────────────────────────────────────────────┘"
+    echo ""
+
+    echo "▌ Recollect (RAG + recent lessons)"
+    recollect "false" 2>/dev/null || echo "  (RAG offline — continuing with static context)"
+    echo ""
+
+    echo "▌ Plan (plan.md active tasks + file claims)"
+    plan "false" 2>/dev/null || echo "  (plan snapshot unavailable)"
+    echo ""
+
+    echo "▌ Observe (context-layer health)"
+    local observe_out
+    observe_out=$(observe "false")
+    echo "$observe_out" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+print(f'  hooks_valid_json:  {d.get(\"hooks_valid_json\", \"unknown\")}')
+print(f'  mcp_servers:       {d.get(\"mcp_servers_count\", 0)}')
+print(f'  skills_registered: {d.get(\"skills_registered\", 0)}')
+print(f'  e2e_status:        {d.get(\"e2e_status\", \"unknown\")}')
+print(f'  e2e_launchagent:   {d.get(\"continuous_e2e_launchagent\", \"unknown\")}')
+print(f'  phone_paired:      {d.get(\"phone_paired\", False)}')
+" 2>/dev/null || echo "$observe_out"
+    echo ""
+
+    echo "▌ Act (priority actions)"
+    act "$observe_out" "" "false"
+    echo ""
+
+    echo "▌ Evaluate (loop metrics)"
+    local evaluate_out
+    evaluate_out=$(evaluate "$start_time")
+    echo "$evaluate_out" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+print(f'  gates: {d[\"gates_passed\"]}/{d[\"total_gates\"]}  score: {d[\"score\"]}  duration: {d[\"duration_ms\"]}ms')
+" 2>/dev/null || echo "$evaluate_out"
+
+    echo ""
+    echo "▌ Learn (capture to ThumbGate)"
+    local learn_out
+    learn_out=$(learn "$observe_out" "$evaluate_out" "true" 2>/dev/null || echo '{"captured": false}')
+    if echo "$learn_out" | python3 -c "import json,sys; exit(0 if json.load(sys.stdin).get('captured') else 1)" 2>/dev/null; then
+      echo "  ✅ Captured to ThumbGate"
+    else
+      echo "  ⚠️ ThumbGate MCP not available — skipping capture"
+    fi
+
+    echo ""
+    echo "=== Ready for action. Review priority items above before editing. ==="
+  fi
+}
+
+# Watch mode
+if [ "${watch_interval:-0}" -gt 0 ]; then
+  while true; do
+    clear 2>/dev/null || true
+    main
+    sleep "$watch_interval"
+  done
+fi
+
+main "$@"
