@@ -1412,29 +1412,19 @@ function runPairMain(args) {
   // serve the exchange. `--no-serve` unattended/session-start flows keep the legacy
   // embedded-key link unchanged (no server exists there to exchange a code against).
   // Split audiences:
-  // - adb `am start` deep link: loopback when USB reverse :8765 is up (works on 5G via adb)
-  // - Camera / HTTP /pair remints: Tailscale (or LAN) so cellular+VPN can redeem without USB
-  // - Remote gateway (mini TS / MagicDNS / home LAN): phone-reachable Tailscale/LAN pairServer
-  //   so the deep link still works after unplug (2026-08-05 dogfood: 127.0.0.1:8765 + mini
-  //   gateway left phones stuck when reverse dropped or Tailscale was the real path).
-  const preferPhonePairServerForAdb =
-    args.has('--mini-tailscale') ||
-    usbReverseSkipped8642 ||
-    /^https?:\/\/100\./i.test(String(gatewayUrl || '')) ||
-    /\.ts\.net(?::\d+)?(?:\/|$)/i.test(String(gatewayUrl || '')) ||
-    /^https?:\/\/(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(String(gatewayUrl || ''));
+  // - adb `am start` deep link: ALWAYS loopback when USB reverse :8765 is live.
+  //   Phone Tailscale is often offline while the cable is in (2026-08-05: adb deep link
+  //   with pairServer=100.x failed exchange → Leash "Gateway unknown" / setup never applied).
+  // - Camera / HTTP /pair remints: Tailscale (or LAN) so cellular+VPN can redeem without USB.
+  // Gateway URL (mini LAN/TS) is independent of pairServer — exchange only needs :8765 reachability.
   const adbPairExchangeBase =
-    preferPhonePairServerForAdb
-      ? phonePairServer
-      : usbPairing && reversed8765
-        ? `http://127.0.0.1:${PAIR_PORT}`
-        : phonePairServer;
+    usbPairing && reversed8765
+      ? `http://127.0.0.1:${PAIR_PORT}`
+      : phonePairServer;
   if (adbPairExchangeBase.includes('127.0.0.1')) {
-    console.log('  Pair exchange (adb): http://127.0.0.1:8765 (USB reverse)');
-  } else if (preferPhonePairServerForAdb && usbPairing) {
-    console.log(
-      `  Pair exchange (adb deep link): ${adbPairExchangeBase} (Tailscale/LAN preferred for mini remote — not loopback)`,
-    );
+    console.log('  Pair exchange (adb): http://127.0.0.1:8765 (USB reverse — reliable while cable in)');
+  } else {
+    console.log(`  Pair exchange (adb deep link): ${adbPairExchangeBase}`);
   }
   console.log(`  Pair exchange (Camera/HTTP): ${phonePairServer}`);
   const secretlessPairing = !args.has('--no-serve') && !args.has('--legacy-key-link');

@@ -296,11 +296,12 @@ else
   bad "pair script removes a stale tcp:8642 reverse when skipping it for mini-primary"
 fi
 
-if [[ "$PAIR_JS" == *"preferPhonePairServerForAdb"* ]] \
-  && [[ "$PAIR_JS" == *"--mini-tailscale"* ]]; then
-  ok "pair script prefers Tailscale/LAN pairServer for mini remote adb deep links"
+# adb deep link must use loopback exchange when reverse :8765 is live (phone TS often offline).
+if [[ "$PAIR_JS" == *"adbPairExchangeBase"* ]] \
+  && [[ "$PAIR_JS" == *"127.0.0.1:\${PAIR_PORT}"* || "$PAIR_JS" == *'127.0.0.1:${PAIR_PORT}'* || "$PAIR_JS" == *"USB reverse — reliable while cable in"* ]]; then
+  ok "pair script uses USB reverse loopback for adb pair exchange when reverse is live"
 else
-  bad "pair script prefers Tailscale/LAN pairServer for mini remote adb deep links"
+  bad "pair script uses USB reverse loopback for adb pair exchange when reverse is live"
 fi
 
 # GH-#1451: setup ack timeout must NOT fire leash-unlock (race replaces setup).
