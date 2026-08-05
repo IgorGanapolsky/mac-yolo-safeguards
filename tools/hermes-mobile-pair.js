@@ -1254,6 +1254,8 @@ function runPairMain(args) {
   const usbReversePorts = resolveUsbReversePorts({
     explicitGatewayUrl,
     forceMiniUsbPrimary: args.has('--force-mini-usb-primary'),
+    miniTailscale: args.has('--mini-tailscale'),
+    targetGatewayUrl: gatewayUrl || explicitGatewayUrl || '',
   });
   const usbReverseSkipped8642 = !usbReversePorts.includes(8642);
   if (usbPairing) {
@@ -1264,8 +1266,10 @@ function runPairMain(args) {
     writeUsbReversePrimaryIntent({
       skip8642: usbReverseSkipped8642,
       gatewayUrl: gatewayUrl || explicitGatewayUrl || '',
-      forceMiniUsbPrimary: args.has('--force-mini-usb-primary'),
-      reason: usbReverseSkipped8642 ? 'mini-primary-or-explicit-non-default-loopback' : 'default-laptop-primary',
+      forceMiniUsbPrimary: args.has('--force-mini-usb-primary') || args.has('--mini-tailscale'),
+      reason: usbReverseSkipped8642
+        ? 'mini-primary-or-tailscale-or-explicit-non-default-loopback'
+        : 'default-laptop-primary',
     });
     setupUsbAdbReverses(serial, { ports: usbReversePorts });
     if (usbReverseSkipped8642) {

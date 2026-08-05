@@ -762,6 +762,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- `hermes-mobile/src/screens/ChatScreen.tsx` (activeReachable/activeProfileReachable → effectiveMacHttpOk only), `hermes-mobile/src/screens/SettingsScreen.tsx` (effectiveMacHttpOk picker only), `hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts` (picker/header SSOT contract only), `plan.md` → **grok-connect-status-ssot-20260805** (T-CONNECT-STATUS-SSOT-20260805: picker never green Connected while header Not connected; pair skip 8642 on mini-TS) (2026-08-05T19:30Z)
 - `hermes-mobile/src/utils/gatewayConnection.ts` (mergeRelayAndMacHealth only), `hermes-mobile/src/context/GatewayContext.tsx` (relay health publish merge only — GH-#132), `hermes-mobile/src/__tests__/gatewayConnection.test.ts` (mergeRelayAndMacHealth cases only), `hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts` (GH-#132 relay source contract only), `plan.md` → **grok-gh132-auth-identity** (T-GH132-RELAY-AUTH-MISMATCH-20260804: AGENT-257 preserve Mac authMismatch when cloud relay green) (2026-08-04T17:00Z)
 - `hermes-mobile/src/components/ThumbGatePromoCard.tsx`, `hermes-mobile/src/utils/thumbgatePromoCopy.ts`, `hermes-mobile/src/utils/thumbgateFacilitation.ts` (steps/export only), `hermes-mobile/src/__tests__/ThumbGatePromoCard.test.tsx`, `hermes-mobile/src/__tests__/thumbgateFacilitation.test.ts`, `hermes-mobile/src/__tests__/thumbgateContinuityUpsellContract.test.ts`, `hermes-mobile/.maestro/thumbgate-share-copy.yaml`, `plan.md` → **grok-leash-promo-short-20260803** (T-LEASH-PROMO-SHORT-20260803: consumer Leash card short, no coding agents) (2026-08-03T23:00Z)
 
@@ -2797,3 +2798,5 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 - `hermes-mobile/scripts/verify-firebase-distribute-auth.cjs` → **grok** (CodeQL burn-down 2026-08-03)
 - `hermes-mobile/src/__tests__/apkReleaseGuards.test.ts` → **grok** (CodeQL burn-down 2026-08-03)
 - `hermes-mobile/src/utils/chatApproval.ts` → **grok** (CodeQL burn-down / prevent-recurrence 2026-08-03)
+
+| T-CONNECT-STATUS-SSOT-20260805 | Picker/header effectiveMacHttpOk SSOT + mini-TS skip 8642 reverse | in_progress | grok-connect-status-ssot-20260805 | hermes-mobile/src/screens/ChatScreen.tsx, hermes-mobile/src/screens/SettingsScreen.tsx, hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts, tools/hermes-mobile-pair-lib.js, tools/hermes-mobile-pair.js, tests/test-hermes-mobile-pair.sh, plan.md | Unit green; PR |

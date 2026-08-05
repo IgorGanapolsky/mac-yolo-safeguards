@@ -270,12 +270,17 @@ if run_node "
   if (tunneled.includes(8642) || !tunneled.includes(8765)) process.exit(3);
   const explicitDefault = lib.resolveUsbReversePorts({ explicitGatewayUrl: 'http://127.0.0.1:8642' });
   if (!explicitDefault.includes(8642)) process.exit(4);
+  // Remote mini/Tailscale: never reverse laptop :8642 (steals phone off 100.x path).
   const remote = lib.resolveUsbReversePorts({ explicitGatewayUrl: 'http://100.94.135.78:8642' });
-  if (!remote.includes(8642)) process.exit(5);
+  if (remote.includes(8642) || !remote.includes(8765)) process.exit(5);
+  const miniFlag = lib.resolveUsbReversePorts({ miniTailscale: true, targetGatewayUrl: 'http://100.94.135.78:8642' });
+  if (miniFlag.includes(8642) || !miniFlag.includes(8765)) process.exit(6);
+  const magicDns = lib.resolveUsbReversePorts({ targetGatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642' });
+  if (magicDns.includes(8642) || !magicDns.includes(8765)) process.exit(7);
 "; then
-  ok "resolveUsbReversePorts drops tcp:8642 only for mini-primary/non-default loopback gateways"
+  ok "resolveUsbReversePorts drops tcp:8642 for mini-primary, non-default loopback, and Tailscale targets"
 else
-  bad "resolveUsbReversePorts drops tcp:8642 only for mini-primary/non-default loopback gateways"
+  bad "resolveUsbReversePorts drops tcp:8642 for mini-primary, non-default loopback, and Tailscale targets"
 fi
 
 if [[ "$PAIR_JS" == *"usbReverseSkipped8642"* ]] \

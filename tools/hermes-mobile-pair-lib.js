@@ -134,12 +134,26 @@ function removeUsbAdbReverse(serial, port, options = {}) {
  * (pair.json sweep) is always kept regardless of gateway target.
  */
 function resolveUsbReversePorts(options = {}) {
-  const { explicitGatewayUrl, forceMiniUsbPrimary } = options;
+  const {
+    explicitGatewayUrl,
+    forceMiniUsbPrimary,
+    /** --mini-tailscale: phone must use 100.x, never laptop loopback :8642 */
+    miniTailscale = false,
+    /** Resolved target gateway (may be 100.x mini) even without force-mini-usb-primary */
+    targetGatewayUrl = '',
+  } = options;
   const explicitNonDefaultLoopback =
     !!explicitGatewayUrl &&
     isLoopbackGatewayUrl(explicitGatewayUrl) &&
     gatewayUrlPort(explicitGatewayUrl) !== 8642;
-  if (forceMiniUsbPrimary || explicitNonDefaultLoopback) {
+  const target = String(targetGatewayUrl || explicitGatewayUrl || '').trim();
+  const targetIsRemoteTailscale =
+    !!target &&
+    !isLoopbackGatewayUrl(target) &&
+    (/^https?:\/\/100\./i.test(target) || /\.ts\.net(?::\d+)?(?:\/|$)/i.test(target));
+  // Skip laptop :8642 reverse when pairing a remote Mac (mini TS / MagicDNS) so the phone
+  // cannot be stolen onto THIS Mac's USB reverse while UI says Tailscale (2026-08-05 dogfood).
+  if (forceMiniUsbPrimary || explicitNonDefaultLoopback || miniTailscale || targetIsRemoteTailscale) {
     return USB_ADB_REVERSE_PORTS.filter((port) => port !== 8642);
   }
   return USB_ADB_REVERSE_PORTS;

@@ -33,7 +33,7 @@ import { setProductAnalyticsOptOut } from '../services/productAnalytics';
 import LoadingButton from '../components/ui/LoadingButton';
 import { formatGatewayHostLabel, isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
 import { resolveRelayRouteDisplay, relayWorkerDisplayName } from '../utils/relayRouting';
-import { isMacGatewayHttpOk } from '../utils/gatewayConnection';
+import { isMacGatewayHttpOk, resolveEffectiveMacHttpOk } from '../utils/gatewayConnection';
 import type { ApprovalPolicy } from '../types/gateway';
 import GatewayOpsSection from '../components/GatewayOpsSection';
 import { secureCredentials } from '../services/secureCredentials';
@@ -160,6 +160,15 @@ export default function SettingsScreen() {
     ],
   );
   const macHttpOk = useMemo(() => isMacGatewayHttpOk(health), [health]);
+  // Match Chat header/picker SSOT: authMismatch forces unreachable (not green Connected).
+  const effectiveMacHttpOk = useMemo(
+    () =>
+      resolveEffectiveMacHttpOk({
+        macHttpOk,
+        authMismatch: health?.authMismatch === true,
+      }),
+    [macHttpOk, health?.authMismatch],
+  );
   const activeGatewayUrl = effectiveGatewayUrl || gatewayUrl;
   const cellularBlocksDirect = useMemo(
     () => !wifiConnected && isPrivateLanGatewayUrl(activeGatewayUrl),
@@ -571,7 +580,7 @@ export default function SettingsScreen() {
             profiles={profilesForSwitchComputerPicker(savedMacProfiles)}
             activeProfileId={activeGatewayProfile?.id ?? null}
             activeProfile={activeGatewayProfile}
-            activeReachable={macHttpOk}
+            activeReachable={effectiveMacHttpOk}
             authNeedsRepair={health?.authMismatch === true}
             activeConnecting={connectionState === 'connecting'}
             onSelect={handleSelectProfile}
