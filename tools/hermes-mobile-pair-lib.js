@@ -134,12 +134,29 @@ function removeUsbAdbReverse(serial, port, options = {}) {
  * (pair.json sweep) is always kept regardless of gateway target.
  */
 function resolveUsbReversePorts(options = {}) {
-  const { explicitGatewayUrl, forceMiniUsbPrimary } = options;
+  const {
+    explicitGatewayUrl,
+    forceMiniUsbPrimary,
+    /** --mini-tailscale: phone must use 100.x, never laptop loopback :8642 */
+    miniTailscale = false,
+    /** Resolved target gateway (may be 100.x mini) even without force-mini-usb-primary */
+    targetGatewayUrl = '',
+  } = options;
   const explicitNonDefaultLoopback =
     !!explicitGatewayUrl &&
     isLoopbackGatewayUrl(explicitGatewayUrl) &&
     gatewayUrlPort(explicitGatewayUrl) !== 8642;
-  if (forceMiniUsbPrimary || explicitNonDefaultLoopback) {
+  const target = String(targetGatewayUrl || explicitGatewayUrl || '').trim();
+  // Any non-loopback target (Tailscale 100.x / MagicDNS / home LAN mini) must not reverse
+  // laptop :8642 — that steals the phone onto THIS Mac while the UI names the remote
+  // machine (2026-08-05 dogfood: mini LAN 192.168.x re-added 8642 and broke home Wi‑Fi path).
+  const targetIsRemoteNonLoopback = !!target && !isLoopbackGatewayUrl(target);
+  if (
+    forceMiniUsbPrimary ||
+    explicitNonDefaultLoopback ||
+    miniTailscale ||
+    targetIsRemoteNonLoopback
+  ) {
     return USB_ADB_REVERSE_PORTS.filter((port) => port !== 8642);
   }
   return USB_ADB_REVERSE_PORTS;
