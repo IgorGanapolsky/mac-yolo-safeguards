@@ -109,12 +109,23 @@ assert.ok(
 );
 console.log('  optimizer: PASS');
 
-// Scorecard A+
+// Scorecard A+ (STRICT boolean pass — no truthy objects)
 const scorecard = runScorecard();
 console.log(`  scorecard grade=${scorecard.grade} avg=${scorecard.averageScore} aPlus=${scorecard.aPlus}`);
 assert.strictEqual(scorecard.aPlus, true, `expected A+, got ${scorecard.grade} avg=${scorecard.averageScore}`);
 assert.ok(scorecard.averageScore >= 9.5);
-assert.ok(scorecard.checks.every((c) => c.pass));
+assert.ok(
+  scorecard.checks.every((c) => c.pass === true),
+  `every pass must be boolean true, got: ${scorecard.checks.map((c) => `${c.name}:${typeof c.pass}`).join(',')}`,
+);
+const p6 = scorecard.checks.find((c) => c.name === 'self_optimization_loop');
+assert.strictEqual(typeof p6.pass, 'boolean');
+assert.strictEqual(p6.pass, true);
+// abTestHint may live as metadata, never as pass
+if (p6.abTestHint !== undefined) {
+  assert.strictEqual(typeof p6.abTestHint, 'object');
+  assert.notStrictEqual(p6.pass, p6.abTestHint);
+}
 console.log('  scorecard A+: PASS');
 
 // Fleet health grades live log separately (fixture path)
