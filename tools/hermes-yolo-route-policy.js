@@ -7,9 +7,15 @@
  * Picks among *flat-rate / local* LiteLLM aliases only — never auto-routes to
  * per-token Moonshot kimi-k3 or OpenRouter burn paths. Those stay explicit opt-in.
  *
+ * OpenRouter July 2026 steals (local only — see hermes-yolo-auto-router.js):
+ *   - task-type classify + cost_quality_tradeoff
+ *   - turn budget on the route receipt (harness > brand model)
+ *   - spend tags (agent / task_type) for spike attribution
+ *
  * Usage:
  *   node tools/hermes-yolo-route-policy.js --task "fix the auth bug" [--json]
  *   node tools/hermes-yolo-route-policy.js --task "smoke" --probe
+ *   node tools/hermes-yolo-route-policy.js --task "..." --tradeoff cheap [--json]
  */
 
 const http = require('http');
@@ -25,6 +31,11 @@ const {
   taskWantsSuperGrok,
   shouldDropDeadGlm,
 } = require('./inference-eng/degradation');
+const {
+  autoRoute,
+  isForbiddenModel,
+  resolveTradeoff,
+} = require('./hermes-yolo-auto-router');
 
 const LITELLM_BASE = process.env.HERMES_LITELLM_BASE || 'http://127.0.0.1:4010/v1';
 const PROVIDER = 'custom:litellm-gateway';
@@ -105,8 +116,102 @@ function taskSignals(task) {
 }
 
 /**
+ * Attach OpenRouter-style auto-router metadata (task type, turn budget, spend tags).
+ * When tradeoff is explicitly cheap/quality (env or opts), may re-rank model
+ * from the local flat pool — never openrouter/auto.
+ */
+function enrichWithAutoRouter(route, opts = {}) {
+  const env = opts.env || process.env;
+  const task = opts.task || '';
+  const agent = opts.agent || env.HERMES_AGENT_ID || env.HERMES_AGENT || 'hermes-yolo';
+  const auto = autoRoute({
+    task,
+    tradeoff: opts.tradeoff,
+    agent,
+    env,
+    turnBudget: opts.turnBudget,
+  });
+
+  const explicitTradeoff =
+    opts.tradeoff ||
+    env.HERMES_COST_QUALITY ||
+    env.HERMES_COST_QUALITY_TRADEOFF ||
+    '';
+  const tradeoff = resolveTradeoff(opts.tradeoff, { defaultTradeoff: auto.costQualityTradeoff }, env);
+
+  let next = {
+    ...route,
+    taskType: auto.taskType,
+    costQualityTradeoff: tradeoff,
+    turnBudget: auto.turnBudget,
+    spendTags: auto.spendTags,
+    autoRouter: {
+      ok: auto.ok,
+      chain: auto.chain,
+      ranked: auto.ranked,
+      reason: auto.reason,
+      source: auto.source,
+    },
+  };
+
+  // Refuse forbidden models if something leaked them
+  if (isForbiddenModel(next.model)) {
+    next = {
+      ...next,
+      ...ROUTES.local,
+      reason: `refused forbidden model ${route.model}; forced local (never openrouter/auto)`,
+      model: ROUTES.local.model,
+      provider: ROUTES.local.provider,
+      id: 'forbidden_model_block',
+    };
+  }
+
+  // Explicit tradeoff pin: lean auto-router primary for cheap/quality (not balanced default)
+  // Skip when operator forced model, explicit env pin id, or long-context membership path.
+  const skipRerank =
+    next.id === 'explicit_env' ||
+    next.id === 'forbidden_model_block' ||
+    signalsLongContext(route) ||
+    !explicitTradeoff ||
+    tradeoff === 'balanced';
+
+  if (!skipRerank && auto.ok && auto.model && auto.model !== next.model) {
+    const fromRegistry = Object.values(ROUTES).find((r) => r.model === auto.model);
+    next = {
+      ...next,
+      ...(fromRegistry || {
+        id: `auto_${auto.taskType}`,
+        model: auto.model,
+        provider: /^grok/i.test(auto.model) ? 'grok-yolo' : PROVIDER,
+        label: `Auto-router ${tradeoff} → ${auto.model}`,
+        tier: 'mixed',
+      }),
+      reason: `${route.reason} | auto-router tradeoff=${tradeoff} → ${auto.model}`,
+      taskType: auto.taskType,
+      costQualityTradeoff: tradeoff,
+      turnBudget: auto.turnBudget,
+      spendTags: auto.spendTags,
+      autoRouter: next.autoRouter,
+      signals: route.signals,
+      inferenceTask: route.inferenceTask,
+      mode: route.mode,
+      chain: auto.chain,
+      latencyBudgetMs: route.latencyBudgetMs,
+      businessKpi: route.businessKpi,
+      policyVersion: route.policyVersion,
+    };
+  }
+
+  return next;
+}
+
+function signalsLongContext(route) {
+  return Boolean(route.signals?.longContext || route.signals?.asksK3 || route.model === 'kimi-code-k3');
+}
+
+/**
  * Select a route. Explicit env always wins (operator control).
- * @param {{ task?: string, env?: NodeJS.ProcessEnv }} opts
+ * @param {{ task?: string, env?: NodeJS.ProcessEnv, tradeoff?: string, agent?: string, turnBudget?: number }} opts
  */
 function selectRoute(opts = {}) {
   const env = opts.env || process.env;
@@ -124,6 +229,9 @@ function selectRoute(opts = {}) {
     env,
     probeFailures: opts.probeFailures,
   });
+
+  /** @type {object} */
+  let route;
 
   // Explicit operator pin — but ignore stale glm when SuperGrok preferred (unless FORCE/ALLOW_GLM).
   if (env.HERMES_YOLO_MODEL || env.HERMES_YOLO_PROVIDER) {
@@ -143,7 +251,7 @@ function selectRoute(opts = {}) {
       const provider =
         env.HERMES_YOLO_PROVIDER ||
         (/^grok/i.test(pin) ? 'grok-yolo' : PROVIDER);
-      return {
+      route = {
         ...ROUTES.coding,
         model: pin,
         provider,
@@ -158,13 +266,14 @@ function selectRoute(opts = {}) {
         businessKpi: inferenceTask.businessKpi,
         policyVersion: POLICY_VERSION,
       };
+      return enrichWithAutoRouter(route, opts);
     }
     // fall through to SuperGrok chain (stale glm pin ignored)
   }
 
   // Explicit "use glm" in task text (operator intent)
   if (signals.asksGlm && (env.HERMES_ALLOW_GLM === '1' || env.HERMES_YOLO_FORCE_MODEL === '1')) {
-    return {
+    route = {
       ...ROUTES.glm,
       reason: 'task asked for GLM + ALLOW/FORCE',
       signals,
@@ -175,11 +284,12 @@ function selectRoute(opts = {}) {
       businessKpi: inferenceTask.businessKpi,
       policyVersion: POLICY_VERSION,
     };
+    return enrichWithAutoRouter(route, opts);
   }
 
   // Long-context membership K3 before SuperGrok default (1M flat, not per-token)
   if (signals.longContext || signals.asksK3) {
-    return {
+    route = {
       ...ROUTES.long_context,
       reason: 'long-context / k3 signal → kimi-code-k3 membership',
       signals,
@@ -190,10 +300,11 @@ function selectRoute(opts = {}) {
       businessKpi: inferenceTask.businessKpi,
       policyVersion: POLICY_VERSION,
     };
+    return enrichWithAutoRouter(route, opts);
   }
 
   if (signals.asksKimi && !signals.asksK3) {
-    return {
+    route = {
       ...ROUTES.quality_kimi,
       reason: 'task asked for kimi',
       signals,
@@ -204,10 +315,11 @@ function selectRoute(opts = {}) {
       businessKpi: inferenceTask.businessKpi,
       policyVersion: POLICY_VERSION,
     };
+    return enrichWithAutoRouter(route, opts);
   }
 
   if (signals.smoke) {
-    return {
+    route = {
       ...ROUTES.fast,
       reason: 'smoke/latency path — not SuperGrok',
       signals,
@@ -218,12 +330,13 @@ function selectRoute(opts = {}) {
       businessKpi: inferenceTask.businessKpi,
       policyVersion: POLICY_VERSION,
     };
+    return enrichWithAutoRouter(route, opts);
   }
 
   const primary = chainPlan.primary;
   const fromRegistry = Object.values(ROUTES).find((r) => r.model === primary);
   if (fromRegistry) {
-    return {
+    route = {
       ...fromRegistry,
       reason: `${chainPlan.reason}; inferenceTask=${inferenceTask.id}`,
       signals,
@@ -234,10 +347,11 @@ function selectRoute(opts = {}) {
       businessKpi: inferenceTask.businessKpi,
       policyVersion: POLICY_VERSION,
     };
+    return enrichWithAutoRouter(route, opts);
   }
 
   if (primary === 'grok-4.5' || /^grok/.test(primary)) {
-    return {
+    route = {
       ...ROUTES.grok,
       model: primary,
       reason: `${chainPlan.reason}; SuperGrok preferred for task=${inferenceTask.id}`,
@@ -249,10 +363,11 @@ function selectRoute(opts = {}) {
       businessKpi: inferenceTask.businessKpi,
       policyVersion: POLICY_VERSION,
     };
+    return enrichWithAutoRouter(route, opts);
   }
 
   if (signals.asksLocal) {
-    return {
+    route = {
       ...ROUTES.local,
       reason: 'task asked for local/offline',
       signals,
@@ -263,9 +378,10 @@ function selectRoute(opts = {}) {
       businessKpi: inferenceTask.businessKpi,
       policyVersion: POLICY_VERSION,
     };
+    return enrichWithAutoRouter(route, opts);
   }
 
-  return {
+  route = {
     id: `task_${inferenceTask.id}`,
     model: primary,
     provider: PROVIDER,
@@ -280,6 +396,7 @@ function selectRoute(opts = {}) {
     businessKpi: inferenceTask.businessKpi,
     policyVersion: POLICY_VERSION,
   };
+  return enrichWithAutoRouter(route, opts);
 }
 
 function probeModel(model, base = LITELLM_BASE, timeoutMs = 8000) {
@@ -355,15 +472,20 @@ async function selectRouteWithProbe(opts = {}) {
   for (const candidate of chain) {
     const p = await probeModel(candidate.model);
     if (p.ok) {
-      return {
-        ...candidate,
-        reason: `${primary.model} probe failed (${probePrimary.status || probePrimary.error}); fell back to ${candidate.model}`,
-        signals: primary.signals,
-        policyVersion: POLICY_VERSION,
-        probe: p,
-        primaryFailed: probePrimary,
-        fallbackUsed: true,
-      };
+      return enrichWithAutoRouter(
+        {
+          ...candidate,
+          reason: `${primary.model} probe failed (${probePrimary.status || probePrimary.error}); fell back to ${candidate.model}`,
+          signals: primary.signals,
+          inferenceTask: primary.inferenceTask,
+          mode: primary.mode,
+          policyVersion: POLICY_VERSION,
+          probe: p,
+          primaryFailed: probePrimary,
+          fallbackUsed: true,
+        },
+        opts,
+      );
     }
   }
   return {
@@ -376,21 +498,32 @@ async function selectRouteWithProbe(opts = {}) {
 }
 
 function commandEnv(route) {
-  return {
+  const env = {
     HERMES_YOLO_PROVIDER: route.provider,
     HERMES_YOLO_MODEL: route.model,
     HERMES_ROUTE_ID: route.id,
     HERMES_ROUTE_REASON: route.reason || '',
   };
+  if (route.taskType) env.HERMES_TASK_TYPE = route.taskType;
+  if (route.costQualityTradeoff) env.HERMES_COST_QUALITY = route.costQualityTradeoff;
+  if (route.turnBudget && route.turnBudget.turns != null) {
+    env.HERMES_TURN_BUDGET = String(route.turnBudget.turns);
+  }
+  if (route.spendTags && route.spendTags.agent) {
+    env.HERMES_AGENT_TAG = route.spendTags.agent;
+  }
+  return env;
 }
 
 function parseArgs(argv) {
-  const out = { task: '', json: false, probe: false, help: false };
+  const out = { task: '', json: false, probe: false, help: false, tradeoff: null, agent: null };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '--task') out.task = argv[++i] || '';
     else if (a === '--json') out.json = true;
     else if (a === '--probe') out.probe = true;
+    else if (a === '--tradeoff') out.tradeoff = argv[++i] || '';
+    else if (a === '--agent') out.agent = argv[++i] || '';
     else if (a === '--help' || a === '-h') out.help = true;
     else if (!a.startsWith('-') && !out.task) out.task = a;
   }
@@ -400,23 +533,32 @@ function parseArgs(argv) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
-    console.log(`Usage: node tools/hermes-yolo-route-policy.js --task "..." [--probe] [--json]`);
+    console.log(
+      `Usage: node tools/hermes-yolo-route-policy.js --task "..." [--tradeoff cheap|balanced|quality] [--agent NAME] [--probe] [--json]`,
+    );
     process.exit(0);
   }
+  const selectOpts = { task: args.task, tradeoff: args.tradeoff, agent: args.agent };
   const route = args.probe
-    ? await selectRouteWithProbe({ task: args.task, probe: true })
-    : selectRoute({ task: args.task });
+    ? await selectRouteWithProbe({ ...selectOpts, probe: true })
+    : selectRoute(selectOpts);
   const payload = {
     schema: 'hermes-yolo/route-policy-v1',
     route,
     commandEnv: commandEnv(route),
-    philosophy: 'Architecture > smartest model. Flat-rate routes only unless operator pins env.',
+    philosophy:
+      'Architecture > smartest model. Flat-rate routes only. Auto-router steals (task type, turn budget, cost_quality) are local — never openrouter/auto.',
   };
   if (args.json) {
     process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
   } else {
     console.log(`${route.id} → ${route.provider} / ${route.model}`);
     console.log(`reason: ${route.reason}`);
+    if (route.taskType) {
+      console.log(
+        `auto: taskType=${route.taskType} tradeoff=${route.costQualityTradeoff} turns=${route.turnBudget?.turns}`,
+      );
+    }
     if (route.probe) console.log(`probe: ${route.probe.ok ? 'ok' : 'fail'} status=${route.probe.status}`);
   }
   process.exitCode = route.degraded ? 2 : 0;
@@ -431,6 +573,7 @@ module.exports = {
   selectRouteWithProbe,
   probeModel,
   commandEnv,
+  enrichWithAutoRouter,
 };
 
 if (require.main === module) {
