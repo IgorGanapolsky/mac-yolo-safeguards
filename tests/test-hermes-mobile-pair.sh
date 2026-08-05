@@ -277,10 +277,15 @@ if run_node "
   if (miniFlag.includes(8642) || !miniFlag.includes(8765)) process.exit(6);
   const magicDns = lib.resolveUsbReversePorts({ targetGatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642' });
   if (magicDns.includes(8642) || !magicDns.includes(8765)) process.exit(7);
+  // Home LAN mini: also skip 8642 (2026-08-05 dogfood re-added reverse on 192.168.x).
+  const lanMini = lib.resolveUsbReversePorts({ explicitGatewayUrl: 'http://192.168.68.67:8642' });
+  if (lanMini.includes(8642) || !lanMini.includes(8765)) process.exit(8);
+  const lanTarget = lib.resolveUsbReversePorts({ targetGatewayUrl: 'http://10.0.0.5:8642' });
+  if (lanTarget.includes(8642) || !lanTarget.includes(8765)) process.exit(9);
 "; then
-  ok "resolveUsbReversePorts drops tcp:8642 for mini-primary, non-default loopback, and Tailscale targets"
+  ok "resolveUsbReversePorts drops tcp:8642 for mini-primary, non-default loopback, Tailscale, and home LAN targets"
 else
-  bad "resolveUsbReversePorts drops tcp:8642 for mini-primary, non-default loopback, and Tailscale targets"
+  bad "resolveUsbReversePorts drops tcp:8642 for mini-primary, non-default loopback, Tailscale, and home LAN targets"
 fi
 
 if [[ "$PAIR_JS" == *"usbReverseSkipped8642"* ]] \
@@ -296,6 +301,14 @@ if [[ "$PAIR_JS" == *"preferPhonePairServerForAdb"* ]] \
   ok "pair script prefers Tailscale/LAN pairServer for mini remote adb deep links"
 else
   bad "pair script prefers Tailscale/LAN pairServer for mini remote adb deep links"
+fi
+
+# GH-#1451: setup ack timeout must NOT fire leash-unlock (race replaces setup).
+if [[ "$PAIR_JS" == *"NOT sending leash-unlock"* ]] \
+  && [[ "$PAIR_JS" != *"sending secondary intent anyway (best-effort)"* ]]; then
+  ok "pair script never sends leash-unlock after setup ack timeout (GH-#1451)"
+else
+  bad "pair script never sends leash-unlock after setup ack timeout (GH-#1451)"
 fi
 
 # --- 2026-07-24 follow-up: the pairing decision above must be persisted somewhere
