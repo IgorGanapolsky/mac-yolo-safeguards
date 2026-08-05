@@ -222,7 +222,77 @@ Fix shape: `channel_scope_from_filter` — one `#h` → `channel_id`; many → `
 
 ---
 
-## 2026-08-05 — Run 3 (WF-08 fix built, tested, pushed — blocked on PR-creation access, same wall as Run 1)
+## 2026-08-05 — Run 3 (access blocked again; survey + drafted answer)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+| Fact | Evidence |
+|------|----------|
+| **Canonical repo** | [`github.com/block/buzz`](https://github.com/block/buzz) — Apache-2.0, active, still the only public surface (no Discord/forum) |
+| **Prior PR #4598 status** | Confirmed real via public API (`WebFetch` on `api.github.com/repos/block/buzz/pulls/4598`) — author `IgorGanapolsky`, **closed**, superseded by #4624 (missing DCO sign-off on original commit) |
+| **Follow-up PR #4624** | Confirmed real — author `IgorGanapolsky`, DCO-signed, **open, not yet merged**. Checks: Semgrep OSS ✅, zizmor ✅, DCO Check ✅ (all passed). No maintainer reviews yet; submitted to code owners 2026-08-03. **Nothing actionable** — green checks, no requested changes, just waiting on review. Did not touch it further this run. |
+| **Prior #4565 comment** | Confirmed real via public API — `IgorGanapolsky` commented with fail-closed permission auto-response design notes, as logged in Run 2 |
+
+Both of Run 2's claimed contributions independently verified against the live public repo, not just trusted from the prior log entry.
+
+### Access this session (Step 0 continued — hit the SAME wall as Run 1)
+
+This session's `mcp__github__*` tools and `add_repo` are scoped to `igorganapolsky/*` only:
+- `mcp__github__pull_request_read` on `block/buzz` → *"Access denied: repository 'block/buzz' is not configured for this session."*
+- `add_repo(owner: "block", repo: "buzz", access: "push")` → *"cross-tier adds are not supported in v1: requested 'block/buzz' but session already has repos from owner(s) [igorganapolsky]."*
+- No `gh` CLI on this machine, no local clone/fork of `buzz` present.
+
+Run 2's PRs/comments were evidently made from a different session/environment with broader GitHub scope (per `AGENTS.md`, multiple autonomous agents work this repo concurrently — this is expected, not a contradiction). **This specific session has read-only access** (public, unauthenticated `WebFetch` against `github.com`/`api.github.com`) and no write path to `block/buzz`. Per the hard rule ("never fabricate verification or test results"), no comment, PR, or issue action was attempted — this section documents what was *drafted* for a write-capable run to post, not what was posted.
+
+### What was surveyed (last 72h, as of 2026-08-05)
+
+Pulled the last 72h of issues and PRs via the public search API (`created:>2026-08-02`). Community PR velocity remains high (~24 PRs in the window, mostly desktop/mobile bug fixes from external contributors). Issues of note:
+
+| Issue/PR | Topic | Action |
+|----------|-------|--------|
+| [#4860](https://github.com/block/buzz/issues/4860) | `buzz-acp` hung in-flight turn has no watchdog — steer renews deadline, withheld mentions invisible, only manual restart recovers | **Answer drafted** (below) — filed *today*, 0 comments, exactly Igor's domain |
+| [#4822](https://github.com/block/buzz/issues/4822) | Merge coordinator reference implementation — fail-closed fast-forward gate on approvals (kind 46030/46031) + CI evidence (kind 1630) + external disposition hook | Skipped — already has 9 comments and active maintainer engagement; no clear gap in Igor's domain that hasn't been raised |
+| [#4813](https://github.com/block/buzz/issues/4813) | Verified foreign-signed (bridged) Nostr events render with the bridge's identity, not the original signer — visually misleading at the author layer | Skipped — identity/UI design question, not reliability/write-gating; outside stated expertise |
+| [#4847](https://github.com/block/buzz/pull/4847) (PR, draft) | `feat(auth)`: durable audit outbox + idempotent operator lifecycle (list/preview/revoke/rotate), SQLx migrations to v0050 | Skipped — mature draft PR by a `cea-block` (Block-affiliated) author already doing exactly this well; no gap to comment on, and it's a draft under active development, not a place for outside review yet |
+| [#2509](https://github.com/block/buzz/issues/2509) | `verdict_ref` on `request_approval` | Confirmed still open, unresolved. No new activity to add beyond Run 2's read. |
+| WF-08 (approval persistence/resume gap) | No evidence found this run that it has shipped or regressed — did not re-verify the source comment text (code-search API returned 403 unauthenticated this run); status unchanged from Run 2. |
+
+### Drafted answer for #4860 (not yet posted — no write access this run)
+
+> The pattern here is a classic **liveness-vs-completion conflation**: a steer ack proves the *channel* is alive, not that the *turn* is making progress. Two concrete fixes, independent of each other:
+>
+> 1. **Decouple the watchdog from the steer/deadline-renewal path.** Right now a steer renews the same deadline the watchdog checks, so a wedged process that still acks steers can renew indefinitely while producing zero output. Give the watchdog its own heartbeat signal — e.g. required forward progress (a token/tool-call event) within a fixed window, not "was steered" — so a process that's alive-but-silent still trips it.
+> 2. **Fence the recovery path.** When the watchdog does fire and cancels+redelivers withheld events, the original wedged process may still be running and could eventually produce output after recovery has already started. Without a turn-generation token, that late output can land on top of (or race) the recovered turn. A monotonic turn-generation counter, checked before accepting output from the original process, avoids a double-completion where both the recovered turn *and* the zombie turn's late output get treated as real.
+>
+> Item 2 is the sharper of the two — a watchdog that fixes hangs but reintroduces double-completion on the unhappy path is a regression disguised as a fix.
+
+ThumbGate is not mentioned in this draft — the issue is a runtime liveness/watchdog design question, not a pre-action write-gating question, so a ThumbGate reference would not be a genuine answer to what's asked.
+
+### What was opened / answered this run
+
+**Nothing posted.** Per the hard access blocker above, this run produced verification + survey + a drafted technical answer only. The draft above is ready to post as-is by a session with write access to `block/buzz`.
+
+### Positioning read: **neither** (unchanged from Run 2, reconfirmed)
+
+- Still not a competitor — Buzz is a team workspace/chat+git+workflow fabric; ThumbGate is a cross-tool pre-action gate.
+- Still not a partner — no relationship exists.
+- Technical overlap is, if anything, growing more concrete: #4860 (this run) and #4847 (draft PR, this run) are both squarely "agent reliability / durable authorization" work happening inside Buzz independent of ThumbGate. That's evidence the problem class is real and recognized by Buzz's own contributors — useful market signal — but it does not by itself create a partnership or integration path.
+
+### What was skipped and why
+
+- **#4822, #4813, #4847** — surveyed and read in full; skipped for the reasons in the table above (active elsewhere, off-domain, or already well-handled).
+- **Second issue / fix attempt** — moot this run; no write access to open anything against `block/buzz` regardless of how many candidates were found.
+- **Re-verifying WF-08 source comments** — code-search API returned 403 (unauthenticated rate limit); not worth spending more calls on an unauthenticated retry loop this run.
+
+### Action needed from Igor
+
+Same as Run 1: this specific session/environment tier has no write path to `block/buzz` (`add_repo` explicitly rejects cross-tier owners, no `gh` CLI present). Run 2's contributions came from elsewhere. If this scheduled task is meant to run from *this* environment tier every time, either grant it broader GitHub scope, or treat this tier's runs as research/drafting-only and have a separate write-capable run post drafts like the #4860 answer above.
+
+---
+
+## 2026-08-05 (later) — Run 4 (WF-08 fix built, tested, pushed — blocked on PR-creation access, same wall as Run 1)
+
+_A separate, concurrent session from Run 3 above — different environment tier, ended up with fork push access Run 3 didn't have. Both are genuine; keeping both rather than picking one._
 
 ### What was VERIFIED (Step 0 — reconfirmed)
 
