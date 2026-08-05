@@ -71,7 +71,7 @@ export function resolveHeaderTransportLabel(input: {
         return undefined;
       }
     }
-    return 'USB';
+    return 'Home Wi‑Fi';
   }
   if (isPrivateLanGatewayUrl(gatewayUrl)) {
     return 'Home Wi‑Fi';
@@ -85,17 +85,14 @@ export function isUsbHeaderTransportAllowed(input: {
   wifiConnected?: boolean;
   health?: GatewayHealthSnapshot | null;
 }): boolean {
-  return (
-    isLoopbackGatewayUrl(input.gatewayUrl) &&
-    resolveHeaderTransportLabel(input) === 'USB'
-  );
+  return false;
 }
 
 /**
  * Generic label when loopback is selected but live cable identity is unknown.
  * Must not say "Computer via USB" — that markets a dead USB path off-home (2026-07-21).
  */
-export const USB_UNKNOWN_MACHINE_LABEL = 'Your computer';
+export const USB_UNKNOWN_MACHINE_LABEL = 'S25-Termux';
 
 function healthHostname(health?: GatewayHealthSnapshot | null): string | undefined {
   return health?.hostname?.replace(/\.local$/i, '').trim() || undefined;
@@ -617,7 +614,7 @@ export function formatMacConnectionRetryBanner(input: {
   let routeDetail = input.machineEndpoint?.trim();
   if (!routeDetail || (loopbackUsb && routeDetail.includes('127.0.0.1'))) {
     const endpointLine = formatGatewayEndpointLine(input.gatewayUrl, input.health)?.trim();
-    routeDetail = loopbackUsb ? 'USB' : endpointLine || input.gatewayUrl.trim();
+    routeDetail = loopbackUsb ? 'Home Wi‑Fi' : endpointLine || input.gatewayUrl.trim();
   }
 
   if (routeDetail) {
