@@ -21,6 +21,7 @@
  *   - Hashnode frozen
  *   - Zernio ban (platform name)
  *   - Content log double-post (same platform + campaign with LIVE URL)
+ *   - Same-beat campaign family (stem match: *-meme / *-image / *-v2) already LIVE
  *   - Near-duplicate hook on same platform within lookback days
  *   - Dead free Play package URL in body
  *   - Optional buy-link / mention / honesty checks on body
@@ -35,6 +36,8 @@ const DEFAULT_LOG = path.join(ROOT, 'docs/social/hermes-mobile-content-log.tsv')
 const LOOKBACK_DAYS = 14;
 
 const LIVE_STATUSES = new Set(['published', 'posted', 'live']);
+/** Campaign rows retired on purpose — must not ALLOW a re-post of the same platform+campaign. */
+const RETIRED_STATUSES = new Set(['superseded', 'cancelled', 'canceled', 'retired', 'killed']);
 const FROZEN_PLATFORMS = new Set(['hashnode']);
 const BANNED_PLATFORMS = new Set(['zernio', 'creator-platform-promo', 'creator_platform_promo']);
 
@@ -149,6 +152,10 @@ function isLiveStatus(status) {
   return LIVE_STATUSES.has(normalizeStatus(status));
 }
 
+function isRetiredStatus(status) {
+  return RETIRED_STATUSES.has(normalizeStatus(status));
+}
+
 function parseDate(s) {
   const d = new Date(String(s || '').trim());
   return Number.isNaN(d.getTime()) ? null : d;
@@ -161,6 +168,42 @@ function hookFingerprint(hook) {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 80);
+}
+
+/**
+ * Collapse campaign variant suffixes so same-beat doubles cannot sneak past
+ * with a new cta_id (e.g. engine-2026-08-04-gates vs engine-2026-08-04-gates-meme).
+ * Incident 2026-08-04: LinkedIn text + meme posts same day, gate ALLOW on *-meme.
+ */
+function campaignStem(campaign) {
+  let c = String(campaign || '')
+    .toLowerCase()
+    .trim();
+  if (!c) return '';
+  // Strip repeated trailing variant tags
+  let prev;
+  do {
+    prev = c;
+    c = c
+      .replace(
+        /[-_](meme|image|img|visual|photo|card|variant|v\d+|repost|retry|amp|amplify|short|long|thread)$/i,
+        '',
+      )
+      .replace(/[-_]+$/g, '');
+  } while (c !== prev && c.length > 0);
+  return c;
+}
+
+function sameCampaignFamily(a, b) {
+  const sa = campaignStem(a);
+  const sb = campaignStem(b);
+  if (!sa || !sb) return false;
+  if (sa === sb) return true;
+  // Also treat longer stem that extends shorter by only a separator segment
+  if (sa.startsWith(sb + '-') || sa.startsWith(sb + '_') || sb.startsWith(sa + '-') || sb.startsWith(sa + '_')) {
+    return true;
+  }
+  return false;
 }
 
 function parseContentLog(logPath) {
@@ -322,6 +365,44 @@ function evaluate(args) {
         .join('; ');
       blocks.push(
         `Double-post blocked: ${platform} + campaign "${campaign}" already LIVE (${sameCampaignLive.length}). ${sample}. Do not Post again.`,
+      );
+    }
+
+    // Same beat, different campaign id (e.g. …-gates vs …-gates-meme)
+    const familyLive = log.rows.filter((r) => {
+      if (r.platform !== platform) return false;
+      if (r.campaign === campaign) return false; // already covered
+      if (!sameCampaignFamily(r.campaign, campaign)) return false;
+      if (!isLiveStatus(r.status)) return false;
+      if (!r.postUrl || r.postUrl === '—' || r.postUrl.toLowerCase() === 'pending') {
+        return false;
+      }
+      const d = parseDate(r.date);
+      if (d && d.getTime() < cutoff) return false;
+      return true;
+    });
+    if (familyLive.length > 0) {
+      const sample = familyLive
+        .slice(0, 3)
+        .map((r) => `L${r.line} ${r.campaign} ${r.postUrl}`)
+        .join('; ');
+      blocks.push(
+        `Same-beat campaign family blocked: ${platform} campaign "${campaign}" (stem "${campaignStem(campaign)}") matches LIVE sibling (${familyLive.length}). ${sample}. Do not Post a meme/variant of an already-LIVE beat — attach media to the existing post or use a truly new angle+campaign.`,
+      );
+    }
+
+    const sameCampaignRetired = log.rows.filter((r) => {
+      if (r.platform !== platform) return false;
+      if (r.campaign !== campaign) return false;
+      return isRetiredStatus(r.status);
+    });
+    if (sameCampaignRetired.length > 0) {
+      const sample = sameCampaignRetired
+        .slice(0, 3)
+        .map((r) => `L${r.line} ${r.status}`)
+        .join('; ');
+      blocks.push(
+        `Retired campaign blocked: ${platform} + campaign "${campaign}" is ${sameCampaignRetired[0].status} (${sameCampaignRetired.length}). ${sample}. Do not Post — pick a new campaign id.`,
       );
     }
 
@@ -494,10 +575,13 @@ module.exports = {
   parseContentLog,
   normalizePlatform,
   isLiveStatus,
+  isRetiredStatus,
   hasDeadFreePlay,
   hasBuyLink,
   checkMentions,
   hookFingerprint,
+  campaignStem,
+  sameCampaignFamily,
   LIVE_STATUSES,
   FROZEN_PLATFORMS,
 };
