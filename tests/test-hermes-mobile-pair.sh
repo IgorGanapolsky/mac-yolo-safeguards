@@ -291,6 +291,13 @@ else
   bad "pair script removes a stale tcp:8642 reverse when skipping it for mini-primary"
 fi
 
+if [[ "$PAIR_JS" == *"preferPhonePairServerForAdb"* ]] \
+  && [[ "$PAIR_JS" == *"--mini-tailscale"* ]]; then
+  ok "pair script prefers Tailscale/LAN pairServer for mini remote adb deep links"
+else
+  bad "pair script prefers Tailscale/LAN pairServer for mini remote adb deep links"
+fi
+
 # --- 2026-07-24 follow-up: the pairing decision above must be persisted somewhere
 #     durable so the independent, always-on hermes-usb-reverse-watchdog LaunchAgent
 #     (which cannot see --force-mini-usb-primary/--gateway-url) does not undo it
