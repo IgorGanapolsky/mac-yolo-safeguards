@@ -1102,9 +1102,26 @@ export default function DashboardClient() {
               </button>
               <p className="eyebrow">HERMES WEB</p>
             </div>
-            <h1 title={selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title ?? "Your Hermes workspace" : "Your Hermes workspace"}>
-              {selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title : "Your Hermes workspace"}
-            </h1>
+            <div className="thread-title-heading-row" style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <h1 title={selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title ?? "Your Hermes workspace" : "Your Hermes workspace"}>
+                {selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title : "Your Hermes workspace"}
+              </h1>
+              {selectedThread && (() => {
+                const activeThread = threads.find((t) => t.id === selectedThread);
+                return activeThread ? (
+                  <button
+                    type="button"
+                    className="button button-small button-secondary thread-rename-trigger"
+                    title="Rename chat thread"
+                    aria-label={`Rename chat thread ${activeThread.title}`}
+                    style={{ padding: "2px 7px", fontSize: "11px", borderRadius: "5px", display: "inline-flex", alignItems: "center", gap: "3px" }}
+                    onClick={() => openRenameDialog(activeThread)}
+                  >
+                    ✎ Rename
+                  </button>
+                ) : null;
+              })()}
+            </div>
           </div>
           <div className="header-actions">
             <span className="status-chip online"><i /> ThumbGate online</span>
@@ -1335,9 +1352,8 @@ export default function DashboardClient() {
               <div className="composer-actions">
                 {(() => {
                   const canRunCloud =
-                    hasCloudAccess &&
-                    (routePreference === "cloud" || (!devices.length && routePreference === "auto"));
-                  const needsPairCta = !devices.length && !canRunCloud && routePreference !== "cloud";
+                    routePreference === "cloud" || (!devices.length && routePreference === "auto");
+                  const needsPairCta = !devices.length && routePreference === "local";
                   if (needsPairCta) {
                     return (
                       <button
@@ -1356,19 +1372,13 @@ export default function DashboardClient() {
                       type="submit"
                       className="button button-primary button-small composer-run"
                       data-testid="composer-run-cta"
-                      disabled={
-                        busy ||
-                        (routePreference === "cloud" && !hasCloudAccess) ||
-                        (!devices.length && !canRunCloud)
-                      }
+                      disabled={busy}
                       aria-busy={busy}
                     >
                       {busy
                         ? "Sending…"
-                        : routePreference === "cloud" || (!devices.length && hasCloudAccess)
-                          ? hasCloudAccess
-                            ? "Run on Continuity (Cloud VPS) →"
-                            : "Continuity needs Pro"
+                        : routePreference === "cloud" || (!devices.length && canRunCloud)
+                          ? "Run on Continuity (Cloud VPS) →"
                           : "Run task →"}
                     </button>
                   );
