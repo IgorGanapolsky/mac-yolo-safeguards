@@ -149,6 +149,13 @@ print(d.get('e2e', 'unknown'))
   fi
   results+=("\"phone_paired\": $phone_paired")
 
+  # GitHub CLI auth shadow check
+  local gh_token_shadow="false"
+  if [ -n "${GITHUB_TOKEN:-}" ]; then
+    gh_token_shadow="true"
+  fi
+  results+=("\"gh_token_shadowed\": $gh_token_shadow")
+
   local joined
   joined=$(IFS=,; echo "${results[*]}")
   echo "{$joined}"
@@ -164,19 +171,23 @@ act() {
   log "Act: prioritize next actions"
 
   # Parse key fields from observe
-  local hooks_valid mcp_count skills_count e2e_status launchagent phone_paired
+  local hooks_valid mcp_count skills_count e2e_status launchagent phone_paired gh_token_shadow
   hooks_valid=$(echo "$observe_output" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('hooks_valid_json', False))" 2>/dev/null || echo "False")
   mcp_count=$(echo "$observe_output" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('mcp_servers_count', 0))" 2>/dev/null || echo "0")
   skills_count=$(echo "$observe_output" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('skills_registered', 0))" 2>/dev/null || echo "0")
   e2e_status=$(echo "$observe_output" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('e2e_status', 'unknown'))" 2>/dev/null || echo "unknown")
   launchagent=$(echo "$observe_output" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('continuous_e2e_launchagent', 'unknown'))" 2>/dev/null || echo "unknown")
   phone_paired=$(echo "$observe_output" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('phone_paired', False))" 2>/dev/null || echo "False")
+  gh_token_shadow=$(echo "$observe_output" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('gh_token_shadowed', False))" 2>/dev/null || echo "False")
 
   local actions=()
 
-  # Priority 1: Context layer integrity
+  # Priority 1: Context layer integrity & Auth
   if [ "$hooks_valid" = "False" ]; then
     actions+=("🔴 CRITICAL: ~/.claude/settings.json is invalid — hooks may not fire. Run: node tests/test-session-context.js")
+  fi
+  if [ "$gh_token_shadow" = "True" ]; then
+    actions+=("🟡 WARNING: GITHUB_TOKEN env var is set and may shadow macOS Keychain auth for gh CLI. Unset or use env -u GITHUB_TOKEN gh.")
   fi
   if [ "$mcp_count" -lt 2 ] 2>/dev/null; then
     actions+=("🟡 WARNING: Fewer than 2 MCP servers configured — search/recall may be degraded")
@@ -305,17 +316,18 @@ learn() {
 
 # ─── Main ────────────────────────────────────────────────────────────────────
 
+WATCH_INTERVAL=0
+
 main() {
   local mode="full"
   local json_mode="false"
-  local watch_interval=0
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --json) json_mode="true"; JSON_MODE="true"; shift ;;
       --health) mode="health"; shift ;;
-      --watch) watch_interval=300; shift ;;
-      --watch-interval) watch_interval="$2"; shift 2 ;;
+      --watch) WATCH_INTERVAL=300; shift ;;
+      --watch-interval) WATCH_INTERVAL="$2"; shift 2 ;;
       *) shift ;;
     esac
   done
@@ -338,6 +350,7 @@ main() {
       echo "  E2E status:         $(echo "$observe_output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('e2e_status', 'unknown'))" 2>/dev/null || echo "unknown")"
       echo "  E2E LaunchAgent:    $(echo "$observe_output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('continuous_e2e_launchagent', 'unknown'))" 2>/dev/null || echo "unknown")"
       echo "  Phone paired:       $(echo "$observe_output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('phone_paired', False))" 2>/dev/null || echo "false")"
+      echo "  GH Token Shadowed:  $(echo "$observe_output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('gh_token_shadowed', False))" 2>/dev/null || echo "false")"
       echo "  Loop score:         $(echo "$evaluate_output" | python3 -c "import json,sys; d=json.load(sys.stdin); print(f'{d[\"gates_passed\"]}/{d[\"total_gates\"]} ({d[\"score\"]})')" 2>/dev/null || echo "n/a")"
     fi
     exit 0
@@ -384,6 +397,7 @@ print(f'  skills_registered: {d.get(\"skills_registered\", 0)}')
 print(f'  e2e_status:        {d.get(\"e2e_status\", \"unknown\")}')
 print(f'  e2e_launchagent:   {d.get(\"continuous_e2e_launchagent\", \"unknown\")}')
 print(f'  phone_paired:      {d.get(\"phone_paired\", False)}')
+print(f'  gh_token_shadowed: {d.get(\"gh_token_shadowed\", False)}')
 " 2>/dev/null || echo "$observe_out"
     echo ""
 
@@ -415,13 +429,12 @@ print(f'  gates: {d[\"gates_passed\"]}/{d[\"total_gates\"]}  score: {d[\"score\"
   fi
 }
 
-# Watch mode
-if [ "${watch_interval:-0}" -gt 0 ]; then
+main "$@"
+
+if [ "$WATCH_INTERVAL" -gt 0 ]; then
   while true; do
+    sleep "$WATCH_INTERVAL"
     clear 2>/dev/null || true
-    main
-    sleep "$watch_interval"
+    main "$@"
   done
 fi
-
-main "$@"
