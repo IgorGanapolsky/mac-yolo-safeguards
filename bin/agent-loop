@@ -25,12 +25,18 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export REPO_ROOT="$ROOT"
 
+# Global flag: suppressed log output when JSON mode is active
+JSON_MODE="false"
+
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 now_iso() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 now_epoch() { date +%s; }
 
-log() { echo "[$(date -u +%H:%M:%S)] $*" >&2; }
+log() {
+  if [ "$JSON_MODE" = "true" ]; then return 0; fi
+  echo "[$(date -u +%H:%M:%S)] $*" >&2
+}
 
 # Run a node script and capture output (exit code preserved)
 run_node() {
@@ -123,18 +129,22 @@ print(d.get('e2e', 'unknown'))
   fi
   results+=("\"e2e_status\": \"$e2e_status\"")
 
-  # LaunchAgent health
+  # LaunchAgent health (capture first to avoid SIGPIPE under pipefail)
   local launchagent_status="unknown"
-  if launchctl list 2>/dev/null | grep -q "com.igor.hermes-mobile-continuous-e2e"; then
+  local launchlist
+  launchlist=$(launchctl list 2>/dev/null || true)
+  if echo "$launchlist" | grep -q "com.igor.hermes-mobile-continuous-e2e"; then
     launchagent_status="running"
   else
     launchagent_status="stopped"
   fi
   results+=("\"continuous_e2e_launchagent\": \"$launchagent_status\"")
 
-  # Phone paired?
+  # Phone paired? (capture first to avoid SIGPIPE under pipefail)
   local phone_paired="false"
-  if adb devices 2>/dev/null | grep -q "R3CY90QPM7E.*device"; then
+  local adb_out
+  adb_out=$(adb devices 2>/dev/null || true)
+  if echo "$adb_out" | grep -q "R3CY90QPM7E.*device"; then
     phone_paired="true"
   fi
   results+=("\"phone_paired\": $phone_paired")
@@ -302,7 +312,7 @@ main() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --json) json_mode="true"; shift ;;
+      --json) json_mode="true"; JSON_MODE="true"; shift ;;
       --health) mode="health"; shift ;;
       --watch) watch_interval=300; shift ;;
       --watch-interval) watch_interval="$2"; shift 2 ;;
