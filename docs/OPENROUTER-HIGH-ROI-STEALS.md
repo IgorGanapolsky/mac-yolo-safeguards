@@ -46,6 +46,22 @@ node tests/test-hermes-yolo-route-policy.js
 | `HERMES_AGENT_ID` | Spend tag agent |
 | `HERMES_SPEND_PRIORS` | JSON override of local model weights |
 
+## Live wrapper wiring (2026-08-05)
+
+`hermes-yolo-wrapper.js` now:
+
+1. Classifies task via route-policy / auto-router before SuperGrok selection
+2. **Smoke / classify / draft / routine / cheap** → `hermes-legacy` (not SuperGrok plan quota)
+3. Coding / plan with SuperGrok ready → still SuperGrok
+4. Legacy spawn applies policy `model` + stamps `HERMES_TURN_BUDGET` / `HERMES_TASK_TYPE`
+5. Optional spend receipt: `HERMES_SPEND_CLASSIFIER=1`
+6. Never emits `openrouter/auto`
+
+```bash
+# Proof: smoke demotes SuperGrok
+node -e "const {classifyBackend}=require('./hermes-yolo-wrapper'); console.log(classifyBackend(['Reply with exactly HERMES-YOLO-READY'],{HERMES_YOLO_ROUTE_POLICY:'1'},{grokReady:true}))"
+```
+
 ## Deliberately skipped
 
 - Paid OpenRouter Batch API / Activity SaaS
