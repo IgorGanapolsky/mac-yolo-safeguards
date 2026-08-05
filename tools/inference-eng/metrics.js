@@ -20,6 +20,18 @@ const { classifyTask } = require('./task-registry');
 const { estimateCostUsd } = require('./pricing');
 
 const DEFAULT_LOG = path.join(os.homedir(), '.hermes', 'litellm-logs', 'traffic.jsonl');
+const DEFAULT_GROK_RECEIPT_HISTORY = path.join(
+  os.homedir(),
+  '.hermes',
+  'receipts',
+  'hermes-yolo',
+  'history.jsonl',
+);
+
+/** Models that currently return empty completions under quota thrash (z.ai weekly cap). */
+const DEFAULT_DEAD_MODEL_RE =
+  process.env.HERMES_FLEET_DEAD_MODELS_RE ||
+  '^(glm-coding|glm-5\\.2|glm-5|glm-47|glm-4\\.7|glm-5-turbo|z-ai/glm-5\\.2)$';
 
 function parseLogTs(value) {
   if (typeof value !== 'string') return NaN;
@@ -141,6 +153,106 @@ function loadTraffic(logPath = DEFAULT_LOG, options = {}) {
   return out;
 }
 
+/**
+ * SuperGrok / hermes-yolo route receipts (history.jsonl) — NOT in LiteLLM traffic.jsonl.
+ * Without this, a healthy SuperGrok path can never lift fleet-health while glm empty
+ * responses dominate the LiteLLM log (2026-08-05).
+ *
+ * @param {string} historyPath
+ * @param {{ windowHours?: number }} options
+ * @returns {object[]} enriched metrics compatible with summarize()
+ */
+function loadGrokReceipts(historyPath = DEFAULT_GROK_RECEIPT_HISTORY, options = {}) {
+  if (!historyPath || !fs.existsSync(historyPath)) return [];
+  const windowHours = Number(options.windowHours || 0);
+  const cutoff = windowHours > 0 ? Date.now() - windowHours * 3600 * 1000 : 0;
+  let text;
+  try {
+    text = readLogTail(historyPath, Number(options.maxBytes || 2 * 1024 * 1024));
+  } catch {
+    return [];
+  }
+  const out = [];
+  for (const line of text.split('\n')) {
+    if (!line.trim()) continue;
+    try {
+      const rec = JSON.parse(line);
+      const route = rec.route || {};
+      const exec = rec.execution || {};
+      const generatedAt = rec.generatedAt || null;
+      if (cutoff && generatedAt) {
+        const ts = Date.parse(generatedAt);
+        if (!Number.isFinite(ts) || ts < cutoff) continue;
+      }
+      // Only SuperGrok / grok backend receipts (skip hermes-legacy noise)
+      const backend = String(route.selectedBackend || '');
+      const model = String(route.actualModel || route.model || backend || 'unknown');
+      if (!/grok/i.test(backend) && !/grok/i.test(model) && !/grok/i.test(String(route.launcher || ''))) {
+        continue;
+      }
+      const status =
+        exec.status === 'pass' || exec.exitCode === 0
+          ? 'success'
+          : exec.status === 'fail' || exec.status === 'blocked'
+            ? 'failure'
+            : 'unknown';
+      const latencyS = Number(exec.durationMs || 0) / 1000;
+      out.push(
+        enrichRecord({
+          model,
+          status,
+          latency_s: latencyS,
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          total_tokens: 0,
+          ts_end: generatedAt,
+          messages: [{ role: 'user', content: 'hermes-yolo SuperGrok route' }],
+          tools_offered: false,
+          has_tool_calls: false,
+          source: 'hermes-yolo-receipt',
+        }),
+      );
+    } catch {
+      /* skip */
+    }
+  }
+  return out;
+}
+
+/**
+ * Merge LiteLLM traffic + SuperGrok receipts. Optionally drop known-dead models
+ * from the grade (they are still reported under droppedDead).
+ *
+ * @param {{ windowHours?: number, logPath?: string, receiptPath?: string, dropDeadModels?: boolean, deadModelRe?: string|RegExp }} options
+ */
+function loadFleetMetrics(options = {}) {
+  const windowHours = options.windowHours === undefined ? 6 : Number(options.windowHours);
+  const logPath = options.logPath || DEFAULT_LOG;
+  const receiptPath = options.receiptPath || DEFAULT_GROK_RECEIPT_HISTORY;
+  const dropDead =
+    options.dropDeadModels !== undefined
+      ? Boolean(options.dropDeadModels)
+      : process.env.HERMES_FLEET_DROP_DEAD !== '0';
+  const deadRe = new RegExp(options.deadModelRe || DEFAULT_DEAD_MODEL_RE, 'i');
+
+  const litellm = loadTraffic(logPath, { windowHours });
+  const grok = loadGrokReceipts(receiptPath, { windowHours });
+  const merged = [...litellm, ...grok];
+  const droppedDead = [];
+  const kept = [];
+  for (const m of merged) {
+    if (dropDead && deadRe.test(String(m.model || ''))) droppedDead.push(m);
+    else kept.push(m);
+  }
+  return {
+    metrics: kept,
+    litellmN: litellm.length,
+    grokN: grok.length,
+    droppedDeadN: droppedDead.length,
+    droppedDeadModels: [...new Set(droppedDead.map((m) => m.model))],
+  };
+}
+
 function summarize(metrics) {
   const byTask = {};
   const byModel = {};
@@ -239,9 +351,14 @@ if (require.main === module) {
 
 module.exports = {
   DEFAULT_LOG,
+  DEFAULT_GROK_RECEIPT_HISTORY,
+  DEFAULT_DEAD_MODEL_RE,
   enrichRecord,
   loadTraffic,
+  loadGrokReceipts,
+  loadFleetMetrics,
   summarize,
   firstUserText,
   parseLogTs,
+  readLogTail,
 };
