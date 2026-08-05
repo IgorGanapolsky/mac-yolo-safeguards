@@ -4,6 +4,7 @@ Canonical repo rules: [../AGENTS.md](../AGENTS.md). This file adds **mobile-only
 
 ## Standing orders (no reminders)
 
+0. **Before any edit** — run `../../bin/agent-loop --health` (validates hooks, MCP, skills, E2E, plan claims). Full cycle: `../../bin/agent-loop` (Recollect→Plan→Observe→Act→Evaluate→Learn).
 1. **Session start** — parent repo runs `node tools/agent-session-start.js` (pairing, LaunchAgent health, continuous E2E status). Do not skip when touching this tree.
 2. **After any edit** under `src/`, `app.json`, or `.maestro/` — in the **same turn** before claiming fixed/shipped:
    - `npm test -- --no-coverage --watchman=false`

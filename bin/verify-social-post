@@ -1,0 +1,185 @@
+#!/usr/bin/env bash
+# bin/verify-social-post — Packaged "social publish + verify" plugin.
+#
+# Wraps the two-step social-publish-gate.js → verify-public-post.js flow
+# into a single smart command. Auto-discovers campaign IDs from recent
+# git history and routes to the right platform checks.
+#
+# Maps to HuggingFace Context Course Unit 3 (Plugins).
+#
+# Usage:
+#   bin/verify-social-post --platform linkedin --body-file ./draft.md
+#   bin/verify-social-post --platform x --campaign evidence-installs-v1-20260804 --hook "New angle"
+#   bin/verify-social-post --interactive   # prompts for platform + body file
+#
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+export REPO_ROOT="$ROOT"
+
+LOG="$ROOT/docs/social/hermes-mobile-content-log.tsv"
+
+usage() {
+  cat <<EOF
+Usage: bin/verify-social-post [options]
+
+Required:
+  --platform <name>   linkedin | x | bluesky | threads | medium | ...
+  --campaign <id>     campaign / cta batch id (e.g. evidence-installs-v1-20260804)
+
+One of:
+  --body-file <path>  draft body text from file
+  --body <text>       draft body text inline
+
+Optional:
+  --hook <text>       opening line for near-dup detection
+  --title <text>      title (Medium/dev.to)
+  --interactive       prompt for platform + body interactively
+  --skip-verify       run publish-gate only, skip post-publish verification
+  --json            machine-readable output
+
+Exit codes:
+  0 = ALLOW to publish (gate passed)
+  1 = BLOCK (do not publish)
+  2 = usage / IO error
+EOF
+  exit 2
+}
+
+# ─── Interactive mode ────────────────────────────────────────────────────────
+
+if [[ "${1:-}" == "--interactive" ]]; then
+  echo "Platform (linkedin/x/bluesky/threads/medium): "
+  read -r platform
+  echo "Campaign ID: "
+  read -r campaign
+  echo "Body file path (or leave blank for inline): "
+  read -r body_file
+  if [ -n "$body_file" ]; then
+    echo "Hook (opening line, optional): "
+    read -r hook
+  else
+    echo "Body text: "
+    read -r body
+    echo "Hook (opening line, optional): "
+    read -r hook
+  fi
+  echo "Title (Medium/dev.to, optional): "
+  read -r title
+  echo "Skip post-publish verification? (y/N): "
+  read -r skip_verify
+  set -- --platform "$platform" --campaign "$campaign" ${body_file:+--body-file "$body_file"} ${body:+--body "$body"} ${hook:+--hook "$hook"} ${title:+--title "$title"} ${skip_verify:+--skip-verify}
+fi
+
+# ─── Parse args ──────────────────────────────────────────────────────────────
+
+PLATFORM=""
+CAMPAIGN=""
+BODY_FILE=""
+BODY=""
+HOOK=""
+TITLE=""
+SKIP_VERIFY="false"
+JSON_MODE="false"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --platform) PLATFORM="$2"; shift 2 ;;
+    --campaign) CAMPAIGN="$2"; shift 2 ;;
+    --body-file) BODY_FILE="$2"; shift 2 ;;
+    --body) BODY="$2"; shift 2 ;;
+    --hook) HOOK="$2"; shift 2 ;;
+    --title) TITLE="$2"; shift 2 ;;
+    --skip-verify) SKIP_VERIFY="true"; shift ;;
+    --json) JSON_MODE="true"; shift ;;
+    --interactive) ;; # already handled above
+    *) shift ;;
+  esac
+done
+
+if [[ -z "$PLATFORM" || -z "$CAMPAIGN" ]]; then
+  echo "ERROR: --platform and --campaign are required" >&2
+  usage
+fi
+
+if [[ -z "$BODY_FILE" && -z "$BODY" ]]; then
+  echo "ERROR: --body-file or --body is required" >&2
+  usage
+fi
+
+# Auto-discover campaign if empty (from recent git log)
+if [[ "$CAMPAIGN" == "auto" ]]; then
+  # Look at the last 5 git commit messages for a campaign-like token
+  CAMPAIGN=$(git -C "$ROOT" log --oneline -10 2>/dev/null | grep -oE 'T-[A-Z0-9-]+-[0-9]{8}' | head -1 || echo "uncategorized-$(date +%Y%m%d)")
+  [[ "$JSON_MODE" == "true" ]] && echo "  campaign auto-discovered: $CAMPAIGN" >&2
+fi
+
+# ─── Step 1: Publish Gate ────────────────────────────────────────────────────
+
+log_step() {
+  [[ "$JSON_MODE" == "false" ]] && echo "▌ $*" >&2
+}
+
+log_step "Social Publish Gate — pre-publish validation"
+
+GATE_CMD=(node "$ROOT/tools/social-publish-gate.js")
+GATE_CMD+=(--platform "$PLATFORM" --campaign "$CAMPAIGN")
+if [[ -n "$BODY_FILE" ]]; then
+  GATE_CMD+=(--body-file "$BODY_FILE")
+else
+  GATE_CMD+=(--body "$BODY")
+fi
+[[ -n "$HOOK" ]] && GATE_CMD+=(--hook "$HOOK")
+[[ -n "$TITLE" ]] && GATE_CMD+=(--title "$TITLE")
+GATE_CMD+=(--require-buy-links --require-mentions)
+[[ "$JSON_MODE" == "true" ]] && GATE_CMD+=(--json)
+
+GATE_OUTPUT=$("${GATE_CMD[@]}" 2>&1)
+GATE_EXIT=$?
+
+if [[ "$JSON_MODE" == "true" ]]; then
+  echo "$GATE_OUTPUT" | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    print(json.dumps({'stage': 'publish-gate', 'decision': d['decision'], 'blocks': d['blocks'], 'warnings': d['warnings']}, indent=2))
+except:
+    print(json.dumps({'stage': 'publish-gate', 'error': sys.stdin.read()[:200]}))
+"
+else
+  echo "$GATE_OUTPUT"
+fi
+
+if [ $GATE_EXIT -ne 0 ]; then
+  log_step "❌ Publish gate BLOCKED — do not Post/Publish"
+  [[ "$JSON_MODE" == "false" ]] && cat "$ROOT/tools/verify-public-post.js" --help 2>/dev/null || true
+  exit 1
+fi
+
+log_step "✅ Publish gate PASSED — safe to publish once"
+
+# ─── Step 2: Post-Publish Verify (deferred / optional) ───────────────────────
+
+if [[ "$SKIP_VERIFY" == "false" ]]; then
+  log_step "Post-publish verification ready — run after posting:"
+  echo ""
+  echo "  After you Post, capture the permalink and run:"
+  echo "    node tools/verify-public-post.js --url '<PERMALINK>' --platform '$PLATFORM' --campaign '$CAMPAIGN' --json"
+  echo ""
+  log_step "This verifies: URL is live, not a 404, not double-posted, LinkedIn first comment has buy links."
+else
+  log_step "Skipping post-publish verification (--skip-verify)"
+fi
+
+# ─── Capture learning ────────────────────────────────────────────────────────
+
+if command -v thumbgate &>/dev/null || [ -f "$HOME/.thumbgate/runtime/node_modules/.bin/thumbgate" ]; then
+  TG="$HOME/.thumbgate/runtime/node_modules/.bin/thumbgate"
+  [ -x "$TG" ] || TG="thumbgate"
+  $TG capture "social-publish-gate" \
+    --text "publish-gate passed for platform=$PLATFORM campaign=$CAMPAIGN" \
+    --metadata "source:verify-social-post,platform:$PLATFORM,campaign:$CAMPAIGN,gated:true" 2>/dev/null || true
+fi
+
+log_step "✅ All clear — publish once, then verify."
+exit 0
