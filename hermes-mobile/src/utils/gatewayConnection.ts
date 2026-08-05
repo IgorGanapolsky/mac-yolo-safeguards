@@ -118,6 +118,57 @@ export function isGatewayHealthOk(health: GatewayHealthSnapshot | null | undefin
   return health?.level === 'green' || health?.level === 'amber';
 }
 
+/**
+ * GH-#132 / AGENT-257: relay-mode health merge must never drop Mac authMismatch.
+ *
+ * Historical bug: cloud relay `/health` green overwrote Mac `/api/sessions` 401, so
+ * the UI could paint Connected while authenticated chat was rejected.
+ *
+ * Rules:
+ * - Mac `authMismatch` always wins → never green, never directGatewayReachable true.
+ * - `authMismatch` is preserved on the published snapshot for Wrong-key / repair UI.
+ * - When Mac probe is missing, relay-only green is allowed for transport (chat still
+ *   uses separate Mac HTTP checks via `directGatewayReachable`).
+ */
+export function mergeRelayAndMacHealth(input: {
+  relayOk: boolean;
+  paired: boolean;
+  macHealth: GatewayHealthSnapshot | null | undefined;
+  checkedAt?: string;
+  /** Prefer sanitized LAN for display; falls back to macHealth.localIp. */
+  displayLocalIp?: string | null;
+}): GatewayHealthSnapshot {
+  const checkedAt = input.checkedAt ?? new Date().toISOString();
+  const mac = input.macHealth ?? null;
+  const authMismatch = mac?.authMismatch === true;
+  const macReachable = mac ? isGatewayHealthOk(mac) : false;
+
+  if (authMismatch) {
+    return {
+      level: 'red',
+      status: mac?.status || 'auth_mismatch',
+      gatewayState: input.paired ? 'paired' : 'unpaired',
+      checkedAt,
+      hostname: mac?.hostname,
+      localIp: input.displayLocalIp ?? mac?.localIp,
+      directGatewayReachable: false,
+      authMismatch: true,
+      errorMessage: mac?.errorMessage,
+    };
+  }
+
+  return {
+    level: input.relayOk ? 'green' : 'amber',
+    status: input.relayOk ? 'ok' : 'degraded',
+    gatewayState: input.paired ? 'paired' : 'unpaired',
+    checkedAt,
+    hostname: mac?.hostname,
+    localIp: input.displayLocalIp ?? mac?.localIp,
+    directGatewayReachable: macReachable,
+    // Explicitly omit authMismatch when false so consumers treat it as unset.
+  };
+}
+
 /** Chat HTTP to Mac :8642 — not cloud relay reachability. */
 export function isMacGatewayHttpOk(health: GatewayHealthSnapshot | null | undefined): boolean {
   if (!health || health.authMismatch) {
