@@ -147,13 +147,16 @@ function resolveUsbReversePorts(options = {}) {
     isLoopbackGatewayUrl(explicitGatewayUrl) &&
     gatewayUrlPort(explicitGatewayUrl) !== 8642;
   const target = String(targetGatewayUrl || explicitGatewayUrl || '').trim();
-  const targetIsRemoteTailscale =
-    !!target &&
-    !isLoopbackGatewayUrl(target) &&
-    (/^https?:\/\/100\./i.test(target) || /\.ts\.net(?::\d+)?(?:\/|$)/i.test(target));
-  // Skip laptop :8642 reverse when pairing a remote Mac (mini TS / MagicDNS) so the phone
-  // cannot be stolen onto THIS Mac's USB reverse while UI says Tailscale (2026-08-05 dogfood).
-  if (forceMiniUsbPrimary || explicitNonDefaultLoopback || miniTailscale || targetIsRemoteTailscale) {
+  // Any non-loopback target (Tailscale 100.x / MagicDNS / home LAN mini) must not reverse
+  // laptop :8642 — that steals the phone onto THIS Mac while the UI names the remote
+  // machine (2026-08-05 dogfood: mini LAN 192.168.x re-added 8642 and broke home Wi‑Fi path).
+  const targetIsRemoteNonLoopback = !!target && !isLoopbackGatewayUrl(target);
+  if (
+    forceMiniUsbPrimary ||
+    explicitNonDefaultLoopback ||
+    miniTailscale ||
+    targetIsRemoteNonLoopback
+  ) {
     return USB_ADB_REVERSE_PORTS.filter((port) => port !== 8642);
   }
   return USB_ADB_REVERSE_PORTS;

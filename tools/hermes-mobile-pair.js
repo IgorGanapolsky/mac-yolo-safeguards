@@ -1268,7 +1268,7 @@ function runPairMain(args) {
       gatewayUrl: gatewayUrl || explicitGatewayUrl || '',
       forceMiniUsbPrimary: args.has('--force-mini-usb-primary') || args.has('--mini-tailscale'),
       reason: usbReverseSkipped8642
-        ? 'mini-primary-or-tailscale-or-explicit-non-default-loopback'
+        ? 'remote-or-mini-or-non-default-loopback'
         : 'default-laptop-primary',
     });
     setupUsbAdbReverses(serial, { ports: usbReversePorts });
@@ -1414,13 +1414,15 @@ function runPairMain(args) {
   // Split audiences:
   // - adb `am start` deep link: loopback when USB reverse :8765 is up (works on 5G via adb)
   // - Camera / HTTP /pair remints: Tailscale (or LAN) so cellular+VPN can redeem without USB
-  // - --mini-tailscale / remote 100.x gateway: ALWAYS phone-reachable Tailscale/LAN pairServer
+  // - Remote gateway (mini TS / MagicDNS / home LAN): phone-reachable Tailscale/LAN pairServer
   //   so the deep link still works after unplug (2026-08-05 dogfood: 127.0.0.1:8765 + mini
   //   gateway left phones stuck when reverse dropped or Tailscale was the real path).
   const preferPhonePairServerForAdb =
     args.has('--mini-tailscale') ||
+    usbReverseSkipped8642 ||
     /^https?:\/\/100\./i.test(String(gatewayUrl || '')) ||
-    /\.ts\.net(?::\d+)?(?:\/|$)/i.test(String(gatewayUrl || ''));
+    /\.ts\.net(?::\d+)?(?:\/|$)/i.test(String(gatewayUrl || '')) ||
+    /^https?:\/\/(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(String(gatewayUrl || ''));
   const adbPairExchangeBase =
     preferPhonePairServerForAdb
       ? phonePairServer
@@ -1545,16 +1547,23 @@ function runPairMain(args) {
         if (!ack.ok && dismissAndroidRuntimePermissionDialogs(serial)) {
           console.log('  adb: dismissed runtime permission dialog after ack timeout');
         }
-        console.log(
-          ack.ok
-            ? `  adb: setup ack confirmed after ${ack.waitedMs}ms (app foreground) — sending secondary intent`
-            : `  adb: setup ack timed out after ${ack.waitedMs}ms — sending secondary intent anyway (best-effort)`,
-        );
-        try {
-          openDeepLinkOnDevice(serial, 'hermes://dev/leash-unlock', targetAndroidPackageName);
-          console.log('  adb: developer Leash unlock intent sent (does not change tab)');
-        } catch {
-          // App may still be cold-starting after install.
+        // GH-#1451 / #132: never fire leash-unlock when setup ack timed out.
+        // A second intent within ~50ms can replace unconsumed hermes://setup on cold launch
+        // (last-write-wins on Android getInitialURL), so pairing silently never applies.
+        if (!ack.ok) {
+          console.log(
+            `  adb: setup ack timed out after ${ack.waitedMs}ms — NOT sending leash-unlock (prevents setup race)`,
+          );
+        } else {
+          console.log(
+            `  adb: setup ack confirmed after ${ack.waitedMs}ms (app foreground) — sending secondary intent`,
+          );
+          try {
+            openDeepLinkOnDevice(serial, 'hermes://dev/leash-unlock', targetAndroidPackageName);
+            console.log('  adb: developer Leash unlock intent sent (does not change tab)');
+          } catch {
+            // App may still be cold-starting after install.
+          }
         }
       }
     }
