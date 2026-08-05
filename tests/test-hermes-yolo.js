@@ -54,6 +54,26 @@ assert.deepStrictEqual(classifyBackend(['fix', 'the', 'bug'], {}, { grokReady: t
   requestedBackend: 'auto', selectedBackend: 'grok-4.5', reason: 'auto-supergrok-ready',
 });
 assert.strictEqual(shouldUseGrokBackend(['fix'], {}, { grokReady: true }), true);
+// OpenRouter ROI: smoke must not burn SuperGrok even when doctor is green
+{
+  const smoke = classifyBackend(
+    ['Reply with exactly HERMES-YOLO-READY'],
+    { HERMES_YOLO_ROUTE_POLICY: '1' },
+    { grokReady: true },
+  );
+  assert.strictEqual(smoke.selectedBackend, 'hermes-legacy', JSON.stringify(smoke));
+  assert.match(smoke.reason, /auto-router-smoke-not-supergrok/);
+}
+// Coding still SuperGrok when ready
+assert.strictEqual(
+  classifyBackend(['implement login form'], { HERMES_YOLO_ROUTE_POLICY: '1' }, { grokReady: true }).selectedBackend,
+  'grok-4.5',
+);
+// Explicit grok backend still forces SuperGrok on smoke
+assert.deepStrictEqual(
+  classifyBackend(['smoke ping'], { HERMES_YOLO_BACKEND: 'grok' }, { grokReady: true }),
+  { requestedBackend: 'grok', selectedBackend: 'grok-4.5', reason: 'explicit-grok-backend' },
+);
 // Force hermes even when grok would be ready
 assert.deepStrictEqual(
   classifyBackend(['fix'], { HERMES_YOLO_FORCE_HERMES: '1' }, { grokReady: true }),
@@ -232,13 +252,13 @@ assert.deepStrictEqual(defaultModelRoute({}, {
   provider: 'custom:ollama-local-64k',
   model: 'qwen3:8b-agent-64k',
 });
-// No config override: key present → LiteLLM glm-coding (agent class)
+// No config override: key present → LiteLLM kimi-code (dead GLM demoted 2026-08-05)
 assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
   configuredDefault: null,
   configuredProviderIds: ['zai-coding-glm'],
 }), {
   provider: 'custom:litellm-gateway',
-  model: 'glm-coding',
+  model: 'kimi-code',
 });
 // Explicit config default beats a still-present but quota-dead z.ai key
 assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
@@ -252,8 +272,16 @@ assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
   configuredProviderIds: [],
 }), {
   provider: 'custom:litellm-gateway',
+  model: 'kimi-code',
+});
+// Opt-in GLM when operator allows
+assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key', HERMES_ALLOW_GLM: '1' }, {
+  configuredDefault: null,
+}), {
+  provider: 'custom:litellm-gateway',
   model: 'glm-coding',
 });
+// OpenRouter key present still never uses openrouter/auto
 assert.deepStrictEqual(defaultModelRoute({
   OPENROUTER_API_KEY: 'openrouter-key',
 }, {
@@ -261,7 +289,7 @@ assert.deepStrictEqual(defaultModelRoute({
   configuredDefault: null,
 }), {
   provider: 'custom:litellm-gateway',
-  model: 'glm-coding',
+  model: 'kimi-code',
 });
 assert.deepStrictEqual(defaultModelRoute({
   Z_AI_API_KEY: 'zai-key',

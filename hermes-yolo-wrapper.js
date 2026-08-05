@@ -325,6 +325,24 @@ function defaultModelRoute(env = process.env, options = {}) {
     };
   }
 
+  // OpenRouter high-ROI: architecture-first route policy (flat/local only).
+  // Only when task text is known — empty task at module load must not pin SuperGrok.
+  const taskText = options.taskText || env.HERMES_YOLO_TASK || '';
+  if (env.HERMES_YOLO_ROUTE_POLICY !== '0' && String(taskText).trim()) {
+    const policyRoute = resolvePolicyRoute(taskText, env);
+    if (policyRoute && policyRoute.model && !String(policyRoute.model).startsWith('openrouter/')) {
+      const provider =
+        policyRoute.provider ||
+        (/^grok/i.test(policyRoute.model) ? 'grok-yolo' : 'custom:litellm-gateway');
+      return {
+        provider,
+        model: policyRoute.model,
+        policyRoute,
+        reason: policyRoute.reason,
+      };
+    }
+  }
+
   // Explicit model.default in ~/.hermes/config.yaml outranks key-presence heuristics.
   // 2026-08-03: z.ai key still present but weekly quota exhausted — operator set
   // default deepseek-v4-flash; hasZaiKey() alone must not pin every launch back to glm.
@@ -338,19 +356,20 @@ function defaultModelRoute(env = process.env, options = {}) {
     };
   }
 
-  // Fleet default (legacy hermes path only): LiteLLM gateway with agent-class model.
-  // Prefer glm-coding over raw glm-5.2 alias when no config override.
+  // Fleet default (legacy hermes path): prefer SuperGrok alias via gateway when
+  // route-policy unavailable; dead GLM no longer auto-primary (2026-08-05).
   if (hasZaiKey(env) || env.HERMES_YOLO_USE_GATEWAY === '1' || env.HERMES_LITELLM_URL) {
     return {
       provider: 'custom:litellm-gateway',
-      model: 'glm-coding',
+      model: env.HERMES_ALLOW_GLM === '1' ? 'glm-coding' : 'kimi-code',
     };
   }
 
   if (hasOpenRouterKey(env)) {
+    // Never openrouter/auto — gateway alias only
     return {
       provider: 'custom:litellm-gateway',
-      model: 'glm-coding',
+      model: 'kimi-code',
     };
   }
 
@@ -361,15 +380,26 @@ function defaultModelRoute(env = process.env, options = {}) {
   };
 }
 
+function buildExtraArgs(route, env = process.env) {
+  if (env.HERMES_YOLO_NO_DEFAULT_ARGS) return [];
+  return [
+    '--provider',
+    route.provider,
+    '--model',
+    route.model,
+    '--yolo',
+    '--accept-hooks',
+    '--toolsets',
+    DEFAULT_TOOLSETS,
+  ];
+}
+
 const ROUTE_ENV = mergedHermesEnv();
 const DEFAULT_ROUTE = defaultModelRoute(ROUTE_ENV);
 const DEFAULT_PROVIDER = DEFAULT_ROUTE.provider;
 const DEFAULT_MODEL = DEFAULT_ROUTE.model;
 
-const EXTRA_ARGS = process.env.HERMES_YOLO_NO_DEFAULT_ARGS
-  ? []
-  : ['--provider', DEFAULT_PROVIDER, '--model', DEFAULT_MODEL, '--yolo', '--accept-hooks', '--toolsets', DEFAULT_TOOLSETS];
-
+let EXTRA_ARGS = buildExtraArgs(DEFAULT_ROUTE, process.env);
 const TIMEOUT_MS = parseInt(process.env.HERMES_YOLO_TIMEOUT_MS || (120 * 60 * 1000), 10);
 const CPU_SAMPLE_INTERVAL_MS = parseInt(process.env.HERMES_YOLO_CPU_SAMPLE_MS || 30000, 10);
 const CPU_THRESHOLD = parseFloat(process.env.HERMES_YOLO_CPU_THRESHOLD || 90);
@@ -598,6 +628,86 @@ function isGrokBackendReady(env = process.env, dependencies = {}) {
   }
 }
 
+/** Task text from CLI args (for auto-router / route-policy). */
+function extractTaskTextFromArgs(rawArgs) {
+  if (!rawArgs || !rawArgs.length) return '';
+  if (rawArgs[0] === '-z' || rawArgs[0] === '--single' || rawArgs[0] === '-p') {
+    return rawArgs.slice(1).join(' ').trim();
+  }
+  if (rawArgs[0].startsWith('-') || HERMES_COMMANDS.has(rawArgs[0])) return '';
+  return rawArgs.join(' ').trim();
+}
+
+function loadRoutePolicyModule() {
+  const candidates = [
+    path.join(__dirname, 'tools', 'hermes-yolo-route-policy.js'),
+    path.join(__dirname, 'hermes-yolo-route-policy.js'),
+    path.join(os.homedir(), '.hermes', 'hermes-yolo-route-policy.js'),
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) return require(candidate);
+    } catch (e) {
+      /* try next */
+    }
+  }
+  return null;
+}
+
+/**
+ * OpenRouter July steal: local auto-router / cost_quality / turn budget.
+ * HERMES_YOLO_ROUTE_POLICY=0 disables.
+ */
+function resolvePolicyRoute(taskText, env = process.env) {
+  if (env.HERMES_YOLO_ROUTE_POLICY === '0') return null;
+  const mod = loadRoutePolicyModule();
+  if (!mod || typeof mod.selectRoute !== 'function') return null;
+  try {
+    return mod.selectRoute({
+      task: taskText || '',
+      env,
+      tradeoff: env.HERMES_COST_QUALITY || env.HERMES_COST_QUALITY_TRADEOFF,
+      agent: env.HERMES_AGENT_ID || env.HERMES_AGENT || 'hermes-yolo',
+    });
+  } catch (e) {
+    return null;
+  }
+}
+
+/** SuperGrok plan quota: skip for smoke/cheap/classify/draft/routine (OpenRouter ROI). */
+function taskShouldAvoidSuperGrok(policyRoute) {
+  if (!policyRoute) return false;
+  const tt = policyRoute.taskType || policyRoute.inferenceTask;
+  if (['smoke', 'classify', 'routine', 'draft', 'retrieve'].includes(tt)) return true;
+  if (policyRoute.costQualityTradeoff === 'cheap') return true;
+  if (policyRoute.signals && policyRoute.signals.smoke) return true;
+  return false;
+}
+
+function recordSpendTagFromRoute(policyRoute, env = process.env) {
+  if (!policyRoute || env.HERMES_SPEND_CLASSIFIER === '0') return;
+  if (env.HERMES_SPEND_CLASSIFIER !== '1' && env.HERMES_SPEND_CLASSIFIER !== 'record') return;
+  try {
+    const clfPath = [
+      path.join(__dirname, 'tools', 'hermes-spend-classifier.js'),
+      path.join(os.homedir(), '.hermes', 'hermes-spend-classifier.js'),
+    ].find((p) => {
+      try { return fs.existsSync(p); } catch { return false; }
+    });
+    if (!clfPath) return;
+    const clf = require(clfPath);
+    const out = clf.classifySpend({
+      task: policyRoute.spendTags?.task_type || policyRoute.taskType || '',
+      agent: policyRoute.spendTags?.agent || env.HERMES_AGENT_ID || 'hermes-yolo',
+      route: policyRoute,
+      env,
+    });
+    if (out && out.tags) clf.appendReceipt(out.tags);
+  } catch (e) {
+    /* non-fatal */
+  }
+}
+
 function classifyBackend(rawArgs, env = process.env, dependencies = {}) {
   const backend = String(env.HERMES_YOLO_BACKEND || 'auto').trim().toLowerCase();
   if (!['grok', 'auto', 'hermes'].includes(backend)) {
@@ -618,6 +728,22 @@ function classifyBackend(rawArgs, env = process.env, dependencies = {}) {
   if (backend === 'grok') {
     return { requestedBackend: backend, selectedBackend: 'grok-4.5', reason: 'explicit-grok-backend' };
   }
+
+  // OpenRouter steal: task-type / cheap tradeoff must not burn SuperGrok plan quota.
+  // Explicit HERMES_YOLO_BACKEND=grok still forces SuperGrok above.
+  if (backend === 'auto' && env.HERMES_YOLO_ROUTE_POLICY !== '0') {
+    const taskText = extractTaskTextFromArgs(rawArgs);
+    const policyRoute = resolvePolicyRoute(taskText, env);
+    if (taskShouldAvoidSuperGrok(policyRoute)) {
+      return {
+        requestedBackend: backend,
+        selectedBackend: 'hermes-legacy',
+        reason: `auto-router-${policyRoute.taskType || 'cheap'}-not-supergrok`,
+        policyRoute,
+      };
+    }
+  }
+
   // auto: prefer SuperGrok/grok-4.5 when grok-yolo doctor is green.
   if (isGrokBackendReady(env, dependencies)) {
     return { requestedBackend: backend, selectedBackend: 'grok-4.5', reason: 'auto-supergrok-ready' };
@@ -829,19 +955,53 @@ if (dryRunFlag) process.env.HERMES_YOLO_DRY_RUN = '1';
 const activeClassification = classifyBackend(argsForRoute.length ? argsForRoute : args, process.env);
 const legacyStartedAt = Date.now();
 
+// --- OpenRouter high-ROI: task-aware route policy (before spawn / SuperGrok) ---
+const taskForRoute = extractTaskTextFromArgs(argsForRoute.length ? argsForRoute : args);
+const activePolicyRoute =
+  activeClassification.policyRoute ||
+  resolvePolicyRoute(taskForRoute, process.env);
+let ACTIVE_PROVIDER = DEFAULT_PROVIDER;
+let ACTIVE_MODEL = DEFAULT_MODEL;
+if (
+  activeClassification.selectedBackend === 'hermes-legacy' &&
+  activePolicyRoute &&
+  activePolicyRoute.model &&
+  !String(activePolicyRoute.model).startsWith('openrouter/')
+) {
+  ACTIVE_PROVIDER =
+    activePolicyRoute.provider ||
+    (/^grok/i.test(activePolicyRoute.model) ? 'grok-yolo' : 'custom:litellm-gateway');
+  ACTIVE_MODEL = activePolicyRoute.model;
+  EXTRA_ARGS = buildExtraArgs({ provider: ACTIVE_PROVIDER, model: ACTIVE_MODEL }, process.env);
+  if (activePolicyRoute.turnBudget && activePolicyRoute.turnBudget.turns != null) {
+    process.env.HERMES_TURN_BUDGET = String(activePolicyRoute.turnBudget.turns);
+  }
+  if (activePolicyRoute.taskType) process.env.HERMES_TASK_TYPE = activePolicyRoute.taskType;
+  if (activePolicyRoute.costQualityTradeoff) {
+    process.env.HERMES_COST_QUALITY = activePolicyRoute.costQualityTradeoff;
+  }
+  recordSpendTagFromRoute(activePolicyRoute, process.env);
+  console.error(
+    `\x1b[36m[hermes-yolo]\x1b[0m auto-router taskType=${activePolicyRoute.taskType || '?'} `
+    + `tradeoff=${activePolicyRoute.costQualityTradeoff || '?'} `
+    + `turns=${activePolicyRoute.turnBudget?.turns ?? '?'} `
+    + `→ ${ACTIVE_PROVIDER}/${ACTIVE_MODEL}`,
+  );
+} else if (activeClassification.selectedBackend === 'grok-4.5' && activePolicyRoute) {
+  // Still stamp turn budget / spend tags on SuperGrok coding path
+  if (activePolicyRoute.turnBudget && activePolicyRoute.turnBudget.turns != null) {
+    process.env.HERMES_TURN_BUDGET = String(activePolicyRoute.turnBudget.turns);
+  }
+  if (activePolicyRoute.taskType) process.env.HERMES_TASK_TYPE = activePolicyRoute.taskType;
+  recordSpendTagFromRoute(activePolicyRoute, process.env);
+}
+
 // --- Sprawl plan: roles + guarded autonomy + decision trace (before spawn) ---
 const sprawlMod = process.env.HERMES_YOLO_SPRAWL === '0' ? null : loadSprawlControlModule();
 let sprawlPlan = null;
 let sprawlRunEntry = null;
 if (sprawlMod) {
-  const taskForPlan = (() => {
-    if (!argsForRoute.length) return '';
-    if (argsForRoute[0] === '-z' || argsForRoute[0] === '--single') {
-      return argsForRoute.slice(1).join(' ').trim();
-    }
-    if (argsForRoute[0].startsWith('-') || HERMES_COMMANDS.has(argsForRoute[0])) return '';
-    return argsForRoute.join(' ').trim();
-  })();
+  const taskForPlan = taskForRoute;
   if (taskForPlan && taskForPlan !== DEFAULT_READY_PROMPT) {
     sprawlPlan = sprawlMod.planRun({
       taskText: taskForPlan,
@@ -849,7 +1009,7 @@ if (sprawlMod) {
       cwd: process.cwd(),
       context: {
         backend: activeClassification.selectedBackend,
-        model: activeClassification.selectedBackend === 'grok-4.5' ? 'grok-4.5' : DEFAULT_MODEL,
+        model: activeClassification.selectedBackend === 'grok-4.5' ? 'grok-4.5' : ACTIVE_MODEL,
       },
     });
     try {
@@ -945,7 +1105,7 @@ if (sprawlMod) {
         taskText: taskForPlan,
         role: sprawlPlan.roles.primary,
         backend: activeClassification.selectedBackend,
-        model: activeClassification.selectedBackend === 'grok-4.5' ? 'grok-4.5' : DEFAULT_MODEL,
+        model: activeClassification.selectedBackend === 'grok-4.5' ? 'grok-4.5' : ACTIVE_MODEL,
         autonomyMode: sprawlPlan.autonomy.mode,
         cwd: process.cwd(),
       });
@@ -1059,7 +1219,7 @@ const runId = digest(`run-${process.pid}-${Date.now()}`, 16);
 const toolBudget = createToolBudget();
 try {
   if (process.env.HERMES_YOLO_FAIL_CLOSED !== '0') {
-    assertAgentCapableModel(DEFAULT_MODEL, ROUTE_ENV);
+    assertAgentCapableModel(ACTIVE_MODEL, ROUTE_ENV);
   }
 } catch (capErr) {
   log(`FAIL_CLOSED ${capErr.message}`);
@@ -1068,23 +1228,25 @@ try {
     rawArgs: args,
     ...activeClassification,
     launcher: HERMES_BIN,
-    provider: DEFAULT_PROVIDER,
-    model: DEFAULT_MODEL,
-    requestedModel: DEFAULT_MODEL,
+    provider: ACTIVE_PROVIDER,
+    model: ACTIVE_MODEL,
+    requestedModel: ACTIVE_MODEL,
     toolsets: DEFAULT_TOOLSETS,
     toolBudget: toolBudget.snapshot(),
     status: 'blocked',
     exitCode: 3,
     durationMs: Date.now() - legacyStartedAt,
     error: capErr.message,
+    taskType: activePolicyRoute?.taskType,
+    turnBudget: activePolicyRoute?.turnBudget?.turns,
   }));
   console.error(`\x1b[31m[hermes-yolo]\x1b[0m ${capErr.message}`);
   releaseLock();
   process.exit(3);
 }
 console.error(
-  `\x1b[36m[hermes-yolo]\x1b[0m run=${runId} provider=${DEFAULT_PROVIDER} model=${DEFAULT_MODEL} `
-  + `toolsets=${DEFAULT_TOOLSETS} agent_capable=${isAgentCapableModel(DEFAULT_MODEL, ROUTE_ENV)}`
+  `\x1b[36m[hermes-yolo]\x1b[0m run=${runId} provider=${ACTIVE_PROVIDER} model=${ACTIVE_MODEL} `
+  + `toolsets=${DEFAULT_TOOLSETS} agent_capable=${isAgentCapableModel(ACTIVE_MODEL, ROUTE_ENV)}`
 );
 
 // Independent liveness heartbeats for one-shot runs (model may be silent for minutes)
@@ -1096,7 +1258,7 @@ if (progressEnabled && !wrapperPromptMode && childPromptArgs[0] === '-z') {
   console.error(`\x1b[36m[hermes-yolo]\x1b[0m agent started (one-shot); heartbeats every ${HEARTBEAT_MS}ms`);
   heartbeatHandle = setInterval(() => {
     const sec = Math.round((Date.now() - t0) / 1000);
-    console.error(`\x1b[36m[hermes-yolo]\x1b[0m still working… ${sec}s run=${runId} model=${DEFAULT_MODEL}`);
+    console.error(`\x1b[36m[hermes-yolo]\x1b[0m still working… ${sec}s run=${runId} model=${ACTIVE_MODEL}`);
   }, HEARTBEAT_MS);
   if (typeof heartbeatHandle.unref === 'function') heartbeatHandle.unref();
 }
@@ -1144,15 +1306,17 @@ child.on('error', (err) => {
     rawArgs: args,
     ...activeClassification,
     launcher: HERMES_BIN,
-    provider: DEFAULT_PROVIDER,
-    model: DEFAULT_MODEL,
-    requestedModel: DEFAULT_MODEL,
+    provider: ACTIVE_PROVIDER,
+    model: ACTIVE_MODEL,
+    requestedModel: ACTIVE_MODEL,
     toolsets: DEFAULT_TOOLSETS,
     toolBudget: toolBudget.snapshot(),
     status: 'fail',
     exitCode: 127,
     durationMs: Date.now() - legacyStartedAt,
     error: err.message,
+    taskType: activePolicyRoute?.taskType,
+    turnBudget: activePolicyRoute?.turnBudget?.turns,
   }));
   console.error(`\x1b[31m[hermes-yolo]\x1b[0m Failed to spawn ${HERMES_BIN}: ${err.message}`);
   releaseLock();
@@ -1264,10 +1428,10 @@ child.on('close', (code, signal) => {
     rawArgs: args,
     ...activeClassification,
     launcher: HERMES_BIN,
-    provider: DEFAULT_PROVIDER,
-    model: DEFAULT_MODEL,
-    requestedModel: DEFAULT_MODEL,
-    actualModel: DEFAULT_MODEL,
+    provider: ACTIVE_PROVIDER,
+    model: ACTIVE_MODEL,
+    requestedModel: ACTIVE_MODEL,
+    actualModel: ACTIVE_MODEL,
     toolsets: DEFAULT_TOOLSETS,
     toolBudget: toolBudget.snapshot(),
     status: killed ? 'timeout' : code === 0 ? 'pass' : 'fail',
@@ -1275,6 +1439,9 @@ child.on('close', (code, signal) => {
     signal: signal || null,
     durationMs,
     error: killed ? killReason : null,
+    taskType: activePolicyRoute?.taskType,
+    turnBudget: activePolicyRoute?.turnBudget?.turns,
+    costQualityTradeoff: activePolicyRoute?.costQualityTradeoff,
     sprawl: sprawlPlan
       ? {
           role: sprawlPlan.roles.primary,
@@ -1347,6 +1514,10 @@ module.exports = {
   shouldUseGrokBackend,
   classifyBackend,
   isGrokBackendReady,
+  extractTaskTextFromArgs,
+  resolvePolicyRoute,
+  taskShouldAvoidSuperGrok,
+  buildExtraArgs,
   buildRouteReceipt,
   routeStatus,
   summarizeRouteArgs,
