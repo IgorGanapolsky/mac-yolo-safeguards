@@ -335,6 +335,16 @@ soft_check('agent-loop --health returns structured JSON', () => {
   }
 });
 
+// ─── 8. Stacked PR & Dead Code Verifier Integration ─────────────────────────
+
+check('pr-stack-verifier.js script exists and runs', () => {
+  const verifierScript = path.join(ROOT, 'tools/pr-stack-verifier.js');
+  assert.ok(fs.existsSync(verifierScript), 'pr-stack-verifier.js missing in tools/');
+  const verifier = require(verifierScript);
+  const result = verifier.verifyPrStackHygiene();
+  assert.ok(result.ok !== undefined, 'verifyPrStackHygiene missing ok boolean');
+});
+
 // ─── Report ──────────────────────────────────────────────────────────────────
 
 function main() {

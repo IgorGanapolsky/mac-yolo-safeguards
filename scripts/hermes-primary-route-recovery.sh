@@ -20,7 +20,9 @@
 set -euo pipefail
 
 GATEWAY="${HERMES_GATEWAY_URL:-http://127.0.0.1:4010/v1}"
-PRIMARY="${HERMES_PRIMARY_MODEL:-glm-coding}"
+# 2026-08-05: z.ai coding plan empty-completions; SuperGrok is coding primary via hermes-yolo.
+# Gateway recovery default is free agent-capable DeepSeek, not dead glm-coding.
+PRIMARY="${HERMES_PRIMARY_MODEL:-deepseek-v4-flash}"
 API_KEY="${HERMES_GATEWAY_KEY:-hermes-local-gateway}"
 ERRLOG="${HERMES_LITELLM_ERRLOG:-$HOME/.hermes/litellm-logs/proxy.err.log}"
 SERVICE="${HERMES_LITELLM_SERVICE:-com.igor.hermes-litellm}"

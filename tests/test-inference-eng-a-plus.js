@@ -160,13 +160,27 @@ if (p6.abTestHint !== undefined) {
 console.log('  scorecard A+: PASS');
 
 // Fleet health grades live log separately (fixture path)
-const fleet = assess({ windowHours: 0, logPath: FIXTURE, env: {} });
+const fleet = assess({ windowHours: 0, logPath: FIXTURE, env: {}, dropDeadModels: false });
 assert.ok(fleet.n >= 5, `expected fixture rows, n=${fleet.n}`);
 assert.ok(fleet.grade);
 assert.ok(fleet.recommendedMode);
 assert.ok(fleet.recommendedCodingPrimary);
+assert.ok(fleet.sources, 'dual-source sources block required');
+assert.strictEqual(typeof fleet.sources.litellmN, 'number');
 assert.strictEqual(gradeFleet(0.12, 30).grade, 'F');
 assert.strictEqual(gradeFleet(0.96, 30).grade, 'A+');
 console.log(`  fleet-health fixture grade=${fleet.grade} success=${fleet.successRate}: PASS`);
+
+// Dual-source: SuperGrok receipts merge + dead glm drop
+const { loadFleetMetrics, loadGrokReceipts } = require('../tools/inference-eng/metrics');
+const dual = loadFleetMetrics({
+  windowHours: 0,
+  logPath: FIXTURE,
+  receiptPath: path.join(__dirname, 'fixtures/inference-eng/grok-receipts-sample.jsonl'),
+  dropDeadModels: true,
+});
+assert.ok(dual.grokN >= 1, `expected grok receipts, grokN=${dual.grokN}`);
+assert.ok(dual.metrics.some((m) => /grok/i.test(m.model)), 'merged metrics should include grok');
+console.log(`  fleet dual-source merge grokN=${dual.grokN} droppedDead=${dual.droppedDeadN}: PASS`);
 
 console.log('\n=== inference-eng A+ suite: ALL PASS ===');
