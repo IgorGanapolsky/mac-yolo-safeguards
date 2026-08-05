@@ -17,6 +17,7 @@ const https = require('https');
 const { URL } = require('url');
 const { classifyTask } = require('./inference-eng/task-registry');
 const {
+  POLICY_VERSION,
   selectModelChain,
   inferMode,
   isStaleGlmPin,
@@ -27,7 +28,6 @@ const {
 
 const LITELLM_BASE = process.env.HERMES_LITELLM_BASE || 'http://127.0.0.1:4010/v1';
 const PROVIDER = 'custom:litellm-gateway';
-const POLICY_VERSION = 4; // keep in lockstep with degradation.policyVersion
 
 /** Flat-rate / free-safe model aliases registered on the local LiteLLM gateway. */
 const ROUTES = Object.freeze({

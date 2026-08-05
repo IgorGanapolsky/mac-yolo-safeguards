@@ -6,7 +6,7 @@ const fs = require('fs');
 
 const { classifyTask, listTasks, getTask } = require('../tools/inference-eng/task-registry');
 const { enrichRecord, summarize, loadTraffic } = require('../tools/inference-eng/metrics');
-const { selectModelChain, inferMode } = require('../tools/inference-eng/degradation');
+const { selectModelChain, inferMode, POLICY_VERSION } = require('../tools/inference-eng/degradation');
 const { expandPipeline, listPipelines } = require('../tools/inference-eng/pipeline');
 const { runOptimizer, propose } = require('../tools/inference-eng/optimizer');
 const { runScorecard } = require('../tools/inference-eng/scorecard');
@@ -24,6 +24,15 @@ assert.strictEqual(classifyTask('fix the auth bug').id, 'code');
 assert.strictEqual(classifyTask('smoke ping hermes-yolo-ready').id, 'smoke');
 assert.strictEqual(classifyTask('classify this lead').id, 'classify');
 assert.ok(getTask('retrieve').latencyBudgetMs > 0);
+// Prevention: no dual-alias hang debt (hermes-local-fast removed 2026-08-05)
+for (const t of tasks) {
+  assert.ok(
+    !(t.preferredModels || []).includes('hermes-local-fast'),
+    `${t.id} must not prefer removed hermes-local-fast`,
+  );
+}
+assert.ok(getTask('route').preferredModels.includes('hermes-local'));
+assert.ok(getTask('classify').preferredModels.includes('hermes-local'));
 console.log('  tasks: PASS');
 
 // Metrics enrich
@@ -111,6 +120,8 @@ assert.deepStrictEqual(
   ['retrieve', 'plan', 'code'],
 );
 assert.ok(coding.totalLatencyBudgetMs > 0);
+assert.strictEqual(coding.policyVersion, POLICY_VERSION, 'pipeline must share degradation POLICY_VERSION');
+assert.strictEqual(POLICY_VERSION, 4);
 console.log('  pipelines: PASS');
 
 // Optimizer on fixture

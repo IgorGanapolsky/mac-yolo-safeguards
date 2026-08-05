@@ -19,6 +19,9 @@
 
 const { classifyTask, getTask } = require('./task-registry');
 
+/** Single source of truth — import this; do not re-hardcode 4 elsewhere. */
+const POLICY_VERSION = 4;
+
 const MODES = Object.freeze(['normal', 'degraded', 'emergency']);
 
 /** Models that are thrashy or pay-per-token burn under pressure — not SuperGrok. */
@@ -200,7 +203,7 @@ function selectModelChain(opts = {}) {
     preferSuperGrok: preferGrok,
     deadGlmDemoted: shouldDropDeadGlm(env),
     reason,
-    policyVersion: 4,
+    policyVersion: POLICY_VERSION,
   };
 }
 
@@ -241,6 +244,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  POLICY_VERSION,
   MODES,
   DEGRADED_DROP,
   DEAD_AGENT_MODELS,
