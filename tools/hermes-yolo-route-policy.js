@@ -27,6 +27,7 @@ const {
 
 const LITELLM_BASE = process.env.HERMES_LITELLM_BASE || 'http://127.0.0.1:4010/v1';
 const PROVIDER = 'custom:litellm-gateway';
+const POLICY_VERSION = 4; // keep in lockstep with degradation.policyVersion
 
 /** Flat-rate / free-safe model aliases registered on the local LiteLLM gateway. */
 const ROUTES = Object.freeze({
@@ -155,7 +156,7 @@ function selectRoute(opts = {}) {
         chain: chainPlan.chain,
         latencyBudgetMs: inferenceTask.latencyBudgetMs,
         businessKpi: inferenceTask.businessKpi,
-        policyVersion: 3,
+        policyVersion: POLICY_VERSION,
       };
     }
     // fall through to SuperGrok chain (stale glm pin ignored)
@@ -172,7 +173,7 @@ function selectRoute(opts = {}) {
       chain: chainPlan.chain,
       latencyBudgetMs: inferenceTask.latencyBudgetMs,
       businessKpi: inferenceTask.businessKpi,
-      policyVersion: 3,
+      policyVersion: POLICY_VERSION,
     };
   }
 
@@ -187,7 +188,7 @@ function selectRoute(opts = {}) {
       chain: chainPlan.chain,
       latencyBudgetMs: inferenceTask.latencyBudgetMs,
       businessKpi: inferenceTask.businessKpi,
-      policyVersion: 3,
+      policyVersion: POLICY_VERSION,
     };
   }
 
@@ -201,7 +202,7 @@ function selectRoute(opts = {}) {
       chain: chainPlan.chain,
       latencyBudgetMs: inferenceTask.latencyBudgetMs,
       businessKpi: inferenceTask.businessKpi,
-      policyVersion: 3,
+      policyVersion: POLICY_VERSION,
     };
   }
 
@@ -215,7 +216,7 @@ function selectRoute(opts = {}) {
       chain: chainPlan.chain,
       latencyBudgetMs: inferenceTask.latencyBudgetMs,
       businessKpi: inferenceTask.businessKpi,
-      policyVersion: 3,
+      policyVersion: POLICY_VERSION,
     };
   }
 
@@ -231,7 +232,7 @@ function selectRoute(opts = {}) {
       chain: chainPlan.chain,
       latencyBudgetMs: inferenceTask.latencyBudgetMs,
       businessKpi: inferenceTask.businessKpi,
-      policyVersion: 2,
+      policyVersion: POLICY_VERSION,
     };
   }
 
@@ -246,7 +247,7 @@ function selectRoute(opts = {}) {
       chain: chainPlan.chain,
       latencyBudgetMs: inferenceTask.latencyBudgetMs,
       businessKpi: inferenceTask.businessKpi,
-      policyVersion: 2,
+      policyVersion: POLICY_VERSION,
     };
   }
 
@@ -260,7 +261,7 @@ function selectRoute(opts = {}) {
       chain: chainPlan.chain,
       latencyBudgetMs: inferenceTask.latencyBudgetMs,
       businessKpi: inferenceTask.businessKpi,
-      policyVersion: 2,
+      policyVersion: POLICY_VERSION,
     };
   }
 
@@ -277,7 +278,7 @@ function selectRoute(opts = {}) {
     chain: chainPlan.chain,
     latencyBudgetMs: inferenceTask.latencyBudgetMs,
     businessKpi: inferenceTask.businessKpi,
-    policyVersion: 2,
+    policyVersion: POLICY_VERSION,
   };
 }
 
@@ -349,7 +350,7 @@ async function selectRouteWithProbe(opts = {}) {
   if (probePrimary.ok) {
     return { ...primary, probe: probePrimary, fallbackUsed: false };
   }
-  const chain = [ROUTES.quality_kimi, ROUTES.fast, ROUTES.coding, ROUTES.local]
+  const chain = [ROUTES.quality_kimi, ROUTES.fast, ROUTES.free_flash, ROUTES.local, ROUTES.grok]
     .filter((r) => r.model !== primary.model);
   for (const candidate of chain) {
     const p = await probeModel(candidate.model);
@@ -358,7 +359,7 @@ async function selectRouteWithProbe(opts = {}) {
         ...candidate,
         reason: `${primary.model} probe failed (${probePrimary.status || probePrimary.error}); fell back to ${candidate.model}`,
         signals: primary.signals,
-        policyVersion: 1,
+        policyVersion: POLICY_VERSION,
         probe: p,
         primaryFailed: probePrimary,
         fallbackUsed: true,

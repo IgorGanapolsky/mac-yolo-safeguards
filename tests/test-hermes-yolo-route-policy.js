@@ -91,6 +91,19 @@ function testCommandEnv() {
   assert.ok(taskSignals('smoke').smoke);
 }
 
+function testPolicyVersionConsistent() {
+  const tasks = [
+    'implement login',
+    'smoke ping hermes-yolo-ready',
+    'draft outreach email',
+    'analyze the whole large-repo codebase multi-file',
+  ];
+  for (const task of tasks) {
+    const r = selectRoute({ task, env: { ...CLEAN } });
+    assert.strictEqual(r.policyVersion, 4, `${task} policyVersion=${r.policyVersion}`);
+  }
+}
+
 function main() {
   testSmokeUsesFastNotGrok();
   testHardUsesGrok();
@@ -100,6 +113,7 @@ function main() {
   testForceGlmPin();
   testLongContextUsesK3Membership();
   testCommandEnv();
+  testPolicyVersionConsistent();
   console.log('test-hermes-yolo-route-policy: ok');
 }
 
