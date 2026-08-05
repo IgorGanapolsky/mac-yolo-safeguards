@@ -885,13 +885,12 @@ function refreshPairAssetsFromLocalGateway() {
     Boolean(serial) &&
     !String(serial).startsWith('emulator-') &&
     !assertUsbAdbReverses(serial).missing.includes(8642);
-  const loopback = 'http://127.0.0.1:8642';
-  if (usbReverseLive && verifyGatewayAuthSync(loopback, apiKey).ok) {
-    gatewayUrl = loopback;
-    console.log('  pair.json refresh: keeping USB loopback primary (adb reverse + auth verified)');
-  } else if (previous && isLoopbackGatewayUrl(previous.gatewayUrl) && !usbReverseLive) {
-    // Cable gone — fall through to Tailscale/LAN rewrite below.
-    console.log('  pair.json refresh: prior USB primary, no live reverse — promoting network gateway');
+  if (tailscaleUrl) {
+    gatewayUrl = tailscaleUrl;
+    console.log('  pair.json refresh: promoting Tailscale primary (Wi-Fi & Tailscale only)');
+  } else if (lanUrl) {
+    gatewayUrl = lanUrl;
+    console.log('  pair.json refresh: promoting Home Wi-Fi primary');
   }
   // Preserve fleet extras (e.g. Mac mini) across --server-only refresh so HTTP remints
   // still seed Find computers after a cellular/Tailscale redeem.
