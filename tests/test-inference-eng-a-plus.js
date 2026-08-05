@@ -50,12 +50,36 @@ assert.ok(estimateCostUsd('unknown-metered-model', 1e6, 0).usd > 0);
 console.log('  pricing: PASS');
 
 // Degradation
-const normal = selectModelChain({ taskText: 'fix login', mode: 'normal' });
+const normal = selectModelChain({ taskText: 'fix login', mode: 'normal', env: {} });
 assert.ok(normal.chain.length >= 2);
 const emergency = selectModelChain({ taskText: 'fix login', mode: 'emergency', env: {} });
 assert.ok(/hermes|deepseek/.test(emergency.primary));
 assert.strictEqual(inferMode({ swapUsedPct: 95, recentFailRate: 0.8 }), 'emergency');
 assert.strictEqual(inferMode({ swapUsedPct: 10, recentFailRate: 0.05 }), 'normal');
+// SuperGrok must survive degraded mode (v3) and beat stale glm pin
+const degGrok = selectModelChain({
+  taskText: 'fix login',
+  mode: 'degraded',
+  env: { HERMES_YOLO_BACKEND: 'grok', HERMES_YOLO_MODEL: 'glm-coding' },
+});
+assert.strictEqual(degGrok.primary, 'grok-4.5', `degraded+SuperGrok should prefer grok-4.5, got ${degGrok.primary}`);
+assert.ok(degGrok.chain.includes('grok-4.5'), 'degraded must keep SuperGrok in chain');
+assert.ok(degGrok.policyVersion >= 3);
+// Explicit hermes backend + stale glm pin + SuperGrok prefer off → pin wins (no SuperGrok override)
+const degHermesPin = selectModelChain({
+  taskText: 'fix login',
+  mode: 'degraded',
+  env: {
+    HERMES_YOLO_BACKEND: 'hermes',
+    HERMES_PREFER_SUPERGROK: '0',
+    HERMES_YOLO_MODEL: 'glm-coding',
+  },
+});
+assert.strictEqual(
+  degHermesPin.primary,
+  'glm-coding',
+  `hermes+prefer off should honor glm pin, got ${degHermesPin.primary}`,
+);
 console.log('  degradation: PASS');
 
 // Pipelines
